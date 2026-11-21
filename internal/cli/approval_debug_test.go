@@ -131,23 +131,21 @@ func TestMacDebugLogExit(t *testing.T) {
 	}
 }
 
-// C237: in a debug run the panel notes, on its error output, each key the
-// monitor sees, the first responder, every handler error and each way it
-// ends: the monitor's Esc and Cmd-W, Deny and Allow once (a click, or a
-// key and its code), the window closing, the timer, the modal loop's end
-// and an error that leaves it. A normal run notes nothing: note returns
+// C237: in a debug run the panel notes, on its error output, each key
+// onKey gets (keyName, C256), the first responder, every handler error and
+// each way it ends: onKey's Deny keys, Deny and Allow once (a click, or a
+// key), the window closing, the timer, the modal loop's end and an error
+// that leaves it. A normal run notes nothing: note returns
 // at once, and a note that reads AppKit runs only under DEBUG.
 func TestMacPanelDebugNotes(t *testing.T) {
 	s := macAlertScript
 	for _, want := range []string{
 		"function run(argv) {\n  DEBUG = argv[10] === '1';\n",
 		"function note(what) {\n  if (!DEBUG) return;\n  try { console.log('komando-debug +' + (Date.now() - T0) + ' ' + what + ' | first ' + who()); } catch (x) {}\n}",
-		"if (DEBUG) note('key ' + Number(e.keyCode) + ' mods ' + (Number(e.modifierFlags) & 0x1e0000).toString(16));",
-		"{ note('end: Esc, key monitor'); CHOICE = 'Deny';",
-		"{ note('end: Cmd-W, key monitor'); CHOICE = 'Deny';",
-		"panel.selectNextKeyView(null); note('monitor: focus moved, key taken'); return null; }",
-		"{ note('monitor: scrolled, key taken'); return null; }",
-		"note('monitor: key passed on');\n    return e;",
+		"if (DEBUG) note('key ' + keyName(e));",
+		"{ note('end: Deny, key'); CHOICE = 'Deny';",
+		"PANEL.selectNextKeyView(null); note('focus moved'); return; }",
+		"scrollKey(code)) note('scrolled');",
 		"if (DEBUG) note('end: Deny, ' + how());",
 		"if (DEBUG) note((SEEN ? 'end: Allow once, ' : 'Allow once ignored: not read to the end, ') + how());",
 		"if (DEBUG) note('end: window closes, ' + how());",
@@ -172,7 +170,7 @@ func TestMacPanelDebugNotes(t *testing.T) {
 		}
 	}
 	// who, how and state answer "?" after an error
-	for _, f := range []string{"function who() {", "function how() {", "function state() {"} {
+	for _, f := range []string{"function who() {", "function how() {", "function state() {", "function keyName(e) {"} {
 		body := s[strings.Index(s, f):]
 		body = body[:strings.Index(body, "\n}")+2]
 		if !strings.Contains(body, "\n  try {") || !strings.HasSuffix(body, "\n  } catch (x) { return '?'; }\n}") {

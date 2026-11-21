@@ -160,7 +160,9 @@ func viewFor(cl *call, text string) approvalView {
 // tokens "Deny" and "Allow once" (macAnswer). Every text arrives in argv after
 // macArgMarker, never in the script. Deny is the default (Return), Esc,
 // the close button and Cmd-W, and has the first focus; only the 120 s
-// timer prints "gave up", and any other end is a Deny. After
+// timer prints "gave up", and any other end is a Deny. Keys reach onKey
+// through typed keyDown: overrides; no callback in the modal loop hands
+// AppKit a value it must read as an object (C237). After
 // "Allow once" the same run asks LocalAuthentication for the device owner
 // (policy 2: Touch ID, an Apple Watch or the login password) with argv[3]
 // as the reason, waiting at most argv[4] seconds of its own; it prints
@@ -205,11 +207,25 @@ function who() {
     return ObjC.unwrap(r.className);
   } catch (x) { return '?'; }
 }
-// how is the event AppKit is handling: a click, or a key and its code
+// how is the event AppKit is handling: a click, or a key (keyName)
 function how() {
   try {
     var e = APP.currentEvent, t = e.isNil() ? -1 : Number(e.type);
-    return t === 10 ? 'key ' + Number(e.keyCode) : t === 1 || t === 2 ? 'click' : 'event type ' + t;
+    return t === 10 ? 'key ' + keyName(e) : t === 1 || t === 2 ? 'click' : 'event type ' + t;
+  } catch (x) { return '?'; }
+}
+// keyName names a key for the debug log only while a panel control has
+// focus; in a text field it gives a class, so a typed secret never shows (C256)
+var SHIFT = 0x20000, CMD = 0x100000;
+var KEY_NAMES = { 36: 'Return', 53: 'Esc', 48: 'Tab', 49: 'Space', 123: 'Left', 124: 'Right', 125: 'Down', 126: 'Up', 116: 'PageUp', 121: 'PageDown', 115: 'Home', 119: 'End' };
+function keyName(e) {
+  try {
+    var code = Number(e.keyCode), mods = Number(e.modifierFlags), own = ['deny', 'allow', 'script', 'panel'].indexOf(who()) >= 0;
+    if (own && KEY_NAMES[code]) return KEY_NAMES[code] + (mods & SHIFT ? ' shift' : '') + (mods & CMD ? ' cmd' : '');
+    if (code === 48) return 'Tab';
+    if (code >= 123 && code <= 126) return 'arrow';
+    var ch = ObjC.unwrap(e.charactersIgnoringModifiers) || '';
+    return /^[0-9]$/.test(ch) ? 'digit' : ch.length === 1 && ch.toLowerCase() !== ch.toUpperCase() ? 'letter' : 'other';
   } catch (x) { return '?'; }
 }
 // state is the focus state when the panel shows (fka: keyboard navigation)
@@ -230,13 +246,13 @@ function keyScroll(code, y, line, page, maxY) {
     code === 121 || code === 49 ? y + page : code === 115 ? 0 : code === 119 ? maxY : null;
   return to === null ? null : Math.max(0, Math.min(maxY, to));
 }
-// MONITOR_KEYS scroll the script whatever has focus (Tab may skip the
-// area when macOS keyboard navigation is off): Up, Down, Page Up, Page
+// SCROLL_KEYS scroll the script whatever has focus (with macOS keyboard
+// navigation off the buttons take no focus): Up, Down, Page Up, Page
 // Down, Home, End; Space scrolls only when the area has focus
-var MONITOR_KEYS = [126, 125, 116, 121, 115, 119];
+var SCROLL_KEYS = [126, 125, 116, 121, 115, 119];
 // scrollKey scrolls the clip view; the bounds observer then runs the gate.
 // An error in a JXA callback ends the panel as a Deny, so it answers
-// false instead: the key then goes on to the panel (C237)
+// false instead (C237)
 function scrollKey(code) {
   try {
     if (!SCROLLS) return false;
@@ -247,6 +263,17 @@ function scrollKey(code) {
     SV.reflectScrolledClipView(CLIP);
     return true;
   } catch (x) { note('error in scrollKey: ' + x); return false; }
+}
+// onKey is the keyDown: of the panel and of the script area; it returns
+// nothing to AppKit, where a key monitor's block returned a JSValue (C237)
+function onKey(e) {
+  try {
+    var code = Number(e.keyCode), mods = Number(e.modifierFlags);
+    if (DEBUG) note('key ' + keyName(e));
+    if (code === 53 || code === 36 || (code === 13 && (mods & CMD))) { note('end: Deny, key'); CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); return; }
+    if (code === 48) { if (mods & SHIFT) PANEL.selectPreviousKeyView(null); else PANEL.selectNextKeyView(null); note('focus moved'); return; }
+    if (SCROLLS && (SCROLL_KEYS.indexOf(code) >= 0 || (code === 49 && HAS_FOCUS)) && scrollKey(code)) note('scrolled');
+  } catch (x) { note('error in onKey: ' + x); }
 }
 // the focus ring: a box in the system's focus colour around the script
 // area (an NSBox takes the NSColor itself; a layer border needs a CGColor)
@@ -260,12 +287,18 @@ ObjC.registerSubclass({
   superclass: 'NSView',
   methods: {
     'isFlipped': { types: ['bool', []], implementation: function () { return true; } },
-    // a script that scrolls takes focus, so the keys can read it to the
-    // end; no keyDown: the key monitor scrolls, and every other key goes up
-    // the responder chain as AppKit sends it (Return to Deny)
+    // a script that scrolls takes focus, so the keys can read it to the end
     'acceptsFirstResponder': { types: ['bool', []], implementation: function () { return SCROLLS; } },
+    'keyDown:': { types: ['void', ['id']], implementation: function (e) { onKey(e); } },
     'becomeFirstResponder': { types: ['bool', []], implementation: function () { try { focusRing(true); note('script area has focus'); } catch (x) { note('error in becomeFirstResponder: ' + x); } return true; } },
     'resignFirstResponder': { types: ['bool', []], implementation: function () { try { focusRing(false); note('script area lost focus'); } catch (x) { note('error in resignFirstResponder: ' + x); } return true; } }
+  }
+});
+ObjC.registerSubclass({
+  name: 'KomandoPanel',
+  superclass: 'NSPanel',
+  methods: {
+    'keyDown:': { types: ['void', ['id']], implementation: function (e) { onKey(e); } }
   }
 });
 ObjC.registerSubclass({
@@ -350,7 +383,7 @@ function run(argv) {
   ALLOW_BTN = allow;
   SEEN = !scroll;
   allow.enabled = !scroll;
-  var panel = $.NSPanel.alloc.initWithContentRectStyleMaskBackingDefer($.NSMakeRect(0, 0, w + 2 * pad, h), $.NSWindowStyleMaskTitled | $.NSWindowStyleMaskClosable, $.NSBackingStoreBuffered, false);
+  var panel = $.KomandoPanel.alloc.initWithContentRectStyleMaskBackingDefer($.NSMakeRect(0, 0, w + 2 * pad, h), $.NSWindowStyleMaskTitled | $.NSWindowStyleMaskClosable, $.NSBackingStoreBuffered, false);
   PANEL = panel;
   panel.title = argv[6];
   panel.delegate = answer;
@@ -418,21 +451,7 @@ function run(argv) {
   panel.initialFirstResponder = deny;
   panel.level = $.NSFloatingWindowLevel;
   panel.center;
-  // the key monitor: Esc and Cmd-W deny; Tab and Shift-Tab only move the
-  // focus (Deny, Allow once while it is on, the script); the arrows, Page
-  // Up/Down and Home/End scroll the script, Space too while it has focus.
-  // Every other key, and any key after an error, goes on to the panel (C237)
-  var esc = $.NSEvent.addLocalMonitorForEventsMatchingMaskHandler($.NSEventMaskKeyDown, function (e) {
-    try {
-      if (DEBUG) note('key ' + Number(e.keyCode) + ' mods ' + (Number(e.modifierFlags) & 0x1e0000).toString(16));
-      if (Number(e.keyCode) === 53) { note('end: Esc, key monitor'); CHOICE = 'Deny'; CHOSEN = true; app.stopModalWithCode(DENY); return null; }
-      if (Number(e.keyCode) === 13 && (Number(e.modifierFlags) & $.NSEventModifierFlagCommand)) { note('end: Cmd-W, key monitor'); CHOICE = 'Deny'; CHOSEN = true; app.stopModalWithCode(DENY); return null; }
-      if (Number(e.keyCode) === 48) { if (Number(e.modifierFlags) & $.NSEventModifierFlagShift) panel.selectPreviousKeyView(null); else panel.selectNextKeyView(null); note('monitor: focus moved, key taken'); return null; }
-      if (SCROLLS && (MONITOR_KEYS.indexOf(Number(e.keyCode)) >= 0 || (Number(e.keyCode) === 49 && HAS_FOCUS)) && scrollKey(Number(e.keyCode))) { note('monitor: scrolled, key taken'); return null; }
-    } catch (x) { note('error in the key monitor: ' + x); }
-    note('monitor: key passed on');
-    return e;
-  });
+  // the timer's block returns nothing: NSTimer's block type is void
   var t = $.NSTimer.timerWithTimeIntervalRepeatsBlock(120, false, function () { note('end: no answer in 120 s'); CHOICE = 'gave up'; CHOSEN = true; app.stopModalWithCode(GAVE_UP); });
   $.NSRunLoop.currentRunLoop.addTimerForMode(t, $.NSRunLoopCommonModes);
   app.activateIgnoringOtherApps(true);
@@ -443,7 +462,6 @@ function run(argv) {
   try { app.runModalForWindow(panel); } catch (x) { note('error: the modal loop threw ' + x); throw x; }
   note('modal ended, answer ' + CHOICE);
   t.invalidate;
-  $.NSEvent.removeMonitor(esc);
   $.NSNotificationCenter.defaultCenter.removeObserver(answer);
   panel.delegate = null;
   panel.orderOut(null);

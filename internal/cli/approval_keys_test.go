@@ -6,15 +6,15 @@ import (
 	"testing"
 )
 
-// macMonitor is the body of the macOS panel's local key monitor.
-func macMonitor(t *testing.T) string {
+// macFunc is the body of the panel script's top-level function name.
+func macFunc(t *testing.T, name string) string {
 	t.Helper()
 	s := macAlertScript
-	i := strings.Index(s, "addLocalMonitorForEventsMatchingMaskHandler(")
+	i := strings.Index(s, "function "+name+"(")
 	if i < 0 {
-		t.Fatal("no key monitor")
+		t.Fatalf("no function %s", name)
 	}
-	return s[i : i+strings.Index(s[i:], "\n  });")]
+	return s[i : i+strings.Index(s[i:], "\n}")+2]
 }
 
 // macOverride is the one-line registration of a JXA method override.
@@ -39,62 +39,78 @@ func macEndLines() []string {
 	return out
 }
 
-// C237: no key but Esc, Cmd-W and Return (Deny's key equivalent) ends the
-// panel. Each key below is named in no line that ends it or sets the
-// answer, and has the handling it needs: Tab and Shift-Tab move the focus
-// through the panel's own key-view loop; the arrows, Page Up/Down and
-// Home/End scroll the script from the monitor (C209), whatever has focus;
-// Space scrolls only while the script has focus.
-func TestMacPanelKeysNeverDismiss(t *testing.T) {
-	mon := macMonitor(t)
-	scroll := "if (SCROLLS && (MONITOR_KEYS.indexOf(Number(e.keyCode)) >= 0 || (Number(e.keyCode) === 49 && HAS_FOCUS)) && scrollKey(Number(e.keyCode))) { note('monitor: scrolled, key taken'); return null; }"
-	tab := "if (Number(e.keyCode) === 48) { if (Number(e.modifierFlags) & $.NSEventModifierFlagShift) panel.selectPreviousKeyView(null); else panel.selectNextKeyView(null); note('monitor: focus moved, key taken'); return null; }"
+const (
+	onKeyDeny   = "if (code === 53 || code === 36 || (code === 13 && (mods & CMD))) { note('end: Deny, key'); CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); return; }"
+	onKeyTab    = "if (code === 48) { if (mods & SHIFT) PANEL.selectPreviousKeyView(null); else PANEL.selectNextKeyView(null); note('focus moved'); return; }"
+	onKeyScroll = "if (SCROLLS && (SCROLL_KEYS.indexOf(code) >= 0 || (code === 49 && HAS_FOCUS)) && scrollKey(code)) note('scrolled');"
+)
+
+// C237: one test per key. Esc, Return and Cmd-W deny in onKey, the one
+// key handler; every other key below is named in no line that ends the
+// panel or sets the answer, and has the handling it needs: Tab and
+// Shift-Tab move the focus through the panel's key-view loop; Up, Down,
+// Page Up/Down and Home/End scroll the script whatever has focus; Space
+// scrolls only while the script has focus; Left and Right do nothing.
+func TestMacPanelKeys(t *testing.T) {
+	on := macFunc(t, "onKey")
 	for _, k := range []struct {
 		name, code string
-		want       []string // in the monitor
+		want       []string // in onKey
 		scroll     string   // keyScroll's move for the key
+		denies     bool
 	}{
-		{"tab", "48", []string{tab}, ""},
-		{"shift-tab", "48", []string{tab, "$.NSEventModifierFlagShift) panel.selectPreviousKeyView(null)"}, ""},
-		{"up", "126", []string{scroll}, "code === 126 ? y - line"},
-		{"down", "125", []string{scroll}, "code === 125 ? y + line"},
-		{"page-up", "116", []string{scroll}, "code === 116 ? y - page"},
-		{"page-down", "121", []string{scroll}, "code === 121 || code === 49 ? y + page"},
-		{"home", "115", []string{scroll}, "code === 115 ? 0"},
-		{"end", "119", []string{scroll}, "code === 119 ? maxY"},
-		{"space", "49", []string{scroll}, "code === 121 || code === 49 ? y + page"},
+		{"tab", "48", []string{onKeyTab}, "", false},
+		{"shift-tab", "48", []string{onKeyTab, "if (mods & SHIFT) PANEL.selectPreviousKeyView(null)"}, "", false},
+		{"up", "126", []string{onKeyScroll}, "code === 126 ? y - line", false},
+		{"down", "125", []string{onKeyScroll}, "code === 125 ? y + line", false},
+		{"left", "123", nil, "", false},
+		{"right", "124", nil, "", false},
+		{"page-up", "116", []string{onKeyScroll}, "code === 116 ? y - page", false},
+		{"page-down", "121", []string{onKeyScroll}, "code === 121 || code === 49 ? y + page", false},
+		{"home", "115", []string{onKeyScroll}, "code === 115 ? 0", false},
+		{"end", "119", []string{onKeyScroll}, "code === 119 ? maxY", false},
+		{"space", "49", []string{onKeyScroll, "code === 49 && HAS_FOCUS"}, "code === 121 || code === 49 ? y + page", false},
+		{"return", "36", []string{onKeyDeny}, "", true},
+		{"esc", "53", []string{onKeyDeny}, "", true},
+		{"cmd-w", "13", []string{onKeyDeny, "code === 13 && (mods & CMD)"}, "", true},
 	} {
 		t.Run(k.name, func(t *testing.T) {
 			for _, w := range k.want {
-				if !strings.Contains(mon, w) {
-					t.Errorf("the monitor has no %q", w)
+				if !strings.Contains(on, w) {
+					t.Errorf("onKey has no %q", w)
 				}
 			}
 			if k.scroll != "" && !strings.Contains(macAlertScript, k.scroll) {
 				t.Errorf("keyScroll has no %q", k.scroll)
 			}
 			code := regexp.MustCompile(`\b` + k.code + `\b`)
+			var named []string
 			for _, l := range macEndLines() {
 				if code.MatchString(l) {
-					t.Errorf("a line that ends the panel names key %s: %s", k.code, l)
+					named = append(named, l)
 				}
 			}
-			// the monitor's branches that answer are Esc and Cmd-W alone
-			for _, l := range strings.Split(mon, "\n") {
-				if strings.Contains(l, "stopModal") && !strings.Contains(l, "=== 53)") && !strings.Contains(l, "=== 13 &&") {
-					t.Errorf("a monitor line answers for another key: %s", l)
+			switch {
+			case k.denies && (len(named) != 1 || strings.TrimSpace(named[0]) != onKeyDeny):
+				t.Errorf("key %s ends the panel in %q, want only onKey's Deny line", k.code, named)
+			case !k.denies && len(named) > 0:
+				t.Errorf("a line that ends the panel names key %s: %q", k.code, named)
+			}
+			if k.name == "left" || k.name == "right" {
+				if code.MatchString(on) || strings.Contains(macAlertScript[strings.Index(macAlertScript, "var SCROLL_KEYS"):strings.Index(macAlertScript, "var SCROLL_KEYS")+50], k.code) {
+					t.Errorf("key %s is handled", k.code)
 				}
 			}
 		})
 	}
-	// Space is not one of the keys the monitor scrolls with whatever has focus
-	if !strings.Contains(macAlertScript, "var MONITOR_KEYS = [126, 125, 116, 121, 115, 119];") {
-		t.Error("the monitor keys are not the arrows, Page Up/Down and Home/End")
+	// Space is not one of the keys that scroll whatever has focus
+	if !strings.Contains(macAlertScript, "var SCROLL_KEYS = [126, 125, 116, 121, 115, 119];") {
+		t.Error("the scroll keys are not Up, Down, Page Up/Down and Home/End")
 	}
-	// Tab is taken after Esc and Cmd-W, before the scroll keys
-	esc, cmdW, tabAt, sc := strings.Index(mon, "=== 53)"), strings.Index(mon, "=== 13 &&"), strings.Index(mon, "=== 48)"), strings.Index(mon, "MONITOR_KEYS")
-	if esc < 0 || cmdW < esc || tabAt < cmdW || sc < tabAt {
-		t.Errorf("monitor order: Esc %d, Cmd-W %d, Tab %d, scroll %d", esc, cmdW, tabAt, sc)
+	// Deny's keys first, then Tab, then the scroll keys; nothing after
+	d, tb, sc := strings.Index(on, onKeyDeny), strings.Index(on, onKeyTab), strings.Index(on, onKeyScroll)
+	if d < 0 || tb < d || sc < tb || !strings.HasPrefix(on[sc+len(onKeyScroll):], "\n  } catch") {
+		t.Errorf("onKey order: Deny %d, Tab %d, scroll %d:\n%s", d, tb, sc, on)
 	}
 	// the loop Tab walks: Deny, Allow once (AppKit skips it while it is off), the script
 	for _, want := range []string{"deny.nextKeyView = allow", "allow.nextKeyView = scroll ? DOC : deny", "if (scroll) DOC.nextKeyView = deny", "allow.enabled = !scroll"} {
@@ -102,30 +118,93 @@ func TestMacPanelKeysNeverDismiss(t *testing.T) {
 			t.Errorf("script has no %q", want)
 		}
 	}
-	// no button answers to any of these keys: Deny has Return, Allow once none
+	// no button answers to any other key: Deny has Return, Allow once none
 	for _, l := range strings.Split(macAlertScript, "\n") {
-		if strings.Contains(l, "keyEquivalent = ") && !strings.Contains(l, "deny.keyEquivalent = '\\r'") && !strings.Contains(l, "allow.keyEquivalent = ''") {
+		if strings.Contains(l, "keyEquivalent") && !strings.Contains(l, "deny.keyEquivalent = '\\r'") && !strings.Contains(l, "allow.keyEquivalent = ''") {
 			t.Errorf("unexpected key equivalent: %s", l)
 		}
 	}
 }
 
+// C237: no ObjC-to-JS callback in the modal loop hands AppKit a value it
+// cannot read. The key monitor's block returned the event as a JSValue,
+// AppKit sent it -type and raised an exception outside the script. Keys
+// now reach onKey through two typed keyDown: overrides that return void.
+// Every override declares its return type (void, or bool for the script
+// area's AppKit questions), which the bridge converts. The two blocks
+// left return void and say no return: the 120 s timer, and the owner
+// check's reply, which runs after the modal loop.
+func TestMacPanelNoValueToAppKit(t *testing.T) {
+	s := macAlertScript
+	for _, bad := range []string{"addLocalMonitor", "addGlobalMonitor", "removeMonitor", "Handler("} {
+		if strings.Contains(s, bad) {
+			t.Errorf("the script uses %s", bad)
+		}
+	}
+	for _, want := range []string{
+		"name: 'KomandoPanel',\n  superclass: 'NSPanel',",
+		"var panel = $.KomandoPanel.alloc.initWithContentRectStyleMaskBackingDefer(",
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("script has no %q", want)
+		}
+	}
+	keyDown := "'keyDown:': { types: ['void', ['id']], implementation: function (e) { onKey(e); } }"
+	if n := strings.Count(s, "'keyDown:'"); n != 2 || strings.Count(s, keyDown) != 2 {
+		t.Errorf("%d keyDown: overrides; want the panel's and the script area's, each %q", n, keyDown)
+	}
+	// every override returns void or bool
+	for _, m := range regexp.MustCompile(`types: \['([a-z]+)'`).FindAllStringSubmatch(s, -1) {
+		if m[1] != "void" && m[1] != "bool" {
+			t.Errorf("an override returns %s", m[1])
+		}
+	}
+	// a function handed to the bridge is an override, a JS-only forEach, or
+	// one of the two void blocks
+	blocks := map[string]string{
+		"timerWithTimeIntervalRepeatsBlock(120, false, ": "function () { note('end: no answer in 120 s'); CHOICE = 'gave up'; CHOSEN = true; app.stopModalWithCode(GAVE_UP); }",
+		"evaluatePolicyLocalizedReasonReply(2, reason, ": "function (ok, err) { res = (ok === true || ok === 1) ? 'owner ok' : 'owner denied'; }",
+	}
+	for _, at := range regexp.MustCompile(`function \(`).FindAllStringIndex(s, -1) {
+		before := s[:at[0]]
+		switch {
+		case strings.HasSuffix(before, "implementation: "), strings.HasSuffix(before, ".forEach("):
+			continue
+		}
+		ok := false
+		for call, body := range blocks {
+			if strings.HasSuffix(before, call) && strings.HasPrefix(s[at[0]:], body) {
+				ok = true
+			}
+		}
+		if !ok {
+			t.Errorf("a function goes to the bridge as a block: %.90s", s[max(0, at[0]-50):])
+		}
+	}
+	for _, body := range blocks {
+		if strings.Contains(body, "return") {
+			t.Errorf("a block returns a value: %s", body)
+		}
+	}
+	// the owner check's block runs after the modal loop
+	if strings.Index(s, "app.runModalForWindow(panel)") > strings.LastIndex(s, "owner(argv[3], argv[4])") {
+		t.Error("the owner check runs inside the modal loop")
+	}
+}
+
 // C237: an error in a key, focus or scroll handler can never end the
-// panel. The monitor's whole body is in a try, and after a caught error it
-// hands the event back to the system; scrollKey (the bridge calls and
+// panel. onKey's whole body is in a try; scrollKey (the bridge calls and
 // keyScroll) answers "not scrolled"; the focus and scroll overrides catch
 // their own. A catch only notes the error for the debug log (and scrollKey
 // answers false, the modal loop's catch throws on); it never answers or
 // turns Allow on. The answer handlers (deny:, allow:, windowWillClose:) are
 // meant to end the panel.
 func TestMacPanelHandlersCannotThrow(t *testing.T) {
-	mon := macMonitor(t)
-	if !strings.Contains(mon, "function (e) {\n    try {\n") || !strings.HasSuffix(mon, "\n    } catch (x) { note('error in the key monitor: ' + x); }\n    note('monitor: key passed on');\n    return e;") {
-		t.Errorf("the monitor is not one try that returns the event after an error:\n%s", mon)
+	on := macFunc(t, "onKey")
+	if !strings.HasPrefix(on, "function onKey(e) {\n  try {\n") || !strings.HasSuffix(on, "\n  } catch (x) { note('error in onKey: ' + x); }\n}") {
+		t.Errorf("onKey is not one try that only notes an error:\n%s", on)
 	}
-	s := macAlertScript
-	sk := s[strings.Index(s, "function scrollKey(code) {"):]
-	sk = sk[:strings.Index(sk, "\n}")+2]
+	sk := macFunc(t, "scrollKey")
 	if !strings.HasPrefix(sk, "function scrollKey(code) {\n  try {\n") || !strings.HasSuffix(sk, "\n  } catch (x) { note('error in scrollKey: ' + x); return false; }\n}") {
 		t.Errorf("scrollKey is not one try that answers false:\n%s", sk)
 	}
@@ -144,6 +223,7 @@ func TestMacPanelHandlersCannotThrow(t *testing.T) {
 	// empty (inside note and its helpers), "?" from a helper, a note of the
 	// error, scrollKey's false, the modal loop's throw
 	allowed := regexp.MustCompile(`^catch \(x\) \{(?:| return '\?'; | note\('[a-zA-Z: ]+' \+ x\);(?: return false;| throw x;)? )\}$`)
+	s := macAlertScript
 	all := regexp.MustCompile(`catch \(x\) \{[^}]*\}`).FindAllString(s, -1)
 	for _, c := range all {
 		if !allowed.MatchString(c) {
@@ -155,16 +235,13 @@ func TestMacPanelHandlersCannotThrow(t *testing.T) {
 	}
 }
 
-// C237: the key and focus paths use no bridge that no working path of the
-// panel uses. The script area has no keyDown: override (its
-// ObjC.super(this).keyDown(e) is gone): the monitor scrolls, and every
-// other key goes up the responder chain natively, so Return reaches Deny.
-// The focus ring is an NSBox in the system focus colour, shown while the
-// area has focus; the CALayer border and its CGColor (a CoreFoundation
-// value, which JXA hands over only as an opaque Ref) are gone.
+// C237: the key and focus paths call no bridge that no working path of
+// the panel uses: no ObjC.super, and the focus ring is an NSBox in the
+// system focus colour (a CALayer border needs a CGColor, which JXA hands
+// over only as an opaque Ref).
 func TestMacPanelFocusPathBridges(t *testing.T) {
 	s := macAlertScript
-	for _, bad := range []string{"ObjC.super", "'keyDown:'", ".CGColor", ".layer", "wantsLayer"} {
+	for _, bad := range []string{"ObjC.super", ".CGColor", ".layer", "wantsLayer"} {
 		if strings.Contains(s, bad) {
 			t.Errorf("the script still uses %s", bad)
 		}
@@ -185,25 +262,17 @@ func TestMacPanelFocusPathBridges(t *testing.T) {
 	}
 }
 
-// C237: Return and Esc mean Deny as before. Esc and Cmd-W stop the panel
-// first in the monitor; Return is Deny's key equivalent and the monitor
-// never takes it (nor keypad Enter); Deny keeps the first focus, and the
-// Allow gate is the same.
+// C237: Return and Esc mean Deny as before. Return is also Deny's key
+// equivalent (AppKit may click it before any keyDown:), keypad Enter is
+// neither; Deny keeps the first focus, and the Allow gate is the same.
 func TestMacPanelReturnEscUnchanged(t *testing.T) {
 	s := macAlertScript
-	mon := macMonitor(t)
-	for _, want := range []string{
-		"if (Number(e.keyCode) === 53) { note('end: Esc, key monitor'); CHOICE = 'Deny'; CHOSEN = true; app.stopModalWithCode(DENY); return null; }",
-		"if (Number(e.keyCode) === 13 && (Number(e.modifierFlags) & $.NSEventModifierFlagCommand)) { note('end: Cmd-W, key monitor'); CHOICE = 'Deny'; CHOSEN = true; app.stopModalWithCode(DENY); return null; }",
-	} {
-		if !strings.Contains(mon, want) {
-			t.Errorf("the monitor has no %q", want)
-		}
+	on := macFunc(t, "onKey")
+	if !strings.Contains(on, onKeyDeny) {
+		t.Errorf("onKey has no %q", onKeyDeny)
 	}
-	for _, bad := range []string{"=== 36", "=== 76"} {
-		if strings.Contains(mon, bad) {
-			t.Errorf("the monitor takes %s", bad)
-		}
+	if strings.Contains(on, "76") {
+		t.Error("onKey takes keypad Enter")
 	}
 	for _, want := range []string{"deny.keyEquivalent = '\\r'", "panel.initialFirstResponder = deny"} {
 		if !strings.Contains(s, want) {
@@ -212,5 +281,43 @@ func TestMacPanelReturnEscUnchanged(t *testing.T) {
 	}
 	if strings.Count(s, "ALLOW_BTN.enabled = true") != 1 || !strings.Contains(s, "'allow:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note((SEEN ? 'end: Allow once, ' : 'Allow once ignored: not read to the end, ') + how()); if (!SEEN) return;") {
 		t.Error("the Allow gate changed")
+	}
+}
+
+// C256: the debug log names a key only while one of the panel's own
+// controls has focus, and then only the keys the panel acts on. Otherwise
+// (a selectable text field has focus) it writes a class: digit, letter,
+// Tab, arrow or other. No note writes a key code.
+func TestMacPanelKeyNames(t *testing.T) {
+	s := macAlertScript
+	kn := macFunc(t, "keyName")
+	for _, want := range []string{
+		"var KEY_NAMES = { 36: 'Return', 53: 'Esc', 48: 'Tab', 49: 'Space', 123: 'Left', 124: 'Right', 125: 'Down', 126: 'Up', 116: 'PageUp', 121: 'PageDown', 115: 'Home', 119: 'End' };",
+		"own = ['deny', 'allow', 'script', 'panel'].indexOf(who()) >= 0;",
+		"if (own && KEY_NAMES[code]) return KEY_NAMES[code] + (mods & SHIFT ? ' shift' : '') + (mods & CMD ? ' cmd' : '');",
+		"if (code === 48) return 'Tab';",
+		"if (code >= 123 && code <= 126) return 'arrow';",
+		"return /^[0-9]$/.test(ch) ? 'digit' : ch.length === 1 && ch.toLowerCase() !== ch.toUpperCase() ? 'letter' : 'other';",
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("script has no %q", want)
+		}
+	}
+	if !strings.HasSuffix(kn, "\n  } catch (x) { return '?'; }\n}") {
+		t.Errorf("keyName is not one try that answers '?':\n%s", kn)
+	}
+	// the only return of a name is behind own; the rest are classes
+	for _, l := range strings.Split(kn, "\n") {
+		if strings.Contains(l, "return KEY_NAMES") && !strings.Contains(l, "if (own && KEY_NAMES[code])") {
+			t.Errorf("a key is named without its own control's focus: %s", l)
+		}
+	}
+	for _, want := range []string{"if (DEBUG) note('key ' + keyName(e));", "return t === 10 ? 'key ' + keyName(e) :"} {
+		if !strings.Contains(s, want) {
+			t.Errorf("script has no %q", want)
+		}
+	}
+	if regexp.MustCompile(`note\([^;]*keyCode`).MatchString(s) || strings.Contains(s, "'key ' + Number(") {
+		t.Error("a note writes a key code")
 	}
 }

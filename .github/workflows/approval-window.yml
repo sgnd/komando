@@ -153,7 +153,7 @@ jobs:
       # (KOMANDO_APPROVAL_DEBUG, TestApprovalWindowKey). keys.swift posts
       # the key as a HID event, which needs the runner's Accessibility
       # (PostEvent) trust; without it the step fails and says so. A key
-      # counts only when the debug log shows the panel's monitor saw it.
+      # counts only when the debug log shows the panel got it ("key NAME").
       # Then Tab, Shift-Tab, the arrows, Page Down, End and Space must leave
       # the panel open until komando stops it at 15 s, and Return and Esc
       # must end it as Deny with exit 0. The step prints each run's log and
@@ -175,7 +175,8 @@ jobs:
           let src = CGEventSource(stateID: .hidSystemState)
           for down in [true, false] {
             guard let e = CGEvent(keyboardEventSource: src, virtualKey: code, keyDown: down) else { exit(2) }
-            if a[3] == "shift" { e.flags = .maskShift }
+            // set every time: a source of the HID state keeps Shift from an earlier key
+            e.flags = a[3] == "shift" ? CGEventFlags.maskShift : CGEventFlags()
             e.post(tap: .cghidEventTap)
             usleep(30_000)
           }
@@ -189,9 +190,9 @@ jobs:
             exit 1
           fi
           out="$PWD/keys-out"; mkdir -p "$out"
-          # name, key code, modifier, what must happen
-          keys=("tab 48 - stays" "shift-tab 48 shift stays" "down 125 - stays" "up 126 - stays" "right 124 - stays"
-            "left 123 - stays" "page-down 121 - stays" "end 119 - stays" "space 49 - stays" "return 36 - deny" "esc 53 - deny")
+          # name, key code, modifier, what must happen, the name in the debug log
+          keys=("tab 48 - stays Tab" "shift-tab 48 shift stays Tab" "down 125 - stays Down" "up 126 - stays Up" "right 124 - stays Right"
+            "left 123 - stays Left" "page-down 121 - stays PageDown" "end 119 - stays End" "space 49 - stays Space" "return 36 - deny Return" "esc 53 - deny Esc")
           {
             echo "### Keys in the panel (${KOMANDO_SHOT_CASE})"
             echo "| key | reached the panel | osascript | exit | verdict |"
@@ -199,7 +200,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           bad=0
           for k in "${keys[@]}"; do
-            read -r name code mod want <<< "$k"
+            read -r name code mod want logname <<< "$k"
             f="$out/$KOMANDO_SHOT_CASE-$name"
             bash "$gui" KOMANDO_APPROVAL_DEBUG=1 KOMANDO_SHOT_CASE="$KOMANDO_SHOT_CASE" KOMANDO_KEY="$name" KOMANDO_KEY_OUT="$out" \
               ./shot.test -test.run '^TestApprovalWindowKey$' -test.v </dev/null >"$f.test.out" 2>&1 &
@@ -223,7 +224,7 @@ jobs:
             wait "$pid" || true
             reached=no; ended="no log"; exitc="?"; why="no end note: the script chose nothing"
             if [ -s "$f.log" ]; then
-              grep -Eq "^js \+[0-9]+ key $code mods " "$f.log" && reached=yes
+              grep -Eq "^js \+[0-9]+ (.* )?key $logname " "$f.log" && reached=yes
               ended=$(sed -n 's/^osascript: //p' "$f.log")
               exitc=$(cat "$f.exit" 2>/dev/null || echo "?")
               note=$(grep -Eo '(end: |error: the modal loop threw)[^|]*' "$f.log" | head -1 | sed 's/ *$//' || true)
