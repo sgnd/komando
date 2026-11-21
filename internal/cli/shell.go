@@ -38,11 +38,10 @@ func shellCmd() *cobra.Command {
 
 // runShell opens the login shell. Like db shell it is for a person only, and
 // once inside anything can be typed, so a protected host needs a yes first.
-// The one other caller is a --shell-access key's shell that ssh-gate let
-// through (gateShellCall): it is asked nothing and refused a protected host.
+// A --shell-access key's shell does not come here: ssh-gate opens it itself
+// (gateRunShell).
 func runShell(cl *call, ctx context.Context, target string) error {
-	keyShell := gateShellCall(cl) // a --shell-access key's shell, which the gate let through
-	if !cl.interactive() && !keyShell {
+	if !cl.interactive() {
 		return out.Errf(out.ExitUsage, "NEEDS_TERMINAL",
 			"agents and scripts use `komando exec` or `komando job start`",
 			"shell needs a person at a terminal")
@@ -56,16 +55,6 @@ func runShell(cl *call, ctx context.Context, target string) error {
 		return err
 	} else if h.WinRM() {
 		return notOnWindows("an interactive shell over WinRM", []string{h.Name})
-	}
-	if keyShell {
-		// checked again here, where nobody is asked anything
-		if st.Hosts[target] != h {
-			return out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "name one server exactly as `komando list` shows it",
-				"%q is no server in your list; a key opens a shell only on one listed server, named as it is written there", target)
-		}
-		if e := gateShellHost(st, h); e != nil {
-			return e
-		}
 	}
 	protected := protectedHost(st, h)
 	if protected && !cl.yesOK() && !confirmYes(cl, h.Name+" (protected): this opens a shell on it. Continue?") {
@@ -87,16 +76,18 @@ func runShell(cl *call, ctx context.Context, target string) error {
 		who = "" // an ad-hoc user@address target says it already
 	}
 	showStatus(cl, statusLine{What: "shell", Target: h.Name, Detail: who, Route: hostRoute(st, h), Protected: protected})
-	return openShell(cl, ctx, st, h)
+	return openShell(cl, ctx, st, h, "")
 }
 
 // openShell connects to h and runs a login shell there on this terminal
-// until it ends.
-func openShell(cl *call, ctx context.Context, st *store.State, h *store.Host) error {
-	keyed := cl.gated() // a key's session: its own start and end records
+// until it ends. key is the ssh-gate key whose shell it is, or "" for a
+// person's: a key's session has its own start and end records and an idle
+// limit.
+func openShell(cl *call, ctx context.Context, st *store.State, h *store.Host, key string) error {
+	keyed := key != ""
 	if !keyed {
 		audit(cl, st, "shell", []string{h.Name}, "", true, nil)
-	} else if err := gateSessionStart(cl, st, h.Name); err != nil {
+	} else if err := gateSessionStart(cl, st, key, h.Name); err != nil {
 		return err
 	}
 	begun := shellClock.now()
@@ -151,7 +142,7 @@ func openShell(cl *call, ctx context.Context, st *store.State, h *store.Host) er
 		case lost:
 			end = sessionLost
 		}
-		if aerr := gateSessionEnd(cl, st, h.Name, shellClock.now().Sub(begun), end, code); err == nil {
+		if aerr := gateSessionEnd(cl, st, key, h.Name, shellClock.now().Sub(begun), end, code); err == nil {
 			err = aerr
 		}
 	}

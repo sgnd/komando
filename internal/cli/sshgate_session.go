@@ -13,7 +13,9 @@ import (
 // key's name, the server and, at the end, how long it ran and why it ended.
 // What is typed inside is not recorded. Like the gate's records they are
 // written even when the audit setting is off, and when the start record
-// cannot be written, no shell opens.
+// cannot be written, no shell opens. The end record is written by the gate
+// process as the shell ends: if that process is killed, there is none, and
+// the start record alone shows the session.
 
 // Why a key's shell session ended (the end record's "end").
 const (
@@ -24,16 +26,16 @@ const (
 	sessionHangup = "hangup" // komando's terminal closed, or a signal stopped it
 )
 
-// gateSessionStart writes the record of a key's shell session on server as
-// it starts.
-func gateSessionStart(cl *call, st *store.State, server string) error {
-	return gateSessionWrite(cl, st, gateSessionRecord(cl, server, "start"))
+// gateSessionStart writes the record of the key's shell session on server
+// as it starts.
+func gateSessionStart(cl *call, st *store.State, key, server string) error {
+	return gateSessionWrite(cl, st, gateSessionRecord(cl, key, server, "start"))
 }
 
-// gateSessionEnd writes the record of a key's shell session on server as it
-// ends: after took, for the reason end, with the shell's exit code.
-func gateSessionEnd(cl *call, st *store.State, server string, took time.Duration, end string, code int) error {
-	rec := gateSessionRecord(cl, server, "end")
+// gateSessionEnd writes the record of the key's shell session on server as
+// it ends: after took, for the reason end, with the shell's exit code.
+func gateSessionEnd(cl *call, st *store.State, key, server string, took time.Duration, end string, code int) error {
+	rec := gateSessionRecord(cl, key, server, "end")
 	rec["ok"] = end == sessionExit
 	rec["end"] = end
 	rec["duration_ms"] = took.Milliseconds()
@@ -43,7 +45,7 @@ func gateSessionEnd(cl *call, st *store.State, server string, took time.Duration
 	return gateSessionWrite(cl, st, rec)
 }
 
-func gateSessionRecord(cl *call, server, session string) map[string]any {
+func gateSessionRecord(cl *call, key, server, session string) map[string]any {
 	rec := map[string]any{
 		"ts":           time.Now().UTC().Format(time.RFC3339Nano),
 		"command":      "shell",
@@ -51,8 +53,8 @@ func gateSessionRecord(cl *call, server, session string) map[string]any {
 		"dry_run":      false,
 		"actor":        actor(cl),
 		"os_user":      osUser(),
-		"agent":        cl.caller().Agent,
-		"ssh_gate":     strings.TrimPrefix(cl.caller().Agent, "ssh-gate key "),
+		"agent":        "ssh-gate key " + key,
+		"ssh_gate":     key,
 		"hosts":        []string{server},
 		"shell_access": true,
 		"session":      session,

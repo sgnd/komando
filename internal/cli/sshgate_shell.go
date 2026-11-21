@@ -1,10 +1,12 @@
 package cli
 
 import (
+	"context"
 	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/engine"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -18,18 +20,6 @@ import (
 // never while you have deny rules of your own. Anything it cannot read so
 // is refused. Every other command, db shell and cluster
 // shell too, gets the answer a key without --shell-access gets (gateRule).
-
-// gateShellEnv marks the komando ssh-gate runs for a --shell-access key's
-// `komando shell SERVER` with sshd's terminal (gateChildEnv): that komando
-// may open the shell, which runShell refuses every other agent and key.
-// The gate drops one that comes with the key's connection (AcceptEnv).
-const gateShellEnv = "KOMANDO_GATE_SHELL"
-
-// gateShellCall: this komando is the one ssh-gate ran for a key's shell: a
-// key's call, with the gate's marker and sshd's terminal.
-func gateShellCall(cl *call) bool {
-	return cl.gated() && cl.getenv(gateShellEnv) == "1" && gateTTY(cl)
-}
 
 // gateTTY: sshd gave the call a terminal. sshd sets SSH_TTY only then, but
 // a client may send that variable too (AcceptEnv), so stdin and stderr must
@@ -91,4 +81,26 @@ func gateShellHost(st *store.State, h *store.Host) *out.Error {
 			"you have deny rules of your own (`komando policy list`), and komando does not see what is typed in a shell, so a shell would get past them: no key opens one while they are set")
 	}
 	return nil
+}
+
+// gateRunShell opens the shell gateShell allowed, in the gate's own process:
+// the gate has checked the key, its words, its terminal and the server, and
+// a komando started for it could only learn that from what it inherits. It
+// runs as the key (an agent named ssh-gate key LABEL), asks nothing, and
+// checks the server again, as the inventory may have changed since.
+func gateRunShell(cl *call, ctx context.Context, label, server string) error {
+	st, err := loadState()
+	if err != nil {
+		return err
+	}
+	h := st.Hosts[server]
+	if h == nil {
+		return out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "name one server exactly as `komando list` shows it",
+			"%q is no server in your list; a key opens a shell only on one listed server, named as it is written there", server)
+	}
+	if e := gateShellHost(st, h); e != nil {
+		return e
+	}
+	cl.setCaller(engine.Caller{Kind: engine.Agent, Agent: "ssh-gate key " + label, Actor: cl.caller().Actor})
+	return openShell(cl, ctx, st, h, label)
 }

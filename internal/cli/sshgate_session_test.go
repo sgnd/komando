@@ -11,13 +11,12 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// gateSessionLab is a key's komando (KOMANDO_SSH_GATE=ops) with the shell
-// inventory, its terminal and SSH session played by the returned fakes.
+// gateSessionLab is the shell inventory, with the key's connection from
+// 203.0.113.7 and the terminal and SSH session played by the returned fakes.
 func gateSessionLab(t *testing.T) (*fakeShell, *fakeTerm) {
 	t.Helper()
 	invHome(t)
 	shellInventory(t)
-	setCallerEnv(t, gateEnv, "ops")
 	t.Setenv("SSH_CONNECTION", "203.0.113.7 51000 10.0.0.2 22")
 	conn, tt := newFakeShell(), newFakeTerm(80, 24)
 	savedDial, savedTTY := shellDial, shellTTY
@@ -29,15 +28,15 @@ func gateSessionLab(t *testing.T) (*fakeShell, *fakeTerm) {
 	return conn, tt
 }
 
-// gateOpenShell runs openShell on server for the key, as runShell does
-// once its checks pass.
+// gateOpenShell runs openShell on server for the key ops, as gateRunShell
+// does once its checks pass.
 func gateOpenShell(t *testing.T, server string) error {
 	t.Helper()
 	st, err := store.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	return openShell(tcl, context.Background(), st, st.Hosts[server])
+	return openShell(tcl, context.Background(), st, st.Hosts[server], "ops")
 }
 
 // sessionRecords are the audit records of key shell sessions, oldest first.
@@ -127,12 +126,15 @@ func TestGateShellSessionEndReasons(t *testing.T) {
 	})
 }
 
-// A shell that is not a key's keeps the plain shell record: no session records.
-func TestShellNotKeyNoSessionRecords(t *testing.T) {
+// A person's shell keeps the plain shell record: no session records.
+func TestShellPersonNoSessionRecords(t *testing.T) {
 	conn, _ := gateSessionLab(t)
-	setCallerEnv(t, gateEnv, "")
 	conn.end <- nil
-	if err := gateOpenShell(t, "web"); err != nil {
+	st, err := store.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := openShell(tcl, context.Background(), st, st.Hosts["web"], ""); err != nil {
 		t.Fatal(err)
 	}
 	if recs := sessionRecords(t); len(recs) != 0 {
@@ -184,7 +186,7 @@ func TestGateShellHangupEnds(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	res := make(chan error, 1)
-	go func() { res <- openShell(tcl, ctx, st, st.Hosts["web"]) }()
+	go func() { res <- openShell(tcl, ctx, st, st.Hosts["web"], "ops") }()
 	cancel()
 	select {
 	case err = <-res:
