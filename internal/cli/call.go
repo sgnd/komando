@@ -257,6 +257,10 @@ func Execute() int {
 	return cl.execute(context.Background(), os.Args[1:])
 }
 
+// ancestorAgent names the AI agent among the processes above this program.
+// Tests replace it.
+var ancestorAgent = engine.ParentAgent
+
 // processCall is the call the komando program makes: its own
 // environment, input and output, and its terminal.
 func processCall() engine.Call {
@@ -268,6 +272,7 @@ func processCall() engine.Call {
 		Stdout:    os.Stdout,
 		Stderr:    os.Stderr,
 		Terminal:  term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stderr.Fd())),
+		Ancestors: func() string { return ancestorAgent() },
 	}
 }
 

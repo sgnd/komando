@@ -12,9 +12,6 @@ below until a retest on a real Mac shows **Allow once** followed by the
 device-owner check, a visible focus on Tab, and the arrows scrolling with
 no click.
 
-Release hold: no release until the shell work is complete (`ssh-gate
-line --shell-access` below, with its session audit and idle limit).
-
 ### Added
 
 - `KOMANDO_APPROVAL_DEBUG`: on a Mac, each approval window adds what it
@@ -98,6 +95,19 @@ line --shell-access` below, with its session audit and idle limit).
 
 ### Security
 
+- An AI agent is no longer a person because it cleared its variables.
+  komando also reads the processes above it (macOS and Linux): a parent
+  with the agent's variables, or a harness known by name or command line
+  (`claude`, `codex`, `cursor-agent`, `gemini`, `opencode`, a node
+  package such as `claude-code`, and others; Safety lists them), makes
+  the call an agent's. A terminal from an ssh login from this computer
+  no longer counts as a person. The shell refusal
+  (`NEEDS_TERMINAL`), the ssh-gate refusal of an agent caller
+  (`SSH_GATE_REFUSED`), the login and approval windows and the agent
+  home folder all follow the caller, so `env -i komando ...` from an
+  agent no longer reaches them. A program that leaves the process tree
+  first (the system adopts a helper that outlives its parent) still goes
+  unseen; see Safety, Limits.
 - `ssh-gate`: no `--shell-access` key opens a shell while a deny rule of
   your own is set (`extra_deny_patterns`, `SSH_GATE_REFUSED`): komando
   does not see what is typed in a shell, so a shell would get past them.

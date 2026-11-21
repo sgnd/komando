@@ -45,6 +45,11 @@ type Call struct {
 	// own window for an AI agent's call, and NEEDS_PERSON for any other
 	// call without a terminal.
 	AskPassword func(text string) (password string, given, shown bool)
+	// Ancestors names the AI agent among the processes above this one, or
+	// "": the proof an agent cannot take away by clearing its own
+	// variables. The CLI passes ParentAgent; nil (an app's call) finds
+	// none.
+	Ancestors func() string
 }
 
 // Lookup is LookupEnv, or nothing found when the call has no environment.
@@ -70,5 +75,15 @@ func (c Call) Env() []string {
 	return c.Environ()
 }
 
-// Caller is who makes the call, read from its environment.
-func (c Call) Caller() Caller { return CallerFrom(c.Lookup, c.Terminal) }
+// Caller is who makes the call, read from its environment and, when the
+// call has Ancestors, from the processes above it.
+func (c Call) Caller() Caller {
+	cl := CallerFrom(c.Lookup, c.Terminal)
+	if cl.Kind == Agent || c.Ancestors == nil {
+		return cl
+	}
+	if a := c.Ancestors(); a != "" {
+		cl.Kind, cl.Agent = Agent, a
+	}
+	return cl
+}

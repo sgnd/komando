@@ -95,15 +95,20 @@ func nonEmpty(d string) (string, error) {
 	return d, nil
 }
 
+// AncestorAgent names the AI agent among the processes above this program.
+// Tests replace it.
+var AncestorAgent = engine.ParentAgent
+
 // UserHome is the home folder komando's own paths start from. For an AI
-// agent (its variables are in this process's environment) it is
+// agent (its variables are in this process's environment, or an agent
+// runs a process above it) it is
 // AccountHome; for anyone else $HOME (os.UserHomeDir). When the user
 // database and getent have no entry for the account (a container's
 // made-up uid), there is nothing to check $HOME against: $HOME is used,
 // and the cli stops an agent's commands until a person allows it
 // (guardHome).
 func UserHome() (string, error) {
-	if engine.AgentName(os.LookupEnv) != "" {
+	if engine.AgentName(os.LookupEnv) != "" || AncestorAgent() != "" {
 		if d, err := AccountHome(); err == nil {
 			return d, nil
 		}
