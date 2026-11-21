@@ -14,8 +14,9 @@ import (
 // gives the call a terminal when the key asks for one (ssh -t). The gate
 // lets the shell through only as `komando shell SERVER`, word for word,
 // with that terminal, for a server in the inventory named as it is written
-// there that is not protected, not Windows and not this computer. Anything
-// it cannot read so is refused. Every other command, db shell and cluster
+// there that is not protected, not Windows and not this computer, and
+// never while you have deny rules of your own. Anything it cannot read so
+// is refused. Every other command, db shell and cluster
 // shell too, gets the answer a key without --shell-access gets (gateRule).
 
 // gateShellEnv marks the komando ssh-gate runs for a --shell-access key's
@@ -85,6 +86,9 @@ func gateShellHost(st *store.State, h *store.Host) *out.Error {
 	case h.Windows():
 		return out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "run PowerShell with `komando exec "+h.Name+" -- ...` instead",
 			"the server %s is a Windows server: a key opens a shell only on a Linux or Unix server", h.Name)
+	case len(st.Settings.ExtraDenyPattern) > 0:
+		return out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "send single commands instead (`komando exec "+h.Name+" -- ...`), which your deny rules check; a person opens the shell at the komando computer itself",
+			"you have deny rules of your own (`komando policy list`), and komando does not see what is typed in a shell, so a shell would get past them: no key opens one while they are set")
 	}
 	return nil
 }

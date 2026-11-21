@@ -115,6 +115,9 @@ PY
 SH=$(kshell gate-sh gsh)
 check "a shell key opens the shell through the gate" True "$(grep -q 'gate-42' <<<"$SH" && echo True || echo False)"
 check "the key's new terminal size reaches the server" True "$(grep -q '33 111' <<<"$SH" && echo True || echo False)"
+gx komando policy deny 'gate-e2e-never' -o json >/dev/null
+check "no shell while a deny rule of your own is set" True "$(ktty gate-sh komando shell gsh | refusedq && echo True || echo False)"
+gx komando policy rm 'gate-e2e-never' --yes -o json >/dev/null
 check "a read key with --network may" True "$(kssh gate-net komando exec gx --read-only -o json -- uptime | jget '(d.get("error") or {}).get("code") != "SSH_GATE_NETWORK_REQUIRED"')"
 check "no shell: another program" SSH_GATE_REFUSED "$(kssh gate-rw id | code || true)"
 check "no shell: a second command" SSH_GATE_SYNTAX "$(kssh gate-rw 'komando list; id' | code || true)"

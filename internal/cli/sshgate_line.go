@@ -45,8 +45,14 @@ With --shell-access (not with --read-only) the key may also open a login
 shell on one server: ssh -t HOST komando shell SERVER, word for word. Its
 line has restrict,pty, so sshd gives it a terminal when it asks for one.
 The shell is refused on a protected server, a Windows server or this
-computer, with any other word or flag, and without the terminal; db shell
-and cluster shell stay refused.`,
+computer, with any other word or flag, without the terminal, and on every
+server while you have deny rules of your own (komando policy list); db
+shell and cluster shell stay refused. On the servers it opens on, the
+shell is full control of the server, as the account komando logs in with:
+what is typed is outside komando's per-command rules, masking and audit.
+Give such a key only to a device you would give that login to. Each
+session's start and end are in komando audit (key, server, how long, why
+it ended), and a session with no input and no output for 30 minutes ends.`,
 		Example: `  komando ssh-gate line --name phone ~/phone.pub
   komando ssh-gate line --name phone-read --read-only 'ssh-ed25519 AAAA... phone'
   komando ssh-gate line --name phone-checks --read-only --network ~/phone.pub

@@ -353,3 +353,42 @@ func TestGateShellMarkerRechecks(t *testing.T) {
 		}
 	}
 }
+
+// While a deny rule of your own is set, no key opens a shell on any server:
+// komando does not see what is typed in one, so it would get past the rule.
+func TestGateShellExtraDenyPatterns(t *testing.T) {
+	denyRule := func(t *testing.T) {
+		t.Helper()
+		err := store.Update(store.Save(), func(st *store.State) error {
+			st.Settings.ExtraDenyPattern = []string{`kubectl\s+delete`}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Run("the gate", func(t *testing.T) {
+		invHome(t)
+		shellInventory(t)
+		denyRule(t)
+		wantShellRefused(t, shellKey, "deny rules of your own", "shell web", "shell bastion", "shell behind")
+		e := shellAnswer(t, "shell web", shellKey)
+		if e == nil || !strings.Contains(e.Hint, "komando exec") {
+			t.Errorf("hint %+v, want single commands, which the rules check", e)
+		}
+	})
+	t.Run("the shell the gate ran", func(t *testing.T) {
+		gateSessionLab(t)
+		denyRule(t)
+		t.Setenv(gateShellEnv, "1")
+		shellTerminal(t, "/dev/pts/3", true)
+		shellDial = func(*call, context.Context, *store.State, *store.Host, func(shellConn) error) error {
+			t.Error("it connected")
+			return nil
+		}
+		err := runShell(tcl, context.Background(), "web")
+		if e := toErr(err); e == nil || e.Code != "SSH_GATE_REFUSED" || !strings.Contains(e.Message, "deny rules of your own") {
+			t.Errorf("shell: %v, want SSH_GATE_REFUSED", err)
+		}
+	})
+}
