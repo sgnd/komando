@@ -15,7 +15,7 @@ import (
 
 // Only "Allow once" followed by "owner ok" allows. A failed, cancelled,
 // timed-out or unavailable owner check, no reply, Deny and anything else
-// is a no; only "gave up" means nobody answered.
+// is a no; only "gave up" means nobody answered, and no reply at all means the panel failed.
 func TestMacAnswer(t *testing.T) {
 	for out, want := range map[string]macOutcome{
 		"Allow once\nowner ok\n":        macAllowed,
@@ -31,7 +31,7 @@ func TestMacAnswer(t *testing.T) {
 		"Deny\nowner ok\n":              macDenied,
 		"Deny\n":                        macDenied,
 		"gave up\n":                     macGaveUp,
-		"":                              macDenied,
+		"":                              macFailed,
 		"allow once\nowner ok":          macDenied,
 	} {
 		if got := macAnswer([]byte(out)); got != want {
@@ -140,8 +140,8 @@ func TestMacPanelScrollGate(t *testing.T) {
 		"sv.contentView.postsBoundsChangedNotifications = true",
 		"addObserverSelectorNameObject(answer, 'scrolled:', $.NSViewBoundsDidChangeNotification, sv.contentView)",
 		"'scrolled:': { types: ['void', ['id']]",
-		"function seenEnd(y, h, docH) { return y + h >= docH - 1; }", "if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = true; note('read to the end'); }",
-		"'allow:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note((SEEN ? 'end: Allow once, ' : 'Allow once ignored: not read to the end, ') + how()); if (!SEEN) return; CHOICE = 'Allow'",
+		"function seenEnd(y, h, docH) { return y + h >= docH - 1; }", "if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = !HELD; note('read to the end'); }",
+		"'allow:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note((SEEN ? 'end: Allow once, ' : 'Allow once ignored: not read to the end, ') + how()); if (!SEEN || HELD) return; CHOICE = 'Allow'",
 		"removeObserver(answer)",
 	} {
 		if !strings.Contains(s, want) {
@@ -228,7 +228,7 @@ func TestMacPanelKeyboardScroll(t *testing.T) {
 		"SCROLLS = scroll", "if (scroll && real(DOC)) panel.initialFirstResponder = DOC;",
 		"DOC.setAccessibilityElement(true)", "DOC.setAccessibilityRole($.NSAccessibilityGroupRole)", "DOC.setAccessibilityLabel(",
 		"deny.keyEquivalent = '\\r'", "code === 53 || code === 36",
-		"if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = true; note('read to the end'); }",
+		"if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = !HELD; note('read to the end'); }",
 	} {
 		if !strings.Contains(s, want) {
 			t.Errorf("script has no %q", want)
@@ -243,7 +243,7 @@ func TestMacPanelKeyboardScroll(t *testing.T) {
 		}
 	}
 	// the gate's only way to turn Allow on is the bounds observer
-	if strings.Count(s, "ALLOW_BTN.enabled = true") != 1 {
+	if strings.Count(s, "ALLOW_BTN.enabled = !HELD") != 1 {
 		t.Error("Allow is enabled somewhere other than the scroll observer")
 	}
 }
@@ -521,7 +521,7 @@ func TestMacPanelAnswers(t *testing.T) {
 	script := macAlertScript
 	for _, tc := range []struct{ name, want string }{
 		{"deny button", "'deny:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note('end: Deny, ' + how()); CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); } }"},
-		{"allow button", "'allow:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note((SEEN ? 'end: Allow once, ' : 'Allow once ignored: not read to the end, ') + how()); if (!SEEN) return; CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } }"},
+		{"allow button", "'allow:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note((SEEN ? 'end: Allow once, ' : 'Allow once ignored: not read to the end, ') + how()); if (!SEEN || HELD) return; CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } }"},
 		{"close button", "'windowWillClose:': { types: ['void', ['id']], implementation: function (n) { if (DEBUG) note('end: window closes, ' + how()); if (!CHOSEN) { CHOICE = 'Deny'; CHOSEN = true; } APP.stopModalWithCode(DENY); } }"},
 		{"close wired", "panel.delegate = answer"},
 		{"closable", "$.NSWindowStyleMaskTitled | $.NSWindowStyleMaskClosable"},
@@ -564,7 +564,7 @@ func TestMacPanelCodes(t *testing.T) {
 	}
 	for _, want := range []string{
 		"buttonWithTitleTargetAction(argv[7], answer, 'deny:')", "'deny:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note('end: Deny, ' + how()); CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); } }",
-		"buttonWithTitleTargetAction(argv[8], answer, 'allow:')", "'allow:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note((SEEN ? 'end: Allow once, ' : 'Allow once ignored: not read to the end, ') + how()); if (!SEEN) return; CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } }",
+		"buttonWithTitleTargetAction(argv[8], answer, 'allow:')", "'allow:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note((SEEN ? 'end: Allow once, ' : 'Allow once ignored: not read to the end, ') + how()); if (!SEEN || HELD) return; CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } }",
 		"try { app.runModalForWindow(panel); } catch (x) { note('error: the modal loop threw ' + x); throw x; }",
 	} {
 		if !strings.Contains(s, want) {
@@ -588,7 +588,7 @@ func TestMacPanelChoice(t *testing.T) {
 	for _, want := range []string{
 		"var CHOICE = 'Deny', CHOSEN = false;",
 		"implementation: function (s) { if (DEBUG) note('end: Deny, ' + how()); CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); }",
-		"implementation: function (s) { if (DEBUG) note((SEEN ? 'end: Allow once, ' : 'Allow once ignored: not read to the end, ') + how()); if (!SEEN) return; CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); }",
+		"implementation: function (s) { if (DEBUG) note((SEEN ? 'end: Allow once, ' : 'Allow once ignored: not read to the end, ') + how()); if (!SEEN || HELD) return; CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); }",
 		"implementation: function (n) { if (DEBUG) note('end: window closes, ' + how()); if (!CHOSEN) { CHOICE = 'Deny'; CHOSEN = true; } APP.stopModalWithCode(DENY); }",
 		"function () { note('end: no answer in 120 s'); CHOICE = 'gave up'; CHOSEN = true; app.stopModalWithCode(GAVE_UP); }",
 		"if (CHOICE === 'Allow') return 'Allow once\\n' + owner(argv[3], argv[4]);",

@@ -359,6 +359,12 @@ func approvalHint(cl *call, e *out.Error) {
 	if e == nil || e.Exit != out.ExitPolicy {
 		return
 	}
+	if cl.sess.Window().Why == "window-failed" {
+		// the window broke; nobody said no
+		e.Code = "APPROVAL_WINDOW_FAILED"
+		e.Hint = "komando's approval window failed before anyone answered it (nobody clicked Deny). Do not ask the user again; update komando and run the command again, or ask the user to run it in their own terminal: " + commandLine(cl)
+		return
+	}
 	if !cl.isAgent() {
 		stdApprovalHint(cl, e)
 		return
@@ -445,6 +451,8 @@ func askMacWindow(cl *call, text string) (allowed, shown bool) {
 		cl.sess.SetWhy("owner-failed")
 	case macOwnerTimeout:
 		cl.sess.SetWhy("owner-timeout")
+	case macFailed:
+		cl.sess.SetWhy("window-failed")
 	}
 	return ans == macAllowed, shown
 }
