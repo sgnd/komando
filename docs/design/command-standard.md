@@ -564,6 +564,15 @@ release note. [schema + rule table]
 **S-7.9** "Blocked by …" is used only for a custom deny rule or a policy or
 classifier hit, never for a command's own built-in tier. [code]
 
+**S-7.10** A command for a person at a terminal (`shell`, `db shell`,
+`cluster shell`, `secret passphrase` ...) never runs for an AI agent or an
+ssh-gate key. One exception: `komando shell SERVER` for a `--shell-access`
+key, which ssh-gate marks itself (`KOMANDO_GATE_SHELL`, set only by the
+gate and dropped from what the key sends). That shell asks nothing: what a
+person would be asked (a protected server) is refused instead. Its start
+and end are in the audit log, and it ends after 30 minutes with no input
+and no output. [code: sshgate_shell_test.go, sshgate_session_test.go]
+
 ## 8. Errors and hints
 
 **S-8.1** Every error code is a string literal in `errcodes.go`. No code is

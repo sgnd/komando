@@ -132,6 +132,7 @@ run the command yourself (see [Safety](safety.md#seatbelts-for-ai-agents)).
 | `KOMANDO_OUTPUT` | default output: `json` or `text` |
 | `KOMANDO_AGENT`, `AI_AGENT` | mark the caller as an AI agent, for agents komando does not know by their own variables: output hides secrets and `--yes`, `--allow-dangerous` and `--reveal` need a person to allow them (see [Safety](safety.md#seatbelts-for-ai-agents)). Any value counts, also `0` or empty |
 | `KOMANDO_NO_DIALOG` | any value: never show the approval window, as over SSH. An AI agent's `--yes`, `--allow-dangerous` or `--reveal` is then refused, and the agent asks you to run the command in your own terminal |
+| `KOMANDO_GATE_SHELL` | set only by `ssh-gate`, for the komando it runs for a `--shell-access` key's `komando shell SERVER` with a terminal: that komando may then open the shell. ssh-gate drops one that comes with the key's connection, so a key cannot set it ([Safety](safety.md)) |
 | `CI` | a CI job (any value but `false` or `0`): komando never asks anything, even on a terminal |
 | `KOMANDO_EXPERIMENTAL` | turn on features still being tested, by name (`ssm`: komando's own AWS Session Manager client, see [Servers](servers.md)) |
 | `KOMANDO_EXPERIMENTAL_VPN` | turn on VPN kinds still being tested (`fortinet,pulse`, or `all`; see [VPNs](vpn.md)) |

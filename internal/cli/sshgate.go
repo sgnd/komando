@@ -563,17 +563,23 @@ func (cl *call) gated() bool { return strings.HasPrefix(cl.caller().Agent, "ssh-
 // gateChildEnv is the environment of the komando the gate runs: this one,
 // with the vault passphrase komando took out of it at start (SelfEnv), the
 // key's name (so it runs as an agent) and no approval window: the person
-// who could click Allow is not at this screen.
-func gateChildEnv(label string) []string {
+// who could click Allow is not at this screen. shell marks the call of a
+// --shell-access key's shell with sshd's terminal (gateShellEnv); only the
+// gate sets that marker, so one the key sent is dropped.
+func gateChildEnv(label string, shell bool) []string {
 	var env []string
 	for _, kv := range vault.SelfEnv() {
 		k, _, _ := strings.Cut(kv, "=")
-		if k == "SSH_ORIGINAL_COMMAND" || k == gateEnv || k == "KOMANDO_NO_DIALOG" {
+		if k == "SSH_ORIGINAL_COMMAND" || k == gateEnv || k == "KOMANDO_NO_DIALOG" || k == gateShellEnv {
 			continue
 		}
 		env = append(env, kv)
 	}
-	return append(env, gateEnv+"="+label, "KOMANDO_NO_DIALOG=1")
+	env = append(env, gateEnv+"="+label, "KOMANDO_NO_DIALOG=1")
+	if shell {
+		env = append(env, gateShellEnv+"=1")
+	}
+	return env
 }
 
 func sshGateCmd() *cobra.Command {
@@ -658,7 +664,7 @@ audit setting is off.`,
 			if err != nil {
 				return fmt.Errorf("finding komando itself: %w", err)
 			}
-			err = gateExec(self, append([]string{"komando"}, req.args...), gateChildEnv(name))
+			err = gateExec(self, append([]string{"komando"}, req.args...), gateChildEnv(name, runs == "shell" && key.shellAccess && key.tty))
 			return fmt.Errorf("running komando: %w", err) // Exec returns only when it failed
 		}),
 	}

@@ -251,17 +251,105 @@ func gateErrText(e *out.Error) string {
 	return e.Code + ": " + e.Message
 }
 
-// The komando a key runs never asks its key anything, also when sshd gave
-// the call a terminal: so it opens no shell by itself either.
-func TestGateCallNeverInteractive(t *testing.T) {
-	setCallerEnv(t, gateEnv, "ops")
-	saved := tcl.terminal
-	t.Cleanup(func() { tcl.terminal = saved })
-	tcl.terminal = true
-	if tcl.interactive() {
-		t.Fatal("a call through ssh-gate with a terminal is interactive")
+// The marker that lets the key's komando open the shell comes from the gate
+// only: one the key's connection brings (AcceptEnv) is dropped, and the gate
+// sets it for a shell key's `komando shell SERVER` with sshd's terminal alone.
+func TestGateShellMarkerFromGateOnly(t *testing.T) {
+	for _, c := range []struct {
+		name, line string
+		args, want []string
+	}{
+		{"a shell key's shell", "komando shell web", []string{"--name", "ops", "--shell-access"}, []string{gateShellEnv + "=1"}},
+		{"a shell key's other command", "komando list", []string{"--name", "ops", "--shell-access"}, nil},
+		{"a full key", "komando list", []string{"--name", "phone"}, nil},
+		{"a read key", "komando list", []string{"--name", "ro", "--read-only"}, nil},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			invHome(t)
+			shellInventory(t)
+			shellTerminal(t, "/dev/pts/3", true)
+			t.Setenv(gateShellEnv, "1") // sent by the client
+			ran, env, e := gateRun(t, c.line, c.args...)
+			if ran == nil {
+				t.Fatalf("nothing ran: %+v", e)
+			}
+			var got []string
+			for _, kv := range env {
+				if strings.HasPrefix(kv, gateShellEnv+"=") {
+					got = append(got, kv)
+				}
+			}
+			if !slices.Equal(got, c.want) {
+				t.Errorf("markers %q, want %q", got, c.want)
+			}
+		})
 	}
-	if err := runShell(tcl, context.Background(), "web"); err == nil || toErr(err).Code != "NEEDS_TERMINAL" {
-		t.Errorf("shell through the gate: %v, want NEEDS_TERMINAL", err)
+}
+
+// The komando a key runs never asks its key anything, also when sshd gave
+// the call a terminal. It opens the shell only with the gate's marker, a
+// key's call and sshd's terminal: without any one of them it is refused.
+func TestGateCallNeverInteractive(t *testing.T) {
+	for _, c := range []struct {
+		name, gate, marker, tty string
+		terminal                bool
+	}{
+		{"no marker", "ops", "", "/dev/pts/3", true},
+		{"marker without SSH_TTY", "ops", "1", "", true},
+		{"marker without a terminal", "ops", "1", "/dev/pts/3", false},
+		{"marker of another value", "ops", "yes", "/dev/pts/3", true},
+		{"marker for an agent that is no key", "", "1", "/dev/pts/3", true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			if c.gate != "" {
+				setCallerEnv(t, gateEnv, c.gate)
+			} else {
+				setCallerEnv(t, "CLAUDECODE", "1")
+			}
+			t.Setenv(gateShellEnv, c.marker)
+			shellTerminal(t, c.tty, c.terminal)
+			if tcl.interactive() {
+				t.Fatal("a key's or an agent's call is interactive")
+			}
+			if err := runShell(tcl, context.Background(), "web"); err == nil || toErr(err).Code != "NEEDS_TERMINAL" {
+				t.Errorf("shell: %v, want NEEDS_TERMINAL", err)
+			}
+		})
+	}
+}
+
+// With the gate's marker, a key's call and sshd's terminal, the shell opens,
+// and the call still asks nothing.
+func TestGateShellMarkerOpens(t *testing.T) {
+	conn, _ := gateSessionLab(t)
+	t.Setenv(gateShellEnv, "1")
+	shellTerminal(t, "/dev/pts/3", true)
+	conn.end <- nil
+	if err := runShell(tcl, context.Background(), "web"); err != nil {
+		t.Fatalf("shell: %v", err)
+	}
+	if tcl.interactive() {
+		t.Error("the key's call became interactive")
+	}
+	if recs := sessionRecords(t); len(recs) != 2 {
+		t.Errorf("session records %v, want a start and an end", recs)
+	}
+}
+
+// The shell the gate ran checks the server again, and refuses where a
+// person would be asked.
+func TestGateShellMarkerRechecks(t *testing.T) {
+	gateSessionLab(t)
+	t.Setenv(gateShellEnv, "1")
+	shellTerminal(t, "/dev/pts/3", true)
+	shellDial = func(*call, context.Context, *store.State, *store.Host, func(shellConn) error) error {
+		t.Error("it connected")
+		return nil
+	}
+	for server, why := range map[string]string{"prod": "protected", "prod-alias": "protected", "win": "Windows", "u@10.0.0.5": "no server in your list"} {
+		err := runShell(tcl, context.Background(), server)
+		if e := toErr(err); e == nil || e.Code != "SSH_GATE_REFUSED" || !strings.Contains(e.Message, why) {
+			t.Errorf("%s: %v, want SSH_GATE_REFUSED saying %q", server, err, why)
+		}
 	}
 }

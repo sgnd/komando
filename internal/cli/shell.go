@@ -38,8 +38,11 @@ func shellCmd() *cobra.Command {
 
 // runShell opens the login shell. Like db shell it is for a person only, and
 // once inside anything can be typed, so a protected host needs a yes first.
+// The one other caller is a --shell-access key's shell that ssh-gate let
+// through (gateShellCall): it is asked nothing and refused a protected host.
 func runShell(cl *call, ctx context.Context, target string) error {
-	if !cl.interactive() {
+	keyShell := gateShellCall(cl) // a --shell-access key's shell, which the gate let through
+	if !cl.interactive() && !keyShell {
 		return out.Errf(out.ExitUsage, "NEEDS_TERMINAL",
 			"agents and scripts use `komando exec` or `komando job start`",
 			"shell needs a person at a terminal")
@@ -53,6 +56,16 @@ func runShell(cl *call, ctx context.Context, target string) error {
 		return err
 	} else if h.WinRM() {
 		return notOnWindows("an interactive shell over WinRM", []string{h.Name})
+	}
+	if keyShell {
+		// checked again here, where nobody is asked anything
+		if st.Hosts[target] != h {
+			return out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "name one server exactly as `komando list` shows it",
+				"%q is no server in your list; a key opens a shell only on one listed server, named as it is written there", target)
+		}
+		if e := gateShellHost(st, h); e != nil {
+			return e
+		}
 	}
 	protected := protectedHost(st, h)
 	if protected && !cl.yesOK() && !confirmYes(cl, h.Name+" (protected): this opens a shell on it. Continue?") {

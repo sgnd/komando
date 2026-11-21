@@ -18,6 +18,18 @@ import (
 // it cannot read so is refused. Every other command, db shell and cluster
 // shell too, gets the answer a key without --shell-access gets (gateRule).
 
+// gateShellEnv marks the komando ssh-gate runs for a --shell-access key's
+// `komando shell SERVER` with sshd's terminal (gateChildEnv): that komando
+// may open the shell, which runShell refuses every other agent and key.
+// The gate drops one that comes with the key's connection (AcceptEnv).
+const gateShellEnv = "KOMANDO_GATE_SHELL"
+
+// gateShellCall: this komando is the one ssh-gate ran for a key's shell: a
+// key's call, with the gate's marker and sshd's terminal.
+func gateShellCall(cl *call) bool {
+	return cl.gated() && cl.getenv(gateShellEnv) == "1" && gateTTY(cl)
+}
+
 // gateTTY: sshd gave the call a terminal. sshd sets SSH_TTY only then, but
 // a client may send that variable too (AcceptEnv), so stdin and stderr must
 // be a terminal as well.
@@ -60,12 +72,18 @@ func gateShell(c *cobra.Command, args []string, key gateKey) *out.Error {
 		return refuse("a person uses a terminal on the komando computer itself",
 			"komando shell is refused for a key: %s; the gate opens shells on servers, not on this computer", why)
 	}
+	return gateShellHost(st, h)
+}
+
+// gateShellHost says why no key opens a shell on h, or nil. The gate checks
+// it, and so does the shell it runs (runShell).
+func gateShellHost(st *store.State, h *store.Host) *out.Error {
 	switch {
 	case protectedHost(st, h):
-		return refuse("a person opens a shell on a protected server at the komando computer itself",
+		return out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "a person opens a shell on a protected server at the komando computer itself",
 			"the server %s is protected, or is a protected server under another name: a shell there can change anything, and no key opens one", h.Name)
 	case h.Windows():
-		return refuse("run PowerShell with `komando exec "+h.Name+" -- ...` instead",
+		return out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "run PowerShell with `komando exec "+h.Name+" -- ...` instead",
 			"the server %s is a Windows server: a key opens a shell only on a Linux or Unix server", h.Name)
 	}
 	return nil
