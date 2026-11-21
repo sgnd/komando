@@ -120,7 +120,7 @@ func TestMacDebugLogExit(t *testing.T) {
 		want string
 	}{
 		{macRun{took: time.Second, ans: macGaveUp, shown: true}, "osascript: exit 0 after 1s\n"},
-		{macRun{err: exec.ErrNotFound}, "osascript: did not start: executable file not found in $PATH\n"},
+		{macRun{err: exec.ErrNotFound}, "osascript: did not start: " + exec.ErrNotFound.Error() + "\n"},
 		{macRun{took: macWindowTimeout, err: exitStatus2(t), shown: true}, "osascript: exit status 2 after 3m0s (komando stops it at 3m0s)\n"},
 	} {
 		var b bytes.Buffer
