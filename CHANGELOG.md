@@ -9,6 +9,14 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `KOMANDO_APPROVAL_DEBUG`: on a Mac, each approval window adds what it
+  saw to `approval-debug.log` in komando's run folder (0600): the keys,
+  the focus, handler errors, how it ended and `osascript`'s exit and error
+  output, never the texts it shows (C237). A key is named (Tab, Return,
+  Esc, Space, an arrow, Page Up, Page Down, Home, End) only while one of
+  the window's own controls has focus; otherwise, as in a selectable text
+  field, the log writes only a class: digit, letter, Tab, arrow or other
+  (C256).
 - `komando ssh-gate line --shell-access`: a key that may change things
   may also open a login shell on one server, `ssh -t HOST komando shell
   SERVER`. Its line starts with `restrict,pty,`, so sshd gives it a
@@ -162,11 +170,16 @@ its highlights; the sections below them give the details. Versions follow
 
 - In the macOS approval window, Tab, Shift-Tab, the arrows, Page Up,
   Page Down, Home, End and Space no longer close the window as a Deny
-  (C237, #370). Tab and Shift-Tab move the focus between Deny, **Allow
-  once** (once it is on) and a script that scrolls; the other keys scroll
-  the script, Space only while the script has focus. The focus ring is
-  now a plain box in the system focus colour, the script area no longer
-  has a key handler of its own, and an error in a key, focus or scroll
+  (C237, #370). Any key closed it: the window's key monitor handed each
+  key back to AppKit as a JavaScript value, AppKit raised an exception
+  outside the window's script, `osascript` exited with 1, and komando
+  read that as a Deny. The window now takes keys in its own key handler,
+  which hands AppKit nothing back. Tab and Shift-Tab move the focus
+  between Deny, **Allow once** (once it is on) and a script that scrolls;
+  Up, Down, Page Up, Page Down, Home and End scroll the script whatever
+  has the focus, and Space while the script has it (Space on a focused
+  button presses it, as anywhere in macOS). The focus ring is now a plain
+  box in the system focus colour, and an error in a key, focus or scroll
   handler no longer ends the window. Only Esc, Return, Cmd-W, the close
   button, a click on Deny or the 2-minute timeout end it as a no.
 - `recipe run` hashes exactly the command it sends; it added a newline

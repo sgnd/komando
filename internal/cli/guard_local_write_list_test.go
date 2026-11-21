@@ -176,6 +176,7 @@ var otherPackageWriters = map[string]string{
 	"rundir.Dir":                "komando's own per-user run folder (0700)",
 	"rundir.create":             "a new private file (O_EXCL, 0600; Windows: CREATE_NEW, shared for reading only) in that folder",
 	"rundir.Sweep":              "leftovers of earlier runs in that folder",
+	"rundir.appendFile":         "the approval debug log (KOMANDO_APPROVAL_DEBUG only) in that folder: a fixed name, 0600, a link refused",
 	"vault.removeOldStoreKey":   "the store key in komando's folder",
 	"vault.writeNewKeyFile":     "the store key in komando's folder",
 	"vault.settleNewKeyFile":    "the store key in komando's folder",

@@ -50,10 +50,10 @@ func TestMacAnswer(t *testing.T) {
 // owner only after Allow once.
 func TestMacAlertScript(t *testing.T) {
 	for _, want := range []string{
-		"$.NSPanel.alloc.initWithContentRectStyleMaskBackingDefer(", "panel.title = argv[6]",
+		"$.KomandoPanel.alloc.initWithContentRectStyleMaskBackingDefer(", "superclass: 'NSPanel'", "panel.title = argv[6]",
 		"buttonWithTitleTargetAction(argv[7], answer, 'deny:')", "deny.keyEquivalent = '\\r'", "allow.keyEquivalent = ''",
 		"panel.initialFirstResponder = deny", "deny.nextKeyView = allow", "setAccessibilityLabel(argv[7])", "setAccessibilityLabel(argv[8])",
-		"Number(e.keyCode) === 53", "app.stopModalWithCode(DENY)", "app.runModalForWindow(panel)", "panel.level = $.NSFloatingWindowLevel",
+		"code === 53 || code === 36", "APP.stopModalWithCode(DENY)", "app.runModalForWindow(panel)", "panel.level = $.NSFloatingWindowLevel",
 		"timerWithTimeIntervalRepeatsBlock(120,", "app.stopModalWithCode(GAVE_UP)", "return 'gave up'", "return 'Deny'",
 		"label(argv[1], $.NSFont.boldSystemFontOfSize(fs), w, true)", "var w = 440, pad = 20, gap = 12",
 		"ObjC.import('LocalAuthentication')", "canEvaluatePolicyError(2, null)", "evaluatePolicyLocalizedReasonReply(2, reason,",
@@ -64,10 +64,14 @@ func TestMacAlertScript(t *testing.T) {
 			t.Errorf("script has no %q", want)
 		}
 	}
-	for _, bad := range []string{"NSAlert", ".icon", "NSImage", "NSAttributedString", "initWithString", "argv[0]", "argv[10]"} {
+	for _, bad := range []string{"NSAlert", ".icon", "NSImage", "NSAttributedString", "initWithString", "argv[0]", "argv[11]"} {
 		if strings.Contains(macAlertScript, bad) {
 			t.Errorf("the script uses %s", bad)
 		}
+	}
+	// argv[10] is only the debug switch (approval_debug.go)
+	if strings.Count(macAlertScript, "argv[10]") != 1 || !strings.Contains(macAlertScript, "DEBUG = argv[10] === '1';") {
+		t.Error("argv[10] is used for more than the debug switch")
 	}
 	// no colours of its own: only the system's focus indicator colour
 	if strings.Count(macAlertScript, "NSColor.") != strings.Count(macAlertScript, "NSColor.keyboardFocusIndicatorColor") {
@@ -136,8 +140,8 @@ func TestMacPanelScrollGate(t *testing.T) {
 		"sv.contentView.postsBoundsChangedNotifications = true",
 		"addObserverSelectorNameObject(answer, 'scrolled:', $.NSViewBoundsDidChangeNotification, sv.contentView)",
 		"'scrolled:': { types: ['void', ['id']]",
-		"function seenEnd(y, h, docH) { return y + h >= docH - 1; }", "if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = true; }",
-		"'allow:': { types: ['void', ['id']], implementation: function (s) { if (!SEEN) return; CHOICE = 'Allow'",
+		"function seenEnd(y, h, docH) { return y + h >= docH - 1; }", "if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = true; note('read to the end'); }",
+		"'allow:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note((SEEN ? 'end: Allow once, ' : 'Allow once ignored: not read to the end, ') + how()); if (!SEEN) return; CHOICE = 'Allow'",
 		"removeObserver(answer)",
 	} {
 		if !strings.Contains(s, want) {
@@ -214,8 +218,8 @@ func TestMacPanelKeyboardScroll(t *testing.T) {
 	s := macAlertScript
 	for _, want := range []string{
 		"'acceptsFirstResponder': { types: ['bool', []], implementation: function () { return SCROLLS; } }",
-		"'becomeFirstResponder': { types: ['bool', []], implementation: function () { try { focusRing(true); } catch (x) {} return true; } }",
-		"'resignFirstResponder': { types: ['bool', []], implementation: function () { try { focusRing(false); } catch (x) {} return true; } }",
+		"'becomeFirstResponder': { types: ['bool', []], implementation: function () { try { focusRing(true); note('script area has focus'); } catch (x) { note('error in becomeFirstResponder: ' + x); } return true; } }",
+		"'resignFirstResponder': { types: ['bool', []], implementation: function () { try { focusRing(false); note('script area lost focus'); } catch (x) { note('error in resignFirstResponder: ' + x); } return true; } }",
 		"function keyScroll(code, y, line, page, maxY) {",
 		"code === 126 ? y - line", "code === 125 ? y + line", "code === 116 ? y - page",
 		"code === 121 || code === 49 ? y + page", "code === 115 ? 0", "code === 119 ? maxY",
@@ -223,8 +227,8 @@ func TestMacPanelKeyboardScroll(t *testing.T) {
 		"RING.borderColor = $.NSColor.keyboardFocusIndicatorColor;",
 		"SCROLLS = scroll", "allow.nextKeyView = scroll ? DOC : deny", "DOC.nextKeyView = deny",
 		"DOC.setAccessibilityElement(true)", "DOC.setAccessibilityRole($.NSAccessibilityGroupRole)", "DOC.setAccessibilityLabel(",
-		"deny.keyEquivalent = '\\r'", "Number(e.keyCode) === 53",
-		"if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = true; }",
+		"deny.keyEquivalent = '\\r'", "code === 53 || code === 36",
+		"if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = true; note('read to the end'); }",
 	} {
 		if !strings.Contains(s, want) {
 			t.Errorf("script has no %q", want)
@@ -244,33 +248,25 @@ func TestMacPanelKeyboardScroll(t *testing.T) {
 	}
 }
 
-// With macOS keyboard navigation off, Tab may skip the script area, so
-// the window-wide key monitor scrolls it with the arrows, Page Up/Down and
-// Home/End whatever has focus, and with Space only while it has focus;
-// Return keeps its meaning (C237 adds Tab, in approval_keys_test.go).
-func TestMacPanelMonitorScrolls(t *testing.T) {
+// The script scrolls with Up, Down, Page Up/Down and Home/End whatever
+// has focus (with macOS keyboard navigation off, Deny and Allow once take
+// no focus), and with Space only while it has focus; Return, Enter, Tab
+// and Esc are never scroll keys (C237, approval_keys_test.go).
+func TestMacPanelScrollKeysAnyFocus(t *testing.T) {
 	s := macAlertScript
-	mon := macMonitor(t)
-	want := "if (SCROLLS && (MONITOR_KEYS.indexOf(Number(e.keyCode)) >= 0 || (Number(e.keyCode) === 49 && HAS_FOCUS)) && scrollKey(Number(e.keyCode))) return null;"
-	if !strings.Contains(mon, want) {
-		t.Errorf("the monitor has no %q", want)
+	on := macFunc(t, "onKey")
+	if !strings.Contains(on, onKeyScroll) {
+		t.Errorf("onKey has no %q", onKeyScroll)
 	}
-	if !strings.Contains(s, "var MONITOR_KEYS = [126, 125, 116, 121, 115, 119];") {
-		t.Error("the monitor keys are not the arrows, Page Up/Down and Home/End")
+	keys := s[strings.Index(s, "var SCROLL_KEYS"):]
+	keys = keys[:strings.Index(keys, "\n")]
+	if keys != "var SCROLL_KEYS = [126, 125, 116, 121, 115, 119];" {
+		t.Errorf("the scroll keys are %s", keys)
 	}
-	for _, bad := range []string{"36", "76"} {
-		if strings.Contains(mon, bad) || strings.Contains(s[strings.Index(s, "var MONITOR_KEYS"):strings.Index(s, "var MONITOR_KEYS")+50], bad) {
-			t.Errorf("the monitor routes key %s", bad)
-		}
-	}
-	for _, bad := range []string{"48", "49"} {
-		if strings.Contains(s[strings.Index(s, "var MONITOR_KEYS"):strings.Index(s, "var MONITOR_KEYS")+50], bad) {
+	for _, bad := range []string{"36", "76", "48", "49", "53"} {
+		if strings.Contains(keys, bad) {
 			t.Errorf("key %s scrolls whatever has focus", bad)
 		}
-	}
-	// Esc is still checked first
-	if e, r := strings.Index(mon, "=== 53"), strings.Index(mon, "MONITOR_KEYS"); e < 0 || r < e {
-		t.Error("Esc is no longer handled first")
 	}
 }
 
@@ -524,14 +520,13 @@ func TestApprovalOptions(t *testing.T) {
 func TestMacPanelAnswers(t *testing.T) {
 	script := macAlertScript
 	for _, tc := range []struct{ name, want string }{
-		{"deny button", "'deny:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); } }"},
-		{"allow button", "'allow:': { types: ['void', ['id']], implementation: function (s) { if (!SEEN) return; CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } }"},
-		{"close button", "'windowWillClose:': { types: ['void', ['id']], implementation: function (n) { if (!CHOSEN) { CHOICE = 'Deny'; CHOSEN = true; } APP.stopModalWithCode(DENY); } }"},
+		{"deny button", "'deny:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note('end: Deny, ' + how()); CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); } }"},
+		{"allow button", "'allow:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note((SEEN ? 'end: Allow once, ' : 'Allow once ignored: not read to the end, ') + how()); if (!SEEN) return; CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } }"},
+		{"close button", "'windowWillClose:': { types: ['void', ['id']], implementation: function (n) { if (DEBUG) note('end: window closes, ' + how()); if (!CHOSEN) { CHOICE = 'Deny'; CHOSEN = true; } APP.stopModalWithCode(DENY); } }"},
 		{"close wired", "panel.delegate = answer"},
 		{"closable", "$.NSWindowStyleMaskTitled | $.NSWindowStyleMaskClosable"},
-		{"esc", "if (Number(e.keyCode) === 53) { CHOICE = 'Deny'; CHOSEN = true; app.stopModalWithCode(DENY); return null; }"},
-		{"cmd-w", "if (Number(e.keyCode) === 13 && (Number(e.modifierFlags) & $.NSEventModifierFlagCommand)) { CHOICE = 'Deny'; CHOSEN = true; app.stopModalWithCode(DENY); return null; }"},
-		{"give-up timer", "timerWithTimeIntervalRepeatsBlock(120, false, function () { CHOICE = 'gave up'; CHOSEN = true; app.stopModalWithCode(GAVE_UP); })"},
+		{"esc, return and cmd-w", onKeyDeny},
+		{"give-up timer", "timerWithTimeIntervalRepeatsBlock(120, false, function () { note('end: no answer in 120 s'); CHOICE = 'gave up'; CHOSEN = true; app.stopModalWithCode(GAVE_UP); })"},
 		{"gave up only from the timer", "if (CHOICE === 'gave up') return 'gave up';"},
 		{"allow goes to the owner check", "if (CHOICE === 'Allow') return 'Allow once\\n' + owner(argv[3], argv[4]);"},
 		{"anything else is Deny", "return 'Deny';\n}`"},
@@ -568,9 +563,9 @@ func TestMacPanelCodes(t *testing.T) {
 		t.Fatalf("codes not distinct: %q", consts)
 	}
 	for _, want := range []string{
-		"buttonWithTitleTargetAction(argv[7], answer, 'deny:')", "'deny:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); } }",
-		"buttonWithTitleTargetAction(argv[8], answer, 'allow:')", "'allow:': { types: ['void', ['id']], implementation: function (s) { if (!SEEN) return; CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } }",
-		"app.runModalForWindow(panel); // the answer is CHOICE",
+		"buttonWithTitleTargetAction(argv[7], answer, 'deny:')", "'deny:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note('end: Deny, ' + how()); CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); } }",
+		"buttonWithTitleTargetAction(argv[8], answer, 'allow:')", "'allow:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note((SEEN ? 'end: Allow once, ' : 'Allow once ignored: not read to the end, ') + how()); if (!SEEN) return; CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } }",
+		"try { app.runModalForWindow(panel); } catch (x) { note('error: the modal loop threw ' + x); throw x; }",
 	} {
 		if !strings.Contains(s, want) {
 			t.Errorf("script has no %q", want)
@@ -592,10 +587,10 @@ func TestMacPanelChoice(t *testing.T) {
 	s := macAlertScript
 	for _, want := range []string{
 		"var CHOICE = 'Deny', CHOSEN = false;",
-		"implementation: function (s) { CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); }",
-		"implementation: function (s) { if (!SEEN) return; CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); }",
-		"implementation: function (n) { if (!CHOSEN) { CHOICE = 'Deny'; CHOSEN = true; } APP.stopModalWithCode(DENY); }",
-		"function () { CHOICE = 'gave up'; CHOSEN = true; app.stopModalWithCode(GAVE_UP); }",
+		"implementation: function (s) { if (DEBUG) note('end: Deny, ' + how()); CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); }",
+		"implementation: function (s) { if (DEBUG) note((SEEN ? 'end: Allow once, ' : 'Allow once ignored: not read to the end, ') + how()); if (!SEEN) return; CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); }",
+		"implementation: function (n) { if (DEBUG) note('end: window closes, ' + how()); if (!CHOSEN) { CHOICE = 'Deny'; CHOSEN = true; } APP.stopModalWithCode(DENY); }",
+		"function () { note('end: no answer in 120 s'); CHOICE = 'gave up'; CHOSEN = true; app.stopModalWithCode(GAVE_UP); }",
 		"if (CHOICE === 'Allow') return 'Allow once\\n' + owner(argv[3], argv[4]);",
 		"if (CHOICE === 'gave up') return 'gave up';",
 	} {

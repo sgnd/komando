@@ -95,3 +95,63 @@ func TestSweepRemovesOldLeftovers(t *testing.T) {
 }
 
 func timeAgo(d time.Duration) time.Time { return time.Now().Add(-d) }
+
+func TestAppendIsPrivateAndKeepsWhatWasThere(t *testing.T) {
+	dir := t.TempDir()
+	for _, line := range []string{"one\n", "two\n"} {
+		f, err := Append(dir, "approval-debug.log")
+		if err != nil {
+			t.Fatalf("Append: %v", err)
+		}
+		f.WriteString(line)
+		f.Close()
+	}
+	p := filepath.Join(dir, "approval-debug.log")
+	if b, _ := os.ReadFile(p); string(b) != "one\ntwo\n" {
+		t.Errorf("content %q, want both lines", b)
+	}
+	fi, _ := os.Lstat(p)
+	if runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
+		t.Errorf("mode %o, want 600", fi.Mode().Perm())
+	}
+}
+
+func TestAppendNarrowsAWideFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("no Unix modes")
+	}
+	dir := t.TempDir()
+	p := filepath.Join(dir, "approval-debug.log")
+	os.WriteFile(p, []byte("old\n"), 0o600)
+	os.Chmod(p, 0o644)
+	f, err := Append(dir, "approval-debug.log")
+	if err != nil {
+		t.Fatalf("Append: %v", err)
+	}
+	f.Close()
+	if fi, _ := os.Lstat(p); fi.Mode().Perm() != 0o600 {
+		t.Errorf("mode %o, want 600", fi.Mode().Perm())
+	}
+}
+
+func TestAppendRefusesALinkOrAFolder(t *testing.T) {
+	dir := t.TempDir()
+	os.Mkdir(filepath.Join(dir, "folder.log"), 0o700)
+	target := filepath.Join(t.TempDir(), "elsewhere")
+	os.WriteFile(target, nil, 0o600)
+	names := []string{"folder.log"}
+	if err := os.Symlink(target, filepath.Join(dir, "link.log")); err == nil {
+		names = append(names, "link.log")
+	} else if runtime.GOOS != "windows" {
+		t.Fatal(err)
+	}
+	for _, n := range names {
+		if f, err := Append(dir, n); err == nil {
+			f.Close()
+			t.Errorf("%s: want a refusal", n)
+		}
+	}
+	if b, _ := os.ReadFile(target); len(b) != 0 {
+		t.Error("the link's target was written")
+	}
+}

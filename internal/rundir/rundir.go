@@ -1,12 +1,14 @@
 // Package rundir finds komando's own per-user folder for short-lived
-// private files (a restore's checked copy), never the shared temp folder,
-// where another user may have planted a name or a link.
+// private files (a restore's checked copy, the approval debug log), never
+// the shared temp folder, where another user may have planted a name or a
+// link.
 package rundir
 
 import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -78,6 +80,28 @@ func Create(dir, name string) (*os.File, error) {
 		return nil, err
 	}
 	return create(filepath.Join(dir, name+"-"+hex.EncodeToString(b)+".tmp"))
+}
+
+// Append opens NAME in dir, a folder Dir checked, for adding to its end,
+// 0600 when new. A link or anything but a file is refused (appendFile, per
+// OS), and a file others may open is narrowed to 0600.
+func Append(dir, name string) (*os.File, error) {
+	f, err := appendFile(filepath.Join(dir, name))
+	if err != nil {
+		return nil, err
+	}
+	fi, err := f.Stat()
+	if err == nil && !fi.Mode().IsRegular() {
+		err = fmt.Errorf("%s is not a file", f.Name())
+	}
+	if err == nil && runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
+		err = f.Chmod(0o600)
+	}
+	if err != nil {
+		f.Close()
+		return nil, err
+	}
+	return f, nil
 }
 
 // Sweep removes NAME-*.tmp leftovers older than Stale from dir, a folder

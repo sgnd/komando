@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -34,7 +35,7 @@ func TestMain(m *testing.M) {
 		resetApproval()
 	}
 	askOnScreen = func(*call, string) (bool, bool) { panic("a test opened an approval window") }
-	askMac = func(approvalView) (macOutcome, bool) { panic("a test opened the macOS window") }
+	askMac = func(approvalView, io.Writer) (macOutcome, bool) { panic("a test opened the macOS window") }
 	// the window speaks English in tests, whatever the machine's language
 	approvalLang = func(*call) string { return "en" }
 	// no test runs the real Accessibility check (osascript)

@@ -4,10 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -39,6 +43,48 @@ func TestApprovalWindowShot(t *testing.T) {
 	if allowed {
 		t.Fatal("nobody clicked, but the window allowed")
 	}
+}
+
+// TestApprovalWindowKey shows the real panel in a debug run on a macOS
+// GitHub runner while approval-window.yml presses one key (KOMANDO_KEY)
+// in it (C238). It keeps the run in KOMANDO_KEY_OUT as <case>-<key>.log
+// (the debug log), .stderr (osascript's own) and .exit (its exit code, -1
+// for a signal), and stops the panel after 15 s. The workflow judges it.
+func TestApprovalWindowKey(t *testing.T) {
+	shotRunner(t)
+	if runtime.GOOS != "darwin" {
+		t.Skip("the key run is macOS only")
+	}
+	key, out := os.Getenv("KOMANDO_KEY"), os.Getenv("KOMANDO_KEY_OUT")
+	if !regexp.MustCompile(`^[a-z][a-z-]*$`).MatchString(key) || out == "" {
+		t.Fatalf("KOMANDO_KEY=%q (lowercase with hyphens) and KOMANDO_KEY_OUT=%q (a folder) are both needed", key, out)
+	}
+	if os.Getenv(approvalDebugEnv) == "" {
+		t.Fatalf("%s is not set: the key run is a debug run", approvalDebugEnv)
+	}
+	t.Setenv("HOME", t.TempDir())
+	saved := macWindowTimeout
+	macWindowTimeout = 15 * time.Second
+	t.Cleanup(func() { macWindowTimeout = saved })
+
+	v := shotCaseView(t)
+	r := macPanelRun(v, true)
+	var log bytes.Buffer
+	macDebugLog(&log, v, r)
+	code := "0"
+	var ee *exec.ExitError
+	if errors.As(r.err, &ee) {
+		code = strconv.Itoa(ee.ExitCode())
+	} else if r.err != nil {
+		code = "did not start"
+	}
+	base := filepath.Join(out, os.Getenv("KOMANDO_SHOT_CASE")+"-"+key)
+	for ext, b := range map[string][]byte{".log": log.Bytes(), ".stderr": r.errOut, ".exit": []byte(code + "\n")} {
+		if err := os.WriteFile(base+ext, b, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Log("\n" + log.String())
 }
 
 // ciAtStart is CI as the runner set it: TestMain takes CI out of the

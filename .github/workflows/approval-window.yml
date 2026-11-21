@@ -2,6 +2,7 @@
 # (shotCases in internal/cli/approval_shot_test.go), to compare a change
 # before and after: run it by hand with prefix "before" on the old code and
 # "after" on the new. Also runs on a pull request that touches the window.
+# On macOS it also presses keys in the open panel (C238) for two cases.
 name: Approval window
 
 on:
@@ -148,6 +149,111 @@ jobs:
           swift "$RUNNER_TEMP/ocr.swift" "$SHOT_PNG" > "$RUNNER_TEMP/ocr.txt"
           cat "$RUNNER_TEMP/ocr.txt"
           if ! grep -q LINEONEMARK "$RUNNER_TEMP/ocr.txt"; then echo "script line 1 (LINEONEMARK) is not in the window at open" >&2; exit 1; fi
+      # C238: press each key in a fresh panel, a debug run
+      # (KOMANDO_APPROVAL_DEBUG, TestApprovalWindowKey). keys.swift posts
+      # the key as a HID event, which needs the runner's Accessibility
+      # (PostEvent) trust; without it the step fails and says so. A key
+      # counts only when the debug log shows the panel got it ("key NAME").
+      # Then Tab, Shift-Tab, the arrows, Page Down, End and Space must leave
+      # the panel open until komando stops it at 15 s, and Return and Esc
+      # must end it as Deny with exit 0. The step prints each run's log and
+      # osascript's stderr; keys-out keeps them with the exit codes.
+      - name: Keys in the panel (macOS)
+        if: "!cancelled() && runner.os == 'macOS' && matrix.mode == 'light' && (matrix.case == 'short' || matrix.case == 'tall-script')"
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/keys.swift" <<'SWIFT'
+          import ApplicationServices
+          import Foundation
+          // keys check: exit 3 unless this process may post keys
+          // keys press CODE MOD: one key down and up; MOD is shift or -
+          let a = CommandLine.arguments
+          let post = CGPreflightPostEventAccess()
+          print("CGPreflightPostEventAccess=\(post) AXIsProcessTrusted=\(AXIsProcessTrusted())")
+          if a.count == 2 && a[1] == "check" { exit(post ? 0 : 3) }
+          guard a.count == 4, a[1] == "press", let code = CGKeyCode(a[2]) else { exit(2) }
+          let src = CGEventSource(stateID: .hidSystemState)
+          for down in [true, false] {
+            guard let e = CGEvent(keyboardEventSource: src, virtualKey: code, keyDown: down) else { exit(2) }
+            // set every time: a source of the HID state keeps Shift from an earlier key
+            e.flags = a[3] == "shift" ? CGEventFlags.maskShift : CGEventFlags()
+            e.post(tap: .cghidEventTap)
+            usleep(30_000)
+          }
+          SWIFT
+          swiftc -O -o "$RUNNER_TEMP/keys" "$RUNNER_TEMP/keys.swift"
+          gui="$RUNNER_TEMP/asgui.sh"
+          trust=0; bash "$gui" "$RUNNER_TEMP/keys" check </dev/null || trust=$?
+          if [ "$trust" != 0 ]; then
+            echo "::error::This runner does not trust its processes to post keys (Accessibility, PostEvent; check exit $trust). No key was pressed, so this run proves nothing about the panel's keys."
+            echo "Keys (${KOMANDO_SHOT_CASE}): no key pressed, the runner lacks Accessibility (PostEvent) trust." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          out="$PWD/keys-out"; mkdir -p "$out"
+          # name, key code, modifier, what must happen, the name in the debug log
+          keys=("tab 48 - stays Tab" "shift-tab 48 shift stays Tab" "down 125 - stays Down" "up 126 - stays Up" "right 124 - stays Right"
+            "left 123 - stays Left" "page-down 121 - stays PageDown" "end 119 - stays End" "space 49 - stays Space" "return 36 - deny Return" "esc 53 - deny Esc")
+          {
+            echo "### Keys in the panel (${KOMANDO_SHOT_CASE})"
+            echo "| key | reached the panel | osascript | exit | verdict |"
+            echo "|---|---|---|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+          bad=0
+          for k in "${keys[@]}"; do
+            read -r name code mod want logname <<< "$k"
+            f="$out/$KOMANDO_SHOT_CASE-$name"
+            bash "$gui" KOMANDO_APPROVAL_DEBUG=1 KOMANDO_SHOT_CASE="$KOMANDO_SHOT_CASE" KOMANDO_KEY="$name" KOMANDO_KEY_OUT="$out" \
+              ./shot.test -test.run '^TestApprovalWindowKey$' -test.v </dev/null >"$f.test.out" 2>&1 &
+            pid=$!
+            id=""
+            for _ in $(seq 20); do
+              id=$(bash "$gui" osascript -l JavaScript "$RUNNER_TEMP/winid.js" find </dev/null 2>/dev/null || true)
+              [ -n "$id" ] && break
+              sleep 0.5
+            done
+            if [ -n "$id" ]; then
+              sleep 1
+              bash "$gui" "$RUNNER_TEMP/keys" press "$code" "$mod" </dev/null || echo "keys press $code exit $?"
+              sleep 1.5
+              id=$(bash "$gui" osascript -l JavaScript "$RUNNER_TEMP/winid.js" find </dev/null 2>/dev/null || true)
+              if [ -n "$id" ]; then bash "$gui" screencapture -x -o -l "$id" "$f.png" </dev/null || echo "screencapture failed"; fi
+              found=yes
+            else
+              found=no
+            fi
+            wait "$pid" || true
+            reached=no; ended="no log"; exitc="?"; why="no end note: the script chose nothing"
+            if [ -s "$f.log" ]; then
+              grep -Eq "^js \+[0-9]+ (.* )?key $logname " "$f.log" && reached=yes
+              ended=$(sed -n 's/^osascript: //p' "$f.log")
+              exitc=$(cat "$f.exit" 2>/dev/null || echo "?")
+              note=$(grep -Eo '(end: |error: the modal loop threw)[^|]*' "$f.log" | head -1 | sed 's/ *$//' || true)
+              [ -n "$note" ] && why=$note
+            fi
+            if [ "$found" = no ]; then verdict="FAIL: no panel on screen within 10 s"
+            elif [ ! -s "$f.log" ]; then verdict="FAIL: the test wrote no log"
+            elif [ "$reached" = no ]; then verdict="FAIL: the key never reached the panel"
+            elif [ "$want" = stays ]; then
+              if grep -q '(komando stops it at ' "$f.log"; then verdict="ok: stayed open"; else verdict="FAIL: the panel closed on this key ($why)"; fi
+            elif [ "$exitc" = 0 ] && grep -qx 'stdout: "Deny"' "$f.log"; then verdict="ok: Deny, as designed"
+            else verdict="FAIL: did not end as Deny with exit 0 ($why)"
+            fi
+            case "$verdict" in FAIL*) bad=1 ;; esac
+            echo "::group::$name: $verdict"
+            echo "debug log:"; cat "$f.log" 2>/dev/null || echo "(none)"
+            echo "osascript stderr, raw:"; cat "$f.stderr" 2>/dev/null || echo "(none)"
+            echo "test output:"; cat "$f.test.out"
+            echo "::endgroup::"
+            echo "$name: $verdict (osascript: $ended)"
+            echo "| $name | $reached | $ended | $exitc | $verdict |" >> "$GITHUB_STEP_SUMMARY"
+          done
+          [ "$bad" = 0 ]
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: "!cancelled() && runner.os == 'macOS' && matrix.mode == 'light' && (matrix.case == 'short' || matrix.case == 'tall-script')"
+        with:
+          name: approval-keys-${{ inputs.prefix || 'after' }}-${{ matrix.case }}
+          path: keys-out
+          if-no-files-found: warn
       # Windows: the window by its class (komandoApproval, an EnumWindows walk), brought to the
       # front, and only its rectangle captured; fails when it is not there
       - name: The window (Windows)
@@ -225,4 +331,4 @@ jobs:
       - name: Note in the job summary
         if: failure()
         shell: bash
-        run: echo "The approval window was not found or not captured on this runner." >> "$GITHUB_STEP_SUMMARY"
+        run: echo "A step failed on this runner (the window, its capture, or the keys). See that step's log." >> "$GITHUB_STEP_SUMMARY"
