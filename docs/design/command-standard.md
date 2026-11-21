@@ -567,11 +567,11 @@ classifier hit, never for a command's own built-in tier. [code]
 **S-7.10** A command for a person at a terminal (`shell`, `db shell`,
 `cluster shell`, `secret passphrase` ...) never runs for an AI agent or an
 ssh-gate key. One exception: `komando shell SERVER` for a `--shell-access`
-key, which ssh-gate marks itself (`KOMANDO_GATE_SHELL`, set only by the
-gate and dropped from what the key sends). That shell asks nothing: what a
-person would be asked (a protected server) is refused instead. Its start
-and end are in the audit log, and it ends after 30 minutes with no input
-and no output. [code: sshgate_shell_test.go, sshgate_session_test.go]
+key, which ssh-gate opens in its own process after its checks; no
+environment variable or terminal lets another komando process do the same.
+That shell asks nothing: what a person would be asked (a protected server)
+is refused instead. Its start and end are in the audit log, and it ends
+after 30 minutes with no input and no output. [code: sshgate_shell_test.go, sshgate_session_test.go]
 
 ## 8. Errors and hints
 
