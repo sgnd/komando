@@ -65,7 +65,7 @@ func allowCheck(t *testing.T, rule string, got map[string]string, allow []string
 }
 
 // S-1.4, S-1.4a: the top-level names are a closed list; ssh-gate's
-// --name and --read-only are frozen.
+// --name, --read-only, --network and --shell-access are frozen.
 func TestStandardTopLevel(t *testing.T) {
 	root := newRoot(tcl)
 	want := []string{
@@ -90,7 +90,7 @@ func TestStandardTopLevel(t *testing.T) {
 		t.Errorf("S-1.4: top-level commands %v, want %v", got, want)
 	}
 	gate := findCmd(t, root, "ssh-gate")
-	for _, n := range []string{"name", "read-only"} {
+	for _, n := range []string{"name", "read-only", "network", "shell-access"} {
 		f := gate.Flags().Lookup(n)
 		if f == nil || f.Shorthand != "" {
 			t.Errorf("S-1.4a: ssh-gate --%s must stay as written, without a shorthand", n)

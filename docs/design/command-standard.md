@@ -70,10 +70,11 @@ nouns]
 | About komando | `audit`, `doctor`, `schema`, `guide`, `update`, `version`, `seal`, `completion`, `help`, `ssh-gate` |
 | Help topics (only as `komando help TOPIC`) | `environment`, `exit-codes`, `output`, `safety` |
 
-**S-1.4a** Frozen forever: `ssh-gate` and its flags `--name` and
-`--read-only`. Their exact spelling is written into servers'
-`authorized_keys` (`command="/usr/local/bin/komando ssh-gate --name phone"`).
-No rename, no alias swap, no shorthand. [schema: allow-list pins them]
+**S-1.4a** Frozen forever: `ssh-gate` and its flags `--name`,
+`--read-only`, `--network` and `--shell-access`. Their exact spelling is
+written into servers' `authorized_keys`
+(`command="/usr/local/bin/komando ssh-gate --name phone"`). No rename, no
+alias swap, no shorthand. [schema: allow-list pins them]
 
 **S-1.5** A subcommand name may never equal a value a person can pass in the
 same position. The cloud names `aws`, `gcp` and `azure` are reserved: no new

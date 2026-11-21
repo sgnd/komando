@@ -240,8 +240,8 @@ makes writes it again in the same step.
 | the settings row's sealed copy | all of it (key mode, salt, scrypt cost) |
 
 Names, notes, addresses, groups, labels and display settings are not
-covered. An `ssh-gate` read key's `--network` is not in `store.db`: it is
-on the key's line in `~/.ssh/authorized_keys`.
+covered. An `ssh-gate` key's `--network` and `--shell-access` are not in
+`store.db`: they are on the key's line in `~/.ssh/authorized_keys`.
 
 A safety row changed by something other than komando stops every command
 with `POLICY_MAC_FAILED`, which names the row. Find out what changed it,
