@@ -30,6 +30,8 @@ func TestMain(m *testing.M) {
 	tcl.enter()
 	// tests run as a script, even inside an AI agent's shell; the ones about
 	// agents set the variables themselves
+	ancestorAgent = func() string { return "" }
+	store.AncestorAgent = ancestorAgent
 	for _, a := range agentVars {
 		os.Unsetenv(a.env)
 		resetApproval()

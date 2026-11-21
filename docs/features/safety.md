@@ -210,7 +210,12 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 
 komando recognizes Claude Code, Codex, Gemini CLI and Cursor by the
 environment variables they set (a variable that is there counts, whatever
-its value, also `0` or empty), and adds these rules for them. For any other
+its value, also `0` or empty), and also by the processes above it: when
+a program above komando in the process tree (its parent, the shell the agent
+runs, the agent itself) has those variables, or is a program named `claude`,
+`codex` or `cursor-agent`, komando counts as the agent's too, even when the
+agent cleared the variables in the command it started (`env -i komando ...`).
+This is checked on macOS and Linux. It adds these rules for them. For any other
 agent, set `KOMANDO_AGENT=1` (or `AI_AGENT=1`) in the environment it runs
 commands in, so these rules apply to it too. Scripts and you at your
 terminal are not affected by them.
@@ -436,8 +441,11 @@ the masking and the guard stop mistakes and prompt injection (a web page or
 a file telling the agent to leak something). They do not stop a program
 that deliberately hides what it is or edits the guard away: nothing that
 runs as you can. The guard reads shell lines as text; a script that builds a
-path from pieces, or starts komando without the agent's variables from
-another language, gets past it. So:
+path from pieces, gets past it. So does a program that leaves the agent's
+process tree before it starts komando (it starts a helper that outlives its
+parent, so the system adopts the helper, or it asks the system's scheduler to
+run it): nothing above komando is then an agent's, and komando cannot tell it
+from a script. Only a different user account or a sandbox closes that. So:
 
 - give komando, and so your agent, an SSH user with only the permissions it needs;
 - mark production with `komando host edit NAME --protected`;
