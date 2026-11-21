@@ -35,7 +35,8 @@ import (
 // those only the ones that stay on the targets in the inventory, unless the
 // line also has --network (sshgate_network.go).
 // `restrict` turns off port, agent and X11 forwarding and the terminal, so
-// the key opens nothing else (OpenSSH 7.2 and later).
+// the key opens nothing else (OpenSSH 7.2 and later). A line with --shell-access
+// gives back the terminal (pty), for `komando shell SERVER` (sshgate_shell.go).
 
 // gateEnv names the key (its --name) in the environment of the komando the
 // gate runs: that komando counts as an agent (agentVars) and its audit
@@ -382,6 +383,9 @@ func gateCheck(args []string, key gateKey) (name, output string, refused *out.Er
 			"komando %s is the shell's completion helper, not for a key", c.Name())
 	}
 	name = commandName(c)
+	if key.shellAccess && name == "shell" {
+		return name, "", gateShell(c, args, key)
+	}
 	c.InitDefaultHelpFlag()
 	if err := c.ParseFlags(rest); err != nil {
 		return name, "", nil // the same: a usage error, nothing runs
@@ -530,6 +534,9 @@ func gateAudit(cl *call, label string, key gateKey, req gateRequest, name string
 		"network":     key.network,
 		"ssh_command": ran,
 	}
+	if key.shellAccess {
+		rec["shell_access"] = true
+	}
 	if name != "" {
 		rec["runs"] = name
 	}
@@ -571,7 +578,7 @@ func gateChildEnv(label string) []string {
 
 func sshGateCmd() *cobra.Command {
 	var name string
-	var readOnly, network bool
+	var readOnly, network, shellAccess bool
 	c := &cobra.Command{
 		Use:   "ssh-gate",
 		Short: "Let an SSH key run komando here and nothing else",
@@ -588,7 +595,8 @@ they are quoted. One KOMANDO_AGENT=NAME may come before komando.
 komando then runs as for an AI agent: secret values stay [hidden], --reveal
 and --allow-dangerous are refused, and --yes for a protected server needs a
 person on this computer. Commands that need a person at a terminal (shell,
-db shell, secret passphrase ...) are refused. The key runs commands on
+db shell, secret passphrase ...) are refused (a --shell-access key may open
+` + "`komando shell SERVER`" + `: see ssh-gate line). The key runs commands on
 servers, never one that writes on this computer or reads a file here (a
 script, SQL or upload source by path; '-' for the key's own input works):
 no download or cp to a file here (download --to - and cp SRC - stream to
@@ -617,9 +625,13 @@ audit setting is off.`,
 			if !gateLabel.MatchString(name) {
 				return out.Usage("--name takes 1 to 64 letters, digits, dots, dashes or underscores")
 			}
+			if shellAccess && readOnly {
+				return out.Usage("--shell-access goes with a key that may change things, not with --read-only: fix the key's line in authorized_keys")
+			}
 			// a key that may change things runs any program on servers, so
 			// --network only narrows a read key
-			key := gateKey{readOnly: readOnly, network: network || !readOnly}
+			key := gateKey{readOnly: readOnly, network: network || !readOnly, shellAccess: shellAccess, tty: gateTTY(cl)}
+			cl.terminal = false // the key's terminal: the gate asks nobody anything on it
 			req, refused := parseGate(cl.getenv("SSH_ORIGINAL_COMMAND"))
 			runs, output := "", ""
 			if refused == nil {
@@ -639,7 +651,7 @@ audit setting is off.`,
 				if f, ok := outputFormat(cl, output); ok && output != "" {
 					cl.out.Format = f
 				}
-				cl.out.Print("ssh-gate.status", gateStatus{Gate: true, Name: name, ReadOnly: key.readOnly, Network: key.network, Komando: Version}, nil)
+				cl.out.Print("ssh-gate.status", gateStatus{Gate: true, Name: name, ReadOnly: key.readOnly, Network: key.network, ShellAccess: key.shellAccess, Komando: Version}, nil)
 				return nil
 			}
 			self, err := os.Executable()
@@ -653,10 +665,12 @@ audit setting is off.`,
 	c.Flags().StringVar(&name, "name", "key", "the key's name in the audit log")
 	c.Flags().BoolVar(&readOnly, "read-only", false, "run only commands that read")
 	c.Flags().BoolVar(&network, "network", false, "with --read-only: also reads that reach the network")
+	c.Flags().BoolVar(&shellAccess, "shell-access", false, "also komando shell SERVER, with a terminal")
 	// set by the line `ssh-gate line` writes, not typed: its help lists them
 	_ = c.Flags().MarkHidden("name")
 	_ = c.Flags().MarkHidden("read-only")
 	_ = c.Flags().MarkHidden("network")
+	_ = c.Flags().MarkHidden("shell-access")
 	c.AddCommand(sshGateLineCmd(), sshGateStatusCmd())
 	return c
 }

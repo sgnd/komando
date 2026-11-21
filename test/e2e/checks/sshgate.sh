@@ -11,12 +11,14 @@ GARCH=$(docker version -f '{{.Server.Arch}}')
 docker cp "$TMP/komando-linux" "$GATE:/usr/local/bin/komando" >/dev/null
 docker exec "$GATE" chmod 755 /usr/local/bin/komando
 gx() { docker exec -i -u agent -e HOME=/home/agent "$GATE" "$@"; } # on the komando computer, as its user
-for k in gate-rw gate-ro gate-net; do rm -f "$TMP/$k" "$TMP/$k.pub"; ssh-keygen -q -t ed25519 -N '' -C "$k" -f "$TMP/$k"; done
+for k in gate-rw gate-ro gate-net gate-sh; do rm -f "$TMP/$k" "$TMP/$k.pub"; ssh-keygen -q -t ed25519 -N '' -C "$k" -f "$TMP/$k"; done
 L1=$(gx komando ssh-gate line --name phone "$(cat "$TMP/gate-rw.pub")" -o json | jget 'd["data"]["line"]')
 L2=$(gx komando ssh-gate line --name phone-read --read-only "$(cat "$TMP/gate-ro.pub")" -o json | jget 'd["data"]["line"]')
 check "ssh-gate line: restrict, the full path, the key" True "$(case "$L1" in 'restrict,command="/usr/local/bin/komando ssh-gate --name phone" ssh-ed25519 '*' gate-rw') echo True ;; *) echo "False: $L1" ;; esac)"
 L3=$(gx komando ssh-gate line --name phone-net --read-only --network "$(cat "$TMP/gate-net.pub")" -o json | jget 'd["data"]["line"]')
-printf '%s\n%s\n%s\n' "$L1" "$L2" "$L3" | gx sh -c 'mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys'
+L4=$(gx komando ssh-gate line --name ops --shell-access "$(cat "$TMP/gate-sh.pub")" -o json | jget 'd["data"]["line"]')
+check "ssh-gate line --shell-access: restrict,pty and --shell-access" True "$(case "$L4" in 'restrict,pty,command="/usr/local/bin/komando ssh-gate --name ops --shell-access" ssh-ed25519 '*' gate-sh') echo True ;; *) echo "False: $L4" ;; esac)"
+printf '%s\n%s\n%s\n%s\n' "$L1" "$L2" "$L3" "$L4" | gx sh -c 'mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys'
 # kssh KEY [COMMAND]: log in with that key only, as the phone does
 kssh() {
   local key=$1
@@ -24,7 +26,15 @@ kssh() {
   ssh -T -p "$E2E_SSH_DIRECT" -i "$TMP/$key" -o IdentitiesOnly=yes -o BatchMode=yes -o PreferredAuthentications=publickey \
     -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR agent@127.0.0.1 "$@" </dev/null
 }
+# ktty KEY COMMAND: the same with a terminal (ssh -tt), as a terminal app asks for
+ktty() {
+  local key=$1
+  shift
+  ssh -tt -p "$E2E_SSH_DIRECT" -i "$TMP/$key" -o IdentitiesOnly=yes -o BatchMode=yes -o PreferredAuthentications=publickey \
+    -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR agent@127.0.0.1 "$@" </dev/null 2>&1
+}
 code() { jget 'd["error"]["code"]'; }
+refusedq() { grep -Eq 'code SSH_GATE_REFUSED|"code":"SSH_GATE_REFUSED"'; } # text (a terminal) or JSON
 mentions() { jget "'$1' in json.dumps(d)"; } # mentions TEXT: the JSON answer holds TEXT
 
 check "a gate key runs komando" True "$(kssh gate-rw 'KOMANDO_AGENT=Komando komando version -o json' | jget 'd["ok"]')"
@@ -57,6 +67,12 @@ check "ssh-gate status: a read key with --network" "True True" "$(kssh gate-net 
 check "a read key does not fetch a URL" SSH_GATE_NETWORK_REQUIRED "$(kssh gate-ro komando net http gx https://example.com -o json | code || true)"
 check "a read key runs no program" SSH_GATE_NETWORK_REQUIRED "$(kssh gate-ro komando exec gx --read-only -o json -- curl -s https://example.com | code || true)"
 check "a read key does not dial a website" SSH_GATE_NETWORK_REQUIRED "$(kssh gate-ro komando cert check https://example.com -o json | code || true)"
+check "ssh-gate status: a shell key" "False True" "$(kssh gate-sh komando ssh-gate status -o json | jget 'str(d["data"]["read_only"]) + " " + str(d["data"]["shell_access"])')"
+check "a shell key opens no shell without a terminal" SSH_GATE_REFUSED "$(kssh gate-sh komando shell gx | code || true)"
+check "a shell key opens no shell on this computer" True "$(ktty gate-sh komando shell gme | refusedq && echo True || echo False)"
+check "a shell key sends komando shell SERVER only" True "$(ktty gate-sh komando shell gx -o json | refusedq && echo True || echo False)"
+check "a key without --shell-access opens none, terminal or not" True "$(ktty gate-rw komando shell gx | refusedq && echo True || echo False)"
+ktty gate-sh komando shell gx >/dev/null || true # through the gate, with sshd's terminal
 check "a read key with --network may" True "$(kssh gate-net komando exec gx --read-only -o json -- uptime | jget '(d.get("error") or {}).get("code") != "SSH_GATE_NETWORK_REQUIRED"')"
 check "no shell: another program" SSH_GATE_REFUSED "$(kssh gate-rw id | code || true)"
 check "no shell: a second command" SSH_GATE_SYNTAX "$(kssh gate-rw 'komando list; id' | code || true)"
@@ -73,11 +89,13 @@ check "no keychain here: the store's key is a file" True "$(gx test -f /home/age
 # the komando a key runs is an agent: --yes on a protected server needs a person, who is not at this screen
 gx komando host edit gx --protected -o json >/dev/null
 check "--yes from a key needs a person" PROTECTED_TARGET "$(kssh gate-rw komando exec gx --yes -o json -- touch /tmp/gx | code || true)"
+check "a shell key opens no shell on a protected server" True "$(ktty gate-sh komando shell gx | refusedq && echo True || echo False)"
 A1=$(gx komando audit -n 200 -o json)
 check "audit: every key command, with the key's name" True "$(jget 'sum(1 for e in d["data"]["entries"] if e["command"] == "ssh-gate" and e.get("ssh_gate") in ("phone", "phone-read", "phone-net")) >= 14' <<<"$A1")"
 check "audit: what no key may write here" True "$(jget 'any(e.get("blocked") == "SSH_GATE_REFUSED" and e.get("runs") == "download" for e in d["data"]["entries"])' <<<"$A1")"
 check "audit: the refusals and why" True "$(jget 'any(e.get("blocked") == "SSH_GATE_READ_ONLY" and e["ok"] is False and e.get("reason") for e in d["data"]["entries"])' <<<"$A1")"
 check "audit: what the key's komando did names the key" True "$(jget 'any(e["command"] != "ssh-gate" and e.get("agent") == "ssh-gate key phone" for e in d["data"]["entries"])' <<<"$A1")"
+check "audit: the shell went through the gate, with sshd's terminal" True "$(jget 'any(e.get("ssh_gate") == "ops" and e.get("runs") == "shell" and e["ok"] is True and e.get("shell_access") is True for e in d["data"]["entries"])' <<<"$A1")"
 check "audit: the client's own name is kept apart" True "$(jget 'any(e.get("client_agent") == "Komando" for e in d["data"]["entries"])' <<<"$A1")"
-gx sh -c "sed -i '/ssh-gate --name phone/d' ~/.ssh/authorized_keys; rm -rf ~/.komando"
+gx sh -c "sed -i '/ssh-gate --name phone/d; /ssh-gate --name ops/d' ~/.ssh/authorized_keys; rm -rf ~/.komando"
 docker exec "$GATE" rm -f /usr/local/bin/komando

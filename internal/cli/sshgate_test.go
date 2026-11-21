@@ -625,6 +625,38 @@ func TestSSHGateRefuses(t *testing.T) {
 	}
 }
 
+// A key whose line has no --shell-access opens no shell, also when its call has a
+// terminal (pty added to its line by hand), and its audit records say
+// nothing of a shell.
+func TestSSHGateNoShellWithoutFlag(t *testing.T) {
+	invHome(t)
+	gateInventory(t)
+	t.Setenv("SSH_TTY", "/dev/pts/3")
+	saved := tcl.terminal
+	t.Cleanup(func() { tcl.terminal = saved })
+	tcl.terminal = true
+	for _, args := range [][]string{{"--name", "full"}, {"--name", "read", "--read-only"}} {
+		for _, line := range []string{"komando shell web", "komando ssh web", "komando db shell pg", "komando cluster shell k8s pod/x"} {
+			ran, _, e := gateRun(t, line, args...)
+			if ran != nil || e == nil || e.Code != "SSH_GATE_REFUSED" || !strings.Contains(e.Message, "needs a person at a terminal on this computer") {
+				t.Errorf("%v %q: ran %q, error %+v", args, line, ran, e)
+				continue
+			}
+			a := lastAudit(t)
+			if _, has := a["shell_access"]; has || a["blocked"] != "SSH_GATE_REFUSED" {
+				t.Errorf("%v %q: audit %v", args, line, a)
+			}
+		}
+	}
+	ran, _, e := gateRun(t, "komando list -o json", "--name", "full")
+	if !slices.Equal(ran, []string{"komando", "list", "-o", "json"}) {
+		t.Errorf("list with a terminal: ran %q, error %+v", ran, e)
+	}
+	if _, has := lastAudit(t)["shell_access"]; has {
+		t.Errorf("audit of a key without --shell-access names a shell")
+	}
+}
+
 // What a key sent is kept in the audit log with secret-looking values
 // hidden, as other records are.
 func TestSSHGateAuditHidesSecrets(t *testing.T) {
@@ -685,6 +717,35 @@ func TestSSHGateLine(t *testing.T) {
 	wantCode(t, "USAGE", "ssh-gate", "line", "--name", "a b", key)
 	if _, e := invRun(t, "ssh-gate", "line", key); e == nil {
 		t.Error("no --name: accepted")
+	}
+}
+
+// --shell-access: the line lets sshd give the key a terminal (pty), and the gate
+// knows the key may open a shell. Only for a key that may change things.
+func TestSSHGateLineShell(t *testing.T) {
+	unixOnly(t, "ssh-gate line writes an authorized_keys command= for a Unix shell")
+	invHome(t)
+	pub, _, _ := ed25519.GenerateKey(rand.Reader)
+	sp, _ := ssh.NewPublicKey(pub)
+	key := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(sp)))
+	d := mustRun(t, "ssh-gate", "line", "--name", "ops", "--shell-access", key+" ops key")
+	command := `command="` + gateShellQuote(komandoPath()) + ` ssh-gate --name ops --shell-access"`
+	if line, _ := d["line"].(string); line != "restrict,pty,"+command+" "+key+" ops key" || d["shell_access"] != true || d["read_only"] != false {
+		t.Errorf("line %v", d)
+	}
+	line, _ := d["line"].(string)
+	if _, _, opts, _, err := ssh.ParseAuthorizedKey([]byte(line)); err != nil || !slices.Equal(opts, []string{"restrict", "pty", command}) {
+		t.Errorf("sshd would read %v %v", opts, err)
+	}
+	d = mustRun(t, "ssh-gate", "line", "--name", "phone", key)
+	if l, _ := d["line"].(string); strings.Contains(l, "pty") || strings.Contains(l, "--shell") || d["shell_access"] != false {
+		t.Errorf("without --shell-access: %v", d)
+	}
+	for _, args := range [][]string{{"--read-only"}, {"--read-only", "--network"}} {
+		e := wantCode(t, "USAGE", append(append([]string{"ssh-gate", "line", "--name", "ops", "--shell-access"}, args...), key)...)
+		if !strings.Contains(e.Message, "--read-only") {
+			t.Errorf("--shell-access %v: %+v", args, e)
+		}
 	}
 }
 

@@ -186,12 +186,13 @@ func TestSSHGateNoNetwork(t *testing.T) {
 func TestSSHGateStatus(t *testing.T) {
 	invHome(t)
 	for _, c := range []struct {
-		args              []string
-		readOnly, network bool
+		args                     []string
+		readOnly, network, shell bool
 	}{
-		{[]string{"--name", "phone-read", "--read-only"}, true, false},
-		{[]string{"--name", "phone-net", "--read-only", "--network"}, true, true},
-		{[]string{"--name", "phone"}, false, true},
+		{[]string{"--name", "phone-read", "--read-only"}, true, false, false},
+		{[]string{"--name", "phone-net", "--read-only", "--network"}, true, true, false},
+		{[]string{"--name", "phone"}, false, true, false},
+		{[]string{"--name", "ops", "--shell-access"}, false, true, true},
 	} {
 		t.Setenv("SSH_ORIGINAL_COMMAND", "KOMANDO_AGENT=Komando komando ssh-gate status -o json")
 		t.Setenv("SSH_CONNECTION", "203.0.113.7 51000 10.0.0.2 22")
@@ -202,7 +203,7 @@ func TestSSHGateStatus(t *testing.T) {
 		if e != nil {
 			t.Fatalf("%v: %+v", c.args, e)
 		}
-		if d["gate"] != true || d["name"] != c.args[1] || d["read_only"] != c.readOnly || d["network"] != c.network || d["komando"] == "" {
+		if d["gate"] != true || d["name"] != c.args[1] || d["read_only"] != c.readOnly || d["network"] != c.network || d["shell_access"] != c.shell || d["komando"] == "" {
 			t.Errorf("%v: %v", c.args, d)
 		}
 		if a := lastAudit(t); a["ok"] != true || a["runs"] != "ssh-gate.status" {
@@ -213,8 +214,21 @@ func TestSSHGateStatus(t *testing.T) {
 	t.Setenv("SSH_ORIGINAL_COMMAND", "")
 	t.Setenv("SSH_CONNECTION", "")
 	d := mustRun(t, "ssh-gate", "status")
-	if d["gate"] != false || d["name"] != "" || d["read_only"] != false || d["network"] != true {
+	if d["gate"] != false || d["name"] != "" || d["read_only"] != false || d["network"] != true || d["shell_access"] != false {
 		t.Errorf("here: %v", d)
+	}
+}
+
+func TestGateStatusText(t *testing.T) {
+	for s, want := range map[gateStatus]string{
+		{Gate: true, Name: "full", Network: true, Komando: "1.2.3"}:                   "key full: may change things (komando 1.2.3)\n",
+		{Gate: true, Name: "ops", Network: true, ShellAccess: true, Komando: "1.2.3"}: "key ops: may change things and open a shell on a server (komando 1.2.3)\n",
+		{Gate: true, Name: "r", ReadOnly: true, Komando: "1.2.3"}:                     "key r: read only, no network (komando 1.2.3)\n",
+		{Gate: true, Name: "n", ReadOnly: true, Network: true, Komando: "1.2.3"}:      "key n: read only, network checks allowed (komando 1.2.3)\n",
+	} {
+		if got := s.Text(); got != want {
+			t.Errorf("%+v: %q, want %q", s, got, want)
+		}
 	}
 }
 

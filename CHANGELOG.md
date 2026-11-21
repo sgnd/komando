@@ -9,6 +9,15 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `komando ssh-gate line --shell-access`: a key that may change things
+  may also open a login shell on one server, `ssh -t HOST komando shell
+  SERVER`. Its line starts with `restrict,pty,`, so sshd gives it a
+  terminal when it asks for one. ssh-gate refuses the shell on a
+  protected server, a Windows server or this computer, with any other
+  word or flag, and without the terminal (`SSH_GATE_REFUSED`); `db shell`
+  and `cluster shell` stay refused, and every other command gets the
+  answer a key without `--shell-access` gets. `ssh-gate status` and
+  `ssh-gate line` show `shell_access`. Not with `--read-only` (`USAGE`).
 - `komando host ca add|list|rm|revoke`: trust servers through the SSH
   certificate authority that signs their host keys (`@cert-authority`),
   with no pin per server (C38b). A pattern names at least the domain
