@@ -86,10 +86,10 @@ func openShell(cl *call, ctx context.Context, st *store.State, h *store.Host) er
 	} else if err := gateSessionStart(cl, st, h.Name); err != nil {
 		return err
 	}
-	begun := time.Now()
+	begun := shellClock.now()
 	tt := shellTTY()
 	var started time.Time
-	code, lost := 0, false
+	code, lost, stop := 0, false, ""
 	// a Windows server over SSH gives its own shell (cmd or PowerShell)
 	err := shellDial(cl, allowWindows(ctx), st, h, func(conn shellConn) error {
 		w, hgt, _ := tt.Size()
@@ -105,7 +105,18 @@ func openShell(cl *call, ctx context.Context, st *store.State, h *store.Host) er
 			return err
 		}
 		defer restore()
-		err = driveShell(conn, tt, shellIO{cl.stdin, cl.out.W, cl.out.Err}, func() { started = time.Now() })
+		sio := shellIO{in: cl.stdin, out: cl.out.W, err: cl.out.Err}
+		if keyed {
+			sio.idle = newIdleWatch(shellIdleLimit, shellClock)
+		}
+		stop, err = driveShell(ctx, conn, tt, sio, func() { started = time.Now() })
+		switch stop {
+		case sessionIdle:
+			return out.Errf(out.ExitTimeout, "SHELL_IDLE_TIMEOUT", "connect again (ssh -t HOST komando shell "+h.Name+"); run long work as a job: `komando job start "+h.Name+" -- COMMAND`",
+				"the shell on %s ended after %s with no input and no output", h.Name, shellIdleLimit)
+		case sessionHangup:
+			return ctx.Err()
+		}
 		if ee, ok := err.(*ssh.ExitError); ok {
 			code = ee.ExitStatus()
 			return exitCode(code)
@@ -120,12 +131,14 @@ func openShell(cl *call, ctx context.Context, st *store.State, h *store.Host) er
 	if keyed {
 		end := sessionExit
 		switch {
+		case stop != "":
+			end = stop
 		case started.IsZero():
 			end = sessionError
 		case lost:
 			end = sessionLost
 		}
-		if aerr := gateSessionEnd(cl, st, h.Name, time.Since(begun), end, code); err == nil {
+		if aerr := gateSessionEnd(cl, st, h.Name, shellClock.now().Sub(begun), end, code); err == nil {
 			err = aerr
 		}
 	}

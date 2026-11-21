@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sgnd/komando/internal/store"
 )
@@ -137,4 +138,70 @@ func TestShellNotKeyNoSessionRecords(t *testing.T) {
 	if recs := sessionRecords(t); len(recs) != 0 {
 		t.Errorf("session records for a person: %v", recs)
 	}
+}
+
+// A key's shell with no input and no output for 30 minutes ends, and its
+// end record says idle.
+func TestGateShellIdleEnds(t *testing.T) {
+	conn, _ := gateSessionLab(t)
+	fc := newSessionClock()
+	saved := shellClock
+	t.Cleanup(func() { shellClock = saved })
+	shellClock = fc.clock()
+	res := make(chan error, 1)
+	go func() { res <- gateOpenShell(t, "web") }()
+	wt := fc.nextWait(t)
+	fc.advance(shellIdleLimit)
+	wt.c <- fc.now()
+	var err error
+	select {
+	case err = <-res:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the idle shell did not end")
+	}
+	if e := toErr(err); e == nil || e.Code != "SHELL_IDLE_TIMEOUT" {
+		t.Errorf("error %v, want SHELL_IDLE_TIMEOUT", err)
+	}
+	select {
+	case <-conn.closed:
+	default:
+		t.Error("the SSH session was left open")
+	}
+	recs := sessionRecords(t)
+	if len(recs) != 2 {
+		t.Fatalf("records %v", recs)
+	}
+	wantRecord(t, recs[1], map[string]any{"session": "end", "end": "idle", "ok": false, "duration_ms": shellIdleLimit.Milliseconds()})
+}
+
+// A key's shell whose terminal closes (SIGHUP) ends, and its end record
+// says hangup.
+func TestGateShellHangupEnds(t *testing.T) {
+	conn, _ := gateSessionLab(t)
+	st, err := store.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	res := make(chan error, 1)
+	go func() { res <- openShell(tcl, ctx, st, st.Hosts["web"]) }()
+	cancel()
+	select {
+	case err = <-res:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the shell outlived its terminal")
+	}
+	if e := toErr(err); e == nil || e.Code != "CANCELLED" {
+		t.Errorf("error %v, want CANCELLED", err)
+	}
+	select {
+	case <-conn.closed:
+	default:
+		t.Error("the SSH session was left open")
+	}
+	recs := sessionRecords(t)
+	if len(recs) != 2 {
+		t.Fatalf("records %v", recs)
+	}
+	wantRecord(t, recs[1], map[string]any{"session": "end", "end": "hangup", "ok": false})
 }

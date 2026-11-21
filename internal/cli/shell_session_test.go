@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"io"
 	"os"
@@ -67,7 +68,7 @@ func (f *fakeTerm) setSize(w, h int) {
 func TestShellWindowChange(t *testing.T) {
 	conn, tt := newFakeShell(), newFakeTerm(80, 24)
 	done := make(chan error, 1)
-	go func() { done <- driveShell(conn, tt, shellIO{}, func() {}) }()
+	go func() { _, err := driveShell(context.Background(), conn, tt, shellIO{}, func() {}); done <- err }()
 	tt.setSize(132, 43)
 	tt.resize <- os.Interrupt // the channel only says the size changed (no SIGWINCH on Windows)
 	select {

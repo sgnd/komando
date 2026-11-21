@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"sync"
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/term"
@@ -74,23 +75,63 @@ var shellTTY = func() shellTerm { return fdTerm(os.Stdin.Fd()) }
 type shellIO struct {
 	in       io.Reader
 	out, err io.Writer
+	idle     *idleWatch // nil: no idle limit
 }
 
 // driveShell runs the login shell on conn with sio until it ends, and
-// passes each new size of the terminal tt on to the remote pty. started
-// is called once the shell runs.
-func driveShell(conn shellConn, tt shellTerm, sio shellIO, started func()) error {
-	conn.Attach(sio.in, sio.out, sio.err)
-	resized, stop := tt.Resized()
-	defer stop()
+// passes each new size of the terminal tt on to the remote pty. It closes
+// the session when ctx ends (hangup) or when sio.idle's limit passes
+// (idle), and returns which as stop. started is called once the shell runs.
+func driveShell(ctx context.Context, conn shellConn, tt shellTerm, sio shellIO, started func()) (stop string, err error) {
+	in, out, errOut := sio.in, sio.out, sio.err
+	if sio.idle != nil {
+		in, out, errOut = sio.idle.reader(in), sio.idle.writer(out), sio.idle.writer(errOut)
+	}
+	conn.Attach(in, out, errOut)
+	resized, stopResize := tt.Resized()
+	defer stopResize()
 	done := make(chan struct{})
 	defer close(done)
 	go forwardResize(resized, done, tt.Size, conn.WindowChange)
 	if err := conn.Shell(); err != nil {
-		return err
+		return "", err
 	}
 	started()
-	return conn.Wait()
+	var mu sync.Mutex
+	why := ""
+	end := func(reason string) {
+		mu.Lock()
+		first := why == ""
+		if first {
+			why = reason
+		}
+		mu.Unlock()
+		if first {
+			_ = conn.Close()
+		}
+	}
+	go func() {
+		select {
+		case <-ctx.Done():
+			end(sessionHangup)
+		case <-done:
+		}
+	}()
+	if sio.idle != nil {
+		go func() {
+			if sio.idle.wait(done) {
+				end(sessionIdle)
+			}
+		}()
+	}
+	err = conn.Wait()
+	mu.Lock()
+	stop = why
+	mu.Unlock()
+	if stop == "" && ctx.Err() != nil {
+		stop = sessionHangup // the connection closed on ctx before the watch saw it
+	}
+	return stop, err
 }
 
 // forwardResize sends the terminal's size to change on each signal on ch,

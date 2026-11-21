@@ -17,9 +17,11 @@ import (
 
 // Why a key's shell session ended (the end record's "end").
 const (
-	sessionExit  = "exit"  // the shell ended (exit_code says how)
-	sessionLost  = "lost"  // the connection to the server broke
-	sessionError = "error" // the shell never started (connect, login, pty)
+	sessionExit   = "exit"   // the shell ended (exit_code says how)
+	sessionLost   = "lost"   // the connection to the server broke
+	sessionError  = "error"  // the shell never started (connect, login, pty)
+	sessionIdle   = "idle"   // no input and no output for shellIdleLimit
+	sessionHangup = "hangup" // komando's terminal closed, or a signal stopped it
 )
 
 // gateSessionStart writes the record of a key's shell session on server as
