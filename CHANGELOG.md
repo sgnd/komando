@@ -7,6 +7,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+Release hold: no release ships with the macOS approval window changes
+below until a retest on a real Mac shows **Allow once** followed by the
+device-owner check, a visible focus on Tab, and the arrows scrolling with
+no click.
+
 ### Added
 
 - `KOMANDO_APPROVAL_DEBUG`: on a Mac, each approval window adds what it
