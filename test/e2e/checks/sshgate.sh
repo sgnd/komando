@@ -26,12 +26,15 @@ kssh() {
   ssh -T -p "$E2E_SSH_DIRECT" -i "$TMP/$key" -o IdentitiesOnly=yes -o BatchMode=yes -o PreferredAuthentications=publickey \
     -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR agent@127.0.0.1 "$@" </dev/null
 }
-# ktty KEY COMMAND: the same with a terminal (ssh -tt), as a terminal app asks for
+# ktty KEY COMMAND: the same with a terminal (ssh -tt), as a terminal app asks for.
+# Its answer is the text on that terminal. ssh's own exit code (the gate's, or
+# 255 when sshd gives no terminal) is dropped: run.sh has pipefail, and a refusal
+# is a non-zero exit that must not fail the grep it is piped into.
 ktty() {
   local key=$1
   shift
   ssh -tt -p "$E2E_SSH_DIRECT" -i "$TMP/$key" -o IdentitiesOnly=yes -o BatchMode=yes -o PreferredAuthentications=publickey \
-    -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR agent@127.0.0.1 "$@" </dev/null 2>&1
+    -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR agent@127.0.0.1 "$@" </dev/null 2>&1 || true
 }
 code() { jget 'd["error"]["code"]'; }
 refusedq() { grep -Eq 'code SSH_GATE_REFUSED|"code":"SSH_GATE_REFUSED"'; } # text (a terminal) or JSON
@@ -71,7 +74,9 @@ check "ssh-gate status: a shell key" "False True" "$(kssh gate-sh komando ssh-ga
 check "a shell key opens no shell without a terminal" SSH_GATE_REFUSED "$(kssh gate-sh komando shell gx | code || true)"
 check "a shell key opens no shell on this computer" True "$(ktty gate-sh komando shell gme | refusedq && echo True || echo False)"
 check "a shell key sends komando shell SERVER only" True "$(ktty gate-sh komando shell gx -o json | refusedq && echo True || echo False)"
-check "a key without --shell-access opens none, terminal or not" True "$(ktty gate-rw komando shell gx | refusedq && echo True || echo False)"
+# a line without pty (every key but a --shell-access one): sshd gives no terminal, so the call never starts
+check "a key without --shell-access gets no terminal" True "$(ktty gate-rw komando shell gx | grep -q 'PTY allocation request failed' && echo True || echo False)"
+check "a key without --shell-access opens no shell" SSH_GATE_REFUSED "$(kssh gate-rw komando shell gx | code || true)"
 ktty gate-sh komando shell gx >/dev/null || true # through the gate, with sshd's terminal
 check "a read key with --network may" True "$(kssh gate-net komando exec gx --read-only -o json -- uptime | jget '(d.get("error") or {}).get("code") != "SSH_GATE_NETWORK_REQUIRED"')"
 check "no shell: another program" SSH_GATE_REFUSED "$(kssh gate-rw id | code || true)"
