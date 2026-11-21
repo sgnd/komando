@@ -208,7 +208,7 @@ func TestMacPanelHandlersCannotThrow(t *testing.T) {
 	for name, want := range map[string]string{
 		"becomeFirstResponder": "implementation: function () { try { showFocus('script'); note('script area has focus'); } catch (x) { note('error in becomeFirstResponder: ' + x); } return true; } },",
 		"resignFirstResponder": "implementation: function () { try { showFocus(''); note('script area lost focus'); } catch (x) { note('error in resignFirstResponder: ' + x); } return true; } }",
-		"scrolled:":            "implementation: function (n) { try { if (SEEN) return; var r = CLIP.documentVisibleRect; if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = true; note('read to the end'); } } catch (x) { note('error in scrolled: ' + x); } } },",
+		"scrolled:":            "implementation: function (n) { try { if (SEEN) return; var r = CLIP.documentVisibleRect; if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = !HELD; note('read to the end'); } } catch (x) { note('error in scrolled: ' + x); } } },",
 		// a constant or a variable cannot throw
 		"isFlipped":             "implementation: function () { return true; } },",
 		"acceptsFirstResponder": "implementation: function () { return SCROLLS; } },",
@@ -454,7 +454,7 @@ func TestMacPanelSpacePressesFocusedButton(t *testing.T) {
 	if !strings.Contains(onKeyTab, "SEEN)") {
 		t.Error("Tab can stop on Allow once before the gate opens")
 	}
-	if !strings.Contains(s, "'allow:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note((SEEN ? 'end: Allow once, ' : 'Allow once ignored: not read to the end, ') + how()); if (!SEEN) return;") {
+	if !strings.Contains(s, "'allow:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note((SEEN ? 'end: Allow once, ' : 'Allow once ignored: not read to the end, ') + how()); if (!SEEN || HELD) return;") {
 		t.Error("the Allow gate changed")
 	}
 }
@@ -522,7 +522,7 @@ func TestMacPanelReturnEscUnchanged(t *testing.T) {
 	if !strings.Contains(s, "deny.keyEquivalent = '\\r'") {
 		t.Error("Return is not Deny's key equivalent")
 	}
-	if strings.Count(s, "ALLOW_BTN.enabled = true") != 1 || !strings.Contains(s, "'allow:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note((SEEN ? 'end: Allow once, ' : 'Allow once ignored: not read to the end, ') + how()); if (!SEEN) return;") {
+	if strings.Count(s, "ALLOW_BTN.enabled = !HELD") != 1 || !strings.Contains(s, "'allow:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note((SEEN ? 'end: Allow once, ' : 'Allow once ignored: not read to the end, ') + how()); if (!SEEN || HELD) return;") {
 		t.Error("the Allow gate changed")
 	}
 }

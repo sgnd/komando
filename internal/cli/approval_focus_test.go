@@ -120,3 +120,17 @@ func TestMacPanelJoinsFullScreenSpaces(t *testing.T) {
 		t.Errorf("script has no %q", want)
 	}
 }
+
+// The 500 ms hold cannot be skipped: reading to the end does not enable
+// Allow once while it is held, and allow: ignores a press during it.
+func TestMacPanelHoldCannotBeSkipped(t *testing.T) {
+	s := macAlertScript
+	for _, want := range []string{
+		"SEEN = true; ALLOW_BTN.enabled = !HELD;",
+		"if (!SEEN || HELD) return; CHOICE = 'Allow'",
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("script has no %q", want)
+		}
+	}
+}

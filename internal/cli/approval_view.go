@@ -364,12 +364,12 @@ ObjC.registerSubclass({
   }
 });
 // the panel comes back to the front when it stops being key, at most 3
-// times in 10 seconds, and never because another komando panel took the
-// key: two panels or a full-screen app must not re-front each other
+// times in 10 seconds: the cap stops two panels (each in its own osascript
+// process) or a full-screen app from re-fronting each other
 var REFRONTS = [];
 // HELD is true for 500 ms after a re-front: the Allow once button is disabled
-// then (a disabled button ignores clicks and key presses), so a click or key
-// meant for the app that had the focus cannot answer the panel
+// then; scrolled: and allow: both honour it, so a click or key meant for the
+// app that had the focus cannot answer the panel
 var HELD = false;
 function holdAllow() {
   HELD = true;
@@ -377,6 +377,8 @@ function holdAllow() {
   var h = $.NSTimer.timerWithTimeIntervalRepeatsBlock(0.5, false, function () { HELD = false; ALLOW_BTN.enabled = SEEN; });
   $.NSRunLoop.currentRunLoop.addTimerForMode(h, $.NSRunLoopCommonModes);
 }
+// otherPanelIsKey sees only this process's windows; the cap above is what
+// holds against a panel of another process
 function otherPanelIsKey() {
   try {
     var kw = APP.keyWindow;
@@ -403,9 +405,9 @@ ObjC.registerSubclass({
     // (Touch ID or the login password) runs after this panel and no key
     // press can satisfy it. A change that drops or weakens that check must
     // stop keys reaching allow:.
-    'allow:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note((SEEN ? 'end: Allow once, ' : 'Allow once ignored: not read to the end, ') + how()); if (!SEEN) return; CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } },
+    'allow:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note((SEEN ? 'end: Allow once, ' : 'Allow once ignored: not read to the end, ') + how()); if (!SEEN || HELD) return; CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } },
     // the last line is in view when the visible rect reaches the document's bottom
-    'scrolled:': { types: ['void', ['id']], implementation: function (n) { try { if (SEEN) return; var r = CLIP.documentVisibleRect; if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = true; note('read to the end'); } } catch (x) { note('error in scrolled: ' + x); } } },
+    'scrolled:': { types: ['void', ['id']], implementation: function (n) { try { if (SEEN) return; var r = CLIP.documentVisibleRect; if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = !HELD; note('read to the end'); } } catch (x) { note('error in scrolled: ' + x); } } },
     'windowWillClose:': { types: ['void', ['id']], implementation: function (n) { if (DEBUG) note('end: window closes, ' + how()); if (!CHOSEN) { CHOICE = 'Deny'; CHOSEN = true; } APP.stopModalWithCode(DENY); } },
     // losing key (another app or session took the focus) ends nothing: the
     // panel comes back to the front, and only an answer or the timer ends it
