@@ -247,7 +247,7 @@ jobs:
             done
             if [ -n "$id" ]; then
               sleep 1
-              read -r bx by bw bh <<< "$(bash "$gui" osascript -l JavaScript "$RUNNER_TEMP/winid.js" bounds </dev/null 2>/dev/null)"
+              read -r bx by bw bh <<< "$(bash "$gui" osascript -l JavaScript "$RUNNER_TEMP/winid.js" bounds </dev/null 2>/dev/null || true)"
               echo "$name: panel at $bx,$by size ${bw}x$bh"
               for st in ${steps//,/ }; do
                 case "$st" in
@@ -276,10 +276,11 @@ jobs:
               [ -n "$note" ] && why=$note
             fi
             stayed=no; grep -q '(komando stops it at ' "$f.log" 2>/dev/null && stayed=yes
-            # the script's top edge after the last scroll, and the focus at open and after the last Tab
-            y=$(grep -Eo 'scrolled to y=[0-9]+' "$f.log" 2>/dev/null | tail -1 | sed 's/.*=//')
-            f0=$(grep -E '^js \+[0-9]+ shown ' "$f.log" 2>/dev/null | sed -n 's/.* focus \([a-z]*\)$/\1/p')
-            f1=$(grep -E '^js \+[0-9]+ focus moved ' "$f.log" 2>/dev/null | tail -1 | sed -n 's/.* focus \([a-z]*\)$/\1/p')
+            # the script's top edge after the last scroll, and the focus at open and after the last Tab;
+            # "|| true": the step runs with -e and pipefail, and a run may have none of them
+            y=$(grep -Eo 'scrolled to y=[0-9]+' "$f.log" 2>/dev/null | tail -1 | sed 's/.*=//' || true)
+            f0=$(grep -E '^js \+[0-9]+ shown ' "$f.log" 2>/dev/null | sed -n 's/.* focus \([a-z]*\)$/\1/p' || true)
+            f1=$(grep -E '^js \+[0-9]+ focus moved ' "$f.log" 2>/dev/null | tail -1 | sed -n 's/.* focus \([a-z]*\)$/\1/p' || true)
             # each kind's evidence, in the log's order
             order() { awk -v a="$1" -v b="$2" 'index($0, a) && !i { i = NR } index($0, b) && i && !j { j = NR } END { exit !(i && j) }' "$f.log"; }
             if [ "$found" = no ]; then verdict="FAIL: no panel on screen within 10 s"
