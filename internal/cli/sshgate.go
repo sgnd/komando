@@ -576,6 +576,25 @@ func gateChildEnv(label string) []string {
 	return append(env, gateEnv+"="+label, "KOMANDO_NO_DIALOG=1")
 }
 
+// gateDecide reads what the key sent and says what the gate runs for it:
+// the request, the command's name and the -o it asked for, or the stop.
+func gateDecide(cl *call, key gateKey) (req gateRequest, runs, output string, refused *out.Error) {
+	req, refused = parseGate(cl.getenv("SSH_ORIGINAL_COMMAND"))
+	if refused == nil && cl.isAgent() {
+		// sshd starts the gate for a key with none of an agent's
+		// variables; an agent here runs komando itself, as an agent
+		refused = out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "an AI agent runs komando directly (`komando list`), not through ssh-gate",
+			"ssh-gate runs when sshd starts it for a key, and this call comes from an AI agent (%s)", cl.caller().Agent)
+	}
+	if refused == nil {
+		runs, output, refused = gateCheck(req.args, key)
+		if f, ok := outputFormat(cl, output); ok && refused != nil && output != "" {
+			cl.out.Format = f // the refusal comes as the key asked for output
+		}
+	}
+	return req, runs, output, refused
+}
+
 func sshGateCmd() *cobra.Command {
 	var name string
 	var readOnly, network, shellAccess bool
@@ -596,7 +615,8 @@ komando then runs as for an AI agent: secret values stay [hidden], --reveal
 and --allow-dangerous are refused, and --yes for a protected server needs a
 person on this computer. Commands that need a person at a terminal (shell,
 db shell, secret passphrase ...) are refused (a --shell-access key may open
-` + "`komando shell SERVER`" + `: see ssh-gate line). The key runs commands on
+` + "`komando shell SERVER`" + `: see ssh-gate line; that shell is full control
+of the server, outside these rules). The key runs commands on
 servers, never one that writes on this computer or reads a file here (a
 script, SQL or upload source by path; '-' for the key's own input works):
 no download or cp to a file here (download --to - and cp SRC - stream to
@@ -632,14 +652,7 @@ audit setting is off.`,
 			// --network only narrows a read key
 			key := gateKey{readOnly: readOnly, network: network || !readOnly, shellAccess: shellAccess, tty: gateTTY(cl)}
 			cl.terminal = false // the key's terminal: the gate asks nobody anything on it
-			req, refused := parseGate(cl.getenv("SSH_ORIGINAL_COMMAND"))
-			runs, output := "", ""
-			if refused == nil {
-				runs, output, refused = gateCheck(req.args, key)
-				if f, ok := outputFormat(cl, output); ok && refused != nil && output != "" {
-					cl.out.Format = f // the refusal comes as the key asked for output
-				}
-			}
+			req, runs, output, refused := gateDecide(cl, key)
 			if err := gateAudit(cl, name, key, req, runs, refused); err != nil {
 				return err
 			}
@@ -653,6 +666,10 @@ audit setting is off.`,
 				}
 				cl.out.Print("ssh-gate.status", gateStatus{Gate: true, Name: name, ReadOnly: key.readOnly, Network: key.network, ShellAccess: key.shellAccess, Komando: Version}, nil)
 				return nil
+			}
+			if runs == "shell" && key.shellAccess && key.tty {
+				// allowed by gateShell: the gate opens it itself
+				return gateRunShell(cl, cmd.Context(), name, req.args[1])
 			}
 			self, err := os.Executable()
 			if err != nil {

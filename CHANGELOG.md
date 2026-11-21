@@ -12,6 +12,9 @@ below until a retest on a real Mac shows **Allow once** followed by the
 device-owner check, a visible focus on Tab, and the arrows scrolling with
 no click.
 
+Release hold: no release until the shell work is complete (`ssh-gate
+line --shell-access` below, with its session audit and idle limit).
+
 ### Added
 
 - `KOMANDO_APPROVAL_DEBUG`: on a Mac, each approval window adds what it
@@ -31,6 +34,11 @@ no click.
   and `cluster shell` stay refused, and every other command gets the
   answer a key without `--shell-access` gets. `ssh-gate status` and
   `ssh-gate line` show `shell_access`. Not with `--read-only` (`USAGE`).
+  ssh-gate opens the shell in its own process, after its checks; `komando
+  shell` itself still opens none for an AI agent or a key. When the key's
+  terminal changes size, the server's terminal follows. A shell key is
+  full control of the server it opens on, outside komando's per-command
+  policy, masking and audit.
 - `komando host ca add|list|rm|revoke`: trust servers through the SSH
   certificate authority that signs their host keys (`@cert-authority`),
   with no pin per server (C38b). A pattern names at least the domain
@@ -90,6 +98,24 @@ no click.
 
 ### Security
 
+- `ssh-gate`: no `--shell-access` key opens a shell while a deny rule of
+  your own is set (`extra_deny_patterns`, `SSH_GATE_REFUSED`): komando
+  does not see what is typed in a shell, so a shell would get past them.
+- `ssh-gate`: each shell session of a key is in the audit log when it
+  starts and when it ends, with the key's name (`ssh_gate`), the server
+  (`hosts`) and `session`; the end record adds `duration_ms`, why it
+  ended (`end`: `exit`, `idle`, `hangup`, `lost` or `error`) and the
+  shell's `exit_code`. Both are written even when the audit setting is
+  off, and no shell opens when the start record cannot be written. If
+  the gate's process is killed, there is no end record; the start record
+  still shows the session.
+- `ssh-gate`: started by an AI agent on the komando computer instead of
+  by sshd for a key, the gate runs nothing (`SSH_GATE_REFUSED`); the
+  agent runs komando directly, under its own rules.
+- `ssh-gate`: a key's shell with no input and no output for 30 minutes
+  ends (`SHELL_IDLE_TIMEOUT`, exit 7).
+- `komando shell`: when komando's terminal closes or a signal stops it,
+  the session on the server is closed too (`CANCELLED`).
 - The safety rows of `store.db` carry a policy MAC (C187, C234): the
   protected marks of servers, conns and VPNs, the other server, conn and
   VPN settings komando asks a person for (`forward_agent`,

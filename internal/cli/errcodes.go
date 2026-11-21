@@ -7,7 +7,7 @@ package cli
 var errorCodes = []errorCode{
 	{"AMBIGUOUS_MATCH", 8, "--old matches … times in …", "add surrounding context to --old so it is unique (read the file with `komando fs cat SERVER PATH`), or pass --all"},
 	{"AUDIT_TAMPERED", 1, "the audit log chain is broken at line …", "keep a copy of the file and find out who changed it; komando keeps adding records after it"},
-	{"AUDIT_UNAVAILABLE", 1, "the store, which keeps the audit log, cannot be written: …; nothing was run", "fix the file or folder permissions (`komando doctor` checks them)"},
+	{"AUDIT_UNAVAILABLE", 1, "the audit log cannot be written (…), so the key's command does not run", "fix the file or folder permissions on the komando computer (`komando doctor` checks them)"},
 	{"AUTH_FAILED", 4, "… asks … (two-factor login); only a person can answer it, and none is at a terminal here", "run `komando login SERVER` in a terminal: komando asks you for the code once and keeps the login, so later commands (an AI agent's too) need no code; an AI agent asks the user to run it"},
 	{"AWS_FAILED", 4, "AWS profile …: …", "check the profile in ~/.aws/config"},
 	{"AWS_LOGIN_REQUIRED", 4, "AWS profile …: …", "a person runs `komando login aws --profile …` once, then run it again"},
@@ -225,6 +225,7 @@ var errorCodes = []errorCode{
 	{"SESSION_NOT_FOUND", 3, "no session …", "list sessions with `komando db activity CONN --all`"},
 	{"SFTP_UNAVAILABLE", 4, "sftp: …", "enable the sftp subsystem in sshd_config"},
 	{"SHARED_FOLDER_CONFLICT", 8, "… can be changed by …, not only by root and the SSH user: as root, komando does not write … there (that user could swap it for a link while root writes)", "write it as … instead, for example `komando exec TARGET --sudo-user … --stdin-file FILE -- sh -c 'cat > \"$0\"' …`"},
+	{"SHELL_IDLE_TIMEOUT", 7, "the shell on … ended after … with no input and no output", "connect again (ssh -t HOST komando shell …); run long work as a job: `komando job start … -- COMMAND`"},
 	{"SIZE_CONFLICT", 8, "--size said … bytes, and stdin sent …; nothing was put into place", "send the whole file again: `komando upload TARGET - DEST --size N`"},
 	{"SKIPPED", 1, "skipped: another server failed first, and --fail-fast is on", "run without --fail-fast to reach every server"},
 	{"SOURCE_BUILD", 8, "this komando was built from source (version …), so update does not replace it", "build it again (git pull, then make build), or install a release with the install line: https://github.com/sgnd/komando#install"},

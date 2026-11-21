@@ -77,7 +77,47 @@ check "a shell key sends komando shell SERVER only" True "$(ktty gate-sh komando
 # a line without pty (every key but a --shell-access one): sshd gives no terminal, so the call never starts
 check "a key without --shell-access gets no terminal" True "$(ktty gate-rw komando shell gx | grep -q 'PTY allocation request failed' && echo True || echo False)"
 check "a key without --shell-access opens no shell" SSH_GATE_REFUSED "$(kssh gate-rw komando shell gx | code || true)"
-ktty gate-sh komando shell gx >/dev/null || true # through the gate, with sshd's terminal
+# a server the gate's komando reaches (the bastion, on the same network), its host key pinned by a person here
+echo -n agentpass | gx komando secret set gsh-pass -o json >/dev/null
+gx komando host add gsh agent@bastion --password-ref secret:gsh-pass -o json >/dev/null
+gx komando test gsh -o json >/dev/null
+# kshell KEY SERVER: komando shell SERVER through the gate, in a 24x80 terminal that
+# grows to 33x111 once the shell is up; then it types a line and exit. Prints the screen.
+kshell() {
+  python3 -I - "$TMP/$1" "$E2E_SSH_DIRECT" "$2" <<'PY' || true
+import fcntl, os, pty, select, struct, sys, termios, time
+key, port, server = sys.argv[1:4]
+pid, fd = pty.fork()
+if pid == 0:
+    fcntl.ioctl(0, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 80, 0, 0))
+    os.execvp("ssh", ["ssh", "-tt", "-p", port, "-i", key, "-o", "IdentitiesOnly=yes", "-o", "BatchMode=yes",
+                      "-o", "PreferredAuthentications=publickey", "-o", "StrictHostKeyChecking=no",
+                      "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR", "agent@127.0.0.1", "komando shell " + server])
+out, start, typed = b"", time.time(), False
+while time.time() - start < 60:
+    if not typed and (b"$ " in out or time.time() - start > 20):
+        fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", 33, 111, 0, 0))  # the key's terminal grows
+        time.sleep(1)
+        os.write(fd, b"stty size; echo gate-$((6*7)); exit\r")
+        typed = True
+    if select.select([fd], [], [], 0.2)[0]:
+        try:
+            b = os.read(fd, 4096)
+        except OSError:
+            break
+        if not b:
+            break
+        out += b
+os.waitpid(pid, 0)
+sys.stdout.write(out.decode(errors="replace"))
+PY
+}
+SH=$(kshell gate-sh gsh)
+check "a shell key opens the shell through the gate" True "$(grep -q 'gate-42' <<<"$SH" && echo True || echo False)"
+check "the key's new terminal size reaches the server" True "$(grep -q '33 111' <<<"$SH" && echo True || echo False)"
+gx komando policy deny 'gate-e2e-never' -o json >/dev/null
+check "no shell while a deny rule of your own is set" True "$(ktty gate-sh komando shell gsh | refusedq && echo True || echo False)"
+gx komando policy rm 'gate-e2e-never' --yes -o json >/dev/null
 check "a read key with --network may" True "$(kssh gate-net komando exec gx --read-only -o json -- uptime | jget '(d.get("error") or {}).get("code") != "SSH_GATE_NETWORK_REQUIRED"')"
 check "no shell: another program" SSH_GATE_REFUSED "$(kssh gate-rw id | code || true)"
 check "no shell: a second command" SSH_GATE_SYNTAX "$(kssh gate-rw 'komando list; id' | code || true)"
@@ -101,6 +141,8 @@ check "audit: what no key may write here" True "$(jget 'any(e.get("blocked") == 
 check "audit: the refusals and why" True "$(jget 'any(e.get("blocked") == "SSH_GATE_READ_ONLY" and e["ok"] is False and e.get("reason") for e in d["data"]["entries"])' <<<"$A1")"
 check "audit: what the key's komando did names the key" True "$(jget 'any(e["command"] != "ssh-gate" and e.get("agent") == "ssh-gate key phone" for e in d["data"]["entries"])' <<<"$A1")"
 check "audit: the shell went through the gate, with sshd's terminal" True "$(jget 'any(e.get("ssh_gate") == "ops" and e.get("runs") == "shell" and e["ok"] is True and e.get("shell_access") is True for e in d["data"]["entries"])' <<<"$A1")"
+check "audit: a key's shell session starts, with the key and the server" True "$(jget 'any(e.get("session") == "start" and e.get("ssh_gate") == "ops" and e.get("hosts") == ["gsh"] for e in d["data"]["entries"])' <<<"$A1")"
+check "audit: and ends, with how long and why" True "$(jget 'any(e.get("session") == "end" and e.get("ssh_gate") == "ops" and e.get("hosts") == ["gsh"] and e.get("end") == "exit" and isinstance(e.get("duration_ms"), int) for e in d["data"]["entries"])' <<<"$A1")"
 check "audit: the client's own name is kept apart" True "$(jget 'any(e.get("client_agent") == "Komando" for e in d["data"]["entries"])' <<<"$A1")"
 gx sh -c "sed -i '/ssh-gate --name phone/d; /ssh-gate --name ops/d' ~/.ssh/authorized_keys; rm -rf ~/.komando"
 docker exec "$GATE" rm -f /usr/local/bin/komando

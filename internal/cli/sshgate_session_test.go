@@ -1,0 +1,209 @@
+package cli
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/sgnd/komando/internal/store"
+)
+
+// gateSessionLab is the shell inventory, with the key's connection from
+// 203.0.113.7 and the terminal and SSH session played by the returned fakes.
+func gateSessionLab(t *testing.T) (*fakeShell, *fakeTerm) {
+	t.Helper()
+	invHome(t)
+	shellInventory(t)
+	t.Setenv("SSH_CONNECTION", "203.0.113.7 51000 10.0.0.2 22")
+	conn, tt := newFakeShell(), newFakeTerm(80, 24)
+	savedDial, savedTTY := shellDial, shellTTY
+	t.Cleanup(func() { shellDial, shellTTY = savedDial, savedTTY })
+	shellDial = func(_ *call, _ context.Context, _ *store.State, _ *store.Host, fn func(shellConn) error) error {
+		return fn(conn)
+	}
+	shellTTY = func() shellTerm { return tt }
+	return conn, tt
+}
+
+// gateOpenShell runs openShell on server for the key ops, as gateRunShell
+// does once its checks pass.
+func gateOpenShell(t *testing.T, server string) error {
+	t.Helper()
+	st, err := store.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return openShell(tcl, context.Background(), st, st.Hosts[server], "ops")
+}
+
+// sessionRecords are the audit records of key shell sessions, oldest first.
+func sessionRecords(t *testing.T) []map[string]any {
+	t.Helper()
+	var recs []map[string]any
+	for _, line := range strings.Split(auditText(t), "\n") {
+		var r map[string]any
+		if json.Unmarshal([]byte(line), &r) == nil && r["session"] != nil {
+			recs = append(recs, r)
+		}
+	}
+	return recs
+}
+
+// wantRecord checks the fields of an audit record.
+func wantRecord(t *testing.T, r map[string]any, want map[string]any) {
+	t.Helper()
+	for k, v := range want {
+		if got, _ := json.Marshal(r[k]); string(got) != mustJSON(t, v) {
+			t.Errorf("record %s = %s, want %s (%v)", k, got, mustJSON(t, v), r)
+		}
+	}
+}
+
+func mustJSON(t *testing.T, v any) string {
+	t.Helper()
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}
+
+// A key's shell session is in the audit log when it starts and when it
+// ends: the key's name, the server, how long it ran and why it ended.
+func TestGateShellSessionRecords(t *testing.T) {
+	conn, _ := gateSessionLab(t)
+	conn.end <- nil // the person types exit
+	if err := gateOpenShell(t, "web"); err != nil {
+		t.Fatalf("openShell: %v", err)
+	}
+	recs := sessionRecords(t)
+	if len(recs) != 2 {
+		t.Fatalf("%d session records, want a start and an end: %v", len(recs), recs)
+	}
+	who := map[string]any{"command": "shell", "ssh_gate": "ops", "agent": "ssh-gate key ops", "hosts": []string{"web"},
+		"shell_access": true, "client": "203.0.113.7"}
+	wantRecord(t, recs[0], who)
+	wantRecord(t, recs[0], map[string]any{"session": "start", "ok": true})
+	if _, ok := recs[0]["duration_ms"]; ok {
+		t.Errorf("the start record has a duration: %v", recs[0])
+	}
+	wantRecord(t, recs[1], who)
+	wantRecord(t, recs[1], map[string]any{"session": "end", "end": "exit", "exit_code": 0, "ok": true})
+	if d, ok := recs[1]["duration_ms"].(float64); !ok || d < 0 {
+		t.Errorf("the end record's duration_ms is %v", recs[1]["duration_ms"])
+	}
+}
+
+// A session whose connection breaks, or that never starts, still gets its
+// end record, with why.
+func TestGateShellSessionEndReasons(t *testing.T) {
+	t.Run("lost", func(t *testing.T) {
+		conn, _ := gateSessionLab(t)
+		conn.end <- errors.New("connection reset")
+		_ = gateOpenShell(t, "web")
+		recs := sessionRecords(t)
+		if len(recs) != 2 {
+			t.Fatalf("records %v", recs)
+		}
+		wantRecord(t, recs[1], map[string]any{"session": "end", "end": "lost", "ok": false})
+	})
+	t.Run("error", func(t *testing.T) {
+		gateSessionLab(t)
+		shellDial = func(*call, context.Context, *store.State, *store.Host, func(shellConn) error) error {
+			return errors.New("no route to host")
+		}
+		if err := gateOpenShell(t, "web"); err == nil {
+			t.Fatal("a failed dial is no error")
+		}
+		recs := sessionRecords(t)
+		if len(recs) != 2 {
+			t.Fatalf("records %v", recs)
+		}
+		wantRecord(t, recs[1], map[string]any{"session": "end", "end": "error", "ok": false})
+	})
+}
+
+// A person's shell keeps the plain shell record: no session records.
+func TestShellPersonNoSessionRecords(t *testing.T) {
+	conn, _ := gateSessionLab(t)
+	conn.end <- nil
+	st, err := store.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := openShell(tcl, context.Background(), st, st.Hosts["web"], ""); err != nil {
+		t.Fatal(err)
+	}
+	if recs := sessionRecords(t); len(recs) != 0 {
+		t.Errorf("session records for a person: %v", recs)
+	}
+}
+
+// A key's shell with no input and no output for 30 minutes ends, and its
+// end record says idle.
+func TestGateShellIdleEnds(t *testing.T) {
+	conn, _ := gateSessionLab(t)
+	fc := newSessionClock()
+	saved := shellClock
+	t.Cleanup(func() { shellClock = saved })
+	shellClock = fc.clock()
+	res := make(chan error, 1)
+	go func() { res <- gateOpenShell(t, "web") }()
+	wt := fc.nextWait(t)
+	fc.advance(shellIdleLimit)
+	wt.c <- fc.now()
+	var err error
+	select {
+	case err = <-res:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the idle shell did not end")
+	}
+	if e := toErr(err); e == nil || e.Code != "SHELL_IDLE_TIMEOUT" {
+		t.Errorf("error %v, want SHELL_IDLE_TIMEOUT", err)
+	}
+	select {
+	case <-conn.closed:
+	default:
+		t.Error("the SSH session was left open")
+	}
+	recs := sessionRecords(t)
+	if len(recs) != 2 {
+		t.Fatalf("records %v", recs)
+	}
+	wantRecord(t, recs[1], map[string]any{"session": "end", "end": "idle", "ok": false, "duration_ms": shellIdleLimit.Milliseconds()})
+}
+
+// A key's shell whose terminal closes (SIGHUP) ends, and its end record
+// says hangup.
+func TestGateShellHangupEnds(t *testing.T) {
+	conn, _ := gateSessionLab(t)
+	st, err := store.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	res := make(chan error, 1)
+	go func() { res <- openShell(tcl, ctx, st, st.Hosts["web"], "ops") }()
+	cancel()
+	select {
+	case err = <-res:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the shell outlived its terminal")
+	}
+	if e := toErr(err); e == nil || e.Code != "CANCELLED" {
+		t.Errorf("error %v, want CANCELLED", err)
+	}
+	select {
+	case <-conn.closed:
+	default:
+		t.Error("the SSH session was left open")
+	}
+	recs := sessionRecords(t)
+	if len(recs) != 2 {
+		t.Fatalf("records %v", recs)
+	}
+	wantRecord(t, recs[1], map[string]any{"session": "end", "end": "hangup", "ok": false})
+}

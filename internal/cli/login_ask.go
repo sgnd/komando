@@ -14,7 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sgnd/komando/internal/engine"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -226,7 +225,7 @@ func (cl *call) typeLoginPassword(a askTarget) (string, error) {
 		pw, given, shown := cl.io.AskPassword(text)
 		return windowAnswer(a, pw, given, shown, false, cl.isAgent())
 	}
-	if !cl.isAgent() || cl.getenv(engine.GateEnv) != "" {
+	if !cl.isAgent() || cl.gated() {
 		return "", a.needsPerson(cl.isAgent())
 	}
 	if err := loginCoolingDown(a); err != nil {

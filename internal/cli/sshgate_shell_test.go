@@ -2,7 +2,7 @@ package cli
 
 import (
 	"context"
-	"slices"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -78,23 +78,51 @@ func TestGateShellAllowed(t *testing.T) {
 			t.Errorf("%q: %+v", line, e)
 		}
 	}
-	shellTerminal(t, "/dev/pts/3", true)
-	ran, env, e := gateRun(t, "KOMANDO_AGENT=Komando komando shell web", "--name", "ops", "--shell-access")
-	if !slices.Equal(ran, []string{"komando", "shell", "web"}) {
-		t.Fatalf("ran %q, error %+v", ran, e)
+}
+
+// The gate opens a shell key's shell in its own process, as the key: no
+// komando of its own is started for it, and the session is in the audit log
+// after the gate's own record.
+func TestGateShellRunsInGate(t *testing.T) {
+	conn, _ := gateSessionLab(t)
+	t.Cleanup(resetApproval) // the gate's call takes the key as its caller
+	var dialed string
+	shellDial = func(_ *call, _ context.Context, _ *store.State, h *store.Host, fn func(shellConn) error) error {
+		dialed = h.Name
+		return fn(conn)
 	}
-	if !slices.Contains(env, "KOMANDO_SSH_GATE=ops") || !slices.Contains(env, "KOMANDO_NO_DIALOG=1") {
-		t.Errorf("env lacks the gate's variables")
+	shellTerminal(t, "/dev/pts/3", true)
+	conn.end <- nil
+	ran, _, e := gateRun(t, "KOMANDO_AGENT=Komando komando shell web", "--name", "ops", "--shell-access")
+	if ran != nil || e != nil {
+		t.Fatalf("ran %q, error %+v; want the shell in the gate", ran, e)
+	}
+	if dialed != "web" {
+		t.Errorf("dialed %q, want web", dialed)
 	}
 	if tcl.interactive() {
-		t.Errorf("the gate's own call would ask a question on the key's terminal")
+		t.Errorf("the gate's call would ask a question on the key's terminal")
 	}
-	a := lastAudit(t)
-	for k, want := range map[string]any{"ok": true, "runs": "shell", "ssh_gate": "ops", "shell_access": true, "read_only": false} {
-		if a[k] != want {
-			t.Errorf("audit %s = %v, want %v", k, a[k], want)
+	if !tcl.gated() {
+		t.Errorf("the shell did not run as the key")
+	}
+	var gate map[string]any
+	for _, line := range strings.Split(auditText(t), "\n") {
+		var r map[string]any
+		if json.Unmarshal([]byte(line), &r) == nil && r["command"] == "ssh-gate" {
+			gate = r
 		}
 	}
+	for k, want := range map[string]any{"ok": true, "runs": "shell", "ssh_gate": "ops", "shell_access": true, "read_only": false} {
+		if gate[k] != want {
+			t.Errorf("gate record %s = %v, want %v", k, gate[k], want)
+		}
+	}
+	recs := sessionRecords(t)
+	if len(recs) != 2 {
+		t.Fatalf("session records %v, want a start and an end", recs)
+	}
+	wantRecord(t, recs[1], map[string]any{"session": "end", "end": "exit", "ssh_gate": "ops", "agent": "ssh-gate key ops", "hosts": []string{"web"}})
 }
 
 // A shell on a protected server can change anything, and no key has the
@@ -252,16 +280,106 @@ func gateErrText(e *out.Error) string {
 }
 
 // The komando a key runs never asks its key anything, also when sshd gave
-// the call a terminal: so it opens no shell by itself either.
+// the call a terminal, and `komando shell` refuses it: a key's shell is
+// opened by the gate alone. Variables that look like the gate's change
+// nothing, whoever sets them.
 func TestGateCallNeverInteractive(t *testing.T) {
-	setCallerEnv(t, gateEnv, "ops")
-	saved := tcl.terminal
-	t.Cleanup(func() { tcl.terminal = saved })
-	tcl.terminal = true
-	if tcl.interactive() {
-		t.Fatal("a call through ssh-gate with a terminal is interactive")
+	for _, c := range []struct {
+		name, gate, tty string
+		terminal        bool
+	}{
+		{"the gate's three variables and a terminal, not from the gate", "ops", "/dev/pts/3", true},
+		{"a key's call without a terminal", "ops", "", false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			setCallerEnv(t, gateEnv, c.gate)
+			t.Setenv("KOMANDO_GATE_SHELL", "1")
+			shellTerminal(t, c.tty, c.terminal)
+			if tcl.interactive() {
+				t.Fatal("a key's call is interactive")
+			}
+			if err := runShell(tcl, context.Background(), "web"); err == nil || toErr(err).Code != "NEEDS_TERMINAL" {
+				t.Errorf("shell: %v, want NEEDS_TERMINAL", err)
+			}
+		})
 	}
-	if err := runShell(tcl, context.Background(), "web"); err == nil || toErr(err).Code != "NEEDS_TERMINAL" {
-		t.Errorf("shell through the gate: %v, want NEEDS_TERMINAL", err)
+}
+
+// The gate checks the server again just before it opens the shell, and
+// refuses where a person would be asked.
+func TestGateRunShellRechecks(t *testing.T) {
+	gateSessionLab(t)
+	t.Cleanup(resetApproval)
+	shellDial = func(*call, context.Context, *store.State, *store.Host, func(shellConn) error) error {
+		t.Error("it connected")
+		return nil
+	}
+	for server, why := range map[string]string{"prod": "protected", "prod-alias": "protected", "win": "Windows", "u@10.0.0.5": "no server in your list"} {
+		err := gateRunShell(tcl, context.Background(), "ops", server)
+		if e := toErr(err); e == nil || e.Code != "SSH_GATE_REFUSED" || !strings.Contains(e.Message, why) {
+			t.Errorf("%s: %v, want SSH_GATE_REFUSED saying %q", server, err, why)
+		}
+	}
+}
+
+// While a deny rule of your own is set, no key opens a shell on any server:
+// komando does not see what is typed in one, so it would get past the rule.
+func TestGateShellExtraDenyPatterns(t *testing.T) {
+	denyRule := func(t *testing.T) {
+		t.Helper()
+		err := store.Update(store.Save(), func(st *store.State) error {
+			st.Settings.ExtraDenyPattern = []string{`kubectl\s+delete`}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Run("the gate", func(t *testing.T) {
+		invHome(t)
+		shellInventory(t)
+		denyRule(t)
+		wantShellRefused(t, shellKey, "deny rules of your own", "shell web", "shell bastion", "shell behind")
+		e := shellAnswer(t, "shell web", shellKey)
+		if e == nil || !strings.Contains(e.Hint, "komando exec") {
+			t.Errorf("hint %+v, want single commands, which the rules check", e)
+		}
+	})
+	t.Run("just before the shell opens", func(t *testing.T) {
+		gateSessionLab(t)
+		t.Cleanup(resetApproval)
+		denyRule(t)
+		shellDial = func(*call, context.Context, *store.State, *store.Host, func(shellConn) error) error {
+			t.Error("it connected")
+			return nil
+		}
+		err := gateRunShell(tcl, context.Background(), "ops", "web")
+		if e := toErr(err); e == nil || e.Code != "SSH_GATE_REFUSED" || !strings.Contains(e.Message, "deny rules of your own") {
+			t.Errorf("shell: %v, want SSH_GATE_REFUSED", err)
+		}
+	})
+}
+
+// ssh-gate is for sshd: an AI agent on this computer that starts it itself
+// is refused, for the shell and every other command, and the refusal is in
+// the audit log.
+func TestSSHGateAgentCaller(t *testing.T) {
+	for _, line := range []string{"komando shell web", "komando list"} {
+		t.Run(line, func(t *testing.T) {
+			gateSessionLab(t)
+			shellDial = func(*call, context.Context, *store.State, *store.Host, func(shellConn) error) error {
+				t.Error("it connected")
+				return nil
+			}
+			shellTerminal(t, "/dev/pts/3", true)
+			setCallerEnv(t, "CLAUDECODE", "1")
+			ran, _, e := gateRun(t, line, "--name", "ops", "--shell-access")
+			if ran != nil || e == nil || e.Code != "SSH_GATE_REFUSED" || !strings.Contains(e.Message, "AI agent") {
+				t.Fatalf("ran %q, error %+v; want SSH_GATE_REFUSED for an AI agent", ran, e)
+			}
+			if a := lastAudit(t); a["ok"] != false || a["blocked"] != "SSH_GATE_REFUSED" {
+				t.Errorf("audit %v", a)
+			}
+		})
 	}
 }
