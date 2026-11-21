@@ -80,7 +80,13 @@ func runShell(cl *call, ctx context.Context, target string) error {
 // openShell connects to h and runs a login shell there on this terminal
 // until it ends.
 func openShell(cl *call, ctx context.Context, st *store.State, h *store.Host) error {
-	audit(cl, st, "shell", []string{h.Name}, "", true, nil)
+	keyed := cl.gated() // a key's session: its own start and end records
+	if !keyed {
+		audit(cl, st, "shell", []string{h.Name}, "", true, nil)
+	} else if err := gateSessionStart(cl, st, h.Name); err != nil {
+		return err
+	}
+	begun := time.Now()
 	tt := shellTTY()
 	var started time.Time
 	code, lost := 0, false
@@ -110,6 +116,18 @@ func openShell(cl *call, ctx context.Context, st *store.State, h *store.Host) er
 	// after the callback: the terminal is out of raw mode again
 	if !started.IsZero() {
 		showExit(cl, h.Name, code, lost, time.Since(started))
+	}
+	if keyed {
+		end := sessionExit
+		switch {
+		case started.IsZero():
+			end = sessionError
+		case lost:
+			end = sessionLost
+		}
+		if aerr := gateSessionEnd(cl, st, h.Name, time.Since(begun), end, code); err == nil {
+			err = aerr
+		}
 	}
 	return err
 }
