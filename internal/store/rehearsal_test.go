@@ -1367,6 +1367,12 @@ func TestRehearsalListMedian(t *testing.T) {
 	if r := runK(t, b.seed, h, "", nil, "hosts", strconv.Itoa(n)); r.exit != 0 {
 		t.Fatalf("seed hosts: %s%s", r.stdout, r.stderr)
 	}
+	for _, op := range strings.Fields(os.Getenv("KOMANDO_REHEARSAL_SEED")) { // e.g. "pins=200 audit=5000"
+		name, count, _ := strings.Cut(op, "=")
+		if r := runK(t, b.seed, h, "", nil, name, count); r.exit != 0 {
+			t.Fatalf("seed %s: %s%s", op, r.stdout, r.stderr)
+		}
+	}
 	if got := storeFormat(t, h); got != "1" {
 		t.Fatalf("format %q, not 1", got)
 	}
@@ -1381,7 +1387,7 @@ func TestRehearsalListMedian(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		oldRuns = append(oldRuns, mustK(t, b.old, formatOne, "", nil, "host", "list").duration)
 	}
-	mustK(t, b.new, h, "", nil, "host", "list") // the upgrade, not timed
+	upgrade := mustK(t, b.new, h, "", nil, "host", "list").duration // not in the median
 	if got := storeFormat(t, h); got != "2" {
 		t.Fatalf("format %q after upgrade, not 2", got)
 	}
@@ -1389,6 +1395,10 @@ func TestRehearsalListMedian(t *testing.T) {
 		newRuns = append(newRuns, mustK(t, b.new, h, "", nil, "host", "list").duration)
 	}
 	m := median(newRuns)
-	t.Logf("RESULT n=%d servers: new (format 2) median %v runs %v; old (format 1) median %v runs %v; threshold 200ms: %s",
-		n, m, rounded(newRuns), median(oldRuns), rounded(oldRuns), passFail(m <= 200*time.Millisecond))
+	for _, args := range [][]string{{"list"}, {"config", "show"}, {"host", "show", "bulk-250"}} {
+		t.Logf("new %v: %v (old on format 1: %v)", args, mustK(t, b.new, h, "", nil, args...).duration.Round(time.Millisecond),
+			mustK(t, b.old, formatOne, "", nil, args...).duration.Round(time.Millisecond))
+	}
+	t.Logf("RESULT n=%d servers: upgrade run %v; new (format 2) median %v runs %v; old (format 1) median %v runs %v; threshold 200ms: %s",
+		n, upgrade.Round(time.Millisecond), m, rounded(newRuns), median(oldRuns), rounded(oldRuns), passFail(m <= 200*time.Millisecond))
 }
