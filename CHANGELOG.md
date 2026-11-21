@@ -97,8 +97,11 @@ no click.
 
 - An AI agent is no longer a person because it cleared its variables.
   komando also reads the processes above it (macOS and Linux): a parent
-  with the agent's variables, or a program named `claude`, `codex` or
-  `cursor-agent`, makes the call an agent's. The shell refusal
+  with the agent's variables, or a harness known by name or command line
+  (`claude`, `codex`, `cursor-agent`, `gemini`, `opencode`, a node
+  package such as `claude-code`, and others; Safety lists them), makes
+  the call an agent's. A terminal from an ssh login from this computer
+  no longer counts as a person. The shell refusal
   (`NEEDS_TERMINAL`), the ssh-gate refusal of an agent caller
   (`SSH_GATE_REFUSED`), the login and approval windows and the agent
   home folder all follow the caller, so `env -i komando ...` from an

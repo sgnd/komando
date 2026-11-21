@@ -24,6 +24,20 @@ func TestAncestorAgent(t *testing.T) {
 		{"known harness name with a path and case", fakeProcs{10: {PPID: 1, Name: "/usr/local/bin/Codex"}}, 10, "Codex"},
 		{"an unreadable process does not stop the walk", fakeProcs{
 			10: {PPID: 7, Name: "login"}, 7: {PPID: 3, Name: "sh"}, 3: {PPID: 1, Name: "x", Env: agentEnv}}, 10, "Claude Code"},
+		{"node harness, argv[1] names it, child env stripped", fakeProcs{
+			10: {PPID: 7, Name: "sh", Env: env(nil)},
+			7:  {PPID: 1, Name: "node", Args: []string{"node", "/usr/lib/node_modules/@anthropic-ai/claude-code/cli.js"}}}, 10, "Claude Code"},
+		{"argv[0] names it under another process name", fakeProcs{
+			10: {PPID: 1, Name: "bun", Args: []string{"/home/a/.local/bin/opencode", "run"}}}, 10, "OpenCode"},
+		{"gemini through node", fakeProcs{
+			10: {PPID: 1, Name: "node", Args: []string{"node", "/opt/node_modules/@google/gemini-cli/dist/index.js"}}}, 10, "Gemini CLI"},
+		{"the script pty wrapper under an agent", fakeProcs{
+			10: {PPID: 8, Name: "sh", Env: env(nil)}, 8: {PPID: 7, Name: "script", Env: env(nil)},
+			7: {PPID: 1, Name: "claude", Env: env(nil)}}, 10, "Claude Code"},
+		{"a person's node script is not an agent", fakeProcs{
+			10: {PPID: 1, Name: "node", Args: []string{"node", "/home/a/proj/build.js"}}}, 10, ""},
+		{"CLAUDECODE=0 still counts above", fakeProcs{
+			10: {PPID: 1, Name: "sh", Env: env(map[string]string{"CLAUDECODE": "0"})}}, 10, "Claude Code"},
 		{"a loop ends the walk", fakeProcs{10: {PPID: 11, Name: "a"}, 11: {PPID: 10, Name: "b"}}, 10, ""},
 		{"a missing process ends the walk", fakeProcs{10: {PPID: 99, Name: "a"}}, 10, ""},
 	} {
@@ -91,7 +105,11 @@ func TestParseProcStat(t *testing.T) {
 func TestProcArgsEnv(t *testing.T) {
 	raw := []byte{2, 0, 0, 0}
 	raw = append(raw, "/bin/sh\x00\x00\x00sh\x00-c\x00CLAUDECODE=1\x00A=b=c\x00\x00junk"...)
-	env := envLookup(procArgsEnv(raw))
+	args, lines := procArgs(raw)
+	if len(args) != 2 || args[0] != "sh" || args[1] != "-c" {
+		t.Errorf("args %q", args)
+	}
+	env := envLookup(lines)
 	if v, ok := env("CLAUDECODE"); !ok || v != "1" {
 		t.Errorf("CLAUDECODE: %q %v", v, ok)
 	}
@@ -101,7 +119,7 @@ func TestProcArgsEnv(t *testing.T) {
 	if _, ok := env("sh"); ok {
 		t.Error("an argument counted as a variable")
 	}
-	if procArgsEnv([]byte{1}) != nil {
+	if func() bool { a, e := procArgs([]byte{1}); return a != nil || e != nil }() {
 		t.Error("a short buffer")
 	}
 }

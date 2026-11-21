@@ -28,7 +28,13 @@ func (sysctlProcs) Proc(pid int) (Proc, bool) {
 	}
 	p := Proc{PPID: int(k.Eproc.Ppid), Name: string(comm)}
 	if raw, err := unix.SysctlRaw("kern.procargs2", pid); err == nil {
-		p.Env = envLookup(procArgsEnv(raw))
+		args, env := procArgs(raw)
+		p.Args = args
+		// macOS leaves the environment of Apple's own programs (/bin/sh,
+		// zsh) out, so a missing one is no proof that nothing was set
+		if len(env) > 0 {
+			p.Env = envLookup(env)
+		}
 	}
 	return p, true
 }

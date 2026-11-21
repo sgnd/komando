@@ -17,6 +17,9 @@ func TestCallerFrom(t *testing.T) {
 	}{
 		{"a person", map[string]string{"USER": "ana"}, true, Person, "", "ana"},
 		{"a script", map[string]string{"USER": "ci"}, false, Script, "", "ci"},
+		{"over ssh from this computer, a terminal does not make a person", map[string]string{"SSH_CONNECTION": "127.0.0.1 5 127.0.0.1 22", "USER": "ana"}, true, Script, "", "ana"},
+		{"over ssh from ::1", map[string]string{"SSH_CONNECTION": "::1 5 ::1 22"}, true, Script, "", ""},
+		{"over ssh from another computer is a person", map[string]string{"SSH_CONNECTION": "10.0.0.7 5 10.0.0.2 22"}, true, Person, "", ""},
 		{"claude", map[string]string{"CLAUDECODE": "1"}, true, Agent, "Claude Code", ""},
 		{"an empty value still counts", map[string]string{"CLAUDECODE": "0"}, true, Agent, "Claude Code", ""},
 		{"ssh-gate names the key", map[string]string{GateEnv: "ops-ro", "CLAUDECODE": "1"}, false, Agent, "ssh-gate key ops-ro", ""},

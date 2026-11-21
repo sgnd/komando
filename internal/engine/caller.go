@@ -6,7 +6,10 @@
 // the caller hands it in.
 package engine
 
-import "regexp"
+import (
+	"regexp"
+	"strings"
+)
 
 // Kind is who makes a call.
 type Kind int
@@ -80,13 +83,22 @@ func AgentName(lookup func(string) (string, bool)) string {
 	return ""
 }
 
+// fromThisComputer reports an ssh login whose client is this computer
+// (127.0.0.1 or ::1 in SSH_CONNECTION): a program that logs in to its own
+// machine gets a terminal from sshd, so the terminal proves no person.
+func fromThisComputer(lookup func(string) (string, bool)) bool {
+	v, _ := lookup("SSH_CONNECTION")
+	client, _, _ := strings.Cut(v, " ")
+	return client == "127.0.0.1" || client == "::1"
+}
+
 // CallerFrom is the caller an environment lookup describes. terminal says
 // whether a person could answer at a terminal (stdin and stderr are one).
 func CallerFrom(lookup func(string) (string, bool), terminal bool) Caller {
 	c := Caller{Kind: Script}
 	if a := AgentName(lookup); a != "" {
 		c.Kind, c.Agent = Agent, a
-	} else if terminal {
+	} else if terminal && !fromThisComputer(lookup) {
 		c.Kind = Person
 	}
 	if a, _ := lookup("KOMANDO_ACTOR"); a != "" {

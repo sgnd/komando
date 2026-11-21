@@ -25,6 +25,9 @@ func (procFS) Proc(pid int) (Proc, bool) {
 		return Proc{}, false
 	}
 	p := Proc{PPID: ppid, Name: name}
+	if c, err := os.ReadFile(dir + "/cmdline"); err == nil {
+		p.Args = strings.Split(strings.TrimSuffix(string(c), "\x00"), "\x00")
+	}
 	if e, err := os.ReadFile(dir + "/environ"); err == nil {
 		p.Env = envLookup(strings.Split(string(e), "\x00"))
 	}
