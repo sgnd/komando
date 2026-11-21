@@ -376,6 +376,9 @@ ObjC.registerSubclass({
     // the last line is in view when the visible rect reaches the document's bottom
     'scrolled:': { types: ['void', ['id']], implementation: function (n) { try { if (SEEN) return; var r = CLIP.documentVisibleRect; if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = true; note('read to the end'); } } catch (x) { note('error in scrolled: ' + x); } } },
     'windowWillClose:': { types: ['void', ['id']], implementation: function (n) { if (DEBUG) note('end: window closes, ' + how()); if (!CHOSEN) { CHOICE = 'Deny'; CHOSEN = true; } APP.stopModalWithCode(DENY); } },
+    // losing key (another app or session took the focus) ends nothing: the
+    // panel comes back to the front, and only an answer or the timer ends it
+    'windowDidResignKey:': { types: ['void', ['id']], implementation: function (n) { try { if (!CHOSEN) { note('panel lost key, back to the front'); APP.activateIgnoringOtherApps(true); PANEL.makeKeyAndOrderFront(PANEL); } } catch (x) { note('error in windowDidResignKey: ' + x); } } },
     'windowDidBecomeKey:': { types: ['void', ['id']], implementation: function (n) { note('panel is key'); } }
   }
 });
@@ -510,6 +513,8 @@ function run(argv) {
   view.addSubview(deny);
   view.addSubview(allow);
   if (scroll && real(DOC)) panel.initialFirstResponder = DOC;
+  // another app taking the focus must not hide the panel
+  panel.hidesOnDeactivate = false;
   panel.level = $.NSFloatingWindowLevel;
   panel.center;
   // the timer's block returns nothing: NSTimer's block type is void
@@ -588,16 +593,21 @@ func noBreakHyphens(s string) string { return strings.ReplaceAll(s, "-", "\u2011
 type macOutcome int
 
 const (
-	macDenied       macOutcome = iota // Deny, Esc, an error or anything unexpected
+	macDenied       macOutcome = iota // Deny, Esc, Return, the close button or anything unexpected
 	macAllowed                        // Allow once, then the device owner confirmed
 	macOwnerFailed                    // Allow once, but the owner check did not say ok
 	macOwnerTimeout                   // Allow once, then nobody confirmed in ownerTimeout
 	macGaveUp                         // nobody answered in 120 seconds
+	macFailed                         // the panel crashed or printed nothing: nobody answered it
 )
 
 // macAnswer reads what osascript printed. Only "Allow once" followed by
-// "owner ok" allows; every other answer, an error included, is a no.
+// "owner ok" allows; every other answer is a no. No answer at all means the
+// panel failed (macFailed), which is not a Deny.
 func macAnswer(out []byte) macOutcome {
+	if len(out) == 0 {
+		return macFailed
+	}
 	switch strings.TrimSuffix(string(out), "\n") {
 	case "Allow once\nowner ok":
 		return macAllowed
@@ -659,14 +669,14 @@ func macPanelRun(v approvalView, debug bool) macRun {
 
 // macResult reads an osascript run of the panel. shown is false when
 // osascript could not start; an error exit after it started (the script
-// failed) is a no.
+// failed) is macFailed: a no, but not one the person gave.
 func macResult(out []byte, err error) (ans macOutcome, shown bool) {
 	var ee *exec.ExitError
 	if err != nil && !errors.As(err, &ee) {
 		return macDenied, false
 	}
 	if err != nil {
-		return macDenied, true
+		return macFailed, true
 	}
 	return macAnswer(out), true
 }

@@ -15,7 +15,7 @@ import (
 
 // Only "Allow once" followed by "owner ok" allows. A failed, cancelled,
 // timed-out or unavailable owner check, no reply, Deny and anything else
-// is a no; only "gave up" means nobody answered.
+// is a no; only "gave up" means nobody answered, and no reply at all means the panel failed.
 func TestMacAnswer(t *testing.T) {
 	for out, want := range map[string]macOutcome{
 		"Allow once\nowner ok\n":        macAllowed,
@@ -31,7 +31,7 @@ func TestMacAnswer(t *testing.T) {
 		"Deny\nowner ok\n":              macDenied,
 		"Deny\n":                        macDenied,
 		"gave up\n":                     macGaveUp,
-		"":                              macDenied,
+		"":                              macFailed,
 		"allow once\nowner ok":          macDenied,
 	} {
 		if got := macAnswer([]byte(out)); got != want {

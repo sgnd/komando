@@ -209,6 +209,14 @@ no click.
 
 ### Fixed
 
+- The macOS approval window stays open when another app takes the focus:
+  it no longer hides on deactivation and comes back to the front when it
+  stops being the key window. Only **Deny**, Esc, Return, the close button,
+  Cmd-W or the 2-minute timer end it. When the window itself fails before
+  anyone answers (its helper crashes or prints nothing), the command is
+  still refused, now with the error `APPROVAL_WINDOW_FAILED` and a hint to
+  update komando and not to ask the person again, instead of reporting a
+  Deny nobody gave.
 - The macOS approval window takes the keys as soon as it opens (C237).
   The script that scrolls has the focus, so the arrows, Page Up, Page
   Down, Home, End and Space scroll it with no click. Before, they did
