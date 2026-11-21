@@ -44,15 +44,15 @@ func TestMacAnswer(t *testing.T) {
 // itself after 120 seconds as "gave up", and takes every text from argv.
 
 // The macOS script is a plain NSPanel of standard controls: no NSAlert,
-// no icon, no colour; Deny is the default (Return), Esc and the first
-// focus; it gives up after 120 seconds, answers with the strings
+// no icon, no colour; Deny is the default (Return) and Esc;
+// it gives up after 120 seconds, answers with the strings
 // macAnswer reads, takes every text from argv, and asks for the device
 // owner only after Allow once.
 func TestMacAlertScript(t *testing.T) {
 	for _, want := range []string{
 		"$.KomandoPanel.alloc.initWithContentRectStyleMaskBackingDefer(", "superclass: 'NSPanel'", "panel.title = argv[6]",
 		"buttonWithTitleTargetAction(argv[7], answer, 'deny:')", "deny.keyEquivalent = '\\r'", "allow.keyEquivalent = ''",
-		"panel.initialFirstResponder = deny", "deny.nextKeyView = allow", "setAccessibilityLabel(argv[7])", "setAccessibilityLabel(argv[8])",
+		"setAccessibilityLabel(argv[7])", "setAccessibilityLabel(argv[8])",
 		"code === 53 || code === 36", "APP.stopModalWithCode(DENY)", "app.runModalForWindow(panel)", "panel.level = $.NSFloatingWindowLevel",
 		"timerWithTimeIntervalRepeatsBlock(120,", "app.stopModalWithCode(GAVE_UP)", "return 'gave up'", "return 'Deny'",
 		"label(argv[1], $.NSFont.boldSystemFontOfSize(fs), w, true)", "var w = 440, pad = 20, gap = 12",
@@ -211,21 +211,21 @@ func TestMacScrollHintCount(t *testing.T) {
 }
 
 // A keyboard-only person can read a long script to its end: the script
-// takes focus in the Tab order (Deny, Allow once, script), shows a focus
-// ring, and the arrows, Page Up/Down, Home/End and Space scroll it. Return
+// has the focus when the panel opens (Tab: script, Deny, Allow once),
+// shows a focus ring, and the arrows, Page Up/Down, Home/End and Space scroll it. Return
 // and Esc stay Deny, and the gate is the same seenEnd (C209).
 func TestMacPanelKeyboardScroll(t *testing.T) {
 	s := macAlertScript
 	for _, want := range []string{
 		"'acceptsFirstResponder': { types: ['bool', []], implementation: function () { return SCROLLS; } }",
-		"'becomeFirstResponder': { types: ['bool', []], implementation: function () { try { focusRing(true); note('script area has focus'); } catch (x) { note('error in becomeFirstResponder: ' + x); } return true; } }",
-		"'resignFirstResponder': { types: ['bool', []], implementation: function () { try { focusRing(false); note('script area lost focus'); } catch (x) { note('error in resignFirstResponder: ' + x); } return true; } }",
+		"'becomeFirstResponder': { types: ['bool', []], implementation: function () { try { showFocus('script'); note('script area has focus'); } catch (x) { note('error in becomeFirstResponder: ' + x); } return true; } }",
+		"'resignFirstResponder': { types: ['bool', []], implementation: function () { try { showFocus(''); note('script area lost focus'); } catch (x) { note('error in resignFirstResponder: ' + x); } return true; } }",
 		"function keyScroll(code, y, line, page, maxY) {",
 		"code === 126 ? y - line", "code === 125 ? y + line", "code === 116 ? y - page",
 		"code === 121 || code === 49 ? y + page", "code === 115 ? 0", "code === 119 ? maxY",
 		"CLIP.scrollToPoint($.NSMakePoint(0, to))", "SV.reflectScrolledClipView(CLIP)",
-		"RING.borderColor = $.NSColor.keyboardFocusIndicatorColor;",
-		"SCROLLS = scroll", "allow.nextKeyView = scroll ? DOC : deny", "DOC.nextKeyView = deny",
+		"b.borderColor = $.NSColor.keyboardFocusIndicatorColor;",
+		"SCROLLS = scroll", "if (scroll) panel.initialFirstResponder = DOC;",
 		"DOC.setAccessibilityElement(true)", "DOC.setAccessibilityRole($.NSAccessibilityGroupRole)", "DOC.setAccessibilityLabel(",
 		"deny.keyEquivalent = '\\r'", "code === 53 || code === 36",
 		"if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = true; note('read to the end'); }",
@@ -249,9 +249,9 @@ func TestMacPanelKeyboardScroll(t *testing.T) {
 }
 
 // The script scrolls with Up, Down, Page Up/Down and Home/End whatever
-// has focus (with macOS keyboard navigation off, Deny and Allow once take
-// no focus), and with Space only while it has focus; Return, Enter, Tab
-// and Esc are never scroll keys (C237, approval_keys_test.go).
+// has the focus (Tab may have put it on a button), and with Space only
+// while the script has it; Return, Enter, Tab and Esc are never scroll
+// keys (C237, approval_keys_test.go).
 func TestMacPanelScrollKeysAnyFocus(t *testing.T) {
 	s := macAlertScript
 	on := macFunc(t, "onKey")

@@ -141,11 +141,12 @@ func TestMacPanelDebugNotes(t *testing.T) {
 	s := macAlertScript
 	for _, want := range []string{
 		"function run(argv) {\n  DEBUG = argv[10] === '1';\n",
-		"function note(what) {\n  if (!DEBUG) return;\n  try { console.log('komando-debug +' + (Date.now() - T0) + ' ' + what + ' | first ' + who()); } catch (x) {}\n}",
+		"function note(what) {\n  if (!DEBUG) return;\n  try { console.log('komando-debug +' + (Date.now() - T0) + ' ' + what + ' | first ' + who() + ' focus ' + (FOCUS || 'none')); } catch (x) {}\n}",
 		"if (DEBUG) note('key ' + keyName(e));",
 		"{ note('end: Deny, key'); CHOICE = 'Deny';",
-		"PANEL.selectNextKeyView(null); note('focus moved'); return; }",
-		"scrollKey(code)) note('scrolled');",
+		"SCROLLS, SEEN)); note('focus moved'); return; }",
+		"scrollKey(code)) { if (DEBUG) note('scrolled to ' + where()); }",
+		"note('click: script area')", "note('click: panel background')", "note('panel is key')",
 		"if (DEBUG) note('end: Deny, ' + how());",
 		"if (DEBUG) note((SEEN ? 'end: Allow once, ' : 'Allow once ignored: not read to the end, ') + how());",
 		"if (DEBUG) note('end: window closes, ' + how());",
@@ -170,7 +171,7 @@ func TestMacPanelDebugNotes(t *testing.T) {
 		}
 	}
 	// who, how and state answer "?" after an error
-	for _, f := range []string{"function who() {", "function how() {", "function state() {", "function keyName(e) {"} {
+	for _, f := range []string{"function who() {", "function how() {", "function state() {", "function keyName(e) {", "function where() {"} {
 		body := s[strings.Index(s, f):]
 		body = body[:strings.Index(body, "\n}")+2]
 		if !strings.Contains(body, "\n  try {") || !strings.HasSuffix(body, "\n  } catch (x) { return '?'; }\n}") {

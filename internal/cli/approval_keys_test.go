@@ -41,16 +41,18 @@ func macEndLines() []string {
 
 const (
 	onKeyDeny   = "if (code === 53 || code === 36 || (code === 13 && (mods & CMD))) { note('end: Deny, key'); CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); return; }"
-	onKeyTab    = "if (code === 48) { if (mods & SHIFT) PANEL.selectPreviousKeyView(null); else PANEL.selectNextKeyView(null); note('focus moved'); return; }"
-	onKeyScroll = "if (SCROLLS && (SCROLL_KEYS.indexOf(code) >= 0 || (code === 49 && HAS_FOCUS)) && scrollKey(code)) note('scrolled');"
+	onKeyTab    = "if (code === 48) { showFocus(nextFocus(FOCUS, (mods & SHIFT) !== 0, SCROLLS, SEEN)); note('focus moved'); return; }"
+	onKeySpace  = "if (code === 49 && (FOCUS === 'deny' || FOCUS === 'allow')) { note('Space presses the focused button'); (FOCUS === 'allow' ? ALLOW_BTN : DENY_BTN).performClick(null); return; }"
+	onKeyScroll = "if (SCROLLS && (SCROLL_KEYS.indexOf(code) >= 0 || (code === 49 && FOCUS === 'script')) && scrollKey(code)) { if (DEBUG) note('scrolled to ' + where()); }"
 )
 
 // C237: one test per key. Esc, Return and Cmd-W deny in onKey, the one
 // key handler; every other key below is named in no line that ends the
 // panel or sets the answer, and has the handling it needs: Tab and
-// Shift-Tab move the focus through the panel's key-view loop; Up, Down,
-// Page Up/Down and Home/End scroll the script whatever has focus; Space
-// scrolls only while the script has focus; Left and Right do nothing.
+// Shift-Tab move the panel's own focus (nextFocus); Up, Down, Page Up/Down
+// and Home/End scroll the script whatever has focus; Space scrolls while
+// the script has focus and presses a focused button; Left and Right do
+// nothing.
 func TestMacPanelKeys(t *testing.T) {
 	on := macFunc(t, "onKey")
 	for _, k := range []struct {
@@ -60,7 +62,7 @@ func TestMacPanelKeys(t *testing.T) {
 		denies     bool
 	}{
 		{"tab", "48", []string{onKeyTab}, "", false},
-		{"shift-tab", "48", []string{onKeyTab, "if (mods & SHIFT) PANEL.selectPreviousKeyView(null)"}, "", false},
+		{"shift-tab", "48", []string{onKeyTab, "(mods & SHIFT) !== 0"}, "", false},
 		{"up", "126", []string{onKeyScroll}, "code === 126 ? y - line", false},
 		{"down", "125", []string{onKeyScroll}, "code === 125 ? y + line", false},
 		{"left", "123", nil, "", false},
@@ -69,7 +71,7 @@ func TestMacPanelKeys(t *testing.T) {
 		{"page-down", "121", []string{onKeyScroll}, "code === 121 || code === 49 ? y + page", false},
 		{"home", "115", []string{onKeyScroll}, "code === 115 ? 0", false},
 		{"end", "119", []string{onKeyScroll}, "code === 119 ? maxY", false},
-		{"space", "49", []string{onKeyScroll, "code === 49 && HAS_FOCUS"}, "code === 121 || code === 49 ? y + page", false},
+		{"space", "49", []string{onKeyScroll, onKeySpace, "code === 49 && FOCUS === 'script'"}, "code === 121 || code === 49 ? y + page", false},
 		{"return", "36", []string{onKeyDeny}, "", true},
 		{"esc", "53", []string{onKeyDeny}, "", true},
 		{"cmd-w", "13", []string{onKeyDeny, "code === 13 && (mods & CMD)"}, "", true},
@@ -107,16 +109,10 @@ func TestMacPanelKeys(t *testing.T) {
 	if !strings.Contains(macAlertScript, "var SCROLL_KEYS = [126, 125, 116, 121, 115, 119];") {
 		t.Error("the scroll keys are not Up, Down, Page Up/Down and Home/End")
 	}
-	// Deny's keys first, then Tab, then the scroll keys; nothing after
-	d, tb, sc := strings.Index(on, onKeyDeny), strings.Index(on, onKeyTab), strings.Index(on, onKeyScroll)
-	if d < 0 || tb < d || sc < tb || !strings.HasPrefix(on[sc+len(onKeyScroll):], "\n  } catch") {
-		t.Errorf("onKey order: Deny %d, Tab %d, scroll %d:\n%s", d, tb, sc, on)
-	}
-	// the loop Tab walks: Deny, Allow once (AppKit skips it while it is off), the script
-	for _, want := range []string{"deny.nextKeyView = allow", "allow.nextKeyView = scroll ? DOC : deny", "if (scroll) DOC.nextKeyView = deny", "allow.enabled = !scroll"} {
-		if !strings.Contains(macAlertScript, want) {
-			t.Errorf("script has no %q", want)
-		}
+	// Deny's keys first, then Tab, then Space on a button, then the scroll keys; nothing after
+	d, tb, sp, sc := strings.Index(on, onKeyDeny), strings.Index(on, onKeyTab), strings.Index(on, onKeySpace), strings.Index(on, onKeyScroll)
+	if d < 0 || tb < d || sp < tb || sc < sp || !strings.HasPrefix(on[sc+len(onKeyScroll):], "\n  } catch") {
+		t.Errorf("onKey order: Deny %d, Tab %d, Space %d, scroll %d:\n%s", d, tb, sp, sc, on)
 	}
 	// no button answers to any other key: Deny has Return, Allow once none
 	for _, l := range strings.Split(macAlertScript, "\n") {
@@ -209,8 +205,8 @@ func TestMacPanelHandlersCannotThrow(t *testing.T) {
 		t.Errorf("scrollKey is not one try that answers false:\n%s", sk)
 	}
 	for name, want := range map[string]string{
-		"becomeFirstResponder": "implementation: function () { try { focusRing(true); note('script area has focus'); } catch (x) { note('error in becomeFirstResponder: ' + x); } return true; } },",
-		"resignFirstResponder": "implementation: function () { try { focusRing(false); note('script area lost focus'); } catch (x) { note('error in resignFirstResponder: ' + x); } return true; } }",
+		"becomeFirstResponder": "implementation: function () { try { showFocus('script'); note('script area has focus'); } catch (x) { note('error in becomeFirstResponder: ' + x); } return true; } },",
+		"resignFirstResponder": "implementation: function () { try { showFocus(''); note('script area lost focus'); } catch (x) { note('error in resignFirstResponder: ' + x); } return true; } }",
 		"scrolled:":            "implementation: function (n) { try { if (SEEN) return; var r = CLIP.documentVisibleRect; if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = true; note('read to the end'); } } catch (x) { note('error in scrolled: ' + x); } } },",
 		// a constant or a variable cannot throw
 		"isFlipped":             "implementation: function () { return true; } },",
@@ -236,7 +232,7 @@ func TestMacPanelHandlersCannotThrow(t *testing.T) {
 }
 
 // C237: the key and focus paths call no bridge that no working path of
-// the panel uses: no ObjC.super, and the focus ring is an NSBox in the
+// the panel uses: no ObjC.super, and each focus ring is an NSBox in the
 // system focus colour (a CALayer border needs a CGColor, which JXA hands
 // over only as an opaque Ref).
 func TestMacPanelFocusPathBridges(t *testing.T) {
@@ -246,25 +242,169 @@ func TestMacPanelFocusPathBridges(t *testing.T) {
 			t.Errorf("the script still uses %s", bad)
 		}
 	}
+	rb := macFunc(t, "ringBox")
 	for _, want := range []string{
-		"function focusRing(on) { HAS_FOCUS = on; RING.hidden = !on; }",
-		"RING = $.NSBox.alloc.initWithFrame($.NSMakeRect(pad - 3, y - 3, w + 6, bodyH + 6));",
-		"RING.boxType = 4;", "RING.titlePosition = 0;", "RING.borderWidth = 3;", "RING.cornerRadius = 4;",
-		"RING.borderColor = $.NSColor.keyboardFocusIndicatorColor;", "RING.hidden = true;", "view.addSubview(RING);",
+		"var b = $.NSBox.alloc.initWithFrame($.NSMakeRect(x - 3, y - 3, w + 6, h + 6));",
+		"b.boxType = 4;", "b.titlePosition = 0;", "b.borderWidth = 3;", "b.cornerRadius = 4;",
+		"b.borderColor = $.NSColor.keyboardFocusIndicatorColor;", "b.hidden = true;", "view.addSubview(b);", "return b;",
+	} {
+		if !strings.Contains(rb, want) {
+			t.Errorf("ringBox has no %q", want)
+		}
+	}
+}
+
+// C237: each place Tab stops has its own ring, and only the focused one
+// shows: the script area's ring sits behind the scroll view, the buttons'
+// rings behind the buttons.
+func TestMacPanelFocusRings(t *testing.T) {
+	s := macAlertScript
+	if got := macFunc(t, "showFocus"); got != "function showFocus(f) {\n  FOCUS = f;\n  for (var k in RINGS) RINGS[k].hidden = k !== f;\n}" {
+		t.Errorf("showFocus:\n%s", got)
+	}
+	for _, want := range []string{
+		"RINGS.script = ringBox(view, pad, y, w, bodyH);",
+		"RINGS.deny = ringBox(view, pad + w - aw - 12 - dw, pad, dw, bh);",
+		"RINGS.allow = ringBox(view, pad + w - aw, pad, aw, bh);",
 	} {
 		if !strings.Contains(s, want) {
 			t.Errorf("script has no %q", want)
 		}
 	}
-	// the ring sits behind the script area: added before it, only when it scrolls
-	if r, v := strings.Index(s, "view.addSubview(RING)"), strings.Index(s, "view.addSubview(sv)"); r < 0 || v < r {
-		t.Error("the ring is not added before the scroll view")
+	if r, v := strings.Index(s, "RINGS.script = ringBox("), strings.Index(s, "view.addSubview(sv)"); r < 0 || v < r {
+		t.Error("the script's ring is not added before the scroll view")
+	}
+	if r, b := strings.Index(s, "RINGS.allow = ringBox("), strings.Index(s, "view.addSubview(deny)"); r < 0 || b < r {
+		t.Error("the buttons' rings are not added before the buttons")
+	}
+	if strings.Count(s, "= ringBox(view,") != 3 {
+		t.Error("a ring other than the script's, Deny's and Allow once's")
+	}
+}
+
+// C237: the script area is the first responder when the panel opens, with
+// its ring, so the arrows, Page keys, Home and End scroll at once, with no
+// click. A panel with nothing to scroll gives the keys to itself and the
+// ring to Deny. focusHome runs once the panel is up, so a selectable text
+// field AppKit may have picked never holds the keys.
+func TestMacPanelScriptFocusAtOpen(t *testing.T) {
+	s := macAlertScript
+	if got := macFunc(t, "focusHome"); got != "function focusHome() {\n  PANEL.makeFirstResponder(SCROLLS ? DOC : null);\n  showFocus(SCROLLS ? 'script' : 'deny');\n}" {
+		t.Errorf("focusHome:\n%s", got)
+	}
+	if !strings.Contains(s, "if (scroll) panel.initialFirstResponder = DOC;") {
+		t.Error("the script area is not the initial first responder")
+	}
+	front, home, modal := strings.Index(s, "panel.makeKeyAndOrderFront(null);"), strings.Index(s, "  focusHome();\n"), strings.Index(s, "app.runModalForWindow(panel)")
+	if front < 0 || home < front || modal < home {
+		t.Errorf("focusHome must run after the panel is up and before the modal loop: front %d, focusHome %d, modal %d", front, home, modal)
+	}
+}
+
+// C237: Tab and Shift-Tab cycle script, Deny, Allow once and back,
+// whatever the macOS keyboard-navigation setting: the buttons refuse
+// AppKit's focus, so the first responder stays the script area (or the
+// panel) and every key reaches onKey; FOCUS and the rings show where Tab
+// is. Allow once is a stop only once it is on (SEEN).
+func TestMacPanelTabCycle(t *testing.T) {
+	s := macAlertScript
+	want := "function nextFocus(f, back, scrolls, allowOn) {\n" +
+		"  var order = (scrolls ? ['script'] : []).concat(allowOn ? ['deny', 'allow'] : ['deny']);\n" +
+		"  var i = order.indexOf(f);\n" +
+		"  if (i < 0) return order[0];\n" +
+		"  return order[(i + (back ? order.length - 1 : 1)) % order.length];\n}"
+	if got := macFunc(t, "nextFocus"); got != want {
+		t.Errorf("nextFocus:\n%s\nwant:\n%s", got, want)
+	}
+	if !strings.Contains(macFunc(t, "onKey"), onKeyTab) {
+		t.Errorf("onKey has no %q", onKeyTab)
+	}
+	for _, w := range []string{"deny.refusesFirstResponder = true;", "allow.refusesFirstResponder = true;"} {
+		if !strings.Contains(s, w) {
+			t.Errorf("script has no %q", w)
+		}
+	}
+	// AppKit's key-view loop is not used: it skips the buttons while keyboard navigation is off
+	for _, bad := range []string{"nextKeyView", "selectNextKeyView", "selectPreviousKeyView", "initialFirstResponder = deny"} {
+		if strings.Contains(s, bad) {
+			t.Errorf("the script uses %s", bad)
+		}
+	}
+}
+
+// C237: Space on a focused button presses it as a click would
+// (performClick runs the button's own action), so Allow once still meets
+// its gate in allow: and the owner check after the panel. Allow once can
+// hold the focus only once it is on. Return is never a press of Allow
+// once: onKey denies on Return before it looks at the focus.
+func TestMacPanelSpacePressesFocusedButton(t *testing.T) {
+	s := macAlertScript
+	on := macFunc(t, "onKey")
+	if !strings.Contains(on, onKeySpace) || strings.Count(s, "performClick") != 1 {
+		t.Errorf("Space on a button is not only %q", onKeySpace)
+	}
+	if strings.Index(on, onKeyDeny) > strings.Index(on, onKeySpace) || strings.Contains(onKeyDeny, "FOCUS") {
+		t.Error("Return is read after the focus")
+	}
+	if !strings.Contains(onKeyTab, "SEEN)") {
+		t.Error("Tab can stop on Allow once before the gate opens")
+	}
+	if !strings.Contains(s, "'allow:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note((SEEN ? 'end: Allow once, ' : 'Allow once ignored: not read to the end, ') + how()); if (!SEEN) return;") {
+		t.Error("the Allow gate changed")
+	}
+}
+
+// C237: a click on the script area always gives it the keys back. Its
+// text is a label that would take the click itself, so KomandoClick lies
+// over it; KomandoDoc takes a click on its own too. A click on the
+// panel's background reaches KomandoPanel's mouseDown: and also gives the
+// keys back, so the focus is never left on nothing.
+func TestMacPanelClickGivesKeysBack(t *testing.T) {
+	s := macAlertScript
+	click := "'mouseDown:': { types: ['void', ['id']], implementation: function (e) { try { note('click: script area'); focusHome(); } catch (x) { note('error in mouseDown: ' + x); } } }"
+	bg := "'mouseDown:': { types: ['void', ['id']], implementation: function (e) { try { note('click: panel background'); focusHome(); } catch (x) { note('error in mouseDown: ' + x); } } }"
+	if strings.Count(s, click) != 2 || strings.Count(s, bg) != 1 || strings.Count(s, "'mouseDown:'") != 3 {
+		t.Errorf("want the script area's mouseDown: in KomandoDoc and KomandoClick and the panel's own")
+	}
+	for _, name := range []string{"KomandoDoc", "KomandoClick"} {
+		i := strings.Index(s, "name: '"+name+"'")
+		if i < 0 || !strings.Contains(s[i:i+strings.Index(s[i:], "\n});")], click) {
+			t.Errorf("%s has no click handler", name)
+		}
+	}
+	i := strings.Index(s, "name: 'KomandoPanel'")
+	if i < 0 || !strings.Contains(s[i:i+strings.Index(s[i:], "\n});")], bg) {
+		t.Error("KomandoPanel has no background click handler")
+	}
+	// the catcher lies over the text: added after it, the document's size
+	for _, want := range []string{"name: 'KomandoClick',\n  superclass: 'NSView',", "DOC.addSubview(body.v);\n    DOC.addSubview($.KomandoClick.alloc.initWithFrame($.NSMakeRect(0, 0, bw, body.h)));"} {
+		if !strings.Contains(s, want) {
+			t.Errorf("script has no %q", want)
+		}
+	}
+}
+
+// C237: the panel takes the keys while it is up even when macOS does not
+// make komando the active app (another app keeps the keys while a
+// background process asks to activate): a non-activating panel becomes
+// the key window by itself. The debug log notes when it does and says the
+// panel's style.
+func TestMacPanelKeyWithoutActivation(t *testing.T) {
+	s := macAlertScript
+	for _, want := range []string{
+		"$.NSWindowStyleMaskTitled | $.NSWindowStyleMaskClosable | $.NSWindowStyleMaskNonactivatingPanel",
+		"'windowDidBecomeKey:': { types: ['void', ['id']], implementation: function (n) { note('panel is key'); } }",
+		"' nonactivating=' + ((Number(PANEL.styleMask) & 128) !== 0)",
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("script has no %q", want)
+		}
 	}
 }
 
 // C237: Return and Esc mean Deny as before. Return is also Deny's key
 // equivalent (AppKit may click it before any keyDown:), keypad Enter is
-// neither; Deny keeps the first focus, and the Allow gate is the same.
+// neither, and the Allow gate is the same.
 func TestMacPanelReturnEscUnchanged(t *testing.T) {
 	s := macAlertScript
 	on := macFunc(t, "onKey")
@@ -274,10 +414,8 @@ func TestMacPanelReturnEscUnchanged(t *testing.T) {
 	if strings.Contains(on, "76") {
 		t.Error("onKey takes keypad Enter")
 	}
-	for _, want := range []string{"deny.keyEquivalent = '\\r'", "panel.initialFirstResponder = deny"} {
-		if !strings.Contains(s, want) {
-			t.Errorf("script has no %q", want)
-		}
+	if !strings.Contains(s, "deny.keyEquivalent = '\\r'") {
+		t.Error("Return is not Deny's key equivalent")
 	}
 	if strings.Count(s, "ALLOW_BTN.enabled = true") != 1 || !strings.Contains(s, "'allow:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note((SEEN ? 'end: Allow once, ' : 'Allow once ignored: not read to the end, ') + how()); if (!SEEN) return;") {
 		t.Error("the Allow gate changed")
