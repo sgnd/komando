@@ -159,6 +159,7 @@ func TestMacPanelNoValueToAppKit(t *testing.T) {
 	// one of the two void blocks
 	blocks := map[string]string{
 		"timerWithTimeIntervalRepeatsBlock(120, false, ": "function () { note('end: no answer in 120 s'); CHOICE = 'gave up'; CHOSEN = true; app.stopModalWithCode(GAVE_UP); }",
+		"timerWithTimeIntervalRepeatsBlock(0.5, false, ": "function () { HELD = false; ALLOW_BTN.enabled = SEEN; }",
 		"evaluatePolicyLocalizedReasonReply(2, reason, ": "function (ok, err) { res = (ok === true || ok === 1) ? 'owner ok' : 'owner denied'; }",
 	}
 	for _, at := range regexp.MustCompile(`function \(`).FindAllStringIndex(s, -1) {

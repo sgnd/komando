@@ -363,6 +363,37 @@ ObjC.registerSubclass({
     'mouseDown:': { types: ['void', ['id']], implementation: function (e) { try { note('click: panel background'); focusHome(); } catch (x) { note('error in mouseDown: ' + x); } } }
   }
 });
+// the panel comes back to the front when it stops being key, at most 3
+// times in 10 seconds, and never because another komando panel took the
+// key: two panels or a full-screen app must not re-front each other
+var REFRONTS = [];
+// HELD is true for 500 ms after a re-front: the Allow once button is disabled
+// then (a disabled button ignores clicks and key presses), so a click or key
+// meant for the app that had the focus cannot answer the panel
+var HELD = false;
+function holdAllow() {
+  HELD = true;
+  ALLOW_BTN.enabled = false;
+  var h = $.NSTimer.timerWithTimeIntervalRepeatsBlock(0.5, false, function () { HELD = false; ALLOW_BTN.enabled = SEEN; });
+  $.NSRunLoop.currentRunLoop.addTimerForMode(h, $.NSRunLoopCommonModes);
+}
+function otherPanelIsKey() {
+  try {
+    var kw = APP.keyWindow;
+    return real(kw) && ObjC.unwrap(kw.className) === 'KomandoPanel' && !kw.isEqual(PANEL);
+  } catch (x) { note('error in otherPanelIsKey: ' + x); return false; }
+}
+function refront() {
+  var now = Date.now();
+  var recent = [];
+  for (var i = 0; i < REFRONTS.length; i++) { if (now - REFRONTS[i] < 10000) recent.push(REFRONTS[i]); }
+  REFRONTS = recent;
+  if (REFRONTS.length >= 3) { note('re-front limit: stays ordered front'); PANEL.orderFront(PANEL); return; }
+  REFRONTS.push(now);
+  APP.activateIgnoringOtherApps(true);
+  PANEL.makeKeyAndOrderFront(PANEL);
+  holdAllow();
+}
 ObjC.registerSubclass({
   name: 'KomandoAnswer',
   methods: {
@@ -378,7 +409,7 @@ ObjC.registerSubclass({
     'windowWillClose:': { types: ['void', ['id']], implementation: function (n) { if (DEBUG) note('end: window closes, ' + how()); if (!CHOSEN) { CHOICE = 'Deny'; CHOSEN = true; } APP.stopModalWithCode(DENY); } },
     // losing key (another app or session took the focus) ends nothing: the
     // panel comes back to the front, and only an answer or the timer ends it
-    'windowDidResignKey:': { types: ['void', ['id']], implementation: function (n) { try { if (!CHOSEN) { note('panel lost key, back to the front'); APP.activateIgnoringOtherApps(true); PANEL.makeKeyAndOrderFront(PANEL); } } catch (x) { note('error in windowDidResignKey: ' + x); } } },
+    'windowDidResignKey:': { types: ['void', ['id']], implementation: function (n) { try { if (!CHOSEN && !otherPanelIsKey()) { note('panel lost key'); refront(); } } catch (x) { note('error in windowDidResignKey: ' + x); } } },
     'windowDidBecomeKey:': { types: ['void', ['id']], implementation: function (n) { note('panel is key'); } }
   }
 });
@@ -515,6 +546,8 @@ function run(argv) {
   if (scroll && real(DOC)) panel.initialFirstResponder = DOC;
   // another app taking the focus must not hide the panel
   panel.hidesOnDeactivate = false;
+  // show over another app's full-screen Space
+  panel.collectionBehavior = $.NSWindowCollectionBehaviorCanJoinAllSpaces | $.NSWindowCollectionBehaviorFullScreenAuxiliary;
   panel.level = $.NSFloatingWindowLevel;
   panel.center;
   // the timer's block returns nothing: NSTimer's block type is void

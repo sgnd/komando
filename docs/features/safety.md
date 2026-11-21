@@ -453,7 +453,10 @@ path from pieces, gets past it. So does a program that leaves the agent's
 process tree before it starts komando (it starts a helper that outlives its
 parent, so the system adopts the helper, or it asks the system's scheduler to
 run it): nothing above komando is then an agent's, and komando cannot tell it
-from a script. Only a different user account or a sandbox closes that. Windows: the
+from a script. An agent that drives Terminal through AppleScript does the same: the
+command runs under Terminal, outside the agent's process tree. On macOS the Automation
+permission prompt (Terminal asking whether the agent's app may control it) is the
+guard there. Only a different user account or a sandbox closes that. Windows: the
 environment only. So:
 
 - give komando, and so your agent, an SSH user with only the permissions it needs;

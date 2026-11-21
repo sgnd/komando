@@ -55,7 +55,7 @@ func TestMacPanelStaysOpenOnFocusLoss(t *testing.T) {
 	for _, want := range []string{
 		"panel.hidesOnDeactivate = false",
 		"'windowDidResignKey:'",
-		"PANEL.makeKeyAndOrderFront(PANEL)",
+		"refront()",
 	} {
 		if !strings.Contains(s, want) {
 			t.Errorf("script has no %q", want)
@@ -65,5 +65,58 @@ func TestMacPanelStaysOpenOnFocusLoss(t *testing.T) {
 	h = h[:strings.Index(h, "\n")]
 	if strings.Contains(h, "stopModal") {
 		t.Errorf("losing key ends the panel: %q", h)
+	}
+}
+
+// Two panels (or a full-screen app) never fight over the focus: no re-front
+// when another komando panel is key, at most 3 re-fronts in 10 seconds, and
+// then the panel just stays ordered front.
+func TestMacPanelRefrontIsCapped(t *testing.T) {
+	s := macAlertScript
+	for _, want := range []string{
+		"var REFRONTS = [];",
+		"now - REFRONTS[i] < 10000",
+		"REFRONTS.length >= 3",
+		"re-front limit",
+		"'KomandoPanel'",
+		"PANEL.orderFront(PANEL)",
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("script has no %q", want)
+		}
+	}
+	h := s[strings.Index(s, "'windowDidResignKey:'"):]
+	h = h[:strings.Index(h, "\n")]
+	if !strings.Contains(h, "refront()") || !strings.Contains(h, "otherPanelIsKey()") {
+		t.Errorf("the resign handler skips neither another panel nor the cap: %q", h)
+	}
+}
+
+// After each re-front Allow once is held for 500 ms, so a click or key that
+// meant the app that had the focus cannot answer the panel.
+func TestMacPanelHoldsAllowAfterRefront(t *testing.T) {
+	s := macAlertScript
+	for _, want := range []string{
+		"var HELD = false;",
+		"function holdAllow()",
+		"timerWithTimeIntervalRepeatsBlock(0.5, false",
+		"ALLOW_BTN.enabled = SEEN",
+		"HELD = true;\n  ALLOW_BTN.enabled = false;",
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("script has no %q", want)
+		}
+	}
+	f := macFunc(t, "refront")
+	if !strings.Contains(f, "holdAllow()") || strings.Index(f, "makeKeyAndOrderFront") > strings.Index(f, "holdAllow()") {
+		t.Errorf("refront does not hold Allow once after bringing the panel forward:\n%s", f)
+	}
+}
+
+// The panel shows over another app's full-screen Space.
+func TestMacPanelJoinsFullScreenSpaces(t *testing.T) {
+	want := "panel.collectionBehavior = $.NSWindowCollectionBehaviorCanJoinAllSpaces | $.NSWindowCollectionBehaviorFullScreenAuxiliary;"
+	if !strings.Contains(macAlertScript, want) {
+		t.Errorf("script has no %q", want)
 	}
 }

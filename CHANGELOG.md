@@ -216,7 +216,10 @@ no click.
   anyone answers (its helper crashes or prints nothing), the command is
   still refused, now with the error `APPROVAL_WINDOW_FAILED` and a hint to
   update komando and not to ask the person again, instead of reporting a
-  Deny nobody gave.
+  Deny nobody gave. When the panel does come back to the front, it does so
+  at most 3 times in 10 seconds and not when another komando panel is key;
+  Allow once is held for half a second after each return, and the panel
+  shows over another app's full-screen Space.
 - The macOS approval window takes the keys as soon as it opens (C237).
   The script that scrolls has the focus, so the arrows, Page Up, Page
   Down, Home, End and Space scroll it with no click. Before, they did
