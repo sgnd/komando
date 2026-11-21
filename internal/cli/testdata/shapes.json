@@ -1384,7 +1384,8 @@
       "komando": "string",
       "name": "string",
       "network": "bool",
-      "read_only": "bool"
+      "read_only": "bool",
+      "shell_access": "bool"
     },
     "meta": {
       "contract": "number",

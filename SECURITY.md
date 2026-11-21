@@ -54,7 +54,7 @@ A security problem in OpenSSH, a database, a cache, Kubernetes or another tool t
   client wants a certificate made for a server even when the profile does
   not ask for it.
 - Another device's SSH key (the Komando app on a phone) can be limited to komando with `komando ssh-gate line`. That key gets:
-  - no shell, no file copy and no forwarding, and one komando command at a time;
+  - no shell, no file copy and no forwarding, and one komando command at a time (a line made with `--shell-access` adds a login shell on one listed server that is not protected, not Windows and not the komando computer, with a terminal);
   - the rules of an AI agent: secrets hidden, `--reveal` and `--allow-dangerous` refused;
   - nothing written on the komando computer itself: no downloads there, no change to komando's servers, settings, rules, secrets or keys, and nothing at all, not even a read, on a sqlite file or a target at `localhost` or a loopback address;
   - optionally, only commands that read;

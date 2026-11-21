@@ -8,10 +8,13 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// gateKey is what an ssh-gate key may do, from its authorized_keys line.
+// gateKey is what an ssh-gate key may do, from its authorized_keys line,
+// and whether sshd gave this call of it a terminal.
 type gateKey struct {
-	readOnly bool // --read-only: only commands that read
-	network  bool // reads that reach the network too (always, for a full key)
+	readOnly    bool // --read-only: only commands that read
+	network     bool // reads that reach the network too (always, for a full key)
+	shellAccess bool // --shell-access: also a login shell on one server (sshgate_shell.go)
+	tty         bool // the call has the terminal sshd gives a --shell-access line (gateTTY)
 }
 
 // A read key (--read-only) without --network runs only the reads that stay
@@ -111,11 +114,12 @@ func gateCertURL(c *cobra.Command) string {
 // gateStatus is what `ssh-gate status` prints: which key the caller holds
 // and what it may do.
 type gateStatus struct {
-	Gate     bool   `json:"gate"`      // the command came through ssh-gate
-	Name     string `json:"name"`      // the key's --name ("" when not through a key)
-	ReadOnly bool   `json:"read_only"` // only commands that read
-	Network  bool   `json:"network"`   // reads that reach the network too
-	Komando  string `json:"komando"`   // komando's version
+	Gate        bool   `json:"gate"`         // the command came through ssh-gate
+	Name        string `json:"name"`         // the key's --name ("" when not through a key)
+	ReadOnly    bool   `json:"read_only"`    // only commands that read
+	Network     bool   `json:"network"`      // reads that reach the network too
+	ShellAccess bool   `json:"shell_access"` // a login shell on one server too
+	Komando     string `json:"komando"`      // komando's version
 }
 
 func (s gateStatus) Text() string {
@@ -128,6 +132,8 @@ func (s gateStatus) Text() string {
 		mode = "read only, network checks allowed"
 	case s.ReadOnly:
 		mode = "read only, no network"
+	case s.ShellAccess:
+		mode = "may change things and open a shell on a server"
 	}
 	return "key " + s.Name + ": " + mode + " (komando " + s.Komando + ")\n"
 }
@@ -137,8 +143,9 @@ func sshGateStatusCmd() *cobra.Command {
 		Use:   "status",
 		Short: "Say which ssh-gate key runs this, and what it may do",
 		Long: `Through an SSH key that ssh-gate limits, prints the key's name and what it
-may do: change things, or read only, and whether its reads may reach the
-network (--network on its line). ssh-gate answers it itself, so an app
+may do: change things, or read only, whether its reads may reach the
+network (--network on its line), and whether it may open a login shell on
+a server (--shell-access on its line). ssh-gate answers it itself, so an app
 can check what its key is before it sends anything else. Typed on the
 komando computer, it says the command did not come through a key.`,
 		Example: "  ssh HOST komando ssh-gate status -o json\n  komando ssh-gate status",
