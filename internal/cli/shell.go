@@ -2,16 +2,14 @@ package cli
 
 import (
 	"context"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/term"
 
 	"github.com/sgnd/komando/internal/out"
-	"github.com/sgnd/komando/internal/sshx"
+	"github.com/sgnd/komando/internal/store"
 )
 
 // shellCmd is the interactive login shell, meant for humans taking over
@@ -76,50 +74,37 @@ func runShell(cl *call, ctx context.Context, target string) error {
 		who = "" // an ad-hoc user@address target says it already
 	}
 	showStatus(cl, statusLine{What: "shell", Target: h.Name, Detail: who, Route: hostRoute(st, h), Protected: protected})
-	fd := int(os.Stdin.Fd())
+	return openShell(cl, ctx, st, h)
+}
+
+// openShell connects to h and runs a login shell there on this terminal
+// until it ends.
+func openShell(cl *call, ctx context.Context, st *store.State, h *store.Host) error {
 	audit(cl, st, "shell", []string{h.Name}, "", true, nil)
+	tt := shellTTY()
 	var started time.Time
 	code, lost := 0, false
 	// a Windows server over SSH gives its own shell (cmd or PowerShell)
-	err = withClient(cl, allowWindows(ctx), st, h, func(c *sshx.Client) error {
-		sess, err := c.Session()
-		if err != nil {
-			return err
-		}
-		defer sess.Close()
-		w, hgt, _ := term.GetSize(fd)
+	err := shellDial(cl, allowWindows(ctx), st, h, func(conn shellConn) error {
+		w, hgt, _ := tt.Size()
 		t := cl.getenv("TERM")
 		if t == "" {
 			t = "xterm-256color"
 		}
-		if err := sess.RequestPty(t, hgt, w, ssh.TerminalModes{ssh.ECHO: 1}); err != nil {
+		if err := conn.RequestPty(t, hgt, w, ssh.TerminalModes{ssh.ECHO: 1}); err != nil {
 			return err
 		}
-		old, err := term.MakeRaw(fd)
+		restore, err := tt.MakeRaw()
 		if err != nil {
 			return err
 		}
-		defer term.Restore(fd, old)
-		sess.Stdin, sess.Stdout, sess.Stderr = cl.stdin, cl.out.W, cl.out.Err
-		winch := make(chan os.Signal, 1)
-		defer notifyResize(fd, winch)()
-		go func() {
-			for range winch {
-				if w, h, err := term.GetSize(fd); err == nil {
-					_ = sess.WindowChange(h, w)
-				}
-			}
-		}()
-		if err := sess.Shell(); err != nil {
-			return err
-		}
-		started = time.Now()
-		err = sess.Wait()
+		defer restore()
+		err = driveShell(conn, tt, shellIO{cl.stdin, cl.out.W, cl.out.Err}, func() { started = time.Now() })
 		if ee, ok := err.(*ssh.ExitError); ok {
 			code = ee.ExitStatus()
 			return exitCode(code)
 		}
-		lost = err != nil
+		lost = err != nil && !started.IsZero()
 		return err
 	})
 	// after the callback: the terminal is out of raw mode again
