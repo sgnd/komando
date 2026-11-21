@@ -1348,3 +1348,47 @@ func rounded(runs []time.Duration) []time.Duration {
 	}
 	return out
 }
+
+// TestRehearsalListMedian times `host list` (KOMANDO_OUTPUT=json) on a store of N servers
+// (KOMANDO_REHEARSAL_N, default 50), store.key mode: five runs on the
+// upgraded store (format 2) and five with the old binary on a format-1
+// copy; it reports the median of each. The new build's threshold is 200 ms.
+func TestRehearsalListMedian(t *testing.T) {
+	n := 50
+	if v := os.Getenv("KOMANDO_REHEARSAL_N"); v != "" {
+		var err error
+		if n, err = strconv.Atoi(v); err != nil {
+			t.Fatal(err)
+		}
+	}
+	b := buildRehearsalBins(t)
+	h := newRehearsalHome(t)
+	mustK(t, b.old, h, "", nil, "host", "add", "first", "root@10.0.0.1")
+	if r := runK(t, b.seed, h, "", nil, "hosts", strconv.Itoa(n)); r.exit != 0 {
+		t.Fatalf("seed hosts: %s%s", r.stdout, r.stderr)
+	}
+	if got := storeFormat(t, h); got != "1" {
+		t.Fatalf("format %q, not 1", got)
+	}
+	formatOne := newRehearsalHome(t)
+	copyTree(t, komandoDir(h), komandoDir(formatOne))
+	median := func(runs []time.Duration) time.Duration {
+		s := slices.Clone(runs)
+		slices.Sort(s)
+		return s[len(s)/2].Round(time.Millisecond)
+	}
+	var oldRuns, newRuns []time.Duration
+	for i := 0; i < 5; i++ {
+		oldRuns = append(oldRuns, mustK(t, b.old, formatOne, "", nil, "host", "list").duration)
+	}
+	mustK(t, b.new, h, "", nil, "host", "list") // the upgrade, not timed
+	if got := storeFormat(t, h); got != "2" {
+		t.Fatalf("format %q after upgrade, not 2", got)
+	}
+	for i := 0; i < 5; i++ {
+		newRuns = append(newRuns, mustK(t, b.new, h, "", nil, "host", "list").duration)
+	}
+	m := median(newRuns)
+	t.Logf("RESULT n=%d servers: new (format 2) median %v runs %v; old (format 1) median %v runs %v; threshold 200ms: %s",
+		n, m, rounded(newRuns), median(oldRuns), rounded(oldRuns), passFail(m <= 200*time.Millisecond))
+}
