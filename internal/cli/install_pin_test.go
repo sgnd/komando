@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"os"
 	"regexp"
 	"testing"
@@ -65,5 +66,33 @@ func TestNewestChangelogTag(t *testing.T) {
 		if got := newestChangelogTag(t, c.in); got != c.want {
 			t.Errorf("newestChangelogTag = %s, want %s", got, c.want)
 		}
+	}
+}
+
+// install.sh is pinned by the hash in the release's signed checksums.txt, and
+// that hash is of the tag's copy. The install line in a release's notes must
+// fetch the tag's copy, not main's, which moves on.
+func TestReleaseNotesInstallLineUsesTag(t *testing.T) {
+	wf, err := os.ReadFile("../../.github/workflows/release.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(wf, []byte("/komando/main/install.sh")) {
+		t.Error("release.yml fetches install.sh from main; a release's install line must use its tag")
+	}
+	if !bytes.Contains(wf, []byte("/komando/@TAG@/install.sh")) || !bytes.Contains(wf, []byte("s|@TAG@|$GITHUB_REF_NAME|g")) {
+		t.Error("release.yml does not put the release tag into the install line of the notes")
+	}
+}
+
+// The install page says the hash in checksums.txt is of the tag's copy of
+// install.sh.
+func TestInstallDocSaysHashIsOfTagCopy(t *testing.T) {
+	doc, err := os.ReadFile("../../docs/features/install.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(doc, []byte("install.sh` line in a release's `checksums.txt`")) {
+		t.Error("docs/features/install.md does not say which copy of install.sh the checksums.txt hash covers")
 	}
 }
