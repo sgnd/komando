@@ -105,6 +105,11 @@ jobs:
       - run: make dist VERSION="$GITHUB_REF_NAME" SIGNED="$SIGNED"
         env:
           SIGNED: ${{ needs.macos.outputs.signed == 'true' && 'signed' || '' }}
+      # install.sh joins checksums.txt (it is not a release asset), so the
+      # signature covers the installer a site pins by hash; the archive
+      # lookups of `komando update` and install.sh match by name and skip it
+      - name: Add install.sh to checksums.txt
+        run: sha256sum install.sh >> dist/checksums.txt
       # `komando update` refuses a release whose checksums.txt is not signed
       # with a key built into komando; this checks the signature with
       # those keys before anything is published
