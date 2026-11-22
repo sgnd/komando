@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -94,5 +95,43 @@ func TestInstallDocSaysHashIsOfTagCopy(t *testing.T) {
 	}
 	if !bytes.Contains(doc, []byte("install.sh` line in a release's `checksums.txt`")) {
 		t.Error("docs/features/install.md does not say which copy of install.sh the checksums.txt hash covers")
+	}
+}
+
+// A tag is any ref git accepts, `|` and `&` included, and the workflow puts it
+// into shell and sed programs. Every job that reads GITHUB_REF_NAME starts
+// with a step that stops anything but vX.Y.Z.
+func TestReleaseJobsCheckTagFirst(t *testing.T) {
+	wf, err := os.ReadFile("../../.github/workflows/release.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const guard = `[[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]`
+	_, jobs, ok := strings.Cut(string(wf), "\njobs:\n")
+	if !ok {
+		t.Fatal("release.yml has no jobs")
+	}
+	jobHead := regexp.MustCompile(`(?m)^  ([a-z-]+):\n`)
+	idx := jobHead.FindAllStringSubmatchIndex(jobs, -1)
+	checked := 0
+	for i, m := range idx {
+		end := len(jobs)
+		if i+1 < len(idx) {
+			end = idx[i+1][0]
+		}
+		name, body := jobs[m[2]:m[3]], jobs[m[1]:end]
+		if !strings.Contains(body, "GITHUB_REF_NAME") {
+			continue
+		}
+		checked++
+		_, steps, _ := strings.Cut(body, "    steps:\n")
+		_, fromFirst, _ := strings.Cut(steps, "      - ")
+		firstStep, _, _ := strings.Cut(fromFirst, "\n      - ")
+		if !strings.Contains(firstStep, guard) {
+			t.Errorf("job %q: its first step is not the check that the tag is vX.Y.Z", name)
+		}
+	}
+	if checked < 2 {
+		t.Errorf("only %d jobs read the tag; the scan is broken", checked)
 	}
 }

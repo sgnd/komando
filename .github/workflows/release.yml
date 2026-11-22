@@ -27,6 +27,10 @@ jobs:
     outputs:
       signed: ${{ steps.sign.outputs.signed }}
     steps:
+      # a tag is any ref git accepts, and the steps below put it into shell
+      # and sed programs, so nothing but vX.Y.Z goes on
+      - name: Check the tag
+        run: '[[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::tag must be vX.Y.Z"; exit 1; }'
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
@@ -69,6 +73,10 @@ jobs:
       id-token: write     # sign the build provenance (Sigstore)
       attestations: write # store it on GitHub
     steps:
+      # a tag is any ref git accepts, and the steps below put it into shell
+      # and sed programs, so nothing but vX.Y.Z goes on
+      - name: Check the tag
+        run: '[[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::tag must be vX.Y.Z"; exit 1; }'
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
