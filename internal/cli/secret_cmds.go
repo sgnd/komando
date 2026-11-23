@@ -292,7 +292,7 @@ func secretRmCmd() *cobra.Command {
 			// moveSecret takes them), so a reference another komando adds
 			// meanwhile is seen before its secret is gone
 			args = dedupe(args)
-			err = store.Update(cl.storeWrite(), func(s *store.State) error {
+			err = storeUpdate(cl, func(s *store.State) error {
 				for _, n := range args {
 					if users := secretUsers(s, n); len(users) > 0 {
 						return secretInUse(n, users)

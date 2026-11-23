@@ -167,7 +167,11 @@ func runHostAdd(cmd *cobra.Command, args []string, f *hostFlags, force, askPw bo
 	h.CreatedAt, h.UpdatedAt = now, now
 	res := hostResult{Host: h}
 	replaced := false
-	err = store.Update(cl.storeWrite(), func(s *store.State) error {
+	if err := askFirst(cl, func(s *store.State) error { return hostAddQuestions(cl, s, name, force, h) }); err != nil {
+		undoPw()
+		return err
+	}
+	err = storeUpdate(cl, func(s *store.State) error {
 		if err := checkNewName(cl, s, "host", name, force); err != nil {
 			return err
 		}
@@ -269,7 +273,8 @@ func runHostEdit(cmd *cobra.Command, args []string, f *hostFlags, askPw bool) er
 	var res hostResult
 	var many hostEditResult
 	single := false
-	err = store.Update(cl.storeWrite(), func(s *store.State) error {
+	err = updateAskFirst(cl, func(s *store.State) error {
+		res, many = hostResult{}, hostEditResult{} // set afresh on each run (updateAskFirst)
 		hosts, err := pickHosts(cl, s, args)
 		if err != nil {
 			return err
@@ -743,4 +748,13 @@ func hostShowCmd() *cobra.Command {
 // hosts (host edit --forward-agent, import).
 func forwardAgentWhat(hosts []string) string {
 	return "lending your ssh-agent to " + strings.Join(hosts, ", ") + " (root there can use your keys while komando is connected)"
+}
+
+// hostAddQuestions are host add's questions, asked outside the store's
+// lock (askFirst); h is not changed.
+func hostAddQuestions(cl *call, s *store.State, name string, force bool, h *store.Host) error {
+	if err := checkNewName(cl, s, "host", name, force); err != nil {
+		return err
+	}
+	return guardHostSends(cl, s, []*store.Host{h}, s.Hosts)
 }

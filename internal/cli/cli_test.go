@@ -2,12 +2,14 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"strings"
 	"testing"
 	"time"
@@ -86,7 +88,16 @@ func TestMain(m *testing.M) {
 		}
 		return realHome()
 	}
+	// a person is never asked while the store is locked (storeUpdate)
+	var askedInStore []string
+	askedInStoreStep = func(_ *call, what string) {
+		askedInStore = append(askedInStore, what+"\n"+string(debug.Stack()))
+	}
 	code := m.Run()
+	if len(askedInStore) > 0 {
+		fmt.Fprintf(os.Stderr, "FAIL: a person was asked %d times while the store was locked:\n%s\n", len(askedInStore), strings.Join(askedInStore, "\n---\n"))
+		code = 1
+	}
 	homeDone()
 	os.Exit(code)
 }

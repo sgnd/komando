@@ -150,7 +150,7 @@ bits.`,
 				return err
 			}
 			var k *store.Key
-			err = store.Update(cl.storeWrite(), func(s *store.State) error {
+			err = storeUpdate(cl, func(s *store.State) error {
 				if _, ok := s.Keys[name]; ok {
 					return keyExists(name)
 				}
@@ -262,7 +262,7 @@ login, as ssh does; --cert names one kept somewhere else.`,
 			if k.Type == ssh.KeyAlgoRSA && rsaBits(k.PublicKey) > 0 && rsaBits(k.PublicKey) < 2048 {
 				res.Warnings = append(res.Warnings, fmt.Sprintf("this RSA key has only %d bits; servers may refuse it: make a new one with `komando key gen`", rsaBits(k.PublicKey)))
 			}
-			err = store.Update(cl.storeWrite(), func(s *store.State) error {
+			err = storeUpdate(cl, func(s *store.State) error {
 				if _, ok := s.Keys[k.Name]; ok {
 					return keyExists(k.Name)
 				}
@@ -443,7 +443,7 @@ FILE-cert.pub next to the key.`,
 				res.Action = "would_change"
 			}
 			if res.Action == "changed" {
-				err := store.Update(cl.storeWrite(), func(s *store.State) error {
+				err := storeUpdate(cl, func(s *store.State) error {
 					k, err := findKey(cl, s, args[0])
 					if err != nil {
 						return err
@@ -593,7 +593,7 @@ added stays on disk.`,
 					}
 				}
 			}
-			err := store.Update(cl.storeWrite(), func(s *store.State) error {
+			err := storeUpdate(cl, func(s *store.State) error {
 				k, err := findKey(cl, s, args[0])
 				if err != nil {
 					return err
@@ -747,7 +747,7 @@ this key.`,
 			}
 			data.Summary.Total = len(res)
 			if setDefault && len(okHosts) > 0 {
-				_ = store.Update(cl.storeWrite(), func(s *store.State) error {
+				_ = storeUpdate(cl, func(s *store.State) error {
 					for _, n := range okHosts {
 						if h, ok := s.Hosts[n]; ok {
 							h.Key = name

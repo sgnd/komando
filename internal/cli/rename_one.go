@@ -288,7 +288,12 @@ uses them, so the old name is free again. Disconnect it first
 		Args:    cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			var res mvResult
-			err := store.Update(cl.storeWrite(), func(s *store.State) error {
+			if kind != "vpn" { // a vpn rename moves vault secrets: no run on a copy
+				if err := askFirst(cl, func(s *store.State) error { _, err := rename(cl, s, args[0], args[1]); return err }); err != nil {
+					return err
+				}
+			}
+			err := storeUpdate(cl, func(s *store.State) error {
 				var err error
 				res, err = rename(cl, s, args[0], args[1])
 				return err

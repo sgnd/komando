@@ -496,10 +496,17 @@ func ask(cl *call, question string) string {
 }
 
 // confirmYes asks a [y/N] question at the terminal. The answer covers this
-// question only; it does not turn on --yes for later checks.
+// question only; it does not turn on --yes for later checks. A yes to the
+// very same question earlier in this command answers it again without
+// asking: a command asks before the store's lock and checks again inside
+// it (storeUpdate); the question names the targets, so a changed target
+// set is a new question and is asked.
 func confirmYes(cl *call, question string) bool {
 	if cl.flags.dryRun || !cl.interactive() {
 		return false
+	}
+	if slices.Contains(cl.ttyYes, question) {
+		return true
 	}
 	a := strings.ToLower(ask(cl, question+" [y/N] "))
 	ok := a == "y" || a == "yes"

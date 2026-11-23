@@ -160,7 +160,7 @@ func runVpnEdit(cmd *cobra.Command, args []string, apply func(*store.State) erro
 		cl.out.Print("vpn.edit", textAs{map[string]any{"would_change": *res}, vpnManyText{"would change", *res}}, nil)
 		return nil
 	}
-	if err := store.Update(cl.storeWrite(), apply); err != nil {
+	if err := updateAskFirst(cl, apply); err != nil {
 		return err
 	}
 	audit(cl, nil, "vpn.edit", vpnNames(*res), "", true, map[string]any{"flags": changedFlags(cmd)})
@@ -393,7 +393,11 @@ func vpnRmCmd() *cobra.Command {
 // any that is up) and says which of their vault secrets nothing uses now.
 func vpnRemove(cl *call, check func(*store.State) error, names *[]string) (unused, warnings []string, err error) {
 	var gone []*store.Vpn
-	err = store.Update(cl.storeWrite(), func(s *store.State) error {
+	// the question first, outside the store's lock (check changes nothing)
+	if err := askFirst(cl, check); err != nil {
+		return nil, nil, err
+	}
+	err = storeUpdate(cl, func(s *store.State) error {
 		if err := check(s); err != nil {
 			return err
 		}

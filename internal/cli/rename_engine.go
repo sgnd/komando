@@ -88,7 +88,19 @@ func renameTx(cl *call, plan func(s *store.State) (renameSet, renameOpts, error)
 	var moves []renamePair
 	var secrets map[string]string
 	moved := 0
-	err := store.Update(cl.storeWrite(), func(s *store.State) error {
+	// the questions first, outside the store's lock: plan and applyRenames
+	// change only the copy; the vault and files move only inside the step
+	if err := askFirst(cl, func(s *store.State) error {
+		set, opts, err := plan(s)
+		if err != nil {
+			return err
+		}
+		_, _, err = applyRenames(cl, s, set, opts)
+		return err
+	}); err != nil {
+		return renameResult{}, err
+	}
+	err := storeUpdate(cl, func(s *store.State) error {
 		set, opts, err := plan(s)
 		if err != nil {
 			return err

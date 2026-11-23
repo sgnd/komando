@@ -278,7 +278,7 @@ func applyImport(cl *call, source, file string, plan *importPlan, groups []strin
 		return err
 	}
 	now := time.Now().UTC()
-	err = store.Update(cl.storeWrite(), func(s *store.State) error {
+	err = storeUpdate(cl, func(s *store.State) error {
 		for _, h := range hosts {
 			h.Groups = dedupe(append(h.Groups, groups...))
 			h.CreatedAt, h.UpdatedAt = now, now
