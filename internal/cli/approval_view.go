@@ -158,8 +158,8 @@ func viewFor(cl *call, text string) approvalView {
 // lines and the buttons always show, and what runs takes the height left
 // and scrolls (no scroller when it fits). Whatever their labels, the script answers with the fixed
 // tokens "Deny" and "Allow once" (macAnswer). Every text arrives in argv after
-// macArgMarker, never in the script. Deny is the default (Return), Esc,
-// the close button and Cmd-W; only the 120 s timer prints "gave up", and
+// macArgMarker, never in the script. A click on Deny, Esc, the close button
+// and Cmd-W deny; no key presses a button; only the 120 s timer prints "gave up", and
 // any other end is a Deny. The script area (or, when nothing scrolls, the
 // panel) keeps AppKit's first responder, so every key reaches onKey
 // through typed keyDown: overrides; Tab moves the panel's own focus
@@ -169,7 +169,7 @@ func viewFor(cl *call, text string) approvalView {
 // "Allow once" the same run asks LocalAuthentication for the device owner
 // (policy 2: Touch ID, an Apple Watch or the login password) with argv[3]
 // as the reason, waiting at most argv[4] seconds of its own; it prints
-// "owner ok" on the next line only when the reply says ok. argv[10] is "1"
+// "owner ok" on the next line only when the reply says ok. argv[11] is "1"
 // only in a debug run (macDebugArgs): the script then notes on stderr each
 // key, focus change, handler error and end, never a text.
 const macAlertScript = `ObjC.import('AppKit');
@@ -190,6 +190,11 @@ function owner(reason, secs) {
 var DENY = 1000, ALLOW = 1001, GAVE_UP = 1002, APP = null;
 // the answer each path sets itself; a close after a choice keeps it
 var CHOICE = 'Deny', CHOSEN = false;
+var KEYS = null;
+// keysHint shows the line that says how to allow without keys; it answers nothing
+function keysHint() {
+  if (KEYS && KEYS.v.hidden) { KEYS.v.hidden = false; note('keys line shown'); }
+}
 // DEBUG is set in run for a debug run (KOMANDO_APPROVAL_DEBUG): note writes one
 // line to stderr for komando's debug log, with the first responder and
 // FOCUS, and never throws; PANEL and DENY_BTN let who name the first responder
@@ -309,9 +314,9 @@ function onKey(e) {
     var code = Number(e.keyCode), mods = Number(e.modifierFlags);
     if (DEBUG) note('key ' + keyName(e));
     if (code === 53 || (code === 13 && (mods & CMD))) { note('end: Deny, key'); CHOICE = 'Deny key'; CHOSEN = true; APP.stopModalWithCode(DENY); return; }
-    if (code === 36 || code === 76) { note('Return answers nothing'); return; }
+    if (code === 36 || code === 76) { note('Return answers nothing'); keysHint(); return; }
     if (code === 48) { showFocus(nextFocus(FOCUS, (mods & SHIFT) !== 0, SCROLLS, SEEN)); note('focus moved'); return; }
-    if (code === 49 && (FOCUS === 'deny' || FOCUS === 'allow')) { note('Space on a button answers nothing'); return; }
+    if (code === 49 && (FOCUS === 'deny' || FOCUS === 'allow')) { note('Space on a button answers nothing'); if (FOCUS === 'allow') keysHint(); return; }
     if (SCROLLS && (SCROLL_KEYS.indexOf(code) >= 0 || (code === 49 && FOCUS === 'script')) && scrollKey(code)) { if (DEBUG) note('scrolled to ' + where()); }
   } catch (x) { note('error in onKey: ' + x); }
 }
@@ -401,11 +406,10 @@ ObjC.registerSubclass({
   name: 'KomandoAnswer',
   methods: {
     'deny:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note('end: Deny, ' + how()); CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); } },
-    // Space on a focused Allow once button reaches allow: like a click
-    // (onKey presses it). That is safe only because the device-owner check
-    // (Touch ID or the login password) runs after this panel and no key
-    // press can satisfy it. A change that drops or weakens that check must
-    // stop keys reaching allow:.
+    // allow: is reached by a click or an accessibility press (AXPress:
+    // Voice Control, the Accessibility Keyboard), never by a key (onKey).
+    // It still needs SEEN, and the device-owner check (Touch ID or the
+    // login password) runs after this panel; no key press can satisfy it.
     'allow:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note((SEEN ? 'end: Allow once, ' : 'Allow once ignored: not read to the end, ') + how()); if (!SEEN || HELD) return; CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } },
     // the last line is in view when the visible rect reaches the document's bottom
     'scrolled:': { types: ['void', ['id']], implementation: function (n) { try { if (SEEN) return; var r = CLIP.documentVisibleRect; if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = !HELD; note('read to the end'); } } catch (x) { note('error in scrolled: ' + x); } } },
@@ -445,7 +449,7 @@ function label(text, font, w, copy) {
   return { v: l, h: Math.ceil(l.cell.cellSizeForBounds($.NSMakeRect(0, 0, w, 1e5)).height) };
 }
 function run(argv) {
-  DEBUG = argv[10] === '1';
+  DEBUG = argv[11] === '1';
   var app = $.NSApplication.sharedApplication;
   APP = app;
   app.setActivationPolicy($.NSApplicationActivationPolicyAccessory);
@@ -465,9 +469,15 @@ function run(argv) {
   deny.refusesFirstResponder = true;
   allow.refusesFirstResponder = true;
   var bh = Math.ceil(deny.fittingSize.height), dw = Math.ceil(deny.fittingSize.width), aw = Math.ceil(allow.fittingSize.width);
+  // the keys line (how to allow without keys) waits hidden left of the buttons
+  // until a key that cannot allow is pressed (keysHint)
+  var kw = w - aw - 12 - dw - 16;
+  KEYS = label(argv[10], $.NSFont.systemFontOfSize(fs - 2), kw, true);
+  KEYS.v.hidden = true;
+  var rowH = Math.max(bh, KEYS.h);
   // the title, the info lines and the buttons always show; what runs
   // (argv[5]) takes the height left on the screen and scrolls past it
-  var fixedH = pad + bh + pad + pad;
+  var fixedH = pad + rowH + pad + pad;
   parts.forEach(function (p, i) { fixedH += p.h + (i ? gap : 0); });
   var screen = $.NSScreen.mainScreen;
   // 80 pt: the title bar and a margin above and below the panel
@@ -544,6 +554,8 @@ function run(argv) {
   deny.frame = $.NSMakeRect(pad + w - aw - 12 - dw, pad, dw, bh);
   RINGS.deny = ringBox(view, pad + w - aw - 12 - dw, pad, dw, bh);
   RINGS.allow = ringBox(view, pad + w - aw, pad, aw, bh);
+  KEYS.v.frame = $.NSMakeRect(pad, pad, kw, KEYS.h);
+  view.addSubview(KEYS.v);
   view.addSubview(deny);
   view.addSubview(allow);
   if (scroll && real(DOC)) panel.initialFirstResponder = DOC;
@@ -607,7 +619,7 @@ func macArgs(v approvalView) []string {
 	w := wordsFor(v.Lang)
 	shown := noBreakHyphens(v.shown())
 	return []string{"-l", "JavaScript", "-e", macAlertScript, macArgMarker, v.title(), v.info(), v.ownerReason(), strconv.Itoa(int(ownerTimeout.Seconds())), shown,
-		w.panel, w.deny, w.allow, fmt.Sprintf(w.scrollAll, v.bodyLines())}
+		w.panel, w.deny, w.allow, fmt.Sprintf(w.scrollAll, v.bodyLines()), w.keys}
 }
 
 // bodyLines is what the scroll hint counts: the script's own lines when

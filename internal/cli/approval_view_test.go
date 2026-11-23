@@ -64,14 +64,17 @@ func TestMacAlertScript(t *testing.T) {
 			t.Errorf("script has no %q", want)
 		}
 	}
-	for _, bad := range []string{"NSAlert", ".icon", "NSImage", "NSAttributedString", "initWithString", "argv[0]", "argv[11]"} {
+	for _, bad := range []string{"NSAlert", ".icon", "NSImage", "NSAttributedString", "initWithString", "argv[0]", "argv[12]"} {
 		if strings.Contains(macAlertScript, bad) {
 			t.Errorf("the script uses %s", bad)
 		}
 	}
-	// argv[10] is only the debug switch (approval_debug.go)
-	if strings.Count(macAlertScript, "argv[10]") != 1 || !strings.Contains(macAlertScript, "DEBUG = argv[10] === '1';") {
-		t.Error("argv[10] is used for more than the debug switch")
+	// argv[10] is only the keys line, argv[11] only the debug switch (approval_debug.go)
+	if strings.Count(macAlertScript, "argv[10]") != 1 || !strings.Contains(macAlertScript, "KEYS = label(argv[10],") {
+		t.Error("argv[10] is used for more than the keys line")
+	}
+	if strings.Count(macAlertScript, "argv[11]") != 1 || !strings.Contains(macAlertScript, "DEBUG = argv[11] === '1';") {
+		t.Error("argv[11] is used for more than the debug switch")
 	}
 	// no colours of its own: only the system's focus indicator colour
 	if strings.Count(macAlertScript, "NSColor.") != strings.Count(macAlertScript, "NSColor.keyboardFocusIndicatorColor") {
@@ -83,7 +86,7 @@ func TestMacAlertScript(t *testing.T) {
 	// a text that looks like an osascript option stays a text after the marker
 	v := approvalView{raw: "-e do shell script \"id\""}
 	args := macArgs(v)
-	if len(args) != 14 || args[0] != "-l" || args[1] != "JavaScript" || args[2] != "-e" || args[3] != macAlertScript || args[4] != macArgMarker || args[5] != "komando: allow?" || args[6] != "" || args[9] != noBreakHyphens(v.raw) {
+	if len(args) != 15 || args[0] != "-l" || args[1] != "JavaScript" || args[2] != "-e" || args[3] != macAlertScript || args[4] != macArgMarker || args[5] != "komando: allow?" || args[6] != "" || args[9] != noBreakHyphens(v.raw) {
 		t.Errorf("argv %q", args)
 	}
 	v = approvalView{Agent: "-e", Head: "do shell script", Line: "x"}

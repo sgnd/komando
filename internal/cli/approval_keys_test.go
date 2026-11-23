@@ -2,6 +2,7 @@ package cli
 
 import (
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -41,9 +42,9 @@ func macEndLines() []string {
 
 const (
 	onKeyDeny   = "if (code === 53 || (code === 13 && (mods & CMD))) { note('end: Deny, key'); CHOICE = 'Deny key'; CHOSEN = true; APP.stopModalWithCode(DENY); return; }"
-	onKeyReturn = "if (code === 36 || code === 76) { note('Return answers nothing'); return; }"
+	onKeyReturn = "if (code === 36 || code === 76) { note('Return answers nothing'); keysHint(); return; }"
 	onKeyTab    = "if (code === 48) { showFocus(nextFocus(FOCUS, (mods & SHIFT) !== 0, SCROLLS, SEEN)); note('focus moved'); return; }"
-	onKeySpace  = "if (code === 49 && (FOCUS === 'deny' || FOCUS === 'allow')) { note('Space on a button answers nothing'); return; }"
+	onKeySpace  = "if (code === 49 && (FOCUS === 'deny' || FOCUS === 'allow')) { note('Space on a button answers nothing'); if (FOCUS === 'allow') keysHint(); return; }"
 	onKeyScroll = "if (SCROLLS && (SCROLL_KEYS.indexOf(code) >= 0 || (code === 49 && FOCUS === 'script')) && scrollKey(code)) { if (DEBUG) note('scrolled to ' + where()); }"
 )
 
@@ -558,5 +559,32 @@ func TestMacPanelKeyNames(t *testing.T) {
 	}
 	if regexp.MustCompile(`note\([^;]*keyCode`).MatchString(s) || strings.Contains(s, "'key ' + Number(") {
 		t.Error("a note writes a key code")
+	}
+}
+
+// A keyboard-only person is told how to allow: Return (or keypad Enter)
+// anywhere, or Space on Allow once, shows the keys line, which starts
+// hidden; it answers nothing.
+func TestMacPanelKeysLine(t *testing.T) {
+	s := macAlertScript
+	on := macFunc(t, "onKey")
+	if !strings.Contains(on, onKeyReturn) || !strings.Contains(on, onKeySpace) {
+		t.Error("Return or Space does not show the keys line")
+	}
+	kh := macFunc(t, "keysHint")
+	if !strings.Contains(kh, "KEYS.v.hidden = false") || strings.Contains(kh, "stopModal") || strings.Contains(kh, "CHOICE") {
+		t.Errorf("keysHint does more than show the line:\n%s", kh)
+	}
+	if !strings.Contains(s, "KEYS.v.hidden = true;") {
+		t.Error("the keys line does not start hidden")
+	}
+	for lang, w := range map[string]approvalWords{"en": approvalWordsEN, "id": approvalWordsID} {
+		args := macArgs(approvalView{raw: "t", Lang: lang})
+		if i := slices.Index(args, macArgMarker); args[i+10] != w.keys || w.keys == "" {
+			t.Errorf("%s: argv[10] %q, want the keys line %q", lang, args[i+10], w.keys)
+		}
+	}
+	if !strings.Contains(approvalWordsEN.keys, "Keys do not allow.") || !strings.Contains(approvalWordsEN.keys, "Esc denies.") {
+		t.Errorf("keys line: %q", approvalWordsEN.keys)
 	}
 }
