@@ -162,9 +162,9 @@ func planFormat3(snap *snapshot2, refGuard func(kind, name string) error) (*plan
 	pl.snippets()
 	pl.expectCounts()
 	if len(pl.p.problems) > 0 {
-		return nil, out.Errf(out.ExitPolicy, "STORE_MIGRATION_FAILED",
-			"fix each one with komando v0.17.0, then open the store with this komando again; nothing was changed",
-			"the store cannot move to format 3: %s", strings.Join(pl.p.problems, "; "))
+		return nil, out.Errf(out.ExitError, "STORE_MIGRATION_FAILED",
+			"fix each one with komando v0.17.0, then run `komando doctor` again",
+			"the store cannot move to format 3, so nothing was changed: %s", strings.Join(pl.p.problems, "; "))
 	}
 	return pl.p, nil
 }

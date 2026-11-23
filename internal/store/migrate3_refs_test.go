@@ -101,8 +101,8 @@ func TestCheckOldRefs3(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := checkOldRefs3([]record3{tt.rec})
 			var e *out.Error
-			if !errors.As(err, &e) || e.Code != "STORE_OLD_REFERENCE" || e.Exit != out.ExitPolicy {
-				t.Fatalf("want STORE_OLD_REFERENCE, got %v", err)
+			if !errors.As(err, &e) || e.Code != "STORE_REFERENCE_UNSUPPORTED" || e.Exit != out.ExitUsage {
+				t.Fatalf("want STORE_REFERENCE_UNSUPPORTED (exit 2), got %v", err)
 			}
 			if !strings.Contains(e.Message, tt.rec.name) || !strings.Contains(e.Message, tt.field) {
 				t.Errorf("the error names no entry or field: %s", e.Message)

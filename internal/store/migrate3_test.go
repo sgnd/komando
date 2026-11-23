@@ -9,6 +9,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -382,7 +383,8 @@ func TestMigrate3(t *testing.T) {
 		}) {
 			t.Errorf("names %+v", r.Names)
 		}
-		if fi, err := os.Stat(r.Backup); err != nil || fi.Mode().Perm() != 0o600 {
+		fi, err := os.Stat(r.Backup)
+		if err != nil || runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 { // Windows has no mode bits
 			t.Errorf("backup %s: %v", r.Backup, err)
 		}
 		if r.Counts[KindCredential][1] != len(creds) {
@@ -530,6 +532,9 @@ func TestMigrate3FailsClosed(t *testing.T) {
 			var e *out.Error
 			if !errors.As(err, &e) || e.Code != tt.code {
 				t.Fatalf("want %s, got %v", tt.code, err)
+			}
+			if want := map[string]int{"STORE_IN_USE": out.ExitConflict, "STORE_MIGRATION_FAILED": out.ExitError}[tt.code]; want != 0 && e.Exit != want {
+				t.Errorf("%s: exit %d, want %d (S-8.2)", tt.code, e.Exit, want)
 			}
 			Close()
 			if f := formatNow(t); f != "2" {

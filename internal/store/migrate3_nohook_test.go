@@ -4,7 +4,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -15,7 +14,10 @@ func TestReleaseHasNoMigrateHook(t *testing.T) {
 	if testing.Short() {
 		t.Skip("builds this package twice")
 	}
-	gobin := filepath.Join(runtime.GOROOT(), "bin", "go")
+	gobin, err := exec.LookPath("go")
+	if err != nil {
+		t.Skip("no go command on PATH")
+	}
 	dir := t.TempDir()
 	for _, tc := range []struct {
 		tags string

@@ -129,8 +129,8 @@ func checkOldRefs3(recs []record3) error {
 	for _, r := range recs {
 		for _, f := range refFields3(r.data) {
 			if oldRefRe.MatchString(f.value) {
-				return out.Errf(out.ExitPolicy, "STORE_OLD_REFERENCE",
-					"open the store with komando v0.17.0, point the field at a saved secret again, then open it with this komando",
+				return out.Errf(out.ExitUsage, "STORE_REFERENCE_UNSUPPORTED",
+					"point the field at a saved secret again with komando v0.17.0, then run `komando doctor`",
 					"%s %s: field %s still names a secret the old way", r.typ, r.name, f.field)
 			}
 		}

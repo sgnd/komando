@@ -38,9 +38,9 @@ type migrate3Result struct {
 }
 
 func migrationFailed(format string, a ...any) error {
-	return out.Errf(out.ExitPolicy, "STORE_MIGRATION_FAILED",
-		"fix it with komando v0.17.0, then open the store with this komando again; nothing was changed",
-		format, a...)
+	return out.Errf(out.ExitError, "STORE_MIGRATION_FAILED",
+		"fix it with komando v0.17.0, then run `komando doctor` again",
+		format+"; nothing was changed", a...)
 }
 
 // migrateFormat3 moves this home's store from format 2 to format 3. Every
@@ -148,7 +148,7 @@ func migrateFormat3(ctx context.Context, o migrate3Opts) (migrate3Result, error)
 func needsMigration3(ctx context.Context, person bool) (bool, error) {
 	if !person {
 		return false, out.Errf(out.ExitPolicy, "NEEDS_PERSON", "run `komando doctor` once in your own terminal",
-			"%s must move to a new format, and only a person starts that", Path(StoreFile))
+			"%s is to move to a new format, and only a person starts that", Path(StoreFile))
 	}
 	meta, err := sealdb.Peek(ctx, DBPath())
 	if errors.Is(err, os.ErrNotExist) {
@@ -203,8 +203,8 @@ func noLiveProcesses(alive func(int, string) bool) error {
 		}
 	}
 	if len(running) > 0 {
-		return out.Errf(out.ExitPolicy, "STORE_IN_USE", "end each with komando v0.17.0, then open the store with this komando again",
-			"%s must move to a new format, and komando still runs: %s", Path(StoreFile), strings.Join(running, "; "))
+		return out.Errf(out.ExitConflict, "STORE_IN_USE", "end each one as listed, then run `komando doctor` again",
+			"%s is to move to a new format, and komando still runs: %s", Path(StoreFile), strings.Join(running, "; "))
 	}
 	return nil
 }
