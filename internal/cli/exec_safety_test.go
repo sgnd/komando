@@ -199,7 +199,7 @@ func TestStdinAndInterpreterChecked(t *testing.T) {
 	positional := file("pos.sh", "find /data \"$1\"\n")
 	data := file("data.csv", "id,cmd\n1,rm -rf /x\n2,a > b\n")
 	report := file("report.sql", "select count(*) from t where n > 5;\n")
-	escape := file("escape.sql", "select 1;\n\\! rm -rf /data\n")
+	escape := file("escape.sql", "select 1;\n\\! touch /data/x\n")
 
 	cases := []struct {
 		name  string
@@ -304,18 +304,20 @@ func TestRecipeVarsChecked(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	// finder with x=rm deletes files (rule rm-files): it needs --allow-dangerous too
 	for _, name := range []string{"finder", "procs"} {
 		args := []string{"recipe", "run", name, "prod", "--var", "n=x", "--var", "x=rm"}
+		want, approve := "POLICY_BLOCKED", []string{"--yes", "--allow-dangerous"}
 		if name == "procs" {
-			args = args[:4]
+			args, want, approve = args[:4], "PROTECTED_TARGET", []string{"--yes"}
 		}
-		if err := runRoot(t, args...); toErr(err) == nil || toErr(err).Code != "PROTECTED_TARGET" {
+		if err := runRoot(t, args...); toErr(err) == nil || toErr(err).Code != want {
 			t.Errorf("%s: %v", name, err)
 		}
 		if n := len(srv.take()); n != 0 {
 			t.Errorf("%s ran without --yes", name)
 		}
-		if err := runRoot(t, append([]string{"--yes"}, args...)...); err != nil {
+		if err := runRoot(t, append(approve, args...)...); err != nil {
 			t.Errorf("%s --yes: %v", name, err)
 		}
 		if n := len(srv.take()); n != 1 {

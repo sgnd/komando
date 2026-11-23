@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -16,6 +17,12 @@ type Rule struct {
 	Reason string `json:"reason"`
 	re     *regexp.Regexp
 	fn     func(string) bool // a check a regular expression cannot say (decode-run)
+	// argv checks the commands as they run (simpleCommands); it reads the
+	// text as written, so >> stays an append
+	argv func(simpleCommand) bool
+	// carried: the rule copies the check of one of komando's own commands
+	// (carried.go); CheckScript leaves it out
+	carried bool
 }
 
 var builtin = []struct{ id, pattern, reason string }{
@@ -69,6 +76,7 @@ func init() {
 	for _, b := range builtin {
 		compiled = append(compiled, Rule{ID: b.id, Reason: b.reason, re: regexp.MustCompile(b.pattern)})
 	}
+	compiled = append(compiled, carried()...)
 }
 
 // Check returns the rules a command matches. extra are user patterns from
@@ -79,13 +87,28 @@ func init() {
 // not compile matches every command: a broken rule must not quietly stop
 // protecting anything.
 func Check(cmd string, extra []string) []Rule {
+	return check(cmd, extra, true)
+}
+
+// CheckScript is Check for a script komando wrote for one of its own
+// commands (pkg, cron, docker prune): the rules that copy those commands'
+// checks are left out, since the command rated its own words already.
+func CheckScript(script string, extra []string) []Rule {
+	return check(script, extra, false)
+}
+
+func check(cmd string, extra []string, withCarried bool) []Rule {
 	hits := []Rule{}
 	norm, plain, ps := Normalize(cmd), Plain(cmd), psPlain(Normalize(cmd))
+	cmds, psCmds := simpleCommands(cmd), simpleCommands(psPlain(cmd))
 	match := func(re *regexp.Regexp) bool {
 		return re.MatchString(norm) || re.MatchString(plain) || re.MatchString(ps)
 	}
 	for _, r := range compiled {
-		if match(r.re) || r.fn != nil && (r.fn(norm) || r.fn(plain)) {
+		if r.carried && !withCarried {
+			continue
+		}
+		if r.re != nil && match(r.re) || r.fn != nil && (r.fn(norm) || r.fn(plain)) || r.argv != nil && (slices.ContainsFunc(cmds, r.argv) || slices.ContainsFunc(psCmds, r.argv)) {
 			hits = append(hits, r)
 		}
 	}

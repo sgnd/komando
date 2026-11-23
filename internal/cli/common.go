@@ -305,6 +305,17 @@ func withClient(cl *call, ctx context.Context, st *store.State, h *store.Host, f
 
 // guard enforces the safety policy before anything mutating runs.
 func guard(cl *call, st *store.State, hosts []*store.Host, command string, mutating bool) error {
+	return guardWith(cl, st, hosts, command, mutating, policy.Check)
+}
+
+// guardScript is guard for a script komando wrote for one of its own
+// commands, which rated its own words: the rules that copy such a
+// command's check for exec text (policy.CheckScript) do not apply.
+func guardScript(cl *call, st *store.State, hosts []*store.Host, script string, mutating bool) error {
+	return guardWith(cl, st, hosts, script, mutating, policy.CheckScript)
+}
+
+func guardWith(cl *call, st *store.State, hosts []*store.Host, command string, mutating bool, check func(string, []string) []policy.Rule) error {
 	names := hostNames(hosts)
 	var prot []string
 	if mutating {
@@ -318,7 +329,7 @@ func guard(cl *call, st *store.State, hosts []*store.Host, command string, mutat
 		return err
 	}
 	if command != "" {
-		hits := policy.Check(command, st.Settings.ExtraDenyPattern)
+		hits := check(command, st.Settings.ExtraDenyPattern)
 		ids := make([]string, len(hits))
 		reasons := make([]string, len(hits))
 		for i, h := range hits {
