@@ -55,3 +55,20 @@ func TestSessionEnd(t *testing.T) {
 		}
 	}
 }
+
+// TestSudoCredential: today's --sudo-ref becomes --sudo-credential on the
+// ssh host entry (sudo is ssh only), so a sudo password is not lost at the
+// cut; as a credential option it goes through RefGuard and reservedSecret.
+func TestSudoCredential(t *testing.T) {
+	for _, verb := range []string{"add", "edit"} {
+		k := Key{Type: "host", Provider: "ssh", Verb: verb}
+		l, _ := Find(k)
+		if o, ok := l.Option("sudo-credential"); !ok || o.Kind != Credential {
+			t.Errorf("%s: no --sudo-credential naming a credential", k)
+		}
+	}
+	winrm, _ := Find(Key{Type: "host", Provider: "winrm", Verb: "add"})
+	if _, ok := winrm.Option("sudo-credential"); ok {
+		t.Error("host winrm add: WinRM has no sudo")
+	}
+}
