@@ -158,21 +158,32 @@ func TestRulePackages(t *testing.T) {
 	}
 }
 
+// cron rm removed one entry by dropping its line and handing the rest to
+// crontab - (internal/cli/modules.go cron rm); cron set does the same but
+// adds a line back. Only text that visibly drops lines counts.
 func TestRuleCronRemove(t *testing.T) {
 	runCarried(t, []carriedCase{
-		{"replace from stdin", "crontab -l | grep -v backup | crontab -", "cron-remove"},
-		{"replace from file", "crontab /tmp/new-cron", "cron-remove"},
-		{"replace for user", "crontab -u deploy /tmp/new-cron", "cron-remove"},
-		{"sed spool", "sed -i '/backup/d' /var/spool/cron/crontabs/root", "cron-remove"},
-		{"redirect cron.d", "echo '' > /etc/cron.d/backup", "cron-remove"},
-		{"tee crontab", "grep -v x /etc/crontab | sudo tee /etc/crontab", "cron-remove"},
+		{"drop a line, as cron rm", "crontab -l | grep -v backup | crontab -", "cron-remove"},
+		{"drop for a user", "crontab -u deploy -l | grep -v -e backup | sudo crontab -u deploy -", "cron-remove"},
+		{"sed drop then crontab", "crontab -l | sed '/backup/d' | crontab -", "cron-remove"},
+		{"sed -i drop in spool", "sed -i '/backup/d' /var/spool/cron/crontabs/root", "cron-remove"},
+		{"sed -i drop in cron.d", "sed -i -e '/backup/d' /etc/cron.d/jobs", "cron-remove"},
 		{"rm cron.d", "rm /etc/cron.d/backup", "rm-files"},
+		{"replace and add back, as cron set", `crontab -l | grep -v backup | { cat; echo '0 2 * * * /srv/backup'; } | crontab -`, ""},
+		{"add a line", `{ crontab -l; echo '0 2 * * * /srv/backup'; } | crontab -`, ""},
+		{"install a file: text cannot tell", "crontab /tmp/new-cron", ""},
+		{"filter elsewhere", "grep -v x /etc/hosts > /tmp/h; crontab -l", ""},
+		{"sed -i edit, no drop", "sed -i 's/02/03/' /etc/cron.d/jobs", ""},
+		{"sed -i drop outside cron", "sed -i '/x/d' /etc/hosts", ""},
+		{"overwrite: text cannot tell", "echo '' > /etc/cron.d/backup", ""},
 		{"append redirect", "echo '0 2 * * * /srv/backup' >> /etc/cron.d/backup", ""},
 		{"append tee", "echo x | sudo tee -a /etc/crontab", ""},
 		{"list", "crontab -l", ""},
 		{"list for user", "crontab -u deploy -l", ""},
-		{"read cron.d", "cat /etc/cron.d/backup", ""},
 	})
+	if !slices.Contains(hitIDs("crontab -r"), "crontab-r") {
+		t.Error("crontab -r: want the built-in rule crontab-r")
+	}
 }
 
 func TestRuleKubectlScaleZero(t *testing.T) {

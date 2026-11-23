@@ -8,11 +8,11 @@ import (
 
 // simpleCommand is one command of a shell line as it runs: the program
 // and its arguments with wrappers taken off (sudo, env, xargs, docker
-// exec ...), and the files its redirects overwrite (> but not >>).
+// exec ...), where it runs, and what is piped into it.
 type simpleCommand struct {
-	args       []string
-	overwrites []string
-	at         folder
+	args     []string
+	at       folder
+	upstream [][]string // the commands piped into this one, in order
 }
 
 // folder is where a command runs: the folder the cds before it on the
@@ -51,6 +51,7 @@ func commandsIn(cmd string, depth int, at *folder) []simpleCommand {
 	var out []simpleCommand
 	for _, line := range Tokens(cmd) {
 		var cur simpleCommand
+		var pipe [][]string // the commands of the pipeline so far
 		flush := func() {
 			args := unwrap(cur.args)
 			switch {
@@ -58,8 +59,9 @@ func commandsIn(cmd string, depth int, at *folder) []simpleCommand {
 			case strings.EqualFold(path.Base(args[0]), "cd") || strings.EqualFold(path.Base(args[0]), "pushd"):
 				*at = at.cd(args[1:])
 			default:
-				out = append(out, simpleCommand{args: args, overwrites: cur.overwrites, at: *at})
+				out = append(out, simpleCommand{args: args, at: *at, upstream: slices.Clone(pipe)})
 			}
+			pipe = append(pipe, args)
 			cur = simpleCommand{}
 		}
 		for i := 0; i < len(line); i++ {
@@ -67,13 +69,13 @@ func commandsIn(cmd string, depth int, at *folder) []simpleCommand {
 			switch {
 			case !t.Op:
 				cur.args = append(cur.args, t.Text)
-			case redirectOverwrites(t.Text, line, i):
-				cur.overwrites = append(cur.overwrites, line[i+1].Text)
-				i++
 			case isRedirect(t.Text):
 				i++ // a redirect's file is not an argument
 			default:
 				flush()
+				if t.Text != "|" {
+					pipe = nil
+				}
 				if t.Text == "(" || t.Text == ")" {
 					at.known = false // a cd in a subshell ends with it
 				}
@@ -91,20 +93,6 @@ func commandsIn(cmd string, depth int, at *folder) []simpleCommand {
 
 func isRedirect(op string) bool {
 	return op[0] == '>' || op[0] == '<' || len(op) > 1 && op[0] == '&' && op[1] == '>'
-}
-
-// redirectOverwrites: the operator at i empties the file after it and writes it.
-func redirectOverwrites(op string, line []Token, i int) bool {
-	if i+1 >= len(line) || line[i+1].Op {
-		return false
-	}
-	switch op {
-	case ">", ">|", "&>":
-		return true
-	case ">&":
-		return !IsDescriptor(line[i+1].Text)
-	}
-	return false
 }
 
 // wrapper says how a program that runs another one reads its own words:

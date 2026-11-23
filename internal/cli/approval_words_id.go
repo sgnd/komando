@@ -103,7 +103,7 @@ var riskID = map[string]struct{ en, id string }{
 	"docker-host":          {"gives a container the server (privileged, host namespaces, system folders, plugins)", "memberi container akses ke server (privileged, namespace host, folder sistem, plugin)"},
 	"pkg-remove":           {"removes packages", "menghapus paket"},
 	"pkg-remove-essential": {"removes a package the server needs (ssh, sudo, systemd, libc ...), which can lock you out or break it", "menghapus paket yang dibutuhkan server (ssh, sudo, systemd, libc ...), sehingga akses Anda bisa terputus atau server rusak"},
-	"cron-remove":          {"replaces the crontab or edits cron files, which removes cron jobs", "mengganti crontab atau mengubah file cron, sehingga cron job terhapus"},
+	"cron-remove":          {"removes cron jobs (drops lines from the crontab or a cron file)", "menghapus cron job (membuang baris dari crontab atau file cron)"},
 	"kubectl-scale-zero":   {"scales a kubernetes workload to zero (an outage)", "menurunkan workload kubernetes ke nol (layanan mati)"},
 	"db-drop-user":         {"deletes a database user or role", "menghapus pengguna atau role database"},
 	"win-rm-root":          {"deletes the system drive, a system folder or the users folder recursively", "menghapus drive sistem, folder sistem, atau folder users secara rekursif"},

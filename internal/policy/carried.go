@@ -25,7 +25,7 @@ var carriedRules = []struct {
 	{"docker-host", "gives a container the server (privileged, host namespaces, system folders, plugins)", func(c simpleCommand) bool { return dockerRating(c) == "host" }},
 	{"pkg-remove", "removes packages", func(c simpleCommand) bool { _, ok := removedPackages(c); return ok }},
 	{"pkg-remove-essential", "removes a package the server needs (ssh, sudo, systemd, libc ...), which can lock you out or break it", removesEssential},
-	{"cron-remove", "replaces the crontab or edits cron files, which removes cron jobs", replacesCron},
+	{"cron-remove", "removes cron jobs (drops lines from the crontab or a cron file)", removesCronJobs},
 	{"kubectl-scale-zero", "scales a kubernetes workload to zero (an outage)", kubectlScalesToZero},
 }
 
@@ -185,38 +185,51 @@ func removesEssential(c simpleCommand) bool {
 // cronPath is a crontab file or the folder of cron files.
 var cronPath = regexp.MustCompile(`^/(var/spool/cron|etc/cron\.d)(/|$)|^/etc/crontab$|^/etc/cron\.(hourly|daily|weekly|monthly)/`)
 
-// replacesCron: crontab FILE or crontab - (the new text replaces every
-// entry), or a command that overwrites or edits a cron file: >, tee,
-// sed -i, cp or mv onto it. Appending (>>, tee -a) removes nothing.
-// Deleting a cron file is rm-files.
-func replacesCron(c simpleCommand) bool {
-	if slices.ContainsFunc(c.overwrites, func(p string) bool { return cronPath.MatchString(path.Clean(p)) }) {
-		return true
-	}
+// removesCronJobs: text that visibly drops cron lines, as cron rm did
+// (internal/cli/modules.go: the crontab without the entry's line, handed
+// to crontab -). A grep -v or a sed d piped into crontab - with nothing
+// added back, or sed -i with a d command on a cron file. A pipeline that
+// also adds a line is how cron set replaces an entry: not a removal.
+// Text that cannot show it (crontab FILE, > or tee onto a cron file) is
+// not rated; crontab -r is the built-in rule crontab-r; rm is rm-files.
+func removesCronJobs(c simpleCommand) bool {
 	args := c.args[1:]
-	inCron := slices.ContainsFunc(operands(args), func(p string) bool { return cronPath.MatchString(path.Clean(p)) })
 	switch c.name() {
 	case "crontab":
-		for i := 0; i < len(args); i++ {
-			switch a := args[i]; {
-			case a == "-u":
-				i++
-			case a == "-":
-				return true
-			case !strings.HasPrefix(a, "-"):
-				return true
-			}
+		if !slices.Contains(operands(withoutValues(args, "-u")), "-") {
+			return false
 		}
-	case "tee":
-		return inCron && !hasOption(args, "-a", "--append") // appending adds a job, it removes none
-	case "truncate", "cp", "mv", "install", "ln":
-		return inCron
-	case "sed", "perl":
-		return inCron && slices.ContainsFunc(args, func(a string) bool {
-			return a == "--in-place" || strings.HasPrefix(a, "--in-place=") || strings.HasPrefix(a, "-i") || len(a) > 2 && a[0] == '-' && a[1] != '-' && strings.ContainsRune(a, 'i')
+		return slices.ContainsFunc(c.upstream, dropsLines) && !slices.ContainsFunc(c.upstream, func(a []string) bool {
+			n := strings.ToLower(path.Base(a[0]))
+			return n == "echo" || n == "printf" || n == "{" || n == "cat" && len(operands(a[1:])) > 0
 		})
+	case "sed":
+		inCron := slices.ContainsFunc(operands(args), func(p string) bool { return cronPath.MatchString(path.Clean(p)) })
+		return inCron && sedInPlace(args) && dropsLines(c.args)
 	}
 	return false
+}
+
+// dropsLines: grep -v (or --invert-match), or sed with a d command.
+func dropsLines(a []string) bool {
+	switch strings.ToLower(path.Base(a[0])) {
+	case "grep", "egrep", "fgrep":
+		return hasOption(a[1:], "-v", "--invert-match") || slices.ContainsFunc(a[1:], func(o string) bool {
+			return len(o) > 1 && o[0] == '-' && o[1] != '-' && strings.ContainsRune(o, 'v')
+		})
+	case "sed":
+		return slices.ContainsFunc(a[1:], func(o string) bool { return !strings.HasPrefix(o, "-") && sedDelete.MatchString(o) })
+	}
+	return false
+}
+
+// sedDelete is a sed script with a d command: /x/d, 3d, $d, /a/,/b/d.
+var sedDelete = regexp.MustCompile(`(^|[;}\s])(/[^/]*/|\$|[0-9]+)(,(/[^/]*/|\$|[0-9]+))?\s*!?\s*d\s*($|[;}])`)
+
+func sedInPlace(args []string) bool {
+	return slices.ContainsFunc(args, func(a string) bool {
+		return a == "--in-place" || strings.HasPrefix(a, "--in-place=") || strings.HasPrefix(a, "-i") || len(a) > 2 && a[0] == '-' && a[1] != '-' && strings.ContainsRune(a, 'i')
+	})
 }
 
 // kubectlScalesToZero: kubectl scale with --replicas 0, or a count that

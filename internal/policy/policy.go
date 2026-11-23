@@ -18,7 +18,7 @@ type Rule struct {
 	re     *regexp.Regexp
 	fn     func(string) bool // a check a regular expression cannot say (decode-run)
 	// argv checks the commands as they run (simpleCommands); it reads the
-	// text as written, so >> stays an append
+	// text as written, with sh -c and eval text read the same way
 	argv func(simpleCommand) bool
 	// carried: the rule copies the check of one of komando's own commands
 	// (carried.go); CheckScript leaves it out
