@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -41,8 +42,8 @@ func TestEveryCommandHasKind(t *testing.T) {
 		}
 	}
 	walk(newRoot(tcl))
-	for key := range commandKinds {
-		if !seen[key] {
+	for k := range commandKinds {
+		if key := strings.ReplaceAll(keyID(k), ".", " "); !seen[key] {
 			t.Errorf("commandKinds has %q, but there is no such command: remove it", key)
 		}
 	}

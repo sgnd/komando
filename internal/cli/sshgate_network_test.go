@@ -147,8 +147,7 @@ func TestGateNoNetworkFailsClosed(t *testing.T) {
 	root := newRoot(tcl)
 	c := &cobra.Command{Use: "brand-new", Run: func(*cobra.Command, []string) {}}
 	root.AddCommand(c)
-	commandKinds["brand-new"] = reads
-	defer delete(commandKinds, "brand-new")
+	fakeKind(t, "brand-new", reads)
 	if _, e := gateRule(c, "brand-new", readKey); e == nil || e.Code != "SSH_GATE_NETWORK_REQUIRED" {
 		t.Errorf("a new read, read key: %+v", e)
 	}

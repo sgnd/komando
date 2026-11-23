@@ -91,7 +91,7 @@ func TestTablesKeyedByID(t *testing.T) {
 	}
 	tables := map[string][]string{}
 	add := func(name string, keys []string) { tables[name] = keys }
-	add("commandKinds", keysOf(commandKinds))
+	add("commandKinds", commandKindIDs())
 	add("personalCmds", keysOf(personalCmds))
 	add("localReads", keysOf(localReads))
 	add("leavesHome", keysOf(leavesHome))

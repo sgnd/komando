@@ -13,31 +13,23 @@ import (
 // and Tab and the picker offer only those (C-A04).
 
 // targetKinds is what TARGET picks for c, in words: "servers", "clusters",
-// "servers or file storage", "conns", "VPNs", or "" for any kind.
+// "servers or file storage", "conns", "VPNs", or "" for any kind. It reads
+// c's key (risk_keys.go), not its path.
 func targetKinds(c *cobra.Command) string {
-	if commandFamily(c) == "cluster" {
+	k := cmdKeys[cmdID(c)]
+	switch {
+	case k.typ == "cluster":
 		return "clusters"
-	}
-	switch cmdID(c) {
-	case "upload", "download", "cp", "sync":
+	case k.typ == "" && k.verb == "copy":
 		return "servers or file storage"
-	case "list", "test", "export", "group.add", "group.rm", "cert.check", "rename":
-		return ""
-	}
-	top := c
-	for top.HasParent() && top.Parent().HasParent() {
-		top = top.Parent()
-	}
-	switch top.Name() {
-	case "conn":
+	case k.typ == "conn":
 		return "conns"
-	case "vpn":
+	case k.typ == "vpn":
 		return "VPNs"
-	case "host", "key", "tunnel", "recipe", "logs", "facts":
+	case k.typ == "host", k.typ == "snippet", k.typ == "credential" && k.area != "":
 		return "servers"
-	}
-	if top.GroupID == "servers" {
-		return "servers"
+	case k == safetyKey{"cert", "", ""}:
+		return "servers" // cert check itself takes any host name or URL
 	}
 	return ""
 }

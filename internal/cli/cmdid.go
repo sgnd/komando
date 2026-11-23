@@ -8,13 +8,14 @@ import (
 
 // Every command has an ID: its dotted path (fs.list, secret.show,
 // host.rename). The success and error envelopes, the audit log and every
-// table keyed by command (commandKinds, personalCmds, localReads,
-// leavesHome, the ssh-gate tables, the secret.show mask line) use it, and
+// table keyed by command (personalCmds, localReads, leavesHome, the
+// ssh-gate tables, the secret.show mask line) use it, and
 // TestTablesKeyedByID checks that each key is a command's ID, so a rename
 // that forgets a table fails there instead of slipping past a check
 // (docs/design/command-standard.md, S-1.6). A rename changes the ID with
 // the path, in the same commit as every table and testdata/command_ids.txt
-// (komando is used internally only).
+// (komando is used internally only). commandKinds and the risk table are
+// keyed by (type, area, verb) instead, through cmdKeys (risk_keys.go).
 //
 // A thin wrapper that runs another command (a synonym that needs its own
 // argument rule) carries the ID of the command it runs (withID).
@@ -54,8 +55,8 @@ func cmdID(c *cobra.Command) string {
 	return strings.ReplaceAll(p, " ", ".")
 }
 
-// idKey is c's ID with spaces for dots, as commandKinds and personalCmds
-// write it ("cache keys").
+// idKey is c's ID with spaces for dots, as personalCmds writes it
+// ("cache keys").
 func idKey(c *cobra.Command) string {
 	return strings.ReplaceAll(cmdID(c), ".", " ")
 }
