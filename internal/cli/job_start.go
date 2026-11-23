@@ -46,7 +46,7 @@ func jobWhat(cl *call, args []string, cmdStr string, so scriptOpts, stdinFile st
 		if err := hiddenInInput(cl, so.file, sp.input); err != nil {
 			return sp, err
 		}
-		noteApprovalBody(cl, scriptLabel("the script", so.file), sp.input)
+		noteApprovalScript(cl, scriptLabel("the script", so.file), sp.input)
 		if err := guardBody(cl, string(sp.input)); err != nil {
 			return sp, err
 		}

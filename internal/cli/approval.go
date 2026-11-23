@@ -396,8 +396,11 @@ func approvalHint(cl *call, e *out.Error) {
 		e.Hint = "komando could not show the user an approval window (no screen). Ask the user to run this exact command in their own terminal: " + commandLine(cl)
 	case "too-long":
 		e.Code = "SHORTER_SCRIPT_REQUIRED"
-		e.Hint = "komando did not ask the user in its window, because " + cl.sess.Window().Unshown +
-			". Split the script into shorter ones and run each with `komando exec TARGET --script FILE`, or ask the user to run it in their own terminal"
+		kind := bodyInput
+		if cl.body != nil {
+			kind = cl.body.kind
+		}
+		e.Hint = "komando did not ask the user in its window, because " + cl.sess.Window().Unshown + ". " + tooLongAdvice(kind)
 	case "unshowable":
 		e.Hint = "komando did not ask the user in its window, because " + cl.sess.Window().Unshown +
 			". Make the command shorter (put a long script in a file for `komando exec --script`, change a big file with a few smaller `komando fs replace` runs) and without invisible characters, or ask the user to run it in their own terminal"

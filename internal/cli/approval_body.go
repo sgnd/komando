@@ -25,6 +25,7 @@ type approvalBody struct {
 	big   bool // more than bodyMaxBytes: body is nil, size and sum say what it is
 	// overLimit: whole() found more lines than the window takes
 	overLimit bool
+	kind      bodyKind
 	size      int64    // bytes sent
 	sum       [32]byte // SHA-256 of what is sent
 	file      string   // the file the window read, resolved (resolvedFile); "" for a body that is not one file
@@ -45,7 +46,53 @@ func resolvedFile(path string) string {
 
 // newBody is an approvalBody for body as a whole.
 func newBody(label string, body []byte, data bool) *approvalBody {
-	return &approvalBody{label: label, body: body, data: data, size: int64(len(body)), sum: sha256.Sum256(body)}
+	kind := bodyInput
+	if data {
+		kind = bodyData
+	}
+	return &approvalBody{label: label, body: body, data: data, kind: kind, size: int64(len(body)), sum: sha256.Sum256(body)}
+}
+
+// bodyKind is what a body is: it sets the window's line limit and the
+// advice when the body is too long to show.
+type bodyKind int
+
+const (
+	bodyInput  bodyKind = iota // code sent on stdin (exec --stdin-file, job start)
+	bodyScript                 // a script file (exec --script, job start --script)
+	bodySQL                    // the SQL of db query --file
+	bodyData                   // content stored or sent, not run (noteApprovalData)
+)
+
+// noteApprovalScript is noteApprovalBody for a script file.
+func noteApprovalScript(cl *call, label string, body []byte) {
+	b := newBody(label, body, false)
+	b.kind = bodyScript
+	setBody(cl, b)
+}
+
+// noteApprovalSQL is noteApprovalBody for an SQL file.
+func noteApprovalSQL(cl *call, label string, body []byte) {
+	b := newBody(label, body, false)
+	b.kind = bodySQL
+	setBody(cl, b)
+}
+
+// tooLongAdvice is what an agent does with a body of kind too long for
+// the window.
+func tooLongAdvice(kind bodyKind) string {
+	var do string
+	switch kind {
+	case bodyScript:
+		do = "Split the script into shorter ones and run each with `komando exec TARGET --script FILE`"
+	case bodySQL:
+		do = "Split the SQL into shorter files and run each with `komando db query CONN --file FILE`"
+	case bodyData:
+		do = "Send it in smaller pieces (a few `komando fs replace` runs instead of one big change)"
+	default:
+		do = "Shorten it, or put it in a script file and run it with `komando exec TARGET --script FILE`"
+	}
+	return do + ", or ask the user to run it in their own terminal"
 }
 
 // The window shows a body whole or not at all: a part left out could be
@@ -277,7 +324,7 @@ func (b *approvalBody) whole(cl *call) (text, bad string) {
 // macOS gets bodyMaxLinesScroll; every other body, and every body on
 // Windows and Linux, bodyMaxLines.
 func (b *approvalBody) lineLimit() int {
-	if desktopOS == "darwin" && !b.data && strings.HasPrefix(b.label, "the script") {
+	if desktopOS == "darwin" && b.kind == bodyScript {
 		return bodyMaxLinesScroll
 	}
 	return bodyMaxLines

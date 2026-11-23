@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"bytes"
+	"encoding/json"
 	"strconv"
 	"strings"
 	"testing"
@@ -27,7 +29,7 @@ func longBodyWindow(t *testing.T, osName, body string) ([]string, error) {
 	tcl.flags.yes = true
 	tcl.args = []string{"komando", "exec", "web", "--script", "./deploy.sh", "--yes"}
 	resetApproval()
-	noteApprovalBody(tcl, scriptLabel("the script", "./deploy.sh"), []byte(body))
+	noteApprovalScript(tcl, scriptLabel("the script", "./deploy.sh"), []byte(body))
 	err := guard(tcl, st, []*store.Host{st.Hosts["web"]}, "sh -s", true)
 	if err != nil {
 		approvalHint(tcl, toErr(err))
@@ -91,5 +93,60 @@ func TestScriptAtLimitGetsWindow(t *testing.T) {
 		if len(texts) != 1 {
 			t.Errorf("%s: %d windows for a script of exactly %d lines", c.os, len(texts), c.limit)
 		}
+	}
+}
+
+// The macOS script limit comes from the body's kind, never from its label:
+// stdin that calls itself "the script" keeps 40 lines.
+func TestLineLimitFromKind(t *testing.T) {
+	savedOS := desktopOS
+	desktopOS = "darwin"
+	t.Cleanup(func() { desktopOS = savedOS })
+	if got := newBody("the script ./a.sh", nil, false).lineLimit(); got != bodyMaxLines {
+		t.Errorf("a body labelled as a script, not of the script kind: %d, want %d", got, bodyMaxLines)
+	}
+	b := newBody("whatever", nil, false)
+	b.kind = bodyScript
+	if got := b.lineLimit(); got != bodyMaxLinesScroll {
+		t.Errorf("a script on macOS: %d, want %d", got, bodyMaxLinesScroll)
+	}
+}
+
+// The hint for a body too long to show says what to do for that kind.
+func TestTooLongHintByKind(t *testing.T) {
+	for kind, want := range map[bodyKind]string{
+		bodyScript: "`komando exec TARGET --script FILE`",
+		bodySQL:    "`komando db query CONN --file FILE`",
+		bodyInput:  "put it in a script file",
+		bodyData:   "smaller pieces",
+	} {
+		if got := tooLongAdvice(kind); !strings.Contains(got, want) || !strings.Contains(got, "their own terminal") {
+			t.Errorf("kind %d: %q, want %q", kind, got, want)
+		}
+	}
+}
+
+// Through the program's own run (as an agent sees it, not the test
+// shortcut invRun), a long SQL file ends with SHORTER_SCRIPT_REQUIRED and
+// the SQL advice, its CONN filled in.
+func TestTooLongCodeOnRealPath(t *testing.T) {
+	savedArgs := tcl.args
+	t.Cleanup(func() { tcl.args = savedArgs })
+	invHome(t)
+	mustRun(t, "conn", "add", "lite", "sqlite:///tmp/komando-long-test.db", "--protected")
+	texts := windowText(t, false)
+	long := writeTemp(t, "long.sql", strings.Repeat("insert into t values (1);\n", bodyMaxLines+5))
+	var buf bytes.Buffer
+	saved := tcl.out.W
+	tcl.out.W = &buf
+	code := executeArgs([]string{"-o", "json", "db", "query", "lite", "--file", long, "--write", "--yes"})
+	tcl.out.W = saved
+	lines := bytes.Split(bytes.TrimSpace(buf.Bytes()), []byte("\n"))
+	var env struct {
+		Error struct{ Code, Hint string } `json:"error"`
+	}
+	_ = json.Unmarshal(lines[len(lines)-1], &env)
+	if code != 6 || env.Error.Code != "SHORTER_SCRIPT_REQUIRED" || !strings.Contains(env.Error.Hint, "komando db query lite --file FILE") || len(*texts) != 0 {
+		t.Errorf("exit %d, code %q, hint %q, %d windows", code, env.Error.Code, env.Error.Hint, len(*texts))
 	}
 }
