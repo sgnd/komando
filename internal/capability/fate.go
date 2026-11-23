@@ -41,6 +41,8 @@ var gone = []Gone{
 	{Today: "rename", Why: "each provider and noun has its own rename", Lost: "bulk rename (--starts-with, --in-notes, --in-labels): open"},
 	{Today: "host.ssh-command", Why: "removed with no replacement", Lost: "a key in ssh-agent for an hour for plain ssh, scp, git"},
 	{Today: "secret.check", Why: "removed"},
+	{Today: "host.ca.revoke", Why: "certificate remove drops the CA; revoke keeps it and refuses one signed key",
+		Lost: "revoking one signed key without dropping the CA: open, the owner decides"},
 	{Today: "secret.cp", Why: "removed"},
 	{Today: "cert", Why: "moves to paid monitoring in komando-cloud", Lost: "cert check in the CLI until monitoring exists"},
 	{Today: "cert.check", Why: "moves to paid monitoring in komando-cloud", Lost: "cert check in the CLI until monitoring exists"},

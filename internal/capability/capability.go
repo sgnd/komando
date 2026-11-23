@@ -110,7 +110,7 @@ type Leaf struct {
 	Example    string
 	State      State
 	Output     Output
-	LocalRead  bool     // changes nothing anywhere: runs when the store cannot be written
+	LocalRead  bool     // runs when the store cannot be written
 	LeavesHome bool     // run as root it never touches ~/.komando
 	Synonyms   []string // plain words people type for the verb (ls)
 	Stops      []string // the in-command stops it runs, by function name

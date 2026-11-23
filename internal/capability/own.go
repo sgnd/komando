@@ -33,8 +33,7 @@ var credentialLeaves = concat(
 		{Key: own("credential", "certificate", "add"), Args: oneName, Today: []string{"host.ca.add"}},
 		{Key: own("credential", "certificate", "edit"), Args: oneName, State: New},
 		{Key: own("credential", "certificate", "list"), LocalRead: true, Synonyms: []string{"ls"}, Today: []string{"host.ca.list"}},
-		// revoke (a never-trust list) is not the same act as remove: still open
-		{Key: own("credential", "certificate", "remove"), Args: oneName, Today: []string{"host.ca.rm"}, Carries: []string{"host.ca.revoke"}},
+		{Key: own("credential", "certificate", "remove"), Args: oneName, Today: []string{"host.ca.rm"}},
 		{Key: own("credential", "certificate", "rename"), Args: []Arg{{Name: "NAME"}, {Name: "NEW"}}, State: New},
 		{Key: own("credential", "certificate", "show"), Args: oneName, State: New, LocalRead: true},
 	},
@@ -129,15 +128,16 @@ var ownLeaves = concat(
 		{Key: own("config", "", "approval-code"), Today: []string{"config.approval-code"}},
 		{Key: own("config", "vault", "keychain"), Today: []string{"secret.keychain"},
 			Options: []Option{{Name: "off", Kind: Bool, Help: "move the key out of the keychain"}}},
-		{Key: own("config", "vault", "passphrase"), Today: []string{"secret.passphrase"}},
+		// it opens the store with the passphrase a person types
+		{Key: own("config", "vault", "passphrase"), LocalRead: true, Today: []string{"secret.passphrase"}},
 
-		{Key: own("agent", "skill", "install"), Today: []string{"guide.install"}},
-		{Key: own("agent", "skill", "uninstall"), Today: []string{"guide.uninstall"}},
+		{Key: own("agent", "skill", "install"), LocalRead: true, Today: []string{"guide.install"}},
+		{Key: own("agent", "skill", "uninstall"), LocalRead: true, Today: []string{"guide.uninstall"}},
 		{Key: own("agent", "mcp", "start"), State: New},
 		{Key: own("agent", "mcp", "stop"), State: New},
 
 		{Key: own("audit", "", "list"), LocalRead: true, Synonyms: []string{"ls"}, Today: []string{"audit"}},
-		{Key: own("audit", "", "check"), Today: []string{"audit.verify"}},
+		{Key: own("audit", "", "check"), LocalRead: true, Today: []string{"audit.verify"}},
 		{Key: own("audit", "", "export"), State: New},
 		{Key: own("audit", "recording", "list"), State: New, LocalRead: true, Synonyms: []string{"ls"}},
 		{Key: own("audit", "recording", "show"), Args: oneName, State: New, Output: TargetData},

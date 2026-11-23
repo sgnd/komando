@@ -131,11 +131,16 @@ func mustMask(l Leaf) bool {
 	return l.Area != "" && slices.Contains(targetTypes, l.Type) && slices.Contains([]string{"read", "list", "show"}, l.Verb)
 }
 
+// storeOptional are the IDs checkStoreWritable (internal/cli/root.go) lets
+// run without a writable store besides localReads and their top words.
+var storeOptional = []string{"help", "completion", "secret.passphrase"}
+
 func TestLocalReadsKept(t *testing.T) {
 	local := mapLiteralKeys(t, cliDir+"root.go", "localReads")
 	for _, l := range All() {
 		for _, id := range append(slices.Clone(l.Today), l.Carries...) {
-			if local[id] && !l.LocalRead {
+			top, _, _ := strings.Cut(id, ".")
+			if (local[id] || local[top] || slices.Contains(storeOptional, id)) && !l.LocalRead {
 				t.Errorf("%s: carries %s, which runs without a writable store today (localReads), but is not LocalRead", l.Key, id)
 			}
 		}

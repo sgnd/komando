@@ -1,6 +1,9 @@
 package capability
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestShellIsPerson(t *testing.T) {
 	for _, l := range All() {
@@ -15,6 +18,25 @@ func TestShellIsPerson(t *testing.T) {
 		}
 		if !person {
 			t.Errorf("%s: a shell is for a person only, but no unconditional person row reaches it", l.Key)
+		}
+	}
+}
+
+// TestLoginIsPerson: today's login commands are for a person only, so a
+// leaf that carries one keeps a person row for its sign-in step.
+func TestLoginIsPerson(t *testing.T) {
+	for _, l := range All() {
+		for _, id := range l.Carries {
+			if id != "login" && !strings.HasPrefix(id, "login.") {
+				continue
+			}
+			person := false
+			for _, r := range Rows(l.Key) {
+				person = person || r.Tier == Person
+			}
+			if !person {
+				t.Errorf("%s: carries %s, a person-only command, but no person row reaches it", l.Key, id)
+			}
 		}
 	}
 }
