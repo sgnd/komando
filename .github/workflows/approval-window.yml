@@ -219,15 +219,15 @@ jobs:
           # name, steps (kCODE a key, kCODEs with Shift, c:bg c:title c:script a click),
           # what the run must show, the debug-log name of its last key
           keys=("tab k48 focus Tab" "shift-tab k48s focus Tab" "up k126 stays Up" "right k124 stays Right" "left k123 stays Left"
-            "return k36 deny Return" "esc k53 deny Esc")
+            "return k36 keys Return" "esc k53 denykey Esc")
           if [ "$KOMANDO_SHOT_CASE" = tall-script ]; then
             # allow runs last: its owner check may leave a system prompt up
             keys+=("down k125 scroll Down" "page-down k121 scroll PageDown" "end k119 scroll End" "space k49 scroll Space"
               "click-bg c:bg,c:script,k125 bg Down" "click-title c:title,c:script,k125 field Down"
-              "gate k48,k48,k49 gate Space" "allow k119,k48,k48,k49 allow Space")
+              "gate k48,k48,k49 gate Space" "allow-key k119,k48,k48,k49 keys Space")
           else
-            # nothing scrolls: the keys reach the panel, and Deny has the focus, so Space presses it
-            keys+=("down k125 stays Down" "page-down k121 stays PageDown" "end k119 stays End" "space k49 deny Space")
+            # nothing scrolls: the keys reach the panel, and Deny has the focus; Space on it answers nothing
+            keys+=("down k125 stays Down" "page-down k121 stays PageDown" "end k119 stays End" "space k49 stays Space")
           fi
           {
             echo "### Keys in the panel (${KOMANDO_SHOT_CASE})"
@@ -301,9 +301,13 @@ jobs:
                   if [ "$stayed" != yes ]; then verdict="FAIL: the panel closed ($why)"
                   elif [ -n "$f1" ] && [ "$f1" != "$f0" ]; then verdict="ok: focus $f0 -> $f1"
                   else verdict="FAIL: the focus did not move (open: ${f0:-none}, after: ${f1:-none})"; fi ;;
-                deny)
-                  if [ "$exitc" = 0 ] && grep -qx 'stdout: "Deny"' "$f.log"; then verdict="ok: Deny, as designed"
-                  else verdict="FAIL: did not end as Deny with exit 0 ($why)"; fi ;;
+                denykey)
+                  if [ "$exitc" = 0 ] && grep -qx 'stdout: "Deny key"' "$f.log"; then verdict="ok: Deny by a key, as designed"
+                  else verdict="FAIL: did not end as Deny key with exit 0 ($why)"; fi ;;
+                keys)
+                  if grep -q 'end: Allow once' "$f.log"; then verdict="FAIL: a key reached Allow once"
+                  elif [ "$stayed" = yes ] && grep -q 'keys line shown' "$f.log"; then verdict="ok: the key answered nothing and showed the keys line"
+                  else verdict="FAIL: want the panel open and the keys line shown ($why)"; fi ;;
                 bg)
                   if [ "$stayed" != yes ]; then verdict="FAIL: the panel closed ($why)"
                   elif ! order 'click: panel background' 'click: script area'; then verdict="FAIL: the clicks did not land on the background, then the script"
@@ -314,9 +318,6 @@ jobs:
                   elif ! order 'script area lost focus' 'click: script area'; then verdict="FAIL: the title did not take the keys before the click on the script"
                   elif [ "${y:-0}" -gt 0 ]; then verdict="ok: title, script, Down scrolled to y=$y"
                   else verdict="FAIL: Down after the clicks did not scroll (y=${y:-none})"; fi ;;
-                allow)
-                  if grep -q 'end: Allow once, key Space' "$f.log"; then verdict="ok: End, Tab, Tab, Space reached Allow once"
-                  else verdict="FAIL: the keys did not reach Allow once ($why)"; fi ;;
                 gate)
                   if grep -q 'end: Allow once' "$f.log"; then verdict="FAIL: Allow once worked before the end"
                   elif [ "$stayed" = yes ] && [ "${y:-0}" -gt 0 ] && [ "$f1" = script ]; then verdict="ok: Tab skipped Allow once, Space scrolled to y=$y"

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"os"
 	"regexp"
 	"slices"
 	"strings"
@@ -586,5 +587,29 @@ func TestMacPanelKeysLine(t *testing.T) {
 	}
 	if !strings.Contains(approvalWordsEN.keys, "Keys do not allow.") || !strings.Contains(approvalWordsEN.keys, "Esc denies.") {
 		t.Errorf("keys line: %q", approvalWordsEN.keys)
+	}
+}
+
+// The real-panel key run (approval-window.yml) expects what the panel does:
+// Return and Space on Allow once answer nothing and show the keys line, Esc
+// ends as "Deny key", and no key run expects a Deny by Return or an Allow.
+func TestApprovalWindowWorkflowKeys(t *testing.T) {
+	b, err := os.ReadFile("../../.github/workflows/approval-window.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	wf := string(b)
+	for _, want := range []string{`"return k36 keys Return"`, `"esc k53 denykey Esc"`, `"allow-key k119,k48,k48,k49 keys Space"`, `"space k49 stays Space"`, `stdout: "Deny key"`, `'keys line shown'`} {
+		if !strings.Contains(wf, want) {
+			t.Errorf("approval-window.yml has no %s", want)
+		}
+	}
+	for _, bad := range []string{"k36 deny", "k49 deny", " allow Space", `stdout: "Deny"'`} {
+		if strings.Contains(wf, bad) {
+			t.Errorf("approval-window.yml still expects %s", bad)
+		}
+	}
+	if !strings.Contains(macAlertScript, "note('keys line shown')") || !strings.Contains(macAlertScript, "if (CHOICE === 'Deny key') return 'Deny key';") {
+		t.Error("the panel no longer writes what the key run reads")
 	}
 }
