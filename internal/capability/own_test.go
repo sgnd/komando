@@ -10,19 +10,6 @@ var wantStores = []string{"vault", "aws-sm", "gcp-sm", "azure-kv", "onepassword"
 // TestCredentialStores: an outside secret store is a provider under
 // credential store, with the inventory verbs, and a credential points at
 // an item in it instead of a typed reference string.
-// TestCARevokeIsNotRemove: revoking one signed key keeps the CA; removing
-// a certificate drops it. remove must not claim to carry revoke.
-func TestCARevokeIsNotRemove(t *testing.T) {
-	for _, l := range All() {
-		if slices.Contains(append(slices.Clone(l.Today), l.Carries...), "host.ca.revoke") {
-			t.Errorf("%s: carries host.ca.revoke, a different act", l.Key)
-		}
-	}
-	if !slices.ContainsFunc(Gones(), func(g Gone) bool { return g.Today == "host.ca.revoke" && g.Lost != "" }) {
-		t.Error("host.ca.revoke: not in gone with what is lost")
-	}
-}
-
 func TestCredentialStores(t *testing.T) {
 	if got := Children("credential", "store"); !slices.Equal(got, wantStores) {
 		t.Errorf("credential store providers = %v, want %v", got, wantStores)
@@ -52,5 +39,18 @@ func TestCredentialStores(t *testing.T) {
 				t.Errorf("credential %s %s: RefGuard must check the item", kind, verb)
 			}
 		}
+	}
+}
+
+// TestCARevokeIsNotRemove: revoking one signed key keeps the CA; removing
+// a certificate drops it. remove must not claim to carry revoke.
+func TestCARevokeIsNotRemove(t *testing.T) {
+	for _, l := range All() {
+		if slices.Contains(append(slices.Clone(l.Today), l.Carries...), "host.ca.revoke") {
+			t.Errorf("%s: carries host.ca.revoke, a different act", l.Key)
+		}
+	}
+	if !slices.ContainsFunc(Gones(), func(g Gone) bool { return g.Today == "host.ca.revoke" && g.Lost != "" }) {
+		t.Error("host.ca.revoke: not in gone with what is lost")
 	}
 }
