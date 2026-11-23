@@ -24,7 +24,14 @@ func TestApprovalWindowPerson(t *testing.T) {
 		t.Skip("macOS only")
 	}
 	saved := tcl.args
-	t.Cleanup(func() { tcl.args = saved; tcl.flags.yes = false; resetApproval() })
+	savedAsk, savedMac, savedAX, savedOwner := askOnScreen, askMac, axTrustOutput, ownerCheckOutput
+	askOnScreen, askMac, axTrustOutput, ownerCheckOutput = realAskOnScreen, realAskMac, realAXTrust, realOwnerCheck
+	t.Cleanup(func() {
+		tcl.args = saved
+		tcl.flags.yes = false
+		askOnScreen, askMac, axTrustOutput, ownerCheckOutput = savedAsk, savedMac, savedAX, savedOwner
+		resetApproval()
+	})
 	setCallerEnv(t, "CLAUDECODE", "1")
 	st := &store.State{Hosts: map[string]*store.Host{"window-check": {Name: "window-check", Address: "192.0.2.10", Protected: true}}}
 	tcl.flags.yes = true
