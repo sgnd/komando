@@ -68,3 +68,15 @@ func TestReservedSecretStops(t *testing.T) {
 		}
 	}
 }
+
+// TestRefGuardStops: a leaf that names a credential, and credential run,
+// resolve what the credential points at, so each runs RefGuard: a
+// credential must not lead to komando's own home or the unlock variables.
+func TestRefGuardStops(t *testing.T) {
+	for _, l := range All() {
+		names := slices.ContainsFunc(l.Options, func(o Option) bool { return o.Kind == Credential })
+		if (names || l.Key == own("credential", "", "run")) && !slices.Contains(l.Stops, "RefGuard") {
+			t.Errorf("%s: does not run RefGuard", l.Key)
+		}
+	}
+}

@@ -62,8 +62,9 @@ func (inv inventory) leaves(p provider) []Leaf {
 			l.Args = []Arg{{Name: "NAME", Selector: true}}
 		}
 		if slices.ContainsFunc(l.Options, func(o Option) bool { return o.Kind == Credential }) {
-			// a leaf that names a credential must not name the approval code's seed
-			l.Stops = append(l.Stops, "reservedSecret")
+			// a leaf that names a credential must not name the approval code's
+			// seed, and resolves the credential through RefGuard
+			l.Stops = append(l.Stops, "reservedSecret", "RefGuard")
 		}
 		out = append(out, l)
 	}
