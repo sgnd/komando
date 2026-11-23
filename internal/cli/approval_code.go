@@ -163,7 +163,7 @@ shown once, here); turning it off needs --yes, so that code too.`,
 				if err := guardSafety(cl, "turning off the approval code"); err != nil {
 					return err
 				}
-				err := store.Update(cl.storeWrite(), func(st *store.State) error { st.Settings.ApprovalCode = false; return nil })
+				err := storeUpdate(cl, func(st *store.State) error { st.Settings.ApprovalCode = false; return nil })
 				if err == nil {
 					_ = vault.Delete(cl.storeWrite(), approvalSecret)
 				}
@@ -196,7 +196,7 @@ shown once, here); turning it off needs --yes, so that code too.`,
 				return err
 			}
 			// the code typed here is used: it cannot allow a window later
-			if err := store.Update(cl.storeWrite(), func(st *store.State) error {
+			if err := storeUpdate(cl, func(st *store.State) error {
 				st.Settings.ApprovalCode, st.Settings.ApprovalCodeStep = true, max(st.Settings.ApprovalCodeStep, step)
 				return nil
 			}); err != nil {

@@ -64,6 +64,7 @@ var errMoreLines = errors.New("more than one line")
 // empty answer; the line is ended there too, as the terminal does not.
 // (term.ReadPassword takes no notice of Ctrl-D.)
 func readAnswer(cl *call, label string, hidden bool) (string, error) {
+	noteAsk(cl, "terminal question")
 	if cl.interrupted {
 		return "", interruptedErr()
 	}

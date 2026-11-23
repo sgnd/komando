@@ -362,7 +362,7 @@ func configCmd() *cobra.Command {
 					return err
 				}
 			}
-			err = store.Update(cl.storeWrite(), func(st *store.State) error {
+			err = storeUpdate(cl, func(st *store.State) error {
 				old := s.get(&st.Settings)
 				if err := s.set(cl, st, strings.TrimSpace(args[1])); err != nil {
 					return err

@@ -58,6 +58,9 @@ type call struct {
 
 	commits uint64   // store.Commits() when the command started
 	ttyYes  []string // what a person said yes to at the terminal (the audit's confirm: tty)
+	// askedInStep: a person was asked inside a store step (noteAsk), for
+	// the audit record
+	askedInStep bool
 
 	typed     *typedSpec // what this command's typed question asks for (askTypes)
 	typedProt []string   // protected targets a typed answer covered
@@ -140,6 +143,7 @@ func (cl *call) begin() {
 	cl.oldCopy.Store(false)
 	cl.commits = store.Commits()
 	cl.ttyYes, cl.typed, cl.typedProt, cl.body, cl.manifests = nil, nil, nil, nil, nil
+	cl.askedInStep = false
 	cl.logins.reset()
 }
 

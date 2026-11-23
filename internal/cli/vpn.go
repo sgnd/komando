@@ -446,7 +446,7 @@ func vpnAskSecret(cmd *cobra.Command, name string, a askSecret) (func(), error) 
 
 // vpnAddSave stores a checked VPN v: its own vault secrets, then v.
 func vpnAddSave(cl *call, v *store.Vpn, secrets map[string]string, overwrite bool, check func(*store.State) error) error {
-	if err := store.Update(cl.storeWrite(), check); err != nil {
+	if err := updateAskFirst(cl, check); err != nil {
 		return err
 	}
 	for n, val := range secrets {
@@ -456,7 +456,7 @@ func vpnAddSave(cl *call, v *store.Vpn, secrets map[string]string, overwrite boo
 		warnCommonWord(cl, n, val)
 	}
 	var old *store.Vpn
-	err := store.Update(cl.storeWrite(), func(s *store.State) error {
+	err := storeUpdate(cl, func(s *store.State) error {
 		if err := checkNewName(cl, s, "vpn", v.Name, overwrite); err != nil {
 			return err
 		}

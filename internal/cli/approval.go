@@ -205,6 +205,7 @@ func shownKeys(cl *call, what string, why []string) []string {
 // "needs-code"), or a Mac terminal with Accessibility permission where the
 // device-owner check cannot run (why "ax-trusted").
 func (cl *call) askPerson(text string) (allowed, shown bool) {
+	noteAsk(cl, "approval window")
 	if secret := approvalCodeSecret(); secret != nil && desktopOS != "darwin" {
 		// a second factor: the code from the person's authenticator app
 		code, pressed, ok := askCodeOnScreen(cl, text)

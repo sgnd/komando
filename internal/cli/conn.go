@@ -200,32 +200,7 @@ func connAddCmd() *cobra.Command {
 			now := time.Now().UTC()
 			cn.CreatedAt, cn.UpdatedAt = now, now
 			res := connResult{Conn: cn}
-			replaced := false
-			err = store.Update(cl.storeWrite(), func(s *store.State) error {
-				if err := checkNewName(cl, s, "conn", name, force); err != nil {
-					return err
-				}
-				old := s.Conns[name]
-				replaced = old != nil
-				if err := cmp.Or(checkConn(s, cn), guardLostMasking(cl, old, cn)); err != nil {
-					return err
-				}
-				if err := guardConnFile(cl, cn); err != nil {
-					return err
-				}
-				if err := secureConnURL(cn, &res); err != nil {
-					return err
-				}
-				if err := guardConnSends(cl, old, cn); err != nil {
-					return err
-				}
-				if twin := protectedTwinConn(s, cn); twin != "" && !cn.Protected {
-					cn.Protected = true
-					res.Warnings = append(res.Warnings, sameTwinWarning(cn.Kind+" resource", name, twin))
-				}
-				s.Conns[name] = cn
-				return nil
-			})
+			replaced, err := connAddSave(cl, name, force, cn, &res)
 			if err != nil {
 				undoPw()
 				return err
@@ -284,7 +259,8 @@ func runConnEdit(cmd *cobra.Command, args []string, f *connFlags, url string, as
 		undoPw = undo
 	}
 	var res connResult
-	err := store.Update(cl.storeWrite(), func(s *store.State) error {
+	err := updateAskFirst(cl, func(s *store.State) error {
+		res = connResult{} // set afresh on each run (updateAskFirst)
 		cn, err := findConn(cl, s, args[0])
 		if err != nil {
 			return err
@@ -356,7 +332,12 @@ func runConnEdit(cmd *cobra.Command, args []string, f *connFlags, url string, as
 		undoPw()
 		return err
 	}
-	if fl.Changed("password-ref") {
+	return connEditDone(cmd, cl, res)
+}
+
+// connEditDone records and prints a conn edit that was saved.
+func connEditDone(cmd *cobra.Command, cl *call, res connResult) error {
+	if cmd.Flags().Changed("password-ref") {
 		res.Warnings = append(res.Warnings, missingSecretWarnings(res.PasswordRef)...)
 	}
 	if *res.Changed {
@@ -432,9 +413,9 @@ func connRmCmd() *cobra.Command {
 		Args: cobra.MinimumNArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			var names, unused []string
-			err := store.Update(cl.storeWrite(), func(s *store.State) error {
+			err := updateAskFirst(cl, func(s *store.State) error {
 				var prot []string
-				names = nil
+				names, unused = nil, nil // set afresh on each run (updateAskFirst)
 				conns, err := rmConns(cl, s, args)
 				if err != nil {
 					return err
@@ -760,4 +741,60 @@ func connEditConflicts(fl *pflag.FlagSet, name string, f *connFlags, askPw bool)
 		return err
 	}
 	return connLoginConflict(fl, name, f.login, askPw, false)
+}
+
+// connAddAskFirst asks conn add's questions outside the store's lock,
+// about a copy of cn made as the step makes it (secureConnURL), so the step
+// asks the same questions and finds them answered; cn is not changed.
+func connAddAskFirst(cl *call, name string, force bool, cn *store.Conn) error {
+	return askFirst(cl, func(s *store.State) error {
+		if err := checkNewName(cl, s, "conn", name, force); err != nil {
+			return err
+		}
+		old := s.Conns[name]
+		if err := guardLostMasking(cl, old, cn); err != nil {
+			return err
+		}
+		c := *cn
+		c.Labels, c.Options = maps.Clone(cn.Labels), maps.Clone(cn.Options)
+		if err := secureConnURL(&c, &connResult{}); err != nil {
+			return err
+		}
+		return guardConnSends(cl, old, &c)
+	})
+}
+
+// connAddSave asks conn add's questions outside the store's lock, then
+// saves cn under it, checking again (the step finds the answers given).
+// replaced says whether a conn of that name was there.
+func connAddSave(cl *call, name string, force bool, cn *store.Conn, res *connResult) (replaced bool, err error) {
+	if err := connAddAskFirst(cl, name, force, cn); err != nil {
+		return false, err
+	}
+	err = storeUpdate(cl, func(s *store.State) error {
+		if err := checkNewName(cl, s, "conn", name, force); err != nil {
+			return err
+		}
+		old := s.Conns[name]
+		replaced = old != nil
+		if err := cmp.Or(checkConn(s, cn), guardLostMasking(cl, old, cn)); err != nil {
+			return err
+		}
+		if err := guardConnFile(cl, cn); err != nil {
+			return err
+		}
+		if err := secureConnURL(cn, res); err != nil {
+			return err
+		}
+		if err := guardConnSends(cl, old, cn); err != nil {
+			return err
+		}
+		if twin := protectedTwinConn(s, cn); twin != "" && !cn.Protected {
+			cn.Protected = true
+			res.Warnings = append(res.Warnings, sameTwinWarning(cn.Kind+" resource", name, twin))
+		}
+		s.Conns[name] = cn
+		return nil
+	})
+	return replaced, err
 }

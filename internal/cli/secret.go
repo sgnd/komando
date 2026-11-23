@@ -349,7 +349,7 @@ func secretExists(from, to string) error {
 func moveSecret(cl *call, from, to string, overwrite bool) ([]string, error) {
 	var updated []string
 	renamed := false
-	err := store.Update(cl.storeWrite(), func(s *store.State) error {
+	err := storeUpdate(cl, func(s *store.State) error {
 		updated = renameSecretRefs(s, from, to)
 		if err := vault.Rename(cl.storeWrite(), from, to, overwrite); err != nil {
 			return err

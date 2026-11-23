@@ -78,7 +78,7 @@ func noteJobEnd(cl *call, j *store.Job, state string) {
 		return
 	}
 	j.Ended = state
-	_ = store.Update(cl.storeWrite(), func(st *store.State) error {
+	_ = storeUpdate(cl, func(st *store.State) error {
 		if sj := st.Jobs[j.ID]; sj != nil {
 			sj.Ended = state
 		}

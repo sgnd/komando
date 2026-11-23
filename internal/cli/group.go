@@ -3,6 +3,7 @@ package cli
 import (
 	"cmp"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -155,7 +156,7 @@ func groupAddCmd() *cobra.Command {
 			}
 			res := map[string]any{"group": group}
 			var added []string
-			err := store.Update(cl.storeWrite(), func(s *store.State) error {
+			err := storeUpdate(cl, func(s *store.State) error {
 				sel, err := resolveSelection(cl, s, strings.Join(args[1:], ","))
 				if err != nil {
 					return err
@@ -215,7 +216,8 @@ Deleting a group with more than 3 members needs --yes; try --dry-run first.`,
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			group := strings.TrimPrefix(args[0], "@")
 			removed := []string{}
-			err := store.Update(cl.storeWrite(), func(s *store.State) error {
+			err := updateAskFirst(cl, func(s *store.State) error {
+				removed = []string{} // set afresh on each run (updateAskFirst)
 				members := groupMembersOf(s, group)
 				if len(members) == 0 {
 					return groupNotFound(cl, s, group)
@@ -239,7 +241,7 @@ Deleting a group with more than 3 members needs --yes; try --dry-run first.`,
 					for _, m := range members {
 						pick[m] = true
 					}
-					if len(members) > manyMembers && !cl.yesOK() && !confirmYes(cl, fmt.Sprintf("Delete group %s from %d entries?", group, len(members))) {
+					if len(members) > manyMembers && !cl.yesOK() && !confirmYes(cl, fmt.Sprintf("Delete group %s from %d entries (%s)?", group, len(members), strings.Join(slices.Sorted(slices.Values(members)), ", "))) {
 						if err := cl.policyStop(out.Errf(out.ExitPolicy, "CONFIRM_REQUIRED", "check the members with `komando group list "+group+"`, then run it again with --yes",
 							"deleting group %s takes %d entries out of it", group, len(members))); err != nil {
 							return err

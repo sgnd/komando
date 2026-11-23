@@ -12,8 +12,11 @@ its highlights; the sections below them give the details. Versions follow
 - The macOS approval window no longer answers to Space or Return: a stray key cannot deny (or allow) for you. Click **Deny** or **Allow once**, or press Esc or Cmd-W to deny. The agent's error names how the person said no (`details.denied_by`: `click` or `key`), and after a key it asks whether that was a slip.
 - The macOS approval window now shows a script of up to 200 lines whole; it scrolls and allows only after the last line. Windows and Linux keep 40 lines.
 - A script too long for the window ends with its own error code, `SHORTER_SCRIPT_REQUIRED`, and the message names the counted number of shown lines and the script's own line count.
+
 ### Fixed
 
+- Commands that ask you first (removing a protected server, conn or VPN, editing one that sends a stored password elsewhere, removing a deny rule, renaming, deleting a big group) now ask before they take komando's store lock, not while they hold it. Other komando processes, such as an agent's commands or background jobs, no longer wait for your answer. The questions are the same; when the store changed while you answered, so that the change now covers more, komando asks again.
+- When several komando processes write komando's store at once on a slow disk, a write now keeps trying for up to a minute instead of failing after 10 seconds with `database is locked`. It tries again only to take the write lock and to commit, so each write still runs once and whole; past the minute it ends with a clear message (`STORE_BUSY` where a host key is checked).
 - When several komando processes write komando's store at once on a slow disk, a write now keeps trying instead of failing after 10 seconds with `database is locked`: up to a minute to start the change and up to a minute to save it, so at most about two minutes in all. When it first finds another komando process holding the store (after about 10 seconds), komando says so in one line on stderr, once per change. It tries again only to take the write lock and to commit, so each write still runs once and whole; past that it ends with a clear message (`STORE_BUSY` where a host key is checked, naming how long it waited).
 
 ## [0.17.0] - 2026-11-22
