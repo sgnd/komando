@@ -22,7 +22,7 @@ var builtinLeaves = []Leaf{
 	{Key: top("copy"), Args: []Arg{{Name: "SOURCE", Many: true}, {Name: "DESTINATION"}}, Options: copyOpts,
 		Output: TargetData, Stops: []string{"localWriteProtected", "protectedFilesOf"},
 		Carries: []string{"cp", "upload", "download", "sync", "storage.download", "storage.upload"}},
-	{Key: top("import"), Args: []Arg{{Name: "FILE"}}, Today: []string{"import"}},
+	{Key: top("import"), Args: []Arg{{Name: "FILE"}}, Stops: []string{"reservedSecret"}, Today: []string{"import"}},
 	{Key: top("export"), Args: []Arg{{Name: "FILE"}}, Stops: []string{"localWriteProtected"}, Today: []string{"export"},
 		Options: []Option{
 			{Name: "sealed", Kind: Bool, Help: "seal the file with a passphrase"},

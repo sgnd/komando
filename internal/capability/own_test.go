@@ -54,3 +54,14 @@ func TestCARevokeIsNotRemove(t *testing.T) {
 		t.Error("host.ca.revoke: not in gone with what is lost")
 	}
 }
+
+// TestReservedSecretStops: the approval code's seed is an internal record,
+// not a credential, so every credential leaf and import refuse its name;
+// otherwise an agent could repoint it and compute approval codes.
+func TestReservedSecretStops(t *testing.T) {
+	for _, l := range All() {
+		if (l.Type == "credential" || l.Key == top("import")) && !slices.Contains(l.Stops, "reservedSecret") {
+			t.Errorf("%s: does not run reservedSecret", l.Key)
+		}
+	}
+}

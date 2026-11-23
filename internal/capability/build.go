@@ -1,5 +1,7 @@
 package capability
 
+import "slices"
+
 // The helpers below write the leaves every provider shares, so a type's
 // file lists only what is its own.
 
@@ -111,6 +113,14 @@ func nonEmpty(words ...string) []string {
 		}
 	}
 	return out
+}
+
+// withStop adds stop to every leaf of ls.
+func withStop(ls []Leaf, stop string) []Leaf {
+	for i := range ls {
+		ls[i].Stops = append(slices.Clone(ls[i].Stops), stop)
+	}
+	return ls
 }
 
 func clone(o []Option) []Option { return append([]Option(nil), o...) }

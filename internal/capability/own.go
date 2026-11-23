@@ -94,9 +94,11 @@ var storeLeaves = each(storeProviders, func(p provider) []Leaf {
 
 var readOnlySnippet = Option{Name: "read-only", Kind: Bool, Help: "every step only reads"}
 
+// reservedSecret refuses the approval code's seed on every credential leaf:
+// it is an internal record, not a credential.
 var ownLeaves = concat(
-	credentialLeaves,
-	storeLeaves,
+	withStop(credentialLeaves, "reservedSecret"),
+	withStop(storeLeaves, "reservedSecret"),
 	[]Leaf{
 		{Key: own("group", "", "create"), Args: []Arg{{Name: "NAME"}, {Name: "MEMBER", Many: true, Optional: true}}, Today: []string{"group.add"}},
 		{Key: own("group", "", "edit"), Args: oneName, State: New,
