@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"maps"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -56,6 +59,68 @@ func TestPolicyMACStopsCommands(t *testing.T) {
 	for _, args := range [][]string{{"list"}, {"secret", "list"}} {
 		if e := wantCode(t, "POLICY_MAC_FAILED", args...); !strings.Contains(e.Message, "server web") {
 			t.Errorf("%v: %s", args, e.Message)
+		}
+	}
+}
+
+// guardScript leaves the carried rules out, so only scripts komando writes
+// for its own commands may use it: those commands rated their own words.
+// A new caller must be added here on purpose, after review.
+func TestGuardScriptCallers(t *testing.T) {
+	// code lines only: common.go defines guardScript, the other three call it
+	want := map[string]int{"common.go": 1, "modules_run.go": 1, "pkg_security.go": 1, "docker_prune.go": 2}
+	wantCheckScript := map[string]int{"common.go": 1}
+	files, err := filepath.Glob("*.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, gotCheckScript := map[string]int{}, map[string]int{}
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") {
+			continue
+		}
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, line := range strings.Split(string(b), "\n") {
+			if strings.HasPrefix(strings.TrimSpace(line), "//") {
+				continue
+			}
+			got[f] += strings.Count(line, "guardScript(")
+			gotCheckScript[f] += strings.Count(line, "policy.CheckScript")
+		}
+		maps.DeleteFunc(got, func(_ string, n int) bool { return n == 0 })
+		maps.DeleteFunc(gotCheckScript, func(_ string, n int) bool { return n == 0 })
+	}
+	if !maps.Equal(got, want) {
+		t.Errorf("guardScript is used in %v, want only %v (komando's own scripts)", got, want)
+	}
+	if !maps.Equal(gotCheckScript, wantCheckScript) {
+		t.Errorf("policy.CheckScript is used in %v, want only %v (guardScript)", gotCheckScript, wantCheckScript)
+	}
+}
+
+// The scripts komando writes for pkg, pkg security and docker prune still
+// stop on the carried rules when the same text comes through exec.
+func TestOwnScriptsThroughExecHitCarriedRules(t *testing.T) {
+	srv := startFakeServer(t)
+	tmp := t.TempDir()
+	for name, c := range map[string]struct{ script, rule string }{
+		"pkg dispatcher": {"ACTION=install PKGS=nginx; " + pkgShell, "pkg-remove"},
+		"pkg security":   {pkgSecScript(true, true, true), "rm-files"},
+		"docker prune":   {"docker system prune -f", "docker-prune"},
+	} {
+		p := filepath.Join(tmp, strings.ReplaceAll(name, " ", "-")+".sh")
+		if err := os.WriteFile(p, []byte(c.script), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		err := runRoot(t, "exec", "prod", "--yes", "--script", p)
+		if e := toErr(err); e == nil || e.Code != "POLICY_BLOCKED" || !strings.Contains(e.Message, c.rule) {
+			t.Errorf("%s through exec: %v, want POLICY_BLOCKED naming %s", name, err, c.rule)
+		}
+		if n := len(srv.take()); n != 0 {
+			t.Errorf("%s through exec ran %d times", name, n)
 		}
 	}
 }
