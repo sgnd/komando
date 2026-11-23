@@ -13,7 +13,7 @@ its highlights; the sections below them give the details. Versions follow
 - A script too long for the window ends with its own error code, `SHORTER_SCRIPT_REQUIRED`, and the message names the counted number of shown lines and the script's own line count.
 ### Fixed
 
-- When several komando processes write komando's store at once on a slow disk, a write now keeps trying instead of failing after 10 seconds with `database is locked`: up to a minute to start the change and up to a minute to save it, so at most about two minutes in all. After 2 seconds of waiting, komando says so in one line on stderr. It tries again only to take the write lock and to commit, so each write still runs once and whole; past that it ends with a clear message (`STORE_BUSY` where a host key is checked, naming how long it waited).
+- When several komando processes write komando's store at once on a slow disk, a write now keeps trying instead of failing after 10 seconds with `database is locked`: up to a minute to start the change and up to a minute to save it, so at most about two minutes in all. When it first finds another komando process holding the store (after about 10 seconds), komando says so in one line on stderr, once per change. It tries again only to take the write lock and to commit, so each write still runs once and whole; past that it ends with a clear message (`STORE_BUSY` where a host key is checked, naming how long it waited).
 
 ## [0.17.0] - 2026-11-22
 

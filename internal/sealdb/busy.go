@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"modernc.org/sqlite"
@@ -18,8 +19,20 @@ const WriteWait = 60 * time.Second
 // them.
 var busyTimeout, writeWait = BusyTimeout, WriteWait
 
-// noticeAfter is how long a write step waits before it tells OnWait.
-var noticeAfter = 2 * time.Second
+// waitNotice tells OnWait once per write step, at the step's first busy
+// answer: only then is another process known to hold the store (a slow
+// disk flush alone answers nothing). BEGIN and COMMIT share one.
+type waitNotice struct {
+	once sync.Once
+	tell func()
+}
+
+// busy is called at each busy answer.
+func (n *waitNotice) busy() {
+	if n != nil && n.tell != nil {
+		n.once.Do(n.tell)
+	}
+}
 
 // ErrBusy: other komando processes held the store past WriteWait.
 var ErrBusy = errors.New("sealdb: store busy")
@@ -32,13 +45,8 @@ var ErrBusy = errors.New("sealdb: store busy")
 // writeWait here. Only BEGIN IMMEDIATE and COMMIT come here: the first
 // has done nothing yet, and a busy COMMIT keeps the step open, so trying
 // again keeps every write step whole and run once. A read step is not
-// retried: its fn may have run already. A write step that is still
-// waiting after noticeAfter tells onWait, once.
-func retryBusy(ctx context.Context, write bool, what string, onWait func(), stmt func() error) error {
-	if write && onWait != nil {
-		t := time.AfterFunc(noticeAfter, onWait)
-		defer t.Stop()
-	}
+// retried: its fn may have run already. A busy answer tells notice.
+func retryBusy(ctx context.Context, write bool, what string, notice *waitNotice, stmt func() error) error {
 	start := time.Now()
 	pause := 20 * time.Millisecond
 	for {
@@ -46,6 +54,7 @@ func retryBusy(ctx context.Context, write bool, what string, onWait func(), stmt
 		if err == nil || !write || !isBusy(err) {
 			return err
 		}
+		notice.busy()
 		if time.Since(start)+pause+busyTimeout > writeWait {
 			return fmt.Errorf("%w: could not %s for %s, while another komando process kept the store locked: %w", ErrBusy, what, writeWait, err)
 		}

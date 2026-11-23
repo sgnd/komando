@@ -132,23 +132,28 @@ func TestUpdateBusyPastWaitIsErrBusy(t *testing.T) {
 	}
 }
 
-// A write step that waits tells OnWait once, after noticeAfter, even while
-// SQLite itself is still waiting inside one try.
+// A write step tells OnWait once, at its first busy answer, even when it
+// waits both to take the lock and to commit; a step that never meets
+// another process tells nothing.
 func TestUpdateTellsOnWait(t *testing.T) {
 	shortWaits(t, 10*time.Second)
-	saved := noticeAfter
-	noticeAfter = 100 * time.Millisecond
-	t.Cleanup(func() { noticeAfter = saved })
 	path := filepath.Join(t.TempDir(), "store.db")
 	d := open(t, path)
 	var told atomic.Int32
 	d.OnWait = func() { told.Add(1) }
-	holdLock(t, path, "BEGIN IMMEDIATE", 500*time.Millisecond)
+	// a writer holds the lock 300 ms, a reader its lock 700 ms: the step
+	// waits for the lock, then again to commit
+	holdLock(t, path, "BEGIN IMMEDIATE", 300*time.Millisecond)
+	holdLock(t, path, "BEGIN", 700*time.Millisecond)
+	start := time.Now()
 	if err := d.Update(ctx, func(tx *Tx) error { _, err := tx.Put("server", "", []byte("a")); return err }); err != nil {
 		t.Fatal(err)
 	}
+	if took := time.Since(start); took < 600*time.Millisecond {
+		t.Fatalf("the step did not wait to commit (%s)", took)
+	}
 	if n := told.Load(); n != 1 {
-		t.Fatalf("OnWait told %d times, want once", n)
+		t.Fatalf("OnWait told %d times for a step that waited twice, want once", n)
 	}
 	// a step that does not wait tells nothing
 	told.Store(0)
@@ -157,6 +162,19 @@ func TestUpdateTellsOnWait(t *testing.T) {
 	}
 	if n := told.Load(); n != 0 {
 		t.Fatalf("OnWait told %d times for a step that did not wait", n)
+	}
+}
+
+// A slow statement that never answers busy (a slow disk flush, no other
+// process) tells nothing: only a busy answer shows another process.
+func TestSlowStepWithoutBusyTellsNothing(t *testing.T) {
+	var told atomic.Int32
+	n := &waitNotice{tell: func() { told.Add(1) }}
+	if err := retryBusy(ctx, true, "commit", n, func() error { time.Sleep(300 * time.Millisecond); return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if told.Load() != 0 {
+		t.Fatal("a slow statement with no busy answer told OnWait")
 	}
 }
 

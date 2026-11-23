@@ -176,10 +176,11 @@ change may be broken. Back this folder up and keep it private.
 
 Several komando processes can use the store at once; a change waits for
 the others. It waits up to a minute to start and up to a minute to save,
-so at most about two minutes, and after 2 seconds it says so in one line
-on stderr (`komando: waiting for another komando process ...`). Past
-that the command fails; where a server's host key is checked, with
-`STORE_BUSY` and how long it waited.
+so at most about two minutes. When it first finds another komando process
+holding the store (after about 10 seconds), it says so in one line on
+stderr (`komando: waiting for another komando process ...`). Past that the
+command fails; where a server's host key is checked, with `STORE_BUSY` and
+how long it waited.
 
 komando reads only `store.db`. A folder that had a store but lost
 `store.db` stops with `STATE_CORRUPT` until you put `store.db` back from a

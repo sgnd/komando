@@ -128,8 +128,8 @@ type DB struct {
 	// OnGeneration, when set, is told the new generation after each write
 	// step that changed a record (the store keeps it in the keychain).
 	OnGeneration func(uint64)
-	// OnWait, when set, is told once when a write step has waited
-	// noticeAfter for another process to free the store.
+	// OnWait, when set, is told once per write step, when it first finds
+	// another process holding the store.
 	OnWait func()
 	// noWrites is the error every write step fails with (StopWrites);
 	// closed the error of every step once the handle is closed (Close,
@@ -358,11 +358,13 @@ func (d *DB) run(ctx context.Context, write bool, fn func(*Tx) error) (err error
 		return err
 	}
 	defer c.Close()
+	// one notice for the whole step: taking the lock and committing
+	notice := &waitNotice{tell: d.OnWait}
 	begin := "BEGIN DEFERRED"
 	if write {
 		begin = "BEGIN IMMEDIATE"
 	}
-	if err := retryBusy(ctx, write, "take the write lock", d.OnWait, func() error {
+	if err := retryBusy(ctx, write, "take the write lock", notice, func() error {
 		_, err := c.ExecContext(ctx, begin)
 		return err
 	}); err != nil {
@@ -409,7 +411,7 @@ func (d *DB) run(ctx context.Context, write bool, fn func(*Tx) error) (err error
 	}
 	// a busy COMMIT leaves the step open with its changes, so it is tried
 	// again as it is; fn never runs twice
-	if err := retryBusy(ctx, write, "commit", d.OnWait, func() error {
+	if err := retryBusy(ctx, write, "commit", notice, func() error {
 		_, err := c.ExecContext(ctx, "COMMIT")
 		return err
 	}); err != nil {
