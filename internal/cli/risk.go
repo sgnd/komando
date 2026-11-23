@@ -190,7 +190,7 @@ var riskRows = withRowIDs([]riskRow{
 // key no command has, which TestSafetyKeys reports).
 func withRowIDs(rows []riskRow) []riskRow {
 	for i := range rows {
-		rows[i].id = keyIDs[rows[i].key]
+		rows[i].id = keyID(rows[i].key)
 	}
 	return rows
 }

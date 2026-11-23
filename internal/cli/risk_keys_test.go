@@ -7,6 +7,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/sgnd/komando/internal/policy"
 )
 
 // TestSafetyTablesPinned: every command keeps the rule-table rows, the
@@ -79,12 +81,32 @@ func TestSafetyKeys(t *testing.T) {
 			t.Errorf("cmdKeys has %s, which is no command ID", id)
 		}
 	}
-	if len(keyIDs) != len(cmdKeys) {
-		t.Errorf("%d commands share %d keys: two commands would share their rows", len(cmdKeys), len(keyIDs))
+	owner := map[safetyKey]string{}
+	for id, k := range cmdKeys {
+		if other, ok := owner[k]; ok {
+			t.Errorf("%s and %s share the key %v: they would share their rows", id, other, k)
+		}
+		owner[k] = id
 	}
 	for i, r := range riskRows {
-		if _, ok := keyIDs[r.key]; !ok {
-			t.Errorf("riskRows[%d] (%s) names the key %v, which no command has", i, r.id, r.key)
+		if _, ok := owner[r.key]; !ok {
+			t.Errorf("riskRows[%d] names the key %v, which no command has", i, r.key)
+		}
+	}
+	for k := range commandKinds {
+		if _, ok := owner[k]; !ok {
+			t.Errorf("commandKinds names the key %v, which no command has", k)
+		}
+	}
+	// riskID (approval_words_id.go) is keyed by policy rule, not by command:
+	// it has no key to move
+	rules := map[string]bool{}
+	for _, r := range policy.Rules() {
+		rules[r.ID] = true
+	}
+	for name := range riskID {
+		if !rules[name] || cmdKeys[name] != (safetyKey{}) {
+			t.Errorf("riskID has %q, which is no policy rule or is a command ID", name)
 		}
 	}
 	shells := 0
@@ -99,4 +121,23 @@ func TestSafetyKeys(t *testing.T) {
 	if shells < 3 {
 		t.Errorf("%d shells, want host, database and cluster", shells)
 	}
+}
+
+// commandKindIDs are the command IDs commandKinds names, with spaces for
+// dots ("" for a key no command has).
+func commandKindIDs() []string {
+	ids := make([]string, 0, len(commandKinds))
+	for k := range commandKinds {
+		ids = append(ids, strings.ReplaceAll(keyID(k), ".", " "))
+	}
+	return ids
+}
+
+// fakeKind gives a command ID that is in no table a key and a kind, for
+// this test only.
+func fakeKind(t *testing.T, id string, kind cmdKind) {
+	t.Helper()
+	k := safetyKey{"test", "", id}
+	cmdKeys[id], commandKinds[k] = k, kind
+	t.Cleanup(func() { delete(cmdKeys, id); delete(commandKinds, k) })
 }

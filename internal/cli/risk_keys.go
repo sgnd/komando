@@ -145,11 +145,12 @@ var cmdKeys = map[string]safetyKey{
 	"audit": {"audit", "", "list"}, "audit.verify": {"audit", "", "check"},
 }
 
-// keyIDs is cmdKeys turned round: the command ID each key names.
-var keyIDs = func() map[safetyKey]string {
-	m := make(map[safetyKey]string, len(cmdKeys))
+// keyID is the command ID key names, or "" when no command has it.
+func keyID(key safetyKey) string {
 	for id, k := range cmdKeys {
-		m[k] = id
+		if k == key {
+			return id
+		}
 	}
-	return m
-}()
+	return ""
+}
