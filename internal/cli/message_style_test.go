@@ -552,7 +552,7 @@ func verbS(reason string) bool {
 func TestRiskReasons(t *testing.T) {
 	for _, r := range riskRows {
 		if r.what != "" && !verbS(r.what) {
-			t.Errorf("riskRows %s: what %q does not start with a verb in -s", r.id, r.what)
+			t.Errorf("riskRows %s: what %q does not start with a verb in -s", keyID(r.key), r.what)
 		}
 	}
 	for _, r := range policy.Rules() {

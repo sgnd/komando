@@ -462,7 +462,7 @@ func TestGateReadsExist(t *testing.T) {
 		}
 	}
 	for n := range gateOnServers {
-		k, ok := commandKinds[strings.ReplaceAll(n, ".", " ")]
+		k, ok := commandKinds[cmdKeys[n]]
 		if !names[n] || !ok || k.Kind == kindRead {
 			t.Errorf("gateOnServers names %q, which is no command that changes something (reads run anyway)", n)
 		}
@@ -477,12 +477,11 @@ func TestGateFailsClosed(t *testing.T) {
 	root := newRoot(tcl)
 	c := &cobra.Command{Use: "brand-new", Run: func(*cobra.Command, []string) {}}
 	root.AddCommand(c)
-	commandKinds["brand-new"] = changes
-	defer delete(commandKinds, "brand-new")
+	fakeKind(t, "brand-new", changes)
 	if _, e := gateRule(c, "brand-new", gateKey{network: true}); e == nil || e.Code != "SSH_GATE_REFUSED" || !strings.Contains(e.Message, "not on this computer") {
 		t.Errorf("a new change: %+v", e)
 	}
-	commandKinds["brand-new"] = reads
+	fakeKind(t, "brand-new", reads)
 	if _, e := gateRule(c, "brand-new", gateKey{network: true}); e != nil {
 		t.Errorf("a new read: %+v", e)
 	}
