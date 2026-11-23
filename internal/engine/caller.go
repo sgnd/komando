@@ -7,6 +7,7 @@
 package engine
 
 import (
+	"net"
 	"regexp"
 	"strings"
 )
@@ -84,12 +85,13 @@ func AgentName(lookup func(string) (string, bool)) string {
 }
 
 // fromThisComputer reports an ssh login whose client is this computer
-// (127.0.0.1 or ::1 in SSH_CONNECTION): a program that logs in to its own
+// (a loopback address in SSH_CONNECTION): a program that logs in to its own
 // machine gets a terminal from sshd, so the terminal proves no person.
 func fromThisComputer(lookup func(string) (string, bool)) bool {
 	v, _ := lookup("SSH_CONNECTION")
 	client, _, _ := strings.Cut(v, " ")
-	return client == "127.0.0.1" || client == "::1"
+	ip := net.ParseIP(client)
+	return ip != nil && ip.IsLoopback()
 }
 
 // CallerFrom is the caller an environment lookup describes. terminal says

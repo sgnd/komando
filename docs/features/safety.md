@@ -214,16 +214,18 @@ its value, also `0` or empty), and also by the processes above it: when
 a program above komando in the process tree (its parent, the shell the agent
 runs, the agent itself) has those variables, or runs a harness komando knows by
 name (`claude`, `codex`, `cursor-agent`, `gemini`, `opencode`, `openhands`,
-`goose`, `aider`, `cline`, `kiro`, `kimi`, `droid`, or an npm package such as
-`claude-code` or `gemini-cli` named in its command line), komando counts as the
+`goose`, `aider`, `cline`, `kiro`, `kimi`, `droid`, `copilot`, or an npm package such as
+`claude-code`, `gemini-cli` or `@github/copilot` named in its command line), komando counts as the
 agent's too, even when the agent cleared the variables in the command it
 started (`env -i komando ...`). This is checked on macOS and Linux. On macOS, komando cannot read the
 environment of Apple's own programs (`/bin/sh`, `zsh`), so there it relies on the
-harness's name and command line. A harness that is not on the list, that is
-started under another program name, or that is started with interpreter flags
-before its script, is known only by its variables. A
-terminal that sshd gave to a login from this computer (`SSH_CONNECTION` names
-127.0.0.1 or ::1) is not a person's: komando treats it as a script. It adds these rules for them. For any other
+harness's name and command line. For a command line, komando reads the first 8
+entries after the program, skips those that start with `-`, and matches the
+first other entry (for `-m`, the module after it). A harness that is not on the
+list, that is started under another program name with its script further along
+the command line, or whose command line komando cannot read, is known only by its variables. A
+terminal that sshd gave to a login from this computer (`SSH_CONNECTION` names a
+loopback address, such as 127.0.0.1, 127.0.0.2 or ::1) is not a person's: komando treats it as a script. It adds these rules for them. For any other
 agent, set `KOMANDO_AGENT=1` (or `AI_AGENT=1`) in the environment it runs
 commands in, so these rules apply to it too. Scripts and you at your
 terminal are not affected by them.

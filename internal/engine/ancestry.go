@@ -33,7 +33,7 @@ const maxAncestors = 64
 // agentPrograms are the program names of agent harnesses (the command's
 // base name without an extension, in lower case), one entry per supported
 // agent that runs on this computer. A node or python harness is named by
-// its argv[1], so argv[0] and argv[1] are both matched.
+// a later entry of its command line, which programAgent reads.
 var agentPrograms = map[string]string{
 	"claude":       "Claude Code",
 	"codex":        "Codex",
@@ -48,6 +48,7 @@ var agentPrograms = map[string]string{
 	"kiro-cli":     "Kiro",
 	"kimi":         "Kimi Code",
 	"droid":        "Factory",
+	"copilot":      "GitHub Copilot",
 }
 
 // agentPackages are folder names a harness's script lives in (an npm
@@ -60,27 +61,53 @@ var agentPackages = map[string]string{
 	"opencode-ai":  "OpenCode",
 	"kimi-cli":     "Kimi Code",
 	"kiro-cli":     "Kiro",
+	"copilot":      "GitHub Copilot",
+}
+
+// maxArgScan bounds how many entries after argv[0] are read.
+const maxArgScan = 8
+
+// baseAgent is the agent a program name or path names, or "".
+func baseAgent(n string) string {
+	base := strings.ToLower(filepath.Base(n))
+	base = strings.TrimSuffix(base, filepath.Ext(base))
+	return agentPrograms[base]
 }
 
 // programAgent is the agent a process's name or command line names, or "".
+// argv[0] and the process name are matched by base name. Of argv[1:] (the
+// first maxArgScan entries) flags are skipped and the first other entry is
+// matched by base name and by path part; after -m, the next entry is the
+// module and is the one matched.
 func programAgent(p Proc) string {
-	names := []string{p.Name}
-	for i := 0; i < len(p.Args) && i < 2; i++ {
-		names = append(names, p.Args[i])
+	if a := baseAgent(p.Name); a != "" {
+		return a
 	}
-	for _, n := range names {
-		base := strings.ToLower(filepath.Base(n))
-		base = strings.TrimSuffix(base, filepath.Ext(base))
-		if a, ok := agentPrograms[base]; ok {
+	if len(p.Args) > 0 {
+		if a := baseAgent(p.Args[0]); a != "" {
 			return a
 		}
 	}
-	if len(p.Args) > 1 {
-		for _, part := range strings.Split(filepath.ToSlash(p.Args[1]), "/") {
+	for i := 1; i < len(p.Args) && i <= maxArgScan; i++ {
+		arg := p.Args[i]
+		if arg == "-m" {
+			if i+1 < len(p.Args) {
+				return baseAgent(p.Args[i+1])
+			}
+			return ""
+		}
+		if strings.HasPrefix(arg, "-") {
+			continue
+		}
+		if a := baseAgent(arg); a != "" {
+			return a
+		}
+		for _, part := range strings.Split(filepath.ToSlash(arg), "/") {
 			if a, ok := agentPackages[strings.ToLower(part)]; ok {
 				return a
 			}
 		}
+		return ""
 	}
 	return ""
 }
