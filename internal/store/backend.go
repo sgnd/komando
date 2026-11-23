@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"sync"
@@ -304,6 +305,7 @@ func checkAndRemember(home, path string, d *sealdb.DB, meta map[string]string, m
 	if !made {
 		state, raise, err = checkGeneration(d, meta, oldOK)
 	}
+	d.OnWait = waitNotice(os.Stderr)
 	if err == nil && state == checked {
 		d.OnGeneration = committer(raise)
 		// the newest copy of a store an older komando made: given its
@@ -615,4 +617,11 @@ func CheckWritable() error {
 		return err
 	}
 	return f.Close()
+}
+
+// waitNotice is the store's OnWait: one line on w while a write waits.
+func waitNotice(w io.Writer) func() {
+	return func() {
+		fmt.Fprintln(w, "komando: waiting for another komando process to finish with komando's store (up to a minute to start a change and a minute to save it)")
+	}
 }

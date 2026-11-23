@@ -18,17 +18,27 @@ const WriteWait = 60 * time.Second
 // them.
 var busyTimeout, writeWait = BusyTimeout, WriteWait
 
+// noticeAfter is how long a write step waits before it tells OnWait.
+var noticeAfter = 2 * time.Second
+
 // ErrBusy: other komando processes held the store past WriteWait.
 var ErrBusy = errors.New("sealdb: store busy")
 
 // retryBusy runs stmt, and in a write step runs it again while SQLite
 // answers SQLITE_BUSY: another process held the lock past busyTimeout.
 // It pauses between tries (20 ms, doubling to 1 s) and gives up with
-// ErrBusy once writeWait has passed. Only BEGIN IMMEDIATE and COMMIT come
-// here: the first has done nothing yet, and a busy COMMIT keeps the step
-// open, so trying again keeps every write step whole and run once. A
-// read step is not retried: its fn may have run already.
-func retryBusy(ctx context.Context, write bool, what string, stmt func() error) error {
+// ErrBusy rather than start a try that could run past writeWait (SQLite
+// may sit in one try for busyTimeout), so the step waits at most about
+// writeWait here. Only BEGIN IMMEDIATE and COMMIT come here: the first
+// has done nothing yet, and a busy COMMIT keeps the step open, so trying
+// again keeps every write step whole and run once. A read step is not
+// retried: its fn may have run already. A write step that is still
+// waiting after noticeAfter tells onWait, once.
+func retryBusy(ctx context.Context, write bool, what string, onWait func(), stmt func() error) error {
+	if write && onWait != nil {
+		t := time.AfterFunc(noticeAfter, onWait)
+		defer t.Stop()
+	}
 	start := time.Now()
 	pause := 20 * time.Millisecond
 	for {
@@ -36,7 +46,7 @@ func retryBusy(ctx context.Context, write bool, what string, stmt func() error) 
 		if err == nil || !write || !isBusy(err) {
 			return err
 		}
-		if time.Since(start)+pause > writeWait {
+		if time.Since(start)+pause+busyTimeout > writeWait {
 			return fmt.Errorf("%w: could not %s for %s, while another komando process kept the store locked: %w", ErrBusy, what, writeWait, err)
 		}
 		t := time.NewTimer(pause)
