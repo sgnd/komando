@@ -1,0 +1,302 @@
+audit	kind=read|	target=""	
+audit.verify	kind=read|	target=""	
+cache	kind=read|	target=""	
+cache.add	kind=change|	target=""	
+cache.get	kind=read|	target=""	
+cache.info	kind=read|	target=""	
+cache.keys	kind=read|	target=""	
+cache.rm	kind=change|	target=""	dangerous||deletes the keys||||
+cache.run	kind=depends|only reads unless --write	target=""	dangerous|||the cache command deletes data (FLUSHALL, ...)|||
+cache.set	kind=change|	target=""	
+cert	kind=read|	target="servers"	
+cert.check	kind=read|	target=""	
+cluster	kind=read|	target="clusters"	
+cluster.add	kind=change|	target="clusters"	
+cluster.apply	kind=change|	target="clusters"	
+cluster.deploy	kind=change|	target="clusters"	
+cluster.describe	kind=read|	target="clusters"	
+cluster.events	kind=read|	target="clusters"	
+cluster.exec	kind=depends|changes things unless --read-only says the command only reads (the policy checks it either way)	target="clusters"	dangerous|||the command matches a destructive rule|||
+cluster.forward	kind=change|	target="clusters"	
+cluster.get	kind=read|	target="clusters"	
+cluster.helm	kind=read|	target="clusters"	
+cluster.helm.history	kind=read|	target="clusters"	
+cluster.helm.list	kind=read|	target="clusters"	
+cluster.helm.status	kind=read|	target="clusters"	
+cluster.helm.values	kind=read|	target="clusters"	
+cluster.history	kind=read|	target="clusters"	
+cluster.list	kind=read|	target="clusters"	
+cluster.logs	kind=read|	target="clusters"	
+cluster.restart	kind=change|	target="clusters"	
+cluster.rm	kind=change|	target="clusters"	dangerous||deletes it from the cluster||||
+cluster.rollback	kind=change|	target="clusters"	
+cluster.run	kind=depends|only reads unless --write	target="clusters"	dangerous|||the kubectl command deletes something|||
+cluster.scale	kind=change|	target="clusters"	dangerous|REPLICAS is 0|stops every copy of the app||||
+cluster.shell	kind=depends|an shellNote shell for a person: whatever they type	target="clusters"	person||||||
+cluster.status	kind=read|	target="clusters"	
+completion	kind=none	target=""	
+completion.bash	kind=none	target=""	
+completion.fish	kind=none	target=""	
+completion.powershell	kind=none	target=""	
+completion.zsh	kind=none	target=""	
+config	kind=read|	target=""	
+config.approval-code	kind=change|	target=""	person||||||
+config.get	kind=read|	target=""	
+config.set	kind=change|	target=""	safety|||the setting turns a check off (audit, keychain, host key policy, ...)|||
+config.show	kind=read|	target=""	
+conn	kind=read|	target="conns"	
+conn.add	kind=change|	target="conns"	
+conn.edit	kind=change|	target="conns"	safety|with --protected=false|turns protection off||||
+conn.kinds	kind=read|	target="conns"	
+conn.list	kind=read|	target="conns"	
+conn.rename	kind=change|	target="conns"	
+conn.rm	kind=change|	target="conns"	
+conn.show	kind=read|	target="conns"	
+conn.test	kind=read|	target="conns"	
+cp	kind=depends|changes the destination: a server or bucket when it is the DST, only this computer when it is the SRC	target="servers or file storage"	
+cron	kind=read|	target="servers"	
+cron.list	kind=read|	target="servers"	
+cron.rm	kind=change|	target="servers"	change|||||deletes the cron entry|cron entries
+cron.set	kind=change|	target="servers"	
+db	kind=read|	target=""	
+db.activity	kind=read|	target=""	
+db.add	kind=change|	target=""	
+db.dump	kind=read|	target=""	
+db.explain	kind=depends|only plans the query; --analyze runs it, and a write needs --write too	target=""	dangerous|with --analyze||the SQL deletes data|||
+db.grant	kind=change|	target=""	
+db.info	kind=read|	target=""	
+db.kill	kind=change|	target=""	change|||||ends the session (its client loses the connection)|sessions
+db.locks	kind=read|	target=""	
+db.query	kind=depends|only reads unless --write	target=""	dangerous|||the SQL deletes data (DROP, DELETE without WHERE, ...)|||
+db.restore	kind=change|	target=""	dangerous||replaces what is in the database now||||
+db.revoke	kind=change|	target=""	
+db.schema	kind=read|	target=""	
+db.shell	kind=depends|an shellNote shell for a person: whatever they type; read-only unless --write	target=""	person||||||
+db.sizes	kind=read|	target=""	
+db.user	kind=read|	target=""	
+db.user.add	kind=change|	target=""	
+db.user.list	kind=read|	target=""	
+db.user.passwd	kind=change|	target=""	
+db.user.rm	kind=change|	target=""	dangerous||deletes the database user||||
+db.user.show	kind=read|	target=""	
+docker	kind=read|	target="servers"	
+docker.compose	kind=depends|decided by the docker subcommand: ps/logs/inspect read, up/down/rm change	target="servers"	dangerous|||the compose command deletes or stops something|||
+docker.exec	kind=depends|changes things unless --read-only says the command only reads (the policy checks it either way)	target="servers"	dangerous|||the command matches a destructive rule|||
+docker.images	kind=read|	target="servers"	
+docker.inspect	kind=read|	target="servers"	
+docker.logs	kind=read|	target="servers"	
+docker.prune	kind=change|	target="servers"	dangerous||deletes stopped containers and unused images||||
+docker.ps	kind=read|	target="servers"	
+docker.pull	kind=change|	target="servers"	
+docker.raw	kind=depends|decided by the docker subcommand: ps/logs/inspect read, up/down/rm change	target="servers"	dangerous|||the docker command deletes or stops something|||
+docker.restart	kind=change|	target="servers"	
+docker.rm	kind=change|	target="servers"	dangerous||deletes the containers||||
+docker.start	kind=change|	target="servers"	
+docker.stats	kind=read|	target="servers"	
+docker.stop	kind=change|	target="servers"	
+doctor	kind=read|	target=""	
+download	kind=read|	target="servers or file storage"	
+environment	kind=none	target=""	
+exec	kind=depends|changes things unless --read-only says the command only reads (the policy checks it either way)	target="servers"	dangerous|||the command matches a destructive rule|||
+exit-codes	kind=none	target=""	
+export	kind=read|	target=""	person|with --sealed or --for-phone|||||
+facts	kind=read|	target="servers"	
+fs	kind=read|	target="servers"	
+fs.cat	kind=read|	target="servers"	
+fs.chmod	kind=change|	target="servers"	
+fs.list	kind=read|	target="servers"	
+fs.mkdir	kind=change|	target="servers"	
+fs.mv	kind=change|	target="servers"	
+fs.replace	kind=change|	target="servers"	
+fs.restore	kind=change|	target="servers"	
+fs.rm	kind=change|	target="servers"	dangerous||deletes the files||||
+fs.stat	kind=read|	target="servers"	
+fs.write	kind=change|	target="servers"	
+group	kind=read|	target=""	
+group.add	kind=change|	target=""	
+group.list	kind=read|	target=""	
+group.rename	kind=change|	target=""	
+group.rm	kind=change|	target=""	change|GROUP alone|||deleting a group of more than 3 members||
+guide	kind=read|	target=""	
+guide.guard	kind=none	target=""	
+guide.install	kind=change|	target=""	
+guide.uninstall	kind=change|	target=""	safety|||it removes komando's guard from an AI agent's settings|||
+help	kind=none	target=""	
+host	kind=read|	target="servers"	
+host.add	kind=change|	target="servers"	dangerous|||--proxy-command matches a destructive rule||| ; safety|with --proxy-command||an AI agent runs it (the proxy command runs on this computer)|||
+host.ca	kind=read|	target="servers"	
+host.ca.add	kind=change|	target="servers"	person||trusts every server the CA signs||||
+host.ca.list	kind=read|	target="servers"	
+host.ca.revoke	kind=change|	target="servers"	
+host.ca.rm	kind=change|	target="servers"	
+host.edit	kind=change|	target="servers"	dangerous|||--proxy-command matches a destructive rule||| ; safety|with --protected=false|turns protection off|||| ; safety|with --proxy-command||an AI agent runs it (the proxy command runs on this computer)|||
+host.list	kind=read|	target="servers"	
+host.rename	kind=change|	target="servers"	
+host.rm	kind=change|	target="servers"	
+host.show	kind=read|	target="servers"	
+host.ssh-command	kind=read|	target="servers"	person||||||
+host.test	kind=read|	target="servers"	
+host.trust	kind=change|	target="servers"	safety|||an AI agent pins a first host key while host keys are strict||| ; person|with --reset, when a key is pinned|replaces a pinned host key (OD-9)||||
+import	kind=change|	target=""	dangerous|||an imported ProxyCommand matches a destructive rule||| ; safety|||an AI agent imports a server with a proxy command (it runs on this computer; without --yes the server is left out)||| ; safety|SOURCE kubeconfig||an AI agent imports a context whose login runs a program or sends a file of this computer||| ; person|SOURCE komando||the file is sealed (export --sealed): a person types its passphrase|||
+job	kind=read|	target="servers"	
+job.kill	kind=change|	target="servers"	
+job.list	kind=read|	target="servers"	
+job.logs	kind=read|	target="servers"	
+job.rm	kind=change|	target="servers"	
+job.start	kind=depends|changes things unless --read-only says the command only reads (the policy checks it either way)	target="servers"	dangerous|||the command matches a destructive rule|||
+job.status	kind=read|	target="servers"	
+job.wait	kind=read|	target="servers"	
+key	kind=read|	target="servers"	
+key.add	kind=change|	target="servers"	
+key.deploy	kind=change|	target="servers"	
+key.edit	kind=change|	target="servers"	
+key.gen	kind=change|	target="servers"	
+key.list	kind=read|	target="servers"	
+key.rename	kind=change|	target="servers"	
+key.revoke	kind=change|	target="servers"	dangerous|||it is the key komando logs in with|||
+key.rm	kind=change|	target="servers"	dangerous|with --delete-file, for a key komando made|deletes the private key komando keeps||||
+key.show	kind=read|	target="servers"	
+komando	kind=none	target=""	
+list	kind=read|	target=""	
+login	kind=change|	target=""	person||||||
+login-holder	kind=none	target=""	
+login.aws	kind=change|	target=""	person||||||
+login.azure	kind=none	target=""	
+login.gcp	kind=none	target=""	
+logout	kind=change|	target=""	
+logout.aws	kind=change|	target=""	
+logs	kind=read|	target="servers"	
+net	kind=read|	target="servers"	
+net.check	kind=read|	target="servers"	
+net.dns	kind=read|	target="servers"	
+net.http	kind=read|	target="servers"	
+net.ports	kind=read|	target="servers"	
+output	kind=none	target=""	
+pkg	kind=read|	target="servers"	
+pkg.install	kind=change|	target="servers"	
+pkg.installed	kind=read|	target="servers"	
+pkg.rm	kind=change|	target="servers"	dangerous|a package the server needs (openssh-server, sudo, systemd, ...)|removes a package the server needs to run or to let you in|||| ; change|||||removes the packages|packages
+pkg.security	kind=depends|only reads, unless --refresh updates the package index first	target="servers"	
+pkg.update	kind=change|	target="servers"	
+pkg.upgradable	kind=depends|only reads, unless --refresh updates the package index first	target="servers"	
+pkg.upgrade	kind=change|	target="servers"	dangerous|with --security||an update would remove a package the server needs|||
+policy	kind=read|	target=""	
+policy.check	kind=read|	target=""	
+policy.deny	kind=change|	target=""	
+policy.list	kind=read|	target=""	
+policy.rm	kind=change|	target=""	safety||removes a deny rule||||
+probe cluster scale c1 web 0	dangerous|stops every copy of the app||
+probe conn edit app-db --protected=false	safety|turns protection off||
+probe export --sealed	person|||
+probe group rm big	change|||deleting a group of more than 3 members
+probe host add web2 root@10.0.0.6 --proxy-command nc	safety||an AI agent runs it (the proxy command runs on this computer)|
+probe host edit web1 --protected=false	safety|turns protection off||
+probe host edit web1 --proxy-command nc	safety||an AI agent runs it (the proxy command runs on this computer)|
+probe host trust web1 --reset	person|replaces a pinned host key (OD-9)||
+probe import komando backup.json	person||the file is sealed (export --sealed): a person types its passphrase|
+probe import kubeconfig	safety||an AI agent imports a server with a proxy command (it runs on this computer; without --yes the server is left out)|
+probe key rm k1 --delete-file	dangerous|deletes the private key komando keeps||
+probe pkg rm web1 openssh-server	dangerous|removes a package the server needs to run or to let you in||
+probe pkg upgrade web1 --security	dangerous||an update would remove a package the server needs|
+probe recipe add r1 --overwrite --read-only	safety||it makes an existing recipe read-only|
+probe secret keychain	person|||
+probe svc disable web1 ssh.service	dangerous|turns sshd off (no one can log in remotely after a restart)||
+probe svc stop web1 sshd	dangerous|stops sshd (no one can log in remotely)||
+probe sync ./site web1:/srv --delete	dangerous|deletes the files in DST that SRC does not have||
+probe user rm web1 bob --remove-home	dangerous|deletes the user and their home folder||
+probe vpn edit kantor --mfa=false	safety|turns --mfa off (komando may then connect it without a person)||
+probe vpn edit kantor --protected=false	safety|turns protection off||
+queue	kind=read|	target=""	
+queue.add	kind=change|	target=""	
+queue.create	kind=change|	target=""	
+queue.describe	kind=read|	target=""	
+queue.groups	kind=read|	target=""	
+queue.info	kind=read|	target=""	
+queue.lag	kind=read|	target=""	
+queue.list	kind=read|	target=""	
+queue.peek	kind=read|	target=""	
+queue.purge	kind=change|	target=""	dangerous||deletes every waiting message||||
+queue.rm	kind=change|	target=""	dangerous||deletes the topics or queues with their messages||||
+queue.send	kind=change|	target=""	
+reboot	kind=change|	target="servers"	dangerous||restarts the server (it is away until it is back)||||
+recipe	kind=read|	target="servers"	
+recipe.add	kind=change|	target="servers"	safety|with --overwrite --read-only||it makes an existing recipe read-only|||
+recipe.list	kind=read|	target="servers"	
+recipe.rm	kind=change|	target="servers"	
+recipe.run	kind=depends|decided by the recipe's command, like exec	target="servers"	dangerous|||the recipe's command matches a destructive rule|||
+registry	kind=read|	target=""	
+registry.add	kind=change|	target=""	
+registry.copy	kind=change|	target=""	
+registry.inspect	kind=read|	target=""	
+registry.list	kind=read|	target=""	
+registry.prune	kind=change|	target=""	dangerous||deletes the images||||
+registry.rm	kind=change|	target=""	dangerous||deletes the images||||
+rename	kind=change|	target=""	
+safety	kind=none	target=""	
+schema	kind=read|	target=""	
+secret	kind=read|	target=""	
+secret.check	kind=read|	target=""	person||||||
+secret.cp	kind=change|	target=""	
+secret.keychain	kind=change|	target=""	safety|||it turns the keychain off||| ; person|without --off (moving the key into the keychain)|||||
+secret.list	kind=read|	target=""	
+secret.passphrase	kind=change|	target=""	person||||||
+secret.rename	kind=change|	target=""	
+secret.rm	kind=change|	target=""	dangerous||deletes the saved passwords||||
+secret.run	kind=depends|decided by the program it starts on this computer	target=""	
+secret.set	kind=change|	target=""	
+secret.show	kind=read|	target=""	
+shell	kind=depends|an shellNote shell for a person: whatever they type	target="servers"	person||||||
+ssh-gate	kind=depends|runs the komando command an SSH key sent, when ssh-gate allows it	target=""	person||||||
+ssh-gate.line	kind=read|	target=""	
+ssh-gate.status	kind=read|	target=""	
+status	kind=read|	target=""	
+storage	kind=read|	target=""	
+storage.add	kind=change|	target=""	
+storage.cat	kind=read|	target=""	
+storage.chmod	kind=change|	target=""	
+storage.download	kind=read|	target=""	
+storage.link	kind=change|	target=""	
+storage.list	kind=read|	target=""	
+storage.mkdir	kind=change|	target=""	
+storage.mv	kind=change|	target=""	
+storage.rm	kind=change|	target=""	dangerous||deletes the files||||
+storage.upload	kind=change|	target=""	
+svc	kind=read|	target="servers"	
+svc.daemon-reload	kind=change|	target="servers"	
+svc.disable	kind=change|	target="servers"	dangerous|the unit is ssh or sshd|turns sshd off (no one can log in remotely after a restart)||||
+svc.enable	kind=change|	target="servers"	
+svc.list	kind=read|	target="servers"	
+svc.logs	kind=read|	target="servers"	
+svc.reload	kind=change|	target="servers"	
+svc.restart	kind=change|	target="servers"	
+svc.start	kind=change|	target="servers"	
+svc.status	kind=read|	target="servers"	
+svc.stop	kind=change|	target="servers"	dangerous|the unit is ssh or sshd|stops sshd (no one can log in remotely)||||
+sync	kind=change|	target="servers or file storage"	dangerous|with --delete|deletes the files in DST that SRC does not have||||
+test	kind=read|	target=""	
+tunnel	kind=read|	target="servers"	
+tunnel.list	kind=read|	target="servers"	
+tunnel.serve	kind=none	target="servers"	
+tunnel.start	kind=change|	target="servers"	safety|||it listens on an open address (OPEN_BIND)|||
+tunnel.stop	kind=change|	target="servers"	
+update	kind=change|	target=""	safety|||it installs an older version|||
+upload	kind=change|	target="servers or file storage"	
+user	kind=read|	target="servers"	
+user.add	kind=change|	target="servers"	
+user.list	kind=read|	target="servers"	
+user.lock	kind=change|	target="servers"	
+user.rm	kind=change|	target="servers"	dangerous|with --remove-home|deletes the user and their home folder|||| ; dangerous||deletes the user||||
+user.unlock	kind=change|	target="servers"	
+version	kind=read|	target=""	
+vpn	kind=read|	target="VPNs"	
+vpn.add	kind=change|	target="VPNs"	
+vpn.down	kind=change|	target="VPNs"	
+vpn.edit	kind=change|	target="VPNs"	safety|with --protected=false|turns protection off|||| ; safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)||||
+vpn.list	kind=read|	target="VPNs"	
+vpn.rename	kind=change|	target="VPNs"	
+vpn.rm	kind=change|	target="VPNs"	
+vpn.serve	kind=none	target="VPNs"	
+vpn.show	kind=read|	target="VPNs"	
+vpn.status	kind=read|	target="VPNs"	
+vpn.test	kind=read|	target="VPNs"	
+vpn.up	kind=change|	target="VPNs"	
