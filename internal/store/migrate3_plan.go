@@ -263,6 +263,10 @@ func (pl *planner) conn(c *Conn) {
 		CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
 	}
 	pl.p.conns[c.Rec.ID] = v
+	if urlPassword(c.URL) {
+		pl.problem("%s: field url holds a password in its user part", e)
+		return
+	}
 	var user string
 	if c.PasswordRef != "" || c.AskLogin() {
 		user, v.URL = urlUser(c.URL)

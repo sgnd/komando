@@ -90,7 +90,7 @@ func format2Store(t *testing.T) string {
 		s.Keys["solo"] = &Key{Name: "solo", Path: "/home/me/.ssh/id_solo", Type: "ed25519"}
 		s.Hosts["web1"] = &Host{Name: "web1", Address: "10.0.0.1", User: "root", Key: "deploy", Groups: []string{"Prod"}, Tags: []string{"swarm", "edge"},
 			Labels: map[string]string{"team": "core", "note": "secret:not-a-ref"},
-			Env: map[string]string{"PG": "secret:pg-pass", "MODE": "live"}, SudoRef: "secret:sudo-pw", Protected: true}
+			Env:    map[string]string{"PG": "secret:pg-pass", "MODE": "live"}, SudoRef: "secret:sudo-pw", Protected: true}
 		s.Hosts["db1"] = &Host{Name: "db1", Address: "10.0.0.2", User: "app", Key: "deploy", Groups: []string{"prod"}}
 		s.Hosts["win1"] = &Host{Name: "win1", Address: "10.0.0.3", User: `DOMAIN\admin`, PasswordRef: "secret:win-pw",
 			Transport: TransportWinRM, WinRMOpts: &WinRMOpts{CA: "secret:win-ca"}}
@@ -653,5 +653,36 @@ func TestMigrate3BackupNameTaken(t *testing.T) {
 	}
 	if b, _ := os.ReadFile(first); string(b) != "an earlier backup" {
 		t.Error("the earlier backup was overwritten")
+	}
+}
+
+// R1: a migration with no way to see processes stops; it never guesses
+// that nothing runs.
+func TestNoLiveProcessesNeedsCheck(t *testing.T) {
+	sealedHome(t)
+	if err := noLiveProcesses(nil); err == nil {
+		t.Fatal("no process check given, and the migration went on")
+	}
+}
+
+// R2: a password written into a conn URL's user part stops the plan, which
+// names the conn and the field and not the password.
+func TestMigrate3PasswordInURL(t *testing.T) {
+	format2Store(t)
+	err := Update(Save(), func(s *State) error {
+		s.Conns["inline"] = &Conn{Name: "inline", Kind: "postgres", URL: "postgres://app:" + sentinel + "@10.0.0.30/app"}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	Close()
+	_, err = migrateFormat3(context.Background(), personOpts())
+	var e *out.Error
+	if !errors.As(err, &e) || e.Code != "STORE_MIGRATION_FAILED" {
+		t.Fatalf("want STORE_MIGRATION_FAILED, got %v", err)
+	}
+	if !strings.Contains(e.Message, "conn inline") || !strings.Contains(e.Message, "field url") || strings.Contains(e.Message, sentinel) {
+		t.Errorf("message %q", e.Message)
 	}
 }

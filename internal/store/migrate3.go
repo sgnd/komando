@@ -171,8 +171,11 @@ func needsMigration3(ctx context.Context, person bool) (bool, error) {
 // noLiveProcesses stops while a komando background process of the
 // runtime file still runs: it would write format-2 rows.
 func noLiveProcesses(alive func(int, string) bool) error {
+	if alive == nil {
+		return errors.New("store: the migration was given no way to check for running komando processes")
+	}
 	rt, err := ReadRuntime()
-	if errors.Is(err, os.ErrNotExist) || alive == nil {
+	if errors.Is(err, os.ErrNotExist) {
 		return nil // no runtime file: nothing runs
 	}
 	if err != nil {

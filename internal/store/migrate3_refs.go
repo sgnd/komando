@@ -100,6 +100,17 @@ func urlUser(raw string) (user, rest string) {
 	return u, rest
 }
 
+// urlPassword reports a URL whose user part holds a password (user:pw@).
+func urlPassword(raw string) bool {
+	_, after, ok := strings.Cut(raw, "://")
+	if !ok {
+		return false
+	}
+	auth, _, _ := strings.Cut(after, "/")
+	at := strings.LastIndex(auth, "@")
+	return at >= 0 && strings.Contains(auth[:at], ":")
+}
+
 // oldRefRe is a value that still names a format-2 vault secret.
 var oldRefRe = regexp.MustCompile(`^secret:[A-Za-z0-9._-]+$`)
 

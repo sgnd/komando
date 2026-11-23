@@ -70,3 +70,20 @@ func TestRowsV3Label(t *testing.T) {
 		}
 	}
 }
+
+// R3: import reads a record type in any case: a seed spelled another way
+// is still refused.
+func TestImport3TypeAnyCase(t *testing.T) {
+	for _, typ := range []string{"ApprovalSeed", "APPROVALSEED"} {
+		err := checkImport3([]byte(`{"format":3,"records":[{"type":"` + typ + `","data":{}}]}`))
+		var e *out.Error
+		if !errors.As(err, &e) || e.Code != "RESERVED_SECRET" {
+			t.Errorf("%s: want RESERVED_SECRET, got %v", typ, err)
+		}
+	}
+	err := checkImport3([]byte(`{"format":3,"records":[{"type":"Credential","data":{"name":"komando-approval-totp"}}]}`))
+	var e *out.Error
+	if !errors.As(err, &e) || e.Code != "RESERVED_SECRET" {
+		t.Errorf("Credential: want RESERVED_SECRET, got %v", err)
+	}
+}

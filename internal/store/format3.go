@@ -252,11 +252,11 @@ func checkImport3(b []byte) error {
 		return fmt.Errorf("import: %w", err)
 	}
 	for i, r := range f.Records {
-		if r.Type == KindApprovalSeed {
+		if strings.EqualFold(r.Type, KindApprovalSeed) {
 			return out.Errf(out.ExitUsage, "RESERVED_SECRET", "a person sets the approval code up on this computer with `komando config approval-code`",
 				"the import file holds komando's approval code seed (record %d); it is never imported", i+1)
 		}
-		if r.Type == KindCredential {
+		if strings.EqualFold(r.Type, KindCredential) {
 			var c struct {
 				Name string `json:"name"`
 			}
