@@ -11743,10 +11743,22 @@
         "hint": "run the command again: komando opens the store again from the start; if it keeps happening, run `komando doctor`"
       },
       {
+        "code": "STORE_IN_USE",
+        "exit": 8,
+        "example": "… is to move to a new format, and komando still runs: …",
+        "hint": "end each one as listed, then run `komando doctor` again"
+      },
+      {
         "code": "STORE_KEY_CHANGED",
         "exit": 1,
         "example": "…: …",
         "hint": "run it again: another komando changed the store's key while this one ran"
+      },
+      {
+        "code": "STORE_MIGRATION_FAILED",
+        "exit": 1,
+        "example": "…; nothing was changed",
+        "hint": "fix it with komando v0.17.0, then run `komando doctor` again"
       },
       {
         "code": "STORE_NEWER",
@@ -11759,6 +11771,12 @@
         "exit": 6,
         "example": "… …: servers, rules, secrets or pinned host keys may be old",
         "hint": "if the komando folder was restored from a backup on purpose, a person runs `komando doctor --accept-old-copy` in their own terminal; otherwise find out who put an old copy back or changed the keychain"
+      },
+      {
+        "code": "STORE_REFERENCE_UNSUPPORTED",
+        "exit": 2,
+        "example": "… …: field … still names a secret the old way",
+        "hint": "point the field at a saved secret again with komando v0.17.0, then run `komando doctor`"
       },
       {
         "code": "STREAM_EXISTS",
