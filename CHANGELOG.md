@@ -11,6 +11,9 @@ its highlights; the sections below them give the details. Versions follow
 
 - The macOS approval window now shows a script of up to 200 lines whole; it scrolls and allows only after the last line. Windows and Linux keep 40 lines.
 - A script too long for the window ends with its own error code, `SHORTER_SCRIPT_REQUIRED`, and the message names the counted number of shown lines and the script's own line count.
+### Fixed
+
+- When several komando processes write komando's store at once on a slow disk, a write now keeps trying for up to a minute instead of failing after 10 seconds with `database is locked`. It tries again only to take the write lock and to commit, so each write still runs once and whole; past the minute it ends with a clear message (`STORE_BUSY` where a host key is checked).
 
 ## [0.17.0] - 2026-11-22
 
