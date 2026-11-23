@@ -40,9 +40,10 @@ func macEndLines() []string {
 }
 
 const (
-	onKeyDeny   = "if (code === 53 || code === 36 || (code === 13 && (mods & CMD))) { note('end: Deny, key'); CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); return; }"
+	onKeyDeny   = "if (code === 53 || (code === 13 && (mods & CMD))) { note('end: Deny, key'); CHOICE = 'Deny key'; CHOSEN = true; APP.stopModalWithCode(DENY); return; }"
+	onKeyReturn = "if (code === 36 || code === 76) { note('Return answers nothing'); return; }"
 	onKeyTab    = "if (code === 48) { showFocus(nextFocus(FOCUS, (mods & SHIFT) !== 0, SCROLLS, SEEN)); note('focus moved'); return; }"
-	onKeySpace  = "if (code === 49 && (FOCUS === 'deny' || FOCUS === 'allow')) { var btn = FOCUS === 'allow' ? ALLOW_BTN : DENY_BTN; note('Space presses the focused button'); btn.performClick(btn); return; }"
+	onKeySpace  = "if (code === 49 && (FOCUS === 'deny' || FOCUS === 'allow')) { note('Space on a button answers nothing'); return; }"
 	onKeyScroll = "if (SCROLLS && (SCROLL_KEYS.indexOf(code) >= 0 || (code === 49 && FOCUS === 'script')) && scrollKey(code)) { if (DEBUG) note('scrolled to ' + where()); }"
 )
 
@@ -72,7 +73,7 @@ func TestMacPanelKeys(t *testing.T) {
 		{"home", "115", []string{onKeyScroll}, "code === 115 ? 0", false},
 		{"end", "119", []string{onKeyScroll}, "code === 119 ? maxY", false},
 		{"space", "49", []string{onKeyScroll, onKeySpace, "code === 49 && FOCUS === 'script'"}, "code === 121 || code === 49 ? y + page", false},
-		{"return", "36", []string{onKeyDeny}, "", true},
+		{"return", "36", []string{onKeyReturn}, "", false},
 		{"esc", "53", []string{onKeyDeny}, "", true},
 		{"cmd-w", "13", []string{onKeyDeny, "code === 13 && (mods & CMD)"}, "", true},
 	} {
@@ -109,14 +110,14 @@ func TestMacPanelKeys(t *testing.T) {
 	if !strings.Contains(macAlertScript, "var SCROLL_KEYS = [126, 125, 116, 121, 115, 119];") {
 		t.Error("the scroll keys are not Up, Down, Page Up/Down and Home/End")
 	}
-	// Deny's keys first, then Tab, then Space on a button, then the scroll keys; nothing after
-	d, tb, sp, sc := strings.Index(on, onKeyDeny), strings.Index(on, onKeyTab), strings.Index(on, onKeySpace), strings.Index(on, onKeyScroll)
-	if d < 0 || tb < d || sp < tb || sc < sp || !strings.HasPrefix(on[sc+len(onKeyScroll):], "\n  } catch") {
-		t.Errorf("onKey order: Deny %d, Tab %d, Space %d, scroll %d:\n%s", d, tb, sp, sc, on)
+	// Deny's keys first, then Return (nothing), Tab, Space on a button (nothing), then the scroll keys; nothing after
+	d, rt, tb, sp, sc := strings.Index(on, onKeyDeny), strings.Index(on, onKeyReturn), strings.Index(on, onKeyTab), strings.Index(on, onKeySpace), strings.Index(on, onKeyScroll)
+	if d < 0 || rt < d || tb < rt || sp < tb || sc < sp || !strings.HasPrefix(on[sc+len(onKeyScroll):], "\n  } catch") {
+		t.Errorf("onKey order: Deny %d, Return %d, Tab %d, Space %d, scroll %d:\n%s", d, rt, tb, sp, sc, on)
 	}
-	// no button answers to any other key: Deny has Return, Allow once none
+	// no button answers to a key: neither Deny nor Allow once has a key equivalent
 	for _, l := range strings.Split(macAlertScript, "\n") {
-		if strings.Contains(l, "keyEquivalent") && !strings.Contains(l, "deny.keyEquivalent = '\\r'") && !strings.Contains(l, "allow.keyEquivalent = ''") {
+		if strings.Contains(l, "keyEquivalent") && !strings.Contains(l, "deny.keyEquivalent = ''") && !strings.Contains(l, "allow.keyEquivalent = ''") {
 			t.Errorf("unexpected key equivalent: %s", l)
 		}
 	}
@@ -365,7 +366,7 @@ func TestMacPanelNoScriptView(t *testing.T) {
 }
 
 // C237: with Allow once off (a script not yet read to its end), Tab and
-// Shift-Tab cycle the script and Deny only; Space on Deny denies.
+// Shift-Tab cycle the script and Deny only.
 func TestMacPanelAllowOff(t *testing.T) {
 	nf := macFunc(t, "nextFocus")
 	if !strings.Contains(nf, "(scrolls ? ['script'] : []).concat(allowOn ? ['deny', 'allow'] : ['deny'])") {
@@ -437,19 +438,17 @@ func TestMacPanelTabCycle(t *testing.T) {
 	}
 }
 
-// C237: Space on a focused button presses it as a click would
-// (performClick runs the button's own action), so Allow once still meets
-// its gate in allow: and the owner check after the panel. Allow once can
-// hold the focus only once it is on. Return is never a press of Allow
-// once: onKey denies on Return before it looks at the focus.
-func TestMacPanelSpacePressesFocusedButton(t *testing.T) {
+// A stray key never answers: Space on a focused button and Return do
+// nothing, and nothing presses a button for a key (no performClick). Only
+// a click, or Esc and Cmd-W to deny, end the panel.
+func TestMacPanelSpaceAndReturnAnswerNothing(t *testing.T) {
 	s := macAlertScript
 	on := macFunc(t, "onKey")
-	if !strings.Contains(on, onKeySpace) || strings.Count(s, "performClick") != 1 {
-		t.Errorf("Space on a button is not only %q", onKeySpace)
+	if !strings.Contains(on, onKeySpace) || !strings.Contains(on, onKeyReturn) || strings.Contains(s, "performClick") {
+		t.Errorf("Space or Return still answers: want %q and %q, no performClick", onKeySpace, onKeyReturn)
 	}
-	if strings.Index(on, onKeyDeny) > strings.Index(on, onKeySpace) || strings.Contains(onKeyDeny, "FOCUS") {
-		t.Error("Return is read after the focus")
+	if strings.Index(on, onKeyReturn) > strings.Index(on, onKeySpace) || strings.Contains(onKeyDeny, "FOCUS") {
+		t.Error("the keys are read after the focus")
 	}
 	if !strings.Contains(onKeyTab, "SEEN)") {
 		t.Error("Tab can stop on Allow once before the gate opens")
@@ -516,11 +515,8 @@ func TestMacPanelReturnEscUnchanged(t *testing.T) {
 	if !strings.Contains(on, onKeyDeny) {
 		t.Errorf("onKey has no %q", onKeyDeny)
 	}
-	if strings.Contains(on, "76") {
-		t.Error("onKey takes keypad Enter")
-	}
-	if !strings.Contains(s, "deny.keyEquivalent = '\\r'") {
-		t.Error("Return is not Deny's key equivalent")
+	if !strings.Contains(s, "deny.keyEquivalent = '';") {
+		t.Error("Deny still has a key equivalent")
 	}
 	if strings.Count(s, "ALLOW_BTN.enabled = !HELD") != 1 || !strings.Contains(s, "'allow:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note((SEEN ? 'end: Allow once, ' : 'Allow once ignored: not read to the end, ') + how()); if (!SEEN || HELD) return;") {
 		t.Error("the Allow gate changed")

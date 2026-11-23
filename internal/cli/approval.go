@@ -375,6 +375,10 @@ func approvalHint(cl *call, e *out.Error) {
 	switch cl.sess.Window().Why {
 	case "denied":
 		e.Hint = "the user clicked Deny in komando's window; do not retry. Ask the user what they want instead"
+		e.Details = map[string]string{"denied_by": "click"}
+	case "denied-key":
+		e.Hint = "the user closed komando's window with Esc or Cmd-W instead of clicking Deny; it may have been a slip. Do not retry on your own: ask the user whether to try again"
+		e.Details = map[string]string{"denied_by": "key"}
 	case "no-answer":
 		e.Hint = "nobody answered komando's window within 2 minutes (the user may be away); ask the user whether to try again, and do not retry before they say so"
 	case "wrong-code":
@@ -453,6 +457,8 @@ func askMacWindow(cl *call, text string) (allowed, shown bool) {
 		cl.sess.SetWhy("owner-timeout")
 	case macFailed:
 		cl.sess.SetWhy("window-failed")
+	case macDeniedKey:
+		cl.sess.SetWhy("denied-key")
 	}
 	return ans == macAllowed, shown
 }

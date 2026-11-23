@@ -143,7 +143,7 @@ func TestMacPanelDebugNotes(t *testing.T) {
 		"function run(argv) {\n  DEBUG = argv[10] === '1';\n",
 		"function note(what) {\n  if (!DEBUG) return;\n  try { console.log('komando-debug +' + (Date.now() - T0) + ' ' + what + ' | first ' + who() + ' focus ' + (FOCUS || 'none')); } catch (x) {}\n}",
 		"if (DEBUG) note('key ' + keyName(e));",
-		"{ note('end: Deny, key'); CHOICE = 'Deny';",
+		"{ note('end: Deny, key'); CHOICE = 'Deny key';",
 		"SCROLLS, SEEN)); note('focus moved'); return; }",
 		"scrollKey(code)) { if (DEBUG) note('scrolled to ' + where()); }",
 		"note('click: script area')", "note('click: panel background')", "note('panel is key')",

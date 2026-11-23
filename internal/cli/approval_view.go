@@ -308,9 +308,10 @@ function onKey(e) {
   try {
     var code = Number(e.keyCode), mods = Number(e.modifierFlags);
     if (DEBUG) note('key ' + keyName(e));
-    if (code === 53 || code === 36 || (code === 13 && (mods & CMD))) { note('end: Deny, key'); CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); return; }
+    if (code === 53 || (code === 13 && (mods & CMD))) { note('end: Deny, key'); CHOICE = 'Deny key'; CHOSEN = true; APP.stopModalWithCode(DENY); return; }
+    if (code === 36 || code === 76) { note('Return answers nothing'); return; }
     if (code === 48) { showFocus(nextFocus(FOCUS, (mods & SHIFT) !== 0, SCROLLS, SEEN)); note('focus moved'); return; }
-    if (code === 49 && (FOCUS === 'deny' || FOCUS === 'allow')) { var btn = FOCUS === 'allow' ? ALLOW_BTN : DENY_BTN; note('Space presses the focused button'); btn.performClick(btn); return; }
+    if (code === 49 && (FOCUS === 'deny' || FOCUS === 'allow')) { note('Space on a button answers nothing'); return; }
     if (SCROLLS && (SCROLL_KEYS.indexOf(code) >= 0 || (code === 49 && FOCUS === 'script')) && scrollKey(code)) { if (DEBUG) note('scrolled to ' + where()); }
   } catch (x) { note('error in onKey: ' + x); }
 }
@@ -454,7 +455,7 @@ function run(argv) {
   var answer = $.KomandoAnswer.alloc.init;
   var deny = $.NSButton.buttonWithTitleTargetAction(argv[7], answer, 'deny:');
   DENY_BTN = deny;
-  deny.keyEquivalent = '\r';
+  deny.keyEquivalent = '';
   deny.setAccessibilityLabel(argv[7]);
   var allow = $.NSButton.buttonWithTitleTargetAction(argv[8], answer, 'allow:');
   allow.keyEquivalent = '';
@@ -570,6 +571,7 @@ function run(argv) {
   panel.orderOut(null);
   if (CHOICE === 'Allow') return 'Allow once\n' + owner(argv[3], argv[4]);
   if (CHOICE === 'gave up') return 'gave up';
+  if (CHOICE === 'Deny key') return 'Deny key';
   return 'Deny';
 }`
 
@@ -628,12 +630,13 @@ func noBreakHyphens(s string) string { return strings.ReplaceAll(s, "-", "\u2011
 type macOutcome int
 
 const (
-	macDenied       macOutcome = iota // Deny, Esc, Return, the close button or anything unexpected
+	macDenied       macOutcome = iota // a click on Deny or the close button, or anything unexpected
 	macAllowed                        // Allow once, then the device owner confirmed
 	macOwnerFailed                    // Allow once, but the owner check did not say ok
 	macOwnerTimeout                   // Allow once, then nobody confirmed in ownerTimeout
 	macGaveUp                         // nobody answered in 120 seconds
 	macFailed                         // the panel crashed or printed nothing: nobody answered it
+	macDeniedKey                      // Esc or Cmd-W: a key, not a click on Deny
 )
 
 // macAnswer reads what osascript printed. Only "Allow once" followed by
@@ -650,6 +653,8 @@ func macAnswer(out []byte) macOutcome {
 		return macGaveUp
 	case "Allow once\nowner timeout":
 		return macOwnerTimeout
+	case "Deny key":
+		return macDeniedKey
 	}
 	if strings.HasPrefix(string(out), "Allow once\n") {
 		return macOwnerFailed
