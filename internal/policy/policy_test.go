@@ -345,3 +345,17 @@ func TestCheckFailsClosed(t *testing.T) {
 		t.Fatalf("Check with a crashing rule = %v, want one %s hit", hits, checkFailedID)
 	}
 }
+
+// The stop for a check that crashed is listed with the built-in rules
+// (policy list), with the reason the stop gives.
+func TestRulesListCheckFailed(t *testing.T) {
+	for _, r := range Rules() {
+		if r.ID == checkFailedID {
+			if r.Reason != checkFailed.Reason || r.Reason == "" {
+				t.Errorf("listed reason %q, the stop says %q", r.Reason, checkFailed.Reason)
+			}
+			return
+		}
+	}
+	t.Errorf("Rules() does not list %s", checkFailedID)
+}

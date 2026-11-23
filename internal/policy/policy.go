@@ -77,6 +77,7 @@ func init() {
 		compiled = append(compiled, Rule{ID: b.id, Reason: b.reason, re: regexp.MustCompile(b.pattern)})
 	}
 	compiled = append(compiled, carried()...)
+	compiled = append(compiled, checkFailed)
 }
 
 // Check returns the rules a command matches. extra are user patterns from
@@ -100,9 +101,12 @@ func CheckScript(script string, extra []string) []Rule {
 func check(cmd string, extra []string, withCarried bool) (hits []Rule) {
 	defer func() {
 		if recover() != nil { // a check that crashes must not let the command through
-			hits = []Rule{{ID: checkFailedID, Reason: "fails to read the command, so komando cannot check it"}}
+			hits = []Rule{checkFailed}
 		}
 	}()
+	if _, bad := Lex(cmd); bad == lexFailed {
+		panic(bad) // the reader crashed: the rules below would see nothing
+	}
 	hits = []Rule{}
 	norm, plain, ps := Normalize(cmd), Plain(cmd), psPlain(Normalize(cmd))
 	cmds, psCmds := simpleCommands(cmd), simpleCommands(psPlain(cmd))
@@ -129,7 +133,10 @@ func check(cmd string, extra []string, withCarried bool) (hits []Rule) {
 	return hits
 }
 
-// checkFailedID is the hit Check returns when a check crashed on cmd.
+// checkFailed is the hit Check returns when a check crashed on cmd. It is
+// listed with the built-in rules and matches nothing by itself.
+var checkFailed = Rule{ID: checkFailedID, Reason: "fails to read the command, so komando cannot check it"}
+
 const checkFailedID = "check-failed"
 
 // Invalid returns, for each custom pattern that does not compile, what is

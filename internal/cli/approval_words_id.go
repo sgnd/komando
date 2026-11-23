@@ -105,6 +105,7 @@ var riskID = map[string]struct{ en, id string }{
 	"pkg-remove-essential": {"removes a package the server needs (ssh, sudo, systemd, libc ...), which can lock you out or break it", "menghapus paket yang dibutuhkan server (ssh, sudo, systemd, libc ...), sehingga akses Anda bisa terputus atau server rusak"},
 	"cron-remove":          {"removes cron jobs (drops lines from the crontab or a cron file)", "menghapus cron job (membuang baris dari crontab atau file cron)"},
 	"kubectl-scale-zero":   {"scales a kubernetes workload to zero (an outage)", "menurunkan workload kubernetes ke nol (layanan mati)"},
+	"check-failed":         {"fails to read the command, so komando cannot check it", "gagal membaca perintah, sehingga komando tidak bisa memeriksanya"},
 	"db-drop-user":         {"deletes a database user or role", "menghapus pengguna atau role database"},
 	"win-rm-root":          {"deletes the system drive, a system folder or the users folder recursively", "menghapus drive sistem, folder sistem, atau folder users secara rekursif"},
 	"win-format":           {"formats or wipes a disk", "memformat atau menghapus bersih disk"},
