@@ -50,7 +50,7 @@ under a pseudo-terminal and komando does not know your agent, set
    `POLICY_BLOCKED`,
    `PROTECTED_TARGET`, `READ_ONLY_VIOLATION`, `REVEAL_NEEDS_PERSON`,
    `REVEAL_NEEDS_TERMINAL`, `SAFETY_SETTING`, `SECRET_DESTINATION`,
-   `SENSITIVE_FILE`, `SQL_SAFE_SETTINGS_REQUIRED`, `SQL_TX_CHECK_REQUIRED`,
+   `SENSITIVE_FILE`, `SHORTER_SCRIPT_REQUIRED`, `SQL_SAFE_SETTINGS_REQUIRED`, `SQL_TX_CHECK_REQUIRED`,
    `SSH_GATE_NETWORK_REQUIRED`, `SSH_GATE_READ_ONLY`, `SSH_GATE_REFUSED`,
    `STORE_OLD_COPY`, `UNSAFE_BACKUP`, `WRITE_REQUIRES_FLAG`), stop and explain what you want to do and why. Once the human agrees, re-run with
    the flag the hint names: komando asks them in a window on their screen
