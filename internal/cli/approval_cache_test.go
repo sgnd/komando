@@ -57,7 +57,7 @@ func TestEarlierWindowDoesNotCoverUnshownBody(t *testing.T) {
 	}
 
 	// a script no window can show is refused, earlier yes or not
-	for _, bad := range []string{"echo \u202erm -rf /\n", strings.Repeat("true\n", bodyMaxLines+1)} {
+	for _, bad := range []string{"echo \u202erm -rf /\n", strings.Repeat("true\n", bodyMaxLinesScroll+1)} {
 		resetApproval()
 		texts = nil
 		if !tcl.revealOK() {
