@@ -128,7 +128,7 @@ func (l *lexer) line(inSub bool) []Token {
 			}
 			cur.WriteString(s[l.i+1 : l.i+1+j])
 			inWord, quoted = true, true
-			l.i += j + 2
+			l.i = min(l.i+j+2, len(s)) // past the closing ', or the end when there is none
 		case c == '"':
 			l.i++
 			e, code := l.dquote(&cur)
@@ -141,7 +141,7 @@ func (l *lexer) line(inSub bool) []Token {
 				cur.WriteByte(next)
 			}
 			inWord, quoted = true, true
-			l.i += 2
+			l.i = min(l.i+2, len(s)) // a \ at the very end escapes nothing
 		case c == '$' && next == '\'':
 			l.i += 2
 			cur.WriteString(l.ansiC())
@@ -412,8 +412,9 @@ func (l *lexer) backquote() {
 	}
 	if l.i >= len(s) {
 		l.fail("an unclosed `")
+	} else {
+		l.i++ // the closing `
 	}
-	l.i++
 	lines, bad := Lex(b.String())
 	l.subs = append(l.subs, lines...)
 	if bad != "" {
@@ -481,8 +482,9 @@ func (l *lexer) ansiC() string {
 	}
 	if l.i >= len(s) {
 		l.fail("an unclosed $'")
+	} else {
+		l.i++ // the closing '
 	}
-	l.i++
 	return b.String()
 }
 
