@@ -67,7 +67,10 @@ func TestApprovalWindowShowsFileInputs(t *testing.T) {
 		}
 	}
 
-	// SQL is code: a file too long to show whole gets no window, like a script
+	// SQL is code: a file too long to show whole gets no window, like a
+	// script. invRun stops before the program sets an agent's code, so this
+	// is the check's own code; the program's own run ends with
+	// SHORTER_SCRIPT_REQUIRED (TestTooLongCodeOnRealPath)
 	long := writeTemp(t, "long.sql", strings.Repeat("insert into t values (1);\n", bodyMaxLines+5))
 	*texts = nil
 	resetApproval()

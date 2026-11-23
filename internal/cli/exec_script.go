@@ -36,7 +36,7 @@ func runScript(cl *call, ctx context.Context, target string, so scriptOpts, o ex
 	if err := hiddenInInput(cl, so.file, body); err != nil {
 		return err
 	}
-	noteApprovalBody(cl, scriptLabel("the script", so.file), body)
+	noteApprovalScript(cl, scriptLabel("the script", so.file), body)
 	argsList, interpreter := so.args, so.interpreter
 	if win, err := targetWindows(cl, target); err != nil || win {
 		if err != nil {

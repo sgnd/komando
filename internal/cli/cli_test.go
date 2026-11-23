@@ -18,6 +18,14 @@ import (
 	"github.com/sgnd/komando/internal/vault"
 )
 
+// the production window functions, kept before TestMain replaces them
+var (
+	realAskOnScreen = askOnScreen
+	realAskMac      = askMac
+	realAXTrust     = axTrustOutput
+	realOwnerCheck  = ownerCheckOutput
+)
+
 func TestMain(m *testing.M) {
 	// no test of this package sees the real home folder (internal/testhome)
 	homeDone := testhome.Use()
@@ -36,6 +44,8 @@ func TestMain(m *testing.M) {
 		os.Unsetenv(a.env)
 		resetApproval()
 	}
+	// TestApprovalWindowPerson puts the real ones back for a person at the screen
+	realAskOnScreen, realAskMac, realAXTrust, realOwnerCheck = askOnScreen, askMac, axTrustOutput, ownerCheckOutput
 	askOnScreen = func(*call, string) (bool, bool) { panic("a test opened an approval window") }
 	askMac = func(approvalView, io.Writer) (macOutcome, bool) { panic("a test opened the macOS window") }
 	// the window speaks English in tests, whatever the machine's language

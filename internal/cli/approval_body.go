@@ -21,11 +21,14 @@ import (
 type approvalBody struct {
 	label string // "the script ./deploy.sh"
 	body  []byte
-	data  bool     // content to store or send, not code to run (noteApprovalData)
-	big   bool     // more than bodyMaxBytes: body is nil, size and sum say what it is
-	size  int64    // bytes sent
-	sum   [32]byte // SHA-256 of what is sent
-	file  string   // the file the window read, resolved (resolvedFile); "" for a body that is not one file
+	data  bool // content to store or send, not code to run (noteApprovalData)
+	big   bool // more than bodyMaxBytes: body is nil, size and sum say what it is
+	// overLimit: whole() found more lines than the window takes
+	overLimit bool
+	kind      bodyKind
+	size      int64    // bytes sent
+	sum       [32]byte // SHA-256 of what is sent
+	file      string   // the file the window read, resolved (resolvedFile); "" for a body that is not one file
 }
 
 // resolvedFile is path as the file it names: ~ expanded, absolute, cleaned
@@ -43,7 +46,53 @@ func resolvedFile(path string) string {
 
 // newBody is an approvalBody for body as a whole.
 func newBody(label string, body []byte, data bool) *approvalBody {
-	return &approvalBody{label: label, body: body, data: data, size: int64(len(body)), sum: sha256.Sum256(body)}
+	kind := bodyInput
+	if data {
+		kind = bodyData
+	}
+	return &approvalBody{label: label, body: body, data: data, kind: kind, size: int64(len(body)), sum: sha256.Sum256(body)}
+}
+
+// bodyKind is what a body is: it sets the window's line limit and the
+// advice when the body is too long to show.
+type bodyKind int
+
+const (
+	bodyInput  bodyKind = iota // code sent on stdin (exec --stdin-file, job start)
+	bodyScript                 // a script file (exec --script, job start --script)
+	bodySQL                    // the SQL of db query --file
+	bodyData                   // content stored or sent, not run (noteApprovalData)
+)
+
+// noteApprovalScript is noteApprovalBody for a script file.
+func noteApprovalScript(cl *call, label string, body []byte) {
+	b := newBody(label, body, false)
+	b.kind = bodyScript
+	setBody(cl, b)
+}
+
+// noteApprovalSQL is noteApprovalBody for an SQL file.
+func noteApprovalSQL(cl *call, label string, body []byte) {
+	b := newBody(label, body, false)
+	b.kind = bodySQL
+	setBody(cl, b)
+}
+
+// tooLongAdvice is what an agent does with a body of kind too long for
+// the window.
+func tooLongAdvice(kind bodyKind) string {
+	var do string
+	switch kind {
+	case bodyScript:
+		do = "Split the script into shorter ones and run each with `komando exec TARGET --script FILE`"
+	case bodySQL:
+		do = "Split the SQL into shorter files and run each with `komando db query CONN --file FILE`"
+	case bodyData:
+		do = "Send it in smaller pieces (a few `komando fs replace` runs instead of one big change)"
+	default:
+		do = "Shorten it, or put it in a script file and run it with `komando exec TARGET --script FILE`"
+	}
+	return do + ", or ask the user to run it in their own terminal"
 }
 
 // The window shows a body whole or not at all: a part left out could be
@@ -52,9 +101,13 @@ func newBody(label string, body []byte, data bool) *approvalBody {
 // screen (the macOS and zenity windows do not scroll); a bigger body gets
 // no window, and the agent asks the person to run it in their terminal.
 const (
-	bodyMaxLines = 40       // lines the window shows, wrapped pieces included
-	bodyWrap     = 100      // characters of a line per shown piece
-	bodyMaxBytes = 16 << 10 // a body this big cannot fit in bodyMaxLines
+	bodyMaxLines = 40 // lines the window shows, wrapped pieces included
+	// bodyMaxLinesScroll is the limit of the macOS window, which scrolls
+	// and enables Allow only once its last line was seen (SEEN in
+	// approval_view.go). It applies to scripts only (lineLimit).
+	bodyMaxLinesScroll = 200
+	bodyWrap           = 100      // characters of a line per shown piece
+	bodyMaxBytes       = 16 << 10 // a body this big cannot fit in bodyMaxLines
 )
 
 // noteApprovalBody tells the approval window of this command what it sends.
@@ -248,9 +301,12 @@ func (b *approvalBody) whole(cl *call) (text, bad string) {
 			}
 			shown = append(shown, fmt.Sprintf("  %*s  %s", numW, num, piece))
 		}
-		if len(shown) > bodyMaxLines {
-			return "", fmt.Sprintf("%s is more than the %d lines the window shows whole (%d lines, long ones wrapped at %d characters)", b.label, bodyMaxLines, len(lines), bodyWrap)
-		}
+	}
+	// the limit counts lines as shown, wrapped pieces included, and the
+	// message names that same number
+	if limit := b.lineLimit(); len(shown) > limit {
+		b.overLimit = true
+		return "", fmt.Sprintf("%s is more than the %d lines the window shows whole: %d lines as shown, with lines over %d characters wrapped (%d lines in it)", b.label, limit, len(shown), bodyWrap, len(lines))
 	}
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "It also sends %s (%d bytes, %d lines, SHA-256 %s)", b.label, len(b.body), len(lines), b.sha256())
@@ -262,6 +318,16 @@ func (b *approvalBody) whole(cl *call) (text, bad string) {
 		sb.WriteString(l + "\n")
 	}
 	return sb.String() + "\n", ""
+}
+
+// lineLimit is how many shown lines the window takes for b: a script on
+// macOS gets bodyMaxLinesScroll; every other body, and every body on
+// Windows and Linux, bodyMaxLines.
+func (b *approvalBody) lineLimit() int {
+	if desktopOS == "darwin" && b.kind == bodyScript {
+		return bodyMaxLinesScroll
+	}
+	return bodyMaxLines
 }
 
 // bodyLine is one line of a body as the window shows it, in pieces of at

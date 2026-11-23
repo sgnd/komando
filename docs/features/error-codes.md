@@ -230,6 +230,7 @@ This page is made from the code (`komando schema` lists the same under
 | `SFTP_UNAVAILABLE` | 4 | sftp: … | enable the sftp subsystem in sshd_config |
 | `SHARED_FOLDER_CONFLICT` | 8 | … can be changed by …, not only by root and the SSH user: as root, komando does not write … there (that user could swap it for a link while root writes) | write it as … instead, for example `komando exec TARGET --sudo-user … --stdin-file FILE -- sh -c 'cat > "$0"' …` |
 | `SHELL_IDLE_TIMEOUT` | 7 | the shell on … ended after … with no input and no output | connect again (ssh -t HOST komando shell …); run long work as a job: `komando job start … -- COMMAND` |
+| `SHORTER_SCRIPT_REQUIRED` | 6 |  | split it into shorter pieces (the hint names the command for a script, SQL or a file) or ask the user to run it in their own terminal; e.g. `komando exec TARGET --script FILE` for a script |
 | `SIZE_CONFLICT` | 8 | --size said … bytes, and stdin sent …; nothing was put into place | send the whole file again: `komando upload TARGET - DEST --size N` |
 | `SKIPPED` | 1 | skipped: another server failed first, and --fail-fast is on | run without --fail-fast to reach every server |
 | `SOURCE_BUILD` | 8 | this komando was built from source (version …), so update does not replace it | build it again (git pull, then make build), or install a release with the install line: https://github.com/sgnd/komando#install |
