@@ -38,7 +38,7 @@ func TestMigrate3KilledBeforeCommit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the store does not open after the kill: %v", err)
 	}
-	if len(s.Hosts) != 9 || len(s.Keys) != 2 {
+	if len(s.Hosts) != 12 || len(s.Keys) != 2 {
 		t.Errorf("%d hosts, %d keys after the kill", len(s.Hosts), len(s.Keys))
 	}
 	Close()

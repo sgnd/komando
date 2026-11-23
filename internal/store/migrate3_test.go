@@ -27,7 +27,7 @@ func secretValue(name string) string { return sentinel + "-" + name }
 // testSecrets are the vault secrets of the format-2 store.
 var testSecrets = []string{
 	"pg-pass", "win-pw", "win-ca", "web2-pw", "pg-ca", "nats-creds", "k8s-kubeconfig",
-	"wg-key", "wg-psk", "ts-auth", "deploy-pp", "unused-token", "sudo-pw", "shared-pw", ApprovalSeedName,
+	"wg-key", "wg-psk", "ts-auth", "deploy-pp", "unused-token", "sudo-pw", "shared-pw", "winssh-pw", "s3-secret", "s3-sse", "ovpn-config", ApprovalSeedName,
 }
 
 // format2Store makes a sealed home of format 2 with every kind the store
@@ -89,6 +89,7 @@ func format2Store(t *testing.T) string {
 		s.Keys["deploy"] = &Key{Name: "deploy", Path: sealedKeyPrefix + keydataID, Type: "ed25519", PassphraseRef: "secret:deploy-pp", Managed: true}
 		s.Keys["solo"] = &Key{Name: "solo", Path: "/home/me/.ssh/id_solo", Type: "ed25519"}
 		s.Hosts["web1"] = &Host{Name: "web1", Address: "10.0.0.1", User: "root", Key: "deploy", Groups: []string{"Prod"}, Tags: []string{"swarm", "edge"},
+			Labels: map[string]string{"team": "core", "note": "secret:not-a-ref"},
 			Env: map[string]string{"PG": "secret:pg-pass", "MODE": "live"}, SudoRef: "secret:sudo-pw", Protected: true}
 		s.Hosts["db1"] = &Host{Name: "db1", Address: "10.0.0.2", User: "app", Key: "deploy", Groups: []string{"prod"}}
 		s.Hosts["win1"] = &Host{Name: "win1", Address: "10.0.0.3", User: `DOMAIN\admin`, PasswordRef: "secret:win-pw",
@@ -98,6 +99,13 @@ func format2Store(t *testing.T) string {
 		s.Hosts["ask1"] = &Host{Name: "ask1", Address: "10.0.0.7", User: "admin", Login: LoginAsk}
 		s.Hosts["h3"] = &Host{Name: "h3", Address: "10.0.0.10", User: "alice", PasswordRef: "secret:shared-pw", Env: map[string]string{"TOKEN": "secret:shared-pw"}}
 		s.Hosts["h4"] = &Host{Name: "h4", Address: "10.0.0.11", User: "bob", PasswordRef: "secret:shared-pw"}
+		s.Hosts["idh"] = &Host{Name: "idh", Address: "10.0.0.12", User: "deploy", Identity: "/home/me/.ssh/id_work"}
+		s.Hosts["winssh"] = &Host{Name: "winssh", Address: "10.0.0.13", User: "Administrator", OS: OSWindows, PasswordRef: "secret:winssh-pw"}
+		s.Hosts["vh"] = &Host{Name: "vh", Address: "10.0.0.14", User: "root", PasswordRef: "vault:kv/app#pw"}
+		s.Conns["s3b"] = &Conn{Name: "s3b", Kind: "s3", URL: "s3://AKIAEXAMPLE@bucket?region=eu-west-1", PasswordRef: "secret:s3-secret",
+			Options: map[string]string{"sse_key": "secret:s3-sse", "class": "STANDARD"}}
+		s.Conns["mydb"] = &Conn{Name: "mydb", Kind: "mysql", URL: "mysql://admin@10.0.0.20:3306/app", Login: LoginAsk}
+		s.Vpns["ovpn"] = &Vpn{Name: "ovpn", Kind: "openvpn", User: "me", ConfigRef: "secret:ovpn-config", KeyRef: "op://Private/vpn/password"}
 		s.Hosts["ext1"] = &Host{Name: "ext1", Address: "10.0.0.8", User: "root", PasswordRef: "env:WEB_PW"}
 		s.Conns["pg"] = &Conn{Name: "pg", Kind: "postgres", URL: "postgres://app@10.0.0.5:5432/app?ca=secret:pg-ca", PasswordRef: "secret:pg-pass", Groups: []string{"Prod"}, Protected: true}
 		s.Conns["bus"] = &Conn{Name: "bus", Kind: "nats", URL: "nats://10.0.0.9:4222?creds=secret:nats-creds"}
@@ -164,6 +172,13 @@ func byName[T any](t *testing.T, recs []record3, typ string) map[string]*T {
 
 func TestMigrate3(t *testing.T) {
 	format2Store(t)
+	err := UpdateRuntime(Save(), func(s *State) error {
+		s.Sessions["wg"] = &VpnSession{Vpn: "wg", PID: 9999, ProcStart: "gone"} // not alive
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	said := notices(t)
 	res, err := migrateFormat3(context.Background(), personOpts())
 	if err != nil {
@@ -298,6 +313,63 @@ func TestMigrate3(t *testing.T) {
 			if n := countType(res.readBack, typ); n != want {
 				t.Errorf("%s: %d records, want %d", typ, n, want)
 			}
+		}
+	})
+	t.Run("labels stay as written", func(t *testing.T) {
+		if l := hosts["web1"].Labels; l["team"] != "core" || l["note"] != "secret:not-a-ref" {
+			t.Errorf("labels %v", l)
+		}
+	})
+	t.Run("a key file with no key record", func(t *testing.T) {
+		c := creds[hosts["idh"].Credential]
+		if hosts["idh"].Credential != "id-work-deploy" || c == nil || c.Kind != CredKey || c.User != "deploy" || c.Key.Path != "/home/me/.ssh/id_work" {
+			t.Errorf("idh %q %+v", hosts["idh"].Credential, c)
+		}
+	})
+	t.Run("Windows over OpenSSH stays ssh", func(t *testing.T) {
+		h := hosts["winssh"]
+		if h.Provider != "ssh" || h.OS != OSWindows || h.Credential != "winssh-pw" || creds["winssh-pw"].User != "Administrator" {
+			t.Errorf("winssh %+v", h)
+		}
+	})
+	t.Run("a conn option that names a secret", func(t *testing.T) {
+		c := conns["s3b"]
+		if c.Options["sse_key"] != "credential:s3-sse" || c.Options["class"] != "STANDARD" || c.URL != "s3://bucket?region=eu-west-1" {
+			t.Errorf("s3b %+v", c)
+		}
+		if creds["s3-secret"].User != "AKIAEXAMPLE" || creds["s3-sse"].Kind != CredToken {
+			t.Errorf("s3 credentials %+v %+v", creds["s3-secret"], creds["s3-sse"])
+		}
+	})
+	t.Run("a conn whose password a person types", func(t *testing.T) {
+		c := creds[conns["mydb"].Credential]
+		if conns["mydb"].Credential != "mydb-ask" || c == nil || !c.Ask || c.User != "admin" || c.Value != nil || conns["mydb"].URL != "mysql://10.0.0.20:3306/app" {
+			t.Errorf("mydb %+v %+v", conns["mydb"], c)
+		}
+	})
+	t.Run("a VPN config file and an outside store login", func(t *testing.T) {
+		v := vpns["ovpn"]
+		if v.ConfigCredential != "ovpn-config" || creds["ovpn-config"].Kind != CredToken || v.User != "me" {
+			t.Errorf("ovpn %+v", v)
+		}
+		c := creds[v.Credential]
+		if c == nil || c.Store != "onepassword" || c.Item != "Private/vpn/password" || c.Kind != CredPassword || c.Value != nil {
+			t.Errorf("ovpn credential %q %+v", v.Credential, c)
+		}
+		h := creds[hosts["vh"].Credential]
+		if h == nil || h.Store != "vault" || h.Item != "kv/app#pw" || h.User != "root" {
+			t.Errorf("vh %q %+v", hosts["vh"].Credential, h)
+		}
+		stores := byName[CredentialStore](t, res.readBack, KindCredStore)
+		for _, p := range []string{"env", "vault", "onepassword"} {
+			if s := stores[p]; s == nil || s.Provider != p {
+				t.Errorf("store %s: %+v", p, s)
+			}
+		}
+	})
+	t.Run("runtime.json is gone after the migration", func(t *testing.T) {
+		if _, err := os.Stat(runtimePath()); !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("runtime.json: %v", err)
 		}
 	})
 	t.Run("report", func(t *testing.T) {
