@@ -59,8 +59,8 @@ func TestT3AsksTheTypedName(t *testing.T) {
 		covered[c.id] = true
 	}
 	for _, r := range riskRows {
-		if r.tier == tierDangerous && r.dynamic == "" && !covered[r.id] {
-			t.Errorf("the T3 row %s has no PTY case in t3Cases", r.id)
+		if r.tier == tierDangerous && r.dynamic == "" && !covered[keyID(r.key)] {
+			t.Errorf("the T3 row %s has no PTY case in t3Cases", keyID(r.key))
 		}
 	}
 	invHome(t)

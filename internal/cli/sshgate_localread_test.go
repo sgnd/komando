@@ -107,12 +107,12 @@ func TestGateLocalReadsClassified(t *testing.T) {
 	}
 	walk(newRoot(tcl))
 	for n := range gateLocalFlags {
-		if _, ok := commandKinds[strings.ReplaceAll(n, ".", " ")]; !ok {
+		if _, ok := commandKinds[cmdKeys[n]]; !ok {
 			t.Errorf("gateLocalFlags names %q, which is no command", n)
 		}
 	}
 	for n := range gateLocalArgs {
-		if _, ok := commandKinds[strings.ReplaceAll(n, ".", " ")]; !ok {
+		if _, ok := commandKinds[cmdKeys[n]]; !ok {
 			t.Errorf("gateLocalArgs names %q, which is no command", n)
 		}
 	}
