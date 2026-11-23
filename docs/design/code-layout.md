@@ -72,6 +72,7 @@ or a listed one is gone.
 | `internal/boundary` | test only: the paid boundary (no sync library or Komando Cloud client in the binary, no komando-owned address but the release site) |
 | `internal/browserx` | a sign-in page in a browser window (VPN SAML logins) |
 | `internal/cachex` | Redis-compatible caches and memcached, with the risk of each command |
+| `internal/capability` | the command tree of the next command structure as data: types, providers, areas, verbs, options and tier rows; nothing imports it yet |
 | `internal/ci` | test only: runs the scripts inside the GitHub workflows (the CLA check) |
 | `internal/cli` | every command: flags, safety checks, audit and output |
 | `internal/cloud` | komando's own clients for cloud and secret-manager APIs |
