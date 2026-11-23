@@ -95,7 +95,7 @@ func TestApprovalWindowShowsScriptBody(t *testing.T) {
 		}
 		e := toErr(err)
 		approvalHint(tcl, e)
-		if tcl.sess.Window().Why != "unshowable" || !strings.Contains(e.Hint, "the input from komando's stdin") {
+		if why := tcl.sess.Window().Why; (why != "unshowable" && why != "too-long") || !strings.Contains(e.Hint, "the input from komando's stdin") {
 			t.Errorf("why %q, hint %q", tcl.sess.Window().Why, e.Hint)
 		}
 	}

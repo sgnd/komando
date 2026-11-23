@@ -86,18 +86,12 @@ func (sealedHostKeys) update(ctx context.Context, fn func(hostKeyTx) error) erro
 // error, so a connection that waited for the store does not read like a
 // server that did not answer.
 func storeBusy(err error) error {
-	if err == nil || !isBusy(err) {
+	if err == nil || !sealdb.IsBusy(err) {
 		return err
 	}
 	return out.Errf(out.ExitConflict, "STORE_BUSY",
 		"another komando process is writing komando's store, or one is stuck (`komando status` lists what runs): wait for it to finish, then run it again",
-		"komando's store stayed busy for %s, so the server's host key could not be checked: %v", sealdb.BusyTimeout, err)
-}
-
-// isBusy: SQLite gave up waiting for another writer's lock.
-func isBusy(err error) bool {
-	m := err.Error()
-	return strings.Contains(m, "SQLITE_BUSY") || strings.Contains(m, "database is locked")
+		"komando's store stayed busy, so the server's host key could not be checked: %v", err)
 }
 
 type sealedTx struct {
