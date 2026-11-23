@@ -9,8 +9,8 @@ import (
 	"testing"
 )
 
-// TestSafetyTablesPinned: every command keeps the rule-table rows and the
-// TARGET kinds it had when the tables were keyed by command ID, so moving
+// TestSafetyTablesPinned: every command keeps the rule-table rows, the
+// kind (read, change, depends) and the TARGET kinds it had when the tables were keyed by command ID, so moving
 // the key to (type, area, verb) changes nothing a person or an agent sees.
 // KOMANDO_GOLDEN_UPDATE=1 writes the file again (only on purpose).
 func TestSafetyTablesPinned(t *testing.T) {
@@ -26,7 +26,11 @@ func TestSafetyTablesPinned(t *testing.T) {
 		for _, r := range rowsFor(c) {
 			rows = append(rows, fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s", r.tier, r.cond, r.what, r.dynamic, r.bulk, r.typed, r.items))
 		}
-		lines = append(lines, fmt.Sprintf("%s\ttarget=%q\t%s", id, targetKinds(c), strings.Join(rows, " ; ")))
+		kind := "none"
+		if k, ok := kindOf(c); ok {
+			kind = k.Kind + "|" + k.Note
+		}
+		lines = append(lines, fmt.Sprintf("%s\tkind=%s\ttarget=%q\t%s", id, kind, targetKinds(c), strings.Join(rows, " ; ")))
 	}
 	slices.Sort(lines)
 	got := strings.Join(lines, "\n") + "\n"
