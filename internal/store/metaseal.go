@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"os"
 
 	"github.com/sgnd/komando/internal/sealdb"
 )
@@ -81,6 +82,7 @@ func ResealMeta() (map[string]string, error) {
 		// a store it does not find checked has its writes stopped
 		_, raise, err := checkGeneration(d, meta, false)
 		d.OnGeneration = committer(raise)
+		d.OnWait = waitNotice(os.Stderr)
 		return err
 	})
 }

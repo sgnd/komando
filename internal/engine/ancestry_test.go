@@ -34,6 +34,17 @@ func TestAncestorAgent(t *testing.T) {
 		{"the script pty wrapper under an agent", fakeProcs{
 			10: {PPID: 8, Name: "sh", Env: env(nil)}, 8: {PPID: 7, Name: "script", Env: env(nil)},
 			7: {PPID: 1, Name: "claude", Env: env(nil)}}, 10, "Claude Code"},
+		{"node with a flag before the script", fakeProcs{
+			10: {PPID: 1, Name: "node", Args: []string{"node", "--no-warnings", "/x/claude-code/cli.js"}}}, 10, "Claude Code"},
+		{"python -m names the module", fakeProcs{
+			10: {PPID: 1, Name: "python3", Args: []string{"python3", "-m", "aider"}}}, 10, "Aider"},
+		{"copilot program", fakeProcs{10: {PPID: 1, Name: "copilot"}}, 10, "GitHub Copilot"},
+		{"copilot npm package", fakeProcs{
+			10: {PPID: 1, Name: "node", Args: []string{"node", "/o/node_modules/@github/copilot/index.js"}}}, 10, "GitHub Copilot"},
+		{"flags only, no harness", fakeProcs{
+			10: {PPID: 1, Name: "node", Args: []string{"node", "--a", "--b", "/home/a/build.js"}}}, 10, ""},
+		{"harness beyond eight entries is not matched", fakeProcs{
+			10: {PPID: 1, Name: "node", Args: []string{"node", "-a", "-b", "-c", "-d", "-e", "-f", "-g", "-h", "/x/claude-code/cli.js"}}}, 10, ""},
 		{"a person's node script is not an agent", fakeProcs{
 			10: {PPID: 1, Name: "node", Args: []string{"node", "/home/a/proj/build.js"}}}, 10, ""},
 		{"CLAUDECODE=0 still counts above", fakeProcs{

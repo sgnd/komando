@@ -5,6 +5,7 @@ import (
 	"errors"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -128,5 +129,72 @@ func TestUpdateBusyPastWaitIsErrBusy(t *testing.T) {
 	<-released
 	if n := countServers(t, d); n != 0 {
 		t.Fatalf("%d records after a failed write, want 0", n)
+	}
+}
+
+// A write step tells OnWait once, at its first busy answer, even when it
+// waits both to take the lock and to commit; a step that never meets
+// another process tells nothing.
+func TestUpdateTellsOnWait(t *testing.T) {
+	shortWaits(t, 10*time.Second)
+	path := filepath.Join(t.TempDir(), "store.db")
+	d := open(t, path)
+	var told atomic.Int32
+	d.OnWait = func() { told.Add(1) }
+	// a writer holds the lock 300 ms, a reader its lock 700 ms: the step
+	// waits for the lock, then again to commit
+	holdLock(t, path, "BEGIN IMMEDIATE", 300*time.Millisecond)
+	holdLock(t, path, "BEGIN", 700*time.Millisecond)
+	start := time.Now()
+	if err := d.Update(ctx, func(tx *Tx) error { _, err := tx.Put("server", "", []byte("a")); return err }); err != nil {
+		t.Fatal(err)
+	}
+	if took := time.Since(start); took < 600*time.Millisecond {
+		t.Fatalf("the step did not wait to commit (%s)", took)
+	}
+	if n := told.Load(); n != 1 {
+		t.Fatalf("OnWait told %d times for a step that waited twice, want once", n)
+	}
+	// a step that does not wait tells nothing
+	told.Store(0)
+	if err := d.Update(ctx, func(tx *Tx) error { _, err := tx.Put("server", "", []byte("b")); return err }); err != nil {
+		t.Fatal(err)
+	}
+	if n := told.Load(); n != 0 {
+		t.Fatalf("OnWait told %d times for a step that did not wait", n)
+	}
+}
+
+// A slow statement that never answers busy (a slow disk flush, no other
+// process) tells nothing: only a busy answer shows another process.
+func TestSlowStepWithoutBusyTellsNothing(t *testing.T) {
+	var told atomic.Int32
+	n := &waitNotice{tell: func() { told.Add(1) }}
+	if err := retryBusy(ctx, true, "commit", n, func() error { time.Sleep(300 * time.Millisecond); return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if told.Load() != 0 {
+		t.Fatal("a slow statement with no busy answer told OnWait")
+	}
+}
+
+// No try starts that could run past writeWait: SQLite can sit in one try
+// for busyTimeout, so the step gives up by writeWait, not writeWait plus
+// one more busyTimeout.
+func TestUpdateGivesUpByWriteWait(t *testing.T) {
+	savedBusy, savedWait := busyTimeout, writeWait
+	busyTimeout, writeWait = 200*time.Millisecond, 500*time.Millisecond
+	t.Cleanup(func() { busyTimeout, writeWait = savedBusy, savedWait })
+	path := filepath.Join(t.TempDir(), "store.db")
+	d := open(t, path)
+	holdLock(t, path, "BEGIN IMMEDIATE", 3*time.Second)
+	start := time.Now()
+	err := d.Update(ctx, func(tx *Tx) error { _, err := tx.Put("server", "", []byte("a")); return err })
+	took := time.Since(start)
+	if !errors.Is(err, ErrBusy) {
+		t.Fatalf("err %v, want ErrBusy", err)
+	}
+	if took > writeWait+100*time.Millisecond {
+		t.Fatalf("gave up after %s, past writeWait %s", took, writeWait)
 	}
 }
