@@ -61,6 +61,30 @@ jobs:
       - run: go build -o /dev/null ./cmd/komando
       - run: for p in $(go list ./...); do go test -c -o /dev/null "$p" || exit 1; done
 
+  # How long komando takes to start, against main built in the same job:
+  # version, list and the agent hook guide guard (scripts/start-time.sh).
+  # A branch fails when one of them starts more than 10% and at least 3 ms
+  # slower than main. Pull requests only: timing noise must never block a
+  # push to main or a release (release.yml runs these checks).
+  start-time:
+    name: Start time
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # origin/main, to build it beside the branch
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - run: |
+          git worktree add "$RUNNER_TEMP/main" origin/main
+          CGO_ENABLED=0 go build -trimpath -o "$RUNNER_TEMP/komando-branch" ./cmd/komando
+          (cd "$RUNNER_TEMP/main" && CGO_ENABLED=0 go build -trimpath -o "$RUNNER_TEMP/komando-main" ./cmd/komando)
+      - run: scripts/start-time.sh "$RUNNER_TEMP/komando-branch" "$RUNNER_TEMP/komando-main"
+
   # Windows: komando builds there natively and runs, and every unit test
   # runs; a test that needs Unix (a POSIX shell, file modes) says so when it
   # skips. The console tests use a Windows pseudo console (ConPTY).
