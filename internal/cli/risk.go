@@ -205,13 +205,12 @@ func riskArgs(w []string) []string {
 // arguments and flags, without the command's own name), or a plain row
 // from the command's kind: read (T0), change or depends (T1).
 func riskOf(c *cobra.Command, words []string) riskRow {
-	id := cmdID(c)
-	best := riskRow{id: id, tier: tierRead}
+	best := riskRow{id: cmdID(c), tier: tierRead}
 	if k, ok := kindOf(c); !ok || k.Kind != kindRead {
 		best.tier = tierChange
 	}
-	for _, r := range riskRows {
-		if r.id != id || r.when != nil && !r.when(words) {
+	for _, r := range rowsFor(c) {
+		if r.when != nil && !r.when(words) {
 			continue
 		}
 		if r.tier > best.tier || r.tier == best.tier && best.what == "" && best.dynamic == "" && best.bulk == "" {
@@ -219,6 +218,18 @@ func riskOf(c *cobra.Command, words []string) riskRow {
 		}
 	}
 	return best
+}
+
+// rowsFor is the table's rows for c, in table order.
+func rowsFor(c *cobra.Command) []riskRow {
+	id := cmdID(c)
+	var rows []riskRow
+	for _, r := range riskRows {
+		if r.id == id {
+			rows = append(rows, r)
+		}
+	}
+	return rows
 }
 
 // typedWhat is what the command does for good when a person must type a
@@ -308,16 +319,12 @@ type confirmSchema struct {
 // confirmOf is c's approvals from the rule table: first the one it always
 // has, then each one it reaches only sometimes, in table order.
 func confirmOf(c *cobra.Command) []confirmSchema {
-	id := cmdID(c)
 	always := confirmSchema{Tier: tierRead.String()}
 	if k, ok := kindOf(c); !ok || k.Kind != kindRead {
 		always.Tier = tierChange.String()
 	}
 	var more []confirmSchema
-	for _, r := range riskRows {
-		if r.id != id {
-			continue
-		}
+	for _, r := range rowsFor(c) {
 		e := confirmSchema{Tier: r.tier.String(), Flag: r.tier.flag(), When: r.cond}
 		switch {
 		case r.bulk != "":
