@@ -43,3 +43,23 @@ func TestLexFailsClosed(t *testing.T) {
 		t.Errorf("Check after a reader crash = %v, want one %s hit", hits, checkFailedID)
 	}
 }
+
+// A crash inside ` ` text wins over an earlier reason, so Check still
+// stops the command rather than reading past the part it lost.
+func TestLexFailedWinsOverEarlierReason(t *testing.T) {
+	saved := readLine
+	t.Cleanup(func() { readLine = saved })
+	readLine = func(l *lexer) []Token {
+		if l.s == "boom" {
+			panic("boom")
+		}
+		return l.line(false)
+	}
+	cmd := "cat <<EOF\n$(echo 'x)\nEOF\necho `boom`"
+	if _, bad := Lex(cmd); bad != lexFailed {
+		t.Errorf("Lex(%q): bad = %q, want %q", cmd, bad, lexFailed)
+	}
+	if hits := Check(cmd, nil); len(hits) != 1 || hits[0].ID != checkFailedID {
+		t.Errorf("Check(%q) = %v, want one %s hit", cmd, hits, checkFailedID)
+	}
+}

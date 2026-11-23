@@ -10,9 +10,11 @@ import (
 // and its arguments with wrappers taken off (sudo, env, xargs, docker
 // exec ...), where it runs, and what is piped into it.
 type simpleCommand struct {
-	args     []string
-	at       folder
-	upstream [][]string // the commands piped into this one, in order
+	args      []string
+	at        folder
+	upstream  [][]string // the commands piped into this one, in order
+	container bool       // it runs in a container (docker exec, kubectl exec)
+	stdin     bool       // its input is a redirect (< file, <<, <<<)
 }
 
 // folder is where a command runs: the folder the cds before it on the
@@ -53,13 +55,13 @@ func commandsIn(cmd string, depth int, at *folder) []simpleCommand {
 		var cur simpleCommand
 		var pipe [][]string // the commands of the pipeline so far
 		flush := func() {
-			args := unwrap(cur.args)
+			args, container := unwrap(cur.args)
 			switch {
 			case len(args) == 0:
 			case strings.EqualFold(path.Base(args[0]), "cd") || strings.EqualFold(path.Base(args[0]), "pushd"):
 				*at = at.cd(args[1:])
 			default:
-				out = append(out, simpleCommand{args: args, at: *at, upstream: slices.Clone(pipe)})
+				out = append(out, simpleCommand{args: args, at: *at, upstream: slices.Clone(pipe), container: container, stdin: cur.stdin})
 			}
 			pipe = append(pipe, args)
 			cur = simpleCommand{}
@@ -70,6 +72,7 @@ func commandsIn(cmd string, depth int, at *folder) []simpleCommand {
 			case !t.Op:
 				cur.args = append(cur.args, t.Text)
 			case isRedirect(t.Text):
+				cur.stdin = cur.stdin || t.Text[0] == '<'
 				i++ // a redirect's file is not an argument
 			default:
 				flush()
@@ -130,13 +133,14 @@ const xargsInput = "{xargs input}"
 // unwrap takes wrappers and variable settings off the front of a command,
 // so the words start with the program that really runs. A word it cannot
 // place is taken as the program: the rules then see more, not less.
-func unwrap(args []string) []string {
+// container says the words run in a container (docker or kubectl exec).
+func unwrap(args []string) (_ []string, container bool) {
 	for depth := 0; len(args) > 0 && depth < 16; depth++ {
 		for len(args) > 0 && isAssignment(args[0]) {
 			args = args[1:]
 		}
 		if len(args) == 0 {
-			return nil
+			return nil, container
 		}
 		name := strings.ToLower(path.Base(args[0]))
 		switch {
@@ -144,7 +148,7 @@ func unwrap(args []string) []string {
 			rest := args[1:]
 			for len(rest) > 0 && strings.HasPrefix(rest[0], "-") {
 				if rest[0] == "-v" || rest[0] == "-V" {
-					return nil // a lookup: command -v rm runs nothing
+					return nil, container // a lookup: command -v rm runs nothing
 				}
 				rest = rest[1:]
 			}
@@ -154,30 +158,30 @@ func unwrap(args []string) []string {
 		case name == "docker" || name == "podman":
 			inner, ok := dockerExecCommand(args[1:])
 			if !ok {
-				return args
+				return args, container
 			}
-			args = inner
+			args, container = inner, true
 		case name == "docker-compose":
 			inner, ok := composeExecCommand(args[1:])
 			if !ok {
-				return args
+				return args, container
 			}
-			args = inner
+			args, container = inner, true
 		case name == "kubectl" || name == "oc":
 			inner, ok := kubectlExecCommand(args[1:])
 			if !ok {
-				return args
+				return args, container
 			}
-			args = inner
+			args, container = inner, true
 		case name == "k3s" || name == "microk8s":
 			if len(args) < 2 || !strings.EqualFold(args[1], "kubectl") {
-				return args
+				return args, container
 			}
 			args = args[1:]
 		default:
 			w, ok := wrappers[name]
 			if !ok {
-				return args
+				return args, container
 			}
 			args = skipOptions(args[1:], w)
 			if name == "xargs" && len(args) > 0 {
@@ -185,7 +189,7 @@ func unwrap(args []string) []string {
 			}
 		}
 	}
-	return args
+	return args, container
 }
 
 // skipOptions drops a wrapper's options and its plain words before the
@@ -313,7 +317,7 @@ func kubectlExecCommand(args []string) ([]string, bool) {
 			return v[i+1:], true
 		}
 	}
-	return nil, true
+	return afterTarget(v[1:], "nc", []string{"--namespace", "--container", "--context", "--kubeconfig", "--pod-running-timeout"}), true // the old form, without --
 }
 
 // kubectlGlobal are kubectl's options that take a value, also before the verb.

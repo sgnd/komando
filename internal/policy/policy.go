@@ -91,9 +91,9 @@ func Check(cmd string, extra []string) []Rule {
 	return check(cmd, extra, true)
 }
 
-// CheckScript is Check for a script komando wrote for one of its own
-// commands (pkg, cron, docker prune): the rules that copy those commands'
-// checks are left out, since the command rated its own words already.
+// CheckScript is Check for a script komando wrote whole for one of its own
+// commands (pkg security, docker prune): the rules that copy those
+// commands' checks are left out, since the command rated itself already.
 func CheckScript(script string, extra []string) []Rule {
 	return check(script, extra, false)
 }

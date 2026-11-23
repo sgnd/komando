@@ -64,11 +64,12 @@ func TestPolicyMACStopsCommands(t *testing.T) {
 }
 
 // guardScript leaves the carried rules out, so only scripts komando writes
-// for its own commands may use it: those commands rated their own words.
+// whole, with no words a person or agent typed, may use it.
 // A new caller must be added here on purpose, after review.
 func TestGuardScriptCallers(t *testing.T) {
-	// code lines only: common.go defines guardScript, the other three call it
-	want := map[string]int{"common.go": 1, "modules_run.go": 1, "pkg_security.go": 1, "docker_prune.go": 2}
+	// code lines only: common.go defines guardScript, the other two call it
+	// with text komando wrote; runOps (modules_run.go) uses guard
+	want := map[string]int{"common.go": 1, "pkg_security.go": 1, "docker_prune.go": 2}
 	wantCheckScript := map[string]int{"common.go": 1}
 	files, err := filepath.Glob("*.go")
 	if err != nil {
@@ -101,15 +102,14 @@ func TestGuardScriptCallers(t *testing.T) {
 	}
 }
 
-// The scripts komando writes for pkg, pkg security and docker prune still
-// stop on the carried rules when the same text comes through exec.
+// The scripts komando writes for pkg security and docker prune still stop
+// on the carried rules when the same text comes through exec.
 func TestOwnScriptsThroughExecHitCarriedRules(t *testing.T) {
 	srv := startFakeServer(t)
 	tmp := t.TempDir()
 	for name, c := range map[string]struct{ script, rule string }{
-		"pkg dispatcher": {"ACTION=install PKGS=nginx; " + pkgShell, "pkg-remove"},
-		"pkg security":   {pkgSecScript(true, true, true), "rm-files"},
-		"docker prune":   {"docker system prune -f", "docker-prune"},
+		"pkg security": {pkgSecScript(true, true, true), "rm-files"},
+		"docker prune": {"docker system prune -f", "docker-prune"},
 	} {
 		p := filepath.Join(tmp, strings.ReplaceAll(name, " ", "-")+".sh")
 		if err := os.WriteFile(p, []byte(c.script), 0o600); err != nil {

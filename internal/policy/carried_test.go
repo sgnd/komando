@@ -21,8 +21,7 @@ type carriedCase struct {
 
 func runCarried(t *testing.T, cases []carriedCase) {
 	t.Helper()
-	carried := []string{"rm-files", "docker-rm", "docker-prune", "docker-kill", "docker-host", "pkg-remove",
-		"pkg-remove-essential", "cron-remove", "kubectl-scale-zero", "db-drop-user"}
+	carried := []string{"rm-files", "docker-rm", "docker-prune", "docker-kill", "docker-host", "container-shell", "pkg-remove-essential", "kubectl-scale-zero", "db-drop-user"}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			ids := hitIDs(c.cmd)
@@ -122,18 +121,51 @@ func TestRuleDocker(t *testing.T) {
 	})
 }
 
+// docker raw exec and cluster raw exec counted as destructive: what runs
+// inside cannot be checked. Through exec that holds for a shell,
+// interpreter or database client that reads its commands from a person or
+// from stdin; a command given whole is checked like any other.
+func TestRuleContainerShell(t *testing.T) {
+	runCarried(t, []carriedCase{
+		{"docker shell", "docker exec -it web bash", "container-shell"},
+		{"docker sh", "docker exec web sh", "container-shell"},
+		{"container exec", "docker container exec -it web /bin/sh", "container-shell"},
+		{"compose shell", "docker compose exec app sh", "container-shell"},
+		{"kubectl shell", "kubectl exec -it web-0 -- bash", "container-shell"},
+		{"oc shell", "oc exec web-0 -- sh", "container-shell"},
+		{"interpreter", "docker exec -it web python3", "container-shell"},
+		{"database client", "docker exec -it db psql -U app", "container-shell"},
+		{"mysql client", "kubectl exec -it db-0 -- mysql -u root app", "container-shell"},
+		{"mongo shell", "docker exec -it mongo mongosh", "container-shell"},
+		{"stdin redirected", "docker exec -i db psql -U app < dump.sql", "container-shell"},
+		{"here string", "docker exec -i db mysql app <<< 'select 1'", "container-shell"},
+		{"stdin piped", "cat fix.sql | docker exec -i db psql -U app -c 'select 1'", "container-shell"},
+		{"bash reads stdin", "docker exec -i web bash -s", "container-shell"},
+		{"plain read", "docker exec web ls /data", ""},
+		{"shell with a script", "docker exec web sh -c 'uptime'", ""},
+		{"kubectl read", "kubectl exec web-0 -- cat /etc/hosts", ""},
+		{"sql given whole", "docker exec db psql -U app -c 'select 1'", ""},
+		{"mysql given whole", "docker exec db mysql -e 'show tables'", ""},
+		{"script file", "docker exec web python3 /app/check.py", ""},
+		{"output piped on", "docker exec web ls /data | grep x", ""},
+		{"shell on the host", "bash", ""},
+	})
+}
+
+// pkg rm stopped an agent only for a package the server needs; other
+// packages it asked a person to type, which stops no agent: not carried.
 func TestRulePackages(t *testing.T) {
 	runCarried(t, []carriedCase{
-		{"apt remove", "apt remove -y nginx", "pkg-remove"},
-		{"apt-get purge", "sudo apt-get purge nginx", "pkg-remove"},
-		{"apt install with minus", "apt-get install nginx-", "pkg-remove"},
-		{"dnf remove", "dnf remove -y httpd", "pkg-remove"},
-		{"yum erase", "yum erase httpd", "pkg-remove"},
-		{"apk del", "apk del nginx", "pkg-remove"},
-		{"dpkg purge", "dpkg -P nginx", "pkg-remove"},
-		{"rpm erase", "rpm -e httpd", "pkg-remove"},
-		{"zypper rm", "zypper rm nginx", "pkg-remove"},
-		{"pacman remove", "pacman -Rns nginx", "pkg-remove"},
+		{"apt remove", "apt remove -y nginx", ""},
+		{"apt-get purge", "sudo apt-get purge nginx", ""},
+		{"apt install with minus", "apt-get install nginx-", ""},
+		{"dnf remove", "dnf remove -y httpd", ""},
+		{"yum erase", "yum erase httpd", ""},
+		{"apk del", "apk del nginx", ""},
+		{"dpkg purge", "dpkg -P nginx", ""},
+		{"rpm erase", "rpm -e httpd", ""},
+		{"zypper rm", "zypper rm nginx", ""},
+		{"pacman remove", "pacman -Rns nginx", ""},
 		{"essential ssh", "apt-get remove -y openssh-server", "pkg-remove-essential"},
 		{"essential sudo arch", "dnf remove sudo.x86_64", "pkg-remove-essential"},
 		{"essential with version", "apt-get purge sudo=1.9.15", "pkg-remove-essential"},
@@ -155,34 +187,6 @@ func TestRulePackages(t *testing.T) {
 		if slices.Contains(hitIDs(c), "pkg-remove-essential") {
 			t.Errorf("%q: nginx/httpd is not an essential package", c)
 		}
-	}
-}
-
-// cron rm removed one entry by dropping its line and handing the rest to
-// crontab - (internal/cli/modules.go cron rm); cron set does the same but
-// adds a line back. Only text that visibly drops lines counts.
-func TestRuleCronRemove(t *testing.T) {
-	runCarried(t, []carriedCase{
-		{"drop a line, as cron rm", "crontab -l | grep -v backup | crontab -", "cron-remove"},
-		{"drop for a user", "crontab -u deploy -l | grep -v -e backup | sudo crontab -u deploy -", "cron-remove"},
-		{"sed drop then crontab", "crontab -l | sed '/backup/d' | crontab -", "cron-remove"},
-		{"sed -i drop in spool", "sed -i '/backup/d' /var/spool/cron/crontabs/root", "cron-remove"},
-		{"sed -i drop in cron.d", "sed -i -e '/backup/d' /etc/cron.d/jobs", "cron-remove"},
-		{"rm cron.d", "rm /etc/cron.d/backup", "rm-files"},
-		{"replace and add back, as cron set", `crontab -l | grep -v backup | { cat; echo '0 2 * * * /srv/backup'; } | crontab -`, ""},
-		{"add a line", `{ crontab -l; echo '0 2 * * * /srv/backup'; } | crontab -`, ""},
-		{"install a file: text cannot tell", "crontab /tmp/new-cron", ""},
-		{"filter elsewhere", "grep -v x /etc/hosts > /tmp/h; crontab -l", ""},
-		{"sed -i edit, no drop", "sed -i 's/02/03/' /etc/cron.d/jobs", ""},
-		{"sed -i drop outside cron", "sed -i '/x/d' /etc/hosts", ""},
-		{"overwrite: text cannot tell", "echo '' > /etc/cron.d/backup", ""},
-		{"append redirect", "echo '0 2 * * * /srv/backup' >> /etc/cron.d/backup", ""},
-		{"append tee", "echo x | sudo tee -a /etc/crontab", ""},
-		{"list", "crontab -l", ""},
-		{"list for user", "crontab -u deploy -l", ""},
-	})
-	if !slices.Contains(hitIDs("crontab -r"), "crontab-r") {
-		t.Error("crontab -r: want the built-in rule crontab-r")
 	}
 }
 
@@ -212,8 +216,7 @@ func TestRuleDBDropUser(t *testing.T) {
 // Every carried rule names the command it is about, so the approval
 // window and policy list can show it.
 func TestCarriedRulesListed(t *testing.T) {
-	want := []string{"rm-files", "docker-rm", "docker-prune", "docker-kill", "docker-host", "pkg-remove",
-		"pkg-remove-essential", "cron-remove", "kubectl-scale-zero", "db-drop-user"}
+	want := []string{"rm-files", "docker-rm", "docker-prune", "docker-kill", "docker-host", "container-shell", "pkg-remove-essential", "kubectl-scale-zero", "db-drop-user"}
 	var have []string
 	for _, r := range Rules() {
 		have = append(have, r.ID)

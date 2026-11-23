@@ -151,7 +151,7 @@ func runOps(cl *call, ctx context.Context, spec opsSpec) error {
 	if spec.display != "" {
 		shown = spec.display
 	}
-	guardErr := guardScript(cl, st, hosts, strings.TrimSpace(spec.command+"\n"+spec.win), spec.mutating)
+	guardErr := guard(cl, st, hosts, strings.TrimSpace(spec.command+"\n"+spec.win), spec.mutating)
 	if guardErr != nil && !cl.flags.dryRun {
 		audit(cl, st, spec.name, hostNames(hosts), shown, false, map[string]any{"blocked": toErr(guardErr).Code})
 		return guardErr

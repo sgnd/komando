@@ -79,7 +79,7 @@ type heredoc struct {
 }
 
 func (l *lexer) fail(what string) {
-	if l.bad == "" {
+	if l.bad == "" || what == lexFailed { // a crash wins: Check must stop on it
 		l.bad = what
 	}
 }

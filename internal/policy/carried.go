@@ -10,9 +10,10 @@ import (
 
 // Rules for what komando's own commands once guarded, so the same words
 // typed through exec stop the same way: deleting files, docker's deletes
-// and host escapes, package removal, cron replacement, scaling to zero
-// and dropping a database user. A typed confirmation those commands asked
-// for is a dangerous rule here: policy has one level.
+// and host escapes, removing a package the server needs, scaling to zero
+// and dropping a database user. What those commands only asked a person to
+// type (pkg rm of other packages, cron rm) is not carried: it stopped no
+// agent.
 
 var carriedRules = []struct {
 	id, reason string
@@ -23,9 +24,8 @@ var carriedRules = []struct {
 	{"docker-prune", "deletes unused docker containers, images, networks or build cache", func(c simpleCommand) bool { return dockerRating(c) == "prune" }},
 	{"docker-kill", "stops containers or services, or changes the swarm (kill, scale to 0, swarm, node)", func(c simpleCommand) bool { return dockerRating(c) == "kill" }},
 	{"docker-host", "gives a container the server (privileged, host namespaces, system folders, plugins)", func(c simpleCommand) bool { return dockerRating(c) == "host" }},
-	{"pkg-remove", "removes packages", func(c simpleCommand) bool { _, ok := removedPackages(c); return ok }},
 	{"pkg-remove-essential", "removes a package the server needs (ssh, sudo, systemd, libc ...), which can lock you out or break it", removesEssential},
-	{"cron-remove", "removes cron jobs (drops lines from the crontab or a cron file)", removesCronJobs},
+	{"container-shell", "opens a shell, interpreter or database client in a container, or feeds one input (what it runs cannot be checked)", containerShell},
 	{"kubectl-scale-zero", "scales a kubernetes workload to zero (an outage)", kubectlScalesToZero},
 }
 
@@ -73,7 +73,7 @@ func deletesFiles(c simpleCommand) bool {
 				return true
 			}
 			if (a == "-exec" || a == "-execdir" || a == "-ok" || a == "-okdir") && i+1 < len(args) {
-				if inner := unwrap(args[i+1:]); len(inner) > 0 && deletesFiles(simpleCommand{args: inner}) {
+				if inner, _ := unwrap(args[i+1:]); len(inner) > 0 && deletesFiles(simpleCommand{args: inner}) {
 					return true
 				}
 			}
@@ -182,54 +182,43 @@ func removesEssential(c simpleCommand) bool {
 	return slices.ContainsFunc(names, EssentialPackage)
 }
 
-// cronPath is a crontab file or the folder of cron files.
-var cronPath = regexp.MustCompile(`^/(var/spool/cron|etc/cron\.d)(/|$)|^/etc/crontab$|^/etc/cron\.(hourly|daily|weekly|monthly)/`)
-
-// removesCronJobs: text that visibly drops cron lines, as cron rm did
-// (internal/cli/modules.go: the crontab without the entry's line, handed
-// to crontab -). A grep -v or a sed d piped into crontab - with nothing
-// added back, or sed -i with a d command on a cron file. A pipeline that
-// also adds a line is how cron set replaces an entry: not a removal.
-// Text that cannot show it (crontab FILE, > or tee onto a cron file) is
-// not rated; crontab -r is the built-in rule crontab-r; rm is rm-files.
-func removesCronJobs(c simpleCommand) bool {
-	args := c.args[1:]
-	switch c.name() {
-	case "crontab":
-		if !slices.Contains(operands(withoutValues(args, "-u")), "-") {
-			return false
-		}
-		return slices.ContainsFunc(c.upstream, dropsLines) && !slices.ContainsFunc(c.upstream, func(a []string) bool {
-			n := strings.ToLower(path.Base(a[0]))
-			return n == "echo" || n == "printf" || n == "{" || n == "cat" && len(operands(a[1:])) > 0
-		})
-	case "sed":
-		inCron := slices.ContainsFunc(operands(args), func(p string) bool { return cronPath.MatchString(path.Clean(p)) })
-		return inCron && sedInPlace(args) && dropsLines(c.args)
-	}
-	return false
+// containerShell: a command in a container that reads its commands from a
+// person or from its input, so komando cannot see them. docker raw exec
+// and cluster raw exec counted every exec as destructive; a command given
+// whole (sh -c '...', psql -c '...', ls) is checked like any other.
+func containerShell(c simpleCommand) bool {
+	return c.container && (c.stdin || len(c.upstream) > 0 || readsCommands(c.args))
 }
 
-// dropsLines: grep -v (or --invert-match), or sed with a d command.
-func dropsLines(a []string) bool {
-	switch strings.ToLower(path.Base(a[0])) {
-	case "grep", "egrep", "fgrep":
-		return hasOption(a[1:], "-v", "--invert-match") || slices.ContainsFunc(a[1:], func(o string) bool {
-			return len(o) > 1 && o[0] == '-' && o[1] != '-' && strings.ContainsRune(o, 'v')
-		})
-	case "sed":
-		return slices.ContainsFunc(a[1:], func(o string) bool { return !strings.HasPrefix(o, "-") && sedDelete.MatchString(o) })
+var (
+	shellNames       = []string{"sh", "bash", "zsh", "dash", "ash", "ksh", "mksh", "fish", "csh", "tcsh", "rbash", "busybox"}
+	interpreterNames = []string{"python", "perl", "ruby", "node", "nodejs", "php", "lua", "irb", "pwsh", "powershell", "deno", "bun"}
+)
+
+// readsCommands: a shell, interpreter or database client started without
+// the commands it is to run: no -c, -e, --eval or script file.
+func readsCommands(args []string) bool {
+	name := strings.ToLower(path.Base(args[0]))
+	opts, ops := args[1:], operands(args[1:])
+	switch base := strings.TrimRight(name, "0123456789."); {
+	case slices.Contains(shellNames, name):
+		return !slices.ContainsFunc(opts, IsCFlag) && (len(ops) == 0 || slices.Contains(ops, "-"))
+	case slices.Contains(interpreterNames, base):
+		return !hasOption(opts, "-c", "-e", "-E", "-m", "-r", "-p", "--eval", "--print", "-Command", "-command", "-File", "-file") && (len(ops) == 0 || slices.Contains(ops, "-"))
+	case name == "psql":
+		return !hasOption(opts, "-c", "--command", "-f", "--file", "-l", "--list", "-V", "--version")
+	case name == "mysql" || name == "mariadb":
+		return !hasOption(opts, "-e", "--execute", "-V", "--version")
+	case name == "mongo" || name == "mongosh":
+		return !hasOption(opts, "--eval", "--file", "-f", "--version") && !slices.ContainsFunc(ops, func(o string) bool { return strings.HasSuffix(o, ".js") })
+	case name == "redis-cli" || name == "valkey-cli":
+		return len(operands(withoutValues(opts, "-h", "-p", "-a", "-n", "-u", "--user", "--pass", "-s"))) == 0
+	case name == "sqlite3":
+		return len(ops) <= 1
+	case name == "clickhouse-client":
+		return !hasOption(opts, "-q", "--query", "--queries-file")
 	}
 	return false
-}
-
-// sedDelete is a sed script with a d command: /x/d, 3d, $d, /a/,/b/d.
-var sedDelete = regexp.MustCompile(`(^|[;}\s])(/[^/]*/|\$|[0-9]+)(,(/[^/]*/|\$|[0-9]+))?\s*!?\s*d\s*($|[;}])`)
-
-func sedInPlace(args []string) bool {
-	return slices.ContainsFunc(args, func(a string) bool {
-		return a == "--in-place" || strings.HasPrefix(a, "--in-place=") || strings.HasPrefix(a, "-i") || len(a) > 2 && a[0] == '-' && a[1] != '-' && strings.ContainsRune(a, 'i')
-	})
 }
 
 // kubectlScalesToZero: kubectl scale with --replicas 0, or a count that
