@@ -2,13 +2,15 @@
 # start-time.sh NEW OLD: how long the komando binaries NEW and OLD take to
 # start, for `komando version`, `komando list` (empty list) and
 # `komando guide guard` (the agent hook that runs before every tool call).
-# Each command runs once to warm up, then 5 times per binary, the two
+# Each command runs once to warm up, then 15 times per binary, the two
 # binaries taking turns so both see the same noise; the median counts.
-# Fails when NEW is more than 10% slower than OLD for any command. Runs in
+# Fails when NEW's median is more than 10% and at least 3 ms slower than
+# OLD's for any command, so a millisecond of noise on a fast command does
+# not fail it. Runs in
 # CI on Linux (date +%s%N is GNU date).
 set -eu
 new=$1 old=$2
-runs=5
+runs=15
 
 # a throwaway home per binary: nothing of a person's is read or written,
 # and no keychain is used (as in the e2e lab)
@@ -50,8 +52,8 @@ for cmd in version list guard; do
   om=$(echo "$o" | tr ' ' '\n' | sed '/^$/d' | median)
   change=$(( om > 0 ? (nm - om) * 100 / om : 0 ))
   printf '%-8s %10s %10s %7s%%\n' "$cmd" "$nm" "$om" "$change"
-  if [ $((nm * 100)) -gt $((om * 110)) ]; then
-    echo "$cmd: the branch starts more than 10% slower than main ($nm ms against $om ms)" >&2
+  if [ $((nm * 100)) -gt $((om * 110)) ] && [ $((nm - om)) -ge 3 ]; then
+    echo "$cmd: the branch starts more than 10% and at least 3 ms slower than main ($nm ms against $om ms)" >&2
     fail=1
   fi
 done

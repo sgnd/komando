@@ -63,9 +63,12 @@ jobs:
 
   # How long komando takes to start, against main built in the same job:
   # version, list and the agent hook guide guard (scripts/start-time.sh).
-  # A branch fails when one of them starts more than 10% slower than main.
+  # A branch fails when one of them starts more than 10% and at least 3 ms
+  # slower than main. Pull requests only: timing noise must never block a
+  # push to main or a release (release.yml runs these checks).
   start-time:
     name: Start time
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
