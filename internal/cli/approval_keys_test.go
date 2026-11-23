@@ -4,6 +4,7 @@ import (
 	"os"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -611,5 +612,27 @@ func TestApprovalWindowWorkflowKeys(t *testing.T) {
 	}
 	if !strings.Contains(macAlertScript, "note('keys line shown')") || !strings.Contains(macAlertScript, "if (CHOICE === 'Deny key') return 'Deny key';") {
 		t.Error("the panel no longer writes what the key run reads")
+	}
+}
+
+// The key run reads the panel's answer from the debug log's stdout line,
+// which the log writes only for an answer in macAnswers: every answer the
+// panel can return, and every stdout the workflow expects, is one of them.
+func TestPanelAnswersAreLogged(t *testing.T) {
+	for _, m := range regexp.MustCompile(`return '([^'\\]+)'`).FindAllStringSubmatch(macAlertScript, -1) {
+		if a := m[1]; strings.HasPrefix(a, "Allow once") || a == "Deny" || a == "Deny key" || a == "gave up" {
+			if !slices.Contains(macAnswers, a) {
+				t.Errorf("the panel can answer %q, which the debug log does not write", a)
+			}
+		}
+	}
+	b, err := os.ReadFile("../../.github/workflows/approval-window.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range regexp.MustCompile(`stdout: "([^"]+)"`).FindAllStringSubmatch(string(b), -1) {
+		if got := macStdout([]byte(m[1] + "\n")); got != strconv.Quote(m[1]) {
+			t.Errorf("the workflow expects stdout %q, but the debug log writes %s", m[1], got)
+		}
 	}
 }
