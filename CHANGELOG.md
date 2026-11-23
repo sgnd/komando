@@ -7,10 +7,24 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
-Release hold: no release ships with the macOS approval window changes
-below until a retest on a real Mac shows **Allow once** followed by the
-device-owner check, a visible focus on Tab, and the arrows scrolling with
-no click.
+### Fixed
+
+- When several komando processes write komando's store at once on a slow disk, a write now keeps trying for up to a minute instead of failing after 10 seconds with `database is locked`. It tries again only to take the write lock and to commit, so each write still runs once and whole; past the minute it ends with a clear message (`STORE_BUSY` where a host key is checked).
+
+## [0.17.0] - 2026-11-22
+
+### Highlights
+
+- **Shell keys.** `ssh-gate line --shell-access` lets a key open a login
+  shell on one server; ssh-gate checks, audits and limits it.
+- **A steadier approval window on macOS.** It stays open when another app
+  takes the focus, and a window that fails is reported as its own error
+  (`APPROVAL_WINDOW_FAILED`), never as a Deny.
+- **Agent recognition by process ancestry.** komando reads the processes
+  above it, so an agent that clears its variables is still an agent.
+- **SSH certificate authorities** for host keys (`host ca`), a handshake
+  view in `vpn status`, and a `body_sha256` for every script or content a
+  command sends.
 
 ### Added
 
@@ -209,6 +223,17 @@ no click.
 
 ### Fixed
 
+- The macOS approval window stays open when another app takes the focus:
+  it no longer hides on deactivation and comes back to the front when it
+  stops being the key window. Only **Deny**, Esc, Return, the close button,
+  Cmd-W or the 2-minute timer end it. When the window itself fails before
+  anyone answers (its helper crashes or prints nothing), the command is
+  still refused, now with the error `APPROVAL_WINDOW_FAILED` and a hint to
+  update komando and not to ask the person again, instead of reporting a
+  Deny nobody gave. When the panel does come back to the front, it does so
+  at most 3 times in 10 seconds and not when another komando panel is key;
+  Allow once is held for half a second after each return, and the panel
+  shows over another app's full-screen Space.
 - The macOS approval window takes the keys as soon as it opens (C237).
   The script that scrolls has the focus, so the arrows, Page Up, Page
   Down, Home, End and Space scroll it with no click. Before, they did
@@ -5387,7 +5412,8 @@ First release.
 - Safety: dangerous-command filter, protected servers, dry run, server identity check, audit log
 - Readable text in a terminal, JSON for AI agents
 
-[Unreleased]: https://github.com/sgnd/komando/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/sgnd/komando/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/sgnd/komando/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/sgnd/komando/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/sgnd/komando/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/sgnd/komando/compare/v0.14.0...v0.14.1

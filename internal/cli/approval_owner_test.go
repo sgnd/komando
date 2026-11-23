@@ -52,7 +52,7 @@ func TestMacDeviceOwner(t *testing.T) {
 		"Allow once\nsomething else\n":    "owner-failed",
 		"Allow once":                      "denied",
 		"Deny\n":                          "denied",
-		"":                                "denied",
+		"":                                "window-failed",
 		"gave up\n":                       "no-answer",
 	} {
 		if ok, got := ask(out); ok || got != why {

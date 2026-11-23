@@ -6,6 +6,7 @@ package cli
 // example message and the usual next step, from the source.
 var errorCodes = []errorCode{
 	{"AMBIGUOUS_MATCH", 8, "--old matches … times in …", "add surrounding context to --old so it is unique (read the file with `komando fs cat SERVER PATH`), or pass --all"},
+	{"APPROVAL_WINDOW_FAILED", 1, "", "read the message; `komando doctor` checks this computer's setup"},
 	{"AUDIT_TAMPERED", 1, "the audit log chain is broken at line …", "keep a copy of the file and find out who changed it; komando keeps adding records after it"},
 	{"AUDIT_UNAVAILABLE", 1, "the audit log cannot be written (…), so the key's command does not run", "fix the file or folder permissions on the komando computer (`komando doctor` checks them)"},
 	{"AUTH_FAILED", 4, "… asks … (two-factor login); only a person can answer it, and none is at a terminal here", "run `komando login SERVER` in a terminal: komando asks you for the code once and keeps the login, so later commands (an AI agent's too) need no code; an AI agent asks the user to run it"},
@@ -250,7 +251,7 @@ var errorCodes = []errorCode{
 	{"STORAGE_ERROR", 5, "the file is in use", "another program has the file open; close it there and run it again"},
 	{"STORAGE_TLS", 4, "the storage server's TLS certificate does not verify: …", "if the server uses a self-signed certificate you trust, add ?tls=skip-verify to the conn URL"},
 	{"STORAGE_UNSUPPORTED", 2, "… is … storage, which has no file modes", "chmod works on SFTP conns; `komando list kind:storage` lists yours"},
-	{"STORE_BUSY", 8, "komando's store stayed busy for …, so the server's host key could not be checked: …", "another komando process is writing komando's store, or one is stuck (`komando status` lists what runs): wait for it to finish, then run it again"},
+	{"STORE_BUSY", 8, "komando's store stayed busy, so the server's host key could not be checked: …", "another komando process is writing komando's store, or one is stuck (`komando status` lists what runs): wait for it to finish, then run it again"},
 	{"STORE_CONFLICT", 8, "nothing was done: … was replaced, given a new key or checked again while this command ran, and this command still held it as it was", "run the command again: komando opens the store again from the start; if it keeps happening, run `komando doctor`"},
 	{"STORE_KEY_CHANGED", 1, "…: …", "run it again: another komando changed the store's key while this one ran"},
 	{"STORE_NEWER", 1, "… was made by a newer komando", "a newer komando made or changed this store; update this one: `komando update`"},

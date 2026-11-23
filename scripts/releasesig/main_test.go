@@ -76,3 +76,61 @@ func TestNewSignAndCheck(t *testing.T) {
 		t.Error("an unknown command worked")
 	}
 }
+
+// The release workflow adds install.sh to checksums.txt before it signs the
+// file, so checksums.txt.sig covers the installer the site pins by hash.
+func TestReleaseWorkflowSignsInstallScript(t *testing.T) {
+	b, err := os.ReadFile("../../.github/workflows/release.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	wf := string(b)
+	add := strings.Index(wf, "sha256sum install.sh >> dist/checksums.txt")
+	sign := strings.Index(wf, "go run ./scripts/releasesig sign dist/checksums.txt")
+	if add < 0 {
+		t.Fatal("release.yml does not add install.sh to dist/checksums.txt")
+	}
+	if sign < 0 {
+		t.Fatal("release.yml no longer signs dist/checksums.txt")
+	}
+	if add > sign {
+		t.Error("release.yml adds install.sh to checksums.txt after it signs it, so the signature would not cover it")
+	}
+}
+
+// An install.sh line in checksums.txt, after the archives, leaves the version
+// line, the signature and the archive lookups as they were.
+func TestInstallLineKeepsChecksumsValid(t *testing.T) {
+	dir := t.TempDir()
+	keyFile := filepath.Join(dir, "release.key")
+	if err := run([]string{"new", keyFile}); err != nil {
+		t.Fatal(err)
+	}
+	priv, _ := os.ReadFile(keyFile)
+	pub, err := releasesig.PublicOf(string(priv))
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved := releasesig.Keys
+	t.Cleanup(func() { releasesig.Keys = saved })
+	releasesig.Keys = []string{pub}
+	t.Setenv("RELEASE_SIGNING_KEY", string(priv))
+
+	sums := filepath.Join(dir, "checksums.txt")
+	body := releasesig.VersionLine("v0.18.0", "2026-12-01") +
+		"aaaa  komando_linux_amd64.tar.gz\nbbbb  komando_windows_amd64.zip\ncccc  install.sh\n"
+	if err := os.WriteFile(sums, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := run([]string{"sign", sums, "v0.18.0"}); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(sums)
+	sig, _ := os.ReadFile(sums + ".sig")
+	if err := releasesig.Verify(b, sig); err != nil {
+		t.Errorf("signature of checksums.txt with an install.sh line: %v", err)
+	}
+	if err := releasesig.CheckVersion(b, "v0.18.0"); err != nil {
+		t.Errorf("version line: %v", err)
+	}
+}

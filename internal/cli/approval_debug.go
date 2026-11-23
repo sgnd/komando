@@ -68,6 +68,7 @@ var macOutcomeName = map[macOutcome]string{
 	macOwnerFailed:  "owner check failed",
 	macOwnerTimeout: "owner check timed out",
 	macGaveUp:       "gave up",
+	macFailed:       "failed",
 }
 
 // macAnswers are what the panel prints; the log copies stdout only when it
