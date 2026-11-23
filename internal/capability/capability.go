@@ -5,8 +5,9 @@
 // it. It imports no cobra and no komando state, so tests and tools can
 // read it whole.
 //
-// Until the v0.18.0 cut nothing imports this package; the fields marked
-// "pre-cut" tie today's command IDs to their v2.7 home and go in the cut.
+// Until the v0.18.0 cut internal/cli reads only TodayKeys from it, the
+// keys of its safety tables; the fields marked "pre-cut" tie today's
+// command IDs to their v2.7 home and go in the cut.
 package capability
 
 import (
