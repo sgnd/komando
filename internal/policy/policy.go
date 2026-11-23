@@ -97,8 +97,13 @@ func CheckScript(script string, extra []string) []Rule {
 	return check(script, extra, false)
 }
 
-func check(cmd string, extra []string, withCarried bool) []Rule {
-	hits := []Rule{}
+func check(cmd string, extra []string, withCarried bool) (hits []Rule) {
+	defer func() {
+		if recover() != nil { // a check that crashes must not let the command through
+			hits = []Rule{{ID: checkFailedID, Reason: "fails to read the command, so komando cannot check it"}}
+		}
+	}()
+	hits = []Rule{}
 	norm, plain, ps := Normalize(cmd), Plain(cmd), psPlain(Normalize(cmd))
 	cmds, psCmds := simpleCommands(cmd), simpleCommands(psPlain(cmd))
 	match := func(re *regexp.Regexp) bool {
@@ -123,6 +128,9 @@ func check(cmd string, extra []string, withCarried bool) []Rule {
 	}
 	return hits
 }
+
+// checkFailedID is the hit Check returns when a check crashed on cmd.
+const checkFailedID = "check-failed"
 
 // Invalid returns, for each custom pattern that does not compile, what is
 // wrong with it and how to fix it (for doctor and policy list).

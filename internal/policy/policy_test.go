@@ -333,3 +333,15 @@ func onlyRule(t *testing.T, cmd, id string) {
 		t.Errorf("%q: want only rule %s, got %v", cmd, id, hits)
 	}
 }
+
+// A check that crashes stops the command: Check says it cannot check it,
+// so the command needs a person's yes like any destructive one.
+func TestCheckFailsClosed(t *testing.T) {
+	saved := compiled
+	t.Cleanup(func() { compiled = saved })
+	compiled = append(compiled[:len(compiled):len(compiled)], Rule{ID: "test-crash", fn: func(string) bool { panic("boom") }})
+	hits := Check("uptime", nil)
+	if len(hits) != 1 || hits[0].ID != checkFailedID {
+		t.Fatalf("Check with a crashing rule = %v, want one %s hit", hits, checkFailedID)
+	}
+}
