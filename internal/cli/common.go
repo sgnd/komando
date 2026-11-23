@@ -619,6 +619,10 @@ func audit(cl *call, st *store.State, command string, hosts []string, remote str
 	if cl.body != nil {
 		rec["body_sha256"] = cl.body.sha256() // the window shows its first 16
 	}
+	if cl.askedInStep { // a person was asked while the store was locked (guard_before_lock.go)
+		rec["asked_in_store_step"] = true
+		rec["asked_in_store_step_command"] = command
+	}
 	for k, v := range extra {
 		rec[k] = v
 	}

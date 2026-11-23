@@ -45,6 +45,7 @@ func komandoVerb(cl *call) string {
 // background job's) do not count.
 func noteAsk(cl *call, what string) {
 	if inStoreStep() {
+		cl.askedInStep = true // the audit record says so (askedInStoreStep is quiet in a run)
 		askedInStoreStep(cl, what)
 	}
 }
@@ -73,7 +74,6 @@ func updateAskFirst(cl *call, fn func(*store.State) error) error {
 	if err := askFirst(cl, fn); err != nil {
 		return err
 	}
-	beforeLock()
 	return storeUpdate(cl, fn)
 }
 
@@ -89,5 +89,9 @@ func askFirst(cl *call, check func(*store.State) error) error {
 	if err != nil {
 		return nil
 	}
-	return check(st)
+	if err := check(st); err != nil {
+		return err
+	}
+	beforeLock()
+	return nil
 }

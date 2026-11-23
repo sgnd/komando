@@ -3,6 +3,7 @@ package cli
 import (
 	"cmp"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -240,7 +241,7 @@ Deleting a group with more than 3 members needs --yes; try --dry-run first.`,
 					for _, m := range members {
 						pick[m] = true
 					}
-					if len(members) > manyMembers && !cl.yesOK() && !confirmYes(cl, fmt.Sprintf("Delete group %s from %d entries?", group, len(members))) {
+					if len(members) > manyMembers && !cl.yesOK() && !confirmYes(cl, fmt.Sprintf("Delete group %s from %d entries (%s)?", group, len(members), strings.Join(slices.Sorted(slices.Values(members)), ", "))) {
 						if err := cl.policyStop(out.Errf(out.ExitPolicy, "CONFIRM_REQUIRED", "check the members with `komando group list "+group+"`, then run it again with --yes",
 							"deleting group %s takes %d entries out of it", group, len(members))); err != nil {
 							return err
