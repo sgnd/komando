@@ -134,8 +134,8 @@ banner() { python3 -c 'import socket,sys; h,p=sys.argv[1].rsplit(":",1); s=socke
 check "tunnel -L = the service itself" "$(banner "127.0.0.1:$E2E_SSH_DIRECT")" "$(banner "${T% *}")"
 q $K tunnel stop "${T#* }"
 
-q $K exec direct -- "rm -rf /tmp/$V.sync"
+q $K exec direct --allow-dangerous -- "rm -rf /tmp/$V.sync"
 q $K cache rm cache "$V:a" "$V:b" --allow-dangerous
-q $K exec direct -- "rm -f /tmp/$V.bin /tmp/$V.conf"
+q $K exec direct --allow-dangerous -- "rm -f /tmp/$V.bin /tmp/$V.conf"
 q $K cache rm cache "$V:k" --allow-dangerous
 fi

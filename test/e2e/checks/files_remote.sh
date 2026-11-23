@@ -88,8 +88,8 @@ done
 check "an agent's stream shows secret values as [hidden]" True "$(printf 'API_TOKEN=s3cr3t-e2e-value\n' | $K upload direct - /tmp/e2eops/app.conf >/dev/null; A download direct /tmp/e2eops/app.conf --to - 2>/dev/null | python3 -c 'import sys; s=sys.stdin.read(); print("s3cr3t-e2e-value" not in s)')"
 
 for c in bucket files-sftp files-ftps; do q $K storage rm "$c" --prefix t-e2eops/ --allow-dangerous; done
-q $K exec direct -- rm -rf /tmp/e2eops
-q $K exec bastion -- rm -rf /tmp/e2eops
+q $K exec direct --allow-dangerous -- rm -rf /tmp/e2eops
+q $K exec bastion --allow-dangerous -- rm -rf /tmp/e2eops
 q $K conn rm files-sftp files-ftps
 rm -rf "$TMP"/e2eops*
 set -e
