@@ -73,9 +73,9 @@ func TestStandardConfirmTable(t *testing.T) {
 	for _, r := range riskRows {
 		switch {
 		case r.tier == tierDangerous && r.dynamic == "" && r.what == "":
-			t.Errorf("%s: a dangerous row says what it does for good", r.id)
+			t.Errorf("%s: a dangerous row says what it does for good", keyID(r.key))
 		case r.dynamic != "" && r.what != "":
-			t.Errorf("%s: a dynamic row has no fixed what", r.id)
+			t.Errorf("%s: a dynamic row has no fixed what", keyID(r.key))
 		}
 	}
 }
@@ -93,7 +93,7 @@ func stopHasRow(t *testing.T, line []string, code string) {
 	}
 	var rows []riskRow
 	for _, r := range riskRows {
-		if r.id == cmdID(c) && (r.when == nil || r.when(words)) {
+		if keyID(r.key) == cmdID(c) && (r.when == nil || r.when(words)) {
 			rows = append(rows, r)
 		}
 	}
@@ -203,7 +203,7 @@ func TestRiskPersonGains(t *testing.T) {
 func TestSchemaConfirm(t *testing.T) {
 	for _, r := range riskRows {
 		if r.when != nil && r.cond == "" {
-			t.Errorf("%s: a row with a condition says it in cond", r.id)
+			t.Errorf("%s: a row with a condition says it in cond", keyID(r.key))
 		}
 	}
 	var walk func(c *cobra.Command)

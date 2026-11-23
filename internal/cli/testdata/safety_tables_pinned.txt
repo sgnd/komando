@@ -185,6 +185,27 @@ policy.check	kind=read|	target=""
 policy.deny	kind=change|	target=""	
 policy.list	kind=read|	target=""	
 policy.rm	kind=change|	target=""	safety||removes a deny rule||||
+probe cluster scale c1 web 0	dangerous|stops every copy of the app||
+probe conn edit app-db --protected=false	safety|turns protection off||
+probe export --sealed	person|||
+probe group rm big	change|||deleting a group of more than 3 members
+probe host add web2 root@10.0.0.6 --proxy-command nc	safety||an AI agent runs it (the proxy command runs on this computer)|
+probe host edit web1 --protected=false	safety|turns protection off||
+probe host edit web1 --proxy-command nc	safety||an AI agent runs it (the proxy command runs on this computer)|
+probe host trust web1 --reset	person|replaces a pinned host key (OD-9)||
+probe import komando backup.json	person||the file is sealed (export --sealed): a person types its passphrase|
+probe import kubeconfig	safety||an AI agent imports a server with a proxy command (it runs on this computer; without --yes the server is left out)|
+probe key rm k1 --delete-file	dangerous|deletes the private key komando keeps||
+probe pkg rm web1 openssh-server	dangerous|removes a package the server needs to run or to let you in||
+probe pkg upgrade web1 --security	dangerous||an update would remove a package the server needs|
+probe recipe add r1 --overwrite --read-only	safety||it makes an existing recipe read-only|
+probe secret keychain	person|||
+probe svc disable web1 ssh.service	dangerous|turns sshd off (no one can log in remotely after a restart)||
+probe svc stop web1 sshd	dangerous|stops sshd (no one can log in remotely)||
+probe sync ./site web1:/srv --delete	dangerous|deletes the files in DST that SRC does not have||
+probe user rm web1 bob --remove-home	dangerous|deletes the user and their home folder||
+probe vpn edit kantor --mfa=false	safety|turns --mfa off (komando may then connect it without a person)||
+probe vpn edit kantor --protected=false	safety|turns protection off||
 queue	kind=read|	target=""	
 queue.add	kind=change|	target=""	
 queue.create	kind=change|	target=""	

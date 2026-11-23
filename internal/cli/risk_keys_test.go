@@ -12,7 +12,8 @@ import (
 )
 
 // TestSafetyTablesPinned: every command keeps the rule-table rows, the
-// kind (read, change, depends) and the TARGET kinds it had when the tables were keyed by command ID, so moving
+// kind (read, change, depends) and the TARGET kinds it had, and each row
+// with a condition gives the same tier for the words that meet it when the tables were keyed by command ID, so moving
 // the key to (type, area, verb) changes nothing a person or an agent sees.
 // KOMANDO_GOLDEN_UPDATE=1 writes the file again (only on purpose).
 func TestSafetyTablesPinned(t *testing.T) {
@@ -34,6 +35,7 @@ func TestSafetyTablesPinned(t *testing.T) {
 		}
 		lines = append(lines, fmt.Sprintf("%s\tkind=%s\ttarget=%q\t%s", id, kind, targetKinds(c), strings.Join(rows, " ; ")))
 	}
+	lines = append(lines, probeLines(t)...)
 	slices.Sort(lines)
 	got := strings.Join(lines, "\n") + "\n"
 	file := filepath.Join("testdata", "safety_tables_pinned.txt")
@@ -140,4 +142,62 @@ func fakeKind(t *testing.T, id string, kind cmdKind) {
 	k := safetyKey{"test", "", id}
 	cmdKeys[id], commandKinds[k] = k, kind
 	t.Cleanup(func() { delete(cmdKeys, id); delete(commandKinds, k) })
+}
+
+// whenProbes are command lines that meet the condition of each rule row
+// that has one (TestSafetyTablesPinned pins what they give).
+var whenProbes = []string{
+	"cluster scale c1 web 0",
+	"user rm web1 bob --remove-home",
+	"key rm k1 --delete-file",
+	"pkg rm web1 openssh-server",
+	"svc stop web1 sshd",
+	"svc disable web1 ssh.service",
+	"sync ./site web1:/srv --delete",
+	"pkg upgrade web1 --security",
+	"host edit web1 --protected=false",
+	"conn edit app-db --protected=false",
+	"vpn edit kantor --protected=false",
+	"vpn edit kantor --mfa=false",
+	"host add web2 root@10.0.0.6 --proxy-command nc",
+	"host edit web1 --proxy-command nc",
+	"import kubeconfig",
+	"recipe add r1 --overwrite --read-only",
+	"secret keychain",
+	"host trust web1 --reset",
+	"export --sealed",
+	"import komando backup.json",
+	"group rm big",
+}
+
+// probeLines are whenProbes with the row riskOf picks for each. A probe
+// must parse with the command's own flags, and every row with a condition
+// must be met by one probe, so a flag renamed in a condition or in the
+// command fails here.
+func probeLines(t *testing.T) []string {
+	t.Helper()
+	met := map[int]bool{}
+	var lines []string
+	for _, p := range whenProbes {
+		line := strings.Fields(p)
+		c, rest, err := newRoot(tcl).Find(line)
+		if err != nil || c.ParseFlags(rest) != nil {
+			t.Errorf("probe %q does not parse as a command: %v", p, err)
+			continue
+		}
+		c, words, _ := lineWords(line)
+		for i, r := range riskRows {
+			if r.when != nil && r.key == cmdKeys[cmdID(c)] && r.when(words) {
+				met[i] = true
+			}
+		}
+		r := riskOf(c, words)
+		lines = append(lines, fmt.Sprintf("probe %s\t%s|%s|%s|%s", p, r.tier, r.what, r.dynamic, r.bulk))
+	}
+	for i, r := range riskRows {
+		if r.when != nil && !met[i] {
+			t.Errorf("riskRows[%d] (%v, %s) has a condition no probe meets: add one to whenProbes", i, r.key, r.cond)
+		}
+	}
+	return lines
 }

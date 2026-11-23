@@ -74,7 +74,7 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 		if flag != "" {
 			flag = "`" + flag + "`"
 		}
-		fmt.Fprintf(&b, "| `%s` | %s | %s | %s |\n", strings.ReplaceAll(r.id, ".", " "), strings.ReplaceAll(when, "|", `\|`), r.tier, flag)
+		fmt.Fprintf(&b, "| `%s` | %s | %s | %s |\n", strings.ReplaceAll(keyID(r.key), ".", " "), strings.ReplaceAll(when, "|", `\|`), r.tier, flag)
 	}
 	b.WriteString("\n")
 	return b.String()

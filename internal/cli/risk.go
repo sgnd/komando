@@ -46,7 +46,6 @@ func (t tier) String() string {
 // what it does that cannot be undone (for the typed-name question).
 type riskRow struct {
 	key     safetyKey                 // the command's place (risk_keys.go)
-	id      string                    // the command key names, filled from cmdKeys
 	when    func(words []string) bool // nil: always
 	cond    string                    // when, in words for `komando schema` (set with when)
 	tier    tier
@@ -97,7 +96,7 @@ func protectionOff(w []string) bool { return slices.Contains(w, "--protected=fal
 
 // riskRows is the table, keyed by (type, area, verb). Rows for one key are
 // read in order; the highest tier that applies wins.
-var riskRows = withRowIDs([]riskRow{
+var riskRows = []riskRow{
 	// T3: cannot be undone, or an outage. Rows from both old lists.
 	{key: safetyKey{"queue", "message", "delete"}, tier: tierDangerous, what: "deletes every waiting message"},
 	{key: safetyKey{"queue", "topic", "delete"}, tier: tierDangerous, what: "deletes the topics or queues with their messages"},
@@ -184,15 +183,6 @@ var riskRows = withRowIDs([]riskRow{
 
 	// a bulk change keeps its own confirm (CONFIRM_REQUIRED for an agent)
 	{key: safetyKey{"group", "", "remove"}, when: func(w []string) bool { return len(riskArgs(w)) == 1 }, cond: "GROUP alone", tier: tierChange, bulk: "deleting a group of more than 3 members"},
-})
-
-// withRowIDs fills each row's id with the command its key names ("" for a
-// key no command has, which TestSafetyKeys reports).
-func withRowIDs(rows []riskRow) []riskRow {
-	for i := range rows {
-		rows[i].id = keyID(rows[i].key)
-	}
-	return rows
 }
 
 // riskArgs are the words that are no flags (the positionals, roughly:
@@ -215,7 +205,7 @@ func riskArgs(w []string) []string {
 // arguments and flags, without the command's own name), or a plain row
 // from the command's kind: read (T0), change or depends (T1).
 func riskOf(c *cobra.Command, words []string) riskRow {
-	best := riskRow{id: cmdID(c), tier: tierRead}
+	best := riskRow{tier: tierRead}
 	if k, ok := kindOf(c); !ok || k.Kind != kindRead {
 		best.tier = tierChange
 	}
@@ -301,7 +291,7 @@ func lineWords(line []string) (c *cobra.Command, words, pos []string) {
 func riskRowIDs() []string {
 	ids := make([]string, 0, len(riskRows))
 	for _, r := range riskRows {
-		ids = append(ids, r.id)
+		ids = append(ids, keyID(r.key))
 	}
 	return ids
 }

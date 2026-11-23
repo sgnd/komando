@@ -48,8 +48,7 @@ func applyHelpStandard(c *cobra.Command) {
 
 // personOnly: only a person at a terminal can run c, whatever its words.
 func personOnly(c *cobra.Command) bool {
-	id := cmdID(c)
-	return slices.ContainsFunc(riskRows, func(r riskRow) bool { return r.id == id && r.tier == tierPerson && r.when == nil })
+	return slices.ContainsFunc(rowsFor(c), func(r riskRow) bool { return r.tier == tierPerson && r.when == nil })
 }
 
 // safetyLine is the "Safety:" line of c's Long, from its rule rows
