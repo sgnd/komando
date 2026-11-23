@@ -267,3 +267,14 @@ func TestPolicyFormatRollbackRefused(t *testing.T) {
 		t.Errorf("the store was upgraded again: %v", m)
 	}
 }
+
+// A part's label names the record it read, however many it read before.
+func TestWholeNamedLabel(t *testing.T) {
+	part := wholeNamed("host key pin", "addr")
+	for _, addr := range []string{"10.0.0.5:22", "10.0.0.1:22", "10.0.0.1:22"} {
+		_, label, err := part([]byte(`{"addr":"` + addr + `"}`))
+		if err != nil || label != "host key pin "+addr {
+			t.Fatalf("label %q (%v), want %q", label, err, "host key pin "+addr)
+		}
+	}
+}
