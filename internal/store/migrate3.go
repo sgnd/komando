@@ -50,27 +50,8 @@ func migrateFormat3(ctx context.Context, o migrate3Opts) (migrate3Result, error)
 	if o.now == nil {
 		o.now = time.Now
 	}
-	// 1. a person at a terminal
-	if !o.person {
-		return res, out.Errf(out.ExitPolicy, "NEEDS_PERSON", "run `komando doctor` once in your own terminal",
-			"%s must move to a new format, and only a person starts that", Path(StoreFile))
-	}
-	// 2. format 2 only
-	meta, err := sealdb.Peek(ctx, DBPath())
-	if errors.Is(err, os.ErrNotExist) {
-		return res, nil
-	}
-	if err != nil {
+	if ok, err := needsMigration3(ctx, o.person); !ok || err != nil {
 		return res, err
-	}
-	switch meta["format"] {
-	case "2":
-	case "3":
-		return res, nil
-	case "1":
-		return res, migrationFailed("%s is of format 1; open it once with komando v0.17.0 first", Path(StoreFile))
-	default:
-		return res, migrationFailed("%s is of format %q", Path(StoreFile), meta["format"])
 	}
 	// 3. the store lock, then 4. no komando process at work (Audit M6)
 	unlock, err := Lock(storeLock)
@@ -159,6 +140,32 @@ func migrateFormat3(ctx context.Context, o migrate3Opts) (migrate3Result, error)
 	// 14. the report
 	res.report, res.auditEntry = p.report, string(entry)
 	return res, nil
+}
+
+// needsMigration3 reports whether this home's store is to move: a store
+// of format 2, a person at a terminal (steps 1 and 2). A missing store or
+// one of format 3 has nothing to do.
+func needsMigration3(ctx context.Context, person bool) (bool, error) {
+	if !person {
+		return false, out.Errf(out.ExitPolicy, "NEEDS_PERSON", "run `komando doctor` once in your own terminal",
+			"%s must move to a new format, and only a person starts that", Path(StoreFile))
+	}
+	meta, err := sealdb.Peek(ctx, DBPath())
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	switch meta["format"] {
+	case "2":
+		return true, nil
+	case "3":
+		return false, nil
+	case "1":
+		return false, migrationFailed("%s is of format 1; open it once with komando v0.17.0 first", Path(StoreFile))
+	}
+	return false, migrationFailed("%s is of format %q", Path(StoreFile), meta["format"])
 }
 
 // noLiveProcesses stops while a komando background process of the

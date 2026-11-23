@@ -180,10 +180,11 @@ func wholeNamed(what, field string) sealdb.Part {
 		c, _, _ := sealdb.Whole(b)
 		var m map[string]json.RawMessage
 		var name string
+		label := what // per call: the part is shared by every record it reads
 		if field != "" && json.Unmarshal(b, &m) == nil && json.Unmarshal(m[field], &name) == nil && name != "" {
-			what += " " + name
+			label += " " + name
 		}
-		return c, what, nil
+		return c, label, nil
 	}
 }
 
