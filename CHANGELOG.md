@@ -7,6 +7,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Fixed
+
+- When several komando processes write komando's store at once on a slow disk, a write now keeps trying for up to a minute instead of failing after 10 seconds with `database is locked`. It tries again only to take the write lock and to commit, so each write still runs once and whole; past the minute it ends with a clear message (`STORE_BUSY` where a host key is checked).
+
 ## [0.17.0] - 2026-11-22
 
 ### Highlights

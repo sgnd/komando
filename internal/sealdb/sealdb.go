@@ -65,7 +65,8 @@ import (
 // the policy MAC (policy.go); a format-1 store is upgraded to it.
 const Format = 2
 
-// BusyTimeout is how long a writer waits for another writer.
+// BusyTimeout is how long SQLite itself waits for another process's lock
+// in one try.
 const BusyTimeout = 10 * time.Second
 
 var (
@@ -188,7 +189,7 @@ func openFile(ctx context.Context, path string, key *sealrow.Key, create, skipMe
 	q := url.Values{}
 	q.Set("mode", mode)
 	for _, p := range []string{
-		"busy_timeout(" + strconv.Itoa(int(BusyTimeout/time.Millisecond)) + ")",
+		"busy_timeout(" + strconv.Itoa(int(busyTimeout/time.Millisecond)) + ")",
 		"journal_mode(DELETE)",
 		"synchronous(FULL)",
 		"fullfsync(ON)",
@@ -295,7 +296,7 @@ func Peek(ctx context.Context, path string) (map[string]string, error) {
 	}
 	q := url.Values{}
 	q.Set("mode", "ro")
-	q.Add("_pragma", "busy_timeout("+strconv.Itoa(int(BusyTimeout/time.Millisecond))+")")
+	q.Add("_pragma", "busy_timeout("+strconv.Itoa(int(busyTimeout/time.Millisecond))+")")
 	dsn, err := fileURI(path, q)
 	if err != nil {
 		return nil, err
@@ -358,7 +359,10 @@ func (d *DB) run(ctx context.Context, write bool, fn func(*Tx) error) (err error
 	if write {
 		begin = "BEGIN IMMEDIATE"
 	}
-	if _, err := c.ExecContext(ctx, begin); err != nil {
+	if err := retryBusy(ctx, write, "take the write lock", func() error {
+		_, err := c.ExecContext(ctx, begin)
+		return err
+	}); err != nil {
 		return err
 	}
 	done := false
@@ -400,7 +404,12 @@ func (d *DB) run(ctx context.Context, write bool, fn func(*Tx) error) (err error
 			return err
 		}
 	}
-	if _, err := c.ExecContext(ctx, "COMMIT"); err != nil {
+	// a busy COMMIT leaves the step open with its changes, so it is tried
+	// again as it is; fn never runs twice
+	if err := retryBusy(ctx, write, "commit", func() error {
+		_, err := c.ExecContext(ctx, "COMMIT")
+		return err
+	}); err != nil {
 		return err
 	}
 	done = true
