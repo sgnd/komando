@@ -170,6 +170,7 @@ var otherPackageWriters = map[string]string{
 	"store.tightenHome":         "komando's folder",
 	"store.ensureHome":          "komando's folder",
 	"store.Lock":                "a lock file in komando's folder",
+	"store.migrateFormat3":      "removes runtime.json in komando's folder after the format-3 migration (not switched on)",
 	"store.WriteFileAtomic":     "writes where its caller says; the callers here are checked by TestEveryLocalWriterIsGuarded",
 	"tmpclean.RemoveAll":        "komando's own temporary files",
 	"tmpclean.Sweep":            "komando's own temporary files of earlier runs",
