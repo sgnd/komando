@@ -7,6 +7,7 @@ import (
 	"net"
 	"slices"
 	"strings"
+	"time"
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
@@ -71,7 +72,9 @@ func (sealedHostKeys) view(ctx context.Context, fn func(hostKeyTx) error) error 
 	if err != nil {
 		return err
 	}
-	return storeBusy(d.View(ctx, func(tx *sealdb.Tx) error { return fn(&sealedTx{tx: tx}) }))
+	start := time.Now()
+	err = d.View(ctx, func(tx *sealdb.Tx) error { return fn(&sealedTx{tx: tx}) })
+	return storeBusy(err, time.Since(start))
 }
 
 func (sealedHostKeys) update(ctx context.Context, fn func(hostKeyTx) error) error {
@@ -79,19 +82,21 @@ func (sealedHostKeys) update(ctx context.Context, fn func(hostKeyTx) error) erro
 	if err != nil {
 		return err
 	}
-	return storeBusy(d.Update(ctx, func(tx *sealdb.Tx) error { return fn(&sealedTx{tx: tx}) }))
+	start := time.Now()
+	err = d.Update(ctx, func(tx *sealdb.Tx) error { return fn(&sealedTx{tx: tx}) })
+	return storeBusy(err, time.Since(start))
 }
 
 // storeBusy turns "another komando process holds the store" into its own
 // error, so a connection that waited for the store does not read like a
-// server that did not answer.
-func storeBusy(err error) error {
+// server that did not answer. waited is how long the step took.
+func storeBusy(err error, waited time.Duration) error {
 	if err == nil || !sealdb.IsBusy(err) {
 		return err
 	}
 	return out.Errf(out.ExitConflict, "STORE_BUSY",
 		"another komando process is writing komando's store, or one is stuck (`komando status` lists what runs): wait for it to finish, then run it again",
-		"komando's store stayed busy, so the server's host key could not be checked: %v", err)
+		"komando's store stayed busy for %s, so the server's host key could not be checked: %v", waited.Round(time.Second), err)
 }
 
 type sealedTx struct {
