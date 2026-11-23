@@ -140,10 +140,10 @@ func TestMacDebugLogExit(t *testing.T) {
 func TestMacPanelDebugNotes(t *testing.T) {
 	s := macAlertScript
 	for _, want := range []string{
-		"function run(argv) {\n  DEBUG = argv[10] === '1';\n",
+		"function run(argv) {\n  DEBUG = argv[11] === '1';\n",
 		"function note(what) {\n  if (!DEBUG) return;\n  try { console.log('komando-debug +' + (Date.now() - T0) + ' ' + what + ' | first ' + who() + ' focus ' + (FOCUS || 'none')); } catch (x) {}\n}",
 		"if (DEBUG) note('key ' + keyName(e));",
-		"{ note('end: Deny, key'); CHOICE = 'Deny';",
+		"{ note('end: Deny, key'); CHOICE = 'Deny key';",
 		"SCROLLS, SEEN)); note('focus moved'); return; }",
 		"scrollKey(code)) { if (DEBUG) note('scrolled to ' + where()); }",
 		"note('click: script area')", "note('click: panel background')", "note('panel is key')",
@@ -189,7 +189,7 @@ func nextNote(s string, i int) int {
 	return i + 1 + j
 }
 
-// C237: the debug run passes one more argument, "1" as argv[10]; a normal
+// C237: the debug run passes one more argument, "1" as argv[11]; a normal
 // run passes none, so the panel notes nothing.
 func TestMacDebugArgs(t *testing.T) {
 	v := approvalView{raw: "t"}
@@ -198,7 +198,7 @@ func TestMacDebugArgs(t *testing.T) {
 		t.Errorf("debug argv %q", got)
 	}
 	// the script's argv[0] is the marker
-	if i := len(got) - 1 - slices.Index(got, macArgMarker); i != 10 {
-		t.Errorf("the flag is argv[%d], want argv[10]", i)
+	if i := len(got) - 1 - slices.Index(got, macArgMarker); i != 11 {
+		t.Errorf("the flag is argv[%d], want argv[11]", i)
 	}
 }

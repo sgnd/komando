@@ -44,16 +44,16 @@ func TestMacAnswer(t *testing.T) {
 // itself after 120 seconds as "gave up", and takes every text from argv.
 
 // The macOS script is a plain NSPanel of standard controls: no NSAlert,
-// no icon, no colour; Deny is the default (Return) and Esc;
+// no icon, no colour; Esc and Cmd-W deny, no button has a key;
 // it gives up after 120 seconds, answers with the strings
 // macAnswer reads, takes every text from argv, and asks for the device
 // owner only after Allow once.
 func TestMacAlertScript(t *testing.T) {
 	for _, want := range []string{
 		"$.KomandoPanel.alloc.initWithContentRectStyleMaskBackingDefer(", "superclass: 'NSPanel'", "panel.title = argv[6]",
-		"buttonWithTitleTargetAction(argv[7], answer, 'deny:')", "deny.keyEquivalent = '\\r'", "allow.keyEquivalent = ''",
+		"buttonWithTitleTargetAction(argv[7], answer, 'deny:')", "deny.keyEquivalent = ''", "allow.keyEquivalent = ''",
 		"setAccessibilityLabel(argv[7])", "setAccessibilityLabel(argv[8])",
-		"code === 53 || code === 36", "APP.stopModalWithCode(DENY)", "app.runModalForWindow(panel)", "panel.level = $.NSFloatingWindowLevel",
+		"code === 53 || (code === 13 && (mods & CMD))", "APP.stopModalWithCode(DENY)", "app.runModalForWindow(panel)", "panel.level = $.NSFloatingWindowLevel",
 		"timerWithTimeIntervalRepeatsBlock(120,", "app.stopModalWithCode(GAVE_UP)", "return 'gave up'", "return 'Deny'",
 		"label(argv[1], $.NSFont.boldSystemFontOfSize(fs), w, true)", "var w = 440, pad = 20, gap = 12",
 		"ObjC.import('LocalAuthentication')", "canEvaluatePolicyError(2, null)", "evaluatePolicyLocalizedReasonReply(2, reason,",
@@ -64,14 +64,17 @@ func TestMacAlertScript(t *testing.T) {
 			t.Errorf("script has no %q", want)
 		}
 	}
-	for _, bad := range []string{"NSAlert", ".icon", "NSImage", "NSAttributedString", "initWithString", "argv[0]", "argv[11]"} {
+	for _, bad := range []string{"NSAlert", ".icon", "NSImage", "NSAttributedString", "initWithString", "argv[0]", "argv[12]"} {
 		if strings.Contains(macAlertScript, bad) {
 			t.Errorf("the script uses %s", bad)
 		}
 	}
-	// argv[10] is only the debug switch (approval_debug.go)
-	if strings.Count(macAlertScript, "argv[10]") != 1 || !strings.Contains(macAlertScript, "DEBUG = argv[10] === '1';") {
-		t.Error("argv[10] is used for more than the debug switch")
+	// argv[10] is only the keys line, argv[11] only the debug switch (approval_debug.go)
+	if strings.Count(macAlertScript, "argv[10]") != 1 || !strings.Contains(macAlertScript, "KEYS = label(argv[10],") {
+		t.Error("argv[10] is used for more than the keys line")
+	}
+	if strings.Count(macAlertScript, "argv[11]") != 1 || !strings.Contains(macAlertScript, "DEBUG = argv[11] === '1';") {
+		t.Error("argv[11] is used for more than the debug switch")
 	}
 	// no colours of its own: only the system's focus indicator colour
 	if strings.Count(macAlertScript, "NSColor.") != strings.Count(macAlertScript, "NSColor.keyboardFocusIndicatorColor") {
@@ -83,7 +86,7 @@ func TestMacAlertScript(t *testing.T) {
 	// a text that looks like an osascript option stays a text after the marker
 	v := approvalView{raw: "-e do shell script \"id\""}
 	args := macArgs(v)
-	if len(args) != 14 || args[0] != "-l" || args[1] != "JavaScript" || args[2] != "-e" || args[3] != macAlertScript || args[4] != macArgMarker || args[5] != "komando: allow?" || args[6] != "" || args[9] != noBreakHyphens(v.raw) {
+	if len(args) != 15 || args[0] != "-l" || args[1] != "JavaScript" || args[2] != "-e" || args[3] != macAlertScript || args[4] != macArgMarker || args[5] != "komando: allow?" || args[6] != "" || args[9] != noBreakHyphens(v.raw) {
 		t.Errorf("argv %q", args)
 	}
 	v = approvalView{Agent: "-e", Head: "do shell script", Line: "x"}
@@ -212,8 +215,8 @@ func TestMacScrollHintCount(t *testing.T) {
 
 // A keyboard-only person can read a long script to its end: the script
 // has the focus when the panel opens (Tab: script, Deny, Allow once),
-// shows a focus ring, and the arrows, Page Up/Down, Home/End and Space scroll it. Return
-// and Esc stay Deny, and the gate is the same seenEnd (C209).
+// shows a focus ring, and the arrows, Page Up/Down, Home/End and Space scroll it. Esc
+// and Cmd-W deny, Return answers nothing, and the gate is the same seenEnd (C209).
 func TestMacPanelKeyboardScroll(t *testing.T) {
 	s := macAlertScript
 	for _, want := range []string{
@@ -227,7 +230,7 @@ func TestMacPanelKeyboardScroll(t *testing.T) {
 		"b.borderColor = $.NSColor.keyboardFocusIndicatorColor;",
 		"SCROLLS = scroll", "if (scroll && real(DOC)) panel.initialFirstResponder = DOC;",
 		"DOC.setAccessibilityElement(true)", "DOC.setAccessibilityRole($.NSAccessibilityGroupRole)", "DOC.setAccessibilityLabel(",
-		"deny.keyEquivalent = '\\r'", "code === 53 || code === 36",
+		"deny.keyEquivalent = ''", "code === 53 || (code === 13 && (mods & CMD))",
 		"if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = !HELD; note('read to the end'); }",
 	} {
 		if !strings.Contains(s, want) {
@@ -530,7 +533,8 @@ func TestMacPanelAnswers(t *testing.T) {
 		{"close button", "'windowWillClose:': { types: ['void', ['id']], implementation: function (n) { if (DEBUG) note('end: window closes, ' + how()); if (!CHOSEN) { CHOICE = 'Deny'; CHOSEN = true; } APP.stopModalWithCode(DENY); } }"},
 		{"close wired", "panel.delegate = answer"},
 		{"closable", "$.NSWindowStyleMaskTitled | $.NSWindowStyleMaskClosable"},
-		{"esc, return and cmd-w", onKeyDeny},
+		{"esc and cmd-w", onKeyDeny},
+		{"a key deny says so", "if (CHOICE === 'Deny key') return 'Deny key';"},
 		{"give-up timer", "timerWithTimeIntervalRepeatsBlock(120, false, function () { note('end: no answer in 120 s'); CHOICE = 'gave up'; CHOSEN = true; app.stopModalWithCode(GAVE_UP); })"},
 		{"gave up only from the timer", "if (CHOICE === 'gave up') return 'gave up';"},
 		{"allow goes to the owner check", "if (CHOICE === 'Allow') return 'Allow once\\n' + owner(argv[3], argv[4]);"},
