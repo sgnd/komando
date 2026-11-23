@@ -1,0 +1,39 @@
+### allow: an ordinary command
+komando guide guard < {"tool_name":"Bash","tool_input":{"command":"go test ./..."},"cwd":"/p"}
+exit 0
+--- stdout
+--- stderr
+### allow: a komando command
+komando guide guard < {"tool_name":"Bash","tool_input":{"command":"komando exec web1 --read-only -- uptime"},"cwd":"/p"}
+exit 0
+--- stdout
+--- stderr
+### deny: reading a private key
+komando guide guard < {"tool_name":"Bash","tool_input":{"command":"cat ~/.ssh/id_ed25519"},"cwd":"/p"}
+exit 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"komando guard: ~/.ssh/id_ed25519 is a private key. komando keeps it away from AI agents; ask the user if you need something from it"}}
+--- stderr
+### deny: reading a .env file
+komando guide guard < {"tool_name":"Read","tool_input":{"file_path":"/p/.env"},"cwd":"/p"}
+exit 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"komando guard: /p/.env is a file that holds secrets. komando keeps it away from AI agents; ask the user if you need something from it"}}
+--- stderr
+### unreadable input
+komando guide guard < not json
+exit 0
+--- stdout
+--- stderr
+### deny, codex format
+komando guide guard --for codex < {"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat .env"}}
+exit 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"komando guard: .env is a file that holds secrets. komando keeps it away from AI agents; ask the user if you need something from it"}}
+--- stderr
+### allow, cursor format
+komando guide guard --for cursor < {"hook_event_name":"beforeShellExecution","command":"ls -la","cwd":"/p"}
+exit 0
+--- stdout
+{"permission":"allow"}
+--- stderr

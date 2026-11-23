@@ -96,7 +96,7 @@ A test also reads every `komando ...` example in the docs (`README.md`, `AGENTS.
    Some packages also have tests against a live service that you start yourself. They are skipped by default; each one's `t.Skip` line names the variable to set.
 
 3. Add a line under `## [Unreleased]` in [`CHANGELOG.md`](CHANGELOG.md) if users will notice the change.
-4. Open the pull request. [GitHub](.github/workflows/ci.yml) runs lint, unit tests, the security check and the end-to-end tests again.
+4. Open the pull request. [GitHub](.github/workflows/ci.yml) runs lint, unit tests, the start time against `main`, the security check and the end-to-end tests again.
 
 ## Merging outside pull requests
 

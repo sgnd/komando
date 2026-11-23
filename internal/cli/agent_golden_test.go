@@ -253,6 +253,12 @@ func goldenRun(t *testing.T, agent bool, args []string) (string, string, int) {
 // goldenRunWith is goldenRun in a home that setup filled first.
 func goldenRunWith(t *testing.T, agent bool, args []string, setup func(*testing.T)) (string, string, int) {
 	t.Helper()
+	return goldenRunIn(t, agent, args, setup, "")
+}
+
+// goldenRunIn is goldenRunWith with stdin holding in.
+func goldenRunIn(t *testing.T, agent bool, args []string, setup func(*testing.T), in string) (string, string, int) {
+	t.Helper()
 	invHome(t)
 	if setup != nil {
 		setup(t)
@@ -267,7 +273,7 @@ func goldenRunWith(t *testing.T, agent bool, args []string, setup func(*testing.
 	outR, outW, _ := os.Pipe()
 	errR, errW, _ := os.Pipe()
 	inR, inW, _ := os.Pipe()
-	inW.Close()
+	go func() { _, _ = io.WriteString(inW, in); inW.Close() }()
 	tcl.args, tcl.out.W, tcl.out.Err, tcl.stdin = append([]string{"komando"}, args...), outW, errW, inR
 	got := make(chan [2]string)
 	go func() {
