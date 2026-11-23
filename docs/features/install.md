@@ -33,6 +33,11 @@ less install.sh
 KOMANDO_VERSION=v0.17.0 sh install.sh
 ```
 
+The `install.sh` line in a release's `checksums.txt` is the hash of that
+release's own copy of the script, the one at its tag
+(`.../komando/vX.Y.Z/install.sh`). The copy on `main` moves on, so a pin by
+that hash fetches the tag's copy, never `main`'s.
+
 `KOMANDO_INSTALL_DIR=DIR` picks the folder. `KOMANDO_VERSION` picks the
 version; without it (`sh install.sh`) the installer takes the newest release.
 
