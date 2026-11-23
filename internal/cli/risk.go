@@ -42,10 +42,11 @@ func (t tier) String() string {
 	return [...]string{"read", "change", "protected", "dangerous", "safety", "person"}[t]
 }
 
-// riskRow is one row: the command (by ID), when it applies, its tier and
+// riskRow is one row: the command (by its key), when it applies, its tier and
 // what it does that cannot be undone (for the typed-name question).
 type riskRow struct {
-	id      string
+	key     safetyKey                 // the command's place (risk_keys.go)
+	id      string                    // the command key names, filled from cmdKeys
 	when    func(words []string) bool // nil: always
 	cond    string                    // when, in words for `komando schema` (set with when)
 	tier    tier
@@ -94,95 +95,104 @@ func givesValue(name string) func([]string) bool {
 // protectionOff: --protected=false (an edit that turns protection off).
 func protectionOff(w []string) bool { return slices.Contains(w, "--protected=false") }
 
-// riskRows is the table. Rows for one ID are read in order; the highest
-// tier that applies wins.
-var riskRows = []riskRow{
+// riskRows is the table, keyed by (type, area, verb). Rows for one key are
+// read in order; the highest tier that applies wins.
+var riskRows = withRowIDs([]riskRow{
 	// T3: cannot be undone, or an outage. Rows from both old lists.
-	{id: "queue.purge", tier: tierDangerous, what: "deletes every waiting message"},
-	{id: "queue.rm", tier: tierDangerous, what: "deletes the topics or queues with their messages"},
-	{id: "cache.rm", tier: tierDangerous, what: "deletes the keys"},
-	{id: "storage.rm", tier: tierDangerous, what: "deletes the files"},
-	{id: "cluster.rm", tier: tierDangerous, what: "deletes it from the cluster"},
-	{id: "cluster.scale", when: anyWord("0", "--replicas=0"), cond: "REPLICAS is 0", tier: tierDangerous, what: "stops every copy of the app"},
-	{id: "registry.rm", tier: tierDangerous, what: "deletes the images"},
-	{id: "registry.prune", tier: tierDangerous, what: "deletes the images"},
-	{id: "db.restore", tier: tierDangerous, what: "replaces what is in the database now"},
-	{id: "db.user.rm", tier: tierDangerous, what: "deletes the database user"},
-	{id: "db.kill", tier: tierChange, typed: "ends the session (its client loses the connection)", items: "sessions"},
-	{id: "fs.rm", tier: tierDangerous, what: "deletes the files"},
-	{id: "docker.rm", tier: tierDangerous, what: "deletes the containers"},
-	{id: "docker.prune", tier: tierDangerous, what: "deletes stopped containers and unused images"},
-	{id: "user.rm", when: givesFlag("remove-home"), cond: "with --remove-home", tier: tierDangerous, what: "deletes the user and their home folder"},
-	{id: "user.rm", tier: tierDangerous, what: "deletes the user"},
-	{id: "secret.rm", tier: tierDangerous, what: "deletes the saved passwords"},
-	{id: "key.rm", when: givesFlag("delete-file"), cond: "with --delete-file, for a key komando made", tier: tierDangerous, what: "deletes the private key komando keeps"},
-	{id: "pkg.rm", when: func(w []string) bool { return slices.ContainsFunc(riskArgs(w), essentialPkg) }, cond: "a package the server needs (openssh-server, sudo, systemd, ...)", tier: tierDangerous, what: "removes a package the server needs to run or to let you in"},
-	{id: "pkg.rm", tier: tierChange, typed: "removes the packages", items: "packages"},
-	{id: "cron.rm", tier: tierChange, typed: "deletes the cron entry", items: "cron entries"},
-	{id: "reboot", tier: tierDangerous, what: "restarts the server (it is away until it is back)"},
-	{id: "svc.stop", when: sshUnit, cond: "the unit is ssh or sshd", tier: tierDangerous, what: "stops sshd (no one can log in remotely)"},
-	{id: "svc.disable", when: sshUnit, cond: "the unit is ssh or sshd", tier: tierDangerous, what: "turns sshd off (no one can log in remotely after a restart)"},
-	{id: "sync", when: givesFlag("delete"), cond: "with --delete", tier: tierDangerous, what: "deletes the files in DST that SRC does not have"},
+	{key: safetyKey{"queue", "message", "delete"}, tier: tierDangerous, what: "deletes every waiting message"},
+	{key: safetyKey{"queue", "topic", "delete"}, tier: tierDangerous, what: "deletes the topics or queues with their messages"},
+	{key: safetyKey{"cache", "", "rm"}, tier: tierDangerous, what: "deletes the keys"},
+	{key: safetyKey{"storage", "object", "delete"}, tier: tierDangerous, what: "deletes the files"},
+	{key: safetyKey{"cluster", "", "rm"}, tier: tierDangerous, what: "deletes it from the cluster"},
+	{key: safetyKey{"cluster", "", "scale"}, when: anyWord("0", "--replicas=0"), cond: "REPLICAS is 0", tier: tierDangerous, what: "stops every copy of the app"},
+	{key: safetyKey{"registry", "image", "delete"}, tier: tierDangerous, what: "deletes the images"},
+	{key: safetyKey{"registry", "image", "prune"}, tier: tierDangerous, what: "deletes the images"},
+	{key: safetyKey{"database", "", "restore"}, tier: tierDangerous, what: "replaces what is in the database now"},
+	{key: safetyKey{"database", "user", "rm"}, tier: tierDangerous, what: "deletes the database user"},
+	{key: safetyKey{"database", "", "kill"}, tier: tierChange, typed: "ends the session (its client loses the connection)", items: "sessions"},
+	{key: safetyKey{"host", "file", "rm"}, tier: tierDangerous, what: "deletes the files"},
+	{key: safetyKey{"host", "docker", "rm"}, tier: tierDangerous, what: "deletes the containers"},
+	{key: safetyKey{"host", "docker", "prune"}, tier: tierDangerous, what: "deletes stopped containers and unused images"},
+	{key: safetyKey{"host", "user", "rm"}, when: givesFlag("remove-home"), cond: "with --remove-home", tier: tierDangerous, what: "deletes the user and their home folder"},
+	{key: safetyKey{"host", "user", "rm"}, tier: tierDangerous, what: "deletes the user"},
+	{key: safetyKey{"credential", "", "remove"}, tier: tierDangerous, what: "deletes the saved passwords"},
+	{key: safetyKey{"credential", "key", "remove"}, when: givesFlag("delete-file"), cond: "with --delete-file, for a key komando made", tier: tierDangerous, what: "deletes the private key komando keeps"},
+	{key: safetyKey{"host", "package", "rm"}, when: func(w []string) bool { return slices.ContainsFunc(riskArgs(w), essentialPkg) }, cond: "a package the server needs (openssh-server, sudo, systemd, ...)", tier: tierDangerous, what: "removes a package the server needs to run or to let you in"},
+	{key: safetyKey{"host", "package", "rm"}, tier: tierChange, typed: "removes the packages", items: "packages"},
+	{key: safetyKey{"host", "cron", "rm"}, tier: tierChange, typed: "deletes the cron entry", items: "cron entries"},
+	{key: safetyKey{"host", "", "restart"}, tier: tierDangerous, what: "restarts the server (it is away until it is back)"},
+	{key: safetyKey{"host", "service", "stop"}, when: sshUnit, cond: "the unit is ssh or sshd", tier: tierDangerous, what: "stops sshd (no one can log in remotely)"},
+	{key: safetyKey{"host", "service", "disable"}, when: sshUnit, cond: "the unit is ssh or sshd", tier: tierDangerous, what: "turns sshd off (no one can log in remotely after a restart)"},
+	{key: safetyKey{"", "sync", "copy"}, when: givesFlag("delete"), cond: "with --delete", tier: tierDangerous, what: "deletes the files in DST that SRC does not have"},
 
 	// T3 when the command's own check finds it: a policy or classifier hit
 	// on what the command runs, decided at run time.
-	{id: "exec", tier: tierDangerous, dynamic: "the command matches a destructive rule"},
-	{id: "job.start", tier: tierDangerous, dynamic: "the command matches a destructive rule"},
-	{id: "recipe.run", tier: tierDangerous, dynamic: "the recipe's command matches a destructive rule"},
-	{id: "docker.exec", tier: tierDangerous, dynamic: "the command matches a destructive rule"},
-	{id: "docker.raw", tier: tierDangerous, dynamic: "the docker command deletes or stops something"},
-	{id: "docker.compose", tier: tierDangerous, dynamic: "the compose command deletes or stops something"},
-	{id: "cluster.exec", tier: tierDangerous, dynamic: "the command matches a destructive rule"},
-	{id: "cluster.run", tier: tierDangerous, dynamic: "the kubectl command deletes something"},
-	{id: "cache.run", tier: tierDangerous, dynamic: "the cache command deletes data (FLUSHALL, ...)"},
-	{id: "db.query", tier: tierDangerous, dynamic: "the SQL deletes data (DROP, DELETE without WHERE, ...)"},
-	{id: "db.explain", cond: "with --analyze", tier: tierDangerous, dynamic: "the SQL deletes data"},
-	{id: "pkg.upgrade", when: givesFlag("security"), cond: "with --security", tier: tierDangerous, dynamic: "an update would remove a package the server needs"},
-	{id: "key.revoke", tier: tierDangerous, dynamic: "it is the key komando logs in with"},
-	{id: "host.edit", tier: tierDangerous, dynamic: "--proxy-command matches a destructive rule"},
-	{id: "host.add", tier: tierDangerous, dynamic: "--proxy-command matches a destructive rule"},
-	{id: "import", tier: tierDangerous, dynamic: "an imported ProxyCommand matches a destructive rule"},
+	{key: safetyKey{"host", "", "exec"}, tier: tierDangerous, dynamic: "the command matches a destructive rule"},
+	{key: safetyKey{"host", "job", "start"}, tier: tierDangerous, dynamic: "the command matches a destructive rule"},
+	{key: safetyKey{"snippet", "", "exec"}, tier: tierDangerous, dynamic: "the recipe's command matches a destructive rule"},
+	{key: safetyKey{"host", "docker", "exec"}, tier: tierDangerous, dynamic: "the command matches a destructive rule"},
+	{key: safetyKey{"host", "docker", "raw"}, tier: tierDangerous, dynamic: "the docker command deletes or stops something"},
+	{key: safetyKey{"host", "docker", "compose"}, tier: tierDangerous, dynamic: "the compose command deletes or stops something"},
+	{key: safetyKey{"cluster", "", "exec"}, tier: tierDangerous, dynamic: "the command matches a destructive rule"},
+	{key: safetyKey{"cluster", "", "raw"}, tier: tierDangerous, dynamic: "the kubectl command deletes something"},
+	{key: safetyKey{"cache", "", "raw"}, tier: tierDangerous, dynamic: "the cache command deletes data (FLUSHALL, ...)"},
+	{key: safetyKey{"database", "", "query"}, tier: tierDangerous, dynamic: "the SQL deletes data (DROP, DELETE without WHERE, ...)"},
+	{key: safetyKey{"database", "", "explain"}, cond: "with --analyze", tier: tierDangerous, dynamic: "the SQL deletes data"},
+	{key: safetyKey{"host", "package", "upgrade"}, when: givesFlag("security"), cond: "with --security", tier: tierDangerous, dynamic: "an update would remove a package the server needs"},
+	{key: safetyKey{"credential", "key", "uninstall"}, tier: tierDangerous, dynamic: "it is the key komando logs in with"},
+	{key: safetyKey{"host", "", "edit"}, tier: tierDangerous, dynamic: "--proxy-command matches a destructive rule"},
+	{key: safetyKey{"host", "", "add"}, tier: tierDangerous, dynamic: "--proxy-command matches a destructive rule"},
+	{key: safetyKey{"", "", "import"}, tier: tierDangerous, dynamic: "an imported ProxyCommand matches a destructive rule"},
 
 	// T3s: weakens komando's own checks.
-	{id: "policy.rm", tier: tierSafety, what: "removes a deny rule"},
-	{id: "config.set", tier: tierSafety, dynamic: "the setting turns a check off (audit, keychain, host key policy, ...)"},
-	{id: "host.edit", when: protectionOff, cond: "with --protected=false", tier: tierSafety, what: "turns protection off"},
-	{id: "conn.edit", when: protectionOff, cond: "with --protected=false", tier: tierSafety, what: "turns protection off"},
-	{id: "vpn.edit", when: protectionOff, cond: "with --protected=false", tier: tierSafety, what: "turns protection off"},
-	{id: "vpn.edit", when: anyWord("--mfa=false"), cond: "with --mfa=false", tier: tierSafety, what: "turns --mfa off (komando may then connect it without a person)"},
-	{id: "update", tier: tierSafety, dynamic: "it installs an older version"},
-	{id: "tunnel.start", tier: tierSafety, dynamic: "it listens on an open address (OPEN_BIND)"},
-	{id: "secret.keychain", tier: tierSafety, dynamic: "it turns the keychain off"},
+	{key: safetyKey{"policy", "", "remove"}, tier: tierSafety, what: "removes a deny rule"},
+	{key: safetyKey{"config", "", "set"}, tier: tierSafety, dynamic: "the setting turns a check off (audit, keychain, host key policy, ...)"},
+	{key: safetyKey{"host", "", "edit"}, when: protectionOff, cond: "with --protected=false", tier: tierSafety, what: "turns protection off"},
+	{key: safetyKey{"conn", "", "edit"}, when: protectionOff, cond: "with --protected=false", tier: tierSafety, what: "turns protection off"},
+	{key: safetyKey{"vpn", "", "edit"}, when: protectionOff, cond: "with --protected=false", tier: tierSafety, what: "turns protection off"},
+	{key: safetyKey{"vpn", "", "edit"}, when: anyWord("--mfa=false"), cond: "with --mfa=false", tier: tierSafety, what: "turns --mfa off (komando may then connect it without a person)"},
+	{key: safetyKey{"", "", "update"}, tier: tierSafety, dynamic: "it installs an older version"},
+	{key: safetyKey{"host", "tunnel", "start"}, tier: tierSafety, dynamic: "it listens on an open address (OPEN_BIND)"},
+	{key: safetyKey{"config", "vault", "keychain"}, tier: tierSafety, dynamic: "it turns the keychain off"},
 	// T3s an AI agent meets: a program, file or key this computer would
 	// trust from now on, or the agent guard itself (people and scripts are
 	// not stopped)
-	{id: "host.add", when: givesValue("proxy-command"), cond: "with --proxy-command", tier: tierSafety, dynamic: "an AI agent runs it (the proxy command runs on this computer)"},
-	{id: "host.edit", when: givesValue("proxy-command"), cond: "with --proxy-command", tier: tierSafety, dynamic: "an AI agent runs it (the proxy command runs on this computer)"},
-	{id: "import", tier: tierSafety, dynamic: "an AI agent imports a server with a proxy command (it runs on this computer; without --yes the server is left out)"},
-	{id: "import", when: anyWord("kubeconfig"), cond: "SOURCE kubeconfig", tier: tierSafety, dynamic: "an AI agent imports a context whose login runs a program or sends a file of this computer"},
-	{id: "recipe.add", when: func(w []string) bool { return givesFlag("overwrite")(w) && givesFlag("read-only")(w) }, cond: "with --overwrite --read-only", tier: tierSafety, dynamic: "it makes an existing recipe read-only"},
-	{id: "host.trust", tier: tierSafety, dynamic: "an AI agent pins a first host key while host keys are strict"},
-	{id: "guide.uninstall", tier: tierSafety, dynamic: "it removes komando's guard from an AI agent's settings"},
+	{key: safetyKey{"host", "", "add"}, when: givesValue("proxy-command"), cond: "with --proxy-command", tier: tierSafety, dynamic: "an AI agent runs it (the proxy command runs on this computer)"},
+	{key: safetyKey{"host", "", "edit"}, when: givesValue("proxy-command"), cond: "with --proxy-command", tier: tierSafety, dynamic: "an AI agent runs it (the proxy command runs on this computer)"},
+	{key: safetyKey{"", "", "import"}, tier: tierSafety, dynamic: "an AI agent imports a server with a proxy command (it runs on this computer; without --yes the server is left out)"},
+	{key: safetyKey{"", "", "import"}, when: anyWord("kubeconfig"), cond: "SOURCE kubeconfig", tier: tierSafety, dynamic: "an AI agent imports a context whose login runs a program or sends a file of this computer"},
+	{key: safetyKey{"snippet", "", "create"}, when: func(w []string) bool { return givesFlag("overwrite")(w) && givesFlag("read-only")(w) }, cond: "with --overwrite --read-only", tier: tierSafety, dynamic: "it makes an existing recipe read-only"},
+	{key: safetyKey{"host", "", "trust"}, tier: tierSafety, dynamic: "an AI agent pins a first host key while host keys are strict"},
+	{key: safetyKey{"agent", "skill", "uninstall"}, tier: tierSafety, dynamic: "it removes komando's guard from an AI agent's settings"},
 
 	// T4: only a person at a terminal.
-	{id: "config.approval-code", tier: tierPerson},
-	{id: "secret.passphrase", tier: tierPerson},
-	{id: "secret.check", tier: tierPerson},
-	{id: "shell", tier: tierPerson},
-	{id: "db.shell", tier: tierPerson},
-	{id: "cluster.shell", tier: tierPerson},
-	{id: "login", tier: tierPerson},
-	{id: "login.aws", tier: tierPerson},
-	{id: "ssh-gate", tier: tierPerson},
-	{id: "host.ssh-command", tier: tierPerson},
-	{id: "host.ca.add", tier: tierPerson, what: "trusts every server the CA signs"},
-	{id: "secret.keychain", when: func(w []string) bool { return !givesFlag("off")(w) }, cond: "without --off (moving the key into the keychain)", tier: tierPerson},
-	{id: "host.trust", when: anyWord("--reset", "--reset=true"), cond: "with --reset, when a key is pinned", tier: tierPerson, what: "replaces a pinned host key (OD-9)"},
-	{id: "export", when: func(w []string) bool { return givesFlag("sealed")(w) || givesFlag("for-phone")(w) }, cond: "with --sealed or --for-phone", tier: tierPerson},
-	{id: "import", when: anyWord("komando"), cond: "SOURCE komando", tier: tierPerson, dynamic: "the file is sealed (export --sealed): a person types its passphrase"},
+	{key: safetyKey{"config", "", "approval-code"}, tier: tierPerson},
+	{key: safetyKey{"config", "vault", "passphrase"}, tier: tierPerson},
+	{key: safetyKey{"credential", "", "check"}, tier: tierPerson},
+	{key: safetyKey{"host", "", "shell"}, tier: tierPerson},
+	{key: safetyKey{"database", "", "shell"}, tier: tierPerson},
+	{key: safetyKey{"cluster", "", "shell"}, tier: tierPerson},
+	{key: safetyKey{"", "", "login"}, tier: tierPerson},
+	{key: safetyKey{"login", "", "aws"}, tier: tierPerson},
+	{key: safetyKey{"", "", "ssh-gate"}, tier: tierPerson},
+	{key: safetyKey{"host", "", "ssh-command"}, tier: tierPerson},
+	{key: safetyKey{"credential", "certificate", "add"}, tier: tierPerson, what: "trusts every server the CA signs"},
+	{key: safetyKey{"config", "vault", "keychain"}, when: func(w []string) bool { return !givesFlag("off")(w) }, cond: "without --off (moving the key into the keychain)", tier: tierPerson},
+	{key: safetyKey{"host", "", "trust"}, when: anyWord("--reset", "--reset=true"), cond: "with --reset, when a key is pinned", tier: tierPerson, what: "replaces a pinned host key (OD-9)"},
+	{key: safetyKey{"", "", "export"}, when: func(w []string) bool { return givesFlag("sealed")(w) || givesFlag("for-phone")(w) }, cond: "with --sealed or --for-phone", tier: tierPerson},
+	{key: safetyKey{"", "", "import"}, when: anyWord("komando"), cond: "SOURCE komando", tier: tierPerson, dynamic: "the file is sealed (export --sealed): a person types its passphrase"},
 
 	// a bulk change keeps its own confirm (CONFIRM_REQUIRED for an agent)
-	{id: "group.rm", when: func(w []string) bool { return len(riskArgs(w)) == 1 }, cond: "GROUP alone", tier: tierChange, bulk: "deleting a group of more than 3 members"},
+	{key: safetyKey{"group", "", "remove"}, when: func(w []string) bool { return len(riskArgs(w)) == 1 }, cond: "GROUP alone", tier: tierChange, bulk: "deleting a group of more than 3 members"},
+})
+
+// withRowIDs fills each row's id with the command its key names ("" for a
+// key no command has, which TestSafetyKeys reports).
+func withRowIDs(rows []riskRow) []riskRow {
+	for i := range rows {
+		rows[i].id = keyIDs[rows[i].key]
+	}
+	return rows
 }
 
 // riskArgs are the words that are no flags (the positionals, roughly:
@@ -222,10 +232,13 @@ func riskOf(c *cobra.Command, words []string) riskRow {
 
 // rowsFor is the table's rows for c, in table order.
 func rowsFor(c *cobra.Command) []riskRow {
-	id := cmdID(c)
+	k, ok := cmdKeys[cmdID(c)]
+	if !ok {
+		return nil
+	}
 	var rows []riskRow
 	for _, r := range riskRows {
-		if r.id == id {
+		if r.key == k {
 			rows = append(rows, r)
 		}
 	}
@@ -284,7 +297,7 @@ func lineWords(line []string) (c *cobra.Command, words, pos []string) {
 	return c, words, pos
 }
 
-// riskRowIDs are the IDs the table names (TestTablesKeyedByID).
+// riskRowIDs are the command IDs the rows name (TestTablesKeyedByID).
 func riskRowIDs() []string {
 	ids := make([]string, 0, len(riskRows))
 	for _, r := range riskRows {
