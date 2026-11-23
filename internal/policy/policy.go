@@ -78,8 +78,13 @@ func init() {
 // (r\m -rf /e""tc, Re`move-Item) do not hide it. A custom pattern that does
 // not compile matches every command: a broken rule must not quietly stop
 // protecting anything.
-func Check(cmd string, extra []string) []Rule {
-	hits := []Rule{}
+func Check(cmd string, extra []string) (hits []Rule) {
+	defer func() {
+		if recover() != nil { // a check that crashes must not let the command through
+			hits = []Rule{{ID: checkFailedID, Reason: "fails to read the command, so komando cannot check it"}}
+		}
+	}()
+	hits = []Rule{}
 	norm, plain, ps := Normalize(cmd), Plain(cmd), psPlain(Normalize(cmd))
 	match := func(re *regexp.Regexp) bool {
 		return re.MatchString(norm) || re.MatchString(plain) || re.MatchString(ps)
@@ -100,6 +105,9 @@ func Check(cmd string, extra []string) []Rule {
 	}
 	return hits
 }
+
+// checkFailedID is the hit Check returns when a check crashed on cmd.
+const checkFailedID = "check-failed"
 
 // Invalid returns, for each custom pattern that does not compile, what is
 // wrong with it and how to fix it (for doctor and policy list).
