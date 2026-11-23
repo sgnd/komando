@@ -21,11 +21,13 @@ import (
 type approvalBody struct {
 	label string // "the script ./deploy.sh"
 	body  []byte
-	data  bool     // content to store or send, not code to run (noteApprovalData)
-	big   bool     // more than bodyMaxBytes: body is nil, size and sum say what it is
-	size  int64    // bytes sent
-	sum   [32]byte // SHA-256 of what is sent
-	file  string   // the file the window read, resolved (resolvedFile); "" for a body that is not one file
+	data  bool // content to store or send, not code to run (noteApprovalData)
+	big   bool // more than bodyMaxBytes: body is nil, size and sum say what it is
+	// overLimit: whole() found more lines than the window takes
+	overLimit bool
+	size      int64    // bytes sent
+	sum       [32]byte // SHA-256 of what is sent
+	file      string   // the file the window read, resolved (resolvedFile); "" for a body that is not one file
 }
 
 // resolvedFile is path as the file it names: ~ expanded, absolute, cleaned
@@ -52,9 +54,13 @@ func newBody(label string, body []byte, data bool) *approvalBody {
 // screen (the macOS and zenity windows do not scroll); a bigger body gets
 // no window, and the agent asks the person to run it in their terminal.
 const (
-	bodyMaxLines = 40       // lines the window shows, wrapped pieces included
-	bodyWrap     = 100      // characters of a line per shown piece
-	bodyMaxBytes = 16 << 10 // a body this big cannot fit in bodyMaxLines
+	bodyMaxLines = 40 // lines the window shows, wrapped pieces included
+	// bodyMaxLinesScroll is the limit of the macOS window, which scrolls
+	// and enables Allow only once its last line was seen (SEEN in
+	// approval_view.go). It applies to scripts only (lineLimit).
+	bodyMaxLinesScroll = 200
+	bodyWrap           = 100      // characters of a line per shown piece
+	bodyMaxBytes       = 16 << 10 // a body this big cannot fit in bodyMaxLines
 )
 
 // noteApprovalBody tells the approval window of this command what it sends.
@@ -248,9 +254,12 @@ func (b *approvalBody) whole(cl *call) (text, bad string) {
 			}
 			shown = append(shown, fmt.Sprintf("  %*s  %s", numW, num, piece))
 		}
-		if len(shown) > bodyMaxLines {
-			return "", fmt.Sprintf("%s is more than the %d lines the window shows whole (%d lines, long ones wrapped at %d characters)", b.label, bodyMaxLines, len(lines), bodyWrap)
-		}
+	}
+	// the limit counts lines as shown, wrapped pieces included, and the
+	// message names that same number
+	if limit := b.lineLimit(); len(shown) > limit {
+		b.overLimit = true
+		return "", fmt.Sprintf("%s is more than the %d lines the window shows whole: %d lines as shown, with lines over %d characters wrapped (%d lines in it)", b.label, limit, len(shown), bodyWrap, len(lines))
 	}
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "It also sends %s (%d bytes, %d lines, SHA-256 %s)", b.label, len(b.body), len(lines), b.sha256())
@@ -262,6 +271,16 @@ func (b *approvalBody) whole(cl *call) (text, bad string) {
 		sb.WriteString(l + "\n")
 	}
 	return sb.String() + "\n", ""
+}
+
+// lineLimit is how many shown lines the window takes for b: a script on
+// macOS gets bodyMaxLinesScroll; every other body, and every body on
+// Windows and Linux, bodyMaxLines.
+func (b *approvalBody) lineLimit() int {
+	if desktopOS == "darwin" && !b.data && strings.HasPrefix(b.label, "the script") {
+		return bodyMaxLinesScroll
+	}
+	return bodyMaxLines
 }
 
 // bodyLine is one line of a body as the window shows it, in pieces of at

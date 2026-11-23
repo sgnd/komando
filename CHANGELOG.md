@@ -7,6 +7,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Changed
+
+- The macOS approval window now shows a script of up to 200 lines whole; it scrolls and allows only after the last line. Windows and Linux keep 40 lines.
+- A script too long for the window ends with its own error code, `SHORTER_SCRIPT_REQUIRED`, and the message names the counted number of shown lines and the script's own line count.
+
 ## [0.17.0] - 2026-11-22
 
 ### Highlights

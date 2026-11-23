@@ -151,7 +151,7 @@ func (v approvalView) optionLine() string {
 // the whole line when it has none), then a script or file whole with its
 // size and SHA-256. A body
 // reaches the window only when approval_body.go can show it whole
-// (bodyMaxLines); a longer one opens no window at all.
+// (lineLimit); a longer one opens no window at all.
 func (v approvalView) shown() string {
 	if v.raw != "" {
 		return strings.TrimRight(v.raw, "\n")

@@ -412,6 +412,11 @@ func testView(agent string, flags []string, what string, why []string, line, bod
 // A script the window can show whole (bodyMaxLines) shows every line;
 // one line more opens no window (approval_body.go refuses it).
 func TestApprovalScriptWhole(t *testing.T) {
+	// the Windows and Linux limit; macOS takes longer scripts
+	// (approval_long_test.go)
+	savedOS := desktopOS
+	desktopOS = "linux"
+	t.Cleanup(func() { desktopOS = savedOS })
 	script := func(n int) []byte {
 		var b strings.Builder
 		for i := 1; i <= n; i++ {

@@ -801,7 +801,7 @@ var catalogSite = map[string]string{
 
 // renamedFrom are codes given by renaming another error (e.Code =
 // "SWARM_ERROR" on a DOCKER_ERROR), which keeps that error's exit and hint.
-var renamedFrom = map[string]string{"SWARM_ERROR": "DOCKER_ERROR"}
+var renamedFrom = map[string]string{"SWARM_ERROR": "DOCKER_ERROR", "SHORTER_SCRIPT_REQUIRED": "PROTECTED_TARGET"}
 
 // hintMeanings stand in for a hint the program builds as it runs (from the
 // key's path, or from the tool's error): what it tells the reader to do.
@@ -810,6 +810,7 @@ var hintMeanings = map[string]string{
 	"NO_PASSPHRASE":           "the vault keeps its key in store.key or the OS keychain already; the hint says which",
 	"VPN_CLIENT_MISSING":      "install the program the message names (macOS: `brew install NAME`; Linux: its package)",
 	"TOOL_FAILED":             "read the message; `komando test CONN` checks reachability (for a known problem, the hint names the fix)",
+	"SHORTER_SCRIPT_REQUIRED": "split the script into shorter ones and run each with `komando exec TARGET --script FILE`, or ask the user to run it in their own terminal",
 	"AZURE_LOGIN_REQUIRED":    "set AZURE_TENANT_ID, AZURE_CLIENT_ID and AZURE_CLIENT_SECRET for a service principal, run komando on Azure with a managed identity, or a person runs `az login`",
 }
 
