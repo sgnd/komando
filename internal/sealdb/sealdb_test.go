@@ -266,17 +266,20 @@ func TestUniqueAcrossProcesses(t *testing.T) {
 	open(t, path).Close()
 	const procs, each = 4, 15
 	cmds := make([]*exec.Cmd, procs)
+	outs := make([]*bytes.Buffer, procs) // each child's output, shown when one fails
 	for i := range cmds {
 		c := exec.Command(os.Args[0], "-test.run=^TestUniqueAcrossProcesses$", "-test.count=1")
 		c.Env = append(os.Environ(), "SEALDB_CHILD="+path, "SEALDB_NAME="+strconv.Itoa(i))
+		outs[i] = new(bytes.Buffer)
+		c.Stdout, c.Stderr = outs[i], outs[i]
 		if err := c.Start(); err != nil {
 			t.Fatal(err)
 		}
 		cmds[i] = c
 	}
-	for _, c := range cmds {
+	for i, c := range cmds {
 		if err := c.Wait(); err != nil {
-			t.Fatal(err)
+			t.Fatalf("child %d: %v\n%s", i, err, outs[i])
 		}
 	}
 	d := open(t, path)

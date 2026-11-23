@@ -1,7 +1,10 @@
 package cli
 
 import (
+	"os"
 	"regexp"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -40,9 +43,10 @@ func macEndLines() []string {
 }
 
 const (
-	onKeyDeny   = "if (code === 53 || code === 36 || (code === 13 && (mods & CMD))) { note('end: Deny, key'); CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); return; }"
+	onKeyDeny   = "if (code === 53 || (code === 13 && (mods & CMD))) { note('end: Deny, key'); CHOICE = 'Deny key'; CHOSEN = true; APP.stopModalWithCode(DENY); return; }"
+	onKeyReturn = "if (code === 36 || code === 76) { note('Return answers nothing'); keysHint(); return; }"
 	onKeyTab    = "if (code === 48) { showFocus(nextFocus(FOCUS, (mods & SHIFT) !== 0, SCROLLS, SEEN)); note('focus moved'); return; }"
-	onKeySpace  = "if (code === 49 && (FOCUS === 'deny' || FOCUS === 'allow')) { var btn = FOCUS === 'allow' ? ALLOW_BTN : DENY_BTN; note('Space presses the focused button'); btn.performClick(btn); return; }"
+	onKeySpace  = "if (code === 49 && (FOCUS === 'deny' || FOCUS === 'allow')) { note('Space on a button answers nothing'); if (FOCUS === 'allow') keysHint(); return; }"
 	onKeyScroll = "if (SCROLLS && (SCROLL_KEYS.indexOf(code) >= 0 || (code === 49 && FOCUS === 'script')) && scrollKey(code)) { if (DEBUG) note('scrolled to ' + where()); }"
 )
 
@@ -72,7 +76,7 @@ func TestMacPanelKeys(t *testing.T) {
 		{"home", "115", []string{onKeyScroll}, "code === 115 ? 0", false},
 		{"end", "119", []string{onKeyScroll}, "code === 119 ? maxY", false},
 		{"space", "49", []string{onKeyScroll, onKeySpace, "code === 49 && FOCUS === 'script'"}, "code === 121 || code === 49 ? y + page", false},
-		{"return", "36", []string{onKeyDeny}, "", true},
+		{"return", "36", []string{onKeyReturn}, "", false},
 		{"esc", "53", []string{onKeyDeny}, "", true},
 		{"cmd-w", "13", []string{onKeyDeny, "code === 13 && (mods & CMD)"}, "", true},
 	} {
@@ -109,14 +113,14 @@ func TestMacPanelKeys(t *testing.T) {
 	if !strings.Contains(macAlertScript, "var SCROLL_KEYS = [126, 125, 116, 121, 115, 119];") {
 		t.Error("the scroll keys are not Up, Down, Page Up/Down and Home/End")
 	}
-	// Deny's keys first, then Tab, then Space on a button, then the scroll keys; nothing after
-	d, tb, sp, sc := strings.Index(on, onKeyDeny), strings.Index(on, onKeyTab), strings.Index(on, onKeySpace), strings.Index(on, onKeyScroll)
-	if d < 0 || tb < d || sp < tb || sc < sp || !strings.HasPrefix(on[sc+len(onKeyScroll):], "\n  } catch") {
-		t.Errorf("onKey order: Deny %d, Tab %d, Space %d, scroll %d:\n%s", d, tb, sp, sc, on)
+	// Deny's keys first, then Return (nothing), Tab, Space on a button (nothing), then the scroll keys; nothing after
+	d, rt, tb, sp, sc := strings.Index(on, onKeyDeny), strings.Index(on, onKeyReturn), strings.Index(on, onKeyTab), strings.Index(on, onKeySpace), strings.Index(on, onKeyScroll)
+	if d < 0 || rt < d || tb < rt || sp < tb || sc < sp || !strings.HasPrefix(on[sc+len(onKeyScroll):], "\n  } catch") {
+		t.Errorf("onKey order: Deny %d, Return %d, Tab %d, Space %d, scroll %d:\n%s", d, rt, tb, sp, sc, on)
 	}
-	// no button answers to any other key: Deny has Return, Allow once none
+	// no button answers to a key: neither Deny nor Allow once has a key equivalent
 	for _, l := range strings.Split(macAlertScript, "\n") {
-		if strings.Contains(l, "keyEquivalent") && !strings.Contains(l, "deny.keyEquivalent = '\\r'") && !strings.Contains(l, "allow.keyEquivalent = ''") {
+		if strings.Contains(l, "keyEquivalent") && !strings.Contains(l, "deny.keyEquivalent = ''") && !strings.Contains(l, "allow.keyEquivalent = ''") {
 			t.Errorf("unexpected key equivalent: %s", l)
 		}
 	}
@@ -365,7 +369,7 @@ func TestMacPanelNoScriptView(t *testing.T) {
 }
 
 // C237: with Allow once off (a script not yet read to its end), Tab and
-// Shift-Tab cycle the script and Deny only; Space on Deny denies.
+// Shift-Tab cycle the script and Deny only.
 func TestMacPanelAllowOff(t *testing.T) {
 	nf := macFunc(t, "nextFocus")
 	if !strings.Contains(nf, "(scrolls ? ['script'] : []).concat(allowOn ? ['deny', 'allow'] : ['deny'])") {
@@ -437,19 +441,17 @@ func TestMacPanelTabCycle(t *testing.T) {
 	}
 }
 
-// C237: Space on a focused button presses it as a click would
-// (performClick runs the button's own action), so Allow once still meets
-// its gate in allow: and the owner check after the panel. Allow once can
-// hold the focus only once it is on. Return is never a press of Allow
-// once: onKey denies on Return before it looks at the focus.
-func TestMacPanelSpacePressesFocusedButton(t *testing.T) {
+// A stray key never answers: Space on a focused button and Return do
+// nothing, and nothing presses a button for a key (no performClick). Only
+// a click, or Esc and Cmd-W to deny, end the panel.
+func TestMacPanelSpaceAndReturnAnswerNothing(t *testing.T) {
 	s := macAlertScript
 	on := macFunc(t, "onKey")
-	if !strings.Contains(on, onKeySpace) || strings.Count(s, "performClick") != 1 {
-		t.Errorf("Space on a button is not only %q", onKeySpace)
+	if !strings.Contains(on, onKeySpace) || !strings.Contains(on, onKeyReturn) || strings.Contains(s, "performClick") {
+		t.Errorf("Space or Return still answers: want %q and %q, no performClick", onKeySpace, onKeyReturn)
 	}
-	if strings.Index(on, onKeyDeny) > strings.Index(on, onKeySpace) || strings.Contains(onKeyDeny, "FOCUS") {
-		t.Error("Return is read after the focus")
+	if strings.Index(on, onKeyReturn) > strings.Index(on, onKeySpace) || strings.Contains(onKeyDeny, "FOCUS") {
+		t.Error("the keys are read after the focus")
 	}
 	if !strings.Contains(onKeyTab, "SEEN)") {
 		t.Error("Tab can stop on Allow once before the gate opens")
@@ -516,11 +518,8 @@ func TestMacPanelReturnEscUnchanged(t *testing.T) {
 	if !strings.Contains(on, onKeyDeny) {
 		t.Errorf("onKey has no %q", onKeyDeny)
 	}
-	if strings.Contains(on, "76") {
-		t.Error("onKey takes keypad Enter")
-	}
-	if !strings.Contains(s, "deny.keyEquivalent = '\\r'") {
-		t.Error("Return is not Deny's key equivalent")
+	if !strings.Contains(s, "deny.keyEquivalent = '';") {
+		t.Error("Deny still has a key equivalent")
 	}
 	if strings.Count(s, "ALLOW_BTN.enabled = !HELD") != 1 || !strings.Contains(s, "'allow:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note((SEEN ? 'end: Allow once, ' : 'Allow once ignored: not read to the end, ') + how()); if (!SEEN || HELD) return;") {
 		t.Error("the Allow gate changed")
@@ -562,5 +561,78 @@ func TestMacPanelKeyNames(t *testing.T) {
 	}
 	if regexp.MustCompile(`note\([^;]*keyCode`).MatchString(s) || strings.Contains(s, "'key ' + Number(") {
 		t.Error("a note writes a key code")
+	}
+}
+
+// A keyboard-only person is told how to allow: Return (or keypad Enter)
+// anywhere, or Space on Allow once, shows the keys line, which starts
+// hidden; it answers nothing.
+func TestMacPanelKeysLine(t *testing.T) {
+	s := macAlertScript
+	on := macFunc(t, "onKey")
+	if !strings.Contains(on, onKeyReturn) || !strings.Contains(on, onKeySpace) {
+		t.Error("Return or Space does not show the keys line")
+	}
+	kh := macFunc(t, "keysHint")
+	if !strings.Contains(kh, "KEYS.v.hidden = false") || strings.Contains(kh, "stopModal") || strings.Contains(kh, "CHOICE") {
+		t.Errorf("keysHint does more than show the line:\n%s", kh)
+	}
+	if !strings.Contains(s, "KEYS.v.hidden = true;") {
+		t.Error("the keys line does not start hidden")
+	}
+	for lang, w := range map[string]approvalWords{"en": approvalWordsEN, "id": approvalWordsID} {
+		args := macArgs(approvalView{raw: "t", Lang: lang})
+		if i := slices.Index(args, macArgMarker); args[i+10] != w.keys || w.keys == "" {
+			t.Errorf("%s: argv[10] %q, want the keys line %q", lang, args[i+10], w.keys)
+		}
+	}
+	if !strings.Contains(approvalWordsEN.keys, "Keys do not allow.") || !strings.Contains(approvalWordsEN.keys, "Esc denies.") {
+		t.Errorf("keys line: %q", approvalWordsEN.keys)
+	}
+}
+
+// The real-panel key run (approval-window.yml) expects what the panel does:
+// Return and Space on Allow once answer nothing and show the keys line, Esc
+// ends as "Deny key", and no key run expects a Deny by Return or an Allow.
+func TestApprovalWindowWorkflowKeys(t *testing.T) {
+	b, err := os.ReadFile("../../.github/workflows/approval-window.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	wf := string(b)
+	for _, want := range []string{`"return k36 keys Return"`, `"esc k53 denykey Esc"`, `"allow-key k119,k48,k48,k49 keys Space"`, `"space k49 stays Space"`, `stdout: "Deny key"`, `'keys line shown'`} {
+		if !strings.Contains(wf, want) {
+			t.Errorf("approval-window.yml has no %s", want)
+		}
+	}
+	for _, bad := range []string{"k36 deny", "k49 deny", " allow Space", `stdout: "Deny"'`} {
+		if strings.Contains(wf, bad) {
+			t.Errorf("approval-window.yml still expects %s", bad)
+		}
+	}
+	if !strings.Contains(macAlertScript, "note('keys line shown')") || !strings.Contains(macAlertScript, "if (CHOICE === 'Deny key') return 'Deny key';") {
+		t.Error("the panel no longer writes what the key run reads")
+	}
+}
+
+// The key run reads the panel's answer from the debug log's stdout line,
+// which the log writes only for an answer in macAnswers: every answer the
+// panel can return, and every stdout the workflow expects, is one of them.
+func TestPanelAnswersAreLogged(t *testing.T) {
+	for _, m := range regexp.MustCompile(`return '([^'\\]+)'`).FindAllStringSubmatch(macAlertScript, -1) {
+		if a := m[1]; strings.HasPrefix(a, "Allow once") || a == "Deny" || a == "Deny key" || a == "gave up" {
+			if !slices.Contains(macAnswers, a) {
+				t.Errorf("the panel can answer %q, which the debug log does not write", a)
+			}
+		}
+	}
+	b, err := os.ReadFile("../../.github/workflows/approval-window.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range regexp.MustCompile(`stdout: "([^"]+)"`).FindAllStringSubmatch(string(b), -1) {
+		if got := macStdout([]byte(m[1] + "\n")); got != strconv.Quote(m[1]) {
+			t.Errorf("the workflow expects stdout %q, but the debug log writes %s", m[1], got)
+		}
 	}
 }

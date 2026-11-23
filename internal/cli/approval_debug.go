@@ -69,11 +69,12 @@ var macOutcomeName = map[macOutcome]string{
 	macOwnerTimeout: "owner check timed out",
 	macGaveUp:       "gave up",
 	macFailed:       "failed",
+	macDeniedKey:    "denied by a key",
 }
 
 // macAnswers are what the panel prints; the log copies stdout only when it
 // is one of these.
-var macAnswers = []string{"Deny", "gave up", "Allow once", "Allow once\nowner ok", "Allow once\nowner denied",
+var macAnswers = []string{"Deny", "Deny key", "gave up", "Allow once", "Allow once\nowner ok", "Allow once\nowner denied",
 	"Allow once\nowner timeout", "Allow once\nowner unavailable"}
 
 // macDebugLog writes one panel run to w: the view's shape, each line the
