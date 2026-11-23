@@ -18,6 +18,9 @@ are named, and the rules every change keeps. Tests check most of them; the
 | **Every command says whether it reads or changes things** (`commandKinds` in `internal/cli/kinds.go`). | `TestEveryCommandHasKind` |
 | **Command IDs change only on purpose**, together with the command name (`internal/cli/testdata/command_ids.txt`). | `TestCommandIDsStable` |
 | **The JSON answers keep their shape.** Fields are added, never renamed or removed. | `TestOutputShapes`, `TestAgentGolden` |
+| **The command tree holds still while its code moves.** What `komando schema` prints, every `--help`, and every question a person is asked are recorded; they change only on purpose (`KOMANDO_GOLDEN_UPDATE=1`, after reading the diff). | `TestSchemaGolden`, `TestHelpGolden`, `TestQuestionsGolden` |
+| **Post-quantum key exchange first.** SSH offers `mlkem768x25519-sha256` first and no code narrows the list; a TLS config that sets curves names `X25519MLKEM768` (the one exception is listed in the test, and the list only shrinks). | `TestDefaultKeyExchangeIsHybrid`, `TestNoCodeNarrowsKeyExchange`, `TestCurvePreferencesHybrid` |
+| **Start time does not grow.** `komando version`, `komando list` and `komando guide guard` (the agent hook) start no more than 10% (and 3 ms) slower than `main`. | CI `Start time` on pull requests (`scripts/start-time.sh`) |
 | **Functions up to 100 lines, files up to 800.** Split instead of growing. | `internal/codesize` |
 | **Coverage does not drop** below `test/coverage-floor.txt`. | `make cover` |
 | **Every command runs once end to end** (`test/e2e/checks/coverage.sh`). | `make e2e` |
@@ -72,6 +75,7 @@ or a listed one is gone.
 | `internal/boundary` | test only: the paid boundary (no sync library or Komando Cloud client in the binary, no komando-owned address but the release site) |
 | `internal/browserx` | a sign-in page in a browser window (VPN SAML logins) |
 | `internal/cachex` | Redis-compatible caches and memcached, with the risk of each command |
+| `internal/capability` | the command tree of the next command structure as data: types, providers, areas, verbs, options and tier rows; nothing imports it yet |
 | `internal/ci` | test only: runs the scripts inside the GitHub workflows (the CLA check) |
 | `internal/cli` | every command: flags, safety checks, audit and output |
 | `internal/cloud` | komando's own clients for cloud and secret-manager APIs |
@@ -89,6 +93,7 @@ or a listed one is gone.
 | `internal/openvpn` | komando's own OpenVPN client |
 | `internal/out` | the JSON envelope and the text output of every command |
 | `internal/policy` | finds destructive shell commands |
+| `internal/postquantum` | test only: key exchange is post-quantum hybrid first (SSH key exchanges, TLS curves and versions) |
 | `internal/ppp` | a small PPP peer for L2TP |
 | `internal/transport` | what every outbound HTTPS and TLS client of komando shares: the system's CAs (never `SSL_CERT_FILE`/`SSL_CERT_DIR`) and the company proxy (a person's `HTTPS_PROXY`, never an AI agent's) |
 | `internal/transport/proxytest` | a test proxy for the tests |
