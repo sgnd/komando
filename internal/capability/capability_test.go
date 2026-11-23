@@ -53,6 +53,25 @@ func TestTopLevelClosed(t *testing.T) {
 	}
 }
 
+func TestKeyPath(t *testing.T) {
+	tests := []struct {
+		name string
+		key  Key
+		want string
+	}{
+		{"a target: type provider area verb", Key{Type: "queue", Provider: "kafka", Area: "topic", Verb: "list"}, "queue kafka topic list"},
+		{"komando's noun: noun area provider verb", Key{Type: "credential", Provider: "vault", Area: "store", Verb: "add"}, "credential store vault add"},
+		{"a top-level verb", Key{Verb: "copy"}, "copy"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.key.String(); got != tt.want {
+				t.Errorf("%+v.String() = %q, want %q", tt.key, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestChildren(t *testing.T) {
 	tests := []struct {
 		name string

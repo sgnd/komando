@@ -47,8 +47,6 @@ var gone = []Gone{
 	{Today: "ssh-gate", Why: "the phone app gets its own engine first"},
 	{Today: "ssh-gate.line", Why: "the phone app gets its own engine first"},
 	{Today: "ssh-gate.status", Why: "the phone app gets its own engine first"},
-	{Today: "logout", Why: "open: a close verb for kept sessions may carry it", Lost: "ending a kept session before 8 hours, if no close verb comes"},
-	{Today: "logout.aws", Why: "open: a close verb for kept sessions may carry it", Lost: "ending a kept cloud session before 8 hours, if no close verb comes"},
 }
 
 // internals are hidden commands komando runs itself.

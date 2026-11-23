@@ -35,6 +35,8 @@ var sshExecCarries = join(
 	idsOf("job", "kill", "logs", "rm", "start", "status", "wait"),
 )
 
+var endOpt = Option{Name: "end", Kind: Bool, Help: "end the session a person's login keeps open"}
+
 var readOnlyOpt = Option{Name: "read-only", Kind: Bool, Help: "the command only reads (the policy checks it either way)"}
 
 var attachOpt = Option{Name: "attach", Kind: String, Pattern: sessionID, Help: "come back to the session with this ID"}
@@ -81,8 +83,10 @@ func hostInventoryFor(p provider) []Leaf {
 	if p.name == "ssh" {
 		for i := range ls {
 			if ls[i].Verb == "test" {
-				// the person step of a two-factor server happens in test
-				ls[i].Carries = []string{"login"}
+				// the person step of a two-factor server happens in test, and
+				// --end ends the session it keeps
+				ls[i].Options = append(ls[i].Options, endOpt)
+				ls[i].Carries = []string{"login", "logout"}
 			}
 		}
 	}

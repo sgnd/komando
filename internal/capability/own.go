@@ -45,14 +45,17 @@ var credentialLeaves = concat(
 func valueKindLeaves() []Leaf {
 	var out []Leaf
 	for _, kind := range valueKinds {
-		add := []Option{{Name: "ref", Kind: String, Help: "where the value lives outside komando (env:, file:, op://, ...)"}}
+		add := []Option{
+			{Name: "store", Kind: Entry, Help: "the outside store that holds the value (credential store)"},
+			{Name: "item", Kind: String, Needs: []string{"store"}, Help: "the item in that store"},
+		}
 		if kind == "password" {
 			add = append(add, Option{Name: "user", Kind: String, Help: "the user name it logs in as"},
 				Option{Name: "ask", Kind: Bool, Help: "keep no password: a person types it at each connect"})
 		}
 		out = append(out,
 			Leaf{Key: own("credential", kind, "add"), Args: oneName, Options: add, Stops: []string{"RefGuard"}, Carries: []string{"secret.set"}},
-			Leaf{Key: own("credential", kind, "edit"), Args: oneName, Options: clone(add[:1]), Stops: append([]string{"RefGuard"}, credentialStops...)},
+			Leaf{Key: own("credential", kind, "edit"), Args: oneName, Options: clone(add[:2]), Stops: append([]string{"RefGuard"}, credentialStops...)},
 			Leaf{Key: own("credential", kind, "list"), LocalRead: true, Synonyms: []string{"ls"}},
 			Leaf{Key: own("credential", kind, "remove"), Args: oneName, Stops: credentialStops, Carries: []string{"secret.rm"}},
 			Leaf{Key: own("credential", kind, "rename"), Args: []Arg{{Name: "NAME"}, {Name: "NEW"}}, Stops: credentialStops, Carries: []string{"secret.rename"}},
@@ -62,10 +65,39 @@ func valueKindLeaves() []Leaf {
 	return out
 }
 
+// storeProviders are the outside secret stores a credential can point at.
+// Each has typed options; nobody types a raw reference string.
+var storeProviders = []provider{
+	{name: "vault", state: New, connect: []Option{{Name: "address", Kind: String, Help: "the Vault server's URL"}, credentialOpt}},
+	{name: "aws-sm", state: New, connect: []Option{{Name: "region", Kind: String}, {Name: "profile", Kind: String, Help: "the AWS profile to log in with"}}},
+	{name: "gcp-sm", state: New, connect: []Option{{Name: "project", Kind: String}}},
+	{name: "azure-kv", state: New, connect: []Option{{Name: "vault-url", Kind: String, Help: "the key vault's URL"}}},
+	{name: "onepassword", state: New, connect: []Option{{Name: "account", Kind: String}}},
+	{name: "bitwarden", state: New, connect: []Option{{Name: "server", Kind: String, Help: "a self-hosted server's URL"}}},
+	{name: "keepass", state: New, connect: []Option{{Name: "file", Kind: File, Help: "the .kdbx file"}, credentialOpt}},
+	{name: "env", state: New},
+	{name: "file", state: New, connect: []Option{{Name: "dir", Kind: File, Help: "the folder the items are files in"}}},
+}
+
+// storeInventory: test proves komando can read from the store without
+// showing a value; RefGuard checks what a store may point at.
+var storeInventory = inventory{typ: "credential", area: "store"}
+
+var storeLeaves = each(storeProviders, func(p provider) []Leaf {
+	ls := storeInventory.leaves(p)
+	for i := range ls {
+		if ls[i].Verb == "add" || ls[i].Verb == "edit" {
+			ls[i].Stops = append(ls[i].Stops, "RefGuard")
+		}
+	}
+	return ls
+})
+
 var readOnlySnippet = Option{Name: "read-only", Kind: Bool, Help: "every step only reads"}
 
 var ownLeaves = concat(
 	credentialLeaves,
+	storeLeaves,
 	[]Leaf{
 		{Key: own("group", "", "create"), Args: []Arg{{Name: "NAME"}, {Name: "MEMBER", Many: true, Optional: true}}, Today: []string{"group.add"}},
 		{Key: own("group", "", "edit"), Args: oneName, State: New,

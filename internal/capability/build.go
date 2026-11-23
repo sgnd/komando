@@ -21,6 +21,7 @@ type ids map[string][]string
 // Carries per verb, and the stops each verb runs.
 type inventory struct {
 	typ     string
+	area    string // credential store: the providers sit under an area
 	today   ids
 	carries ids
 	twin    string // the stop that compares addresses: protectedTwinHost or protectedTwinConn
@@ -34,7 +35,7 @@ func (inv inventory) leaves(p provider) []Leaf {
 	var out []Leaf
 	for _, verb := range inventoryVerbs {
 		l := Leaf{
-			Key:     Key{Type: inv.typ, Provider: p.name, Verb: verb},
+			Key:     Key{Type: inv.typ, Provider: p.name, Area: inv.area, Verb: verb},
 			State:   p.state,
 			Today:   inv.today[verb],
 			Carries: inv.carries[verb],

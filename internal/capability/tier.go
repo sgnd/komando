@@ -115,6 +115,8 @@ var tierRows = concat2(
 		{Key: top("import"), Tier: Person, Dynamic: "the file is sealed: a person types its passphrase"},
 
 		{Key: own("group", "", "remove"), Tier: Change, Bulk: "deleting a group of more than 3 members"},
+		{Key: Key{Type: "host", Provider: "ssh", Verb: "test"}, Tier: Change, When: Cond{Flags: []string{"end"}}, What: "ends the kept session"},
+		{Key: top("test"), Tier: Change, When: Cond{Flags: []string{"end"}}, What: "ends every kept session"},
 	},
 	protectionOffRows(),
 )

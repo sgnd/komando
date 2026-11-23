@@ -9,7 +9,10 @@
 // "pre-cut" tie today's command IDs to their v2.7 home and go in the cut.
 package capability
 
-import "strings"
+import (
+	"slices"
+	"strings"
+)
 
 // Key names one leaf. Type is "" for a top-level action (list, copy, ...);
 // Provider is "" for komando's own nouns; Area is "" when the verb sits on
@@ -17,10 +20,19 @@ import "strings"
 // part (vault, skill, recording) is the Area.
 type Key struct{ Type, Provider, Area, Verb string }
 
+// targetTypes are the types of things komando connects to. Their words
+// are TYPE PROVIDER AREA VERB; komando's own nouns put the area first
+// (credential store vault add).
+var targetTypes = []string{"host", "database", "cache", "queue", "storage", "cluster", "registry", "vpn", "cloud"}
+
 // Path is the words a person types, without NAME and flags.
 func (k Key) Path() []string {
+	words := []string{k.Type, k.Provider, k.Area, k.Verb}
+	if !slices.Contains(targetTypes, k.Type) {
+		words = []string{k.Type, k.Area, k.Provider, k.Verb}
+	}
 	var p []string
-	for _, w := range []string{k.Type, k.Provider, k.Area, k.Verb} {
+	for _, w := range words {
 		if w != "" {
 			p = append(p, w)
 		}

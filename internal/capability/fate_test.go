@@ -101,9 +101,6 @@ func TestInternalForLeaf(t *testing.T) {
 	}
 }
 
-// targetTypes print what they read from a server or service.
-var targetTypes = []string{"host", "database", "cache", "queue", "storage", "cluster", "registry", "vpn", "cloud"}
-
 // ownDataAreas list komando's own state, not the target's.
 var ownDataAreas = []Key{
 	{Type: "host", Provider: "ssh", Area: "tunnel", Verb: "list"},

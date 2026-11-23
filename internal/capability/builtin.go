@@ -13,7 +13,8 @@ var copyOpts = []Option{
 
 var builtinLeaves = []Leaf{
 	{Key: top("list"), Args: []Arg{{Name: "SELECTOR", Selector: true, Optional: true}}, LocalRead: true, Today: []string{"list"}},
-	{Key: top("test"), Args: []Arg{{Name: "NAME", Selector: true}}, Today: []string{"test"}},
+	{Key: top("test"), Args: []Arg{{Name: "NAME", Selector: true, Optional: true}}, Options: []Option{endOpt},
+		Today: []string{"test"}, Carries: []string{"logout.aws"}},
 	{Key: top("update"), LeavesHome: true, Today: []string{"update"}},
 	{Key: top("version"), LocalRead: true, Today: []string{"version"}},
 	{Key: top("schema"), Args: []Arg{{Name: "PATH", Many: true, Optional: true}}, LocalRead: true, Today: []string{"schema"}},
