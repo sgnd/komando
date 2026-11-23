@@ -174,3 +174,15 @@ func sameSet(a, b []string) bool {
 	slices.Sort(b)
 	return slices.Equal(a, b)
 }
+
+func TestStopsOnce(t *testing.T) {
+	for _, l := range All() {
+		seen := map[string]bool{}
+		for _, s := range l.Stops {
+			if seen[s] {
+				t.Errorf("%s: runs %s twice", l.Key, s)
+			}
+			seen[s] = true
+		}
+	}
+}

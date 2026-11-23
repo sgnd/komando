@@ -61,6 +61,10 @@ func (inv inventory) leaves(p provider) []Leaf {
 		case "test":
 			l.Args = []Arg{{Name: "NAME", Selector: true}}
 		}
+		if slices.ContainsFunc(l.Options, func(o Option) bool { return o.Kind == Credential }) {
+			// a leaf that names a credential must not name the approval code's seed
+			l.Stops = append(l.Stops, "reservedSecret")
+		}
 		out = append(out, l)
 	}
 	return out
@@ -115,10 +119,12 @@ func nonEmpty(words ...string) []string {
 	return out
 }
 
-// withStop adds stop to every leaf of ls.
+// withStop adds stop to every leaf of ls that does not run it yet.
 func withStop(ls []Leaf, stop string) []Leaf {
 	for i := range ls {
-		ls[i].Stops = append(slices.Clone(ls[i].Stops), stop)
+		if !slices.Contains(ls[i].Stops, stop) {
+			ls[i].Stops = append(slices.Clone(ls[i].Stops), stop)
+		}
 	}
 	return ls
 }

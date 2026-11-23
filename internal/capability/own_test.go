@@ -56,11 +56,14 @@ func TestCARevokeIsNotRemove(t *testing.T) {
 }
 
 // TestReservedSecretStops: the approval code's seed is an internal record,
-// not a credential, so every credential leaf and import refuse its name;
-// otherwise an agent could repoint it and compute approval codes.
+// not a credential, so every credential leaf, every leaf that names a
+// credential (--credential, --psk-credential) and import refuse its name,
+// and export leaves it out; otherwise an agent could repoint it, hand it to
+// an entry, or carry it out, and compute approval codes.
 func TestReservedSecretStops(t *testing.T) {
 	for _, l := range All() {
-		if (l.Type == "credential" || l.Key == top("import")) && !slices.Contains(l.Stops, "reservedSecret") {
+		names := slices.ContainsFunc(l.Options, func(o Option) bool { return o.Kind == Credential })
+		if (l.Type == "credential" || names || l.Key == top("import") || l.Key == top("export")) && !slices.Contains(l.Stops, "reservedSecret") {
 			t.Errorf("%s: does not run reservedSecret", l.Key)
 		}
 	}
