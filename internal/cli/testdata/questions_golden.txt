@@ -999,12 +999,22 @@ title: Check whether a command would be blocked
 ### komando policy deny
 title: Add a deny rule (a Go regular expression)
 - arg0 | Regex | Which command should komando block? | Like kubectl delete: write it as kubectl\s+delete (\s+ means spaces, .* means anything). Then check it with komando policy check "kubectl delete pod web". | kubectl\s+delete | check
+### komando policy edit
+title: Switch a built-in rule off or on, everywhere or on some servers
+- arg0 | Rule | Rule? |  |  | check
+- flag:group | --group | Only on the servers in this group (repeat it for more) |  |  | optional,advanced,check
+- flag:host | --host | Only on this server (repeat it for more) |  |  | optional,advanced,check
+- flag:off | --off | Switch the rule off |  |  | advanced,default,choices
+- flag:on | --on | Switch the rule on again |  |  | advanced,default,choices
 ### komando policy list
 title: List the built-in rules and your deny rules
 - flag:limit | --limit | Show at most this many rules of each kind (0 = all) |  |  | optional,advanced,check
 ### komando policy rm
 title: Remove a deny rule you added (from komando only)
 - arg0 | Rule | Which of your own rules should go? | Its id (custom-1a2b3c4d ...) or the pattern as you wrote it. `komando policy list` shows them. Built-in rules always stay. | custom-1a2b3c4d | check
+### komando policy show
+title: Show one rule: what it stops and where it is off
+- arg0 | Rule | Rule? |  |  | check
 ### komando queue
 title: Queues (Kafka, RabbitMQ, NATS, SQS, Pub/Sub): read, send, manage
 ### komando queue add

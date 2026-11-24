@@ -4718,6 +4718,30 @@ exit 2
 Error: missing arguments; usage: komando policy deny REGEX
 Hint: for example: komando policy deny 'kubectl\s+delete'
 (code USAGE, exit 2)
+### komando -o json policy edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"policy.edit","error":{"code":"USAGE","message":"missing arguments; usage: komando policy edit RULE (--off | --on)","hint":"for example: komando policy edit docker-prune --off --host build1"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text policy edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: missing arguments; usage: komando policy edit RULE (--off | --on)
+Hint: for example: komando policy edit docker-prune --off --host build1
+(code USAGE, exit 2)
+### komando -o json policy edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"policy.edit","error":{"code":"USAGE","message":"missing arguments; usage: komando policy edit RULE (--off | --on)","hint":"for example: komando policy edit docker-prune --off --host build1"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text policy edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: missing arguments; usage: komando policy edit RULE (--off | --on)
+Hint: for example: komando policy edit docker-prune --off --host build1
+(code USAGE, exit 2)
 ### komando -o json policy rm (agent json)
 exit 2
 --- stdout
@@ -4741,6 +4765,30 @@ exit 2
 --- stderr
 Error: missing arguments; usage: komando policy rm RULE
 Hint: for example: komando policy rm 'kubectl\s+delete'
+(code USAGE, exit 2)
+### komando -o json policy show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"policy.show","error":{"code":"USAGE","message":"missing arguments; usage: komando policy show RULE","hint":"for example: komando policy show docker-prune"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text policy show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: missing arguments; usage: komando policy show RULE
+Hint: for example: komando policy show docker-prune
+(code USAGE, exit 2)
+### komando -o json policy show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"policy.show","error":{"code":"USAGE","message":"missing arguments; usage: komando policy show RULE","hint":"for example: komando policy show docker-prune"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text policy show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: missing arguments; usage: komando policy show RULE
+Hint: for example: komando policy show docker-prune
 (code USAGE, exit 2)
 ### komando -o json queue add (agent json)
 exit 2

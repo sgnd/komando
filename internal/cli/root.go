@@ -396,7 +396,7 @@ func vaultValues() map[string]string {
 // cannot be written; that is how a person finds out what is wrong.
 var localReads = map[string]bool{
 	"version": true, "help": true, "completion": true, "schema": true, "guide": true, "doctor": true,
-	"audit": true, "list": true, "config.show": true, "policy.list": true, "policy.check": true,
+	"audit": true, "list": true, "config.show": true, "policy.list": true, "policy.check": true, "policy.show": true,
 	"conn.kinds": true, "conn.show": true, "host.show": true, "vpn.show": true, "key.list": true,
 	"key.show": true, "secret.list": true, "group.list": true, "recipe.list": true, "vpn.status": true,
 	"tunnel.list": true, "job.list": true, "status": true,

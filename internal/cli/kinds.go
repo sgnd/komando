@@ -252,6 +252,8 @@ var commandKinds = map[safetyKey]cmdKind{
 	{"policy", "", "check"}:  reads,
 	{"policy", "", "create"}: changes,
 	{"policy", "", "list"}:   reads,
+	{"policy", "", "edit"}:   changes,
+	{"policy", "", "show"}:   reads,
 
 	{"host", "", "restart"}: changes,
 

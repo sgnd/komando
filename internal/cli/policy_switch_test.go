@@ -137,11 +137,12 @@ func TestPolicyEditOffReachesExec(t *testing.T) {
 	mustRun(t, "host", "add", "web1", "deploy@"+closedAddr(t))
 	mustRun(t, "host", "add", "db1", "deploy@"+closedAddr(t))
 	line := []string{"--", "docker system prune -f"}
-	wantCode(t, "POLICY_BLOCKED", append([]string{"exec", "web1", "--dry-run"}, line...)...)
+	wantCode(t, "POLICY_BLOCKED", append([]string{"exec", "web1"}, line...)...)
 	mustRun(t, "policy", "edit", "docker-prune", "--off", "--host", "web1", "--yes")
-	if _, e := invRun(t, append([]string{"exec", "web1", "--dry-run"}, line...)...); e != nil {
-		t.Errorf("off on web1: want the dry run, got %+v", e)
+	// past the policy the line goes to the server, which is not there
+	if _, e := invRun(t, append([]string{"exec", "web1"}, line...)...); e == nil || e.Code == "POLICY_BLOCKED" {
+		t.Errorf("off on web1: want the connection error, got %+v", e)
 	}
-	wantCode(t, "POLICY_BLOCKED", append([]string{"exec", "web1,db1", "--dry-run"}, line...)...)
-	wantCode(t, "POLICY_BLOCKED", "exec", "web1", "--dry-run", "--", "rm -rf /")
+	wantCode(t, "POLICY_BLOCKED", append([]string{"exec", "web1,db1"}, line...)...)
+	wantCode(t, "POLICY_BLOCKED", "exec", "web1", "--", "rm -rf /")
 }
