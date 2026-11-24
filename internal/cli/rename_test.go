@@ -2,8 +2,10 @@ package cli
 
 import (
 	"encoding/json"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -168,7 +170,7 @@ func TestRenamePrefix(t *testing.T) {
 	st, _ := store.Load()
 	b, data, web := st.Hosts["acme-shop-bastion"], st.Hosts["acme-shop-data-01"], st.Hosts["web"]
 	if st.Hosts["shop-bastion"] != nil || b == nil || data == nil {
-		t.Fatalf("hosts: %v", mapKeys(st.Hosts))
+		t.Fatalf("hosts: %v", slices.Sorted(maps.Keys(st.Hosts)))
 	}
 	if !b.Protected || b.Labels["dc"] != "jkt" || b.Notes != "jump for shop-db; see shop-vpn." || !b.CreatedAt.Equal(created) {
 		t.Errorf("the protected mark, labels, notes and created_at stay: %+v", b)

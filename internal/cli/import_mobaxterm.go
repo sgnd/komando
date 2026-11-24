@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -30,7 +32,7 @@ func importMobaXterm(cl *call, path string) (*importPlan, error) {
 		if sub := strings.TrimSpace(vals["subrep"]); sub != "" {
 			group = p.groupName(sub)
 		}
-		for _, key := range mapKeys(vals) { // sorted: the same names on every run
+		for _, key := range slices.Sorted(maps.Keys(vals)) { // sorted: the same names on every run
 			v := vals[key]
 			if key == "subrep" || key == "imgnum" || !strings.HasPrefix(v, "#") {
 				continue

@@ -146,17 +146,17 @@ func prefixRenames(s *store.State, old, new string, kinds map[string]bool) (rena
 		}
 		switch k {
 		case "host":
-			add(k, mapKeys(s.Hosts))
+			add(k, slices.Sorted(maps.Keys(s.Hosts)))
 		case "conn":
-			add(k, mapKeys(s.Conns))
+			add(k, slices.Sorted(maps.Keys(s.Conns)))
 		case "vpn":
-			add(k, mapKeys(s.Vpns))
+			add(k, slices.Sorted(maps.Keys(s.Vpns)))
 		case "secret":
 			add(k, secretNames())
 		case "key":
-			add(k, mapKeys(s.Keys))
+			add(k, slices.Sorted(maps.Keys(s.Keys)))
 		case "group":
-			add(k, mapKeys(allGroups(s).Groups))
+			add(k, slices.Sorted(maps.Keys(allGroups(s).Groups)))
 		}
 	}
 	return set, skipped

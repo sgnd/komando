@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -325,7 +326,7 @@ func (d cacheSummary) Text() string {
 	if len(s.Keys) == 0 {
 		add("keys", "0")
 	}
-	for _, db := range sortedKeys(s.Keys) {
+	for _, db := range slices.Sorted(maps.Keys(s.Keys)) {
 		add("keys "+db, fmt.Sprintf("%d (%d with a ttl)", s.Keys[db], s.Expires[db]))
 	}
 	if s.HitRate != nil {
@@ -345,12 +346,12 @@ type cacheInfo struct {
 // Text prints the sections the way INFO does.
 func (d cacheInfo) Text() string {
 	var b strings.Builder
-	for i, sec := range sortedKeys(d.Info) {
+	for i, sec := range slices.Sorted(maps.Keys(d.Info)) {
 		if i > 0 {
 			b.WriteString("\n")
 		}
 		fmt.Fprintf(&b, "# %s\n", sec)
-		for _, k := range sortedKeys(d.Info[sec]) {
+		for _, k := range slices.Sorted(maps.Keys(d.Info[sec])) {
 			fmt.Fprintf(&b, "%s:%s\n", k, d.Info[sec][k])
 		}
 	}

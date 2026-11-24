@@ -3,6 +3,8 @@ package cli
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/sgnd/komando/internal/cli/kit/term"
@@ -129,7 +131,7 @@ func (d rmVersionsData) Text() string {
 	for _, v := range d.Versions {
 		keys[v.Key] = true
 	}
-	return fmt.Sprintf("%s %d version%s of %s\n", verb, d.Count, term.Plural(d.Count), strings.Join(mapKeys(keys), ", "))
+	return fmt.Sprintf("%s %d version%s of %s\n", verb, d.Count, term.Plural(d.Count), strings.Join(slices.Sorted(maps.Keys(keys)), ", "))
 }
 
 // storageRmVersions is storage rm --all-versions: a preview under

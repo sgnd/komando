@@ -2,6 +2,8 @@ package cli
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -60,7 +62,7 @@ func sqsQueueText(t *queuex.TopicDetail) string {
 			continue
 		}
 		b.WriteString("\n" + part.title + ":\n")
-		for _, k := range sortedKeys(part.m) {
+		for _, k := range slices.Sorted(maps.Keys(part.m)) {
 			fmt.Fprintf(&b, "  %s=%s\n", k, part.m[k])
 		}
 	}
@@ -82,7 +84,7 @@ func sqsPeekText(p *queuex.PeekResult) string {
 		}
 		if len(m.Headers) > 0 {
 			hs := make([]string, 0, len(m.Headers))
-			for _, k := range sortedKeys(m.Headers) {
+			for _, k := range slices.Sorted(maps.Keys(m.Headers)) {
 				hs = append(hs, k+"="+m.Headers[k])
 			}
 			b.WriteString(", attributes " + strings.Join(hs, " "))

@@ -10,11 +10,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -482,7 +484,7 @@ AWS IAM Identity Center (SSO) login.`,
 			case all && len(names) > 0:
 				return out.Errf(out.ExitUsage, "USAGE", "use `komando logout --all` or `komando logout "+strings.Join(names, " ")+"`", "--all logs out of every server; give names or --all, not both")
 			case all:
-				names = mapKeys(st.Logins)
+				names = slices.Sorted(maps.Keys(st.Logins))
 			case len(names) == 0:
 				return out.Usage("give the server names to log out of, or --all")
 			}
