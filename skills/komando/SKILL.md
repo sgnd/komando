@@ -119,8 +119,8 @@ not know? Set `KOMANDO_AGENT=1`.
 4. **Long or fragile work is a session.** `exec` always runs in a session
    on the server, and prints its session ID first. If the link drops, the
    run goes on. Come back with `komando host ssh exec TARGET --attach ID`:
-   it streams the output and returns the exit code. `--attach ID --stop`
-   ends it, `--attach ID --remove` removes its log. `CONNECTION_LOST`
+   it streams the output and returns the exit code. `--attach ID --offset N`
+   reads from an offset, `--attach ID --stop` ends it, `--attach ID --remove` removes its log. `CONNECTION_LOST`
    (exit 4) means the link broke while the command ran: attach before you
    run it again.
 5. **Never add `--allow-dangerous`, `--yes` or `--reveal` on your own.**
@@ -130,13 +130,14 @@ not know? Set `KOMANDO_AGENT=1`.
    `PROTECTED_TARGET`, `READ_ONLY_VIOLATION`, `REVEAL_NEEDS_PERSON`,
    `REVEAL_NEEDS_TERMINAL`, `SAFETY_SETTING`, `SECRET_DESTINATION`,
    `SENSITIVE_FILE`, `SHORTER_SCRIPT_REQUIRED`, `SQL_SAFE_SETTINGS_REQUIRED`, `SQL_TX_CHECK_REQUIRED`,
+   `SSH_GATE_NETWORK_REQUIRED`, `SSH_GATE_READ_ONLY`, `SSH_GATE_REFUSED`,
    `STORE_OLD_COPY`, `UNSAFE_BACKUP`, `WRITE_REQUIRES_FLAG`), stop and tell the human what you want to do and
    why. When they agree, re-run with
    the flag the hint names: komando opens a window on their screen and they
    click "Allow once" (you cannot). If the hint says there is no screen, ask
    them to run the command in their own terminal. No flag clears
    `NEEDS_PERSON`, `REVEAL_NEEDS_TERMINAL`, `SQL_SAFE_SETTINGS_REQUIRED`,
-   `SQL_TX_CHECK_REQUIRED` or `STORE_OLD_COPY`: only a person at a
+   `SQL_TX_CHECK_REQUIRED`, `SSH_GATE_NETWORK_REQUIRED`, `SSH_GATE_READ_ONLY`, `SSH_GATE_REFUSED` or `STORE_OLD_COPY`: only a person at a
    terminal can run those. If they
    click Deny, do not retry.
 6. **Never "fix" `HOSTKEY_MISMATCH` yourself.** Report it: it may be an
@@ -205,8 +206,7 @@ snippet (C335) and its name. -->
 a run that outlasts a tool timeout, and on C359 for Windows sessions; the
 skill says nothing of `host winrm exec` sessions until C359 is built. -->
 <!-- TODO(cut): the exit-6 list in rule 5 must equal the error catalog
-(TestDocsExit6Codes); the three SSH gate codes are dropped on the
-assumption that their code leaves with the command. -->
+(TestDocsExit6Codes). -->
 
 ## Reading the output
 

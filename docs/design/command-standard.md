@@ -85,7 +85,7 @@ TARGET selector (`@group`, `tag:x`, `label:k=v`, `all`). [review]
 second spelling is a hidden synonym (S-1.7), never a second documented
 command. [schema: no two visible leaves share the same `Short`]
 
-**S-1.4** Top-level commands are a closed list of 26 names, plus cobra's
+**S-1.4** Top-level commands are a closed list of 27 names, plus cobra's
 own `completion`. Anything new goes under one of them. [schema: the set of
 top-level names equals this table plus `completion`]
 
@@ -95,12 +95,19 @@ top-level names equals this table plus `completion`]
 | Types | `host`, `database`, `cache`, `queue`, `storage`, `cluster`, `registry`, `vpn`, `cloud` |
 | komando's own | `credential`, `group`, `policy`, `snippet` |
 | Across types | `copy`, `import`, `export`, `status` |
-| About komando | `agent`, `audit`, `doctor` |
+| About komando | `agent`, `audit`, `doctor`, `ssh-gate` |
 
 `list` and `test` at the top act on every kind of entry. Inside a provider
 they act on that provider's entries.
 
-**S-1.4a** (removed 2026-11-24 with the command it froze: no legacy.)
+**S-1.4a** Frozen: `ssh-gate` (with `ssh-gate line` and `ssh-gate status`)
+and its flags `--name`, `--read-only`, `--network` and `--shell-access`.
+Their exact spelling is written into servers' `authorized_keys`
+(`command="/usr/local/bin/komando ssh-gate --name phone"`). No rename, no
+alias swap, no shorthand. The command stays in v0.18.0; its removal moves
+to the first release after the phone app ships its own engine. Its lists
+are keyed by the safety key (S-7.1), and a line the gate does not know is
+rated person. [schema: allow-list pins them]
 
 **S-1.5** A name may never equal a value a person can pass in the same
 position. An entry may not be named after a type word, a provider word or
@@ -255,6 +262,7 @@ half exists or is listed here]
 | E3 | `get` and `set` only in `config` | a setting has one value |
 | E4 | `registry oci image` has `delete`, `prune`, `copy` and no `create` | images come from builds |
 | E5 | `info` on `queue` providers | a queue has no raw command, so S-3.4 does not apply |
+| E6 | `line` and `status` under `ssh-gate` | the gate's own words, frozen with the command (S-1.4a) |
 
 TODO(cut): E1 waits on O-15 (verbs instead of noun leaves). `storage sftp
 object move --mode` (chmod) waits on O-13.
@@ -383,6 +391,7 @@ group has one type; meanings checked by usage-text template where one exists]
 | `--dir` | `-C` | string | the working folder | |
 | `--attach` | | ID | `exec`: come back to the session with this ID, read its output and its exit code (S-10.4) | |
 | `--stop`, `--signal` | | bool, word | with `exec --attach ID`: signal the run; `--signal` names the signal (default `TERM`) | |
+| `--offset` | | int | with `exec --attach ID`: read the output from this offset | 0 = from the start |
 | `--remove` | | bool | with `exec --attach ID`: remove that session's log on the server | |
 | `--end` | | bool | on `test`: end the kept login of NAME, or of every entry when no NAME is given (S-10.5) | false |
 | `--sync`, `--delete`, `--exclude`, `--emptied` | | bool, string | on `copy`: compare and copy only what changed; remove what the source does not have (S-7.2); skip paths; allow an emptied folder | false |
@@ -390,8 +399,7 @@ group has one type; meanings checked by usage-text template where one exists]
 
 TODO(cut): the cluster flags (`--namespace`, `--all-namespaces`,
 `--selector`) and `--revision`, the `--wait` of an `exec` that outlasts a
-tool timeout, the `--from N` offset of `exec --attach` (it collides with
-`--from FILE` above), the `--run-on` of `database P backup` and the
+tool timeout, the `--run-on` of `database P backup` and the
 spelling of the list flags on `edit` (`--add-X`, `--remove-X`) wait on the
 `Options` of each leaf in the table (PR B, C, C324).
 
@@ -556,8 +564,8 @@ help builder and its golden (PR B).
 **S-7.1** One rule table, `riskOf(command, args, flags) → tier`, decides
 the tier. It is keyed by (type, verb), and by (type, area, verb) inside a
 target, never by the full path. A provider adds a row only when it
-differs (`database sqlite restore`). The prompted path, the gates, the
-schema and the docs all read it. No change to the table may let a command
+differs (`database sqlite restore`). The prompted path, the gates (the
+lists of `ssh-gate` too), the schema and the docs all read it. No change to the table may let a command
 and flag combination that stops an agent (POLICY_BLOCKED, PROTECTED_*,
 SAFETY_SETTING, CONFIRM_REQUIRED) run without that stop. [code: every
 leaf has a tier row and every row names a command that exists
@@ -607,16 +615,23 @@ generated from S-7.1, and Long's `Safety:` line is generated from the same
 row. Shorts carry no approval notes. [schema]
 
 **S-7.8** `kind` in the schema matches the tier: a command that can stop
-with PROTECTED_* is never `kind: read`. A kind change goes in the release
-note. [schema + rule table]
+with PROTECTED_* is never `kind: read`. A kind change is decided together
+with its `ssh-gate` entry (full keys allowed or not), and both go in the
+release note. [schema + rule table]
 
 **S-7.9** "Blocked by …" is used only for a custom deny rule or a policy or
 classifier hit, never for a command's own built-in tier. [code]
 
 **S-7.10** A command for a person at a terminal (every `shell`,
 `config vault passphrase`, the person step of `test` ...) never runs for an
-AI agent. No variable and no terminal lets an agent's process start one.
-[code]
+AI agent or an `ssh-gate` key. One exception: a `--shell-access` key, which
+`ssh-gate` opens in its own process after its checks; no variable and no
+terminal lets another komando process do the same. That shell asks
+nothing: what a person would be asked (a protected server) is refused
+instead. Its start and end are in the audit log, and it ends after 30
+minutes with no input and no output. [code]
+TODO(cut): the path of the shell the gate opens in the new tree waits on
+the gate port (C369).
 
 **S-7.11** Stops kept in commands. Each stop lives in command code, not in
 a table, stays with its command and has a pinning test that passes on the

@@ -54,8 +54,8 @@ answers "unknown command"; read `komando schema` instead of guessing.
 6. `exec` always runs in a session on the server, so a long run survives a
    dropped connection and prints its session ID first. Come back with
    `komando host ssh exec TARGET --attach ID` (it streams the output and
-   returns the exit code; `--stop` and `--remove` end it and remove its
-   log).
+   returns the exit code; `--offset N` reads from an offset; `--stop` and
+   `--remove` end it and remove its log).
 7. Never add `--allow-dangerous`, `--yes` or `--reveal` on your own. If a
    command is blocked (exit 6: `CONFIRM_REQUIRED`, `DB_BYTES_LIMIT`,
    `DECLINED`, `EMPTY_FOLDER_CONFIRM_REQUIRED`, `NEEDS_PERSON`, `OPEN_BIND`,
@@ -63,12 +63,13 @@ answers "unknown command"; read `komando schema` instead of guessing.
    `PROTECTED_TARGET`, `READ_ONLY_VIOLATION`, `REVEAL_NEEDS_PERSON`,
    `REVEAL_NEEDS_TERMINAL`, `SAFETY_SETTING`, `SECRET_DESTINATION`,
    `SENSITIVE_FILE`, `SHORTER_SCRIPT_REQUIRED`, `SQL_SAFE_SETTINGS_REQUIRED`, `SQL_TX_CHECK_REQUIRED`,
+   `SSH_GATE_NETWORK_REQUIRED`, `SSH_GATE_READ_ONLY`, `SSH_GATE_REFUSED`,
    `STORE_OLD_COPY`, `UNSAFE_BACKUP`, `WRITE_REQUIRES_FLAG`), stop and explain what you want to do and why. Once the human agrees, re-run with
    the flag the hint names: komando asks them in a window on their screen
    ("Allow once"). With no screen, ask them to run the command in their own
    terminal. No flag clears `NEEDS_PERSON`, `REVEAL_NEEDS_TERMINAL`,
-   `SQL_SAFE_SETTINGS_REQUIRED`, `SQL_TX_CHECK_REQUIRED` or
-   `STORE_OLD_COPY`: only a
+   `SQL_SAFE_SETTINGS_REQUIRED`, `SQL_TX_CHECK_REQUIRED`,
+   `SSH_GATE_NETWORK_REQUIRED`, `SSH_GATE_READ_ONLY`, `SSH_GATE_REFUSED` or `STORE_OLD_COPY`: only a
    person at a terminal can run those. If they deny it, do not retry.
 8. Never "fix" `HOSTKEY_MISMATCH` yourself: report it, it may be an attack.
    For `VPN_LOGIN_REQUIRED` or `VPN_DOWN`, ask the human to run
