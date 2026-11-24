@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -75,19 +76,19 @@ func checkNewEntryName(s *store.State, kind, from, to string) error {
 func renameVia(s *store.State, old, now string) []string {
 	var updated []string
 	for _, h := range s.SortedHosts() {
-		if slices.Contains(viaChain(h.Via), old) {
+		if slices.Contains(inventory.ViaChain(h.Via), old) {
 			h.Via = renameStep(h.Via, old, now)
 			updated = append(updated, "host "+h.Name+" --via")
 		}
 	}
 	for _, c := range s.SortedConns() {
-		if slices.Contains(viaChain(c.Via), old) {
+		if slices.Contains(inventory.ViaChain(c.Via), old) {
 			c.Via = renameStep(c.Via, old, now)
 			updated = append(updated, "conn "+c.Name+" --via")
 		}
 	}
 	for _, id := range slices.Sorted(maps.Keys(s.Tunnels)) {
-		if t := s.Tunnels[id]; slices.Contains(viaChain(t.Via), old) {
+		if t := s.Tunnels[id]; slices.Contains(inventory.ViaChain(t.Via), old) {
 			t.Via = renameStep(t.Via, old, now)
 			updated = append(updated, "tunnel "+id+" --via")
 		}

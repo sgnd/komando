@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -251,7 +252,7 @@ func recipeAddCmd() *cobra.Command {
   komando recipe add disk-usage 'df -h {{path=/}}' --read-only`,
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			if err := validName("recipe", args[0]); err != nil {
+			if err := inventory.ValidName("recipe", args[0]); err != nil {
 				return err
 			}
 			if builtinRecipe(args[0]) != nil {

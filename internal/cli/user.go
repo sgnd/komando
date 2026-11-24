@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -355,7 +356,7 @@ func userPubKey(keyName, pubKey string) (string, error) {
 // checkUsername: an account name, never an option of useradd, usermod or
 // userdel.
 func checkUsername(u string) error {
-	if !nameRe.MatchString(u) {
+	if !inventory.NameRe.MatchString(u) {
 		return out.Usage("%q cannot be a user name: start with a letter or digit, then letters, digits, . _ or - (at most 63)", u)
 	}
 	return nil

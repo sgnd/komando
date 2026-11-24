@@ -9,6 +9,7 @@ import (
 
 	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -32,7 +33,7 @@ type pickRow struct {
 func pickNames[T any](m map[string]T, kind string) []string {
 	var names []string
 	for n := range m {
-		if validName(kind, n) == nil {
+		if inventory.ValidName(kind, n) == nil {
 			names = append(names, n)
 		}
 	}
@@ -53,7 +54,7 @@ func pickConnRows(st *store.State, family string) []pickRow {
 	var rows []pickRow
 	for _, n := range pickNames(st.Conns, "conn") {
 		c := st.Conns[n]
-		if family != "" && connFamily(c) != family {
+		if family != "" && inventory.ConnFamily(c) != family {
 			continue
 		}
 		rows = append(rows, pickRow{label: n, detail: pickConnDetail(st, c), value: n})

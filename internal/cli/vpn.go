@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/openvpn"
 	"github.com/sgnd/komando/internal/out"
@@ -578,12 +579,12 @@ func ovpnHasKeys(cfg string) bool {
 func vpnUsers(st *store.State, name string) []string {
 	var users []string
 	for _, h := range st.SortedHosts() {
-		if slices.Contains(viaChain(h.Via), name) {
+		if slices.Contains(inventory.ViaChain(h.Via), name) {
 			users = append(users, h.Name)
 		}
 	}
 	for _, c := range st.SortedConns() {
-		if slices.Contains(viaChain(c.Via), name) {
+		if slices.Contains(inventory.ViaChain(c.Via), name) {
 			users = append(users, c.Name)
 		}
 	}
