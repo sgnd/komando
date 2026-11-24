@@ -35,6 +35,7 @@ import (
 var Version = "dev"
 
 func init() {
+	commandTree = func() *cobra.Command { return newRoot(treeCall()) }
 	if Version == "dev" {
 		// `go install ...@v1.2.3` records the module version in the binary
 		if bi, ok := debug.ReadBuildInfo(); ok && isRelease(bi.Main.Version) {
