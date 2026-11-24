@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -109,4 +110,38 @@ func TestRiskOfLineEveryCommandHasATier(t *testing.T) {
 		}
 	}
 	walk(root)
+}
+
+var unreachableIDs = map[string]string{
+	"komando": "the root has no words: lineWords answers nothing for it, on purpose",
+}
+
+// TestLineWordsEveryCommandID: every command ID of today, split into path
+// words, goes through lineWords and finds the command with that ID. An ID
+// whose command a path cannot reach is named in unreachableIDs with the
+// reason.
+func TestLineWordsEveryCommandID(t *testing.T) {
+	b, err := os.ReadFile("testdata/command_ids.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]bool{}
+	for _, id := range strings.Fields(string(b)) {
+		if _, ok := unreachableIDs[id]; ok {
+			seen[id] = true
+			continue
+		}
+		c, _, _ := lineWords(strings.Split(id, "."))
+		switch {
+		case c == nil:
+			t.Errorf("lineWords(%q) found no command", id)
+		case cmdID(c) != id:
+			t.Errorf("lineWords(%q) found the command with ID %q", id, cmdID(c))
+		}
+	}
+	for id := range unreachableIDs {
+		if !seen[id] {
+			t.Errorf("unreachableIDs has %q, which is no command ID: drop it", id)
+		}
+	}
 }
