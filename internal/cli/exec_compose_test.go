@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/sgnd/komando/internal/policy"
 )
 
 // Exec text that starts containers from a compose file reads the file
@@ -39,5 +41,14 @@ func TestExecComposeFiles(t *testing.T) {
 	}
 	if why := execComposeReason(nil, nil, nil, `cd "$APP" && docker compose ps`); why != "" {
 		t.Errorf("a compose read needs no file: %q", why)
+	}
+}
+
+// komando's own docker line clears the server's compose settings; the
+// guard still reads its compose file from a folder it can tell.
+func TestDockerLineFolderKnown(t *testing.T) {
+	runs := policy.DockerRuns(dockerLine([]string{"stack", "deploy", "-c", "/tmp/ok.yml", "ok"}))
+	if len(runs) != 1 || !runs[0].DirKnown || !reflect.DeepEqual(execComposeRuns(dockerLine([]string{"stack", "deploy", "-c", "/tmp/ok.yml", "ok"})), [][]string{{"stack", "deploy", "-c", "/tmp/ok.yml", "ok"}}) {
+		t.Errorf("dockerLine: %+v", runs)
 	}
 }

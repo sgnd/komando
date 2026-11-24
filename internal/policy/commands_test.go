@@ -23,6 +23,16 @@ func TestDockerRuns(t *testing.T) {
 		{"subshell", "(cd /tmp) ; docker compose up -d", []string{"compose", "up", "-d"}, "", false}, // Dir is not used when not known
 		{"compose file from env", "COMPOSE_FILE=x.yml docker compose up -d", []string{"compose", "up", "-d"}, "", false},
 		{"cd back home", "cd /srv && cd && docker compose up", []string{"compose", "up"}, "", true},
+		// komando clears the compose settings so docker reads only the files the guard read
+		{"komando's stack line", "env -u COMPOSE_FILE -u COMPOSE_PATH_SEPARATOR docker 'stack' 'deploy' '-c' '/tmp/ok.yml' 'ok'", []string{"stack", "deploy", "-c", "/tmp/ok.yml", "ok"}, "", true},
+		{"komando's compose line", "cd '/srv/shop' && env -u COMPOSE_FILE -u COMPOSE_PATH_SEPARATOR docker compose 'up' '-d' 2>&1", []string{"compose", "up", "-d"}, "/srv/shop", true},
+		{"env --unset", "env --unset=COMPOSE_FILE --unset COMPOSE_PROFILES -uCOMPOSE_ENV_FILES docker compose up", []string{"compose", "up"}, "", true},
+		{"unset", "unset COMPOSE_FILE COMPOSE_PROFILES; docker compose up", []string{"compose", "up"}, "", true},
+		{"export a setting", "export COMPOSE_FILE=x.yml; docker compose up", []string{"compose", "up"}, "", false},
+		{"env sets one", "env COMPOSE_FILE=x.yml docker compose up", []string{"compose", "up"}, "", false},
+		{"clears one, sets another", "env -u COMPOSE_FILE COMPOSE_PROFILES=a docker compose up", []string{"compose", "up"}, "", false},
+		{"quoted name", "env -u 'COMPOSE_FILE' docker compose up", []string{"compose", "up"}, "", false},
+		{"not a whole name", "env -u COMPOSE_FILE=x docker compose up", []string{"compose", "up"}, "", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

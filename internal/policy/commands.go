@@ -2,6 +2,7 @@ package policy
 
 import (
 	"path"
+	"regexp"
 	"slices"
 	"strings"
 )
@@ -45,8 +46,25 @@ func (c simpleCommand) name() string { return strings.ToLower(path.Base(c.args[0
 // substitutions, and the text a line hands a shell (sh -c '...', eval,
 // echo ... | sh), read the same way.
 func simpleCommands(cmd string) []simpleCommand {
-	at := folder{known: !strings.Contains(cmd, "COMPOSE_")} // compose settings in the environment move its files
+	at := folder{known: !setsCompose(cmd)}
 	return commandsIn(cmd, 0, &at)
+}
+
+// composeCleared is a compose setting cleared by its whole unquoted name:
+// env -u NAME, -uNAME, --unset=NAME, --unset NAME, unset NAME ...
+var composeCleared = regexp.MustCompile(`(?:(?:^|\s)(?:-u\s*|--unset[=\s]\s*)|\bunset(?:\s+COMPOSE_[A-Za-z0-9_]+)*\s+)COMPOSE_[A-Za-z0-9_]+(?:[\s;&|)]|$)`)
+
+// setsCompose: cmd may give docker compose settings (COMPOSE_FILE ...),
+// which move the files it reads, so the folder counts as unknown. Clearing
+// one, as komando's own docker lines do, leaves docker on the files read.
+func setsCompose(cmd string) bool {
+	for {
+		next := composeCleared.ReplaceAllString(cmd, " ")
+		if next == cmd {
+			return strings.Contains(cmd, "COMPOSE_")
+		}
+		cmd = next
+	}
 }
 
 func commandsIn(cmd string, depth int, at *folder) []simpleCommand {
