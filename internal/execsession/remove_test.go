@@ -117,8 +117,8 @@ func TestSweepScriptSkipsALinkedSession(t *testing.T) {
 	if err := os.Symlink(elsewhere, link); err != nil {
 		t.Fatal(err)
 	}
-	if code := runSh(t, home, SweepScript); code != 0 || !exists(filepath.Join(elsewhere, "exit")) {
-		t.Fatalf("exit %d; the linked folder's files are gone", code)
+	if code := runSh(t, home, SweepScript); code != 0 || !exists(filepath.Join(elsewhere, "exit")) || !exists(link) {
+		t.Fatalf("exit %d; the link or the linked folder's files are gone", code)
 	}
 }
 

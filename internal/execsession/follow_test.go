@@ -18,6 +18,7 @@ type fakeLog struct {
 	log    string
 	ended  bool
 	exit   int // the read script's own exit, when not 0
+	most   int // the most bytes one read gives, when not 0
 	froms  []int64
 }
 
@@ -38,7 +39,11 @@ func (f *fakeLog) read(_ context.Context, script string) (string, int, error) {
 		head += "exit 3\n"
 	}
 	head += "size " + strconv.Itoa(len(f.log)) + "\nread-end " + testID + "\n"
-	return head + f.log[min(int(from), len(f.log)):], 0, nil
+	data := f.log[min(int(from), len(f.log)):]
+	if f.most > 0 && len(data) > f.most {
+		data = data[:f.most]
+	}
+	return head + data, 0, nil
 }
 
 func follow(from int64, wait time.Duration, agent bool, shown *strings.Builder) Follow {
@@ -61,6 +66,18 @@ func TestFollowReadsToTheExit(t *testing.T) {
 		if from != 0 && f.log[from-1] != '\n' {
 			t.Fatalf("a read started inside a line at %d (%v)", from, f.froms)
 		}
+	}
+}
+
+// A run that ended is followed until its whole log is read, also when it
+// is longer than one read.
+func TestFollowReadsAnEndedLogToItsEnd(t *testing.T) {
+	log := strings.Repeat("x\n", ReadMax/2) + "last\n"
+	f := &fakeLog{pieces: []string{log}, ended: true, most: ReadMax}
+	var shown strings.Builder
+	res, err := follow(0, time.Second, false, &shown).Run(context.Background(), f.read)
+	if err != nil || shown.String() != log || res.NextFrom != int64(len(log)) || len(f.froms) != 2 {
+		t.Fatalf("shown %d bytes, next_from %d, reads %v, %v", shown.Len(), res.NextFrom, f.froms, err)
 	}
 }
 
