@@ -263,8 +263,41 @@ func TestAllowedImport(t *testing.T) {
 		{"golang.org/x/term", false},
 	}
 	for _, tt := range tests {
-		if got := allowedImport(tt.path, rules); got != tt.want {
+		if got := allowedImport(tt.path, rules, "x.go", ""); got != tt.want {
 			t.Errorf("allowedImport(%q) = %v, want %v", tt.path, got, tt.want)
+		}
+	}
+}
+
+// A cell "path (constraint)" allows path only in files that build on no
+// system outside the constraint: by their //go:build line or their
+// _<system> ending. The constraint is a //go:build expression.
+func TestAllowedImportBuildConstraints(t *testing.T) {
+	rules := []string{"std", "golang.org/x/sys/windows (windows)", "golang.org/x/sys/unix (unix)"}
+	tests := []struct {
+		path, name, expr string
+		want             bool
+	}{
+		{"golang.org/x/sys/windows", "console_windows.go", "", true},
+		{"golang.org/x/sys/windows", "console.go", "windows", true},
+		{"golang.org/x/sys/windows/registry", "console_windows_amd64.go", "", true},
+		{"golang.org/x/sys/windows", "console.go", "", false},
+		{"golang.org/x/sys/windows", "console_unix.go", "unix", false},
+		{"golang.org/x/sys/windows", "console_other.go", "!linux", false},
+		{"golang.org/x/sys/windows", "console.go", "windows || linux", false},
+		{"golang.org/x/sys/unix", "ttyin_unix.go", "unix", true},
+		{"golang.org/x/sys/unix", "ttyin_linux.go", "", true},
+		{"golang.org/x/sys/unix", "ttyin_darwin.go", "", true},
+		{"golang.org/x/sys/unix", "ttyin.go", "linux && !e2elab", true},
+		{"golang.org/x/sys/unix", "ttyin_other.go", "!windows", false}, // plan9, js and wasip1 are not unix
+		{"golang.org/x/sys/unix", "ttyin.go", "", false},
+		{"golang.org/x/sys/unix", "ttyin_windows.go", "", false},
+		{"golang.org/x/sys/unix", "ttyin.go", "linux || e2elab", false}, // e2elab alone builds it anywhere
+		{"strings", "ttyin_windows.go", "", true},
+	}
+	for _, tt := range tests {
+		if got := allowedImport(tt.path, rules, tt.name, tt.expr); got != tt.want {
+			t.Errorf("allowedImport(%q) in %s (%q) = %v, want %v", tt.path, tt.name, tt.expr, got, tt.want)
 		}
 	}
 }
