@@ -217,10 +217,10 @@ func TestFillIsOnePass(t *testing.T) {
 }
 
 func TestCheckPerChannel(t *testing.T) {
-	any := regexp.MustCompile(`(?s)^.+$`)
+	anyRe := regexp.MustCompile(`(?s)^.+$`)
 	mk := func(c Channel) Builtin {
 		return Builtin{Name: "db-schema", Type: "database", Replaces: "db schema", Reader: "r", Tier: capability.Read, Shape: "db-schema/1",
-			Vars: []Var{{Name: "v", Channel: c, Pattern: any, MaxLen: 300, Longest: strings.Repeat("a", 300)}},
+			Vars: []Var{{Name: "v", Channel: c, Pattern: anyRe, MaxLen: 300, Longest: strings.Repeat("a", 300)}},
 			Run:  func(context.Context, Values) (any, error) { return nil, nil }}
 	}
 	// SQL and RESP values reach the client call unchanged: they are bind

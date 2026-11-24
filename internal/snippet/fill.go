@@ -118,7 +118,7 @@ func Fill(b Builtin, f Family, given map[string]string) (string, error) {
 // Unsupported is the error for a family (or provider) the snippet has no
 // body for.
 func Unsupported(b Builtin, family string) *out.Error {
-	return out.Errf(out.ExitUsage, "SNIPPET_OS_UNSUPPORTED", readItHint(b),
+	return out.Errf(out.ExitUsage, "SNIPPET_OS_UNSUPPORTED", "read it as text with `komando exec TARGET -- COMMAND`; the snippet has no JSON for it",
 		"snippet %s has no body for %s", b.Name, family)
 }
 
@@ -126,10 +126,4 @@ func Unsupported(b Builtin, family string) *out.Error {
 func WrongType(b Builtin, target, typ string) *out.Error {
 	return out.Errf(out.ExitUsage, "SNIPPET_WRONG_TYPE", "run it against a "+b.Type+" entry; see them with `komando list`",
 		"%s is a %s, not a %s", target, typ, b.Type)
-}
-
-// readItHint says where the text goes when the shape does not: the same
-// read as text through exec. (The cut renames exec and adds snippet show.)
-func readItHint(b Builtin) string {
-	return "read it as text with `komando exec TARGET -- COMMAND`; snippet " + b.Name + " has no JSON for it"
 }

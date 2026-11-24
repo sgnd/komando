@@ -140,13 +140,13 @@ func valid(b Builtin) error {
 		return fmt.Errorf("waits on a rule, %s", why)
 	}
 	if !nameRe.MatchString(b.Name) {
-		return fmt.Errorf("the name must be lowercase words joined by hyphens")
+		return fmt.Errorf("the name is not lowercase words joined by hyphens")
 	}
 	if !slices.Contains(types, b.Type) {
 		return fmt.Errorf("unknown type %q (one of %s)", b.Type, strings.Join(types, ", "))
 	}
 	if name, _, err := ParseShape(b.Shape); err != nil || name != b.Name {
-		return fmt.Errorf("the shape must be %s/N with N from 1, not %q", b.Name, b.Shape)
+		return fmt.Errorf("the shape is %q; write %s/N with N from 1", b.Shape, b.Name)
 	}
 	if b.Replaces == "" {
 		return fmt.Errorf("replaces is empty: name the command it replaces")
@@ -191,13 +191,13 @@ func validVar(v Var) error {
 		return fmt.Errorf("no pattern")
 	}
 	if p := v.Pattern.String(); !strings.HasPrefix(strings.TrimPrefix(p, "(?s)"), "^") || !strings.HasSuffix(p, "$") {
-		return fmt.Errorf("the pattern must be anchored with ^ and $")
+		return fmt.Errorf("the pattern is not anchored with ^ and $")
 	}
 	if v.MaxLen <= 0 {
 		return fmt.Errorf("no max length")
 	}
 	if len(v.Longest) != v.MaxLen || !v.Pattern.MatchString(v.Longest) {
-		return fmt.Errorf("the longest value must have the max length and match the pattern")
+		return fmt.Errorf("the longest value does not have the max length or does not match the pattern")
 	}
 	if !v.Required && v.Default != "" && checkValue(v, v.Default) != nil {
 		return fmt.Errorf("the default does not pass the variable's checks")

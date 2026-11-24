@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -96,6 +97,7 @@ func snippetData(t *testing.T, args ...string) (json.RawMessage, *out.Error) {
 	var env struct {
 		Command string          `json:"command"`
 		Data    json.RawMessage `json:"data"`
+		Error   *out.Error      `json:"error"`
 	}
 	if i := strings.Index(got, "{"); i >= 0 {
 		_ = json.Unmarshal([]byte(got[i:]), &env)
@@ -103,7 +105,10 @@ func snippetData(t *testing.T, args ...string) (json.RawMessage, *out.Error) {
 	if env.Data != nil && env.Command != "snippet.exec" {
 		t.Errorf("the envelope's command is %q, want snippet.exec", env.Command)
 	}
-	if err != nil {
+	switch {
+	case env.Error != nil && env.Error.Code != "": // a failed server: the envelope names it
+		return env.Data, env.Error
+	case err != nil:
 		return env.Data, toErr(err)
 	}
 	return env.Data, nil
@@ -260,23 +265,49 @@ func TestSnippetFilledLikeTheReplacedCommand(t *testing.T) {
 	}
 }
 
+// notWeaker says why b is weaker than the command it replaces, or "".
+func notWeaker(b snippet.Builtin) string {
+	line := append(strings.Fields(b.Replaces), "dev")
+	for _, v := range b.Vars {
+		line = append(line, v.Longest)
+	}
+	if c, _, _ := lineWords(line); c == nil || c.Name() != line[len(strings.Fields(b.Replaces))-1] {
+		return fmt.Sprintf("replaces %q, which is not a command", b.Replaces)
+	}
+	if today := riskOfLine(line); int(b.Tier) < int(today.tier) {
+		return fmt.Sprintf("is %v, weaker than %q at %v", b.Tier, b.Replaces, today.tier)
+	}
+	if len(b.Checks) == 0 {
+		return "carries no checks"
+	}
+	return ""
+}
+
 // No sample is weaker than the command it replaces (rule 3.4).
 func TestSnippetNotWeaker(t *testing.T) {
 	for _, b := range samples {
-		line := append(strings.Fields(b.Replaces), "dev")
-		for _, v := range b.Vars {
-			line = append(line, v.Longest)
+		if why := notWeaker(b); why != "" {
+			t.Errorf("%s %s", b.Name, why)
 		}
-		today := riskOfLine(line)
-		if int(b.Tier) < int(today.tier) {
-			t.Errorf("%s is %v, weaker than %q at %v", b.Name, b.Tier, b.Replaces, today.tier)
-		}
-		if c, _, _ := lineWords(line); c == nil {
-			t.Errorf("%s replaces %q, which is not a command", b.Name, b.Replaces)
-		}
-		if len(b.Checks) == 0 {
-			t.Errorf("%s carries no checks", b.Name)
-		}
+	}
+	restart := sampleSvcStatus
+	restart.Replaces = "svc restart"
+	if notWeaker(restart) == "" {
+		t.Error("a read snippet replacing svc restart passed")
+	}
+	restart.Tier = capability.Change
+	if why := notWeaker(restart); why != "" {
+		t.Errorf("a change snippet replacing svc restart: %s", why)
+	}
+	none := sampleSvcList
+	none.Replaces = "svc nosuchverb"
+	if notWeaker(none) == "" {
+		t.Error("a snippet replacing no command passed")
+	}
+	bare := sampleSvcList
+	bare.Checks = nil
+	if notWeaker(bare) == "" {
+		t.Error("a snippet carrying no checks passed")
 	}
 }
 
