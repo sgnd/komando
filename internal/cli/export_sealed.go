@@ -17,6 +17,7 @@ import (
 	"github.com/sgnd/komando/internal/sealfile"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
+	"github.com/sgnd/komando/internal/version"
 )
 
 // A sealed export (docs/design/sealed-file.md) is the export document with
@@ -106,7 +107,7 @@ func runExportSealed(cl *call, st *store.State, f exportFile, o exportSealOpts, 
 	if err != nil {
 		return err
 	}
-	made := sealfile.Made{By: "komando " + Version}
+	made := sealfile.Made{By: "komando " + version.Version}
 	var file []byte
 	if o.forPhone {
 		pub, err := askPhoneKey(cl)

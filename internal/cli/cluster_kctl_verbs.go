@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/sgnd/komando/internal/kube"
+	"github.com/sgnd/komando/internal/version"
 )
 
 // Verbs that only read.
@@ -185,7 +186,7 @@ func (r *kctlRun) version() error {
 	if err := r.k.Get(r.ctx, "/version", nil, &v); err != nil {
 		return err
 	}
-	fmt.Fprintf(&r.stdout, "Client Version: komando %s\nServer Version: %s\n", Version, v.GitVersion)
+	fmt.Fprintf(&r.stdout, "Client Version: komando %s\nServer Version: %s\n", version.Version, v.GitVersion)
 	return nil
 }
 
