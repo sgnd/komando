@@ -11,10 +11,11 @@ import (
 	"testing"
 )
 
-// reviewedCallSites is how many times the program code of internal/cli calls
-// each guard and approval function today. A move that takes these calls to
-// another package updates the numbers on purpose; a change to the count
-// without that is a call added or dropped, and fails here until it is
+// reviewedCallSites is how many times the program code of internal/cli, and
+// of the packages below it, calls each guard and approval function. The
+// count follows a function into a package under internal/cli (the
+// exported spelling counts as the same name), so a move keeps the numbers;
+// a changed count is a call added or dropped, and fails here until it is
 // reviewed. guardScript is not here: its callers have their own test where
 // it is defined.
 var reviewedCallSites = map[string]int{
@@ -27,37 +28,51 @@ var reviewedCallSites = map[string]int{
 
 func TestGuardCallSitesAreReviewed(t *testing.T) {
 	got := map[string]int{}
-	files, _ := filepath.Glob("*.go")
 	fset := token.NewFileSet()
-	for _, f := range files {
-		if strings.HasSuffix(f, "_test.go") {
-			continue
-		}
-		src, err := os.ReadFile(f)
+	err := filepath.WalkDir(".", func(p string, d os.DirEntry, err error) error {
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
-		file, err := parser.ParseFile(fset, f, src, parser.SkipObjectResolution)
+		if d.IsDir() {
+			if d.Name() == "testdata" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(p, ".go") || strings.HasSuffix(p, "_test.go") {
+			return nil
+		}
+		src, err := os.ReadFile(p)
 		if err != nil {
-			t.Fatal(err)
+			return err
+		}
+		file, err := parser.ParseFile(fset, p, src, parser.SkipObjectResolution)
+		if err != nil {
+			return err
 		}
 		ast.Inspect(file, func(n ast.Node) bool {
 			call, ok := n.(*ast.CallExpr)
 			if !ok {
 				return true
 			}
+			var name string
 			switch fn := call.Fun.(type) {
 			case *ast.Ident:
-				if _, watched := reviewedCallSites[fn.Name]; watched {
-					got[fn.Name]++
-				}
+				name = fn.Name
 			case *ast.SelectorExpr:
-				if _, watched := reviewedCallSites[fn.Sel.Name]; watched {
-					got[fn.Sel.Name]++
-				}
+				name = fn.Sel.Name
+			}
+			// a name counts whatever the case of its first letter, so the
+			// exported name a move gives it (Guard for guard) is the same call
+			if _, watched := reviewedCallSites[lowerFirst(name)]; watched {
+				got[lowerFirst(name)]++
 			}
 			return true
 		})
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 	var names []string
 	for n := range reviewedCallSites {
@@ -67,6 +82,21 @@ func TestGuardCallSitesAreReviewed(t *testing.T) {
 	for _, n := range names {
 		if got[n] != reviewedCallSites[n] {
 			t.Errorf("%s is called %d times in the program code, the reviewed count is %d: review the change, then update reviewedCallSites", n, got[n], reviewedCallSites[n])
+		}
+	}
+}
+
+func lowerFirst(s string) string {
+	if s == "" {
+		return s
+	}
+	return strings.ToLower(s[:1]) + s[1:]
+}
+
+func TestLowerFirst(t *testing.T) {
+	for in, want := range map[string]string{"": "", "guard": "guard", "Guard": "guard", "GuardConns": "guardConns", "dangerOK": "dangerOK"} {
+		if got := lowerFirst(in); got != want {
+			t.Errorf("lowerFirst(%q) = %q, want %q", in, got, want)
 		}
 	}
 }
