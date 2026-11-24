@@ -56,23 +56,24 @@ func TestDockerRuns(t *testing.T) {
 
 // Clears nested so that each pass frees one: the reader stops after a few
 // passes (2000 deep, under 64 KiB) or at once (20000 deep, 260 KB) and
-// counts the folder unknown.
+// counts the folder unknown. The check is on the answer, which differs
+// without the cap (the loop runs to the end and says known); the clock is
+// only a backstop for a loop that does not end.
 func TestDockerRunsNestedClearsFailClosed(t *testing.T) {
 	for _, n := range []int{2000, 20000} {
 		cmd := "echo " + strings.Repeat("-u ", n) + strings.Repeat("COMPOSE_A ", n) + "; docker compose up -d"
+		if !setsCompose(cmd) {
+			t.Errorf("%d deep: setsCompose = false, want true (settings left after the passes)", n)
+		}
 		done := make(chan []DockerRun, 1)
-		start := time.Now()
 		go func() { done <- DockerRuns(cmd) }()
 		select {
 		case runs := <-done:
-			if took := time.Since(start); took > 50*time.Millisecond {
-				t.Errorf("%d deep: took %v, want under 50ms", n, took)
-			}
 			if len(runs) != 1 || runs[0].DirKnown {
 				t.Errorf("%d deep: want one run with an unknown folder, got %+v", n, runs)
 			}
-		case <-time.After(5 * time.Second):
-			t.Fatalf("%d deep: DockerRuns did not finish in 5s", n)
+		case <-time.After(2 * time.Second):
+			t.Fatalf("%d deep: DockerRuns did not finish in 2s", n)
 		}
 	}
 }
