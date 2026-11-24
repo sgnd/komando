@@ -118,6 +118,7 @@ or a listed one is gone.
 | `internal/testhome` | tests only: a throwaway home folder for each test binary, and the rules that keep tests out of the real one |
 | `internal/tmpclean` | the temporary files of one run, removed on a second Ctrl-C; old leftovers swept |
 | `internal/vault` | the encrypted secrets |
+| `internal/version` | komando's version: set at link time with `-X` (the Makefile), else from the module version `go install` records |
 | `internal/winrm` | komando's own WinRM client for Windows servers |
 | `sync` | prototype only, its own Go module: the open sync format and cryptography used by the Komando apps, tested against a hostile in-memory server ([sync-prototype.md](sync-prototype.md)); the CLI never imports it |
 
