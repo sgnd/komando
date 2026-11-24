@@ -52,7 +52,7 @@ func TestStandardEmptyLines(t *testing.T) {
 		b, _ := os.ReadFile(f)
 		for i, l := range strings.Split(string(b), "\n") {
 			if old.MatchString(l) {
-				t.Errorf("%s:%d: an empty list worded the old way; use noneYet or noneMatch: %s", f, i+1, strings.TrimSpace(l))
+				t.Errorf("%s:%d: an empty list worded the old way; use term.NoneYet or term.NoneMatch: %s", f, i+1, strings.TrimSpace(l))
 			}
 		}
 	}

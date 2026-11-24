@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/store"
@@ -226,7 +227,7 @@ func pickWrap(text string, width int) []string {
 	var lines []string
 	line := ""
 	for _, w := range strings.Fields(text) {
-		if line != "" && displayWidth(line)+1+displayWidth(w) > width {
+		if line != "" && term.DisplayWidth(line)+1+term.DisplayWidth(w) > width {
 			lines = append(lines, line)
 			line = ""
 		}

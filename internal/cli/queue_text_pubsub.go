@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/queuex"
 )
 
@@ -22,7 +23,7 @@ func pubsubTopicsText(ts []queuex.Topic) string {
 	for _, t := range ts {
 		rows = append(rows, []string{t.Name, strconv.Itoa(t.SubscriptionCount), orDash(t.MessageRetention)})
 	}
-	return layoutTable([]string{"TOPIC", "SUBSCRIPTIONS", "KEEPS MESSAGES"}, rows) +
+	return term.LayoutTable([]string{"TOPIC", "SUBSCRIPTIONS", "KEEPS MESSAGES"}, rows) +
 		"(Pub/Sub does not count messages; `komando queue describe CONN TOPIC` shows a topic's subscriptions)\n"
 }
 
@@ -106,7 +107,7 @@ func pubsubGroupsText(gs []queuex.Group) string {
 	for _, g := range gs {
 		rows = append(rows, []string{g.Name, g.Topic, g.Delivery, secs(g.AckDeadline), orDash(g.DeadLetterTopic), orDash(g.State)})
 	}
-	return layoutTable([]string{"SUBSCRIPTION", "TOPIC", "DELIVERY", "ACK DEADLINE", "DEAD-LETTER TOPIC", "STATE"}, rows) +
+	return term.LayoutTable([]string{"SUBSCRIPTION", "TOPIC", "DELIVERY", "ACK DEADLINE", "DEAD-LETTER TOPIC", "STATE"}, rows) +
 		"(Pub/Sub does not say how many messages wait or who pulls them)\n"
 }
 

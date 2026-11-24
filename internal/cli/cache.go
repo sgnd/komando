@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/cachex"
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -186,9 +187,9 @@ func newKeyList(conn, pattern string, items []cachex.KeyInfo, more bool) keyList
 func (l keyList) Text() string {
 	if len(l.Keys) == 0 {
 		if l.Pattern == "" || l.Pattern == "*" {
-			return noneYet("cache keys", "")
+			return term.NoneYet("cache keys", "")
 		}
-		return noneMatch("cache keys", cachex.Quote(l.Pattern))
+		return term.NoneMatch("cache keys", cachex.Quote(l.Pattern))
 	}
 	rows := make([][]string, len(l.Items))
 	for i, k := range l.Items {
@@ -199,7 +200,7 @@ func (l keyList) Text() string {
 		rows[i] = []string{cachex.Quote(k.Key), typ, ttlCell(k.TTL)}
 	}
 	var sb strings.Builder
-	sb.WriteString(dataTable([]string{"key", "type", "ttl"}, rows))
+	sb.WriteString(term.DataTable([]string{"key", "type", "ttl"}, rows))
 	if l.More {
 		fmt.Fprintf(&sb, "(first %d keys; more match: narrow the pattern or raise --limit)\n", l.Count)
 	}
@@ -332,7 +333,7 @@ func (d cacheSummary) Text() string {
 	} else {
 		add("hit rate", "- (no reads yet)")
 	}
-	tab := layoutTable([]string{"", ""}, rows)
+	tab := term.LayoutTable([]string{"", ""}, rows)
 	return tab[strings.Index(tab, "\n")+1:] + "(all fields: --all, or a section such as memory or stats)\n"
 }
 
