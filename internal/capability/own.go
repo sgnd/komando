@@ -111,7 +111,10 @@ var ownLeaves = concat(
 		{Key: own("policy", "", "check"), Args: []Arg{{Name: "COMMAND", Many: true}}, LocalRead: true, Today: []string{"policy.check"}},
 		{Key: own("policy", "", "create"), Args: []Arg{{Name: "PATTERN"}}, Today: []string{"policy.deny"}},
 		{Key: own("policy", "", "list"), LocalRead: true, Synonyms: []string{"ls"}, Today: []string{"policy.list"}},
-		{Key: own("policy", "", "show"), Args: oneName, State: New, LocalRead: true},
+		{Key: own("policy", "", "show"), Args: oneName, LocalRead: true, Today: []string{"policy.show"}},
+		{Key: own("policy", "", "edit"), Args: oneName, Today: []string{"policy.edit"},
+			Options: []Option{{Name: "off", Kind: Bool, Help: "switch the rule off"}, {Name: "on", Kind: Bool, Help: "switch the rule on again"},
+				{Name: "host", Kind: Entry, Repeat: true, Help: "only on this server"}, {Name: "group", Kind: Entry, Repeat: true, Help: "only on the servers in this group"}}},
 		{Key: own("policy", "", "remove"), Args: oneName, Today: []string{"policy.rm"}},
 
 		{Key: own("snippet", "", "create"), Args: oneName, Today: []string{"recipe.add"},

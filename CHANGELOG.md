@@ -7,6 +7,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+
+- `komando policy edit RULE --off` switches a built-in rule off, everywhere or with `--host` and `--group` only on those servers; `--on` switches it on again. Switching a rule off asks a person first and is kept in the audit log. `komando policy show RULE` prints a rule and where it is off, and `policy list` shows it too.
+
 ### Changed
 
 - The macOS approval window no longer answers to Space or Return: a stray key cannot deny (or allow) for you. Click **Deny** or **Allow once**, or press Esc or Cmd-W to deny. The agent's error names how the person said no (`details.denied_by`: `click` or `key`), and after a key it asks whether that was a slip.

@@ -172,6 +172,7 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `host add` | when --proxy-command matches a destructive rule | dangerous | `--allow-dangerous` |
 | `import` | when an imported ProxyCommand matches a destructive rule | dangerous | `--allow-dangerous` |
 | `policy rm` | always | safety | `--yes` |
+| `policy edit` | without --on | safety | `--yes` |
 | `config set` | when the setting turns a check off (audit, keychain, host key policy, ...) | safety | `--yes` |
 | `host edit` | with --protected=false | safety | `--yes` |
 | `conn edit` | with --protected=false | safety | `--yes` |
@@ -276,11 +277,28 @@ backslashes inside a word (`r\m`, `/e""tc`) do not hide it. A custom
 pattern that is not a valid regular expression blocks every command until
 you fix or remove it; `komando doctor` and `policy list` name it.
 
-Built-in rules cannot be removed. A custom rule's id (`custom-` and eight
+Built-in rules cannot be removed, but a person can switch one off (below).
+A custom rule's id (`custom-` and eight
 letters and digits) is made from its pattern, so it stays the same when
 another rule is removed. A pattern that matches empty text (`.*`) is
 refused: it would block every command. Removing a rule turns a check off,
 so komando asks first (a script adds `--yes`).
+
+## Switch a built-in rule off
+
+```bash
+komando policy show docker-prune                         # what it stops and where it is off
+komando policy edit docker-prune --off --host build1     # off on one server
+komando policy edit pkg-remove --off --group lab         # off on the servers of a group
+komando policy edit docker-prune --on                    # on again everywhere
+```
+
+With `--host` or `--group` the rule is off only on those servers: a command
+that also runs on another server is still stopped. Without them it is off
+everywhere. Switching a rule off turns a check off, so komando asks a person
+first, and an AI agent's `--yes` needs your yes in the approval window.
+`--on` asks nothing. `policy list` shows where each built-in rule is off,
+and the audit log keeps every switch as `policy.edit`.
 
 `policy check` exits 6 when the command would be blocked, so it works in an
 `if`. `--conn-kind` rates a statement for a conn kind instead: `postgres`,
@@ -368,7 +386,7 @@ Every action is in the audit log: time, who ran it, which AI agent asked,
 whether a person allowed it, the targets and the command. Every change to
 the inventory and to safety settings is there too: servers, conns, groups,
 keys, secrets (names only), `config set` (old and new value) and
-`policy deny` and `policy rm`.
+`policy deny`, `policy rm` and `policy edit`.
 
 ```bash
 komando audit -o text                 # one line per entry, newest 50

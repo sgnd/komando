@@ -145,6 +145,7 @@ var riskRows = []riskRow{
 
 	// T3s: weakens komando's own checks.
 	{key: safetyKey{"policy", "", "remove"}, tier: tierSafety, what: "removes a deny rule"},
+	{key: safetyKey{"policy", "", "edit"}, when: func(w []string) bool { return !givesFlag("on")(w) }, cond: "without --on", tier: tierSafety, what: "switches a built-in rule off"},
 	{key: safetyKey{"config", "", "set"}, tier: tierSafety, dynamic: "the setting turns a check off (audit, keychain, host key policy, ...)"},
 	{key: safetyKey{"host", "", "edit"}, when: protectionOff, cond: "with --protected=false", tier: tierSafety, what: "turns protection off"},
 	{key: safetyKey{"conn", "", "edit"}, when: protectionOff, cond: "with --protected=false", tier: tierSafety, what: "turns protection off"},
