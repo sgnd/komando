@@ -329,7 +329,7 @@ func TestInstallGuardHook(t *testing.T) {
 		t.Fatal(err)
 	}
 	if s.Model != "opus" || len(s.Hooks.Pre) != 2 || s.Hooks.Pre[0].Hooks[0].Command != "my-check" ||
-		s.Hooks.Pre[1].Hooks[0].Command != "/opt/homebrew/bin/komando guide guard" {
+		s.Hooks.Pre[1].Hooks[0].Command != guardHookLine("/opt/homebrew/bin/komando", "claude") {
 		t.Errorf("settings: %s", b)
 	}
 	if err := os.WriteFile(p, []byte("{not json"), 0o600); err != nil {
