@@ -34,3 +34,23 @@ func TestSwarmApplyNotJudgedAsExec(t *testing.T) {
 		}
 	}
 }
+
+// A Swarm service or stack NAME reaches docker as a word of its own, and
+// quoting keeps the shell from splitting it but not docker from reading a
+// leading dash as a flag. Every Swarm entry refuses such a name first.
+func TestSwarmEntryNames(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "swarm1", "deploy@"+closedAddr(t))
+	for _, args := range [][]string{
+		{"cluster", "rm", "swarm1", "service/--help"},
+		{"cluster", "rm", "swarm1", "stack/--help"},
+		{"cluster", "scale", "swarm1", "service/--help", "2"},
+		{"cluster", "restart", "swarm1", "service/--help"},
+		{"cluster", "rollback", "swarm1", "service/--help"},
+		{"cluster", "deploy", "swarm1", "service/--help", "--image", "nginx:1.27"},
+	} {
+		if _, e := invRun(t, args...); e == nil || e.Code != "USAGE" {
+			t.Errorf("%v: want USAGE, got %+v", args, e)
+		}
+	}
+}
