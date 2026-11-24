@@ -379,3 +379,41 @@ func TestReadPhoneKey(t *testing.T) {
 		t.Error("sameKeyCheck")
 	}
 }
+
+// A sealed file never holds a secret komando keeps for itself (the
+// approval code's seed), even when a record in the store names it: the
+// export skips reserved names itself, not only the commands that add a
+// reference.
+func TestExportSealedSkipsReserved(t *testing.T) {
+	sealLab(t)
+	if err := vault.Set(store.Save(), approvalSecret, "SEED-SENTINEL-VALUE"); err != nil { // as config approval-code does
+		t.Fatal(err)
+	}
+	err := store.Update(store.Save(), func(s *store.State) error {
+		s.Hosts["web2"].PasswordRef = "secret:" + approvalSecret // past host add's refusal
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sealPerson(t, sealPass, sealPass)
+	dry := mustRun(t, "--dry-run", "export", "--sealed", "--to", filepath.Join(t.TempDir(), "dry.kmdseal"))
+	if strings.Contains(asJSON(dry), approvalSecret) {
+		t.Errorf("the dry run names the seed: %v", dry)
+	}
+	file := filepath.Join(t.TempDir(), "move.kmdseal")
+	d := mustRun(t, "export", "--sealed", "--to", file)
+	if strings.Contains(asJSON(d["secrets_in_file"]), approvalSecret) || strings.Contains(asJSON(d), "SEED-SENTINEL") {
+		t.Fatalf("the seed went into the file: %v", d)
+	}
+	invHome(t) // another computer
+	sealPerson(t, sealPass)
+	// the import refuses web2's reference to the seed; either way no seed
+	// arrives
+	if _, e := invRun(t, "import", "komando", file); e != nil && e.Code != "RESERVED_SECRET" {
+		t.Fatalf("import: %+v", e)
+	}
+	if _, err := vault.Get(approvalSecret); err == nil {
+		t.Error("the import brought the approval code's seed")
+	}
+}
