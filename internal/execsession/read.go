@@ -16,11 +16,12 @@ type Status struct {
 	Exit      int    // the run's exit code, once it ended on its own
 	Killed    string // why the timeout watcher stopped it
 	Truncated int64  // bytes dropped past the log cap
+	Lost      bool   // the run's process died without writing exit or killed (a reboot, an OOM kill)
 	ended     bool
 }
 
 // Ended says that the run is over: its exit code is written, or it was
-// stopped. Size is then final.
+// stopped, or found lost. Size is then final.
 func (s Status) Ended() bool { return s.ended }
 
 // ReadScript is the shell text that reads a session from byte from on: it
@@ -40,10 +41,11 @@ func ReadScript(id string, from int64) (string, error) {
 	return `r="$HOME/.komando"; s="$r/sessions"; d="$s/` + id + `"; ` +
 		`ks_own() { if [ -L "$1" ]; then exit 90; fi; [ -e "$1" ] || exit 95; { [ -d "$1" ] && [ -O "$1" ]; } || exit 90; }; ` +
 		`ks_own "$r"; ks_own "$s"; ks_own "$d"; ` +
-		`for f in out.log exit killed truncated; do [ ! -L "$d/$f" ] || exit 90; done; [ -f "$d/out.log" ] || exit 95; ` +
+		`for f in out.log exit killed truncated lost; do [ ! -L "$d/$f" ] || exit 90; done; [ -f "$d/out.log" ] || exit 95; ` +
 		`echo "read-begin ` + id + `"; ` +
 		`[ ! -f "$d/exit" ] || echo "exit $(head -c 16 "$d/exit" | tr -d '\r\n')"; ` +
 		`[ ! -f "$d/killed" ] || echo "killed $(head -c 64 "$d/killed" | tr -d '\r\n')"; ` +
+		`[ ! -f "$d/lost" ] || echo "lost"; ` +
 		`[ ! -f "$d/truncated" ] || echo "truncated $(head -c 24 "$d/truncated" | tr -d '\r\n')"; ` +
 		`echo "size $(wc -c < "$d/out.log" | tr -d ' ')"; echo "read-end ` + id + `"; ` +
 		`tail -c +` + strconv.FormatInt(from+1, 10) + ` "$d/out.log" | head -c ` + strconv.Itoa(ReadMax), nil
@@ -80,6 +82,11 @@ func ParseRead(s, id string) (Status, []byte, error) {
 			st.ended = true
 		case "killed":
 			st.Killed, st.ended = v, true
+		case "lost":
+			st.Lost, st.ended = v == "", true
+			if !st.Lost {
+				err = errRead
+			}
 		case "truncated":
 			st.Truncated, err = strconv.ParseInt(v, 10, 64)
 		default:

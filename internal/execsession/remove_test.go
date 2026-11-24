@@ -42,7 +42,7 @@ func TestRemoveScript(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			home := session(t, tc.files)
-			text, err := RemoveScript(testID)
+			text, err := RemoveScript(testID, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -51,7 +51,7 @@ func TestRemoveScript(t *testing.T) {
 			}
 		})
 	}
-	if _, err := RemoveScript("../x"); err == nil {
+	if _, err := RemoveScript("../x", nil); err == nil {
 		t.Fatal("a bad ID was taken")
 	}
 }
@@ -70,7 +70,7 @@ func TestRemoveScriptRefusesALink(t *testing.T) {
 	if err := os.Symlink(other, s); err != nil {
 		t.Fatal(err)
 	}
-	text, _ := RemoveScript(testID)
+	text, _ := RemoveScript(testID, nil)
 	if code := runSh(t, home, text); code != ExitUnsafe || !exists(keep) {
 		t.Fatalf("exit %d through a linked sessions folder", code)
 	}
@@ -102,7 +102,7 @@ func TestSweepScript(t *testing.T) {
 	running := sweepSession(t, home, "b"+testID[1:], week+time.Hour, false)
 	young := sweepSession(t, home, "c"+testID[1:], week-time.Hour, true)
 	other := sweepSession(t, home, "notasession", week+time.Hour, true)
-	if code := runSh(t, home, SweepScript); code != 0 {
+	if code := runSh(t, home, Sweep(nil)); code != 0 {
 		t.Fatalf("exit %d", code)
 	}
 	if exists(old) || !exists(running) || !exists(young) || !exists(other) {
@@ -117,13 +117,13 @@ func TestSweepScriptSkipsALinkedSession(t *testing.T) {
 	if err := os.Symlink(elsewhere, link); err != nil {
 		t.Fatal(err)
 	}
-	if code := runSh(t, home, SweepScript); code != 0 || !exists(filepath.Join(elsewhere, "exit")) || !exists(link) {
+	if code := runSh(t, home, Sweep(nil)); code != 0 || !exists(filepath.Join(elsewhere, "exit")) || !exists(link) {
 		t.Fatalf("exit %d; the link or the linked folder's files are gone", code)
 	}
 }
 
 func TestSweepScriptNoSessions(t *testing.T) {
-	if code := runSh(t, t.TempDir(), SweepScript); code != 0 {
+	if code := runSh(t, t.TempDir(), Sweep(nil)); code != 0 {
 		t.Fatalf("exit %d without a sessions folder", code)
 	}
 }
