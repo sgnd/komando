@@ -31,3 +31,22 @@ func TestGuardGolden(t *testing.T) {
 	}
 	matchGolden(t, "testdata/guard_golden.txt", b.String())
 }
+
+// A tool call larger than the guard reads whole is refused in every
+// harness's format, here a 5 MiB write to komando's own folder.
+func TestGuardRefusesOversizedCall(t *testing.T) {
+	content := strings.Repeat("x", 5<<20)
+	write := `"tool_input":{"file_path":"~/.komando/x","content":"` + content + `"}`
+	for _, c := range []struct{ args, in string }{
+		{"", `{"tool_name":"Write",` + write + `,"cwd":"/p"}`},
+		{"--for codex", `{"hook_event_name":"PreToolUse","tool_name":"Write",` + write + `}`},
+		{"--for cursor", `{"hook_event_name":"preToolUse","tool_name":"Write",` + write + `,"cwd":"/p"}`},
+		{"--for gemini", `{"hook_event_name":"BeforeTool","tool_name":"write_file",` + write + `}`},
+	} {
+		args := append([]string{"guide", "guard"}, strings.Fields(c.args)...)
+		stdout, _, _ := goldenRunIn(t, true, args, nil, c.in)
+		if !strings.Contains(stdout, "deny") || !strings.Contains(stdout, "too large for komando's guard to check") {
+			t.Errorf("%q: want a denial for a call over 4 MiB, got %.200q", c.args, stdout)
+		}
+	}
+}

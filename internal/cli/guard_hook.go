@@ -31,8 +31,12 @@ func guideGuardCmd() *cobra.Command {
 		Hidden: true,
 		Args:   cobra.NoArgs,
 		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
+			b, err := io.ReadAll(io.LimitReader(cl.stdin, guardInputMax+1))
+			if len(b) > guardInputMax {
+				_, err := cl.out.W.Write(guardAnswer(agent, deny("the tool call is too large for komando's guard to check (over 4 MiB)")))
+				return err
+			}
 			if agent != "" && agent != "claude" {
-				b, err := io.ReadAll(io.LimitReader(cl.stdin, 4<<20))
 				d := allow()
 				for _, home := range guardHomes() {
 					if err == nil && !d.Deny {
@@ -49,7 +53,6 @@ func guideGuardCmd() *cobra.Command {
 				Input map[string]any `json:"tool_input"`
 				Cwd   string         `json:"cwd"`
 			}
-			b, err := io.ReadAll(io.LimitReader(cl.stdin, 4<<20))
 			if err != nil || json.Unmarshal(b, &call) != nil {
 				return nil
 			}
@@ -72,6 +75,10 @@ func guideGuardCmd() *cobra.Command {
 	c.Flags().StringVar(&agent, "for", "", "the harness: claude (default), cursor, gemini or codex")
 	return c
 }
+
+// guardInputMax is the most of one hook input the guard reads; a larger
+// call is refused, as one the guard cannot check whole.
+const guardInputMax = 4 << 20
 
 // hookCwd is the working folder a hook input names, when it is a usable one.
 func hookCwd(cwd string) string {
