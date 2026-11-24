@@ -345,7 +345,7 @@ func swarmApply(cl *call, ctx context.Context, t clusterTarget, stack string, fi
 				return err
 			}
 		}
-		if err := guard(cl, st, []*store.Host{t.host}, line, true); err != nil {
+		if err := guardScript(cl, st, []*store.Host{t.host}, line, true); err != nil {
 			return err
 		}
 		res := map[string]any{"host": t.host.Name, "stack": stack, "dry_run": true, "would_run": line}

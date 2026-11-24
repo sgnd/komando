@@ -67,9 +67,10 @@ func TestPolicyMACStopsCommands(t *testing.T) {
 // whole, with no words a person or agent typed, may use it.
 // A new caller must be added here on purpose, after review.
 func TestGuardScriptCallers(t *testing.T) {
-	// code lines only: common.go defines guardScript, the other two call it
-	// with text komando wrote; runOps (modules_run.go) uses guard
-	want := map[string]int{"common.go": 1, "pkg_security.go": 1, "docker_prune.go": 2}
+	// code lines only: common.go defines guardScript, the others call it
+	// with lines komando wrote (swarmApply and swarmDo judge the stack file
+	// and their own tier); runOps (modules_run.go) uses guard
+	want := map[string]int{"common.go": 1, "pkg_security.go": 1, "docker_prune.go": 2, "cluster_apply.go": 1, "cluster_swarm.go": 1}
 	wantCheckScript := map[string]int{"common.go": 1}
 	files, err := filepath.Glob("*.go")
 	if err != nil {

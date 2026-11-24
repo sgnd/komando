@@ -308,10 +308,11 @@ func guard(cl *call, st *store.State, hosts []*store.Host, command string, mutat
 	return guardWith(cl, st, hosts, command, mutating, false)
 }
 
-// guardScript is guard for a script komando writes whole for one of its
-// own commands (pkg security, docker prune), with no typed words in it:
-// the rules that copy a command's check for exec text
-// (policy.CheckScript) do not apply.
+// guardScript is guard for a line komando writes whole for one of its own
+// commands (pkg security, docker prune, the Swarm changes), where typed
+// words are only quoted operands and the command rates its own words: the
+// rules that copy a command's check for exec text (policy.CheckScript) and
+// the compose-file reader do not apply.
 func guardScript(cl *call, st *store.State, hosts []*store.Host, script string, mutating bool) error {
 	return guardWith(cl, st, hosts, script, mutating, true)
 }
