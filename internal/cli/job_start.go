@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sgnd/komando/internal/execsession"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -137,8 +138,8 @@ func startJob(cl *call, ctx context.Context, c *sshx.Client, sp jobSpec) (starte
 		inFile = `(umask 077; cat > "$d/in") && `
 	}
 	script := `u=$(umask); umask 077; d="` + jobDir(id) + `"; mkdir -p "$d" && chmod 700 "$d" && ` + envFile + pwFile + inFile + `printf '%s\n' ` + sshx.Q(sp.shown) + ` > "$d/cmd" && date -u +%s > "$d/started"; ` +
-		`export d; if command -v setsid >/dev/null 2>&1; then setsid nohup sh -c ` + sshx.Q(jobWrapper(run, sp.timeout)) + ` sh "$u" > "$d/out.log" 2>&1 < /dev/null & ` +
-		`else nohup sh -c ` + sshx.Q(jobWrapper(run, sp.timeout)) + ` sh "$u" > "$d/out.log" 2>&1 < /dev/null & fi; echo $! > "$d/pid"; echo $!`
+		`export d; if command -v setsid >/dev/null 2>&1; then setsid nohup sh -c ` + sshx.Q(execsession.Wrapper(run, sp.timeout)) + ` sh "$u" > "$d/out.log" 2>&1 < /dev/null & ` +
+		`else nohup sh -c ` + sshx.Q(execsession.Wrapper(run, sp.timeout)) + ` sh "$u" > "$d/out.log" 2>&1 < /dev/null & fi; echo $! > "$d/pid"; echo $!`
 	input := append(append([]byte(exports), pw...), sp.input...)
 	r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: script, Stdin: input, Timeout: 30 * time.Second, MaxOutput: 64 << 10})
 	if err != nil {
@@ -156,16 +157,6 @@ func startJob(cl *call, ctx context.Context, c *sshx.Client, sp jobSpec) (starte
 	return started{ID: id, Host: c.Host.Name, PID: pid, OK: true}, nil
 }
 
-// jobFeed sends the job's env and input to its command, in that order,
-// deleting each file once it is sent; a sudo password goes first (pw).
-func jobFeed(pw bool) string {
-	f := `{ `
-	if pw {
-		f += `cat "$d/pw"; rm -f "$d/pw"; `
-	}
-	return f + `[ ! -f "$d/env" ] || { cat "$d/env"; rm -f "$d/env"; }; [ ! -f "$d/in" ] || { cat "$d/in"; rm -f "$d/in"; }; }`
-}
-
 // jobRunner is what starts the job: the feed piped into sudo (as root, or
 // --sudo-user) or sh, in the background, its pid in w. With the server's
 // sudo password (pw, sent to the job as input), sudo is first asked
@@ -174,39 +165,20 @@ func jobFeed(pw bool) string {
 func jobRunner(c *sshx.Client, sp jobSpec, inner string) (start string, pw []byte, err error) {
 	sh := "sh -c " + sshx.Q(inner)
 	if !sp.sudo && sp.sudoUser == "" {
-		return jobFeed(false) + " | " + sh + " & w=$!", nil, nil
+		return execsession.Feed(false) + " | " + sh + " & w=$!", nil, nil
 	}
 	user := ""
 	if sp.sudoUser != "" {
 		user = "-u " + sshx.Q(sp.sudoUser) + " "
 	}
 	if c.Host.SudoRef == "" {
-		return jobFeed(false) + " | sudo -n " + user + sh + " & w=$!", nil, nil
+		return execsession.Feed(false) + " | sudo -n " + user + sh + " & w=$!", nil, nil
 	}
 	p, err := vault.Resolve(c.Host.SudoRef)
 	if err != nil {
 		return "", nil, err
 	}
-	start = `if sudo -n ` + user + `sh -c : 2>/dev/null; then rm -f "$d/pw"; ` + jobFeed(false) + ` | sudo -n ` + user + sh +
-		` & w=$!; else ` + jobFeed(true) + ` | sudo -S -p '' ` + user + sh + ` & w=$!; fi`
+	start = `if sudo -n ` + user + `sh -c : 2>/dev/null; then rm -f "$d/pw"; ` + execsession.Feed(false) + ` | sudo -n ` + user + sh +
+		` & w=$!; else ` + execsession.Feed(true) + ` | sudo -S -p '' ` + user + sh + ` & w=$!; fi`
 	return start, []byte(p + "\n"), nil
-}
-
-// jobWrapper runs the job with the login's own umask ($1, so the job's
-// environment gains no variable) and writes its exit code, unless the job
-// was stopped (killed). With a timeout, a watcher stops the job after it
-// as job kill does, the whole process group (setsid) or else the command,
-// and notes "TERM timeout" so job status says why.
-func jobWrapper(start string, timeout time.Duration) string {
-	end := `wait $w 2>/dev/null; c=$?; `
-	watch := ""
-	if timeout > 0 {
-		secs := strconv.Itoa(int((timeout + time.Second - 1) / time.Second))
-		watch = `( trap 'kill $t 2>/dev/null; exit 0' TERM; sleep ` + secs + ` & t=$!; wait $t; ` +
-			`kill -0 $w 2>/dev/null && { printf 'TERM timeout\n' > "$d/killed"; kill -TERM -$$ 2>/dev/null || kill -TERM $w; } ) & s=$!; `
-		end += `kill $s 2>/dev/null; `
-	}
-	// the env (vault values), the input and the sudo password go once the
-	// job ends, also when sudo refused it before they were sent and deleted
-	return `umask "$1"; ` + start + `; umask 077; ` + watch + end + `[ -f "$d/killed" ] || echo $c > "$d/exit"; rm -f "$d/env" "$d/in" "$d/pw"`
 }
