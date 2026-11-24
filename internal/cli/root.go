@@ -88,10 +88,6 @@ type exitCode int
 
 func (e exitCode) Error() string { return "exit " + strconv.Itoa(int(e)) }
 
-// vtOK: the terminal on stderr reads escape sequences (colour, clearing a
-// line). Only an old Windows console does not.
-var vtOK = true
-
 // execute runs one command with these arguments in cl: its envelope or
 // text, and its exit code.
 func (cl *call) execute(ctx context.Context, args []string) int {

@@ -1,18 +1,18 @@
 //go:build !windows
 
-package cli
+package term
 
 import "testing"
 
 // A Unix terminal reads escape sequences as they are: nothing is turned
 // on, and the restore func is safe to call.
 func TestConsoleVTUnix(t *testing.T) {
-	ok, restore := consoleVT(-1)
+	ok, restore := ConsoleVT(-1)
 	if !ok {
-		t.Error("consoleVT: escape sequences reported off on Unix")
+		t.Error("ConsoleVT: escape sequences reported off on Unix")
 	}
 	if restore == nil {
-		t.Fatal("consoleVT: nil restore")
+		t.Fatal("ConsoleVT: nil restore")
 	}
 	restore()
 }
@@ -20,7 +20,7 @@ func TestConsoleVTUnix(t *testing.T) {
 // Escape sequences count as working until Execute finds an old Windows
 // console.
 func TestVTOKStartsTrue(t *testing.T) {
-	if !vtOK {
-		t.Error("vtOK starts false")
+	if !VTOK {
+		t.Error("VTOK starts false")
 	}
 }
