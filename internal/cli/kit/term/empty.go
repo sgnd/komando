@@ -1,4 +1,4 @@
-package cli
+package term
 
 import "strings"
 
@@ -10,9 +10,9 @@ import "strings"
 //
 // JSON keeps its empty array.
 
-// noneYet is the line for an empty list: add is the command that adds one
+// NoneYet is the line for an empty list: add is the command that adds one
 // ("" for a list komando does not fill), note an aside in brackets.
-func noneYet(things, add string, note ...string) string {
+func NoneYet(things, add string, note ...string) string {
 	s := "no " + things + " yet"
 	if add != "" {
 		s += ": `komando " + add + "`"
@@ -20,8 +20,8 @@ func noneYet(things, add string, note ...string) string {
 	return withNote(s, note)
 }
 
-// noneMatch is the line for a list a filter left empty.
-func noneMatch(things, filter string, note ...string) string {
+// NoneMatch is the line for a list a filter left empty.
+func NoneMatch(things, filter string, note ...string) string {
 	return withNote("no "+things+" match "+filter, note)
 }
 

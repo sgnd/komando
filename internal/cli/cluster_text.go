@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/sgnd/komando/internal/cli/kit/term"
 )
 
 // -o text for the cluster commands: kubectl-like tables, not YAML dumps.
@@ -44,7 +46,7 @@ func (l kubeList) Text() string {
 		if ns := str(l["namespace"]); ns != "" {
 			where = " in namespace " + ns
 		}
-		return noneYet(strings.ToLower(str(l["type"]))+"s"+where, "")
+		return term.NoneYet(strings.ToLower(str(l["type"]))+"s"+where, "")
 	}
 	kind := str(l["type"])
 	if _, swarm := l["host"]; swarm {

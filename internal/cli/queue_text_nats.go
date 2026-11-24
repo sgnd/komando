@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/queuex"
 )
 
@@ -53,7 +54,7 @@ func natsStreamsText(ts []queuex.Topic) string {
 		rows = append(rows, []string{t.Name, strings.Join(t.Subjects, ","), strconv.FormatInt(t.Messages, 10), humanBytes(int64(t.Bytes)),
 			strconv.Itoa(t.ConsumerCount), t.Storage, t.Retention, strconv.Itoa(t.NumReplicas)})
 	}
-	return layoutTable([]string{"STREAM", "SUBJECTS", "MESSAGES", "SIZE", "CONSUMERS", "STORAGE", "RETENTION", "REPLICAS"}, rows)
+	return term.LayoutTable([]string{"STREAM", "SUBJECTS", "MESSAGES", "SIZE", "CONSUMERS", "STORAGE", "RETENTION", "REPLICAS"}, rows)
 }
 
 func natsStreamText(t *queuex.TopicDetail) string {
@@ -119,7 +120,7 @@ func natsConsumerRows(cs []queuex.NatsConsumer, name func(queuex.NatsConsumer) s
 		rows = append(rows, []string{name(c), c.Stream, c.Kind, strconv.FormatUint(c.Pending, 10), strconv.Itoa(c.AckPending),
 			strconv.Itoa(c.Redelivered), strconv.Itoa(c.Waiting), orDash(strings.Join(c.FilterSubjects, ","))})
 	}
-	return layoutTable([]string{"CONSUMER", "STREAM", "KIND", "PENDING", "ACK PENDING", "REDELIVERED", "WAITING", "FILTER"}, rows)
+	return term.LayoutTable([]string{"CONSUMER", "STREAM", "KIND", "PENDING", "ACK PENDING", "REDELIVERED", "WAITING", "FILTER"}, rows)
 }
 
 func natsGroupsText(gs []queuex.Group) string {

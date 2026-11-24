@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/kube"
 	"github.com/sgnd/komando/internal/out"
@@ -405,9 +406,9 @@ func (e eventList) Text() string {
 	rows, _ := e["events"].([]map[string]any)
 	if len(rows) == 0 {
 		if ns := str(e["namespace"]); ns != "" {
-			return noneYet("events in namespace "+ns, "", "-A looks in every namespace")
+			return term.NoneYet("events in namespace "+ns, "", "-A looks in every namespace")
 		}
-		return noneYet("events", "")
+		return term.NoneYet("events", "")
 	}
 	cols := listColumns["Event"]
 	if str(e["namespace"]) == "" {

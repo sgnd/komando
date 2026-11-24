@@ -176,6 +176,9 @@ func TestCLIFileNames(t *testing.T) {
 	}
 	used := map[string]bool{}
 	programFiles(t, func(rel, name string) {
+		if strings.Contains(strings.TrimPrefix(rel, "internal/cli/"), "/") {
+			return // a sub-package of internal/cli (kit/...) is named by the package rules, not by command nouns
+		}
 		p := cliPrefix(name)
 		used[p] = true
 		if nouns[p] || areas[p] {

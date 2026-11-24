@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -61,7 +62,7 @@ type vpnStatusData struct {
 
 func (d vpnStatusData) Text() string {
 	if len(d.Vpns) == 0 {
-		return noneYet("VPNs", "vpn add NAME KIND", "kinds in `komando vpn --help`")
+		return term.NoneYet("VPNs", "vpn add NAME KIND", "kinds in `komando vpn --help`")
 	}
 	rows := [][]string{}
 	for _, r := range d.Vpns {

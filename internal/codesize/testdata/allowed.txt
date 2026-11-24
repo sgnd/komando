@@ -1,4 +1,4 @@
-# Code that was over the size limits (functions 100 lines, files 800)
+# Code that was over the size limits (functions 100 lines, files 800 lines, packages 60 program files)
 # when the rule came. Each may shrink, never grow; see codesize_test.go.
 file internal/ipsec/ikev1.go 1080
 file internal/ipsec/ikev2.go 1107
@@ -37,3 +37,4 @@ func internal/openvpn/client.go Client.handshake 107
 func internal/openvpn/config.go Parse 201
 func internal/policy/shell.go lexer.line 160
 func internal/sslvpn/anyconnect.go AnyConnectLogin 107
+pkg internal/cli 327

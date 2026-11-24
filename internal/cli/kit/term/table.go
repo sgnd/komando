@@ -1,4 +1,7 @@
-package cli
+// Package term holds what every command prints to a terminal: how wide text
+// is in columns, text tables and the line an empty list says. It needs no
+// cobra and no komando state, so commands and their tests share it.
+package term
 
 import (
 	"strings"
@@ -11,8 +14,8 @@ import (
 // terminal columns, not bytes or runes: CJK characters and emoji take two
 // columns, combining marks none, so columns line up as in psql.
 
-// displayWidth is how many terminal columns s takes.
-func displayWidth(s string) int {
+// DisplayWidth is how many terminal columns s takes.
+func DisplayWidth(s string) int {
 	n := 0
 	for _, r := range s {
 		n += runeWidth(r)
@@ -37,9 +40,9 @@ func runeWidth(r rune) int {
 	return 1
 }
 
-// truncateWidth cuts s to at most w columns, ending in "…" (one column) when cut.
-func truncateWidth(s string, w int) string {
-	if displayWidth(s) <= w {
+// TruncateWidth cuts s to at most w columns, ending in "…" (one column) when cut.
+func TruncateWidth(s string, w int) string {
+	if DisplayWidth(s) <= w {
 		return s
 	}
 	var b strings.Builder
@@ -55,17 +58,17 @@ func truncateWidth(s string, w int) string {
 	return b.String() + "…"
 }
 
-// layoutTable aligns rows under headers, two spaces apart, as they are
+// LayoutTable aligns rows under headers, two spaces apart, as they are
 // (no upper-casing, no placeholders for empty cells).
-func layoutTable(headers []string, rows [][]string) string {
+func LayoutTable(headers []string, rows [][]string) string {
 	w := make([]int, len(headers))
 	for i, h := range headers {
-		w[i] = displayWidth(h)
+		w[i] = DisplayWidth(h)
 	}
 	for _, r := range rows {
 		for i := range headers {
 			if i < len(r) {
-				w[i] = max(w[i], displayWidth(r[i]))
+				w[i] = max(w[i], DisplayWidth(r[i]))
 			}
 		}
 	}
@@ -79,7 +82,7 @@ func layoutTable(headers []string, rows [][]string) string {
 			}
 			l.WriteString(c)
 			if i < len(headers)-1 {
-				l.WriteString(strings.Repeat(" ", w[i]-displayWidth(c)+2))
+				l.WriteString(strings.Repeat(" ", w[i]-DisplayWidth(c)+2))
 			}
 		}
 		b.WriteString(strings.TrimRight(l.String(), " ") + "\n")
@@ -91,9 +94,9 @@ func layoutTable(headers []string, rows [][]string) string {
 	return b.String()
 }
 
-// dataTable is layoutTable with upper-case headers and "-" for empty
+// DataTable is LayoutTable with upper-case headers and "-" for empty
 // cells, like the other komando lists.
-func dataTable(headers []string, rows [][]string) string {
+func DataTable(headers []string, rows [][]string) string {
 	up := make([]string, len(headers))
 	for i, h := range headers {
 		up[i] = strings.ToUpper(h)
@@ -105,5 +108,5 @@ func dataTable(headers []string, rows [][]string) string {
 			}
 		}
 	}
-	return layoutTable(up, rows)
+	return LayoutTable(up, rows)
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -35,7 +36,7 @@ func (l groupList) Text() string {
 	name := func(sel string) string { return strings.TrimPrefix(strings.TrimPrefix(sel, "@"), "tag:") }
 	sort.SliceStable(rows, func(i, j int) bool { return name(rows[i][0]) < name(rows[j][0]) })
 	if len(rows) == 0 {
-		return noneYet("groups or tags", "group add GROUP TARGET...")
+		return term.NoneYet("groups or tags", "group add GROUP TARGET...")
 	}
 	return textTable([]string{"SELECTOR", "TYPE", "MEMBERS"}, rows)
 }
