@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -620,7 +621,7 @@ func TestApprovalWindowShowsEverything(t *testing.T) {
 		resetApproval()
 		texts = nil
 		tcl.args = []string{"komando", "exec", "web", "--allow-dangerous", "--", c.cmd}
-		err := guard(tcl, st, hosts, c.cmd, true)
+		err := Guard(tcl, st, hosts, c.cmd, true)
 		if err == nil {
 			t.Errorf("%s: the person said no, but it passed", c.name)
 		}
@@ -652,11 +653,38 @@ func TestApprovalWindowShowsEverything(t *testing.T) {
 	texts = nil
 	tcl.flags.allowDangerous = false
 	tcl.args = []string{"komando", "fs", "replace", "web", "/etc/app.yml", "--old", "a: 1", "--new", "a:\n  b: 1\n  c: 2", "--yes"}
-	if guard(tcl, st, hosts, "", true) == nil {
+	if Guard(tcl, st, hosts, "", true) == nil {
 		t.Error("fs replace: the person said no, but it passed")
 	}
 	if len(texts) != 1 || !strings.Contains(texts[0], `--new $'a:\n  b: 1\n  c: 2' --yes`) {
 		t.Errorf("fs replace window: %q", texts)
 	}
 
+}
+
+// A guard check that stalls or crashes is refused within the budget, in
+// every harness's format, before the harness's own hook time limit.
+func TestGuardStalledCheckIsRefused(t *testing.T) {
+	stop := make(chan struct{})
+	oldDecide, oldBudget := guardDecide, guardBudget
+	t.Cleanup(func() { close(stop); guardDecide, guardBudget = oldDecide, oldBudget })
+	guardBudget = 50 * time.Millisecond
+	for name, check := range map[string]func(*call, string) guardDecision{
+		"stalled": func(*call, string) guardDecision { <-stop; return allow() },
+		"crashed": func(*call, string) guardDecision { panic("check failed") },
+	} {
+		guardDecide = check
+		for _, agent := range []string{"", "claude", "codex", "cursor", "gemini"} {
+			done := make(chan []byte, 1)
+			go func() { done <- guardHook(nil, agent) }()
+			select {
+			case b := <-done:
+				if !strings.Contains(string(b), "deny") || !strings.Contains(string(b), "so the call is refused") {
+					t.Errorf("%s check, --for %q: want a denial, got %q", name, agent, b)
+				}
+			case <-time.After(2 * time.Second):
+				t.Fatalf("%s check, --for %q: the guard did not answer in 2s", name, agent)
+			}
+		}
+	}
 }

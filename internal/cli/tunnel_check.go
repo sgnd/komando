@@ -16,7 +16,7 @@ func tunnelGuard(cl *call, st *store.State, h *store.Host, kind string) error {
 	if kind != "remote" {
 		return nil
 	}
-	return guard(cl, st, []*store.Host{h}, "", true)
+	return Guard(cl, st, []*store.Host{h}, "", true)
 }
 
 // tunnelPort says whether p is a port number from least to 65535.

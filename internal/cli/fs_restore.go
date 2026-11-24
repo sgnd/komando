@@ -45,7 +45,7 @@ to see the change without making it.`,
 			if w := windowsNames(hosts); len(w) > 0 {
 				return out.Usage("fs restore does not work on Windows servers yet (%s); copy the backup back with `komando exec %s -- Copy-Item ...`", strings.Join(w, ", "), w[0])
 			}
-			if err := guard(cl, st, hosts, "", true); err != nil {
+			if err := Guard(cl, st, hosts, "", true); err != nil {
 				return err
 			}
 			r := restoreEdit{cl: cl, path: args[1], from: from, sudo: sudo}

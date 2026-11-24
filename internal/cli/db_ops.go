@@ -180,8 +180,8 @@ operation (killOp) and the client stays connected, so there is no --session.`,
 			if session {
 				v = driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"db-kill-session"}, Reasons: []string{"ends session " + args[1] + " (its client loses the connection)"}}
 			}
-			// under --dry-run guardConns stops nothing: it fills meta.would_be_blocked
-			if err := guardConns(cl, st, []*store.Conn{c}, v); err != nil {
+			// under --dry-run GuardConns stops nothing: it fills meta.would_be_blocked
+			if err := GuardConns(cl, st, []*store.Conn{c}, v); err != nil {
 				return err
 			}
 			if c.Kind == "mongodb" {

@@ -8,10 +8,10 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// guardConns is guard for conns. The driver classifies the operation first;
+// GuardConns is Guard for conns. The driver classifies the operation first;
 // destructive needs --allow-dangerous, and any change to a protected conn
-// needs --yes. Exit code and codes match guard so agents handle both alike.
-func guardConns(cl *call, st *store.State, conns []*store.Conn, v driver.Verdict) error {
+// needs --yes. Exit code and codes match Guard so agents handle both alike.
+func GuardConns(cl *call, st *store.State, conns []*store.Conn, v driver.Verdict) error {
 	names := make([]string, len(conns))
 	for i, c := range conns {
 		names[i] = c.Name

@@ -303,17 +303,17 @@ func withClient(cl *call, ctx context.Context, st *store.State, h *store.Host, f
 	return fn(c)
 }
 
-// guard enforces the safety policy before anything mutating runs.
-func guard(cl *call, st *store.State, hosts []*store.Host, command string, mutating bool) error {
+// Guard enforces the safety policy before anything mutating runs.
+func Guard(cl *call, st *store.State, hosts []*store.Host, command string, mutating bool) error {
 	return guardWith(cl, st, hosts, command, mutating, false)
 }
 
-// guardScript is guard for a line komando writes whole for one of its own
+// GuardScript is Guard for a line komando writes whole for one of its own
 // commands (pkg security, docker prune, the Swarm changes), where typed
 // words are only quoted operands and the command rates its own words: the
 // rules that copy a command's check for exec text (policy.CheckScript) and
 // the compose-file reader do not apply.
-func guardScript(cl *call, st *store.State, hosts []*store.Host, script string, mutating bool) error {
+func GuardScript(cl *call, st *store.State, hosts []*store.Host, script string, mutating bool) error {
 	return guardWith(cl, st, hosts, script, mutating, true)
 }
 

@@ -95,7 +95,7 @@ func withStoragePreview(cl *call, ctx context.Context, name, connExpr string, v 
 		return err
 	}
 	if v.Risk > driver.RiskRead {
-		if err := guardConns(cl, st, []*store.Conn{c}, v); err != nil {
+		if err := GuardConns(cl, st, []*store.Conn{c}, v); err != nil {
 			return fail(err)
 		}
 		if cl.flags.dryRun {

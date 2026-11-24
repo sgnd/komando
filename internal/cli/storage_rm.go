@@ -181,7 +181,7 @@ func storageRmPrefix(cl *call, ctx context.Context, connExpr, prefix string, age
 	// before anything is listed, as for every destructive command
 	person := !cl.flags.dryRun && !cl.flags.allowDangerous && cl.interactive()
 	if !person {
-		if err := guardConns(cl, st, []*store.Conn{c}, driver.DataDelete()); err != nil {
+		if err := GuardConns(cl, st, []*store.Conn{c}, driver.DataDelete()); err != nil {
 			return err // under --dry-run this only records the stop
 		}
 	}
@@ -229,7 +229,7 @@ func storageRmPrefix(cl *call, ctx context.Context, connExpr, prefix string, age
 		v.Reasons = []string{fmt.Sprintf("deletes %d object%s (%s) %s for good, unless the bucket keeps old versions",
 			len(keys), term.Plural(len(keys)), term.HumanBytes(p.Bytes), p.where())}
 		askTypes(cl, keys, "objects "+p.where())
-		if err := guardConns(cl, st, []*store.Conn{c}, v); err != nil {
+		if err := GuardConns(cl, st, []*store.Conn{c}, v); err != nil {
 			return err
 		}
 	}
