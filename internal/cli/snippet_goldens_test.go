@@ -9,11 +9,13 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/sgnd/komando/internal/sshx"
@@ -38,6 +40,7 @@ type replayServer struct {
 	steps []replayStep
 	execs []string
 	sent  []string // what each exec sent: the command, and a PowerShell script decoded
+	sftp  sftp.Handlers
 }
 
 type replayStep struct {
@@ -48,6 +51,12 @@ type replayStep struct {
 // startReplayServer points the host "dev" of startFakeServer's home at a new
 // server that replays steps.
 func startReplayServer(t *testing.T, steps ...replayStep) *replayServer {
+	return startReplayServerWith(t, nil, steps...)
+}
+
+// startReplayServerWith also serves files over SFTP: an in-memory tree of
+// path to content (a path ending in / is a folder).
+func startReplayServerWith(t *testing.T, files map[string]string, steps ...replayStep) *replayServer {
 	t.Helper()
 	startFakeServer(t) // the komando home, the client key and the hosts
 	_, hostKey, _ := ed25519.GenerateKey(rand.Reader)
@@ -62,7 +71,24 @@ func startReplayServer(t *testing.T, steps ...replayStep) *replayServer {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { ln.Close() })
-	s := &replayServer{steps: steps}
+	s := &replayServer{steps: steps, sftp: sftp.InMemHandler()}
+	for _, p := range sortedFilePaths(files) {
+		if strings.HasSuffix(p, "/") {
+			if err := s.sftp.FileCmd.Filecmd(sftp.NewRequest("Mkdir", strings.TrimSuffix(p, "/"))); err != nil {
+				t.Fatal(err)
+			}
+			continue
+		}
+		req := sftp.NewRequest("Put", p)
+		req.Flags = 0x2 | 0x8 | 0x10 // write, create, truncate
+		w, err := s.sftp.FilePut.Filewrite(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := w.WriteAt([]byte(files[p]), 0); err != nil {
+			t.Fatal(err)
+		}
+	}
 	go func() {
 		for {
 			nc, err := ln.Accept()
@@ -101,7 +127,15 @@ func (s *replayServer) serve(nc net.Conn, cfg *ssh.ServerConfig) {
 		go func() {
 			for r := range creqs {
 				if r.WantReply {
-					_ = r.Reply(r.Type == "exec" || r.Type == "env" || r.Type == "pty-req", nil)
+					_ = r.Reply(r.Type == "exec" || r.Type == "env" || r.Type == "pty-req" || r.Type == "subsystem", nil)
+				}
+				if r.Type == "subsystem" {
+					go func() {
+						srv := sftp.NewRequestServer(ch, s.sftp)
+						_ = srv.Serve()
+						_ = ch.Close()
+					}()
+					continue
 				}
 				if r.Type != "exec" {
 					continue
@@ -138,6 +172,15 @@ func (s *replayServer) serve(nc net.Conn, cfg *ssh.ServerConfig) {
 	}
 }
 
+func sortedFilePaths(files map[string]string) []string {
+	var ps []string
+	for p := range files {
+		ps = append(ps, p)
+	}
+	sort.Strings(ps) // a folder before what it holds
+	return ps
+}
+
 // sentText is what an exec sent, as text a person can read: the command, and
 // for the PowerShell bootstrap the script its first input line carries.
 func sentText(cmd string, stdin []byte) string {
@@ -156,8 +199,21 @@ type snippetCase struct {
 	snippet string // the ready-made snippet this pins: testdata/snippets/<snippet>/
 	family  string // the OS or tool family: "linux", "apt", "apk"
 	args    []string
-	steps   []string // the stdout files of the steps
-	windows bool     // the host answers as a Windows server
+	steps   []string          // the stdout files of the steps
+	windows bool              // the host answers as a Windows server
+	files   map[string]string // files served over SFTP; a path ending in / is a folder
+}
+
+// appTree is the file tree the SFTP cases read.
+var appTree = map[string]string{
+	"/srv/":                  "",
+	"/srv/app/":              "",
+	"/srv/app/env.conf":      "PORT=8080\nMODE=prod\n",
+	"/srv/app/b.txt":         "bee\n",
+	"/srv/app/a.txt":         "ay\n",
+	"/srv/app/.hidden":       "x\n",
+	"/srv/app/sub/":          "",
+	"/srv/app/sub/inner.txt": "in\n",
 }
 
 var snippetCases = []snippetCase{
@@ -176,6 +232,12 @@ var snippetCases = []snippetCase{
 	{snippet: "svc-list", family: "windows", args: []string{"svc", "list", "dev"}, steps: []string{"windows.in"}, windows: true},
 	{snippet: "svc-status", family: "windows", args: []string{"svc", "status", "dev", "W3SVC", "nope"}, steps: []string{"windows.in"}, windows: true},
 	{snippet: "facts", family: "windows", args: []string{"facts", "dev"}, steps: []string{"windows.in"}, windows: true},
+	{snippet: "fs-list", family: "sftp", args: []string{"fs", "list", "dev", "/srv/app"}, files: appTree},
+	{snippet: "fs-list", family: "sftp-all", args: []string{"fs", "list", "dev", "/srv/app", "--all", "--limit", "3"}, files: appTree},
+	{snippet: "fs-cat", family: "sftp", args: []string{"fs", "cat", "dev", "/srv/app/env.conf"}, files: appTree},
+	{snippet: "fs-write-preview", family: "sftp", args: []string{"fs", "write", "dev", "/srv/app/env.conf", "--content", "PORT=9090\nMODE=prod\n", "--dry-run"}, files: appTree},
+	{snippet: "fs-write-preview", family: "sftp-same", args: []string{"fs", "write", "dev", "/srv/app/env.conf", "--content", "PORT=8080\nMODE=prod\n", "--dry-run"}, files: appTree},
+	{snippet: "fs-write-preview", family: "sftp-new", args: []string{"fs", "write", "dev", "/srv/app/new.conf", "--content", "A=1\n", "--dry-run"}, files: appTree},
 	{snippet: "pkg-upgradable", family: "apk", args: []string{"pkg", "upgradable", "dev"}, steps: []string{"apk.in"}},
 }
 
@@ -183,6 +245,7 @@ var snippetCases = []snippetCase{
 var volatile = []*regexp.Regexp{
 	regexp.MustCompile(`"(duration_ms|latency_ms|elapsed_ms)":\s*\d+`),
 	regexp.MustCompile(`"(last_age|age)":\s*"[^"]*"`),
+	regexp.MustCompile(`"mod_time":\s*"[^"]*"`), // the in-memory files are made now
 }
 
 func normalizeGolden(s string) string {
@@ -217,7 +280,7 @@ func TestSnippetGoldens(t *testing.T) {
 				}
 				steps = append(steps, st)
 			}
-			rs := startReplayServer(t, steps...)
+			rs := startReplayServerWith(t, c.files, steps...)
 			if c.windows {
 				if err := store.Update(store.Save(), func(st *store.State) error { st.Hosts["dev"].OS = store.OSWindows; return nil }); err != nil {
 					t.Fatal(err)
