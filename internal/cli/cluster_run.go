@@ -297,7 +297,7 @@ risky verbs also need --allow-dangerous.`,
 			if t.host != nil {
 				on = []*store.Host{t.host}
 			}
-			if hits := policyHits(st, on, strings.Join(append([]string{tool}, args[1:]...), " "), false); len(hits) > 0 {
+			if hits := withoutRulesOff(st, on, policy.Check(strings.Join(append([]string{tool}, args[1:]...), " "), st.Settings.ExtraDenyPattern)); len(hits) > 0 {
 				risk = driver.RiskDestructive
 			}
 			if risk > driver.RiskRead && !write {

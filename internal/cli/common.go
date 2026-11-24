@@ -19,6 +19,7 @@ import (
 
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -330,7 +331,11 @@ func guardWith(cl *call, st *store.State, hosts []*store.Host, command string, m
 		return err
 	}
 	if command != "" {
-		hits := policyHits(st, hosts, command, own)
+		check := policy.Check
+		if own {
+			check = policy.CheckScript
+		}
+		hits := withoutRulesOff(st, hosts, check(command, st.Settings.ExtraDenyPattern))
 		ids := make([]string, len(hits))
 		reasons := make([]string, len(hits))
 		for i, h := range hits {

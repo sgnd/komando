@@ -343,15 +343,10 @@ func (p policyChange) TextFor(pr *out.Printer) string {
 	return fmt.Sprintf("removed the deny rule %s (%s left)\n", p.Removed, n)
 }
 
-// policyHits are the rules command matches, less the built-in rules a
-// person switched off for every one of hosts (`policy edit --off`). own leaves the
-// carried rules out, for scripts komando writes whole (guardScript).
-func policyHits(st *store.State, hosts []*store.Host, command string, own bool) []policy.Rule {
-	check := policy.Check
-	if own {
-		check = policy.CheckScript
-	}
-	return slices.DeleteFunc(check(command, st.Settings.ExtraDenyPattern), func(r policy.Rule) bool {
+// withoutRulesOff is hits less the rules a person switched off for every
+// one of hosts (policy edit --off).
+func withoutRulesOff(st *store.State, hosts []*store.Host, hits []policy.Rule) []policy.Rule {
+	return slices.DeleteFunc(hits, func(r policy.Rule) bool {
 		return ruleOffOn(st.Settings.RulesOff, r.ID, hosts)
 	})
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -313,7 +314,7 @@ func guardDocker(cl *call, target string, args []string) (mutating bool, err err
 	}
 	// the destructive-command policy sees the words as typed
 	on, _ := resolveTargets(cl, st, target) // an unknown target fails later, with its own error
-	if hits := policyHits(st, on, "docker "+strings.Join(args, " "), false); len(hits) > 0 {
+	if hits := withoutRulesOff(st, on, policy.Check("docker "+strings.Join(args, " "), st.Settings.ExtraDenyPattern)); len(hits) > 0 {
 		risk = driver.RiskDestructive
 	}
 	fileWhy := ""

@@ -54,7 +54,11 @@ func TestPolicyHitsRuleOff(t *testing.T) {
 		if c.own {
 			rule = "rm-root"
 		}
-		got := slices.Contains(ids(policyHits(st, c.hosts, c.cmd, c.own)), rule)
+		check := policy.Check
+		if c.own {
+			check = policy.CheckScript
+		}
+		got := slices.Contains(ids(withoutRulesOff(st, c.hosts, check(c.cmd, nil))), rule)
 		if got != c.want {
 			t.Errorf("%s: %s stops it = %v, want %v", c.name, rule, got, c.want)
 		}
