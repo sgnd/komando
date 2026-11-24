@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sgnd/komando/internal/auditlog"
 	"github.com/sgnd/komando/internal/cloud"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/testhome"
@@ -305,7 +306,7 @@ func TestUnifiedDiff(t *testing.T) {
 func auditText(t *testing.T) string {
 	t.Helper()
 	var lines []string
-	if err := eachAudit(func(_ int, b []byte) error { lines = append(lines, string(b)); return nil }); err != nil {
+	if err := auditlog.Each(func(_ int, b []byte) error { lines = append(lines, string(b)); return nil }); err != nil {
 		t.Fatal(err)
 	}
 	return strings.Join(lines, "\n")

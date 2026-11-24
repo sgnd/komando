@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/auditlog"
 	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sealdb"
@@ -130,14 +131,14 @@ is given.`,
 			// without a filter only the newest records are read
 			var from int64
 			if limit > 0 && command == "" && !failed && target == "" && actorName == "" && since == "" && until == "" {
-				last, err := newestAuditSeq()
+				last, err := auditlog.NewestSeq()
 				if err != nil {
 					return err
 				}
 				from = max(0, last-int64(limit))
 			}
 			all := []map[string]any{}
-			err := eachAuditAfter(from, func(_ int, b []byte) error {
+			err := auditlog.EachAfter(from, func(_ int, b []byte) error {
 				var e map[string]any
 				if json.Unmarshal(b, &e) != nil {
 					return nil
