@@ -118,7 +118,7 @@ func runRegistryCopy(cl *call, ctx context.Context, from, to string) error {
 	}
 	data := copyData{From: src.Name + ":" + srcRepo + refSep(srcRef) + srcRef, To: dst.Name + ":" + dstRepo + ":" + dstRef}
 	rec := map[string]any{"conns": []string{src.Name, dst.Name}, "from": data.From, "to": data.To, "risk": "write"}
-	if err := guardConns(cl, st, []*store.Conn{dst}, driver.Verdict{Risk: driver.RiskWrite}); err != nil {
+	if err := GuardConns(cl, st, []*store.Conn{dst}, driver.Verdict{Risk: driver.RiskWrite}); err != nil {
 		if cl.flags.dryRun {
 			cl.out.Print("registry.copy", map[string]any{"from": data.From, "to": data.To, "dry_run": true, "would_be_blocked": toErr(err)}, nil)
 			return nil

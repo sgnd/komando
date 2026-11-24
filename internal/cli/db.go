@@ -31,7 +31,7 @@ import (
 //  2. without --write it runs in a read-only transaction, so the database
 //     itself refuses changes the classifier missed;
 //  3. --write on a protected conn needs --yes, destructive SQL needs
-//     --allow-dangerous (guardConns);
+//     --allow-dangerous (GuardConns);
 //  4. --dry-run runs the SQL and rolls it back.
 
 const dbDefaultTimeout = 30 * time.Second
@@ -597,7 +597,7 @@ func runSQL(cl *call, ctx context.Context, name, connExpr, query string, f dbFla
 		// so a protected conn asks even for SQL rated read (as db shell does)
 		v := plan.Verdict
 		v.Risk = max(v.Risk, driver.RiskWrite)
-		if err := guardConns(cl, st, []*store.Conn{c}, v); err != nil {
+		if err := GuardConns(cl, st, []*store.Conn{c}, v); err != nil {
 			return fail(err)
 		}
 		if cl.flags.dryRun && cl.out.Blocked() != nil {

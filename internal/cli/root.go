@@ -15,7 +15,6 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
-	"runtime/debug"
 	"slices"
 	"strconv"
 	"strings"
@@ -30,17 +29,12 @@ import (
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/tmpclean"
 	"github.com/sgnd/komando/internal/vault"
+	"github.com/sgnd/komando/internal/version"
 )
 
-var Version = "dev"
-
 func init() {
-	if Version == "dev" {
-		// `go install ...@v1.2.3` records the module version in the binary
-		if bi, ok := debug.ReadBuildInfo(); ok && isRelease(bi.Main.Version) {
-			Version = bi.Main.Version
-		}
-	}
+	runExecute = execute
+	commandTree = func() *cobra.Command { return newRoot(treeCall()) }
 }
 
 type globalFlags struct {
@@ -89,8 +83,8 @@ type exitCode int
 func (e exitCode) Error() string { return "exit " + strconv.Itoa(int(e)) }
 
 // execute runs one command with these arguments in cl: its envelope or
-// text, and its exit code.
-func (cl *call) execute(ctx context.Context, args []string) int {
+// text, and its exit code. call.go reaches it through runExecute.
+func execute(cl *call, ctx context.Context, args []string) int {
 	// the hooks of the lower packages answer for this call from its first
 	// step (call_hooks.go): the store and the vault may open in any of
 	// them, and an agent's call must count there before they do
@@ -471,7 +465,7 @@ func newRoot(cl *call) *cobra.Command {
 		Long:          rootLong,
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		Version:       Version,
+		Version:       version.Version,
 		RunE:          printFirstSteps,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SetContext(withCall(cmd.Context(), cl))
@@ -496,7 +490,7 @@ func newRoot(cl *call) *cobra.Command {
 			}
 			cl.out.Format = f
 			cl.out.Pretty = cl.flags.pretty
-			cl.out.Version = Version
+			cl.out.Version = version.Version
 			cl.out.DryRun = cl.flags.dryRun
 			cl.oldCopy.Store(cl.flags.dryRun) // a dry run may look at an old copy: it changes nothing
 			cl.out.Start = time.Now()
@@ -716,7 +710,7 @@ func versionCmd() *cobra.Command {
 		Short: "Print the komando version and its home folder",
 		Args:  cobra.NoArgs,
 		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
-			cl.out.Print("version", map[string]string{"version": Version, "home": store.Home()}, nil)
+			cl.out.Print("version", map[string]string{"version": version.Version, "home": store.Home()}, nil)
 			return nil
 		}),
 	}
@@ -736,12 +730,6 @@ func outputFormat(cl *call, v string) (string, bool) {
 		return "json", true
 	}
 	return "", false
-}
-
-// isRelease reports whether a module version is a real tag (not a local or
-// pseudo version).
-func isRelease(v string) bool {
-	return strings.HasPrefix(v, "v") && !strings.HasPrefix(v, "v0.0.0-") && !strings.Contains(v, "+")
 }
 
 // signalContext is cancelled by the first Ctrl-C (or SIGTERM, or SIGHUP:

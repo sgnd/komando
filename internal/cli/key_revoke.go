@@ -79,7 +79,7 @@ yourself out. --dry-run counts the lines it would remove.`,
 					return err
 				}
 			}
-			if err := guard(cl, st, hosts, "", true); err != nil {
+			if err := Guard(cl, st, hosts, "", true); err != nil {
 				return err
 			}
 			if user != "" && !nameRe.MatchString(user) {
@@ -220,7 +220,7 @@ func guardRevokeSelf(cl *call, st *store.State, hosts []*store.Host, key string)
 		return nil
 	}
 	askTypes(cl, []string{key}, "keys")
-	return guardConns(cl, st, nil, driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"key-revoke-self"},
+	return GuardConns(cl, st, nil, driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"key-revoke-self"},
 		Reasons: []string{"komando logs in to " + strings.Join(self, ", ") + " with this key; switch them first (`komando host edit TARGET --key OTHER`)"}})
 }
 

@@ -96,7 +96,7 @@ func withRegistry(cl *call, ctx context.Context, name, expr string, risk driver.
 			reasons = append(reasons, s)
 		}
 	}
-	if err := guardConns(cl, st, []*store.Conn{c}, driver.Verdict{Risk: risk, RuleIDs: []string{"registry"}, Reasons: reasons}); err != nil {
+	if err := GuardConns(cl, st, []*store.Conn{c}, driver.Verdict{Risk: risk, RuleIDs: []string{"registry"}, Reasons: reasons}); err != nil {
 		if cl.flags.dryRun {
 			cl.out.Print(name, map[string]any{"conn": c.Name, "dry_run": true, "would_be_blocked": toErr(err)}, nil)
 			return nil

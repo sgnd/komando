@@ -16,6 +16,7 @@ import (
 	"github.com/sgnd/komando/internal/sealfile"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
+	"github.com/sgnd/komando/internal/version"
 )
 
 const sealPass = "a sealed file passphrase"
@@ -77,7 +78,7 @@ func TestExportSealedRoundTrip(t *testing.T) {
 		t.Errorf("check phrase %v, the output says %v", got, d["check_phrase"])
 	}
 	h, _ := sealfile.ReadHeader(raw)
-	if h.MadeBy != "komando "+Version || h.Mode != "passphrase" {
+	if h.MadeBy != "komando "+version.Version || h.Mode != "passphrase" {
 		t.Errorf("header %+v", h)
 	}
 	// on another computer: a new home, the passphrase typed once
