@@ -11,7 +11,7 @@ import (
 // command judges the file it read (composeEscapes), so its own line is
 // not stopped as exec text that hides a compose file; a file that hands
 // a service the server still stops.
-func TestSwarmApplyJudgesTheFileNotItsOwnLine(t *testing.T) {
+func TestSwarmApplyNotJudgedAsExec(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "swarm1", "deploy@"+closedAddr(t))
 	dir := t.TempDir()
@@ -26,5 +26,11 @@ func TestSwarmApplyJudgesTheFileNotItsOwnLine(t *testing.T) {
 	_, e = invRun(t, "cluster", "apply", "swarm1", "--file", escape, "--stack", "e2e")
 	if e == nil || e.Code != "POLICY_BLOCKED" || !strings.Contains(e.Message, "stack file") {
 		t.Errorf("stack file that binds /: want POLICY_BLOCKED on the stack file, got %+v", e)
+	}
+	// the stack name is a name: words docker would read as flags are refused
+	for _, stack := range []string{"--prune", "-c/etc/x.yml", "a b", ""} {
+		if _, e := invRun(t, "cluster", "apply", "swarm1", "--file", plain, "--stack", stack); e == nil || e.Code != "USAGE" {
+			t.Errorf("--stack %q: want USAGE, got %+v", stack, e)
+		}
 	}
 }

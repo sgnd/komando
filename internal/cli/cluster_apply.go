@@ -68,6 +68,9 @@ the file with ` + "`docker stack config`" + ` on the manager.`,
 				if stack == "" {
 					return out.Usage("Swarm needs --stack NAME")
 				}
+				if !containerNameRe.MatchString(stack) { // a name, never words docker reads as flags
+					return out.Usage("--stack %q is not a stack name: letters, digits, _ . and -, starting with a letter or digit", stack)
+				}
 				if forceConflicts {
 					return out.Usage("--force-conflicts is for Kubernetes; Swarm has no field managers")
 				}
