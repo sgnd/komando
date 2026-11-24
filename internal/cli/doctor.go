@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -140,7 +141,7 @@ func inventoryChecks(cl *call, st *store.State) []securityCheck {
 	for _, e := range cloudNamed(st) {
 		warn(e.kind+":"+e.name, cloudNameText(e))
 	}
-	for _, n := range mapKeys(st.Keys) {
+	for _, n := range slices.Sorted(maps.Keys(st.Keys)) {
 		k := st.Keys[n]
 		name := "key:" + k.Name
 		if store.SealedKey(k) {

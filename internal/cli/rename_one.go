@@ -86,7 +86,7 @@ func renameVia(s *store.State, old, now string) []string {
 			updated = append(updated, "conn "+c.Name+" --via")
 		}
 	}
-	for _, id := range mapKeys(s.Tunnels) {
+	for _, id := range slices.Sorted(maps.Keys(s.Tunnels)) {
 		if t := s.Tunnels[id]; slices.Contains(viaChain(t.Via), old) {
 			t.Via = renameStep(t.Via, old, now)
 			updated = append(updated, "tunnel "+id+" --via")
@@ -120,13 +120,13 @@ func renameHost(cl *call, s *store.State, from, to string) (mvResult, error) {
 	h.Name, h.UpdatedAt = to, time.Now().UTC()
 	s.Hosts[to] = h
 	res.Updated = append(res.Updated, renameVia(s, old, to)...)
-	for _, id := range mapKeys(s.Jobs) {
+	for _, id := range slices.Sorted(maps.Keys(s.Jobs)) {
 		if j := s.Jobs[id]; j.Host == old {
 			j.Host = to
 			res.Updated = append(res.Updated, "job "+id)
 		}
 	}
-	for _, id := range mapKeys(s.Tunnels) {
+	for _, id := range slices.Sorted(maps.Keys(s.Tunnels)) {
 		if t := s.Tunnels[id]; t.Host == old {
 			t.Host = to
 			res.Updated = append(res.Updated, "tunnel "+id)
@@ -159,7 +159,7 @@ func renameConn(cl *call, s *store.State, from, to string) (mvResult, error) {
 	delete(s.Conns, old)
 	c.Name, c.UpdatedAt = to, time.Now().UTC()
 	s.Conns[to] = c
-	for _, id := range mapKeys(s.Tunnels) {
+	for _, id := range slices.Sorted(maps.Keys(s.Tunnels)) {
 		if t := s.Tunnels[id]; t.Conn == old {
 			t.Conn = to
 			res.Updated = append(res.Updated, "tunnel "+id)
@@ -175,7 +175,7 @@ func renameConn(cl *call, s *store.State, from, to string) (mvResult, error) {
 func renameVpn(cl *call, s *store.State, from, to string) (mvResult, error) {
 	v, ok := s.Vpns[from]
 	if !ok {
-		return mvResult{}, notFoundSuggest(cl, "vpn", from, mapKeys(s.Vpns))
+		return mvResult{}, notFoundSuggest(cl, "vpn", from, slices.Sorted(maps.Keys(s.Vpns)))
 	}
 	res := mvResult{Kind: "vpn", From: from, To: to, Updated: []string{}}
 	if from == to {
