@@ -502,7 +502,7 @@ func swarmLogs(cl *call, ctx context.Context, t clusterTarget, service string, l
 // a service, cluster rm for a stack) before any docker line is built.
 func checkSwarmName(name string) error {
 	if !containerNameRe.MatchString(name) {
-		return out.Usage("%q is not a service or stack name: list them with `komando cluster list TARGET services`", name)
+		return out.Usage("%q is not a service or stack name: a name starts with a letter or digit, then letters, digits, _, . or -", name)
 	}
 	return nil
 }
