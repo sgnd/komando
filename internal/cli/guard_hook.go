@@ -22,8 +22,9 @@ import (
 // guideGuardCmd is the hook an agent harness runs before each tool call. It
 // reads the call as JSON on stdin and answers in the harness's hook format.
 // Anything it cannot read is let through: the guard must never stop work it
-// does not understand. A check that does not finish in guardBudget, or that
-// crashes, is refused.
+// does not understand. A call over guardInputMax, which it cannot read
+// whole, is refused, and so is a check that does not finish in guardBudget
+// or that crashes.
 func guideGuardCmd() *cobra.Command {
 	var agent string
 	c := &cobra.Command{
@@ -73,7 +74,10 @@ func guardHook(cl *call, agent string) []byte {
 // guardDecide reads one hook input and decides it for every home komando
 // guards: the first denial wins.
 var guardDecide = func(cl *call, agent string) guardDecision {
-	b, err := io.ReadAll(io.LimitReader(cl.stdin, 4<<20))
+	b, err := io.ReadAll(io.LimitReader(cl.stdin, guardInputMax+1))
+	if len(b) > guardInputMax {
+		return deny("the tool call is too large for komando's guard to check (over 4 MiB)")
+	}
 	if err != nil {
 		return allow()
 	}
@@ -98,6 +102,10 @@ var guardDecide = func(cl *call, agent string) guardDecision {
 	}
 	return d
 }
+
+// guardInputMax is the most of one hook input the guard reads; a larger
+// call is refused, as one the guard cannot check whole.
+const guardInputMax = 4 << 20
 
 // hookCwd is the working folder a hook input names, when it is a usable one.
 func hookCwd(cwd string) string {
