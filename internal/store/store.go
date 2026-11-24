@@ -219,6 +219,24 @@ type Job struct {
 	Ended string `json:"ended,omitempty"`
 }
 
+// ExecSession is a run exec started in a session folder on a Unix server
+// (internal/execsession). PID, PGID and ProcStart are read when it starts
+// and are the only facts a stop trusts: the folder on the server belongs to
+// the running command, which could rewrite its own pid file.
+type ExecSession struct {
+	ID        string    `json:"id"`
+	Host      string    `json:"host"`
+	Command   string    `json:"command"` // as shown, never the filled command
+	PID       int       `json:"pid"`
+	PGID      int       `json:"pgid"`
+	ProcStart string    `json:"proc_start"` // the process's start as the server gave it (execsession.ParseFacts)
+	StartedAt time.Time `json:"started_at"`
+	Sudo      bool      `json:"sudo,omitempty"`
+	SudoUser  string    `json:"sudo_user,omitempty"` // empty with Sudo: root
+	Actor     string    `json:"actor"`               // who the audit log names
+	Agent     bool      `json:"agent,omitempty"`     // the actor is an AI agent
+}
+
 type Tunnel struct {
 	ID        string    `json:"id"`
 	Host      string    `json:"host"`

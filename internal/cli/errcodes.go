@@ -224,6 +224,7 @@ var errorCodes = []errorCode{
 	{"SELF_NOT_FOUND", 1, "cannot find the komando program that is running: …", "run komando by its full path, for example /usr/local/bin/komando update"},
 	{"SENSITIVE_FILE", 6, "… is …, not …", "use a database of your own; komando's data is read only through komando's commands (`komando list`, `komando secret list`)"},
 	{"SESSION_NOT_FOUND", 3, "no session …", "list sessions with `komando db activity CONN --all`"},
+	{"SESSION_RECORD_MISSING", 3, "session … on … was not started from this computer", "only the computer that started the run can stop it: run `komando exec … --attach … --stop` there"},
 	{"SFTP_UNAVAILABLE", 4, "sftp: …", "enable the sftp subsystem in sshd_config"},
 	{"SHARED_FOLDER_CONFLICT", 8, "… can be changed by …, not only by root and the SSH user: as root, komando does not write … there (that user could swap it for a link while root writes)", "write it as … instead, for example `komando exec TARGET --sudo-user … --stdin-file FILE -- sh -c 'cat > \"$0\"' …`"},
 	{"SHELL_IDLE_TIMEOUT", 7, "the shell on … ended after … with no input and no output", "connect again (ssh -t HOST komando shell …); run long work as a job: `komando job start … -- COMMAND`"},
