@@ -344,11 +344,11 @@ func swarmApply(cl *call, ctx context.Context, t clusterTarget, stack string, fi
 		}
 		if risk >= driver.RiskDestructive {
 			// a dry run is not stopped: the stop lands in meta.would_be_blocked
-			if err := guardConns(cl, st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster.apply"}, Reasons: []string{why}}); err != nil {
+			if err := GuardConns(cl, st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster.apply"}, Reasons: []string{why}}); err != nil {
 				return err
 			}
 		}
-		if err := guardScript(cl, st, []*store.Host{t.host}, line, true); err != nil {
+		if err := GuardScript(cl, st, []*store.Host{t.host}, line, true); err != nil {
 			return err
 		}
 		res := map[string]any{"host": t.host.Name, "stack": stack, "dry_run": true, "would_run": line}

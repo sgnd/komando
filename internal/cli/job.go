@@ -87,7 +87,7 @@ without it a job has no time limit.`,
 			if err != nil {
 				return err
 			}
-			if err := guard(cl, st, hosts, sp.command, sp.mutating); err != nil {
+			if err := Guard(cl, st, hosts, sp.command, sp.mutating); err != nil {
 				return err
 			}
 			if sp.env, err = parseEnvTo(cl, envs, hosts); err != nil {
@@ -504,7 +504,7 @@ func jobKillCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := guard(cl, st, []*store.Host{h}, "", true); err != nil {
+			if err := Guard(cl, st, []*store.Host{h}, "", true); err != nil {
 				return err
 			}
 			script := jobKillScript(j, sig)
@@ -600,7 +600,7 @@ func jobRmCmd() *cobra.Command {
 				if force {
 					// --kill may stop it, the change job kill is: a protected
 					// server asks first
-					if err := guard(cl, st, []*store.Host{h}, "", true); err != nil {
+					if err := Guard(cl, st, []*store.Host{h}, "", true); err != nil {
 						return err
 					}
 				}

@@ -135,7 +135,7 @@ func guardBody(cl *call, body string) error {
 	if err != nil {
 		return err
 	}
-	return guard(cl, st, nil, body, false)
+	return Guard(cl, st, nil, body, false)
 }
 
 // jobStartLine is the job start command that runs what exec ran on host,

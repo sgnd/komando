@@ -620,7 +620,7 @@ func TestApprovalWindowShowsEverything(t *testing.T) {
 		resetApproval()
 		texts = nil
 		tcl.args = []string{"komando", "exec", "web", "--allow-dangerous", "--", c.cmd}
-		err := guard(tcl, st, hosts, c.cmd, true)
+		err := Guard(tcl, st, hosts, c.cmd, true)
 		if err == nil {
 			t.Errorf("%s: the person said no, but it passed", c.name)
 		}
@@ -652,7 +652,7 @@ func TestApprovalWindowShowsEverything(t *testing.T) {
 	texts = nil
 	tcl.flags.allowDangerous = false
 	tcl.args = []string{"komando", "fs", "replace", "web", "/etc/app.yml", "--old", "a: 1", "--new", "a:\n  b: 1\n  c: 2", "--yes"}
-	if guard(tcl, st, hosts, "", true) == nil {
+	if Guard(tcl, st, hosts, "", true) == nil {
 		t.Error("fs replace: the person said no, but it passed")
 	}
 	if len(texts) != 1 || !strings.Contains(texts[0], `--new $'a:\n  b: 1\n  c: 2' --yes`) {

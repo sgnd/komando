@@ -704,7 +704,7 @@ this key.`,
 			if err != nil {
 				return err
 			}
-			if err := guard(cl, st, hosts, "", true); err != nil {
+			if err := Guard(cl, st, hosts, "", true); err != nil {
 				return err
 			}
 			fields := strings.Fields(pubLine)

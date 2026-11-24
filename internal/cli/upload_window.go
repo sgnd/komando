@@ -148,7 +148,7 @@ func guardUpload(cl *call, st *store.State, hosts []*store.Host, local string) e
 	if err := noteUpload(cl, local, nil); err != nil {
 		return err
 	}
-	return guard(cl, st, hosts, "", true)
+	return Guard(cl, st, hosts, "", true)
 }
 
 // guardKubectlRun is cluster run's guard for a kubectl command line, with
@@ -157,7 +157,7 @@ func guardKubectlRun(cl *call, st *store.State, c *store.Conn, risk driver.Risk,
 	if err := noteKubectlFiles(cl, args); err != nil {
 		return err
 	}
-	if err := guardConns(cl, st, []*store.Conn{c}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{reason}}); err != nil {
+	if err := GuardConns(cl, st, []*store.Conn{c}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{reason}}); err != nil {
 		return execInstead(err, verb)
 	}
 	return nil
@@ -169,5 +169,5 @@ func guardRestore(cl *call, st *store.State, c *store.Conn, v driver.Verdict, fr
 	if err := noteRestoreFile(cl, from, custom, seal); err != nil {
 		return err
 	}
-	return guardConns(cl, st, []*store.Conn{c}, v)
+	return GuardConns(cl, st, []*store.Conn{c}, v)
 }
