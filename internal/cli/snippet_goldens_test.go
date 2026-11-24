@@ -3,6 +3,7 @@ package cli
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"database/sql"
 	"encoding/base64"
 	"io"
 	"net"
@@ -202,6 +203,12 @@ type snippetCase struct {
 	steps   []string          // the stdout files of the steps
 	windows bool              // the host answers as a Windows server
 	files   map[string]string // files served over SFTP; a path ending in / is a folder
+	// setup runs after the server is up, with a new folder it may fill; the
+	// folder's path is replaced by <tmp> in the compared text
+	setup func(t *testing.T, tmp string)
+	// volatile are patterns whose matches change between runs (a database
+	// version, a file size); each is replaced by a fixed word
+	volatile []*regexp.Regexp
 }
 
 // appTree is the file tree the SFTP cases read.
@@ -214,6 +221,36 @@ var appTree = map[string]string{
 	"/srv/app/.hidden":       "x\n",
 	"/srv/app/sub/":          "",
 	"/srv/app/sub/inner.txt": "in\n",
+}
+
+// liteDB makes a SQLite file with a fixed schema and registers it as the
+// conn "lite".
+func liteDB(t *testing.T, tmp string) {
+	path := filepath.Join(tmp, "app.db")
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT)`,
+		`CREATE UNIQUE INDEX users_email ON users(email)`,
+		`CREATE TABLE orders (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, total REAL)`,
+		`INSERT INTO users (name, email) VALUES ('ana', 'ana@example.test'), ('budi', 'budi@example.test')`,
+		`INSERT INTO orders (user_id, total) VALUES (1, 12.5), (1, 7), (2, 30)`,
+	} {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	mustRun(t, "conn", "add", "lite", "sqlite://"+path)
+}
+
+// liteVolatile cuts what a SQLite version or file layout can change.
+var liteVolatile = []*regexp.Regexp{
+	regexp.MustCompile(`"(version|size_bytes|started|uptime_seconds)":\s*("[^"]*"|\d+(\.\d+)?|null)`),
 }
 
 var snippetCases = []snippetCase{
@@ -238,6 +275,10 @@ var snippetCases = []snippetCase{
 	{snippet: "fs-write-preview", family: "sftp", args: []string{"fs", "write", "dev", "/srv/app/env.conf", "--content", "PORT=9090\nMODE=prod\n", "--dry-run"}, files: appTree},
 	{snippet: "fs-write-preview", family: "sftp-same", args: []string{"fs", "write", "dev", "/srv/app/env.conf", "--content", "PORT=8080\nMODE=prod\n", "--dry-run"}, files: appTree},
 	{snippet: "fs-write-preview", family: "sftp-new", args: []string{"fs", "write", "dev", "/srv/app/new.conf", "--content", "A=1\n", "--dry-run"}, files: appTree},
+	{snippet: "db-info", family: "sqlite", args: []string{"db", "info", "lite"}, setup: liteDB, volatile: liteVolatile},
+	{snippet: "db-sizes", family: "sqlite", args: []string{"db", "sizes", "lite"}, setup: liteDB, volatile: append([]*regexp.Regexp{regexp.MustCompile(`"bytes":\s*\d+`)}, liteVolatile...)},
+	{snippet: "db-schema", family: "sqlite-table", args: []string{"db", "schema", "lite", "orders"}, setup: liteDB, volatile: liteVolatile},
+	{snippet: "db-schema", family: "sqlite", args: []string{"db", "schema", "lite"}, setup: liteDB, volatile: liteVolatile},
 	{snippet: "pkg-upgradable", family: "apk", args: []string{"pkg", "upgradable", "dev"}, steps: []string{"apk.in"}},
 }
 
@@ -248,7 +289,16 @@ var volatile = []*regexp.Regexp{
 	regexp.MustCompile(`"mod_time":\s*"[^"]*"`), // the in-memory files are made now
 }
 
-func normalizeGolden(s string) string {
+func normalizeGolden(s string, tmp string, extra []*regexp.Regexp) string {
+	if tmp != "" {
+		s = strings.ReplaceAll(s, tmp, "<tmp>")
+	}
+	for _, re := range extra {
+		s = re.ReplaceAllStringFunc(s, func(m string) string {
+			k, _, _ := strings.Cut(m, ":")
+			return k + `:"<volatile>"`
+		})
+	}
 	// meta holds the version, the run time and the host key of a throwaway
 	// server (a new port and key every run); the data is what is pinned
 	if i := strings.LastIndex(s, `,"meta":`); i >= 0 {
@@ -281,13 +331,18 @@ func TestSnippetGoldens(t *testing.T) {
 				steps = append(steps, st)
 			}
 			rs := startReplayServerWith(t, c.files, steps...)
+			tmpDir := ""
+			if c.setup != nil {
+				tmpDir = t.TempDir()
+				c.setup(t, tmpDir)
+			}
 			if c.windows {
 				if err := store.Update(store.Save(), func(st *store.State) error { st.Hosts["dev"].OS = store.OSWindows; return nil }); err != nil {
 					t.Fatal(err)
 				}
 			}
 			got := captureOutput(t, func() error { return runRoot(t, append([]string{"-o", "json"}, c.args...)...) })
-			got = normalizeGolden(got)
+			got = normalizeGolden(got, tmpDir, c.volatile)
 			if strings.Contains(got, `"message":"EOF"`) || strings.Contains(got, "CONNECTION_LOST") {
 				t.Fatalf("the replay connection broke; this is not output to record:\n%s", got)
 			}
