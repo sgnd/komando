@@ -50,3 +50,25 @@ func TestGuardRefusesOversizedCall(t *testing.T) {
 		}
 	}
 }
+
+// A call of exactly 4 MiB is read whole and judged by what it does (a
+// write to komando's folder is denied by the path check); one byte more is
+// refused by its size.
+func TestGuardInputSizeBoundary(t *testing.T) {
+	call := func(size int) string {
+		head, tail := `{"tool_name":"Write","tool_input":{"file_path":"~/.komando/x","content":"`, `"},"cwd":"/p"}`
+		return head + strings.Repeat("x", size-len(head)-len(tail)) + tail
+	}
+	whole := call(guardInputMax)
+	if len(whole) != guardInputMax {
+		t.Fatalf("the input is %d bytes, want %d", len(whole), guardInputMax)
+	}
+	stdout, _, _ := goldenRunIn(t, true, []string{"guide", "guard"}, nil, whole)
+	if !strings.Contains(stdout, "deny") || strings.Contains(stdout, "too large") {
+		t.Errorf("exactly 4 MiB: want a denial by the path check, got %.200q", stdout)
+	}
+	stdout, _, _ = goldenRunIn(t, true, []string{"guide", "guard"}, nil, call(guardInputMax+1))
+	if !strings.Contains(stdout, "too large for komando's guard to check") {
+		t.Errorf("4 MiB and one byte: want a denial by size, got %.200q", stdout)
+	}
+}
