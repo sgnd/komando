@@ -7673,25 +7673,25 @@ Hint: see `komando storage rm --help`
 ### komando -o json exec web1 -- rm -rf / (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [rm-root]: deletes / or the home folder recursively","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [rm-root,rm-files]: deletes / or the home folder recursively; deletes files","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text exec web1 -- rm -rf / (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (deletes / or the home folder recursively), so komando asks first; nothing was changed
+Stopped: this can delete or break things (deletes / or the home folder recursively; deletes files), so komando asks first; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)
 (code POLICY_BLOCKED, exit 6)
 ### komando -o json exec web1 -- rm -rf / (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [rm-root]: deletes / or the home folder recursively","hint":"check with --dry-run, then run it again with --allow-dangerous (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [rm-root,rm-files]: deletes / or the home folder recursively; deletes files","hint":"check with --dry-run, then run it again with --allow-dangerous (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text exec web1 -- rm -rf / (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (deletes / or the home folder recursively), so komando asks first; nothing was changed
+Stopped: this can delete or break things (deletes / or the home folder recursively; deletes files), so komando asks first; nothing was changed
 Hint: If you mean it, run it again in a terminal and type the name to confirm, or add --allow-dangerous in a script. Try --dry-run first.
 (code POLICY_BLOCKED, exit 6)
 ### komando -o json exec web1 -- reboot (agent json, gate inventory)

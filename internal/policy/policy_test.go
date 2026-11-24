@@ -76,23 +76,16 @@ func TestCheck(t *testing.T) {
 	}
 	allowed := []string{
 		"ls -la /",
-		"rm -rf /tmp/build",
-		"rm -rf ./node_modules",
 		"systemctl restart nginx",
 		"df -h /",
-		"docker system prune -f",
 		"grep -r reboot /var/log",
 		"curl -sS https://example.com -o out.html",
 		"echo shutdown-script.sh",
 		"echo reboot",
 		"echo hi\necho reboot",
 		`grep "rm -rf /" notes.txt`,
-		"rm -rf /var/lib/app/cache",
-		"rm -rf -- /tmp/build",
 		"grep mkfs notes.txt",
 		"man mkfs.ext4",
-		"cd /tmp && rm -rf *",
-		"find /tmp -delete",
 		"find / -name '*.log'",
 		"chmod -R 755 /var/www",
 		"iptables -L",
@@ -109,6 +102,19 @@ func TestCheck(t *testing.T) {
 		if hits := Check(c, nil); len(hits) != 0 {
 			t.Errorf("expected %q to be allowed, got %v", c, hits[0].ID)
 		}
+	}
+	// deletes outside / and the system folders: only the carried rule
+	// (no root rule) stops them
+	for cmd, id := range map[string]string{
+		"rm -rf /tmp/build":         "rm-files",
+		"rm -rf ./node_modules":     "rm-files",
+		"rm -rf /var/lib/app/cache": "rm-files",
+		"rm -rf -- /tmp/build":      "rm-files",
+		"cd /tmp && rm -rf *":       "rm-files",
+		"find /tmp -delete":         "rm-files",
+		"docker system prune -f":    "docker-prune",
+	} {
+		onlyRule(t, cmd, id)
 	}
 	if len(Check("kubectl apply -f x", []string{`kubectl\s+apply`})) != 1 {
 		t.Error("custom pattern not applied")
@@ -320,6 +326,14 @@ func TestCustomIDIsStable(t *testing.T) {
 	}
 }
 
+// onlyRule: cmd hits rule id and no other.
+func onlyRule(t *testing.T, cmd, id string) {
+	t.Helper()
+	if hits := Check(cmd, nil); len(hits) != 1 || hits[0].ID != id {
+		t.Errorf("%q: want only rule %s, got %v", cmd, id, hits)
+	}
+}
+
 // A check that crashes stops the command: Check says it cannot check it,
 // so the command needs a person's yes like any destructive one.
 func TestCheckFailsClosed(t *testing.T) {
@@ -330,4 +344,18 @@ func TestCheckFailsClosed(t *testing.T) {
 	if len(hits) != 1 || hits[0].ID != checkFailedID {
 		t.Fatalf("Check with a crashing rule = %v, want one %s hit", hits, checkFailedID)
 	}
+}
+
+// The stop for a check that crashed is listed with the built-in rules
+// (policy list), with the reason the stop gives.
+func TestRulesListCheckFailed(t *testing.T) {
+	for _, r := range Rules() {
+		if r.ID == checkFailedID {
+			if r.Reason != checkFailed.Reason || r.Reason == "" {
+				t.Errorf("listed reason %q, the stop says %q", r.Reason, checkFailed.Reason)
+			}
+			return
+		}
+	}
+	t.Errorf("Rules() does not list %s", checkFailedID)
 }

@@ -61,5 +61,5 @@ dry recipe add "$D" 'echo hi' >/dev/null
 printf 'v' | $K secret set "$D" --dry-run >/dev/null
 check "inventory, vault, settings and runtime unchanged by dry runs" "$before" "$(snap)"
 
-q $K exec direct -- "rm -f /tmp/$D.keep"
+q $K exec direct --allow-dangerous -- "rm -f /tmp/$D.keep"
 fi
