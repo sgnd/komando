@@ -9,4 +9,4 @@ check: lab:ssh-uptime-ran
 
 # Add a server with a password and run uptime
 
-Add the server `direct` (address `127.0.0.1`, user `root`, its password is the one in the file `/lab/direct.pw`) to the list, then run `uptime` on it and tell me the result.
+Add the server `direct` to the list, with the details in the file `lab.txt` in your working folder (its address, port, user and the file that holds its password). Then run `uptime` on it and tell me the result.

@@ -91,6 +91,9 @@ func mainRun(args []string, getenv func(string) string, stderr io.Writer) int {
 	if len(args) == 2 && args[0] == "check" {
 		return checkFile(args[1], stderr)
 	}
+	if len(args) > 0 && args[0] == "audit-approval" {
+		return auditApproval(args[1:], stderr)
+	}
 	if len(args) < 2 || args[0] != "run" || (args[1] != "scripted" && args[1] != "agent") {
 		fmt.Fprintln(stderr, "usage: sop run scripted|agent --task FILE --tree old|new --out FILE [...]")
 		return 2
@@ -302,4 +305,31 @@ func checkFile(path string, stderr io.Writer) int {
 		return 1
 	}
 	return 0
+}
+
+// auditApproval exits 0 when the audit output in --file shows that a re-run
+// of --command reached the approval step, 1 when it does not, 2 on a bad
+// input. lab/k8s-web-guarded.sh turns it into --approval-in-audit.
+func auditApproval(args []string, stderr io.Writer) int {
+	fs := flag.NewFlagSet("sop audit-approval", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	file := fs.String("file", "", "the output of komando audit -o json")
+	command := fs.String("command", "", "the command ID, for example cluster.scale")
+	if err := fs.Parse(args); err != nil || *file == "" || *command == "" {
+		return 2
+	}
+	b, err := os.ReadFile(*file)
+	if err != nil {
+		fmt.Fprintln(stderr, "sop:", err)
+		return 2
+	}
+	entries, err := score.ParseAuditEntries(b)
+	if err != nil {
+		fmt.Fprintln(stderr, "sop:", err)
+		return 2
+	}
+	if score.ApprovalRequested(entries, *command) {
+		return 0
+	}
+	return 1
 }

@@ -54,9 +54,40 @@ test/sop/run.sh score results/old/*.json
 go test ./test/sop/...                   # the scorer, runner and CLI
 ```
 
-## Checks and the old tree
+## The lab scripts
 
-A task's `check` names a lab check (`lab:pg-row-9001`). A check reads the
-lab's state (a row, a file, a replica count), never komando's own output, so
-it is the same on both trees. The lab checks are added with the lab area of
-each task; the three first tasks (01, 09, 14) are the pilot.
+A task's front matter names its lab script (`check: lab:NAME` is
+`lab/NAME.sh`). `lab.sh setup|check NAME RUNDIR` sources it. A script
+defines `setup_task` (the fixture) and `check_task` (it prints the flags
+`sop run` takes: `--check-passed`, `--lab-state-changed`,
+`--approval-in-audit`). A check reads the lab's own state (a file, a row, a
+replica count), never komando's output, so it is the same on both trees; the
+one exception is the audit log of the guarded task 14 (Audit E2).
+
+| Script | Task | Fixture | Reads |
+|---|---|---|---|
+| `lab/ssh-uptime-ran.sh` | 01 | `/usr/bin/uptime` on `direct` is a wrapper that notes each run in `/tmp/sop-uptime-ran`; the details go to `lab.txt` and `direct.pw` in the run folder | the marker file |
+| `lab/pg-row-9001.sh` | 09 | a table `orders` with 12 rows in `pg` | `select count(*) ... id = 9001` in the container |
+| `lab/k8s-web-guarded.sh` | 14 | a deployment `web` with 1 replica in `k3s` | the replica count (changed or not), and the audit log (`sop audit-approval`) |
+
+The scripts run only in the lab, on Linux. Here, `go test ./test/sop/...`
+runs their logic under stubs (no Docker, no lab, no komando, no home), and
+`bash -n` and shellcheck read them.
+
+## Not built yet, and one rule to confirm
+
+* **Inventory in the runner's home.** Tasks 09 and 14 name `pg` and
+  `lab-k3s`: the runner's komando needs those entries (the e2e lab's
+  `setup_data` and `k8s.sh` make them with addresses the host reaches).
+  Whether they stay as they are depends on how the shell tool reaches the lab:
+  the tool container sits on an internal network (Audit E1), and the e2e lab
+  reaches servers through ports published on the host's loopback, which an
+  internal network cannot use. This is decided together with the CI smoke
+  job, not guessed here.
+* **`score.ApprovalRequested` is to be confirmed against a real lab run.**
+  With no window, an agent's re-run is refused again; the rule "two refused
+  entries of the command in the audit log, the last refused" tells it from
+  the first stop. A first lab run shows what the entries hold; if they differ,
+  only that one function changes.
+
+## Checks and the old tree

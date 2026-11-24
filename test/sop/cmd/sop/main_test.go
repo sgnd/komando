@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -118,5 +119,57 @@ func TestCheckFile(t *testing.T) {
 	}
 	if code := mainRun([]string{"check", bad}, os.Getenv, &stderr); code == 0 {
 		t.Error("a file with stdout passed")
+	}
+}
+
+// Every task names a lab script; the script exists, parses as shell, and
+// defines the two functions lab.sh calls. This runs here: the scripts
+// themselves run only in the lab, on Linux.
+func TestEveryTaskHasASoundLabScript(t *testing.T) {
+	files, _ := filepath.Glob(filepath.Join("..", "..", "tasks", "*.md"))
+	for _, f := range files {
+		b, _ := os.ReadFile(f)
+		tk, err := parseTask(b)
+		if err != nil {
+			t.Fatal(err)
+		}
+		name, ok := strings.CutPrefix(tk.Check, "lab:")
+		if !ok {
+			t.Errorf("%s: check %q does not name a lab script (lab:NAME)", f, tk.Check)
+			continue
+		}
+		script := filepath.Join("..", "..", "lab", name+".sh")
+		src, err := os.ReadFile(script)
+		if err != nil {
+			t.Errorf("%s: no lab script %s", f, script)
+			continue
+		}
+		for _, fn := range []string{"setup_task()", "check_task()"} {
+			if !strings.Contains(string(src), fn) {
+				t.Errorf("%s defines no %s", script, fn)
+			}
+		}
+		if out, err := exec.Command("bash", "-n", script).CombinedOutput(); err != nil {
+			t.Errorf("%s does not parse: %v\n%s", script, err, out)
+		}
+		for _, bad := range []string{"$K audit", "komando exec", "komando host"} {
+			if strings.Contains(string(src), bad) && name != "k8s-web-guarded" {
+				t.Errorf("%s reads komando's output (%s); a check reads lab state", script, bad)
+			}
+		}
+	}
+}
+
+func TestAuditApprovalCommand(t *testing.T) {
+	dir := t.TempDir()
+	yes, no := filepath.Join(dir, "yes.json"), filepath.Join(dir, "no.json")
+	os.WriteFile(yes, []byte(`{"ok":true,"data":{"entries":[{"command":"cluster.scale","ok":false},{"command":"cluster.scale","ok":false}]}}`), 0o600)
+	os.WriteFile(no, []byte(`{"ok":true,"data":{"entries":[{"command":"cluster.scale","ok":false}]}}`), 0o600)
+	var stderr bytes.Buffer
+	if code := mainRun([]string{"audit-approval", "--file", yes, "--command", "cluster.scale"}, os.Getenv, &stderr); code != 0 {
+		t.Errorf("a refused re-run: exit %d %s", code, stderr.String())
+	}
+	if code := mainRun([]string{"audit-approval", "--file", no, "--command", "cluster.scale"}, os.Getenv, &stderr); code != 1 {
+		t.Errorf("only the first stop: exit %d", code)
 	}
 }
