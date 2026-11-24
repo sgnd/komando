@@ -366,12 +366,35 @@ func folderOwner(dir string) string {
 }
 
 // nextAfterUpdate reminds a person that the skill AI agents read comes with
-// komando, so it changes with the version.
+// komando, so it changes with the version, and says when a guard hook still
+// uses the old line.
 func nextAfterUpdate() string {
 	if asRoot() {
 		return "komando guide install, without sudo (gives your AI agents this version's skill)"
 	}
+	if oldGuardHooks() {
+		return "komando guide install (guard hooks use the old line; it also gives your AI agents this version's skill)"
+	}
 	return "komando guide install (gives your AI agents this version's skill)"
+}
+
+// oldGuardHooks says whether an AI agent's guard hook in this home still
+// uses the line from before guardHookLine.
+func oldGuardHooks() bool {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+	files := []string{filepath.Join(home, ".claude", "settings.json")}
+	for _, h := range agentHooks {
+		files = append(files, filepath.Join(home, h.dir, h.file))
+	}
+	for _, f := range files {
+		if found, problem := claudeGuard(f); found && strings.Contains(problem, "old hook line") {
+			return true
+		}
+	}
+	return false
 }
 
 // auditUpdate records an update that ran, as other changes are recorded.

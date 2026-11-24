@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -685,6 +686,159 @@ func TestGuardStalledCheckIsRefused(t *testing.T) {
 			case <-time.After(2 * time.Second):
 				t.Fatalf("%s check, --for %q: the guard did not answer in 2s", name, agent)
 			}
+		}
+	}
+}
+
+// fakeKomando writes a stand-in for the komando program that runs body.
+func fakeKomando(t *testing.T, dir, name, body string) string {
+	t.Helper()
+	p := filepath.Join(dir, name)
+	if err := os.WriteFile(p, []byte("#!/bin/sh\n"+body+"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+// runHookLine runs a guard hook line the way a harness does: through sh,
+// with the tool call on stdin.
+func runHookLine(t *testing.T, line, in string) (stdout string, code int) {
+	t.Helper()
+	cmd := exec.Command("/bin/sh", "-c", line)
+	cmd.Stdin = strings.NewReader(in)
+	b, err := cmd.Output()
+	if ee, ok := err.(*exec.ExitError); ok {
+		return string(b), ee.ExitCode()
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b), 0
+}
+
+// The guard hook line answers for every harness: the guard's own answer
+// when it ran to the end, and the harness's deny, with exit 0, when the
+// program is missing, fails or dies halfway.
+func TestGuardHookLineRefusesWhenTheGuardFails(t *testing.T) {
+	unixOnly(t, "the hook line runs through /bin/sh")
+	dir := t.TempDir()
+	call := `{"tool_name":"Bash","tool_input":{"command":"ls"},"cwd":"/p"}`
+	progs := map[string]string{
+		"missing":       filepath.Join(dir, "gone", "komando"),
+		"exits 1":       fakeKomando(t, dir, "fails", "exit 1"),
+		"dies halfway":  fakeKomando(t, dir, "half", `printf '{"hookSpecificOutput":'; exit 3`),
+		"not a program": filepath.Join(dir, "plain"),
+	}
+	_ = os.WriteFile(progs["not a program"], []byte("x"), 0o644)
+	for _, h := range []string{"claude", "codex", "cursor", "gemini"} {
+		want := strings.TrimSpace(string(guardAnswer(h, deny(guardDidNotRun))))
+		for name, prog := range progs {
+			if got, code := runHookLine(t, guardHookLine(prog, h), call); got != want || code != 0 {
+				t.Errorf("%s, %s: want the deny %q and exit 0, got %q, exit %d", h, name, want, got, code)
+			}
+		}
+		// the guard's own answer passes through, and it reads the call on stdin
+		if got, code := runHookLine(t, guardHookLine(fakeKomando(t, dir, "echo-"+h, "cat"), h), call); got != call || code != 0 {
+			t.Errorf("%s: the guard's answer: want %q, got %q, exit %d", h, call, got, code)
+		}
+		if got, code := runHookLine(t, guardHookLine(fakeKomando(t, dir, "allow-"+h, "exit 0"), h), call); got != "" || code != 0 {
+			t.Errorf("%s: an allowed call prints nothing: got %q, exit %d", h, got, code)
+		}
+	}
+}
+
+// guide install writes the hook line for every harness, replaces an old
+// line, and the readers find both forms; doctor flags the old form and a
+// missing program.
+func TestGuardHookInstallAndReaders(t *testing.T) {
+	unixOnly(t, "program checks read Unix modes")
+	dir := t.TempDir()
+	prog := fakeKomando(t, dir, "komando", "exit 0")
+	settings := filepath.Join(dir, "settings.json")
+	old := `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"` + prog + ` guide guard"}]}]}}`
+	if err := os.WriteFile(settings, []byte(old), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if found, problem := claudeGuard(settings); !found || !strings.Contains(problem, "old hook line") {
+		t.Errorf("doctor on the old line: found %v, problem %q", found, problem)
+	}
+	if _, err := installGuardHook(settings, prog, false); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(settings)
+	var v any
+	_ = json.Unmarshal(b, &v)
+	if got := guardHookCommands(v); len(got) != 1 || got[0] != guardHookLine(prog, "claude") {
+		t.Errorf("after install: want one wrapper line, got %q", got)
+	}
+	if found, problem := claudeGuard(settings); !found || problem != "" {
+		t.Errorf("doctor on the wrapper: found %v, problem %q", found, problem)
+	}
+	for _, h := range agentHooks {
+		path := filepath.Join(dir, h.name+".json")
+		if _, err := installAgentHook(path, h.add, guardHookLine(prog, h.name), false); err != nil {
+			t.Fatal(err)
+		}
+		b, _ := os.ReadFile(path)
+		var v any
+		_ = json.Unmarshal(b, &v)
+		for _, c := range guardHookCommands(v) {
+			if p, wrapped := hookLineProgram(c); p != prog || !wrapped {
+				t.Errorf("%s: the line %q names %q (wrapped %v)", h.name, c, p, wrapped)
+			}
+		}
+	}
+	for _, line := range []string{prog + " guide guard", prog + " guide guard --for codex", guardHookLine(prog, "claude"), guardHookLine(prog, "cursor")} {
+		entry := map[string]any{"hooks": []any{map[string]any{"command": line}}}
+		if !isGuardEntry(entry) || len(withoutGuard([]any{entry, map[string]any{"command": line}})) != 0 {
+			t.Errorf("the readers miss %q", line)
+		}
+	}
+	if err := os.Remove(prog); err != nil {
+		t.Fatal(err)
+	}
+	if _, problem := claudeGuard(settings); !strings.Contains(problem, "does not exist") || !strings.Contains(problem, "every tool call is refused") {
+		t.Errorf("doctor with the program gone: %q", problem)
+	}
+}
+
+// The guard keeps an agent from changing what runs it: the agents' hook
+// settings and folders and the komando program. Reading them stays open.
+func TestGuardRefusesChangesToItself(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	self, _ := os.Executable()
+	refused := []struct {
+		tool string
+		in   map[string]any
+	}{
+		{"Bash", map[string]any{"command": `rm "$(command -v komando)"`}},
+		{"Bash", map[string]any{"command": "rm -f " + self}},
+		{"Bash", map[string]any{"command": "mv ~/.claude/settings.json /tmp/x"}},
+		{"Bash", map[string]any{"command": "echo '{}' > ~/.cursor/hooks.json"}},
+		{"Bash", map[string]any{"command": "rm -rf ~/.claude"}},
+		{"Bash", map[string]any{"command": "sed -i s/guard/x/ ~/.codex/hooks.json"}},
+		{"Write", map[string]any{"file_path": home + "/.gemini/settings.json"}},
+		{"Edit", map[string]any{"file_path": home + "/.claude/settings.local.json"}},
+	}
+	for _, c := range refused {
+		if d := checkTool(tcl, c.tool, c.in, home, home); !d.Deny {
+			t.Errorf("%s %v: want a refusal", c.tool, c.in)
+		}
+	}
+	allowed := []struct {
+		tool string
+		in   map[string]any
+	}{
+		{"Bash", map[string]any{"command": "cat ~/.claude/settings.json"}},
+		{"Read", map[string]any{"file_path": home + "/.claude/settings.json"}},
+		{"Write", map[string]any{"file_path": home + "/.claude/projects/p/memory/note.md"}},
+		{"Bash", map[string]any{"command": "rm -rf ~/.claude/projects/old"}},
+		{"Bash", map[string]any{"command": "command -v komando"}},
+	}
+	for _, c := range allowed {
+		if d := checkTool(tcl, c.tool, c.in, home, home); d.Deny {
+			t.Errorf("%s %v: want it allowed, got %q", c.tool, c.in, d.Reason)
 		}
 	}
 }
