@@ -9,9 +9,11 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/execsession"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -136,6 +138,7 @@ func execCmd() *cobra.Command {
 	var so scriptOpts
 	var cmdStr string
 	var readOnly bool
+	var sess sessionOpts
 	c := &cobra.Command{
 		Use:     "exec TARGET [-- COMMAND...]",
 		Aliases: []string{"run", "x"},
@@ -171,6 +174,9 @@ so nothing is left on the server. --arg values become $1, $2 ... .`,
   cat deploy.sh | komando exec web1 --stdin-file - -- 'bash -s'`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			if err := sess.refuseOff(cmd); err != nil {
+				return err
+			}
 			if so.file != "" {
 				if cmdStr != "" || len(args) > 1 {
 					return out.Usage("give a command or --script FILE, not both")
@@ -216,7 +222,43 @@ so nothing is left on the server. --arg values become $1, $2 ... .`,
 	c.Flags().StringVar(&so.file, "script", "", "run this script from this computer ('-' = komando's stdin); nothing is left on the server")
 	so.bind(c)
 	c.Flags().BoolVar(&readOnly, "read-only", false, "declare that the command only looks: only commands komando knows only read run (protected servers: no --yes)")
+	sess.bind(c)
 	return c
+}
+
+// sessionOpts are exec's flags for a run in a session on the server.
+type sessionOpts struct {
+	attach []string
+	offset int64
+	wait   time.Duration
+	logMax int64
+}
+
+func (s *sessionOpts) bind(c *cobra.Command) {
+	f := c.Flags()
+	f.StringSliceVar(&s.attach, "attach", nil, "read the rest of these sessions on one server, and their exit codes")
+	f.Int64Var(&s.offset, "offset", 0, "with --attach: start at this byte of the log (next_from of the last read)")
+	f.DurationVar(&s.wait, "wait", 90*time.Second, "wait this long for the run to end; it goes on after (exit 7); 0 returns at once")
+	s.logMax = 1 << 30
+	f.Var(&bytesFlag{n: &s.logMax}, "log-max", "bytes of output the server keeps for the run, like 100MiB; more is dropped")
+	if !execsession.On {
+		for _, n := range []string{"attach", "offset", "wait", "log-max"} {
+			_ = f.MarkHidden(n)
+		}
+	}
+}
+
+// refuseOff refuses the session flags while sessions are off.
+func (s *sessionOpts) refuseOff(c *cobra.Command) error {
+	if execsession.On {
+		return nil
+	}
+	for _, n := range []string{"attach", "offset", "wait", "log-max"} {
+		if c.Flags().Changed(n) {
+			return out.Usage("--%s comes with exec sessions, which this build does not have yet", n)
+		}
+	}
+	return nil
 }
 
 // execReadOnly is exec's --read-only check: a command that changes

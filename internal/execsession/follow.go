@@ -9,6 +9,10 @@ import (
 	"github.com/sgnd/komando/internal/out"
 )
 
+// On turns exec's runs in a session on. It stays off until the v2.7 cut:
+// exec then runs as before, and its session flags are hidden and refused.
+var On = false
+
 // Reader runs a shell script on the server and gives its stdout and exit.
 type Reader func(ctx context.Context, script string) (string, int, error)
 
