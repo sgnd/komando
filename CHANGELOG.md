@@ -9,6 +9,7 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- The agent guard (`komando guide guard`) answers every tool call within 3 seconds: a check that takes longer, or stops with an internal error, refuses the call.
 - The macOS approval window no longer answers to Space or Return: a stray key cannot deny (or allow) for you. Click **Deny** or **Allow once**, or press Esc or Cmd-W to deny. The agent's error names how the person said no (`details.denied_by`: `click` or `key`), and after a key it asks whether that was a slip.
 - The macOS approval window now shows a script of up to 200 lines whole; it scrolls and allows only after the last line. Windows and Linux keep 40 lines.
 - A script too long for the window ends with its own error code, `SHORTER_SCRIPT_REQUIRED`, and the message names the counted number of shown lines and the script's own line count.
