@@ -6534,34 +6534,40 @@
       },
       {
         "path": "komando policy edit",
-        "usage": "komando policy edit RULE (--off | --on) [flags]",
+        "usage": "komando policy edit RULE [flags]",
         "short": "Switch a rule off or on, everywhere or on some servers",
-        "long": "--off switches a rule off, so it no longer stops a command. With --host or\n--group it is off only on those servers (a group as its servers are now): a\ncommand that also runs on another server is still stopped. Switching a rule\noff weakens a safety check, so komando asks first: an AI agent's request\nopens the approval window on your screen, and for a rule that keeps the\nothers working (check-failed, decode-run, rm-root, mkfs, sshd-stop, ...) you\ntype the rule's name at a terminal, with --yes too, and an AI agent's\nrequest for one is refused. The audit log keeps every switch, and `komando\ndoctor` names every rule that is off. --on switches it on again, everywhere\nor only on the servers you name.\n\nSafety: a change; try it with --dry-run first; unless only --on: it weakens\na safety check: a person's yes (--yes).",
-        "example": "  komando policy edit docker-prune --off --host build1\n  komando policy edit docker-prune --off --host build1 --dry-run\n  komando policy edit pkg-remove-essential --off --group lab\n  komando policy edit docker-prune --on",
+        "long": "--off switches a rule off, so it no longer stops a command. With\n--add-server or --add-group it is off only on those servers (a group as its\nservers are now): a command that also runs on another server is still\nstopped. Switching a rule off weakens a safety check, so komando asks first:\nan AI agent's request opens the approval window on your screen, and for a\nrule that keeps the others working (check-failed, decode-run, rm-root, mkfs,\nsshd-stop, ...) you type the rule's name at a terminal, with --yes too, and\nan AI agent's request for one is refused. The audit log keeps every switch,\nand `komando doctor` names every rule that is off. --off=false switches it\non again everywhere; --rm-server and --rm-group switch it on again on those\nservers only.\n\nSafety: a change; try it with --dry-run first; unless it only switches the\nrule on: it weakens a safety check: a person's yes (--yes).",
+        "example": "  komando policy edit docker-prune --off --add-server build1\n  komando policy edit docker-prune --off --add-server build1 --dry-run\n  komando policy edit pkg-remove-essential --off --add-group lab\n  komando policy edit docker-prune --rm-server build1\n  komando policy edit docker-prune --off=false",
         "flags": [
           {
-            "name": "group",
+            "name": "add-group",
             "type": "stringSlice",
             "default": "[]",
-            "usage": "only on the servers in this group as it is now (repeat it for more)"
+            "usage": "with --off: only on the servers in these groups as they are now"
           },
           {
-            "name": "host",
+            "name": "add-server",
             "type": "stringSlice",
             "default": "[]",
-            "usage": "only on this server (repeat it for more)"
+            "usage": "with --off: only on these servers"
           },
           {
             "name": "off",
             "type": "bool",
             "default": "false",
-            "usage": "switch the rule off"
+            "usage": "switch the rule off; --off=false switches it on again everywhere"
           },
           {
-            "name": "on",
-            "type": "bool",
-            "default": "false",
-            "usage": "switch the rule on again"
+            "name": "rm-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "switch the rule on again on the servers these groups named"
+          },
+          {
+            "name": "rm-server",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "switch the rule on again on these servers"
           }
         ],
         "runnable": true,
@@ -6573,7 +6579,7 @@
           {
             "tier": "safety",
             "flag": "--yes",
-            "when": "unless only --on"
+            "when": "unless it only switches the rule on"
           }
         ]
       },
@@ -6626,7 +6632,7 @@
         "path": "komando policy show",
         "usage": "komando policy show RULE [flags]",
         "short": "Show one rule: what it stops and where it is off",
-        "example": "  komando policy show docker-prune",
+        "example": "  komando policy show docker-prune\n  komando policy show rm-root -o json",
         "runnable": true,
         "kind": "read",
         "confirm": [

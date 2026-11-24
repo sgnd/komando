@@ -113,8 +113,11 @@ var ownLeaves = concat(
 		{Key: own("policy", "", "list"), LocalRead: true, Synonyms: []string{"ls"}, Today: []string{"policy.list"}},
 		{Key: own("policy", "", "show"), Args: oneName, LocalRead: true, Today: []string{"policy.show"}},
 		{Key: own("policy", "", "edit"), Args: oneName, Today: []string{"policy.edit"},
-			Options: []Option{{Name: "off", Kind: Bool, Help: "switch the rule off"}, {Name: "on", Kind: Bool, Help: "switch the rule on again"},
-				{Name: "host", Kind: Entry, Repeat: true, Help: "only on this server"}, {Name: "group", Kind: Entry, Repeat: true, Help: "only on the servers in this group"}}},
+			Options: []Option{{Name: "off", Kind: Bool, Help: "switch the rule off; --off=false switches it on again everywhere"},
+				{Name: "add-server", Kind: Entry, Repeat: true, Help: "with --off: only on these servers"},
+				{Name: "add-group", Kind: Entry, Repeat: true, Help: "with --off: only on the servers in these groups as they are now"},
+				{Name: "rm-server", Kind: Entry, Repeat: true, Help: "switch the rule on again on these servers"},
+				{Name: "rm-group", Kind: Entry, Repeat: true, Help: "switch the rule on again on the servers these groups named"}}},
 		{Key: own("policy", "", "remove"), Args: oneName, Today: []string{"policy.rm"}},
 
 		{Key: own("snippet", "", "create"), Args: oneName, Today: []string{"recipe.add"},

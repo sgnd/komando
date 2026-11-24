@@ -172,7 +172,7 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `host add` | when --proxy-command matches a destructive rule | dangerous | `--allow-dangerous` |
 | `import` | when an imported ProxyCommand matches a destructive rule | dangerous | `--allow-dangerous` |
 | `policy rm` | always | safety | `--yes` |
-| `policy edit` | unless only --on | safety | `--yes` |
+| `policy edit` | unless it only switches the rule on | safety | `--yes` |
 | `config set` | when the setting turns a check off (audit, keychain, host key policy, ...) | safety | `--yes` |
 | `host edit` | with --protected=false | safety | `--yes` |
 | `conn edit` | with --protected=false | safety | `--yes` |
@@ -288,17 +288,19 @@ so komando asks first (a script adds `--yes`).
 
 ```bash
 komando policy show docker-prune                                # what it stops and where it is off
-komando policy edit docker-prune --off --host build1            # off on one server
-komando policy edit pkg-remove-essential --off --group lab      # off on the servers of a group, as it is now
-komando policy edit docker-prune --on                           # on again everywhere
+komando policy edit docker-prune --off --add-server build1        # off on one server
+komando policy edit pkg-remove-essential --off --add-group lab  # off on the servers of a group, as it is now
+komando policy edit docker-prune --rm-server build1               # on again on that server
+komando policy edit docker-prune --off=false                    # on again everywhere
 ```
 
-Any rule can be switched off, a built-in rule or one of yours. With `--host`
-or `--group` the rule is off only on those servers: a command that also runs
-on another server is still stopped. A group counts as the servers in it
-when you switch the rule off; a server added to the group later is still
-checked. A server you remove drops out of the switch. Without `--host` and
-`--group` the rule is off on every server.
+Any rule can be switched off, a built-in rule or one of yours. With
+`--add-server` or `--add-group` the rule is off only on those servers: a
+command that also runs on another server is still stopped. A group counts
+as the servers in it when you switch the rule off; a server added to the
+group later is still checked. A server you remove drops out of the switch.
+`--off` without `--add-server` and `--add-group` switches the rule off on
+every server.
 
 Switching a rule off turns a check off, so komando asks first, naming the
 rule, the servers and what it will no longer stop. An AI agent may ask for
@@ -315,7 +317,8 @@ the root folder, devices and disks (`rm-root`, `rm-cd-root`,
 `win-registry-hive`, `win-backups`), the authentication files
 (`passwd-files`, `passwd-files-write`), a container given the server
 (`docker-host`), and the ways in (`sshd-stop`, `win-remote-access`,
-`firewall-drop-all`). `--on` asks nothing.
+`firewall-drop-all`). Switching a rule on again (`--off=false`, `--rm-server`,
+`--rm-group`) asks nothing.
 
 A rule that is off is never silent: `policy list` and `policy show` show
 where it is off, `policy check` names it, `komando doctor` warns for every

@@ -64,17 +64,21 @@ func givesFlag(name string) func([]string) bool {
 	return func(w []string) bool { return slices.Contains(w, "--"+name) || slices.Contains(w, "--"+name+"=true") }
 }
 
-// plainOn: the words switch a rule on and nothing else: --on (or
-// --on=true), with no --off and no other value of --on in any spelling.
-// cobra keeps a flag's last value, so anything else may run the off path.
-func plainOn(w []string) bool {
+// switchesOn: the words only switch a rule on again: --off=false (in any
+// spelling of false) or --rm-server or --rm-group, and no --off with another
+// value and no --add-server or --add-group. cobra keeps a flag's last value,
+// so anything else may run the off path.
+func switchesOn(w []string) bool {
 	on := false
 	for _, s := range w {
+		name, val, _ := strings.Cut(s, "=")
 		switch {
-		case s == "--on" || s == "--on=true":
+		case name == "--off" && slices.Contains([]string{"false", "0", "f", "F", "FALSE", "False"}, val):
 			on = true
-		case strings.HasPrefix(s, "--on=") || strings.HasPrefix(s, "--off"):
+		case strings.HasPrefix(name, "--off") || strings.HasPrefix(name, "--add-"):
 			return false
+		case name == "--rm-server" || name == "--rm-group":
+			on = true
 		}
 	}
 	return on
@@ -161,7 +165,7 @@ var riskRows = []riskRow{
 
 	// T3s: weakens komando's own checks.
 	{key: safetyKey{"policy", "", "remove"}, tier: tierSafety, what: "removes a deny rule"},
-	{key: safetyKey{"policy", "", "edit"}, when: func(w []string) bool { return !plainOn(w) }, cond: "unless only --on", tier: tierSafety, what: "switches a rule off"},
+	{key: safetyKey{"policy", "", "edit"}, when: func(w []string) bool { return !switchesOn(w) }, cond: "unless it only switches the rule on", tier: tierSafety, what: "switches a rule off"},
 	{key: safetyKey{"config", "", "set"}, tier: tierSafety, dynamic: "the setting turns a check off (audit, keychain, host key policy, ...)"},
 	{key: safetyKey{"host", "", "edit"}, when: protectionOff, cond: "with --protected=false", tier: tierSafety, what: "turns protection off"},
 	{key: safetyKey{"conn", "", "edit"}, when: protectionOff, cond: "with --protected=false", tier: tierSafety, what: "turns protection off"},

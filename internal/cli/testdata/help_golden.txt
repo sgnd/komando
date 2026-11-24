@@ -6241,35 +6241,38 @@ Global Flags (all of them: komando --help):
 ### komando policy edit --help
 exit 0
 --- stdout
---off switches a rule off, so it no longer stops a command. With --host or
---group it is off only on those servers (a group as its servers are now): a
-command that also runs on another server is still stopped. Switching a rule
-off weakens a safety check, so komando asks first: an AI agent's request
-opens the approval window on your screen, and for a rule that keeps the
-others working (check-failed, decode-run, rm-root, mkfs, sshd-stop, ...) you
-type the rule's name at a terminal, with --yes too, and an AI agent's
-request for one is refused. The audit log keeps every switch, and `komando
-doctor` names every rule that is off. --on switches it on again, everywhere
-or only on the servers you name.
+--off switches a rule off, so it no longer stops a command. With
+--add-server or --add-group it is off only on those servers (a group as its
+servers are now): a command that also runs on another server is still
+stopped. Switching a rule off weakens a safety check, so komando asks first:
+an AI agent's request opens the approval window on your screen, and for a
+rule that keeps the others working (check-failed, decode-run, rm-root, mkfs,
+sshd-stop, ...) you type the rule's name at a terminal, with --yes too, and
+an AI agent's request for one is refused. The audit log keeps every switch,
+and `komando doctor` names every rule that is off. --off=false switches it
+on again everywhere; --rm-server and --rm-group switch it on again on those
+servers only.
 
-Safety: a change; try it with --dry-run first; unless only --on: it weakens
-a safety check: a person's yes (--yes).
+Safety: a change; try it with --dry-run first; unless it only switches the
+rule on: it weakens a safety check: a person's yes (--yes).
 
 Usage:
-  komando policy edit RULE (--off | --on) [flags]
+  komando policy edit RULE [flags]
 
 Examples:
-  komando policy edit docker-prune --off --host build1
-  komando policy edit docker-prune --off --host build1 --dry-run
-  komando policy edit pkg-remove-essential --off --group lab
-  komando policy edit docker-prune --on
+  komando policy edit docker-prune --off --add-server build1
+  komando policy edit docker-prune --off --add-server build1 --dry-run
+  komando policy edit pkg-remove-essential --off --add-group lab
+  komando policy edit docker-prune --rm-server build1
+  komando policy edit docker-prune --off=false
 
 Flags:
-      --group strings       only on the servers in this group as it is now (repeat it for more)
-  -h, --help[=true|false]   help for edit
-      --host strings        only on this server (repeat it for more)
-      --off[=true|false]    switch the rule off
-      --on[=true|false]     switch the rule on again
+      --add-group strings    with --off: only on the servers in these groups as they are now
+      --add-server strings   with --off: only on these servers
+  -h, --help[=true|false]    help for edit
+      --off[=true|false]     switch the rule off; --off=false switches it on again everywhere
+      --rm-group strings     switch the rule on again on the servers these groups named
+      --rm-server strings    switch the rule on again on these servers
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -6348,6 +6351,7 @@ Usage:
 
 Examples:
   komando policy show docker-prune
+  komando policy show rm-root -o json
 
 Flags:
   -h, --help[=true|false]   help for show

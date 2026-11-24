@@ -183,7 +183,7 @@ pkg.upgrade	kind=change|	target="servers"	dangerous|with --security||an update w
 policy	kind=read|	target=""	
 policy.check	kind=read|	target=""	
 policy.deny	kind=change|	target=""	
-policy.edit	kind=change|	target=""	safety|unless only --on|switches a rule off||||
+policy.edit	kind=change|	target=""	safety|unless it only switches the rule on|switches a rule off||||
 policy.list	kind=read|	target=""	
 policy.rm	kind=change|	target=""	safety||removes a deny rule||||
 policy.show	kind=read|	target=""	

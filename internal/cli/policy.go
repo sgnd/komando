@@ -513,10 +513,10 @@ func rulesOff(st *store.State) []policySwitch {
 func offLine(id string, hosts, groups []string) string {
 	words := []string{"komando", "policy", "edit", id, "--off"}
 	for _, h := range hosts {
-		words = append(words, "--host", h)
+		words = append(words, "--add-server", h)
 	}
 	for _, g := range groups {
-		words = append(words, "--group", g)
+		words = append(words, "--add-group", g)
 	}
 	return strings.Join(words, " ")
 }
@@ -563,7 +563,7 @@ func setRuleOn(offs []store.RuleOff, id string, everywhere bool, ids, groups []s
 	case everywhere:
 		return slices.Delete(offs, i, i+1), nil
 	case offs[i].Everywhere:
-		return nil, out.Usage("the rule %s is off everywhere: `komando policy edit %s --on` turns it on everywhere", id, id)
+		return nil, out.Usage("the rule %s is off everywhere: `komando policy edit %s --off=false` turns it on everywhere", id, id)
 	}
 	o := offs[i]
 	o.HostIDs = slices.DeleteFunc(slices.Clone(o.HostIDs), func(h string) bool { return slices.Contains(ids, h) })
@@ -602,30 +602,60 @@ func confirmOff(cl *call, r policy.Rule, sw policySwitch, line string) error {
 	return nil
 }
 
+// switchEdit is what one policy edit asks for: the rule off (on the added
+// servers, or everywhere when it adds none), or on again (everywhere with
+// --off=false, or only on the removed servers).
+type switchEdit struct {
+	off           bool // the rule goes off
+	hosts, groups []string
+	everywhere    bool
+}
+
+// readSwitchEdit checks the flags of policy edit and says what it does.
+func readSwitchEdit(cmd *cobra.Command, off bool, addH, addG, rmH, rmG []string) (switchEdit, error) {
+	offSet, adds, rms := cmd.Flags().Changed("off"), len(addH)+len(addG) > 0, len(rmH)+len(rmG) > 0
+	switch {
+	case !offSet && !rms:
+		return switchEdit{}, out.Usage("give --off (with --add-server or --add-group for some servers), --off=false, or --rm-server or --rm-group")
+	case adds && !(offSet && off):
+		return switchEdit{}, out.Usage("--add-server and --add-group go with --off")
+	case rms && offSet:
+		return switchEdit{}, out.Usage("--rm-server and --rm-group switch the rule on again on those servers; leave out --off")
+	case offSet && off:
+		return switchEdit{off: true, hosts: addH, groups: addG, everywhere: !adds}, nil
+	case offSet:
+		return switchEdit{everywhere: true}, nil
+	}
+	return switchEdit{hosts: rmH, groups: rmG}, nil
+}
+
 func policyEditCmd() *cobra.Command {
-	var hosts, groups []string
-	var off, on bool
+	var addH, addG, rmH, rmG []string
+	var off bool
 	c := &cobra.Command{
-		Use:   "edit RULE (--off | --on)",
+		Use:   "edit RULE",
 		Short: "Switch a rule off or on, everywhere or on some servers",
-		Long: `--off switches a rule off, so it no longer stops a command. With --host or
---group it is off only on those servers (a group as its servers are now): a
-command that also runs on another server is still stopped. Switching a rule
-off weakens a safety check, so komando asks first: an AI agent's request
-opens the approval window on your screen, and for a rule that keeps the
-others working (check-failed, decode-run, rm-root, mkfs, sshd-stop, ...) you
-type the rule's name at a terminal, with --yes too, and an AI agent's
-request for one is refused. The audit log keeps every switch, and ` + "`komando doctor`" + ` names
-every rule that is off. --on switches it on again, everywhere or only on the
-servers you name.`,
-		Example: `  komando policy edit docker-prune --off --host build1
-  komando policy edit pkg-remove-essential --off --group lab
-  komando policy edit docker-prune --on`,
+		Long: `--off switches a rule off, so it no longer stops a command. With --add-server or
+--add-group it is off only on those servers (a group as its servers are
+now): a command that also runs on another server is still stopped.
+Switching a rule off weakens a safety check, so komando asks first: an AI
+agent's request opens the approval window on your screen, and for a rule
+that keeps the others working (check-failed, decode-run, rm-root, mkfs,
+sshd-stop, ...) you type the rule's name at a terminal, with --yes too, and
+an AI agent's request for one is refused. The audit log keeps every switch,
+and ` + "`komando doctor`" + ` names every rule that is off. --off=false switches
+it on again everywhere; --rm-server and --rm-group switch it on again on those
+servers only.`,
+		Example: `  komando policy edit docker-prune --off --add-server build1
+  komando policy edit pkg-remove-essential --off --add-group lab
+  komando policy edit docker-prune --rm-server build1
+  komando policy edit docker-prune --off=false`,
 		Args: cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			id := args[0]
-			if off == on {
-				return out.Usage("give --off or --on")
+			e, err := readSwitchEdit(cmd, off, addH, addG, rmH, rmG)
+			if err != nil {
+				return err
 			}
 			var before, after policySwitch
 			fn := func(s *store.State) error {
@@ -633,14 +663,13 @@ servers you name.`,
 				if err != nil {
 					return err
 				}
-				ids, gs, err := ruleScope(cl, s, hosts, groups)
+				ids, gs, err := ruleScope(cl, s, e.hosts, e.groups)
 				if err != nil {
 					return err
 				}
-				everywhere := len(hosts) == 0 && len(groups) == 0
-				next := setRuleOff(s.Settings.RulesOff, id, everywhere, ids, gs)
-				if on {
-					next, err = setRuleOn(s.Settings.RulesOff, id, everywhere, ids, gs)
+				next := setRuleOff(s.Settings.RulesOff, id, e.everywhere, ids, gs)
+				if !e.off {
+					next, err = setRuleOn(s.Settings.RulesOff, id, e.everywhere, ids, gs)
 				}
 				if err != nil {
 					return err
@@ -648,8 +677,8 @@ servers you name.`,
 				before = switchOf(s, id)
 				s.Settings.RulesOff, next = next, s.Settings.RulesOff
 				after = switchOf(s, id)
-				if off {
-					if err := confirmOff(cl, r, after, offLine(id, hosts, groups)); err != nil {
+				if e.off {
+					if err := confirmOff(cl, r, after, offLine(id, e.hosts, e.groups)); err != nil {
 						s.Settings.RulesOff = next
 						return err
 					}
@@ -657,21 +686,22 @@ servers you name.`,
 				return nil
 			}
 			update := storeUpdate
-			if off {
+			if e.off {
 				update = updateAskFirst
 			}
 			if err := update(cl, fn); err != nil {
 				return err
 			}
-			audit(cl, nil, "policy.edit", after.Hosts, "", true, map[string]any{"rule": id, "off": off, "before": before, "after": after})
+			audit(cl, nil, "policy.edit", after.Hosts, "", true, map[string]any{"rule": id, "off": e.off, "before": before, "after": after})
 			cl.out.Print("policy.edit", after, nil)
 			return nil
 		}),
 	}
-	c.Flags().BoolVar(&off, "off", false, "switch the rule off")
-	c.Flags().BoolVar(&on, "on", false, "switch the rule on again")
-	c.Flags().StringSliceVar(&hosts, "host", nil, "only on this server (repeat it for more)")
-	c.Flags().StringSliceVar(&groups, "group", nil, "only on the servers in this group as it is now (repeat it for more)")
+	c.Flags().BoolVar(&off, "off", false, "switch the rule off; --off=false switches it on again everywhere")
+	c.Flags().StringSliceVar(&addH, "add-server", nil, "with --off: only on these servers")
+	c.Flags().StringSliceVar(&addG, "add-group", nil, "with --off: only on the servers in these groups as they are now")
+	c.Flags().StringSliceVar(&rmH, "rm-server", nil, "switch the rule on again on these servers")
+	c.Flags().StringSliceVar(&rmG, "rm-group", nil, "switch the rule on again on the servers these groups named")
 	return c
 }
 
@@ -691,10 +721,11 @@ func (p policyRule) Text() string {
 
 func policyShowCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "show RULE",
-		Short:   "Show one rule: what it stops and where it is off",
-		Example: `  komando policy show docker-prune`,
-		Args:    cobra.ExactArgs(1),
+		Use:   "show RULE",
+		Short: "Show one rule: what it stops and where it is off",
+		Example: `  komando policy show docker-prune
+  komando policy show rm-root -o json`,
+		Args: cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {

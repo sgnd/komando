@@ -118,7 +118,7 @@ func securityChecks(cl *call, st *store.State) []securityCheck {
 	}
 	for _, sw := range rulesOff(st) {
 		add("rule_off:"+sw.Rule, false, true, "the rule "+sw.Rule+" is off on "+sw.where()+": komando no longer stops a command that "+sw.Stops+
-			" ("+fixText(komandoFix("policy", "edit", sw.Rule, "--on"))+")", komandoFix("policy", "edit", sw.Rule, "--on")...)
+			" ("+fixText(komandoFix("policy", "edit", sw.Rule, "--off=false"))+")", komandoFix("policy", "edit", sw.Rule, "--off=false")...)
 	}
 	for _, c := range st.SortedConns() {
 		if why := plainConn(c); why != "" {

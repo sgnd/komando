@@ -72,17 +72,17 @@ func TestPolicyOffOnShow(t *testing.T) {
 	mustRun(t, "host", "add", "web1", "deploy@10.0.0.1", "--group", "web")
 	mustRun(t, "host", "add", "db1", "deploy@10.0.0.2")
 	wantCode(t, "USAGE", "policy", "edit", "docker-prune")
-	wantCode(t, "USAGE", "policy", "edit", "docker-prune", "--off", "--on", "--yes")
+	wantCode(t, "USAGE", "policy", "edit", "docker-prune", "--off", "--rm-server", "web1", "--yes")
 	wantCode(t, "RULE_NOT_FOUND", "policy", "edit", "--off", "nonexistent", "--yes")
-	wantCode(t, "TARGET_NOT_FOUND", "policy", "edit", "--off", "docker-prune", "--host", "nope", "--yes")
-	wantCode(t, "GROUP_NOT_FOUND", "policy", "edit", "--off", "docker-prune", "--group", "nope", "--yes")
-	wantCode(t, "SAFETY_SETTING", "policy", "edit", "--off", "docker-prune", "--host", "web1")
+	wantCode(t, "TARGET_NOT_FOUND", "policy", "edit", "--off", "docker-prune", "--add-server", "nope", "--yes")
+	wantCode(t, "GROUP_NOT_FOUND", "policy", "edit", "--off", "docker-prune", "--add-group", "nope", "--yes")
+	wantCode(t, "SAFETY_SETTING", "policy", "edit", "--off", "docker-prune", "--add-server", "web1")
 
-	off := mustRun(t, "policy", "edit", "--off", "docker-prune", "--host", "WEB1", "--yes")
+	off := mustRun(t, "policy", "edit", "--off", "docker-prune", "--add-server", "WEB1", "--yes")
 	if off["off"] != true || off["everywhere"] != false || fmt.Sprint(off["hosts"]) != "[web1]" {
 		t.Errorf("policy edit --off --host: %v", off)
 	}
-	mustRun(t, "policy", "edit", "--off", "docker-prune", "--group", "@web", "--yes")
+	mustRun(t, "policy", "edit", "--off", "docker-prune", "--add-group", "@web", "--yes")
 	show := mustRun(t, "policy", "show", "docker-prune")
 	sw := show["switch"].(map[string]any)
 	if show["kind"] != "built-in" || fmt.Sprint(sw["hosts"], sw["groups"]) != "[web1] [web]" {
@@ -105,19 +105,19 @@ func TestPolicyOffOnShow(t *testing.T) {
 		t.Errorf("policy check does not say where the rule is off: %v %+v", d, e)
 	}
 
-	mustRun(t, "policy", "edit", "--on", "docker-prune", "--host", "web1")
+	mustRun(t, "policy", "edit", "docker-prune", "--rm-server", "web1")
 	if sw := mustRun(t, "policy", "show", "docker-prune")["switch"].(map[string]any); sw["off"] != false {
 		t.Errorf("on for every server it named takes the switch away, not off everywhere: %v", sw)
 	}
 	mustRun(t, "policy", "edit", "--off", "docker-prune", "--yes")
-	wantCode(t, "USAGE", "policy", "edit", "--on", "docker-prune", "--host", "web1")
-	mustRun(t, "policy", "edit", "--on", "docker-prune")
+	wantCode(t, "USAGE", "policy", "edit", "docker-prune", "--rm-server", "web1")
+	mustRun(t, "policy", "edit", "docker-prune", "--off=false")
 	if sw := mustRun(t, "policy", "show", "docker-prune")["switch"].(map[string]any); sw["off"] != false {
-		t.Errorf("policy edit --on: %v", sw)
+		t.Errorf("policy edit --off=false: %v", sw)
 	}
 	mustRun(t, "policy", "deny", `kubectl\s+apply`)
 	custom := policy.CustomID(`kubectl\s+apply`)
-	mustRun(t, "policy", "edit", "--off", custom, "--host", "db1", "--yes")
+	mustRun(t, "policy", "edit", "--off", custom, "--add-server", "db1", "--yes")
 	if show := mustRun(t, "policy", "show", custom); show["kind"] != "custom" || fmt.Sprint(show["switch"].(map[string]any)["hosts"]) != "[db1]" {
 		t.Errorf("a custom rule switched off: %v", show)
 	}
@@ -135,7 +135,7 @@ func TestPolicyEditOffAsksThePerson(t *testing.T) {
 		{"policy", "edit", "docker-prune", "--off", "--yes"},
 		{"policy", "edit", "--off", "docker-prune", "--yes"},
 		{"policy", "edit", "docker-prune", "--off=true", "--yes"},
-		{"policy", "edit", "docker-prune", "--on", "--on=false", "--off", "--yes"},
+		{"policy", "edit", "docker-prune", "--off=false", "--off", "--yes"},
 	} {
 		before := *shown
 		if _, e := invRun(t, args...); e == nil || e.Code != "SAFETY_SETTING" || *shown == before {
@@ -147,11 +147,11 @@ func TestPolicyEditOffAsksThePerson(t *testing.T) {
 	}
 	// a keystone rule is never the window's: the person runs it at a terminal
 	before := *shown
-	if _, e := invRun(t, "policy", "edit", "rm-root", "--off", "--host", "web1", "--yes"); e == nil || e.Code != "NEEDS_PERSON" ||
-		!strings.Contains(e.Hint, "`komando policy edit rm-root --off --host web1`") || *shown != before {
+	if _, e := invRun(t, "policy", "edit", "rm-root", "--off", "--add-server", "web1", "--yes"); e == nil || e.Code != "NEEDS_PERSON" ||
+		!strings.Contains(e.Hint, "`komando policy edit rm-root --off --add-server web1`") || *shown != before {
 		t.Errorf("agent, keystone rule: want NEEDS_PERSON naming the command and no window, got %+v (windows %d)", e, *shown-before)
 	}
-	mustRun(t, "policy", "edit", "docker-prune", "--on")
+	mustRun(t, "policy", "edit", "docker-prune", "--off=false")
 	asAgent(t, true, true)
 	if sw := mustRun(t, "policy", "edit", "docker-prune", "--off", "--yes"); sw["off"] != true {
 		t.Errorf("the person allowed it in the window: %v", sw)
@@ -215,7 +215,7 @@ func TestPolicyEditOffReachesExec(t *testing.T) {
 	mustRun(t, "host", "add", "db1", addr)
 	line := []string{"--", "docker system prune -f"}
 	wantCode(t, "POLICY_BLOCKED", append([]string{"exec", "web1"}, line...)...)
-	mustRun(t, "policy", "edit", "docker-prune", "--off", "--group", "lab", "--yes")
+	mustRun(t, "policy", "edit", "docker-prune", "--off", "--add-group", "lab", "--yes")
 	// past the policy the line goes to the server, which is not there
 	if _, e := invRun(t, append([]string{"exec", "web1"}, line...)...); e == nil || e.Code == "POLICY_BLOCKED" {
 		t.Errorf("off on @lab: want the connection error, got %+v", e)

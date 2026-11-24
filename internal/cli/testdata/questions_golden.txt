@@ -1001,20 +1001,21 @@ title: Add a deny rule (a Go regular expression)
 - arg0 | Regex | Which command should komando block? | Like kubectl delete: write it as kubectl\s+delete (\s+ means spaces, .* means anything). Then check it with komando policy check "kubectl delete pod web". | kubectl\s+delete | check
 ### komando policy edit
 title: Switch a rule off or on, everywhere or on some servers
-- arg0 | Rule | Rule? |  |  | check
-- flag:group | --group | Only on the servers in this group as it is now (repeat it for more) |  |  | optional,advanced,check
-- flag:host | --host | Only on this server (repeat it for more) |  |  | optional,advanced,check
-- flag:off | --off | Switch the rule off |  |  | advanced,default,choices
-- flag:on | --on | Switch the rule on again |  |  | advanced,default,choices
+- arg0 | Rule | Which rule? | Its id: `komando policy list` shows them. | docker-prune | check
+- flag:off | --off | Switch the rule off? | Yes: it no longer stops a command, so komando asks you first. No: it is switched on again everywhere. |  | default,choices
+- flag:add-server | --add-server | Only on which servers? | Leave empty to switch it off on every server. |  | optional,free,choices,show
+- flag:add-group | --add-group | With --off: only on the servers in these groups as they are now |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Switch the rule on again on the servers these groups named |  |  | optional,advanced,check
+- flag:rm-server | --rm-server | Switch the rule on again on these servers |  |  | optional,advanced,check
 ### komando policy list
 title: List the built-in rules and your deny rules
 - flag:limit | --limit | Show at most this many rules of each kind (0 = all) |  |  | optional,advanced,check
 ### komando policy rm
 title: Remove a deny rule you added (from komando only)
-- arg0 | Rule | Which of your own rules should go? | Its id (custom-1a2b3c4d ...) or the pattern as you wrote it. `komando policy list` shows them. Built-in rules always stay. | custom-1a2b3c4d | check
+- arg0 | Rule | Which of your own rules should go? | Its id (custom-1a2b3c4d ...) or the pattern as you wrote it. `komando policy list` shows them. A built-in rule cannot be removed; `komando policy edit` switches it off. | custom-1a2b3c4d | check
 ### komando policy show
 title: Show one rule: what it stops and where it is off
-- arg0 | Rule | Rule? |  |  | check
+- arg0 | Rule | Which rule? | Its id: `komando policy list` shows them. komando prints what it stops and where it is off. | docker-prune | check
 ### komando queue
 title: Queues (Kafka, RabbitMQ, NATS, SQS, Pub/Sub): read, send, manage
 ### komando queue add
