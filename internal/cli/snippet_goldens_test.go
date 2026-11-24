@@ -3,6 +3,7 @@ package cli
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/base64"
 	"io"
 	"net"
 	"os"
@@ -11,9 +12,11 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"golang.org/x/crypto/ssh"
 
+	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -34,6 +37,7 @@ type replayServer struct {
 	mu    sync.Mutex
 	steps []replayStep
 	execs []string
+	sent  []string // what each exec sent: the command, and a PowerShell script decoded
 }
 
 type replayStep struct {
@@ -112,7 +116,18 @@ func (s *replayServer) serve(nc net.Conn, cfg *ssh.ServerConfig) {
 				}
 				s.mu.Unlock()
 				go func() {
-					go func() { _, _ = io.Copy(io.Discard, ch) }()
+					// read what the client sends (a Windows command sends its script on
+					// stdin) before answering: closing early gives the client an EOF
+					var in []byte
+					done := make(chan struct{})
+					go func() { in, _ = io.ReadAll(ch); close(done) }()
+					select {
+					case <-done:
+					case <-time.After(5 * time.Second):
+					}
+					s.mu.Lock()
+					s.sent = append(s.sent, sentText(p.Cmd, in))
+					s.mu.Unlock()
 					_, _ = ch.Write([]byte(step.stdout))
 					_, _ = ch.Stderr().Write([]byte(step.stderr))
 					_, _ = ch.SendRequest("exit-status", false, ssh.Marshal(struct{ S uint32 }{step.exit}))
@@ -123,13 +138,26 @@ func (s *replayServer) serve(nc net.Conn, cfg *ssh.ServerConfig) {
 	}
 }
 
+// sentText is what an exec sent, as text a person can read: the command, and
+// for the PowerShell bootstrap the script its first input line carries.
+func sentText(cmd string, stdin []byte) string {
+	if cmd == sshx.PSCommandLine {
+		line, _, _ := strings.Cut(string(stdin), "\n")
+		if b, err := base64.StdEncoding.DecodeString(line); err == nil {
+			return "powershell script:\n" + string(b)
+		}
+	}
+	return cmd
+}
+
 // snippetCase is one golden: the command, the files it replays, the name of
 // the golden.
 type snippetCase struct {
 	snippet string // the ready-made snippet this pins: testdata/snippets/<snippet>/
 	family  string // the OS or tool family: "linux", "apt", "apk"
 	args    []string
-	steps   []string // the stdout files of the steps; "name:exit" adds an exit code
+	steps   []string // the stdout files of the steps
+	windows bool     // the host answers as a Windows server
 }
 
 var snippetCases = []snippetCase{
@@ -143,6 +171,11 @@ var snippetCases = []snippetCase{
 	{snippet: "pkg-security", family: "apt", args: []string{"pkg", "security", "dev"}, steps: []string{"apt.in"}},
 	{snippet: "logs", family: "journal", args: []string{"logs", "dev", "--unit", "nginx", "--limit", "3"}, steps: []string{"journal.in"}},
 	{snippet: "docker-logs", family: "docker", args: []string{"docker", "logs", "dev", "api", "--limit", "3"}, steps: []string{"docker.in"}},
+	{snippet: "facts-only", family: "debian", args: []string{"facts", "dev", "--only", "load,mem,disks,system"}, steps: []string{"debian.in"}},
+	{snippet: "docker-prune-preview", family: "docker", args: []string{"docker", "prune", "dev", "--dry-run"}, steps: []string{"docker.in"}},
+	{snippet: "svc-list", family: "windows", args: []string{"svc", "list", "dev"}, steps: []string{"windows.in"}, windows: true},
+	{snippet: "svc-status", family: "windows", args: []string{"svc", "status", "dev", "W3SVC", "nope"}, steps: []string{"windows.in"}, windows: true},
+	{snippet: "facts", family: "windows", args: []string{"facts", "dev"}, steps: []string{"windows.in"}, windows: true},
 	{snippet: "pkg-upgradable", family: "apk", args: []string{"pkg", "upgradable", "dev"}, steps: []string{"apk.in"}},
 }
 
@@ -184,22 +217,35 @@ func TestSnippetGoldens(t *testing.T) {
 				}
 				steps = append(steps, st)
 			}
-			startReplayServer(t, steps...)
-			got := captureOutput(t, func() error { return runRoot(t, append([]string{"-o", "json"}, c.args...)...) })
-			got = normalizeGolden(got)
-			golden := filepath.Join(dir, c.family+".out.json")
-			if record {
-				if err := os.WriteFile(golden, []byte(got), 0o644); err != nil {
+			rs := startReplayServer(t, steps...)
+			if c.windows {
+				if err := store.Update(store.Save(), func(st *store.State) error { st.Hosts["dev"].OS = store.OSWindows; return nil }); err != nil {
 					t.Fatal(err)
 				}
-				return
 			}
-			want, err := os.ReadFile(golden)
-			if err != nil {
-				t.Fatalf("no golden %s: record it with KOMANDO_RECORD_GOLDENS=1", golden)
+			got := captureOutput(t, func() error { return runRoot(t, append([]string{"-o", "json"}, c.args...)...) })
+			got = normalizeGolden(got)
+			if strings.Contains(got, `"message":"EOF"`) || strings.Contains(got, "CONNECTION_LOST") {
+				t.Fatalf("the replay connection broke; this is not output to record:\n%s", got)
 			}
-			if got != string(want) {
-				t.Errorf("%s differs from its golden\n got:  %s\n want: %s", golden, got, want)
+			rs.mu.Lock()
+			sent := strings.Join(rs.sent, "\n----\n") + "\n"
+			rs.mu.Unlock()
+			for _, g := range []struct{ name, text string }{{c.family + ".out.json", got}, {c.family + ".sent.txt", sent}} {
+				golden := filepath.Join(dir, g.name)
+				if record {
+					if err := os.WriteFile(golden, []byte(g.text), 0o644); err != nil {
+						t.Fatal(err)
+					}
+					continue
+				}
+				want, err := os.ReadFile(golden)
+				if err != nil {
+					t.Fatalf("no golden %s: record it with KOMANDO_RECORD_GOLDENS=1", golden)
+				}
+				if g.text != string(want) {
+					t.Errorf("%s differs from its golden\n got:  %s\n want: %s", golden, g.text, want)
+				}
 			}
 		})
 	}
