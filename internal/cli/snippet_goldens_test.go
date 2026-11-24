@@ -49,14 +49,9 @@ type replayStep struct {
 	exit           uint32
 }
 
-// startReplayServer points the host "dev" of startFakeServer's home at a new
-// server that replays steps.
-func startReplayServer(t *testing.T, steps ...replayStep) *replayServer {
-	return startReplayServerWith(t, nil, steps...)
-}
-
-// startReplayServerWith also serves files over SFTP: an in-memory tree of
-// path to content (a path ending in / is a folder).
+// startReplayServerWith points the host "dev" of startFakeServer's home at a
+// new server that replays steps and serves files over SFTP: an in-memory tree
+// of path to content (a path ending in / is a folder).
 func startReplayServerWith(t *testing.T, files map[string]string, steps ...replayStep) *replayServer {
 	t.Helper()
 	startFakeServer(t) // the komando home, the client key and the hosts
@@ -307,12 +302,20 @@ var snippetCases = []snippetCase{
 
 // volatile fields change from run to run; each is replaced by a fixed word.
 var volatile = []*regexp.Regexp{
-	regexp.MustCompile(`"(duration_ms|latency_ms|elapsed_ms)":\s*\d+`),
 	regexp.MustCompile(`"(last_age|age)":\s*"[^"]*"`),
 	regexp.MustCompile(`"mod_time":\s*"[^"]*"`), // the in-memory files are made now
 }
 
+// dropped are keys that depend on the platform or the run: Linux leaves a
+// timing of zero out and Windows prints it, and an SFTP file's owner comes from
+// the system data of the file, which Windows does not have. The key is cut
+// with its comma, so the text is the same where the key is absent.
+var dropped = regexp.MustCompile(`,"(duration_ms|latency_ms|elapsed_ms|uid|gid)":\s*\d+`)
+
 func normalizeGolden(s string, tmp string, extra []*regexp.Regexp) string {
+	s = dropped.ReplaceAllString(s, "")
+	// the hint shows the command line the test binary was started with
+	s = strings.ReplaceAll(s, "`komando version --allow-dangerous`", "`komando --allow-dangerous`")
 	if tmp != "" {
 		s = strings.ReplaceAll(s, tmp, "<tmp>")
 	}
