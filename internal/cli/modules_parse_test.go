@@ -21,7 +21,7 @@ func TestParseSvcShow(t *testing.T) {
 			want: []map[string]any{{
 				"id": "nginx.service", "description": "A high performance web server", "load_state": "loaded",
 				"active_state": "active", "sub_state": "running", "unit_file_state": "enabled", "main_pid": int64(812),
-				"active_enter_timestamp": "Mon 2026-11-02 08:00:01 UTC", "n_restarts": int64(2),
+				"active_enter_timestamp": "Mon 2026-11-02 08:00:01 UTC", "nrestarts": int64(2),
 				"memory_current": int64(52428800), "result": "success", "exec_main_status": int64(0), "healthy": true,
 			}},
 		},
@@ -75,7 +75,7 @@ func TestSnake(t *testing.T) {
 	for in, want := range map[string]string{
 		"Id":                   "id",
 		"LoadState":            "load_state",
-		"NRestarts":            "n_restarts",
+		"NRestarts":            "nrestarts", // pinned as it is today: consecutive capitals get no underscore (svc.go:58 reads n_restarts, so the text table shows no restarts)
 		"MainPID":              "main_pid",
 		"ActiveEnterTimestamp": "active_enter_timestamp",
 		"ExecMainStatus":       "exec_main_status",

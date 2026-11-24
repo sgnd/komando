@@ -81,8 +81,8 @@ func TestEventRow(t *testing.T) {
 					t.Errorf("%s = %v, want %v", k, got[k], tt.in[k])
 				}
 			}
-			if len(got) != 8 {
-				t.Errorf("a row has %d fields, want 8 (type, reason, message, count, object, last, last_age)", len(got))
+			if len(got) != 7 {
+				t.Errorf("a row has %d fields, want 7 (type, reason, message, count, object, last, last_age)", len(got))
 			}
 		})
 	}
