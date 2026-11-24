@@ -10421,7 +10421,7 @@
         "code": "BUILTIN_RULE",
         "exit": 2,
         "example": "… is a built-in rule and cannot be removed",
-        "hint": "built-in rules always apply (see them with `komando policy list`); for one intended command, confirm with the user and pass --allow-dangerous"
+        "hint": "a built-in rule cannot be removed; switch it off with `komando policy edit RULE --off`"
       },
       {
         "code": "CACHE_AUTH",

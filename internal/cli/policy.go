@@ -221,7 +221,7 @@ cannot be removed. Removing a rule weakens a safety check, so komando asks first
 			arg := args[0]
 			for _, r := range policy.Rules() {
 				if r.ID == arg {
-					return out.Errf(out.ExitUsage, "BUILTIN_RULE", "built-in rules always apply (see them with `komando policy list`); for one intended command, confirm with the user and pass --allow-dangerous",
+					return out.Errf(out.ExitUsage, "BUILTIN_RULE", "a built-in rule cannot be removed; switch it off with `komando policy edit RULE --off`",
 						"%s is a built-in rule and cannot be removed", arg)
 				}
 			}

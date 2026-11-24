@@ -26,7 +26,7 @@ This page is made from the code (`komando schema` lists the same under
 | `BAD_SECRET` | 2 | the password for … contains a line break | store the password again without line breaks (`komando secret set NAME`) |
 | `BINARY_FILE` | 1 | … is a binary file; fs cat shows text only | save it with `komando download … …` |
 | `BUCKET_NOT_FOUND` | 3 | bucket does not exist | check the bucket name in the conn URL (`komando conn show NAME`) |
-| `BUILTIN_RULE` | 2 | … is a built-in rule and cannot be removed | built-in rules always apply (see them with `komando policy list`); for one intended command, confirm with the user and pass --allow-dangerous |
+| `BUILTIN_RULE` | 2 | … is a built-in rule and cannot be removed | a built-in rule cannot be removed; switch it off with `komando policy edit RULE --off` |
 | `CACHE_AUTH` | 4 | memcached refused the login: … | check the user in the URL and the password reference (`komando conn show NAME`) |
 | `CACHE_CONNECT` | 4 | cannot connect to …: … | the server's certificate could not be checked against this computer's CAs: give the CA that signed it with ?ca=secret:NAME (`komando secret set NAME < ca.pem`), or reach the server --via an SSH server with the plain scheme (redis://, memcached://) instead (`komando conn edit NAME --via HOST --url ...`) |
 | `CACHE_ERROR` | 5 | this memcached cannot list keys: … | start memcached with the LRU crawler on (the default since 1.5); `cache get` works without it |
