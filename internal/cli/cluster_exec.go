@@ -54,14 +54,14 @@ interactive shell use ` + "`komando cluster shell TARGET POD`" + `.`,
 			}
 			inner := strings.Join(args[2:], " ")
 			// the policy sees the command as typed, like `exec` on servers
-			if err := guard(cl, st, nil, inner, false); err != nil {
+			if err := Guard(cl, st, nil, inner, false); err != nil {
 				return err
 			}
 			risk, err := clusterExecRisk(cl, args[2:], readOnly)
 			if err != nil {
 				return err
 			}
-			if err := guardConns(cl, st, []*store.Conn{t.conn}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-exec"}, Reasons: []string{"exec in " + args[1]}}); err != nil {
+			if err := GuardConns(cl, st, []*store.Conn{t.conn}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-exec"}, Reasons: []string{"exec in " + args[1]}}); err != nil {
 				return err
 			}
 			if cl.flags.dryRun {
@@ -188,7 +188,7 @@ Anything can be typed inside, so a protected cluster asks first.`,
 			if len(command) == 0 {
 				command = []string{"sh", "-c", "command -v bash >/dev/null 2>&1 && exec bash || exec sh"}
 			}
-			if err := guardConns(cl, st, []*store.Conn{t.conn}, driver.Verdict{Risk: driver.RiskWrite, RuleIDs: []string{"cluster-shell"}, Reasons: []string{"shell in " + args[1]}}); err != nil {
+			if err := GuardConns(cl, st, []*store.Conn{t.conn}, driver.Verdict{Risk: driver.RiskWrite, RuleIDs: []string{"cluster-shell"}, Reasons: []string{"shell in " + args[1]}}); err != nil {
 				return err
 			}
 			if cl.flags.dryRun {
@@ -297,7 +297,7 @@ komando forwards to the pod's port behind it.`,
 			}
 			// raw access to a pod's port gets around every check komando
 			// makes on commands (like cluster shell): a protected cluster asks
-			if err := guardConns(cl, st, []*store.Conn{t.conn}, driver.Verdict{Risk: driver.RiskWrite, RuleIDs: []string{"cluster-forward"},
+			if err := GuardConns(cl, st, []*store.Conn{t.conn}, driver.Verdict{Risk: driver.RiskWrite, RuleIDs: []string{"cluster-forward"},
 				Reasons: []string{"forward to " + args[1] + ":" + remote}}); err != nil {
 				return err
 			}

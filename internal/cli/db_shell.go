@@ -76,7 +76,7 @@ func runDBShell(cl *call, ctx context.Context, connExpr string, write bool) erro
 	}
 	// a protected conn asks before any shell: inside, anything can be typed
 	if write || protectedConn(st, c) {
-		if err := guardConns(cl, st, []*store.Conn{c}, driver.Verdict{Risk: driver.RiskWrite}); err != nil {
+		if err := GuardConns(cl, st, []*store.Conn{c}, driver.Verdict{Risk: driver.RiskWrite}); err != nil {
 			return err
 		}
 	}

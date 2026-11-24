@@ -18,7 +18,7 @@ import (
 // for is in the table (TestStandardConfirmTable checks both against the
 // stops TestAgentGolden records).
 //
-// The stops themselves stay in the commands (guard, guardConns,
+// The stops themselves stay in the commands (Guard, GuardConns,
 // guardProtection, ...): they see what a table cannot, such as which
 // server is protected or what a SQL statement does. A row marked dynamic
 // gives the most the command can need; the command decides at run time.

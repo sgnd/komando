@@ -30,7 +30,7 @@ func longBodyWindow(t *testing.T, osName, body string) ([]string, error) {
 	tcl.args = []string{"komando", "exec", "web", "--script", "./deploy.sh", "--yes"}
 	resetApproval()
 	noteApprovalScript(tcl, scriptLabel("the script", "./deploy.sh"), []byte(body))
-	err := guard(tcl, st, []*store.Host{st.Hosts["web"]}, "sh -s", true)
+	err := Guard(tcl, st, []*store.Host{st.Hosts["web"]}, "sh -s", true)
 	if err != nil {
 		approvalHint(tcl, toErr(err))
 	}

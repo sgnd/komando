@@ -380,7 +380,7 @@ func winFsWrite(cl *call, ctx context.Context, st *store.State, h *store.Host, p
 	if err := checkValidate(o.validate); err != nil {
 		return err
 	}
-	if err := guard(cl, st, []*store.Host{h}, o.validate, true); err != nil {
+	if err := Guard(cl, st, []*store.Host{h}, o.validate, true); err != nil {
 		return err
 	}
 	data, err := expandSecretRefsBytes(cl, data, h.Name+":"+p)

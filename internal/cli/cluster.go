@@ -446,7 +446,7 @@ func withKubeWhy(cl *call, ctx context.Context, name string, t clusterTarget, ri
 		return err
 	}
 	// under --dry-run every stop only lands in meta.would_be_blocked
-	if err := guardConns(cl, st, []*store.Conn{t.conn}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster"}, Reasons: []string{why}}); err != nil {
+	if err := GuardConns(cl, st, []*store.Conn{t.conn}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster"}, Reasons: []string{why}}); err != nil {
 		return err
 	}
 	ctx, cancel := kubeDeadline(cl, ctx, st)
@@ -487,7 +487,7 @@ func withKubeWhy(cl *call, ctx context.Context, name string, t clusterTarget, ri
 // one, asks a person at a terminal to type that object's name ("Type the
 // name api-7d9f-x2 to continue"), not the cluster's or "yes": the name
 // says what goes, as gh repo delete does. A right answer also counts for
-// the cluster check guardConns (or swarmDo) makes next, which asks for the
+// the cluster check GuardConns (or swarmDo) makes next, which asks for the
 // same name (askTypes), so the person is asked once; a wrong one stops here and nothing
 // changes. Agents and scripts are unchanged: they use --allow-dangerous,
 // and a dry run never asks.

@@ -123,7 +123,7 @@ Run it with --dry-run first to see each server's diff.`,
 			if err := checkValidate(o.validate); err != nil {
 				return err
 			}
-			if err := guard(cl, st, hosts, o.validate, true); err != nil {
+			if err := Guard(cl, st, hosts, o.validate, true); err != nil {
 				return err
 			}
 			if newS, err = expandSecretRefs(cl, newS, args[0]+":"+args[1], re != nil); err != nil {

@@ -301,7 +301,7 @@ func runFleet(cl *call, ctx context.Context, name, target, command string, stdin
 	if o.display != "" {
 		shown = o.display
 	}
-	guardErr := guard(cl, st, hosts, command, mutating)
+	guardErr := Guard(cl, st, hosts, command, mutating)
 	if guardErr != nil && !cl.flags.dryRun {
 		audit(cl, st, name, hostNames(hosts), shown, false, withRecipe(map[string]any{"blocked": toErr(guardErr).Code}, o.recipe))
 		return guardErr
