@@ -405,8 +405,9 @@ func switchRule(st *store.State, id string) (policy.Rule, error) {
 // command can hide what it runs from every rule, or wipe the server or its
 // logins. Switching one off takes the rule's name, typed by the person.
 var keystoneRules = []string{"check-failed", "base64-pipe-sh", "decode-run", "curl-pipe-sh", "win-encoded", "win-decode-run", "win-download-run",
-	"rm-root", "rm-cd-root", "find-delete-root", "rm-system-dir", "mkfs", "dd-device", "redirect-device", "wipefs", "win-rm-root", "win-format",
-	"passwd-files", "passwd-files-write"}
+	"rm-root", "rm-cd-root", "find-delete-root", "rm-system-dir", "chmod-root", "chown-root", "mkfs", "dd-device", "redirect-device", "wipefs",
+	"win-rm-root", "win-format", "win-registry-hive", "win-backups", "passwd-files", "passwd-files-write", "docker-host",
+	"sshd-stop", "win-remote-access", "firewall-drop-all"}
 
 // ruleScope is the servers a switch names, as their record IDs: a group is
 // read now, so a server added to it later is not in the switch. The groups
@@ -512,6 +513,19 @@ func rulesOff(st *store.State) []policySwitch {
 	return append(keystone, rest...)
 }
 
+// offLine is the policy edit --off command a person runs for the same
+// switch.
+func offLine(id string, hosts, groups []string) string {
+	words := []string{"komando", "policy", "edit", id, "--off"}
+	for _, h := range hosts {
+		words = append(words, "--host", h)
+	}
+	for _, g := range groups {
+		words = append(words, "--group", g)
+	}
+	return strings.Join(words, " ")
+}
+
 // offSentence is what the confirm shows after verb ("switching", or
 // "switches" for the typed question, which reads "This switches ..."): the
 // rule, where, and what komando no longer stops.
@@ -568,19 +582,29 @@ func setRuleOn(offs []store.RuleOff, id string, everywhere bool, ids, groups []s
 	return offs, nil
 }
 
-// confirmOff asks before a rule goes off: a keystone rule's name, typed by
-// a person at the terminal even with --yes; otherwise the safety question,
-// or for an AI agent the approval window on the person's screen.
-func confirmOff(cl *call, r policy.Rule, sw policySwitch) error {
+// confirmOff asks before a rule goes off. A keystone rule takes its name,
+// typed by a person at the terminal, --yes or not: with no terminal it is
+// refused, and an AI agent is told the command for the person's own
+// terminal. Any other rule takes the safety question, or for an AI agent
+// the approval window on the person's screen. A dry run only reports.
+func confirmOff(cl *call, r policy.Rule, sw policySwitch, line string) error {
 	why := offSentence("switching", r, sw)
-	if slices.Contains(keystoneRules, r.ID) && cl.interactive() && !cl.flags.dryRun && !cl.caller().IsAgent() {
-		askTypes(cl, []string{r.ID}, "rules")
-		if !confirmDangerous(cl, nil, offSentence("switches", r, sw)) {
-			return cl.policyStop(approvalErr(cl, "SAFETY_SETTING", why+" weakens komando's safety checks"))
-		}
-		return nil
+	if !slices.Contains(keystoneRules, r.ID) {
+		return guardSafety(cl, why)
 	}
-	return guardSafety(cl, why)
+	switch {
+	case cl.caller().IsAgent():
+		return cl.policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask the person to run `"+line+"` in their own terminal and type the rule's name",
+			"%s needs the rule's name typed by a person", why).NoFlag())
+	case !cl.interactive():
+		return cl.policyStop(out.Errf(out.ExitPolicy, "SAFETY_SETTING", "run it in a terminal: komando asks you to type the rule's name",
+			"%s needs the rule's name typed at a terminal", why).NoFlag())
+	}
+	askTypes(cl, []string{r.ID}, "rules")
+	if !confirmDangerous(cl, nil, offSentence("switches", r, sw)) {
+		return cl.policyStop(approvalErr(cl, "SAFETY_SETTING", why+" weakens komando's safety checks"))
+	}
+	return nil
 }
 
 func policyEditCmd() *cobra.Command {
@@ -594,8 +618,9 @@ func policyEditCmd() *cobra.Command {
 command that also runs on another server is still stopped. Switching a rule
 off weakens a safety check, so komando asks first: an AI agent's request
 opens the approval window on your screen, and for a rule that keeps the
-others working (check-failed, decode-run, rm-root, mkfs, ...) you type the
-rule's name, with --yes too. The audit log keeps every switch, and ` + "`komando doctor`" + ` names
+others working (check-failed, decode-run, rm-root, mkfs, sshd-stop, ...) you
+type the rule's name at a terminal, with --yes too, and an AI agent's
+request for one is refused. The audit log keeps every switch, and ` + "`komando doctor`" + ` names
 every rule that is off. --on switches it on again, everywhere or only on the
 servers you name.`,
 		Example: `  komando policy edit docker-prune --off --host build1
@@ -629,7 +654,7 @@ servers you name.`,
 				s.Settings.RulesOff, next = next, s.Settings.RulesOff
 				after = switchOf(s, id)
 				if off {
-					if err := confirmOff(cl, r, after); err != nil {
+					if err := confirmOff(cl, r, after, offLine(id, hosts, groups)); err != nil {
 						s.Settings.RulesOff = next
 						return err
 					}

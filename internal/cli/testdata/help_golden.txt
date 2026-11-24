@@ -6246,8 +6246,9 @@ exit 0
 command that also runs on another server is still stopped. Switching a rule
 off weakens a safety check, so komando asks first: an AI agent's request
 opens the approval window on your screen, and for a rule that keeps the
-others working (check-failed, decode-run, rm-root, mkfs, ...) you type the
-rule's name, with --yes too. The audit log keeps every switch, and `komando
+others working (check-failed, decode-run, rm-root, mkfs, sshd-stop, ...) you
+type the rule's name at a terminal, with --yes too, and an AI agent's
+request for one is refused. The audit log keeps every switch, and `komando
 doctor` names every rule that is off. --on switches it on again, everywhere
 or only on the servers you name.
 

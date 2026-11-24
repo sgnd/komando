@@ -303,10 +303,19 @@ checked. A server you remove drops out of the switch. Without `--host` and
 Switching a rule off turns a check off, so komando asks first, naming the
 rule, the servers and what it will no longer stop. An AI agent may ask for
 it: the approval window opens on your screen, and the agent cannot answer
-it. For a rule that keeps the others working (`check-failed`, `decode-run`,
-`base64-pipe-sh`, `curl-pipe-sh`, `rm-root`, `mkfs`, `dd-device`, `wipefs`,
-the rules for authentication files and their Windows equals) you type the
-rule's name at the terminal, even with `--yes`. `--on` asks nothing.
+it. A rule that keeps the others working is stricter: you type the rule's
+name at a terminal, even with `--yes`; with no terminal it is refused, and
+an AI agent's request for one is refused with the command for you to run
+yourself (`NEEDS_PERSON`). Those rules are the evasion detectors
+(`check-failed`, `decode-run`, `base64-pipe-sh`, `curl-pipe-sh`, and on
+Windows `win-encoded`, `win-decode-run`, `win-download-run`), the rules for
+the root folder, devices and disks (`rm-root`, `rm-cd-root`,
+`find-delete-root`, `rm-system-dir`, `chmod-root`, `chown-root`, `mkfs`,
+`dd-device`, `redirect-device`, `wipefs`, `win-rm-root`, `win-format`,
+`win-registry-hive`, `win-backups`), the authentication files
+(`passwd-files`, `passwd-files-write`), a container given the server
+(`docker-host`), and the ways in (`sshd-stop`, `win-remote-access`,
+`firewall-drop-all`). `--on` asks nothing.
 
 A rule that is off is never silent: `policy list` and `policy show` show
 where it is off, `policy check` names it, `komando doctor` warns for every

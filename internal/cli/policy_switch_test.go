@@ -125,10 +125,11 @@ func TestPolicyOffOnShow(t *testing.T) {
 // the flag. --on makes a check stricter and needs no window.
 func TestPolicyEditOffAsksThePerson(t *testing.T) {
 	invHome(t)
+	mustRun(t, "host", "add", "web1", "deploy@10.0.0.1")
 	shown := asAgent(t, false, true)
 	for _, args := range [][]string{
 		{"policy", "edit", "docker-prune", "--off", "--yes"},
-		{"policy", "edit", "--off", "rm-root", "--yes"},
+		{"policy", "edit", "--off", "docker-prune", "--yes"},
 		{"policy", "edit", "docker-prune", "--off=true", "--yes"},
 		{"policy", "edit", "docker-prune", "--on", "--on=false", "--off", "--yes"},
 	} {
@@ -140,10 +141,62 @@ func TestPolicyEditOffAsksThePerson(t *testing.T) {
 	if sw := mustRun(t, "policy", "show", "docker-prune")["switch"].(map[string]any); sw["off"] != false {
 		t.Errorf("a rule went off with no one's yes: %v", sw)
 	}
+	// a keystone rule is never the window's: the person runs it at a terminal
+	before := *shown
+	if _, e := invRun(t, "policy", "edit", "rm-root", "--off", "--host", "web1", "--yes"); e == nil || e.Code != "NEEDS_PERSON" ||
+		!strings.Contains(e.Hint, "`komando policy edit rm-root --off --host web1`") || *shown != before {
+		t.Errorf("agent, keystone rule: want NEEDS_PERSON naming the command and no window, got %+v (windows %d)", e, *shown-before)
+	}
 	mustRun(t, "policy", "edit", "docker-prune", "--on")
 	asAgent(t, true, true)
 	if sw := mustRun(t, "policy", "edit", "docker-prune", "--off", "--yes"); sw["off"] != true {
 		t.Errorf("the person allowed it in the window: %v", sw)
+	}
+	wantCode(t, "NEEDS_PERSON", "policy", "edit", "decode-run", "--off", "--yes")
+}
+
+// A keystone rule takes a typed name: a script with no terminal is refused
+// even with --yes, and a dry run only reports.
+func TestPolicyEditKeystoneNeedsATerminal(t *testing.T) {
+	invHome(t)
+	e := wantCode(t, "SAFETY_SETTING", "policy", "edit", "rm-root", "--off", "--yes")
+	if !strings.Contains(e.Hint, "run it in a terminal") {
+		t.Errorf("hint: %q", e.Hint)
+	}
+	if _, e := invRun(t, "policy", "edit", "rm-root", "--off", "--dry-run"); e != nil {
+		t.Errorf("a dry run reports: %+v", e)
+	}
+	if sw := mustRun(t, "policy", "show", "rm-root")["switch"].(map[string]any); sw["off"] != false {
+		t.Errorf("a keystone rule went off with no typed name: %v", sw)
+	}
+	mustRun(t, "policy", "edit", "docker-prune", "--off", "--yes") // any other rule: --yes is the person's yes
+}
+
+// The keystone list is a decision: every rule for the root folder, a
+// device, a Windows hive or a way to hide what runs is in it, and each
+// entry is a rule that exists.
+func TestKeystoneRules(t *testing.T) {
+	want := []string{"check-failed", "base64-pipe-sh", "decode-run", "curl-pipe-sh", "win-encoded", "win-decode-run", "win-download-run",
+		"rm-root", "rm-cd-root", "find-delete-root", "rm-system-dir", "chmod-root", "chown-root", "mkfs", "dd-device", "redirect-device", "wipefs",
+		"win-rm-root", "win-format", "win-registry-hive", "win-backups", "passwd-files", "passwd-files-write", "docker-host",
+		"sshd-stop", "win-remote-access", "firewall-drop-all"}
+	if !slices.Equal(keystoneRules, want) {
+		t.Errorf("keystoneRules = %v, want %v", keystoneRules, want)
+	}
+	ids := map[string]bool{}
+	for _, r := range policy.Rules() {
+		ids[r.ID] = true
+		if strings.Contains(r.ID, "root") || strings.Contains(r.ID, "device") || strings.Contains(r.ID, "hive") ||
+			strings.Contains(r.ID, "decode") || strings.Contains(r.ID, "pipe-sh") || strings.Contains(r.ID, "encoded") || strings.Contains(r.ID, "download") {
+			if !slices.Contains(keystoneRules, r.ID) {
+				t.Errorf("%s looks like a rule that keeps the others working: decide whether it is a keystone rule", r.ID)
+			}
+		}
+	}
+	for _, id := range keystoneRules {
+		if !ids[id] {
+			t.Errorf("keystone rule %s is not a rule", id)
+		}
 	}
 }
 
