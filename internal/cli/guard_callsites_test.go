@@ -16,10 +16,14 @@ import (
 // count follows a function into a package under internal/cli (the
 // exported spelling counts as the same name), so a move keeps the numbers;
 // a changed count is a call added or dropped, and fails here until it is
-// reviewed. GuardScript is not here: its callers have their own test where
-// it is defined.
+// reviewed. GuardScript is counted here as calls only (five); the test where
+// it is defined, TestGuardScriptCallers, counts the text "GuardScript(" per
+// file, which includes the declaration line and so adds one, and it pins
+// which files may call it. A call moved between Guard and GuardScript changes
+// both counts here.
 var reviewedCallSites = map[string]int{
-	"guard":         25,
+	"guard":         20,
+	"guardScript":   5,
 	"guardConns":    24,
 	"confirmObject": 4,
 	"dangerOK":      17,
