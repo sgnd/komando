@@ -465,7 +465,7 @@ func TestMigrate3FailsClosed(t *testing.T) {
 					t.Fatal(err)
 				}
 			},
-			code: "STORE_MIGRATION_FAILED",
+			code: "NEEDS_PERSON",
 		},
 		{
 			name: "a conn of a kind with no provider",
@@ -533,7 +533,7 @@ func TestMigrate3FailsClosed(t *testing.T) {
 			if !errors.As(err, &e) || e.Code != tt.code {
 				t.Fatalf("want %s, got %v", tt.code, err)
 			}
-			if want := map[string]int{"STORE_IN_USE": out.ExitConflict, "STORE_MIGRATION_FAILED": out.ExitError}[tt.code]; want != 0 && e.Exit != want {
+			if want := map[string]int{"STORE_IN_USE": out.ExitConflict, "STORE_MIGRATION_FAILED": out.ExitError, "NEEDS_PERSON": out.ExitPolicy}[tt.code]; want != 0 && e.Exit != want {
 				t.Errorf("%s: exit %d, want %d (S-8.2)", tt.code, e.Exit, want)
 			}
 			Close()
@@ -688,6 +688,46 @@ func TestMigrate3PasswordInURL(t *testing.T) {
 		t.Fatalf("want STORE_MIGRATION_FAILED, got %v", err)
 	}
 	if !strings.Contains(e.Message, "conn inline") || !strings.Contains(e.Message, "field url") || strings.Contains(e.Message, sentinel) {
+		t.Errorf("message %q", e.Message)
+	}
+}
+
+// T2: a broken audit chain is a person's to look into (exit 6), and the
+// hint says so.
+func TestMigrate3BrokenChainHint(t *testing.T) {
+	format2Store(t)
+	Close()
+	if _, err := rawSQL(t).Exec(`DELETE FROM audit WHERE seq=1`); err != nil {
+		t.Fatal(err)
+	}
+	_, err := migrateFormat3(context.Background(), personOpts())
+	var e *out.Error
+	if !errors.As(err, &e) || e.Code != "NEEDS_PERSON" || e.Exit != out.ExitPolicy {
+		t.Fatalf("want NEEDS_PERSON (exit 6), got %v", err)
+	}
+	if !strings.Contains(e.Message, "audit log") || !strings.Contains(e.Hint, "changed the audit log") {
+		t.Errorf("message %q, hint %q", e.Message, e.Hint)
+	}
+}
+
+// T1: a conn URL that does not parse stops the plan, naming the conn and
+// the field and not the URL.
+func TestMigrate3UnparsableURL(t *testing.T) {
+	format2Store(t)
+	err := Update(Save(), func(s *State) error {
+		s.Conns["bent"] = &Conn{Name: "bent", Kind: "postgres", URL: "postgres://app@10.0.0.31/%zz" + sentinel}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	Close()
+	_, err = migrateFormat3(context.Background(), personOpts())
+	var e *out.Error
+	if !errors.As(err, &e) || e.Code != "STORE_MIGRATION_FAILED" {
+		t.Fatalf("want STORE_MIGRATION_FAILED, got %v", err)
+	}
+	if !strings.Contains(e.Message, "conn bent") || !strings.Contains(e.Message, "field url") || strings.Contains(e.Message, sentinel) {
 		t.Errorf("message %q", e.Message)
 	}
 }
