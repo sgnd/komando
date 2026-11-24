@@ -8,10 +8,14 @@ package layout
 
 import (
 	"bufio"
+	"go/parser"
+	"go/token"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -166,6 +170,146 @@ func cliPrefix(name string) string {
 	return parts[0]
 }
 
+// cliTopLevel reports whether rel is a file of internal/cli itself, not of
+// a folder below it.
+func cliTopLevel(rel string) bool {
+	return !strings.Contains(strings.TrimPrefix(rel, "internal/cli/"), "/")
+}
+
+func TestCLITopLevel(t *testing.T) {
+	tests := []struct {
+		rel  string
+		want bool
+	}{
+		{"internal/cli/db.go", true},
+		{"internal/cli/kit/term/table.go", false},
+		{"internal/cli/kit/guard/guard.go", false},
+		{"internal/cli/other/x.go", false},
+	}
+	for _, tt := range tests {
+		if got := cliTopLevel(tt.rel); got != tt.want {
+			t.Errorf("cliTopLevel(%q) = %v, want %v", tt.rel, got, tt.want)
+		}
+	}
+}
+
+// importRow is a row of the imports table: a package under internal/cli and
+// what its program files may import.
+var importRow = regexp.MustCompile("^\\| `(internal/cli/[a-z0-9/]+)` \\| (.+) \\|$")
+
+// cliImportRules reads the table "What the packages under internal/cli may
+// import" of code-layout.md: package, then the allowed imports. "std" is the
+// standard library; every other word is an import path (below the module
+// when it starts with internal/).
+func cliImportRules(t *testing.T) map[string][]string {
+	t.Helper()
+	f, err := os.Open(layoutDoc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	rules := map[string][]string{}
+	in := false
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := sc.Text()
+		if strings.HasPrefix(line, "#") {
+			in = strings.HasPrefix(line, "### What the packages under internal/cli may import")
+			continue
+		}
+		if m := importRow.FindStringSubmatch(line); in && m != nil {
+			for _, w := range strings.Split(m[2], ",") {
+				rules[m[1]] = append(rules[m[1]], strings.Trim(strings.TrimSpace(w), "`"))
+			}
+		}
+	}
+	if err := sc.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if len(rules) == 0 {
+		t.Fatalf("%s: no table under \"What the packages under internal/cli may import\"", layoutDoc)
+	}
+	return rules
+}
+
+// allowedImport reports whether path may be imported under rules.
+func allowedImport(path string, rules []string) bool {
+	for _, r := range rules {
+		switch {
+		case r == "std" && !strings.Contains(strings.SplitN(path, "/", 2)[0], "."):
+			return true
+		case strings.HasPrefix(r, "internal/") && (path == modulePath+r || strings.HasPrefix(path, modulePath+r+"/")):
+			return true
+		case !strings.HasPrefix(r, "internal/") && r != "std" && (path == r || strings.HasPrefix(path, r+"/")):
+			return true
+		}
+	}
+	return false
+}
+
+const modulePath = "github.com/sgnd/komando/"
+
+func TestAllowedImport(t *testing.T) {
+	rules := []string{"std", "internal/out", "golang.org/x/text"}
+	tests := []struct {
+		path string
+		want bool
+	}{
+		{"strings", true},
+		{"golang.org/x/text/width", true},
+		{"github.com/sgnd/komando/internal/out", true},
+		{"github.com/sgnd/komando/internal/store", false},
+		{"github.com/spf13/cobra", false},
+		{"golang.org/x/term", false},
+	}
+	for _, tt := range tests {
+		if got := allowedImport(tt.path, rules); got != tt.want {
+			t.Errorf("allowedImport(%q) = %v, want %v", tt.path, got, tt.want)
+		}
+	}
+}
+
+// TestCLISubPackages: every folder below internal/cli that holds Go code is
+// listed in the package table, has a row in the imports table, and its
+// program files import only what that row allows; a row whose package has
+// no code is dropped.
+func TestCLISubPackages(t *testing.T) {
+	listed := docTable(t, "## Packages")
+	rules := cliImportRules(t)
+	fset := token.NewFileSet()
+	found := map[string]bool{}
+	programFiles(t, func(rel, name string) {
+		if cliTopLevel(rel) {
+			return
+		}
+		pkg := path.Dir(rel)
+		if !found[pkg] {
+			found[pkg] = true
+			if !listed[pkg] {
+				t.Errorf("%s is not in the package table of docs/design/code-layout.md: add a row", pkg)
+			}
+			if _, ok := rules[pkg]; !ok {
+				t.Errorf("%s has no row in the imports table of docs/design/code-layout.md", pkg)
+			}
+		}
+		f, err := parser.ParseFile(fset, filepath.Join(root, rel), nil, parser.ImportsOnly)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, im := range f.Imports {
+			ip, _ := strconv.Unquote(im.Path.Value)
+			if r, ok := rules[pkg]; ok && !allowedImport(ip, r) {
+				t.Errorf("%s imports %q, which the imports table of docs/design/code-layout.md does not allow for %s", rel, ip, pkg)
+			}
+		}
+	}, "internal/cli")
+	for pkg := range rules {
+		if !found[pkg] {
+			t.Errorf("docs/design/code-layout.md: the imports table has %s, which has no Go files: drop its row", pkg)
+		}
+	}
+}
+
 func TestCLIFileNames(t *testing.T) {
 	nouns := nouns(t)
 	areas := docTable(t, "### Shared areas")
@@ -176,8 +320,8 @@ func TestCLIFileNames(t *testing.T) {
 	}
 	used := map[string]bool{}
 	programFiles(t, func(rel, name string) {
-		if strings.Contains(strings.TrimPrefix(rel, "internal/cli/"), "/") {
-			return // a sub-package of internal/cli (kit/...) is named by the package rules, not by command nouns
+		if !cliTopLevel(rel) {
+			return // a sub-package of internal/cli is named by the package rules, not by command nouns
 		}
 		p := cliPrefix(name)
 		used[p] = true
