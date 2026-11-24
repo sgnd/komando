@@ -1,0 +1,71 @@
+package cli
+
+import (
+	"strings"
+	"testing"
+)
+
+// TestRiskOfLineTable pins the tier an AI agent's command line gets, line by
+// line. The tiers and notes are what today's code answers for each line
+// (recorded by running it), not what a design says: a change to how a
+// line is matched to its command, or to a tier, fails here. riskOfLine
+// reads only the line, so protection of a target (a --yes on a protected
+// host) is not part of the answer.
+func TestRiskOfLineTable(t *testing.T) {
+	tests := []struct {
+		name string
+		line string
+		args []string // the words, when a word holds a space; else line is split on spaces
+		tier tier
+		note string // the row's wording: what, dynamic, bulk or typed
+	}{
+		{"exec is rated by the command it runs", "exec web1 -- rm -rf /var/www", nil, tierDangerous, "the command matches a destructive rule"},
+		// pins today; C353 may lower it with Audit
+		{"a bool flag before a positional", "exec --read-only web1 -- df -h", nil, tierDangerous, "the command matches a destructive rule"},
+		{"fs rm", "fs rm web1 /tmp/x", nil, tierDangerous, "deletes the files"},
+		{"cache rm", "cache rm c1 k", nil, tierDangerous, "deletes the keys"},
+		{"cluster scale to 0", "cluster scale prod deploy/app 0", nil, tierDangerous, "stops every copy of the app"},
+		{"cluster scale to 3", "cluster scale prod deploy/app 3", nil, tierChange, ""},
+		{"a --yes on a host rm does not change the tier", "host rm web1 --yes", nil, tierChange, ""},
+		{"protection off", "host edit web1 --protected=false", nil, tierSafety, "turns protection off"},
+		{"an alias", "host ls", nil, tierRead, ""},
+		{"a plural", "servers list", nil, tierRead, ""},
+		{"removing an essential package", "pkg rm web1 openssh-server", nil, tierDangerous, "removes a package the server needs to run or to let you in"},
+		{"removing another package", "pkg rm web1 htop", nil, tierChange, "removes the packages"},
+		{"a security upgrade", "pkg upgrade web1 --security", nil, tierDangerous, "an update would remove a package the server needs"},
+		{"a SQL query", "db query prod DROP TABLE x", nil, tierDangerous, "the SQL deletes data (DROP, DELETE without WHERE, ...)"},
+		{"secret rm", "secret rm token", nil, tierDangerous, "deletes the saved passwords"},
+		{"group rm asks for a bulk confirm", "group rm big", nil, tierChange, "deleting a group of more than 3 members"},
+		{"policy rm", "policy rm deny1", nil, tierSafety, "removes a deny rule"},
+		{"a shell is for a person", "shell web1", nil, tierPerson, ""},
+		{"a host key reset is for a person", "host trust web1 --reset", nil, tierPerson, "replaces a pinned host key (OD-9)"},
+		{"a line that names no command is read, today", "nosuchcommand", nil, tierRead, ""},
+		{"a global flag before the command", "-o json fs rm web1 /tmp/x", nil, tierDangerous, "deletes the files"},
+		{"a proxy command on a host", "", []string{"host", "edit", "web1", "--proxy-command", "nc %h %p"}, tierSafety, "an AI agent runs it (the proxy command runs on this computer)"},
+		{"a group selector", "exec @prod -- rm -rf /var/www", nil, tierDangerous, "the command matches a destructive rule"},
+		{"a sudo flag before --", "exec web1 --sudo -- userdel bob", nil, tierDangerous, "the command matches a destructive rule"},
+		{"--reveal is not a tier of its own", "secret show token --reveal", nil, tierRead, ""},
+	}
+	if len(tests) != 25 {
+		t.Fatalf("%d lines, want 25", len(tests))
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			words := tt.args
+			if words == nil {
+				words = strings.Fields(tt.line)
+			}
+			r := riskOfLine(words)
+			note := ""
+			for _, s := range []string{r.what, r.dynamic, r.bulk, r.typed} {
+				if s != "" {
+					note = s
+					break
+				}
+			}
+			if r.tier != tt.tier || note != tt.note {
+				t.Errorf("riskOfLine(%q) = tier %s, %q; want tier %s, %q", words, r.tier, note, tt.tier, tt.note)
+			}
+		})
+	}
+}
