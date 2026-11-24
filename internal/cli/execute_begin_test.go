@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// TestExecuteRunsBegin goes through the real entry, tcl.execute (as the
+// TestExecuteRunsBegin goes through the real entry, execute(tcl, ...) (as the
 // program does), not through begin: whatever builds a command's hooks must
 // still start it with no answer left from the command before. The test of
 // begin alone would not see execute dropping that call.

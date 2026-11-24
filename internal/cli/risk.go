@@ -248,8 +248,16 @@ func (r riskRow) typedWhat() string {
 	return ""
 }
 
+// commandTree gives the command tree lineWords reads, a new one each time.
+// root.go sets it; a nil tree rates every line tierPerson (fail closed),
+// so a caller that never set one cannot let a line through as a read.
+var commandTree func() *cobra.Command
+
 // riskOfLine is riskOf for a command line ("cache rm c1 k").
 func riskOfLine(line []string) riskRow {
+	if commandTree == nil {
+		return riskRow{tier: tierPerson}
+	}
 	c, words, _ := lineWords(line)
 	if c == nil {
 		return riskRow{tier: tierRead}
@@ -262,9 +270,12 @@ func riskOfLine(line []string) riskRow {
 // --name=value, then -- and what follows it. The command's own words
 // (whatever name, alias or plural was typed) and a global flag before them
 // are not among them. pos is the positional arguments before any --. c is
-// nil when line names no command.
+// nil when line names no command, or when there is no command tree.
 func lineWords(line []string) (c *cobra.Command, words, pos []string) {
-	root := newRoot(treeCall())
+	if commandTree == nil {
+		return nil, nil, nil
+	}
+	root := commandTree()
 	c, rest, err := root.Find(line)
 	if err != nil || c == root {
 		return nil, nil, nil

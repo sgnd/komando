@@ -32,6 +32,11 @@ import (
 	"github.com/sgnd/komando/internal/version"
 )
 
+func init() {
+	runExecute = execute
+	commandTree = func() *cobra.Command { return newRoot(treeCall()) }
+}
+
 type globalFlags struct {
 	output         string
 	pretty         bool
@@ -82,8 +87,8 @@ func (e exitCode) Error() string { return "exit " + strconv.Itoa(int(e)) }
 var vtOK = true
 
 // execute runs one command with these arguments in cl: its envelope or
-// text, and its exit code.
-func (cl *call) execute(ctx context.Context, args []string) int {
+// text, and its exit code. call.go reaches it through runExecute.
+func execute(cl *call, ctx context.Context, args []string) int {
 	// the hooks of the lower packages answer for this call from its first
 	// step (call_hooks.go): the store and the vault may open in any of
 	// them, and an agent's call must count there before they do
