@@ -32,6 +32,10 @@ import (
 	"github.com/sgnd/komando/internal/version"
 )
 
+func init() {
+	commandTree = func() *cobra.Command { return newRoot(treeCall()) }
+}
+
 type globalFlags struct {
 	output         string
 	pretty         bool
