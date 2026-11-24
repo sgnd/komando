@@ -15,6 +15,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/sgnd/komando/internal/rundir"
+	"github.com/sgnd/komando/internal/version"
 )
 
 // While KOMANDO_APPROVAL_DEBUG is set, each macOS approval panel adds what
@@ -189,16 +190,16 @@ func panelTexts(v approvalView) *strings.Replacer {
 // build that is not a release.
 func buildName() string {
 	bi, ok := debug.ReadBuildInfo()
-	if !ok || Version != "dev" {
-		return Version
+	if !ok || version.Version != "dev" {
+		return version.Version
 	}
 	if mv := bi.Main.Version; mv != "" && mv != "(devel)" {
-		return Version + " (" + mv + ")"
+		return version.Version + " (" + mv + ")"
 	}
 	for _, s := range bi.Settings {
 		if s.Key == "vcs.revision" && len(s.Value) >= 12 {
-			return Version + " (" + s.Value[:12] + ")"
+			return version.Version + " (" + s.Value[:12] + ")"
 		}
 	}
-	return Version
+	return version.Version
 }

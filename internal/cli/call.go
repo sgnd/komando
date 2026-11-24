@@ -17,6 +17,7 @@ import (
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/transport"
 	"github.com/sgnd/komando/internal/vault"
+	"github.com/sgnd/komando/internal/version"
 )
 
 // call is one komando call: who makes it (engine.Caller), its approvals
@@ -121,7 +122,7 @@ func newCall(c engine.Call, args []string) *call {
 	if stderr == nil {
 		stderr = io.Discard
 	}
-	cl.out = &out.Printer{Format: "json", W: stdout, Err: stderr, Version: Version, Start: time.Now(), Width: cl.width}
+	cl.out = &out.Printer{Format: "json", W: stdout, Err: stderr, Version: version.Version, Start: time.Now(), Width: cl.width}
 	cl.fsSudoRetry = "retry with --sudo"
 	cl.sess = engine.NewSession()
 	cl.begin()

@@ -37,10 +37,10 @@ func TestEarlierWindowDoesNotCoverUnshownBody(t *testing.T) {
 	}
 	body := "rm -rf /srv/app\n"
 	noteApprovalBody(tcl, scriptLabel("the script", "./deploy.sh"), []byte(body))
-	if err := guard(tcl, st, nil, body, false); err != nil { // guardBody
+	if err := Guard(tcl, st, nil, body, false); err != nil { // guardBody
 		t.Fatalf("the person allows the window that shows the script: %v", err)
 	}
-	if err := guard(tcl, st, hosts, "sh -s", true); err != nil {
+	if err := Guard(tcl, st, hosts, "sh -s", true); err != nil {
 		t.Fatal(err)
 	}
 	if len(texts) < 2 {
@@ -64,7 +64,7 @@ func TestEarlierWindowDoesNotCoverUnshownBody(t *testing.T) {
 			t.Fatal("the --reveal window")
 		}
 		noteApprovalBody(tcl, scriptLabel("the script", "./deploy.sh"), []byte(bad))
-		if err := guard(tcl, st, hosts, "sh -s", true); err == nil {
+		if err := Guard(tcl, st, hosts, "sh -s", true); err == nil {
 			t.Errorf("a script the window cannot show passed on the --reveal yes (%d windows)", len(texts))
 		}
 		if len(texts) != 1 {
@@ -77,7 +77,7 @@ func TestEarlierWindowDoesNotCoverUnshownBody(t *testing.T) {
 	texts = nil
 	tcl.flags.reveal = false
 	tcl.args = []string{"komando", "exec", "web", "--yes", "--allow-dangerous", "--", "rm", "-rf", "/srv/app"}
-	if err := guard(tcl, st, hosts, "rm -rf /srv/app", true); err != nil || len(texts) != 1 {
+	if err := Guard(tcl, st, hosts, "rm -rf /srv/app", true); err != nil || len(texts) != 1 {
 		t.Errorf("destructive on a protected server asks once: %v, %d windows", err, len(texts))
 	}
 	if len(texts) == 1 && !strings.Contains(texts[0], "protected host web") {

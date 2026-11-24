@@ -74,3 +74,23 @@ func TestRiskOfLineTable(t *testing.T) {
 		})
 	}
 }
+
+// A caller that never set the command tree must not get a read for a
+// line: every line is a step for a person, whether it names a command or not.
+func TestRiskOfLineNilTreeFailsClosed(t *testing.T) {
+	saved := commandTree
+	t.Cleanup(func() { commandTree = saved })
+	commandTree = nil
+	for _, line := range []string{"cache rm c1 k", "host ls", "version", "no such command", ""} {
+		if r := riskOfLine(strings.Fields(line)); r.tier != tierPerson {
+			t.Errorf("riskOfLine(%q) with no tree = tier %s, want %s", line, r.tier, tierPerson)
+		}
+	}
+	if c, words, pos := lineWords([]string{"cache", "rm", "c1", "k"}); c != nil || words != nil || pos != nil {
+		t.Errorf("lineWords with no tree = %v %v %v, want nothing", c, words, pos)
+	}
+	commandTree = saved
+	if r := riskOfLine([]string{"host", "ls"}); r.tier != tierRead {
+		t.Errorf("riskOfLine(host ls) with the tree = tier %s, want read", r.tier)
+	}
+}

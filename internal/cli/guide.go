@@ -17,6 +17,7 @@ import (
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
+	"github.com/sgnd/komando/internal/version"
 )
 
 //go:embed guide.md
@@ -549,7 +550,7 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 			})
 			res := map[string]any{
 				"name":     "komando",
-				"version":  Version,
+				"version":  version.Version,
 				"contract": out.Contract,
 				"commands": cmds,
 			}
