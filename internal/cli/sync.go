@@ -605,7 +605,7 @@ func syncUp(cl *call, ctx context.Context, name, local, target, remote string, o
 	if err != nil {
 		return err
 	}
-	if err := guard(cl, st, hosts, "", true); err != nil {
+	if err := Guard(cl, st, hosts, "", true); err != nil {
 		return err
 	}
 	progressFrom(ctx).eachServer(len(hosts)) // each server needs its own files
@@ -694,7 +694,7 @@ func syncStorage(cl *call, ctx context.Context, name, connExpr string, v driver.
 		return err
 	}
 	if v.Risk > driver.RiskRead && !cl.flags.dryRun {
-		if err := guardConns(cl, st, []*store.Conn{c}, v); err != nil {
+		if err := GuardConns(cl, st, []*store.Conn{c}, v); err != nil {
 			return err
 		}
 	}

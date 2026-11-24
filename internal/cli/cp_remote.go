@@ -229,9 +229,9 @@ func runRemoteCp(ctx context.Context, cmd *cobra.Command, srcT, srcP, dstT, dstP
 	}
 	// a protected destination asks once, as an upload to it asks
 	if dst.server() {
-		err = guard(cl, st, []*store.Host{dst.host}, "", true)
+		err = Guard(cl, st, []*store.Host{dst.host}, "", true)
 	} else {
-		err = guardConns(cl, st, []*store.Conn{dst.conn}, driver.Verdict{Risk: driver.RiskWrite})
+		err = GuardConns(cl, st, []*store.Conn{dst.conn}, driver.Verdict{Risk: driver.RiskWrite})
 	}
 	if err != nil {
 		return err

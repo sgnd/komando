@@ -522,11 +522,11 @@ func swarmDo(cl *call, ctx context.Context, name string, t clusterTarget, line s
 		if cl.typed == nil {
 			askTypes(cl, []string{t.host.Name}, "servers") // the whole cluster: its manager's name
 		}
-		if err := guardConns(cl, st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{name}, Reasons: []string{why}}); err != nil {
+		if err := GuardConns(cl, st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{name}, Reasons: []string{why}}); err != nil {
 			return "", false, err
 		}
 	}
-	if err := guardScript(cl, st, []*store.Host{t.host}, line, true); err != nil {
+	if err := GuardScript(cl, st, []*store.Host{t.host}, line, true); err != nil {
 		return "", false, err
 	}
 	if cl.flags.dryRun {

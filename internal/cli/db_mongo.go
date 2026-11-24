@@ -124,7 +124,7 @@ func runMongoQuery(cl *call, ctx context.Context, name string, st *store.State, 
 	data := mongoQueryData{Conn: c.Name, Database: cmp.Or(db, mongoDB(c)), Command: cmd[0].Key, Risk: v.Risk.String(), Write: f.write, DryRun: cl.flags.dryRun}
 	if f.write {
 		v.Risk = max(v.Risk, driver.RiskWrite)
-		if err := guardConns(cl, st, []*store.Conn{c}, v); err != nil {
+		if err := GuardConns(cl, st, []*store.Conn{c}, v); err != nil {
 			return fail(err)
 		}
 		if cl.flags.dryRun { // MongoDB cannot roll back a command outside a transaction

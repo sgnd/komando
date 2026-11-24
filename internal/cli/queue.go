@@ -85,7 +85,7 @@ func queueRisk(id string, topics ...string) driver.Verdict {
 type queueFn func(st *store.State, c *store.Conn, q queuex.Queue) (any, error)
 
 // withQueue opens the conn's client, runs fn, and audits the action. A
-// change is checked by guardConns first; fn itself honours --dry-run.
+// change is checked by GuardConns first; fn itself honours --dry-run.
 func withQueue(cl *call, ctx context.Context, name, connExpr string, v driver.Verdict, rec map[string]any, fn queueFn) error {
 	st, err := loadState()
 	if err != nil {
@@ -105,7 +105,7 @@ func withQueue(cl *call, ctx context.Context, name, connExpr string, v driver.Ve
 		return err
 	}
 	if v.Risk > driver.RiskRead {
-		if err := guardConns(cl, st, []*store.Conn{c}, v); err != nil {
+		if err := GuardConns(cl, st, []*store.Conn{c}, v); err != nil {
 			return fail(err)
 		}
 	}
