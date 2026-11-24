@@ -407,7 +407,11 @@ var keystoneRules = []string{"check-failed", "base64-pipe-sh", "decode-run", "cu
 // ruleScope is the servers a switch names, as their record IDs: a group is
 // read now, so a server added to it later is not in the switch. The groups
 // are kept as labels.
-func ruleScope(cl *call, st *store.State, hosts, groups []string) (ids, gs []string, err error) {
+//
+// labels are the groups the switch already names: --rm-group takes one of
+// them by name even when the group has no servers any more, so its label
+// can go.
+func ruleScope(cl *call, st *store.State, hosts, groups, labels []string) (ids, gs []string, err error) {
 	for _, n := range hosts {
 		h, err := findHost(cl, st, n)
 		if err != nil {
@@ -418,16 +422,17 @@ func ruleScope(cl *call, st *store.State, hosts, groups []string) (ids, gs []str
 	for _, g := range groups {
 		g = strings.TrimPrefix(g, "@")
 		members := groupMembersOf(st, g)
-		if len(members) == 0 {
-			return nil, nil, groupNotFound(cl, st, g)
-		}
 		n := len(ids)
 		for _, m := range members {
 			if h, ok := st.Hosts[m]; ok {
 				ids = append(ids, h.Rec.ID)
 			}
 		}
-		if len(ids) == n {
+		switch {
+		case len(ids) > n, slices.ContainsFunc(labels, func(l string) bool { return strings.EqualFold(l, g) }):
+		case len(members) == 0:
+			return nil, nil, groupNotFound(cl, st, g)
+		default:
 			return nil, nil, out.Usage("the group %s has no servers", g)
 		}
 		gs = append(gs, g)
@@ -663,7 +668,11 @@ servers only.`,
 				if err != nil {
 					return err
 				}
-				ids, gs, err := ruleScope(cl, s, e.hosts, e.groups)
+				var labels []string
+				if !e.off {
+					labels = switchOf(s, id).Groups
+				}
+				ids, gs, err := ruleScope(cl, s, e.hosts, e.groups, labels)
 				if err != nil {
 					return err
 				}

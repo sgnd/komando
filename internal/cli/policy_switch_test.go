@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/store"
@@ -275,5 +276,56 @@ func TestPolicyEditOffAtATerminal(t *testing.T) {
 	p.answer("[y/N]", "y\r")
 	if code := p.exit(); code != 0 || !strings.Contains(p.shown(), "komando no longer stops a command that") {
 		t.Errorf("a plain yes for a carried rule: exit %d\n%s", code, p.shown())
+	}
+}
+
+// The v2.7 table rates policy edit by flags only (internal/capability); for
+// every line it must be at least as strict as today's switchesOn.
+func TestPolicyEditTableNotWeaker(t *testing.T) {
+	key := capability.Key{Type: "policy", Verb: "edit"}
+	tableTier := func(words []string) capability.Tier {
+		best := capability.Change
+		for _, r := range capability.TierRows() {
+			if !r.Reaches(key) || r.Tier <= best {
+				continue
+			}
+			met := true
+			for _, f := range r.When.Flags {
+				met = met && slices.ContainsFunc(words, func(w string) bool { return w == "--"+f || strings.HasPrefix(w, "--"+f+"=") })
+			}
+			if met {
+				best = r.Tier
+			}
+		}
+		return best
+	}
+	for _, line := range []string{
+		"policy edit r --off", "policy edit r --off=true", "policy edit r --off=false", "policy edit r --off=false --off",
+		"policy edit r --rm-server web1", "policy edit r --rm-group lab", "policy edit r --add-server web1",
+		"policy edit r --add-group lab", "policy edit r --off --add-server web1", "policy edit r --off=false --off --bogus",
+	} {
+		_, words, _ := lineWords(strings.Fields(line))
+		if today, table := riskOfLine(strings.Fields(line)).tier, tableTier(words); int(table) < int(today) {
+			t.Errorf("%s: the v2.7 table gives tier %d, today's rows %d", line, table, today)
+		}
+	}
+}
+
+// --rm-group takes a group the switch names even when the group has no
+// servers any more, so its label goes; the servers the group had when the
+// rule went off stay in the switch until they are taken out by name.
+func TestPolicyEditRmGroupDropsEmptyLabel(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "web1", "deploy@10.0.0.1", "--group", "lab")
+	mustRun(t, "policy", "edit", "docker-prune", "--off", "--add-group", "lab", "--yes")
+	mustRun(t, "host", "edit", "web1", "--rm-group", "lab")
+	wantCode(t, "GROUP_NOT_FOUND", "policy", "edit", "docker-prune", "--rm-group", "nope")
+	sw := mustRun(t, "policy", "edit", "docker-prune", "--rm-group", "lab")
+	if fmt.Sprint(sw["groups"], sw["hosts"]) != "[] [web1]" {
+		t.Errorf("--rm-group of an emptied group: want the label gone and web1 kept, got %v", sw)
+	}
+	mustRun(t, "policy", "edit", "docker-prune", "--rm-server", "web1")
+	if sw := mustRun(t, "policy", "show", "docker-prune")["switch"].(map[string]any); sw["off"] != false {
+		t.Errorf("the switch named nothing more: %v", sw)
 	}
 }

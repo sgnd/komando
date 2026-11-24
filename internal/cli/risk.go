@@ -67,7 +67,9 @@ func givesFlag(name string) func([]string) bool {
 // switchesOn: the words only switch a rule on again: --off=false (in any
 // spelling of false) or --rm-server or --rm-group, and no --off with another
 // value and no --add-server or --add-group. cobra keeps a flag's last value,
-// so anything else may run the off path.
+// so anything else may run the off path. The v2.7 table
+// (internal/capability/tier.go) says it with flags only and rates
+// --off=false Safety too: stricter, never weaker (TestPolicyEditTableNotWeaker).
 func switchesOn(w []string) bool {
 	on := false
 	for _, s := range w {
