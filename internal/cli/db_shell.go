@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
+	kitterm "github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/dbx"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
@@ -397,12 +398,12 @@ func expandedText(res *dbx.Result) string {
 		}
 		w := 0
 		for _, c := range r.Columns {
-			w = max(w, displayWidth(c.Name))
+			w = max(w, kitterm.DisplayWidth(c.Name))
 		}
 		for i, row := range r.Rows {
 			fmt.Fprintf(&b, "-[ RECORD %d ]%s\n", i+1, strings.Repeat("-", max(4, w)))
 			for j, v := range row {
-				fmt.Fprintf(&b, "%s%s | %s\n", r.Columns[j].Name, strings.Repeat(" ", w-displayWidth(r.Columns[j].Name)), cellText(v, true))
+				fmt.Fprintf(&b, "%s%s | %s\n", r.Columns[j].Name, strings.Repeat(" ", w-kitterm.DisplayWidth(r.Columns[j].Name)), cellText(v, true))
 			}
 		}
 		fmt.Fprintf(&b, "(%d row%s)\n", r.RowCount, plural(r.RowCount))

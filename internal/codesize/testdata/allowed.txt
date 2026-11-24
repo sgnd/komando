@@ -37,4 +37,4 @@ func internal/openvpn/client.go Client.handshake 107
 func internal/openvpn/config.go Parse 201
 func internal/policy/shell.go lexer.line 160
 func internal/sslvpn/anyconnect.go AnyConnectLogin 107
-pkg internal/cli 329
+pkg internal/cli 327

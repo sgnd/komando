@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -30,7 +31,7 @@ type secretList struct {
 
 func (l secretList) Text() string {
 	if len(l.Secrets) == 0 {
-		return noneYet("secrets", "secret set NAME")
+		return term.NoneYet("secrets", "secret set NAME")
 	}
 	var rows [][]string
 	for _, s := range l.Secrets {

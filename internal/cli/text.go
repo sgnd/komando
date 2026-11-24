@@ -3,13 +3,15 @@ package cli
 import (
 	"strconv"
 	"time"
+
+	"github.com/sgnd/komando/internal/cli/kit/term"
 )
 
 // Shared pieces for -o text output, so every list reads like the familiar
 // tools (kubectl get, docker ps, ls -l): a header row and aligned columns.
 
-// textTable is dataTable, kept as the short name the Text methods use.
-func textTable(headers []string, rows [][]string) string { return dataTable(headers, rows) }
+// textTable is term.DataTable, kept as the short name the Text methods use.
+func textTable(headers []string, rows [][]string) string { return term.DataTable(headers, rows) }
 
 // The cells every table shares (S-9.6), so a person reads one form:
 
