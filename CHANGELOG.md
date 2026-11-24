@@ -7,7 +7,7 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
-## v0.17.1 - 2026-11-24
+## [0.17.1] - 2026-11-24
 
 ### Changed
 
