@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -135,7 +136,7 @@ func truncationNotes(cl *call, rs []execHostResult, limit int, many bool) {
 		if many {
 			who = " from " + r.Host
 		}
-		sayLine(cl, "Note: showing the first "+humanBytes(int64(limit))+" of the output"+who+"; raise --max-output, or run it with `komando job start` or `komando download` for big output")
+		sayLine(cl, "Note: showing the first "+term.HumanBytes(int64(limit))+" of the output"+who+"; raise --max-output, or run it with `komando job start` or `komando download` for big output")
 	}
 }
 

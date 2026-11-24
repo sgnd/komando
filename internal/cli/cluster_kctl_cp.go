@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/kube"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -46,7 +47,7 @@ func (r *kctlRun) cp() error {
 		if tarball.over {
 			return kstop(out.Errf(out.ExitConflict, "FILE_TOO_LARGE",
 				"copy a smaller part, or pack it smaller in the pod first: `komando cluster run TARGET --write -- exec POD -- gzip PATH`",
-				"%s:%s is more than %s; komando holds a copy from a pod in memory, and stopped", pod, rpath, humanBytes(maxPodCopy)))
+				"%s:%s is more than %s; komando holds a copy from a pod in memory, and stopped", pod, rpath, term.HumanBytes(maxPodCopy)))
 		}
 		if err != nil {
 			return kfail("%s %s", strings.TrimSpace(errb.String()), err)
@@ -115,7 +116,7 @@ func untarTo(cl *call, tarball []byte, dst, base string) error {
 
 func untarLimit(cl *call, tarball []byte, dst, base string, max int64) error {
 	tooLarge := func() error {
-		return kstop(out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "copy a smaller part of it", "the copy is more than %s", humanBytes(max)))
+		return kstop(out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "copy a smaller part of it", "the copy is more than %s", term.HumanBytes(max)))
 	}
 	left := max
 	root, err := filepath.Abs(dst)

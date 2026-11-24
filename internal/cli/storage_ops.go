@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -215,7 +216,7 @@ type mvData struct {
 }
 
 func (d mvData) Text() string {
-	what := humanBytes(d.SizeBytes)
+	what := term.HumanBytes(d.SizeBytes)
 	if d.Folder {
 		what = "folder"
 	}

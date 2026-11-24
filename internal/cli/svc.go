@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -48,7 +49,7 @@ func svcTable(data any) string {
 	for _, u := range units {
 		mem := ""
 		if n, ok := u["memory_current"].(int64); ok && n >= 0 {
-			mem = humanBytes(n)
+			mem = term.HumanBytes(n)
 		}
 		since := ""
 		if t, ok := u["active_enter_timestamp"].(string); ok && u["active_state"] == "active" {

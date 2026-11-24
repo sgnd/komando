@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/sftp"
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/storex"
@@ -179,9 +180,9 @@ func (d xferData) Text() string {
 		if r.Files == 1 {
 			files = "file"
 		}
-		fmt.Fprintf(&b, "%s%s %d %s (%s) to %s", pre, r.verb, r.Files, files, humanBytes(r.Bytes), r.Dest)
+		fmt.Fprintf(&b, "%s%s %d %s (%s) to %s", pre, r.verb, r.Files, files, term.HumanBytes(r.Bytes), r.Dest)
 		if r.ContinuedFrom > 0 {
-			fmt.Fprintf(&b, ", going on after the %s already there", humanBytes(r.ContinuedFrom))
+			fmt.Fprintf(&b, ", going on after the %s already there", term.HumanBytes(r.ContinuedFrom))
 		}
 		if r.Replaced {
 			b.WriteString(", replacing the file there")
