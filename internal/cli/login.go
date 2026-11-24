@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/cloud"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -137,7 +138,7 @@ NEEDS_PERSON and asks you to run it. A profile with keys in
 				return nil
 			}
 			path, err := cloud.AWSSSOLogin(cmd.Context(), profile, func(url, code string) {
-				fmt.Fprintf(cl.out.Err, "komando: confirm the code %s at %s\n", cleanText(code), cleanText(url))
+				fmt.Fprintf(cl.out.Err, "komando: confirm the code %s at %s\n", term.CleanText(code), term.CleanText(url))
 				openBrowser(cmd.Context(), url)
 			})
 			if err != nil {

@@ -17,6 +17,7 @@ import (
 
 	"github.com/pkg/sftp"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/storex"
@@ -82,7 +83,7 @@ func resumeCopy(ctx context.Context, src resumeEnd, dst resumeDst, label string)
 		return resumed{}, err
 	}
 	if ds > ss {
-		return resumed{}, resumeConflict(dst.where(), fmt.Sprintf("is longer than the source (%s, the source %s)", humanBytes(ds), humanBytes(ss)))
+		return resumed{}, resumeConflict(dst.where(), fmt.Sprintf("is longer than the source (%s, the source %s)", term.HumanBytes(ds), term.HumanBytes(ss)))
 	}
 	if ds > 0 && ds < ss && !dst.canAppend() {
 		return resumed{}, out.Errf(out.ExitUsage, "RESUME_UNSUPPORTED", "run it again without --continue to copy the whole file: `komando cp SRC DST`",
@@ -101,7 +102,7 @@ func resumeCopy(ctx context.Context, src resumeEnd, dst resumeDst, label string)
 			return resumed{}, err
 		}
 		if a != b {
-			return resumed{}, resumeConflict(dst.where(), fmt.Sprintf("differs from the source in its first %s", humanBytes(ds)))
+			return resumed{}, resumeConflict(dst.where(), fmt.Sprintf("differs from the source in its first %s", term.HumanBytes(ds)))
 		}
 	}
 	pp := progressFrom(ctx)

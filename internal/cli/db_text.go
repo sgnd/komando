@@ -103,7 +103,7 @@ func cellStr(v any) string {
 
 func sizeText(v any) string {
 	if n, ok := dataNum(v); ok {
-		return humanBytes(n)
+		return term.HumanBytes(n)
 	}
 	return cellStr(v)
 }

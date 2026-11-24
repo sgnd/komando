@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -57,11 +58,11 @@ func (l versionList) Text() string {
 		default:
 			state = "old"
 		}
-		size := humanBytes(v.Size)
+		size := term.HumanBytes(v.Size)
 		if v.DeleteMarker {
 			size = "-"
 		}
-		rows = append(rows, []string{v.Key, v.VersionID, state, size, timeCell(v.Modified)})
+		rows = append(rows, []string{v.Key, v.VersionID, state, size, term.TimeCell(v.Modified)})
 	}
 	s := textTable([]string{"key", "version", "state", "size", "modified"}, rows)
 	if l.More {
@@ -128,7 +129,7 @@ func (d rmVersionsData) Text() string {
 	for _, v := range d.Versions {
 		keys[v.Key] = true
 	}
-	return fmt.Sprintf("%s %d version%s of %s\n", verb, d.Count, plural(d.Count), strings.Join(mapKeys(keys), ", "))
+	return fmt.Sprintf("%s %d version%s of %s\n", verb, d.Count, term.Plural(d.Count), strings.Join(mapKeys(keys), ", "))
 }
 
 // storageRmVersions is storage rm --all-versions: a preview under

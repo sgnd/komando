@@ -38,7 +38,7 @@ func sqsQueueText(t *queuex.TopicDetail) string {
 	fmt.Fprintf(&b, "messages: about %d waiting, %d in flight (received, not yet deleted), %d delayed\n", t.Messages, d.InFlight, d.Delayed)
 	fmt.Fprintf(&b, "visibility timeout: %s, kept for: %s, delay: %s, receive wait: %s\n", secs(d.VisibilityTimeout), secs(d.RetentionSeconds),
 		secs(d.DelaySeconds), secs(d.ReceiveWait))
-	fmt.Fprintf(&b, "largest message: %s, encryption: %s", humanBytes(int64(d.MaxMessageSize)), d.Encryption)
+	fmt.Fprintf(&b, "largest message: %s, encryption: %s", term.HumanBytes(int64(d.MaxMessageSize)), d.Encryption)
 	if d.ContentDedup {
 		b.WriteString(", deduplication by content")
 	}
@@ -113,9 +113,9 @@ func sqsSentText(s *queuex.Sent) string {
 		group = ", message group " + s.MessageGroupID
 	}
 	if s.DryRun {
-		return fmt.Sprintf("would send %s to queue %s%s (nothing sent)\n", humanBytes(int64(s.Size)), s.Queue, group)
+		return fmt.Sprintf("would send %s to queue %s%s (nothing sent)\n", term.HumanBytes(int64(s.Size)), s.Queue, group)
 	}
-	return fmt.Sprintf("sent %s to queue %s%s; message ID %s\n", humanBytes(int64(s.Size)), s.Queue, group, *s.MessageID)
+	return fmt.Sprintf("sent %s to queue %s%s; message ID %s\n", term.HumanBytes(int64(s.Size)), s.Queue, group, *s.MessageID)
 }
 
 func sqsCreatedText(c *queuex.Created) string {

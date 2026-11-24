@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
+	kitterm "github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/kube"
 	"github.com/sgnd/komando/internal/out"
@@ -344,7 +345,7 @@ komando forwards to the pod's port behind it.`,
 				conns++
 				go func() {
 					if err := k.PortForward(ctx, space, pod, port, c); err != nil && ctx.Err() == nil {
-						fmt.Fprintf(cl.out.Err, "komando: forward: %v\n", cleanText(err.Error()))
+						fmt.Fprintf(cl.out.Err, "komando: forward: %v\n", kitterm.CleanText(err.Error()))
 					}
 				}()
 			}

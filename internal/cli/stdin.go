@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 )
 
@@ -40,7 +41,7 @@ func readLimited(r io.Reader, limit int64, what string) ([]byte, error) {
 		return nil, err
 	}
 	if int64(len(b)) > limit {
-		return nil, out.Usage("%s on stdin is more than %s, the most komando reads for it", what, humanBytes(limit))
+		return nil, out.Usage("%s on stdin is more than %s, the most komando reads for it", what, term.HumanBytes(limit))
 	}
 	return b, nil
 }

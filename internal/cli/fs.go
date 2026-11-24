@@ -18,6 +18,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -457,7 +458,7 @@ func fsCatCmd() *cobra.Command {
 			}
 			cl.out.Print("fs.cat", res, nil)
 			if r, ok := res.(catResult); ok && r.Truncated && cl.out.Format == "text" {
-				fmt.Fprintf(cl.out.Err, "Note: showing the first %s; raise --max-bytes, or use `komando download`\n", humanBytes(maxBytes))
+				fmt.Fprintf(cl.out.Err, "Note: showing the first %s; raise --max-bytes, or use `komando download`\n", term.HumanBytes(maxBytes))
 			}
 			return nil
 		}),

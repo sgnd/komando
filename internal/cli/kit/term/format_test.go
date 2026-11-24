@@ -1,4 +1,4 @@
-package cli
+package term
 
 import (
 	"testing"
@@ -6,7 +6,7 @@ import (
 )
 
 // These tests pin the small formatting helpers that move into
-// internal/cli/kit/term, before they move: the same inputs must give the
+// internal/cli/kit/term, where they moved from internal/cli: the same inputs must give the
 // same bytes after.
 
 func TestHumanBytes(t *testing.T) {
@@ -25,8 +25,8 @@ func TestHumanBytes(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.want, func(t *testing.T) {
-			if got := humanBytes(tt.in); got != tt.want {
-				t.Errorf("humanBytes(%d) = %q, want %q", tt.in, got, tt.want)
+			if got := HumanBytes(tt.in); got != tt.want {
+				t.Errorf("HumanBytes(%d) = %q, want %q", tt.in, got, tt.want)
 			}
 		})
 	}
@@ -43,8 +43,8 @@ func TestCleanTextCases(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := cleanText(tt.in); got != tt.want {
-				t.Errorf("cleanText(%q) = %q, want %q", tt.in, got, tt.want)
+			if got := CleanText(tt.in); got != tt.want {
+				t.Errorf("CleanText(%q) = %q, want %q", tt.in, got, tt.want)
 			}
 		})
 	}
@@ -61,29 +61,29 @@ func TestJoinAnd(t *testing.T) {
 		{[]string{"a", "b", "c"}, "a, b and c"},
 	}
 	for _, tt := range tests {
-		if got := joinAnd(tt.in); got != tt.want {
-			t.Errorf("joinAnd(%q) = %q, want %q", tt.in, got, tt.want)
+		if got := JoinAnd(tt.in); got != tt.want {
+			t.Errorf("JoinAnd(%q) = %q, want %q", tt.in, got, tt.want)
 		}
 	}
 }
 
 func TestPlural(t *testing.T) {
 	for n, want := range map[int]string{0: "s", 1: "", 2: "s", 100: "s"} {
-		if got := plural(n); got != want {
-			t.Errorf("plural(%d) = %q, want %q", n, got, want)
+		if got := Plural(n); got != want {
+			t.Errorf("Plural(%d) = %q, want %q", n, got, want)
 		}
 	}
 }
 
 func TestYesAndTimeCells(t *testing.T) {
-	if yesCell(true) != "yes" || yesCell(false) != "-" {
-		t.Errorf("yesCell: %q %q", yesCell(true), yesCell(false))
+	if YesCell(true) != "yes" || YesCell(false) != "-" {
+		t.Errorf("yesCell: %q %q", YesCell(true), YesCell(false))
 	}
-	if got := timeCell(time.Time{}); got != "-" {
-		t.Errorf("timeCell(zero) = %q", got)
+	if got := TimeCell(time.Time{}); got != "-" {
+		t.Errorf("TimeCell(zero) = %q", got)
 	}
 	at := time.Date(2026, 11, 7, 7, 30, 0, 0, time.UTC)
-	if got, want := timeCell(at), at.Local().Format("2006-01-02 15:04 MST"); got != want {
+	if got, want := TimeCell(at), at.Local().Format("2006-01-02 15:04 MST"); got != want {
 		t.Errorf("timeCell = %q, want %q", got, want)
 	}
 }

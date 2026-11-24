@@ -784,8 +784,8 @@ func stoppedText(cl *call, ids []string) out.Texter {
 		case len(ids) == 0:
 			return "no tunnels were running\n"
 		case cl.flags.dryRun:
-			return "would stop " + joinAnd(ids) + "\n"
+			return "would stop " + term.JoinAnd(ids) + "\n"
 		}
-		return "stopped " + joinAnd(ids) + "\n"
+		return "stopped " + term.JoinAnd(ids) + "\n"
 	})
 }

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	"unicode"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -25,14 +25,14 @@ type statusLine struct {
 
 func (s statusLine) format(color bool) string {
 	var b strings.Builder
-	b.WriteString("komando: " + cleanText(s.What) + " on " + cleanText(s.Target))
+	b.WriteString("komando: " + term.CleanText(s.What) + " on " + term.CleanText(s.Target))
 	if s.Detail != "" {
-		b.WriteString(" (" + cleanText(s.Detail) + ")")
+		b.WriteString(" (" + term.CleanText(s.Detail) + ")")
 	}
 	if len(s.Route) > 0 {
 		parts := make([]string, len(s.Route))
 		for i, r := range s.Route {
-			parts[i] = cleanText(r)
+			parts[i] = term.CleanText(r)
 		}
 		b.WriteString(" via " + strings.Join(parts, " → "))
 	}
@@ -44,7 +44,7 @@ func (s statusLine) format(color bool) string {
 		}
 	}
 	if s.Tail != "" {
-		b.WriteString(" (" + cleanText(s.Tail) + ")")
+		b.WriteString(" (" + term.CleanText(s.Tail) + ")")
 	}
 	return b.String()
 }
@@ -60,7 +60,7 @@ func showStatus(cl *call, s statusLine) {
 // noticef prints one komando: line for a person at the terminal.
 func noticef(cl *call, format string, args ...any) {
 	if cl.interactive() {
-		fmt.Fprintln(cl.out.Err, "komando: "+cleanText(fmt.Sprintf(format, args...)))
+		fmt.Fprintln(cl.out.Err, "komando: "+term.CleanText(fmt.Sprintf(format, args...)))
 	}
 }
 
@@ -69,9 +69,9 @@ func noticef(cl *call, format string, args ...any) {
 func exitLine(target string, code int, lost bool, took time.Duration) string {
 	d := humanAge(took)
 	if lost {
-		return "komando: connection to " + cleanText(target) + " lost after " + d
+		return "komando: connection to " + term.CleanText(target) + " lost after " + d
 	}
-	return fmt.Sprintf("komando: left %s (exit %d, %s)", cleanText(target), code, d)
+	return fmt.Sprintf("komando: left %s (exit %d, %s)", term.CleanText(target), code, d)
 }
 
 func showExit(cl *call, target string, code int, lost bool, took time.Duration) {
@@ -86,17 +86,6 @@ func showExit(cl *call, target string, code int, lost bool, took time.Duration) 
 // and dark terminals; yellow and dim do not, so they are not used here.
 var colorOK = func(cl *call) bool {
 	return vtOK && cl.getenv("NO_COLOR") == "" && cl.getenv("TERM") != "dumb" && isTerminal(cl.out.Err)
-}
-
-// cleanText drops control and bidi characters, so a name or address cannot
-// move the cursor, retitle the window or reorder what the line says.
-func cleanText(s string) string {
-	return strings.Map(func(r rune) rune {
-		if unicode.IsControl(r) || unicode.Is(unicode.Bidi_Control, r) {
-			return -1
-		}
-		return r
-	}, s)
 }
 
 // hostRoute is the way to h for a status line: "vpn NAME" first, then the

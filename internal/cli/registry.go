@@ -21,6 +21,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/registry"
@@ -632,7 +633,7 @@ func (d inspectData) Text() string {
 	row("digest", d.Digest)
 	row("media type", d.MediaType)
 	if d.Size > 0 {
-		row("size", fmt.Sprintf("%s in %s, compressed", humanBytes(d.Size), countOf(d.Layers, "layer")))
+		row("size", fmt.Sprintf("%s in %s, compressed", term.HumanBytes(d.Size), countOf(d.Layers, "layer")))
 	}
 	row("platforms", strings.Join(d.Platforms, ", "))
 	row("created", localCreated(d.Created))

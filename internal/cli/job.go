@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -741,7 +742,7 @@ func (s *jobStatus) Text() string {
 	var b strings.Builder
 	b.WriteString("job " + s.ID + " on " + s.Host + ": " + s.describe() + "\n")
 	b.WriteString("command: " + s.Command + "\n")
-	b.WriteString("pid " + strconv.Itoa(s.PID) + ", started " + s.StartedAt + ", log " + humanBytes(s.LogBytes) + "\n")
+	b.WriteString("pid " + strconv.Itoa(s.PID) + ", started " + s.StartedAt + ", log " + term.HumanBytes(s.LogBytes) + "\n")
 	if t := strings.TrimRight(s.Tail, "\n"); t != "" {
 		b.WriteString("--- last lines ---\n" + t + "\n")
 	}

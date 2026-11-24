@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -258,7 +259,7 @@ func serverComposeReason(cl *call, st *store.State, hosts []*store.Host, args []
 				}
 				b, trunc, err := readRemote(cl, ctx, c, sc, p, false, composeFileMax)
 				if err == nil && trunc {
-					err = fmt.Errorf("larger than %s", humanBytes(composeFileMax))
+					err = fmt.Errorf("larger than %s", term.HumanBytes(composeFileMax))
 				}
 				return b, err
 			}, groups)

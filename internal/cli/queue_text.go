@@ -207,7 +207,7 @@ func (p queuePeek) Text() string {
 func writeValue(b *strings.Builder, m queuex.Received) {
 	b.WriteString("\n" + m.Value + "\n")
 	if m.ValueTruncated {
-		fmt.Fprintf(b, "(cut: the value is %s)\n", humanBytes(int64(m.Size)))
+		fmt.Fprintf(b, "(cut: the value is %s)\n", term.HumanBytes(int64(m.Size)))
 	}
 }
 
@@ -279,18 +279,18 @@ func (s queueSent) Text() string {
 	}
 	if s.Queue != "" {
 		if s.DryRun {
-			return fmt.Sprintf("would send %s to queue %s (nothing sent)\n", humanBytes(int64(s.Size)), s.Queue)
+			return fmt.Sprintf("would send %s to queue %s (nothing sent)\n", term.HumanBytes(int64(s.Size)), s.Queue)
 		}
-		return fmt.Sprintf("sent %s to queue %s; the server confirmed it\n", humanBytes(int64(s.Size)), s.Queue)
+		return fmt.Sprintf("sent %s to queue %s; the server confirmed it\n", term.HumanBytes(int64(s.Size)), s.Queue)
 	}
 	if s.DryRun {
 		where := "the partition its key picks"
 		if s.Partition != nil {
 			where = "partition " + strconv.Itoa(int(*s.Partition))
 		}
-		return fmt.Sprintf("would send %s to %s, %s (nothing sent)\n", humanBytes(int64(s.Size)), s.Topic, where)
+		return fmt.Sprintf("would send %s to %s, %s (nothing sent)\n", term.HumanBytes(int64(s.Size)), s.Topic, where)
 	}
-	return fmt.Sprintf("sent %s to %s, partition %d, offset %d\n", humanBytes(int64(s.Size)), s.Topic, *s.Partition, *s.Offset)
+	return fmt.Sprintf("sent %s to %s, partition %d, offset %d\n", term.HumanBytes(int64(s.Size)), s.Topic, *s.Partition, *s.Offset)
 }
 
 type queueCreated struct {

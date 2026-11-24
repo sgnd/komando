@@ -78,7 +78,7 @@ func rabbitQueueText(d *queuex.TopicDetail) string {
 		rows := make([][]string, 0, len(d.ConsumerOf))
 		for _, c := range d.ConsumerOf {
 			ack := map[bool]string{true: "manual", false: "auto"}[c.AckRequired]
-			rows = append(rows, []string{c.Tag, orDash(c.Connection), orDash(c.User), ack, strconv.Itoa(c.Prefetch), yesCell(c.Active)})
+			rows = append(rows, []string{c.Tag, orDash(c.Connection), orDash(c.User), ack, strconv.Itoa(c.Prefetch), term.YesCell(c.Active)})
 		}
 		b.WriteString(term.LayoutTable([]string{"TAG", "CONNECTION", "USER", "ACK", "PREFETCH", "ACTIVE"}, rows))
 	}

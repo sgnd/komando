@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -149,17 +150,17 @@ func (p rmPlan) Text() string {
 	var b strings.Builder
 	switch {
 	case p.Deleted != nil:
-		fmt.Fprintf(&b, "deleted %d object%s (%s)\n", len(p.Deleted), plural(len(p.Deleted)), humanBytes(p.Bytes))
+		fmt.Fprintf(&b, "deleted %d object%s (%s)\n", len(p.Deleted), term.Plural(len(p.Deleted)), term.HumanBytes(p.Bytes))
 		return b.String()
 	case p.DryRun:
 		b.WriteString(objectTable(p.objs))
 		for _, k := range p.Missing {
 			fmt.Fprintf(&b, "%s does not exist\n", k)
 		}
-		fmt.Fprintf(&b, "would delete %d object%s (%s)\n", p.Count, plural(p.Count), humanBytes(p.Bytes))
+		fmt.Fprintf(&b, "would delete %d object%s (%s)\n", p.Count, term.Plural(p.Count), term.HumanBytes(p.Bytes))
 	default: // over --max-remove
 		b.WriteString(objectTable(p.objs))
-		fmt.Fprintf(&b, "(the first %d of %d objects, %s in all)\n", len(p.objs), p.Count, humanBytes(p.Bytes))
+		fmt.Fprintf(&b, "(the first %d of %d objects, %s in all)\n", len(p.objs), p.Count, term.HumanBytes(p.Bytes))
 	}
 	return b.String()
 }
@@ -226,7 +227,7 @@ func storageRmPrefix(cl *call, ctx context.Context, connExpr, prefix string, age
 		fmt.Fprint(cl.out.Err, rmPreview(p))
 		v := driver.DataDelete()
 		v.Reasons = []string{fmt.Sprintf("deletes %d object%s (%s) %s for good, unless the bucket keeps old versions",
-			len(keys), plural(len(keys)), humanBytes(p.Bytes), p.where())}
+			len(keys), term.Plural(len(keys)), term.HumanBytes(p.Bytes), p.where())}
 		askTypes(cl, keys, "objects "+p.where())
 		if err := guardConns(cl, st, []*store.Conn{c}, v); err != nil {
 			return err
@@ -255,7 +256,7 @@ func rmPreview(p rmPlan) string {
 	if more := len(p.objs) - len(objs); more > 0 {
 		s += fmt.Sprintf("... and %d more\n", more)
 	}
-	return s + fmt.Sprintf("%d object%s (%s) %s\n", p.Count, plural(p.Count), humanBytes(p.Bytes), p.where())
+	return s + fmt.Sprintf("%d object%s (%s) %s\n", p.Count, term.Plural(p.Count), term.HumanBytes(p.Bytes), p.where())
 }
 
 // where names the folder rm --prefix empties: "under daily/ in backups",
