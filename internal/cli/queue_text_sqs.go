@@ -2,10 +2,13 @@ package cli
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/queuex"
 )
 
@@ -26,7 +29,7 @@ func sqsQueuesText(ts []queuex.Topic) string {
 		rows = append(rows, []string{t.Name, map[bool]string{true: "fifo", false: "standard"}[t.Fifo], strconv.FormatInt(t.Messages, 10),
 			strconv.FormatInt(t.InFlight, 10), strconv.FormatInt(t.Delayed, 10), dlq})
 	}
-	return layoutTable([]string{"QUEUE", "TYPE", "MESSAGES", "IN FLIGHT", "DELAYED", "DEAD-LETTER QUEUE"}, rows) +
+	return term.LayoutTable([]string{"QUEUE", "TYPE", "MESSAGES", "IN FLIGHT", "DELAYED", "DEAD-LETTER QUEUE"}, rows) +
 		"(SQS counts are approximate)\n"
 }
 
@@ -59,7 +62,7 @@ func sqsQueueText(t *queuex.TopicDetail) string {
 			continue
 		}
 		b.WriteString("\n" + part.title + ":\n")
-		for _, k := range sortedKeys(part.m) {
+		for _, k := range slices.Sorted(maps.Keys(part.m)) {
 			fmt.Fprintf(&b, "  %s=%s\n", k, part.m[k])
 		}
 	}
@@ -81,7 +84,7 @@ func sqsPeekText(p *queuex.PeekResult) string {
 		}
 		if len(m.Headers) > 0 {
 			hs := make([]string, 0, len(m.Headers))
-			for _, k := range sortedKeys(m.Headers) {
+			for _, k := range slices.Sorted(maps.Keys(m.Headers)) {
 				hs = append(hs, k+"="+m.Headers[k])
 			}
 			b.WriteString(", attributes " + strings.Join(hs, " "))

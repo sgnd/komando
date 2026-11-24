@@ -2,12 +2,15 @@ package cli
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/cloud"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/store"
@@ -118,7 +121,7 @@ func runningStatus(cl *call, st *store.State) runningData {
 		}
 		d.Vpns = append(d.Vpns, r)
 	}
-	for _, n := range mapKeys(st.Logins) {
+	for _, n := range slices.Sorted(maps.Keys(st.Logins)) {
 		l := st.Logins[n]
 		if time.Now().Before(l.Until) && sessionAlive(&store.VpnSession{PID: l.PID, Exe: l.Exe, ProcStart: l.ProcStart}) {
 			d.Logins = append(d.Logins, runningLogin{Host: l.Host, Since: l.StartedAt, Until: l.Until})
@@ -170,7 +173,7 @@ func (d runningData) Text() string {
 	}
 	for _, j := range d.Jobs {
 		command := cleanText(j.Command)
-		command = truncateWidth(command, 50)
+		command = term.TruncateWidth(command, 50)
 		rows = append(rows, []string{"job", j.ID, cleanText(j.Host) + ": " + command, humanAge(now.Sub(j.StartedAt))})
 	}
 	s := textTable([]string{"kind", "name", "detail", "since"}, rows)

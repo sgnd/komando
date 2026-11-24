@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -644,7 +645,7 @@ func TestReleasePlatformsMatchMakefile(t *testing.T) {
 	if len(built) == 0 {
 		t.Fatal("no PLATFORMS line in the Makefile")
 	}
-	got := mapKeys(releasePlatforms)
+	got := slices.Sorted(maps.Keys(releasePlatforms))
 	slices.Sort(got)
 	slices.Sort(built)
 	if !slices.Equal(got, built) {

@@ -2,11 +2,14 @@ package cli
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/queuex"
 )
 
@@ -43,7 +46,7 @@ func (d queueInfo) Text() string {
 		}
 		rows = append(rows, []string{strconv.Itoa(int(br.ID)), br.Address, orDash(br.Rack), role})
 	}
-	b.WriteString(layoutTable([]string{"BROKER", "ADDRESS", "RACK", "ROLE"}, rows))
+	b.WriteString(term.LayoutTable([]string{"BROKER", "ADDRESS", "RACK", "ROLE"}, rows))
 	return b.String()
 }
 
@@ -81,11 +84,11 @@ func (l queueTopics) Text() string {
 func (l queueTopics) table() string {
 	switch {
 	case len(l.Topics) == 0 && (l.kind == "rabbitmq" || l.kind == "sqs"):
-		return noneYet("queues", "queue create "+l.Conn+" QUEUE")
+		return term.NoneYet("queues", "queue create "+l.Conn+" QUEUE")
 	case len(l.Topics) == 0 && l.kind == "nats":
-		return noneYet("streams", "queue create "+l.Conn+" STREAM")
+		return term.NoneYet("streams", "queue create "+l.Conn+" STREAM")
 	case len(l.Topics) == 0:
-		return noneYet("topics", "queue create "+l.Conn+" TOPIC")
+		return term.NoneYet("topics", "queue create "+l.Conn+" TOPIC")
 	case l.kind == "rabbitmq":
 		return rabbitQueuesText(l.Topics)
 	case l.kind == "nats":
@@ -99,7 +102,7 @@ func (l queueTopics) table() string {
 	for _, t := range l.Topics {
 		rows = append(rows, []string{t.Name, strconv.Itoa(t.Partitions), strconv.Itoa(t.Replicas), strconv.FormatInt(t.Messages, 10)})
 	}
-	return layoutTable([]string{"TOPIC", "PARTITIONS", "REPLICAS", "MESSAGES"}, rows)
+	return term.LayoutTable([]string{"TOPIC", "PARTITIONS", "REPLICAS", "MESSAGES"}, rows)
 }
 
 type queueTopic struct {
@@ -129,12 +132,12 @@ func (d queueTopic) Text() string {
 		rows = append(rows, []string{strconv.Itoa(int(p.ID)), leader, ints(p.Replicas), ints(p.ISR),
 			strconv.FormatInt(p.Start, 10), strconv.FormatInt(p.End, 10), strconv.FormatInt(p.Messages, 10)})
 	}
-	b.WriteString(layoutTable([]string{"PARTITION", "LEADER", "REPLICAS", "IN SYNC", "START", "END", "MESSAGES"}, rows))
+	b.WriteString(term.LayoutTable([]string{"PARTITION", "LEADER", "REPLICAS", "IN SYNC", "START", "END", "MESSAGES"}, rows))
 	b.WriteString("\nsettings (only those that differ from the brokers' defaults):\n")
 	if len(d.Config) == 0 {
 		b.WriteString("  none\n")
 	}
-	for _, k := range sortedKeys(d.Config) {
+	for _, k := range slices.Sorted(maps.Keys(d.Config)) {
 		fmt.Fprintf(&b, "  %s=%s\n", k, d.Config[k])
 	}
 	b.WriteString("\nconsumer groups:\n")
@@ -180,7 +183,7 @@ func (p queuePeek) Text() string {
 		fmt.Fprintf(&b, "# partition %d, offset %d, %s, key %s", m.Partition, m.Offset, m.Timestamp.Format(time.RFC3339), key)
 		if len(m.Headers) > 0 {
 			hs := make([]string, 0, len(m.Headers))
-			for _, k := range sortedKeys(m.Headers) {
+			for _, k := range slices.Sorted(maps.Keys(m.Headers)) {
 				hs = append(hs, k+"="+m.Headers[k])
 			}
 			b.WriteString(", headers " + strings.Join(hs, " "))
@@ -220,9 +223,9 @@ type queueGroups struct {
 func (l queueGroups) Text() string {
 	switch {
 	case len(l.Groups) == 0 && l.kind == "pubsub":
-		return noneYet("subscriptions", "")
+		return term.NoneYet("subscriptions", "")
 	case len(l.Groups) == 0:
-		return noneYet("consumer groups", "")
+		return term.NoneYet("consumer groups", "")
 	case l.Groups[0].NatsConsumer != nil:
 		return natsGroupsText(l.Groups)
 	case l.Groups[0].PubsubSubscription != nil:
@@ -232,7 +235,7 @@ func (l queueGroups) Text() string {
 	for _, g := range l.Groups {
 		rows = append(rows, []string{g.Name, g.State, strconv.Itoa(g.Members), strings.Join(g.Topics, ","), strconv.FormatInt(g.Lag, 10)})
 	}
-	return layoutTable([]string{"GROUP", "STATE", "MEMBERS", "TOPICS", "LAG"}, rows)
+	return term.LayoutTable([]string{"GROUP", "STATE", "MEMBERS", "TOPICS", "LAG"}, rows)
 }
 
 type queueLag struct {
@@ -258,7 +261,7 @@ func (l queueLag) Text() string {
 		rows = append(rows, []string{p.Topic, strconv.Itoa(int(p.Partition)), committed, strconv.FormatInt(p.End, 10), lag, orDash(p.Client)})
 	}
 	sort.SliceStable(rows, func(i, j int) bool { return rows[i][0] < rows[j][0] })
-	b.WriteString(layoutTable([]string{"TOPIC", "PARTITION", "COMMITTED", "END", "LAG", "CLIENT"}, rows))
+	b.WriteString(term.LayoutTable([]string{"TOPIC", "PARTITION", "COMMITTED", "END", "LAG", "CLIENT"}, rows))
 	return b.String()
 }
 

@@ -3,12 +3,14 @@ package cli
 import (
 	"cmp"
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -23,10 +25,10 @@ type groupList struct {
 
 func (l groupList) Text() string {
 	var rows [][]string
-	for _, n := range mapKeys(l.Groups) {
+	for _, n := range slices.Sorted(maps.Keys(l.Groups)) {
 		rows = append(rows, []string{"@" + n, "group", strings.Join(l.Groups[n], ", ")})
 	}
-	for _, n := range mapKeys(l.Tags) {
+	for _, n := range slices.Sorted(maps.Keys(l.Tags)) {
 		rows = append(rows, []string{"tag:" + n, "tag", strings.Join(l.Tags[n], ", ")})
 	}
 	// groups and tags in one list by name (a group before a tag of the
@@ -34,7 +36,7 @@ func (l groupList) Text() string {
 	name := func(sel string) string { return strings.TrimPrefix(strings.TrimPrefix(sel, "@"), "tag:") }
 	sort.SliceStable(rows, func(i, j int) bool { return name(rows[i][0]) < name(rows[j][0]) })
 	if len(rows) == 0 {
-		return noneYet("groups or tags", "group add GROUP TARGET...")
+		return term.NoneYet("groups or tags", "group add GROUP TARGET...")
 	}
 	return textTable([]string{"SELECTOR", "TYPE", "MEMBERS"}, rows)
 }
@@ -89,7 +91,7 @@ func groupMembersOf(st *store.State, group string) []string {
 
 func groupNotFound(cl *call, st *store.State, group string) error {
 	e := out.Errf(out.ExitNotFound, "GROUP_NOT_FOUND", "run `komando group list` to see groups", "no group named %q", group)
-	if s := closest(group, mapKeys(allGroups(st).Groups)); s != "" {
+	if s := closest(group, slices.Sorted(maps.Keys(allGroups(st).Groups))); s != "" {
 		suggest(cl, e, group, s)
 	}
 	return e

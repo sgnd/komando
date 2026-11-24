@@ -2,9 +2,12 @@ package cli
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/queuex"
 )
 
@@ -35,7 +38,7 @@ func rabbitInfoText(d *queuex.Info) string {
 		for _, n := range d.Nodes {
 			rows = append(rows, []string{n.Name, map[bool]string{true: "running", false: "down"}[n.Running], orDash(n.Type)})
 		}
-		b.WriteString("\n" + layoutTable([]string{"NODE", "STATE", "TYPE"}, rows))
+		b.WriteString("\n" + term.LayoutTable([]string{"NODE", "STATE", "TYPE"}, rows))
 	}
 	return b.String()
 }
@@ -46,7 +49,7 @@ func rabbitQueuesText(qs []queuex.Topic) string {
 		rows = append(rows, []string{q.Name, q.Type, strconv.FormatInt(q.Messages, 10), strconv.FormatInt(q.Ready, 10),
 			strconv.FormatInt(q.Unacked, 10), strconv.Itoa(q.Consumers), orDash(q.State)})
 	}
-	return layoutTable([]string{"QUEUE", "TYPE", "MESSAGES", "READY", "UNACKED", "CONSUMERS", "STATE"}, rows)
+	return term.LayoutTable([]string{"QUEUE", "TYPE", "MESSAGES", "READY", "UNACKED", "CONSUMERS", "STATE"}, rows)
 }
 
 func rabbitQueueText(d *queuex.TopicDetail) string {
@@ -69,7 +72,7 @@ func rabbitQueueText(d *queuex.TopicDetail) string {
 	if len(d.Arguments) == 0 {
 		b.WriteString("  none\n")
 	}
-	for _, k := range sortedKeys(d.Arguments) {
+	for _, k := range slices.Sorted(maps.Keys(d.Arguments)) {
 		fmt.Fprintf(&b, "  %s=%v\n", k, d.Arguments[k])
 	}
 	fmt.Fprintf(&b, "\nconsumers: %d\n", d.Consumers)
@@ -79,7 +82,7 @@ func rabbitQueueText(d *queuex.TopicDetail) string {
 			ack := map[bool]string{true: "manual", false: "auto"}[c.AckRequired]
 			rows = append(rows, []string{c.Tag, orDash(c.Connection), orDash(c.User), ack, strconv.Itoa(c.Prefetch), yesCell(c.Active)})
 		}
-		b.WriteString(layoutTable([]string{"TAG", "CONNECTION", "USER", "ACK", "PREFETCH", "ACTIVE"}, rows))
+		b.WriteString(term.LayoutTable([]string{"TAG", "CONNECTION", "USER", "ACK", "PREFETCH", "ACTIVE"}, rows))
 	}
 	return b.String()
 }
@@ -98,7 +101,7 @@ func rabbitPeekText(p *queuex.PeekResult) string {
 			fmt.Fprintf(&b, ", exchange %s, routing key %s", m.Exchange, m.RoutingKey)
 		}
 		for _, kv := range []map[string]string{m.Properties, m.Headers} {
-			for _, k := range sortedKeys(kv) {
+			for _, k := range slices.Sorted(maps.Keys(kv)) {
 				b.WriteString(", " + k + "=" + kv[k])
 			}
 		}

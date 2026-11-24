@@ -14,6 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
@@ -270,7 +271,7 @@ func dockerTableN(cl *call, limit int, headers, fields []string, sortBy ...strin
 			if slices.Contains(headers, "repository") {
 				things = "images"
 			}
-			return noneYet(things, ""), nil
+			return term.NoneYet(things, ""), nil
 		}
 		return textTable(headers, cells), nil
 	}

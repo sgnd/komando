@@ -15,6 +15,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/kube"
 	"github.com/sgnd/komando/internal/out"
@@ -423,7 +424,7 @@ func (h historyData) Text() string {
 		cells = append(cells, []string{fmt.Sprint(r["revision"]), cur, cluCell(r["images"]), str(r["age"])})
 	}
 	if len(cells) == 0 {
-		return noneYet("revisions", "")
+		return term.NoneYet("revisions", "")
 	}
 	return textTable([]string{"revision", "current", "images", "age"}, cells)
 }

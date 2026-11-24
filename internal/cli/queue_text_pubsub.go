@@ -2,10 +2,13 @@ package cli
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/queuex"
 )
 
@@ -22,7 +25,7 @@ func pubsubTopicsText(ts []queuex.Topic) string {
 	for _, t := range ts {
 		rows = append(rows, []string{t.Name, strconv.Itoa(t.SubscriptionCount), orDash(t.MessageRetention)})
 	}
-	return layoutTable([]string{"TOPIC", "SUBSCRIPTIONS", "KEEPS MESSAGES"}, rows) +
+	return term.LayoutTable([]string{"TOPIC", "SUBSCRIPTIONS", "KEEPS MESSAGES"}, rows) +
 		"(Pub/Sub does not count messages; `komando queue describe CONN TOPIC` shows a topic's subscriptions)\n"
 }
 
@@ -47,7 +50,7 @@ func pubsubDetailText(t *queuex.TopicDetail) string {
 	}
 	if len(d.Labels) > 0 {
 		b.WriteString("\nlabels:\n")
-		for _, k := range sortedKeys(d.Labels) {
+		for _, k := range slices.Sorted(maps.Keys(d.Labels)) {
 			fmt.Fprintf(&b, "  %s=%s\n", k, d.Labels[k])
 		}
 	}
@@ -106,7 +109,7 @@ func pubsubGroupsText(gs []queuex.Group) string {
 	for _, g := range gs {
 		rows = append(rows, []string{g.Name, g.Topic, g.Delivery, secs(g.AckDeadline), orDash(g.DeadLetterTopic), orDash(g.State)})
 	}
-	return layoutTable([]string{"SUBSCRIPTION", "TOPIC", "DELIVERY", "ACK DEADLINE", "DEAD-LETTER TOPIC", "STATE"}, rows) +
+	return term.LayoutTable([]string{"SUBSCRIPTION", "TOPIC", "DELIVERY", "ACK DEADLINE", "DEAD-LETTER TOPIC", "STATE"}, rows) +
 		"(Pub/Sub does not say how many messages wait or who pulls them)\n"
 }
 
@@ -125,7 +128,7 @@ func pubsubPeekText(p *queuex.PeekResult) string {
 		}
 		if len(m.Headers) > 0 {
 			hs := make([]string, 0, len(m.Headers))
-			for _, k := range sortedKeys(m.Headers) {
+			for _, k := range slices.Sorted(maps.Keys(m.Headers)) {
 				hs = append(hs, k+"="+m.Headers[k])
 			}
 			b.WriteString(", attributes " + strings.Join(hs, " "))

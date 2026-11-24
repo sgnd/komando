@@ -2,10 +2,13 @@ package cli
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/queuex"
 )
 
@@ -51,7 +54,7 @@ func natsStreamsText(ts []queuex.Topic) string {
 		rows = append(rows, []string{t.Name, strings.Join(t.Subjects, ","), strconv.FormatInt(t.Messages, 10), humanBytes(int64(t.Bytes)),
 			strconv.Itoa(t.ConsumerCount), t.Storage, t.Retention, strconv.Itoa(t.NumReplicas)})
 	}
-	return layoutTable([]string{"STREAM", "SUBJECTS", "MESSAGES", "SIZE", "CONSUMERS", "STORAGE", "RETENTION", "REPLICAS"}, rows)
+	return term.LayoutTable([]string{"STREAM", "SUBJECTS", "MESSAGES", "SIZE", "CONSUMERS", "STORAGE", "RETENTION", "REPLICAS"}, rows)
 }
 
 func natsStreamText(t *queuex.TopicDetail) string {
@@ -107,7 +110,7 @@ func sortedStrings(s []string) []string {
 	for _, v := range s {
 		m[v] = true
 	}
-	return sortedKeys(m)
+	return slices.Sorted(maps.Keys(m))
 }
 
 // natsConsumerRows is a table of consumers; name gives each one's name.
@@ -117,7 +120,7 @@ func natsConsumerRows(cs []queuex.NatsConsumer, name func(queuex.NatsConsumer) s
 		rows = append(rows, []string{name(c), c.Stream, c.Kind, strconv.FormatUint(c.Pending, 10), strconv.Itoa(c.AckPending),
 			strconv.Itoa(c.Redelivered), strconv.Itoa(c.Waiting), orDash(strings.Join(c.FilterSubjects, ","))})
 	}
-	return layoutTable([]string{"CONSUMER", "STREAM", "KIND", "PENDING", "ACK PENDING", "REDELIVERED", "WAITING", "FILTER"}, rows)
+	return term.LayoutTable([]string{"CONSUMER", "STREAM", "KIND", "PENDING", "ACK PENDING", "REDELIVERED", "WAITING", "FILTER"}, rows)
 }
 
 func natsGroupsText(gs []queuex.Group) string {
@@ -156,7 +159,7 @@ func natsPeekText(p *queuex.PeekResult) string {
 	var b strings.Builder
 	for _, m := range p.Messages {
 		fmt.Fprintf(&b, "# sequence %d, %s, subject %s", m.Sequence, m.Time.Format(time.RFC3339), m.Subject)
-		for _, k := range sortedKeys(m.Headers) {
+		for _, k := range slices.Sorted(maps.Keys(m.Headers)) {
 			b.WriteString(", " + k + "=" + m.Headers[k])
 		}
 		if m.Encoding != "" {

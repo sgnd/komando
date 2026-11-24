@@ -19,6 +19,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/dbx"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
@@ -347,7 +348,7 @@ type schemaData struct {
 
 func (d schemaData) Text() string {
 	if len(d.Tables) == 0 {
-		return noneYet("tables", "", "the database is empty, or the conn's user cannot see them")
+		return term.NoneYet("tables", "", "the database is empty, or the conn's user cannot see them")
 	}
 	var sb strings.Builder
 	detailed := false
@@ -365,7 +366,7 @@ func (d schemaData) Text() string {
 			}
 			rows = append(rows, []string{qualified(t), t.Type, n})
 		}
-		return dataTable([]string{"table", "type", "rows (est.)"}, rows)
+		return term.DataTable([]string{"table", "type", "rows (est.)"}, rows)
 	}
 	for i, t := range d.Tables {
 		if i > 0 {
@@ -393,7 +394,7 @@ func (d schemaData) Text() string {
 			}
 			rows = append(rows, []string{"  " + c.Name, c.Type, strings.Join(notes, ", ")})
 		}
-		tab := layoutTable([]string{"", "", ""}, rows)
+		tab := term.LayoutTable([]string{"", "", ""}, rows)
 		sb.WriteString(tab[strings.Index(tab, "\n")+1:]) // no header line
 		for _, ix := range t.Indexes {
 			fmt.Fprintf(&sb, "  index %s\n", dash(ix.Definition))
@@ -496,7 +497,7 @@ func (d queryData) Text() string {
 					rows[k][j] = cellText(v, wide)
 				}
 			}
-			sb.WriteString(layoutTable(names, rows))
+			sb.WriteString(term.LayoutTable(names, rows))
 			note := ""
 			switch r.Truncated {
 			case "rows":
@@ -529,7 +530,7 @@ func cellText(v any, wide bool) string {
 	case string:
 		x = strings.NewReplacer("\t", `\t`, "\n", `\n`, "\r", `\r`).Replace(x)
 		if !wide {
-			x = truncateWidth(x, 80)
+			x = term.TruncateWidth(x, 80)
 		}
 		return x
 	case map[string]string:
@@ -539,7 +540,7 @@ func cellText(v any, wide bool) string {
 		}
 		h := `\x` + hex.EncodeToString(b)
 		if !wide {
-			h = truncateWidth(h, 80)
+			h = term.TruncateWidth(h, 80)
 		}
 		return h
 	}

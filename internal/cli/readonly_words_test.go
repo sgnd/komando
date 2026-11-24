@@ -32,7 +32,7 @@ func TestDockerExecReadOnly(t *testing.T) {
 		{[]string{"docker", "exec", "db1", "api", "--read-only", "--", "myapp", "report"}, "READ_ONLY_VIOLATION"},
 		{[]string{"docker", "exec", "db1", "api", "--read-only", "--", "sh", "-c", "ls /data; ./reset.sh"}, "READ_ONLY_VIOLATION"},
 		{[]string{"docker", "exec", "db1", "api", "--", "cat", "/app/config.yml"}, "PROTECTED_TARGET"},
-		{[]string{"docker", "exec", "web1", "api", "--read-only", "--", "rm", "-f", "/tmp/cache"}, "READ_ONLY_VIOLATION"},
+		{[]string{"docker", "exec", "web1", "api", "--read-only", "--", "touch", "/tmp/cache"}, "READ_ONLY_VIOLATION"},
 		{[]string{"docker", "exec", "web1", "api", "--read-only", "--", "sh", "-c", "echo x > /data/flag"}, "READ_ONLY_VIOLATION"},
 		{[]string{"docker", "exec", "web1", "api", "--read-only", "--", "myapp", "report"}, "READ_ONLY_VIOLATION"}, // on any server
 	} {
@@ -44,7 +44,7 @@ func TestDockerExecReadOnly(t *testing.T) {
 	if got := wouldBlock(t, "docker", "exec", "web1", "api", "--read-only", "--", "php", "artisan", "migrate:status"); got != "READ_ONLY_VIOLATION" {
 		t.Errorf("php artisan under --read-only: %s", got)
 	}
-	if _, e := cliRun(t, "docker", "exec", "web1", "api", "--read-only", "--", "rm", "-f", "/tmp/cache"); e == nil || e.Code != "READ_ONLY_VIOLATION" {
+	if _, e := cliRun(t, "docker", "exec", "web1", "api", "--read-only", "--", "touch", "/tmp/cache"); e == nil || e.Code != "READ_ONLY_VIOLATION" {
 		t.Errorf("a write under --read-only: %+v", e)
 	}
 }
@@ -66,7 +66,7 @@ func TestClusterExecReadOnly(t *testing.T) {
 		{[]string{"cluster", "exec", "prod", "pod-a", "--read-only", "--", "sh", "-c", "echo out; echo err >&2; exit 3"}, "<nil>"},
 		{[]string{"cluster", "exec", "prod", "pod-a", "--read-only", "--", "myapp", "report"}, "READ_ONLY_VIOLATION"},
 		{[]string{"cluster", "exec", "prod", "pod-a", "--", "cat", "/app/config.yml"}, "PROTECTED_TARGET"},
-		{[]string{"cluster", "exec", "prod", "pod-a", "--read-only", "--", "rm", "-rf", "/tmp/cache"}, "READ_ONLY_VIOLATION"},
+		{[]string{"cluster", "exec", "prod", "pod-a", "--read-only", "--", "touch", "/tmp/cache"}, "READ_ONLY_VIOLATION"},
 	} {
 		if got := wouldBlock(t, c.args...); got != c.want {
 			t.Errorf("%v: would be blocked by %s, want %s", c.args, got, c.want)

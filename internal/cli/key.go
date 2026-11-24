@@ -11,6 +11,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -21,6 +22,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -480,7 +482,7 @@ type sshKeyList struct {
 
 func (l sshKeyList) Text() string {
 	if len(l.Keys) == 0 {
-		return noneYet("SSH keys", "key gen NAME", "or `komando key add NAME FILE`")
+		return term.NoneYet("SSH keys", "key gen NAME", "or `komando key add NAME FILE`")
 	}
 	var rows [][]string
 	for _, k := range l.Keys {
@@ -671,7 +673,7 @@ func deployKey(cl *call, st *store.State, arg string) (name, line string, err er
 		}
 		return arg, cleanPubLine(pub, comment), nil
 	}
-	return "", "", notFoundSuggest(cl, "key", arg, mapKeys(st.Keys)).WithHint("give a key name from `komando key list` or a .pub file")
+	return "", "", notFoundSuggest(cl, "key", arg, slices.Sorted(maps.Keys(st.Keys))).WithHint("give a key name from `komando key list` or a .pub file")
 }
 
 func keyDeployCmd() *cobra.Command {
