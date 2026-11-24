@@ -6,6 +6,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -80,12 +81,12 @@ func showExit(cl *call, target string, code int, lost bool, took time.Duration) 
 	}
 }
 
-// colorOK: stderr is a terminal that reads escape sequences (vtOK) and
+// colorOK: stderr is a terminal that reads escape sequences (term.VTOK) and
 // the person did not turn color off (NO_COLOR, TERM=dumb). Color only ever adds to a word: PROTECTED is
 // bold red and still says PROTECTED without color. Bold red reads on light
 // and dark terminals; yellow and dim do not, so they are not used here.
 var colorOK = func(cl *call) bool {
-	return vtOK && cl.getenv("NO_COLOR") == "" && cl.getenv("TERM") != "dumb" && isTerminal(cl.out.Err)
+	return term.VTOK && cl.getenv("NO_COLOR") == "" && cl.getenv("TERM") != "dumb" && isTerminal(cl.out.Err)
 }
 
 // cleanText drops control and bidi characters, so a name or address cannot

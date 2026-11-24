@@ -78,7 +78,7 @@ or a listed one is gone.
 | `internal/capability` | the command tree of the next command structure as data: types, providers, areas, verbs, options and tier rows; until the switch, `internal/cli` reads only the keys of its safety tables from it |
 | `internal/ci` | test only: runs the scripts inside the GitHub workflows (the CLA check) |
 | `internal/cli` | every command: flags, safety checks, audit and output |
-| `internal/cli/kit/term` | what every command prints: terminal column widths, text tables and the line of an empty list; no cobra, no komando state. Code every command package shares moves into `kit` one part at a time |
+| `internal/cli/kit/term` | what every command prints: terminal column widths, text tables, the line of an empty list and whether the terminal reads escape sequences; no cobra, no komando state. Code every command package shares moves into `kit` one part at a time |
 | `internal/cloud` | komando's own clients for cloud and secret-manager APIs |
 | `internal/gcpadc` | finds Google application-default credentials for every client that uses them, after checking where the file found would send what |
 | `internal/codesize` | test only: the 100-line and 800-line limits |

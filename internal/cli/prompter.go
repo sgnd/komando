@@ -295,7 +295,7 @@ func readMaskedLine(cl *call, label string, mask func(string) string) (string, e
 	drawn := 0 // characters on the line, for a console without escape sequences
 	draw := func() {
 		shown := label + mask(string(line))
-		if vtOK {
+		if kitterm.VTOK {
 			fmt.Fprint(promptW(cl), "\r\x1b[2K"+shown)
 			return
 		}
