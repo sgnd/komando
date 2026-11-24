@@ -478,7 +478,7 @@ func connTarget(cl *call, st *store.State, c *store.Conn) askTarget {
 	if c.Rec.ID != "" {
 		id = c.Rec.ID
 	}
-	step := "ask the user to run `" + commandLine(cl) + "` in their own terminal (a conn has no `komando login`)"
+	step := "ask the user to run `" + commandLine(cl) + "` in their own terminal (a conn has no kept session)"
 	label := "conn " + c.Name
 	return askTarget{
 		name: c.Name, label: label, id: id, where: where, step: step,

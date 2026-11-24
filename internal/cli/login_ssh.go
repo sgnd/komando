@@ -71,18 +71,27 @@ func loginHost(cl *call, ctx context.Context, name string) error {
 		cl.out.Print("login.host", res, nil)
 		return nil
 	}
-	endLogin(st.Logins[h.Name]) // an old one (expired, or for an older address)
-	l, err := startHolder(cl, h, keep)
+	r, err := keepLogin(cl, st, h, keep)
 	if err != nil {
 		return err
 	}
+	cl.out.Print("login.host", r, nil)
+	return nil
+}
+
+// keepLogin starts the kept session of h and records it.
+func keepLogin(cl *call, st *store.State, h *store.Host, keep time.Duration) (loginResult, error) {
+	endLogin(st.Logins[h.Name]) // an old one (expired, or for an older address)
+	l, err := startHolder(cl, h, keep)
+	if err != nil {
+		return loginResult{}, err
+	}
 	if err := store.UpdateRuntime(cl.storeWrite(), func(s *store.State) error { s.Logins[h.Name] = l; return nil }); err != nil {
 		endLogin(l)
-		return err
+		return loginResult{}, err
 	}
 	audit(cl, st, "login.host", []string{h.Name}, "", true, map[string]any{"until": l.Until})
-	cl.out.Print("login.host", loginResult{Host: h.Name, Until: l.Until}, nil)
-	return nil
+	return loginResult{Host: h.Name, Until: l.Until}, nil
 }
 
 type loginResult struct {

@@ -12,7 +12,7 @@ This page is made from the code (`komando schema` lists the same under
 | `APPROVAL_WINDOW_FAILED` | 1 |  | read the message; `komando doctor` checks this computer's setup |
 | `AUDIT_TAMPERED` | 1 | the audit log chain is broken at line … | keep a copy of the file and find out who changed it; komando keeps adding records after it |
 | `AUDIT_UNAVAILABLE` | 1 | the audit log cannot be written (…), so the key's command does not run | fix the file or folder permissions on the komando computer (`komando doctor` checks them) |
-| `AUTH_FAILED` | 4 | … asks … (two-factor login); only a person can answer it, and none is at a terminal here | run `komando login SERVER` in a terminal: komando asks you for the code once and keeps the login, so later commands (an AI agent's too) need no code; an AI agent asks the user to run it |
+| `AUTH_FAILED` | 4 | … asks … (two-factor login); only a person can answer it, and none is at a terminal here | ask the user to run `komando test SERVER` once in their own terminal; later commands use that session |
 | `AWS_FAILED` | 4 | AWS profile …: … | check the profile in ~/.aws/config |
 | `AWS_LOGIN_REQUIRED` | 4 | AWS profile …: … | a person runs `komando login aws --profile …` once, then run it again |
 | `AWS_PROFILE_NOT_FOUND` | 3 | there is no AWS profile … | add the profile to ~/.aws/config (or fix --option aws_profile) |
@@ -130,7 +130,7 @@ This page is made from the code (`komando schema` lists the same under
 | `MIXED_OS` | 2 | the target picks Windows servers (…) and other servers (…) | a command is written for one shell: run it twice, once with TARGET,os:windows (PowerShell) and once with TARGET,!os:windows (sh) |
 | `MOVE_FAILED` | 5 | the copy on the server (…) ended badly: …; … was kept | run it again: `komando storage mv CONN … …` |
 | `NAME_TAKEN` | 8 | the rename clashes: …; nothing was renamed | pick other names, or rename or remove what is in the way first |
-| `NEEDS_PERSON` | 6 | logging in to … needs a person at a terminal to answer its questions | ask a person to run `komando login …` in a terminal; after that your commands to … need no login |
+| `NEEDS_PERSON` | 6 | logging in to … needs a person at a terminal to answer its questions | ask a person to run `komando test …` in a terminal; after that your commands to … need no login |
 | `NEEDS_TERMINAL` | 2 | cluster shell needs a person at a terminal | agents and scripts use `komando cluster exec` |
 | `NOTHING_TO_RENAME` | 3 | no … starts with … | check OLD with `komando list` and `komando secret list`; names are matched from the start, as written |
 | `NOT_A_FOLDER` | 8 | … is a file, not a folder | give a folder path, not a file |

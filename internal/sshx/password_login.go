@@ -231,11 +231,9 @@ func (e *unanswered) authFailed(st *store.State, h *store.Host) *out.Error {
 	// background process). A person who runs the command is asked.
 	switch e.kind {
 	case askCode:
-		oe := out.Errf(out.ExitConnect, "AUTH_FAILED",
-			"run `komando login SERVER` in a terminal: komando asks you for the code once and keeps the login, so later commands (an AI agent's too) need no code; an AI agent asks the user to run it",
+		return out.Errf(out.ExitConnect, "AUTH_FAILED",
+			PersonStep(name)+": komando asks for the code once and keeps the session, so later commands (an AI agent's too) need no code",
 			"%s asks %s (two-factor login); only a person can answer it, and none is at a terminal here", name, strconv.Quote(e.question))
-		oe.Hint = strings.Replace(oe.Hint, "HOST", name, 1) // a command to run as it is
-		return oe
 	case askAgain:
 		if e.typed {
 			return out.Errf(out.ExitConnect, "AUTH_FAILED", authFailedHint(st, h),
@@ -245,6 +243,6 @@ func (e *unanswered) authFailed(st *store.State, h *store.Host) *out.Error {
 			"%s asks %s again: it refused the stored password, which komando sends only once", name, strconv.Quote(e.question))
 	}
 	return out.Errf(out.ExitConnect, "AUTH_FAILED",
-		"run `komando login "+name+"` in a terminal: komando shows you the question once and keeps the login, so later commands (an AI agent's too) need no answer; an AI agent asks the user to run it",
+		PersonStep(name)+": komando shows the question once and keeps the session, so later commands (an AI agent's too) need no answer",
 		"%s asks %s; komando answers only a hidden password question by itself, and no person is at a terminal here", name, strconv.Quote(e.question))
 }
