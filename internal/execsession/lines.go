@@ -18,8 +18,9 @@ var (
 )
 
 const (
-	hiddenKey  = "[hidden: private key]\n"
-	hiddenLine = "[hidden: a line over 64 KiB]\n"
+	hiddenKey      = "[hidden: private key]\n"
+	hiddenLine     = "[hidden: a line over 64 KiB]\n"
+	hiddenLongLine = "[hidden: a line over 1 MiB]\n"
 )
 
 // Lines passes a session log to the masker by whole lines, the same way
@@ -27,7 +28,8 @@ const (
 // read starts at the offset the last one used, which is always the start
 // of a line, so a read with --offset N masks the same as the stream. An
 // open private key is held back until its END line; a key that outgrows a
-// read, and for an agent a line over LineMax, is hidden whole.
+// read, a line that fills a whole read, and for an agent a line over
+// LineMax, are hidden whole.
 type Lines struct {
 	Redact func(string) string
 	Agent  bool
@@ -77,8 +79,13 @@ func (l *Lines) Read(b []byte, end bool) (string, int) {
 		} else if nl < 0 && !end && !(full && used == 0) && !(l.Agent && len(line) > LineMax) {
 			break
 		}
-		if l.Agent && len(bytes.TrimSuffix(line, []byte("\n"))) > LineMax && !keyBegin.Match(line) {
-			shown = append(shown, hiddenLine...)
+		agentLong := l.Agent && len(bytes.TrimSuffix(line, []byte("\n"))) > LineMax
+		if (agentLong || (nl < 0 && !end && full && used == 0)) && !keyBegin.Match(line) {
+			if agentLong {
+				shown = append(shown, hiddenLine...)
+			} else {
+				shown = append(shown, hiddenLongLine...)
+			}
 			if nl < 0 && !end {
 				l.skip, l.open = skipLine, len(line)
 			}

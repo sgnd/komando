@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 )
 
@@ -311,5 +312,38 @@ func TestWrapperWaitsForGo(t *testing.T) {
 	}
 	if _, err := os.Lstat(mark); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("the command ran without .go: %v", err)
+	}
+}
+
+func TestReadStart(t *testing.T) {
+	facts := "warning ~/.komando was mode 755; now 700; earlier logs may have been read\n" +
+		"facts-begin " + testID + "\npid 4242\npgid 4242\nstart proc 99\nfacts-end " + testID + "\n"
+	f, warns, err := ReadStart("web1", 0, facts, testID)
+	if err != nil || f.PID != 4242 || len(warns) != 1 || warns[0] != "~/.komando was mode 755; now 700; earlier logs may have been read" {
+		t.Fatalf("got %+v %q %v", f, warns, err)
+	}
+	for _, tc := range []struct {
+		name string
+		exit int
+		code string
+	}{
+		{"unsafe folder", ExitUnsafe, "SESSION_FOLDER_DENIED"},
+		{"no space", ExitNoSpace, "SESSION_SPACE_DENIED"},
+		{"no group", ExitNoGroup, "SESSION_START_FAILED"},
+		{"anything else", 1, "SESSION_START_FAILED"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, _, err := ReadStart("web1", tc.exit, "", testID)
+			var oe *out.Error
+			if !errors.As(err, &oe) || oe.Code != tc.code {
+				t.Fatalf("exit %d gave %v, want %s", tc.exit, err, tc.code)
+			}
+		})
+	}
+	if _, _, err := ReadStart("web1", ExitNoFolder, "", testID); !errors.Is(err, ErrNoFolder) {
+		t.Fatalf("exit %d gave %v, want ErrNoFolder", ExitNoFolder, err)
+	}
+	if _, _, err := ReadStart("web1", 0, "pid 1\n", testID); err == nil {
+		t.Fatal("a start without facts was taken")
 	}
 }

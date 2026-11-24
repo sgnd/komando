@@ -85,11 +85,21 @@ func TestLinesLongLineForAnAgent(t *testing.T) {
 }
 
 func TestLinesLongLineForAPerson(t *testing.T) {
-	long := strings.Repeat("z", ReadMax)
+	// a line that fills a whole read is hidden for a person too: masked
+	// per read, a token across the cut would come out whole
+	long := strings.Repeat("z", ReadMax-3) + "tok"
 	l := Lines{Redact: hideTok}
 	text, used := l.Read([]byte(long), false)
-	if text != long || used != ReadMax {
-		t.Fatalf("a full read without a newline is let out for a person: %d, %d", len(text), used)
+	if text != hiddenLongLine || used != ReadMax {
+		t.Fatalf("a full read without a newline: %q, %d", text[:min(len(text), 40)], used)
+	}
+	if text, used = l.Read([]byte("123 rest\nnext\n"), false); text != "next\n" || used != 14 {
+		t.Fatalf("the rest of the line: %q, %d", text, used)
+	}
+	short := Lines{Redact: hideTok}
+	line := strings.Repeat("y", LineMax+1) + "\n"
+	if text, _ := short.Read([]byte(line), false); text != line {
+		t.Fatal("a person's line under a read is shown")
 	}
 }
 

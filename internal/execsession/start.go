@@ -3,8 +3,10 @@ package execsession
 import (
 	"errors"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 )
 
@@ -87,4 +89,52 @@ func wrapper(start string, timeout time.Duration, max int64) string {
 		`exec > "$d/.o" 2>&1; umask "$1"; ` + start + `; umask 077; ` + watch + end +
 		`exec > /dev/null 2>&1; i=0; while kill -0 $k 2>/dev/null && [ $i -lt 3 ]; do sleep 1; i=$((i+1)); done; ` +
 		`[ -f "$d/killed" ] || { echo $c > "$d/exit.tmp" && mv "$d/exit.tmp" "$d/exit"; }; rm -f "$d/env" "$d/in" "$d/pw" "$d/.o"`
+}
+
+// ErrNoFolder: no session folder can be made on the server (a read-only or
+// full home). The start ran nothing of the command, but it read the input,
+// so a run without a session sends the input again in a new call. Only
+// this exit falls back: every other refusal stands.
+var ErrNoFolder = errors.New("no session folder can be made in the login user's home")
+
+// ReadStart reads what StartScript printed and its exit on host: the run's
+// facts, and the "warning" lines the folder check printed before them.
+func ReadStart(host string, exit int, stdout, id string) (Facts, []string, error) {
+	switch exit {
+	case 0:
+	case ExitNoFolder:
+		return Facts{}, nil, ErrNoFolder
+	case ExitUnsafe:
+		return Facts{}, nil, folderDenied(host)
+	case ExitNoSpace:
+		return Facts{}, nil, out.Errf(out.ExitRemote, "SESSION_SPACE_DENIED",
+			"free space in the home folder, or give a smaller log cap: `komando exec HOST --log-max 100MiB -- COMMAND`",
+			"%s: the home file system has less free space than the log cap plus 5%% of the disk; nothing ran", host)
+	default:
+		return Facts{}, nil, out.Errf(out.ExitRemote, "SESSION_START_FAILED",
+			"the server needs nohup, ps and mkfifo: look with `komando exec HOST -- command -v setsid nohup ps mkfifo`",
+			"%s: the run in a session did not start (exit %d)", host, exit)
+	}
+	f, err := ParseFacts(stdout, id)
+	if err != nil {
+		return Facts{}, nil, out.Errf(out.ExitRemote, "SESSION_START_FAILED",
+			"the server needs nohup, ps and mkfifo: look with `komando exec HOST -- command -v setsid nohup ps mkfifo`",
+			"%s: %v", host, err)
+	}
+	var warns []string
+	for _, line := range strings.Split(stdout, "\n") {
+		if line == "facts-begin "+id {
+			break
+		}
+		if w, ok := strings.CutPrefix(line, "warning "); ok {
+			warns = append(warns, w)
+		}
+	}
+	return f, warns, nil
+}
+
+func folderDenied(host string) error {
+	return out.Errf(out.ExitRemote, "SESSION_FOLDER_DENIED",
+		"they must be plain folders of the login user that only it can write (chmod 700): look with `komando exec HOST -- ls -ld ~/.komando ~/.komando/sessions`",
+		"%s: ~/.komando or its sessions folder is a link, a file, not the login user's, or others can write it", host)
 }
