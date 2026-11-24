@@ -5,7 +5,6 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"io/fs"
 	"os"
 	"slices"
 	"strconv"
@@ -158,27 +157,30 @@ func TestLeavesHomeKept(t *testing.T) {
 	}
 }
 
-// TestTodayMapAgrees: internal/cli keys today's safety rows by cmdKeys. A leaf's
-// Today is exactly the IDs whose key is the leaf's (type, area, verb);
-// everything else it does is in Carries.
-func TestTodayMapAgrees(t *testing.T) {
-	keys, err := cmdKeys(cliDir + "risk_keys.go")
-	if errors.Is(err, fs.ErrNotExist) {
-		t.Skip("internal/cli/risk_keys.go (cmdKeys) is not on this branch yet; this test runs once it is")
+// TestTodayKeys: every command ID of today has one safety key, taken from
+// the leaf that keeps it under its own key (Today) or from todayOnlyKeys,
+// never from both; an ID a leaf carries under another key (Carries) has a
+// key that is not that leaf's.
+func TestTodayKeys(t *testing.T) {
+	keys := TodayKeys()
+	for _, id := range todayIDs(t) {
+		if _, ok := keys[id]; !ok {
+			t.Errorf("%s: no safety key", id)
+		}
 	}
-	if err != nil {
-		t.Fatal(err)
+	if len(keys) != len(todayIDs(t)) {
+		t.Errorf("%d keys for %d command IDs", len(keys), len(todayIDs(t)))
 	}
 	for _, l := range All() {
-		own := [3]string{l.Type, l.Area, l.Verb}
+		own := TodayKey{l.Type, l.Area, l.Verb}
 		for _, id := range l.Today {
-			if k, ok := keys[id]; !ok || k != own {
-				t.Errorf("%s: Today has %s, but cmdKeys gives %v (in cmdKeys: %v)", l.Key, id, k, ok)
+			if _, dup := todayOnlyKeys[id]; dup {
+				t.Errorf("%s: %s is in Today and in todayOnlyKeys", l.Key, id)
 			}
 		}
 		for _, id := range l.Carries {
 			if keys[id] == own {
-				t.Errorf("%s: Carries has %s, whose cmdKeys key is this leaf's: move it to Today", l.Key, id)
+				t.Errorf("%s: Carries has %s, whose key is this leaf's: move it to Today", l.Key, id)
 			}
 		}
 	}
@@ -206,34 +208,6 @@ func mapLiteralKeys(t *testing.T, file, name string) map[string]bool {
 		t.Fatalf("%s: %s has no string keys", file, name)
 	}
 	return keys
-}
-
-// cmdKeys reads internal/cli's map from command ID to safetyKey{typ, area, verb}.
-func cmdKeys(file string) (map[string][3]string, error) {
-	lit, err := varLiteral(file, "cmdKeys")
-	if err != nil {
-		return nil, err
-	}
-	keys := map[string][3]string{}
-	for _, e := range lit.Elts {
-		kv, ok := e.(*ast.KeyValueExpr)
-		if !ok {
-			continue
-		}
-		id, ok := stringLit(kv.Key)
-		val, ok2 := kv.Value.(*ast.CompositeLit)
-		if !ok || !ok2 || len(val.Elts) != 3 {
-			return nil, errors.New(file + ": a cmdKeys entry is not \"ID\": {typ, area, verb}")
-		}
-		var k [3]string
-		for i, part := range val.Elts {
-			if k[i], ok = stringLit(part); !ok {
-				return nil, errors.New(file + ": cmdKeys " + id + ": not three strings")
-			}
-		}
-		keys[id] = k
-	}
-	return keys, nil
 }
 
 func varLiteral(file, name string) (*ast.CompositeLit, error) {

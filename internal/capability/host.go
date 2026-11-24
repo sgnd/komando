@@ -7,6 +7,7 @@ package capability
 
 var hostProviders = []provider{
 	{name: "ssh", connect: []Option{credentialOpt,
+		{Name: "sudo-credential", Kind: Credential, Help: "the password sudo asks for (today's --sudo-ref)"},
 		{Name: "proxy-command", Kind: String, Help: "a program on this computer that makes the connection"}}},
 	{name: "winrm", connect: []Option{credentialOpt}},
 	{name: "telnet", state: New, connect: []Option{credentialOpt}},
