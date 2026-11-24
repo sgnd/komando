@@ -211,7 +211,7 @@ func TestDockerDeleteConfirmsWithTheServerName(t *testing.T) {
 			// the server guard of the same command: no second question
 			st, _ := store.Load()
 			hosts, _ := resolveTargets(tcl, st, "web1")
-			err = guard(tcl, st, hosts, "docker "+strings.Join(args, " "), true)
+			err = Guard(tcl, st, hosts, "docker "+strings.Join(args, " "), true)
 		}
 		_ = ew.Close()
 		b, _ := io.ReadAll(er)
