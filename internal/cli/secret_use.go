@@ -465,7 +465,7 @@ func behindSends(st *store.State, now []*store.Host, olds map[string]*store.Host
 		}
 		return nil
 	}
-	for _, n := range sortedKeys(cur) {
+	for _, n := range slices.Sorted(maps.Keys(cur)) {
 		if ownLine[n] {
 			continue
 		}
@@ -473,7 +473,7 @@ func behindSends(st *store.State, now []*store.Host, olds map[string]*store.Host
 			return nil, err
 		}
 	}
-	for _, n := range sortedKeys(st.Conns) {
+	for _, n := range slices.Sorted(maps.Keys(st.Conns)) {
 		c := st.Conns[n]
 		if err := add("conn "+n, c.Via, connPlace(c)); err != nil {
 			return nil, err
@@ -615,12 +615,12 @@ func vpnBehindSends(st *store.State, name string) ([]string, error) {
 		lines = append(lines, fmt.Sprintf("%s to %s (%s), by way of vpn %s, which moves", strings.Join(p.refs, ", "), p.dest, label, name))
 		return nil
 	}
-	for _, n := range sortedKeys(st.Hosts) {
+	for _, n := range slices.Sorted(maps.Keys(st.Hosts)) {
 		if err := add("server "+n, st.Hosts[n].Via, hostPlace(st.Hosts[n])); err != nil {
 			return nil, err
 		}
 	}
-	for _, n := range sortedKeys(st.Conns) {
+	for _, n := range slices.Sorted(maps.Keys(st.Conns)) {
 		if err := add("conn "+n, st.Conns[n].Via, connPlace(st.Conns[n])); err != nil {
 			return nil, err
 		}
@@ -646,7 +646,7 @@ func guardTrustSecret(cl *call, st *store.State, name, old string, had bool, now
 	}
 	ref := "secret:" + name
 	var sends, weak []string
-	for _, n := range sortedKeys(st.Vpns) {
+	for _, n := range slices.Sorted(maps.Keys(st.Vpns)) {
 		v := st.Vpns[n]
 		if v.Kind != "openvpn" || v.ConfigRef != ref {
 			continue
@@ -676,13 +676,13 @@ func guardTrustSecret(cl *call, st *store.State, name, old string, had bool, now
 		sends = append(append(sends, line), behind...)
 		weak = append(weak, "vpn "+v.Name+" gets another OpenVPN profile: other servers, checked against another CA certificate, may stand in for it")
 	}
-	for _, n := range sortedKeys(st.Hosts) {
+	for _, n := range slices.Sorted(maps.Keys(st.Hosts)) {
 		h := st.Hosts[n]
 		if h.WinRMOpts != nil && h.WinRMOpts.CA == ref {
 			weak = append(weak, "server "+h.Name+" is checked against another CA certificate (WinRM): another server may pass as it and get its login")
 		}
 	}
-	for _, n := range sortedKeys(st.Conns) {
+	for _, n := range slices.Sorted(maps.Keys(st.Conns)) {
 		c := st.Conns[n]
 		for _, r := range urlSecretRefs(c.URL) {
 			if r.Name == name && caOption(r.Option) {
