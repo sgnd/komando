@@ -20,9 +20,11 @@ import (
 )
 
 // guideGuardCmd is the hook an agent harness runs before each tool call. It
-// reads the call as JSON on stdin and answers in Claude Code's hook format.
+// reads the call as JSON on stdin and answers in the harness's hook format.
 // Anything it cannot read is let through: the guard must never stop work it
-// does not understand.
+// does not understand. A call over guardInputMax, which it cannot read
+// whole, is refused, and so is a check that does not finish in guardBudget
+// or that crashes.
 func guideGuardCmd() *cobra.Command {
 	var agent string
 	c := &cobra.Command{
@@ -31,47 +33,79 @@ func guideGuardCmd() *cobra.Command {
 		Hidden: true,
 		Args:   cobra.NoArgs,
 		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
-			if agent != "" && agent != "claude" {
-				b, err := io.ReadAll(io.LimitReader(cl.stdin, 4<<20))
-				d := allow()
-				for _, home := range guardHomes() {
-					if err == nil && !d.Deny {
-						d = guardAgent(cl, agent, b, home)
-					}
-				}
-				if a := guardAnswer(agent, d); a != nil {
-					cl.out.W.Write(a)
-				}
-				return nil
-			}
-			var call struct {
-				Tool  string         `json:"tool_name"`
-				Input map[string]any `json:"tool_input"`
-				Cwd   string         `json:"cwd"`
-			}
-			b, err := io.ReadAll(io.LimitReader(cl.stdin, 4<<20))
-			if err != nil || json.Unmarshal(b, &call) != nil {
-				return nil
-			}
-			d := allow()
-			for _, home := range guardHomes() {
-				if !d.Deny {
-					d = checkTool(cl, call.Tool, call.Input, home, hookCwd(call.Cwd))
-				}
-			}
-			if !d.Deny {
-				return nil
-			}
-			return json.NewEncoder(cl.out.W).Encode(map[string]any{"hookSpecificOutput": map[string]any{
-				"hookEventName":            "PreToolUse",
-				"permissionDecision":       "deny",
-				"permissionDecisionReason": "komando guard: " + d.Reason,
-			}})
+			_, err := cl.out.W.Write(guardHook(cl, agent))
+			return err
 		}),
 	}
 	c.Flags().StringVar(&agent, "for", "", "the harness: claude (default), cursor, gemini or codex")
 	return c
 }
+
+// guardBudget is how long the guard may take for one call: under every
+// harness's own hook time limit (Gemini's is 5s), so the guard answers.
+var guardBudget = 3 * time.Second
+
+// guardHook is the guard's answer to the hook input on stdin, in agent's
+// format; nil lets the call through.
+func guardHook(cl *call, agent string) []byte {
+	if agent == "" {
+		agent = "claude"
+	}
+	decide, budget := guardDecide, guardBudget
+	done := make(chan guardDecision, 1)
+	go func() {
+		defer func() {
+			if recover() != nil {
+				done <- deny("the check stopped with an internal error, so the call is refused")
+			}
+		}()
+		done <- decide(cl, agent)
+	}()
+	timer := time.NewTimer(budget)
+	defer timer.Stop()
+	select {
+	case d := <-done:
+		return guardAnswer(agent, d)
+	case <-timer.C:
+		return guardAnswer(agent, deny("the check did not finish in %v, so the call is refused; try it again", budget))
+	}
+}
+
+// guardDecide reads one hook input and decides it for every home komando
+// guards: the first denial wins.
+var guardDecide = func(cl *call, agent string) guardDecision {
+	b, err := io.ReadAll(io.LimitReader(cl.stdin, guardInputMax+1))
+	if len(b) > guardInputMax {
+		return deny("the tool call is too large for komando's guard to check (over 4 MiB)")
+	}
+	if err != nil {
+		return allow()
+	}
+	var in struct {
+		Tool  string         `json:"tool_name"`
+		Input map[string]any `json:"tool_input"`
+		Cwd   string         `json:"cwd"`
+	}
+	if agent == "claude" && json.Unmarshal(b, &in) != nil {
+		return allow()
+	}
+	d := allow()
+	for _, home := range guardHomes() {
+		if d.Deny {
+			break
+		}
+		if agent == "claude" {
+			d = checkTool(cl, in.Tool, in.Input, home, hookCwd(in.Cwd))
+		} else {
+			d = guardAgent(cl, agent, b, home)
+		}
+	}
+	return d
+}
+
+// guardInputMax is the most of one hook input the guard reads; a larger
+// call is refused, as one the guard cannot check whole.
+const guardInputMax = 4 << 20
 
 // hookCwd is the working folder a hook input names, when it is a usable one.
 func hookCwd(cwd string) string {
