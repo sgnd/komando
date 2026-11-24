@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 
@@ -195,7 +196,9 @@ Safe to run again, for example after an update: a changed file is kept as
 				}
 				files = append(files, f)
 			}
-			if !noGuard {
+			// the hook line needs /bin/sh to refuse a call when komando is
+			// missing; on Windows no guard hook is set up (doctor says so)
+			if !noGuard && runtime.GOOS != "windows" {
 				prog, note := hookProgram(project)
 				// Claude Code asks komando before each tool call (guard.go)
 				f, err := installGuardHook(filepath.Join(base, ".claude", "settings.json"), prog, cl.flags.dryRun)

@@ -452,10 +452,15 @@ var readOnlyPrograms = map[string]bool{"cat": true, "less": true, "more": true, 
 // redirectTarget is a file a shell segment writes with > or >>.
 var redirectTarget = regexp.MustCompile(`[0-9&]?>>?\|?\s*("[^"]*"|'[^']*'|[^\s;&|<>()]+)`)
 
+// writesKomandoByName is a shell line whose program changes a file named by
+// a command that names komando: rm "$(command -v komando)", chmod 777
+// `which komando`. splitShell gives the command its own segment, so this
+// reads the whole line.
+var writesKomandoByName = regexp.MustCompile("(^|[;&|(\\s])(rm|unlink|mv|cp|ln|chmod|chown|install|truncate|tee|dd|shred|sed|perl)\\s[^;&|\\n]*(\\$\\(|`)[^)`]*\\bkomando\\b")
+
 // checkSelfWrite refuses a shell segment that writes, moves, deletes or
 // changes the mode of a guard file (guardSelfWhy): through a redirect, or
-// as an argument of a program that is not only a reader. A program named
-// by a command inside it ($(command -v komando)) counts as komando.
+// as an argument of a program that is not only a reader.
 func checkSelfWrite(cl *call, seg, base string, args []string, home, cwd string) guardDecision {
 	refuse := func(w, why string) guardDecision {
 		return deny("%s is %s; an AI agent does not change it. Ask the user to do it", w, why)
@@ -473,12 +478,24 @@ func checkSelfWrite(cl *call, seg, base string, args []string, home, cwd string)
 		if strings.HasPrefix(a, "-") {
 			continue
 		}
-		if (strings.Contains(a, "$(") || strings.Contains(a, "`")) && strings.Contains(a, "komando") {
-			return refuse(a, "the komando program the guard hook runs")
-		}
 		if why := guardSelfWhy(guardPathAt(cl, a, home, cwd)); why != "" {
 			return refuse(a, why)
 		}
+	}
+	return allow()
+}
+
+// checkWholeLine refuses what a line does as a whole, before it is split
+// into commands: reading the vault passphrase or a process environment, and
+// changing the komando program through a command that names it.
+func checkWholeLine(line string) guardDecision {
+	switch {
+	case readsVaultPass.MatchString(line):
+		return deny("KOMANDO_VAULT_PASS opens komando's vault; it is for the user only")
+	case writesKomandoByName.MatchString(line):
+		return deny("the line changes the komando program the guard hook runs; an AI agent does not change it. Ask the user to do it")
+	case procEnviron.MatchString(line): // /proc/PID/environ, not words like "environments"
+		return deny("process environments hold secrets; ask the user for the one value you need")
 	}
 	return allow()
 }

@@ -11,6 +11,7 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- The agent guard's hook line refuses a tool call when the guard cannot answer (komando missing, not a program, or failing), in each agent tool's own format. The guard refuses an AI agent's change to the agents' hook settings and folders and to the komando program the hook runs. `komando doctor` checks every agent's hook line and its program, `komando guide install` replaces an older line, and `komando update` says when one is left. On Windows no guard hook is set up for now; `komando doctor` says so.
 - The agent guard (`komando guide guard`) answers every tool call within 3 seconds: a check that takes longer, or stops with an internal error, refuses the call.
 - The agent guard refuses a tool call larger than 4 MiB, which it cannot check whole, in each agent tool's own format.
 
