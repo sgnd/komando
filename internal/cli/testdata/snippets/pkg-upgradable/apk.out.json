@@ -1,0 +1,1 @@
+{"ok":true,"command":"pkg.upgradable","data":{"command":"pkg upgradable","results":[{"host":"dev","ok":true,"data":{"package_manager":"apk","index_age":"2h","index_age_s":7200,"count":2,"packages":[{"name":"busybox","from":"1.37.0-r19","version":"1.37.0-r20"},{"name":"musl","from":"1.2.5-r10","version":"1.2.5-r13"}]},"exit_code":0}],"summary":{"total":1,"ok":1,"failed":0}}}
