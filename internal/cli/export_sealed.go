@@ -83,7 +83,7 @@ func runExportSealed(cl *call, st *store.State, f exportFile, o exportSealOpts, 
 		DenyRules: len(f.DenyRules), Settings: len(f.Settings) > 0, Sealed: o.mode(), SecretsNeeded: []string{}, KeysNeeded: []string{}}
 	if cl.flags.dryRun {
 		res.DryRun, res.SecretsInFile = true, []string{}
-		for _, n := range f.Secrets { // which are there, never their values
+		for _, n := range sealable(f.Secrets) { // which are there, never their values
 			if _, err := vault.Get(n); errors.Is(err, vault.ErrNotFound) {
 				res.SecretsNeeded = append(res.SecretsNeeded, n)
 			} else {
@@ -142,12 +142,19 @@ func runExportSealed(cl *call, st *store.State, f exportFile, o exportSealOpts, 
 	return nil
 }
 
+// sealable is names without the secrets komando keeps for itself (the
+// approval code's seed): a record may name one past the commands' own
+// refusal, and its value never goes into a file.
+func sealable(names []string) []string {
+	return slices.DeleteFunc(slices.Clone(names), func(n string) bool { return reservedSecret(n) != nil })
+}
+
 // sealContent reads the secret values (and with withKeys the private keys)
 // the export's records use. A secret that is not in the vault and a key
 // that cannot travel are listed in res as still needed.
 func sealContent(st *store.State, f exportFile, withKeys bool, res *exportResult) (sealedContent, error) {
 	c := sealedContent{exportFile: f, SecretValues: map[string]string{}, KeyTexts: map[string]string{}}
-	for _, n := range f.Secrets {
+	for _, n := range sealable(f.Secrets) {
 		v, err := vault.Get(n)
 		if errors.Is(err, vault.ErrNotFound) {
 			res.SecretsNeeded = append(res.SecretsNeeded, n)
