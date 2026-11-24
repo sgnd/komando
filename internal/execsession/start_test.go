@@ -294,3 +294,22 @@ func TestStartScriptNoGroupFails(t *testing.T) {
 		t.Errorf("the session folder stayed: %v", err)
 	}
 }
+
+// The root process runs nothing unless the start script let it go (.go):
+// a start script cut off before that leaves a folder, never a run.
+func TestWrapperWaitsForGo(t *testing.T) {
+	home := session(t, nil)
+	d := sessionDir(home)
+	if err := exec.Command("mkfifo", filepath.Join(d, ".o")).Run(); err != nil {
+		t.Fatal(err)
+	}
+	mark := filepath.Join(home, "ran")
+	cmd := exec.Command("sh", "-c", wrapper(startRun("touch "+sshx.Q(mark)), 0, 1<<20), "sh", "022")
+	cmd.Env = []string{"HOME=" + home, "PATH=" + os.Getenv("PATH"), "d=" + d}
+	if b, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("%v: %s", err, b)
+	}
+	if _, err := os.Lstat(mark); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("the command ran without .go: %v", err)
+	}
+}
