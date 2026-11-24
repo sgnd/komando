@@ -73,7 +73,7 @@ func TestSkillResultText(t *testing.T) {
 }
 
 // doctor's agent_guard check fails when the hook names a komando that is
-// not there: Claude Code then goes on without the guard.
+// not there, or uses the old line, which lets a call through then.
 func TestClaudeGuardChecksTheProgram(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "settings.json")
@@ -87,6 +87,10 @@ func TestClaudeGuardChecksTheProgram(t *testing.T) {
 		t.Errorf("missing program: %v %q", found, problem)
 	}
 	write(shellQuote(self) + " guide guard")
+	if found, problem := claudeGuard(p); !found || !strings.Contains(problem, "old hook line") {
+		t.Errorf("this program, old line: %v %q", found, problem)
+	}
+	write(guardHookLine(self, "claude"))
 	if found, problem := claudeGuard(p); !found || problem != "" {
 		t.Errorf("this program: %v %q", found, problem)
 	}
