@@ -255,6 +255,17 @@ func memcachedConn(t *testing.T, _ string) {
 	mustRun(t, "conn", "add", "m", "memcached://"+addr)
 }
 
+// kubeConn starts the fake Kubernetes API of the cluster tests and imports
+// a kubeconfig for it as the conn "prod".
+func kubeConn(t *testing.T, _ string) {
+	// the kubeconfig's context is called prod, as the test home's host
+	if err := store.Update(store.Save(), func(st *store.State) error { delete(st.Hosts, "prod"); return nil }); err != nil {
+		t.Fatal(err)
+	}
+	d := newDetailCluster(t)
+	mustRun(t, "import", "kubeconfig", d.kubeconfig(t))
+}
+
 // liteVolatile cuts what a SQLite version or file layout can change.
 var liteVolatile = []*regexp.Regexp{
 	regexp.MustCompile(`"(version|size_bytes|started|uptime_seconds)":\s*("[^"]*"|\d+(\.\d+)?|null)`),
@@ -288,6 +299,9 @@ var snippetCases = []snippetCase{
 	{snippet: "db-schema", family: "sqlite", args: []string{"db", "schema", "lite"}, setup: liteDB, volatile: liteVolatile},
 	{snippet: "cache-keys", family: "memcached", args: []string{"cache", "keys", "m"}, setup: memcachedConn},
 	{snippet: "cache-info", family: "memcached", args: []string{"cache", "info", "m"}, setup: memcachedConn},
+	{snippet: "cluster-describe", family: "pod", args: []string{"cluster", "describe", "prod", "pod/api-1"}, setup: kubeConn},
+	{snippet: "cluster-describe", family: "deployment", args: []string{"cluster", "describe", "prod", "deployment/api"}, setup: kubeConn},
+	{snippet: "cluster-logs", family: "pod", args: []string{"cluster", "logs", "prod", "pod/api-1"}, setup: kubeConn},
 	{snippet: "pkg-upgradable", family: "apk", args: []string{"pkg", "upgradable", "dev"}, steps: []string{"apk.in"}},
 }
 
@@ -354,6 +368,9 @@ func TestSnippetGoldens(t *testing.T) {
 			got = normalizeGolden(got, tmpDir, c.volatile)
 			if strings.Contains(got, `"message":"EOF"`) || strings.Contains(got, "CONNECTION_LOST") {
 				t.Fatalf("the replay connection broke; this is not output to record:\n%s", got)
+			}
+			if strings.TrimSpace(got) == "" {
+				t.Fatal("the command printed nothing: it failed before its output (a golden of nothing pins nothing)")
 			}
 			rs.mu.Lock()
 			sent := strings.Join(rs.sent, "\n----\n") + "\n"
