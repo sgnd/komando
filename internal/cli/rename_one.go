@@ -66,7 +66,7 @@ func checkNewEntryName(s *store.State, kind, from, to string) error {
 		return err
 	}
 	if k, existing, ok := s.FindName(to); ok && !(k == kind && existing == from) {
-		return nameTaken(k, existing)
+		return inventory.NameTaken(k, existing)
 	}
 	return nil
 }

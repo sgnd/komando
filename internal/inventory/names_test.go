@@ -1,4 +1,4 @@
-package cli
+package inventory
 
 import (
 	"testing"
@@ -6,10 +6,13 @@ import (
 	"github.com/sgnd/komando/internal/out"
 )
 
-// The stop for a name another server, conn or VPN already has, pinned before
-// it moves to internal/inventory: code, exit, message and hint.
+// The stop for a name another server, conn or VPN already has: code, exit,
+// message and hint.
 func TestNameTaken(t *testing.T) {
-	e := toErr(nameTaken("conn", "pg"))
+	e, ok := NameTaken("conn", "pg").(*out.Error)
+	if !ok {
+		t.Fatalf("NameTaken gives %T, want *out.Error", NameTaken("conn", "pg"))
+	}
 	if e.Code != "NAME_TAKEN" || e.Exit != out.ExitConflict {
 		t.Errorf("code %q, exit %d", e.Code, e.Exit)
 	}

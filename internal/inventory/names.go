@@ -5,6 +5,7 @@ package inventory
 // imports nothing of internal/cli.
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -80,4 +81,9 @@ func CheckLabels(groups, tags []string, labels map[string]string) error {
 
 func HasControl(s string) bool {
 	return strings.IndexFunc(s, func(r rune) bool { return r < 0x20 || r == 0x7f }) >= 0
+}
+
+func NameTaken(kind, name string) error {
+	return out.Errf(out.ExitConflict, "NAME_TAKEN", fmt.Sprintf("pick another name; servers, conns and VPNs share one name space (see `komando %s show %s`)", kind, name),
+		"name %q is already used by a %s", name, out.KindWord(kind))
 }

@@ -87,6 +87,7 @@ or a listed one is gone.
 | `internal/driver` | the kinds of conns and the risk levels the safety checks use |
 | `internal/engine` | one komando call: who makes it and its approvals |
 | `internal/flock` | a file lock between komando processes |
+| `internal/inventory` | the rules for what goes into the inventory: names and the shared name space, login names, ports, labels, `--via` paths and conn families; nothing of `internal/cli` |
 | `internal/ipsec` | komando's own IKEv1 and IKEv2 clients |
 | `internal/kube` | the Kubernetes API over HTTPS, without client-go |
 | `internal/l2tp` | komando's own L2TP client |
