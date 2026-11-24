@@ -308,7 +308,7 @@ func (s *sessionRun) run(cl *call, ctx context.Context, c *sshx.Client, r sshx.R
 	if err != nil {
 		return nil, err
 	}
-	forgetSessions(cl, host, execsession.Swept(b.Stdout))
+	forgetSessions(cl, host, execsession.Swept(b.Stdout, id))
 	facts, warns, err := execsession.ReadStart(host, b.ExitCode, b.Stdout, id)
 	if errors.Is(err, execsession.ErrNoFolder) {
 		sessionLine(cl, nil, host)

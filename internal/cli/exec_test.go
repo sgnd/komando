@@ -329,27 +329,47 @@ func putRecord(t *testing.T, id, actor string, agent bool) {
 const attachID = "abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrst"
 
 // The start's sweep knows this server's records (the lost check), and
-// the records of the sessions it swept are dropped.
+// the records of the sessions it swept are dropped: only those it names
+// between the markers that carry the new session's ID, never a line a
+// login banner printed before them.
 func TestExecSessionSweepKnowsTheRecords(t *testing.T) {
-	srv := startSessionServer(t, "", true)
-	putRecord(t, attachID, "alice", false)
-	answer := srv.answer
-	srv.answer = func(cmd string) (string, int) {
-		o, code := answer(cmd)
-		if strings.Contains(cmd, "mkfifo") {
-			o = "swept " + attachID + "\n" + o
-		}
-		return o, code
-	}
-	_ = captureOutput(t, func() error { return runRoot(t, "exec", "dev", "--read-only", "--", "uptime") })
-	execs := srv.take()
-	if len(execs) == 0 || !strings.Contains(execs[0].cmd, attachID+") [ \"$(ks_start 4242)\" != 'proc 99' ]") {
-		t.Fatalf("start %+v", execs)
-	}
-	if rt, _ := store.ReadRuntime(); rt.ExecSessions[attachID] != nil {
-		t.Fatal("the swept session's record stayed")
+	for _, tc := range []struct {
+		name    string
+		inside  bool
+		dropped bool
+	}{
+		{"between the markers", true, true},
+		{"a banner line", false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := startSessionServer(t, "", true)
+			putRecord(t, attachID, "alice", false)
+			answer := srv.answer
+			srv.answer = func(cmd string) (string, int) {
+				o, code := answer(cmd)
+				if m := sweepBegin.FindStringSubmatch(cmd); m != nil {
+					line := "swept " + attachID + "\n"
+					if tc.inside {
+						o = "sweep-begin " + m[1] + "\n" + line + "sweep-end " + m[1] + "\n" + o
+					} else {
+						o = line + "sweep-begin " + m[1] + "\nsweep-end " + m[1] + "\n" + o
+					}
+				}
+				return o, code
+			}
+			_ = captureOutput(t, func() error { return runRoot(t, "exec", "dev", "--read-only", "--", "uptime") })
+			execs := srv.take()
+			if len(execs) == 0 || !strings.Contains(execs[0].cmd, attachID+") [ \"$(ks_start 4242)\" != 'proc 99' ]") {
+				t.Fatalf("start %+v", execs)
+			}
+			if rt, _ := store.ReadRuntime(); (rt.ExecSessions[attachID] == nil) != tc.dropped {
+				t.Fatalf("record dropped: %v, want %v", rt.ExecSessions[attachID] == nil, tc.dropped)
+			}
+		})
 	}
 }
+
+var sweepBegin = regexp.MustCompile(`echo "sweep-begin ([a-z2-7]{52})"`)
 
 // U4: --attach reads from --offset on; it sweeps nothing (U12).
 func TestExecAttachOffset(t *testing.T) {
