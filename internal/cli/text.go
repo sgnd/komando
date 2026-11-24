@@ -15,23 +15,6 @@ func textTable(headers []string, rows [][]string) string { return term.DataTable
 
 // The cells every table shares (S-9.6), so a person reads one form:
 
-// yesCell is a boolean: "yes", or "-" so the few that say yes stand out.
-func yesCell(b bool) string {
-	if b {
-		return "yes"
-	}
-	return "-"
-}
-
-// timeCell is a moment: this computer's time with its zone
-// (2026-11-07 14:30 WIB), "-" for none.
-func timeCell(t time.Time) string {
-	if t.IsZero() {
-		return "-"
-	}
-	return t.Local().Format("2006-01-02 15:04 MST")
-}
-
 // ageCell is how long ago t was (3h), for an AGE or SINCE column; "-" for
 // none.
 func ageCell(t time.Time) string {

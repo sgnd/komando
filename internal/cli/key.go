@@ -612,7 +612,7 @@ added stays on disk.`,
 					if len(users) == 1 {
 						return out.Errf(out.ExitConflict, "KEY_IN_USE", hint, "server %s still uses this key", users[0])
 					}
-					return out.Errf(out.ExitConflict, "KEY_IN_USE", hint, "servers %s still use this key", joinAnd(users))
+					return out.Errf(out.ExitConflict, "KEY_IN_USE", hint, "servers %s still use this key", term.JoinAnd(users))
 				}
 				switch {
 				case deleteFile && !k.Managed:

@@ -62,7 +62,7 @@ func (l targetList) Text() string {
 	tw := tabwriter.NewWriter(&sb, 0, 2, 2, ' ', 0)
 	fmt.Fprintln(tw, "NAME\tKIND\tWHERE\tVIA\tGROUPS\tTAGS\tPROTECTED")
 	for _, r := range l.Targets {
-		prot := yesCell(r.Protected)
+		prot := term.YesCell(r.Protected)
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", r.Name, r.Kind, r.Where, dash(r.Via),
 			dash(strings.Join(r.Groups, ",")), dash(strings.Join(r.Tags, ",")), prot)
 	}

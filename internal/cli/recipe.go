@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -147,7 +148,7 @@ func (l recipeList) Text() string {
 		if b := recipeBlanks(r); len(b) > 0 {
 			desc += " [" + strings.Join(b, ", ") + "]"
 		}
-		rows = append(rows, []string{r.Name, cat, yesCell(r.ReadOnly), desc})
+		rows = append(rows, []string{r.Name, cat, term.YesCell(r.ReadOnly), desc})
 	}
 	return textTable([]string{"name", "category", "read only", "description"}, rows)
 }

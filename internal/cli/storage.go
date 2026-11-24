@@ -281,7 +281,7 @@ func objectTable(objs []storex.Object) string {
 			rows[i] = []string{"DIR", "", o.Key}
 			continue
 		}
-		rows[i] = []string{humanBytes(o.Size), timeCell(o.Modified), o.Key}
+		rows[i] = []string{term.HumanBytes(o.Size), term.TimeCell(o.Modified), o.Key}
 	}
 	return term.DataTable([]string{"size", "modified", "key"}, rows)
 }
@@ -387,7 +387,7 @@ func storageCatCmd() *cobra.Command {
 						lines = lines[len(lines)-tail:]
 					}
 					if w.capped && cl.out.Format == "text" {
-						fmt.Fprintf(cl.out.Err, "Note: showing the first %s; raise --max-bytes or download it\n", humanBytes(w.max))
+						fmt.Fprintf(cl.out.Err, "Note: showing the first %s; raise --max-bytes or download it\n", term.HumanBytes(w.max))
 					}
 					return catData{Conn: c.Name, Key: args[1], Content: strings.Join(lines, ""), Truncated: truncated}, nil
 				})
@@ -561,11 +561,11 @@ type uploadData struct {
 
 func (d uploadData) Text() string {
 	if d.DryRun {
-		return fmt.Sprintf("would upload %s -> %s (%s, replaces existing: %s)\n", d.File, d.Key, humanBytes(d.Bytes), yesNo(d.Replaced))
+		return fmt.Sprintf("would upload %s -> %s (%s, replaces existing: %s)\n", d.File, d.Key, term.HumanBytes(d.Bytes), yesNo(d.Replaced))
 	}
-	s := fmt.Sprintf("uploaded %s -> %s (%s)", d.File, d.Key, humanBytes(d.Bytes))
+	s := fmt.Sprintf("uploaded %s -> %s (%s)", d.File, d.Key, term.HumanBytes(d.Bytes))
 	if d.ContinuedFrom > 0 {
-		s += fmt.Sprintf(", going on after the %s already there", humanBytes(d.ContinuedFrom))
+		s += fmt.Sprintf(", going on after the %s already there", term.HumanBytes(d.ContinuedFrom))
 	}
 	if d.Replaced {
 		s += ", replaced the old object"

@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/registry"
@@ -53,7 +54,7 @@ func (d copyData) Text() string {
 	if d.DryRun {
 		s := fmt.Sprintf("dry run: would copy %s to %s\n", d.From, d.To)
 		if d.Source != nil {
-			s += fmt.Sprintf("%s, %s", d.Source.Digest, humanBytes(d.Source.Size))
+			s += fmt.Sprintf("%s, %s", d.Source.Digest, term.HumanBytes(d.Source.Size))
 			if len(d.Source.Platforms) > 0 {
 				s += ", " + strings.Join(d.Source.Platforms, " ")
 			}
@@ -65,7 +66,7 @@ func (d copyData) Text() string {
 		return s
 	}
 	s := fmt.Sprintf("%s -> %s\n%s, %s, %s copied (%s), %d already there, %d linked\n",
-		d.From, d.To, d.Digest, countOf(d.Manifests, "manifest"), countOf(d.BlobsCopied, "layer"), humanBytes(d.Bytes), d.BlobsSkipped, d.BlobsMounted)
+		d.From, d.To, d.Digest, countOf(d.Manifests, "manifest"), countOf(d.BlobsCopied, "layer"), term.HumanBytes(d.Bytes), d.BlobsSkipped, d.BlobsMounted)
 	if d.Replaced {
 		s += "the destination tag pointed to another image before\n"
 	}
