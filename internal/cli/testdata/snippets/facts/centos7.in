@@ -1,0 +1,10 @@
+os=centos
+os_version=7
+os_pretty=CentOS Linux 7 (Core)
+pkg_manager=yum
+sudo_nopasswd=false
+listen_src=proc
+load=0.10 0.20 0.30
+cpus=2
+mem_total_mb=3900
+uptime_sec=864000

@@ -138,6 +138,11 @@ var snippetCases = []snippetCase{
 	{snippet: "docker-images", family: "docker", args: []string{"docker", "images", "dev"}, steps: []string{"docker.in"}},
 	{snippet: "docker-stats", family: "docker", args: []string{"docker", "stats", "dev"}, steps: []string{"docker.in"}},
 	{snippet: "pkg-upgradable", family: "apt", args: []string{"pkg", "upgradable", "dev"}, steps: []string{"apt.in"}},
+	{snippet: "facts", family: "centos7", args: []string{"facts", "dev"}, steps: []string{"centos7.in"}},
+	{snippet: "svc-status", family: "systemd", args: []string{"svc", "status", "dev", "nginx", "postfix"}, steps: []string{"systemd.in"}},
+	{snippet: "pkg-security", family: "apt", args: []string{"pkg", "security", "dev"}, steps: []string{"apt.in"}},
+	{snippet: "logs", family: "journal", args: []string{"logs", "dev", "--unit", "nginx", "--limit", "3"}, steps: []string{"journal.in"}},
+	{snippet: "docker-logs", family: "docker", args: []string{"docker", "logs", "dev", "api", "--limit", "3"}, steps: []string{"docker.in"}},
 	{snippet: "pkg-upgradable", family: "apk", args: []string{"pkg", "upgradable", "dev"}, steps: []string{"apk.in"}},
 }
 
