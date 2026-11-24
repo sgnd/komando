@@ -433,16 +433,16 @@ func (w *refRewriter) rewrite(s *store.State) {
 
 // rewriteRest: key passphrases, jobs and tunnels.
 func (w *refRewriter) rewriteRest(s *store.State) {
-	for _, name := range mapKeys(s.Keys) {
+	for _, name := range slices.Sorted(maps.Keys(s.Keys)) {
 		k := s.Keys[name]
 		w.change("key "+name, "passphrase_ref", &k.PassphraseRef, w.ref(k.PassphraseRef))
 	}
-	for _, id := range mapKeys(s.Jobs) {
+	for _, id := range slices.Sorted(maps.Keys(s.Jobs)) {
 		if j := s.Jobs[id]; w.rs["host"][j.Host] != "" {
 			w.change("job "+id, "host", &j.Host, w.rs["host"][j.Host])
 		}
 	}
-	for _, id := range mapKeys(s.Tunnels) {
+	for _, id := range slices.Sorted(maps.Keys(s.Tunnels)) {
 		t := s.Tunnels[id]
 		if to := w.rs["host"][t.Host]; to != "" {
 			w.change("tunnel "+id, "host", &t.Host, to)
@@ -473,7 +473,7 @@ type renameChecker struct {
 // chains, so a reference komando does not know of (a {{secret:NAME}} in a
 // file on a server) never gets another entry's value.
 func checkRenameSet(cl *call, s *store.State, set renameSet) error {
-	c := &renameChecker{cl: cl, s: s, groups: mapKeys(allGroups(s).Groups), shared: map[string]string{}}
+	c := &renameChecker{cl: cl, s: s, groups: slices.Sorted(maps.Keys(allGroups(s).Groups)), shared: map[string]string{}}
 	if len(set["secret"]) > 0 {
 		c.secrets = secretNames()
 	}
@@ -502,7 +502,7 @@ func checkRenameSet(cl *call, s *store.State, set renameSet) error {
 		return out.Errf(out.ExitConflict, "NAME_TAKEN", "pick other names, or rename or remove what is in the way first",
 			"the rename clashes: %s; nothing was renamed", strings.Join(c.clashes, "; "))
 	}
-	for _, from := range mapKeys(set["vpn"]) {
+	for _, from := range slices.Sorted(maps.Keys(set["vpn"])) {
 		if _, up := s.Sessions[from]; up {
 			return out.Errf(out.ExitConflict, "VPN_IN_USE", "disconnect it first with `komando vpn down "+from+"`, then rename",
 				"VPN %s is connected; nothing was renamed", from)
