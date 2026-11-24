@@ -232,7 +232,7 @@ func (e *unanswered) authFailed(st *store.State, h *store.Host) *out.Error {
 	switch e.kind {
 	case askCode:
 		return out.Errf(out.ExitConnect, "AUTH_FAILED",
-			PersonStep(name)+": komando asks for the code once and keeps the session, so later commands (an AI agent's too) need no code",
+			PersonStep(name),
 			"%s asks %s (two-factor login); only a person can answer it, and none is at a terminal here", name, strconv.Quote(e.question))
 	case askAgain:
 		if e.typed {
@@ -243,6 +243,6 @@ func (e *unanswered) authFailed(st *store.State, h *store.Host) *out.Error {
 			"%s asks %s again: it refused the stored password, which komando sends only once", name, strconv.Quote(e.question))
 	}
 	return out.Errf(out.ExitConnect, "AUTH_FAILED",
-		PersonStep(name)+": komando shows the question once and keeps the session, so later commands (an AI agent's too) need no answer",
+		PersonStep(name),
 		"%s asks %s; komando answers only a hidden password question by itself, and no person is at a terminal here", name, strconv.Quote(e.question))
 }

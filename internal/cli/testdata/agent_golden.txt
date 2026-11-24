@@ -1358,30 +1358,6 @@ exit 2
 Error: missing arguments; usage: komando conn edit NAME
 Hint: for example: komando conn edit prod-db --via bastion --add-tag critical --option statement_timeout=10s
 (code USAGE, exit 2)
-### komando -o json conn list (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"list","error":{"code":"USAGE","message":"missing arguments; usage: komando conn list [TARGET]","hint":"for example: komando conn list"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text conn list (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando conn list [TARGET]
-Hint: for example: komando conn list
-(code USAGE, exit 2)
-### komando -o json conn list (script json)
-exit 2
---- stdout
-{"ok":false,"command":"list","error":{"code":"USAGE","message":"missing arguments; usage: komando conn list [TARGET]","hint":"for example: komando conn list"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text conn list (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando conn list [TARGET]
-Hint: for example: komando conn list
-(code USAGE, exit 2)
 ### komando -o json conn rename (agent json)
 exit 2
 --- stdout
@@ -3662,30 +3638,6 @@ exit 2
 Error: missing arguments; usage: komando host edit TARGET...
 Hint: for example: komando host edit web1 --add-tag canary --label env=prod --sudo-ref secret:web1-sudo
 (code USAGE, exit 2)
-### komando -o json host list (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"list","error":{"code":"USAGE","message":"missing arguments; usage: komando host list [TARGET]","hint":"for example: komando host list"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text host list (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando host list [TARGET]
-Hint: for example: komando host list
-(code USAGE, exit 2)
-### komando -o json host list (script json)
-exit 2
---- stdout
-{"ok":false,"command":"list","error":{"code":"USAGE","message":"missing arguments; usage: komando host list [TARGET]","hint":"for example: komando host list"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text host list (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando host list [TARGET]
-Hint: for example: komando host list
-(code USAGE, exit 2)
 ### komando -o json host rename (agent json)
 exit 2
 --- stdout
@@ -4309,30 +4261,6 @@ exit 2
 --- stderr
 Error: missing arguments; usage: komando key show NAME
 Hint: for example: komando key show deploy
-(code USAGE, exit 2)
-### komando -o json list (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"list","error":{"code":"USAGE","message":"missing arguments; usage: komando list [TARGET]","hint":"for example: komando list"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text list (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando list [TARGET]
-Hint: for example: komando list
-(code USAGE, exit 2)
-### komando -o json list (script json)
-exit 2
---- stdout
-{"ok":false,"command":"list","error":{"code":"USAGE","message":"missing arguments; usage: komando list [TARGET]","hint":"for example: komando list"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text list (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando list [TARGET]
-Hint: for example: komando list
 (code USAGE, exit 2)
 ### komando -o json logs (agent json)
 exit 2
@@ -7189,30 +7117,6 @@ exit 2
 --- stderr
 Error: missing arguments; usage: komando vpn edit TARGET...
 Hint: for example: komando vpn edit office --check 10.0.0.5:22
-(code USAGE, exit 2)
-### komando -o json vpn list (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"list","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn list [TARGET]","hint":"for example: komando vpn list"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text vpn list (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando vpn list [TARGET]
-Hint: for example: komando vpn list
-(code USAGE, exit 2)
-### komando -o json vpn list (script json)
-exit 2
---- stdout
-{"ok":false,"command":"list","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn list [TARGET]","hint":"for example: komando vpn list"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text vpn list (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando vpn list [TARGET]
-Hint: for example: komando vpn list
 (code USAGE, exit 2)
 ### komando -o json vpn rename (agent json)
 exit 2

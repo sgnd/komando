@@ -97,12 +97,7 @@ func listCmdFor(only string) *cobra.Command {
 		Aliases: []string{"ls"},
 		Short:   "List servers, conns and VPNs",
 		Example: "  komando list\n  komando list @prod\n  komando list kind:db",
-		Args: func(cmd *cobra.Command, args []string) error {
-			if cmd.Flags().Changed("end") {
-				return cobra.MaximumNArgs(1)(cmd, args)
-			}
-			return cobra.ExactArgs(1)(cmd, args)
-		},
+		Args:    cobra.MaximumNArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {

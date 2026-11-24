@@ -10302,8 +10302,8 @@
       {
         "code": "AUTH_FAILED",
         "exit": 4,
-        "example": "… asks … (two-factor login); only a person can answer it, and none is at a terminal here",
-        "hint": "ask the user to run `komando test SERVER` once in their own terminal; later commands use that session"
+        "example": "… has no user or password for WinRM",
+        "hint": "WinRM logs in with a user and a password: `komando host edit … --ask-password` (and the user in the address, for example winrm://Administrator@HOST)"
       },
       {
         "code": "AWS_FAILED",
@@ -11009,7 +11009,7 @@
         "code": "NEEDS_PERSON",
         "exit": 6,
         "example": "logging in to … needs a person at a terminal to answer its questions",
-        "hint": "ask a person to run `komando test …` in a terminal; after that your commands to … need no login"
+        "hint": "ask a person to run `komando login …` in a terminal; after that your commands to … need no login"
       },
       {
         "code": "NEEDS_TERMINAL",
