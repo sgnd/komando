@@ -45,13 +45,10 @@ func TestWindowsRules(t *testing.T) {
 	}
 	allowed := []string{
 		`Get-ChildItem C:\`,
-		`Remove-Item C:\temp\old.log`,
-		`Remove-Item -Recurse C:\inetpub\logs\old`,
 		`Get-Service sshd`,
 		`Restart-Service W3SVC`,
 		`Start-Service sshd`,
 		`Set-Service -Name sshd -StartupType Automatic`,
-		`rm -rf /tmp/build`,
 		`Get-Content C:\Windows\System32\drivers\etc\hosts`,
 		`format-table Name`,
 		`Get-Disk | Format-List`,
@@ -60,6 +57,10 @@ func TestWindowsRules(t *testing.T) {
 		if hits := Check(cmd, nil); len(hits) > 0 {
 			t.Errorf("%q: want no rule, got %v", cmd, hits)
 		}
+	}
+	// a delete outside the system drive's top: only the file rule
+	for _, cmd := range []string{`Remove-Item C:\temp\old.log`, `Remove-Item -Recurse C:\inetpub\logs\old`, `rm -rf /tmp/build`} {
+		onlyRule(t, cmd, "rm-files")
 	}
 }
 
@@ -197,13 +198,14 @@ func TestWindowsRulesNestedAndPiped(t *testing.T) {
 		}
 	}
 	for _, cmd := range []string{
-		`Get-ChildItem C:\temp | Remove-Item -Recurse`,
 		`Get-ChildItem C:\ | Select-Object Name`,
 		`$x = Get-ChildItem C:\Windows\System32`,
-		`Remove-Item C:\Windows\System32\drivers\x.log`,
 	} {
 		if hits := Check(cmd, nil); len(hits) > 0 {
 			t.Errorf("%q: want no rule, got %v", cmd, hits)
 		}
+	}
+	for _, cmd := range []string{`Get-ChildItem C:\temp | Remove-Item -Recurse`, `Remove-Item C:\Windows\System32\drivers\x.log`} {
+		onlyRule(t, cmd, "rm-files")
 	}
 }
