@@ -18,6 +18,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/kube"
 	"github.com/sgnd/komando/internal/out"
@@ -163,9 +164,9 @@ func (l helmList) Text() string {
 	rels, _ := l["releases"].([]map[string]any)
 	if len(rels) == 0 {
 		if ns, ok := l["namespace"].(string); ok && ns != "" {
-			return noneYet("Helm releases in namespace "+ns, "", "-A looks in every namespace")
+			return term.NoneYet("Helm releases in namespace "+ns, "", "-A looks in every namespace")
 		}
-		return noneYet("Helm releases", "")
+		return term.NoneYet("Helm releases", "")
 	}
 	rows := make([][]string, len(rels))
 	for i, r := range rels {
@@ -387,7 +388,7 @@ type helmHistory map[string]any
 func (h helmHistory) Text() string {
 	revs, _ := h["revisions"].([]map[string]any)
 	if len(revs) == 0 {
-		return noneYet("revisions", "")
+		return term.NoneYet("revisions", "")
 	}
 	rows := make([][]string, len(revs))
 	for i, r := range revs {

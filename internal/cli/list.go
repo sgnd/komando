@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -50,11 +51,11 @@ func (l targetList) Text() string {
 	if len(l.Targets) == 0 {
 		switch l.only {
 		case "host":
-			return noneYet("servers", "host add NAME USER@ADDRESS")
+			return term.NoneYet("servers", "host add NAME USER@ADDRESS")
 		case "conn":
-			return noneYet("conns", "conn add NAME URL")
+			return term.NoneYet("conns", "conn add NAME URL")
 		case "vpn":
-			return noneYet("VPNs", "vpn add NAME KIND")
+			return term.NoneYet("VPNs", "vpn add NAME KIND")
 		}
 	}
 	var sb strings.Builder

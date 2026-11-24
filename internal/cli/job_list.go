@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -91,7 +92,7 @@ func (l jobList) Text() string {
 		if !started.IsZero() {
 			age = humanAge(time.Since(started))
 		}
-		command = truncateWidth(command, 60)
+		command = term.TruncateWidth(command, 60)
 		rows = append(rows, []string{id, host, state, exit, age, command})
 	}
 	switch js := l.Jobs.(type) {
@@ -115,7 +116,7 @@ func (l jobList) Text() string {
 		}
 	}
 	if len(rows) == 0 {
-		return noneYet("jobs", "job start TARGET -- COMMAND")
+		return term.NoneYet("jobs", "job start TARGET -- COMMAND")
 	}
 	s := textTable([]string{"id", "host", "state", "exit", "age", "command"}, rows)
 	if _, ok := l.Jobs.([]*store.Job); ok {
