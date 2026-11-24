@@ -240,6 +240,11 @@ func callOf(cmd *cobra.Command) *call {
 	panic("komando: command " + cmd.CommandPath() + " runs outside a call")
 }
 
+// runExecute runs one command in a call. root.go sets it to execute, the
+// function that builds the command tree, so that this file does not name
+// the tree.
+var runExecute func(cl *call, ctx context.Context, args []string) int
+
 // Execute runs the komando program: one call, made from this process
 // (its arguments, environment and terminal), and its exit code.
 func Execute() int {
@@ -258,7 +263,7 @@ func Execute() int {
 		transport.DistrustEnv() // its HTTPS_PROXY is the agent's: no proxy from it
 	}
 	cl.signals = signalContext
-	return cl.execute(context.Background(), os.Args[1:])
+	return runExecute(cl, context.Background(), os.Args[1:])
 }
 
 // ancestorAgent names the AI agent among the processes above this program.
@@ -285,5 +290,5 @@ func processCall() engine.Call {
 // c.Stderr, and its approvals and environment are its own. It returns the
 // exit code. Calls may run at the same time in one process.
 func RunCall(ctx context.Context, c engine.Call, args []string) int {
-	return newCall(c, args).execute(ctx, args)
+	return runExecute(newCall(c, args), ctx, args)
 }
