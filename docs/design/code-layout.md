@@ -72,6 +72,7 @@ or a listed one is gone.
 | Package | What it is |
 |---|---|
 | `cmd/komando` | `main`: starts `internal/cli` |
+| `internal/auditlog` | the audit log: records sealed in the local store, read back in short steps, and checked by `komando audit verify` |
 | `internal/boundary` | test only: the paid boundary (no sync library or Komando Cloud client in the binary, no komando-owned address but the release site) |
 | `internal/browserx` | a sign-in page in a browser window (VPN SAML logins) |
 | `internal/cachex` | Redis-compatible caches and memcached, with the risk of each command |
