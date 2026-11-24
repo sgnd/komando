@@ -250,7 +250,7 @@ func Execute() int {
 	noCoreDumps() // a crash writes no memory, secrets and all, to disk
 	noPeek()      // Linux: no process of the same user reads komando's memory
 	// a Windows console shows colour and line clearing only when asked
-	ok, restore := consoleVT(int(os.Stderr.Fd()))
+	ok, restore := kitterm.ConsoleVT(int(os.Stderr.Fd()))
 	defer restore()
 	kitterm.VTOK = ok
 	// the store is closed when the program ends
