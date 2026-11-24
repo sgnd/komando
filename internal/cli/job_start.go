@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/sgnd/komando/internal/execsession"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
@@ -181,4 +183,44 @@ func jobRunner(c *sshx.Client, sp jobSpec, inner string) (start string, pw []byt
 	start = `if sudo -n ` + user + `sh -c : 2>/dev/null; then rm -f "$d/pw"; ` + execsession.Feed(false) + ` | sudo -n ` + user + sh +
 		` & w=$!; else ` + execsession.Feed(true) + ` | sudo -S -p '' ` + user + sh + ` & w=$!; fi`
 	return start, []byte(p + "\n"), nil
+}
+
+// sessionsOn turns exec's runs in a session on. It stays off until the
+// v2.7 cut: exec then runs as before, and its session flags are hidden and
+// refused.
+var sessionsOn = false
+
+// sessionOpts are exec's flags for a run in a session on the server.
+type sessionOpts struct {
+	attach []string
+	offset int64
+	wait   time.Duration
+	logMax int64
+}
+
+func (s *sessionOpts) bind(c *cobra.Command) {
+	f := c.Flags()
+	f.StringSliceVar(&s.attach, "attach", nil, "read the rest of these sessions on one server, and their exit codes")
+	f.Int64Var(&s.offset, "offset", 0, "with --attach: start at this byte of the log (next_from of the last read)")
+	f.DurationVar(&s.wait, "wait", 90*time.Second, "wait this long for the run to end; it goes on after (exit 7); 0 returns at once")
+	s.logMax = 1 << 30
+	f.Var(&bytesFlag{n: &s.logMax}, "log-max", "bytes of output the server keeps for the run, like 100MiB; more is dropped")
+	if !sessionsOn {
+		for _, n := range []string{"attach", "offset", "wait", "log-max"} {
+			_ = f.MarkHidden(n)
+		}
+	}
+}
+
+// refuseOff refuses the session flags while sessions are off.
+func (s *sessionOpts) refuseOff(c *cobra.Command) error {
+	if sessionsOn {
+		return nil
+	}
+	for _, n := range []string{"attach", "offset", "wait", "log-max"} {
+		if c.Flags().Changed(n) {
+			return out.Usage("--%s comes with exec sessions, which this build does not have yet", n)
+		}
+	}
+	return nil
 }
