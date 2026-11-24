@@ -91,6 +91,11 @@ answers "unknown command"; read `komando schema` instead of guessing.
    - An entry logs in with `--credential NAME`. Sending a secret anywhere
      (`--env KEY=credential:NAME`, `komando credential run`) stops with
      `SECRET_DESTINATION` until the human agrees and you add `--yes`.
+   - A kubeconfig, a VPN preshared key and a public key are never typed on a
+     command line: use `cluster kubernetes add --kubeconfig-credential`,
+     `credential token add NAME --generate` with `vpn PROVIDER add
+     --psk-credential`, and `credential key install ... --public-key-file`
+     (a person runs that one).
    - `komando credential password show NAME --reveal` works only for a
      person. A private key is never shown.
    - Do not read `~/.komando`, private keys or `.env` files on this

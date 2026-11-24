@@ -364,7 +364,7 @@ group has one type; meanings checked by usage-text template where one exists]
 | `--idle` | | duration | stop after this long with nothing new | stated per flag |
 | `--interval`, `--expires`, `--ttl`, `--older-than`, `--warn` | | duration | a span | per flag; "0 = never" or "> 0" in the usage text |
 | `--since`, `--until` | | when | a point in time | `30m`, `7d`, `today`, `yesterday`, `2026-11-07 14:30`, RFC3339 |
-| `--from` | | string | a local input file, the pair of `--to` (`database P restore`, `queue P message create`) | `-` = stdin |
+| `--from` | | string | a local input file, the pair of `--to` (`database P restore`, `queue P message create`); *exception*: `credential key install --from ADDRESS` limits the key to logins from that address | `-` = stdin |
 | `--to` | | string | a local output file (`database P backup`) | `-` = stdout |
 | `--file` | `-f` | string | a manifest or input file a tool reads (`database P query`) | `-` = stdin where the tool allows it |
 | `--config` | | tool word | *exception*: `queue P topic create --config KEY=VALUE`, `vpn P add --config FILE` | |
@@ -383,6 +383,9 @@ group has one type; meanings checked by usage-text template where one exists]
 | `--credential` | | string | the name of the credential an entry logs in with. A name, never a reference string | |
 | `--sudo-credential` | | string | the credential that holds the sudo password | |
 | `--psk-credential` | | string | the credential that holds a preshared key; generated at 256 bits, never typed | |
+| `--kubeconfig-credential`, `--context` | | string | on `cluster kubernetes add`: the credential that holds the kubeconfig, and the context to use in it | |
+| `--generate` | | bool | on `credential token add`: make 32 random bytes, store them, show nothing | false |
+| `--public-key-file` | | string | on `credential key install`: a local file with the public key to put on the server | |
 | `--store`, `--item` | | string | on `credential KIND add`: the named store and the item in it that holds the value | |
 | `--ask` | | bool | on `credential password add`: a person types the password at every connect; it is never stored | false |
 | `--user` | | string | the account a credential logs in as (`credential password add`, `credential key add`). An entry has no `--user` of its own | |
@@ -581,7 +584,7 @@ flag combination]
 | T2 protected | any T1 or T3 on a protected entry | `--yes`, exit 6 PROTECTED_TARGET | `web1 (protected): <what changes>. Continue? [y/N]` |
 | T3 dangerous | cannot be undone, or an outage: `database P restore`, `queue P topic delete`, `queue P message delete --all`, `storage P object delete`, `registry oci image delete` and `prune`, `credential KIND remove`, `credential key remove --delete-file`, `credential key uninstall`, `copy --sync --delete`, and any text a policy rule rates dangerous in `exec`, `query`, `raw` or `snippet exec` | `--allow-dangerous`, exit 6 POLICY_BLOCKED | `This deletes <what> on <where> for good. Type <answer> to continue:` |
 | T3s safety | weakens komando's own checks: audit off, `policy remove`, `update` to an older version, `config vault keychain --off`, open bind on a tunnel, sending a secret, `TYPE edit --protected=false`, clearing a VPN's `--mfa` | `--yes`, exit 6 SAFETY_SETTING / OPEN_BIND / SECRET_DESTINATION | `This turns off a komando safety check: <what>. Continue? [y/N]` |
-| T4 person only | `config approval-code`, typing a secret, `--reveal`, accepting an old copy, every `shell`, the person step of `test` (two-factor, cloud login), replacing a pinned host key | no flag; NEEDS_PERSON and friends, hint names the command a person runs | the command itself |
+| T4 person only | `config approval-code`, typing a secret, `--reveal`, accepting an old copy, `credential key install` with `--public-key-file`, every `shell`, the person step of `test` (two-factor, cloud login), replacing a pinned host key | no flag; NEEDS_PERSON and friends, hint names the command a person runs | the command itself |
 
 A bulk action has its own confirm: `group remove` on a group of more than 3
 members still needs `--yes` from an agent (CONFIRM_REQUIRED).
@@ -822,6 +825,22 @@ outside store is never typed on an entry; it lives in a
 `credential store PROVIDER` entry, and a credential points at an item in a
 named store with `--store` and `--item`. A key used by two users is two
 credentials. [code; review]
+
+Three forms hold a secret that is never typed on a command line:
+
+- A kubeconfig is stored as a credential and an entry points at it:
+  `komando cluster kubernetes add prod-k8s --kubeconfig-credential api-prod [--context NAME]`.
+  There is no import of a kubeconfig file.
+- A preshared key is made by komando:
+  `komando credential token add psk-office --generate` stores 32 random
+  bytes and shows nothing; `komando vpn wireguard add office
+  --psk-credential psk-office` points at it. A person reads the value with
+  `credential token show --reveal` at a terminal, never an agent. A
+  preshared key given on the command line is refused.
+- A key from outside komando (a phone's public key) goes onto a server with
+  `komando credential key install web1 --user alice --public-key-file FILE
+  [--from ADDRESS]`. By this form the command is tier person (S-7.2):
+  it adds a way to log in that komando did not make. [code]
 
 **S-10.4** A long run. Every `exec` runs in a session on the server and
 prints its session ID first. `exec --attach ID` comes back to it, streams

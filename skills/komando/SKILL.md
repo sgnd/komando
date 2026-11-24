@@ -164,6 +164,12 @@ not know? Set `KOMANDO_AGENT=1`.
    - An entry logs in with `--credential NAME`; you never type a password
      or a reference string. `komando credential password add NAME --user U`
      asks the human for the password, hidden.
+   - A kubeconfig, a VPN preshared key and a public key are never typed on a
+     command line: `komando cluster kubernetes add NAME --kubeconfig-credential NAME`,
+     `komando credential token add NAME --generate` then
+     `komando vpn wireguard add office --psk-credential NAME`, and
+     `komando credential key install web1 --user alice --public-key-file FILE`
+     (that last one needs a person).
    - Sending a secret somewhere (`--env KEY=credential:NAME` on `exec`,
      `komando credential run --env KEY=credential:NAME -- COMMAND` on this
      computer, a credential on a new or moved entry) stops with
