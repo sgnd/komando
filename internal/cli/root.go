@@ -15,7 +15,6 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
-	"runtime/debug"
 	"slices"
 	"strconv"
 	"strings"
@@ -30,19 +29,12 @@ import (
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/tmpclean"
 	"github.com/sgnd/komando/internal/vault"
+	"github.com/sgnd/komando/internal/version"
 )
-
-var Version = "dev"
 
 func init() {
 	runExecute = execute
 	commandTree = func() *cobra.Command { return newRoot(treeCall()) }
-	if Version == "dev" {
-		// `go install ...@v1.2.3` records the module version in the binary
-		if bi, ok := debug.ReadBuildInfo(); ok && isRelease(bi.Main.Version) {
-			Version = bi.Main.Version
-		}
-	}
 }
 
 type globalFlags struct {
@@ -477,7 +469,7 @@ func newRoot(cl *call) *cobra.Command {
 		Long:          rootLong,
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		Version:       Version,
+		Version:       version.Version,
 		RunE:          printFirstSteps,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SetContext(withCall(cmd.Context(), cl))
@@ -502,7 +494,7 @@ func newRoot(cl *call) *cobra.Command {
 			}
 			cl.out.Format = f
 			cl.out.Pretty = cl.flags.pretty
-			cl.out.Version = Version
+			cl.out.Version = version.Version
 			cl.out.DryRun = cl.flags.dryRun
 			cl.oldCopy.Store(cl.flags.dryRun) // a dry run may look at an old copy: it changes nothing
 			cl.out.Start = time.Now()
@@ -722,7 +714,7 @@ func versionCmd() *cobra.Command {
 		Short: "Print the komando version and its home folder",
 		Args:  cobra.NoArgs,
 		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
-			cl.out.Print("version", map[string]string{"version": Version, "home": store.Home()}, nil)
+			cl.out.Print("version", map[string]string{"version": version.Version, "home": store.Home()}, nil)
 			return nil
 		}),
 	}
@@ -742,12 +734,6 @@ func outputFormat(cl *call, v string) (string, bool) {
 		return "json", true
 	}
 	return "", false
-}
-
-// isRelease reports whether a module version is a real tag (not a local or
-// pseudo version).
-func isRelease(v string) bool {
-	return strings.HasPrefix(v, "v") && !strings.HasPrefix(v, "v0.0.0-") && !strings.Contains(v, "+")
 }
 
 // signalContext is cancelled by the first Ctrl-C (or SIGTERM, or SIGHUP:

@@ -53,6 +53,9 @@ func clusterRmCmd() *cobra.Command {
 				if kind != "service" && kind != "stack" {
 					return out.Usage("Swarm removes a service or a stack")
 				}
+				if err := checkSwarmName(name); err != nil {
+					return err
+				}
 				line := "docker " + kind + " rm " + sshx.Q(name)
 				if kind == "service" {
 					if _, err := swarmInspect(cl, cmd.Context(), t, name); err != nil {
