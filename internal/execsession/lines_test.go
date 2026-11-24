@@ -112,7 +112,7 @@ func TestLinesOpenKeepsTheLineStart(t *testing.T) {
 	if used != 3+len(long) || l.Open() != len(long) {
 		t.Fatalf("used %d, open %d", used, l.Open())
 	}
-	_, used = l.Read([]byte("zz"), false)
+	l.Read([]byte("zz"), false)
 	if l.Open() != len(long)+2 {
 		t.Fatalf("open %d after the line ran on", l.Open())
 	}
