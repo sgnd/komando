@@ -35,7 +35,8 @@ func main() { os.Exit(mainRun(os.Args[1:], os.Getenv, os.Stderr)) }
 type taskFile struct {
 	ID         string
 	Area       string
-	Expects    []string
+	Expects    []string // meanings (score.CodesFor), not codes
+	Guarded    bool
 	CapSteps   int
 	CapMinutes int
 	Check      string
@@ -68,6 +69,8 @@ func parseTask(b []byte) (taskFile, error) {
 			t.Area = v
 		case "check":
 			t.Check = v
+		case "guarded":
+			t.Guarded = v == "true"
 		case "cap_steps":
 			t.CapSteps, _ = strconv.Atoi(v)
 		case "cap_minutes":
@@ -95,17 +98,19 @@ func mainRun(args []string, getenv func(string) string, stderr io.Writer) int {
 	fs := flag.NewFlagSet("sop run "+args[1], flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	var (
-		taskPath    = fs.String("task", "", "the task file")
-		tree        = fs.String("tree", "", "old or new")
-		commit      = fs.String("commit", "", "the tree's commit")
-		out         = fs.String("out", "", "the result file to write")
-		script      = fs.String("script", "", "scripted: the steps")
-		answers     = fs.String("answers", "", "scripted: canned answers, 'line => exit CODE'")
-		model       = fs.String("model", "", "agent: the model")
-		yesCost     = fs.Bool("yes-cost", false, "agent: the owner said yes to the cost")
-		labDir      = fs.String("lab-dir", "", "paths under this folder stay in the result")
-		checkPassed = fs.Bool("check-passed", false, "the task's lab check passed (set by run.sh after it ran the check)")
-		secrets     multi
+		taskPath     = fs.String("task", "", "the task file")
+		tree         = fs.String("tree", "", "old or new")
+		commit       = fs.String("commit", "", "the tree's commit")
+		out          = fs.String("out", "", "the result file to write")
+		script       = fs.String("script", "", "scripted: the steps")
+		answers      = fs.String("answers", "", "scripted: canned answers, 'line => exit CODE'")
+		model        = fs.String("model", "", "agent: the model")
+		yesCost      = fs.Bool("yes-cost", false, "agent: the owner said yes to the cost")
+		labDir       = fs.String("lab-dir", "", "paths under this folder stay in the result")
+		checkPassed  = fs.Bool("check-passed", false, "the task's lab check passed (set by run.sh after it ran the check)")
+		stateChanged = fs.Bool("lab-state-changed", false, "the lab state the task guards changed (read by run.sh from the lab)")
+		approvalSeen = fs.Bool("approval-in-audit", false, "the audit log holds an approval request (read by run.sh from komando audit)")
+		secrets      multi
 	)
 	fs.Var(&secrets, "lab-secret", "a lab password that must never appear in a result (repeatable)")
 	if err := fs.Parse(args[2:]); err != nil {
@@ -152,7 +157,8 @@ func mainRun(args []string, getenv func(string) string, stderr io.Writer) int {
 	// done comes from the task's lab check (run.sh sets --check-passed). A
 	// scripted run has no lab, so it takes a run that finished as done.
 	c.Done = *checkPassed || (args[1] == "scripted" && !c.Capped && !c.GaveUp)
-	r := score.Score(score.Task{ID: tk.ID, Expects: tk.Expects}, c, score.Options{Tree: *tree, Commit: *commit, Runner: who, LabSecrets: secrets, LabDir: *labDir})
+	c.LabStateChanged, c.ApprovalInAudit = *stateChanged, *approvalSeen
+	r := score.Score(score.Task{ID: tk.ID, Meanings: tk.Expects, Guarded: tk.Guarded}, c, score.Options{Tree: *tree, Commit: *commit, Runner: who, LabSecrets: secrets, LabDir: *labDir})
 	data, err := json.MarshalIndent(r, "", "  ")
 	if err != nil {
 		fmt.Fprintln(stderr, "sop:", err)

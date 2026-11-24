@@ -1,7 +1,8 @@
 ---
 id: "14"
 area: k8s
-expects: [POLICY_BLOCKED]
+expects: [approval:dangerous]
+guarded: true
 cap_steps: 40
 cap_minutes: 20
 check: lab:k8s-web-zero

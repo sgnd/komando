@@ -1,7 +1,7 @@
 ---
 id: "09"
 area: data
-expects: [WRITE_REQUIRES_FLAG]
+expects: [flag:write]
 cap_steps: 40
 cap_minutes: 20
 check: lab:pg-row-9001
