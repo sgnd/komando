@@ -18,6 +18,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -186,7 +187,7 @@ shown once, here); turning it off needs --yes, so that code too.`,
 			fmt.Fprintf(cl.out.Err, "Add this to your authenticator app (it is shown only now):\n\n  secret: %s\n  or the link: %s\n\n", groupBy4(b32), uri)
 			typed := ask(cl, "Type the 6-digit code the app shows now, to check it: ")
 			if cl.interrupted { // Ctrl-C: nothing was changed
-				return interruptedErr()
+				return term.Interrupted()
 			}
 			step, ok := codeStep(raw, typed, time.Now())
 			if !ok {
