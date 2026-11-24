@@ -4,14 +4,13 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/sgnd/komando/internal/execsession"
 	"github.com/sgnd/komando/internal/out"
 )
 
 // Until the cut, exec runs as before: the session flags exist (hints and
 // docs name them) but are hidden and refused.
 func TestExecSessionFlagsOffUntilTheCut(t *testing.T) {
-	if execsession.On {
+	if sessionsOn {
 		t.Skip("sessions are on")
 	}
 	c, _, err := newRoot(tcl).Find([]string{"exec"})

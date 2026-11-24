@@ -13,7 +13,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/sgnd/komando/internal/execsession"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -226,6 +225,11 @@ so nothing is left on the server. --arg values become $1, $2 ... .`,
 	return c
 }
 
+// sessionsOn turns exec's runs in a session on. It stays off until the
+// v2.7 cut: exec then runs as before, and its session flags are hidden and
+// refused.
+var sessionsOn = false
+
 // sessionOpts are exec's flags for a run in a session on the server.
 type sessionOpts struct {
 	attach []string
@@ -241,7 +245,7 @@ func (s *sessionOpts) bind(c *cobra.Command) {
 	f.DurationVar(&s.wait, "wait", 90*time.Second, "wait this long for the run to end; it goes on after (exit 7); 0 returns at once")
 	s.logMax = 1 << 30
 	f.Var(&bytesFlag{n: &s.logMax}, "log-max", "bytes of output the server keeps for the run, like 100MiB; more is dropped")
-	if !execsession.On {
+	if !sessionsOn {
 		for _, n := range []string{"attach", "offset", "wait", "log-max"} {
 			_ = f.MarkHidden(n)
 		}
@@ -250,7 +254,7 @@ func (s *sessionOpts) bind(c *cobra.Command) {
 
 // refuseOff refuses the session flags while sessions are off.
 func (s *sessionOpts) refuseOff(c *cobra.Command) error {
-	if execsession.On {
+	if sessionsOn {
 		return nil
 	}
 	for _, n := range []string{"attach", "offset", "wait", "log-max"} {
