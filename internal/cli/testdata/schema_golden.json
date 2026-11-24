@@ -11564,6 +11564,12 @@
         "hint": "list sessions with `komando db activity CONN --all`"
       },
       {
+        "code": "SESSION_RECORD_MISSING",
+        "exit": 3,
+        "example": "session … on … was not started from this computer",
+        "hint": "only the computer that started the run can stop it: stop it there; `komando audit` there shows the exec that started it"
+      },
+      {
         "code": "SFTP_UNAVAILABLE",
         "exit": 4,
         "example": "sftp: …",
