@@ -2,7 +2,9 @@ package policy
 
 import (
 	"slices"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestDockerRuns(t *testing.T) {
@@ -33,6 +35,7 @@ func TestDockerRuns(t *testing.T) {
 		{"clears one, sets another", "env -u COMPOSE_FILE COMPOSE_PROFILES=a docker compose up", []string{"compose", "up"}, "", false},
 		{"quoted name", "env -u 'COMPOSE_FILE' docker compose up", []string{"compose", "up"}, "", false},
 		{"not a whole name", "env -u COMPOSE_FILE=x docker compose up", []string{"compose", "up"}, "", false},
+		{"a function named unset", `unset() { export "$1"=x.yml; }; unset COMPOSE_FILE; docker compose up -d`, []string{"compose", "up", "-d"}, "", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -48,5 +51,28 @@ func TestDockerRuns(t *testing.T) {
 	}
 	if runs := DockerRuns("ls /srv && echo docker compose up"); len(runs) != 0 {
 		t.Errorf("no docker command: got %+v", runs)
+	}
+}
+
+// Clears nested so that each pass frees one: the reader stops after a few
+// passes (2000 deep, under 64 KiB) or at once (20000 deep, 260 KB) and
+// counts the folder unknown.
+func TestDockerRunsNestedClearsFailClosed(t *testing.T) {
+	for _, n := range []int{2000, 20000} {
+		cmd := "echo " + strings.Repeat("-u ", n) + strings.Repeat("COMPOSE_A ", n) + "; docker compose up -d"
+		done := make(chan []DockerRun, 1)
+		start := time.Now()
+		go func() { done <- DockerRuns(cmd) }()
+		select {
+		case runs := <-done:
+			if took := time.Since(start); took > 50*time.Millisecond {
+				t.Errorf("%d deep: took %v, want under 50ms", n, took)
+			}
+			if len(runs) != 1 || runs[0].DirKnown {
+				t.Errorf("%d deep: want one run with an unknown folder, got %+v", n, runs)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatalf("%d deep: DockerRuns did not finish in 5s", n)
+		}
 	}
 }

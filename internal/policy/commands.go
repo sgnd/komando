@@ -57,14 +57,23 @@ var composeCleared = regexp.MustCompile(`(?:(?:^|\s)(?:-u\s*|--unset[=\s]\s*)|\b
 // setsCompose: cmd may give docker compose settings (COMPOSE_FILE ...),
 // which move the files it reads, so the folder counts as unknown. Clearing
 // one, as komando's own docker lines do, leaves docker on the files read.
+// Clears still left after a few passes, or in text over 64 KiB, count as
+// settings.
 func setsCompose(cmd string) bool {
-	for {
+	if !strings.Contains(cmd, "COMPOSE_") {
+		return false
+	}
+	if len(cmd) > 64<<10 {
+		return true
+	}
+	for range 4 { // komando's own lines need 2
 		next := composeCleared.ReplaceAllString(cmd, " ")
 		if next == cmd {
 			return strings.Contains(cmd, "COMPOSE_")
 		}
 		cmd = next
 	}
+	return true
 }
 
 func commandsIn(cmd string, depth int, at *folder) []simpleCommand {
