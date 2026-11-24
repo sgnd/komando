@@ -1,3 +1,5 @@
+//go:build !windows
+
 package main
 
 import (
@@ -8,9 +10,10 @@ import (
 	"testing"
 )
 
-// The lab scripts run only in the lab, on Linux. Their logic runs here under
-// stubs: DC is a shell function that records its arguments and answers from
-// a table, K is a script that prints canned audit JSON. No Docker, no lab,
+// The lab scripts are bash and run only in the lab, on Linux, so these tests
+// skip Windows (no bash, no Unix file modes). Their logic runs under stubs:
+// DC is a shell function that records its arguments and answers from a
+// table, K is a script that prints canned audit JSON. No Docker, no lab,
 // no komando and no home folder is touched (lab.sh, which refuses a Mac, is
 // not used).
 func labScript(t *testing.T, name, body string, env ...string) string {
