@@ -10,6 +10,7 @@ import (
 
 	"github.com/pkg/sftp"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -103,7 +104,7 @@ func (r lsResult) Text() string {
 		rows = append(rows, []string{lsMode(e), size, timeCell(e.ModTime), name})
 	}
 	if len(rows) == 0 {
-		return noneYet("files in "+r.Path, "")
+		return term.NoneYet("files in "+r.Path, "")
 	}
 	s := textTable([]string{"mode", "size", "modified", "name"}, rows)
 	if r.Truncated {

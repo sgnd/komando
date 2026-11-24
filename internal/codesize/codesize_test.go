@@ -1,6 +1,7 @@
 // Package codesize keeps komando's code in pieces a person (or an agent)
 // can read in one go: no function over maxFuncLines, no file over
-// maxFileLines. Code that was already bigger when the rule came is listed
+// maxFileLines, no package with more than maxPackageFiles program files.
+// Code that was already bigger when the rule came is listed
 // in testdata/allowed.txt with its size then; it may shrink, never grow,
 // and its line goes once it fits. To refresh the list after making
 // something smaller:
@@ -16,6 +17,7 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -26,7 +28,10 @@ import (
 const (
 	maxFuncLines = 100
 	maxFileLines = 800
-	allowedFile  = "testdata/allowed.txt"
+	// maxPackageFiles is how many program files (no tests) one package holds
+	// before a person cannot read it in one sitting.
+	maxPackageFiles = 60
+	allowedFile     = "testdata/allowed.txt"
 )
 
 var update = flag.Bool("update", false, "rewrite testdata/allowed.txt from the code as it is now")
@@ -38,6 +43,7 @@ func measure(t *testing.T) map[string]int {
 	t.Helper()
 	root := filepath.Join("..", "..")
 	big := map[string]int{}
+	files := map[string]int{} // program files per package folder
 	fset := token.NewFileSet()
 	// sync/ is a module of its own (the sync library), kept to the same limits
 	for _, dir := range []string{"internal", "cmd", "sync"} {
@@ -53,6 +59,7 @@ func measure(t *testing.T) map[string]int {
 			}
 			rel, _ := filepath.Rel(root, p)
 			rel = filepath.ToSlash(rel)
+			files[path.Dir(rel)]++
 			f, err := parser.ParseFile(fset, p, nil, parser.SkipObjectResolution)
 			if err != nil {
 				return err
@@ -74,6 +81,11 @@ func measure(t *testing.T) map[string]int {
 		})
 		if err != nil {
 			t.Fatal(err)
+		}
+	}
+	for dir, n := range files {
+		if n > maxPackageFiles {
+			big["pkg "+dir] = n
 		}
 	}
 	return big
@@ -132,7 +144,7 @@ func writeAllowed(t *testing.T, big map[string]int) {
 	}
 	sort.Strings(keys)
 	var b strings.Builder
-	fmt.Fprintf(&b, "# Code that was over the size limits (functions %d lines, files %d)\n", maxFuncLines, maxFileLines)
+	fmt.Fprintf(&b, "# Code that was over the size limits (functions %d lines, files %d lines, packages %d program files)\n", maxFuncLines, maxFileLines, maxPackageFiles)
 	b.WriteString("# when the rule came. Each may shrink, never grow; see codesize_test.go.\n")
 	for _, k := range keys {
 		fmt.Fprintf(&b, "%s %d\n", k, big[k])
@@ -158,14 +170,17 @@ func TestCodeSize(t *testing.T) {
 		n := big[k]
 		was, ok := allowed[k]
 		limit := maxFuncLines
-		if strings.HasPrefix(k, "file ") {
+		switch {
+		case strings.HasPrefix(k, "file "):
 			limit = maxFileLines
+		case strings.HasPrefix(k, "pkg "):
+			limit = maxPackageFiles
 		}
 		switch {
 		case !ok:
-			t.Errorf("%s: %d lines, the limit is %d: split it into smaller pieces", k, n, limit)
+			t.Errorf("%s: %d, the limit is %d: split it into smaller pieces", k, n, limit)
 		case n > was:
-			t.Errorf("%s: grew from %d to %d lines, over the limit of %d: split it instead of adding to it", k, was, n, limit)
+			t.Errorf("%s: grew from %d to %d, over the limit of %d: split it instead of adding to it", k, was, n, limit)
 		}
 	}
 	for k := range allowed {

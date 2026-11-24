@@ -17,6 +17,7 @@ import (
 	"github.com/pkg/sftp"
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
@@ -256,10 +257,10 @@ type objectList struct {
 
 func (l objectList) Text() string {
 	if len(l.Objects) == 0 && l.Prefix != "" {
-		return noneMatch("objects", l.Prefix+" in "+l.Conn)
+		return term.NoneMatch("objects", l.Prefix+" in "+l.Conn)
 	}
 	if len(l.Objects) == 0 {
-		return noneYet("objects in "+l.Conn, "upload "+l.Conn+" FILE")
+		return term.NoneYet("objects in "+l.Conn, "upload "+l.Conn+" FILE")
 	}
 	var b strings.Builder
 	b.WriteString(objectTable(l.Objects))
@@ -282,7 +283,7 @@ func objectTable(objs []storex.Object) string {
 		}
 		rows[i] = []string{humanBytes(o.Size), timeCell(o.Modified), o.Key}
 	}
-	return dataTable([]string{"size", "modified", "key"}, rows)
+	return term.DataTable([]string{"size", "modified", "key"}, rows)
 }
 
 func storageLsCmd() *cobra.Command {

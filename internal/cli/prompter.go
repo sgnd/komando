@@ -13,6 +13,7 @@ import (
 
 	"golang.org/x/term"
 
+	kitterm "github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 )
 
@@ -225,12 +226,12 @@ const promptMaxRows = 30
 func promptRows(cl *call, rows []pickRow) {
 	w := 0
 	for _, r := range rows[:min(len(rows), promptMaxRows)] {
-		w = max(w, displayWidth(r.label))
+		w = max(w, kitterm.DisplayWidth(r.label))
 	}
 	for i, r := range rows[:min(len(rows), promptMaxRows)] {
 		line := fmt.Sprintf("  %2d  %s", i+1, cleanText(r.label))
 		if r.detail != "" {
-			line += strings.Repeat(" ", w-displayWidth(r.label)+2) + cleanText(r.detail)
+			line += strings.Repeat(" ", w-kitterm.DisplayWidth(r.label)+2) + cleanText(r.detail)
 		}
 		fmt.Fprintln(promptW(cl), line)
 	}

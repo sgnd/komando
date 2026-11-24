@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -480,7 +481,7 @@ type sshKeyList struct {
 
 func (l sshKeyList) Text() string {
 	if len(l.Keys) == 0 {
-		return noneYet("SSH keys", "key gen NAME", "or `komando key add NAME FILE`")
+		return term.NoneYet("SSH keys", "key gen NAME", "or `komando key add NAME FILE`")
 	}
 	var rows [][]string
 	for _, k := range l.Keys {

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/queuex"
 )
 
@@ -26,7 +27,7 @@ func sqsQueuesText(ts []queuex.Topic) string {
 		rows = append(rows, []string{t.Name, map[bool]string{true: "fifo", false: "standard"}[t.Fifo], strconv.FormatInt(t.Messages, 10),
 			strconv.FormatInt(t.InFlight, 10), strconv.FormatInt(t.Delayed, 10), dlq})
 	}
-	return layoutTable([]string{"QUEUE", "TYPE", "MESSAGES", "IN FLIGHT", "DELAYED", "DEAD-LETTER QUEUE"}, rows) +
+	return term.LayoutTable([]string{"QUEUE", "TYPE", "MESSAGES", "IN FLIGHT", "DELAYED", "DEAD-LETTER QUEUE"}, rows) +
 		"(SQS counts are approximate)\n"
 }
 

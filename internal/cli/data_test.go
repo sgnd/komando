@@ -8,42 +8,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"unicode/utf8"
 
 	"github.com/sgnd/komando/internal/dbx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
-
-func TestDisplayWidth(t *testing.T) {
-	for s, want := range map[string]int{"abc": 3, "日本": 4, "🎉": 2, "é": 1, "é": 1, "Ünïcødé 日本 🎉": 15} {
-		if got := displayWidth(s); got != want {
-			t.Errorf("%q: %d, want %d", s, got, want)
-		}
-	}
-	if got := truncateWidth("日本語のテキスト", 9); got != "日本語の…" {
-		t.Errorf("truncate: %q", got)
-	}
-	// A long command of multi-byte characters is cut whole, never mid-character.
-	if got := truncateWidth(strings.Repeat("é", 70), 60); !utf8.ValidString(got) || displayWidth(got) != 60 {
-		t.Errorf("multi-byte cut: %q", got)
-	}
-}
-
-// Columns line up by terminal width, also next to wide characters.
-func TestLayoutTableWide(t *testing.T) {
-	tab := layoutTable([]string{"name", "n"}, [][]string{{"日本", "1"}, {"abcdef", "2"}})
-	lines := strings.Split(strings.TrimSpace(tab), "\n")
-	col := -1
-	for _, l := range lines {
-		idx := strings.LastIndex(l, " ") + 1
-		w := displayWidth(l[:idx])
-		if col >= 0 && w != col {
-			t.Fatalf("misaligned:\n%s", tab)
-		}
-		col = w
-	}
-}
 
 func TestCellText(t *testing.T) {
 	if got := cellText(map[string]string{"base64": "AP8="}, false); got != `\x00ff` {
