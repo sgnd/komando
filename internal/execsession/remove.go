@@ -1,10 +1,12 @@
 package execsession
 
 import (
+	"fmt"
 	"slices"
 	"strconv"
 	"strings"
 
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -126,6 +128,23 @@ func Swept(stdout, id string) []string {
 		}
 	}
 	return nil
+}
+
+// RemoveExit is the error for a remove's exit code: nil for 0.
+// ExitNotRunning is SESSION_RUNNING (stop it first); a folder that is not
+// there or not safe is the same error as for a read.
+func RemoveExit(host, id string, exit int) error {
+	switch exit {
+	case 0:
+		return nil
+	case ExitNotRunning:
+		return out.Errf(out.ExitConflict, "SESSION_RUNNING",
+			"stop it first with `komando exec TARGET --attach ID --stop`, then remove it once it has ended",
+			"session %s on %s is still running", id, host)
+	case ExitGone, ExitUnsafe:
+		return Follow{Host: host, ID: id}.readExit(exit)
+	}
+	return fmt.Errorf("%s: the session remove failed (exit %d)", host, exit)
 }
 
 // idGlob is a shell pattern that matches a session ID and nothing else.

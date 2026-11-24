@@ -26,7 +26,7 @@ func TestExecSessionFlagsOffUntilTheCut(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"attach", "offset", "wait", "log-max"} {
+	for _, name := range []string{"attach", "offset", "wait", "log-max", "stop", "signal", "remove"} {
 		f := c.Flags().Lookup(name)
 		if f == nil || !f.Hidden {
 			t.Errorf("--%s: missing or shown", name)
@@ -37,6 +37,9 @@ func TestExecSessionFlagsOffUntilTheCut(t *testing.T) {
 		{"exec", "web1", "--wait", "5s", "--", "uptime"},
 		{"exec", "web1", "--log-max", "1MiB", "--", "uptime"},
 		{"exec", "web1", "--offset", "3", "--", "uptime"},
+		{"exec", "web1", "--stop", "--", "uptime"},
+		{"exec", "web1", "--signal", "KILL", "--", "uptime"},
+		{"exec", "web1", "--remove", "--", "uptime"},
 	} {
 		var oe *out.Error
 		if err := runRoot(t, args...); !errors.As(err, &oe) || oe.Code != "USAGE" {

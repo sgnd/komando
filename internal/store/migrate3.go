@@ -208,7 +208,8 @@ func noLiveProcesses(alive func(int, string) bool) error {
 	// record here is the only way to stop it, so a record alone stops this
 	for _, n := range slices.Sorted(maps.Keys(rt.ExecSessions)) {
 		e := rt.ExecSessions[n]
-		running = append(running, fmt.Sprintf("exec session %s on %s (read it to the end: komando exec %s --attach %s)", n, e.Host, e.Host, n))
+		running = append(running, fmt.Sprintf("exec session %s on %s (read it to the end: komando exec %s --attach %s; or stop it: komando exec %s --attach %s --stop, then komando exec %s --attach %s --remove)",
+			n, e.Host, e.Host, n, e.Host, n, e.Host, n))
 	}
 	if len(running) > 0 {
 		return out.Errf(out.ExitConflict, "STORE_IN_USE", "end each one as listed, then run `komando doctor` again",

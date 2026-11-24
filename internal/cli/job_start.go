@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -199,7 +201,13 @@ type sessionOpts struct {
 	offset int64
 	wait   time.Duration
 	logMax int64
+	stop   bool
+	signal string
+	remove bool
 }
+
+// sessionFlags are exec's flags that come with sessions.
+var sessionFlags = []string{"attach", "offset", "wait", "log-max", "stop", "signal", "remove"}
 
 func (s *sessionOpts) bind(c *cobra.Command) {
 	f := c.Flags()
@@ -208,8 +216,11 @@ func (s *sessionOpts) bind(c *cobra.Command) {
 	durVar(f, &s.wait, "wait", time.Minute, "wait this long for the run to end; it goes on after (exit 7); 0 returns at once")
 	s.logMax = 1 << 30
 	f.Var(&bytesFlag{n: &s.logMax}, "log-max", "bytes of output the server keeps for the run, like 100MiB; more is dropped")
+	f.BoolVar(&s.stop, "stop", false, "with --attach ID: stop the run, from the computer that started it")
+	f.StringVar(&s.signal, "signal", "TERM", "with --stop: TERM, INT, HUP, QUIT or KILL")
+	f.BoolVar(&s.remove, "remove", false, "with --attach ID: delete a finished session's folder on the server")
 	if !sessionsOn {
-		for _, n := range []string{"attach", "offset", "wait", "log-max"} {
+		for _, n := range sessionFlags {
 			_ = f.MarkHidden(n)
 		}
 	}
@@ -220,7 +231,7 @@ func (s *sessionOpts) refuseOff(c *cobra.Command) error {
 	if sessionsOn {
 		return nil
 	}
-	for _, n := range []string{"attach", "offset", "wait", "log-max"} {
+	for _, n := range sessionFlags {
 		if c.Flags().Changed(n) {
 			return out.Usage("--%s comes with exec sessions, which this build does not have yet", n)
 		}
@@ -228,14 +239,34 @@ func (s *sessionOpts) refuseOff(c *cobra.Command) error {
 	return nil
 }
 
-// attachCall is exec with --attach or --offset: --attach IDs and no
-// command (command says one was given).
-func (s *sessionOpts) attachCall(cl *call, ctx context.Context, args []string, command bool) error {
+// wants says whether exec works on sessions that run already: --attach,
+// or a flag that goes with it.
+func (s *sessionOpts) wants(c *cobra.Command) bool {
+	return len(s.attach) > 0 || slices.ContainsFunc([]string{"offset", "stop", "signal", "remove"}, c.Flags().Changed)
+}
+
+// attachCall is exec on sessions that run already: --attach IDs and no
+// command (command says one was given); with --stop or --remove, one ID.
+func (s *sessionOpts) attachCall(cl *call, ctx context.Context, c *cobra.Command, args []string, command bool) error {
+	f := c.Flags()
+	one := len(s.attach) == 1 && !f.Changed("offset") && !f.Changed("wait")
 	switch {
 	case len(s.attach) == 0:
-		return out.Usage("--offset goes with --attach ID")
+		return out.Usage("--offset, --stop and --remove go with --attach ID")
 	case command || len(args) > 1:
-		return out.Usage("--attach reads sessions that run already: give no command with it")
+		return out.Usage("--attach works on sessions that run already: give no command with it")
+	case f.Changed("signal") && !s.stop:
+		return out.Usage("--signal goes with --stop")
+	case s.stop && s.remove:
+		return out.Usage("--stop and --remove go one at a time: stop the run, then remove it once it has ended")
+	case (s.stop || s.remove) && !one:
+		return out.Usage("--stop and --remove take one session ID, without --offset or --wait")
+	case s.stop && !slices.Contains(execsession.Signals, s.signal):
+		return out.Usage("--signal %q: give one of TERM, INT, HUP, QUIT or KILL", s.signal)
+	case s.stop:
+		return stopSession(cl, ctx, args[0], s.attach[0], s.signal)
+	case s.remove:
+		return removeSession(cl, ctx, args[0], s.attach[0])
 	}
 	return attachSessions(cl, ctx, args[0], *s)
 }
@@ -461,17 +492,11 @@ func attachSessions(cl *call, ctx context.Context, target string, so sessionOpts
 	if so.offset < 0 || (so.offset > 0 && len(so.attach) > 1) {
 		return out.Usage("--offset goes with one session ID, and is 0 or more")
 	}
-	st, err := loadState()
+	st, h, err := sessionHost(cl, target)
 	if err != nil {
 		return err
 	}
-	hosts, err := resolveTargets(cl, st, target)
-	if err != nil {
-		return err
-	}
-	if len(hosts) != 1 || hosts[0].Windows() {
-		return out.Usage("--attach reads sessions on one Linux or Unix server: name that server, as the exec that started them did")
-	}
+	hosts := []*store.Host{h}
 	deadline := time.Now().Add(so.wait)
 	res := fanout(cl, ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
 		var rs []execHostResult
@@ -511,6 +536,155 @@ func attachSessions(cl *call, ctx context.Context, target string, so sessionOpts
 	data.Summary.Total = len(data.Results)
 	audit(cl, st, "exec", hostNames(hosts), shown, data.Summary.Failed == 0, map[string]any{"attach": so.attach, "exit_codes": exitCodes(data.Results)})
 	return finishFleet(cl, "exec", data, data.Summary, worst, fails)
+}
+
+// sessionHost is the one Linux or Unix server target names, for --attach
+// and its --stop and --remove.
+func sessionHost(cl *call, target string) (*store.State, *store.Host, error) {
+	st, err := loadState()
+	if err != nil {
+		return nil, nil, err
+	}
+	hosts, err := resolveTargets(cl, st, target)
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(hosts) != 1 || hosts[0].Windows() {
+		return nil, nil, out.Usage("--attach works on sessions on one Linux or Unix server: name that server, as the exec that started them did")
+	}
+	return st, hosts[0], nil
+}
+
+// readRuntime is this computer's runtime data; none yet reads as empty.
+func readRuntime() (*store.Runtime, error) {
+	rt, err := store.ReadRuntime()
+	if errors.Is(err, fs.ErrNotExist) {
+		return &store.Runtime{}, nil
+	}
+	return rt, err
+}
+
+// sessionChange is the result of --stop or --remove.
+type sessionChange struct {
+	Session   string `json:"session"`
+	Host      string `json:"host"`
+	Signal    string `json:"signal,omitempty"`
+	Signalled string `json:"signalled,omitempty"` // group | pid: what the signal went to
+	PID       int    `json:"pid,omitempty"`
+	Removed   bool   `json:"removed,omitempty"`
+}
+
+func (s sessionChange) Text() string {
+	if s.Removed {
+		return "removed session " + s.Session + " on " + s.Host
+	}
+	return "sent " + s.Signal + " to the " + cmp.Or(s.Signalled, "process") + " of session " + s.Session + " on " + s.Host + " (pid " + strconv.Itoa(s.PID) + ")"
+}
+
+// changeSession runs script, a --stop or --remove of session id on h: a
+// change, guarded as job kill is (a protected server asks first), and
+// recorded in the audit log as shown with extra. input gives what the
+// script reads, after the guard. A dry run prints the script and returns
+// nil, nil.
+func changeSession(cl *call, ctx context.Context, st *store.State, h *store.Host, id, shown, script string, input func() ([]byte, error), extra map[string]any) (*sshx.RunResult, error) {
+	extra["attach"] = []string{id}
+	if err := guard(cl, st, []*store.Host{h}, "", true); err != nil {
+		extra["blocked"] = toErr(err).Code
+		audit(cl, st, "exec", []string{h.Name}, shown, false, extra)
+		return nil, err
+	}
+	if cl.flags.dryRun {
+		cl.out.Print("exec", map[string]any{"session": id, "host": h.Name, "would_run": script}, nil)
+		return nil, nil
+	}
+	var stdin []byte
+	if input != nil {
+		var err error
+		if stdin, err = input(); err != nil {
+			return nil, err
+		}
+	}
+	var r *sshx.RunResult
+	err := withClient(cl, ctx, st, h, func(c *sshx.Client) error {
+		var err error
+		r, err = sshx.Run(ctx, c, sshx.RunRequest{Command: script, Stdin: stdin, Timeout: 30 * time.Second, MaxOutput: 4 << 10})
+		return err
+	})
+	audit(cl, st, "exec", []string{h.Name}, shown, err == nil && r.ExitCode == 0, extra)
+	return r, err
+}
+
+// stopSession is exec --attach ID --stop: it signals the run from its
+// record on this computer alone (A-C324-1), through sudo as the run ran
+// (A-C324-2), and keeps the record: the removal drops it.
+func stopSession(cl *call, ctx context.Context, target, id, sig string) error {
+	st, h, err := sessionHost(cl, target)
+	if err != nil {
+		return err
+	}
+	rt, err := readRuntime()
+	if err != nil {
+		return err
+	}
+	rec, err := execsession.ForStop(rt, h.Name, id)
+	if err != nil {
+		return err
+	}
+	password := (rec.Sudo || rec.SudoUser != "") && h.SudoRef != ""
+	script, err := execsession.StopCommand(rec, sig, password)
+	if err != nil {
+		return err
+	}
+	var input func() ([]byte, error)
+	if password {
+		input = func() ([]byte, error) {
+			p, err := vault.Resolve(h.SudoRef)
+			return []byte(p + "\n"), err
+		}
+	}
+	shown := shellLine([]string{"--attach", id, "--stop", "--signal", sig})
+	r, err := changeSession(cl, ctx, st, h, id, shown, script, input, map[string]any{"stop": sig, "pid": rec.PID})
+	if err != nil || r == nil {
+		return err
+	}
+	if err := execsession.StopExit(h.Name, id, r.ExitCode, r.Stderr); err != nil {
+		return err
+	}
+	cl.out.Print("exec", sessionChange{Session: id, Host: h.Name, Signal: sig, Signalled: execsession.Signalled(r.Stdout), PID: rec.PID}, nil)
+	return nil
+}
+
+// removeSession is exec --attach ID --remove: it deletes a finished
+// session's folder and drops its record. With this computer's record the
+// stored process decides that the run ended; without one, the files on
+// the server.
+func removeSession(cl *call, ctx context.Context, target, id string) error {
+	st, h, err := sessionHost(cl, target)
+	if err != nil {
+		return err
+	}
+	rt, err := readRuntime()
+	if err != nil {
+		return err
+	}
+	rec := rt.ExecSessions[id]
+	if rec != nil && rec.Host != h.Name {
+		rec = nil
+	}
+	script, err := execsession.RemoveScript(id, rec)
+	if err != nil {
+		return err
+	}
+	r, err := changeSession(cl, ctx, st, h, id, shellLine([]string{"--attach", id, "--remove"}), script, nil, map[string]any{"remove": true})
+	if err != nil || r == nil {
+		return err
+	}
+	if err := execsession.RemoveExit(h.Name, id, r.ExitCode); err != nil {
+		return err
+	}
+	forgetSessions(cl, h.Name, []string{id})
+	cl.out.Print("exec", sessionChange{Session: id, Host: h.Name, Removed: true}, nil)
+	return nil
 }
 
 // errOrNil is err as a result's error, or nil.
