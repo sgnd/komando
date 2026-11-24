@@ -18,6 +18,7 @@ import (
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/version"
 )
 
 // `komando update`: replace this komando with a release from GitHub. The
@@ -144,7 +145,7 @@ func runUpdate(cl *call, ctx context.Context, want string) (updateResult, error)
 	}
 	ctx, cancel := context.WithTimeout(ctx, updateTimeout(cl))
 	defer cancel()
-	r := updateResult{Path: exe, From: Version, newest: want == "" || want == "latest"}
+	r := updateResult{Path: exe, From: version.Version, newest: want == "" || want == "latest"}
 	if r.To, err = pickVersion(cl, ctx, want); err != nil {
 		return r, err
 	}
@@ -195,9 +196,9 @@ func updatable() (string, error) {
 		return "", out.Errf(out.ExitConflict, "UNSUPPORTED_PLATFORM", "build komando from source: https://github.com/sgnd/komando#install",
 			"there is no komando release for %s", platform())
 	}
-	if !isReleaseTag(Version) {
+	if !isReleaseTag(version.Version) {
 		return "", out.Errf(out.ExitConflict, "SOURCE_BUILD", "build it again (git pull, then make build), or install a release with the install line: https://github.com/sgnd/komando#install",
-			"this komando was built from source (version %s), so update does not replace it", Version)
+			"this komando was built from source (version %s), so update does not replace it", version.Version)
 	}
 	exe, err := selfPath()
 	if err != nil {
