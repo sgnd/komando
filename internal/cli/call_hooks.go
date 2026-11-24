@@ -8,6 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/cloud"
 	"github.com/sgnd/komando/internal/gcpadc"
 	"github.com/sgnd/komando/internal/netx"
@@ -205,7 +206,7 @@ func chainOwner(ctx context.Context) string {
 // running call, people and scripts alike (it says how the store is
 // guarded), or to the process's when none runs.
 func storeNotice(msg string) {
-	line := "komando: " + cleanText(msg)
+	line := "komando: " + term.CleanText(msg)
 	calls := runningCalls()
 	if len(calls) == 0 {
 		fmt.Fprintln(os.Stderr, line)

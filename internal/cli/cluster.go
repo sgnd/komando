@@ -18,6 +18,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/kube"
@@ -383,7 +384,7 @@ func kubeErr(err error) error {
 			return out.Errf(out.ExitNotFound, "TOOL_MISSING", hint, "%s", pe.Error())
 		}
 		return out.Errf(out.ExitConnect, "LOGIN_FAILED", "run the program in a terminal to see why it cannot log in (it may need a person to sign in first), then run it again",
-			"%s", cleanText(pe.Error()))
+			"%s", term.CleanText(pe.Error()))
 	}
 	if errors.Is(err, context.DeadlineExceeded) {
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout, or check the conn with `komando test TARGET` (and its --via path)",

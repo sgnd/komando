@@ -4,6 +4,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 )
 
@@ -24,7 +25,7 @@ func logTail(path string, n int) string {
 	}
 	var lines []string
 	for _, l := range strings.Split(strings.TrimSpace(string(b)), "\n") {
-		if l = cleanText(strings.TrimSpace(l)); l != "" {
+		if l = term.CleanText(strings.TrimSpace(l)); l != "" {
 			lines = append(lines, l)
 		}
 	}

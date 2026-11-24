@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
@@ -153,7 +154,7 @@ func pinsNeedAPerson(cl *call, st *store.State, hosts []*store.Host) error {
 	if len(names) == 0 {
 		return nil
 	}
-	return replacePin(cl, names, prot, "replacing the pinned host key of "+joinAnd(names))
+	return replacePin(cl, names, prot, "replacing the pinned host key of "+term.JoinAnd(names))
 }
 
 // countPinned counts the pins for addr, as PinHostKey would replace them,

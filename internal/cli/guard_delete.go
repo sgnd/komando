@@ -5,6 +5,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 )
 
@@ -60,7 +61,7 @@ func guardFsRm(cl *call, target string, paths []string, recursive bool) error {
 		}
 	}
 	return stop("a deleted file has no copy; confirm with the user, then add --allow-dangerous"+dry,
-		fmt.Sprintf("deletes %s on %s for good", joinAnd(paths), target), "fs rm deletes %s on %s for good", joinAnd(paths), target)
+		fmt.Sprintf("deletes %s on %s for good", term.JoinAnd(paths), target), "fs rm deletes %s on %s for good", term.JoinAnd(paths), target)
 }
 
 // protectedTargets are the protected servers target picks, and its

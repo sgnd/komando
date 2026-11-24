@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/openvpn"
@@ -358,7 +359,7 @@ func vpnAskPSKRef(cmd *cobra.Command, name, kind string, askPsk bool, ref *strin
 		return out.Usage("use --ask-psk or --psk-ref, not both")
 	}
 	if !vpnTakes(kind, "ask-psk") {
-		return out.Usage("--ask-psk is for %s VPNs, not %s", joinAnd(vpnKindsTaking("ask-psk")), kind)
+		return out.Usage("--ask-psk is for %s VPNs, not %s", term.JoinAnd(vpnKindsTaking("ask-psk")), kind)
 	}
 	*ref = "secret:" + name + "-psk"
 	return nil
@@ -684,7 +685,7 @@ func (t vpnChangeText) Text() string {
 	b.WriteString("\n")
 	field := func(k, val string) {
 		if val != "" {
-			b.WriteString("  " + k + ": " + cleanText(val) + "\n")
+			b.WriteString("  " + k + ": " + term.CleanText(val) + "\n")
 		}
 	}
 	v := t.v
@@ -720,7 +721,7 @@ func (t vpnChangeText) Text() string {
 	if c := strings.TrimSpace(v.Config); c != "" {
 		b.WriteString("  config:\n")
 		for _, l := range strings.Split(c, "\n") {
-			b.WriteString(strings.TrimRight("    "+cleanText(l), " ") + "\n")
+			b.WriteString(strings.TrimRight("    "+term.CleanText(l), " ") + "\n")
 		}
 	}
 	for _, n := range t.notes {

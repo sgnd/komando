@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -280,12 +281,12 @@ func secretRmCmd() *cobra.Command {
 				}
 			}
 			// a deleted secret has no copy: T3 (OD-7)
-			if err := guardLocalDelete(cl, dedupe(args), "secrets", "deletes the saved "+nouns(len(dedupe(args)), "secret")+" "+joinAnd(dedupe(args))+" for good"); err != nil {
+			if err := guardLocalDelete(cl, dedupe(args), "secrets", "deletes the saved "+nouns(len(dedupe(args)), "secret")+" "+term.JoinAnd(dedupe(args))+" for good"); err != nil {
 				return err
 			}
 			if cl.flags.dryRun {
 				cl.out.Print("secret.rm", textAs{map[string]any{"would_remove": args}, textFn(func() string {
-					return "would remove " + nouns(len(args), "secret") + " " + joinAnd(args) + " for good\n"
+					return "would remove " + nouns(len(args), "secret") + " " + term.JoinAnd(args) + " for good\n"
 				})}, nil)
 				return nil
 			}
@@ -313,7 +314,7 @@ func secretRmCmd() *cobra.Command {
 				removed = args[0] // one name prints as a string, several as a list
 			}
 			cl.out.Print("secret.rm", textAs{map[string]any{"removed": removed}, textFn(func() string {
-				return "removed " + nouns(len(args), "secret") + " " + joinAnd(args) + "\n"
+				return "removed " + nouns(len(args), "secret") + " " + term.JoinAnd(args) + "\n"
 			})}, nil)
 			return nil
 		}),

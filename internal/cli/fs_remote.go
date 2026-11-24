@@ -97,11 +97,11 @@ func (r lsResult) Text() string {
 		if e.Link != "" {
 			name += " -> " + e.Link
 		}
-		size := humanBytes(e.Size)
+		size := term.HumanBytes(e.Size)
 		if e.Type == "dir" {
 			size = "-"
 		}
-		rows = append(rows, []string{lsMode(e), size, timeCell(e.ModTime), name})
+		rows = append(rows, []string{lsMode(e), size, term.TimeCell(e.ModTime), name})
 	}
 	if len(rows) == 0 {
 		return term.NoneYet("files in "+r.Path, "")
@@ -164,7 +164,7 @@ func (r fsChange) TextFor(pr *out.Printer) string {
 	default:
 		size := ""
 		if n, ok := r["bytes"].(int64); ok {
-			size = humanBytes(n) + ", "
+			size = term.HumanBytes(n) + ", "
 		}
 		fmt.Fprintf(&b, "wrote %s (%smode %v)\n", p, size, r["mode"])
 	}
