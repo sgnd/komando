@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -245,6 +246,17 @@ func callOf(cmd *cobra.Command) *call {
 // the tree.
 var runExecute func(cl *call, ctx context.Context, args []string) int
 
+// runCall runs one command in cl, or says on stderr that there is no
+// command tree to run it in: a program that never set runExecute stops
+// with exit 1 and runs nothing.
+func runCall(cl *call, ctx context.Context, args []string) int {
+	if runExecute == nil {
+		fmt.Fprintln(cl.out.Err, "komando: the command tree is not loaded")
+		return 1
+	}
+	return runExecute(cl, ctx, args)
+}
+
 // Execute runs the komando program: one call, made from this process
 // (its arguments, environment and terminal), and its exit code.
 func Execute() int {
@@ -263,7 +275,7 @@ func Execute() int {
 		transport.DistrustEnv() // its HTTPS_PROXY is the agent's: no proxy from it
 	}
 	cl.signals = signalContext
-	return runExecute(cl, context.Background(), os.Args[1:])
+	return runCall(cl, context.Background(), os.Args[1:])
 }
 
 // ancestorAgent names the AI agent among the processes above this program.
@@ -290,5 +302,5 @@ func processCall() engine.Call {
 // c.Stderr, and its approvals and environment are its own. It returns the
 // exit code. Calls may run at the same time in one process.
 func RunCall(ctx context.Context, c engine.Call, args []string) int {
-	return runExecute(newCall(c, args), ctx, args)
+	return runCall(newCall(c, args), ctx, args)
 }
