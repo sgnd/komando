@@ -3,6 +3,7 @@ package cli
 import (
 	"cmp"
 	"fmt"
+	"maps"
 	"regexp"
 	"slices"
 	"sort"
@@ -19,8 +20,9 @@ import (
 )
 
 type policyCheck struct {
-	Blocked bool          `json:"blocked"`
-	Matches []policy.Rule `json:"matches"`
+	Blocked bool              `json:"blocked"`
+	Matches []policy.Rule     `json:"matches"`
+	Off     map[string]string `json:"off"` // rule id: where a matching rule is switched off
 }
 
 func (p policyCheck) Text() string {
@@ -30,6 +32,9 @@ func (p policyCheck) Text() string {
 	reasons := make([]string, len(p.Matches))
 	for i, m := range p.Matches {
 		reasons[i] = m.Reason + " (rule " + m.ID + ")"
+		if where := p.Off[m.ID]; where != "" {
+			reasons[i] = m.Reason + " (rule " + m.ID + " matches; off on " + where + ")"
+		}
 	}
 	return "Blocked: " + strings.Join(reasons, "; ") + "\n"
 }
@@ -48,12 +53,12 @@ func policyCmd() *cobra.Command {
 			}
 			var rules []map[string]string
 			for _, r := range shellRulesByID() {
-				rules = append(rules, map[string]string{"id": r.ID, "reason": r.Reason, "pattern": policy.Pattern(r), "off": switchOf(st.Settings.RulesOff, r.ID).where()})
+				rules = append(rules, map[string]string{"id": r.ID, "reason": r.Reason, "pattern": policy.Pattern(r), "off": switchOf(st, r.ID).where()})
 			}
 			var custom []map[string]string
 			bad := policy.Invalid(st.Settings.ExtraDenyPattern)
 			for i, p := range st.Settings.ExtraDenyPattern {
-				r := map[string]string{"id": policy.CustomID(p), "pattern": p}
+				r := map[string]string{"id": policy.CustomID(p), "pattern": p, "off": switchOf(st, policy.CustomID(p)).where()}
 				if why, ok := bad[i]; ok {
 					r["error"] = why
 				}
@@ -172,7 +177,12 @@ func policyCheckCmd() *cobra.Command {
 				return exitCode(out.ExitPolicy)
 			}
 			hits := policy.Check(strings.Join(args, " "), st.Settings.ExtraDenyPattern)
-			res := policyCheck{Blocked: len(hits) > 0, Matches: hits}
+			res := policyCheck{Blocked: len(hits) > 0, Matches: hits, Off: map[string]string{}}
+			for _, h := range hits {
+				if where := switchOf(st, h.ID).where(); where != "" {
+					res.Off[h.ID] = where
+				}
+			}
 			if !res.Blocked {
 				cl.out.Print("policy.check", res, nil)
 				return nil
@@ -347,25 +357,20 @@ func policyHits(st *store.State, hosts []*store.Host, command string, own bool) 
 }
 
 // ruleOffOn says whether the rule id is switched off on every one of
-// hosts. A command bound to no server counts only a switch for everywhere.
+// hosts. A command bound to no server counts only a switch for every server.
 func ruleOffOn(offs []store.RuleOff, id string, hosts []*store.Host) bool {
 	i := slices.IndexFunc(offs, func(o store.RuleOff) bool { return o.Rule == id })
 	if i < 0 {
 		return false
 	}
-	o := offs[i]
-	if len(o.Hosts) == 0 && len(o.Groups) == 0 {
+	if offs[i].Everywhere {
 		return true
 	}
 	if len(hosts) == 0 {
 		return false
 	}
-	fold := func(want string) func(string) bool {
-		return func(s string) bool { return strings.EqualFold(s, want) }
-	}
 	for _, h := range hosts {
-		inGroup := slices.ContainsFunc(h.Groups, func(g string) bool { return slices.ContainsFunc(o.Groups, fold(g)) })
-		if !inGroup && !slices.ContainsFunc(o.Hosts, fold(h.Name)) {
+		if h.Rec.ID == "" || !slices.Contains(offs[i].HostIDs, h.Rec.ID) {
 			return false
 		}
 	}
@@ -382,61 +387,107 @@ func builtinRule(id string) (policy.Rule, error) {
 	return policy.Rule{}, out.Errf(out.ExitNotFound, "RULE_NOT_FOUND", "see the built-in rules and their ids with `komando policy list`", "no built-in rule named %q", id)
 }
 
-// ruleScope is the servers and groups a switch names, as the list writes
-// them; an unknown one is an error.
-func ruleScope(cl *call, st *store.State, hosts, groups []string) ([]string, []string, error) {
-	var hs, gs []string
+// switchRule is a rule a person can switch off: a built-in rule, or one of
+// their own deny rules by its id.
+func switchRule(st *store.State, id string) (policy.Rule, error) {
+	if r, err := builtinRule(id); err == nil {
+		return r, nil
+	}
+	for _, p := range st.Settings.ExtraDenyPattern {
+		if policy.CustomID(p) == id {
+			return policy.Rule{ID: id, Reason: "matches your deny rule " + p}, nil
+		}
+	}
+	return policy.Rule{}, out.Errf(out.ExitNotFound, "RULE_NOT_FOUND", "see every rule and its id with `komando policy list`", "no rule named %q", id)
+}
+
+// keystoneRules keep the other rules working: with one of them off, a
+// command can hide what it runs from every rule, or wipe the server or its
+// logins. Switching one off takes the rule's name, typed by the person.
+var keystoneRules = []string{"check-failed", "base64-pipe-sh", "decode-run", "curl-pipe-sh", "win-encoded", "win-decode-run", "win-download-run",
+	"rm-root", "rm-cd-root", "find-delete-root", "rm-system-dir", "mkfs", "dd-device", "redirect-device", "wipefs", "win-rm-root", "win-format",
+	"passwd-files", "passwd-files-write"}
+
+// ruleScope is the servers a switch names, as their record IDs: a group is
+// read now, so a server added to it later is not in the switch. The groups
+// are kept as labels.
+func ruleScope(cl *call, st *store.State, hosts, groups []string) (ids, gs []string, err error) {
 	for _, n := range hosts {
 		h, err := findHost(cl, st, n)
 		if err != nil {
 			return nil, nil, err
 		}
-		hs = append(hs, h.Name)
+		ids = append(ids, h.Rec.ID)
 	}
 	for _, g := range groups {
 		g = strings.TrimPrefix(g, "@")
-		if len(groupMembersOf(st, g)) == 0 {
+		members := groupMembersOf(st, g)
+		if len(members) == 0 {
 			return nil, nil, groupNotFound(cl, st, g)
+		}
+		n := len(ids)
+		for _, m := range members {
+			if h, ok := st.Hosts[m]; ok {
+				ids = append(ids, h.Rec.ID)
+			}
+		}
+		if len(ids) == n {
+			return nil, nil, out.Usage("the group %s has no servers", g)
 		}
 		gs = append(gs, g)
 	}
-	return dedupe(hs), dedupe(gs), nil
+	ids = slices.DeleteFunc(ids, func(id string) bool { return id == "" })
+	return dedupe(ids), dedupe(gs), nil
 }
 
-// policySwitch is what policy edit did, and policy show's switch.
+// policySwitch is where a rule is off: what policy edit did, and policy
+// show's and policy list's off column.
 type policySwitch struct {
 	Rule       string   `json:"rule"`
 	Stops      string   `json:"stops"` // what the rule stops
 	Off        bool     `json:"off"`
 	Everywhere bool     `json:"everywhere"` // off on every server
-	Hosts      []string `json:"hosts"`
-	Groups     []string `json:"groups"`
+	Hosts      []string `json:"hosts"`      // the servers it is off on, by their names now
+	HostIDs    []string `json:"host_ids"`   // and by their record IDs
+	Groups     []string `json:"groups"`     // the groups named when it was switched off (their servers then)
 }
 
-func switchOf(offs []store.RuleOff, id string) policySwitch {
-	p := policySwitch{Rule: id, Hosts: []string{}, Groups: []string{}}
-	if r, err := builtinRule(id); err == nil {
+// switchOf is the switch of rule id in st. A server that was removed drops
+// out of it.
+func switchOf(st *store.State, id string) policySwitch {
+	p := policySwitch{Rule: id, Hosts: []string{}, HostIDs: []string{}, Groups: []string{}}
+	if r, err := switchRule(st, id); err == nil {
 		p.Stops = r.Reason
 	}
-	if i := slices.IndexFunc(offs, func(o store.RuleOff) bool { return o.Rule == id }); i >= 0 {
-		o := offs[i]
-		p.Off, p.Everywhere = true, len(o.Hosts) == 0 && len(o.Groups) == 0
-		p.Hosts, p.Groups = append(p.Hosts, o.Hosts...), append(p.Groups, o.Groups...)
+	offs := st.Settings.RulesOff
+	i := slices.IndexFunc(offs, func(o store.RuleOff) bool { return o.Rule == id })
+	if i < 0 {
+		return p
 	}
+	for _, name := range slices.Sorted(maps.Keys(st.Hosts)) {
+		if h := st.Hosts[name]; h.Rec.ID != "" && slices.Contains(offs[i].HostIDs, h.Rec.ID) {
+			p.Hosts, p.HostIDs = append(p.Hosts, name), append(p.HostIDs, h.Rec.ID)
+		}
+	}
+	p.Groups = append(p.Groups, offs[i].Groups...)
+	p.Everywhere = offs[i].Everywhere
+	p.Off = p.Everywhere || len(p.Hosts) > 0
 	return p
 }
 
-// where says where a switched-off rule is off, in words.
+// where says where a switched-off rule is off, in words; "" when it is on.
 func (p policySwitch) where() string {
-	if p.Everywhere {
-		return "everywhere"
+	switch {
+	case p.Everywhere:
+		return "every server"
+	case !p.Off:
+		return ""
 	}
-	var w []string
-	w = append(w, p.Hosts...)
-	for _, g := range p.Groups {
-		w = append(w, "@"+g)
+	w := strings.Join(p.Hosts, ", ")
+	if len(p.Groups) > 0 {
+		w += " (from @" + strings.Join(p.Groups, ", @") + ")"
 	}
-	return strings.Join(w, ", ")
+	return w
 }
 
 func (p policySwitch) Text() string {
@@ -446,50 +497,90 @@ func (p policySwitch) Text() string {
 	return "komando no longer stops what the rule " + p.Rule + " stops (" + p.Stops + ") on: " + p.where() + "\n"
 }
 
-// setRuleOff switches id off on hosts and groups (everywhere when both are
-// empty), keeping what an earlier switch named.
-func setRuleOff(offs []store.RuleOff, id string, hosts, groups []string) []store.RuleOff {
+// rulesOff are the rules switched off somewhere, the keystone rules first.
+func rulesOff(st *store.State) []policySwitch {
+	var keystone, rest []policySwitch
+	for _, o := range st.Settings.RulesOff {
+		if sw := switchOf(st, o.Rule); !sw.Off {
+			continue
+		} else if slices.Contains(keystoneRules, o.Rule) {
+			keystone = append(keystone, sw)
+		} else {
+			rest = append(rest, sw)
+		}
+	}
+	return append(keystone, rest...)
+}
+
+// offSentence is what the confirm shows after verb ("switching", or
+// "switches" for the typed question, which reads "This switches ..."): the
+// rule, where, and what komando no longer stops.
+func offSentence(verb string, r policy.Rule, sw policySwitch) string {
+	head := verb + " the rule " + r.ID + " off on " + sw.where()
+	switch {
+	case r.ID == "check-failed":
+		return head + ": with this off, komando no longer catches a command its checks cannot read, so such a command runs unchecked"
+	case slices.Contains(keystoneRules, r.ID):
+		return head + ": with this off, komando no longer catches a command that " + r.Reason
+	}
+	return head + ": komando no longer stops a command that " + r.Reason
+}
+
+// setRuleOff switches id off: on every server, or on the servers ids
+// (groups as labels), keeping what an earlier switch named.
+func setRuleOff(offs []store.RuleOff, id string, everywhere bool, ids, groups []string) []store.RuleOff {
 	offs = slices.Clone(offs)
 	i := slices.IndexFunc(offs, func(o store.RuleOff) bool { return o.Rule == id })
 	switch {
 	case i < 0:
-		return append(offs, store.RuleOff{Rule: id, Hosts: hosts, Groups: groups})
-	case len(hosts) == 0 && len(groups) == 0:
-		offs[i] = store.RuleOff{Rule: id}
-	case len(offs[i].Hosts) > 0 || len(offs[i].Groups) > 0: // off everywhere already otherwise
-		offs[i].Hosts = dedupe(append(slices.Clone(offs[i].Hosts), hosts...))
+		return append(offs, store.RuleOff{Rule: id, Everywhere: everywhere, HostIDs: ids, Groups: groups})
+	case everywhere:
+		offs[i] = store.RuleOff{Rule: id, Everywhere: true}
+	case !offs[i].Everywhere:
+		offs[i].HostIDs = dedupe(append(slices.Clone(offs[i].HostIDs), ids...))
 		offs[i].Groups = dedupe(append(slices.Clone(offs[i].Groups), groups...))
 	}
 	return offs
 }
 
-// setRuleOn switches id on again: everywhere, or only on hosts and groups.
-// A switch that names nothing more is taken away, so it never turns into
-// one for everywhere.
-func setRuleOn(offs []store.RuleOff, id string, hosts, groups []string) ([]store.RuleOff, error) {
+// setRuleOn switches id on again: everywhere, or only on the servers ids.
+// A switch left with no server is taken away, never widened.
+func setRuleOn(offs []store.RuleOff, id string, everywhere bool, ids, groups []string) ([]store.RuleOff, error) {
 	offs = slices.Clone(offs)
 	i := slices.IndexFunc(offs, func(o store.RuleOff) bool { return o.Rule == id })
-	if i < 0 {
+	switch {
+	case i < 0:
 		return offs, nil
-	}
-	if len(hosts) == 0 && len(groups) == 0 {
+	case everywhere:
 		return slices.Delete(offs, i, i+1), nil
-	}
-	o := offs[i]
-	if len(o.Hosts) == 0 && len(o.Groups) == 0 {
+	case offs[i].Everywhere:
 		return nil, out.Usage("the rule %s is off everywhere: `komando policy edit %s --on` turns it on everywhere", id, id)
 	}
-	o.Hosts = slices.DeleteFunc(slices.Clone(o.Hosts), func(h string) bool {
-		return slices.ContainsFunc(hosts, func(x string) bool { return strings.EqualFold(x, h) })
-	})
+	o := offs[i]
+	o.HostIDs = slices.DeleteFunc(slices.Clone(o.HostIDs), func(h string) bool { return slices.Contains(ids, h) })
 	o.Groups = slices.DeleteFunc(slices.Clone(o.Groups), func(g string) bool {
 		return slices.ContainsFunc(groups, func(x string) bool { return strings.EqualFold(x, g) })
 	})
-	if len(o.Hosts) == 0 && len(o.Groups) == 0 {
+	if len(o.HostIDs) == 0 {
 		return slices.Delete(offs, i, i+1), nil
 	}
 	offs[i] = o
 	return offs, nil
+}
+
+// confirmOff asks before a rule goes off: a keystone rule's name, typed by
+// a person at the terminal; otherwise the safety question, or for an AI
+// agent the approval window on the person's screen.
+func confirmOff(cl *call, r policy.Rule, sw policySwitch) error {
+	why := offSentence("switching", r, sw)
+	if slices.Contains(keystoneRules, r.ID) && cl.interactive() && !cl.flags.yes && !cl.flags.dryRun && !cl.caller().IsAgent() {
+		askTypes(cl, []string{r.ID}, "rules")
+		if !confirmDangerous(cl, nil, offSentence("switches", r, sw)) {
+			return cl.policyStop(approvalErr(cl, "SAFETY_SETTING", why+" weakens komando's safety checks"))
+		}
+		return nil
+	}
+	return guardSafety(cl, why)
 }
 
 func policyEditCmd() *cobra.Command {
@@ -497,14 +588,18 @@ func policyEditCmd() *cobra.Command {
 	var off, on bool
 	c := &cobra.Command{
 		Use:   "edit RULE (--off | --on)",
-		Short: "Switch a built-in rule off or on, everywhere or on some servers",
-		Long: `--off switches a built-in rule off, so it no longer stops a command. With
---host or --group it is off only on those servers: a command that also runs
-on another server is still stopped. Switching a rule off weakens a safety
-check, so komando asks a person first, and the audit log keeps it. --on
-switches it on again, everywhere or only on the servers you name.`,
+		Short: "Switch a rule off or on, everywhere or on some servers",
+		Long: `--off switches a rule off, so it no longer stops a command. With --host or
+--group it is off only on those servers (a group as its servers are now): a
+command that also runs on another server is still stopped. Switching a rule
+off weakens a safety check, so komando asks first: an AI agent's request
+opens the approval window on your screen, and for a rule that keeps the
+others working (check-failed, decode-run, rm-root, mkfs, ...) you type the
+rule's name. The audit log keeps every switch, and ` + "`komando doctor`" + ` names
+every rule that is off. --on switches it on again, everywhere or only on the
+servers you name.`,
 		Example: `  komando policy edit docker-prune --off --host build1
-  komando policy edit pkg-remove --off --group lab
+  komando policy edit pkg-remove-essential --off --group lab
   komando policy edit docker-prune --on`,
 		Args: cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
@@ -512,29 +607,33 @@ switches it on again, everywhere or only on the servers you name.`,
 			if off == on {
 				return out.Usage("give --off or --on")
 			}
-			if _, err := builtinRule(id); err != nil {
-				return err
-			}
-			var res policySwitch
+			var before, after policySwitch
 			fn := func(s *store.State) error {
-				hs, gs, err := ruleScope(cl, s, hosts, groups)
+				r, err := switchRule(s, id)
 				if err != nil {
 					return err
 				}
-				next := setRuleOff(s.Settings.RulesOff, id, hs, gs)
+				ids, gs, err := ruleScope(cl, s, hosts, groups)
+				if err != nil {
+					return err
+				}
+				everywhere := len(hosts) == 0 && len(groups) == 0
+				next := setRuleOff(s.Settings.RulesOff, id, everywhere, ids, gs)
 				if on {
-					next, err = setRuleOn(s.Settings.RulesOff, id, hs, gs)
+					next, err = setRuleOn(s.Settings.RulesOff, id, everywhere, ids, gs)
 				}
 				if err != nil {
 					return err
 				}
-				res = switchOf(next, id)
+				before = switchOf(s, id)
+				s.Settings.RulesOff, next = next, s.Settings.RulesOff
+				after = switchOf(s, id)
 				if off {
-					if err := guardSafety(cl, "switching the built-in rule "+id+" off on: "+res.where()); err != nil {
+					if err := confirmOff(cl, r, after); err != nil {
+						s.Settings.RulesOff = next
 						return err
 					}
 				}
-				s.Settings.RulesOff = next
 				return nil
 			}
 			update := storeUpdate
@@ -544,15 +643,15 @@ switches it on again, everywhere or only on the servers you name.`,
 			if err := update(cl, fn); err != nil {
 				return err
 			}
-			audit(cl, nil, "policy.edit", nil, "", true, map[string]any{"rule": id, "off": off, "hosts": hosts, "groups": groups})
-			cl.out.Print("policy.edit", res, nil)
+			audit(cl, nil, "policy.edit", after.Hosts, "", true, map[string]any{"rule": id, "off": off, "before": before, "after": after})
+			cl.out.Print("policy.edit", after, nil)
 			return nil
 		}),
 	}
 	c.Flags().BoolVar(&off, "off", false, "switch the rule off")
 	c.Flags().BoolVar(&on, "on", false, "switch the rule on again")
 	c.Flags().StringSliceVar(&hosts, "host", nil, "only on this server (repeat it for more)")
-	c.Flags().StringSliceVar(&groups, "group", nil, "only on the servers in this group (repeat it for more)")
+	c.Flags().StringSliceVar(&groups, "group", nil, "only on the servers in this group as it is now (repeat it for more)")
 	return c
 }
 
@@ -583,12 +682,12 @@ func policyShowCmd() *cobra.Command {
 			}
 			id := args[0]
 			if r, err := builtinRule(id); err == nil {
-				cl.out.Print("policy.show", policyRule{ID: r.ID, Kind: "built-in", Reason: r.Reason, Pattern: policy.Pattern(r), Switch: switchOf(st.Settings.RulesOff, r.ID)}, nil)
+				cl.out.Print("policy.show", policyRule{ID: r.ID, Kind: "built-in", Reason: r.Reason, Pattern: policy.Pattern(r), Switch: switchOf(st, r.ID)}, nil)
 				return nil
 			}
 			for _, p := range st.Settings.ExtraDenyPattern {
 				if p == id || policy.CustomID(p) == id {
-					cl.out.Print("policy.show", policyRule{ID: policy.CustomID(p), Kind: "custom", Reason: "your pattern", Pattern: p, Switch: policySwitch{Rule: policy.CustomID(p), Hosts: []string{}, Groups: []string{}}}, nil)
+					cl.out.Print("policy.show", policyRule{ID: policy.CustomID(p), Kind: "custom", Reason: "your pattern", Pattern: p, Switch: switchOf(st, policy.CustomID(p))}, nil)
 					return nil
 				}
 			}

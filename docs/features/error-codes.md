@@ -212,7 +212,7 @@ This page is made from the code (`komando schema` lists the same under
 | `REVOKE_FAILED` | 5 | the key could not be removed from a server's authorized_keys | run it again; to look at the file: `komando fs cat SERVER ~/.ssh/authorized_keys` |
 | `ROLLOUT_FAILED` | 5 | pods stuck for … | see why with `komando cluster describe TARGET …`; `komando cluster rollback` goes back |
 | `ROLLOUT_TIMEOUT` | 7 | not rolled out after … (replicas …)… | see the tasks with `komando cluster describe … service/…` |
-| `RULE_NOT_FOUND` | 3 | no custom deny rule named … | see the custom rules and their ids with `komando policy list` |
+| `RULE_NOT_FOUND` | 3 | no rule named … | see every rule and its id with `komando policy list` |
 | `SAFETY_SETTING` | 6 | … weakens komando's safety checks | check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen) |
 | `SEALED_FILE_INVALID` | 2 | … is damaged or cut short: komando cannot read it as a sealed file; nothing was imported | copy the file again whole, or make it again with `komando export --sealed --to FILE` |
 | `SEALED_FILE_UNSUPPORTED` | 2 | … is sealed for the iPhone app: only the phone whose key it was sealed to opens it; nothing was imported | on the old computer, make a file for this one with `komando export --sealed --to FILE` |

@@ -9,7 +9,7 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
-- `komando policy edit RULE --off` switches a built-in rule off, everywhere or with `--host` and `--group` only on those servers; `--on` switches it on again. Switching a rule off asks a person first and is kept in the audit log. `komando policy show RULE` prints a rule and where it is off, and `policy list` shows it too.
+- `komando policy edit RULE --off` switches a rule off, everywhere or with `--host` and `--group` only on those servers (a group as its servers are when you switch it); `--on` switches it on again. komando asks first, naming the rule, the servers and what it will no longer stop; an AI agent's request opens the approval window, and for a rule that keeps the others working (such as `check-failed`, `decode-run` or `rm-root`) you type its name. `policy show RULE`, `policy list`, `policy check` and `komando doctor` show every rule that is off, and the audit log keeps each switch with the servers before and after.
 
 ### Changed
 

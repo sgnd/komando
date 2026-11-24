@@ -88,7 +88,7 @@ var tierRows = concat2(
 		{Key: top("import"), Tier: Dangerous, Dynamic: "an imported proxy command matches a destructive rule"},
 
 		{Key: own("policy", "", "remove"), Tier: Safety, What: "removes a deny rule"},
-		{Key: own("policy", "", "edit"), Tier: Safety, When: Cond{Flags: []string{"on"}, Not: true}, What: "switches a built-in rule off"},
+		{Key: own("policy", "", "edit"), Tier: Safety, When: Cond{Flags: []string{"on"}, Not: true}, What: "switches a rule off"},
 		{Key: own("config", "", "set"), Tier: Safety, Dynamic: "the setting turns a check off"},
 		{Key: Key{Type: "vpn", Verb: "edit"}, Tier: Safety, When: Cond{Flags: []string{"mfa"}, Value: "false"}, What: "turns --mfa off (komando may then connect it without a person)"},
 		{Key: top("update"), Tier: Safety, Dynamic: "it installs an older version"},

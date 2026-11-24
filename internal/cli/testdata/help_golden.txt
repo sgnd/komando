@@ -6165,7 +6165,7 @@ Examples:
 Available Commands:
   check       Check whether a command would be blocked
   deny        Add a deny rule (a Go regular expression)
-  edit        Switch a built-in rule off or on, everywhere or on some servers
+  edit        Switch a rule off or on, everywhere or on some servers
   list        List the built-in rules and your deny rules
   rm          Remove a deny rule you added (from komando only)
   show        Show one rule: what it stops and where it is off
@@ -6241,14 +6241,18 @@ Global Flags (all of them: komando --help):
 ### komando policy edit --help
 exit 0
 --- stdout
---off switches a built-in rule off, so it no longer stops a command. With
---host or --group it is off only on those servers: a command that also runs
-on another server is still stopped. Switching a rule off weakens a safety
-check, so komando asks a person first, and the audit log keeps it. --on
-switches it on again, everywhere or only on the servers you name.
+--off switches a rule off, so it no longer stops a command. With --host or
+--group it is off only on those servers (a group as its servers are now): a
+command that also runs on another server is still stopped. Switching a rule
+off weakens a safety check, so komando asks first: an AI agent's request
+opens the approval window on your screen, and for a rule that keeps the
+others working (check-failed, decode-run, rm-root, mkfs, ...) you type the
+rule's name. The audit log keeps every switch, and `komando doctor` names
+every rule that is off. --on switches it on again, everywhere or only on the
+servers you name.
 
-Safety: a change; try it with --dry-run first; without --on: it weakens a
-safety check: a person's yes (--yes).
+Safety: a change; try it with --dry-run first; unless only --on: it weakens
+a safety check: a person's yes (--yes).
 
 Usage:
   komando policy edit RULE (--off | --on) [flags]
@@ -6256,11 +6260,11 @@ Usage:
 Examples:
   komando policy edit docker-prune --off --host build1
   komando policy edit docker-prune --off --host build1 --dry-run
-  komando policy edit pkg-remove --off --group lab
+  komando policy edit pkg-remove-essential --off --group lab
   komando policy edit docker-prune --on
 
 Flags:
-      --group strings       only on the servers in this group (repeat it for more)
+      --group strings       only on the servers in this group as it is now (repeat it for more)
   -h, --help[=true|false]   help for edit
       --host strings        only on this server (repeat it for more)
       --off[=true|false]    switch the rule off

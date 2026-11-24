@@ -3,17 +3,21 @@ package cli
 import (
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/store"
 )
 
-// A built-in rule a person switched off stops nothing on the servers the
-// switch names, and still stops a command that also runs anywhere else.
+// A rule a person switched off stops nothing on the servers the switch
+// names (by record ID), and still stops a command that also runs anywhere
+// else.
 func TestPolicyHitsRuleOff(t *testing.T) {
-	a := &store.Host{Name: "a", Groups: []string{"web"}}
-	b := &store.Host{Name: "b"}
+	a := &store.Host{Name: "a", Groups: []string{"web"}, Rec: store.Rec{ID: "id-a"}}
+	b := &store.Host{Name: "b", Rec: store.Rec{ID: "id-b"}}
+	renamed := &store.Host{Name: "a2", Rec: store.Rec{ID: "id-a"}}
 	ids := func(rs []policy.Rule) []string {
 		var out []string
 		for _, r := range rs {
@@ -21,6 +25,7 @@ func TestPolicyHitsRuleOff(t *testing.T) {
 		}
 		return out
 	}
+	onA := []store.RuleOff{{Rule: "docker-prune", HostIDs: []string{"id-a"}, Groups: []string{"web"}}}
 	cases := []struct {
 		name  string
 		off   []store.RuleOff
@@ -30,16 +35,16 @@ func TestPolicyHitsRuleOff(t *testing.T) {
 		want  bool // the rule still stops it
 	}{
 		{"no switch", nil, []*store.Host{a}, "docker system prune -f", false, true},
-		{"off everywhere", []store.RuleOff{{Rule: "docker-prune"}}, []*store.Host{a, b}, "docker system prune -f", false, false},
-		{"off everywhere, no server", []store.RuleOff{{Rule: "docker-prune"}}, nil, "docker system prune -f", false, false},
-		{"off on a", []store.RuleOff{{Rule: "docker-prune", Hosts: []string{"a"}}}, []*store.Host{a}, "docker system prune -f", false, false},
-		{"off on a, name in other case", []store.RuleOff{{Rule: "docker-prune", Hosts: []string{"A"}}}, []*store.Host{a}, "docker system prune -f", false, false},
-		{"off on a, runs on a and b", []store.RuleOff{{Rule: "docker-prune", Hosts: []string{"a"}}}, []*store.Host{a, b}, "docker system prune -f", false, true},
-		{"off on a, no server", []store.RuleOff{{Rule: "docker-prune", Hosts: []string{"a"}}}, nil, "docker system prune -f", false, true},
-		{"off on group web", []store.RuleOff{{Rule: "docker-prune", Groups: []string{"web"}}}, []*store.Host{a}, "docker system prune -f", false, false},
-		{"off on group web, b not in it", []store.RuleOff{{Rule: "docker-prune", Groups: []string{"web"}}}, []*store.Host{b}, "docker system prune -f", false, true},
-		{"another rule off", []store.RuleOff{{Rule: "rm-root"}}, []*store.Host{a}, "docker system prune -f", false, true},
-		{"own script, off", []store.RuleOff{{Rule: "rm-root"}}, []*store.Host{a}, "rm -rf /", true, false},
+		{"off everywhere", []store.RuleOff{{Rule: "docker-prune", Everywhere: true}}, []*store.Host{a, b}, "docker system prune -f", false, false},
+		{"off everywhere, no server", []store.RuleOff{{Rule: "docker-prune", Everywhere: true}}, nil, "docker system prune -f", false, false},
+		{"off on a", onA, []*store.Host{a}, "docker system prune -f", false, false},
+		{"off on a, a renamed", onA, []*store.Host{renamed}, "docker system prune -f", false, false},
+		{"off on a, runs on a and b", onA, []*store.Host{a, b}, "docker system prune -f", false, true},
+		{"off on a, no server", onA, nil, "docker system prune -f", false, true},
+		{"the group is a label: b joined web later", onA, []*store.Host{{Name: "b", Groups: []string{"web"}, Rec: store.Rec{ID: "id-b"}}}, "docker system prune -f", false, true},
+		{"a switch left with no server is not everywhere", []store.RuleOff{{Rule: "docker-prune"}}, []*store.Host{a}, "docker system prune -f", false, true},
+		{"another rule off", []store.RuleOff{{Rule: "rm-root", Everywhere: true}}, []*store.Host{a}, "docker system prune -f", false, true},
+		{"own script, off", []store.RuleOff{{Rule: "rm-root", Everywhere: true}}, []*store.Host{a}, "rm -rf /", true, false},
 		{"own script, on", nil, []*store.Host{a}, "rm -rf /", true, true},
 	}
 	for _, c := range cases {
@@ -56,8 +61,8 @@ func TestPolicyHitsRuleOff(t *testing.T) {
 	}
 }
 
-// policy edit --off asks a person first and writes an audit record;
-// --on undoes it and show reads it; only built-in rules can be switched.
+// policy edit --off asks first and writes an audit record with the scope
+// before and after; --on undoes it; show, list and check read it.
 func TestPolicyOffOnShow(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web1", "deploy@10.0.0.1", "--group", "web")
@@ -65,15 +70,13 @@ func TestPolicyOffOnShow(t *testing.T) {
 	wantCode(t, "USAGE", "policy", "edit", "docker-prune")
 	wantCode(t, "USAGE", "policy", "edit", "docker-prune", "--off", "--on", "--yes")
 	wantCode(t, "RULE_NOT_FOUND", "policy", "edit", "--off", "nonexistent", "--yes")
-	mustRun(t, "policy", "deny", `kubectl\s+apply`)
-	wantCode(t, "RULE_NOT_FOUND", "policy", "edit", "--off", policy.CustomID(`kubectl\s+apply`), "--yes")
 	wantCode(t, "TARGET_NOT_FOUND", "policy", "edit", "--off", "docker-prune", "--host", "nope", "--yes")
 	wantCode(t, "GROUP_NOT_FOUND", "policy", "edit", "--off", "docker-prune", "--group", "nope", "--yes")
 	wantCode(t, "SAFETY_SETTING", "policy", "edit", "--off", "docker-prune", "--host", "web1")
 
 	off := mustRun(t, "policy", "edit", "--off", "docker-prune", "--host", "WEB1", "--yes")
 	if off["off"] != true || off["everywhere"] != false || fmt.Sprint(off["hosts"]) != "[web1]" {
-		t.Errorf("policy off --host: %v", off)
+		t.Errorf("policy edit --off --host: %v", off)
 	}
 	mustRun(t, "policy", "edit", "--off", "docker-prune", "--group", "@web", "--yes")
 	show := mustRun(t, "policy", "show", "docker-prune")
@@ -81,17 +84,24 @@ func TestPolicyOffOnShow(t *testing.T) {
 	if show["kind"] != "built-in" || fmt.Sprint(sw["hosts"], sw["groups"]) != "[web1] [web]" {
 		t.Errorf("policy show after two switches: %v", show)
 	}
-	if a := mustRun(t, "audit", "--command", "policy.edit"); a["count"].(float64) != 2 {
+	a := mustRun(t, "audit", "--command", "policy.edit")
+	if a["count"].(float64) != 2 {
 		t.Errorf("policy edit is audited as policy.edit: %v", a)
 	}
+	if b := jsonText(a); !strings.Contains(b, `"before"`) || !strings.Contains(b, `"after"`) || !strings.Contains(b, `"web1"`) {
+		t.Errorf("the audit record has no scope before and after: %s", b)
+	}
 	for _, r := range mustRun(t, "policy", "list")["builtin"].([]any) {
-		if m := r.(map[string]any); m["id"] == "docker-prune" && m["off"] != "web1, @web" {
+		if m := r.(map[string]any); m["id"] == "docker-prune" && m["off"] != "web1 (from @web)" {
 			t.Errorf("policy list: %v", m)
 		}
 	}
+	d, e := invRun(t, "policy", "check", "docker system prune -f")
+	if e == nil || e.Code != "POLICY_BLOCKED" || fmt.Sprint(d["off"]) != "map[docker-prune:web1 (from @web)]" {
+		t.Errorf("policy check does not say where the rule is off: %v %+v", d, e)
+	}
 
 	mustRun(t, "policy", "edit", "--on", "docker-prune", "--host", "web1")
-	mustRun(t, "policy", "edit", "--on", "docker-prune", "--group", "web")
 	if sw := mustRun(t, "policy", "show", "docker-prune")["switch"].(map[string]any); sw["off"] != false {
 		t.Errorf("on for every server it named takes the switch away, not off everywhere: %v", sw)
 	}
@@ -99,50 +109,109 @@ func TestPolicyOffOnShow(t *testing.T) {
 	wantCode(t, "USAGE", "policy", "edit", "--on", "docker-prune", "--host", "web1")
 	mustRun(t, "policy", "edit", "--on", "docker-prune")
 	if sw := mustRun(t, "policy", "show", "docker-prune")["switch"].(map[string]any); sw["off"] != false {
-		t.Errorf("policy on: %v", sw)
+		t.Errorf("policy edit --on: %v", sw)
 	}
-	if show := mustRun(t, "policy", "show", policy.CustomID(`kubectl\s+apply`)); show["kind"] != "custom" {
-		t.Errorf("policy show of a custom rule: %v", show)
+	mustRun(t, "policy", "deny", `kubectl\s+apply`)
+	custom := policy.CustomID(`kubectl\s+apply`)
+	mustRun(t, "policy", "edit", "--off", custom, "--host", "db1", "--yes")
+	if show := mustRun(t, "policy", "show", custom); show["kind"] != "custom" || fmt.Sprint(show["switch"].(map[string]any)["hosts"]) != "[db1]" {
+		t.Errorf("a custom rule switched off: %v", show)
 	}
 	wantCode(t, "RULE_NOT_FOUND", "policy", "show", "nonexistent")
 }
 
-// Switching a rule off is a person's choice: an AI agent's policy edit
-// without --on is refused when the person says no in the window, in every
-// spelling of the flag; --on makes a check stricter and needs no one.
-func TestPolicyEditOffNeedsPerson(t *testing.T) {
+// An AI agent may ask for a rule to go off: the approval window opens on
+// the person's screen, and nobody answering is a no, in every spelling of
+// the flag. --on makes a check stricter and needs no window.
+func TestPolicyEditOffAsksThePerson(t *testing.T) {
 	invHome(t)
-	asAgent(t, false, true)
+	shown := asAgent(t, false, true)
 	for _, args := range [][]string{
 		{"policy", "edit", "docker-prune", "--off", "--yes"},
-		{"policy", "edit", "--off", "docker-prune", "--yes"},
+		{"policy", "edit", "--off", "rm-root", "--yes"},
 		{"policy", "edit", "docker-prune", "--off=true", "--yes"},
-		{"policy", "edit", "docker-prune", "--off", "--host", "web1", "--yes"},
+		{"policy", "edit", "docker-prune", "--on", "--on=false", "--off", "--yes"},
 	} {
-		if _, e := invRun(t, args...); e == nil || (e.Code != "SAFETY_SETTING" && e.Code != "TARGET_NOT_FOUND") {
-			t.Errorf("agent %v: want SAFETY_SETTING, got %+v", args, e)
+		before := *shown
+		if _, e := invRun(t, args...); e == nil || e.Code != "SAFETY_SETTING" || *shown == before {
+			t.Errorf("agent %v: want the window and SAFETY_SETTING, got %+v (windows %d)", args, e, *shown-before)
 		}
 	}
 	if sw := mustRun(t, "policy", "show", "docker-prune")["switch"].(map[string]any); sw["off"] != false {
-		t.Errorf("an agent switched a rule off: %v", sw)
+		t.Errorf("a rule went off with no one's yes: %v", sw)
 	}
 	mustRun(t, "policy", "edit", "docker-prune", "--on")
+	asAgent(t, true, true)
+	if sw := mustRun(t, "policy", "edit", "docker-prune", "--off", "--yes"); sw["off"] != true {
+		t.Errorf("the person allowed it in the window: %v", sw)
+	}
 }
 
 // The switch reaches the check every exec line goes through: a rule off on
 // one server lets that server's line through and still stops a line that
-// also runs on another.
+// also runs on another, on a server added to the group later, and on a
+// server of the same name made again.
 func TestPolicyEditOffReachesExec(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "deploy@"+closedAddr(t))
-	mustRun(t, "host", "add", "db1", "deploy@"+closedAddr(t))
+	addr := "deploy@" + closedAddr(t)
+	mustRun(t, "host", "add", "web1", addr, "--group", "lab")
+	mustRun(t, "host", "add", "db1", addr)
 	line := []string{"--", "docker system prune -f"}
 	wantCode(t, "POLICY_BLOCKED", append([]string{"exec", "web1"}, line...)...)
-	mustRun(t, "policy", "edit", "docker-prune", "--off", "--host", "web1", "--yes")
+	mustRun(t, "policy", "edit", "docker-prune", "--off", "--group", "lab", "--yes")
 	// past the policy the line goes to the server, which is not there
 	if _, e := invRun(t, append([]string{"exec", "web1"}, line...)...); e == nil || e.Code == "POLICY_BLOCKED" {
-		t.Errorf("off on web1: want the connection error, got %+v", e)
+		t.Errorf("off on @lab: want the connection error, got %+v", e)
 	}
 	wantCode(t, "POLICY_BLOCKED", append([]string{"exec", "web1,db1"}, line...)...)
 	wantCode(t, "POLICY_BLOCKED", "exec", "web1", "--", "rm -rf /")
+	mustRun(t, "host", "add", "web9", addr, "--group", "lab")
+	wantCode(t, "POLICY_BLOCKED", append([]string{"exec", "web9"}, line...)...)
+	mustRun(t, "host", "rm", "web1", "--yes")
+	mustRun(t, "host", "add", "web1", addr)
+	wantCode(t, "POLICY_BLOCKED", append([]string{"exec", "web1"}, line...)...)
+	if sw := mustRun(t, "policy", "show", "docker-prune")["switch"].(map[string]any); sw["off"] != false {
+		t.Errorf("a removed server is still in the switch: %v", sw)
+	}
+}
+
+// doctor warns for every rule that is off, the keystone rules first.
+func TestDoctorNamesRulesOff(t *testing.T) {
+	setHome(t, t.TempDir())
+	st := &store.State{Conns: map[string]*store.Conn{}, Hosts: map[string]*store.Host{}, Vpns: map[string]*store.Vpn{}}
+	st.Settings.RulesOff = []store.RuleOff{{Rule: "docker-prune", Everywhere: true}, {Rule: "decode-run", Everywhere: true}}
+	var got []string
+	for _, c := range securityChecks(tcl, st) {
+		if strings.HasPrefix(c.Name, "security:rule_off:") && c.Warning {
+			got = append(got, strings.TrimPrefix(c.Name, "security:rule_off:"))
+		}
+	}
+	if fmt.Sprint(got) != "[decode-run docker-prune]" {
+		t.Errorf("doctor warns for %v, want the keystone rule first: [decode-run docker-prune]", got)
+	}
+}
+
+// At a terminal, a keystone rule goes off only when the person types its
+// name; a carried rule takes a plain yes.
+func TestPolicyEditOffAtATerminal(t *testing.T) {
+	if testing.Short() {
+		t.Skip("starts processes")
+	}
+	unixOnly(t, "drives a terminal")
+	invHome(t)
+	p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "policy", "edit", "rm-root", "--off")
+	p.answer("Type the name rm-root", "y\r")
+	if code := p.exit(); code != out.ExitPolicy || !strings.Contains(p.shown(), "with this off, komando no longer catches") {
+		t.Errorf("a plain yes for a keystone rule: exit %d\n%s", code, p.shown())
+	}
+	p = startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "policy", "edit", "rm-root", "--off")
+	p.answer("Type the name rm-root", "rm-root\r")
+	if code := p.exit(); code != 0 {
+		t.Errorf("the typed name: exit %d\n%s", code, p.shown())
+	}
+	p = startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "policy", "edit", "docker-prune", "--off")
+	p.answer("[y/N]", "y\r")
+	if code := p.exit(); code != 0 || !strings.Contains(p.shown(), "komando no longer stops a command that") {
+		t.Errorf("a plain yes for a carried rule: exit %d\n%s", code, p.shown())
+	}
 }

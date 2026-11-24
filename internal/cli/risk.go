@@ -64,6 +64,22 @@ func givesFlag(name string) func([]string) bool {
 	return func(w []string) bool { return slices.Contains(w, "--"+name) || slices.Contains(w, "--"+name+"=true") }
 }
 
+// plainOn: the words switch a rule on and nothing else: --on (or
+// --on=true), with no --off and no other value of --on in any spelling.
+// cobra keeps a flag's last value, so anything else may run the off path.
+func plainOn(w []string) bool {
+	on := false
+	for _, s := range w {
+		switch {
+		case s == "--on" || s == "--on=true":
+			on = true
+		case strings.HasPrefix(s, "--on=") || strings.HasPrefix(s, "--off"):
+			return false
+		}
+	}
+	return on
+}
+
 // anyWord: one of words (an argument) is in set.
 func anyWord(set ...string) func([]string) bool {
 	return func(w []string) bool {
@@ -145,7 +161,7 @@ var riskRows = []riskRow{
 
 	// T3s: weakens komando's own checks.
 	{key: safetyKey{"policy", "", "remove"}, tier: tierSafety, what: "removes a deny rule"},
-	{key: safetyKey{"policy", "", "edit"}, when: func(w []string) bool { return !givesFlag("on")(w) }, cond: "without --on", tier: tierSafety, what: "switches a built-in rule off"},
+	{key: safetyKey{"policy", "", "edit"}, when: func(w []string) bool { return !plainOn(w) }, cond: "unless only --on", tier: tierSafety, what: "switches a rule off"},
 	{key: safetyKey{"config", "", "set"}, tier: tierSafety, dynamic: "the setting turns a check off (audit, keychain, host key policy, ...)"},
 	{key: safetyKey{"host", "", "edit"}, when: protectionOff, cond: "with --protected=false", tier: tierSafety, what: "turns protection off"},
 	{key: safetyKey{"conn", "", "edit"}, when: protectionOff, cond: "with --protected=false", tier: tierSafety, what: "turns protection off"},

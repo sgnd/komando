@@ -1000,9 +1000,9 @@ title: Check whether a command would be blocked
 title: Add a deny rule (a Go regular expression)
 - arg0 | Regex | Which command should komando block? | Like kubectl delete: write it as kubectl\s+delete (\s+ means spaces, .* means anything). Then check it with komando policy check "kubectl delete pod web". | kubectl\s+delete | check
 ### komando policy edit
-title: Switch a built-in rule off or on, everywhere or on some servers
+title: Switch a rule off or on, everywhere or on some servers
 - arg0 | Rule | Rule? |  |  | check
-- flag:group | --group | Only on the servers in this group (repeat it for more) |  |  | optional,advanced,check
+- flag:group | --group | Only on the servers in this group as it is now (repeat it for more) |  |  | optional,advanced,check
 - flag:host | --host | Only on this server (repeat it for more) |  |  | optional,advanced,check
 - flag:off | --off | Switch the rule off |  |  | advanced,default,choices
 - flag:on | --on | Switch the rule on again |  |  | advanced,default,choices

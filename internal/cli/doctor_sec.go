@@ -116,6 +116,10 @@ func securityChecks(cl *call, st *store.State) []securityCheck {
 	for _, i := range slices.Sorted(maps.Keys(bad)) {
 		add("deny_rule:"+policy.CustomID(st.Settings.ExtraDenyPattern[i]), false, false, bad[i])
 	}
+	for _, sw := range rulesOff(st) {
+		add("rule_off:"+sw.Rule, false, true, "the rule "+sw.Rule+" is off on "+sw.where()+": komando no longer stops a command that "+sw.Stops+
+			" ("+fixText(komandoFix("policy", "edit", sw.Rule, "--on"))+")", komandoFix("policy", "edit", sw.Rule, "--on")...)
+	}
 	for _, c := range st.SortedConns() {
 		if why := plainConn(c); why != "" {
 			add("conn:"+c.Name, false, true, why+" (OWASP ASVS 9.2.2)")

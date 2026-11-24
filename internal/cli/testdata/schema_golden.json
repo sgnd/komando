@@ -6535,15 +6535,15 @@
       {
         "path": "komando policy edit",
         "usage": "komando policy edit RULE (--off | --on) [flags]",
-        "short": "Switch a built-in rule off or on, everywhere or on some servers",
-        "long": "--off switches a built-in rule off, so it no longer stops a command. With\n--host or --group it is off only on those servers: a command that also runs\non another server is still stopped. Switching a rule off weakens a safety\ncheck, so komando asks a person first, and the audit log keeps it. --on\nswitches it on again, everywhere or only on the servers you name.\n\nSafety: a change; try it with --dry-run first; without --on: it weakens a\nsafety check: a person's yes (--yes).",
-        "example": "  komando policy edit docker-prune --off --host build1\n  komando policy edit docker-prune --off --host build1 --dry-run\n  komando policy edit pkg-remove --off --group lab\n  komando policy edit docker-prune --on",
+        "short": "Switch a rule off or on, everywhere or on some servers",
+        "long": "--off switches a rule off, so it no longer stops a command. With --host or\n--group it is off only on those servers (a group as its servers are now): a\ncommand that also runs on another server is still stopped. Switching a rule\noff weakens a safety check, so komando asks first: an AI agent's request\nopens the approval window on your screen, and for a rule that keeps the\nothers working (check-failed, decode-run, rm-root, mkfs, ...) you type the\nrule's name. The audit log keeps every switch, and `komando doctor` names\nevery rule that is off. --on switches it on again, everywhere or only on the\nservers you name.\n\nSafety: a change; try it with --dry-run first; unless only --on: it weakens\na safety check: a person's yes (--yes).",
+        "example": "  komando policy edit docker-prune --off --host build1\n  komando policy edit docker-prune --off --host build1 --dry-run\n  komando policy edit pkg-remove-essential --off --group lab\n  komando policy edit docker-prune --on",
         "flags": [
           {
             "name": "group",
             "type": "stringSlice",
             "default": "[]",
-            "usage": "only on the servers in this group (repeat it for more)"
+            "usage": "only on the servers in this group as it is now (repeat it for more)"
           },
           {
             "name": "host",
@@ -6573,7 +6573,7 @@
           {
             "tier": "safety",
             "flag": "--yes",
-            "when": "without --on"
+            "when": "unless only --on"
           }
         ]
       },
@@ -11534,8 +11534,8 @@
       {
         "code": "RULE_NOT_FOUND",
         "exit": 3,
-        "example": "no custom deny rule named …",
-        "hint": "see the custom rules and their ids with `komando policy list`"
+        "example": "no rule named …",
+        "hint": "see every rule and its id with `komando policy list`"
       },
       {
         "code": "SAFETY_SETTING",

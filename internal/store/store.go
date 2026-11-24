@@ -240,7 +240,7 @@ type Settings struct {
 	Parallel         int       `json:"parallel"`
 	MaxOutputBytes   int       `json:"max_output_bytes"`
 	ExtraDenyPattern []string  `json:"extra_deny_patterns,omitempty"`
-	RulesOff         []RuleOff `json:"rules_off,omitempty"` // built-in rules a person switched off
+	RulesOff         []RuleOff `json:"rules_off,omitempty"` // rules a person switched off (policy edit)
 	Audit            bool      `json:"audit"`
 	AuditSQL         string    `json:"audit_sql"`                    // full | hash | off: how SQL text is kept in the audit log
 	VpnIdle          string    `json:"vpn_idle"`                     // a VPN session unused this long is disconnected
@@ -252,13 +252,14 @@ type Settings struct {
 	ApprovalLanguage string    `json:"approval_language,omitempty"`  // auto | en | id: the approval window's words
 }
 
-// RuleOff switches one built-in policy rule off: everywhere when it names
-// no server and no group, otherwise only on those servers and on the
-// servers in those groups.
+// RuleOff switches one policy rule off: on every server, or only on the
+// servers HostIDs names by record ID (a group is read into its servers when
+// the switch is made; Groups keeps its name as a label).
 type RuleOff struct {
-	Rule   string   `json:"rule"`
-	Hosts  []string `json:"hosts,omitempty"`
-	Groups []string `json:"groups,omitempty"`
+	Rule       string   `json:"rule"`
+	Everywhere bool     `json:"everywhere,omitempty"`
+	HostIDs    []string `json:"host_ids,omitempty"`
+	Groups     []string `json:"groups,omitempty"`
 }
 
 func DefaultSettings() Settings {
