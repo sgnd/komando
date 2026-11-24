@@ -13,7 +13,7 @@ import "github.com/spf13/cobra"
 //     says on what.
 //
 // Every runnable command must be in commandKinds (TestEveryCommandHasKind
-// checks). The safety checks themselves (guard, guardConns,
+// checks). The safety checks themselves (Guard, GuardConns,
 // guardProtection, ...) stay where they are; this table only names them.
 const (
 	kindRead    = "read"

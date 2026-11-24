@@ -221,7 +221,7 @@ func previewPrune(cl *call, ctx context.Context, target, line string, o pruneOpt
 	if err != nil {
 		return err
 	}
-	_ = guardScript(cl, st, hosts, line, true) // under --dry-run a stop only lands in meta.would_be_blocked
+	_ = GuardScript(cl, st, hosts, line, true) // under --dry-run a stop only lands in meta.would_be_blocked
 	script := prunePreviewScript(o)
 	data := prunePreviewData{DryRun: true, Results: []prunePreview{}, WouldBeBlocked: cl.out.Blocked()}
 	for _, oc := range fanout(cl, ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
@@ -456,7 +456,7 @@ func runPruneAged(cl *call, ctx context.Context, target, line string, o pruneOpt
 	if err != nil {
 		return err
 	}
-	if err := guardScript(cl, st, hosts, line, true); err != nil {
+	if err := GuardScript(cl, st, hosts, line, true); err != nil {
 		audit(cl, st, "docker.prune", hostNames(hosts), line, false, map[string]any{"blocked": toErr(err).Code})
 		return err
 	}

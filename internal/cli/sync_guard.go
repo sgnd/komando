@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 )
 
@@ -113,9 +114,9 @@ func guardEmptied(cl *call, found []emptiedFolder, named []string, multi bool, s
 	if len(left) == 0 {
 		return nil
 	}
-	files := fmt.Sprintf("%d file%s", total, plural(total))
+	files := fmt.Sprintf("%d file%s", total, term.Plural(total))
 	what := fmt.Sprintf("%s lists no files in %s, so --delete would remove %s there in %s",
-		srcName, joinAnd(names), files, dstName)
+		srcName, term.JoinAnd(names), files, dstName)
 	switch {
 	case cl.isAgent():
 		if cl.dangerOK(what) {
@@ -126,7 +127,7 @@ func guardEmptied(cl *call, found []emptiedFolder, named []string, multi bool, s
 			return nil
 		}
 	}
-	return cl.policyStop(emptiedErr(cl, left, srcName, joinAnd(names), files, dstName))
+	return cl.policyStop(emptiedErr(cl, left, srcName, term.JoinAnd(names), files, dstName))
 }
 
 // emptiedName is a folder as --emptied names it, cleaned; "" for none.

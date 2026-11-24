@@ -44,7 +44,7 @@ func TestApprovalWindowPerson(t *testing.T) {
 	body.WriteString("echo 'LAST LINE 150'\n")
 	resetApproval()
 	noteApprovalScript(tcl, scriptLabel("the script", "./window-check.sh"), []byte(body.String()))
-	err := guard(tcl, st, []*store.Host{st.Hosts["window-check"]}, "sh -s", true)
+	err := Guard(tcl, st, []*store.Host{st.Hosts["window-check"]}, "sh -s", true)
 	w := tcl.sess.Window()
 	switch {
 	case err == nil:

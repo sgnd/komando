@@ -159,9 +159,9 @@ func pubsubSentText(s *queuex.Sent) string {
 		key = ", ordering key " + s.OrderingKey
 	}
 	if s.DryRun {
-		return fmt.Sprintf("would publish %s to topic %s%s (nothing sent)\n", humanBytes(int64(s.Size)), s.Topic, key)
+		return fmt.Sprintf("would publish %s to topic %s%s (nothing sent)\n", term.HumanBytes(int64(s.Size)), s.Topic, key)
 	}
-	return fmt.Sprintf("published %s to topic %s%s; message ID %s\n", humanBytes(int64(s.Size)), s.Topic, key, *s.PubsubSent.ID)
+	return fmt.Sprintf("published %s to topic %s%s; message ID %s\n", term.HumanBytes(int64(s.Size)), s.Topic, key, *s.PubsubSent.ID)
 }
 
 func pubsubCreatedText(c *queuex.Created) string {

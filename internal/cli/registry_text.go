@@ -92,7 +92,7 @@ func (d pruneData) Text() string {
 	}
 	fmt.Fprintf(&b, "%s: %s %s of %s\n", d["repo"], verb, countOf(len(del), "image"), countOf(toInt(d["tags"]), "tag"))
 	for _, img := range del {
-		fmt.Fprintf(&b, "  - %-20s %s  %s\n", strings.Join(img.Tags, ","), timeCell(img.Created), shortDigest(img.Digest))
+		fmt.Fprintf(&b, "  - %-20s %s  %s\n", strings.Join(img.Tags, ","), term.TimeCell(img.Created), shortDigest(img.Digest))
 	}
 	if len(keep) > 0 {
 		fmt.Fprintf(&b, "keeps %s:\n", countOf(len(keep), "tag"))

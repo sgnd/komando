@@ -21,6 +21,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/registry"
@@ -95,7 +96,7 @@ func withRegistry(cl *call, ctx context.Context, name, expr string, risk driver.
 			reasons = append(reasons, s)
 		}
 	}
-	if err := guardConns(cl, st, []*store.Conn{c}, driver.Verdict{Risk: risk, RuleIDs: []string{"registry"}, Reasons: reasons}); err != nil {
+	if err := GuardConns(cl, st, []*store.Conn{c}, driver.Verdict{Risk: risk, RuleIDs: []string{"registry"}, Reasons: reasons}); err != nil {
 		if cl.flags.dryRun {
 			cl.out.Print(name, map[string]any{"conn": c.Name, "dry_run": true, "would_be_blocked": toErr(err)}, nil)
 			return nil
@@ -632,7 +633,7 @@ func (d inspectData) Text() string {
 	row("digest", d.Digest)
 	row("media type", d.MediaType)
 	if d.Size > 0 {
-		row("size", fmt.Sprintf("%s in %s, compressed", humanBytes(d.Size), countOf(d.Layers, "layer")))
+		row("size", fmt.Sprintf("%s in %s, compressed", term.HumanBytes(d.Size), countOf(d.Layers, "layer")))
 	}
 	row("platforms", strings.Join(d.Platforms, ", "))
 	row("created", localCreated(d.Created))

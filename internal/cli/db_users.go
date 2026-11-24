@@ -150,7 +150,7 @@ func changeDB(cl *call, ctx context.Context, name, connExpr string, v driver.Ver
 	if c.Kind == "bigquery" { // Google Cloud IAM
 		return dbx.BQNoUsers(strings.ReplaceAll(name, ".", " "))
 	}
-	if err := guardConns(cl, st, []*store.Conn{c}, v); err != nil && !cl.flags.dryRun {
+	if err := GuardConns(cl, st, []*store.Conn{c}, v); err != nil && !cl.flags.dryRun {
 		audit(cl, st, name, nil, "", false, map[string]any{"conns": []string{c.Name}, "blocked": toErr(err).Code})
 		return err
 	}

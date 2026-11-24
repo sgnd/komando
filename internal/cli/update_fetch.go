@@ -16,6 +16,7 @@ import (
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/releasesig"
 	"github.com/sgnd/komando/internal/transport"
+	"github.com/sgnd/komando/internal/version"
 )
 
 // releaseSite is where komando's releases are published (install.sh uses
@@ -85,7 +86,7 @@ func send(cl *call, ctx context.Context, c *http.Client, method, u, what string)
 		if err != nil {
 			return nil, err
 		}
-		req.Header.Set("User-Agent", "komando/"+Version)
+		req.Header.Set("User-Agent", "komando/"+version.Version)
 		resp, err := c.Do(req)
 		failed := err != nil && ctx.Err() == nil || err == nil && resp.StatusCode >= 500
 		if !failed || try == 3 {

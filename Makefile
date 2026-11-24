@@ -1,7 +1,7 @@
 # Common tasks. Run `make help` to list them.
 BIN := bin/komando
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
-LDFLAGS := -s -w -X github.com/sgnd/komando/internal/cli.Version=$(VERSION)
+LDFLAGS := -s -w -X github.com/sgnd/komando/internal/version.Version=$(VERSION)
 
 STATICCHECK := v0.8.2
 GOVULNCHECK := v1.9.0

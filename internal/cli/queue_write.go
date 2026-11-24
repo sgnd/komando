@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/queuex"
@@ -108,7 +109,7 @@ func queueValue(cmd *cobra.Command, value, from string) ([]byte, error) {
 		noteApprovalData(cl, scriptLabel("the message", "-"), data)
 	}
 	if len(data) > maxQueueMessage {
-		return nil, out.Usage("the message is %s; komando sends up to 1 MiB (Kafka's default limit, message.max.bytes): put bigger data in storage and send its name", humanBytes(int64(len(data))))
+		return nil, out.Usage("the message is %s; komando sends up to 1 MiB (Kafka's default limit, message.max.bytes): put bigger data in storage and send its name", term.HumanBytes(int64(len(data))))
 	}
 	return data, nil
 }

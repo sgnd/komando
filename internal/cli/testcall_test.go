@@ -41,7 +41,7 @@ func executeArgs(args []string) int {
 	defer tcl.enter() // still running for the hooks (TestMain)
 	defer endCommand()
 	tcl.args = append([]string{"komando"}, args...)
-	return tcl.execute(context.Background(), args)
+	return execute(tcl, context.Background(), args)
 }
 
 // realRun is the printer of a real run, not a dry run, for a result's

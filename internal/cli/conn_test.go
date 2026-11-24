@@ -78,7 +78,7 @@ func TestGuardConns(t *testing.T) {
 	defer func() { tcl.flags = saved }()
 	for _, c := range cases {
 		tcl.flags.yes, tcl.flags.allowDangerous = c.yes, c.allow
-		err := guardConns(tcl, nil, c.conns, c.v)
+		err := GuardConns(tcl, nil, c.conns, c.v)
 		got := ""
 		if err != nil {
 			got = toErr(err).Code
@@ -206,7 +206,7 @@ func TestProtectionFollowsTheAddress(t *testing.T) {
 	if protectedConn(st, &store.Conn{Name: "x", Kind: "postgres", URL: "postgres://app@10.0.0.6/app"}) {
 		t.Error("a different server is not protected")
 	}
-	if err := guardConns(tcl, st, []*store.Conn{alias}, driver.Verdict{Risk: driver.RiskWrite}); err == nil || toErr(err).Code != "PROTECTED_TARGET" {
+	if err := GuardConns(tcl, st, []*store.Conn{alias}, driver.Verdict{Risk: driver.RiskWrite}); err == nil || toErr(err).Code != "PROTECTED_TARGET" {
 		t.Errorf("expected PROTECTED_TARGET for the alias, got %v", err)
 	}
 }
