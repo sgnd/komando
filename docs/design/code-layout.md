@@ -126,14 +126,17 @@ or a listed one is gone.
 Each package below `internal/cli` keeps to the imports of its row, so
 what every command shares never reaches back into the commands. "std" is
 the standard library; the others are import paths (below the module when
-they start with `internal/`). A new package gets its row here, in the same
-words as the move check, in the same change; `internal/layout` fails when
-a package has no row, imports more than its row allows, or a row has no
-code.
+they start with `internal/`). A path followed by a `//go:build`
+expression in brackets, such as `golang.org/x/sys/windows` (windows), is
+allowed only in files that build on no system outside it, by their
+`//go:build` line or their `_<system>` ending. A new package gets its row
+here, in the same words as the move check, in the same change;
+`internal/layout` fails when a package has no row, imports more than its
+row allows, or a row has no code.
 
 | Package | May import |
 |---|---|
-| `internal/cli/kit/term` | std, `internal/out`, `golang.org/x/text`, `golang.org/x/sys/windows` |
+| `internal/cli/kit/term` | std, `internal/out`, `golang.org/x/text`, `golang.org/x/sys/windows` (windows) |
 
 ## Files in internal/cli
 

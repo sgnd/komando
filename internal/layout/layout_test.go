@@ -8,6 +8,7 @@ package layout
 
 import (
 	"bufio"
+	"go/build/constraint"
 	"go/parser"
 	"go/token"
 	"os"
@@ -200,7 +201,8 @@ var importRow = regexp.MustCompile("^\\| `(internal/cli/[a-z0-9/]+)` \\| (.+) \\
 // cliImportRules reads the table "What the packages under internal/cli may
 // import" of code-layout.md: package, then the allowed imports. "std" is the
 // standard library; every other word is an import path (below the module
-// when it starts with internal/).
+// when it starts with internal/), with an optional "(constraint)": a
+// //go:build expression the importing file must keep to.
 func cliImportRules(t *testing.T) map[string][]string {
 	t.Helper()
 	f, err := os.Open(layoutDoc)
@@ -219,7 +221,7 @@ func cliImportRules(t *testing.T) map[string][]string {
 		}
 		if m := importRow.FindStringSubmatch(line); in && m != nil {
 			for _, w := range strings.Split(m[2], ",") {
-				rules[m[1]] = append(rules[m[1]], strings.Trim(strings.TrimSpace(w), "`"))
+				rules[m[1]] = append(rules[m[1]], strings.ReplaceAll(strings.TrimSpace(w), "`", ""))
 			}
 		}
 	}
@@ -232,9 +234,16 @@ func cliImportRules(t *testing.T) map[string][]string {
 	return rules
 }
 
-// allowedImport reports whether path may be imported under rules.
-func allowedImport(path string, rules []string) bool {
+// allowedImport reports whether path may be imported under rules by the
+// program file name, whose //go:build expression is expr. A rule
+// "path (constraint)" allows path only in a file that builds on no system
+// outside the constraint (fileSystems).
+func allowedImport(path string, rules []string, name, expr string) bool {
 	for _, r := range rules {
+		r, only, _ := strings.Cut(r, " (")
+		if only != "" && !onlyOn(strings.TrimSuffix(only, ")"), name, expr) {
+			continue
+		}
 		switch {
 		case r == "std" && !strings.Contains(strings.SplitN(path, "/", 2)[0], "."):
 			return true
@@ -245,6 +254,79 @@ func allowedImport(path string, rules []string) bool {
 		}
 	}
 	return false
+}
+
+// unixOS are the systems the unix build tag stands for (go/build).
+var unixOS = words("aix android darwin dragonfly freebsd hurd illumos ios linux netbsd openbsd solaris")
+
+// systemTag reports whether the build tag tag holds on the system goos;
+// ok is false for a tag that names no system (a processor, a Go version,
+// a tag of komando's own).
+func systemTag(tag, goos string) (holds, ok bool) {
+	switch {
+	case tag == "unix":
+		return unixOS[goos], true
+	case knownOS[tag]:
+		return tag == goos || tag == "linux" && goos == "android" || tag == "darwin" && goos == "ios", true
+	}
+	return false, false
+}
+
+// fileSystems are the systems the program file name with //go:build
+// expression expr builds on: its _<system> ending, then the expression,
+// where a tag that names no system may be set or not.
+func fileSystems(name, expr string) map[string]bool {
+	parts := strings.Split(strings.TrimSuffix(name, ".go"), "_")
+	nameOS := ""
+	for _, i := range []int{len(parts) - 1, len(parts) - 2} {
+		if i > 0 && knownOS[parts[i]] && (i == len(parts)-1 || knownArch[parts[i+1]]) {
+			nameOS = parts[i]
+			break
+		}
+	}
+	var x constraint.Expr
+	if expr != "" {
+		var err error
+		if x, err = constraint.Parse("//go:build " + expr); err != nil {
+			return words(strings.Join(sorted(knownOS), " ")) // unreadable: assume everywhere
+		}
+	}
+	m := map[string]bool{}
+	for goos := range knownOS {
+		if nameOS != "" && goos != nameOS {
+			continue
+		}
+		if x == nil {
+			m[goos] = true
+			continue
+		}
+		for _, other := range []bool{true, false} {
+			if x.Eval(func(tag string) bool {
+				if holds, ok := systemTag(tag, goos); ok {
+					return holds
+				}
+				return other
+			}) {
+				m[goos] = true
+			}
+		}
+	}
+	return m
+}
+
+// onlyOn reports whether the program file name (expression expr) builds
+// only on systems where the build expression only holds.
+func onlyOn(only, name, expr string) bool {
+	x, err := constraint.Parse("//go:build " + only)
+	if err != nil {
+		return false
+	}
+	for goos := range fileSystems(name, expr) {
+		if !x.Eval(func(tag string) bool { holds, _ := systemTag(tag, goos); return holds }) {
+			return false
+		}
+	}
+	return true
 }
 
 const modulePath = "github.com/sgnd/komando/"
@@ -331,7 +413,7 @@ func TestCLISubPackages(t *testing.T) {
 		}
 		for _, im := range f.Imports {
 			ip, _ := strconv.Unquote(im.Path.Value)
-			if r, ok := rules[pkg]; ok && !allowedImport(ip, r) {
+			if r, ok := rules[pkg]; ok && !allowedImport(ip, r, name, buildLine(t, filepath.Join(root, rel))) {
 				t.Errorf("%s imports %q, which the imports table of docs/design/code-layout.md does not allow for %s", rel, ip, pkg)
 			}
 		}
