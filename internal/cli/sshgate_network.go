@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/version"
 )
 
 // gateKey is what an ssh-gate key may do, from its authorized_keys line,
@@ -151,7 +152,7 @@ komando computer, it says the command did not come through a key.`,
 		Example: "  ssh HOST komando ssh-gate status -o json\n  komando ssh-gate status",
 		Args:    cobra.NoArgs,
 		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
-			cl.out.Print("ssh-gate.status", gateStatus{Network: true, Komando: Version}, nil)
+			cl.out.Print("ssh-gate.status", gateStatus{Network: true, Komando: version.Version}, nil)
 			return nil
 		}),
 	}
