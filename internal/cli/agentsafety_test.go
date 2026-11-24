@@ -688,3 +688,51 @@ func TestGuardStalledCheckIsRefused(t *testing.T) {
 		}
 	}
 }
+
+// guardInput runs the guard on in as the harness agent would, and returns
+// its answer.
+func guardInput(t *testing.T, agent, in string) string {
+	t.Helper()
+	setHome(t, t.TempDir())
+	saved := tcl.stdin
+	t.Cleanup(func() { tcl.stdin = saved })
+	tcl.stdin = strings.NewReader(in)
+	return string(guardHook(tcl, agent))
+}
+
+// A tool call larger than the guard reads whole is refused in every
+// harness's format, here a 5 MiB write to komando's own folder.
+func TestGuardRefusesOversizedCall(t *testing.T) {
+	content := strings.Repeat("x", 5<<20)
+	write := `"tool_input":{"file_path":"~/.komando/x","content":"` + content + `"}`
+	for _, c := range []struct{ agent, in string }{
+		{"", `{"tool_name":"Write",` + write + `,"cwd":"/p"}`},
+		{"codex", `{"hook_event_name":"PreToolUse","tool_name":"Write",` + write + `}`},
+		{"cursor", `{"hook_event_name":"preToolUse","tool_name":"Write",` + write + `,"cwd":"/p"}`},
+		{"gemini", `{"hook_event_name":"BeforeTool","tool_name":"write_file",` + write + `}`},
+	} {
+		if got := guardInput(t, c.agent, c.in); !strings.Contains(got, "deny") || !strings.Contains(got, "too large for komando's guard to check") {
+			t.Errorf("%q: want a denial for a call over 4 MiB, got %.200q", c.agent, got)
+		}
+	}
+}
+
+// A call of exactly 4 MiB is read whole and judged by what it does (a
+// write to komando's folder is denied by the path check); one byte more is
+// refused by its size.
+func TestGuardInputSizeBoundary(t *testing.T) {
+	call := func(size int) string {
+		head, tail := `{"tool_name":"Write","tool_input":{"file_path":"~/.komando/x","content":"`, `"},"cwd":"/p"}`
+		return head + strings.Repeat("x", size-len(head)-len(tail)) + tail
+	}
+	whole := call(guardInputMax)
+	if len(whole) != guardInputMax {
+		t.Fatalf("the input is %d bytes, want %d", len(whole), guardInputMax)
+	}
+	if got := guardInput(t, "", whole); !strings.Contains(got, "deny") || strings.Contains(got, "too large") {
+		t.Errorf("exactly 4 MiB: want a denial by the path check, got %.200q", got)
+	}
+	if got := guardInput(t, "", call(guardInputMax+1)); !strings.Contains(got, "too large for komando's guard to check") {
+		t.Errorf("4 MiB and one byte: want a denial by size, got %.200q", got)
+	}
+}
