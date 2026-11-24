@@ -12,8 +12,6 @@ import (
 	"testing"
 )
 
-const testID = "abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrst"
-
 // runPrelude runs the folder prelude under sh with HOME set to home, then
 // prints "made $d". It gives the output and the exit code.
 func runPrelude(t *testing.T, home string) (string, int) {
