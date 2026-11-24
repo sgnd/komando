@@ -63,13 +63,13 @@ func TestPolicyMACStopsCommands(t *testing.T) {
 	}
 }
 
-// guardScript leaves the carried rules out, so only scripts komando writes
+// GuardScript leaves the carried rules out, so only scripts komando writes
 // whole, with no words a person or agent typed, may use it.
 // A new caller must be added here on purpose, after review.
 func TestGuardScriptCallers(t *testing.T) {
-	// code lines only: common.go defines guardScript, the others call it
+	// code lines only: common.go defines GuardScript, the others call it
 	// with lines komando wrote (swarmApply and swarmDo judge the stack file
-	// and their own tier); runOps (modules_run.go) uses guard
+	// and their own tier); runOps (modules_run.go) uses Guard
 	want := map[string]int{"common.go": 1, "pkg_security.go": 1, "docker_prune.go": 2, "cluster_apply.go": 1, "cluster_swarm.go": 1}
 	wantCheckScript := map[string]int{"common.go": 1}
 	files, err := filepath.Glob("*.go")
@@ -89,17 +89,17 @@ func TestGuardScriptCallers(t *testing.T) {
 			if strings.HasPrefix(strings.TrimSpace(line), "//") {
 				continue
 			}
-			got[f] += strings.Count(line, "guardScript(")
+			got[f] += strings.Count(line, "GuardScript(")
 			gotCheckScript[f] += strings.Count(line, "policy.CheckScript")
 		}
 		maps.DeleteFunc(got, func(_ string, n int) bool { return n == 0 })
 		maps.DeleteFunc(gotCheckScript, func(_ string, n int) bool { return n == 0 })
 	}
 	if !maps.Equal(got, want) {
-		t.Errorf("guardScript is used in %v, want only %v (komando's own scripts)", got, want)
+		t.Errorf("GuardScript is used in %v, want only %v (komando's own scripts)", got, want)
 	}
 	if !maps.Equal(gotCheckScript, wantCheckScript) {
-		t.Errorf("policy.CheckScript is used in %v, want only %v (guardScript)", gotCheckScript, wantCheckScript)
+		t.Errorf("policy.CheckScript is used in %v, want only %v (GuardScript)", gotCheckScript, wantCheckScript)
 	}
 }
 
