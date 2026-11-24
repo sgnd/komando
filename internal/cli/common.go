@@ -305,6 +305,19 @@ func withClient(cl *call, ctx context.Context, st *store.State, h *store.Host, f
 
 // guard enforces the safety policy before anything mutating runs.
 func guard(cl *call, st *store.State, hosts []*store.Host, command string, mutating bool) error {
+	return guardWith(cl, st, hosts, command, mutating, false)
+}
+
+// guardScript is guard for a line komando writes whole for one of its own
+// commands (pkg security, docker prune, the Swarm changes), where typed
+// words are only quoted operands and the command rates its own words: the
+// rules that copy a command's check for exec text (policy.CheckScript) and
+// the compose-file reader do not apply.
+func guardScript(cl *call, st *store.State, hosts []*store.Host, script string, mutating bool) error {
+	return guardWith(cl, st, hosts, script, mutating, true)
+}
+
+func guardWith(cl *call, st *store.State, hosts []*store.Host, command string, mutating, own bool) error {
 	names := hostNames(hosts)
 	var prot []string
 	if mutating {
@@ -318,14 +331,23 @@ func guard(cl *call, st *store.State, hosts []*store.Host, command string, mutat
 		return err
 	}
 	if command != "" {
-		hits := policy.Check(command, st.Settings.ExtraDenyPattern)
+		check := policy.Check
+		if own {
+			check = policy.CheckScript
+		}
+		hits := check(command, st.Settings.ExtraDenyPattern)
 		ids := make([]string, len(hits))
 		reasons := make([]string, len(hits))
 		for i, h := range hits {
 			ids[i], reasons[i] = h.ID, h.Reason
 		}
+		if !own { // komando's own scripts start nothing from a compose file
+			if why := execComposeReason(cl, st, hosts, command); why != "" {
+				ids, reasons = append(ids, "compose-file"), append(reasons, why)
+			}
+		}
 		// one window for both stops: it names the protected servers too
-		if len(hits) > 0 && !cl.dangerAndYesOK(protWhy(prot), fmt.Sprintf("[%s] %s", strings.Join(ids, ","), strings.Join(reasons, "; ")), targetsWhy(st, hosts)) && !confirmDangerousOn(cl, names, prot, hits[0].Reason) {
+		if len(ids) > 0 && !cl.dangerAndYesOK(protWhy(prot), fmt.Sprintf("[%s] %s", strings.Join(ids, ","), strings.Join(reasons, "; ")), targetsWhy(st, hosts)) && !confirmDangerousOn(cl, names, prot, reasons[0]) {
 			// a dry run goes on to the protection check, so meta.would_need names both flags
 			if err := cl.policyStop(approvalErr(cl, "POLICY_BLOCKED",
 				fmt.Sprintf("the command matches destructive rules [%s]: %s", strings.Join(ids, ","), strings.Join(reasons, "; ")), protNeed(prot)...).Say(dangerSay(reasons), dangerHint)); err != nil {

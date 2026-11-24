@@ -375,3 +375,20 @@ func TestReadOnlyEnvGlobAndRaw(t *testing.T) {
 	}
 	refusedReadOnly(t, `kubectl config view --raw=true`, `kubectl get pods --raw=/x`)
 }
+
+// The reads of the removed host areas (service status, logs, file reads,
+// facts, cron, docker and package lists) still pass --read-only through
+// exec, so a protected server does not ask a person for them.
+func TestReadOnlyRemovedAreaReads(t *testing.T) {
+	allowedReadOnly(t,
+		"systemctl status nginx", "systemctl is-active nginx", "systemctl list-units --failed", "systemctl list-timers",
+		"journalctl -u nginx -n 100 --no-pager", "tail -n 100 /var/log/syslog",
+		"cat /etc/hosts", "head -n 20 /etc/os-release", "ls -la /etc", "stat /etc/hosts", "sha256sum /etc/hosts", "du -sh /var/log",
+		"uname -a", "df -h", "free -m", "uptime", "nproc", "lsblk", "hostnamectl", "timedatectl", "ps aux", "who", "last -n 10",
+		"ss -tlnp", "netstat -tlnp", "ip addr", "ip route", "getent passwd", "id deploy",
+		"crontab -l", "crontab -l -u deploy", "ls /etc/cron.d", "cat /etc/crontab",
+		"docker ps -a", "docker logs --tail 100 web", "docker inspect web", "docker images", "docker stats --no-stream",
+		"docker volume ls", "docker network ls", "docker compose ps", "docker compose logs --tail 50",
+		"apt list --installed", "apt list --upgradable", "dpkg -l", "rpm -qa", "dnf list installed", "apk info",
+	)
+}

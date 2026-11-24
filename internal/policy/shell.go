@@ -45,11 +45,25 @@ func Tokens(s string) [][]Token {
 // Lex is Tokens, and also says what it could not read: an unclosed quote,
 // ` or $( ). Bash refuses such a line, or reads it in a way the checks may
 // not, so a check that must be sure treats it as unknown.
-func Lex(s string) ([][]Token, string) {
+func Lex(s string) (lines [][]Token, bad string) {
+	defer func() {
+		if recover() != nil { // a reader that crashes reads nothing: the text stays one word
+			lines, bad = [][]Token{{{Text: s}}}, lexFailed
+		}
+	}()
 	l := &lexer{s: s}
-	first := l.line(false)
+	first := readLine(l)
 	return append([][]Token{first}, l.subs...), l.bad
 }
+
+// lexFailed is what Lex says when its reader crashed on the text.
+const lexFailed = "a line the reader failed on"
+
+// readLine reads the first line; a test replaces it to make it crash. It
+// is set in init: the lexer calls Lex again for ` ` text.
+var readLine func(l *lexer) []Token
+
+func init() { readLine = func(l *lexer) []Token { return l.line(false) } }
 
 type lexer struct {
 	s        string
@@ -65,7 +79,7 @@ type heredoc struct {
 }
 
 func (l *lexer) fail(what string) {
-	if l.bad == "" {
+	if l.bad == "" || what == lexFailed { // a crash wins: Check must stop on it
 		l.bad = what
 	}
 }

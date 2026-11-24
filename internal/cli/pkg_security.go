@@ -618,7 +618,7 @@ func pkgSecurity(cl *call, ctx context.Context, target string, apply, refresh, k
 	script := pkgSecScript(change, pkgSecRefresh(cl, refresh), guardEssential)
 	if apply || refresh {
 		// protected servers need --yes (a new package index is a change too); a dry run records the stop as would_be_blocked
-		if gerr := guard(cl, st, hosts, script, true); gerr != nil {
+		if gerr := guardScript(cl, st, hosts, script, true); gerr != nil {
 			audit(cl, st, id, hostNames(hosts), display, false, map[string]any{"blocked": toErr(gerr).Code})
 			return gerr
 		}
