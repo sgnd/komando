@@ -72,7 +72,7 @@ func withCachePreview(cl *call, ctx context.Context, name, connExpr string, v dr
 		return err
 	}
 	if v.Risk > driver.RiskRead {
-		if err := guardConns(cl, st, []*store.Conn{c}, v); err != nil {
+		if err := GuardConns(cl, st, []*store.Conn{c}, v); err != nil {
 			return fail(err)
 		}
 		if cl.flags.dryRun {
@@ -314,9 +314,9 @@ func (d cacheSummary) Text() string {
 	add("version", version)
 	add("role", s.Role)
 	add("uptime", humanAge(time.Duration(s.UptimeSeconds)*time.Second))
-	mem := humanBytes(s.UsedMemory) + " used, no limit"
+	mem := term.HumanBytes(s.UsedMemory) + " used, no limit"
 	if s.MaxMemory > 0 {
-		mem = humanBytes(s.UsedMemory) + " used of " + humanBytes(s.MaxMemory)
+		mem = term.HumanBytes(s.UsedMemory) + " used of " + term.HumanBytes(s.MaxMemory)
 	}
 	if s.EvictionPolicy != "" {
 		mem += " (eviction: " + s.EvictionPolicy + ")"
@@ -484,7 +484,7 @@ type cacheRmDone struct {
 
 func (d cacheRmDone) Text() string {
 	if int(d.Deleted) == len(d.Keys) {
-		return fmt.Sprintf("deleted %d key%s\n", d.Deleted, plural(int(d.Deleted)))
+		return fmt.Sprintf("deleted %d key%s\n", d.Deleted, term.Plural(int(d.Deleted)))
 	}
 	return fmt.Sprintf("deleted %d of %d keys (the others did not exist)\n", d.Deleted, len(d.Keys))
 }
@@ -498,7 +498,7 @@ type cacheRmPreview struct {
 
 func (p cacheRmPreview) Text() string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "would delete %d key%s:\n", len(p.WouldDelete), plural(len(p.WouldDelete)))
+	fmt.Fprintf(&b, "would delete %d key%s:\n", len(p.WouldDelete), term.Plural(len(p.WouldDelete)))
 	for _, k := range p.WouldDelete {
 		b.WriteString("  " + cachex.Quote(k) + "\n")
 	}

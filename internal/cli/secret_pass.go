@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sealdb"
@@ -34,15 +35,15 @@ func (r passphraseResult) Text() string {
 	var b strings.Builder
 	if r.DryRun {
 		if r.From == r.To {
-			fmt.Fprintf(&b, "Would re-encrypt %d secret%s under a new passphrase (KOMANDO_VAULT_PASS).\n", r.Secrets, plural(r.Secrets))
+			fmt.Fprintf(&b, "Would re-encrypt %d secret%s under a new passphrase (KOMANDO_VAULT_PASS).\n", r.Secrets, term.Plural(r.Secrets))
 		} else {
-			fmt.Fprintf(&b, "Would re-encrypt %d secret%s, and the vault's key would go from %s to %s.\n", r.Secrets, plural(r.Secrets), keyWhere(r.From), keyWhere(r.To))
+			fmt.Fprintf(&b, "Would re-encrypt %d secret%s, and the vault's key would go from %s to %s.\n", r.Secrets, term.Plural(r.Secrets), keyWhere(r.From), keyWhere(r.To))
 		}
 		if r.OpensNow != nil && !*r.OpensNow {
 			b.WriteString("The current key does not open the vault: for a passphrase vault, komando asks for the current passphrase.\n")
 		}
 	} else {
-		fmt.Fprintf(&b, "Re-encrypted %d secret%s, and the vault's key is now %s.\n", r.Secrets, plural(r.Secrets), keyWhere(r.To))
+		fmt.Fprintf(&b, "Re-encrypted %d secret%s, and the vault's key is now %s.\n", r.Secrets, term.Plural(r.Secrets), keyWhere(r.To))
 		if r.OldKey != "" {
 			fmt.Fprintf(&b, "The old key was removed (%s).\n", map[string]string{"store.key": "store.key", "keychain": "from the keychain"}[r.OldKey])
 		}

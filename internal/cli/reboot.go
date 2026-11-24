@@ -147,7 +147,7 @@ func reboot(cl *call, ctx context.Context, target string, wait time.Duration, su
 	if _, err := windowsGate(ctx, "reboot", hosts, false); err != nil {
 		return err
 	}
-	guardErr := guard(cl, st, hosts, "systemctl reboot", true)
+	guardErr := Guard(cl, st, hosts, "systemctl reboot", true)
 	if cl.flags.dryRun {
 		plans := []map[string]any{}
 		for _, h := range hosts {

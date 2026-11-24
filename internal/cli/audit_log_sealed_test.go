@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sgnd/komando/internal/auditlog"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -67,7 +68,7 @@ func TestAuditListNewest(t *testing.T) {
 	if len(es) != 3 || es[2].(map[string]any)["command"] != "test.c11" || es[0].(map[string]any)["command"] != "test.c09" {
 		t.Fatalf("newest 3: %v", es)
 	}
-	if n, err := newestAuditSeq(); err != nil || n != 12 {
+	if n, err := auditlog.NewestSeq(); err != nil || n != 12 {
 		t.Fatalf("newest %d %v", n, err)
 	}
 }

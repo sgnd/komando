@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -50,15 +51,15 @@ type downloadData struct {
 
 func (d downloadData) Text() string {
 	if d.DryRun {
-		s := fmt.Sprintf("would save %s to %s (%s)", d.Key, d.File, humanBytes(d.Bytes))
+		s := fmt.Sprintf("would save %s to %s (%s)", d.Key, d.File, term.HumanBytes(d.Bytes))
 		if d.Replaces {
 			s += ", replacing the file there"
 		}
 		return s + "\n"
 	}
-	s := fmt.Sprintf("%s: %s (%s)\n", d.Conn, d.File, humanBytes(d.Bytes))
+	s := fmt.Sprintf("%s: %s (%s)\n", d.Conn, d.File, term.HumanBytes(d.Bytes))
 	if d.ContinuedFrom > 0 {
-		s += fmt.Sprintf("went on after the %s already here\n", humanBytes(d.ContinuedFrom))
+		s += fmt.Sprintf("went on after the %s already here\n", term.HumanBytes(d.ContinuedFrom))
 	}
 	if d.Masked {
 		s += "saved with secret values shown as [hidden], as fs cat shows them\n"

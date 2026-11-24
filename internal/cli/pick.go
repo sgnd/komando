@@ -169,7 +169,7 @@ func pickDetail(parts, groups, tags []string) string {
 		parts = append(parts, "@"+g)
 	}
 	parts = append(parts, tags...)
-	return cleanText(strings.Join(parts, "  "))
+	return term.CleanText(strings.Join(parts, "  "))
 }
 
 // pickRunOne runs one komando command on this terminal: its exit code, -1
@@ -199,7 +199,7 @@ func pickCommandLine(args []string) string {
 			words[i] = "'" + strings.ReplaceAll(a, "'", `'\''`) + "'"
 		}
 	}
-	return cleanText(strings.Join(words, " "))
+	return term.CleanText(strings.Join(words, " "))
 }
 
 // pickCommand is a komando command a question runs, on this terminal. It

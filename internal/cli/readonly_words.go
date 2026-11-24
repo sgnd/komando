@@ -45,7 +45,7 @@ func clusterExecRisk(cl *call, words []string, readOnly bool) (driver.Risk, erro
 func dockerExec(cl *call, ctx context.Context, args []string, sudo, readOnly bool) error {
 	st, err := loadState()
 	if err == nil {
-		if err := guard(cl, st, nil, strings.Join(args[2:], " "), false); err != nil {
+		if err := Guard(cl, st, nil, strings.Join(args[2:], " "), false); err != nil {
 			return err
 		}
 	}

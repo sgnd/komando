@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/auditlog"
 	"github.com/sgnd/komando/internal/out"
 )
 
@@ -16,7 +17,7 @@ import (
 // send the log elsewhere when that matters.
 
 // appendAudit adds one record, under a lock so parallel komando processes
-// keep the chain in order (audit_log_sealed.go), and sends it to syslog
+// keep the chain in order (internal/auditlog), and sends it to syslog
 // too when the audit_syslog setting names a target.
 func appendAudit(cl *call, syslog string, rec map[string]any) error {
 	line, err := writeAudit(rec)
@@ -26,25 +27,10 @@ func appendAudit(cl *call, syslog string, rec map[string]any) error {
 	return err
 }
 
-func writeAudit(rec map[string]any) ([]byte, error) { return writeSealedAudit(rec) }
+func writeAudit(rec map[string]any) ([]byte, error) { return auditlog.Append(rec) }
 
-type auditCheck struct {
-	OK          bool   `json:"ok"`
-	Entries     int    `json:"entries"`
-	Chained     int    `json:"chained"`                // records with a prev hash
-	FirstBroken int    `json:"first_broken,omitempty"` // line number
-	Note        string `json:"note"`
-}
-
-func (a auditCheck) Text() string {
-	if a.OK {
-		return "audit log intact: " + strconv.Itoa(a.Entries) + " entries\n" + a.Note
-	}
-	return "audit log broken at line " + strconv.Itoa(a.FirstBroken) + "\n" + a.Note
-}
-
-// verifyAudit checks the store's audit records (audit_log_sealed.go).
-func verifyAudit() (auditCheck, error) { return verifySealedAudit() }
+// verifyAudit checks the store's audit records (internal/auditlog).
+func verifyAudit() (auditlog.Check, error) { return auditlog.Verify() }
 
 func auditVerifyCmd() *cobra.Command {
 	return &cobra.Command{
