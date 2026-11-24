@@ -513,7 +513,7 @@ func swarmDo(cl *call, ctx context.Context, name string, t clusterTarget, line s
 			return "", false, err
 		}
 	}
-	if err := guard(cl, st, []*store.Host{t.host}, line, true); err != nil {
+	if err := guardScript(cl, st, []*store.Host{t.host}, line, true); err != nil {
 		return "", false, err
 	}
 	if cl.flags.dryRun {

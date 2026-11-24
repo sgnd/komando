@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -16,6 +17,12 @@ type Rule struct {
 	Reason string `json:"reason"`
 	re     *regexp.Regexp
 	fn     func(string) bool // a check a regular expression cannot say (decode-run)
+	// argv checks the commands as they run (simpleCommands); it reads the
+	// text as written, with sh -c and eval text read the same way
+	argv func(simpleCommand) bool
+	// carried: the rule copies the check of one of komando's own commands
+	// (carried.go); CheckScript leaves it out
+	carried bool
 }
 
 var builtin = []struct{ id, pattern, reason string }{
@@ -69,6 +76,8 @@ func init() {
 	for _, b := range builtin {
 		compiled = append(compiled, Rule{ID: b.id, Reason: b.reason, re: regexp.MustCompile(b.pattern)})
 	}
+	compiled = append(compiled, carried()...)
+	compiled = append(compiled, checkFailed)
 }
 
 // Check returns the rules a command matches. extra are user patterns from
@@ -78,19 +87,37 @@ func init() {
 // (r\m -rf /e""tc, Re`move-Item) do not hide it. A custom pattern that does
 // not compile matches every command: a broken rule must not quietly stop
 // protecting anything.
-func Check(cmd string, extra []string) (hits []Rule) {
+func Check(cmd string, extra []string) []Rule {
+	return check(cmd, extra, true)
+}
+
+// CheckScript is Check for a script komando wrote whole for one of its own
+// commands (pkg security, docker prune): the rules that copy those
+// commands' checks are left out, since the command rated itself already.
+func CheckScript(script string, extra []string) []Rule {
+	return check(script, extra, false)
+}
+
+func check(cmd string, extra []string, withCarried bool) (hits []Rule) {
 	defer func() {
 		if recover() != nil { // a check that crashes must not let the command through
-			hits = []Rule{{ID: checkFailedID, Reason: "fails to read the command, so komando cannot check it"}}
+			hits = []Rule{checkFailed}
 		}
 	}()
+	if _, bad := Lex(cmd); bad == lexFailed {
+		panic(bad) // the reader crashed: the rules below would see nothing
+	}
 	hits = []Rule{}
 	norm, plain, ps := Normalize(cmd), Plain(cmd), psPlain(Normalize(cmd))
+	cmds, psCmds := simpleCommands(cmd), simpleCommands(psPlain(cmd))
 	match := func(re *regexp.Regexp) bool {
 		return re.MatchString(norm) || re.MatchString(plain) || re.MatchString(ps)
 	}
 	for _, r := range compiled {
-		if match(r.re) || r.fn != nil && (r.fn(norm) || r.fn(plain)) {
+		if r.carried && !withCarried {
+			continue
+		}
+		if r.re != nil && match(r.re) || r.fn != nil && (r.fn(norm) || r.fn(plain)) || r.argv != nil && (slices.ContainsFunc(cmds, r.argv) || slices.ContainsFunc(psCmds, r.argv)) {
 			hits = append(hits, r)
 		}
 	}
@@ -106,7 +133,10 @@ func Check(cmd string, extra []string) (hits []Rule) {
 	return hits
 }
 
-// checkFailedID is the hit Check returns when a check crashed on cmd.
+// checkFailed is the hit Check returns when a check crashed on cmd. It is
+// listed with the built-in rules and matches nothing by itself.
+var checkFailed = Rule{ID: checkFailedID, Reason: "fails to read the command, so komando cannot check it"}
+
 const checkFailedID = "check-failed"
 
 // Invalid returns, for each custom pattern that does not compile, what is

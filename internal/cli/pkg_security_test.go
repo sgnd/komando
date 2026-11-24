@@ -196,7 +196,7 @@ func TestPkgSecScript(t *testing.T) {
 	if !strings.HasPrefix(pkgSecScript(false, false, false), "ACTION=list REFRESH=0 GUARD=0") {
 		t.Error("list script")
 	}
-	if hits := policy.Check(s, nil); len(hits) != 0 {
+	if hits := policy.CheckScript(s, nil); len(hits) != 0 {
 		t.Errorf("policy hits: %+v", hits)
 	}
 }

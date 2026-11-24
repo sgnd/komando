@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -85,7 +87,7 @@ renaming it needs --yes, once for all of them.`,
 			what := "renaming group " + from + " to " + to
 			r, err := renameTx(cl, func(s *store.State) (renameSet, renameOpts, error) {
 				var spellings []string // Web and web are one group
-				for _, gr := range mapKeys(allGroups(s).Groups) {
+				for _, gr := range slices.Sorted(maps.Keys(allGroups(s).Groups)) {
 					if strings.EqualFold(gr, from) {
 						spellings = append(spellings, gr)
 					}
@@ -97,7 +99,7 @@ renaming it needs --yes, once for all of them.`,
 					return nil, renameOpts{}, err
 				}
 				if !strings.EqualFold(from, to) {
-					for _, gr := range mapKeys(allGroups(s).Groups) {
+					for _, gr := range slices.Sorted(maps.Keys(allGroups(s).Groups)) {
 						if strings.EqualFold(gr, to) {
 							return nil, renameOpts{}, out.Errf(out.ExitConflict, "GROUP_EXISTS",
 								"pick another name; to merge them, run `komando group add "+to+" @"+from+"` and then `komando group rm "+from+"`",

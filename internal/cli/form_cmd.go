@@ -2,6 +2,7 @@ package cli
 
 import (
 	"cmp"
+	"maps"
 	"regexp"
 	"slices"
 	"strconv"
@@ -220,7 +221,7 @@ func formPickRows(st *store.State, pick string) []pickRow {
 			rows = append(append(rows, pickConnRows(st, "")...), pickVpnRows(st)...)
 		}
 		gl := allGroups(st)
-		for _, g := range sortedKeys(gl.Groups) {
+		for _, g := range slices.Sorted(maps.Keys(gl.Groups)) {
 			rows = append(rows, pickRow{label: "@" + g, detail: "group: " + strings.Join(gl.Groups[g], ", "), value: "@" + g})
 		}
 		rows = append(rows, pickRow{label: "all", detail: "everything komando knows", value: "all"})
@@ -231,7 +232,7 @@ func formPickRows(st *store.State, pick string) []pickRow {
 	case "vpn":
 		rows = pickVpnRows(st)
 	case "group":
-		for _, g := range sortedKeys(allGroups(st).Groups) {
+		for _, g := range slices.Sorted(maps.Keys(allGroups(st).Groups)) {
 			rows = append(rows, pickRow{label: g, value: g})
 		}
 	case "key":
@@ -239,11 +240,11 @@ func formPickRows(st *store.State, pick string) []pickRow {
 			rows = append(rows, pickRow{label: n, value: n})
 		}
 	case "job":
-		for _, n := range sortedKeys(st.Jobs) {
+		for _, n := range slices.Sorted(maps.Keys(st.Jobs)) {
 			rows = append(rows, pickRow{label: n, detail: st.Jobs[n].Host, value: n})
 		}
 	case "tunnel":
-		for _, n := range sortedKeys(st.Tunnels) {
+		for _, n := range slices.Sorted(maps.Keys(st.Tunnels)) {
 			rows = append(rows, pickRow{label: n, value: n})
 		}
 	case "secret": // names only: the vault is not opened
@@ -251,7 +252,7 @@ func formPickRows(st *store.State, pick string) []pickRow {
 			rows = append(rows, pickRow{label: n, value: n})
 		}
 	case "recipe": // saved commands
-		for _, n := range sortedKeys(st.Snippets) {
+		for _, n := range slices.Sorted(maps.Keys(st.Snippets)) {
 			rows = append(rows, pickRow{label: n, value: n})
 		}
 	case "via": // what a server or service is reached through

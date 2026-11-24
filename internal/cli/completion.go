@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"maps"
 	"slices"
 	"sort"
 	"strings"
@@ -190,7 +191,7 @@ func kindValues() []string {
 	for k := range netx.Kinds {
 		seen["kind:"+k] = true
 	}
-	return mapKeys(seen)
+	return slices.Sorted(maps.Keys(seen))
 }
 
 func settingValues(s *setting) []string {

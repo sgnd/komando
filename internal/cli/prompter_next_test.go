@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -36,7 +37,7 @@ func TestSuggestedCommandsParse(t *testing.T) {
 	// a hint, a show command and a suggestion name real commands, and a
 	// suggestion never brings in an approval
 	root := newRoot(tcl)
-	for _, keys := range [][]string{mapKeys(formHints), mapKeys(showKinds)} {
+	for _, keys := range [][]string{slices.Sorted(maps.Keys(formHints)), slices.Sorted(maps.Keys(showKinds))} {
 		for _, key := range keys {
 			if c, _, err := root.Find(strings.Fields(key)); err != nil || commandKey(c) != key {
 				t.Errorf("%q is not a command", key)

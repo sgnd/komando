@@ -125,7 +125,7 @@ out=$($K fs replace @t-fsg /tmp/e2efsg.conf --old a=1 --new a=3); rc=$?
 set -e
 check "fs replace @group: a server without the text fails alone (8)" "8 PARTIAL_FAILURE NO_MATCH" "$rc $(echo "$out" | jget 'd["error"]["code"]+" "+[r for r in d["data"]["results"] if r["host"]=="bastion"][0]["error"]["code"]')"
 check "fs replace @group: the other server was changed" a=3 "$($K fs cat direct /tmp/e2efsg.conf | jget 'd["data"]["content"].strip()')"
-q $K exec @t-fsg -- 'rm -f /tmp/e2efsg.conf*'
+q $K exec @t-fsg --allow-dangerous -- 'rm -f /tmp/e2efsg.conf*'
 q $K group rm t-fsg
 $K fs write direct /home/agent/t/x.txt --content hello -p >/dev/null
 check "fs write idempotent" False "$($K fs write direct /home/agent/t/x.txt --content hello --if-changed | jget 'd["data"]["changed"]')"
