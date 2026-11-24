@@ -211,7 +211,7 @@ Safe to run again, for example after an update: a changed file is kept as
 					if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
 						continue
 					}
-					f, err := installAgentHook(filepath.Join(dir, h.file), h.add, shellQuote(prog)+" guide guard --for "+h.name, cl.flags.dryRun)
+					f, err := installAgentHook(filepath.Join(dir, h.file), h.add, guardHookLine(prog, h.name), cl.flags.dryRun)
 					if err != nil {
 						return out.Errf(out.ExitError, "WRITE_FAILED", "fix the file, or pass --no-guard to skip the guard", "%v", err)
 					}
