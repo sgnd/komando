@@ -16,7 +16,7 @@ import (
 // count follows a function into a package under internal/cli (the
 // exported spelling counts as the same name), so a move keeps the numbers;
 // a changed count is a call added or dropped, and fails here until it is
-// reviewed. guardScript is not here: its callers have their own test where
+// reviewed. GuardScript is not here: its callers have their own test where
 // it is defined.
 var reviewedCallSites = map[string]int{
 	"guard":         25,
