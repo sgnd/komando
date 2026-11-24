@@ -12,6 +12,11 @@ import (
 // less free space than the log cap plus 5% of the disk.
 const ExitNoSpace = 93
 
+// ExitNoGroup is the start script's exit when the run would not lead its
+// own process group (setsid gave none, or the root process never came up):
+// nothing of the command ran, and the folder is gone.
+const ExitNoGroup = 94
+
 // Start is what one run in a session needs.
 type Start struct {
 	ID       string
@@ -52,18 +57,23 @@ func StartScript(s Start) (string, error) {
 		saves += `cat > "$d/in" && `
 	}
 	w := sshx.Q(wrapper(s.Run, s.Timeout, s.LogMax))
+	noGroup := strconv.Itoa(ExitNoGroup)
 	return `u=$(umask); ` + space + folder + `; ` +
 		`{ ` + saves + `printf '%s\n' ` + sshx.Q(s.Shown) + ` > "$d/cmd" && date -u +%s > "$d/started" && : > "$d/out.log" && mkfifo "$d/.o"; } || { rm -rf "$d"; exit ` + strconv.Itoa(ExitNoFolder) + `; }; ` +
 		`export d; if command -v setsid >/dev/null 2>&1; then setsid nohup sh -c ` + w + ` sh "$u" >/dev/null 2>&1 </dev/null & g=1; ` +
-		`else nohup sh -c ` + w + ` sh "$u" >/dev/null 2>&1 </dev/null & g=; fi; p=$!; echo $p > "$d/pid"; ` +
-		FactsScript + `; ` +
-		// setsid makes the group a moment after the start: wait for it, or a
-		// stop would signal the PID alone
-		`i=0; while [ -n "$g" ] && [ "$(ps -o pgid= -p $p 2>/dev/null | tr -d ' ')" != "$p" ] && [ $i -lt 20 ]; do sleep 0.1 2>/dev/null || sleep 1; i=$((i+1)); done; ` +
-		`ks_facts $p`, nil
+		`else nohup sh -c ` + w + ` sh "$u" >/dev/null 2>&1 </dev/null & g=; fi; ` +
+		// the root process writes its own PID and waits for .go: the facts
+		// are its own, and with setsid it must lead its own group before
+		// anything of the command runs, or the start fails
+		`p=; i=0; while [ $i -lt 20 ]; do p=$(cat "$d/.w" 2>/dev/null); [ -n "$p" ] && break; sleep 0.1 2>/dev/null || sleep 1; i=$((i+1)); done; ` +
+		`case "$p" in ''|*[!0-9]*) rm -rf "$d"; exit ` + noGroup + `;; esac; ` +
+		`i=0; while [ -n "$g" ] && [ "$(ps -o pgid= -p "$p" 2>/dev/null | tr -d ' ')" != "$p" ]; do ` +
+		`[ $i -lt 10 ] || { kill -TERM "$p" 2>/dev/null; rm -rf "$d"; exit ` + noGroup + `; }; sleep 0.1 2>/dev/null || sleep 1; i=$((i+1)); done; ` +
+		`echo "$p" > "$d/pid"; : > "$d/.go"; ` + FactsScript + `; ks_facts "$p" ` + s.ID, nil
 }
 
-// wrapper is the session's root process. Its output and the run's go
+// wrapper is the session's root process. It first writes its PID to .w
+// and waits up to 5 s for .go from the start script. Its output and the run's go
 // through the fifo .o into the capper, which keeps the first max bytes in
 // out.log and counts the rest into truncated; the capper starts before the
 // login's umask comes back, so its files stay private. exit is written
@@ -71,7 +81,9 @@ func StartScript(s Start) (string, error) {
 // child the run left still holds the output open).
 func wrapper(start string, timeout time.Duration, max int64) string {
 	watch, end := watcher(timeout)
-	return `{ head -c ` + strconv.FormatInt(max, 10) + ` > "$d/out.log"; n=$(wc -c | tr -d ' '); [ "$n" = 0 ] || echo "$n" > "$d/truncated"; } < "$d/.o" & k=$!; ` +
+	return `echo $$ > "$d/.w"; i=0; while [ ! -e "$d/.go" ] && [ $i -lt 50 ]; do sleep 0.1 2>/dev/null || sleep 1; i=$((i+1)); done; ` +
+		`[ -e "$d/.go" ] || exit 0; rm -f "$d/.w" "$d/.go"; ` +
+		`{ head -c ` + strconv.FormatInt(max, 10) + ` > "$d/out.log"; n=$(wc -c | tr -d ' '); [ "$n" = 0 ] || echo "$n" > "$d/truncated"; } < "$d/.o" & k=$!; ` +
 		`exec > "$d/.o" 2>&1; umask "$1"; ` + start + `; umask 077; ` + watch + end +
 		`exec > /dev/null 2>&1; i=0; while kill -0 $k 2>/dev/null && [ $i -lt 3 ]; do sleep 1; i=$((i+1)); done; ` +
 		`[ -f "$d/killed" ] || { echo $c > "$d/exit.tmp" && mv "$d/exit.tmp" "$d/exit"; }; rm -f "$d/env" "$d/in" "$d/pw" "$d/.o"`

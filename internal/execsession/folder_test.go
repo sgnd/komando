@@ -59,21 +59,80 @@ func TestFolderScriptMakesPrivateFolders(t *testing.T) {
 	}
 }
 
-// An existing root keeps its contents and is made private.
-func TestFolderScriptTightensAWideRoot(t *testing.T) {
+// A folder others can only read is made private, and the output says so:
+// logs written while it was open may have been read.
+func TestFolderScriptTightensAReadableFolder(t *testing.T) {
+	for _, tt := range []struct{ name, rel, shown string }{
+		{"root", ".komando", "~/.komando"},
+		{"sessions", ".komando/sessions", "~/.komando/sessions"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			home := t.TempDir()
+			p := filepath.Join(home, tt.rel)
+			if err := os.MkdirAll(p, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Chmod(p, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			got, code := runPrelude(t, home)
+			if code != 0 {
+				t.Fatalf("exit %d, %q", code, got)
+			}
+			if m := mode(t, p).Perm(); m != 0o700 {
+				t.Errorf("mode %o, want 700", m)
+			}
+			want := "warning " + tt.shown + " was mode 755; now 700; earlier logs may have been read"
+			if !strings.Contains(got, want+"\n") {
+				t.Errorf("output %q, want the line %q", got, want)
+			}
+		})
+	}
+}
+
+// A private folder is used as it is, with no warning.
+func TestFolderScriptPrivateFolderNoWarning(t *testing.T) {
 	home := t.TempDir()
-	root := filepath.Join(home, ".komando")
-	if err := os.Mkdir(root, 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(home, ".komando", "sessions"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Chmod(root, 0o777); err != nil {
-		t.Fatal(err)
+	if got, code := runPrelude(t, home); code != 0 || strings.Contains(got, "warning") {
+		t.Fatalf("exit %d, %q", code, got)
 	}
-	if _, code := runPrelude(t, home); code != 0 {
-		t.Fatalf("exit %d", code)
-	}
-	if m := mode(t, root).Perm(); m != 0o700 {
-		t.Errorf("root mode %o, want 700", m)
+}
+
+// A folder that others can write is refused, not repaired: someone else
+// could have put anything there already.
+func TestFolderScriptRefusesAWritableFolder(t *testing.T) {
+	for _, tt := range []struct {
+		name, rel string
+		perm      os.FileMode
+	}{
+		{"root, other-writable", ".komando", 0o777},
+		{"root, group-writable", ".komando", 0o770},
+		{"sessions, other-writable", ".komando/sessions", 0o703},
+		{"sessions, group-writable", ".komando/sessions", 0o720},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			home := t.TempDir()
+			p := filepath.Join(home, tt.rel)
+			if err := os.MkdirAll(p, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Chmod(p, tt.perm); err != nil {
+				t.Fatal(err)
+			}
+			got, code := runPrelude(t, home)
+			if code != ExitUnsafe {
+				t.Fatalf("exit %d, %q; want %d", code, got, ExitUnsafe)
+			}
+			if m := mode(t, p).Perm(); m != tt.perm {
+				t.Errorf("mode %o changed, want %o kept", m, tt.perm)
+			}
+			if _, err := os.Lstat(filepath.Join(home, ".komando", "sessions", testID)); !errors.Is(err, os.ErrNotExist) {
+				t.Errorf("a session folder was made: %v", err)
+			}
+		})
 	}
 }
 

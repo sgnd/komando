@@ -13,26 +13,38 @@ import (
 	"time"
 )
 
+// in wraps facts in the markers that carry the session ID.
+func in(id, body string) string { return "facts-begin " + id + "\n" + body + "facts-end " + id + "\n" }
+
 func TestParseFacts(t *testing.T) {
-	got, err := ParseFacts("pid 41\npgid 41\nstart proc 12345\n")
+	got, err := ParseFacts(in(testID, "pid 41\npgid 41\nstart proc 12345\n"), testID)
 	if err != nil || got != (Facts{PID: 41, PGID: 41, Start: "proc 12345"}) {
 		t.Fatalf("%+v, %v", got, err)
 	}
-	got, err = ParseFacts("noise first\npid 7\npgid 3\nstart ps Mon Nov 24 14:06:00 2026\n")
+	// lines outside the markers are someone else's (a login banner, a
+	// profile script): never read as facts
+	got, err = ParseFacts("pid 99\npgid 99\nstart proc 1\n"+in(testID, "pid 7\npgid 3\nstart ps Mon Nov 24 14:06:00 2026\n")+"pid 98\n", testID)
 	if err != nil || got != (Facts{PID: 7, PGID: 3, Start: "ps Mon Nov 24 14:06:00 2026"}) {
 		t.Fatalf("%+v, %v", got, err)
 	}
+	other := strings.Repeat("b", 52)
 	for _, bad := range []string{
 		"",
-		"pid 41\npgid 41\n",           // no start
-		"pid 41\nstart proc 1\n",      // no pgid
-		"pid x\npgid 1\nstart ps a\n", // not a number
-		"pid 1\npgid 1\nstart proc 5\n",
-		"pid 0\npgid 9\nstart proc 5\n",
-		"pid 9\npgid 1\nstart proc 5\n",
-		"pid -9\npgid 9\nstart proc 5\n",
+		"pid 41\npgid 41\nstart proc 1\n", // no markers
+		in(other, "pid 41\npgid 41\nstart proc 1\n"),                  // another session's markers
+		in(testID, "pid 41\npgid 41\nstart proc 1\npid 42\n"),         // a second pid
+		in(testID, "pid 41\npgid 41\npgid 42\nstart proc 1\n"),        // a second pgid
+		in(testID, "pid 41\npgid 41\nstart proc 1\nstart proc 2\n"),   // a second start
+		"facts-begin " + testID + "\npid 41\npgid 41\nstart proc 1\n", // no end
+		in(testID, "pid 41\npgid 41\n"),                               // no start
+		in(testID, "pid 41\nstart proc 1\n"),                          // no pgid
+		in(testID, "pid x\npgid 1\nstart ps a\n"),                     // not a number
+		in(testID, "pid 1\npgid 1\nstart proc 5\n"),
+		in(testID, "pid 0\npgid 9\nstart proc 5\n"),
+		in(testID, "pid 9\npgid 1\nstart proc 5\n"),
+		in(testID, "pid -9\npgid 9\nstart proc 5\n"),
 	} {
-		if f, err := ParseFacts(bad); err == nil {
+		if f, err := ParseFacts(bad, testID); err == nil {
 			t.Errorf("%q: %+v, want an error", bad, f)
 		}
 	}
@@ -85,11 +97,11 @@ func gone(pid int) bool {
 
 func facts(t *testing.T, pid int) Facts {
 	t.Helper()
-	b, err := exec.Command("sh", "-c", FactsScript+`; ks_facts `+strconv.Itoa(pid)).CombinedOutput()
+	b, err := exec.Command("sh", "-c", FactsScript+`; ks_facts `+strconv.Itoa(pid)+` `+testID).CombinedOutput()
 	if err != nil {
 		t.Fatalf("%v: %s", err, b)
 	}
-	f, err := ParseFacts(string(b))
+	f, err := ParseFacts(string(b), testID)
 	if err != nil {
 		t.Fatalf("%v: %s", err, b)
 	}

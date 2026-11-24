@@ -76,7 +76,7 @@ func TestStartScriptPrintsFacts(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d, %q", code, got)
 	}
-	f, err := ParseFacts(got)
+	f, err := ParseFacts(got, testID)
 	if err != nil {
 		t.Fatalf("%v: %q", err, got)
 	}
@@ -212,7 +212,7 @@ func TestStartScriptTimeout(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d", code)
 	}
-	f, err := ParseFacts(got)
+	f, err := ParseFacts(got, testID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,5 +236,61 @@ func TestStartScriptUnsafeFolder(t *testing.T) {
 	}
 	if got, code := runStart(t, home, Start{ID: testID, Run: startRun("touch ran"), LogMax: 1 << 20}, ""); code != ExitUnsafe {
 		t.Fatalf("exit %d, %q; want %d", code, got, ExitUnsafe)
+	}
+}
+
+// fakeSetsid writes a setsid onto a new folder for PATH: body runs before it
+// gives the command a new session (or, with group false, runs it in the
+// caller's group, as a broken setsid would).
+func fakeSetsid(t *testing.T, delay string, group bool) string {
+	t.Helper()
+	if _, err := exec.LookPath("perl"); group && err != nil {
+		t.Skip("no perl to make a new session")
+	}
+	run := `exec "$@"`
+	if group {
+		run = `exec perl -e 'use POSIX qw(setsid); setsid() or die "setsid"; exec @ARGV or die "exec"' "$@"`
+	}
+	dir := t.TempDir()
+	script := "#!/bin/sh\nsleep " + delay + "\n" + run + "\n"
+	if err := os.WriteFile(filepath.Join(dir, "setsid"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
+// A setsid that is slow to make the group still gives a run that leads
+// its own group: the start waits for it.
+func TestStartScriptSlowSetsid(t *testing.T) {
+	home := t.TempDir()
+	got, code := runStart(t, home, Start{ID: testID, Run: startRun("echo hi"), LogMax: 1 << 20}, "", fakeSetsid(t, "0.3", true))
+	if code != 0 {
+		t.Fatalf("exit %d, %q", code, got)
+	}
+	f, err := ParseFacts(got, testID)
+	if err != nil || f.PGID != f.PID {
+		t.Fatalf("%+v, %v: want the run to lead its own group", f, err)
+	}
+	waitFile(t, home, "exit")
+	if o := waitFile(t, home, "out.log"); o != "hi\n" {
+		t.Errorf("out.log %q", o)
+	}
+}
+
+// A setsid that gives no group of its own fails the start: no stop could
+// reach the whole run. Nothing of the command runs, and no folder stays.
+func TestStartScriptNoGroupFails(t *testing.T) {
+	home := t.TempDir()
+	mark := filepath.Join(home, "ran")
+	got, code := runStart(t, home, Start{ID: testID, Run: startRun("touch " + sshx.Q(mark)), LogMax: 1 << 20}, "", fakeSetsid(t, "0", false))
+	if code != ExitNoGroup {
+		t.Fatalf("exit %d, %q; want %d", code, got, ExitNoGroup)
+	}
+	time.Sleep(1500 * time.Millisecond)
+	if _, err := os.Lstat(mark); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("the command ran: %v", err)
+	}
+	if _, err := os.Lstat(sessionDir(home)); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("the session folder stayed: %v", err)
 	}
 }

@@ -19,7 +19,8 @@ type Facts struct {
 // FactsScript defines two shell functions:
 //
 //	ks_start PID   prints the process's start, or nothing when it is gone
-//	ks_facts PID   prints the lines ParseFacts reads
+//	ks_facts PID ID   prints the lines ParseFacts reads, between markers
+//	                  that carry the session ID
 //
 // ks_start reads field 22 of /proc/PID/stat, counted after the last ")"
 // because the command name may hold spaces; without /proc it asks ps in
@@ -27,36 +28,54 @@ type Facts struct {
 const FactsScript = `ks_start() { if [ -r "/proc/$1/stat" ]; then ` +
 	`t=$(sed 's/.*) //' "/proc/$1/stat" 2>/dev/null | cut -d' ' -f20); [ -z "$t" ] || echo "proc $t"; ` +
 	`else t=$(LC_ALL=C ps -o lstart= -p "$1" 2>/dev/null | sed 's/^ *//;s/ *$//'); [ -z "$t" ] || echo "ps $t"; fi; }; ` +
-	`ks_facts() { echo "pid $1"; echo "pgid $(ps -o pgid= -p "$1" 2>/dev/null | tr -d ' ')"; echo "start $(ks_start "$1")"; }`
+	`ks_facts() { echo "facts-begin $2"; echo "pid $1"; echo "pgid $(ps -o pgid= -p "$1" 2>/dev/null | tr -d ' ')"; echo "start $(ks_start "$1")"; echo "facts-end $2"; }`
 
 var errFacts = errors.New("the server did not give the process's pid, group and start")
 
-// ParseFacts reads ks_facts's lines; other lines before them are skipped.
-// PID and group 0 and 1 are refused: a signal to either would reach far
-// more than one run.
-func ParseFacts(s string) (Facts, error) {
+// ParseFacts reads ks_facts's lines for session id. Only the lines between
+// its markers count (a login banner or a profile script may print first),
+// each fact once. PID and group 0 and 1 are refused: a signal to either
+// would reach far more than one run.
+func ParseFacts(s, id string) (Facts, error) {
 	var f Facts
 	var seen int
+	inside, ended := false, false
 	for _, line := range strings.Split(s, "\n") {
-		k, v, _ := strings.Cut(strings.TrimSpace(line), " ")
+		line = strings.TrimSpace(line)
+		switch {
+		case line == "facts-begin "+id && !inside && !ended:
+			inside = true
+			continue
+		case line == "facts-end "+id && inside:
+			inside, ended = false, true
+			continue
+		case !inside:
+			continue
+		}
+		k, v, _ := strings.Cut(line, " ")
 		v = strings.TrimSpace(v)
+		bit := map[string]int{"pid": 1, "pgid": 2, "start": 4}[k]
+		if bit == 0 {
+			continue
+		}
+		if seen&bit != 0 {
+			return Facts{}, errFacts
+		}
+		seen |= bit
 		var err error
 		switch k {
 		case "pid":
 			f.PID, err = strconv.Atoi(v)
-			seen |= 1
 		case "pgid":
 			f.PGID, err = strconv.Atoi(v)
-			seen |= 2
 		case "start":
 			f.Start = v
-			seen |= 4
 		}
 		if err != nil {
 			return Facts{}, errFacts
 		}
 	}
-	if seen != 7 || f.PID <= 1 || f.PGID <= 1 || f.Start == "" {
+	if !ended || seen != 7 || f.PID <= 1 || f.PGID <= 1 || f.Start == "" {
 		return Facts{}, errFacts
 	}
 	return f, nil
