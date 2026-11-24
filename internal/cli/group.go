@@ -198,7 +198,7 @@ func groupAddCmd() *cobra.Command {
 				return err
 			}
 			audit(cl, nil, "group.add", added, "", true, map[string]any{"group": group})
-			cl.out.Print("group.add", textAs{res, textBlob(changeSay(cl, "add", joinAnd(added), "to @"+group))}, nil)
+			cl.out.Print("group.add", textAs{res, textBlob(changeSay(cl, "add", term.JoinAnd(added), "to @"+group))}, nil)
 			return nil
 		}),
 	}
@@ -280,9 +280,9 @@ Deleting a group with more than 3 members needs --yes; try --dry-run first.`,
 			if cl.flags.dryRun {
 				key = "would_remove"
 			}
-			say := changeSay(cl, "remove", joinAnd(removed), "from @"+group)
+			say := changeSay(cl, "remove", term.JoinAnd(removed), "from @"+group)
 			if len(args) == 1 {
-				say = changeSay(cl, "remove", "group @"+group, "from "+cmp.Or(joinAnd(removed), "nothing"))
+				say = changeSay(cl, "remove", "group @"+group, "from "+cmp.Or(term.JoinAnd(removed), "nothing"))
 			}
 			cl.out.Print("group.rm", textAs{map[string]any{"group": group, key: removed}, textBlob(say)}, nil)
 			return nil

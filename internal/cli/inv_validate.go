@@ -47,7 +47,7 @@ func validPort(p int) error {
 func validLabelName(kind, n string) error {
 	if !nameRe.MatchString(n) {
 		return out.Errf(out.ExitUsage, "USAGE", "use letters, digits and . _ - (max 63), for example web or prod-eu",
-			"%q cannot be a %s name", kind, n)
+			"%q cannot be a %s name", n, kind)
 	}
 	return nil
 }

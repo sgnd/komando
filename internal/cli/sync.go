@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/sftp"
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
@@ -478,9 +479,9 @@ func (r *syncResult) Text() string {
 		sb.WriteString("  ... (more; see -o json)\n")
 	}
 	if r.DryRun {
-		fmt.Fprintf(&sb, "would copy %d, update %d, delete %d; %d unchanged (%s)\n", r.Copied, r.Updated, r.Deleted, r.Unchanged, humanBytes(r.Bytes))
+		fmt.Fprintf(&sb, "would copy %d, update %d, delete %d; %d unchanged (%s)\n", r.Copied, r.Updated, r.Deleted, r.Unchanged, term.HumanBytes(r.Bytes))
 	} else {
-		fmt.Fprintf(&sb, "copied %d, updated %d, deleted %d; %d unchanged (%s)\n", r.Copied, r.Updated, r.Deleted, r.Unchanged, humanBytes(r.Bytes))
+		fmt.Fprintf(&sb, "copied %d, updated %d, deleted %d; %d unchanged (%s)\n", r.Copied, r.Updated, r.Deleted, r.Unchanged, term.HumanBytes(r.Bytes))
 	}
 	if r.Kept > 0 {
 		fmt.Fprintf(&sb, "kept %d existing local files (--overwrite replaces them)\n", r.Kept)
@@ -605,7 +606,7 @@ func syncUp(cl *call, ctx context.Context, name, local, target, remote string, o
 	if err != nil {
 		return err
 	}
-	if err := guard(cl, st, hosts, "", true); err != nil {
+	if err := Guard(cl, st, hosts, "", true); err != nil {
 		return err
 	}
 	progressFrom(ctx).eachServer(len(hosts)) // each server needs its own files
@@ -694,7 +695,7 @@ func syncStorage(cl *call, ctx context.Context, name, connExpr string, v driver.
 		return err
 	}
 	if v.Risk > driver.RiskRead && !cl.flags.dryRun {
-		if err := guardConns(cl, st, []*store.Conn{c}, v); err != nil {
+		if err := GuardConns(cl, st, []*store.Conn{c}, v); err != nil {
 			return err
 		}
 	}

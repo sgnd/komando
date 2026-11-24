@@ -8,7 +8,7 @@ echo a > "$L/site/a.txt"; echo b > "$L/site/sub/b.txt"; ln -s a.txt "$L/site/lin
 q $K exec direct --allow-dangerous -- "rm -rf $R ~/t-e2erun; mkdir -p $R/avail $R/enabled $R/dl/sub && printf 'x\n' > $R/avail/site && ln -s ../avail/site $R/enabled/site && echo 1 > $R/dl/ok && echo 2 > $R/dl/sub/locked && chmod 000 $R/dl/sub/locked"
 
 # exec / runner
-set +e; $K exec direct --read-only -- "touch $R/nothing" >/dev/null; check "--read-only refuses a change" 6 $?; set -e
+check "--read-only refuses a change" READ_ONLY_VIOLATION "$($K exec direct --read-only -- "touch $R/nothing" | jget 'd["error"]["code"]' || true)"
 check "--read-only allows a read" 0 "$($K exec direct --read-only -- 'cat /etc/hostname' >/dev/null; echo $?)"
 check "single host failure names the exit code" 1 "$({ $K exec direct -o text -- 'exit 3' 2>&1 >/dev/null || true; } | grep -c 'failed (exit 3)')"
 check "stderr inside each host block" True "$($K exec bastion,direct -o text -- 'echo oops >&2' 2>/dev/null | grep -q '^\[stderr\] oops' && echo True || echo False)"

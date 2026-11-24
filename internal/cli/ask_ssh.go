@@ -1,6 +1,10 @@
 package cli
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/sgnd/komando/internal/cli/kit/term"
+)
 
 // sshAskMu: one login question at a time. Servers that log in at once
 // (`komando exec @web`) take turns, so each question stands on its own line
@@ -17,5 +21,5 @@ func askSSH(cl *call, host, text string, hidden bool) (string, error) {
 	if r := []rune(text); len(r) > 2000 { // a server's question, not a page
 		text = string(r[:2000])
 	}
-	return loginPrompt(cl, cleanText(host)+": "+text, hidden)
+	return loginPrompt(cl, term.CleanText(host)+": "+text, hidden)
 }

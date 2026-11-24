@@ -72,6 +72,7 @@ or a listed one is gone.
 | Package | What it is |
 |---|---|
 | `cmd/komando` | `main`: starts `internal/cli` |
+| `internal/auditlog` | the audit log: records sealed in the local store, read back in short steps, and checked by `komando audit verify` |
 | `internal/boundary` | test only: the paid boundary (no sync library or Komando Cloud client in the binary, no komando-owned address but the release site) |
 | `internal/browserx` | a sign-in page in a browser window (VPN SAML logins) |
 | `internal/cachex` | Redis-compatible caches and memcached, with the risk of each command |
@@ -118,8 +119,23 @@ or a listed one is gone.
 | `internal/testhome` | tests only: a throwaway home folder for each test binary, and the rules that keep tests out of the real one |
 | `internal/tmpclean` | the temporary files of one run, removed on a second Ctrl-C; old leftovers swept |
 | `internal/vault` | the encrypted secrets |
+| `internal/version` | komando's version: set at link time with `-X` (the Makefile), else from the module version `go install` records |
 | `internal/winrm` | komando's own WinRM client for Windows servers |
 | `sync` | prototype only, its own Go module: the open sync format and cryptography used by the Komando apps, tested against a hostile in-memory server ([sync-prototype.md](sync-prototype.md)); the CLI never imports it |
+
+### What the packages under internal/cli may import
+
+Each package below `internal/cli` keeps to the imports of its row, so
+what every command shares never reaches back into the commands. "std" is
+the standard library; the others are import paths (below the module when
+they start with `internal/`). A new package gets its row here, in the same
+words as the move check, in the same change; `internal/layout` fails when
+a package has no row, imports more than its row allows, or a row has no
+code.
+
+| Package | May import |
+|---|---|
+| `internal/cli/kit/term` | std, `internal/out`, `golang.org/x/text` |
 
 ## Files in internal/cli
 

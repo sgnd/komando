@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -73,7 +74,7 @@ func parseNetCheck(s string) ([]map[string]any, *out.Error) {
 func netCheckText(data any) string {
 	rows := [][]string{}
 	for _, r := range data.([]map[string]any) {
-		rows = append(rows, []string{cell(r["target"]), yesCell(r["open"] == true), cell(r["reason"]), cell(r["ms"])})
+		rows = append(rows, []string{cell(r["target"]), term.YesCell(r["open"] == true), cell(r["reason"]), cell(r["ms"])})
 	}
 	return textTable([]string{"target", "open", "reason", "ms"}, rows)
 }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -87,7 +88,7 @@ without it a job has no time limit.`,
 			if err != nil {
 				return err
 			}
-			if err := guard(cl, st, hosts, sp.command, sp.mutating); err != nil {
+			if err := Guard(cl, st, hosts, sp.command, sp.mutating); err != nil {
 				return err
 			}
 			if sp.env, err = parseEnvTo(cl, envs, hosts); err != nil {
@@ -504,7 +505,7 @@ func jobKillCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := guard(cl, st, []*store.Host{h}, "", true); err != nil {
+			if err := Guard(cl, st, []*store.Host{h}, "", true); err != nil {
 				return err
 			}
 			script := jobKillScript(j, sig)
@@ -600,7 +601,7 @@ func jobRmCmd() *cobra.Command {
 				if force {
 					// --kill may stop it, the change job kill is: a protected
 					// server asks first
-					if err := guard(cl, st, []*store.Host{h}, "", true); err != nil {
+					if err := Guard(cl, st, []*store.Host{h}, "", true); err != nil {
 						return err
 					}
 				}
@@ -741,7 +742,7 @@ func (s *jobStatus) Text() string {
 	var b strings.Builder
 	b.WriteString("job " + s.ID + " on " + s.Host + ": " + s.describe() + "\n")
 	b.WriteString("command: " + s.Command + "\n")
-	b.WriteString("pid " + strconv.Itoa(s.PID) + ", started " + s.StartedAt + ", log " + humanBytes(s.LogBytes) + "\n")
+	b.WriteString("pid " + strconv.Itoa(s.PID) + ", started " + s.StartedAt + ", log " + term.HumanBytes(s.LogBytes) + "\n")
 	if t := strings.TrimRight(s.Tail, "\n"); t != "" {
 		b.WriteString("--- last lines ---\n" + t + "\n")
 	}

@@ -395,7 +395,7 @@ func fsWriteCmd() *cobra.Command {
 			if err := checkValidate(o.validate); err != nil {
 				return err
 			}
-			if err := guard(cl, st, []*store.Host{h}, o.validate, true); err != nil {
+			if err := Guard(cl, st, []*store.Host{h}, o.validate, true); err != nil {
 				return err
 			}
 			if data, err = expandSecretRefsBytes(cl, data, h.Name+":"+args[1]); err != nil {

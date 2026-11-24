@@ -53,6 +53,9 @@ func clusterRmCmd() *cobra.Command {
 				if kind != "service" && kind != "stack" {
 					return out.Usage("Swarm removes a service or a stack")
 				}
+				if err := checkSwarmName(name); err != nil {
+					return err
+				}
 				line := "docker " + kind + " rm " + sshx.Q(name)
 				if kind == "service" {
 					if _, err := swarmInspect(cl, cmd.Context(), t, name); err != nil {
@@ -609,7 +612,7 @@ func guardSwarmRun(cl *call, st *store.State, host string, risk driver.Risk, ver
 		return nil
 	}
 	askTypes(cl, []string{host}, "servers")
-	return guardConns(cl, st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{"docker " + verb}})
+	return GuardConns(cl, st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{"docker " + verb}})
 }
 
 // createsAwsAuth: `create configmap|cm aws-auth`, flags anywhere. EKS

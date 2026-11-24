@@ -496,9 +496,22 @@ func swarmLogs(cl *call, ctx context.Context, t clusterTarget, service string, l
 
 // Swarm changes.
 
+// checkSwarmName refuses a service or stack name docker would read as a
+// flag. sshx.Q keeps the shell from splitting a word, not docker from
+// parsing a leading dash, so every Swarm entry reaches it (swarmInspect for
+// a service, cluster rm for a stack) before any docker line is built.
+func checkSwarmName(name string) error {
+	if !containerNameRe.MatchString(name) {
+		return out.Usage("%q is not a service or stack name: a name starts with a letter or digit, then letters, digits, _, . or -", name)
+	}
+	return nil
+}
+
 // swarmDo runs a change on the manager after the safety checks: risky
 // changes need --allow-dangerous, protected servers --yes. Under --dry-run
-// it runs nothing and returns ran=false.
+// it runs nothing and returns ran=false. Every operand in line must be
+// sshx.Q-quoted and checked (checkSwarmName) by the caller;
+// TestGuardScriptCallers pins the callers.
 func swarmDo(cl *call, ctx context.Context, name string, t clusterTarget, line string, stdin []byte, risk driver.Risk, why string) (string, bool, error) {
 	st, err := loadState()
 	if err != nil {
@@ -509,11 +522,11 @@ func swarmDo(cl *call, ctx context.Context, name string, t clusterTarget, line s
 		if cl.typed == nil {
 			askTypes(cl, []string{t.host.Name}, "servers") // the whole cluster: its manager's name
 		}
-		if err := guardConns(cl, st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{name}, Reasons: []string{why}}); err != nil {
+		if err := GuardConns(cl, st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{name}, Reasons: []string{why}}); err != nil {
 			return "", false, err
 		}
 	}
-	if err := guardScript(cl, st, []*store.Host{t.host}, line, true); err != nil {
+	if err := GuardScript(cl, st, []*store.Host{t.host}, line, true); err != nil {
 		return "", false, err
 	}
 	if cl.flags.dryRun {
@@ -529,7 +542,12 @@ func swarmDo(cl *call, ctx context.Context, name string, t clusterTarget, line s
 }
 
 // swarmInspect reads one field set of a service (and so checks it exists).
+// It checks the name first: deploy, rollback, restart, scale and rm of a
+// service each inspect before they change anything.
 func swarmInspect(cl *call, ctx context.Context, t clusterTarget, service string) (map[string]any, error) {
+	if err := checkSwarmName(service); err != nil {
+		return nil, err
+	}
 	st, err := loadState()
 	if err != nil {
 		return nil, err
@@ -567,6 +585,7 @@ func serviceReplicas(spec any) int {
 
 // swarmChange makes a service change and with wait follows the rollout to
 // its end, printing one answer for both. res is what the command reports.
+// service and line follow swarmDo's rule: quoted and checked by the caller.
 func swarmChange(cl *call, ctx context.Context, name string, t clusterTarget, service, line string, wait, rollback bool, risk driver.Risk, res map[string]any) error {
 	res["host"] = t.host.Name
 	why := line
