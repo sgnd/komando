@@ -364,7 +364,7 @@ group has one type; meanings checked by usage-text template where one exists]
 | `--idle` | | duration | stop after this long with nothing new | stated per flag |
 | `--interval`, `--expires`, `--ttl`, `--older-than`, `--warn` | | duration | a span | per flag; "0 = never" or "> 0" in the usage text |
 | `--since`, `--until` | | when | a point in time | `30m`, `7d`, `today`, `yesterday`, `2026-11-07 14:30`, RFC3339 |
-| `--from` | | string | a local input file, the pair of `--to` (`database P restore`, `queue P message create`); *exception*: `credential key install --from ADDRESS` limits the key to logins from that address | `-` = stdin |
+| `--from` | | string | a local input file, the pair of `--to` (`database P restore`, `queue P message create`) | `-` = stdin |
 | `--to` | | string | a local output file (`database P backup`) | `-` = stdout |
 | `--file` | `-f` | string | a manifest or input file a tool reads (`database P query`) | `-` = stdin where the tool allows it |
 | `--config` | | tool word | *exception*: `queue P topic create --config KEY=VALUE`, `vpn P add --config FILE` | |
@@ -386,6 +386,7 @@ group has one type; meanings checked by usage-text template where one exists]
 | `--kubeconfig-credential`, `--context` | | string | on `cluster kubernetes add`: the credential that holds the kubeconfig, and the context to use in it | |
 | `--generate` | | bool | on `credential token add`: make 32 random bytes, store them, show nothing | false |
 | `--public-key-file` | | string | on `credential key install`: a local file with the public key to put on the server | |
+| `--from-address` | | string | on `credential key install`: limit the key to logins from this address | |
 | `--store`, `--item` | | string | on `credential KIND add`: the named store and the item in it that holds the value | |
 | `--ask` | | bool | on `credential password add`: a person types the password at every connect; it is never stored | false |
 | `--user` | | string | the account a credential logs in as (`credential password add`, `credential key add`). An entry has no `--user` of its own | |
@@ -839,7 +840,7 @@ Three forms hold a secret that is never typed on a command line:
   preshared key given on the command line is refused.
 - A key from outside komando (a phone's public key) goes onto a server with
   `komando credential key install web1 --user alice --public-key-file FILE
-  [--from ADDRESS]`. By this form the command is tier person (S-7.2):
+  [--from-address ADDRESS]`. By this form the command is tier person (S-7.2):
   it adds a way to log in that komando did not make. [code]
 
 **S-10.4** A long run. Every `exec` runs in a session on the server and
