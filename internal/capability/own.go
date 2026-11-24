@@ -16,7 +16,7 @@ var credentialLeaves = concat(
 		{Key: own("credential", "", "list"), LocalRead: true, Synonyms: []string{"ls"}, Today: []string{"secret.list"}},
 		{Key: own("credential", "", "run"), Args: []Arg{{Name: "PROGRAM", Many: true}},
 			Options: []Option{{Name: "env", Kind: String, Repeat: true, Help: "KEY=credential:NAME, put in the program's environment"}},
-			Stops:   []string{"refuseEncodedSecret"}, Today: []string{"secret.run"}},
+			Stops:   []string{"refuseEncodedSecret", "RefGuard"}, Today: []string{"secret.run"}},
 	},
 	valueKindLeaves(),
 	[]Leaf{
@@ -86,7 +86,7 @@ var storeLeaves = each(storeProviders, func(p provider) []Leaf {
 	ls := storeInventory.leaves(p)
 	for i := range ls {
 		if ls[i].Verb == "add" || ls[i].Verb == "edit" {
-			ls[i].Stops = append(ls[i].Stops, "RefGuard")
+			ls[i] = withStop(ls[i:i+1], "RefGuard")[0]
 		}
 	}
 	return ls

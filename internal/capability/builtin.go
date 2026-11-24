@@ -23,7 +23,7 @@ var builtinLeaves = []Leaf{
 		Output: TargetData, Stops: []string{"localWriteProtected", "protectedFilesOf"},
 		Carries: []string{"cp", "upload", "download", "sync", "storage.download", "storage.upload"}},
 	{Key: top("import"), Args: []Arg{{Name: "FILE"}}, Stops: []string{"reservedSecret"}, Today: []string{"import"}},
-	{Key: top("export"), Args: []Arg{{Name: "FILE"}}, Stops: []string{"localWriteProtected"}, Today: []string{"export"},
+	{Key: top("export"), Args: []Arg{{Name: "FILE"}}, Stops: []string{"localWriteProtected", "reservedSecret"}, Today: []string{"export"},
 		Options: []Option{
 			{Name: "sealed", Kind: Bool, Help: "seal the file with a passphrase"},
 			{Name: "for-phone", Kind: Bool, Help: "a sealed file for the phone app (its fate is open)"},
