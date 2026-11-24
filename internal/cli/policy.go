@@ -569,11 +569,11 @@ func setRuleOn(offs []store.RuleOff, id string, everywhere bool, ids, groups []s
 }
 
 // confirmOff asks before a rule goes off: a keystone rule's name, typed by
-// a person at the terminal; otherwise the safety question, or for an AI
-// agent the approval window on the person's screen.
+// a person at the terminal even with --yes; otherwise the safety question,
+// or for an AI agent the approval window on the person's screen.
 func confirmOff(cl *call, r policy.Rule, sw policySwitch) error {
 	why := offSentence("switching", r, sw)
-	if slices.Contains(keystoneRules, r.ID) && cl.interactive() && !cl.flags.yes && !cl.flags.dryRun && !cl.caller().IsAgent() {
+	if slices.Contains(keystoneRules, r.ID) && cl.interactive() && !cl.flags.dryRun && !cl.caller().IsAgent() {
 		askTypes(cl, []string{r.ID}, "rules")
 		if !confirmDangerous(cl, nil, offSentence("switches", r, sw)) {
 			return cl.policyStop(approvalErr(cl, "SAFETY_SETTING", why+" weakens komando's safety checks"))
@@ -595,7 +595,7 @@ command that also runs on another server is still stopped. Switching a rule
 off weakens a safety check, so komando asks first: an AI agent's request
 opens the approval window on your screen, and for a rule that keeps the
 others working (check-failed, decode-run, rm-root, mkfs, ...) you type the
-rule's name. The audit log keeps every switch, and ` + "`komando doctor`" + ` names
+rule's name, with --yes too. The audit log keeps every switch, and ` + "`komando doctor`" + ` names
 every rule that is off. --on switches it on again, everywhere or only on the
 servers you name.`,
 		Example: `  komando policy edit docker-prune --off --host build1

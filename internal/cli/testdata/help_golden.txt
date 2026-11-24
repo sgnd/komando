@@ -6247,9 +6247,9 @@ command that also runs on another server is still stopped. Switching a rule
 off weakens a safety check, so komando asks first: an AI agent's request
 opens the approval window on your screen, and for a rule that keeps the
 others working (check-failed, decode-run, rm-root, mkfs, ...) you type the
-rule's name. The audit log keeps every switch, and `komando doctor` names
-every rule that is off. --on switches it on again, everywhere or only on the
-servers you name.
+rule's name, with --yes too. The audit log keeps every switch, and `komando
+doctor` names every rule that is off. --on switches it on again, everywhere
+or only on the servers you name.
 
 Safety: a change; try it with --dry-run first; unless only --on: it weakens
 a safety check: a person's yes (--yes).

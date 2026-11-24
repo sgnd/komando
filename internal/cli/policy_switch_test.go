@@ -192,7 +192,7 @@ func TestDoctorNamesRulesOff(t *testing.T) {
 }
 
 // At a terminal, a keystone rule goes off only when the person types its
-// name; a carried rule takes a plain yes.
+// name, --yes or not; a carried rule takes a plain yes.
 func TestPolicyEditOffAtATerminal(t *testing.T) {
 	if testing.Short() {
 		t.Skip("starts processes")
@@ -208,6 +208,11 @@ func TestPolicyEditOffAtATerminal(t *testing.T) {
 	p.answer("Type the name rm-root", "rm-root\r")
 	if code := p.exit(); code != 0 {
 		t.Errorf("the typed name: exit %d\n%s", code, p.shown())
+	}
+	p = startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "policy", "edit", "rm-root", "--off", "--yes")
+	p.answer("Type the name rm-root", "y\r")
+	if code := p.exit(); code != out.ExitPolicy {
+		t.Errorf("--yes in place of the typed name: exit %d\n%s", code, p.shown())
 	}
 	p = startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "policy", "edit", "docker-prune", "--off")
 	p.answer("[y/N]", "y\r")

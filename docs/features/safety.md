@@ -306,7 +306,7 @@ it: the approval window opens on your screen, and the agent cannot answer
 it. For a rule that keeps the others working (`check-failed`, `decode-run`,
 `base64-pipe-sh`, `curl-pipe-sh`, `rm-root`, `mkfs`, `dd-device`, `wipefs`,
 the rules for authentication files and their Windows equals) you type the
-rule's name at the terminal. `--on` asks nothing.
+rule's name at the terminal, even with `--yes`. `--on` asks nothing.
 
 A rule that is off is never silent: `policy list` and `policy show` show
 where it is off, `policy check` names it, `komando doctor` warns for every
