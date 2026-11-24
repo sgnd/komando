@@ -1,6 +1,7 @@
 package store
 
 import (
+	"errors"
 	"maps"
 	"net/url"
 	"regexp"
@@ -101,14 +102,18 @@ func urlUser(raw string) (user, rest string) {
 }
 
 // urlPassword reports a URL whose user part holds a password (user:pw@).
-func urlPassword(raw string) bool {
-	_, after, ok := strings.Cut(raw, "://")
-	if !ok {
-		return false
+// A URL net/url cannot read is an error, which never repeats the URL: it
+// may hold that password.
+func urlPassword(raw string) (bool, error) {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return false, errors.New("cannot be read as a URL")
 	}
-	auth, _, _ := strings.Cut(after, "/")
-	at := strings.LastIndex(auth, "@")
-	return at >= 0 && strings.Contains(auth[:at], ":")
+	if u.User == nil {
+		return false, nil
+	}
+	_, has := u.User.Password()
+	return has, nil
 }
 
 // oldRefRe is a value that still names a format-2 vault secret.

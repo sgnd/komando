@@ -81,7 +81,9 @@ func migrateFormat3(ctx context.Context, o migrate3Opts) (migrate3Result, error)
 	}
 	// 6. the audit chain (Audit M3)
 	if err := d.View(ctx, checkChain); err != nil {
-		return res, migrationFailed("the audit log of %s is broken (%v)", Path(StoreFile), err)
+		return res, out.Errf(out.ExitPolicy, "NEEDS_PERSON",
+			"a person finds out what changed the audit log, then runs `komando audit verify` and `komando doctor`",
+			"the audit log of %s is broken (%v), so the store does not move to a new format; nothing was changed", Path(StoreFile), err)
 	}
 	// 7. the backup
 	backup, err := backupFormat2(ctx, d, master, o.now())
