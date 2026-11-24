@@ -21,6 +21,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
@@ -324,7 +325,7 @@ type tunnelList struct {
 
 func (l tunnelList) Text() string {
 	if len(l.Tunnels) == 0 {
-		return noneYet("tunnels", "tunnel start TARGET -L SPEC")
+		return term.NoneYet("tunnels", "tunnel start TARGET -L SPEC")
 	}
 	rows := [][]string{}
 	for _, t := range l.Tunnels {

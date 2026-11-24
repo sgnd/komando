@@ -18,6 +18,7 @@ import (
 	"gopkg.in/yaml.v3"
 	"k8s.io/client-go/util/jsonpath"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/kube"
 	"github.com/sgnd/komando/internal/out"
 )
@@ -724,8 +725,8 @@ func kubectlTable(headers []string, rows [][]string, noHeaders bool) string {
 	}
 	for _, row := range all {
 		for i, c := range row {
-			if i < len(w) && displayWidth(c) > w[i] {
-				w[i] = displayWidth(c)
+			if i < len(w) && term.DisplayWidth(c) > w[i] {
+				w[i] = term.DisplayWidth(c)
 			}
 		}
 	}
@@ -736,7 +737,7 @@ func kubectlTable(headers []string, rows [][]string, noHeaders bool) string {
 				b.WriteString(c)
 				break
 			}
-			b.WriteString(c + strings.Repeat(" ", w[i]-displayWidth(c)+3))
+			b.WriteString(c + strings.Repeat(" ", w[i]-term.DisplayWidth(c)+3))
 		}
 		b.WriteString("\n")
 	}

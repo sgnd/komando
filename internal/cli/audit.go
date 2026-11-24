@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sealdb"
 )
@@ -24,10 +25,10 @@ type auditList struct {
 // Text is one line per entry, like `git log --oneline`.
 func (l auditList) Text() string {
 	if len(l.Entries) == 0 && len(l.filters) > 0 {
-		return noneMatch("audit entries", strings.Join(l.filters, " "), "fewer filters show more")
+		return term.NoneMatch("audit entries", strings.Join(l.filters, " "), "fewer filters show more")
 	}
 	if len(l.Entries) == 0 {
-		return noneYet("audit entries", "", "`komando config get audit` says whether the log is on")
+		return term.NoneYet("audit entries", "", "`komando config get audit` says whether the log is on")
 	}
 	var rows [][]string
 	for _, e := range l.Entries {
@@ -67,7 +68,7 @@ func (l auditList) Text() string {
 		case e["ok"] != true:
 			res = "failed"
 		}
-		t := truncateWidth(auditCell(strings.Join(targets, ",")), 60)
+		t := term.TruncateWidth(auditCell(strings.Join(targets, ",")), 60)
 		rows = append(rows, []string{auditCell(ts), auditCell(who), auditCell(fmt.Sprint(e["command"])), t, res})
 	}
 	return textTable([]string{"TIME", "ACTOR", "COMMAND", "TARGETS", "OK"}, rows)

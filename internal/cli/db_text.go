@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/dbx"
 )
 
@@ -116,7 +117,7 @@ func secsText(v any) string {
 
 // oneLine shows a query on one table line.
 func oneLine(v any, w int) string {
-	return truncateWidth(strings.Join(strings.Fields(cellStr(v)), " "), w)
+	return term.TruncateWidth(strings.Join(strings.Fields(cellStr(v)), " "), w)
 }
 
 // dbInfoData marshals like the map it wraps, so JSON stays as it was.
@@ -155,7 +156,7 @@ func (d dbInfoData) Text() string {
 		add("connections", c)
 	}
 	add("journal mode", cellStr(d["journal_mode"]))
-	tab := layoutTable([]string{"", ""}, rows)
+	tab := term.LayoutTable([]string{"", ""}, rows)
 	return tab[strings.Index(tab, "\n")+1:]
 }
 
@@ -167,7 +168,7 @@ type activityData struct {
 
 func (d activityData) Text() string {
 	if len(d.Sessions) == 0 {
-		return noneYet("busy sessions", "", "idle ones show with --all")
+		return term.NoneYet("busy sessions", "", "idle ones show with --all")
 	}
 	var rows [][]string
 	for _, s := range d.Sessions {
@@ -177,7 +178,7 @@ func (d activityData) Text() string {
 		}
 		rows = append(rows, []string{cellStr(s["pid"]), cellStr(s["user"]), cellStr(s["database"]), secsText(s["running_seconds"]), state, oneLine(s["query"], 60)})
 	}
-	return dataTable([]string{"pid", "user", "db", "time", "state", "query"}, rows)
+	return term.DataTable([]string{"pid", "user", "db", "time", "state", "query"}, rows)
 }
 
 type locksData struct {
@@ -195,7 +196,7 @@ func (d locksData) Text() string {
 		rows = append(rows, []string{cellStr(w["waiting_pid"]), secsText(w["waiting_seconds"]), oneLine(w["waiting_query"], 40),
 			cellStr(w["blocking_pid"]), oneLine(w["blocking_query"], 40)})
 	}
-	return dataTable([]string{"waiting", "for", "waiting query", "blocking", "blocking query"}, rows) +
+	return term.DataTable([]string{"waiting", "for", "waiting query", "blocking", "blocking query"}, rows) +
 		"(stop the blocking query with `komando db kill CONN PID`)\n"
 }
 
@@ -214,7 +215,7 @@ func (d sizesData) Text() string {
 		for _, r := range dbs {
 			rows = append(rows, []string{cellStr(r["name"]), sizeText(r["bytes"])})
 		}
-		sb.WriteString(dataTable([]string{"database", "size"}, rows))
+		sb.WriteString(term.DataTable([]string{"database", "size"}, rows))
 	}
 	if ts := list("tables"); len(ts) > 0 {
 		var rows [][]string
@@ -225,14 +226,14 @@ func (d sizesData) Text() string {
 			}
 			rows = append(rows, []string{name, cellStr(r["rows"]), sizeText(r["total_bytes"]), sizeText(r["index_bytes"])})
 		}
-		sb.WriteString("\n" + dataTable([]string{"table", "rows", "total", "index"}, rows))
+		sb.WriteString("\n" + term.DataTable([]string{"table", "rows", "total", "index"}, rows))
 	}
 	if ix := list("indexes"); len(ix) > 0 {
 		var rows [][]string
 		for _, r := range ix {
 			rows = append(rows, []string{cellStr(r["name"]), cellStr(r["table"]), sizeText(r["bytes"]), cellStr(r["scans"])})
 		}
-		sb.WriteString("\n" + dataTable([]string{"index", "table", "size", "scans"}, rows))
+		sb.WriteString("\n" + term.DataTable([]string{"index", "table", "size", "scans"}, rows))
 	}
 	return sb.String()
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/cloud"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/store"
@@ -170,7 +171,7 @@ func (d runningData) Text() string {
 	}
 	for _, j := range d.Jobs {
 		command := cleanText(j.Command)
-		command = truncateWidth(command, 50)
+		command = term.TruncateWidth(command, 50)
 		rows = append(rows, []string{"job", j.ID, cleanText(j.Host) + ": " + command, humanAge(now.Sub(j.StartedAt))})
 	}
 	s := textTable([]string{"kind", "name", "detail", "since"}, rows)
