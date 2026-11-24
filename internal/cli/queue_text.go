@@ -2,6 +2,8 @@ package cli
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -134,7 +136,7 @@ func (d queueTopic) Text() string {
 	if len(d.Config) == 0 {
 		b.WriteString("  none\n")
 	}
-	for _, k := range sortedKeys(d.Config) {
+	for _, k := range slices.Sorted(maps.Keys(d.Config)) {
 		fmt.Fprintf(&b, "  %s=%s\n", k, d.Config[k])
 	}
 	b.WriteString("\nconsumer groups:\n")
@@ -180,7 +182,7 @@ func (p queuePeek) Text() string {
 		fmt.Fprintf(&b, "# partition %d, offset %d, %s, key %s", m.Partition, m.Offset, m.Timestamp.Format(time.RFC3339), key)
 		if len(m.Headers) > 0 {
 			hs := make([]string, 0, len(m.Headers))
-			for _, k := range sortedKeys(m.Headers) {
+			for _, k := range slices.Sorted(maps.Keys(m.Headers)) {
 				hs = append(hs, k+"="+m.Headers[k])
 			}
 			b.WriteString(", headers " + strings.Join(hs, " "))

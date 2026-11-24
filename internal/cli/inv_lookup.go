@@ -3,8 +3,8 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/spf13/pflag"
@@ -42,39 +42,30 @@ func notFoundSuggest(cl *call, kind, name string, names []string) *out.Error {
 	return e
 }
 
-func mapKeys[V any](m map[string]V) []string {
-	k := make([]string, 0, len(m))
-	for n := range m {
-		k = append(k, n)
-	}
-	sort.Strings(k)
-	return k
-}
-
 func findHost(cl *call, s *store.State, name string) (*store.Host, error) {
 	if h, ok := s.Hosts[name]; ok {
 		return h, nil
 	}
-	if n, ok := foldMatch(name, mapKeys(s.Hosts)); ok {
+	if n, ok := foldMatch(name, slices.Sorted(maps.Keys(s.Hosts))); ok {
 		return s.Hosts[n], nil
 	}
 	if isSelector(name) {
 		return nil, selectorNotName("host", name)
 	}
-	return nil, notFoundSuggest(cl, "host", name, mapKeys(s.Hosts))
+	return nil, notFoundSuggest(cl, "host", name, slices.Sorted(maps.Keys(s.Hosts)))
 }
 
 func findConn(cl *call, s *store.State, name string) (*store.Conn, error) {
 	if c, ok := s.Conns[name]; ok {
 		return c, nil
 	}
-	if n, ok := foldMatch(name, mapKeys(s.Conns)); ok {
+	if n, ok := foldMatch(name, slices.Sorted(maps.Keys(s.Conns))); ok {
 		return s.Conns[n], nil
 	}
 	if isSelector(name) {
 		return nil, selectorNotName("conn", name)
 	}
-	return nil, notFoundSuggest(cl, "conn", name, mapKeys(s.Conns))
+	return nil, notFoundSuggest(cl, "conn", name, slices.Sorted(maps.Keys(s.Conns)))
 }
 
 // selectorNotName is the not-found error for a selector (@group, web-*,
@@ -99,7 +90,7 @@ func findKey(cl *call, s *store.State, name string) (*store.Key, error) {
 }
 
 func keyNotFound(cl *call, s *store.State, name string) error {
-	return notFoundSuggest(cl, "key", name, mapKeys(s.Keys))
+	return notFoundSuggest(cl, "key", name, slices.Sorted(maps.Keys(s.Keys)))
 }
 
 // shortAlias adds --name/-short as another spelling of an existing flag:

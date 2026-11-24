@@ -2,6 +2,8 @@ package cli
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -47,7 +49,7 @@ func pubsubDetailText(t *queuex.TopicDetail) string {
 	}
 	if len(d.Labels) > 0 {
 		b.WriteString("\nlabels:\n")
-		for _, k := range sortedKeys(d.Labels) {
+		for _, k := range slices.Sorted(maps.Keys(d.Labels)) {
 			fmt.Fprintf(&b, "  %s=%s\n", k, d.Labels[k])
 		}
 	}
@@ -125,7 +127,7 @@ func pubsubPeekText(p *queuex.PeekResult) string {
 		}
 		if len(m.Headers) > 0 {
 			hs := make([]string, 0, len(m.Headers))
-			for _, k := range sortedKeys(m.Headers) {
+			for _, k := range slices.Sorted(maps.Keys(m.Headers)) {
 				hs = append(hs, k+"="+m.Headers[k])
 			}
 			b.WriteString(", attributes " + strings.Join(hs, " "))

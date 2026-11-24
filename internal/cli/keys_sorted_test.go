@@ -1,33 +1,25 @@
 package cli
 
 import (
+	"maps"
 	"slices"
 	"testing"
 )
 
-// These tests pin what the two sorted-keys helpers give, and the two places
-// that return their result, before the helpers are replaced by the
-// standard library. The tests of the helpers themselves go with them; the
-// tests of the callers stay.
+// The commands list names in sorted order with slices.Sorted(maps.Keys(m)).
+// The first test states what that gives where it matters (an empty or nil
+// map gives nothing to range over); the others cover the two places that
+// return such a list.
 
-func TestMapKeysAndSortedKeysAreSorted(t *testing.T) {
+func TestSortedKeysFromTheStandardLibrary(t *testing.T) {
 	m := map[string]int{"web2": 2, "db": 1, "Web1": 3, "": 4, "web10": 5}
 	want := []string{"", "Web1", "db", "web10", "web2"}
-	if got := mapKeys(m); !slices.Equal(got, want) {
-		t.Errorf("mapKeys = %q, want %q", got, want)
+	if got := slices.Sorted(maps.Keys(m)); !slices.Equal(got, want) {
+		t.Errorf("sorted keys = %q, want %q", got, want)
 	}
-	if got := sortedKeys(m); !slices.Equal(got, want) {
-		t.Errorf("sortedKeys = %q, want %q", got, want)
-	}
-}
-
-func TestMapKeysAndSortedKeysOfAnEmptyMap(t *testing.T) {
-	for name, m := range map[string]map[string]bool{"empty": {}, "nil": nil} {
-		if got := mapKeys(m); len(got) != 0 {
-			t.Errorf("mapKeys of a %s map = %q, want nothing", name, got)
-		}
-		if got := sortedKeys(m); len(got) != 0 {
-			t.Errorf("sortedKeys of a %s map = %q, want nothing", name, got)
+	for name, e := range map[string]map[string]bool{"empty": {}, "nil": nil} {
+		if got := slices.Sorted(maps.Keys(e)); len(got) != 0 {
+			t.Errorf("sorted keys of a %s map = %q, want nothing", name, got)
 		}
 	}
 }

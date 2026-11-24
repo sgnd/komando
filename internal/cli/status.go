@@ -2,6 +2,8 @@ package cli
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -118,7 +120,7 @@ func runningStatus(cl *call, st *store.State) runningData {
 		}
 		d.Vpns = append(d.Vpns, r)
 	}
-	for _, n := range mapKeys(st.Logins) {
+	for _, n := range slices.Sorted(maps.Keys(st.Logins)) {
 		l := st.Logins[n]
 		if time.Now().Before(l.Until) && sessionAlive(&store.VpnSession{PID: l.PID, Exe: l.Exe, ProcStart: l.ProcStart}) {
 			d.Logins = append(d.Logins, runningLogin{Host: l.Host, Since: l.StartedAt, Until: l.Until})

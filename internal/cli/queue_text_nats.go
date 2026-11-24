@@ -2,6 +2,8 @@ package cli
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -107,7 +109,7 @@ func sortedStrings(s []string) []string {
 	for _, v := range s {
 		m[v] = true
 	}
-	return sortedKeys(m)
+	return slices.Sorted(maps.Keys(m))
 }
 
 // natsConsumerRows is a table of consumers; name gives each one's name.
@@ -156,7 +158,7 @@ func natsPeekText(p *queuex.PeekResult) string {
 	var b strings.Builder
 	for _, m := range p.Messages {
 		fmt.Fprintf(&b, "# sequence %d, %s, subject %s", m.Sequence, m.Time.Format(time.RFC3339), m.Subject)
-		for _, k := range sortedKeys(m.Headers) {
+		for _, k := range slices.Sorted(maps.Keys(m.Headers)) {
 			b.WriteString(", " + k + "=" + m.Headers[k])
 		}
 		if m.Encoding != "" {

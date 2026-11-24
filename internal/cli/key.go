@@ -11,6 +11,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -671,7 +672,7 @@ func deployKey(cl *call, st *store.State, arg string) (name, line string, err er
 		}
 		return arg, cleanPubLine(pub, comment), nil
 	}
-	return "", "", notFoundSuggest(cl, "key", arg, mapKeys(st.Keys)).WithHint("give a key name from `komando key list` or a .pub file")
+	return "", "", notFoundSuggest(cl, "key", arg, slices.Sorted(maps.Keys(st.Keys))).WithHint("give a key name from `komando key list` or a .pub file")
 }
 
 func keyDeployCmd() *cobra.Command {

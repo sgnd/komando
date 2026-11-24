@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -235,14 +234,4 @@ func (d sizesData) Text() string {
 		sb.WriteString("\n" + dataTable([]string{"index", "table", "size", "scans"}, rows))
 	}
 	return sb.String()
-}
-
-// sortedKeys lists a map's keys in order.
-func sortedKeys[V any](m map[string]V) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
 }

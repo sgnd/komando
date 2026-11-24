@@ -2,6 +2,8 @@ package cli
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -69,7 +71,7 @@ func rabbitQueueText(d *queuex.TopicDetail) string {
 	if len(d.Arguments) == 0 {
 		b.WriteString("  none\n")
 	}
-	for _, k := range sortedKeys(d.Arguments) {
+	for _, k := range slices.Sorted(maps.Keys(d.Arguments)) {
 		fmt.Fprintf(&b, "  %s=%v\n", k, d.Arguments[k])
 	}
 	fmt.Fprintf(&b, "\nconsumers: %d\n", d.Consumers)
@@ -98,7 +100,7 @@ func rabbitPeekText(p *queuex.PeekResult) string {
 			fmt.Fprintf(&b, ", exchange %s, routing key %s", m.Exchange, m.RoutingKey)
 		}
 		for _, kv := range []map[string]string{m.Properties, m.Headers} {
-			for _, k := range sortedKeys(kv) {
+			for _, k := range slices.Sorted(maps.Keys(kv)) {
 				b.WriteString(", " + k + "=" + kv[k])
 			}
 		}
