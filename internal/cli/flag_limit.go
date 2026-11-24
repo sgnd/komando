@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"maps"
 	"reflect"
+	"slices"
 
 	"github.com/spf13/cobra"
 
@@ -68,7 +70,7 @@ func cutMap[V any](cl *call, m map[string]V, n int) map[string]V {
 		return m
 	}
 	keep := map[string]V{}
-	for _, k := range cutRows(cl, mapKeys(m), n) {
+	for _, k := range cutRows(cl, slices.Sorted(maps.Keys(m)), n) {
 		keep[k] = m[k]
 	}
 	return keep
