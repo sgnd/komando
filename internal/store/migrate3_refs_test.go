@@ -113,3 +113,25 @@ func TestCheckOldRefs3(t *testing.T) {
 		})
 	}
 }
+
+func TestURLPassword(t *testing.T) {
+	tests := []struct {
+		name, in string
+		has, bad bool
+	}{
+		{"a password", "postgres://app:pw@10.0.0.5/db", true, false},
+		{"an empty password", "postgres://app:@10.0.0.5/db", true, false},
+		{"a user only", "postgres://app@10.0.0.5/db", false, false},
+		{"no user", "redis://10.0.0.7:6379", false, false},
+		{"no scheme", "10.0.0.7", false, false},
+		{"an escape that does not parse", "postgres://app@10.0.0.5/%zz", false, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			has, err := urlPassword(tt.in)
+			if has != tt.has || (err != nil) != tt.bad {
+				t.Errorf("urlPassword(%q) = %v, %v; want %v, error %v", tt.in, has, err, tt.has, tt.bad)
+			}
+		})
+	}
+}
