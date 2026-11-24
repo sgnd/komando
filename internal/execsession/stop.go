@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
@@ -27,7 +28,7 @@ func ForStop(rt *store.Runtime, host, id string) (*store.ExecSession, error) {
 	rec := rt.ExecSessions[id]
 	if rec == nil || rec.Host != host {
 		return nil, out.Errf(out.ExitNotFound, "SESSION_RECORD_MISSING",
-			"only the computer that started the run can stop it: stop it there; `komando audit` there shows the exec that started it",
+			"only the computer that started the run can stop it: run `komando exec HOST --attach ID --stop` there; `komando audit` there shows the exec that started it",
 			"session %s on %s was not started from this computer", id, host)
 	}
 	return rec, nil
@@ -76,4 +77,36 @@ func StopCommand(rec *store.ExecSession, sig string, password bool) (string, err
 		return "sudo -n " + user + sh, nil
 	}
 	return `if sudo -n ` + user + `sh -c : 2>/dev/null; then sudo -n ` + user + sh + `; else sudo -S -p '' ` + user + sh + `; fi`, nil
+}
+
+// StopExit is the error for a stop's exit code: nil for 0. ExitNotRunning
+// is SESSION_PROCESS_MISSING: the stored process ended, or its PID belongs
+// to another process now. Any other is SESSION_STOP_FAILED with the
+// server's words.
+func StopExit(host, id string, exit int, stderr string) error {
+	switch exit {
+	case 0:
+		return nil
+	case ExitNotRunning:
+		return out.Errf(out.ExitNotFound, "SESSION_PROCESS_MISSING",
+			"`komando exec HOST --attach ID` reads how it ended; `komando exec HOST --attach ID --remove` removes it",
+			"session %s on %s is not running: its process ended, or its PID belongs to another process now", id, host)
+	}
+	return out.Errf(out.ExitRemote, "SESSION_STOP_FAILED",
+		"a run started with --sudo is stopped through sudo as the same user; when sudo asks for a password there, give the server its sudo password: `komando host edit HOST --sudo-ref secret:NAME`",
+		"%s: session %s was not stopped (exit %d): %s", host, id, exit, strings.TrimSpace(stderr))
+}
+
+// Signalled reads which a stop signalled: "group" or "pid", or "" when it
+// printed neither.
+func Signalled(stdout string) string {
+	for _, line := range strings.Split(stdout, "\n") {
+		switch strings.TrimSpace(line) {
+		case "signalled group":
+			return "group"
+		case "signalled pid":
+			return "pid"
+		}
+	}
+	return ""
 }
