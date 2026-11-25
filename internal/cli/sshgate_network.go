@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/version"
 )
 
 // gateKey is what an ssh-gate key may do, from its authorized_keys line,
@@ -54,7 +55,7 @@ var gateNoNetwork = map[string]func(c *cobra.Command) string{
 	"job": nil, "job.list": nil, "job.logs": nil, "job.status": nil, "job.wait": nil,
 	"key": nil, "key.list": nil, "key.show": nil,
 	"pkg": nil, "pkg.installed": nil, "pkg.security": nil, "pkg.upgradable": nil,
-	"policy": nil, "policy.check": nil, "policy.list": nil,
+	"policy": nil, "policy.check": nil, "policy.list": nil, "policy.show": nil,
 	"recipe": nil, "recipe.list": nil,
 	"registry": nil, "registry.inspect": nil, "registry.list": nil,
 	"secret": nil, "secret.list": nil, "secret.show": nil,
@@ -151,7 +152,7 @@ komando computer, it says the command did not come through a key.`,
 		Example: "  ssh HOST komando ssh-gate status -o json\n  komando ssh-gate status",
 		Args:    cobra.NoArgs,
 		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
-			cl.out.Print("ssh-gate.status", gateStatus{Network: true, Komando: Version}, nil)
+			cl.out.Print("ssh-gate.status", gateStatus{Network: true, Komando: version.Version}, nil)
 			return nil
 		}),
 	}

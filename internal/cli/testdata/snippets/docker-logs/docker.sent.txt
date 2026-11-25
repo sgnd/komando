@@ -1,0 +1,1 @@
+docker logs --tail 3 'api' 2>&1

@@ -7,11 +7,18 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+
+- `komando policy edit RULE --off` switches a rule off, everywhere or with `--add-server` and `--add-group` only on those servers (a group as its servers are when you switch it); `--off=false` switches it on again everywhere, and `--rm-server` and `--rm-group` on those servers. komando asks first, naming the rule, the servers and what it will no longer stop; an AI agent's request opens the approval window, and for a rule that keeps the others working (such as `check-failed`, `decode-run` or `rm-root`) you type its name at a terminal. `policy show RULE`, `policy list`, `policy check` and `komando doctor` show every rule that is off, and the audit log keeps each switch with the servers before and after.
+
 ### Changed
 
+- The agent guard's hook line refuses a tool call when the guard cannot answer (komando missing, not a program, or failing), in each agent tool's own format. The guard refuses an AI agent's change to the agents' hook settings and folders and to the komando program the hook runs. `komando doctor` checks every agent's hook line and its program, `komando guide install` replaces an older line, and `komando update` says when one is left. On Windows no guard hook is set up for now; `komando doctor` says so.
+- The agent guard (`komando guide guard`) answers every tool call within 3 seconds: a check that takes longer, or stops with an internal error, refuses the call.
 - The macOS approval window no longer answers to Space or Return: a stray key cannot deny (or allow) for you. Click **Deny** or **Allow once**, or press Esc or Cmd-W to deny. The agent's error names how the person said no (`details.denied_by`: `click` or `key`), and after a key it asks whether that was a slip.
 - The macOS approval window now shows a script of up to 200 lines whole; it scrolls and allows only after the last line. Windows and Linux keep 40 lines.
 - A script too long for the window ends with its own error code, `SHORTER_SCRIPT_REQUIRED`, and the message names the counted number of shown lines and the script's own line count.
+- The agent guard (`komando guide guard`) refuses a tool call larger than 4 MiB, which it cannot check whole, in each agent tool's own format.
 
 ### Fixed
 

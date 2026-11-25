@@ -17,6 +17,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
@@ -191,9 +192,7 @@ func toErr(err error) *out.Error {
 			Hint: "give it more time with --timeout (for example --timeout 30m), or run long work as a job: `komando job start TARGET -- COMMAND`"}
 	}
 	if errors.Is(err, context.Canceled) {
-		return (&out.Error{Code: "CANCELLED", Message: "interrupted", Exit: out.ExitError,
-			Hint: "it stopped before the end (Ctrl-C or a signal); check what it left, then run it again"}).
-			Say("Stopped (Ctrl-C) before the end; what already ran stays as it is", "check what it left, then run it again")
+		return term.Interrupted()
 	}
 	if e := store.PolicyErr(err); e != nil {
 		return e // a step of sshx or the vault found it, not a load
@@ -303,17 +302,17 @@ func withClient(cl *call, ctx context.Context, st *store.State, h *store.Host, f
 	return fn(c)
 }
 
-// guard enforces the safety policy before anything mutating runs.
-func guard(cl *call, st *store.State, hosts []*store.Host, command string, mutating bool) error {
+// Guard enforces the safety policy before anything mutating runs.
+func Guard(cl *call, st *store.State, hosts []*store.Host, command string, mutating bool) error {
 	return guardWith(cl, st, hosts, command, mutating, false)
 }
 
-// guardScript is guard for a line komando writes whole for one of its own
+// GuardScript is Guard for a line komando writes whole for one of its own
 // commands (pkg security, docker prune, the Swarm changes), where typed
 // words are only quoted operands and the command rates its own words: the
 // rules that copy a command's check for exec text (policy.CheckScript) and
 // the compose-file reader do not apply.
-func guardScript(cl *call, st *store.State, hosts []*store.Host, script string, mutating bool) error {
+func GuardScript(cl *call, st *store.State, hosts []*store.Host, script string, mutating bool) error {
 	return guardWith(cl, st, hosts, script, mutating, true)
 }
 
@@ -335,7 +334,7 @@ func guardWith(cl *call, st *store.State, hosts []*store.Host, command string, m
 		if own {
 			check = policy.CheckScript
 		}
-		hits := check(command, st.Settings.ExtraDenyPattern)
+		hits := withoutRulesOff(st, hosts, check(command, st.Settings.ExtraDenyPattern))
 		ids := make([]string, len(hits))
 		reasons := make([]string, len(hits))
 		for i, h := range hits {

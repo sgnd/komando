@@ -5,6 +5,8 @@ import (
 	"io"
 	"strings"
 	"testing"
+
+	kitterm "github.com/sgnd/komando/internal/cli/kit/term"
 )
 
 // promptFake answers questions from a script and keeps what was drawn.
@@ -161,9 +163,9 @@ func TestMaskedRedraw(t *testing.T) {
 
 // No colour where escape sequences would show as text.
 func TestColorNeedsVT(t *testing.T) {
-	saved := vtOK
-	t.Cleanup(func() { vtOK = saved })
-	vtOK = false
+	saved := kitterm.VTOK
+	t.Cleanup(func() { kitterm.VTOK = saved })
+	kitterm.VTOK = false
 	if colorOK(tcl) {
 		t.Error("colour on a console that shows escape sequences as text")
 	}

@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -152,12 +153,12 @@ func keyWarning(name string, q sshx.LoginAsk) string {
 	case k == nil:
 		return ""
 	case k.NotMet:
-		return "WARNING: first login to " + name + " at " + cleanText(q.Addr) + " with a typed password. Its host key " + cleanText(k.Fingerprint) +
+		return "WARNING: first login to " + name + " at " + term.CleanText(q.Addr) + " with a typed password. Its host key " + term.CleanText(k.Fingerprint) +
 			" was pinned before, but nobody has logged in to " + name + " with it. Type the password only if you expected " + name + " there.\n\n"
 	case k.Unchecked:
-		return "WARNING: komando does not check who answers at " + cleanText(q.Addr) + " (" + cleanText(k.Type) + "): an impostor there would get your password.\n\n"
+		return "WARNING: komando does not check who answers at " + term.CleanText(q.Addr) + " (" + term.CleanText(k.Type) + "): an impostor there would get your password.\n\n"
 	}
-	return "WARNING: first connection to " + cleanText(q.Addr) + ". komando trusted its host key " + cleanText(k.Fingerprint) +
+	return "WARNING: first connection to " + term.CleanText(q.Addr) + ". komando trusted its host key " + term.CleanText(k.Fingerprint) +
 		" a moment ago, and nothing proved it is " + name + "'s. Type the password only if you expected a new server there.\n\n"
 }
 
@@ -306,8 +307,8 @@ func loginWindowText(cl *call, a askTarget) string {
 	if who == "" {
 		who = "A komando command"
 	}
-	name := cleanText(a.name)
-	text := fmt.Sprintf("%s wants komando to log in to %s as %s", who, cleanText(a.label), cleanText(a.where))
+	name := term.CleanText(a.name)
+	text := fmt.Sprintf("%s wants komando to log in to %s as %s", who, term.CleanText(a.label), term.CleanText(a.where))
 	if line := commandLine(cl); len(cl.args) > 1 && unshowable(line) == "" && hiddenArgs(cl.args[1:]) == "" {
 		text += " for:\n\n" + line + "\n\n"
 	} else {
@@ -478,7 +479,7 @@ func connTarget(cl *call, st *store.State, c *store.Conn) askTarget {
 	if c.Rec.ID != "" {
 		id = c.Rec.ID
 	}
-	step := "ask the user to run `" + commandLine(cl) + "` in their own terminal (a conn has no `komando login`)"
+	step := "ask the user to run `" + commandLine(cl) + "` in their own terminal (a conn has no kept session)"
 	label := "conn " + c.Name
 	return askTarget{
 		name: c.Name, label: label, id: id, where: where, step: step,

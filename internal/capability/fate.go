@@ -29,6 +29,10 @@ func Internals() []Internal { return slices.Clone(internals) }
 // CobraOwn are command IDs cobra makes itself; they stay outside the table.
 func CobraOwn() []string { return slices.Clone(cobraOwn) }
 
+// Groups are command IDs of today that only hold other commands (db.user):
+// their fate is their children's. Each keeps a key in todayOnlyKeys.
+func Groups() []string { return slices.Clone(groups) }
+
 // gone are today's commands that no leaf carries, with the decision.
 var gone = []Gone{
 	{Today: "conn.kinds", Why: "the URL schemes move to each provider's --help and schema"},
@@ -61,3 +65,10 @@ var internals = []Internal{
 
 // cobraOwn: the root and cobra's completion commands.
 var cobraOwn = []string{"komando", "completion", "completion.bash", "completion.fish", "completion.powershell", "completion.zsh"}
+
+// groups: today's parents with no leaf of their own.
+var groups = []string{
+	"cache", "cluster", "cluster.helm", "config", "conn", "cron", "db", "db.user", "docker",
+	"fs", "group", "host", "host.ca", "job", "key", "net", "pkg", "policy", "queue",
+	"recipe", "registry", "secret", "storage", "svc", "tunnel", "user", "vpn",
+}

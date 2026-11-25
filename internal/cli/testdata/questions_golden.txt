@@ -306,6 +306,7 @@ title: Show all settings of a conn (secrets as references, never values)
 title: Check that conns answer and let you in
 - arg0 | Target (conns) | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the kept sessions of the servers named (every server when none is named), instead of testing |  |  | advanced,default,choices
 ### komando cp
 title: Copy files, written SRC DST with TARGET:PATH (upload/download)
 - arg0 | Src | Copy from where? | A file or folder on this computer (./site), or on a server as SERVER:PATH (web1:/var/log/app). | ./site | check
@@ -793,6 +794,7 @@ title: Print the OpenSSH command komando would use for a server (person only)
 title: Check that servers answer and let you in
 - arg0 | Target (servers) | Which servers? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the kept sessions of the servers named (every server when none is named), instead of testing |  |  | advanced,default,choices
 ### komando host trust
 title: Pin the SSH host keys of servers (--reset after a rebuild)
 - arg0 | Target (servers) | Which servers? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
@@ -999,12 +1001,23 @@ title: Check whether a command would be blocked
 ### komando policy deny
 title: Add a deny rule (a Go regular expression)
 - arg0 | Regex | Which command should komando block? | Like kubectl delete: write it as kubectl\s+delete (\s+ means spaces, .* means anything). Then check it with komando policy check "kubectl delete pod web". | kubectl\s+delete | check
+### komando policy edit
+title: Switch a rule off or on, everywhere or on some servers
+- arg0 | Rule | Which rule? | Its id: `komando policy list` shows them. | docker-prune | check
+- flag:off | --off | Switch the rule off? | Yes: it no longer stops a command, so komando asks you first. No: it is switched on again everywhere. |  | default,choices
+- flag:add-server | --add-server | Only on which servers? | Leave empty to switch it off on every server. |  | optional,free,choices,show
+- flag:add-group | --add-group | With --off: only on the servers in these groups as they are now |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Switch the rule on again on the servers these groups named |  |  | optional,advanced,check
+- flag:rm-server | --rm-server | Switch the rule on again on these servers |  |  | optional,advanced,check
 ### komando policy list
 title: List the built-in rules and your deny rules
 - flag:limit | --limit | Show at most this many rules of each kind (0 = all) |  |  | optional,advanced,check
 ### komando policy rm
 title: Remove a deny rule you added (from komando only)
-- arg0 | Rule | Which of your own rules should go? | Its id (custom-1a2b3c4d ...) or the pattern as you wrote it. `komando policy list` shows them. Built-in rules always stay. | custom-1a2b3c4d | check
+- arg0 | Rule | Which of your own rules should go? | Its id (custom-1a2b3c4d ...) or the pattern as you wrote it. `komando policy list` shows them. A built-in rule cannot be removed; `komando policy edit` switches it off. | custom-1a2b3c4d | check
+### komando policy show
+title: Show one rule: what it stops and where it is off
+- arg0 | Rule | Which rule? | Its id: `komando policy list` shows them. komando prints what it stops and where it is off. | docker-prune | check
 ### komando queue
 title: Queues (Kafka, RabbitMQ, NATS, SQS, Pub/Sub): read, send, manage
 ### komando queue add
@@ -1376,6 +1389,7 @@ title: Copy a folder one way, sending only new and changed files
 title: Check that servers, conns and VPNs answer and let you in
 - arg0 | Target | Which ones? | A server, conn or VPN from your list, or @group, tag:prod, or several names separated by spaces or commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the kept sessions of the servers named (every server when none is named), instead of testing |  |  | advanced,default,choices
 ### komando tunnel
 title: Background port forwarding: start, see, stop
 ### komando tunnel list
@@ -1521,6 +1535,7 @@ title: Which VPNs are connected, since when, and what uses them
 title: Check that VPNs connect
 - arg0 | Target (VPNs) | Which VPN should be tested? | komando connects through it and says whether it works. |  | choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 30s or 5m: it tests again every few seconds until it works. Leave empty to test once. | 5m | optional,check
+- flag:end | --end | End the kept sessions of the servers named (every server when none is named), instead of testing |  |  | advanced,default,choices
 ### komando vpn up
 title: Connect a VPN now and keep it up
 - arg0 | Name | Which VPN should connect? | It stays up for later commands. When it asks for a login or a code, type it here. |  | choices,check

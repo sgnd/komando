@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -79,10 +80,10 @@ yourself out. --dry-run counts the lines it would remove.`,
 					return err
 				}
 			}
-			if err := guard(cl, st, hosts, "", true); err != nil {
+			if err := Guard(cl, st, hosts, "", true); err != nil {
 				return err
 			}
-			if user != "" && !nameRe.MatchString(user) {
+			if user != "" && !inventory.NameRe.MatchString(user) {
 				return out.Usage("%q cannot be a user name: use letters, digits and . _ -", user)
 			}
 			script := revokeScript(user, blob, cl.flags.dryRun)
@@ -220,7 +221,7 @@ func guardRevokeSelf(cl *call, st *store.State, hosts []*store.Host, key string)
 		return nil
 	}
 	askTypes(cl, []string{key}, "keys")
-	return guardConns(cl, st, nil, driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"key-revoke-self"},
+	return GuardConns(cl, st, nil, driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"key-revoke-self"},
 		Reasons: []string{"komando logs in to " + strings.Join(self, ", ") + " with this key; switch them first (`komando host edit TARGET --key OTHER`)"}})
 }
 

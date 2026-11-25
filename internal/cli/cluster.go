@@ -18,7 +18,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/kube"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
@@ -43,7 +45,7 @@ func resolveCluster(cl *call, st *store.State, expr string) (clusterTarget, erro
 	}
 	var k8s []*store.Conn
 	for _, c := range sel.Conns {
-		if connFamily(c) == "cluster" {
+		if inventory.ConnFamily(c) == "cluster" {
 			k8s = append(k8s, c)
 		}
 	}
@@ -382,7 +384,7 @@ func kubeErr(err error) error {
 			return out.Errf(out.ExitNotFound, "TOOL_MISSING", hint, "%s", pe.Error())
 		}
 		return out.Errf(out.ExitConnect, "LOGIN_FAILED", "run the program in a terminal to see why it cannot log in (it may need a person to sign in first), then run it again",
-			"%s", cleanText(pe.Error()))
+			"%s", term.CleanText(pe.Error()))
 	}
 	if errors.Is(err, context.DeadlineExceeded) {
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout, or check the conn with `komando test TARGET` (and its --via path)",
@@ -445,7 +447,7 @@ func withKubeWhy(cl *call, ctx context.Context, name string, t clusterTarget, ri
 		return err
 	}
 	// under --dry-run every stop only lands in meta.would_be_blocked
-	if err := guardConns(cl, st, []*store.Conn{t.conn}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster"}, Reasons: []string{why}}); err != nil {
+	if err := GuardConns(cl, st, []*store.Conn{t.conn}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster"}, Reasons: []string{why}}); err != nil {
 		return err
 	}
 	ctx, cancel := kubeDeadline(cl, ctx, st)
@@ -486,7 +488,7 @@ func withKubeWhy(cl *call, ctx context.Context, name string, t clusterTarget, ri
 // one, asks a person at a terminal to type that object's name ("Type the
 // name api-7d9f-x2 to continue"), not the cluster's or "yes": the name
 // says what goes, as gh repo delete does. A right answer also counts for
-// the cluster check guardConns (or swarmDo) makes next, which asks for the
+// the cluster check GuardConns (or swarmDo) makes next, which asks for the
 // same name (askTypes), so the person is asked once; a wrong one stops here and nothing
 // changes. Agents and scripts are unchanged: they use --allow-dangerous,
 // and a dry run never asks.

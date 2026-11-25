@@ -88,6 +88,14 @@ var tierRows = concat2(
 		{Key: top("import"), Tier: Dangerous, Dynamic: "an imported proxy command matches a destructive rule"},
 
 		{Key: own("policy", "", "remove"), Tier: Safety, What: "removes a deny rule"},
+		// policy edit: a Cond names flags only, so these rows are a stricter
+		// copy of switchesOn (internal/cli/risk.go): --off in any spelling,
+		// --off=false too, and each --add- flag is Safety; a line with only
+		// --rm- flags is a change in both. TestPolicyEditTableNotWeaker
+		// checks it line by line.
+		{Key: own("policy", "", "edit"), Tier: Safety, When: Cond{Flags: []string{"off"}}, What: "switches a rule off"},
+		{Key: own("policy", "", "edit"), Tier: Safety, When: Cond{Flags: []string{"add-server"}}, What: "switches a rule off"},
+		{Key: own("policy", "", "edit"), Tier: Safety, When: Cond{Flags: []string{"add-group"}}, What: "switches a rule off"},
 		{Key: own("config", "", "set"), Tier: Safety, Dynamic: "the setting turns a check off"},
 		{Key: Key{Type: "vpn", Verb: "edit"}, Tier: Safety, When: Cond{Flags: []string{"mfa"}, Value: "false"}, What: "turns --mfa off (komando may then connect it without a person)"},
 		{Key: top("update"), Tier: Safety, Dynamic: "it installs an older version"},

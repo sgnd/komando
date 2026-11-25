@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/sgnd/komando/internal/engine"
+	"github.com/sgnd/komando/internal/version"
 
 	"github.com/spf13/cobra"
 
@@ -664,7 +665,7 @@ audit setting is off.`,
 				if f, ok := outputFormat(cl, output); ok && output != "" {
 					cl.out.Format = f
 				}
-				cl.out.Print("ssh-gate.status", gateStatus{Gate: true, Name: name, ReadOnly: key.readOnly, Network: key.network, ShellAccess: key.shellAccess, Komando: Version}, nil)
+				cl.out.Print("ssh-gate.status", gateStatus{Gate: true, Name: name, ReadOnly: key.readOnly, Network: key.network, ShellAccess: key.shellAccess, Komando: version.Version}, nil)
 				return nil
 			}
 			if runs == "shell" && key.shellAccess && key.tty {

@@ -62,7 +62,7 @@ func (l targetList) Text() string {
 	tw := tabwriter.NewWriter(&sb, 0, 2, 2, ' ', 0)
 	fmt.Fprintln(tw, "NAME\tKIND\tWHERE\tVIA\tGROUPS\tTAGS\tPROTECTED")
 	for _, r := range l.Targets {
-		prot := yesCell(r.Protected)
+		prot := term.YesCell(r.Protected)
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", r.Name, r.Kind, r.Where, dash(r.Via),
 			dash(strings.Join(r.Groups, ",")), dash(strings.Join(r.Tags, ",")), prot)
 	}
@@ -235,6 +235,7 @@ func testCmd() *cobra.Command { return testCmdFor("") }
 
 func testCmdFor(only string) *cobra.Command {
 	var wait time.Duration
+	var end bool
 	c := &cobra.Command{
 		Use:     "test TARGET",
 		Aliases: []string{"ping"},
@@ -248,10 +249,26 @@ cloud server was created or rebuilt. It does not wait out a changed host
 key (HOSTKEY_MISMATCH), a refused login (AUTH_FAILED: retrying could get
 your address banned), a VPN that needs a login, or a local key or secret
 problem: those fail at once. To wait for the server's own start-up too,
-run ` + "`komando exec TARGET --read-only -- cloud-init status --wait`" + ` next.`,
-		Example: "  komando test @prod\n  komando test all\n  komando test @new --wait 5m   # right after creating servers",
-		Args:    cobra.ExactArgs(1),
+run ` + "`komando exec TARGET --read-only -- cloud-init status --wait`" + ` next.
+
+A server that asks for a password or a two-factor code only a person can
+answer: when a person runs test at a terminal, komando asks once and keeps
+the session open for the login_for setting (8 hours). An AI agent's commands
+to that server reuse the session; when it has expired they fail and name this
+command, and an agent never types a code. --end closes the kept session of the
+servers it names, or of every server when it names none; ` + "`komando status`" + ` lists
+the kept sessions.`,
+		Example: "  komando test @prod\n  komando test all\n  komando test @new --wait 5m   # right after creating servers\n  komando test --end            # end every kept session",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if cmd.Flags().Changed("end") {
+				return cobra.MaximumNArgs(1)(cmd, args)
+			}
+			return cobra.ExactArgs(1)(cmd, args)
+		},
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			if end {
+				return endSessions(cl, args, only)
+			}
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -265,7 +282,7 @@ run ` + "`komando exec TARGET --read-only -- cloud-init status --wait`" + ` next
 				return noMatch(args[0], kindWords[only], picked).WithHint("use `komando test " + args[0] + "` to test everything it picks")
 			}
 			t0 := time.Now()
-			res := testRound(cl, cmd.Context(), st, sel)
+			res := testRoundKeeping(cl, cmd.Context(), st, sel)
 			if wait > 0 {
 				res = waitForTargets(cl, cmd.Context(), st, sel, res, t0.Add(wait))
 			}
@@ -304,6 +321,7 @@ run ` + "`komando exec TARGET --read-only -- cloud-init status --wait`" + ` next
 			return exitCode(worst)
 		}),
 	}
+	c.Flags().BoolVar(&end, "end", false, "end the kept sessions of the servers named (every server when none is named), instead of testing")
 	durVar(c.Flags(), &wait, "wait", 0, "test again every few seconds until every target passes, for up to this long (like 5m)")
 	return c
 }

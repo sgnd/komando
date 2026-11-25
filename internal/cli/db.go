@@ -31,7 +31,7 @@ import (
 //  2. without --write it runs in a read-only transaction, so the database
 //     itself refuses changes the classifier missed;
 //  3. --write on a protected conn needs --yes, destructive SQL needs
-//     --allow-dangerous (guardConns);
+//     --allow-dangerous (GuardConns);
 //  4. --dry-run runs the SQL and rolls it back.
 
 const dbDefaultTimeout = 30 * time.Second
@@ -505,14 +505,14 @@ func (d queryData) Text() string {
 			case "bytes":
 				note = ", stopped at the output size cap: select fewer columns or rows, or raise --max-output"
 			}
-			fmt.Fprintf(&sb, "(%d row%s%s)\n", r.RowCount, plural(r.RowCount), note)
+			fmt.Fprintf(&sb, "(%d row%s%s)\n", r.RowCount, term.Plural(r.RowCount), note)
 		case r.RowsAffected != nil:
-			fmt.Fprintf(&sb, "%d row%s affected\n", *r.RowsAffected, plural(int(*r.RowsAffected)))
+			fmt.Fprintf(&sb, "%d row%s affected\n", *r.RowsAffected, term.Plural(int(*r.RowsAffected)))
 		default:
 			sb.WriteString("ok\n")
 		}
 		if r.BytesProcessed != nil && r.Skipped == "" {
-			fmt.Fprintf(&sb, "(BigQuery read %s)\n", humanBytes(*r.BytesProcessed))
+			fmt.Fprintf(&sb, "(BigQuery read %s)\n", term.HumanBytes(*r.BytesProcessed))
 		}
 	}
 	if d.RolledBack {
@@ -545,13 +545,6 @@ func cellText(v any, wide bool) string {
 		return h
 	}
 	return fmt.Sprint(v)
-}
-
-func plural(n int) string {
-	if n == 1 {
-		return ""
-	}
-	return "s"
 }
 
 // runSQL classifies, guards, runs and audits one SQL text on one conn.
@@ -604,7 +597,7 @@ func runSQL(cl *call, ctx context.Context, name, connExpr, query string, f dbFla
 		// so a protected conn asks even for SQL rated read (as db shell does)
 		v := plan.Verdict
 		v.Risk = max(v.Risk, driver.RiskWrite)
-		if err := guardConns(cl, st, []*store.Conn{c}, v); err != nil {
+		if err := GuardConns(cl, st, []*store.Conn{c}, v); err != nil {
 			return fail(err)
 		}
 		if cl.flags.dryRun && cl.out.Blocked() != nil {

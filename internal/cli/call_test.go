@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -121,5 +123,29 @@ func TestCancelledWording(t *testing.T) {
 	cancelled(c, e)
 	if e.Message != "cancelled: web1 is protected; what this command saved before the question stays" {
 		t.Fatalf("after a write: %+v", e)
+	}
+}
+
+// A program that never set runExecute stops with exit 1 and a line on
+// stderr, and runs nothing: no output on stdout, no panic.
+func TestRunCallWithoutCommandTree(t *testing.T) {
+	saved := runExecute
+	t.Cleanup(func() { runExecute = saved })
+	runExecute = nil
+	var stdout, stderr bytes.Buffer
+	code := RunCall(context.Background(), engine.Call{Program: "komando", Stdout: &stdout, Stderr: &stderr}, []string{"version"})
+	if code != 1 {
+		t.Errorf("exit %d, want 1", code)
+	}
+	if stdout.Len() != 0 {
+		t.Errorf("stdout %q, want nothing run", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "komando: the command tree is not loaded") {
+		t.Errorf("stderr %q does not say the tree is not loaded", stderr.String())
+	}
+	runExecute = saved
+	stdout.Reset()
+	if code := RunCall(context.Background(), engine.Call{Program: "komando", Stdout: &stdout, Stderr: &stderr}, []string{"version"}); code != 0 || stdout.Len() == 0 {
+		t.Errorf("with the tree set: exit %d, stdout %q, want exit 0 and the version", code, stdout.String())
 	}
 }

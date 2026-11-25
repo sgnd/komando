@@ -18,6 +18,7 @@ import (
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/version"
 )
 
 // `komando update`: replace this komando with a release from GitHub. The
@@ -144,7 +145,7 @@ func runUpdate(cl *call, ctx context.Context, want string) (updateResult, error)
 	}
 	ctx, cancel := context.WithTimeout(ctx, updateTimeout(cl))
 	defer cancel()
-	r := updateResult{Path: exe, From: Version, newest: want == "" || want == "latest"}
+	r := updateResult{Path: exe, From: version.Version, newest: want == "" || want == "latest"}
 	if r.To, err = pickVersion(cl, ctx, want); err != nil {
 		return r, err
 	}
@@ -195,9 +196,9 @@ func updatable() (string, error) {
 		return "", out.Errf(out.ExitConflict, "UNSUPPORTED_PLATFORM", "build komando from source: https://github.com/sgnd/komando#install",
 			"there is no komando release for %s", platform())
 	}
-	if !isReleaseTag(Version) {
+	if !isReleaseTag(version.Version) {
 		return "", out.Errf(out.ExitConflict, "SOURCE_BUILD", "build it again (git pull, then make build), or install a release with the install line: https://github.com/sgnd/komando#install",
-			"this komando was built from source (version %s), so update does not replace it", Version)
+			"this komando was built from source (version %s), so update does not replace it", version.Version)
 	}
 	exe, err := selfPath()
 	if err != nil {
@@ -365,12 +366,35 @@ func folderOwner(dir string) string {
 }
 
 // nextAfterUpdate reminds a person that the skill AI agents read comes with
-// komando, so it changes with the version.
+// komando, so it changes with the version, and says when a guard hook still
+// uses the old line.
 func nextAfterUpdate() string {
 	if asRoot() {
 		return "komando guide install, without sudo (gives your AI agents this version's skill)"
 	}
+	if oldGuardHooks() {
+		return "komando guide install (guard hooks use the old line; it also gives your AI agents this version's skill)"
+	}
 	return "komando guide install (gives your AI agents this version's skill)"
+}
+
+// oldGuardHooks says whether an AI agent's guard hook in this home still
+// uses the line from before guardHookLine.
+func oldGuardHooks() bool {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+	files := []string{filepath.Join(home, ".claude", "settings.json")}
+	for _, h := range agentHooks {
+		files = append(files, filepath.Join(home, h.dir, h.file))
+	}
+	for _, f := range files {
+		if found, problem := claudeGuard(f); found && strings.Contains(problem, "old hook line") {
+			return true
+		}
+	}
+	return false
 }
 
 // auditUpdate records an update that ran, as other changes are recorded.

@@ -15,32 +15,25 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
-	"runtime/debug"
 	"slices"
 	"strconv"
 	"strings"
-	"sync"
-	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/tmpclean"
 	"github.com/sgnd/komando/internal/vault"
+	"github.com/sgnd/komando/internal/version"
 )
 
-var Version = "dev"
-
 func init() {
-	if Version == "dev" {
-		// `go install ...@v1.2.3` records the module version in the binary
-		if bi, ok := debug.ReadBuildInfo(); ok && isRelease(bi.Main.Version) {
-			Version = bi.Main.Version
-		}
-	}
+	runExecute = execute
+	commandTree = func() *cobra.Command { return newRoot(treeCall()) }
 }
 
 type globalFlags struct {
@@ -88,13 +81,9 @@ type exitCode int
 
 func (e exitCode) Error() string { return "exit " + strconv.Itoa(int(e)) }
 
-// vtOK: the terminal on stderr reads escape sequences (colour, clearing a
-// line). Only an old Windows console does not.
-var vtOK = true
-
 // execute runs one command with these arguments in cl: its envelope or
-// text, and its exit code.
-func (cl *call) execute(ctx context.Context, args []string) int {
+// text, and its exit code. call.go reaches it through runExecute.
+func execute(cl *call, ctx context.Context, args []string) int {
 	// the hooks of the lower packages answer for this call from its first
 	// step (call_hooks.go): the store and the vault may open in any of
 	// them, and an agent's call must count there before they do
@@ -396,7 +385,7 @@ func vaultValues() map[string]string {
 // cannot be written; that is how a person finds out what is wrong.
 var localReads = map[string]bool{
 	"version": true, "help": true, "completion": true, "schema": true, "guide": true, "doctor": true,
-	"audit": true, "list": true, "config.show": true, "policy.list": true, "policy.check": true,
+	"audit": true, "list": true, "config.show": true, "policy.list": true, "policy.check": true, "policy.show": true,
 	"conn.kinds": true, "conn.show": true, "host.show": true, "vpn.show": true, "key.list": true,
 	"key.show": true, "secret.list": true, "group.list": true, "recipe.list": true, "vpn.status": true,
 	"tunnel.list": true, "job.list": true, "status": true,
@@ -475,7 +464,7 @@ func newRoot(cl *call) *cobra.Command {
 		Long:          rootLong,
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		Version:       Version,
+		Version:       version.Version,
 		RunE:          printFirstSteps,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SetContext(withCall(cmd.Context(), cl))
@@ -500,7 +489,7 @@ func newRoot(cl *call) *cobra.Command {
 			}
 			cl.out.Format = f
 			cl.out.Pretty = cl.flags.pretty
-			cl.out.Version = Version
+			cl.out.Version = version.Version
 			cl.out.DryRun = cl.flags.dryRun
 			cl.oldCopy.Store(cl.flags.dryRun) // a dry run may look at an old copy: it changes nothing
 			cl.out.Start = time.Now()
@@ -720,7 +709,7 @@ func versionCmd() *cobra.Command {
 		Short: "Print the komando version and its home folder",
 		Args:  cobra.NoArgs,
 		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
-			cl.out.Print("version", map[string]string{"version": Version, "home": store.Home()}, nil)
+			cl.out.Print("version", map[string]string{"version": version.Version, "home": store.Home()}, nil)
 			return nil
 		}),
 	}
@@ -742,48 +731,12 @@ func outputFormat(cl *call, v string) (string, bool) {
 	return "", false
 }
 
-// isRelease reports whether a module version is a real tag (not a local or
-// pseudo version).
-func isRelease(v string) bool {
-	return strings.HasPrefix(v, "v") && !strings.HasPrefix(v, "v0.0.0-") && !strings.Contains(v, "+")
-}
-
-// signalContext is cancelled by the first Ctrl-C (or SIGTERM, or SIGHUP:
-// the terminal closed), so the command stops cleanly. A second one ends
-// komando at once, as with kubectl and gh, when the clean stop hangs: it
-// first removes the temporary files and folders this run made
-// (tmpclean), which the clean stop would have removed. A SIGHUP that was
-// ignored when komando started (nohup, a background holder) stays ignored.
+// signalContext is cancelled by the first Ctrl-C (or SIGTERM, or SIGHUP),
+// so the command stops cleanly; a second one ends komando at once through
+// hardStop (term.SignalContext has the rules). The closure reads hardStop
+// when the signal comes, so a test that replaces hardStop sees its own.
 func signalContext(parent context.Context) (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(parent)
-	sigs := []os.Signal{os.Interrupt, syscall.SIGTERM}
-	if !signal.Ignored(syscall.SIGHUP) {
-		sigs = append(sigs, syscall.SIGHUP)
-	}
-	ch := make(chan os.Signal, 2)
-	signal.Notify(ch, sigs...)
-	done := make(chan struct{})
-	go func() {
-		select {
-		case <-ch:
-			cancel()
-		case <-done:
-			return
-		}
-		select {
-		case s := <-ch:
-			hardStop(s)
-		case <-done:
-		}
-	}()
-	var once sync.Once
-	return ctx, func() {
-		once.Do(func() {
-			cancel()
-			signal.Stop(ch)
-			close(done)
-		})
-	}
+	return term.SignalContext(parent, func(s os.Signal) { hardStop(s) })
 }
 
 // hardStop ends komando on a second signal s, after removing this run's

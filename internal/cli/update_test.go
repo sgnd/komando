@@ -24,6 +24,7 @@ import (
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/releasesig"
+	"github.com/sgnd/komando/internal/version"
 )
 
 func TestReleaseTags(t *testing.T) {
@@ -212,8 +213,8 @@ func updateLab(t *testing.T, running string, f *fakeReleases) (exe, home string)
 	if err := os.WriteFile(exe, []byte("old komando"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	savedSite, savedSelf, savedVersion, savedPlatforms, savedWait, savedRoot := releaseSite, selfPath, Version, releasePlatforms, retryWait, asRoot
-	releaseSite, Version, retryWait = srv.URL, running, time.Millisecond
+	savedSite, savedSelf, savedVersion, savedPlatforms, savedWait, savedRoot := releaseSite, selfPath, version.Version, releasePlatforms, retryWait, asRoot
+	releaseSite, version.Version, retryWait = srv.URL, running, time.Millisecond
 	releasePlatforms = map[string]bool{platform(): true} // the tests run where no release is made, too
 	selfPath = func() (string, error) { return exe, nil }
 	asRoot = func() bool { return false }
@@ -238,7 +239,7 @@ func updateLab(t *testing.T, running string, f *fakeReleases) (exe, home string)
 	setHome(t, home)
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	t.Cleanup(func() {
-		releaseSite, selfPath, Version, releasePlatforms, retryWait, asRoot = savedSite, savedSelf, savedVersion, savedPlatforms, savedWait, savedRoot
+		releaseSite, selfPath, version.Version, releasePlatforms, retryWait, asRoot = savedSite, savedSelf, savedVersion, savedPlatforms, savedWait, savedRoot
 		tcl.flags.dryRun, tcl.flags.yes, tcl.flags.timeout = false, false, 0
 	})
 	return exe, home
@@ -338,7 +339,7 @@ func TestUpdateText(t *testing.T) {
 	if err != nil || !strings.HasPrefix(s, "updated komando v0.6.0 → v0.7.0\n") || !strings.Contains(s, "what changed: ") {
 		t.Errorf("text = %q, %v", s, err)
 	}
-	Version = "v0.7.0" // what the new komando would say
+	version.Version = "v0.7.0" // what the new komando would say
 	s, err = runCache(t, "-o", "text", "update", "latest")
 	if err != nil || s != "komando v0.7.0 is the newest version\n" {
 		t.Errorf("second run: %q, %v", s, err)
@@ -526,7 +527,7 @@ func TestUpdateTriesAgain(t *testing.T) {
 		t.Errorf("after two 503s: %v", d)
 	}
 	f.fail.Store(3)
-	Version = "v0.6.0"
+	version.Version = "v0.6.0"
 	if e := updateFails(t); e.Code != "CONN_UNREACHABLE" || e.Exit != out.ExitConnect {
 		t.Errorf("after three 503s: %v", e)
 	}
@@ -554,12 +555,12 @@ func TestUpdateErrors(t *testing.T) {
 		t.Errorf("not a version: %v", e)
 	}
 	for _, v := range []string{"dev", "v0.6.0-3-g975c9e7-dirty"} {
-		Version = v
+		version.Version = v
 		if e := updateFails(t); e.Code != "SOURCE_BUILD" || e.Exit != out.ExitConflict {
 			t.Errorf("%s: %v", v, e)
 		}
 	}
-	Version = "v0.6.0"
+	version.Version = "v0.6.0"
 	releasePlatforms = map[string]bool{}
 	before := f.requests.Load()
 	if e := updateFails(t); e.Code != "UNSUPPORTED_PLATFORM" || e.Exit != out.ExitConflict || f.requests.Load() != before {

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -17,6 +16,7 @@ import (
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
+	"github.com/sgnd/komando/internal/version"
 )
 
 //go:embed guide.md
@@ -196,7 +196,10 @@ Safe to run again, for example after an update: a changed file is kept as
 				files = append(files, f)
 			}
 			if !noGuard {
-				prog, note := hookProgram(project)
+				prog, note, err := hookProgram(project)
+				if err != nil {
+					return err
+				}
 				// Claude Code asks komando before each tool call (guard.go)
 				f, err := installGuardHook(filepath.Join(base, ".claude", "settings.json"), prog, cl.flags.dryRun)
 				if err != nil {
@@ -210,7 +213,7 @@ Safe to run again, for example after an update: a changed file is kept as
 					if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
 						continue
 					}
-					f, err := installAgentHook(filepath.Join(dir, h.file), h.add, shellQuote(prog)+" guide guard --for "+h.name, cl.flags.dryRun)
+					f, err := installAgentHook(filepath.Join(dir, h.file), h.add, guardHookLine(prog, h.name), cl.flags.dryRun)
 					if err != nil {
 						return out.Errf(out.ExitError, "WRITE_FAILED", "fix the file, or pass --no-guard to skip the guard", "%v", err)
 					}
@@ -242,17 +245,18 @@ Safe to run again, for example after an update: a changed file is kept as
 // hookProgram is how a guard hook calls komando. In a project's own files,
 // which are often shared, it is the name komando has in PATH; a path of
 // this computer gets a note.
-func hookProgram(project bool) (prog, note string) {
+func hookProgram(project bool) (prog, note string, err error) {
 	prog = komandoPath()
-	if !project {
-		return prog, ""
+	if !filepath.IsAbs(prog) {
+		// a bare name is found through PATH, where an AI agent could put a
+		// program of its own before komando
+		return "", "", out.Errf(out.ExitNotFound, "GUARD_PATH_MISSING", "run komando by its full path, such as `/usr/local/bin/komando guide install`; without a guard: `komando guide install --no-guard`",
+			"komando cannot tell where its own program is, so it writes no guard hook")
 	}
-	if p, err := exec.LookPath("komando"); err == nil && filepath.IsAbs(prog) {
-		if a, b := statOf(p), statOf(prog); a != nil && b != nil && os.SameFile(a, b) {
-			return "komando", ""
-		}
+	if project {
+		note = "it calls komando at " + prog + ", a path on this computer only; run komando guide install --project again on each computer"
 	}
-	return prog, "it calls komando at " + prog + ", a path on this computer only; put komando in PATH and run it again before you share this file"
+	return prog, note, nil
 }
 
 type skillResult struct {
@@ -549,7 +553,7 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 			})
 			res := map[string]any{
 				"name":     "komando",
-				"version":  Version,
+				"version":  version.Version,
 				"contract": out.Contract,
 				"commands": cmds,
 			}

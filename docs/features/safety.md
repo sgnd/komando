@@ -172,6 +172,7 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `host add` | when --proxy-command matches a destructive rule | dangerous | `--allow-dangerous` |
 | `import` | when an imported ProxyCommand matches a destructive rule | dangerous | `--allow-dangerous` |
 | `policy rm` | always | safety | `--yes` |
+| `policy edit` | unless it only switches the rule on | safety | `--yes` |
 | `config set` | when the setting turns a check off (audit, keychain, host key policy, ...) | safety | `--yes` |
 | `host edit` | with --protected=false | safety | `--yes` |
 | `conn edit` | with --protected=false | safety | `--yes` |
@@ -241,7 +242,18 @@ terminal are not affected by them.
 | **No guessing a secret** | `secret check`, which says whether a value is the stored one, is for people only (`NEEDS_PERSON`): for an agent it would answer yes or no to guesses. `secret show` tells an agent only whether the value starts or ends with a space, never its length or a hash of it (a hash of a short password can be guessed offline). |
 | **Secret files stay on the server** | An agent cannot copy a file that is secret by its name (`.env`, private keys, `credentials`, `shadow`, ...) to this computer (`SENSITIVE_FILE`); folder copies leave them out. It can read them with `fs cat`, masked. A stream to stdout (`--to -`) keeps the same rules before a byte is written: text with secret values as `[hidden]`, a binary file refused when it holds a vault value, a secret or personal data komando hides, and anything over 16 MB refused, as bytes on stdout cannot be taken back. Any other text file an agent downloads (`download`, `sync`, `storage download`) is saved the way `fs cat` shows it, with secret values as `[hidden]`, and the result says `masked`; such a copy is never uploaded back (`HIDDEN_VALUE`). Binary files and files over 16 MB are copied as they are, unless they hold a vault value, or the target hides personal data from agents (see [Personal data](#personal-data)). |
 | **Secret files stay on this computer** | komando does not read `~/.komando`, private keys, credential stores or files that are secret by name for an agent when a command takes a local file (`--stdin-file`, `script FILE`, uploads, `sync`, `fs write --from`, `db --file`, `cluster -f`) (`SENSITIVE_FILE`); folder uploads and `sync` check each file and leave those out. That holds for the same file by another name: a link, a hard link, or other upper and lower case on macOS. You allow a project secret such as `.env` with `--reveal`; komando's own data and `/proc/PID/environ` never go. Imports (`komando import kubeconfig`, `pgpass`, `docker`, ...) may read credential files, because they put the secrets into komando's vault, which the agent never sees. The files a kubeconfig names (client key and certificate, CA, token file) are the exception: for an agent they may come from `~/.kube` (in any case on macOS and Windows) or anywhere else, but not from `~/.ssh` or another credential store, so an agent's import never copies your SSH key into the vault. A `file:` or `env:` password reference cannot point at komando's data, a private key, a credential store or the password of a secret store either. No reference, for anyone, reads the approval code's key (`RESERVED_SECRET`). Nor does an agent's command write there: `download`, `cp`, `sync` (and its `--delete`), `storage download`, `db dump --to`, `export --to` and `cluster cp` never save a file into komando's folder, `~/.ssh`, `~/.aws`, `~/.config/gcloud`, `~/.azure`, `~/.kube`, `~/.docker`, `~/.gnupg`, `~/.password-store` or the keychains, also through a link (`SENSITIVE_FILE`, no flag: you run such a command in your own terminal). |
-| **Guard on this computer** | `komando guide install` adds a guard to Claude Code, and to Cursor, Gemini CLI and Codex where you use them. Before the agent reads a file or runs a shell command, komando checks it and stops reading `~/.komando`, private keys, `.env` files and credential stores (`~/.kube`, `~/.aws`, the keychain), listing all environment variables, changing or clearing the variables komando knows an agent by (`CLAUDECODE=0`, `unset`, `env -u`, `env -i`, `read`, `sudo komando`) or `KOMANDO_HOME`, setting `HOME` in front of komando, searching or archiving a folder that holds them (`grep -r ~`, `tar -C ~ ...`), and running `ssh`/`scp` around komando. It reads relative paths from the agent's working folder, follows `cd`, and counts a glob such as `~/.komand?/*` as the path it could match; quoted patterns (`grep '.*' f`) are not globs. Skip it with `--no-guard`. |
+| **Guard on this computer** | `komando guide install` adds a guard to Claude Code, and to Cursor, Gemini CLI and Codex where you use them. Before the agent reads a file or runs a shell command, komando checks it and stops reading `~/.komando`, private keys, `.env` files and credential stores (`~/.kube`, `~/.aws`, the keychain), listing all environment variables, changing or clearing the variables komando knows an agent by (`CLAUDECODE=0`, `unset`, `env -u`, `env -i`, `read`, `sudo komando`) or `KOMANDO_HOME`, setting `HOME` in front of komando, searching or archiving a folder that holds them (`grep -r ~`, `tar -C ~ ...`), and running `ssh`/`scp` around komando. It reads relative paths from the agent's working folder, follows `cd`, and counts a glob such as `~/.komand?/*` as the path it could match; quoted patterns (`grep '.*' f`) are not globs. A check that does not finish in 3 seconds, or stops with an internal error, refuses the call. The hook line names komando by its full path and runs the guard through `sh`: when the guard cannot answer (komando is removed, is not a program, or fails) the call is refused, so the agent never goes on unchecked. The guard also refuses an agent's change to the agents' hook settings and folders (`~/.claude/settings.json`, `~/.codex/hooks.json`, `~/.gemini/settings.json`, `~/.cursor/hooks.json` and the like), to the komando program the hook runs, and to any file named `komando` (an agent builds its own copy under another name, such as `go build -o komando-dev`); a command that is not only a reader is refused when its line names one of those files anywhere, in code given to `python3 -c` or in a variable. Reading them stays open. The guard reads the command line, not a script file an agent writes and then runs. `komando doctor` checks every agent's hook line and its program; a hook set up by an older version is set up again with `komando guide install`, and `komando update` says when one is left. On Windows the hook calls komando directly, so it lets a call through when komando is missing, and `komando doctor` says so. Skip it with `--no-guard`. |
+
+### What the guard cannot do on Windows
+
+On Windows there is no `/bin/sh` for the hook line, so the guard runs as in 0.17.1. An AI agent there can still do two things it cannot do on macOS and Linux:
+
+| What an agent can do on Windows | Why | What to do |
+|---|---|---|
+| Go on unchecked once the komando program is gone: the guard refuses an agent's direct removal, but not one done by a script file it wrote and ran, or by an update that moved komando | the hook calls komando directly; when komando is missing the agent tool goes on | keep komando where the hook names it; `komando doctor` says when it is missing |
+| Change the komando program when other users of the computer may write to it | `komando doctor` cannot read Unix modes on Windows, so it gives no warning | keep komando in a folder only you can change |
+
+The guard refuses an agent's change to its hook files and to komando also when the path is written with `\`, as in PowerShell and cmd (`Remove-Item C:\Users\me\.claude\settings.json`, `Remove-Item C:\tools\komando.exe`). Like on every system it reads the command line only: a script file the agent wrote, or an encoded PowerShell command (`-EncodedCommand`), is not read.
 
 ### The approval window in Indonesian
 
@@ -276,11 +288,53 @@ backslashes inside a word (`r\m`, `/e""tc`) do not hide it. A custom
 pattern that is not a valid regular expression blocks every command until
 you fix or remove it; `komando doctor` and `policy list` name it.
 
-Built-in rules cannot be removed. A custom rule's id (`custom-` and eight
+Built-in rules cannot be removed, but a person can switch one off (below).
+A custom rule's id (`custom-` and eight
 letters and digits) is made from its pattern, so it stays the same when
 another rule is removed. A pattern that matches empty text (`.*`) is
 refused: it would block every command. Removing a rule turns a check off,
 so komando asks first (a script adds `--yes`).
+
+## Switch a rule off
+
+```bash
+komando policy show docker-prune                                # what it stops and where it is off
+komando policy edit docker-prune --off --add-server build1        # off on one server
+komando policy edit pkg-remove-essential --off --add-group lab  # off on the servers of a group, as it is now
+komando policy edit docker-prune --rm-server build1               # on again on that server
+komando policy edit docker-prune --off=false                    # on again everywhere
+```
+
+Any rule can be switched off, a built-in rule or one of yours. With
+`--add-server` or `--add-group` the rule is off only on those servers: a
+command that also runs on another server is still stopped. A group counts
+as the servers in it when you switch the rule off; a server added to the
+group later is still checked. A server you remove drops out of the switch.
+`--off` without `--add-server` and `--add-group` switches the rule off on
+every server.
+
+Switching a rule off turns a check off, so komando asks first, naming the
+rule, the servers and what it will no longer stop. An AI agent may ask for
+it: the approval window opens on your screen, and the agent cannot answer
+it. A rule that keeps the others working is stricter: you type the rule's
+name at a terminal, even with `--yes`; with no terminal it is refused, and
+an AI agent's request for one is refused with the command for you to run
+yourself (`NEEDS_PERSON`). Those rules are the evasion detectors
+(`check-failed`, `decode-run`, `base64-pipe-sh`, `curl-pipe-sh`, and on
+Windows `win-encoded`, `win-decode-run`, `win-download-run`), the rules for
+the root folder, devices and disks (`rm-root`, `rm-cd-root`,
+`find-delete-root`, `rm-system-dir`, `chmod-root`, `chown-root`, `mkfs`,
+`dd-device`, `redirect-device`, `wipefs`, `win-rm-root`, `win-format`,
+`win-registry-hive`, `win-backups`), the authentication files
+(`passwd-files`, `passwd-files-write`), a container given the server
+(`docker-host`), and the ways in (`sshd-stop`, `win-remote-access`,
+`firewall-drop-all`). Switching a rule on again (`--off=false`, `--rm-server`,
+`--rm-group`) asks nothing.
+
+A rule that is off is never silent: `policy list` and `policy show` show
+where it is off, `policy check` names it, `komando doctor` warns for every
+rule that is off (the rules above first), and the audit log keeps every
+switch as `policy.edit` with the servers before and after.
 
 `policy check` exits 6 when the command would be blocked, so it works in an
 `if`. `--conn-kind` rates a statement for a conn kind instead: `postgres`,
@@ -334,8 +388,8 @@ komando config set mask_personal protected       # back to the default (komando 
 - The same data is not handed over another way. For an AI agent, where
   personal data is hidden: `cp`, `sync` and `download` save files with it
   hidden; `fs replace`, `fs write --dry-run`, `fs restore` and `docker
-  compose` show it hidden; `db dump` stops with `SENSITIVE_FILE` (a dump
-  cannot be masked). A value that is not text is shown as base64; when it
+  compose` show it hidden; `db dump` stops with `NEEDS_PERSON` (a dump
+  cannot be masked; a person runs it in their own terminal). A value that is not text is shown as base64; when it
   holds a secret or personal data, the whole value reads `[hidden]`.
 - A file komando cannot show with personal data hidden stops an AI
   agent's `cp`, `sync`, `download` or `cluster cp` with `SENSITIVE_FILE`:
@@ -368,7 +422,7 @@ Every action is in the audit log: time, who ran it, which AI agent asked,
 whether a person allowed it, the targets and the command. Every change to
 the inventory and to safety settings is there too: servers, conns, groups,
 keys, secrets (names only), `config set` (old and new value) and
-`policy deny` and `policy rm`.
+`policy deny`, `policy rm` and `policy edit`.
 
 ```bash
 komando audit -o text                 # one line per entry, newest 50

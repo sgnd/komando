@@ -18,7 +18,7 @@ import (
 // for is in the table (TestStandardConfirmTable checks both against the
 // stops TestAgentGolden records).
 //
-// The stops themselves stay in the commands (guard, guardConns,
+// The stops themselves stay in the commands (Guard, GuardConns,
 // guardProtection, ...): they see what a table cannot, such as which
 // server is protected or what a SQL statement does. A row marked dynamic
 // gives the most the command can need; the command decides at run time.
@@ -62,6 +62,28 @@ type riskRow struct {
 // givesFlag: words give --name (or --name=true).
 func givesFlag(name string) func([]string) bool {
 	return func(w []string) bool { return slices.Contains(w, "--"+name) || slices.Contains(w, "--"+name+"=true") }
+}
+
+// switchesOn: the words only switch a rule on again: --off=false (in any
+// spelling of false) or --rm-server or --rm-group, and no --off with another
+// value and no --add-server or --add-group. cobra keeps a flag's last value,
+// so anything else may run the off path. The v2.7 table
+// (internal/capability/tier.go) says it with flags only and rates
+// --off=false Safety too: stricter, never weaker (TestPolicyEditTableNotWeaker).
+func switchesOn(w []string) bool {
+	on := false
+	for _, s := range w {
+		name, val, _ := strings.Cut(s, "=")
+		switch {
+		case name == "--off" && slices.Contains([]string{"false", "0", "f", "F", "FALSE", "False"}, val):
+			on = true
+		case strings.HasPrefix(name, "--off") || strings.HasPrefix(name, "--add-"):
+			return false
+		case name == "--rm-server" || name == "--rm-group":
+			on = true
+		}
+	}
+	return on
 }
 
 // anyWord: one of words (an argument) is in set.
@@ -145,6 +167,7 @@ var riskRows = []riskRow{
 
 	// T3s: weakens komando's own checks.
 	{key: safetyKey{"policy", "", "remove"}, tier: tierSafety, what: "removes a deny rule"},
+	{key: safetyKey{"policy", "", "edit"}, when: func(w []string) bool { return !switchesOn(w) }, cond: "unless it only switches the rule on", tier: tierSafety, what: "switches a rule off"},
 	{key: safetyKey{"config", "", "set"}, tier: tierSafety, dynamic: "the setting turns a check off (audit, keychain, host key policy, ...)"},
 	{key: safetyKey{"host", "", "edit"}, when: protectionOff, cond: "with --protected=false", tier: tierSafety, what: "turns protection off"},
 	{key: safetyKey{"conn", "", "edit"}, when: protectionOff, cond: "with --protected=false", tier: tierSafety, what: "turns protection off"},
@@ -248,8 +271,16 @@ func (r riskRow) typedWhat() string {
 	return ""
 }
 
+// commandTree gives the command tree lineWords reads, a new one each time.
+// root.go sets it; a nil tree rates every line tierPerson (fail closed),
+// so a caller that never set one cannot let a line through as a read.
+var commandTree func() *cobra.Command
+
 // riskOfLine is riskOf for a command line ("cache rm c1 k").
 func riskOfLine(line []string) riskRow {
+	if commandTree == nil {
+		return riskRow{tier: tierPerson}
+	}
 	c, words, _ := lineWords(line)
 	if c == nil {
 		return riskRow{tier: tierRead}
@@ -262,9 +293,12 @@ func riskOfLine(line []string) riskRow {
 // --name=value, then -- and what follows it. The command's own words
 // (whatever name, alias or plural was typed) and a global flag before them
 // are not among them. pos is the positional arguments before any --. c is
-// nil when line names no command.
+// nil when line names no command, or when there is no command tree.
 func lineWords(line []string) (c *cobra.Command, words, pos []string) {
-	root := newRoot(treeCall())
+	if commandTree == nil {
+		return nil, nil, nil
+	}
+	root := commandTree()
 	c, rest, err := root.Find(line)
 	if err != nil || c == root {
 		return nil, nil, nil
