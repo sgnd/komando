@@ -354,7 +354,7 @@ func recipeRunCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return runSnippet(cl, cmd.Context(), b, args[1], kv)
+				return runSnippet(cl, cmd.Context(), b, args[1], kv, noSudo)
 			}
 			st, err := loadState()
 			if err != nil {
@@ -452,7 +452,7 @@ func snippetFamily(h *store.Host) snippet.Family {
 // the module commands: the filled text goes through guard with the exec
 // rules (policy.Check, like a typed exec line), protected servers ask for a
 // change, and the result is masked when it is printed.
-func runSnippet(cl *call, ctx context.Context, b snippet.Builtin, target string, kv map[string]string) error {
+func runSnippet(cl *call, ctx context.Context, b snippet.Builtin, target string, kv map[string]string, noSudo bool) error {
 	if b.Type != "host" || b.Text == nil {
 		// S1 wires the text snippets of hosts; the client snippets come with
 		// their type's move
@@ -488,7 +488,7 @@ func runSnippet(cl *call, ctx context.Context, b snippet.Builtin, target string,
 		}
 	}
 	data, worst, fails, err := collectOps(cl, ctx, opsSpec{name: "snippet.exec", target: target, display: "snippet " + b.Name,
-		command: text[snippet.Unix], win: text[snippet.Windows], mutating: snippet.Mutating(b),
+		command: text[snippet.Unix], win: text[snippet.Windows], mutating: snippet.Mutating(b), sudo: b.Sudo && !noSudo,
 		parse: parse(snippet.Unix), winParse: parse(snippet.Windows)})
 	if err != nil || data == nil {
 		return err

@@ -47,7 +47,7 @@ func Check(b Builtin, given map[string]string) (Values, error) {
 			vals[v.Name] = ""
 			continue
 		}
-		if err := checkValue(v, val); err != nil {
+		if err := checkVar(v, val); err != nil {
 			return nil, err
 		}
 		if v.Channel == SFTPPath {
@@ -64,6 +64,26 @@ func varNames(b Builtin) []string {
 		names[i] = v.Name
 	}
 	return names
+}
+
+// checkVar checks a variable's value: each value of a list alone.
+func checkVar(v Var, val string) error {
+	if !v.List {
+		return checkValue(v, val)
+	}
+	items := strings.Split(val, ",")
+	if len(items) > v.MaxItems {
+		return out.Usage("%s takes at most %d values, comma-separated", v.Name, v.MaxItems)
+	}
+	for _, item := range items {
+		if item == "" {
+			return out.Usage("the value of %s has an empty item: join the values with single commas", v.Name)
+		}
+		if err := checkValue(v, item); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // checkValue checks one value against its variable and channel.
@@ -110,8 +130,20 @@ func Fill(b Builtin, f Family, given map[string]string) (string, error) {
 	if f == Windows {
 		quote = sshx.PSQ
 	}
+	list := map[string]bool{}
+	for _, v := range b.Vars {
+		list[v.Name] = v.List
+	}
 	return markerRe.ReplaceAllStringFunc(text, func(m string) string {
-		return quote(vals[markerRe.FindStringSubmatch(m)[1]])
+		name := markerRe.FindStringSubmatch(m)[1]
+		if !list[name] {
+			return quote(vals[name])
+		}
+		items := strings.Split(vals[name], ",")
+		for i, item := range items {
+			items[i] = quote(item)
+		}
+		return strings.Join(items, " ")
 	}), nil
 }
 
@@ -126,4 +158,13 @@ func Unsupported(b Builtin, family string) *out.Error {
 func TypeUnsupported(b Builtin, target, typ string) *out.Error {
 	return out.Errf(out.ExitUsage, "SNIPPET_TYPE_UNSUPPORTED", "run it against a "+b.Type+" entry; see them with `komando list`",
 		"%s is a %s, not a %s", target, typ, b.Type)
+}
+
+// LongestValue is the longest value v takes: for a list, MaxItems longest
+// values.
+func LongestValue(v Var) string {
+	if !v.List {
+		return v.Longest
+	}
+	return strings.Repeat(v.Longest+",", v.MaxItems-1) + v.Longest
 }

@@ -70,6 +70,23 @@ func TestNewRefusesBadDefinitions(t *testing.T) {
 		{"default off pattern", func(b *Builtin) { v := unitVar; v.Required, v.Default = false, "a b"; b.Vars = []Var{v} }, "default"},
 		{"variable twice", func(b *Builtin) { b.Vars = []Var{unitVar, unitVar} }, "twice"},
 		{"no channel", func(b *Builtin) { v := unitVar; v.Channel = 0; b.Vars = []Var{v} }, "channel"},
+		{"list without a max count", func(b *Builtin) { v := unitVar; v.List = true; b.Vars = []Var{v} }, "items"},
+		{"max count without a list", func(b *Builtin) { v := unitVar; v.MaxItems = 3; b.Vars = []Var{v} }, "items"},
+		{"list on a client channel", func(b *Builtin) {
+			b.Text, b.Parse = nil, nil
+			b.Run = func(context.Context, Values) (any, error) { return nil, nil }
+			b.Vars = []Var{{Name: "unit", Channel: SQLIdent, Pattern: unitVar.Pattern, MaxLen: 8, Longest: "nginx-ab", List: true, MaxItems: 2}}
+		}, "list"},
+		{"list default off pattern", func(b *Builtin) {
+			v := unitVar
+			v.List, v.MaxItems, v.Required, v.Default = true, 2, false, "nginx,a b"
+			b.Vars = []Var{v}
+		}, "default"},
+		{"sudo without a Unix text", func(b *Builtin) { b.Sudo = true; delete(b.Text, Unix) }, "sudo"},
+		{"sudo on a client call", func(b *Builtin) {
+			b.Sudo, b.Text, b.Parse = true, nil, nil
+			b.Run = func(context.Context, Values) (any, error) { return nil, nil }
+		}, "sudo"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -388,5 +405,101 @@ func TestNewTakesEveryTier(t *testing.T) {
 		if _, err := New([]Builtin{b}); err != nil {
 			t.Errorf("tier %d: %v", tier, err)
 		}
+	}
+}
+
+// listVar is a text variable that takes several values, like svc-status's
+// units.
+var listVar = Var{Name: "unit", Channel: Text, Pattern: unitVar.Pattern, MaxLen: 8, Required: true, Longest: "nginx-ab", List: true, MaxItems: 3}
+
+func listSample() Builtin {
+	b := sample()
+	b.Vars = []Var{listVar}
+	return b
+}
+
+// Each value of a list is checked alone and quoted as its own word, in
+// the order given.
+func TestFillListQuotesEachValue(t *testing.T) {
+	for _, c := range []struct {
+		f    Family
+		want string
+	}{
+		{Unix, "systemctl show -- 'nginx' 'postfix'"},
+		{Windows, "Get-Service -Name 'nginx' 'postfix'"},
+	} {
+		got, err := Fill(listSample(), c.f, map[string]string{"unit": "nginx,postfix"})
+		if err != nil || got != c.want {
+			t.Errorf("Fill(%s) = %q, %v; want %q", c.f, got, err, c.want)
+		}
+	}
+	if got, err := Fill(listSample(), Unix, map[string]string{"unit": "nginx"}); err != nil || got != "systemctl show -- 'nginx'" {
+		t.Errorf("one value: %q, %v", got, err)
+	}
+}
+
+func TestFillListRefusals(t *testing.T) {
+	for _, c := range []struct {
+		name, val, code string
+	}{
+		{"more than the max count", "a,b,c,d", "USAGE"},
+		{"an empty value inside", "a,,b", "USAGE"},
+		{"an empty value at the end", "a,", "USAGE"},
+		{"an empty value at the start", ",a", "USAGE"},
+		{"only a comma", ",", "USAGE"},
+		{"one value off pattern", "nginx,a;b", "USAGE"},
+		{"one value too long", "nginx,nginx-abc", "USAGE"},
+		{"one value option-like", "nginx,-x", "OPTION_LIKE_VAR"},
+		{"a control character", "nginx,a\nb", "USAGE"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			got, err := Fill(listSample(), Unix, map[string]string{"unit": c.val})
+			if code(err) != c.code {
+				t.Fatalf("Fill(%q) = %q, %v; want code %s", c.val, got, err, c.code)
+			}
+		})
+	}
+	// a comma in a value of a variable that is not a list is a value, and
+	// its pattern decides
+	if _, err := Fill(sample(), Unix, map[string]string{"unit": "a,b"}); code(err) != "USAGE" {
+		t.Errorf("a comma in a single value: %v, want USAGE from the pattern", err)
+	}
+}
+
+// LongestValue is the longest value a variable takes: for a list, the max
+// count of longest values.
+func TestLongestValue(t *testing.T) {
+	if got := LongestValue(unitVar); got != "nginx-ab" {
+		t.Errorf("LongestValue(single) = %q", got)
+	}
+	if got := LongestValue(listVar); got != "nginx-ab,nginx-ab,nginx-ab" {
+		t.Errorf("LongestValue(list) = %q", got)
+	}
+	if _, err := Fill(listSample(), Unix, map[string]string{"unit": LongestValue(listVar)}); err != nil {
+		t.Errorf("the longest list does not fill: %v", err)
+	}
+}
+
+// An empty item is refused even when the pattern would take an empty
+// value: a stray comma is a typo, not a value.
+func TestFillListRefusesAnEmptyItemWhateverThePattern(t *testing.T) {
+	b := sample()
+	b.Vars = []Var{{Name: "unit", Channel: Text, Pattern: regexp.MustCompile(`^[a-z]*$`), MaxLen: 3, Required: true, Longest: "abc", List: true, MaxItems: 3}}
+	if got, err := Fill(b, Unix, map[string]string{"unit": "a,,b"}); code(err) != "USAGE" {
+		t.Fatalf("Fill(a,,b) = %q, %v; want USAGE", got, err)
+	}
+}
+
+// A list's default is checked value by value, as a given list is.
+func TestFillListDefault(t *testing.T) {
+	b := listSample()
+	b.Vars[0].Required, b.Vars[0].Default = false, "nginx,postfix"
+	r, err := New([]Builtin{b})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ = r.Lookup("svc-status")
+	if got, err := Fill(b, Unix, map[string]string{}); err != nil || got != "systemctl show -- 'nginx' 'postfix'" {
+		t.Fatalf("Fill() = %q, %v", got, err)
 	}
 }

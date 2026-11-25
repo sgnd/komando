@@ -45,7 +45,8 @@ var sampleSvcList = snippet.Builtin{
 	},
 }
 
-var unitVar = snippet.Var{Name: "unit", Channel: snippet.Text, Pattern: regexp.MustCompile(`^[A-Za-z0-9@._:\\-]+$`), MaxLen: 256, Required: true, Longest: strings.Repeat("a", 256)}
+var unitVar = snippet.Var{Name: "unit", Channel: snippet.Text, Pattern: regexp.MustCompile(`^[A-Za-z0-9@._:\\-]+$`), MaxLen: 256, Required: true, Longest: strings.Repeat("a", 256),
+	List: true, MaxItems: 16}
 
 var sampleSvcStatus = snippet.Builtin{
 	Name: "svc-status", Type: "host", Replaces: "svc status", Reader: "KomandoCall+Services.swift:36-43", Tier: capability.Read, Shape: "svc-status/1",
@@ -304,7 +305,7 @@ func notWeaker(b snippet.Builtin) string {
 	}
 	line := append(append(slices.Clone(words[:n]), "dev"), words[n:]...)
 	for _, v := range b.Vars {
-		line = append(line, v.Longest)
+		line = append(line, strings.Split(snippet.LongestValue(v), ",")...)
 	}
 	if c, _, _ := lineWords(line); n == 0 || c == nil || c.Name() != words[n-1] {
 		return fmt.Sprintf("replaces %q, which is not a command", b.Replaces)
@@ -352,7 +353,7 @@ func TestSnippetFilledTextRules(t *testing.T) {
 	for _, b := range append(registered(), samples...) {
 		given := map[string]string{}
 		for _, v := range b.Vars {
-			given[v.Name] = v.Longest
+			given[v.Name] = snippet.LongestValue(v)
 		}
 		for f := range b.Text {
 			text, err := snippet.Fill(b, f, given)
@@ -623,5 +624,64 @@ func factsOnlyWindowsLikeTheCommand(t *testing.T, in string) {
 	}
 	if g, w := compact(t, b.Result), compact(t, a.Results[0].Data); g != w {
 		t.Errorf("result\n got:  %s\n want: %s", g, w)
+	}
+}
+
+// A list variable gives the text and the result `svc status` gives for
+// the same units, in the order given.
+func TestSnippetListLikeTheReplacedCommand(t *testing.T) {
+	in, err := os.ReadFile(filepath.Join("testdata", "snippets", "svc-status", "systemd.in"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	withSnippets(t, samples...)
+	rs := startReplayServerWith(t, nil, replayStep{stdout: string(in)})
+	if _, e := snippetData(t, "svc-status", "dev", "--var", "unit=nginx,postfix"); e != nil {
+		t.Fatal(e)
+	}
+	want, err := os.ReadFile(filepath.Join("testdata", "snippets", "svc-status", "systemd.sent.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rs.mu.Lock()
+	got := strings.Join(rs.sent, "\n----\n") + "\n"
+	rs.mu.Unlock()
+	if got != string(want) {
+		t.Errorf("sent\n got:  %s\n want: %s", got, want)
+	}
+}
+
+// A snippet with Sudo runs its Unix text with sudo, as the command it
+// replaces does; --no-sudo runs it without.
+func TestSnippetSudo(t *testing.T) {
+	b := sampleSvcList
+	b.Name, b.Shape, b.Sudo = "sudo-list", "sudo-list/1", true
+	in, err := os.ReadFile(filepath.Join("testdata", "snippets", "svc-list", "systemd.in"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		name string
+		b    snippet.Builtin
+		args []string
+		sudo bool
+	}{
+		{"sudo", b, nil, true},
+		{"no-sudo", b, []string{"--no-sudo"}, false},
+		{"no sudo field", sampleSvcList, nil, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			withSnippets(t, c.b)
+			rs := startReplayServerWith(t, nil, replayStep{stdout: string(in)})
+			if _, e := snippetData(t, append([]string{c.b.Name, "dev"}, c.args...)...); e != nil {
+				t.Fatal(e)
+			}
+			rs.mu.Lock()
+			sent := strings.Join(rs.sent, "\n")
+			rs.mu.Unlock()
+			if got := strings.HasPrefix(sent, "sudo -n "); got != c.sudo {
+				t.Fatalf("sent with sudo = %v, want %v: %s", got, c.sudo, sent)
+			}
+		})
 	}
 }

@@ -50,6 +50,11 @@ type Var struct {
 	Longest  string
 	Required bool
 	Default  string // used when the variable is not given and not required
+	// List takes several values, comma-separated: each is checked alone
+	// and quoted as its own word, in the order given (svc-status takes
+	// several units). MaxItems caps how many; MaxLen is per value.
+	List     bool
+	MaxItems int
 }
 
 // Output is what a text printed on the server.
@@ -72,9 +77,12 @@ type Builtin struct {
 	Shape    string          // "svc-list/1"
 	Vars     []Var
 	Checks   []string // the checks carried, each named by the test that pins it (Audit A-C368-4)
-	Text     map[Family]string
-	Parse    func(o Output, f Family) (any, error)
-	Run      func(ctx context.Context, v Values) (any, error)
+	// Sudo runs the Unix text with sudo, as the replaced command does;
+	// --no-sudo turns it off. A Windows text never runs with sudo.
+	Sudo  bool
+	Text  map[Family]string
+	Parse func(o Output, f Family) (any, error)
+	Run   func(ctx context.Context, v Values) (any, error)
 }
 
 // types are the entry types a built-in may run against.
@@ -162,6 +170,9 @@ func valid(b Builtin) error {
 	case b.Text != nil && b.Parse == nil:
 		return fmt.Errorf("has a text but no parse function")
 	}
+	if _, ok := b.Text[Unix]; b.Sudo && !ok {
+		return fmt.Errorf("sudo is set but there is no Unix text to run with it")
+	}
 	vars := map[string]Var{}
 	for _, v := range b.Vars {
 		if _, dup := vars[v.Name]; dup {
@@ -199,7 +210,15 @@ func validVar(v Var) error {
 	if len(v.Longest) != v.MaxLen || !v.Pattern.MatchString(v.Longest) {
 		return fmt.Errorf("the longest value does not have the max length or does not match the pattern")
 	}
-	if !v.Required && v.Default != "" && checkValue(v, v.Default) != nil {
+	switch {
+	case v.List && v.MaxItems <= 0:
+		return fmt.Errorf("a list needs max items")
+	case !v.List && v.MaxItems != 0:
+		return fmt.Errorf("max items is set but it is not a list")
+	case v.List && v.Channel != Text:
+		return fmt.Errorf("a list goes only into a text: a client call takes one value")
+	}
+	if !v.Required && v.Default != "" && checkVar(v, v.Default) != nil {
 		return fmt.Errorf("the default does not pass the variable's checks")
 	}
 	return nil
