@@ -157,7 +157,7 @@ func TestDataOutHasARow(t *testing.T) {
 		{Type: "database", Provider: "postgres", Verb: "backup"}: Read,
 		top("export"):                       Read,
 		own("audit", "recording", "export"): Person, // a recording holds what was typed, secrets included (chief, 2026-11-25)
-		own("audit", "", "export"):          Change,
+		own("audit", "", "export"):          Person, // the log can hold SQL text (audit_sql=full; CLI coordinator, 2026-11-25)
 	}
 	for k, w := range want {
 		if got := Base(k); got != w {
