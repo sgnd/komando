@@ -183,7 +183,7 @@ go through `Say`, as sentences (M-3). An agent's hint says "ask the user",
 never "you". [review]
 
 **M-15 Other programs' words are data.** The API's own errors in kctl
-("Error from server ..."), db shell's psql-style lines, cache run replies,
+("Error from server ..."), db shell's psql-style lines, cache redis raw replies,
 server output and strings matched against other programs' errors keep their
 own words. kctl's own errors keep kubectl's framing (`error: ` on stderr,
 exit 1) but their words follow these rules, and the tests read them

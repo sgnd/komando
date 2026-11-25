@@ -77,7 +77,7 @@ func TestGateNoNetwork(t *testing.T) {
 	allowed := []string{
 		"", "list", "version", "status", "ssh-gate status", "facts web", "test web", "host test web", "logs web --unit nginx",
 		"fs cat web /etc/hosts", "fs list web /var/log", "svc status web nginx", "svc list web", "docker ps web",
-		"docker logs web app", "db query pg 'select 1'", "db schema pg", "db activity pg", "cache get c a", "cache run c GET a",
+		"docker logs web app", "db query pg 'select 1'", "db schema pg", "db activity pg", "cache get c a", "cache redis raw c GET a",
 		"cache info c", "cluster run k8s get pods", "cluster status k8s", "cluster logs k8s api-1", "cert check web",
 		"cert check web --path /etc/ssl/site.pem", "pkg security web", "pkg installed web", "storage download s3 a.txt --to -",
 		"storage list s3", "job list", "audit", "export", "conn test pg", "vpn list", "cron list web", "user list web",

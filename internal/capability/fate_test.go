@@ -16,13 +16,61 @@ import (
 // pre-cut fields cannot drift from the code they stand in for.
 const cliDir = "../cli/"
 
+// todayIDs are the command IDs of today. testdata/command_ids.txt lists the
+// commands the tree has now: once a type has moved (step C of the cut), its
+// leaves' own paths are in it and the IDs they replaced are not. So the
+// list is read back to today's: the IDs a leaf carries or keeps are added
+// when the leaf's own ID is there, and a path that only a leaf or its
+// groups own is taken out.
 func todayIDs(t *testing.T) []string {
 	t.Helper()
 	b, err := os.ReadFile(cliDir + "testdata/command_ids.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
-	return strings.Fields(string(b))
+	listed := strings.Fields(string(b))
+	has := map[string]bool{}
+	for _, id := range listed {
+		has[id] = true
+	}
+	fated := map[string]bool{}
+	for _, l := range All() {
+		for _, id := range slices.Concat(l.Today, l.Carries) {
+			fated[id] = true
+		}
+	}
+	for _, g := range Gones() {
+		fated[g.Today] = true
+	}
+	for _, in := range Internals() {
+		fated[in.Today] = true
+	}
+	for _, id := range slices.Concat(CobraOwn(), Groups()) {
+		fated[id] = true
+	}
+	own := map[string]bool{}
+	for _, l := range All() {
+		if l.State == Built && has[strings.Join(l.Path(), ".")] && !slices.Contains(l.Today, strings.Join(l.Path(), ".")) {
+			own[strings.Join(l.Path(), ".")] = true
+			for i := 1; i < len(l.Path()); i++ {
+				own[strings.Join(l.Path()[:i+1], ".")] = true
+			}
+			for _, id := range l.Today { // the leaf has moved: its old ID was today's
+				if !has[id] {
+					listed = append(listed, id)
+					has[id] = true
+				}
+			}
+		}
+	}
+	var out []string
+	for _, id := range listed {
+		if own[id] && !fated[id] {
+			continue
+		}
+		out = append(out, id)
+	}
+	return out
 }
 
 // carriers maps each of today's IDs to the leaves that carry it.

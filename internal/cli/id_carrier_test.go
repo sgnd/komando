@@ -63,6 +63,19 @@ func idCarriers() map[string]idFate {
 			m[id] = f
 		}
 	}
+	for _, l := range capability.All() { // a moved leaf (step C) is the command of its own ID
+		if handlers[l.Key] != nil {
+			id := strings.Join(l.Path(), ".")
+			f := m[id]
+			f.leaves = append(f.leaves, l.Key)
+			m[id] = f
+		}
+	}
+	for id := range providerIDs { // and its provider and area groups run nothing of their own
+		if _, ok := m[id]; !ok {
+			m[id] = idFate{plain: true}
+		}
+	}
 	for _, g := range capability.Gones() {
 		f := m[g.Today]
 		f.gone = &g

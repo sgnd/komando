@@ -181,7 +181,7 @@ func TestGateCheck(t *testing.T) {
 		{"db query pg 'select 1'", "", ""},
 		{"db query pg --write 'delete from t'", "", "SSH_GATE_READ_ONLY"},
 		{"db explain pg --analyze 'delete from t'", "", "SSH_GATE_READ_ONLY"},
-		{"cache run c --write SET a b", "", "SSH_GATE_READ_ONLY"},
+		{"cache redis raw c --write SET a b", "", "SSH_GATE_READ_ONLY"},
 		{"cluster run k8s --write delete pod x", "", "SSH_GATE_READ_ONLY"},
 		{"pkg upgradable web --refresh", "", "SSH_GATE_READ_ONLY"},
 		{"pkg security web --refresh", "", "SSH_GATE_READ_ONLY"},
@@ -299,9 +299,9 @@ func TestGateLocalTargets(t *testing.T) {
 		"db query pg --write 'delete from t'":                                     "",
 		`db query pglocal --write "COPY t TO PROGRAM 'sh'"`:                       R,
 		"db query pgbehind --write 'delete from t'":                               "", // 127.0.0.1 of bastion
-		"cache run redislocal --write CONFIG SET dir /home/u/.ssh":                R,
+		"cache redis raw redislocal --write CONFIG SET dir /home/u/.ssh":          R,
 		"cache set redislocal a b":                                                R,
-		"cache run c --write SET a b":                                             "",
+		"cache redis raw c --write SET a b":                                       "",
 		"cluster apply k8slocal --file pod.yaml":                                  R,
 		"cluster run k8slocal --write -- delete pod x":                            R,
 		"cluster apply k8s --file pod.yaml":                                       R, // reads a file here

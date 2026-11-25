@@ -94,17 +94,20 @@ func TestConnAddRelativeFile(t *testing.T) {
 // `komando db add` saves only a database, `queue add` only a queue, ...
 func TestKindAddChecksFamily(t *testing.T) {
 	invHome(t)
-	for _, c := range [][]string{
-		{"db", "redis://127.0.0.1:6379/0", "cache add"},
-		{"queue", "postgres://x@127.0.0.1/x", "db add"},
-		{"cache", "s3://AKIAEXAMPLE@b/p?region=eu-west-1", "storage add"},
+	for _, c := range []struct {
+		words     []string
+		url, want string
+	}{
+		{[]string{"db", "add"}, "redis://127.0.0.1:6379/0", "cache redis add"},
+		{[]string{"queue", "add"}, "postgres://x@127.0.0.1/x", "db add"},
+		{[]string{"cache", "redis", "add"}, "s3://AKIAEXAMPLE@b/p?region=eu-west-1", "storage add"},
 	} {
-		if e := wantCode(t, "WRONG_KIND", c[0], "add", "x", c[1]); !strings.Contains(e.Hint, c[2]) {
-			t.Errorf("%s add %s: hint %q", c[0], c[1], e.Hint)
+		if e := wantCode(t, "WRONG_KIND", append(c.words, "x", c.url)...); !strings.Contains(e.Hint, c.want) {
+			t.Errorf("%v %s: hint %q", c.words, c.url, e.Hint)
 		}
 	}
 	mustRun(t, "db", "add", "pg", "postgres://x@127.0.0.1/x")
-	mustRun(t, "cache", "add", "rc", "redis://127.0.0.1:6379/0")
+	mustRun(t, "cache", "redis", "add", "rc", "redis://127.0.0.1:6379/0")
 }
 
 // The line after db dump names a way back that works: db restore refuses

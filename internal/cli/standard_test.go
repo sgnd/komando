@@ -153,7 +153,8 @@ var (
 		"start", "stop", "restart", "reload", "enable", "disable", "kill", "wait", "purge", "prune",
 		"exec", "run", "query", "shell", "upload", "download", "sync", "dump", "restore", "up", "down",
 		"login", "logout", "install", "uninstall", "update", "upgrade",
-		"grant", "revoke", "deploy", "gen", "trust", "lock", "unlock", "passwd"}
+		"grant", "revoke", "deploy", "gen", "trust", "lock", "unlock", "passwd",
+		"remove", "raw"} // the v2.7 verbs join as their type moves (step C)
 	toolWords = []string{"docker ps", "docker images", "docker pull", "docker compose", "docker raw", "docker inspect",
 		"registry inspect", "registry copy", "cache keys", "user add", "db user add", "db grant", "db revoke",
 		"pkg installed", "pkg upgradable", "pkg security", "queue peek", "queue send", "queue lag", "queue groups",
@@ -200,7 +201,8 @@ func TestStandardPairs(t *testing.T) {
 		}
 		// add/rm in komando's own list, create/rm on a target
 		family := slices.Contains([]string{"db", "cache", "queue", "storage", "cluster", "registry"}, cmdPathOf(c))
-		if !family && slices.Contains(names, "add") && !slices.Contains(names, "rm") || slices.Contains(names, "create") && !slices.Contains(names, "rm") {
+		hasRm := slices.Contains(names, "rm") || slices.Contains(names, "remove")
+		if !family && slices.Contains(names, "add") && !hasRm || slices.Contains(names, "create") && !hasRm {
 			got[strings.TrimSpace(cmdPathOf(c)+" add|create/rm")] = "has no rm"
 		}
 	}

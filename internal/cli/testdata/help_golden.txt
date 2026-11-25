@@ -201,11 +201,11 @@ Global Flags (all of them: komando --help):
 exit 0
 --- stdout
 Read and change keys in Redis, Valkey or memcached. Add a cache with
-`komando cache add`.
+`komando cache redis add`.
 
 get, keys and info only read. set changes data (a protected cache asks
-first); rm deletes keys, so it also needs --allow-dangerous. `cache run`
-sends any command, but only reads unless --write; commands that flush,
+first); rm deletes keys, so it also needs --allow-dangerous. `cache redis
+raw` sends any command, but only reads unless --write; commands that flush,
 block, run scripts or reconfigure the server also need --allow-dangerous.
 
 Usage:
@@ -216,19 +216,19 @@ Aliases:
   cache, redis, caches
 
 Examples:
-  komando cache add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password
+  komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password
   komando cache info prod-redis
   komando cache keys prod-redis 'session:*'
   komando cache get prod-redis session:42
   komando cache set prod-redis maintenance on --ttl 30m --dry-run
 
 Available Commands:
-  add         Add a cache
   get         Show a key: its type, time to live and value (any type)
   info        Server summary: version, role, memory, clients, keys, hit rate
   keys        List keys matching a pattern (uses SCAN, so a big cache is not blocked)
+  memcached   Memcached caches: save them, and send them a command
+  redis       Redis caches: save them, and send them a command
   rm          Delete keys by exact name, never by pattern
-  run         Send any Redis or memcached command (read only by default)
   set         Set a string key, replacing any old value
 
 Flags:
@@ -243,45 +243,6 @@ Global Flags (all of them: komando --help):
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 
 Use "komando cache [command] --help" for more information about a command.
---- stderr
-### komando cache add --help
-exit 0
---- stdout
-Same as `komando conn add NAME URL`, for a cache.
-
-Safety: a change; try it with --dry-run first.
-
-Saves a cache under a short name. Typed alone at a terminal, it asks
-step by step. The URL scheme sets the kind: `komando conn kinds` lists them.
-
-Usage:
-  komando cache add NAME URL [flags]
-
-Examples:
-  komando cache add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password
-  komando cache add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password --dry-run
-
-Flags:
-      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref
-  -g, --group strings               put it in these groups (comma-separated)
-  -h, --help[=true|false]           help for add
-      --label stringArray           label KEY=VALUE (repeatable) (default [])
-      --login string                how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own)
-      --notes string                free-form notes (komando conn show shows them to people and agents)
-      --option stringArray          an option of this kind, KEY=VALUE (repeatable) (default [])
-      --overwrite[=true|false]      replace a conn that has the same name
-      --password-ref string         where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...
-      --protected[=true|false]      production: komando asks you before every change, and an AI agent needs your yes in a window
-  -t, --tag strings                 tags, like prod (comma-separated)
-      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
 ### komando cache get --help
 exit 0
@@ -362,6 +323,546 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
+### komando cache memcached --help
+exit 0
+--- stdout
+Memcached caches: save them, and send them a command
+
+Usage:
+  komando cache memcached [flags]
+  komando cache memcached [command]
+
+Examples:
+  komando cache memcached add prod-mc memcached://cache.internal:11211 --via web1 --dry-run
+  komando cache memcached add prod-mc memcached://cache.internal:11211 --via web1
+  komando cache memcached test prod-mc
+  komando cache memcached raw prod-mc -- stats
+  komando cache memcached raw prod-mc --write -- flush_all --dry-run
+
+Available Commands:
+  add         Save a memcached cache under a short name
+  edit        Change a saved memcached cache (only the flags you pass change)
+  list        List the saved memcached caches
+  raw         Send one memcached command and show the reply
+  remove      Forget a saved memcached cache (the cache is not touched)
+  rename      Rename a saved memcached cache and every reference to it
+  show        Show a saved memcached cache's settings (credentials as names)
+  test        Check that a saved memcached cache answers and lets you in
+
+Flags:
+  -h, --help[=true|false]   help for memcached
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando cache memcached [command] --help" for more information about a command.
+--- stderr
+### komando cache memcached add --help
+exit 0
+--- stdout
+Save a memcached cache under a short name.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando cache memcached add NAME [URL] [flags]
+
+Examples:
+  komando cache memcached add app memcached://cache.internal:11211 --via web1
+  komando cache memcached add app memcached://cache.internal:11211 --dry-run
+
+Flags:
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+      --group strings               put it in these groups
+  -h, --help[=true|false]           help for add
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --overwrite[=true|false]      replace an entry that has the same name
+      --protected[=true|false]      changes need a person's yes
+      --tag strings                 tags, like prod
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando cache memcached edit --help
+exit 0
+--- stdout
+Change a saved memcached cache (only the flags you pass change).
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando cache memcached edit NAME [flags]
+
+Examples:
+  komando cache memcached edit app --add-tag critical
+  komando cache memcached edit app --notes 'main one' --dry-run
+
+Flags:
+      --add-group strings           put it in these groups
+      --add-tag strings             add these tags
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+  -h, --help[=true|false]           help for edit
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --protected[=true|false]      changes need a person's yes
+      --rm-group strings            take it out of these groups
+      --rm-tag strings              remove these tags
+      --unset strings               clear these settings: via, credential, notes, protected
+      --url string                  the new URL (the provider may not change)
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando cache memcached list --help
+exit 0
+--- stdout
+List the saved memcached caches
+
+Usage:
+  komando cache memcached list [TARGET] [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando cache memcached list
+  komando cache memcached list @web
+
+Flags:
+  -h, --help[=true|false]   help for list
+  -n, --limit int           show at most this many (0 = all)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando cache memcached raw --help
+exit 0
+--- stdout
+Send one memcached command and show the reply.
+
+Safety: a change; try it with --dry-run first; when the cache command
+deletes data (DEL, FLUSHALL, ...): dangerous, it cannot be undone: a person
+types the name to go on, and an AI agent or a script needs
+--allow-dangerous.
+
+Usage:
+  komando cache memcached raw NAME -- COMMAND... [flags]
+
+Examples:
+  komando cache memcached raw app -- stats
+  komando cache memcached raw app --write -- flush_all --dry-run
+  komando cache memcached raw app --write -- flush_all --dry-run
+
+Flags:
+  -h, --help[=true|false]    help for raw
+      --write[=true|false]   allow a command that changes data (it only reads without this)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando cache memcached remove --help
+exit 0
+--- stdout
+Forget a saved memcached cache (the cache is not touched).
+
+Safety: a change; try it with --dry-run first; on a protected server or
+conn, a person's yes (--yes) as well.
+
+Usage:
+  komando cache memcached remove TARGET... [flags]
+
+Examples:
+  komando cache memcached remove app --dry-run
+  komando cache memcached remove app
+
+Flags:
+  -h, --help[=true|false]   help for remove
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando cache memcached rename --help
+exit 0
+--- stdout
+Rename a saved memcached cache and every reference to it.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando cache memcached rename NAME NEW [flags]
+
+Examples:
+  komando cache memcached rename app app-2 --dry-run
+  komando cache memcached rename app app-2
+
+Flags:
+  -h, --help[=true|false]   help for rename
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando cache memcached show --help
+exit 0
+--- stdout
+Show a saved memcached cache's settings (credentials as names)
+
+Usage:
+  komando cache memcached show NAME [flags]
+
+Examples:
+  komando cache memcached show app
+  komando cache memcached show app -o json
+
+Flags:
+  -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando cache memcached test --help
+exit 0
+--- stdout
+Check that a saved memcached cache answers and lets you in
+
+Usage:
+  komando cache memcached test TARGET [flags]
+
+Examples:
+  komando cache memcached test app
+  komando cache memcached test @web
+
+Flags:
+      --end[=true|false]    end the session a person's login keeps open
+  -h, --help[=true|false]   help for test
+      --wait duration       wait this long for a person's sign-in
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando cache redis --help
+exit 0
+--- stdout
+Redis caches: save them, and send them a command
+
+Usage:
+  komando cache redis [flags]
+  komando cache redis [command]
+
+Examples:
+  komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --dry-run
+  komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1
+  komando cache redis test prod-redis
+  komando cache redis raw prod-redis -- HGETALL user:42
+  komando cache redis raw prod-redis --write -- EXPIRE session:42 3600 --dry-run
+
+Available Commands:
+  add         Save a redis cache under a short name
+  edit        Change a saved redis cache (only the flags you pass change)
+  list        List the saved redis caches
+  raw         Send one redis command and show the reply
+  remove      Forget a saved redis cache (the cache is not touched)
+  rename      Rename a saved redis cache and every reference to it
+  show        Show a saved redis cache's settings (credentials as names)
+  test        Check that a saved redis cache answers and lets you in
+
+Flags:
+  -h, --help[=true|false]   help for redis
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando cache redis [command] --help" for more information about a command.
+--- stderr
+### komando cache redis add --help
+exit 0
+--- stdout
+Save a redis cache under a short name.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando cache redis add NAME [URL] [flags]
+
+Examples:
+  komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1
+  komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --dry-run
+
+Flags:
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+      --group strings               put it in these groups
+  -h, --help[=true|false]           help for add
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --overwrite[=true|false]      replace an entry that has the same name
+      --protected[=true|false]      changes need a person's yes
+      --tag strings                 tags, like prod
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando cache redis edit --help
+exit 0
+--- stdout
+Change a saved redis cache (only the flags you pass change).
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando cache redis edit NAME [flags]
+
+Examples:
+  komando cache redis edit prod-redis --add-tag critical
+  komando cache redis edit prod-redis --notes 'main one' --dry-run
+
+Flags:
+      --add-group strings           put it in these groups
+      --add-tag strings             add these tags
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+  -h, --help[=true|false]           help for edit
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --protected[=true|false]      changes need a person's yes
+      --rm-group strings            take it out of these groups
+      --rm-tag strings              remove these tags
+      --unset strings               clear these settings: via, credential, notes, protected
+      --url string                  the new URL (the provider may not change)
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando cache redis list --help
+exit 0
+--- stdout
+List the saved redis caches
+
+Usage:
+  komando cache redis list [TARGET] [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando cache redis list
+  komando cache redis list @web
+
+Flags:
+  -h, --help[=true|false]   help for list
+  -n, --limit int           show at most this many (0 = all)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando cache redis raw --help
+exit 0
+--- stdout
+Send one redis command and show the reply.
+
+Safety: a change; try it with --dry-run first; when the cache command
+deletes data (DEL, FLUSHALL, ...): dangerous, it cannot be undone: a person
+types the name to go on, and an AI agent or a script needs
+--allow-dangerous.
+
+Usage:
+  komando cache redis raw NAME -- COMMAND... [flags]
+
+Examples:
+  komando cache redis raw prod-redis -- HGETALL user:42
+  komando cache redis raw prod-redis --write -- EXPIRE session:42 3600 --dry-run
+  komando cache redis raw prod-redis --write -- EXPIRE session:42 3600 --dry-run
+
+Flags:
+  -h, --help[=true|false]    help for raw
+      --write[=true|false]   allow a command that changes data (it only reads without this)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando cache redis remove --help
+exit 0
+--- stdout
+Forget a saved redis cache (the cache is not touched).
+
+Safety: a change; try it with --dry-run first; on a protected server or
+conn, a person's yes (--yes) as well.
+
+Usage:
+  komando cache redis remove TARGET... [flags]
+
+Examples:
+  komando cache redis remove prod-redis --dry-run
+  komando cache redis remove prod-redis
+
+Flags:
+  -h, --help[=true|false]   help for remove
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando cache redis rename --help
+exit 0
+--- stdout
+Rename a saved redis cache and every reference to it.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando cache redis rename NAME NEW [flags]
+
+Examples:
+  komando cache redis rename prod-redis prod-redis-2 --dry-run
+  komando cache redis rename prod-redis prod-redis-2
+
+Flags:
+  -h, --help[=true|false]   help for rename
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando cache redis show --help
+exit 0
+--- stdout
+Show a saved redis cache's settings (credentials as names)
+
+Usage:
+  komando cache redis show NAME [flags]
+
+Examples:
+  komando cache redis show prod-redis
+  komando cache redis show prod-redis -o json
+
+Flags:
+  -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando cache redis test --help
+exit 0
+--- stdout
+Check that a saved redis cache answers and lets you in
+
+Usage:
+  komando cache redis test TARGET [flags]
+
+Examples:
+  komando cache redis test prod-redis
+  komando cache redis test @web
+
+Flags:
+      --end[=true|false]    end the session a person's login keeps open
+  -h, --help[=true|false]   help for test
+      --wait duration       wait this long for a person's sign-in
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
 ### komando cache rm --help
 exit 0
 --- stdout
@@ -383,39 +884,6 @@ Examples:
 
 Flags:
   -h, --help[=true|false]   help for rm
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando cache run --help
-exit 0
---- stdout
-Send any Redis or memcached command (read only by default).
-
-Safety: a change; try it with --dry-run first; when the cache command
-deletes data (DEL, FLUSHALL, ...): dangerous, it cannot be undone: a person
-types the name to go on, and an AI agent or a script needs
---allow-dangerous; on a protected server or conn, a person's yes (--yes) as
-well.
-
-Usage:
-  komando cache run CONN -- COMMAND... [flags]
-
-Examples:
-  komando cache run prod-redis -- HGETALL user:42
-  komando cache run prod-redis -- ZREVRANGE leaderboard 0 9 WITHSCORES
-  komando cache run prod-redis --write -- EXPIRE session:42 3600
-  komando cache run prod-redis --write --dry-run -- EXPIRE session:42 3600
-  komando cache run prod-redis -- "GET feature:dark-mode"   # one quoted line works too
-
-Flags:
-  -h, --help[=true|false]    help for run
-      --write[=true|false]   allow commands that change data
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -7299,7 +7767,7 @@ How komando keeps a change from going wrong.
   --dry-run           every change can show what it would do first
   protected targets   a change asks [y/N] at your terminal; scripts and agents need --yes
   dangerous commands  rm -rf /, DROP DATABASE ...: you type the name; scripts need --allow-dangerous
-  read only           db query, cache run and cluster run only read unless you add --write
+  read only           db query, cache redis raw and cluster run only read unless you add --write
   audit               komando audit shows every change and who asked for it
 
 An AI agent is never asked: it gets exit 6 and a person allows the flag in a
@@ -7819,13 +8287,13 @@ source by path; '-' for the key's own input works): no download or cp to a
 file here (download --to - and cp SRC - stream to the key's own output), no
 change to servers, VPNs, settings, rules, secrets, keys or recipes in
 komando, no update, no change on a sqlite file or a target at localhost or
-127.x. With --read-only only commands that read run (db query and cache run
-without --write), and only those that stay on the servers and conns in your
-list: no net, no cert check of a website, no exec, job start, docker exec,
-cluster exec or recipe run, unless the line also has --network. `komando
-ssh-gate status` tells a key which it is. Every command a key runs or is
-refused is in `komando audit`, with --name, even when the audit setting is
-off.
+127.x. With --read-only only commands that read run (db query and cache
+redis raw without --write), and only those that stay on the servers and
+conns in your list: no net, no cert check of a website, no exec, job start,
+docker exec, cluster exec or recipe run, unless the line also has --network.
+`komando ssh-gate status` tells a key which it is. Every command a key runs
+or is refused is in `komando audit`, with --name, even when the audit
+setting is off.
 
 Usage:
   komando ssh-gate [flags]

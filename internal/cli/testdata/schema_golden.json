@@ -74,155 +74,17 @@
         "path": "komando cache",
         "usage": "komando cache [flags]",
         "short": "Caches (Redis, Valkey, memcached): read and change keys",
-        "long": "Read and change keys in Redis, Valkey or memcached. Add a cache with\n`komando cache add`.\n\nget, keys and info only read. set changes data (a protected cache asks\nfirst); rm deletes keys, so it also needs --allow-dangerous. `cache run`\nsends any command, but only reads unless --write; commands that flush,\nblock, run scripts or reconfigure the server also need --allow-dangerous.",
+        "long": "Read and change keys in Redis, Valkey or memcached. Add a cache with\n`komando cache redis add`.\n\nget, keys and info only read. set changes data (a protected cache asks\nfirst); rm deletes keys, so it also needs --allow-dangerous. `cache redis\nraw` sends any command, but only reads unless --write; commands that flush,\nblock, run scripts or reconfigure the server also need --allow-dangerous.",
         "aliases": [
           "redis",
           "caches"
         ],
-        "example": "  komando cache add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password\n  komando cache info prod-redis\n  komando cache keys prod-redis 'session:*'\n  komando cache get prod-redis session:42\n  komando cache set prod-redis maintenance on --ttl 30m --dry-run",
+        "example": "  komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password\n  komando cache info prod-redis\n  komando cache keys prod-redis 'session:*'\n  komando cache get prod-redis session:42\n  komando cache set prod-redis maintenance on --ttl 30m --dry-run",
         "runnable": true,
         "kind": "read",
         "confirm": [
           {
             "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando cache add",
-        "usage": "komando cache add NAME URL [flags]",
-        "short": "Add a cache",
-        "long": "Same as `komando conn add NAME URL`, for a cache.\n\nSafety: a change; try it with --dry-run first.\n\nSaves a cache under a short name. Typed alone at a terminal, it asks\nstep by step. The URL scheme sets the kind: `komando conn kinds` lists them.",
-        "example": "  komando cache add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password\n  komando cache add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password --dry-run",
-        "flags": [
-          {
-            "name": "ask-password",
-            "type": "bool",
-            "default": "false",
-            "usage": "type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref"
-          },
-          {
-            "name": "group",
-            "shorthand": "g",
-            "type": "stringSlice",
-            "default": "[]",
-            "usage": "put it in these groups (comma-separated)"
-          },
-          {
-            "name": "label",
-            "type": "stringArray",
-            "default": "[]",
-            "usage": "label KEY=VALUE (repeatable)"
-          },
-          {
-            "name": "login",
-            "type": "string",
-            "usage": "how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own)"
-          },
-          {
-            "name": "notes",
-            "type": "string",
-            "usage": "free-form notes (komando conn show shows them to people and agents)"
-          },
-          {
-            "name": "option",
-            "type": "stringArray",
-            "default": "[]",
-            "usage": "an option of this kind, KEY=VALUE (repeatable)"
-          },
-          {
-            "name": "overwrite",
-            "type": "bool",
-            "default": "false",
-            "usage": "replace a conn that has the same name"
-          },
-          {
-            "name": "password-ref",
-            "type": "string",
-            "usage": "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://..."
-          },
-          {
-            "name": "protected",
-            "type": "bool",
-            "default": "false",
-            "usage": "production: komando asks you before every change, and an AI agent needs your yes in a window"
-          },
-          {
-            "name": "tag",
-            "shorthand": "t",
-            "type": "stringSlice",
-            "default": "[]",
-            "usage": "tags, like prod (comma-separated)"
-          },
-          {
-            "name": "via",
-            "type": "string",
-            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ],
-        "add_kinds": [
-          {
-            "id": "memcached",
-            "display_name": "Memcached",
-            "family": "cache",
-            "url_schemes": [
-              "memcached",
-              "memcacheds"
-            ],
-            "url_example": "memcached://cache.internal:11211",
-            "url_note": "memcacheds = TLS",
-            "default_port": 11211,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          },
-          {
-            "id": "redis",
-            "display_name": "Redis or Valkey",
-            "family": "cache",
-            "url_schemes": [
-              "redis",
-              "rediss"
-            ],
-            "url_example": "rediss://default@cache.internal:6379/0",
-            "url_note": "rediss = TLS",
-            "default_port": 6379,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
           }
         ]
       },
@@ -298,6 +160,620 @@
         ]
       },
       {
+        "path": "komando cache memcached",
+        "usage": "komando cache memcached [flags]",
+        "short": "Memcached caches: save them, and send them a command",
+        "example": "  komando cache memcached add prod-mc memcached://cache.internal:11211 --via web1 --dry-run\n  komando cache memcached add prod-mc memcached://cache.internal:11211 --via web1\n  komando cache memcached test prod-mc\n  komando cache memcached raw prod-mc -- stats\n  komando cache memcached raw prod-mc --write -- flush_all --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando cache memcached add",
+        "usage": "komando cache memcached add NAME [URL] [flags]",
+        "short": "Save a memcached cache under a short name",
+        "long": "Save a memcached cache under a short name.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando cache memcached add app memcached://cache.internal:11211 --via web1\n  komando cache memcached add app memcached://cache.internal:11211 --dry-run",
+        "flags": [
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "overwrite",
+            "type": "bool",
+            "default": "false",
+            "usage": "replace an entry that has the same name"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "tags, like prod"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando cache memcached edit",
+        "usage": "komando cache memcached edit NAME [flags]",
+        "short": "Change a saved memcached cache (only the flags you pass change)",
+        "long": "Change a saved memcached cache (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando cache memcached edit app --add-tag critical\n  komando cache memcached edit app --notes 'main one' --dry-run",
+        "flags": [
+          {
+            "name": "add-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "add-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "add these tags"
+          },
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "rm-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "take it out of these groups"
+          },
+          {
+            "name": "rm-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "remove these tags"
+          },
+          {
+            "name": "unset",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "clear these settings: via, credential, notes, protected"
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "usage": "the new URL (the provider may not change)"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando cache memcached list",
+        "usage": "komando cache memcached list [TARGET] [flags]",
+        "short": "List the saved memcached caches",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando cache memcached list\n  komando cache memcached list @web",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando cache memcached raw",
+        "usage": "komando cache memcached raw NAME -- COMMAND... [flags]",
+        "short": "Send one memcached command and show the reply",
+        "long": "Send one memcached command and show the reply.\n\nSafety: a change; try it with --dry-run first; when the cache command\ndeletes data (DEL, FLUSHALL, ...): dangerous, it cannot be undone: a person\ntypes the name to go on, and an AI agent or a script needs\n--allow-dangerous.",
+        "example": "  komando cache memcached raw app -- stats\n  komando cache memcached raw app --write -- flush_all --dry-run\n  komando cache memcached raw app --write -- flush_all --dry-run",
+        "flags": [
+          {
+            "name": "write",
+            "type": "bool",
+            "default": "false",
+            "usage": "allow a command that changes data (it only reads without this)"
+          }
+        ],
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "only reads unless --write",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous",
+            "when": "when the cache command deletes data (DEL, FLUSHALL, ...)"
+          }
+        ]
+      },
+      {
+        "path": "komando cache memcached remove",
+        "usage": "komando cache memcached remove TARGET... [flags]",
+        "short": "Forget a saved memcached cache (the cache is not touched)",
+        "long": "Forget a saved memcached cache (the cache is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "example": "  komando cache memcached remove app --dry-run\n  komando cache memcached remove app",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando cache memcached rename",
+        "usage": "komando cache memcached rename NAME NEW [flags]",
+        "short": "Rename a saved memcached cache and every reference to it",
+        "long": "Rename a saved memcached cache and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando cache memcached rename app app-2 --dry-run\n  komando cache memcached rename app app-2",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando cache memcached show",
+        "usage": "komando cache memcached show NAME [flags]",
+        "short": "Show a saved memcached cache's settings (credentials as names)",
+        "example": "  komando cache memcached show app\n  komando cache memcached show app -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando cache memcached test",
+        "usage": "komando cache memcached test TARGET [flags]",
+        "short": "Check that a saved memcached cache answers and lets you in",
+        "example": "  komando cache memcached test app\n  komando cache memcached test @web",
+        "flags": [
+          {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the session a person's login keeps open"
+          },
+          {
+            "name": "wait",
+            "type": "duration",
+            "default": "0",
+            "usage": "wait this long for a person's sign-in"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando cache redis",
+        "usage": "komando cache redis [flags]",
+        "short": "Redis caches: save them, and send them a command",
+        "example": "  komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --dry-run\n  komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1\n  komando cache redis test prod-redis\n  komando cache redis raw prod-redis -- HGETALL user:42\n  komando cache redis raw prod-redis --write -- EXPIRE session:42 3600 --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando cache redis add",
+        "usage": "komando cache redis add NAME [URL] [flags]",
+        "short": "Save a redis cache under a short name",
+        "long": "Save a redis cache under a short name.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1\n  komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --dry-run",
+        "flags": [
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "overwrite",
+            "type": "bool",
+            "default": "false",
+            "usage": "replace an entry that has the same name"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "tags, like prod"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando cache redis edit",
+        "usage": "komando cache redis edit NAME [flags]",
+        "short": "Change a saved redis cache (only the flags you pass change)",
+        "long": "Change a saved redis cache (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando cache redis edit prod-redis --add-tag critical\n  komando cache redis edit prod-redis --notes 'main one' --dry-run",
+        "flags": [
+          {
+            "name": "add-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "add-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "add these tags"
+          },
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "rm-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "take it out of these groups"
+          },
+          {
+            "name": "rm-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "remove these tags"
+          },
+          {
+            "name": "unset",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "clear these settings: via, credential, notes, protected"
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "usage": "the new URL (the provider may not change)"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando cache redis list",
+        "usage": "komando cache redis list [TARGET] [flags]",
+        "short": "List the saved redis caches",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando cache redis list\n  komando cache redis list @web",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando cache redis raw",
+        "usage": "komando cache redis raw NAME -- COMMAND... [flags]",
+        "short": "Send one redis command and show the reply",
+        "long": "Send one redis command and show the reply.\n\nSafety: a change; try it with --dry-run first; when the cache command\ndeletes data (DEL, FLUSHALL, ...): dangerous, it cannot be undone: a person\ntypes the name to go on, and an AI agent or a script needs\n--allow-dangerous.",
+        "example": "  komando cache redis raw prod-redis -- HGETALL user:42\n  komando cache redis raw prod-redis --write -- EXPIRE session:42 3600 --dry-run\n  komando cache redis raw prod-redis --write -- EXPIRE session:42 3600 --dry-run",
+        "flags": [
+          {
+            "name": "write",
+            "type": "bool",
+            "default": "false",
+            "usage": "allow a command that changes data (it only reads without this)"
+          }
+        ],
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "only reads unless --write",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous",
+            "when": "when the cache command deletes data (DEL, FLUSHALL, ...)"
+          }
+        ]
+      },
+      {
+        "path": "komando cache redis remove",
+        "usage": "komando cache redis remove TARGET... [flags]",
+        "short": "Forget a saved redis cache (the cache is not touched)",
+        "long": "Forget a saved redis cache (the cache is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "example": "  komando cache redis remove prod-redis --dry-run\n  komando cache redis remove prod-redis",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando cache redis rename",
+        "usage": "komando cache redis rename NAME NEW [flags]",
+        "short": "Rename a saved redis cache and every reference to it",
+        "long": "Rename a saved redis cache and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando cache redis rename prod-redis prod-redis-2 --dry-run\n  komando cache redis rename prod-redis prod-redis-2",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando cache redis show",
+        "usage": "komando cache redis show NAME [flags]",
+        "short": "Show a saved redis cache's settings (credentials as names)",
+        "example": "  komando cache redis show prod-redis\n  komando cache redis show prod-redis -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando cache redis test",
+        "usage": "komando cache redis test TARGET [flags]",
+        "short": "Check that a saved redis cache answers and lets you in",
+        "example": "  komando cache redis test prod-redis\n  komando cache redis test @web",
+        "flags": [
+          {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the session a person's login keeps open"
+          },
+          {
+            "name": "wait",
+            "type": "duration",
+            "default": "0",
+            "usage": "wait this long for a person's sign-in"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
         "path": "komando cache rm",
         "usage": "komando cache rm CONN KEY... [flags]",
         "short": "Delete keys by exact name, never by pattern",
@@ -314,34 +790,6 @@
           {
             "tier": "dangerous",
             "flag": "--allow-dangerous"
-          }
-        ]
-      },
-      {
-        "path": "komando cache run",
-        "usage": "komando cache run CONN -- COMMAND... [flags]",
-        "short": "Send any Redis or memcached command (read only by default)",
-        "long": "Send any Redis or memcached command (read only by default).\n\nSafety: a change; try it with --dry-run first; when the cache command\ndeletes data (DEL, FLUSHALL, ...): dangerous, it cannot be undone: a person\ntypes the name to go on, and an AI agent or a script needs\n--allow-dangerous; on a protected server or conn, a person's yes (--yes) as\nwell.",
-        "example": "  komando cache run prod-redis -- HGETALL user:42\n  komando cache run prod-redis -- ZREVRANGE leaderboard 0 9 WITHSCORES\n  komando cache run prod-redis --write -- EXPIRE session:42 3600\n  komando cache run prod-redis --write --dry-run -- EXPIRE session:42 3600\n  komando cache run prod-redis -- \"GET feature:dark-mode\"   # one quoted line works too",
-        "flags": [
-          {
-            "name": "write",
-            "type": "bool",
-            "default": "false",
-            "usage": "allow commands that change data"
-          }
-        ],
-        "runnable": true,
-        "kind": "depends",
-        "kind_note": "only reads unless --write",
-        "confirm": [
-          {
-            "tier": "change"
-          },
-          {
-            "tier": "dangerous",
-            "flag": "--allow-dangerous",
-            "when": "when the cache command deletes data (DEL, FLUSHALL, ...)"
           }
         ]
       },
@@ -7611,7 +8059,7 @@
         "path": "komando safety",
         "usage": "komando safety [flags]",
         "short": "How komando keeps a change from going wrong",
-        "long": "How komando keeps a change from going wrong.\n\n  --dry-run           every change can show what it would do first\n  protected targets   a change asks [y/N] at your terminal; scripts and agents need --yes\n  dangerous commands  rm -rf /, DROP DATABASE ...: you type the name; scripts need --allow-dangerous\n  read only           db query, cache run and cluster run only read unless you add --write\n  audit               komando audit shows every change and who asked for it\n\nAn AI agent is never asked: it gets exit 6 and a person allows the flag in a\nwindow on the screen. See docs/features/safety.md.",
+        "long": "How komando keeps a change from going wrong.\n\n  --dry-run           every change can show what it would do first\n  protected targets   a change asks [y/N] at your terminal; scripts and agents need --yes\n  dangerous commands  rm -rf /, DROP DATABASE ...: you type the name; scripts need --allow-dangerous\n  read only           db query, cache redis raw and cluster run only read unless you add --write\n  audit               komando audit shows every change and who asked for it\n\nAn AI agent is never asked: it gets exit 6 and a person allows the flag in a\nwindow on the screen. See docs/features/safety.md.",
         "runnable": false
       },
       {
@@ -7925,7 +8373,7 @@
         "path": "komando ssh-gate",
         "usage": "komando ssh-gate [flags]",
         "short": "Let an SSH key run komando here and nothing else (person only)",
-        "long": "ssh-gate lets an SSH key (a phone's, say) run komando on this computer, and\nnothing else: no shell, no file copy, no port forwarding. Add the key to\n~/.ssh/authorized_keys with the line `komando ssh-gate line` prints; sshd\nthen runs ssh-gate for it, whatever the key asks for.\n\nSafety: only a person at a terminal can run it.\n\nssh-gate takes the command the key sent (SSH_ORIGINAL_COMMAND) only when it\nis one komando command. It splits it into words like a shell, but expands\nnothing and runs no shell: ; | & > < $ and backquotes are refused unless\nthey are quoted. One KOMANDO_AGENT=NAME may come before komando.\n\nkomando then runs as for an AI agent: secret values stay [hidden], --reveal\nand --allow-dangerous are refused, and --yes for a protected server needs a\nperson on this computer. Commands that need a person at a terminal (shell,\ndb shell, secret passphrase ...) are refused (a --shell-access key may open\n`komando shell SERVER`: see ssh-gate line; that shell is full control of the\nserver, outside these rules). The key runs commands on servers, never one\nthat writes on this computer or reads a file here (a script, SQL or upload\nsource by path; '-' for the key's own input works): no download or cp to a\nfile here (download --to - and cp SRC - stream to the key's own output), no\nchange to servers, VPNs, settings, rules, secrets, keys or recipes in\nkomando, no update, no change on a sqlite file or a target at localhost or\n127.x. With --read-only only commands that read run (db query and cache run\nwithout --write), and only those that stay on the servers and conns in your\nlist: no net, no cert check of a website, no exec, job start, docker exec,\ncluster exec or recipe run, unless the line also has --network. `komando\nssh-gate status` tells a key which it is. Every command a key runs or is\nrefused is in `komando audit`, with --name, even when the audit setting is\noff.",
+        "long": "ssh-gate lets an SSH key (a phone's, say) run komando on this computer, and\nnothing else: no shell, no file copy, no port forwarding. Add the key to\n~/.ssh/authorized_keys with the line `komando ssh-gate line` prints; sshd\nthen runs ssh-gate for it, whatever the key asks for.\n\nSafety: only a person at a terminal can run it.\n\nssh-gate takes the command the key sent (SSH_ORIGINAL_COMMAND) only when it\nis one komando command. It splits it into words like a shell, but expands\nnothing and runs no shell: ; | & > < $ and backquotes are refused unless\nthey are quoted. One KOMANDO_AGENT=NAME may come before komando.\n\nkomando then runs as for an AI agent: secret values stay [hidden], --reveal\nand --allow-dangerous are refused, and --yes for a protected server needs a\nperson on this computer. Commands that need a person at a terminal (shell,\ndb shell, secret passphrase ...) are refused (a --shell-access key may open\n`komando shell SERVER`: see ssh-gate line; that shell is full control of the\nserver, outside these rules). The key runs commands on servers, never one\nthat writes on this computer or reads a file here (a script, SQL or upload\nsource by path; '-' for the key's own input works): no download or cp to a\nfile here (download --to - and cp SRC - stream to the key's own output), no\nchange to servers, VPNs, settings, rules, secrets, keys or recipes in\nkomando, no update, no change on a sqlite file or a target at localhost or\n127.x. With --read-only only commands that read run (db query and cache\nredis raw without --write), and only those that stay on the servers and\nconns in your list: no net, no cert check of a website, no exec, job start,\ndocker exec, cluster exec or recipe run, unless the line also has --network.\n`komando ssh-gate status` tells a key which it is. Every command a key runs\nor is refused is in `komando audit`, with --name, even when the audit\nsetting is off.",
         "example": "  komando ssh-gate line --name phone ~/phone.pub\n  komando ssh-gate line --name phone-read --read-only 'ssh-ed25519 AAAA... phone'",
         "runnable": true,
         "kind": "depends",
@@ -12355,7 +12803,7 @@
         "code": "WRONG_KIND",
         "exit": 2,
         "example": "… is a … URL, not one for `komando … add`",
-        "hint": "add it with `komando … add` (or `komando conn add`)"
+        "hint": "add it with `… add` (or `komando conn add`)"
       },
       {
         "code": "WRONG_PASSPHRASE",

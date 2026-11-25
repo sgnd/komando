@@ -143,7 +143,7 @@ func TestBuildRefusesWhatItCannotBuild(t *testing.T) {
 		groups map[string]string
 		want   string
 	}{
-		"a path today's tree has": {capability.Leaf{Key: capability.Key{Type: "cache", Verb: "run"}, Short: "x"}, nil, "already"},
+		"a path today's tree has": {capability.Leaf{Key: capability.Key{Type: "cache", Verb: "get"}, Short: "x"}, nil, "already"},
 		"no text":                 {capability.Leaf{Key: capability.Key{Type: "cache", Provider: "probeprov", Verb: "probe"}}, probeGroups, "Short"},
 		"a group with no text":    {capability.Leaf{Key: capability.Key{Type: "cache", Provider: "other", Verb: "probe"}, Short: "x"}, probeGroups, "group"},
 	}

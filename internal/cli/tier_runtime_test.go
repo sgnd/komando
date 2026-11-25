@@ -49,7 +49,8 @@ var tierRuns = []tierRun{
 	{"snippet exec dynamic dangerous", "recipe.run", []string{"wipe", "dev"}, false},
 	{"cluster exec dynamic dangerous", "cluster.exec", []string{"k8s", "pod/a", "--", "rm -rf /"}, false},
 	{"cluster raw dynamic dangerous", "cluster.run", []string{"k8s", "--write", "--", "delete", "pod", "a"}, false},
-	{"cache raw dynamic dangerous", "cache.run", []string{"r", "--write", "--", "FLUSHALL"}, false},
+	{"cache raw dynamic dangerous", "cache.redis.raw", []string{"r", "--write", "--", "FLUSHALL"}, false},
+	{"cache raw dynamic dangerous", "cache.memcached.raw", []string{"m", "--write", "--", "flush_all"}, false},
 	{"database query dynamic dangerous", "db.query", []string{"pg", "--write", "DROP TABLE t"}, false},
 	{"host ssh add --proxy-command dynamic dangerous", "host.add", []string{"x", "--address", "10.0.0.9", "--proxy-command", "rm -rf /"}, false},
 	{"host ssh edit --proxy-command dynamic dangerous", "host.edit", []string{"dev", "--proxy-command", "rm -rf /"}, false},
@@ -69,7 +70,8 @@ var tierRuns = []tierRun{
 	{"agent skill uninstall dynamic safety", "guide.uninstall", []string{"--project"}, false},
 	{"host edit --protected=false safety", "host.edit", []string{"prod", "--protected=false"}, false},
 	{"database edit --protected=false safety", "conn.edit", []string{"pg-prot", "--protected=false"}, false},
-	{"cache edit --protected=false safety", "conn.edit", []string{"r-prot", "--protected=false"}, false},
+	{"cache edit --protected=false safety", "cache.redis.edit", []string{"r-prot", "--protected=false"}, false},
+	{"cache edit --protected=false safety", "cache.memcached.edit", []string{"m-prot", "--protected=false"}, false},
 	{"queue edit --protected=false safety", "conn.edit", []string{"q-prot", "--protected=false"}, false},
 	{"storage edit --protected=false safety", "conn.edit", []string{"s3-prot", "--protected=false"}, false},
 	{"registry edit --protected=false safety", "conn.edit", []string{"reg-prot", "--protected=false"}, false},
@@ -107,8 +109,16 @@ var tierRuns = []tierRun{
 	{"test --end change", "test", []string{"--end"}, false},
 	{"group remove change", "group.rm", []string{"g1"}, false},
 	// the floor: a leaf that changes something, run with no row applying
-	{"floor", "cache.add", []string{"c2", "redis://127.0.0.1:1"}, false},
-	{"floor", "cache.run", []string{"r", "--", "GET", "k"}, false},
+	{"floor", "cache.redis.add", []string{"c2", "redis://127.0.0.1:1"}, false},
+	{"floor", "cache.redis.edit", []string{"r", "--notes", "x"}, false},
+	{"floor", "cache.redis.raw", []string{"r", "--", "GET", "k"}, false},
+	{"floor", "cache.redis.remove", []string{"r"}, false},
+	{"floor", "cache.redis.rename", []string{"r", "r9"}, false},
+	{"floor", "cache.memcached.add", []string{"m2", "memcached://127.0.0.1:1"}, false},
+	{"floor", "cache.memcached.edit", []string{"m", "--notes", "x"}, false},
+	{"floor", "cache.memcached.raw", []string{"m", "--", "stats"}, false},
+	{"floor", "cache.memcached.remove", []string{"m"}, false},
+	{"floor", "cache.memcached.rename", []string{"m", "m9"}, false},
 	{"floor", "cluster.exec", []string{"k8s", "pod/a", "--", "ls"}, false},
 	{"floor", "cluster.forward", []string{"k8s", "svc/a", "18080:80"}, false},
 	{"floor", "cluster.run", []string{"k8s", "--", "get", "pods"}, false},
@@ -200,13 +210,14 @@ var tierUnreached = map[string]string{
 // until its line goes.
 var tierDisagree = map[string]string{
 	// the same strength under another code (C429: one code later)
-	"host.edit prod --protected=false":     "PROTECTED_TARGET", // vpn edit gives SAFETY_SETTING
-	"conn.edit pg-prot --protected=false":  "PROTECTED_TARGET",
-	"conn.edit r-prot --protected=false":   "PROTECTED_TARGET",
-	"conn.edit q-prot --protected=false":   "PROTECTED_TARGET",
-	"conn.edit s3-prot --protected=false":  "PROTECTED_TARGET",
-	"conn.edit reg-prot --protected=false": "PROTECTED_TARGET",
-	"conn.edit k8s-prot --protected=false": "PROTECTED_TARGET",
+	"host.edit prod --protected=false":              "PROTECTED_TARGET", // vpn edit gives SAFETY_SETTING
+	"conn.edit pg-prot --protected=false":           "PROTECTED_TARGET",
+	"cache.redis.edit r-prot --protected=false":     "PROTECTED_TARGET",
+	"cache.memcached.edit m-prot --protected=false": "PROTECTED_TARGET",
+	"conn.edit q-prot --protected=false":            "PROTECTED_TARGET",
+	"conn.edit s3-prot --protected=false":           "PROTECTED_TARGET",
+	"conn.edit reg-prot --protected=false":          "PROTECTED_TARGET",
+	"conn.edit k8s-prot --protected=false":          "PROTECTED_TARGET",
 }
 
 // tierProof is the test that asserts a stop without --dry-run.
@@ -467,6 +478,9 @@ func tierNeeded() map[string]string {
 			continue
 		}
 		ids := l.Today // a leaf with no command of its own is run as the one it carries
+		if handlers[l.Key] != nil {
+			ids = []string{strings.Join(l.Path(), ".")} // a moved leaf is run as itself
+		}
 		if len(ids) == 0 {
 			ids = l.Carries
 		}
@@ -571,11 +585,13 @@ func tierSeed(t *testing.T) {
 		st.Conns["pg"] = &store.Conn{Name: "pg", Kind: "postgres", URL: "postgres://u@127.0.0.1:1/app"}
 		st.Conns["pg-prot"] = &store.Conn{Name: "pg-prot", Kind: "postgres", URL: "postgres://u@127.0.0.1:2/app", Protected: true}
 		st.Conns["r-prot"] = &store.Conn{Name: "r-prot", Kind: "redis", URL: "redis://127.0.0.1:3", Protected: true}
+		st.Conns["m-prot"] = &store.Conn{Name: "m-prot", Kind: "memcached", URL: "memcached://127.0.0.1:3", Protected: true}
 		st.Conns["q-prot"] = &store.Conn{Name: "q-prot", Kind: "nats", URL: "nats://127.0.0.1:3", Protected: true}
 		st.Conns["s3-prot"] = &store.Conn{Name: "s3-prot", Kind: "s3", URL: "s3://key@bucket2/p?endpoint=http://127.0.0.1:3", Protected: true}
 		st.Conns["reg-prot"] = &store.Conn{Name: "reg-prot", Kind: "registry", URL: "registry://127.0.0.1:3?tls=false", Protected: true}
 		st.Conns["k8s-prot"] = &store.Conn{Name: "k8s-prot", Kind: "k8s", URL: "k8s://127.0.0.1:3", Protected: true}
 		st.Conns["r"] = &store.Conn{Name: "r", Kind: "redis", URL: "redis://127.0.0.1:1"}
+		st.Conns["m"] = &store.Conn{Name: "m", Kind: "memcached", URL: "memcached://127.0.0.1:1"}
 		st.Conns["s3"] = &store.Conn{Name: "s3", Kind: "s3", URL: "s3://key@bucket/p?endpoint=http://127.0.0.1:1"}
 		st.Conns["q"] = &store.Conn{Name: "q", Kind: "nats", URL: "nats://127.0.0.1:1"}
 		st.Conns["reg"] = &store.Conn{Name: "reg", Kind: "registry", URL: "registry://127.0.0.1:1?tls=false"}

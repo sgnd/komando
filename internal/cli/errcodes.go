@@ -337,6 +337,6 @@ var errorCodes = []errorCode{
 	{"WINRM_TLS", 4, "…: the WinRM server's certificate cannot be trusted: …", "if the server's certificate comes from your own CA, store it with `komando secret set NAME < ca.crt` and add ?ca=secret:NAME to its winrm:// address (`komando host edit … --address winrm://...`)"},
 	{"WRITE_FAILED", 1, "…; nothing was changed", "check that you may write to …"},
 	{"WRITE_REQUIRES_FLAG", 6, "… needs --write", "this command may change data (or is not known to be a read); run it again with --write"},
-	{"WRONG_KIND", 2, "… is a … URL, not one for `komando … add`", "add it with `komando … add` (or `komando conn add`)"},
+	{"WRONG_KIND", 2, "… is a … URL, not one for `komando … add`", "add it with `… add` (or `komando conn add`)"},
 	{"WRONG_PASSPHRASE", 2, "that passphrase does not open the vault; nothing was changed", "run it again and type the passphrase the vault has now"},
 }

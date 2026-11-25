@@ -115,7 +115,7 @@ var goldenGates = [][]string{
 	{"sync", "testdata", "web1:/tmp/x", "--delete"},
 	{"cache", "rm", "cache1", "k"},
 	{"cache", "rm", "pcache", "k"},
-	{"cache", "run", "cache1", "--write", "--", "FLUSHALL"},
+	{"cache", "redis", "raw", "cache1", "--write", "--", "FLUSHALL"},
 	{"db", "query", "db1", "--write", "DROP TABLE x"},
 	{"db", "query", "pdb", "--write", "UPDATE x SET a=1"},
 	{"db", "user", "rm", "db1", "bob"},
@@ -143,7 +143,7 @@ var goldenGates = [][]string{
 	{"host", "edit", "prod1", "--protected=false"},
 	// PROTECTED_TARGET: a change on a protected conn (--yes)
 	{"cache", "set", "pcache", "k", "v"},
-	{"cache", "run", "pcache", "--write", "--", "SET", "k", "v"},
+	{"cache", "redis", "raw", "pcache", "--write", "--", "SET", "k", "v"},
 	{"db", "kill", "pdb", "1"},
 	{"conn", "rm", "pcache"},
 	{"conn", "edit", "pcache", "--protected=false"},
@@ -155,7 +155,7 @@ var goldenGates = [][]string{
 	{"vpn", "edit", "pvpn", "--protected=false"},
 	{"vpn", "edit", "pvpn", "--mfa=false"},
 	// WRITE_REQUIRES_FLAG: a read command asked to write
-	{"cache", "run", "cache1", "--", "SET", "k", "v"},
+	{"cache", "redis", "raw", "cache1", "--", "SET", "k", "v"},
 	{"db", "query", "db1", "DELETE FROM x"},
 	// CONFIRM_REQUIRED: a bulk change (group of more than 3 members)
 	{"group", "rm", "big"},

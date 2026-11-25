@@ -592,6 +592,9 @@ func hostNames(hs []*store.Host) []string {
 
 // audit adds one record per action to the sealed store's audit log.
 func audit(cl *call, st *store.State, command string, hosts []string, remote string, ok bool, extra map[string]any) {
+	if cl.out.As != "" {
+		command = cl.out.As // a leaf running a body (runBody) records under its own ID
+	}
 	if st != nil && !st.Settings.Audit {
 		return
 	}

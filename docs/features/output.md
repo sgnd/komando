@@ -128,7 +128,7 @@ each VPN kind its `id`, `display_name`, `family` (`portal`, `config_file`,
 needs (`required`, and `one_of`: groups where one flag is enough), the
 flags it may take (`optional`), `flag_notes`, and `opens_browser`: whether
 `vpn up` opens a browser to sign in (`browser_note` says when).
-`komando schema conn add` (and `db add`, `cache add`, `queue add`,
+`komando schema conn add` (and `db add`, `cache redis add`, `queue add`,
 `storage add`, `cluster add`, `registry add` for their own kinds) gives
 each conn kind its `id`, `display_name`, `family`, `url_schemes`,
 `url_example`, `default_port` and the same flag lists. They come from the

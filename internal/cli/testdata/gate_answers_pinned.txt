@@ -26,14 +26,6 @@
 "cache --help"	netread	cache	runs
 "cache --help"	read	cache	runs
 "cache --help"	shell	cache	runs
-"cache add --help"	full	cache.add	runs
-"cache add --help"	netread	cache.add	runs
-"cache add --help"	read	cache.add	runs
-"cache add --help"	shell	cache.add	runs
-"cache add"	full	cache.add	SSH_GATE_REFUSED|komando cache add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"cache add"	netread	cache.add	SSH_GATE_REFUSED|komando cache add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"cache add"	read	cache.add	SSH_GATE_REFUSED|komando cache add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"cache add"	shell	cache.add	SSH_GATE_REFUSED|komando cache add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
 "cache get --help"	full	cache.get	runs
 "cache get --help"	netread	cache.get	runs
 "cache get --help"	read	cache.get	runs
@@ -58,6 +50,182 @@
 "cache keys"	netread	cache.keys	runs
 "cache keys"	read	cache.keys	runs
 "cache keys"	shell	cache.keys	runs
+"cache memcached --help"	full	cache.memcached	runs
+"cache memcached --help"	netread	cache.memcached	runs
+"cache memcached --help"	read	cache.memcached	runs
+"cache memcached --help"	shell	cache.memcached	runs
+"cache memcached add --help"	full	cache.memcached.add	runs
+"cache memcached add --help"	netread	cache.memcached.add	runs
+"cache memcached add --help"	read	cache.memcached.add	runs
+"cache memcached add --help"	shell	cache.memcached.add	runs
+"cache memcached add"	full	cache.memcached.add	SSH_GATE_REFUSED|komando cache memcached add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached add"	netread	cache.memcached.add	SSH_GATE_REFUSED|komando cache memcached add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached add"	read	cache.memcached.add	SSH_GATE_REFUSED|komando cache memcached add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached add"	shell	cache.memcached.add	SSH_GATE_REFUSED|komando cache memcached add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached edit --help"	full	cache.memcached.edit	runs
+"cache memcached edit --help"	netread	cache.memcached.edit	runs
+"cache memcached edit --help"	read	cache.memcached.edit	runs
+"cache memcached edit --help"	shell	cache.memcached.edit	runs
+"cache memcached edit"	full	cache.memcached.edit	SSH_GATE_REFUSED|komando cache memcached edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached edit"	netread	cache.memcached.edit	SSH_GATE_REFUSED|komando cache memcached edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached edit"	read	cache.memcached.edit	SSH_GATE_REFUSED|komando cache memcached edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached edit"	shell	cache.memcached.edit	SSH_GATE_REFUSED|komando cache memcached edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached list --help"	full	cache.memcached.list	runs
+"cache memcached list --help"	netread	cache.memcached.list	runs
+"cache memcached list --help"	read	cache.memcached.list	runs
+"cache memcached list --help"	shell	cache.memcached.list	runs
+"cache memcached list"	full	cache.memcached.list	runs
+"cache memcached list"	netread	cache.memcached.list	runs
+"cache memcached list"	read	cache.memcached.list	runs
+"cache memcached list"	shell	cache.memcached.list	runs
+"cache memcached raw --analyze"	full	cache.memcached.raw	runs
+"cache memcached raw --analyze"	netread	cache.memcached.raw	runs
+"cache memcached raw --analyze"	read	cache.memcached.raw	runs
+"cache memcached raw --analyze"	shell	cache.memcached.raw	runs
+"cache memcached raw --help"	full	cache.memcached.raw	runs
+"cache memcached raw --help"	netread	cache.memcached.raw	runs
+"cache memcached raw --help"	read	cache.memcached.raw	runs
+"cache memcached raw --help"	shell	cache.memcached.raw	runs
+"cache memcached raw --read-only"	full	cache.memcached.raw	runs
+"cache memcached raw --read-only"	netread	cache.memcached.raw	runs
+"cache memcached raw --read-only"	read	cache.memcached.raw	runs
+"cache memcached raw --read-only"	shell	cache.memcached.raw	runs
+"cache memcached raw --refresh"	full	cache.memcached.raw	runs
+"cache memcached raw --refresh"	netread	cache.memcached.raw	runs
+"cache memcached raw --refresh"	read	cache.memcached.raw	runs
+"cache memcached raw --refresh"	shell	cache.memcached.raw	runs
+"cache memcached raw --write"	full	cache.memcached.raw	runs
+"cache memcached raw --write"	netread	cache.memcached.raw	SSH_GATE_READ_ONLY|komando cache memcached raw is refused for a read-only key: with --write it can change something
+"cache memcached raw --write"	read	cache.memcached.raw	SSH_GATE_READ_ONLY|komando cache memcached raw is refused for a read-only key: with --write it can change something
+"cache memcached raw --write"	shell	cache.memcached.raw	runs
+"cache memcached raw"	full	cache.memcached.raw	runs
+"cache memcached raw"	netread	cache.memcached.raw	runs
+"cache memcached raw"	read	cache.memcached.raw	runs
+"cache memcached raw"	shell	cache.memcached.raw	runs
+"cache memcached remove --help"	full	cache.memcached.remove	runs
+"cache memcached remove --help"	netread	cache.memcached.remove	runs
+"cache memcached remove --help"	read	cache.memcached.remove	runs
+"cache memcached remove --help"	shell	cache.memcached.remove	runs
+"cache memcached remove"	full	cache.memcached.remove	SSH_GATE_REFUSED|komando cache memcached remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached remove"	netread	cache.memcached.remove	SSH_GATE_REFUSED|komando cache memcached remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached remove"	read	cache.memcached.remove	SSH_GATE_REFUSED|komando cache memcached remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached remove"	shell	cache.memcached.remove	SSH_GATE_REFUSED|komando cache memcached remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached rename --help"	full	cache.memcached.rename	runs
+"cache memcached rename --help"	netread	cache.memcached.rename	runs
+"cache memcached rename --help"	read	cache.memcached.rename	runs
+"cache memcached rename --help"	shell	cache.memcached.rename	runs
+"cache memcached rename"	full	cache.memcached.rename	SSH_GATE_REFUSED|komando cache memcached rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached rename"	netread	cache.memcached.rename	SSH_GATE_REFUSED|komando cache memcached rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached rename"	read	cache.memcached.rename	SSH_GATE_REFUSED|komando cache memcached rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached rename"	shell	cache.memcached.rename	SSH_GATE_REFUSED|komando cache memcached rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached show --help"	full	cache.memcached.show	runs
+"cache memcached show --help"	netread	cache.memcached.show	runs
+"cache memcached show --help"	read	cache.memcached.show	runs
+"cache memcached show --help"	shell	cache.memcached.show	runs
+"cache memcached show"	full	cache.memcached.show	runs
+"cache memcached show"	netread	cache.memcached.show	runs
+"cache memcached show"	read	cache.memcached.show	runs
+"cache memcached show"	shell	cache.memcached.show	runs
+"cache memcached test --help"	full	cache.memcached.test	runs
+"cache memcached test --help"	netread	cache.memcached.test	runs
+"cache memcached test --help"	read	cache.memcached.test	runs
+"cache memcached test --help"	shell	cache.memcached.test	runs
+"cache memcached test"	full	cache.memcached.test	runs
+"cache memcached test"	netread	cache.memcached.test	runs
+"cache memcached test"	read	cache.memcached.test	runs
+"cache memcached test"	shell	cache.memcached.test	runs
+"cache memcached"	full	cache.memcached	runs
+"cache memcached"	netread	cache.memcached	runs
+"cache memcached"	read	cache.memcached	runs
+"cache memcached"	shell	cache.memcached	runs
+"cache redis --help"	full	cache.redis	runs
+"cache redis --help"	netread	cache.redis	runs
+"cache redis --help"	read	cache.redis	runs
+"cache redis --help"	shell	cache.redis	runs
+"cache redis add --help"	full	cache.redis.add	runs
+"cache redis add --help"	netread	cache.redis.add	runs
+"cache redis add --help"	read	cache.redis.add	runs
+"cache redis add --help"	shell	cache.redis.add	runs
+"cache redis add"	full	cache.redis.add	SSH_GATE_REFUSED|komando cache redis add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis add"	netread	cache.redis.add	SSH_GATE_REFUSED|komando cache redis add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis add"	read	cache.redis.add	SSH_GATE_REFUSED|komando cache redis add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis add"	shell	cache.redis.add	SSH_GATE_REFUSED|komando cache redis add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis edit --help"	full	cache.redis.edit	runs
+"cache redis edit --help"	netread	cache.redis.edit	runs
+"cache redis edit --help"	read	cache.redis.edit	runs
+"cache redis edit --help"	shell	cache.redis.edit	runs
+"cache redis edit"	full	cache.redis.edit	SSH_GATE_REFUSED|komando cache redis edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis edit"	netread	cache.redis.edit	SSH_GATE_REFUSED|komando cache redis edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis edit"	read	cache.redis.edit	SSH_GATE_REFUSED|komando cache redis edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis edit"	shell	cache.redis.edit	SSH_GATE_REFUSED|komando cache redis edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis list --help"	full	cache.redis.list	runs
+"cache redis list --help"	netread	cache.redis.list	runs
+"cache redis list --help"	read	cache.redis.list	runs
+"cache redis list --help"	shell	cache.redis.list	runs
+"cache redis list"	full	cache.redis.list	runs
+"cache redis list"	netread	cache.redis.list	runs
+"cache redis list"	read	cache.redis.list	runs
+"cache redis list"	shell	cache.redis.list	runs
+"cache redis raw --analyze"	full	cache.redis.raw	runs
+"cache redis raw --analyze"	netread	cache.redis.raw	runs
+"cache redis raw --analyze"	read	cache.redis.raw	runs
+"cache redis raw --analyze"	shell	cache.redis.raw	runs
+"cache redis raw --help"	full	cache.redis.raw	runs
+"cache redis raw --help"	netread	cache.redis.raw	runs
+"cache redis raw --help"	read	cache.redis.raw	runs
+"cache redis raw --help"	shell	cache.redis.raw	runs
+"cache redis raw --read-only"	full	cache.redis.raw	runs
+"cache redis raw --read-only"	netread	cache.redis.raw	runs
+"cache redis raw --read-only"	read	cache.redis.raw	runs
+"cache redis raw --read-only"	shell	cache.redis.raw	runs
+"cache redis raw --refresh"	full	cache.redis.raw	runs
+"cache redis raw --refresh"	netread	cache.redis.raw	runs
+"cache redis raw --refresh"	read	cache.redis.raw	runs
+"cache redis raw --refresh"	shell	cache.redis.raw	runs
+"cache redis raw --write"	full	cache.redis.raw	runs
+"cache redis raw --write"	netread	cache.redis.raw	SSH_GATE_READ_ONLY|komando cache redis raw is refused for a read-only key: with --write it can change something
+"cache redis raw --write"	read	cache.redis.raw	SSH_GATE_READ_ONLY|komando cache redis raw is refused for a read-only key: with --write it can change something
+"cache redis raw --write"	shell	cache.redis.raw	runs
+"cache redis raw"	full	cache.redis.raw	runs
+"cache redis raw"	netread	cache.redis.raw	runs
+"cache redis raw"	read	cache.redis.raw	runs
+"cache redis raw"	shell	cache.redis.raw	runs
+"cache redis remove --help"	full	cache.redis.remove	runs
+"cache redis remove --help"	netread	cache.redis.remove	runs
+"cache redis remove --help"	read	cache.redis.remove	runs
+"cache redis remove --help"	shell	cache.redis.remove	runs
+"cache redis remove"	full	cache.redis.remove	SSH_GATE_REFUSED|komando cache redis remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis remove"	netread	cache.redis.remove	SSH_GATE_REFUSED|komando cache redis remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis remove"	read	cache.redis.remove	SSH_GATE_REFUSED|komando cache redis remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis remove"	shell	cache.redis.remove	SSH_GATE_REFUSED|komando cache redis remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis rename --help"	full	cache.redis.rename	runs
+"cache redis rename --help"	netread	cache.redis.rename	runs
+"cache redis rename --help"	read	cache.redis.rename	runs
+"cache redis rename --help"	shell	cache.redis.rename	runs
+"cache redis rename"	full	cache.redis.rename	SSH_GATE_REFUSED|komando cache redis rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis rename"	netread	cache.redis.rename	SSH_GATE_REFUSED|komando cache redis rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis rename"	read	cache.redis.rename	SSH_GATE_REFUSED|komando cache redis rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis rename"	shell	cache.redis.rename	SSH_GATE_REFUSED|komando cache redis rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis show --help"	full	cache.redis.show	runs
+"cache redis show --help"	netread	cache.redis.show	runs
+"cache redis show --help"	read	cache.redis.show	runs
+"cache redis show --help"	shell	cache.redis.show	runs
+"cache redis show"	full	cache.redis.show	runs
+"cache redis show"	netread	cache.redis.show	runs
+"cache redis show"	read	cache.redis.show	runs
+"cache redis show"	shell	cache.redis.show	runs
+"cache redis test --help"	full	cache.redis.test	runs
+"cache redis test --help"	netread	cache.redis.test	runs
+"cache redis test --help"	read	cache.redis.test	runs
+"cache redis test --help"	shell	cache.redis.test	runs
+"cache redis test"	full	cache.redis.test	runs
+"cache redis test"	netread	cache.redis.test	runs
+"cache redis test"	read	cache.redis.test	runs
+"cache redis test"	shell	cache.redis.test	runs
+"cache redis"	full	cache.redis	runs
+"cache redis"	netread	cache.redis	runs
+"cache redis"	read	cache.redis	runs
+"cache redis"	shell	cache.redis	runs
 "cache rm --help"	full	cache.rm	runs
 "cache rm --help"	netread	cache.rm	runs
 "cache rm --help"	read	cache.rm	runs
@@ -66,30 +234,6 @@
 "cache rm"	netread	cache.rm	SSH_GATE_READ_ONLY|komando cache rm is refused for a read-only key: it changes something
 "cache rm"	read	cache.rm	SSH_GATE_READ_ONLY|komando cache rm is refused for a read-only key: it changes something
 "cache rm"	shell	cache.rm	runs
-"cache run --analyze"	full	cache.run	runs
-"cache run --analyze"	netread	cache.run	runs
-"cache run --analyze"	read	cache.run	runs
-"cache run --analyze"	shell	cache.run	runs
-"cache run --help"	full	cache.run	runs
-"cache run --help"	netread	cache.run	runs
-"cache run --help"	read	cache.run	runs
-"cache run --help"	shell	cache.run	runs
-"cache run --read-only"	full	cache.run	runs
-"cache run --read-only"	netread	cache.run	runs
-"cache run --read-only"	read	cache.run	runs
-"cache run --read-only"	shell	cache.run	runs
-"cache run --refresh"	full	cache.run	runs
-"cache run --refresh"	netread	cache.run	runs
-"cache run --refresh"	read	cache.run	runs
-"cache run --refresh"	shell	cache.run	runs
-"cache run --write"	full	cache.run	runs
-"cache run --write"	netread	cache.run	SSH_GATE_READ_ONLY|komando cache run is refused for a read-only key: with --write it can change something
-"cache run --write"	read	cache.run	SSH_GATE_READ_ONLY|komando cache run is refused for a read-only key: with --write it can change something
-"cache run --write"	shell	cache.run	runs
-"cache run"	full	cache.run	runs
-"cache run"	netread	cache.run	runs
-"cache run"	read	cache.run	runs
-"cache run"	shell	cache.run	runs
 "cache set --help"	full	cache.set	runs
 "cache set --help"	netread	cache.set	runs
 "cache set --help"	read	cache.set	runs
