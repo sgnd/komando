@@ -732,7 +732,7 @@ func dockerSnippets() []snippet.Builtin {
 			Tier: capability.Read, Shape: name + "/1",
 			Checks: []string{"TestDockerMissingFromShellText", "TestSnippetDockerLikeTheCommand", "TestSnippetSamplesMatchGoldens/" + name},
 			Text:   map[snippet.Family]string{snippet.Unix: text},
-			Parse:  dockerRows(sortBy...),
+			Parse:  dockerRows("docker "+verb+" TARGET", sortBy...),
 		}
 	}
 	return []snippet.Builtin{
@@ -745,7 +745,7 @@ func dockerSnippets() []snippet.Builtin {
 // dockerRows reads a docker list as today's command does: the rows sorted,
 // and docker's failure as dockerExit names it (docker missing, no access
 // to its socket).
-func dockerRows(sortBy ...string) func(snippet.Output, snippet.Family) (any, error) {
+func dockerRows(command string, sortBy ...string) func(snippet.Output, snippet.Family) (any, error) {
 	return func(o snippet.Output, _ snippet.Family) (any, error) {
 		list, ok := parseJSONLines(nil, o.Stdout).([]any)
 		if ok {
@@ -753,9 +753,9 @@ func dockerRows(sortBy ...string) func(snippet.Output, snippet.Family) (any, err
 		}
 		switch {
 		case o.ExitCode != 0 && ok:
-			return list, dockerSnippetExit(o)
+			return list, dockerSnippetExit(o, command)
 		case o.ExitCode != 0:
-			return nil, dockerSnippetExit(o)
+			return nil, dockerSnippetExit(o, command)
 		case !ok:
 			return nil, errNotJSONLines
 		}
@@ -763,12 +763,16 @@ func dockerRows(sortBy ...string) func(snippet.Output, snippet.Family) (any, err
 	}
 }
 
-// dockerSnippetExit is dockerExit for a snippet: recipe run has no --sudo,
-// so no access to docker's socket names only the docker group.
-func dockerSnippetExit(o snippet.Output) *out.Error {
+// dockerSnippetExit is dockerExit for the snippet that replaces `komando
+// command`: recipe run has no --sudo, so no access to docker's socket
+// points to the command, which asks as it does today. It never steers to
+// the docker group: access to its socket is root on that server (Audit
+// A-455-1).
+func dockerSnippetExit(o snippet.Output, command string) *out.Error {
 	e := dockerExit("", false, snippetRun(o))
 	if e.Code == "DOCKER_PERMISSION" {
-		e.Hint = "add the login user to the docker group on the server"
+		e.Hint = "the login user cannot use docker on this server; run `komando " + command +
+			" --sudo` (the command, which asks as it does today), or ask the person whether this user should have docker access"
 	}
 	return e
 }

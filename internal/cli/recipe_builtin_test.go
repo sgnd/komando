@@ -782,12 +782,15 @@ func TestSnippetDockerLikeTheCommand(t *testing.T) {
 				t.Fatalf("got %v %s, want SNIPPET_PARSE_FAILED and no text", e, raw)
 			}
 		})
-		// recipe run has no --sudo: the hint names what a person can do
+		// recipe run has no --sudo: the hint names the command, which asks
+		// as today, and never steers to the docker group (root on that
+		// server)
 		t.Run(strings.Join(c, "-")+"/permission hint", func(t *testing.T) {
 			startReplayServerWith(t, nil, steps["permission"])
 			_, e := snippetData(t, strings.Join(c, "-"), "dev")
-			if e == nil || e.Code != "DOCKER_PERMISSION" || strings.Contains(e.Hint, "--sudo") || !strings.Contains(e.Hint, "docker group") {
-				t.Fatalf("got %+v, want DOCKER_PERMISSION with a hint about the docker group and no --sudo", e)
+			want := "the login user cannot use docker on this server; run `komando " + strings.Join(c, " ") + " TARGET --sudo` (the command, which asks as it does today), or ask the person whether this user should have docker access"
+			if e == nil || e.Code != "DOCKER_PERMISSION" || e.Hint != want {
+				t.Fatalf("got %+v, want DOCKER_PERMISSION with the hint %q (Audit A-455-1)", e, want)
 			}
 		})
 		// a failed docker that printed text keeps today's error, not the text
@@ -869,12 +872,19 @@ func TestSnippetDockerPrunePreview(t *testing.T) {
 	}
 }
 
-// A preview on a server without docker fails as today's preview does.
+// A preview on a server without docker fails as today's preview does,
+// and one without access to docker points to the command.
 func TestSnippetDockerPrunePreviewFails(t *testing.T) {
 	withSnippets(t, registered()...)
 	startReplayServerWith(t, nil, replayStep{exit: 127})
 	raw, e := snippetData(t, "docker-prune-preview", "dev")
 	if want := dockerErr("", 127); e == nil || e.Code != want.Code || e.Message != "dev: "+want.Message || strings.Contains(string(raw), `"result"`) {
 		t.Fatalf("got %v %s, want %s and no result", e, raw, want.Code)
+	}
+	startReplayServerWith(t, nil, replayStep{exit: 1, stderr: "permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock"})
+	_, e = snippetData(t, "docker-prune-preview", "dev")
+	want := "the login user cannot use docker on this server; run `komando docker prune TARGET --dry-run --sudo` (the command, which asks as it does today), or ask the person whether this user should have docker access"
+	if e == nil || e.Code != "DOCKER_PERMISSION" || e.Hint != want {
+		t.Fatalf("got %+v, want the hint %q", e, want)
 	}
 }

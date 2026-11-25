@@ -560,7 +560,7 @@ func dockerPruneSnippets() []snippet.Builtin {
 		Text:   map[snippet.Family]string{snippet.Unix: prunePreviewScript(o)},
 		Parse: func(res snippet.Output, _ snippet.Family) (any, error) {
 			if res.ExitCode != 0 {
-				return nil, dockerSnippetExit(res)
+				return nil, dockerSnippetExit(res, "docker prune TARGET --dry-run")
 			}
 			p := parsePrunePreview(res.Stdout, o, time.Now())
 			return prunePreviewResult{WouldRun: line, Containers: p.Containers, Images: p.Images, Volumes: p.Volumes, BuildCache: p.BuildCache,
