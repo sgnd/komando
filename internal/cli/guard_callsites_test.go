@@ -104,3 +104,84 @@ func TestLowerFirst(t *testing.T) {
 		}
 	}
 }
+
+// term.ReadAnswer reads a person's answer at the terminal. The guard counts
+// every such question (noteAsk), so the program reaches it only through
+// cli's readAnswer, which calls noteAsk first. A new caller fails here.
+func TestReadAnswerOnlyThroughTheWrapper(t *testing.T) {
+	const termPath = "github.com/sgnd/komando/internal/cli/kit/term"
+	var callers []string
+	firstIsNoteAsk := false
+	fset := token.NewFileSet()
+	err := filepath.WalkDir("../..", func(p string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if d.Name() == "testdata" || strings.HasPrefix(d.Name(), ".") && p != "../.." {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(p, ".go") || strings.HasSuffix(p, "_test.go") {
+			return nil
+		}
+		file, err := parser.ParseFile(fset, p, nil, parser.SkipObjectResolution)
+		if err != nil {
+			return err
+		}
+		termNames := map[string]bool{}
+		for _, imp := range file.Imports {
+			if strings.Trim(imp.Path.Value, `"`) == termPath {
+				name := "term"
+				if imp.Name != nil {
+					name = imp.Name.Name
+				}
+				termNames[name] = true
+			}
+		}
+		inTerm := file.Name.Name == "term" && strings.HasSuffix(filepath.ToSlash(filepath.Dir(p)), "internal/cli/kit/term")
+		for _, decl := range file.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Body == nil {
+				continue
+			}
+			ast.Inspect(fn.Body, func(n ast.Node) bool {
+				call, ok := n.(*ast.CallExpr)
+				if !ok {
+					return true
+				}
+				switch f := call.Fun.(type) {
+				case *ast.SelectorExpr:
+					if x, ok := f.X.(*ast.Ident); ok && termNames[x.Name] && f.Sel.Name == "ReadAnswer" {
+						callers = append(callers, filepath.ToSlash(p)+": "+fn.Name.Name)
+					}
+				case *ast.Ident:
+					if inTerm && f.Name == "ReadAnswer" {
+						callers = append(callers, filepath.ToSlash(p)+": "+fn.Name.Name)
+					}
+				}
+				return true
+			})
+			if fn.Name.Name == "readAnswer" && file.Name.Name == "cli" && len(fn.Body.List) > 0 {
+				if es, ok := fn.Body.List[0].(*ast.ExprStmt); ok {
+					if c, ok := es.X.(*ast.CallExpr); ok {
+						if id, ok := c.Fun.(*ast.Ident); ok && id.Name == "noteAsk" {
+							firstIsNoteAsk = true
+						}
+					}
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"../../internal/cli/ttyin.go: readAnswer"}; strings.Join(callers, "\n") != strings.Join(want, "\n") {
+		t.Errorf("term.ReadAnswer is called from:\n%s\nwant only from cli's readAnswer, which calls noteAsk first", strings.Join(callers, "\n"))
+	}
+	if !firstIsNoteAsk {
+		t.Error("cli's readAnswer must call noteAsk before anything else")
+	}
+}

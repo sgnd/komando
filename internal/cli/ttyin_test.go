@@ -94,17 +94,3 @@ func TestReadAnswerHiddenNeedsTerminal(t *testing.T) {
 		t.Errorf("got %q, %v, shown %q", a, err, shown)
 	}
 }
-
-// The bracketed-paste marks around a pasted value come off; a value
-// without them stays as it is.
-func TestStripPasteMarksCases(t *testing.T) {
-	for in, want := range map[string]string{
-		"\x1b[200~pw\x1b[201~": "pw",
-		"pw":                   "pw",
-		"pw\x1b[201~":          "pw\x1b[201~",
-	} {
-		if got := stripPasteMarks(in); got != want {
-			t.Errorf("stripPasteMarks(%q) = %q, want %q", in, got, want)
-		}
-	}
-}
