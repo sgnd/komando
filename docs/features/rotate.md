@@ -10,11 +10,11 @@ that every server logs in with it, and only then take the old one away:
 
 ```bash
 komando credential key create deploy-2 --user deploy          # a new key pair, sealed in komando's store
-komando credential key install @web --credential deploy-2     # put its public key on the servers
+komando credential key install deploy-2 @web     # put its public key on the servers
 komando host ssh edit @web --credential deploy-2              # komando logs in with it from then on
 komando test @web                                             # every server still logs in
-komando credential key uninstall @web --credential deploy --dry-run   # how many lines the old key has
-komando credential key uninstall @web --credential deploy     # take the old key off the servers
+komando credential key uninstall deploy @web --dry-run   # how many lines the old key has
+komando credential key uninstall deploy @web     # take the old key off the servers
 komando credential key remove deploy                          # and out of komando (refused while a server uses it)
 ```
 

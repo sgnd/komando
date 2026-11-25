@@ -189,7 +189,7 @@ waits on the alias column (PR B).
 |---|---|---|
 | `credential` | `password`, `token`, `key`, `certificate`, `store PROVIDER`, plus `list` and `run` | what komando logs in with, sealed, never shown |
 | `group` | `create`, `edit`, `list`, `show`, `rename`, `remove` | a named set of entries and snippets |
-| `policy` | `check`, `create`, `list`, `show`, `remove` | your own block rules |
+| `policy` | `check`, `create`, `edit`, `list`, `show`, `remove` | your own block rules |
 | `snippet` | `create`, `edit`, `exec`, `list`, `show`, `rename`, `remove` | a saved command or plan |
 | `config` | `get`, `set`, `show`, `approval-code`, `vault keychain`, `vault passphrase` | komando settings |
 | `agent` | `skill install`, `skill uninstall`, `mcp start`, `mcp stop` | how AI agents use komando |
@@ -220,7 +220,7 @@ named exception of S-3.3]
 |---|---|---|
 | `add` | give komando a thing that exists outside it | every provider; credential kinds |
 | `create` | komando or the target makes a new thing | `credential key`, `group`, `policy`, `snippet`; `queue` topic and message; `storage` object |
-| `edit` | change saved details | every provider; credential kinds; `group`, `snippet` |
+| `edit` | change saved details | every provider; credential kinds; `group`, `policy`, `snippet` |
 | `list` | the contents of the level you are at | everywhere |
 | `show` | everything about one thing | everywhere; `config show` |
 | `rename` | rename and fix every reference | every provider; credential kinds; `group`, `snippet` |
@@ -584,7 +584,7 @@ flag combination]
 | T1 change | reversible, or only komando's own list | nothing | typed in full: runs. Prompted: `Run it? [y/N, d = --dry-run first]` |
 | T2 protected | any T1 or T3 on a protected entry | `--yes`, exit 6 PROTECTED_TARGET | `web1 (protected): <what changes>. Continue? [y/N]` |
 | T3 dangerous | cannot be undone, or an outage: `database P restore`, `queue P topic delete`, `queue P message delete --all`, `storage P object delete`, `registry oci image delete` and `prune`, `credential KIND remove`, `credential key remove --delete-file`, `credential key uninstall`, `copy --sync --delete`, and any text a policy rule rates dangerous in `exec`, `query`, `raw` or `snippet exec` | `--allow-dangerous`, exit 6 POLICY_BLOCKED | `This deletes <what> on <where> for good. Type <answer> to continue:` |
-| T3s safety | weakens komando's own checks: audit off, `policy remove`, `update` to an older version, `config vault keychain --off`, open bind on a tunnel, sending a secret, `TYPE edit --protected=false`, clearing a VPN's `--mfa` | `--yes`, exit 6 SAFETY_SETTING / OPEN_BIND / SECRET_DESTINATION | `This turns off a komando safety check: <what>. Continue? [y/N]` |
+| T3s safety | weakens komando's own checks: audit off, `policy remove`, `policy edit --off`, `update` to an older version, `config vault keychain --off`, open bind on a tunnel, sending a secret, `TYPE edit --protected=false`, clearing a VPN's `--mfa` | `--yes`, exit 6 SAFETY_SETTING / OPEN_BIND / SECRET_DESTINATION | `This turns off a komando safety check: <what>. Continue? [y/N]` |
 | T4 person only | `config approval-code`, typing a secret, `--reveal`, accepting an old copy, `credential key install` with `--public-key-file`, every `shell`, the person step of `test` (two-factor, cloud login), replacing a pinned host key | no flag; NEEDS_PERSON and friends, hint names the command a person runs | the command itself |
 
 A bulk action has its own confirm: `group remove` on a group of more than 3
@@ -805,7 +805,7 @@ resolves]
 | credential store PROVIDER | add | test | show | list | edit | rename | remove | none yet |
 | group | create | test @GROUP | show | list | edit --add, --remove | rename | remove | export |
 | snippet | create | none | show | list | edit | rename | remove | export |
-| policy rule | create | check | show | list | none | none | remove | export |
+| policy rule | create | check | show | list | edit | none | remove | export |
 | exec session | exec | none | exec --attach ID | status | none | none | exec --attach ID --stop, --remove | none |
 | tunnel | start | none | list | list | none | none | stop | none |
 | kept login | test | test | status | status | none | none | test --end | none |

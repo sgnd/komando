@@ -33,7 +33,7 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
-- `komando policy edit RULE --off` switches a rule off, everywhere or with `--add-server` and `--add-group` only on those servers (a group as its servers are when you switch it); `--off=false` switches it on again everywhere, and `--rm-server` and `--rm-group` on those servers. komando asks first, naming the rule, the servers and what it will no longer stop; an AI agent's request opens the approval window, and for a rule that keeps the others working (such as `check-failed`, `decode-run` or `rm-root`) you type its name at a terminal. `policy show RULE`, `policy list`, `policy check` and `komando doctor` show every rule that is off, and the audit log keeps each switch with the servers before and after. TODO(cut): `policy edit` is not in the v2.7 tree; it waits on a decision whether `policy` gets `edit`.
+- `komando policy edit RULE --off` switches a rule off, everywhere or with `--add-server` and `--add-group` only on those servers (a group as its servers are when you switch it); `--off=false` switches it on again everywhere, and `--rm-server` and `--rm-group` on those servers. komando asks first, naming the rule, the servers and what it will no longer stop; an AI agent's request opens the approval window, and for a rule that keeps the others working (such as `check-failed`, `decode-run` or `rm-root`) you type its name at a terminal. `policy show RULE`, `policy list`, `policy check` and `komando doctor` show every rule that is off, and the audit log keeps each switch with the servers before and after.
 
 ### Changed
 
