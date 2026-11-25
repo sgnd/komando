@@ -39,7 +39,7 @@ func TestRiskOfLineTable(t *testing.T) {
 		{"policy rm", "policy rm deny1", nil, tierSafety, "removes a deny rule"},
 		{"a shell is for a person", "shell web1", nil, tierPerson, ""},
 		{"a host key reset is for a person", "host trust web1 --reset", nil, tierPerson, "replaces a pinned host key (OD-9)"},
-		{"a line that names no command is read, today", "nosuchcommand", nil, tierRead, ""},
+		{"a line that names no command is for a person (cut PR B2)", "nosuchcommand", nil, tierPerson, ""},
 		{"a global flag before the command", "-o json fs rm web1 /tmp/x", nil, tierDangerous, "deletes the files"},
 		{"a proxy command on a host", "", []string{"host", "edit", "web1", "--proxy-command", "nc %h %p"}, tierSafety, "an AI agent runs it (the proxy command runs on this computer)"},
 		{"a group selector", "exec @prod -- rm -rf /var/www", nil, tierDangerous, "the command matches a destructive rule"},
@@ -87,5 +87,21 @@ func TestRiskOfLineNilTreeFailsClosed(t *testing.T) {
 	commandTree = saved
 	if r := riskOfLine([]string{"host", "ls"}); r.tier != tierRead {
 		t.Errorf("riskOfLine(host ls) with the tree = tier %s, want read", r.tier)
+	}
+}
+
+// A line that names no command is for a person (cut PR B2), as at the ssh
+// gate: an unknown word, or words after a group that name nothing under
+// it. komando alone (first steps) and a group alone stay what they are.
+func TestRiskOfLineNamesNoCommand(t *testing.T) {
+	for _, line := range []string{"nosuchcommand", "hots list", "host frobnicate web1", "db user frobnicate pg", "-o json nosuchcommand"} {
+		if r := riskOfLine(strings.Fields(line)); r.tier != tierPerson {
+			t.Errorf("riskOfLine(%q) = tier %s, want %s", line, r.tier, tierPerson)
+		}
+	}
+	for _, line := range []string{"", "-o json", "host", "db user", "host --help"} {
+		if r := riskOfLine(strings.Fields(line)); r.tier != tierRead {
+			t.Errorf("riskOfLine(%q) = tier %s, want %s", line, r.tier, tierRead)
+		}
 	}
 }
