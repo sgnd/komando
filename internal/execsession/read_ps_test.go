@@ -28,7 +28,6 @@ func TestReadScriptPSText(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		psParse(t, s)
 		psOnlyAllowed(t, s)
 		for _, want := range []string{
 			"$ks_id = '" + testID + "'", "$ks_from = " + strconv.FormatInt(from, 10),
@@ -45,6 +44,7 @@ func TestReadScriptPSText(t *testing.T) {
 				t.Errorf("the read script holds %s: a read never changes the folder", banned)
 			}
 		}
+		psParse(t, s) // last: it skips the test where there is no PowerShell
 	}
 }
 
@@ -164,5 +164,20 @@ func TestFollowPSRefusals(t *testing.T) {
 	_, err := f.Run(context.Background(), func(context.Context, string) (string, int, error) { return "", ExitUnsafe, nil })
 	if err == nil || !strings.Contains(err.Error(), "LOCALAPPDATA") {
 		t.Errorf("got %v", err)
+	}
+}
+
+// A full 64 KiB read is followed by the next one at once: the pause is
+// only for a read that found less than a full piece.
+func TestFollowPSReadsOnWithoutPause(t *testing.T) {
+	f := &fakeLogPS{pieces: []string{strings.Repeat("x\n", ReadMaxPS)}, ended: true}
+	var shown strings.Builder
+	fl := followPS(0, &shown)
+	fl.Every, fl.Wait = time.Hour, time.Hour
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	res, err := fl.Run(ctx, f.read)
+	if err != nil || res.NextFrom != int64(len(f.log)) {
+		t.Fatalf("next_from %d of %d, %v", res.NextFrom, len(f.log), err)
 	}
 }
