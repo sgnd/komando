@@ -334,7 +334,7 @@ func guardWith(cl *call, st *store.State, hosts []*store.Host, command string, m
 		if own {
 			check = policy.CheckScript
 		}
-		hits := check(command, st.Settings.ExtraDenyPattern)
+		hits := withoutRulesOff(st, hosts, check(command, st.Settings.ExtraDenyPattern))
 		ids := make([]string, len(hits))
 		reasons := make([]string, len(hits))
 		for i, h := range hits {
