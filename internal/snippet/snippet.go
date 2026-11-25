@@ -11,6 +11,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"regexp/syntax"
 	"slices"
 	"strings"
 
@@ -239,10 +240,16 @@ func validVar(v Var) error {
 	return nil
 }
 
-// anchored reports whether a pattern is anchored with ^ and $.
+// anchored reports whether the whole pattern sits between ^ and $: its
+// parsed tree begins with the start of the text and ends with its end, so
+// `^a|b$` (a at the start, or b at the end) is not anchored and
+// `^(?:a|b)$` is (Audit A-453-2).
 func anchored(p *regexp.Regexp) bool {
-	s := p.String()
-	return strings.HasPrefix(strings.TrimPrefix(s, "(?s)"), "^") && strings.HasSuffix(s, "$")
+	re, err := syntax.Parse(p.String(), syntax.Perl)
+	if err != nil || re.Op != syntax.OpConcat || len(re.Sub) < 2 {
+		return false
+	}
+	return re.Sub[0].Op == syntax.OpBeginText && re.Sub[len(re.Sub)-1].Op == syntax.OpEndText
 }
 
 // validText checks that every marker names a declared text variable.
