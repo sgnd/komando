@@ -11703,7 +11703,7 @@
         "code": "SESSION_START_DENIED",
         "exit": 5,
         "example": "…: Constrained Language Mode or AppLocker blocked the start of the run in a session; nothing ran and no session folder is left",
-        "hint": "komando runs no command there without the session's protections: the server's administrator allows its session scripts in the AppLocker rules, or the run waits until then"
+        "hint": "look with `komando exec TARGET -- $ExecutionContext.SessionState.LanguageMode`: komando runs no command there without the session's protections, so the server's administrator allows its session scripts in the AppLocker rules first"
       },
       {
         "code": "SESSION_START_FAILED",

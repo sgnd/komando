@@ -280,7 +280,7 @@ func ReadStartPS(host string, exit int, stdout, stderr, id string) error {
 
 func startDenied(host string) error {
 	return out.Errf(out.ExitRemote, "SESSION_START_DENIED",
-		"komando runs no command there without the session's protections: the server's administrator allows its session scripts in the AppLocker rules, or the run waits until then",
+		"look with `komando exec TARGET -- $ExecutionContext.SessionState.LanguageMode`: komando runs no command there without the session's protections, so the server's administrator allows its session scripts in the AppLocker rules first",
 		"%s: Constrained Language Mode or AppLocker blocked the start of the run in a session; nothing ran and no session folder is left", host)
 }
 
