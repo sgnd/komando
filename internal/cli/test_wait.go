@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -248,7 +249,7 @@ func (d testEndData) Text() string {
 	}
 	var sb strings.Builder
 	for _, n := range d.Ended {
-		sb.WriteString("ended the kept session of " + cleanText(n) + "\n")
+		sb.WriteString("ended the kept session of " + term.CleanText(n) + "\n")
 	}
 	return sb.String()
 }
