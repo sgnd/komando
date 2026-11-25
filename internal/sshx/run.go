@@ -113,6 +113,24 @@ func commandEnv(c *Client, extra map[string]string) ([]envVar, error) {
 	return vars, nil
 }
 
+// EnvPair is one environment variable of a run, its vault value read.
+type EnvPair struct{ Key, Value string }
+
+// EnvPairs is the host's env and extra, sorted by name, vault values read
+// (as EnvExports): for a private file only, never for a command line. No
+// variable is nil, not an empty list.
+func EnvPairs(c *Client, extra map[string]string) ([]EnvPair, error) {
+	vars, err := commandEnv(c, extra)
+	if err != nil || len(vars) == 0 {
+		return nil, err
+	}
+	pairs := make([]EnvPair, len(vars))
+	for i, v := range vars {
+		pairs[i] = EnvPair{v.key, v.value}
+	}
+	return pairs, nil
+}
+
 // EnvExports is the "export K='v'; " prefix for the host's env and extra,
 // secret values included: for a private file only (job start), never for
 // a command line.
