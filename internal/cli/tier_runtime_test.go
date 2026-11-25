@@ -101,6 +101,9 @@ var tierRuns = []tierRun{
 	{"export --sealed person", "export", []string{"--sealed", "--to", "out.kmd"}, false},
 	{"export --for-phone person", "export", []string{"--for-phone", "--to", "out.kmd"}, false},
 	// change rows
+	{"host ssh test --end change", "host.test", []string{"dev", "--end"}, false},
+	{"host ssh test --end change", "host.test", []string{"prod", "--end"}, true}, // #558: the change-tier guard
+	{"test --end change", "test", []string{"--end"}, false},
 	{"group remove change", "group.rm", []string{"g1"}, false},
 	// the floor: a leaf that changes something, run with no row applying
 	{"floor", "cache.add", []string{"c2", "redis://127.0.0.1:1"}, false},
@@ -160,19 +163,6 @@ var tierRuns = []tierRun{
 	{"import dynamic safety", "import", []string{"ssh-config", "ssh_config_nc"}, false},
 }
 
-// endNotYet: --end lands with #503 (C325), whose end of a session calls no
-// guard yet (Audit A-503-4). tierRunsWhenBuilt holds its runs: they switch
-// on by themselves once today's command has --end.
-const endNotYet = "--end lands with #503; its runs wait in tierRunsWhenBuilt"
-
-// tierRunsWhenBuilt are runs of a flag today's command does not have yet.
-// Once the flag exists, each must run: the test fails until it moves to
-// tierRuns and its tierUnreached line goes.
-var tierRunsWhenBuilt = []tierRun{
-	{"host ssh test --end change", "host.test", []string{"dev", "--end"}, false},
-	{"test --end change", "test", []string{"--end"}, false},
-}
-
 // tierUnreached are the rows and floors this test cannot run, by name
 // and today's ID, with the reason and where the stop is proved instead.
 var tierUnreached = map[string]string{
@@ -185,10 +175,8 @@ var tierUnreached = map[string]string{
 	"copy --sync --delete dangerous | storage.upload":   "only sync has --delete today (run as sync)",
 	"copy --sync --delete dangerous | storage.download": "only sync has --delete today (run as sync)",
 	// flags that arrive in the cut
-	"host ssh exec --stop change | exec":     "--stop arrives with exec sessions (cut step D2); today it is job kill",
-	"host ssh exec --remove change | exec":   "--remove arrives with exec sessions (cut step D2); today it is job rm",
-	"host ssh test --end change | host.test": endNotYet,
-	"test --end change | test":               endNotYet,
+	"host ssh exec --stop change | exec":   "--stop arrives with exec sessions (cut step D2); today it is job kill",
+	"host ssh exec --remove change | exec": "--remove arrives with exec sessions (cut step D2); today it is job rm",
 	// the condition needs what a unit run cannot give; the stop is proved there
 	"host ssh test dynamic person | host.test":               "needs a server that asks a second factor",
 	"import dynamic person | import":                         "needs a sealed file from export --sealed, which only a person makes",
@@ -218,11 +206,6 @@ var tierDisagree = map[string]string{
 	"conn.edit s3-prot --protected=false":  "PROTECTED_TARGET",
 	"conn.edit reg-prot --protected=false": "PROTECTED_TARGET",
 	"conn.edit k8s-prot --protected=false": "PROTECTED_TARGET",
-	// --dry-run shows no stop; the real run stops (its own test proves it)
-	"host.ca.add ca1 --key ca.pub --hosts *.corp.example": "", // host_ca.go returns the preview before its NEEDS_PERSON
-	"host.trust dev":                  "", // guardFirstPin runs after the dry run returned
-	"import ssh-config ssh_config_rm": "", // the real run leaves the host out (IMPORT_INCOMPLETE)
-	"import ssh-config ssh_config_nc": "", // the real run leaves the host out (IMPORT_INCOMPLETE)
 }
 
 // tierProof is the test that asserts a stop without --dry-run.
@@ -239,10 +222,6 @@ type tierProof struct {
 // that the test exists and that its body (with the table it runs) names
 // the command and the code.
 var tierProvedBy = map[string]tierProof{
-	"host.ca.add ca1 --key ca.pub --hosts *.corp.example": {test: "TestHostCAAddNeedsAPerson"},
-	"host.trust dev":                                         {test: "TestStandardConfirmTable", via: "agentStops"},
-	"import ssh-config ssh_config_rm":                        {test: "TestImportSSHConfigProxyCommandAgent", stop: "IMPORT_INCOMPLETE"}, // the host is left out
-	"import ssh-config ssh_config_nc":                        {test: "TestImportSSHConfigProxyCommandAgent", stop: "IMPORT_INCOMPLETE"},
 	"host ssh test dynamic person | host.test":               {test: "TestLoginKeepsATwoFactorLogin", cmd: "login"},
 	"import dynamic person | import":                         {test: "TestSealedNeedsPerson"},
 	"update dynamic safety | update":                         {test: "TestUpdateOlderAgentNeedsWindow"},
@@ -276,14 +255,6 @@ func TestTierMatchesRuntime(t *testing.T) {
 	for need, why := range needed {
 		if !covered[need] && tierUnreached[need] == "" {
 			t.Errorf("%s (%s): no run and no reason in tierUnreached", need, why)
-		}
-	}
-	root := newRoot(tcl)
-	for _, r := range tierRunsWhenBuilt {
-		c, _, err := root.Find(strings.Split(r.id, "."))
-		flag := r.args[len(r.args)-1][2:]
-		if err == nil && c.Flags().Lookup(flag) != nil {
-			t.Errorf("%s now has --%s: move %q from tierRunsWhenBuilt to tierRuns and drop its tierUnreached line", r.id, flag, r.row)
 		}
 	}
 	for _, r := range tierRuns {

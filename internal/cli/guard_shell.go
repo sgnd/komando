@@ -131,11 +131,8 @@ func checkShell(cl *call, line, home, cwd string) guardDecision {
 
 func checkShellDepth(cl *call, line, home, cwd string, depth int) guardDecision {
 	line = stripQuotedHeredocs(line)
-	if readsVaultPass.MatchString(line) {
-		return deny("KOMANDO_VAULT_PASS opens komando's vault; it is for the user only")
-	}
-	if procEnviron.MatchString(line) { // /proc/PID/environ, not words like "environments"
-		return deny("process environments hold secrets; ask the user for the one value you need")
+	if d := checkWholeLine(line); d.Deny {
+		return d
 	}
 	if in := inlineNames(line); in != line && depth < 3 {
 		if d := checkShellDepth(cl, in, home, cwd, depth+1); d.Deny {
@@ -149,6 +146,9 @@ func checkShellDepth(cl *call, line, home, cwd string, depth int) guardDecision 
 		}
 		prog, args := program(words)
 		base := filepath.Base(prog)
+		if d := checkGuardFiles(cl, line, seg, prog, args, home, cwd); d.Deny {
+			return d
+		}
 		switch {
 		case prog == "":
 			continue
@@ -690,7 +690,7 @@ func program(words []string) (string, []string) {
 func isWrapper(w string) bool {
 	switch w {
 	case "env", "sudo", "doas", "time", "nohup", "exec", "command", "nice", "xargs",
-		"timeout", "setsid", "stdbuf", "chrt", "ionice", "taskset", "caffeinate", "busybox", "toybox", "unbuffer":
+		"timeout", "setsid", "stdbuf", "chrt", "ionice", "taskset", "caffeinate", "busybox", "toybox", "unbuffer", "rtk":
 		return true
 	}
 	return false

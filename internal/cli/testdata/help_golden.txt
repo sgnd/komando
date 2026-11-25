@@ -1913,6 +1913,7 @@ Examples:
   komando conn test kind:postgres
 
 Flags:
+      --end[=true|false]    end the kept sessions of the servers named (every server when none is named), instead of testing
   -h, --help[=true|false]   help for test
       --wait duration       test again every few seconds until every target passes, for up to this long (like 5m)
 
@@ -4773,6 +4774,7 @@ Examples:
   komando host test @prod --wait 2m
 
 Flags:
+      --end[=true|false]    end the kept sessions of the servers named (every server when none is named), instead of testing
   -h, --help[=true|false]   help for test
       --wait duration       test again every few seconds until every target passes, for up to this long (like 5m)
 
@@ -8788,6 +8790,14 @@ your address banned), a VPN that needs a login, or a local key or secret
 problem: those fail at once. To wait for the server's own start-up too,
 run `komando exec TARGET --read-only -- cloud-init status --wait` next.
 
+A server that asks for a password or a two-factor code only a person can
+answer: when a person runs test at a terminal, komando asks once and keeps
+the session open for the login_for setting (8 hours). An AI agent's commands
+to that server reuse the session; when it has expired they fail and name
+this command, and an agent never types a code. --end closes the kept session
+of the servers it names, or of every server when it names none; `komando
+status` lists the kept sessions.
+
 Usage:
   komando test TARGET [flags]
 
@@ -8798,8 +8808,10 @@ Examples:
   komando test @prod
   komando test all
   komando test @new --wait 5m   # right after creating servers
+  komando test --end            # end every kept session
 
 Flags:
+      --end[=true|false]    end the kept sessions of the servers named (every server when none is named), instead of testing
   -h, --help[=true|false]   help for test
       --wait duration       test again every few seconds until every target passes, for up to this long (like 5m)
 
@@ -9660,6 +9672,7 @@ Examples:
   komando vpn test office
 
 Flags:
+      --end[=true|false]    end the kept sessions of the servers named (every server when none is named), instead of testing
   -h, --help[=true|false]   help for test
       --wait duration       test again every few seconds until every target passes, for up to this long (like 5m)
 

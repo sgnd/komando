@@ -1,6 +1,12 @@
-//go:build !windows
+//go:build unix
 
-package cli
+// komando is released for linux, darwin and windows, on amd64 and arm64
+// (PLATFORMS in the Makefile; release.yml signs the darwin ones). Of the
+// unix systems, only darwin and linux define the termios ioctls and
+// TypedAhead (ttyin_darwin.go, ttyin_linux.go), so this file builds for
+// those two; `make bins` builds every release target.
+
+package term
 
 import "golang.org/x/sys/unix"
 

@@ -406,3 +406,45 @@ func TestHostTrustFingerprint(t *testing.T) {
 		t.Fatalf("an agent pinned without a yes: %v", fps)
 	}
 }
+
+// A dry run records the stop the real run hits: under strict host keys an
+// AI agent's first pin needs the person's yes, and its preview says so; a
+// server with a key pinned already, or a policy that is not strict, shows
+// no stop.
+func TestHostTrustDryRunRecordsTheFirstPinStop(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "web1", "root@192.0.2.10:22")
+	mustRun(t, "config", "set", "host_key_policy", "strict")
+	setCallerEnv(t, "CLAUDECODE", "1")
+	d, e := invRun(t, "host", "trust", "web1", "--dry-run")
+	tcl.flags.dryRun = false
+	if e != nil || blockedCode(d) != "SAFETY_SETTING" {
+		t.Fatalf("strict, first pin: %v %+v", d, e)
+	}
+	pub, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sp, err := ssh.NewPublicKey(pub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sshx.PinHostKey("192.0.2.10:22", sp, false); err != nil {
+		t.Fatal(err)
+	}
+	d, e = invRun(t, "host", "trust", "web1", "--dry-run") // a key is pinned: no first pin
+	tcl.flags.dryRun = false
+	if e != nil || blockedCode(d) != "" {
+		t.Fatalf("strict, pinned already: %v %+v", d, e)
+	}
+	os.Unsetenv("CLAUDECODE")
+	resetApproval()
+	invHome(t) // the default policy, not strict
+	mustRun(t, "host", "add", "web1", "root@192.0.2.10:22")
+	setCallerEnv(t, "CLAUDECODE", "1")
+	d, e = invRun(t, "host", "trust", "web1", "--dry-run")
+	tcl.flags.dryRun = false
+	if e != nil || blockedCode(d) != "" {
+		t.Fatalf("not strict: %v %+v", d, e)
+	}
+}
