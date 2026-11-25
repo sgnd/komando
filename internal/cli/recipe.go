@@ -422,9 +422,15 @@ func checkRecipeCategory(c string) error {
 // reaches the engine.
 var snippetsOn = false
 
-// builtinSnippets are the ready-made snippets. The list is empty until the
-// S2 moves hand each type's list to snippet.New.
-var builtinSnippets = mustSnippets()
+// builtinSnippets are the ready-made snippets.
+var builtinSnippets = mustSnippets(builtinLists()...)
+
+// builtinLists are the ready-made snippets, one list per command they
+// replace. Each list lives in that command's file and moves with its
+// package (M5 cache, M9 database, M10 cluster, M11 host).
+func builtinLists() [][]snippet.Builtin {
+	return [][]snippet.Builtin{factsSnippets(), factsOnlySnippets()}
+}
 
 func mustSnippets(lists ...[]snippet.Builtin) *snippet.Registry {
 	r, err := snippet.New(lists...)
