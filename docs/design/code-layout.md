@@ -81,13 +81,13 @@ or a listed one is gone.
 | `internal/cli` | every command: flags, safety checks, audit and output |
 | `internal/cli/kit/term` | what every command prints: terminal column widths, text tables, the line of an empty list, whether the terminal reads escape sequences, reading one answer at the terminal, and the raw-mode screen and the keys of the interactive mode; no cobra, no komando state. Code every command package shares moves into `kit` one part at a time |
 | `internal/cloud` | komando's own clients for cloud and secret-manager APIs |
-| `internal/gcpadc` | finds Google application-default credentials for every client that uses them, after checking where the file found would send what |
 | `internal/codesize` | test only: the 100-line and 800-line limits |
 | `internal/dbx` | SQL and MongoDB against a conn, dump and restore |
 | `internal/driver` | the kinds of conns and the risk levels the safety checks use |
 | `internal/engine` | one komando call: who makes it and its approvals |
 | `internal/execsession` | a long `exec` that outlives the connection: the session ID, the folder on the server, and the shell text that starts, reads and stops a run |
 | `internal/flock` | a file lock between komando processes |
+| `internal/gcpadc` | finds Google application-default credentials for every client that uses them, after checking where the file found would send what |
 | `internal/inventory` | the rules for what goes into the inventory: names and the shared name space, login names, ports, labels, `--via` paths, conn families and the references to vault secrets; nothing of `internal/cli` |
 | `internal/ipsec` | komando's own IKEv1 and IKEv2 clients |
 | `internal/kube` | the Kubernetes API over HTTPS, without client-go |
@@ -99,8 +99,6 @@ or a listed one is gone.
 | `internal/policy` | finds destructive shell commands |
 | `internal/postquantum` | test only: key exchange is post-quantum hybrid first (SSH key exchanges, TLS curves and versions) |
 | `internal/ppp` | a small PPP peer for L2TP |
-| `internal/transport` | what every outbound HTTPS and TLS client of komando shares: the system's CAs (never `SSL_CERT_FILE`/`SSL_CERT_DIR`) and the company proxy (a person's `HTTPS_PROXY`, never an AI agent's) |
-| `internal/transport/proxytest` | a test proxy for the tests |
 | `internal/queuex` | message queues, with Kafka built in |
 | `internal/queuex/nats` | NATS JetStream |
 | `internal/queuex/pubsub` | Google Cloud Pub/Sub |
@@ -121,6 +119,8 @@ or a listed one is gone.
 | `internal/storex/ftptest` | a test FTP and FTPS server for the tests |
 | `internal/testhome` | tests only: a throwaway home folder for each test binary, and the rules that keep tests out of the real one |
 | `internal/tmpclean` | the temporary files of one run, removed on a second Ctrl-C; old leftovers swept |
+| `internal/transport` | what every outbound HTTPS and TLS client of komando shares: the system's CAs (never `SSL_CERT_FILE`/`SSL_CERT_DIR`) and the company proxy (a person's `HTTPS_PROXY`, never an AI agent's) |
+| `internal/transport/proxytest` | a test proxy for the tests |
 | `internal/vault` | the encrypted secrets |
 | `internal/version` | komando's version: set at link time with `-X` (the Makefile), else from the module version `go install` records |
 | `internal/winrm` | komando's own WinRM client for Windows servers |

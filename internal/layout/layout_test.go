@@ -49,12 +49,23 @@ var tableRow = regexp.MustCompile("^\\| `([a-z0-9/]+)` \\|")
 // that starts with heading in code-layout.md.
 func docTable(t *testing.T, heading string) map[string]bool {
 	t.Helper()
+	names := map[string]bool{}
+	for _, n := range docTableRows(t, heading) {
+		names[n] = true
+	}
+	return names
+}
+
+// docTableRows returns the first-column names of that table, in the order
+// of its rows.
+func docTableRows(t *testing.T, heading string) []string {
+	t.Helper()
 	f, err := os.Open(layoutDoc)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer f.Close()
-	names := map[string]bool{}
+	var names []string
 	in := false
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
@@ -64,7 +75,7 @@ func docTable(t *testing.T, heading string) map[string]bool {
 			continue
 		}
 		if m := tableRow.FindStringSubmatch(line); in && m != nil {
-			names[m[1]] = true
+			names = append(names, m[1])
 		}
 	}
 	if err := sc.Err(); err != nil {
@@ -122,6 +133,17 @@ func programFiles(t *testing.T, fn func(rel, name string), dirs ...string) {
 		})
 		if err != nil {
 			t.Fatal(err)
+		}
+	}
+}
+
+// The package table is in alphabetical order, so a reader finds a package
+// where they look for it.
+func TestPackagesSorted(t *testing.T) {
+	rows := docTableRows(t, "## Packages")
+	for i := 1; i < len(rows); i++ {
+		if rows[i] < rows[i-1] {
+			t.Errorf("docs/design/code-layout.md: %s comes after %s in the package table; keep it in alphabetical order", rows[i], rows[i-1])
 		}
 	}
 }
