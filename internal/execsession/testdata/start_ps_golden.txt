@@ -126,8 +126,8 @@ try {
     if (-not (ks_aclExact (Get-Acl -LiteralPath $ks_d).Sddl $ks_sid)) { ks_fail 96 }
     # nothing may have come in between New-Item and icacls (A-447-2)
     if (@(Get-ChildItem -LiteralPath $ks_d -Force).Count -ne 0) { ks_fail 96 }
-    # -Encoding Byte is Windows PowerShell 5.1's, which komando always
-    # starts (powershell.exe); .NET file calls are blocked in Constrained Language Mode
+    # -Encoding Byte exists only in Windows PowerShell 5.1: komando always
+    # starts powershell.exe (5.1) on Windows servers, never pwsh
     function ks_put([string]$name) {
         $l = [Console]::In.ReadLine()
         if ($null -eq $l) { ks_fail 98 }
