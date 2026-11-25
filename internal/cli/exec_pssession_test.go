@@ -17,6 +17,7 @@ import (
 // first input line: the start (sweep markers), a read, a stop, a remove.
 type winSessionServer struct {
 	*fakeServer
+	swept string // an old session ID the start's sweep reports (with CRLF, as Windows prints)
 	begin int    // the start's exit (0: it runs)
 	log   string // out.log
 	ended bool
@@ -47,7 +48,12 @@ func startWinSessionServer(t *testing.T, log string, ended bool) *winSessionServ
 			if s.begin != 0 {
 				return "sweep-begin " + id + "\nsweep-end " + id + "\n", s.begin
 			}
-			return "sweep-begin " + id + "\nsweep-end " + id + "\nfacts-begin " + id + "\npid 4242\ncreated 2026-11-26T10:00:00.0000000Z\nimage powershell.exe\ncmdline " +
+			sweep := "sweep-begin " + id + "\r\n"
+			if s.swept != "" {
+				sweep += "swept " + s.swept + "\r\n"
+			}
+			sweep += "sweep-end " + id + "\r\n"
+			return sweep + "facts-begin " + id + "\npid 4242\ncreated 2026-11-26T10:00:00.0000000Z\nimage powershell.exe\ncmdline " +
 				strings.Replace(psCmdline, "%s", id, 1) + "\nfacts-end " + id + "\n", 0
 		case strings.Contains(script, "read-begin"):
 			from, _ := strconv.Atoi(psFrom.FindStringSubmatch(script)[1])
@@ -150,7 +156,7 @@ func TestWindowsExecRecordHoldsTheProcessFacts(t *testing.T) {
 // lines on the bootstrap's input.
 func TestWindowsExecValuesAreData(t *testing.T) {
 	srv := startWinSessionServer(t, "", true)
-	setHostEnv(t, map[string]string{"APP": "it's \"x\"", "N": "1"})
+	setHostEnv(t, map[string]string{"KSZEBRA": "it's \"x\"", "N": "1"})
 	const command, input = "Write-Output 'marker-cmd-7'", "marker-in-9\n"
 	tmp := t.TempDir() + "/in.txt"
 	writeFile(t, tmp, []byte(input))
@@ -161,9 +167,9 @@ func TestWindowsExecValuesAreData(t *testing.T) {
 	}
 	start := execs[0]
 	script := decodeFirstLine(start.stdin)
-	for _, bad := range []string{"marker-cmd-7", "marker-in-9", "it's", `"x"`, "APP", "Get-Date"} {
+	for _, bad := range []string{"marker-cmd-7", "marker-in-9", "it's", `"x"`, "KSZEBRA", "Get-Date"} {
 		if strings.Contains(script, bad) {
-			t.Errorf("the start script holds %q:\n%s", bad, script)
+			t.Errorf("the start script holds %q", bad)
 		}
 	}
 	lines := strings.Split(strings.TrimSuffix(start.stdin, "\n"), "\n")
@@ -176,7 +182,7 @@ func TestWindowsExecValuesAreData(t *testing.T) {
 		files = append(files, string(b))
 	}
 	all := strings.Join(files, "\x00")
-	for _, want := range []string{"marker-cmd-7", "marker-in-9", "APP=" + base64.StdEncoding.EncodeToString([]byte(`it's "x"`))} {
+	for _, want := range []string{"marker-cmd-7", "marker-in-9", "KSZEBRA=" + base64.StdEncoding.EncodeToString([]byte(`it's "x"`))} {
 		if !strings.Contains(all, want) {
 			t.Errorf("the input lacks %q", want)
 		}
@@ -393,4 +399,22 @@ func sessionID(t *testing.T, first map[string]any) string {
 		t.Fatalf("the first line names no session: %v", first)
 	}
 	return id
+}
+
+// The start's sweep reports in CRLF lines on Windows: the records of what
+// it swept are dropped all the same.
+func TestWindowsExecForgetsWhatTheSweepRemoved(t *testing.T) {
+	srv := startWinSessionServer(t, "", true)
+	old := strings.Repeat("b", 52)
+	rec := &store.ExecSession{ID: old, Host: "win", Command: "x", PID: 7, Actor: "someone"}
+	if err := store.UpdateRuntime(store.Save(), func(s *store.State) error { s.ExecSessions[old] = rec; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	srv.swept = old
+	if _, _, err := runSession(t, "exec", "win", "--", "Get-Date"); err != nil {
+		t.Fatal(err)
+	}
+	if rt, _ := store.ReadRuntime(); rt.ExecSessions[old] != nil {
+		t.Error("the record of a swept session stayed")
+	}
 }
