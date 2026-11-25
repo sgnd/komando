@@ -24,7 +24,7 @@ import (
 // gateFields are the fields of a gate: the four gate flags and who is
 // calling. A write to a field of that name is a write to a gate, unless it
 // is reviewed here as something else.
-var gateFields = map[string]bool{"dryRun": true, "yes": true, "allowDangerous": true, "reveal": true, "who": true}
+var gateFields = map[string]bool{"dryRun": true, "yes": true, "allowDangerous": true, "reveal": true, "who": true, "hooks": true}
 
 // programGateWriters is every place the program code of internal/cli stores
 // a gate (g.Store), writes a gate's field, or makes a gate value (gate{}):
@@ -35,10 +35,11 @@ var gateFields = map[string]bool{"dryRun": true, "yes": true, "allowDangerous": 
 // --allow-dangerous on for a command the person never confirmed, or make
 // an agent a person.
 var programGateWriters = map[string]int{
-	"call.go cl.g.Store": 4,
-	"call.go g.dryRun":   1,
-	"call.go g.who":      1,
-	"call.go gate{}":     2,
+	"call.go cl.g.Store":          3,
+	"call.go cl.g.CompareAndSwap": 1,
+	"call.go g.dryRun":            1,
+	"call.go g.who":               1,
+	"call.go gate{}":              2,
 }
 
 func TestGateWritersAreReviewed(t *testing.T) {
@@ -88,9 +89,9 @@ func gateWriters(t *testing.T, tests bool) map[string]int {
 					}
 				}
 			case *ast.CallExpr:
-				if sel, ok := n.Fun.(*ast.SelectorExpr); ok && sel.Sel.Name == "Store" {
+				if sel, ok := n.Fun.(*ast.SelectorExpr); ok && (sel.Sel.Name == "Store" || sel.Sel.Name == "CompareAndSwap" || sel.Sel.Name == "Swap") {
 					if inner, ok := sel.X.(*ast.SelectorExpr); ok && inner.Sel.Name == "g" {
-						got[name+" "+types.ExprString(inner)+".Store"]++
+						got[name+" "+types.ExprString(inner)+"."+sel.Sel.Name]++
 					}
 				}
 				if id, ok := n.Fun.(*ast.Ident); ok && id.Name == "new" && len(n.Args) == 1 {
@@ -200,25 +201,27 @@ func TestOneWayGateMethodsHaveTheirCallers(t *testing.T) {
 	}
 }
 
-// TestDecisionsLoadTheGateOnce: each decision loads the running command's
-// gate once and reads every flag and the caller from that one value, so a
-// gate stored while it decides (the next command of a long-lived call)
-// never mixes into it.
+// gateDeciders are the decisions the gate makes, as methods of *gate. The
+// call keeps a forwarder of the same name for each, except
+// personAllowsFlags, which only the gate's own decisions use.
+var gateDeciders = []string{"yesOK", "yesOKFor", "dangerOK", "dangerAndYesOK", "revealOK",
+	"personAllows", "personAllowsFor", "personAllowsFlags", "policyStop", "storeWrite"}
+
+// TestDecisionsLoadTheGateOnce: each decision is a method of the gate, so
+// it reads every flag and the caller from that one value and loads
+// nothing; the call's forwarder of the same name loads the gate once.
 func TestDecisionsLoadTheGateOnce(t *testing.T) {
-	deciders := map[string]bool{"yesOK": true, "yesOKFor": true, "dangerOK": true, "dangerAndYesOK": true, "revealOK": true,
-		"personAllows": true, "personAllowsFor": true, "personAllowsFlags": true, "policyStop": true, "storeWrite": true}
 	loads := map[string]bool{"gate": true, "dryRun": true, "yes": true, "allowDangerous": true, "reveal": true, "caller": true, "isAgent": true}
-	seen := map[string]int{}
+	onGate, onCall := map[string]int{}, map[string]int{}
 	goFiles(t, func(name string, test bool, file *ast.File) {
 		if test {
 			return
 		}
 		for _, d := range file.Decls {
 			fd, ok := d.(*ast.FuncDecl)
-			if !ok || fd.Recv == nil || !deciders[fd.Name.Name] {
+			if !ok || fd.Recv == nil || !slices.Contains(gateDeciders, fd.Name.Name) {
 				continue
 			}
-			seen[fd.Name.Name]++
 			n := 0
 			ast.Inspect(fd.Body, func(x ast.Node) bool {
 				if c, ok := x.(*ast.CallExpr); ok {
@@ -228,16 +231,78 @@ func TestDecisionsLoadTheGateOnce(t *testing.T) {
 				}
 				return true
 			})
-			if n > 1 {
-				t.Errorf("%s: %s loads the gate %d times; load it once (g := cl.gate()) and read from g", name, fd.Name.Name, n)
+			switch types.ExprString(fd.Recv.List[0].Type) {
+			case "*gate":
+				onGate[fd.Name.Name]++
+				if n != 0 {
+					t.Errorf("%s: (*gate).%s loads a gate %d times; read g's fields", name, fd.Name.Name, n)
+				}
+			case "*call":
+				onCall[fd.Name.Name]++
+				if n != 1 {
+					t.Errorf("%s: (*call).%s loads the gate %d times; forward to cl.gate() once", name, fd.Name.Name, n)
+				}
 			}
 		}
 	})
-	for d := range deciders {
-		if seen[d] != 1 {
-			t.Errorf("decision %s: found %d times, want 1 (renamed or moved? update this list)", d, seen[d])
+	for _, d := range gateDeciders {
+		if onGate[d] != 1 {
+			t.Errorf("decision %s: %d methods on *gate, want 1", d, onGate[d])
+		}
+		if want := map[bool]int{true: 0, false: 1}[d == "personAllowsFlags"]; onCall[d] != want {
+			t.Errorf("decision %s: %d forwarders on *call, want %d", d, onCall[d], want)
 		}
 	}
+}
+
+// gateMayCall is everything a method of the gate may call besides the
+// gate's own methods, its hooks (g.hooks) and the approval session the
+// hooks give it: pure helpers that neither write nor prompt.
+var gateMayCall = map[string]bool{"append": true, "done": true, "flagKind": true, "tookGaveUp": true, "slices.ContainsFunc": true,
+	"store.Preview": true, "store.Save": true, "g.who.IsAgent": true}
+
+// TestGateOnlyDecides (Audit K2-0, condition 1): the gate decides; it does
+// not write or prompt. A method of *gate reaches the call it decides for
+// only through g.hooks, given to newGate and never set after
+// (TestGateWritersAreReviewed), so it prints, records and asks only through
+// them, and cli cannot swap them in the middle of a command.
+func TestGateOnlyDecides(t *testing.T) {
+	goFiles(t, func(name string, test bool, file *ast.File) {
+		if test {
+			return
+		}
+		for _, d := range file.Decls {
+			fd, ok := d.(*ast.FuncDecl)
+			if !ok || fd.Recv == nil || types.ExprString(fd.Recv.List[0].Type) != "*gate" || fd.Body == nil {
+				continue
+			}
+			sess := map[string]bool{} // locals that hold g.hooks.approvals()
+			ast.Inspect(fd.Body, func(x ast.Node) bool {
+				if as, ok := x.(*ast.AssignStmt); ok && len(as.Rhs) == 1 {
+					if c, ok := as.Rhs[0].(*ast.CallExpr); ok && types.ExprString(c.Fun) == "g.hooks.approvals" {
+						sess[types.ExprString(as.Lhs[0])] = true
+					}
+				}
+				c, ok := x.(*ast.CallExpr)
+				if !ok {
+					return true
+				}
+				fn := types.ExprString(c.Fun)
+				if _, lit := c.Fun.(*ast.FuncLit); lit {
+					return true
+				}
+				recv, _, _ := strings.Cut(fn, ".")
+				switch {
+				case gateMayCall[fn], strings.HasPrefix(fn, "g.hooks."), sess[recv]:
+				case strings.HasPrefix(fn, "g.") && strings.Count(fn, ".") == 1:
+				case strings.HasPrefix(fn, "func("), fn == "k" || fn == "f":
+				default:
+					t.Errorf("%s: (*gate).%s calls %s: the gate decides, it does not write or prompt; go through g.hooks", name, fd.Name.Name, fn)
+				}
+				return true
+			})
+		}
+	})
 }
 
 // goFiles calls fn with every Go file of internal/cli and the packages
@@ -292,7 +357,10 @@ func TestNoGateIsNeverAPerson(t *testing.T) {
 	if !g.who.IsAgent() || g.dryRun || g.yes || g.allowDangerous || g.reveal {
 		t.Errorf("a call without a gate reads %+v; want an AI agent with every flag off", *g)
 	}
-	if got := newGate(nil, engine.Caller{Kind: engine.Script}); got.who.Kind != engine.Script || got.dryRun || got.yes || got.allowDangerous || got.reveal {
+	if g.personAllows("--yes") || g.personAllowsFor("--allow-dangerous", "runs `x`") {
+		t.Error("a gate without hooks let an agent's flag through; it has no window to ask in, so it must refuse")
+	}
+	if got := newGate(nil, engine.Caller{Kind: engine.Script}, nil); got.who.Kind != engine.Script || got.dryRun || got.yes || got.allowDangerous || got.reveal {
 		t.Errorf("newGate with no command line = %+v; want the caller it was given and every flag off", *got)
 	}
 }
@@ -436,5 +504,21 @@ func TestGlobalFlagsHoldNoGateFlag(t *testing.T) {
 		if gateFields[f.Name] || f.Type == reflect.TypeFor[gate]() || f.Type == reflect.TypeFor[*gate]() {
 			t.Errorf("globalFlags has %s %s: the gate flags and the caller belong to the gate only", f.Name, f.Type)
 		}
+	}
+}
+
+// TestWithDryRunKeepsAGateStoredMeanwhile (Audit A-445-1): a gate stored
+// while withDryRun's f runs (an asAgent inside it) is not overwritten when
+// withDryRun puts its gate back: the caller stays the ssh-gate key, with
+// --dry-run still on.
+func TestWithDryRunKeepsAGateStoredMeanwhile(t *testing.T) {
+	cl := testCall()
+	setTestCaller(cl, engine.Caller{Kind: engine.Person, Actor: "alice"})
+	if err := cl.withDryRun(func() error { cl.asAgent("deploy-key"); return nil }); err != nil {
+		t.Fatal(err)
+	}
+	g := cl.gate()
+	if want := (engine.Caller{Kind: engine.Agent, Agent: "ssh-gate key deploy-key", Actor: "alice"}); g.who != want || !g.dryRun {
+		t.Errorf("after withDryRun: caller %+v, --dry-run %v; want the asAgent caller %+v kept, --dry-run on", g.who, g.dryRun, want)
 	}
 }

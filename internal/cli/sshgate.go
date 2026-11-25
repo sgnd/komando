@@ -412,7 +412,7 @@ func gateRule(c *cobra.Command, name string, key gateKey) (string, *out.Error) {
 	}
 	// what the key typed, from its parsed command line: this command is
 	// checked here, never run, so no begin stored a gate for it
-	typed := newGate(c, cl.caller())
+	typed := newGate(c, cl.caller(), nil)
 	switch {
 	case gateNeedsPerson[cmdKeys[name]]:
 		return name, out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "a person runs it in a terminal on the komando computer itself",
