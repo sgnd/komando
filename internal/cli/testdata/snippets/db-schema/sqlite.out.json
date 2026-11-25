@@ -1,0 +1,1 @@
+{"ok":true,"command":"db.schema","data":{"conn":"lite","tables":[{"name":"orders","type":"table"},{"name":"users","type":"table"}]}}

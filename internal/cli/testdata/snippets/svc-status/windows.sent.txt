@@ -1,0 +1,10 @@
+powershell script:
+$rows = foreach ($n in @('W3SVC', 'nope')) {
+  $s = Get-CimInstance -ClassName Win32_Service -Filter ("Name='" + $n + "'")
+  if (-not $s) { $s = Get-CimInstance -ClassName Win32_Service -Filter ("DisplayName='" + $n + "'") }
+  if ($s) { [pscustomobject]@{ name = $s.Name; display_name = $s.DisplayName; state = $s.State; start_mode = $s.StartMode; delayed_start = [bool]$s.DelayedAutoStart; pid = [int]$s.ProcessId; account = $s.StartName; exit_code = [int]$s.ExitCode; found = $true } } else { [pscustomobject]@{ name = $n; found = $false } }
+}
+[Console]::Out.WriteLine('#komando:json=' + (ConvertTo-Json -Compress -InputObject @($rows)))
+
+if (-not $?) { if ($LASTEXITCODE) { exit $LASTEXITCODE }; exit 1 }; $global:LASTEXITCODE = 0
+

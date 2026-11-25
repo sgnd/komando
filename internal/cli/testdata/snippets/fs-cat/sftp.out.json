@@ -1,0 +1,1 @@
+{"ok":true,"command":"fs.cat","data":{"path":"/srv/app/env.conf","content":"PORT=8080\nMODE=prod\n","bytes":20,"lines":2,"truncated":false,"sha256":"9edf889276c8a0b39d31a8a83052c02d86a2f25dc70dfd50028ff527143eed1e"}}

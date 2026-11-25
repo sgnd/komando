@@ -1,0 +1,8 @@
+os=windows
+os_pretty=Microsoft Windows Server 2012 R2 Standard
+os_build=9600
+cpus=4
+upd_total=3
+upd_security=1
+listen=tcp 0.0.0.0 5985 4 System
+admin=True
