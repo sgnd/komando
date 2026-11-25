@@ -536,6 +536,7 @@ func newRoot(cl *call) *cobra.Command {
 
 	root.SetVersionTemplate(`{{.Version}}` + "\n")
 	addCommands(cl, root)
+	mountTable(root)
 	addHelpTopics(root) // and cobra's help command
 	root.InitDefaultCompletionCmd()
 	labelBuiltinCmds(root) // before the conventions: `completion` alone, piped, is a USAGE envelope too
