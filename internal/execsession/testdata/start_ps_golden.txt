@@ -23,15 +23,68 @@ function ks_mask([string]$r) {
     }
     return $n
 }
-# the allow ACEs of an SDDL's DACL: type;flags;rights;;;trustee
-function ks_aces([string]$sd) {
+# the DACL part of an SDDL: from D: to S: or the end
+function ks_dacl([string]$sd) {
     $i = $sd.IndexOf('D:')
-    if ($i -lt 0) { return @() }
-    $dacl = $sd.Substring($i)
-    $j = $dacl.IndexOf('S:')
-    if ($j -ge 0) { $dacl = $dacl.Substring(0, $j) }
-    $all = @($dacl | Select-String -Pattern '\(([^;()]*);([^;()]*);([^;()]*);[^;()]*;[^;()]*;([^;()]*)\)' -AllMatches | ForEach-Object { $_.Matches })
-    return @($all | Where-Object { $_.Groups[1].Value -match '^(A|OA|XA|ZA)$' })
+    if ($i -lt 0) { return '' }
+    $d = $sd.Substring($i)
+    $j = $d.IndexOf('S:')
+    if ($j -ge 0) { $d = $d.Substring(0, $j) }
+    return $d
+}
+# the owner (a SID or a two-letter alias), '' when there is none
+function ks_owner([string]$sd) {
+    if ($sd -match '^O:(S-[0-9-]+|[A-Z]{2})') { return $Matches[1] }
+    return ''
+}
+# the ACEs of a DACL, each a top-level group in parentheses, or $null
+# when the text is anything else (unbalanced, or text between groups)
+function ks_aceList([string]$d) {
+    if (-not ($d -match '^D:([A-Z]*)')) { return $null }
+    $flags = $Matches[1]
+    $list = @()
+    $depth = 0
+    $start = 0
+    for ($k = 0; $k -lt $d.Length; $k++) {
+        $c = $d[$k]
+        if ($c -eq '(') {
+            if ($depth -eq 0) { $start = $k }
+            $depth++
+        } elseif ($c -eq ')') {
+            $depth--
+            if ($depth -lt 0) { return $null }
+            if ($depth -eq 0) { $list += $d.Substring($start, $k - $start + 1) }
+        }
+    }
+    if ($depth -ne 0 -or ('D:' + $flags + ($list -join '')) -cne $d) { return $null }
+    return ,$list
+}
+# true when no allow ACE lets anyone but sid, SYSTEM and Administrators
+# write, inherit-only ones too (A-447-2); an ACE that is not the plain
+# six fields (a conditional or resource-attribute ACE) makes it false
+function ks_daclSafe([string]$sd, [string]$sid) {
+    $list = ks_aceList (ks_dacl $sd)
+    if ($null -eq $list) { return $false }
+    foreach ($a in $list) {
+        if (-not ($a -match '^\(([^;()]*);([^;()]*);([^;()]*);[^;()]*;[^;()]*;([^;()]*)\)$')) { return $false }
+        $type, $rights, $who = $Matches[1], $Matches[3], $Matches[4]
+        if ($type -notmatch '^(A|OA|XA|ZA)$') { continue }
+        if (@($sid, 'SY', 'S-1-5-18', 'BA', 'S-1-5-32-544') -contains $who) { continue }
+        if ((ks_mask $rights) -band 0x500D0156) { return $false }
+    }
+    return $true
+}
+# true when the owner is sid and the DACL is, as text, protected and
+# exactly full control for sid and SYSTEM, in either order
+function ks_aclExact([string]$sd, [string]$sid) {
+    if ((ks_owner $sd) -ne $sid) { return $false }
+    $d = ks_dacl $sd
+    $a = '(A;OICI;FA;;;' + $sid + ')'
+    $b = '(A;OICI;FA;;;SY)'
+    foreach ($f in @('P', 'PAI', 'PAR', 'PARAI')) {
+        if ($d -ceq ('D:' + $f + $a + $b) -or $d -ceq ('D:' + $f + $b + $a)) { return $true }
+    }
+    return $false
 }
 try {
     $ks_sid = @(whoami.exe /user /fo csv /nh | ConvertFrom-Csv -Header 'n', 's')
@@ -57,12 +110,7 @@ try {
         $i = Get-Item -LiteralPath $p -Force
         if (-not $i.PSIsContainer -or $i.Attributes.ToString() -match 'ReparsePoint') { ks_fail 90 }
         $sd = (Get-Acl -LiteralPath $p).Sddl
-        if (-not ($sd -match '^O:(S-[0-9-]+|[A-Z]{2})') -or $Matches[1] -ne $ks_sid) { ks_fail 90 }
-        foreach ($a in ks_aces $sd) {
-            if ($a.Groups[2].Value -match 'IO') { continue }
-            if (@($ks_sid, 'SY', 'S-1-5-18', 'BA', 'S-1-5-32-544') -contains $a.Groups[4].Value) { continue }
-            if ((ks_mask $a.Groups[3].Value) -band 0x500D0156) { ks_fail 90 }
-        }
+        if ((ks_owner $sd) -ne $ks_sid -or -not (ks_daclSafe $sd $ks_sid)) { ks_fail 90 }
     }
     ks_dir $ks_r
     ks_dir $ks_s
@@ -73,14 +121,11 @@ try {
     ks_own $ks_d 96
     $null = & icacls.exe $ks_d /inheritance:r /grant:r ('*' + $ks_sid + ':(OI)(CI)F') '*S-1-5-18:(OI)(CI)F'
     if ($LASTEXITCODE -ne 0) { ks_fail 96 }
-    function ks_aclExact([string]$sd) {
-        if (-not ($sd -match '^O:(S-[0-9-]+|[A-Z]{2})') -or $Matches[1] -ne $ks_sid) { return $false }
-        if (-not ($sd -match 'D:([A-Z]*)\(') -or $Matches[1] -notmatch 'P') { return $false }
-        $got = @(ks_aces $sd | ForEach-Object { $_.Value }) | Sort-Object
-        $want = @(('(A;OICI;FA;;;' + $ks_sid + ')'), '(A;OICI;FA;;;SY)') | Sort-Object
-        return ($got.Count -eq 2) -and ($got[0] -ceq $want[0]) -and ($got[1] -ceq $want[1])
-    }
-    if (-not (ks_aclExact (Get-Acl -LiteralPath $ks_d).Sddl)) { ks_fail 96 }
+    if (-not (ks_aclExact (Get-Acl -LiteralPath $ks_d).Sddl $ks_sid)) { ks_fail 96 }
+    # nothing may have come in between New-Item and icacls (A-447-2)
+    if (@(Get-ChildItem -LiteralPath $ks_d -Force).Count -ne 0) { ks_fail 96 }
+    # -Encoding Byte is Windows PowerShell 5.1's, which komando always
+    # starts (powershell.exe); .NET file calls are blocked in Constrained Language Mode
     function ks_put([string]$name) {
         $l = [Console]::In.ReadLine()
         if ($null -eq $l) { ks_fail 98 }
