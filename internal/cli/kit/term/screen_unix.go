@@ -131,6 +131,11 @@ func (s *Screen) Size() (w, h int) {
 	return w, h
 }
 
+// stopJob stops the whole job, as any Ctrl-Z does; it returns when the
+// job goes on (fg). Tests stand in for it: how a job stops depends on the
+// process groups of the machine the tests run on.
+var stopJob = func() { _ = unix.Kill(0, unix.SIGTSTP) }
+
 // Suspend is Ctrl-Z: the terminal goes back to how it was, the process
 // stops as a shell expects (SIGTSTP), and when it goes on (fg) raw mode
 // and bracketed paste come back. The caller draws the screen again.
@@ -141,10 +146,15 @@ func (s *Screen) Suspend() error {
 		return nil
 	}
 	_, _ = io.WriteString(s.out, screenOff)
-	_ = xterm.Restore(s.sys.fd, s.sys.saved)
+	if err := xterm.Restore(s.sys.fd, s.sys.saved); err != nil {
+		// never stop with the terminal still raw: end the screen instead
+		s.mu.Unlock()
+		s.Restore()
+		return ErrNoScreen
+	}
 	s.mu.Unlock()
 
-	_ = unix.Kill(0, unix.SIGTSTP) // the whole job stops, as with any Ctrl-Z
+	stopJob()
 
 	s.mu.Lock()
 	defer s.mu.Unlock()

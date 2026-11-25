@@ -37,6 +37,12 @@ func TestScreenChild(t *testing.T) {
 	if mode == "idle" {
 		opt.Idle = 300 * time.Millisecond
 	}
+	// the job does not really stop: the terminal as it is at the moment
+	// of the stop is reported, then the job goes on, as after fg
+	stopJob = func() {
+		tm, err := unix.IoctlGetTermios(int(os.Stdin.Fd()), ioctlGetTermios)
+		say("atstop %+v %v", tm, err)
+	}
 	s, err := OpenScreen(os.Stdin, os.Stdout, opt)
 	if err != nil {
 		say("open %v", err)
@@ -221,7 +227,7 @@ func (r *screenRun) lines() []string {
 	b, _ := os.ReadFile(r.report)
 	var out []string
 	for _, l := range strings.Split(strings.TrimSpace(string(b)), "\n") {
-		if !strings.HasPrefix(l, "termios ") && !strings.HasPrefix(l, "errtermios ") {
+		if !strings.HasPrefix(l, "termios ") && !strings.HasPrefix(l, "errtermios ") && !strings.HasPrefix(l, "atstop ") {
 			out = append(out, l)
 		}
 	}
@@ -372,37 +378,41 @@ func (r *screenRun) waitForReport(line string) {
 	r.t.Fatalf("the child never reported %q; it reported %q", line, r.lines())
 }
 
-// Ctrl-Z stops the process with the terminal put back; fg brings raw mode
-// back; Enter then ends it and the terminal is as it was.
+// Ctrl-Z puts the terminal back before the job stops, and brings raw
+// mode back when it goes on; Enter then ends it and the terminal is as it
+// was. The stop itself is stopJob, which the child replaces: how a job
+// stops depends on the machine's process groups, which differ between
+// this test's hosts.
 func TestScreenSuspendAndResume(t *testing.T) {
 	r := startScreen(t, "keys", true)
 	r.typ("\x1a")
-	pid := r.cmd.Process.Pid
-	var ws syscall.WaitStatus
-	if _, err := syscall.Wait4(pid, &ws, syscall.WUNTRACED, nil); err != nil {
-		t.Fatal(err)
-	}
-	if !ws.Stopped() {
-		t.Fatalf("the child did not stop on Ctrl-Z: %v", ws)
-	}
-	now, err := unix.IoctlGetTermios(int(r.tty.Fd()), ioctlGetTermios)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if *now != *r.before {
-		t.Errorf("stopped with the terminal still raw:\n before %+v\n now    %+v", *r.before, *now)
-	}
-	if err := syscall.Kill(pid, syscall.SIGCONT); err != nil {
-		t.Fatal(err)
-	}
 	r.waitFor("back")
-	if now, _ = unix.IoctlGetTermios(int(r.tty.Fd()), ioctlGetTermios); now.Lflag&unix.ICANON != 0 {
-		t.Errorf("raw mode did not come back after fg")
+	want := fmt.Sprintf("atstop %+v %v", r.before, nil)
+	b, _ := os.ReadFile(r.report)
+	at := ""
+	for _, l := range strings.Split(string(b), "\n") {
+		if strings.HasPrefix(l, "atstop ") {
+			at = l
+		}
+	}
+	if at != want {
+		t.Errorf("the job stopped with the terminal not put back:\n want %s\n got  %s", want, at)
+	}
+	if now, err := unix.IoctlGetTermios(int(r.tty.Fd()), ioctlGetTermios); err != nil || now.Lflag&unix.ICANON != 0 {
+		t.Errorf("raw mode did not come back after the job went on (%v)", err)
 	}
 	r.typ("x\r")
 	r.end()
 	r.wantLines("suspend", "rune x", "key 2", "end enter")
 	r.restored()
+	// bracketed paste: on, off before the stop, on after it, off at the end
+	out := r.shown()
+	on1 := strings.Index(out, screenOn)
+	off1 := strings.Index(out, screenOff)
+	on2 := strings.LastIndex(out, screenOn)
+	if strings.Count(out, screenOn) != 2 || strings.Count(out, screenOff) != 2 || !(on1 < off1 && off1 < on2) {
+		t.Errorf("bracketed paste was not turned off for the stop and on again after it; the screen wrote %q", out)
+	}
 }
 
 // On a real terminal: a lone ESC is Esc only after its wait, a key sent
