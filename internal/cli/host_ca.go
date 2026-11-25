@@ -211,14 +211,17 @@ ever signs.`,
 				rows = append(rows, r)
 			}
 			res := map[string]any{"items": rows, "revoked": len(revoke)}
+			// a dry run records the stop the real run hits, then shows the preview
+			if cl.isAgent() || !cl.interactive() {
+				if err := cl.policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON", "a person runs `komando host ca add` in their own terminal, after checking the CA's fingerprint",
+					"adding a server CA trusts every server it signs, so only a person at a terminal can do it").NoFlag()); err != nil {
+					return err
+				}
+			}
 			if cl.flags.dryRun {
 				res["action"] = "would_add"
 				cl.out.Print("host.ca.add", res, nil)
 				return nil
-			}
-			if cl.isAgent() || !cl.interactive() {
-				return out.Errf(out.ExitPolicy, "NEEDS_PERSON", "a person runs `komando host ca add` in their own terminal, after checking the CA's fingerprint",
-					"adding a server CA trusts every server it signs, so only a person at a terminal can do it").NoFlag()
 			}
 			if err := sshx.RevokeHostKeys(revoke); err != nil {
 				return err
