@@ -14,6 +14,7 @@ import (
 
 	"golang.org/x/sys/windows"
 
+	kitterm "github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/vault"
 )
@@ -51,7 +52,7 @@ func TestConPTYChild(t *testing.T) {
 	var mode uint32
 	_ = windows.GetConsoleMode(windows.Handle(in.Fd()), &mode)
 	const want = windows.ENABLE_ECHO_INPUT | windows.ENABLE_LINE_INPUT | windows.ENABLE_PROCESSED_INPUT
-	_ = os.WriteFile(os.Getenv("KOMANDO_PTY_REPORT"), fmt.Appendf(nil, "%v %d", mode&want == want, typedAhead(int(in.Fd()))), 0o600)
+	_ = os.WriteFile(os.Getenv("KOMANDO_PTY_REPORT"), fmt.Appendf(nil, "%v %d", mode&want == want, kitterm.TypedAhead(int(in.Fd()))), 0o600)
 	os.Exit(code)
 }
 

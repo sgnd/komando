@@ -79,7 +79,7 @@ or a listed one is gone.
 | `internal/capability` | the command tree of the next command structure as data: types, providers, areas, verbs, options and tier rows; until the switch, `internal/cli` reads only the keys of its safety tables from it |
 | `internal/ci` | test only: runs the scripts inside the GitHub workflows (the CLA check) |
 | `internal/cli` | every command: flags, safety checks, audit and output |
-| `internal/cli/kit/term` | what every command prints: terminal column widths, text tables, the line of an empty list and whether the terminal reads escape sequences; no cobra, no komando state. Code every command package shares moves into `kit` one part at a time |
+| `internal/cli/kit/term` | what every command prints: terminal column widths, text tables, the line of an empty list, whether the terminal reads escape sequences, and reading one answer at the terminal; no cobra, no komando state. Code every command package shares moves into `kit` one part at a time |
 | `internal/cloud` | komando's own clients for cloud and secret-manager APIs |
 | `internal/gcpadc` | finds Google application-default credentials for every client that uses them, after checking where the file found would send what |
 | `internal/codesize` | test only: the 100-line and 800-line limits |
@@ -113,6 +113,7 @@ or a listed one is gone.
 | `internal/sealfile` | the sealed file of `export --sealed` and `export --for-phone` ([sealed-file.md](sealed-file.md)) |
 | `internal/sealkey` | makes each of the store's keys (row, runtime, value, ticket, policy) from its master key |
 | `internal/sealrow` | seals one record of the local store |
+| `internal/snippet` | the engine of the ready-made snippets: the built-in type, the checks of a definition, the registry, filling a text with quoted variables, the parse step and the JSON contract; it runs nothing itself |
 | `internal/sshx` | SSH: dialing through jump hosts, host keys, running commands |
 | `internal/sslvpn` | komando's own SSL VPN clients (AnyConnect, Fortinet, GlobalProtect, F5, Pulse) |
 | `internal/store` | komando's state: inventory, conns, keys, jobs, tunnels, settings |
@@ -140,7 +141,7 @@ row allows, or a row has no code.
 
 | Package | May import |
 |---|---|
-| `internal/cli/kit/term` | std, `internal/out`, `golang.org/x/text`, `golang.org/x/sys/windows` (windows) |
+| `internal/cli/kit/term` | std, `internal/out`, `golang.org/x/text`, `golang.org/x/term`, `golang.org/x/sys/unix` (unix), `golang.org/x/sys/windows` (windows) |
 
 ## Files in internal/cli
 
@@ -198,7 +199,6 @@ a reason; `internal/layout` reads this table.
 | `stdin` | reading piped input |
 | `suggest` | "did you mean" for a word komando does not know |
 | `synonyms` | permanent second names of commands |
-| `term` | the terminal's size and mode |
 | `text` | the shared `-o text` output: tables, widths, empty lists, change lines |
 | `ttyin` | reading from the terminal, hidden input included |
 | `via` | `--via` paths: the VPN and SSH hops in front of a target |

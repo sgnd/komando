@@ -744,6 +744,6 @@ var hardStop = func(s os.Signal) {
 	runningPrograms.killAll()
 	tmpclean.RemoveAll()
 	signal.Reset(s)
-	raise(s)
+	term.Raise(s)
 	os.Exit(130) // where a signal cannot end the process (Windows)
 }
