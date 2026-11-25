@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
 )
@@ -534,7 +535,7 @@ func formFlagWords(f *pflag.Flag, ff formFlag, v string) []string {
 	case f.Value.Type() == "bool":
 		return []string{"--" + f.Name + "=false"}
 	case ff.local:
-		return []string{"--" + f.Name + "=" + expandHome(v)}
+		return []string{"--" + f.Name + "=" + inventory.ExpandHome(v)}
 	}
 	return []string{"--" + f.Name + "=" + v}
 }
@@ -565,14 +566,14 @@ func formArgWords(key string, u formUseArg, ah formArg, v string) []string {
 		words := formSplitWords(v)
 		if ah.local {
 			for i := range words {
-				words[i] = expandHome(words[i])
+				words[i] = inventory.ExpandHome(words[i])
 			}
 		}
 		return words
 	case pick == "host" || pick == "target" || pick == "files":
 		return []string{strings.Join(strings.Fields(v), ",")}
 	case ah.local:
-		return []string{expandHome(v)}
+		return []string{inventory.ExpandHome(v)}
 	}
 	return []string{v}
 }

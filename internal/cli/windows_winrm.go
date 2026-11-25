@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -68,14 +69,14 @@ func parseWinRMAddress(s string) (*store.Host, error) {
 // transport and its options (and the user and port it names).
 func editAddress(h *store.Host, addr string) error {
 	if !isWinRMAddress(addr) {
-		h.Address = normAddr(addr)
+		h.Address = inventory.NormAddr(addr)
 		return nil
 	}
 	w, err := parseWinRMAddress(addr)
 	if err != nil {
 		return err
 	}
-	h.Address, h.Transport, h.WinRMOpts, h.OS = normAddr(w.Address), w.Transport, w.WinRMOpts, store.OSWindows
+	h.Address, h.Transport, h.WinRMOpts, h.OS = inventory.NormAddr(w.Address), w.Transport, w.WinRMOpts, store.OSWindows
 	if w.User != "" {
 		h.User = w.User
 	}

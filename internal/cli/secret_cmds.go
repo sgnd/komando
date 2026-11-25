@@ -79,7 +79,7 @@ noticed. At the terminal, paste or type the value after the prompt appears.`,
 			was, gerr := vault.Get(args[0])
 			replaced := gerr == nil
 			if replaced {
-				if prot := protectedUsers(st, secretUsers(st, args[0])); len(prot) > 0 && !cl.yesOK() && !confirmProtected(cl, prot) {
+				if prot := inventory.ProtectedUsers(st, inventory.SecretUsers(st, args[0])); len(prot) > 0 && !cl.yesOK() && !confirmProtected(cl, prot) {
 					if err := cl.policyStop(approvalErr(cl, "PROTECTED_TARGET",
 						"secret "+args[0]+" is used by protected "+strings.Join(prot, ", ")+"; replacing it changes how komando logs in there")); err != nil {
 						return err
@@ -160,7 +160,7 @@ login; 'komando secret check NAME' lets a person compare it.`,
 			}
 			res := map[string]any{"name": args[0], "exists": true, "ref": "secret:" + args[0]}
 			if st, err := loadState(); err == nil {
-				res["used_by"] = orEmpty(secretUsers(st, args[0]))
+				res["used_by"] = orEmpty(inventory.SecretUsers(st, args[0]))
 			}
 			if w := valueWarning(args[0], v); w != "" {
 				res["warning"] = w
@@ -245,7 +245,7 @@ func secretListCmd() *cobra.Command {
 			l = cutRows(cl, l, limit)
 			res := secretList{Count: len(l), Secrets: []secretRow{}}
 			for _, i := range l {
-				res.Secrets = append(res.Secrets, secretRow{Name: i.Name, UpdatedAt: i.UpdatedAt, UsedBy: orEmpty(secretUsers(st, i.Name))})
+				res.Secrets = append(res.Secrets, secretRow{Name: i.Name, UpdatedAt: i.UpdatedAt, UsedBy: orEmpty(inventory.SecretUsers(st, i.Name))})
 			}
 			cl.out.Print("secret.list", res, nil)
 			return nil
@@ -276,7 +276,7 @@ func secretRmCmd() *cobra.Command {
 				if !slices.Contains(have, n) {
 					return notFoundSuggest(cl, "secret", n, have)
 				}
-				if users := secretUsers(st, n); len(users) > 0 {
+				if users := inventory.SecretUsers(st, n); len(users) > 0 {
 					return secretInUse(n, users)
 				}
 			}
@@ -296,7 +296,7 @@ func secretRmCmd() *cobra.Command {
 			args = dedupe(args)
 			err = storeUpdate(cl, func(s *store.State) error {
 				for _, n := range args {
-					if users := secretUsers(s, n); len(users) > 0 {
+					if users := inventory.SecretUsers(s, n); len(users) > 0 {
 						return secretInUse(n, users)
 					}
 				}
