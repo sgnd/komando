@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -52,32 +53,16 @@ func loginPlaceStop(cl *call, what []string) error {
 func askUsersThrough(s *store.State, step string) []string {
 	var users []string
 	for _, h := range s.SortedHosts() {
-		if h.AskLogin() && h.Name != step && slices.Contains(waySteps(s, h.Via, map[string]bool{}), step) {
+		if h.AskLogin() && h.Name != step && slices.Contains(inventory.WaySteps(s, h.Via, map[string]bool{}), step) {
 			users = append(users, "server "+h.Name)
 		}
 	}
 	for _, c := range sortedConns(s) {
-		if c.AskLogin() && slices.Contains(waySteps(s, c.Via, map[string]bool{}), step) {
+		if c.AskLogin() && slices.Contains(inventory.WaySteps(s, c.Via, map[string]bool{}), step) {
 			users = append(users, "conn "+c.Name)
 		}
 	}
 	return users
-}
-
-// waySteps are the names on a --via path and on the paths of its servers.
-func waySteps(s *store.State, via string, seen map[string]bool) []string {
-	var steps []string
-	for _, n := range viaChain(via) {
-		if seen[n] {
-			continue
-		}
-		seen[n] = true
-		steps = append(steps, n)
-		if h, ok := s.Hosts[n]; ok {
-			steps = append(steps, waySteps(s, h.Via, seen)...)
-		}
-	}
-	return steps
 }
 
 func sortedConns(s *store.State) []*store.Conn {

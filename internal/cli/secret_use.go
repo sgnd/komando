@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -441,7 +442,7 @@ func behindSends(st *store.State, now []*store.Host, olds map[string]*store.Host
 			if _, ok := moved[n]; ok {
 				continue
 			}
-			for _, step := range viaChain(h.Via) {
+			for _, step := range inventory.ViaChain(h.Via) {
 				if to, ok := moved[step]; ok {
 					moved[n] = hostPlace(h).dest + " (by way of " + step + ", now at " + to + ")"
 					changed = true
@@ -452,7 +453,7 @@ func behindSends(st *store.State, now []*store.Host, olds map[string]*store.Host
 	}
 	var lines []string
 	add := func(label, via string, p secretPlace) error {
-		for _, step := range viaChain(via) {
+		for _, step := range inventory.ViaChain(via) {
 			to, ok := moved[step]
 			if !ok || len(p.refs) == 0 {
 				continue
@@ -599,14 +600,14 @@ func guardVpnSends(cl *call, s *store.State, old, now *store.Vpn, servers string
 
 // vpnBehindSends lists the stored passwords and secrets that travel
 // through VPN name (C111): every server and conn whose --via way
-// (waySteps: jump servers' own --via too) goes through it sends them by
+// (inventory.WaySteps: jump servers' own --via too) goes through it sends them by
 // the VPN's new way, as behindSends has it for a moved jump server. A
 // server with only a key sends no secret, so it is not named; a login-ask
 // one is stopped before (vpnPlaceChanges).
 func vpnBehindSends(st *store.State, name string) ([]string, error) {
 	var lines []string
 	add := func(label, via string, p secretPlace) error {
-		if len(p.refs) == 0 || !slices.Contains(waySteps(st, via, map[string]bool{}), name) {
+		if len(p.refs) == 0 || !slices.Contains(inventory.WaySteps(st, via, map[string]bool{}), name) {
 			return nil
 		}
 		if err := reservedRefs(p.refs); err != nil {

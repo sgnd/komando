@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -172,7 +173,7 @@ ever signs.`,
 		Args: cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			name := args[0]
-			if err := validName("server CA", name); err != nil {
+			if err := inventory.ValidName("server CA", name); err != nil {
 				return err
 			}
 			if (keyFile == "") == (from == "") {

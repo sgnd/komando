@@ -1,0 +1,106 @@
+if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then exec sudo -n sh -c 'ACTION=upgradable PKGS='"'"''"'"'; export DEBIAN_FRONTEND=noninteractive
+if command -v apt-get >/dev/null 2>&1; then PM=apt
+elif command -v dnf >/dev/null 2>&1; then PM=dnf
+elif command -v yum >/dev/null 2>&1; then PM=yum
+elif command -v apk >/dev/null 2>&1; then PM=apk
+elif command -v zypper >/dev/null 2>&1; then PM=zypper
+elif command -v pacman >/dev/null 2>&1; then PM=pacman
+else echo "no supported package manager" >&2; exit 3; fi
+echo "# package-manager: $PM" >&2
+case "$PM:$ACTION" in
+apt:install) apt-get install -y -q $PKGS || { echo "# retrying after apt-get update" >&2; apt-get update -q >&2 && apt-get install -y -q $PKGS; } ;;
+apt:remove) apt-get remove -y -q $PKGS ;;
+apt:simulate-remove) apt-get -s remove $PKGS | awk '"'"'$1 == "Remv" {sub(/:.*/, "", $2); print $2}'"'"' ;;
+apt:update) apt-get update -q ;;
+apt:upgrade) if [ -n "$PKGS" ]; then apt-get install -y -q --only-upgrade $PKGS; else apt-get upgrade -y -q; fi ;;
+apt:upgradable) t=$(stat -c %Y /var/lib/apt/lists/*Release 2>/dev/null | sort -n | tail -n 1); echo "# index-age: $([ -n "$t" ] && echo $(( $(date +%s) - t )) || echo never)" >&2
+  apt list --upgradable 2>/dev/null | tail -n +2 ;;
+apt:simulate) s=$(if [ -n "$PKGS" ]; then apt-get -s install --only-upgrade $PKGS; else apt-get -s upgrade; fi) || exit $?; printf '"'"'%s\n'"'"' "$s" | grep '"'"'^Inst '"'"' || true ;;
+dnf:install|yum:install) $PM install -y $PKGS ;;
+dnf:remove|yum:remove) $PM remove -y $PKGS ;;
+dnf:update|yum:update) $PM makecache -q ;;
+dnf:upgrade|yum:upgrade) $PM upgrade -y $PKGS ;;
+dnf:upgradable|yum:upgradable|dnf:simulate|yum:simulate) $PM -q check-update $PKGS; rc=$?; [ $rc -eq 100 ] && exit 0; exit $rc ;;
+apk:install) apk add $PKGS ;;
+apk:remove) apk del $PKGS ;;
+apk:update) apk update ;;
+apk:upgrade) apk upgrade $PKGS ;;
+apk:upgradable) t=$(stat -c %Y /var/cache/apk/APKINDEX* 2>/dev/null | sort -n | tail -n 1); echo "# index-age: $([ -n "$t" ] && echo $(( $(date +%s) - t )) || echo never)" >&2
+  apk -u list ;;
+apk:simulate) apk upgrade --simulate $PKGS ;;
+zypper:install) zypper -n install $PKGS ;;
+zypper:remove) zypper -n remove $PKGS ;;
+zypper:update) zypper -n refresh ;;
+zypper:upgrade) zypper -n update $PKGS ;;
+zypper:upgradable|zypper:simulate) zypper -n list-updates ;;
+pacman:install) pacman -S --noconfirm $PKGS ;;
+pacman:remove) pacman -R --noconfirm $PKGS ;;
+pacman:update) pacman -Sy ;;
+pacman:upgrade) pacman -Syu --noconfirm $PKGS ;;
+pacman:upgradable|pacman:simulate) pacman -Qu $PKGS ;;
+*:installed)
+  case "$PM" in
+  apt) ALL=$(dpkg-query -W -f='"'"'${db:Status-Abbrev}\t${Package}\t${Version}\n'"'"' | awk -F'"'"'\t'"'"' '"'"'$1 ~ /^ii/ {print $2"\t"$3}'"'"') ;;
+  dnf|yum|zypper) ALL=$(rpm -qa --qf '"'"'%{NAME}\t%{VERSION}-%{RELEASE}\n'"'"') ;;
+  apk) ALL=$(apk list -I 2>/dev/null | awk '"'"'{print $1}'"'"' | sed -E '"'"'s/^(.*)-([^-]+-r[0-9]+)$/\1\t\2/'"'"') ;;
+  pacman) ALL=$(pacman -Q | tr '"'"' '"'"' '"'"'\t'"'"') ;;
+  esac
+  if [ -z "$PKGS" ]; then printf '"'"'%s\n'"'"' "$ALL"; exit 0; fi
+  for p in $PKGS; do
+    v=$(printf '"'"'%s\n'"'"' "$ALL" | awk -F'"'"'\t'"'"' -v p="$p" '"'"'$1 == p {print $2; exit}'"'"')
+    printf '"'"'%s\t%s\n'"'"' "$p" "${v:--}"
+  done ;;
+esac'; fi
+ACTION=upgradable PKGS=''; export DEBIAN_FRONTEND=noninteractive
+if command -v apt-get >/dev/null 2>&1; then PM=apt
+elif command -v dnf >/dev/null 2>&1; then PM=dnf
+elif command -v yum >/dev/null 2>&1; then PM=yum
+elif command -v apk >/dev/null 2>&1; then PM=apk
+elif command -v zypper >/dev/null 2>&1; then PM=zypper
+elif command -v pacman >/dev/null 2>&1; then PM=pacman
+else echo "no supported package manager" >&2; exit 3; fi
+echo "# package-manager: $PM" >&2
+case "$PM:$ACTION" in
+apt:install) apt-get install -y -q $PKGS || { echo "# retrying after apt-get update" >&2; apt-get update -q >&2 && apt-get install -y -q $PKGS; } ;;
+apt:remove) apt-get remove -y -q $PKGS ;;
+apt:simulate-remove) apt-get -s remove $PKGS | awk '$1 == "Remv" {sub(/:.*/, "", $2); print $2}' ;;
+apt:update) apt-get update -q ;;
+apt:upgrade) if [ -n "$PKGS" ]; then apt-get install -y -q --only-upgrade $PKGS; else apt-get upgrade -y -q; fi ;;
+apt:upgradable) t=$(stat -c %Y /var/lib/apt/lists/*Release 2>/dev/null | sort -n | tail -n 1); echo "# index-age: $([ -n "$t" ] && echo $(( $(date +%s) - t )) || echo never)" >&2
+  apt list --upgradable 2>/dev/null | tail -n +2 ;;
+apt:simulate) s=$(if [ -n "$PKGS" ]; then apt-get -s install --only-upgrade $PKGS; else apt-get -s upgrade; fi) || exit $?; printf '%s\n' "$s" | grep '^Inst ' || true ;;
+dnf:install|yum:install) $PM install -y $PKGS ;;
+dnf:remove|yum:remove) $PM remove -y $PKGS ;;
+dnf:update|yum:update) $PM makecache -q ;;
+dnf:upgrade|yum:upgrade) $PM upgrade -y $PKGS ;;
+dnf:upgradable|yum:upgradable|dnf:simulate|yum:simulate) $PM -q check-update $PKGS; rc=$?; [ $rc -eq 100 ] && exit 0; exit $rc ;;
+apk:install) apk add $PKGS ;;
+apk:remove) apk del $PKGS ;;
+apk:update) apk update ;;
+apk:upgrade) apk upgrade $PKGS ;;
+apk:upgradable) t=$(stat -c %Y /var/cache/apk/APKINDEX* 2>/dev/null | sort -n | tail -n 1); echo "# index-age: $([ -n "$t" ] && echo $(( $(date +%s) - t )) || echo never)" >&2
+  apk -u list ;;
+apk:simulate) apk upgrade --simulate $PKGS ;;
+zypper:install) zypper -n install $PKGS ;;
+zypper:remove) zypper -n remove $PKGS ;;
+zypper:update) zypper -n refresh ;;
+zypper:upgrade) zypper -n update $PKGS ;;
+zypper:upgradable|zypper:simulate) zypper -n list-updates ;;
+pacman:install) pacman -S --noconfirm $PKGS ;;
+pacman:remove) pacman -R --noconfirm $PKGS ;;
+pacman:update) pacman -Sy ;;
+pacman:upgrade) pacman -Syu --noconfirm $PKGS ;;
+pacman:upgradable|pacman:simulate) pacman -Qu $PKGS ;;
+*:installed)
+  case "$PM" in
+  apt) ALL=$(dpkg-query -W -f='${db:Status-Abbrev}\t${Package}\t${Version}\n' | awk -F'\t' '$1 ~ /^ii/ {print $2"\t"$3}') ;;
+  dnf|yum|zypper) ALL=$(rpm -qa --qf '%{NAME}\t%{VERSION}-%{RELEASE}\n') ;;
+  apk) ALL=$(apk list -I 2>/dev/null | awk '{print $1}' | sed -E 's/^(.*)-([^-]+-r[0-9]+)$/\1\t\2/') ;;
+  pacman) ALL=$(pacman -Q | tr ' ' '\t') ;;
+  esac
+  if [ -z "$PKGS" ]; then printf '%s\n' "$ALL"; exit 0; fi
+  for p in $PKGS; do
+    v=$(printf '%s\n' "$ALL" | awk -F'\t' -v p="$p" '$1 == p {print $2; exit}')
+    printf '%s\t%s\n' "$p" "${v:--}"
+  done ;;
+esac

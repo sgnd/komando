@@ -1,0 +1,5 @@
+ssh.service loaded active running OpenBSD Secure Shell server
+nginx.service loaded active running A high performance web server and a reverse proxy server
+cron.service loaded active running Regular background program processing daemon
+postfix.service loaded failed failed Postfix Mail Transport Agent
+apache2.service not-found inactive dead apache2.service

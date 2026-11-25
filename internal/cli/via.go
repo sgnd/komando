@@ -3,6 +3,7 @@ package cli
 import (
 	"strings"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -14,7 +15,7 @@ import (
 // first step itself), or, when the path is only a VPN, that VPN. A chain
 // given here replaces the last host's own --via; a single host keeps its own.
 func resolveVia(st *store.State, via string) (*store.Host, *store.Vpn, error) {
-	steps := viaChain(via)
+	steps := inventory.ViaChain(via)
 	if len(steps) == 0 {
 		return nil, nil, out.Usage("--via is empty: give server or VPN names, for example --via bastion")
 	}
@@ -52,16 +53,16 @@ func resolveVia(st *store.State, via string) (*store.Host, *store.Vpn, error) {
 // type its password into a way the agent chose (see login_place.go). A
 // path that is the last server's own stored way goes on.
 func viaAskStop(cl *call, st *store.State, via string) error {
-	steps := viaChain(via)
+	steps := inventory.ViaChain(via)
 	if len(steps) < 2 {
 		return nil
 	}
 	last, ok := st.Hosts[steps[len(steps)-1]]
-	if ok && strings.EqualFold(strings.Join(viaChain(last.Via), ","), strings.Join(steps[:len(steps)-1], ",")) {
+	if ok && strings.EqualFold(strings.Join(inventory.ViaChain(last.Via), ","), strings.Join(steps[:len(steps)-1], ",")) {
 		return nil
 	}
 	var what []string
-	for _, n := range waySteps(st, strings.Join(steps, ","), map[string]bool{}) {
+	for _, n := range inventory.WaySteps(st, strings.Join(steps, ","), map[string]bool{}) {
 		if h, ok := st.Hosts[n]; ok && h.AskLogin() {
 			what = append(what, "server "+n+" on the --via path "+strings.Join(steps, ","))
 		}
