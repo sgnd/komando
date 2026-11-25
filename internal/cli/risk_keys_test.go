@@ -179,6 +179,7 @@ var whenProbes = []string{
 	"secret keychain",
 	"host trust web1 --reset",
 	"export --sealed",
+	"export --for-phone",
 	"import komando backup.json",
 	"group rm big",
 	"policy edit rm-root --off",

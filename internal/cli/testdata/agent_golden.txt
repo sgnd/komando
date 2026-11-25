@@ -9498,7 +9498,7 @@ Hint: this key was added with --read-only and runs only commands that read; use 
 (code SSH_GATE_READ_ONLY, exit 6)
 ### komando schema storage link (schema values)
 exit 0
-komando storage link kind=change confirm=[{"tier":"change"}]
+komando storage link kind=change confirm=[{"tier":"change"},{"flag":"--yes","tier":"safety","when":"when an AI agent makes a link (a person allows --reveal)"}]
   --endpoint type=string
   --expires type=duration default=1h
 ### komando schema cluster forward (schema values)

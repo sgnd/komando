@@ -398,9 +398,10 @@ exit 0
 Send any Redis or memcached command (read only by default).
 
 Safety: a change; try it with --dry-run first; when the cache command
-deletes data (FLUSHALL, ...): dangerous, it cannot be undone: a person types
-the name to go on, and an AI agent or a script needs --allow-dangerous; on a
-protected server or conn, a person's yes (--yes) as well.
+deletes data (DEL, FLUSHALL, ...): dangerous, it cannot be undone: a person
+types the name to go on, and an AI agent or a script needs
+--allow-dangerous; on a protected server or conn, a person's yes (--yes) as
+well.
 
 Usage:
   komando cache run CONN -- COMMAND... [flags]
@@ -1209,10 +1210,11 @@ run, exec, cp, debug, certificate and config. For Swarm, docker runs on the
 manager. Commands that change things need --write; delete, drain and other
 risky verbs also need --allow-dangerous.
 
-Safety: a change; try it with --dry-run first; when the kubectl command
-deletes something: dangerous, it cannot be undone: a person types the name
-to go on, and an AI agent or a script needs --allow-dangerous; on a
-protected server or conn, a person's yes (--yes) as well.
+Safety: a change; try it with --dry-run first; when the cluster command
+deletes something or scales to 0: dangerous, it cannot be undone: a person
+types the name to go on, and an AI agent or a script needs
+--allow-dangerous; on a protected server or conn, a person's yes (--yes) as
+well.
 
 Usage:
   komando cluster run TARGET -- ARGS... [flags]
@@ -1584,8 +1586,7 @@ Settings:
       a VPN kept up with `vpn up` is closed after this long unused
 
 Safety: a change; try it with --dry-run first; when the setting turns a
-check off (audit, keychain, host key policy, ...): it weakens a safety
-check: a person's yes (--yes).
+check off: it weakens a safety check: a person's yes (--yes).
 
 To go back to a default, set the value from the DEFAULT column of `komando
 config show`.
@@ -2151,7 +2152,7 @@ Examples:
 Available Commands:
   activity    Sessions running something now: pid, user, how long, what
   add         Add a database
-  dump        Save a copy of a database to a file on this computer
+  dump        Save a copy of a database to a file on this computer (person only)
   explain     Show how the database would run a query (--analyze runs it and measures)
   grant       Give a user privileges on a database, schema or table (or a role)
   info        Show the version, size, connections and the replica role
@@ -2250,6 +2251,10 @@ Saves a copy of the database to a file on this computer. Without --to the
 file is CONN-<date>.sql.gz (SQLite: CONN-<date>.db) in this
 folder. A file ending in .gz is compressed. Afterwards komando prints the
 command that loads it back.
+
+Safety: it only reads; when an AI agent runs it (the file holds every row,
+secrets included): only a person at a terminal can run it; on a protected
+server or conn, a person's yes (--yes) as well.
 
 pg_dump or mysqldump runs on a server that has it: the one you name with
 --run-on HOST, else the database's --via server. It connects to the conn
@@ -2454,9 +2459,9 @@ exit 0
 Runs SQL on a database and prints the rows. Without --write it only reads:
 komando runs it in a read-only transaction, and stops it after 30s.
 
-Safety: a change; try it with --dry-run first; when the SQL deletes data
-(DROP, DELETE without WHERE, ...): dangerous, it cannot be undone: a person
-types the name to go on, and an AI agent or a script needs
+Safety: a change; try it with --dry-run first; when the query deletes data
+(DROP, DELETE without WHERE, KILL, ...): dangerous, it cannot be undone: a
+person types the name to go on, and an AI agent or a script needs
 --allow-dangerous; on a protected server or conn, a person's yes (--yes) as
 well.
 
@@ -3537,9 +3542,9 @@ TARGET (@prod, kind:host, web1,web2) only those servers, conns and VPNs are
 saved; without one also your recipes, deny rules and settings. Without --to
 it prints the same JSON.
 
-Safety: it only reads; with --sealed or --for-phone: only a person at a
-terminal can run it; on a protected server or conn, a person's yes (--yes)
-as well.
+Safety: it only reads; with --sealed: only a person at a terminal can run
+it; with --for-phone: only a person at a terminal can run it; on a protected
+server or conn, a person's yes (--yes) as well.
 
 --sealed writes the same list with the passwords it uses into one sealed
 file, for moving to another computer: komando asks for a passphrase twice
@@ -4555,10 +4560,10 @@ selector (@group, tag:prod, 'web-*') to change many servers at once. Try
 Safety: a change; try it with --dry-run first; when --proxy-command matches
 a destructive rule: dangerous, it cannot be undone: a person types the name
 to go on, and an AI agent or a script needs --allow-dangerous; with
---protected=false: it weakens a safety check: a person's yes (--yes); with
 --proxy-command, when an AI agent runs it (the proxy command runs on this
-computer): it weakens a safety check: a person's yes (--yes); on a protected
-server or conn, a person's yes (--yes) as well.
+computer): it weakens a safety check: a person's yes (--yes); with
+--protected=false: it weakens a safety check: a person's yes (--yes); on a
+protected server or conn, a person's yes (--yes) as well.
 
 --protected marks a production server: komando asks you before every change,
 and an AI agent needs your yes in a window. Changing the login of a
@@ -4794,8 +4799,8 @@ the server: directly, or through its --via servers, VPN or proxy command.
 
 Safety: a change; try it with --dry-run first; when an AI agent pins a first
 host key while host keys are strict: it weakens a safety check: a person's
-yes (--yes); with --reset, when a key is pinned: only a person at a terminal
-can run it; on a protected server or conn, a person's yes (--yes) as well.
+yes (--yes); with --reset: only a person at a terminal can run it; on a
+protected server or conn, a person's yes (--yes) as well.
 
 A key that is already pinned is left as it is. If a different key is
 pinned, the server may be an impostor (HOSTKEY_MISMATCH): check the new
@@ -4846,16 +4851,15 @@ exit 0
 --- stdout
 Adds servers, conns, VPNs and recipes from files you already have.
 
-Safety: a change; try it with --dry-run first; when an imported ProxyCommand
+Safety: a change; try it with --dry-run first; SOURCE kubeconfig, when an AI
+agent imports a context whose login runs a program or sends a file of this
+computer: it weakens a safety check: a person's yes (--yes); SOURCE komando,
+when the file is sealed (export --sealed): a person types its passphrase:
+only a person at a terminal can run it; when an imported proxy command
 matches a destructive rule: dangerous, it cannot be undone: a person types
 the name to go on, and an AI agent or a script needs --allow-dangerous; when
-an AI agent imports a server with a proxy command (it runs on this computer;
-without --yes the server is left out): it weakens a safety check: a person's
-yes (--yes); SOURCE kubeconfig, when an AI agent imports a context whose
-login runs a program or sends a file of this computer: it weakens a safety
-check: a person's yes (--yes); SOURCE komando, when the file is sealed
-(export --sealed): a person types its passphrase: only a person at a
-terminal can run it.
+an AI agent imports a server with a proxy command: it weakens a safety
+check: a person's yes (--yes).
 
 Sources:
   ssh-config  servers from your OpenSSH config (default ~/.ssh/config)
@@ -5456,9 +5460,9 @@ Removes the key from komando's key list. --delete-file also deletes the
 private key komando keeps for a key it made (key gen), for good; a key file
 you added stays on disk.
 
-Safety: a change; try it with --dry-run first; with --delete-file, for a key
-komando made: dangerous, it cannot be undone: a person types the name to go
-on, and an AI agent or a script needs --allow-dangerous.
+Safety: a change; try it with --dry-run first; with --delete-file:
+dangerous, it cannot be undone: a person types the name to go on, and an AI
+agent or a script needs --allow-dangerous.
 
 Usage:
   komando key rm NAME [flags]
@@ -6854,7 +6858,7 @@ exit 0
 Save a command as a recipe with blanks to fill in.
 
 Safety: a change; try it with --dry-run first; with --overwrite --read-only,
-when it makes an existing recipe read-only: it weakens a safety check: a
+when it makes an existing snippet read-only: it weakens a safety check: a
 person's yes (--yes).
 
 Usage:
@@ -6941,10 +6945,10 @@ exit 0
 --- stdout
 Run a recipe on servers.
 
-Safety: a change; try it with --dry-run first; when the recipe's command
-matches a destructive rule: dangerous, it cannot be undone: a person types
-the name to go on, and an AI agent or a script needs --allow-dangerous; on a
-protected server or conn, a person's yes (--yes) as well.
+Safety: a change; try it with --dry-run first; when a step matches a
+destructive rule: dangerous, it cannot be undone: a person types the name to
+go on, and an AI agent or a script needs --allow-dangerous; on a protected
+server or conn, a person's yes (--yes) as well.
 
 Usage:
   komando recipe run NAME TARGET [flags]
@@ -7022,7 +7026,8 @@ exit 0
 --- stdout
 Same as `komando conn add NAME URL`, for an image registry.
 
-Safety: a change; try it with --dry-run first.
+Safety: a change; try it with --dry-run first; when the address turns TLS
+off (plain HTTP): it weakens a safety check: a person's yes (--yes).
 
 Saves an image registry under a short name. Typed alone at a terminal, it
 asks step by step. The URL scheme sets the kind: `komando conn kinds` lists
@@ -7465,8 +7470,8 @@ copy of store.key made before opens nothing either, and the vault keeps
 every secret. --off moves the key back into store.key, which needs --yes.
 
 Safety: a change; try it with --dry-run first; when it turns the keychain
-off: it weakens a safety check: a person's yes (--yes); without --off
-(moving the key into the keychain): only a person at a terminal can run it.
+off: it weakens a safety check: a person's yes (--yes); without --off: only
+a person at a terminal can run it.
 
 Only a person at a terminal moves the key in: the keychain may ask them to
 unlock it, and an AI agent or a script cannot answer that.
@@ -7655,7 +7660,9 @@ gets HOME, USER and LOGNAME from your OS account (USERPROFILE on Windows),
 LANG, LC_*, TERM, TMPDIR, TZ, the Windows system folders, a system PATH and
 its --env values.
 
-Safety: a change; try it with --dry-run first.
+Safety: a change; try it with --dry-run first; when an AI agent hands a
+saved secret to a program: it weakens a safety check: a person's yes
+(--yes).
 
 The program's output goes through komando's masking: a vault value it
 prints shows as [secret:NAME]. komando exits with the program's exit code.
@@ -8173,8 +8180,9 @@ the storage address in the conn URL: when komando reaches it through --via,
 only people who can reach that address can use the link. --endpoint signs
 the link for the address they use instead (S3 only).
 
-Safety: a change; try it with --dry-run first; on a protected server or
-conn, a person's yes (--yes) as well.
+Safety: a change; try it with --dry-run first; when an AI agent makes a link
+(a person allows --reveal): it weakens a safety check: a person's yes
+(--yes); on a protected server or conn, a person's yes (--yes) as well.
 
 Usage:
   komando storage link CONN OBJECT [flags]
@@ -8894,8 +8902,8 @@ With a conn name and no -L/-R/-D, the tunnel leads to that conn through its
 With a server, give one of -L, -R or -D.
 
 Safety: a change; try it with --dry-run first; when it listens on an open
-address (OPEN_BIND): it weakens a safety check: a person's yes (--yes); on a
-protected server or conn, a person's yes (--yes) as well.
+address: it weakens a safety check: a person's yes (--yes); on a protected
+server or conn, a person's yes (--yes) as well.
 
 Usage:
   komando tunnel start TARGET (-L SPEC | -R SPEC | -D SPEC) [flags]
@@ -9466,9 +9474,9 @@ new config file, add it again with --overwrite. -g and -t add a group or a
 tag, as in host edit; --rm-group and --rm-tag take one away. Give several
 names or a selector (@group, tag:office) to change many VPNs at once.
 
-Safety: a change; try it with --dry-run first; with --protected=false: it
-weakens a safety check: a person's yes (--yes); with --mfa=false: it weakens
-a safety check: a person's yes (--yes); on a protected server or conn, a
+Safety: a change; try it with --dry-run first; with --mfa=false: it weakens
+a safety check: a person's yes (--yes); with --protected=false: it weakens a
+safety check: a person's yes (--yes); on a protected server or conn, a
 person's yes (--yes) as well.
 
 --protected marks a VPN komando asks a person about before it is changed
