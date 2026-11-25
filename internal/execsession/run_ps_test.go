@@ -39,7 +39,7 @@ func TestRunPSText(t *testing.T) {
 	for _, want := range []string{
 		"$ks_d = $PSScriptRoot",
 		"$ErrorActionPreference = 'Continue'",
-		"Join-Path $ks_d '.go'",
+		"if (-not (Test-Path -LiteralPath (Join-Path $ks_d '.go'))) { exit 0 }",
 		"& cmd.exe /d /c $ks_cmd 2>&1 | ks_capped 12345 | Out-File -FilePath (Join-Path $ks_d 'out.log') -Encoding UTF8 -Append",
 		"if (-not (Test-Path -LiteralPath (Join-Path $ks_d 'killed'))) {",
 		"Move-Item -LiteralPath (Join-Path $ks_d 'exit.tmp') -Destination (Join-Path $ks_d 'exit') -Force",
@@ -157,6 +157,7 @@ func TestParseFactsPS(t *testing.T) {
 		"no end marker":    strings.Replace(psFacts("4242", "2026-11-25T10:00:00Z", "powershell.exe", goodCmdline), "facts-end", "x", 1),
 		"doubled inside":   strings.Replace(psFacts("4242", "2026-11-25T10:00:00Z", "powershell.exe", goodCmdline), "pid 4242\n", "pid 4242\npid 4243\n", 1),
 		"other ID":         strings.ReplaceAll(psFacts("4242", "2026-11-25T10:00:00Z", "powershell.exe", goodCmdline), "facts-begin "+testID, "facts-begin x"),
+		"no created":       strings.Replace(psFacts("4242", "2026-11-25T10:00:00Z", "powershell.exe", goodCmdline), "created 2026-11-25T10:00:00Z\n", "", 1),
 		"missing cmdline":  strings.Replace(psFacts("4242", "2026-11-25T10:00:00Z", "powershell.exe", goodCmdline), "cmdline ", "x ", 1),
 	}
 	for name, s := range bad {
