@@ -146,7 +146,7 @@ func checkShellDepth(cl *call, line, home, cwd string, depth int) guardDecision 
 		}
 		prog, args := program(words)
 		base := filepath.Base(prog)
-		if d := checkSelfWrite(cl, seg, base, args, home, cwd); base != "komando" && d.Deny {
+		if d := checkGuardFiles(cl, line, seg, prog, args, home, cwd); d.Deny {
 			return d
 		}
 		switch {

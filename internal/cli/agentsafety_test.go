@@ -3,10 +3,13 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -868,6 +871,10 @@ func TestGuardRefusesChangesToItself(t *testing.T) {
 		{"Bash", map[string]any{"command": "sed -i s/guard/x/ ~/.codex/hooks.json"}},
 		{"Write", map[string]any{"file_path": home + "/.gemini/settings.json"}},
 		{"Edit", map[string]any{"file_path": home + "/.claude/settings.local.json"}},
+		{"Bash", map[string]any{"command": "cp /tmp/x ~/bin/komando"}},
+		{"Bash", map[string]any{"command": "ln -s /tmp/x ~/bin/Komando"}},
+		{"Bash", map[string]any{"command": "mv /tmp/x " + home + "/bin/komando"}},
+		{"Write", map[string]any{"file_path": home + "/bin/komando"}},
 	}
 	for _, c := range refused {
 		if d := checkTool(tcl, c.tool, c.in, home, home); !d.Deny {
@@ -887,6 +894,194 @@ func TestGuardRefusesChangesToItself(t *testing.T) {
 	for _, c := range allowed {
 		if d := checkTool(tcl, c.tool, c.in, home, home); d.Deny {
 			t.Errorf("%s %v: want it allowed, got %q", c.tool, c.in, d.Reason)
+		}
+	}
+}
+
+// A line whose program is not only a reader may not name a hook file or a
+// program named komando anywhere: in code given to an interpreter, or in a
+// variable it uses later.
+func TestGuardRefusesGuardFilesAnywhereOnTheLine(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	refused := []string{
+		`python3 -c "open('` + home + `/.claude/settings.json','w').write('{}')"`,
+		`node -e "require('fs').writeFileSync(process.env.HOME+'/.gemini/settings.json','{}')"`,
+		`ruby -e 'File.write(Dir.home + "/.cursor/hooks.json", "{}")'`,
+		`perl -e 'unlink "$ENV{HOME}/.codex/hooks.json"'`,
+		`perl -e 'unlink glob("~/.codex/config.toml")'`,
+		`f=~/.claude/settings.json; rm "$f"`,
+		`f=$HOME/.claude/settings.local.json && : > "$f"`,
+		`d=~/.claude; mv "$d" /tmp/old`,
+		`python3 -c "import os,shutil; os.remove(shutil.which('komando'))"`,
+		`python3 -c "open('/usr/local/bin/komando','w')"`,
+		`p=~/bin/komando; cp /bin/true "$p"`,
+	}
+	for _, line := range refused {
+		if d := checkTool(tcl, "Bash", map[string]any{"command": line}, home, home); !d.Deny {
+			t.Errorf("%s: want a refusal", line)
+		}
+	}
+	allowed := []string{
+		"cat ~/.claude/settings.json | jq .hooks",
+		"grep -n guard ~/.claude/settings.json ~/.codex/hooks.json",
+		"cp notes.md ~/.claude/skills/notes/",
+		"python3 report.py --out /tmp/report.txt",
+		"node build.js",
+	}
+	for _, line := range allowed {
+		if d := checkTool(tcl, "Bash", map[string]any{"command": line}, home, home); d.Deny {
+			t.Errorf("%s: want it allowed, got %q", line, d.Reason)
+		}
+	}
+}
+
+// An existing folder named komando outside PATH may be named (go build
+// ./cmd/komando in the repo); a link to a folder, or a folder in a PATH
+// folder, may not: either can be swapped for a program by the same line.
+func TestGuardKomandoFolderException(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	repo := filepath.Join(home, "src", "komando")
+	bin := filepath.Join(home, "bin")
+	for _, d := range []string{filepath.Join(repo, "cmd", "komando"), filepath.Join(bin, "komando"), filepath.Join(home, "dirs", "real")} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	link := filepath.Join(home, "links")
+	if err := os.MkdirAll(link, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(home, "dirs", "real"), filepath.Join(link, "komando")); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	for _, line := range []string{"go build ./cmd/komando", "go build -o /tmp/k ./cmd/komando", "ls cmd/komando"} {
+		if d := checkTool(tcl, "Bash", map[string]any{"command": line}, home, repo); d.Deny {
+			t.Errorf("in the repo, %s: want it allowed, got %q", line, d.Reason)
+		}
+	}
+	for _, line := range []string{
+		"rm -r ~/bin/komando; cp /bin/true ~/bin/komando",
+		"ln -sfn /bin/true " + filepath.Join(link, "komando"),
+		"rm " + filepath.Join(link, "komando") + " && cp /bin/true " + filepath.Join(link, "komando"),
+	} {
+		if d := checkTool(tcl, "Bash", map[string]any{"command": line}, home, repo); !d.Deny {
+			t.Errorf("%s: want a refusal", line)
+		}
+	}
+	if d := checkTool(tcl, "Write", map[string]any{"file_path": filepath.Join(link, "komando")}, home, home); !d.Deny {
+		t.Error("a Write to a link named komando: want a refusal")
+	}
+}
+
+// With no full path for komando, guide install writes no hook (a bare name
+// is found through PATH), and doctor flags a hook that names komando bare.
+func TestGuardHookNeedsAFullPath(t *testing.T) {
+	was := selfProgram
+	selfProgram = func() (string, error) { return "", errors.New("unknown") }
+	t.Cleanup(func() { selfProgram = was })
+	t.Setenv("PATH", t.TempDir())
+	if _, _, err := hookProgram(false); toErr(err).Code != "GUARD_PROGRAM_UNKNOWN" {
+		t.Errorf("home install without a full path: %v, want GUARD_PROGRAM_UNKNOWN", err)
+	}
+	if _, _, err := hookProgram(true); toErr(err).Code != "GUARD_PROGRAM_UNKNOWN" {
+		t.Errorf("project install without a full path: %v, want GUARD_PROGRAM_UNKNOWN", err)
+	}
+	for _, h := range []string{"claude", "codex"} {
+		if p := guardHookProblem(guardHookLine("komando", h)); !strings.Contains(p, "not a full path") {
+			t.Errorf("%s: a hook naming komando bare: %q, want it flagged", h, p)
+		}
+	}
+}
+
+// On Windows (no /bin/sh) the hook keeps the line of 0.17.1, doctor does not
+// call it old, and says what it cannot do.
+func TestGuardHookOnWindows(t *testing.T) {
+	unixOnly(t, "program checks read Unix modes")
+	prog := fakeKomando(t, t.TempDir(), "komando", "exit 0")
+	was := hookOS
+	hookOS = "windows"
+	t.Cleanup(func() { hookOS = was })
+	if got, want := guardHookLine(prog, "claude"), shellQuote(prog)+" guide guard"; got != want {
+		t.Errorf("claude: %q, want %q", got, want)
+	}
+	if got, want := guardHookLine(prog, "codex"), shellQuote(prog)+" guide guard --for codex"; got != want {
+		t.Errorf("codex: %q, want %q", got, want)
+	}
+	if p := guardHookProblem(guardHookLine(prog, "claude")); p != "" {
+		t.Errorf("on Windows the line is not a problem: %q", p)
+	}
+	var lines []string
+	agentGuardChecks([]string{"/x/.claude/skills/komando/SKILL.md"}, func(name string, ok bool, detail string, _ ...string) {
+		lines = append(lines, name+": "+detail)
+	})
+	if !slices.ContainsFunc(lines, func(l string) bool {
+		return strings.HasPrefix(l, "agent_guard_windows: on Windows the hook lets a call through when komando is missing")
+	}) {
+		t.Errorf("doctor on Windows: %q", lines)
+	}
+	hookOS = "linux"
+	if p := guardHookProblem(shellQuote(prog) + " guide guard"); !strings.Contains(p, "old hook line") {
+		t.Errorf("elsewhere the old line is flagged: %q", p)
+	}
+}
+
+// The real komando, built here, answers through the installed hook line of
+// each harness: an allowed call, a refused one, and no program at all.
+func TestGuardHookLineWithTheRealProgram(t *testing.T) {
+	unixOnly(t, "the hook line runs through /bin/sh")
+	if testing.Short() {
+		t.Skip("builds komando")
+	}
+	dir, home := t.TempDir(), t.TempDir()
+	prog := filepath.Join(dir, "komando")
+	build := exec.Command("go", "build", "-o", prog, "../../cmd/komando")
+	if b, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("go build: %v\n%s", err, b)
+	}
+	calls := map[string]func(cmd string) string{
+		"claude": func(c string) string { return `{"tool_name":"Bash","tool_input":{"command":` + strconv.Quote(c) + `}}` },
+		"codex":  func(c string) string { return `{"tool_name":"Bash","tool_input":{"command":` + strconv.Quote(c) + `}}` },
+		"gemini": func(c string) string {
+			return `{"tool_name":"run_shell_command","tool_input":{"command":` + strconv.Quote(c) + `}}`
+		},
+		"cursor": func(c string) string {
+			return `{"hook_event_name":"beforeShellExecution","command":` + strconv.Quote(c) + `}`
+		},
+	}
+	denyWord := map[string]string{"claude": `"permissionDecision":"deny"`, "codex": `"permissionDecision":"deny"`, "gemini": `"decision":"deny"`, "cursor": `"permission":"deny"`}
+	allowOut := map[string]string{"claude": "", "codex": "", "gemini": "", "cursor": `{"permission":"allow"}`}
+	run := func(line, in string) (string, int) {
+		cmd := exec.Command("/bin/sh", "-c", line)
+		cmd.Stdin = strings.NewReader(in)
+		cmd.Env = append(os.Environ(), "HOME="+home)
+		b, err := cmd.Output()
+		if ee, ok := err.(*exec.ExitError); ok {
+			return string(b), ee.ExitCode()
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(b), 0
+	}
+	for h, call := range calls {
+		line := guardHookLine(prog, h)
+		if got, code := run(line, call("ls")); strings.TrimSpace(got) != allowOut[h] || code != 0 {
+			t.Errorf("%s, allowed call: %q, exit %d", h, got, code)
+		}
+		if got, code := run(line, call("cat ~/.komando/x")); !strings.Contains(got, denyWord[h]) || code != 0 {
+			t.Errorf("%s, a read of ~/.komando: %q, exit %d; want the deny", h, got, code)
+		}
+	}
+	if err := os.Remove(prog); err != nil {
+		t.Fatal(err)
+	}
+	for h, call := range calls {
+		want := strings.TrimSpace(string(guardAnswer(h, deny(guardDidNotRun))))
+		if got, code := run(guardHookLine(prog, h), call("ls")); got != want || code != 0 {
+			t.Errorf("%s, no program: %q, exit %d; want %q", h, got, code, want)
 		}
 	}
 }

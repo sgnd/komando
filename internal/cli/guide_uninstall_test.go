@@ -128,14 +128,12 @@ func TestGuideInstallProjectUsesThePathName(t *testing.T) {
 		t.Skip(err)
 	}
 	t.Setenv("PATH", bin)
-	if prog, note := hookProgram(true); prog != "komando" || note != "" {
-		t.Errorf("in PATH: %q %q", prog, note)
+	// the hook names komando by its absolute path, in PATH or not: a bare
+	// name would run whichever komando comes first in PATH
+	if prog, note, err := hookProgram(true); err != nil || !filepath.IsAbs(prog) || !strings.Contains(note, "a path on this computer only") {
+		t.Errorf("in PATH, project: %q %q %v", prog, note, err)
 	}
-	if prog, _ := hookProgram(false); !filepath.IsAbs(prog) {
-		t.Errorf("home folder: %q", prog)
-	}
-	t.Setenv("PATH", t.TempDir())
-	if prog, note := hookProgram(true); prog == "komando" || !strings.Contains(note, "a path on this computer only") {
-		t.Errorf("not in PATH: %q %q", prog, note)
+	if prog, _, err := hookProgram(false); err != nil || !filepath.IsAbs(prog) {
+		t.Errorf("home folder: %q %v", prog, err)
 	}
 }
