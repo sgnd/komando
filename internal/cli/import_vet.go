@@ -244,7 +244,7 @@ func guardImportSecrets(cl *call, st *store.State, names []string, plan *importP
 		} else if err != nil {
 			return err
 		}
-		if prot := protectedUsers(st, secretUsers(st, name)); len(prot) > 0 && !cl.yesOK() && !confirmProtected(cl, prot) {
+		if prot := inventory.ProtectedUsers(st, inventory.SecretUsers(st, name)); len(prot) > 0 && !cl.yesOK() && !confirmProtected(cl, prot) {
 			if err := cl.policyStop(approvalErr(cl, "PROTECTED_TARGET",
 				"secret "+name+" is used by protected "+strings.Join(prot, ", ")+"; replacing it changes how komando logs in there")); err != nil {
 				return err

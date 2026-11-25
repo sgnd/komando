@@ -431,7 +431,7 @@ func connRmCmd() *cobra.Command {
 				var refs []string
 				for _, n := range names {
 					refs = append(refs, s.Conns[n].PasswordRef)
-					for _, r := range urlSecretRefs(s.Conns[n].URL) {
+					for _, r := range inventory.URLSecretRefs(s.Conns[n].URL) {
 						refs = append(refs, "secret:"+r.Name)
 					}
 					delete(s.Conns, n)

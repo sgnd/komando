@@ -197,7 +197,7 @@ func renameVpn(cl *call, s *store.State, from, to string) (mvResult, error) {
 	s.Vpns[to] = v
 	res.Updated = append(res.Updated, renameVia(s, from, to)...)
 	for _, n := range slices.Sorted(maps.Keys(secrets)) {
-		renameSecretRefs(s, n, secrets[n])
+		inventory.RenameSecretRefs(s, n, secrets[n])
 		res.Updated = append(res.Updated, "secret "+n+", now "+secrets[n])
 	}
 	if len(secrets) > 0 && !cl.flags.dryRun {
@@ -245,7 +245,7 @@ func vpnOwnSecrets(s *store.State, v *store.Vpn, to string) (map[string]string, 
 			continue
 		}
 		switch {
-		case !slices.Equal(secretUsers(s, n), []string{"vpn " + v.Name}):
+		case !slices.Equal(inventory.SecretUsers(s, n), []string{"vpn " + v.Name}):
 			kept = append(kept, "secret "+n+" keeps its name: something else uses it too")
 		case slices.Contains(have, to+suffix):
 			kept = append(kept, "secret "+n+" keeps its name: a secret "+to+suffix+" exists already")

@@ -195,7 +195,7 @@ func secretPlaceChanges(s *store.State, name string) []string {
 		if !c.AskLogin() {
 			continue
 		}
-		for _, r := range urlSecretRefs(c.URL) {
+		for _, r := range inventory.URLSecretRefs(c.URL) {
 			if r.Name == name {
 				what = append(what, "secret "+name+" is the "+r.Option+" of login-ask conn "+c.Name)
 			}
