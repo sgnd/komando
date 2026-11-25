@@ -501,7 +501,7 @@ func vpnsReplaced(st *store.State, vpns []*store.Vpn) []*store.Vpn {
 // vault, so an AI agent may name a secret file; errors about it never
 // quote its text.
 func vpnConfigText(cl *call, config string) (string, error) {
-	b, err := readImportFile(cl, expandHome(config))
+	b, err := readImportFile(cl, inventory.ExpandHome(config))
 	if err != nil {
 		if _, ok := err.(*out.Error); ok {
 			return "", err
@@ -519,7 +519,7 @@ func readVpnCA(cl *call, path string) (string, error) {
 	if path == "" {
 		return "", nil
 	}
-	b, err := readLocalFile(cl, expandHome(path))
+	b, err := readLocalFile(cl, inventory.ExpandHome(path))
 	if err != nil {
 		if _, ok := err.(*out.Error); ok {
 			return "", err

@@ -213,7 +213,7 @@ login, as ssh does; --cert names one kept somewhere else.`,
 			if err := checkPassphraseRef(passRef); err != nil {
 				return err
 			}
-			p, _ := filepath.Abs(expandHome(args[1]))
+			p, _ := filepath.Abs(inventory.ExpandHome(args[1]))
 			b, err := os.ReadFile(p)
 			if err != nil {
 				return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give the path of a private key file, for example ~/.ssh/id_ed25519", "%s: %v", p, errText(err))
@@ -308,7 +308,7 @@ func keyCert(k *store.Key, cert, keyFile string, warnings *[]string) error {
 			return nil
 		}
 	}
-	path, _ = filepath.Abs(expandHome(path))
+	path, _ = filepath.Abs(inventory.ExpandHome(path))
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give the path of the key's certificate, for example ~/.ssh/id_ed25519-cert.pub", "%s: %v", path, errText(err))
@@ -667,7 +667,7 @@ func deployKey(cl *call, st *store.State, arg string) (name, line string, err er
 		}
 		return k.Name, cleanPubLine(pub, comment), nil
 	}
-	if b, rerr := os.ReadFile(expandHome(arg)); rerr == nil {
+	if b, rerr := os.ReadFile(inventory.ExpandHome(arg)); rerr == nil {
 		pub, comment, _, _, err := ssh.ParseAuthorizedKey(b)
 		if err != nil {
 			return "", "", out.Errf(out.ExitUsage, "KEY_INVALID", "give a .pub file (the public key), not the private key", "%s is not a public key", arg)

@@ -189,6 +189,7 @@ var leaves = concat(
 	vpnLeaves,
 	cloudLeaves,
 	ownLeaves,
+	keptUntilPhone,
 )
 
 func concat(parts ...[]Leaf) []Leaf {

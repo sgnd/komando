@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/vault"
 )
@@ -179,7 +180,7 @@ func localSecret(cl *call, p string) string {
 	if p == "" {
 		return ""
 	}
-	abs, err := filepath.Abs(expandHome(p))
+	abs, err := filepath.Abs(inventory.ExpandHome(p))
 	if err != nil {
 		abs = p
 	}
@@ -355,7 +356,7 @@ func readKubeRefFile(cl *call, p string) ([]byte, error) {
 // links compared): an SSH private key, or a credential store other than
 // ~/.kube, is refused; "" otherwise.
 func kubeRefSecret(cl *call, p string) string {
-	abs, err := filepath.Abs(expandHome(p))
+	abs, err := filepath.Abs(inventory.ExpandHome(p))
 	if err != nil {
 		abs = p
 	}

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -68,7 +69,7 @@ func pkgChangeScript(action string, pkgs []string, guard bool) string {
 	}
 	if action == "remove" && guard {
 		sb.WriteString("if [ -n \"$(echo $todo)\" ]; then gone=$(ACTION=simulate-remove PKGS=\"$todo\"; (" + pkgShell + ") 2>/dev/null)\n" +
-			"hit=$(printf '%s\\n' \"$gone\" | grep -E " + sshx.Q(essentialPkgs.String()) + " | tr '\\n' ' ')\n" +
+			"hit=$(printf '%s\\n' \"$gone\" | grep -E " + sshx.Q(policy.EssentialPackagePattern()) + " | tr '\\n' ' ')\n" +
 			"if [ -n \"$(echo $hit)\" ]; then echo '#komando:essential'; printf '%s\\n' $hit; exit 0; fi; fi\n")
 	}
 	sb.WriteString("rc=0\n")

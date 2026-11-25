@@ -216,7 +216,7 @@ func formPortProblem(_ *store.State, _ formAnswers, v string) string {
 
 // formFileProblem checks a file on this computer.
 func formFileProblem(v string) string {
-	fi, err := os.Stat(expandHome(v))
+	fi, err := os.Stat(inventory.ExpandHome(v))
 	switch {
 	case err != nil:
 		return "there is no file at " + v + "; check the path (~/ means your home folder)"
@@ -228,7 +228,7 @@ func formFileProblem(v string) string {
 
 // formAbs is a path as komando should store it: ~ expanded, absolute.
 func formAbs(p string) string {
-	if abs, err := filepath.Abs(expandHome(p)); err == nil {
+	if abs, err := filepath.Abs(inventory.ExpandHome(p)); err == nil {
 		return abs
 	}
 	return p
