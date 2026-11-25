@@ -274,3 +274,51 @@ func TestFormClean(t *testing.T) {
 		t.Errorf("no notice that a password was taken out: %q", f.notice)
 	}
 }
+
+// A password typed key by key into an address is hidden as it is typed,
+// before the @ that lets Clean find it (A-C504-1): what follows ://user:
+// is drawn as *** up to the @ or the end.
+func TestFormHidesPasswordWhileTyped(t *testing.T) {
+	clean := func(s string) (string, bool) {
+		if i, j := strings.Index(s, "://"), strings.LastIndex(s, "@"); i >= 0 && j > i {
+			if c := strings.Index(s[i+3:j], ":"); c >= 0 {
+				return s[:i+3+c] + s[j:], true
+			}
+		}
+		return s, false
+	}
+	tests := []struct{ typed, hidden, shown string }{
+		{"postgres://u:sec", "sec", "postgres://u:***"},
+		{"postgres://u:s", "u:s", "postgres://u:***"},
+		{"postgres://u:sec@db", "sec", "postgres://u@db"},
+		{"postgres://u@db:5432", "", "postgres://u@db:5432"},
+		{"db.example.com", "", "db.example.com"},
+	}
+	for _, tt := range tests {
+		f := NewForm("komando x", []Field{{Key: "arg0", Ask: "Which address?", Clean: clean}})
+		ftyped(f, tt.typed)
+		screen := strings.Join(DrawForm(f, Style{Width: 80}), "\n")
+		if tt.hidden != "" && strings.Contains(screen, tt.hidden) {
+			t.Errorf("typing %q draws %q:\n%s", tt.typed, tt.hidden, screen)
+		}
+		if !strings.Contains(screen, tt.shown) {
+			t.Errorf("typing %q: want %q on the screen:\n%s", tt.typed, tt.shown, screen)
+		}
+	}
+}
+
+// hideTyped on its own, for text Clean left as it was.
+func TestHideTyped(t *testing.T) {
+	for in, want := range map[string]string{
+		"a://u:p@h":      "a://u:***@h",
+		"a://u:p":        "a://u:***",
+		"a://u@h:5432":   "a://u@h:5432",
+		"a://h":          "a://h",
+		"u:p@h":          "u:p@h", // no scheme: Clean's job alone
+		"a://u:p:q@h:22": "a://u:***@h:22",
+	} {
+		if got := hideTyped(in); got != want {
+			t.Errorf("hideTyped(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

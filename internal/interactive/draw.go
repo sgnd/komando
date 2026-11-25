@@ -125,6 +125,7 @@ func DrawForm(f *Form, s Style) []string {
 	x, t := f.Field(), f.Text()
 	if x.Clean != nil {
 		t, _ = x.Clean(t) // a pasted password is never drawn
+		t = hideTyped(t)
 	}
 	def := ""
 	if x.Default != nil {
@@ -171,6 +172,26 @@ func DrawReview(r *Review, s Style) []string {
 		lines = append(lines, prefix+part)
 	}
 	return append(lines, keyLine(w, "Enter run", "Esc back to the form", "Ctrl-C stop"))
+}
+
+// hideTyped draws a password still being typed into an address as ***:
+// what follows scheme://user: up to the @, or to the end while no @ has
+// come yet. Clean takes it out only once the @ shows it was one, so until
+// then a host:port with no user is hidden too; only the drawing changes.
+func hideTyped(s string) string {
+	i := strings.Index(s, "://")
+	if i < 0 {
+		return s
+	}
+	rest := s[i+3:]
+	c, at := strings.Index(rest, ":"), strings.Index(rest, "@")
+	switch {
+	case c < 0 || at >= 0 && at < c:
+		return s
+	case at < 0:
+		return s[:i+3+c+1] + "***"
+	}
+	return s[:i+3+c+1] + "***" + rest[at:]
 }
 
 // hardWrap breaks s into parts of at most w columns, keeping every
