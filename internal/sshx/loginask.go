@@ -170,23 +170,23 @@ func AskLoginNeedsPerson(h *store.Host, agent bool) *out.Error {
 		return out.Errf(out.ExitPolicy, "NEEDS_PERSON", AskLoginStep(h, true)+"; never ask for the password in the chat",
 			"%s logs in with a password a person types each time (login ask), and komando could not ask the user in a window here", h.Name).NoFlag()
 	}
-	return out.Errf(out.ExitPolicy, "NEEDS_PERSON", AskLoginStep(h, false)+": later commands (scripts too) use a `komando login` while it lasts",
+	return out.Errf(out.ExitPolicy, "NEEDS_PERSON", AskLoginStep(h, false)+": later commands (scripts too) use that session while it lasts",
 		"%s logs in with a password a person types each time (login ask), and no person is at a terminal here", h.Name).NoFlag()
 }
 
 // AskLoginStep is the one next step when nobody here can type the password
-// of login-ask server h: a person runs `komando login NAME` in their own
-// terminal (it keeps the login for a while); a WinRM server has no held
-// login, so the person runs the command there.
+// of login-ask server h: a person runs `komando test NAME` in their own
+// terminal (it keeps the session for a while); a WinRM server has no kept
+// session, so the person runs the command there.
 func AskLoginStep(h *store.Host, agent bool) string {
 	who := "have a person run"
 	if agent {
 		who = "ask the user to run"
 	}
 	if h.WinRM() {
-		return who + " the command in their own terminal (a WinRM server has no `komando login`)"
+		return who + " the command in their own terminal (a WinRM server has no kept session)"
 	}
-	return who + " `komando login " + h.Name + "` in their own terminal"
+	return who + " `" + PersonStepCmd(h.Name) + "` in their own terminal"
 }
 
 // LoginID is what login-ask server h is known by in the host keys'
