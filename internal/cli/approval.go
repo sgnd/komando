@@ -55,44 +55,48 @@ func (cl *call) wroteBefore() bool { return store.Commits() != cl.commits }
 // why, when given, says what the stop is about (the matched rule, the
 // targets); the window shows it on its own line.
 //
-// Each decision here loads the gate once (cl.gate()) and reads the flag,
-// --dry-run and the caller from that one value.
-func (cl *call) yesOK(why ...string) bool {
-	g := cl.gate()
-	return g.yes && cl.personAllowsFlags(g, []string{"--yes"}, "", why...)
+// The decisions are the gate's: each reads the flags and the caller from
+// that one gate, and asks and records only through its hooks (gateIO). The
+// call's methods of the same names forward to the running command's gate.
+func (g *gate) yesOK(why ...string) bool {
+	return g.yes && g.personAllowsFlags([]string{"--yes"}, "", why...)
 }
-func (cl *call) dangerOK(why ...string) bool {
-	g := cl.gate()
-	return g.allowDangerous && cl.personAllowsFlags(g, []string{"--allow-dangerous"}, "", why...)
+func (g *gate) dangerOK(why ...string) bool {
+	return g.allowDangerous && g.personAllowsFlags([]string{"--allow-dangerous"}, "", why...)
 }
 
 // yesOKFor is yesOK that names in the window what --yes lets through
 // (personAllowsFor).
-func (cl *call) yesOKFor(what string, why ...string) bool {
-	g := cl.gate()
-	return g.yes && cl.personAllowsFlags(g, []string{"--yes"}, what, why...)
+func (g *gate) yesOKFor(what string, why ...string) bool {
+	return g.yes && g.personAllowsFlags([]string{"--yes"}, what, why...)
 }
 
 // dangerAndYesOK is dangerOK for a destructive change on protected
 // targets: one window names both flags and both reasons, so the --yes
 // check that follows is answered by it.
-func (cl *call) dangerAndYesOK(prot string, why ...string) bool {
-	g := cl.gate()
+func (g *gate) dangerAndYesOK(prot string, why ...string) bool {
 	if !g.allowDangerous {
 		return false
 	}
 	if prot == "" || !g.yes {
-		return cl.personAllowsFlags(g, []string{"--allow-dangerous"}, "", why...)
+		return g.personAllowsFlags([]string{"--allow-dangerous"}, "", why...)
 	}
-	return cl.personAllowsFlags(g, []string{"--allow-dangerous", "--yes"}, "", append([]string{prot}, why...)...)
+	return g.personAllowsFlags([]string{"--allow-dangerous", "--yes"}, "", append([]string{prot}, why...)...)
 }
 
 // revealOK never counts under --dry-run: a preview still prints what it
 // reads, and a dry run never asks the person, so it stays masked.
-func (cl *call) revealOK() bool {
-	g := cl.gate()
-	return g.reveal && !g.dryRun && cl.personAllowsFlags(g, []string{"--reveal"}, "")
+func (g *gate) revealOK() bool {
+	return g.reveal && !g.dryRun && g.personAllowsFlags([]string{"--reveal"}, "")
 }
+
+func (cl *call) yesOK(why ...string) bool                 { return cl.gate().yesOK(why...) }
+func (cl *call) dangerOK(why ...string) bool              { return cl.gate().dangerOK(why...) }
+func (cl *call) yesOKFor(what string, why ...string) bool { return cl.gate().yesOKFor(what, why...) }
+func (cl *call) dangerAndYesOK(prot string, why ...string) bool {
+	return cl.gate().dangerAndYesOK(prot, why...)
+}
+func (cl *call) revealOK() bool { return cl.gate().revealOK() }
 
 // approvalMaxLen is the longest command line the window shows. A longer one
 // is not cut (the hidden part could be the one that matters): the agent is
@@ -106,27 +110,37 @@ const approvalMaxLen = 500
 // Under --dry-run nothing the flag lets through runs, so no window opens and
 // the preview goes on. The callers that act under --dry-run (output masking,
 // see revealOK) must not count on this.
-func (cl *call) personAllows(flag string, why ...string) bool {
-	return cl.personAllowsFlags(cl.gate(), []string{flag}, "", why...)
+func (g *gate) personAllows(flag string, why ...string) bool {
+	return g.personAllowsFlags([]string{flag}, "", why...)
 }
 
 // personAllowsFor is personAllows that names in the window what the flag
 // lets through (a program that runs on this computer), when the command
 // line alone does not show it. A yes given in a window that did not name
 // it does not cover it: the person is asked again, with it named.
+func (g *gate) personAllowsFor(flag, what string, why ...string) bool {
+	return g.personAllowsFlags([]string{flag}, what, why...)
+}
+
+func (cl *call) personAllows(flag string, why ...string) bool {
+	return cl.gate().personAllows(flag, why...)
+}
 func (cl *call) personAllowsFor(flag, what string, why ...string) bool {
-	return cl.personAllowsFlags(cl.gate(), []string{flag}, what, why...)
+	return cl.gate().personAllowsFor(flag, what, why...)
 }
 
 // personAllowsFlags is personAllowsFor for a window that names several
-// flags, with the gate g the decision loaded. A yes covers the kind of flag
-// its window named (flagKind): a window opened for --reveal does not
-// answer a later --yes check, nor the other way round.
-func (cl *call) personAllowsFlags(g *gate, flags []string, what string, why ...string) bool {
+// flags. A yes covers the kind of flag its window named (flagKind): a
+// window opened for --reveal does not answer a later --yes check, nor the
+// other way round. A gate without hooks has no window: an agent is refused.
+func (g *gate) personAllowsFlags(flags []string, what string, why ...string) bool {
 	if !g.who.IsAgent() || g.dryRun {
 		return true
 	}
-	sess := cl.sess
+	if g.hooks == nil {
+		return false
+	}
+	sess := g.hooks.approvals()
 	sess.Lock()
 	defer sess.Unlock()
 	// a yes covers what its window showed: what the flag lets through, the
@@ -134,7 +148,7 @@ func (cl *call) personAllowsFlags(g *gate, flags []string, what string, why ...s
 	// brings one of these new (a script noted after the --reveal window, a
 	// protected server named after it) asks again, with it in the window.
 	// A no stands for the whole command.
-	need := shownKeys(cl, what, why)
+	need := g.hooks.windowKeys(what, why)
 	for _, f := range flags {
 		need = append(need, flagKind(f))
 	}
@@ -145,30 +159,18 @@ func (cl *call) personAllowsFlags(g *gate, flags []string, what string, why ...s
 	for _, k := range need {
 		sess.MarkShown(k)
 	}
-	line := commandLine(cl)
-	bad := hiddenArgs(cl.args[1:])
-	if bad == "" {
-		bad = unshowable(line)
-	}
-	body := ""
-	if bad == "" && cl.body != nil {
-		body, bad = cl.body.shown(cl)
-	}
+	text, bad, tooLong, done := g.hooks.window(flags, what, why)
 	if bad != "" {
 		sess.SetWhy("unshowable")
-		if cl.body != nil && cl.body.overLimit {
+		if tooLong {
 			sess.SetWhy("too-long")
 		}
 		sess.SetUnshown(bad)
 		return false
 	}
-	// what and where first, the question next, komando's rule details last
-	v := newApprovalView(cl, flags, what, why, line, body)
-	cl.view = &v
-	defer func() { cl.view = nil }()
-	text := v.text()
+	defer done()
 	sess.SetGaveUp(false)
-	allowed, shown := cl.askPerson(text)
+	allowed, shown := g.hooks.askPerson(text)
 	gaveUp := tookGaveUp(text)
 	sess.SetGaveUp(gaveUp)
 	switch {
@@ -183,6 +185,31 @@ func (cl *call) personAllowsFlags(g *gate, flags []string, what string, why ...s
 		sess.SetWhy("no-screen")
 	}
 	return sess.Window().Allowed
+}
+
+// approvals, windowKeys, window, askPerson and wouldBlock are the call's
+// side of the gate's decisions (gateIO).
+func (cl *call) approvals() *engine.Session { return cl.sess }
+
+func (cl *call) windowKeys(what string, why []string) []string { return shownKeys(cl, what, why) }
+
+func (cl *call) window(flags []string, what string, why []string) (text, unshown string, tooLong bool, done func()) {
+	line := commandLine(cl)
+	bad := hiddenArgs(cl.args[1:])
+	if bad == "" {
+		bad = unshowable(line)
+	}
+	body := ""
+	if bad == "" && cl.body != nil {
+		body, bad = cl.body.shown(cl)
+	}
+	if bad != "" {
+		return "", bad, cl.body != nil && cl.body.overLimit, func() {}
+	}
+	// what and where first, the question next, komando's rule details last
+	v := newApprovalView(cl, flags, what, why, line, body)
+	cl.view = &v
+	return v.text(), "", false, func() { cl.view = nil }
 }
 
 // flagKind is the key of what a flag's yes covers: --reveal shows or
@@ -364,13 +391,19 @@ func hiddenArgs(args []string) string {
 // stop: the command goes on to show its plan, and meta.would_be_blocked
 // says the real run would stop here. A preview of a change on a protected
 // server is exactly when people need one.
-func (cl *call) policyStop(e *out.Error) error {
-	if cl.gate().dryRun {
-		stdApprovalHint(cl, e)
-		cl.out.WouldBlock(e)
+func (g *gate) policyStop(e *out.Error) error {
+	if g.dryRun && g.hooks != nil {
+		g.hooks.wouldBlock(e)
 		return nil
 	}
 	return e
+}
+func (cl *call) policyStop(e *out.Error) error { return cl.gate().policyStop(e) }
+
+// wouldBlock records, in a dry run, the stop e the real run would make.
+func (cl *call) wouldBlock(e *out.Error) {
+	stdApprovalHint(cl, e)
+	cl.out.WouldBlock(e)
 }
 
 // approvalHint rewrites the hint of a safety stop for an AI agent: it tells

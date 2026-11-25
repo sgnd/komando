@@ -155,12 +155,13 @@ func (cl *call) begin(cmd *cobra.Command) {
 
 // storeWrite is how this command's changes to the store and the vault go:
 // under --dry-run they are only previewed (store.Preview()).
-func (cl *call) storeWrite() store.Write {
-	if cl.gate().dryRun {
+func (g *gate) storeWrite() store.Write {
+	if g.dryRun {
 		return store.Preview()
 	}
 	return store.Save()
 }
+func (cl *call) storeWrite() store.Write { return cl.gate().storeWrite() }
 
 // gate is what one command's safety decisions read: its four gate flags as
 // its command line set them, and who is calling. Only newGate makes one,
@@ -174,6 +175,31 @@ type gate struct {
 	allowDangerous bool // --allow-dangerous as typed: what counts is dangerOK
 	reveal         bool // --reveal as typed: what counts is revealOK
 	who            engine.Caller
+	// hooks is how the gate's decisions reach the call they decide for:
+	// its approvals, the window and the would_be_blocked record. Given to
+	// newGate and never set after; nil (noGate, a command only checked)
+	// refuses whatever needs a person.
+	hooks gateIO
+}
+
+// gateIO is what the gate's decisions need from the call: the gate decides,
+// and writes and asks only through these (TestGateOnlyDecides). *call is
+// the only one.
+type gateIO interface {
+	// approvals is the command's approval session (engine.Session).
+	approvals() *engine.Session
+	// windowKeys names what a window for this check shows besides the
+	// command line: what, the body the command sends, each reason.
+	windowKeys(what string, why []string) []string
+	// window makes the window's text for flags, what and why; unshown says
+	// why the command cannot be shown in one (tooLong: its body is over the
+	// limit), and done ends the window once it was asked.
+	window(flags []string, what string, why []string) (text, unshown string, tooLong bool, done func())
+	// askPerson opens the window with text and says whether the person
+	// allowed it and whether it was shown at all.
+	askPerson(text string) (allowed, shown bool)
+	// wouldBlock records that the real run would stop at e (a dry run).
+	wouldBlock(e *out.Error)
 }
 
 // gateFlagNames are the command line flags the gate reads, in the order of
@@ -181,9 +207,10 @@ type gate struct {
 var gateFlagNames = [4]string{"dry-run", "yes", "allow-dangerous", "reveal"}
 
 // newGate is the gate of a command with the parsed command line cmd (nil:
-// none parsed, all four flags off) run by who. cobra keeps the parsed
+// none parsed, all four flags off) run by who, deciding through hooks (nil
+// for a command that is only checked, never run). cobra keeps the parsed
 // values; nothing else in komando holds them.
-func newGate(cmd *cobra.Command, who engine.Caller) *gate {
+func newGate(cmd *cobra.Command, who engine.Caller, hooks gateIO) *gate {
 	var on [4]bool
 	if cmd != nil {
 		for i, name := range gateFlagNames {
@@ -200,18 +227,19 @@ func newGate(cmd *cobra.Command, who engine.Caller) *gate {
 			on[i] = v
 		}
 	}
-	return &gate{dryRun: on[0], yes: on[1], allowDangerous: on[2], reveal: on[3], who: who}
+	return &gate{dryRun: on[0], yes: on[1], allowDangerous: on[2], reveal: on[3], who: who, hooks: hooks}
 }
 
 // startGate stores the gate of the command cmd starts: from its parsed
 // command line, the caller read again from the call's environment. The
 // root's PersistentPreRunE (begin) and status --short, which skips it,
 // call it, so no command runs on the gate of the one before.
-func (cl *call) startGate(cmd *cobra.Command) { cl.g.Store(newGate(cmd, cl.io.Caller())) }
+func (cl *call) startGate(cmd *cobra.Command) { cl.g.Store(newGate(cmd, cl.io.Caller(), cl)) }
 
 // noGate is what a call that never stored a gate reads: an AI agent with
-// every flag off, the strictest caller, never a person. newCall stores a
-// gate, so only a call made without it gets this.
+// every flag off and no hooks, the strictest caller, never a person: it
+// refuses whatever needs one. newCall stores a gate, so only a call made
+// without it gets this.
 var noGate = gate{who: engine.Caller{Kind: engine.Agent, Agent: "a komando call without a gate"}}
 
 // gate is the gate of the command running in the call.
@@ -238,13 +266,15 @@ func (cl *call) caller() engine.Caller { return cl.gate().who }
 
 // withDryRun runs f with --dry-run on and puts the gate back after it:
 // kctl's diff is an apply the server only pretends to do. It turns only
-// --dry-run on, never off, and changes nothing else of the gate.
+// --dry-run on, never off, and changes nothing else of the gate. The old
+// gate comes back only if f stored none meanwhile (an asAgent inside f):
+// that one stays, with --dry-run still on.
 func (cl *call) withDryRun(f func() error) error {
 	old := cl.gate()
 	g := *old
 	g.dryRun = true
 	cl.g.Store(&g)
-	defer cl.g.Store(old)
+	defer cl.g.CompareAndSwap(&g, old)
 	return f()
 }
 
