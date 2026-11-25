@@ -34,11 +34,22 @@ func TestLeafFloorNotWeaker(t *testing.T) {
 	for _, l := range capability.All() {
 		for _, id := range slices.Concat(l.Today, l.Carries) {
 			c, ok := byID[id]
-			if !ok && slices.Contains(movedTypes, l.Type) && slices.Contains(l.Today, id) {
+			if !ok && slices.Contains(movedTypes, l.Type) && (slices.Contains(l.Today, id) || carriedByMoved(id)) {
 				// the leaf has moved (step C): today's command is gone with its
-				// path, and its safety key, which the rows follow, is the leaf's
-				if k := capability.TodayKeys()[id]; (safetyKey{k.Type, k.Area, k.Verb}) != (safetyKey{l.Type, l.Area, l.Verb}) {
+				// path. Under its own key the rows follow it, so the key is the
+				// leaf's; one it carries under another key (storage chmod is
+				// object move) must not be stronger than the leaf
+				k := capability.TodayKeys()[id]
+				key := safetyKey{k.Type, k.Area, k.Verb}
+				if slices.Contains(l.Today, id) && key != (safetyKey{l.Type, l.Area, l.Verb}) {
 					t.Errorf("%s: moved from %s, whose key was %v", l.Key, id, k)
+				}
+				base := tierChange
+				if kind, ok := commandKinds[key]; ok && kind.Kind == kindRead {
+					base = tierRead
+				}
+				if want, got := max(base, todayTier(key)), tier(capability.Highest(l.Key)); got < want {
+					t.Errorf("%s: carries %s (%s today), but the leaf is at most %s", l.Key, id, want, got)
 				}
 				continue
 			}

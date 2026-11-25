@@ -209,7 +209,7 @@ komando storage s3 object create backups reports/2026 --dry-run       # check fi
 komando storage s3 object create backups reports/2026                 # missing parents too
 komando storage s3 object move backups db/old.sql.gz archive/          # into a folder, same name
 komando storage s3 object move backups reports/draft.pdf reports/q3.pdf --overwrite
-komando storage chmod backups 0640 config/app.yml          # SFTP only
+komando storage sftp object move backups config/app.yml --mode 0640   # SFTP only
 ```
 
 ```text
@@ -412,7 +412,7 @@ komando conn rm backups                       # komando forgets it; the files st
 
 - Keys cannot leave the conn's folder (`../` is refused).
 - `storage s3 object move` stays inside one conn, and on S3, Google Cloud and Azure it
-  moves one object at a time; `storage chmod` is for SFTP conns only.
+  moves one object at a time; `object move --mode` is for SFTP conns only.
 - `storage s3 object read` shows text only, at most `--max-bytes` (1 MiB by default).
 - `storage s3 object delete` without `--prefix` takes exact keys, no patterns; with
   `--prefix` it stops above `--max-remove` objects (1000 by default) and

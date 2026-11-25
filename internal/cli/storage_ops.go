@@ -253,7 +253,7 @@ storage stop with STORAGE_UNSUPPORTED before anything is contacted.`,
 			mode, err := parseStorageMode(args[1])
 			if err != nil {
 				if _, swapped := parseStorageMode(args[2]); swapped == nil {
-					return out.Usage("%q is not a mode in digits like 0644 (the mode goes first: komando storage chmod CONN MODE PATH)", args[1])
+					return out.Usage("%q is not a mode in digits like 0644 (komando storage sftp object move NAME PATH --mode 0640)", args[1])
 				}
 				return err
 			}

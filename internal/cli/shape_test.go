@@ -131,7 +131,7 @@ var storageShapeCases = [][]string{
 	{"storage", "s3", "object", "create", "bk", "reports/2026"},
 	{"storage", "s3", "object", "move", "bk", "a.txt", "archive/", "--dry-run"},
 	{"storage", "s3", "object", "move", "bk", "a.txt", "archive/"},
-	{"storage", "chmod", "bk", "0640", "archive/a.txt"},
+	{"storage", "s3", "object", "move", "bk", "archive/a.txt", "--mode", "0640"},
 }
 
 // TestOutputShapes: agents parse komando's JSON, so a field may be added

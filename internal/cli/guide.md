@@ -273,8 +273,8 @@ the database.
 `storage s3 object read CONN OBJECT --tail 50` and `komando download CONN OBJECT` read;
 `komando upload CONN FILE` and `storage s3 object link` change or share;
 `storage s3 object create CONN PATH`, `storage s3 object move CONN SRC DST` (on S3, Google Cloud
-and Azure: a copy that is checked, then the delete) and `storage chmod CONN
-MODE PATH` (SFTP only) change;
+and Azure: a copy that is checked, then the delete) and `storage sftp object move NAME PATH --mode
+MODE` (SFTP only) change;
 `storage s3 object delete` deletes (needs `--allow-dangerous`): list first with
 `storage s3 object delete CONN --prefix FOLDER/ --older-than 30d --dry-run`. Object
 names are relative to the conn's folder. On a versioned bucket `rm` keeps the old

@@ -294,7 +294,6 @@ storage.azblob.remove	plain=change	highest=read
 storage.azblob.rename	plain=change	highest=read
 storage.azblob.show	plain=read	highest=read
 storage.azblob.test	plain=read	highest=read
-storage.chmod	plain=change	highest=read
 storage.download	plain=read	highest=read
 storage.ftp	plain=read	highest=read
 storage.ftp.add	plain=change	highest=read

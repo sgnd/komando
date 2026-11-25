@@ -25,8 +25,8 @@ var storageLeaves = each(storageProviders, func(p provider) []Leaf {
 		l := areaLeaf("storage", p.name, v.area, v.verb, v.today)
 		completeObject(&l, p.name, p.entry)
 		if v.verb == "move" {
-			// chmod rides on move until the open question on --mode is settled
-			l.Options = append(l.Options, Option{Name: "mode", Kind: String, Help: "change the mode, as chmod does"})
+			// chmod is move with --mode: NAME PATH --mode MODE, no DST
+			l.Options = append(l.Options, Option{Name: "mode", Kind: String, Help: "change the mode of PATH, as chmod does (SFTP only); no DST then"})
 			l.Synonyms = []string{"mv"}
 			l.Carries = []string{"storage.chmod"}
 		}
@@ -70,10 +70,10 @@ func completeObject(l *Leaf, provider, entry string) {
 		l.Short = "Make a folder in " + article(provider) + " storage"
 		l.Example = cmd + entry + " reports/2026 --dry-run\n" + cmd + entry + " reports/2026"
 	case "move":
-		l.Args = []Arg{{Name: "NAME"}, {Name: "SRC"}, {Name: "DST"}}
+		l.Args = []Arg{{Name: "NAME"}, {Name: "SRC"}, {Name: "DST", Optional: true}}
 		l.Options = []Option{{Name: "overwrite", Kind: Bool, Help: "replace a file already at DST (never a folder)"}}
 		l.Short = "Move or rename an object in " + article(provider) + " storage"
-		l.Example = cmd + entry + " old.txt new.txt --dry-run\n" + cmd + entry + " old.txt archive/old.txt"
+		l.Example = cmd + entry + " old.txt new.txt --dry-run\n" + cmd + entry + " old.txt archive/old.txt\n" + cmd + entry + " config/app.yml --mode 0640"
 	case "delete":
 		l.Args = []Arg{{Name: "NAME"}, {Name: "OBJECT", Optional: true, Many: true}}
 		l.Options = []Option{

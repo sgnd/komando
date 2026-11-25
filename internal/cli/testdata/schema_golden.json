@@ -8033,7 +8033,7 @@
             "name": "limit",
             "shorthand": "n",
             "type": "int",
-            "default": "0",
+            "default": "1000",
             "usage": "show at most this many (0 = all)"
           }
         ],
@@ -8999,18 +8999,18 @@
       },
       {
         "path": "komando storage azblob object move",
-        "usage": "komando storage azblob object move NAME SRC DST [flags]",
+        "usage": "komando storage azblob object move NAME SRC [DST] [flags]",
         "short": "Move or rename an object in an azblob storage",
         "long": "Move or rename an object in an azblob storage.\n\nSafety: a change; try it with --dry-run first.",
         "aliases": [
           "mv"
         ],
-        "example": "  komando storage azblob object move backups old.txt new.txt --dry-run\n  komando storage azblob object move backups old.txt archive/old.txt",
+        "example": "  komando storage azblob object move backups old.txt new.txt --dry-run\n  komando storage azblob object move backups old.txt archive/old.txt\n  komando storage azblob object move backups config/app.yml --mode 0640",
         "flags": [
           {
             "name": "mode",
             "type": "string",
-            "usage": "change the mode, as chmod does"
+            "usage": "change the mode of PATH, as chmod does (SFTP only); no DST then"
           },
           {
             "name": "overwrite",
@@ -9125,20 +9125,6 @@
         "confirm": [
           {
             "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando storage chmod",
-        "usage": "komando storage chmod CONN MODE PATH [flags]",
-        "short": "Change the mode of a file or folder on an SFTP conn",
-        "long": "Sets the Unix mode of PATH (a file or a folder) on an SFTP server, like\nchmod. MODE is in digits: 0644, 640, 0750, or 2775 with the setgid bit; the\nresult says the old mode too. Only SFTP servers have modes: other kinds of\nstorage stop with STORAGE_UNSUPPORTED before anything is contacted.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando storage chmod backups 0640 config/app.yml --dry-run\n  komando storage chmod backups 0640 config/app.yml\n  komando storage chmod backups 0750 uploads",
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
           }
         ]
       },
@@ -9509,18 +9495,18 @@
       },
       {
         "path": "komando storage ftp object move",
-        "usage": "komando storage ftp object move NAME SRC DST [flags]",
+        "usage": "komando storage ftp object move NAME SRC [DST] [flags]",
         "short": "Move or rename an object in a ftp storage",
         "long": "Move or rename an object in a ftp storage.\n\nSafety: a change; try it with --dry-run first.",
         "aliases": [
           "mv"
         ],
-        "example": "  komando storage ftp object move backups old.txt new.txt --dry-run\n  komando storage ftp object move backups old.txt archive/old.txt",
+        "example": "  komando storage ftp object move backups old.txt new.txt --dry-run\n  komando storage ftp object move backups old.txt archive/old.txt\n  komando storage ftp object move backups config/app.yml --mode 0640",
         "flags": [
           {
             "name": "mode",
             "type": "string",
-            "usage": "change the mode, as chmod does"
+            "usage": "change the mode of PATH, as chmod does (SFTP only); no DST then"
           },
           {
             "name": "overwrite",
@@ -9988,18 +9974,18 @@
       },
       {
         "path": "komando storage gcs object move",
-        "usage": "komando storage gcs object move NAME SRC DST [flags]",
+        "usage": "komando storage gcs object move NAME SRC [DST] [flags]",
         "short": "Move or rename an object in a gcs storage",
         "long": "Move or rename an object in a gcs storage.\n\nSafety: a change; try it with --dry-run first.",
         "aliases": [
           "mv"
         ],
-        "example": "  komando storage gcs object move backups old.txt new.txt --dry-run\n  komando storage gcs object move backups old.txt archive/old.txt",
+        "example": "  komando storage gcs object move backups old.txt new.txt --dry-run\n  komando storage gcs object move backups old.txt archive/old.txt\n  komando storage gcs object move backups config/app.yml --mode 0640",
         "flags": [
           {
             "name": "mode",
             "type": "string",
-            "usage": "change the mode, as chmod does"
+            "usage": "change the mode of PATH, as chmod does (SFTP only); no DST then"
           },
           {
             "name": "overwrite",
@@ -10467,18 +10453,18 @@
       },
       {
         "path": "komando storage s3 object move",
-        "usage": "komando storage s3 object move NAME SRC DST [flags]",
+        "usage": "komando storage s3 object move NAME SRC [DST] [flags]",
         "short": "Move or rename an object in a s3 storage",
         "long": "Move or rename an object in a s3 storage.\n\nSafety: a change; try it with --dry-run first.",
         "aliases": [
           "mv"
         ],
-        "example": "  komando storage s3 object move backups old.txt new.txt --dry-run\n  komando storage s3 object move backups old.txt archive/old.txt",
+        "example": "  komando storage s3 object move backups old.txt new.txt --dry-run\n  komando storage s3 object move backups old.txt archive/old.txt\n  komando storage s3 object move backups config/app.yml --mode 0640",
         "flags": [
           {
             "name": "mode",
             "type": "string",
-            "usage": "change the mode, as chmod does"
+            "usage": "change the mode of PATH, as chmod does (SFTP only); no DST then"
           },
           {
             "name": "overwrite",
@@ -10914,18 +10900,18 @@
       },
       {
         "path": "komando storage sftp object move",
-        "usage": "komando storage sftp object move NAME SRC DST [flags]",
+        "usage": "komando storage sftp object move NAME SRC [DST] [flags]",
         "short": "Move or rename an object in a sftp storage",
         "long": "Move or rename an object in a sftp storage.\n\nSafety: a change; try it with --dry-run first.",
         "aliases": [
           "mv"
         ],
-        "example": "  komando storage sftp object move backups old.txt new.txt --dry-run\n  komando storage sftp object move backups old.txt archive/old.txt",
+        "example": "  komando storage sftp object move backups old.txt new.txt --dry-run\n  komando storage sftp object move backups old.txt archive/old.txt\n  komando storage sftp object move backups config/app.yml --mode 0640",
         "flags": [
           {
             "name": "mode",
             "type": "string",
-            "usage": "change the mode, as chmod does"
+            "usage": "change the mode of PATH, as chmod does (SFTP only); no DST then"
           },
           {
             "name": "overwrite",
@@ -11361,18 +11347,18 @@
       },
       {
         "path": "komando storage smb object move",
-        "usage": "komando storage smb object move NAME SRC DST [flags]",
+        "usage": "komando storage smb object move NAME SRC [DST] [flags]",
         "short": "Move or rename an object in a smb storage",
         "long": "Move or rename an object in a smb storage.\n\nSafety: a change; try it with --dry-run first.",
         "aliases": [
           "mv"
         ],
-        "example": "  komando storage smb object move backups old.txt new.txt --dry-run\n  komando storage smb object move backups old.txt archive/old.txt",
+        "example": "  komando storage smb object move backups old.txt new.txt --dry-run\n  komando storage smb object move backups old.txt archive/old.txt\n  komando storage smb object move backups config/app.yml --mode 0640",
         "flags": [
           {
             "name": "mode",
             "type": "string",
-            "usage": "change the mode, as chmod does"
+            "usage": "change the mode of PATH, as chmod does (SFTP only); no DST then"
           },
           {
             "name": "overwrite",
@@ -11852,18 +11838,18 @@
       },
       {
         "path": "komando storage webdav object move",
-        "usage": "komando storage webdav object move NAME SRC DST [flags]",
+        "usage": "komando storage webdav object move NAME SRC [DST] [flags]",
         "short": "Move or rename an object in a webdav storage",
         "long": "Move or rename an object in a webdav storage.\n\nSafety: a change; try it with --dry-run first.",
         "aliases": [
           "mv"
         ],
-        "example": "  komando storage webdav object move backups old.txt new.txt --dry-run\n  komando storage webdav object move backups old.txt archive/old.txt",
+        "example": "  komando storage webdav object move backups old.txt new.txt --dry-run\n  komando storage webdav object move backups old.txt archive/old.txt\n  komando storage webdav object move backups config/app.yml --mode 0640",
         "flags": [
           {
             "name": "mode",
             "type": "string",
-            "usage": "change the mode, as chmod does"
+            "usage": "change the mode of PATH, as chmod does (SFTP only); no DST then"
           },
           {
             "name": "overwrite",

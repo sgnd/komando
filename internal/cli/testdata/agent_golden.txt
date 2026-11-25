@@ -6617,49 +6617,49 @@ Hint: for example: komando storage azblob object list backups 2026/ (more in `ko
 ### komando -o json storage azblob object move (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.azblob.object.move","error":{"code":"USAGE","message":"storage azblob object move takes NAME SRC DST","hint":"for example: komando storage azblob object move backups old.txt new.txt --dry-run (more in `komando storage azblob object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.azblob.object.move","error":{"code":"USAGE","message":"storage azblob object move takes NAME SRC [DST]","hint":"for example: komando storage azblob object move backups old.txt new.txt --dry-run (more in `komando storage azblob object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage azblob object move (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: storage azblob object move takes NAME SRC DST
+Error: storage azblob object move takes NAME SRC [DST]
 Hint: for example: komando storage azblob object move backups old.txt new.txt --dry-run (more in `komando storage azblob object move --help`)
 (code USAGE, exit 2)
 ### komando -o json storage azblob object move (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.azblob.object.move","error":{"code":"USAGE","message":"storage azblob object move takes NAME SRC DST","hint":"for example: komando storage azblob object move backups old.txt new.txt --dry-run (more in `komando storage azblob object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.azblob.object.move","error":{"code":"USAGE","message":"storage azblob object move takes NAME SRC [DST]","hint":"for example: komando storage azblob object move backups old.txt new.txt --dry-run (more in `komando storage azblob object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage azblob object move (script text)
 exit 2
 --- stdout
 --- stderr
-Error: storage azblob object move takes NAME SRC DST
+Error: storage azblob object move takes NAME SRC [DST]
 Hint: for example: komando storage azblob object move backups old.txt new.txt --dry-run (more in `komando storage azblob object move --help`)
 (code USAGE, exit 2)
-### komando -o json storage azblob object move x1 x1 (agent json)
+### komando -o json storage azblob object move x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.azblob.object.move","error":{"code":"USAGE","message":"storage azblob object move takes NAME SRC DST","hint":"for example: komando storage azblob object move backups old.txt new.txt --dry-run (more in `komando storage azblob object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.azblob.object.move","error":{"code":"USAGE","message":"storage azblob object move takes NAME SRC [DST]","hint":"for example: komando storage azblob object move backups old.txt new.txt --dry-run (more in `komando storage azblob object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage azblob object move x1 x1 (agent text)
+### komando -o text storage azblob object move x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: storage azblob object move takes NAME SRC DST
+Error: storage azblob object move takes NAME SRC [DST]
 Hint: for example: komando storage azblob object move backups old.txt new.txt --dry-run (more in `komando storage azblob object move --help`)
 (code USAGE, exit 2)
-### komando -o json storage azblob object move x1 x1 (script json)
+### komando -o json storage azblob object move x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.azblob.object.move","error":{"code":"USAGE","message":"storage azblob object move takes NAME SRC DST","hint":"for example: komando storage azblob object move backups old.txt new.txt --dry-run (more in `komando storage azblob object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.azblob.object.move","error":{"code":"USAGE","message":"storage azblob object move takes NAME SRC [DST]","hint":"for example: komando storage azblob object move backups old.txt new.txt --dry-run (more in `komando storage azblob object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage azblob object move x1 x1 (script text)
+### komando -o text storage azblob object move x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: storage azblob object move takes NAME SRC DST
+Error: storage azblob object move takes NAME SRC [DST]
 Hint: for example: komando storage azblob object move backups old.txt new.txt --dry-run (more in `komando storage azblob object move --help`)
 (code USAGE, exit 2)
 ### komando -o json storage azblob object read (agent json)
@@ -6829,54 +6829,6 @@ exit 2
 --- stderr
 Error: storage azblob test takes TARGET
 Hint: for example: komando storage azblob test backups (more in `komando storage azblob test --help`)
-(code USAGE, exit 2)
-### komando -o json storage chmod (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"storage.chmod","error":{"code":"USAGE","message":"missing arguments; usage: komando storage chmod CONN MODE PATH","hint":"for example: komando storage chmod backups 0640 config/app.yml --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text storage chmod (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando storage chmod CONN MODE PATH
-Hint: for example: komando storage chmod backups 0640 config/app.yml --dry-run
-(code USAGE, exit 2)
-### komando -o json storage chmod (script json)
-exit 2
---- stdout
-{"ok":false,"command":"storage.chmod","error":{"code":"USAGE","message":"missing arguments; usage: komando storage chmod CONN MODE PATH","hint":"for example: komando storage chmod backups 0640 config/app.yml --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text storage chmod (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando storage chmod CONN MODE PATH
-Hint: for example: komando storage chmod backups 0640 config/app.yml --dry-run
-(code USAGE, exit 2)
-### komando -o json storage chmod x1 x1 (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"storage.chmod","error":{"code":"USAGE","message":"missing arguments; usage: komando storage chmod CONN MODE PATH","hint":"for example: komando storage chmod backups 0640 config/app.yml --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text storage chmod x1 x1 (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando storage chmod CONN MODE PATH
-Hint: for example: komando storage chmod backups 0640 config/app.yml --dry-run
-(code USAGE, exit 2)
-### komando -o json storage chmod x1 x1 (script json)
-exit 2
---- stdout
-{"ok":false,"command":"storage.chmod","error":{"code":"USAGE","message":"missing arguments; usage: komando storage chmod CONN MODE PATH","hint":"for example: komando storage chmod backups 0640 config/app.yml --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text storage chmod x1 x1 (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando storage chmod CONN MODE PATH
-Hint: for example: komando storage chmod backups 0640 config/app.yml --dry-run
 (code USAGE, exit 2)
 ### komando -o json storage download (agent json)
 exit 2
@@ -7073,49 +7025,49 @@ Hint: for example: komando storage ftp object list backups 2026/ (more in `koman
 ### komando -o json storage ftp object move (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.ftp.object.move","error":{"code":"USAGE","message":"storage ftp object move takes NAME SRC DST","hint":"for example: komando storage ftp object move backups old.txt new.txt --dry-run (more in `komando storage ftp object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.ftp.object.move","error":{"code":"USAGE","message":"storage ftp object move takes NAME SRC [DST]","hint":"for example: komando storage ftp object move backups old.txt new.txt --dry-run (more in `komando storage ftp object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage ftp object move (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: storage ftp object move takes NAME SRC DST
+Error: storage ftp object move takes NAME SRC [DST]
 Hint: for example: komando storage ftp object move backups old.txt new.txt --dry-run (more in `komando storage ftp object move --help`)
 (code USAGE, exit 2)
 ### komando -o json storage ftp object move (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.ftp.object.move","error":{"code":"USAGE","message":"storage ftp object move takes NAME SRC DST","hint":"for example: komando storage ftp object move backups old.txt new.txt --dry-run (more in `komando storage ftp object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.ftp.object.move","error":{"code":"USAGE","message":"storage ftp object move takes NAME SRC [DST]","hint":"for example: komando storage ftp object move backups old.txt new.txt --dry-run (more in `komando storage ftp object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage ftp object move (script text)
 exit 2
 --- stdout
 --- stderr
-Error: storage ftp object move takes NAME SRC DST
+Error: storage ftp object move takes NAME SRC [DST]
 Hint: for example: komando storage ftp object move backups old.txt new.txt --dry-run (more in `komando storage ftp object move --help`)
 (code USAGE, exit 2)
-### komando -o json storage ftp object move x1 x1 (agent json)
+### komando -o json storage ftp object move x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.ftp.object.move","error":{"code":"USAGE","message":"storage ftp object move takes NAME SRC DST","hint":"for example: komando storage ftp object move backups old.txt new.txt --dry-run (more in `komando storage ftp object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.ftp.object.move","error":{"code":"USAGE","message":"storage ftp object move takes NAME SRC [DST]","hint":"for example: komando storage ftp object move backups old.txt new.txt --dry-run (more in `komando storage ftp object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage ftp object move x1 x1 (agent text)
+### komando -o text storage ftp object move x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: storage ftp object move takes NAME SRC DST
+Error: storage ftp object move takes NAME SRC [DST]
 Hint: for example: komando storage ftp object move backups old.txt new.txt --dry-run (more in `komando storage ftp object move --help`)
 (code USAGE, exit 2)
-### komando -o json storage ftp object move x1 x1 (script json)
+### komando -o json storage ftp object move x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.ftp.object.move","error":{"code":"USAGE","message":"storage ftp object move takes NAME SRC DST","hint":"for example: komando storage ftp object move backups old.txt new.txt --dry-run (more in `komando storage ftp object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.ftp.object.move","error":{"code":"USAGE","message":"storage ftp object move takes NAME SRC [DST]","hint":"for example: komando storage ftp object move backups old.txt new.txt --dry-run (more in `komando storage ftp object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage ftp object move x1 x1 (script text)
+### komando -o text storage ftp object move x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: storage ftp object move takes NAME SRC DST
+Error: storage ftp object move takes NAME SRC [DST]
 Hint: for example: komando storage ftp object move backups old.txt new.txt --dry-run (more in `komando storage ftp object move --help`)
 (code USAGE, exit 2)
 ### komando -o json storage ftp object read (agent json)
@@ -7481,49 +7433,49 @@ Hint: for example: komando storage gcs object list backups 2026/ (more in `koman
 ### komando -o json storage gcs object move (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.gcs.object.move","error":{"code":"USAGE","message":"storage gcs object move takes NAME SRC DST","hint":"for example: komando storage gcs object move backups old.txt new.txt --dry-run (more in `komando storage gcs object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.gcs.object.move","error":{"code":"USAGE","message":"storage gcs object move takes NAME SRC [DST]","hint":"for example: komando storage gcs object move backups old.txt new.txt --dry-run (more in `komando storage gcs object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage gcs object move (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: storage gcs object move takes NAME SRC DST
+Error: storage gcs object move takes NAME SRC [DST]
 Hint: for example: komando storage gcs object move backups old.txt new.txt --dry-run (more in `komando storage gcs object move --help`)
 (code USAGE, exit 2)
 ### komando -o json storage gcs object move (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.gcs.object.move","error":{"code":"USAGE","message":"storage gcs object move takes NAME SRC DST","hint":"for example: komando storage gcs object move backups old.txt new.txt --dry-run (more in `komando storage gcs object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.gcs.object.move","error":{"code":"USAGE","message":"storage gcs object move takes NAME SRC [DST]","hint":"for example: komando storage gcs object move backups old.txt new.txt --dry-run (more in `komando storage gcs object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage gcs object move (script text)
 exit 2
 --- stdout
 --- stderr
-Error: storage gcs object move takes NAME SRC DST
+Error: storage gcs object move takes NAME SRC [DST]
 Hint: for example: komando storage gcs object move backups old.txt new.txt --dry-run (more in `komando storage gcs object move --help`)
 (code USAGE, exit 2)
-### komando -o json storage gcs object move x1 x1 (agent json)
+### komando -o json storage gcs object move x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.gcs.object.move","error":{"code":"USAGE","message":"storage gcs object move takes NAME SRC DST","hint":"for example: komando storage gcs object move backups old.txt new.txt --dry-run (more in `komando storage gcs object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.gcs.object.move","error":{"code":"USAGE","message":"storage gcs object move takes NAME SRC [DST]","hint":"for example: komando storage gcs object move backups old.txt new.txt --dry-run (more in `komando storage gcs object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage gcs object move x1 x1 (agent text)
+### komando -o text storage gcs object move x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: storage gcs object move takes NAME SRC DST
+Error: storage gcs object move takes NAME SRC [DST]
 Hint: for example: komando storage gcs object move backups old.txt new.txt --dry-run (more in `komando storage gcs object move --help`)
 (code USAGE, exit 2)
-### komando -o json storage gcs object move x1 x1 (script json)
+### komando -o json storage gcs object move x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.gcs.object.move","error":{"code":"USAGE","message":"storage gcs object move takes NAME SRC DST","hint":"for example: komando storage gcs object move backups old.txt new.txt --dry-run (more in `komando storage gcs object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.gcs.object.move","error":{"code":"USAGE","message":"storage gcs object move takes NAME SRC [DST]","hint":"for example: komando storage gcs object move backups old.txt new.txt --dry-run (more in `komando storage gcs object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage gcs object move x1 x1 (script text)
+### komando -o text storage gcs object move x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: storage gcs object move takes NAME SRC DST
+Error: storage gcs object move takes NAME SRC [DST]
 Hint: for example: komando storage gcs object move backups old.txt new.txt --dry-run (more in `komando storage gcs object move --help`)
 (code USAGE, exit 2)
 ### komando -o json storage gcs object read (agent json)
@@ -7889,49 +7841,49 @@ Hint: for example: komando storage s3 object list backups 2026/ (more in `komand
 ### komando -o json storage s3 object move (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.s3.object.move","error":{"code":"USAGE","message":"storage s3 object move takes NAME SRC DST","hint":"for example: komando storage s3 object move backups old.txt new.txt --dry-run (more in `komando storage s3 object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.s3.object.move","error":{"code":"USAGE","message":"storage s3 object move takes NAME SRC [DST]","hint":"for example: komando storage s3 object move backups old.txt new.txt --dry-run (more in `komando storage s3 object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage s3 object move (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: storage s3 object move takes NAME SRC DST
+Error: storage s3 object move takes NAME SRC [DST]
 Hint: for example: komando storage s3 object move backups old.txt new.txt --dry-run (more in `komando storage s3 object move --help`)
 (code USAGE, exit 2)
 ### komando -o json storage s3 object move (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.s3.object.move","error":{"code":"USAGE","message":"storage s3 object move takes NAME SRC DST","hint":"for example: komando storage s3 object move backups old.txt new.txt --dry-run (more in `komando storage s3 object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.s3.object.move","error":{"code":"USAGE","message":"storage s3 object move takes NAME SRC [DST]","hint":"for example: komando storage s3 object move backups old.txt new.txt --dry-run (more in `komando storage s3 object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage s3 object move (script text)
 exit 2
 --- stdout
 --- stderr
-Error: storage s3 object move takes NAME SRC DST
+Error: storage s3 object move takes NAME SRC [DST]
 Hint: for example: komando storage s3 object move backups old.txt new.txt --dry-run (more in `komando storage s3 object move --help`)
 (code USAGE, exit 2)
-### komando -o json storage s3 object move x1 x1 (agent json)
+### komando -o json storage s3 object move x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.s3.object.move","error":{"code":"USAGE","message":"storage s3 object move takes NAME SRC DST","hint":"for example: komando storage s3 object move backups old.txt new.txt --dry-run (more in `komando storage s3 object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.s3.object.move","error":{"code":"USAGE","message":"storage s3 object move takes NAME SRC [DST]","hint":"for example: komando storage s3 object move backups old.txt new.txt --dry-run (more in `komando storage s3 object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage s3 object move x1 x1 (agent text)
+### komando -o text storage s3 object move x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: storage s3 object move takes NAME SRC DST
+Error: storage s3 object move takes NAME SRC [DST]
 Hint: for example: komando storage s3 object move backups old.txt new.txt --dry-run (more in `komando storage s3 object move --help`)
 (code USAGE, exit 2)
-### komando -o json storage s3 object move x1 x1 (script json)
+### komando -o json storage s3 object move x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.s3.object.move","error":{"code":"USAGE","message":"storage s3 object move takes NAME SRC DST","hint":"for example: komando storage s3 object move backups old.txt new.txt --dry-run (more in `komando storage s3 object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.s3.object.move","error":{"code":"USAGE","message":"storage s3 object move takes NAME SRC [DST]","hint":"for example: komando storage s3 object move backups old.txt new.txt --dry-run (more in `komando storage s3 object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage s3 object move x1 x1 (script text)
+### komando -o text storage s3 object move x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: storage s3 object move takes NAME SRC DST
+Error: storage s3 object move takes NAME SRC [DST]
 Hint: for example: komando storage s3 object move backups old.txt new.txt --dry-run (more in `komando storage s3 object move --help`)
 (code USAGE, exit 2)
 ### komando -o json storage s3 object read (agent json)
@@ -8249,49 +8201,49 @@ Hint: for example: komando storage sftp object list backups 2026/ (more in `koma
 ### komando -o json storage sftp object move (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.sftp.object.move","error":{"code":"USAGE","message":"storage sftp object move takes NAME SRC DST","hint":"for example: komando storage sftp object move backups old.txt new.txt --dry-run (more in `komando storage sftp object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.sftp.object.move","error":{"code":"USAGE","message":"storage sftp object move takes NAME SRC [DST]","hint":"for example: komando storage sftp object move backups old.txt new.txt --dry-run (more in `komando storage sftp object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage sftp object move (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: storage sftp object move takes NAME SRC DST
+Error: storage sftp object move takes NAME SRC [DST]
 Hint: for example: komando storage sftp object move backups old.txt new.txt --dry-run (more in `komando storage sftp object move --help`)
 (code USAGE, exit 2)
 ### komando -o json storage sftp object move (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.sftp.object.move","error":{"code":"USAGE","message":"storage sftp object move takes NAME SRC DST","hint":"for example: komando storage sftp object move backups old.txt new.txt --dry-run (more in `komando storage sftp object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.sftp.object.move","error":{"code":"USAGE","message":"storage sftp object move takes NAME SRC [DST]","hint":"for example: komando storage sftp object move backups old.txt new.txt --dry-run (more in `komando storage sftp object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage sftp object move (script text)
 exit 2
 --- stdout
 --- stderr
-Error: storage sftp object move takes NAME SRC DST
+Error: storage sftp object move takes NAME SRC [DST]
 Hint: for example: komando storage sftp object move backups old.txt new.txt --dry-run (more in `komando storage sftp object move --help`)
 (code USAGE, exit 2)
-### komando -o json storage sftp object move x1 x1 (agent json)
+### komando -o json storage sftp object move x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.sftp.object.move","error":{"code":"USAGE","message":"storage sftp object move takes NAME SRC DST","hint":"for example: komando storage sftp object move backups old.txt new.txt --dry-run (more in `komando storage sftp object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.sftp.object.move","error":{"code":"USAGE","message":"storage sftp object move takes NAME SRC [DST]","hint":"for example: komando storage sftp object move backups old.txt new.txt --dry-run (more in `komando storage sftp object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage sftp object move x1 x1 (agent text)
+### komando -o text storage sftp object move x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: storage sftp object move takes NAME SRC DST
+Error: storage sftp object move takes NAME SRC [DST]
 Hint: for example: komando storage sftp object move backups old.txt new.txt --dry-run (more in `komando storage sftp object move --help`)
 (code USAGE, exit 2)
-### komando -o json storage sftp object move x1 x1 (script json)
+### komando -o json storage sftp object move x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.sftp.object.move","error":{"code":"USAGE","message":"storage sftp object move takes NAME SRC DST","hint":"for example: komando storage sftp object move backups old.txt new.txt --dry-run (more in `komando storage sftp object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.sftp.object.move","error":{"code":"USAGE","message":"storage sftp object move takes NAME SRC [DST]","hint":"for example: komando storage sftp object move backups old.txt new.txt --dry-run (more in `komando storage sftp object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage sftp object move x1 x1 (script text)
+### komando -o text storage sftp object move x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: storage sftp object move takes NAME SRC DST
+Error: storage sftp object move takes NAME SRC [DST]
 Hint: for example: komando storage sftp object move backups old.txt new.txt --dry-run (more in `komando storage sftp object move --help`)
 (code USAGE, exit 2)
 ### komando -o json storage sftp object read (agent json)
@@ -8609,49 +8561,49 @@ Hint: for example: komando storage smb object list backups 2026/ (more in `koman
 ### komando -o json storage smb object move (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.smb.object.move","error":{"code":"USAGE","message":"storage smb object move takes NAME SRC DST","hint":"for example: komando storage smb object move backups old.txt new.txt --dry-run (more in `komando storage smb object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.smb.object.move","error":{"code":"USAGE","message":"storage smb object move takes NAME SRC [DST]","hint":"for example: komando storage smb object move backups old.txt new.txt --dry-run (more in `komando storage smb object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage smb object move (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: storage smb object move takes NAME SRC DST
+Error: storage smb object move takes NAME SRC [DST]
 Hint: for example: komando storage smb object move backups old.txt new.txt --dry-run (more in `komando storage smb object move --help`)
 (code USAGE, exit 2)
 ### komando -o json storage smb object move (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.smb.object.move","error":{"code":"USAGE","message":"storage smb object move takes NAME SRC DST","hint":"for example: komando storage smb object move backups old.txt new.txt --dry-run (more in `komando storage smb object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.smb.object.move","error":{"code":"USAGE","message":"storage smb object move takes NAME SRC [DST]","hint":"for example: komando storage smb object move backups old.txt new.txt --dry-run (more in `komando storage smb object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage smb object move (script text)
 exit 2
 --- stdout
 --- stderr
-Error: storage smb object move takes NAME SRC DST
+Error: storage smb object move takes NAME SRC [DST]
 Hint: for example: komando storage smb object move backups old.txt new.txt --dry-run (more in `komando storage smb object move --help`)
 (code USAGE, exit 2)
-### komando -o json storage smb object move x1 x1 (agent json)
+### komando -o json storage smb object move x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.smb.object.move","error":{"code":"USAGE","message":"storage smb object move takes NAME SRC DST","hint":"for example: komando storage smb object move backups old.txt new.txt --dry-run (more in `komando storage smb object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.smb.object.move","error":{"code":"USAGE","message":"storage smb object move takes NAME SRC [DST]","hint":"for example: komando storage smb object move backups old.txt new.txt --dry-run (more in `komando storage smb object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage smb object move x1 x1 (agent text)
+### komando -o text storage smb object move x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: storage smb object move takes NAME SRC DST
+Error: storage smb object move takes NAME SRC [DST]
 Hint: for example: komando storage smb object move backups old.txt new.txt --dry-run (more in `komando storage smb object move --help`)
 (code USAGE, exit 2)
-### komando -o json storage smb object move x1 x1 (script json)
+### komando -o json storage smb object move x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.smb.object.move","error":{"code":"USAGE","message":"storage smb object move takes NAME SRC DST","hint":"for example: komando storage smb object move backups old.txt new.txt --dry-run (more in `komando storage smb object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.smb.object.move","error":{"code":"USAGE","message":"storage smb object move takes NAME SRC [DST]","hint":"for example: komando storage smb object move backups old.txt new.txt --dry-run (more in `komando storage smb object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage smb object move x1 x1 (script text)
+### komando -o text storage smb object move x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: storage smb object move takes NAME SRC DST
+Error: storage smb object move takes NAME SRC [DST]
 Hint: for example: komando storage smb object move backups old.txt new.txt --dry-run (more in `komando storage smb object move --help`)
 (code USAGE, exit 2)
 ### komando -o json storage smb object read (agent json)
@@ -9017,49 +8969,49 @@ Hint: for example: komando storage webdav object list backups 2026/ (more in `ko
 ### komando -o json storage webdav object move (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.webdav.object.move","error":{"code":"USAGE","message":"storage webdav object move takes NAME SRC DST","hint":"for example: komando storage webdav object move backups old.txt new.txt --dry-run (more in `komando storage webdav object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.webdav.object.move","error":{"code":"USAGE","message":"storage webdav object move takes NAME SRC [DST]","hint":"for example: komando storage webdav object move backups old.txt new.txt --dry-run (more in `komando storage webdav object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage webdav object move (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: storage webdav object move takes NAME SRC DST
+Error: storage webdav object move takes NAME SRC [DST]
 Hint: for example: komando storage webdav object move backups old.txt new.txt --dry-run (more in `komando storage webdav object move --help`)
 (code USAGE, exit 2)
 ### komando -o json storage webdav object move (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.webdav.object.move","error":{"code":"USAGE","message":"storage webdav object move takes NAME SRC DST","hint":"for example: komando storage webdav object move backups old.txt new.txt --dry-run (more in `komando storage webdav object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.webdav.object.move","error":{"code":"USAGE","message":"storage webdav object move takes NAME SRC [DST]","hint":"for example: komando storage webdav object move backups old.txt new.txt --dry-run (more in `komando storage webdav object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage webdav object move (script text)
 exit 2
 --- stdout
 --- stderr
-Error: storage webdav object move takes NAME SRC DST
+Error: storage webdav object move takes NAME SRC [DST]
 Hint: for example: komando storage webdav object move backups old.txt new.txt --dry-run (more in `komando storage webdav object move --help`)
 (code USAGE, exit 2)
-### komando -o json storage webdav object move x1 x1 (agent json)
+### komando -o json storage webdav object move x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.webdav.object.move","error":{"code":"USAGE","message":"storage webdav object move takes NAME SRC DST","hint":"for example: komando storage webdav object move backups old.txt new.txt --dry-run (more in `komando storage webdav object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.webdav.object.move","error":{"code":"USAGE","message":"storage webdav object move takes NAME SRC [DST]","hint":"for example: komando storage webdav object move backups old.txt new.txt --dry-run (more in `komando storage webdav object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage webdav object move x1 x1 (agent text)
+### komando -o text storage webdav object move x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: storage webdav object move takes NAME SRC DST
+Error: storage webdav object move takes NAME SRC [DST]
 Hint: for example: komando storage webdav object move backups old.txt new.txt --dry-run (more in `komando storage webdav object move --help`)
 (code USAGE, exit 2)
-### komando -o json storage webdav object move x1 x1 (script json)
+### komando -o json storage webdav object move x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.webdav.object.move","error":{"code":"USAGE","message":"storage webdav object move takes NAME SRC DST","hint":"for example: komando storage webdav object move backups old.txt new.txt --dry-run (more in `komando storage webdav object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.webdav.object.move","error":{"code":"USAGE","message":"storage webdav object move takes NAME SRC [DST]","hint":"for example: komando storage webdav object move backups old.txt new.txt --dry-run (more in `komando storage webdav object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage webdav object move x1 x1 (script text)
+### komando -o text storage webdav object move x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: storage webdav object move takes NAME SRC DST
+Error: storage webdav object move takes NAME SRC [DST]
 Hint: for example: komando storage webdav object move backups old.txt new.txt --dry-run (more in `komando storage webdav object move --help`)
 (code USAGE, exit 2)
 ### komando -o json storage webdav object read (agent json)

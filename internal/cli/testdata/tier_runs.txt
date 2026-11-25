@@ -1,15 +1,15 @@
 queue message delete --all dangerous	queue.purge
 queue topic delete dangerous	queue.rm
-storage object delete dangerous	storage.rm
-registry image delete dangerous	registry.rm
-registry image prune dangerous	registry.prune
+storage object delete dangerous	storage.s3.object.delete
+registry image delete dangerous	registry.oci.image.delete
+registry image prune dangerous	registry.oci.image.prune
 database restore dangerous	db.restore
 credential key remove --delete-file dangerous	key.rm
 host exec dynamic dangerous	exec
 snippet exec dynamic dangerous	recipe.run
 cluster exec dynamic dangerous	cluster.exec
 cluster raw dynamic dangerous	cluster.run
-cache raw dynamic dangerous	cache.run
+cache raw dynamic dangerous	cache.redis.raw
 database query dynamic dangerous	db.query
 host ssh add --proxy-command dynamic dangerous	host.add
 host ssh edit --proxy-command dynamic dangerous	host.edit
@@ -28,10 +28,10 @@ host ssh trust dynamic safety	host.trust
 agent skill uninstall dynamic safety	guide.uninstall
 host edit --protected=false safety	host.edit
 database edit --protected=false safety	conn.edit
-cache edit --protected=false safety	conn.edit
+cache edit --protected=false safety	cache.redis.edit
 queue edit --protected=false safety	conn.edit
-storage edit --protected=false safety	conn.edit
-registry edit --protected=false safety	conn.edit
+storage edit --protected=false safety	storage.s3.edit
+registry edit --protected=false safety	registry.oci.edit
 cluster edit --protected=false safety	conn.edit
 floor	conn.edit
 floor	conn.rm
@@ -63,8 +63,11 @@ host ssh test --end change	host.test
 host ssh test --end change	host.test
 test --end change	test
 group remove change	group.rm
-floor	cache.add
-floor	cache.run
+floor	cache.redis.add
+floor	cache.redis.edit
+floor	cache.redis.raw
+floor	cache.redis.remove
+floor	cache.redis.rename
 floor	cluster.exec
 floor	cluster.forward
 floor	cluster.run
@@ -98,15 +101,21 @@ floor	queue.send
 floor	recipe.add
 floor	recipe.rm
 floor	recipe.run
-floor	registry.add
-registry add dynamic safety	registry.add
-floor	registry.copy
+floor	registry.oci.add
+floor	registry.oci.edit
+floor	registry.oci.remove
+floor	registry.oci.rename
+registry add dynamic safety	registry.oci.add
+floor	registry.oci.image.copy
 credential run dynamic safety	secret.run
 floor	ssh-gate.line
-floor	storage.add
-storage object link dynamic safety	storage.link
-floor	storage.mkdir
-floor	storage.mv
+floor	storage.s3.add
+floor	storage.s3.edit
+floor	storage.s3.remove
+floor	storage.s3.rename
+storage object link dynamic safety	storage.s3.object.link
+floor	storage.s3.object.create
+floor	storage.s3.object.move
 floor	tunnel.start
 floor	vpn.add
 floor	vpn.down
@@ -118,3 +127,60 @@ floor	key.add
 credential key uninstall dynamic dangerous	key.revoke
 import dynamic dangerous	import
 import dynamic safety	import
+cache raw dynamic dangerous	cache.memcached.raw
+cache edit --protected=false safety	cache.memcached.edit
+floor	cache.memcached.add
+floor	cache.memcached.edit
+floor	cache.memcached.raw
+floor	cache.memcached.remove
+floor	cache.memcached.rename
+storage object delete dangerous	storage.azblob.object.delete
+storage edit --protected=false safety	storage.azblob.edit
+floor	storage.azblob.add
+floor	storage.azblob.edit
+floor	storage.azblob.remove
+floor	storage.azblob.rename
+floor	storage.azblob.object.create
+floor	storage.azblob.object.move
+storage object link dynamic safety	storage.azblob.object.link
+storage object delete dangerous	storage.sftp.object.delete
+storage edit --protected=false safety	storage.sftp.edit
+floor	storage.sftp.add
+floor	storage.sftp.edit
+floor	storage.sftp.remove
+floor	storage.sftp.rename
+floor	storage.sftp.object.create
+floor	storage.sftp.object.move
+storage object delete dangerous	storage.ftp.object.delete
+storage edit --protected=false safety	storage.ftp.edit
+floor	storage.ftp.add
+floor	storage.ftp.edit
+floor	storage.ftp.remove
+floor	storage.ftp.rename
+floor	storage.ftp.object.create
+floor	storage.ftp.object.move
+storage object delete dangerous	storage.smb.object.delete
+storage edit --protected=false safety	storage.smb.edit
+floor	storage.smb.add
+floor	storage.smb.edit
+floor	storage.smb.remove
+floor	storage.smb.rename
+floor	storage.smb.object.create
+floor	storage.smb.object.move
+storage object delete dangerous	storage.webdav.object.delete
+storage edit --protected=false safety	storage.webdav.edit
+floor	storage.webdav.add
+floor	storage.webdav.edit
+floor	storage.webdav.remove
+floor	storage.webdav.rename
+floor	storage.webdav.object.create
+floor	storage.webdav.object.move
+storage object delete dangerous	storage.gcs.object.delete
+storage edit --protected=false safety	storage.gcs.edit
+floor	storage.gcs.add
+floor	storage.gcs.edit
+floor	storage.gcs.remove
+floor	storage.gcs.rename
+floor	storage.gcs.object.create
+floor	storage.gcs.object.move
+storage object link dynamic safety	storage.gcs.object.link

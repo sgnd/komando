@@ -697,9 +697,6 @@ func init() {
 			key("Which file (or folder) do you want to move or rename?", "Its name inside the storage, as storage list shows it. On S3, Google Cloud and Azure only one file at a time.", "db/old.sql.gz"),
 			key("Where to? (the new name)", "A new name, or a folder ending in / to move it into with its own name.", "archive/")},
 			flags: []formFlag{{name: "overwrite", ask: "Replace a file that is already there?"}}},
-		"storage chmod": {args: []formArg{conn,
-			key("Which permissions? (as a number)", "640: owner reads and writes, group reads, others nothing. 755: everyone can read and open, only the owner writes. SFTP storage only.", "640"),
-			key("Which file or folder?", "Its name inside the storage, as storage list shows it.", "config/app.yml")}},
 		"storage link": {args: []formArg{conn,
 			key("Which file to share?", "Its name inside the storage. Anyone with the link can download it until it ends.", "reports/q3.pdf")},
 			flags: []formFlag{{name: "expires", ask: "How long should the link work?", help: "Like 30m or 24h; at most 168h (7 days).", def: "1h"}}},
@@ -730,7 +727,6 @@ func init() {
 	addFormHints(map[string]formHint{
 		"storage upload":   {next: []string{"storage {P} object list {} PREFIX/", "storage {P} object link {} OBJECT --expires 24h"}},
 		"storage download": {next: []string{"storage {P} object list {}"}},
-		"storage chmod":    {next: []string{"storage {P} object list {} PREFIX/"}},
 	})
 	next := map[string][]string{
 		"list":   {"storage {P} object read {} OBJECT --tail 50", "storage download {} OBJECT", "storage {P} object list {} PREFIX/ --recursive"},

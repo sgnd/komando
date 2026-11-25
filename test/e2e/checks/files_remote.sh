@@ -27,9 +27,9 @@ done
 check "bucket mv is a checked copy" copy_then_delete "$($K storage s3 object move bucket t-e2eops/new/a.txt t-e2eops/c.txt | jget 'd["data"]["method"]')"
 check "bucket mv of a folder is refused" STORAGE_UNSUPPORTED "$($K storage s3 object move bucket t-e2eops/new t-e2eops/old | jget 'd["error"]["code"]')"
 check "sftp mv of a folder" True "$($K storage s3 object move files-sftp t-e2eops/new t-e2eops/old | jget 'd["data"]["folder"]')"
-check "sftp chmod" "0640 0644" "$($K storage chmod files-sftp 0640 t-e2eops/old/a.txt | jget 'd["data"]["mode"] + " " + d["data"]["old_mode"]')"
-check "sftp chmod again says the new mode" 0640 "$($K storage chmod files-sftp 0600 t-e2eops/old/a.txt --dry-run | jget 'd["data"]["old_mode"]')"
-check "chmod on a bucket is refused" STORAGE_UNSUPPORTED "$($K storage chmod bucket 0640 t-e2eops/c.txt | jget 'd["error"]["code"]')"
+check "sftp chmod" "0640 0644" "$($K storage sftp object move files-sftp t-e2eops/old/a.txt --mode 0640 | jget 'd["data"]["mode"] + " " + d["data"]["old_mode"]')"
+check "sftp chmod again says the new mode" 0640 "$($K storage sftp object move files-sftp t-e2eops/old/a.txt --mode 0600 --dry-run | jget 'd["data"]["old_mode"]')"
+check "chmod on a bucket is refused" STORAGE_UNSUPPORTED "$($K storage s3 object move bucket t-e2eops/c.txt --mode 0640 | jget 'd["error"]["code"]')"
 
 echo "==> cp between two remote places"
 dd if=/dev/urandom of="$TMP/e2eops.bin" bs=1048576 count=6 2>/dev/null

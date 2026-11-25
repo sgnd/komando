@@ -35,6 +35,10 @@ type handler func(cl *call, ctx context.Context, in leafInput) error
 // the same pull request that registers its handlers (TestEveryHandlerHasLeaf).
 var handlers = map[capability.Key]handler{}
 
+// leafBodies are the commands whose bodies the leaves run (runBody), by key:
+// TestBodyDefaultsMatchTable reads their flags.
+var leafBodies = map[capability.Key]func() *cobra.Command{}
+
 // movedTypes are the types whose every built leaf has a handler.
 var movedTypes = []string{}
 
@@ -508,6 +512,7 @@ func inventoryHandlers(typ string, providers ...string) {
 	for _, p := range providers {
 		p := p
 		key := func(verb string) capability.Key { return capability.Key{Type: typ, Provider: p, Verb: verb} }
+		leafBodies[key("add")] = func() *cobra.Command { return connAddCmdFor(familyOfType(typ)) }
 		handlers[key("add")] = func(cl *call, ctx context.Context, in leafInput) error {
 			if len(in.Args) == 2 {
 				if err := providerOfURL(in.Args[1], typ, p); err != nil {
@@ -520,33 +525,39 @@ func inventoryHandlers(typ string, providers ...string) {
 			}
 			return runBody(cl, ctx, connAddCmdFor(familyOfType(typ)), in, nil)
 		}
+		leafBodies[key("edit")] = connEditCmd
 		handlers[key("edit")] = func(cl *call, ctx context.Context, in leafInput) error {
 			if err := withEntry(cl, in.Args[0], typ, p, "edit"); err != nil {
 				return err
 			}
 			return runBody(cl, ctx, connEditCmd(), in, nil)
 		}
+		leafBodies[key("list")] = func() *cobra.Command { return listCmdKind("conn", p) }
 		handlers[key("list")] = func(cl *call, ctx context.Context, in leafInput) error {
 			return runBody(cl, ctx, listCmdKind("conn", p), in, nil)
 		}
+		leafBodies[key("show")] = connShowCmd
 		handlers[key("show")] = func(cl *call, ctx context.Context, in leafInput) error {
 			if err := withEntry(cl, in.Args[0], typ, p, "show"); err != nil {
 				return err
 			}
 			return runBody(cl, ctx, connShowCmd(), in, nil)
 		}
+		leafBodies[key("rename")] = connMvCmd
 		handlers[key("rename")] = func(cl *call, ctx context.Context, in leafInput) error {
 			if err := withEntry(cl, in.Args[0], typ, p, "rename"); err != nil {
 				return err
 			}
 			return runBody(cl, ctx, connMvCmd(), in, nil)
 		}
+		leafBodies[key("remove")] = connRmCmd
 		handlers[key("remove")] = func(cl *call, ctx context.Context, in leafInput) error {
 			if err := withTargets(cl, in.Args, typ, p, "remove"); err != nil {
 				return err
 			}
 			return runBody(cl, ctx, connRmCmd(), in, nil)
 		}
+		leafBodies[key("test")] = func() *cobra.Command { return testCmdFor("conn") }
 		handlers[key("test")] = func(cl *call, ctx context.Context, in leafInput) error {
 			if err := withTargets(cl, in.Args, typ, p, "test"); err != nil {
 				return err
@@ -644,6 +655,9 @@ func moveType(typ string) {
 			if f, ok := gateNoNetwork[carried]; ok {
 				gateNoNetwork[id] = f
 			}
+			if carriedByMoved(carried) {
+				gone = append(gone, carried)
+			}
 		}
 	}
 	for _, old := range gone {
@@ -666,4 +680,24 @@ func providerOfEntry(name string) string {
 		}
 	}
 	return "PROVIDER"
+}
+
+// carriedByMoved says whether every built leaf that carries id is of a moved
+// type (hideCarried then takes the command out of the tree).
+func carriedByMoved(id string) bool {
+	for _, r := range capability.Replacements() {
+		if r.Today == id {
+			return false // exec, query or raw replaces it: it stays until cut step D
+		}
+	}
+	found := false
+	for _, l := range capability.All() {
+		if l.State == capability.Built && slices.Contains(l.Carries, id) {
+			found = true
+			if !slices.Contains(movedTypes, l.Type) {
+				return false
+			}
+		}
+	}
+	return found
 }

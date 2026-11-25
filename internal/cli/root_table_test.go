@@ -501,3 +501,60 @@ func TestTierRunsNeverShrink(t *testing.T) {
 		}
 	}
 }
+
+// A leaf that runs a body passes only the options the person typed, so an
+// option left out takes the body's default: the table's default must be
+// the same (A-C479-1), else help and the run disagree silently.
+func TestBodyDefaultsMatchTable(t *testing.T) {
+	zero := map[string]string{"": "", "false": "", "0": "", "0s": "", "[]": ""}
+	norm := func(kind capability.OptKind, v string) string {
+		switch kind {
+		case capability.Duration:
+			if d, err := parseSpan(v); err == nil {
+				if d == 0 {
+					return ""
+				}
+				return d.String()
+			}
+		case capability.Bytes:
+			if n, err := parseSize(v); err == nil {
+				return strconv.FormatInt(n, 10)
+			}
+		}
+		if _, ok := zero[v]; ok {
+			return ""
+		}
+		return v
+	}
+	checked := 0
+	for key, body := range leafBodies {
+		leaf, ok := capability.Find(key)
+		if !ok {
+			t.Errorf("%s: a body for a key the table has not", key)
+			continue
+		}
+		for _, o := range leaf.Options {
+			flag := o.Name
+			if o.Name == "credential" {
+				flag = "password-ref"
+			}
+			f := body().Flags().Lookup(flag)
+			if f == nil {
+				if o.Name != "mode" { // chmod's mode: the handler refuses it (the table leaf waits on its decision)
+					t.Errorf("%s --%s: the body has no such flag", key, o.Name)
+				}
+				continue
+			}
+			checked++
+			if o.Repeat || o.Kind == capability.Credential {
+				continue
+			}
+			if got, want := norm(o.Kind, o.Default), norm(o.Kind, f.DefValue); got != want {
+				t.Errorf("%s --%s: the table says %q, the body %q", key, o.Name, o.Default, f.DefValue)
+			}
+		}
+	}
+	if checked == 0 {
+		t.Fatal("no option checked")
+	}
+}

@@ -271,7 +271,6 @@ storage.azblob.remove
 storage.azblob.rename
 storage.azblob.show
 storage.azblob.test
-storage.chmod
 storage.download
 storage.ftp
 storage.ftp.add

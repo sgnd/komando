@@ -1263,7 +1263,7 @@ title: Delete an image from a registry
 title: List the repositories of a registry, or the tags of one
 - arg0 | Name | Which registry? | A registry from your list. Add one first with Add, Images (registries). |  | choices,check
 - arg1 | Repo | Which repository? (leave empty to list them all) | Empty: every repository. A repository: its tags. Docker Hub cannot list every repository, give one. | acme/api | optional,check
-- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,default,check
 ### komando registry oci image prune
 title: Delete old tags of a repository, keeping the newest
 - arg0 | Name | Which registry? | A registry from your list. Add one first with Add, Images (registries). |  | choices,check
@@ -1434,9 +1434,9 @@ title: List the objects under a folder of a azblob storage
 title: Move or rename an object in an azblob storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
 - arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as storage list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
-- arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | check
+- arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | optional,check
 - flag:overwrite | --overwrite | Replace a file that is already there? | Replace a file already at DST (never a folder) |  | default,choices
-- flag:mode | --mode | Change the mode, as chmod does |  |  | optional,advanced,check
+- flag:mode | --mode | Change the mode of PATH, as chmod does (SFTP only); no DST then |  |  | optional,advanced,check
 ### komando storage azblob object read
 title: Show the text of an object in an azblob storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
@@ -1459,11 +1459,6 @@ title: Check that a saved azblob storage answers and lets you in
 - arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
-### komando storage chmod
-title: Change the mode of a file or folder on an SFTP conn
-- arg0 | Conn | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
-- arg1 | Mode | Which permissions? (as a number) | 640: owner reads and writes, group reads, others nothing. 755: everyone can read and open, only the owner writes. SFTP storage only. | 640 | check
-- arg2 | Path | Which file or folder? | Its name inside the storage, as storage list shows it. | config/app.yml | check
 ### komando storage download
 title: Download an object from a storage conn
 - arg0 | Conn | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
@@ -1536,9 +1531,9 @@ title: List the objects under a folder of a ftp storage
 title: Move or rename an object in a ftp storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
 - arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as storage list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
-- arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | check
+- arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | optional,check
 - flag:overwrite | --overwrite | Replace a file that is already there? | Replace a file already at DST (never a folder) |  | default,choices
-- flag:mode | --mode | Change the mode, as chmod does |  |  | optional,advanced,check
+- flag:mode | --mode | Change the mode of PATH, as chmod does (SFTP only); no DST then |  |  | optional,advanced,check
 ### komando storage ftp object read
 title: Show the text of an object in a ftp storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
@@ -1630,9 +1625,9 @@ title: List the objects under a folder of a gcs storage
 title: Move or rename an object in a gcs storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
 - arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as storage list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
-- arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | check
+- arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | optional,check
 - flag:overwrite | --overwrite | Replace a file that is already there? | Replace a file already at DST (never a folder) |  | default,choices
-- flag:mode | --mode | Change the mode, as chmod does |  |  | optional,advanced,check
+- flag:mode | --mode | Change the mode of PATH, as chmod does (SFTP only); no DST then |  |  | optional,advanced,check
 ### komando storage gcs object read
 title: Show the text of an object in a gcs storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
@@ -1724,9 +1719,9 @@ title: List the objects under a folder of a s3 storage
 title: Move or rename an object in a s3 storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
 - arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as storage list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
-- arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | check
+- arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | optional,check
 - flag:overwrite | --overwrite | Replace a file that is already there? | Replace a file already at DST (never a folder) |  | default,choices
-- flag:mode | --mode | Change the mode, as chmod does |  |  | optional,advanced,check
+- flag:mode | --mode | Change the mode of PATH, as chmod does (SFTP only); no DST then |  |  | optional,advanced,check
 ### komando storage s3 object read
 title: Show the text of an object in a s3 storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
@@ -1812,9 +1807,9 @@ title: List the objects under a folder of a sftp storage
 title: Move or rename an object in a sftp storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
 - arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as storage list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
-- arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | check
+- arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | optional,check
 - flag:overwrite | --overwrite | Replace a file that is already there? | Replace a file already at DST (never a folder) |  | default,choices
-- flag:mode | --mode | Change the mode, as chmod does |  |  | optional,advanced,check
+- flag:mode | --mode | Change the mode of PATH, as chmod does (SFTP only); no DST then |  |  | optional,advanced,check
 ### komando storage sftp object read
 title: Show the text of an object in a sftp storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
@@ -1900,9 +1895,9 @@ title: List the objects under a folder of a smb storage
 title: Move or rename an object in a smb storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
 - arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as storage list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
-- arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | check
+- arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | optional,check
 - flag:overwrite | --overwrite | Replace a file that is already there? | Replace a file already at DST (never a folder) |  | default,choices
-- flag:mode | --mode | Change the mode, as chmod does |  |  | optional,advanced,check
+- flag:mode | --mode | Change the mode of PATH, as chmod does (SFTP only); no DST then |  |  | optional,advanced,check
 ### komando storage smb object read
 title: Show the text of an object in a smb storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
@@ -1997,9 +1992,9 @@ title: List the objects under a folder of a webdav storage
 title: Move or rename an object in a webdav storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
 - arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as storage list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
-- arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | check
+- arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | optional,check
 - flag:overwrite | --overwrite | Replace a file that is already there? | Replace a file already at DST (never a folder) |  | default,choices
-- flag:mode | --mode | Change the mode, as chmod does |  |  | optional,advanced,check
+- flag:mode | --mode | Change the mode of PATH, as chmod does (SFTP only); no DST then |  |  | optional,advanced,check
 ### komando storage webdav object read
 title: Show the text of an object in a webdav storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check

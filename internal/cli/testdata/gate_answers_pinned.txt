@@ -2410,14 +2410,6 @@
 "storage azblob"	netread	storage.azblob	runs
 "storage azblob"	read	storage.azblob	runs
 "storage azblob"	shell	storage.azblob	runs
-"storage chmod --help"	full	storage.chmod	runs
-"storage chmod --help"	netread	storage.chmod	runs
-"storage chmod --help"	read	storage.chmod	runs
-"storage chmod --help"	shell	storage.chmod	runs
-"storage chmod"	full	storage.chmod	runs
-"storage chmod"	netread	storage.chmod	SSH_GATE_READ_ONLY|komando storage chmod is refused for a read-only key: it changes something
-"storage chmod"	read	storage.chmod	SSH_GATE_READ_ONLY|komando storage chmod is refused for a read-only key: it changes something
-"storage chmod"	shell	storage.chmod	runs
 "storage download --help"	full	storage.download	runs
 "storage download --help"	netread	storage.download	runs
 "storage download --help"	read	storage.download	runs

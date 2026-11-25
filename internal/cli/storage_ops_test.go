@@ -102,16 +102,16 @@ func TestStorageChmod(t *testing.T) {
 		opened = true
 		return nil, out.Usage("not reached")
 	}
-	e := wantCode(t, "STORAGE_UNSUPPORTED", "storage", "chmod", "bk", "0640", "a.txt", "--dry-run")
+	e := wantCode(t, "STORAGE_UNSUPPORTED", "storage", "s3", "object", "move", "bk", "a.txt", "--mode", "0640", "--dry-run")
 	if opened || e.Exit != out.ExitUsage || !strings.Contains(e.Message, "bk is S3 storage") {
 		t.Errorf("chmod on S3: %+v, opened %v", e, opened)
 	}
 	for _, c := range []struct{ mode, path, want string }{
 		{"u+x", "a.txt", "digits"},
 		{"99", "a.txt", "digits"},
-		{"a.txt", "0640", "the mode goes first"},
+		{"a.txt", "0640", "digits"},
 	} {
-		if e := wantCode(t, "USAGE", "storage", "chmod", "bk", c.mode, c.path); !strings.Contains(e.Message, c.want) {
+		if e := wantCode(t, "USAGE", "storage", "s3", "object", "move", "bk", c.path, "--mode", c.mode); !strings.Contains(e.Message, c.want) {
 			t.Errorf("chmod %s %s: %v", c.mode, c.path, e)
 		}
 	}
@@ -130,16 +130,16 @@ func TestStorageChmod(t *testing.T) {
 		fi, _ := os.Stat(filepath.Join(dir, "app.yml"))
 		return fi.Mode().Perm()
 	}
-	d := mustRun(t, "storage", "chmod", "files", "640", "app.yml", "--dry-run")
+	d := mustRun(t, "storage", "sftp", "object", "move", "files", "app.yml", "--mode", "640", "--dry-run")
 	if d["mode"] != "0640" || d["old_mode"] != "0644" || d["dry_run"] != true || perm() != 0o644 {
 		t.Errorf("dry run: %v %v", d, perm())
 	}
-	d = mustRun(t, "storage", "chmod", "files", "0640", "app.yml")
+	d = mustRun(t, "storage", "sftp", "object", "move", "files", "app.yml", "--mode", "0640")
 	if d["mode"] != "0640" || d["old_mode"] != "0644" || perm() != 0o640 {
 		t.Errorf("chmod: %v %v", d, perm())
 	}
-	wantCode(t, "OBJECT_NOT_FOUND", "storage", "chmod", "files", "0600", "nope.yml")
-	if a := mustRun(t, "audit", "--limit", "20"); !strings.Contains(fmt.Sprint(a), "storage.chmod") {
+	wantCode(t, "OBJECT_NOT_FOUND", "storage", "sftp", "object", "move", "files", "nope.yml", "--mode", "0600")
+	if a := mustRun(t, "audit", "--limit", "20"); !strings.Contains(fmt.Sprint(a), "storage.sftp.object.move") {
 		t.Errorf("no audit entry: %v", a)
 	}
 }

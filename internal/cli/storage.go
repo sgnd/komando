@@ -58,7 +58,7 @@ kind:storage lists them.`,
   komando download backups 2026/app.sql.gz --to ./
   komando storage s3 object delete backups --prefix daily/ --older-than 30d --dry-run`,
 	}
-	c.AddCommand(storageDownloadCmd(), storageUploadCmd(), storageChmodCmd())
+	c.AddCommand(storageDownloadCmd(), storageUploadCmd())
 	return c
 }
 
@@ -633,8 +633,8 @@ func storageUpload(cl *call, ctx context.Context, name, conn, file, key string, 
 // The storage type of the table: komando storage PROVIDER VERB and storage
 // PROVIDER object VERB. The inventory verbs are the shared ones
 // (inventoryHandlers); the object verbs are today's list, cat, mkdir, mv,
-// rm and link. upload, download and chmod stay at their places until the
-// copy step and the decision on chmod.
+// rm and link; move with --mode is chmod. upload and download stay at their
+// places until the copy step.
 func init() {
 	providers := []string{"s3", "gcs", "azblob", "sftp", "ftp", "smb", "webdav"}
 	inventoryHandlers("storage", providers...)
@@ -646,15 +646,24 @@ func init() {
 			if _, ok := capability.Find(key); !ok {
 				continue // link only where the service makes links
 			}
+			leafBodies[key] = body
 			handlers[key] = func(cl *call, ctx context.Context, in leafInput) error {
 				if err := withEntry(cl, in.Args[0], "storage", p, "object "+verb); err != nil {
 					return err
 				}
-				if verb == "move" && in.Changed("mode") {
-					return out.Errf(out.ExitUsage, "USAGE", "use `komando storage chmod NAME MODE PATH` until its place in the new tree is decided",
-						"--mode is not built into object move yet")
+				run := body // not body itself: this closure runs again
+				if verb == "move" {
+					if in.Changed("mode") { // chmod: NAME PATH --mode MODE
+						if len(in.Args) != 2 {
+							return out.Usage("--mode changes the mode of one path: komando storage %s object move NAME PATH --mode MODE", p)
+						}
+						in = leafInput{Args: []string{in.Args[0], in.String("mode"), in.Args[1]}, Dash: -1, ID: in.ID}
+						run = storageChmodCmd
+					} else if len(in.Args) != 3 {
+						return out.Usage("komando storage %s object move takes NAME SRC DST (or NAME PATH --mode MODE)", p)
+					}
 				}
-				err := runBody(cl, ctx, body(), in, nil)
+				err := runBody(cl, ctx, run(), in, nil)
 				var oe *out.Error
 				if errors.As(err, &oe) { // the bodies write the path of s3; this entry's provider is p
 					oe.Hint = strings.ReplaceAll(oe.Hint, "storage s3 object", "storage "+p+" object")

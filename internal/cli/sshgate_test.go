@@ -222,7 +222,7 @@ func TestGateCheck(t *testing.T) {
 		{"storage s3 object link s3 report.pdf", "", "SSH_GATE_READ_ONLY"},
 		{"storage s3 object create s3 reports/2026", "", "SSH_GATE_READ_ONLY"},
 		{"storage s3 object move s3 a.txt b.txt", "", "SSH_GATE_READ_ONLY"},
-		{"storage chmod s3 0640 a.txt", "", "SSH_GATE_READ_ONLY"},
+		{"storage s3 object move s3 a.txt --mode 0640", "", "SSH_GATE_READ_ONLY"},
 		{"cluster forward k8s svc/web 8080", "", "SSH_GATE_READ_ONLY"},
 		{"export web", "", ""},
 		// nothing a key runs writes on the komando computer itself
@@ -308,7 +308,7 @@ func TestGateLocalTargets(t *testing.T) {
 		"storage upload sftplocal x.txt .ssh/authorized_keys":                  R,
 		"storage sftp object create sftplocal x":                               R, // the storage changes meet the local-target rule too
 		"storage sftp object move sftplocal a.txt b.txt":                       R,
-		"storage chmod sftplocal 0600 a.txt":                                   R,
+		"storage sftp object move sftplocal a.txt --mode 0600":                 R,
 		"registry oci image delete reglocal app:1":                             R,
 		"registry oci image copy reg:app:1 reglocal:app:1":                     R,
 		"registry oci image copy reg:app:1 reg:app:2":                          "",

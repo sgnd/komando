@@ -7702,7 +7702,7 @@ Examples:
 
 Flags:
   -h, --help[=true|false]   help for list
-  -n, --limit int           show at most this many (0 = all)
+  -n, --limit int           show at most this many (0 = all) (default 1000)
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -8683,7 +8683,6 @@ Examples:
 
 Available Commands:
   azblob      Save azblob storage, and look after its objects
-  chmod       Change the mode of a file or folder on an SFTP conn
   download    Download an object from a storage conn
   ftp         Save ftp storage, and look after its objects
   gcs         Save gcs storage, and look after its objects
@@ -9005,7 +9004,7 @@ Move or rename an object in an azblob storage.
 Safety: a change; try it with --dry-run first.
 
 Usage:
-  komando storage azblob object move NAME SRC DST [flags]
+  komando storage azblob object move NAME SRC [DST] [flags]
 
 Aliases:
   move, mv
@@ -9013,10 +9012,11 @@ Aliases:
 Examples:
   komando storage azblob object move backups old.txt new.txt --dry-run
   komando storage azblob object move backups old.txt archive/old.txt
+  komando storage azblob object move backups config/app.yml --mode 0640
 
 Flags:
   -h, --help[=true|false]        help for move
-      --mode string              change the mode, as chmod does
+      --mode string              change the mode of PATH, as chmod does (SFTP only); no DST then
       --overwrite[=true|false]   replace a file already at DST (never a folder)
 
 Global Flags (all of them: komando --help):
@@ -9143,36 +9143,6 @@ Flags:
       --end[=true|false]    end the session a person's login keeps open
   -h, --help[=true|false]   help for test
       --wait duration       wait this long for a person's sign-in
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando storage chmod --help
-exit 0
---- stdout
-Sets the Unix mode of PATH (a file or a folder) on an SFTP server, like
-chmod. MODE is in digits: 0644, 640, 0750, or 2775 with the setgid bit; the
-result says the old mode too. Only SFTP servers have modes: other kinds of
-storage stop with STORAGE_UNSUPPORTED before anything is contacted.
-
-Safety: a change; try it with --dry-run first; on a protected server or
-conn, a person's yes (--yes) as well.
-
-Usage:
-  komando storage chmod CONN MODE PATH [flags]
-
-Examples:
-  komando storage chmod backups 0640 config/app.yml --dry-run
-  komando storage chmod backups 0640 config/app.yml
-  komando storage chmod backups 0750 uploads
-
-Flags:
-  -h, --help[=true|false]   help for chmod
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -9481,7 +9451,7 @@ Move or rename an object in a ftp storage.
 Safety: a change; try it with --dry-run first.
 
 Usage:
-  komando storage ftp object move NAME SRC DST [flags]
+  komando storage ftp object move NAME SRC [DST] [flags]
 
 Aliases:
   move, mv
@@ -9489,10 +9459,11 @@ Aliases:
 Examples:
   komando storage ftp object move backups old.txt new.txt --dry-run
   komando storage ftp object move backups old.txt archive/old.txt
+  komando storage ftp object move backups config/app.yml --mode 0640
 
 Flags:
   -h, --help[=true|false]        help for move
-      --mode string              change the mode, as chmod does
+      --mode string              change the mode of PATH, as chmod does (SFTP only); no DST then
       --overwrite[=true|false]   replace a file already at DST (never a folder)
 
 Global Flags (all of them: komando --help):
@@ -9927,7 +9898,7 @@ Move or rename an object in a gcs storage.
 Safety: a change; try it with --dry-run first.
 
 Usage:
-  komando storage gcs object move NAME SRC DST [flags]
+  komando storage gcs object move NAME SRC [DST] [flags]
 
 Aliases:
   move, mv
@@ -9935,10 +9906,11 @@ Aliases:
 Examples:
   komando storage gcs object move backups old.txt new.txt --dry-run
   komando storage gcs object move backups old.txt archive/old.txt
+  komando storage gcs object move backups config/app.yml --mode 0640
 
 Flags:
   -h, --help[=true|false]        help for move
-      --mode string              change the mode, as chmod does
+      --mode string              change the mode of PATH, as chmod does (SFTP only); no DST then
       --overwrite[=true|false]   replace a file already at DST (never a folder)
 
 Global Flags (all of them: komando --help):
@@ -10373,7 +10345,7 @@ Move or rename an object in a s3 storage.
 Safety: a change; try it with --dry-run first.
 
 Usage:
-  komando storage s3 object move NAME SRC DST [flags]
+  komando storage s3 object move NAME SRC [DST] [flags]
 
 Aliases:
   move, mv
@@ -10381,10 +10353,11 @@ Aliases:
 Examples:
   komando storage s3 object move backups old.txt new.txt --dry-run
   komando storage s3 object move backups old.txt archive/old.txt
+  komando storage s3 object move backups config/app.yml --mode 0640
 
 Flags:
   -h, --help[=true|false]        help for move
-      --mode string              change the mode, as chmod does
+      --mode string              change the mode of PATH, as chmod does (SFTP only); no DST then
       --overwrite[=true|false]   replace a file already at DST (never a folder)
 
 Global Flags (all of them: komando --help):
@@ -10789,7 +10762,7 @@ Move or rename an object in a sftp storage.
 Safety: a change; try it with --dry-run first.
 
 Usage:
-  komando storage sftp object move NAME SRC DST [flags]
+  komando storage sftp object move NAME SRC [DST] [flags]
 
 Aliases:
   move, mv
@@ -10797,10 +10770,11 @@ Aliases:
 Examples:
   komando storage sftp object move backups old.txt new.txt --dry-run
   komando storage sftp object move backups old.txt archive/old.txt
+  komando storage sftp object move backups config/app.yml --mode 0640
 
 Flags:
   -h, --help[=true|false]        help for move
-      --mode string              change the mode, as chmod does
+      --mode string              change the mode of PATH, as chmod does (SFTP only); no DST then
       --overwrite[=true|false]   replace a file already at DST (never a folder)
 
 Global Flags (all of them: komando --help):
@@ -11205,7 +11179,7 @@ Move or rename an object in a smb storage.
 Safety: a change; try it with --dry-run first.
 
 Usage:
-  komando storage smb object move NAME SRC DST [flags]
+  komando storage smb object move NAME SRC [DST] [flags]
 
 Aliases:
   move, mv
@@ -11213,10 +11187,11 @@ Aliases:
 Examples:
   komando storage smb object move backups old.txt new.txt --dry-run
   komando storage smb object move backups old.txt archive/old.txt
+  komando storage smb object move backups config/app.yml --mode 0640
 
 Flags:
   -h, --help[=true|false]        help for move
-      --mode string              change the mode, as chmod does
+      --mode string              change the mode of PATH, as chmod does (SFTP only); no DST then
       --overwrite[=true|false]   replace a file already at DST (never a folder)
 
 Global Flags (all of them: komando --help):
@@ -11654,7 +11629,7 @@ Move or rename an object in a webdav storage.
 Safety: a change; try it with --dry-run first.
 
 Usage:
-  komando storage webdav object move NAME SRC DST [flags]
+  komando storage webdav object move NAME SRC [DST] [flags]
 
 Aliases:
   move, mv
@@ -11662,10 +11637,11 @@ Aliases:
 Examples:
   komando storage webdav object move backups old.txt new.txt --dry-run
   komando storage webdav object move backups old.txt archive/old.txt
+  komando storage webdav object move backups config/app.yml --mode 0640
 
 Flags:
   -h, --help[=true|false]        help for move
-      --mode string              change the mode, as chmod does
+      --mode string              change the mode of PATH, as chmod does (SFTP only); no DST then
       --overwrite[=true|false]   replace a file already at DST (never a folder)
 
 Global Flags (all of them: komando --help):

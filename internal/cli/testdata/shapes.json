@@ -1413,20 +1413,6 @@
     },
     "ok": "bool"
   },
-  "storage chmod bk 0640 archive/a.txt": {
-    "command": "string",
-    "error": {
-      "code": "code STORAGE_UNSUPPORTED",
-      "hint": "string",
-      "message": "string"
-    },
-    "meta": {
-      "contract": "number",
-      "duration_ms": "number",
-      "version": "string"
-    },
-    "ok": "bool"
-  },
   "storage s3 object create bk reports/2026": {
     "command": "string",
     "data": {
@@ -1488,6 +1474,20 @@
     "meta": {
       "contract": "number",
       "dry_run": "bool",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "storage s3 object move bk archive/a.txt --mode 0640": {
+    "command": "string",
+    "error": {
+      "code": "code STORAGE_UNSUPPORTED",
+      "hint": "string",
+      "message": "string"
+    },
+    "meta": {
+      "contract": "number",
       "duration_ms": "number",
       "version": "string"
     },
