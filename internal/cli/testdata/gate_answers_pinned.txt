@@ -1,0 +1,1818 @@
+""	full	komando	runs
+""	netread	komando	runs
+""	read	komando	runs
+"--help"	full	komando	runs
+"--help"	netread	komando	runs
+"--help"	read	komando	runs
+"audit --help"	full	audit	runs
+"audit --help"	netread	audit	runs
+"audit --help"	read	audit	runs
+"audit verify --help"	full	audit.verify	runs
+"audit verify --help"	netread	audit.verify	runs
+"audit verify --help"	read	audit.verify	runs
+"audit verify"	full	audit.verify	runs
+"audit verify"	netread	audit.verify	runs
+"audit verify"	read	audit.verify	runs
+"audit"	full	audit	runs
+"audit"	netread	audit	runs
+"audit"	read	audit	runs
+"cache --help"	full	cache	runs
+"cache --help"	netread	cache	runs
+"cache --help"	read	cache	runs
+"cache add --help"	full	cache.add	runs
+"cache add --help"	netread	cache.add	runs
+"cache add --help"	read	cache.add	runs
+"cache add"	full	cache.add	SSH_GATE_REFUSED|komando cache add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache add"	netread	cache.add	SSH_GATE_REFUSED|komando cache add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache add"	read	cache.add	SSH_GATE_REFUSED|komando cache add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache get --help"	full	cache.get	runs
+"cache get --help"	netread	cache.get	runs
+"cache get --help"	read	cache.get	runs
+"cache get"	full	cache.get	runs
+"cache get"	netread	cache.get	runs
+"cache get"	read	cache.get	runs
+"cache info --help"	full	cache.info	runs
+"cache info --help"	netread	cache.info	runs
+"cache info --help"	read	cache.info	runs
+"cache info"	full	cache.info	runs
+"cache info"	netread	cache.info	runs
+"cache info"	read	cache.info	runs
+"cache keys --help"	full	cache.keys	runs
+"cache keys --help"	netread	cache.keys	runs
+"cache keys --help"	read	cache.keys	runs
+"cache keys"	full	cache.keys	runs
+"cache keys"	netread	cache.keys	runs
+"cache keys"	read	cache.keys	runs
+"cache rm --help"	full	cache.rm	runs
+"cache rm --help"	netread	cache.rm	runs
+"cache rm --help"	read	cache.rm	runs
+"cache rm"	full	cache.rm	runs
+"cache rm"	netread	cache.rm	SSH_GATE_READ_ONLY|komando cache rm is refused for a read-only key: it changes something
+"cache rm"	read	cache.rm	SSH_GATE_READ_ONLY|komando cache rm is refused for a read-only key: it changes something
+"cache run --analyze"	full	cache.run	runs
+"cache run --analyze"	netread	cache.run	runs
+"cache run --analyze"	read	cache.run	runs
+"cache run --help"	full	cache.run	runs
+"cache run --help"	netread	cache.run	runs
+"cache run --help"	read	cache.run	runs
+"cache run --read-only"	full	cache.run	runs
+"cache run --read-only"	netread	cache.run	runs
+"cache run --read-only"	read	cache.run	runs
+"cache run --refresh"	full	cache.run	runs
+"cache run --refresh"	netread	cache.run	runs
+"cache run --refresh"	read	cache.run	runs
+"cache run --write"	full	cache.run	runs
+"cache run --write"	netread	cache.run	SSH_GATE_READ_ONLY|komando cache run is refused for a read-only key: with --write it can change something
+"cache run --write"	read	cache.run	SSH_GATE_READ_ONLY|komando cache run is refused for a read-only key: with --write it can change something
+"cache run"	full	cache.run	runs
+"cache run"	netread	cache.run	runs
+"cache run"	read	cache.run	runs
+"cache set --help"	full	cache.set	runs
+"cache set --help"	netread	cache.set	runs
+"cache set --help"	read	cache.set	runs
+"cache set"	full	cache.set	runs
+"cache set"	netread	cache.set	SSH_GATE_READ_ONLY|komando cache set is refused for a read-only key: it changes something
+"cache set"	read	cache.set	SSH_GATE_READ_ONLY|komando cache set is refused for a read-only key: it changes something
+"cache"	full	cache	runs
+"cache"	netread	cache	runs
+"cache"	read	cache	runs
+"cert --help"	full	cert	runs
+"cert --help"	netread	cert	runs
+"cert --help"	read	cert	runs
+"cert check --help"	full	cert.check	runs
+"cert check --help"	netread	cert.check	runs
+"cert check --help"	read	cert.check	runs
+"cert check"	full	cert.check	runs
+"cert check"	netread	cert.check	runs
+"cert check"	read	cert.check	runs
+"cert"	full	cert	runs
+"cert"	netread	cert	runs
+"cert"	read	cert	runs
+"cluster --help"	full	cluster	runs
+"cluster --help"	netread	cluster	runs
+"cluster --help"	read	cluster	runs
+"cluster add --help"	full	cluster.add	runs
+"cluster add --help"	netread	cluster.add	runs
+"cluster add --help"	read	cluster.add	runs
+"cluster add"	full	cluster.add	SSH_GATE_REFUSED|komando cluster add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cluster add"	netread	cluster.add	SSH_GATE_REFUSED|komando cluster add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cluster add"	read	cluster.add	SSH_GATE_REFUSED|komando cluster add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cluster apply --help"	full	cluster.apply	runs
+"cluster apply --help"	netread	cluster.apply	runs
+"cluster apply --help"	read	cluster.apply	runs
+"cluster apply"	full	cluster.apply	runs
+"cluster apply"	netread	cluster.apply	SSH_GATE_READ_ONLY|komando cluster apply is refused for a read-only key: it changes something
+"cluster apply"	read	cluster.apply	SSH_GATE_READ_ONLY|komando cluster apply is refused for a read-only key: it changes something
+"cluster deploy --help"	full	cluster.deploy	runs
+"cluster deploy --help"	netread	cluster.deploy	runs
+"cluster deploy --help"	read	cluster.deploy	runs
+"cluster deploy"	full	cluster.deploy	runs
+"cluster deploy"	netread	cluster.deploy	SSH_GATE_READ_ONLY|komando cluster deploy is refused for a read-only key: it changes something
+"cluster deploy"	read	cluster.deploy	SSH_GATE_READ_ONLY|komando cluster deploy is refused for a read-only key: it changes something
+"cluster describe --help"	full	cluster.describe	runs
+"cluster describe --help"	netread	cluster.describe	runs
+"cluster describe --help"	read	cluster.describe	runs
+"cluster describe"	full	cluster.describe	runs
+"cluster describe"	netread	cluster.describe	runs
+"cluster describe"	read	cluster.describe	runs
+"cluster events --help"	full	cluster.events	runs
+"cluster events --help"	netread	cluster.events	runs
+"cluster events --help"	read	cluster.events	runs
+"cluster events"	full	cluster.events	runs
+"cluster events"	netread	cluster.events	runs
+"cluster events"	read	cluster.events	runs
+"cluster exec --analyze"	full	cluster.exec	runs
+"cluster exec --analyze"	netread	cluster.exec	runs
+"cluster exec --analyze"	read	cluster.exec	runs
+"cluster exec --help"	full	cluster.exec	runs
+"cluster exec --help"	netread	cluster.exec	runs
+"cluster exec --help"	read	cluster.exec	runs
+"cluster exec --read-only"	full	cluster.exec	runs
+"cluster exec --read-only"	netread	cluster.exec	runs
+"cluster exec --read-only"	read	cluster.exec	SSH_GATE_NETWORK_REQUIRED|komando cluster exec is refused for a read key without network: it runs a program of your choosing in a pod, which can connect anywhere
+"cluster exec --refresh"	full	cluster.exec	runs
+"cluster exec --refresh"	netread	cluster.exec	runs
+"cluster exec --refresh"	read	cluster.exec	runs
+"cluster exec --write"	full	cluster.exec	runs
+"cluster exec --write"	netread	cluster.exec	runs
+"cluster exec --write"	read	cluster.exec	runs
+"cluster exec"	full	cluster.exec	runs
+"cluster exec"	netread	cluster.exec	SSH_GATE_READ_ONLY|komando cluster exec is refused for a read-only key: without --read-only it can change something
+"cluster exec"	read	cluster.exec	SSH_GATE_READ_ONLY|komando cluster exec is refused for a read-only key: without --read-only it can change something
+"cluster forward --help"	full	cluster.forward	runs
+"cluster forward --help"	netread	cluster.forward	runs
+"cluster forward --help"	read	cluster.forward	runs
+"cluster forward"	full	cluster.forward	runs
+"cluster forward"	netread	cluster.forward	SSH_GATE_READ_ONLY|komando cluster forward is refused for a read-only key: it opens a port on the komando computer
+"cluster forward"	read	cluster.forward	SSH_GATE_READ_ONLY|komando cluster forward is refused for a read-only key: it opens a port on the komando computer
+"cluster get --help"	full	cluster.get	runs
+"cluster get --help"	netread	cluster.get	runs
+"cluster get --help"	read	cluster.get	runs
+"cluster get"	full	cluster.get	runs
+"cluster get"	netread	cluster.get	runs
+"cluster get"	read	cluster.get	runs
+"cluster helm --help"	full	cluster.helm	runs
+"cluster helm --help"	netread	cluster.helm	runs
+"cluster helm --help"	read	cluster.helm	runs
+"cluster helm history --help"	full	cluster.helm.history	runs
+"cluster helm history --help"	netread	cluster.helm.history	runs
+"cluster helm history --help"	read	cluster.helm.history	runs
+"cluster helm history"	full	cluster.helm.history	runs
+"cluster helm history"	netread	cluster.helm.history	runs
+"cluster helm history"	read	cluster.helm.history	runs
+"cluster helm list --help"	full	cluster.helm.list	runs
+"cluster helm list --help"	netread	cluster.helm.list	runs
+"cluster helm list --help"	read	cluster.helm.list	runs
+"cluster helm list"	full	cluster.helm.list	runs
+"cluster helm list"	netread	cluster.helm.list	runs
+"cluster helm list"	read	cluster.helm.list	runs
+"cluster helm status --help"	full	cluster.helm.status	runs
+"cluster helm status --help"	netread	cluster.helm.status	runs
+"cluster helm status --help"	read	cluster.helm.status	runs
+"cluster helm status"	full	cluster.helm.status	runs
+"cluster helm status"	netread	cluster.helm.status	runs
+"cluster helm status"	read	cluster.helm.status	runs
+"cluster helm values --help"	full	cluster.helm.values	runs
+"cluster helm values --help"	netread	cluster.helm.values	runs
+"cluster helm values --help"	read	cluster.helm.values	runs
+"cluster helm values"	full	cluster.helm.values	runs
+"cluster helm values"	netread	cluster.helm.values	runs
+"cluster helm values"	read	cluster.helm.values	runs
+"cluster helm"	full	cluster.helm	runs
+"cluster helm"	netread	cluster.helm	runs
+"cluster helm"	read	cluster.helm	runs
+"cluster history --help"	full	cluster.history	runs
+"cluster history --help"	netread	cluster.history	runs
+"cluster history --help"	read	cluster.history	runs
+"cluster history"	full	cluster.history	runs
+"cluster history"	netread	cluster.history	runs
+"cluster history"	read	cluster.history	runs
+"cluster info --help"	full	cluster.status	runs
+"cluster info --help"	netread	cluster.status	runs
+"cluster info --help"	read	cluster.status	runs
+"cluster info"	full	cluster.status	runs
+"cluster info"	netread	cluster.status	runs
+"cluster info"	read	cluster.status	runs
+"cluster list --help"	full	cluster.list	runs
+"cluster list --help"	netread	cluster.list	runs
+"cluster list --help"	read	cluster.list	runs
+"cluster list"	full	cluster.list	runs
+"cluster list"	netread	cluster.list	runs
+"cluster list"	read	cluster.list	runs
+"cluster logs --help"	full	cluster.logs	runs
+"cluster logs --help"	netread	cluster.logs	runs
+"cluster logs --help"	read	cluster.logs	runs
+"cluster logs"	full	cluster.logs	runs
+"cluster logs"	netread	cluster.logs	runs
+"cluster logs"	read	cluster.logs	runs
+"cluster restart --help"	full	cluster.restart	runs
+"cluster restart --help"	netread	cluster.restart	runs
+"cluster restart --help"	read	cluster.restart	runs
+"cluster restart"	full	cluster.restart	runs
+"cluster restart"	netread	cluster.restart	SSH_GATE_READ_ONLY|komando cluster restart is refused for a read-only key: it changes something
+"cluster restart"	read	cluster.restart	SSH_GATE_READ_ONLY|komando cluster restart is refused for a read-only key: it changes something
+"cluster rm --help"	full	cluster.rm	runs
+"cluster rm --help"	netread	cluster.rm	runs
+"cluster rm --help"	read	cluster.rm	runs
+"cluster rm"	full	cluster.rm	runs
+"cluster rm"	netread	cluster.rm	SSH_GATE_READ_ONLY|komando cluster rm is refused for a read-only key: it changes something
+"cluster rm"	read	cluster.rm	SSH_GATE_READ_ONLY|komando cluster rm is refused for a read-only key: it changes something
+"cluster rollback --help"	full	cluster.rollback	runs
+"cluster rollback --help"	netread	cluster.rollback	runs
+"cluster rollback --help"	read	cluster.rollback	runs
+"cluster rollback"	full	cluster.rollback	runs
+"cluster rollback"	netread	cluster.rollback	SSH_GATE_READ_ONLY|komando cluster rollback is refused for a read-only key: it changes something
+"cluster rollback"	read	cluster.rollback	SSH_GATE_READ_ONLY|komando cluster rollback is refused for a read-only key: it changes something
+"cluster run --analyze"	full	cluster.run	runs
+"cluster run --analyze"	netread	cluster.run	runs
+"cluster run --analyze"	read	cluster.run	runs
+"cluster run --help"	full	cluster.run	runs
+"cluster run --help"	netread	cluster.run	runs
+"cluster run --help"	read	cluster.run	runs
+"cluster run --read-only"	full	cluster.run	runs
+"cluster run --read-only"	netread	cluster.run	runs
+"cluster run --read-only"	read	cluster.run	runs
+"cluster run --refresh"	full	cluster.run	runs
+"cluster run --refresh"	netread	cluster.run	runs
+"cluster run --refresh"	read	cluster.run	runs
+"cluster run --write"	full	cluster.run	runs
+"cluster run --write"	netread	cluster.run	SSH_GATE_READ_ONLY|komando cluster run is refused for a read-only key: with --write it can change something
+"cluster run --write"	read	cluster.run	SSH_GATE_READ_ONLY|komando cluster run is refused for a read-only key: with --write it can change something
+"cluster run"	full	cluster.run	runs
+"cluster run"	netread	cluster.run	runs
+"cluster run"	read	cluster.run	runs
+"cluster scale --help"	full	cluster.scale	runs
+"cluster scale --help"	netread	cluster.scale	runs
+"cluster scale --help"	read	cluster.scale	runs
+"cluster scale"	full	cluster.scale	runs
+"cluster scale"	netread	cluster.scale	SSH_GATE_READ_ONLY|komando cluster scale is refused for a read-only key: it changes something
+"cluster scale"	read	cluster.scale	SSH_GATE_READ_ONLY|komando cluster scale is refused for a read-only key: it changes something
+"cluster shell --help"	full	cluster.shell	SSH_GATE_REFUSED|komando cluster shell needs a person at a terminal on this computer; a key cannot run it
+"cluster shell --help"	netread	cluster.shell	SSH_GATE_REFUSED|komando cluster shell needs a person at a terminal on this computer; a key cannot run it
+"cluster shell --help"	read	cluster.shell	SSH_GATE_REFUSED|komando cluster shell needs a person at a terminal on this computer; a key cannot run it
+"cluster shell"	full	cluster.shell	SSH_GATE_REFUSED|komando cluster shell needs a person at a terminal on this computer; a key cannot run it
+"cluster shell"	netread	cluster.shell	SSH_GATE_REFUSED|komando cluster shell needs a person at a terminal on this computer; a key cannot run it
+"cluster shell"	read	cluster.shell	SSH_GATE_REFUSED|komando cluster shell needs a person at a terminal on this computer; a key cannot run it
+"cluster"	full	cluster	runs
+"cluster"	netread	cluster	runs
+"cluster"	read	cluster	runs
+"completion --help"	full	completion	runs
+"completion --help"	netread	completion	runs
+"completion --help"	read	completion	runs
+"completion bash --help"	full	completion.bash	runs
+"completion bash --help"	netread	completion.bash	runs
+"completion bash --help"	read	completion.bash	runs
+"completion bash"	full	completion.bash	runs
+"completion bash"	netread	completion.bash	runs
+"completion bash"	read	completion.bash	runs
+"completion fish --help"	full	completion.fish	runs
+"completion fish --help"	netread	completion.fish	runs
+"completion fish --help"	read	completion.fish	runs
+"completion fish"	full	completion.fish	runs
+"completion fish"	netread	completion.fish	runs
+"completion fish"	read	completion.fish	runs
+"completion powershell --help"	full	completion.powershell	runs
+"completion powershell --help"	netread	completion.powershell	runs
+"completion powershell --help"	read	completion.powershell	runs
+"completion powershell"	full	completion.powershell	runs
+"completion powershell"	netread	completion.powershell	runs
+"completion powershell"	read	completion.powershell	runs
+"completion zsh --help"	full	completion.zsh	runs
+"completion zsh --help"	netread	completion.zsh	runs
+"completion zsh --help"	read	completion.zsh	runs
+"completion zsh"	full	completion.zsh	runs
+"completion zsh"	netread	completion.zsh	runs
+"completion zsh"	read	completion.zsh	runs
+"completion"	full	completion	runs
+"completion"	netread	completion	runs
+"completion"	read	completion	runs
+"config --help"	full	config	runs
+"config --help"	netread	config	runs
+"config --help"	read	config	runs
+"config approval-code --help"	full	config.approval-code	SSH_GATE_REFUSED|komando config approval-code needs a person at a terminal on this computer; a key cannot run it
+"config approval-code --help"	netread	config.approval-code	SSH_GATE_REFUSED|komando config approval-code needs a person at a terminal on this computer; a key cannot run it
+"config approval-code --help"	read	config.approval-code	SSH_GATE_REFUSED|komando config approval-code needs a person at a terminal on this computer; a key cannot run it
+"config approval-code"	full	config.approval-code	SSH_GATE_REFUSED|komando config approval-code needs a person at a terminal on this computer; a key cannot run it
+"config approval-code"	netread	config.approval-code	SSH_GATE_REFUSED|komando config approval-code needs a person at a terminal on this computer; a key cannot run it
+"config approval-code"	read	config.approval-code	SSH_GATE_REFUSED|komando config approval-code needs a person at a terminal on this computer; a key cannot run it
+"config get --help"	full	config.get	runs
+"config get --help"	netread	config.get	runs
+"config get --help"	read	config.get	runs
+"config get"	full	config.get	runs
+"config get"	netread	config.get	runs
+"config get"	read	config.get	runs
+"config set --help"	full	config.set	runs
+"config set --help"	netread	config.set	runs
+"config set --help"	read	config.set	runs
+"config set"	full	config.set	SSH_GATE_REFUSED|komando config set is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"config set"	netread	config.set	SSH_GATE_REFUSED|komando config set is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"config set"	read	config.set	SSH_GATE_REFUSED|komando config set is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"config show --help"	full	config.show	runs
+"config show --help"	netread	config.show	runs
+"config show --help"	read	config.show	runs
+"config show"	full	config.show	runs
+"config show"	netread	config.show	runs
+"config show"	read	config.show	runs
+"config"	full	config	runs
+"config"	netread	config	runs
+"config"	read	config	runs
+"conn --help"	full	conn	runs
+"conn --help"	netread	conn	runs
+"conn --help"	read	conn	runs
+"conn add --help"	full	conn.add	runs
+"conn add --help"	netread	conn.add	runs
+"conn add --help"	read	conn.add	runs
+"conn add"	full	conn.add	SSH_GATE_REFUSED|komando conn add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"conn add"	netread	conn.add	SSH_GATE_REFUSED|komando conn add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"conn add"	read	conn.add	SSH_GATE_REFUSED|komando conn add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"conn edit --help"	full	conn.edit	runs
+"conn edit --help"	netread	conn.edit	runs
+"conn edit --help"	read	conn.edit	runs
+"conn edit"	full	conn.edit	SSH_GATE_REFUSED|komando conn edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"conn edit"	netread	conn.edit	SSH_GATE_REFUSED|komando conn edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"conn edit"	read	conn.edit	SSH_GATE_REFUSED|komando conn edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"conn kinds --help"	full	conn.kinds	runs
+"conn kinds --help"	netread	conn.kinds	runs
+"conn kinds --help"	read	conn.kinds	runs
+"conn kinds"	full	conn.kinds	runs
+"conn kinds"	netread	conn.kinds	runs
+"conn kinds"	read	conn.kinds	runs
+"conn list --help"	full	conn.list	runs
+"conn list --help"	netread	conn.list	runs
+"conn list --help"	read	conn.list	runs
+"conn list"	full	conn.list	runs
+"conn list"	netread	conn.list	runs
+"conn list"	read	conn.list	runs
+"conn rename --help"	full	conn.rename	runs
+"conn rename --help"	netread	conn.rename	runs
+"conn rename --help"	read	conn.rename	runs
+"conn rename"	full	conn.rename	SSH_GATE_REFUSED|komando conn rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"conn rename"	netread	conn.rename	SSH_GATE_REFUSED|komando conn rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"conn rename"	read	conn.rename	SSH_GATE_REFUSED|komando conn rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"conn rm --help"	full	conn.rm	runs
+"conn rm --help"	netread	conn.rm	runs
+"conn rm --help"	read	conn.rm	runs
+"conn rm"	full	conn.rm	SSH_GATE_REFUSED|komando conn rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"conn rm"	netread	conn.rm	SSH_GATE_REFUSED|komando conn rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"conn rm"	read	conn.rm	SSH_GATE_REFUSED|komando conn rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"conn show --help"	full	conn.show	runs
+"conn show --help"	netread	conn.show	runs
+"conn show --help"	read	conn.show	runs
+"conn show"	full	conn.show	runs
+"conn show"	netread	conn.show	runs
+"conn show"	read	conn.show	runs
+"conn test --help"	full	conn.test	runs
+"conn test --help"	netread	conn.test	runs
+"conn test --help"	read	conn.test	runs
+"conn test"	full	conn.test	runs
+"conn test"	netread	conn.test	runs
+"conn test"	read	conn.test	runs
+"conn"	full	conn	runs
+"conn"	netread	conn	runs
+"conn"	read	conn	runs
+"cp --help"	full	cp	runs
+"cp --help"	netread	cp	runs
+"cp --help"	read	cp	runs
+"cp"	full	cp	runs
+"cp"	netread	cp	SSH_GATE_READ_ONLY|komando cp is refused for a read-only key: it may change something (changes the destination: a server or bucket when it is the DST, only this computer when it is the SRC)
+"cp"	read	cp	SSH_GATE_READ_ONLY|komando cp is refused for a read-only key: it may change something (changes the destination: a server or bucket when it is the DST, only this computer when it is the SRC)
+"cron --help"	full	cron	runs
+"cron --help"	netread	cron	runs
+"cron --help"	read	cron	runs
+"cron list --help"	full	cron.list	runs
+"cron list --help"	netread	cron.list	runs
+"cron list --help"	read	cron.list	runs
+"cron list"	full	cron.list	runs
+"cron list"	netread	cron.list	runs
+"cron list"	read	cron.list	runs
+"cron rm --help"	full	cron.rm	runs
+"cron rm --help"	netread	cron.rm	runs
+"cron rm --help"	read	cron.rm	runs
+"cron rm"	full	cron.rm	runs
+"cron rm"	netread	cron.rm	SSH_GATE_READ_ONLY|komando cron rm is refused for a read-only key: it changes something
+"cron rm"	read	cron.rm	SSH_GATE_READ_ONLY|komando cron rm is refused for a read-only key: it changes something
+"cron set --help"	full	cron.set	runs
+"cron set --help"	netread	cron.set	runs
+"cron set --help"	read	cron.set	runs
+"cron set"	full	cron.set	runs
+"cron set"	netread	cron.set	SSH_GATE_READ_ONLY|komando cron set is refused for a read-only key: it changes something
+"cron set"	read	cron.set	SSH_GATE_READ_ONLY|komando cron set is refused for a read-only key: it changes something
+"cron"	full	cron	runs
+"cron"	netread	cron	runs
+"cron"	read	cron	runs
+"db --help"	full	db	runs
+"db --help"	netread	db	runs
+"db --help"	read	db	runs
+"db activity --help"	full	db.activity	runs
+"db activity --help"	netread	db.activity	runs
+"db activity --help"	read	db.activity	runs
+"db activity"	full	db.activity	runs
+"db activity"	netread	db.activity	runs
+"db activity"	read	db.activity	runs
+"db add --help"	full	db.add	runs
+"db add --help"	netread	db.add	runs
+"db add --help"	read	db.add	runs
+"db add"	full	db.add	SSH_GATE_REFUSED|komando db add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"db add"	netread	db.add	SSH_GATE_REFUSED|komando db add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"db add"	read	db.add	SSH_GATE_REFUSED|komando db add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"db dump --help"	full	db.dump	runs
+"db dump --help"	netread	db.dump	runs
+"db dump --help"	read	db.dump	runs
+"db dump"	full	db.dump	SSH_GATE_REFUSED|komando db dump is refused for a key: it saves a file on this computer; the gate runs commands on servers, not on this computer
+"db dump"	netread	db.dump	SSH_GATE_REFUSED|komando db dump is refused for a key: it saves a file on this computer; the gate runs commands on servers, not on this computer
+"db dump"	read	db.dump	SSH_GATE_REFUSED|komando db dump is refused for a key: it saves a file on this computer; the gate runs commands on servers, not on this computer
+"db explain --analyze"	full	db.explain	runs
+"db explain --analyze"	netread	db.explain	SSH_GATE_READ_ONLY|komando db explain is refused for a read-only key: with --analyze it can change something
+"db explain --analyze"	read	db.explain	SSH_GATE_READ_ONLY|komando db explain is refused for a read-only key: with --analyze it can change something
+"db explain --help"	full	db.explain	runs
+"db explain --help"	netread	db.explain	runs
+"db explain --help"	read	db.explain	runs
+"db explain --read-only"	full	db.explain	runs
+"db explain --read-only"	netread	db.explain	runs
+"db explain --read-only"	read	db.explain	runs
+"db explain --refresh"	full	db.explain	runs
+"db explain --refresh"	netread	db.explain	runs
+"db explain --refresh"	read	db.explain	runs
+"db explain --write"	full	db.explain	runs
+"db explain --write"	netread	db.explain	SSH_GATE_READ_ONLY|komando db explain is refused for a read-only key: with --write it can change something
+"db explain --write"	read	db.explain	SSH_GATE_READ_ONLY|komando db explain is refused for a read-only key: with --write it can change something
+"db explain"	full	db.explain	runs
+"db explain"	netread	db.explain	runs
+"db explain"	read	db.explain	runs
+"db grant --help"	full	db.grant	runs
+"db grant --help"	netread	db.grant	runs
+"db grant --help"	read	db.grant	runs
+"db grant"	full	db.grant	runs
+"db grant"	netread	db.grant	SSH_GATE_READ_ONLY|komando db grant is refused for a read-only key: it changes something
+"db grant"	read	db.grant	SSH_GATE_READ_ONLY|komando db grant is refused for a read-only key: it changes something
+"db info --help"	full	db.info	runs
+"db info --help"	netread	db.info	runs
+"db info --help"	read	db.info	runs
+"db info"	full	db.info	runs
+"db info"	netread	db.info	runs
+"db info"	read	db.info	runs
+"db kill --help"	full	db.kill	runs
+"db kill --help"	netread	db.kill	runs
+"db kill --help"	read	db.kill	runs
+"db kill"	full	db.kill	runs
+"db kill"	netread	db.kill	SSH_GATE_READ_ONLY|komando db kill is refused for a read-only key: it changes something
+"db kill"	read	db.kill	SSH_GATE_READ_ONLY|komando db kill is refused for a read-only key: it changes something
+"db locks --help"	full	db.locks	runs
+"db locks --help"	netread	db.locks	runs
+"db locks --help"	read	db.locks	runs
+"db locks"	full	db.locks	runs
+"db locks"	netread	db.locks	runs
+"db locks"	read	db.locks	runs
+"db query --analyze"	full	db.query	runs
+"db query --analyze"	netread	db.query	runs
+"db query --analyze"	read	db.query	runs
+"db query --help"	full	db.query	runs
+"db query --help"	netread	db.query	runs
+"db query --help"	read	db.query	runs
+"db query --read-only"	full	db.query	runs
+"db query --read-only"	netread	db.query	runs
+"db query --read-only"	read	db.query	runs
+"db query --refresh"	full	db.query	runs
+"db query --refresh"	netread	db.query	runs
+"db query --refresh"	read	db.query	runs
+"db query --write"	full	db.query	runs
+"db query --write"	netread	db.query	SSH_GATE_READ_ONLY|komando db query is refused for a read-only key: with --write it can change something
+"db query --write"	read	db.query	SSH_GATE_READ_ONLY|komando db query is refused for a read-only key: with --write it can change something
+"db query"	full	db.query	runs
+"db query"	netread	db.query	runs
+"db query"	read	db.query	runs
+"db restore --help"	full	db.restore	runs
+"db restore --help"	netread	db.restore	runs
+"db restore --help"	read	db.restore	runs
+"db restore"	full	db.restore	runs
+"db restore"	netread	db.restore	SSH_GATE_READ_ONLY|komando db restore is refused for a read-only key: it changes something
+"db restore"	read	db.restore	SSH_GATE_READ_ONLY|komando db restore is refused for a read-only key: it changes something
+"db revoke --help"	full	db.revoke	runs
+"db revoke --help"	netread	db.revoke	runs
+"db revoke --help"	read	db.revoke	runs
+"db revoke"	full	db.revoke	runs
+"db revoke"	netread	db.revoke	SSH_GATE_READ_ONLY|komando db revoke is refused for a read-only key: it changes something
+"db revoke"	read	db.revoke	SSH_GATE_READ_ONLY|komando db revoke is refused for a read-only key: it changes something
+"db schema --help"	full	db.schema	runs
+"db schema --help"	netread	db.schema	runs
+"db schema --help"	read	db.schema	runs
+"db schema"	full	db.schema	runs
+"db schema"	netread	db.schema	runs
+"db schema"	read	db.schema	runs
+"db shell --help"	full	db.shell	SSH_GATE_REFUSED|komando db shell needs a person at a terminal on this computer; a key cannot run it
+"db shell --help"	netread	db.shell	SSH_GATE_REFUSED|komando db shell needs a person at a terminal on this computer; a key cannot run it
+"db shell --help"	read	db.shell	SSH_GATE_REFUSED|komando db shell needs a person at a terminal on this computer; a key cannot run it
+"db shell"	full	db.shell	SSH_GATE_REFUSED|komando db shell needs a person at a terminal on this computer; a key cannot run it
+"db shell"	netread	db.shell	SSH_GATE_REFUSED|komando db shell needs a person at a terminal on this computer; a key cannot run it
+"db shell"	read	db.shell	SSH_GATE_REFUSED|komando db shell needs a person at a terminal on this computer; a key cannot run it
+"db sizes --help"	full	db.sizes	runs
+"db sizes --help"	netread	db.sizes	runs
+"db sizes --help"	read	db.sizes	runs
+"db sizes"	full	db.sizes	runs
+"db sizes"	netread	db.sizes	runs
+"db sizes"	read	db.sizes	runs
+"db user --help"	full	db.user	runs
+"db user --help"	netread	db.user	runs
+"db user --help"	read	db.user	runs
+"db user add --help"	full	db.user.add	runs
+"db user add --help"	netread	db.user.add	runs
+"db user add --help"	read	db.user.add	runs
+"db user add"	full	db.user.add	runs
+"db user add"	netread	db.user.add	SSH_GATE_READ_ONLY|komando db user add is refused for a read-only key: it changes something
+"db user add"	read	db.user.add	SSH_GATE_READ_ONLY|komando db user add is refused for a read-only key: it changes something
+"db user list --help"	full	db.user.list	runs
+"db user list --help"	netread	db.user.list	runs
+"db user list --help"	read	db.user.list	runs
+"db user list"	full	db.user.list	runs
+"db user list"	netread	db.user.list	runs
+"db user list"	read	db.user.list	runs
+"db user passwd --help"	full	db.user.passwd	runs
+"db user passwd --help"	netread	db.user.passwd	runs
+"db user passwd --help"	read	db.user.passwd	runs
+"db user passwd"	full	db.user.passwd	runs
+"db user passwd"	netread	db.user.passwd	SSH_GATE_READ_ONLY|komando db user passwd is refused for a read-only key: it changes something
+"db user passwd"	read	db.user.passwd	SSH_GATE_READ_ONLY|komando db user passwd is refused for a read-only key: it changes something
+"db user rm --help"	full	db.user.rm	runs
+"db user rm --help"	netread	db.user.rm	runs
+"db user rm --help"	read	db.user.rm	runs
+"db user rm"	full	db.user.rm	runs
+"db user rm"	netread	db.user.rm	SSH_GATE_READ_ONLY|komando db user rm is refused for a read-only key: it changes something
+"db user rm"	read	db.user.rm	SSH_GATE_READ_ONLY|komando db user rm is refused for a read-only key: it changes something
+"db user show --help"	full	db.user.show	runs
+"db user show --help"	netread	db.user.show	runs
+"db user show --help"	read	db.user.show	runs
+"db user show"	full	db.user.show	runs
+"db user show"	netread	db.user.show	runs
+"db user show"	read	db.user.show	runs
+"db user"	full	db.user	runs
+"db user"	netread	db.user	runs
+"db user"	read	db.user	runs
+"db"	full	db	runs
+"db"	netread	db	runs
+"db"	read	db	runs
+"docker --help"	full	docker	runs
+"docker --help"	netread	docker	runs
+"docker --help"	read	docker	runs
+"docker compose --help"	full	docker.compose	runs
+"docker compose --help"	netread	docker.compose	runs
+"docker compose --help"	read	docker.compose	runs
+"docker compose"	full	docker.compose	runs
+"docker compose"	netread	docker.compose	SSH_GATE_READ_ONLY|komando docker compose is refused for a read-only key: it may change something (decided by the docker subcommand: ps/logs/inspect read, up/down/rm change)
+"docker compose"	read	docker.compose	SSH_GATE_READ_ONLY|komando docker compose is refused for a read-only key: it may change something (decided by the docker subcommand: ps/logs/inspect read, up/down/rm change)
+"docker exec --analyze"	full	docker.exec	runs
+"docker exec --analyze"	netread	docker.exec	runs
+"docker exec --analyze"	read	docker.exec	runs
+"docker exec --help"	full	docker.exec	runs
+"docker exec --help"	netread	docker.exec	runs
+"docker exec --help"	read	docker.exec	runs
+"docker exec --read-only"	full	docker.exec	runs
+"docker exec --read-only"	netread	docker.exec	runs
+"docker exec --read-only"	read	docker.exec	SSH_GATE_NETWORK_REQUIRED|komando docker exec is refused for a read key without network: it runs a program of your choosing in a container, which can connect anywhere
+"docker exec --refresh"	full	docker.exec	runs
+"docker exec --refresh"	netread	docker.exec	runs
+"docker exec --refresh"	read	docker.exec	runs
+"docker exec --write"	full	docker.exec	runs
+"docker exec --write"	netread	docker.exec	runs
+"docker exec --write"	read	docker.exec	runs
+"docker exec"	full	docker.exec	runs
+"docker exec"	netread	docker.exec	SSH_GATE_READ_ONLY|komando docker exec is refused for a read-only key: without --read-only it can change something
+"docker exec"	read	docker.exec	SSH_GATE_READ_ONLY|komando docker exec is refused for a read-only key: without --read-only it can change something
+"docker images --help"	full	docker.images	runs
+"docker images --help"	netread	docker.images	runs
+"docker images --help"	read	docker.images	runs
+"docker images"	full	docker.images	runs
+"docker images"	netread	docker.images	runs
+"docker images"	read	docker.images	runs
+"docker inspect --help"	full	docker.inspect	runs
+"docker inspect --help"	netread	docker.inspect	runs
+"docker inspect --help"	read	docker.inspect	runs
+"docker inspect"	full	docker.inspect	runs
+"docker inspect"	netread	docker.inspect	runs
+"docker inspect"	read	docker.inspect	runs
+"docker logs --help"	full	docker.logs	runs
+"docker logs --help"	netread	docker.logs	runs
+"docker logs --help"	read	docker.logs	runs
+"docker logs"	full	docker.logs	runs
+"docker logs"	netread	docker.logs	runs
+"docker logs"	read	docker.logs	runs
+"docker prune --help"	full	docker.prune	runs
+"docker prune --help"	netread	docker.prune	runs
+"docker prune --help"	read	docker.prune	runs
+"docker prune"	full	docker.prune	runs
+"docker prune"	netread	docker.prune	SSH_GATE_READ_ONLY|komando docker prune is refused for a read-only key: it changes something
+"docker prune"	read	docker.prune	SSH_GATE_READ_ONLY|komando docker prune is refused for a read-only key: it changes something
+"docker ps --help"	full	docker.ps	runs
+"docker ps --help"	netread	docker.ps	runs
+"docker ps --help"	read	docker.ps	runs
+"docker ps"	full	docker.ps	runs
+"docker ps"	netread	docker.ps	runs
+"docker ps"	read	docker.ps	runs
+"docker pull --help"	full	docker.pull	runs
+"docker pull --help"	netread	docker.pull	runs
+"docker pull --help"	read	docker.pull	runs
+"docker pull"	full	docker.pull	runs
+"docker pull"	netread	docker.pull	SSH_GATE_READ_ONLY|komando docker pull is refused for a read-only key: it changes something
+"docker pull"	read	docker.pull	SSH_GATE_READ_ONLY|komando docker pull is refused for a read-only key: it changes something
+"docker raw --help"	full	docker.raw	runs
+"docker raw --help"	netread	docker.raw	runs
+"docker raw --help"	read	docker.raw	runs
+"docker raw"	full	docker.raw	runs
+"docker raw"	netread	docker.raw	SSH_GATE_READ_ONLY|komando docker raw is refused for a read-only key: it may change something (decided by the docker subcommand: ps/logs/inspect read, up/down/rm change)
+"docker raw"	read	docker.raw	SSH_GATE_READ_ONLY|komando docker raw is refused for a read-only key: it may change something (decided by the docker subcommand: ps/logs/inspect read, up/down/rm change)
+"docker restart --help"	full	docker.restart	runs
+"docker restart --help"	netread	docker.restart	runs
+"docker restart --help"	read	docker.restart	runs
+"docker restart"	full	docker.restart	runs
+"docker restart"	netread	docker.restart	SSH_GATE_READ_ONLY|komando docker restart is refused for a read-only key: it changes something
+"docker restart"	read	docker.restart	SSH_GATE_READ_ONLY|komando docker restart is refused for a read-only key: it changes something
+"docker rm --help"	full	docker.rm	runs
+"docker rm --help"	netread	docker.rm	runs
+"docker rm --help"	read	docker.rm	runs
+"docker rm"	full	docker.rm	runs
+"docker rm"	netread	docker.rm	SSH_GATE_READ_ONLY|komando docker rm is refused for a read-only key: it changes something
+"docker rm"	read	docker.rm	SSH_GATE_READ_ONLY|komando docker rm is refused for a read-only key: it changes something
+"docker start --help"	full	docker.start	runs
+"docker start --help"	netread	docker.start	runs
+"docker start --help"	read	docker.start	runs
+"docker start"	full	docker.start	runs
+"docker start"	netread	docker.start	SSH_GATE_READ_ONLY|komando docker start is refused for a read-only key: it changes something
+"docker start"	read	docker.start	SSH_GATE_READ_ONLY|komando docker start is refused for a read-only key: it changes something
+"docker stats --help"	full	docker.stats	runs
+"docker stats --help"	netread	docker.stats	runs
+"docker stats --help"	read	docker.stats	runs
+"docker stats"	full	docker.stats	runs
+"docker stats"	netread	docker.stats	runs
+"docker stats"	read	docker.stats	runs
+"docker stop --help"	full	docker.stop	runs
+"docker stop --help"	netread	docker.stop	runs
+"docker stop --help"	read	docker.stop	runs
+"docker stop"	full	docker.stop	runs
+"docker stop"	netread	docker.stop	SSH_GATE_READ_ONLY|komando docker stop is refused for a read-only key: it changes something
+"docker stop"	read	docker.stop	SSH_GATE_READ_ONLY|komando docker stop is refused for a read-only key: it changes something
+"docker"	full	docker	runs
+"docker"	netread	docker	runs
+"docker"	read	docker	runs
+"doctor --help"	full	doctor	runs
+"doctor --help"	netread	doctor	runs
+"doctor --help"	read	doctor	runs
+"doctor"	full	doctor	runs
+"doctor"	netread	doctor	runs
+"doctor"	read	doctor	runs
+"download --help"	full	download	runs
+"download --help"	netread	download	runs
+"download --help"	read	download	runs
+"download"	full	download	SSH_GATE_REFUSED|komando download is refused for a key: it saves files on this computer (--to - streams one instead); the gate runs commands on servers, not on this computer
+"download"	netread	download	SSH_GATE_REFUSED|komando download is refused for a key: it saves files on this computer (--to - streams one instead); the gate runs commands on servers, not on this computer
+"download"	read	download	SSH_GATE_REFUSED|komando download is refused for a key: it saves files on this computer (--to - streams one instead); the gate runs commands on servers, not on this computer
+"environment --help"	full	environment	runs
+"environment --help"	netread	environment	runs
+"environment --help"	read	environment	runs
+"environment"	full	environment	runs
+"environment"	netread	environment	runs
+"environment"	read	environment	runs
+"exec --analyze"	full	exec	runs
+"exec --analyze"	netread	exec	runs
+"exec --analyze"	read	exec	runs
+"exec --help"	full	exec	runs
+"exec --help"	netread	exec	runs
+"exec --help"	read	exec	runs
+"exec --read-only"	full	exec	runs
+"exec --read-only"	netread	exec	runs
+"exec --read-only"	read	exec	SSH_GATE_NETWORK_REQUIRED|komando exec is refused for a read key without network: it runs a program of your choosing, which can connect anywhere
+"exec --refresh"	full	exec	runs
+"exec --refresh"	netread	exec	runs
+"exec --refresh"	read	exec	runs
+"exec --write"	full	exec	runs
+"exec --write"	netread	exec	runs
+"exec --write"	read	exec	runs
+"exec"	full	exec	runs
+"exec"	netread	exec	SSH_GATE_READ_ONLY|komando exec is refused for a read-only key: without --read-only it can change something
+"exec"	read	exec	SSH_GATE_READ_ONLY|komando exec is refused for a read-only key: without --read-only it can change something
+"exit-codes --help"	full	exit-codes	runs
+"exit-codes --help"	netread	exit-codes	runs
+"exit-codes --help"	read	exit-codes	runs
+"exit-codes"	full	exit-codes	runs
+"exit-codes"	netread	exit-codes	runs
+"exit-codes"	read	exit-codes	runs
+"export --help"	full	export	runs
+"export --help"	netread	export	runs
+"export --help"	read	export	runs
+"export"	full	export	runs
+"export"	netread	export	runs
+"export"	read	export	runs
+"facts --help"	full	facts	runs
+"facts --help"	netread	facts	runs
+"facts --help"	read	facts	runs
+"facts"	full	facts	runs
+"facts"	netread	facts	runs
+"facts"	read	facts	runs
+"fs --help"	full	fs	runs
+"fs --help"	netread	fs	runs
+"fs --help"	read	fs	runs
+"fs cat --help"	full	fs.cat	runs
+"fs cat --help"	netread	fs.cat	runs
+"fs cat --help"	read	fs.cat	runs
+"fs cat"	full	fs.cat	runs
+"fs cat"	netread	fs.cat	runs
+"fs cat"	read	fs.cat	runs
+"fs chmod --help"	full	fs.chmod	runs
+"fs chmod --help"	netread	fs.chmod	runs
+"fs chmod --help"	read	fs.chmod	runs
+"fs chmod"	full	fs.chmod	runs
+"fs chmod"	netread	fs.chmod	SSH_GATE_READ_ONLY|komando fs chmod is refused for a read-only key: it changes something
+"fs chmod"	read	fs.chmod	SSH_GATE_READ_ONLY|komando fs chmod is refused for a read-only key: it changes something
+"fs list --help"	full	fs.list	runs
+"fs list --help"	netread	fs.list	runs
+"fs list --help"	read	fs.list	runs
+"fs list"	full	fs.list	runs
+"fs list"	netread	fs.list	runs
+"fs list"	read	fs.list	runs
+"fs mkdir --help"	full	fs.mkdir	runs
+"fs mkdir --help"	netread	fs.mkdir	runs
+"fs mkdir --help"	read	fs.mkdir	runs
+"fs mkdir"	full	fs.mkdir	runs
+"fs mkdir"	netread	fs.mkdir	SSH_GATE_READ_ONLY|komando fs mkdir is refused for a read-only key: it changes something
+"fs mkdir"	read	fs.mkdir	SSH_GATE_READ_ONLY|komando fs mkdir is refused for a read-only key: it changes something
+"fs mv --help"	full	fs.mv	runs
+"fs mv --help"	netread	fs.mv	runs
+"fs mv --help"	read	fs.mv	runs
+"fs mv"	full	fs.mv	runs
+"fs mv"	netread	fs.mv	SSH_GATE_READ_ONLY|komando fs mv is refused for a read-only key: it changes something
+"fs mv"	read	fs.mv	SSH_GATE_READ_ONLY|komando fs mv is refused for a read-only key: it changes something
+"fs replace --help"	full	fs.replace	runs
+"fs replace --help"	netread	fs.replace	runs
+"fs replace --help"	read	fs.replace	runs
+"fs replace"	full	fs.replace	runs
+"fs replace"	netread	fs.replace	SSH_GATE_READ_ONLY|komando fs replace is refused for a read-only key: it changes something
+"fs replace"	read	fs.replace	SSH_GATE_READ_ONLY|komando fs replace is refused for a read-only key: it changes something
+"fs restore --help"	full	fs.restore	runs
+"fs restore --help"	netread	fs.restore	runs
+"fs restore --help"	read	fs.restore	runs
+"fs restore"	full	fs.restore	runs
+"fs restore"	netread	fs.restore	SSH_GATE_READ_ONLY|komando fs restore is refused for a read-only key: it changes something
+"fs restore"	read	fs.restore	SSH_GATE_READ_ONLY|komando fs restore is refused for a read-only key: it changes something
+"fs rm --help"	full	fs.rm	runs
+"fs rm --help"	netread	fs.rm	runs
+"fs rm --help"	read	fs.rm	runs
+"fs rm"	full	fs.rm	runs
+"fs rm"	netread	fs.rm	SSH_GATE_READ_ONLY|komando fs rm is refused for a read-only key: it changes something
+"fs rm"	read	fs.rm	SSH_GATE_READ_ONLY|komando fs rm is refused for a read-only key: it changes something
+"fs stat --help"	full	fs.stat	runs
+"fs stat --help"	netread	fs.stat	runs
+"fs stat --help"	read	fs.stat	runs
+"fs stat"	full	fs.stat	runs
+"fs stat"	netread	fs.stat	runs
+"fs stat"	read	fs.stat	runs
+"fs write --help"	full	fs.write	runs
+"fs write --help"	netread	fs.write	runs
+"fs write --help"	read	fs.write	runs
+"fs write"	full	fs.write	runs
+"fs write"	netread	fs.write	SSH_GATE_READ_ONLY|komando fs write is refused for a read-only key: it changes something
+"fs write"	read	fs.write	SSH_GATE_READ_ONLY|komando fs write is refused for a read-only key: it changes something
+"fs"	full	fs	runs
+"fs"	netread	fs	runs
+"fs"	read	fs	runs
+"group --help"	full	group	runs
+"group --help"	netread	group	runs
+"group --help"	read	group	runs
+"group add --help"	full	group.add	runs
+"group add --help"	netread	group.add	runs
+"group add --help"	read	group.add	runs
+"group add"	full	group.add	SSH_GATE_REFUSED|komando group add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"group add"	netread	group.add	SSH_GATE_REFUSED|komando group add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"group add"	read	group.add	SSH_GATE_REFUSED|komando group add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"group list --help"	full	group.list	runs
+"group list --help"	netread	group.list	runs
+"group list --help"	read	group.list	runs
+"group list"	full	group.list	runs
+"group list"	netread	group.list	runs
+"group list"	read	group.list	runs
+"group rename --help"	full	group.rename	runs
+"group rename --help"	netread	group.rename	runs
+"group rename --help"	read	group.rename	runs
+"group rename"	full	group.rename	SSH_GATE_REFUSED|komando group rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"group rename"	netread	group.rename	SSH_GATE_REFUSED|komando group rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"group rename"	read	group.rename	SSH_GATE_REFUSED|komando group rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"group rm --help"	full	group.rm	runs
+"group rm --help"	netread	group.rm	runs
+"group rm --help"	read	group.rm	runs
+"group rm"	full	group.rm	SSH_GATE_REFUSED|komando group rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"group rm"	netread	group.rm	SSH_GATE_REFUSED|komando group rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"group rm"	read	group.rm	SSH_GATE_REFUSED|komando group rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"group"	full	group	runs
+"group"	netread	group	runs
+"group"	read	group	runs
+"guide --help"	full	guide	runs
+"guide --help"	netread	guide	runs
+"guide --help"	read	guide	runs
+"guide guard --help"	full	guide.guard	runs
+"guide guard --help"	netread	guide.guard	runs
+"guide guard --help"	read	guide.guard	runs
+"guide guard"	full	guide.guard	SSH_GATE_REFUSED|komando guide guard is komando's own plumbing, not for a key
+"guide guard"	netread	guide.guard	SSH_GATE_REFUSED|komando guide guard is komando's own plumbing, not for a key
+"guide guard"	read	guide.guard	SSH_GATE_REFUSED|komando guide guard is komando's own plumbing, not for a key
+"guide install --help"	full	guide.install	runs
+"guide install --help"	netread	guide.install	runs
+"guide install --help"	read	guide.install	runs
+"guide install"	full	guide.install	SSH_GATE_REFUSED|komando guide install is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"guide install"	netread	guide.install	SSH_GATE_REFUSED|komando guide install is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"guide install"	read	guide.install	SSH_GATE_REFUSED|komando guide install is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"guide uninstall --help"	full	guide.uninstall	runs
+"guide uninstall --help"	netread	guide.uninstall	runs
+"guide uninstall --help"	read	guide.uninstall	runs
+"guide uninstall"	full	guide.uninstall	SSH_GATE_REFUSED|komando guide uninstall is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"guide uninstall"	netread	guide.uninstall	SSH_GATE_REFUSED|komando guide uninstall is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"guide uninstall"	read	guide.uninstall	SSH_GATE_REFUSED|komando guide uninstall is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"guide"	full	guide	runs
+"guide"	netread	guide	runs
+"guide"	read	guide	runs
+"help --help"	full	help	runs
+"help --help"	netread	help	runs
+"help --help"	read	help	runs
+"help"	full	help	runs
+"help"	netread	help	runs
+"help"	read	help	runs
+"host --help"	full	host	runs
+"host --help"	netread	host	runs
+"host --help"	read	host	runs
+"host add --help"	full	host.add	runs
+"host add --help"	netread	host.add	runs
+"host add --help"	read	host.add	runs
+"host add"	full	host.add	SSH_GATE_REFUSED|komando host add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host add"	netread	host.add	SSH_GATE_REFUSED|komando host add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host add"	read	host.add	SSH_GATE_REFUSED|komando host add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ca --help"	full	host.ca	runs
+"host ca --help"	netread	host.ca	runs
+"host ca --help"	read	host.ca	runs
+"host ca add --help"	full	host.ca.add	runs
+"host ca add --help"	netread	host.ca.add	runs
+"host ca add --help"	read	host.ca.add	runs
+"host ca add"	full	host.ca.add	SSH_GATE_REFUSED|komando host ca add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ca add"	netread	host.ca.add	SSH_GATE_REFUSED|komando host ca add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ca add"	read	host.ca.add	SSH_GATE_REFUSED|komando host ca add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ca list --help"	full	host.ca.list	runs
+"host ca list --help"	netread	host.ca.list	runs
+"host ca list --help"	read	host.ca.list	runs
+"host ca list"	full	host.ca.list	runs
+"host ca list"	netread	host.ca.list	runs
+"host ca list"	read	host.ca.list	runs
+"host ca revoke --help"	full	host.ca.revoke	runs
+"host ca revoke --help"	netread	host.ca.revoke	runs
+"host ca revoke --help"	read	host.ca.revoke	runs
+"host ca revoke"	full	host.ca.revoke	SSH_GATE_REFUSED|komando host ca revoke is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ca revoke"	netread	host.ca.revoke	SSH_GATE_REFUSED|komando host ca revoke is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ca revoke"	read	host.ca.revoke	SSH_GATE_REFUSED|komando host ca revoke is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ca rm --help"	full	host.ca.rm	runs
+"host ca rm --help"	netread	host.ca.rm	runs
+"host ca rm --help"	read	host.ca.rm	runs
+"host ca rm"	full	host.ca.rm	SSH_GATE_REFUSED|komando host ca rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ca rm"	netread	host.ca.rm	SSH_GATE_REFUSED|komando host ca rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ca rm"	read	host.ca.rm	SSH_GATE_REFUSED|komando host ca rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ca"	full	host.ca	runs
+"host ca"	netread	host.ca	runs
+"host ca"	read	host.ca	runs
+"host edit --help"	full	host.edit	runs
+"host edit --help"	netread	host.edit	runs
+"host edit --help"	read	host.edit	runs
+"host edit"	full	host.edit	SSH_GATE_REFUSED|komando host edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host edit"	netread	host.edit	SSH_GATE_REFUSED|komando host edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host edit"	read	host.edit	SSH_GATE_REFUSED|komando host edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host list --help"	full	host.list	runs
+"host list --help"	netread	host.list	runs
+"host list --help"	read	host.list	runs
+"host list"	full	host.list	runs
+"host list"	netread	host.list	runs
+"host list"	read	host.list	runs
+"host rename --help"	full	host.rename	runs
+"host rename --help"	netread	host.rename	runs
+"host rename --help"	read	host.rename	runs
+"host rename"	full	host.rename	SSH_GATE_REFUSED|komando host rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host rename"	netread	host.rename	SSH_GATE_REFUSED|komando host rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host rename"	read	host.rename	SSH_GATE_REFUSED|komando host rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host rm --help"	full	host.rm	runs
+"host rm --help"	netread	host.rm	runs
+"host rm --help"	read	host.rm	runs
+"host rm"	full	host.rm	SSH_GATE_REFUSED|komando host rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host rm"	netread	host.rm	SSH_GATE_REFUSED|komando host rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host rm"	read	host.rm	SSH_GATE_REFUSED|komando host rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host show --help"	full	host.show	runs
+"host show --help"	netread	host.show	runs
+"host show --help"	read	host.show	runs
+"host show"	full	host.show	runs
+"host show"	netread	host.show	runs
+"host show"	read	host.show	runs
+"host ssh-command --help"	full	host.ssh-command	runs
+"host ssh-command --help"	netread	host.ssh-command	runs
+"host ssh-command --help"	read	host.ssh-command	runs
+"host ssh-command"	full	host.ssh-command	runs
+"host ssh-command"	netread	host.ssh-command	runs
+"host ssh-command"	read	host.ssh-command	runs
+"host test --help"	full	host.test	runs
+"host test --help"	netread	host.test	runs
+"host test --help"	read	host.test	runs
+"host test"	full	host.test	runs
+"host test"	netread	host.test	runs
+"host test"	read	host.test	runs
+"host trust --help"	full	host.trust	runs
+"host trust --help"	netread	host.trust	runs
+"host trust --help"	read	host.trust	runs
+"host trust"	full	host.trust	SSH_GATE_REFUSED|komando host trust is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host trust"	netread	host.trust	SSH_GATE_REFUSED|komando host trust is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host trust"	read	host.trust	SSH_GATE_REFUSED|komando host trust is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host"	full	host	runs
+"host"	netread	host	runs
+"host"	read	host	runs
+"import --help"	full	import	runs
+"import --help"	netread	import	runs
+"import --help"	read	import	runs
+"import"	full	import	SSH_GATE_REFUSED|komando import is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"import"	netread	import	SSH_GATE_REFUSED|komando import is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"import"	read	import	SSH_GATE_REFUSED|komando import is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"job --help"	full	job	runs
+"job --help"	netread	job	runs
+"job --help"	read	job	runs
+"job kill --help"	full	job.kill	runs
+"job kill --help"	netread	job.kill	runs
+"job kill --help"	read	job.kill	runs
+"job kill"	full	job.kill	runs
+"job kill"	netread	job.kill	SSH_GATE_READ_ONLY|komando job kill is refused for a read-only key: it changes something
+"job kill"	read	job.kill	SSH_GATE_READ_ONLY|komando job kill is refused for a read-only key: it changes something
+"job list --help"	full	job.list	runs
+"job list --help"	netread	job.list	runs
+"job list --help"	read	job.list	runs
+"job list"	full	job.list	runs
+"job list"	netread	job.list	runs
+"job list"	read	job.list	runs
+"job logs --help"	full	job.logs	runs
+"job logs --help"	netread	job.logs	runs
+"job logs --help"	read	job.logs	runs
+"job logs"	full	job.logs	runs
+"job logs"	netread	job.logs	runs
+"job logs"	read	job.logs	runs
+"job rm --help"	full	job.rm	runs
+"job rm --help"	netread	job.rm	runs
+"job rm --help"	read	job.rm	runs
+"job rm"	full	job.rm	runs
+"job rm"	netread	job.rm	SSH_GATE_READ_ONLY|komando job rm is refused for a read-only key: it changes something
+"job rm"	read	job.rm	SSH_GATE_READ_ONLY|komando job rm is refused for a read-only key: it changes something
+"job start --analyze"	full	job.start	runs
+"job start --analyze"	netread	job.start	runs
+"job start --analyze"	read	job.start	runs
+"job start --help"	full	job.start	runs
+"job start --help"	netread	job.start	runs
+"job start --help"	read	job.start	runs
+"job start --read-only"	full	job.start	runs
+"job start --read-only"	netread	job.start	runs
+"job start --read-only"	read	job.start	SSH_GATE_NETWORK_REQUIRED|komando job start is refused for a read key without network: it runs a program of your choosing, which can connect anywhere
+"job start --refresh"	full	job.start	runs
+"job start --refresh"	netread	job.start	runs
+"job start --refresh"	read	job.start	runs
+"job start --write"	full	job.start	runs
+"job start --write"	netread	job.start	runs
+"job start --write"	read	job.start	runs
+"job start"	full	job.start	runs
+"job start"	netread	job.start	SSH_GATE_READ_ONLY|komando job start is refused for a read-only key: without --read-only it can change something
+"job start"	read	job.start	SSH_GATE_READ_ONLY|komando job start is refused for a read-only key: without --read-only it can change something
+"job status --help"	full	job.status	runs
+"job status --help"	netread	job.status	runs
+"job status --help"	read	job.status	runs
+"job status"	full	job.status	runs
+"job status"	netread	job.status	runs
+"job status"	read	job.status	runs
+"job wait --help"	full	job.wait	runs
+"job wait --help"	netread	job.wait	runs
+"job wait --help"	read	job.wait	runs
+"job wait"	full	job.wait	runs
+"job wait"	netread	job.wait	runs
+"job wait"	read	job.wait	runs
+"job"	full	job	runs
+"job"	netread	job	runs
+"job"	read	job	runs
+"key --help"	full	key	runs
+"key --help"	netread	key	runs
+"key --help"	read	key	runs
+"key add --help"	full	key.add	runs
+"key add --help"	netread	key.add	runs
+"key add --help"	read	key.add	runs
+"key add"	full	key.add	SSH_GATE_REFUSED|komando key add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"key add"	netread	key.add	SSH_GATE_REFUSED|komando key add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"key add"	read	key.add	SSH_GATE_REFUSED|komando key add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"key deploy --help"	full	key.deploy	runs
+"key deploy --help"	netread	key.deploy	runs
+"key deploy --help"	read	key.deploy	runs
+"key deploy"	full	key.deploy	runs
+"key deploy"	netread	key.deploy	SSH_GATE_READ_ONLY|komando key deploy is refused for a read-only key: it changes something
+"key deploy"	read	key.deploy	SSH_GATE_READ_ONLY|komando key deploy is refused for a read-only key: it changes something
+"key edit --help"	full	key.edit	runs
+"key edit --help"	netread	key.edit	runs
+"key edit --help"	read	key.edit	runs
+"key edit"	full	key.edit	SSH_GATE_REFUSED|komando key edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"key edit"	netread	key.edit	SSH_GATE_REFUSED|komando key edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"key edit"	read	key.edit	SSH_GATE_REFUSED|komando key edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"key gen --help"	full	key.gen	runs
+"key gen --help"	netread	key.gen	runs
+"key gen --help"	read	key.gen	runs
+"key gen"	full	key.gen	SSH_GATE_REFUSED|komando key gen is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"key gen"	netread	key.gen	SSH_GATE_REFUSED|komando key gen is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"key gen"	read	key.gen	SSH_GATE_REFUSED|komando key gen is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"key list --help"	full	key.list	runs
+"key list --help"	netread	key.list	runs
+"key list --help"	read	key.list	runs
+"key list"	full	key.list	runs
+"key list"	netread	key.list	runs
+"key list"	read	key.list	runs
+"key rename --help"	full	key.rename	runs
+"key rename --help"	netread	key.rename	runs
+"key rename --help"	read	key.rename	runs
+"key rename"	full	key.rename	SSH_GATE_REFUSED|komando key rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"key rename"	netread	key.rename	SSH_GATE_REFUSED|komando key rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"key rename"	read	key.rename	SSH_GATE_REFUSED|komando key rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"key revoke --help"	full	key.revoke	runs
+"key revoke --help"	netread	key.revoke	runs
+"key revoke --help"	read	key.revoke	runs
+"key revoke"	full	key.revoke	runs
+"key revoke"	netread	key.revoke	SSH_GATE_READ_ONLY|komando key revoke is refused for a read-only key: it changes something
+"key revoke"	read	key.revoke	SSH_GATE_READ_ONLY|komando key revoke is refused for a read-only key: it changes something
+"key rm --help"	full	key.rm	runs
+"key rm --help"	netread	key.rm	runs
+"key rm --help"	read	key.rm	runs
+"key rm"	full	key.rm	SSH_GATE_REFUSED|komando key rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"key rm"	netread	key.rm	SSH_GATE_REFUSED|komando key rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"key rm"	read	key.rm	SSH_GATE_REFUSED|komando key rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"key show --help"	full	key.show	runs
+"key show --help"	netread	key.show	runs
+"key show --help"	read	key.show	runs
+"key show"	full	key.show	runs
+"key show"	netread	key.show	runs
+"key show"	read	key.show	runs
+"key"	full	key	runs
+"key"	netread	key	runs
+"key"	read	key	runs
+"list --help"	full	list	runs
+"list --help"	netread	list	runs
+"list --help"	read	list	runs
+"list"	full	list	runs
+"list"	netread	list	runs
+"list"	read	list	runs
+"login --help"	full	login	runs
+"login --help"	netread	login	runs
+"login --help"	read	login	runs
+"login aws --help"	full	login.aws	SSH_GATE_REFUSED|komando login aws needs a person at a terminal on this computer; a key cannot run it
+"login aws --help"	netread	login.aws	SSH_GATE_REFUSED|komando login aws needs a person at a terminal on this computer; a key cannot run it
+"login aws --help"	read	login.aws	SSH_GATE_REFUSED|komando login aws needs a person at a terminal on this computer; a key cannot run it
+"login aws"	full	login.aws	SSH_GATE_REFUSED|komando login aws needs a person at a terminal on this computer; a key cannot run it
+"login aws"	netread	login.aws	SSH_GATE_REFUSED|komando login aws needs a person at a terminal on this computer; a key cannot run it
+"login aws"	read	login.aws	SSH_GATE_REFUSED|komando login aws needs a person at a terminal on this computer; a key cannot run it
+"login azure --help"	full	login.azure	runs
+"login azure --help"	netread	login.azure	runs
+"login azure --help"	read	login.azure	runs
+"login azure"	full	login.azure	SSH_GATE_REFUSED|komando login azure is komando's own plumbing, not for a key
+"login azure"	netread	login.azure	SSH_GATE_REFUSED|komando login azure is komando's own plumbing, not for a key
+"login azure"	read	login.azure	SSH_GATE_REFUSED|komando login azure is komando's own plumbing, not for a key
+"login gcp --help"	full	login.gcp	runs
+"login gcp --help"	netread	login.gcp	runs
+"login gcp --help"	read	login.gcp	runs
+"login gcp"	full	login.gcp	SSH_GATE_REFUSED|komando login gcp is komando's own plumbing, not for a key
+"login gcp"	netread	login.gcp	SSH_GATE_REFUSED|komando login gcp is komando's own plumbing, not for a key
+"login gcp"	read	login.gcp	SSH_GATE_REFUSED|komando login gcp is komando's own plumbing, not for a key
+"login"	full	login	SSH_GATE_REFUSED|komando login is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"login"	netread	login	SSH_GATE_REFUSED|komando login is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"login"	read	login	SSH_GATE_REFUSED|komando login is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"login-holder --help"	full	login-holder	runs
+"login-holder --help"	netread	login-holder	runs
+"login-holder --help"	read	login-holder	runs
+"login-holder"	full	login-holder	SSH_GATE_REFUSED|komando login-holder is komando's own plumbing, not for a key
+"login-holder"	netread	login-holder	SSH_GATE_REFUSED|komando login-holder is komando's own plumbing, not for a key
+"login-holder"	read	login-holder	SSH_GATE_REFUSED|komando login-holder is komando's own plumbing, not for a key
+"logout --help"	full	logout	runs
+"logout --help"	netread	logout	runs
+"logout --help"	read	logout	runs
+"logout aws --help"	full	logout.aws	runs
+"logout aws --help"	netread	logout.aws	runs
+"logout aws --help"	read	logout.aws	runs
+"logout aws"	full	logout.aws	SSH_GATE_REFUSED|komando logout aws is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"logout aws"	netread	logout.aws	SSH_GATE_REFUSED|komando logout aws is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"logout aws"	read	logout.aws	SSH_GATE_REFUSED|komando logout aws is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"logout"	full	logout	SSH_GATE_REFUSED|komando logout is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"logout"	netread	logout	SSH_GATE_REFUSED|komando logout is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"logout"	read	logout	SSH_GATE_REFUSED|komando logout is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"logs --help"	full	logs	runs
+"logs --help"	netread	logs	runs
+"logs --help"	read	logs	runs
+"logs"	full	logs	runs
+"logs"	netread	logs	runs
+"logs"	read	logs	runs
+"net --help"	full	net	runs
+"net --help"	netread	net	runs
+"net --help"	read	net	runs
+"net check --help"	full	net.check	runs
+"net check --help"	netread	net.check	runs
+"net check --help"	read	net.check	runs
+"net check"	full	net.check	runs
+"net check"	netread	net.check	runs
+"net check"	read	net.check	SSH_GATE_NETWORK_REQUIRED|komando net check is refused for a read key without network: it makes a server connect to an address you name
+"net dns --help"	full	net.dns	runs
+"net dns --help"	netread	net.dns	runs
+"net dns --help"	read	net.dns	runs
+"net dns"	full	net.dns	runs
+"net dns"	netread	net.dns	runs
+"net dns"	read	net.dns	SSH_GATE_NETWORK_REQUIRED|komando net dns is refused for a read key without network: it makes a server look up a name you give
+"net http --help"	full	net.http	runs
+"net http --help"	netread	net.http	runs
+"net http --help"	read	net.http	runs
+"net http"	full	net.http	runs
+"net http"	netread	net.http	runs
+"net http"	read	net.http	SSH_GATE_NETWORK_REQUIRED|komando net http is refused for a read key without network: it makes a server fetch a URL you give
+"net ports --help"	full	net.ports	runs
+"net ports --help"	netread	net.ports	runs
+"net ports --help"	read	net.ports	runs
+"net ports"	full	net.ports	runs
+"net ports"	netread	net.ports	runs
+"net ports"	read	net.ports	SSH_GATE_NETWORK_REQUIRED|komando net ports is refused for a read key without network: it is a network check (all of net needs a key with --network)
+"net"	full	net	runs
+"net"	netread	net	runs
+"net"	read	net	runs
+"output --help"	full	output	runs
+"output --help"	netread	output	runs
+"output --help"	read	output	runs
+"output"	full	output	runs
+"output"	netread	output	runs
+"output"	read	output	runs
+"pkg --help"	full	pkg	runs
+"pkg --help"	netread	pkg	runs
+"pkg --help"	read	pkg	runs
+"pkg install --help"	full	pkg.install	runs
+"pkg install --help"	netread	pkg.install	runs
+"pkg install --help"	read	pkg.install	runs
+"pkg install"	full	pkg.install	runs
+"pkg install"	netread	pkg.install	SSH_GATE_READ_ONLY|komando pkg install is refused for a read-only key: it changes something
+"pkg install"	read	pkg.install	SSH_GATE_READ_ONLY|komando pkg install is refused for a read-only key: it changes something
+"pkg installed --help"	full	pkg.installed	runs
+"pkg installed --help"	netread	pkg.installed	runs
+"pkg installed --help"	read	pkg.installed	runs
+"pkg installed"	full	pkg.installed	runs
+"pkg installed"	netread	pkg.installed	runs
+"pkg installed"	read	pkg.installed	runs
+"pkg rm --help"	full	pkg.rm	runs
+"pkg rm --help"	netread	pkg.rm	runs
+"pkg rm --help"	read	pkg.rm	runs
+"pkg rm"	full	pkg.rm	runs
+"pkg rm"	netread	pkg.rm	SSH_GATE_READ_ONLY|komando pkg rm is refused for a read-only key: it changes something
+"pkg rm"	read	pkg.rm	SSH_GATE_READ_ONLY|komando pkg rm is refused for a read-only key: it changes something
+"pkg security --analyze"	full	pkg.security	runs
+"pkg security --analyze"	netread	pkg.security	runs
+"pkg security --analyze"	read	pkg.security	runs
+"pkg security --help"	full	pkg.security	runs
+"pkg security --help"	netread	pkg.security	runs
+"pkg security --help"	read	pkg.security	runs
+"pkg security --read-only"	full	pkg.security	runs
+"pkg security --read-only"	netread	pkg.security	runs
+"pkg security --read-only"	read	pkg.security	runs
+"pkg security --refresh"	full	pkg.security	runs
+"pkg security --refresh"	netread	pkg.security	SSH_GATE_READ_ONLY|komando pkg security is refused for a read-only key: with --refresh it can change something
+"pkg security --refresh"	read	pkg.security	SSH_GATE_READ_ONLY|komando pkg security is refused for a read-only key: with --refresh it can change something
+"pkg security --write"	full	pkg.security	runs
+"pkg security --write"	netread	pkg.security	runs
+"pkg security --write"	read	pkg.security	runs
+"pkg security"	full	pkg.security	runs
+"pkg security"	netread	pkg.security	runs
+"pkg security"	read	pkg.security	runs
+"pkg update --help"	full	pkg.update	runs
+"pkg update --help"	netread	pkg.update	runs
+"pkg update --help"	read	pkg.update	runs
+"pkg update"	full	pkg.update	runs
+"pkg update"	netread	pkg.update	SSH_GATE_READ_ONLY|komando pkg update is refused for a read-only key: it changes something
+"pkg update"	read	pkg.update	SSH_GATE_READ_ONLY|komando pkg update is refused for a read-only key: it changes something
+"pkg upgradable --analyze"	full	pkg.upgradable	runs
+"pkg upgradable --analyze"	netread	pkg.upgradable	runs
+"pkg upgradable --analyze"	read	pkg.upgradable	runs
+"pkg upgradable --help"	full	pkg.upgradable	runs
+"pkg upgradable --help"	netread	pkg.upgradable	runs
+"pkg upgradable --help"	read	pkg.upgradable	runs
+"pkg upgradable --read-only"	full	pkg.upgradable	runs
+"pkg upgradable --read-only"	netread	pkg.upgradable	runs
+"pkg upgradable --read-only"	read	pkg.upgradable	runs
+"pkg upgradable --refresh"	full	pkg.upgradable	runs
+"pkg upgradable --refresh"	netread	pkg.upgradable	SSH_GATE_READ_ONLY|komando pkg upgradable is refused for a read-only key: with --refresh it can change something
+"pkg upgradable --refresh"	read	pkg.upgradable	SSH_GATE_READ_ONLY|komando pkg upgradable is refused for a read-only key: with --refresh it can change something
+"pkg upgradable --write"	full	pkg.upgradable	runs
+"pkg upgradable --write"	netread	pkg.upgradable	runs
+"pkg upgradable --write"	read	pkg.upgradable	runs
+"pkg upgradable"	full	pkg.upgradable	runs
+"pkg upgradable"	netread	pkg.upgradable	runs
+"pkg upgradable"	read	pkg.upgradable	runs
+"pkg upgrade --help"	full	pkg.upgrade	runs
+"pkg upgrade --help"	netread	pkg.upgrade	runs
+"pkg upgrade --help"	read	pkg.upgrade	runs
+"pkg upgrade"	full	pkg.upgrade	runs
+"pkg upgrade"	netread	pkg.upgrade	SSH_GATE_READ_ONLY|komando pkg upgrade is refused for a read-only key: it changes something
+"pkg upgrade"	read	pkg.upgrade	SSH_GATE_READ_ONLY|komando pkg upgrade is refused for a read-only key: it changes something
+"pkg"	full	pkg	runs
+"pkg"	netread	pkg	runs
+"pkg"	read	pkg	runs
+"policy --help"	full	policy	runs
+"policy --help"	netread	policy	runs
+"policy --help"	read	policy	runs
+"policy check --help"	full	policy.check	runs
+"policy check --help"	netread	policy.check	runs
+"policy check --help"	read	policy.check	runs
+"policy check"	full	policy.check	runs
+"policy check"	netread	policy.check	runs
+"policy check"	read	policy.check	runs
+"policy deny --help"	full	policy.deny	runs
+"policy deny --help"	netread	policy.deny	runs
+"policy deny --help"	read	policy.deny	runs
+"policy deny"	full	policy.deny	SSH_GATE_REFUSED|komando policy deny is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"policy deny"	netread	policy.deny	SSH_GATE_REFUSED|komando policy deny is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"policy deny"	read	policy.deny	SSH_GATE_REFUSED|komando policy deny is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"policy list --help"	full	policy.list	runs
+"policy list --help"	netread	policy.list	runs
+"policy list --help"	read	policy.list	runs
+"policy list"	full	policy.list	runs
+"policy list"	netread	policy.list	runs
+"policy list"	read	policy.list	runs
+"policy rm --help"	full	policy.rm	runs
+"policy rm --help"	netread	policy.rm	runs
+"policy rm --help"	read	policy.rm	runs
+"policy rm"	full	policy.rm	SSH_GATE_REFUSED|komando policy rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"policy rm"	netread	policy.rm	SSH_GATE_REFUSED|komando policy rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"policy rm"	read	policy.rm	SSH_GATE_REFUSED|komando policy rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"policy"	full	policy	runs
+"policy"	netread	policy	runs
+"policy"	read	policy	runs
+"queue --help"	full	queue	runs
+"queue --help"	netread	queue	runs
+"queue --help"	read	queue	runs
+"queue add --help"	full	queue.add	runs
+"queue add --help"	netread	queue.add	runs
+"queue add --help"	read	queue.add	runs
+"queue add"	full	queue.add	SSH_GATE_REFUSED|komando queue add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue add"	netread	queue.add	SSH_GATE_REFUSED|komando queue add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue add"	read	queue.add	SSH_GATE_REFUSED|komando queue add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue create --help"	full	queue.create	runs
+"queue create --help"	netread	queue.create	runs
+"queue create --help"	read	queue.create	runs
+"queue create"	full	queue.create	SSH_GATE_REFUSED|komando queue create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue create"	netread	queue.create	SSH_GATE_REFUSED|komando queue create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue create"	read	queue.create	SSH_GATE_REFUSED|komando queue create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue describe --help"	full	queue.describe	runs
+"queue describe --help"	netread	queue.describe	runs
+"queue describe --help"	read	queue.describe	runs
+"queue describe"	full	queue.describe	runs
+"queue describe"	netread	queue.describe	runs
+"queue describe"	read	queue.describe	runs
+"queue groups --help"	full	queue.groups	runs
+"queue groups --help"	netread	queue.groups	runs
+"queue groups --help"	read	queue.groups	runs
+"queue groups"	full	queue.groups	runs
+"queue groups"	netread	queue.groups	runs
+"queue groups"	read	queue.groups	runs
+"queue info --help"	full	queue.info	runs
+"queue info --help"	netread	queue.info	runs
+"queue info --help"	read	queue.info	runs
+"queue info"	full	queue.info	runs
+"queue info"	netread	queue.info	runs
+"queue info"	read	queue.info	runs
+"queue lag --help"	full	queue.lag	runs
+"queue lag --help"	netread	queue.lag	runs
+"queue lag --help"	read	queue.lag	runs
+"queue lag"	full	queue.lag	runs
+"queue lag"	netread	queue.lag	runs
+"queue lag"	read	queue.lag	runs
+"queue list --help"	full	queue.list	runs
+"queue list --help"	netread	queue.list	runs
+"queue list --help"	read	queue.list	runs
+"queue list"	full	queue.list	runs
+"queue list"	netread	queue.list	runs
+"queue list"	read	queue.list	runs
+"queue peek --help"	full	queue.peek	runs
+"queue peek --help"	netread	queue.peek	runs
+"queue peek --help"	read	queue.peek	runs
+"queue peek"	full	queue.peek	runs
+"queue peek"	netread	queue.peek	runs
+"queue peek"	read	queue.peek	runs
+"queue purge --help"	full	queue.purge	runs
+"queue purge --help"	netread	queue.purge	runs
+"queue purge --help"	read	queue.purge	runs
+"queue purge"	full	queue.purge	SSH_GATE_REFUSED|komando queue purge is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue purge"	netread	queue.purge	SSH_GATE_REFUSED|komando queue purge is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue purge"	read	queue.purge	SSH_GATE_REFUSED|komando queue purge is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rm --help"	full	queue.rm	runs
+"queue rm --help"	netread	queue.rm	runs
+"queue rm --help"	read	queue.rm	runs
+"queue rm"	full	queue.rm	SSH_GATE_REFUSED|komando queue rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rm"	netread	queue.rm	SSH_GATE_REFUSED|komando queue rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rm"	read	queue.rm	SSH_GATE_REFUSED|komando queue rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue send --help"	full	queue.send	runs
+"queue send --help"	netread	queue.send	runs
+"queue send --help"	read	queue.send	runs
+"queue send"	full	queue.send	SSH_GATE_REFUSED|komando queue send is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue send"	netread	queue.send	SSH_GATE_REFUSED|komando queue send is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue send"	read	queue.send	SSH_GATE_REFUSED|komando queue send is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue"	full	queue	runs
+"queue"	netread	queue	runs
+"queue"	read	queue	runs
+"reboot --help"	full	reboot	runs
+"reboot --help"	netread	reboot	runs
+"reboot --help"	read	reboot	runs
+"reboot"	full	reboot	runs
+"reboot"	netread	reboot	SSH_GATE_READ_ONLY|komando reboot is refused for a read-only key: it changes something
+"reboot"	read	reboot	SSH_GATE_READ_ONLY|komando reboot is refused for a read-only key: it changes something
+"recipe --help"	full	recipe	runs
+"recipe --help"	netread	recipe	runs
+"recipe --help"	read	recipe	runs
+"recipe add --help"	full	recipe.add	runs
+"recipe add --help"	netread	recipe.add	runs
+"recipe add --help"	read	recipe.add	runs
+"recipe add"	full	recipe.add	SSH_GATE_REFUSED|komando recipe add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"recipe add"	netread	recipe.add	SSH_GATE_REFUSED|komando recipe add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"recipe add"	read	recipe.add	SSH_GATE_REFUSED|komando recipe add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"recipe list --help"	full	recipe.list	runs
+"recipe list --help"	netread	recipe.list	runs
+"recipe list --help"	read	recipe.list	runs
+"recipe list"	full	recipe.list	runs
+"recipe list"	netread	recipe.list	runs
+"recipe list"	read	recipe.list	runs
+"recipe rm --help"	full	recipe.rm	runs
+"recipe rm --help"	netread	recipe.rm	runs
+"recipe rm --help"	read	recipe.rm	runs
+"recipe rm"	full	recipe.rm	SSH_GATE_REFUSED|komando recipe rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"recipe rm"	netread	recipe.rm	SSH_GATE_REFUSED|komando recipe rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"recipe rm"	read	recipe.rm	SSH_GATE_REFUSED|komando recipe rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"recipe run --analyze"	full	recipe.run	runs
+"recipe run --analyze"	netread	recipe.run	runs
+"recipe run --analyze"	read	recipe.run	runs
+"recipe run --help"	full	recipe.run	runs
+"recipe run --help"	netread	recipe.run	runs
+"recipe run --help"	read	recipe.run	runs
+"recipe run --read-only"	full	recipe.run	runs
+"recipe run --read-only"	netread	recipe.run	runs
+"recipe run --read-only"	read	recipe.run	runs
+"recipe run --refresh"	full	recipe.run	runs
+"recipe run --refresh"	netread	recipe.run	runs
+"recipe run --refresh"	read	recipe.run	runs
+"recipe run --write"	full	recipe.run	runs
+"recipe run --write"	netread	recipe.run	runs
+"recipe run --write"	read	recipe.run	runs
+"recipe run"	full	recipe.run	runs
+"recipe run"	netread	recipe.run	runs
+"recipe run"	read	recipe.run	SSH_GATE_NETWORK_REQUIRED|komando recipe run is refused for a read key without network: a recipe is a shell command with blanks you fill in, which can connect anywhere
+"recipe"	full	recipe	runs
+"recipe"	netread	recipe	runs
+"recipe"	read	recipe	runs
+"registry --help"	full	registry	runs
+"registry --help"	netread	registry	runs
+"registry --help"	read	registry	runs
+"registry add --help"	full	registry.add	runs
+"registry add --help"	netread	registry.add	runs
+"registry add --help"	read	registry.add	runs
+"registry add"	full	registry.add	SSH_GATE_REFUSED|komando registry add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"registry add"	netread	registry.add	SSH_GATE_REFUSED|komando registry add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"registry add"	read	registry.add	SSH_GATE_REFUSED|komando registry add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"registry copy --help"	full	registry.copy	runs
+"registry copy --help"	netread	registry.copy	runs
+"registry copy --help"	read	registry.copy	runs
+"registry copy"	full	registry.copy	runs
+"registry copy"	netread	registry.copy	SSH_GATE_READ_ONLY|komando registry copy is refused for a read-only key: it changes something
+"registry copy"	read	registry.copy	SSH_GATE_READ_ONLY|komando registry copy is refused for a read-only key: it changes something
+"registry inspect --help"	full	registry.inspect	runs
+"registry inspect --help"	netread	registry.inspect	runs
+"registry inspect --help"	read	registry.inspect	runs
+"registry inspect"	full	registry.inspect	runs
+"registry inspect"	netread	registry.inspect	runs
+"registry inspect"	read	registry.inspect	runs
+"registry list --help"	full	registry.list	runs
+"registry list --help"	netread	registry.list	runs
+"registry list --help"	read	registry.list	runs
+"registry list"	full	registry.list	runs
+"registry list"	netread	registry.list	runs
+"registry list"	read	registry.list	runs
+"registry prune --help"	full	registry.prune	runs
+"registry prune --help"	netread	registry.prune	runs
+"registry prune --help"	read	registry.prune	runs
+"registry prune"	full	registry.prune	runs
+"registry prune"	netread	registry.prune	SSH_GATE_READ_ONLY|komando registry prune is refused for a read-only key: it changes something
+"registry prune"	read	registry.prune	SSH_GATE_READ_ONLY|komando registry prune is refused for a read-only key: it changes something
+"registry rm --help"	full	registry.rm	runs
+"registry rm --help"	netread	registry.rm	runs
+"registry rm --help"	read	registry.rm	runs
+"registry rm"	full	registry.rm	runs
+"registry rm"	netread	registry.rm	SSH_GATE_READ_ONLY|komando registry rm is refused for a read-only key: it changes something
+"registry rm"	read	registry.rm	SSH_GATE_READ_ONLY|komando registry rm is refused for a read-only key: it changes something
+"registry"	full	registry	runs
+"registry"	netread	registry	runs
+"registry"	read	registry	runs
+"rename --help"	full	rename	runs
+"rename --help"	netread	rename	runs
+"rename --help"	read	rename	runs
+"rename"	full	rename	SSH_GATE_REFUSED|komando rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"rename"	netread	rename	SSH_GATE_REFUSED|komando rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"rename"	read	rename	SSH_GATE_REFUSED|komando rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"safety --help"	full	safety	runs
+"safety --help"	netread	safety	runs
+"safety --help"	read	safety	runs
+"safety"	full	safety	runs
+"safety"	netread	safety	runs
+"safety"	read	safety	runs
+"schema --help"	full	schema	runs
+"schema --help"	netread	schema	runs
+"schema --help"	read	schema	runs
+"schema"	full	schema	runs
+"schema"	netread	schema	runs
+"schema"	read	schema	runs
+"secret --help"	full	secret	runs
+"secret --help"	netread	secret	runs
+"secret --help"	read	secret	runs
+"secret check --help"	full	secret.check	SSH_GATE_REFUSED|komando secret check needs a person at a terminal on this computer; a key cannot run it
+"secret check --help"	netread	secret.check	SSH_GATE_REFUSED|komando secret check needs a person at a terminal on this computer; a key cannot run it
+"secret check --help"	read	secret.check	SSH_GATE_REFUSED|komando secret check needs a person at a terminal on this computer; a key cannot run it
+"secret check"	full	secret.check	SSH_GATE_REFUSED|komando secret check needs a person at a terminal on this computer; a key cannot run it
+"secret check"	netread	secret.check	SSH_GATE_REFUSED|komando secret check needs a person at a terminal on this computer; a key cannot run it
+"secret check"	read	secret.check	SSH_GATE_REFUSED|komando secret check needs a person at a terminal on this computer; a key cannot run it
+"secret cp --help"	full	secret.cp	runs
+"secret cp --help"	netread	secret.cp	runs
+"secret cp --help"	read	secret.cp	runs
+"secret cp"	full	secret.cp	SSH_GATE_REFUSED|komando secret cp is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"secret cp"	netread	secret.cp	SSH_GATE_REFUSED|komando secret cp is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"secret cp"	read	secret.cp	SSH_GATE_REFUSED|komando secret cp is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"secret keychain --help"	full	secret.keychain	runs
+"secret keychain --help"	netread	secret.keychain	runs
+"secret keychain --help"	read	secret.keychain	runs
+"secret keychain"	full	secret.keychain	SSH_GATE_REFUSED|komando secret keychain is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"secret keychain"	netread	secret.keychain	SSH_GATE_REFUSED|komando secret keychain is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"secret keychain"	read	secret.keychain	SSH_GATE_REFUSED|komando secret keychain is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"secret list --help"	full	secret.list	runs
+"secret list --help"	netread	secret.list	runs
+"secret list --help"	read	secret.list	runs
+"secret list"	full	secret.list	runs
+"secret list"	netread	secret.list	runs
+"secret list"	read	secret.list	runs
+"secret passphrase --help"	full	secret.passphrase	SSH_GATE_REFUSED|komando secret passphrase needs a person at a terminal on this computer; a key cannot run it
+"secret passphrase --help"	netread	secret.passphrase	SSH_GATE_REFUSED|komando secret passphrase needs a person at a terminal on this computer; a key cannot run it
+"secret passphrase --help"	read	secret.passphrase	SSH_GATE_REFUSED|komando secret passphrase needs a person at a terminal on this computer; a key cannot run it
+"secret passphrase"	full	secret.passphrase	SSH_GATE_REFUSED|komando secret passphrase needs a person at a terminal on this computer; a key cannot run it
+"secret passphrase"	netread	secret.passphrase	SSH_GATE_REFUSED|komando secret passphrase needs a person at a terminal on this computer; a key cannot run it
+"secret passphrase"	read	secret.passphrase	SSH_GATE_REFUSED|komando secret passphrase needs a person at a terminal on this computer; a key cannot run it
+"secret rename --help"	full	secret.rename	runs
+"secret rename --help"	netread	secret.rename	runs
+"secret rename --help"	read	secret.rename	runs
+"secret rename"	full	secret.rename	SSH_GATE_REFUSED|komando secret rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"secret rename"	netread	secret.rename	SSH_GATE_REFUSED|komando secret rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"secret rename"	read	secret.rename	SSH_GATE_REFUSED|komando secret rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"secret rm --help"	full	secret.rm	runs
+"secret rm --help"	netread	secret.rm	runs
+"secret rm --help"	read	secret.rm	runs
+"secret rm"	full	secret.rm	SSH_GATE_REFUSED|komando secret rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"secret rm"	netread	secret.rm	SSH_GATE_REFUSED|komando secret rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"secret rm"	read	secret.rm	SSH_GATE_REFUSED|komando secret rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"secret run --help"	full	secret.run	runs
+"secret run --help"	netread	secret.run	runs
+"secret run --help"	read	secret.run	runs
+"secret run"	full	secret.run	SSH_GATE_REFUSED|komando secret run is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"secret run"	netread	secret.run	SSH_GATE_REFUSED|komando secret run is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"secret run"	read	secret.run	SSH_GATE_REFUSED|komando secret run is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"secret set --help"	full	secret.set	runs
+"secret set --help"	netread	secret.set	runs
+"secret set --help"	read	secret.set	runs
+"secret set"	full	secret.set	SSH_GATE_REFUSED|komando secret set is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"secret set"	netread	secret.set	SSH_GATE_REFUSED|komando secret set is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"secret set"	read	secret.set	SSH_GATE_REFUSED|komando secret set is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"secret show --help"	full	secret.show	runs
+"secret show --help"	netread	secret.show	runs
+"secret show --help"	read	secret.show	runs
+"secret show"	full	secret.show	runs
+"secret show"	netread	secret.show	runs
+"secret show"	read	secret.show	runs
+"secret"	full	secret	runs
+"secret"	netread	secret	runs
+"secret"	read	secret	runs
+"shell --help"	full	shell	SSH_GATE_REFUSED|komando shell needs a person at a terminal on this computer; a key cannot run it
+"shell --help"	netread	shell	SSH_GATE_REFUSED|komando shell needs a person at a terminal on this computer; a key cannot run it
+"shell --help"	read	shell	SSH_GATE_REFUSED|komando shell needs a person at a terminal on this computer; a key cannot run it
+"shell"	full	shell	SSH_GATE_REFUSED|komando shell needs a person at a terminal on this computer; a key cannot run it
+"shell"	netread	shell	SSH_GATE_REFUSED|komando shell needs a person at a terminal on this computer; a key cannot run it
+"shell"	read	shell	SSH_GATE_REFUSED|komando shell needs a person at a terminal on this computer; a key cannot run it
+"ssh-gate --help"	full	ssh-gate	SSH_GATE_REFUSED|komando ssh-gate needs a person at a terminal on this computer; a key cannot run it
+"ssh-gate --help"	netread	ssh-gate	SSH_GATE_REFUSED|komando ssh-gate needs a person at a terminal on this computer; a key cannot run it
+"ssh-gate --help"	read	ssh-gate	SSH_GATE_REFUSED|komando ssh-gate needs a person at a terminal on this computer; a key cannot run it
+"ssh-gate line --help"	full	ssh-gate.line	SSH_GATE_REFUSED|komando ssh-gate line needs a person at a terminal on this computer; a key cannot run it
+"ssh-gate line --help"	netread	ssh-gate.line	SSH_GATE_REFUSED|komando ssh-gate line needs a person at a terminal on this computer; a key cannot run it
+"ssh-gate line --help"	read	ssh-gate.line	SSH_GATE_REFUSED|komando ssh-gate line needs a person at a terminal on this computer; a key cannot run it
+"ssh-gate line"	full	ssh-gate.line	SSH_GATE_REFUSED|komando ssh-gate line needs a person at a terminal on this computer; a key cannot run it
+"ssh-gate line"	netread	ssh-gate.line	SSH_GATE_REFUSED|komando ssh-gate line needs a person at a terminal on this computer; a key cannot run it
+"ssh-gate line"	read	ssh-gate.line	SSH_GATE_REFUSED|komando ssh-gate line needs a person at a terminal on this computer; a key cannot run it
+"ssh-gate status --help"	full	ssh-gate.status	runs
+"ssh-gate status --help"	netread	ssh-gate.status	runs
+"ssh-gate status --help"	read	ssh-gate.status	runs
+"ssh-gate status"	full	ssh-gate.status	runs
+"ssh-gate status"	netread	ssh-gate.status	runs
+"ssh-gate status"	read	ssh-gate.status	runs
+"ssh-gate"	full	ssh-gate	SSH_GATE_REFUSED|komando ssh-gate needs a person at a terminal on this computer; a key cannot run it
+"ssh-gate"	netread	ssh-gate	SSH_GATE_REFUSED|komando ssh-gate needs a person at a terminal on this computer; a key cannot run it
+"ssh-gate"	read	ssh-gate	SSH_GATE_REFUSED|komando ssh-gate needs a person at a terminal on this computer; a key cannot run it
+"status --help"	full	status	runs
+"status --help"	netread	status	runs
+"status --help"	read	status	runs
+"status"	full	status	runs
+"status"	netread	status	runs
+"status"	read	status	runs
+"storage --help"	full	storage	runs
+"storage --help"	netread	storage	runs
+"storage --help"	read	storage	runs
+"storage add --help"	full	storage.add	runs
+"storage add --help"	netread	storage.add	runs
+"storage add --help"	read	storage.add	runs
+"storage add"	full	storage.add	SSH_GATE_REFUSED|komando storage add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage add"	netread	storage.add	SSH_GATE_REFUSED|komando storage add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage add"	read	storage.add	SSH_GATE_REFUSED|komando storage add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage cat --help"	full	storage.cat	runs
+"storage cat --help"	netread	storage.cat	runs
+"storage cat --help"	read	storage.cat	runs
+"storage cat"	full	storage.cat	runs
+"storage cat"	netread	storage.cat	runs
+"storage cat"	read	storage.cat	runs
+"storage chmod --help"	full	storage.chmod	runs
+"storage chmod --help"	netread	storage.chmod	runs
+"storage chmod --help"	read	storage.chmod	runs
+"storage chmod"	full	storage.chmod	runs
+"storage chmod"	netread	storage.chmod	SSH_GATE_READ_ONLY|komando storage chmod is refused for a read-only key: it changes something
+"storage chmod"	read	storage.chmod	SSH_GATE_READ_ONLY|komando storage chmod is refused for a read-only key: it changes something
+"storage download --help"	full	storage.download	runs
+"storage download --help"	netread	storage.download	runs
+"storage download --help"	read	storage.download	runs
+"storage download"	full	storage.download	SSH_GATE_REFUSED|komando storage download is refused for a key: it saves files on this computer (--to - prints one instead); the gate runs commands on servers, not on this computer
+"storage download"	netread	storage.download	SSH_GATE_REFUSED|komando storage download is refused for a key: it saves files on this computer (--to - prints one instead); the gate runs commands on servers, not on this computer
+"storage download"	read	storage.download	SSH_GATE_REFUSED|komando storage download is refused for a key: it saves files on this computer (--to - prints one instead); the gate runs commands on servers, not on this computer
+"storage link --help"	full	storage.link	runs
+"storage link --help"	netread	storage.link	runs
+"storage link --help"	read	storage.link	runs
+"storage link"	full	storage.link	runs
+"storage link"	netread	storage.link	SSH_GATE_READ_ONLY|komando storage link is refused for a read-only key: it makes a link that opens the data without a login
+"storage link"	read	storage.link	SSH_GATE_READ_ONLY|komando storage link is refused for a read-only key: it makes a link that opens the data without a login
+"storage list --help"	full	storage.list	runs
+"storage list --help"	netread	storage.list	runs
+"storage list --help"	read	storage.list	runs
+"storage list"	full	storage.list	runs
+"storage list"	netread	storage.list	runs
+"storage list"	read	storage.list	runs
+"storage mkdir --help"	full	storage.mkdir	runs
+"storage mkdir --help"	netread	storage.mkdir	runs
+"storage mkdir --help"	read	storage.mkdir	runs
+"storage mkdir"	full	storage.mkdir	runs
+"storage mkdir"	netread	storage.mkdir	SSH_GATE_READ_ONLY|komando storage mkdir is refused for a read-only key: it changes something
+"storage mkdir"	read	storage.mkdir	SSH_GATE_READ_ONLY|komando storage mkdir is refused for a read-only key: it changes something
+"storage mv --help"	full	storage.mv	runs
+"storage mv --help"	netread	storage.mv	runs
+"storage mv --help"	read	storage.mv	runs
+"storage mv"	full	storage.mv	runs
+"storage mv"	netread	storage.mv	SSH_GATE_READ_ONLY|komando storage mv is refused for a read-only key: it changes something
+"storage mv"	read	storage.mv	SSH_GATE_READ_ONLY|komando storage mv is refused for a read-only key: it changes something
+"storage rm --help"	full	storage.rm	runs
+"storage rm --help"	netread	storage.rm	runs
+"storage rm --help"	read	storage.rm	runs
+"storage rm"	full	storage.rm	runs
+"storage rm"	netread	storage.rm	SSH_GATE_READ_ONLY|komando storage rm is refused for a read-only key: it changes something
+"storage rm"	read	storage.rm	SSH_GATE_READ_ONLY|komando storage rm is refused for a read-only key: it changes something
+"storage upload --help"	full	storage.upload	runs
+"storage upload --help"	netread	storage.upload	runs
+"storage upload --help"	read	storage.upload	runs
+"storage upload"	full	storage.upload	runs
+"storage upload"	netread	storage.upload	SSH_GATE_READ_ONLY|komando storage upload is refused for a read-only key: it changes something
+"storage upload"	read	storage.upload	SSH_GATE_READ_ONLY|komando storage upload is refused for a read-only key: it changes something
+"storage"	full	storage	runs
+"storage"	netread	storage	runs
+"storage"	read	storage	runs
+"svc --help"	full	svc	runs
+"svc --help"	netread	svc	runs
+"svc --help"	read	svc	runs
+"svc daemon-reload --help"	full	svc.daemon-reload	runs
+"svc daemon-reload --help"	netread	svc.daemon-reload	runs
+"svc daemon-reload --help"	read	svc.daemon-reload	runs
+"svc daemon-reload"	full	svc.daemon-reload	runs
+"svc daemon-reload"	netread	svc.daemon-reload	SSH_GATE_READ_ONLY|komando svc daemon-reload is refused for a read-only key: it changes something
+"svc daemon-reload"	read	svc.daemon-reload	SSH_GATE_READ_ONLY|komando svc daemon-reload is refused for a read-only key: it changes something
+"svc disable --help"	full	svc.disable	runs
+"svc disable --help"	netread	svc.disable	runs
+"svc disable --help"	read	svc.disable	runs
+"svc disable"	full	svc.disable	runs
+"svc disable"	netread	svc.disable	SSH_GATE_READ_ONLY|komando svc disable is refused for a read-only key: it changes something
+"svc disable"	read	svc.disable	SSH_GATE_READ_ONLY|komando svc disable is refused for a read-only key: it changes something
+"svc enable --help"	full	svc.enable	runs
+"svc enable --help"	netread	svc.enable	runs
+"svc enable --help"	read	svc.enable	runs
+"svc enable"	full	svc.enable	runs
+"svc enable"	netread	svc.enable	SSH_GATE_READ_ONLY|komando svc enable is refused for a read-only key: it changes something
+"svc enable"	read	svc.enable	SSH_GATE_READ_ONLY|komando svc enable is refused for a read-only key: it changes something
+"svc list --help"	full	svc.list	runs
+"svc list --help"	netread	svc.list	runs
+"svc list --help"	read	svc.list	runs
+"svc list"	full	svc.list	runs
+"svc list"	netread	svc.list	runs
+"svc list"	read	svc.list	runs
+"svc logs --help"	full	svc.logs	runs
+"svc logs --help"	netread	svc.logs	runs
+"svc logs --help"	read	svc.logs	runs
+"svc logs"	full	svc.logs	runs
+"svc logs"	netread	svc.logs	runs
+"svc logs"	read	svc.logs	runs
+"svc reload --help"	full	svc.reload	runs
+"svc reload --help"	netread	svc.reload	runs
+"svc reload --help"	read	svc.reload	runs
+"svc reload"	full	svc.reload	runs
+"svc reload"	netread	svc.reload	SSH_GATE_READ_ONLY|komando svc reload is refused for a read-only key: it changes something
+"svc reload"	read	svc.reload	SSH_GATE_READ_ONLY|komando svc reload is refused for a read-only key: it changes something
+"svc restart --help"	full	svc.restart	runs
+"svc restart --help"	netread	svc.restart	runs
+"svc restart --help"	read	svc.restart	runs
+"svc restart"	full	svc.restart	runs
+"svc restart"	netread	svc.restart	SSH_GATE_READ_ONLY|komando svc restart is refused for a read-only key: it changes something
+"svc restart"	read	svc.restart	SSH_GATE_READ_ONLY|komando svc restart is refused for a read-only key: it changes something
+"svc start --help"	full	svc.start	runs
+"svc start --help"	netread	svc.start	runs
+"svc start --help"	read	svc.start	runs
+"svc start"	full	svc.start	runs
+"svc start"	netread	svc.start	SSH_GATE_READ_ONLY|komando svc start is refused for a read-only key: it changes something
+"svc start"	read	svc.start	SSH_GATE_READ_ONLY|komando svc start is refused for a read-only key: it changes something
+"svc status --help"	full	svc.status	runs
+"svc status --help"	netread	svc.status	runs
+"svc status --help"	read	svc.status	runs
+"svc status"	full	svc.status	runs
+"svc status"	netread	svc.status	runs
+"svc status"	read	svc.status	runs
+"svc stop --help"	full	svc.stop	runs
+"svc stop --help"	netread	svc.stop	runs
+"svc stop --help"	read	svc.stop	runs
+"svc stop"	full	svc.stop	runs
+"svc stop"	netread	svc.stop	SSH_GATE_READ_ONLY|komando svc stop is refused for a read-only key: it changes something
+"svc stop"	read	svc.stop	SSH_GATE_READ_ONLY|komando svc stop is refused for a read-only key: it changes something
+"svc"	full	svc	runs
+"svc"	netread	svc	runs
+"svc"	read	svc	runs
+"sync --help"	full	sync	runs
+"sync --help"	netread	sync	runs
+"sync --help"	read	sync	runs
+"sync"	full	sync	runs
+"sync"	netread	sync	SSH_GATE_READ_ONLY|komando sync is refused for a read-only key: it changes something
+"sync"	read	sync	SSH_GATE_READ_ONLY|komando sync is refused for a read-only key: it changes something
+"test --help"	full	test	runs
+"test --help"	netread	test	runs
+"test --help"	read	test	runs
+"test"	full	test	runs
+"test"	netread	test	runs
+"test"	read	test	runs
+"tunnel --help"	full	tunnel	runs
+"tunnel --help"	netread	tunnel	runs
+"tunnel --help"	read	tunnel	runs
+"tunnel list --help"	full	tunnel.list	runs
+"tunnel list --help"	netread	tunnel.list	runs
+"tunnel list --help"	read	tunnel.list	runs
+"tunnel list"	full	tunnel.list	runs
+"tunnel list"	netread	tunnel.list	runs
+"tunnel list"	read	tunnel.list	runs
+"tunnel serve --help"	full	tunnel.serve	runs
+"tunnel serve --help"	netread	tunnel.serve	runs
+"tunnel serve --help"	read	tunnel.serve	runs
+"tunnel serve"	full	tunnel.serve	SSH_GATE_REFUSED|komando tunnel serve is komando's own plumbing, not for a key
+"tunnel serve"	netread	tunnel.serve	SSH_GATE_REFUSED|komando tunnel serve is komando's own plumbing, not for a key
+"tunnel serve"	read	tunnel.serve	SSH_GATE_REFUSED|komando tunnel serve is komando's own plumbing, not for a key
+"tunnel start --help"	full	tunnel.start	runs
+"tunnel start --help"	netread	tunnel.start	runs
+"tunnel start --help"	read	tunnel.start	runs
+"tunnel start"	full	tunnel.start	SSH_GATE_REFUSED|komando tunnel start is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"tunnel start"	netread	tunnel.start	SSH_GATE_REFUSED|komando tunnel start is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"tunnel start"	read	tunnel.start	SSH_GATE_REFUSED|komando tunnel start is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"tunnel stop --help"	full	tunnel.stop	runs
+"tunnel stop --help"	netread	tunnel.stop	runs
+"tunnel stop --help"	read	tunnel.stop	runs
+"tunnel stop"	full	tunnel.stop	SSH_GATE_REFUSED|komando tunnel stop is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"tunnel stop"	netread	tunnel.stop	SSH_GATE_REFUSED|komando tunnel stop is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"tunnel stop"	read	tunnel.stop	SSH_GATE_REFUSED|komando tunnel stop is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"tunnel"	full	tunnel	runs
+"tunnel"	netread	tunnel	runs
+"tunnel"	read	tunnel	runs
+"update --help"	full	update	runs
+"update --help"	netread	update	runs
+"update --help"	read	update	runs
+"update"	full	update	SSH_GATE_REFUSED|komando update is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"update"	netread	update	SSH_GATE_REFUSED|komando update is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"update"	read	update	SSH_GATE_REFUSED|komando update is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"upload --help"	full	upload	runs
+"upload --help"	netread	upload	runs
+"upload --help"	read	upload	runs
+"upload"	full	upload	runs
+"upload"	netread	upload	SSH_GATE_READ_ONLY|komando upload is refused for a read-only key: it changes something
+"upload"	read	upload	SSH_GATE_READ_ONLY|komando upload is refused for a read-only key: it changes something
+"user --help"	full	user	runs
+"user --help"	netread	user	runs
+"user --help"	read	user	runs
+"user add --help"	full	user.add	runs
+"user add --help"	netread	user.add	runs
+"user add --help"	read	user.add	runs
+"user add"	full	user.add	runs
+"user add"	netread	user.add	SSH_GATE_READ_ONLY|komando user add is refused for a read-only key: it changes something
+"user add"	read	user.add	SSH_GATE_READ_ONLY|komando user add is refused for a read-only key: it changes something
+"user list --help"	full	user.list	runs
+"user list --help"	netread	user.list	runs
+"user list --help"	read	user.list	runs
+"user list"	full	user.list	runs
+"user list"	netread	user.list	runs
+"user list"	read	user.list	runs
+"user lock --help"	full	user.lock	runs
+"user lock --help"	netread	user.lock	runs
+"user lock --help"	read	user.lock	runs
+"user lock"	full	user.lock	runs
+"user lock"	netread	user.lock	SSH_GATE_READ_ONLY|komando user lock is refused for a read-only key: it changes something
+"user lock"	read	user.lock	SSH_GATE_READ_ONLY|komando user lock is refused for a read-only key: it changes something
+"user rm --help"	full	user.rm	runs
+"user rm --help"	netread	user.rm	runs
+"user rm --help"	read	user.rm	runs
+"user rm"	full	user.rm	runs
+"user rm"	netread	user.rm	SSH_GATE_READ_ONLY|komando user rm is refused for a read-only key: it changes something
+"user rm"	read	user.rm	SSH_GATE_READ_ONLY|komando user rm is refused for a read-only key: it changes something
+"user unlock --help"	full	user.unlock	runs
+"user unlock --help"	netread	user.unlock	runs
+"user unlock --help"	read	user.unlock	runs
+"user unlock"	full	user.unlock	runs
+"user unlock"	netread	user.unlock	SSH_GATE_READ_ONLY|komando user unlock is refused for a read-only key: it changes something
+"user unlock"	read	user.unlock	SSH_GATE_READ_ONLY|komando user unlock is refused for a read-only key: it changes something
+"user"	full	user	runs
+"user"	netread	user	runs
+"user"	read	user	runs
+"version --help"	full	version	runs
+"version --help"	netread	version	runs
+"version --help"	read	version	runs
+"version"	full	version	runs
+"version"	netread	version	runs
+"version"	read	version	runs
+"vpn --help"	full	vpn	runs
+"vpn --help"	netread	vpn	runs
+"vpn --help"	read	vpn	runs
+"vpn add --help"	full	vpn.add	runs
+"vpn add --help"	netread	vpn.add	runs
+"vpn add --help"	read	vpn.add	runs
+"vpn add"	full	vpn.add	SSH_GATE_REFUSED|komando vpn add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn add"	netread	vpn.add	SSH_GATE_REFUSED|komando vpn add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn add"	read	vpn.add	SSH_GATE_REFUSED|komando vpn add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn down --help"	full	vpn.down	runs
+"vpn down --help"	netread	vpn.down	runs
+"vpn down --help"	read	vpn.down	runs
+"vpn down"	full	vpn.down	runs
+"vpn down"	netread	vpn.down	SSH_GATE_READ_ONLY|komando vpn down is refused for a read-only key: it changes something
+"vpn down"	read	vpn.down	SSH_GATE_READ_ONLY|komando vpn down is refused for a read-only key: it changes something
+"vpn edit --help"	full	vpn.edit	runs
+"vpn edit --help"	netread	vpn.edit	runs
+"vpn edit --help"	read	vpn.edit	runs
+"vpn edit"	full	vpn.edit	SSH_GATE_REFUSED|komando vpn edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn edit"	netread	vpn.edit	SSH_GATE_REFUSED|komando vpn edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn edit"	read	vpn.edit	SSH_GATE_REFUSED|komando vpn edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn list --help"	full	vpn.list	runs
+"vpn list --help"	netread	vpn.list	runs
+"vpn list --help"	read	vpn.list	runs
+"vpn list"	full	vpn.list	runs
+"vpn list"	netread	vpn.list	runs
+"vpn list"	read	vpn.list	runs
+"vpn rename --help"	full	vpn.rename	runs
+"vpn rename --help"	netread	vpn.rename	runs
+"vpn rename --help"	read	vpn.rename	runs
+"vpn rename"	full	vpn.rename	SSH_GATE_REFUSED|komando vpn rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn rename"	netread	vpn.rename	SSH_GATE_REFUSED|komando vpn rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn rename"	read	vpn.rename	SSH_GATE_REFUSED|komando vpn rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn rm --help"	full	vpn.rm	runs
+"vpn rm --help"	netread	vpn.rm	runs
+"vpn rm --help"	read	vpn.rm	runs
+"vpn rm"	full	vpn.rm	SSH_GATE_REFUSED|komando vpn rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn rm"	netread	vpn.rm	SSH_GATE_REFUSED|komando vpn rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn rm"	read	vpn.rm	SSH_GATE_REFUSED|komando vpn rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn serve --help"	full	vpn.serve	runs
+"vpn serve --help"	netread	vpn.serve	runs
+"vpn serve --help"	read	vpn.serve	runs
+"vpn serve"	full	vpn.serve	SSH_GATE_REFUSED|komando vpn serve is komando's own plumbing, not for a key
+"vpn serve"	netread	vpn.serve	SSH_GATE_REFUSED|komando vpn serve is komando's own plumbing, not for a key
+"vpn serve"	read	vpn.serve	SSH_GATE_REFUSED|komando vpn serve is komando's own plumbing, not for a key
+"vpn show --help"	full	vpn.show	runs
+"vpn show --help"	netread	vpn.show	runs
+"vpn show --help"	read	vpn.show	runs
+"vpn show"	full	vpn.show	runs
+"vpn show"	netread	vpn.show	runs
+"vpn show"	read	vpn.show	runs
+"vpn status --help"	full	vpn.status	runs
+"vpn status --help"	netread	vpn.status	runs
+"vpn status --help"	read	vpn.status	runs
+"vpn status"	full	vpn.status	runs
+"vpn status"	netread	vpn.status	runs
+"vpn status"	read	vpn.status	runs
+"vpn test --help"	full	vpn.test	runs
+"vpn test --help"	netread	vpn.test	runs
+"vpn test --help"	read	vpn.test	runs
+"vpn test"	full	vpn.test	runs
+"vpn test"	netread	vpn.test	runs
+"vpn test"	read	vpn.test	runs
+"vpn up --help"	full	vpn.up	runs
+"vpn up --help"	netread	vpn.up	runs
+"vpn up --help"	read	vpn.up	runs
+"vpn up"	full	vpn.up	runs
+"vpn up"	netread	vpn.up	SSH_GATE_READ_ONLY|komando vpn up is refused for a read-only key: it changes something
+"vpn up"	read	vpn.up	SSH_GATE_READ_ONLY|komando vpn up is refused for a read-only key: it changes something
+"vpn"	full	vpn	runs
+"vpn"	netread	vpn	runs
+"vpn"	read	vpn	runs
