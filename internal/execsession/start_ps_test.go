@@ -223,6 +223,7 @@ func TestStartScriptPSFolderChecks(t *testing.T) {
 		"/inheritance:r", "/grant:r", "ks_own $ks_d 96", "ks_own $p 90", "/setowner", "':(OI)(CI)F'", "'*S-1-5-18:(OI)(CI)F'",
 		"ReparsePoint", "ks_fail 96",
 		"if (Test-Path -LiteralPath $ks_d) { ks_fail 90 }", "whoami.exe /user /fo csv /nh",
+		"if ($ks_base -match '[%!\"]') { Write-Output 'unsafe-path'; ks_fail 91 }",
 		"if (-not (ks_aclExact (Get-Acl -LiteralPath $ks_d).Sddl $ks_sid)) { ks_fail 96 }",
 		"if (@(Get-ChildItem -LiteralPath $ks_d -Force).Count -ne 0) { ks_fail 96 }",
 		"if ((ks_owner $sd) -ne $ks_sid -or -not (ks_daclSafe $sd $ks_sid)) { ks_fail 90 }",
@@ -312,5 +313,18 @@ func TestReadStartPSReason(t *testing.T) {
 	_, err := ReadStartPS("web1", ExitStartFailed, "failed "+strings.Repeat("y", 500)+"\n", "", testID)
 	if err == nil || !strings.Contains(err.Error(), "start (yyy") || len(err.Error()) > 320 {
 		t.Errorf("got %v", err)
+	}
+}
+
+// A-448-1: run.ps1 hands its folder to cmd.exe, which expands %NAME%
+// (and !NAME!) even inside quotes; a %LOCALAPPDATA% holding %, ! or "
+// gets no session folder, and the reason says why.
+func TestReadStartPSUnsafePath(t *testing.T) {
+	_, err := ReadStartPS("web1", ExitNoFolder, "unsafe-path\n", "", testID)
+	if !errors.Is(err, ErrNoFolder) || !strings.Contains(err.Error(), "cmd.exe") {
+		t.Errorf("got %v", err)
+	}
+	if _, err := ReadStartPS("web1", ExitNoFolder, "", "", testID); err != ErrNoFolder {
+		t.Errorf("a plain no-folder exit: %v", err)
 	}
 }
