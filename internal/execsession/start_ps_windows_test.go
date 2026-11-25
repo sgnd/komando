@@ -263,3 +263,18 @@ func TestStartScriptPSNoLocalAppData(t *testing.T) {
 		t.Fatalf("exit %d: %s", code, got)
 	}
 }
+
+// A-448-1: a %LOCALAPPDATA% with a % in it makes no folder.
+func TestStartScriptPSRefusesPercentPath(t *testing.T) {
+	base := filepath.Join(t.TempDir(), "a%PATH%b")
+	if err := os.MkdirAll(base, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	got, code := runStartPS(t, base, psStart())
+	if code != ExitNoFolder || !strings.Contains(got, "unsafe-path") {
+		t.Fatalf("exit %d: %s", code, got)
+	}
+	if _, err := os.Stat(filepath.Join(base, "komando")); !os.IsNotExist(err) {
+		t.Error("a folder was made")
+	}
+}

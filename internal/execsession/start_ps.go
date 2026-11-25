@@ -3,7 +3,9 @@ package execsession
 import (
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -229,6 +231,9 @@ const psStartFolders = `try {
     $ks_sid = $ks_sid[0].s
     $ks_base = $env:LOCALAPPDATA
     if (-not $ks_base -or $ks_base -notmatch '^[A-Za-z]:\\') { ks_fail 91 }
+    # run.ps1 hands the folder to cmd.exe, which expands %NAME% and !NAME!
+    # even inside quotes (A-448-1)
+    if ($ks_base -match '[%!"]') { Write-Output 'unsafe-path'; ks_fail 91 }
     $ks_r = Join-Path $ks_base 'komando'
     $ks_s = Join-Path $ks_r 'sessions'
     $ks_v = Get-PSDrive -Name $ks_base.Substring(0, 1) -PSProvider FileSystem -ErrorAction SilentlyContinue
@@ -313,6 +318,9 @@ func ReadStartPS(host string, exit int, stdout, stderr, id string) (Facts, error
 	}
 	switch exit {
 	case ExitNoFolder:
+		if slices.Contains(strings.Split(strings.ReplaceAll(stdout, "\r", ""), "\n"), "unsafe-path") {
+			return Facts{}, fmt.Errorf("%w: %%LOCALAPPDATA%% holds %%, ! or \", which cmd.exe would expand in the run's paths", ErrNoFolder)
+		}
 		return Facts{}, ErrNoFolder
 	case ExitUnsafe:
 		return Facts{}, out.Errf(out.ExitRemote, "SESSION_FOLDER_DENIED",
