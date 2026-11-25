@@ -61,7 +61,7 @@ edit CONN, komando conn rm CONN. komando list kind:storage lists them.`,
   komando storage add backups 's3://my-bucket/db?region=eu-west-1' --option aws_profile=prod   # AWS SSO or a role
   komando storage add minio 's3://AKIAEXAMPLE@media?endpoint=https://minio.internal:9000' --via bastion --ask-password
   komando storage add media gs://my-bucket/site   # logs in like gcloud
-  komando storage add files azblob://mystorageacct@uploads/2026 --password-ref secret:files-key
+  komando storage add files azblob://mystorageacct@uploads/2026 --password-ref credential:files-key
   komando storage add site 'sftp://deploy@files.example.com/uploads'`
 	c.AddCommand(add, storageLsCmd(), storageCatCmd(), storageDownloadCmd(), storageUploadCmd(), storageRmCmd(), storageLinkCmd(),
 		storageMkdirCmd(), storageMvCmd(), storageChmodCmd())

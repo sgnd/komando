@@ -64,7 +64,7 @@ func TestJobStartSudoPassword(t *testing.T) {
 	if err := vault.Set(store.Save(), "dev-sudo", pw); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Update(store.Save(), func(st *store.State) error { st.Hosts["dev"].SudoRef = "secret:dev-sudo"; return nil }); err != nil {
+	if err := store.Update(store.Save(), func(st *store.State) error { st.Hosts["dev"].SudoRef = "credential:dev-sudo"; return nil }); err != nil {
 		t.Fatal(err)
 	}
 	srv.reply("4242\n")

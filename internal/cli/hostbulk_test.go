@@ -29,7 +29,7 @@ func windowText(t *testing.T, allow bool) *[]string {
 
 func TestHostMv(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "jump", "u@10.0.0.1", "-g", "edge", "-t", "prod", "--sudo-ref", "secret:j")
+	mustRun(t, "host", "add", "jump", "u@10.0.0.1", "-g", "edge", "-t", "prod", "--sudo-ref", "credential:j")
 	mustRun(t, "host", "add", "web", "u@10.0.0.2", "--via", "jump")
 	mustRun(t, "conn", "add", "db", "postgres://a@10.0.0.5/app", "--via", "jump")
 	if err := store.Update(store.Save(), func(s *store.State) error {
@@ -55,7 +55,7 @@ func TestHostMv(t *testing.T) {
 	}
 	st, _ = store.Load()
 	b := st.Hosts["bastion"]
-	if st.Hosts["jump"] != nil || b == nil || b.Name != "bastion" || b.SudoRef != "secret:j" || len(b.Groups) != 1 || len(b.Tags) != 1 {
+	if st.Hosts["jump"] != nil || b == nil || b.Name != "bastion" || b.SudoRef != "credential:j" || len(b.Groups) != 1 || len(b.Tags) != 1 {
 		t.Fatalf("the entry keeps everything: %+v", b)
 	}
 	if st.Hosts["web"].Via != "bastion" || st.Conns["db"].Via != "bastion" || st.Jobs["j1"].Host != "bastion" ||
@@ -138,8 +138,8 @@ func TestHostEditMany(t *testing.T) {
 	mustRun(t, "host", "add", "c", "u@10.0.0.3", "-g", "ubuntu", "--protected")
 	mustRun(t, "host", "add", "d", "u@10.0.0.4")
 
-	wantCode(t, "PROTECTED_TARGET", "host", "edit", "@ubuntu", "--sudo-ref", "secret:ubuntu-sudo")
-	d := mustRun(t, "host", "edit", "@ubuntu", "--sudo-ref", "secret:ubuntu-sudo", "--dry-run")
+	wantCode(t, "PROTECTED_TARGET", "host", "edit", "@ubuntu", "--sudo-ref", "credential:ubuntu-sudo")
+	d := mustRun(t, "host", "edit", "@ubuntu", "--sudo-ref", "credential:ubuntu-sudo", "--dry-run")
 	if len(d["changed"].([]any)) != 3 || len(d["protected"].([]any)) != 2 || d["_meta"].(map[string]any)["would_be_blocked"] == nil {
 		t.Errorf("dry run lists every server and the stop: %v", d)
 	}
@@ -150,7 +150,7 @@ func TestHostEditMany(t *testing.T) {
 
 	// an AI agent: one window that names every server
 	texts := windowText(t, true)
-	mustRun(t, "host", "edit", "@ubuntu", "--sudo-ref", "secret:ubuntu-sudo", "--yes")
+	mustRun(t, "host", "edit", "@ubuntu", "--sudo-ref", "credential:ubuntu-sudo", "--yes")
 	if len(*texts) != 1 {
 		t.Fatalf("one window for the whole command, got %d", len(*texts))
 	}
@@ -159,7 +159,7 @@ func TestHostEditMany(t *testing.T) {
 	}
 	st, _ = store.Load()
 	for _, n := range []string{"a", "b", "c"} {
-		if st.Hosts[n].SudoRef != "secret:ubuntu-sudo" {
+		if st.Hosts[n].SudoRef != "credential:ubuntu-sudo" {
 			t.Errorf("%s not changed", n)
 		}
 	}
@@ -208,8 +208,8 @@ func TestImportCSV(t *testing.T) {
 	mustRun(t, "host", "add", "old", "u@10.0.0.99")
 	f := writeCSV(t, "\xef\xbb\xbfName,IP,User,Port,Role,Tags,Sudo_Ref,Protected,Via,Notes\n"+
 		"# a comment\n"+
-		"bastion,10.0.0.1,ubuntu,,edge,prod,secret:ubuntu-sudo,no,,\n"+
-		"web1,10.0.0.11,ubuntu,2222,\"web,ubuntu\",prod,secret:ubuntu-sudo,yes,bastion,front end\n"+
+		"bastion,10.0.0.1,ubuntu,,edge,prod,credential:ubuntu-sudo,no,,\n"+
+		"web1,10.0.0.11,ubuntu,2222,\"web,ubuntu\",prod,credential:ubuntu-sudo,yes,bastion,front end\n"+
 		"old,10.0.0.98,ubuntu,,,,,,,\n")
 	d := mustRun(t, "import", "csv", f, "--dry-run")
 	if d["action"] != "would_add" || len(d["hosts"].([]any)) != 2 || len(d["skipped"].([]any)) != 1 {
@@ -221,7 +221,7 @@ func TestImportCSV(t *testing.T) {
 	mustRun(t, "import", "csv", f, "-g", "fleet")
 	st, _ := store.Load()
 	w := st.Hosts["web1"]
-	if w == nil || w.Port != 2222 || w.User != "ubuntu" || !w.Protected || w.Via != "bastion" || w.SudoRef != "secret:ubuntu-sudo" ||
+	if w == nil || w.Port != 2222 || w.User != "ubuntu" || !w.Protected || w.Via != "bastion" || w.SudoRef != "credential:ubuntu-sudo" ||
 		strings.Join(w.Groups, ",") != "fleet,ubuntu,web" || w.Notes != "front end" {
 		t.Errorf("web1: %+v", w)
 	}

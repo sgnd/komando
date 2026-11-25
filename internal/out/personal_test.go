@@ -93,7 +93,7 @@ func TestHasHiddenLabels(t *testing.T) {
 		"[hidden: private key]":  true,
 		"mail: [hidden: email]":  true,
 		"name: [hidden: column]": true,
-		"pw=[secret:db-pass]":    true,
+		"pw=[credential:db-pass]":    true,
 		"[hiddenness]":           false,
 		"[hidden:email]":         false,
 		"alice@example.com":      false,
@@ -109,7 +109,7 @@ func TestHasHiddenLabels(t *testing.T) {
 func TestLabelsAreNotPersonalData(t *testing.T) {
 	p := &Printer{Mask: true, Personal: true, Secrets: func() map[string]string { return map[string]string{"ops@corp.example": "Sup3rS3cretPw"} }}
 	s := "x Sup3rS3cretPw y bob@example.com"
-	want := "x [secret:ops@corp.example] y [hidden: email]"
+	want := "x [credential:ops@corp.example] y [hidden: email]"
 	if got := p.Redact(s); got != want {
 		t.Errorf("Redact: %q", got)
 	}

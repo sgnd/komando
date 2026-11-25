@@ -8,12 +8,12 @@ import (
 )
 
 func TestValidRef(t *testing.T) {
-	for _, ok := range []string{"secret:x", "env:X", "file:/x", "op://v/i/f", "vault:secret/a#b", "aws-sm:n", "gcp-sm:n@p", "azure-kv:v/n"} {
+	for _, ok := range []string{"credential:x", "env:X", "file:/x", "op://v/i/f", "vault:secret/a#b", "aws-sm:n", "gcp-sm:n@p", "azure-kv:v/n"} {
 		if !ValidRef(ok) {
 			t.Errorf("%s should be valid", ok)
 		}
 	}
-	for _, bad := range []string{"hunter2", "secret:", "op:/x", "https://x", "azure-kv:"} {
+	for _, bad := range []string{"hunter2", "credential:", "secret:x", "op:/x", "https://x", "azure-kv:"} {
 		if ValidRef(bad) {
 			t.Errorf("%s should be invalid", bad)
 		}

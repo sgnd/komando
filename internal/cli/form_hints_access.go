@@ -25,8 +25,8 @@ var (
 		help: "One of your komando SSH keys, or type the path of a .pub file on this computer."}
 	accServers = formArg{ask: "On which servers?", pick: "host", free: true,
 		help: "Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas."}
-	accPassRef = formFlag{name: "passphrase-ref", ask: "Where is the key's passphrase kept?", example: "secret:work-key-pass",
-		help: "Only for a key that has a passphrase. Store it first with `komando secret set NAME` (it asks hidden), then type secret:NAME here. Leave empty for a key without one."}
+	accPassRef = formFlag{name: "passphrase-ref", ask: "Where is the key's passphrase kept?", example: "credential:work-key-pass",
+		help: "Only for a key that has a passphrase. Store it first with `komando secret set NAME` (it asks hidden), then type credential:NAME here. Leave empty for a key without one."}
 	accSecretOff = formFlag{name: "off", ask: "Move the key back into the store.key file instead?",
 		help: "No is the usual answer. Yes makes a copy of ~/.komando open the vault again, so komando asks you to confirm first."}
 )
@@ -53,8 +53,8 @@ func init() {
 					help: "An address and port inside the private network. komando connects to it to see that the VPN works. Leave empty to keep it."},
 				{name: "user", ask: "New user name for the VPN login?", example: "alice",
 					help: "Leave empty to keep it."},
-				{name: "password-ref", ask: "Where is the new password kept?", example: "secret:office-pass",
-					help: "Store it first with `komando secret set NAME` (it asks hidden), then type secret:NAME here. Leave empty to keep it."},
+				{name: "password-ref", ask: "Where is the new password kept?", example: "credential:office-pass",
+					help: "Store it first with `komando secret set NAME` (it asks hidden), then type credential:NAME here. Leave empty to keep it."},
 				{name: "notes", ask: "Notes about this VPN?", example: "office in Jakarta, ask Budi for access",
 					help: "Anything to remember. Leave empty to keep them."},
 			}},
@@ -98,8 +98,8 @@ func init() {
 			help: "Their names in the vault. Several: separate them with spaces. A secret still in use is not deleted."}}},
 		"secret run": {args: []formArg{{ask: "Which program should run on this computer?", example: "terraform plan",
 			help: "The program and its arguments, as you would type them here. Its secrets go in the next question, never here."}},
-			flags: []formFlag{{name: "env", ask: "Which variable gets which secret?", example: "TOKEN=secret:gh-token",
-				help: "KEY=secret:NAME reads NAME from the vault right before the program starts. KEY=VALUE sets a plain value."}}},
+			flags: []formFlag{{name: "env", ask: "Which variable gets which secret?", example: "TOKEN=credential:gh-token",
+				help: "KEY=credential:NAME reads NAME from the vault right before the program starts. KEY=VALUE sets a plain value."}}},
 		"secret keychain": {flags: []formFlag{accSecretOff}},
 		"secret passphrase": {flags: []formFlag{{name: "off", ask: "Go back to a random key in store.key instead?",
 			help: "No is the usual answer: komando asks for the new passphrase twice, hidden. Yes asks you to confirm first."}}},
@@ -152,7 +152,7 @@ func init() {
 		"tunnel start": {next: []string{"tunnel list", "tunnel stop TUNNEL"}},
 		"tunnel stop":  {next: []string{"tunnel list"}},
 		"login aws":    {next: []string{"test TARGET", "storage list CONN", "import aws"}},
-		"secret set": {next: []string{"host edit TARGET --password-ref secret:{}", "conn edit NAME --password-ref secret:{}",
+		"secret set": {next: []string{"host edit TARGET --password-ref credential:{}", "conn edit NAME --password-ref credential:{}",
 			"secret list"}},
 		"secret list":       {next: []string{"secret show NAME", "secret set NAME"}},
 		"secret rename":     {next: []string{"secret list", "test TARGET"}},

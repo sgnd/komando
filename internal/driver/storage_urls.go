@@ -53,7 +53,7 @@ func onlyOptions(q url.Values, kind string, known ...string) error {
 	return nil
 }
 
-// parseGCS reads gs://bucket/folder[?endpoint=URL][&ca=secret:NAME]. The login is a service
+// parseGCS reads gs://bucket/folder[?endpoint=URL][&ca=credential:NAME]. The login is a service
 // account key from --password-ref, or else gcloud's (application default
 // credentials).
 func parseGCS(u *url.URL, t Target) (Target, error) {
@@ -72,7 +72,7 @@ func parseGCS(u *url.URL, t Target) (Target, error) {
 	return t, parseCA(q, &t)
 }
 
-// parseAzure reads azblob://ACCOUNT@container/folder[?endpoint=URL][&ca=secret:NAME]. The
+// parseAzure reads azblob://ACCOUNT@container/folder[?endpoint=URL][&ca=credential:NAME]. The
 // account key or a SAS token comes from --password-ref.
 func parseAzure(u *url.URL, t Target) (Target, error) {
 	t.User, t.Bucket = u.User.Username(), u.Host
@@ -84,7 +84,7 @@ func parseAzure(u *url.URL, t Target) (Target, error) {
 	if q.Has("sig") || q.Has("sv") {
 		// a SAS token pasted into the URL: it is a password
 		return Target{}, out.Errf(out.ExitUsage, "URL_HAS_PASSWORD",
-			"remove the SAS token from the URL, store it with `komando secret set NAME`, then pass --password-ref secret:NAME",
+			"remove the SAS token from the URL, store it with `komando secret set NAME`, then pass --password-ref credential:NAME",
 			"a conn URL holds no password or token")
 	}
 	if err := onlyOptions(q, "azblob", "endpoint", "ca", "insecure"); err != nil {

@@ -83,7 +83,7 @@ func planFromExport(cl *call, f exportFile) *importPlan {
 	p.DenyRules, p.Settings = f.DenyRules, f.Settings
 	// An export file may come from someone else. Nothing in it may point at
 	// secrets or files that are already on this computer (a server of theirs
-	// with password_ref secret:prod-db-pass would receive that password),
+	// with password_ref credential:prod-db-pass would receive that password),
 	// and nothing may skip a safety check.
 	// Hosts get the same check in vetImportHosts, for every import.
 	ref := func(owner, what string, r *string) {
@@ -130,7 +130,7 @@ func planFromExport(cl *call, f exportFile) *importPlan {
 // file would send this computer's password to the file author's server. It
 // returns the note that says what was dropped, or "".
 func dropForeignRef(cl *call, owner, what string, r *string) string {
-	name, ok := strings.CutPrefix(*r, "secret:")
+	name, ok := strings.CutPrefix(*r, "credential:")
 	if ok && cl.carriedSecrets[name] {
 		return "" // a sealed file's own secret, with the file's value here
 	}
@@ -164,7 +164,7 @@ func dropForeignHostRefs(cl *call, h *store.Host) []string {
 	}
 	for _, k := range slices.Sorted(maps.Keys(h.Env)) {
 		v := h.Env[k]
-		if !strings.HasPrefix(v, "secret:") {
+		if !strings.HasPrefix(v, "credential:") {
 			continue // a plain value
 		}
 		if n := dropForeignRef(cl, h.Name, "env "+k, &v); n != "" {
@@ -296,7 +296,7 @@ func buildExport(cl *call, st *store.State, args []string) (exportFile, []string
 	need := map[string]bool{}
 	use := func(refs ...string) {
 		for _, r := range refs {
-			if n, ok := strings.CutPrefix(r, "secret:"); ok && n != "" {
+			if n, ok := strings.CutPrefix(r, "credential:"); ok && n != "" {
 				need[n] = true
 			}
 		}
@@ -320,7 +320,7 @@ func buildExport(cl *call, st *store.State, args []string) (exportFile, []string
 	f.Keys, keyFiles, keysSealed = exportKeys(st, keys)
 	for _, c := range sel.Conns {
 		use(c.PasswordRef)
-		for _, r := range inventory.URLSecretRefs(c.URL) { // ?ca=secret:NAME
+		for _, r := range inventory.URLSecretRefs(c.URL) { // ?ca=credential:NAME
 			need[r.Name] = true
 		}
 	}

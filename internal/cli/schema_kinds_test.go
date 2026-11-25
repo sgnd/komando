@@ -116,7 +116,7 @@ func TestVpnAddKindsMatchTheCommand(t *testing.T) {
 	fs := vpnAddFlags(t)
 	// each value differs, so the VPN shows where each went
 	value := map[string]string{"check": "10.0.0.1:22", "portal": "portal.example.com", "server": "server.example.com", "user": "alice",
-		"password-ref": "secret:office-pass", "psk-ref": "secret:office-psk", "id": "staff-group", "remote-id": "remote.example.com", "ca": ca,
+		"password-ref": "credential:office-pass", "psk-ref": "credential:office-psk", "id": "staff-group", "remote-id": "remote.example.com", "ca": ca,
 		"service": "Corp VPN", "proxy-address": "127.0.0.1:1080", "label": "site=jakarta", "group": "lab", "tag": "prodtag", "notes": "test-notes"}
 	// kept is how a value shows in the VPN vpn add would save
 	kept := map[string]string{"ca": "MIIB", "label": `"site":"jakarta"`, "mfa": `"mfa":true`, "protected": `"protected":true`}

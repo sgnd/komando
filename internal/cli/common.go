@@ -780,6 +780,9 @@ func parseEnv(pairs []string) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := oldEnvRefs(m); err != nil {
+		return nil, err
+	}
 	return m, checkEnvKeys(m)
 }
 

@@ -15,7 +15,7 @@ func TestParseSQLServer(t *testing.T) {
 		{"sqlserver://app@db.internal:14330/sales?encrypt=true", "db.internal:14330", "app", "sales", "", true},
 		{"mssql://app@10.0.0.9?database=sales&Encrypt=Strict", "10.0.0.9:1433", "app", "sales", "", true},
 		{"sqlserver://app@db/sales?encrypt=true&tls=skip-verify", "db:1433", "app", "sales", "skip-verify", true},
-		{"sqlserver://app@db/sales?encrypt=true&ca=secret:corp-ca", "db:1433", "app", "sales", "", true},
+		{"sqlserver://app@db/sales?encrypt=true&ca=credential:corp-ca", "db:1433", "app", "sales", "", true},
 		{"sqlserver://app@db?ApplicationIntent=ReadOnly&encrypt=disable", "db:1433", "app", "", "", false},
 	}
 	for _, c := range cases {
@@ -40,10 +40,10 @@ func TestParseSQLServer(t *testing.T) {
 		"sqlserver://app@db/sales?TrustServerCertificate=true":              "USAGE",
 		"sqlserver://app@db/sales?encrypt=disable&tls=skip-verify":          "USAGE",
 		"sqlserver://app@db/sales?encrypt=strict&tls=skip-verify":           "USAGE",
-		"sqlserver://app@db/sales?ca=secret:x":                              "USAGE",
-		"sqlserver://app@db/sales?encrypt=true&CA=secret:x":                 "USAGE",
+		"sqlserver://app@db/sales?ca=credential:x":                              "USAGE",
+		"sqlserver://app@db/sales?encrypt=true&CA=credential:x":                 "USAGE",
 		"sqlserver://app@db/sales?encrypt=true&ca=x":                        "USAGE",
-		"sqlserver://app@db/sales?encrypt=true&tls=skip-verify&ca=secret:x": "USAGE",
+		"sqlserver://app@db/sales?encrypt=true&tls=skip-verify&ca=credential:x": "USAGE",
 		"sqlserver://app@db/sales?applicationintent=fast":                   "USAGE",
 		"sqlserver://app@db/sales?packet+size=4096":                         "USAGE",
 		"sqlserver://app@db:0/sales":                                        "USAGE",

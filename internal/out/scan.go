@@ -4,7 +4,7 @@ import "bytes"
 
 // ValueScanner watches bytes written to it for a vault value (as is, or
 // in the base64 and URL forms Redact also hides), across write edges. It
-// is for data that cannot be rewritten with [secret:NAME] (a binary file),
+// is for data that cannot be rewritten with [credential:NAME] (a binary file),
 // so it can be stopped instead.
 type ValueScanner struct {
 	vals  [][]byte

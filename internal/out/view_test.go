@@ -31,7 +31,7 @@ func TestViewMatchesRedact(t *testing.T) {
 		"note VaultedTok3n99 here, password: s3cret and postgres://app:pa55word@db/shop",
 		"Authorization: Bearer abcdefghijklmnop\ntoken ghp_abcdefghijklmnopqrstuvwxyz0123456789",
 		"root:$6$saltsalt$abcdefghijklmnop:19000:0\n-----BEGIN OPENSSH PRIVATE KEY-----\nb3Bl\n-----END OPENSSH PRIVATE KEY-----\nnext",
-		"password_ref: secret:db\nPASSWORD=${DB_PASS}\nrequire_password: true\nDB_PASSWORD=[hidden]",
+		"password_ref: credential:db\nPASSWORD=${DB_PASS}\nrequire_password: true\nDB_PASSWORD=[hidden]",
 		"api_key=VaultedTok3n99x and TOKEN=VaultedTok3n99",
 		"nothing to hide here",
 		"bind 0.0.0.0\nrequirepass hunter2pass\nmasterauth \"s3cret value\"\nsentinel auth-pass mymaster 's3nt'\n",
@@ -88,7 +88,7 @@ func TestViewSource(t *testing.T) {
 
 // FuzzView: the labels always map back to the original text.
 func FuzzView(f *testing.F) {
-	for _, s := range []string{"PASSWORD=x VaultedTok3n99", "postgres://a:b@h/d token=VaultedTok3n99", "-----BEGIN RSA PRIVATE KEY-----\nx", "secret=[secret:x]y"} {
+	for _, s := range []string{"PASSWORD=x VaultedTok3n99", "postgres://a:b@h/d token=VaultedTok3n99", "-----BEGIN RSA PRIVATE KEY-----\nx", "secret=[credential:x]y"} {
 		f.Add(s)
 	}
 	f.Fuzz(func(t *testing.T, s string) {

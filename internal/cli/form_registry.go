@@ -246,7 +246,7 @@ func registryLoginQ(k registryKind) formQ {
 }
 
 // registrySecretQ picks a secret from komando's vault, or takes a typed
-// reference (secret:NAME, env:VAR, op://...); a pasted token is refused.
+// reference (credential:NAME, env:VAR, op://...); a pasted token is refused.
 func registrySecretQ(key, label, ask, help string) formQ {
 	return formQ{key: key, label: label, ask: ask, help: help, free: true, check: cacheSecretProblem,
 		choices: func(*store.State, formAnswers) []pickRow {
@@ -345,7 +345,7 @@ func registryBuild(k registryKind, a formAnswers) [][]string {
 	if k.id == regOwn {
 		switch {
 		case a["tls"] == "ca" && a["ca"] != "":
-			q.Set("ca", "secret:"+strings.TrimPrefix(a["ca"], "secret:"))
+			q.Set("ca", "credential:"+strings.TrimPrefix(a["ca"], "credential:"))
 		case a["tls"] == "skip-verify" || a["tls"] == "false":
 			q.Set("tls", a["tls"])
 		}
@@ -353,7 +353,7 @@ func registryBuild(k registryKind, a formAnswers) [][]string {
 			q.Set("resolve", a["resolve"])
 		}
 	}
-	u.RawQuery = strings.ReplaceAll(q.Encode(), "%3A", ":") // ca=secret:NAME reads as typed
+	u.RawQuery = strings.ReplaceAll(q.Encode(), "%3A", ":") // ca=credential:NAME reads as typed
 	args := []string{"conn", "add", a["name"], u.String()}
 	switch {
 	case registryCloud(k.id) && k.id != regECR: // no secret: the Azure or Google login each time

@@ -395,7 +395,7 @@ func (lk *loginKeys) securityKeyNeeded(p string) *out.Error {
 func storePassphrase(st *store.State, h *store.Host, k lockedKey) string {
 	if k.keyName != "" {
 		sec := secretName(k.keyName, "pass")
-		return fmt.Sprintf("store its passphrase: `komando secret set %s`, then `komando key edit %s --passphrase-ref secret:%s`", sec, k.keyName, sec)
+		return fmt.Sprintf("store its passphrase: `komando secret set %s`, then `komando key edit %s --passphrase-ref credential:%s`", sec, k.keyName, sec)
 	}
 	name, have := keychainKeyFor(st, h, k.path)
 	use := fmt.Sprintf("`komando host edit %s --key %s --unset identity`", h.Name, name)
@@ -404,9 +404,9 @@ func storePassphrase(st *store.State, h *store.Host, k lockedKey) string {
 	}
 	sec := secretName(name, "pass")
 	if have != nil {
-		return fmt.Sprintf("store its passphrase: `komando secret set %s`, `komando key edit %s --passphrase-ref secret:%s`, then %s", sec, name, sec, use)
+		return fmt.Sprintf("store its passphrase: `komando secret set %s`, `komando key edit %s --passphrase-ref credential:%s`, then %s", sec, name, sec, use)
 	}
-	return fmt.Sprintf("store its passphrase: `komando secret set %s`, `komando key add %s %s --passphrase-ref secret:%s`, then %s", sec, name, shellPath(k.path), sec, use)
+	return fmt.Sprintf("store its passphrase: `komando secret set %s`, `komando key add %s %s --passphrase-ref credential:%s`, then %s", sec, name, shellPath(k.path), sec, use)
 }
 
 // keychainKeyFor is the keychain key for the file at path: the one that
@@ -464,11 +464,11 @@ func loginWay(st *store.State, h *store.Host) string {
 	sec := secretName(h.Name, "pass")
 	switch {
 	case st.Hosts[h.Name] != nil:
-		return fmt.Sprintf("save its password: `komando secret set %s`, then `komando host edit %s --password-ref secret:%s` (or --key KEY)", sec, h.Name, sec)
+		return fmt.Sprintf("save its password: `komando secret set %s`, then `komando host edit %s --password-ref credential:%s` (or --key KEY)", sec, h.Name, sec)
 	case st.Conns[h.Name] != nil:
-		return fmt.Sprintf("save its password: `komando secret set %s`, then `komando conn edit %s --password-ref secret:%s`", sec, h.Name, sec)
+		return fmt.Sprintf("save its password: `komando secret set %s`, then `komando conn edit %s --password-ref credential:%s`", sec, h.Name, sec)
 	}
-	return "save the server with `komando host add NAME " + h.Name + " --key KEY` (or --password-ref secret:NAME)"
+	return "save the server with `komando host add NAME " + h.Name + " --key KEY` (or --password-ref credential:NAME)"
 }
 
 // adhoc reports a server that is not in the inventory: a user@address
@@ -497,7 +497,7 @@ func authFailedCheck(st *store.State, h *store.Host) string {
 	case adhoc(st, h):
 		return "check the user, and that ssh-agent or ~/.ssh holds a key the server accepts; save it with `komando host add NAME " + name + " --key KEY` (or --password-ref) to log in another way"
 	case h.Key == "" && h.Identity == "" && h.PasswordRef != "":
-		if sec, ok := strings.CutPrefix(h.PasswordRef, "secret:"); ok {
+		if sec, ok := strings.CutPrefix(h.PasswordRef, "credential:"); ok {
 			return fmt.Sprintf("check the user with `komando host show %s`; if the password changed, store the new one with `komando secret set %s`", name, sec)
 		}
 		return fmt.Sprintf("check the user with `komando host show %s`, and the password that %s holds", name, h.PasswordRef)

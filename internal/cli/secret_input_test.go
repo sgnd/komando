@@ -13,7 +13,7 @@ import (
 
 // O8: masking each exact vault value told an AI agent which of its guesses
 // is a secret (`secret show GUESS`, `exec web1 -- echo GUESS` printed
-// [secret:NAME] on a hit), and refusing such input told it the same
+// [credential:NAME] on a hit), and refusing such input told it the same
 // (SECRET_INPUT_INVALID on a hit, the usual answer on a miss). An agent's
 // input that holds a vault value now gets the answer any other value gets:
 // the value it typed is not hidden in that command's output. The person
@@ -35,7 +35,7 @@ func TestAgentInputWithVaultValueAnsweredAsAnyOther(t *testing.T) {
 	} {
 		_, hit := invRun(t, pair[0]...)
 		_, miss := invRun(t, pair[1]...)
-		if hit == nil || miss == nil || hit.Code != miss.Code || strings.Contains(hit.Message, "secret:db-pass") {
+		if hit == nil || miss == nil || hit.Code != miss.Code || strings.Contains(hit.Message, "credential:db-pass") {
 			t.Errorf("%v: hit %+v, miss %+v", pair[0], hit, miss)
 		}
 	}

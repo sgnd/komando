@@ -578,7 +578,7 @@ func TestSudoProblem(t *testing.T) {
 		code   string
 		hint   string
 	}{
-		{"sudo: a password is required\n", 1, "PERMISSION_DENIED", "`komando host edit web1 --sudo-ref secret:web1-sudo`"},
+		{"sudo: a password is required\n", 1, "PERMISSION_DENIED", "`komando host edit web1 --sudo-ref credential:web1-sudo`"},
 		{"sudo: a terminal is required to read the password; either use the -S option", 1, "PERMISSION_DENIED", "`komando secret set web1-sudo`"},
 		{"deploy is not in the sudoers file.  This incident will be reported.", 1, "PERMISSION_DENIED", "`komando host edit web1 --user OTHER`"},
 		{"Sorry, user deploy may not run sudo on web1.", 1, "PERMISSION_DENIED", "wheel"},
@@ -596,7 +596,7 @@ func TestSudoProblem(t *testing.T) {
 			t.Errorf("%q: %+v", c.stderr, e)
 		}
 	}
-	if e := sudoProblem("", &sshx.RunResult{Stderr: "sudo: a password is required", ExitCode: 1}); !strings.Contains(e.Hint, "--sudo-ref secret:NAME-sudo") {
+	if e := sudoProblem("", &sshx.RunResult{Stderr: "sudo: a password is required", ExitCode: 1}); !strings.Contains(e.Hint, "--sudo-ref credential:NAME-sudo") {
 		t.Errorf("a group names NAME: %q", e.Hint)
 	}
 }

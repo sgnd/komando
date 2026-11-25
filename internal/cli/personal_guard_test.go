@@ -153,7 +153,7 @@ func TestStdoutBinaryIsScanned(t *testing.T) {
 	if text, err := agentStdout(tcl, "backup.bin", []byte("\x00\x01 login Sup3rS3cretPw")); err == nil || toErr(err).Code != "SENSITIVE_FILE" || strings.Contains(text, "Sup3rS3cretPw") {
 		t.Errorf("a binary object with a vault value: %q %v", text, err)
 	}
-	if text, err := agentStdout(tcl, "app.conf", []byte("pw = Sup3rS3cretPw\n")); err != nil || text != "pw = [secret:db-pass]\n" {
+	if text, err := agentStdout(tcl, "app.conf", []byte("pw = Sup3rS3cretPw\n")); err != nil || text != "pw = [credential:db-pass]\n" {
 		t.Errorf("text: %q %v", text, err)
 	}
 	if text, err := agentStdout(tcl, "logo.png", []byte("\x00\x01\x02")); err != nil || text != "\x00\x01\x02" {

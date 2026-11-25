@@ -61,10 +61,11 @@ type stored3 struct {
 	hosts  map[string]*HostV3
 	conns  map[string]*ServiceV3
 	vpns   map[string]*VpnV3
-	creds  map[string]*Credential // by record ID
-	credID map[string]string      // credential name: record ID
-	groups map[string]*Group      // by record ID
-	ver    map[string]uint64      // record ID: its version
+	creds  map[string]*Credential      // by record ID
+	credID map[string]string           // credential name: record ID
+	groups map[string]*Group           // by record ID
+	stores map[string]*CredentialStore // by record ID
+	ver    map[string]uint64           // record ID: its version
 }
 
 func (s *stored3) cred(name string) *Credential {
@@ -77,7 +78,8 @@ func (s *stored3) cred(name string) *Credential {
 // readStored3 reads the records State is made from.
 func readStored3(tx *sealdb.Tx) (*stored3, error) {
 	st := &stored3{hosts: map[string]*HostV3{}, conns: map[string]*ServiceV3{}, vpns: map[string]*VpnV3{},
-		creds: map[string]*Credential{}, credID: map[string]string{}, groups: map[string]*Group{}, ver: map[string]uint64{}}
+		creds: map[string]*Credential{}, credID: map[string]string{}, groups: map[string]*Group{},
+		stores: map[string]*CredentialStore{}, ver: map[string]uint64{}}
 	read := func(typ string, mk func(id string) any) error {
 		rows, err := tx.List(typ)
 		if err != nil {
@@ -103,6 +105,9 @@ func readStored3(tx *sealdb.Tx) (*stored3, error) {
 	}
 	if err == nil {
 		err = read(KindGroup, func(id string) any { v := &Group{}; st.groups[id] = v; return v })
+	}
+	if err == nil {
+		err = read(KindCredStore, func(id string) any { v := &CredentialStore{}; st.stores[id] = v; return v })
 	}
 	if err != nil {
 		return nil, err
@@ -347,7 +352,7 @@ func (w *writer3) host(h *Host) error {
 	if h.Transport == TransportWinRM {
 		v.Provider = "winrm"
 	}
-	sudo, err := credOfRef(e, "sudo", h.SudoRef)
+	sudo, err := w.refCred(e, "sudo", h.Name, "sudo", CredPassword, h.SudoRef, v.SudoCredential)
 	if err != nil {
 		return err
 	}
@@ -369,7 +374,7 @@ func (w *writer3) host(h *Host) error {
 	case h.Key != "":
 		cred = h.Key
 	case h.PasswordRef != "":
-		if cred, err = credOfRef(e, "password", h.PasswordRef); err != nil {
+		if cred, err = w.refCred(e, "password", h.Name, "credential", CredPassword, h.PasswordRef, v.Credential); err != nil {
 			return err
 		}
 	case v.Credential != "" && w.st.cred(v.Credential) != nil && (w.st.cred(v.Credential).Ask || isAgent(w.st.cred(v.Credential))):
@@ -385,6 +390,9 @@ func (w *writer3) host(h *Host) error {
 	}
 	v.Credential = cred
 	v.CredentialID = w.st.credID[cred]
+	if err := refuseOldRefs(e, v); err != nil {
+		return err
+	}
 	id, err := w.put(KindHost, h.Rec.ID, v)
 	if err != nil {
 		return err
@@ -440,7 +448,7 @@ func (w *writer3) conn(c *Conn) error {
 		us := w.st.users(name)
 		return len(us) == 0 || len(us) == 1 && us[0] == typeWord(v)+" "+v.Name
 	}
-	cred, err := credOfRef(e, "password", c.PasswordRef)
+	cred, err := w.refCred(e, "password", c.Name, "credential", CredPassword, c.PasswordRef, v.Credential)
 	if err != nil {
 		return err
 	}
@@ -457,6 +465,9 @@ func (w *writer3) conn(c *Conn) error {
 		v.URL = c.URL
 	}
 	v.Credential = cred
+	if err := refuseOldRefs(e, v); err != nil {
+		return err
+	}
 	id, err := w.put(KindConn, c.Rec.ID, v)
 	if err != nil {
 		return err
@@ -476,19 +487,22 @@ func (w *writer3) vpn(x *Vpn) error {
 		v = &VpnV3{}
 	}
 	var err error
-	if v.Credential, err = credOfRef(e, "key", x.KeyRef); err != nil {
+	if v.Credential, err = w.refCred(e, "key", x.Name, "credential", CredToken, x.KeyRef, v.Credential); err != nil {
 		return err
 	}
-	if v.PSKCredential, err = credOfRef(e, "psk", x.PSKRef); err != nil {
+	if v.PSKCredential, err = w.refCred(e, "psk", x.Name, "psk", CredToken, x.PSKRef, v.PSKCredential); err != nil {
 		return err
 	}
-	if v.ConfigCredential, err = credOfRef(e, "config", x.ConfigRef); err != nil {
+	if v.ConfigCredential, err = w.refCred(e, "config", x.Name, "config", CredToken, x.ConfigRef, v.ConfigCredential); err != nil {
 		return err
 	}
 	v.Name, v.Provider, v.Config, v.Address, v.Portal, v.Service = x.Name, x.Kind, x.Config, x.Address, x.Portal, x.Service
 	v.Server, v.User, v.LocalID, v.RemoteID, v.CA, v.MFA = x.Server, x.User, x.LocalID, x.RemoteID, x.CA, x.MFA
 	v.Protected, v.Check, v.Tags, v.Labels, v.Notes = x.Protected, x.Check, x.Tags, x.Labels, x.Notes
 	v.LegacyCrypto, v.AllowPAP, v.CreatedAt, v.UpdatedAt = x.LegacyCrypto, x.AllowPAP, x.CreatedAt, x.UpdatedAt
+	if err := refuseOldRefs(e, v); err != nil {
+		return err
+	}
 	id, err := w.put(KindVpn, x.Rec.ID, v)
 	if err == nil {
 		w.st.vpns[id] = v
@@ -504,7 +518,11 @@ func (w *writer3) key(k *Key) error {
 	if c == nil {
 		c = &Credential{Kind: CredKey}
 	}
-	pp, err := credOfRef("key "+k.Name, "passphrase", k.PassphraseRef)
+	old := ""
+	if c.Key != nil {
+		old = c.Key.Passphrase
+	}
+	pp, err := w.refCred("key "+k.Name, "passphrase", k.Name, "passphrase", CredPassword, k.PassphraseRef, old)
 	if err != nil {
 		return err
 	}

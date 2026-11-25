@@ -16,8 +16,8 @@ func TestDBUserCommandsArePrivilegeChanges(t *testing.T) {
 		{"db", "grant", "local", "app_ro", "--privileges", "ALL", "--on", "database:app"},
 		{"db", "revoke", "local", "app_ro", "--role", "readers"},
 		{"db", "user", "add", "local", "newrole", "--no-login"},
-		{"db", "user", "add", "local", "app2", "--password-ref", "secret:p"},
-		{"db", "user", "passwd", "local", "postgres", "--password-ref", "secret:p"},
+		{"db", "user", "add", "local", "app2", "--password-ref", "credential:p"},
+		{"db", "user", "passwd", "local", "postgres", "--password-ref", "credential:p"},
 	} {
 		_, e := invRun(t, args...)
 		if e == nil || e.Code != "POLICY_BLOCKED" {

@@ -689,26 +689,26 @@ Hint: for example: komando cert check web1
 ### komando -o json cluster add (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.add","error":{"code":"USAGE","message":"komando cluster add needs a name and a URL","hint":"for example: komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref secret:prod-kubeconfig. A person can type `komando cluster add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.add","error":{"code":"USAGE","message":"komando cluster add needs a name and a URL","hint":"for example: komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref credential:prod-kubeconfig. A person can type `komando cluster add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster add (agent text)
 exit 2
 --- stdout
 --- stderr
 Error: komando cluster add needs a name and a URL
-Hint: for example: komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref secret:prod-kubeconfig. A person can type `komando cluster add` alone at a terminal to be asked step by step
+Hint: for example: komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref credential:prod-kubeconfig. A person can type `komando cluster add` alone at a terminal to be asked step by step
 (code USAGE, exit 2)
 ### komando -o json cluster add (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.add","error":{"code":"USAGE","message":"komando cluster add needs a name and a URL","hint":"for example: komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref secret:prod-kubeconfig. A person can type `komando cluster add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.add","error":{"code":"USAGE","message":"komando cluster add needs a name and a URL","hint":"for example: komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref credential:prod-kubeconfig. A person can type `komando cluster add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster add (script text)
 exit 2
 --- stdout
 --- stderr
 Error: komando cluster add needs a name and a URL
-Hint: for example: komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref secret:prod-kubeconfig. A person can type `komando cluster add` alone at a terminal to be asked step by step
+Hint: for example: komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref credential:prod-kubeconfig. A person can type `komando cluster add` alone at a terminal to be asked step by step
 (code USAGE, exit 2)
 ### komando -o json cluster apply (agent json)
 exit 2
@@ -2441,50 +2441,50 @@ Hint: for example: komando db sizes prod-db -n 10
 ### komando -o json db user add (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"db.user.add","error":{"code":"USAGE","message":"missing arguments; usage: komando db user add CONN USER --password-ref REF","hint":"for example: komando db user add prod-db app_ro --password-ref secret:app-ro-pass --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.user.add","error":{"code":"USAGE","message":"missing arguments; usage: komando db user add CONN USER --password-ref REF","hint":"for example: komando db user add prod-db app_ro --password-ref credential:app-ro-pass --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db user add (agent text)
 exit 2
 --- stdout
 --- stderr
 Error: missing arguments; usage: komando db user add CONN USER --password-ref REF
-Hint: for example: komando db user add prod-db app_ro --password-ref secret:app-ro-pass --dry-run
+Hint: for example: komando db user add prod-db app_ro --password-ref credential:app-ro-pass --dry-run
 (code USAGE, exit 2)
 ### komando -o json db user add (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"db.user.add","error":{"code":"USAGE","message":"missing arguments; usage: komando db user add CONN USER --password-ref REF","hint":"for example: komando db user add prod-db app_ro --password-ref secret:app-ro-pass --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.user.add","error":{"code":"USAGE","message":"missing arguments; usage: komando db user add CONN USER --password-ref REF","hint":"for example: komando db user add prod-db app_ro --password-ref credential:app-ro-pass --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db user add (script text)
 exit 2
 --- stdout
 --- stderr
 Error: missing arguments; usage: komando db user add CONN USER --password-ref REF
-Hint: for example: komando db user add prod-db app_ro --password-ref secret:app-ro-pass --dry-run
+Hint: for example: komando db user add prod-db app_ro --password-ref credential:app-ro-pass --dry-run
 (code USAGE, exit 2)
 ### komando -o json db user add x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"db.user.add","error":{"code":"USAGE","message":"missing arguments; usage: komando db user add CONN USER --password-ref REF","hint":"for example: komando db user add prod-db app_ro --password-ref secret:app-ro-pass --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.user.add","error":{"code":"USAGE","message":"missing arguments; usage: komando db user add CONN USER --password-ref REF","hint":"for example: komando db user add prod-db app_ro --password-ref credential:app-ro-pass --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db user add x1 (agent text)
 exit 2
 --- stdout
 --- stderr
 Error: missing arguments; usage: komando db user add CONN USER --password-ref REF
-Hint: for example: komando db user add prod-db app_ro --password-ref secret:app-ro-pass --dry-run
+Hint: for example: komando db user add prod-db app_ro --password-ref credential:app-ro-pass --dry-run
 (code USAGE, exit 2)
 ### komando -o json db user add x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"db.user.add","error":{"code":"USAGE","message":"missing arguments; usage: komando db user add CONN USER --password-ref REF","hint":"for example: komando db user add prod-db app_ro --password-ref secret:app-ro-pass --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.user.add","error":{"code":"USAGE","message":"missing arguments; usage: komando db user add CONN USER --password-ref REF","hint":"for example: komando db user add prod-db app_ro --password-ref credential:app-ro-pass --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db user add x1 (script text)
 exit 2
 --- stdout
 --- stderr
 Error: missing arguments; usage: komando db user add CONN USER --password-ref REF
-Hint: for example: komando db user add prod-db app_ro --password-ref secret:app-ro-pass --dry-run
+Hint: for example: komando db user add prod-db app_ro --password-ref credential:app-ro-pass --dry-run
 (code USAGE, exit 2)
 ### komando -o json db user list (agent json)
 exit 2
@@ -2513,50 +2513,50 @@ Hint: for example: komando db user list prod-db
 ### komando -o json db user passwd (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"db.user.passwd","error":{"code":"USAGE","message":"missing arguments; usage: komando db user passwd CONN USER --password-ref REF","hint":"for example: komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2 --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.user.passwd","error":{"code":"USAGE","message":"missing arguments; usage: komando db user passwd CONN USER --password-ref REF","hint":"for example: komando db user passwd prod-db app_ro --password-ref credential:app-ro-pass-2 --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db user passwd (agent text)
 exit 2
 --- stdout
 --- stderr
 Error: missing arguments; usage: komando db user passwd CONN USER --password-ref REF
-Hint: for example: komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2 --dry-run
+Hint: for example: komando db user passwd prod-db app_ro --password-ref credential:app-ro-pass-2 --dry-run
 (code USAGE, exit 2)
 ### komando -o json db user passwd (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"db.user.passwd","error":{"code":"USAGE","message":"missing arguments; usage: komando db user passwd CONN USER --password-ref REF","hint":"for example: komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2 --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.user.passwd","error":{"code":"USAGE","message":"missing arguments; usage: komando db user passwd CONN USER --password-ref REF","hint":"for example: komando db user passwd prod-db app_ro --password-ref credential:app-ro-pass-2 --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db user passwd (script text)
 exit 2
 --- stdout
 --- stderr
 Error: missing arguments; usage: komando db user passwd CONN USER --password-ref REF
-Hint: for example: komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2 --dry-run
+Hint: for example: komando db user passwd prod-db app_ro --password-ref credential:app-ro-pass-2 --dry-run
 (code USAGE, exit 2)
 ### komando -o json db user passwd x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"db.user.passwd","error":{"code":"USAGE","message":"missing arguments; usage: komando db user passwd CONN USER --password-ref REF","hint":"for example: komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2 --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.user.passwd","error":{"code":"USAGE","message":"missing arguments; usage: komando db user passwd CONN USER --password-ref REF","hint":"for example: komando db user passwd prod-db app_ro --password-ref credential:app-ro-pass-2 --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db user passwd x1 (agent text)
 exit 2
 --- stdout
 --- stderr
 Error: missing arguments; usage: komando db user passwd CONN USER --password-ref REF
-Hint: for example: komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2 --dry-run
+Hint: for example: komando db user passwd prod-db app_ro --password-ref credential:app-ro-pass-2 --dry-run
 (code USAGE, exit 2)
 ### komando -o json db user passwd x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"db.user.passwd","error":{"code":"USAGE","message":"missing arguments; usage: komando db user passwd CONN USER --password-ref REF","hint":"for example: komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2 --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.user.passwd","error":{"code":"USAGE","message":"missing arguments; usage: komando db user passwd CONN USER --password-ref REF","hint":"for example: komando db user passwd prod-db app_ro --password-ref credential:app-ro-pass-2 --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db user passwd x1 (script text)
 exit 2
 --- stdout
 --- stderr
 Error: missing arguments; usage: komando db user passwd CONN USER --password-ref REF
-Hint: for example: komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2 --dry-run
+Hint: for example: komando db user passwd prod-db app_ro --password-ref credential:app-ro-pass-2 --dry-run
 (code USAGE, exit 2)
 ### komando -o json db user rm (agent json)
 exit 2
@@ -3977,26 +3977,26 @@ Hint: for example: komando host ca rm corp
 ### komando -o json host edit (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.edit","error":{"code":"USAGE","message":"missing arguments; usage: komando host edit TARGET...","hint":"for example: komando host edit web1 --add-tag canary --label env=prod --sudo-ref secret:web1-sudo"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.edit","error":{"code":"USAGE","message":"missing arguments; usage: komando host edit TARGET...","hint":"for example: komando host edit web1 --add-tag canary --label env=prod --sudo-ref credential:web1-sudo"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text host edit (agent text)
 exit 2
 --- stdout
 --- stderr
 Error: missing arguments; usage: komando host edit TARGET...
-Hint: for example: komando host edit web1 --add-tag canary --label env=prod --sudo-ref secret:web1-sudo
+Hint: for example: komando host edit web1 --add-tag canary --label env=prod --sudo-ref credential:web1-sudo
 (code USAGE, exit 2)
 ### komando -o json host edit (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.edit","error":{"code":"USAGE","message":"missing arguments; usage: komando host edit TARGET...","hint":"for example: komando host edit web1 --add-tag canary --label env=prod --sudo-ref secret:web1-sudo"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.edit","error":{"code":"USAGE","message":"missing arguments; usage: komando host edit TARGET...","hint":"for example: komando host edit web1 --add-tag canary --label env=prod --sudo-ref credential:web1-sudo"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text host edit (script text)
 exit 2
 --- stdout
 --- stderr
 Error: missing arguments; usage: komando host edit TARGET...
-Hint: for example: komando host edit web1 --add-tag canary --label env=prod --sudo-ref secret:web1-sudo
+Hint: for example: komando host edit web1 --add-tag canary --label env=prod --sudo-ref credential:web1-sudo
 (code USAGE, exit 2)
 ### komando -o json host rename (agent json)
 exit 2
@@ -6305,26 +6305,26 @@ Hint: for example: komando secret rm old-pass
 ### komando -o json secret run (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"secret.run","error":{"code":"USAGE","message":"missing arguments; usage: komando secret run -- COMMAND [ARGS...]","hint":"for example: komando secret run --env PGPASSWORD=secret:db-main -- psql -h 10.0.0.5 -U app"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"secret.run","error":{"code":"USAGE","message":"missing arguments; usage: komando secret run -- COMMAND [ARGS...]","hint":"for example: komando secret run --env PGPASSWORD=credential:db-main -- psql -h 10.0.0.5 -U app"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text secret run (agent text)
 exit 2
 --- stdout
 --- stderr
 Error: missing arguments; usage: komando secret run -- COMMAND [ARGS...]
-Hint: for example: komando secret run --env PGPASSWORD=secret:db-main -- psql -h 10.0.0.5 -U app
+Hint: for example: komando secret run --env PGPASSWORD=credential:db-main -- psql -h 10.0.0.5 -U app
 (code USAGE, exit 2)
 ### komando -o json secret run (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"secret.run","error":{"code":"USAGE","message":"missing arguments; usage: komando secret run -- COMMAND [ARGS...]","hint":"for example: komando secret run --env PGPASSWORD=secret:db-main -- psql -h 10.0.0.5 -U app"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"secret.run","error":{"code":"USAGE","message":"missing arguments; usage: komando secret run -- COMMAND [ARGS...]","hint":"for example: komando secret run --env PGPASSWORD=credential:db-main -- psql -h 10.0.0.5 -U app"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text secret run (script text)
 exit 2
 --- stdout
 --- stderr
 Error: missing arguments; usage: komando secret run -- COMMAND [ARGS...]
-Hint: for example: komando secret run --env PGPASSWORD=secret:db-main -- psql -h 10.0.0.5 -U app
+Hint: for example: komando secret run --env PGPASSWORD=credential:db-main -- psql -h 10.0.0.5 -U app
 (code USAGE, exit 2)
 ### komando -o json secret set (agent json)
 exit 2

@@ -30,8 +30,8 @@ var (
 	dbOn = formFlag{name: "run-on", ask: "Which server should run the backup tool?", pick: "server",
 		help: "A server that has pg_dump or mysqldump and can reach the database. Leave empty to use the server the database is reached through."}
 	dbPasswordRef = formFlag{name: "password-ref", ask: "Where is the password kept?", required: true,
-		example: "secret:app-ro-pass",
-		help:    "A secret reference, never the password itself. Save it first with `komando secret set app-ro-pass`, then type secret:app-ro-pass."}
+		example: "credential:app-ro-pass",
+		help:    "A secret reference, never the password itself. Save it first with `komando secret set app-ro-pass`, then type credential:app-ro-pass."}
 )
 
 // dbLookHints are the commands that only read.
@@ -172,7 +172,7 @@ func init() {
 		"db kill":        {next: []string{"db activity {}"}},
 		"db sizes":       {next: []string{"db schema {} TABLE", "db dump {} --to backup.sql"}},
 		"db restore":     {next: []string{"db schema {}", "db query {} \"select count(*) from TABLE\""}},
-		"db user list":   {next: []string{"db user show {} USER", "db user add {} USER --password-ref secret:NAME"}},
+		"db user list":   {next: []string{"db user show {} USER", "db user add {} USER --password-ref credential:NAME"}},
 		"db user add":    {next: []string{"db grant {} USER --privileges SELECT --on all-tables:public", "db user show {} USER"}},
 		"db user passwd": {next: []string{"db user show {} USER"}},
 		"db grant":       {next: []string{"db user show {} USER"}},

@@ -201,7 +201,7 @@ func cachePasswordQ(ask, help, def string, advanced bool) formQ {
 // cacheSecretQ asks which saved secret holds the password.
 func cacheSecretQ(advanced bool) formQ {
 	return formWhen(formQ{key: "secret", label: "Saved password", ask: "Which saved secret holds the password?",
-		advanced: advanced, free: true, help: "A name from komando secret list, or where it is kept, like secret:NAME or env:VAR.",
+		advanced: advanced, free: true, help: "A name from komando secret list, or where it is kept, like credential:NAME or env:VAR.",
 		choices: cacheSecretRows, check: cacheSecretProblem},
 		func(a formAnswers) bool { return a["password"] == "secret" })
 }
@@ -228,42 +228,42 @@ func cacheSecretProblem(_ *store.State, _ formAnswers, v string) string {
 }
 
 // cacheCAProblem is cacheSecretProblem for a CA certificate, which only
-// komando's own vault keeps (?ca=secret:NAME).
+// komando's own vault keeps (?ca=credential:NAME).
 func cacheCAProblem(_ *store.State, _ formAnswers, v string) string {
 	return formSavedSecretProblem(v, false)
 }
 
 // formSavedSecretProblem checks the answer to "which saved secret": a name
-// komando secret list has, or a reference to where it is kept (secret:NAME,
-// env:VAR, op://...; only secret:NAME without anyRef). Anything else may
+// komando secret list has, or a reference to where it is kept (credential:NAME,
+// env:VAR, op://...; only credential:NAME without anyRef). Anything else may
 // be the token itself, pasted: it is refused, and the message never
 // repeats it.
 func formSavedSecretProblem(v string, anyRef bool) string {
-	msg := "pick a name from komando secret list, or type where it is kept, like secret:NAME or env:VAR; never the secret itself"
+	msg := "pick a name from komando secret list, or type where it is kept, like credential:NAME or env:VAR; never the secret itself"
 	if !anyRef {
-		msg = "pick a name from komando secret list, or type secret:NAME; save it first with komando secret set NAME < ca.crt"
+		msg = "pick a name from komando secret list, or type credential:NAME; save it first with komando secret set NAME < ca.crt"
 	}
 	switch {
 	case strings.ContainsAny(v, " \t"):
 		return msg
 	case slices.Contains(secretNames(), v):
 		return ""
-	case !vault.ValidRef(v), !anyRef && !strings.HasPrefix(v, "secret:"):
+	case !vault.ValidRef(v), !anyRef && !strings.HasPrefix(v, "credential:"):
 		return msg
 	}
-	if n, ok := strings.CutPrefix(v, "secret:"); ok && inventory.ValidName("secret", n) != nil {
+	if n, ok := strings.CutPrefix(v, "credential:"); ok && inventory.ValidName("secret", n) != nil {
 		return msg
 	}
 	return ""
 }
 
 // formSecretRef is a picked or typed saved secret as a reference: a name
-// becomes secret:NAME, a reference stays as it is.
+// becomes credential:NAME, a reference stays as it is.
 func formSecretRef(v string) string {
 	if vault.ValidRef(v) {
 		return v
 	}
-	return "secret:" + v
+	return "credential:" + v
 }
 
 // cacheRef is a saved secret as a reference.

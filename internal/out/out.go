@@ -251,7 +251,7 @@ type Printer struct {
 
 	// Secrets returns the secret values (by name) that must never appear in
 	// output: remote files, logs and command output that happen to contain
-	// one show [secret:NAME] instead. It is called once, on first use.
+	// one show [credential:NAME] instead. It is called once, on first use.
 	// Set it when making the printer; once others may use the printer
 	// (AddValue runs from other goroutines), change it with SetSecrets.
 	Secrets  func() map[string]string

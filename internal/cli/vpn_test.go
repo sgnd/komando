@@ -343,9 +343,9 @@ func TestAliasEnvelopeName(t *testing.T) {
 // vpn add reads as host add: what happened first, the config indented,
 // notes last; the next command is on stderr (S-9.3).
 func TestVpnChangeText(t *testing.T) {
-	v := &store.Vpn{Name: "office", Kind: "wireguard", KeyRef: "secret:office-key", Config: "[Interface]\nAddress = 10.66.0.2/32\n", Groups: []string{"a"}}
+	v := &store.Vpn{Name: "office", Kind: "wireguard", KeyRef: "credential:office-key", Config: "[Interface]\nAddress = 10.66.0.2/32\n", Groups: []string{"a"}}
 	got := vpnChangeText{verb: "added", v: v, notes: []string{"n1"}}.Text()
-	want := "added office\n  kind: wireguard\n  private key: secret:office-key\n  groups: a\n  config:\n    [Interface]\n    Address = 10.66.0.2/32\nnote: n1"
+	want := "added office\n  kind: wireguard\n  private key: credential:office-key\n  groups: a\n  config:\n    [Interface]\n    Address = 10.66.0.2/32\nnote: n1"
 	if got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}

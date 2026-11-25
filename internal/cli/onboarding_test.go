@@ -12,7 +12,7 @@ import (
 )
 
 // --ask-password: a person types the password once while adding the
-// server; it lands in the vault as secret:NAME-pass. Agents and scripts are
+// server; it lands in the vault as credential:NAME-pass. Agents and scripts are
 // never asked.
 func TestAskPassword(t *testing.T) {
 	invHome(t)
@@ -45,7 +45,7 @@ func TestAskPassword(t *testing.T) {
 		return "Typed-Pass-1", nil
 	}
 	d := mustRun(t, "host", "add", "vps1", "root@10.0.0.20", "--ask-password")
-	if d["password_ref"] != "secret:vps1-pass" || d["next"] != "komando test vps1" || asked != 1 {
+	if d["password_ref"] != "credential:vps1-pass" || d["next"] != "komando test vps1" || asked != 1 {
 		t.Errorf("host add --ask-password: %v (asked %d)", d, asked)
 	}
 	if v, err := vault.Get("vps1-pass"); err != nil || v != "Typed-Pass-1" {
@@ -59,7 +59,7 @@ func TestAskPassword(t *testing.T) {
 		t.Errorf("edit did not store the new password: %q", v)
 	}
 	// a secret of that name that another server uses is never replaced
-	mustRun(t, "host", "add", "other", "root@10.0.0.21", "--password-ref", "secret:web9-pass")
+	mustRun(t, "host", "add", "other", "root@10.0.0.21", "--password-ref", "credential:web9-pass")
 	setSecret(t, "web9-pass", "keep-me")
 	if e := wantCode(t, "SECRET_EXISTS", "host", "add", "web9", "root@10.0.0.22", "--ask-password"); !strings.Contains(e.Message, "host other") {
 		t.Errorf("collision: %+v", e)
@@ -76,7 +76,7 @@ func TestAskPassword(t *testing.T) {
 	}
 	// conns too
 	d = mustRun(t, "conn", "add", "app-db", "postgres://app@10.0.0.5/app", "--ask-password")
-	if d["password_ref"] != "secret:app-db-pass" {
+	if d["password_ref"] != "credential:app-db-pass" {
 		t.Errorf("conn add --ask-password: %v", d)
 	}
 	// a dry run asks nothing and stores nothing
@@ -92,11 +92,11 @@ func TestAskPassword(t *testing.T) {
 // made, and add says what to run next.
 func TestAddWarnsAndSaysNext(t *testing.T) {
 	invHome(t)
-	d := mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--password-ref", "secret:web1-pas")
+	d := mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--password-ref", "credential:web1-pas")
 	if !strings.Contains(fmtAny(d["warnings"]), "secret web1-pas is not in the vault yet: store it with `komando secret set web1-pas`") {
 		t.Errorf("host add: %v", d)
 	}
-	d = mustRun(t, "conn", "edit", mustConn(t), "--password-ref", "secret:db-pas")
+	d = mustRun(t, "conn", "edit", mustConn(t), "--password-ref", "credential:db-pas")
 	if !strings.Contains(fmtAny(d["warnings"]), "secret db-pas is not in the vault yet") {
 		t.Errorf("conn edit: %v", d)
 	}
@@ -115,9 +115,9 @@ func TestRmNamesUnusedSecrets(t *testing.T) {
 	invHome(t)
 	setSecret(t, "db-pass", "x")
 	setSecret(t, "shared-pass", "y")
-	mustRun(t, "conn", "add", "db1", "postgres://app@10.0.0.5/app", "--password-ref", "secret:db-pass")
-	mustRun(t, "conn", "add", "db2", "postgres://app@10.0.0.6/app", "--password-ref", "secret:shared-pass")
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--password-ref", "secret:shared-pass")
+	mustRun(t, "conn", "add", "db1", "postgres://app@10.0.0.5/app", "--password-ref", "credential:db-pass")
+	mustRun(t, "conn", "add", "db2", "postgres://app@10.0.0.6/app", "--password-ref", "credential:shared-pass")
+	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--password-ref", "credential:shared-pass")
 	d := mustRun(t, "conn", "rm", "db1", "db2")
 	if fmtAny(d["secrets_unused"]) != "[db-pass]" {
 		t.Errorf("only db-pass is left unused: %v", d)
@@ -137,7 +137,7 @@ func TestChangeTextInWords(t *testing.T) {
 		policyChange{Custom: []string{"a", "b"}, Added: &added, pattern: "b"}.denied(tcl).TextFor(realRun()):                       "added the deny rule b as " + policy.CustomID("b") + " (2 custom rules now)\n",
 		policyChange{Custom: []string{"a"}, Removed: "b"}.TextFor(realRun()):                                                       "removed the deny rule b (1 custom rule left)\n",
 		exportResult{File: "f.json", Hosts: 2, Conns: 1, SecretsNeeded: []string{"p"}}.Text():                                      "saved 2 servers, 1 conn to f.json (no passwords)\nset again on the other computer: p (`komando secret set NAME`)\n",
-		renderedText(t, map[string]any{"name": "app-db-pass", "action": "stored", "replaced": false, "ref": "secret:app-db-pass"}): "stored app-db-pass\n  ref: secret:app-db-pass\n",
+		renderedText(t, map[string]any{"name": "app-db-pass", "action": "stored", "replaced": false, "ref": "credential:app-db-pass"}): "stored app-db-pass\n  ref: credential:app-db-pass\n",
 	} {
 		if got != want {
 			t.Errorf("got %q\nwant %q", got, want)

@@ -67,11 +67,11 @@ func init() {
 	register(Kind{Name: "mysql", Family: "db", Schemes: []string{"mysql", "mariadb"}, DefaultPort: 3306,
 		Example: "mysql://shop@db.internal:3306/shop?tls=true"})
 	register(Kind{Name: "sqlserver", Family: "db", Schemes: []string{"sqlserver", "mssql"}, DefaultPort: 1433,
-		Example: "sqlserver://app@db.internal:1433/sales?encrypt=true (self-signed: &tls=skip-verify; private CA: &ca=secret:NAME)"})
+		Example: "sqlserver://app@db.internal:1433/sales?encrypt=true (self-signed: &tls=skip-verify; private CA: &ca=credential:NAME)"})
 	register(Kind{Name: "oracle", Family: "db", Schemes: []string{"oracle"}, DefaultPort: 1521,
-		Example: "oracle://app@db.internal:1521/ORCLPDB1?tls=true (the path is the service name; TCPS with a private CA: &ca=secret:NAME)"})
+		Example: "oracle://app@db.internal:1521/ORCLPDB1?tls=true (the path is the service name; TCPS with a private CA: &ca=credential:NAME)"})
 	register(Kind{Name: "clickhouse", Family: "db", Schemes: []string{"clickhouse"}, DefaultPort: clickhouseHTTP,
-		Example: "clickhouse://app@ch.internal:8443/analytics?tls=true (HTTP interface: 8443 with TLS, 8123 without; private CA: &ca=secret:NAME)"})
+		Example: "clickhouse://app@ch.internal:8443/analytics?tls=true (HTTP interface: 8443 with TLS, 8123 without; private CA: &ca=credential:NAME)"})
 	register(Kind{Name: "snowflake", Family: "db", Schemes: []string{"snowflake"}, DefaultPort: 443,
 		Example: "snowflake://APP_RO@myorg-myaccount/ANALYTICS/PUBLIC?warehouse=REPORTING&role=ANALYST_RO (the account in place of a host; --password-ref holds a programmatic access token or a private key)"})
 	register(Kind{Name: "bigquery", Family: "db", Schemes: []string{"bigquery"}, DefaultPort: 443,
@@ -85,19 +85,19 @@ func init() {
 	register(Kind{Name: "memcached", Family: "cache", Schemes: []string{"memcached", "memcacheds"}, DefaultPort: 11211,
 		Example: "memcached://cache.internal:11211 (memcacheds = TLS)"})
 	register(Kind{Name: "kafka", Family: "queue", Schemes: []string{"kafka"}, DefaultPort: 9092,
-		Example: "kafka://app@b1.example.com:9093,b2.example.com:9093?tls=true&sasl=scram-sha-512 (private CA: &ca=secret:NAME; --via an SSH server: kafka://broker1.internal:9092)"})
+		Example: "kafka://app@b1.example.com:9093,b2.example.com:9093?tls=true&sasl=scram-sha-512 (private CA: &ca=credential:NAME; --via an SSH server: kafka://broker1.internal:9092)"})
 	register(Kind{Name: "rabbitmq", Family: "queue", Schemes: []string{"amqp", "amqps"}, DefaultPort: 5672,
 		Example: "amqps://app@rabbit.example.com:5671/%2F?management=15671 (amqps = TLS; the path is the vhost; --via an SSH server: amqp://app@rabbit.internal:5672/)"})
 	register(Kind{Name: "nats", Family: "queue", Schemes: []string{"nats", "tls"}, DefaultPort: 4222,
-		Example: "tls://app@nats1.example.com:4222,nats2.example.com:4222 (tls = TLS; a .creds file: ?creds=secret:NAME; --via an SSH server: nats://nats.internal:4222)"})
+		Example: "tls://app@nats1.example.com:4222,nats2.example.com:4222 (tls = TLS; a .creds file: ?creds=credential:NAME; --via an SSH server: nats://nats.internal:4222)"})
 	register(Kind{Name: "sqs", Family: "queue", Schemes: []string{"sqs"}, DefaultPort: 443,
-		Example: "sqs://eu-west-1 (Amazon SQS; the login is your AWS one: --option aws_profile=NAME, or keys: sqs://ACCESS_KEY_ID@eu-west-1 --password-ref secret:NAME; an emulator: ?endpoint=http://localhost:4566)"})
+		Example: "sqs://eu-west-1 (Amazon SQS; the login is your AWS one: --option aws_profile=NAME, or keys: sqs://ACCESS_KEY_ID@eu-west-1 --password-ref credential:NAME; an emulator: ?endpoint=http://localhost:4566)"})
 	register(Kind{Name: "pubsub", Family: "queue", Schemes: []string{"pubsub"}, DefaultPort: 443,
-		Example: "pubsub://my-project (Google Cloud Pub/Sub; the login is gcloud's application default one, or a service account key: --password-ref secret:NAME; the emulator: ?endpoint=http://localhost:8085)"})
+		Example: "pubsub://my-project (Google Cloud Pub/Sub; the login is gcloud's application default one, or a service account key: --password-ref credential:NAME; the emulator: ?endpoint=http://localhost:8085)"})
 	register(Kind{Name: "k8s", Family: "cluster", Schemes: []string{"k8s", "kubernetes"}, DefaultPort: 6443,
 		Example: "k8s://api.cluster.example:6443 (the kubeconfig goes to the vault: `komando import kubeconfig`)"})
 	register(Kind{Name: "registry", Family: "registry", Schemes: []string{"registry", "oci"}, DefaultPort: 443,
-		Example: "registry://myuser@ghcr.io (Docker Hub: registry://myuser@docker.io; private CA: ?ca=secret:NAME; self-signed: ?tls=skip-verify; no TLS: ?tls=false; wrong or missing DNS: ?resolve=IP)"})
+		Example: "registry://myuser@ghcr.io (Docker Hub: registry://myuser@docker.io; private CA: ?ca=credential:NAME; self-signed: ?tls=skip-verify; no TLS: ?tls=false; wrong or missing DNS: ?resolve=IP)"})
 	register(Kind{Name: "s3", Family: "storage", Schemes: []string{"s3"},
 		Example: "s3://ACCESS_KEY_ID@my-bucket/backups?endpoint=https://minio.internal:9000&region=us-east-1 (wrong or missing DNS: &resolve=IP)"})
 	register(Kind{Name: "ftps", Family: "storage", Schemes: []string{"ftps"}, DefaultPort: 21,
@@ -107,9 +107,9 @@ func init() {
 	register(Kind{Name: "sftp", Family: "storage", Schemes: []string{"sftp"}, DefaultPort: 22,
 		Example: "sftp://deploy@files.example.com/uploads (file access only, no shell)"})
 	register(Kind{Name: "gcs", Family: "storage", Schemes: []string{"gs", "gcs"}, DefaultPort: 443,
-		Example: "gs://my-bucket/backups (logs in like gcloud, or with a service account key: --password-ref secret:NAME)"})
+		Example: "gs://my-bucket/backups (logs in like gcloud, or with a service account key: --password-ref credential:NAME)"})
 	register(Kind{Name: "azblob", Family: "storage", Schemes: []string{"azblob", "azure"}, DefaultPort: 443,
-		Example: "azblob://ACCOUNT@my-container/backups (the account key or SAS token goes in --password-ref secret:NAME)"})
+		Example: "azblob://ACCOUNT@my-container/backups (the account key or SAS token goes in --password-ref credential:NAME)"})
 	register(Kind{Name: "webdav", Family: "storage", Schemes: []string{"webdavs", "webdav"}, DefaultPort: 443,
 		Example: "webdavs://alice@cloud.example.com/remote.php/dav/files/alice (Nextcloud; ?tls=skip-verify for self-signed; webdav:// needs ?insecure=1)"})
 	register(Kind{Name: "smb", Family: "storage", Schemes: []string{"smb", "cifs"}, DefaultPort: 445,
@@ -152,7 +152,7 @@ type Target struct {
 	Region   string `json:"region,omitempty"`   // s3, sqs
 	Secure   bool   `json:"secure,omitempty"`   // TLS (rediss, https endpoint)
 	TLS      string `json:"tls,omitempty"`      // mysql, oracle, clickhouse: the tls= setting (true, skip-verify, preferred, false); ftps, registry, sqlserver: skip-verify (registry also false)
-	CA       string `json:"ca,omitempty"`       // registry, postgres, mysql, redis, memcached, mongodb, kafka, rabbitmq, nats, sqlserver, oracle, clickhouse, snowflake, bigquery: secret:NAME holding the PEM CA certificate to trust
+	CA       string `json:"ca,omitempty"`       // registry, postgres, mysql, redis, memcached, mongodb, kafka, rabbitmq, nats, sqlserver, oracle, clickhouse, snowflake, bigquery: credential:NAME holding the PEM CA certificate to trust
 	Resolve  string `json:"resolve,omitempty"`  // registry, s3: IP:port to connect to in place of Address (?resolve=)
 
 	Cluster      bool     `json:"cluster,omitempty"`       // redis: a Redis Cluster; Address is one node (?cluster=1)
@@ -165,7 +165,7 @@ type Target struct {
 
 	Management string `json:"management,omitempty"` // rabbitmq: host:port of the management HTTP API (?management=PORT)
 
-	Creds  string `json:"creds,omitempty"`  // nats: secret:NAME holding the .creds file (user JWT and NKey seed) to log in with
+	Creds  string `json:"creds,omitempty"`  // nats: credential:NAME holding the .creds file (user JWT and NKey seed) to log in with
 	Domain string `json:"domain,omitempty"` // nats: the JetStream domain; smb: the Windows domain of the user (both ?domain=; smb also DOMAIN;user)
 
 	Account string `json:"account,omitempty"` // sqs: the AWS account that owns the queues, when not the login's own (?account=)
@@ -262,7 +262,7 @@ func Parse(raw string) (Target, error) {
 	}
 	if _, has := u.User.Password(); has || hasPasswordParam(u.Query()) {
 		return Target{}, out.Errf(out.ExitUsage, "URL_HAS_PASSWORD",
-			"remove the password from the URL, store it with `komando secret set NAME`, then pass --password-ref secret:NAME",
+			"remove the password from the URL, store it with `komando secret set NAME`, then pass --password-ref credential:NAME",
 			"a conn URL holds no password")
 	}
 	t := Target{Kind: k}
@@ -338,7 +338,7 @@ func Parse(raw string) (Target, error) {
 // parseRegistryOptions reads a registry URL's options. TLS is checked
 // against the system's CAs unless the URL says otherwise:
 //
-//	?ca=secret:NAME    also trust the PEM CA certificate in the vault
+//	?ca=credential:NAME    also trust the PEM CA certificate in the vault
 //	?tls=skip-verify   HTTPS without checking the certificate
 //	?tls=false         plain HTTP
 //
@@ -354,20 +354,20 @@ func parseRegistryOptions(q url.Values, t *Target) error {
 	case "", "false", "skip-verify":
 	default:
 		return out.Errf(out.ExitUsage, "USAGE",
-			"leave tls out to check the certificate; for a private CA add ?ca=secret:NAME; ?tls=skip-verify turns the check off; ?tls=false is plain HTTP",
+			"leave tls out to check the certificate; for a private CA add ?ca=credential:NAME; ?tls=skip-verify turns the check off; ?tls=false is plain HTTP",
 			"the registry tls option takes skip-verify or false, not %q", t.TLS)
 	}
 	if t.CA == "" {
 		if q.Has("ca") {
-			return out.Usage("the registry ca option takes a secret reference, as in ?ca=secret:NAME")
+			return out.Usage("the registry ca option takes a secret reference, as in ?ca=credential:NAME")
 		}
 		return nil
 	}
-	name, ok := strings.CutPrefix(t.CA, "secret:")
+	name, ok := strings.CutPrefix(t.CA, "credential:")
 	if !ok || name == "" {
 		return out.Errf(out.ExitUsage, "USAGE",
-			"store the CA certificate with `komando secret set NAME < ca.crt`, then use ?ca=secret:NAME",
-			"the registry ca option takes secret:NAME, not %q", t.CA)
+			"store the CA certificate with `komando secret set NAME < ca.crt`, then use ?ca=credential:NAME",
+			"the registry ca option takes credential:NAME, not %q", t.CA)
 	}
 	if t.TLS != "" {
 		return out.Usage("registry ca= and tls=%s do not go together: with ca= the certificate is checked against that CA", t.TLS)
@@ -459,7 +459,7 @@ func parseFiles(u *url.URL, t Target) (Target, error) {
 }
 
 // parseS3 reads s3://ACCESS_KEY_ID@bucket/prefix?endpoint=URL&region=R
-// (&ca=secret:NAME for an endpoint whose certificate comes from a private
+// (&ca=credential:NAME for an endpoint whose certificate comes from a private
 // CA). The
 // endpoint defaults to AWS; any S3-compatible service (MinIO, R2, Wasabi,
 // Spaces) works with its own endpoint.

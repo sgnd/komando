@@ -33,10 +33,10 @@ func TestQueueNatsConn(t *testing.T) {
 	if w := weakTLS("tls://nats.example.com", "nats://nats.example.com?insecure=1"); len(w) != 2 {
 		t.Errorf("weakTLS downgrade: %v", w)
 	}
-	if p := connPlace(&store.Conn{URL: "tls://app@n1:4222,n2:4222", PasswordRef: "secret:n"}); p.dest != "n1:4222,n2:4222" {
+	if p := connPlace(&store.Conn{URL: "tls://app@n1:4222,n2:4222", PasswordRef: "credential:n"}); p.dest != "n1:4222,n2:4222" {
 		t.Errorf("the password goes to %q", p.dest)
 	}
-	if p := connPlace(&store.Conn{URL: "tls://n1:4222?creds=secret:ngs"}); !slices.Contains(p.refs, "secret:ngs") {
+	if p := connPlace(&store.Conn{URL: "tls://n1:4222?creds=credential:ngs"}); !slices.Contains(p.refs, "credential:ngs") {
 		t.Errorf("the creds are not counted as sent: %v", p.refs)
 	}
 }

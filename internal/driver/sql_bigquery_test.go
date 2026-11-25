@@ -187,15 +187,15 @@ func TestParseBigQuery(t *testing.T) {
 		"bigquery://my-project":                                           {Project: "my-project", Endpoint: BigQueryEndpoint},
 		"bigquery://my-project/shop?location=EU":                          {Project: "my-project", Dataset: "shop", Location: "EU", Endpoint: BigQueryEndpoint},
 		"bigquery://my-project/shop?endpoint=http://127.0.0.1:9050/":      {Project: "my-project", Dataset: "shop", Endpoint: "http://127.0.0.1:9050"},
-		"bigquery://my-project/?ca=secret:proxy-ca&location=europe-west1": {Project: "my-project", Location: "europe-west1", Endpoint: BigQueryEndpoint},
+		"bigquery://my-project/?ca=credential:proxy-ca&location=europe-west1": {Project: "my-project", Location: "europe-west1", Endpoint: BigQueryEndpoint},
 	} {
 		got, err := ParseBigQueryURL(raw)
 		if err != nil || got != want {
 			t.Errorf("%s: %+v, %v", raw, got, err)
 		}
 	}
-	tg, err := Parse("bigquery://my-project/shop?location=EU&ca=secret:proxy-ca")
-	if err != nil || tg.Kind.Name != "bigquery" || tg.Address != "bigquery.googleapis.com:443" || !tg.Secure || tg.Database != "shop" || tg.CA != "secret:proxy-ca" {
+	tg, err := Parse("bigquery://my-project/shop?location=EU&ca=credential:proxy-ca")
+	if err != nil || tg.Kind.Name != "bigquery" || tg.Address != "bigquery.googleapis.com:443" || !tg.Secure || tg.Database != "shop" || tg.CA != "credential:proxy-ca" {
 		t.Errorf("Parse: %+v, %v", tg, err)
 	}
 	if tg, err := Parse("bigquery://my-project?endpoint=http://localhost:9050"); err != nil || tg.Secure || tg.Address != "localhost:9050" {
@@ -210,9 +210,9 @@ func TestParseBigQuery(t *testing.T) {
 		"bigquery://my-project?tls=false":                     "always HTTPS",
 		"bigquery://my-project?credentials=x":                 "unknown bigquery URL option",
 		"bigquery://my-project?location=e%20u":                "not a location",
-		"bigquery://my-project?ca=proxy":                      "secret:NAME",
+		"bigquery://my-project?ca=proxy":                      "credential:NAME",
 		"bigquery://my-project?endpoint=ftp://x":              "endpoint is a URL",
-		"bigquery://my-project?endpoint=http://x&ca=secret:c": "https:// endpoint",
+		"bigquery://my-project?endpoint=http://x&ca=credential:c": "https:// endpoint",
 	} {
 		_, err := Parse(raw)
 		if err == nil || !strings.Contains(err.Error()+" "+hintOf(err), msg) {

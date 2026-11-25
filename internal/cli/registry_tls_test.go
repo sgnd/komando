@@ -13,7 +13,7 @@ import (
 // A refused certificate says so (not "unreachable") and points at ca= first.
 func TestRegistryCertErrors(t *testing.T) {
 	e := toErr(registryErr(fmt.Errorf("Get https://r/v2/: %w", x509.UnknownAuthorityError{})))
-	if e.Code != "REGISTRY_TLS" || !strings.Contains(e.Hint, "?ca=secret:NAME") ||
+	if e.Code != "REGISTRY_TLS" || !strings.Contains(e.Hint, "?ca=credential:NAME") ||
 		strings.Index(e.Hint, "ca=") > strings.Index(e.Hint, "skip-verify") {
 		t.Errorf("unknown CA: %+v", e)
 	}
@@ -33,7 +33,7 @@ func TestRegistryTLSOptions(t *testing.T) {
 	if tc, err := registryTLS(tg); err != nil || !tc.SkipVerify || tc.Plain {
 		t.Errorf("skip-verify: %+v %v", tc, err)
 	}
-	tg, _ = driver.Parse("registry://me@r.lan?ca=secret:nope")
+	tg, _ = driver.Parse("registry://me@r.lan?ca=credential:nope")
 	if _, err := registryTLS(tg); toErr(err).Code != "SECRET_NOT_FOUND" {
 		t.Errorf("missing CA secret: %v", err)
 	}

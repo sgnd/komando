@@ -22,7 +22,7 @@ import (
 
 // `komando import SOURCE` brings in what people already have: ssh config,
 // .pgpass, my.cnf, .env files and komando exports. Passwords found along
-// the way go to the vault and are referenced as secret:NAME; they never
+// the way go to the vault and are referenced as credential:NAME; they never
 // reach state.json, the output or the audit log.
 
 // importPlan is what a source would add. Secrets maps vault names to
@@ -358,7 +358,7 @@ func vetImportConns(cl *call, st *store.State, plan *importPlan, overwrite bool,
 			res.Skipped = append(res.Skipped, importSkip{c.Name, toErr(err).Message})
 			continue
 		}
-		name, ok := strings.CutPrefix(c.PasswordRef, "secret:")
+		name, ok := strings.CutPrefix(c.PasswordRef, "credential:")
 		if ok && !overwrite && !cl.carriedSecrets[name] {
 			if _, err := vault.Get(name); err == nil {
 				res.Skipped = append(res.Skipped, importSkip{c.Name, "secret " + name + " already exists (use --overwrite to replace it)"})
@@ -391,11 +391,11 @@ func vetImportConns(cl *call, st *store.State, plan *importPlan, overwrite bool,
 func (r *importResult) addConn(c *store.Conn, plan *importPlan) {
 	r.Conns = append(r.Conns, c.Name)
 	r.Notes = append(r.Notes, plan.ConnNotes[c]...)
-	if name, ok := strings.CutPrefix(c.PasswordRef, "secret:"); ok && plan.Secrets[name] != "" {
+	if name, ok := strings.CutPrefix(c.PasswordRef, "credential:"); ok && plan.Secrets[name] != "" {
 		r.Secrets = append(r.Secrets, name)
 	}
 	if plan.NoPassword[c] {
-		note := c.Name + ": set its password with `komando secret set " + c.Name + "-pass` and `komando conn edit " + c.Name + " --password-ref secret:" + c.Name + "-pass`"
+		note := c.Name + ": set its password with `komando secret set " + c.Name + "-pass` and `komando conn edit " + c.Name + " --password-ref credential:" + c.Name + "-pass`"
 		r.NotFound, r.aboutAdded = append(r.NotFound, note), append(r.aboutAdded, note)
 	}
 }
@@ -514,10 +514,10 @@ func renameImported(st *store.State, plan *importPlan, c *store.Conn) {
 		}
 	}
 	for _, suffix := range []string{"-pass", "-kubeconfig"} {
-		if pw, ok := plan.Secrets[base+suffix]; ok && c.PasswordRef == "secret:"+base+suffix {
+		if pw, ok := plan.Secrets[base+suffix]; ok && c.PasswordRef == "credential:"+base+suffix {
 			delete(plan.Secrets, base+suffix)
 			plan.Secrets[name+suffix] = pw
-			c.PasswordRef = "secret:" + name + suffix
+			c.PasswordRef = "credential:" + name + suffix
 		}
 	}
 	c.Name = name
@@ -572,7 +572,7 @@ func (p *importPlan) addConn(name, raw, note string) {
 	ref := ""
 	if u.User != nil {
 		if pw, ok := u.User.Password(); ok {
-			ref = "secret:" + name + "-pass"
+			ref = "credential:" + name + "-pass"
 			p.Secrets[name+"-pass"] = pw
 			u.User = url.User(u.User.Username())
 		}

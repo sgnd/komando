@@ -91,8 +91,8 @@ names or a selector (@group, tag:office) to change many VPNs at once.
 or removed. Turning that off, or turning --mfa off, needs a person's yes.`,
 		Example: `  komando vpn edit office --check 10.0.0.5:22
   komando vpn edit lab --proxy-address 127.0.0.1:1081
-  komando vpn edit client-x --password-ref secret:client-x-new
-  komando vpn edit office --server vpn2.example.com --psk-ref secret:office-psk-2
+  komando vpn edit client-x --password-ref credential:client-x-new
+  komando vpn edit office --server vpn2.example.com --psk-ref credential:office-psk-2
   komando vpn edit client-x --portal gw2.client.com
   komando vpn edit office -g jakarta --rm-group old --label site=jkt
   komando vpn edit @office --protected --dry-run`,
@@ -223,6 +223,9 @@ func vpnEditChecks(cmd *cobra.Command, e *vpnEditFlags) error {
 		}
 	}
 	for flag, ref := range map[string]string{"password-ref": e.passwordRef, "psk-ref": e.pskRef} {
+		if err := oldRef("--"+flag, ref); err != nil {
+			return err
+		}
 		if ref != "" && !vault.ValidRef(ref) {
 			return out.Usage("--%s %q is not a reference: %s", flag, ref, vault.RefHelp())
 		}

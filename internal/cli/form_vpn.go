@@ -15,9 +15,9 @@ import (
 
 // The VPN forms of Add, most common first. A secret the person types never
 // goes on the command line: vpn add --ask-password asks the password
-// hidden and keeps it as secret:NAME-pass, and vpn add --ask-psk asks a
+// hidden and keeps it as credential:NAME-pass, and vpn add --ask-psk asks a
 // shared secret (pre-shared key, Cisco group password) hidden and keeps it
-// as secret:NAME-psk. A Tailscale auth key is stored first with `komando
+// as credential:NAME-psk. A Tailscale auth key is stored first with `komando
 // secret set NAME-authkey`, which asks it hidden too. After the add comes
 // `komando vpn up NAME` when a person has to log in, else `komando test
 // NAME`.
@@ -198,7 +198,7 @@ func vpnPassArgs(args []string, a formAnswers) []string {
 }
 
 // vpnPskArgs adds --psk-ref for a key already stored, or --ask-psk: vpn
-// add then asks for it hidden and keeps it as secret:NAME-psk.
+// add then asks for it hidden and keeps it as credential:NAME-psk.
 func vpnPskArgs(args []string, a formAnswers) []string {
 	if a["psk"] == "ref" {
 		return append(args, "--psk-ref", a["pskref"])
@@ -353,7 +353,7 @@ func tailscaleForm(_ *call) formSpec {
 			return vpnBuild(a, nil, args, true)
 		}
 		sec := a["name"] + "-authkey"
-		return vpnBuild(a, [][]string{{"secret", "set", sec}}, append(args, "--password-ref", "secret:"+sec), false)
+		return vpnBuild(a, [][]string{{"secret", "set", sec}}, append(args, "--password-ref", "credential:"+sec), false)
 	}}
 }
 

@@ -199,7 +199,7 @@ func TestLoginAskFlag(t *testing.T) {
 	// what each word needs, and what it cannot go with
 	for _, bad := range [][]string{
 		{"--login", "always"},
-		{"--login", "ask", "--password-ref", "secret:web2-pass"},
+		{"--login", "ask", "--password-ref", "credential:web2-pass"},
 		{"--login", "ask", "--ask-password"},
 		{"--login", "password"},
 		{"--login", "password", "--password-ref", "env:X", "--identity", keyFile},
@@ -254,7 +254,7 @@ func TestLoginAskSchemaNotHidden(t *testing.T) {
 	invHome(t)
 	t.Setenv("PW", "s3cret-in-env")
 	mustRun(t, "secret", "set", "web1-pass", "--from-env", "PW")
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--password-ref", "secret:web1-pass")
+	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--password-ref", "credential:web1-pass")
 	for _, cmd := range [][]string{{"host", "add"}, {"host", "edit"}, {"conn", "add"}, {"conn", "edit"}, {"db", "add"}} {
 		s, err := runCache(t, append([]string{"-o", "json", "schema"}, cmd...)...)
 		if err != nil {
@@ -283,10 +283,10 @@ func TestLoginAskUnlinksTheStoredPassword(t *testing.T) {
 	mustRun(t, "secret", "set", "web1-pass", "--from-env", "PW")
 	mustRun(t, "secret", "set", "shared-pass", "--from-env", "PW")
 	mustRun(t, "secret", "set", "web4-pass", "--from-env", "PW")
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--password-ref", "secret:web1-pass")
-	mustRun(t, "host", "add", "web2", "u@10.0.0.2", "--password-ref", "secret:shared-pass")
-	mustRun(t, "host", "add", "web3", "u@10.0.0.3", "--password-ref", "secret:shared-pass")
-	mustRun(t, "host", "add", "web4", "u@10.0.0.4", "--password-ref", "secret:web4-pass")
+	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--password-ref", "credential:web1-pass")
+	mustRun(t, "host", "add", "web2", "u@10.0.0.2", "--password-ref", "credential:shared-pass")
+	mustRun(t, "host", "add", "web3", "u@10.0.0.3", "--password-ref", "credential:shared-pass")
+	mustRun(t, "host", "add", "web4", "u@10.0.0.4", "--password-ref", "credential:web4-pass")
 
 	d := mustRun(t, "host", "edit", "web1", "--login", "ask")
 	if d["login"] != "ask" || d["password_ref"] != nil || asJSON(d["secrets_unused"]) != `["web1-pass"]` ||
@@ -424,7 +424,7 @@ func TestLoginAskVpnProfileSecretNeedsPerson(t *testing.T) {
 	if err := os.WriteFile(profile, []byte(testProfile), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	mustRun(t, "vpn", "add", "office", "openvpn", "--config", profile, "--check", "10.8.0.1:22", "--user", "alice", "--password-ref", "secret:db-pass")
+	mustRun(t, "vpn", "add", "office", "openvpn", "--config", profile, "--check", "10.8.0.1:22", "--user", "alice", "--password-ref", "credential:db-pass")
 	mustRun(t, "host", "add", "web1", "u@10.8.0.5", "--login", "ask", "--via", "office")
 	setCallerEnv(t, "CLAUDECODE", "1")
 	t.Setenv("EVIL", "remote 203.0.113.66 1194")

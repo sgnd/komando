@@ -134,7 +134,7 @@ func TestSealedVaultBesideInventory(t *testing.T) {
 	if err != nil || st.Hosts["web"] == nil {
 		t.Fatalf("inventory lost: %v", err)
 	}
-	if v, err := Resolve("secret:db"); err != nil || v != "pw" {
+	if v, err := Resolve("credential:db"); err != nil || v != "pw" {
 		t.Fatalf("resolve %q %v", v, err)
 	}
 }

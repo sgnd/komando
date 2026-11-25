@@ -13,7 +13,7 @@ import (
 )
 
 // Windows servers over WinRM (docs/features/windows.md). The address says
-// it: winrm://[user@]host[:port][?auth=basic&tls=skip-verify|off&ca=secret:NAME].
+// it: winrm://[user@]host[:port][?auth=basic&tls=skip-verify|off&ca=credential:NAME].
 
 // isWinRMAddress reports an address written winrm://...
 func isWinRMAddress(s string) bool { return strings.HasPrefix(strings.ToLower(s), "winrm://") }
@@ -22,7 +22,7 @@ func isWinRMAddress(s string) bool { return strings.HasPrefix(strings.ToLower(s)
 // port and WinRM settings.
 func parseWinRMAddress(s string) (*store.Host, error) {
 	bad := func(why string) error {
-		return out.Errf(out.ExitUsage, "USAGE", "write it as winrm://USER@HOST[:PORT], for example winrm://Administrator@10.0.0.9 (options: ?auth=basic, ?tls=skip-verify or ?tls=off, ?ca=secret:NAME)",
+		return out.Errf(out.ExitUsage, "USAGE", "write it as winrm://USER@HOST[:PORT], for example winrm://Administrator@10.0.0.9 (options: ?auth=basic, ?tls=skip-verify or ?tls=off, ?ca=credential:NAME)",
 			"komando cannot read the WinRM address %q: %s", s, why)
 	}
 	rest := s[len("winrm://"):]
@@ -117,7 +117,7 @@ func checkWinRM(h *store.Host) error {
 	case o.TLS != "" && o.TLS != "skip-verify" && o.TLS != "off":
 		return out.Usage("WinRM tls=%s: leave it out to check the certificate, or use skip-verify or off", o.TLS)
 	case o.CA != "" && !vault.ValidRef(o.CA):
-		return out.Usage("WinRM ca=%s: it takes a reference to the CA's PEM, for example ca=secret:NAME (%s)", o.CA, vault.RefHelp())
+		return out.Usage("WinRM ca=%s: it takes a reference to the CA's PEM, for example ca=credential:NAME (%s)", o.CA, vault.RefHelp())
 	case o.Auth == "basic" && o.TLS == "off":
 		return out.Errf(out.ExitUsage, "WINRM_INSECURE", "use HTTPS (leave tls=off out), or NTLM (leave auth=basic out), which never sends the password",
 			"Basic login over plain HTTP sends the password unencrypted")
@@ -139,7 +139,7 @@ func winrmWarnings(h *store.Host) []string {
 	case "off":
 		w = append(w, "tls=off: commands, files and output travel unencrypted over plain HTTP, and the server must allow it (AllowUnencrypted); prefer HTTPS on port 5986")
 	case "skip-verify":
-		w = append(w, "tls=skip-verify: komando does not check the server's certificate, so it cannot tell the server from an impostor; prefer ca=secret:NAME with its CA")
+		w = append(w, "tls=skip-verify: komando does not check the server's certificate, so it cannot tell the server from an impostor; prefer ca=credential:NAME with its CA")
 	}
 	if h.PasswordRef == "" && !h.AskLogin() {
 		w = append(w, "WinRM logs in with a password; give it one with `komando host edit "+h.Name+" --ask-password`")

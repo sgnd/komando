@@ -292,7 +292,7 @@ func TestReplaceWorksOnTheMaskedView(t *testing.T) {
 		{"strip Bearer from a token", "Authorization: Bearer ", "X: ", false, "", "HIDDEN_VALUE"},
 		{"replace a hidden line by regex", `(?m)^DB_PASSWORD=.*$`, "DB_PASSWORD=n3w-value", true,
 			"A=1\nDB_PASSWORD=n3w-value\nSTRIPE_KEY=VaultedTok3n99\nnote VaultedTok3n99\nB=2\n" + tail, ""},
-		{"replace a hidden value by [hidden]", "STRIPE_KEY=[secret:stripe]", "STRIPE_KEY=rotated-key", false,
+		{"replace a hidden value by [hidden]", "STRIPE_KEY=[credential:stripe]", "STRIPE_KEY=rotated-key", false,
 			"A=1\nDB_PASSWORD=Sup3rS3cretValue\nSTRIPE_KEY=rotated-key\nnote VaultedTok3n99\nB=2\n" + tail, ""},
 		{"[hidden] in --old", "DB_PASSWORD=[hidden]", "DB_PASSWORD={{x}}", false,
 			"A=1\nDB_PASSWORD={{x}}\nSTRIPE_KEY=VaultedTok3n99\nnote VaultedTok3n99\nB=2\n" + tail, ""},
@@ -354,7 +354,7 @@ func TestReplaceAnswersTheSameForAnyGuess(t *testing.T) {
 }
 
 // AGENTS.md rule 9 rotates a secret into the vault with
-// --old 'NAME=[hidden]' --new 'NAME={{secret:VAULT}}'. Run again (a retry,
+// --old 'NAME=[hidden]' --new 'NAME={{credential:VAULT}}'. Run again (a retry,
 // or a rollout to a host already done) it is no change, not NO_MATCH.
 // --new arrives here with the vault value filled in, as fs replace has it.
 func TestReplaceRotationRunsTwice(t *testing.T) {
