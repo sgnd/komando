@@ -151,11 +151,31 @@ func TestBuildRefusesWhatItCannotBuild(t *testing.T) {
 		"no text":                 {capability.Leaf{Key: capability.Key{Type: "cache", Provider: "probeprov", Verb: "probe"}}, probeGroups, "Short"},
 		"a group with no text":    {capability.Leaf{Key: capability.Key{Type: "cache", Provider: "other", Verb: "probe"}, Short: "x"}, probeGroups, "group"},
 		"a global flag":           {capability.Leaf{Key: probeLeaf.Key, Short: "x", Options: []capability.Option{{Name: "dry-run", Kind: capability.Bool}}}, probeGroups, "global flag"},
+		"an option named help":    {capability.Leaf{Key: probeLeaf.Key, Short: "x", Options: []capability.Option{{Name: "help", Kind: capability.Bool}}}, probeGroups, "global flag"},
 	}
 	for name, c := range cases {
 		err := mountLeaves(newRoot(tcl), []capability.Leaf{c.leaf}, map[capability.Key]handler{c.leaf.Key: h}, c.groups)
 		if err == nil || !strings.Contains(err.Error(), c.want) {
 			t.Errorf("%s: %v, want an error naming %q", name, err, c.want)
+		}
+	}
+	// names and aliases of one level never meet (R3): cobra would pick one
+	// silently
+	small := func() *cobra.Command {
+		root := &cobra.Command{Use: "komando"}
+		cache := &cobra.Command{Use: "cache"}
+		cache.AddCommand(&cobra.Command{Use: "keep", Aliases: []string{"kp"}, Run: func(*cobra.Command, []string) {}})
+		root.AddCommand(cache)
+		return root
+	}
+	for name, l := range map[string]capability.Leaf{
+		"a synonym that is a sibling's name":  {Key: capability.Key{Type: "cache", Verb: "hold"}, Short: "x", Synonyms: []string{"keep"}},
+		"a synonym that is a sibling's alias": {Key: capability.Key{Type: "cache", Verb: "hold"}, Short: "x", Synonyms: []string{"kp"}},
+		"a name that is a sibling's alias":    {Key: capability.Key{Type: "cache", Verb: "kp"}, Short: "x"},
+	} {
+		err := mountLeaves(small(), []capability.Leaf{l}, map[capability.Key]handler{l.Key: h}, nil)
+		if err == nil || !strings.Contains(err.Error(), "already") {
+			t.Errorf("%s: %v, want an error saying the word is already used", name, err)
 		}
 	}
 	// a planned leaf and a leaf with no handler are not built
@@ -427,22 +447,16 @@ func TestSafetyTablesFollowTheLeaf(t *testing.T) {
 }
 
 // The runs of TestTierMatchesRuntime only grow: a C pull request moves the
-// runs of a today ID to its new path with the same expected stop, and no
-// run names a command that is no longer in the tree. (Audit R2)
+// runs of a today ID to its new path with the same row (so the same
+// expected stop), and no run names a command that is no longer in the
+// tree. testdata/tier_runs.txt is the list of runs (row, today ID) when the
+// builder came; it is never written again. (Audit R2)
 func TestTierRunsNeverShrink(t *testing.T) {
-	got := map[string]int{}
-	root := newRoot(tcl)
-	for _, r := range tierRuns {
-		got[r.row]++
-		if commandWithID(root, r.id) == nil {
-			t.Errorf("run %q names %s, which is not in the tree: move it to the new path", r.row, r.id)
-		}
-	}
-	file := filepath.Join("testdata", "tier_runs_per_row.txt")
+	file := filepath.Join("testdata", "tier_runs.txt")
 	if os.Getenv("KOMANDO_GOLDEN_UPDATE") == "1" {
 		var b strings.Builder
-		for _, row := range slices.Sorted(maps.Keys(got)) {
-			fmt.Fprintf(&b, "%s\t%d\n", row, got[row])
+		for _, r := range tierRuns {
+			fmt.Fprintf(&b, "%s\t%s\n", r.row, r.id)
 		}
 		if err := os.WriteFile(file, []byte(b.String()), 0o644); err != nil {
 			t.Fatal(err)
@@ -452,10 +466,38 @@ func TestTierRunsNeverShrink(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	type run struct{ row, id string }
+	var before []run
 	for _, line := range strings.Split(strings.TrimSpace(string(b)), "\n") {
-		row, n, _ := strings.Cut(line, "\t")
-		if want, _ := strconv.Atoi(n); got[row] < want {
-			t.Errorf("row %q has %d runs, it had %d: runs never go down", row, got[row], want)
+		row, id, _ := strings.Cut(line, "\t")
+		before = append(before, run{row, id})
+	}
+	root := newRoot(tcl)
+	count := map[string]int{}
+	for _, r := range tierRuns {
+		count[r.row]++
+		if commandWithID(root, r.id) == nil {
+			t.Errorf("run %q names %s, which is not in the tree: move it to the new path", r.row, r.id)
+		}
+	}
+	for _, r := range before {
+		count[r.row]--
+	}
+	for row, n := range count {
+		if n < 0 {
+			t.Errorf("row %q has %d runs fewer than when the builder came: runs never go down", row, -n)
+		}
+	}
+	// a registered leaf has the runs of its today IDs on its new path
+	for _, l := range tableLeaves() {
+		if handlers[l.Key] == nil {
+			continue
+		}
+		id := strings.Join(l.Key.Path(), ".")
+		for _, r := range before {
+			if slices.Contains(l.Today, r.id) && !slices.ContainsFunc(tierRuns, func(n tierRun) bool { return n.id == id && n.row == r.row }) {
+				t.Errorf("%s moved to %s: its run %q is not on the new path", r.id, id, r.row)
+			}
 		}
 	}
 }
