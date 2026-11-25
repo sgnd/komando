@@ -7,7 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/snippet"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -84,12 +86,41 @@ func factsOnlyParse(keys []string) func(h *store.Host, s string) (any, error) {
 			return nil, err
 		}
 		f, _ := all.(map[string]any)
-		res := map[string]any{}
-		for _, k := range keys {
-			res[k] = f[k]
-		}
-		return res, nil
+		return factsKeep(f, keys), nil
 	}
+}
+
+// factsKeep keeps the keys asked for; one komando cannot read is null.
+func factsKeep(f map[string]any, keys []string) map[string]any {
+	res := map[string]any{}
+	for _, k := range keys {
+		res[k] = f[k]
+	}
+	return res
+}
+
+// factsOnlyAll is every section, in the order the apps' quick reads ask
+// for them (the S0 golden's `--only load,mem,disks,system`).
+var factsOnlyAll = []string{"load", "mem", "disks", "system"}
+
+// factsOnlySnippets are the ready-made snippets of facts --only (design
+// 2.1). They move with the host commands' package (M11). The snippet runs
+// every section: it has no variable, so the closed set of sections is the
+// set it runs, and its keys are only theirs.
+func factsOnlySnippets() []snippet.Builtin {
+	script, keys, err := factsOnly(factsOnlyAll)
+	if err != nil {
+		panic(err) // the section names are factsSections' own
+	}
+	return []snippet.Builtin{{
+		Name: "facts-only", Type: "host", Replaces: "facts --only " + strings.Join(factsOnlyAll, ","), Reader: "KomandoCall+ReadKey.swift (quick reads)",
+		Tier: capability.Read, Shape: "facts-only/1",
+		Checks: []string{"TestFactsOnly", "TestFactsOnlySystem", "TestSnippetResultIsMaskedForAnAgent", "TestSnippetSamplesMatchGoldens/facts-only"},
+		Text:   map[snippet.Family]string{snippet.Unix: script, snippet.Windows: winFactsScript},
+		Parse: func(o snippet.Output, f snippet.Family) (any, error) {
+			return factsKeep(factsOf(o.Stdout, f), keys), nil
+		},
+	}}
 }
 
 // factsOnlyText is the -o text view of facts --only: one line per server.

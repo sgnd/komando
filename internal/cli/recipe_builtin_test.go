@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -73,6 +74,15 @@ var errNotJSONLines = errors.New("not JSON lines")
 
 var samples = []snippet.Builtin{sampleSvcList, sampleSvcStatus, sampleDockerPs}
 
+// registered is the production list, every type's list in one.
+func registered() []snippet.Builtin {
+	var all []snippet.Builtin
+	for _, l := range builtinLists() {
+		all = append(all, l...)
+	}
+	return all
+}
+
 // withSnippets turns the engine on for one test, with list as the built-ins.
 func withSnippets(t *testing.T, list ...snippet.Builtin) {
 	t.Helper()
@@ -129,10 +139,12 @@ func TestSnippetsOff(t *testing.T) {
 	if snippetsOn {
 		t.Fatal("snippetsOn is true: the built-ins stay unreachable until the v2.7 cut turns them on")
 	}
-	if len(builtinSnippets.Names()) != 0 {
-		t.Fatalf("the production list has built-ins %v: they come with the S2 moves", builtinSnippets.Names())
-	}
 	rs := startReplayServerWith(t, nil, replayStep{stdout: "x"})
+	for _, name := range builtinSnippets.Names() {
+		if _, e := snippetData(t, name, "dev"); e == nil || e.Code != recipeNotFound(name).Code {
+			t.Errorf("recipe run %s with the engine off = %v, want %s", name, e, recipeNotFound(name).Code)
+		}
+	}
 	r, err := snippet.New(samples)
 	if err != nil {
 		t.Fatal(err)
@@ -152,17 +164,33 @@ func TestSnippetsOff(t *testing.T) {
 // Each sample gives the result today's command gives on the same replayed
 // output, and sends the same text.
 func TestSnippetSamplesMatchGoldens(t *testing.T) {
+	all := append(registered(), samples...)
+	byName := map[string]snippet.Builtin{}
+	for _, b := range all {
+		byName[b.Name] = b
+	}
 	for _, c := range []struct {
-		b       snippet.Builtin
+		name    string
 		family  string
 		windows bool
 	}{
-		{sampleSvcList, "systemd", false},
-		{sampleSvcList, "windows", true},
-		{sampleDockerPs, "docker", false},
+		{"svc-list", "systemd", false},
+		{"svc-list", "windows", true},
+		{"docker-ps", "docker", false},
+		{"facts", "centos7", false},
+		{"facts", "windows", true},
+		{"facts-only", "debian", false},
 	} {
-		t.Run(c.b.Name+"/"+c.family, func(t *testing.T) {
-			withSnippets(t, samples...)
+		t.Run(c.name+"/"+c.family, func(t *testing.T) {
+			withSnippets(t, all...)
+			c := struct {
+				b       snippet.Builtin
+				family  string
+				windows bool
+			}{byName[c.name], c.family, c.windows}
+			if c.b.Name == "" {
+				t.Fatal("no such built-in")
+			}
 			dir := filepath.Join("testdata", "snippets", c.b.Name)
 			in, err := os.ReadFile(filepath.Join(dir, c.family+".in"))
 			if err != nil {
@@ -267,11 +295,18 @@ func TestSnippetFilledLikeTheReplacedCommand(t *testing.T) {
 
 // notWeaker says why b is weaker than the command it replaces, or "".
 func notWeaker(b snippet.Builtin) string {
-	line := append(strings.Fields(b.Replaces), "dev")
+	// the command's words, the target, then its flags: "facts --only x"
+	// is rated as `facts dev --only x`
+	words := strings.Fields(b.Replaces)
+	n := slices.IndexFunc(words, func(w string) bool { return strings.HasPrefix(w, "-") })
+	if n < 0 {
+		n = len(words)
+	}
+	line := append(append(slices.Clone(words[:n]), "dev"), words[n:]...)
 	for _, v := range b.Vars {
 		line = append(line, v.Longest)
 	}
-	if c, _, _ := lineWords(line); c == nil || c.Name() != line[len(strings.Fields(b.Replaces))-1] {
+	if c, _, _ := lineWords(line); n == 0 || c == nil || c.Name() != words[n-1] {
 		return fmt.Sprintf("replaces %q, which is not a command", b.Replaces)
 	}
 	if today := riskOfLine(line); int(b.Tier) < int(today.tier) {
@@ -285,7 +320,7 @@ func notWeaker(b snippet.Builtin) string {
 
 // No sample is weaker than the command it replaces (rule 3.4).
 func TestSnippetNotWeaker(t *testing.T) {
-	for _, b := range samples {
+	for _, b := range append(registered(), samples...) {
 		if why := notWeaker(b); why != "" {
 			t.Errorf("%s %s", b.Name, why)
 		}
@@ -314,7 +349,7 @@ func TestSnippetNotWeaker(t *testing.T) {
 // Each text, filled with every variable's longest value, finds no exec
 // rule (rule 3.5, Audit A-C368-4).
 func TestSnippetFilledTextRules(t *testing.T) {
-	for _, b := range samples {
+	for _, b := range append(registered(), samples...) {
 		given := map[string]string{}
 		for _, v := range b.Vars {
 			given[v.Name] = v.Longest
@@ -531,4 +566,62 @@ func TestSnippetTierStops(t *testing.T) {
 			t.Fatal("a dry run wrote a blocked audit record")
 		}
 	})
+}
+
+// facts-only on a Windows host gives what `facts --only` gives there (the
+// full probe, its keys kept) and sends the same text. No S0 golden has a
+// Windows facts --only, so the two run side by side on facts' Windows .in.
+func TestSnippetFactsOnlyWindowsLikeTheCommand(t *testing.T) {
+	base, err := os.ReadFile(filepath.Join("testdata", "snippets", "facts", "windows.in"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// the S0 input has none of the polled keys; the second carries them
+	polled := "os_version=6.3.9600\nuptime_sec=86400\nmem_total_mb=8192\nmem_available_mb=2048\n" +
+		"disk_root_total_gb=127\ndisk_root_used_pct=40\ndisk=C:\t133169152\t53267660\t79901492\t40\tC:\\\n"
+	for name, in := range map[string]string{"s0": string(base), "polled": string(base) + polled} {
+		t.Run(name, func(t *testing.T) { factsOnlyWindowsLikeTheCommand(t, in) })
+	}
+}
+
+func factsOnlyWindowsLikeTheCommand(t *testing.T, in string) {
+	run := func(args ...string) (string, json.RawMessage) {
+		rs := startReplayServerWith(t, nil, replayStep{stdout: in})
+		if err := store.Update(store.Save(), func(st *store.State) error { st.Hosts["dev"].OS = store.OSWindows; return nil }); err != nil {
+			t.Fatal(err)
+		}
+		got := captureOutput(t, func() error { return runRoot(t, append([]string{"-o", "json"}, args...)...) })
+		var env struct {
+			Data json.RawMessage `json:"data"`
+		}
+		if i := strings.Index(got, "{"); i >= 0 {
+			_ = json.Unmarshal([]byte(got[i:]), &env)
+		}
+		rs.mu.Lock()
+		defer rs.mu.Unlock()
+		return strings.Join(rs.sent, "\n----\n"), env.Data
+	}
+	wantSent, today := run("facts", "dev", "--only", strings.Join(factsOnlyAll, ","))
+	withSnippets(t, registered()...)
+	gotSent, mine := run("recipe", "run", "facts-only", "dev")
+	if gotSent != wantSent {
+		t.Errorf("sent\n got:  %s\n want: %s", gotSent, wantSent)
+	}
+	var a struct {
+		Results []struct {
+			Data json.RawMessage `json:"data"`
+		} `json:"results"`
+	}
+	var b struct {
+		Result json.RawMessage `json:"result"`
+	}
+	if err := json.Unmarshal(today, &a); err != nil || len(a.Results) != 1 {
+		t.Fatalf("today: %v %s", err, today)
+	}
+	if err := json.Unmarshal(mine, &b); err != nil || len(b.Result) == 0 {
+		t.Fatalf("snippet: %v %s", err, mine)
+	}
+	if g, w := compact(t, b.Result), compact(t, a.Results[0].Data); g != w {
+		t.Errorf("result\n got:  %s\n want: %s", g, w)
+	}
 }
