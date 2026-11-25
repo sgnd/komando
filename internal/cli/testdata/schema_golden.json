@@ -10783,6 +10783,12 @@
         "hint": "run `komando group list` to see groups"
       },
       {
+        "code": "GUARD_PATH_MISSING",
+        "exit": 3,
+        "example": "komando cannot tell where its own program is, so it writes no guard hook",
+        "hint": "run komando by its full path, such as `/usr/local/bin/komando guide install`; without a guard: `komando guide install --no-guard`"
+      },
+      {
         "code": "HELM_RELEASE_NOT_FOUND",
         "exit": 3,
         "example": "no Helm release named … in namespace …",
