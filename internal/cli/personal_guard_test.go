@@ -401,6 +401,7 @@ func TestHostOfAMaskingConnIsPersonal(t *testing.T) {
 		{"another server", &store.Conn{Name: "pg", URL: "postgres://u@127.0.0.1:5432/app", Via: "web1", Options: on}, other, false},
 		{"a conn that hides nothing", &store.Conn{Name: "pg", URL: "postgres://u@10.0.0.5:5432/app", Via: "web1"}, web1, false},
 		{"a conn whose twin hides it", &store.Conn{Name: "pg", URL: "postgres://u@10.0.0.6:5432/app", Via: "web1"}, web1, true},
+		{"a database file and a server with no address", &store.Conn{Name: "lite", URL: "sqlite:///srv/app.db", Options: on}, &store.Host{Name: "cloud1"}, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			st := &store.State{Settings: store.Settings{MaskPersonal: "off"},
