@@ -668,9 +668,9 @@ func smbUserQ() formQ {
 // The storage commands: what a typed command asks for when it is missing.
 
 func init() {
-	conn := formArg{ask: "Which file storage?", pick: "storage", help: "A bucket or file server from your list (komando list kind:storage). Add one first with komando storage add."}
+	conn := formArg{ask: "Which file storage?", pick: "storage", help: "A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add."}
 	key := func(ask, help, example string) formArg { return formArg{ask: ask, help: help, example: example} }
-	addFormHints(map[string]formHint{
+	hints := map[string]formHint{
 		"storage list": {args: []formArg{conn,
 			key("Which folder inside it?", "Empty lists the top. A folder ends in /, like db/2026-11/.", "db/")},
 			flags: []formFlag{{name: "recursive", ask: "List everything below it too, not only one level?"}}},
@@ -702,19 +702,45 @@ func init() {
 		"storage link": {args: []formArg{conn,
 			key("Which file to share?", "Its name inside the storage. Anyone with the link can download it until it ends.", "reports/q3.pdf")},
 			flags: []formFlag{{name: "expires", ask: "How long should the link work?", help: "Like 30m or 24h; at most 168h (7 days).", def: "1h"}}},
-	})
+	}
+	// the object commands of the table: one hint per provider
+	oldToNew := map[string]string{"list": "object list", "cat": "object read", "rm": "object delete", "mkdir": "object create", "mv": "object move", "link": "object link"}
+	labels := map[string]string{"s3": "S3 bucket", "gcs": "Google Cloud Storage bucket", "azblob": "Azure Blob Storage container",
+		"sftp": "SFTP file server", "ftp": "FTP or FTPS file server", "webdav": "WebDAV folder", "smb": "Windows share (SMB)"}
+	for _, p := range []string{"s3", "gcs", "azblob", "sftp", "ftp", "smb", "webdav"} {
+		for k, h := range inventoryHints("storage", p, "storage", "File storage", labels[p]) {
+			hints[k] = h
+		}
+		hints["storage "+p+" object"] = formHint{}
+		for old, nw := range oldToNew {
+			if h, ok := hints["storage "+old]; ok && (old != "link" || p == "s3" || p == "gcs" || p == "azblob") {
+				hints["storage "+p+" "+nw] = h
+			}
+		}
+	}
+	for old := range oldToNew {
+		delete(hints, "storage "+old)
+	}
+	addFormHints(hints)
 }
 
 // Next: lines for the storage commands.
 func init() {
 	addFormHints(map[string]formHint{
-		"storage list":     {next: []string{"storage cat {} OBJECT --tail 50", "storage download {} OBJECT", "storage list {} PREFIX/ --recursive"}},
-		"storage cat":      {next: []string{"storage download {} OBJECT"}},
-		"storage upload":   {next: []string{"storage list {} PREFIX/", "storage link {} OBJECT --expires 24h"}},
-		"storage download": {next: []string{"storage list {}"}},
-		"storage rm":       {next: []string{"storage list {} --recursive"}},
-		"storage mkdir":    {next: []string{"storage upload {} FILE OBJECT", "storage list {} PREFIX/"}},
-		"storage mv":       {next: []string{"storage list {} PREFIX/"}},
-		"storage chmod":    {next: []string{"storage list {} PREFIX/"}},
+		"storage upload":   {next: []string{"storage {P} object list {} PREFIX/", "storage {P} object link {} OBJECT --expires 24h"}},
+		"storage download": {next: []string{"storage {P} object list {}"}},
+		"storage chmod":    {next: []string{"storage {P} object list {} PREFIX/"}},
 	})
+	next := map[string][]string{
+		"list":   {"storage {P} object read {} OBJECT --tail 50", "storage download {} OBJECT", "storage {P} object list {} PREFIX/ --recursive"},
+		"read":   {"storage download {} OBJECT"},
+		"delete": {"storage {P} object list {} --recursive"},
+		"create": {"storage upload {} FILE OBJECT", "storage {P} object list {} PREFIX/"},
+		"move":   {"storage {P} object list {} PREFIX/"},
+	}
+	for _, p := range []string{"s3", "gcs", "azblob", "sftp", "ftp", "smb", "webdav"} {
+		for verb, lines := range next {
+			addFormHints(map[string]formHint{"storage " + p + " object " + verb: {next: lines}})
+		}
+	}
 }

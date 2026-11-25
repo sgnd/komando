@@ -75,6 +75,7 @@ func nextLines(key, first string, args []string) []string {
 			continue
 		}
 		n = strings.ReplaceAll(n, "{}", first)
+		n = strings.ReplaceAll(n, "{P}", providerOfEntry(first))
 		if newName != "" {
 			n = strings.ReplaceAll(n, " NEW", " "+newName)
 		}
@@ -222,9 +223,9 @@ var itemCommands = map[string][]string{
 	"queue:pubsub": {"queue info {}", "queue list {}", "queue groups {}", "queue peek {} SUBSCRIPTION",
 		"queue send {} TOPIC --value hi --dry-run"},
 	"queue": {"queue info {}", "queue list {}", "queue peek {} QUEUE", "queue send {} QUEUE --value hi --dry-run"},
-	"storage": {"storage list {}", "storage cat {} OBJECT --tail 50", "download {} KEY --to ./", "upload {} FILE FOLDER/",
-		"sync ./folder {}:FOLDER/ --dry-run", "storage rm {} --prefix FOLDER/ --older-than 30d --dry-run"},
-	"storage:link": {"storage link {} OBJECT --expires 24h"},
+	"storage": {"storage {P} object list {}", "storage {P} object read {} OBJECT --tail 50", "download {} KEY --to ./", "upload {} FILE FOLDER/",
+		"sync ./folder {}:FOLDER/ --dry-run", "storage {P} object delete {} --prefix FOLDER/ --older-than 30d --dry-run"},
+	"storage:link": {"storage {P} object link {} OBJECT --expires 24h"},
 	"cluster": {"cluster status {}", "cluster list {} pods", "cluster events {} --warnings", "cluster logs {} deploy/NAME",
 		"cluster deploy {} deploy/NAME --image IMAGE --wait", "cluster apply {} --file app.yaml --dry-run",
 		"cluster helm list {} -A", "cluster run {} -- get pods -A"},
@@ -290,6 +291,6 @@ func showCommands(cl *call, kind, name string) {
 	}
 	fmt.Fprintln(promptW(cl), "\nCOMMANDS")
 	for _, c := range cmds {
-		fmt.Fprintln(promptW(cl), "  komando "+strings.ReplaceAll(c, "{}", name))
+		fmt.Fprintln(promptW(cl), "  komando "+strings.ReplaceAll(strings.ReplaceAll(c, "{}", name), "{P}", providerOfEntry(name)))
 	}
 }

@@ -361,7 +361,7 @@ func familyOfType(typ string) string {
 // providerWord is the word of a kind's provider in the table: the kind's
 // own name, but for the kinds the table names otherwise.
 func providerWord(k driver.Kind) string {
-	if w, ok := map[string]string{"registry": "oci"}[k.Name]; ok {
+	if w, ok := map[string]string{"registry": "oci", "ftps": "ftp"}[k.Name]; ok {
 		return w
 	}
 	return k.Name
@@ -565,4 +565,19 @@ func moveType(typ string) {
 			}
 		}
 	}
+}
+
+// providerOfEntry is the table word of the provider of the saved conn
+// called name, for the {P} of a Next: line; PROVIDER when there is none.
+func providerOfEntry(name string) string {
+	st, err := loadState()
+	if err != nil {
+		return "PROVIDER"
+	}
+	if c, ok := st.Conns[name]; ok {
+		if t, err := driver.Parse(c.URL); err == nil {
+			return providerWord(t.Kind)
+		}
+	}
+	return "PROVIDER"
 }

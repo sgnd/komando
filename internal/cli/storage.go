@@ -17,6 +17,7 @@ import (
 	"github.com/pkg/sftp"
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
@@ -36,7 +37,7 @@ func storageCmd() *cobra.Command {
 		Aliases: []string{"s3"},
 		Short:   "Buckets (S3, GCS, Azure) and file servers: browse, copy, remove",
 		Long: `List, copy and share files in a bucket or on a file server. Add one with
-` + "`komando storage add`" + `.
+` + "`komando storage s3 add`" + ` (or gcs, azblob, sftp, ftp, smb, webdav).
 
 It works with an S3-compatible, Google Cloud Storage or Azure Blob bucket,
 or a folder on a WebDAV, FTPS, FTP or SFTP server or an SMB share (Windows,
@@ -49,22 +50,15 @@ Downloads never overwrite a local file unless --overwrite, and uploads to
 file servers go to a temporary name first, so a failed upload leaves
 nothing half written.
 
-The storage itself: komando storage add, komando test CONN, komando conn
-edit CONN, komando conn rm CONN. komando list kind:storage lists them.`,
-		Example: `  komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password
-  komando storage list backups 2026/
+The storage itself: komando storage s3 add, komando storage s3 test NAME,
+komando storage s3 edit NAME, komando storage s3 remove NAME. komando list
+kind:storage lists them.`,
+		Example: `  komando storage s3 add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password
+  komando storage s3 object list backups 2026/
   komando download backups 2026/app.sql.gz --to ./
-  komando storage rm backups --prefix daily/ --older-than 30d --dry-run`,
+  komando storage s3 object delete backups --prefix daily/ --older-than 30d --dry-run`,
 	}
-	add := connAddCmdFor("storage")
-	add.Example += `
-  komando storage add backups 's3://my-bucket/db?region=eu-west-1' --option aws_profile=prod   # AWS SSO or a role
-  komando storage add minio 's3://AKIAEXAMPLE@media?endpoint=https://minio.internal:9000' --via bastion --ask-password
-  komando storage add media gs://my-bucket/site   # logs in like gcloud
-  komando storage add files azblob://mystorageacct@uploads/2026 --password-ref secret:files-key
-  komando storage add site 'sftp://deploy@files.example.com/uploads'`
-	c.AddCommand(add, storageLsCmd(), storageCatCmd(), storageDownloadCmd(), storageUploadCmd(), storageRmCmd(), storageLinkCmd(),
-		storageMkdirCmd(), storageMvCmd(), storageChmodCmd())
+	c.AddCommand(storageDownloadCmd(), storageUploadCmd(), storageChmodCmd())
 	return c
 }
 
@@ -628,4 +622,46 @@ func storageUpload(cl *call, ctx context.Context, name, conn, file, key string, 
 			d.DryRun = true
 			return d, err
 		})
+}
+
+// The storage type of the table: komando storage PROVIDER VERB and storage
+// PROVIDER object VERB. The inventory verbs are the shared ones
+// (inventoryHandlers); the object verbs are today's list, cat, mkdir, mv,
+// rm and link. upload, download and chmod stay at their places until the
+// copy step and the decision on chmod.
+func init() {
+	providers := []string{"s3", "gcs", "azblob", "sftp", "ftp", "smb", "webdav"}
+	inventoryHandlers("storage", providers...)
+	bodies := map[string]func() *cobra.Command{"list": storageLsCmd, "read": storageCatCmd, "create": storageMkdirCmd,
+		"move": storageMvCmd, "delete": storageRmCmd, "link": storageLinkCmd}
+	for _, p := range providers {
+		for verb, body := range bodies {
+			key := capability.Key{Type: "storage", Provider: p, Area: "object", Verb: verb}
+			if _, ok := capability.Find(key); !ok {
+				continue // link only where the service makes links
+			}
+			handlers[key] = func(cl *call, ctx context.Context, in leafInput) error {
+				if err := withEntry(cl, in.Args[0], "storage", p, "object "+verb); err != nil {
+					return err
+				}
+				if verb == "move" && in.Changed("mode") {
+					return out.Errf(out.ExitUsage, "USAGE", "use `komando storage chmod NAME MODE PATH` until its place in the new tree is decided",
+						"--mode is not built into object move yet")
+				}
+				return runBody(cl, ctx, body(), in, nil)
+			}
+		}
+		groupShorts["storage "+p] = "Storage of this kind: save it, and look after its objects"
+		groupShorts["storage "+p+" object"] = "The objects of a storage: list, read, create, move, delete"
+		examples["komando storage "+p] = "  komando storage " + p + " add backups URL --dry-run\n" +
+			"  komando storage " + p + " add backups URL\n" +
+			"  komando storage " + p + " test backups\n" +
+			"  komando storage " + p + " object list backups 2026/\n" +
+			"  komando storage " + p + " object read backups logs/app.log --tail 50"
+		examples["komando storage "+p+" object"] = "  komando storage " + p + " object list backups 2026/\n" +
+			"  komando storage " + p + " object read backups logs/app.log --tail 50\n" +
+			"  komando storage " + p + " object create backups reports/2026 --dry-run\n" +
+			"  komando storage " + p + " object delete backups --prefix daily/ --older-than 30d --dry-run"
+	}
+	moveType("storage")
 }

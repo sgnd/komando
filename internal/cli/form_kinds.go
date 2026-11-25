@@ -47,7 +47,7 @@ func formGroupsFor(cl *call, kind string) []formGroup {
 // formFamilyAdd is each `komando FAMILY add` and its Add group.
 var formFamilyAdd = map[string]string{
 	"db add": "Databases", "queue add": "Queues",
-	"storage add": "File storage", "cluster add": "Clusters",
+	"cluster add": "Clusters",
 }
 
 // formGroupNamed is the one Add group with this label.
@@ -626,7 +626,6 @@ func init() {
 	next := map[string][]string{
 		"db add":      {"db info {}", "db query {} \"select 1\"", "db schema {}"},
 		"queue add":   {"queue info {}", "queue list {}", "queue peek {} TOPIC"},
-		"storage add": {"storage list {}", "conn edit {} --protected"},
 		"cluster add": {"cluster status {}", "cluster list {} pods"},
 	}
 	for cmd, label := range formFamilyAdd {

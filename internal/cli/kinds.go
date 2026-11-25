@@ -308,6 +308,13 @@ var commandKinds = map[safetyKey]cmdKind{
 	{"", "", "status"}: reads,
 
 	{"storage", "", ""}:               reads,
+	{"storage", "", "edit"}:           changes,
+	{"storage", "", "list"}:           reads,
+	{"storage", "", "remove"}:         changes,
+	{"storage", "", "rename"}:         changes,
+	{"storage", "", "show"}:           reads,
+	{"storage", "", "test"}:           reads,
+	{"storage", "object", ""}:         reads,
 	{"storage", "object", "read"}:     reads,
 	{"storage", "object", "chmod"}:    changes,
 	{"storage", "object", "download"}: reads,
