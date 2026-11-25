@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -186,9 +187,15 @@ func newGate(cmd *cobra.Command, who engine.Caller) *gate {
 	var on [4]bool
 	if cmd != nil {
 		for i, name := range gateFlagNames {
-			v, err := cmd.Flags().GetBool(name)
+			// Flag also finds the root's persistent flags on a command whose
+			// flags were not parsed and merged yet
+			f := cmd.Flag(name)
+			if f == nil {
+				panic("komando: the gate flag --" + name + " is not on " + cmd.CommandPath())
+			}
+			v, err := strconv.ParseBool(f.Value.String())
 			if err != nil {
-				panic("komando: the gate flag --" + name + " is not on " + cmd.CommandPath() + ": " + err.Error())
+				panic("komando: the gate flag --" + name + " is no yes or no: " + err.Error())
 			}
 			on[i] = v
 		}
