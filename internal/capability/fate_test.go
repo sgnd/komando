@@ -36,6 +36,12 @@ func carriers() map[string][]Leaf {
 	return m
 }
 
+// TestEveryIDHasFate is the "nothing lost" check of the cut (plan section
+// 1): every command ID of today has exactly one fate (a leaf carries it,
+// gone, internal, cobra's own, or a group), no fate list names an ID
+// twice, and the leaves that carry one ID share their verb and type: they
+// differ only in provider or area (one leaf per provider, or one ID that
+// splits into kinds; conn splits into types).
 func TestEveryIDHasFate(t *testing.T) {
 	ids := todayIDs(t)
 	known := map[string]bool{}
@@ -43,19 +49,34 @@ func TestEveryIDHasFate(t *testing.T) {
 		known[id] = true
 	}
 	fate := map[string][]string{} // ID -> where its fate is written
-	for id, ls := range carriers() {
-		for _, l := range ls {
-			fate[id] = append(fate[id], "leaf "+l.Key.String())
+	add := func(id, where string) {
+		if slices.Contains(fate[id], where) {
+			t.Errorf("%s: listed twice in %s", id, where)
+		}
+		fate[id] = append(fate[id], where)
+	}
+	for _, l := range All() {
+		for _, id := range slices.Concat(l.Today, l.Carries) {
+			add(id, "leaf "+l.Key.String())
 		}
 	}
 	for _, g := range Gones() {
-		fate[g.Today] = append(fate[g.Today], "gone")
+		add(g.Today, "gone")
 	}
 	for _, in := range Internals() {
-		fate[in.Today] = append(fate[in.Today], "internal")
+		add(in.Today, "internal")
 	}
 	for _, id := range CobraOwn() {
-		fate[id] = append(fate[id], "cobra")
+		add(id, "cobra")
+	}
+	for _, id := range Groups() {
+		add(id, "group")
+		if k, ok := todayOnlyKeys[id]; !ok || k.Verb != "" {
+			t.Errorf("%s: in groups, but its key in todayOnlyKeys is %v, not a group's (no verb)", id, k)
+		}
+		if !slices.ContainsFunc(ids, func(other string) bool { return strings.HasPrefix(other, id+".") }) {
+			t.Errorf("%s: in groups, but no command ID of today is under it", id)
+		}
 	}
 	for id, where := range fate {
 		if !known[id] {
@@ -69,15 +90,18 @@ func TestEveryIDHasFate(t *testing.T) {
 			t.Errorf("%s: two kinds of fate %v", id, where)
 		}
 	}
-	for _, id := range ids {
-		if len(fate[id]) > 0 {
-			continue
+	for id, ls := range carriers() {
+		for _, l := range ls[1:] {
+			// conn of today holds entries of every type; v2.7 puts them under each
+			splitsByType := strings.HasPrefix(id, "conn.")
+			if l.Verb != ls[0].Verb || l.Type != ls[0].Type && !splitsByType {
+				t.Errorf("%s: carried by %s and %s, two different commands", id, ls[0].Key, l.Key)
+			}
 		}
-		// a group of today (db.user) needs no fate of its own when every
-		// command under it has one
-		group := slices.ContainsFunc(ids, func(other string) bool { return strings.HasPrefix(other, id+".") })
-		if !group {
-			t.Errorf("%s: no fate: carry it on a leaf (Today or Carries), or add it to gone, internal or cobraOwn", id)
+	}
+	for _, id := range ids {
+		if len(fate[id]) == 0 {
+			t.Errorf("%s: no fate: carry it on a leaf (Today or Carries), or add it to gone, internal, cobraOwn or groups", id)
 		}
 	}
 }
