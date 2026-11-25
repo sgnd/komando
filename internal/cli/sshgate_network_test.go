@@ -113,11 +113,11 @@ func TestGateNetworkClassified(t *testing.T) {
 		}
 		top, _, _ := strings.Cut(name, ".")
 		if !c.Runnable() || c.Annotations[groupOnly] == "true" || c.Hidden || c == c.Root() ||
-			top == "help" || top == "completion" || gateNeedsPerson[name] {
+			top == "help" || top == "completion" || gateNeedsPerson[cmdKeys[name]] {
 			return
 		}
 		k, ok := kindOf(c)
-		reachable := ok && (k.Kind == kindRead || k.Kind == kindDepends && gateReadForm[name] != nil)
+		reachable := ok && (k.Kind == kindRead || k.Kind == kindDepends && gateReadForm[cmdKeys[name]] != nil)
 		_, safe := gateNoNetwork[name]
 		_, egress := gateNetwork[name]
 		switch {

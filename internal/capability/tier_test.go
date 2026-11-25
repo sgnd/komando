@@ -1,6 +1,7 @@
 package capability
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
@@ -94,5 +95,76 @@ func TestReachesProvider(t *testing.T) {
 	wild := TierRow{Key: Key{Type: "host", Verb: "shell"}}
 	if !wild.Reaches(Key{Type: "host", Provider: "serial", Verb: "shell"}) {
 		t.Error("a row without a provider must reach every provider")
+	}
+}
+
+// TestFloor: a verb that only looks has the floor read, every other verb
+// change; Highest is the floor or the highest row that reaches the leaf,
+// whatever its condition.
+func TestFloor(t *testing.T) {
+	tests := []struct {
+		key  Key
+		want Tier
+	}{
+		{Key{Type: "host", Provider: "ssh", Verb: "list"}, Read},
+		{own("credential", "", "show"), Read},
+		{top("status"), Read},
+		{Key{Type: "database", Provider: "postgres", Verb: "backup"}, Change}, // writes the data to a file: change unless a row says read
+		{top("export"), Change},
+		{Key{Type: "host", Provider: "ssh", Verb: "test"}, Read},
+		{Key{Type: "host", Provider: "ssh", Verb: "check"}, Read},
+		{Key{Type: "host", Provider: "ssh", Verb: "add"}, Change},
+		{Key{Type: "host", Provider: "ssh", Verb: "exec"}, Change},
+		{top("ssh-gate"), Change}, // a kept word: not a verb that only looks
+	}
+	for _, tt := range tests {
+		if got := Floor(tt.key); got != tt.want {
+			t.Errorf("Floor(%s) = %d, want %d", tt.key, got, tt.want)
+		}
+	}
+	for _, v := range readVerbs {
+		if !slices.ContainsFunc(Verbs(), func(x Verb) bool { return x.Name == v }) {
+			t.Errorf("readVerbs has %q, which is no verb of the closed vocabulary", v)
+		}
+	}
+	if got := Highest(Key{Type: "host", Provider: "ssh", Verb: "exec"}); got != Dangerous {
+		t.Errorf("Highest(host ssh exec) = %d, want dangerous (its row)", got)
+	}
+	if got := Highest(Key{Type: "host", Provider: "ssh", Verb: "list"}); got != Read {
+		t.Errorf("Highest(host ssh list) = %d, want read (no row, a looking verb)", got)
+	}
+}
+
+// TestDataOutHasARow: a leaf that writes data out of komando (backup,
+// export) has an explicit row with no condition, so its tier is decided
+// for it and never taken from a floor. A row of read is given only where
+// today's command reads (TestLeafFloorNotWeaker).
+func TestDataOutHasARow(t *testing.T) {
+	n := 0
+	for _, l := range leaves {
+		if l.Verb != "backup" && l.Verb != "export" {
+			continue
+		}
+		n++
+		if !slices.ContainsFunc(Rows(l.Key), func(r TierRow) bool { return r.When.zero() && r.Dynamic == "" }) {
+			t.Errorf("%s: writes data out but has no row with no condition", l.Key)
+		}
+	}
+	if n == 0 {
+		t.Fatal("no leaf writes data out: the check ran over nothing")
+	}
+	want := map[Key]Tier{
+		{Type: "database", Provider: "postgres", Verb: "backup"}: Read,
+		top("export"):                       Read,
+		own("audit", "recording", "export"): Person, // a recording holds what was typed, secrets included (chief, 2026-11-25)
+		own("audit", "", "export"):          Person, // the log can hold SQL text (audit_sql=full; CLI coordinator, 2026-11-25)
+	}
+	for k, w := range want {
+		if got := Base(k); got != w {
+			t.Errorf("Base(%s) = %d, want %d", k, got, w)
+		}
+	}
+	if got := Highest(top("export")); got != Person {
+		t.Errorf("Highest(export) = %d, want person (--sealed, --for-phone)", got)
 	}
 }
