@@ -289,6 +289,11 @@ func kubectlScalesToZero(c simpleCommand) bool {
 // or break it.
 var essentialPkgs = regexp.MustCompile(`^(openssh-server|openssh|ssh|sudo|systemd|systemd-sysv|init|libc6|glibc|libc|musl|bash|coreutils|util-linux|apt|dpkg|rpm|dnf|yum|apk-tools|busybox|base-files|login|passwd|linux-image.*|kernel.*|linux)$`)
 
+// EssentialPackagePattern is essentialPkgs as an extended regular
+// expression, for the scripts that check a package manager's plan on the
+// server (grep -E).
+func EssentialPackagePattern() string { return essentialPkgs.String() }
+
 // essentialSamples are names essentialPkgs matches, one per entry, for
 // testing a name that a package manager reads as a pattern.
 var essentialSamples = strings.Fields(`openssh-server openssh ssh sudo systemd systemd-sysv init libc6 glibc libc musl bash
