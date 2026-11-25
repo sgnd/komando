@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -427,7 +428,7 @@ func pubsubForm(_ *call) formSpec {
 // (?creds=secret:NAME).
 func natsCredsProblem(_ *store.State, _ formAnswers, v string) string {
 	n := strings.TrimPrefix(v, "secret:")
-	if strings.ContainsAny(v, " \t") || validName("secret", n) != nil {
+	if strings.ContainsAny(v, " \t") || inventory.ValidName("secret", n) != nil {
 		return "pick a name from komando secret list, or type secret:NAME; save the file first with komando secret set NAME < user.creds"
 	}
 	return ""

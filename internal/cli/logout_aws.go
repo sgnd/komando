@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/cloud"
 	"github.com/sgnd/komando/internal/out"
 )
@@ -79,14 +80,14 @@ type awsLoggedOut struct {
 func (d awsLogoutData) Text() string {
 	var sb strings.Builder
 	for _, l := range d.LoggedOut {
-		fmt.Fprintf(&sb, "logged out of AWS %s (profiles: %s)", cleanText(l.StartURL), cleanText(strings.Join(l.Profiles, ", ")))
+		fmt.Fprintf(&sb, "logged out of AWS %s (profiles: %s)", term.CleanText(l.StartURL), term.CleanText(strings.Join(l.Profiles, ", ")))
 		if !l.Revoked {
 			sb.WriteString("; AWS could not be reached to end the token there, it runs out by itself")
 		}
 		sb.WriteString("\n")
 	}
 	for _, p := range d.NotLoggedIn {
-		fmt.Fprintf(&sb, "profile %s: no AWS SSO login on this computer\n", cleanText(p))
+		fmt.Fprintf(&sb, "profile %s: no AWS SSO login on this computer\n", term.CleanText(p))
 	}
 	return sb.String()
 }

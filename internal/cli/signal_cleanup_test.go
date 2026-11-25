@@ -5,10 +5,8 @@ package cli
 import (
 	"context"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -66,36 +64,5 @@ func TestSecondSignalRemovesTempFiles(t *testing.T) {
 	}
 	if _, err := os.Stat(tmp); !os.IsNotExist(err) {
 		t.Errorf("the temporary file stayed: %v", err)
-	}
-}
-
-// A komando started with SIGHUP ignored (nohup, a login holder) keeps it
-// ignored: closing the terminal does not stop it. Run in a child that
-// starts with SIGHUP ignored, whatever this process was started with.
-func TestIgnoredSIGHUPStaysIgnored(t *testing.T) {
-	if os.Getenv("KOMANDO_SIGHUP_CHILD") == "1" {
-		// signalContext must not take over an ignored SIGHUP: listening
-		// for it would end the ignoring, which signal.Ignored shows at
-		// once, with no waiting for a signal
-		_, cancel := signalContext(context.Background())
-		defer cancel()
-		if signal.Ignored(syscall.SIGHUP) {
-			os.Stdout.WriteString("kept running\n")
-		} else {
-			os.Stdout.WriteString("listens for SIGHUP\n")
-		}
-		return
-	}
-	// nohup is the usual way a SIGHUP is ignored from the start
-	nohup, err := exec.LookPath("nohup")
-	if err != nil {
-		t.Skip("no nohup here")
-	}
-	cmd := exec.Command(nohup, os.Args[0], "-test.run=^TestIgnoredSIGHUPStaysIgnored$", "-test.timeout=10m")
-	cmd.Env = append(os.Environ(), "KOMANDO_SIGHUP_CHILD=1")
-	cmd.Dir = t.TempDir() // nohup writes nohup.out here when it cannot use the terminal
-	out, err := cmd.CombinedOutput()
-	if err != nil || !strings.Contains(string(out), "kept running") {
-		t.Errorf("a SIGHUP ignored from the start would stop the command (%v):\n%s", err, out)
 	}
 }

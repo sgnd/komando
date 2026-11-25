@@ -17,6 +17,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/dbx"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
@@ -251,20 +252,7 @@ func (d transferData) Text() string {
 		}
 		return fmt.Sprintf("dry run: would run %s on %s%s for %s", strings.Join(d.Tool, " "), d.RunsOn, low, d.File)
 	}
-	return fmt.Sprintf("%s: %s (%s)", d.Conn, d.File, humanBytes(d.Bytes))
-}
-
-func humanBytes(n int64) string {
-	const unit = 1024
-	if n < unit {
-		return fmt.Sprintf("%d B", n)
-	}
-	div, exp := int64(unit), 0
-	for m := n / unit; m >= unit; m /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %ciB", float64(n)/float64(div), "KMGTPE"[exp])
+	return fmt.Sprintf("%s: %s (%s)", d.Conn, d.File, term.HumanBytes(d.Bytes))
 }
 
 func runDump(cl *call, ctx context.Context, connExpr, to, on string, o dumpOpts) error {

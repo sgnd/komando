@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -76,9 +78,9 @@ func usersText(data any) string {
 	for _, r := range data.([]userRow) {
 		lk := "?" // the server did not say
 		if r.Locked != nil {
-			lk = yesCell(*r.Locked)
+			lk = term.YesCell(*r.Locked)
 		}
-		rows = append(rows, []string{r.Name, strconv.Itoa(r.UID), r.Home, r.Shell, yesCell(r.AdminGroup), lk})
+		rows = append(rows, []string{r.Name, strconv.Itoa(r.UID), r.Home, r.Shell, term.YesCell(r.AdminGroup), lk})
 	}
 	return textTable([]string{"name", "uid", "home", "shell", "admin group", "locked"}, rows)
 }
@@ -355,7 +357,7 @@ func userPubKey(keyName, pubKey string) (string, error) {
 // checkUsername: an account name, never an option of useradd, usermod or
 // userdel.
 func checkUsername(u string) error {
-	if !nameRe.MatchString(u) {
+	if !inventory.NameRe.MatchString(u) {
 		return out.Usage("%q cannot be a user name: start with a letter or digit, then letters, digits, . _ or - (at most 63)", u)
 	}
 	return nil

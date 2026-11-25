@@ -18,6 +18,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
@@ -185,7 +186,7 @@ func startSession(cl *call, ctx context.Context, st *store.State, v *store.Vpn, 
 	case v.Kind == "tailscale":
 		if v.MFA { // no auth key: a person logs in through the browser first
 			err := netx.TailscaleLogin(ctx, v, func(url string) {
-				fmt.Fprintf(cl.out.Err, "komando: log in to %s at %s\n", v.Name, cleanText(url))
+				fmt.Fprintf(cl.out.Err, "komando: log in to %s at %s\n", v.Name, term.CleanText(url))
 				openBrowser(ctx, url)
 			})
 			if err != nil {
@@ -342,7 +343,7 @@ func loginPrompt(cl *call, label string, secretIn bool) (string, error) {
 func loginQuestion(label string) string {
 	lines := strings.Split(strings.TrimSpace(label), "\n")
 	for i, l := range lines {
-		lines[i] = cleanText(l)
+		lines[i] = term.CleanText(l)
 	}
 	q := strings.TrimSuffix(strings.TrimSpace(lines[len(lines)-1]), ":")
 	if strings.HasSuffix(q, "?") || strings.HasSuffix(q, "]") {
