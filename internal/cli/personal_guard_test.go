@@ -95,7 +95,7 @@ func TestDumpRefusedWherePersonalDataIsHidden(t *testing.T) {
 		t.Errorf("a dry run reports the stop: %v %+v", d, e)
 	}
 	setGate(tcl, false, gateDryRun)
-	mustRun(t, "db", "dump", "dev", "--to", filepath.Join(dir, "dev.db")) // nothing hidden there
+	wantCode(t, "NEEDS_PERSON", "db", "dump", "dev", "--to", filepath.Join(dir, "dev.db")) // nothing hidden there, still a dump (TestAgentDumpNeedsPersonOnEveryConn)
 	os.Unsetenv("KOMANDO_AGENT")
 	resetApproval()
 	mustRun(t, "conn", "edit", "dev", "--option", "mask_columns=name")
@@ -457,4 +457,40 @@ func TestExecOnAMaskingConnsServerHidesPersonalData(t *testing.T) {
 		t.Fatalf("a download from dev: hidden %v, %+v", tcl.out.Personal, e)
 	}
 	setGate(tcl, false, gateDryRun)
+}
+
+// An AI agent's dump needs a person on every connection, not only where
+// personal data is hidden (C424, chief's decision for the v2.7 row): a dump
+// also passes the secret masking db query applies (password and token
+// columns), and the agent reads the file next with its own tools. It is
+// the person tier: no flag lifts it and no window opens; the person runs
+// the dump in their own terminal. People and scripts are not asked.
+func TestAgentDumpNeedsPersonOnEveryConn(t *testing.T) {
+	personalDB(t) // dev: no masking, not protected
+	dir := t.TempDir()
+	file := filepath.Join(dir, "dev.db")
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
+	tcl.ask = func(string) (allowed, shown bool) { t.Error("an agent's dump opened the window"); return true, true }
+	t.Cleanup(func() { tcl.ask = nil })
+	e := wantCode(t, "NEEDS_PERSON", "db", "dump", "dev", "--to", file)
+	if !strings.Contains(e.Hint, "own terminal") || len(e.Flags()) != 0 {
+		t.Errorf("hint: %+v", e)
+	}
+	for _, flag := range []string{"--yes", "--allow-dangerous", "--reveal"} {
+		resetApproval()
+		wantCode(t, "NEEDS_PERSON", "db", "dump", "dev", "--to", file, flag)
+		setGate(tcl, false, gateYes, gateAllowDangerous, gateReveal)
+	}
+	if _, err := os.Stat(file); err == nil {
+		t.Error("the dump was written for an AI agent")
+	}
+	if d, e := invRun(t, "--dry-run", "db", "dump", "dev", "--to", file); e != nil || blockedCode(d) != "NEEDS_PERSON" {
+		t.Errorf("a dry run reports the stop: %v %+v", d, e)
+	}
+	setGate(tcl, false, gateDryRun)
+
+	// a person's own dump asks nothing
+	os.Unsetenv("KOMANDO_AGENT")
+	resetApproval()
+	mustRun(t, "db", "dump", "dev", "--to", filepath.Join(dir, "person.db"))
 }

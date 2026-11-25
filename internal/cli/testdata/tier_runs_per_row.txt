@@ -1,0 +1,59 @@
+agent skill uninstall dynamic safety	1
+cache edit --protected=false safety	1
+cache raw dynamic dangerous	1
+cluster edit --protected=false safety	1
+cluster exec dynamic dangerous	1
+cluster raw dynamic dangerous	1
+cluster shell person	1
+config approval-code person	1
+config set dynamic safety	1
+config vault keychain not --off person	1
+config vault passphrase person	1
+copy --sync --delete dangerous	1
+credential certificate add person	1
+credential key remove --delete-file dangerous	1
+credential key uninstall dynamic dangerous	1
+credential password remove dangerous	1
+credential run dynamic safety	1
+credential token remove dangerous	1
+database backup dynamic person	1
+database edit --protected=false safety	1
+database query dynamic dangerous	1
+database restore dangerous	1
+database shell person	1
+export --for-phone person	1
+export --sealed person	1
+floor	61
+group remove change	1
+host edit --protected=false safety	1
+host exec dynamic dangerous	1
+host shell person	1
+host ssh add --proxy-command dynamic dangerous	1
+host ssh add --proxy-command dynamic safety	1
+host ssh edit --proxy-command dynamic dangerous	1
+host ssh edit --proxy-command dynamic safety	1
+host ssh test --end change	2
+host ssh trust --reset person	1
+host ssh trust dynamic safety	1
+host tunnel start dynamic safety	1
+import dynamic dangerous	1
+import dynamic safety	1
+policy edit --add-group safety	1
+policy edit --add-server safety	1
+policy edit --off safety	1
+policy remove safety	1
+queue edit --protected=false safety	1
+queue message delete --all dangerous	1
+queue topic delete dangerous	1
+registry add dynamic safety	1
+registry edit --protected=false safety	1
+registry image delete dangerous	1
+registry image prune dangerous	1
+snippet create --overwrite --read-only dynamic safety	1
+snippet exec dynamic dangerous	1
+storage edit --protected=false safety	1
+storage object delete dangerous	1
+storage object link dynamic safety	1
+test --end change	1
+vpn edit --mfa=false safety	1
+vpn edit --protected=false safety	1
