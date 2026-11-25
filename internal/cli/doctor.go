@@ -313,7 +313,7 @@ func (r *doctorReport) safe() {
 // Code's, and every other agent's hook line that is there.
 func agentGuardChecks(installed []string, add func(name string, ok bool, detail string, fix ...string)) {
 	if hookOS == "windows" && len(installed) > 0 {
-		add("agent_guard_windows", false, "on Windows the hook lets a call through when komando is missing: keep komando where the hook names it")
+		add("agent_guard_windows", false, "on Windows the hook lets a call through when komando is missing, and doctor cannot tell whether other users may change the komando program: keep komando where the hook names it, in a folder only you can change")
 	}
 	if home, err := os.UserHomeDir(); err == nil && len(installed) > 0 && slices.ContainsFunc(installed, func(p string) bool { return strings.Contains(p, ".claude") }) {
 		switch found, problem := claudeGuard(filepath.Join(home, ".claude", "settings.json")); {

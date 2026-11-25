@@ -554,12 +554,12 @@ func komandoFolderOK(c string) bool {
 
 // namesGuardFile is a hook file, an agent's settings folder itself, as a
 // line writes it anywhere: after ~, $HOME or a full path, in code or in a
-// variable.
-var namesGuardFile = regexp.MustCompile(`(?i)\.claude/settings[^/\s'"]*\.json|\.codex/(hooks\.json|config\.toml)|\.gemini/settings\.json|\.cursor/hooks\.json|\.(claude|codex|gemini|cursor)/?(["'\s;&|)]|$)`)
+// variable, with / or with \ (PowerShell and cmd on Windows).
+var namesGuardFile = regexp.MustCompile(`(?i)\.claude[/\\]settings[^/\\\s'"]*\.json|\.codex[/\\](hooks\.json|config\.toml)|\.gemini[/\\]settings\.json|\.cursor[/\\]hooks\.json|\.(claude|codex|gemini|cursor)[/\\]?(["'\s;&|)]|$)`)
 
 // komandoPathWord is a word of a line that ends in /komando or
-// /komando.exe.
-var komandoPathWord = regexp.MustCompile(`(?i)([^\s'"=;&|()<>,]*/komando(\.exe)?)(["'\s;&|)<>,]|$)`)
+// /komando.exe (or \komando on Windows).
+var komandoPathWord = regexp.MustCompile(`(?i)([^\s'"=;&|()<>,]*[/\\]komando(\.exe)?)(["'\s;&|)<>,]|$)`)
 
 var komandoWord = regexp.MustCompile(`(?i)\bkomando\b`)
 
@@ -596,7 +596,11 @@ func checkGuardFileNamed(cl *call, line, base string, args []string, home, cwd s
 		return refuse(strings.TrimRight(m, "\"' ;&|)"), "")
 	}
 	for _, m := range komandoPathWord.FindAllStringSubmatch(line, -1) {
-		if why := guardSelfWhy(guardPathAt(cl, m[1], home, cwd)); why != "" {
+		w := m[1]
+		if runtime.GOOS == "windows" { // \ is a separator there, not an escape
+			w = strings.ReplaceAll(w, `\`, "/")
+		}
+		if why := guardSelfWhy(guardPathAt(cl, w, home, cwd)); why != "" {
 			return refuse(m[1], why)
 		}
 	}
