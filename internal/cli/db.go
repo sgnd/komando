@@ -689,27 +689,24 @@ func printQuery(cl *call, name string, c *store.Conn, plan driver.SQLPlan, f dbF
 
 // sqlGap is the space between two words, which may hold comments
 // (IDENTIFIED/**/BY).
-const sqlGap = `(?:\s|/\*.*?\*/|--[^\n]*\n)+`
+const sqlGap = out.SQLGap
 
-// sqlSecret matches the password literal in CREATE/ALTER USER and ROLE,
-// SET PASSWORD and PASSWORD() so the audit log never stores it:
-// PASSWORD 'x' (Postgres), IDENTIFIED [WITH plugin] BY 'x', SET PASSWORD
-// [FOR u] = 'x' (MySQL), PASSWORD = N'x' (SQL Server), IDENTIFIED BY
-// VALUES 'hash' (Oracle).
-var sqlSecret = regexp.MustCompile(`(?is)(\bPASSWORD\s*(?:FOR\s+\S+\s*)?=?\s*\(?\s*N?|\bIDENTIFIED` + sqlGap + `(?:WITH\s+\S+\s+)?BY` + sqlGap + `(?:VALUES` + sqlGap + `)?)('(?:[^'\\]|''|\\.)*'|"(?:[^"\\]|""|\\.)*"|\$[A-Za-z_]*\$.*?\$[A-Za-z_]*\$)`)
-
-// oraSecret is Oracle's IDENTIFIED BY password without quotes.
-var oraSecret = regexp.MustCompile(`(?is)(\bIDENTIFIED` + sqlGap + `BY` + sqlGap + `)([A-Za-z][A-Za-z0-9_$#]*)`)
+// oraSecret is Oracle's IDENTIFIED BY password without quotes. Group 3
+// is a quote right after the name: then the name is a literal's prefix
+// (E'...', U&'...'), which out.SQLPasswords has hidden.
+var oraSecret = regexp.MustCompile(`(?is)(\bIDENTIFIED` + sqlGap + `BY` + sqlGap + `)([A-Za-z][A-Za-z0-9_$#]*)(&?')?`)
 
 // oraOld is the old password in Oracle's ALTER USER u IDENTIFIED BY new
 // REPLACE old, once the new one is hidden.
 var oraOld = regexp.MustCompile(`(?is)(\bIDENTIFIED` + sqlGap + `BY` + sqlGap + `(?:'\*\*\*'|\*\*\*)` + sqlGap + `REPLACE` + sqlGap + `)('(?:[^']|'')*'|"(?:[^"]|"")*"|[A-Za-z][A-Za-z0-9_$#]*)`)
 
+// redactSQL hides the passwords in SQL text so the audit log never stores
+// them: the literals out.SQLPasswords finds, and Oracle's bare ones.
 func redactSQL(q string) string {
-	q = sqlSecret.ReplaceAllString(q, "${1}'***'")
+	q = out.SQLPasswords(q, func(lit string) string { return out.SQLLiteralPrefix(lit) + "'***'" })
 	q = oraSecret.ReplaceAllStringFunc(q, func(m string) string {
 		p := oraSecret.FindStringSubmatch(m)
-		if strings.EqualFold(p[2], "PASSWORD") || strings.EqualFold(p[2], "VALUES") { // MySQL's IDENTIFIED BY PASSWORD 'hash'
+		if p[3] != "" || strings.EqualFold(p[2], "PASSWORD") || strings.EqualFold(p[2], "VALUES") { // MySQL's IDENTIFIED BY PASSWORD 'hash'
 			return m
 		}
 		return p[1] + "***"

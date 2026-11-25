@@ -150,6 +150,11 @@ func TestRedactSQL(t *testing.T) {
 		"SET PASSWORD FOR 'a'@'%' = 'new'":                            "SET PASSWORD FOR 'a'@'%' = '***'",
 		"select * from users where name = 'password'":                 "select * from users where name = 'password'",
 		"ALTER ROLE x PASSWORD $$p$$":                                 "ALTER ROLE x PASSWORD '***'",
+		"ALTER ROLE x PASSWORD /* c */ 'p'":                           "ALTER ROLE x PASSWORD /* c */ '***'",
+		"ALTER ROLE x PASSWORD E'p'":                                  "ALTER ROLE x PASSWORD E'***'",
+		"ALTER ROLE x PASSWORD U&'p'":                                 "ALTER ROLE x PASSWORD U&'***'",
+		"CREATE USER a IDENTIFIED BY E'p'":                            "CREATE USER a IDENTIFIED BY E'***'",
+		"SELECT password FROM users":                                  "SELECT password FROM users",
 	} {
 		if got := redactSQL(in); got != want {
 			t.Errorf("redactSQL(%q) = %q, want %q", in, got, want)
