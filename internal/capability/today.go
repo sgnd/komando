@@ -29,13 +29,12 @@ var todayOnlyKeys = map[string]TodayKey{
 	// top-level actions and built-ins
 	"komando": {"", "", "komando"}, "cp": {"", "cp", "copy"}, "upload": {"", "upload", "copy"}, "download": {"", "download", "copy"},
 	"sync": {"", "sync", "copy"},
-	// removed in v2.7: help topics, cobra's own commands, login, ssh-gate, rename
+	// removed in v2.7: help topics, cobra's own commands, login, rename
 	"help": {"", "", "help"}, "environment": {"", "", "environment"}, "exit-codes": {"", "", "exit-codes"}, "output": {"", "", "output"},
 	"safety": {"", "", "safety"}, "rename": {"", "", "rename"}, "completion": {"", "", "completion"}, "completion.bash": {"completion", "", "bash"},
 	"completion.fish": {"completion", "", "fish"}, "completion.powershell": {"completion", "", "powershell"}, "completion.zsh": {"completion", "", "zsh"}, "login": {"", "", "login"},
 	"login.aws": {"login", "", "aws"}, "login.azure": {"login", "", "azure"}, "login.gcp": {"login", "", "gcp"}, "login-holder": {"", "", "login-holder"},
-	"logout": {"", "", "logout"}, "logout.aws": {"logout", "", "aws"}, "ssh-gate": {"", "", "ssh-gate"}, "ssh-gate.line": {"ssh-gate", "", "line"},
-	"ssh-gate.status": {"ssh-gate", "", "status"}, "cert": {"cert", "", ""}, "cert.check": {"cert", "", "check"},
+	"logout": {"", "", "logout"}, "logout.aws": {"logout", "", "aws"}, "cert": {"cert", "", ""}, "cert.check": {"cert", "", "check"},
 
 	// host
 	"host": {"host", "", ""}, "host.ssh-command": {"host", "", "ssh-command"}, "logs": {"host", "", "logs"}, "facts": {"host", "", "info"},

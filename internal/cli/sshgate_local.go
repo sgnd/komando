@@ -41,10 +41,10 @@ import (
 // gateTargetArgs reads the targets of the changes whose target is not where
 // their Use line says (gateUseTargets). Jobs were started through the gate;
 // VPNs are no target.
-var gateTargetArgs = map[string]func(cl *call, args []string) []string{
-	"recipe.run": argAt(1), "key.deploy": argAt(1), "key.revoke": argAt(1),
-	"cp": gateRemoteSides, "sync": gateRemoteSides, "registry.copy": gateRemoteSides,
-	"job.kill": argAt(-1), "job.rm": argAt(-1), "vpn.up": argAt(-1), "vpn.down": argAt(-1),
+var gateTargetArgs = map[safetyKey]func(cl *call, args []string) []string{
+	{"snippet", "", "exec"}: argAt(1), {"credential", "key", "install"}: argAt(1), {"credential", "key", "uninstall"}: argAt(1),
+	{"", "cp", "copy"}: gateRemoteSides, {"", "sync", "copy"}: gateRemoteSides, {"registry", "image", "copy"}: gateRemoteSides,
+	{"host", "job", "kill"}: argAt(-1), {"host", "job", "rm"}: argAt(-1), {"vpn", "", "start"}: argAt(-1), {"vpn", "", "stop"}: argAt(-1),
 }
 
 // argAt reads argument i as the target (none when i < 0).
@@ -98,9 +98,9 @@ var gateTargetWords = map[string]bool{"TARGET": true, "SERVER": true, "CONN": tr
 func gateLocalTarget(c *cobra.Command, name string) string {
 	cl := callOf(c)
 	args := c.Flags().Args()
-	_, change := gateOnServers[name]
+	_, change := gateOnServers[cmdKeys[name]]
 	targets := gateUseTargets(c, args)
-	if f, ok := gateTargetArgs[name]; ok {
+	if f, ok := gateTargetArgs[cmdKeys[name]]; ok {
 		targets = f(cl, args)
 	} else if change && len(targets) == 0 {
 		targets = argAt(0)(cl, args)
@@ -230,7 +230,7 @@ func gateLocalAddr(a string) bool {
 	if h, _, err := net.SplitHostPort(a); err == nil {
 		a = h
 	}
-	a, _, _ = strings.Cut(normAddr(a), "%")
+	a, _, _ = strings.Cut(inventory.NormAddr(a), "%")
 	if a == "" || net.ParseIP(a) != nil {
 		return false
 	}
@@ -271,12 +271,12 @@ func gateLocalAsWritten(a string) bool {
 	if h, _, err := net.SplitHostPort(a); err == nil {
 		a = h
 	}
-	a, zone, _ := strings.Cut(normAddr(a), "%")
+	a, zone, _ := strings.Cut(inventory.NormAddr(a), "%")
 	if zone != "" && gateLoopbackZone(zone) {
 		return true // fe80::1%lo0: on this computer's loopback
 	}
 	me, _ := os.Hostname()
-	me = normAddr(me)
+	me = inventory.NormAddr(me)
 	short, _, _ := strings.Cut(me, ".")
 	if ip := net.ParseIP(a); ip != nil {
 		return gateLocalIP(ip)

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/testhome"
 )
@@ -90,7 +91,7 @@ func TestUploadRecordsTheSentHash(t *testing.T) {
 // is never skipped.
 func TestUploadCheckDoesNotDependOnSpelling(t *testing.T) {
 	setHome(t, t.TempDir())
-	home := filepath.Dir(expandHome("~/x.sh"))
+	home := filepath.Dir(inventory.ExpandHome("~/x.sh"))
 	if err := os.MkdirAll(testhome.Path(t, home), 0o755); err != nil {
 		t.Fatal(err)
 	}

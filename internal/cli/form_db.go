@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -257,7 +258,7 @@ func snowflakeKeyProblem(v string) string {
 	if p := formFileProblem(v); p != "" {
 		return p
 	}
-	b, err := os.ReadFile(expandHome(v))
+	b, err := os.ReadFile(inventory.ExpandHome(v))
 	if err != nil {
 		return "komando cannot read this file; check that it is yours"
 	}

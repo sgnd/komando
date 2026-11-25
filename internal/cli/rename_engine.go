@@ -304,7 +304,7 @@ func (w *refRewriter) via(v string) string {
 // url changes only ?option=secret:NAME in a conn URL: names of buckets,
 // users and databases in it are the resource's own, not komando's.
 func (w *refRewriter) url(u string) string {
-	return mapURLSecretRefs(u, func(_, name string) string {
+	return inventory.MapURLSecretRefs(u, func(_, name string) string {
 		if to, ok := w.rs["secret"][name]; ok {
 			return to
 		}

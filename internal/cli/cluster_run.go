@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/kube"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
@@ -492,7 +493,7 @@ func kubeconfigPaths(path string) []string {
 		if p == "" {
 			continue
 		}
-		p = expandHome(p)
+		p = inventory.ExpandHome(p)
 		all = append(all, p)
 		if _, err := os.Stat(p); p == "-" || !os.IsNotExist(err) {
 			found = append(found, p)

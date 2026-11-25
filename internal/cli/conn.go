@@ -431,7 +431,7 @@ func connRmCmd() *cobra.Command {
 				var refs []string
 				for _, n := range names {
 					refs = append(refs, s.Conns[n].PasswordRef)
-					for _, r := range urlSecretRefs(s.Conns[n].URL) {
+					for _, r := range inventory.URLSecretRefs(s.Conns[n].URL) {
 						refs = append(refs, "secret:"+r.Name)
 					}
 					delete(s.Conns, n)
@@ -507,7 +507,7 @@ func testConn(cl *call, ctx context.Context, st *store.State, c *store.Conn) con
 	defer a.Close()
 	if a.Target.Kind.File {
 		r.Check = "file"
-		if _, err := os.Stat(expandHome(a.Target.Path)); err != nil {
+		if _, err := os.Stat(inventory.ExpandHome(a.Target.Path)); err != nil {
 			return fail(localFileErr("FILE_NOT_FOUND", err, "check the path in the conn URL (`komando conn edit "+c.Name+" --url ...`)"))
 		}
 	} else {

@@ -172,7 +172,7 @@ func matchSelector(cl *call, st *store.State, sel string) (selection, error) {
 	}
 	if looksAdhoc(sel) {
 		if h, err := sshx.ParseAdhoc(sel); err == nil && inventory.ValidPort(h.Port) == nil {
-			h.Address = normAddr(h.Address)
+			h.Address = inventory.NormAddr(h.Address)
 			return selection{Hosts: []*store.Host{h}}, nil
 		}
 	}
@@ -190,7 +190,7 @@ func bracketedAdhoc(sel string) *store.Host {
 	if err != nil || inventory.ValidPort(h.Port) != nil {
 		return nil
 	}
-	h.Address = normAddr(h.Address)
+	h.Address = inventory.NormAddr(h.Address)
 	return h
 }
 
