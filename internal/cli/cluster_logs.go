@@ -72,7 +72,7 @@ the pods that exist when it starts. --since takes a duration back from now
 				}
 				return swarmLogs(cl, cmd.Context(), t, svc, limit, since, follow, timestamps)
 			}
-			if follow && !cl.flags.dryRun {
+			if follow && !cl.dryRun() {
 				what := "following logs"
 				if len(args) == 2 {
 					what += " of " + args[1]

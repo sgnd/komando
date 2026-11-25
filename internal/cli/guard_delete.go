@@ -40,7 +40,7 @@ func guardFsRm(cl *call, target string, paths []string, recursive bool) error {
 	// flags is what the real run needs: --allow-dangerous, and --yes as
 	// well on a protected server (S-7.5)
 	flags, dry := "--allow-dangerous", " (try --dry-run first)"
-	if len(prot) > 0 && !cl.flags.yes {
+	if len(prot) > 0 && !cl.yes() {
 		flags, dry = "--allow-dangerous and --yes (a protected server)", " and --yes (a protected server; try --dry-run first)"
 	}
 	stop := func(hint, reason, msg string, a ...any) error {

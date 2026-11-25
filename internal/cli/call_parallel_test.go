@@ -120,7 +120,7 @@ func TestPersonAndAgentApprovalsApart(t *testing.T) {
 		run(person, func(own *call) {
 			own.sess.ApproveSafety("audit off")
 			own.sess.ConfirmDanger("host rm web1")
-			own.flags.yes = true
+			setGate(own, true, gateYes)
 			personOK = own.yesOK("audit off") // a person's own flag: no window
 			close(personYes)
 		})
@@ -128,7 +128,7 @@ func TestPersonAndAgentApprovalsApart(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		run(agent, func(own *call) {
-			own.flags.yes = true
+			setGate(own, true, gateYes)
 			agentYes = own.yesOK("audit off")
 			agentSafety = own.sess.SafetyApproved("audit off")
 			agentDanger = own.sess.DangerConfirmed("host rm web1")

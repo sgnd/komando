@@ -74,10 +74,11 @@ func TestGuardConns(t *testing.T) {
 		{"destructive on protected, only --allow-dangerous", []*store.Conn{prod}, destructive, false, true, "PROTECTED_TARGET"},
 		{"destructive on protected, both flags", []*store.Conn{prod}, destructive, true, true, ""},
 	}
-	saved := tcl.flags
-	defer func() { tcl.flags = saved }()
+	saved := saveFlags(tcl)
+	defer saved.restore()
 	for _, c := range cases {
-		tcl.flags.yes, tcl.flags.allowDangerous = c.yes, c.allow
+		setGate(tcl, c.yes, gateYes)
+		setGate(tcl, c.allow, gateAllowDangerous)
 		err := GuardConns(tcl, nil, c.conns, c.v)
 		got := ""
 		if err != nil {

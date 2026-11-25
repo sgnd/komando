@@ -248,14 +248,14 @@ image, the rollout fails, or --timeout (default 5m) passes; go back with
 					return nil, err
 				}
 				q := url.Values{}
-				if cl.flags.dryRun {
+				if cl.dryRun() {
 					q.Set("dryRun", "All")
 				}
 				if _, err := k.Do(ctx, "PATCH", r.ObjectPath(space, name), q, []byte(patch), "application/strategic-merge-patch+json"); err != nil {
 					return nil, err
 				}
 				res := map[string]any{"conn": t.conn.Name, "object": kindRef(r, name), "namespace": space, "container": target,
-					"image": image, "previous_image": old, "dry_run": cl.flags.dryRun}
+					"image": image, "previous_image": old, "dry_run": cl.dryRun()}
 				if old == image {
 					res["unchanged"] = true
 				}
@@ -572,7 +572,7 @@ revision. A Swarm service goes back to its previous version.`,
 					return nil, err
 				}
 				res := map[string]any{"conn": t.conn.Name, "object": kindRef(r, name), "namespace": space,
-					"from_revision": current, "to_revision": rsRevision(target), "images": rsImages(target), "dry_run": cl.flags.dryRun}
+					"from_revision": current, "to_revision": rsRevision(target), "images": rsImages(target), "dry_run": cl.dryRun()}
 				if rsRevision(target) == current {
 					res["unchanged"] = true
 					return res, nil
@@ -586,7 +586,7 @@ revision. A Swarm service goes back to its previous version.`,
 				}
 				body, _ := json.Marshal([]map[string]any{{"op": "replace", "path": "/spec/template", "value": tpl}})
 				q := url.Values{}
-				if cl.flags.dryRun {
+				if cl.dryRun() {
 					q.Set("dryRun", "All")
 				}
 				if _, err := k.Do(ctx, "PATCH", r.ObjectPath(space, name), q, body, "application/json-patch+json"); err != nil {
@@ -611,7 +611,7 @@ func rollbackFlags(c *cobra.Command, to *int, wait *bool) {
 // rollbackNote prints, for a person, how to undo a deploy that went
 // through (text mode only; JSON already carries previous_image).
 func rollbackNote(cl *call, err *error, target, obj, ns string) {
-	if *err != nil || cl.flags.dryRun {
+	if *err != nil || cl.dryRun() {
 		return
 	}
 	n := ""

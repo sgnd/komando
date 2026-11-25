@@ -410,14 +410,17 @@ func gateRule(c *cobra.Command, name string, key gateKey) (string, *out.Error) {
 				"komando %s is komando's own plumbing, not for a key", strings.ReplaceAll(name, ".", " "))
 		}
 	}
+	// what the key typed, from its parsed command line: this command is
+	// checked here, never run, so no begin stored a gate for it
+	typed := newGate(c, cl.caller())
 	switch {
 	case gateNeedsPerson[cmdKeys[name]]:
 		return name, out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "a person runs it in a terminal on the komando computer itself",
 			"komando %s needs a person at a terminal on this computer; a key cannot run it", strings.ReplaceAll(name, ".", " "))
-	case cl.flags.reveal:
+	case typed.reveal:
 		return name, out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "secret values stay [hidden] for a key; a person reads one in a terminal on the komando computer",
 			"--reveal is refused: a key never gets secret values")
-	case cl.flags.allowDangerous:
+	case typed.allowDangerous:
 		return name, out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "a person runs it in a terminal on the komando computer itself",
 			"--allow-dangerous is refused: a key cannot skip the dangerous-command stop")
 	}

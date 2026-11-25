@@ -91,13 +91,13 @@ func withRegistry(cl *call, ctx context.Context, name, expr string, risk driver.
 	reasons := []string{name}
 	// a registry that does not answer is reported after the check, so a
 	// blocked delete stays blocked whatever the network does
-	if what != nil && !cl.flags.dryRun && open() == nil {
+	if what != nil && !cl.dryRun() && open() == nil {
 		if s := what(ctx, rc); s != "" {
 			reasons = append(reasons, s)
 		}
 	}
 	if err := GuardConns(cl, st, []*store.Conn{c}, driver.Verdict{Risk: risk, RuleIDs: []string{"registry"}, Reasons: reasons}); err != nil {
-		if cl.flags.dryRun {
+		if cl.dryRun() {
 			cl.out.Print(name, map[string]any{"conn": c.Name, "dry_run": true, "would_be_blocked": toErr(err)}, nil)
 			return nil
 		}
@@ -421,7 +421,7 @@ registry's garbage collection.`,
 					case more:
 						res["tags_note"] = fmt.Sprintf("only the first %d tags were checked; others may point at this image too", checked)
 					}
-					if cl.flags.dryRun {
+					if cl.dryRun() {
 						res["would_delete"], res["dry_run"] = repo+"@"+m.Digest, true
 						res["would_remove_tags"] = tags // every tag on the digest goes with it
 						return res, nil
@@ -708,7 +708,7 @@ it can go). An image a kept tag points at is never deleted. Needs
 					if plan.Delete == nil {
 						res["delete"] = []registry.PruneImage{}
 					}
-					if cl.flags.dryRun {
+					if cl.dryRun() {
 						res["dry_run"] = true
 						return res, nil
 					}

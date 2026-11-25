@@ -183,7 +183,7 @@ func (m *memRegistry) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // textRun runs komando with -o text and returns what it printed.
 func textRun(t *testing.T, args ...string) (string, error) {
 	t.Helper()
-	tcl.flags.dryRun, tcl.flags.yes, tcl.flags.allowDangerous = false, false, false
+	setGate(tcl, false, gateDryRun, gateYes, gateAllowDangerous)
 	root := newRoot(tcl)
 	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs(append([]string{"-o", "text"}, args...))

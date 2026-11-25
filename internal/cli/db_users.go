@@ -106,9 +106,9 @@ func dbUserChangeCmd(action string) *cobra.Command {
 						}
 						u.Password = pw
 					}
-					shown, err := dbx.UserChange(ctx, db, c.Kind, action, u, cl.flags.dryRun)
+					shown, err := dbx.UserChange(ctx, db, c.Kind, action, u, cl.dryRun())
 					res := map[string]any{"conn": c.Name, "user": args[1], "sql": shown}
-					if cl.flags.dryRun {
+					if cl.dryRun() {
 						res["dry_run"] = true
 					} else if err == nil {
 						res["done"] = action
@@ -150,17 +150,17 @@ func changeDB(cl *call, ctx context.Context, name, connExpr string, v driver.Ver
 	if c.Kind == "bigquery" { // Google Cloud IAM
 		return dbx.BQNoUsers(strings.ReplaceAll(name, ".", " "))
 	}
-	if err := GuardConns(cl, st, []*store.Conn{c}, v); err != nil && !cl.flags.dryRun {
+	if err := GuardConns(cl, st, []*store.Conn{c}, v); err != nil && !cl.dryRun() {
 		audit(cl, st, name, nil, "", false, map[string]any{"conns": []string{c.Name}, "blocked": toErr(err).Code})
 		return err
 	}
-	db, closeDB, err := openDB(cl, ctx, st, c, cl.flags.dryRun)
+	db, closeDB, err := openDB(cl, ctx, st, c, cl.dryRun())
 	if err != nil {
 		return err
 	}
 	defer closeDB()
 	res, err := fn(ctx, c, db)
-	if !cl.flags.dryRun {
+	if !cl.dryRun() {
 		r := map[string]any{"conns": []string{c.Name}, "risk": v.Risk.String()}
 		for k, x := range rec {
 			r[k] = x
@@ -221,7 +221,7 @@ with db query). --dry-run shows the statement.`,
 						return nil, err
 					}
 					res := map[string]any{"conn": c.Name, "user": args[1], "sql": stmt}
-					if cl.flags.dryRun {
+					if cl.dryRun() {
 						res["dry_run"] = true
 						return res, nil
 					}
