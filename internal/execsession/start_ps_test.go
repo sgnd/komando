@@ -266,6 +266,7 @@ func TestReadStartPS(t *testing.T) {
 		noDir  bool
 	}{
 		{name: "prepared", exit: 0, stdout: ok},
+		{name: "marker with a failed exit", exit: ExitStartFailed, stdout: ok + "failed late\n", code: "SESSION_START_FAILED"},
 		{name: "no folder", exit: ExitNoFolder, noDir: true},
 		{name: "unsafe", exit: ExitUnsafe, code: "SESSION_FOLDER_DENIED"},
 		{name: "space", exit: ExitNoSpace, code: "SESSION_SPACE_DENIED"},
