@@ -429,7 +429,7 @@ var builtinSnippets = mustSnippets(builtinLists()...)
 // replace. Each list lives in that command's file and moves with its
 // package (M5 cache, M9 database, M10 cluster, M11 host).
 func builtinLists() [][]snippet.Builtin {
-	return [][]snippet.Builtin{factsSnippets(), factsOnlySnippets()}
+	return [][]snippet.Builtin{factsSnippets(), factsOnlySnippets(), svcSnippets()}
 }
 
 func mustSnippets(lists ...[]snippet.Builtin) *snippet.Registry {
@@ -438,6 +438,11 @@ func mustSnippets(lists ...[]snippet.Builtin) *snippet.Registry {
 		panic(err) // a definition the engine refuses is a bug the tests show
 	}
 	return r
+}
+
+// snippetRun is a snippet's output as the run result today's parsers read.
+func snippetRun(o snippet.Output) *sshx.RunResult {
+	return &sshx.RunResult{Stdout: o.Stdout, Stderr: o.Stderr, ExitCode: o.ExitCode}
 }
 
 // snippetFamily is the shell a host's text is written for.
