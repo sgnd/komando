@@ -95,7 +95,7 @@ func (m *memBucket) List(_ context.Context, prefix string, recursive bool, limit
 func (m *memBucket) Get(_ context.Context, key string, w io.Writer) (int64, error) {
 	v, ok := m.objs[key]
 	if !ok {
-		return 0, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage list CONN [PREFIX]`", "object not found")
+		return 0, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage s3 object list NAME [PREFIX]`", "object not found")
 	}
 	n, err := io.WriteString(w, v)
 	return int64(n), err
@@ -109,7 +109,7 @@ func (m *memBucket) Exists(_ context.Context, key string) (bool, error) {
 func (m *memBucket) Stat(_ context.Context, key string) (storex.Object, error) {
 	v, ok := m.objs[key]
 	if !ok {
-		return storex.Object{}, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage list CONN [PREFIX]`", "%s not found", key)
+		return storex.Object{}, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage s3 object list NAME [PREFIX]`", "%s not found", key)
 	}
 	return storex.Object{Key: key, Size: int64(len(v))}, nil
 }
@@ -215,7 +215,7 @@ func TestStorageRmPrefixShowsBeforeAsking(t *testing.T) {
 	withMemBucket(t, m)
 	typing(t, "bk\n")
 	var e *out.Error
-	said := stderrOf(t, func() { _, e = invRun(t, "storage", "rm", "bk", "--prefix", "daily") })
+	said := stderrOf(t, func() { _, e = invRun(t, "storage", "s3", "object", "delete", "bk", "--prefix", "daily") })
 	if e == nil || e.Code != "POLICY_BLOCKED" || len(m.objs) != 3 {
 		t.Fatalf("a wrong name: %+v, %d objects left", e, len(m.objs))
 	}
@@ -224,7 +224,7 @@ func TestStorageRmPrefixShowsBeforeAsking(t *testing.T) {
 		t.Errorf("the list comes before the question:\n%s", said)
 	}
 	typing(t, "2\n")
-	stderrOf(t, func() { mustRun(t, "storage", "rm", "bk", "--prefix", "daily/") })
+	stderrOf(t, func() { mustRun(t, "storage", "s3", "object", "delete", "bk", "--prefix", "daily/") })
 	if _, ok := m.objs["keep.txt"]; len(m.objs) != 1 || !ok {
 		t.Errorf("after the right name: %v", m.objs)
 	}
@@ -237,7 +237,7 @@ func TestStorageRmPrefixAgentStopsFirst(t *testing.T) {
 	saved := tcl.terminal
 	tcl.terminal = false
 	t.Cleanup(func() { tcl.terminal = saved })
-	if e := wantCode(t, "POLICY_BLOCKED", "storage", "rm", "bk", "--prefix", "daily/"); e.Exit != out.ExitPolicy || m.listed != 0 || len(m.objs) != 1 {
+	if e := wantCode(t, "POLICY_BLOCKED", "storage", "s3", "object", "delete", "bk", "--prefix", "daily/"); e.Exit != out.ExitPolicy || m.listed != 0 || len(m.objs) != 1 {
 		t.Errorf("exit %d, listed %d, %d objects", e.Exit, m.listed, len(m.objs))
 	}
 }
@@ -245,8 +245,8 @@ func TestStorageRmPrefixAgentStopsFirst(t *testing.T) {
 // Storage errors name the conn in the command they suggest.
 func TestStorageHintNamesTheConn(t *testing.T) {
 	withMemBucket(t, &memBucket{objs: map[string]string{}})
-	e := wantCode(t, "OBJECT_NOT_FOUND", "storage", "cat", "bk", "nope.txt")
-	if e.Hint != "list objects with `komando storage list bk [PREFIX]`" {
+	e := wantCode(t, "OBJECT_NOT_FOUND", "storage", "s3", "object", "read", "bk", "nope.txt")
+	if e.Hint != "list objects with `komando storage s3 object list bk [PREFIX]`" {
 		t.Errorf("hint: %q", e.Hint)
 	}
 	in := out.Errf(out.ExitConnect, "STORAGE_AUTH", "store a key with `komando secret set NAME` and pass --password-ref secret:NAME; then `komando conn test NAME`", "x")
@@ -255,7 +255,7 @@ func TestStorageHintNamesTheConn(t *testing.T) {
 	}
 }
 
-// storage ls CONN db lists what is in the folder db/ on a bucket too, as
+// storage s3 object list CONN db lists what is in the folder db/ on a bucket too, as
 // on a file server; a prefix that names no folder still lists by prefix.
 func TestStorageLsFolderWithoutSlash(t *testing.T) {
 	withMemBucket(t, &memBucket{objs: map[string]string{"db/a.sql": "a", "db/b.sql": "b", "dbx.txt": "x"}})
@@ -266,14 +266,14 @@ func TestStorageLsFolderWithoutSlash(t *testing.T) {
 		}
 		return strings.Join(k, ",")
 	}
-	if got := keys(mustRun(t, "storage", "ls", "bk", "db/")); got != "db/a.sql,db/b.sql" {
+	if got := keys(mustRun(t, "storage", "s3", "object", "list", "bk", "db/")); got != "db/a.sql,db/b.sql" {
 		t.Errorf("db/: %s", got)
 	}
-	d := mustRun(t, "storage", "ls", "bk", "db")
+	d := mustRun(t, "storage", "s3", "object", "list", "bk", "db")
 	if got := keys(d); got != "db/a.sql,db/b.sql" || d["prefix"] != "db/" {
 		t.Errorf("db: %s (prefix %v)", got, d["prefix"])
 	}
-	if got := keys(mustRun(t, "storage", "ls", "bk", "d")); got != "db/,dbx.txt" {
+	if got := keys(mustRun(t, "storage", "s3", "object", "list", "bk", "d")); got != "db/,dbx.txt" {
 		t.Errorf("d: %s", got)
 	}
 }
@@ -297,7 +297,7 @@ func TestStorageLinkTemporaryKeysWarns(t *testing.T) {
 		return tempKeyBucket{&memBucket{objs: map[string]string{"a.txt": "a"}}}, nil
 	}
 	t.Cleanup(func() { openBucket = saved })
-	d := mustRun(t, "storage", "link", "bk", "a.txt", "--expires", "24h")
+	d := mustRun(t, "storage", "s3", "object", "link", "bk", "a.txt", "--expires", "24h")
 	if w, _ := d["warning"].(string); !strings.Contains(w, "temporary AWS keys (profile dev)") {
 		t.Errorf("warning: %q", w)
 	}
@@ -309,44 +309,44 @@ func TestStorageJourneyCommands(t *testing.T) {
 	if d := mustRun(t, "list", "kind:storage"); !strings.Contains(fmt.Sprint(d), "bk") {
 		t.Errorf("list kind:storage: %v", d)
 	}
-	e := wantCode(t, "USAGE", "storage", "rm", "bk")
-	if !strings.Contains(e.Hint, "komando conn rm bk") || !strings.Contains(e.Hint, "komando storage list bk") {
+	e := wantCode(t, "USAGE", "storage", "s3", "object", "delete", "bk")
+	if !strings.Contains(e.Hint, "komando conn rm bk") || !strings.Contains(e.Hint, "komando storage s3 object list bk") {
 		t.Errorf("rm without keys: %q", e.Hint)
 	}
 	mustRun(t, "conn", "edit", "bk", "--add-tag", "backup")
 	mustRun(t, "conn", "rm", "bk")
 }
 
-// C-F03: storage rm's cap is --max-remove, with no short form, so it is
+// C-F03: storage s3 object delete's cap is --max-remove, with no short form, so it is
 // not taken for a list's --limit.
 func TestStorageRmMaxRemove(t *testing.T) {
 	m := &memBucket{objs: map[string]string{"daily/a.gz": "aa", "daily/b.gz": "bbb"}}
 	withMemBucket(t, m)
 	defer func() { tcl.flags.dryRun = false }()
 	tcl.out.Reset()
-	e := wantCode(t, "TOO_MANY", "storage", "rm", "bk", "--prefix", "daily/", "--dry-run", "--max-remove", "1")
+	e := wantCode(t, "TOO_MANY", "storage", "s3", "object", "delete", "bk", "--prefix", "daily/", "--dry-run", "--max-remove", "1")
 	if !strings.Contains(e.Message, "more than --max-remove 1") || !strings.Contains(e.Hint, "raise --max-remove") {
 		t.Errorf("--max-remove 1: %+v", e)
 	}
 	if len(m.objs) != 2 {
 		t.Errorf("a dry run removed objects: %v", m.objs)
 	}
-	c, _, _ := newRoot(tcl).Find([]string{"storage", "rm"})
+	c, _, _ := newRoot(tcl).Find([]string{"storage", "s3", "object", "delete"})
 	if c.Flags().ShorthandLookup("n") != nil || c.Flags().Lookup("limit") != nil || c.Flags().Lookup("max-remove").Shorthand != "" {
-		t.Error("storage rm has -n or --limit, or a short --max-remove")
+		t.Error("storage s3 object delete has -n or --limit, or a short --max-remove")
 	}
 }
 
 // A folder given where a file goes is IS_A_DIRECTORY, as fs cat says it
-// (C79): storage download without -r, storage rm without --prefix. A
+// (C79): storage download without -r, storage s3 object delete without --prefix. A
 // pattern is a usage error.
 func TestStorageFolderIsADirectory(t *testing.T) {
 	withMemBucket(t, &memBucket{objs: map[string]string{"logs/a.txt": "x"}})
 	if e := wantCode(t, "IS_A_DIRECTORY", "storage", "download", "bk", "logs/", "--to", t.TempDir()); e.Exit != out.ExitUsage || !strings.Contains(e.Hint, "-r") {
 		t.Errorf("download: %+v", e)
 	}
-	if e := wantCode(t, "IS_A_DIRECTORY", "storage", "rm", "bk", "logs/"); !strings.Contains(e.Hint, "--prefix") {
+	if e := wantCode(t, "IS_A_DIRECTORY", "storage", "s3", "object", "delete", "bk", "logs/"); !strings.Contains(e.Hint, "--prefix") {
 		t.Errorf("rm: %+v", e)
 	}
-	wantCode(t, "USAGE", "storage", "rm", "bk", "logs/*.txt")
+	wantCode(t, "USAGE", "storage", "s3", "object", "delete", "bk", "logs/*.txt")
 }

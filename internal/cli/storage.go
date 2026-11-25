@@ -131,7 +131,13 @@ func namedHint(err error, conn string) error {
 		return err
 	}
 	h := oe.Hint
-	for _, cmd := range []string{"conn test ", "conn show ", "conn edit ", "storage list ", "storage mv ", "storage rm ", "download ", "upload "} {
+	cmds := []string{"conn test ", "conn show ", "conn edit ", "download ", "upload "}
+	for _, p := range []string{"s3", "gcs", "azblob", "sftp", "ftp", "smb", "webdav"} {
+		for _, v := range []string{"list", "move", "delete", "read", "create", "link"} {
+			cmds = append(cmds, "storage "+p+" object "+v+" ")
+		}
+	}
+	for _, cmd := range cmds {
 		for _, word := range []string{"NAME", "CONN"} {
 			h = strings.ReplaceAll(h, "komando "+cmd+word, "komando "+cmd+conn)
 		}
@@ -648,11 +654,17 @@ func init() {
 					return out.Errf(out.ExitUsage, "USAGE", "use `komando storage chmod NAME MODE PATH` until its place in the new tree is decided",
 						"--mode is not built into object move yet")
 				}
-				return runBody(cl, ctx, body(), in, nil)
+				err := runBody(cl, ctx, body(), in, nil)
+				var oe *out.Error
+				if errors.As(err, &oe) { // the bodies write the path of s3; this entry's provider is p
+					oe.Hint = strings.ReplaceAll(oe.Hint, "storage s3 object", "storage "+p+" object")
+					oe.Message = strings.ReplaceAll(oe.Message, "storage s3 object", "storage "+p+" object")
+				}
+				return err
 			}
 		}
-		groupShorts["storage "+p] = "Storage of this kind: save it, and look after its objects"
-		groupShorts["storage "+p+" object"] = "The objects of a storage: list, read, create, move, delete"
+		groupShorts["storage "+p] = "Save " + p + " storage, and look after its objects"
+		groupShorts["storage "+p+" object"] = "Files and folders of " + p + " storage"
 		examples["komando storage "+p] = "  komando storage " + p + " add backups URL --dry-run\n" +
 			"  komando storage " + p + " add backups URL\n" +
 			"  komando storage " + p + " test backups\n" +

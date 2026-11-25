@@ -63,16 +63,16 @@ func completeObject(l *Leaf, provider, entry string) {
 			{Name: "tail", Kind: Int, Help: "only the last N lines"},
 			{Name: "max-bytes", Kind: Bytes, Default: "1MiB", Help: "read at most this many bytes, like 4MiB"},
 		}
-		l.Short = "Show the text of an object"
+		l.Short = "Show the text of an object in " + article(provider) + " storage"
 		l.Example = cmd + entry + " logs/app.log --tail 50\n" + cmd + entry + " config/app.env"
 	case "create":
 		l.Args = []Arg{{Name: "NAME"}, {Name: "PATH"}}
-		l.Short = "Make a folder"
+		l.Short = "Make a folder in " + article(provider) + " storage"
 		l.Example = cmd + entry + " reports/2026 --dry-run\n" + cmd + entry + " reports/2026"
 	case "move":
 		l.Args = []Arg{{Name: "NAME"}, {Name: "SRC"}, {Name: "DST"}}
 		l.Options = []Option{{Name: "overwrite", Kind: Bool, Help: "replace a file already at DST (never a folder)"}}
-		l.Short = "Move or rename an object"
+		l.Short = "Move or rename an object in " + article(provider) + " storage"
 		l.Example = cmd + entry + " old.txt new.txt --dry-run\n" + cmd + entry + " old.txt archive/old.txt"
 	case "delete":
 		l.Args = []Arg{{Name: "NAME"}, {Name: "OBJECT", Optional: true, Many: true}}
@@ -82,7 +82,7 @@ func completeObject(l *Leaf, provider, entry string) {
 			{Name: "older-than", Kind: Duration, Help: "with --prefix: only objects older than this, like 30d"},
 			{Name: "prefix", Kind: String, Help: "remove everything under this folder (like daily/)"},
 		}
-		l.Short = "Delete objects"
+		l.Short = "Delete objects from " + article(provider) + " storage"
 		l.Example = cmd + entry + " --prefix daily/ --older-than 30d --dry-run\n" + cmd + entry + " old.txt --allow-dangerous"
 	case "link":
 		l.Args = []Arg{{Name: "NAME"}, {Name: "OBJECT"}}
@@ -90,7 +90,15 @@ func completeObject(l *Leaf, provider, entry string) {
 			{Name: "endpoint", Kind: String, Help: "sign the link for this address, like https://files.example.com"},
 			{Name: "expires", Kind: Duration, Default: "1h", Help: "how long the link works, like 30m, 24h or 7d (at most 7d)"},
 		}
-		l.Short = "Make a time-limited link to an object"
+		l.Short = "Make a time-limited link to an object in " + article(provider) + " storage"
 		l.Example = cmd + entry + " reports/q3.pdf --dry-run\n" + cmd + entry + " reports/q3.pdf --expires 24h"
 	}
+}
+
+// article is "a s3" or "an sftp" for the texts of a provider's leaves.
+func article(provider string) string {
+	if provider[0] == 'a' {
+		return "an " + provider
+	}
+	return "a " + provider
 }

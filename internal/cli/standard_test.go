@@ -154,13 +154,13 @@ var (
 		"exec", "run", "query", "shell", "upload", "download", "sync", "dump", "restore", "up", "down",
 		"login", "logout", "install", "uninstall", "update", "upgrade",
 		"grant", "revoke", "deploy", "gen", "trust", "lock", "unlock", "passwd",
-		"remove", "raw", "copy", "delete"} // the v2.7 verbs join as their type moves (step C)
+		"remove", "raw", "copy", "delete", "read", "move", "link"} // the v2.7 verbs join as their type moves (step C)
 	toolWords = []string{"docker ps", "docker images", "docker pull", "docker compose", "docker raw", "docker inspect",
 		"registry oci image show", "registry oci image copy", "cache keys", "user add", "db user add", "db grant", "db revoke",
 		"pkg installed", "pkg upgradable", "pkg security", "queue peek", "queue send", "queue lag", "queue groups",
 		"db activity", "db locks", "db sizes", "db explain", "db kill",
 		"fs cat", "fs stat", "fs chmod", "fs mkdir", "fs write", "fs replace", "fs mv", "svc daemon-reload",
-		"storage chmod", "storage mkdir", "storage mv",
+		"storage chmod",
 		"cluster scale", "cluster apply", "cluster rollback", "cluster forward", "cluster helm values",
 		"net dns", "net http", "net ports", "net check", "key gen", "key deploy", "host trust", "host ssh-command",
 		"ssh-gate line", "conn kinds", "audit verify", "config approval-code", "secret keychain", "secret passphrase"}
@@ -201,7 +201,7 @@ func TestStandardPairs(t *testing.T) {
 		}
 		// add/rm in komando's own list, create/rm on a target
 		family := slices.Contains([]string{"db", "cache", "queue", "storage", "cluster", "registry"}, cmdPathOf(c))
-		hasRm := slices.Contains(names, "rm") || slices.Contains(names, "remove")
+		hasRm := slices.Contains(names, "rm") || slices.Contains(names, "remove") || slices.Contains(names, "delete")
 		if !family && slices.Contains(names, "add") && !hasRm || slices.Contains(names, "create") && !hasRm {
 			got[strings.TrimSpace(cmdPathOf(c)+" add|create/rm")] = "has no rm"
 		}
@@ -644,7 +644,7 @@ func TestStandardReferences(t *testing.T) {
 	}
 	for key, h := range formHints {
 		for _, n := range h.next {
-			check(key+" next", strings.ReplaceAll(n, "{}", "web1"))
+			check(key+" next", strings.ReplaceAll(strings.ReplaceAll(n, "{}", "web1"), "{P}", "s3"))
 		}
 	}
 	allowCheck(t, "S-6.10", got, allowReferences)

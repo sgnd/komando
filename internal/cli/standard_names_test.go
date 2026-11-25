@@ -40,7 +40,7 @@ func TestStandardRenamedIDs(t *testing.T) {
 		{[]string{"fs", "list"}, []string{"fs", "ls"}, "fs.list"},
 		{[]string{"queue", "list"}, []string{"queue", "ls"}, "queue.list"},
 		{[]string{"registry", "oci", "image", "list"}, []string{"registry", "oci", "image", "ls"}, "registry.oci.image.list"},
-		{[]string{"storage", "list"}, []string{"storage", "ls"}, "storage.list"},
+		{[]string{"storage", "s3", "object", "list"}, []string{"storage", "s3", "object", "ls"}, "storage.s3.object.list"},
 	} {
 		now, old := findCmd(t, root, c.now...), findCmd(t, root, c.old...)
 		if now != old {

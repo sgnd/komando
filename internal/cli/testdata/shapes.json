@@ -1427,7 +1427,7 @@
     },
     "ok": "bool"
   },
-  "storage mkdir bk reports/2026": {
+  "storage s3 object create bk reports/2026": {
     "command": "string",
     "data": {
       "conn": "string",
@@ -1441,7 +1441,7 @@
     },
     "ok": "bool"
   },
-  "storage mkdir bk reports/2026 --dry-run": {
+  "storage s3 object create bk reports/2026 --dry-run": {
     "command": "string",
     "data": {
       "conn": "string",
@@ -1457,7 +1457,7 @@
     },
     "ok": "bool"
   },
-  "storage mv bk a.txt archive/": {
+  "storage s3 object move bk a.txt archive/": {
     "command": "string",
     "data": {
       "conn": "string",
@@ -1474,7 +1474,7 @@
     },
     "ok": "bool"
   },
-  "storage mv bk a.txt archive/ --dry-run": {
+  "storage s3 object move bk a.txt archive/ --dry-run": {
     "command": "string",
     "data": {
       "conn": "string",

@@ -380,7 +380,7 @@ func typeWord(family string) string {
 func entryIsOf(cl *call, st *store.State, name, typ, provider, verb string) error {
 	c, err := findConn(cl, st, name)
 	if err != nil {
-		return err
+		return nil // the body says what is wrong with the name, after the flags it checks first
 	}
 	return connIsOf(c, typ, provider, verb)
 }
@@ -400,7 +400,7 @@ func targetsAreOf(cl *call, st *store.State, targets []string, typ, provider, ve
 	for _, target := range targets {
 		sel, err := resolveSelection(cl, st, target)
 		if err != nil {
-			return err
+			return nil // the body says what is wrong with the target
 		}
 		for _, c := range sel.Conns {
 			if err := connIsOf(c, typ, provider, verb); err != nil {
@@ -519,6 +519,7 @@ var providerOrder = map[string]int{}
 // the old IDs lose theirs, so no table names a command that is gone.
 func moveType(typ string) {
 	movedTypes = append(movedTypes, typ)
+	var gone []string       // the old IDs go after every provider has taken what it carries
 	providerIDs[typ] = true // the type's own group shares its key with the provider groups
 	for n, l := range capability.All() {
 		if l.Type != typ || l.State != capability.Built {
@@ -549,14 +550,12 @@ func moveType(typ string) {
 			if old == id {
 				continue
 			}
-			delete(cmdKeys, old)
+			gone = append(gone, old)
 			if f, ok := gateNoNetwork[old]; ok {
 				gateNoNetwork[id] = f
-				delete(gateNoNetwork, old)
 			}
 			if personalCmds[strings.ReplaceAll(old, ".", " ")] {
 				personalCmds[strings.ReplaceAll(id, ".", " ")] = true
-				delete(personalCmds, strings.ReplaceAll(old, ".", " "))
 			}
 		}
 		for _, carried := range l.Carries { // conn.list stays a command until every type has moved
@@ -564,6 +563,11 @@ func moveType(typ string) {
 				gateNoNetwork[id] = f
 			}
 		}
+	}
+	for _, old := range gone {
+		delete(cmdKeys, old)
+		delete(gateNoNetwork, old)
+		delete(personalCmds, strings.ReplaceAll(old, ".", " "))
 	}
 }
 

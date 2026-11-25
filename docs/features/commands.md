@@ -368,7 +368,7 @@ Next time: komando logs web1
   type the name of what goes (or how many). A protected target asks its
   usual `web1 (protected): this command changes it. Continue? [y/N]` instead.
 - `komando host add` (or `conn add`, `vpn add`, `db add`, `cache redis add`,
-  `queue add`, `storage add`, `cluster add`, `registry oci add`) typed alone
+  `queue add`, `storage s3 add`, `cluster add`, `registry oci add`) typed alone
   asks that kind's own questions: which kind, a name, the address or the
   parts of the URL, the user, the port, how you log in, and whether it is
   production. A password is never asked here: the command asks for it

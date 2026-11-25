@@ -6422,77 +6422,413 @@ exit 2
 Error: missing arguments; usage: komando ssh-gate line PUBLIC_KEY --name NAME
 Hint: for example: komando ssh-gate line --name phone ~/phone.pub
 (code USAGE, exit 2)
-### komando -o json storage add (agent json)
+### komando -o json storage azblob add (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.add","error":{"code":"USAGE","message":"komando storage add needs a name and a URL","hint":"for example: komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password. A person can type `komando storage add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.azblob.add","error":{"code":"USAGE","message":"storage azblob add takes NAME [URL]","hint":"for example: komando storage azblob add backups azblob://ACCOUNT@my-container/backups --via web1 (more in `komando storage azblob add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage add (agent text)
+### komando -o text storage azblob add (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: komando storage add needs a name and a URL
-Hint: for example: komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password. A person can type `komando storage add` alone at a terminal to be asked step by step
+Error: storage azblob add takes NAME [URL]
+Hint: for example: komando storage azblob add backups azblob://ACCOUNT@my-container/backups --via web1 (more in `komando storage azblob add --help`)
 (code USAGE, exit 2)
-### komando -o json storage add (script json)
+### komando -o json storage azblob add (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.add","error":{"code":"USAGE","message":"komando storage add needs a name and a URL","hint":"for example: komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password. A person can type `komando storage add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.azblob.add","error":{"code":"USAGE","message":"storage azblob add takes NAME [URL]","hint":"for example: komando storage azblob add backups azblob://ACCOUNT@my-container/backups --via web1 (more in `komando storage azblob add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage add (script text)
+### komando -o text storage azblob add (script text)
 exit 2
 --- stdout
 --- stderr
-Error: komando storage add needs a name and a URL
-Hint: for example: komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password. A person can type `komando storage add` alone at a terminal to be asked step by step
+Error: storage azblob add takes NAME [URL]
+Hint: for example: komando storage azblob add backups azblob://ACCOUNT@my-container/backups --via web1 (more in `komando storage azblob add --help`)
 (code USAGE, exit 2)
-### komando -o json storage cat (agent json)
+### komando -o json storage azblob edit (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.cat","error":{"code":"USAGE","message":"missing arguments; usage: komando storage cat CONN OBJECT","hint":"for example: komando storage cat backups logs/app-2026-11-02.log --tail 50"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.azblob.edit","error":{"code":"USAGE","message":"storage azblob edit takes NAME","hint":"for example: komando storage azblob edit backups --add-tag critical (more in `komando storage azblob edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage cat (agent text)
+### komando -o text storage azblob edit (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage cat CONN OBJECT
-Hint: for example: komando storage cat backups logs/app-2026-11-02.log --tail 50
+Error: storage azblob edit takes NAME
+Hint: for example: komando storage azblob edit backups --add-tag critical (more in `komando storage azblob edit --help`)
 (code USAGE, exit 2)
-### komando -o json storage cat (script json)
+### komando -o json storage azblob edit (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.cat","error":{"code":"USAGE","message":"missing arguments; usage: komando storage cat CONN OBJECT","hint":"for example: komando storage cat backups logs/app-2026-11-02.log --tail 50"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.azblob.edit","error":{"code":"USAGE","message":"storage azblob edit takes NAME","hint":"for example: komando storage azblob edit backups --add-tag critical (more in `komando storage azblob edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage cat (script text)
+### komando -o text storage azblob edit (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage cat CONN OBJECT
-Hint: for example: komando storage cat backups logs/app-2026-11-02.log --tail 50
+Error: storage azblob edit takes NAME
+Hint: for example: komando storage azblob edit backups --add-tag critical (more in `komando storage azblob edit --help`)
 (code USAGE, exit 2)
-### komando -o json storage cat x1 (agent json)
+### komando -o json storage azblob object create (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.cat","error":{"code":"USAGE","message":"missing arguments; usage: komando storage cat CONN OBJECT","hint":"for example: komando storage cat backups logs/app-2026-11-02.log --tail 50"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.azblob.object.create","error":{"code":"USAGE","message":"storage azblob object create takes NAME PATH","hint":"for example: komando storage azblob object create backups reports/2026 --dry-run (more in `komando storage azblob object create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage cat x1 (agent text)
+### komando -o text storage azblob object create (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage cat CONN OBJECT
-Hint: for example: komando storage cat backups logs/app-2026-11-02.log --tail 50
+Error: storage azblob object create takes NAME PATH
+Hint: for example: komando storage azblob object create backups reports/2026 --dry-run (more in `komando storage azblob object create --help`)
 (code USAGE, exit 2)
-### komando -o json storage cat x1 (script json)
+### komando -o json storage azblob object create (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.cat","error":{"code":"USAGE","message":"missing arguments; usage: komando storage cat CONN OBJECT","hint":"for example: komando storage cat backups logs/app-2026-11-02.log --tail 50"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.azblob.object.create","error":{"code":"USAGE","message":"storage azblob object create takes NAME PATH","hint":"for example: komando storage azblob object create backups reports/2026 --dry-run (more in `komando storage azblob object create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage cat x1 (script text)
+### komando -o text storage azblob object create (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage cat CONN OBJECT
-Hint: for example: komando storage cat backups logs/app-2026-11-02.log --tail 50
+Error: storage azblob object create takes NAME PATH
+Hint: for example: komando storage azblob object create backups reports/2026 --dry-run (more in `komando storage azblob object create --help`)
+(code USAGE, exit 2)
+### komando -o json storage azblob object create x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.azblob.object.create","error":{"code":"USAGE","message":"storage azblob object create takes NAME PATH","hint":"for example: komando storage azblob object create backups reports/2026 --dry-run (more in `komando storage azblob object create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage azblob object create x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage azblob object create takes NAME PATH
+Hint: for example: komando storage azblob object create backups reports/2026 --dry-run (more in `komando storage azblob object create --help`)
+(code USAGE, exit 2)
+### komando -o json storage azblob object create x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.azblob.object.create","error":{"code":"USAGE","message":"storage azblob object create takes NAME PATH","hint":"for example: komando storage azblob object create backups reports/2026 --dry-run (more in `komando storage azblob object create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage azblob object create x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage azblob object create takes NAME PATH
+Hint: for example: komando storage azblob object create backups reports/2026 --dry-run (more in `komando storage azblob object create --help`)
+(code USAGE, exit 2)
+### komando -o json storage azblob object delete (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.azblob.object.delete","error":{"code":"USAGE","message":"storage azblob object delete takes NAME [OBJECT...]","hint":"for example: komando storage azblob object delete backups --prefix daily/ --older-than 30d --dry-run (more in `komando storage azblob object delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage azblob object delete (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage azblob object delete takes NAME [OBJECT...]
+Hint: for example: komando storage azblob object delete backups --prefix daily/ --older-than 30d --dry-run (more in `komando storage azblob object delete --help`)
+(code USAGE, exit 2)
+### komando -o json storage azblob object delete (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.azblob.object.delete","error":{"code":"USAGE","message":"storage azblob object delete takes NAME [OBJECT...]","hint":"for example: komando storage azblob object delete backups --prefix daily/ --older-than 30d --dry-run (more in `komando storage azblob object delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage azblob object delete (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage azblob object delete takes NAME [OBJECT...]
+Hint: for example: komando storage azblob object delete backups --prefix daily/ --older-than 30d --dry-run (more in `komando storage azblob object delete --help`)
+(code USAGE, exit 2)
+### komando -o json storage azblob object link (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.azblob.object.link","error":{"code":"USAGE","message":"storage azblob object link takes NAME OBJECT","hint":"for example: komando storage azblob object link backups reports/q3.pdf --dry-run (more in `komando storage azblob object link --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage azblob object link (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage azblob object link takes NAME OBJECT
+Hint: for example: komando storage azblob object link backups reports/q3.pdf --dry-run (more in `komando storage azblob object link --help`)
+(code USAGE, exit 2)
+### komando -o json storage azblob object link (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.azblob.object.link","error":{"code":"USAGE","message":"storage azblob object link takes NAME OBJECT","hint":"for example: komando storage azblob object link backups reports/q3.pdf --dry-run (more in `komando storage azblob object link --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage azblob object link (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage azblob object link takes NAME OBJECT
+Hint: for example: komando storage azblob object link backups reports/q3.pdf --dry-run (more in `komando storage azblob object link --help`)
+(code USAGE, exit 2)
+### komando -o json storage azblob object link x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.azblob.object.link","error":{"code":"USAGE","message":"storage azblob object link takes NAME OBJECT","hint":"for example: komando storage azblob object link backups reports/q3.pdf --dry-run (more in `komando storage azblob object link --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage azblob object link x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage azblob object link takes NAME OBJECT
+Hint: for example: komando storage azblob object link backups reports/q3.pdf --dry-run (more in `komando storage azblob object link --help`)
+(code USAGE, exit 2)
+### komando -o json storage azblob object link x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.azblob.object.link","error":{"code":"USAGE","message":"storage azblob object link takes NAME OBJECT","hint":"for example: komando storage azblob object link backups reports/q3.pdf --dry-run (more in `komando storage azblob object link --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage azblob object link x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage azblob object link takes NAME OBJECT
+Hint: for example: komando storage azblob object link backups reports/q3.pdf --dry-run (more in `komando storage azblob object link --help`)
+(code USAGE, exit 2)
+### komando -o json storage azblob object list (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.azblob.object.list","error":{"code":"USAGE","message":"storage azblob object list takes NAME [PREFIX]","hint":"for example: komando storage azblob object list backups 2026/ (more in `komando storage azblob object list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage azblob object list (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage azblob object list takes NAME [PREFIX]
+Hint: for example: komando storage azblob object list backups 2026/ (more in `komando storage azblob object list --help`)
+(code USAGE, exit 2)
+### komando -o json storage azblob object list (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.azblob.object.list","error":{"code":"USAGE","message":"storage azblob object list takes NAME [PREFIX]","hint":"for example: komando storage azblob object list backups 2026/ (more in `komando storage azblob object list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage azblob object list (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage azblob object list takes NAME [PREFIX]
+Hint: for example: komando storage azblob object list backups 2026/ (more in `komando storage azblob object list --help`)
+(code USAGE, exit 2)
+### komando -o json storage azblob object move (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.azblob.object.move","error":{"code":"USAGE","message":"storage azblob object move takes NAME SRC DST","hint":"for example: komando storage azblob object move backups old.txt new.txt --dry-run (more in `komando storage azblob object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage azblob object move (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage azblob object move takes NAME SRC DST
+Hint: for example: komando storage azblob object move backups old.txt new.txt --dry-run (more in `komando storage azblob object move --help`)
+(code USAGE, exit 2)
+### komando -o json storage azblob object move (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.azblob.object.move","error":{"code":"USAGE","message":"storage azblob object move takes NAME SRC DST","hint":"for example: komando storage azblob object move backups old.txt new.txt --dry-run (more in `komando storage azblob object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage azblob object move (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage azblob object move takes NAME SRC DST
+Hint: for example: komando storage azblob object move backups old.txt new.txt --dry-run (more in `komando storage azblob object move --help`)
+(code USAGE, exit 2)
+### komando -o json storage azblob object move x1 x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.azblob.object.move","error":{"code":"USAGE","message":"storage azblob object move takes NAME SRC DST","hint":"for example: komando storage azblob object move backups old.txt new.txt --dry-run (more in `komando storage azblob object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage azblob object move x1 x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage azblob object move takes NAME SRC DST
+Hint: for example: komando storage azblob object move backups old.txt new.txt --dry-run (more in `komando storage azblob object move --help`)
+(code USAGE, exit 2)
+### komando -o json storage azblob object move x1 x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.azblob.object.move","error":{"code":"USAGE","message":"storage azblob object move takes NAME SRC DST","hint":"for example: komando storage azblob object move backups old.txt new.txt --dry-run (more in `komando storage azblob object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage azblob object move x1 x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage azblob object move takes NAME SRC DST
+Hint: for example: komando storage azblob object move backups old.txt new.txt --dry-run (more in `komando storage azblob object move --help`)
+(code USAGE, exit 2)
+### komando -o json storage azblob object read (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.azblob.object.read","error":{"code":"USAGE","message":"storage azblob object read takes NAME OBJECT","hint":"for example: komando storage azblob object read backups logs/app.log --tail 50 (more in `komando storage azblob object read --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage azblob object read (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage azblob object read takes NAME OBJECT
+Hint: for example: komando storage azblob object read backups logs/app.log --tail 50 (more in `komando storage azblob object read --help`)
+(code USAGE, exit 2)
+### komando -o json storage azblob object read (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.azblob.object.read","error":{"code":"USAGE","message":"storage azblob object read takes NAME OBJECT","hint":"for example: komando storage azblob object read backups logs/app.log --tail 50 (more in `komando storage azblob object read --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage azblob object read (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage azblob object read takes NAME OBJECT
+Hint: for example: komando storage azblob object read backups logs/app.log --tail 50 (more in `komando storage azblob object read --help`)
+(code USAGE, exit 2)
+### komando -o json storage azblob object read x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.azblob.object.read","error":{"code":"USAGE","message":"storage azblob object read takes NAME OBJECT","hint":"for example: komando storage azblob object read backups logs/app.log --tail 50 (more in `komando storage azblob object read --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage azblob object read x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage azblob object read takes NAME OBJECT
+Hint: for example: komando storage azblob object read backups logs/app.log --tail 50 (more in `komando storage azblob object read --help`)
+(code USAGE, exit 2)
+### komando -o json storage azblob object read x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.azblob.object.read","error":{"code":"USAGE","message":"storage azblob object read takes NAME OBJECT","hint":"for example: komando storage azblob object read backups logs/app.log --tail 50 (more in `komando storage azblob object read --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage azblob object read x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage azblob object read takes NAME OBJECT
+Hint: for example: komando storage azblob object read backups logs/app.log --tail 50 (more in `komando storage azblob object read --help`)
+(code USAGE, exit 2)
+### komando -o json storage azblob remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.azblob.remove","error":{"code":"USAGE","message":"storage azblob remove takes TARGET...","hint":"for example: komando storage azblob remove backups --dry-run (more in `komando storage azblob remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage azblob remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage azblob remove takes TARGET...
+Hint: for example: komando storage azblob remove backups --dry-run (more in `komando storage azblob remove --help`)
+(code USAGE, exit 2)
+### komando -o json storage azblob remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.azblob.remove","error":{"code":"USAGE","message":"storage azblob remove takes TARGET...","hint":"for example: komando storage azblob remove backups --dry-run (more in `komando storage azblob remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage azblob remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage azblob remove takes TARGET...
+Hint: for example: komando storage azblob remove backups --dry-run (more in `komando storage azblob remove --help`)
+(code USAGE, exit 2)
+### komando -o json storage azblob rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.azblob.rename","error":{"code":"USAGE","message":"storage azblob rename takes NAME NEW","hint":"for example: komando storage azblob rename backups backups-2 --dry-run (more in `komando storage azblob rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage azblob rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage azblob rename takes NAME NEW
+Hint: for example: komando storage azblob rename backups backups-2 --dry-run (more in `komando storage azblob rename --help`)
+(code USAGE, exit 2)
+### komando -o json storage azblob rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.azblob.rename","error":{"code":"USAGE","message":"storage azblob rename takes NAME NEW","hint":"for example: komando storage azblob rename backups backups-2 --dry-run (more in `komando storage azblob rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage azblob rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage azblob rename takes NAME NEW
+Hint: for example: komando storage azblob rename backups backups-2 --dry-run (more in `komando storage azblob rename --help`)
+(code USAGE, exit 2)
+### komando -o json storage azblob rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.azblob.rename","error":{"code":"USAGE","message":"storage azblob rename takes NAME NEW","hint":"for example: komando storage azblob rename backups backups-2 --dry-run (more in `komando storage azblob rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage azblob rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage azblob rename takes NAME NEW
+Hint: for example: komando storage azblob rename backups backups-2 --dry-run (more in `komando storage azblob rename --help`)
+(code USAGE, exit 2)
+### komando -o json storage azblob rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.azblob.rename","error":{"code":"USAGE","message":"storage azblob rename takes NAME NEW","hint":"for example: komando storage azblob rename backups backups-2 --dry-run (more in `komando storage azblob rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage azblob rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage azblob rename takes NAME NEW
+Hint: for example: komando storage azblob rename backups backups-2 --dry-run (more in `komando storage azblob rename --help`)
+(code USAGE, exit 2)
+### komando -o json storage azblob show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.azblob.show","error":{"code":"USAGE","message":"storage azblob show takes NAME","hint":"for example: komando storage azblob show backups (more in `komando storage azblob show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage azblob show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage azblob show takes NAME
+Hint: for example: komando storage azblob show backups (more in `komando storage azblob show --help`)
+(code USAGE, exit 2)
+### komando -o json storage azblob show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.azblob.show","error":{"code":"USAGE","message":"storage azblob show takes NAME","hint":"for example: komando storage azblob show backups (more in `komando storage azblob show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage azblob show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage azblob show takes NAME
+Hint: for example: komando storage azblob show backups (more in `komando storage azblob show --help`)
+(code USAGE, exit 2)
+### komando -o json storage azblob test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.azblob.test","error":{"code":"USAGE","message":"storage azblob test takes TARGET","hint":"for example: komando storage azblob test backups (more in `komando storage azblob test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage azblob test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage azblob test takes TARGET
+Hint: for example: komando storage azblob test backups (more in `komando storage azblob test --help`)
+(code USAGE, exit 2)
+### komando -o json storage azblob test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.azblob.test","error":{"code":"USAGE","message":"storage azblob test takes TARGET","hint":"for example: komando storage azblob test backups (more in `komando storage azblob test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage azblob test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage azblob test takes TARGET
+Hint: for example: komando storage azblob test backups (more in `komando storage azblob test --help`)
 (code USAGE, exit 2)
 ### komando -o json storage chmod (agent json)
 exit 2
@@ -6590,197 +6926,1901 @@ exit 2
 Error: missing arguments; usage: komando storage download CONN OBJECT
 Hint: for example: komando storage download backups reports/q3.pdf --to ~/Downloads/
 (code USAGE, exit 2)
-### komando -o json storage link (agent json)
+### komando -o json storage ftp add (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.link","error":{"code":"USAGE","message":"missing arguments; usage: komando storage link CONN OBJECT","hint":"for example: komando storage link backups reports/q3.pdf --expires 24h"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.ftp.add","error":{"code":"USAGE","message":"storage ftp add takes NAME [URL]","hint":"for example: komando storage ftp add backups ftps://deploy@files.example.com/public_html --via web1 (more in `komando storage ftp add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage link (agent text)
+### komando -o text storage ftp add (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage link CONN OBJECT
-Hint: for example: komando storage link backups reports/q3.pdf --expires 24h
+Error: storage ftp add takes NAME [URL]
+Hint: for example: komando storage ftp add backups ftps://deploy@files.example.com/public_html --via web1 (more in `komando storage ftp add --help`)
 (code USAGE, exit 2)
-### komando -o json storage link (script json)
+### komando -o json storage ftp add (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.link","error":{"code":"USAGE","message":"missing arguments; usage: komando storage link CONN OBJECT","hint":"for example: komando storage link backups reports/q3.pdf --expires 24h"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.ftp.add","error":{"code":"USAGE","message":"storage ftp add takes NAME [URL]","hint":"for example: komando storage ftp add backups ftps://deploy@files.example.com/public_html --via web1 (more in `komando storage ftp add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage link (script text)
+### komando -o text storage ftp add (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage link CONN OBJECT
-Hint: for example: komando storage link backups reports/q3.pdf --expires 24h
+Error: storage ftp add takes NAME [URL]
+Hint: for example: komando storage ftp add backups ftps://deploy@files.example.com/public_html --via web1 (more in `komando storage ftp add --help`)
 (code USAGE, exit 2)
-### komando -o json storage link x1 (agent json)
+### komando -o json storage ftp edit (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.link","error":{"code":"USAGE","message":"missing arguments; usage: komando storage link CONN OBJECT","hint":"for example: komando storage link backups reports/q3.pdf --expires 24h"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.ftp.edit","error":{"code":"USAGE","message":"storage ftp edit takes NAME","hint":"for example: komando storage ftp edit backups --add-tag critical (more in `komando storage ftp edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage link x1 (agent text)
+### komando -o text storage ftp edit (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage link CONN OBJECT
-Hint: for example: komando storage link backups reports/q3.pdf --expires 24h
+Error: storage ftp edit takes NAME
+Hint: for example: komando storage ftp edit backups --add-tag critical (more in `komando storage ftp edit --help`)
 (code USAGE, exit 2)
-### komando -o json storage link x1 (script json)
+### komando -o json storage ftp edit (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.link","error":{"code":"USAGE","message":"missing arguments; usage: komando storage link CONN OBJECT","hint":"for example: komando storage link backups reports/q3.pdf --expires 24h"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.ftp.edit","error":{"code":"USAGE","message":"storage ftp edit takes NAME","hint":"for example: komando storage ftp edit backups --add-tag critical (more in `komando storage ftp edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage link x1 (script text)
+### komando -o text storage ftp edit (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage link CONN OBJECT
-Hint: for example: komando storage link backups reports/q3.pdf --expires 24h
+Error: storage ftp edit takes NAME
+Hint: for example: komando storage ftp edit backups --add-tag critical (more in `komando storage ftp edit --help`)
 (code USAGE, exit 2)
-### komando -o json storage list (agent json)
+### komando -o json storage ftp object create (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.list","error":{"code":"USAGE","message":"missing arguments; usage: komando storage list CONN [PREFIX]","hint":"for example: komando storage list backups"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.ftp.object.create","error":{"code":"USAGE","message":"storage ftp object create takes NAME PATH","hint":"for example: komando storage ftp object create backups reports/2026 --dry-run (more in `komando storage ftp object create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage list (agent text)
+### komando -o text storage ftp object create (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage list CONN [PREFIX]
-Hint: for example: komando storage list backups
+Error: storage ftp object create takes NAME PATH
+Hint: for example: komando storage ftp object create backups reports/2026 --dry-run (more in `komando storage ftp object create --help`)
 (code USAGE, exit 2)
-### komando -o json storage list (script json)
+### komando -o json storage ftp object create (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.list","error":{"code":"USAGE","message":"missing arguments; usage: komando storage list CONN [PREFIX]","hint":"for example: komando storage list backups"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.ftp.object.create","error":{"code":"USAGE","message":"storage ftp object create takes NAME PATH","hint":"for example: komando storage ftp object create backups reports/2026 --dry-run (more in `komando storage ftp object create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage list (script text)
+### komando -o text storage ftp object create (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage list CONN [PREFIX]
-Hint: for example: komando storage list backups
+Error: storage ftp object create takes NAME PATH
+Hint: for example: komando storage ftp object create backups reports/2026 --dry-run (more in `komando storage ftp object create --help`)
 (code USAGE, exit 2)
-### komando -o json storage mkdir (agent json)
+### komando -o json storage ftp object create x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.mkdir","error":{"code":"USAGE","message":"missing arguments; usage: komando storage mkdir CONN PATH","hint":"for example: komando storage mkdir backups reports/2026 --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.ftp.object.create","error":{"code":"USAGE","message":"storage ftp object create takes NAME PATH","hint":"for example: komando storage ftp object create backups reports/2026 --dry-run (more in `komando storage ftp object create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage mkdir (agent text)
+### komando -o text storage ftp object create x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage mkdir CONN PATH
-Hint: for example: komando storage mkdir backups reports/2026 --dry-run
+Error: storage ftp object create takes NAME PATH
+Hint: for example: komando storage ftp object create backups reports/2026 --dry-run (more in `komando storage ftp object create --help`)
 (code USAGE, exit 2)
-### komando -o json storage mkdir (script json)
+### komando -o json storage ftp object create x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.mkdir","error":{"code":"USAGE","message":"missing arguments; usage: komando storage mkdir CONN PATH","hint":"for example: komando storage mkdir backups reports/2026 --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.ftp.object.create","error":{"code":"USAGE","message":"storage ftp object create takes NAME PATH","hint":"for example: komando storage ftp object create backups reports/2026 --dry-run (more in `komando storage ftp object create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage mkdir (script text)
+### komando -o text storage ftp object create x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage mkdir CONN PATH
-Hint: for example: komando storage mkdir backups reports/2026 --dry-run
+Error: storage ftp object create takes NAME PATH
+Hint: for example: komando storage ftp object create backups reports/2026 --dry-run (more in `komando storage ftp object create --help`)
 (code USAGE, exit 2)
-### komando -o json storage mkdir x1 (agent json)
+### komando -o json storage ftp object delete (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.mkdir","error":{"code":"USAGE","message":"missing arguments; usage: komando storage mkdir CONN PATH","hint":"for example: komando storage mkdir backups reports/2026 --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.ftp.object.delete","error":{"code":"USAGE","message":"storage ftp object delete takes NAME [OBJECT...]","hint":"for example: komando storage ftp object delete backups --prefix daily/ --older-than 30d --dry-run (more in `komando storage ftp object delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage mkdir x1 (agent text)
+### komando -o text storage ftp object delete (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage mkdir CONN PATH
-Hint: for example: komando storage mkdir backups reports/2026 --dry-run
+Error: storage ftp object delete takes NAME [OBJECT...]
+Hint: for example: komando storage ftp object delete backups --prefix daily/ --older-than 30d --dry-run (more in `komando storage ftp object delete --help`)
 (code USAGE, exit 2)
-### komando -o json storage mkdir x1 (script json)
+### komando -o json storage ftp object delete (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.mkdir","error":{"code":"USAGE","message":"missing arguments; usage: komando storage mkdir CONN PATH","hint":"for example: komando storage mkdir backups reports/2026 --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.ftp.object.delete","error":{"code":"USAGE","message":"storage ftp object delete takes NAME [OBJECT...]","hint":"for example: komando storage ftp object delete backups --prefix daily/ --older-than 30d --dry-run (more in `komando storage ftp object delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage mkdir x1 (script text)
+### komando -o text storage ftp object delete (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage mkdir CONN PATH
-Hint: for example: komando storage mkdir backups reports/2026 --dry-run
+Error: storage ftp object delete takes NAME [OBJECT...]
+Hint: for example: komando storage ftp object delete backups --prefix daily/ --older-than 30d --dry-run (more in `komando storage ftp object delete --help`)
 (code USAGE, exit 2)
-### komando -o json storage mv (agent json)
+### komando -o json storage ftp object list (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando storage mv CONN SRC DST","hint":"for example: komando storage mv backups db/old.sql.gz archive/ --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.ftp.object.list","error":{"code":"USAGE","message":"storage ftp object list takes NAME [PREFIX]","hint":"for example: komando storage ftp object list backups 2026/ (more in `komando storage ftp object list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage mv (agent text)
+### komando -o text storage ftp object list (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage mv CONN SRC DST
-Hint: for example: komando storage mv backups db/old.sql.gz archive/ --dry-run
+Error: storage ftp object list takes NAME [PREFIX]
+Hint: for example: komando storage ftp object list backups 2026/ (more in `komando storage ftp object list --help`)
 (code USAGE, exit 2)
-### komando -o json storage mv (script json)
+### komando -o json storage ftp object list (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando storage mv CONN SRC DST","hint":"for example: komando storage mv backups db/old.sql.gz archive/ --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.ftp.object.list","error":{"code":"USAGE","message":"storage ftp object list takes NAME [PREFIX]","hint":"for example: komando storage ftp object list backups 2026/ (more in `komando storage ftp object list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage mv (script text)
+### komando -o text storage ftp object list (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage mv CONN SRC DST
-Hint: for example: komando storage mv backups db/old.sql.gz archive/ --dry-run
+Error: storage ftp object list takes NAME [PREFIX]
+Hint: for example: komando storage ftp object list backups 2026/ (more in `komando storage ftp object list --help`)
 (code USAGE, exit 2)
-### komando -o json storage mv x1 x1 (agent json)
+### komando -o json storage ftp object move (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando storage mv CONN SRC DST","hint":"for example: komando storage mv backups db/old.sql.gz archive/ --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.ftp.object.move","error":{"code":"USAGE","message":"storage ftp object move takes NAME SRC DST","hint":"for example: komando storage ftp object move backups old.txt new.txt --dry-run (more in `komando storage ftp object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage mv x1 x1 (agent text)
+### komando -o text storage ftp object move (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage mv CONN SRC DST
-Hint: for example: komando storage mv backups db/old.sql.gz archive/ --dry-run
+Error: storage ftp object move takes NAME SRC DST
+Hint: for example: komando storage ftp object move backups old.txt new.txt --dry-run (more in `komando storage ftp object move --help`)
 (code USAGE, exit 2)
-### komando -o json storage mv x1 x1 (script json)
+### komando -o json storage ftp object move (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando storage mv CONN SRC DST","hint":"for example: komando storage mv backups db/old.sql.gz archive/ --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.ftp.object.move","error":{"code":"USAGE","message":"storage ftp object move takes NAME SRC DST","hint":"for example: komando storage ftp object move backups old.txt new.txt --dry-run (more in `komando storage ftp object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage mv x1 x1 (script text)
+### komando -o text storage ftp object move (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage mv CONN SRC DST
-Hint: for example: komando storage mv backups db/old.sql.gz archive/ --dry-run
+Error: storage ftp object move takes NAME SRC DST
+Hint: for example: komando storage ftp object move backups old.txt new.txt --dry-run (more in `komando storage ftp object move --help`)
 (code USAGE, exit 2)
-### komando -o json storage rm (agent json)
+### komando -o json storage ftp object move x1 x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando storage rm CONN [OBJECT...]","hint":"for example: komando storage rm backups tmp/old.sql.gz --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.ftp.object.move","error":{"code":"USAGE","message":"storage ftp object move takes NAME SRC DST","hint":"for example: komando storage ftp object move backups old.txt new.txt --dry-run (more in `komando storage ftp object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage rm (agent text)
+### komando -o text storage ftp object move x1 x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage rm CONN [OBJECT...]
-Hint: for example: komando storage rm backups tmp/old.sql.gz --dry-run
+Error: storage ftp object move takes NAME SRC DST
+Hint: for example: komando storage ftp object move backups old.txt new.txt --dry-run (more in `komando storage ftp object move --help`)
 (code USAGE, exit 2)
-### komando -o json storage rm (script json)
+### komando -o json storage ftp object move x1 x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando storage rm CONN [OBJECT...]","hint":"for example: komando storage rm backups tmp/old.sql.gz --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.ftp.object.move","error":{"code":"USAGE","message":"storage ftp object move takes NAME SRC DST","hint":"for example: komando storage ftp object move backups old.txt new.txt --dry-run (more in `komando storage ftp object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage rm (script text)
+### komando -o text storage ftp object move x1 x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage rm CONN [OBJECT...]
-Hint: for example: komando storage rm backups tmp/old.sql.gz --dry-run
+Error: storage ftp object move takes NAME SRC DST
+Hint: for example: komando storage ftp object move backups old.txt new.txt --dry-run (more in `komando storage ftp object move --help`)
+(code USAGE, exit 2)
+### komando -o json storage ftp object read (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.ftp.object.read","error":{"code":"USAGE","message":"storage ftp object read takes NAME OBJECT","hint":"for example: komando storage ftp object read backups logs/app.log --tail 50 (more in `komando storage ftp object read --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage ftp object read (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage ftp object read takes NAME OBJECT
+Hint: for example: komando storage ftp object read backups logs/app.log --tail 50 (more in `komando storage ftp object read --help`)
+(code USAGE, exit 2)
+### komando -o json storage ftp object read (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.ftp.object.read","error":{"code":"USAGE","message":"storage ftp object read takes NAME OBJECT","hint":"for example: komando storage ftp object read backups logs/app.log --tail 50 (more in `komando storage ftp object read --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage ftp object read (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage ftp object read takes NAME OBJECT
+Hint: for example: komando storage ftp object read backups logs/app.log --tail 50 (more in `komando storage ftp object read --help`)
+(code USAGE, exit 2)
+### komando -o json storage ftp object read x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.ftp.object.read","error":{"code":"USAGE","message":"storage ftp object read takes NAME OBJECT","hint":"for example: komando storage ftp object read backups logs/app.log --tail 50 (more in `komando storage ftp object read --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage ftp object read x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage ftp object read takes NAME OBJECT
+Hint: for example: komando storage ftp object read backups logs/app.log --tail 50 (more in `komando storage ftp object read --help`)
+(code USAGE, exit 2)
+### komando -o json storage ftp object read x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.ftp.object.read","error":{"code":"USAGE","message":"storage ftp object read takes NAME OBJECT","hint":"for example: komando storage ftp object read backups logs/app.log --tail 50 (more in `komando storage ftp object read --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage ftp object read x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage ftp object read takes NAME OBJECT
+Hint: for example: komando storage ftp object read backups logs/app.log --tail 50 (more in `komando storage ftp object read --help`)
+(code USAGE, exit 2)
+### komando -o json storage ftp remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.ftp.remove","error":{"code":"USAGE","message":"storage ftp remove takes TARGET...","hint":"for example: komando storage ftp remove backups --dry-run (more in `komando storage ftp remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage ftp remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage ftp remove takes TARGET...
+Hint: for example: komando storage ftp remove backups --dry-run (more in `komando storage ftp remove --help`)
+(code USAGE, exit 2)
+### komando -o json storage ftp remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.ftp.remove","error":{"code":"USAGE","message":"storage ftp remove takes TARGET...","hint":"for example: komando storage ftp remove backups --dry-run (more in `komando storage ftp remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage ftp remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage ftp remove takes TARGET...
+Hint: for example: komando storage ftp remove backups --dry-run (more in `komando storage ftp remove --help`)
+(code USAGE, exit 2)
+### komando -o json storage ftp rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.ftp.rename","error":{"code":"USAGE","message":"storage ftp rename takes NAME NEW","hint":"for example: komando storage ftp rename backups backups-2 --dry-run (more in `komando storage ftp rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage ftp rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage ftp rename takes NAME NEW
+Hint: for example: komando storage ftp rename backups backups-2 --dry-run (more in `komando storage ftp rename --help`)
+(code USAGE, exit 2)
+### komando -o json storage ftp rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.ftp.rename","error":{"code":"USAGE","message":"storage ftp rename takes NAME NEW","hint":"for example: komando storage ftp rename backups backups-2 --dry-run (more in `komando storage ftp rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage ftp rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage ftp rename takes NAME NEW
+Hint: for example: komando storage ftp rename backups backups-2 --dry-run (more in `komando storage ftp rename --help`)
+(code USAGE, exit 2)
+### komando -o json storage ftp rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.ftp.rename","error":{"code":"USAGE","message":"storage ftp rename takes NAME NEW","hint":"for example: komando storage ftp rename backups backups-2 --dry-run (more in `komando storage ftp rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage ftp rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage ftp rename takes NAME NEW
+Hint: for example: komando storage ftp rename backups backups-2 --dry-run (more in `komando storage ftp rename --help`)
+(code USAGE, exit 2)
+### komando -o json storage ftp rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.ftp.rename","error":{"code":"USAGE","message":"storage ftp rename takes NAME NEW","hint":"for example: komando storage ftp rename backups backups-2 --dry-run (more in `komando storage ftp rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage ftp rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage ftp rename takes NAME NEW
+Hint: for example: komando storage ftp rename backups backups-2 --dry-run (more in `komando storage ftp rename --help`)
+(code USAGE, exit 2)
+### komando -o json storage ftp show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.ftp.show","error":{"code":"USAGE","message":"storage ftp show takes NAME","hint":"for example: komando storage ftp show backups (more in `komando storage ftp show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage ftp show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage ftp show takes NAME
+Hint: for example: komando storage ftp show backups (more in `komando storage ftp show --help`)
+(code USAGE, exit 2)
+### komando -o json storage ftp show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.ftp.show","error":{"code":"USAGE","message":"storage ftp show takes NAME","hint":"for example: komando storage ftp show backups (more in `komando storage ftp show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage ftp show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage ftp show takes NAME
+Hint: for example: komando storage ftp show backups (more in `komando storage ftp show --help`)
+(code USAGE, exit 2)
+### komando -o json storage ftp test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.ftp.test","error":{"code":"USAGE","message":"storage ftp test takes TARGET","hint":"for example: komando storage ftp test backups (more in `komando storage ftp test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage ftp test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage ftp test takes TARGET
+Hint: for example: komando storage ftp test backups (more in `komando storage ftp test --help`)
+(code USAGE, exit 2)
+### komando -o json storage ftp test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.ftp.test","error":{"code":"USAGE","message":"storage ftp test takes TARGET","hint":"for example: komando storage ftp test backups (more in `komando storage ftp test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage ftp test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage ftp test takes TARGET
+Hint: for example: komando storage ftp test backups (more in `komando storage ftp test --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.add","error":{"code":"USAGE","message":"storage gcs add takes NAME [URL]","hint":"for example: komando storage gcs add backups gs://my-bucket/backups --via web1 (more in `komando storage gcs add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs add takes NAME [URL]
+Hint: for example: komando storage gcs add backups gs://my-bucket/backups --via web1 (more in `komando storage gcs add --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.add","error":{"code":"USAGE","message":"storage gcs add takes NAME [URL]","hint":"for example: komando storage gcs add backups gs://my-bucket/backups --via web1 (more in `komando storage gcs add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs add takes NAME [URL]
+Hint: for example: komando storage gcs add backups gs://my-bucket/backups --via web1 (more in `komando storage gcs add --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.edit","error":{"code":"USAGE","message":"storage gcs edit takes NAME","hint":"for example: komando storage gcs edit backups --add-tag critical (more in `komando storage gcs edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs edit takes NAME
+Hint: for example: komando storage gcs edit backups --add-tag critical (more in `komando storage gcs edit --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.edit","error":{"code":"USAGE","message":"storage gcs edit takes NAME","hint":"for example: komando storage gcs edit backups --add-tag critical (more in `komando storage gcs edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs edit takes NAME
+Hint: for example: komando storage gcs edit backups --add-tag critical (more in `komando storage gcs edit --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs object create (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.object.create","error":{"code":"USAGE","message":"storage gcs object create takes NAME PATH","hint":"for example: komando storage gcs object create backups reports/2026 --dry-run (more in `komando storage gcs object create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs object create (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs object create takes NAME PATH
+Hint: for example: komando storage gcs object create backups reports/2026 --dry-run (more in `komando storage gcs object create --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs object create (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.object.create","error":{"code":"USAGE","message":"storage gcs object create takes NAME PATH","hint":"for example: komando storage gcs object create backups reports/2026 --dry-run (more in `komando storage gcs object create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs object create (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs object create takes NAME PATH
+Hint: for example: komando storage gcs object create backups reports/2026 --dry-run (more in `komando storage gcs object create --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs object create x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.object.create","error":{"code":"USAGE","message":"storage gcs object create takes NAME PATH","hint":"for example: komando storage gcs object create backups reports/2026 --dry-run (more in `komando storage gcs object create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs object create x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs object create takes NAME PATH
+Hint: for example: komando storage gcs object create backups reports/2026 --dry-run (more in `komando storage gcs object create --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs object create x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.object.create","error":{"code":"USAGE","message":"storage gcs object create takes NAME PATH","hint":"for example: komando storage gcs object create backups reports/2026 --dry-run (more in `komando storage gcs object create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs object create x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs object create takes NAME PATH
+Hint: for example: komando storage gcs object create backups reports/2026 --dry-run (more in `komando storage gcs object create --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs object delete (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.object.delete","error":{"code":"USAGE","message":"storage gcs object delete takes NAME [OBJECT...]","hint":"for example: komando storage gcs object delete backups --prefix daily/ --older-than 30d --dry-run (more in `komando storage gcs object delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs object delete (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs object delete takes NAME [OBJECT...]
+Hint: for example: komando storage gcs object delete backups --prefix daily/ --older-than 30d --dry-run (more in `komando storage gcs object delete --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs object delete (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.object.delete","error":{"code":"USAGE","message":"storage gcs object delete takes NAME [OBJECT...]","hint":"for example: komando storage gcs object delete backups --prefix daily/ --older-than 30d --dry-run (more in `komando storage gcs object delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs object delete (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs object delete takes NAME [OBJECT...]
+Hint: for example: komando storage gcs object delete backups --prefix daily/ --older-than 30d --dry-run (more in `komando storage gcs object delete --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs object link (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.object.link","error":{"code":"USAGE","message":"storage gcs object link takes NAME OBJECT","hint":"for example: komando storage gcs object link backups reports/q3.pdf --dry-run (more in `komando storage gcs object link --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs object link (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs object link takes NAME OBJECT
+Hint: for example: komando storage gcs object link backups reports/q3.pdf --dry-run (more in `komando storage gcs object link --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs object link (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.object.link","error":{"code":"USAGE","message":"storage gcs object link takes NAME OBJECT","hint":"for example: komando storage gcs object link backups reports/q3.pdf --dry-run (more in `komando storage gcs object link --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs object link (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs object link takes NAME OBJECT
+Hint: for example: komando storage gcs object link backups reports/q3.pdf --dry-run (more in `komando storage gcs object link --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs object link x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.object.link","error":{"code":"USAGE","message":"storage gcs object link takes NAME OBJECT","hint":"for example: komando storage gcs object link backups reports/q3.pdf --dry-run (more in `komando storage gcs object link --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs object link x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs object link takes NAME OBJECT
+Hint: for example: komando storage gcs object link backups reports/q3.pdf --dry-run (more in `komando storage gcs object link --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs object link x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.object.link","error":{"code":"USAGE","message":"storage gcs object link takes NAME OBJECT","hint":"for example: komando storage gcs object link backups reports/q3.pdf --dry-run (more in `komando storage gcs object link --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs object link x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs object link takes NAME OBJECT
+Hint: for example: komando storage gcs object link backups reports/q3.pdf --dry-run (more in `komando storage gcs object link --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs object list (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.object.list","error":{"code":"USAGE","message":"storage gcs object list takes NAME [PREFIX]","hint":"for example: komando storage gcs object list backups 2026/ (more in `komando storage gcs object list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs object list (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs object list takes NAME [PREFIX]
+Hint: for example: komando storage gcs object list backups 2026/ (more in `komando storage gcs object list --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs object list (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.object.list","error":{"code":"USAGE","message":"storage gcs object list takes NAME [PREFIX]","hint":"for example: komando storage gcs object list backups 2026/ (more in `komando storage gcs object list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs object list (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs object list takes NAME [PREFIX]
+Hint: for example: komando storage gcs object list backups 2026/ (more in `komando storage gcs object list --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs object move (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.object.move","error":{"code":"USAGE","message":"storage gcs object move takes NAME SRC DST","hint":"for example: komando storage gcs object move backups old.txt new.txt --dry-run (more in `komando storage gcs object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs object move (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs object move takes NAME SRC DST
+Hint: for example: komando storage gcs object move backups old.txt new.txt --dry-run (more in `komando storage gcs object move --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs object move (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.object.move","error":{"code":"USAGE","message":"storage gcs object move takes NAME SRC DST","hint":"for example: komando storage gcs object move backups old.txt new.txt --dry-run (more in `komando storage gcs object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs object move (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs object move takes NAME SRC DST
+Hint: for example: komando storage gcs object move backups old.txt new.txt --dry-run (more in `komando storage gcs object move --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs object move x1 x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.object.move","error":{"code":"USAGE","message":"storage gcs object move takes NAME SRC DST","hint":"for example: komando storage gcs object move backups old.txt new.txt --dry-run (more in `komando storage gcs object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs object move x1 x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs object move takes NAME SRC DST
+Hint: for example: komando storage gcs object move backups old.txt new.txt --dry-run (more in `komando storage gcs object move --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs object move x1 x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.object.move","error":{"code":"USAGE","message":"storage gcs object move takes NAME SRC DST","hint":"for example: komando storage gcs object move backups old.txt new.txt --dry-run (more in `komando storage gcs object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs object move x1 x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs object move takes NAME SRC DST
+Hint: for example: komando storage gcs object move backups old.txt new.txt --dry-run (more in `komando storage gcs object move --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs object read (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.object.read","error":{"code":"USAGE","message":"storage gcs object read takes NAME OBJECT","hint":"for example: komando storage gcs object read backups logs/app.log --tail 50 (more in `komando storage gcs object read --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs object read (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs object read takes NAME OBJECT
+Hint: for example: komando storage gcs object read backups logs/app.log --tail 50 (more in `komando storage gcs object read --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs object read (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.object.read","error":{"code":"USAGE","message":"storage gcs object read takes NAME OBJECT","hint":"for example: komando storage gcs object read backups logs/app.log --tail 50 (more in `komando storage gcs object read --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs object read (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs object read takes NAME OBJECT
+Hint: for example: komando storage gcs object read backups logs/app.log --tail 50 (more in `komando storage gcs object read --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs object read x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.object.read","error":{"code":"USAGE","message":"storage gcs object read takes NAME OBJECT","hint":"for example: komando storage gcs object read backups logs/app.log --tail 50 (more in `komando storage gcs object read --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs object read x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs object read takes NAME OBJECT
+Hint: for example: komando storage gcs object read backups logs/app.log --tail 50 (more in `komando storage gcs object read --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs object read x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.object.read","error":{"code":"USAGE","message":"storage gcs object read takes NAME OBJECT","hint":"for example: komando storage gcs object read backups logs/app.log --tail 50 (more in `komando storage gcs object read --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs object read x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs object read takes NAME OBJECT
+Hint: for example: komando storage gcs object read backups logs/app.log --tail 50 (more in `komando storage gcs object read --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.remove","error":{"code":"USAGE","message":"storage gcs remove takes TARGET...","hint":"for example: komando storage gcs remove backups --dry-run (more in `komando storage gcs remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs remove takes TARGET...
+Hint: for example: komando storage gcs remove backups --dry-run (more in `komando storage gcs remove --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.remove","error":{"code":"USAGE","message":"storage gcs remove takes TARGET...","hint":"for example: komando storage gcs remove backups --dry-run (more in `komando storage gcs remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs remove takes TARGET...
+Hint: for example: komando storage gcs remove backups --dry-run (more in `komando storage gcs remove --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.rename","error":{"code":"USAGE","message":"storage gcs rename takes NAME NEW","hint":"for example: komando storage gcs rename backups backups-2 --dry-run (more in `komando storage gcs rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs rename takes NAME NEW
+Hint: for example: komando storage gcs rename backups backups-2 --dry-run (more in `komando storage gcs rename --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.rename","error":{"code":"USAGE","message":"storage gcs rename takes NAME NEW","hint":"for example: komando storage gcs rename backups backups-2 --dry-run (more in `komando storage gcs rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs rename takes NAME NEW
+Hint: for example: komando storage gcs rename backups backups-2 --dry-run (more in `komando storage gcs rename --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.rename","error":{"code":"USAGE","message":"storage gcs rename takes NAME NEW","hint":"for example: komando storage gcs rename backups backups-2 --dry-run (more in `komando storage gcs rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs rename takes NAME NEW
+Hint: for example: komando storage gcs rename backups backups-2 --dry-run (more in `komando storage gcs rename --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.rename","error":{"code":"USAGE","message":"storage gcs rename takes NAME NEW","hint":"for example: komando storage gcs rename backups backups-2 --dry-run (more in `komando storage gcs rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs rename takes NAME NEW
+Hint: for example: komando storage gcs rename backups backups-2 --dry-run (more in `komando storage gcs rename --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.show","error":{"code":"USAGE","message":"storage gcs show takes NAME","hint":"for example: komando storage gcs show backups (more in `komando storage gcs show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs show takes NAME
+Hint: for example: komando storage gcs show backups (more in `komando storage gcs show --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.show","error":{"code":"USAGE","message":"storage gcs show takes NAME","hint":"for example: komando storage gcs show backups (more in `komando storage gcs show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs show takes NAME
+Hint: for example: komando storage gcs show backups (more in `komando storage gcs show --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.test","error":{"code":"USAGE","message":"storage gcs test takes TARGET","hint":"for example: komando storage gcs test backups (more in `komando storage gcs test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs test takes TARGET
+Hint: for example: komando storage gcs test backups (more in `komando storage gcs test --help`)
+(code USAGE, exit 2)
+### komando -o json storage gcs test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.gcs.test","error":{"code":"USAGE","message":"storage gcs test takes TARGET","hint":"for example: komando storage gcs test backups (more in `komando storage gcs test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage gcs test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage gcs test takes TARGET
+Hint: for example: komando storage gcs test backups (more in `komando storage gcs test --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.add","error":{"code":"USAGE","message":"storage s3 add takes NAME [URL]","hint":"for example: komando storage s3 add backups 's3://ACCESS_KEY_ID@my-bucket/backups?region=us-east-1' --via web1 (more in `komando storage s3 add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 add takes NAME [URL]
+Hint: for example: komando storage s3 add backups 's3://ACCESS_KEY_ID@my-bucket/backups?region=us-east-1' --via web1 (more in `komando storage s3 add --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.add","error":{"code":"USAGE","message":"storage s3 add takes NAME [URL]","hint":"for example: komando storage s3 add backups 's3://ACCESS_KEY_ID@my-bucket/backups?region=us-east-1' --via web1 (more in `komando storage s3 add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 add takes NAME [URL]
+Hint: for example: komando storage s3 add backups 's3://ACCESS_KEY_ID@my-bucket/backups?region=us-east-1' --via web1 (more in `komando storage s3 add --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.edit","error":{"code":"USAGE","message":"storage s3 edit takes NAME","hint":"for example: komando storage s3 edit backups --add-tag critical (more in `komando storage s3 edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 edit takes NAME
+Hint: for example: komando storage s3 edit backups --add-tag critical (more in `komando storage s3 edit --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.edit","error":{"code":"USAGE","message":"storage s3 edit takes NAME","hint":"for example: komando storage s3 edit backups --add-tag critical (more in `komando storage s3 edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 edit takes NAME
+Hint: for example: komando storage s3 edit backups --add-tag critical (more in `komando storage s3 edit --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 object create (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.object.create","error":{"code":"USAGE","message":"storage s3 object create takes NAME PATH","hint":"for example: komando storage s3 object create backups reports/2026 --dry-run (more in `komando storage s3 object create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 object create (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 object create takes NAME PATH
+Hint: for example: komando storage s3 object create backups reports/2026 --dry-run (more in `komando storage s3 object create --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 object create (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.object.create","error":{"code":"USAGE","message":"storage s3 object create takes NAME PATH","hint":"for example: komando storage s3 object create backups reports/2026 --dry-run (more in `komando storage s3 object create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 object create (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 object create takes NAME PATH
+Hint: for example: komando storage s3 object create backups reports/2026 --dry-run (more in `komando storage s3 object create --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 object create x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.object.create","error":{"code":"USAGE","message":"storage s3 object create takes NAME PATH","hint":"for example: komando storage s3 object create backups reports/2026 --dry-run (more in `komando storage s3 object create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 object create x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 object create takes NAME PATH
+Hint: for example: komando storage s3 object create backups reports/2026 --dry-run (more in `komando storage s3 object create --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 object create x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.object.create","error":{"code":"USAGE","message":"storage s3 object create takes NAME PATH","hint":"for example: komando storage s3 object create backups reports/2026 --dry-run (more in `komando storage s3 object create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 object create x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 object create takes NAME PATH
+Hint: for example: komando storage s3 object create backups reports/2026 --dry-run (more in `komando storage s3 object create --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 object delete (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.object.delete","error":{"code":"USAGE","message":"storage s3 object delete takes NAME [OBJECT...]","hint":"for example: komando storage s3 object delete backups --prefix daily/ --older-than 30d --dry-run (more in `komando storage s3 object delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 object delete (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 object delete takes NAME [OBJECT...]
+Hint: for example: komando storage s3 object delete backups --prefix daily/ --older-than 30d --dry-run (more in `komando storage s3 object delete --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 object delete (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.object.delete","error":{"code":"USAGE","message":"storage s3 object delete takes NAME [OBJECT...]","hint":"for example: komando storage s3 object delete backups --prefix daily/ --older-than 30d --dry-run (more in `komando storage s3 object delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 object delete (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 object delete takes NAME [OBJECT...]
+Hint: for example: komando storage s3 object delete backups --prefix daily/ --older-than 30d --dry-run (more in `komando storage s3 object delete --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 object link (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.object.link","error":{"code":"USAGE","message":"storage s3 object link takes NAME OBJECT","hint":"for example: komando storage s3 object link backups reports/q3.pdf --dry-run (more in `komando storage s3 object link --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 object link (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 object link takes NAME OBJECT
+Hint: for example: komando storage s3 object link backups reports/q3.pdf --dry-run (more in `komando storage s3 object link --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 object link (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.object.link","error":{"code":"USAGE","message":"storage s3 object link takes NAME OBJECT","hint":"for example: komando storage s3 object link backups reports/q3.pdf --dry-run (more in `komando storage s3 object link --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 object link (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 object link takes NAME OBJECT
+Hint: for example: komando storage s3 object link backups reports/q3.pdf --dry-run (more in `komando storage s3 object link --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 object link x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.object.link","error":{"code":"USAGE","message":"storage s3 object link takes NAME OBJECT","hint":"for example: komando storage s3 object link backups reports/q3.pdf --dry-run (more in `komando storage s3 object link --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 object link x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 object link takes NAME OBJECT
+Hint: for example: komando storage s3 object link backups reports/q3.pdf --dry-run (more in `komando storage s3 object link --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 object link x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.object.link","error":{"code":"USAGE","message":"storage s3 object link takes NAME OBJECT","hint":"for example: komando storage s3 object link backups reports/q3.pdf --dry-run (more in `komando storage s3 object link --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 object link x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 object link takes NAME OBJECT
+Hint: for example: komando storage s3 object link backups reports/q3.pdf --dry-run (more in `komando storage s3 object link --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 object list (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.object.list","error":{"code":"USAGE","message":"storage s3 object list takes NAME [PREFIX]","hint":"for example: komando storage s3 object list backups 2026/ (more in `komando storage s3 object list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 object list (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 object list takes NAME [PREFIX]
+Hint: for example: komando storage s3 object list backups 2026/ (more in `komando storage s3 object list --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 object list (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.object.list","error":{"code":"USAGE","message":"storage s3 object list takes NAME [PREFIX]","hint":"for example: komando storage s3 object list backups 2026/ (more in `komando storage s3 object list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 object list (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 object list takes NAME [PREFIX]
+Hint: for example: komando storage s3 object list backups 2026/ (more in `komando storage s3 object list --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 object move (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.object.move","error":{"code":"USAGE","message":"storage s3 object move takes NAME SRC DST","hint":"for example: komando storage s3 object move backups old.txt new.txt --dry-run (more in `komando storage s3 object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 object move (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 object move takes NAME SRC DST
+Hint: for example: komando storage s3 object move backups old.txt new.txt --dry-run (more in `komando storage s3 object move --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 object move (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.object.move","error":{"code":"USAGE","message":"storage s3 object move takes NAME SRC DST","hint":"for example: komando storage s3 object move backups old.txt new.txt --dry-run (more in `komando storage s3 object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 object move (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 object move takes NAME SRC DST
+Hint: for example: komando storage s3 object move backups old.txt new.txt --dry-run (more in `komando storage s3 object move --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 object move x1 x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.object.move","error":{"code":"USAGE","message":"storage s3 object move takes NAME SRC DST","hint":"for example: komando storage s3 object move backups old.txt new.txt --dry-run (more in `komando storage s3 object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 object move x1 x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 object move takes NAME SRC DST
+Hint: for example: komando storage s3 object move backups old.txt new.txt --dry-run (more in `komando storage s3 object move --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 object move x1 x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.object.move","error":{"code":"USAGE","message":"storage s3 object move takes NAME SRC DST","hint":"for example: komando storage s3 object move backups old.txt new.txt --dry-run (more in `komando storage s3 object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 object move x1 x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 object move takes NAME SRC DST
+Hint: for example: komando storage s3 object move backups old.txt new.txt --dry-run (more in `komando storage s3 object move --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 object read (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.object.read","error":{"code":"USAGE","message":"storage s3 object read takes NAME OBJECT","hint":"for example: komando storage s3 object read backups logs/app.log --tail 50 (more in `komando storage s3 object read --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 object read (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 object read takes NAME OBJECT
+Hint: for example: komando storage s3 object read backups logs/app.log --tail 50 (more in `komando storage s3 object read --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 object read (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.object.read","error":{"code":"USAGE","message":"storage s3 object read takes NAME OBJECT","hint":"for example: komando storage s3 object read backups logs/app.log --tail 50 (more in `komando storage s3 object read --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 object read (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 object read takes NAME OBJECT
+Hint: for example: komando storage s3 object read backups logs/app.log --tail 50 (more in `komando storage s3 object read --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 object read x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.object.read","error":{"code":"USAGE","message":"storage s3 object read takes NAME OBJECT","hint":"for example: komando storage s3 object read backups logs/app.log --tail 50 (more in `komando storage s3 object read --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 object read x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 object read takes NAME OBJECT
+Hint: for example: komando storage s3 object read backups logs/app.log --tail 50 (more in `komando storage s3 object read --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 object read x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.object.read","error":{"code":"USAGE","message":"storage s3 object read takes NAME OBJECT","hint":"for example: komando storage s3 object read backups logs/app.log --tail 50 (more in `komando storage s3 object read --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 object read x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 object read takes NAME OBJECT
+Hint: for example: komando storage s3 object read backups logs/app.log --tail 50 (more in `komando storage s3 object read --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.remove","error":{"code":"USAGE","message":"storage s3 remove takes TARGET...","hint":"for example: komando storage s3 remove backups --dry-run (more in `komando storage s3 remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 remove takes TARGET...
+Hint: for example: komando storage s3 remove backups --dry-run (more in `komando storage s3 remove --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.remove","error":{"code":"USAGE","message":"storage s3 remove takes TARGET...","hint":"for example: komando storage s3 remove backups --dry-run (more in `komando storage s3 remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 remove takes TARGET...
+Hint: for example: komando storage s3 remove backups --dry-run (more in `komando storage s3 remove --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.rename","error":{"code":"USAGE","message":"storage s3 rename takes NAME NEW","hint":"for example: komando storage s3 rename backups backups-2 --dry-run (more in `komando storage s3 rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 rename takes NAME NEW
+Hint: for example: komando storage s3 rename backups backups-2 --dry-run (more in `komando storage s3 rename --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.rename","error":{"code":"USAGE","message":"storage s3 rename takes NAME NEW","hint":"for example: komando storage s3 rename backups backups-2 --dry-run (more in `komando storage s3 rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 rename takes NAME NEW
+Hint: for example: komando storage s3 rename backups backups-2 --dry-run (more in `komando storage s3 rename --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.rename","error":{"code":"USAGE","message":"storage s3 rename takes NAME NEW","hint":"for example: komando storage s3 rename backups backups-2 --dry-run (more in `komando storage s3 rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 rename takes NAME NEW
+Hint: for example: komando storage s3 rename backups backups-2 --dry-run (more in `komando storage s3 rename --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.rename","error":{"code":"USAGE","message":"storage s3 rename takes NAME NEW","hint":"for example: komando storage s3 rename backups backups-2 --dry-run (more in `komando storage s3 rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 rename takes NAME NEW
+Hint: for example: komando storage s3 rename backups backups-2 --dry-run (more in `komando storage s3 rename --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.show","error":{"code":"USAGE","message":"storage s3 show takes NAME","hint":"for example: komando storage s3 show backups (more in `komando storage s3 show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 show takes NAME
+Hint: for example: komando storage s3 show backups (more in `komando storage s3 show --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.show","error":{"code":"USAGE","message":"storage s3 show takes NAME","hint":"for example: komando storage s3 show backups (more in `komando storage s3 show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 show takes NAME
+Hint: for example: komando storage s3 show backups (more in `komando storage s3 show --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.test","error":{"code":"USAGE","message":"storage s3 test takes TARGET","hint":"for example: komando storage s3 test backups (more in `komando storage s3 test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 test takes TARGET
+Hint: for example: komando storage s3 test backups (more in `komando storage s3 test --help`)
+(code USAGE, exit 2)
+### komando -o json storage s3 test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.s3.test","error":{"code":"USAGE","message":"storage s3 test takes TARGET","hint":"for example: komando storage s3 test backups (more in `komando storage s3 test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage s3 test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage s3 test takes TARGET
+Hint: for example: komando storage s3 test backups (more in `komando storage s3 test --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.add","error":{"code":"USAGE","message":"storage sftp add takes NAME [URL]","hint":"for example: komando storage sftp add backups sftp://deploy@files.example.com/uploads --via web1 (more in `komando storage sftp add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp add takes NAME [URL]
+Hint: for example: komando storage sftp add backups sftp://deploy@files.example.com/uploads --via web1 (more in `komando storage sftp add --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.add","error":{"code":"USAGE","message":"storage sftp add takes NAME [URL]","hint":"for example: komando storage sftp add backups sftp://deploy@files.example.com/uploads --via web1 (more in `komando storage sftp add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp add takes NAME [URL]
+Hint: for example: komando storage sftp add backups sftp://deploy@files.example.com/uploads --via web1 (more in `komando storage sftp add --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.edit","error":{"code":"USAGE","message":"storage sftp edit takes NAME","hint":"for example: komando storage sftp edit backups --add-tag critical (more in `komando storage sftp edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp edit takes NAME
+Hint: for example: komando storage sftp edit backups --add-tag critical (more in `komando storage sftp edit --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.edit","error":{"code":"USAGE","message":"storage sftp edit takes NAME","hint":"for example: komando storage sftp edit backups --add-tag critical (more in `komando storage sftp edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp edit takes NAME
+Hint: for example: komando storage sftp edit backups --add-tag critical (more in `komando storage sftp edit --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp object create (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.object.create","error":{"code":"USAGE","message":"storage sftp object create takes NAME PATH","hint":"for example: komando storage sftp object create backups reports/2026 --dry-run (more in `komando storage sftp object create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp object create (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp object create takes NAME PATH
+Hint: for example: komando storage sftp object create backups reports/2026 --dry-run (more in `komando storage sftp object create --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp object create (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.object.create","error":{"code":"USAGE","message":"storage sftp object create takes NAME PATH","hint":"for example: komando storage sftp object create backups reports/2026 --dry-run (more in `komando storage sftp object create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp object create (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp object create takes NAME PATH
+Hint: for example: komando storage sftp object create backups reports/2026 --dry-run (more in `komando storage sftp object create --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp object create x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.object.create","error":{"code":"USAGE","message":"storage sftp object create takes NAME PATH","hint":"for example: komando storage sftp object create backups reports/2026 --dry-run (more in `komando storage sftp object create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp object create x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp object create takes NAME PATH
+Hint: for example: komando storage sftp object create backups reports/2026 --dry-run (more in `komando storage sftp object create --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp object create x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.object.create","error":{"code":"USAGE","message":"storage sftp object create takes NAME PATH","hint":"for example: komando storage sftp object create backups reports/2026 --dry-run (more in `komando storage sftp object create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp object create x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp object create takes NAME PATH
+Hint: for example: komando storage sftp object create backups reports/2026 --dry-run (more in `komando storage sftp object create --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp object delete (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.object.delete","error":{"code":"USAGE","message":"storage sftp object delete takes NAME [OBJECT...]","hint":"for example: komando storage sftp object delete backups --prefix daily/ --older-than 30d --dry-run (more in `komando storage sftp object delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp object delete (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp object delete takes NAME [OBJECT...]
+Hint: for example: komando storage sftp object delete backups --prefix daily/ --older-than 30d --dry-run (more in `komando storage sftp object delete --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp object delete (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.object.delete","error":{"code":"USAGE","message":"storage sftp object delete takes NAME [OBJECT...]","hint":"for example: komando storage sftp object delete backups --prefix daily/ --older-than 30d --dry-run (more in `komando storage sftp object delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp object delete (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp object delete takes NAME [OBJECT...]
+Hint: for example: komando storage sftp object delete backups --prefix daily/ --older-than 30d --dry-run (more in `komando storage sftp object delete --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp object list (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.object.list","error":{"code":"USAGE","message":"storage sftp object list takes NAME [PREFIX]","hint":"for example: komando storage sftp object list backups 2026/ (more in `komando storage sftp object list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp object list (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp object list takes NAME [PREFIX]
+Hint: for example: komando storage sftp object list backups 2026/ (more in `komando storage sftp object list --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp object list (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.object.list","error":{"code":"USAGE","message":"storage sftp object list takes NAME [PREFIX]","hint":"for example: komando storage sftp object list backups 2026/ (more in `komando storage sftp object list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp object list (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp object list takes NAME [PREFIX]
+Hint: for example: komando storage sftp object list backups 2026/ (more in `komando storage sftp object list --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp object move (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.object.move","error":{"code":"USAGE","message":"storage sftp object move takes NAME SRC DST","hint":"for example: komando storage sftp object move backups old.txt new.txt --dry-run (more in `komando storage sftp object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp object move (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp object move takes NAME SRC DST
+Hint: for example: komando storage sftp object move backups old.txt new.txt --dry-run (more in `komando storage sftp object move --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp object move (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.object.move","error":{"code":"USAGE","message":"storage sftp object move takes NAME SRC DST","hint":"for example: komando storage sftp object move backups old.txt new.txt --dry-run (more in `komando storage sftp object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp object move (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp object move takes NAME SRC DST
+Hint: for example: komando storage sftp object move backups old.txt new.txt --dry-run (more in `komando storage sftp object move --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp object move x1 x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.object.move","error":{"code":"USAGE","message":"storage sftp object move takes NAME SRC DST","hint":"for example: komando storage sftp object move backups old.txt new.txt --dry-run (more in `komando storage sftp object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp object move x1 x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp object move takes NAME SRC DST
+Hint: for example: komando storage sftp object move backups old.txt new.txt --dry-run (more in `komando storage sftp object move --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp object move x1 x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.object.move","error":{"code":"USAGE","message":"storage sftp object move takes NAME SRC DST","hint":"for example: komando storage sftp object move backups old.txt new.txt --dry-run (more in `komando storage sftp object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp object move x1 x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp object move takes NAME SRC DST
+Hint: for example: komando storage sftp object move backups old.txt new.txt --dry-run (more in `komando storage sftp object move --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp object read (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.object.read","error":{"code":"USAGE","message":"storage sftp object read takes NAME OBJECT","hint":"for example: komando storage sftp object read backups logs/app.log --tail 50 (more in `komando storage sftp object read --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp object read (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp object read takes NAME OBJECT
+Hint: for example: komando storage sftp object read backups logs/app.log --tail 50 (more in `komando storage sftp object read --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp object read (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.object.read","error":{"code":"USAGE","message":"storage sftp object read takes NAME OBJECT","hint":"for example: komando storage sftp object read backups logs/app.log --tail 50 (more in `komando storage sftp object read --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp object read (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp object read takes NAME OBJECT
+Hint: for example: komando storage sftp object read backups logs/app.log --tail 50 (more in `komando storage sftp object read --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp object read x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.object.read","error":{"code":"USAGE","message":"storage sftp object read takes NAME OBJECT","hint":"for example: komando storage sftp object read backups logs/app.log --tail 50 (more in `komando storage sftp object read --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp object read x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp object read takes NAME OBJECT
+Hint: for example: komando storage sftp object read backups logs/app.log --tail 50 (more in `komando storage sftp object read --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp object read x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.object.read","error":{"code":"USAGE","message":"storage sftp object read takes NAME OBJECT","hint":"for example: komando storage sftp object read backups logs/app.log --tail 50 (more in `komando storage sftp object read --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp object read x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp object read takes NAME OBJECT
+Hint: for example: komando storage sftp object read backups logs/app.log --tail 50 (more in `komando storage sftp object read --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.remove","error":{"code":"USAGE","message":"storage sftp remove takes TARGET...","hint":"for example: komando storage sftp remove backups --dry-run (more in `komando storage sftp remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp remove takes TARGET...
+Hint: for example: komando storage sftp remove backups --dry-run (more in `komando storage sftp remove --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.remove","error":{"code":"USAGE","message":"storage sftp remove takes TARGET...","hint":"for example: komando storage sftp remove backups --dry-run (more in `komando storage sftp remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp remove takes TARGET...
+Hint: for example: komando storage sftp remove backups --dry-run (more in `komando storage sftp remove --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.rename","error":{"code":"USAGE","message":"storage sftp rename takes NAME NEW","hint":"for example: komando storage sftp rename backups backups-2 --dry-run (more in `komando storage sftp rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp rename takes NAME NEW
+Hint: for example: komando storage sftp rename backups backups-2 --dry-run (more in `komando storage sftp rename --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.rename","error":{"code":"USAGE","message":"storage sftp rename takes NAME NEW","hint":"for example: komando storage sftp rename backups backups-2 --dry-run (more in `komando storage sftp rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp rename takes NAME NEW
+Hint: for example: komando storage sftp rename backups backups-2 --dry-run (more in `komando storage sftp rename --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.rename","error":{"code":"USAGE","message":"storage sftp rename takes NAME NEW","hint":"for example: komando storage sftp rename backups backups-2 --dry-run (more in `komando storage sftp rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp rename takes NAME NEW
+Hint: for example: komando storage sftp rename backups backups-2 --dry-run (more in `komando storage sftp rename --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.rename","error":{"code":"USAGE","message":"storage sftp rename takes NAME NEW","hint":"for example: komando storage sftp rename backups backups-2 --dry-run (more in `komando storage sftp rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp rename takes NAME NEW
+Hint: for example: komando storage sftp rename backups backups-2 --dry-run (more in `komando storage sftp rename --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.show","error":{"code":"USAGE","message":"storage sftp show takes NAME","hint":"for example: komando storage sftp show backups (more in `komando storage sftp show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp show takes NAME
+Hint: for example: komando storage sftp show backups (more in `komando storage sftp show --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.show","error":{"code":"USAGE","message":"storage sftp show takes NAME","hint":"for example: komando storage sftp show backups (more in `komando storage sftp show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp show takes NAME
+Hint: for example: komando storage sftp show backups (more in `komando storage sftp show --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.test","error":{"code":"USAGE","message":"storage sftp test takes TARGET","hint":"for example: komando storage sftp test backups (more in `komando storage sftp test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp test takes TARGET
+Hint: for example: komando storage sftp test backups (more in `komando storage sftp test --help`)
+(code USAGE, exit 2)
+### komando -o json storage sftp test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.sftp.test","error":{"code":"USAGE","message":"storage sftp test takes TARGET","hint":"for example: komando storage sftp test backups (more in `komando storage sftp test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage sftp test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage sftp test takes TARGET
+Hint: for example: komando storage sftp test backups (more in `komando storage sftp test --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.add","error":{"code":"USAGE","message":"storage smb add takes NAME [URL]","hint":"for example: komando storage smb add backups smb://alice@fileserver.corp.lan/team/reports --via web1 (more in `komando storage smb add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb add takes NAME [URL]
+Hint: for example: komando storage smb add backups smb://alice@fileserver.corp.lan/team/reports --via web1 (more in `komando storage smb add --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.add","error":{"code":"USAGE","message":"storage smb add takes NAME [URL]","hint":"for example: komando storage smb add backups smb://alice@fileserver.corp.lan/team/reports --via web1 (more in `komando storage smb add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb add takes NAME [URL]
+Hint: for example: komando storage smb add backups smb://alice@fileserver.corp.lan/team/reports --via web1 (more in `komando storage smb add --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.edit","error":{"code":"USAGE","message":"storage smb edit takes NAME","hint":"for example: komando storage smb edit backups --add-tag critical (more in `komando storage smb edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb edit takes NAME
+Hint: for example: komando storage smb edit backups --add-tag critical (more in `komando storage smb edit --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.edit","error":{"code":"USAGE","message":"storage smb edit takes NAME","hint":"for example: komando storage smb edit backups --add-tag critical (more in `komando storage smb edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb edit takes NAME
+Hint: for example: komando storage smb edit backups --add-tag critical (more in `komando storage smb edit --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb object create (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.object.create","error":{"code":"USAGE","message":"storage smb object create takes NAME PATH","hint":"for example: komando storage smb object create backups reports/2026 --dry-run (more in `komando storage smb object create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb object create (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb object create takes NAME PATH
+Hint: for example: komando storage smb object create backups reports/2026 --dry-run (more in `komando storage smb object create --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb object create (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.object.create","error":{"code":"USAGE","message":"storage smb object create takes NAME PATH","hint":"for example: komando storage smb object create backups reports/2026 --dry-run (more in `komando storage smb object create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb object create (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb object create takes NAME PATH
+Hint: for example: komando storage smb object create backups reports/2026 --dry-run (more in `komando storage smb object create --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb object create x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.object.create","error":{"code":"USAGE","message":"storage smb object create takes NAME PATH","hint":"for example: komando storage smb object create backups reports/2026 --dry-run (more in `komando storage smb object create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb object create x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb object create takes NAME PATH
+Hint: for example: komando storage smb object create backups reports/2026 --dry-run (more in `komando storage smb object create --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb object create x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.object.create","error":{"code":"USAGE","message":"storage smb object create takes NAME PATH","hint":"for example: komando storage smb object create backups reports/2026 --dry-run (more in `komando storage smb object create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb object create x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb object create takes NAME PATH
+Hint: for example: komando storage smb object create backups reports/2026 --dry-run (more in `komando storage smb object create --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb object delete (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.object.delete","error":{"code":"USAGE","message":"storage smb object delete takes NAME [OBJECT...]","hint":"for example: komando storage smb object delete backups --prefix daily/ --older-than 30d --dry-run (more in `komando storage smb object delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb object delete (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb object delete takes NAME [OBJECT...]
+Hint: for example: komando storage smb object delete backups --prefix daily/ --older-than 30d --dry-run (more in `komando storage smb object delete --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb object delete (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.object.delete","error":{"code":"USAGE","message":"storage smb object delete takes NAME [OBJECT...]","hint":"for example: komando storage smb object delete backups --prefix daily/ --older-than 30d --dry-run (more in `komando storage smb object delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb object delete (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb object delete takes NAME [OBJECT...]
+Hint: for example: komando storage smb object delete backups --prefix daily/ --older-than 30d --dry-run (more in `komando storage smb object delete --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb object list (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.object.list","error":{"code":"USAGE","message":"storage smb object list takes NAME [PREFIX]","hint":"for example: komando storage smb object list backups 2026/ (more in `komando storage smb object list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb object list (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb object list takes NAME [PREFIX]
+Hint: for example: komando storage smb object list backups 2026/ (more in `komando storage smb object list --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb object list (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.object.list","error":{"code":"USAGE","message":"storage smb object list takes NAME [PREFIX]","hint":"for example: komando storage smb object list backups 2026/ (more in `komando storage smb object list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb object list (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb object list takes NAME [PREFIX]
+Hint: for example: komando storage smb object list backups 2026/ (more in `komando storage smb object list --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb object move (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.object.move","error":{"code":"USAGE","message":"storage smb object move takes NAME SRC DST","hint":"for example: komando storage smb object move backups old.txt new.txt --dry-run (more in `komando storage smb object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb object move (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb object move takes NAME SRC DST
+Hint: for example: komando storage smb object move backups old.txt new.txt --dry-run (more in `komando storage smb object move --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb object move (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.object.move","error":{"code":"USAGE","message":"storage smb object move takes NAME SRC DST","hint":"for example: komando storage smb object move backups old.txt new.txt --dry-run (more in `komando storage smb object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb object move (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb object move takes NAME SRC DST
+Hint: for example: komando storage smb object move backups old.txt new.txt --dry-run (more in `komando storage smb object move --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb object move x1 x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.object.move","error":{"code":"USAGE","message":"storage smb object move takes NAME SRC DST","hint":"for example: komando storage smb object move backups old.txt new.txt --dry-run (more in `komando storage smb object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb object move x1 x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb object move takes NAME SRC DST
+Hint: for example: komando storage smb object move backups old.txt new.txt --dry-run (more in `komando storage smb object move --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb object move x1 x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.object.move","error":{"code":"USAGE","message":"storage smb object move takes NAME SRC DST","hint":"for example: komando storage smb object move backups old.txt new.txt --dry-run (more in `komando storage smb object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb object move x1 x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb object move takes NAME SRC DST
+Hint: for example: komando storage smb object move backups old.txt new.txt --dry-run (more in `komando storage smb object move --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb object read (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.object.read","error":{"code":"USAGE","message":"storage smb object read takes NAME OBJECT","hint":"for example: komando storage smb object read backups logs/app.log --tail 50 (more in `komando storage smb object read --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb object read (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb object read takes NAME OBJECT
+Hint: for example: komando storage smb object read backups logs/app.log --tail 50 (more in `komando storage smb object read --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb object read (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.object.read","error":{"code":"USAGE","message":"storage smb object read takes NAME OBJECT","hint":"for example: komando storage smb object read backups logs/app.log --tail 50 (more in `komando storage smb object read --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb object read (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb object read takes NAME OBJECT
+Hint: for example: komando storage smb object read backups logs/app.log --tail 50 (more in `komando storage smb object read --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb object read x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.object.read","error":{"code":"USAGE","message":"storage smb object read takes NAME OBJECT","hint":"for example: komando storage smb object read backups logs/app.log --tail 50 (more in `komando storage smb object read --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb object read x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb object read takes NAME OBJECT
+Hint: for example: komando storage smb object read backups logs/app.log --tail 50 (more in `komando storage smb object read --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb object read x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.object.read","error":{"code":"USAGE","message":"storage smb object read takes NAME OBJECT","hint":"for example: komando storage smb object read backups logs/app.log --tail 50 (more in `komando storage smb object read --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb object read x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb object read takes NAME OBJECT
+Hint: for example: komando storage smb object read backups logs/app.log --tail 50 (more in `komando storage smb object read --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.remove","error":{"code":"USAGE","message":"storage smb remove takes TARGET...","hint":"for example: komando storage smb remove backups --dry-run (more in `komando storage smb remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb remove takes TARGET...
+Hint: for example: komando storage smb remove backups --dry-run (more in `komando storage smb remove --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.remove","error":{"code":"USAGE","message":"storage smb remove takes TARGET...","hint":"for example: komando storage smb remove backups --dry-run (more in `komando storage smb remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb remove takes TARGET...
+Hint: for example: komando storage smb remove backups --dry-run (more in `komando storage smb remove --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.rename","error":{"code":"USAGE","message":"storage smb rename takes NAME NEW","hint":"for example: komando storage smb rename backups backups-2 --dry-run (more in `komando storage smb rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb rename takes NAME NEW
+Hint: for example: komando storage smb rename backups backups-2 --dry-run (more in `komando storage smb rename --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.rename","error":{"code":"USAGE","message":"storage smb rename takes NAME NEW","hint":"for example: komando storage smb rename backups backups-2 --dry-run (more in `komando storage smb rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb rename takes NAME NEW
+Hint: for example: komando storage smb rename backups backups-2 --dry-run (more in `komando storage smb rename --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.rename","error":{"code":"USAGE","message":"storage smb rename takes NAME NEW","hint":"for example: komando storage smb rename backups backups-2 --dry-run (more in `komando storage smb rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb rename takes NAME NEW
+Hint: for example: komando storage smb rename backups backups-2 --dry-run (more in `komando storage smb rename --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.rename","error":{"code":"USAGE","message":"storage smb rename takes NAME NEW","hint":"for example: komando storage smb rename backups backups-2 --dry-run (more in `komando storage smb rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb rename takes NAME NEW
+Hint: for example: komando storage smb rename backups backups-2 --dry-run (more in `komando storage smb rename --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.show","error":{"code":"USAGE","message":"storage smb show takes NAME","hint":"for example: komando storage smb show backups (more in `komando storage smb show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb show takes NAME
+Hint: for example: komando storage smb show backups (more in `komando storage smb show --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.show","error":{"code":"USAGE","message":"storage smb show takes NAME","hint":"for example: komando storage smb show backups (more in `komando storage smb show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb show takes NAME
+Hint: for example: komando storage smb show backups (more in `komando storage smb show --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.test","error":{"code":"USAGE","message":"storage smb test takes TARGET","hint":"for example: komando storage smb test backups (more in `komando storage smb test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb test takes TARGET
+Hint: for example: komando storage smb test backups (more in `komando storage smb test --help`)
+(code USAGE, exit 2)
+### komando -o json storage smb test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.smb.test","error":{"code":"USAGE","message":"storage smb test takes TARGET","hint":"for example: komando storage smb test backups (more in `komando storage smb test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage smb test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage smb test takes TARGET
+Hint: for example: komando storage smb test backups (more in `komando storage smb test --help`)
 (code USAGE, exit 2)
 ### komando -o json storage upload (agent json)
 exit 2
@@ -6829,6 +8869,366 @@ exit 2
 --- stderr
 Error: missing arguments; usage: komando storage upload CONN FILE [OBJECT]
 Hint: for example: komando storage upload backups ./report.pdf reports/2026/
+(code USAGE, exit 2)
+### komando -o json storage webdav add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.add","error":{"code":"USAGE","message":"storage webdav add takes NAME [URL]","hint":"for example: komando storage webdav add backups webdavs://alice@cloud.example.com/remote.php/dav/files/alice --via web1 (more in `komando storage webdav add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav add takes NAME [URL]
+Hint: for example: komando storage webdav add backups webdavs://alice@cloud.example.com/remote.php/dav/files/alice --via web1 (more in `komando storage webdav add --help`)
+(code USAGE, exit 2)
+### komando -o json storage webdav add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.add","error":{"code":"USAGE","message":"storage webdav add takes NAME [URL]","hint":"for example: komando storage webdav add backups webdavs://alice@cloud.example.com/remote.php/dav/files/alice --via web1 (more in `komando storage webdav add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav add takes NAME [URL]
+Hint: for example: komando storage webdav add backups webdavs://alice@cloud.example.com/remote.php/dav/files/alice --via web1 (more in `komando storage webdav add --help`)
+(code USAGE, exit 2)
+### komando -o json storage webdav edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.edit","error":{"code":"USAGE","message":"storage webdav edit takes NAME","hint":"for example: komando storage webdav edit backups --add-tag critical (more in `komando storage webdav edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav edit takes NAME
+Hint: for example: komando storage webdav edit backups --add-tag critical (more in `komando storage webdav edit --help`)
+(code USAGE, exit 2)
+### komando -o json storage webdav edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.edit","error":{"code":"USAGE","message":"storage webdav edit takes NAME","hint":"for example: komando storage webdav edit backups --add-tag critical (more in `komando storage webdav edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav edit takes NAME
+Hint: for example: komando storage webdav edit backups --add-tag critical (more in `komando storage webdav edit --help`)
+(code USAGE, exit 2)
+### komando -o json storage webdav object create (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.object.create","error":{"code":"USAGE","message":"storage webdav object create takes NAME PATH","hint":"for example: komando storage webdav object create backups reports/2026 --dry-run (more in `komando storage webdav object create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav object create (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav object create takes NAME PATH
+Hint: for example: komando storage webdav object create backups reports/2026 --dry-run (more in `komando storage webdav object create --help`)
+(code USAGE, exit 2)
+### komando -o json storage webdav object create (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.object.create","error":{"code":"USAGE","message":"storage webdav object create takes NAME PATH","hint":"for example: komando storage webdav object create backups reports/2026 --dry-run (more in `komando storage webdav object create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav object create (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav object create takes NAME PATH
+Hint: for example: komando storage webdav object create backups reports/2026 --dry-run (more in `komando storage webdav object create --help`)
+(code USAGE, exit 2)
+### komando -o json storage webdav object create x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.object.create","error":{"code":"USAGE","message":"storage webdav object create takes NAME PATH","hint":"for example: komando storage webdav object create backups reports/2026 --dry-run (more in `komando storage webdav object create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav object create x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav object create takes NAME PATH
+Hint: for example: komando storage webdav object create backups reports/2026 --dry-run (more in `komando storage webdav object create --help`)
+(code USAGE, exit 2)
+### komando -o json storage webdav object create x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.object.create","error":{"code":"USAGE","message":"storage webdav object create takes NAME PATH","hint":"for example: komando storage webdav object create backups reports/2026 --dry-run (more in `komando storage webdav object create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav object create x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav object create takes NAME PATH
+Hint: for example: komando storage webdav object create backups reports/2026 --dry-run (more in `komando storage webdav object create --help`)
+(code USAGE, exit 2)
+### komando -o json storage webdav object delete (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.object.delete","error":{"code":"USAGE","message":"storage webdav object delete takes NAME [OBJECT...]","hint":"for example: komando storage webdav object delete backups --prefix daily/ --older-than 30d --dry-run (more in `komando storage webdav object delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav object delete (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav object delete takes NAME [OBJECT...]
+Hint: for example: komando storage webdav object delete backups --prefix daily/ --older-than 30d --dry-run (more in `komando storage webdav object delete --help`)
+(code USAGE, exit 2)
+### komando -o json storage webdav object delete (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.object.delete","error":{"code":"USAGE","message":"storage webdav object delete takes NAME [OBJECT...]","hint":"for example: komando storage webdav object delete backups --prefix daily/ --older-than 30d --dry-run (more in `komando storage webdav object delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav object delete (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav object delete takes NAME [OBJECT...]
+Hint: for example: komando storage webdav object delete backups --prefix daily/ --older-than 30d --dry-run (more in `komando storage webdav object delete --help`)
+(code USAGE, exit 2)
+### komando -o json storage webdav object list (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.object.list","error":{"code":"USAGE","message":"storage webdav object list takes NAME [PREFIX]","hint":"for example: komando storage webdav object list backups 2026/ (more in `komando storage webdav object list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav object list (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav object list takes NAME [PREFIX]
+Hint: for example: komando storage webdav object list backups 2026/ (more in `komando storage webdav object list --help`)
+(code USAGE, exit 2)
+### komando -o json storage webdav object list (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.object.list","error":{"code":"USAGE","message":"storage webdav object list takes NAME [PREFIX]","hint":"for example: komando storage webdav object list backups 2026/ (more in `komando storage webdav object list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav object list (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav object list takes NAME [PREFIX]
+Hint: for example: komando storage webdav object list backups 2026/ (more in `komando storage webdav object list --help`)
+(code USAGE, exit 2)
+### komando -o json storage webdav object move (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.object.move","error":{"code":"USAGE","message":"storage webdav object move takes NAME SRC DST","hint":"for example: komando storage webdav object move backups old.txt new.txt --dry-run (more in `komando storage webdav object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav object move (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav object move takes NAME SRC DST
+Hint: for example: komando storage webdav object move backups old.txt new.txt --dry-run (more in `komando storage webdav object move --help`)
+(code USAGE, exit 2)
+### komando -o json storage webdav object move (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.object.move","error":{"code":"USAGE","message":"storage webdav object move takes NAME SRC DST","hint":"for example: komando storage webdav object move backups old.txt new.txt --dry-run (more in `komando storage webdav object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav object move (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav object move takes NAME SRC DST
+Hint: for example: komando storage webdav object move backups old.txt new.txt --dry-run (more in `komando storage webdav object move --help`)
+(code USAGE, exit 2)
+### komando -o json storage webdav object move x1 x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.object.move","error":{"code":"USAGE","message":"storage webdav object move takes NAME SRC DST","hint":"for example: komando storage webdav object move backups old.txt new.txt --dry-run (more in `komando storage webdav object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav object move x1 x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav object move takes NAME SRC DST
+Hint: for example: komando storage webdav object move backups old.txt new.txt --dry-run (more in `komando storage webdav object move --help`)
+(code USAGE, exit 2)
+### komando -o json storage webdav object move x1 x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.object.move","error":{"code":"USAGE","message":"storage webdav object move takes NAME SRC DST","hint":"for example: komando storage webdav object move backups old.txt new.txt --dry-run (more in `komando storage webdav object move --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav object move x1 x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav object move takes NAME SRC DST
+Hint: for example: komando storage webdav object move backups old.txt new.txt --dry-run (more in `komando storage webdav object move --help`)
+(code USAGE, exit 2)
+### komando -o json storage webdav object read (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.object.read","error":{"code":"USAGE","message":"storage webdav object read takes NAME OBJECT","hint":"for example: komando storage webdav object read backups logs/app.log --tail 50 (more in `komando storage webdav object read --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav object read (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav object read takes NAME OBJECT
+Hint: for example: komando storage webdav object read backups logs/app.log --tail 50 (more in `komando storage webdav object read --help`)
+(code USAGE, exit 2)
+### komando -o json storage webdav object read (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.object.read","error":{"code":"USAGE","message":"storage webdav object read takes NAME OBJECT","hint":"for example: komando storage webdav object read backups logs/app.log --tail 50 (more in `komando storage webdav object read --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav object read (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav object read takes NAME OBJECT
+Hint: for example: komando storage webdav object read backups logs/app.log --tail 50 (more in `komando storage webdav object read --help`)
+(code USAGE, exit 2)
+### komando -o json storage webdav object read x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.object.read","error":{"code":"USAGE","message":"storage webdav object read takes NAME OBJECT","hint":"for example: komando storage webdav object read backups logs/app.log --tail 50 (more in `komando storage webdav object read --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav object read x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav object read takes NAME OBJECT
+Hint: for example: komando storage webdav object read backups logs/app.log --tail 50 (more in `komando storage webdav object read --help`)
+(code USAGE, exit 2)
+### komando -o json storage webdav object read x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.object.read","error":{"code":"USAGE","message":"storage webdav object read takes NAME OBJECT","hint":"for example: komando storage webdav object read backups logs/app.log --tail 50 (more in `komando storage webdav object read --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav object read x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav object read takes NAME OBJECT
+Hint: for example: komando storage webdav object read backups logs/app.log --tail 50 (more in `komando storage webdav object read --help`)
+(code USAGE, exit 2)
+### komando -o json storage webdav remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.remove","error":{"code":"USAGE","message":"storage webdav remove takes TARGET...","hint":"for example: komando storage webdav remove backups --dry-run (more in `komando storage webdav remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav remove takes TARGET...
+Hint: for example: komando storage webdav remove backups --dry-run (more in `komando storage webdav remove --help`)
+(code USAGE, exit 2)
+### komando -o json storage webdav remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.remove","error":{"code":"USAGE","message":"storage webdav remove takes TARGET...","hint":"for example: komando storage webdav remove backups --dry-run (more in `komando storage webdav remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav remove takes TARGET...
+Hint: for example: komando storage webdav remove backups --dry-run (more in `komando storage webdav remove --help`)
+(code USAGE, exit 2)
+### komando -o json storage webdav rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.rename","error":{"code":"USAGE","message":"storage webdav rename takes NAME NEW","hint":"for example: komando storage webdav rename backups backups-2 --dry-run (more in `komando storage webdav rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav rename takes NAME NEW
+Hint: for example: komando storage webdav rename backups backups-2 --dry-run (more in `komando storage webdav rename --help`)
+(code USAGE, exit 2)
+### komando -o json storage webdav rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.rename","error":{"code":"USAGE","message":"storage webdav rename takes NAME NEW","hint":"for example: komando storage webdav rename backups backups-2 --dry-run (more in `komando storage webdav rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav rename takes NAME NEW
+Hint: for example: komando storage webdav rename backups backups-2 --dry-run (more in `komando storage webdav rename --help`)
+(code USAGE, exit 2)
+### komando -o json storage webdav rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.rename","error":{"code":"USAGE","message":"storage webdav rename takes NAME NEW","hint":"for example: komando storage webdav rename backups backups-2 --dry-run (more in `komando storage webdav rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav rename takes NAME NEW
+Hint: for example: komando storage webdav rename backups backups-2 --dry-run (more in `komando storage webdav rename --help`)
+(code USAGE, exit 2)
+### komando -o json storage webdav rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.rename","error":{"code":"USAGE","message":"storage webdav rename takes NAME NEW","hint":"for example: komando storage webdav rename backups backups-2 --dry-run (more in `komando storage webdav rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav rename takes NAME NEW
+Hint: for example: komando storage webdav rename backups backups-2 --dry-run (more in `komando storage webdav rename --help`)
+(code USAGE, exit 2)
+### komando -o json storage webdav show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.show","error":{"code":"USAGE","message":"storage webdav show takes NAME","hint":"for example: komando storage webdav show backups (more in `komando storage webdav show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav show takes NAME
+Hint: for example: komando storage webdav show backups (more in `komando storage webdav show --help`)
+(code USAGE, exit 2)
+### komando -o json storage webdav show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.show","error":{"code":"USAGE","message":"storage webdav show takes NAME","hint":"for example: komando storage webdav show backups (more in `komando storage webdav show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav show takes NAME
+Hint: for example: komando storage webdav show backups (more in `komando storage webdav show --help`)
+(code USAGE, exit 2)
+### komando -o json storage webdav test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.test","error":{"code":"USAGE","message":"storage webdav test takes TARGET","hint":"for example: komando storage webdav test backups (more in `komando storage webdav test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav test takes TARGET
+Hint: for example: komando storage webdav test backups (more in `komando storage webdav test --help`)
+(code USAGE, exit 2)
+### komando -o json storage webdav test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"storage.webdav.test","error":{"code":"USAGE","message":"storage webdav test takes TARGET","hint":"for example: komando storage webdav test backups (more in `komando storage webdav test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text storage webdav test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: storage webdav test takes TARGET
+Hint: for example: komando storage webdav test backups (more in `komando storage webdav test --help`)
 (code USAGE, exit 2)
 ### komando -o json svc daemon-reload (agent json)
 exit 2
@@ -8198,29 +10598,29 @@ exit 2
 Error: -n: 50 is a count, but -n is --namespace in cluster commands
 Hint: `--limit 50`, or `--namespace=50` for a namespace named 50
 (code USAGE, exit 2)
-### komando -o json storage rm x1 --prefix a/ -n 10 --dry-run (agent json)
+### komando -o json storage s3 object delete x1 --prefix a/ -n 10 --dry-run (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.rm","error":{"code":"USAGE","message":"unknown shorthand flag: 'n' in -n","hint":"see `komando storage rm --help`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.s3.object.delete","error":{"code":"USAGE","message":"unknown shorthand flag: 'n' in -n","hint":"see `komando storage s3 object delete --help`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage rm x1 --prefix a/ -n 10 --dry-run (agent text)
+### komando -o text storage s3 object delete x1 --prefix a/ -n 10 --dry-run (agent text)
 exit 2
 --- stdout
 --- stderr
 Error: unknown shorthand flag: 'n' in -n
-Hint: see `komando storage rm --help`
+Hint: see `komando storage s3 object delete --help`
 (code USAGE, exit 2)
-### komando -o json storage rm x1 --prefix a/ -n 10 --dry-run (script json)
+### komando -o json storage s3 object delete x1 --prefix a/ -n 10 --dry-run (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.rm","error":{"code":"USAGE","message":"unknown shorthand flag: 'n' in -n","hint":"see `komando storage rm --help`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.s3.object.delete","error":{"code":"USAGE","message":"unknown shorthand flag: 'n' in -n","hint":"see `komando storage s3 object delete --help`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage rm x1 --prefix a/ -n 10 --dry-run (script text)
+### komando -o text storage s3 object delete x1 --prefix a/ -n 10 --dry-run (script text)
 exit 2
 --- stdout
 --- stderr
 Error: unknown shorthand flag: 'n' in -n
-Hint: see `komando storage rm --help`
+Hint: see `komando storage s3 object delete --help`
 (code USAGE, exit 2)
 ### komando -o json exec web1 -- rm -rf / (agent json, gate inventory)
 exit 6
@@ -8726,24 +11126,24 @@ exit 6
 Stopped: this can delete or break things (deletes t and every message in it), so komando asks first; nothing was changed
 Hint: If you mean it, run it again in a terminal and type the name to confirm, or add --allow-dangerous in a script. Try --dry-run first.
 (code POLICY_BLOCKED, exit 6)
-### komando -o json storage rm st1 k (agent json, gate inventory)
+### komando -o json storage sftp object delete st1 k (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"storage.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [data-delete]: deletes data that cannot be recovered (cache keys, stored objects)","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.sftp.object.delete","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [data-delete]: deletes data that cannot be recovered (cache keys, stored objects)","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage rm st1 k (agent text, gate inventory)
+### komando -o text storage sftp object delete st1 k (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: this can delete or break things (deletes data that cannot be recovered (cache keys, stored objects)), so komando asks first; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)
 (code POLICY_BLOCKED, exit 6)
-### komando -o json storage rm st1 k (script json, gate inventory)
+### komando -o json storage sftp object delete st1 k (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"storage.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [data-delete]: deletes data that cannot be recovered (cache keys, stored objects)","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json storage rm st1 k --allow-dangerous`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.sftp.object.delete","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [data-delete]: deletes data that cannot be recovered (cache keys, stored objects)","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json storage sftp object delete st1 k --allow-dangerous`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text storage rm st1 k (script text, gate inventory)
+### komando -o text storage sftp object delete st1 k (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
@@ -9952,28 +12352,28 @@ exit 6
 Stopped: komando has not met ask2 at 127.0.0.22:1 before (no host key of it is pinned), and ask2 logs in with a password a person types (login ask): a person's password never goes to a server komando cannot tell from an impostor; nothing was sent; nothing was changed
 Hint: have a person run `komando test ask2` in their own terminal: a person there sees what komando connects to and types the password
 (code NEEDS_PERSON, exit 6)
-### komando -o json ssh-gate --name phone-read --read-only, SSH_ORIGINAL_COMMAND='komando storage link s3 report.pdf' (agent json, read-only key)
+### komando -o json ssh-gate --name phone-read --read-only, SSH_ORIGINAL_COMMAND='komando storage s3 object link s3 report.pdf' (agent json, read-only key)
 exit 6
 --- stdout
 {"ok":false,"command":"ssh-gate","error":{"code":"SSH_GATE_REFUSED","message":"ssh-gate runs when sshd starts it for a key, and this call comes from an AI agent (An AI agent)","hint":"an AI agent runs komando directly (`komando list`), not through ssh-gate"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text ssh-gate --name phone-read --read-only, SSH_ORIGINAL_COMMAND='komando storage link s3 report.pdf' (agent text, read-only key)
+### komando -o text ssh-gate --name phone-read --read-only, SSH_ORIGINAL_COMMAND='komando storage s3 object link s3 report.pdf' (agent text, read-only key)
 exit 6
 --- stdout
 --- stderr
 Stopped: ssh-gate runs when sshd starts it for a key, and this call comes from an AI agent (An AI agent); nothing was changed
 Hint: an AI agent runs komando directly (`komando list`), not through ssh-gate
 (code SSH_GATE_REFUSED, exit 6)
-### komando -o json ssh-gate --name phone-read --read-only, SSH_ORIGINAL_COMMAND='komando storage link s3 report.pdf' (script json, read-only key)
+### komando -o json ssh-gate --name phone-read --read-only, SSH_ORIGINAL_COMMAND='komando storage s3 object link s3 report.pdf' (script json, read-only key)
 exit 6
 --- stdout
-{"ok":false,"command":"ssh-gate","error":{"code":"SSH_GATE_READ_ONLY","message":"komando storage link is refused for a read-only key: it makes a link that opens the data without a login","hint":"this key was added with --read-only and runs only commands that read; use a key that may change things, or the komando computer itself"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"ssh-gate","error":{"code":"SSH_GATE_READ_ONLY","message":"komando storage s3 object link is refused for a read-only key: it makes a link that opens the data without a login","hint":"this key was added with --read-only and runs only commands that read; use a key that may change things, or the komando computer itself"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text ssh-gate --name phone-read --read-only, SSH_ORIGINAL_COMMAND='komando storage link s3 report.pdf' (script text, read-only key)
+### komando -o text ssh-gate --name phone-read --read-only, SSH_ORIGINAL_COMMAND='komando storage s3 object link s3 report.pdf' (script text, read-only key)
 exit 6
 --- stdout
 --- stderr
-Stopped: komando storage link is refused for a read-only key: it makes a link that opens the data without a login; nothing was changed
+Stopped: komando storage s3 object link is refused for a read-only key: it makes a link that opens the data without a login; nothing was changed
 Hint: this key was added with --read-only and runs only commands that read; use a key that may change things, or the komando computer itself
 (code SSH_GATE_READ_ONLY, exit 6)
 ### komando -o json ssh-gate --name phone-read --read-only, SSH_ORIGINAL_COMMAND='komando cluster forward k8s svc/web 8080' (agent json, read-only key)
@@ -10000,9 +12400,9 @@ exit 6
 Stopped: komando cluster forward is refused for a read-only key: it opens a port on the komando computer; nothing was changed
 Hint: this key was added with --read-only and runs only commands that read; use a key that may change things, or the komando computer itself
 (code SSH_GATE_READ_ONLY, exit 6)
-### komando schema storage link (schema values)
+### komando schema storage s3 object link (schema values)
 exit 0
-komando storage link kind=change confirm=[{"tier":"change"},{"flag":"--yes","tier":"safety","when":"when an AI agent makes a link (a person allows --reveal)"}]
+komando storage s3 object link kind=change confirm=[{"tier":"change"},{"flag":"--yes","tier":"safety","when":"when an AI agent makes a link (a person allows --reveal)"}]
   --endpoint type=string
   --expires type=duration default=1h
 ### komando schema cluster forward (schema values)

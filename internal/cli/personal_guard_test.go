@@ -131,12 +131,12 @@ func TestStorageLinkForAgents(t *testing.T) {
 	invHome(t)
 	mustRun(t, "conn", "add", "s3l", "s3://AKIAEXAMPLE@bucket?region=eu-west-1&endpoint=http://127.0.0.1:9")
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
-	e := wantCode(t, "SENSITIVE_FILE", "storage", "link", "s3l", "reports/a.txt")
+	e := wantCode(t, "SENSITIVE_FILE", "storage", "s3", "object", "link", "s3l", "reports/a.txt")
 	if !strings.Contains(e.Hint, "--reveal") {
 		t.Errorf("hint: %+v", e)
 	}
-	wantCode(t, "SENSITIVE_FILE", "storage", "link", "s3l", "app/.env")
-	if d, e := invRun(t, "--dry-run", "storage", "link", "s3l", "reports/a.txt"); e != nil || blockedCode(d) != "SENSITIVE_FILE" {
+	wantCode(t, "SENSITIVE_FILE", "storage", "s3", "object", "link", "s3l", "app/.env")
+	if d, e := invRun(t, "--dry-run", "storage", "s3", "object", "link", "s3l", "reports/a.txt"); e != nil || blockedCode(d) != "SENSITIVE_FILE" {
 		t.Errorf("a dry run reports the stop: %v %+v", d, e)
 	}
 	tcl.flags.dryRun = false

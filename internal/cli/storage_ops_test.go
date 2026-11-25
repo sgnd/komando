@@ -14,59 +14,59 @@ import (
 	"github.com/sgnd/komando/internal/storex"
 )
 
-// storage mkdir on a bucket: a folder marker, which storage list then
+// storage s3 object create on a bucket: a folder marker, which storage s3 object list then
 // shows as an empty folder rather than FOLDER_NOT_FOUND.
 func TestStorageMkdir(t *testing.T) {
 	m := &memBucket{objs: map[string]string{"a.txt": "a"}}
 	withMemBucket(t, m)
-	if d := mustRun(t, "storage", "mkdir", "bk", "reports/2026", "--dry-run"); d["created"] != true || d["dry_run"] != true || len(m.objs) != 1 {
+	if d := mustRun(t, "storage", "s3", "object", "create", "bk", "reports/2026", "--dry-run"); d["created"] != true || d["dry_run"] != true || len(m.objs) != 1 {
 		t.Errorf("dry run: %v %v", d, m.objs)
 	}
-	if d := mustRun(t, "storage", "mkdir", "bk", "/reports/2026/"); d["created"] != true || d["path"] != "reports/2026/" {
+	if d := mustRun(t, "storage", "s3", "object", "create", "bk", "/reports/2026/"); d["created"] != true || d["path"] != "reports/2026/" {
 		t.Errorf("mkdir: %v", d)
 	}
 	if _, ok := m.objs["reports/2026/"]; !ok {
 		t.Errorf("no folder marker: %v", m.objs)
 	}
-	if d := mustRun(t, "storage", "list", "bk", "reports/2026/"); d["count"] != float64(0) {
+	if d := mustRun(t, "storage", "s3", "object", "list", "bk", "reports/2026/"); d["count"] != float64(0) {
 		t.Errorf("the empty folder lists: %v", d)
 	}
-	if d := mustRun(t, "storage", "mkdir", "bk", "reports"); d["created"] != false {
+	if d := mustRun(t, "storage", "s3", "object", "create", "bk", "reports"); d["created"] != false {
 		t.Errorf("a folder that is there: %v", d)
 	}
-	wantCode(t, "FILE_EXISTS", "storage", "mkdir", "bk", "a.txt")
-	wantCode(t, "FILE_EXISTS", "storage", "mkdir", "bk", "a.txt", "--dry-run")
-	wantCode(t, "FOLDER_NOT_FOUND", "storage", "list", "bk", "nope/")
+	wantCode(t, "FILE_EXISTS", "storage", "s3", "object", "create", "bk", "a.txt")
+	wantCode(t, "FILE_EXISTS", "storage", "s3", "object", "create", "bk", "a.txt", "--dry-run")
+	wantCode(t, "FOLDER_NOT_FOUND", "storage", "s3", "object", "list", "bk", "nope/")
 	for _, bad := range []string{"../up", "/"} {
-		wantCode(t, "USAGE", "storage", "mkdir", "bk", bad)
+		wantCode(t, "USAGE", "storage", "s3", "object", "create", "bk", bad)
 	}
 }
 
-// storage mv on a bucket is a copy, then a delete; DST/ moves into a
+// storage s3 object move on a bucket is a copy, then a delete; DST/ moves into a
 // folder; an existing file needs --overwrite.
 func TestStorageMv(t *testing.T) {
 	m := &memBucket{objs: map[string]string{"db/old.sql.gz": "old", "keep.txt": "k", "archive/x": "x"}}
 	withMemBucket(t, m)
-	d := mustRun(t, "storage", "mv", "bk", "db/old.sql.gz", "archive/", "--dry-run")
+	d := mustRun(t, "storage", "s3", "object", "move", "bk", "db/old.sql.gz", "archive/", "--dry-run")
 	if d["dst"] != "archive/old.sql.gz" || d["method"] != "copy_then_delete" || d["dry_run"] != true || d["size_bytes"] != float64(3) || m.objs["db/old.sql.gz"] != "old" {
 		t.Errorf("dry run: %v", d)
 	}
-	d = mustRun(t, "storage", "mv", "bk", "db/old.sql.gz", "archive/")
+	d = mustRun(t, "storage", "s3", "object", "move", "bk", "db/old.sql.gz", "archive/")
 	if d["replaced"] != false || m.objs["archive/old.sql.gz"] != "old" || slices.Contains(keysOf(m.objs), "db/old.sql.gz") {
 		t.Errorf("mv: %v %v", d, m.objs)
 	}
-	wantCode(t, "FILE_EXISTS", "storage", "mv", "bk", "keep.txt", "archive/x")
-	if d := mustRun(t, "storage", "mv", "bk", "keep.txt", "archive/x", "--overwrite"); d["replaced"] != true || m.objs["archive/x"] != "k" {
+	wantCode(t, "FILE_EXISTS", "storage", "s3", "object", "move", "bk", "keep.txt", "archive/x")
+	if d := mustRun(t, "storage", "s3", "object", "move", "bk", "keep.txt", "archive/x", "--overwrite"); d["replaced"] != true || m.objs["archive/x"] != "k" {
 		t.Errorf("--overwrite: %v %v", d, m.objs)
 	}
-	wantCode(t, "OBJECT_NOT_FOUND", "storage", "mv", "bk", "nope", "x")
-	wantCode(t, "STORAGE_UNSUPPORTED", "storage", "mv", "bk", "archive", "attic")
-	e := wantCode(t, "USAGE", "storage", "mv", "bk", "a.txt", "a.txt")
+	wantCode(t, "OBJECT_NOT_FOUND", "storage", "s3", "object", "move", "bk", "nope", "x")
+	wantCode(t, "STORAGE_UNSUPPORTED", "storage", "s3", "object", "move", "bk", "archive", "attic")
+	e := wantCode(t, "USAGE", "storage", "s3", "object", "move", "bk", "a.txt", "a.txt")
 	if !strings.Contains(e.Message, "the same") {
 		t.Errorf("same: %v", e)
 	}
-	wantCode(t, "USAGE", "storage", "mv", "bk", "a.txt", "../a.txt")
-	if a := mustRun(t, "audit", "--limit", "20"); !strings.Contains(fmt.Sprint(a), "storage.mv") {
+	wantCode(t, "USAGE", "storage", "s3", "object", "move", "bk", "a.txt", "../a.txt")
+	if a := mustRun(t, "audit", "--limit", "20"); !strings.Contains(fmt.Sprint(a), "storage.s3.object.move") {
 		t.Errorf("no audit entry: %v", a)
 	}
 }
@@ -78,8 +78,8 @@ func TestStorageOpsProtected(t *testing.T) {
 	withMemBucket(t, m)
 	mustRun(t, "conn", "edit", "bk", "--protected")
 	for _, args := range [][]string{
-		{"storage", "mkdir", "bk", "new"},
-		{"storage", "mv", "bk", "a.txt", "b.txt"},
+		{"storage", "s3", "object", "create", "bk", "new"},
+		{"storage", "s3", "object", "move", "bk", "a.txt", "b.txt"},
 	} {
 		wantCode(t, "PROTECTED_TARGET", args...)
 		d := mustRun(t, append(args, "--dry-run")...)
@@ -188,9 +188,9 @@ func (k keepOpen) Unwrap() storex.Bucket { return k.Bucket }
 func TestStorageOpsRefuseDotPaths(t *testing.T) {
 	m := &memBucket{objs: map[string]string{"a.txt": "a"}}
 	withMemBucket(t, m)
-	wantCode(t, "USAGE", "storage", "mv", "bk", ".", "x")
-	wantCode(t, "USAGE", "storage", "mv", "bk", "a.txt", "./b.txt")
-	wantCode(t, "USAGE", "storage", "mkdir", "bk", "a//b")
+	wantCode(t, "USAGE", "storage", "s3", "object", "move", "bk", ".", "x")
+	wantCode(t, "USAGE", "storage", "s3", "object", "move", "bk", "a.txt", "./b.txt")
+	wantCode(t, "USAGE", "storage", "s3", "object", "create", "bk", "a//b")
 	if len(m.objs) != 1 {
 		t.Errorf("changed: %v", m.objs)
 	}
@@ -203,12 +203,12 @@ func TestStorageMvKeepsASecretFilesName(t *testing.T) {
 	m := &memBucket{objs: map[string]string{"app/.env": "DB=1", "keys/site.p12": "p"}}
 	withMemBucket(t, m)
 	windowText(t, false)
-	e := wantCode(t, "SENSITIVE_FILE", "storage", "mv", "bk", "app/.env", "app/notes.txt")
+	e := wantCode(t, "SENSITIVE_FILE", "storage", "s3", "object", "move", "bk", "app/.env", "app/notes.txt")
 	if e.Exit != out.ExitPolicy || m.objs["app/.env"] != "DB=1" {
 		t.Errorf("exit %d, objects %v", e.Exit, m.objs)
 	}
-	wantCode(t, "SENSITIVE_FILE", "storage", "mv", "bk", "keys/site.p12", "keys/site.bin", "--dry-run")
-	if d := mustRun(t, "storage", "mv", "bk", "app/.env", "old/"); d["dst"] != "old/.env" {
+	wantCode(t, "SENSITIVE_FILE", "storage", "s3", "object", "move", "bk", "keys/site.p12", "keys/site.bin", "--dry-run")
+	if d := mustRun(t, "storage", "s3", "object", "move", "bk", "app/.env", "old/"); d["dst"] != "old/.env" {
 		t.Errorf("a move that keeps the name: %v", d)
 	}
 }
