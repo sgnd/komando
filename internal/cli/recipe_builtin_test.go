@@ -450,3 +450,62 @@ func TestSnippetResultIsMaskedForAnAgent(t *testing.T) {
 		t.Fatalf("the result is not masked for an agent: %s", raw)
 	}
 }
+
+// Each tier stops a run the way the command it replaces would (Audit
+// S1-1): dangerous needs --allow-dangerous, safety needs --yes, person
+// needs a person at a terminal; a rule hit in the filled text makes even a
+// change snippet dangerous. Stand-in built-ins over svc-list's text.
+func TestSnippetTierStops(t *testing.T) {
+	at := func(name string, tier capability.Tier) snippet.Builtin {
+		b := sampleSvcList
+		b.Name, b.Shape, b.Tier = name, name+"/1", tier
+		return b
+	}
+	hit := at("hit-change", capability.Change)
+	hit.Text = map[snippet.Family]string{snippet.Unix: "rm -rf /srv/old; systemctl list-units --type=service --all --no-legend --plain --no-pager"}
+	list := []snippet.Builtin{at("t-read", capability.Read), at("t-change", capability.Change), at("t-protected", capability.Protected),
+		at("t-dangerous", capability.Dangerous), at("t-safety", capability.Safety), at("t-person", capability.Person), hit}
+	in, err := os.ReadFile(filepath.Join("testdata", "snippets", "svc-list", "systemd.in"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		agent bool
+		args  []string
+		code  string // "" runs
+	}{
+		{true, []string{"t-read", "dev"}, ""},
+		{true, []string{"t-change", "dev"}, ""},
+		{true, []string{"t-protected", "dev"}, ""},
+		{true, []string{"t-dangerous", "dev"}, "POLICY_BLOCKED"},
+		{true, []string{"t-safety", "dev"}, "SAFETY_SETTING"},
+		{true, []string{"t-person", "dev"}, "NEEDS_PERSON"},
+		{true, []string{"hit-change", "dev"}, "POLICY_BLOCKED"},
+		{false, []string{"t-dangerous", "dev"}, "POLICY_BLOCKED"},
+		{false, []string{"t-dangerous", "dev", "--allow-dangerous"}, ""},
+		{false, []string{"t-safety", "dev"}, "SAFETY_SETTING"},
+		{false, []string{"t-safety", "dev", "--yes"}, ""},
+		{false, []string{"t-person", "dev", "--yes", "--allow-dangerous"}, "NEEDS_PERSON"},
+	}
+	for _, c := range cases {
+		t.Run(fmt.Sprintf("agent=%v/%s", c.agent, strings.Join(c.args, " ")), func(t *testing.T) {
+			if c.agent {
+				setCallerEnv(t, "CLAUDECODE", "1")
+			} else {
+				noAgent(t)
+			}
+			withSnippets(t, list...)
+			rs := startReplayServerWith(t, nil, replayStep{stdout: string(in)})
+			_, e := snippetData(t, c.args...)
+			rs.mu.Lock()
+			ran := len(rs.execs)
+			rs.mu.Unlock()
+			switch {
+			case c.code == "" && (e != nil || ran != 1):
+				t.Fatalf("want a run, got %v and %d execs", e, ran)
+			case c.code != "" && (e == nil || e.Code != c.code || ran != 0):
+				t.Fatalf("want %s and no exec, got %v and %d execs", c.code, e, ran)
+			}
+		})
+	}
+}

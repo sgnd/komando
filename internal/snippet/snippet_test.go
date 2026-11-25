@@ -312,21 +312,11 @@ func TestParse(t *testing.T) {
 	}
 }
 
-func TestRate(t *testing.T) {
-	b := sample()
-	if got := Rate(b, 0); got != capability.Read {
-		t.Errorf("Rate(read, no hit) = %v", got)
-	}
-	if got := Rate(b, 1); got != capability.Dangerous {
-		t.Errorf("Rate(read, one hit) = %v, want dangerous", got)
-	}
-	b.Tier = capability.Person
-	if got := Rate(b, 2); got != capability.Person {
-		t.Errorf("Rate(person, hits) = %v; a hit never lowers the tier", got)
-	}
+func TestMutating(t *testing.T) {
 	if Mutating(sample()) {
 		t.Error("a read snippet is not mutating")
 	}
+	b := sample()
 	b.Tier = capability.Change
 	if !Mutating(b) {
 		t.Error("a change snippet is mutating")
@@ -389,23 +379,14 @@ func TestParseShape(t *testing.T) {
 	}
 }
 
-// Until the command rates a run by Rate's tier (Audit S1-1), the engine
-// takes only read and change built-ins: a dangerous one would otherwise run
-// with only a change's stop.
-func TestNewRefusesATierAboveChange(t *testing.T) {
-	for _, tier := range []capability.Tier{capability.Protected, capability.Dangerous, capability.Safety, capability.Person} {
-		b := sample()
-		b.Tier = tier
-		_, err := New([]Builtin{b})
-		if err == nil || !strings.Contains(err.Error(), "above change") || !strings.Contains(err.Error(), tierNames[tier]) {
-			t.Errorf("tier %s: New() = %v, want a refusal naming the tier", tierNames[tier], err)
-		}
-	}
-	for _, tier := range []capability.Tier{capability.Read, capability.Change} {
+// Every tier registers: the command stops a run by its tier
+// (TestSnippetTierStops in internal/cli).
+func TestNewTakesEveryTier(t *testing.T) {
+	for tier := capability.Read; tier <= capability.Person; tier++ {
 		b := sample()
 		b.Tier = tier
 		if _, err := New([]Builtin{b}); err != nil {
-			t.Errorf("tier %s: %v", tierNames[tier], err)
+			t.Errorf("tier %d: %v", tier, err)
 		}
 	}
 }

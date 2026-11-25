@@ -24,7 +24,7 @@ import (
 var reviewedCallSites = map[string]int{
 	"guard":         20,
 	"guardScript":   5,
-	"guardConns":    24,
+	"guardConns":    25, // +1 snippetTierStop (recipe.go): a dangerous built-in snippet, C368 S1-1
 	"confirmObject": 4,
 	"dangerOK":      17,
 	"askPerson":     2,

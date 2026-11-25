@@ -11,7 +11,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/cli/kit/term"
+	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/snippet"
@@ -470,6 +472,10 @@ func runSnippet(cl *call, ctx context.Context, b snippet.Builtin, target string,
 			return err
 		}
 	}
+	if err := snippetTierStop(cl, st, b); err != nil {
+		audit(cl, st, "snippet.exec", hostNames(hosts), "snippet "+b.Name, false, map[string]any{"blocked": toErr(err).Code})
+		return err
+	}
 	parse := func(f snippet.Family) func(*store.Host, *sshx.RunResult) (any, *out.Error) {
 		return func(_ *store.Host, r *sshx.RunResult) (any, *out.Error) {
 			return snippet.Parse(b, f, snippet.Output{Stdout: r.Stdout, Stderr: r.Stderr, ExitCode: r.ExitCode})
@@ -496,4 +502,22 @@ func runSnippet(cl *call, ctx context.Context, b snippet.Builtin, target string,
 type snippetFleet struct {
 	Results []snippet.Data `json:"results"`
 	Summary fleetSummary   `json:"summary"`
+}
+
+// snippetTierStop stops a run by the snippet's static tier, as the command
+// it replaces is stopped (Audit S1-1). Read, change and protected need
+// nothing here: Guard asks for a change on a protected server, and a rule
+// hit in the filled text makes any snippet dangerous there, as for exec.
+func snippetTierStop(cl *call, st *store.State, b snippet.Builtin) error {
+	why := "snippet " + b.Name + " cannot be undone"
+	switch {
+	case b.Tier >= capability.Person && !cl.interactive():
+		return out.Errf(out.ExitPolicy, "NEEDS_PERSON", "a person runs `komando recipe run "+b.Name+" TARGET` in their own terminal",
+			"snippet %s runs only for a person at a terminal", b.Name)
+	case b.Tier == capability.Safety:
+		return guardSafety(cl, "snippet "+b.Name)
+	case b.Tier >= capability.Dangerous: // dangerous, and person at a terminal: --allow-dangerous or the typed question
+		return GuardConns(cl, st, nil, driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"snippet:" + b.Name}, Reasons: []string{why}})
+	}
+	return nil
 }
