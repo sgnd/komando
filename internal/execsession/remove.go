@@ -120,7 +120,7 @@ func Swept(stdout, id string) []string {
 		case !inside:
 			continue
 		}
-		if n, ok := strings.CutPrefix(line, "swept "); ok && CheckID(n) == nil {
+		if n, ok := strings.CutPrefix(strings.TrimSuffix(line, "\r"), "swept "); ok && CheckID(n) == nil {
 			if slices.Contains(ids, n) {
 				return nil
 			}
