@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -206,7 +207,7 @@ func registryNameQ(k registryKind) formQ {
 		if base == "" || formNameProblem(st, "conn", base) == "" {
 			return base
 		}
-		if validName("conn", base) != nil {
+		if inventory.ValidName("conn", base) != nil {
 			return ""
 		}
 		return formFreeName(st, base)

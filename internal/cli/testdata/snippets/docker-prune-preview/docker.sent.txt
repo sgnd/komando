@@ -1,0 +1,9 @@
+v=$(docker version --format '{{.Server.APIVersion}}' 2>&1) || { rc=$?; echo "$v" >&2; exit $rc; }
+echo "== api"; echo "$v"
+echo "== containers"; docker container ls -a --no-trunc --size --filter status=exited --filter status=created --filter status=dead --format '{{json .}}' 2>&1
+echo "== images"; docker image ls --no-trunc --format '{{json .}}' 2>&1
+echo "== uses"; docker container ls -aq --no-trunc 2>/dev/null | xargs -r docker container inspect --format '{{.Id}} {{.Image}}' 2>&1
+echo "== cache"; docker builder du 2>&1 | grep -iE '^(reclaimable|total):'
+echo "== df"; docker system df --format '{{json .}}' 2>&1
+true
+

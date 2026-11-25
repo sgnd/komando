@@ -1,0 +1,14 @@
+load=0.50 0.40 0.30
+cpus=4
+mem_total_mb=7812
+mem_available_mb=4880
+swap_total_mb=2048
+swap_free_mb=2000
+disk_root_total_gb=96
+disk_root_used_pct=63
+disk=/dev/sda1	81264764	51086560	30161820	63	/
+disk=/dev/sdb1	1048576000	524288000	524288000	50	/srv/data dir
+os=debian
+os_version=12
+os_pretty=Debian GNU/Linux 12 (bookworm)
+uptime_sec=864000

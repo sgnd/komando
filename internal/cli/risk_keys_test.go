@@ -181,6 +181,7 @@ var whenProbes = []string{
 	"export --sealed",
 	"import komando backup.json",
 	"group rm big",
+	"policy edit rm-root --off",
 }
 
 // probeLines are whenProbes with the row riskOf picks for each. A probe

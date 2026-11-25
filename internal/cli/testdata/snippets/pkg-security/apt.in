@@ -1,0 +1,13 @@
+#komando:pm
+apt
+#komando:index-age
+2557
+#komando:before
+pending=61
+security=3
+#komando:security
+apt/jammy-security 2.4.15ubuntu0.1 arm64 [upgradable from: 2.4.9]
+bash/jammy-updates,jammy-security 5.1-6ubuntu1.1 arm64 [upgradable from: 5.1-6ubuntu1]
+libc6/jammy-updates,jammy-security 2.35-0ubuntu3.15 arm64 [upgradable from: 2.35-0ubuntu3.1]
+#komando:removes
+
