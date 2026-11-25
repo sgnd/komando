@@ -204,7 +204,7 @@ not possible, it says so. The details are in
   goes to the person, with the server's name, hidden. Agents and scripts
   get `NO_AUTH` or `AUTH_FAILED` and a hint that sends a person to run the
   command. For a server with a two-factor login, a person runs
-  `komando login HOST` once and the agent's commands use that login for a
+  `komando test HOST` once and the agent's commands use that login for a
   few hours.
 - **A value only the person knows is typed by the person.** An agent that
   runs `secret set NAME` without a value gets `NEEDS_PERSON`.

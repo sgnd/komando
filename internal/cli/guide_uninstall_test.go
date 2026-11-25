@@ -73,7 +73,7 @@ func TestSkillResultText(t *testing.T) {
 }
 
 // doctor's agent_guard check fails when the hook names a komando that is
-// not there: Claude Code then goes on without the guard.
+// not there, or uses the old line, which lets a call through then.
 func TestClaudeGuardChecksTheProgram(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "settings.json")
@@ -82,17 +82,25 @@ func TestClaudeGuardChecksTheProgram(t *testing.T) {
 		os.WriteFile(p, []byte(`{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":`+string(c)+`}]}]}}`), 0o600)
 	}
 	self, _ := os.Executable()
-	write("/nonexistent/komando guide guard")
-	if found, problem := claudeGuard(p); !found || !strings.Contains(problem, "/nonexistent/komando does not exist") {
+	gone := filepath.Join(dir, "nonexistent", "komando")
+	write(shellQuote(gone) + " guide guard")
+	if found, problem := claudeGuard(p); !found || !strings.Contains(problem, gone+" does not exist") {
 		t.Errorf("missing program: %v %q", found, problem)
 	}
+	// on Windows the hook keeps the old line (no /bin/sh), and doctor does
+	// not call it old
 	write(shellQuote(self) + " guide guard")
+	if found, problem := claudeGuard(p); !found || hookOS != "windows" && !strings.Contains(problem, "old hook line") || hookOS == "windows" && problem != "" {
+		t.Errorf("this program, old line: %v %q", found, problem)
+	}
+	write(guardHookLine(self, "claude"))
 	if found, problem := claudeGuard(p); !found || problem != "" {
 		t.Errorf("this program: %v %q", found, problem)
 	}
 	write("komando-nowhere-here guide guard")
-	if _, problem := claudeGuard(p); !strings.Contains(problem, "not in PATH") {
-		t.Errorf("not in PATH: %q", problem)
+	// a bare name is found through PATH, where an agent could put its own
+	if _, problem := claudeGuard(p); !strings.Contains(problem, "not a full path") {
+		t.Errorf("a bare name: %q", problem)
 	}
 	if found, _ := claudeGuard(filepath.Join(dir, "none.json")); found {
 		t.Error("no file: no guard")
@@ -124,14 +132,12 @@ func TestGuideInstallProjectUsesThePathName(t *testing.T) {
 		t.Skip(err)
 	}
 	t.Setenv("PATH", bin)
-	if prog, note := hookProgram(true); prog != "komando" || note != "" {
-		t.Errorf("in PATH: %q %q", prog, note)
+	// the hook names komando by its absolute path, in PATH or not: a bare
+	// name would run whichever komando comes first in PATH
+	if prog, note, err := hookProgram(true); err != nil || !filepath.IsAbs(prog) || !strings.Contains(note, "a path on this computer only") {
+		t.Errorf("in PATH, project: %q %q %v", prog, note, err)
 	}
-	if prog, _ := hookProgram(false); !filepath.IsAbs(prog) {
-		t.Errorf("home folder: %q", prog)
-	}
-	t.Setenv("PATH", t.TempDir())
-	if prog, note := hookProgram(true); prog == "komando" || !strings.Contains(note, "a path on this computer only") {
-		t.Errorf("not in PATH: %q %q", prog, note)
+	if prog, _, err := hookProgram(false); err != nil || !filepath.IsAbs(prog) {
+		t.Errorf("home folder: %q %v", prog, err)
 	}
 }

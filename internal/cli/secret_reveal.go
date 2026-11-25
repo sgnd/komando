@@ -27,7 +27,7 @@ import (
 
 // revealNever are the commands whose --reveal an AI agent never gets: the
 // root's masking does not ask the person for them.
-var revealNever = map[string]bool{"secret.show": true, "key.show": true}
+var revealNever = map[string]bool{"secret.show": true, "key.show": true, "db.dump": true}
 
 // revealGate says how the person allowed showing what (for example
 // secret:db-pass): "terminal" or "window". It is "" in a dry run, which

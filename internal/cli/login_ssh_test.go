@@ -132,7 +132,7 @@ func TestLoginKeepsATwoFactorLogin(t *testing.T) {
 	// an AI agent cannot answer the code, and cannot log in for itself
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	_, e := invRun(t, "exec", "web1", "--read-only", "--", "uptime")
-	if e == nil || !strings.Contains(e.Hint, "komando login web1") {
+	if e == nil || !strings.Contains(e.Hint, "`komando test web1`") {
 		t.Fatalf("an agent without a login: %+v", e)
 	}
 	wantCode(t, "NEEDS_PERSON", "login", "web1")
