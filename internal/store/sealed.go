@@ -2,10 +2,12 @@ package store
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sealdb"
@@ -34,7 +36,7 @@ func storeErr(err error) error {
 		return out.Errf(out.ExitError, "STATE_CORRUPT",
 			"ask the user to run `komando doctor --reseal-meta` in their own terminal: it opens the store with their key, checks that the key opens every record, shows the settings it keeps (key mode, scrypt cost) and seals that row again; if the key does not open the store it changes nothing, and the folder is restored from a backup",
 			"%s: its settings row (key mode, salt, scrypt cost) was changed outside komando", Path(StoreFile))
-	case errors.Is(err, sealdb.ErrTampered), errors.Is(err, sealdb.ErrWrongKey), errors.Is(err, sealrow.ErrOpen):
+	case errors.Is(err, sealdb.ErrTampered), errors.Is(err, sealdb.ErrWrongKey), errors.Is(err, sealrow.ErrOpen), errors.Is(err, sealdb.ErrBadFormat):
 		return out.Errf(out.ExitError, "STATE_CORRUPT",
 			"the store does not open with this key or was changed outside komando; ask the user to restore the komando folder from a backup, which then needs the step that accepts an older copy",
 			"%s: %v", Path(StoreFile), err)
@@ -42,8 +44,60 @@ func storeErr(err error) error {
 	return err
 }
 
-// loadSealed reads the inventory from tx into a new State.
+// loadSealed reads the inventory of a format-3 store from tx into a new
+// State (format3_state.go). A reference field that still spells
+// secret:NAME stops it (F10).
 func loadSealed(tx *sealdb.Tx) (*State, error) {
+	s := &State{Settings: DefaultSettings()}
+	s.init()
+	st, err := readStored3(tx)
+	if err != nil {
+		return nil, err
+	}
+	if err := st.checkRefs3(); err != nil {
+		return nil, err
+	}
+	recipes, err := tx.List(KindRecipe)
+	if err != nil {
+		return nil, err
+	}
+	if err := st.fillState(s, recipes); err != nil {
+		return nil, err
+	}
+	if err := s.loadMeta(tx); err != nil {
+		return nil, err
+	}
+	s.init()
+	s.followIDs()
+	return s, nil
+}
+
+// loadMeta reads the settings record and the runtime mark from tx.
+func (s *State) loadMeta(tx *sealdb.Tx) error {
+	rows, err := tx.List(kindSettings)
+	if err != nil {
+		return err
+	}
+	switch len(rows) {
+	case 0:
+	case 1:
+		if err := json.Unmarshal(rows[0].Data, &s.Settings); err != nil {
+			return err
+		}
+		s.settingsRec = Rec{ID: rows[0].ID, Version: rows[0].Version}
+	default:
+		return fmt.Errorf("%d settings records: %w", len(rows), sealdb.ErrTampered)
+	}
+	if s.runtimeMark, err = readRuntimeMark(tx); err != nil {
+		return err
+	}
+	s.runtimeCopy, err = readRuntimeCopy(tx, s.runtimeMark)
+	return err
+}
+
+// loadFormat2 reads the inventory of a format-2 store: the migration's
+// source only (readFormat2).
+func loadFormat2(tx *sealdb.Tx) (*State, error) {
 	s := &State{Settings: DefaultSettings()}
 	s.init()
 	put := func(kind string, r sealdb.Record) error {
@@ -113,21 +167,7 @@ func loadSealed(tx *sealdb.Tx) (*State, error) {
 			}
 		}
 	}
-	rows, err := tx.List(kindSettings)
-	if err != nil {
-		return nil, err
-	}
-	switch len(rows) {
-	case 0:
-	case 1:
-		if err := json.Unmarshal(rows[0].Data, &s.Settings); err != nil {
-			return nil, err
-		}
-		s.settingsRec = Rec{ID: rows[0].ID, Version: rows[0].Version}
-	default:
-		return nil, fmt.Errorf("%d settings records: %w", len(rows), sealdb.ErrTampered)
-	}
-	if s.runtimeMark, err = readRuntimeMark(tx); err != nil {
+	if err := s.loadMeta(tx); err != nil {
 		return nil, err
 	}
 	s.init()      // defaults for settings the record does not set
@@ -245,9 +285,33 @@ func (s *State) writeSealed(tx *sealdb.Tx, before map[string]recSnap, setBefore 
 		return err
 	}
 	s.followNames() // every reference's ID from its name, new records too (refs.go)
+	st, err := readStored3(tx)
+	if err != nil {
+		return err
+	}
+	var taken []string
+	for n := range st.credID {
+		taken = append(taken, n)
+	}
+	w := &writer3{tx: tx, st: st, names: newNameMaker(taken), ver: map[string]uint64{}}
 	kept := map[string]bool{}
-	for _, r := range s.recs() {
+	members := map[string][]string{} // entry record ID: its groups
+	refs := s.recs()
+	sortRefs(refs)
+	// keys first: a host names its key credential
+	slices.SortStableFunc(refs, func(a, b recRef) int {
+		return cmp.Compare(boolInt(a.kind != KindKey), boolInt(b.kind != KindKey))
+	})
+	for _, r := range refs {
 		kept[r.rec.ID] = true
+		switch v := r.v.(type) {
+		case *Host:
+			members[r.rec.ID] = v.Groups
+		case *Conn:
+			members[r.rec.ID] = v.Groups
+		case *Vpn:
+			members[r.rec.ID] = v.Groups
+		}
 		old, had := before[r.rec.ID]
 		b, err := json.Marshal(r.v)
 		if err != nil {
@@ -257,18 +321,38 @@ func (s *State) writeSealed(tx *sealdb.Tx, before map[string]recSnap, setBefore 
 			r.rec.Version = old.rec.Version // unchanged
 			continue
 		}
-		rec, err := tx.Put(r.kind, r.rec.ID, b)
+		switch v := r.v.(type) {
+		case *Host:
+			err = w.host(v)
+		case *Conn:
+			err = w.conn(v)
+		case *Vpn:
+			err = w.vpn(v)
+		case *Key:
+			err = w.key(v)
+		case *Snippet:
+			_, err = w.put(KindRecipe, r.rec.ID, v)
+		}
 		if err != nil {
 			return err
 		}
-		r.rec.Version = rec.Version
+		if v, ok := w.ver[r.rec.ID]; ok {
+			r.rec.Version = v
+		}
 	}
 	for id := range before {
 		if !kept[id] {
 			if err := tx.Delete(id); err != nil && !errors.Is(err, sealdb.ErrNotFound) {
 				return err
 			}
+			delete(st.hosts, id)
+			delete(st.conns, id)
+			delete(st.vpns, id)
+			members[id] = nil // leaves every group
 		}
+	}
+	if err := w.groups(members); err != nil {
+		return err
 	}
 	b, err := json.Marshal(&s.Settings)
 	if err != nil {
@@ -282,4 +366,11 @@ func (s *State) writeSealed(tx *sealdb.Tx, before map[string]recSnap, setBefore 
 		s.settingsRec = Rec{ID: rec.ID, Version: rec.Version}
 	}
 	return nil
+}
+
+func boolInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }

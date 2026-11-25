@@ -18,7 +18,7 @@ import (
 // policy key. fakeKeys' master key.
 func rowKeyHandle(t *testing.T) *sealdb.DB {
 	t.Helper()
-	ks, err := keysFor(bytes.Repeat([]byte{7}, 32), "2")
+	ks, err := keysFor(bytes.Repeat([]byte{7}, 32), newestFormat)
 	if err != nil {
 		t.Fatal(err)
 	}

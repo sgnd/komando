@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -20,10 +21,13 @@ import (
 // not switched on: migrateFormat3 is unexported and only its tests call
 // it; the v2.7 cut calls it at the first open of a format-2 store.
 
-// migrate3Opts is what the caller knows: whether a person runs it, which
-// processes are alive, and the vault's reference guard.
+// migrate3Opts is what the caller knows: how it may start the
+// migration (MigrateCall), which processes are alive, and the vault's
+// reference guard.
 type migrate3Opts struct {
-	person   bool
+	way      MigrateWay
+	why      string                 // who asked, for NEEDS_PERSON
+	ask      func(text string) bool // the approval window (MigrateWindow)
 	alive    func(pid int, procStart string) bool
 	refGuard func(kind, name string) error
 	now      func() time.Time
@@ -53,20 +57,42 @@ func migrateFormat3(ctx context.Context, o migrate3Opts) (migrate3Result, error)
 	if o.now == nil {
 		o.now = time.Now
 	}
-	if ok, err := needsMigration3(ctx, o.person); !ok || err != nil {
+	// 0 and 1: who asks, and the format
+	if ok, err := needsMigration3(ctx); !ok || err != nil {
 		return res, err
 	}
-	// 3. the store lock, then 4. no komando process at work (Audit M6)
+	shown, err := migrateGate(ctx, o)
+	if err != nil {
+		return res, err
+	}
+	if o.beforeLock != nil {
+		o.beforeLock()
+	}
+	// 2. the store lock; 3. the format again under it (another person may
+	// have moved the store while this one waited); 4. no komando process
+	// at work (Audit M6)
 	unlock, err := Lock(storeLock)
 	if err != nil {
 		return res, err
 	}
 	defer unlock()
+	if err := migrateStepDone(2); err != nil {
+		return res, err
+	}
+	if ok, err := needsMigration3(ctx); !ok || err != nil {
+		return res, err
+	}
+	if err := migrateStepDone(3); err != nil {
+		return res, err
+	}
 	if err := noLiveProcesses(o.alive); err != nil {
 		return res, err
 	}
+	if err := migrateStepDone(4); err != nil {
+		return res, err
+	}
 	// 5. the normal open: old-copy count and policy MAC (Audit M4)
-	d, err := DB(false)
+	d, err := openFormat2()
 	if err != nil {
 		if pe := PolicyErr(err); pe != nil {
 			return res, pe
@@ -82,11 +108,33 @@ func migrateFormat3(ctx context.Context, o migrate3Opts) (migrate3Result, error)
 	if err != nil {
 		return res, err
 	}
+	carried, err := carriedRuntime(ctx, d)
+	if err != nil {
+		return res, err
+	}
+	if err := migrateStepDone(5); err != nil {
+		return res, err
+	}
 	// 6. the audit chain (Audit M3)
 	if err := d.View(ctx, checkChain); err != nil {
 		return res, out.Errf(out.ExitPolicy, "NEEDS_PERSON",
 			"a person finds out what changed the audit log, then runs `komando audit verify` and `komando doctor`",
 			"the audit log of %s is broken (%v), so the store does not move to a new format; nothing was changed", Path(StoreFile), err)
+	}
+	if err := migrateStepDone(6); err != nil {
+		return res, err
+	}
+	// the counts the window showed must still hold: something wrote
+	// meanwhile otherwise
+	if shown != nil {
+		var now map[string]int
+		if err := d.View(ctx, func(tx *sealdb.Tx) error { now, err = countTypes(tx); return err }); err != nil {
+			return res, err
+		}
+		if !maps.Equal(shown.counts, now) {
+			return res, out.Errf(out.ExitConflict, "STORE_IN_USE", "run `komando doctor` again",
+				"%s changed after the window was shown; nothing was changed", Path(StoreFile))
+		}
 	}
 	// 7. the backup
 	backup, err := backupFormat2(ctx, d, master, o.now())
@@ -107,20 +155,43 @@ func migrateFormat3(ctx context.Context, o migrate3Opts) (migrate3Result, error)
 		return res, err
 	}
 	p.report.Backup = backup
+	if err := migrateStepDone(8); err != nil {
+		return res, err
+	}
+	if shown != nil && shown.backup != backup {
+		p.report.BackupNote = fmt.Sprintf("the backup is %s: the name the window showed, %s, was taken by then",
+			filepath.Base(backup), filepath.Base(shown.backup))
+	}
 	// 9 to 11: one write step
 	ks, err := keysFor3(master)
 	if err != nil {
 		return res, err
 	}
+	via := "terminal"
+	if o.way == MigrateWindow {
+		via = "window"
+	}
 	entry, err := json.Marshal(map[string]any{
 		"ts": o.now().UTC().Format(time.RFC3339Nano), "command": "store.migrate", "ok": true, "dry_run": false,
-		"actor": "komando", "format": Format3, "counts": p.report.Counts,
+		"actor": "komando", "format": Format3, "counts": p.report.Counts, "via": via, "backup": filepath.Base(backup),
 	})
 	if err != nil {
 		return res, err
 	}
+	var mark string
 	err = d.Migrate(ctx, 2, Format3, ks.row, ks.policy,
-		func(tx *sealdb.Tx) error { return writeFormat3(tx, p, snap, vc, entry) },
+		func(tx *sealdb.Tx) error {
+			if err := writeFormat3(tx, p, snap, vc, entry); err != nil {
+				return err
+			}
+			// Q7: the runtime records that outlive the migration go into
+			// the same step, under a new mark
+			var err error
+			if mark, err = putRuntimeCopy(tx, carried); err != nil {
+				return err
+			}
+			return migrateStepDone(9)
+		},
 		func(tx *sealdb.Tx) error {
 			recs, err := readFormat3(tx, p, vc)
 			res.readBack = recs
@@ -137,24 +208,29 @@ func migrateFormat3(ctx context.Context, o migrate3Opts) (migrate3Result, error)
 		}
 		return res, migrationFailed("%v", err)
 	}
+	if err := migrateStepDone(11); err != nil {
+		return res, err
+	}
 	// 12. the keychain's change count was raised by the store's commit
-	// hook; 13. no process runs, so the runtime file goes
-	if err := os.Remove(runtimePath()); err != nil && !errors.Is(err, os.ErrNotExist) {
-		notice(fmt.Sprintf("could not remove %s (%v); its sessions are gone", runtimePath(), err))
+	// hook; 13. runtime.json written from the store's copy
+	if err := migrateStepDone(12); err != nil {
+		return res, err
+	}
+	carried.Mark = mark
+	if err := (&State{Runtime: *carried}).saveRuntime(); err != nil {
+		notice(fmt.Sprintf("could not write %s (%v); it is rebuilt from the store at the next open", runtimePath(), err))
+	}
+	if err := migrateStepDone(13); err != nil {
+		return res, err
 	}
 	// 14. the report
 	res.report, res.auditEntry = p.report, string(entry)
 	return res, nil
 }
 
-// needsMigration3 reports whether this home's store is to move: a store
-// of format 2, a person at a terminal (steps 1 and 2). A missing store or
-// one of format 3 has nothing to do.
-func needsMigration3(ctx context.Context, person bool) (bool, error) {
-	if !person {
-		return false, out.Errf(out.ExitPolicy, "NEEDS_PERSON", "run `komando doctor` once in your own terminal",
-			"%s is to move to a new format, and only a person starts that", Path(StoreFile))
-	}
+// needsMigration3 reports whether this home's store is of format 2 (step
+// 1). A missing store or one of format 3 has nothing to do.
+func needsMigration3(ctx context.Context) (bool, error) {
 	meta, err := sealdb.Peek(ctx, DBPath())
 	if errors.Is(err, os.ErrNotExist) {
 		return false, nil
@@ -171,6 +247,54 @@ func needsMigration3(ctx context.Context, person bool) (bool, error) {
 		return false, migrationFailed("%s is of format 1; open it once with komando v0.17.0 first", Path(StoreFile))
 	}
 	return false, migrationFailed("%s is of format %q", Path(StoreFile), meta["format"])
+}
+
+// shownWindow is what the approval window showed the person.
+type shownWindow struct {
+	backup string
+	counts map[string]int
+}
+
+// needsPerson is the refusal for a caller that may not start the
+// migration: an AI agent, a script, CI, a window that cannot be trusted.
+func needsPerson(why string) error {
+	if why == "" {
+		why = "this caller"
+	}
+	return out.Errf(out.ExitPolicy, "NEEDS_PERSON", "run `komando doctor` once in your own terminal",
+		"%s is to move to a new format, and only a person starts that, not %s; nothing was changed: run `komando doctor` once in your own terminal", Path(StoreFile), why)
+}
+
+// migrateGate is step 0: a person at a terminal goes on; the approval
+// window asks the person, naming the backup and the counts; every other
+// caller gets NEEDS_PERSON. It returns what the window showed.
+func migrateGate(ctx context.Context, o migrate3Opts) (*shownWindow, error) {
+	switch o.way {
+	case MigrateTerminal:
+		return nil, nil
+	case MigrateWindow:
+		if o.ask == nil {
+			return nil, needsPerson(o.why)
+		}
+	default:
+		return nil, needsPerson(o.why)
+	}
+	d, err := openFormat2()
+	if err != nil {
+		return nil, err
+	}
+	w := &shownWindow{backup: backupName(o.now())}
+	if err := d.View(ctx, func(tx *sealdb.Tx) error { w.counts, err = countTypes(tx); return err }); err != nil {
+		return nil, err
+	}
+	text := fmt.Sprintf("komando changes how it stores its data (format 3). A backup is made first: %s. "+
+		"Records: %d servers, %d services, %d VPNs, %d secrets, %d keys.",
+		w.backup, w.counts[KindHost], w.counts[KindConn], w.counts[KindVpn], w.counts["secret"], w.counts[KindKey])
+	if !o.ask(text) {
+		return nil, out.Errf(out.ExitPolicy, "NEEDS_PERSON", "run `komando doctor` again when you are ready",
+			"the store was not moved to a new format: the window was not allowed; nothing was changed")
+	}
+	return w, nil
 }
 
 // noLiveProcesses stops while a komando background process of the
@@ -202,18 +326,8 @@ func noLiveProcesses(alive func(int, string) bool) error {
 			running = append(running, fmt.Sprintf("tunnel %s (stop it: komando tunnel stop %s)", n, n))
 		}
 	}
-	for _, n := range slices.Sorted(maps.Keys(rt.Jobs)) {
-		if j := rt.Jobs[n]; j.Ended == "" && alive(j.PID, "") {
-			running = append(running, fmt.Sprintf("job %s (wait for it: komando job wait %s)", n, n))
-		}
-	}
-	// a run on a server: this computer cannot see whether it ended, and its
-	// record here is the only way to stop it, so a record alone stops this
-	for _, n := range slices.Sorted(maps.Keys(rt.ExecSessions)) {
-		e := rt.ExecSessions[n]
-		running = append(running, fmt.Sprintf("exec session %s on %s (read it to the end: komando exec %s --attach %s; or stop it: komando exec %s --attach %s --stop, then komando exec %s --attach %s --remove)",
-			n, e.Host, e.Host, n, e.Host, n, e.Host, n))
-	}
+	// jobs and exec sessions run on servers: their records are carried
+	// into the new store (carriedRuntime), never a reason to stop
 	if len(running) > 0 {
 		return out.Errf(out.ExitConflict, "STORE_IN_USE", "end each one as listed, then run `komando doctor` again",
 			"%s is to move to a new format, and komando still runs: %s", Path(StoreFile), strings.Join(running, "; "))
@@ -254,19 +368,35 @@ func countTypes(tx *sealdb.Tx) (map[string]int, error) {
 	return n, nil
 }
 
-// backupFormat2 copies the store beside it, 0600, before anything
-// changes, and checks the copy opens and holds as many records.
-func backupFormat2(ctx context.Context, d *sealdb.DB, master []byte, now time.Time) (string, error) {
-	base := "store-v0-17-backup-" + now.Format("2006-01-02-150405")
+// backupPrefix starts the name of every backup the migration makes.
+const backupPrefix = "store-v0-17-backup-"
+
+// backupName is the first free backup name at now: neither the backup
+// nor its .partial file exists.
+func backupName(now time.Time) string {
+	base := backupPrefix + now.Format("2006-01-02-150405")
 	path := Path(base + ".db")
 	for i := 2; ; i++ {
-		if _, err := os.Lstat(path); errors.Is(err, os.ErrNotExist) {
-			break
+		_, e1 := os.Lstat(path)
+		_, e2 := os.Lstat(path + ".partial")
+		if errors.Is(e1, os.ErrNotExist) && errors.Is(e2, os.ErrNotExist) {
+			return path
 		}
 		path = Path(fmt.Sprintf("%s-%d.db", base, i)) // never over an earlier backup
 	}
-	if err := d.Backup(ctx, path); err != nil {
+}
+
+// backupFormat2 copies the store beside it, 0600, before anything
+// changes: under a .partial name first, opened and counted, then renamed
+// (Audit E1-6), so a backup under its final name is always whole.
+func backupFormat2(ctx context.Context, d *sealdb.DB, master []byte, now time.Time) (string, error) {
+	path := backupName(now)
+	part := path + ".partial"
+	if err := d.Backup(ctx, part); err != nil {
 		return "", migrationFailed("the backup %s could not be made (%v)", path, err)
+	}
+	if err := migrateStepDone(7); err != nil {
+		return "", err
 	}
 	ks, err := keysFor(master, "2")
 	if err != nil {
@@ -276,23 +406,58 @@ func backupFormat2(ctx context.Context, d *sealdb.DB, master []byte, now time.Ti
 	if err := d.View(ctx, func(tx *sealdb.Tx) error { want, err = countTypes(tx); return err }); err != nil {
 		return "", err
 	}
-	b, err := sealdb.Open(ctx, path, ks.row)
+	b, err := sealdb.Open(ctx, part, ks.row)
 	if err != nil {
 		return "", migrationFailed("the backup %s does not open (%v)", path, err)
 	}
-	defer b.Close()
-	if err := b.View(ctx, func(tx *sealdb.Tx) error { got, err = countTypes(tx); return err }); err != nil {
+	err = b.View(ctx, func(tx *sealdb.Tx) error { got, err = countTypes(tx); return err })
+	b.Close()
+	if err != nil {
 		return "", migrationFailed("the backup %s cannot be read (%v)", path, err)
 	}
 	if !maps.Equal(want, got) {
 		return "", migrationFailed("the backup %s does not hold what the store holds", path)
 	}
+	if _, err := os.Lstat(path); !errors.Is(err, os.ErrNotExist) {
+		return "", migrationFailed("the backup name %s was taken while it was written", path)
+	}
+	if err := os.Rename(part, path); err != nil {
+		return "", migrationFailed("the backup %s could not be named (%v)", path, err)
+	}
+	if err := syncDir(filepath.Dir(path)); err != nil {
+		return "", migrationFailed("the backup %s could not be synced (%v)", path, err)
+	}
 	return path, nil
+}
+
+// RemoveBackupParts removes the .partial files of backups that a stopped
+// migration left (doctor); it never touches a backup under its final
+// name. It returns the names removed.
+func RemoveBackupParts() ([]string, error) {
+	es, err := os.ReadDir(Home())
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var removed []string
+	for _, e := range es {
+		n := e.Name()
+		if !e.Type().IsRegular() || !strings.HasPrefix(n, backupPrefix) || !strings.HasSuffix(n, ".db.partial") {
+			continue
+		}
+		if err := os.Remove(Path(n)); err != nil {
+			return removed, err
+		}
+		removed = append(removed, n)
+	}
+	return removed, nil
 }
 
 // readFormat2 is the snapshot the plan reads.
 func readFormat2(tx *sealdb.Tx) (*snapshot2, error) {
-	s, err := loadSealed(tx)
+	s, err := loadFormat2(tx)
 	if err != nil {
 		return nil, err
 	}

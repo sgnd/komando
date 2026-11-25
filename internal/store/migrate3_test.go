@@ -173,7 +173,7 @@ func notices(t *testing.T) *bytes.Buffer {
 }
 
 func personOpts() migrate3Opts {
-	return migrate3Opts{person: true, alive: func(int, string) bool { return false }}
+	return migrate3Opts{way: MigrateTerminal, alive: func(int, string) bool { return false }}
 }
 
 func formatNow(t *testing.T) string {
@@ -408,9 +408,13 @@ func TestMigrate3(t *testing.T) {
 			}
 		}
 	})
-	t.Run("runtime.json is gone after the migration", func(t *testing.T) {
-		if _, err := os.Stat(runtimePath()); !errors.Is(err, os.ErrNotExist) {
-			t.Errorf("runtime.json: %v", err)
+	t.Run("runtime.json holds only the carried records, under the new mark", func(t *testing.T) {
+		rt, err := ReadRuntime()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(rt.Sessions) != 0 || rt.Mark == "" {
+			t.Errorf("runtime after the migration: %+v", rt)
 		}
 	})
 	t.Run("report", func(t *testing.T) {
@@ -467,7 +471,7 @@ func TestMigrate3FailsClosed(t *testing.T) {
 		code  string
 		says  string // a part of the message, when one matters
 	}{
-		{name: "an AI agent or a script", opts: func(o *migrate3Opts) { o.person = false }, code: "NEEDS_PERSON"},
+		{name: "an AI agent or a script", opts: func(o *migrate3Opts) { o.way = MigrateRefuse; o.why = "an AI agent (Claude Code)" }, code: "NEEDS_PERSON"},
 		{
 			name: "a komando process still runs",
 			setup: func(t *testing.T) {
@@ -481,23 +485,6 @@ func TestMigrate3FailsClosed(t *testing.T) {
 			},
 			opts: func(o *migrate3Opts) { o.alive = func(pid int, _ string) bool { return pid == 4242 } },
 			code: "STORE_IN_USE",
-		},
-		{
-			// a run on a server: this computer cannot see it, and only its
-			// record here can stop it, so the record alone stops the migration
-			name: "an exec session record",
-			setup: func(t *testing.T) {
-				err := UpdateRuntime(Save(), func(s *State) error {
-					s.ExecSessions["abc"] = &ExecSession{ID: "abc", Host: "web", PID: 4242, PGID: 4242, ProcStart: "proc 1"}
-					return nil
-				})
-				if err != nil {
-					t.Fatal(err)
-				}
-			},
-			opts: func(o *migrate3Opts) { o.alive = func(int, string) bool { return false } },
-			code: "STORE_IN_USE",
-			says: "or stop it: komando exec web --attach abc --stop, then komando exec web --attach abc --remove",
 		},
 		{
 			name: "a deny pattern changed outside komando",

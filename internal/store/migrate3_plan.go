@@ -72,6 +72,7 @@ type migration3Report struct {
 	SnippetsWithOldRef []string          `json:"snippets_with_old_reference,omitempty"`
 	MergedGroups       []string          `json:"merged_groups,omitempty"`
 	Backup             string            `json:"backup,omitempty"`
+	BackupNote         string            `json:"backup_note,omitempty"`
 }
 
 // nameChange is an old name and the names that replace it.

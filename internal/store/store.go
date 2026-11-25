@@ -173,11 +173,14 @@ type Conn struct {
 	// found it, and PluginSearchPath the PATH of that import: an AI
 	// agent's command runs this file with this PATH, not what its own
 	// PATH would find.
-	PluginProgram    string    `json:"plugin_program,omitempty"`
-	PluginSearchPath string    `json:"plugin_search_path,omitempty"`
-	CreatedAt        time.Time `json:"created_at"`
-	UpdatedAt        time.Time `json:"updated_at"`
-	Rec              Rec       `json:"-"`
+	PluginProgram    string `json:"plugin_program,omitempty"`
+	PluginSearchPath string `json:"plugin_search_path,omitempty"`
+	// Manager is a swarm cluster's manager server, ManagerID its record ID
+	Manager   string    `json:"manager,omitempty"`
+	ManagerID string    `json:"manager_id,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Rec       Rec       `json:"-"`
 }
 
 type Key struct {
@@ -375,8 +378,9 @@ type State struct {
 	Runtime
 	Settings Settings `json:"settings"`
 
-	settingsRec Rec    // the settings record in the sealed store
-	runtimeMark string // store.db's mark of runtime.json (runtime_mark.go)
+	settingsRec Rec          // the settings record in the sealed store
+	runtimeMark string       // store.db's mark of runtime.json (runtime_mark.go)
+	runtimeCopy *runtimeCopy // records a store migration carried, under runtimeMark (runtime_copy.go)
 }
 
 // Home is komando's data folder: KOMANDO_HOME, else .komando in UserHome.

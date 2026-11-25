@@ -34,6 +34,12 @@ func TestMigrate3CrashAtEachStep(t *testing.T) {
 	for step := 2; step <= 13; step++ {
 		t.Run("step "+strconv.Itoa(step), func(t *testing.T) {
 			home := format2Store(t)
+			if err := UpdateRuntime(Save(), func(s *State) error {
+				s.ExecSessions["e1"] = &ExecSession{ID: "e1", Host: "web1", Command: "sleep 1", PID: 42}
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
 			Close()
 			before := fileSum(t)
 			cmd := exec.Command(os.Args[0], "-test.run=^TestMigrate3CrashAtEachStep$")
@@ -50,6 +56,13 @@ func TestMigrate3CrashAtEachStep(t *testing.T) {
 			if f := formatNow(t); f != want {
 				t.Fatalf("format %s after a kill at step %d, want %s", f, step, want)
 			}
+			if step >= 11 {
+				Close()
+				rt, err := ReadRuntime()
+				if err != nil || rt.ExecSessions["e1"] == nil {
+					t.Errorf("exec session record right after a kill at step %d: %v", step, err)
+				}
+			}
 			if step < 11 {
 				format2Reads(t) // the rollback journal undoes a half step
 				if step < 9 && fileSum(t) != before {
@@ -62,6 +75,11 @@ func TestMigrate3CrashAtEachStep(t *testing.T) {
 			}
 			if f := formatNow(t); f != "3" {
 				t.Errorf("format %s after the next open", f)
+			}
+			// Q7: the exec session record survives a kill at any step
+			rt, err := ReadRuntime()
+			if err != nil || rt.ExecSessions["e1"] == nil {
+				t.Errorf("exec session record after a kill at step %d: %v %v", step, rt, err)
 			}
 		})
 	}
@@ -89,7 +107,7 @@ func format2Reads(t *testing.T) {
 		t.Fatal(err)
 	}
 	err = d.View(context.Background(), func(tx *sealdb.Tx) error {
-		s, err := loadSealed(tx)
+		s, err := loadFormat2(tx)
 		if err == nil && len(s.Hosts) != 12 {
 			err = fmt.Errorf("%d hosts", len(s.Hosts))
 		}

@@ -67,6 +67,8 @@ type openStore struct {
 	// until: a store opened unchecked, as the keychain did not answer in
 	// time; it is opened and checked again from then on. Zero: checked.
 	until time.Time
+	// format2: a store of format 2, handed out to the migration only
+	format2 bool
 }
 
 // The open stores, by home. dbOpen holds the stores every caller may use:
@@ -130,7 +132,15 @@ func openOldCopy() (*sealdb.DB, error) {
 
 // open is DB; oldOK: the caller may look at an old copy.
 func open(create, oldOK bool) (openStore, error) {
-	o, err := cachedDB(create, oldOK)
+	o, err := cachedDB(create, oldOK, false)
+	if errors.Is(err, errFormat2) {
+		// the first open of a format-2 store: the migration, for a person
+		// only, then the store as it is now
+		if err := migrateOnOpen(); err != nil {
+			return openStore{}, err
+		}
+		o, err = cachedDB(create, oldOK, false)
+	}
 	if err != nil {
 		return openStore{}, err
 	}
@@ -149,7 +159,31 @@ func open(create, oldOK bool) (openStore, error) {
 		}
 	}
 	dbMu.Unlock()
-	return cachedDB(create, oldOK)
+	return cachedDB(create, oldOK, false)
+}
+
+// errFormat2: the store is of format 2 and the caller is not the
+// migration (open runs it first).
+var errFormat2 = errors.New("store: the store is of format 2")
+
+// openFormat2 opens a format-2 store for the migration: the normal open,
+// with its old-copy count and policy MAC.
+func openFormat2() (*sealdb.DB, error) {
+	o, err := cachedDB(false, false, true)
+	return o.db, err
+}
+
+// dropHome stops handing out this home's open stores (after the
+// migration, whose handle reads format 2).
+func dropHome() {
+	dbMu.Lock()
+	defer dbMu.Unlock()
+	home := Home()
+	for _, m := range []map[string]openStore{dbOpen, lookOpen} {
+		if _, ok := m[home]; ok {
+			drop(m, home)
+		}
+	}
 }
 
 // drop stops handing out m's store of home. The handle may still be in
@@ -191,7 +225,7 @@ func forgetOldCopy() {
 // copy is handed out only to a caller that may look at one (oldOK); any
 // other caller gets the store opened and checked again, and
 // STORE_OLD_COPY.
-func cachedDB(create, oldOK bool) (openStore, error) {
+func cachedDB(create, oldOK, format2 bool) (openStore, error) {
 	dbMu.Lock()
 	defer dbMu.Unlock()
 	sweepRetired()
@@ -201,7 +235,7 @@ func cachedDB(create, oldOK bool) (openStore, error) {
 	// opened is opened again, never written through the old handle
 	fi, statErr := os.Stat(path)
 	usable := func(o openStore) bool {
-		return statErr == nil && os.SameFile(fi, o.fi) && (o.until.IsZero() || time.Now().Before(o.until))
+		return statErr == nil && os.SameFile(fi, o.fi) && (o.until.IsZero() || time.Now().Before(o.until)) && o.format2 == format2
 	}
 	if o, ok := dbOpen[home]; ok {
 		if usable(o) {
@@ -220,6 +254,12 @@ func cachedDB(create, oldOK bool) (openStore, error) {
 	}
 	ctx := context.Background()
 	meta, err := sealdb.Peek(ctx, path)
+	if err == nil && (meta["format"] == "2") != format2 {
+		if format2 {
+			return openStore{}, fmt.Errorf("store: %s is of format %q, not 2", path, meta["format"])
+		}
+		return openStore{}, errFormat2
+	}
 	if err == nil {
 		o, err := openDB(ctx, home, path, meta, oldOK, false)
 		if !errors.Is(err, errStoreGone) {
@@ -322,7 +362,7 @@ func checkAndRemember(home, path string, d *sealdb.DB, meta map[string]string, m
 		d.Close()
 		return openStore{}, err
 	}
-	o := openStore{db: d, fi: fi, master: master}
+	o := openStore{db: d, fi: fi, master: master, format2: meta["format"] == "2"}
 	switch state {
 	case oldCopy:
 		lookOpen[home] = o

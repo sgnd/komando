@@ -57,6 +57,7 @@ func (r *Runtime) init() {
 func (s *State) loadRuntime() error {
 	b, err := os.ReadFile(runtimePath())
 	if errors.Is(err, os.ErrNotExist) {
+		s.Runtime = fromCopy(s.runtimeMark, s.runtimeCopy)
 		return nil
 	}
 	if err != nil {
@@ -78,8 +79,9 @@ func (s *State) loadRuntime() error {
 			"corrupt runtime file %s: %v", runtimePath(), err)
 	}
 	if rt.Mark != s.runtimeMark {
-		// an old copy put back: never trusted, like a plain runtime.json
-		rt = Runtime{Mark: s.runtimeMark}
+		// an old copy put back: never trusted, like a plain runtime.json;
+		// what a store migration carried is read from the store (Q7)
+		rt = fromCopy(s.runtimeMark, s.runtimeCopy)
 	}
 	rt.init()
 	s.Runtime = rt
@@ -114,12 +116,12 @@ func ReadRuntime() (*Runtime, error) {
 	if err := json.Unmarshal(b, &rt); err != nil {
 		return nil, err
 	}
-	mark, err := storeRuntimeMark()
+	mark, cp, err := storeRuntimeMark()
 	if err != nil {
 		return nil, err
 	}
 	if rt.Mark != mark {
-		rt = Runtime{Mark: mark}
+		rt = fromCopy(mark, cp)
 	}
 	rt.init()
 	return &rt, nil

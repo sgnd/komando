@@ -344,7 +344,7 @@ func TestRowKeyOpensNoValue(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	row, _ := sealkey.Derive(master, sealkey.Rows)
+	row, _ := sealkey.Derive(master, sealkey.RowsV3)
 	for _, k := range [][]byte{row, mustDerive(t, row, sealkey.Values)} {
 		blk, _ := aes.NewCipher(k)
 		a, _ := cipher.NewGCM(blk)

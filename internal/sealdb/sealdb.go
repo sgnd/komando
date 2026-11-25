@@ -62,14 +62,18 @@ import (
 
 // Format is the database format this komando writes. A file with a higher
 // number was made by a newer komando. Format 2 binds the safety rows with
-// the policy MAC (policy.go); a format-1 store is upgraded to it.
-const Format = 2
+// the policy MAC (policy.go); a format-1 store is upgraded to it. Format 3
+// is the v2.7 shape of the records (store/format3.go); a format-2 store is
+// moved to it once, by a person (store/migrate3.go).
+const Format = 3
 
 // BusyTimeout is how long SQLite itself waits for another process's lock
 // in one try.
 const BusyTimeout = 10 * time.Second
 
 var (
+	// ErrBadFormat: the file's format is not a number komando wrote.
+	ErrBadFormat = errors.New("sealdb: the store's format is not a number")
 	// ErrNewerFormat: the file was made by a newer komando.
 	ErrNewerFormat = errors.New("sealdb: store made by a newer komando; update komando")
 	// ErrNotFound: no record with that ID.
@@ -264,7 +268,7 @@ func (d *DB) init(ctx context.Context, create bool) error {
 func (d *DB) checkOpened(tx *Tx, v string) error {
 	n, err := strconv.Atoi(v)
 	if err != nil {
-		return fmt.Errorf("sealdb: format %q is not a number", v)
+		return fmt.Errorf("%w: %q", ErrBadFormat, v)
 	}
 	if n > Format {
 		return ErrNewerFormat
