@@ -11,6 +11,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -417,5 +418,19 @@ func TestEachCallRunsOneCommand(t *testing.T) {
 	}
 	if !maps.Equal(got, want) {
 		t.Errorf("where calls are made and commands run:\n%s\nwant:\n%s", writerLines(got), writerLines(want))
+	}
+}
+
+// TestGlobalFlagsHoldNoGateFlag (Audit A-444-1): the gate flags live only
+// in the gate. The call's global flags have no field for them, nor a gate,
+// so a copy of the whole value (f := cl.flags) cannot carry one past the
+// gate's methods and the scans above.
+func TestGlobalFlagsHoldNoGateFlag(t *testing.T) {
+	ft := reflect.TypeFor[globalFlags]()
+	for i := range ft.NumField() {
+		f := ft.Field(i)
+		if gateFields[f.Name] || f.Type == reflect.TypeFor[gate]() || f.Type == reflect.TypeFor[*gate]() {
+			t.Errorf("globalFlags has %s %s: the gate flags and the caller belong to the gate only", f.Name, f.Type)
+		}
 	}
 }
