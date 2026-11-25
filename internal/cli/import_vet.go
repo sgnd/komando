@@ -88,13 +88,11 @@ func vetImportHosts(cl *call, s *store.State, hosts []*store.Host, overwrite, ow
 			v.Invalid = append(v.Invalid, importSkip{h.Name, toErr(err).Message})
 			continue
 		}
-		if e := proxyCommandSkip(cl, h.ProxyCommand); e != nil {
-			v.Invalid = append(v.Invalid, importSkip{h.Name, e.Message})
-			_ = cl.policyStop(e) // a dry run records the stop the real import leaves it out for
-			continue
-		}
-		if err := guardProxyCommand(cl, h.ProxyCommand, h.Name); err != nil {
+		if skip, err := vetProxyCommand(cl, h); err != nil {
 			return v, err
+		} else if skip != "" {
+			v.Invalid = append(v.Invalid, importSkip{h.Name, skip})
+			continue
 		}
 		if old, ok := s.Hosts[h.Name]; h.ForwardAgent && (!ok || !old.ForwardAgent) {
 			lend = append(lend, h.Name)
@@ -134,6 +132,17 @@ func vetImportHosts(cl *call, s *store.State, hosts []*store.Host, overwrite, ow
 		v.Add = append(v.Add, h)
 	}
 	return v, guardHostSends(cl, s, v.Add, prev)
+}
+
+// vetProxyCommand decides an imported host's proxy command: skip says why
+// the import leaves the host out (a dry run records that stop); err stops
+// the whole import (the person said no in the window).
+func vetProxyCommand(cl *call, h *store.Host) (skip string, err error) {
+	if e := proxyCommandSkip(cl, h.ProxyCommand); e != nil {
+		_ = cl.policyStop(e) // a dry run records the stop the real import leaves it out for
+		return e.Message, nil
+	}
+	return "", guardProxyCommand(cl, h.ProxyCommand, h.Name)
 }
 
 // proxyCommandSkip is the stop for which an import leaves out a host whose
