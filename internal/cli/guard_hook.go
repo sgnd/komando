@@ -461,8 +461,9 @@ func samePath(a, b string) bool {
 }
 
 // readOnlyPrograms only look at the paths they name; a redirect of their
-// output is checked on its own.
-var readOnlyPrograms = map[string]bool{"cat": true, "less": true, "more": true, "head": true, "tail": true, "grep": true,
+// output is checked on its own. Programs that read in one form and write
+// in another are in readsOnly.
+var readOnlyPrograms = map[string]bool{"cat": true, "less": true, "more": true, "head": true, "tail": true, "grep": true, "cut": true,
 	"egrep": true, "fgrep": true, "rg": true, "ls": true, "stat": true, "file": true, "wc": true, "diff": true, "cmp": true,
 	"readlink": true, "realpath": true, "which": true, "type": true, "command": true, "test": true, "[": true, "jq": true,
 	"echo": true, "printf": true, "md5": true, "md5sum": true, "shasum": true, "sha256sum": true, "cd": true, "pushd": true}
@@ -479,7 +480,7 @@ var writesKomandoByName = regexp.MustCompile("(^|[;&|(\\s])(rm|unlink|mv|cp|ln|c
 // checkSelfWrite refuses a shell segment that writes, moves, deletes or
 // changes the mode of a guard file (guardSelfWhy): through a redirect, or
 // as an argument of a program that is not only a reader.
-func checkSelfWrite(cl *call, seg, base string, args []string, home, cwd string) guardDecision {
+func checkSelfWrite(cl *call, line, seg, base string, args []string, home, cwd string) guardDecision {
 	refuse := func(w, why string) guardDecision {
 		return deny("%s is %s; an AI agent does not change it: %s", w, why, selfWayOut(why))
 	}
@@ -489,14 +490,15 @@ func checkSelfWrite(cl *call, seg, base string, args []string, home, cwd string)
 			return refuse(w, why)
 		}
 	}
-	if readOnlyPrograms[base] {
+	if readsOnly(base, args) {
 		return allow()
 	}
 	for _, a := range args {
 		if strings.HasPrefix(a, "-") {
 			continue
 		}
-		if why := guardSelfWhy(guardPathAt(cl, a, home, cwd)); why != "" {
+		p := guardPathAt(cl, a, home, cwd)
+		if why := guardSelfWhy(p); why != "" && !(why == komandoNamedWhy && komandoWordHarmless(line, p)) {
 			return refuse(a, why)
 		}
 	}
@@ -569,15 +571,21 @@ var inlineCode = map[string]bool{"python": true, "python2": true, "python3": tru
 
 // checkGuardFiles refuses a segment of line that changes a guard file:
 // named as its argument or redirect (checkSelfWrite), or anywhere on the
-// line when its program is not only a reader (checkGuardFileNamed).
+// line when its program is not only a reader (checkGuardFileNamed). A
+// program that writes in another form (sed, awk, sort, uniq, go) is
+// checked against the line too, without the files the readers on it
+// read (lineWithoutReadFiles): a path in its script or a flag still counts.
 // komando's own commands check the files they write themselves.
 func checkGuardFiles(cl *call, line, seg, prog string, args []string, home, cwd string) guardDecision {
 	base := filepath.Base(prog)
 	if base == "komando" {
 		return allow()
 	}
-	if d := checkSelfWrite(cl, seg, base, args, home, cwd); d.Deny || prog == "" || readOnlyPrograms[base] {
+	if d := checkSelfWrite(cl, line, seg, base, args, home, cwd); d.Deny || prog == "" || readOnlyPrograms[base] {
 		return d
+	}
+	if _, ok := readerArgs(base, args); ok {
+		return checkGuardFileNamed(cl, lineWithoutReadFiles(line), base, args, home, cwd)
 	}
 	return checkGuardFileNamed(cl, line, base, args, home, cwd)
 }
@@ -600,7 +608,8 @@ func checkGuardFileNamed(cl *call, line, base string, args []string, home, cwd s
 		if runtime.GOOS == "windows" { // \ is a separator there, not an escape
 			w = strings.ReplaceAll(w, `\`, "/")
 		}
-		if why := guardSelfWhy(guardPathAt(cl, w, home, cwd)); why != "" {
+		p := guardPathAt(cl, w, home, cwd)
+		if why := guardSelfWhy(p); why != "" && !(why == komandoNamedWhy && komandoWordHarmless(line, p)) {
 			return refuse(m[1], why)
 		}
 	}
