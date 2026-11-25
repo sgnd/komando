@@ -223,6 +223,11 @@ func TestStartScriptPSFolderChecks(t *testing.T) {
 		"'(A;OICI;FA;;;' + $ks_sid + ')'", "'(A;OICI;FA;;;SY)'", "-notmatch 'P'", "ks_fail 96",
 		"ReparsePoint", "$Matches[1] -ne $ks_sid", "'SY', 'S-1-5-18', 'BA', 'S-1-5-32-544'",
 		"if (Test-Path -LiteralPath $ks_d) { ks_fail 90 }", "whoami.exe /user /fo csv /nh",
+		"if (-not (ks_aclExact (Get-Acl -LiteralPath $ks_d).Sddl)) { ks_fail 96 }",
+		"if (-not ($sd -match '^O:(S-[0-9-]+|[A-Z]{2})') -or $Matches[1] -ne $ks_sid) { ks_fail 90 }",
+		"if (@($ks_sid, 'SY', 'S-1-5-18', 'BA', 'S-1-5-32-544') -contains $a.Groups[4].Value) { continue }",
+		"$ks_v.Free -lt ($ks_cap + ($ks_v.Used + $ks_v.Free) / 20)) { ks_fail 93 }",
+		"if ($null -eq $l) { ks_fail 98 }",
 	} {
 		if !strings.Contains(script, want) {
 			t.Errorf("the script has no %q", want)
