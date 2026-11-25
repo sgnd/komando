@@ -10,8 +10,9 @@ import (
 )
 
 // TestGateAnswersPinned pins the ssh gate's answer to every command of
-// today, typed bare, with --help, and with the flags its read form reads,
-// for a read key, a read key with network and a full key. The cut re-keys
+// today, typed bare, with --help, with the flags its read form reads, with
+// a target word or --to PATH where the gate reads them, for a read key, a
+// read key with network, a full key and a --shell-access key. The cut re-keys
 // the gate's tables by safety key (cut plan, PR B1): this file must not
 // change when it does. KOMANDO_GOLDEN_UPDATE=1 writes it again (only on
 // purpose).
@@ -32,7 +33,7 @@ func TestGateAnswersPinned(t *testing.T) {
 			for _, k := range []struct {
 				name string
 				key  gateKey
-			}{{"read", readKey}, {"netread", netReadKey}, {"full", fullKey}} {
+			}{{"read", readKey}, {"netread", netReadKey}, {"full", fullKey}, {"shell", shellAccessKey}} {
 				name, _, e := gateCheck(slices.Clone(words), k.key)
 				answer := "runs"
 				if e != nil {
@@ -68,14 +69,26 @@ func TestGateAnswersPinned(t *testing.T) {
 	}
 }
 
-// gateProbeFlags are the flag sets each command is probed with: none,
-// --help, and each flag its read form reads.
+// shellAccessKey is a full key added with --shell-access, called with
+// the terminal sshd gives it.
+var shellAccessKey = gateKey{network: true, shellAccess: true, tty: true}
+
+// gateProbeFlags are the words each command is probed with after its
+// path: none, --help, each flag its read form reads, one target word for
+// a command gateTargetArgs reads, and --to PATH for one gateSavesHere
+// names.
 func gateProbeFlags(id string) [][]string {
 	probes := [][]string{nil, {"--help"}}
 	for _, f := range []string{"read-only", "write", "analyze", "refresh"} {
 		if gateReadForm[cmdKeys[id]] != nil {
 			probes = append(probes, []string{"--" + f})
 		}
+	}
+	if gateTargetArgs[cmdKeys[id]] != nil {
+		probes = append(probes, []string{"web"})
+	}
+	if gateSavesHere[cmdKeys[id]] != nil {
+		probes = append(probes, []string{"--to", "/tmp/x"})
 	}
 	return probes
 }
