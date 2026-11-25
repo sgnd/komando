@@ -6,6 +6,7 @@ import (
 
 	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/store"
 )
 
 // The closing lines of a command that ran on servers. A person reads the
@@ -27,6 +28,27 @@ type hostFail struct {
 }
 
 // failReason is the short reason shown after a host's name.
+// hostStatus is a server's status in the "=== host [status]" line.
+func hostStatus(r execHostResult) string {
+	switch {
+	case r.Error != nil && r.Error.Code == "SKIPPED":
+		return "skipped"
+	case r.OK && r.RunResult != nil:
+		return fmt.Sprintf("ok, exit %d", r.ExitCode)
+	case r.OK:
+		return "ok"
+	case r.Error != nil && r.Error.Code == "CONNECTION_LOST":
+		return "failed: connection lost, outcome unknown"
+	case r.RunResult != nil && r.TimedOut:
+		return "failed: timed out"
+	case r.RunResult != nil:
+		return fmt.Sprintf("failed: exit %d", r.ExitCode)
+	case r.Error != nil:
+		return "failed: " + failReason(0, r.Error)
+	}
+	return "failed"
+}
+
 func failReason(code int, e *out.Error) string {
 	if e != nil {
 		switch e.Code {
@@ -127,4 +149,16 @@ func withHost(host, msg string) string {
 		}
 	}
 	return host + ": " + msg
+}
+
+// followStatus is the status line of a log follow.
+func followStatus(cl *call, st *store.State, hosts []*store.Host) {
+	s := statusLine{What: "following logs", Target: strings.Join(hostNames(hosts), ", "), Tail: "Ctrl-C stops"}
+	if len(hosts) == 1 {
+		s.Route = hostRoute(st, hosts[0])
+	}
+	for _, h := range hosts {
+		s.Protected = s.Protected || protectedHost(st, h)
+	}
+	showStatus(cl, s)
 }
