@@ -431,7 +431,7 @@ func (s *sessionRun) removeOwn(cl *call, ctx context.Context, c *sshx.Client) {
 		return
 	}
 	rec := rt.ExecSessions[s.id]
-	if rec == nil || rec.Host != c.Host.Name || rec.Actor != actor(cl) || rec.Agent != cl.isAgent() {
+	if rec == nil || rec.Host != c.Host.Name || !ownRun(cl, rec) {
 		return
 	}
 	script, err := execsession.RemoveScript(s.id, rec)
@@ -586,9 +586,13 @@ func (s sessionChange) Text() string {
 // recorded in the audit log as shown with extra. input gives what the
 // script reads, after the guard. A dry run prints the script and returns
 // nil, nil.
-func changeSession(cl *call, ctx context.Context, st *store.State, h *store.Host, id, shown, script string, input func() ([]byte, error), extra map[string]any) (*sshx.RunResult, error) {
+func changeSession(cl *call, ctx context.Context, st *store.State, h *store.Host, rec *store.ExecSession, id, shown, script string, input func() ([]byte, error), extra map[string]any) (*sshx.RunResult, error) {
 	extra["attach"] = []string{id}
-	if err := Guard(cl, st, []*store.Host{h}, "", true); err != nil {
+	err := Guard(cl, st, []*store.Host{h}, "", true)
+	if err == nil {
+		err = guardOtherStarter(cl, rec)
+	}
+	if err != nil {
 		extra["blocked"] = toErr(err).Code
 		audit(cl, st, "exec", []string{h.Name}, shown, false, extra)
 		return nil, err
@@ -599,19 +603,44 @@ func changeSession(cl *call, ctx context.Context, st *store.State, h *store.Host
 	}
 	var stdin []byte
 	if input != nil {
-		var err error
 		if stdin, err = input(); err != nil {
 			return nil, err
 		}
 	}
 	var r *sshx.RunResult
-	err := withClient(cl, ctx, st, h, func(c *sshx.Client) error {
+	err = withClient(cl, ctx, st, h, func(c *sshx.Client) error {
 		var err error
 		r, err = sshx.Run(ctx, c, sshx.RunRequest{Command: script, Stdin: stdin, Timeout: 30 * time.Second, MaxOutput: 4 << 10})
 		return err
 	})
 	audit(cl, st, "exec", []string{h.Name}, shown, err == nil && r.ExitCode == 0, extra)
 	return r, err
+}
+
+// guardOtherStarter: an AI agent that stops or removes a run another
+// actor started (a person, a script, or another agent) asks the person
+// in the window first, as guardSafety does (Audit L1). Its own runs, a
+// caller that is not an agent, and a removal without a record (no starter
+// known) stay at the change tier.
+func guardOtherStarter(cl *call, rec *store.ExecSession) error {
+	if rec == nil || !cl.isAgent() || ownRun(cl, rec) {
+		return nil
+	}
+	starter := rec.Actor + " at a terminal or in a script"
+	if rec.Agent {
+		starter = rec.Actor + "'s AI agent"
+	}
+	why := fmt.Sprintf("session %s on %s was started by %s, not by this AI agent", rec.ID, rec.Host, starter)
+	if cl.yesOK(why) {
+		return nil
+	}
+	return cl.policyStop(approvalErr(cl, "CONFIRM_REQUIRED", why))
+}
+
+// ownRun says whether the caller is the actor who started run rec: the
+// same name, and an agent or not alike.
+func ownRun(cl *call, rec *store.ExecSession) bool {
+	return rec.Actor == actor(cl) && rec.Agent == cl.isAgent()
 }
 
 // stopSession is exec --attach ID --stop: it signals the run from its
@@ -643,7 +672,7 @@ func stopSession(cl *call, ctx context.Context, target, id, sig string) error {
 		}
 	}
 	shown := shellLine([]string{"--attach", id, "--stop", "--signal", sig})
-	r, err := changeSession(cl, ctx, st, h, id, shown, script, input, map[string]any{"stop": sig, "pid": rec.PID})
+	r, err := changeSession(cl, ctx, st, h, rec, id, shown, script, input, map[string]any{"stop": sig, "pid": rec.PID})
 	if err != nil || r == nil {
 		return err
 	}
@@ -675,7 +704,7 @@ func removeSession(cl *call, ctx context.Context, target, id string) error {
 	if err != nil {
 		return err
 	}
-	r, err := changeSession(cl, ctx, st, h, id, shellLine([]string{"--attach", id, "--remove"}), script, nil, map[string]any{"remove": true})
+	r, err := changeSession(cl, ctx, st, h, rec, id, shellLine([]string{"--attach", id, "--remove"}), script, nil, map[string]any{"remove": true})
 	if err != nil || r == nil {
 		return err
 	}

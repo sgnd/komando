@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"slices"
 	"strings"
 	"testing"
 
@@ -295,6 +296,117 @@ func TestExecSessionRemoveExits(t *testing.T) {
 			putRecord(t, attachID, "alice", false)
 			if _, err := runChange(t, "exec", "dev", "--attach", attachID, "--remove", "--yes"); errCode(err) != tc.want {
 				t.Fatalf("got %v", err)
+			}
+			if !hasRecord(attachID) {
+				t.Fatal("the record is gone")
+			}
+		})
+	}
+}
+
+// otherActorSetup unprotects the fake servers, so only the check for a run
+// another actor started can ask, and stands in for the window: shown says
+// whether one could be shown, allow what the person answers. It returns
+// the texts the window showed.
+func otherActorSetup(t *testing.T, shown, allow bool) *[]string {
+	t.Helper()
+	if err := store.Update(store.Save(), func(st *store.State) error {
+		st.Hosts["prod"].Protected, st.Hosts["dev"].Protected = false, false
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	texts := &[]string{}
+	savedAsk := askOnScreen
+	askOnScreen = func(_ *call, text string) (bool, bool) { *texts = append(*texts, text); return allow, shown }
+	t.Cleanup(func() { askOnScreen = savedAsk; tcl.flags.yes = false; resetApproval() })
+	return texts
+}
+
+// L1: an AI agent that stops or removes a run another actor started (a
+// person, a script, or another agent) asks the person in the window; its
+// own runs, a caller that is not an agent, and --remove without a record
+// stay at the change tier.
+func TestExecSessionAgentChangesAnotherActorsRun(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		rec   *store.ExecSession // nil: no record
+		agent bool               // the caller is an AI agent
+		flag  string
+		asks  bool
+	}{
+		{"an agent stops a person's run", &store.ExecSession{Actor: "alice"}, true, "--stop", true},
+		{"an agent stops another actor's agent run", &store.ExecSession{Actor: "bob", Agent: true}, true, "--stop", true},
+		{"an agent removes a person's run", &store.ExecSession{Actor: "alice"}, true, "--remove", true},
+		{"an agent removes another actor's agent run", &store.ExecSession{Actor: "bob", Agent: true}, true, "--remove", true},
+		{"an agent stops its own run", &store.ExecSession{Actor: "alice", Agent: true}, true, "--stop", false},
+		{"an agent removes its own run", &store.ExecSession{Actor: "alice", Agent: true}, true, "--remove", false},
+		{"a script stops an agent's run", &store.ExecSession{Actor: "bob", Agent: true}, false, "--stop", false},
+		{"a script removes an agent's run", &store.ExecSession{Actor: "bob", Agent: true}, false, "--remove", false},
+		{"an agent removes without a record", nil, true, "--remove", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := stopServer(t, 0)
+			texts := otherActorSetup(t, true, true)
+			setCallerEnv(t, "KOMANDO_ACTOR", "alice")
+			if tc.agent { // TestMain clears every agent variable; a set one, even empty, marks an agent
+				setCallerEnv(t, "KOMANDO_AGENT", "1")
+			}
+			if tc.rec != nil {
+				rec := *tc.rec
+				rec.ID, rec.Host, rec.PID, rec.PGID, rec.ProcStart = attachID, "dev", 4242, 4242, "proc 99"
+				putExecSession(t, &rec)
+			}
+			args := []string{"exec", "dev", "--attach", attachID, tc.flag}
+			if tc.agent { // a script needs no --yes here; with one it would pass any window check unseen
+				args = append(args, "--yes")
+			}
+			if _, err := runChange(t, args...); err != nil {
+				t.Fatal(err)
+			}
+			if asked := slices.ContainsFunc(*texts, func(s string) bool { return strings.Contains(s, "not by this AI agent") }); asked != tc.asks {
+				t.Fatalf("asked %v, want %v: %q", asked, tc.asks, *texts)
+			}
+			if e := srv.take(); len(e) != 1 {
+				t.Fatalf("execs %+v", e)
+			}
+		})
+	}
+}
+
+// L1: without the person's yes (no --yes, no window, or Deny) the agent is
+// stopped before it connects, the audit log records the refusal, and the
+// record stays.
+func TestExecSessionAgentStopsAnotherActorsRunRefused(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		yes          bool
+		shown, allow bool
+		code         string
+	}{
+		{"no --yes", false, true, true, "CONFIRM_REQUIRED"},
+		{"no window", true, false, false, "CONFIRM_REQUIRED"},
+		{"Deny", true, true, false, "CONFIRM_REQUIRED"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := stopServer(t, 0)
+			otherActorSetup(t, tc.shown, tc.allow)
+			setCallerEnv(t, "KOMANDO_ACTOR", "bob")
+			setCallerEnv(t, "KOMANDO_AGENT", "1")
+			putRecord(t, attachID, "alice", false)
+			args := []string{"exec", "dev", "--attach", attachID, "--stop"}
+			if tc.yes {
+				args = append(args, "--yes")
+			}
+			_, err := runChange(t, args...)
+			if e := toErr(err); e == nil || e.Code != tc.code || e.Exit != 6 {
+				t.Fatalf("want %s exit 6, got %v", tc.code, err)
+			}
+			if e := srv.take(); len(e) != 0 {
+				t.Fatalf("connected: %+v", e)
+			}
+			if a := lastAudit(t); a["ok"] != false || a["blocked"] != tc.code {
+				t.Fatalf("audit %v", a)
 			}
 			if !hasRecord(attachID) {
 				t.Fatal("the record is gone")
