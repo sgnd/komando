@@ -88,7 +88,7 @@ or a listed one is gone.
 | `internal/engine` | one komando call: who makes it and its approvals |
 | `internal/execsession` | a long `exec` that outlives the connection: the session ID, the folder on the server, and the shell text that starts, reads and stops a run |
 | `internal/flock` | a file lock between komando processes |
-| `internal/interactive` | the interactive mode's screens: lists with type-to-search and how they draw; it returns a command line and runs nothing (imports only `internal/capability`, `internal/cli/kit/term`, `internal/out` and std, checked by its own `TestInteractiveImports`); nothing calls it yet |
+| `internal/interactive` | the interactive mode's screens: lists with type-to-search, the menu of the command tree, the form of a command's fields, the review of the line, and how they draw; it returns answers and runs nothing (imports only `internal/capability`, `internal/cli/kit/term`, `internal/out` and std, checked by its own `TestInteractiveImports`); nothing calls it yet |
 | `internal/inventory` | the rules for what goes into the inventory: names and the shared name space, login names, ports, labels, `--via` paths, conn families and the references to vault secrets; nothing of `internal/cli` |
 | `internal/ipsec` | komando's own IKEv1 and IKEv2 clients |
 | `internal/kube` | the Kubernetes API over HTTPS, without client-go |
