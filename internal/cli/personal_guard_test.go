@@ -72,19 +72,26 @@ func TestConnEditKeepsMasking(t *testing.T) {
 
 // A dump is every row in a file on this computer, which an AI agent then
 // reads with its own tools: where personal data is hidden from the agent,
-// the dump is refused (a person allows it with --reveal).
+// only a person dumps it, in their own terminal (C424). No flag lifts it:
+// --reveal opens no window for it.
 func TestDumpRefusedWherePersonalDataIsHidden(t *testing.T) {
 	personalDB(t)
 	dir := t.TempDir()
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
-	e := wantCode(t, "SENSITIVE_FILE", "db", "dump", "prod", "--to", filepath.Join(dir, "prod.db"))
-	if !strings.Contains(e.Hint, "--reveal") {
+	e := wantCode(t, "NEEDS_PERSON", "db", "dump", "prod", "--to", filepath.Join(dir, "prod.db"))
+	if !strings.Contains(e.Hint, "own terminal") || strings.Contains(e.Hint, "--reveal") || len(e.Flags()) != 0 {
 		t.Errorf("hint: %+v", e)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "prod.db")); err == nil {
 		t.Error("the dump was written")
 	}
-	if d, e := invRun(t, "--dry-run", "db", "dump", "prod", "--to", filepath.Join(dir, "prod.db")); e != nil || blockedCode(d) != "SENSITIVE_FILE" {
+	// the cli tests' window stand-in panics: --reveal must not ask
+	wantCode(t, "NEEDS_PERSON", "db", "dump", "prod", "--to", filepath.Join(dir, "prod.db"), "--reveal")
+	tcl.flags.reveal = false
+	if _, err := os.Stat(filepath.Join(dir, "prod.db")); err == nil {
+		t.Error("the dump was written with --reveal")
+	}
+	if d, e := invRun(t, "--dry-run", "db", "dump", "prod", "--to", filepath.Join(dir, "prod.db")); e != nil || blockedCode(d) != "NEEDS_PERSON" {
 		t.Errorf("a dry run reports the stop: %v %+v", d, e)
 	}
 	tcl.flags.dryRun = false
@@ -93,7 +100,7 @@ func TestDumpRefusedWherePersonalDataIsHidden(t *testing.T) {
 	resetApproval()
 	mustRun(t, "conn", "edit", "dev", "--option", "mask_columns=name")
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
-	wantCode(t, "SENSITIVE_FILE", "db", "dump", "dev", "--to", filepath.Join(dir, "dev2.db"))
+	wantCode(t, "NEEDS_PERSON", "db", "dump", "dev", "--to", filepath.Join(dir, "dev2.db"))
 	os.Unsetenv("KOMANDO_AGENT")
 	resetApproval()
 	mustRun(t, "db", "dump", "prod", "--to", filepath.Join(dir, "person.db")) // a person's own
@@ -232,7 +239,7 @@ func TestMaskingSurvivesOtherWaysToTheConn(t *testing.T) {
 		t.Errorf("a second conn to the same database: %v", got)
 	}
 	wantCode(t, "REVEAL_NEEDS_PERSON", "db", "query", "dev2", "select name n from users")
-	wantCode(t, "SENSITIVE_FILE", "db", "dump", "dev2", "--to", filepath.Join(t.TempDir(), "x.db"))
+	wantCode(t, "NEEDS_PERSON", "db", "dump", "dev2", "--to", filepath.Join(t.TempDir(), "x.db"))
 }
 
 // A MongoDB command is searched as the server reads it: an escape in the
