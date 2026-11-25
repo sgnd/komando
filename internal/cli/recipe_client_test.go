@@ -90,6 +90,8 @@ func TestResolveSnippetEntry(t *testing.T) {
 		{"a conn for a host snippet", "host", "lite", "SNIPPET_TYPE_UNSUPPORTED"},
 		{"a host for a database snippet", "database", "web1", "SNIPPET_TYPE_UNSUPPORTED"},
 		{"a Windows host", "host", "win1", "SNIPPET_OS_UNSUPPORTED"},
+		{"a Swarm manager (a host) for a cluster snippet", "cluster", "web1", "SNIPPET_OS_UNSUPPORTED"},
+		{"a database conn for a cluster snippet", "cluster", "lite", "NO_MATCHING_TARGETS"},
 		{"a selector of many hosts", "host", "web1,web2", "USAGE"},
 		{"a name nothing has", "host", "nobody", "TARGET_NOT_FOUND"},
 	} {
@@ -157,6 +159,10 @@ func TestClientSnippetTiers(t *testing.T) {
 	}
 	setGate(tcl, true, gateAllowDangerous)
 	defer setGate(tcl, false, gateAllowDangerous)
+	// a protected conn asks for --yes as well: the entries are part of the stop
+	if err, opened, _, _ := clientRun(t, danger, "prod", struct{}{}, nil); clientCode(err) != "PROTECTED_TARGET" || opened != 0 {
+		t.Errorf("a dangerous snippet on a protected conn with --allow-dangerous only: %v, opened %d; want PROTECTED_TARGET and nothing opened", err, opened)
+	}
 	if err, opened, _, _ := clientRun(t, danger, "lite", struct{}{}, nil); err != nil || opened != 1 {
 		t.Errorf("a dangerous snippet with --allow-dangerous: %v, opened %d; want it to run", err, opened)
 	}

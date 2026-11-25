@@ -100,12 +100,15 @@ func runClientSnippet(cl *call, ctx context.Context, b snippet.Builtin, target s
 // is the only body yet) and a selector of several entries are refused.
 func resolveSnippetEntry(cl *call, st *store.State, b snippet.Builtin, target string) (snippetEntry, error) {
 	base := snippetBase{cl: cl, st: st, dry: cl.dryRun()}
-	if b.Type == "host" {
+	switch {
+	case b.Type == "host":
 		if c := st.Conns[target]; c != nil {
 			return snippetEntry{}, snippet.TypeUnsupported(b, target, "conn")
 		}
-	} else if h := st.Hosts[target]; h != nil {
-		return snippetEntry{}, snippet.TypeUnsupported(b, target, "host")
+	case b.Type != "cluster": // a cluster may be a Swarm manager: a host, refused below as Swarm
+		if h := st.Hosts[target]; h != nil {
+			return snippetEntry{}, snippet.TypeUnsupported(b, target, "host")
+		}
 	}
 	switch b.Type {
 	case "host":
