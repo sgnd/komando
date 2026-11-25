@@ -2,11 +2,13 @@ package cli
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/queuex"
@@ -24,31 +26,28 @@ import (
 // need --allow-dangerous. Every change has a real --dry-run.
 
 func queueCmd() *cobra.Command {
-	c := &cobra.Command{
-		Use:     "queue",
-		Aliases: []string{"kafka", "rabbitmq", "nats", "sqs", "pubsub"},
-		Short:   "Queues (Kafka, RabbitMQ, NATS, SQS, Pub/Sub): read, send, manage",
+	return &cobra.Command{
+		Use:   "queue",
+		Short: "Queues (Kafka, RabbitMQ, NATS, SQS, Pub/Sub): read, send, manage",
 		Long: `Read and send messages on Kafka, RabbitMQ, NATS, SQS and Pub/Sub. Add a queue
-with ` + "`komando queue add`" + `.
+with ` + "`komando queue kafka add`" + ` (or rabbitmq, nats, sqs, pubsub).
 
-info, ls, describe, peek, groups and lag only read: peek reads Kafka
-messages without joining a consumer group, gives RabbitMQ and Pub/Sub
-messages straight back, reads NATS stream messages by their number, and
-receives SQS messages without hiding or deleting them, so nothing is
-removed. send and create change (production queues ask first); rm and purge
-delete messages, so they also need --allow-dangerous. Try any change with
---dry-run first. In RabbitMQ words a topic is a queue; in NATS words it is
-a stream. Pub/Sub keeps messages in subscriptions: peek and purge take a
-subscription, and groups lists them.`,
-		Example: `  komando queue add prod-kafka kafka://10.0.0.8:9092 --via web1
-  komando queue list prod-kafka
-  komando queue peek prod-kafka orders -n 5
-  komando queue send prod-kafka orders --value '{"id": 42}' --dry-run
-  komando queue lag prod-kafka billing`,
+info, topic list and show, message list and consumer list and show only
+read: message list reads Kafka messages without joining a consumer group,
+gives RabbitMQ and Pub/Sub messages straight back, reads NATS stream
+messages by their number, and receives SQS messages without hiding or
+deleting them, so nothing is removed. message create and topic create
+change (production queues ask first); topic delete and message delete
+--all delete messages, so they also need --allow-dangerous. Try any change
+with --dry-run first. In RabbitMQ words a topic is a queue; in NATS words
+it is a stream. Pub/Sub keeps messages in subscriptions: message list and
+message delete --all take a subscription, and consumer list lists them.`,
+		Example: `  komando queue kafka add prod-kafka kafka://10.0.0.8:9092 --via web1
+  komando queue kafka topic list prod-kafka
+  komando queue kafka message list prod-kafka orders -n 5
+  komando queue kafka message create prod-kafka orders --value '{"id": 42}' --dry-run
+  komando queue kafka consumer show prod-kafka billing`,
 	}
-	c.AddCommand(connAddCmdFor("queue"), queueInfoCmd(), queueLsCmd(), queueDescribeCmd(), queuePeekCmd(), queueGroupsCmd(), queueLagCmd(),
-		queueSendCmd(), queueCreateCmd(), queueRmCmd(), queuePurgeCmd())
-	return c
 }
 
 // queueRules are the rules of the destructive queue commands (rm, purge),
@@ -141,7 +140,7 @@ func queueInfoCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "info CONN",
 		Short:   "Server summary: version, brokers or nodes, topic, queue or stream count",
-		Example: `  komando queue info prod-kafka`,
+		Example: `  komando queue kafka info prod-kafka`,
 		Args:    cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			return withQueue(cl, cmd.Context(), "queue.info", args[0], driver.Verdict{}, nil,
@@ -164,10 +163,10 @@ func queueLsCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "list CONN [PATTERN]",
 		Short: "List topics (or queues, or streams) with their message counts",
-		Example: `  komando queue list prod-kafka
-  komando queue list prod-kafka 'orders-*'
-  komando queue list prod-kafka --internal
-  komando queue list prod-kafka -n 50`,
+		Example: `  komando queue kafka topic list prod-kafka
+  komando queue kafka topic list prod-kafka 'orders-*'
+  komando queue kafka topic list prod-kafka --internal
+  komando queue kafka topic list prod-kafka -n 50`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if limit < 1 {
@@ -204,7 +203,7 @@ func queueDescribeCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "describe CONN TOPIC",
 		Short:   "One topic, queue or stream: messages, settings, and who reads it",
-		Example: `  komando queue describe prod-kafka orders`,
+		Example: `  komando queue kafka topic show prod-kafka orders`,
 		Args:    cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			return withQueue(cl, cmd.Context(), "queue.describe", args[0], driver.Verdict{}, map[string]any{"topic": args[1]},
@@ -255,9 +254,9 @@ once. With a dead-letter topic each pull counts as a delivery: peek stops
 (DELIVERY_LIMIT_NEAR) before a message runs out of them.
 
 Values that are not UTF-8 text are shown as base64.`,
-		Example: `  komando queue peek prod-kafka orders
-  komando queue peek prod-kafka orders -n 50 --partition 2
-  komando queue peek prod-kafka orders --oldest -n 5`,
+		Example: `  komando queue kafka message list prod-kafka orders
+  komando queue kafka message list prod-kafka orders -n 50 --partition 2
+  komando queue kafka message list prod-kafka orders --oldest -n 5`,
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if limit < 1 || limit > 10000 {
@@ -293,7 +292,7 @@ func queueGroupsCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "groups CONN",
 		Short:   "List Kafka consumer groups, NATS consumers or Pub/Sub subscriptions",
-		Example: `  komando queue groups prod-kafka`,
+		Example: `  komando queue kafka consumer list prod-kafka`,
 		Args:    cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			return withQueue(cl, cmd.Context(), "queue.groups", args[0], driver.Verdict{}, nil,
@@ -317,8 +316,8 @@ func queueLagCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "lag CONN CONSUMER",
 		Short: "How far one Kafka consumer group (or NATS consumer) is behind",
-		Example: `  komando queue lag prod-kafka billing
-  komando queue lag stream ORDERS/billing`,
+		Example: `  komando queue kafka consumer show prod-kafka billing
+  komando queue nats consumer show stream ORDERS/billing`,
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			return withQueue(cl, cmd.Context(), "queue.lag", args[0], driver.Verdict{}, map[string]any{"group": args[1]},
@@ -333,4 +332,110 @@ func queueLagCmd() *cobra.Command {
 				})
 		}),
 	}
+}
+
+// The queue type of the table: komando queue PROVIDER VERB and queue
+// PROVIDER topic|message|consumer VERB. The inventory verbs are the shared
+// ones (inventoryHandlers); the others are today's info, ls, describe,
+// create, rm, peek, send, purge, groups and lag. Each takes the conn of its
+// provider only.
+func init() {
+	providers := []string{"kafka", "rabbitmq", "nats", "sqs", "pubsub"}
+	inventoryHandlers("queue", providers...)
+	areaBodies := map[[2]string]func() *cobra.Command{
+		{"", "info"}: queueInfoCmd, {"topic", "list"}: queueLsCmd, {"topic", "show"}: queueDescribeCmd,
+		{"topic", "create"}: queueCreateCmd, {"topic", "delete"}: queueRmCmd,
+		{"message", "list"}: queuePeekCmd, {"message", "create"}: queueSendCmd,
+		{"consumer", "list"}: queueGroupsCmd, {"consumer", "show"}: queueLagCmd,
+	}
+	for _, p := range providers {
+		for k, body := range areaBodies {
+			words := strings.TrimSpace(k[0] + " " + k[1])
+			handlers[capability.Key{Type: "queue", Provider: p, Area: k[0], Verb: k[1]}] = func(cl *call, ctx context.Context, in leafInput) error {
+				if err := withEntry(cl, in.Args[0], "queue", p, words); err != nil {
+					return err
+				}
+				return runBody(cl, ctx, body(), in, nil)
+			}
+		}
+		handlers[capability.Key{Type: "queue", Provider: p, Area: "message", Verb: "delete"}] = func(cl *call, ctx context.Context, in leafInput) error {
+			if !in.Bool("all") {
+				return out.Errf(out.ExitUsage, "USAGE", "add --all to empty the topic: komando queue "+p+" message delete NAME TOPIC --all",
+					"komando queue %s message delete deletes every message of a topic: give --all", p)
+			}
+			if err := withEntry(cl, in.Args[0], "queue", p, "message delete"); err != nil {
+				return err
+			}
+			delete(in.vals, "all") // the purge body has no --all: giving it is what the body does
+			return runBody(cl, ctx, queuePurgeCmd(), in, nil)
+		}
+		groupShorts["queue "+p] = queueGroupShort[p]
+		queueGroupExamples(p)
+		for area, short := range map[string]string{
+			"topic":    "The topics (queues, streams) of a broker: list, show, create, delete",
+			"message":  "The messages of a topic: list, create, delete --all",
+			"consumer": "Consumer groups, consumers or subscriptions: list, show",
+		} {
+			if area == "consumer" && !slices.Contains([]string{"kafka", "nats", "pubsub"}, p) {
+				continue
+			}
+			groupShorts["queue "+p+" "+area] = short
+		}
+	}
+	// What the old commands had in the tables keyed by ID goes to every provider's
+	// leaf (moveType moves an old ID's entry to one leaf only).
+	for _, p := range providers {
+		base := "queue." + p + "."
+		personalCmds["queue "+p+" message list"] = true
+		gateLocalFlags[base+"message.create"] = []string{"from"}
+		for _, id := range []string{"info", "topic.list", "topic.show", "message.list"} {
+			gateNoNetwork[base+id] = nil
+		}
+		if slices.Contains([]string{"kafka", "nats", "pubsub"}, p) {
+			gateNoNetwork[base+"consumer.list"] = nil
+		}
+		if slices.Contains([]string{"kafka", "nats"}, p) {
+			gateNoNetwork[base+"consumer.show"] = nil
+		}
+	}
+	moveType("queue")
+}
+
+var queueGroupShort = map[string]string{
+	"kafka":    "Kafka: save a cluster, and read, send and manage its topics",
+	"rabbitmq": "RabbitMQ: save a broker, and read, send and manage its queues",
+	"nats":     "NATS JetStream: save a server, and read, send and manage its streams",
+	"sqs":      "Amazon SQS: save an account, and read, send and manage its queues",
+	"pubsub":   "Google Cloud Pub/Sub: save a project, and read, send and manage its topics",
+}
+
+// queueGroupExamples are the examples of a provider's groups (3 to 5
+// lines each, with a --dry-run line for a change).
+func queueGroupExamples(p string) {
+	e := queueExample[p]
+	c := "  komando queue " + p + " "
+	examples["komando queue "+p] = c + "add " + e.entry + " " + e.url + " --via web1 --dry-run\n" +
+		c + "add " + e.entry + " " + e.url + " --via web1\n" +
+		c + "test " + e.entry + "\n" +
+		c + "topic list " + e.entry + "\n" +
+		c + "message list " + e.entry + " " + e.topic + " -n 5"
+	examples["komando queue "+p+" topic"] = c + "topic list " + e.entry + "\n" +
+		c + "topic show " + e.entry + " " + e.topic + "\n" +
+		c + "topic create " + e.entry + " " + e.topic + " --dry-run\n" +
+		c + "topic delete " + e.entry + " old-" + e.topic + " --dry-run"
+	examples["komando queue "+p+" message"] = c + "message list " + e.entry + " " + e.topic + "\n" +
+		c + "message list " + e.entry + " " + e.topic + " --oldest -n 5\n" +
+		c + "message create " + e.entry + " " + e.topic + " --value test --dry-run\n" +
+		c + "message delete " + e.entry + " " + e.topic + "-retry --all --dry-run"
+	examples["komando queue "+p+" consumer"] = c + "consumer list " + e.entry + "\n" +
+		c + "consumer list " + e.entry + " -n 20\n" +
+		c + "consumer show " + e.entry + " billing"
+}
+
+var queueExample = map[string]struct{ entry, url, topic string }{
+	"kafka":    {"prod-kafka", "kafka://10.0.0.8:9092", "orders"},
+	"rabbitmq": {"jobs", "amqps://app@10.0.0.9/", "emails"},
+	"nats":     {"events", "nats://app@10.0.0.10:4222", "ORDERS"},
+	"sqs":      {"aws-queues", "sqs://eu-west-1", "orders"},
+	"pubsub":   {"gcp", "pubsub://my-project", "orders"},
 }

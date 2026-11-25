@@ -48,8 +48,8 @@ This page is made from the code (`komando schema` lists the same under
 | `CONNECT_TIMEOUT` | 7 | connecting to … timed out | a firewall drops the connection, or the server is private: check the address with `komando host show …`, reach it through a bastion or VPN (`komando host edit … --via NAME`), or raise --connect-timeout on a slow link |
 | `CONN_EXISTS` | 8 | … … already exists | use `komando … edit` or pass --overwrite to replace it |
 | `CONN_UNREACHABLE` | 4 | cannot reach …: … | check the name and port; if the site is only reachable from a server or VPN, run it again with --via: `komando cert check … --via NAME` |
-| `CONSUMER_GROUP_NOT_FOUND` | 3 | no consumer group named … | list consumer groups with `komando queue groups CONN` |
-| `CONSUMER_NOT_FOUND` | 3 | no consumer named … | list consumers with `komando queue groups CONN`; name one as STREAM/CONSUMER |
+| `CONSUMER_GROUP_NOT_FOUND` | 3 | no consumer group named … | list consumer groups with `komando queue kafka consumer list NAME` |
+| `CONSUMER_NOT_FOUND` | 3 | no consumer named … | list consumers with `komando queue nats consumer list NAME`; name one as STREAM/CONSUMER |
 | `CRONTAB_UNREADABLE` | 5 | cannot read the crontab (exit …) | check the user name; reading another user's crontab needs sudo |
 | `DB_AUTH` | 4 | bigquery: the stored key is not a service account key: … | the --password-ref of a bigquery conn holds a service account key (the JSON file from the console), or leave it out to use gcloud's login |
 | `DB_BYTES_LIMIT` | 6 | the query would read …, more than --max-bytes …, so it did not run | BigQuery bills by the bytes a query reads: select fewer columns, filter on the partition or cluster columns, or, if that cost is intended (ask the user), raise --max-bytes |
@@ -162,7 +162,7 @@ This page is made from the code (`komando schema` lists the same under
 | `PACKAGE_NOT_FOUND` | 3 | …: no such package in the server's package index | check the name; refresh the index with `komando pkg update TARGET` if the package is new |
 | `PARTIAL_FAILURE` | 1 | some targets failed and some worked (see each result) | read each target's error and hint (data.results in -o json) |
 | `PARTIAL_TRANSFER` | 5 | … could not be copied; the other files were copied | fix the listed ones (permissions?) and run it again |
-| `PARTITION_NOT_FOUND` | 3 | topic … has no partition … (it has …) | partitions are numbered from 0; see them with `komando queue describe CONN …` |
+| `PARTITION_NOT_FOUND` | 3 | topic … has no partition … (it has …) | partitions are numbered from 0; see them with `komando queue kafka topic show NAME …` |
 | `PASSPHRASE_MISMATCH` | 2 | the two passphrases you typed differ; nothing was changed | run it again |
 | `PATH_NOT_FOUND` | 3 | … does not exist; nothing was changed | check the source path |
 | `PERMISSION_DENIED` | 5 | cannot read … | add --sudo |
@@ -180,8 +180,8 @@ This page is made from the code (`komando schema` lists the same under
 | `QUEUE_CONNECT` | 4 | cannot connect to …: … | run `komando test TARGET` to check reachability, or reach the server --via an SSH server that can |
 | `QUEUE_DENIED` | 5 | the server refused the vhost …: … | check the vhost in the URL's path (%2F is the default vhost "/") and that the user has permissions on it |
 | `QUEUE_ERROR` | 5 | …: could not give back the messages peek pulled: …; nothing is lost | Pub/Sub gives the messages out again once the subscription's ack deadline has passed |
-| `QUEUE_EXISTS` | 8 | queue … already exists | pick another name, or see it with `komando queue describe CONN …` |
-| `QUEUE_NOT_FOUND` | 3 | no queue named … | list queues with `komando queue list CONN` (it needs ?management=PORT in the conn's URL); the vhost is the URL's path |
+| `QUEUE_EXISTS` | 8 | queue … already exists | pick another name, or see it with `komando queue PROVIDER topic show NAME …` |
+| `QUEUE_NOT_FOUND` | 3 | no queue named … | list queues with `komando queue rabbitmq topic list NAME` (it needs ?management=PORT in the conn's URL); the vhost is the URL's path |
 | `READ_FAILED` | 5 | cannot read …: … | run it again; the output was cut (raise --max-output?) |
 | `READ_ONLY_VIOLATION` | 6 | --read-only, but the command is not known to only read (…) | --read-only runs only what komando knows only reads: for a server's state use komando facts, logs, svc status or fs read; otherwise tell the user what the command does, then run it without --read-only (a protected server also needs --yes) |
 | `REBOOT_FAILED` | 5 | the reboot command failed (exit …): … | read the error output (stderr); without sudo rights a reboot is refused |
@@ -276,10 +276,10 @@ This page is made from the code (`komando schema` lists the same under
 | `STORE_NEWER` | 1 | … was made by a newer komando | a newer komando made or changed this store; update this one: `komando update` |
 | `STORE_OLD_COPY` | 6 | … …: servers, rules, secrets or pinned host keys may be old | if the komando folder was restored from a backup on purpose, a person runs `komando doctor --accept-old-copy` in their own terminal; otherwise find out who put an old copy back or changed the keychain |
 | `STORE_REFERENCE_UNSUPPORTED` | 2 | … …: field … still names a secret the old way | point the field at a saved secret again with komando v0.17.0, then run `komando doctor` |
-| `STREAM_EXISTS` | 8 | stream … already exists | pick another name, or see it with `komando queue describe CONN …` |
-| `STREAM_NOT_FOUND` | 3 | no stream named … | list streams with `komando queue list CONN` |
-| `SUBSCRIPTION_EXISTS` | 8 | subscription … already exists | pick another name, or see it with `komando queue describe CONN subscriptions/…` |
-| `SUBSCRIPTION_NOT_FOUND` | 3 | no subscription named … | list subscriptions with `komando queue groups CONN`; `komando queue describe CONN TOPIC` shows a topic's own |
+| `STREAM_EXISTS` | 8 | stream … already exists | pick another name, or see it with `komando queue nats topic show NAME …` |
+| `STREAM_NOT_FOUND` | 3 | no stream named … | list streams with `komando queue nats topic list NAME` |
+| `SUBSCRIPTION_EXISTS` | 8 | subscription … already exists | pick another name, or see it with `komando queue pubsub topic show NAME subscriptions/…` |
+| `SUBSCRIPTION_NOT_FOUND` | 3 | no subscription named … | list subscriptions with `komando queue pubsub consumer list NAME`; `komando queue pubsub topic show NAME TOPIC` shows a topic's own |
 | `SVC_FAILED` | 5 | systemctl daemon-reload failed (…) | read the error output (stderr) for systemd's reason; a unit file with a mistake is named there |
 | `SWARM_ERROR` | 5 | Docker Swarm answered with an error | check that Docker runs there: `komando exec TARGET --read-only -- docker info` |
 | `SWARM_OBJECT_NOT_FOUND` | 3 | no … named … | list what exists with `komando cluster list TARGET …s` |
@@ -296,8 +296,8 @@ This page is made from the code (`komando schema` lists the same under
 | `TOOL_TOO_OLD` | 5 | … failed on … (exit …): … | pg_dump … is older than the server (…): install postgresql-client-… where the tool runs, or name a server that has it with --run-on HOST |
 | `TOO_MANY` | 8 | … objects match, more than --max-remove … | narrow --prefix or --older-than, or raise --max-remove above … after checking the list |
 | `TOO_MANY_TAGS` | 2 | … has more than … tags | komando prunes a repository of at most 10000 tags, and --match does not change that (every tag is read, so a kept tag protects its image): delete some first with `komando registry oci image delete NAME IMAGE` |
-| `TOPIC_EXISTS` | 8 | topic … already exists | pick another name, or see it with `komando queue describe CONN …` |
-| `TOPIC_NOT_FOUND` | 3 | no topic named … | list topics with `komando queue list CONN` |
+| `TOPIC_EXISTS` | 8 | topic … already exists | pick another name, or see it with `komando queue PROVIDER topic show NAME …` |
+| `TOPIC_NOT_FOUND` | 3 | no topic named … | list topics with `komando queue PROVIDER topic list NAME` |
 | `TUNNEL_FAILED` | 4 | the server refused the port forwarding (AllowTcpForwarding, address) | check that the server allows forwarding (AllowTcpForwarding in sshd_config) and that the address is right |
 | `TUNNEL_NOT_FOUND` | 3 | no tunnel named … | see them with `komando tunnel list` |
 | `TUNNEL_TIMEOUT` | 7 | tunnel did not become ready… | check that … answers: `komando test …`; a person reads the whole log in … |

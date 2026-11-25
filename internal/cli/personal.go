@@ -35,7 +35,6 @@ var personalCmds = map[string]bool{
 	"job logs": true, "job status": true, "job wait": true,
 	"logs": true, "svc logs": true, "svc status": true,
 	"net http":    true,
-	"queue peek":  true,
 	"storage cat": true, "storage download": true, "storage list": true,
 	"user list": true,
 }

@@ -48,39 +48,39 @@ func TestQueueRabbitLive(t *testing.T) {
 	if d := mustRun(t, "conn", "test", "jobs"); !strings.Contains(jsonOf(d), `"check":"login"`) {
 		t.Errorf("conn test: %v", d)
 	}
-	if d := mustRun(t, "queue", "info", "jobs"); d["engine"] != "rabbitmq" || d["management"] != true {
+	if d := mustRun(t, "queue", "rabbitmq", "info", "jobs"); d["engine"] != "rabbitmq" || d["management"] != true {
 		t.Errorf("info: %v", d)
 	}
-	invRun(t, "queue", "rm", "jobs", "komando-cli", "--allow-dangerous") // left by an earlier run
+	invRun(t, "queue", "rabbitmq", "topic", "delete", "jobs", "komando-cli", "--allow-dangerous") // left by an earlier run
 	setGate(tcl, false, gateAllowDangerous)
-	if d := mustRun(t, "--dry-run", "queue", "create", "jobs", "komando-cli", "--type", "quorum"); d["dry_run"] != true {
+	if d := mustRun(t, "--dry-run", "queue", "rabbitmq", "topic", "create", "jobs", "komando-cli", "--type", "quorum"); d["dry_run"] != true {
 		t.Errorf("dry-run create: %v", d)
 	}
 	setGate(tcl, false, gateDryRun)
-	wantCode(t, "QUEUE_NOT_FOUND", "queue", "describe", "jobs", "komando-cli")
-	wantCode(t, "NOT_SUPPORTED", "queue", "create", "jobs", "komando-cli", "--partitions", "3")
-	mustRun(t, "queue", "create", "jobs", "komando-cli", "--type", "quorum", "--config", "x-max-length=100")
-	wantCode(t, "QUEUE_EXISTS", "queue", "create", "jobs", "komando-cli")
-	mustRun(t, "queue", "send", "jobs", "komando-cli", "--value", `{"id": 1}`, "--header", "source=test")
-	wantCode(t, "NOT_SUPPORTED", "queue", "send", "jobs", "komando-cli", "--value", "x", "--key", "k")
-	wantCode(t, "HIDDEN_VALUE", "queue", "send", "jobs", "komando-cli", "--value", "password=[hidden]")
-	d := mustRun(t, "queue", "peek", "jobs", "komando-cli")
+	wantCode(t, "QUEUE_NOT_FOUND", "queue", "rabbitmq", "topic", "show", "jobs", "komando-cli")
+	wantCode(t, "NOT_SUPPORTED", "queue", "rabbitmq", "topic", "create", "jobs", "komando-cli", "--partitions", "3")
+	mustRun(t, "queue", "rabbitmq", "topic", "create", "jobs", "komando-cli", "--type", "quorum", "--config", "x-max-length=100")
+	wantCode(t, "QUEUE_EXISTS", "queue", "rabbitmq", "topic", "create", "jobs", "komando-cli")
+	mustRun(t, "queue", "rabbitmq", "message", "create", "jobs", "komando-cli", "--value", `{"id": 1}`, "--header", "source=test")
+	wantCode(t, "NOT_SUPPORTED", "queue", "rabbitmq", "message", "create", "jobs", "komando-cli", "--value", "x", "--key", "k")
+	wantCode(t, "HIDDEN_VALUE", "queue", "rabbitmq", "message", "create", "jobs", "komando-cli", "--value", "password=[hidden]")
+	d := mustRun(t, "queue", "rabbitmq", "message", "list", "jobs", "komando-cli")
 	if d["count"].(float64) != 1 || d["requeued"] != true || d["queue"] != "komando-cli" || !strings.Contains(jsonOf(d), `"source":"test"`) {
 		t.Errorf("peek: %v", d)
 	}
-	if d := mustRun(t, "queue", "peek", "jobs", "komando-cli"); !strings.Contains(jsonOf(d), `"redelivered":true`) || d["delivery_limit"] == nil {
+	if d := mustRun(t, "queue", "rabbitmq", "message", "list", "jobs", "komando-cli"); !strings.Contains(jsonOf(d), `"redelivered":true`) || d["delivery_limit"] == nil {
 		t.Errorf("peek again: %v", d)
 	}
-	wantCode(t, "NOT_SUPPORTED", "queue", "groups", "jobs")
-	wantCode(t, "NOT_SUPPORTED", "queue", "lag", "jobs", "billing")
-	wantCode(t, "POLICY_BLOCKED", "queue", "purge", "jobs", "komando-cli")
-	if d := mustRun(t, "--dry-run", "queue", "purge", "jobs", "komando-cli"); d["messages"].(float64) != 1 {
+	wantCode(t, "NOT_SUPPORTED", "queue", "rabbitmq", "consumer", "list", "jobs")
+	wantCode(t, "NOT_SUPPORTED", "queue", "rabbitmq", "consumer", "show", "jobs", "billing")
+	wantCode(t, "POLICY_BLOCKED", "queue", "rabbitmq", "message", "delete", "--all", "jobs", "komando-cli")
+	if d := mustRun(t, "--dry-run", "queue", "rabbitmq", "message", "delete", "--all", "jobs", "komando-cli"); d["messages"].(float64) != 1 {
 		t.Errorf("dry-run purge: %v", d)
 	}
 	setGate(tcl, false, gateDryRun)
-	mustRun(t, "queue", "purge", "jobs", "komando-cli", "--allow-dangerous")
+	mustRun(t, "queue", "rabbitmq", "message", "delete", "--all", "jobs", "komando-cli", "--allow-dangerous")
 	setGate(tcl, false, gateAllowDangerous)
-	wantCode(t, "POLICY_BLOCKED", "queue", "rm", "jobs", "komando-cli")
-	mustRun(t, "queue", "rm", "jobs", "komando-cli", "--allow-dangerous")
+	wantCode(t, "POLICY_BLOCKED", "queue", "rabbitmq", "topic", "delete", "jobs", "komando-cli")
+	mustRun(t, "queue", "rabbitmq", "topic", "delete", "jobs", "komando-cli", "--allow-dangerous")
 	setGate(tcl, false, gateAllowDangerous)
 }

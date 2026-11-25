@@ -1116,75 +1116,552 @@ title: Show one rule: what it stops and where it is off
 - arg0 | Rule | Which rule? | Its id: `komando policy list` shows them. komando prints what it stops and where it is off. | docker-prune | check
 ### komando queue
 title: Queues (Kafka, RabbitMQ, NATS, SQS, Pub/Sub): read, send, manage
-### komando queue add
-title: Add a message queue
+### komando queue kafka
+title: Kafka: save a cluster, and read, send and manage its topics
+### komando queue kafka add
+title: Save a kafka queue under a short name
 - arg0 | Name | Name? |  |  | check
-- arg1 | URL | URL? |  |  | check
-- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref |  |  | advanced,default,choices
-- flag:group | --group | Put it in these groups (comma-separated) |  |  | optional,advanced,check
-- flag:label | --label | Label KEY=VALUE (repeatable) |  |  | optional,advanced,check
-- flag:login | --login | How komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own) |  |  | optional,advanced,check
-- flag:notes | --notes | Free-form notes (komando conn show shows them to people and agents) |  |  | optional,advanced,check
-- flag:option | --option | An option of this kind, KEY=VALUE (repeatable) |  |  | optional,advanced,check
-- flag:overwrite | --overwrite | Replace a conn that has the same name |  |  | advanced,default,choices
-- flag:password-ref | --password-ref | Where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://... |  |  | optional,advanced,check
-- flag:protected | --protected | Production: komando asks you before every change, and an AI agent needs your yes in a window |  |  | advanced,default,choices
-- flag:tag | --tag | Tags, like prod (comma-separated) |  |  | optional,advanced,check
+- arg1 | URL | URL? |  |  | optional,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
 - flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
-### komando queue create
-title: Create a topic, queue or stream
-- arg0 | Conn | Which message queue? | A Kafka, RabbitMQ, NATS, SQS or Pub/Sub queue from your list. Add one with Add, Queues. |  | choices,check
-- arg1 | Topic | What should the new topic or queue be called? | Pub/Sub: subscriptions/NAME makes a subscription; then give its topic below as topic=NAME. An SQS name ending in .fifo makes a FIFO queue. | orders | check
-- flag:partitions | --partitions | Kafka only: how many partitions? | More partitions let more readers work at once. Empty uses the brokers' default. | 6 | optional,check
-- flag:replicas | --replicas | Kafka and NATS: how many copies? | 3 keeps the data when a server fails. Empty uses the default. | 3 | optional,check
-- flag:type | --type | RabbitMQ only: which queue type? | quorum keeps copies on several nodes. Empty uses the server's default. |  | optional,choices
-- flag:config | --config | Any settings? (KEY=VALUE) | Kafka retention.ms=..., RabbitMQ x-max-length=..., NATS max_age=7d, SQS VisibilityTimeout=60, Pub/Sub topic=orders. Empty for none. | retention.ms=604800000 | optional,check
-### komando queue describe
-title: One topic, queue or stream: messages, settings, and who reads it
-- arg0 | Conn | Which message queue? | A Kafka, RabbitMQ, NATS, SQS or Pub/Sub queue from your list. Add one with Add, Queues. |  | choices,check
-- arg1 | Topic | Which topic or queue? | Shows its settings, message counts and who reads it. Kafka: a topic. RabbitMQ and SQS: a queue. NATS: a stream. Pub/Sub: a topic, or subscriptions/NAME. | orders | check
-### komando queue groups
+### komando queue kafka consumer
+title: Consumer groups, consumers or subscriptions: list, show
+### komando queue kafka consumer list
 title: List Kafka consumer groups, NATS consumers or Pub/Sub subscriptions
-- arg0 | Conn | Which message queue? | A Kafka, RabbitMQ, NATS, SQS or Pub/Sub queue from your list. Add one with Add, Queues. |  | choices,check
-- flag:limit | --limit | Show at most this many groups (0 = all) |  |  | optional,advanced,check
-### komando queue info
-title: Server summary: version, brokers or nodes, topic, queue or stream count
-- arg0 | Conn | Which message queue? | A Kafka, RabbitMQ, NATS, SQS or Pub/Sub queue from your list. Add one with Add, Queues. |  | choices,check
-### komando queue lag
+- arg0 | Name | Name? |  |  | check
+- flag:limit | --limit | Show at most this many groups, consumers or subscriptions (0 = all) |  |  | optional,advanced,check
+### komando queue kafka consumer show
 title: How far one Kafka consumer group (or NATS consumer) is behind
-- arg0 | Conn | Which message queue? | A Kafka, RabbitMQ, NATS, SQS or Pub/Sub queue from your list. Add one with Add, Queues. |  | choices,check
-- arg1 | Consumer | Which consumer group? | Kafka: a consumer group, as queue groups lists. NATS: STREAM/CONSUMER, or the consumer's name alone. | billing | check
-### komando queue list
-title: List topics (or queues, or streams) with their message counts
-- arg0 | Conn | Which message queue? | A Kafka, RabbitMQ, NATS, SQS or Pub/Sub queue from your list. Add one with Add, Queues. |  | choices,check
-- arg1 | Pattern | Only names like? (leave empty for all) | A pattern: * stands for any letters, so orders-* lists orders-eu, orders-us ... | orders-* | optional,check
-- flag:internal | --internal | Kafka only: also list Kafka's own topics (__consumer_offsets ...)? | Kafka: also list its own topics (__consumer_offsets, ...) |  | default,choices
-- flag:limit | --limit | The most topics (or queues, or streams) to show, the first by name |  |  | optional,advanced,default,check
-### komando queue peek
-title: Read the newest (or oldest) messages without removing any
-- arg0 | Conn | Which message queue? | A Kafka, RabbitMQ, NATS, SQS or Pub/Sub queue from your list. Add one with Add, Queues. |  | choices,check
-- arg1 | Topic | Which topic or queue to look into? | Shows messages without taking them away. Pub/Sub: a subscription. RabbitMQ needs the management port in the conn. | orders | check
-- flag:limit | --limit | Show at most how many messages? | A few is enough for a first look. |  | optional,default,check
-- flag:oldest | --oldest | The oldest messages still kept, not the newest? | Kafka and NATS only. RabbitMQ always reads from the front; SQS and Pub/Sub give no order. |  | default,choices
-- flag:idle | --idle | Kafka: stop when no message came for this long |  |  | optional,advanced,default,check
-- flag:partition | --partition | Kafka: only this partition, numbered from 0 (default: every partition) |  |  | optional,advanced,check
-### komando queue purge
-title: Empty a topic, queue or stream and keep it
-- arg0 | Conn | Which message queue? | A Kafka, RabbitMQ, NATS, SQS or Pub/Sub queue from your list. Add one with Add, Queues. |  | choices,check
-- arg1 | Topic | Empty which topic or queue? | Deletes every waiting message and keeps the topic or queue. Pub/Sub: a subscription. Cannot be undone: try it first. | orders-retry | check
-### komando queue rm
-title: Delete topics, queues or streams with their messages
-- arg0 | Conn | Which message queue? | A Kafka, RabbitMQ, NATS, SQS or Pub/Sub queue from your list. Add one with Add, Queues. |  | choices,check
-- arg1 | Topic | Delete which topics or queues? (several: separate them with spaces) | Deletes them with their messages. Pub/Sub: subscriptions/NAME for a subscription. Cannot be undone: try it first. | old-orders | check
-### komando queue send
+- arg0 | Name | Which message queue? | A Kafka, RabbitMQ, NATS, SQS or Pub/Sub queue from your list. Add one with komando queue PROVIDER add. |  | choices,check
+- arg1 | Consumer | Which consumer group? | Kafka: a consumer group, as consumer list shows. NATS: STREAM/CONSUMER, or the consumer's name alone. | billing | check
+### komando queue kafka edit
+title: Change a saved kafka queue (only the flags you pass change)
+- arg0 | Name | Which queue? | A queue from your list. Add one first: komando queue kafka add. |  | choices,check
+- flag:url | --url | New address (URL)? | Like the one you added it with, without the password. Leave empty to keep it. | postgres://app@10.0.0.5:5432/shop | optional,check
+- flag:ask-password | --ask-password | Change the password? | Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line. |  | default,choices
+- flag:protected | --protected | Can a mistake on it hurt real users or real data? | Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away. |  | optional,choices
+- flag:via | --via | Reach it through which server or VPN? | The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now. | bastion | optional,free,choices
+- flag:add-group | --add-group | Add it to a group? | A group lets you pick many at once with @name. Leave empty for none. | web | optional,free,choices
+- flag:notes | --notes | Any notes to keep with it? | Free text, like who owns it or what runs there. AI agents read it too. Leave empty to keep the old notes. | main shop database | optional,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: via, credential, notes, protected |  |  | optional,advanced,check
+### komando queue kafka info
+title: Server summary: version, brokers or nodes, topic, queue or stream count
+- arg0 | Name | Which message queue? | A Kafka, RabbitMQ, NATS, SQS or Pub/Sub queue from your list. Add one with komando queue PROVIDER add. |  | choices,check
+### komando queue kafka list
+title: List the saved kafka queues
+- arg0 | Target | Which queues? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando queue kafka message
+title: The messages of a topic: list, create, delete --all
+### komando queue kafka message create
 title: Publish one message
-- arg0 | Conn | Which message queue? | A Kafka, RabbitMQ, NATS, SQS or Pub/Sub queue from your list. Add one with Add, Queues. |  | choices,check
-- arg1 | Topic | Send to which topic or queue? | It has to exist already. NATS: a subject, like orders.new. Pub/Sub: a topic. | orders | check
-- flag:value | --value | What is the message? (leave empty to read it from a file) | The text of the message, often JSON. | {"id": 42, "status": "paid"} | optional,check
-- flag:from | --from | Or read the message from which file on this computer? | Only when you left the message empty. | ./order.json | optional,check
-- flag:key | --key | A key for the message? | Kafka: messages with the same key stay in order. SQS FIFO queues need one (the message group). Empty for none. | customer-7 | optional,free,choices
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? |  |  | check
+- flag:from | --from | Read the message from this file ('-' for stdin) |  |  | optional,advanced,check
 - flag:header | --header | A message header KEY=VALUE (repeatable) |  |  | optional,advanced,check
+- flag:key | --key | Kafka: the message key (picks the partition); SQS: the message group of a FIFO queue; Pub/Sub: the ordering key |  |  | optional,advanced,free,choices
 - flag:partition | --partition | Kafka: send to this partition, numbered from 0 (default: the broker's choice) |  |  | optional,advanced,check
+- flag:value | --value | The message |  |  | optional,advanced,check
+### komando queue kafka message delete
+title: Empty a topic, queue or stream and keep it
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? |  |  | check
+- flag:all | --all | Every waiting message; without it nothing is deleted |  |  | advanced,default,choices
+### komando queue kafka message list
+title: Read the newest (or oldest) messages without removing any
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? |  |  | check
+- flag:idle | --idle | Kafka: stop when no message came for this long |  |  | optional,advanced,default,check
+- flag:limit | --limit | How many messages |  |  | optional,advanced,default,check
+- flag:oldest | --oldest | The first messages still kept, not the newest |  |  | advanced,default,choices
+- flag:partition | --partition | Kafka: only this partition, numbered from 0 (default: every partition) |  |  | optional,advanced,check
+### komando queue kafka remove
+title: Forget a saved kafka queue (the queue is not touched)
+- arg0 | Target | Which queues should come off your list? | Only komando's list changes; the queue itself is not touched. |  | free,choices,check
+### komando queue kafka rename
+title: Rename a saved kafka queue and every reference to it
+- arg0 | Name | Which queue do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
+### komando queue kafka show
+title: Show a saved kafka queue's settings (credentials as names)
+- arg0 | Name | Which queue? | A queue from your list. Add one first: komando queue kafka add. |  | choices,check
+### komando queue kafka test
+title: Check that a saved kafka queue answers and lets you in
+- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando queue kafka topic
+title: The topics (queues, streams) of a broker: list, show, create, delete
+### komando queue kafka topic create
+title: Create a topic, queue or stream
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? |  |  | check
+- flag:config | --config | A setting KEY=VALUE, like retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable) |  |  | optional,advanced,check
+- flag:partitions | --partitions | Kafka: how many partitions (default: the broker's) |  |  | optional,advanced,check
+- flag:replicas | --replicas | Copies of each message. Kafka: copies of each partition; NATS: copies of the stream (default: the broker's; NATS: 1) |  |  | optional,advanced,check
+- flag:type | --type | RabbitMQ: the queue type, classic, quorum or stream (default: the server's) |  |  | optional,advanced,check
+### komando queue kafka topic delete
+title: Delete topics, queues or streams with their messages
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? (several: separate them with spaces) |  |  | check
+### komando queue kafka topic list
+title: List topics (or queues, or streams) with their message counts
+- arg0 | Name | Name? |  |  | check
+- arg1 | Pattern | Pattern? |  |  | optional,check
+- flag:internal | --internal | Kafka: also list its own topics (__consumer_offsets, ...) |  |  | advanced,default,choices
+- flag:limit | --limit | The most topics (or queues, or streams) to show, the first by name |  |  | optional,advanced,default,check
+### komando queue kafka topic show
+title: One topic, queue or stream: messages, settings, and who reads it
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? |  |  | check
+### komando queue nats
+title: NATS JetStream: save a server, and read, send and manage its streams
+### komando queue nats add
+title: Save a nats queue under a short name
+- arg0 | Name | Name? |  |  | check
+- arg1 | URL | URL? |  |  | optional,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
+### komando queue nats consumer
+title: Consumer groups, consumers or subscriptions: list, show
+### komando queue nats consumer list
+title: List Kafka consumer groups, NATS consumers or Pub/Sub subscriptions
+- arg0 | Name | Name? |  |  | check
+- flag:limit | --limit | Show at most this many groups, consumers or subscriptions (0 = all) |  |  | optional,advanced,check
+### komando queue nats consumer show
+title: How far one Kafka consumer group (or NATS consumer) is behind
+- arg0 | Name | Which message queue? | A Kafka, RabbitMQ, NATS, SQS or Pub/Sub queue from your list. Add one with komando queue PROVIDER add. |  | choices,check
+- arg1 | Consumer | Which consumer group? | Kafka: a consumer group, as consumer list shows. NATS: STREAM/CONSUMER, or the consumer's name alone. | billing | check
+### komando queue nats edit
+title: Change a saved nats queue (only the flags you pass change)
+- arg0 | Name | Which queue? | A queue from your list. Add one first: komando queue nats add. |  | choices,check
+- flag:url | --url | New address (URL)? | Like the one you added it with, without the password. Leave empty to keep it. | postgres://app@10.0.0.5:5432/shop | optional,check
+- flag:ask-password | --ask-password | Change the password? | Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line. |  | default,choices
+- flag:protected | --protected | Can a mistake on it hurt real users or real data? | Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away. |  | optional,choices
+- flag:via | --via | Reach it through which server or VPN? | The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now. | bastion | optional,free,choices
+- flag:add-group | --add-group | Add it to a group? | A group lets you pick many at once with @name. Leave empty for none. | web | optional,free,choices
+- flag:notes | --notes | Any notes to keep with it? | Free text, like who owns it or what runs there. AI agents read it too. Leave empty to keep the old notes. | main shop database | optional,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: via, credential, notes, protected |  |  | optional,advanced,check
+### komando queue nats info
+title: Server summary: version, brokers or nodes, topic, queue or stream count
+- arg0 | Name | Which message queue? | A Kafka, RabbitMQ, NATS, SQS or Pub/Sub queue from your list. Add one with komando queue PROVIDER add. |  | choices,check
+### komando queue nats list
+title: List the saved nats queues
+- arg0 | Target | Which queues? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando queue nats message
+title: The messages of a topic: list, create, delete --all
+### komando queue nats message create
+title: Publish one message
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? |  |  | check
+- flag:from | --from | Read the message from this file ('-' for stdin) |  |  | optional,advanced,check
+- flag:header | --header | A message header KEY=VALUE (repeatable) |  |  | optional,advanced,check
+- flag:key | --key | Kafka: the message key (picks the partition); SQS: the message group of a FIFO queue; Pub/Sub: the ordering key |  |  | optional,advanced,free,choices
+- flag:partition | --partition | Kafka: send to this partition, numbered from 0 (default: the broker's choice) |  |  | optional,advanced,check
+- flag:value | --value | The message |  |  | optional,advanced,check
+### komando queue nats message delete
+title: Empty a topic, queue or stream and keep it
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? |  |  | check
+- flag:all | --all | Every waiting message; without it nothing is deleted |  |  | advanced,default,choices
+### komando queue nats message list
+title: Read the newest (or oldest) messages without removing any
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? |  |  | check
+- flag:idle | --idle | Kafka: stop when no message came for this long |  |  | optional,advanced,default,check
+- flag:limit | --limit | How many messages |  |  | optional,advanced,default,check
+- flag:oldest | --oldest | The first messages still kept, not the newest |  |  | advanced,default,choices
+- flag:partition | --partition | Kafka: only this partition, numbered from 0 (default: every partition) |  |  | optional,advanced,check
+### komando queue nats remove
+title: Forget a saved nats queue (the queue is not touched)
+- arg0 | Target | Which queues should come off your list? | Only komando's list changes; the queue itself is not touched. |  | free,choices,check
+### komando queue nats rename
+title: Rename a saved nats queue and every reference to it
+- arg0 | Name | Which queue do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
+### komando queue nats show
+title: Show a saved nats queue's settings (credentials as names)
+- arg0 | Name | Which queue? | A queue from your list. Add one first: komando queue nats add. |  | choices,check
+### komando queue nats test
+title: Check that a saved nats queue answers and lets you in
+- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando queue nats topic
+title: The topics (queues, streams) of a broker: list, show, create, delete
+### komando queue nats topic create
+title: Create a topic, queue or stream
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? |  |  | check
+- flag:config | --config | A setting KEY=VALUE, like retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable) |  |  | optional,advanced,check
+- flag:partitions | --partitions | Kafka: how many partitions (default: the broker's) |  |  | optional,advanced,check
+- flag:replicas | --replicas | Copies of each message. Kafka: copies of each partition; NATS: copies of the stream (default: the broker's; NATS: 1) |  |  | optional,advanced,check
+- flag:type | --type | RabbitMQ: the queue type, classic, quorum or stream (default: the server's) |  |  | optional,advanced,check
+### komando queue nats topic delete
+title: Delete topics, queues or streams with their messages
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? (several: separate them with spaces) |  |  | check
+### komando queue nats topic list
+title: List topics (or queues, or streams) with their message counts
+- arg0 | Name | Name? |  |  | check
+- arg1 | Pattern | Pattern? |  |  | optional,check
+- flag:internal | --internal | Kafka: also list its own topics (__consumer_offsets, ...) |  |  | advanced,default,choices
+- flag:limit | --limit | The most topics (or queues, or streams) to show, the first by name |  |  | optional,advanced,default,check
+### komando queue nats topic show
+title: One topic, queue or stream: messages, settings, and who reads it
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? |  |  | check
+### komando queue pubsub
+title: Google Cloud Pub/Sub: save a project, and read, send and manage its topics
+### komando queue pubsub add
+title: Save a pubsub queue under a short name
+- arg0 | Name | Name? |  |  | check
+- arg1 | URL | URL? |  |  | optional,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
+### komando queue pubsub consumer
+title: Consumer groups, consumers or subscriptions: list, show
+### komando queue pubsub consumer list
+title: List Kafka consumer groups, NATS consumers or Pub/Sub subscriptions
+- arg0 | Name | Which message queue? | A Kafka, RabbitMQ, NATS, SQS or Pub/Sub queue from your list. Add one with komando queue PROVIDER add. |  | choices,check
+- flag:limit | --limit | Show at most this many groups, consumers or subscriptions (0 = all) |  |  | optional,advanced,check
+### komando queue pubsub edit
+title: Change a saved pubsub queue (only the flags you pass change)
+- arg0 | Name | Which queue? | A queue from your list. Add one first: komando queue pubsub add. |  | choices,check
+- flag:url | --url | New address (URL)? | Like the one you added it with, without the password. Leave empty to keep it. | postgres://app@10.0.0.5:5432/shop | optional,check
+- flag:ask-password | --ask-password | Change the password? | Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line. |  | default,choices
+- flag:protected | --protected | Can a mistake on it hurt real users or real data? | Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away. |  | optional,choices
+- flag:via | --via | Reach it through which server or VPN? | The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now. | bastion | optional,free,choices
+- flag:add-group | --add-group | Add it to a group? | A group lets you pick many at once with @name. Leave empty for none. | web | optional,free,choices
+- flag:notes | --notes | Any notes to keep with it? | Free text, like who owns it or what runs there. AI agents read it too. Leave empty to keep the old notes. | main shop database | optional,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: via, credential, notes, protected |  |  | optional,advanced,check
+### komando queue pubsub info
+title: Server summary: version, brokers or nodes, topic, queue or stream count
+- arg0 | Name | Which message queue? | A Kafka, RabbitMQ, NATS, SQS or Pub/Sub queue from your list. Add one with komando queue PROVIDER add. |  | choices,check
+### komando queue pubsub list
+title: List the saved pubsub queues
+- arg0 | Target | Which queues? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando queue pubsub message
+title: The messages of a topic: list, create, delete --all
+### komando queue pubsub message create
+title: Publish one message
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? |  |  | check
+- flag:from | --from | Read the message from this file ('-' for stdin) |  |  | optional,advanced,check
+- flag:header | --header | A message header KEY=VALUE (repeatable) |  |  | optional,advanced,check
+- flag:key | --key | Kafka: the message key (picks the partition); SQS: the message group of a FIFO queue; Pub/Sub: the ordering key |  |  | optional,advanced,free,choices
+- flag:partition | --partition | Kafka: send to this partition, numbered from 0 (default: the broker's choice) |  |  | optional,advanced,check
+- flag:value | --value | The message |  |  | optional,advanced,check
+### komando queue pubsub message delete
+title: Empty a topic, queue or stream and keep it
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? |  |  | check
+- flag:all | --all | Every waiting message; without it nothing is deleted |  |  | advanced,default,choices
+### komando queue pubsub message list
+title: Read the newest (or oldest) messages without removing any
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? |  |  | check
+- flag:idle | --idle | Kafka: stop when no message came for this long |  |  | optional,advanced,default,check
+- flag:limit | --limit | How many messages |  |  | optional,advanced,default,check
+- flag:oldest | --oldest | The first messages still kept, not the newest |  |  | advanced,default,choices
+- flag:partition | --partition | Kafka: only this partition, numbered from 0 (default: every partition) |  |  | optional,advanced,check
+### komando queue pubsub remove
+title: Forget a saved pubsub queue (the queue is not touched)
+- arg0 | Target | Which queues should come off your list? | Only komando's list changes; the queue itself is not touched. |  | free,choices,check
+### komando queue pubsub rename
+title: Rename a saved pubsub queue and every reference to it
+- arg0 | Name | Which queue do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
+### komando queue pubsub show
+title: Show a saved pubsub queue's settings (credentials as names)
+- arg0 | Name | Which queue? | A queue from your list. Add one first: komando queue pubsub add. |  | choices,check
+### komando queue pubsub test
+title: Check that a saved pubsub queue answers and lets you in
+- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando queue pubsub topic
+title: The topics (queues, streams) of a broker: list, show, create, delete
+### komando queue pubsub topic create
+title: Create a topic, queue or stream
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? |  |  | check
+- flag:config | --config | A setting KEY=VALUE, like retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable) |  |  | optional,advanced,check
+- flag:partitions | --partitions | Kafka: how many partitions (default: the broker's) |  |  | optional,advanced,check
+- flag:replicas | --replicas | Copies of each message. Kafka: copies of each partition; NATS: copies of the stream (default: the broker's; NATS: 1) |  |  | optional,advanced,check
+- flag:type | --type | RabbitMQ: the queue type, classic, quorum or stream (default: the server's) |  |  | optional,advanced,check
+### komando queue pubsub topic delete
+title: Delete topics, queues or streams with their messages
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? (several: separate them with spaces) |  |  | check
+### komando queue pubsub topic list
+title: List topics (or queues, or streams) with their message counts
+- arg0 | Name | Name? |  |  | check
+- arg1 | Pattern | Pattern? |  |  | optional,check
+- flag:internal | --internal | Kafka: also list its own topics (__consumer_offsets, ...) |  |  | advanced,default,choices
+- flag:limit | --limit | The most topics (or queues, or streams) to show, the first by name |  |  | optional,advanced,default,check
+### komando queue pubsub topic show
+title: One topic, queue or stream: messages, settings, and who reads it
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? |  |  | check
+### komando queue rabbitmq
+title: RabbitMQ: save a broker, and read, send and manage its queues
+### komando queue rabbitmq add
+title: Save a rabbitmq queue under a short name
+- arg0 | Name | Name? |  |  | check
+- arg1 | URL | URL? |  |  | optional,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
+### komando queue rabbitmq edit
+title: Change a saved rabbitmq queue (only the flags you pass change)
+- arg0 | Name | Which queue? | A queue from your list. Add one first: komando queue rabbitmq add. |  | choices,check
+- flag:url | --url | New address (URL)? | Like the one you added it with, without the password. Leave empty to keep it. | postgres://app@10.0.0.5:5432/shop | optional,check
+- flag:ask-password | --ask-password | Change the password? | Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line. |  | default,choices
+- flag:protected | --protected | Can a mistake on it hurt real users or real data? | Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away. |  | optional,choices
+- flag:via | --via | Reach it through which server or VPN? | The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now. | bastion | optional,free,choices
+- flag:add-group | --add-group | Add it to a group? | A group lets you pick many at once with @name. Leave empty for none. | web | optional,free,choices
+- flag:notes | --notes | Any notes to keep with it? | Free text, like who owns it or what runs there. AI agents read it too. Leave empty to keep the old notes. | main shop database | optional,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: via, credential, notes, protected |  |  | optional,advanced,check
+### komando queue rabbitmq info
+title: Server summary: version, brokers or nodes, topic, queue or stream count
+- arg0 | Name | Which message queue? | A Kafka, RabbitMQ, NATS, SQS or Pub/Sub queue from your list. Add one with komando queue PROVIDER add. |  | choices,check
+### komando queue rabbitmq list
+title: List the saved rabbitmq queues
+- arg0 | Target | Which queues? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando queue rabbitmq message
+title: The messages of a topic: list, create, delete --all
+### komando queue rabbitmq message create
+title: Publish one message
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? |  |  | check
+- flag:from | --from | Read the message from this file ('-' for stdin) |  |  | optional,advanced,check
+- flag:header | --header | A message header KEY=VALUE (repeatable) |  |  | optional,advanced,check
+- flag:key | --key | Kafka: the message key (picks the partition); SQS: the message group of a FIFO queue; Pub/Sub: the ordering key |  |  | optional,advanced,free,choices
+- flag:partition | --partition | Kafka: send to this partition, numbered from 0 (default: the broker's choice) |  |  | optional,advanced,check
+- flag:value | --value | The message |  |  | optional,advanced,check
+### komando queue rabbitmq message delete
+title: Empty a topic, queue or stream and keep it
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? |  |  | check
+- flag:all | --all | Every waiting message; without it nothing is deleted |  |  | advanced,default,choices
+### komando queue rabbitmq message list
+title: Read the newest (or oldest) messages without removing any
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? |  |  | check
+- flag:idle | --idle | Kafka: stop when no message came for this long |  |  | optional,advanced,default,check
+- flag:limit | --limit | How many messages |  |  | optional,advanced,default,check
+- flag:oldest | --oldest | The first messages still kept, not the newest |  |  | advanced,default,choices
+- flag:partition | --partition | Kafka: only this partition, numbered from 0 (default: every partition) |  |  | optional,advanced,check
+### komando queue rabbitmq remove
+title: Forget a saved rabbitmq queue (the queue is not touched)
+- arg0 | Target | Which queues should come off your list? | Only komando's list changes; the queue itself is not touched. |  | free,choices,check
+### komando queue rabbitmq rename
+title: Rename a saved rabbitmq queue and every reference to it
+- arg0 | Name | Which queue do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
+### komando queue rabbitmq show
+title: Show a saved rabbitmq queue's settings (credentials as names)
+- arg0 | Name | Which queue? | A queue from your list. Add one first: komando queue rabbitmq add. |  | choices,check
+### komando queue rabbitmq test
+title: Check that a saved rabbitmq queue answers and lets you in
+- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando queue rabbitmq topic
+title: The topics (queues, streams) of a broker: list, show, create, delete
+### komando queue rabbitmq topic create
+title: Create a topic, queue or stream
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? |  |  | check
+- flag:config | --config | A setting KEY=VALUE, like retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable) |  |  | optional,advanced,check
+- flag:partitions | --partitions | Kafka: how many partitions (default: the broker's) |  |  | optional,advanced,check
+- flag:replicas | --replicas | Copies of each message. Kafka: copies of each partition; NATS: copies of the stream (default: the broker's; NATS: 1) |  |  | optional,advanced,check
+- flag:type | --type | RabbitMQ: the queue type, classic, quorum or stream (default: the server's) |  |  | optional,advanced,check
+### komando queue rabbitmq topic delete
+title: Delete topics, queues or streams with their messages
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? (several: separate them with spaces) |  |  | check
+### komando queue rabbitmq topic list
+title: List topics (or queues, or streams) with their message counts
+- arg0 | Name | Name? |  |  | check
+- arg1 | Pattern | Pattern? |  |  | optional,check
+- flag:internal | --internal | Kafka: also list its own topics (__consumer_offsets, ...) |  |  | advanced,default,choices
+- flag:limit | --limit | The most topics (or queues, or streams) to show, the first by name |  |  | optional,advanced,default,check
+### komando queue rabbitmq topic show
+title: One topic, queue or stream: messages, settings, and who reads it
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? |  |  | check
+### komando queue sqs
+title: Amazon SQS: save an account, and read, send and manage its queues
+### komando queue sqs add
+title: Save a sqs queue under a short name
+- arg0 | Name | Name? |  |  | check
+- arg1 | URL | URL? |  |  | optional,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
+### komando queue sqs edit
+title: Change a saved sqs queue (only the flags you pass change)
+- arg0 | Name | Which queue? | A queue from your list. Add one first: komando queue sqs add. |  | choices,check
+- flag:url | --url | New address (URL)? | Like the one you added it with, without the password. Leave empty to keep it. | postgres://app@10.0.0.5:5432/shop | optional,check
+- flag:ask-password | --ask-password | Change the password? | Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line. |  | default,choices
+- flag:protected | --protected | Can a mistake on it hurt real users or real data? | Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away. |  | optional,choices
+- flag:via | --via | Reach it through which server or VPN? | The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now. | bastion | optional,free,choices
+- flag:add-group | --add-group | Add it to a group? | A group lets you pick many at once with @name. Leave empty for none. | web | optional,free,choices
+- flag:notes | --notes | Any notes to keep with it? | Free text, like who owns it or what runs there. AI agents read it too. Leave empty to keep the old notes. | main shop database | optional,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: via, credential, notes, protected |  |  | optional,advanced,check
+### komando queue sqs info
+title: Server summary: version, brokers or nodes, topic, queue or stream count
+- arg0 | Name | Which message queue? | A Kafka, RabbitMQ, NATS, SQS or Pub/Sub queue from your list. Add one with komando queue PROVIDER add. |  | choices,check
+### komando queue sqs list
+title: List the saved sqs queues
+- arg0 | Target | Which queues? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando queue sqs message
+title: The messages of a topic: list, create, delete --all
+### komando queue sqs message create
+title: Publish one message
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? |  |  | check
+- flag:from | --from | Read the message from this file ('-' for stdin) |  |  | optional,advanced,check
+- flag:header | --header | A message header KEY=VALUE (repeatable) |  |  | optional,advanced,check
+- flag:key | --key | Kafka: the message key (picks the partition); SQS: the message group of a FIFO queue; Pub/Sub: the ordering key |  |  | optional,advanced,free,choices
+- flag:partition | --partition | Kafka: send to this partition, numbered from 0 (default: the broker's choice) |  |  | optional,advanced,check
+- flag:value | --value | The message |  |  | optional,advanced,check
+### komando queue sqs message delete
+title: Empty a topic, queue or stream and keep it
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? |  |  | check
+- flag:all | --all | Every waiting message; without it nothing is deleted |  |  | advanced,default,choices
+### komando queue sqs message list
+title: Read the newest (or oldest) messages without removing any
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? |  |  | check
+- flag:idle | --idle | Kafka: stop when no message came for this long |  |  | optional,advanced,default,check
+- flag:limit | --limit | How many messages |  |  | optional,advanced,default,check
+- flag:oldest | --oldest | The first messages still kept, not the newest |  |  | advanced,default,choices
+- flag:partition | --partition | Kafka: only this partition, numbered from 0 (default: every partition) |  |  | optional,advanced,check
+### komando queue sqs remove
+title: Forget a saved sqs queue (the queue is not touched)
+- arg0 | Target | Which queues should come off your list? | Only komando's list changes; the queue itself is not touched. |  | free,choices,check
+### komando queue sqs rename
+title: Rename a saved sqs queue and every reference to it
+- arg0 | Name | Which queue do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
+### komando queue sqs show
+title: Show a saved sqs queue's settings (credentials as names)
+- arg0 | Name | Which queue? | A queue from your list. Add one first: komando queue sqs add. |  | choices,check
+### komando queue sqs test
+title: Check that a saved sqs queue answers and lets you in
+- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando queue sqs topic
+title: The topics (queues, streams) of a broker: list, show, create, delete
+### komando queue sqs topic create
+title: Create a topic, queue or stream
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? |  |  | check
+- flag:config | --config | A setting KEY=VALUE, like retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable) |  |  | optional,advanced,check
+- flag:partitions | --partitions | Kafka: how many partitions (default: the broker's) |  |  | optional,advanced,check
+- flag:replicas | --replicas | Copies of each message. Kafka: copies of each partition; NATS: copies of the stream (default: the broker's; NATS: 1) |  |  | optional,advanced,check
+- flag:type | --type | RabbitMQ: the queue type, classic, quorum or stream (default: the server's) |  |  | optional,advanced,check
+### komando queue sqs topic delete
+title: Delete topics, queues or streams with their messages
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? (several: separate them with spaces) |  |  | check
+### komando queue sqs topic list
+title: List topics (or queues, or streams) with their message counts
+- arg0 | Name | Name? |  |  | check
+- arg1 | Pattern | Pattern? |  |  | optional,check
+- flag:internal | --internal | Kafka: also list its own topics (__consumer_offsets, ...) |  |  | advanced,default,choices
+- flag:limit | --limit | The most topics (or queues, or streams) to show, the first by name |  |  | optional,advanced,default,check
+### komando queue sqs topic show
+title: One topic, queue or stream: messages, settings, and who reads it
+- arg0 | Name | Name? |  |  | check
+- arg1 | Topic | Topic? |  |  | check
 ### komando reboot
 title: Reboot servers one at a time and check each came back
 - arg0 | Target (servers) | Which server? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
@@ -1871,7 +2348,7 @@ title: Add a RabbitMQ server
 - user | User | Which user do you log in as? | Empty logs in as guest, which RabbitMQ lets in only from the server itself. | app | optional,check
 - password | Password | How does komando get the password? | Either way it never shows here. With Confluent Cloud the password is the API secret. |  | default,choices,show
 - secret | Saved password | Which saved secret holds the password? | A name from komando secret list, or where it is kept, like secret:NAME or env:VAR. |  | free,choices,show,check
-- management | Management port | Which port does the management plugin use? | queue list and queue peek need it: peek reads a queue's type and delivery limit there, so it never makes a quorum queue drop a message. Usually 15671 with TLS, 15672 without; empty when the plugin is off. |  | optional,default,check
+- management | Management port | Which port does the management plugin use? | topic list and message list need it: message list reads a queue's type and delivery limit there, so it never makes a quorum queue drop a message. Usually 15671 with TLS, 15672 without; empty when the plugin is off. |  | optional,default,check
 - protected | Production | Can a mistake on this RabbitMQ server hurt real users or real data? | Production: komando asks you before every change, and an AI agent needs your yes in a window. |  | default,choices
 - ca | CA certificate | Which saved CA certificate should komando trust? | Only for a certificate from your own CA. Save it first: komando secret set NAME < ca.crt. Empty for none. |  | optional,advanced,free,choices,show,check
 - group | Group | Put it in a group? | A group lets one command reach many, like komando test @web. Empty for none. | web | optional,advanced,check

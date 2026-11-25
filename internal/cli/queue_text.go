@@ -76,7 +76,7 @@ type queueTopics struct {
 func (l queueTopics) Text() string {
 	s := l.table()
 	if l.Truncated {
-		s += fmt.Sprintf("\nonly the first %d by name: narrow it with a pattern (komando queue list %s 'orders-*') or raise --limit\n", l.Count, l.Conn)
+		s += fmt.Sprintf("\nonly the first %d by name: narrow it with a pattern (komando queue %s topic list %s 'orders-*') or raise --limit\n", l.Count, l.kind, l.Conn)
 	}
 	return s
 }
@@ -84,11 +84,11 @@ func (l queueTopics) Text() string {
 func (l queueTopics) table() string {
 	switch {
 	case len(l.Topics) == 0 && (l.kind == "rabbitmq" || l.kind == "sqs"):
-		return term.NoneYet("queues", "queue create "+l.Conn+" QUEUE")
+		return term.NoneYet("queues", "queue "+l.kind+" topic create "+l.Conn+" QUEUE")
 	case len(l.Topics) == 0 && l.kind == "nats":
-		return term.NoneYet("streams", "queue create "+l.Conn+" STREAM")
+		return term.NoneYet("streams", "queue "+l.kind+" topic create "+l.Conn+" STREAM")
 	case len(l.Topics) == 0:
-		return term.NoneYet("topics", "queue create "+l.Conn+" TOPIC")
+		return term.NoneYet("topics", "queue "+l.kind+" topic create "+l.Conn+" TOPIC")
 	case l.kind == "rabbitmq":
 		return rabbitQueuesText(l.Topics)
 	case l.kind == "nats":
