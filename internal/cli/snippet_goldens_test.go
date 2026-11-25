@@ -297,6 +297,8 @@ var snippetCases = []snippetCase{
 	{snippet: "cluster-describe", family: "pod", args: []string{"cluster", "describe", "prod", "pod/api-1"}, setup: kubeConn},
 	{snippet: "cluster-describe", family: "deployment", args: []string{"cluster", "describe", "prod", "deployment/api"}, setup: kubeConn},
 	{snippet: "cluster-logs", family: "pod", args: []string{"cluster", "logs", "prod", "pod/api-1"}, setup: kubeConn},
+	{snippet: "pkg-security-refresh", family: "apt", args: []string{"pkg", "security", "dev", "--refresh"}, steps: []string{"apt.in"}},
+	{snippet: "security-upgrade", family: "apt", args: []string{"pkg", "upgrade", "dev", "--security", "--allow-dangerous"}, steps: []string{"apt.in"}},
 	{snippet: "pkg-upgradable", family: "apk", args: []string{"pkg", "upgradable", "dev"}, steps: []string{"apk.in"}},
 }
 
