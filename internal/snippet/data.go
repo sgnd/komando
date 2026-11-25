@@ -26,7 +26,7 @@ type Data struct {
 }
 
 // noResult are the failures after which nothing of the result may show.
-var noResult = map[string]bool{"SNIPPET_PARSE_FAILED": true, "SNIPPET_OS_UNSUPPORTED": true, "SNIPPET_WRONG_TYPE": true}
+var noResult = map[string]bool{"SNIPPET_PARSE_FAILED": true, "SNIPPET_OS_UNSUPPORTED": true, "SNIPPET_TYPE_UNSUPPORTED": true}
 
 // NewData is one target's answer.
 func NewData(b Builtin, target string, result any, err *out.Error, exit *int, warnings []string) Data {

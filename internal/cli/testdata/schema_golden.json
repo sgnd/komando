@@ -11711,7 +11711,7 @@
         "hint": "read it as text with `komando exec TARGET -- COMMAND`; the snippet has no JSON for it"
       },
       {
-        "code": "SNIPPET_WRONG_TYPE",
+        "code": "SNIPPET_TYPE_UNSUPPORTED",
         "exit": 2,
         "example": "… is a …, not a …",
         "hint": "run it against a … entry; see them with `komando list`"

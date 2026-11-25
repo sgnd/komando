@@ -238,7 +238,7 @@ var errorCodes = []errorCode{
 	{"SKIPPED", 1, "skipped: another server failed first, and --fail-fast is on", "run without --fail-fast to reach every server"},
 	{"SNIPPET_OS_UNSUPPORTED", 2, "snippet … has no body for …", "read it as text with `komando exec TARGET -- COMMAND`; the snippet has no JSON for it"},
 	{"SNIPPET_PARSE_FAILED", 5, "the output of snippet … did not read as …", "read it as text with `komando exec TARGET -- COMMAND`; the snippet has no JSON for it"},
-	{"SNIPPET_WRONG_TYPE", 2, "… is a …, not a …", "run it against a … entry; see them with `komando list`"},
+	{"SNIPPET_TYPE_UNSUPPORTED", 2, "… is a …, not a …", "run it against a … entry; see them with `komando list`"},
 	{"SOURCE_BUILD", 8, "this komando was built from source (version …), so update does not replace it", "build it again (git pull, then make build), or install a release with the install line: https://github.com/sgnd/komando#install"},
 	{"SOURCE_EMPTY", 3, "… has no files to sync, so --delete would remove everything in …; nothing was deleted", "check the source path"},
 	{"SQL_HIDDEN_CODE", 2, "-- is followed by a non-ASCII byte", "put a space after -- to start a comment: whether this one starts a comment depends on the server's character set"},

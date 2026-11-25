@@ -122,8 +122,8 @@ func Unsupported(b Builtin, family string) *out.Error {
 		"snippet %s has no body for %s", b.Name, family)
 }
 
-// WrongType is the error for a target of another entry type.
-func WrongType(b Builtin, target, typ string) *out.Error {
-	return out.Errf(out.ExitUsage, "SNIPPET_WRONG_TYPE", "run it against a "+b.Type+" entry; see them with `komando list`",
+// TypeUnsupported is the error for a target of another entry type.
+func TypeUnsupported(b Builtin, target, typ string) *out.Error {
+	return out.Errf(out.ExitUsage, "SNIPPET_TYPE_UNSUPPORTED", "run it against a "+b.Type+" entry; see them with `komando list`",
 		"%s is a %s, not a %s", target, typ, b.Type)
 }

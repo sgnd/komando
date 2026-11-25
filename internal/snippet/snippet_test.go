@@ -349,7 +349,7 @@ func TestRowDropsTheResultOfAFailure(t *testing.T) {
 	if nf.OK || nf.Result == nil {
 		t.Fatalf("NewData not found = %+v; want the rows kept", nf)
 	}
-	for _, c := range []string{"SNIPPET_OS_UNSUPPORTED", "SNIPPET_WRONG_TYPE"} {
+	for _, c := range []string{"SNIPPET_OS_UNSUPPORTED", "SNIPPET_TYPE_UNSUPPORTED"} {
 		if d := NewData(b, "dev", "x", out.Errf(1, c, "", "x"), nil, nil); d.Result != nil {
 			t.Errorf("%s kept a result", c)
 		}

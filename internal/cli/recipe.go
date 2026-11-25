@@ -448,7 +448,7 @@ func runSnippet(cl *call, ctx context.Context, b snippet.Builtin, target string,
 	if b.Type != "host" || b.Text == nil {
 		// S1 wires the text snippets of hosts; the client snippets come with
 		// their type's move
-		return snippet.WrongType(b, target, "host")
+		return snippet.TypeUnsupported(b, target, "host")
 	}
 	st, err := loadState()
 	if err != nil {

@@ -174,7 +174,7 @@ func valid(b Builtin) error {
 	}
 	for f, text := range b.Text {
 		if f != Unix && f != Windows {
-			return fmt.Errorf("unknown family %q", f)
+			return fmt.Errorf("unknown family %q (one of %s, %s)", f, Unix, Windows)
 		}
 		if err := validText(text, vars); err != nil {
 			return fmt.Errorf("%s text: %w", f, err)
