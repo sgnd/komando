@@ -224,7 +224,7 @@ func validVar(v Var) error {
 	for f, p := range v.Families {
 		switch {
 		case f != Unix && f != Windows:
-			return fmt.Errorf("a family pattern for the unknown family %q", f)
+			return fmt.Errorf("a family pattern for the unknown family %q (one of %s, %s)", f, Unix, Windows)
 		case v.Channel != Text:
 			return fmt.Errorf("a family pattern is for a text variable only")
 		case p == nil || !anchored(p):
