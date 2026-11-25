@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -359,8 +360,12 @@ func (w *writer3) host(h *Host) error {
 	var cred string
 	switch {
 	case h.Identity != "":
-		return out.Errf(out.ExitUsage, "BAD_REFERENCE", "add the key with `komando credential key add`, then name it",
-			"%s: a key file is named through a key credential", e)
+		// a key file of the person: the key credential that holds that
+		// file, or a new one named after it (as the migration does); this
+		// host is pointed at it, no other credential changes
+		if cred, err = w.keyFileCred(h.Identity, h.User); err != nil {
+			return err
+		}
 	case h.Key != "":
 		cred = h.Key
 	case h.PasswordRef != "":
@@ -391,6 +396,22 @@ func (w *writer3) host(h *Host) error {
 		}
 	}
 	return nil
+}
+
+// keyFileCred is the key credential that holds the person's key file
+// path for user, or a new one named after the file.
+func (w *writer3) keyFileCred(path, user string) (string, error) {
+	for _, id := range slices.Sorted(maps.Keys(w.st.creds)) {
+		c := w.st.creds[id]
+		if c.Kind == CredKey && c.Key != nil && !c.Key.Managed && c.Key.Path == path && c.User == user {
+			return c.Name, nil
+		}
+	}
+	base := filepath.Base(path)
+	if userSlug(base) == "" {
+		base = "key"
+	}
+	return w.newCred(userSlug(base), "", &Credential{Kind: CredKey, User: user, Key: &CredentialKey{Path: path}})
 }
 
 func isAgent(c *Credential) bool { return c.Kind == CredKey && c.Key != nil && c.Key.Agent }

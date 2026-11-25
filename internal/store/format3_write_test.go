@@ -135,7 +135,6 @@ func TestFormat3SharedCredentialRefused(t *testing.T) {
 	}{
 		{"the user, through a host", func(s *State) { s.Hosts["web3"].User = "admin" }, "CREDENTIAL_SHARED", []string{"host web1", "host web3"}},
 		{"the user, through a service's URL", func(s *State) { s.Conns["pg2"].URL = "postgres://other@10.0.0.31:5432/app" }, "CREDENTIAL_SHARED", []string{"database pg", "database pg2"}},
-		{"the key, through a host's key file", func(s *State) { s.Hosts["web3"].Key, s.Hosts["web3"].Identity = "", "/home/me/.ssh/other" }, "BAD_REFERENCE", nil},
 		{"the value, through a host's password reference", func(s *State) { s.Hosts["web3"].Key, s.Hosts["web3"].PasswordRef = "", "env:OTHER" }, "BAD_REFERENCE", nil},
 	}
 	for _, c := range cases {
@@ -162,3 +161,47 @@ func TestFormat3SharedCredentialRefused(t *testing.T) {
 }
 
 func errorsAs(err error, oe **out.Error) bool { return errors.As(err, oe) }
+
+// A key file named on a host gives that host a key credential for the
+// file (as the migration does), and never changes a credential another
+// entry uses: the host is re-pointed, its neighbour keeps its key.
+func TestFormat3KeyFileRepointsOneHost(t *testing.T) {
+	migrated(t)
+	err := Update(Save(), func(s *State) error {
+		s.Hosts["web3"] = &Host{Name: "web3", Address: "10.0.0.30", User: "root", Key: "deploy-root"}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = Update(Save(), func(s *State) error {
+		s.Hosts["web3"].Key, s.Hosts["web3"].KeyID, s.Hosts["web3"].Identity = "", "", "/home/me/.ssh/other"
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("a key file on a host: %v", err)
+	}
+	s, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	web3, web1 := s.Hosts["web3"], s.Hosts["web1"]
+	k := s.Keys[web3.Key]
+	if k == nil || k.Path != "/home/me/.ssh/other" || web3.User != "root" {
+		t.Fatalf("web3 %q %+v user %q", web3.Key, k, web3.User)
+	}
+	if web1.Key != "deploy-root" || s.Keys["deploy-root"].Path == "/home/me/.ssh/other" {
+		t.Errorf("web1's key changed: %q %+v", web1.Key, s.Keys["deploy-root"])
+	}
+	// the same file on a second host reuses its credential
+	err = Update(Save(), func(s *State) error {
+		s.Hosts["web4"] = &Host{Name: "web4", Address: "10.0.0.31", User: "root", Identity: "/home/me/.ssh/other"}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s, _ := Load(); s.Hosts["web4"].Key != web3.Key {
+		t.Errorf("web4 %q, web3 %q", s.Hosts["web4"].Key, web3.Key)
+	}
+}
