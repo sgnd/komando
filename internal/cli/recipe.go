@@ -11,7 +11,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/cli/kit/term"
+	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/snippet"
@@ -352,7 +354,7 @@ func recipeRunCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return runSnippet(cl, cmd.Context(), b, args[1], kv)
+				return runSnippet(cl, cmd.Context(), b, args[1], kv, noSudo)
 			}
 			st, err := loadState()
 			if err != nil {
@@ -420,9 +422,15 @@ func checkRecipeCategory(c string) error {
 // reaches the engine.
 var snippetsOn = false
 
-// builtinSnippets are the ready-made snippets. The list is empty until the
-// S2 moves hand each type's list to snippet.New.
-var builtinSnippets = mustSnippets()
+// builtinSnippets are the ready-made snippets.
+var builtinSnippets = mustSnippets(builtinLists()...)
+
+// builtinLists are the ready-made snippets, one list per command they
+// replace. Each list lives in that command's file and moves with its
+// package (M5 cache, M9 database, M10 cluster, M11 host).
+func builtinLists() [][]snippet.Builtin {
+	return [][]snippet.Builtin{factsSnippets(), factsOnlySnippets(), svcSnippets(), dockerSnippets(), dockerPruneSnippets()}
+}
 
 func mustSnippets(lists ...[]snippet.Builtin) *snippet.Registry {
 	r, err := snippet.New(lists...)
@@ -430,6 +438,11 @@ func mustSnippets(lists ...[]snippet.Builtin) *snippet.Registry {
 		panic(err) // a definition the engine refuses is a bug the tests show
 	}
 	return r
+}
+
+// snippetRun is a snippet's output as the run result today's parsers read.
+func snippetRun(o snippet.Output) *sshx.RunResult {
+	return &sshx.RunResult{Stdout: o.Stdout, Stderr: o.Stderr, ExitCode: o.ExitCode}
 }
 
 // snippetFamily is the shell a host's text is written for.
@@ -444,7 +457,7 @@ func snippetFamily(h *store.Host) snippet.Family {
 // the module commands: the filled text goes through guard with the exec
 // rules (policy.Check, like a typed exec line), protected servers ask for a
 // change, and the result is masked when it is printed.
-func runSnippet(cl *call, ctx context.Context, b snippet.Builtin, target string, kv map[string]string) error {
+func runSnippet(cl *call, ctx context.Context, b snippet.Builtin, target string, kv map[string]string, noSudo bool) error {
 	if b.Type != "host" || b.Text == nil {
 		// S1 wires the text snippets of hosts; the client snippets come with
 		// their type's move
@@ -470,13 +483,17 @@ func runSnippet(cl *call, ctx context.Context, b snippet.Builtin, target string,
 			return err
 		}
 	}
+	if err := snippetTierStop(cl, st, b); err != nil {
+		audit(cl, st, "snippet.exec", hostNames(hosts), "snippet "+b.Name, false, map[string]any{"blocked": toErr(err).Code})
+		return err
+	}
 	parse := func(f snippet.Family) func(*store.Host, *sshx.RunResult) (any, *out.Error) {
 		return func(_ *store.Host, r *sshx.RunResult) (any, *out.Error) {
 			return snippet.Parse(b, f, snippet.Output{Stdout: r.Stdout, Stderr: r.Stderr, ExitCode: r.ExitCode})
 		}
 	}
 	data, worst, fails, err := collectOps(cl, ctx, opsSpec{name: "snippet.exec", target: target, display: "snippet " + b.Name,
-		command: text[snippet.Unix], win: text[snippet.Windows], mutating: snippet.Mutating(b),
+		command: text[snippet.Unix], win: text[snippet.Windows], mutating: snippet.Mutating(b), sudo: b.Sudo && !noSudo,
 		parse: parse(snippet.Unix), winParse: parse(snippet.Windows)})
 	if err != nil || data == nil {
 		return err
@@ -496,4 +513,22 @@ func runSnippet(cl *call, ctx context.Context, b snippet.Builtin, target string,
 type snippetFleet struct {
 	Results []snippet.Data `json:"results"`
 	Summary fleetSummary   `json:"summary"`
+}
+
+// snippetTierStop stops a run by the snippet's static tier, as the command
+// it replaces is stopped (Audit S1-1). Read, change and protected need
+// nothing here: Guard asks for a change on a protected server, and a rule
+// hit in the filled text makes any snippet dangerous there, as for exec.
+func snippetTierStop(cl *call, st *store.State, b snippet.Builtin) error {
+	why := "snippet " + b.Name + " cannot be undone"
+	switch {
+	case b.Tier >= capability.Person && !cl.interactive():
+		return cl.policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON", "a person runs `komando recipe run "+b.Name+" TARGET` in their own terminal",
+			"snippet %s runs only for a person at a terminal", b.Name))
+	case b.Tier == capability.Safety:
+		return guardSafety(cl, "snippet "+b.Name)
+	case b.Tier >= capability.Dangerous: // dangerous, and person at a terminal: --allow-dangerous or the typed question
+		return GuardConns(cl, st, nil, driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"snippet:" + b.Name}, Reasons: []string{why}})
+	}
+	return nil
 }

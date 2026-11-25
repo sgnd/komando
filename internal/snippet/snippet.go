@@ -11,6 +11,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"regexp/syntax"
 	"slices"
 	"strings"
 
@@ -50,6 +51,14 @@ type Var struct {
 	Longest  string
 	Required bool
 	Default  string // used when the variable is not given and not required
+	// List takes several values, comma-separated: each is checked alone
+	// and quoted as its own word, in the order given (svc-status takes
+	// several units). MaxItems caps how many; MaxLen is per value.
+	List     bool
+	MaxItems int
+	// Families narrows Pattern for one family's text, checked when that
+	// text is filled: systemd unit names and Windows service names differ.
+	Families map[Family]*regexp.Regexp
 }
 
 // Output is what a text printed on the server.
@@ -72,9 +81,12 @@ type Builtin struct {
 	Shape    string          // "svc-list/1"
 	Vars     []Var
 	Checks   []string // the checks carried, each named by the test that pins it (Audit A-C368-4)
-	Text     map[Family]string
-	Parse    func(o Output, f Family) (any, error)
-	Run      func(ctx context.Context, v Values) (any, error)
+	// Sudo runs the Unix text with sudo, as the replaced command does;
+	// --no-sudo turns it off. A Windows text never runs with sudo.
+	Sudo  bool
+	Text  map[Family]string
+	Parse func(o Output, f Family) (any, error)
+	Run   func(ctx context.Context, v Values) (any, error)
 }
 
 // types are the entry types a built-in may run against.
@@ -154,11 +166,6 @@ func valid(b Builtin) error {
 	if b.Reader == "" {
 		return fmt.Errorf("reader is empty: name the app screen or the agent need")
 	}
-	if b.Tier > capability.Change {
-		// the command passes only "mutating" to the guard, so a built-in above
-		// change would run with a change's stop (Audit S1-1)
-		return fmt.Errorf("tier %s is above change, which the engine does not rate yet: register it after the command acts on Rate (dangerous, safety and person stops)", tierNames[b.Tier])
-	}
 	switch {
 	case b.Run != nil && (b.Text != nil || b.Parse != nil):
 		return fmt.Errorf("has both a text and a client call")
@@ -166,6 +173,9 @@ func valid(b Builtin) error {
 		return fmt.Errorf("has neither a text nor a client call")
 	case b.Text != nil && b.Parse == nil:
 		return fmt.Errorf("has a text but no parse function")
+	}
+	if _, ok := b.Text[Unix]; b.Sudo && !ok {
+		return fmt.Errorf("sudo is set but there is no Unix text to run with it")
 	}
 	vars := map[string]Var{}
 	for _, v := range b.Vars {
@@ -195,7 +205,7 @@ func validVar(v Var) error {
 	if v.Pattern == nil {
 		return fmt.Errorf("no pattern")
 	}
-	if p := v.Pattern.String(); !strings.HasPrefix(strings.TrimPrefix(p, "(?s)"), "^") || !strings.HasSuffix(p, "$") {
+	if !anchored(v.Pattern) {
 		return fmt.Errorf("the pattern is not anchored with ^ and $")
 	}
 	if v.MaxLen <= 0 {
@@ -204,10 +214,42 @@ func validVar(v Var) error {
 	if len(v.Longest) != v.MaxLen || !v.Pattern.MatchString(v.Longest) {
 		return fmt.Errorf("the longest value does not have the max length or does not match the pattern")
 	}
-	if !v.Required && v.Default != "" && checkValue(v, v.Default) != nil {
+	switch {
+	case v.List && v.MaxItems <= 0:
+		return fmt.Errorf("a list needs max items")
+	case !v.List && v.MaxItems != 0:
+		return fmt.Errorf("max items is set but it is not a list")
+	case v.List && v.Channel != Text:
+		return fmt.Errorf("a list goes only into a text: a client call takes one value")
+	}
+	for f, p := range v.Families {
+		switch {
+		case f != Unix && f != Windows:
+			return fmt.Errorf("a family pattern for the unknown family %q (one of %s, %s)", f, Unix, Windows)
+		case v.Channel != Text:
+			return fmt.Errorf("a family pattern is for a text variable only")
+		case p == nil || !anchored(p):
+			return fmt.Errorf("the %s pattern is not anchored with ^ and $", f)
+		case !p.MatchString(v.Longest):
+			return fmt.Errorf("the longest value does not match the %s pattern", f)
+		}
+	}
+	if !v.Required && v.Default != "" && checkVar(v, v.Default) != nil {
 		return fmt.Errorf("the default does not pass the variable's checks")
 	}
 	return nil
+}
+
+// anchored reports whether the whole pattern sits between ^ and $: its
+// parsed tree begins with the start of the text and ends with its end, so
+// `^a|b$` (a at the start, or b at the end) is not anchored and
+// `^(?:a|b)$` is (Audit A-453-2).
+func anchored(p *regexp.Regexp) bool {
+	re, err := syntax.Parse(p.String(), syntax.Perl)
+	if err != nil || re.Op != syntax.OpConcat || len(re.Sub) < 2 {
+		return false
+	}
+	return re.Sub[0].Op == syntax.OpBeginText && re.Sub[len(re.Sub)-1].Op == syntax.OpEndText
 }
 
 // validText checks that every marker names a declared text variable.
@@ -227,19 +269,6 @@ func validText(text string, vars map[string]Var) error {
 	return nil
 }
 
-// tierNames are the tiers as komando names them (internal/cli risk.go).
-var tierNames = [...]string{"read", "change", "protected", "dangerous", "safety", "person"}
-
 // Mutating reports whether the snippet changes something: the guard then
 // asks on a protected entry, as the replaced command does.
 func Mutating(b Builtin) bool { return b.Tier >= capability.Change }
-
-// Rate is the tier of one run: the static tier, raised to dangerous when
-// the exec rules found hits in the filled text (rule 3.5). A hit never
-// lowers a tier.
-func Rate(b Builtin, hits int) capability.Tier {
-	if hits > 0 && b.Tier < capability.Dangerous {
-		return capability.Dangerous
-	}
-	return b.Tier
-}
