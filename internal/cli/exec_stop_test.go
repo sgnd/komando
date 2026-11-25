@@ -323,7 +323,7 @@ func otherActorSetup(t *testing.T, shown, allow bool) *[]string {
 	return texts
 }
 
-// L1: an AI agent that stops or removes a run another actor started (a
+// An AI agent that stops or removes a run another actor started (a
 // person, a script, or another agent) asks the person in the window; its
 // own runs, a caller that is not an agent, and --remove without a record
 // stay at the change tier.
@@ -374,7 +374,7 @@ func TestExecSessionAgentChangesAnotherActorsRun(t *testing.T) {
 	}
 }
 
-// L1: without the person's yes (no --yes, no window, or Deny) the agent is
+// Without the person's yes (no --yes, no window, or Deny) the agent is
 // stopped before it connects, the audit log records the refusal, and the
 // record stays.
 func TestExecSessionAgentStopsAnotherActorsRunRefused(t *testing.T) {
@@ -410,6 +410,34 @@ func TestExecSessionAgentStopsAnotherActorsRunRefused(t *testing.T) {
 			}
 			if !hasRecord(attachID) {
 				t.Fatal("the record is gone")
+			}
+		})
+	}
+}
+
+// On a protected server an agent that stops or removes another
+// actor's run sees ONE window that names the starter and the protected
+// server: the protected change's window must not answer for a starter it
+// never showed.
+func TestExecSessionAgentOtherStarterOnProtectedHost(t *testing.T) {
+	for _, flag := range []string{"--stop", "--remove"} {
+		t.Run(flag, func(t *testing.T) {
+			srv := stopServer(t, 0)
+			var texts []string
+			savedAsk := askOnScreen
+			askOnScreen = func(_ *call, text string) (bool, bool) { texts = append(texts, text); return true, true }
+			t.Cleanup(func() { askOnScreen = savedAsk; tcl.flags.yes = false; resetApproval() })
+			setCallerEnv(t, "KOMANDO_ACTOR", "bob")
+			setCallerEnv(t, "KOMANDO_AGENT", "1")
+			putRecord(t, attachID, "alice", false)
+			if _, err := runChange(t, "exec", "dev", "--attach", attachID, flag, "--yes"); err != nil {
+				t.Fatal(err)
+			}
+			if len(texts) != 1 || !strings.Contains(texts[0], "started by alice at a terminal or in a script") || !strings.Contains(texts[0], protChangePrefix+"host dev") {
+				t.Fatalf("want one window naming the starter and the protected server, got %q", texts)
+			}
+			if e := srv.take(); len(e) != 1 {
+				t.Fatalf("execs %+v", e)
 			}
 		})
 	}

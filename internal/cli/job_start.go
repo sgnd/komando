@@ -588,9 +588,12 @@ func (s sessionChange) Text() string {
 // nil, nil.
 func changeSession(cl *call, ctx context.Context, st *store.State, h *store.Host, rec *store.ExecSession, id, shown, script string, input func() ([]byte, error), extra map[string]any) (*sshx.RunResult, error) {
 	extra["attach"] = []string{id}
-	err := Guard(cl, st, []*store.Host{h}, "", true)
+	// the starter's window comes first and names the protected server too,
+	// so the protected change's check never answers for a starter it did
+	// not show
+	err := guardOtherStarter(cl, st, h, rec)
 	if err == nil {
-		err = guardOtherStarter(cl, rec)
+		err = Guard(cl, st, []*store.Host{h}, "", true)
 	}
 	if err != nil {
 		extra["blocked"] = toErr(err).Code
@@ -619,10 +622,12 @@ func changeSession(cl *call, ctx context.Context, st *store.State, h *store.Host
 
 // guardOtherStarter: an AI agent that stops or removes a run another
 // actor started (a person, a script, or another agent) asks the person
-// in the window first, as guardSafety does (Audit L1). Its own runs, a
+// in the window first, as guardSafety does. Its own runs, a
 // caller that is not an agent, and a removal without a record (no starter
-// known) stay at the change tier.
-func guardOtherStarter(cl *call, rec *store.ExecSession) error {
+// known) stay at the change tier. On a protected server the one window
+// names the protection too, as Guard would, so Guard's --yes check that
+// follows is the same question already answered.
+func guardOtherStarter(cl *call, st *store.State, h *store.Host, rec *store.ExecSession) error {
 	if rec == nil || !cl.isAgent() || ownRun(cl, rec) {
 		return nil
 	}
@@ -631,7 +636,11 @@ func guardOtherStarter(cl *call, rec *store.ExecSession) error {
 		starter = rec.Actor + "'s AI agent"
 	}
 	why := fmt.Sprintf("session %s on %s was started by %s, not by this AI agent", rec.ID, rec.Host, starter)
-	if cl.yesOK(why) {
+	reasons := []string{why}
+	if protectedHost(st, h) {
+		reasons = append(reasons, protWhy([]string{h.Name}), targetsWhy(st, []*store.Host{h}))
+	}
+	if cl.yesOK(reasons...) {
 		return nil
 	}
 	return cl.policyStop(approvalErr(cl, "CONFIRM_REQUIRED", why))
