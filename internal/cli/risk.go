@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/sgnd/komando/internal/capability"
+	"github.com/sgnd/komando/internal/policy"
 )
 
 // One rule table says how much each command and flag combination needs
@@ -201,7 +202,7 @@ func namedWhen(name string) func([]string) bool {
 	case "one-arg":
 		return func(w []string) bool { return len(riskArgs(w)) == 1 }
 	case "essential-package":
-		return func(w []string) bool { return slices.ContainsFunc(riskArgs(w), essentialPkg) }
+		return func(w []string) bool { return slices.ContainsFunc(riskArgs(w), policy.EssentialPackage) }
 	case "ssh-unit":
 		return sshUnit
 	case "protection-off":

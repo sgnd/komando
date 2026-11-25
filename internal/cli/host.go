@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/sshx"
@@ -125,7 +126,7 @@ func runHostAdd(cmd *cobra.Command, args []string, f *hostFlags, force, askPw bo
 		return out.Errf(out.ExitUsage, "USAGE", "for example komando host add "+name+" deploy@10.0.0.5, or --address 10.0.0.5",
 			"address required: pass user@address[:port] or --address")
 	}
-	h.Address = normAddr(h.Address)
+	h.Address = inventory.NormAddr(h.Address)
 	if f.ssm {
 		h.ProxyCommand = ssmProxy
 	}
@@ -196,7 +197,7 @@ func runHostAdd(cmd *cobra.Command, args []string, f *hostFlags, force, askPw bo
 // addVerb says what an add did, or would do under --dry-run.
 func addVerb(cl *call, replaced bool) string {
 	v := map[bool]string{false: "added", true: "replaced"}[replaced]
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		v = map[bool]string{false: "would_add", true: "would_replace"}[replaced]
 	}
 	return v

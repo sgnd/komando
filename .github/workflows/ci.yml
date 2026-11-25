@@ -19,6 +19,10 @@ jobs:
     name: Lint and unit tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # the generated PowerShell scripts are parsed with pwsh, which the
+    # runner ships: a missing pwsh fails the tests instead of skipping them
+    env:
+      KOMANDO_REQUIRE_PWSH: "1"
     steps:
       # actions are pinned to a commit, not a tag that can move (Pinned-Dependencies)
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -106,10 +110,13 @@ jobs:
       - run: go build -o komando.exe ./cmd/komando
       - run: ./komando.exe --version
       # KOMANDO_KEYCHAIN=off: test vaults keep their key in a file, as on
-      # the Linux runner, not in the runner's Credential Manager
+      # the Linux runner, not in the runner's Credential Manager.
+      # KOMANDO_REQUIRE_PWSH=1: the generated PowerShell scripts are parsed
+      # with Windows PowerShell 5.1, the servers' own; never skipped here
       - run: go test -timeout 30m ./...
         env:
           KOMANDO_KEYCHAIN: "off"
+          KOMANDO_REQUIRE_PWSH: "1"
 
   # Known vulnerabilities in the code and its modules (govulncheck).
   security:

@@ -127,7 +127,7 @@ func waitPending(sel selection, res []targetTest) selection {
 // and an agent's later commands reuse. Without a person at a terminal
 // nothing is asked, and such a server fails with the hint that names test.
 func testRoundKeeping(cl *call, ctx context.Context, st *store.State, sel selection) []targetTest {
-	if !cl.interactive() || cl.flags.dryRun || len(sel.Hosts) == 0 {
+	if !cl.interactive() || cl.dryRun() || len(sel.Hosts) == 0 {
 		return testRound(cl, ctx, st, sel)
 	}
 	asker := sshx.Asker
@@ -221,7 +221,7 @@ func endSessions(cl *call, args []string, only string) error {
 	if err := Guard(cl, st, hosts, "", true); err != nil {
 		return err
 	}
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		cl.out.Print("test.end", testEndData{Ended: names}, nil)
 		return nil
 	}

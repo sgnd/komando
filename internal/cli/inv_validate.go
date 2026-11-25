@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -11,7 +10,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -38,7 +36,7 @@ func checkHost(cl *call, s *store.State, h *store.Host) error {
 		return out.Errf(out.ExitUsage, "USAGE", "give a host name or IP address, for example 10.0.0.5 or web1.example.com", "%q is not a host name or IP address", h.Address)
 	}
 	if h.Identity != "" {
-		if _, err := os.Stat(expandHome(h.Identity)); err != nil {
+		if _, err := os.Stat(inventory.ExpandHome(h.Identity)); err != nil {
 			return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give the path of a private key file, or register it with `komando key add NAME FILE` and use --key",
 				"identity file %s: %v", h.Identity, errText(err))
 		}
@@ -137,17 +135,9 @@ func checkPassphraseRef(ref string) error {
 
 // The same server under another name.
 
-// normAddr is a host name the way DNS compares it: lower case, without the
-// root dot ("Target." is "target") or IPv6 brackets.
-func normAddr(a string) string {
-	a = strings.TrimSpace(a)
-	a = strings.TrimSuffix(strings.TrimPrefix(a, "["), "]")
-	return strings.TrimSuffix(strings.ToLower(a), ".")
-}
-
 // sameAddress reports whether two addresses name the same server as
 // written (no DNS); protectedHost also compares the IPs they lead to.
-func sameAddress(a, b string) bool { return a != "" && normAddr(a) == normAddr(b) }
+func sameAddress(a, b string) bool { return a != "" && inventory.NormAddr(a) == inventory.NormAddr(b) }
 
 // normConnURL writes the URL's host the normal way (lower case, no root
 // dot), so a protected conn cannot be reached as "maria." or "MARIA".
@@ -157,7 +147,7 @@ func normConnURL(raw string) string {
 		return raw
 	}
 	host := u.Hostname()
-	n := normAddr(host)
+	n := inventory.NormAddr(host)
 	if n == host {
 		return raw
 	}
@@ -169,22 +159,6 @@ func normConnURL(raw string) string {
 		u.Host = n
 	}
 	return u.String()
-}
-
-// lookupHost is the resolver (tests replace it).
-var lookupHost = net.DefaultResolver.LookupHost
-
-// lookupIPs resolves a name with a short timeout; an IP is itself.
-func lookupIPs(ctx context.Context, host string) []string {
-	host = normAddr(host)
-	if ip := net.ParseIP(host); ip != nil {
-		return []string{ip.String()}
-	}
-	addrs, err := lookupHost(ctx, host)
-	if err != nil {
-		return nil
-	}
-	return addrs
 }
 
 // protectedTwinHost names a protected host that is the same server as h:
@@ -251,38 +225,14 @@ func prefetchTwinIPs(s *store.State, hosts []*store.Host) {
 	wg.Wait()
 }
 
-// connAddrKey is what makes two conns the same resource (as in
-// protectedConn): the file, the bucket, or the family and address.
-func connAddrKey(c *store.Conn) string {
-	t, err := driver.Parse(c.URL)
-	if err != nil {
-		return ""
-	}
-	switch {
-	case t.Kind.File:
-		return "file " + t.Path
-	case t.Bucket != "":
-		return "bucket " + invHostPort(t.Address) + "/" + t.Bucket
-	}
-	return t.Kind.Family + " " + invHostPort(t.Address)
-}
-
-func invHostPort(a string) string {
-	h, p, err := net.SplitHostPort(a)
-	if err != nil {
-		return normAddr(a)
-	}
-	return net.JoinHostPort(normAddr(h), p)
-}
-
 // protectedTwinConn names a protected conn for the same resource as c.
 func protectedTwinConn(s *store.State, c *store.Conn) string {
-	k := connAddrKey(c)
+	k := inventory.ConnAddrKey(c)
 	if k == "" {
 		return ""
 	}
 	for _, o := range s.SortedConns() {
-		if o.Protected && o.Name != c.Name && connAddrKey(o) == k {
+		if o.Protected && o.Name != c.Name && inventory.ConnAddrKey(o) == k {
 			return o.Name
 		}
 	}

@@ -411,7 +411,7 @@ func dockerConfigProblem(v string) string {
 		}
 		return p
 	}
-	b, err := os.ReadFile(expandHome(v))
+	b, err := os.ReadFile(inventory.ExpandHome(v))
 	if err != nil {
 		return "komando cannot read " + v
 	}

@@ -26,7 +26,7 @@ func TestMacDeviceOwner(t *testing.T) {
 	saved, savedOS, savedMac, savedA := tcl.args, desktopOS, askMac, askOnScreen
 	t.Cleanup(func() {
 		tcl.args, desktopOS, askMac, askOnScreen = saved, savedOS, savedMac, savedA
-		tcl.flags.yes = false
+		setGate(tcl, false, gateYes)
 		resetAccessibilityTrust()
 		resetApproval()
 	})
@@ -37,7 +37,7 @@ func TestMacDeviceOwner(t *testing.T) {
 	ask := func(out string) (bool, string) {
 		askMac = func(v approvalView, _ io.Writer) (macOutcome, bool) { seen = v; return macAnswer([]byte(out)), true }
 		resetApproval()
-		tcl.flags.yes = true
+		setGate(tcl, true, gateYes)
 		ok := tcl.yesOK("it runs on web-1.example.test")
 		return ok, tcl.sess.Window().Why
 	}
@@ -95,7 +95,7 @@ func TestMacIgnoresApprovalCode(t *testing.T) {
 	savedOS, savedMac, savedA, savedCode := desktopOS, askMac, askOnScreen, askCodeOnScreen
 	t.Cleanup(func() {
 		desktopOS, askMac, askOnScreen, askCodeOnScreen = savedOS, savedMac, savedA, savedCode
-		tcl.flags.yes = false
+		setGate(tcl, false, gateYes)
 		resetAccessibilityTrust()
 		resetApproval()
 	})
@@ -108,7 +108,7 @@ func TestMacIgnoresApprovalCode(t *testing.T) {
 	shown := 0
 	askMac = func(approvalView, io.Writer) (macOutcome, bool) { shown++; return macAllowed, true }
 	resetApproval()
-	tcl.flags.yes = true
+	setGate(tcl, true, gateYes)
 	if !tcl.yesOK() || shown != 1 {
 		t.Errorf("shown %d", shown)
 	}
@@ -203,7 +203,7 @@ func TestMacAXTrustedOwnerCheck(t *testing.T) {
 	saved, savedOS, savedMac, savedA, savedAX, savedOC, savedFrom := tcl.args, desktopOS, askMac, askOnScreen, axTrustOutput, ownerCheckOutput, startedFrom
 	t.Cleanup(func() {
 		tcl.args, desktopOS, askMac, askOnScreen, axTrustOutput, ownerCheckOutput, startedFrom = saved, savedOS, savedMac, savedA, savedAX, savedOC, savedFrom
-		tcl.flags.yes = false
+		setGate(tcl, false, gateYes)
 		resetAccessibilityTrust()
 		resetOwnerCheck()
 		resetApproval()
@@ -220,9 +220,9 @@ func TestMacAXTrustedOwnerCheck(t *testing.T) {
 		resetOwnerCheck()
 		resetApproval()
 		setCallerEnv(t, "CLAUDECODE", "1")
-		tcl.flags.yes = true
+		setGate(tcl, true, gateYes)
 		yes, why = tcl.yesOK(), tcl.sess.Window().Why
-		tcl.flags.yes = false
+		setGate(tcl, false, gateYes)
 		t.Setenv("CLAUDECODE", "")
 		resetApproval()
 		reveal, _ = askReveal(tcl, "secret:db-pass")

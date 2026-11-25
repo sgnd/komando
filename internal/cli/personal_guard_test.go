@@ -87,14 +87,14 @@ func TestDumpRefusedWherePersonalDataIsHidden(t *testing.T) {
 	}
 	// the cli tests' window stand-in panics: --reveal must not ask
 	wantCode(t, "NEEDS_PERSON", "db", "dump", "prod", "--to", filepath.Join(dir, "prod.db"), "--reveal")
-	tcl.flags.reveal = false
+	setGate(tcl, false, gateReveal)
 	if _, err := os.Stat(filepath.Join(dir, "prod.db")); err == nil {
 		t.Error("the dump was written with --reveal")
 	}
 	if d, e := invRun(t, "--dry-run", "db", "dump", "prod", "--to", filepath.Join(dir, "prod.db")); e != nil || blockedCode(d) != "NEEDS_PERSON" {
 		t.Errorf("a dry run reports the stop: %v %+v", d, e)
 	}
-	tcl.flags.dryRun = false
+	setGate(tcl, false, gateDryRun)
 	wantCode(t, "NEEDS_PERSON", "db", "dump", "dev", "--to", filepath.Join(dir, "dev.db")) // nothing hidden there, still a dump (TestAgentDumpNeedsPersonOnEveryConn)
 	os.Unsetenv("KOMANDO_AGENT")
 	resetApproval()
@@ -139,7 +139,7 @@ func TestStorageLinkForAgents(t *testing.T) {
 	if d, e := invRun(t, "--dry-run", "storage", "link", "s3l", "reports/a.txt"); e != nil || blockedCode(d) != "SENSITIVE_FILE" {
 		t.Errorf("a dry run reports the stop: %v %+v", d, e)
 	}
-	tcl.flags.dryRun = false
+	setGate(tcl, false, gateDryRun)
 }
 
 // What an AI agent reads on stdout is shown as text with its secrets
@@ -443,7 +443,7 @@ func TestExecOnAMaskingConnsServerHidesPersonalData(t *testing.T) {
 	if _, e := invRun(t, "download", "dev", "/tmp/x.csv", "--to", to, "--dry-run"); e != nil || tcl.out.Personal {
 		t.Fatalf("a download from dev, no masking conn yet: hidden %v, %+v", tcl.out.Personal, e)
 	}
-	tcl.flags.dryRun = false
+	setGate(tcl, false, gateDryRun)
 	os.Unsetenv("KOMANDO_AGENT")
 	resetApproval()
 	mustRun(t, "conn", "add", "pg", "postgres://u@127.0.0.1:5432/app", "--via", "dev", "--option", "mask_personal=on")
@@ -456,7 +456,7 @@ func TestExecOnAMaskingConnsServerHidesPersonalData(t *testing.T) {
 	if _, e := invRun(t, "download", "dev", "/tmp/x.csv", "--to", to, "--dry-run"); e != nil || !tcl.out.Personal {
 		t.Fatalf("a download from dev: hidden %v, %+v", tcl.out.Personal, e)
 	}
-	tcl.flags.dryRun = false
+	setGate(tcl, false, gateDryRun)
 }
 
 // An AI agent's dump needs a person on every connection, not only where
@@ -479,7 +479,7 @@ func TestAgentDumpNeedsPersonOnEveryConn(t *testing.T) {
 	for _, flag := range []string{"--yes", "--allow-dangerous", "--reveal"} {
 		resetApproval()
 		wantCode(t, "NEEDS_PERSON", "db", "dump", "dev", "--to", file, flag)
-		tcl.flags.yes, tcl.flags.allowDangerous, tcl.flags.reveal = false, false, false
+		setGate(tcl, false, gateYes, gateAllowDangerous, gateReveal)
 	}
 	if _, err := os.Stat(file); err == nil {
 		t.Error("the dump was written for an AI agent")
@@ -487,7 +487,7 @@ func TestAgentDumpNeedsPersonOnEveryConn(t *testing.T) {
 	if d, e := invRun(t, "--dry-run", "db", "dump", "dev", "--to", file); e != nil || blockedCode(d) != "NEEDS_PERSON" {
 		t.Errorf("a dry run reports the stop: %v %+v", d, e)
 	}
-	tcl.flags.dryRun = false
+	setGate(tcl, false, gateDryRun)
 
 	// a person's own dump asks nothing
 	os.Unsetenv("KOMANDO_AGENT")

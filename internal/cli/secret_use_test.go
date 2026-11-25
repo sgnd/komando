@@ -27,7 +27,7 @@ func secretHome(t *testing.T) {
 // which names the secret and the file.
 func TestSecretRefsInTextNeedAPerson(t *testing.T) {
 	secretHome(t)
-	defer func() { tcl.flags.yes, tcl.flags.dryRun = false, false }()
+	defer func() { setGate(tcl, false, gateYes, gateDryRun) }()
 
 	// a person or a script: no window (askOnScreen panics)
 	got, err := expandSecretRefs(tcl, "DB={{secret:db-pass}}", "web1:/etc/app.env", false)
@@ -61,7 +61,7 @@ func TestSecretRefsInTextNeedAPerson(t *testing.T) {
 	if _, err := expandSecretRefs(tcl, "{{secret:"+approvalSecret+"}}", "web1:/f", false); toErr(err).Code != "RESERVED_SECRET" {
 		t.Fatalf("agent, reserved secret: %v", err)
 	}
-	tcl.flags.yes = true
+	setGate(tcl, true, gateYes)
 	got, err = expandSecretRefs(tcl, "DB={{secret:db-pass}}", "web1:/etc/app.env", false)
 	if err != nil || got != "DB=pa$$1word" {
 		t.Fatalf("agent, allowed: %q %v", got, err)
@@ -78,7 +78,8 @@ func TestSecretRefsInTextNeedAPerson(t *testing.T) {
 	}
 
 	// a dry run never asks and reads no secret: the reference stays
-	tcl.flags.yes, tcl.flags.dryRun = false, true
+	setGate(tcl, false, gateYes)
+	setGate(tcl, true, gateDryRun)
 	resetApproval()
 	tcl.out.Reset()
 	got, err = expandSecretRefs(tcl, "DB={{secret:db-pass}}", "web1:/f", false)

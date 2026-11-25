@@ -8,6 +8,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -82,8 +83,8 @@ func TestImportResolvesEachNameOnce(t *testing.T) {
 	var mu sync.Mutex
 	calls := map[string]int{}
 	ips := map[string]string{"prod.internal": "10.9.0.1", "alias.internal": "10.9.0.1"}
-	old := lookupHost
-	lookupHost = func(_ context.Context, host string) ([]string, error) {
+	old := inventory.LookupHost
+	inventory.LookupHost = func(_ context.Context, host string) ([]string, error) {
 		mu.Lock()
 		defer mu.Unlock()
 		calls[host]++
@@ -92,7 +93,7 @@ func TestImportResolvesEachNameOnce(t *testing.T) {
 		}
 		return []string{"10.9.1." + strconv.Itoa(len(calls))}, nil
 	}
-	t.Cleanup(func() { lookupHost = old })
+	t.Cleanup(func() { inventory.LookupHost = old })
 	st := &store.State{Hosts: map[string]*store.Host{
 		"prod": {Name: "prod", Address: "prod.internal", User: "root", Protected: true},
 	}, Keys: map[string]*store.Key{}, Vpns: map[string]*store.Vpn{}, Conns: map[string]*store.Conn{}}

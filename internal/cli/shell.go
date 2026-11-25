@@ -63,7 +63,7 @@ func runShell(cl *call, ctx context.Context, target string) error {
 			return err
 		}
 	}
-	if cl.flags.dryRun { // before any VPN or SSH contact
+	if cl.dryRun() { // before any VPN or SSH contact
 		audit(cl, st, "shell", []string{h.Name}, "", true, nil)
 		cl.out.Print("shell", map[string]any{"host": h.Name, "address": h.Address, "user": h.User, "via": h.Via, "protected": protected, "dry_run": true}, nil)
 		return nil

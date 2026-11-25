@@ -124,7 +124,7 @@ bits.`,
 			if inventory.HasControl(comment) {
 				return out.Errf(out.ExitUsage, "USAGE", "use one line of plain text, for example -C ops@example.com", "the key comment cannot hold line breaks or control characters")
 			}
-			if cl.flags.dryRun {
+			if cl.dryRun() {
 				if err := checkKeyType(typ, bits); err != nil {
 					return err
 				}
@@ -213,7 +213,7 @@ login, as ssh does; --cert names one kept somewhere else.`,
 			if err := checkPassphraseRef(passRef); err != nil {
 				return err
 			}
-			p, _ := filepath.Abs(expandHome(args[1]))
+			p, _ := filepath.Abs(inventory.ExpandHome(args[1]))
 			b, err := os.ReadFile(p)
 			if err != nil {
 				return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give the path of a private key file, for example ~/.ssh/id_ed25519", "%s: %v", p, errText(err))
@@ -308,7 +308,7 @@ func keyCert(k *store.Key, cert, keyFile string, warnings *[]string) error {
 			return nil
 		}
 	}
-	path, _ = filepath.Abs(expandHome(path))
+	path, _ = filepath.Abs(inventory.ExpandHome(path))
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give the path of the key's certificate, for example ~/.ssh/id_ed25519-cert.pub", "%s: %v", path, errText(err))
@@ -442,7 +442,7 @@ FILE-cert.pub next to the key.`,
 			switch {
 			case want.PassphraseRef == cur.PassphraseRef && want.CertPath == cur.CertPath:
 				res.Action = "unchanged"
-			case cl.flags.dryRun:
+			case cl.dryRun():
 				res.Action = "would_change"
 			}
 			if res.Action == "changed" {
@@ -555,7 +555,7 @@ private key.`,
 				return err
 			}
 			res := keyShown{Key: k}
-			if cl.flags.reveal {
+			if cl.reveal() {
 				if !store.SealedKey(k) && !cl.isAgent() {
 					cl.out.Warn("komando keeps only the path of " + k.Name + ": its private key is the file " + k.Path)
 				} else if via, err := revealGate(cl, "key.show", "key", k.Name, "the private key of "+k.Name); err != nil {
@@ -618,7 +618,7 @@ added stays on disk.`,
 				switch {
 				case deleteFile && !k.Managed:
 					res["note"] = "komando did not create " + k.Path + ", so the file was left in place"
-				case deleteFile && cl.flags.dryRun:
+				case deleteFile && cl.dryRun():
 					res["would_delete_file"] = k.Path
 				case deleteFile:
 					if err := store.RemoveManagedKey(k); err != nil {
@@ -633,7 +633,7 @@ added stays on disk.`,
 				return err
 			}
 			name := res["removed"].(string)
-			if cl.flags.dryRun { // a preview does not read as done
+			if cl.dryRun() { // a preview does not read as done
 				res["would_remove"] = name
 				delete(res, "removed")
 			}
@@ -667,7 +667,7 @@ func deployKey(cl *call, st *store.State, arg string) (name, line string, err er
 		}
 		return k.Name, cleanPubLine(pub, comment), nil
 	}
-	if b, rerr := os.ReadFile(expandHome(arg)); rerr == nil {
+	if b, rerr := os.ReadFile(inventory.ExpandHome(arg)); rerr == nil {
 		pub, comment, _, _, err := ssh.ParseAuthorizedKey(b)
 		if err != nil {
 			return "", "", out.Errf(out.ExitUsage, "KEY_INVALID", "give a .pub file (the public key), not the private key", "%s is not a public key", arg)
@@ -713,7 +713,7 @@ this key.`,
 			match := fields[0] + " " + fields[1]
 			script := `umask 077; mkdir -p ~/.ssh && touch ~/.ssh/authorized_keys && ` +
 				`if grep -qF ` + sshx.Q(match) + ` ~/.ssh/authorized_keys; then echo present; else printf '%s\n' ` + sshx.Q(pubLine) + ` >> ~/.ssh/authorized_keys && echo added; fi`
-			if cl.flags.dryRun {
+			if cl.dryRun() {
 				cl.out.Print("key.deploy", map[string]any{"hosts": hostNames(hosts), "would_run": script}, nil)
 				return nil
 			}

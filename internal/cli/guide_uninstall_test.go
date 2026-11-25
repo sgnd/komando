@@ -51,7 +51,7 @@ func TestGuideUninstallStopsBeforeRemovingAnything(t *testing.T) {
 // Text says what a dry run would do, and asks for a restart only after a
 // change, in words that fit install or uninstall.
 func TestSkillResultText(t *testing.T) {
-	t.Cleanup(func() { tcl.flags.dryRun = false })
+	t.Cleanup(func() { setGate(tcl, false, gateDryRun) })
 	files := []skillFile{{Path: "/h/.claude/skills/komando/SKILL.md", Action: "created"}, {Path: "/h/.claude/settings.json", Action: "unchanged"}}
 	for _, tc := range []struct {
 		dry       bool

@@ -106,7 +106,7 @@ func renameTx(cl *call, plan func(s *store.State) (renameSet, renameOpts, error)
 		if err != nil {
 			return err
 		}
-		if res, moves, err = applyRenames(cl, s, set, opts); err != nil || cl.flags.dryRun || set.size() == 0 {
+		if res, moves, err = applyRenames(cl, s, set, opts); err != nil || cl.dryRun() || set.size() == 0 {
 			return err
 		}
 		if sec := set["secret"]; len(sec) > 0 {
@@ -304,7 +304,7 @@ func (w *refRewriter) via(v string) string {
 // url changes only ?option=secret:NAME in a conn URL: names of buckets,
 // users and databases in it are the resource's own, not komando's.
 func (w *refRewriter) url(u string) string {
-	return mapURLSecretRefs(u, func(_, name string) string {
+	return inventory.MapURLSecretRefs(u, func(_, name string) string {
 		if to, ok := w.rs["secret"][name]; ok {
 			return to
 		}
