@@ -245,6 +245,7 @@ func TestPromptFillValueNeverAFlag(t *testing.T) {
 // stops the fill, whatever put it there (a default, a list row).
 func TestFillLineRefusesDashValue(t *testing.T) {
 	fillTest(t)
+	drawn := promptFake(t)
 	cmd, _, err := newRoot(tcl).Find([]string{"db", "query"})
 	if err != nil {
 		t.Fatal(err)
@@ -259,6 +260,9 @@ func TestFillLineRefusesDashValue(t *testing.T) {
 	}
 	if got, err := f.line([]string{"db", "query"}); err == nil {
 		t.Errorf("a value starting with - was filled in: %v", got)
+	}
+	if want := `CONN "--allow-dangerous" starts with -, which would be read as a flag`; !strings.Contains(drawn.String(), want) {
+		t.Errorf("the reason does not name the argument and its value; want %q in:\n%s", want, drawn)
 	}
 	for _, i := range f.missing {
 		f.a[f.sp.qs[i].key] = "app-db"
