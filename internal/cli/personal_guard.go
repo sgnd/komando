@@ -148,16 +148,18 @@ func personalTarget(st *store.State, hosts []*store.Host, conns []*store.Conn) b
 }
 
 // guardRawCopy stops an AI agent from taking a copy that cannot be masked
-// (a database dump) of a target whose personal data is hidden from it.
-// --reveal, which a person allows on the screen, lets it through. Under
+// (a database dump) of a target whose personal data is hidden from it:
+// the agent would read the file next with its own tools, past the masking.
+// No flag lifts it (C424): a person runs it in their own terminal, and
+// db dump is in revealNever, so --reveal opens no window for it. Under
 // --dry-run the stop is only reported.
 func guardRawCopy(cl *call, st *store.State, c *store.Conn, what string) error {
-	if !cl.out.Mask || !personalTarget(st, nil, []*store.Conn{c}) || cl.revealOK() {
+	if !cl.isAgent() || !personalTarget(st, nil, []*store.Conn{c}) {
 		return nil
 	}
-	return cl.policyStop(out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
-		revealHint(cl, "read what you need with `komando db query` (personal data shows as [hidden: KIND]); if the user wants the whole copy on this computer, run it again with --reveal"),
-		"%s holds every row of %s as it is, and %s hides personal data from AI agents; komando does not write it to this computer for an AI agent", what, c.Name, c.Name))
+	return cl.policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON",
+		"read what you need with `komando db query` (personal data shows as [hidden: KIND]); if the user wants the whole copy on this computer, ask them to run this exact command in their own terminal: "+commandLine(cl),
+		"%s holds every row of %s as it is, and %s hides personal data from AI agents; komando does not write it to this computer for an AI agent", what, c.Name, c.Name).NoFlag())
 }
 
 // guardLink: a download link is the raw object for whoever holds it, past
