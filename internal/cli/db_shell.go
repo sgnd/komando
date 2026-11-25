@@ -406,7 +406,7 @@ func expandedText(res *dbx.Result) string {
 				fmt.Fprintf(&b, "%s%s | %s\n", r.Columns[j].Name, strings.Repeat(" ", w-kitterm.DisplayWidth(r.Columns[j].Name)), cellText(v, true))
 			}
 		}
-		fmt.Fprintf(&b, "(%d row%s)\n", r.RowCount, plural(r.RowCount))
+		fmt.Fprintf(&b, "(%d row%s)\n", r.RowCount, kitterm.Plural(r.RowCount))
 	}
 	return b.String()
 }

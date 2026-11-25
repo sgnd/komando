@@ -17,6 +17,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
@@ -191,9 +192,7 @@ func toErr(err error) *out.Error {
 			Hint: "give it more time with --timeout (for example --timeout 30m), or run long work as a job: `komando job start TARGET -- COMMAND`"}
 	}
 	if errors.Is(err, context.Canceled) {
-		return (&out.Error{Code: "CANCELLED", Message: "interrupted", Exit: out.ExitError,
-			Hint: "it stopped before the end (Ctrl-C or a signal); check what it left, then run it again"}).
-			Say("Stopped (Ctrl-C) before the end; what already ran stays as it is", "check what it left, then run it again")
+		return term.Interrupted()
 	}
 	if e := store.PolicyErr(err); e != nil {
 		return e // a step of sshx or the vault found it, not a load

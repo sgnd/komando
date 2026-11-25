@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -145,7 +146,7 @@ func parseSSHConfig(path string) (hosts []*store.Host, notes []string, err error
 				}
 			}
 			name := pat
-			if !nameRe.MatchString(name) {
+			if !inventory.NameRe.MatchString(name) {
 				notes = append(notes, fmt.Sprintf("Host %s: not a name komando can use (letters, digits, . _ -)", pat))
 				continue
 			}

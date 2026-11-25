@@ -18,12 +18,11 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"sync"
-	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -81,10 +80,6 @@ func pickTableOutput(cmd *cobra.Command) error {
 type exitCode int
 
 func (e exitCode) Error() string { return "exit " + strconv.Itoa(int(e)) }
-
-// vtOK: the terminal on stderr reads escape sequences (colour, clearing a
-// line). Only an old Windows console does not.
-var vtOK = true
 
 // execute runs one command with these arguments in cl: its envelope or
 // text, and its exit code. call.go reaches it through runExecute.
@@ -736,42 +731,12 @@ func outputFormat(cl *call, v string) (string, bool) {
 	return "", false
 }
 
-// signalContext is cancelled by the first Ctrl-C (or SIGTERM, or SIGHUP:
-// the terminal closed), so the command stops cleanly. A second one ends
-// komando at once, as with kubectl and gh, when the clean stop hangs: it
-// first removes the temporary files and folders this run made
-// (tmpclean), which the clean stop would have removed. A SIGHUP that was
-// ignored when komando started (nohup, a background holder) stays ignored.
+// signalContext is cancelled by the first Ctrl-C (or SIGTERM, or SIGHUP),
+// so the command stops cleanly; a second one ends komando at once through
+// hardStop (term.SignalContext has the rules). The closure reads hardStop
+// when the signal comes, so a test that replaces hardStop sees its own.
 func signalContext(parent context.Context) (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(parent)
-	sigs := []os.Signal{os.Interrupt, syscall.SIGTERM}
-	if !signal.Ignored(syscall.SIGHUP) {
-		sigs = append(sigs, syscall.SIGHUP)
-	}
-	ch := make(chan os.Signal, 2)
-	signal.Notify(ch, sigs...)
-	done := make(chan struct{})
-	go func() {
-		select {
-		case <-ch:
-			cancel()
-		case <-done:
-			return
-		}
-		select {
-		case s := <-ch:
-			hardStop(s)
-		case <-done:
-		}
-	}()
-	var once sync.Once
-	return ctx, func() {
-		once.Do(func() {
-			cancel()
-			signal.Stop(ch)
-			close(done)
-		})
-	}
+	return term.SignalContext(parent, func(s os.Signal) { hardStop(s) })
 }
 
 // hardStop ends komando on a second signal s, after removing this run's

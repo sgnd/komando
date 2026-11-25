@@ -77,3 +77,35 @@ func TestDockerRunsNestedClearsFailClosed(t *testing.T) {
 		}
 	}
 }
+
+// Text over 64 KiB is not read pass by pass: with COMPOSE_ in it the folder
+// is unknown at once, even when the one setting in it is cleared, and
+// without COMPOSE_ the folder is known at once. The answers differ when the
+// size cutoff or the no-COMPOSE_ shortcut is missing.
+func TestSetsComposeSizeCutoff(t *testing.T) {
+	pad := strings.Repeat("x ", 33<<10) // over 64 KiB
+	cleared := "env -u COMPOSE_FILE docker compose up -d; echo " + pad
+	plain := "docker compose up -d; echo " + pad
+	if len(cleared) <= 64<<10 || len(plain) <= 64<<10 {
+		t.Fatal("inputs must be over 64 KiB")
+	}
+	for name, c := range map[string]struct {
+		cmd  string
+		want bool
+	}{"COMPOSE_ cleared": {cleared, true}, "no COMPOSE_": {plain, false}} {
+		done := make(chan bool, 1)
+		go func() { done <- setsCompose(c.cmd) }()
+		select {
+		case got := <-done:
+			if got != c.want {
+				t.Errorf("%s over 64 KiB: setsCompose = %v, want %v", name, got, c.want)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatalf("%s: setsCompose did not finish in 2s", name)
+		}
+		runs := DockerRuns(c.cmd)
+		if len(runs) != 1 || runs[0].DirKnown == c.want {
+			t.Errorf("%s over 64 KiB: want one run with DirKnown=%v, got %+v", name, !c.want, runs)
+		}
+	}
+}

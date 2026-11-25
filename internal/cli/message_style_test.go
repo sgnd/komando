@@ -575,8 +575,8 @@ func TestRiskReasons(t *testing.T) {
 // M-12, M-13: the fixed stop lines, and one note for cut output.
 func TestStopLines(t *testing.T) {
 	for file, line := range map[string]string{
-		"prompter_fill.go": `Cancel("Cancelled. Nothing was changed.")`,
-		"common.go":        `Say("Stopped (Ctrl-C) before the end; what already ran stays as it is", "check what it left, then run it again")`,
+		"prompter_fill.go":        `Cancel("Cancelled. Nothing was changed.")`,
+		"kit/term/interrupted.go": `Say("Stopped (Ctrl-C) before the end; what already ran stays as it is", "check what it left, then run it again")`,
 	} {
 		b, err := os.ReadFile(file)
 		if err != nil {

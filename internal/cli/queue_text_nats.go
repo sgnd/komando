@@ -21,7 +21,7 @@ func natsInfoText(d *queuex.Info) string {
 		name = d.ServerName + " (" + d.ServerID + ")"
 	}
 	fmt.Fprintf(&b, "server:  NATS %s, %s\ncluster: %s\naddress: %s\nlargest message: %s\n", orDash(d.Version), name,
-		orDash(d.ClusterName), d.Connected, humanBytes(d.MaxPayload))
+		orDash(d.ClusterName), d.Connected, term.HumanBytes(d.MaxPayload))
 	if !d.JetStream {
 		b.WriteString("\nJetStream: off for this account (no streams; plain NATS keeps no messages)\n")
 		return b.String()
@@ -32,7 +32,7 @@ func natsInfoText(d *queuex.Info) string {
 	if a := d.Account; a != nil {
 		fmt.Fprintf(&b, "\nJetStream for this account: %s (of %s), %s (of %s)\nstorage: %s on file (of %s), %s in memory (of %s)\n",
 			countOf(a.Streams, "stream"), limitOf(int64(a.MaxStreams), false), countOf(a.Consumers, "consumer"), limitOf(int64(a.MaxConsumers), false),
-			humanBytes(int64(a.Storage)), limitOf(a.MaxStorage, true), humanBytes(int64(a.Memory)), limitOf(a.MaxMemory, true))
+			term.HumanBytes(int64(a.Storage)), limitOf(a.MaxStorage, true), term.HumanBytes(int64(a.Memory)), limitOf(a.MaxMemory, true))
 	}
 	return b.String()
 }
@@ -43,7 +43,7 @@ func limitOf(n int64, bytes bool) string {
 	case n <= 0:
 		return "no limit"
 	case bytes:
-		return humanBytes(n)
+		return term.HumanBytes(n)
 	}
 	return strconv.FormatInt(n, 10)
 }
@@ -51,7 +51,7 @@ func limitOf(n int64, bytes bool) string {
 func natsStreamsText(ts []queuex.Topic) string {
 	rows := make([][]string, 0, len(ts))
 	for _, t := range ts {
-		rows = append(rows, []string{t.Name, strings.Join(t.Subjects, ","), strconv.FormatInt(t.Messages, 10), humanBytes(int64(t.Bytes)),
+		rows = append(rows, []string{t.Name, strings.Join(t.Subjects, ","), strconv.FormatInt(t.Messages, 10), term.HumanBytes(int64(t.Bytes)),
 			strconv.Itoa(t.ConsumerCount), t.Storage, t.Retention, strconv.Itoa(t.NumReplicas)})
 	}
 	return term.LayoutTable([]string{"STREAM", "SUBJECTS", "MESSAGES", "SIZE", "CONSUMERS", "STORAGE", "RETENTION", "REPLICAS"}, rows)
@@ -64,7 +64,7 @@ func natsStreamText(t *queuex.TopicDetail) string {
 	if d.Description != "" {
 		b.WriteString(d.Description + "\n")
 	}
-	fmt.Fprintf(&b, "subjects: %s\nmessages: %d (%s), sequence %d to %d", strings.Join(d.Subjects, ", "), t.Messages, humanBytes(int64(d.Bytes)), d.FirstSeq, d.LastSeq)
+	fmt.Fprintf(&b, "subjects: %s\nmessages: %d (%s), sequence %d to %d", strings.Join(d.Subjects, ", "), t.Messages, term.HumanBytes(int64(d.Bytes)), d.FirstSeq, d.LastSeq)
 	if d.NumDeleted > 0 {
 		fmt.Fprintf(&b, ", %d deleted in between", d.NumDeleted)
 	}
@@ -181,13 +181,13 @@ func natsPeekText(p *queuex.PeekResult) string {
 
 func natsSentText(s *queuex.Sent) string {
 	if s.DryRun {
-		return fmt.Sprintf("would send %s to %s, kept by stream %s (nothing sent)\n", humanBytes(int64(s.Size)), s.Subject, s.Stream)
+		return fmt.Sprintf("would send %s to %s, kept by stream %s (nothing sent)\n", term.HumanBytes(int64(s.Size)), s.Subject, s.Stream)
 	}
 	dup := ""
 	if s.Duplicate {
 		dup = " (a duplicate: the stream had a message with this Nats-Msg-Id already, and kept only that one)"
 	}
-	return fmt.Sprintf("sent %s to %s; stream %s keeps it as sequence %d%s\n", humanBytes(int64(s.Size)), s.Subject, s.Stream, *s.Sequence, dup)
+	return fmt.Sprintf("sent %s to %s; stream %s keeps it as sequence %d%s\n", term.HumanBytes(int64(s.Size)), s.Subject, s.Stream, *s.Sequence, dup)
 }
 
 func natsCreatedText(c *queuex.Created) string {

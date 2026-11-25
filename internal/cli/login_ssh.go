@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
@@ -94,9 +95,9 @@ type loginResult struct {
 func (r loginResult) Text() string {
 	left := humanAge(time.Until(r.Until))
 	if r.Already {
-		return fmt.Sprintf("already logged in to %s for %s more; `komando logout %s` ends it\n", cleanText(r.Host), left, cleanText(r.Host))
+		return fmt.Sprintf("already logged in to %s for %s more; `komando logout %s` ends it\n", term.CleanText(r.Host), left, term.CleanText(r.Host))
 	}
-	return fmt.Sprintf("logged in to %s; commands to it (an AI agent's too) use this login for %s, or until `komando logout %s`\n", cleanText(r.Host), left, cleanText(r.Host))
+	return fmt.Sprintf("logged in to %s; commands to it (an AI agent's too) use this login for %s, or until `komando logout %s`\n", term.CleanText(r.Host), left, term.CleanText(r.Host))
 }
 
 // heldAlive reports whether l's process still runs.
@@ -211,7 +212,7 @@ func startHolder(cl *call, h *store.Host, keep time.Duration) (*store.SSHLogin, 
 		case "ERROR":
 			var e holderError
 			if json.Unmarshal([]byte(rest), &e) != nil || e.Code == "" {
-				return fail(out.Errf(out.ExitConnect, "LOGIN_FAILED", "a person reads the whole log in "+logFile, "the login to %s failed: %s", h.Name, cleanText(rest)))
+				return fail(out.Errf(out.ExitConnect, "LOGIN_FAILED", "a person reads the whole log in "+logFile, "the login to %s failed: %s", h.Name, term.CleanText(rest)))
 			}
 			if cancelled != nil {
 				return fail(cancelled)
@@ -250,7 +251,7 @@ type holderError struct {
 
 func finalLine(s string) string {
 	lines := strings.Split(strings.TrimSpace(s), "\n")
-	return cleanText(lines[len(lines)-1])
+	return term.CleanText(lines[len(lines)-1])
 }
 
 // safeFileName is name with only letters, digits, dot, dash and underscore.
@@ -540,10 +541,10 @@ type logoutData struct {
 func (d logoutData) Text() string {
 	var sb strings.Builder
 	for _, n := range d.LoggedOut {
-		sb.WriteString("logged out of " + cleanText(n) + "\n")
+		sb.WriteString("logged out of " + term.CleanText(n) + "\n")
 	}
 	for _, n := range d.NotLoggedIn {
-		sb.WriteString(cleanText(n) + " was not logged in\n")
+		sb.WriteString(term.CleanText(n) + " was not logged in\n")
 	}
 	if sb.Len() == 0 {
 		sb.WriteString("no kept logins, so nothing to end (`komando status` lists them)\n")

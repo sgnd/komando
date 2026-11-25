@@ -9,6 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -18,7 +20,7 @@ func cancelledText(cl *call) string {
 	if len(cl.askedAbout) == 0 {
 		return "Cancelled. Nothing was changed."
 	}
-	return "Cancelled. Nothing was changed on " + joinAnd(cl.askedAbout) + "."
+	return "Cancelled. Nothing was changed on " + term.JoinAnd(cl.askedAbout) + "."
 }
 
 // changeSay says what a change did, first, in words: "added web1 to
@@ -35,14 +37,6 @@ func changeSay(cl *call, verb, what, where string) string {
 	return s
 }
 
-// joinAnd lists names for a sentence: "a", "a and b", "a, b and c".
-func joinAnd(names []string) string {
-	if len(names) < 2 {
-		return strings.Join(names, "")
-	}
-	return strings.Join(names[:len(names)-1], ", ") + " and " + names[len(names)-1]
-}
-
 // Text-mode words for a person at a safety stop. JSON keeps the stable
 // message and hint; an AI agent gets its own hint from approvalHint.
 const (
@@ -54,7 +48,7 @@ func protectedSay(names []string, kind string) string {
 	if len(names) == 1 {
 		return fmt.Sprintf("%s is a protected %s (production), so komando asks before changing it", names[0], kind)
 	}
-	return fmt.Sprintf("%s are protected (production), so komando asks before changing them", joinAnd(names))
+	return fmt.Sprintf("%s are protected (production), so komando asks before changing them", term.JoinAnd(names))
 }
 
 func dangerSay(reasons []string) string {
@@ -79,7 +73,7 @@ func connWord(conns []*store.Conn, names []string) string {
 		if !slices.Contains(names, c.Name) {
 			continue
 		}
-		f, ok := familyWord[connFamily(c)]
+		f, ok := familyWord[inventory.ConnFamily(c)]
 		if !ok || w != "" && w != f[0] {
 			return "conn"
 		}
@@ -154,7 +148,7 @@ func wantedNames(st *store.State, wanted, family string) (one, many string, name
 	}
 	conns := func(family string) {
 		for _, c := range st.SortedConns() {
-			if family == "" || connFamily(c) == family {
+			if family == "" || inventory.ConnFamily(c) == family {
 				names = append(names, c.Name)
 			}
 		}
@@ -199,7 +193,7 @@ func otherKindSay(st *store.State, cmd *cobra.Command, kind, name, one string) (
 		what, use = "a server", "use it with `komando exec` and the other server commands"
 	case "conn":
 		c := st.Conns[name]
-		f := connFamily(c)
+		f := inventory.ConnFamily(c)
 		if w, ok := familyWord[f]; one == "conn" || one == "server, conn or VPN" || ok && w[0] == one {
 			return "", ""
 		}

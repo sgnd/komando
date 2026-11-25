@@ -14,6 +14,7 @@ import (
 
 	"github.com/pkg/sftp"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/storex"
@@ -211,7 +212,7 @@ func sudoDownload(cl *call, ctx context.Context, c *sshx.Client, src, dst string
 		return xferStats{}, out.Errf(out.ExitRemote, "READ_FAILED", "check the path and its permissions with `komando fs stat SERVER PATH`, or add --sudo", "%s", strings.TrimSpace(r.Stderr))
 	case r.StdoutTruncated:
 		return xferStats{}, out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "copy it to a place the SSH user can read with `komando exec TARGET --sudo -- cp PATH /tmp/`, then download that",
-			"%s is larger than %s, the most a --sudo download reads", src, humanBytes(sudoMaxBytes))
+			"%s is larger than %s, the most a --sudo download reads", src, term.HumanBytes(sudoMaxBytes))
 	}
 	if intoDir {
 		dst = filepath.Join(dst, path.Base(src))

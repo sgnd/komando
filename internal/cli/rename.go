@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -58,7 +59,7 @@ func (r renameResult) Text() string {
 		for _, p := range r.Renamed[k] {
 			row := []string{k, p.From, p.To}
 			if len(r.Protected) > 0 {
-				row = append(row, yesCell(p.Protected))
+				row = append(row, term.YesCell(p.Protected))
 			}
 			rows = append(rows, row)
 		}

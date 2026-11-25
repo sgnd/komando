@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/sftp"
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
@@ -102,7 +103,7 @@ func streamTo(cl *call, ctx context.Context, w io.Writer, get func(io.Writer) (i
 	}
 	if c.full {
 		return streamed{}, out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "save it to a file with --to FILE",
-			"the file is larger than %s, the most komando streams to an AI agent (it checks the whole file for secret values first)", humanBytes(hiddenScanMax))
+			"the file is larger than %s, the most komando streams to an AI agent (it checks the whole file for secret values first)", term.HumanBytes(hiddenScanMax))
 	}
 	b := c.buf.Bytes()
 	text := string(b)
@@ -268,7 +269,7 @@ func (s *stdinSource) Read(p []byte) (int, error) {
 	case s.sized && s.n > s.size:
 		s.err = sizeMismatch(s.size, "more")
 	case err == io.EOF && s.sized && s.n != s.size:
-		s.err = sizeMismatch(s.size, humanBytes(s.n)+" and stopped")
+		s.err = sizeMismatch(s.size, term.HumanBytes(s.n)+" and stopped")
 	case err == io.EOF && len(s.head) <= hiddenScanMax && out.HasHidden(string(s.head)):
 		s.err = out.Errf(out.ExitUsage, "HIDDEN_VALUE",
 			"edit the file on the server with `komando fs replace` (an --old with [hidden] in it matches the hidden value), and put a secret in with {{secret:NAME}}",

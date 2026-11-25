@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -73,9 +74,9 @@ func keepTargets(names []string, kinds string) []string {
 		case "servers":
 			ok = !isConn && !isVpn
 		case "clusters":
-			ok = !isHost && !isVpn && (!isConn || connFamily(c) == "cluster")
+			ok = !isHost && !isVpn && (!isConn || inventory.ConnFamily(c) == "cluster")
 		case "servers or file storage":
-			ok = !isVpn && (!isConn || connFamily(c) == "storage")
+			ok = !isVpn && (!isConn || inventory.ConnFamily(c) == "storage")
 		case "conns":
 			ok = !isHost && !isVpn
 		case "VPNs":

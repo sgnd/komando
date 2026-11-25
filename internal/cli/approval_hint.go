@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 )
 
@@ -32,7 +33,7 @@ func stdApprovalHint(cl *call, e *out.Error) bool {
 // approvalText is the hint for flags: for an AI agent or not, in a dry
 // run or not.
 func approvalText(cl *call, flags []string, agent, dry bool) string {
-	f := joinAnd(flags)
+	f := term.JoinAnd(flags)
 	const window = " (komando then asks them in a window on their screen)"
 	args := cl.args[1:]
 	switch {

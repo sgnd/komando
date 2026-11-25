@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/sgnd/komando/internal/cli/kit/term"
 )
 
 // emptyLine is S-9.5: `no <things> yet` with the add command, or
@@ -59,17 +61,17 @@ func TestStandardEmptyLines(t *testing.T) {
 }
 
 // S-9.6: tables write a boolean as yes or -, a moment as local time with
-// its zone, an age as 3h, and header words with spaces, through yesCell,
-// timeCell and ageCell.
+// its zone, an age as 3h, and header words with spaces, through term.YesCell,
+// term.TimeCell and ageCell.
 func TestStandardTableCells(t *testing.T) {
-	if yesCell(true) != "yes" || yesCell(false) != "-" || ageCell(time.Time{}) != "-" || timeCell(time.Time{}) != "-" {
+	if term.YesCell(true) != "yes" || term.YesCell(false) != "-" || ageCell(time.Time{}) != "-" || term.TimeCell(time.Time{}) != "-" {
 		t.Error("yesCell, ageCell or timeCell")
 	}
 	if got := ageCell(time.Now().Add(-3 * time.Hour)); got != "3h" {
 		t.Errorf("ageCell: %q", got)
 	}
 	at := time.Date(2026, 11, 7, 7, 30, 0, 0, time.UTC)
-	if got, want := timeCell(at), at.Local().Format("2006-01-02 15:04 ")+at.Local().Format("MST"); got != want || !strings.Contains(got, " ") {
+	if got, want := term.TimeCell(at), at.Local().Format("2006-01-02 15:04 ")+at.Local().Format("MST"); got != want || !strings.Contains(got, " ") {
 		t.Errorf("timeCell: %q, want %q", got, want)
 	}
 	bad := map[string]*regexp.Regexp{

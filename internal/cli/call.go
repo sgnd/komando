@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	kitterm "github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/engine"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -266,9 +267,9 @@ func Execute() int {
 	noCoreDumps() // a crash writes no memory, secrets and all, to disk
 	noPeek()      // Linux: no process of the same user reads komando's memory
 	// a Windows console shows colour and line clearing only when asked
-	ok, restore := consoleVT(int(os.Stderr.Fd()))
+	ok, restore := kitterm.ConsoleVT(int(os.Stderr.Fd()))
 	defer restore()
-	vtOK = ok
+	kitterm.VTOK = ok
 	// the store is closed when the program ends
 	defer store.Close()
 	cl := newCall(processCall(), os.Args[1:])

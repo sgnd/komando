@@ -229,9 +229,9 @@ func promptRows(cl *call, rows []pickRow) {
 		w = max(w, kitterm.DisplayWidth(r.label))
 	}
 	for i, r := range rows[:min(len(rows), promptMaxRows)] {
-		line := fmt.Sprintf("  %2d  %s", i+1, cleanText(r.label))
+		line := fmt.Sprintf("  %2d  %s", i+1, kitterm.CleanText(r.label))
 		if r.detail != "" {
-			line += strings.Repeat(" ", w-kitterm.DisplayWidth(r.label)+2) + cleanText(r.detail)
+			line += strings.Repeat(" ", w-kitterm.DisplayWidth(r.label)+2) + kitterm.CleanText(r.detail)
 		}
 		fmt.Fprintln(promptW(cl), line)
 	}
@@ -295,7 +295,7 @@ func readMaskedLine(cl *call, label string, mask func(string) string) (string, e
 	drawn := 0 // characters on the line, for a console without escape sequences
 	draw := func() {
 		shown := label + mask(string(line))
-		if vtOK {
+		if kitterm.VTOK {
 			fmt.Fprint(promptW(cl), "\r\x1b[2K"+shown)
 			return
 		}
@@ -315,7 +315,7 @@ func readMaskedLine(cl *call, label string, mask func(string) string) (string, e
 			case c == 3: // Ctrl-C
 				fmt.Fprint(promptW(cl), "\r\n")
 				cl.interrupted = true
-				return "", interruptedErr()
+				return "", kitterm.Interrupted()
 			case c == '\r' || c == '\n' || c == 4 && len(line) == 0:
 				fmt.Fprint(promptW(cl), "\r\n")
 				return string(line), nil

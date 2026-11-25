@@ -8,6 +8,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -108,9 +109,9 @@ func FuzzCleanText(f *testing.F) {
 		f.Add(s)
 	}
 	f.Fuzz(func(t *testing.T, s string) {
-		for _, r := range cleanText(s) {
+		for _, r := range term.CleanText(s) {
 			if unicode.IsControl(r) || unicode.Is(unicode.Bidi_Control, r) {
-				t.Fatalf("cleanText(%q) kept %U", s, r)
+				t.Fatalf("term.CleanText(%q) kept %U", s, r)
 			}
 		}
 	})
