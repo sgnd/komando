@@ -24,7 +24,7 @@ import (
 // gateFields are the fields of a gate: the four gate flags and who is
 // calling. A write to a field of that name is a write to a gate, unless it
 // is reviewed here as something else.
-var gateFields = map[string]bool{"dryRun": true, "yes": true, "allowDangerous": true, "reveal": true, "who": true}
+var gateFields = map[string]bool{"dryRun": true, "yes": true, "allowDangerous": true, "reveal": true, "who": true, "hooks": true}
 
 // programGateWriters is every place the program code of internal/cli stores
 // a gate (g.Store), writes a gate's field, or makes a gate value (gate{}):
@@ -200,25 +200,27 @@ func TestOneWayGateMethodsHaveTheirCallers(t *testing.T) {
 	}
 }
 
-// TestDecisionsLoadTheGateOnce: each decision loads the running command's
-// gate once and reads every flag and the caller from that one value, so a
-// gate stored while it decides (the next command of a long-lived call)
-// never mixes into it.
+// gateDeciders are the decisions the gate makes, as methods of *gate. The
+// call keeps a forwarder of the same name for each, except
+// personAllowsFlags, which only the gate's own decisions use.
+var gateDeciders = []string{"yesOK", "yesOKFor", "dangerOK", "dangerAndYesOK", "revealOK",
+	"personAllows", "personAllowsFor", "personAllowsFlags", "policyStop", "storeWrite"}
+
+// TestDecisionsLoadTheGateOnce: each decision is a method of the gate, so
+// it reads every flag and the caller from that one value and loads
+// nothing; the call's forwarder of the same name loads the gate once.
 func TestDecisionsLoadTheGateOnce(t *testing.T) {
-	deciders := map[string]bool{"yesOK": true, "yesOKFor": true, "dangerOK": true, "dangerAndYesOK": true, "revealOK": true,
-		"personAllows": true, "personAllowsFor": true, "personAllowsFlags": true, "policyStop": true, "storeWrite": true}
 	loads := map[string]bool{"gate": true, "dryRun": true, "yes": true, "allowDangerous": true, "reveal": true, "caller": true, "isAgent": true}
-	seen := map[string]int{}
+	onGate, onCall := map[string]int{}, map[string]int{}
 	goFiles(t, func(name string, test bool, file *ast.File) {
 		if test {
 			return
 		}
 		for _, d := range file.Decls {
 			fd, ok := d.(*ast.FuncDecl)
-			if !ok || fd.Recv == nil || !deciders[fd.Name.Name] {
+			if !ok || fd.Recv == nil || !slices.Contains(gateDeciders, fd.Name.Name) {
 				continue
 			}
-			seen[fd.Name.Name]++
 			n := 0
 			ast.Inspect(fd.Body, func(x ast.Node) bool {
 				if c, ok := x.(*ast.CallExpr); ok {
@@ -228,16 +230,78 @@ func TestDecisionsLoadTheGateOnce(t *testing.T) {
 				}
 				return true
 			})
-			if n > 1 {
-				t.Errorf("%s: %s loads the gate %d times; load it once (g := cl.gate()) and read from g", name, fd.Name.Name, n)
+			switch types.ExprString(fd.Recv.List[0].Type) {
+			case "*gate":
+				onGate[fd.Name.Name]++
+				if n != 0 {
+					t.Errorf("%s: (*gate).%s loads a gate %d times; read g's fields", name, fd.Name.Name, n)
+				}
+			case "*call":
+				onCall[fd.Name.Name]++
+				if n != 1 {
+					t.Errorf("%s: (*call).%s loads the gate %d times; forward to cl.gate() once", name, fd.Name.Name, n)
+				}
 			}
 		}
 	})
-	for d := range deciders {
-		if seen[d] != 1 {
-			t.Errorf("decision %s: found %d times, want 1 (renamed or moved? update this list)", d, seen[d])
+	for _, d := range gateDeciders {
+		if onGate[d] != 1 {
+			t.Errorf("decision %s: %d methods on *gate, want 1", d, onGate[d])
+		}
+		if want := map[bool]int{true: 0, false: 1}[d == "personAllowsFlags"]; onCall[d] != want {
+			t.Errorf("decision %s: %d forwarders on *call, want %d", d, onCall[d], want)
 		}
 	}
+}
+
+// gateMayCall is everything a method of the gate may call besides the
+// gate's own methods, its hooks (g.hooks) and the approval session the
+// hooks give it: pure helpers that neither write nor prompt.
+var gateMayCall = map[string]bool{"append": true, "flagKind": true, "tookGaveUp": true, "slices.ContainsFunc": true,
+	"store.Preview": true, "store.Save": true, "g.who.IsAgent": true}
+
+// TestGateOnlyDecides (Audit K2-0, condition 1): the gate decides; it does
+// not write or prompt. A method of *gate reaches the call it decides for
+// only through g.hooks, given to newGate and never set after
+// (TestGateWritersAreReviewed), so it prints, records and asks only through
+// them, and cli cannot swap them in the middle of a command.
+func TestGateOnlyDecides(t *testing.T) {
+	goFiles(t, func(name string, test bool, file *ast.File) {
+		if test {
+			return
+		}
+		for _, d := range file.Decls {
+			fd, ok := d.(*ast.FuncDecl)
+			if !ok || fd.Recv == nil || types.ExprString(fd.Recv.List[0].Type) != "*gate" || fd.Body == nil {
+				continue
+			}
+			sess := map[string]bool{} // locals that hold g.hooks.approvals()
+			ast.Inspect(fd.Body, func(x ast.Node) bool {
+				if as, ok := x.(*ast.AssignStmt); ok && len(as.Rhs) == 1 {
+					if c, ok := as.Rhs[0].(*ast.CallExpr); ok && types.ExprString(c.Fun) == "g.hooks.approvals" {
+						sess[types.ExprString(as.Lhs[0])] = true
+					}
+				}
+				c, ok := x.(*ast.CallExpr)
+				if !ok {
+					return true
+				}
+				fn := types.ExprString(c.Fun)
+				if _, lit := c.Fun.(*ast.FuncLit); lit {
+					return true
+				}
+				recv, _, _ := strings.Cut(fn, ".")
+				switch {
+				case gateMayCall[fn], strings.HasPrefix(fn, "g.hooks."), sess[recv]:
+				case strings.HasPrefix(fn, "g.") && strings.Count(fn, ".") == 1:
+				case strings.HasPrefix(fn, "func("), fn == "k" || fn == "f":
+				default:
+					t.Errorf("%s: (*gate).%s calls %s: the gate decides, it does not write or prompt; go through g.hooks", name, fd.Name.Name, fn)
+				}
+				return true
+			})
+		}
+	})
 }
 
 // goFiles calls fn with every Go file of internal/cli and the packages
