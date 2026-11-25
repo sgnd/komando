@@ -827,6 +827,8 @@ func TestGuardRefusesChangesToItself(t *testing.T) {
 		{"Bash", map[string]any{"command": "ln -s /tmp/x ~/bin/Komando"}},
 		{"Bash", map[string]any{"command": "mv /tmp/x " + home + "/bin/komando"}},
 		{"Write", map[string]any{"file_path": home + "/bin/komando"}},
+		{"Bash", map[string]any{"command": "cp /tmp/x ~/bin/KOMANDO.EXE"}},
+		{"Write", map[string]any{"file_path": home + "/bin/komando.exe"}},
 	}
 	for _, c := range refused {
 		if d := checkTool(tcl, c.tool, c.in, home, home); !d.Deny {
@@ -926,6 +928,16 @@ func TestGuardKomandoFolderException(t *testing.T) {
 	if d := checkTool(tcl, "Write", map[string]any{"file_path": filepath.Join(link, "komando")}, home, home); !d.Deny {
 		t.Error("a Write to a link named komando: want a refusal")
 	}
+	file := filepath.Join(home, "tools", "komando")
+	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if d := checkTool(tcl, "Bash", map[string]any{"command": "chmod 755 " + file}, home, home); !d.Deny {
+		t.Error("chmod of an existing file named komando: want a refusal")
+	}
 }
 
 // With no full path for komando, guide install writes no hook (a bare name
@@ -940,6 +952,14 @@ func TestGuardHookNeedsAFullPath(t *testing.T) {
 	}
 	if _, _, err := hookProgram(true); toErr(err).Code != "GUARD_PROGRAM_UNKNOWN" {
 		t.Errorf("project install without a full path: %v, want GUARD_PROGRAM_UNKNOWN", err)
+	}
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if err := runRoot(t, "guide", "install"); toErr(err).Code != "GUARD_PROGRAM_UNKNOWN" {
+		t.Errorf("guide install without a full path: %v, want GUARD_PROGRAM_UNKNOWN", err)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".claude", "settings.json")); err == nil {
+		t.Error("guide install wrote a hook without a full path")
 	}
 	for _, h := range []string{"claude", "codex"} {
 		if p := guardHookProblem(guardHookLine("komando", h)); !strings.Contains(p, "not a full path") {
