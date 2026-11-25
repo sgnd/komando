@@ -79,7 +79,7 @@ or a listed one is gone.
 | `internal/capability` | the command tree of the next command structure as data: types, providers, areas, verbs, options and tier rows; until the switch, `internal/cli` reads only the keys of its safety tables from it |
 | `internal/ci` | test only: runs the scripts inside the GitHub workflows (the CLA check) |
 | `internal/cli` | every command: flags, safety checks, audit and output |
-| `internal/cli/kit/term` | what every command prints: terminal column widths, text tables and the line of an empty list; no cobra, no komando state. Code every command package shares moves into `kit` one part at a time |
+| `internal/cli/kit/term` | what every command prints: terminal column widths, text tables, the line of an empty list and whether the terminal reads escape sequences; no cobra, no komando state. Code every command package shares moves into `kit` one part at a time |
 | `internal/cloud` | komando's own clients for cloud and secret-manager APIs |
 | `internal/gcpadc` | finds Google application-default credentials for every client that uses them, after checking where the file found would send what |
 | `internal/codesize` | test only: the 100-line and 800-line limits |
@@ -87,6 +87,7 @@ or a listed one is gone.
 | `internal/driver` | the kinds of conns and the risk levels the safety checks use |
 | `internal/engine` | one komando call: who makes it and its approvals |
 | `internal/flock` | a file lock between komando processes |
+| `internal/inventory` | the rules for what goes into the inventory: names and the shared name space, login names, ports, labels, `--via` paths and conn families; nothing of `internal/cli` |
 | `internal/ipsec` | komando's own IKEv1 and IKEv2 clients |
 | `internal/kube` | the Kubernetes API over HTTPS, without client-go |
 | `internal/l2tp` | komando's own L2TP client |
@@ -135,7 +136,7 @@ code.
 
 | Package | May import |
 |---|---|
-| `internal/cli/kit/term` | std, `internal/out`, `golang.org/x/text` |
+| `internal/cli/kit/term` | std, `internal/out`, `golang.org/x/text`, `golang.org/x/sys/windows` |
 
 ## Files in internal/cli
 
