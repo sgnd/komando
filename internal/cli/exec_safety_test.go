@@ -32,6 +32,9 @@ type fakeServer struct {
 	// answer, when set, gives each exec's whole stdout and exit status
 	// instead of chunks
 	answer func(cmd string) (string, int)
+	// answerIn is answer for a server that reads the whole input first
+	// (the PowerShell bootstrap carries its script on stdin)
+	answerIn func(cmd, stdin string) (string, int)
 }
 
 type fakeExec struct{ cmd, stdin string }
@@ -135,9 +138,19 @@ func (s *fakeServer) serve(nc net.Conn, cfg *ssh.ServerConfig) {
 				}
 				var p struct{ Cmd string }
 				_ = ssh.Unmarshal(r.Payload, &p)
+				var early string
+				if s.answerIn != nil {
+					b, _ := io.ReadAll(ch)
+					early = string(b)
+				}
 				s.mu.Lock()
-				s.execs = append(s.execs, fakeExec{cmd: p.Cmd})
+				s.execs = append(s.execs, fakeExec{cmd: p.Cmd, stdin: early})
 				i, chunks, status := len(s.execs)-1, s.chunks, 0
+				if s.answerIn != nil {
+					var o string
+					o, status = s.answerIn(p.Cmd, early)
+					chunks = []string{o}
+				}
 				if s.answer != nil {
 					var o string
 					o, status = s.answer(p.Cmd)
@@ -149,7 +162,7 @@ func (s *fakeServer) serve(nc net.Conn, cfg *ssh.ServerConfig) {
 					go func() {
 						b, _ := io.ReadAll(ch)
 						s.mu.Lock()
-						if i < len(s.execs) {
+						if i < len(s.execs) && s.answerIn == nil {
 							s.execs[i].stdin = string(b)
 						}
 						s.mu.Unlock()
