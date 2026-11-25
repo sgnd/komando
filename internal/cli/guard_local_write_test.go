@@ -88,9 +88,13 @@ func TestAgentLocalWriteCommands(t *testing.T) {
 	if after, _ := os.ReadFile(filepath.Join(home, ".komando", "store.db")); !bytes.Equal(before, after) && len(before) > 0 {
 		t.Error("komando's store changed")
 	}
-	// another folder is fine
-	to := filepath.Join(t.TempDir(), "lite.db")
-	mustRun(t, "db", "dump", "lite", "--to", to)
+	// another folder is fine for the local-write check; an agent's dump
+	// still needs a person there (C424, TestAgentDumpNeedsPersonOnEveryConn)
+	dir := t.TempDir()
+	mustRun(t, "export", "--to", filepath.Join(dir, "list.json"))
+	if _, e := invRun(t, "db", "dump", "lite", "--to", filepath.Join(dir, "lite.db")); e == nil || e.Code != "NEEDS_PERSON" {
+		t.Errorf("an agent's dump to another folder: want NEEDS_PERSON, got %+v", e)
+	}
 }
 
 // Each writer checks its destination itself, so a command that reaches it
