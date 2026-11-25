@@ -40,7 +40,7 @@ func TestImportSafetySettingsNeedAPerson(t *testing.T) {
 			}
 			// the person says yes in the window
 			asAgent(t, true, true)
-			tcl.flags.yes = true
+			setGate(tcl, true, gateYes)
 			if _, e := invRun(t, "import", "komando", f, "--overwrite", "--yes"); e != nil {
 				t.Fatalf("with the person's yes: %+v", e)
 			}

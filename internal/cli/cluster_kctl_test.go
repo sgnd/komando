@@ -202,10 +202,10 @@ func TestKctlWrite(t *testing.T) {
 	}
 	// --dry-run reaches the server as dryRun=All
 	saved := tcl.flags.dryRun
-	tcl.flags.dryRun = true
+	setGate(tcl, true, gateDryRun)
 	f.writes = nil
 	_, so, _ := run("scale", "deploy/web", "--replicas=0")
-	tcl.flags.dryRun = saved
+	setGate(tcl, saved, gateDryRun)
 	if !strings.Contains(so, "(server dry run)") || !strings.Contains(strings.Join(f.writes, ""), " All ") {
 		t.Errorf("dry run: %q %v", so, f.writes)
 	}

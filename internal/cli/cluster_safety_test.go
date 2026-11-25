@@ -211,8 +211,8 @@ func TestClusterRunDryRunSendsNothingReal(t *testing.T) {
 func TestKctlCreateTokenDryRun(t *testing.T) {
 	l := newLabCluster(t)
 	saved := tcl.flags.dryRun
-	tcl.flags.dryRun = true
-	defer func() { tcl.flags.dryRun = saved }()
+	setGate(tcl, true, gateDryRun)
+	defer func() { setGate(tcl, saved, gateDryRun) }()
 	code, so, se := runKctl(context.Background(), l.client(t), "lab", []string{"create", "token", "bot"})
 	if code == 0 || strings.Contains(so, "eyJ") || !strings.Contains(se, "cannot be dry-run") || l.seen("/token") != 0 {
 		t.Errorf("create token dry run: %d %q %q %v", code, so, se, l.reqs)

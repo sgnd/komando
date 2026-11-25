@@ -41,7 +41,7 @@ func TestApprovalNeedsTheCode(t *testing.T) {
 	savedA, savedC, savedOS := askOnScreen, askCodeOnScreen, desktopOS
 	defer func() {
 		askOnScreen, askCodeOnScreen, desktopOS = savedA, savedC, savedOS
-		tcl.flags.yes = false
+		setGate(tcl, false, gateYes)
 		resetApproval()
 	}()
 	desktopOS = "linux" // macOS asks for the device owner instead (approval_owner_test.go)
@@ -53,7 +53,7 @@ func TestApprovalNeedsTheCode(t *testing.T) {
 			code = totp(secret, time.Now().Unix()/30)
 		}
 		askCodeOnScreen = func(*call, string) (string, bool, bool) { return code, true, true }
-		tcl.flags.yes = true
+		setGate(tcl, true, gateYes)
 		if got := tcl.yesOK(); got != want {
 			t.Errorf("code %q: allowed %v, want %v", typed, got, want)
 		}

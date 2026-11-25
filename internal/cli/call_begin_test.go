@@ -14,7 +14,7 @@ import (
 // this, or an approval would carry into the next command of the call.
 func TestBeginResetsBetweenCalls(t *testing.T) {
 	cl := testCall()
-	cl.setCaller(engine.Caller{Kind: engine.Agent, Agent: "a previous agent"})
+	setTestCaller(cl, engine.Caller{Kind: engine.Agent, Agent: "a previous agent"})
 	cl.sess.SetAsked(true)
 	cl.sess.SetAllowed(true)
 	cl.sess.SetWhy("a reason")

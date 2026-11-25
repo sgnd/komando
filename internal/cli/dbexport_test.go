@@ -139,7 +139,7 @@ func TestDBKillSQLite(t *testing.T) {
 func TestStorageLinkExpiresDays(t *testing.T) {
 	invHome(t)
 	mustRun(t, "conn", "add", "s3l", "s3://AKIAEXAMPLE@b?region=eu-west-1&endpoint=http://127.0.0.1:9")
-	defer func() { tcl.flags.dryRun = false }()
+	defer func() { setGate(tcl, false, gateDryRun) }()
 	mustRun(t, "storage", "link", "s3l", "a.txt", "--expires", "7d", "--dry-run")
 	if e := wantCode(t, "USAGE", "storage", "link", "s3l", "a.txt", "--expires", "8d", "--dry-run"); !strings.Contains(e.Message, "7d") {
 		t.Errorf("8d: %s", e.Message)

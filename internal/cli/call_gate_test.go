@@ -45,6 +45,27 @@ func TestGateWritersAreReviewed(t *testing.T) {
 	}
 }
 
+// testGateWriters is every place a test writes a gate flag, a call's whole
+// flags or the caller: the helpers of testcall_test.go (setGate,
+// saveFlags, clearFlags, setTestCaller), and nowhere else. When the gate
+// leaves the call's flags, only these helpers change.
+var testGateWriters = map[string]int{
+	"testcall_test.go cl.flags":                1,
+	"testcall_test.go cl.flags.allowDangerous": 1,
+	"testcall_test.go cl.flags.dryRun":         1,
+	"testcall_test.go cl.flags.reveal":         1,
+	"testcall_test.go cl.flags.yes":            1,
+	"testcall_test.go s.cl.flags":              1,
+	"testcall_test.go setCaller":               1,
+}
+
+func TestTestsWriteTheGateThroughHelpers(t *testing.T) {
+	got := gateWriters(t, true)
+	if !maps.Equal(got, testGateWriters) {
+		t.Errorf("the tests write the gate flags or the caller at:\n%s\nwant only the helpers of testcall_test.go:\n%s\nuse setGate, saveFlags, clearFlags or setTestCaller", writerLines(got), writerLines(testGateWriters))
+	}
+}
+
 // gateWriters counts, per file and expression, the writes of a gate flag,
 // of a call's whole flags and the setCaller calls in the program files
 // (tests false) or the test files (tests true) of internal/cli and the

@@ -101,7 +101,7 @@ func TestKeyRmInUseAndText(t *testing.T) {
 // coreText runs komando with -o text and returns what it printed.
 func coreText(t *testing.T, args ...string) string {
 	t.Helper()
-	tcl.flags.dryRun, tcl.flags.yes = false, false
+	setGate(tcl, false, gateDryRun, gateYes)
 	root := newRoot(tcl)
 	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs(append([]string{"-o", "text"}, args...))
@@ -135,8 +135,8 @@ func TestImportNextReplacedAndPreview(t *testing.T) {
 	if got := importNext([]string{"a", "b", "c", "d", "e", "f"}, nil); got != "komando test all" {
 		t.Errorf("many: %s", got)
 	}
-	tcl.flags.dryRun = true
-	defer func() { tcl.flags.dryRun = false }()
+	setGate(tcl, true, gateDryRun)
+	defer func() { setGate(tcl, false, gateDryRun) }()
 	e := toErr(importIncomplete(tcl, 1))
 	if strings.Contains(e.Hint, "the rest is in") || !strings.Contains(e.Message, "would not") {
 		t.Errorf("a preview says nothing is in yet: %s / %s", e.Message, e.Hint)
