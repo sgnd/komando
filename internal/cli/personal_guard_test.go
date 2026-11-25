@@ -378,3 +378,76 @@ func TestJSONCellKeepsBigNumbers(t *testing.T) {
 		t.Errorf("cell: %s", b)
 	}
 }
+
+// A server that a conn hiding personal data reaches through (its --via
+// path) or points at (its URL's address or name) is a personal target
+// too: what an AI agent reads there is hidden as the conn's data is,
+// whatever the mask_personal setting says.
+func TestHostOfAMaskingConnIsPersonal(t *testing.T) {
+	web1 := &store.Host{Name: "web1", Address: "10.0.0.5"}
+	jump := &store.Host{Name: "jump", Address: "10.0.0.1"}
+	other := &store.Host{Name: "other", Address: "10.0.0.9"}
+	on := map[string]string{"mask_personal": "on"}
+	for _, tc := range []struct {
+		name string
+		conn *store.Conn
+		host *store.Host
+		want bool
+	}{
+		{"through the server", &store.Conn{Name: "pg", URL: "postgres://u@127.0.0.1:5432/app", Via: "web1", Options: on}, web1, true},
+		{"a step on the via path", &store.Conn{Name: "pg", URL: "postgres://u@127.0.0.1:5432/app", Via: "jump,web1", Options: on}, jump, true},
+		{"at the server's address", &store.Conn{Name: "pg", URL: "postgres://u@10.0.0.5:5432/app", Options: map[string]string{"mask_columns": "name"}}, web1, true},
+		{"at the server's name", &store.Conn{Name: "pg", URL: "postgres://u@WEB1:5432/app", Options: on}, web1, true},
+		{"another server", &store.Conn{Name: "pg", URL: "postgres://u@127.0.0.1:5432/app", Via: "web1", Options: on}, other, false},
+		{"a conn that hides nothing", &store.Conn{Name: "pg", URL: "postgres://u@10.0.0.5:5432/app", Via: "web1"}, web1, false},
+		{"a conn whose twin hides it", &store.Conn{Name: "pg", URL: "postgres://u@10.0.0.6:5432/app", Via: "web1"}, web1, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			st := &store.State{Settings: store.Settings{MaskPersonal: "off"},
+				Hosts: map[string]*store.Host{"web1": web1, "jump": jump, "other": other},
+				Conns: map[string]*store.Conn{tc.conn.Name: tc.conn}}
+			if tc.name == "a conn whose twin hides it" { // the same database, reached directly, hides it
+				st.Conns["pg-direct"] = &store.Conn{Name: "pg-direct", URL: "postgres://u@10.0.0.6:5432/app", Options: on}
+				tc.host = web1
+			}
+			if got := personalTarget(st, []*store.Host{tc.host}, nil); got != tc.want {
+				t.Fatalf("personalTarget(%s) = %v, want %v", tc.host.Name, got, tc.want)
+			}
+		})
+	}
+}
+
+// What an AI agent's exec prints on a server that a masking conn reaches
+// through shows personal data hidden; before that conn, it shows as sent.
+func TestExecOnAMaskingConnsServerHidesPersonalData(t *testing.T) {
+	srv := startFakeServer(t)
+	srv.answer = func(string) (string, int) { return "id,email\n1,ann@example.com\n", 0 }
+	if err := store.Update(store.Save(), func(st *store.State) error {
+		st.Hosts["prod"].Protected = false // dev is the same server: neither is a personal target by the setting
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
+	if got := asJSON(mustRun(t, "exec", "dev", "--read-only", "--", "cat", "/tmp/x.csv")); !strings.Contains(got, "ann@example.com") {
+		t.Fatalf("no masking conn yet: %s", got)
+	}
+	to := filepath.Join(t.TempDir(), "x.csv")
+	if _, e := invRun(t, "download", "dev", "/tmp/x.csv", "--to", to, "--dry-run"); e != nil || tcl.out.Personal {
+		t.Fatalf("a download from dev, no masking conn yet: hidden %v, %+v", tcl.out.Personal, e)
+	}
+	tcl.flags.dryRun = false
+	os.Unsetenv("KOMANDO_AGENT")
+	resetApproval()
+	mustRun(t, "conn", "add", "pg", "postgres://u@127.0.0.1:5432/app", "--via", "dev", "--option", "mask_personal=on")
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
+	got := asJSON(mustRun(t, "exec", "dev", "--read-only", "--", "cat", "/tmp/x.csv"))
+	if strings.Contains(got, "ann@example.com") || !strings.Contains(got, "[hidden: email]") {
+		t.Fatalf("a masking conn reaches the database through dev: %s", got)
+	}
+	// a download from dev takes the same decision (runCp's selection)
+	if _, e := invRun(t, "download", "dev", "/tmp/x.csv", "--to", to, "--dry-run"); e != nil || !tcl.out.Personal {
+		t.Fatalf("a download from dev: hidden %v, %+v", tcl.out.Personal, e)
+	}
+	tcl.flags.dryRun = false
+}
