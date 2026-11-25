@@ -12,6 +12,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sealfile"
 	"github.com/sgnd/komando/internal/store"
@@ -104,7 +105,7 @@ func sealedSecrets(cl *call, p *importPlan, vals map[string]string) error {
 	p.SealedSecrets = map[string]string{}
 	for _, n := range slices.Sorted(maps.Keys(vals)) {
 		v := vals[n]
-		if validName("secret", n) != nil || reservedSecret(n) != nil || v == "" || out.HasHidden(v) {
+		if inventory.ValidName("secret", n) != nil || reservedSecret(n) != nil || v == "" || out.HasHidden(v) {
 			p.Notes = append(p.Notes, "secret "+n+": left out (komando does not take this name or value)")
 			continue
 		}
@@ -150,7 +151,7 @@ func sealedKeys(cl *call, p *importPlan, c sealedContent) error {
 		return err
 	}
 	for _, n := range slices.Sorted(maps.Keys(c.KeyTexts)) {
-		if validName("key", n) != nil {
+		if inventory.ValidName("key", n) != nil {
 			p.Notes = append(p.Notes, "key "+n+": left out (komando does not take this name)")
 			continue
 		}

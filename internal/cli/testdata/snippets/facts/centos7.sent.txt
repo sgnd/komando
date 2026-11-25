@@ -1,0 +1,94 @@
+export LC_ALL=C
+echo "hostname=$(hostname 2>/dev/null)"
+echo "kernel=$(uname -r)"; echo "arch=$(uname -m)"
+echo "cpus=$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null)"
+[ -r /proc/meminfo ] && awk '/^MemTotal/{print "mem_total_mb="int($2/1024)}/^MemAvailable/{print "mem_available_mb="int($2/1024)}/^SwapTotal/{print "swap_total_mb="int($2/1024)}/^SwapFree/{print "swap_free_mb="int($2/1024)}' /proc/meminfo
+[ -r /proc/loadavg ] && echo "load=$(cut -d' ' -f1-3 /proc/loadavg)"
+[ -r /proc/uptime ] && echo "uptime_sec=$(cut -d. -f1 /proc/uptime)"
+df -P -k / 2>/dev/null | awk 'NR==2{print "disk_root_total_gb="int($2/1048576); print "disk_root_used_pct="int($5)}'
+df -P -k 2>/dev/null | awk 'NR>1 && $1 !~ /^(tmpfs|devtmpfs|udev|overlay|shm|none|squashfs|proc|sysfs|efivarfs|cgroup2?)$/ && $1 !~ /^\/dev\/loop/ {m=$6; for(i=7;i<=NF;i++) m=m" "$i; if (m ~ /^\/(proc|sys|dev|run|snap)(\/|$)/) next; printf "disk=%s\t%s\t%s\t%s\t%d\t%s\n", $1, $2, $3, $4, $5, m}'
+echo "ips=$(hostname -I 2>/dev/null || ip -o -4 addr show scope global 2>/dev/null | awk '{sub("/.*", "", $4); print $4}' | tr '\n' ' ')"
+echo "init=$(cat /proc/1/comm 2>/dev/null || ps -p 1 -o comm= 2>/dev/null)"
+v=$(systemd-detect-virt 2>/dev/null)
+if [ -z "$v" ] || [ "$v" = none ]; then
+  if [ -f /.dockerenv ] || grep -qa docker /proc/1/cgroup 2>/dev/null; then v=docker
+  elif [ -f /run/.containerenv ]; then v=podman
+  elif grep -qa -e lxc -e kubepods /proc/1/cgroup 2>/dev/null; then v=container
+  fi
+fi
+echo "virt=${v:-unknown}"
+pm=""
+for m in apt-get dnf yum apk zypper pacman; do command -v $m >/dev/null 2>&1 && { pm=$m; echo "pkg_manager=${m%-get}"; break; }; done
+for b in curl wget openssl docker podman kubectl k3s systemctl nginx apache2 httpd caddy haproxy mysql psql redis-cli mongosh node python3 java go git ufw firewall-cmd certbot pm2; do command -v $b >/dev/null 2>&1 && printf 'tool=%s\n' $b; done
+echo "users_logged_in=$(who 2>/dev/null | wc -l)"
+echo "time_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "now_epoch=$(date +%s)"
+echo "timezone=$(cat /etc/timezone 2>/dev/null || date +%Z)"
+T=""; T20=""; command -v timeout >/dev/null 2>&1 && { T="timeout 60"; T20="timeout 20"; }
+echo "login_user=$(id -un 2>/dev/null)"
+S=""
+if [ "$(id -u 2>/dev/null)" = 0 ]; then echo "sudo_nopasswd=true"; root=1
+elif command -v sudo >/dev/null 2>&1 && sudo -n true >/dev/null 2>&1; then echo "sudo_nopasswd=true"; S="sudo -n"; root=1
+else echo "sudo_nopasswd=false"; root=""
+fi
+if [ -r /etc/os-release ]; then . /etc/os-release; echo "os=$ID"; echo "os_version=$VERSION_ID"; echo "os_pretty=$PRETTY_NAME"; else echo "os=$(uname -s | tr A-Z a-z)"; fi
+if command -v pro >/dev/null 2>&1; then echo "pro_json=$($T20 pro status --format json 2>/dev/null | tr -d '\n')"
+elif command -v ua >/dev/null 2>&1; then echo "pro_json=$($T20 ua status --format json 2>/dev/null | tr -d '\n')"
+fi
+hoststate() {
+  if [ -d /run/systemd/system ]; then echo failed_checked=yes; systemctl list-units --state=failed --no-legend --plain 2>/dev/null | awk '$1 != "" {print "failed="$1}'; fi
+  if [ -f /var/run/reboot-required ]; then echo reboot=yes; sed 's/^/reboot_pkg=/' /var/run/reboot-required.pkgs 2>/dev/null | sort -u
+  elif command -v dpkg >/dev/null 2>&1; then echo reboot=no
+  elif command -v needs-restarting >/dev/null 2>&1; then $T needs-restarting -r >/dev/null 2>&1; case $? in 0) echo reboot=no;; 1) echo reboot=yes;; esac
+  fi
+  [ -n "$HS_ROOT" ] || return 0
+  if command -v needrestart >/dev/null 2>&1; then
+    o=$($T $S needrestart -b -r l 2>/dev/null) && { echo restart_checked=yes; printf '%s\n' "$o" | sed -n 's/^NEEDRESTART-SVC: */svc=/p; s/^NEEDRESTART-KSTA: */ksta=/p'; }
+  elif command -v needs-restarting >/dev/null 2>&1; then
+    o=$($T $S needs-restarting -s 2>/dev/null) && { echo restart_checked=yes; printf '%s\n' "$o" | awk '$1 != "" {print "svc="$1}'; }
+  fi
+  return 0
+}
+HS_ROOT=$root hoststate
+if command -v docker >/dev/null 2>&1; then
+  echo "docker_version=$(docker version --format '{{.Client.Version}}' 2>/dev/null)"
+  f='{{.ServerVersion}}|{{.Swarm.LocalNodeState}}|{{.Swarm.ControlAvailable}}|{{.ContainersRunning}}'
+  di=$($T20 docker info --format "$f" 2>/dev/null)
+  [ -z "$di" ] && [ -n "$S" ] && di=$($T20 $S docker info --format "$f" 2>/dev/null)
+  echo "docker_info=$di"
+fi
+ps -eo user=,args= 2>/dev/null | awk '$2 == "PM2" && $3 ~ /^v[0-9]/ {print "pm2_daemon=" $1}' | sort -u
+(
+  for d in "$HOME"/.nvm/versions/node/*/bin /usr/local/bin; do [ -d "$d" ] && PATH="$PATH:$d"; done
+  [ -f "$HOME/.pm2/pm2.pid" ] && kill -0 "$(cat "$HOME/.pm2/pm2.pid" 2>/dev/null)" 2>/dev/null && echo "pm2_mine=true" &&
+  if command -v pm2 >/dev/null 2>&1 && command -v node >/dev/null 2>&1; then
+    echo "pm2_json=$($T20 pm2 jlist 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const i=s.search(/^\[/m);const l=JSON.parse(i<0?s:s.slice(i));console.log(JSON.stringify(l.map(p=>{const e=p.pm2_env||{},m=p.monit||{};return{name:p.name,status:e.status,pid:p.pid,restarts:e.restart_time,cpu_pct:m.cpu,memory_mb:Math.round((m.memory||0)/1048576),mode:e.exec_mode}})))}catch(x){}})' 2>/dev/null)"
+  fi
+)
+[ -n "$S" ] || [ -n "$root" ] && echo "listen_names=all" || echo "listen_names=own"
+if command -v ss >/dev/null 2>&1; then echo "listen_src=ss"; $S ss -ltnup 2>/dev/null | sed 's/^/listen=/'
+elif command -v netstat >/dev/null 2>&1; then echo "listen_src=netstat"; $S netstat -ltnup 2>/dev/null | sed 's/^/listen=/'
+else echo "listen_src=proc"; for p in tcp tcp6; do [ -r /proc/net/$p ] && sed "1d;s/^/listen=$p /" /proc/net/$p; done
+fi
+if [ -d /run/systemd/system ]; then
+  echo "units_checked=true"
+  for u in /etc/systemd/system/*.service /etc/systemd/system/*.timer; do
+    [ -f "$u" ] || [ -L "$u" ] || continue
+    n=${u##*/}
+    case $n in snap.*|snap-*) continue;; esac
+    if [ -L "$u" ]; then case $(readlink -f "$u") in /lib/*|/usr/lib/*|/dev/null|"") continue;; esac; fi
+    printf 'unit=%s\t%s\t%s\n' "$n" "$(systemctl is-enabled "$n" 2>/dev/null)" "$(systemctl is-active "$n" 2>/dev/null)"
+  done
+fi
+case $pm in
+apt-get)
+  o=$($T apt-get -s -o Debug::NoLocking=1 dist-upgrade 2>/dev/null) && echo "apt_sim_ok=true"
+  printf '%s\n' "$o" | grep '^Inst ' | cut -c1-300 | sed 's/^/apt_sim=/'
+  echo "apt_lists_mtime=$(stat -c %Y /var/lib/apt/lists/*Release 2>/dev/null | sort -n | tail -1)";;
+dnf|yum)
+  o=$($T $pm -q -C check-update 2>/dev/null); echo "upd_rc=$?"; printf '%s\n' "$o" | sed 's/^/upd=/'
+  if [ $pm = dnf ]; then o=$($T dnf -q -C updateinfo list --security 2>/dev/null); else o=$($T yum -q -C updateinfo list security 2>/dev/null); fi
+  echo "sec_rc=$?"; printf '%s\n' "$o" | sed 's/^/sec=/';;
+esac
+true
+

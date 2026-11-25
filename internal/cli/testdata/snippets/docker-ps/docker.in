@@ -1,0 +1,3 @@
+{"ID":"b1","Names":"web","Image":"nginx:1.27","Status":"Up 2 hours","Ports":"0.0.0.0:80->80/tcp","State":"running"}
+{"ID":"b2","Names":"db","Image":"postgres:16","Status":"Up 3 days","Ports":"5432/tcp","State":"running"}
+{"ID":"b3","Names":"api","Image":"example/api:2.4.1","Status":"Exited (1) 5 minutes ago","Ports":"","State":"exited"}

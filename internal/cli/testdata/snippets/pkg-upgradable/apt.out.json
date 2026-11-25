@@ -1,0 +1,1 @@
+{"ok":true,"command":"pkg.upgradable","data":{"command":"pkg upgradable","results":[{"host":"dev","ok":true,"data":{"package_manager":"apt","index_age":"1h","index_age_s":3600,"count":2,"packages":[{"name":"tzdata","from":"2026e-0","version":"2026f-0"},{"name":"openssl","from":"3.0.14-1","version":"3.0.15-1"}]},"exit_code":0}],"summary":{"total":1,"ok":1,"failed":0}}}

@@ -1,0 +1,6 @@
+powershell script:
+$rows = foreach ($s in Get-CimInstance -ClassName Win32_Service) { [pscustomobject]@{ name = $s.Name; display_name = $s.DisplayName; state = $s.State; start_mode = $s.StartMode; delayed_start = [bool]$s.DelayedAutoStart; pid = [int]$s.ProcessId; account = $s.StartName; exit_code = [int]$s.ExitCode; found = $true } }
+[Console]::Out.WriteLine('#komando:json=' + (ConvertTo-Json -Compress -InputObject @($rows)))
+
+if (-not $?) { if ($LASTEXITCODE) { exit $LASTEXITCODE }; exit 1 }; $global:LASTEXITCODE = 0
+

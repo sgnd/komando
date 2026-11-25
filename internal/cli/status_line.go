@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/sgnd/komando/internal/cli/kit/term"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -80,12 +81,12 @@ func showExit(cl *call, target string, code int, lost bool, took time.Duration) 
 	}
 }
 
-// colorOK: stderr is a terminal that reads escape sequences (vtOK) and
+// colorOK: stderr is a terminal that reads escape sequences (term.VTOK) and
 // the person did not turn color off (NO_COLOR, TERM=dumb). Color only ever adds to a word: PROTECTED is
 // bold red and still says PROTECTED without color. Bold red reads on light
 // and dark terminals; yellow and dim do not, so they are not used here.
 var colorOK = func(cl *call) bool {
-	return vtOK && cl.getenv("NO_COLOR") == "" && cl.getenv("TERM") != "dumb" && isTerminal(cl.out.Err)
+	return term.VTOK && cl.getenv("NO_COLOR") == "" && cl.getenv("TERM") != "dumb" && isTerminal(cl.out.Err)
 }
 
 // hostRoute is the way to h for a status line: "vpn NAME" first, then the
@@ -94,7 +95,7 @@ var colorOK = func(cl *call) bool {
 func hostRoute(st *store.State, h *store.Host) []string {
 	vpn, hops, err := sshx.Route(st, h)
 	if err != nil {
-		return viaChain(h.Via)
+		return inventory.ViaChain(h.Via)
 	}
 	var r []string
 	if vpn != nil {
@@ -114,7 +115,7 @@ func connRoute(st *store.State, c *store.Conn) []string {
 	h, vpn, err := resolveVia(st, c.Via)
 	switch {
 	case err != nil:
-		return viaChain(c.Via)
+		return inventory.ViaChain(c.Via)
 	case vpn != nil:
 		return []string{"vpn " + vpn.Name}
 	}

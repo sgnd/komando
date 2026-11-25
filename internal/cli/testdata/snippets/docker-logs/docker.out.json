@@ -1,0 +1,1 @@
+{"ok":true,"command":"docker.logs","data":{"command":"docker logs --tail 3 'api' 2>&1","results":[{"host":"dev","ok":true,"stdout":"listening on :8080\nGET /health 200 3ms\nGET /api/items 500 41ms\n","exit_code":0}],"summary":{"total":1,"ok":1,"failed":0}}}

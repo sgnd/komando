@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -131,7 +132,7 @@ func connsOfFamily(names []string, family string) []string {
 	}
 	var keep []string
 	for _, n := range names {
-		if c, ok := st.Conns[n]; ok && connFamily(c) != family {
+		if c, ok := st.Conns[n]; ok && inventory.ConnFamily(c) != family {
 			continue
 		}
 		keep = append(keep, n)

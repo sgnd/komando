@@ -1,0 +1,1 @@
+{"ok":true,"command":"fs.write","data":{"append":false,"bytes":4,"diff":"@@ -0,0 +1 @@\n+A=1\n","exists":false,"host":"dev","path":"/srv/app/new.conf","sudo":false,"would_change":true}}

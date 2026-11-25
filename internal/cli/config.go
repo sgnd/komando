@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -67,7 +68,7 @@ var settings = []setting{
 		func(s *store.Settings) string { return s.DefaultUser },
 		func(cl *call, st *store.State, v string) error {
 			if v != "" {
-				if err := validUser(v); err != nil {
+				if err := inventory.ValidUser(v); err != nil {
 					return err
 				}
 			}

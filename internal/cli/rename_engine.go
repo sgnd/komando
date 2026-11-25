@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -287,7 +288,7 @@ func (w *refRewriter) ref(r string) string {
 
 // via is a --via path with every renamed step's new name, wherever it is.
 func (w *refRewriter) via(v string) string {
-	chain := viaChain(v)
+	chain := inventory.ViaChain(v)
 	changed := false
 	for i, st := range chain {
 		if to, ok := w.steps[st]; ok {
@@ -521,9 +522,9 @@ func checkRenameSet(cl *call, s *store.State, set renameSet) error {
 // check is one rename of kind k: an error stops at once, a clash is
 // collected so the message lists them all.
 func (c *renameChecker) check(k, from, to string) error {
-	valid := validName
+	valid := inventory.ValidName
 	if k == "group" {
-		valid = validLabelName
+		valid = inventory.ValidLabelName
 	}
 	if err := valid(k, to); err != nil {
 		return err

@@ -3,7 +3,6 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -17,18 +16,6 @@ import (
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
 )
-
-var nameRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$`)
-
-func validName(kind, n string) error {
-	if !nameRe.MatchString(n) {
-		return out.Usage("%q cannot be a %s name: use letters, digits and . _ - (at most 63)", n, kind)
-	}
-	if (kind == "host" || kind == "conn" || kind == "vpn") && strings.EqualFold(n, "all") {
-		return out.Usage("%q cannot be a %s name: as a target it means everything", n, kind)
-	}
-	return nil
-}
 
 type hostFlags struct {
 	address, user, key, identity, passwordRef, sudoRef, jump, notes string

@@ -788,6 +788,7 @@ var approvalMeanings = map[string]string{
 // order of the files would decide: renaming a file must not change what
 // the catalog shows (these are the texts 0.12.0 showed).
 var catalogSite = map[string]string{
+	"CANCELLED":           "interrupted", // kit/term.Interrupted, the stop of every cancelled command
 	"CONN_UNREACHABLE":    "cannot reach …: …",
 	"NEEDS_PERSON":        "logging in to … needs a person at a terminal to answer its questions",
 	"FILE_EXISTS":         "… already exists on this computer",
