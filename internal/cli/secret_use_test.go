@@ -22,7 +22,7 @@ func secretHome(t *testing.T) {
 	}
 }
 
-// {{secret:NAME}} in text written to a server: a reserved secret never
+// {{credential:NAME}} in text written to a server: a reserved secret never
 // goes, and an AI agent needs --yes and a person's yes in the window,
 // which names the secret and the file.
 func TestSecretRefsInTextNeedAPerson(t *testing.T) {
@@ -30,50 +30,50 @@ func TestSecretRefsInTextNeedAPerson(t *testing.T) {
 	defer func() { setGate(tcl, false, gateYes, gateDryRun) }()
 
 	// a person or a script: no window (askOnScreen panics)
-	got, err := expandSecretRefs(tcl, "DB={{secret:db-pass}}", "web1:/etc/app.env", false)
+	got, err := expandSecretRefs(tcl, "DB={{credential:db-pass}}", "web1:/etc/app.env", false)
 	if err != nil || got != "DB=pa$$1word" {
 		t.Fatalf("script: %q %v", got, err)
 	}
-	if got, _ := expandSecretRefs(tcl, "x={{ secret:db-pass }}", "web1:/f", true); got != "x=pa$$$$1word" {
+	if got, _ := expandSecretRefs(tcl, "x={{ credential:db-pass }}", "web1:/f", true); got != "x=pa$$$$1word" {
 		t.Errorf("a regexp replacement gets $$ for each $: %q", got)
 	}
 	if got, _ := expandSecretRefs(tcl, "no reference here", "web1:/f", false); got != "no reference here" {
 		t.Errorf("text without a reference: %q", got)
 	}
 	// the approval code's key never goes, for anyone
-	if _, err := expandSecretRefs(tcl, "{{secret:"+approvalSecret+"}}", "web1:/f", false); toErr(err).Code != "RESERVED_SECRET" {
+	if _, err := expandSecretRefs(tcl, "{{credential:"+approvalSecret+"}}", "web1:/f", false); toErr(err).Code != "RESERVED_SECRET" {
 		t.Fatalf("reserved secret: %v", err)
 	}
 
 	mustRun(t, "host", "add", "web1", "deploy@10.255.255.1")
 	texts := windowText(t, true)
 	// the stop comes before komando connects
-	wantCode(t, "SECRET_DESTINATION", "fs", "write", "web1", "/etc/app.env", "--content", "DB={{secret:db-pass}}")
-	wantCode(t, "SECRET_DESTINATION", "fs", "write", "web1", "/etc/app.env", "--value", "DB={{secret:db-pass}}") // the synonym: the same stop
-	wantCode(t, "SECRET_DESTINATION", "fs", "replace", "web1", "/etc/app.env", "--old", "DB=[hidden]", "--new", "DB={{secret:db-pass}}")
-	wantCode(t, "RESERVED_SECRET", "fs", "write", "web1", "/etc/app.env", "--content", "{{secret:"+approvalSecret+"}}")
-	if _, err := expandSecretRefs(tcl, "DB={{secret:db-pass}}", "web1:/etc/app.env", false); toErr(err).Code != "SECRET_DESTINATION" || toErr(err).Exit != out.ExitPolicy {
+	wantCode(t, "SECRET_DESTINATION", "fs", "write", "web1", "/etc/app.env", "--content", "DB={{credential:db-pass}}")
+	wantCode(t, "SECRET_DESTINATION", "fs", "write", "web1", "/etc/app.env", "--value", "DB={{credential:db-pass}}") // the synonym: the same stop
+	wantCode(t, "SECRET_DESTINATION", "fs", "replace", "web1", "/etc/app.env", "--old", "DB=[hidden]", "--new", "DB={{credential:db-pass}}")
+	wantCode(t, "RESERVED_SECRET", "fs", "write", "web1", "/etc/app.env", "--content", "{{credential:"+approvalSecret+"}}")
+	if _, err := expandSecretRefs(tcl, "DB={{credential:db-pass}}", "web1:/etc/app.env", false); toErr(err).Code != "SECRET_DESTINATION" || toErr(err).Exit != out.ExitPolicy {
 		t.Fatalf("agent without --yes: %v", err)
 	}
 	if len(*texts) != 0 {
 		t.Fatal("no flag, no window")
 	}
-	if _, err := expandSecretRefs(tcl, "{{secret:"+approvalSecret+"}}", "web1:/f", false); toErr(err).Code != "RESERVED_SECRET" {
+	if _, err := expandSecretRefs(tcl, "{{credential:"+approvalSecret+"}}", "web1:/f", false); toErr(err).Code != "RESERVED_SECRET" {
 		t.Fatalf("agent, reserved secret: %v", err)
 	}
 	setGate(tcl, true, gateYes)
-	got, err = expandSecretRefs(tcl, "DB={{secret:db-pass}}", "web1:/etc/app.env", false)
+	got, err = expandSecretRefs(tcl, "DB={{credential:db-pass}}", "web1:/etc/app.env", false)
 	if err != nil || got != "DB=pa$$1word" {
 		t.Fatalf("agent, allowed: %q %v", got, err)
 	}
-	if len(*texts) != 1 || !strings.Contains((*texts)[0], "the secret secret:db-pass, sent to web1:/etc/app.env") {
+	if len(*texts) != 1 || !strings.Contains((*texts)[0], "the secret credential:db-pass, sent to web1:/etc/app.env") {
 		t.Errorf("the window names the secret and the file: %q", *texts)
 	}
 
 	// a person who says no
 	windowText(t, false)
 	resetApproval()
-	if _, err := expandSecretRefs(tcl, "{{secret:db-pass}}", "web1:/f", false); toErr(err).Code != "SECRET_DESTINATION" {
+	if _, err := expandSecretRefs(tcl, "{{credential:db-pass}}", "web1:/f", false); toErr(err).Code != "SECRET_DESTINATION" {
 		t.Fatalf("denied: %v", err)
 	}
 
@@ -82,29 +82,29 @@ func TestSecretRefsInTextNeedAPerson(t *testing.T) {
 	setGate(tcl, true, gateDryRun)
 	resetApproval()
 	tcl.out.Reset()
-	got, err = expandSecretRefs(tcl, "DB={{secret:db-pass}}", "web1:/f", false)
-	if err != nil || got != "DB={{secret:db-pass}}" || tcl.out.Blocked() == nil {
+	got, err = expandSecretRefs(tcl, "DB={{credential:db-pass}}", "web1:/f", false)
+	if err != nil || got != "DB={{credential:db-pass}}" || tcl.out.Blocked() == nil {
 		t.Errorf("agent dry run: %q %v blocked=%v", got, err, tcl.out.Blocked())
 	}
 }
 
-// exec --env K=secret:NAME sends the value into a command on the server.
+// exec --env K=credential:NAME sends the value into a command on the server.
 func TestEnvSecretNeedsAPerson(t *testing.T) {
 	secretHome(t)
 	mustRun(t, "host", "add", "web1", "deploy@10.255.255.1")
 	hosts := []*store.Host{{Name: "web1"}}
-	if _, err := parseEnvTo(tcl, []string{"DB=secret:db-pass"}, hosts); err != nil {
+	if _, err := parseEnvTo(tcl, []string{"DB=credential:db-pass"}, hosts); err != nil {
 		t.Fatalf("script: %v", err)
 	}
 	texts := windowText(t, true)
 	if env, err := parseEnvTo(tcl, []string{"PLAIN=1"}, hosts); err != nil || env["PLAIN"] != "1" {
 		t.Fatalf("a plain value: %v %v", env, err)
 	}
-	wantCode(t, "SECRET_DESTINATION", "exec", "web1", "-e", "DB=secret:db-pass", "--", "true")
-	if _, err := parseEnvTo(tcl, []string{"K=secret:" + approvalSecret}, hosts); toErr(err).Code != "RESERVED_SECRET" {
+	wantCode(t, "SECRET_DESTINATION", "exec", "web1", "-e", "DB=credential:db-pass", "--", "true")
+	if _, err := parseEnvTo(tcl, []string{"K=credential:" + approvalSecret}, hosts); toErr(err).Code != "RESERVED_SECRET" {
 		t.Fatalf("reserved: %v", err)
 	}
-	d := mustRun(t, "exec", "web1", "-e", "DB=secret:db-pass", "--dry-run", "--", "true")
+	d := mustRun(t, "exec", "web1", "-e", "DB=credential:db-pass", "--dry-run", "--", "true")
 	if d["_meta"].(map[string]any)["would_be_blocked"] == nil {
 		t.Errorf("the dry run says the real run would stop: %v", d)
 	}
@@ -119,20 +119,20 @@ func TestEnvSecretNeedsAPerson(t *testing.T) {
 func TestSecretDestinationsNeedAPerson(t *testing.T) {
 	secretHome(t)
 	// a script is not asked, but a reserved secret is refused
-	mustRun(t, "conn", "add", "shop", "postgres://app@10.0.0.5/app", "--password-ref", "secret:db-pass")
+	mustRun(t, "conn", "add", "shop", "postgres://app@10.0.0.5/app", "--password-ref", "credential:db-pass")
 	mustRun(t, "host", "add", "jump", "u@10.0.0.3")
-	wantCode(t, "RESERVED_SECRET", "host", "add", "x", "u@10.0.0.9", "--password-ref", "secret:"+approvalSecret)
-	wantCode(t, "RESERVED_SECRET", "conn", "edit", "shop", "--password-ref", "secret:"+approvalSecret)
-	if _, err := vault.Resolve("secret:" + approvalSecret); toErr(err).Code != "RESERVED_SECRET" {
+	wantCode(t, "RESERVED_SECRET", "host", "add", "x", "u@10.0.0.9", "--password-ref", "credential:"+approvalSecret)
+	wantCode(t, "RESERVED_SECRET", "conn", "edit", "shop", "--password-ref", "credential:"+approvalSecret)
+	if _, err := vault.Resolve("credential:" + approvalSecret); toErr(err).Code != "RESERVED_SECRET" {
 		t.Errorf("a reference never reads the approval code's key: %v", err)
 	}
 
 	texts := windowText(t, true)
-	wantCode(t, "SECRET_DESTINATION", "conn", "add", "shop2", "postgres://app@evil.example/app", "--password-ref", "secret:db-pass")
+	wantCode(t, "SECRET_DESTINATION", "conn", "add", "shop2", "postgres://app@evil.example/app", "--password-ref", "credential:db-pass")
 	wantCode(t, "SECRET_DESTINATION", "conn", "edit", "shop", "--url", "postgres://app@evil.example/app")
 	wantCode(t, "SECRET_DESTINATION", "conn", "edit", "shop", "--via", "jump")
 	wantCode(t, "SECRET_DESTINATION", "host", "add", "web1", "deploy@10.0.0.1", "--password-ref", "env:GITHUB_TOKEN")
-	wantCode(t, "SECRET_DESTINATION", "host", "add", "web1", "deploy@10.0.0.1", "--env", "TOKEN=secret:db-pass")
+	wantCode(t, "SECRET_DESTINATION", "host", "add", "web1", "deploy@10.0.0.1", "--env", "TOKEN=credential:db-pass")
 	if len(*texts) != 0 {
 		t.Fatalf("no flag, no window: %q", *texts)
 	}
@@ -145,8 +145,8 @@ func TestSecretDestinationsNeedAPerson(t *testing.T) {
 		t.Fatalf("nothing new goes anywhere: %q", *texts)
 	}
 
-	mustRun(t, "host", "edit", "web1", "--password-ref", "secret:db-pass", "--yes")
-	if len(*texts) != 1 || !strings.Contains((*texts)[0], "secret:db-pass to root@10.0.0.1:22 (server web1)") {
+	mustRun(t, "host", "edit", "web1", "--password-ref", "credential:db-pass", "--yes")
+	if len(*texts) != 1 || !strings.Contains((*texts)[0], "credential:db-pass to root@10.0.0.1:22 (server web1)") {
 		t.Fatalf("window: %q", *texts)
 	}
 	resetApproval()
@@ -163,14 +163,14 @@ func TestSecretDestinationsNeedAPerson(t *testing.T) {
 	resetApproval()
 	mustRun(t, "host", "add", "db1", "deploy@10.0.0.2", "--protected")
 	n := len(*texts)
-	mustRun(t, "host", "edit", "db1", "--sudo-ref", "secret:db-pass", "--yes")
-	if len(*texts) != n+1 || !strings.Contains((*texts)[n], "protected host: db1") || !strings.Contains((*texts)[n], "secret:db-pass to deploy@10.0.0.2:22 (server db1)") {
+	mustRun(t, "host", "edit", "db1", "--sudo-ref", "credential:db-pass", "--yes")
+	if len(*texts) != n+1 || !strings.Contains((*texts)[n], "protected host: db1") || !strings.Contains((*texts)[n], "credential:db-pass to deploy@10.0.0.2:22 (server db1)") {
 		t.Errorf("one window for the protected server and the secret: %q", (*texts)[n:])
 	}
 
 	// the person says no
 	windowText(t, false)
-	wantCode(t, "SECRET_DESTINATION", "conn", "edit", "cache", "--password-ref", "secret:db-pass", "--yes")
+	wantCode(t, "SECRET_DESTINATION", "conn", "edit", "cache", "--password-ref", "credential:db-pass", "--yes")
 	st, _ := store.Load()
 	if st.Conns["cache"].PasswordRef != "" || st.Hosts["web1"].Address != "10.0.0.1" {
 		t.Error("a refused change was saved")
@@ -230,8 +230,8 @@ func TestWeakTLS(t *testing.T) {
 	if len(*texts) != 0 {
 		t.Fatalf("no flag, no window: %q", *texts)
 	}
-	mustRun(t, "conn", "add", "files", "ftp://u@10.0.0.8/www?insecure=1", "--password-ref", "secret:db-pass", "--yes")
-	if len(*texts) != 1 || !strings.Contains((*texts)[0], "secret:db-pass to 10.0.0.8:21 (insecure=1) (conn files)") || !strings.Contains((*texts)[0], "files: insecure=1") {
+	mustRun(t, "conn", "add", "files", "ftp://u@10.0.0.8/www?insecure=1", "--password-ref", "credential:db-pass", "--yes")
+	if len(*texts) != 1 || !strings.Contains((*texts)[0], "credential:db-pass to 10.0.0.8:21 (insecure=1) (conn files)") || !strings.Contains((*texts)[0], "files: insecure=1") {
 		t.Errorf("one window for the secret and the setting: %q", *texts)
 	}
 }
@@ -240,7 +240,7 @@ func TestWeakTLS(t *testing.T) {
 func TestImportSecretDestinationsNeedAPerson(t *testing.T) {
 	secretHome(t)
 	csv := filepath.Join(t.TempDir(), "hosts.csv")
-	os.WriteFile(csv, []byte("name,address,user,password-ref\nweb9,10.0.0.9,deploy,secret:db-pass\n"), 0o600)
+	os.WriteFile(csv, []byte("name,address,user,password-ref\nweb9,10.0.0.9,deploy,credential:db-pass\n"), 0o600)
 	texts := windowText(t, true)
 	wantCode(t, "SECRET_DESTINATION", "import", "csv", csv)
 	st, _ := store.Load()
@@ -248,7 +248,7 @@ func TestImportSecretDestinationsNeedAPerson(t *testing.T) {
 		t.Fatal("a refused import added a server")
 	}
 	mustRun(t, "import", "csv", csv, "--yes")
-	if len(*texts) != 1 || !strings.Contains((*texts)[0], "secret:db-pass to deploy@10.0.0.9:22 (server web9)") {
+	if len(*texts) != 1 || !strings.Contains((*texts)[0], "credential:db-pass to deploy@10.0.0.9:22 (server web9)") {
 		t.Errorf("window: %q", *texts)
 	}
 }
@@ -362,11 +362,11 @@ func TestDBUserPasswordNeedsAPerson(t *testing.T) {
 	mustRun(t, "conn", "add", "local", "sqlite://"+filepath.Join(t.TempDir(), "app.db"))
 	texts := windowText(t, true)
 	// a new login is a privilege change: that stop comes first
-	wantCode(t, "POLICY_BLOCKED", "db", "user", "add", "local", "app", "--password-ref", "secret:db-pass")
+	wantCode(t, "POLICY_BLOCKED", "db", "user", "add", "local", "app", "--password-ref", "credential:db-pass")
 	if len(*texts) != 0 {
 		t.Errorf("no flag, no window: %q", *texts)
 	}
-	e := wantCode(t, "SECRET_DESTINATION", "db", "user", "add", "local", "app", "--password-ref", "secret:db-pass", "--allow-dangerous")
+	e := wantCode(t, "SECRET_DESTINATION", "db", "user", "add", "local", "app", "--password-ref", "credential:db-pass", "--allow-dangerous")
 	if !strings.Contains(e.Message, "database user app (conn local)") {
 		t.Errorf("message: %q", e.Message)
 	}

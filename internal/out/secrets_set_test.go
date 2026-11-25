@@ -12,7 +12,7 @@ import (
 // safe beside AddValue from another goroutine (run with -race).
 func TestSetSecretsAfterUse(t *testing.T) {
 	p := &Printer{Secrets: func() map[string]string { return map[string]string{"old": "old-value-111"} }}
-	if p.Redact("old-value-111") != "[secret:old]" {
+	if p.Redact("old-value-111") != "[credential:old]" {
 		t.Fatal("the first Secrets was not hidden")
 	}
 	var wg sync.WaitGroup
@@ -28,7 +28,7 @@ func TestSetSecretsAfterUse(t *testing.T) {
 		_ = p.Redact("x")
 	}
 	wg.Wait()
-	if got := p.Redact("new-value-222 old-value-111 added-value-333"); got != "[secret:new] old-value-111 "+Hidden {
+	if got := p.Redact("new-value-222 old-value-111 added-value-333"); got != "[credential:new] old-value-111 "+Hidden {
 		t.Errorf("after SetSecrets: %q", got)
 	}
 	p.SetSecrets(nil)
@@ -50,11 +50,11 @@ func TestAddValueThenVault(t *testing.T) {
 	if !p.HoldsVaultValue("x " + v) {
 		t.Error("HoldsVaultValue misses a vault value AddValue hid first")
 	}
-	if got := p.Redact("a=" + v + " b=" + base64.StdEncoding.EncodeToString([]byte(v))); got != "a=[secret:db] b=[secret:db]" {
+	if got := p.Redact("a=" + v + " b=" + base64.StdEncoding.EncodeToString([]byte(v))); got != "a=[credential:db] b=[credential:db]" {
 		t.Errorf("Redact: %q", got)
 	}
 	p.ForgetAdded()
-	if got := p.Redact(v); got != "[secret:db]" {
+	if got := p.Redact(v); got != "[credential:db]" {
 		t.Errorf("the next command forgot a vault value: %q", got)
 	}
 }
@@ -70,7 +70,7 @@ func TestAddValueOfVaultValueSurvivesSetSecrets(t *testing.T) {
 	p := &Printer{Secrets: vaultOf}
 	p.ForgetAdded()
 	p.AddValue(v)
-	if got := p.Redact(v); got != "[secret:db]" {
+	if got := p.Redact(v); got != "[credential:db]" {
 		t.Fatalf("a vault value AddValue hid again: %q", got)
 	}
 	p.Reset()
@@ -90,7 +90,7 @@ func TestAddValueOfVaultValueSurvivesSetSecrets(t *testing.T) {
 	p = &Printer{}
 	p.AddValue(v)
 	p.SetSecrets(vaultOf)
-	if got := p.Redact(v); got != "[secret:db]" || !p.HoldsVaultValue(v) {
+	if got := p.Redact(v); got != "[credential:db]" || !p.HoldsVaultValue(v) {
 		t.Fatalf("the vault's value: %q", got)
 	}
 	p.SetSecrets(nil)
@@ -102,7 +102,7 @@ func TestAddValueOfVaultValueSurvivesSetSecrets(t *testing.T) {
 	p = &Printer{Secrets: vaultOf}
 	p.AddValue(v)
 	p.ForgetAdded()
-	if got := p.Redact(v); got != "[secret:db]" || !p.HoldsVaultValue(v) {
+	if got := p.Redact(v); got != "[credential:db]" || !p.HoldsVaultValue(v) {
 		t.Errorf("after ForgetAdded: %q", got)
 	}
 }
@@ -113,7 +113,7 @@ func TestSpare(t *testing.T) {
 	p := &Printer{Secrets: func() map[string]string { return map[string]string{"a": "guess-value-1", "b": "other-value-2"} }}
 	p.Spare("echo guess-value-1")
 	got := p.Redact("guess-value-1 " + base64.StdEncoding.EncodeToString([]byte("guess-value-1")) + " other-value-2")
-	if strings.Contains(got, "[secret:a]") || !strings.Contains(got, "[secret:b]") {
+	if strings.Contains(got, "[credential:a]") || !strings.Contains(got, "[credential:b]") {
 		t.Fatalf("got %q", got)
 	}
 }

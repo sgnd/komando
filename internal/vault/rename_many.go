@@ -22,7 +22,7 @@ const reservedName = "komando-approval-totp"
 //
 // A new name may not exist yet, and may not be a name that moves too: a
 // swap (a→b, b→a) or a chain (a→b, b→c) is refused, because a reference
-// the caller does not rewrite (a {{secret:b}} already in a file on a
+// the caller does not rewrite (a {{credential:b}} already in a file on a
 // server) would then quietly get another secret's value. Two old names
 // may not share a new one, and the approval code's secret never moves.
 func RenameMany(w store.Write, pairs map[string]string) error {

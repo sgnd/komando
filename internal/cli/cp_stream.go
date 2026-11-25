@@ -272,8 +272,8 @@ func (s *stdinSource) Read(p []byte) (int, error) {
 		s.err = sizeMismatch(s.size, term.HumanBytes(s.n)+" and stopped")
 	case err == io.EOF && len(s.head) <= hiddenScanMax && out.HasHidden(string(s.head)):
 		s.err = out.Errf(out.ExitUsage, "HIDDEN_VALUE",
-			"edit the file on the server with `komando fs replace` (an --old with [hidden] in it matches the hidden value), and put a secret in with {{secret:NAME}}",
-			"stdin holds a value komando hid ([hidden] or [secret:NAME]); uploading it would destroy the real value")
+			"edit the file on the server with `komando fs replace` (an --old with [hidden] in it matches the hidden value), and put a secret in with {{credential:NAME}}",
+			"stdin holds a value komando hid ([hidden] or [credential:NAME]); uploading it would destroy the real value")
 	}
 	if s.err != nil {
 		return n, s.err

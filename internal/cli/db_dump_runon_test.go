@@ -15,8 +15,8 @@ func TestRunOnOtherServerNeedsYesForPassword(t *testing.T) {
 		"db1":   {Name: "db1", Address: "10.0.0.1"},
 		"other": {Name: "other", Address: "10.0.0.2"},
 	}}
-	via := &store.Conn{Name: "pg", Via: "db1", PasswordRef: "secret:pg"}
-	direct := &store.Conn{Name: "pg2", PasswordRef: "secret:pg"}
+	via := &store.Conn{Name: "pg", Via: "db1", PasswordRef: "credential:pg"}
+	direct := &store.Conn{Name: "pg2", PasswordRef: "credential:pg"}
 	nopw := &store.Conn{Name: "pg3"}
 
 	asAgent(t, false, false)

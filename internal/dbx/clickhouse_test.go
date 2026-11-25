@@ -289,13 +289,13 @@ func TestClickHouseTLS(t *testing.T) {
 		}
 		return err
 	}
-	if err := open("tls=true&ca=secret:chca"); err != nil {
+	if err := open("tls=true&ca=credential:chca"); err != nil {
 		t.Errorf("with the CA: %v", err)
 	}
 	if err := open("tls=skip-verify"); err != nil {
 		t.Errorf("skip-verify: %v", err)
 	}
-	if err := open("tls=true"); errCode(err) != "DB_CONNECT" || !strings.Contains(fmt.Sprint(err.(*out.Error).Hint), "ca=secret:NAME") {
+	if err := open("tls=true"); errCode(err) != "DB_CONNECT" || !strings.Contains(fmt.Sprint(err.(*out.Error).Hint), "ca=credential:NAME") {
 		t.Errorf("unknown CA: %v", err)
 	}
 	plain := httptest.NewServer(&fakeCH{readonly: "0"})

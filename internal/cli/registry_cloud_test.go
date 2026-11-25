@@ -69,7 +69,7 @@ func TestACRLoginFromAzure(t *testing.T) {
 	}
 
 	rc = registry.New("shop01.azurecr.io", registry.TLS{}, "me", "own", nil)
-	if err := cloudRegistryLogin(tcl, ctx, &store.Conn{PasswordRef: "secret:acr"}, "shop01.azurecr.io", rc); err != nil || rc.Password != "own" {
+	if err := cloudRegistryLogin(tcl, ctx, &store.Conn{PasswordRef: "credential:acr"}, "shop01.azurecr.io", rc); err != nil || rc.Password != "own" {
 		t.Errorf("a conn with --password-ref keeps it: %v %q", err, rc.Password)
 	}
 	rc = registry.New("ghcr.io", registry.TLS{}, "me", "", nil)
@@ -127,7 +127,7 @@ func TestGoogleRegistryLogin(t *testing.T) {
 		t.Errorf("login: %v %q %q", err, rc.User, rc.Password)
 	}
 	rc = registry.New("gcr.io", registry.TLS{}, "_json_key", "{key}", nil)
-	if err := cloudRegistryLogin(tcl, ctx, &store.Conn{PasswordRef: "secret:gar-key"}, "gcr.io", rc); err != nil || rc.User != "_json_key" {
+	if err := cloudRegistryLogin(tcl, ctx, &store.Conn{PasswordRef: "credential:gar-key"}, "gcr.io", rc); err != nil || rc.User != "_json_key" {
 		t.Errorf("a service account key keeps its login: %v %q", err, rc.User)
 	}
 	if e := toErr(cloudRegistryLogin(tcl, ctx, &store.Conn{}, "gcr.io", registry.New("gcr.io", registry.TLS{Plain: true}, "", "", nil))); e.Code != "USAGE" {
@@ -178,7 +178,7 @@ func TestECRLoginNeedsCheckedTLS(t *testing.T) {
 		t.Errorf("an ECR login was made %d times for a registry whose certificate is not checked", asked)
 	}
 	// a CA of the conn's own, or another address, is not the cloud's registry
-	for _, q := range []string{"?ca=secret:mine", "?resolve=127.0.0.1:8443"} {
+	for _, q := range []string{"?ca=credential:mine", "?resolve=127.0.0.1:8443"} {
 		rc := registry.New(host, registry.TLS{}, "", "", nil)
 		e := toErr(cloudRegistryLogin(tcl, ctx, &store.Conn{URL: "registry://" + host + q}, host, rc))
 		if e == nil || e.Code != "USAGE" || rc.Password != "" || asked != 0 {

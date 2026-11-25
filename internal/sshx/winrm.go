@@ -157,7 +157,7 @@ func winrmErr(h *store.Host, err error) error {
 		return out.Errf(out.ExitConnect, "AUTH_FAILED", "check the user and password (`komando host edit "+h.Name+" --ask-password`); a domain user is written DOMAIN\\user; Basic login works only for local accounts",
 			"%s: %v", h.Name, err)
 	case errors.As(err, &ue), errors.As(err, &ce), errors.As(err, &he):
-		return out.Errf(out.ExitConnect, "WINRM_TLS", "if the server's certificate comes from your own CA, store it with `komando secret set NAME < ca.crt` and add ?ca=secret:NAME to its winrm:// address (`komando host edit "+h.Name+" --address winrm://...`)",
+		return out.Errf(out.ExitConnect, "WINRM_TLS", "if the server's certificate comes from your own CA, store it with `komando secret set NAME < ca.crt` and add ?ca=credential:NAME to its winrm:// address (`komando host edit "+h.Name+" --address winrm://...`)",
 			"%s: the WinRM server's certificate cannot be trusted: %v", h.Name, err)
 	case errors.As(err, &fe):
 		return out.Errf(out.ExitRemote, "WINRM_ERROR", "read the message; `winrm quickconfig` on the server sets WinRM up, and the user needs the right to use it (an administrator, or the Remote Management Users group)",

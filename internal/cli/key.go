@@ -198,13 +198,13 @@ func keyAddCmd() *cobra.Command {
 		Short: "Add a private key file you already have (komando keeps its path)",
 		Long: `Adds a private key file you already have to komando's key list; the file stays
 where it is. For a key with a passphrase, store the passphrase in the vault
-and pass --passphrase-ref secret:NAME.
+and pass --passphrase-ref credential:NAME.
 
 An OpenSSH user certificate next to the key (FILE-cert.pub) is used at
 login, as ssh does; --cert names one kept somewhere else.`,
 		Example: `  komando key add personal ~/.ssh/id_ed25519
   komando key add corp ~/.ssh/id_corp --cert ~/.ssh/corp-ca/id_corp-cert.pub
-  komando secret set id-pass && komando key add work ~/.ssh/id_work --passphrase-ref secret:id-pass`,
+  komando secret set id-pass && komando key add work ~/.ssh/id_work --passphrase-ref credential:id-pass`,
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if err := inventory.ValidName("key", args[0]); err != nil {
@@ -241,7 +241,7 @@ login, as ssh does; --cert names one kept somewhere else.`,
 				k.Type, k.Fingerprint = pub.Type(), ssh.FingerprintSHA256(pub)
 				k.PublicKey = strings.TrimSpace(string(ssh.MarshalAuthorizedKey(pub)))
 			case errors.As(err, &pme):
-				res.Warnings = append(res.Warnings, "the key has a passphrase and no --passphrase-ref: komando cannot log in with it until you run `komando key edit "+k.Name+" --passphrase-ref secret:NAME`")
+				res.Warnings = append(res.Warnings, "the key has a passphrase and no --passphrase-ref: komando cannot log in with it until you run `komando key edit "+k.Name+" --passphrase-ref credential:NAME`")
 				if pb, e := os.ReadFile(p + ".pub"); e == nil {
 					if pub, comment, _, _, e := ssh.ParseAuthorizedKey(pb); e == nil {
 						k.Type, k.Fingerprint = pub.Type(), ssh.FingerprintSHA256(pub)
@@ -285,7 +285,7 @@ login, as ssh does; --cert names one kept somewhere else.`,
 			return nil
 		}),
 	}
-	c.Flags().StringVar(&passRef, "passphrase-ref", "", "passphrase reference for encrypted keys (secret:NAME | env:VAR | ...)")
+	c.Flags().StringVar(&passRef, "passphrase-ref", "", "passphrase reference for encrypted keys (credential:NAME | env:VAR | ...)")
 	c.Flags().StringVar(&cert, "cert", "", "an OpenSSH user certificate for the key (default: FILE-cert.pub next to it, if there)")
 	return c
 }
@@ -386,14 +386,14 @@ func keyEditCmd() *cobra.Command {
 		Use:   "edit NAME",
 		Short: "Change a key's passphrase reference or certificate",
 		Long: `Sets where komando finds the passphrase of an encrypted key. Store the
-passphrase with ` + "`komando secret set NAME`" + ` first and pass secret:NAME;
+passphrase with ` + "`komando secret set NAME`" + ` first and pass credential:NAME;
 --unset passphrase-ref clears it.
 
 --cert FILE gives the key an OpenSSH user certificate (for a key komando
 made, or one kept away from the key file); --unset cert goes back to
 FILE-cert.pub next to the key.`,
 		Example: `  komando secret set work-key-pass
-  komando key edit work --passphrase-ref secret:work-key-pass
+  komando key edit work --passphrase-ref credential:work-key-pass
   komando key edit work --unset passphrase-ref
   komando key edit deploy --cert ~/Downloads/deploy-cert.pub`,
 		Args: cobra.ExactArgs(1),
@@ -411,7 +411,7 @@ FILE-cert.pub next to the key.`,
 			case unsetCert && fl.Changed("cert"):
 				return out.Usage("use --cert or --unset cert, not both")
 			case !fl.Changed("unset") && !fl.Changed("passphrase-ref") && !fl.Changed("cert"):
-				return out.Errf(out.ExitUsage, "USAGE", "for example komando key edit "+args[0]+" --passphrase-ref secret:NAME", "nothing to change")
+				return out.Errf(out.ExitUsage, "USAGE", "for example komando key edit "+args[0]+" --passphrase-ref credential:NAME", "nothing to change")
 			}
 			if err := checkPassphraseRef(passRef); err != nil {
 				return err
@@ -465,7 +465,7 @@ FILE-cert.pub next to the key.`,
 			return nil
 		}),
 	}
-	c.Flags().StringVar(&passRef, "passphrase-ref", "", "where the passphrase is: secret:NAME | env:VAR | ...")
+	c.Flags().StringVar(&passRef, "passphrase-ref", "", "where the passphrase is: credential:NAME | env:VAR | ...")
 	c.Flags().StringVar(&cert, "cert", "", "an OpenSSH user certificate for the key")
 	c.Flags().StringSliceVar(&unset, "unset", nil, "clear this setting: passphrase-ref, cert")
 	return c

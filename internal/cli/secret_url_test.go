@@ -9,12 +9,12 @@ import (
 )
 
 // A secret that only a conn URL option names (a registry's
-// ?ca=secret:NAME) counts as used everywhere: secret list, rm, mv, export
+// ?ca=credential:NAME) counts as used everywhere: secret list, rm, mv, export
 // and doctor.
 func TestSecretRefInConnURL(t *testing.T) {
 	invHome(t)
 	setSecret(t, "reg-ca", "-----BEGIN CERTIFICATE-----")
-	const url = "registry://deploy@registry.lan?ca=secret:reg-ca"
+	const url = "registry://deploy@registry.lan?ca=credential:reg-ca"
 	if err := store.Update(store.Save(), func(s *store.State) error {
 		s.Conns = map[string]*store.Conn{"reg": {Name: "reg", Kind: "registry", URL: url, Protected: true}}
 		return nil
@@ -49,7 +49,7 @@ func TestSecretRefInConnURL(t *testing.T) {
 		t.Errorf("mv: %v", d)
 	}
 	st, _ = loadState()
-	if got := st.Conns["reg"].URL; got != "registry://deploy@registry.lan?ca=secret:registry-ca" {
+	if got := st.Conns["reg"].URL; got != "registry://deploy@registry.lan?ca=credential:registry-ca" {
 		t.Errorf("URL after mv: %s", got)
 	}
 
@@ -60,7 +60,7 @@ func TestSecretRefInConnURL(t *testing.T) {
 		}
 	}
 	if err := store.Update(store.Save(), func(s *store.State) error {
-		s.Conns["reg"].URL = "registry://deploy@registry.lan?ca=secret:nope"
+		s.Conns["reg"].URL = "registry://deploy@registry.lan?ca=credential:nope"
 		return nil
 	}); err != nil {
 		t.Fatal(err)
@@ -68,7 +68,7 @@ func TestSecretRefInConnURL(t *testing.T) {
 	st, _ = loadState()
 	found := false
 	for _, c := range inventoryChecks(tcl, st) {
-		if c.Name == "conn:reg" && c.Warning && strings.Contains(c.Detail, "ca secret:nope is not in the vault") {
+		if c.Name == "conn:reg" && c.Warning && strings.Contains(c.Detail, "ca credential:nope is not in the vault") {
 			found = true
 		}
 	}

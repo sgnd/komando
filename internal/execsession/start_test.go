@@ -123,12 +123,12 @@ func TestStartScriptFilesPrivate(t *testing.T) {
 // cmd holds the command as shown, never what was filled in for it.
 func TestStartScriptCmdHoldsShownForm(t *testing.T) {
 	home := t.TempDir()
-	if _, code := runStart(t, home, Start{ID: testID, Shown: "deploy --token secret:api", Run: startRun("echo filled-value"), LogMax: 1 << 20}, ""); code != 0 {
+	if _, code := runStart(t, home, Start{ID: testID, Shown: "deploy --token credential:api", Run: startRun("echo filled-value"), LogMax: 1 << 20}, ""); code != 0 {
 		t.Fatalf("exit %d", code)
 	}
 	waitFile(t, home, "exit")
 	b, err := os.ReadFile(filepath.Join(sessionDir(home), "cmd"))
-	if err != nil || string(b) != "deploy --token secret:api\n" {
+	if err != nil || string(b) != "deploy --token credential:api\n" {
 		t.Fatalf("cmd %q, %v", b, err)
 	}
 }

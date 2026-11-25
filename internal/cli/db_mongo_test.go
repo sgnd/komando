@@ -24,7 +24,7 @@ func TestMongoLive(t *testing.T) {
 	}
 	invHome(t)
 	withStdin(t, "rootpw\n", func() { mustRun(t, "secret", "set", "mongo-pass") })
-	mustRun(t, "conn", "add", "shop", "mongodb://root@"+addr+"/shop_e2e?authSource=admin", "--password-ref", "secret:mongo-pass")
+	mustRun(t, "conn", "add", "shop", "mongodb://root@"+addr+"/shop_e2e?authSource=admin", "--password-ref", "credential:mongo-pass")
 	mustRun(t, "db", "query", "shop", "--write", "--allow-dangerous", `{"dropDatabase": 1}`)
 
 	r := mustRun(t, "conn", "test", "shop")["results"].([]any)[0].(map[string]any)
@@ -146,7 +146,7 @@ func TestMongoRefusals(t *testing.T) {
 	for _, args := range [][]string{
 		{"db", "user", "add", "m", "app", "--no-login"},
 		{"db", "user", "rm", "m", "app", "--dry-run"},
-		{"db", "user", "passwd", "m", "app", "--password-ref", "secret:x"},
+		{"db", "user", "passwd", "m", "app", "--password-ref", "credential:x"},
 		{"db", "grant", "m", "app", "--role", "read"},
 		{"db", "revoke", "m", "app", "--role", "read"},
 	} {

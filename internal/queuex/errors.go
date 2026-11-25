@@ -30,7 +30,7 @@ func connectErr(t driver.Target, err error) error {
 	case errors.Is(err, context.DeadlineExceeded) || IsTimeout(err):
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "check the address, or raise --connect-timeout; a broker that speaks TLS needs ?tls=true", "connecting to %s timed out", t.Address)
 	case t.Secure && (strings.Contains(msg, "x509:") || strings.Contains(msg, "tls: failed to verify")):
-		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "the broker's certificate could not be checked against this computer's CAs: give the CA that signed it with ?ca=secret:NAME (`komando secret set NAME < ca.pem`), or reach the brokers --via an SSH server",
+		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "the broker's certificate could not be checked against this computer's CAs: give the CA that signed it with ?ca=credential:NAME (`komando secret set NAME < ca.pem`), or reach the brokers --via an SSH server",
 			"cannot connect to %s: %s", t.Address, msg)
 	case t.Secure && strings.Contains(msg, "first record does not look like a TLS handshake"):
 		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "the broker does not speak TLS on this port: check the port, or drop tls=true from the URL", "cannot connect to %s: %s", t.Address, msg)

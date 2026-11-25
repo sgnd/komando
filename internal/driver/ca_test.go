@@ -17,12 +17,12 @@ import (
 
 func TestParseCA(t *testing.T) {
 	for raw, want := range map[string]string{
-		"postgres://app@db.internal:5432/app?ca=secret:rds-ca":            "secret:rds-ca",
-		"postgres://app@db.internal/app?sslmode=verify-full&ca=secret:x":  "secret:x",
-		"mysql://shop@db.internal/shop?ca=secret:azure-ca":                "secret:azure-ca",
-		"mysql://shop@db.internal/shop?tls=true&ca=secret:azure-ca":       "secret:azure-ca",
-		"rediss://default@cache.internal:6380/0?ca=secret:elasticache-ca": "secret:elasticache-ca",
-		"memcacheds://cache.internal:11211?ca=secret:ca":                  "secret:ca",
+		"postgres://app@db.internal:5432/app?ca=credential:rds-ca":            "credential:rds-ca",
+		"postgres://app@db.internal/app?sslmode=verify-full&ca=credential:x":  "credential:x",
+		"mysql://shop@db.internal/shop?ca=credential:azure-ca":                "credential:azure-ca",
+		"mysql://shop@db.internal/shop?tls=true&ca=credential:azure-ca":       "credential:azure-ca",
+		"rediss://default@cache.internal:6380/0?ca=credential:elasticache-ca": "credential:elasticache-ca",
+		"memcacheds://cache.internal:11211?ca=credential:ca":                  "credential:ca",
 		"postgres://app@db.internal/app":                                  "",
 	} {
 		tg, err := Parse(raw)
@@ -32,11 +32,11 @@ func TestParseCA(t *testing.T) {
 	}
 	for _, raw := range []string{
 		"postgres://app@db/app?ca=/etc/ssl/ca.pem", // a path, not a secret
-		"postgres://app@db/app?ca=secret:",         // no name
-		"postgres://app@db/app?sslmode=disable&ca=secret:x",
-		"mysql://shop@db/shop?tls=skip-verify&ca=secret:x",
-		"redis://cache:6379/0?ca=secret:x", // no TLS
-		"memcached://cache:11211?ca=secret:x",
+		"postgres://app@db/app?ca=credential:",         // no name
+		"postgres://app@db/app?sslmode=disable&ca=credential:x",
+		"mysql://shop@db/shop?tls=skip-verify&ca=credential:x",
+		"redis://cache:6379/0?ca=credential:x", // no TLS
+		"memcached://cache:11211?ca=credential:x",
 	} {
 		_, err := Parse(raw)
 		if oe, ok := err.(*out.Error); !ok || oe.Exit != out.ExitUsage {
@@ -46,7 +46,7 @@ func TestParseCA(t *testing.T) {
 }
 
 func TestWithoutCA(t *testing.T) {
-	got := WithoutCA("postgres://app@db/app?sslmode=require&ca=secret:x&application_name=a")
+	got := WithoutCA("postgres://app@db/app?sslmode=require&ca=credential:x&application_name=a")
 	if strings.Contains(got, "ca=") || !strings.Contains(got, "sslmode=require") || !strings.Contains(got, "application_name=a") {
 		t.Errorf("WithoutCA: %s", got)
 	}
@@ -58,7 +58,7 @@ func TestWithoutCA(t *testing.T) {
 func TestRootCAs(t *testing.T) {
 	saved := ResolveSecret
 	defer func() { ResolveSecret = saved }()
-	tg, _ := Parse("rediss://cache:6380/0?ca=secret:ca")
+	tg, _ := Parse("rediss://cache:6380/0?ca=credential:ca")
 	ResolveSecret = func(string) (string, error) { return "", ErrSecretNotFound }
 	if _, err := tg.RootCAs(); err == nil || err.(*out.Error).Code != "SECRET_NOT_FOUND" {
 		t.Errorf("missing secret: %v", err)
@@ -97,7 +97,7 @@ func TestCAPEM(t *testing.T) {
 		string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: []byte("not DER")})) +
 		string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: b})) + "\n\n"
 	ResolveSecret = func(string) (string, error) { return stored, nil }
-	tg, _ := Parse("postgres://app@db.internal/app?ca=secret:pg-ca")
+	tg, _ := Parse("postgres://app@db.internal/app?ca=credential:pg-ca")
 	got, err := tg.CAPEM()
 	if err != nil || got != clean {
 		t.Fatalf("CAPEM: %v\n%s", err, got)

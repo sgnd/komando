@@ -62,9 +62,9 @@ func ParseBigQueryURL(raw string) (BigQueryConn, error) {
 		switch key {
 		case "location", "endpoint", "ca":
 		case "tls":
-			return BigQueryConn{}, out.Usage("bigquery conns are always HTTPS with the certificate checked: drop tls= (a private CA, such as a proxy's: ?ca=secret:NAME)")
+			return BigQueryConn{}, out.Usage("bigquery conns are always HTTPS with the certificate checked: drop tls= (a private CA, such as a proxy's: ?ca=credential:NAME)")
 		default:
-			return BigQueryConn{}, out.Usage("unknown bigquery URL option %q (known: location, endpoint, ca (secret:NAME))", key)
+			return BigQueryConn{}, out.Usage("unknown bigquery URL option %q (known: location, endpoint, ca (credential:NAME))", key)
 		}
 	}
 	if b.Location = q.Get("location"); b.Location != "" && !bqLocation.MatchString(b.Location) {

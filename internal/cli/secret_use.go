@@ -20,8 +20,8 @@ import (
 
 // Where a secret may go when an AI agent asks (docs/features/safety.md).
 // komando hides secret values from agents, but a command can still send one
-// somewhere: into a file on a server ({{secret:NAME}}), into a command's
-// environment (exec --env K=secret:NAME), as a database user's password, or
+// somewhere: into a file on a server ({{credential:NAME}}), into a command's
+// environment (exec --env K=credential:NAME), as a database user's password, or
 // as the password of a server or conn, which goes to its address on every
 // connection. On a machine the agent controls, the value can come back in
 // a form output masking does not know (reversed, hex, cut in pieces). So
@@ -43,7 +43,7 @@ func agentYes(cl *call, code, msg, what string, why ...string) error {
 }
 
 // guardSecretUse stops an AI agent from sending the secrets refs (written
-// as references: secret:NAME, env:VAR, vault:PATH#FIELD, ...) to where
+// as references: credential:NAME, env:VAR, vault:PATH#FIELD, ...) to where
 // without a person's yes. A reserved secret never goes, for anyone.
 func guardSecretUse(cl *call, refs []string, where string) error {
 	refs = dedupe(refs)
@@ -60,7 +60,7 @@ func guardSecretUse(cl *call, refs []string, where string) error {
 // reservedRefs refuses a reference to a secret komando keeps for itself.
 func reservedRefs(refs []string) error {
 	for _, r := range refs {
-		if name, ok := strings.CutPrefix(r, "secret:"); ok {
+		if name, ok := strings.CutPrefix(r, "credential:"); ok {
 			if err := reservedSecret(name); err != nil {
 				return err
 			}
@@ -74,7 +74,7 @@ func reservedRefs(refs []string) error {
 func envSecretRefs(env map[string]string) []string {
 	var refs []string
 	for _, k := range slices.Sorted(maps.Keys(env)) {
-		if v := env[k]; strings.HasPrefix(v, "secret:") {
+		if v := env[k]; strings.HasPrefix(v, "credential:") {
 			refs = append(refs, v)
 		}
 	}
@@ -99,7 +99,7 @@ func parseEnvTo(cl *call, pairs []string, hosts []*store.Host) (map[string]strin
 	return env, guardSecretUse(cl, refs, "the command's environment on "+strings.Join(hostNames(hosts), ", "))
 }
 
-// A server's own env (host edit --env K=secret:NAME) goes into each
+// A server's own env (host edit --env K=credential:NAME) goes into each
 // command komando runs there. In an AI agent's command the agent could
 // read the value back in a form masking does not know (printenv K | rev),
 // so for an agent those values are left out (sshx.HostSecretEnv) until a
@@ -122,7 +122,7 @@ func guardHostEnv(cl *call, hosts []*store.Host, env map[string]string) error {
 	for _, h := range hosts {
 		var hr []string
 		for _, k := range slices.Sorted(maps.Keys(h.Env)) {
-			if _, own := env[k]; !own && strings.HasPrefix(h.Env[k], "secret:") {
+			if _, own := env[k]; !own && strings.HasPrefix(h.Env[k], "credential:") {
 				hr = append(hr, h.Env[k])
 			}
 		}
@@ -211,7 +211,7 @@ func connPlace(c *store.Conn) secretPlace {
 		refs = append(refs, loginAskRef)
 	}
 	for _, r := range inventory.URLSecretRefs(c.URL) {
-		refs = append(refs, "secret:"+r.Name)
+		refs = append(refs, "credential:"+r.Name)
 	}
 	dest := strings.Join(connPlaces(c), ",")
 	if set := connURLSettings(c.URL); len(set) > 0 {
@@ -633,7 +633,7 @@ func vpnBehindSends(st *store.State, name string) ([]string, error) {
 // the value now when that value decides whom komando trusts, not only how
 // it logs in: an OpenVPN VPN's profile (its servers and CA; the VPN's
 // login goes there) and the CA certificate a WinRM server or a conn is
-// checked against (?ca=secret:NAME). had is false when the secret is not
+// checked against (?ca=credential:NAME). had is false when the secret is not
 // there yet: making a CA an entry already names counts too. A person's
 // yes (--yes, then the window) lets it through, as for vpn edit, host
 // edit and conn edit making the same change.
@@ -645,7 +645,7 @@ func guardTrustSecret(cl *call, st *store.State, name, old string, had bool, now
 	if !cl.isAgent() || (had && old == now) {
 		return nil
 	}
-	ref := "secret:" + name
+	ref := "credential:" + name
 	var sends, weak []string
 	for _, n := range slices.Sorted(maps.Keys(st.Vpns)) {
 		v := st.Vpns[n]

@@ -21,7 +21,7 @@ func dbUserCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "user",
 		Short: "Database users: see, add, change passwords, remove",
-		Long: `Passwords come from a secret reference (--password-ref secret:NAME, vault:...,
+		Long: `Passwords come from a secret reference (--password-ref credential:NAME, vault:...,
 aws-sm:...), so they are never typed on a command line or shown. PostgreSQL
 gets a SCRAM-SHA-256 verifier komando computes, so the password itself never
 reaches the server or its logs. Adding a user or changing a password is a
@@ -63,8 +63,8 @@ func dbUserChangeCmd(action string) *cobra.Command {
 	var ref, host string
 	var noLogin bool
 	parts := map[string][3]string{
-		"add":    {"add CONN USER --password-ref REF", "Create a user with a password from a secret reference", "  komando db user add prod-db app_ro --password-ref secret:app-ro-pass --dry-run   # shows the statement\n  komando db user add prod-db app_ro --password-ref secret:app-ro-pass --allow-dangerous"},
-		"passwd": {"passwd CONN USER --password-ref REF", "Set a user's password from a secret reference (rotation)", "  komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2 --dry-run\n  komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2 --allow-dangerous"},
+		"add":    {"add CONN USER --password-ref REF", "Create a user with a password from a secret reference", "  komando db user add prod-db app_ro --password-ref credential:app-ro-pass --dry-run   # shows the statement\n  komando db user add prod-db app_ro --password-ref credential:app-ro-pass --allow-dangerous"},
+		"passwd": {"passwd CONN USER --password-ref REF", "Set a user's password from a secret reference (rotation)", "  komando db user passwd prod-db app_ro --password-ref credential:app-ro-pass-2 --dry-run\n  komando db user passwd prod-db app_ro --password-ref credential:app-ro-pass-2 --allow-dangerous"},
 		"rm":     {"rm CONN USER", "Remove a database user", "  komando db user rm prod-db old_app --dry-run   # shows the statement\n  komando db user rm prod-db old_app --allow-dangerous"},
 	}[action]
 	c := &cobra.Command{
@@ -78,9 +78,9 @@ func dbUserChangeCmd(action string) *cobra.Command {
 			case action == "rm" && ref != "":
 				return out.Usage("rm takes no --password-ref")
 			case action == "passwd" && ref == "", action == "add" && ref == "" && !noLogin:
-				return out.Usage("give the password as a reference: --password-ref secret:NAME (set it with `komando secret set NAME`)")
+				return out.Usage("give the password as a reference: --password-ref credential:NAME (set it with `komando secret set NAME`)")
 			case ref != "" && !vault.ValidRef(ref):
-				return out.Usage("--password-ref: %s", vault.RefHelp())
+				return out.Usage("--password-ref: %s", vault.RefHelpFor(ref))
 			}
 			// the same tier as the statement in `db query` (sql-privileges):
 			// a new login, a new role or another user's password gives rights
@@ -118,7 +118,7 @@ func dbUserChangeCmd(action string) *cobra.Command {
 		}),
 	}
 	if action != "rm" {
-		c.Flags().StringVar(&ref, "password-ref", "", "the password: secret:NAME | vault:PATH#FIELD | aws-sm:NAME | ...")
+		c.Flags().StringVar(&ref, "password-ref", "", "the password: credential:NAME | vault:PATH#FIELD | aws-sm:NAME | ...")
 	}
 	c.Flags().StringVar(&host, "from-host", "", "MySQL: where the user may connect from (the account host; default %, anywhere)")
 	if action == "add" {

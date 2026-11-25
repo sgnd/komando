@@ -38,7 +38,7 @@ func secretIs(t *testing.T, name, want string) {
 // secret set, secret cp --overwrite and secret rename --overwrite.
 func TestProtectedVpnSecretNeedsYes(t *testing.T) {
 	secretHome(t)
-	putVpn(t, &store.Vpn{Name: "office", Kind: "wireguard", KeyRef: "secret:office-key", PSKRef: "secret:office-psk", Protected: true,
+	putVpn(t, &store.Vpn{Name: "office", Kind: "wireguard", KeyRef: "credential:office-key", PSKRef: "credential:office-psk", Protected: true,
 		Config: "[Interface]\nAddress = 10.66.0.2/32\n"}, map[string]string{"office-key": "key-1", "office-psk": "psk-1", "other": "agent-value"})
 	texts := windowText(t, true)
 	t.Setenv("V", "agent-value")
@@ -64,7 +64,7 @@ const ovpnEvil = "client\nremote evil.example 443\n<ca>\nEVIL\n</ca>\n"
 // does for the same change; the window names the new servers.
 func TestOvpnProfileSecretNeedsAPerson(t *testing.T) {
 	secretHome(t)
-	putVpn(t, &store.Vpn{Name: "corp", Kind: "openvpn", ConfigRef: "secret:corp-config", KeyRef: "secret:corp-pass", User: "ana"},
+	putVpn(t, &store.Vpn{Name: "corp", Kind: "openvpn", ConfigRef: "credential:corp-config", KeyRef: "credential:corp-pass", User: "ana"},
 		map[string]string{"corp-config": ovpnOld, "corp-pass": "pw", "evil": ovpnEvil})
 	texts := windowText(t, true)
 	t.Setenv("V", ovpnEvil)
@@ -88,7 +88,7 @@ func TestOvpnProfileSecretNeedsAPerson(t *testing.T) {
 
 	t.Setenv("V", ovpnEvil)
 	mustRun(t, "secret", "set", "corp-config", "--from-env", "V", "--yes")
-	if len(*texts) != 1 || !strings.Contains((*texts)[0], "secret:corp-pass to evil.example:443") || !strings.Contains((*texts)[0], "vpn corp") {
+	if len(*texts) != 1 || !strings.Contains((*texts)[0], "credential:corp-pass to evil.example:443") || !strings.Contains((*texts)[0], "vpn corp") {
 		t.Errorf("window: %q", *texts)
 	}
 	secretIs(t, "corp-config", ovpnEvil)
@@ -100,7 +100,7 @@ func TestOvpnProfileSecretNeedsAPerson(t *testing.T) {
 }
 
 // The CA certificate a WinRM server or a conn is checked against lives in
-// a vault secret (?ca=secret:NAME). An AI agent that replaces it, or makes
+// a vault secret (?ca=credential:NAME). An AI agent that replaces it, or makes
 // one that was missing, needs a person's yes: another CA lets another
 // server pass as that one and get its password.
 func TestCASecretNeedsAPerson(t *testing.T) {
@@ -110,9 +110,9 @@ func TestCASecretNeedsAPerson(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	mustRun(t, "host", "add", "win1", "winrm://Administrator@10.0.0.9?ca=secret:win-ca", "--password-ref", "secret:win-pass")
-	mustRun(t, "host", "add", "win2", "winrm://Administrator@10.0.0.10?ca=secret:later-ca")
-	mustRun(t, "conn", "add", "shop", "postgres://app@10.0.0.5/app?sslmode=verify-full&ca=secret:db-ca")
+	mustRun(t, "host", "add", "win1", "winrm://Administrator@10.0.0.9?ca=credential:win-ca", "--password-ref", "credential:win-pass")
+	mustRun(t, "host", "add", "win2", "winrm://Administrator@10.0.0.10?ca=credential:later-ca")
+	mustRun(t, "conn", "add", "shop", "postgres://app@10.0.0.5/app?sslmode=verify-full&ca=credential:db-ca")
 	texts := windowText(t, true)
 	t.Setenv("V", "PEM-AGENT")
 	wantCode(t, "SAFETY_SETTING", "secret", "set", "win-ca", "--from-env", "V")
@@ -142,7 +142,7 @@ func TestCASecretNeedsAPerson(t *testing.T) {
 }
 
 // An AI agent that points a WinRM server at another CA certificate
-// (host edit ...?ca=secret:OTHER) needs a person's yes, like tls=skip-verify.
+// (host edit ...?ca=credential:OTHER) needs a person's yes, like tls=skip-verify.
 func TestWinRMOtherCANeedsAPerson(t *testing.T) {
 	secretHome(t)
 	for n, v := range map[string]string{"win-ca": "PEM-1", "mine": "PEM-AGENT"} {
@@ -150,24 +150,24 @@ func TestWinRMOtherCANeedsAPerson(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	mustRun(t, "host", "add", "win1", "winrm://Administrator@10.0.0.9?ca=secret:win-ca")
+	mustRun(t, "host", "add", "win1", "winrm://Administrator@10.0.0.9?ca=credential:win-ca")
 	mustRun(t, "host", "add", "win2", "winrm://Administrator@10.0.0.10")
 	texts := windowText(t, true)
-	wantCode(t, "SAFETY_SETTING", "host", "edit", "win1", "--address", "winrm://Administrator@10.0.0.9?ca=secret:mine")
-	wantCode(t, "SAFETY_SETTING", "host", "edit", "win2", "--address", "winrm://Administrator@10.0.0.10?ca=secret:mine")
+	wantCode(t, "SAFETY_SETTING", "host", "edit", "win1", "--address", "winrm://Administrator@10.0.0.9?ca=credential:mine")
+	wantCode(t, "SAFETY_SETTING", "host", "edit", "win2", "--address", "winrm://Administrator@10.0.0.10?ca=credential:mine")
 	if len(*texts) != 0 {
 		t.Errorf("no flag, no window: %q", *texts)
 	}
-	if h := mustState(t).Hosts["win1"]; h.WinRMOpts.CA != "secret:win-ca" {
+	if h := mustState(t).Hosts["win1"]; h.WinRMOpts.CA != "credential:win-ca" {
 		t.Errorf("win1 trusts %s", h.WinRMOpts.CA)
 	}
 	// a new server with a CA of its own, and dropping the extra CA, ask nothing
-	mustRun(t, "host", "add", "win3", "winrm://Administrator@10.0.0.11?ca=secret:win-ca")
+	mustRun(t, "host", "add", "win3", "winrm://Administrator@10.0.0.11?ca=credential:win-ca")
 	mustRun(t, "host", "edit", "win1", "--address", "winrm://Administrator@10.0.0.9")
 	if len(*texts) != 0 {
 		t.Errorf("nothing weaker: %q", *texts)
 	}
-	mustRun(t, "host", "edit", "win2", "--address", "winrm://Administrator@10.0.0.10?ca=secret:mine", "--yes")
+	mustRun(t, "host", "edit", "win2", "--address", "winrm://Administrator@10.0.0.10?ca=credential:mine", "--yes")
 	if len(*texts) != 1 || !strings.Contains((*texts)[0], "server win2") || !strings.Contains((*texts)[0], "CA certificate") {
 		t.Errorf("window: %q", *texts)
 	}
@@ -180,8 +180,8 @@ func TestMovedHopNeedsAPerson(t *testing.T) {
 	secretHome(t)
 	mustRun(t, "host", "add", "jump", "u@10.0.0.3")
 	mustRun(t, "host", "add", "edge", "u@10.0.0.4")
-	mustRun(t, "host", "add", "inner", "u@10.0.1.1", "--via", "edge,jump", "--sudo-ref", "secret:db-pass")
-	mustRun(t, "conn", "add", "shop", "postgres://app@10.0.0.5/app", "--password-ref", "secret:db-pass", "--via", "jump")
+	mustRun(t, "host", "add", "inner", "u@10.0.1.1", "--via", "edge,jump", "--sudo-ref", "credential:db-pass")
+	mustRun(t, "conn", "add", "shop", "postgres://app@10.0.0.5/app", "--password-ref", "credential:db-pass", "--via", "jump")
 	mustRun(t, "host", "add", "lone", "u@10.0.0.8")
 	texts := windowText(t, true)
 	wantCode(t, "SECRET_DESTINATION", "host", "edit", "jump", "--address", "10.6.6.6")
@@ -203,7 +203,7 @@ func TestMovedHopNeedsAPerson(t *testing.T) {
 	if len(*texts) != 1 {
 		t.Fatalf("one window: %q", *texts)
 	}
-	for _, want := range []string{"secret:db-pass", "conn shop", "server inner", "10.6.6.6:22"} {
+	for _, want := range []string{"credential:db-pass", "conn shop", "server inner", "10.6.6.6:22"} {
 		if !strings.Contains((*texts)[0], want) {
 			t.Errorf("window lacks %q: %q", want, (*texts)[0])
 		}
@@ -215,9 +215,9 @@ func TestMovedHopNeedsAPerson(t *testing.T) {
 // secret a protected entry uses, an OpenVPN profile, a CA certificate.
 func TestImportReplacingATrustSecretNeedsAPerson(t *testing.T) {
 	secretHome(t)
-	putVpn(t, &store.Vpn{Name: "corp", Kind: "openvpn", ConfigRef: "secret:x-pass", KeyRef: "secret:corp-pass", User: "ana"},
+	putVpn(t, &store.Vpn{Name: "corp", Kind: "openvpn", ConfigRef: "credential:x-pass", KeyRef: "credential:corp-pass", User: "ana"},
 		map[string]string{"x-pass": ovpnOld, "corp-pass": "pw"})
-	putVpn(t, &store.Vpn{Name: "office", Kind: "wireguard", KeyRef: "secret:y-pass", Protected: true, Config: "[Interface]\n"},
+	putVpn(t, &store.Vpn{Name: "office", Kind: "wireguard", KeyRef: "credential:y-pass", Protected: true, Config: "[Interface]\n"},
 		map[string]string{"y-pass": "key-1"})
 	env := filepath.Join(t.TempDir(), "app.env")
 	if err := os.WriteFile(env, []byte("X_URL=postgres://app:"+url.QueryEscape(ovpnEvil)+"@10.9.9.9:5432/app\nY_URL=postgres://app:agentkey@10.9.9.8:5432/app\n"), 0o600); err != nil {
@@ -251,9 +251,9 @@ func TestImportReplacingATrustSecretNeedsAPerson(t *testing.T) {
 // person types at `vpn up` gets a new profile only from a person.
 func TestOvpnProfileCopyAndTypedLogin(t *testing.T) {
 	secretHome(t)
-	putVpn(t, &store.Vpn{Name: "corp", Kind: "openvpn", ConfigRef: "secret:corp-config", KeyRef: "secret:corp-pass", User: "ana"},
+	putVpn(t, &store.Vpn{Name: "corp", Kind: "openvpn", ConfigRef: "credential:corp-config", KeyRef: "credential:corp-pass", User: "ana"},
 		map[string]string{"corp-config": ovpnOld, "corp-pass": "pw", "hidden-profile": "client\nremote hidden-host.internal 7777\n"})
-	putVpn(t, &store.Vpn{Name: "typed", Kind: "openvpn", ConfigRef: "secret:typed-config"}, map[string]string{"typed-config": ovpnOld})
+	putVpn(t, &store.Vpn{Name: "typed", Kind: "openvpn", ConfigRef: "credential:typed-config"}, map[string]string{"typed-config": ovpnOld})
 	windowText(t, true)
 	for _, args := range [][]string{{"secret", "cp", "hidden-profile", "corp-config", "--overwrite"}, {"secret", "cp", "hidden-profile", "corp-config", "--overwrite", "--dry-run"}} {
 		_, text := runMain(t, args...)
@@ -271,9 +271,9 @@ func TestOvpnProfileCopyAndTypedLogin(t *testing.T) {
 func TestMovedHopReachesEverythingBehindIt(t *testing.T) {
 	secretHome(t)
 	mustRun(t, "host", "add", "jump", "u@10.0.0.3", "--port", "2222")
-	mustRun(t, "host", "add", "inner", "u@10.0.1.1", "--via", "jump", "--sudo-ref", "secret:db-pass")
+	mustRun(t, "host", "add", "inner", "u@10.0.1.1", "--via", "jump", "--sudo-ref", "credential:db-pass")
 	mustRun(t, "host", "add", "mid", "u@10.0.1.2", "--via", "jump")
-	mustRun(t, "conn", "add", "shop", "postgres://app@10.0.0.5/app", "--password-ref", "secret:db-pass", "--via", "mid")
+	mustRun(t, "conn", "add", "shop", "postgres://app@10.0.0.5/app", "--password-ref", "credential:db-pass", "--via", "mid")
 	texts := windowText(t, true)
 	wantCode(t, "SECRET_DESTINATION", "host", "edit", "jump,inner", "--port", "22")
 	if e := wantCode(t, "SECRET_DESTINATION", "host", "edit", "jump", "--address", "10.6.6.6"); !strings.Contains(e.Message, "conn shop") {
@@ -289,18 +289,18 @@ func TestMovedHopReachesEverythingBehindIt(t *testing.T) {
 // environment, a conn's password and URL option, a key's passphrase and a
 // VPN's key, preshared key and config. A protected one is named as such.
 func TestSecretRefsEveryKind(t *testing.T) {
-	ref := "secret:s"
+	ref := "credential:s"
 	st := &store.State{
 		Hosts: map[string]*store.Host{
 			"h1": {Name: "h1", PasswordRef: ref},
 			"h2": {Name: "h2", SudoRef: ref, Protected: true},
 			"h3": {Name: "h3", WinRMOpts: &store.WinRMOpts{CA: ref}},
 			"h4": {Name: "h4", Env: map[string]string{"A": "x", "B": ref}},
-			"h5": {Name: "h5", PasswordRef: "secret:other"},
+			"h5": {Name: "h5", PasswordRef: "credential:other"},
 		},
 		Conns: map[string]*store.Conn{
 			"c1": {Name: "c1", PasswordRef: ref},
-			"c2": {Name: "c2", URL: "registry://u@h?tls=&ca=secret:s#f"},
+			"c2": {Name: "c2", URL: "registry://u@h?tls=&ca=credential:s#f"},
 		},
 		Keys: map[string]*store.Key{"k1": {Name: "k1", PassphraseRef: ref}},
 		Vpns: map[string]*store.Vpn{
@@ -322,11 +322,11 @@ func TestSecretRefsEveryKind(t *testing.T) {
 	if got := strings.Join(inventory.SecretUsers(st, "t"), ","); got != want {
 		t.Errorf("after the rename: %s, want %s", got, want)
 	}
-	if len(inventory.SecretUsers(st, "s")) != 0 || st.Hosts["h4"].Env["B"] != "secret:t" || st.Hosts["h4"].Env["A"] != "x" ||
-		st.Conns["c2"].URL != "registry://u@h?tls=&ca=secret:t#f" || st.Hosts["h5"].PasswordRef != "secret:other" {
+	if len(inventory.SecretUsers(st, "s")) != 0 || st.Hosts["h4"].Env["B"] != "credential:t" || st.Hosts["h4"].Env["A"] != "x" ||
+		st.Conns["c2"].URL != "registry://u@h?tls=&ca=credential:t#f" || st.Hosts["h5"].PasswordRef != "credential:other" {
 		t.Errorf("rename left: %+v %q", st.Hosts["h4"].Env, st.Conns["c2"].URL)
 	}
-	if got := inventory.URLSecretRefs("registry://u@h?tls=&ca=secret:s&cert=secret:c"); len(got) != 2 {
+	if got := inventory.URLSecretRefs("registry://u@h?tls=&ca=credential:s&cert=credential:c"); len(got) != 2 {
 		t.Errorf("urlSecretRefs: %+v, want two", got)
 	}
 }

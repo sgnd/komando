@@ -30,19 +30,19 @@ func SecretUsers(st *store.State, name string) []string {
 	return walkSecretRefs(st, name, "")
 }
 
-// RenameSecretRefs points every reference to secret:from at secret:to and
+// RenameSecretRefs points every reference to credential:from at credential:to and
 // returns what it changed.
 func RenameSecretRefs(st *store.State, from, to string) []string {
 	return walkSecretRefs(st, from, to)
 }
 
-// walkSecretRefs finds every reference to secret:name in the state - the
+// walkSecretRefs finds every reference to credential:name in the state - the
 // password, sudo and passphrase refs, a server's environment variables and
-// WinRM CA (?ca=secret:NAME), a conn URL's options (?ca=secret:NAME) and
+// WinRM CA (?ca=credential:NAME), a conn URL's options (?ca=credential:NAME) and
 // a VPN's key, preshared key and config - and, when rename is set, points
-// it at secret:rename.
+// it at credential:rename.
 func walkSecretRefs(st *store.State, name, rename string) []string {
-	ref := "secret:" + name
+	ref := "credential:" + name
 	now := time.Now().UTC()
 	users := map[string]bool{}
 	visit := func(user string, touch func(), ps ...*string) {
@@ -51,7 +51,7 @@ func walkSecretRefs(st *store.State, name, rename string) []string {
 			if *p == ref {
 				hit = true
 				if rename != "" {
-					*p = "secret:" + rename
+					*p = "credential:" + rename
 				}
 			}
 		}
@@ -65,7 +65,7 @@ func walkSecretRefs(st *store.State, name, rename string) []string {
 	for _, h := range st.Hosts {
 		ps := []*string{&h.PasswordRef, &h.SudoRef}
 		if h.WinRMOpts != nil {
-			ps = append(ps, &h.WinRMOpts.CA) // winrm://...?ca=secret:NAME
+			ps = append(ps, &h.WinRMOpts.CA) // winrm://...?ca=credential:NAME
 		}
 		env := make([]string, 0, len(h.Env))
 		for k := range h.Env {
@@ -84,7 +84,7 @@ func walkSecretRefs(st *store.State, name, rename string) []string {
 	}
 	for _, c := range st.Conns {
 		visit("conn "+c.Name, func() { c.UpdatedAt = now }, &c.PasswordRef)
-		// a URL option such as a registry's ?ca=secret:NAME
+		// a URL option such as a registry's ?ca=credential:NAME
 		if u, hit := renameURLSecretRefs(c.URL, name, rename); hit {
 			users["conn "+c.Name] = true
 			if rename != "" {
@@ -106,8 +106,8 @@ func walkSecretRefs(st *store.State, name, rename string) []string {
 	return list
 }
 
-// URLSecretRef is a conn URL option whose value is secret:NAME, such as
-// the CA certificate of a registry: ?ca=secret:NAME.
+// URLSecretRef is a conn URL option whose value is credential:NAME, such as
+// the CA certificate of a registry: ?ca=credential:NAME.
 type URLSecretRef struct{ Option, Name string }
 
 // URLSecretRefs lists the options of a conn URL that name a vault secret,
@@ -122,8 +122,8 @@ func URLSecretRefs(rawURL string) []URLSecretRef {
 }
 
 // renameURLSecretRefs reports whether an option of the URL says
-// secret:from and, when to is set, returns the URL with those options
-// saying secret:to. The rest of the URL stays as it was written.
+// credential:from and, when to is set, returns the URL with those options
+// saying credential:to. The rest of the URL stays as it was written.
 func renameURLSecretRefs(rawURL, from, to string) (string, bool) {
 	hit := false
 	u := MapURLSecretRefs(rawURL, func(_, name string) string {
@@ -140,7 +140,7 @@ func renameURLSecretRefs(rawURL, from, to string) (string, bool) {
 }
 
 // MapURLSecretRefs calls fn for every query option of the URL whose value
-// is secret:NAME and writes back the name fn returns. It splits the URL the
+// is credential:NAME and writes back the name fn returns. It splits the URL the
 // way net/url does (the query runs from the first ? to the #) and edits
 // the text in place, so options it does not change keep their order and
 // their escaping. Secret names need no escaping (ValidName).
@@ -161,7 +161,7 @@ func MapURLSecretRefs(rawURL string, fn func(opt, name string) string) string {
 		if err != nil {
 			continue
 		}
-		name, ok := strings.CutPrefix(val, "secret:")
+		name, ok := strings.CutPrefix(val, "credential:")
 		if !ok || name == "" {
 			continue
 		}
@@ -170,7 +170,7 @@ func MapURLSecretRefs(rawURL string, fn func(opt, name string) string) string {
 			opt = k
 		}
 		if n := fn(opt, name); n != name {
-			parts[i] = k + "=secret:" + n
+			parts[i] = k + "=credential:" + n
 			changed = true
 		}
 	}

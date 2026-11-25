@@ -129,7 +129,7 @@ func TestConnURLSettingsAreThePlace(t *testing.T) {
 		{"pg1", base + "&hostaddr=203.0.113.66", "hostaddr=203.0.113.66"},
 		{"pg1", base + "&service=evil", "service=evil"},
 		{"pg1", base + "&sslrootcert=/tmp/evil.pem", "sslrootcert=/tmp/evil.pem"},
-		{"pg1", base + "&ca=secret:evilca", "ca=secret:evilca"},
+		{"pg1", base + "&ca=credential:evilca", "ca=credential:evilca"},
 		{"c1", "rediss://default@10.0.0.5:6379/0?sentinel=m&sentinels=203.0.113.66:26379&sentinel_auth=same", "203.0.113.66:26379"},
 		{"m1", "mongodb://app@10.0.0.5:27017,203.0.113.66:27017/app?authMechanism=PLAIN", "203.0.113.66:27017"},
 		{"q1", "amqp://guest@127.0.0.1:5672/?management=4444", "127.0.0.1:4444"},

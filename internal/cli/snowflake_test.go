@@ -30,7 +30,7 @@ func TestSnowflakeConns(t *testing.T) {
 	wantCode(t, "NOT_SUPPORTED", "db", "dump", "sf", "--to", t.TempDir()+"/s.sql")
 	wantCode(t, "NOT_SUPPORTED", "db", "restore", "sf", "--from", "x.sql", "--dry-run")
 	wantCode(t, "NOT_SUPPORTED", "db", "explain", "sf", "select 1", "--analyze")
-	wantCode(t, "NOT_SUPPORTED", "db", "user", "add", "sf", "bob", "--password-ref", "secret:x")
+	wantCode(t, "NOT_SUPPORTED", "db", "user", "add", "sf", "bob", "--password-ref", "credential:x")
 	wantCode(t, "NOT_SUPPORTED", "db", "user", "rm", "sf", "bob")
 	wantCode(t, "NOT_SUPPORTED", "db", "grant", "sf", "bob", "--role", "readers")
 	// the classifier says what needs --write before anything connects

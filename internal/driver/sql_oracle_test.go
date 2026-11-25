@@ -186,7 +186,7 @@ func TestParseOracle(t *testing.T) {
 		{"oracle://app@db.internal:2484/sales.example.com?tls=true", "db.internal:2484", "app", "sales.example.com", "true", true},
 		{"oracle://app@db?sid=ORCL&tls=false", "db:1521", "app", "ORCL", "false", false},
 		{"oracle://app@db/X?tls=skip-verify", "db:1521", "app", "X", "skip-verify", true},
-		{"oracle://app@db/X?tls=true&ca=secret:corp-ca", "db:1521", "app", "X", "true", true},
+		{"oracle://app@db/X?tls=true&ca=credential:corp-ca", "db:1521", "app", "X", "true", true},
 	}
 	for _, c := range cases {
 		tg, err := Parse(c.in)
@@ -206,8 +206,8 @@ func TestParseOracle(t *testing.T) {
 		"oracle://app@db/X?sid=Y":                       "USAGE",
 		"oracle://app@db/X)(HOST=evil":                  "USAGE",
 		"oracle://app@db/X?tls=maybe":                   "USAGE",
-		"oracle://app@db/X?ca=secret:x":                 "USAGE",
-		"oracle://app@db/X?tls=skip-verify&ca=secret:x": "USAGE",
+		"oracle://app@db/X?ca=credential:x":                 "USAGE",
+		"oracle://app@db/X?tls=skip-verify&ca=credential:x": "USAGE",
 		"oracle://app@db/X?tls=true&ca=x":               "USAGE",
 		"oracle://app@db/X?wallet=/tmp":                 "USAGE",
 		"oracle://app@db:0/X":                           "USAGE",

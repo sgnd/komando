@@ -54,7 +54,7 @@ func OpenAzure(t driver.Target, secret string, dial DialFunc, timeout time.Durat
 	switch {
 	case secret == "":
 		return nil, out.Errf(out.ExitConnect, "STORAGE_AUTH",
-			"store the account key or a SAS token with `komando secret set NAME` and pass --password-ref secret:NAME",
+			"store the account key or a SAS token with `komando secret set NAME` and pass --password-ref credential:NAME",
 			"an azblob conn needs the storage account's key or a SAS token")
 	case strings.Contains(secret, "sig=") && !t.Secure:
 		// a SAS token goes in every request as it is (the account key only

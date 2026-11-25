@@ -9,7 +9,7 @@ import (
 	"github.com/sgnd/komando/internal/vault"
 )
 
-// O9: a server's own env (host edit --env API_TOKEN=secret:tok) went into
+// O9: a server's own env (host edit --env API_TOKEN=credential:tok) went into
 // every AI agent's exec, where `printenv API_TOKEN | rev` reads it back
 // unmasked. For an agent the vault values of the host's env are left out
 // (with a warning) unless it adds --yes and the person allows it.
@@ -18,7 +18,7 @@ func TestHostEnvSecretNeedsAPersonForAnAgent(t *testing.T) {
 	if err := vault.Set(store.Save(), "tok", "host-env-token-5531"); err != nil {
 		t.Fatal(err)
 	}
-	h := &store.Host{Name: "web1", Address: "10.0.0.1", User: "deploy", Env: map[string]string{"API_TOKEN": "secret:tok", "REGION": "eu"}}
+	h := &store.Host{Name: "web1", Address: "10.0.0.1", User: "deploy", Env: map[string]string{"API_TOKEN": "credential:tok", "REGION": "eu"}}
 	c := &sshx.Client{Host: h}
 	sends := func() (bool, string) {
 		t.Helper()

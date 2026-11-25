@@ -15,8 +15,8 @@ import (
 // off does not, and only the kinds they apply to take them.
 func TestVpnEditOptIns(t *testing.T) {
 	invHome(t)
-	mustRun(t, "vpn", "add", "kantor", "l2tp", "--server", "vpn.kantor.id", "--psk-ref", "secret:kantor-psk", "--user", "budi", "--password-ref", "secret:kantor")
-	mustRun(t, "vpn", "add", "asa", "ipsec", "--server", "asa.client.com", "--id", "staff", "--psk-ref", "secret:asa-group", "--user", "budi")
+	mustRun(t, "vpn", "add", "kantor", "l2tp", "--server", "vpn.kantor.id", "--psk-ref", "credential:kantor-psk", "--user", "budi", "--password-ref", "credential:kantor")
+	mustRun(t, "vpn", "add", "asa", "ipsec", "--server", "asa.client.com", "--id", "staff", "--psk-ref", "credential:asa-group", "--user", "budi")
 	vpn := func(name string) *store.Vpn {
 		st, err := store.Load()
 		if err != nil {
@@ -56,7 +56,7 @@ func TestVpnEditOptIns(t *testing.T) {
 // (--legacy-crypto) take them.
 func TestVpnAddOptIns(t *testing.T) {
 	invHome(t)
-	l2tp := []string{"vpn", "add", "old-office", "l2tp", "--server", "vpn.example.com", "--psk-ref", "secret:old-psk", "--user", "alice", "--password-ref", "secret:old"}
+	l2tp := []string{"vpn", "add", "old-office", "l2tp", "--server", "vpn.example.com", "--psk-ref", "credential:old-psk", "--user", "alice", "--password-ref", "credential:old"}
 	saved := func() bool {
 		st, err := store.Load()
 		if err != nil {
@@ -78,7 +78,7 @@ func TestVpnAddOptIns(t *testing.T) {
 	}
 	mustRun(t, append(l2tp, "--overwrite", "--legacy-crypto=false")...) // off: no yes needed
 	for _, bad := range [][]string{
-		{"vpn", "add", "asa", "ipsec", "--server", "asa.example.com", "--psk-ref", "secret:g", "--allow-pap", "--yes"},
+		{"vpn", "add", "asa", "ipsec", "--server", "asa.example.com", "--psk-ref", "credential:g", "--allow-pap", "--yes"},
 		{"vpn", "add", "cloud", "ikev2", "--server", "vpn.example.com", "--user", "alice", "--legacy-crypto", "--yes"},
 	} {
 		if _, e := cliRun(t, bad...); e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "is not used by") {
@@ -86,7 +86,7 @@ func TestVpnAddOptIns(t *testing.T) {
 		}
 	}
 	windows := asAgent(t, false, true)
-	if _, e := cliRun(t, "vpn", "add", "asa", "ipsec", "--server", "asa.example.com", "--psk-ref", "secret:g", "--legacy-crypto", "--yes"); e == nil || e.Code != "SAFETY_SETTING" || *windows != 1 {
+	if _, e := cliRun(t, "vpn", "add", "asa", "ipsec", "--server", "asa.example.com", "--psk-ref", "credential:g", "--legacy-crypto", "--yes"); e == nil || e.Code != "SAFETY_SETTING" || *windows != 1 {
 		t.Errorf("an agent whose person says no: %+v, %d windows", e, *windows)
 	}
 }
@@ -117,19 +117,19 @@ func TestVpnSecretsNeedAPerson(t *testing.T) {
 		t.Fatal(err)
 	}
 	// a person or a script: no window, and the profile's warning is shown
-	d := mustRun(t, "vpn", "add", "office", "openvpn", "--config", profile, "--check", "10.8.0.1:22", "--user", "alice", "--password-ref", "secret:db-pass")
+	d := mustRun(t, "vpn", "add", "office", "openvpn", "--config", profile, "--check", "10.8.0.1:22", "--user", "alice", "--password-ref", "credential:db-pass")
 	if w := fmt.Sprint(d["warnings"]); !strings.Contains(w, "does not say how to check the server's certificate") {
 		t.Errorf("the profile's warning: %v", d)
 	}
-	wantCode(t, "RESERVED_SECRET", "vpn", "add", "x", "l2tp", "--server", "vpn.example.com", "--psk-ref", "secret:"+approvalSecret, "--user", "alice")
+	wantCode(t, "RESERVED_SECRET", "vpn", "add", "x", "l2tp", "--server", "vpn.example.com", "--psk-ref", "credential:"+approvalSecret, "--user", "alice")
 
 	texts := windowText(t, true)
-	add := []string{"vpn", "add", "branch", "l2tp", "--server", "vpn.example.com", "--psk-ref", "secret:branch-psk", "--user", "alice", "--password-ref", "secret:db-pass"}
+	add := []string{"vpn", "add", "branch", "l2tp", "--server", "vpn.example.com", "--psk-ref", "credential:branch-psk", "--user", "alice", "--password-ref", "credential:db-pass"}
 	for _, args := range [][]string{
 		add,
 		{"vpn", "add", "lab", "socks", "--proxy-address", "proxy.example.com:1080", "--user", "alice", "--password-ref", "env:GITHUB_TOKEN"},
 		{"vpn", "add", "tailnet", "tailscale", "--password-ref", "file:/etc/ssl/private/site.key"},
-		{"vpn", "edit", "office", "--password-ref", "secret:other"},
+		{"vpn", "edit", "office", "--password-ref", "credential:other"},
 	} {
 		if _, e := cliRun(t, args...); e == nil || e.Code != "SECRET_DESTINATION" {
 			t.Fatalf("%v: want SECRET_DESTINATION, got %+v", args, e)
@@ -148,16 +148,16 @@ func TestVpnSecretsNeedAPerson(t *testing.T) {
 	if _, e := cliRun(t, append(add, "--yes")...); e != nil {
 		t.Fatal(e)
 	}
-	if len(*texts) != 1 || !strings.Contains((*texts)[0], "secret:branch-psk, secret:db-pass to vpn.example.com (vpn branch)") {
+	if len(*texts) != 1 || !strings.Contains((*texts)[0], "credential:branch-psk, credential:db-pass to vpn.example.com (vpn branch)") {
 		t.Fatalf("window: %q", *texts)
 	}
 	if _, e := cliRun(t, "vpn", "edit", "branch", "--server", "vpn.evil.example"); e == nil || e.Code != "SECRET_DESTINATION" {
 		t.Errorf("a new server: %+v", e)
 	}
-	if _, e := cliRun(t, "vpn", "add", "office", "openvpn", "--config", profile, "--check", "10.8.0.1:22", "--user", "alice", "--password-ref", "secret:db-pass", "--overwrite", "--yes"); e != nil {
+	if _, e := cliRun(t, "vpn", "add", "office", "openvpn", "--config", profile, "--check", "10.8.0.1:22", "--user", "alice", "--password-ref", "credential:db-pass", "--overwrite", "--yes"); e != nil {
 		t.Fatal(e)
 	}
-	if w := (*texts)[len(*texts)-1]; !strings.Contains(w, "secret:db-pass to vpn.example.com:1194, vpn2.example.com:443 (vpn office)") {
+	if w := (*texts)[len(*texts)-1]; !strings.Contains(w, "credential:db-pass to vpn.example.com:1194, vpn2.example.com:443 (vpn office)") {
 		t.Errorf("an OpenVPN profile names its servers: %q", w)
 	}
 

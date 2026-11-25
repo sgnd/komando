@@ -193,7 +193,7 @@ func TestPRF(t *testing.T) {
 		t.Error("prf is not deterministic or ignores the secret")
 	}
 	// the same inputs through OpenSSL: openssl kdf -keylen 48 -kdfopt
-	// digest:MD5-SHA1 -kdfopt hexsecret:0001..14 -kdfopt hexseed:LABEL||a1a2a3a4 TLS1-PRF
+	// digest:MD5-SHA1 -kdfopt hexcredential:0001..14 -kdfopt hexseed:LABEL||a1a2a3a4 TLS1-PRF
 	secret, _ := hex.DecodeString("000102030405060708090a0b0c0d0e0f1011121314")
 	seed, _ := hex.DecodeString("a1a2a3a4")
 	want := "e3dd328060edf8ae9132eb04274bfee9b9901344db0ff5e477beec9e2a7354e8c690ce3c38261af567b56cf35488e6f0"

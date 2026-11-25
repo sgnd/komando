@@ -432,7 +432,7 @@ func List() ([]Info, error) {
 // Refs are the kinds of secret reference komando understands, with an
 // example each, for help texts and errors.
 var Refs = []string{
-	"secret:NAME (komando's vault)",
+	"credential:NAME (komando's vault)",
 	"env:VAR",
 	"file:PATH",
 	"op://VAULT/ITEM/FIELD (1Password Connect)",
@@ -446,7 +446,7 @@ var Refs = []string{
 
 // ValidRef reports whether ref has a known form.
 func ValidRef(ref string) bool {
-	for _, p := range []string{"secret:", "env:", "file:", "op://", "bw://", "kdbx:", "vault:", "aws-sm:", "gcp-sm:", "azure-kv:"} {
+	for _, p := range []string{"credential:", "env:", "file:", "op://", "bw://", "kdbx:", "vault:", "aws-sm:", "gcp-sm:", "azure-kv:"} {
 		if strings.HasPrefix(ref, p) && len(ref) > len(p) {
 			return true
 		}
@@ -472,7 +472,7 @@ func RefHelp() string { return "use one of: " + strings.Join(Refs, ", ") }
 
 // Resolve turns a reference into a value:
 //
-//	secret:<name>        -> komando's vault
+//	credential:<name>        -> komando's vault
 //	env:<VAR>            -> environment variable
 //	file:<path>          -> file contents (trailing newline trimmed)
 //	op://v/item/field    -> 1Password Connect (OP_CONNECT_HOST, OP_CONNECT_TOKEN)
@@ -494,17 +494,33 @@ func Resolve(ref string) (string, error) {
 }
 
 func resolve(ref string) (string, error) {
+	if _, old := store.OldReference(ref); old {
+		return "", store.OldRefError("the reference", ref)
+	}
 	switch {
 	case ref == "":
 		return "", nil
-	case strings.HasPrefix(ref, "secret:"):
-		name := strings.TrimPrefix(ref, "secret:")
+	case strings.HasPrefix(ref, "credential:"):
+		name := strings.TrimPrefix(ref, "credential:")
 		if RefGuard != nil {
 			if err := RefGuard("secret", name); err != nil {
 				return "", err
 			}
 		}
-		return Get(name)
+		v, err := Get(name)
+		if !errors.Is(err, ErrNotFound) {
+			return v, err
+		}
+		// a credential that names an item of an outside store reads it
+		// there, through the guard of that kind of reference
+		o, oerr := store.OutsideRefOf(name)
+		if oerr != nil {
+			return "", oerr
+		}
+		if o == "" {
+			return "", err
+		}
+		return resolve(o)
 	case strings.HasPrefix(ref, "env:"):
 		name := strings.TrimPrefix(ref, "env:")
 		if RefGuard != nil {
@@ -602,4 +618,13 @@ func jsonKey(doc, key string) (string, error) {
 	}
 	b, _ := json.Marshal(v)
 	return string(b), nil
+}
+
+// RefHelpFor is the hint for ref, which is not a reference komando reads:
+// for the spelling format 2 used, the one that replaced it.
+func RefHelpFor(ref string) string {
+	if n, old := store.OldReference(ref); old {
+		return "write " + n + ": komando reads a reference only as credential:NAME"
+	}
+	return RefHelp()
 }

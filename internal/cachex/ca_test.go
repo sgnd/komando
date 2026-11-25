@@ -78,7 +78,7 @@ func TestMemcachedPrivateCA(t *testing.T) {
 	if _, err := openMemcache(ctx, plain, "", nil, 5*time.Second); err == nil || !strings.Contains(err.(*out.Error).Message+err.(*out.Error).Hint, "certificate") {
 		t.Errorf("without the CA: %v", err)
 	}
-	withCA, err := driver.Parse("memcacheds://" + ln.Addr().String() + "?ca=secret:cache-ca")
+	withCA, err := driver.Parse("memcacheds://" + ln.Addr().String() + "?ca=credential:cache-ca")
 	if err != nil {
 		t.Fatal(err)
 	}

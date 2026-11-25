@@ -22,7 +22,7 @@ type SQLServerOptions struct {
 
 // sqlserverKeys are the option names, lower case, and what each takes.
 var sqlserverKeys = map[string]string{
-	"encrypt": "true, strict, false or disable", "tls": "skip-verify", "ca": "secret:NAME",
+	"encrypt": "true, strict, false or disable", "tls": "skip-verify", "ca": "credential:NAME",
 	"applicationintent": "readonly or readwrite", "database": "a database name",
 }
 
@@ -63,7 +63,7 @@ func ParseSQLServerOptions(q url.Values) (SQLServerOptions, error) {
 			o.Database = v
 		case "ca":
 			if key != "ca" {
-				return o, out.Usage("write the sqlserver ca option in lower case: ?ca=secret:NAME")
+				return o, out.Usage("write the sqlserver ca option in lower case: ?ca=credential:NAME")
 			}
 		case "trustservercertificate":
 			return o, out.Errf(out.ExitUsage, "USAGE", "komando spells it ?tls=skip-verify (with encrypt=true): the traffic is encrypted, but the certificate is not checked",

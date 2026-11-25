@@ -90,7 +90,7 @@ func maskAssign(s string) string {
 	for _, m := range idx {
 		name, sep, v := s[m[2]:m[3]], s[m[4]:m[5]], s[m[6]:m[7]]
 		if sep == ":" && strings.EqualFold(name, "secret") || keepValue(name, v) || prose(s, m) || sqlHiddenNext(s, m[7]) {
-			// secret:NAME is a komando reference, [secret:NAME] a hidden value;
+			// credential:NAME is a komando reference, [credential:NAME] a hidden value;
 			// PASSWORD = N'[hidden]' and PASSWORD('[hidden]') the SQL pass hid
 			continue
 		}
@@ -166,7 +166,7 @@ func keepValue(name, v string) bool {
 	// URLs (a URL with a password in it is hidden by urlPw), and komando's
 	// own hints: "save its password: `komando secret set web1-pass`" names
 	// the command to run, which no password starts with
-	for _, p := range []string{"[hidden", "[secret:", "secret:", "env:", "file:", "op://", "vault:", "aws-sm:", "gcp-sm:", "azure-kv:", "${", "$(", "<", "{", "[", "/", "./", "http://", "https://", "`komando"} {
+	for _, p := range []string{"[hidden", "[credential:", "credential:", "env:", "file:", "op://", "vault:", "aws-sm:", "gcp-sm:", "azure-kv:", "${", "$(", "<", "{", "[", "/", "./", "http://", "https://", "`komando"} {
 		if strings.HasPrefix(lv, p) {
 			return true
 		}
@@ -175,14 +175,14 @@ func keepValue(name, v string) bool {
 }
 
 // HasHidden reports whether text holds a value komando hid from an agent
-// ([hidden], [hidden: KIND] or [secret:NAME]). Such text must not be
+// ([hidden], [hidden: KIND] or [credential:NAME]). Such text must not be
 // written to a file or a database: it would destroy the real value.
 func HasHidden(s string) bool {
 	return hiddenLabel.MatchString(s) || secretLabel.MatchString(s)
 }
 
 var (
-	secretLabel = regexp.MustCompile(`\[secret:[A-Za-z0-9_.@/-]+\]`)
+	secretLabel = regexp.MustCompile(`\[credential:[A-Za-z0-9_.@/-]+\]`)
 	hiddenLabel = regexp.MustCompile(`\[hidden(?:: [a-z ]+)?\]`)
 )
 
@@ -532,10 +532,10 @@ func (v View) Hidden(orig string) []string {
 }
 
 // Masked reports whether v hides a value the agent does not know by name:
-// a label other than a vault value's [secret:NAME].
+// a label other than a vault value's [credential:NAME].
 func (v View) Masked() bool {
 	for _, m := range v.marks {
-		if !strings.HasPrefix(v.Text[m.vs:m.ve], "[secret:") {
+		if !strings.HasPrefix(v.Text[m.vs:m.ve], "[credential:") {
 			return true
 		}
 	}

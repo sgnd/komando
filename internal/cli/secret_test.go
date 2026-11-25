@@ -34,13 +34,13 @@ func setSecret(t *testing.T, name, value string) {
 	mustRun(t, "secret", "set", name, "--from-env", "SECRET_TEST_VALUE")
 }
 
-// refsTo points one of every kind of reference at secret:name.
+// refsTo points one of every kind of reference at credential:name.
 func refsTo(t *testing.T, name string) {
 	t.Helper()
-	ref := "secret:" + name
+	ref := "credential:" + name
 	err := store.Update(store.Save(), func(s *store.State) error {
 		s.Hosts["h1"] = &store.Host{Name: "h1", Address: "10.0.0.1", PasswordRef: ref}
-		s.Hosts["h2"] = &store.Host{Name: "h2", Address: "10.0.0.2", SudoRef: ref, Env: map[string]string{"TOKEN": ref, "OTHER": "secret:other"}}
+		s.Hosts["h2"] = &store.Host{Name: "h2", Address: "10.0.0.2", SudoRef: ref, Env: map[string]string{"TOKEN": ref, "OTHER": "credential:other"}}
 		s.Conns = map[string]*store.Conn{"db": {Name: "db", Kind: "postgres", URL: "postgres://u@db/x", PasswordRef: ref}}
 		s.Keys["k"] = &store.Key{Name: "k", Path: "/x", PassphraseRef: ref}
 		s.Vpns = map[string]*store.Vpn{"office": {Name: "office", Kind: "wireguard", KeyRef: ref, PSKRef: ref}}
@@ -73,7 +73,7 @@ func TestSecretMvUpdatesEveryReference(t *testing.T) {
 	}
 
 	d = mustRun(t, "secret", "mv", "old", "new")
-	if len(d["updated"].([]any)) != 5 || d["ref"] != "secret:new" {
+	if len(d["updated"].([]any)) != 5 || d["ref"] != "credential:new" {
 		t.Errorf("result: %v", d)
 	}
 	if _, ok := d["value"]; ok {
@@ -92,11 +92,11 @@ func TestSecretMvUpdatesEveryReference(t *testing.T) {
 		"conn": st.Conns["db"].PasswordRef, "key": st.Keys["k"].PassphraseRef,
 		"vpn key": st.Vpns["office"].KeyRef, "vpn psk": st.Vpns["office"].PSKRef,
 	} {
-		if got != "secret:new" {
+		if got != "credential:new" {
 			t.Errorf("%s still says %s", what, got)
 		}
 	}
-	if h2.Env["OTHER"] != "secret:other" {
+	if h2.Env["OTHER"] != "credential:other" {
 		t.Errorf("an unrelated ref changed: %s", h2.Env["OTHER"])
 	}
 	if len(inventory.SecretUsers(st, "old")) != 0 {
@@ -114,7 +114,7 @@ func TestSecretMvUpdatesEveryReference(t *testing.T) {
 	if e.Exit != out.ExitConflict || !strings.Contains(e.Hint, "--overwrite") {
 		t.Errorf("exists: %+v", e)
 	}
-	mustRun(t, "host", "add", "prod", "u@10.0.0.9", "--protected", "--password-ref", "secret:other")
+	mustRun(t, "host", "add", "prod", "u@10.0.0.9", "--protected", "--password-ref", "credential:other")
 	wantCode(t, "PROTECTED_TARGET", "secret", "mv", "new", "other", "--overwrite")
 	mustRun(t, "host", "rm", "prod", "--yes")
 	mustRun(t, "secret", "mv", "new", "other", "--overwrite")
@@ -122,7 +122,7 @@ func TestSecretMvUpdatesEveryReference(t *testing.T) {
 		t.Errorf("overwrite: %q", v)
 	}
 	st, _ = loadState()
-	if st.Hosts["h1"].PasswordRef != "secret:other" {
+	if st.Hosts["h1"].PasswordRef != "credential:other" {
 		t.Errorf("refs follow an overwrite too: %s", st.Hosts["h1"].PasswordRef)
 	}
 
@@ -149,7 +149,7 @@ func TestSecretCp(t *testing.T) {
 		}
 	}
 	st, _ := loadState()
-	if st.Hosts["h1"].PasswordRef != "secret:a" {
+	if st.Hosts["h1"].PasswordRef != "credential:a" {
 		t.Error("cp moved a reference")
 	}
 	wantCode(t, "SECRET_EXISTS", "secret", "cp", "a", "b")

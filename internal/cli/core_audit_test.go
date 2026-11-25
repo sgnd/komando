@@ -50,7 +50,7 @@ func TestShellQuote(t *testing.T) {
 		"it's":                 `'it'\''s'`,
 		"$(id)":                "'$(id)'",
 		"a\nb":                 "'a\nb'",
-		"secret:web1-pass,x=1": "secret:web1-pass,x=1",
+		"credential:web1-pass,x=1": "credential:web1-pass,x=1",
 	} {
 		if got := shellQuote(in); got != want {
 			t.Errorf("shellQuote(%q) = %s, want %s", in, got, want)

@@ -17,16 +17,16 @@ import (
 )
 
 // Secrets an AI agent never sees, but can still use (docs/features/safety.md):
-//   - output shows [hidden] or [secret:NAME] instead of the value;
+//   - output shows [hidden] or [credential:NAME] instead of the value;
 //   - text holding those markers is never written over a real file;
-//   - {{secret:NAME}} in written text becomes the vault value on the server;
+//   - {{credential:NAME}} in written text becomes the vault value on the server;
 //   - files that are secrets by name (.env, private keys, ...) are not
 //     copied to this computer for an agent without a person's yes.
 
 func hiddenValueErr() error {
 	return out.Errf(out.ExitUsage, "HIDDEN_VALUE",
-		"change only the lines you need with `komando fs replace` (an --old with [hidden] in it matches the hidden value), and put a secret in with {{secret:NAME}}",
-		"the text holds a value komando hid ([hidden] or [secret:NAME]); writing it would destroy the real value")
+		"change only the lines you need with `komando fs replace` (an --old with [hidden] in it matches the hidden value), and put a secret in with {{credential:NAME}}",
+		"the text holds a value komando hid ([hidden] or [credential:NAME]); writing it would destroy the real value")
 }
 
 // hiddenScanMax: larger files (archives, images) are not read for markers.
@@ -47,8 +47,8 @@ func hiddenInLocal(p string) error {
 		b, err := os.ReadFile(f)
 		if err == nil && out.HasHidden(string(b)) {
 			return out.Errf(out.ExitUsage, "HIDDEN_VALUE",
-				"edit the file on the server with `komando fs replace` (an --old with [hidden] in it matches the hidden value), and put a secret in with {{secret:NAME}}",
-				"%s holds a value komando hid ([hidden] or [secret:NAME]); uploading it would destroy the real value", f)
+				"edit the file on the server with `komando fs replace` (an --old with [hidden] in it matches the hidden value), and put a secret in with {{credential:NAME}}",
+				"%s holds a value komando hid ([hidden] or [credential:NAME]); uploading it would destroy the real value", f)
 		}
 		return nil
 	})
@@ -63,23 +63,23 @@ func hiddenInInput(cl *call, what string, b []byte) error {
 		return nil
 	}
 	return out.Errf(out.ExitUsage, "HIDDEN_VALUE",
-		"edit files on the server with `komando fs replace` (an --old with [hidden] in it matches the hidden value), and put a secret in with {{secret:NAME}}",
-		"%s holds a value komando hid ([hidden] or [secret:NAME]); sending it would put that marker where the real value is", what)
+		"edit files on the server with `komando fs replace` (an --old with [hidden] in it matches the hidden value), and put a secret in with {{credential:NAME}}",
+		"%s holds a value komando hid ([hidden] or [credential:NAME]); sending it would put that marker where the real value is", what)
 }
 
-var secretRef = regexp.MustCompile(`\{\{\s*secret:([A-Za-z0-9_.@/-]+)\s*\}\}`)
+var secretRef = regexp.MustCompile(`\{\{\s*credential:([A-Za-z0-9_.@/-]+)\s*\}\}`)
 
-// expandSecretRefs puts vault values in place of {{secret:NAME}} in text
+// expandSecretRefs puts vault values in place of {{credential:NAME}} in text
 // that goes to where (a server's file). A secret komando keeps for itself
 // never goes, and for an AI agent each secret needs a person's yes, since
 // on the server the value can come back in a form masking does not know
 // (guardSecretUse). An agent's dry run reads no secret, since it never
-// asks the person: its preview keeps {{secret:NAME}} as it is. With
+// asks the person: its preview keeps {{credential:NAME}} as it is. With
 // dollars set, the values are written for a regexp replacement ($ as $$).
 func expandSecretRefs(cl *call, s, where string, dollars bool) (string, error) {
 	var refs []string
 	for _, m := range secretRef.FindAllStringSubmatch(s, -1) {
-		refs = append(refs, "secret:"+m[1])
+		refs = append(refs, "credential:"+m[1])
 	}
 	if len(refs) == 0 {
 		return s, nil
@@ -423,7 +423,7 @@ func unlockVar(name string) bool {
 	return name == "KOMANDO_VAULT_PASS" || slices.Contains(vault.UnlockVars, name)
 }
 
-// refGuard is vault.RefGuard for one call (call_hooks.go, where a secret:
+// refGuard is vault.RefGuard for one call (call_hooks.go, where a credential:
 // reference never reads a secret komando keeps for itself, the approval
 // code's key, for anyone). An AI agent cannot point a file: or env:
 // reference (a password komando
@@ -441,12 +441,12 @@ func refGuard(cl *call, kind, name string) error {
 	switch kind {
 	case "file":
 		if why := localSecret(cl, name); why != "" && why != "a file that holds secrets" {
-			return out.Errf(out.ExitPolicy, "SENSITIVE_FILE", "store the password in komando's vault and use secret:NAME; the user sets it up in their own terminal",
+			return out.Errf(out.ExitPolicy, "SENSITIVE_FILE", "store the password in komando's vault and use credential:NAME; the user sets it up in their own terminal",
 				"the reference file:%s points at %s; komando does not send it for an AI agent", name, why).NoFlag()
 		}
 	case "env":
 		if unlockVar(name) {
-			return out.Errf(out.ExitPolicy, "SENSITIVE_FILE", "use secret:NAME; the user sets it up in their own terminal",
+			return out.Errf(out.ExitPolicy, "SENSITIVE_FILE", "use credential:NAME; the user sets it up in their own terminal",
 				"the reference env:%s is the password of a secret store; komando does not send it for an AI agent", name).NoFlag()
 		}
 	}

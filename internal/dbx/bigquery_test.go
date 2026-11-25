@@ -275,7 +275,7 @@ func saKey(t *testing.T) (*rsa.PrivateKey, string) {
 	return key, string(b)
 }
 
-const bqTestURL = "bigquery://my-project/shop?location=EU&ca=secret:bqca"
+const bqTestURL = "bigquery://my-project/shop?location=EU&ca=credential:bqca"
 
 func openBQ(t *testing.T, raw, secret string, readOnly bool, dial DialFunc) (*sql.DB, error) {
 	t.Helper()
@@ -389,8 +389,8 @@ func TestBigQueryLogin(t *testing.T) {
 		t.Errorf("not a service account: %v", err)
 	}
 	// without the conn's CA the certificate does not check out
-	if _, err := openBQ(t, strings.Replace(bqTestURL, "&ca=secret:bqca", "", 1), sa, true, dial); errCode(err) != "DB_CONNECT" ||
-		!strings.Contains(err.(*out.Error).Hint, "ca=secret:NAME") {
+	if _, err := openBQ(t, strings.Replace(bqTestURL, "&ca=credential:bqca", "", 1), sa, true, dial); errCode(err) != "DB_CONNECT" ||
+		!strings.Contains(err.(*out.Error).Hint, "ca=credential:NAME") {
 		t.Errorf("unknown CA: %v", err)
 	}
 	// no key and no gcloud login: say how to log in
@@ -403,7 +403,7 @@ func TestBigQueryLogin(t *testing.T) {
 		t.Errorf("no login: %v", err)
 	}
 	// the dataset in the URL does not exist
-	if _, err := openBQ(t, "bigquery://my-project/missing?ca=secret:bqca", sa, true, dial); errCode(err) != "DB_NOT_FOUND" {
+	if _, err := openBQ(t, "bigquery://my-project/missing?ca=credential:bqca", sa, true, dial); errCode(err) != "DB_NOT_FOUND" {
 		t.Errorf("missing dataset: %v", err)
 	}
 }
@@ -414,7 +414,7 @@ func TestBigQueryLogin(t *testing.T) {
 func TestBigQueryReadOnly(t *testing.T) {
 	f := &fakeBQ{}
 	dial, _ := bqServer(t, f)
-	ro, err := openBQ(t, "bigquery://my-project/shop?endpoint=https://bigquery.googleapis.com&ca=secret:bqca", "", true, dial)
+	ro, err := openBQ(t, "bigquery://my-project/shop?endpoint=https://bigquery.googleapis.com&ca=credential:bqca", "", true, dial)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -453,7 +453,7 @@ func TestBigQueryReadOnly(t *testing.T) {
 	}
 	// an emulator may not: the classifier's rating is all there is; and
 	// gcloud's login never goes to a host that is not Google's
-	emu, err := openBQ(t, "bigquery://my-project/shop?endpoint=https://emu.test&ca=secret:bqca", "", true, dial)
+	emu, err := openBQ(t, "bigquery://my-project/shop?endpoint=https://emu.test&ca=credential:bqca", "", true, dial)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -618,7 +618,7 @@ func TestBigQueryErrors(t *testing.T) {
 func TestBigQueryOps(t *testing.T) {
 	f := &fakeBQ{}
 	dial, _ := bqServer(t, f)
-	db, err := openBQ(t, "bigquery://my-project/shop?ca=secret:bqca", "", true, dial)
+	db, err := openBQ(t, "bigquery://my-project/shop?ca=credential:bqca", "", true, dial)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -658,7 +658,7 @@ func TestBigQueryOps(t *testing.T) {
 func TestBigQuerySchema(t *testing.T) {
 	f := &fakeBQ{}
 	dial, _ := bqServer(t, f)
-	db, err := openBQ(t, "bigquery://my-project?ca=secret:bqca", "", true, dial)
+	db, err := openBQ(t, "bigquery://my-project?ca=credential:bqca", "", true, dial)
 	if err != nil {
 		t.Fatal(err)
 	}

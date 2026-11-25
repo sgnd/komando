@@ -348,7 +348,7 @@ func TestCacheKeysTypeAndTTL(t *testing.T) {
 func TestCacheLeavesFollowTheProvider(t *testing.T) {
 	invHome(t)
 	d := mustRun(t, "cache", "redis", "add", "r1", "redis://127.0.0.1:6379/0", "--credential", "r1-pass", "--tag", "prod")
-	if d["password_ref"] != "secret:r1-pass" {
+	if d["password_ref"] != "credential:r1-pass" {
 		t.Fatalf("--credential names the stored credential: %v", d)
 	}
 	mustRun(t, "cache", "memcached", "add", "m1", "memcached://127.0.0.1:11211")

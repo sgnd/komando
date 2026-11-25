@@ -14,7 +14,7 @@ import (
 // Showing a secret value again (`secret show --reveal`, `key show
 // --reveal`) is for a person only (docs/design/principles.md):
 //   - an AI agent, or a key through ssh-gate, never gets the value, not
-//     even with the person's yes: it references secret:NAME instead;
+//     even with the person's yes: it references credential:NAME instead;
 //   - a person at a terminal gets it, as they typed the command;
 //   - any other caller (the Komando Mac app, which runs komando without a
 //     terminal) gets it only after the person says yes in komando's own
@@ -30,7 +30,7 @@ import (
 var revealNever = map[string]bool{"secret.show": true, "key.show": true, "db.dump": true}
 
 // revealGate says how the person allowed showing what (for example
-// secret:db-pass): "terminal" or "window". It is "" in a dry run, which
+// credential:db-pass): "terminal" or "window". It is "" in a dry run, which
 // shows no value and asks nobody. cmdName and field name the audit line
 // of a refusal (secret.show, "secret": NAME).
 func revealGate(cl *call, cmdName, field, name, what string) (string, error) {
@@ -76,7 +76,7 @@ func revealGate(cl *call, cmdName, field, name, what string) (string, error) {
 // name: for an AI agent, or where no window could ask (noScreen).
 func needsHuman(cmdName, name string, noScreen bool) *out.Error {
 	e := out.Errf(out.ExitPolicy, "REVEAL_NEEDS_TERMINAL",
-		"ask a person to run `komando secret show "+name+" --reveal` in a terminal; to use the secret in a command, reference it (secret:"+name+") instead",
+		"ask a person to run `komando secret show "+name+" --reveal` in a terminal; to use the secret in a command, reference it (credential:"+name+") instead",
 		"--reveal only works for a person at a terminal")
 	run := "`komando " + strings.ReplaceAll(cmdName, ".", " ") + " " + name + " --reveal`"
 	switch {
