@@ -261,7 +261,7 @@ func TestFillLineRefusesDashValue(t *testing.T) {
 	if got, err := f.line([]string{"db", "query"}); err == nil {
 		t.Errorf("a value starting with - was filled in: %v", got)
 	}
-	if want := `CONN "--allow-dangerous" starts with -, which would be read as a flag`; !strings.Contains(drawn.String(), want) {
+	if want := `CONN "--allow-dangerous" starts with - and would be read as a flag`; !strings.Contains(drawn.String(), want) {
 		t.Errorf("the reason does not name the argument and its value; want %q in:\n%s", want, drawn)
 	}
 	for _, i := range f.missing {

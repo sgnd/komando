@@ -323,7 +323,7 @@ func (f *fill) line(args []string) ([]string, error) {
 		}
 		for _, w := range f.argWords(n, f.a[key]) {
 			if strings.HasPrefix(w, "-") {
-				fmt.Fprintf(promptW(f.cl), "  ! %s %q starts with -, which would be read as a flag, so komando fills in nothing\n", f.uses[n].name, w)
+				fmt.Fprintf(promptW(f.cl), "  ! %s %q starts with - and would be read as a flag: komando fills in nothing\n", f.uses[n].name, w)
 				return nil, errPromptCancel
 			}
 		}
