@@ -33,7 +33,8 @@ func TestSessionControlSQL(t *testing.T) {
 		{"db explain --analyze terminate", "postgres", "EXPLAIN (ANALYZE, BUFFERS) SELECT pg_terminate_backend(pid) FROM pg_stat_activity", "sql-kill"},
 		{"db explain --analyze cancel in a CTE", "postgres", "EXPLAIN (ANALYZE, BUFFERS) WITH x AS (SELECT pg_cancel_backend(1)) SELECT * FROM x", "sql-kill"},
 		{"db explain --analyze reload conf", "postgres", "EXPLAIN (ANALYZE, BUFFERS) SELECT pg_catalog.pg_reload_conf()", "sql-server-config"},
-		{"db explain --analyze mysql kill", "mysql", "EXPLAIN ANALYZE KILL QUERY 5", "sql-kill"},	}
+		{"db explain --analyze mysql kill", "mysql", "EXPLAIN ANALYZE KILL QUERY 5", "sql-kill"},
+	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			p, err := ClassifySQL(c.kind, c.sql)
