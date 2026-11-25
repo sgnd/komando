@@ -18,42 +18,22 @@ import (
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/snippet"
-	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
 
-// The S1 samples: three built-ins over today's texts and parsers, to prove
-// the engine end to end against the S0 goldens. They live in this test
-// file only: the production list is empty until the S2 moves (design 7).
+// The samples the engine tests use: production built-ins, and docker-ps,
+// which lives in this test file until its own S2 step (C455).
 
-func rr(o snippet.Output) *sshx.RunResult {
-	return &sshx.RunResult{Stdout: o.Stdout, Stderr: o.Stderr, ExitCode: o.ExitCode}
-}
+// sampleSvcList and sampleSvcStatus are the production built-ins (C454);
+// tests change copies of them.
+var sampleSvcList, sampleSvcStatus = production("svc-list"), production("svc-status")
 
-var sampleSvcList = snippet.Builtin{
-	Name: "svc-list", Type: "host", Replaces: "svc list", Reader: "KomandoCall+Services.swift:36-43", Tier: capability.Read, Shape: "svc-list/1",
-	Checks: []string{"TestSnippetGoldens/svc-list", "list_order_test.go"},
-	Text: map[snippet.Family]string{
-		snippet.Unix:    noSystemd + "systemctl list-units --type=service --all --no-legend --plain --no-pager",
-		snippet.Windows: winSvcListScript,
-	},
-	Parse: func(o snippet.Output, f snippet.Family) (any, error) {
-		if f == snippet.Windows {
-			return winSvcList("")(nil, rr(o))
-		}
-		return svcListResult(rr(o))
-	},
-}
-
-var unitVar = snippet.Var{Name: "unit", Channel: snippet.Text, Pattern: regexp.MustCompile(`^[A-Za-z0-9@._:\\-]+$`), MaxLen: 256, Required: true, Longest: strings.Repeat("a", 256),
-	List: true, MaxItems: 16}
-
-var sampleSvcStatus = snippet.Builtin{
-	Name: "svc-status", Type: "host", Replaces: "svc status", Reader: "KomandoCall+Services.swift:36-43", Tier: capability.Read, Shape: "svc-status/1",
-	Vars:   []snippet.Var{unitVar},
-	Checks: []string{"TestSnippetGoldens/svc-status"},
-	Text:   map[snippet.Family]string{snippet.Unix: noSystemd + "systemctl show --no-pager -p " + strings.Join(svcProps, ",") + " -- {{var:unit}}"},
-	Parse:  func(o snippet.Output, _ snippet.Family) (any, error) { return svcResult(rr(o)) },
+func production(name string) snippet.Builtin {
+	b, ok := builtinSnippets.Lookup(name)
+	if !ok {
+		panic("no built-in " + name)
+	}
+	return b
 }
 
 var sampleDockerPs = snippet.Builtin{
@@ -165,34 +145,32 @@ func TestSnippetsOff(t *testing.T) {
 // Each sample gives the result today's command gives on the same replayed
 // output, and sends the same text.
 func TestSnippetSamplesMatchGoldens(t *testing.T) {
-	all := append(registered(), samples...)
+	all := append(registered(), sampleDockerPs)
 	byName := map[string]snippet.Builtin{}
 	for _, b := range all {
 		byName[b.Name] = b
 	}
 	for _, c := range []struct {
-		name    string
-		family  string
-		windows bool
+		name, family string
+		windows      bool
+		vars         []string
 	}{
-		{"svc-list", "systemd", false},
-		{"svc-list", "windows", true},
-		{"docker-ps", "docker", false},
-		{"facts", "centos7", false},
-		{"facts", "windows", true},
-		{"facts-only", "debian", false},
+		{"svc-list", "systemd", false, nil},
+		{"svc-list", "windows", true, nil},
+		{"svc-status", "systemd", false, []string{"unit=nginx,postfix"}},
+		{"svc-status", "windows", true, []string{"unit=W3SVC,nope"}},
+		{"docker-ps", "docker", false, nil},
+		{"facts", "centos7", false, nil},
+		{"facts", "windows", true, nil},
+		{"facts-only", "debian", false, nil},
 	} {
 		t.Run(c.name+"/"+c.family, func(t *testing.T) {
-			withSnippets(t, all...)
-			c := struct {
-				b       snippet.Builtin
-				family  string
-				windows bool
-			}{byName[c.name], c.family, c.windows}
-			if c.b.Name == "" {
+			b, ok := byName[c.name]
+			if !ok {
 				t.Fatal("no such built-in")
 			}
-			dir := filepath.Join("testdata", "snippets", c.b.Name)
+			withSnippets(t, all...)
+			dir := filepath.Join("testdata", "snippets", b.Name)
 			in, err := os.ReadFile(filepath.Join(dir, c.family+".in"))
 			if err != nil {
 				t.Fatal(err)
@@ -203,21 +181,21 @@ func TestSnippetSamplesMatchGoldens(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			raw, e := snippetData(t, c.b.Name, "dev")
-			if e != nil {
-				t.Fatalf("snippet %s: %v", c.b.Name, e)
+			args := []string{b.Name, "dev"}
+			for _, v := range c.vars {
+				args = append(args, "--var", v)
 			}
-			d, err := snippet.Decode(raw, c.b.Shape)
+			raw, _ := snippetData(t, args...)
+			d, err := snippet.Decode(raw, b.Shape)
 			if err != nil {
-				t.Fatal(err)
-			}
-			if !d.OK || d.Target != "dev" || d.Snippet != c.b.Name {
-				t.Fatalf("data = %+v", d)
+				t.Fatalf("%v: %s", err, raw)
 			}
 			var golden struct {
 				Data struct {
 					Results []struct {
-						Data json.RawMessage `json:"data"`
+						OK    bool            `json:"ok"`
+						Data  json.RawMessage `json:"data"`
+						Error *out.Error      `json:"error"`
 					} `json:"results"`
 				} `json:"data"`
 			}
@@ -228,11 +206,18 @@ func TestSnippetSamplesMatchGoldens(t *testing.T) {
 			if err := json.Unmarshal(gb, &golden); err != nil || len(golden.Data.Results) != 1 {
 				t.Fatalf("golden: %v", err)
 			}
+			today := golden.Data.Results[0]
+			if d.OK != today.OK || d.Target != "dev" || d.Snippet != b.Name {
+				t.Fatalf("data = %+v, want ok %v", d, today.OK)
+			}
+			if (d.Error == nil) != (today.Error == nil) || d.Error != nil && (d.Error.Code != today.Error.Code || d.Error.Message != today.Error.Message) {
+				t.Fatalf("error = %v, today's %v", d.Error, today.Error)
+			}
 			var res struct {
 				Result json.RawMessage `json:"result"`
 			}
 			_ = json.Unmarshal(raw, &res)
-			if got, want := compact(t, res.Result), compact(t, golden.Data.Results[0].Data); got != want {
+			if got, want := compact(t, res.Result), compact(t, today.Data); got != want {
 				t.Errorf("result differs from today's command\n got:  %s\n want: %s", got, want)
 			}
 			sent, err := os.ReadFile(filepath.Join(dir, c.family+".sent.txt"))
@@ -410,7 +395,8 @@ func TestSnippetRefusalsRunNothing(t *testing.T) {
 		{"unknown variable", []string{"svc-list", "dev", "--var", "x=1"}, false, "UNKNOWN_VAR"},
 		{"value off pattern", []string{"svc-status", "dev", "--var", "unit=a;reboot"}, false, "USAGE"},
 		{"missing variable", []string{"svc-status", "dev"}, false, "USAGE"},
-		{"no Windows body", []string{"svc-status", "dev", "--var", "unit=W3SVC"}, true, "SNIPPET_OS_UNSUPPORTED"},
+		{"no Windows body", []string{"docker-ps", "dev"}, true, "SNIPPET_OS_UNSUPPORTED"},
+		{"off the Windows pattern", []string{"svc-status", "dev", "--var", "unit=W3SVC,a:b"}, true, "USAGE"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -683,5 +669,36 @@ func TestSnippetSudo(t *testing.T) {
 				t.Fatalf("sent with sudo = %v, want %v: %s", got, c.sudo, sent)
 			}
 		})
+	}
+}
+
+// svc-status takes the unit names each family's command takes today: a
+// systemd name (with \\x escapes) in the Unix text, a Windows service name
+// (winServiceName) in the PowerShell text, refused before anything runs.
+func TestSnippetSvcUnitNames(t *testing.T) {
+	b := sampleSvcStatus
+	for _, c := range []struct {
+		f    snippet.Family
+		unit string
+		ok   bool
+	}{
+		{snippet.Unix, "nginx.service", true},
+		{snippet.Unix, "user@1000.service", true},
+		{snippet.Unix, `systemd-fsck@dev-disk-by\x2duuid.service`, true},
+		{snippet.Unix, "MSSQL$SQLEXPRESS", false},
+		{snippet.Unix, "web app", false},
+		{snippet.Windows, "W3SVC", true},
+		{snippet.Windows, "MSSQL$SQLEXPRESS", true},
+		{snippet.Windows, "web app", true},
+		{snippet.Windows, `a\x2db`, false},
+		{snippet.Windows, "a:b", false},
+		{snippet.Windows, "_x", false},
+		{snippet.Unix, "a;b", false},
+		{snippet.Windows, "a'b", false},
+	} {
+		_, err := snippet.Fill(b, c.f, map[string]string{"unit": c.unit})
+		if (err == nil) != c.ok {
+			t.Errorf("%s %q: %v, want ok %v", c.f, c.unit, err, c.ok)
+		}
 	}
 }
