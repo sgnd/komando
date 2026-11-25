@@ -423,6 +423,14 @@ func TestSnippetParseFailedShowsNoText(t *testing.T) {
 	if strings.Contains(string(raw), "s3cret-raw-line") || strings.Contains(string(raw), `"result"`) {
 		t.Fatalf("a failed parse shows raw text or a result: %s", raw)
 	}
+	// the server's own row says it failed, and why
+	d, err := snippet.Decode(raw, sampleDockerPs.Shape)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.OK || d.Error == nil || d.Error.Code != "SNIPPET_PARSE_FAILED" {
+		t.Fatalf("the row = ok %v, error %v; want SNIPPET_PARSE_FAILED", d.OK, d.Error)
+	}
 }
 
 func TestSnippetResultIsMaskedForAnAgent(t *testing.T) {

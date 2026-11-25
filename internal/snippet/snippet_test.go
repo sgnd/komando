@@ -62,6 +62,9 @@ func TestNewRefusesBadDefinitions(t *testing.T) {
 		{"no max length", func(b *Builtin) {
 			b.Vars = []Var{{Name: "unit", Channel: Text, Pattern: unitVar.Pattern, Longest: "a"}}
 		}, "length"},
+		{"max length zero with an empty longest", func(b *Builtin) {
+			b.Vars = []Var{{Name: "unit", Channel: Text, Pattern: regexp.MustCompile(`^[a-z]*$`), MaxLen: 0, Longest: ""}}
+		}, "length"},
 		{"longest value too short", func(b *Builtin) { v := unitVar; v.Longest = "nginx"; b.Vars = []Var{v} }, "longest"},
 		{"longest value off pattern", func(b *Builtin) { v := unitVar; v.Longest = "nginx ab"; b.Vars = []Var{v} }, "longest"},
 		{"default off pattern", func(b *Builtin) { v := unitVar; v.Required, v.Default = false, "a b"; b.Vars = []Var{v} }, "default"},
@@ -179,6 +182,16 @@ func TestFillRefusals(t *testing.T) {
 				t.Fatalf("Fill = %q, %v; want code %s", got, err, c.code)
 			}
 		})
+	}
+}
+
+// A missing required variable is named, even when an empty value would
+// also fail its pattern.
+func TestFillNamesAMissingVariable(t *testing.T) {
+	_, err := Fill(sample(), Unix, nil)
+	var e *out.Error
+	if !errors.As(err, &e) || e.Code != "USAGE" || !strings.Contains(e.Message, "--var unit=VALUE") {
+		t.Fatalf("Fill without unit = %v; want USAGE naming --var unit=VALUE", err)
 	}
 }
 
