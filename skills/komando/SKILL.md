@@ -68,10 +68,10 @@ not know? Set `KOMANDO_AGENT=1`.
 3. **Use the command made for the job.**
    - Files: `komando fs replace TARGET PATH --old '...' --new '...' --backup`,
      never `sed -i` over `exec`.
-   - Databases: query with `komando db query`. Back up with
-     `komando db dump CONN --to FILE` (`--run-on HOST` runs `pg_dump` or
-     `mysqldump` on that server, at low priority), never `pg_dump` through
-     `exec` and base64. Manage users with `komando db user` and
+   - Databases: query with `komando db query`. A backup is
+     `komando db dump CONN --to FILE`, and only the human runs it, in their
+     own terminal (`NEEDS_PERSON`: the file holds every row, secrets
+     included); never `pg_dump` through `exec` and base64. Manage users with `komando db user` and
      `komando db grant` (passwords as `--password-ref secret:NAME`, never
      `CREATE USER ... PASSWORD` in a query).
    - Services: after writing a systemd unit, run `komando svc daemon-reload`.

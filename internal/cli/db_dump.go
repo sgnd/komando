@@ -268,7 +268,7 @@ func runDump(cl *call, ctx context.Context, connExpr, to, on string, o dumpOpts)
 	if err != nil {
 		return err
 	}
-	if err := cmp.Or(dumpTarget(cl, c, to), guardRawCopy(cl, st, c, "a dump")); err != nil {
+	if err := cmp.Or(dumpTarget(cl, c, to), guardRawCopy(cl, st, c, "a dump"), guardAgentCopy(cl, st, c, "a dump")); err != nil {
 		return err
 	}
 	data := transferData{Conn: c.Name, File: to, RunsOn: "local", DryRun: cl.flags.dryRun}

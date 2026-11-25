@@ -362,7 +362,7 @@ title: Add a database
 - flag:tag | --tag | Tags, like prod (comma-separated) |  |  | optional,advanced,check
 - flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
 ### komando db dump
-title: Save a copy of a database to a file on this computer
+title: Save a copy of a database to a file on this computer (person only)
 - arg0 | Conn | Which database should it back up? | A database you added to komando. |  | choices,check
 - flag:to | --to | Save the backup to which file on this computer? | A new file; it never overwrites one. Ending in .gz makes it smaller. Only you can read it. Left out: CONN-<date>.sql.gz in this folder. | ./prod-2026-11-10.sql.gz | optional,check
 - flag:format | --format | Which kind of backup? | plain is SQL any database tool reads. custom is PostgreSQL's own archive (needs pg_dump on a server; no .gz then). |  | optional,default,choices

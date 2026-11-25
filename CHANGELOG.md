@@ -19,6 +19,7 @@ its highlights; the sections below them give the details. Versions follow
 - The macOS approval window now shows a script of up to 200 lines whole; it scrolls and allows only after the last line. Windows and Linux keep 40 lines.
 - A script too long for the window ends with its own error code, `SHORTER_SCRIPT_REQUIRED`, and the message names the counted number of shown lines and the script's own line count.
 - The agent guard (`komando guide guard`) refuses a tool call larger than 4 MiB, which it cannot check whole, in each agent tool's own format.
+- An AI agent's `db dump` stops with `NEEDS_PERSON` on every database, not only where personal data is hidden: the file holds every row as it is, passwords and tokens included. No flag lifts it; a person runs the dump in their own terminal.
 
 ### Fixed
 

@@ -61,7 +61,7 @@ cron.set	kind=change|	target="servers"
 db	kind=read|	target=""	
 db.activity	kind=read|	target=""	
 db.add	kind=change|	target=""	
-db.dump	kind=read|	target=""	
+db.dump	kind=read|	target=""	person|||an AI agent runs it (the file holds every row, secrets included)|||
 db.explain	kind=depends|only plans the query; --analyze runs it, and a write needs --write too	target=""	dangerous|with --analyze||the SQL deletes data|||
 db.grant	kind=change|	target=""	
 db.info	kind=read|	target=""	

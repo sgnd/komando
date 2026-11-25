@@ -95,6 +95,7 @@ var tierRuns = []tierRun{
 	{"config vault keychain not --off person", "secret.keychain", nil, false},
 	{"host shell person", "shell", []string{"dev"}, false},
 	{"database shell person", "db.shell", []string{"pg"}, false},
+	{"database backup dynamic person", "db.dump", []string{"pg", "--to", "pg.sql"}, false}, // C424: every connection
 	{"cluster shell person", "cluster.shell", []string{"k8s", "pod/a"}, false},
 	{"credential certificate add person", "host.ca.add", []string{"ca1", "--key", "ca.pub", "--hosts", "*.corp.example"}, false},
 	{"host ssh trust --reset person", "host.trust", []string{"prod", "--reset"}, false},

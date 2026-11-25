@@ -177,6 +177,7 @@ var tierRows = concat2(
 		// data out (backup, export): each leaf has a row with no condition
 		{Key: top("export"), Tier: Read, What: "writes komando's list to a file, secrets left out"},
 		{Key: Key{Type: "database", Verb: "backup"}, Tier: Read, What: "writes the database to a file on this computer"},
+		{Today: true, Key: Key{Type: "database", Verb: "backup"}, Tier: Person, Dynamic: "an AI agent runs it (the file holds every row, secrets included)"},
 		{Key: own("audit", "", "export"), Tier: Person, What: "writes the audit log, which can hold SQL text, to a file"},
 		{Key: own("audit", "recording", "export"), Tier: Person, What: "writes a recording, with everything that was typed, to a file"},
 		{Today: true, Key: top("export"), Tier: Person, When: Cond{Flags: []string{"sealed"}}},

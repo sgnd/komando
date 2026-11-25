@@ -2920,8 +2920,8 @@
       {
         "path": "komando db dump",
         "usage": "komando db dump CONN [flags]",
-        "short": "Save a copy of a database to a file on this computer",
-        "long": "Saves a copy of the database to a file on this computer. Without --to the\nfile is CONN-<date>.sql.gz (SQLite: CONN-<date>.db) in this\nfolder. A file ending in .gz is compressed. Afterwards komando prints the\ncommand that loads it back.\n\npg_dump or mysqldump runs on a server that has it: the one you name with\n--run-on HOST, else the database's --via server. It connects to the conn\nURL's address from that server, runs at low priority (nice, ionice) and\nstreams the backup back over SSH. Without such a server (a direct connection\nor a VPN) komando writes plain SQL itself. PostgreSQL can also write its own\narchive with --format custom (compressed, restored with pg_restore; needs\npg_dump on a server). --table and --schema-only narrow the dump. SQLite\ndatabases are copied as a database file instead. An existing FILE is never\noverwritten. The file holds your data: it is created readable only by you.",
+        "short": "Save a copy of a database to a file on this computer (person only)",
+        "long": "Saves a copy of the database to a file on this computer. Without --to the\nfile is CONN-<date>.sql.gz (SQLite: CONN-<date>.db) in this\nfolder. A file ending in .gz is compressed. Afterwards komando prints the\ncommand that loads it back.\n\nSafety: it only reads; when an AI agent runs it (the file holds every row,\nsecrets included): only a person at a terminal can run it; on a protected\nserver or conn, a person's yes (--yes) as well.\n\npg_dump or mysqldump runs on a server that has it: the one you name with\n--run-on HOST, else the database's --via server. It connects to the conn\nURL's address from that server, runs at low priority (nice, ionice) and\nstreams the backup back over SSH. Without such a server (a direct connection\nor a VPN) komando writes plain SQL itself. PostgreSQL can also write its own\narchive with --format custom (compressed, restored with pg_restore; needs\npg_dump on a server). --table and --schema-only narrow the dump. SQLite\ndatabases are copied as a database file instead. An existing FILE is never\noverwritten. The file holds your data: it is created readable only by you.",
         "example": "  komando db dump prod-db                  # saves prod-db-<date>.sql.gz here\n  komando db dump prod-db --to backups/    # the same name, inside backups/\n  komando db dump prod-db --to prod-2026-11-02.sql.gz\n  komando db dump prod-db --to prod.dump --format custom\n  komando db dump prod-db --to prod.dump --format custom --run-on db1\n  komando db dump prod-db --to orders.sql --table public.orders --table public.order_items\n  komando db dump prod-db --to schema.sql --schema-only\n  komando db dump local --to backup.db",
         "flags": [
           {
@@ -2958,6 +2958,10 @@
         "confirm": [
           {
             "tier": "read"
+          },
+          {
+            "tier": "person",
+            "when": "when an AI agent runs it (the file holds every row, secrets included)"
           }
         ]
       },

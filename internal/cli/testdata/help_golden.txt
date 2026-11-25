@@ -2152,7 +2152,7 @@ Examples:
 Available Commands:
   activity    Sessions running something now: pid, user, how long, what
   add         Add a database
-  dump        Save a copy of a database to a file on this computer
+  dump        Save a copy of a database to a file on this computer (person only)
   explain     Show how the database would run a query (--analyze runs it and measures)
   grant       Give a user privileges on a database, schema or table (or a role)
   info        Show the version, size, connections and the replica role
@@ -2251,6 +2251,10 @@ Saves a copy of the database to a file on this computer. Without --to the
 file is CONN-<date>.sql.gz (SQLite: CONN-<date>.db) in this
 folder. A file ending in .gz is compressed. Afterwards komando prints the
 command that loads it back.
+
+Safety: it only reads; when an AI agent runs it (the file holds every row,
+secrets included): only a person at a terminal can run it; on a protected
+server or conn, a person's yes (--yes) as well.
 
 pg_dump or mysqldump runs on a server that has it: the one you name with
 --run-on HOST, else the database's --via server. It connects to the conn

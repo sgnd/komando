@@ -186,8 +186,10 @@ Without `--write` the database itself refuses changes. `WRITE_REQUIRES_FLAG`
 run `psql`/`mysql` through `exec`: you lose the read-only guarantee and the
 structured rows, and the password shows up in the server's process list.
 
-Back up with `komando db dump CONN --to FILE` (the file lands on this
-computer), never with `pg_dump`/`mysqldump` through `exec` and base64.
+A backup is `komando db dump CONN --to FILE` (the file lands on this
+computer), never `pg_dump`/`mysqldump` through `exec` and base64. Only the
+human runs it, in their own terminal: for you it stops with `NEEDS_PERSON`,
+because the file holds every row, secrets included.
 `--run-on HOST` runs `pg_dump`/`mysqldump` on that server from your list (at low
 priority, password in its environment, backup streamed back over SSH), for example
 when the conn goes through a VPN and you need `--format custom`. Dry-run it

@@ -61,7 +61,7 @@ cron.set	plain=change	highest=read
 db	plain=read	highest=read
 db.activity	plain=read	highest=read
 db.add	plain=change	highest=read
-db.dump	plain=read	highest=read
+db.dump	plain=person	highest=person
 db.explain	plain=dangerous	highest=dangerous
 db.grant	plain=change	highest=read
 db.info	plain=read	highest=read

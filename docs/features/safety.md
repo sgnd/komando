@@ -204,6 +204,7 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `cluster shell` | always | person |  |
 | `host ca add` | always | person |  |
 | `host trust` | with --reset | person |  |
+| `db dump` | when an AI agent runs it (the file holds every row, secrets included) | person |  |
 | `export` | with --sealed | person |  |
 | `export` | with --for-phone | person |  |
 | `host edit` | with --protected=false | safety | `--yes` |
