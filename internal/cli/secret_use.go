@@ -174,7 +174,7 @@ func hostPlace(h *store.Host) secretPlace {
 	if h.AskLogin() {
 		refs = append(refs, loginAskRef)
 	}
-	dest := net.JoinHostPort(normAddr(h.Address), strconv.Itoa(h.EffectivePort()))
+	dest := net.JoinHostPort(inventory.NormAddr(h.Address), strconv.Itoa(h.EffectivePort()))
 	if h.User != "" {
 		dest = h.User + "@" + dest
 	}

@@ -145,7 +145,7 @@ func csvHost(cols, rec []string) (*store.Host, error) {
 		case "name":
 			h.Name = v
 		case "address":
-			h.Address = normAddr(v)
+			h.Address = inventory.NormAddr(v)
 		case "user":
 			h.User = v
 		case "port":

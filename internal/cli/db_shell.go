@@ -18,6 +18,7 @@ import (
 	kitterm "github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/dbx"
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -309,7 +310,7 @@ func (s *sqlShell) meta(ctx context.Context, line string) bool {
 		}
 		s.exec(ctx, q, s.expanded)
 	case `\i`, `\include`:
-		b, err := readLocalFile(s.cl, expandHome(arg))
+		b, err := readLocalFile(s.cl, inventory.ExpandHome(arg))
 		if err != nil {
 			s.printf("error: %v\n", err)
 			return false

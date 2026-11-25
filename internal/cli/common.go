@@ -19,6 +19,7 @@ import (
 
 	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/sshx"
@@ -415,7 +416,7 @@ func sameServer(a, b string) bool {
 
 var dnsCache sync.Map // normalised name -> []string
 
-// cachedIPs is lookupIPs (2s at most) once per name per command.
+// cachedIPs is inventory.LookupIPs (2s at most) once per name per command.
 func cachedIPs(host string) []string {
 	h := normHost(host)
 	if v, ok := dnsCache.Load(h); ok {
@@ -423,7 +424,7 @@ func cachedIPs(host string) []string {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	ips := lookupIPs(ctx, h)
+	ips := inventory.LookupIPs(ctx, h)
 	dnsCache.Store(h, ips)
 	return ips
 }

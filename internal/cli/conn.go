@@ -507,7 +507,7 @@ func testConn(cl *call, ctx context.Context, st *store.State, c *store.Conn) con
 	defer a.Close()
 	if a.Target.Kind.File {
 		r.Check = "file"
-		if _, err := os.Stat(expandHome(a.Target.Path)); err != nil {
+		if _, err := os.Stat(inventory.ExpandHome(a.Target.Path)); err != nil {
 			return fail(localFileErr("FILE_NOT_FOUND", err, "check the path in the conn URL (`komando conn edit "+c.Name+" --url ...`)"))
 		}
 	} else {

@@ -233,7 +233,7 @@ func vpnPerson(a formAnswers) bool {
 
 // vpnFileText is a file's text, or "" when it cannot be read.
 func vpnFileText(p string) string {
-	b, err := os.ReadFile(expandHome(p))
+	b, err := os.ReadFile(inventory.ExpandHome(p))
 	if err != nil {
 		return ""
 	}
