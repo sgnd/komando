@@ -133,7 +133,7 @@ func TestImportDryRunRecordsTheProxyCommandStop(t *testing.T) {
 			}
 			setCallerEnv(t, "CLAUDECODE", "1")
 			d, _ := invRun(t, "import", "ssh-config", f, "--dry-run")
-			tcl.flags.dryRun = false
+			setGate(tcl, false, gateDryRun)
 			if blockedCode(d) != tc.code {
 				t.Fatalf("want %s in would_be_blocked: %v", tc.code, d)
 			}
@@ -165,7 +165,7 @@ func TestImportLeavesOutAProxyCommandServer(t *testing.T) {
 	resetApproval()
 	invHome(t)
 	d, _ := invRun(t, "import", "ssh-config", f, "--dry-run")
-	tcl.flags.dryRun = false
+	setGate(tcl, false, gateDryRun)
 	if blockedCode(d) != "" {
 		t.Fatalf("a script's preview: %v", d)
 	}
