@@ -49,7 +49,7 @@ func TestStopScriptPSText(t *testing.T) {
 		"$ks_pid = 4242", "$ks_created = '2026-11-25T10:00:00.1234567Z'",
 		"Get-CimInstance -ClassName Win32_Process -Filter ('ProcessId = ' + $ks_pid)",
 		"if ($ks_q.Count -ne 1) { exit 92 }",
-		"$ks_q[0].CreationDate.ToUniversalTime().ToString('o') -cne $ks_created",
+		"if ($ks_q[0].CreationDate.ToUniversalTime().ToString('o') -cne $ks_created",
 		"$ks_q[0].Name -ne 'powershell.exe'",
 		"$ks_q[0].CommandLine -cne $ks_cmdline",
 		"$null = & taskkill.exe /PID $ks_pid /T /F",
@@ -80,6 +80,9 @@ func TestParseStopPS(t *testing.T) {
 	}
 	if _, err := ParseStopPS("ended x\nstopped "+testID+"\n", testID); err == nil {
 		t.Error("a bad PID counts")
+	}
+	if _, err := ParseStopPS("ended 4\nstopped "+testID+"\n", testID); err == nil {
+		t.Error("PID 4 (System) counts")
 	}
 }
 
