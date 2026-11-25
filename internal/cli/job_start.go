@@ -3,10 +3,16 @@ package cli
 import (
 	"cmp"
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/spf13/cobra"
+
+	"github.com/sgnd/komando/internal/execsession"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -137,8 +143,8 @@ func startJob(cl *call, ctx context.Context, c *sshx.Client, sp jobSpec) (starte
 		inFile = `(umask 077; cat > "$d/in") && `
 	}
 	script := `u=$(umask); umask 077; d="` + jobDir(id) + `"; mkdir -p "$d" && chmod 700 "$d" && ` + envFile + pwFile + inFile + `printf '%s\n' ` + sshx.Q(sp.shown) + ` > "$d/cmd" && date -u +%s > "$d/started"; ` +
-		`export d; if command -v setsid >/dev/null 2>&1; then setsid nohup sh -c ` + sshx.Q(jobWrapper(run, sp.timeout)) + ` sh "$u" > "$d/out.log" 2>&1 < /dev/null & ` +
-		`else nohup sh -c ` + sshx.Q(jobWrapper(run, sp.timeout)) + ` sh "$u" > "$d/out.log" 2>&1 < /dev/null & fi; echo $! > "$d/pid"; echo $!`
+		`export d; if command -v setsid >/dev/null 2>&1; then setsid nohup sh -c ` + sshx.Q(execsession.Wrapper(run, sp.timeout)) + ` sh "$u" > "$d/out.log" 2>&1 < /dev/null & ` +
+		`else nohup sh -c ` + sshx.Q(execsession.Wrapper(run, sp.timeout)) + ` sh "$u" > "$d/out.log" 2>&1 < /dev/null & fi; echo $! > "$d/pid"; echo $!`
 	input := append(append([]byte(exports), pw...), sp.input...)
 	r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: script, Stdin: input, Timeout: 30 * time.Second, MaxOutput: 64 << 10})
 	if err != nil {
@@ -156,16 +162,6 @@ func startJob(cl *call, ctx context.Context, c *sshx.Client, sp jobSpec) (starte
 	return started{ID: id, Host: c.Host.Name, PID: pid, OK: true}, nil
 }
 
-// jobFeed sends the job's env and input to its command, in that order,
-// deleting each file once it is sent; a sudo password goes first (pw).
-func jobFeed(pw bool) string {
-	f := `{ `
-	if pw {
-		f += `cat "$d/pw"; rm -f "$d/pw"; `
-	}
-	return f + `[ ! -f "$d/env" ] || { cat "$d/env"; rm -f "$d/env"; }; [ ! -f "$d/in" ] || { cat "$d/in"; rm -f "$d/in"; }; }`
-}
-
 // jobRunner is what starts the job: the feed piped into sudo (as root, or
 // --sudo-user) or sh, in the background, its pid in w. With the server's
 // sudo password (pw, sent to the job as input), sudo is first asked
@@ -174,39 +170,353 @@ func jobFeed(pw bool) string {
 func jobRunner(c *sshx.Client, sp jobSpec, inner string) (start string, pw []byte, err error) {
 	sh := "sh -c " + sshx.Q(inner)
 	if !sp.sudo && sp.sudoUser == "" {
-		return jobFeed(false) + " | " + sh + " & w=$!", nil, nil
+		return execsession.Feed(false) + " | " + sh + " & w=$!", nil, nil
 	}
 	user := ""
 	if sp.sudoUser != "" {
 		user = "-u " + sshx.Q(sp.sudoUser) + " "
 	}
 	if c.Host.SudoRef == "" {
-		return jobFeed(false) + " | sudo -n " + user + sh + " & w=$!", nil, nil
+		return execsession.Feed(false) + " | sudo -n " + user + sh + " & w=$!", nil, nil
 	}
 	p, err := vault.Resolve(c.Host.SudoRef)
 	if err != nil {
 		return "", nil, err
 	}
-	start = `if sudo -n ` + user + `sh -c : 2>/dev/null; then rm -f "$d/pw"; ` + jobFeed(false) + ` | sudo -n ` + user + sh +
-		` & w=$!; else ` + jobFeed(true) + ` | sudo -S -p '' ` + user + sh + ` & w=$!; fi`
+	start = `if sudo -n ` + user + `sh -c : 2>/dev/null; then rm -f "$d/pw"; ` + execsession.Feed(false) + ` | sudo -n ` + user + sh +
+		` & w=$!; else ` + execsession.Feed(true) + ` | sudo -S -p '' ` + user + sh + ` & w=$!; fi`
 	return start, []byte(p + "\n"), nil
 }
 
-// jobWrapper runs the job with the login's own umask ($1, so the job's
-// environment gains no variable) and writes its exit code, unless the job
-// was stopped (killed). With a timeout, a watcher stops the job after it
-// as job kill does, the whole process group (setsid) or else the command,
-// and notes "TERM timeout" so job status says why.
-func jobWrapper(start string, timeout time.Duration) string {
-	end := `wait $w 2>/dev/null; c=$?; `
-	watch := ""
-	if timeout > 0 {
-		secs := strconv.Itoa(int((timeout + time.Second - 1) / time.Second))
-		watch = `( trap 'kill $t 2>/dev/null; exit 0' TERM; sleep ` + secs + ` & t=$!; wait $t; ` +
-			`kill -0 $w 2>/dev/null && { printf 'TERM timeout\n' > "$d/killed"; kill -TERM -$$ 2>/dev/null || kill -TERM $w; } ) & s=$!; `
-		end += `kill $s 2>/dev/null; `
+// sessionsOn turns exec's runs in a session on. It stays off until the
+// v2.7 cut: exec then runs as before, and its session flags are hidden and
+// refused.
+var sessionsOn = false
+
+// sessionOpts are exec's flags for a run in a session on the server.
+type sessionOpts struct {
+	attach []string
+	offset int64
+	wait   time.Duration
+	logMax int64
+}
+
+func (s *sessionOpts) bind(c *cobra.Command) {
+	f := c.Flags()
+	f.StringSliceVar(&s.attach, "attach", nil, "read the rest of these sessions on one server, and their exit codes")
+	f.Int64Var(&s.offset, "offset", 0, "with --attach: start at this byte of the log (next_from of the last read)")
+	durVar(f, &s.wait, "wait", time.Minute, "wait this long for the run to end; it goes on after (exit 7); 0 returns at once")
+	s.logMax = 1 << 30
+	f.Var(&bytesFlag{n: &s.logMax}, "log-max", "bytes of output the server keeps for the run, like 100MiB; more is dropped")
+	if !sessionsOn {
+		for _, n := range []string{"attach", "offset", "wait", "log-max"} {
+			_ = f.MarkHidden(n)
+		}
 	}
-	// the env (vault values), the input and the sudo password go once the
-	// job ends, also when sudo refused it before they were sent and deleted
-	return `umask "$1"; ` + start + `; umask 077; ` + watch + end + `[ -f "$d/killed" ] || echo $c > "$d/exit"; rm -f "$d/env" "$d/in" "$d/pw"`
+}
+
+// refuseOff refuses the session flags while sessions are off.
+func (s *sessionOpts) refuseOff(c *cobra.Command) error {
+	if sessionsOn {
+		return nil
+	}
+	for _, n := range []string{"attach", "offset", "wait", "log-max"} {
+		if c.Flags().Changed(n) {
+			return out.Usage("--%s comes with exec sessions, which this build does not have yet", n)
+		}
+	}
+	return nil
+}
+
+// attachCall is exec with --attach or --offset: --attach IDs and no
+// command (command says one was given).
+func (s *sessionOpts) attachCall(cl *call, ctx context.Context, args []string, command bool) error {
+	switch {
+	case len(s.attach) == 0:
+		return out.Usage("--offset goes with --attach ID")
+	case command || len(args) > 1:
+		return out.Usage("--attach reads sessions that run already: give no command with it")
+	}
+	return attachSessions(cl, ctx, args[0], *s)
+}
+
+// sessionRun is exec's run in a session folder on one Unix server
+// (execsession): it survives a dropped connection, and --attach reads it
+// on. A nil sessionRun runs the command as before.
+type sessionRun struct {
+	opts     sessionOpts
+	shown    string
+	id       string // empty: no session (none could be made, or the start failed)
+	nextFrom *int64 // where an --attach reads on, while the run goes on
+}
+
+// sessionFor is exec's session for this run, or nil: sessions are on, and
+// the run is a plain exec on one Unix server without --pty.
+func sessionFor(name string, hosts []*store.Host, o execOpts, shown string) *sessionRun {
+	if !sessionsOn || o.session == nil || name != "exec" || len(hosts) != 1 || hosts[0].Windows() || o.pty {
+		return nil
+	}
+	return &sessionRun{opts: *o.session, shown: shown}
+}
+
+// fill puts the session into a server's result: its ID (null when it ran
+// without one) and, while it runs, next_from.
+func (s *sessionRun) fill(hr *execHostResult) {
+	if s == nil {
+		return
+	}
+	hr.Session = json.RawMessage("null")
+	if s.id != "" {
+		hr.Session = json.RawMessage(strconv.Quote(s.id))
+	}
+	hr.NextFrom = s.nextFrom
+}
+
+// run starts r in a session on c and follows it. The first JSON line
+// names the session. When no folder can be made there, r runs as before
+// in a new call, which sends its input again.
+func (s *sessionRun) run(cl *call, ctx context.Context, c *sshx.Client, r sshx.RunRequest) (*sshx.RunResult, error) {
+	if s == nil {
+		return sshx.Run(ctx, c, r)
+	}
+	host := c.Host.Name
+	id, err := execsession.NewID()
+	if err != nil {
+		return nil, err
+	}
+	exports, err := sshx.EnvExports(c, r.Env)
+	if err != nil {
+		return nil, err
+	}
+	inner, _, err := sshx.BuildCommand(c, sshx.RunRequest{Command: r.Command, Dir: r.Dir, NoEnv: true})
+	if err != nil {
+		return nil, err
+	}
+	if exports != "" {
+		inner = `eval "$(dd bs=1 count=` + strconv.Itoa(len(exports)) + ` 2>/dev/null)"; ` + inner
+	}
+	start, pw, err := jobRunner(c, jobSpec{sudo: r.Sudo, sudoUser: r.SudoUser}, inner)
+	if err != nil {
+		return nil, err
+	}
+	script, err := execsession.BeginScript(execsession.Start{ID: id, Shown: s.shown, Run: start, Env: len(exports),
+		Password: len(pw), Input: r.Stdin != nil, Timeout: r.Timeout, LogMax: s.opts.logMax}, hostSessions(host))
+	if err != nil {
+		return nil, err
+	}
+	b, err := sshx.Run(ctx, c, sshx.RunRequest{Command: script, Stdin: append(append([]byte(exports), pw...), r.Stdin...), Timeout: 30 * time.Second, MaxOutput: 64 << 10})
+	if err != nil {
+		return nil, err
+	}
+	forgetSessions(cl, host, execsession.Swept(b.Stdout))
+	facts, warns, err := execsession.ReadStart(host, b.ExitCode, b.Stdout, id)
+	if errors.Is(err, execsession.ErrNoFolder) {
+		sessionLine(cl, nil, host)
+		cl.out.Warn(host + ": no session folder can be made in the login user's home, so the command ran without a session: it ends if the connection drops")
+		return sshx.Run(ctx, c, r)
+	}
+	if err != nil {
+		return nil, err
+	}
+	for _, w := range warns {
+		cl.out.Warn(host + ": " + w)
+	}
+	s.id = id
+	rec := &store.ExecSession{ID: id, Host: host, Command: s.shown, PID: facts.PID, PGID: facts.PGID, ProcStart: facts.Start,
+		StartedAt: time.Now().UTC(), Sudo: r.Sudo, SudoUser: r.SudoUser, Actor: actor(cl), Agent: cl.isAgent()}
+	if err := store.UpdateRuntime(cl.storeWrite(), func(st *store.State) error { st.ExecSessions[id] = rec; return nil }); err != nil {
+		cl.out.Warn(host + ": session " + id + " runs, but this computer could not record it: " + err.Error())
+	}
+	sessionLine(cl, &id, host)
+	return s.follow(cl, ctx, c, 0, s.opts.wait, r)
+}
+
+// sessionLine names the session before any output: the first JSON line,
+// or a line on stderr for a person.
+func sessionLine(cl *call, id *string, host string) {
+	if cl.out.Format != "text" {
+		cl.out.Event(map[string]any{"session": id, "host": host})
+	} else if id != nil {
+		fmt.Fprintf(cl.out.Err, "Session %s on %s\n", *id, host)
+	}
+}
+
+// follow reads session s.id on c from byte from until it ends or wait
+// passes. r gives the output limit and the stream. A run read to its end
+// is removed when the caller is the actor who started it.
+func (s *sessionRun) follow(cl *call, ctx context.Context, c *sshx.Client, from int64, wait time.Duration, r sshx.RunRequest) (*sshx.RunResult, error) {
+	t0 := time.Now()
+	res := &sshx.RunResult{}
+	var buf strings.Builder
+	show := func(text string) {
+		if r.Stream != nil {
+			r.Stream("stdout", []byte(text))
+		}
+		if r.MaxOutput > 0 && buf.Len()+len(text) > r.MaxOutput {
+			text, res.StdoutTruncated = text[:max(0, r.MaxOutput-buf.Len())], true
+		}
+		buf.WriteString(text)
+	}
+	read := func(ctx context.Context, script string) (string, int, error) {
+		rr, err := sshx.Run(ctx, c, sshx.RunRequest{Command: script, Timeout: 30 * time.Second, MaxOutput: execsession.ReadMax + 4<<10})
+		if err != nil {
+			return "", 0, err
+		}
+		return rr.Stdout, rr.ExitCode, nil
+	}
+	f := execsession.Follow{Host: c.Host.Name, ID: s.id, From: from, Wait: wait, Every: time.Second,
+		Lines: &execsession.Lines{Redact: cl.out.Redact, Agent: cl.isAgent()}, Show: show}
+	done, err := f.Run(ctx, read)
+	res.Stdout, res.DurationMS = buf.String(), time.Since(t0).Milliseconds()
+	if err != nil {
+		s.nextFrom = &done.NextFrom
+		return res, err
+	}
+	st := done.Status
+	switch {
+	case st.Lost:
+		res.ExitCode = -1
+		cl.out.Warn(c.Host.Name + ": session " + s.id + " ended without an exit code: its process is gone (a reboot or out of memory)")
+	case strings.HasPrefix(st.Killed, "TERM timeout"):
+		res.ExitCode, res.TimedOut = -1, true
+	case st.Killed != "":
+		res.ExitCode, res.Signal = -1, strings.Fields(st.Killed)[0]
+	default:
+		res.ExitCode = st.Exit
+	}
+	if note := st.TruncatedNote(); note != "" {
+		cl.out.Warn(c.Host.Name + ": " + note)
+	}
+	s.removeOwn(cl, ctx, c)
+	return res, nil
+}
+
+// removeOwn removes a session read to its end, folder and record, when
+// the caller is the actor who started it (A-C324-10): a reader that is
+// someone else leaves it to the 7-day sweep.
+func (s *sessionRun) removeOwn(cl *call, ctx context.Context, c *sshx.Client) {
+	rt, err := store.ReadRuntime()
+	if err != nil {
+		return
+	}
+	rec := rt.ExecSessions[s.id]
+	if rec == nil || rec.Host != c.Host.Name || rec.Actor != actor(cl) || rec.Agent != cl.isAgent() {
+		return
+	}
+	script, err := execsession.RemoveScript(s.id, rec)
+	if err != nil {
+		return
+	}
+	rr, err := sshx.Run(ctx, c, sshx.RunRequest{Command: script, Timeout: 30 * time.Second, MaxOutput: 4 << 10})
+	if err != nil || rr.ExitCode != 0 {
+		cl.out.Warn(c.Host.Name + ": session " + s.id + " was read to its end but is still on the server; the sweep of a later exec removes it after 7 days")
+		return
+	}
+	forgetSessions(cl, c.Host.Name, []string{s.id})
+}
+
+// hostSessions are the records of host's sessions on this computer.
+func hostSessions(host string) []*store.ExecSession {
+	rt, err := store.ReadRuntime()
+	if err != nil {
+		return nil
+	}
+	var recs []*store.ExecSession
+	for _, rec := range rt.ExecSessions {
+		if rec.Host == host {
+			recs = append(recs, rec)
+		}
+	}
+	return recs
+}
+
+// forgetSessions drops the records of host's sessions ids.
+func forgetSessions(cl *call, host string, ids []string) {
+	if len(ids) == 0 {
+		return
+	}
+	err := store.UpdateRuntime(cl.storeWrite(), func(st *store.State) error {
+		for _, id := range ids {
+			if rec := st.ExecSessions[id]; rec != nil && rec.Host == host {
+				delete(st.ExecSessions, id)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		cl.out.Warn("could not drop the records of removed sessions: " + err.Error())
+	}
+}
+
+// attachSessions is exec --attach: it reads on the sessions ids on the one
+// server target names, from --offset (one ID only), and waits for all of
+// them together up to --wait. A read only reads: it runs komando's own
+// read script with checked IDs, and sweeps nothing.
+func attachSessions(cl *call, ctx context.Context, target string, so sessionOpts) error {
+	for _, id := range so.attach {
+		if err := execsession.CheckID(id); err != nil {
+			return err
+		}
+	}
+	if so.offset < 0 || (so.offset > 0 && len(so.attach) > 1) {
+		return out.Usage("--offset goes with one session ID, and is 0 or more")
+	}
+	st, err := loadState()
+	if err != nil {
+		return err
+	}
+	hosts, err := resolveTargets(cl, st, target)
+	if err != nil {
+		return err
+	}
+	if len(hosts) != 1 || hosts[0].Windows() {
+		return out.Usage("--attach reads sessions on one Linux or Unix server: name that server, as the exec that started them did")
+	}
+	deadline := time.Now().Add(so.wait)
+	res := fanout(cl, ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
+		var rs []execHostResult
+		for _, id := range so.attach {
+			s := &sessionRun{opts: so, id: id}
+			rr, err := s.follow(cl, ctx, c, so.offset, max(0, time.Until(deadline)), sshx.RunRequest{MaxOutput: maxOutput(cl, st)})
+			hr := execHostResult{Host: c.Host.Name, RunResult: rr, Error: errOrNil(err)}
+			s.fill(&hr)
+			hr.OK = err == nil && rr.ExitCode == 0 && !rr.TimedOut
+			rs = append(rs, hr)
+		}
+		return rs, nil
+	})[0]
+	shown := shellLine(append([]string{"--attach"}, so.attach...))
+	if res.Err != nil {
+		audit(cl, st, "exec", hostNames(hosts), shown, false, map[string]any{"attach": so.attach})
+		return res.Err
+	}
+	data := execData{Command: shown, Results: res.Value.([]execHostResult)}
+	worst := 0
+	var fails []hostFail
+	for _, hr := range data.Results {
+		switch {
+		case hr.OK:
+			data.Summary.OK++
+			continue
+		case hr.Error != nil:
+			worst = worse(worst, hr.Error.Exit)
+			fails = append(fails, hostFail{host: hr.Host, reason: failReason(0, hr.Error), err: hr.Error})
+		default:
+			worst = worse(worst, out.ExitRemote)
+			fails = append(fails, hostFail{host: hr.Host, reason: fmt.Sprintf("exit %d", hr.ExitCode)})
+		}
+		data.Summary.Failed++
+		data.Summary.FailedHosts = append(data.Summary.FailedHosts, hr.Host)
+	}
+	data.Summary.Total = len(data.Results)
+	audit(cl, st, "exec", hostNames(hosts), shown, data.Summary.Failed == 0, map[string]any{"attach": so.attach, "exit_codes": exitCodes(data.Results)})
+	return finishFleet(cl, "exec", data, data.Summary, worst, fails)
+}
+
+// errOrNil is err as a result's error, or nil.
+func errOrNil(err error) *out.Error {
+	if err == nil {
+		return nil
+	}
+	return toErr(err)
 }
