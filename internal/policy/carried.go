@@ -25,7 +25,7 @@ var carriedRules = []struct {
 	{"docker-kill", "stops containers or services, or changes the swarm (kill, scale to 0, swarm, node)", func(c simpleCommand) bool { return dockerRating(c) == "kill" }},
 	{"docker-host", "gives a container the server (privileged, host namespaces, system folders, plugins)", func(c simpleCommand) bool { return dockerRating(c) == "host" }},
 	{"pkg-remove-essential", "removes a package the server needs (ssh, sudo, systemd, libc ...), which can lock you out or break it", removesEssential},
-	{"pkg-implicit-remove", "upgrades or cleans up in a way that removes packages it does not name (dist-upgrade, full-upgrade, autoremove, distro-sync)", removesImplicitly},
+	{"pkg-implicit-remove", "removes packages it does not name (dist-upgrade, autoremove, distro-sync, clean-deps, unused or garbage-collected packages)", removesImplicitly},
 	{"container-shell", "opens a shell, interpreter or database client in a container, or feeds one input (what it runs cannot be checked)", containerShell},
 	{"kubectl-scale-zero", "scales a kubernetes workload to zero (an outage)", kubectlScalesToZero},
 }
@@ -185,7 +185,9 @@ func removesEssential(c simpleCommand) bool {
 
 // implicitRemoveVerbs are the verbs of each package manager that remove
 // packages the command does not name; implicitRemoveOpts are the options
-// that make any verb do so.
+// that make any verb do so. A verb counts wherever it stands among the
+// operands, so an option value komando does not know (dnf -x foo
+// distro-sync) cannot hide it; no package has such a name.
 var (
 	implicitRemoveVerbs = map[string][]string{
 		"apt":    {"dist-upgrade", "full-upgrade", "autoremove", "auto-remove", "autopurge"},
@@ -194,26 +196,40 @@ var (
 	}
 	implicitRemoveOpts = map[string][]string{
 		"apt": {"--autoremove", "--auto-remove"},
-		"dnf": {"--allowerasing"},
+		"dnf": {"--allowerasing", "--oldinstallonly"},
 	}
+	implicitRemoveFamily = map[string]string{"apt": "apt", "apt-get": "apt", "aptitude": "apt", "dnf": "dnf", "yum": "dnf",
+		"microdnf": "dnf", "tdnf": "dnf", "zypper": "zypper", "pacman": "pacman", "flatpak": "flatpak",
+		"nix-collect-garbage": "nix"}
 )
 
-// removesImplicitly: apt dist-upgrade, full-upgrade and autoremove, dnf
-// distro-sync and autoremove, zypper dist-upgrade, and --autoremove or
-// --allowerasing on any verb.
+// removesImplicitly: a verb or option of implicitRemoveVerbs and
+// implicitRemoveOpts; zypper remove --clean-deps (-u); pacman -R reading
+// the names from its input (-); flatpak uninstall --unused;
+// nix-collect-garbage.
 func removesImplicitly(c simpleCommand) bool {
-	family := map[string]string{"apt": "apt", "apt-get": "apt", "aptitude": "apt", "dnf": "dnf", "yum": "dnf",
-		"microdnf": "dnf", "tdnf": "dnf", "zypper": "zypper"}[c.name()]
-	if family == "" {
-		return false
-	}
-	args := withoutValues(c.args[1:], "-o", "-c", "-t", "--option", "--config-file", "--target-release", "-X", "--repo",
-		"--enablerepo", "--disablerepo", "--root", "-R", "--installroot", "--releasever", "--setopt")
-	if hasOption(args, implicitRemoveOpts[family]...) {
-		return true
-	}
+	family := implicitRemoveFamily[c.name()]
+	args := c.args[1:]
 	ops := operands(args)
-	return len(ops) > 0 && slices.Contains(implicitRemoveVerbs[family], strings.ToLower(ops[0]))
+	verb := func(vs ...string) bool {
+		return slices.ContainsFunc(ops, func(o string) bool { return slices.Contains(vs, strings.ToLower(o)) })
+	}
+	switch family {
+	case "":
+		return false
+	case "nix":
+		return true
+	case "pacman":
+		return slices.Contains(ops, "-") && (hasOption(args, "--remove") ||
+			slices.ContainsFunc(args, func(a string) bool { return strings.HasPrefix(a, "-R") }))
+	case "flatpak":
+		return verb("uninstall", "remove") && hasOption(args, "--unused")
+	case "zypper":
+		if verb("remove", "rm") && hasOption(args, "--clean-deps", "-u") {
+			return true
+		}
+	}
+	return hasOption(args, implicitRemoveOpts[family]...) || verb(implicitRemoveVerbs[family]...)
 }
 
 // containerShell: a command in a container that reads its commands from a
