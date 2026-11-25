@@ -39,7 +39,7 @@ const (
 
 	readLost          = "read it with `host ssh exec`; text output, no shape (no built-in snippet, Audit point 1)"
 	o24Lost           = "validate, back up and undo, O-24 (Audit K4); accepted as a loss at v0.18.0: nothing writes a credential reference into a config line and an agent cannot change a [hidden] line; a ready-made change snippet is planned after v0.18.0 (row C374)"
-	queryPasswordLost = "a password set through query is on the command line; use `{{credential:NAME}}` or a person's terminal"
+	queryPasswordLost = "a password set through query is on the command line; use a person's terminal"
 	typedLost         = "the typed-name confirm of a person (the raw path asks only for --allow-dangerous); pin: protected --yes through guardConns, a test per type (row C363) (Audit K4)"
 )
 
