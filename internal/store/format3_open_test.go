@@ -276,14 +276,10 @@ func TestFormatUnknownRefused(t *testing.T) {
 // the migration and read back after it.
 func TestMigrate3CarriesRemoteWork(t *testing.T) {
 	format2Store(t)
-	err := UpdateRuntime(Save(), func(s *State) error {
+	format2Runtime(t, func(s *State) {
 		s.ExecSessions["e1"] = &ExecSession{ID: "e1", Host: "gone-host", Command: "sleep 1", PID: 42}
 		s.Jobs["j1"] = &Job{ID: "j1", Host: "web1", PID: 77}
-		return nil
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
 	if _, err := migrateFormat3(context.Background(), personOpts()); err != nil {
 		t.Fatalf("remote work blocked the migration: %v", err)
 	}

@@ -28,11 +28,9 @@ type runtimeCopy struct {
 	ExecSessions map[string]*ExecSession `json:"exec_sessions,omitempty"`
 }
 
-// carriedRuntime is what of runtime.json the migration carries, read
-// against the format-2 store d. The caller holds the store lock and has
-// checked that no local komando process runs, so VPN sessions, logins and
-// tunnels are over.
-func carriedRuntime(ctx context.Context, d *sealdb.DB) (*Runtime, error) {
+// runtimeOf2 is runtime.json read against the format-2 store d (its
+// mark), for the migration: no open through the gate.
+func runtimeOf2(ctx context.Context, d *sealdb.DB) (*Runtime, error) {
 	s := &State{}
 	err := d.View(ctx, func(tx *sealdb.Tx) error {
 		var err error
@@ -45,9 +43,8 @@ func carriedRuntime(ctx context.Context, d *sealdb.DB) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	c := &Runtime{Jobs: s.Runtime.Jobs, ExecSessions: s.Runtime.ExecSessions}
-	c.init()
-	return c, nil
+	s.Runtime.init()
+	return &s.Runtime, nil
 }
 
 // putRuntimeCopy writes rt's carried records and a new runtime mark in
@@ -85,8 +82,37 @@ func readRuntimeCopy(tx *sealdb.Tx, mark string) (*runtimeCopy, error) {
 	return &c, nil
 }
 
+// finishRuntimeCopy ends the migration's move of the runtime records
+// (Audit Q7a): runtime.json written from rt, read back with the store's
+// mark, then the copy deleted from the store. It does nothing while
+// another call holds the runtime lock (that call's open finishes it).
+func finishRuntimeCopy(rt Runtime) error {
+	unlock, ok, err := tryLock(runtimeLock)
+	if err != nil || !ok {
+		return err
+	}
+	defer unlock()
+	if err := (&State{Runtime: rt}).saveRuntime(); err != nil {
+		return err
+	}
+	if back, err := ReadRuntime(); err != nil || back.Mark != rt.Mark {
+		return err // the copy stays until runtime.json reads back
+	}
+	d, err := DB(true)
+	if err != nil {
+		return err
+	}
+	return d.Update(context.Background(), func(tx *sealdb.Tx) error {
+		c, err := readRuntimeCopy(tx, rt.Mark)
+		if err != nil || c == nil {
+			return err
+		}
+		return tx.Delete(runtimeCopyID)
+	})
+}
+
 // fromCopy is the runtime data a runtime.json with another mark is read
-// as: the store's copy when it carries mark, else empty.
+// as: the store's copy when it carries mark, else empty (Audit Q7b).
 func fromCopy(mark string, c *runtimeCopy) Runtime {
 	rt := Runtime{Mark: mark}
 	if c != nil {

@@ -381,6 +381,7 @@ type State struct {
 	settingsRec Rec          // the settings record in the sealed store
 	runtimeMark string       // store.db's mark of runtime.json (runtime_mark.go)
 	runtimeCopy *runtimeCopy // records a store migration carried, under runtimeMark (runtime_copy.go)
+	copyUsed    bool         // the runtime data was read from runtimeCopy
 }
 
 // Home is komando's data folder: KOMANDO_HOME, else .komando in UserHome.
@@ -551,6 +552,22 @@ func Update(w Write, fn func(s *State) error) error {
 		return fn(s)
 	}
 	return updateStore(fn)
+}
+
+// tryLock is Lock that does not wait: ok is false while another holds it.
+func tryLock(name string) (unlock func(), ok bool, err error) {
+	if err := ensureHome(); err != nil {
+		return nil, false, err
+	}
+	lf, err := os.OpenFile(Path(name), os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return nil, false, err
+	}
+	if ok, err = flock.TryLock(lf); err != nil || !ok {
+		lf.Close()
+		return nil, false, err
+	}
+	return func() { _ = flock.Unlock(lf); lf.Close() }, true, nil
 }
 
 // Lock takes an exclusive lock on the file name in the state directory

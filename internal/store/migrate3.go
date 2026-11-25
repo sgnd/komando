@@ -85,33 +85,37 @@ func migrateFormat3(ctx context.Context, o migrate3Opts) (migrate3Result, error)
 	if err := migrateStepDone(3); err != nil {
 		return res, err
 	}
-	if err := noLiveProcesses(o.alive); err != nil {
-		return res, err
-	}
-	if err := migrateStepDone(4); err != nil {
-		return res, err
-	}
-	// 5. the normal open: old-copy count and policy MAC (Audit M4)
-	d, err := openFormat2()
+	// 5. the normal open: old-copy count and policy MAC (Audit M4); it
+	// writes nothing, and the process check below reads runtime.json
+	// against this store's mark
+	d, master, err := openFormat2()
 	if err != nil {
 		if pe := PolicyErr(err); pe != nil {
 			return res, pe
 		}
 		return res, err
 	}
-	master, err := MasterKey()
-	if err != nil {
+	defer clear(master)
+	if err := primeRuntimeKey(master); err != nil {
 		return res, err
 	}
-	defer clear(master)
 	vc, err := newValueCipher(master)
 	if err != nil {
 		return res, err
 	}
-	carried, err := carriedRuntime(ctx, d)
+	rt, err := runtimeOf2(ctx, d)
 	if err != nil {
 		return res, err
 	}
+	// 4. under the lock: no komando process at work (Audit M6)
+	if err := noLiveProcesses(rt, o.alive); err != nil {
+		return res, err
+	}
+	if err := migrateStepDone(4); err != nil {
+		return res, err
+	}
+	carried := &Runtime{Jobs: rt.Jobs, ExecSessions: rt.ExecSessions}
+	carried.init()
 	if err := migrateStepDone(5); err != nil {
 		return res, err
 	}
@@ -217,7 +221,7 @@ func migrateFormat3(ctx context.Context, o migrate3Opts) (migrate3Result, error)
 		return res, err
 	}
 	carried.Mark = mark
-	if err := (&State{Runtime: *carried}).saveRuntime(); err != nil {
+	if err := finishRuntimeCopy(*carried); err != nil {
 		notice(fmt.Sprintf("could not write %s (%v); it is rebuilt from the store at the next open", runtimePath(), err))
 	}
 	if err := migrateStepDone(13); err != nil {
@@ -279,10 +283,11 @@ func migrateGate(ctx context.Context, o migrate3Opts) (*shownWindow, error) {
 	default:
 		return nil, needsPerson(o.why)
 	}
-	d, err := openFormat2()
+	d, master, err := openFormat2()
 	if err != nil {
 		return nil, err
 	}
+	clear(master)
 	w := &shownWindow{backup: backupName(o.now())}
 	if err := d.View(ctx, func(tx *sealdb.Tx) error { w.counts, err = countTypes(tx); return err }); err != nil {
 		return nil, err
@@ -299,16 +304,9 @@ func migrateGate(ctx context.Context, o migrate3Opts) (*shownWindow, error) {
 
 // noLiveProcesses stops while a komando background process of the
 // runtime file still runs: it would write format-2 rows.
-func noLiveProcesses(alive func(int, string) bool) error {
+func noLiveProcesses(rt *Runtime, alive func(int, string) bool) error {
 	if alive == nil {
 		return errors.New("store: the migration was given no way to check for running komando processes")
-	}
-	rt, err := ReadRuntime()
-	if errors.Is(err, os.ErrNotExist) {
-		return nil // no runtime file: nothing runs
-	}
-	if err != nil {
-		return err
 	}
 	var running []string
 	for _, n := range slices.Sorted(maps.Keys(rt.Sessions)) {

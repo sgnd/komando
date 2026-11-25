@@ -107,6 +107,7 @@ func init() {
 	// an agent's KOMANDO_KEYCHAIN=off keeps the old-copy check
 	vault.AgentCall = agentCallRunning
 	store.OldCopyOK = oldCopyAllowed
+	store.MigrateCaller = migrateCaller
 	// a server's env values from the vault go along only when every
 	// running call may send them
 	sshx.HostSecretEnv = func(c *sshx.Client) bool {

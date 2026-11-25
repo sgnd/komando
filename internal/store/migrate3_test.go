@@ -43,7 +43,7 @@ func format2Store(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	master, err := MasterKey()
+	_, master, err := openFormat2()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,6 +125,72 @@ func format2Store(t *testing.T) string {
 		t.Fatal(err)
 	}
 	return home
+}
+
+// format2Edit changes the format-2 fixture's inventory as v0.17 did,
+// past the gate: new and changed records are written in the old shape.
+func format2Edit(t *testing.T, fn func(s *State)) {
+	t.Helper()
+	d, _, err := openFormat2()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = d.Update(context.Background(), func(tx *sealdb.Tx) error {
+		s, err := loadFormat2(tx)
+		if err != nil {
+			return err
+		}
+		before := s.recSnapshot()
+		fn(s)
+		if err := s.bumpRecs(before); err != nil {
+			return err
+		}
+		for _, r := range s.recs() {
+			b, err := json.Marshal(r.v)
+			if err != nil {
+				return err
+			}
+			if old, had := before[r.rec.ID]; had && bytes.Equal(old.body, b) {
+				continue
+			}
+			if _, err := tx.Put(r.kind, r.rec.ID, b); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// format2Runtime changes runtime.json beside a format-2 store, as v0.17
+// did, without opening the store through the gate.
+func format2Runtime(t *testing.T, fn func(s *State)) {
+	t.Helper()
+	d, master, err := openFormat2()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := primeRuntimeKey(master); err != nil {
+		t.Fatal(err)
+	}
+	s := &State{}
+	err = d.View(context.Background(), func(tx *sealdb.Tx) error {
+		var err error
+		s.runtimeMark, err = readRuntimeMark(tx)
+		return err
+	})
+	if err == nil {
+		err = s.loadRuntime()
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	fn(s)
+	if err := s.saveRuntime(); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // putFormat2 writes s as format-2 records, the shape v0.17 wrote, past
@@ -213,13 +279,9 @@ func byName[T any](t *testing.T, recs []record3, typ string) map[string]*T {
 
 func TestMigrate3(t *testing.T) {
 	format2Store(t)
-	err := UpdateRuntime(Save(), func(s *State) error {
+	format2Runtime(t, func(s *State) {
 		s.Sessions["wg"] = &VpnSession{Vpn: "wg", PID: 9999, ProcStart: "gone"} // not alive
-		return nil
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
 	said := notices(t)
 	res, err := migrateFormat3(context.Background(), personOpts())
 	if err != nil {
@@ -443,10 +505,19 @@ func TestMigrate3(t *testing.T) {
 			}
 		}
 	})
-	t.Run("an older komando cannot open it", func(t *testing.T) {
+	t.Run("the format-2 row key no longer opens it", func(t *testing.T) {
 		Close()
-		if _, err := DB(false); !errors.Is(err, sealdb.ErrNewerFormat) {
-			t.Error("the format-2 code opened a format-3 store")
+		master, _, err := KeySource(nil, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ks, err := keysFor(master, "2")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if d, err := sealdb.Open(context.Background(), DBPath(), ks.row); err == nil {
+			d.Close()
+			t.Error("the format-2 row key opened a format-3 store")
 		}
 	})
 }
@@ -475,13 +546,9 @@ func TestMigrate3FailsClosed(t *testing.T) {
 		{
 			name: "a komando process still runs",
 			setup: func(t *testing.T) {
-				err := UpdateRuntime(Save(), func(s *State) error {
+				format2Runtime(t, func(s *State) {
 					s.Sessions["wg"] = &VpnSession{Vpn: "wg", PID: 4242, ProcStart: "x"}
-					return nil
 				})
-				if err != nil {
-					t.Fatal(err)
-				}
 			},
 			opts: func(o *migrate3Opts) { o.alive = func(pid int, _ string) bool { return pid == 4242 } },
 			code: "STORE_IN_USE",
@@ -515,39 +582,27 @@ func TestMigrate3FailsClosed(t *testing.T) {
 		{
 			name: "a conn of a kind with no provider",
 			setup: func(t *testing.T) {
-				err := Update(Save(), func(s *State) error {
+				format2Edit(t, func(s *State) {
 					s.Conns["odd"] = &Conn{Name: "odd", Kind: "gopher", URL: "gopher://h"}
-					return nil
 				})
-				if err != nil {
-					t.Fatal(err)
-				}
 			},
 			code: "STORE_MIGRATION_FAILED",
 		},
 		{
 			name: "a reference to a secret that is gone",
 			setup: func(t *testing.T) {
-				err := Update(Save(), func(s *State) error {
+				format2Edit(t, func(s *State) {
 					s.Hosts["lost"] = &Host{Name: "lost", Address: "10.0.1.1", PasswordRef: "secret:nobody"}
-					return nil
 				})
-				if err != nil {
-					t.Fatal(err)
-				}
 			},
 			code: "STORE_MIGRATION_FAILED",
 		},
 		{
 			name: "a file item the reference guard refuses",
 			setup: func(t *testing.T) {
-				err := Update(Save(), func(s *State) error {
+				format2Edit(t, func(s *State) {
 					s.Hosts["sneaky"] = &Host{Name: "sneaky", Address: "10.0.1.2", PasswordRef: "file:" + Path("store.key")}
-					return nil
 				})
-				if err != nil {
-					t.Fatal(err)
-				}
 			},
 			opts: func(o *migrate3Opts) {
 				o.refGuard = func(kind, name string) error {
@@ -713,7 +768,7 @@ func TestMigrate3BackupNameTaken(t *testing.T) {
 // that nothing runs.
 func TestNoLiveProcessesNeedsCheck(t *testing.T) {
 	sealedHome(t)
-	if err := noLiveProcesses(nil); err == nil {
+	if err := noLiveProcesses(&Runtime{}, nil); err == nil {
 		t.Fatal("no process check given, and the migration went on")
 	}
 }
@@ -722,15 +777,11 @@ func TestNoLiveProcessesNeedsCheck(t *testing.T) {
 // names the conn and the field and not the password.
 func TestMigrate3PasswordInURL(t *testing.T) {
 	format2Store(t)
-	err := Update(Save(), func(s *State) error {
+	format2Edit(t, func(s *State) {
 		s.Conns["inline"] = &Conn{Name: "inline", Kind: "postgres", URL: "postgres://app:" + sentinel + "@10.0.0.30/app"}
-		return nil
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
 	Close()
-	_, err = migrateFormat3(context.Background(), personOpts())
+	_, err := migrateFormat3(context.Background(), personOpts())
 	var e *out.Error
 	if !errors.As(err, &e) || e.Code != "STORE_MIGRATION_FAILED" {
 		t.Fatalf("want STORE_MIGRATION_FAILED, got %v", err)
@@ -762,15 +813,11 @@ func TestMigrate3BrokenChainHint(t *testing.T) {
 // the field and not the URL.
 func TestMigrate3UnparsableURL(t *testing.T) {
 	format2Store(t)
-	err := Update(Save(), func(s *State) error {
+	format2Edit(t, func(s *State) {
 		s.Conns["bent"] = &Conn{Name: "bent", Kind: "postgres", URL: "postgres://app@10.0.0.31/%zz" + sentinel}
-		return nil
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
 	Close()
-	_, err = migrateFormat3(context.Background(), personOpts())
+	_, err := migrateFormat3(context.Background(), personOpts())
 	var e *out.Error
 	if !errors.As(err, &e) || e.Code != "STORE_MIGRATION_FAILED" {
 		t.Fatalf("want STORE_MIGRATION_FAILED, got %v", err)

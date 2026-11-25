@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/sgnd/komando/internal/driver"
@@ -92,6 +93,7 @@ func securityChecks(cl *call, st *store.State) []securityCheck {
 			commonSecretsCheck(add)
 		}
 		oldCopyCheck(add)
+		backupsCheck(add)
 	}
 	vaultKeyChecks(add)
 	hostCAChecks(cl, st, add)
@@ -408,5 +410,25 @@ func commonSecretsCheck(add func(name string, ok, warn bool, detail string, fix 
 	}
 	if len(names) > 0 {
 		add("common_secrets", false, true, "secrets "+strings.Join(names, ", ")+": these values are common words: komando hides those words everywhere in its output, and they are easy to guess; use longer values or add digits or symbols (`komando secret set NAME`)")
+	}
+}
+
+// backupsCheck names each backup the store migration left, with its age
+// (migration note M9), and removes the .partial file of a backup a
+// stopped migration never finished: it was never a backup.
+func backupsCheck(add func(name string, ok, warn bool, detail string, fix ...string)) {
+	if gone, err := store.RemoveBackupParts(); err != nil {
+		add("backups", false, true, "a half-written backup could not be removed: "+err.Error())
+	} else if len(gone) > 0 {
+		add("backups", true, false, "removed "+strconv.Itoa(len(gone))+" half-written backup file(s) a stopped store migration left")
+	}
+	bs, err := store.Backups()
+	if err != nil {
+		add("backups", false, true, "the backups could not be listed: "+err.Error())
+		return
+	}
+	for _, b := range bs {
+		days := int(time.Since(b.Modified).Hours() / 24)
+		add("backups", false, true, b.Name+" ("+strconv.Itoa(days)+" days old) holds every secret as it was before komando moved its store to format 3, and opens only with komando v0.17.0: remove it once this komando works for you")
 	}
 }

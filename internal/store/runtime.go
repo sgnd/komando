@@ -57,7 +57,7 @@ func (r *Runtime) init() {
 func (s *State) loadRuntime() error {
 	b, err := os.ReadFile(runtimePath())
 	if errors.Is(err, os.ErrNotExist) {
-		s.Runtime = fromCopy(s.runtimeMark, s.runtimeCopy)
+		s.Runtime, s.copyUsed = fromCopy(s.runtimeMark, s.runtimeCopy), s.runtimeCopy != nil
 		return nil
 	}
 	if err != nil {
@@ -81,7 +81,7 @@ func (s *State) loadRuntime() error {
 	if rt.Mark != s.runtimeMark {
 		// an old copy put back: never trusted, like a plain runtime.json;
 		// what a store migration carried is read from the store (Q7)
-		rt = fromCopy(s.runtimeMark, s.runtimeCopy)
+		rt, s.copyUsed = fromCopy(s.runtimeMark, s.runtimeCopy), s.runtimeCopy != nil
 	}
 	rt.init()
 	s.Runtime = rt

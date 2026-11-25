@@ -31,6 +31,19 @@ var (
 	rtKey     *sealrow.Key
 )
 
+// primeRuntimeKey makes this home's runtime key from master, for the
+// store migration, which must not open the store again to get it.
+func primeRuntimeKey(master []byte) error {
+	k, err := runtimeKeyFrom(master)
+	if err != nil {
+		return err
+	}
+	rtKeyMu.Lock()
+	rtKey, rtKeyHome = k, Home()
+	rtKeyMu.Unlock()
+	return nil
+}
+
 // runtimeKey is the runtime key of this home's store, made once per
 // process.
 func runtimeKey() (*sealrow.Key, error) {

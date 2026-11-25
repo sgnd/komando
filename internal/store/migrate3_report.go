@@ -1,10 +1,13 @@
 package store
 
 import (
+	"errors"
 	"fmt"
 	"maps"
+	"os"
 	"slices"
 	"strings"
+	"time"
 )
 
 // text is the report the person reads after the migration: names and
@@ -32,4 +35,35 @@ func (r migration3Report) text() string {
 	}
 	b.WriteString("It opens only with komando v0.17.0 and holds every secret as it was: remove it once this komando works for you.")
 	return b.String()
+}
+
+// BackupFile is a backup the store migration left in the komando home.
+type BackupFile struct {
+	Name     string
+	Modified time.Time
+}
+
+// Backups lists the migration's backups under their final names. Each is
+// whole: it was checked under its .partial name before it got this one.
+func Backups() ([]BackupFile, error) {
+	es, err := os.ReadDir(Home())
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var bs []BackupFile
+	for _, e := range es {
+		n := e.Name()
+		if !e.Type().IsRegular() || !strings.HasPrefix(n, backupPrefix) || !strings.HasSuffix(n, ".db") {
+			continue
+		}
+		fi, err := e.Info()
+		if err != nil {
+			return nil, err
+		}
+		bs = append(bs, BackupFile{Name: n, Modified: fi.ModTime()})
+	}
+	return bs, nil
 }

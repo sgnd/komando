@@ -167,10 +167,15 @@ func open(create, oldOK bool) (openStore, error) {
 var errFormat2 = errors.New("store: the store is of format 2")
 
 // openFormat2 opens a format-2 store for the migration: the normal open,
-// with its old-copy count and policy MAC.
-func openFormat2() (*sealdb.DB, error) {
+// with its old-copy count and policy MAC, and the store's master key. The
+// migration takes the key from here, never from MasterKey, whose open
+// would start the migration again (and wait for its own store lock).
+func openFormat2() (*sealdb.DB, []byte, error) {
 	o, err := cachedDB(false, false, true)
-	return o.db, err
+	if err != nil {
+		return nil, nil, err
+	}
+	return o.db, bytes.Clone(o.master), nil
 }
 
 // dropHome stops handing out this home's open stores (after the
@@ -254,14 +259,19 @@ func cachedDB(create, oldOK, format2 bool) (openStore, error) {
 	}
 	ctx := context.Background()
 	meta, err := sealdb.Peek(ctx, path)
-	if err == nil && (meta["format"] == "2") != format2 {
-		if format2 {
-			return openStore{}, fmt.Errorf("store: %s is of format %q, not 2", path, meta["format"])
-		}
+	if err == nil && meta["format"] == "2" && !format2 {
 		return openStore{}, errFormat2
 	}
 	if err == nil {
 		o, err := openDB(ctx, home, path, meta, oldOK, false)
+		if err == nil && o.format2 != format2 {
+			// a format-1 store just upgraded to format 2 goes on to the
+			// migration; the migration opens nothing but format 2
+			if format2 {
+				return openStore{}, fmt.Errorf("store: %s is of format %q, not 2", path, meta["format"])
+			}
+			return openStore{}, errFormat2
+		}
 		if !errors.Is(err, errStoreGone) {
 			return o, err
 		}
@@ -362,7 +372,13 @@ func checkAndRemember(home, path string, d *sealdb.DB, meta map[string]string, m
 		d.Close()
 		return openStore{}, err
 	}
-	o := openStore{db: d, fi: fi, master: master, format2: meta["format"] == "2"}
+	// format 2: read so, upgraded to it from format 1, or made so (a store
+	// komando just made has no format in meta: sealdb.CreateFormat)
+	f := meta["format"]
+	if f == "" {
+		f = strconv.Itoa(sealdb.CreateFormat)
+	}
+	o := openStore{db: d, fi: fi, master: master, format2: f == "1" || f == "2"}
 	switch state {
 	case oldCopy:
 		lookOpen[home] = o

@@ -203,7 +203,16 @@ func Load() (*State, error) {
 	if err != nil {
 		return nil, storeErr(err)
 	}
-	return s, s.loadRuntime()
+	if err := s.loadRuntime(); err != nil {
+		return nil, err
+	}
+	if s.copyUsed {
+		// a migration stopped before it wrote runtime.json: finish it
+		if err := finishRuntimeCopy(s.Runtime); err != nil {
+			return nil, err
+		}
+	}
+	return s, nil
 }
 
 // updateStore is Update: one write step reads the

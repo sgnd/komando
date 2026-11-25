@@ -32,7 +32,8 @@ func TestMigrateCallFor(t *testing.T) {
 		{"app runs doctor, no dialog", "windows", false, map[string]string{"KOMANDO_NO_DIALOG": "1"}, "doctor", store.MigrateRefuse},
 		{"app runs doctor in CI", "windows", false, map[string]string{"CI": "true"}, "doctor", store.MigrateRefuse},
 		{"person at a terminal in CI", "darwin", true, map[string]string{"CI": "true"}, "list", store.MigrateRefuse},
-		{"doctor over ssh", "windows", false, map[string]string{"SSH_TTY": "/dev/pts/1"}, "doctor", store.MigrateRefuse},
+		{"person at a terminal over ssh, a command", "darwin", true, map[string]string{"SSH_CONNECTION": "10.0.0.1 22 10.0.0.2 22"}, "list", store.MigrateRefuse},
+		{"person at a terminal over ssh, doctor (row 4; the window then cannot show)", "windows", true, map[string]string{"SSH_TTY": "/dev/pts/1"}, "doctor", store.MigrateWindow},
 		{"doctor on a desktop where a click is forgeable", "linux", false, map[string]string{"DISPLAY": ":0"}, "doctor", store.MigrateRefuse},
 	}
 	for _, c := range cases {

@@ -34,12 +34,9 @@ func TestMigrate3CrashAtEachStep(t *testing.T) {
 	for step := 2; step <= 13; step++ {
 		t.Run("step "+strconv.Itoa(step), func(t *testing.T) {
 			home := format2Store(t)
-			if err := UpdateRuntime(Save(), func(s *State) error {
+			format2Runtime(t, func(s *State) {
 				s.ExecSessions["e1"] = &ExecSession{ID: "e1", Host: "web1", Command: "sleep 1", PID: 42}
-				return nil
-			}); err != nil {
-				t.Fatal(err)
-			}
+			})
 			Close()
 			before := fileSum(t)
 			cmd := exec.Command(os.Args[0], "-test.run=^TestMigrate3CrashAtEachStep$")
@@ -80,6 +77,18 @@ func TestMigrate3CrashAtEachStep(t *testing.T) {
 			rt, err := ReadRuntime()
 			if err != nil || rt.ExecSessions["e1"] == nil {
 				t.Errorf("exec session record after a kill at step %d: %v %v", step, rt, err)
+			}
+			// Q7a: a clean open finishes the move: the copy leaves the store
+			Close()
+			if _, err := Load(); err != nil {
+				t.Fatalf("a clean open after a kill at step %d: %v", step, err)
+			}
+			Close()
+			if hasRuntimeCopy(t) {
+				t.Errorf("the runtime copy is still in the store after a clean open (kill at step %d)", step)
+			}
+			if rt, err := ReadRuntime(); err != nil || rt.ExecSessions["e1"] == nil {
+				t.Errorf("exec session record after a clean open (kill at step %d): %v", step, err)
 			}
 		})
 	}
