@@ -441,27 +441,32 @@ func TestGateReadsExist(t *testing.T) {
 		}
 	}
 	walk(newRoot(tcl))
-	for n := range gateReadForm {
+	for k := range gateReadForm {
+		n := keyID(k)
 		if !names[n] {
 			t.Errorf("gateReadForm names %q, which is no command", n)
 		}
 	}
-	for n := range gateNotForReadKey {
+	for k := range gateNotForReadKey {
+		n := keyID(k)
 		if !names[n] {
 			t.Errorf("gateNotForReadKey names %q, which is no command", n)
 		}
 	}
-	for n := range gateNeedsPerson {
+	for k := range gateNeedsPerson {
+		n := keyID(k)
 		if !names[n] {
 			t.Errorf("gateNeedsPerson names %q, which is no command", n)
 		}
 	}
-	for n := range gateSavesHere {
+	for k := range gateSavesHere {
+		n := keyID(k)
 		if !names[n] {
 			t.Errorf("gateSavesHere names %q, which is no command", n)
 		}
 	}
-	for n := range gateOnServers {
+	for k := range gateOnServers {
+		n := keyID(k)
 		k, ok := commandKinds[cmdKeys[n]]
 		if !names[n] || !ok || k.Kind == kindRead {
 			t.Errorf("gateOnServers names %q, which is no command that changes something (reads run anyway)", n)

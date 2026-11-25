@@ -73,7 +73,7 @@ func TestGateAnswersPinned(t *testing.T) {
 func gateProbeFlags(id string) [][]string {
 	probes := [][]string{nil, {"--help"}}
 	for _, f := range []string{"read-only", "write", "analyze", "refresh"} {
-		if gateReadForm[id] != nil {
+		if gateReadForm[cmdKeys[id]] != nil {
 			probes = append(probes, []string{"--" + f})
 		}
 	}

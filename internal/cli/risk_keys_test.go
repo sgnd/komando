@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -98,6 +99,18 @@ func TestSafetyKeys(t *testing.T) {
 	for k := range commandKinds {
 		if _, ok := owner[k]; !ok {
 			t.Errorf("commandKinds names the key %v, which no command has", k)
+		}
+	}
+	gateTables := map[string][]safetyKey{
+		"gateReadForm": slices.Collect(maps.Keys(gateReadForm)), "gateNotForReadKey": slices.Collect(maps.Keys(gateNotForReadKey)),
+		"gateNeedsPerson": slices.Collect(maps.Keys(gateNeedsPerson)), "gateOnServers": slices.Collect(maps.Keys(gateOnServers)),
+		"gateSavesHere": slices.Collect(maps.Keys(gateSavesHere)), "gateTargetArgs": slices.Collect(maps.Keys(gateTargetArgs)),
+	}
+	for name, keys := range gateTables {
+		for _, k := range keys {
+			if _, ok := owner[k]; !ok {
+				t.Errorf("%s names the key %v, which no command has", name, k)
+			}
 		}
 	}
 	// riskID (approval_words_id.go) is keyed by policy rule, not by command:

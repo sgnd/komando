@@ -75,11 +75,11 @@ func TestGateLocalReadsClassified(t *testing.T) {
 		name := commandName(c)
 		top, _, _ := strings.Cut(name, ".")
 		if !c.Runnable() || c.Annotations[groupOnly] == "true" || c.Hidden || c == c.Root() ||
-			top == "help" || top == "completion" || gateNeedsPerson[name] || gateSavesHere[name] != nil && name != "storage.download" && name != "export" {
+			top == "help" || top == "completion" || gateNeedsPerson[cmdKeys[name]] || gateSavesHere[cmdKeys[name]] != nil && name != "storage.download" && name != "export" {
 			return
 		}
 		if k, ok := kindOf(c); ok && k.Kind != kindRead {
-			if _, on := gateOnServers[name]; !on {
+			if _, on := gateOnServers[cmdKeys[name]]; !on {
 				return // komando's own setup: refused for every key
 			}
 		}
