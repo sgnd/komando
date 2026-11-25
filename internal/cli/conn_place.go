@@ -11,6 +11,7 @@ import (
 
 	"github.com/sgnd/komando/internal/dbx"
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -157,7 +158,7 @@ func dbFileOffLimits(cl *call, p string) string {
 	if err != nil {
 		return ""
 	}
-	abs, err := filepath.Abs(expandHome(p))
+	abs, err := filepath.Abs(inventory.ExpandHome(p))
 	if err != nil {
 		return ""
 	}

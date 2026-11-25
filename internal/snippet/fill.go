@@ -47,7 +47,7 @@ func Check(b Builtin, given map[string]string) (Values, error) {
 			vals[v.Name] = ""
 			continue
 		}
-		if err := checkValue(v, val); err != nil {
+		if err := checkVar(v, val); err != nil {
 			return nil, err
 		}
 		if v.Channel == SFTPPath {
@@ -64,6 +64,26 @@ func varNames(b Builtin) []string {
 		names[i] = v.Name
 	}
 	return names
+}
+
+// checkVar checks a variable's value: each value of a list alone.
+func checkVar(v Var, val string) error {
+	if !v.List {
+		return checkValue(v, val)
+	}
+	items := strings.Split(val, ",")
+	if len(items) > v.MaxItems {
+		return out.Usage("%s takes at most %d values, comma-separated", v.Name, v.MaxItems)
+	}
+	for _, item := range items {
+		if item == "" {
+			return out.Usage("the value of %s has an empty item: join the values with single commas", v.Name)
+		}
+		if err := checkValue(v, item); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // checkValue checks one value against its variable and channel.
@@ -106,13 +126,47 @@ func Fill(b Builtin, f Family, given map[string]string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	quote := sshx.Q
+	quote, sep := sshx.Q, " "
 	if f == Windows {
-		quote = sshx.PSQ
+		quote, sep = sshx.PSQ, ", " // a list is a PowerShell array
+	}
+	list := map[string]bool{}
+	for _, v := range b.Vars {
+		list[v.Name] = v.List
+		if err := checkFamily(v, f, vals[v.Name]); err != nil {
+			return "", err
+		}
 	}
 	return markerRe.ReplaceAllStringFunc(text, func(m string) string {
-		return quote(vals[markerRe.FindStringSubmatch(m)[1]])
+		name := markerRe.FindStringSubmatch(m)[1]
+		if !list[name] {
+			return quote(vals[name])
+		}
+		items := strings.Split(vals[name], ",")
+		for i, item := range items {
+			items[i] = quote(item)
+		}
+		return strings.Join(items, sep)
 	}), nil
+}
+
+// checkFamily checks val, each value of a list, against v's pattern for
+// family f, when it has one.
+func checkFamily(v Var, f Family, val string) error {
+	p := v.Families[f]
+	if p == nil || val == "" {
+		return nil
+	}
+	items := []string{val}
+	if v.List {
+		items = strings.Split(val, ",")
+	}
+	for _, item := range items {
+		if !p.MatchString(item) {
+			return out.Usage("the value of %s does not match %s, which the %s text takes", v.Name, p, f)
+		}
+	}
+	return nil
 }
 
 // Unsupported is the error for a family (or provider) the snippet has no
@@ -126,4 +180,13 @@ func Unsupported(b Builtin, family string) *out.Error {
 func TypeUnsupported(b Builtin, target, typ string) *out.Error {
 	return out.Errf(out.ExitUsage, "SNIPPET_TYPE_UNSUPPORTED", "run it against a "+b.Type+" entry; see them with `komando list`",
 		"%s is a %s, not a %s", target, typ, b.Type)
+}
+
+// LongestValue is the longest value v takes: for a list, MaxItems longest
+// values.
+func LongestValue(v Var) string {
+	if !v.List {
+		return v.Longest
+	}
+	return strings.Repeat(v.Longest+",", v.MaxItems-1) + v.Longest
 }

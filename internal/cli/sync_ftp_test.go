@@ -38,7 +38,7 @@ func TestSyncDeleteStopsOnACutFTPSListing(t *testing.T) {
 
 	dst := t.TempDir()
 	writeTree(t, dst, map[string]string{"top.txt": "top", "sub/a.txt": "aaa"})
-	tcl.flags.dryRun = false
+	setGate(tcl, false, gateDryRun)
 	r, err := runSync(tcl, context.Background(), bucketSide{b: b}, localSide{tcl, dst}, "files-ftps:", "dst", syncOpts{delete: true})
 	if err == nil {
 		t.Errorf("sync went on: %+v; want an error", r)

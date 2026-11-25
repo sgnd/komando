@@ -319,7 +319,7 @@ func otherActorSetup(t *testing.T, shown, allow bool) *[]string {
 	texts := &[]string{}
 	savedAsk := askOnScreen
 	askOnScreen = func(_ *call, text string) (bool, bool) { *texts = append(*texts, text); return allow, shown }
-	t.Cleanup(func() { askOnScreen = savedAsk; tcl.flags.yes = false; resetApproval() })
+	t.Cleanup(func() { askOnScreen = savedAsk; setGate(tcl, false, gateYes); resetApproval() })
 	return texts
 }
 
@@ -426,7 +426,7 @@ func TestExecSessionAgentOtherStarterOnProtectedHost(t *testing.T) {
 			var texts []string
 			savedAsk := askOnScreen
 			askOnScreen = func(_ *call, text string) (bool, bool) { texts = append(texts, text); return true, true }
-			t.Cleanup(func() { askOnScreen = savedAsk; tcl.flags.yes = false; resetApproval() })
+			t.Cleanup(func() { askOnScreen = savedAsk; setGate(tcl, false, gateYes); resetApproval() })
 			setCallerEnv(t, "KOMANDO_ACTOR", "bob")
 			setCallerEnv(t, "KOMANDO_AGENT", "1")
 			putRecord(t, attachID, "alice", false)

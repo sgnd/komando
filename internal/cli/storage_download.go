@@ -96,7 +96,7 @@ func storageDownloadTo(cl *call, ctx context.Context, name, conn, key, to string
 	}
 	return withStorage(cl, ctx, name, conn, driver.Verdict{}, map[string]any{"key": key, "file": dest},
 		func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
-			if cl.flags.dryRun { // a download changes this computer: check, write nothing
+			if cl.dryRun() { // a download changes this computer: check, write nothing
 				o, err := s.Stat(ctx, key)
 				if err != nil {
 					return nil, err

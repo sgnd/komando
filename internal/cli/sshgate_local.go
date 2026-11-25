@@ -230,7 +230,7 @@ func gateLocalAddr(a string) bool {
 	if h, _, err := net.SplitHostPort(a); err == nil {
 		a = h
 	}
-	a, _, _ = strings.Cut(normAddr(a), "%")
+	a, _, _ = strings.Cut(inventory.NormAddr(a), "%")
 	if a == "" || net.ParseIP(a) != nil {
 		return false
 	}
@@ -271,12 +271,12 @@ func gateLocalAsWritten(a string) bool {
 	if h, _, err := net.SplitHostPort(a); err == nil {
 		a = h
 	}
-	a, zone, _ := strings.Cut(normAddr(a), "%")
+	a, zone, _ := strings.Cut(inventory.NormAddr(a), "%")
 	if zone != "" && gateLoopbackZone(zone) {
 		return true // fe80::1%lo0: on this computer's loopback
 	}
 	me, _ := os.Hostname()
-	me = normAddr(me)
+	me = inventory.NormAddr(me)
 	short, _, _ := strings.Cut(me, ".")
 	if ip := net.ParseIP(a); ip != nil {
 		return gateLocalIP(ip)

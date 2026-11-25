@@ -37,8 +37,12 @@ var winServiceName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9 _.$#@+-]{0,255}$
 const winServiceRow = `[pscustomobject]@{ name = $s.Name; display_name = $s.DisplayName; state = $s.State; start_mode = $s.StartMode; delayed_start = [bool]$s.DelayedAutoStart; pid = [int]$s.ProcessId; account = $s.StartName; exit_code = [int]$s.ExitCode; found = $true }`
 
 // winSvcStatusScript prints the services' state as one marker line.
-func winSvcStatusScript(names []string) string {
-	return `$rows = foreach ($n in ` + sshx.PSArray(names) + `) {
+func winSvcStatusScript(names []string) string { return winSvcStatusText(sshx.PSArray(names)) }
+
+// winSvcStatusText is winSvcStatusScript over an array already written in
+// PowerShell: the svc-status snippet gives its filled list.
+func winSvcStatusText(array string) string {
+	return `$rows = foreach ($n in ` + array + `) {
   $s = Get-CimInstance -ClassName Win32_Service -Filter ("Name='" + $n + "'")
   if (-not $s) { $s = Get-CimInstance -ClassName Win32_Service -Filter ("DisplayName='" + $n + "'") }
   if ($s) { ` + winServiceRow + ` } else { [pscustomobject]@{ name = $n; found = $false } }

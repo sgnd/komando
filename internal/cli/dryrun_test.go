@@ -13,7 +13,7 @@ import (
 func TestDryRunChangesNothing(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	defer func() { tcl.flags.dryRun = false }()
+	defer func() { setGate(tcl, false, gateDryRun) }()
 	run := func(args ...string) error {
 		root := newRoot(tcl)
 		t.Cleanup(endCommand) // the next test starts with none of this command's flags

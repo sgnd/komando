@@ -375,7 +375,7 @@ func agentFiles(t *testing.T) (kh, home, proj string) {
 func TestLocalReadsForAgents(t *testing.T) {
 	noAgent(t)
 	kh, home, proj := agentFiles(t)
-	defer func() { tcl.flags.reveal = false }()
+	defer func() { setGate(tcl, false, gateReveal) }()
 	read := func(p string) string {
 		_, err := readLocalFile(tcl, p)
 		if e := toErr(err); e != nil {
@@ -432,7 +432,7 @@ func TestLocalReadsForAgents(t *testing.T) {
 	if *n != 0 {
 		t.Errorf("no --reveal: %d windows", *n)
 	}
-	tcl.flags.reveal = true // the person allows a project secret, never komando's data
+	setGate(tcl, true, gateReveal) // the person allows a project secret, never komando's data
 	if c := read(filepath.Join(proj, ".env")); c != "" || *n != 1 {
 		t.Errorf("--reveal allowed: %q, %d windows", c, *n)
 	}
@@ -506,7 +506,7 @@ func TestImportsReadCredentialFilesForAgents(t *testing.T) {
 // those files here, each one checked as cp -r does.
 func TestSyncUpChecksEachFileForAgents(t *testing.T) {
 	_, home, _ := agentFiles(t)
-	t.Cleanup(func() { tcl.flags.reveal = false; tcl.out.Reset() })
+	t.Cleanup(func() { setGate(tcl, false, gateReveal); tcl.out.Reset() })
 	if err := os.MkdirAll(filepath.Join(home, ".komando"), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -515,7 +515,7 @@ func TestSyncUpChecksEachFileForAgents(t *testing.T) {
 	}
 	for _, reveal := range []bool{false, true} {
 		asAgent(t, true, true)
-		tcl.flags.reveal = reveal
+		setGate(tcl, reveal, gateReveal)
 		dst := t.TempDir()
 		ctx := context.Background()
 		if _, err := runSync(tcl, ctx, newAgentLocalSide(tcl, ctx, home), localSide{tcl, dst}, "home", "dst", syncOpts{}); err != nil {
@@ -540,7 +540,7 @@ func TestSyncUpChecksEachFileForAgents(t *testing.T) {
 func TestLocalReadCommandsForAgents(t *testing.T) {
 	kh, home, proj := agentFiles(t)
 	t.Cleanup(func() {
-		tcl.flags.dryRun, tcl.flags.yes, tcl.flags.allowDangerous, tcl.flags.reveal = false, false, false, false
+		setGate(tcl, false, gateDryRun, gateYes, gateAllowDangerous, gateReveal)
 	})
 	mustRun(t, "host", "add", "web", "deploy@127.0.0.1:1")
 	asAgent(t, false, false)
@@ -563,13 +563,13 @@ func TestLocalReadCommandsForAgents(t *testing.T) {
 // person, and the preview still prints what it reads.
 func TestDryRunRevealStaysMasked(t *testing.T) {
 	invHome(t)
-	t.Cleanup(func() { tcl.flags.reveal, tcl.out.Mask = false, false })
+	t.Cleanup(func() { setGate(tcl, false, gateReveal); tcl.out.Mask = false })
 	n := asAgent(t, true, true)
-	tcl.flags.dryRun, tcl.flags.reveal = true, true
+	setGate(tcl, true, gateDryRun, gateReveal)
 	if tcl.revealOK() {
 		t.Error("revealOK under --dry-run")
 	}
-	tcl.flags.dryRun, tcl.flags.reveal = false, false
+	setGate(tcl, false, gateDryRun, gateReveal)
 	mustRun(t, "list", "--dry-run", "--reveal")
 	if !tcl.out.Mask || *n != 0 {
 		t.Errorf("list --dry-run --reveal: mask=%v windows=%d", tcl.out.Mask, *n)
@@ -582,7 +582,7 @@ func TestDryRunRevealStaysMasked(t *testing.T) {
 	}
 	// a person's or a script's preview runs as the real run would
 	noAgent(t)
-	t.Cleanup(func() { tcl.flags.yes, tcl.flags.hostKeyPolicy = false, "" })
+	t.Cleanup(func() { setGate(tcl, false, gateYes); tcl.flags.hostKeyPolicy = "" })
 	mustRun(t, "list", "--dry-run", "--yes", "--host-key-policy", "off")
 	if tcl.flags.hostKeyPolicy != "off" {
 		t.Errorf("script --dry-run --host-key-policy off: policy %q", tcl.flags.hostKeyPolicy)
@@ -593,7 +593,7 @@ func TestDryRunRevealStaysMasked(t *testing.T) {
 // a command it cannot show whole is refused without a window.
 func TestApprovalWindowShowsEverything(t *testing.T) {
 	saved := tcl.args
-	t.Cleanup(func() { tcl.args = saved; tcl.flags.allowDangerous, tcl.flags.yes = false, false })
+	t.Cleanup(func() { tcl.args = saved; setGate(tcl, false, gateAllowDangerous, gateYes) })
 	setCallerEnv(t, "CLAUDECODE", "1")
 	var texts []string
 	savedAsk := askOnScreen
@@ -602,7 +602,7 @@ func TestApprovalWindowShowsEverything(t *testing.T) {
 
 	st := &store.State{Hosts: map[string]*store.Host{"web": {Name: "web", Address: "10.0.0.1", Protected: true}}}
 	hosts := []*store.Host{st.Hosts["web"]}
-	tcl.flags.allowDangerous, tcl.flags.yes = true, true
+	setGate(tcl, true, gateAllowDangerous, gateYes)
 	for _, c := range []struct {
 		name, cmd string
 		shown     string // the command as the window shows it; "" for no window
@@ -655,7 +655,7 @@ func TestApprovalWindowShowsEverything(t *testing.T) {
 	// shown escaped
 	resetApproval()
 	texts = nil
-	tcl.flags.allowDangerous = false
+	setGate(tcl, false, gateAllowDangerous)
 	tcl.args = []string{"komando", "fs", "replace", "web", "/etc/app.yml", "--old", "a: 1", "--new", "a:\n  b: 1\n  c: 2", "--yes"}
 	if Guard(tcl, st, hosts, "", true) == nil {
 		t.Error("fs replace: the person said no, but it passed")
