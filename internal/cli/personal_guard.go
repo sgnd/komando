@@ -4,13 +4,16 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"net"
 	"regexp"
+	"slices"
 	"strings"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/sgnd/komando/internal/dbx"
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/queuex"
 	"github.com/sgnd/komando/internal/store"
@@ -120,11 +123,16 @@ func mongoWords(text string) (string, bool) {
 }
 
 // personalTarget reports whether personal data is hidden from AI agents
-// on these targets: a conn that asks for it, or what the mask_personal
-// setting covers.
+// on these targets: a conn that asks for it, a server such a conn reaches
+// its data through or points at, or what the mask_personal setting covers.
 func personalTarget(st *store.State, hosts []*store.Host, conns []*store.Conn) bool {
 	for _, c := range conns {
 		if maskedConn(c) || maskedTwin(st, c) != nil {
+			return true
+		}
+	}
+	for _, h := range hosts {
+		if maskingConnOn(st, h) {
 			return true
 		}
 	}
@@ -141,6 +149,33 @@ func personalTarget(st *store.State, hosts []*store.Host, conns []*store.Conn) b
 	}
 	for _, c := range conns {
 		if protectedConn(st, c) {
+			return true
+		}
+	}
+	return false
+}
+
+// maskingConnOn reports whether a conn that hides personal data (itself
+// or through a twin) has h on its --via path or names h's address or name
+// as its own: what an AI agent reads on h (a command's output, a file
+// copied from it) can hold that data.
+func maskingConnOn(st *store.State, h *store.Host) bool {
+	for _, c := range st.Conns {
+		if !maskedConn(c) && maskedTwin(st, c) == nil {
+			continue
+		}
+		if slices.ContainsFunc(inventory.ViaChain(c.Via), func(s string) bool { return strings.EqualFold(s, h.Name) }) {
+			return true
+		}
+		t, err := driver.Parse(c.URL)
+		if err != nil || t.Address == "" {
+			continue
+		}
+		addr := t.Address
+		if a, _, err := net.SplitHostPort(addr); err == nil {
+			addr = a
+		}
+		if strings.EqualFold(addr, h.Address) || strings.EqualFold(addr, h.Name) {
 			return true
 		}
 	}

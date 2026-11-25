@@ -227,12 +227,15 @@ This page is made from the code (`komando schema` lists the same under
 | `SECURITY_UNSUPPORTED` | 3 | no package manager komando knows on … | komando knows apt, dnf, yum, zypper, apk and pacman; see what the server has with `komando facts TARGET` |
 | `SELF_NOT_FOUND` | 1 | cannot find the komando program that is running: … | run komando by its full path, for example /usr/local/bin/komando update |
 | `SENSITIVE_FILE` | 6 | … is …, not … | use a database of your own; komando's data is read only through komando's commands (`komando list`, `komando secret list`) |
+| `SESSION_BUSY` | 8 | session … on … is still running | stop it first with `komando exec TARGET --attach ID --stop`, then remove it once it has ended |
 | `SESSION_FOLDER_DENIED` | 5 | …: ~/.komando or its sessions folder is a link, a file, not the login user's, or others can write it | look with `komando exec TARGET -- ls -ld ~/.komando ~/.komando/sessions`: each is to be a plain folder of the login user that only it can write (chmod 700) |
 | `SESSION_FOLDER_MISSING` | 3 | no session … on … | check the ID and the server: a session is removed once its starter read it to the end, or after 7 days; `komando audit` shows the exec that started it |
 | `SESSION_NOT_FOUND` | 3 | no session … | list sessions with `komando db activity CONN --all` |
-| `SESSION_RECORD_MISSING` | 3 | session … on … was not started from this computer | only the computer that started the run can stop it: stop it there; `komando audit` there shows the exec that started it |
+| `SESSION_PROCESS_MISSING` | 3 | session … on … is not running: its process ended, or its PID belongs to another process now | `komando exec TARGET --attach ID` reads how it ended; `komando exec TARGET --attach ID --remove` removes it |
+| `SESSION_RECORD_MISSING` | 3 | session … on … was not started from this computer | only the computer that started the run can stop it: run `komando exec TARGET --attach ID --stop` there; `komando audit` there shows the exec that started it |
 | `SESSION_SPACE_DENIED` | 5 | …: the home file system has less free space than the log cap plus 5 percent of the disk; nothing ran | free space in the home folder, or give a smaller log cap: `komando exec TARGET --log-max 100MiB -- COMMAND` |
 | `SESSION_START_FAILED` | 5 | …: the run in a session did not start (…) | the server needs nohup, ps and mkfifo: look with `komando exec TARGET -- command -v setsid nohup ps mkfifo` |
+| `SESSION_STOP_FAILED` | 5 | …: session … was not stopped (exit …): … | a run started with --sudo is stopped through sudo as the same user; when sudo asks for a password there, give the server its sudo password: `komando host edit TARGET --sudo-ref secret:NAME` |
 | `SESSION_WAIT_TIMEOUT` | 7 | session … on … still running after … | it is still running: `komando exec … --attach … --offset …` reads on |
 | `SFTP_UNAVAILABLE` | 4 | sftp: … | enable the sftp subsystem in sshd_config |
 | `SHARED_FOLDER_CONFLICT` | 8 | … can be changed by …, not only by root and the SSH user: as root, komando does not write … there (that user could swap it for a link while root writes) | write it as … instead, for example `komando exec TARGET --sudo-user … --stdin-file FILE -- sh -c 'cat > "$0"' …` |
@@ -240,6 +243,9 @@ This page is made from the code (`komando schema` lists the same under
 | `SHORTER_SCRIPT_REQUIRED` | 6 |  | split it into shorter pieces (the hint names the command for a script, SQL or a file) or ask the user to run it in their own terminal; e.g. `komando exec TARGET --script FILE` for a script |
 | `SIZE_CONFLICT` | 8 | --size said … bytes, and stdin sent …; nothing was put into place | send the whole file again: `komando upload TARGET - DEST --size N` |
 | `SKIPPED` | 1 | skipped: another server failed first, and --fail-fast is on | run without --fail-fast to reach every server |
+| `SNIPPET_OS_UNSUPPORTED` | 2 | snippet … has no body for … | read it as text with `komando exec TARGET -- COMMAND`; the snippet has no JSON for it |
+| `SNIPPET_PARSE_FAILED` | 5 | the output of snippet … did not read as … | read it as text with `komando exec TARGET -- COMMAND`; the snippet has no JSON for it |
+| `SNIPPET_TYPE_UNSUPPORTED` | 2 | … is a …, not a … | run it against a … entry; see them with `komando list` |
 | `SOURCE_BUILD` | 8 | this komando was built from source (version …), so update does not replace it | build it again (git pull, then make build), or install a release with the install line: https://github.com/sgnd/komando#install |
 | `SOURCE_EMPTY` | 3 | … has no files to sync, so --delete would remove everything in …; nothing was deleted | check the source path |
 | `SQL_HIDDEN_CODE` | 2 | -- is followed by a non-ASCII byte | put a space after -- to start a comment: whether this one starts a comment depends on the server's character set |

@@ -1,6 +1,6 @@
 //go:build windows
 
-package cli
+package term
 
 import (
 	"unsafe"
@@ -27,10 +27,10 @@ type inputRecord struct {
 
 const keyEvent = 0x0001
 
-// typedAhead is how many typed characters wait unread on the console fd.
+// TypedAhead is how many typed characters wait unread on the console fd.
 // Key releases, focus and mouse events do not count: a read would wait
 // for a key all the same.
-func typedAhead(fd int) int {
+func TypedAhead(fd int) int {
 	h := windows.Handle(fd)
 	var total uint32
 	if err := windows.GetNumberOfConsoleInputEvents(h, &total); err != nil || total == 0 {

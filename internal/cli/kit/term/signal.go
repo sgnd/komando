@@ -54,6 +54,6 @@ func SignalContext(parent context.Context, onSecond func(os.Signal)) (context.Co
 // (a loop) sees the Ctrl-C too.
 func endOnSignal(s os.Signal) {
 	signal.Reset(s)
-	raise(s)
+	Raise(s)
 	os.Exit(130) // where a signal cannot end the process (Windows)
 }

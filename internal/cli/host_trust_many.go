@@ -251,6 +251,18 @@ func trustDryRun(cl *call, st *store.State, hosts []*store.Host, reset bool, wan
 		}
 		res = append(res, r)
 	}
+	// the stops the real run hits, in its order: a first pin (no key is
+	// pinned for the address yet; the real run fetches it), then replacing
+	// pinned keys
+	var first []string
+	for _, h := range hosts {
+		if countPinned(trustAddr(h)) == 0 {
+			first = append(first, h.Name+" (its key is fetched by the real run)")
+		}
+	}
+	if err := guardFirstPin(cl, st, first); err != nil {
+		return err
+	}
 	if reset && pinned > 0 {
 		var prot []string
 		for _, h := range hosts {

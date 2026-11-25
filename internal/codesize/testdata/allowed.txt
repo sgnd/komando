@@ -20,7 +20,7 @@ func internal/cli/guard_shell.go checkAgentVars 113
 func internal/cli/guard_shell.go checkShellDepth 112
 func internal/cli/host_sshconfig.go parseSSHConfig 126
 func internal/cli/import.go applyImport 122
-func internal/cli/modules_run.go runOps 108
+func internal/cli/modules_run.go collectOps 107
 func internal/cli/pkg_security.go pkgSecurity 113
 func internal/cli/tunnel.go tunnelStartCmd 135
 func internal/cli/vpn.go vpnAddCmd 220
