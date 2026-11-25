@@ -11699,6 +11699,12 @@
         "hint": "run without --fail-fast to reach every server"
       },
       {
+        "code": "SNIPPET_NAME_IN_USE",
+        "exit": 8,
+        "example": "… is the name of a ready-made snippet",
+        "hint": "pick another name, such as …-own; see `komando recipe list`"
+      },
+      {
         "code": "SNIPPET_OS_UNSUPPORTED",
         "exit": 2,
         "example": "snippet … has no body for …",

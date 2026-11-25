@@ -80,6 +80,21 @@ type Builtin struct {
 // types are the entry types a built-in may run against.
 var types = []string{"host", "database", "cache", "cluster"}
 
+// Reserved are the names of the 34 ready-made snippets of the design:
+// built-in names before their built-ins exist, so a person's recipe of one
+// of these names can be renamed once, at the cut, and no new one is made.
+var Reserved = []string{
+	"facts", "facts-only", "svc-list", "svc-status", "pkg-upgradable", "pkg-security", "pkg-security-refresh",
+	"pkg-upgrade-all", "security-upgrade", "docker-ps", "docker-images", "docker-stats", "docker-logs",
+	"docker-prune-preview", "logs", "fs-list", "fs-cat", "fs-write-preview", "fs-write",
+	"db-info", "db-sizes", "db-activity", "db-locks", "db-schema",
+	"cache-get", "cache-keys", "cache-info", "cache-set", "cache-rm",
+	"cluster-status", "cluster-list", "cluster-events", "cluster-describe", "cluster-logs",
+}
+
+// IsReserved says whether name is a ready-made snippet's name.
+func IsReserved(name string) bool { return slices.Contains(Reserved, name) }
+
 // waitOnRule are the snippets that may not be registered until a rule is
 // in place (Audit's delta read, 2026-11-25). They are open hooks, not
 // built-ins: the engine refuses them by name.

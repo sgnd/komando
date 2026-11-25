@@ -236,6 +236,7 @@ var errorCodes = []errorCode{
 	{"SHORTER_SCRIPT_REQUIRED", 6, "", "split it into shorter pieces (the hint names the command for a script, SQL or a file) or ask the user to run it in their own terminal; e.g. `komando exec TARGET --script FILE` for a script"},
 	{"SIZE_CONFLICT", 8, "--size said … bytes, and stdin sent …; nothing was put into place", "send the whole file again: `komando upload TARGET - DEST --size N`"},
 	{"SKIPPED", 1, "skipped: another server failed first, and --fail-fast is on", "run without --fail-fast to reach every server"},
+	{"SNIPPET_NAME_IN_USE", 8, "… is the name of a ready-made snippet", "pick another name, such as …-own; see `komando recipe list`"},
 	{"SNIPPET_OS_UNSUPPORTED", 2, "snippet … has no body for …", "read it as text with `komando exec TARGET -- COMMAND`; the snippet has no JSON for it"},
 	{"SNIPPET_PARSE_FAILED", 5, "the output of snippet … did not read as …", "read it as text with `komando exec TARGET -- COMMAND`; the snippet has no JSON for it"},
 	{"SNIPPET_TYPE_UNSUPPORTED", 2, "… is a …, not a …", "run it against a … entry; see them with `komando list`"},

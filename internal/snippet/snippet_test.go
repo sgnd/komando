@@ -388,3 +388,21 @@ func TestParseShape(t *testing.T) {
 		}
 	}
 }
+
+// The 34 ready-made snippet names of the design are reserved, and only
+// they: a person's recipe of one of these names is renamed at the cut.
+func TestReserved(t *testing.T) {
+	if len(Reserved) != 34 {
+		t.Fatalf("%d reserved names, want the 34 of the design", len(Reserved))
+	}
+	for _, n := range []string{"facts", "svc-list", "fs-write", "pkg-upgrade-all", "db-schema", "cache-rm", "cluster-logs"} {
+		if !IsReserved(n) {
+			t.Errorf("%s is not reserved", n)
+		}
+	}
+	for _, n := range []string{"facts-own", "svc", "health", "FACTS", "svc-logs", "net-check"} { // the cut reads are not built-ins
+		if IsReserved(n) {
+			t.Errorf("%s is reserved", n)
+		}
+	}
+}

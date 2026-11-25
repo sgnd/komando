@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -218,6 +219,9 @@ func recipeListCmd() *cobra.Command {
 			if err := checkRecipeCategory(category); err != nil {
 				return err
 			}
+			if err := renameReservedRecipes(cl); err != nil {
+				return err
+			}
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -260,6 +264,9 @@ func recipeAddCmd() *cobra.Command {
 			}
 			if builtinRecipe(args[0]) != nil {
 				return out.Errf(out.ExitConflict, "RECIPE_BUILTIN", "pick another name; see `komando recipe list`", "%q is a built-in recipe", args[0])
+			}
+			if snippetsOn && snippet.IsReserved(args[0]) {
+				return out.Errf(out.ExitConflict, "SNIPPET_NAME_IN_USE", "pick another name, such as "+args[0]+"-own; see `komando recipe list`", "%q is the name of a ready-made snippet", args[0])
 			}
 			s := &store.Snippet{Name: args[0], Command: args[1], Description: desc, Sudo: sudo, ReadOnly: readOnly, CreatedAt: time.Now().UTC()}
 			if s.ReadOnly {
@@ -347,6 +354,9 @@ func recipeRunCmd() *cobra.Command {
 		Example: "  komando recipe run health @web\n  komando recipe run disk web1\n  komando recipe run deploy-app @web --var app=shop",
 		Args:    cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			if err := renameReservedRecipes(cl); err != nil {
+				return err
+			}
 			if b, ok := builtinSnippets.Lookup(args[0]); ok && snippetsOn {
 				kv, err := parseKV(vars)
 				if err != nil {
@@ -496,4 +506,43 @@ func runSnippet(cl *call, ctx context.Context, b snippet.Builtin, target string,
 type snippetFleet struct {
 	Results []snippet.Data `json:"results"`
 	Summary fleetSummary   `json:"summary"`
+}
+
+// renameReservedRecipes renames, once and while the snippets are on, each
+// saved recipe whose name a ready-made snippet now has: facts becomes
+// facts-own (facts-own-2, ... when that is taken), and a warning names
+// each. A built-in is looked up first, so the recipe would be out of reach.
+func renameReservedRecipes(cl *call) error {
+	if !snippetsOn || cl.flags.dryRun {
+		return nil
+	}
+	st, err := loadState()
+	if err != nil || !slices.ContainsFunc(slices.Collect(maps.Keys(st.Snippets)), snippet.IsReserved) {
+		return err
+	}
+	var renamed []string
+	err = storeUpdate(cl, func(st *store.State) error {
+		renamed = renamed[:0]
+		for _, n := range slices.Sorted(maps.Keys(st.Snippets)) {
+			if !snippet.IsReserved(n) {
+				continue
+			}
+			to := n + "-own"
+			for i := 2; st.Snippets[to] != nil || snippet.IsReserved(to) || builtinRecipe(to) != nil; i++ {
+				to = n + "-own-" + strconv.Itoa(i)
+			}
+			r := st.Snippets[n]
+			delete(st.Snippets, n)
+			r.Name = to
+			st.Snippets[to] = r
+			renamed = append(renamed, n+" is now "+to)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	audit(cl, nil, "recipe.rename", nil, "", true, map[string]any{"renamed": renamed})
+	cl.out.Warn("renamed your recipes whose names ready-made snippets now have: " + strings.Join(renamed, ", "))
+	return nil
 }

@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -448,5 +450,65 @@ func TestSnippetResultIsMaskedForAnAgent(t *testing.T) {
 	}
 	if strings.Contains(string(raw), "hunter2-value") || !strings.Contains(string(raw), "ana") {
 		t.Fatalf("the result is not masked for an agent: %s", raw)
+	}
+}
+
+// While the engine is on, a recipe may not take a built-in snippet's name,
+// and a saved recipe that has one is renamed to NAME-own once, with a
+// warning; while it is off, nothing changes.
+func TestSnippetNamesReserved(t *testing.T) {
+	startReplayServerWith(t, nil)
+	save := func(names ...string) {
+		t.Helper()
+		if err := store.Update(store.Save(), func(st *store.State) error {
+			for _, n := range names {
+				st.Snippets[n] = &store.Snippet{Name: n, Command: "uptime", ReadOnly: true}
+			}
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	names := func() []string {
+		st, err := store.Load()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return slices.Sorted(maps.Keys(st.Snippets))
+	}
+	save("facts", "facts-own", "mine")
+	// off: nothing renamed, the name is free as before
+	_ = captureOutput(t, func() error { return runRoot(t, "recipe", "list") })
+	if got := names(); !slices.Equal(got, []string{"facts", "facts-own", "mine"}) {
+		t.Fatalf("with the engine off: %v", got)
+	}
+	if err := runRoot(t, "recipe", "add", "svc-list", "uptime"); err != nil {
+		t.Fatalf("with the engine off, recipe add svc-list: %v", err)
+	}
+	withSnippets(t)
+	if err := runRoot(t, "recipe", "add", "docker-ps", "docker ps"); toErr(err).Code != "SNIPPET_NAME_IN_USE" {
+		t.Fatalf("recipe add docker-ps: %v, want SNIPPET_NAME_IN_USE", err)
+	}
+	dry := captureOutput(t, func() error { return runRoot(t, "--dry-run", "recipe", "list") })
+	if got := names(); !slices.Equal(got, []string{"facts", "facts-own", "mine", "svc-list"}) || strings.Contains(dry, "renamed") {
+		t.Fatalf("a dry run renamed: %v\n%s", got, dry)
+	}
+	got := captureOutput(t, func() error { return runRoot(t, "recipe", "list") })
+	if !strings.Contains(got, "facts is now facts-own-2") || !strings.Contains(got, "svc-list is now svc-list-own") {
+		t.Errorf("no warning naming the renamed recipes: %s", got)
+	}
+	if got := names(); !slices.Equal(got, []string{"facts-own", "facts-own-2", "mine", "svc-list-own"}) {
+		t.Fatalf("after the rename: %v", got)
+	}
+	again := captureOutput(t, func() error { return runRoot(t, "recipe", "list") })
+	if strings.Contains(again, "renamed") {
+		t.Errorf("the warning came twice: %s", again)
+	}
+	st, err := store.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r := st.Snippets["facts-own-2"]; r == nil || r.Name != "facts-own-2" || r.Command != "uptime" {
+		t.Errorf("the renamed recipe: %+v", r)
 	}
 }
