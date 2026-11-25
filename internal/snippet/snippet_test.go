@@ -406,3 +406,24 @@ func TestReserved(t *testing.T) {
 		}
 	}
 }
+
+// Until the command rates a run by Rate's tier (Audit S1-1), the engine
+// takes only read and change built-ins: a dangerous one would otherwise run
+// with only a change's stop.
+func TestNewRefusesATierAboveChange(t *testing.T) {
+	for _, tier := range []capability.Tier{capability.Protected, capability.Dangerous, capability.Safety, capability.Person} {
+		b := sample()
+		b.Tier = tier
+		_, err := New([]Builtin{b})
+		if err == nil || !strings.Contains(err.Error(), "above change") || !strings.Contains(err.Error(), tierNames[tier]) {
+			t.Errorf("tier %s: New() = %v, want a refusal naming the tier", tierNames[tier], err)
+		}
+	}
+	for _, tier := range []capability.Tier{capability.Read, capability.Change} {
+		b := sample()
+		b.Tier = tier
+		if _, err := New([]Builtin{b}); err != nil {
+			t.Errorf("tier %s: %v", tierNames[tier], err)
+		}
+	}
+}
