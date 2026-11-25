@@ -26,7 +26,7 @@ This page is made from the code (`komando schema` lists the same under
 | `BAD_SECRET` | 2 | the password for … contains a line break | store the password again without line breaks (`komando secret set NAME`) |
 | `BINARY_FILE` | 1 | … is a binary file; fs cat shows text only | save it with `komando download … …` |
 | `BUCKET_NOT_FOUND` | 3 | bucket does not exist | check the bucket name in the conn URL (`komando conn show NAME`) |
-| `BUILTIN_RULE` | 2 | … is a built-in rule and cannot be removed | built-in rules always apply (see them with `komando policy list`); for one intended command, confirm with the user and pass --allow-dangerous |
+| `BUILTIN_RULE` | 2 | … is a built-in rule and cannot be removed | a built-in rule cannot be removed; switch it off with `komando policy edit RULE --off` |
 | `CACHE_AUTH` | 4 | memcached refused the login: … | check the user in the URL and the password reference (`komando conn show NAME`) |
 | `CACHE_CONNECT` | 4 | cannot connect to …: … | the server's certificate could not be checked against this computer's CAs: give the CA that signed it with ?ca=secret:NAME (`komando secret set NAME < ca.pem`), or reach the server --via an SSH server with the plain scheme (redis://, memcached://) instead (`komando conn edit NAME --via HOST --url ...`) |
 | `CACHE_ERROR` | 5 | this memcached cannot list keys: … | start memcached with the LRU crawler on (the default since 1.5); `cache get` works without it |
@@ -212,7 +212,7 @@ This page is made from the code (`komando schema` lists the same under
 | `REVOKE_FAILED` | 5 | the key could not be removed from a server's authorized_keys | run it again; to look at the file: `komando fs cat SERVER ~/.ssh/authorized_keys` |
 | `ROLLOUT_FAILED` | 5 | pods stuck for … | see why with `komando cluster describe TARGET …`; `komando cluster rollback` goes back |
 | `ROLLOUT_TIMEOUT` | 7 | not rolled out after … (replicas …)… | see the tasks with `komando cluster describe … service/…` |
-| `RULE_NOT_FOUND` | 3 | no custom deny rule named … | see the custom rules and their ids with `komando policy list` |
+| `RULE_NOT_FOUND` | 3 | no rule named … | see every rule and its id with `komando policy list` |
 | `SAFETY_SETTING` | 6 | … weakens komando's safety checks | check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen) |
 | `SEALED_FILE_INVALID` | 2 | … is damaged or cut short: komando cannot read it as a sealed file; nothing was imported | copy the file again whole, or make it again with `komando export --sealed --to FILE` |
 | `SEALED_FILE_UNSUPPORTED` | 2 | … is sealed for the iPhone app: only the phone whose key it was sealed to opens it; nothing was imported | on the old computer, make a file for this one with `komando export --sealed --to FILE` |
@@ -226,7 +226,13 @@ This page is made from the code (`komando schema` lists the same under
 | `SECURITY_UNSUPPORTED` | 3 | no package manager komando knows on … | komando knows apt, dnf, yum, zypper, apk and pacman; see what the server has with `komando facts TARGET` |
 | `SELF_NOT_FOUND` | 1 | cannot find the komando program that is running: … | run komando by its full path, for example /usr/local/bin/komando update |
 | `SENSITIVE_FILE` | 6 | … is …, not … | use a database of your own; komando's data is read only through komando's commands (`komando list`, `komando secret list`) |
+| `SESSION_FOLDER_DENIED` | 5 | …: ~/.komando or its sessions folder is a link, a file, not the login user's, or others can write it | look with `komando exec TARGET -- ls -ld ~/.komando ~/.komando/sessions`: each is to be a plain folder of the login user that only it can write (chmod 700) |
+| `SESSION_FOLDER_MISSING` | 3 | no session … on … | check the ID and the server: a session is removed once its starter read it to the end, or after 7 days; `komando audit` shows the exec that started it |
 | `SESSION_NOT_FOUND` | 3 | no session … | list sessions with `komando db activity CONN --all` |
+| `SESSION_RECORD_MISSING` | 3 | session … on … was not started from this computer | only the computer that started the run can stop it: stop it there; `komando audit` there shows the exec that started it |
+| `SESSION_SPACE_DENIED` | 5 | …: the home file system has less free space than the log cap plus 5 percent of the disk; nothing ran | free space in the home folder, or give a smaller log cap: `komando exec TARGET --log-max 100MiB -- COMMAND` |
+| `SESSION_START_FAILED` | 5 | …: the run in a session did not start (…) | the server needs nohup, ps and mkfifo: look with `komando exec TARGET -- command -v setsid nohup ps mkfifo` |
+| `SESSION_WAIT_TIMEOUT` | 7 | session … on … still running after … | it is still running: `komando exec … --attach … --offset …` reads on |
 | `SFTP_UNAVAILABLE` | 4 | sftp: … | enable the sftp subsystem in sshd_config |
 | `SHARED_FOLDER_CONFLICT` | 8 | … can be changed by …, not only by root and the SSH user: as root, komando does not write … there (that user could swap it for a link while root writes) | write it as … instead, for example `komando exec TARGET --sudo-user … --stdin-file FILE -- sh -c 'cat > "$0"' …` |
 | `SHELL_IDLE_TIMEOUT` | 7 | the shell on … ended after … with no input and no output | connect again (ssh -t HOST komando shell …); run long work as a job: `komando job start … -- COMMAND` |

@@ -293,7 +293,7 @@ risky verbs also need --allow-dangerous.`,
 			tool := map[bool]string{true: "docker", false: "kubectl"}[t.host != nil]
 			// the destructive-command policy sees the words as typed (quoting
 			// them for the shell would hide them from its patterns)
-			if hits := policy.Check(strings.Join(append([]string{tool}, args[1:]...), " "), st.Settings.ExtraDenyPattern); len(hits) > 0 {
+			if hits := withoutRulesOff(st, t.hosts(), policy.Check(strings.Join(append([]string{tool}, args[1:]...), " "), st.Settings.ExtraDenyPattern)); len(hits) > 0 {
 				risk = driver.RiskDestructive
 			}
 			if risk > driver.RiskRead && !write {
@@ -673,4 +673,13 @@ func kubectlRunRisk(cl *call, args []string) (driver.Risk, string, error) {
 		reason += " -f: " + why
 	}
 	return risk, reason, nil
+}
+
+// hosts is the target's Swarm manager as a server list, for the policy
+// switches (none for a Kubernetes cluster).
+func (t clusterTarget) hosts() []*store.Host {
+	if t.host == nil {
+		return nil
+	}
+	return []*store.Host{t.host}
 }

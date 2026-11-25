@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/kube"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -107,7 +108,7 @@ func resolveClusters(cl *call, st *store.State, expr string) ([]clusterTarget, e
 	}
 	var ts []clusterTarget
 	for _, c := range sel.Conns {
-		if connFamily(c) == "cluster" {
+		if inventory.ConnFamily(c) == "cluster" {
 			ts = append(ts, clusterTarget{conn: c})
 		} else {
 			cl.out.Skip(out.Skipped{Name: c.Name, Kind: c.Kind, Reason: useFor(nil, c)})

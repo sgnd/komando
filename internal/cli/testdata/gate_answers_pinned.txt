@@ -1666,6 +1666,14 @@
 "policy deny"	netread	policy.deny	SSH_GATE_REFUSED|komando policy deny is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
 "policy deny"	read	policy.deny	SSH_GATE_REFUSED|komando policy deny is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
 "policy deny"	shell	policy.deny	SSH_GATE_REFUSED|komando policy deny is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"policy edit --help"	full	policy.edit	runs
+"policy edit --help"	netread	policy.edit	runs
+"policy edit --help"	read	policy.edit	runs
+"policy edit --help"	shell	policy.edit	runs
+"policy edit"	full	policy.edit	SSH_GATE_REFUSED|komando policy edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"policy edit"	netread	policy.edit	SSH_GATE_REFUSED|komando policy edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"policy edit"	read	policy.edit	SSH_GATE_REFUSED|komando policy edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"policy edit"	shell	policy.edit	SSH_GATE_REFUSED|komando policy edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
 "policy list --help"	full	policy.list	runs
 "policy list --help"	netread	policy.list	runs
 "policy list --help"	read	policy.list	runs
@@ -1682,6 +1690,14 @@
 "policy rm"	netread	policy.rm	SSH_GATE_REFUSED|komando policy rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
 "policy rm"	read	policy.rm	SSH_GATE_REFUSED|komando policy rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
 "policy rm"	shell	policy.rm	SSH_GATE_REFUSED|komando policy rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"policy show --help"	full	policy.show	runs
+"policy show --help"	netread	policy.show	runs
+"policy show --help"	read	policy.show	runs
+"policy show --help"	shell	policy.show	runs
+"policy show"	full	policy.show	runs
+"policy show"	netread	policy.show	runs
+"policy show"	read	policy.show	runs
+"policy show"	shell	policy.show	runs
 "policy"	full	policy	runs
 "policy"	netread	policy	runs
 "policy"	read	policy	runs

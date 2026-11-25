@@ -204,6 +204,12 @@ func noLiveProcesses(alive func(int, string) bool) error {
 			running = append(running, fmt.Sprintf("job %s (wait for it: komando job wait %s)", n, n))
 		}
 	}
+	// a run on a server: this computer cannot see whether it ended, and its
+	// record here is the only way to stop it, so a record alone stops this
+	for _, n := range slices.Sorted(maps.Keys(rt.ExecSessions)) {
+		e := rt.ExecSessions[n]
+		running = append(running, fmt.Sprintf("exec session %s on %s (read it to the end: komando exec %s --attach %s)", n, e.Host, e.Host, n))
+	}
 	if len(running) > 0 {
 		return out.Errf(out.ExitConflict, "STORE_IN_USE", "end each one as listed, then run `komando doctor` again",
 			"%s is to move to a new format, and komando still runs: %s", Path(StoreFile), strings.Join(running, "; "))

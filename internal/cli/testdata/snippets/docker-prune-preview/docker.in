@@ -1,0 +1,31 @@
+== api
+1.47
+== containers
+{"Command":"\"sh\"","CreatedAt":"2026-09-01 10:00:00 +0000 UTC","ID":"aaa111aaa111aaa111","Image":"busybox","Names":"old_job","Size":"12.3kB (virtual 4.26MB)","State":"exited","Status":"Exited (0) 2 months ago"}
+{"Command":"\"node\"","CreatedAt":"2026-11-04 09:00:00 +0000 UTC","ID":"bbb222bbb222bbb222","Image":"shop/api:2","Names":"new_job","Size":"1.5MB (virtual 200MB)","State":"exited","Status":"Exited (1) 1 day ago"}
+== images
+{"Containers":"N/A","CreatedAt":"2026-08-01 12:00:00 +0200 CEST","ID":"sha256:dangling1dangling1","Repository":"<none>","Tag":"<none>","Size":"150MB"}
+{"Containers":"N/A","CreatedAt":"2026-11-03 12:00:00 +0200 CEST","ID":"sha256:dangling2dangling2","Repository":"<none>","Tag":"<none>","Size":"80MB"}
+{"Containers":"N/A","CreatedAt":"2026-07-01 12:00:00 +0000 UTC","ID":"sha256:busyboxbusybox","Repository":"busybox","Tag":"latest","Size":"4.26MB"}
+{"Containers":"N/A","CreatedAt":"2026-06-01 12:00:00 +0000 UTC","ID":"sha256:nginxnginxnginx","Repository":"nginx","Tag":"1.27","Size":"1.2GB"}
+{"Containers":"N/A","CreatedAt":"2026-05-01 12:00:00 +0000 UTC","ID":"sha256:oldtaggedold","Repository":"shop/api","Tag":"1","Size":"300MB"}
+== uses
+aaa111aaa111aaa111 sha256:busyboxbusybox
+bbb222bbb222bbb222 sha256:apiapiapi
+ccc333ccc333ccc333 sha256:nginxnginxnginx
+== cache
+Reclaimable:	2.5GB
+Total:		3GB
+== df
+{"Active":"1","Reclaimable":"1.7GB (70%)","Size":"2.4GB","TotalCount":"5","Type":"Images"}
+== volumes
+{"Driver":"local","Labels":"com.docker.volume.anonymous=","Name":"3f9a0anon","Scope":"local"}
+{"Driver":"local","Labels":"","Name":"pgdata","Scope":"local"}
+== volume-sizes
+VOLUME NAME   LINKS     SIZE
+3f9a0anon     0         64MB
+pgdata        0         5GB
+== volume-created
+3f9a0anon 2026-09-01T10:00:00Z
+pgdata 2026-01-01T10:00:00+02:00
+

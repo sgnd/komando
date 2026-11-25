@@ -1,0 +1,2 @@
+[ -d /run/systemd/system ] || { echo '#komando:no-systemd'; exit 0; }
+systemctl show --no-pager -p Id,Description,LoadState,ActiveState,SubState,UnitFileState,MainPID,ActiveEnterTimestamp,NRestarts,MemoryCurrent,Result,ExecMainStatus -- 'nginx' 'postfix'

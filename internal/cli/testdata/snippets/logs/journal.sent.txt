@@ -1,0 +1,2 @@
+command -v journalctl >/dev/null 2>&1 && { [ -d /run/systemd/system ] || [ -n "$(find /var/log/journal /run/log/journal -name '*.journal' 2>/dev/null | head -n 1)" ]; } || { echo '#komando:no-systemd'; exit 0; }
+journalctl --no-pager -o short-iso -u 'nginx' -n 3
