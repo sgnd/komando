@@ -261,16 +261,7 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 			default:
 				add("agent_skill", true, strings.Join(installed, ", "))
 			}
-			if home, err := os.UserHomeDir(); err == nil && len(installed) > 0 && slices.ContainsFunc(installed, func(p string) bool { return strings.Contains(p, ".claude") }) {
-				switch found, problem := claudeGuard(filepath.Join(home, ".claude", "settings.json")); {
-				case !found:
-					add("agent_guard", false, "Claude Code runs without komando's guard, which keeps it away from secret files: `komando guide install` adds it", komandoFix("guide", "install")...)
-				case problem != "":
-					add("agent_guard", false, "komando's guard in Claude Code cannot run, so Claude Code goes on without it: "+problem+"; `komando guide install` sets it up again", komandoFix("guide", "install")...)
-				default:
-					add("agent_guard", true, "Claude Code asks komando before reading files or running shell commands")
-				}
-			}
+			agentGuardChecks(installed, add)
 			r.Inventory = inventoryChecks(cl, st)
 			r.Security = securityChecks(cl, st)
 			r.safe()
@@ -315,6 +306,31 @@ func (r *doctorReport) safe() {
 	for _, cs := range [][]securityCheck{r.Inventory, r.Security} {
 		for i := range cs {
 			cs[i].Name, cs[i].Detail = out.NoteText(cs[i].Name), out.NoteText(cs[i].Detail)
+		}
+	}
+}
+
+// agentGuardChecks are doctor's lines on komando's guard hooks: Claude
+// Code's, and every other agent's hook line that is there.
+func agentGuardChecks(installed []string, add func(name string, ok bool, detail string, fix ...string)) {
+	if hookOS == "windows" && len(installed) > 0 {
+		add("agent_guard_windows", false, "on Windows the hook lets a call through when komando is missing, and doctor cannot tell whether other users may change the komando program: keep komando where the hook names it, in a folder only you can change")
+	}
+	if home, err := os.UserHomeDir(); err == nil && len(installed) > 0 && slices.ContainsFunc(installed, func(p string) bool { return strings.Contains(p, ".claude") }) {
+		switch found, problem := claudeGuard(filepath.Join(home, ".claude", "settings.json")); {
+		case !found:
+			add("agent_guard", false, "Claude Code runs without komando's guard, which keeps it away from secret files: `komando guide install` adds it", komandoFix("guide", "install")...)
+		case problem != "":
+			add("agent_guard", false, "komando's guard in Claude Code needs fixing: "+problem+"; `komando guide install` sets it up again", komandoFix("guide", "install")...)
+		default:
+			add("agent_guard", true, "Claude Code asks komando before reading files or running shell commands")
+		}
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		for _, h := range agentHooks {
+			if found, problem := claudeGuard(filepath.Join(home, h.dir, h.file)); found && problem != "" {
+				add("agent_guard_"+h.name, false, "komando's guard for "+h.name+" needs fixing: "+problem+"; `komando guide install` sets it up again", komandoFix("guide", "install")...)
+			}
 		}
 	}
 }

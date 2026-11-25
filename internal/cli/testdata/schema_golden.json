@@ -10783,6 +10783,12 @@
         "hint": "run `komando group list` to see groups"
       },
       {
+        "code": "GUARD_PATH_MISSING",
+        "exit": 3,
+        "example": "komando cannot tell where its own program is, so it writes no guard hook",
+        "hint": "run komando by its full path, such as `/usr/local/bin/komando guide install`; without a guard: `komando guide install --no-guard`"
+      },
+      {
         "code": "HELM_RELEASE_NOT_FOUND",
         "exit": 3,
         "example": "no Helm release named … in namespace …",
@@ -11622,10 +11628,46 @@
         "hint": "use a database of your own; komando's data is read only through komando's commands (`komando list`, `komando secret list`)"
       },
       {
+        "code": "SESSION_FOLDER_DENIED",
+        "exit": 5,
+        "example": "…: ~/.komando or its sessions folder is a link, a file, not the login user's, or others can write it",
+        "hint": "look with `komando exec TARGET -- ls -ld ~/.komando ~/.komando/sessions`: each is to be a plain folder of the login user that only it can write (chmod 700)"
+      },
+      {
+        "code": "SESSION_FOLDER_MISSING",
+        "exit": 3,
+        "example": "no session … on …",
+        "hint": "check the ID and the server: a session is removed once its starter read it to the end, or after 7 days; `komando audit` shows the exec that started it"
+      },
+      {
         "code": "SESSION_NOT_FOUND",
         "exit": 3,
         "example": "no session …",
         "hint": "list sessions with `komando db activity CONN --all`"
+      },
+      {
+        "code": "SESSION_RECORD_MISSING",
+        "exit": 3,
+        "example": "session … on … was not started from this computer",
+        "hint": "only the computer that started the run can stop it: stop it there; `komando audit` there shows the exec that started it"
+      },
+      {
+        "code": "SESSION_SPACE_DENIED",
+        "exit": 5,
+        "example": "…: the home file system has less free space than the log cap plus 5 percent of the disk; nothing ran",
+        "hint": "free space in the home folder, or give a smaller log cap: `komando exec TARGET --log-max 100MiB -- COMMAND`"
+      },
+      {
+        "code": "SESSION_START_FAILED",
+        "exit": 5,
+        "example": "…: the run in a session did not start (…)",
+        "hint": "the server needs nohup, ps and mkfifo: look with `komando exec TARGET -- command -v setsid nohup ps mkfifo`"
+      },
+      {
+        "code": "SESSION_WAIT_TIMEOUT",
+        "exit": 7,
+        "example": "session … on … still running after …",
+        "hint": "it is still running: `komando exec … --attach … --offset …` reads on"
       },
       {
         "code": "SFTP_UNAVAILABLE",
