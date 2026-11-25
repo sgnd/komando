@@ -22,7 +22,7 @@ func writeTree(t *testing.T, root string, files map[string]string) {
 }
 
 func TestSyncCopiesOnlyChanges(t *testing.T) {
-	tcl.flags.dryRun = false
+	setGate(tcl, false, gateDryRun)
 	src, dst := t.TempDir(), t.TempDir()
 	writeTree(t, src, map[string]string{"a.txt": "one", "dir/b.txt": "two", ".git/HEAD": "x", "c.log": "log"})
 	ctx := context.Background()
@@ -56,9 +56,9 @@ func TestSyncDryRunAndOnlyNew(t *testing.T) {
 	writeTree(t, dst, map[string]string{"same.txt": "mine"})
 	old := time.Now().Add(-time.Hour)
 	os.Chtimes(filepath.Join(dst, "same.txt"), old, old)
-	tcl.flags.dryRun = true
+	setGate(tcl, true, gateDryRun)
 	r, _ := runSync(tcl, context.Background(), localSide{tcl, src}, localSide{tcl, dst}, "s", "d", syncOpts{})
-	tcl.flags.dryRun = false
+	setGate(tcl, false, gateDryRun)
 	if r.Copied != 1 || r.Updated != 1 {
 		t.Errorf("dry run plan: %+v", r)
 	}

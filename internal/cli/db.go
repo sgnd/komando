@@ -445,7 +445,7 @@ func openDB(cl *call, ctx context.Context, st *store.State, c *store.Conn, readO
 	if err != nil {
 		return nil, nil, err
 	}
-	if a.Target.Kind.Name == "sqlite" && !readOnly && cl.flags.dryRun {
+	if a.Target.Kind.Name == "sqlite" && !readOnly && cl.dryRun() {
 		// a --write run creates a missing file; a dry run must not
 		if _, err := os.Stat(dbx.SQLitePath(a.Target)); errors.Is(err, fs.ErrNotExist) {
 			a.Close()
@@ -600,7 +600,7 @@ func runSQL(cl *call, ctx context.Context, name, connExpr, query string, f dbFla
 		if err := GuardConns(cl, st, []*store.Conn{c}, v); err != nil {
 			return fail(err)
 		}
-		if cl.flags.dryRun && cl.out.Blocked() != nil {
+		if cl.dryRun() && cl.out.Blocked() != nil {
 			// the real run would stop here: run nothing, since the
 			// rollback of a dry run does not undo every statement (a
 			// killed session, COPY ... PROGRAM, code inside DO)
@@ -629,7 +629,7 @@ func runSQL(cl *call, ctx context.Context, name, connExpr, query string, f dbFla
 	for i, a := range f.args {
 		args[i] = a
 	}
-	res, err := dbx.Run(ctx, db, c.Kind, plan, dbx.Options{Write: f.write, DryRun: cl.flags.dryRun, Limit: f.limit,
+	res, err := dbx.Run(ctx, db, c.Kind, plan, dbx.Options{Write: f.write, DryRun: cl.dryRun(), Limit: f.limit,
 		MaxBytes: maxOutput(cl, st), Timeout: connTimeout(cl, c), Args: args, Showplan: f.showplan, MaxBilled: f.maxBilled(c.Kind)})
 	if err != nil {
 		return fail(err)
@@ -679,11 +679,11 @@ func printQuery(cl *call, name string, c *store.Conn, plan driver.SQLPlan, f dbF
 		if r.Truncated == "rows" {
 			cl.out.CutNoted() // the text says it under the table
 		}
-		if cl.flags.dryRun && r.Skipped != "" && !strings.HasPrefix(r.Skipped, "dry run: BigQuery checked") {
+		if cl.dryRun() && r.Skipped != "" && !strings.HasPrefix(r.Skipped, "dry run: BigQuery checked") {
 			cl.out.NotSimulated(r.Keyword + " statement: " + strings.TrimPrefix(r.Skipped, "dry run: "))
 		}
 	}
-	cl.out.Print(name, queryData{Conn: c.Name, Risk: plan.Risk.String(), Write: f.write, DryRun: cl.flags.dryRun, Result: res}, nil)
+	cl.out.Print(name, queryData{Conn: c.Name, Risk: plan.Risk.String(), Write: f.write, DryRun: cl.dryRun(), Result: res}, nil)
 	return nil
 }
 

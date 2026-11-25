@@ -75,7 +75,7 @@ func withCachePreview(cl *call, ctx context.Context, name, connExpr string, v dr
 		if err := GuardConns(cl, st, []*store.Conn{c}, v); err != nil {
 			return fail(err)
 		}
-		if cl.flags.dryRun {
+		if cl.dryRun() {
 			if preview == nil {
 				audit(cl, st, name, nil, "", true, rec)
 				cl.out.Print(name, map[string]any{"conn": c.Name, "risk": v.Risk.String(), "dry_run": true, "note": "nothing sent: redis cannot roll back"}, nil)

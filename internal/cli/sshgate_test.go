@@ -141,8 +141,8 @@ func TestGateCheck(t *testing.T) {
 	gateInventory(t)
 	mustRun(t, "recipe", "add", "my-df", "df -h", "--read-only")
 	mustRun(t, "recipe", "add", "my-clean", "rm -rf /tmp/cache")
-	tcl.flags.yes = true // the gate's own flags come back after it read the key's
-	defer func() { tcl.flags.yes = false }()
+	setGate(tcl, true, gateYes) // the gate's own flags come back after it read the key's
+	defer func() { setGate(tcl, false, gateYes) }()
 	const R = "SSH_GATE_REFUSED"
 	cases := []struct {
 		line           string
@@ -191,9 +191,9 @@ func TestGateCheck(t *testing.T) {
 		{"recipe run my-clean web", "", "SSH_GATE_READ_ONLY"},
 		{"recipe run drop-caches web", "", "SSH_GATE_READ_ONLY"},
 		{"recipe run disk web", "", ""},
-		{"secret rm db --help", "", ""}, // help only
-		{"db", "", ""},                  // a group: prints its help
-		{"no-such-command", "", ""},     // komando says so, and runs nothing
+		{"secret rm db --help", "", ""},                             // help only
+		{"db", "", ""},                                              // a group: prints its help
+		{"no-such-command", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"}, // names no command: as for a person (cut PR B1)
 		{"completion bash", "", ""},
 		{"exec web --read-only --dry-run -- uptime", "", ""},
 		{"host rm x --dry-run", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"}, // no key changes komando's inventory, nor previews it
@@ -275,7 +275,7 @@ func TestGateCheck(t *testing.T) {
 			t.Errorf("%q --read-only: %q, want %q", c.line, got, c.readOnly)
 		}
 	}
-	if !tcl.flags.yes || tcl.flags.reveal {
+	if !tcl.yes() || tcl.reveal() {
 		t.Errorf("the gate's own flags changed: %+v", tcl.flags)
 	}
 }
@@ -441,27 +441,32 @@ func TestGateReadsExist(t *testing.T) {
 		}
 	}
 	walk(newRoot(tcl))
-	for n := range gateReadForm {
+	for k := range gateReadForm {
+		n := keyID(k)
 		if !names[n] {
 			t.Errorf("gateReadForm names %q, which is no command", n)
 		}
 	}
-	for n := range gateNotForReadKey {
+	for k := range gateNotForReadKey {
+		n := keyID(k)
 		if !names[n] {
 			t.Errorf("gateNotForReadKey names %q, which is no command", n)
 		}
 	}
-	for n := range gateNeedsPerson {
+	for k := range gateNeedsPerson {
+		n := keyID(k)
 		if !names[n] {
 			t.Errorf("gateNeedsPerson names %q, which is no command", n)
 		}
 	}
-	for n := range gateSavesHere {
+	for k := range gateSavesHere {
+		n := keyID(k)
 		if !names[n] {
 			t.Errorf("gateSavesHere names %q, which is no command", n)
 		}
 	}
-	for n := range gateOnServers {
+	for k := range gateOnServers {
+		n := keyID(k)
 		k, ok := commandKinds[cmdKeys[n]]
 		if !names[n] || !ok || k.Kind == kindRead {
 			t.Errorf("gateOnServers names %q, which is no command that changes something (reads run anyway)", n)
@@ -517,9 +522,9 @@ func TestSSHGateNoWritesHere(t *testing.T) {
 // With the audit setting off, a key's command is still in the log.
 func TestSSHGateAuditAlways(t *testing.T) {
 	invHome(t)
-	tcl.flags.yes = true
+	setGate(tcl, true, gateYes)
 	mustRun(t, "config", "set", "audit", "off", "--yes")
-	tcl.flags.yes = false
+	setGate(tcl, false, gateYes)
 	ran, _, e := gateRun(t, "komando list", "--name", "phone")
 	if ran == nil {
 		t.Fatalf("did not run: %+v", e)
@@ -799,6 +804,30 @@ func TestGateSynonyms(t *testing.T) {
 			if got, want := gateAnswer(t, syn, ro), gateAnswer(t, now, ro); got != want {
 				t.Errorf("%q (read-only %v): %q, want %q as for %q", syn, ro, got, want, now)
 			}
+		}
+	}
+}
+
+// A line that names no command is refused as for a person (cut plan, PR
+// B1): komando would run nothing either way, and once the paths change an
+// old path must not slip through as "unknown, so harmless".
+func TestGateRefusesUnknownLine(t *testing.T) {
+	invHome(t)
+	gateInventory(t)
+	for _, line := range []string{"frobnicate web", "hots list", "host frobnicate web", "db user frobnicate pg"} {
+		for _, key := range []gateKey{readKey, netReadKey, fullKey} {
+			words, _ := gateWords(line)
+			_, _, e := gateCheck(words, key)
+			if e == nil || e.Code != "SSH_GATE_REFUSED" || !strings.Contains(e.Hint, "a person") {
+				t.Errorf("%q %+v: %+v, want SSH_GATE_REFUSED for a person", line, key, e)
+			}
+		}
+	}
+	// a group alone, or with --help, still prints its help
+	for _, line := range []string{"host", "db user", "host --help"} {
+		words, _ := gateWords(line)
+		if _, _, e := gateCheck(words, fullKey); e != nil {
+			t.Errorf("%q: %+v, want its help", line, e)
 		}
 	}
 }

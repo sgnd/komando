@@ -11,7 +11,7 @@ import (
 // not record, so `audit --failed` shows every blocked attempt: a protected
 // host rm, a deny rule removal, a secret sent somewhere.
 func auditBlocked(cl *call, cmd *cobra.Command, e *out.Error) {
-	if e.Exit != out.ExitPolicy || cl.blockAudited || cl.flags.dryRun || cmd == nil || leavesHomeNow(cmd) {
+	if e.Exit != out.ExitPolicy || cl.blockAudited || cl.dryRun() || cmd == nil || leavesHomeNow(cmd) {
 		return
 	}
 	st, err := loadState()

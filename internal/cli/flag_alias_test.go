@@ -36,9 +36,9 @@ func TestStandardAliasSpelling(t *testing.T) {
 	n := 0
 	for _, c := range allCommands(newRoot(tcl)) {
 		id := cmdID(c)
-		_, read := gateReadForm[id]
-		_, saves := gateSavesHere[id]
-		_, change := gateOnServers[id]
+		_, read := gateReadForm[cmdKeys[id]]
+		_, saves := gateSavesHere[cmdKeys[id]]
+		_, change := gateOnServers[cmdKeys[id]]
 		if !read && !saves && !change {
 			continue
 		}
@@ -69,9 +69,9 @@ func wrapsValue(v, base pflag.Value) bool {
 // flag (and value), from a fresh tree; extra adds a spelling first.
 func spellingAnswer(t *testing.T, id, flag, alias string) string {
 	t.Helper()
-	saved := tcl.flags
-	tcl.flags = globalFlags{}
-	defer func() { tcl.flags = saved }()
+	saved := saveFlags(tcl)
+	clearFlags(tcl)
+	defer saved.restore()
 	var c *cobra.Command
 	for _, x := range allCommands(newRoot(tcl)) {
 		if cmdID(x) == id {

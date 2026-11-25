@@ -64,7 +64,7 @@ interactive shell use ` + "`komando cluster shell TARGET POD`" + `.`,
 			if err := GuardConns(cl, st, []*store.Conn{t.conn}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-exec"}, Reasons: []string{"exec in " + args[1]}}); err != nil {
 				return err
 			}
-			if cl.flags.dryRun {
+			if cl.dryRun() {
 				if err := dryRunKubeCheck(cl, t.conn); err != nil { // the login program, as the real run would
 					return err
 				}
@@ -191,7 +191,7 @@ Anything can be typed inside, so a protected cluster asks first.`,
 			if err := GuardConns(cl, st, []*store.Conn{t.conn}, driver.Verdict{Risk: driver.RiskWrite, RuleIDs: []string{"cluster-shell"}, Reasons: []string{"shell in " + args[1]}}); err != nil {
 				return err
 			}
-			if cl.flags.dryRun {
+			if cl.dryRun() {
 				if err := dryRunKubeCheck(cl, t.conn); err != nil { // the login program, as the real run would
 					return err
 				}
@@ -301,7 +301,7 @@ komando forwards to the pod's port behind it.`,
 				Reasons: []string{"forward to " + args[1] + ":" + remote}}); err != nil {
 				return err
 			}
-			if cl.flags.dryRun {
+			if cl.dryRun() {
 				if err := dryRunKubeCheck(cl, t.conn); err != nil { // the login program, as the real run would
 					return err
 				}

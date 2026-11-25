@@ -28,7 +28,7 @@ func TestHostEnvSecretNeedsAPersonForAnAgent(t *testing.T) {
 		}
 		return strings.Contains(cmd, "read -r API_TOKEN"), cmd
 	}
-	t.Cleanup(func() { tcl.flags.yes = false })
+	t.Cleanup(func() { setGate(tcl, false, gateYes) })
 
 	// a person or a script: as before
 	noAgent(t)
@@ -39,7 +39,7 @@ func TestHostEnvSecretNeedsAPersonForAnAgent(t *testing.T) {
 	// an agent without --yes: left out, with a warning; plain values stay
 	n := asAgent(t, true, true)
 	tcl.out.Reset()
-	tcl.flags.yes = false
+	setGate(tcl, false, gateYes)
 	if err := guardHostEnv(tcl, []*store.Host{h}, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +56,7 @@ func TestHostEnvSecretNeedsAPersonForAnAgent(t *testing.T) {
 
 	// an agent with --yes whom the person refuses: stopped
 	asAgent(t, false, true)
-	tcl.flags.yes = true
+	setGate(tcl, true, gateYes)
 	if err := guardHostEnv(tcl, []*store.Host{h}, nil); toErr(err).Code != "SECRET_DESTINATION" {
 		t.Fatalf("refused: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestHostEnvSecretNeedsAPersonForAnAgent(t *testing.T) {
 
 	// an agent with --yes whom the person allows: sent, asked once
 	n = asAgent(t, true, true)
-	tcl.flags.yes = true
+	setGate(tcl, true, gateYes)
 	if err := guardHostEnv(tcl, []*store.Host{h}, nil); err != nil {
 		t.Fatal(err)
 	}

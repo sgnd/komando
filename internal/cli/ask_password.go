@@ -56,7 +56,7 @@ func askSecretNow(cmd *cobra.Command, kind, name string, a askSecret) (ref strin
 	}
 	sec := name + "-" + a.suffix
 	ref = "secret:" + sec
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		return ref, undo, nil
 	}
 	if !cl.interactive() {
@@ -76,7 +76,7 @@ func askSecretNow(cmd *cobra.Command, kind, name string, a askSecret) (ref strin
 		return "", undo, err
 	}
 	self := kind + " " + name
-	others := slices.DeleteFunc(secretUsers(st, sec), func(u string) bool { return u == self })
+	others := slices.DeleteFunc(inventory.SecretUsers(st, sec), func(u string) bool { return u == self })
 	_, getErr := vault.Get(sec)
 	existed := getErr == nil
 	if existed && len(others) > 0 {
@@ -86,7 +86,7 @@ func askSecretNow(cmd *cobra.Command, kind, name string, a askSecret) (ref strin
 	}
 	// a new password for a protected server or conn changes how komando
 	// logs in there: the same yes as any change to it
-	if prot := protectedUsers(st, []string{self}); len(prot) > 0 && !cl.yesOK() && !confirmProtected(cl, prot) {
+	if prot := inventory.ProtectedUsers(st, []string{self}); len(prot) > 0 && !cl.yesOK() && !confirmProtected(cl, prot) {
 		return "", undo, cl.policyStop(approvalErr(cl, "PROTECTED_TARGET",
 			name+" is protected; a new password or key changes how komando logs in there"))
 	}

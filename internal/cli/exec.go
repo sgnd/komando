@@ -299,7 +299,7 @@ func runFleet(cl *call, ctx context.Context, name, target, command string, stdin
 		shown = o.display
 	}
 	guardErr := Guard(cl, st, hosts, command, mutating)
-	if guardErr != nil && !cl.flags.dryRun {
+	if guardErr != nil && !cl.dryRun() {
 		audit(cl, st, name, hostNames(hosts), shown, false, withRecipe(map[string]any{"blocked": toErr(guardErr).Code}, o.recipe))
 		return guardErr
 	}
@@ -310,7 +310,7 @@ func runFleet(cl *call, ctx context.Context, name, target, command string, stdin
 	req := sshx.RunRequest{Command: command, Sudo: o.sudo || o.sudoUser != "", SudoUser: o.sudoUser, Env: env, Dir: o.dir,
 		Stdin: stdin, Timeout: cmdTimeout(cl, st), MaxOutput: maxOutput(cl, st), PTY: o.pty}
 
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		return fleetDryRun(cl, name, hosts, req, o, len(stdin), guardErr)
 	}
 
@@ -706,7 +706,7 @@ func probeText(cl *call, ctx context.Context, name, target, command string, sudo
 	if ctx, err = windowsGate(ctx, name, hosts, onWindows); err != nil {
 		return err
 	}
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		plan := map[string]any{"hosts": hostNames(hosts), "would_run": command}
 		if win := windowsNames(hosts); len(win) == len(hosts) {
 			plan["would_run"] = winCommand
