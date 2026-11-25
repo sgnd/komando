@@ -38,7 +38,7 @@ func TestBeginResetsBetweenCalls(t *testing.T) {
 	cl.logins.keep("web1", "secret")
 	typed := cl.logins.pw["web1"]
 
-	cl.begin()
+	cl.begin(nil)
 
 	w := cl.sess.Window()
 	if w.Asked || w.Allowed || w.Why != "" || w.Unshown != "" || w.GaveUp {
@@ -124,7 +124,7 @@ func TestBeginWhileHooksRead(t *testing.T) {
 		}
 	}()
 	for range 2000 {
-		cl.begin()
+		cl.begin(nil)
 	}
 	close(done)
 	wg.Wait()

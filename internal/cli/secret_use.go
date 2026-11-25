@@ -35,7 +35,7 @@ func agentYes(cl *call, code, msg, what string, why ...string) error {
 	if !cl.isAgent() || cl.sess.SafetyApproved(what) {
 		return nil
 	}
-	if cl.yes() && cl.personAllowsFor("--yes", what, why...) {
+	if cl.yesOKFor(what, why...) {
 		cl.sess.ApproveSafety(what)
 		return nil
 	}

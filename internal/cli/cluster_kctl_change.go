@@ -46,12 +46,16 @@ func (r *kctlRun) apply(diff bool) error {
 	if err != nil {
 		return err
 	}
-	saved := r.cl.dryRun()
-	if diff {
-		r.cl.flags.dryRun = true // diff is an apply the server only pretends to do
+	var res any
+	send := func() (err error) {
+		res, err = kubeApply(r.cl, r.ctx, r.k, r.conn, docs, r.a.val("namespace"), r.a.bools["force-conflicts"])
+		return err
 	}
-	res, err := kubeApply(r.cl, r.ctx, r.k, r.conn, docs, r.a.val("namespace"), r.a.bools["force-conflicts"])
-	r.cl.flags.dryRun = saved
+	if diff {
+		err = r.cl.withDryRun(send) // diff is an apply the server only pretends to do
+	} else {
+		err = send()
+	}
 	if err != nil {
 		return err
 	}

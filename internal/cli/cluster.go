@@ -240,7 +240,7 @@ func agentLoginYes(cl *call, what string, stop *out.Error) error {
 		}
 		return errDryRunStopped
 	}
-	if cl.sess.SafetyApproved(what) || cl.yes() && cl.personAllowsFor("--yes", what) {
+	if cl.sess.SafetyApproved(what) || cl.yesOKFor(what) {
 		cl.sess.ApproveSafety(what)
 		return nil
 	}

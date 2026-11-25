@@ -545,7 +545,7 @@ func guardSafety(cl *call, what string) error {
 	if cl.sess.SafetyApproved(what) { // asked already in this command (before the state was locked)
 		return nil
 	}
-	if cl.yes() && cl.personAllowsFor("--yes", what) || confirmYes(cl, "This turns off a komando safety check: "+what+". Continue?") {
+	if cl.yesOKFor(what) || confirmYes(cl, "This turns off a komando safety check: "+what+". Continue?") {
 		cl.sess.ApproveSafety(what)
 		return nil
 	}

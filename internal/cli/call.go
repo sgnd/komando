@@ -35,7 +35,8 @@ import (
 // The hooks of the lower packages (call_hooks.go) read every running call
 // from other goroutines: its caller, its session and its printer's hidden
 // values. A call is running from the first step of its command (execute),
-// so these change only under a lock: the caller is an atomic value, the
+// so these change only under a lock: the gate (caller and gate flags) is
+// an atomic pointer to a value never changed after it is stored, the
 // session is reset in place under its own lock (engine.Session.Reset),
 // and the printer's vault values are set with out.Printer.SetSecrets.
 type call struct {
@@ -44,9 +45,9 @@ type call struct {
 	terminal bool     // a person can answer at the terminal (engine.Call.Terminal)
 	stdin    io.Reader
 
-	who   atomic.Pointer[engine.Caller] // caller and setCaller
-	sess  *engine.Session               // made once (newCall), reset in place (begin)
-	out   *out.Printer                  // with the call's stdout (W) and stderr (Err)
+	g     atomic.Pointer[gate] // the running command's gate: never nil (newCall), replaced whole (startGate)
+	sess  *engine.Session      // made once (newCall), reset in place (begin)
+	out   *out.Printer         // with the call's stdout (W) and stderr (Err)
 	flags globalFlags
 
 	// oldCopy: this command may look at an old copy of the store (doctor,
@@ -127,7 +128,7 @@ func newCall(c engine.Call, args []string) *call {
 	cl.out = &out.Printer{Format: "json", W: stdout, Err: stderr, Version: version.Version, Start: time.Now(), Width: cl.width}
 	cl.fsSudoRetry = "retry with --sudo"
 	cl.sess = engine.NewSession()
-	cl.begin()
+	cl.begin(nil)
 	return cl
 }
 
@@ -136,12 +137,13 @@ type eofReader struct{}
 
 func (eofReader) Read([]byte) (int, error) { return 0, io.EOF }
 
-// begin starts a command in the call (the root's PersistentPreRunE): the
-// caller is read again from the call's environment, and no answer given
-// so far counts. Other calls' hooks may read the caller and the session
-// at the same time, so both change under a lock.
-func (cl *call) begin() {
-	cl.setCaller(cl.io.Caller())
+// begin starts a command in the call (the root's PersistentPreRunE): its
+// gate is made new from its parsed command line (cmd; nil before one is
+// parsed) and the caller read again from the call's environment, and no
+// answer given so far counts. Other calls' hooks may read the gate and the
+// session at the same time, so both change under a lock.
+func (cl *call) begin(cmd *cobra.Command) {
+	cl.startGate(cmd)
 	cl.sess.Reset()
 	cl.oldCopy.Store(false)
 	cl.commits = store.Commits()
@@ -153,28 +155,104 @@ func (cl *call) begin() {
 // storeWrite is how this command's changes to the store and the vault go:
 // under --dry-run they are only previewed (store.Preview()).
 func (cl *call) storeWrite() store.Write {
-	if cl.dryRun() {
+	if cl.gate().dryRun {
 		return store.Preview()
 	}
 	return store.Save()
 }
 
-// dryRun, yes, allowDangerous and reveal are the call's gate flags as the
-// command line set them (--dry-run, --yes, --allow-dangerous, --reveal).
-// Code outside this file and root.go reads them only through these
-// (TestGateFlagsAreReadThroughMethods). --yes, --allow-dangerous and
-// --reveal are what was typed, not what is allowed: an AI agent's needs a
-// person (yesOK, dangerOK, revealOK).
-func (cl *call) dryRun() bool         { return cl.flags.dryRun }
-func (cl *call) yes() bool            { return cl.flags.yes }
-func (cl *call) allowDangerous() bool { return cl.flags.allowDangerous }
-func (cl *call) reveal() bool         { return cl.flags.reveal }
+// gate is what one command's safety decisions read: its four gate flags as
+// its command line set them, and who is calling. Only newGate makes one,
+// and a stored gate is never changed: a new command stores a new gate
+// (startGate), and withDryRun and asAgent store a changed copy. A decision
+// loads the gate once (cl.gate()) and reads everything it needs from that
+// one value, so a gate stored meanwhile never mixes into it.
+type gate struct {
+	dryRun         bool // --dry-run: nothing changes, the plan is shown
+	yes            bool // --yes as typed: what counts is yesOK
+	allowDangerous bool // --allow-dangerous as typed: what counts is dangerOK
+	reveal         bool // --reveal as typed: what counts is revealOK
+	who            engine.Caller
+}
 
-// caller is who makes the call (engine.Caller).
-func (cl *call) caller() engine.Caller { return *cl.who.Load() }
+// gateFlagNames are the command line flags the gate reads, in the order of
+// gate's fields.
+var gateFlagNames = [4]string{"dry-run", "yes", "allow-dangerous", "reveal"}
 
-// setCaller makes c the call's caller.
-func (cl *call) setCaller(c engine.Caller) { cl.who.Store(&c) }
+// newGate is the gate of a command with the parsed command line cmd (nil:
+// none parsed, all four flags off) run by who. cobra keeps the parsed
+// values; nothing else in komando holds them.
+func newGate(cmd *cobra.Command, who engine.Caller) *gate {
+	var on [4]bool
+	if cmd != nil {
+		for i, name := range gateFlagNames {
+			v, err := cmd.Flags().GetBool(name)
+			if err != nil {
+				panic("komando: the gate flag --" + name + " is not on " + cmd.CommandPath() + ": " + err.Error())
+			}
+			on[i] = v
+		}
+	}
+	return &gate{dryRun: on[0], yes: on[1], allowDangerous: on[2], reveal: on[3], who: who}
+}
+
+// startGate stores the gate of the command cmd starts: from its parsed
+// command line, the caller read again from the call's environment. The
+// root's PersistentPreRunE (begin) and status --short, which skips it,
+// call it, so no command runs on the gate of the one before.
+func (cl *call) startGate(cmd *cobra.Command) { cl.g.Store(newGate(cmd, cl.io.Caller())) }
+
+// noGate is what a call that never stored a gate reads: an AI agent with
+// every flag off, the strictest caller, never a person. newCall stores a
+// gate, so only a call made without it gets this.
+var noGate = gate{who: engine.Caller{Kind: engine.Agent, Agent: "a komando call without a gate"}}
+
+// gate is the gate of the command running in the call.
+func (cl *call) gate() *gate {
+	if g := cl.g.Load(); g != nil {
+		return g
+	}
+	return &noGate
+}
+
+// dryRun, yes, allowDangerous and reveal are the running command's gate
+// flags as its command line set them (--dry-run, --yes, --allow-dangerous,
+// --reveal). --yes, --allow-dangerous and --reveal are what was typed, not
+// what is allowed: an AI agent's needs a person (yesOK, dangerOK,
+// revealOK). A decision that reads more than one of them, or one and the
+// caller, loads the gate once instead (cl.gate()).
+func (cl *call) dryRun() bool         { return cl.gate().dryRun }
+func (cl *call) yes() bool            { return cl.gate().yes }
+func (cl *call) allowDangerous() bool { return cl.gate().allowDangerous }
+func (cl *call) reveal() bool         { return cl.gate().reveal }
+
+// caller is who makes the running command (engine.Caller).
+func (cl *call) caller() engine.Caller { return cl.gate().who }
+
+// withDryRun runs f with --dry-run on and puts the gate back after it:
+// kctl's diff is an apply the server only pretends to do. It turns only
+// --dry-run on, never off, and changes nothing else of the gate.
+func (cl *call) withDryRun(f func() error) error {
+	old := cl.gate()
+	g := *old
+	g.dryRun = true
+	cl.g.Store(&g)
+	defer cl.g.Store(old)
+	return f()
+}
+
+// asAgent makes the running command's caller the ssh-gate key label: an AI
+// agent, whoever called before, with the same Actor (the audit log and
+// the ownership of runs and sessions follow it). It only makes a caller an
+// agent, never a person, and changes no gate flag. label is only a name:
+// the approval window, the audit log and messages show it, no decision
+// reads it.
+func (cl *call) asAgent(label string) {
+	old := cl.gate()
+	g := *old
+	g.who = engine.Caller{Kind: engine.Agent, Agent: "ssh-gate key " + label, Actor: old.who.Actor}
+	cl.g.Store(&g)
+}
 
 // width is the column the call's stderr lines wrap at: none for an AI
 // agent, which reads each message on one line, and none when the call's

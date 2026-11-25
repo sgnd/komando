@@ -1,10 +1,13 @@
 package cli
 
 import (
+	"context"
+	"errors"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"go/types"
+	"io"
 	"maps"
 	"os"
 	"path/filepath"
@@ -12,85 +15,62 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/sgnd/komando/internal/engine"
+	"github.com/sgnd/komando/internal/store"
 )
 
-// gateFlagNames are the four global flags that decide the safety gate:
-// what runs (--dry-run), what a person confirmed (--yes), what the safety
-// rules let through (--allow-dangerous) and what output shows (--reveal).
-var gateFlagNames = map[string]bool{"dryRun": true, "yes": true, "allowDangerous": true, "reveal": true}
+// gateFields are the fields of a gate: the four gate flags and who is
+// calling. A write to a field of that name is a write to a gate, unless it
+// is reviewed here as something else.
+var gateFields = map[string]bool{"dryRun": true, "yes": true, "allowDangerous": true, "reveal": true, "who": true}
 
-// programGateWriters is every place the program code of internal/cli writes
-// a gate flag (x.flags.dryRun ...), the whole flags of a call (x.flags), or
-// sets who is calling (setCaller): cobra binds the four flags to the call
-// and newRoot resets them, kctl's diff turns --dry-run on for the length of
-// one apply, begin reads the caller from the call's environment, and the
-// ssh gate's shell makes its key's commands an agent's. A new writer fails
-// here until it is reviewed: it could turn --yes or --allow-dangerous on
-// for a command the person never confirmed.
+// programGateWriters is every place the program code of internal/cli stores
+// a gate (g.Store), writes a gate's field, or makes a gate value (gate{}):
+// newGate and noGate make the only two, startGate stores a new one when a
+// command starts, withDryRun stores a copy with --dry-run on and puts the
+// old one back, and asAgent stores a copy whose caller is an ssh-gate key.
+// A new writer fails here until it is reviewed: it could turn --yes or
+// --allow-dangerous on for a command the person never confirmed, or make
+// an agent a person.
 var programGateWriters = map[string]int{
-	"cluster_kctl_change.go r.cl.flags.dryRun": 2,
-	"root.go &cl.flags.allowDangerous":         1,
-	"root.go &cl.flags.dryRun":                 1,
-	"root.go &cl.flags.reveal":                 1,
-	"root.go &cl.flags.yes":                    1,
-	"root.go cl.flags":                         1,
-	"call.go setCaller":                        1,
-	"sshgate_shell.go setCaller":               1,
+	"call.go cl.g.Store": 4,
+	"call.go g.dryRun":   1,
+	"call.go g.who":      1,
+	"call.go gate{}":     2,
 }
 
 func TestGateWritersAreReviewed(t *testing.T) {
 	got := gateWriters(t, false)
 	if !maps.Equal(got, programGateWriters) {
-		t.Errorf("the program code writes the gate flags or the caller at:\n%s\nwant:\n%s\na new or moved writer needs a review: it decides what komando lets through", writerLines(got), writerLines(programGateWriters))
+		t.Errorf("the program code writes the gate at:\n%s\nwant:\n%s\na new or moved writer needs a review: it decides what komando lets through", writerLines(got), writerLines(programGateWriters))
 	}
 }
 
-// testGateWriters is every place a test writes a gate flag, a call's whole
-// flags or the caller: the helpers of testcall_test.go (setGate,
-// saveFlags, clearFlags, setTestCaller), and nowhere else. When the gate
-// leaves the call's flags, only these helpers change.
+// testGateWriters is every place a test writes a gate: the helpers of
+// testcall_test.go (setGate, savedFlags.restore, setTestCaller), and
+// nowhere else, so a test never builds a gate the program could not.
 var testGateWriters = map[string]int{
-	"testcall_test.go cl.flags":                1,
-	"testcall_test.go cl.flags.allowDangerous": 1,
-	"testcall_test.go cl.flags.dryRun":         1,
-	"testcall_test.go cl.flags.reveal":         1,
-	"testcall_test.go cl.flags.yes":            1,
-	"testcall_test.go s.cl.flags":              1,
-	"testcall_test.go setCaller":               1,
+	"testcall_test.go cl.g.Store":       2,
+	"testcall_test.go s.cl.g.Store":     1,
+	"testcall_test.go g.allowDangerous": 1,
+	"testcall_test.go g.dryRun":         1,
+	"testcall_test.go g.reveal":         1,
+	"testcall_test.go g.who":            1,
+	"testcall_test.go g.yes":            1,
 }
 
 func TestTestsWriteTheGateThroughHelpers(t *testing.T) {
 	got := gateWriters(t, true)
 	if !maps.Equal(got, testGateWriters) {
-		t.Errorf("the tests write the gate flags or the caller at:\n%s\nwant only the helpers of testcall_test.go:\n%s\nuse setGate, saveFlags, clearFlags or setTestCaller", writerLines(got), writerLines(testGateWriters))
+		t.Errorf("the tests write the gate at:\n%s\nwant only the helpers of testcall_test.go:\n%s\nuse setGate, saveFlags, clearFlags or setTestCaller", writerLines(got), writerLines(testGateWriters))
 	}
 }
 
-// gateFlagFields is every file that names a gate flag field of a call:
-// the methods that read them (call.go), cobra's bindings (root.go), kctl's
-// diff that turns --dry-run on (cluster_kctl_change.go) and the test
-// helper setGate (testcall_test.go). Everything else reads them through
-// cl.dryRun(), cl.yes(), cl.allowDangerous() and cl.reveal(), so the kit
-// gate split moves the fields without touching a command.
-var gateFlagFields = map[string]int{
-	"call.go":                4,
-	"cluster_kctl_change.go": 2,
-	"root.go":                4,
-	"testcall_test.go":       4,
-}
-
-func TestGateFlagsAreReadThroughMethods(t *testing.T) {
-	got := gateFlagUses(t)
-	if !maps.Equal(got, gateFlagFields) {
-		t.Errorf("files that name a gate flag field (x.flags.dryRun, .yes, .allowDangerous, .reveal):\n%s\nwant:\n%s\nread them with cl.dryRun(), cl.yes(), cl.allowDangerous() or cl.reveal()", writerLines(got), writerLines(gateFlagFields))
-	}
-}
-
-// gateWriters counts, per file and expression, the writes of a gate flag,
-// of a call's whole flags and the setCaller calls in the program files
-// (tests false) or the test files (tests true) of internal/cli and the
-// packages below it. A write is an assignment or taking the address (a
-// flag binding writes through it).
+// gateWriters counts, per file and expression, the gate stores (x.g.Store),
+// the writes to a gate field and the gate values made (gate{}, new(gate)) in
+// the program files (tests false) or the test files (tests true) of
+// internal/cli and the packages below it.
 func gateWriters(t *testing.T, tests bool) map[string]int {
 	t.Helper()
 	got := map[string]int{}
@@ -102,17 +82,24 @@ func gateWriters(t *testing.T, tests bool) map[string]int {
 			switch n := n.(type) {
 			case *ast.AssignStmt:
 				for _, l := range n.Lhs {
-					if gateTarget(l) {
-						got[name+" "+types.ExprString(ast.Unparen(l))]++
+					if sel, ok := ast.Unparen(l).(*ast.SelectorExpr); ok && gateFields[sel.Sel.Name] {
+						got[name+" "+types.ExprString(sel)]++
 					}
 				}
-			case *ast.UnaryExpr:
-				if n.Op == token.AND && gateTarget(n.X) {
-					got[name+" &"+types.ExprString(ast.Unparen(n.X))]++
-				}
 			case *ast.CallExpr:
-				if sel, ok := n.Fun.(*ast.SelectorExpr); ok && sel.Sel.Name == "setCaller" {
-					got[name+" setCaller"]++
+				if sel, ok := n.Fun.(*ast.SelectorExpr); ok && sel.Sel.Name == "Store" {
+					if inner, ok := sel.X.(*ast.SelectorExpr); ok && inner.Sel.Name == "g" {
+						got[name+" "+types.ExprString(inner)+".Store"]++
+					}
+				}
+				if id, ok := n.Fun.(*ast.Ident); ok && id.Name == "new" && len(n.Args) == 1 {
+					if a, ok := n.Args[0].(*ast.Ident); ok && a.Name == "gate" {
+						got[name+" gate{}"]++
+					}
+				}
+			case *ast.CompositeLit:
+				if id, ok := n.Type.(*ast.Ident); ok && id.Name == "gate" {
+					got[name+" gate{}"]++
 				}
 			}
 			return true
@@ -121,21 +108,129 @@ func gateWriters(t *testing.T, tests bool) map[string]int {
 	return got
 }
 
-// gateFlagUses counts, per file, every use of a gate flag field
-// (x.flags.dryRun ...), read or written, in the program and test files of
-// internal/cli and the packages below it.
-func gateFlagUses(t *testing.T) map[string]int {
-	t.Helper()
+// gateFlagBindings: cobra binds the four gate flags in root.go without
+// giving komando a pointer to what was typed (pf.Bool, the result dropped),
+// and no program code reads them by name: newGate reads them, through
+// gateFlagNames, when a command starts. So nothing can read or change a
+// gate flag apart from the gate.
+func TestGateFlagsAreParsedOnlyByTheGate(t *testing.T) {
+	names := map[string]bool{}
+	for _, n := range gateFlagNames {
+		names[strconv.Quote(n)] = true
+	}
 	got := map[string]int{}
-	goFiles(t, func(name string, _ bool, file *ast.File) {
+	goFiles(t, func(name string, test bool, file *ast.File) {
+		if test {
+			return
+		}
+		dropped := map[*ast.CallExpr]bool{}
 		ast.Inspect(file, func(n ast.Node) bool {
-			if sel, ok := n.(*ast.SelectorExpr); ok && gateTarget(sel) && sel.Sel.Name != "flags" {
-				got[name]++
+			if es, ok := n.(*ast.ExprStmt); ok {
+				if c, ok := es.X.(*ast.CallExpr); ok {
+					dropped[c] = true
+				}
+			}
+			c, ok := n.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			if _, method := c.Fun.(*ast.SelectorExpr); !method {
+				return true // a flag is read or bound through a method of cobra or pflag
+			}
+			for _, a := range c.Args {
+				if lit, ok := a.(*ast.BasicLit); ok && names[lit.Value] {
+					fn := types.ExprString(c.Fun)
+					if dropped[c] {
+						fn += " (result dropped)"
+					}
+					got[name+" "+fn+" "+lit.Value]++
+				}
 			}
 			return true
 		})
 	})
-	return got
+	want := map[string]int{
+		`root.go pf.Bool (result dropped) "dry-run"`:         1,
+		`root.go pf.BoolP (result dropped) "yes"`:            1,
+		`root.go pf.Bool (result dropped) "allow-dangerous"`: 1,
+		`root.go pf.Bool (result dropped) "reveal"`:          1,
+	}
+	if !maps.Equal(got, want) {
+		t.Errorf("calls that name a gate flag:\n%s\nwant only cobra's bindings, their results dropped:\n%s", writerLines(got), writerLines(want))
+	}
+}
+
+// TestOneWayGateMethodsHaveTheirCallers: the gate changes during a command
+// only at two reviewed places: kctl's diff turns --dry-run on (withDryRun)
+// and the ssh gate's shell makes the key the caller (asAgent). A command
+// starts its gate only from the root's hook (begin) and status --short.
+func TestOneWayGateMethodsHaveTheirCallers(t *testing.T) {
+	watched := map[string]bool{"withDryRun": true, "asAgent": true, "startGate": true, "begin": true}
+	got := map[string]int{}
+	goFiles(t, func(name string, test bool, file *ast.File) {
+		if test {
+			return
+		}
+		ast.Inspect(file, func(n ast.Node) bool {
+			if c, ok := n.(*ast.CallExpr); ok {
+				if sel, ok := c.Fun.(*ast.SelectorExpr); ok && watched[sel.Sel.Name] {
+					got[name+" "+sel.Sel.Name]++
+				}
+			}
+			return true
+		})
+	})
+	want := map[string]int{
+		"call.go begin":                     1, // newCall, with no command line yet
+		"call.go startGate":                 1, // begin
+		"root.go begin":                     1,
+		"status.go startGate":               1,
+		"cluster_kctl_change.go withDryRun": 1,
+		"sshgate_shell.go asAgent":          1,
+	}
+	if !maps.Equal(got, want) {
+		t.Errorf("callers of begin, startGate, withDryRun and asAgent:\n%s\nwant:\n%s", writerLines(got), writerLines(want))
+	}
+}
+
+// TestDecisionsLoadTheGateOnce: each decision loads the running command's
+// gate once and reads every flag and the caller from that one value, so a
+// gate stored while it decides (the next command of a long-lived call)
+// never mixes into it.
+func TestDecisionsLoadTheGateOnce(t *testing.T) {
+	deciders := map[string]bool{"yesOK": true, "yesOKFor": true, "dangerOK": true, "dangerAndYesOK": true, "revealOK": true,
+		"personAllows": true, "personAllowsFor": true, "personAllowsFlags": true, "policyStop": true, "storeWrite": true}
+	loads := map[string]bool{"gate": true, "dryRun": true, "yes": true, "allowDangerous": true, "reveal": true, "caller": true, "isAgent": true}
+	seen := map[string]int{}
+	goFiles(t, func(name string, test bool, file *ast.File) {
+		if test {
+			return
+		}
+		for _, d := range file.Decls {
+			fd, ok := d.(*ast.FuncDecl)
+			if !ok || fd.Recv == nil || !deciders[fd.Name.Name] {
+				continue
+			}
+			seen[fd.Name.Name]++
+			n := 0
+			ast.Inspect(fd.Body, func(x ast.Node) bool {
+				if c, ok := x.(*ast.CallExpr); ok {
+					if sel, ok := c.Fun.(*ast.SelectorExpr); ok && loads[sel.Sel.Name] && len(c.Args) == 0 {
+						n++
+					}
+				}
+				return true
+			})
+			if n > 1 {
+				t.Errorf("%s: %s loads the gate %d times; load it once (g := cl.gate()) and read from g", name, fd.Name.Name, n)
+			}
+		}
+	})
+	for d := range deciders {
+		if seen[d] != 1 {
+			t.Errorf("decision %s: found %d times, want 1 (renamed or moved? update this list)", d, seen[d])
+		}
+	}
 }
 
 // goFiles calls fn with every Go file of internal/cli and the packages
@@ -168,20 +263,6 @@ func goFiles(t *testing.T, fn func(name string, test bool, file *ast.File)) {
 	}
 }
 
-// gateTarget reports whether e is a call's gate flag (x.flags.yes ...) or
-// its whole flags (x.flags).
-func gateTarget(e ast.Expr) bool {
-	sel, ok := ast.Unparen(e).(*ast.SelectorExpr)
-	if !ok {
-		return false
-	}
-	if sel.Sel.Name == "flags" {
-		return true
-	}
-	inner, ok := sel.X.(*ast.SelectorExpr)
-	return ok && inner.Sel.Name == "flags" && gateFlagNames[sel.Sel.Name]
-}
-
 // writerLines is m as sorted "file expression: count" lines.
 func writerLines(m map[string]int) string {
 	var b strings.Builder
@@ -189,4 +270,152 @@ func writerLines(m map[string]int) string {
 		b.WriteString("  " + k + ": " + strconv.Itoa(m[k]) + "\n")
 	}
 	return b.String()
+}
+
+// TestNoGateIsNeverAPerson: a call reads a gate before any command starts,
+// and a call made without newCall has none stored. Neither is ever a
+// person with a flag on: newCall stores a gate from the call's own
+// environment, and a call with no gate reads as an AI agent, every flag off.
+func TestNoGateIsNeverAPerson(t *testing.T) {
+	if testCall().g.Load() == nil {
+		t.Fatal("newCall stored no gate")
+	}
+	var bare call
+	g := bare.gate()
+	if !g.who.IsAgent() || g.dryRun || g.yes || g.allowDangerous || g.reveal {
+		t.Errorf("a call without a gate reads %+v; want an AI agent with every flag off", *g)
+	}
+	if got := newGate(nil, engine.Caller{Kind: engine.Script}); got.who.Kind != engine.Script || got.dryRun || got.yes || got.allowDangerous || got.reveal {
+		t.Errorf("newGate with no command line = %+v; want the caller it was given and every flag off", *got)
+	}
+}
+
+// TestAsAgentIsOneWay: asAgent makes the caller the ssh-gate key, an AI
+// agent, from a person, a script or another agent; it keeps the Actor (who
+// owns runs and sessions, and whom the audit log names) and changes no
+// gate flag.
+func TestAsAgentIsOneWay(t *testing.T) {
+	for _, from := range []engine.Caller{
+		{Kind: engine.Person, Actor: "alice"},
+		{Kind: engine.Script, Actor: "cron"},
+		{Kind: engine.Agent, Agent: "Claude Code", Actor: "bob"},
+	} {
+		for _, on := range []bool{false, true} {
+			cl := testCall()
+			setTestCaller(cl, from)
+			setGate(cl, on, gateDryRun, gateYes, gateAllowDangerous, gateReveal)
+			before := *cl.gate()
+			cl.asAgent("deploy-key")
+			got := *cl.gate()
+			want := engine.Caller{Kind: engine.Agent, Agent: "ssh-gate key deploy-key", Actor: from.Actor}
+			if got.who != want {
+				t.Errorf("from %+v: caller %+v, want %+v", from, got.who, want)
+			}
+			got.who = before.who
+			if got != before {
+				t.Errorf("from %+v, flags %v: asAgent changed a gate flag: %+v, was %+v", from, on, got, before)
+			}
+		}
+	}
+}
+
+// TestAsAgentAfterPersonAllowed: decisions read the caller when they are
+// made. A person's --allow-dangerous counts without a window; once the
+// command's caller became an ssh-gate key, the same flag needs a person's
+// yes in the window, and a no stops it.
+func TestAsAgentAfterPersonAllowed(t *testing.T) {
+	cl := testCall()
+	setTestCaller(cl, engine.Caller{Kind: engine.Person, Actor: "alice"})
+	setGate(cl, true, gateAllowDangerous)
+	asks := 0
+	cl.ask = func(string) (allowed, shown bool) { asks++; return false, true }
+	if !cl.dangerOK("rm -rf on web1") || asks != 0 {
+		t.Fatalf("a person's --allow-dangerous: ok %v after %d windows; want ok with none", cl.dangerOK("rm -rf on web1"), asks)
+	}
+	cl.asAgent("deploy-key")
+	if cl.dangerOK("rm -rf on web1") {
+		t.Errorf("after asAgent, --allow-dangerous counted although the window said no (%d windows)", asks)
+	}
+}
+
+// TestWithDryRunOnlyTurnsDryRunOn: kctl's diff runs its apply with
+// --dry-run on; nothing else of the gate changes, f's error comes back,
+// and the gate is the one from before afterwards.
+func TestWithDryRunOnlyTurnsDryRunOn(t *testing.T) {
+	cl := testCall()
+	setTestCaller(cl, engine.Caller{Kind: engine.Agent, Agent: "Claude Code", Actor: "bob"})
+	setGate(cl, true, gateReveal) // --yes and --allow-dangerous stay off
+	before := cl.gate()
+	want := errors.New("server said no")
+	err := cl.withDryRun(func() error {
+		g := *cl.gate()
+		if !g.dryRun {
+			t.Error("inside withDryRun --dry-run is off")
+		}
+		g.dryRun = false
+		if g != *before {
+			t.Errorf("withDryRun changed more than --dry-run: %+v, was %+v", *cl.gate(), *before)
+		}
+		return want
+	})
+	if err != want {
+		t.Errorf("withDryRun returned %v, want f's error", err)
+	}
+	if cl.gate() != before {
+		t.Errorf("after withDryRun the gate is %+v, want the one from before %+v", *cl.gate(), *before)
+	}
+}
+
+// TestStatusShortHasItsOwnGate: status --short skips the root's checks,
+// not its own gate: it runs with the flags of its own command line and the
+// caller read again from the environment, never the ones of the command
+// before it in the call.
+func TestStatusShortHasItsOwnGate(t *testing.T) {
+	invHome(t)
+	noAgent(t)
+	c := processCall()
+	c.Stdout, c.Stderr = io.Discard, io.Discard
+	cl := newCall(c, nil)
+	t.Setenv("KOMANDO_AGENT", "1") // the next command is an agent's
+	defer store.Close()
+	if code := execute(cl, context.Background(), []string{"--dry-run", "status", "--short"}); code != 0 {
+		t.Fatalf("komando status --short: exit %d", code)
+	}
+	if !cl.isAgent() || !cl.dryRun() {
+		t.Errorf("status --short ran as agent %v with --dry-run %v; want its own gate: an agent, --dry-run on", cl.isAgent(), cl.dryRun())
+	}
+}
+
+// TestEachCallRunsOneCommand: a call runs one command: the komando program
+// (Execute) and an app (RunCall) each make a new call and run it once, and
+// nothing else starts a command (execute through runCall). So the gate a
+// command's goroutines read is the one its begin stored, until the call
+// ends: no goroutine of a command can read the gate of a later command in
+// the same call, and none needs to keep its own copy. A loop that runs
+// several commands in one call fails here, and must first give each
+// command's goroutines the gate of their own command.
+func TestEachCallRunsOneCommand(t *testing.T) {
+	watched := map[string]bool{"runCall": true, "runExecute": true, "execute": true, "newCall": true}
+	got := map[string]int{}
+	goFiles(t, func(name string, test bool, file *ast.File) {
+		if test {
+			return
+		}
+		ast.Inspect(file, func(n ast.Node) bool {
+			if c, ok := n.(*ast.CallExpr); ok {
+				if id, ok := c.Fun.(*ast.Ident); ok && watched[id.Name] {
+					got[name+" "+id.Name]++
+				}
+			}
+			return true
+		})
+	})
+	want := map[string]int{
+		"call.go newCall":    3, // Execute, RunCall, treeCall (a tree that is never run)
+		"call.go runCall":    2, // Execute, RunCall: each with the call it just made
+		"call.go runExecute": 1, // runCall
+	}
+	if !maps.Equal(got, want) {
+		t.Errorf("where calls are made and commands run:\n%s\nwant:\n%s", writerLines(got), writerLines(want))
+	}
 }

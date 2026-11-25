@@ -39,10 +39,6 @@ func init() {
 type globalFlags struct {
 	output         string
 	pretty         bool
-	dryRun         bool
-	yes            bool
-	allowDangerous bool
-	reveal         bool
 	timeout        time.Duration
 	connectTimeout time.Duration
 	parallel       int
@@ -468,7 +464,7 @@ func newRoot(cl *call) *cobra.Command {
 		RunE:          printFirstSteps,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SetContext(withCall(cmd.Context(), cl))
-			cl.begin() // answers count for one command only
+			cl.begin(cmd) // the gate and the answers are this command's only
 			if err := pickTableOutput(cmd); err != nil {
 				return err
 			}
@@ -522,10 +518,12 @@ func newRoot(cl *call) *cobra.Command {
 	pf := root.PersistentFlags()
 	pf.StringVarP(&cl.flags.output, "output", "o", "", "json or text (default $KOMANDO_OUTPUT, or\ntext in a terminal, JSON when piped); db query also\ntakes csv and tsv")
 	pf.BoolVar(&cl.flags.pretty, "pretty", false, "indent JSON output")
-	pf.BoolVar(&cl.flags.dryRun, "dry-run", false, "show what would run, changing nothing")
-	pf.BoolVarP(&cl.flags.yes, "yes", "y", false, "confirm a change on a protected target (an AI agent needs a person's yes)")
-	pf.BoolVar(&cl.flags.allowDangerous, "allow-dangerous", false, "run a command the safety rules would block")
-	pf.BoolVar(&cl.flags.reveal, "reveal", false, "show passwords and keys in output (an agent needs a person's yes)")
+	// the gate flags: cobra keeps what was typed, and only the gate reads
+	// it (newGate), when the command starts
+	pf.Bool("dry-run", false, "show what would run, changing nothing")
+	pf.BoolP("yes", "y", false, "confirm a change on a protected target (an AI agent needs a person's yes)")
+	pf.Bool("allow-dangerous", false, "run a command the safety rules would block")
+	pf.Bool("reveal", false, "show passwords and keys in output (an agent needs a person's yes)")
 	durVar(pf, &cl.flags.timeout, "timeout", 0, "time limit per server, like 30s or 1h (default: setting default_timeout, 5m)")
 	durVar(pf, &cl.flags.connectTimeout, "connect-timeout", 0, "time to connect, like 30s (default: setting connect_timeout, 15s)")
 	pf.IntVarP(&cl.flags.parallel, "parallel", "P", 0, "servers at once (default: setting parallel, 10)")
