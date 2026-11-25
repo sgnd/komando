@@ -55,6 +55,9 @@ type Var struct {
 	// several units). MaxItems caps how many; MaxLen is per value.
 	List     bool
 	MaxItems int
+	// Families narrows Pattern for one family's text, checked when that
+	// text is filled: systemd unit names and Windows service names differ.
+	Families map[Family]*regexp.Regexp
 }
 
 // Output is what a text printed on the server.
@@ -201,7 +204,7 @@ func validVar(v Var) error {
 	if v.Pattern == nil {
 		return fmt.Errorf("no pattern")
 	}
-	if p := v.Pattern.String(); !strings.HasPrefix(strings.TrimPrefix(p, "(?s)"), "^") || !strings.HasSuffix(p, "$") {
+	if !anchored(v.Pattern) {
 		return fmt.Errorf("the pattern is not anchored with ^ and $")
 	}
 	if v.MaxLen <= 0 {
@@ -218,10 +221,28 @@ func validVar(v Var) error {
 	case v.List && v.Channel != Text:
 		return fmt.Errorf("a list goes only into a text: a client call takes one value")
 	}
+	for f, p := range v.Families {
+		switch {
+		case f != Unix && f != Windows:
+			return fmt.Errorf("a family pattern for the unknown family %q", f)
+		case v.Channel != Text:
+			return fmt.Errorf("a family pattern is for a text variable only")
+		case p == nil || !anchored(p):
+			return fmt.Errorf("the %s pattern is not anchored with ^ and $", f)
+		case !p.MatchString(v.Longest):
+			return fmt.Errorf("the longest value does not match the %s pattern", f)
+		}
+	}
 	if !v.Required && v.Default != "" && checkVar(v, v.Default) != nil {
 		return fmt.Errorf("the default does not pass the variable's checks")
 	}
 	return nil
+}
+
+// anchored reports whether a pattern is anchored with ^ and $.
+func anchored(p *regexp.Regexp) bool {
+	s := p.String()
+	return strings.HasPrefix(strings.TrimPrefix(s, "(?s)"), "^") && strings.HasSuffix(s, "$")
 }
 
 // validText checks that every marker names a declared text variable.

@@ -82,6 +82,27 @@ func TestNewRefusesBadDefinitions(t *testing.T) {
 			v.List, v.MaxItems, v.Required, v.Default = true, 2, false, "nginx,a b"
 			b.Vars = []Var{v}
 		}, "default"},
+		{"family pattern unanchored", func(b *Builtin) {
+			v := unitVar
+			v.Families = map[Family]*regexp.Regexp{Windows: regexp.MustCompile(`[a-z]+`)}
+			b.Vars = []Var{v}
+		}, "anchored"},
+		{"longest value off a family pattern", func(b *Builtin) {
+			v := unitVar
+			v.Families = map[Family]*regexp.Regexp{Windows: regexp.MustCompile(`^[a-z]+$`)}
+			b.Vars = []Var{v}
+		}, "longest"},
+		{"family pattern of an unknown family", func(b *Builtin) {
+			v := unitVar
+			v.Families = map[Family]*regexp.Regexp{"plan9": regexp.MustCompile(`^[a-z-]+$`)}
+			b.Vars = []Var{v}
+		}, "family"},
+		{"family pattern on a client channel", func(b *Builtin) {
+			b.Text, b.Parse = nil, nil
+			b.Run = func(context.Context, Values) (any, error) { return nil, nil }
+			b.Vars = []Var{{Name: "unit", Channel: SQLIdent, Pattern: unitVar.Pattern, MaxLen: 8, Longest: "nginx-ab",
+				Families: map[Family]*regexp.Regexp{Unix: unitVar.Pattern}}}
+		}, "family"},
 		{"sudo without a Unix text", func(b *Builtin) { b.Sudo = true; delete(b.Text, Unix) }, "sudo"},
 		{"sudo on a client call", func(b *Builtin) {
 			b.Sudo, b.Text, b.Parse = true, nil, nil
@@ -426,7 +447,7 @@ func TestFillListQuotesEachValue(t *testing.T) {
 		want string
 	}{
 		{Unix, "systemctl show -- 'nginx' 'postfix'"},
-		{Windows, "Get-Service -Name 'nginx' 'postfix'"},
+		{Windows, "Get-Service -Name 'nginx', 'postfix'"}, // a PowerShell array
 	} {
 		got, err := Fill(listSample(), c.f, map[string]string{"unit": "nginx,postfix"})
 		if err != nil || got != c.want {
@@ -501,5 +522,31 @@ func TestFillListDefault(t *testing.T) {
 	b, _ = r.Lookup("svc-status")
 	if got, err := Fill(b, Unix, map[string]string{}); err != nil || got != "systemctl show -- 'nginx' 'postfix'" {
 		t.Fatalf("Fill() = %q, %v", got, err)
+	}
+}
+
+// A family pattern narrows the variable for that family's text only:
+// systemd unit names and Windows service names differ.
+func TestFillFamilyPattern(t *testing.T) {
+	b := listSample()
+	b.Vars[0].Families = map[Family]*regexp.Regexp{Windows: regexp.MustCompile(`^[a-z][a-z-]*$`)}
+	if _, err := New([]Builtin{b}); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := Fill(b, Unix, map[string]string{"unit": "nginx,Web.1"}); err != nil || got != "systemctl show -- 'nginx' 'Web.1'" {
+		t.Errorf("Unix: %q, %v", got, err)
+	}
+	for _, val := range []string{"Web.1", "nginx,Web.1"} {
+		if got, err := Fill(b, Windows, map[string]string{"unit": val}); code(err) != "USAGE" {
+			t.Errorf("Windows %q = %q, %v; want USAGE from the family pattern", val, got, err)
+		}
+	}
+	if got, err := Fill(b, Windows, map[string]string{"unit": "nginx,web"}); err != nil || got != "Get-Service -Name 'nginx', 'web'" {
+		t.Errorf("Windows: %q, %v", got, err)
+	}
+	// a default goes through the family pattern too
+	b.Vars[0].Required, b.Vars[0].Default = false, "Web.1"
+	if got, err := Fill(b, Windows, map[string]string{}); code(err) != "USAGE" {
+		t.Errorf("Windows default %q, %v; want USAGE", got, err)
 	}
 }

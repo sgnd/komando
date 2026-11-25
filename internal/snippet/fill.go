@@ -126,13 +126,16 @@ func Fill(b Builtin, f Family, given map[string]string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	quote := sshx.Q
+	quote, sep := sshx.Q, " "
 	if f == Windows {
-		quote = sshx.PSQ
+		quote, sep = sshx.PSQ, ", " // a list is a PowerShell array
 	}
 	list := map[string]bool{}
 	for _, v := range b.Vars {
 		list[v.Name] = v.List
+		if err := checkFamily(v, f, vals[v.Name]); err != nil {
+			return "", err
+		}
 	}
 	return markerRe.ReplaceAllStringFunc(text, func(m string) string {
 		name := markerRe.FindStringSubmatch(m)[1]
@@ -143,8 +146,27 @@ func Fill(b Builtin, f Family, given map[string]string) (string, error) {
 		for i, item := range items {
 			items[i] = quote(item)
 		}
-		return strings.Join(items, " ")
+		return strings.Join(items, sep)
 	}), nil
+}
+
+// checkFamily checks val, each value of a list, against v's pattern for
+// family f, when it has one.
+func checkFamily(v Var, f Family, val string) error {
+	p := v.Families[f]
+	if p == nil || val == "" {
+		return nil
+	}
+	items := []string{val}
+	if v.List {
+		items = strings.Split(val, ",")
+	}
+	for _, item := range items {
+		if !p.MatchString(item) {
+			return out.Usage("the value of %s does not match %s, which the %s text takes", v.Name, p, f)
+		}
+	}
+	return nil
 }
 
 // Unsupported is the error for a family (or provider) the snippet has no
