@@ -46,7 +46,7 @@ func TestNewRefusesBadDefinitions(t *testing.T) {
 		{"shape major zero", func(b *Builtin) { b.Shape = "svc-status/0" }, "shape"},
 		{"no replaced command", func(b *Builtin) { b.Replaces = "" }, "replaces"},
 		{"no reader", func(b *Builtin) { b.Reader = "" }, "reader"},
-		{"text and run", func(b *Builtin) { b.Run = func(context.Context, Values) (any, error) { return nil, nil } }, "both"},
+		{"text and run", func(b *Builtin) { b.Run = func(context.Context, Client, Values) (any, error) { return nil, nil } }, "both"},
 		{"neither text nor run", func(b *Builtin) { b.Text, b.Parse = nil, nil }, "neither"},
 		{"text without parser", func(b *Builtin) { b.Parse = nil }, "parse"},
 		{"unknown family", func(b *Builtin) { b.Text["plan9"] = "ls" }, "family"},
@@ -91,7 +91,7 @@ func TestNewRefusesBadDefinitions(t *testing.T) {
 		{"max count without a list", func(b *Builtin) { v := unitVar; v.MaxItems = 3; b.Vars = []Var{v} }, "items"},
 		{"list on a client channel", func(b *Builtin) {
 			b.Text, b.Parse = nil, nil
-			b.Run = func(context.Context, Values) (any, error) { return nil, nil }
+			b.Run = func(context.Context, Client, Values) (any, error) { return nil, nil }
 			b.Vars = []Var{{Name: "unit", Channel: SQLIdent, Pattern: unitVar.Pattern, MaxLen: 8, Longest: "nginx-ab", List: true, MaxItems: 2}}
 		}, "list"},
 		{"list default off pattern", func(b *Builtin) {
@@ -116,14 +116,14 @@ func TestNewRefusesBadDefinitions(t *testing.T) {
 		}, "family"},
 		{"family pattern on a client channel", func(b *Builtin) {
 			b.Text, b.Parse = nil, nil
-			b.Run = func(context.Context, Values) (any, error) { return nil, nil }
+			b.Run = func(context.Context, Client, Values) (any, error) { return nil, nil }
 			b.Vars = []Var{{Name: "unit", Channel: SQLIdent, Pattern: unitVar.Pattern, MaxLen: 8, Longest: "nginx-ab",
 				Families: map[Family]*regexp.Regexp{Unix: unitVar.Pattern}}}
 		}, "family"},
 		{"sudo without a Unix text", func(b *Builtin) { b.Sudo = true; delete(b.Text, Unix) }, "sudo"},
 		{"sudo on a client call", func(b *Builtin) {
 			b.Sudo, b.Text, b.Parse = true, nil, nil
-			b.Run = func(context.Context, Values) (any, error) { return nil, nil }
+			b.Run = func(context.Context, Client, Values) (any, error) { return nil, nil }
 		}, "sudo"},
 	}
 	for _, c := range cases {
@@ -289,7 +289,7 @@ func TestCheckPerChannel(t *testing.T) {
 	mk := func(c Channel) Builtin {
 		return Builtin{Name: "db-schema", Type: "database", Replaces: "db schema", Reader: "r", Tier: capability.Read, Shape: "db-schema/1",
 			Vars: []Var{{Name: "v", Channel: c, Pattern: anyRe, MaxLen: 300, Longest: strings.Repeat("a", 300)}},
-			Run:  func(context.Context, Values) (any, error) { return nil, nil }}
+			Run:  func(context.Context, Client, Values) (any, error) { return nil, nil }}
 	}
 	// SQL and RESP values reach the client call unchanged: they are bind
 	// parameters and separate arguments there, never spliced into a line
@@ -565,5 +565,62 @@ func TestFillFamilyPattern(t *testing.T) {
 	b.Vars[0].Required, b.Vars[0].Default = false, "Web.1"
 	if got, err := Fill(b, Windows, map[string]string{}); code(err) != "USAGE" {
 		t.Errorf("Windows default %q, %v; want USAGE", got, err)
+	}
+}
+
+// clientSample is a valid client built-in with one SFTP path variable.
+func clientSample(run func(ctx context.Context, c Client, v Values) (any, error)) Builtin {
+	return Builtin{
+		Name: "fs-list", Type: "host", Replaces: "fs list", Reader: "KomandoCall.swift:252",
+		Tier: capability.Read, Shape: "fs-list/1",
+		Vars: []Var{{Name: "path", Channel: SFTPPath, Pattern: regexp.MustCompile(`^/[A-Za-z0-9/._-]*$`), MaxLen: 32, Longest: "/" + strings.Repeat("a", 31), Required: true}},
+		Run:  run,
+	}
+}
+
+// TestRunClientChecksBeforeItRuns: the only way to reach a client built-in's
+// Run is RunClient, which checks every variable first, hands Run the cleaned
+// values and the client it was given, and refuses a text built-in.
+func TestRunClientChecksBeforeItRuns(t *testing.T) {
+	type conn struct{ name string }
+	called := 0
+	var got Values
+	var gotClient Client
+	b := clientSample(func(_ context.Context, c Client, v Values) (any, error) {
+		called++
+		got, gotClient = v, c
+		return map[string]string{"ok": "yes"}, nil
+	})
+	want := &conn{"web1"}
+	res, err := RunClient(context.Background(), b, want, map[string]string{"path": "/etc//nginx/../hosts"})
+	if err != nil || called != 1 {
+		t.Fatalf("a valid call: %v after %d runs", err, called)
+	}
+	if got["path"] != "/etc/hosts" {
+		t.Errorf("the path reached Run as %q, want it cleaned: /etc/hosts", got["path"])
+	}
+	if gotClient != Client(want) {
+		t.Errorf("Run got client %v, want the one RunClient was given", gotClient)
+	}
+	if m, ok := res.(map[string]string); !ok || m["ok"] != "yes" {
+		t.Errorf("result %v, want Run's", res)
+	}
+	for _, tc := range []struct {
+		name  string
+		given map[string]string
+		want  string
+	}{
+		{"a value that fails its pattern", map[string]string{"path": "/etc;rm"}, "USAGE"},
+		{"a value over the max length", map[string]string{"path": "/" + strings.Repeat("a", 32)}, "USAGE"},
+		{"a variable the snippet does not name", map[string]string{"path": "/a", "other": "x"}, "UNKNOWN_VAR"},
+		{"a missing required variable", map[string]string{}, "USAGE"},
+	} {
+		called = 0
+		if _, err := RunClient(context.Background(), b, want, tc.given); code(err) != tc.want || called != 0 {
+			t.Errorf("%s: code %q after %d runs, want %q and Run never called", tc.name, code(err), called, tc.want)
+		}
+	}
+	if _, err := RunClient(context.Background(), sample(), want, map[string]string{"unit": "nginx"}); err == nil {
+		t.Error("RunClient ran a text built-in; it has no client call")
 	}
 }

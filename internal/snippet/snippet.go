@@ -70,6 +70,13 @@ type Output struct {
 // Values are a snippet's variables after Check, for a client call.
 type Values map[string]string
 
+// Client is the open connection a client snippet works on: the command
+// layer opens it for the entry's type (an SFTP session for a host, a
+// read-only database, a cache store, a Kubernetes client), hands it to Run
+// and closes it after. The engine only carries it; a type's built-ins read
+// it as that type's own value, so the engine imports no transport.
+type Client any
+
 // Builtin is one ready-made snippet. A text snippet has Text and Parse; a
 // client snippet (SFTP, SQL, cache, Kubernetes API) has Run. Never both.
 type Builtin struct {
@@ -86,7 +93,7 @@ type Builtin struct {
 	Sudo  bool
 	Text  map[Family]string
 	Parse func(o Output, f Family) (any, error)
-	Run   func(ctx context.Context, v Values) (any, error)
+	Run   func(ctx context.Context, c Client, v Values) (any, error)
 }
 
 // types are the entry types a built-in may run against.
@@ -267,6 +274,21 @@ func validText(text string, vars map[string]Var) error {
 		}
 	}
 	return nil
+}
+
+// RunClient runs a client snippet's call with c, the open client of its
+// entry. It is the only way to reach Run: every variable is checked first
+// (Check), so Run gets cleaned values and never a name or value the snippet
+// did not declare. A text built-in has no client call and is refused.
+func RunClient(ctx context.Context, b Builtin, c Client, given map[string]string) (any, error) {
+	if b.Run == nil {
+		return nil, fmt.Errorf("snippet %s is a text built-in: it has no client call", b.Name)
+	}
+	v, err := Check(b, given)
+	if err != nil {
+		return nil, err
+	}
+	return b.Run(ctx, c, v)
 }
 
 // Mutating reports whether the snippet changes something: the guard then
