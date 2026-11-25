@@ -1,0 +1,1 @@
+{"ok":true,"command":"cache.keys","data":{"conn":"m","pattern":"*","keys":["s:1","s:2"],"count":2,"more":false,"items":[{"key":"s:1","type":"string","ttl_seconds":30},{"key":"s:2","type":"string","ttl_seconds":-1}]}}

@@ -1,0 +1,24 @@
+Id=nginx.service
+Description=A high performance web server and a reverse proxy server
+LoadState=loaded
+ActiveState=active
+SubState=running
+UnitFileState=enabled
+MainPID=812
+ActiveEnterTimestamp=Mon 2026-11-02 08:00:01 UTC
+NRestarts=2
+MemoryCurrent=52428800
+Result=success
+ExecMainStatus=0
+
+Id=postfix.service
+Description=Postfix Mail Transport Agent
+LoadState=loaded
+ActiveState=failed
+SubState=failed
+UnitFileState=enabled
+MainPID=0
+NRestarts=5
+MemoryCurrent=[not set]
+Result=exit-code
+ExecMainStatus=1
