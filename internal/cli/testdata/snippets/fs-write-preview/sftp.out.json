@@ -1,0 +1,1 @@
+{"ok":true,"command":"fs.write","data":{"append":false,"bytes":20,"diff":"@@ -1,2 +1,2 @@\n-PORT=8080\n+PORT=9090\n MODE=prod\n","host":"dev","path":"/srv/app/env.conf","sudo":false,"would_change":true}}

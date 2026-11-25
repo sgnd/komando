@@ -55,7 +55,7 @@ var gateNoNetwork = map[string]func(c *cobra.Command) string{
 	"job": nil, "job.list": nil, "job.logs": nil, "job.status": nil, "job.wait": nil,
 	"key": nil, "key.list": nil, "key.show": nil,
 	"pkg": nil, "pkg.installed": nil, "pkg.security": nil, "pkg.upgradable": nil,
-	"policy": nil, "policy.check": nil, "policy.list": nil,
+	"policy": nil, "policy.check": nil, "policy.list": nil, "policy.show": nil,
 	"recipe": nil, "recipe.list": nil,
 	"registry": nil, "registry.inspect": nil, "registry.list": nil,
 	"secret": nil, "secret.list": nil, "secret.show": nil,

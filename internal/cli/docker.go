@@ -313,7 +313,8 @@ func guardDocker(cl *call, target string, args []string) (mutating bool, err err
 		return true, err
 	}
 	// the destructive-command policy sees the words as typed
-	if hits := policy.Check("docker "+strings.Join(args, " "), st.Settings.ExtraDenyPattern); len(hits) > 0 {
+	on, _ := resolveTargets(cl, st, target) // an unknown target fails later, with its own error
+	if hits := withoutRulesOff(st, on, policy.Check("docker "+strings.Join(args, " "), st.Settings.ExtraDenyPattern)); len(hits) > 0 {
 		risk = driver.RiskDestructive
 	}
 	fileWhy := ""

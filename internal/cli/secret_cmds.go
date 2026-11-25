@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/cli/kit/term"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -35,7 +36,7 @@ noticed. At the terminal, paste or type the value after the prompt appears.`,
 		Example: "  komando secret set web1-pass          # type or paste it after the prompt, nothing is shown\n  komando secret set db-pass --from-env DB_PASS\n  pbpaste | komando secret set vpn-pass\n  komando secret set api-token --new --from-env TOKEN   # never replaces one",
 		Args:    cobra.RangeArgs(1, 2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			if err := validName("secret", args[0]); err != nil {
+			if err := inventory.ValidName("secret", args[0]); err != nil {
 				return err
 			}
 			if err := reservedSecret(args[0]); err != nil {

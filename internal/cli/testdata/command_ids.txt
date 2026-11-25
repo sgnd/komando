@@ -183,8 +183,10 @@ pkg.upgrade
 policy
 policy.check
 policy.deny
+policy.edit
 policy.list
 policy.rm
+policy.show
 queue
 queue.add
 queue.create

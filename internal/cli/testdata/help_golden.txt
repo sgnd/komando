@@ -6165,8 +6165,10 @@ Examples:
 Available Commands:
   check       Check whether a command would be blocked
   deny        Add a deny rule (a Go regular expression)
+  edit        Switch a rule off or on, everywhere or on some servers
   list        List the built-in rules and your deny rules
   rm          Remove a deny rule you added (from komando only)
+  show        Show one rule: what it stops and where it is off
 
 Flags:
   -h, --help[=true|false]   help for policy
@@ -6236,6 +6238,50 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
+### komando policy edit --help
+exit 0
+--- stdout
+--off switches a rule off, so it no longer stops a command. With
+--add-server or --add-group it is off only on those servers (a group as its
+servers are now): a command that also runs on another server is still
+stopped. Switching a rule off weakens a safety check, so komando asks first:
+an AI agent's request opens the approval window on your screen, and for a
+rule that keeps the others working (check-failed, decode-run, rm-root, mkfs,
+sshd-stop, ...) you type the rule's name at a terminal, with --yes too, and
+an AI agent's request for one is refused. The audit log keeps every switch,
+and `komando doctor` names every rule that is off. --off=false switches it
+on again everywhere; --rm-server and --rm-group switch it on again on those
+servers only.
+
+Safety: a change; try it with --dry-run first; unless it only switches the
+rule on: it weakens a safety check: a person's yes (--yes).
+
+Usage:
+  komando policy edit RULE [flags]
+
+Examples:
+  komando policy edit docker-prune --off --add-server build1
+  komando policy edit docker-prune --off --add-server build1 --dry-run
+  komando policy edit pkg-remove-essential --off --add-group lab
+  komando policy edit docker-prune --rm-server build1
+  komando policy edit docker-prune --off=false
+
+Flags:
+      --add-group strings    with --off: only on the servers in these groups as they are now
+      --add-server strings   with --off: only on these servers
+  -h, --help[=true|false]    help for edit
+      --off[=true|false]     switch the rule off; --off=false switches it on again everywhere
+      --rm-group strings     switch the rule on again on the servers these groups named
+      --rm-server strings    switch the rule on again on these servers
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
 ### komando policy list --help
 exit 0
 --- stdout
@@ -6286,6 +6332,29 @@ Examples:
 
 Flags:
   -h, --help[=true|false]   help for rm
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando policy show --help
+exit 0
+--- stdout
+Show one rule: what it stops and where it is off
+
+Usage:
+  komando policy show RULE [flags]
+
+Examples:
+  komando policy show docker-prune
+  komando policy show rm-root -o json
+
+Flags:
+  -h, --help[=true|false]   help for show
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing

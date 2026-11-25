@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -40,13 +41,13 @@ func hostsInUse(s *store.State, names []string, batch map[string]bool) error {
 	var users, fixes []string
 	for _, n := range names {
 		for _, o := range s.SortedHosts() {
-			if !batch[o.Name] && slices.Contains(viaChain(o.Via), n) {
+			if !batch[o.Name] && slices.Contains(inventory.ViaChain(o.Via), n) {
 				users = append(users, "server "+o.Name+viaNote(names, n))
 				fixes = append(fixes, "`komando host edit "+o.Name+" --unset via`")
 			}
 		}
 		for _, c := range s.SortedConns() {
-			if slices.Contains(viaChain(c.Via), n) {
+			if slices.Contains(inventory.ViaChain(c.Via), n) {
 				users = append(users, "conn "+c.Name+viaNote(names, n))
 				fixes = append(fixes, "`komando conn edit "+c.Name+" --unset via`")
 			}

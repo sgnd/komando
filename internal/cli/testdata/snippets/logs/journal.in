@@ -1,0 +1,3 @@
+2026-11-02T08:00:01+0000 web1 nginx[812]: start worker processes
+2026-11-02T08:00:05+0000 web1 nginx[812]: connect() failed (111: Connection refused) while connecting to upstream
+2026-11-02T08:01:10+0000 web1 nginx[812]: signal process started
