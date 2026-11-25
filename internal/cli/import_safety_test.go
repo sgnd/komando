@@ -140,3 +140,33 @@ func TestImportDryRunRecordsTheProxyCommandStop(t *testing.T) {
 		})
 	}
 }
+
+// The real import leaves such a server out and goes on with the rest; a
+// script's import of a plain proxy command needs no flag, so its preview
+// shows no stop.
+func TestImportLeavesOutAProxyCommandServer(t *testing.T) {
+	invHome(t)
+	f := filepath.Join(t.TempDir(), "ssh_config")
+	if err := os.WriteFile(f, []byte("Host imp\n  HostName 10.0.0.7\n  ProxyCommand nc %h %p\nHost plain\n  HostName 10.0.0.8\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	setCallerEnv(t, "CLAUDECODE", "1")
+	if _, e := invRun(t, "import", "ssh-config", f); e != nil && e.Exit == 6 {
+		t.Fatalf("the real import stopped: %+v", e)
+	}
+	st, err := store.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Hosts["plain"] == nil || st.Hosts["imp"] != nil {
+		t.Fatalf("imported %v", st.Hosts)
+	}
+	os.Unsetenv("CLAUDECODE")
+	resetApproval()
+	invHome(t)
+	d, _ := invRun(t, "import", "ssh-config", f, "--dry-run")
+	tcl.flags.dryRun = false
+	if blockedCode(d) != "" {
+		t.Fatalf("a script's preview: %v", d)
+	}
+}

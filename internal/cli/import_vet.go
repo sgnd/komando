@@ -90,9 +90,7 @@ func vetImportHosts(cl *call, s *store.State, hosts []*store.Host, overwrite, ow
 		}
 		if e := proxyCommandSkip(cl, h.ProxyCommand); e != nil {
 			v.Invalid = append(v.Invalid, importSkip{h.Name, e.Message})
-			if cl.flags.dryRun { // the preview records the stop the real import leaves it out for
-				_ = cl.policyStop(e)
-			}
+			_ = cl.policyStop(e) // a dry run records the stop the real import leaves it out for
 			continue
 		}
 		if err := guardProxyCommand(cl, h.ProxyCommand, h.Name); err != nil {
