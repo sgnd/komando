@@ -242,7 +242,7 @@ func TestRemoveExit(t *testing.T) {
 		code    string
 		outExit int
 	}{
-		{ExitNotRunning, "SESSION_RUNNING", out.ExitConflict},
+		{ExitNotRunning, "SESSION_BUSY", out.ExitConflict},
 		{ExitGone, "SESSION_FOLDER_MISSING", out.ExitNotFound},
 		{ExitUnsafe, "SESSION_FOLDER_DENIED", out.ExitRemote},
 	} {

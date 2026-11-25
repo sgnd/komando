@@ -131,14 +131,14 @@ func Swept(stdout, id string) []string {
 }
 
 // RemoveExit is the error for a remove's exit code: nil for 0.
-// ExitNotRunning is SESSION_RUNNING (stop it first); a folder that is not
+// ExitNotRunning is SESSION_BUSY (stop it first); a folder that is not
 // there or not safe is the same error as for a read.
 func RemoveExit(host, id string, exit int) error {
 	switch exit {
 	case 0:
 		return nil
 	case ExitNotRunning:
-		return out.Errf(out.ExitConflict, "SESSION_RUNNING",
+		return out.Errf(out.ExitConflict, "SESSION_BUSY",
 			"stop it first with `komando exec TARGET --attach ID --stop`, then remove it once it has ended",
 			"session %s on %s is still running", id, host)
 	case ExitGone, ExitUnsafe:

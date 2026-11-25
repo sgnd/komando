@@ -290,7 +290,7 @@ func TestExecSessionRemoveExits(t *testing.T) {
 	for _, tc := range []struct {
 		code int
 		want string
-	}{{92, "SESSION_RUNNING"}, {95, "SESSION_FOLDER_MISSING"}, {90, "SESSION_FOLDER_DENIED"}} {
+	}{{92, "SESSION_BUSY"}, {95, "SESSION_FOLDER_MISSING"}, {90, "SESSION_FOLDER_DENIED"}} {
 		t.Run(tc.want, func(t *testing.T) {
 			stopServer(t, tc.code)
 			putRecord(t, attachID, "alice", false)
