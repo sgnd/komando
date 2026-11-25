@@ -82,12 +82,15 @@ func TestClaudeGuardChecksTheProgram(t *testing.T) {
 		os.WriteFile(p, []byte(`{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":`+string(c)+`}]}]}}`), 0o600)
 	}
 	self, _ := os.Executable()
-	write("/nonexistent/komando guide guard")
-	if found, problem := claudeGuard(p); !found || !strings.Contains(problem, "/nonexistent/komando does not exist") {
+	gone := filepath.Join(dir, "nonexistent", "komando")
+	write(shellQuote(gone) + " guide guard")
+	if found, problem := claudeGuard(p); !found || !strings.Contains(problem, gone+" does not exist") {
 		t.Errorf("missing program: %v %q", found, problem)
 	}
+	// on Windows the hook keeps the old line (no /bin/sh), and doctor does
+	// not call it old
 	write(shellQuote(self) + " guide guard")
-	if found, problem := claudeGuard(p); !found || !strings.Contains(problem, "old hook line") {
+	if found, problem := claudeGuard(p); !found || hookOS != "windows" && !strings.Contains(problem, "old hook line") || hookOS == "windows" && problem != "" {
 		t.Errorf("this program, old line: %v %q", found, problem)
 	}
 	write(guardHookLine(self, "claude"))

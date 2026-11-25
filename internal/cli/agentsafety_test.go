@@ -816,7 +816,7 @@ func TestGuardRefusesChangesToItself(t *testing.T) {
 		in   map[string]any
 	}{
 		{"Bash", map[string]any{"command": `rm "$(command -v komando)"`}},
-		{"Bash", map[string]any{"command": "rm -f " + self}},
+		{"Bash", map[string]any{"command": "rm -f " + filepath.ToSlash(self)}}, // a shell line writes / on Windows too
 		{"Bash", map[string]any{"command": "mv ~/.claude/settings.json /tmp/x"}},
 		{"Bash", map[string]any{"command": "echo '{}' > ~/.cursor/hooks.json"}},
 		{"Bash", map[string]any{"command": "rm -rf ~/.claude"}},
@@ -825,7 +825,7 @@ func TestGuardRefusesChangesToItself(t *testing.T) {
 		{"Edit", map[string]any{"file_path": home + "/.claude/settings.local.json"}},
 		{"Bash", map[string]any{"command": "cp /tmp/x ~/bin/komando"}},
 		{"Bash", map[string]any{"command": "ln -s /tmp/x ~/bin/Komando"}},
-		{"Bash", map[string]any{"command": "mv /tmp/x " + home + "/bin/komando"}},
+		{"Bash", map[string]any{"command": "mv /tmp/x " + filepath.ToSlash(home) + "/bin/komando"}},
 		{"Write", map[string]any{"file_path": home + "/bin/komando"}},
 		{"Bash", map[string]any{"command": "cp /tmp/x ~/bin/KOMANDO.EXE"}},
 		{"Write", map[string]any{"file_path": home + "/bin/komando.exe"}},
@@ -940,8 +940,8 @@ func TestGuardKomandoFolderException(t *testing.T) {
 	}
 	for _, line := range []string{
 		"rm -r ~/bin/komando; cp /bin/true ~/bin/komando",
-		"ln -sfn /bin/true " + filepath.Join(link, "komando"),
-		"rm " + filepath.Join(link, "komando") + " && cp /bin/true " + filepath.Join(link, "komando"),
+		"ln -sfn /bin/true " + filepath.ToSlash(filepath.Join(link, "komando")),
+		"rm " + filepath.ToSlash(filepath.Join(link, "komando")) + " && cp /bin/true " + filepath.ToSlash(filepath.Join(link, "komando")),
 	} {
 		if d := checkTool(tcl, "Bash", map[string]any{"command": line}, home, repo); !d.Deny {
 			t.Errorf("%s: want a refusal", line)
@@ -957,7 +957,7 @@ func TestGuardKomandoFolderException(t *testing.T) {
 	if err := os.WriteFile(file, []byte("#!/bin/sh\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if d := checkTool(tcl, "Bash", map[string]any{"command": "chmod 755 " + file}, home, home); !d.Deny {
+	if d := checkTool(tcl, "Bash", map[string]any{"command": "chmod 755 " + filepath.ToSlash(file)}, home, home); !d.Deny {
 		t.Error("chmod of an existing file named komando: want a refusal")
 	}
 }
