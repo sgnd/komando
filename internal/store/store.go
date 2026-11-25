@@ -229,7 +229,9 @@ type ExecSession struct {
 	Command   string    `json:"command"` // as shown, never the filled command
 	PID       int       `json:"pid"`
 	PGID      int       `json:"pgid"`
-	ProcStart string    `json:"proc_start"` // the process's start as the server gave it (execsession.ParseFacts)
+	ProcStart string    `json:"proc_start"`        // the process's start as the server gave it (execsession.ParseFacts)
+	Image     string    `json:"image,omitempty"`   // Windows: the process's image, checked again by a stop
+	CmdLine   string    `json:"cmdline,omitempty"` // Windows: its command line, checked again by a stop
 	StartedAt time.Time `json:"started_at"`
 	Sudo      bool      `json:"sudo,omitempty"`
 	SudoUser  string    `json:"sudo_user,omitempty"` // empty with Sudo: root

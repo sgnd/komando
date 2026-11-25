@@ -13,7 +13,11 @@ import (
 type Facts struct {
 	PID   int
 	PGID  int
-	Start string // "proc TICKS" (Linux, /proc/PID/stat field 22) or "ps LSTART"
+	Start string // "proc TICKS" (Linux, /proc/PID/stat field 22), "ps LSTART", or "cim CREATED" (Windows, RFC 3339)
+
+	// Windows only: the image and the command line, checked again by a
+	// stop with the start (A-C324-8)
+	Image, CmdLine string
 }
 
 // FactsScript defines two shell functions:

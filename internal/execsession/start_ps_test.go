@@ -83,6 +83,7 @@ var psDotNet = regexp.MustCompile(`\[[A-Za-z][A-Za-z0-9_.]*\](::[A-Za-z0-9_.]+)?
 // all (W10), so the session adds none beyond them. The rest are casts
 // Constrained Language Mode allows.
 var psAllowed = []string{"[Console]::In.ReadLine", "[Convert]::FromBase64String", "[Text.Encoding]::UTF8.GetString",
+	"[Text.Encoding]::UTF8", "[Text.Encoding]::UTF8.GetByteCount",
 	"[string]", "[int]", "[int64]", "[datetime]"}
 
 // psBanned are the ways to more .NET or new code that Constrained
@@ -137,10 +138,10 @@ func TestStartScriptPSValuesAsData(t *testing.T) {
 		t.Error("the script does not set the ID and the cap")
 	}
 	lines := strings.Split(strings.TrimSuffix(string(input), "\n"), "\n")
-	if len(lines) != 3 {
-		t.Fatalf("%d input lines, want cmd.ps1, env and in", len(lines))
+	if len(lines) != 4 {
+		t.Fatalf("%d input lines, want cmd.ps1, env, in and run.ps1", len(lines))
 	}
-	want := [][]byte{CmdPS(s.Command, true), mustEnvFile(t, s.Env), s.Stdin}
+	want := [][]byte{CmdPS(s.Command, true), mustEnvFile(t, s.Env), s.Stdin, RunPS(s.LogMax, 0)}
 	for i, l := range lines {
 		b, err := base64.StdEncoding.DecodeString(l)
 		if err != nil || string(b) != string(want[i]) {
@@ -150,7 +151,7 @@ func TestStartScriptPSValuesAsData(t *testing.T) {
 	// without env or input, only cmd.ps1 is sent and only it is written
 	s.Env, s.Stdin = nil, nil
 	script, input, _ = StartScriptPS(s)
-	if strings.Count(string(input), "\n") != 1 || strings.Contains(script, "'env'") || strings.Contains(script, "'in'") {
+	if strings.Count(string(input), "\n") != 2 || strings.Contains(script, "'env'") || strings.Contains(script, "'in'") {
 		t.Errorf("a start without env or input sends %q and writes env or in", input)
 	}
 }
@@ -203,7 +204,7 @@ func TestStartScriptPSOrder(t *testing.T) {
 		}
 		return i
 	}
-	steps := []string{"Get-PSDrive", "ks_dir $ks_r", "ks_dir $ks_s", "New-Item -ItemType Directory -Path $ks_d", "ks_own $ks_d 96", "icacls.exe $ks_d /inheritance:r", "ks_aclExact (Get-Acl", "Get-ChildItem -LiteralPath $ks_d", "ks_put 'cmd.ps1'", "ks_put 'env'", "ks_put 'in'", "'started'", "'out.log'", "prepared "}
+	steps := []string{"Get-PSDrive", "ks_dir $ks_r", "ks_dir $ks_s", "New-Item -ItemType Directory -Path $ks_d", "ks_own $ks_d 96", "icacls.exe $ks_d /inheritance:r", "ks_aclExact (Get-Acl", "Get-ChildItem -LiteralPath $ks_d", "ks_put 'cmd.ps1'", "ks_put 'env'", "ks_put 'in'", "'started'", "'out.log'", "Invoke-CimMethod", "'facts-end '"}
 	for i := 1; i < len(steps); i++ {
 		if at(steps[i-1]) > at(steps[i]) {
 			t.Errorf("%q comes after %q", steps[i-1], steps[i])
@@ -260,7 +261,7 @@ func TestStartScriptPSGolden(t *testing.T) {
 // PowerShell names its language mode or a policy block, never a run
 // without a session.
 func TestReadStartPS(t *testing.T) {
-	ok := "prepared " + testID + "\n"
+	ok := psFacts("4242", "2026-11-25T10:00:00Z", "powershell.exe", goodCmdline)
 	cases := []struct {
 		name   string
 		exit   int
@@ -280,13 +281,13 @@ func TestReadStartPS(t *testing.T) {
 		{name: "failed", exit: ExitStartFailed, stdout: "failed ItemExistsException boom\n", code: "SESSION_START_FAILED"},
 		{name: "bootstrap in CLM", exit: 1, stderr: "Cannot invoke method. Method invocation is supported only on core types in this language mode.", code: "SESSION_START_DENIED"},
 		{name: "bootstrap AppLocker", exit: 1, stderr: "This program is blocked by group policy.", code: "SESSION_START_DENIED"},
-		{name: "exit 0 without the marker", exit: 0, stdout: "prepared other\n", code: "SESSION_START_FAILED"},
+		{name: "exit 0 without the facts", exit: 0, stdout: "facts-begin other\n", code: "SESSION_START_FAILED"},
 		{name: "other exit", exit: 3, code: "SESSION_START_FAILED"},
 		{name: "language words with a script exit", exit: ExitNoFolder, stderr: "language mode", noDir: true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			err := ReadStartPS("web1", c.exit, c.stdout, c.stderr, testID)
+			_, err := ReadStartPS("web1", c.exit, c.stdout, c.stderr, testID)
 			var e *out.Error
 			switch {
 			case c.noDir:
@@ -308,7 +309,7 @@ func TestReadStartPS(t *testing.T) {
 
 // The reason of a failed start is shown, one line, at most 200 bytes.
 func TestReadStartPSReason(t *testing.T) {
-	err := ReadStartPS("web1", ExitStartFailed, "failed "+strings.Repeat("y", 500)+"\n", "", testID)
+	_, err := ReadStartPS("web1", ExitStartFailed, "failed "+strings.Repeat("y", 500)+"\n", "", testID)
 	if err == nil || !strings.Contains(err.Error(), "start (yyy") || len(err.Error()) > 320 {
 		t.Errorf("got %v", err)
 	}

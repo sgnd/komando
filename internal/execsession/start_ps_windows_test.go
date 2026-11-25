@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 )
 
 // These tests replay the Windows start script in Windows PowerShell 5.1
@@ -78,11 +79,11 @@ func TestStartScriptPSOnWindows(t *testing.T) {
 	base := t.TempDir()
 	s := psStart()
 	got, code := runStartPS(t, base, s)
-	if code != 0 || !strings.Contains(got, "prepared "+testID) {
+	if code != 0 {
 		t.Fatalf("exit %d: %s", code, got)
 	}
-	if err := ReadStartPS("web1", code, got, "", testID); err != nil {
-		t.Fatal(err)
+	if _, err := ReadStartPS("web1", code, got, "", testID); err != nil {
+		t.Fatalf("%v: %s", err, got)
 	}
 	d := sessionDirPS(base)
 	sid := loginSID(t)
@@ -95,7 +96,8 @@ func TestStartScriptPSOnWindows(t *testing.T) {
 	if !strings.HasPrefix(sd, "O:"+sid) || !strings.HasPrefix(dacl, "D:P") || strings.Join(aces, "") != strings.Join(want, "") {
 		t.Errorf("the session folder's security is %s, want owner %s, protected, entries %v", sd, sid, want)
 	}
-	files := map[string][]byte{"cmd.ps1": CmdPS(s.Command, true), "env": mustEnvFile(t, s.Env), "in": s.Stdin, "out.log": {}}
+	waitFilePS(t, d, "exit")
+	files := map[string][]byte{"cmd.ps1": CmdPS(s.Command, true), "run.ps1": RunPS(s.LogMax, 0), "exit": []byte("0")}
 	for name, w := range files {
 		b, err := os.ReadFile(filepath.Join(d, name))
 		if err != nil || !bytes.Equal(b, w) {
@@ -104,6 +106,100 @@ func TestStartScriptPSOnWindows(t *testing.T) {
 	}
 	if b, _ := os.ReadFile(filepath.Join(d, "started")); !regexp.MustCompile(`^[0-9]{10}$`).Match(b) {
 		t.Errorf("started %q", b)
+	}
+	if o := readLogPS(t, d); o != "zqcmd\n" {
+		t.Errorf("out.log %q", o)
+	}
+	for _, gone := range []string{"env", "in", ".go", "exit.tmp"} {
+		if _, err := os.Stat(filepath.Join(d, gone)); !os.IsNotExist(err) {
+			t.Errorf("%s is still there", gone)
+		}
+	}
+}
+
+// waitFilePS waits up to 30 s for the session's file name.
+func waitFilePS(t *testing.T, d, name string) string {
+	t.Helper()
+	for range 300 {
+		if b, err := os.ReadFile(filepath.Join(d, name)); err == nil {
+			return string(b)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	t.Fatalf("no %s after 30 s", name)
+	return ""
+}
+
+// readLogPS is out.log as text: without the byte order mark Windows
+// PowerShell 5.1 writes, with LF line ends.
+func readLogPS(t *testing.T, d string) string {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join(d, "out.log"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return strings.ReplaceAll(strings.TrimPrefix(string(b), bom), "\r\n", "\n")
+}
+
+// The run gets its input byte for byte, and its errors land in out.log
+// with its output; its exit code is the command's.
+func TestRunPSInputAndExitOnWindows(t *testing.T) {
+	base := t.TempDir()
+	s := psStart()
+	s.Env = nil
+	s.Stdin = []byte("abc\r\ndef\n")
+	s.Command = "$x = [Console]::In.ReadToEnd(); Write-Output ('len=' + $x.Length); Write-Error 'boom'; exit 3"
+	if got, code := runStartPS(t, base, s); code != 0 {
+		t.Fatalf("exit %d: %s", code, got)
+	}
+	d := sessionDirPS(base)
+	if e := waitFilePS(t, d, "exit"); e != "3" {
+		t.Errorf("exit %q", e)
+	}
+	if o := readLogPS(t, d); !strings.HasPrefix(o, "len=10\n") || !strings.Contains(o, "boom") {
+		t.Errorf("out.log %q", o)
+	}
+}
+
+// A run past its timeout is ended by the watcher: killed says why, and
+// no exit code is written.
+func TestRunPSTimeoutOnWindows(t *testing.T) {
+	base := t.TempDir()
+	s := psStart()
+	s.Env, s.Stdin, s.Timeout = nil, nil, 2*time.Second
+	s.Command = "Start-Sleep -Seconds 60"
+	if got, code := runStartPS(t, base, s); code != 0 {
+		t.Fatalf("exit %d: %s", code, got)
+	}
+	d := sessionDirPS(base)
+	if k := waitFilePS(t, d, "killed"); !strings.HasPrefix(k, "TERM timeout") {
+		t.Errorf("killed %q", k)
+	}
+	time.Sleep(3 * time.Second)
+	if _, err := os.Stat(filepath.Join(d, "exit")); !os.IsNotExist(err) {
+		t.Error("a stopped run wrote exit")
+	}
+}
+
+// Past the cap, lines are dropped and counted in truncated; the run
+// goes on to its end.
+func TestRunPSCapOnWindows(t *testing.T) {
+	base := t.TempDir()
+	s := psStart()
+	s.Env, s.Stdin, s.LogMax = nil, nil, 10
+	s.Command = "Write-Output 'abc'; Write-Output 'defg'; Write-Output 'x'"
+	if got, code := runStartPS(t, base, s); code != 0 {
+		t.Fatalf("exit %d: %s", code, got)
+	}
+	d := sessionDirPS(base)
+	if e := waitFilePS(t, d, "exit"); e != "0" {
+		t.Errorf("exit %q", e)
+	}
+	if o := readLogPS(t, d); o != "abc\n" {
+		t.Errorf("out.log %q", o)
+	}
+	if tr := waitFilePS(t, d, "truncated"); tr != "9" {
+		t.Errorf("truncated %q", tr)
 	}
 }
 
@@ -116,15 +212,14 @@ func TestCmdPSReadsEnvOnWindows(t *testing.T) {
 	if got, code := runStartPS(t, base, s); code != 0 {
 		t.Fatalf("exit %d: %s", code, got)
 	}
-	cmd := filepath.Join(sessionDirPS(base), "cmd.ps1")
-	o, err := exec.Command("powershell.exe", "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", cmd).CombinedOutput()
-	if err != nil {
-		t.Fatalf("%v: %s", err, o)
+	d := sessionDirPS(base)
+	if e := waitFilePS(t, d, "exit"); e != "0" {
+		t.Errorf("exit %q", e)
 	}
-	if got := strings.ReplaceAll(string(o), "\r", ""); got != "a=line1\nline2|p=s3cret='x'|env:False\n" {
-		t.Errorf("cmd.ps1 printed %q", got)
+	if got := readLogPS(t, d); got != "a=line1\nline2|p=s3cret='x'|env:False\n" {
+		t.Errorf("the run printed %q", got)
 	}
-	if _, err := os.Stat(filepath.Join(sessionDirPS(base), "env")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(d, "env")); !os.IsNotExist(err) {
 		t.Errorf("the env file is still there: %v", err)
 	}
 }

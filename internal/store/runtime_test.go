@@ -135,7 +135,7 @@ func TestExecSessionIsRuntime(t *testing.T) {
 	t.Cleanup(Close)
 	update(t, func(s *State) { s.Hosts["web"] = &Host{Name: "web"} })
 	inv, _ := os.ReadFile(filepath.Join(home, StoreFile))
-	want := ExecSession{ID: "abc", Host: "web", Command: "make", PID: 41, PGID: 41, ProcStart: "proc 9", Sudo: true, SudoUser: "app", Actor: "claude", Agent: true}
+	want := ExecSession{ID: "abc", Host: "web", Command: "make", PID: 41, PGID: 41, ProcStart: "proc 9", Image: "powershell.exe", CmdLine: `powershell.exe -File "C:\\x\\run.ps1"`, Sudo: true, SudoUser: "app", Actor: "claude", Agent: true}
 	if err := UpdateRuntime(Save(), func(s *State) error {
 		r := want
 		s.ExecSessions["abc"] = &r

@@ -4,7 +4,9 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 $ks_d = $null
 $ks_made = $false
+$ks_pid = $null
 function ks_fail([int]$code) {
+    if ($ks_pid) { $null = & taskkill.exe /PID $ks_pid /T /F }
     if ($ks_made) { Remove-Item -LiteralPath $ks_d -Recurse -Force -ErrorAction SilentlyContinue }
     exit $code
 }
@@ -134,10 +136,24 @@ try {
     ks_put 'cmd.ps1'
     ks_put 'env'
     ks_put 'in'
+    ks_put 'run.ps1'
     $ks_now = [int64](((Get-Date).ToUniversalTime()) - [datetime]'1970-01-01').TotalSeconds
     Set-Content -LiteralPath (Join-Path $ks_d 'started') -Value ([string]$ks_now) -Encoding ASCII -NoNewline
     $null = New-Item -ItemType File -Path (Join-Path $ks_d 'out.log')
-    Write-Output ('prepared ' + $ks_id)
+    $ks_run = Join-Path $ks_d 'run.ps1'
+    $ks_p = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = ('powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + $ks_run + '"'); CurrentDirectory = $ks_d }
+    if ($ks_p.ReturnValue -ne 0 -or -not $ks_p.ProcessId) { ks_fail 99 }
+    $ks_pid = [int]$ks_p.ProcessId
+    $ks_q = @(Get-CimInstance -ClassName Win32_Process -Filter ('ProcessId = ' + $ks_pid))
+    if ($ks_q.Count -ne 1) { ks_fail 99 }
+    Set-Content -LiteralPath (Join-Path $ks_d 'pid') -Value ([string]$ks_pid) -Encoding ASCII -NoNewline
+    Write-Output ('facts-begin ' + $ks_id)
+    Write-Output ('pid ' + $ks_pid)
+    Write-Output ('created ' + $ks_q[0].CreationDate.ToUniversalTime().ToString('o'))
+    Write-Output ('image ' + $ks_q[0].Name)
+    Write-Output ('cmdline ' + $ks_q[0].CommandLine)
+    Write-Output ('facts-end ' + $ks_id)
+    $null = New-Item -ItemType File -Path (Join-Path $ks_d '.go')
 } catch {
     $ks_e = ($_.FullyQualifiedErrorId + ' ' + $_.Exception.Message) -replace '[\r\n]+', ' '
     Write-Output ('failed ' + $ks_e)

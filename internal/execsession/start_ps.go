@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
@@ -24,10 +25,11 @@ const (
 // (design note 3.3).
 type StartPS struct {
 	ID      string
-	Command string   // the PowerShell text the run runs, as exec built it
-	Env     []EnvVar // values from the vault and --env
-	Stdin   []byte   // the run's input; nil: none
-	LogMax  int64    // out.log's cap in bytes
+	Command string        // the PowerShell text the run runs, as exec built it
+	Env     []EnvVar      // values from the vault and --env
+	Stdin   []byte        // the run's input; nil: none
+	LogMax  int64         // out.log's cap in bytes
+	Timeout time.Duration // the run is stopped after it; 0: no limit
 }
 
 // EnvVar is one environment variable of a run.
@@ -109,6 +111,10 @@ func StartScriptPS(s StartPS) (script string, input []byte, err error) {
 	if s.Stdin != nil {
 		put("in", s.Stdin)
 	}
+	put("run.ps1", RunPS(s.LogMax, s.Timeout))
+	if s.Timeout > 0 {
+		put("watch.ps1", WatchPS(s.Timeout))
+	}
 	script = "$ks_id = " + sshx.PSQ(s.ID) + "\n$ks_cap = " + strconv.FormatInt(s.LogMax, 10) + "\n" +
 		psStartHead + psStartFolders + "    " + strings.Join(files, "\n    ") + "\n" + psStartTail
 	return script, []byte(in.String()), nil
@@ -121,7 +127,9 @@ const psStartHead = `$ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 $ks_d = $null
 $ks_made = $false
+$ks_pid = $null
 function ks_fail([int]$code) {
+    if ($ks_pid) { $null = & taskkill.exe /PID $ks_pid /T /F }
     if ($ks_made) { Remove-Item -LiteralPath $ks_d -Recurse -Force -ErrorAction SilentlyContinue }
     exit $code
 }
@@ -269,8 +277,7 @@ const psStartFolders = `try {
 const psStartTail = `    $ks_now = [int64](((Get-Date).ToUniversalTime()) - [datetime]'1970-01-01').TotalSeconds
     Set-Content -LiteralPath (Join-Path $ks_d 'started') -Value ([string]$ks_now) -Encoding ASCII -NoNewline
     $null = New-Item -ItemType File -Path (Join-Path $ks_d 'out.log')
-    Write-Output ('prepared ' + $ks_id)
-} catch {
+` + psLaunch + `} catch {
     $ks_e = ($_.FullyQualifiedErrorId + ' ' + $_.Exception.Message) -replace '[\r\n]+', ' '
     Write-Output ('failed ' + $ks_e)
     if ($ks_e -match 'ConstrainedLanguage|language mode|AppLocker|group policy') { ks_fail 97 }
@@ -287,12 +294,16 @@ var psBlocked = regexp.MustCompile(`(?i)ConstrainedLanguage|language mode|AppLoc
 // exec may run the command without a session; a blocked start, also one
 // blocked before the script ran (the bootstrap under Constrained Language
 // Mode), is SESSION_START_DENIED and never falls back.
-func ReadStartPS(host string, exit int, stdout, stderr, id string) error {
+func ReadStartPS(host string, exit int, stdout, stderr, id string) (Facts, error) {
+	if exit == 0 {
+		f, err := ParseFactsPS(stdout, id)
+		if err != nil {
+			return Facts{}, startFailedPS(host, err.Error())
+		}
+		return f, nil
+	}
 	reason := ""
 	for _, line := range strings.Split(strings.ReplaceAll(stdout, "\r", ""), "\n") {
-		if line == "prepared "+id && exit == 0 {
-			return nil
-		}
 		if r, ok := strings.CutPrefix(line, "failed "); ok {
 			reason = r
 		}
@@ -302,30 +313,30 @@ func ReadStartPS(host string, exit int, stdout, stderr, id string) error {
 	}
 	switch exit {
 	case ExitNoFolder:
-		return ErrNoFolder
+		return Facts{}, ErrNoFolder
 	case ExitUnsafe:
-		return out.Errf(out.ExitRemote, "SESSION_FOLDER_DENIED",
+		return Facts{}, out.Errf(out.ExitRemote, "SESSION_FOLDER_DENIED",
 			"look with `komando exec TARGET -- icacls $env:LOCALAPPDATA\\komando\\sessions`: each is to be a plain folder of the login user that only it, SYSTEM and Administrators can write",
 			"%s: %%LOCALAPPDATA%%\\komando or its sessions folder is a link or junction, a file, not the login user's, or others can write it", host)
 	case ExitNoSpace:
-		return out.Errf(out.ExitRemote, "SESSION_SPACE_DENIED",
+		return Facts{}, out.Errf(out.ExitRemote, "SESSION_SPACE_DENIED",
 			"free space on the drive of %LOCALAPPDATA%, or give a smaller log cap: `komando exec TARGET --log-max 100MiB -- COMMAND`",
 			"%s: the drive of %%LOCALAPPDATA%% has less free space than the log cap plus 5 percent of the disk; nothing ran", host)
 	case ExitACL:
-		return out.Errf(out.ExitRemote, "SESSION_ACL_FAILED",
+		return Facts{}, out.Errf(out.ExitRemote, "SESSION_ACL_FAILED",
 			"look with `komando exec TARGET -- icacls $env:LOCALAPPDATA\\komando\\sessions`: a policy may add entries to new folders there",
 			"%s: the session folder's access list could not be limited to the login user and SYSTEM; the folder is deleted and nothing ran", host)
 	case ExitDenied:
-		return startDenied(host)
+		return Facts{}, startDenied(host)
 	case ExitShortInput:
-		return startFailedPS(host, "the start got only part of its input")
+		return Facts{}, startFailedPS(host, "the start got only part of its input")
 	case ExitStartFailed:
-		return startFailedPS(host, reason)
+		return Facts{}, startFailedPS(host, reason)
 	}
 	if psBlocked.MatchString(stderr) {
-		return startDenied(host)
+		return Facts{}, startDenied(host)
 	}
-	return startFailedPS(host, "exit "+strconv.Itoa(exit))
+	return Facts{}, startFailedPS(host, "exit "+strconv.Itoa(exit))
 }
 
 func startDenied(host string) error {
