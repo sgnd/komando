@@ -105,7 +105,9 @@ func (sys *screenSys) wait(s *Screen, d time.Duration) (ready, resized bool, err
 		_, _ = sys.wakeR.Read(b)
 		return false, true, nil
 	}
-	if fds[0].Revents&(unix.POLLIN|unix.POLLHUP|unix.POLLERR) != 0 {
+	// POLLNVAL too: a terminal fd that is no longer open must end in a
+	// read error, not in a wait that returns at once for ever
+	if fds[0].Revents&(unix.POLLIN|unix.POLLHUP|unix.POLLERR|unix.POLLNVAL) != 0 {
 		return true, false, nil
 	}
 	return false, false, nil

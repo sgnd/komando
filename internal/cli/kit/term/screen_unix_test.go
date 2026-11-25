@@ -34,8 +34,11 @@ func TestScreenChild(t *testing.T) {
 	report, _ := os.OpenFile(os.Getenv("KOMANDO_SCREEN_REPORT"), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o600)
 	say := func(f string, a ...any) { fmt.Fprintf(report, f+"\n", a...) }
 	opt := ScreenOptions{MinWidth: 40, MinHeight: 10}
-	if mode == "idle" {
+	switch mode {
+	case "idle":
 		opt.Idle = 300 * time.Millisecond
+	case "open-too-small":
+		opt.MinWidth = 200 // the window is 80 wide
 	}
 	// the job does not really stop: the terminal as it is at the moment
 	// of the stop is reported, then the job goes on, as after fg
@@ -70,6 +73,11 @@ func readKeys(s *Screen, mode string, say func(string, ...any)) {
 			// could put it back
 			tm, terr := unix.IoctlGetTermios(int(os.Stdin.Fd()), ioctlGetTermios)
 			say("errtermios %+v %v", tm, terr)
+			// and the screen's own state, for a terminal that is gone and
+			// so has no mode left to read
+			s.mu.Lock()
+			say("errraw %v", s.raw)
+			s.mu.Unlock()
 		}
 		switch {
 		case errors.Is(err, ErrIdle):
@@ -125,8 +133,29 @@ type screenRun struct {
 	report string
 	before *unix.Termios
 	jobs   bool // the child has its own process group, and no controlling terminal
-	mu     sync.Mutex
-	screen bytes.Buffer
+	mu       sync.Mutex
+	screen   bytes.Buffer
+	quit     bool          // the reader of the screen stops after its next read
+	readDone chan struct{} // closed when the reader stopped
+}
+
+// closeTerminal closes the terminal's master side, as when its window is
+// closed. The reader stops first: os.File.Close holds back the real close
+// while a Read on the file is blocked.
+func (r *screenRun) closeTerminal() {
+	r.t.Helper()
+	r.mu.Lock()
+	r.quit = true
+	r.mu.Unlock()
+	_, _ = r.tty.Write([]byte{0}) // something to read, so the reader's Read returns
+	select {
+	case <-r.readDone:
+	case <-time.After(screenWait):
+		r.t.Fatal("the reader of the screen did not stop")
+	}
+	if err := r.master.Close(); err != nil {
+		r.t.Fatal(err)
+	}
 }
 
 // startScreen runs the child in mode on a new pseudo-terminal of 80 by 24.
@@ -155,14 +184,17 @@ func startScreen(t *testing.T, mode string, jobs bool) *screenRun {
 	if err := r.cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
+	r.readDone = make(chan struct{})
 	go func() {
+		defer close(r.readDone)
 		b := make([]byte, 4096)
 		for {
 			n, err := m.Read(b)
 			r.mu.Lock()
 			r.screen.Write(b[:max(n, 0)])
+			quit := r.quit
 			r.mu.Unlock()
-			if err != nil {
+			if err != nil || quit {
 				return
 			}
 		}
@@ -175,7 +207,9 @@ func startScreen(t *testing.T, mode string, jobs bool) *screenRun {
 		m.Close()
 		tty.Close()
 	})
-	r.waitFor("ready")
+	if mode != "open-too-small" { // that screen never opens
+		r.waitFor("ready")
+	}
 	return r
 }
 
@@ -227,7 +261,7 @@ func (r *screenRun) lines() []string {
 	b, _ := os.ReadFile(r.report)
 	var out []string
 	for _, l := range strings.Split(strings.TrimSpace(string(b)), "\n") {
-		if !strings.HasPrefix(l, "termios ") && !strings.HasPrefix(l, "errtermios ") && !strings.HasPrefix(l, "atstop ") {
+		if !strings.HasPrefix(l, "termios ") && !strings.HasPrefix(l, "errtermios ") && !strings.HasPrefix(l, "errraw ") && !strings.HasPrefix(l, "atstop ") {
 			out = append(out, l)
 		}
 	}
@@ -350,6 +384,30 @@ func TestScreenRestoresOnPanic(t *testing.T) {
 		t.Errorf("the child did not panic: %v", ps)
 	}
 	r.restored()
+}
+
+// A window already smaller than the screen needs: OpenScreen says so and
+// leaves the terminal as it was.
+func TestScreenRestoresWhenOpenTooSmall(t *testing.T) {
+	r := startScreen(t, "open-too-small", true)
+	if ps := r.end(); ps.ExitCode() != 3 {
+		t.Errorf("the child ended with %v, want exit 3 after the open failed", ps)
+	}
+	r.wantLines("open " + ErrTooSmall.Error())
+	r.restored()
+}
+
+// The terminal going away (its window closed) ends ReadKey with an error,
+// and the screen is ended first. The terminal has no mode left to read
+// then, so the child reports whether its screen was still raw.
+func TestScreenRestoresWhenTerminalCloses(t *testing.T) {
+	r := startScreen(t, "keys", true)
+	r.closeTerminal()
+	r.end()
+	b, _ := os.ReadFile(r.report)
+	if got := string(b); !strings.Contains(got, "end error ") || !strings.Contains(got, "errraw false") {
+		t.Errorf("want an error with the screen ended; the child reported %q", got)
+	}
 }
 
 // A window made smaller than the screen needs ends it and puts the
