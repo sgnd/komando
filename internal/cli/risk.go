@@ -283,11 +283,26 @@ func riskOfLine(line []string) riskRow {
 	if commandTree == nil {
 		return riskRow{tier: tierPerson}
 	}
-	c, words, _ := lineWords(line)
-	if c == nil {
-		return riskRow{tier: tierRead}
+	c, words, pos := lineWords(line)
+	switch {
+	case c == nil && rootOnly(line):
+		return riskRow{tier: tierRead} // komando alone: first steps
+	case c == nil, (!c.Runnable() || c.Annotations[groupOnly] == "true") && len(pos) > 0:
+		// names no command: an unknown word, or words after a group that
+		// name nothing under it (cut PR B2, as at the ssh gate)
+		return riskRow{tier: tierPerson}
 	}
 	return riskOf(c, words)
+}
+
+// rootOnly reports whether line is komando alone, with global flags only.
+func rootOnly(line []string) bool {
+	root := commandTree()
+	c, rest, err := root.Find(line)
+	if err != nil || c != root || root.ParseFlags(rest) != nil {
+		return false
+	}
+	return len(root.Flags().Args()) == 0
 }
 
 // lineWords finds the command of line and gives its words as riskOf
