@@ -7,11 +7,13 @@ import (
 	"io"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"golang.org/x/crypto/ssh"
 
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -24,6 +26,22 @@ import (
 // every channel (commands, file transfers, port forwards) on to the
 // server. komando's checks and audit still run in the command that uses
 // it; the held login only answers the server's login questions.
+
+// PersonStepCmd is the command a person runs once, at a terminal, to answer
+// a server's login questions (the password, a two-factor code); its session
+// then stays open for the login_for setting and an agent's commands use it.
+func PersonStepCmd(name string) string { return "komando test " + name }
+
+// PersonStep is the hint an agent gets when only a person can log in.
+func PersonStep(name string) string {
+	return "ask the user to run `" + PersonStepCmd(name) + "` once in their own terminal; later commands use that session"
+}
+
+// NeedsPersonStep reports whether e says a person must run the test
+// command to open a session.
+func NeedsPersonStep(e *out.Error) bool {
+	return e != nil && strings.Contains(e.Hint, "`"+PersonStepCmd(""))
+}
 
 // HeldUser is the user name a command logs in to a held login's socket with.
 const HeldUser = "komando"
