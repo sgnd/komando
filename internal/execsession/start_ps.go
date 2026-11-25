@@ -315,9 +315,7 @@ func ReadStartPS(host string, exit int, stdout, stderr, id string) (Facts, error
 	case ExitNoFolder:
 		return Facts{}, ErrNoFolder
 	case ExitUnsafe:
-		return Facts{}, out.Errf(out.ExitRemote, "SESSION_FOLDER_DENIED",
-			"look with `komando exec TARGET -- icacls $env:LOCALAPPDATA\\komando\\sessions`: each is to be a plain folder of the login user that only it, SYSTEM and Administrators can write",
-			"%s: %%LOCALAPPDATA%%\\komando or its sessions folder is a link or junction, a file, not the login user's, or others can write it", host)
+		return Facts{}, folderDeniedPS(host)
 	case ExitNoSpace:
 		return Facts{}, out.Errf(out.ExitRemote, "SESSION_SPACE_DENIED",
 			"free space on the drive of %LOCALAPPDATA%, or give a smaller log cap: `komando exec TARGET --log-max 100MiB -- COMMAND`",

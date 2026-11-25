@@ -2,6 +2,7 @@ package execsession
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"os"
 	"os/exec"
@@ -261,5 +262,44 @@ func TestStartScriptPSRefusesUnsafeFolders(t *testing.T) {
 func TestStartScriptPSNoLocalAppData(t *testing.T) {
 	if got, code := runStartPS(t, "relative", psStart()); code != ExitNoFolder {
 		t.Fatalf("exit %d: %s", code, got)
+	}
+}
+
+// The read script follows a real run to its end: the byte order mark is
+// skipped, non-ASCII text comes back unchanged, next_from is the file's
+// size, and a read from a later offset gives exactly the rest.
+func TestFollowPSOnWindows(t *testing.T) {
+	base := t.TempDir()
+	s := psStart()
+	s.Env, s.Stdin = nil, nil
+	s.Command = "Write-Output 'é 日本'; Write-Output 'b'"
+	if got, code := runStartPS(t, base, s); code != 0 {
+		t.Fatalf("exit %d: %s", code, got)
+	}
+	d := sessionDirPS(base)
+	waitFilePS(t, d, "exit")
+	raw, err := os.ReadFile(filepath.Join(d, "out.log"))
+	if err != nil || !bytes.HasPrefix(raw, []byte(bom)) {
+		t.Fatalf("out.log %q, %v: Windows PowerShell 5.1 writes a byte order mark first", raw, err)
+	}
+	read := func(_ context.Context, script string) (string, int, error) {
+		o, code := psRunFile(t, script, nil, []string{"LOCALAPPDATA=" + base})
+		return o, code, nil
+	}
+	var shown strings.Builder
+	f := Follow{Host: "web1", ID: testID, Wait: 10 * time.Second, Every: 100 * time.Millisecond, Windows: true,
+		Lines: &Lines{Redact: func(s string) string { return s }}, Show: func(s string) { shown.WriteString(s) }}
+	res, err := f.Run(context.Background(), read)
+	if err != nil || res.Status.Exit != 0 || !res.Status.Ended() {
+		t.Fatalf("%+v, %v", res, err)
+	}
+	if got := strings.ReplaceAll(shown.String(), "\r\n", "\n"); got != "é 日本\nb\n" || res.NextFrom != int64(len(raw)) {
+		t.Errorf("shown %q, next_from %d of %d", got, res.NextFrom, len(raw))
+	}
+	first := bytes.IndexByte(raw, '\n') + 1
+	shown.Reset()
+	f.From = int64(first)
+	if _, err := f.Run(context.Background(), read); err != nil || shown.String() != string(raw[first:]) {
+		t.Errorf("from %d: shown %q, %v", first, shown.String(), err)
 	}
 }

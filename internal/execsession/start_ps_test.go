@@ -84,7 +84,7 @@ var psDotNet = regexp.MustCompile(`\[[A-Za-z][A-Za-z0-9_.]*\](::[A-Za-z0-9_.]+)?
 // Constrained Language Mode allows.
 var psAllowed = []string{"[Console]::In.ReadLine", "[Convert]::FromBase64String", "[Text.Encoding]::UTF8.GetString",
 	"[Text.Encoding]::UTF8", "[Text.Encoding]::UTF8.GetByteCount",
-	"[string]", "[int]", "[int64]", "[datetime]"}
+	"[Convert]::ToBase64String", "[string]", "[int]", "[int64]", "[datetime]", "[char]"}
 
 // psBanned are the ways to more .NET or new code that Constrained
 // Language Mode blocks or that run text as code.
