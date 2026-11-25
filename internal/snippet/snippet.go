@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/sgnd/komando/internal/capability"
+	"github.com/sgnd/komando/internal/out"
 )
 
 // Family is the shell a text is written for.
@@ -288,6 +289,24 @@ func validText(text string, vars map[string]Var) error {
 		}
 	}
 	return nil
+}
+
+// sudoWord finds sudo as a command word of a shell text: at the start, or
+// after a space, a separator or an opening bracket.
+var sudoWord = regexp.MustCompile(`(^|[\s;&|(])sudo(\s|$)`)
+
+// SelfElevates reports whether the snippet's Unix text raises itself with
+// sudo (`exec sudo -n sh -c '...'`), as the package reads do.
+func SelfElevates(b Builtin) bool { return sudoWord.MatchString(b.Text[Unix]) }
+
+// RefuseNoSudo is the error for --no-sudo on a snippet that raises itself
+// (Audit A-457-1): the flag only drops the sudo the runner adds for
+// Builtin.Sudo, so the run would elevate anyway. Nil when it is fine.
+func RefuseNoSudo(b Builtin, noSudo bool) error {
+	if !noSudo || !SelfElevates(b) {
+		return nil
+	}
+	return out.Usage("snippet %s raises itself with sudo inside its text, so --no-sudo does not turn it off: leave the flag out, or read it as text with `komando exec TARGET -- COMMAND`", b.Name)
 }
 
 // Mutating reports whether the snippet changes something: the guard then

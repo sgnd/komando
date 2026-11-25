@@ -641,3 +641,47 @@ func TestFillNumberRefusals(t *testing.T) {
 		}
 	}
 }
+
+// TestRefuseNoSudo (Audit A-457-1): --no-sudo only drops the sudo the runner
+// adds for Builtin.Sudo. A text that raises itself (exec sudo -n sh -c ...)
+// would elevate anyway, so the engine refuses the flag for it, with the
+// snippet's name, instead of letting a person think the run is unprivileged.
+func TestRefuseNoSudo(t *testing.T) {
+	self := sample()
+	self.Text[Unix] = `if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then exec sudo -n sh -c 'systemctl show -- {{var:unit}}'; fi`
+	runnerSudo := sample()
+	runnerSudo.Sudo = true
+	for _, tc := range []struct {
+		name   string
+		b      Builtin
+		noSudo bool
+		refuse bool
+	}{
+		{"a text that raises itself, --no-sudo", self, true, true},
+		{"a text that raises itself, no flag", self, false, false},
+		{"a plain text, --no-sudo", sample(), true, false},
+		{"the runner's sudo, --no-sudo", runnerSudo, true, false},
+	} {
+		err := RefuseNoSudo(tc.b, tc.noSudo)
+		if (err != nil) != tc.refuse {
+			t.Errorf("%s: error %v, want refused %v", tc.name, err, tc.refuse)
+		}
+		if err != nil && (code(err) != "USAGE" || !strings.Contains(err.Error(), tc.b.Name) || !strings.Contains(err.Error(), "--no-sudo")) {
+			t.Errorf("%s: %q: want a usage error naming the snippet and --no-sudo", tc.name, err)
+		}
+	}
+	for _, text := range []string{"sudo ls", "ls; sudo ls", "a && sudo -n ls", "(sudo ls)", "x | sudo tee f"} {
+		b := sample()
+		b.Text[Unix] = text
+		if !SelfElevates(b) {
+			t.Errorf("%q: not read as raising itself", text)
+		}
+	}
+	for _, text := range []string{"pseudosudo ls", "echo sudoers", "ls /etc/sudoers.d"} {
+		b := sample()
+		b.Text[Unix] = text
+		if SelfElevates(b) {
+			t.Errorf("%q: read as raising itself, but sudo is not a word of it", text)
+		}
+	}
+}
