@@ -5,13 +5,16 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/sgnd/komando/internal/sealdb"
 	"github.com/sgnd/komando/internal/sealkey"
@@ -379,9 +382,10 @@ func mustDerive(t *testing.T, k []byte, l sealkey.Label) []byte {
 	return d
 }
 
-// A store an older komando made (format 1, no policy MAC) is upgraded on
-// its first open in each key mode: its secret values still open, and its
-// protected server stays protected.
+// A store an older komando made (format 1, no policy MAC, the v0.17
+// record shapes) moves to format 3 at a person's first open in each key
+// mode: its secret values still open, and its protected server stays
+// protected.
 func TestUpgradeEachKeyMode(t *testing.T) {
 	for _, mode := range []string{"keyfile", "passphrase", "keychain"} {
 		t.Run(mode, func(t *testing.T) {
@@ -395,28 +399,21 @@ func TestUpgradeEachKeyMode(t *testing.T) {
 				freshHome(t)
 				fakeSecretTool(t)
 			}
-			sealdb.CreateFormat = 1 // as an older komando made it
-			t.Cleanup(func() { sealdb.CreateFormat = sealdb.Format })
-			err := Set(store.Save(), "db-pass", "s3cret")
-			if err == nil {
-				err = store.Update(store.Save(), func(s *store.State) error {
-					s.Hosts["web"] = &store.Host{Name: "web", Address: "10.0.0.1", Protected: true}
-					return nil
-				})
-			}
-			if err != nil {
-				t.Fatal(err)
-			}
-			sealdb.CreateFormat = sealdb.Format
+			format1Store(t, "db-pass", "s3cret", &store.Host{Name: "web", Address: "10.0.0.1", Protected: true})
 			if m := peekMeta(t); m["format"] != "1" || m["key_mode"] != mode {
 				t.Fatalf("the old store: %v", m)
 			}
+			old := store.MigrateCaller
+			store.MigrateCaller = func() store.MigrateCall {
+				return store.MigrateCall{Way: store.MigrateTerminal, Alive: func(int, string) bool { return false }}
+			}
+			t.Cleanup(func() { store.MigrateCaller = old })
 			store.Close() // the next command
 			if v, err := Get("db-pass"); err != nil || v != "s3cret" {
 				t.Fatalf("a secret of the old store: %q %v", v, err)
 			}
-			if m := peekMeta(t); m["format"] != "2" {
-				t.Fatalf("not upgraded: %v", m)
+			if m := peekMeta(t); m["format"] != "3" {
+				t.Fatalf("not moved to format 3: %v", m)
 			}
 			store.Close()
 			s, err := store.Load()
@@ -424,6 +421,45 @@ func TestUpgradeEachKeyMode(t *testing.T) {
 				t.Fatalf("after the upgrade: %v", err)
 			}
 		})
+	}
+}
+
+// format1Store makes this home's store as komando before format 2 did: a
+// secret row sealed with the value key under its name, and a server record
+// in the old shape. Nothing goes through today's writers.
+func format1Store(t *testing.T, name, value string, h *store.Host) {
+	t.Helper()
+	sealdb.CreateFormat = 1
+	t.Cleanup(func() { sealdb.CreateFormat = sealdb.Format })
+	d, err := store.DB(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sealdb.CreateFormat = sealdb.Format
+	master, _, err := store.KeySource(peekMeta(t), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := vaultAEADFrom(master)
+	clear(master)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nonce := make([]byte, a.NonceSize())
+	if _, err := rand.Read(nonce); err != nil {
+		t.Fatal(err)
+	}
+	sec, _ := json.Marshal(map[string]any{"name": name, "nonce": nonce, "data": a.Seal(nil, nonce, []byte(value), []byte(name)), "updated_at": time.Now().UTC()})
+	host, _ := json.Marshal(h)
+	err = d.Update(context.Background(), func(tx *sealdb.Tx) error {
+		if _, err := tx.Put("secret", "", sec); err != nil {
+			return err
+		}
+		_, err := tx.Put(store.KindHost, "", host)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 
