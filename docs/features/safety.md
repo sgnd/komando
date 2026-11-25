@@ -6,17 +6,17 @@ one runs, and what to do when one stops you.
 
 ## Protect production
 
-Mark a server or conn as protected, and komando asks before every change on
+Mark an entry as protected, and komando asks before every change on
 it:
 
 ```bash
-komando host edit web1 --protected        # komando asks before every change on web1
-komando conn edit prod-db --protected     # the same for a database
+komando host ssh edit web1 --protected    # komando asks before every change on web1
+komando database postgres edit prod-db --protected   # the same for a database
 komando policy check 'rm -rf /'           # would this be blocked? (exit 6 if so)
-komando audit -o text                     # what was done, and by whom
+komando audit list -o text                # what was done, and by whom
 ```
 
-Typed alone, `komando host edit` asks for the server, then what to change.
+Typed alone, `komando host ssh edit` asks for the entry, then what to change.
 
 When you change web1 later, komando asks first:
 
@@ -32,15 +32,15 @@ agrees (see [When you are at the terminal](#when-you-are-at-the-terminal)).
 | Seatbelt | What it does |
 |----------|--------------|
 | **Dangerous-command filter** | Blocks commands such as `rm -rf /`, `mkfs`, `reboot`, `DROP DATABASE`, `curl … \| sh`, flushing the firewall and stopping SSH, on your servers, in pods and in databases. See them all with `komando policy list`. |
-| **Protected servers and conns** | Any change on it needs a yes. For the entry itself that means re-pointing it (address, port, user, key, password, `--via`), replacing a secret it uses (a protected VPN's key, pre-shared key or profile too), renaming it, removing it and turning protection off; its tags, groups, labels and notes change without one. Commands that only look can say so with `--read-only` and run without a yes. Anything at the same address and port (a `user@address` target, a second name, a name that resolves to the same IP, a second conn to the same database server, the SSH server behind a protected `sftp://` conn) is protected too, whichever VPN or bastion it goes through. With many targets, komando checks all of them before it runs anything: one protected target stops the whole command before the first one runs (at a terminal, komando asks once), and the error names every protected target. A command never stops halfway because of protection. |
-| **Read-only by default** | `db query`, `cache run` and `cluster run` only read unless you add `--write`. On PostgreSQL, MySQL, Oracle and ClickHouse the database itself enforces it (a read-only transaction, or ClickHouse's readonly=1); SQL Server always rolls the SQL back. On Snowflake, BigQuery and MongoDB komando's own check of each statement keeps it a read: for a hard guarantee, connect with a user that may only read. See [databases](databases.md). |
-| **Dry run** | `--dry-run` shows what would run and whether it would be blocked (`meta.would_be_blocked`). It is never blocked itself, with one exception: an AI agent's command with `KOMANDO_HOME` set to another folder stops, dry run or not (see the usual data folder, below). It never opens the approval window, so for an AI agent `--reveal` does not count in a dry run (output stays masked), and an agent's preview connects with `--host-key-policy off` ignored. |
+| **Protected entries** | Any change on it needs a yes. For the entry itself that means re-pointing it (address, port, user, key, password, `--via`), replacing a credential it uses (a protected VPN's key, pre-shared key or profile too), renaming it, removing it and turning protection off; its tags, groups, labels and notes change without one. Commands that only look can say so with `--read-only` and run without a yes. Anything at the same address and port (a `user@address` target, a second name, a name that resolves to the same IP, a second entry for the same database server, the SSH server behind a protected `storage sftp` entry) is protected too, whichever VPN or bastion it goes through. With many targets, komando checks all of them before it runs anything: one protected target stops the whole command before the first one runs (at a terminal, komando asks once), and the error names every protected target. A command never stops halfway because of protection. |
+| **Read-only by default** | `database PROVIDER query`, `cache PROVIDER raw` and `cluster PROVIDER raw` only read unless you add `--write`. On PostgreSQL, MySQL, Oracle and ClickHouse the database itself enforces it (a read-only transaction, or ClickHouse's readonly=1); SQL Server always rolls the SQL back. On Snowflake, BigQuery and MongoDB komando's own check of each statement keeps it a read: for a hard guarantee, connect with a user that may only read. See [databases](databases.md). |
+| **Dry run** | `--dry-run` shows what would run, whether it would be blocked (`meta.would_be_blocked`) and which flags the real run would need (`meta.would_need`). It is never blocked itself, with one exception: an AI agent's command with `KOMANDO_HOME` set to another folder stops, dry run or not (see the usual data folder, below). It never opens the approval window, so for an AI agent `--reveal` does not count in a dry run (output stays masked), and an agent's preview connects with `--host-key-policy off` ignored. |
 | **Safety settings** | Turning off the audit log or server identity checks, moving the vault key out of the keychain, removing a deny rule, or an AI agent setting a `--proxy-command` (a program on this computer) needs a yes. |
 | **Server identity** | If a server's fingerprint changes, komando refuses to connect (`HOSTKEY_MISMATCH`). |
-| **Safe edits** | File edits replace exactly the text you name, write the whole file at once (never half-written), and can keep a `.bak` backup. As root (`--sudo`), komando follows no link another server user made, and does not write into a folder another user can change, since that user could swap the file for a link while root writes (`SHARED_FOLDER_CONFLICT`). |
-| **Sealed vault** | Passwords are sealed with AES-256-GCM, with the key in the OS keychain (or, where there is none, in a file beside the store; `komando doctor` warns). Only names are ever shown. Only a person can see a value: at a terminal, or from the Komando Mac app (not released yet) after **Allow once** in komando's window (`secret show --reveal`, `key show --reveal`); an AI agent never can, and every value shown is in the audit log ([See a value again](secrets.md#see-a-value-again)). `secret rename` and `secret cp` rename and copy inside the vault, so a value never has to be shown or typed again. `secret check` lets a person compare a value without showing it. The approval code's key can only be changed with `komando config approval-code` (`RESERVED_SECRET`). See [Secrets](secrets.md). |
-| **Secrets hidden in output** | If a vault secret shows up in what a server sends back (a `.env` file, a log line, `env`), komando prints `[secret:NAME]` instead, also when it is base64- or URL-encoded. Values shorter than 6 characters are not hidden. So that this hiding cannot tell an AI agent which of its guesses is a secret, a vault value in an agent's own arguments, script or input is not hidden in that command's output, and the command answers as it would for any other value; it is written to the audit log, where you see the guessing. |
-| **Encoded data you cannot read** | A person cannot review base64 or hex. When the command or script an approval window shows carries a block of encoded data (64 or more characters of base64, base32 or hex, lines in a row such as a heredoc or `a+="…"` pieces counting as one block, or 16 or more `\xNN` or octal escapes), the window adds a risk line: `Risk: Encoded data (base64), 3,012 bytes (about 2,259 decoded) in lines 4–43; it cannot be reviewed here`. One 64-digit hash alone on a line that names it (`sha256sum -c`, `sha256:`) and public PEM blocks (a certificate, a public key) do not count. A script or command that holds a private key (its `BEGIN … PRIVATE KEY` line is enough, or a PuTTY key file header) is refused for everyone (`ENCODED_SECRET_INVALID`): keep the key in the vault and pass it with `komando secret run`. One that decodes hidden text and runs it is stopped by the deny rule `decode-run` (`win-decode-run` for PowerShell): `base64 -d` (also inside a flag cluster such as `-di`), `basenc -d`, `python3 -m base64 -d`, `xxd -r`, `openssl enc -d`, `printf` with escapes or `%b`, `rev` or a rot13 `tr` piped into a shell or interpreter, `eval "$(… base64 -d)"`, `python -c 'exec(b64decode(…))'`, a decoded file that a later step runs, and `FromBase64String` with `iex` or `[scriptblock]::Create`. It needs `--allow-dangerous` and your yes, like the other rules. The match is on the text: a path built from variables can slip past it, and the risk line still shows the blob. To send a file, upload it first (`komando upload`, which records its SHA-256), then approve a short script that runs it by its path. |
+| **Edits through `exec`** | There is no file command. Edit a file with `exec`: copy it first, change it with one targeted command, read it back. komando no longer validates the edit, writes it in one piece or keeps an undo copy (see [Recorded losses](#recorded-losses)). |
+| **Sealed vault** | Passwords are sealed with AES-256-GCM, with the key in the OS keychain (or, where there is none, in a file beside the store; `komando doctor` warns). Only names are ever shown. Only a person can see a value: at a terminal, or from the Komando Mac app (not released yet) after **Allow once** in komando's window (`credential password show --reveal`, `credential token show --reveal`); an AI agent never can, and a private key is never shown. Every value shown is in the audit log ([See a value again](credentials.md#see-a-value-again)). `credential KIND rename` renames inside the vault, so a value never has to be shown or typed again. The approval code's key can only be changed with `komando config approval-code` (`RESERVED_SECRET`). See [Credentials](credentials.md). |
+| **Secrets hidden in output** | If a vault secret shows up in what a server sends back (a `.env` file, a log line, `env`), komando prints `[credential:NAME]` instead, also when it is base64- or URL-encoded. Values shorter than 6 characters are not hidden. So that this hiding cannot tell an AI agent which of its guesses is a secret, a vault value in an agent's own arguments, script or input is not hidden in that command's output, and the command answers as it would for any other value; it is written to the audit log, where you see the guessing. |
+| **Encoded data you cannot read** | A person cannot review base64 or hex. When the command or script an approval window shows carries a block of encoded data (64 or more characters of base64, base32 or hex, lines in a row such as a heredoc or `a+="…"` pieces counting as one block, or 16 or more `\xNN` or octal escapes), the window adds a risk line: `Risk: Encoded data (base64), 3,012 bytes (about 2,259 decoded) in lines 4–43; it cannot be reviewed here`. One 64-digit hash alone on a line that names it (`sha256sum -c`, `sha256:`) and public PEM blocks (a certificate, a public key) do not count. A script or command that holds a private key (its `BEGIN … PRIVATE KEY` line is enough, or a PuTTY key file header) is refused for everyone (`ENCODED_SECRET_INVALID`): keep the key in the vault and pass it with `komando credential run`. One that decodes hidden text and runs it is stopped by the deny rule `decode-run` (`win-decode-run` for PowerShell): `base64 -d` (also inside a flag cluster such as `-di`), `basenc -d`, `python3 -m base64 -d`, `xxd -r`, `openssl enc -d`, `printf` with escapes or `%b`, `rev` or a rot13 `tr` piped into a shell or interpreter, `eval "$(… base64 -d)"`, `python -c 'exec(b64decode(…))'`, a decoded file that a later step runs, and `FromBase64String` with `iex` or `[scriptblock]::Create`. It needs `--allow-dangerous` and your yes, like the other rules. The match is on the text: a path built from variables can slip past it, and the risk line still shows the blob. To send a file, copy it first (`komando copy`, which records its SHA-256), then approve a short script that runs it by its path. |
 | **History** | Every action is in `komando audit` (see [below](#history)). |
 
 ## When you are at the terminal
@@ -63,14 +63,14 @@ Who is asked depends on who runs the command:
 
 At a terminal komando asks in one of three ways:
 
-- A change on a protected server, conn or VPN:
+- A change on a protected entry:
   `web1 (protected): this command changes it. Continue? [y/N]`.
 - A step that cannot be undone: `This <what it does>.`, and you type the
-  name of what goes: the key, file, secret, topic or image when one goes
+  name of what goes: the key, file, credential, topic or image when one goes
   (`Type the name session:42 to continue`), how many when several go
   (`Type 37 (objects under daily/ in backups) to continue`), or the
-  server's or conn's name for a step on the whole target (a reboot, a
-  restore, a command the filter blocks). Never the word yes. On a
+  entry's name for a step on the whole target (a restore, a command the filter
+  blocks). Never the word yes. On a
   protected target the same question says so, and your answer covers the
   protection too: komando asks once.
 - A change that turns off one of komando's own checks (`config set audit
@@ -82,15 +82,14 @@ More about the questions:
 
 - A `--proxy-command` or a cluster's login program that matches a rule
   says `Blocked by policy: ...` and asks you to type the server's or
-  conn's name to run it anyway, this once.
+  entry's name to run it anyway, this once.
 - When komando asked you for a missing argument, it asks `Run it? [y/N,
   d = --dry-run first]` before the command runs. One that cannot be
-  undone (deleting data or files, a reboot, stopping sshd, `sync
-  --delete`) then asks you to type the name of what goes, once. `cron
-  rm`, `pkg rm` and `db kill` need nothing more from an AI agent, but
-  you type the name of what goes instead of answering `Run it?`. One rule
-  table decides which: every command that stops an AI agent as dangerous
-  asks you for the name.
+  undone (deleting data or files, stopping sshd, `copy --sync --delete`) then
+  asks you to type the name of what goes, once. One rule table decides which:
+  every command that stops an AI agent as dangerous asks you for the name. A
+  text sent through `cluster PROVIDER raw`, `cache PROVIDER raw` or
+  `database PROVIDER query` asks a person only for `--allow-dangerous`.
 - No is the default; Enter or Ctrl-D is a no, and nothing runs. A no
   exits 6, like a stop: `Cancelled. Nothing was changed.` (`DECLINED`
   when komando asked before the command ran, else the stop's own code).
@@ -112,100 +111,129 @@ the flags filled in.
 
 Every command has a risk tier. The tier says what an AI agent or a script
 must add, and what komando asks you at your terminal. A command not in the
-table below only reads, or makes a change you can undo.
+table below only reads, or makes a change you can undo. One rule table
+decides the tier, keyed by type and verb, and every gate and this page read it.
 
-<!-- tiers: made by TestTiersDoc from risk.go; KOMANDO_UPDATE_TIERS=1 writes it -->
+<!-- tiers: written by hand from the command standard (S-7.1, S-7.2) -->
+TODO(cut): the rows below are written by hand; the generator test regenerates them once the table lands (PR B).
 
 | Tier | What | An AI agent or a script needs | A person at a terminal |
 |---|---|---|---|
-| read | looks only | nothing | nothing |
-| change | can be undone, or only komando's own list | nothing | typed in full: runs; filled in: `Run it?` |
-| protected | a change on a protected server, conn or VPN | `--yes` (PROTECTED_TARGET) | `NAME (protected): ... Continue? [y/N]` |
-| dangerous | cannot be undone, or an outage | `--allow-dangerous` (POLICY_BLOCKED) | types the name of what goes, the count, or the target |
-| safety | weakens komando's own checks | `--yes` (SAFETY_SETTING, OPEN_BIND, SECRET_DESTINATION) | `This turns off a komando safety check: ... Continue? [y/N]` |
-| person | only a person at a terminal | no flag: NEEDS_PERSON and friends | the command itself |
+| T0 read | looks only | nothing | nothing |
+| T1 change | can be undone, or only komando's own list | nothing | typed in full: runs; filled in: `Run it? [y/N, d = --dry-run first]` |
+| T2 protected | any T1 or T3 change on a protected entry | `--yes` (PROTECTED_TARGET) | `web1 (protected): <what changes>. Continue? [y/N]` |
+| T3 dangerous | cannot be undone, or an outage | `--allow-dangerous` (POLICY_BLOCKED) | `This deletes <what> on <where> for good. Type <answer> to continue:` |
+| T3s safety | weakens komando's own checks | `--yes` (SAFETY_SETTING, OPEN_BIND, SECRET_DESTINATION) | `This turns off a komando safety check: <what>. Continue? [y/N]` |
+| T4 person only | only a person at a terminal | no flag: NEEDS_PERSON and friends | the command itself |
 
-Every row of the rule table (`risk.go`). A command without a row has its
-kind's tier: read, or change. "when the ..." rows are decided at run time.
+Every row of the rule table. A command without a row has its kind's tier:
+read, or change. "when the ..." rows are decided at run time.
 
 | Command | When | Tier | Flag |
 |---|---|---|---|
-| `queue purge` | always | dangerous | `--allow-dangerous` |
-| `queue rm` | always | dangerous | `--allow-dangerous` |
-| `cache rm` | always | dangerous | `--allow-dangerous` |
-| `storage rm` | always | dangerous | `--allow-dangerous` |
-| `cluster rm` | always | dangerous | `--allow-dangerous` |
-| `cluster scale` | REPLICAS is 0 | dangerous | `--allow-dangerous` |
-| `registry rm` | always | dangerous | `--allow-dangerous` |
-| `registry prune` | always | dangerous | `--allow-dangerous` |
-| `db restore` | always | dangerous | `--allow-dangerous` |
-| `db user rm` | always | dangerous | `--allow-dangerous` |
-| `db kill` | a person types the name of what goes | change |  |
-| `fs rm` | always | dangerous | `--allow-dangerous` |
-| `docker rm` | always | dangerous | `--allow-dangerous` |
-| `docker prune` | always | dangerous | `--allow-dangerous` |
-| `user rm` | with --remove-home | dangerous | `--allow-dangerous` |
-| `user rm` | always | dangerous | `--allow-dangerous` |
-| `secret rm` | always | dangerous | `--allow-dangerous` |
-| `key rm` | with --delete-file, for a key komando made | dangerous | `--allow-dangerous` |
-| `pkg rm` | a package the server needs (openssh-server, sudo, systemd, ...) | dangerous | `--allow-dangerous` |
-| `pkg rm` | a person types the name of what goes | change |  |
-| `cron rm` | a person types the name of what goes | change |  |
-| `reboot` | always | dangerous | `--allow-dangerous` |
-| `svc stop` | the unit is ssh or sshd | dangerous | `--allow-dangerous` |
-| `svc disable` | the unit is ssh or sshd | dangerous | `--allow-dangerous` |
-| `sync` | with --delete | dangerous | `--allow-dangerous` |
-| `exec` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
-| `job start` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
-| `recipe run` | when the recipe's command matches a destructive rule | dangerous | `--allow-dangerous` |
-| `docker exec` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
-| `docker raw` | when the docker command deletes or stops something | dangerous | `--allow-dangerous` |
-| `docker compose` | when the compose command deletes or stops something | dangerous | `--allow-dangerous` |
-| `cluster exec` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
-| `cluster run` | when the kubectl command deletes something | dangerous | `--allow-dangerous` |
-| `cache run` | when the cache command deletes data (FLUSHALL, ...) | dangerous | `--allow-dangerous` |
-| `db query` | when the SQL deletes data (DROP, DELETE without WHERE, ...) | dangerous | `--allow-dangerous` |
-| `db explain` | with --analyze, when the SQL deletes data | dangerous | `--allow-dangerous` |
-| `pkg upgrade` | with --security, when an update would remove a package the server needs | dangerous | `--allow-dangerous` |
-| `key revoke` | when it is the key komando logs in with | dangerous | `--allow-dangerous` |
-| `host edit` | when --proxy-command matches a destructive rule | dangerous | `--allow-dangerous` |
-| `host add` | when --proxy-command matches a destructive rule | dangerous | `--allow-dangerous` |
-| `import` | when an imported ProxyCommand matches a destructive rule | dangerous | `--allow-dangerous` |
-| `policy rm` | always | safety | `--yes` |
+| `queue PROVIDER topic delete` | always | dangerous | `--allow-dangerous` |
+| `queue PROVIDER message delete` | with `--all` | dangerous | `--allow-dangerous` |
+| `storage PROVIDER object delete` | always | dangerous | `--allow-dangerous` |
+| `registry oci image delete` | always | dangerous | `--allow-dangerous` |
+| `registry oci image prune` | always | dangerous | `--allow-dangerous` |
+| `database PROVIDER restore` | always | dangerous | `--allow-dangerous` |
+| `credential password remove`, `credential token remove` | always | dangerous | `--allow-dangerous` |
+| `credential key remove` | with `--delete-file`, for a key komando made | dangerous | `--allow-dangerous` |
+| `credential key uninstall` | always | dangerous | `--allow-dangerous` |
+| `copy` | with `--sync --delete` | dangerous | `--allow-dangerous` |
+| `host ssh exec`, `host winrm exec` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
+| `snippet exec` | when the snippet's command matches a destructive rule | dangerous | `--allow-dangerous` |
+| `cluster kubernetes exec` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
+| `cluster PROVIDER raw` | when the text deletes something | dangerous | `--allow-dangerous` |
+| `cache PROVIDER raw` | when the text deletes data (FLUSHALL, ...) | dangerous | `--allow-dangerous` |
+| `database PROVIDER query` | when the SQL deletes data (DROP, DELETE without WHERE, ...) | dangerous | `--allow-dangerous` |
+| `host PROVIDER add`, `host PROVIDER edit` | when `--proxy-command` matches a destructive rule | dangerous | `--allow-dangerous` |
+| `import` | when a proxy command in the file matches a destructive rule | dangerous | `--allow-dangerous` |
+| `policy remove` | always | safety | `--yes` |
 | `policy edit` | unless it only switches the rule on | safety | `--yes` |
 | `config set` | when the setting turns a check off (audit, keychain, host key policy, ...) | safety | `--yes` |
-| `host edit` | with --protected=false | safety | `--yes` |
-| `conn edit` | with --protected=false | safety | `--yes` |
-| `vpn edit` | with --protected=false | safety | `--yes` |
-| `vpn edit` | with --mfa=false | safety | `--yes` |
+| `TYPE PROVIDER edit` | with `--protected=false` (every type) | safety | `--yes` |
+| `vpn PROVIDER edit` | with `--mfa=false` | safety | `--yes` |
 | `update` | when it installs an older version | safety | `--yes` |
-| `tunnel start` | when it listens on an open address (OPEN_BIND) | safety | `--yes` |
-| `secret keychain` | when it turns the keychain off | safety | `--yes` |
-| `host add` | with --proxy-command, when an AI agent runs it (the proxy command runs on this computer) | safety | `--yes` |
-| `host edit` | with --proxy-command, when an AI agent runs it (the proxy command runs on this computer) | safety | `--yes` |
-| `import` | when an AI agent imports a server with a proxy command (it runs on this computer; without --yes the server is left out) | safety | `--yes` |
-| `import` | SOURCE kubeconfig, when an AI agent imports a context whose login runs a program or sends a file of this computer | safety | `--yes` |
-| `recipe add` | with --overwrite --read-only, when it makes an existing recipe read-only | safety | `--yes` |
-| `host trust` | when an AI agent pins a first host key while host keys are strict | safety | `--yes` |
-| `guide uninstall` | when it removes komando's guard from an AI agent's settings | safety | `--yes` |
+| `host ssh tunnel start`, `cluster kubernetes tunnel start` | when it listens on an open address (OPEN_BIND) | safety | `--yes` |
+| `config vault keychain` | with `--off` (the key leaves the keychain) | safety | `--yes` |
+| `host PROVIDER add`, `host PROVIDER edit` | with `--proxy-command`, when an AI agent runs it (the proxy command runs on this computer) | safety | `--yes` |
+| `import` | when an AI agent imports a host with a proxy command (it runs on this computer; without `--yes` the host is left out) | safety | `--yes` |
+| `snippet create` | with `--overwrite --read-only`, when it makes an existing snippet read-only | safety | `--yes` |
+| `host ssh trust` | when an AI agent pins a first host key while host keys are strict | safety | `--yes` |
+| `agent skill uninstall` | when it removes komando's guard from an AI agent's settings | safety | `--yes` |
+| any command that sends a secret | when an AI agent sends a credential to a new place | safety | `--yes` |
 | `config approval-code` | always | person |  |
-| `secret passphrase` | always | person |  |
-| `secret check` | always | person |  |
-| `shell` | always | person |  |
-| `db shell` | always | person |  |
-| `cluster shell` | always | person |  |
-| `login` | always | person |  |
-| `login aws` | always | person |  |
+| `config vault passphrase` | always | person |  |
+| `config vault keychain` | without `--off` (moving the key into the keychain) | person |  |
+| `host PROVIDER shell`, `database PROVIDER shell`, `cluster kubernetes shell` | always | person |  |
+| `test` | the person step (a two-factor code, a cloud login) | person |  |
+| `credential password add`, `credential token add` | a person types the value | person |  |
+| `credential key install` | with `--public-key-file` | person |  |
+| `credential certificate add` | always | person |  |
 | `ssh-gate` | always | person |  |
-| `host ssh-command` | always | person |  |
-| `host ca add` | always | person |  |
-| `secret keychain` | without --off (moving the key into the keychain) | person |  |
-| `host trust` | with --reset, when a key is pinned | person |  |
-| `export` | with --sealed or --for-phone | person |  |
-| `import` | SOURCE komando, when the file is sealed (export --sealed): a person types its passphrase | person |  |
-| `group rm` | GROUP alone: deleting a group of more than 3 members (CONFIRM_REQUIRED) | change | `--yes` |
+| `host ssh trust` | with `--reset`, when a key is pinned | person |  |
+| `export` | with `--sealed` or `--for-phone` | person |  |
+| `import` | when the file is sealed (`export --sealed`): a person types its passphrase | person |  |
+| `group remove` | a group of more than 3 members (CONFIRM_REQUIRED) | change | `--yes` |
 
 <!-- end of tiers -->
+
+### Stops kept in commands
+
+These stops live in command code, not in the rule table. Each stays with its
+command, and a test pins it.
+
+| Stop | What it does |
+|---|---|
+| a change to a protected entry | needs a person, on every `add`, `edit` and `remove` |
+| a credential used by a protected entry | is protected too, following `--credential NAME` |
+| a twin with the same address | an entry that points at a protected entry's address is protected too, across the providers of one type |
+| the kubeconfig login program | checked on every `cluster` command |
+| writes into komando's home | an agent cannot write there through `copy` or any local write |
+| removing a protected target | needs a person |
+| `env:` and `file:` items of a credential store | cannot point at an unlock variable or at komando's home |
+| a secret passed in an encoded form | refused in `exec` text and in `credential run` |
+
+TODO(cut): the pinning test of each stop waits on the move pull requests (M3c pins, C350).
+
+### How `exec` runs
+
+- `exec` always runs in a session on the server, so a long run survives a
+  dropped connection and prints its session ID first. Come back with
+  `komando host ssh exec web1 --attach ID`: it streams the output and returns
+  the exit code. `--stop` and `--remove` end the session and remove its log.
+- The session ID is made by komando, 128 bits random. The log is
+  `~/.komando/sessions/` of the login user (folder mode 0700, files 0600,
+  never `/tmp`). A log is removed after a finished `--attach` read or after 7
+  days. Output may hold secrets and is masked only on this computer.
+- The first call's approval covers a re-attach. `--attach` only reads.
+- Shell text is a change unless you add `--read-only`. Text in a language
+  komando parses (SQL, Redis, kubectl text through `raw`) is read only unless
+  you add `--write`. There is no third switch.
+- Everything after `--` goes to the server. komando flags go before it, so
+  `-y` in `apt-get install -y nginx` is never read as `--yes`.
+- A single-host `exec` result has no separate stderr: a session merges stdout
+  and stderr into one log.
+- Every built-in rule that stopped the old structured commands stops the same
+  text in `exec`, `snippet exec` and `cluster PROVIDER raw`.
+
+TODO(cut): `host winrm exec` ships only when its Windows session meets the same promises; it waits on C359. The wait limit for a run that outlasts an agent's tool timeout waits on C324.
+
+### Recorded losses
+
+komando no longer does these. Each has a workaround.
+
+| Lost | Workaround |
+|---|---|
+| a never-trust list of host CAs (a stolen signed key cannot be cut off) | remove the CA with `credential certificate remove`, then sign every key again. This is a security gap |
+| validate, back up and undo of file edits; nothing writes a credential reference into a config line, and an agent cannot change a line that shows `[hidden]` | copy the file first (`cp FILE FILE.bak`), change it with one targeted `exec` command, read it back |
+| reboot one server at a time with a boot-ID check | reboot with `exec`, one host at a time, and check with `komando test NAME` |
+| the typed name of a person on a cluster delete or a scale to zero through `cluster PROVIDER raw` | the raw path asks a person only for `--allow-dangerous`; the protected `--yes` stays |
+| the certificate expiry check | none until paid monitoring exists |
+| a key held in ssh-agent for an hour for plain `ssh`, `scp` and `git` | use `komando host ssh shell` or `komando copy` |
+| bulk rename (`--starts-with`, `--in-notes`, `--in-labels`) | rename one entry at a time with the type's `rename` |
+| the read commands for services, packages, Docker, files, users, cron and the network | read them with `host ssh exec --read-only`; the output is text with no shape |
 
 ## Seatbelts for AI agents
 
@@ -233,16 +261,16 @@ terminal are not affected by them.
 
 | Seatbelt | What it does |
 |----------|--------------|
-| **A person allows the risky flags** | When an agent adds `--yes`, `--allow-dangerous` or `--reveal`, komando opens a window on your screen with the whole command, why komando stops it (the matched rule, the protected servers), the servers it runs on and, when the command line does not show it, the program on this computer it lets run. For `exec --script FILE`, `job start --script FILE` and `exec --stdin-file FILE` it also shows the first 16 digits of the file's SHA-256 and every line of it, never a part: a file longer than the window takes (200 lines on macOS, whose window scrolls and allows only after the last line; 40 lines on Windows and Linux; lines over 100 characters count once per wrapped piece) or 16 KB, one that is not valid text or holds bidi or zero-width characters, and one that looks like it holds a password, key or token gets no window, and the agent asks you to run the command yourself; a script, SQL file or input that is only too long ends with its own code, `SHORTER_SCRIPT_REQUIRED`, a message with the counted number and advice for that kind of body, so the agent splits it instead of treating it as a refusal. The SQL of `db query --file` is shown the same way, and so is the command a recipe fills in (`recipe run`), with a note when it runs with sudo: a saved recipe can be replaced between two runs, so you allow what runs, not a name. Content a command stores or sends from a file or from stdin (`fs write --from`, `cluster apply --file`, `queue send --from`, an upload with `cp`, `upload` or `storage upload`, the `-f` and `--from-file` files of `cluster run`, a pg_dump archive for `db restore`) is shown whole when it fits. A named file that is only too long, or is not text (an archive, an image), is named by its size and SHA-256, with a note that its content is not shown, so you can check the file first; content on stdin that is too long, and content that holds invisible characters or looks like it holds a password, gets no window. A folder (`cp -r`, `sync`) is shown as the list of its files, each with its size and SHA-256; a list longer than 40 lines gets no window. The plain SQL of `db restore` is code, like `db query --file`: shown whole (a `.gz` unpacked) or no window. Indentation past 16 spaces is named as `(+N)`, so deep YAML keeps its nesting. `import` checks the secrets it would replace the way `secret set` does. Your yes covers what that window showed: when a later check of the same command brings a script, a rule or a protected target the window did not have, komando asks again, with it in the window. A yes to `--reveal` and a yes to `--yes` or `--allow-dangerous` never answer for each other. A destructive change on a protected target asks once, in a window that names both flags. The window is a plain system window with no icon: the action as its title, then who asks, `Status: Protected`, one `Risk:` line per reason in plain words, `Skips:` for a check the other lines do not name, `Options:` for every flag that changes what runs or where (an `--env` value never), and `Command:` with what runs, then any script whole. The window never grows past the screen: on a script too tall for it, the title, those lines and the buttons stay in place and the command and script scroll. Its scroller is always drawn, a line says how many lines there are, and **Allow once** works only after you have scrolled to the last line. Without a mouse: the script has the focus when the window opens, so the arrows, Page Up, Page Down, Home, End and Space scroll it at once. Tab and Shift-Tab move the focus to **Deny** and, once it is on, **Allow once**, with a ring around the part that has it. On macOS no key presses a button: Space and Return on a focused button do nothing, so a stray key cannot answer for you; click **Deny** or **Allow once**, or press Esc or Cmd-W to deny. Keys do not allow. Click **Allow once**, or use Voice Control ("click Allow once") or the Accessibility Keyboard; the window says so when you press Return, or Space on **Allow once**. When nothing scrolls, **Deny** has the focus. A click on the script gives it the focus back. The command and script shown in the window cannot be copied (they keep each flag on one line); copy the command from your terminal. On Windows and Linux, **Deny** is the default button and the Esc key. It runs only when you click **Allow once**. Line breaks, tabs, control characters, long runs of spaces and characters that draw nothing show as escapes (`$'a:\n  b: 1'`, `\u3164`), which your shell reads back as the same text. A command that cannot be shown whole (longer than 500 characters, invalid text, or with bidi or zero-width characters) gets no window: the agent is told to make it shorter or ask you to run it. On macOS, **Allow once** is followed by Touch ID, an Apple Watch or your login password (the prompt reads "komando: allow" and the target, or "komando: show" and the secret for a reveal); the command runs only when that check succeeds, and a cancelled or failed check, or none within 50 seconds, is a no. A click alone, by you or by a program, is not enough there, so the macOS window has no code field and ignores `komando config approval-code`. On Linux, BSD and Windows, `komando config approval-code` makes the window also ask for the 6-digit code from your authenticator app (see [Settings](settings.md#ask-for-a-code-before-an-agents-risky-command)). On a Linux or BSD desktop (X11 or Wayland), where another of your programs can press the window's buttons, the code is required: without it komando opens no window, and the agent asks you to turn the code on or to run the command yourself. On macOS any program with Accessibility permission can press buttons through System Events, but it cannot answer Touch ID, an Apple Watch or your login password, so a terminal that has it gets the window too. Only where the device-owner check cannot run (komando asks macOS first, without a prompt; an error counts as cannot) does a terminal with Accessibility permission (or one komando cannot check) get no window, and the agent asks you to run the command yourself. Windows keeps the plain window, which counts only a real mouse or keyboard. With no screen (an SSH session, a server, `KOMANDO_NO_DIALOG` set), the agent is refused and asks you to run the command in your own terminal. A window nobody answers closes after 2 minutes; the agent is told nobody answered (not that you clicked Deny) and asks you whether to try again. The window stays open when another app takes the focus and comes back to the front; only **Deny**, Esc, the close button or Cmd-W (all a Deny) and that 2-minute timer end it. The agent's error says how you said no: `details.denied_by` is `click` for **Deny** or the close button and `key` for Esc or Cmd-W, and for a key the agent asks you whether it was a slip before it tries again. If the window itself fails before anyone answers (its helper program crashes or prints nothing), the command is still refused, with the error `APPROVAL_WINDOW_FAILED`; the agent is told nobody clicked Deny, not to ask you again, and to update komando or ask you to run the command yourself. |
-| **Personal data hidden from agents** | On protected servers and conns, email addresses, phone numbers, card numbers and IBANs in what an agent reads (a database row, a cache value, a log line, a file) show as `[hidden: email]`, `[hidden: phone]`, `[hidden: card]` and `[hidden: iban]`. See [Personal data](#personal-data). |
-| **Agents can still set secrets** | `fs replace --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:db}}' --yes` puts the vault value on the server without the agent seeing it, once you allow it in the window. Text that still holds `[hidden]` is never written over a real file (`HIDDEN_VALUE`). An agent can rename a secret with `secret rename` (every reference follows) without seeing it. |
-| **A person decides where a secret goes** | Once a value is on a server the agent controls, it could come back in a form komando does not recognise (reversed, in hex, cut in pieces). So when an agent sends a secret somewhere, it needs `--yes`, and the window names the secret and the place (`SECRET_DESTINATION`): `{{secret:NAME}}` in `fs write` and `fs replace`, `exec --env K=secret:NAME` and `job start --env`, `db user add` and `db user passwd`, and a password or pre-shared key reference (`secret:`, `env:`, `file:`, ...) that `host add`, `host edit`, `conn add`, `conn edit`, `vpn add`, `vpn edit` or an import attaches to a server, conn or VPN, or a server, conn or VPN with one that moves to another address, port, VPN server, `--via` path or proxy command. Moving a jump server counts for everything behind it: an agent that gives a server a new address, port, `--via` or proxy command is asked about each password that other servers and conns send through it. Moving a VPN counts the same way: an agent's `vpn edit` of its address, portal, server or profile, `vpn add --overwrite`, an import that replaces it, or a new profile in the vault, is asked about each stored password that servers and conns send through it (their `--via` way goes through the VPN, jump servers included); a server with only a key sends none. So does a secret that decides whom komando trusts: an agent that replaces an OpenVPN VPN's profile in the vault (`secret set`, `secret cp --overwrite`, `secret rename --overwrite`) is asked as for `vpn edit` (the window names the new servers), and one that replaces, or makes, the CA certificate a WinRM server or a conn is checked against (`?ca=secret:NAME`), or points a WinRM server at another one, needs your yes too (`SAFETY_SETTING`). Edits that keep the place (a tag, a user name) ask nothing. A server's own env value from the vault (`host edit --env KEY=secret:NAME`) is left out of an agent's commands, with a warning on `exec` and `job start`, unless the agent adds `--yes` and you allow it. A dry run never asks: it keeps `{{secret:NAME}}` as it is and says what the real run would need. |
-| **A person decides about weaker connections** | An agent that adds a conn whose URL turns the network protection down, or edits one so that it does, needs `--yes` and your yes in the window (`SAFETY_SETTING`): `sslmode=disable`, `allow` or `prefer` (PostgreSQL), `tls=false`, `preferred` or `skip-verify` (MySQL), `encrypt=false`, `encrypt=disable` or `tls=skip-verify` (SQL Server), `tls=false` or `tls=skip-verify` (Oracle, ClickHouse, registry, FTPS), `tls=skip-verify` or `insecure=1` (Kafka, RabbitMQ, NATS, SQS, Pub/Sub), `insecure=1` (FTP, Redis, memcached), an `http://` endpoint (BigQuery), and going from `rediss://`, `memcacheds://` or an `https` endpoint to one without TLS. |
-| **The usual data folder** | `KOMANDO_HOME` moves komando's data. In a new folder komando would know none of your protected servers, deny rules or pinned host keys, and would write the audit log there. So an agent's command with a `KOMANDO_HOME` other than `~/.komando` stops (`NEEDS_PERSON`), a dry run too: a preview in another folder would still connect, without your pinned host keys, and would preview nothing real. No flag and no window lets it through, because the approval code you may have switched on is kept in your usual folder, not in that one. komando makes and writes nothing in the other folder, so this stop is in no audit log. The agent is told to take `KOMANDO_HOME` out and run the command again, which then uses your own folder. `komando guide uninstall`, which takes the agent guard out, stops the same way. If you keep komando's data elsewhere, make `~/.komando` a link to that folder: a link to the same folder counts as `~/.komando`. `HOME` does not move it for an agent: komando takes an agent's home folder from the computer's user database, so `HOME=/tmp/x komando ...` still uses your `~/.komando` (and the guard refuses that line). Setting both, `HOME=/tmp/x KOMANDO_HOME=/tmp/x/.komando`, is another folder like any other `KOMANDO_HOME`: it stops. You, at your own terminal, may set `HOME`, and komando follows it. An account the user database does not know (on Linux komando also asks `getent`, so LDAP and sssd accounts count) leaves komando nothing to check `HOME` against: an agent's command then needs your yes in the window (`SAFETY_SETTING`). |
-| **No guessing a secret** | `secret check`, which says whether a value is the stored one, is for people only (`NEEDS_PERSON`): for an agent it would answer yes or no to guesses. `secret show` tells an agent only whether the value starts or ends with a space, never its length or a hash of it (a hash of a short password can be guessed offline). |
-| **Secret files stay on the server** | An agent cannot copy a file that is secret by its name (`.env`, private keys, `credentials`, `shadow`, ...) to this computer (`SENSITIVE_FILE`); folder copies leave them out. It can read them with `fs cat`, masked. A stream to stdout (`--to -`) keeps the same rules before a byte is written: text with secret values as `[hidden]`, a binary file refused when it holds a vault value, a secret or personal data komando hides, and anything over 16 MB refused, as bytes on stdout cannot be taken back. Any other text file an agent downloads (`download`, `sync`, `storage download`) is saved the way `fs cat` shows it, with secret values as `[hidden]`, and the result says `masked`; such a copy is never uploaded back (`HIDDEN_VALUE`). Binary files and files over 16 MB are copied as they are, unless they hold a vault value, or the target hides personal data from agents (see [Personal data](#personal-data)). |
-| **Secret files stay on this computer** | komando does not read `~/.komando`, private keys, credential stores or files that are secret by name for an agent when a command takes a local file (`--stdin-file`, `script FILE`, uploads, `sync`, `fs write --from`, `db --file`, `cluster -f`) (`SENSITIVE_FILE`); folder uploads and `sync` check each file and leave those out. That holds for the same file by another name: a link, a hard link, or other upper and lower case on macOS. You allow a project secret such as `.env` with `--reveal`; komando's own data and `/proc/PID/environ` never go. Imports (`komando import kubeconfig`, `pgpass`, `docker`, ...) may read credential files, because they put the secrets into komando's vault, which the agent never sees. The files a kubeconfig names (client key and certificate, CA, token file) are the exception: for an agent they may come from `~/.kube` (in any case on macOS and Windows) or anywhere else, but not from `~/.ssh` or another credential store, so an agent's import never copies your SSH key into the vault. A `file:` or `env:` password reference cannot point at komando's data, a private key, a credential store or the password of a secret store either. No reference, for anyone, reads the approval code's key (`RESERVED_SECRET`). Nor does an agent's command write there: `download`, `cp`, `sync` (and its `--delete`), `storage download`, `db dump --to`, `export --to` and `cluster cp` never save a file into komando's folder, `~/.ssh`, `~/.aws`, `~/.config/gcloud`, `~/.azure`, `~/.kube`, `~/.docker`, `~/.gnupg`, `~/.password-store` or the keychains, also through a link (`SENSITIVE_FILE`, no flag: you run such a command in your own terminal). |
-| **Guard on this computer** | `komando guide install` adds a guard to Claude Code, and to Cursor, Gemini CLI and Codex where you use them. Before the agent reads a file or runs a shell command, komando checks it and stops reading `~/.komando`, private keys, `.env` files and credential stores (`~/.kube`, `~/.aws`, the keychain), listing all environment variables, changing or clearing the variables komando knows an agent by (`CLAUDECODE=0`, `unset`, `env -u`, `env -i`, `read`, `sudo komando`) or `KOMANDO_HOME`, setting `HOME` in front of komando, searching or archiving a folder that holds them (`grep -r ~`, `tar -C ~ ...`), and running `ssh`/`scp` around komando. It reads relative paths from the agent's working folder, follows `cd`, and counts a glob such as `~/.komand?/*` as the path it could match; quoted patterns (`grep '.*' f`) are not globs. A check that does not finish in 3 seconds, or stops with an internal error, refuses the call. The hook line names komando by its full path and runs the guard through `sh`: when the guard cannot answer (komando is removed, is not a program, or fails) the call is refused, so the agent never goes on unchecked. The guard also refuses an agent's change to the agents' hook settings and folders (`~/.claude/settings.json`, `~/.codex/hooks.json`, `~/.gemini/settings.json`, `~/.cursor/hooks.json` and the like), to the komando program the hook runs, and to any file named `komando` (an agent builds its own copy under another name, such as `go build -o komando-dev`); a command that is not only a reader is refused when its line names one of those files anywhere, in code given to `python3 -c` or in a variable. Reading them stays open. The guard reads the command line, not a script file an agent writes and then runs. `komando doctor` checks every agent's hook line and its program; a hook set up by an older version is set up again with `komando guide install`, and `komando update` says when one is left. On Windows the hook calls komando directly, so it lets a call through when komando is missing, and `komando doctor` says so. Skip it with `--no-guard`. |
+| **A person allows the risky flags** | When an agent adds `--yes`, `--allow-dangerous` or `--reveal`, komando opens a window on your screen with the whole command, why komando stops it (the matched rule, the protected servers), the servers it runs on and, when the command line does not show it, the program on this computer it lets run. For `exec --script FILE` and `exec --stdin-file FILE` it also shows the first 16 digits of the file's SHA-256 and every line of it, never a part: a file longer than the window takes (200 lines on macOS, whose window scrolls and allows only after the last line; 40 lines on Windows and Linux; lines over 100 characters count once per wrapped piece) or 16 KB, one that is not valid text or holds bidi or zero-width characters, and one that looks like it holds a password, key or token gets no window, and the agent asks you to run the command yourself; a script, SQL file or input that is only too long ends with its own code, `SHORTER_SCRIPT_REQUIRED`, a message with the counted number and advice for that kind of body, so the agent splits it instead of treating it as a refusal. The SQL of `database PROVIDER query --file` is shown the same way, and so is the command a snippet fills in (`snippet exec`), with a note when it runs with sudo: a saved snippet can be replaced between two runs, so you allow what runs, not a name. Content a command stores or sends from a file or from stdin (`queue PROVIDER message create --from`, a `copy`, the `-f` files of `cluster PROVIDER raw`, a pg_dump archive for `database PROVIDER restore`) is shown whole when it fits. A named file that is only too long, or is not text (an archive, an image), is named by its size and SHA-256, with a note that its content is not shown, so you can check the file first; content on stdin that is too long, and content that holds invisible characters or looks like it holds a password, gets no window. A folder (`copy -r`, `copy --sync`) is shown as the list of its files, each with its size and SHA-256; a list longer than 40 lines gets no window. The plain SQL of `database PROVIDER restore` is code, like `database PROVIDER query --file`: shown whole (a `.gz` unpacked) or no window. Indentation past 16 spaces is named as `(+N)`, so deep YAML keeps its nesting. Your yes covers what that window showed: when a later check of the same command brings a script, a rule or a protected target the window did not have, komando asks again, with it in the window. A yes to `--reveal` and a yes to `--yes` or `--allow-dangerous` never answer for each other. A destructive change on a protected target asks once, in a window that names both flags. The window is a plain system window with no icon: the action as its title, then who asks, `Status: Protected`, one `Risk:` line per reason in plain words, `Skips:` for a check the other lines do not name, `Options:` for every flag that changes what runs or where (an `--env` value never), and `Command:` with what runs, then any script whole. The window never grows past the screen: on a script too tall for it, the title, those lines and the buttons stay in place and the command and script scroll. Its scroller is always drawn, a line says how many lines there are, and **Allow once** works only after you have scrolled to the last line. Without a mouse: the script has the focus when the window opens, so the arrows, Page Up, Page Down, Home, End and Space scroll it at once. Tab and Shift-Tab move the focus to **Deny** and, once it is on, **Allow once**, with a ring around the part that has it. On macOS no key presses a button: Space and Return on a focused button do nothing, so a stray key cannot answer for you; click **Deny** or **Allow once**, or press Esc or Cmd-W to deny. Keys do not allow. Click **Allow once**, or use Voice Control ("click Allow once") or the Accessibility Keyboard; the window says so when you press Return, or Space on **Allow once**. When nothing scrolls, **Deny** has the focus. A click on the script gives it the focus back. The command and script shown in the window cannot be copied (they keep each flag on one line); copy the command from your terminal. On Windows and Linux, **Deny** is the default button and the Esc key. It runs only when you click **Allow once**. Line breaks, tabs, control characters, long runs of spaces and characters that draw nothing show as escapes (`$'a:\n  b: 1'`, `\u3164`), which your shell reads back as the same text. A command that cannot be shown whole (longer than 500 characters, invalid text, or with bidi or zero-width characters) gets no window: the agent is told to make it shorter or ask you to run it. On macOS, **Allow once** is followed by Touch ID, an Apple Watch or your login password (the prompt reads "komando: allow" and the target, or "komando: show" and the secret for a reveal); the command runs only when that check succeeds, and a cancelled or failed check, or none within 50 seconds, is a no. A click alone, by you or by a program, is not enough there, so the macOS window has no code field and ignores `komando config approval-code`. On Linux, BSD and Windows, `komando config approval-code` makes the window also ask for the 6-digit code from your authenticator app (see [Settings](settings.md#ask-for-a-code-before-an-agents-risky-command)). On a Linux or BSD desktop (X11 or Wayland), where another of your programs can press the window's buttons, the code is required: without it komando opens no window, and the agent asks you to turn the code on or to run the command yourself. On macOS any program with Accessibility permission can press buttons through System Events, but it cannot answer Touch ID, an Apple Watch or your login password, so a terminal that has it gets the window too. Only where the device-owner check cannot run (komando asks macOS first, without a prompt; an error counts as cannot) does a terminal with Accessibility permission (or one komando cannot check) get no window, and the agent asks you to run the command yourself. Windows keeps the plain window, which counts only a real mouse or keyboard. With no screen (an SSH session, a server, `KOMANDO_NO_DIALOG` set), the agent is refused and asks you to run the command in your own terminal. A window nobody answers closes after 2 minutes; the agent is told nobody answered (not that you clicked Deny) and asks you whether to try again. The window stays open when another app takes the focus and comes back to the front; only **Deny**, Esc, the close button or Cmd-W (all a Deny) and that 2-minute timer end it. The agent's error says how you said no: `details.denied_by` is `click` for **Deny** or the close button and `key` for Esc or Cmd-W, and for a key the agent asks you whether it was a slip before it tries again. If the window itself fails before anyone answers (its helper program crashes or prints nothing), the command is still refused, with the error `APPROVAL_WINDOW_FAILED`; the agent is told nobody clicked Deny, not to ask you again, and to update komando or ask you to run the command yourself. |
+| **Personal data hidden from agents** | On protected entries, email addresses, phone numbers, card numbers and IBANs in what an agent reads (a database row, a cache value, a log line, a file) show as `[hidden: email]`, `[hidden: phone]`, `[hidden: card]` and `[hidden: iban]`. See [Personal data](#personal-data). |
+| **Credentials stay out of agent writes** | No command writes a credential reference into a config line, and an agent cannot change a line that shows `[hidden]` (see [Recorded losses](#recorded-losses)). Text that still holds `[hidden]` is never written back (`HIDDEN_VALUE`). An agent can rename a credential with `credential KIND rename` (every reference follows) without seeing it. |
+| **A person decides where a secret goes** | Once a value is on a server the agent controls, it could come back in a form komando does not recognise (reversed, in hex, cut in pieces). So when an agent sends a secret somewhere, it needs `--yes`, and the window names the secret and the place (`SECRET_DESTINATION`): `exec --env K=credential:NAME`, `credential run --env K=credential:NAME`, and a credential that the `add` or `edit` of an entry (`--credential`, `--sudo-credential`, `--psk-credential`) or an import attaches to it, or an entry with one that moves to another address, port, VPN server, `--via` path or proxy command. Moving a jump server counts for everything behind it: an agent that gives a server a new address, port, `--via` or proxy command is asked about each password that other entries send through it. Moving a VPN counts the same way: an agent's `vpn PROVIDER edit` of its address, portal, server or profile, `vpn PROVIDER add --overwrite`, an import that replaces it, or a new profile in the vault, is asked about each stored password that entries send through it (their `--via` way goes through the VPN, jump servers included); an entry with only a key sends none. So does a secret that decides whom komando trusts: an agent that replaces an OpenVPN VPN's profile in the vault (`credential KIND add --overwrite`, `credential KIND rename --overwrite`) is asked as for `vpn PROVIDER edit` (the window names the new servers), and one that replaces, or makes, the CA certificate a WinRM host or another entry is checked against (`?ca=credential:NAME`), or points a WinRM server at another one, needs your yes too (`SAFETY_SETTING`). Edits that keep the place (a tag, a user name) ask nothing. A host's own env value from the vault (`host ssh edit --env KEY=credential:NAME`) is left out of an agent's commands, with a warning on `exec`, unless the agent adds `--yes` and you allow it. A dry run never asks: it keeps `credential:NAME` as it is and says what the real run would need. |
+| **A person decides about weaker connections** | An agent that adds an entry whose URL turns the network protection down, or edits one so that it does, needs `--yes` and your yes in the window (`SAFETY_SETTING`): `sslmode=disable`, `allow` or `prefer` (PostgreSQL), `tls=false`, `preferred` or `skip-verify` (MySQL), `encrypt=false`, `encrypt=disable` or `tls=skip-verify` (SQL Server), `tls=false` or `tls=skip-verify` (Oracle, ClickHouse, registry, FTPS), `tls=skip-verify` or `insecure=1` (Kafka, RabbitMQ, NATS, SQS, Pub/Sub), `insecure=1` (FTP, Redis, memcached), an `http://` endpoint (BigQuery), and going from `rediss://`, `memcacheds://` or an `https` endpoint to one without TLS. |
+| **The usual data folder** | `KOMANDO_HOME` moves komando's data. In a new folder komando would know none of your protected servers, deny rules or pinned host keys, and would write the audit log there. So an agent's command with a `KOMANDO_HOME` other than `~/.komando` stops (`NEEDS_PERSON`), a dry run too: a preview in another folder would still connect, without your pinned host keys, and would preview nothing real. No flag and no window lets it through, because the approval code you may have switched on is kept in your usual folder, not in that one. komando makes and writes nothing in the other folder, so this stop is in no audit log. The agent is told to take `KOMANDO_HOME` out and run the command again, which then uses your own folder. `komando agent skill uninstall`, which takes the agent guard out, stops the same way. If you keep komando's data elsewhere, make `~/.komando` a link to that folder: a link to the same folder counts as `~/.komando`. `HOME` does not move it for an agent: komando takes an agent's home folder from the computer's user database, so `HOME=/tmp/x komando ...` still uses your `~/.komando` (and the guard refuses that line). Setting both, `HOME=/tmp/x KOMANDO_HOME=/tmp/x/.komando`, is another folder like any other `KOMANDO_HOME`: it stops. You, at your own terminal, may set `HOME`, and komando follows it. An account the user database does not know (on Linux komando also asks `getent`, so LDAP and sssd accounts count) leaves komando nothing to check `HOME` against: an agent's command then needs your yes in the window (`SAFETY_SETTING`). |
+| **No guessing a secret** | No command tells an agent whether a value is the stored one: it would answer yes or no to guesses. `credential KIND show` tells an agent only whether the value starts or ends with a space, never its length or a hash of it (a hash of a short password can be guessed offline). |
+| **Secret files stay on the server** | An agent cannot copy a file that is secret by its name (`.env`, private keys, `credentials`, `shadow`, ...) to this computer (`SENSITIVE_FILE`); folder copies leave them out. It can read them with `exec --read-only`, masked. A stream to stdout (`--to -`) keeps the same rules before a byte is written: text with secret values as `[hidden]`, a binary file refused when it holds a vault value, a secret or personal data komando hides, and anything over 16 MB refused, as bytes on stdout cannot be taken back. Any other text file an agent downloads (`copy`) is saved the way `exec` shows it, with secret values as `[hidden]`, and the result says `masked`; such a copy is never uploaded back (`HIDDEN_VALUE`). Binary files and files over 16 MB are copied as they are, unless they hold a vault value, or the target hides personal data from agents (see [Personal data](#personal-data)). |
+| **Secret files stay on this computer** | komando does not read `~/.komando`, private keys, credential stores or files that are secret by name for an agent when a command takes a local file (`--stdin-file`, `--script FILE`, `copy`, `database PROVIDER query --file`, `cluster PROVIDER raw -f`) (`SENSITIVE_FILE`); a folder `copy` checks each file and leave those out. That holds for the same file by another name: a link, a hard link, or other upper and lower case on macOS. You allow a project secret such as `.env` with `--reveal`; komando's own data and `/proc/PID/environ` never go. A kubeconfig is never imported from a file: a person stores it as a credential and the entry points at it with `--kubeconfig-credential`. An `env:` or `file:` item of a `credential store` entry cannot point at komando's data, a private key, a credential store or the password of a secret store. No reference, for anyone, reads the approval code's key (`RESERVED_SECRET`). Nor does an agent's command write there: `copy` (also with `--sync` and `--delete`), `database PROVIDER backup --to` and `export --to` never save a file into komando's folder, `~/.ssh`, `~/.aws`, `~/.config/gcloud`, `~/.azure`, `~/.kube`, `~/.docker`, `~/.gnupg`, `~/.password-store` or the keychains, also through a link (`SENSITIVE_FILE`, no flag: you run such a command in your own terminal). |
+| **Guard on this computer** | `komando agent skill install` adds a guard to Claude Code, and to Cursor, Gemini CLI and Codex where you use them. Before the agent reads a file or runs a shell command, komando checks it and stops reading `~/.komando`, private keys, `.env` files and credential stores (`~/.kube`, `~/.aws`, the keychain), listing all environment variables, changing or clearing the variables komando knows an agent by (`CLAUDECODE=0`, `unset`, `env -u`, `env -i`, `read`, `sudo komando`) or `KOMANDO_HOME`, setting `HOME` in front of komando, searching or archiving a folder that holds them (`grep -r ~`, `tar -C ~ ...`), and running `ssh`/`scp` around komando. It reads relative paths from the agent's working folder, follows `cd`, and counts a glob such as `~/.komand?/*` as the path it could match; quoted patterns (`grep '.*' f`) are not globs. A check that does not finish in 3 seconds, or stops with an internal error, refuses the call. The hook line names komando by its full path and runs the guard through `sh`: when the guard cannot answer (komando is removed, is not a program, or fails) the call is refused, so the agent never goes on unchecked. The guard also refuses an agent's change to the agents' hook settings and folders (`~/.claude/settings.json`, `~/.codex/hooks.json`, `~/.gemini/settings.json`, `~/.cursor/hooks.json` and the like), to the komando program the hook runs, and to any file named `komando` (an agent builds its own copy under another name, such as `go build -o komando-dev`); a command that is not only a reader is refused when its line names one of those files anywhere, in code given to `python3 -c` or in a variable. Reading them stays open. The guard reads the command line, not a script file an agent writes and then runs. `komando doctor` checks every agent's hook line and its program; a hook set up by an older version is set up again with `komando agent skill install`, and `komando update` says when one is left. On Windows the hook calls komando directly, so it lets a call through when komando is missing, and `komando doctor` says so. Skip it with `--no-guard`. |
 
 ### What the guard cannot do on Windows
 
@@ -275,12 +303,11 @@ The command, the script, server names and the agent's name are never translated.
 ## Add your own rules
 
 ```bash
-komando policy deny 'terraform\s+destroy'           # a Go regular expression; prints its id
+komando policy create 'terraform\s+destroy'         # a Go regular expression; prints its id
 komando policy list                                  # built-in rules and your deny rules, with ids
-komando policy rm 'terraform\s+destroy'              # remove it again
-komando policy rm custom-1a2b3c4d                    # or remove it by its id
+komando policy remove 'terraform\s+destroy'          # remove it again
+komando policy remove custom-1a2b3c4d                # or remove it by its id
 komando policy check 'terraform destroy'             # exit 6 when it would be blocked
-komando policy check --conn-kind postgres 'delete from users'   # rate SQL, Redis or MongoDB instead
 ```
 
 A rule matches the command the way the shell reads it, so quotes and
@@ -299,18 +326,18 @@ so komando asks first (a script adds `--yes`).
 
 ```bash
 komando policy show docker-prune                                # what it stops and where it is off
-komando policy edit docker-prune --off --add-server build1        # off on one server
-komando policy edit pkg-remove-essential --off --add-group lab  # off on the servers of a group, as it is now
-komando policy edit docker-prune --rm-server build1               # on again on that server
-komando policy edit docker-prune --off=false                    # on again everywhere
+komando policy edit docker-prune --off --host build1            # off on one server
+komando policy edit pkg-remove-essential --off --group lab      # off on the servers of a group, as it is now
+komando policy edit docker-prune --on --host build1             # on again on that server
+komando policy edit docker-prune --on                           # on again everywhere
 ```
 
 Any rule can be switched off, a built-in rule or one of yours. With
-`--add-server` or `--add-group` the rule is off only on those servers: a
+`--host` or `--group` the rule is off only on those servers: a
 command that also runs on another server is still stopped. A group counts
 as the servers in it when you switch the rule off; a server added to the
 group later is still checked. A server you remove drops out of the switch.
-`--off` without `--add-server` and `--add-group` switches the rule off on
+`--off` without `--host` and `--group` switches the rule off on
 every server.
 
 Switching a rule off turns a check off, so komando asks first, naming the
@@ -328,8 +355,7 @@ the root folder, devices and disks (`rm-root`, `rm-cd-root`,
 `win-registry-hive`, `win-backups`), the authentication files
 (`passwd-files`, `passwd-files-write`), a container given the server
 (`docker-host`), and the ways in (`sshd-stop`, `win-remote-access`,
-`firewall-drop-all`). Switching a rule on again (`--off=false`, `--rm-server`,
-`--rm-group`) asks nothing.
+`firewall-drop-all`). Switching a rule on again (`--on`) asks nothing.
 
 A rule that is off is never silent: `policy list` and `policy show` show
 where it is off, `policy check` names it, `komando doctor` warns for every
@@ -337,20 +363,22 @@ rule that is off (the rules above first), and the audit log keeps every
 switch as `policy.edit` with the servers before and after.
 
 `policy check` exits 6 when the command would be blocked, so it works in an
-`if`. `--conn-kind` rates a statement for a conn kind instead: `postgres`,
-`mysql`, `sqlserver`, `oracle`, `clickhouse`, `snowflake`, `bigquery`,
-`sqlite`, `redis`, `memcached` or `mongodb` (a command document as JSON).
-It exits 6 too when the statement is destructive, which `db query` and
-`cache run` refuse without `--allow-dangerous`.
+`if`. It can rate a statement for a database or cache provider instead of a
+shell command: `postgres`, `mysql`, `sqlserver`, `oracle`, `clickhouse`,
+`snowflake`, `bigquery`, `sqlite`, `redis`, `memcached` or `mongodb` (a command
+document as JSON). It exits 6 too when the statement is destructive, which
+`database PROVIDER query` and `cache PROVIDER raw` refuse without
+`--allow-dangerous`.
+TODO(cut): the flag that picks the provider, and the flags of `policy edit` above, wait on the `Options` of those leaves (PR B, C336).
 
 ## Personal data
 
 Customer data in production should not end up in an AI model. On protected
-servers and conns, an AI agent sees personal data hidden in what it reads
-from them: `db query` rows (also with `-o csv`), `cache get` and `cache run`,
-`storage cat`, `fs cat`, `exec`, `logs` and the other commands that show
-data from a server or resource. komando's own inventory (server addresses,
-conn URLs) is never hidden.
+entries, an AI agent sees personal data hidden in what it reads
+from them: `database PROVIDER query` rows (also with `-o csv`), `cache PROVIDER raw`,
+`storage PROVIDER object read`, `exec` and the other commands that show
+data from a server or resource. komando's own inventory (addresses and
+URLs) is never hidden.
 
 | Shown as | What komando looks for |
 |----------|------------------------|
@@ -361,9 +389,9 @@ conn URLs) is never hidden.
 | `[hidden: column]` | any value in a database column you name (below) |
 
 ```bash
-komando config set mask_personal all             # on every server and conn
-komando conn edit staging-db --option mask_personal=on   # on this conn, whatever the setting
-komando conn edit prod-db --option 'mask_columns=name address birth_date'
+komando config set mask_personal all             # on every entry
+komando database postgres edit staging-db --option mask_personal=on   # on this entry, whatever the setting
+komando database postgres edit prod-db --option 'mask_columns=name address birth_date'
 komando config set mask_personal protected       # back to the default (komando asks first)
 ```
 
@@ -372,91 +400,90 @@ komando config set mask_personal protected       # back to the default (komando 
   check off, so komando asks first; a script adds `--yes`.
 - Names and street addresses have no shape komando can find, so name the
   columns that hold them in `mask_columns`, split by spaces. Setting it
-  also turns personal data hiding on for that conn.
+  also turns personal data hiding on for that entry.
 - A query that names a hidden column could rename it (`name AS customer`),
   compute from it (`upper(name)`) or ask about it (`WHERE name LIKE 'A%'`),
   and komando cannot tell which results come from it. So an AI agent's
-  `db query` that names one anywhere stops with `REVEAL_NEEDS_PERSON` (exit 6): a person
+  `database PROVIDER query` that names one anywhere stops with `REVEAL_NEEDS_PERSON` (exit 6): a person
   allows it with `--reveal`.
   `SELECT *` shows the column as `[hidden: column]` beside the others. On
   MongoDB the names are fields, hidden at any depth, and a command that
   names one stops the same way.
 - This stops ordinary queries, not a database that builds the name while
   it runs (whole-row values, dynamic SQL, a view that renames the column).
-  For a column an agent must never read, give the conn's database user no
+  For a column an agent must never read, give the entry's database user no
   right to read it.
 - The same data is not handed over another way. For an AI agent, where
-  personal data is hidden: `cp`, `sync` and `download` save files with it
-  hidden; `fs replace`, `fs write --dry-run`, `fs restore` and `docker
-  compose` show it hidden; `db dump` stops with `NEEDS_PERSON` (a dump
+  personal data is hidden: `copy` saves files with it
+  hidden; `database PROVIDER backup` stops with `NEEDS_PERSON` (a backup
   cannot be masked; a person runs it in their own terminal). A value that is not text is shown as base64; when it
   holds a secret or personal data, the whole value reads `[hidden]`.
 - A file komando cannot show with personal data hidden stops an AI
-  agent's `cp`, `sync`, `download` or `cluster cp` with `SENSITIVE_FILE`:
+  agent's `copy` with `SENSITIVE_FILE`:
   a binary file whose text holds a secret or personal data, a binary file
   over 256 KiB (too large to check), and any file over 16 MiB. A person
   allows it with `--reveal`.
-- The hiding follows the database, not the conn's name: a second conn to
+- The hiding follows the database, not the entry's name: a second entry for
   the same database (same server address and database name) hides as
-  much. A conn to the same server under another address (a host name for
+  much. An entry for the same server under another address (a host name for
   an IP, a tunnel's `localhost` port) is not recognised as the same, nor a
   SQLite file under another path (`~/app.db` and its full path, a link, other
   upper and lower case on macOS). On PostgreSQL the hiding is per database;
-  on MySQL, SQL Server, ClickHouse, MongoDB and the others, whose conns read
+  on MySQL, SQL Server, ClickHouse, MongoDB and the others, whose entries read
   every database of the server, it covers the whole server.
 - Taking a column out of `mask_columns`, turning `mask_personal` off, or
-  replacing (`conn add --overwrite`, `import --overwrite`) or removing
-  such a conn shows agents more: an AI agent needs a person's yes for it
+  replacing (`database PROVIDER add --overwrite`, `import --overwrite`) or removing
+  such an entry shows agents more: an AI agent needs a person's yes for it
   (`SAFETY_SETTING`), as for the setting. `mask_columns` takes column
   names without the table, and the options are written in lower case.
 - A person decides when an agent sees the real values: with `--reveal`,
   which a person allows in the approval window, the agent sees them for
   that one command.
-- A masked value is never written back: a `db query --write`, `cache set`
-  or `cache run --write`, and a file write, that still holds
+- A masked value is never written back: a `database PROVIDER query --write` or
+  `cache PROVIDER raw --write` that still holds
   `[hidden: ...]` stops with `HIDDEN_VALUE`.
 
 ## History
 
 Every action is in the audit log: time, who ran it, which AI agent asked,
 whether a person allowed it, the targets and the command. Every change to
-the inventory and to safety settings is there too: servers, conns, groups,
-keys, secrets (names only), `config set` (old and new value) and
-`policy deny`, `policy rm` and `policy edit`.
+the inventory and to safety settings is there too: entries, groups,
+credentials (names only), `config set` (old and new value) and
+`policy create`, `policy remove` and `policy edit`.
 
 ```bash
-komando audit -o text                 # one line per entry, newest 50
-komando audit -n 0                    # all entries
-komando audit --failed                # only failed or blocked actions
-komando audit --target @web           # only these servers or conns
-komando audit --command exec          # only one command family
-komando audit --since 2h              # everything in the last two hours
-komando audit --since yesterday --until today   # all of yesterday
-komando audit verify                  # check the chain
+komando audit list -o text            # one line per entry, newest 50
+komando audit list -n 0               # all entries
+komando audit list --failed           # only failed or blocked actions
+komando audit list --target @web      # only these entries
+komando audit list --command host.ssh.exec   # only one command
+komando audit list --since 2h         # everything in the last two hours
+komando audit list --since yesterday --until today   # all of yesterday
+komando audit check                   # check the chain
 ```
 
-Each record carries the hash of the one before, so `komando audit verify`
+Each record carries the hash of the one before, so `komando audit check`
 (and `komando doctor`) notice a record that was edited, added or removed
 outside komando. If the audit log cannot be written, komando refuses to run
 (`AUDIT_UNAVAILABLE`). Set `KOMANDO_ACTOR` to choose the name recorded for
 you or your agent. An agent's environment can set that name to anything, so
 its records keep the agent itself (`agent`) and your computer account, read
 from the system (`os_user`), and mark the name as the one it claims
-(`actor_claimed`); `komando audit -o text` shows it as
+(`actor_claimed`); `komando audit list -o text` shows it as
 `Claude Code (as claude)`. A command that sends a script or content records its full SHA-256
 (`body_sha256`), so you can match the 16 hex characters the approval
 window showed to the exact file. What the hash covers:
 
 | Command | `body_sha256` is the SHA-256 of |
 |---|---|
-| `exec --script`, `--stdin-file`, `job start`, `db query --file`, `queue send` | the file as sent |
-| `recipe run` | the filled-in command, with no newline added |
-| `upload` of one file | the bytes as they are sent, for every caller. If an agent's window showed other bytes (the file changed after you saw it), the upload stops with `FILE_CHANGED` before the file on the server is touched, and the stop is in the audit log |
-| `upload` of a folder | the list the window shows: each file's name, size and SHA-256, one per line |
-| `db restore` | the bytes the restore reads (a `.gz` unpacked), taken in the same read that seals the file, for every caller. The restore reads a private copy that matched the seal whole, so a `FILE_CHANGED` leaves nothing behind: the database is untouched and the copy is removed |
-| `fs write` (Linux and Windows) | the content before `{{secret:NAME}}` values are filled in, so the hash never describes a secret; with `--append`, only the appended part |
-| `cluster apply` on Kubernetes | the YAML file, though each object is sent as JSON |
-| `cluster run -f`, `--from-file` | all the files joined, in the order given; each file is read once, so the window and the cluster get the same bytes | To keep SQL text out of the history, see
+| `exec --script`, `exec --stdin-file`, `database PROVIDER query --file`, `queue PROVIDER message create` | the file as sent |
+| `snippet exec` | the filled-in command, with no newline added |
+| `copy` of one file | the bytes as they are sent, for every caller. If an agent's window showed other bytes (the file changed after you saw it), the copy stops with `FILE_CHANGED` before the file on the server is touched, and the stop is in the audit log |
+| `copy` of a folder | the list the window shows: each file's name, size and SHA-256, one per line |
+| `database PROVIDER restore` | the bytes the restore reads (a `.gz` unpacked), taken in the same read that seals the file, for every caller. The restore reads a private copy that matched the seal whole, so a `FILE_CHANGED` leaves nothing behind: the database is untouched and the copy is removed |
+| `cluster PROVIDER raw -f` | all the files joined, in the order given; each file is read once, so the window and the cluster get the same bytes |
+
+To keep SQL text out of the history, see
 `audit_sql` in [Settings](settings.md#settings).
 
 ## A key that runs komando and nothing else
@@ -486,12 +513,13 @@ shell only (see **Shell keys** below). For that key, sshd then runs
 | Seatbelt | What it does |
 |----------|--------------|
 | **Only komando** | The key's command must be one komando command (`ssh HOST komando list -o json`), with at most `KOMANDO_AGENT=NAME` before it. ssh-gate splits it into words like a shell, but runs no shell and expands nothing: an unquoted `;`, `\|`, `&`, `>`, `<`, `$`, backquote or line break is refused, and so is `$` or a backquote inside double quotes (`SSH_GATE_SYNTAX`); put such an argument in single quotes. Any other program, a login shell, `scp` or `sftp` is refused too (`SSH_GATE_REFUSED`). ssh-gate is for keys that sshd starts it for: started by an AI agent on this computer, it runs nothing (`SSH_GATE_REFUSED`); the agent runs komando directly, under its own rules. |
-| **komando treats it as an AI agent** | Secret values stay `[hidden]`. `--reveal` and `--allow-dangerous` are refused, and so are commands for a person at a terminal (`shell`, `db shell`, `cluster shell`, `secret passphrase`, `secret check`, `login aws`, `config approval-code`); a `--shell-access` key may open `komando shell SERVER` (see **Shell keys**). `--yes` on a protected target needs a person on this computer, which the key is not: change protected servers here. No approval window opens for a key. |
-| **Nothing written here** | Every key, read-only or not, runs commands on servers, never one that writes on this computer: a file it saved here could be `~/.ssh/authorized_keys` or a shell startup file. So `download` and `storage download` (except `--to -`, which streams to the key's own output and is a read, allowed for a read-only key too), `db dump`, `export --to`, and `cp` or `sync` to a folder here (except `cp TARGET:PATH -`) are refused, and so is any change to komando's own setup: servers, conns, VPNs, groups, settings, policy rules, secrets, keys, recipes, `guide install`, `import`, `host trust`, `tunnel start` and `stop`, and `update` (`SSH_GATE_REFUSED`). Change those here, as a person. Every key, read-only too, is also refused every command, reads included, on a target that is this computer: a sqlite conn, which is a file here (`VACUUM INTO`, `ATTACH` and `db restore` write any file), and a server, conn or cluster at `localhost`, a `127.x` or `::1` address, a loopback interface (`fe80::1%lo0`) or this computer's name. Through such a target `exec` would be a shell here (`--read-only` is a filter, not a sandbox), `logs --file`, `fs cat` and `fs list` would read any file here, a private key too, and Postgres `COPY TO PROGRAM` or `pg_read_file`, Redis `CONFIG SET dir` and a Kubernetes `hostPath` volume run programs or read and write files here. For a conn every host in its URL counts, a list (`a,b`), Postgres `?host=` and `?hostaddr=`, and a socket path. `cluster run -- cp POD:PATH DST` and `key deploy --set-default` are refused too. A change on a target the gate cannot find is refused; a read runs, unless the name is `localhost`, a loopback address or this computer's own address, as written or as the name resolves (`cert check https://localhost`, `https://ip6-localhost`, a public name that points at 127.0.0.1). What such a read dials is checked again when it connects, so a name whose answer changes in between cannot reach this computer either. A change komando adds later is refused until it is known to act on servers only. No key makes komando read a file here either: `exec` and `job start` with `--script FILE` or `--stdin-file FILE`, `db query --file`, `db restore --from`, `cluster apply --file`, `fs write --from`, `upload`, `storage upload`, `cp` and `sync` from a path here, and `cluster run -- apply -f`, `--from-file` or `cp` to a pod are refused (`SSH_GATE_REFUSED`): the file could be a private key, and the server's answer would hand it back. Send the content on the key's own input instead (`--script -`). |
-| **Read-only keys** | With `--read-only` the key runs only commands komando counts as reads (the `kind` in `komando schema`): `exec` (also with `--script`), `job start`, `docker exec` and `cluster exec` need `--read-only`, `db query`, `cache run` and `cluster run` no `--write`, `db explain` no `--analyze`, `pkg upgradable` no `--refresh`, `pkg security` no `--refresh`, and a recipe must be marked read-only. `storage link` and `cluster forward` are changes (`kind: change`), since they hand out access or open a port here: a read-only key is refused them (`SSH_GATE_READ_ONLY`), a full key runs them. |
-| **Read keys stay off the network** | Reaching the network is no write, but it is a way out: what a key reads could leave in a URL or a DNS name. So a `--read-only` key runs only komando's own reads of the servers and conns in your list (`fs`, `logs`, `facts`, `status`, `svc`, `docker ps`, `db query`, `cache run`, `cluster run`, `cert check SERVER`, ...). It is refused every `net` command, `cert check` of a website (`https://HOST`, `HOST:PORT`, which komando dials from this computer), and `exec`, `job start`, `docker exec`, `cluster exec` and `recipe run`, whose programs (`curl`, `nslookup`, ...) can connect anywhere (`SSH_GATE_NETWORK_REQUIRED`). A read komando adds later is refused until it is known to stay on listed targets. SQL and cache commands that reach another server or a program are writes, so `db query` and `cache run` refuse them without `--write`: Postgres `COPY ... TO PROGRAM` and `dblink`, MySQL `INTO OUTFILE`, `LOAD DATA` and `LOAD_FILE`, SQL Server `OPENROWSET`, `OPENQUERY`, linked-server names (`lnk.db.dbo.t`) and the functions that read a file path (`\\HOST\share`), ClickHouse `url()`, `remote()` and `s3()`, Oracle `UTL_HTTP` and XML the query builds (a DTD can name a URL), BigQuery `EXTERNAL_QUERY`, MongoDB `$out` and `$merge`, Redis `MIGRATE` and `REPLICAOF`. Add `--network` to the line for a read key that may run them. |
-| **Shell keys** | A line made with `--shell-access` (only for a key that may change things, not with `--read-only`) lets the key open a login shell on one server: `ssh -t HOST komando shell SERVER`, word for word, with at most `KOMANDO_AGENT=NAME` before it. sshd gives the key a terminal only when it asks for one (`ssh -t`), and ssh-gate lets no shell through without it. The server must be one in your list, named as it is written there: no `user@host`, address, group, pattern or other spelling. A protected server, a Windows server (added with `--os windows`, or over WinRM) and a server that is this computer are refused, and so are any other word or flag (`--yes`, `-o`, `--dry-run`), the `ssh` and `connect` spellings, `db shell` and `cluster shell` (`SSH_GATE_REFUSED`). Every other command gets the answer a key without `--shell-access` gets. While you have deny rules of your own (`komando policy deny`), no key opens a shell on any server (`SSH_GATE_REFUSED`): komando does not see what is typed in a shell, so a shell would get past them. On every other server the gate allows, a shell key is full control of that server, as the account komando logs in with there: what is typed is outside komando's per-command policy, masking and audit. Give such a key only to a device you would give that login to. The shell ends after 30 minutes with no input and no output (`SHELL_IDLE_TIMEOUT`), and when the key's terminal changes size, the server's terminal follows. The audit record of each command such a key sends has `shell_access: true`, and each shell session has two more: one when it starts and one when it ends, with the key's name (`ssh_gate`), the server (`hosts`) and `session` (`start` or `end`). The end record adds `duration_ms`, why it ended (`end`: `exit`, `idle`, `hangup` when the key's connection closed, `lost` when the server's broke, or `error` when the shell never opened) and, after `exit`, the shell's `exit_code`. ssh-gate opens the shell in its own process, after its checks; `komando shell` run any other way still needs a person at a terminal. If that process is killed, there is no end record; the start record still shows the session. |
-| **Every command in the history** | Each command a key runs or is refused is in `komando audit`: the key's name (`ssh_gate`), what it sent (`ssh_command`, secret-looking values hidden), the address it came from (`client`) and, when refused, why. What the command then changes is recorded as from `ssh-gate key NAME`. This record is written even when the `audit` setting is off; when it cannot be written, nothing runs. In `komando audit` text, line breaks and terminal escapes in what a key sent show as `\n` and `\x1b`, so a key cannot add or hide rows. |
+| **komando treats it as an AI agent** | Secret values stay `[hidden]`. `--reveal` and `--allow-dangerous` are refused, and so are commands for a person at a terminal (every `shell`, `config vault passphrase`, the person step of `test`, `config approval-code`); a `--shell-access` key may open `komando host ssh shell NAME` (see **Shell keys**). `--yes` on a protected target needs a person on this computer, which the key is not: change protected servers here. No approval window opens for a key. |
+| **Nothing written here** | Every key, read-only or not, runs commands on servers, never one that writes on this computer: a file it saved here could be `~/.ssh/authorized_keys` or a shell startup file. So `copy` to a folder here (except `copy TARGET:PATH -`, which streams to the key's own output and is a read, allowed for a read-only key too), `database PROVIDER backup`, and `export --to` are refused, and so is any change to komando's own setup: entries, groups, settings, policy rules, credentials, snippets, `agent skill install`, `import`, `host ssh trust`, `host ssh tunnel start` and `stop`, and `update` (`SSH_GATE_REFUSED`). Change those here, as a person. Every key, read-only too, is also refused every command, reads included, on a target that is this computer: a `database sqlite` entry, which is a file here (`VACUUM INTO`, `ATTACH` and `db restore` write any file), and an entry at `localhost`, a `127.x` or `::1` address, a loopback interface (`fe80::1%lo0`) or this computer's name. Through such a target `exec` would be a shell here (`--read-only` is a filter, not a sandbox) and would read any file here, a private key too, and Postgres `COPY TO PROGRAM` or `pg_read_file`, Redis `CONFIG SET dir` and a Kubernetes `hostPath` volume run programs or read and write files here. For an entry every host in its URL counts, a list (`a,b`), Postgres `?host=` and `?hostaddr=`, and a socket path. `cluster kubernetes raw NAME -- cp POD:PATH DST` and `credential key install` are refused too. A change on a target the gate cannot find is refused; a read runs, unless the name is `localhost`, a loopback address or this computer's own address, as written or as the name resolves (`ip6-localhost`, a public name that points at 127.0.0.1). What such a read dials is checked again when it connects, so a name whose answer changes in between cannot reach this computer either. A change komando adds later is refused until it is known to act on servers only. No key makes komando read a file here either: `exec` with `--script FILE` or `--stdin-file FILE`, `database PROVIDER query --file`, `database PROVIDER restore --from`, `queue PROVIDER message create --from`, `copy` from a path here, and `cluster PROVIDER raw` with `-f` or `cp` to a pod are refused (`SSH_GATE_REFUSED`): the file could be a private key, and the server's answer would hand it back. Send the content on the key's own input instead (`--script -`). |
+| **Read-only keys** | With `--read-only` the key runs only commands komando counts as reads (the `kind` in `komando schema`): `exec` (also with `--script`) and `cluster kubernetes exec` need `--read-only`, `database PROVIDER query`, `cache PROVIDER raw` and `cluster PROVIDER raw` no `--write`, and a snippet must be marked read-only. `storage PROVIDER object link` and `cluster kubernetes tunnel start` are changes (`kind: change`), since they hand out access or open a port here: a read-only key is refused them (`SSH_GATE_READ_ONLY`), a full key runs them. |
+| **Read keys stay off the network** | Reaching the network is no write, but it is a way out: what a key reads could leave in a URL or a DNS name. So a `--read-only` key runs only komando's own reads of the entries in your list (`list`, `status`, `database PROVIDER query`, `cache PROVIDER raw`, `cluster PROVIDER raw`, ...). It is refused `exec`, `cluster kubernetes exec` and `snippet exec`, whose programs (`curl`, `nslookup`, ...) can connect anywhere (`SSH_GATE_NETWORK_REQUIRED`). A read komando adds later is refused until it is known to stay on listed targets. SQL and cache commands that reach another server or a program are writes, so `database PROVIDER query` and `cache PROVIDER raw` refuse them without `--write`: Postgres `COPY ... TO PROGRAM` and `dblink`, MySQL `INTO OUTFILE`, `LOAD DATA` and `LOAD_FILE`, SQL Server `OPENROWSET`, `OPENQUERY`, linked-server names (`lnk.db.dbo.t`) and the functions that read a file path (`\\HOST\share`), ClickHouse `url()`, `remote()` and `s3()`, Oracle `UTL_HTTP` and XML the query builds (a DTD can name a URL), BigQuery `EXTERNAL_QUERY`, MongoDB `$out` and `$merge`, Redis `MIGRATE` and `REPLICAOF`. Add `--network` to the line for a read key that may run them. |
+| **Shell keys** | A line made with `--shell-access` (only for a key that may change things, not with `--read-only`) lets the key open a login shell on one server: `ssh -t HOST komando host ssh shell NAME`, word for word, with at most `KOMANDO_AGENT=NAME` before it. sshd gives the key a terminal only when it asks for one (`ssh -t`), and ssh-gate lets no shell through without it. The server must be one in your list, named as it is written there: no `user@host`, address, group, pattern or other spelling. A protected server, a Windows server (added with `--os windows`, or over WinRM) and a server that is this computer are refused, and so are any other word or flag (`--yes`, `-o`, `--dry-run`), the `ssh` and `connect` spellings, `database PROVIDER shell` and `cluster kubernetes shell` (`SSH_GATE_REFUSED`). Every other command gets the answer a key without `--shell-access` gets. While you have deny rules of your own (`komando policy deny`), no key opens a shell on any server (`SSH_GATE_REFUSED`): komando does not see what is typed in a shell, so a shell would get past them. On every other server the gate allows, a shell key is full control of that server, as the account komando logs in with there: what is typed is outside komando's per-command policy, masking and audit. Give such a key only to a device you would give that login to. The shell ends after 30 minutes with no input and no output (`SHELL_IDLE_TIMEOUT`), and when the key's terminal changes size, the server's terminal follows. The audit record of each command such a key sends has `shell_access: true`, and each shell session has two more: one when it starts and one when it ends, with the key's name (`ssh_gate`), the server (`hosts`) and `session` (`start` or `end`). The end record adds `duration_ms`, why it ended (`end`: `exit`, `idle`, `hangup` when the key's connection closed, `lost` when the server's broke, or `error` when the shell never opened) and, after `exit`, the shell's `exit_code`. ssh-gate opens the shell in its own process, after its checks; `komando host ssh shell` run any other way still needs a person at a terminal.
+TODO(cut): the path of the shell the gate opens in the new tree waits on the gate port (C369). If that process is killed, there is no end record; the start record still shows the session. |
+| **Every command in the history** | Each command a key runs or is refused is in `komando audit list`: the key's name (`ssh_gate`), what it sent (`ssh_command`, secret-looking values hidden), the address it came from (`client`) and, when refused, why. What the command then changes is recorded as from `ssh-gate key NAME`. This record is written even when the `audit` setting is off; when it cannot be written, nothing runs. In `komando audit list` text, line breaks and terminal escapes in what a key sent show as `\n` and `\x1b`, so a key cannot add or hide rows. |
 
 Give each device its own key and name, so `komando audit` tells them apart
 and you can remove one line to lock one device out. The key reaches komando
@@ -516,9 +544,9 @@ guard there. Only a different user account or a sandbox closes that. Windows: th
 environment only. So:
 
 - give komando, and so your agent, an SSH user with only the permissions it needs;
-- mark production with `komando host edit NAME --protected`;
+- mark production with `komando host ssh edit NAME --protected`;
 - keep the vault key in the OS keychain (move a key from `store.key` there
-  with `komando secret keychain`), so other people or backups that reach
+  with `komando config vault keychain`), so other people or backups that reach
   `~/.komando` cannot open the vault. A program running as you still can:
   see the approval window below;
 - give another device's SSH key only komando, with `komando ssh-gate line`.
@@ -535,7 +563,7 @@ More limits:
   Touch ID, an Apple Watch or your login password instead of a code, so
   reading the vault does not get such a program past the window; it still
   gets every secret. A passphrase
-  (`komando secret passphrase`) keeps the key out of the keychain and off
+  (`komando config vault passphrase`) keeps the key out of the keychain and off
   the disk, so only someone who knows it can open the vault. The agent's
   own sandbox is the outer boundary; give the agent one.
 - The dangerous-command filter catches common accidents; it is not a
@@ -547,31 +575,31 @@ More limits:
   without `+`, or personal data in an image or a binary file, is not
   found. Hide whole columns where it matters.
 - ssh-gate sees only the address komando keeps for a target (and, for a
-  Kubernetes conn, the conn's URL, not the server in its stored
+  Kubernetes entry, the entry's URL, not the server in its stored
   kubeconfig). A key cannot name a target itself: `u@HOST` or an IP that
   is not in your list is refused (`SSH_GATE_REFUSED`), because it could be
   this computer's own address. A listed server at one of this computer's
   own network addresses (its LAN IP), or one whose pinned host key is this
   computer's own SSH host key (`/etc/ssh/ssh_host_*_key.pub`: a DNS name,
   a public IP or a port forward that leads back here), is refused like
-  `localhost`. What komando still cannot tell apart: a conn or cluster
+  `localhost`. What komando still cannot tell apart: an entry
   that leads back here under another name, and a server here that has no
   pinned key yet or runs its own SSH server with other keys. Through such
   a target any key, read-only too, would read files or get a shell here
-  (`exec THAT-HOST --read-only -- 'nc -e /bin/sh ...'`). Do not list this
+  (`komando host ssh exec THAT-HOST --read-only -- 'nc -e /bin/sh ...'`). Do not list this
   computer in komando that way: `--read-only` does not make it safe.
 - A read key without `--network` still reaches what your servers and
   databases reach by their own setup: a Postgres foreign table, a MySQL
   FEDERATED table, a ClickHouse `cluster()` or dictionary, a Snowflake
-  external function or stage, a BigQuery remote function in the conn's own
+  external function or stage, a BigQuery remote function in the entry's own
   project, a Kubernetes API server's webhooks. Those go where a person set
   them up, not where the key names, but a key that can read through them
   sends its query there too. And komando reads SQL as text: a SQL Server
   network path built from pieces (`CHAR(92)+CHAR(92)+...`) and passed to a
   function komando does not list is not recognized.
 - Secrets are never accepted as command arguments, because they would land
-  in your shell history (`SECRET_IN_ARGS`). `komando secret set NAME` asks
-  for the value after the prompt appears; see [Secrets](secrets.md#save-one).
+  in your shell history (`SECRET_IN_ARGS`). `komando credential password add NAME --user USER` asks
+  for the value after the prompt appears; see [Credentials](credentials.md#save-one).
 
 ## Troubleshooting
 
@@ -581,29 +609,28 @@ what an agent or a script gets.
 
 | Error | Exit | What it means | What to do |
 |-------|------|---------------|------------|
-| `ENCODED_SECRET_INVALID` | 2 | The script or command holds a private key. | Put the key in the vault and pass it with `komando secret run`. To search for keys, quote only `'PRIVATE KEY-----'`, not the whole BEGIN line. |
+| `ENCODED_SECRET_INVALID` | 2 | The script or command holds a private key. | Put the key in the vault and pass it with `komando credential run`. To search for keys, quote only `'PRIVATE KEY-----'`, not the whole BEGIN line. |
 | `POLICY_BLOCKED` | 6 | The command looks destructive. | Check the command. At a terminal komando asks you to type the name of what goes; a script adds `--allow-dangerous` after a person agrees. |
-| `PROTECTED_TARGET`, `PROTECTED_TARGET` | 6 | A change to something protected. | At a terminal komando asks `[y/N]`; a script adds `--yes` (an AI agent's `--yes` opens the approval window). Commands that only look can add `--read-only`. |
+| `PROTECTED_TARGET` | 6 | A change to something protected. | At a terminal komando asks `[y/N]`; a script adds `--yes` (an AI agent's `--yes` opens the approval window). Commands that only look can add `--read-only`. |
 | `SAFETY_SETTING` | 6 | A change that turns a seatbelt off. | At a terminal komando asks `[y/N]`; a script adds `--yes` (an AI agent's `--yes` opens the approval window). |
-| `SECRET_DESTINATION` | 6 | An agent asked to send a secret somewhere new (see [above](#seatbelts-for-ai-agents)). | Tell the user which secret goes where; once they agree, add `--yes`. |
+| `SECRET_DESTINATION` | 6 | An agent asked to send a secret somewhere new (see [above](#seatbelts-for-ai-agents)). | Tell the user which credential goes where; once they agree, add `--yes`. |
 | `OPEN_BIND` | 6 | A tunnel would listen on an address other machines can reach. | Keep the default 127.0.0.1, or add `--yes` after a person agrees. |
 | `CONFIRM_REQUIRED` | 6 | A change that touches many entries (deleting a group). | Check them first, then add `--yes` after a person agrees. |
 | `WRITE_REQUIRES_FLAG` | 6 | The query or command changes data. | Try `--write --dry-run`, then `--write`. |
-| `READ_ONLY_VIOLATION` | 6 | `--read-only` was given, but komando does not know the command only reads: it changes something, or it is a program, option or subcommand komando has not heard of. | Use komando's own read (`facts`, `logs`, `svc status`, `fs read`), or drop `--read-only`; a person may confirm with `--yes`. |
+| `READ_ONLY_VIOLATION` | 6 | `--read-only` was given, but komando does not know the command only reads: it changes something, or it is a program, option or subcommand komando has not heard of. | Use `host ssh exec --read-only` with a command that only reads, or drop `--read-only`; a person may confirm with `--yes`. |
 | `DB_BYTES_LIMIT` | 6 | A BigQuery query would read more bytes than `--max-bytes` allows, so it did not run. | Select fewer columns or filter more; raise `--max-bytes` only if the person agrees to the cost. |
 | `SQL_SAFE_SETTINGS_REQUIRED` | 6 | The ClickHouse user reads queries in another dialect, so komando cannot check them. | Use a user whose settings keep `dialect = 'clickhouse'`. |
 | `UNSAFE_BACKUP` | 6 | The backup file holds a client command, not SQL, that could run programs where the restore runs. | Remove that line if the dump is not trusted. |
-| `SENSITIVE_FILE` | 6 | An agent tried to copy a secret file here, or to have komando read one here. | Read it with `fs cat` (values hidden); a person may allow `--reveal` for a project file. |
+| `SENSITIVE_FILE` | 6 | An agent tried to copy a secret file here, or to have komando read one here. | Read it with `exec --read-only -- cat FILE` (values hidden); a person may allow `--reveal` for a project file. |
 | `REVEAL_NEEDS_TERMINAL` | 6 | Only a person can see secret values. | Ask the person to run the command in their own terminal. |
 | `REVEAL_NEEDS_PERSON` | 6 | An AI agent asked for `--reveal`, or its query names a column hidden from it (`mask_columns`). | Run it without `--dry-run`: komando asks the person in a window on their screen. |
-| `NEEDS_PERSON` | 6 | Only a person can do this: `secret set` and `secret check` for an agent, `secret keychain`, `secret passphrase`, `doctor --accept-old-copy`, `doctor --reseal-meta`, `login aws`, `host ssh-command` for an agent, setting up `config approval-code`, replacing a pinned host key with `host trust --reset`. | Ask them to run it in their own terminal. A `--dry-run` still shows the plan. |
+| `NEEDS_PERSON` | 6 | Only a person can do this: typing a secret, `config vault keychain`, `config vault passphrase`, `doctor --accept-old-copy`, `doctor --reseal-meta`, the person step of `test`, `credential key install` with `--public-key-file`, setting up `config approval-code`, replacing a pinned host key with `host ssh trust --reset`. | Ask them to run it in their own terminal. A `--dry-run` still shows the plan. |
 | `STORE_OLD_COPY` | 6 | An older copy of `store.db` was put back. | No flag clears it. If you restored it on purpose, run `komando doctor --accept-old-copy` in your own terminal (see [Settings](settings.md#where-komando-keeps-its-data)). |
 | `DECLINED` | 6 | You answered no to komando's question. | Nothing was changed; run it again to be asked again. |
 | `SSH_GATE_REFUSED`, `SSH_GATE_READ_ONLY`, `SSH_GATE_NETWORK_REQUIRED` | 6 | An SSH key limited by `komando ssh-gate` asked for something it may not run (see [above](#a-key-that-runs-komando-and-nothing-else)). | No flag allows it: a person runs it on the komando computer. |
 | `SSH_GATE_SYNTAX` | 2 | The key's command is not one komando command. | Put an argument with `;`, `\|`, `$`, a backquote and the like in single quotes: `$` and backquotes are refused even in double quotes. |
 | `SSH_GATE_PATH` | 1 | `komando ssh-gate line` cannot tell komando's full path, which the line needs. | Run it by its full path, such as `/usr/local/bin/komando ssh-gate line ...`. |
-| `SHARED_FOLDER_CONFLICT` | 8 | A write as root (`--sudo`) into a folder another server user can change. | Write the file as that user instead; the hint gives the `exec --sudo-user` command. |
-| `HIDDEN_VALUE` | 2 | The text holds `[hidden]` or `[secret:NAME]`. | Change one line with `fs replace`, using `{{secret:NAME}}`. |
-| `SECRET_IN_ARGS` | 2 | A secret value was given on the command line. | Run `komando secret set NAME` and type it after the prompt, or use `--from-env VAR` or a pipe. |
+| `HIDDEN_VALUE` | 2 | The text holds `[hidden]` or `[credential:NAME]`. | Do not send it back; ask a person for the real value. |
+| `SECRET_IN_ARGS` | 2 | A secret value was given on the command line. | Run `komando credential password add NAME --user USER` and type it after the prompt. |
 | `HOSTKEY_MISMATCH` | 4 | The server's identity changed. | Never "fix" it blindly; see [Results and errors](output.md#troubleshooting). |
 | `AUDIT_UNAVAILABLE` | 1 | The audit log cannot be written, so nothing runs. | `komando doctor` shows why. |

@@ -17,8 +17,8 @@ topic:
 ## 1. What komando is
 
 komando is one client for all devops work: servers, databases, caches,
-message queues, object storage, clusters, registries, VPNs, secrets and
-files. One inventory, one way of working, one safety layer. It is for two
+message queues, object storage, clusters, registries, VPNs, credentials
+and files. One inventory, one way of working, one safety layer. It is for two
 users, equally:
 
 - **a person** at a terminal, who types commands; komando asks only for
@@ -31,64 +31,70 @@ acting) are served by the komando app, not by the open-source CLI.
 
 ### Goals
 
-1. **Universal client.** One inventory (`host` + `conn`) for every kind of
-   target. A new kind is registered in `internal/driver`; it needs no new
-   model and no new flags.
+1. **Universal client.** One inventory for every type of entry. A new
+   provider is registered in `internal/driver`; it needs no new model and
+   no new flags.
 2. **The features people use every day.** Each area can look, search,
    read, change, back up and restore. Rarely used features are left out.
-3. **Many kinds of target**, each one meeting the criteria in section 14.
+3. **Many providers**, each one meeting the criteria in section 14.
 4. **Useful in the first five minutes, easy to move to.** Every command
-   has the same shape. Existing configuration comes in with one
-   `komando import`. No lock-in: state can be exported as plain JSON.
+   has the same shape. No lock-in: state can be exported as plain JSON and
+   imported again with `komando import`.
 
 ### Core model
 
 Every feature fits these four ideas. If it does not, it is not ready.
 
 ```
-target   = host (SSH or WinRM, can run commands)  |  conn (everything else, has a kind)
-kind     = the product: postgres, redis, s3, k8s, ftp, oci, ...
-family   = kinds with the same verbs  ->  one top-level command
+type     = host | database | cache | queue | storage | cluster | registry | vpn | cloud
+provider = the product or protocol of a type: ssh, postgres, redis, s3, kubernetes, oci, ...
 risk     = read | write | destructive  ->  the same guard for all
 ```
 
-| Command | Family |
+| Command | What it holds |
 |---|---|
-| `exec`, `fs`, `cp`, `svc`, `docker`, ... | host (Linux; Windows over SSH or WinRM) |
-| `db` | sql and document databases |
+| `host` | servers (`ssh` for Linux and Windows, `winrm` for Windows) |
+| `database` | sql and document databases |
 | `cache` | key-value |
 | `queue` | message queues |
 | `storage` | object and file storage |
 | `cluster` | orchestrators (Kubernetes, Docker Swarm) |
 | `registry` | container registries |
-| `secret` | the local vault and external secret stores |
 | `vpn` | the path to a target |
+| `credential` | the local vault and external credential stores |
+| `group`, `policy`, `snippet` | komando's own things: named sets, block rules, saved commands |
 
 ## 2. Commands
 
 ```
-komando <noun> <verb> [ITEM] [TARGET] [args] [flags]
-komando db query prod-db "select 1"
-komando storage upload backups ./dump.sql.gz
+komando TYPE PROVIDER VERB NAME [args] [flags]
+komando database postgres query prod-db "select 1"
+komando copy ./site web1:/srv
 ```
 
 - **There is one interface.** `komando` alone prints the commands by group.
-  There is no menu, no TUI and no full-screen app.
-- **The noun is a work area in plain words** (`host`, `conn`, `db`,
-  `cache`, `queue`, `storage`, `cluster`, `registry`, `secret`, `vpn`).
-  Product names are only aliases (`s3`, `redis`, `k8s`, `kafka`).
+  There is no full-screen app.
+  TODO(cut): the wording about menus waits on the interactive-mode design note (C162).
+- **The type is a work area in plain words** (`host`, `database`, `cache`,
+  `queue`, `storage`, `cluster`, `registry`, `vpn`, `cloud`). The provider is
+  the product or protocol, in lowercase (`ssh`, `postgres`, `redis`, `s3`,
+  `kafka`, `kubernetes`). komando's own things have no provider
+  (`credential`, `group`, `policy`, `snippet`).
 - **A verb has one meaning everywhere.** `list` lists, `show` shows one
-  item, `rename` renames, `rm` removes. Words an area's own tool uses
-  stay (`scale`, `apply`, `peek`, `purge`), from a fixed list.
-- **A few shortcuts live at the top level** (`exec`, `logs`, `cp`, `list`,
-  `test`, `upload`, `download`), with the same shape as the long form.
+  item, `rename` renames, `remove` takes an entry out of komando's list and
+  `delete` destroys something inside the target. The verbs come from one
+  table; a new verb needs a row there first.
+- **A few commands act across types** and sit at the top level (`list`,
+  `test`, `copy`, `import`, `export`, `status`), with the same shape as the
+  long form.
 - **Words for a server go after `--`** on every command that passes them
-  on (`exec web1 -- uptime`), so komando never reads them as its own flags.
-- **One cluster command.** Verbs every engine has sit under `cluster` and
-  work on any cluster; a feature only one engine has says so on the other
-  (`cluster helm` is for Kubernetes). `docker` is for one server.
+  on (`host ssh exec web1 -- uptime`), so komando never reads them as its
+  own flags.
+- **One type, many providers.** The verbs every provider has (`add`, `edit`,
+  `list`, `remove`, `rename`, `show`, `test`) are the same; a feature only
+  one provider has lives under that provider (`cluster kubernetes exec`).
 - **No legacy.** A rename is clean: the old name stops working, and help,
-  examples, the guide, the skill and these docs change in the same change.
+  examples, the skill and these docs change in the same change.
   A few plain synonyms (`ls` for `list`) are accepted; docs show only the
   primary name.
 
@@ -97,15 +103,15 @@ letters are in [command-standard.md](command-standard.md) (S-1 to S-5).
 
 ## 3. Targets and selectors
 
-Selectors pick everything: servers and conns alike.
+Selectors pick everything: entries of every type.
 
 | Selector | Picks |
 |---|---|
-| `NAME` | one host or conn (names are unique across both) |
+| `NAME` | one entry |
 | `web-*`, `db-?` | names by pattern |
 | `@GROUP` | every member of the group |
 | `tag:T`, `label:K=V` | everything with that tag or label |
-| `kind:postgres`, `kind:host`, `kind:db` | everything of that kind, or of that command family |
+| `kind:postgres`, `kind:host`, `kind:db` | everything of that kind, or of that type |
 | `os:windows`, `os:linux` | servers by system |
 | `all` | everything |
 | `a,b,!c` | a combination; `!` leaves one out |
@@ -113,9 +119,11 @@ Selectors pick everything: servers and conns alike.
 
 1. **Commands that look** (`list`, `test`, `show`, `audit`) use everything
    picked.
-2. **Commands that act** use the members they can serve (`exec` → hosts,
-   `db` → databases). The rest are listed in `meta.skipped` with the
-   reason, never dropped quietly.
+2. **Commands that act** use the members they can serve (`host ssh exec` →
+   ssh hosts, `database postgres query` → postgres databases). The rest are
+   listed in `meta.skipped` with the reason, never dropped quietly.
+   TODO(cut): the field and the exit code for skipped members wait on O-30.
+   TODO(cut): the selector words for a type and a provider (today `kind:` and `os:`) wait on the table (PR B).
 3. If none can be served: `NO_MATCHING_TARGETS` (exit 3) with a hint that
    names the right command.
 4. A selector that matches nothing is an error, never a success with zero
@@ -124,7 +132,7 @@ Selectors pick everything: servers and conns alike.
 6. **Safety checks run for the whole batch before anything runs.** One
    protected target that needs a yes stops the whole batch, and every such
    target is named.
-7. `db query` runs against one database; a selector that picks several is
+7. `database PROVIDER query` runs against one database; a selector that picks several is
    refused.
 
 ## 4. Flags
@@ -136,18 +144,17 @@ Selectors pick everything: servers and conns alike.
 - **Read or write, by default.** Text in a language komando reads (SQL,
   Redis, kubectl) is read-only unless `--write`. Shell text counts as a
   change unless `--read-only`. A command with a clear verb (`storage
-  upload`, `svc restart`) needs neither.
-- **sudo.** System commands (`svc`, `pkg`, `user`, `recipe`) use sudo when
-  needed; `--no-sudo` turns it off. Other commands use it only with
-  `--sudo`.
+  PROVIDER object create`, `host ssh tunnel start`) needs neither.
+- **sudo.** A command uses sudo only with `--sudo` (`--sudo-user` for
+  another user, `--sudo-credential` for its password).
 
 ## 5. Output
 
 - **One JSON envelope** on stdout when piped; neat text in a terminal.
   Progress, prompts and warnings always go to stderr.
 - Colour only in a terminal, never with `NO_COLOR`.
-- Lists are sorted by name, as one list; a KIND or TYPE column tells kinds
-  apart. Lists without names keep their own order: jobs and tunnels by
+- Lists are sorted by name, as one list; a TYPE column tells types
+  apart. Lists without names keep their own order: exec sessions and tunnels by
   start time, crontab lines as in the file, `audit` by time.
 - Many targets: `data.results[]` per target, `data.summary` (`ok`,
   `failed`), skipped targets in `meta.skipped[]`. Top-level `ok` is false
@@ -166,8 +173,10 @@ Selectors pick everything: servers and conns alike.
 The output shape is **contract version 1** (`meta.contract` in every
 answer, `contract` in `komando schema`). Within one version, the envelope
 (`ok`, `command`, `data`, `error`, `meta`), field names, error codes and
-exit codes are never renamed or removed: only added. A breaking change raises the contract
-number and is written in the CHANGELOG.
+exit codes are never renamed or removed: only added. The field that names
+the entry a command ran on is the entry's type word (`host`, `database`, ...).
+A breaking change raises the contract number and is written in the CHANGELOG.
+TODO(cut): the new `meta.contract` value waits on the release pull request.
 
 ## 6. Errors
 
@@ -181,7 +190,7 @@ not possible, it says so. The details are in
 
 ## 7. Confirmation and safety
 
-- **One risk table (`internal/cli/risk.go`) decides how much approval a
+- **One risk table (`riskOf`) decides how much approval a
   change needs**: none for a
   read, `--yes` for a protected target or a safety setting,
   `--allow-dangerous` for what cannot be undone, and some steps only a
@@ -207,7 +216,7 @@ not possible, it says so. The details are in
   `komando test HOST` once and the agent's commands use that login for a
   few hours.
 - **A value only the person knows is typed by the person.** An agent that
-  runs `secret set NAME` without a value gets `NEEDS_PERSON`.
+  runs `credential password add NAME` without a value gets `NEEDS_PERSON`.
 - `--allow-dangerous` and `--yes` apply to one command only and are
   recorded in the audit.
 - **No way around it.** Removing, replacing or turning off protection on a
@@ -226,22 +235,22 @@ not possible, it says so. The details are in
 ## 8. Secrets
 
 - Secrets never appear in command arguments, URLs, the audit or output,
-  except `secret get --reveal` asked for by a person.
-- A secret is entered at a hidden prompt, with `--from-env VAR`, or on
-  stdin. **A value as an argument is refused**: it lands in shell history
-  and in `ps`.
+  except `credential KIND show --reveal` asked for by a person.
+- A secret is entered at a hidden prompt. **A value as an argument is
+  refused**: it lands in shell history and in `ps`.
+  TODO(cut): the other ways to give a value (environment, stdin) wait on the `Options` of `credential KIND add` (PR B).
 - AI agents see passwords, keys and tokens as `[hidden]`, and personal
   data on protected targets as `[hidden: email]` and the like.
-- A ref that cannot be read (empty `env:X`, missing file, a file others
+- A credential reference that cannot be read (empty `env:X`, missing file, a file others
   can read) is an error that names the ref, never its value.
 
 ## 9. Inventory and names
 
 - Names: letters, digits, `-`, `_`, `.`; 1–63 characters; starting with a
-  letter or digit. Unique across hosts and conns, ignoring case.
+  letter or digit. Unique across all entries, ignoring case.
 - Words that mean something as a selector (`all`) cannot be names.
 - A rename updates everything that refers to the item (groups, `--via`,
-  recipes). A remove is refused while the item is in use
+  snippets). A remove is refused while the item is in use
   (`HOST_IN_USE`, `SECRET_IN_USE`, `KEY_IN_USE`, ...), and the users are
   listed.
 - State is written atomically under a file lock, so two komando processes
@@ -251,28 +260,34 @@ not possible, it says so. The details are in
 ## 10. Moving in
 
 ```
-komando import SOURCE [FILE] [--dry-run] [--group G]
+komando import FILE [--dry-run] [--group G]
 komando export [--to FILE]
 ```
 
+TODO(cut): the exact usage line of `import` waits on the table (PR B).
+
+- komando imports only its own file, the one `komando export` writes. The
+  other sources are not read.
 - Importing again is safe: the same items are skipped, different ones are
   reported. Existing items are replaced only with `--overwrite`.
 - Fields komando does not take are reported, never dropped quietly.
 - Names that clash between sources get a suggested new name.
-- Secrets from any source go into the vault and are used as `secret:NAME`.
+- Secrets in the file go into the vault and are used as `credential:NAME`.
 
 ## 11. Help and ease of use
 
 - **People use commands, not a menu.** `komando` alone, for a person at a
   terminal, prints the commands by group with START first (and, with
   nothing added yet, how to add the first server). For agents and scripts
-  it prints the first steps; piped, one `USAGE` envelope. Help topics:
-  `komando help safety|environment|exit-codes|output`.
+  it prints the first steps; piped, one `USAGE` envelope. Help is only
+  `--help`, at each level; there is no `help` command, and topics are docs
+  articles.
+  TODO(cut): whether a START block of first commands stays waits on the help builder and its golden (PR B).
 - **A typed command asks a person for what is missing**, and nobody else.
   It asks only when stdin, stdout and stderr are terminals, no AI agent
   runs komando, `CI` is not set, `TERM` is not `dumb` and the output is
   text. It asks for missing arguments in order, then required flags, one
-  line each, labelled with the real name (`CONN (database):`, `--old:`).
+  line each, labelled with the real name (`TARGET (servers):`, `--old:`).
   `?` shows help; a default shows in brackets; a wrong answer is explained
   and asked again. Lists come from the inventory: a number picks, text
   narrows, a selector or a new name is taken as typed. One item that is
@@ -282,8 +297,8 @@ komando export [--to FILE]
   runs at once; a change asks `Run it? [y/N, d = --dry-run first]`. The
   questions never add `--yes`, `--allow-dangerous`, `--reveal` or
   `--write`. A command typed in full runs as it always did.
-- `host add`, `conn add`, `vpn add` and each area's add, typed alone, ask
-  that kind's own questions, never a password (that is asked hidden).
+- Each provider's `add`, typed alone, asks that provider's own questions,
+  never a password (that is asked hidden).
 - After a command a person ran ends well: `Next time: <line>` when komando
   asked for something, and up to three `Next:` lines. `show` ends with
   that item's commands. All on stderr, only at a person's terminal.
@@ -291,9 +306,10 @@ komando export [--to FILE]
   error and hint. A test (`TestAgentGolden`) holds this.
 - Every command has at least one real example in `--help`, and every
   example must parse.
-- Shell completion completes host, conn, group and tag names.
-- `komando guide` (for agents) and `docs/features/` (for people, one page
-  per feature) change in the same commit as the feature.
+- Shell completion completes entry, group and tag names.
+- The skill (`skills/komando/SKILL.md`, for agents) and `docs/features/`
+  (for people, one page per feature) change in the same commit as the
+  feature.
 
 ## 12. One need, one command
 
@@ -306,24 +322,25 @@ If so, extend that one.
 - Doing one item or many at once may be two commands, sharing the same
   code.
 
-Examples in place: `test` (`host test` and `conn test` call it), `list`,
-`logs` (`svc logs` and `docker logs` call it), `recipe`, `upload` /
-`download`, `exec --script`, `import` / `export`, `status --short`.
+Examples in place: `test` (every provider's `test` and the top `test` share
+one engine), `list`, `copy`, `snippet`, `exec --script`, `import` /
+`export`, `status`.
 
 ## 13. Everything the native tool can do
 
 komando is as strong as the original tool through three paths, the same
 in every area:
 
-1. **Commands komando understands** (`db schema`, `cache get`,
-   `storage ls`): structured output, safe. For most daily work.
+1. **Commands komando understands** (`storage s3 object list`,
+   `queue kafka topic list`): structured output, safe. For most daily work.
 2. **A raw path in the native language**, still classified, read-only by
-   default and audited: `exec`, `db query`, `cache run`,
-   `cluster run -- <kubectl args>`.
-3. **Your own tool, through komando's path**: `komando tunnel start prod-db`
-   gives a local port for any client; `komando shell` opens SSH;
-   `komando db shell prod-db` opens komando's own SQL shell with the
-   password from the vault.
+   default and audited: `host ssh exec`, `database postgres query`,
+   `cache redis raw`, `cluster kubernetes raw NAME -- <kubectl args>`.
+3. **Your own tool, through komando's path**: `komando host ssh tunnel start web1
+   -L 5432:localhost:5432` gives a local port for any client;
+   `komando host ssh shell web1` opens SSH;
+   `komando database postgres shell prod-db` opens komando's own SQL shell
+   with the password from the vault.
 
 Paths 2 and 3 are not overlaps: they exist on purpose, with the same
 safeguards.
@@ -332,7 +349,7 @@ safeguards.
 
 A new family is added only when all of these hold:
 
-1. It fits the `conn` + kind + verb model, with no new ideas.
+1. It fits the type + provider + verb model, with no new ideas.
 2. It can be read-only by default, with an honest risk classification.
 3. It can be built in pure Go.
 4. People use it every day.
@@ -340,9 +357,9 @@ A new family is added only when all of these hold:
 
 A family is done when:
 
-- it is registered as a kind in `internal/driver` (URL scheme, port, example);
-- `conn add` and `test` work, including `--via HOST`;
-- passwords come only through refs and are refused in a URL;
+- it is registered as a provider in `internal/driver` (URL scheme, port, example);
+- its `add` and `test` work, including `--via HOST`;
+- passwords come only through credential references and are refused in a URL;
 - it is read-only by default, enforced by the server where possible
   (read-only transaction, read-only token, Kubernetes `--dry-run=server`);
 - risk is classified before anything is sent, and the rules show in
@@ -351,8 +368,7 @@ A family is done when:
 - protected needs `--yes`, destructive needs `--allow-dangerous`;
 - it writes one audit line per command, with no secrets;
 - it has JSON output and readable text;
-- it has a section in `komando guide`, a page in `docs/features/`, and an
-  importer when there is a common source.
+- it has a section in the skill and a page in `docs/features/`.
 
 ## 15. Technical rules
 
@@ -364,8 +380,8 @@ A family is done when:
 - **Our own code where no suitable open library exists, and fully open
   source**: no closed or prebuilt parts. Never copy GPL code.
 - **No pool and no daemon.** One connection per command. Tunnels, VPN
-  sessions, kept logins and jobs are the only background processes
-  (`komando status` lists them).
+  sessions and kept logins are the only background processes
+  (`komando status` lists them); an `exec` runs in a session on the server.
 - **The paid boundary.** The CLI never syncs between devices. Sync and the
   AI assistant are only in the paid apps, and these rules keep paid-plan
   logic out of komando:
@@ -451,13 +467,13 @@ Use this list for every feature and every review.
 - `--via` host down, slow, or with a changed host key (`HOSTKEY_MISMATCH`, never skipped)
 - IPv6 (`[2001:db8::1]:22`), DNS failure, wrong port, a silent firewall (a timeout, never a hang)
 - Bastion chains with more than one hop; a company proxy
-- TLS with a self-signed certificate: an explicit option per conn, never turned off quietly
+- TLS with a self-signed certificate: an explicit option per entry, never turned off quietly
 - 500 targets at once: `--parallel`, output stays sorted, one failure does not stop the rest
 
 **Credentials**
 - Ref missing, env empty, file unreadable, vault locked without a terminal
 - Expired token (AWS session, kube exec plugin): a clear error that says how to renew
-- Password in the URL at `conn add` or `import`: refused, hint `secret set`
+- Password in the URL at `add` or `import`: refused, hint `credential password add`
 
 **Safety**
 - Dangerous commands in disguise: comments, mixed case, odd spacing, several statements, Redis `rename-command`
@@ -475,22 +491,21 @@ Use this list for every feature and every review.
 **Files and transfer**
 - The destination exists: not replaced without `--overwrite`
 - An interrupted download: write to a temporary file, then rename
-- A trailing slash (`dir` vs `dir/`): its meaning is in `--help`, the same for `cp` and `storage`
+- A trailing slash (`dir` vs `dir/`): its meaning is in `--help`, the same for `copy`
 - `~` in local and remote paths, spaces and unicode in names, symlinks, very large files (progress on stderr)
 
 **Processes**
-- Over about 2 minutes: `job`; the connection drops while a job runs; orphan jobs are cleaned up
+- Over about 2 minutes: `exec` runs in a session on the server; the connection drops while it runs; its log is removed after a finished read or after 7 days
 - Ctrl-C: roll back, clean up, `CANCELLED`; at a question, a no with echo back on
 - Two komando processes on the same state
 
 **Per area**
-- **db**: long locks (`lock_timeout`), read-only replicas, connection limits, restore into the wrong database (protected and type the name)
+- **database**: long locks (`lock_timeout`), read-only replicas, connection limits, restore into the wrong database (protected and type the name)
 - **cache**: `KEYS` on a big cache (use `SCAN`), Redis cluster (`MOVED`), sentinel, database numbers
 - **storage**: versioned buckets (delete markers), "folders" that are prefixes, multipart upload, links that live at most 7 days
 - **cluster**: default namespace, kubeconfig context, exec auth plugins, `apply` always with a diff and `--dry-run=server` first
 - **registry**: Docker Hub rate limits, tag vs digest (deleting a digest deletes its other tags too)
 
 **Moving in and versions**
-- `~/.ssh/config` with `Include`, `Match` and wildcards; kubeconfig with many contexts
-- Importing again, clashing names, fields komando does not take
+- A file from `export`: importing again, clashing names, fields komando does not take, a file from an older komando
 - Output contract: new fields are allowed, old fields stay until a major version

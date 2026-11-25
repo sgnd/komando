@@ -40,9 +40,9 @@ make e2e      # real SSH tests in Docker (bastion + private target); see item 7 
 
 `make help` lists everything.
 
-## Easiest first contribution: add a recipe
+## Easiest first contribution: add a snippet
 
-Recipes are ready-made checks (`komando recipe list`). They live in one list in [`internal/cli/recipe.go`](internal/cli/recipe.go). Add an entry like:
+Built-in snippets are ready-made commands (`komando snippet list`). They live in one list in [`internal/cli/recipe.go`](internal/cli/recipe.go). Add an entry like:
 
 ```go
 {Name: "swap-usage", Category: "system", Desc: "Processes using swap",
@@ -54,9 +54,11 @@ Recipes are ready-made checks (`komando recipe list`). They live in one list in 
 - Set `Sudo: true` if root is usually needed, `Mutating: true` if it changes anything.
 - Keep it portable (Debian/Ubuntu and RHEL-family at least).
 
+TODO(cut): the file and the entry type of the built-in snippet list wait on the M moves (program road table).
+
 ## Add or change a command
 
-Each command has its own files in `internal/cli/`, named for its noun (`host.go`, `db_dump.go`, `cluster_swarm.go`, ...). Where code goes and how packages and files are named is in [docs/design/code-layout.md](docs/design/code-layout.md), with every contributor rule in one list. Follow these rules. They are what makes komando usable by AI agents:
+Each command has its own files in `internal/cli/`, named for its noun (`host.go`, `cluster_swarm.go`, ...). Where code goes and how packages and files are named is in [docs/design/code-layout.md](docs/design/code-layout.md), with every contributor rule in one list. Follow these rules. They are what makes komando usable by AI agents:
 
 1. **Print results only via `out.P.Print`.** It writes one JSON envelope when piped (agents) and readable text in a terminal (humans). Give a result type a `Text() string` method if the generic text view is not clear enough.
 2. **Never prompt an agent or a script.** Missing input is an error with a `hint`. A person at a terminal is asked only for what a flag or argument can also give, through the prompter (`promptable` in `internal/cli/prompter.go` decides who may be asked). A question never adds `--yes`, `--allow-dangerous`, `--reveal` or `--write`.
@@ -69,15 +71,15 @@ Each command has its own files in `internal/cli/`, named for its noun (`host.go`
 9. **Keep pieces small**: a function up to 100 lines, a file up to 800. Split instead of growing ([`internal/codesize`](internal/codesize/codesize_test.go) checks it).
 10. **Never break the JSON**: fields may be added, never renamed or removed. `TestOutputShapes` keeps the shape of the answers; after adding a field, run `go test ./internal/cli -run TestOutputShapes -update-shapes`.
 
-A new command needs a form hint, so a person who leaves an argument out is asked for it well: add one in `internal/cli/form_hints_*.go` (which arguments come from a list, which flags to ask first, its `Next:` lines). `TestFormEveryCommandHasAHint` fails until you do, and `TestFormEveryCommandHasAnArea` fails when its first word is in no area of `formAreas` ([`internal/cli/form_cmd.go`](internal/cli/form_cmd.go)). A new kind of server or conn also needs an add form (`TestFormEveryKindHasAnAddForm`). What agents and scripts get must not change by accident: `TestAgentGolden` compares every command against a recording (`KOMANDO_GOLDEN_UPDATE=1` records it again, only on purpose).
+A new command needs a form hint, so a person who leaves an argument out is asked for it well: add one in `internal/cli/form_hints_*.go` (which arguments come from a list, which flags to ask first, its `Next:` lines). `TestFormEveryCommandHasAHint` fails until you do, and `TestFormEveryCommandHasAnArea` fails when its first word is in no area of `formAreas` ([`internal/cli/form_cmd.go`](internal/cli/form_cmd.go)). A new provider also needs an add form (`TestFormEveryKindHasAnAddForm`). What agents and scripts get must not change by accident: `TestAgentGolden` compares every command against a recording (`KOMANDO_GOLDEN_UPDATE=1` records it again, only on purpose).
 
 Update the docs in the same pull request:
 
 - the feature's page in [`docs/features/`](docs/features/README.md);
-- `internal/cli/guide.md` (what `komando guide` prints) if an AI agent should use it differently;
+- `AGENTS.md` if an AI agent should use it differently;
 - `internal/cli/skill.md`, then copy it to `skills/komando/SKILL.md` (a test checks that they match).
 
-A test also reads every `komando ...` example in the docs (`README.md`, `AGENTS.md`, `CONTRIBUTING.md`, `SECURITY.md`, `docs/features/`, the guide and the skill) and fails when a command, subcommand or flag does not exist.
+A test also reads every `komando ...` example in the docs (`README.md`, `AGENTS.md`, `CONTRIBUTING.md`, `SECURITY.md`, `docs/features/` and the skill) and fails when a command, subcommand or flag does not exist.
 
 ## Send a pull request
 

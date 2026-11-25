@@ -1,7 +1,31 @@
 # Services, logs, Docker, packages, users
 
-Day-to-day server administration, with structured results instead of raw
-terminal output. [All docs](README.md)
+Day-to-day server administration through `komando host ssh exec`. There is
+one command for it: you write the server's own tool (`systemctl`,
+`journalctl`, `docker`, `apt-get`, `useradd`, `crontab`), and komando runs
+it, checks it against its safety rules and records it. [All docs](README.md)
+
+```bash
+komando host ssh exec TARGET [--read-only] [--sudo] -- COMMAND
+```
+
+- The command's words go after `--`; komando's own flags go before it.
+  Without `--` the run stops with `USAGE`. Write `-- apt-get install -y
+  nginx`, not `apt-get install -y nginx`.
+- `--read-only` declares a command that only reads. komando checks that it
+  does and refuses anything else with `READ_ONLY_VIOLATION`. Without it, a
+  command counts as a change.
+- `exec` always runs in a session on the server and prints its session ID.
+  If the connection drops, the run goes on: come back with
+  `komando host ssh exec TARGET --attach ID` (see [Long
+  runs](#long-runs)).
+- Add `--dry-run` first to see the plan and any stop the real run would
+  hit. A dry run never changes anything.
+- A rule on the command's text stops the dangerous forms, whichever tool
+  you use: deleting files, removing or pruning Docker data, killing a
+  container, removing an essential package, stopping sshd, deleting a
+  user and rebooting. Each needs `--allow-dangerous` after a person agrees
+  ([Safety](safety.md)).
 
 ## Check and restart a service
 
@@ -9,340 +33,314 @@ Most Linux servers start and watch their services with systemd. systemd
 calls each service a unit (`nginx`, `php8.2-fpm`).
 
 ```bash
-komando svc status @web nginx                 # state, main PID, restarts, memory
-komando svc restart @web nginx --wait 10s     # fails unless nginx is active within 10s
+komando host ssh exec @web --read-only -- systemctl status nginx      # state, main PID, restarts, memory
+komando host ssh exec @web --sudo -- systemctl restart nginx          # then check that it is active
 ```
 
-Typed alone at your terminal, `komando svc restart` asks for the server
-(from your list), then the services, then how long to wait.
+Typed alone at your terminal, `komando host ssh exec` asks for the server
+(from your list), then the command.
 
 ```bash
-komando svc list web1 --failed                # or --state running
-komando svc enable web1 nginx --now           # enable and start
-komando svc stop web1 old-worker
-komando svc start web1 worker
-komando svc disable web1 old-worker --now     # do not start it at boot, and stop it now
-komando svc logs web1 nginx                   # the unit's journal (see Logs)
+komando host ssh exec web1 --read-only -- systemctl list-units --type=service --failed
+komando host ssh exec web1 --sudo -- systemctl enable --now nginx     # enable and start
+komando host ssh exec web1 --sudo -- systemctl stop old-worker
+komando host ssh exec web1 --sudo -- systemctl start worker
+komando host ssh exec web1 --sudo -- systemctl disable --now old-worker   # not at boot, and stop it now
+komando host ssh exec web1 --read-only -- journalctl -u nginx -n 100 --no-pager   # the unit's journal (see Logs)
 ```
 
-`start`, `stop`, `restart`, `reload`, `enable` and `disable` use sudo and
-report the state afterwards (see [Sudo](#sudo)).
+`start`, `stop`, `restart`, `reload`, `enable` and `disable` change the
+server, so they need `--sudo` and a protected server asks first. To check
+that a restart worked, run `systemctl is-active nginx` afterwards: it exits
+non-zero unless the unit is active.
 
-- `--wait` takes a time with a unit (`10s`, `2m`); a number without a unit
-  is refused, except `0` (no wait).
-- Stopping, disabling or masking the SSH server (`ssh`, `sshd`,
-  `ssh.socket`) needs `--allow-dangerous`: it locks you out.
+Stopping, disabling or masking the SSH server (`ssh`, `sshd`,
+`ssh.socket`) needs `--allow-dangerous`: it locks you out.
 
 After you write or change a unit file, reload systemd so it reads it:
 
 ```bash
-komando svc daemon-reload web1                # names any unit that still needs a reload
+komando host ssh exec web1 --sudo -- systemctl daemon-reload
 ```
 
-A user's own units (`~/.config/systemd/user`, `systemctl --user`) take
-`--user-units` on `svc status`, `list`, `start`, `stop`, `restart`, `reload`,
-`enable`, `disable` and `daemon-reload`. They are the login user's units,
-so komando runs them without sudo:
+A user's own units (`systemctl --user`) run as the login user, without
+sudo:
 
 ```bash
-komando svc list web1 --user-units
-komando svc restart web1 --user-units syncthing --wait 10s
+komando host ssh exec web1 --read-only -- systemctl --user list-units
+komando host ssh exec web1 -- systemctl --user restart syncthing
 ```
 
 A user's manager runs only while they are logged in, unless lingering is
-on; without it komando stops with `NO_USER_MANAGER` (exit 3). A person
-with sudo turns lingering on once: `loginctl enable-linger USER` on the
-server.
+on. A person with sudo turns lingering on once: `loginctl enable-linger
+USER` on the server.
+
+Lost: the structured service results (state, PID, restarts, memory as
+fields) and the wait that failed unless the unit was active in time.
+`exec` returns the tool's own text and exit code.
 
 ## Logs
 
-`logs` reads one source: the systemd journal (`--unit`), a file (`--file`)
-or a Docker container (`--container`).
+Read one source: the systemd journal, a file or a Docker container.
 
 ```bash
-komando logs web1 --unit nginx --since 30m --grep 'error|crit'
+komando host ssh exec web1 --read-only --sudo -- journalctl -u nginx --since -30m --no-pager -g 'error|crit'
 ```
-
-Typed alone, `komando logs` asks for the server, then which log and from
-how long ago.
 
 ```bash
-komando logs web1 --unit nginx --follow                 # keep watching; Ctrl-C to stop
-komando logs web1 --unit nginx -p err --since today     # errors and worse
-komando logs @web --file /var/log/nginx/error.log -n 50 --sudo
-komando logs web1 --container api --since 10m --timestamps
+komando host ssh exec web1 --read-only --sudo -- journalctl -u nginx -f             # keep watching; Ctrl-C to stop
+komando host ssh exec web1 --read-only --sudo -- journalctl -u nginx -p err --since today --no-pager
+komando host ssh exec @web --read-only --sudo -- tail -n 50 /var/log/nginx/error.log
+komando host ssh exec web1 --read-only -- docker logs --since 10m --timestamps api
 ```
 
-`komando svc logs TARGET UNIT` and `komando docker logs TARGET CONTAINER`
-read the same as `logs --unit` and `logs --container`. The flags are under
-[Reference](#reference).
+Without `--sudo`, the journal shows only your own entries. A log file that
+does not exist makes the tool fail with its own exit code.
 
-Without `--sudo`, the journal shows only your own entries, and komando warns
-you. A log file that does not exist exits 3.
+TODO(cut): whether `journalctl -f`, `tail -f` and `docker logs -f` run
+under `--read-only` waits on the read-only allowlist (`readonly.go`).
 
 ## Docker
 
 ```bash
-komando docker ps web1                         # running containers (--all for stopped ones too)
-komando docker logs web1 api -n 100
-komando docker restart web1 api
+komando host ssh exec web1 --read-only -- docker ps                  # running containers (-a for stopped ones too)
+komando host ssh exec web1 --read-only -- docker logs --tail 100 api
+komando host ssh exec web1 -- docker restart api
 ```
 
 ```bash
-komando docker stats web1                      # CPU, memory, network and disk use
-komando docker images web1
-komando docker inspect web1 api                # a container, image or other object in full
-komando docker pull web1 nginx:1.27            # fetch an image
-komando docker stop web1 api                   # also: start
-komando docker rm web1 old-api --dry-run       # remove a container
-komando docker exec web1 api -- php artisan migrate:status
-komando docker compose web1 --dir /srv/shop -- up -d --pull always
+komando host ssh exec web1 --read-only -- docker stats --no-stream   # CPU, memory, network and disk use
+komando host ssh exec web1 --read-only -- docker images
+komando host ssh exec web1 --read-only -- docker inspect api         # a container, image or other object in full
+komando host ssh exec web1 -- docker pull nginx:1.27                 # fetch an image
+komando host ssh exec web1 -- docker stop api                        # also: start
+komando host ssh exec web1 --dry-run -- docker rm old-api            # remove a container
+komando host ssh exec web1 -- docker exec api php artisan migrate:status
+komando host ssh exec web1 -C /srv/shop -- docker compose up -d --pull always
 ```
 
-- Reading (`ps`, `stats`, `images`, `inspect`, `logs`) needs nothing extra.
-- `start`, `stop`, `restart`, `pull`, `compose up` and a `docker run`
-  through `docker raw` change things, so a protected server asks first.
-- Before `compose up` (or `create`, `run`, `start`, `restart`, `pull`,
-  `build`), komando reads the compose file on the server (`--file`, or
-  compose's own names in `--dir`; at most 1 MiB, without sudo). A service
-  that gets the server (privileged, added capabilities or devices, the
-  host's network or processes, a bind of `/` or the docker socket) needs
-  `--allow-dangerous`, as does a file komando cannot read or one that
-  pulls in files it does not check (override files are read too; see
-  [Clusters](cluster.md) for the full list and the moment between
-  komando's read and docker's).
-- `rm`, `prune`, `compose down -v` and other deletes delete for good: at
-  your terminal komando asks you to type the server's name; an AI agent or
-  a script adds `--allow-dangerous` after a person agrees
-  ([Safety](safety.md)).
+- Reading (`ps`, `stats`, `images`, `inspect`, `logs`) needs nothing extra
+  when you add `--read-only`.
+- `start`, `stop`, `restart`, `pull`, `compose up` and `docker run` change
+  things, so a protected server asks first.
+- `docker rm`, `docker prune`, `docker kill` and `docker compose down -v`
+  delete or kill for good: at your terminal komando asks you to type the
+  server's name; an AI agent or a script adds `--allow-dangerous` after a
+  person agrees ([Safety](safety.md)). A `docker run` that gives the
+  container the server (privileged, the host's network or processes, a
+  bind of `/` or the docker socket) is stopped too.
 - `docker exec` passes the command's words as written, with no shell, so
   the image needs no `sh`. For pipes or `&&`, write the shell yourself:
-  `-- sh -c 'ls /data | wc -l'`. Add `--read-only` when it only looks; it
-  is checked as for `exec`: only commands komando knows only read run.
-- `docker raw TARGET -- ARGS...` runs any other docker subcommand, under the
-  same rules.
+  `docker exec api sh -c 'ls /data | wc -l'`. A shell in a container
+  (`docker exec ... sh`) is stopped by its own rule.
 - `--sudo` runs docker through sudo, when your user is not in the `docker`
   group.
+- `--dir` (`-C`) is the working folder, for `docker compose` in the
+  project's folder.
+
+TODO(cut): whether komando still reads the compose file on the server
+before `compose up` (the compose-file reader, `execComposeReason`) and what
+it stops waits on the exec rules pull request (#464).
 
 ### Free disk space (docker prune)
 
 ```bash
-komando docker prune web1 --dry-run                          # what would go, with sizes and a total
-komando docker prune web1 --older-than 30d --all --dry-run   # also unused tagged images, older than 30 days
-komando docker prune web1 --older-than 30d                   # do it (asks you to type web1)
+komando host ssh exec web1 --read-only -- docker system df              # what Docker uses, and what can be freed
+komando host ssh exec web1 --dry-run -- docker system prune --filter until=720h --all
+komando host ssh exec web1 -- docker system prune --filter until=720h --all   # asks you to type web1
 ```
 
-`docker prune` runs `docker system prune`: it removes stopped containers,
-dangling images, unused networks and build cache.
+`docker system prune` removes stopped containers, dangling images, unused
+networks and build cache.
 
-- `--dry-run` changes nothing. It asks docker on the server (only commands
-  that list) and shows each container, image and volume that would go, the
-  build cache docker can free, and a total. Image sizes count shared layers
-  in every image, so the space really freed can be less.
-- `--older-than 30d` keeps everything created in the last 30 days (docker's
-  `until` filter).
+- `--dry-run` shows the plan and the stop the real run would hit. It does
+  not ask docker what would go.
+- `--filter until=720h` keeps everything created in the last 30 days.
 - `--all` removes every image no container uses, not only dangling ones;
   the next deploy pulls them again.
 - `--volumes` also removes unused anonymous volumes. That is data: look at
-  the dry run first. With `--older-than`, docker has no age filter for
-  volumes, so komando reads when each unused anonymous volume was made and
-  removes only the older ones by name (`docker volume rm`), after the
-  prune; a volume whose age it cannot read stays. The answer lists them in
-  `volumes_removed`.
-- The real run deletes, so it is confirmed like `docker rm`.
+  `docker system df -v` first.
+- The real run deletes, so a prune is confirmed like `docker rm`.
+
+Lost: the dry run that listed every container, image and volume with sizes
+and a total, the per-volume age filter and the `volumes_removed` list.
 
 ## Packages
 
-`pkg` works with apt, dnf, yum, apk, zypper and pacman; komando finds out
-which one each server uses.
+Use the server's own package tool (apt, dnf, yum, apk, zypper or pacman).
+`command -v apt-get dnf yum apk zypper pacman` shows which one a server has.
 
 ```bash
-komando pkg upgradable all --refresh            # refresh the package index first
-komando pkg install @web htop
+komando host ssh exec @web --sudo -- apt-get update                    # refresh the package index
+komando host ssh exec @web --read-only -- apt list --upgradable
+komando host ssh exec @web --sudo -- apt-get install -y htop
 ```
 
-Typed alone, `komando pkg install` asks for the server, then the packages.
+Typed alone, `komando host ssh exec` asks for the server, then the command.
 
 ```bash
-komando pkg rm web1 htop
-komando pkg installed web1 nginx openssl        # installed versions (all without names)
-komando pkg upgrade web1 --dry-run              # what would be upgraded
-komando pkg upgrade web1                        # everything, or name the packages
-komando pkg update web1                         # only refresh the package index
+komando host ssh exec web1 --read-only -- dpkg -l nginx openssl         # installed versions
+komando host ssh exec web1 --sudo -- apt-get -s upgrade                 # what would be upgraded (a simulation)
+komando host ssh exec web1 --sudo -- apt-get upgrade -y                 # everything
+komando host ssh exec web1 --sudo -- apt-get remove -y htop
 ```
 
-- `install` and `rm` report what changed (`changed: false` when there was
-  nothing to do). An unknown package exits 3 (`PACKAGE_NOT_FOUND`).
-- `upgradable` says how old the package index is, and suggests `--refresh`
-  when it is more than a day old. `--refresh` rewrites the server's package
-  index as root, so it is a change: on a protected server `pkg upgradable
-  --refresh` and `pkg security --refresh` need a yes, and a dry run never
-  refreshes.
+- Write the tool's own non-interactive flag (`-y`) after `--`. It is
+  never read as komando's `--yes`.
 - Removing packages a server needs (openssh-server, sudo, systemd, libc
   and the like) needs `--allow-dangerous`, however the name is written
-  (`openssh-server:amd64`, `sudo.x86_64`, `openssh.server`). On apt
-  servers, removing a package that would take one of them with it
-  (`libssl3` takes openssh-server) stops with `POLICY_BLOCKED` before
-  anything is removed.
+  (`openssh-server:amd64`, `sudo.x86_64`). Removing an ordinary package
+  is a change, and a protected server asks first.
 - Package names are exact names: no options, patterns or a trailing `-`.
-  For a local `.deb` or `.rpm`, use `komando upload` and `komando exec`.
+  For a local `.deb` or `.rpm`, use `komando copy` and `exec`.
+- `apt-get update` rewrites the server's package index as root, so it is a
+  change. A dry run never runs it.
+- A stale package index hides new fixes: run `apt-get update` first.
+- Lost: `pkg installed`, `pkg upgradable` and its index age and refresh
+  advice, `pkg install` and `pkg rm` with their `changed` result. Read the
+  tool's text instead.
 
 ### Security updates
 
-`pkg security` and `pkg upgrade --security` handle a patch round: only
-security updates, one server at a time, with a look at each server before
-and after.
+A patch round is: look at what is pending, simulate, patch one server at a
+time, check each server before and after.
 
 ```bash
-komando pkg security @web --refresh              # what is pending, and each server's state
-komando pkg upgrade @web --security --dry-run    # the plan, and any stop it would hit
-komando pkg upgrade @web --security              # patch, one server at a time
-komando pkg upgrade @web --security --keep-going # do not stop at a server that changed
+komando host ssh exec @web --sudo -- apt-get update
+komando host ssh exec @web --read-only -- apt list --upgradable         # what is pending
+komando host ssh exec web1 --sudo -- apt-get -s upgrade                 # simulate: stop if it would remove an essential package
+komando host ssh exec web1 --sudo -- unattended-upgrade -v              # only security updates, when it is installed
+komando host ssh exec web1 --read-only -- sh -c 'test -f /var/run/reboot-required && echo reboot required'
 ```
 
-- `pkg security` only looks. It lists the security updates (apt:
-  packages from the `-security` pocket; dnf and yum: updates with a
-  security notice; zypper: security patches; pacman: what `arch-audit`
-  names, when it is installed) and the server's state: running containers, failed
-  units, pending updates, whether a reboot is required, and services that
-  still run old code (from `needrestart` or `needs-restarting`). These
-  come from the same check as `komando facts`, so both say the same.
-- Some repositories say nothing about which update fixes a security hole:
-  apk, pacman without `arch-audit`, and dnf/yum repositories without
-  security notices (for example CentOS). There `security_notices` is
-  false, `unclassified_updates` lists every pending update, and
-  `warnings` says why the security list is empty.
-- It also judges the OS (`os_support`, as in `komando facts`). On an OS past
-  end of life the list can be empty while the server is not safe: the
-  repositories publish no new fixes for it. komando then says so in
-  `warnings`.
-- `pkg upgrade --security` installs only those updates. On apt servers komando uses
-  `unattended-upgrade` when it is installed (it picks security origins and
-  follows the server's own settings), otherwise `apt-get install
-  --only-upgrade` of the listed packages; changed config files are kept.
-  If the server's unattended-upgrades is set to reboot by itself, komando
-  uses apt-get instead. dnf and yum run `upgrade --security`, zypper
-  `patch --category security`. On a server without security notices, and
-  on pacman (Arch supports no partial upgrades), it stops with
-  `SECURITY_UNSUPPORTED` and changes nothing: use `komando pkg upgrade`.
-- needrestart does not restart services during the run. The result lists
-  the services that need a restart (`services_need_restart`): restart them
-  with `komando svc restart` when it suits you.
-- After each server komando compares its state with the one before. Fewer
-  running containers, a newly failed unit or a removed essential package
-  stop the round with `UNEXPECTED_CHANGE` (exit 8); the other servers stay
-  as they are and are listed in `not_run`. komando waits up to a minute for
-  containers to come back first. `--keep-going` goes on after a failure or
-  a change.
-- komando never reboots. `reboot_required` says when a server needs one;
-  use `komando reboot` ([Reboot](#reboot)).
-- The upgrade runs detached on the server, so a dropped connection does not
-  break it halfway. `--security` waits up to 30 minutes per server; `--timeout`
-  changes that. After a `TIMEOUT` the upgrade goes on: run `pkg security`
-  again later to see what is left.
-- It is a change like `pkg upgrade`: a protected server asks first. An
-  update that would remove an essential package stops with
-  `POLICY_BLOCKED` before anything changes (apt servers).
-- A stale package index hides new fixes: komando warns when it is more than
-  a day old; add `--refresh`.
+- Simulate first (`apt-get -s upgrade`) and stop when the simulation would
+  remove an essential package. The essential-package rule reads a `remove`
+  command; it cannot see what an upgrade would remove, so the simulation
+  is how you see it coming.
+- Patch one server at a time, not `@web` at once, and check each server
+  (`docker ps`, `systemctl --failed`) before the next one.
+- On dnf and yum, `dnf upgrade --security`; on zypper, `zypper patch
+  --category security`. apk and pacman have no way to pick only security
+  updates: pacman supports no partial upgrades.
+- The upgrade runs in a session on the server, so a dropped connection
+  does not break it halfway. Come back with `--attach ID`.
+- komando never reboots as part of a patch round. Reboot after the round
+  ([Reboot](#reboot)).
+- A ready-made snippet is planned for the whole round (simulate, stop on
+  an essential package, upgrade). `pkg-upgrade-all` upgrades every package
+  and reports `changed`.
+
+TODO(cut): the snippet for a security upgrade (C335) and the rule for
+`dist-upgrade`, `full-upgrade` and `autoremove` (C362) wait on their rows;
+write the snippet's name here when they land.
 
 ## Reboot
 
 ```bash
-komando reboot web1 --dry-run                 # what would run, and whether it would be blocked
-komando reboot @web                           # one server at a time; asks you to type how many
-komando reboot @web --wait 10m
+komando host ssh exec web1 --dry-run --sudo -- systemctl reboot   # what would run, and whether it would be blocked
+komando host ssh exec web1 --sudo -- systemctl reboot             # asks you to type web1
 ```
 
-`komando reboot` restarts one server at a time. For each server it asks
-for a reboot (`systemctl reboot`, through sudo), waits until SSH answers
-again, and checks that the server really started anew (a new boot ID).
-Only then does it go on to the next server.
+A reboot is destructive. The power rules stop it: at your terminal komando asks you
+to type the server's name; an AI agent or a script adds `--allow-dangerous`
+after a person agrees. Reboot only with a person's yes.
 
-- `--wait` is how long each server may take to come back (default 5m).
-- A server that does not come back in time stops the rest with
-  `REBOOT_TIMEOUT` (exit 7). Any other failure stops the rest too. The
-  servers after it are listed in `not_rebooted`.
-- A reboot is destructive: at your terminal komando asks you to type the
-  server's name (several: how many); an AI agent or a script adds
-  `--allow-dangerous` after a person agrees.
+Lost: rebooting a group one server at a time and checking the boot ID of
+each before the next. Reboot servers one by one, and check that each
+came back:
+
+```bash
+komando test web1                                  # logs in again once the server is up
+komando host ssh exec web1 --read-only -- cat /proc/sys/kernel/random/boot_id   # a new value means a new boot
+```
+
+The result no longer has `back_after`: an app measures it by calling
+`test` until the server answers.
 
 ## Users
 
 ```bash
-komando user list web1                       # NAME UID HOME SHELL ADMIN GROUP LOCKED
-komando user add web1 alice --key alice --admin
+komando host ssh exec web1 --read-only -- getent passwd              # accounts
+komando host ssh exec web1 --sudo -- useradd -m -s /bin/bash -G sudo alice
 ```
 
-Typed alone, `komando user add` asks for the server, then the user name.
+Typed alone, `komando host ssh exec` asks for the server, then the command.
 
 ```bash
-komando user list web1 --all                 # include system accounts
-komando user add @web app --pubkey 'ssh-ed25519 AAAA... app@example.com' --shell /bin/sh
-komando user lock web1 alice                 # SSH keys stop working too
-komando user unlock web1 alice
-komando user rm web1 alice --remove-home --dry-run
+komando host ssh exec web1 --read-only --sudo -- passwd -S alice     # lock state
+komando host ssh exec web1 --sudo -- usermod -L -e 1 alice           # lock the password and expire the account
+komando host ssh exec web1 --sudo -- usermod -U -e '' alice          # unlock
+komando host ssh exec web1 --dry-run --sudo -- userdel -r alice
 ```
 
-- `user add` can run again safely: an existing user is not created twice,
-  but its shell, key and admin group are brought in line. `--key`
-  authorizes a key from komando's key list, `--pubkey` a key line, and
-  `--admin` adds the user to the `sudo` group (Debian) or `wheel` (RHEL,
-  Alpine). Give `--key` or `--pubkey`, not both.
-- `user lock` locks the password and expires the account, so SSH keys stop
-  working too, without deleting anything. Locking or deleting `root` or the
-  user komando logs in as needs `--allow-dangerous`: komando could not log
-  in afterwards to undo it, and root is the account that repairs a server.
-  The same goes for `user add --shell` with a shell nobody can log in with
-  (`/usr/sbin/nologin`, `/bin/false`) for those two accounts.
-- `user list` reads the lock state through sudo (`--no-sudo` leaves it
-  out). `admin_group` means "in the sudo, wheel or admin group"; rules in
-  `sudoers.d` are not read.
-- `user rm` deletes for good: at your terminal komando asks you to type the
-  server's name; an AI agent or a script adds `--allow-dangerous` after a
-  person agrees. Try `--dry-run` first.
+- Put a key on a user with `komando credential key install web1 --user
+  alice --public-key-file FILE`; that is a person's step, never an agent's.
+- `usermod -L -e 1` locks the password and expires the account, so SSH keys
+  stop working too, without deleting anything. On Debian, the admin group
+  is `sudo`; on RHEL and Alpine it is `wheel`.
+- `userdel` deletes for good: it is stopped by the `userdel` rule, so at
+  your terminal komando asks you to type the server's name; an AI agent or
+  a script adds `--allow-dangerous` after a person agrees. Try `--dry-run`
+  first.
+- Lost: `user add` as one idempotent step, and the list with the ADMIN and
+  LOCKED columns. `user list` does not read rules in `sudoers.d`.
 
 ## Scheduled jobs (cron)
 
-komando manages crontab entries by an ID you choose. `cron set` with the
-same ID replaces the entry instead of adding a second one, and other lines
-in the crontab are kept as they are.
+Use `crontab` on the server. komando no longer keeps entries by an ID.
 
 ```bash
-komando cron set db1 nightly-backup '/usr/local/bin/backup.sh >> /var/log/backup.log 2>&1' --schedule '0 2 * * *'
-komando cron list db1
+komando host ssh exec db1 --read-only -- crontab -l
+komando host ssh exec db1 -- sh -c '(crontab -l 2>/dev/null; echo "0 2 * * * /usr/local/bin/backup.sh >> /var/log/backup.log 2>&1") | crontab -'
+komando host ssh exec db1 --read-only --sudo -- crontab -l -u www-data    # another user's crontab
 ```
 
-Typed alone, `komando cron set` asks for the server, the ID, the command
-and the schedule.
+- Change a crontab as a whole: read it, change the text, write it back.
+  `crontab -r` removes every entry and is stopped by a rule
+  (`--allow-dangerous`); removing one line is a change.
+- Escape `%` in the command as `\%`.
+- Lost: setting and removing one entry by an ID, and the check of the
+  schedule before it is written. A ready-made snippet for cron entries is
+  planned.
 
-```bash
-komando cron set @web clean-tmp 'find /tmp -mtime +7 -delete' --schedule @daily
-komando cron rm db1 nightly-backup           # data: {"removed": 1}
-komando cron list db1 --user www-data        # another user's crontab (uses sudo)
-komando cron list db1 --user root            # root's crontab
-```
-
-- IDs use letters, digits, `-` and `_`.
-- `--schedule` takes five fields (`'*/5 * * * *'`) or `@hourly`, `@daily`,
-  `@weekly`, `@monthly`, `@yearly`, `@reboot`. It is checked before anything
-  is written.
-- `%` in the command is escaped for you.
+TODO(cut): the name of the ready-made cron snippet waits on the row that
+adds it.
 
 ## Sudo
 
-Commands that change something use sudo unless you add `--no-sudo` (`svc`,
-`pkg`, `user`, `reboot`, `recipe run`): add it when you log in as root.
-Commands that read use sudo only when you ask: `--sudo` for `logs`,
-`docker` and `net ports`, `--user` for another user's crontab.
+`exec` runs as the login user. Add `--sudo` to run as root, or
+`--sudo-user NAME` to run as that user with `sudo -u`. A command that
+changes the system usually needs it; a command that reads needs it only for
+files and logs the login user cannot read.
 
 When sudo wants a password komando does not have, or the login user may not
 use sudo, the command stops with `PERMISSION_DENIED` and a hint that names
-the fix (`komando host edit web1 --sudo-ref secret:web1-sudo`, see
+the fix (`komando host ssh edit web1 --sudo-credential web1-sudo`, see
 [Sudo passwords](servers.md#sudo-passwords-and-the-vault)). A server with
-no sudo at all gives `TOOL_MISSING` (add `--no-sudo` as root). The same
-holds for `pkg`, `user`, `cron --user`, every `docker` command with
-`--sudo` (as root, leave out `--sudo`), and recipes that use sudo.
+no sudo at all gives `TOOL_MISSING`: log in as root and leave out `--sudo`.
+
+## Long runs
+
+Every `exec` runs in a session on the server, so a long package upgrade or
+a large copy survives a dropped connection. The first call prints the
+session ID.
+
+```bash
+komando host ssh exec web1 --sudo -- apt-get upgrade -y        # prints the session ID first
+komando host ssh exec web1 --attach ID                         # stream the output and get the exit code
+komando host ssh exec web1 --attach ID --offset 4096           # read from an offset
+komando host ssh exec web1 --attach ID --stop                  # end the run
+komando host ssh exec web1 --attach ID --remove                # remove its log on the server
+```
+
+- `--attach` only reads: the approval of the first call covers it.
+- A run that outlasts an agent's tool timeout comes back as "still
+  running" with its ID. TODO(cut): the wait limit and the exit code for it
+  wait on C324.
+- `CONNECTION_LOST` (exit 4) means the link broke while the command ran:
+  attach before you run it again.
+- A single-host result has no separate stderr: a session merges stdout and
+  stderr into one output.
 
 ## Whole jobs, step by step
 
@@ -350,81 +348,78 @@ Every step is a command; a person and an AI agent type the same ones.
 
 ```bash
 # a service misbehaves
-komando svc list web1 --failed                       # what is broken?
-komando logs web1 --unit nginx --since 30m --grep error
-komando fs replace web1 /etc/nginx/nginx.conf --old A --new B --backup --dry-run
-komando svc restart web1 nginx --wait 10s --dry-run
-komando svc restart web1 nginx --wait 10s            # fails unless it is active within 10s
+komando host ssh exec web1 --read-only -- systemctl list-units --failed         # what is broken?
+komando host ssh exec web1 --read-only --sudo -- journalctl -u nginx --since -30m --no-pager -g error
+komando host ssh exec web1 --sudo -- cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
+komando host ssh exec web1 --sudo -- sed -i 's/worker_connections 768;/worker_connections 4096;/' /etc/nginx/nginx.conf
+komando host ssh exec web1 --read-only --sudo -- grep worker_connections /etc/nginx/nginx.conf
+komando host ssh exec web1 --dry-run --sudo -- systemctl restart nginx
+komando host ssh exec web1 --sudo -- systemctl restart nginx
 
 # a patch round
-komando pkg security @web --refresh                  # what is pending, and each server's state
-komando pkg upgrade @web --security --dry-run
-komando pkg upgrade @web --security                  # one server at a time
-komando reboot web1 --dry-run                        # when reboot_required says so
+komando host ssh exec @web --read-only -- apt list --upgradable
+komando host ssh exec web1 --sudo -- apt-get -s upgrade                         # simulate
+komando host ssh exec web1 --sudo -- apt-get upgrade -y                         # one server at a time
+komando host ssh exec web1 --dry-run --sudo -- systemctl reboot                 # when it says reboot required
 
 # a person joins, then leaves
-komando user add web1 alice --key alice --admin
-komando user lock web1 alice                         # stops logins, keeps the files
-komando user rm web1 alice --remove-home --dry-run
+komando host ssh exec web1 --sudo -- useradd -m alice
+komando host ssh exec web1 --sudo -- usermod -L -e 1 alice                      # stops logins, keeps the files
+komando host ssh exec web1 --dry-run --sudo -- userdel -r alice
 
 # a nightly job
-komando cron set db1 nightly-backup '/usr/local/bin/backup.sh' --schedule '0 2 * * *'
-komando cron list db1
-komando cron rm db1 nightly-backup
+komando host ssh exec db1 -- sh -c '(crontab -l 2>/dev/null; echo "0 2 * * * /usr/local/bin/backup.sh") | crontab -'
+komando host ssh exec db1 --read-only -- crontab -l
 
 # a full disk on a Docker server
-komando recipe run disk web1
-komando docker prune web1 --older-than 30d --dry-run # what would go, and how much
+komando snippet exec disk web1
+komando host ssh exec web1 --dry-run -- docker system prune --filter until=720h
 ```
 
 ## Limits
 
-- `svc` and `logs --unit` need systemd; a server without it (most
-  containers) stops with `NO_SYSTEMD`.
-- On apt servers only, `pkg rm` and `pkg upgrade --security` check whether
-  an essential package would go with another one; other package managers
-  are not checked this way.
-- `pkg upgrade --security` does not run on apk, pacman, or dnf/yum
-  repositories without security notices: komando cannot pick only the
-  security updates there.
-- `pkg` takes exact package names only; for a local `.deb` or `.rpm`, use
-  `upload` and `exec`.
+- Lost: editing a config file with validation, a backup and an undo. Copy
+  the file first (`cp FILE FILE.bak`), change it with one targeted command,
+  read it back. Never use `sed -i` without that copy. A ready-made change
+  snippet is planned.
+- `systemctl` and `journalctl` need systemd; a server without it (most
+  containers) answers with the tool's own error.
+- The essential-package rule reads the text of a remove command. It does
+  not see what an upgrade would remove: simulate first.
+- `exec` takes exact names; there is no pattern matching of package names.
 - komando never reboots as part of a patch round.
-- On Alpine, `user add`, `lock`, `unlock` and `rm` need the `shadow`
-  package (`useradd`, `usermod`, `userdel`).
-- `user list` does not read rules in `sudoers.d`.
-- `svc logs` does not take `--file` or `--container`; use `logs`.
-- `svc logs` and `logs --unit` read the system journal; they take no
-  `--user-units`.
+- On Alpine, user management needs the `shadow` package (`useradd`,
+  `usermod`, `userdel`).
+- The structured results, the `--wait` of a restart and the per-server
+  `not_run` lists are gone; every result is the tool's text and exit code.
 
 ## Troubleshooting
 
 | Error code | What it means | What to do |
 |------------|---------------|------------|
-| `UNIT_NOT_FOUND` | no service of that name (exit 3) | check the name with `komando svc list TARGET` |
-| `NO_SYSTEMD` | the server runs without systemd (exit 3) | read its logs with `--file` or `komando docker logs` |
-| `NO_USER_MANAGER` | `--user-units`, and the login user has no systemd manager running (exit 3) | turn lingering on: `loginctl enable-linger USER` (a person with sudo) |
-| `PERMISSION_DENIED` | sudo wants a password komando does not have, or the user may not use sudo | store the sudo password: `komando host edit SERVER --sudo-ref secret:NAME` |
-| `TOOL_MISSING` | sudo, or a tool the command needs, is not installed (exit 3) | as root add `--no-sudo`; on Alpine, `komando pkg install TARGET shadow` for `user` |
-| `PACKAGE_NOT_FOUND` | no such package in the server's package index | check the name; `komando pkg update TARGET` if the package is new |
-| `UNEXPECTED_CHANGE` | a server changed after patching (exit 8); the rest were not patched | check it with `komando docker ps` and `komando svc list --failed`, then run again or add `--keep-going` |
-| `REBOOT_TIMEOUT` | a server did not come back within `--wait` (exit 7) | check the server's console; the servers after it were not rebooted |
-| `TIMEOUT` | a `--security` upgrade ran longer than `--timeout`; it goes on | run `komando pkg security` later to see what is left |
-| `POLICY_BLOCKED` | a delete, a reboot or removing an essential package without `--allow-dangerous` | check with `--dry-run`, ask a person, then add `--allow-dangerous` |
+| `USAGE` | words after the target without `--` | put `--` before the command: `komando host ssh exec web1 -- apt-get install -y nginx` |
+| `PERMISSION_DENIED` | sudo wants a password komando does not have, or the user may not use sudo | store the sudo password: `komando host ssh edit SERVER --sudo-credential NAME` |
+| `TOOL_MISSING` | sudo, or a tool the command needs, is not installed (exit 3) | as root leave out `--sudo`; on Alpine, `komando host ssh exec TARGET --sudo -- apk add shadow` for users |
+| `READ_ONLY_VIOLATION` | `--read-only` does not know that the command only reads | check the command, then run it without `--read-only`; a protected server asks first |
+| `CONNECTION_LOST` | the link broke while the command ran (exit 4) | attach before you run it again: `komando host ssh exec TARGET --attach ID` |
+| `POLICY_BLOCKED` | a delete, a reboot, stopping sshd or removing an essential package without `--allow-dangerous` | check with `--dry-run`, ask a person, then add `--allow-dangerous` |
+| `PROTECTED_TARGET` | a change on a protected server | at your terminal komando asks first; a script adds `--yes` |
 
 ## Reference
 
-`logs` flags (also for `svc logs` and `docker logs`, where they fit):
+Flags of `komando host ssh exec` used on this page:
 
 | Flag | What it does |
 |------|--------------|
-| `-u`, `--unit UNIT` | Read the systemd journal of this service. |
-| `--file PATH` | Read this log file. |
-| `-c`, `--container NAME` | Read this Docker container's log. |
-| `-n`, `--limit N` | The last N lines (default 200). |
-| `--grep REGEX` | Only lines that match (extended regex, any case). |
-| `--since` / `--until` | A time range: a time back from now (`30m`, `2h`, `7d`), `today`, `yesterday`, or a date (`'2026-01-02 10:00'`). For a container, `today` and `yesterday` are the server's own midnight. |
-| `-p`, `--priority` | Journal priority and worse: `emerg` to `debug`, or 0-7. |
-| `-f`, `--follow` | Keep printing new lines until Ctrl-C. |
-| `-s`, `--sudo` | Read the whole journal or a protected file. As root, komando does not read a file through a link another server user made (`IS_A_SYMLINK`), and `--follow` keeps reading the file it opened. |
-| `--timestamps` | Show when each container log line was written (with `--container` only; journal lines have their time already). |
+| `--read-only` | The command only reads. komando checks it and refuses anything else. |
+| `-s`, `--sudo` | Run it as root through sudo. |
+| `--sudo-user USER` | Run it as this user with `sudo -u`. |
+| `-C`, `--dir PATH` | The working folder. |
+| `-e`, `--env KEY=VALUE` | An environment variable, repeatable. |
+| `--attach ID` | Come back to a session: stream its output and get its exit code. |
+| `--offset N` | With `--attach`: read the output from this offset. |
+| `--stop`, `--signal` | With `--attach`: end the run; `--signal` names the signal (default `TERM`). |
+| `--remove` | With `--attach`: remove the session's log on the server. |
+| `-P`, `--parallel` | How many servers at once (global). |
+| `--fail-fast` | Stop at the first server that fails. |
+| `--dry-run` | Show the plan and the stop the real run would hit; change nothing. |

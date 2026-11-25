@@ -2,231 +2,162 @@
 
 Read, edit and copy files on your servers, safely. [All docs](README.md)
 
+There is no file command. Everything on a server except copying is
+`komando host ssh exec TARGET [--read-only] -- COMMAND` with the tool you
+know (`cat`, `ls`, `cp`, `mv`, `chmod`, `rm`). Copying files is
+`komando copy`. For how `exec` works, see
+[Services, logs, Docker, packages, users](system.md).
+
 ## Read a file
 
 ```bash
-komando fs cat web1 /etc/nginx/nginx.conf --tail 50
+komando host ssh exec web1 --read-only -- tail -n 50 /etc/nginx/nginx.conf
 ```
 
-Typed alone at your terminal, `komando fs cat` asks for the server (from
-your list), then the file.
+Typed alone at your terminal, `komando host ssh exec` asks for the server
+(from your list), then the command.
 
 ```bash
-komando fs cat web1 /var/log/syslog --head 20 --line-numbers
-komando fs cat web1 /var/log/auth.log --sudo          # a file only root can read
-komando fs cat web1 '~/app/.env'
+komando host ssh exec web1 --read-only -- head -n 20 /var/log/syslog
+komando host ssh exec web1 --read-only --sudo -- cat /var/log/auth.log   # a file only root can read
+komando host ssh exec web1 --read-only -- cat '~/app/.env'
 ```
 
-`~` in a path is the login user's home folder, as with `scp`. Quote it
-(`'~/app/.env'`) so your own shell does not expand it.
+`~` in a path is expanded by the server's shell, not by komando. Quote it
+(`'~/app/.env'`) so your own shell does not expand it first.
 
-`fs cat` shows text. In `-o text`, a binary file is refused, so
-`fs cat ... > file` never writes a broken copy; save it with
-`komando download` instead. A file longer than `--max-bytes` (1 MiB) is cut:
-the output says so, and its hash is `sha256_read` (of the part read), not
-`sha256`. `--tail` alone reads the end of the file, so the last lines are
-the file's real last lines; for such a long file `--line-numbers` cannot
-know their numbers and leaves them out (the `note` says so).
+`exec` shows text. To save a binary file, or any file, to this computer
+use `komando copy` (see [Copy files](#copy-files)). A very long output is
+cut: the result says so (`stdout_truncated` in JSON). Read the end of a
+long file with `tail`, and count its lines with `wc -l`.
 
-For an AI agent, `fs cat` masks the whole file first and then takes
-`--head`/`--tail`, so a cut never uncovers part of a secret. A hidden private
-key shows as one line, and `lines` and line numbers then count the file as
-shown (the output has a `note`). When something is hidden, the hash is left
-out: it would let a weak value be guessed from the rest of the file.
+For an AI agent, komando masks secret values in output (`[hidden]`), and a
+private key shows as one hidden line. Masking is a best effort.
 
 ## List a folder
 
 ```bash
-komando fs list web1 /var/www
+komando host ssh exec web1 --read-only -- ls -l /var/www
 ```
 
 ```text
-MODE        SIZE    MODIFIED          NAME
-drwxr-xr-x  -       2026-11-12 09:14  assets/
--rw-r--r--  4.2 KB  2026-11-12 09:14  index.html
+drwxr-xr-x 2 www-data www-data 4096 Nov 12 09:14 assets
+-rw-r--r-- 1 www-data www-data 4301 Nov 12 09:14 index.html
 ```
 
 ```bash
-komando fs list web1 -a                       # no PATH: your home folder; -a shows dotfiles
-komando fs list web1 /srv -r --limit 200      # walk folders (up to 1000 entries by default)
-komando fs stat web1 /etc/hosts --sha256      # exists:false instead of an error when missing
+komando host ssh exec web1 --read-only -- ls -la                  # your home folder, with dotfiles
+komando host ssh exec web1 --read-only -- find /srv -maxdepth 2   # walk folders
+komando host ssh exec web1 --read-only -- sh -c 'stat /etc/hosts && sha256sum /etc/hosts'
 ```
+
+Lost: the table with a fixed shape, `exists: false` instead of an error for
+a missing file, and the `--limit` on a walk. The tool's own text and exit
+code come back instead.
 
 ## Edit a file
 
-`fs replace` is the safest way to change a config file. It changes the file
-only if the old text is found exactly once, and `--backup` keeps the
-previous version as `PATH.bak`:
+Lost: `fs replace`, `fs write` and `fs restore`, with their check that the
+old text is found exactly once, `--validate` before the file goes live,
+`--backup` and the undo command. komando no longer validates, backs up or
+undoes a file edit for you. Do it yourself, in this order:
+
+1. Copy the file: `cp FILE FILE.bak`.
+2. Change it with one targeted command.
+3. Read it back.
+4. Check it with the tool's own check before a service reads it
+   (`nginx -t`, `sshd -t`, `visudo -cf FILE`).
 
 ```bash
-komando fs replace web1 /etc/nginx/nginx.conf \
-  --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup
+komando host ssh exec web1 --sudo -- cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
+komando host ssh exec web1 --sudo -- sed -i 's/worker_connections 768;/worker_connections 4096;/' /etc/nginx/nginx.conf
+komando host ssh exec web1 --read-only --sudo -- grep worker_connections /etc/nginx/nginx.conf
+komando host ssh exec web1 --sudo -- nginx -t
+komando host ssh exec web1 --sudo -- systemctl reload nginx        # if a service reads the file
 ```
 
-```text
-replaced 1 match(es) in /etc/nginx/nginx.conf
-backup: /etc/nginx/nginx.conf.bak
-Changed /etc/nginx/nginx.conf on web1. To undo: komando fs restore web1 /etc/nginx/nginx.conf --sudo
-```
-
-Typed alone, `komando fs replace` asks for the server, the file, the text
-to change and what it should become.
+Never use `sed -i` without the copy first. To undo, copy the `.bak` back:
 
 ```bash
-komando fs replace web1 /etc/ssh/sshd_config --regex \
-  --old '(?m)^#?PasswordAuthentication .*$' --new 'PasswordAuthentication no' --sudo
+komando host ssh exec web1 --sudo -- cp /etc/nginx/nginx.conf.bak /etc/nginx/nginx.conf
 ```
 
-`--all` replaces every match instead. `--regex` treats `--old` as a Go
-regular expression; `$1` in `--new` inserts a group.
-
-On a group, `fs replace` makes the same edit on every server
-(`komando fs replace @web ... --dry-run` first shows each server's diff),
-and `fs restore @web PATH` puts back each server's own newest backup. Each
-server has its own result; one where `--old` is not found fails on its own
-(`NO_MATCH`) while the others are changed. `fs write` changes one server's
-file; to put one file on many servers use `komando upload`.
-
-### Write a whole file
-
-`fs write` writes a whole file. The new file is written next to the old one
-and then moved into place, so a server never sees half a file:
+To put a whole file on a server, change it on this computer and send it
+with `komando copy`:
 
 ```bash
-komando fs write web1 /etc/app/.env --from ./app.env --sudo --mode 0640 --if-changed
-komando fs write web1 /etc/app/env --content 'PORT=8080' --sudo --backup
-komando fs write web1 '~/notes.txt' --content 'checked' --append
+komando copy ./app.env web1:/etc/app/.env --sudo --overwrite
 ```
 
-The content comes from `--content`, `--from FILE`, or stdin (`--from -`).
-`--if-changed` skips the write when the content is already the same. The
-flags both commands share are under [Reference](#reference).
-
-By default, a path that is a symbolic link (for example `sites-enabled/app`
-pointing to `sites-available/app`) is followed: the file it points to is
-written, its mode and owner are kept, and the link stays a link. The result
-shows `followed:`. `--no-follow` refuses to write through a link.
-
-### Check before it goes live
-
-`--dry-run` shows the change as a diff. `--validate` checks the new file
-before it goes into place; `%s` is its path. If the check fails, the old
-file stays as it was (`VALIDATION_FAILED`), so a typo cannot lock you out:
-
-```bash
-komando fs write web1 /etc/sudoers.d/deploy --from ./deploy.sudoers --sudo --validate 'visudo -cf %s'
-komando fs replace web1 /etc/ssh/sshd_config --old 'PermitRootLogin yes' --new 'PermitRootLogin no' --sudo --validate 'sshd -t -f %s'
-```
+Without a copy, there is no backup: `komando audit list` says what changed,
+when and where (`komando audit list --target web1 --since 2h`), so you can
+change it back by hand. For a database change, restore from a backup
+(`komando database postgres backup` before the change, `komando database
+postgres restore` to go back).
 
 ### Secrets in a file
 
-For an AI agent, `fs replace` works on the file as the agent sees it, with
-`[hidden]` in place of each secret. `--old 'DB_PASSWORD=[hidden]'` matches the
-line whatever the value is. A match that cuts into a hidden value, or a `$1`
-that would copy one, is refused (`HIDDEN_VALUE`), and whether `--old` matches
-never depends on a hidden value. An edit that would uncover a hidden value
-is refused too (`HIDDEN_VALUE`): renaming `DB_PASSWORD=` to a name that does
-not look secret, or cutting `postgres://` or `Bearer ` off, while the value
-stays. Whether `--new` happens to equal a hidden value never shows: such an
-edit counts as a change (the file is written again), and no hash of the file
-is reported. `fs write --if-changed` and its `would_change` do the same for a
-file with a hidden value. Masking stays a best effort.
+For an AI agent, the file is read with `[hidden]` in place of each secret.
+An agent cannot change a line that holds a hidden value, and komando no
+longer writes `{{credential:NAME}}` into a file for it. This is an
+accepted loss at v0.18.0: nothing writes a credential reference into a
+config line. A ready-made change snippet is planned. A person
+edits such a line in a `shell`.
 
-`{{secret:NAME}}` in `--new` or in the text `fs write` writes becomes the
-vault value on the server. When an AI agent asks for that, komando stops
-with `SECRET_DESTINATION` until a person allows it: the agent adds `--yes`
-and the window names the secret and the server and file it goes to. An
-agent's `--dry-run` reads no secret and shows `{{secret:NAME}}` as written.
-
-## Undo a change
-
-`fs replace` and `fs write` with `--backup` keep the previous version next to
-the file and name it in the result (`backup`). At a terminal they also print
-the undo command (see the sample above).
-
-`fs restore` puts the newest backup back. Add `--dry-run` first to see the
-change. The file as it is now becomes a new backup, so a restore can be undone
-too. `--copy PATH` picks an older backup.
-
-```bash
-komando fs restore web1 /etc/nginx/nginx.conf --sudo --dry-run
-komando fs restore web1 /etc/nginx/nginx.conf --sudo
-komando svc reload web1 nginx                 # if a service reads the file
-```
-
-On a Windows server `fs restore` does not work yet: copy the backup back
-with `komando exec win1 -- Copy-Item ...` ([Windows servers](windows.md)).
-
-Without `--backup` there is no copy: `komando audit` says what changed, when
-and where (`komando audit --target web1 --since 2h`), so you can change it
-back by hand. For a database change, restore from a dump (`db dump` before
-the change, `db restore` to go back); for a Kubernetes deployment, `cluster
-rollback`.
+TODO(cut): how an agent changes a config line that holds a hidden value,
+and the `HIDDEN_VALUE` code, wait on O-24.
 
 ## Move, remove and change files
 
 ```bash
-komando fs mkdir web1 /srv/app/releases                 # always creates parents, like mkdir -p
-komando fs mv web1 /srv/app/new.conf /srv/app/app.conf
-komando fs chmod web1 0640 /etc/app/.env
-komando fs rm web1 /tmp/old.tar.gz --dry-run
-komando fs rm web1 /tmp/old.tar.gz
+komando host ssh exec web1 --sudo -- mkdir -p /srv/app/releases
+komando host ssh exec web1 --sudo -- mv -n /srv/app/new.conf /srv/app/app.conf
+komando host ssh exec web1 --sudo -- chmod 0640 /etc/app/.env
+komando host ssh exec web1 --dry-run -- rm /tmp/old.tar.gz
+komando host ssh exec web1 -- rm /tmp/old.tar.gz
 ```
 
-They behave like the commands you know, with these safety differences:
+They are the commands you know. With `exec`, these safety rules apply:
 
-- `fs mv` never replaces an existing file (`FILE_EXISTS`, exit 8) unless you
-  add `--overwrite`. Moving into an existing folder puts the file inside it.
-- `fs rm` deletes for good. At your terminal komando asks you to type the
-  path (several paths: how many); an AI agent or a script adds
+- `rm` of files deletes for good. A rule stops it: at your terminal komando
+  asks you to type the server's name; an AI agent or a script adds
   `--allow-dangerous` after a person agrees (`POLICY_BLOCKED` otherwise;
-  `--dry-run` shows what goes). See [Safety](safety.md). On a path that is
-  not there it says `not found` and still succeeds, like `rm -f`.
-- A folder needs `--recursive` as well, with the same question (and the
-  same `--allow-dangerous` for an agent or a script).
-- Paths are taken literally: `'/tmp/*.log'` is not a pattern. Use
-  `komando exec` for that.
-- All of them take `--sudo`; `fs chmod -r` changes a whole folder.
-  `fs chmod --sudo` does not follow a link another server user made
-  (`IS_A_SYMLINK`).
+  `--dry-run` shows the stop). See [Safety](safety.md). A folder needs
+  `rm -r`, with the same question. `rm -f` on a path that is not there still
+  succeeds.
+- `mv` replaces an existing file unless you add `-n`. Moving into an
+  existing folder puts the file inside it.
+- Paths are taken as the server's shell reads them: `'/tmp/*.log'` is a
+  pattern when you write a shell for it (`sh -c 'rm /tmp/*.log'`), and the
+  same rule stops it.
+- `--sudo` runs the command as root; `chmod -R` changes a whole folder.
 
 ## Copy files
 
-`upload` sends files to servers (many at once). `download` brings them to
-this computer. Both also work with [storage](storage.md) conns.
+`komando copy SOURCE DESTINATION` copies files in both directions: to
+servers (many at once), from servers, and to and from
+[storage](storage.md). A remote path is written `TARGET:PATH`; `TARGET:`
+alone, or `TARGET:~/x`, is the login user's home folder. This computer's
+paths have no prefix.
 
 ```bash
-komando upload @web ./release.tar.gz /tmp/release.tar.gz      # to many servers at once
-komando download web1 /var/log/nginx/error.log --to ./logs/
+komando copy ./release.tar.gz @web:/tmp/release.tar.gz          # to many servers at once
+komando copy web1:/var/log/nginx/error.log ./logs/              # from a server
 ```
 
-Typed alone, `komando upload` asks where to (servers or file storage), which
-file or folder on this computer, and where it should go.
+Typed alone, `komando copy` asks where from, where to, and which file or
+folder.
 
 ```bash
-komando upload web1 ./nginx.conf /etc/nginx/nginx.conf --sudo  # a root-owned file
-komando upload web1 ./run.sh /opt/app/bin/run.sh --mode 0755 -p
-komando upload web1 ./site /var/www/site -r                    # a folder
-komando download web1 /var/log/secure --sudo --to ./logs/      # a file only root can read
-komando download @web /etc/nginx/nginx.conf --to ./configs/    # → ./configs/<server>/nginx.conf
+komando copy ./nginx.conf web1:/etc/nginx/nginx.conf --sudo     # a root-owned file
+komando copy -r ./site web1:/var/www/site                       # a folder
+komando copy web1:/var/log/secure ./logs/ --sudo                # a file only root can read
+komando copy @web:/etc/nginx/nginx.conf ./configs/              # -> ./configs/<server>/nginx.conf
+komando copy ./db.sql.gz backups:2026/db.sql.gz                 # into a storage entry
 ```
-
-Without a destination, `upload` puts the file in the login user's home
-folder under its own name, and `download` saves into the current folder.
 
 An upload over a file that is there keeps that file's mode (a 0600 `.env`
-stays 0600); a new file gets the local file's mode. `--mode` sets it.
-
-`komando cp` is `upload` or `download` written `SRC DST`, like `scp`: the
-same code, flags and results. Remote paths are written `TARGET:PATH`;
-`TARGET:` alone, or `TARGET:~/x`, is the login user's home folder. A storage
-conn works too (`backups:2026/db.sql.gz`):
-
-```bash
-komando cp ./app.tar.gz @web:/tmp/app.tar.gz
-komando cp -r ./site web1:/var/www/site
-komando cp web1:/var/log/nginx/error.log ./logs/
-```
+stays 0600); a new file gets the local file's mode.
 
 TARGET can be any [target](targets.md) (`tag:edge:/srv/site`,
 `label:env=prod:/tmp/x`), a server you have not added with its port
@@ -237,101 +168,96 @@ A local file whose name has a colon (`a:b.txt`) is read as local when it
 exists; otherwise write `./a:b.txt`. Single-file copies report a `sha256`
 so you can check them.
 
+TODO(cut): `--mode`, `-p` (parents), `--size`, `--continue` and the other
+other copy options wait on the `copy` leaf
+options (PR B). The text below keeps the behaviour of each.
+
 ### Stream a file through stdout or stdin
 
-`--to -` streams one file to stdout, and `-` as the file to upload reads
-it from stdin. Nothing is saved on this computer on the way, so an app (or
-a phone through [ssh-gate](safety.md)) can read and write files with them.
-An ssh-gate key counts as an AI agent, so its streams keep the rules
+`-` as the destination streams one file to stdout, and `-` as the source
+uploads from stdin. Nothing is saved on this computer on the way, so an app
+(or a phone through [ssh-gate](safety.md)) can read and write files with
+them. An ssh-gate key counts as an AI agent, so its streams keep the rules
 below for agents: a file over 16 MiB is refused, and a text file arrives
 with secret values as `[hidden]` (such a copy cannot be uploaded back).
-`--progress` does not go with `--to -`.
+`--progress` does not go with a stream to stdout.
 
 ```bash
-komando download web1 /etc/nginx/nginx.conf --to - > nginx.conf
-komando download backups reports/q3.pdf --to - | open -f
-komando cp web1:/var/log/app.log - | grep ERROR
-komando upload web1 - /etc/app/motd < motd.txt
-komando upload backups - photos/2026/a.jpg --size 2483117 < a.jpg
-pg_dump app | komando storage upload backups - dumps/app.sql
+komando copy web1:/etc/nginx/nginx.conf - > nginx.conf
+komando copy backups:reports/q3.pdf - | open -f
+komando copy web1:/var/log/app.log - | grep ERROR
+komando copy - web1:/etc/app/motd < motd.txt
+pg_dump app | komando copy - backups:dumps/app.sql
 ```
 
-- **stdout is the file's.** With `--to -` stdout carries the file's bytes
-  as they are, binary too, and nothing else, whatever `-o` says. komando's
-  own answer goes to stderr: with `-o json` one envelope at the end,
-  either the result or the error, and the exit code says which. The
-  result is `{"host": "web1", "path": "/etc/nginx/nginx.conf", "to":
-  "stdout", "bytes": 1234, "sha256": "…"}` (`conn` and `key` for
-  storage). In text mode nothing is said when it worked.
+- **stdout is the file's.** With a stream to stdout, stdout carries the
+  file's bytes as they are, binary too, and nothing else, whatever `-o`
+  says. komando's own answer goes to stderr: with `-o json` one envelope at
+  the end, either the result or the error, and the exit code says which.
+  In text mode nothing is said when it worked.
 - If a stream breaks off, the bytes already on stdout stay there: the exit
   code is not 0 and the envelope on stderr says why. Compare `bytes` and
   `sha256` when you need to be sure.
-- **Uploads from stdin** go to one server or conn, into DEST, which must
-  name the file (stdin has no name). On a server the content goes to a
-  temporary file that is moved into place only at the end; an object store
-  finishes the upload only at the end of the stream. The result has
-  `"file": "-"`, `bytes` and `sha256`.
-- `--size N` says how many bytes stdin sends. A stream that ends early, or
-  sends more, stops with `SIZE_CONFLICT` (exit 8) and replaces nothing.
-  Without it, whatever arrives until stdin closes is the file: give
-  `--size` whenever the sender could be cut off.
-- Content holding a value komando hid (`[hidden]`, `[secret:NAME]`) is
-  refused (`HIDDEN_VALUE`): a masked copy would destroy the real value.
-- `--continue`, `-r` and several servers do not go with `-` (`USAGE`). A
-  stream from a server reads as the SSH user; read a root-only file with
-  `fs cat --sudo`. An upload from stdin takes `--sudo`, `-p` and `--mode`
-  as any upload.
-- `--dry-run` says what would happen and reads nothing, from stdin or the
-  server; it answers on stdout, as every dry run does.
-- For an AI agent a stream keeps what a download to a file keeps, before a
-  byte is written: text with secret values as `[hidden]` (the result says
-  `masked`, without a `sha256`), a binary file holding a vault value, a
-  secret or personal data komando hides refused (`SENSITIVE_FILE`), and
-  anything over 16 MiB
-  refused (`FILE_TOO_LARGE`), as bytes on stdout cannot be taken back.
+- **Uploads from stdin** go to one server or entry, into a destination
+  that must name the file (stdin has no name). On a server the content goes
+  to a temporary file that is moved into place only at the end; an object
+  store finishes the upload only at the end of the stream.
+- A stream that ends early, or sends more than `--size` says, stops with
+  `SIZE_CONFLICT` (exit 8) and replaces nothing. Give `--size` whenever the
+  sender could be cut off.
+- Content holding a value komando hid (`[hidden]`, `[credential:NAME]`) is
+  refused: a masked copy would destroy the real value.
+- `-r` and several servers do not go with `-` (`USAGE`). A stream from a
+  server reads as the SSH user; read a root-only file with
+  `exec --read-only --sudo -- cat FILE`.
+- `--dry-run` says what would happen and reads nothing; it answers on
+  stdout, as every dry run does.
+- For an AI agent a stream keeps what a copy to a file keeps, before a
+  byte is written: text with secret values as `[hidden]`, a binary file
+  holding a vault value, a secret or personal data komando hides refused
+  (`SENSITIVE_FILE`), and anything over 16 MiB refused (`FILE_TOO_LARGE`),
+  as bytes on stdout cannot be taken back.
 
-### Copy between two servers or conns
+### Copy between two servers or entries
 
-With `TARGET:PATH` on both sides, `cp` copies from one server or
-[storage](storage.md) conn to another: server to server, storage to
+With `TARGET:PATH` on both sides, `copy` goes from one server or
+[storage](storage.md) entry to another: server to server, storage to
 storage, or one of each.
 
 ```bash
-komando cp web1:/var/backups/db.sql.gz web2:/var/backups/
-komando cp -r web1:/var/www/site backups:sites/
-komando cp backups:2026/db.sql.gz dr-backups:2026/
+komando copy web1:/var/backups/db.sql.gz web2:/var/backups/
+komando copy -r web1:/var/www/site backups:sites/
+komando copy backups:2026/db.sql.gz dr-backups:2026/
 ```
 
 - The data streams through your computer, from the source straight into
   the destination, and is never saved on its disk. The servers do not
   need to reach each other.
-- Each side is one server or one conn (no `@group`).
+- Each side is one server or one entry (no `@group`).
 - The file at the destination is replaced, as an upload replaces it
   (`replaced: true`); a new file on a server gets the source's mode.
-  `-p` and `--mode` work as for an upload to a server.
 - A single file reports its `sha256`; the result names the `source` too.
-  Folders (`-r`) follow the rule below.
-- A protected destination asks once, as an upload to it does. The audit
-  log has one record for the whole copy: source, destination, size and
-  `sha256`.
+- A protected destination asks once. The audit log has one record for the
+  whole copy: source, destination, size and `sha256`.
 - An AI agent copies a file that is a secret by name (`.env`, a private
-  key) only after the user allows it (`--reveal`), as for a download.
-  The copy is also read on its way: a file holding anything komando hides
-  from an AI agent (a vault value, a secret by its shape, or personal data
-  where the source hides it) stops with `SENSITIVE_FILE` before it is put
-  in place, as the copy cannot show it as `[hidden]`. In a folder copy that
-  file is listed in `errors` and the rest are copied.
-- `--progress` writes the same lines as an upload.
+  key) only after the user allows it (`--reveal`). The copy is also read on
+  its way: a file holding anything komando hides from an AI agent (a vault
+  value, a secret by its shape, or personal data where the source hides it)
+  stops with `SENSITIVE_FILE` before it is put in place. In a folder copy
+  that file is listed in `errors` and the rest are copied.
+- `--progress` writes the same lines as any copy.
+
+TODO(cut): whether `copy` to a WinRM, Telnet or serial target works waits
+on O-43.
 
 ### Go on with a copy that was cut off (--continue)
 
-`--continue` on `upload`, `download` or `cp` (also between two remote
-places) goes on with one big file where an earlier copy stopped:
+`--continue` goes on with one big file where an earlier copy stopped:
 
 ```bash
-komando download web1 /var/backups/db.sql.gz --continue
-komando upload web1 ./db.sql.gz /var/backups/db.sql.gz --continue
-komando cp web1:/var/backups/db.sql.gz web2:/var/backups/ --continue
+komando copy web1:/var/backups/db.sql.gz ./ --continue
+komando copy ./db.sql.gz web1:/var/backups/db.sql.gz --continue
+komando copy web1:/var/backups/db.sql.gz web2:/var/backups/ --continue
 ```
 
 - When the destination has part of the file, komando checks that part
@@ -345,13 +271,10 @@ komando cp web1:/var/backups/db.sql.gz web2:/var/backups/ --continue
   stops with `RESUME_CONFLICT` (exit 8) and is not touched. Copy it again
   without `--continue` (a download needs `--overwrite` to replace it).
 - A whole file is only checked; nothing is sent.
-- A server works out the sums itself (`sha256sum` or `shasum`), so the
-  part already copied does not travel again. On an SFTP-only account, or
-  from storage, komando reads that part once more to check it.
 - S3, Google Cloud Storage, Azure Blob and WebDAV store a file whole and
   cannot add to one: `RESUME_UNSUPPORTED` (exit 2). SFTP, FTP, FTPS and
-  SMB storage conns can.
-- `--continue` takes one file, never `-r` (use `sync`, which sends only
+  SMB storage can.
+- `--continue` takes one file, never `-r` (use `--sync`, which sends only
   what is missing), `--sudo` or `--overwrite`, and needs a Linux or other
   Unix server.
 - An AI agent gets a text file of up to 16 MiB with secret values shown as
@@ -366,13 +289,13 @@ result:
 
 | Command | Result |
 |---|---|
-| `cp -r site web1:/var/www/site` | `/var/www/site` is the copy; run it again and it is updated in place (never `site/site`) |
-| `cp -r site/ web1:/var/www/html` | the *contents* of `site` go into `html` |
-| `cp -r site web1:/var/www/html` (html exists) | `/var/www/html/site` |
+| `copy -r site web1:/var/www/site` | `/var/www/site` is the copy; run it again and it is updated in place (never `site/site`) |
+| `copy -r site/ web1:/var/www/html` | the *contents* of `site` go into `html` |
+| `copy -r site web1:/var/www/html` (html exists) | `/var/www/html/site` |
 
-`upload` to a [storage](storage.md) conn follows the same rule: without a
-destination, `upload backups ./site -r` puts the folder under `site/`, and a
-destination ending in `/` counts as an existing folder.
+A copy to [storage](storage.md) follows the same rule: without a
+destination folder, `copy -r ./site backups:` puts the folder under
+`site/`, and a destination ending in `/` counts as an existing folder.
 
 A folder given as a symbolic link (`./current -> releases/42`) is copied as
 the folder it names, as `scp -r` does. Symbolic links inside a folder are not
@@ -382,11 +305,12 @@ read, the rest are still copied; the result lists the failures under
 
 ### What a copy replaces
 
-- Downloads never replace a file that is already on your computer. One
-  file stops with `FILE_EXISTS` (exit 8); a folder (`-r`), from a server or
-  from storage, keeps those files, copies the rest and says how many it
-  kept (`kept`). Add `--overwrite` when you mean to replace them.
-- Uploads replace the file on the server and say so (`replaced: true`).
+- A copy to this computer never replaces a file that is already there.
+  One file stops with `FILE_EXISTS` (exit 8); a folder (`-r`), from a
+  server or from storage, keeps those files, copies the rest and says how
+  many it kept (`kept`). Add `--overwrite` when you mean to replace them.
+- A copy to a server replaces the file there and says so (`replaced:
+  true`).
 - Every file, both ways, is written under a temporary name first and moved
   into place when complete, so a broken connection never leaves half a
   file (except with `--continue`, above, which writes in place on
@@ -400,13 +324,13 @@ read, the rest are still copied; the result lists the failures under
   shown when stderr is not a terminal, or for an AI agent; stdout never
   gets it.
 - A program that draws its own progress bar (an app, a script, an AI
-  agent) adds `--progress` to `upload`, `download`, `cp`, `sync` or
-  `storage upload/download` with `-o json`. The error output (stderr) then
-  gets one JSON object per line, at most about four a second, and a last
-  one when the command ends; the result on stdout stays as it is. A total
-  is `null` while komando cannot know it (a folder from a server is read
-  as it is copied). Lines on stderr that are not JSON (a warning) are not
-  progress: skip them. Without `-o json`, `--progress` changes nothing.
+  agent) adds `--progress` to `copy` with `-o json`. The error output
+  (stderr) then gets one JSON object per line, at most about four a
+  second, and a last one when the command ends; the result on stdout stays
+  as it is. A total is `null` while komando cannot know it (a folder from a
+  server is read as it is copied). Lines on stderr that are not JSON (a
+  warning) are not progress: skip them. Without `-o json`, `--progress`
+  changes nothing.
 
   ```
   {"event":"progress","file":"site/index.html","bytes_done":1048576,"bytes_total":4194304,"files_done":3,"files_total":12}
@@ -416,29 +340,31 @@ read, the rest are still copied; the result lists the failures under
   `file` is the file being copied (inside a folder, its path in the
   folder); the counts cover every server of the run. The lines hold names
   and counts only, never what is in a file.
-- Ctrl-C stops a copy, or a sync, within a moment. The file being copied is
-  not left behind, files already copied stay, and komando exits 1 with
-  `CANCELLED`. Run the same command again to finish: `sync` sends only
-  what is still missing. Closing the terminal stops it the same way. A
-  second Ctrl-C ends komando at once, and still removes the half-copied
-  file (and any other temporary file or sign-in browser profile this run
-  made).
+- Ctrl-C stops a copy within a moment. The file being copied is not left
+  behind, files already copied stay, and komando exits 1 with `CANCELLED`.
+  Run the same command again to finish: with `--sync` it sends only what is
+  still missing. Closing the terminal stops it the same way. A second
+  Ctrl-C ends komando at once, and still removes the half-copied file (and
+  any other temporary file or sign-in browser profile this run made).
 - For a copy that may take longer than a few minutes, or over a shaky
-  link, run it on the server as a job: `komando job start`.
+  link, run it on the server: `komando host ssh exec` keeps a long run in a
+  session, and `--attach ID` comes back to it ([Long
+  runs](system.md#long-runs)).
 
 ## Keep a folder in step (sync)
 
-`sync` copies a folder one way and sends only what is new or changed, so the
-second run is quick. One side is a folder on this computer. The other side
-is servers (many at once) or a [storage](storage.md) conn:
+`copy --sync` copies a folder one way and sends only what is new or
+changed, so the second run is quick. One side is a folder on this
+computer. The other side is servers (many at once) or a
+[storage](storage.md) entry:
 
 ```bash
-komando sync ./site @web:/var/www/site --exclude .git --dry-run   # every file it would touch
-komando sync ./site @web:/var/www/site --exclude .git
-komando sync ./site web1:/var/www/site --delete --dry-run          # also remove what ./site no longer has
-komando sync web1:/var/log/app ./logs/web1                         # from a server to here
-komando sync ./backups backups:2026/ --exclude '*.tmp'             # into a storage conn
-komando sync backups:2026/ ./restore                               # from storage to here
+komando copy ./site @web:/var/www/site --sync --exclude .git --dry-run   # every file it would touch
+komando copy ./site @web:/var/www/site --sync --exclude .git
+komando copy ./site web1:/var/www/site --sync --delete --dry-run         # also remove what ./site no longer has
+komando copy web1:/var/log/app ./logs/web1 --sync                        # from a server to here
+komando copy ./backups backups:2026/ --sync --exclude '*.tmp'            # into a storage entry
+komando copy backups:2026/ ./restore --sync                              # from storage to here
 ```
 
 - A file counts as changed when its size or mode differs, or when it is
@@ -448,8 +374,8 @@ komando sync backups:2026/ ./restore                               # from storag
   so).
 - `--exclude` skips names or paths (shell globs, repeatable).
 - `--delete` removes files for good: at your terminal komando asks you to
-  type the destination (`web1:/var/www/site`); an AI agent or a script adds `--allow-dangerous`
-  after a person agrees.
+  type the destination (`web1:/var/www/site`); an AI agent or a script adds
+  `--allow-dangerous` after a person agrees.
 - A source that does not exist is an error (`PATH_NOT_FOUND`, exit 3), and
   `--delete` never runs from an empty source, so a typo cannot wipe the
   destination.
@@ -467,78 +393,74 @@ komando sync backups:2026/ ./restore                               # from storag
     not do here: an unattended run is the one that would lose files with
     nobody watching. A folder name that matches nothing is an error.
   - The other way: remove the folder on the destination first
-    (`komando fs rm web1 /var/www/site/old-assets --recursive`, or
-    `komando storage rm CONN --prefix old-assets/`), then sync.
+    (`komando host ssh exec web1 -- rm -r /var/www/site/old-assets`, which
+    its own rule stops, or `komando storage s3 object delete` for
+    storage), then sync.
 - Symbolic links inside the folder are not copied; they are listed as
   `skipped`. A source folder given as a link is synced as the folder it
   names.
 - Ctrl-C stops it within a moment; files already copied stay, and the
   next run sends the rest.
 - `--sudo` writes on the servers as root, for a folder the SSH user cannot
-  write (`komando sync ./conf.d web1:/etc/nginx/conf.d --sudo`): each file
-  goes in as `upload --sudo` puts one, staged in the SSH user's `/tmp`
-  (only they can read it), checked by root and installed with the source
-  file's mode, keeping the owner of a file that is there. A folder another
-  user may change stops it (`SHARED_FOLDER_CONFLICT`). The folder must be
-  readable by the SSH user, and `--sudo` is for a folder going to servers
-  (to read a file only root can read, use `download --sudo`).
+  write (`komando copy ./conf.d web1:/etc/nginx/conf.d --sync --sudo`): each
+  file goes in staged in the SSH user's `/tmp` (only they can read it),
+  checked by root and installed with the source file's mode, keeping the
+  owner of a file that is there. A folder another user may change stops it
+  (`SHARED_FOLDER_CONFLICT`). The folder must be readable by the SSH user,
+  and `--sudo` is for a folder going to servers (to read a file only root
+  can read, copy it from the server with `--sudo`).
 
-For a single file, use `komando upload` or `komando download`.
+For a single file, `komando copy` without `--sync` is enough.
 
 ## Limits
 
-- `fs write` works on one server per run; a target that picks several
-  stops with an error (use `komando upload` for many).
-- `fs cat` reads at most `--max-bytes` (1 MiB by default) and refuses a
-  binary file in `-o text`.
-- `fs list` shows up to 1000 entries unless `--limit` says otherwise.
-- `fs rm` and `fs chmod` take paths literally: no patterns.
-- `--sudo` in copies works for single files only (downloads up to 512 MiB).
-  For a root-owned folder, upload it to a place you own and move it with
-  `komando exec web1 --sudo -- cp -r /tmp/site/. /var/www/site/`.
-- `sync` has no `--sudo`: it writes only where the login user may write.
-- Symbolic links inside a folder are not copied by `cp -r`, `upload -r`,
-  `download -r` or `sync`.
+- `exec` returns the tool's own text, cut at a size limit
+  (`stdout_truncated`); it has no fixed shape for a folder listing or a
+  file's details.
+- `rm` and `chmod` take paths as the server's shell reads them.
+- `--sudo` in copies works for single files and for a folder with `--sync`.
+  For a root-owned folder, copy it to a place you own and move it with
+  `komando host ssh exec web1 --sudo -- cp -r /tmp/site/. /var/www/site/`.
+- Symbolic links inside a folder are not copied by `copy -r` or `--sync`.
 - `--sudo` writes are refused into a folder another server user can change
   (by owner, group, mode or access list: `SHARED_FOLDER_CONFLICT`); write
   such a file as that user.
-- Backups stay next to the file and add up, one per edit.
-- On Windows servers, `fs restore`, `fs replace`, `fs rm`, `mkdir`, `mv`,
-  `chmod`, `sync` and folder copies do not work yet ([Windows servers](windows.md)).
+- Backups of an edit are the ones you make: they stay next to the file and
+  add up, one per `cp`.
+- On Windows servers, the file tools are PowerShell through `exec`, and
+  `copy` moves single files ([Windows servers](windows.md)).
 - Masking of secrets for AI agents is a best effort.
 
 ## Troubleshooting
 
 | Error code | What it means | What to do |
 |------------|---------------|------------|
-| `NO_MATCH` | `fs replace` did not find the `--old` text | read the file with `komando fs cat` and copy the exact text (spaces count) |
-| `VALIDATION_FAILED` | `--validate` rejected the new file; the file was not changed | fix the content and run it again |
-| `HIDDEN_VALUE` | the edit would cut into, copy or uncover a value komando hid from an AI agent | match the whole `NAME=[hidden]`, or write `{{secret:NAME}}` |
-| `SECRET_DESTINATION` | an AI agent asked to write a vault value into a file | a person allows it in komando's window |
-| `FOLDER_NOT_FOUND` | the folder for the new file does not exist | add `-p` (`--parents`) |
-| `FILE_EXISTS` | `fs mv` or a download would replace a file | add `--overwrite` when you mean it |
-| `PATH_NOT_FOUND` | the source of a copy or sync does not exist | check the path |
+| `FILE_EXISTS` | a copy to this computer would replace a file | add `--overwrite` when you mean it |
+| `PATH_NOT_FOUND` | the source of a copy does not exist | check the path |
 | `PERMISSION_DENIED` | the login user may not read or write the file | add `--sudo` |
 | `SHARED_FOLDER_CONFLICT` | `--sudo` into a folder another server user can change | write the file as that user, without `--sudo` |
-| `CHMOD_FAILED` | an SFTP server does not allow setting modes, and its new files are more open than asked | write without `--mode`, or on a server that allows it |
-| `POLICY_BLOCKED` | `fs rm`, `rm -r` or `sync --delete` from an AI agent or a script without `--allow-dangerous` | check with `--dry-run`, ask a person, then add `--allow-dangerous` |
-| `EMPTY_FOLDER_CONFIRM_REQUIRED` | `sync --delete` would empty a folder that the source lists as empty | check the source; a script adds `--emptied FOLDER`, an AI agent asks a person and adds `--allow-dangerous` |
-| `CANCELLED` | Ctrl-C stopped a copy or sync | run the same command again to finish |
+| `POLICY_BLOCKED` | `rm`, `rm -r` or `copy --sync --delete` from an AI agent or a script without `--allow-dangerous` | check with `--dry-run`, ask a person, then add `--allow-dangerous` |
+| `READ_ONLY_VIOLATION` | `--read-only` does not know that the command only reads | check the command, then run it without `--read-only` |
+| `EMPTY_FOLDER_CONFIRM_REQUIRED` | `copy --sync --delete` would empty a folder that the source lists as empty | check the source; a script adds `--emptied FOLDER`, an AI agent asks a person and adds `--allow-dangerous` |
+| `CANCELLED` | Ctrl-C stopped a copy | run the same command again to finish |
 | `SIZE_CONFLICT` | an upload from stdin sent another number of bytes than `--size` | send the whole file again; nothing was replaced |
 | `RESUME_CONFLICT` | `--continue` found a destination longer than the source, or one that differs from it, before the copy or by its sum after it | copy it again without `--continue` |
 | `FILE_CHANGED` | the file changed while `--continue` copied it | run the same command again |
 | `RESUME_UNSUPPORTED` | `--continue` to S3, Google Cloud Storage, Azure Blob or WebDAV, which cannot add to a file | copy it again without `--continue` |
+| `SENSITIVE_FILE` | a copy for an AI agent holds a value komando hides | a person copies it in a terminal |
 
 ## Reference
 
-Flags `fs write` and `fs replace` share:
+Flags of `komando copy`:
 
 | Flag | What it does |
 |------|--------------|
-| `-s`, `--sudo` | Write a root-owned file (writes a temporary file, then `sudo install`). Not into a folder another server user can change (by owner, group, mode or access list): that stops with `SHARED_FOLDER_CONFLICT`; write such a file as that user. |
-| `--backup` | Keep the previous version as `PATH.bak`. A backup is never overwritten: when `PATH.bak` exists, the new one is `PATH.bak.<UTC time>` (for example `nginx.conf.bak.20261105T031500Z`). The result's `backup` names the file. With `--sudo` the backup belongs to root, mode 0600. Backups stay next to the file and add up, one per edit: remove old ones with `fs rm`, and keep them out of folders where every file is loaded (`sites-enabled/`, `conf.d/*.conf`). |
-| `--mode 0640` | File mode (default: keep the old mode, or 0644 for a new file). An SFTP server that does not allow setting modes (storage boxes, SFTP-only accounts) is fine when its new files are no more open than asked: the result's `mode` is the one the file got. Otherwise the write fails with `CHMOD_FAILED`. |
-| `--owner USER:GROUP` | Owner of the file (needs `--sudo`; the group is optional). |
-| `-p`, `--parents` | Create missing parent folders; without it, a missing folder is `FOLDER_NOT_FOUND`. |
-| `--no-follow` | Refuse to write through a symbolic link. |
-| `--validate 'CMD %s'` | Check the new file before it goes into place. |
+| `-r`, `--recursive` | Include everything under a folder. |
+| `--overwrite` | Replace what is there. |
+| `--sync` | Compare by size, mode and time, and copy only what changed. |
+| `--delete` | With `--sync`: remove what the source does not have. Dangerous. |
+| `--exclude GLOB` | Skip names or paths; repeatable. |
+| `--emptied FOLDER` | With `--sync --delete`: allow this folder to be emptied; repeatable. |
+| `-s`, `--sudo` | Write on the servers as root. Not into a folder another server user can change (`SHARED_FOLDER_CONFLICT`). |
+| `--progress` | With `-o json`: progress as one JSON object per line on stderr. |
+| `--dry-run` | Show the per-file plan and the stop the real run would hit; change nothing. |

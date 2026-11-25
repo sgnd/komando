@@ -3,122 +3,75 @@
 Find out what a server is, whether it is healthy, and what it can reach.
 [All docs](README.md)
 
+Every check on this page is a command that runs on the server through
+`komando host ssh exec TARGET --read-only -- COMMAND`, or a ready-made
+snippet. `--read-only` accepts only commands komando knows only read; for
+a command it does not know, komando refuses with `READ_ONLY_VIOLATION`
+and you run it without the flag, which counts as a change (a protected
+server then asks first). Output is text, with no fixed shape: add `-o text`
+to read it.
+
 ## Learn what a server is
 
-```bash
-komando facts web1
-```
-
-Run `facts` first on a server you do not know. It reports the OS, CPU,
-memory, disk, load, IP addresses, the package manager, the init system and
-which tools are installed, so you (or your agent) know which commands fit.
-It also shows what needs attention. Typed alone at your terminal,
-`komando facts` asks for the server (from your list); `komando facts @web`
-looks at many at once.
-
-```text
-● web1  Ubuntu 20.04.6 LTS · x86_64 · 4 cpu · 7.8 GB RAM · disk / 63% · load 0.12 · up 34d
-  support:   UNSUPPORTED: no security updates
-  updates:   12 pending, security unknown · index 11d old · REBOOT REQUIRED · restart needed: nginx.service
-  access:    user deploy · sudo without password · 1 failed units
-  docker:    docker 24.0.7 · swarm manager · 14 running
-  pm2:       (deploy) api online, worker online
-  ports:     22 sshd, 80 nginx, 443 nginx, 3000 node (local only)
-  units:     pm2-deploy.service (active), backup.timer (active)
-  warning: Ubuntu 20.04.6 LTS: standard support ended 2025-05-31 and Ubuntu Pro (ESM) is not enabled, so it gets no security updates; ...
-```
-
-| Line | What it tells you |
-|------|-------------------|
-| support | Whether the OS still gets security updates: `supported`, `extended` (Ubuntu Pro ESM is enabled, or Debian LTS), `unsupported` or `unknown`. |
-| updates | Pending updates and how many are security updates, read from the server's package index as it is (komando does not refresh it; `komando pkg update` does). A needed reboot, and services that still run old libraries (when `needrestart` is installed and komando may use sudo). |
-| access | The login user, and whether sudo works without a password. |
-| docker | Docker's version, the Swarm role (manager, worker, none) and how many containers run. |
-| pm2 | Node.js apps run by PM2, outside containers. |
-| ports | Listening ports and the program behind each one. Without root or passwordless sudo, only your own programs have names. |
-| units | Services and timers added by hand under `/etc/systemd/system` (not from a package). |
-
-In JSON, `disks` lists every real file system: `mount`, `device`,
-`size_mb`, `used_mb`, `avail_mb` and `used_pct`.
-
-### Just the numbers, fast
+Run these first on a server you do not know. They tell you the OS, CPU,
+memory, disk, load, the package manager, the init system and which tools
+are installed, so you (or your agent) know which commands fit.
 
 ```bash
-komando facts web1 --only load,mem,disks -o json
+komando host ssh exec web1 --read-only -- uname -a
+komando host ssh exec web1 --read-only -- cat /etc/os-release
+komando host ssh exec web1 --read-only -- uptime
+komando host ssh exec web1 --read-only -- df -h
+komando host ssh exec web1 --read-only -- free -m
 ```
 
-`--only` runs just the probes of the sections you name, in about a second,
-for an app or a script that polls: `load` (`load` 1, 5 and 15 minutes,
-`cpus`), `mem` (`mem_total_mb`, `mem_available_mb`, `swap_total_mb`,
-`swap_free_mb`), `disks` (`disks`, `disk_root_total_gb`,
-`disk_root_used_pct`) and `system` (`os`, `os_version`, `os_pretty`,
-`uptime_sec`). No package index, Docker, ports, units or sudo; the
-keys of the other sections are left out. A read-only ssh-gate key runs it.
-A value the server does not have is null; a server without
-`/etc/os-release` (macOS, BSD) gives `os` and `os_version` from `uname`.
+Typed alone at your terminal, `komando host ssh exec` asks for the server
+(from your list), then the command. `komando host ssh exec @web ...` runs
+it on many servers at once, and each result names its server in `host`.
 
-`facts` only reads. It never refreshes a package index or starts anything,
-and it uses sudo only when sudo already works without a password (it never
-asks for one).
+| To learn | Command after `--` |
+|----------|--------------------|
+| the OS and its release | `cat /etc/os-release` |
+| CPU and memory | `nproc`, `free -m` |
+| disks | `df -h` (add `-i` for inodes) |
+| load and uptime | `uptime` |
+| the package manager | `command -v apt-get dnf yum apk zypper pacman` |
+| the init system | `ps -p 1 -o comm=` |
+| listening ports and their programs | `ss -tlnp` (add `--sudo` to see the program names) |
+| failed services | `systemctl --failed` |
+| running containers | `docker ps` |
+| whether a reboot is needed | `test -f /var/run/reboot-required && echo yes` |
 
-### What "unknown" means
+`exec` only reads when you add `--read-only`. A command that reads with
+sudo (for example `ss -tlnp`) takes `--sudo` as well. Without root or
+passwordless sudo, only your own programs have names in `ss`.
 
-When komando cannot read something, the JSON says
-`null` (and the text says "unknown"), never `0` or `false`. This matters most
-for security updates: a server whose OS is past its support gets no new
-security updates, so its package index shows none pending. komando reports
-those as unknown, with a warning, instead of a reassuring `0`. Agents should
-read `warnings` first.
+Lost: the one-screen summary with the OS support dates, the pending-update
+counts and the JSON fields the apps parsed (`os_support`, `updates`,
+`listening`, `warnings` and the others). Read each fact with its own
+command, as above. A date past an OS's end of life you check with the
+vendor's release page.
 
-### The JSON fields
-
-In JSON (`-o json`), each server's `data` has these fields besides the
-basics (`os`, `os_version`, `kernel`, `cpus`, `mem_total_mb`, `tools` ...):
-
-| Field | Meaning |
-|-------|---------|
-| `os_support` | `status`, `standard_support_until`, `extended_support_until`, `extended_by` (`ubuntu-pro-esm`, `debian-lts`), `past_standard_support`, `esm_enabled` (Ubuntu), `dates_checked` |
-| `updates` | `total`, `security`, `source`, `index_age_days` |
-| `reboot_required`, `reboot_packages` | a reboot is needed, and for which packages (Debian and Ubuntu; `kernel` when needrestart sees a newer kernel than the running one); on dnf/yum from `needs-restarting -r` |
-| `services_need_restart` | services that run old code, from `needrestart` (or `needs-restarting -s` on dnf/yum); `null` without either, or without sudo |
-| `sudo_nopasswd`, `login_user` | the same check as `komando test` |
-| `docker` | `installed`, `version`, `daemon_reachable`, `server_version`, `swarm`, `containers_running` |
-| `pm2` | `daemon_users` (every user running PM2), `apps` of the login user (`name`, `status`, `pid`, `restarts`, `cpu_pct`, `memory_mb`), `other_users` |
-| `listening` | `source` (`ss`, `netstat` or `/proc`), `process_names` (`all`, `own` or `none`), `ports[]` (`proto`, `address`, `port`, `process`, `pid`) |
-| `custom_units` | `unit`, `enabled`, `active` for each unit added by hand; `failed_units` counts failed ones |
-| `warnings` | things an agent must not miss, in plain words |
-
-Only names are kept, never command lines or environments (they can hold
-passwords), and secret-looking text is hidden.
-
-### Where the support dates come from
-
-komando has a small built-in table
-for Ubuntu LTS, Debian, RHEL and its rebuilds (Rocky, AlmaLinux, Oracle
-Linux, CentOS), Alpine and Amazon Linux, taken from each vendor's release
-page (the sources are listed in `internal/cli/facts_support.go`). The JSON
-shows the date it was checked (`os_support.dates_checked`). A release that
-is not in the table, such as a short-lived Ubuntu release, is `unknown`. For
-Ubuntu, komando also asks `pro status` whether ESM is enabled.
+TODO(cut): a ready-made snippet that gathers these facts in one call waits
+on its row; the JSON fields apps read waits on O-22.
 
 ## Check server health
 
-komando comes with ready-made checks (built-in recipes). Run one on any
+komando comes with ready-made checks (built-in snippets). Run one on any
 target:
 
 ```bash
-komando recipe run health @web                    # uptime, load, memory, disk, failed services
-komando recipe list                               # all of them, with what they run
-komando recipe list --category security           # one category
-komando recipe run top-mem web1
-komando recipe run big-dirs web1 --var path=/srv
-komando recipe run oom all --var since=-2h
+komando snippet exec health @web                  # uptime, load, memory, disk, failed services
+komando snippet list                              # all of them, with what they run
+komando snippet exec top-mem web1
+komando snippet exec big-dirs web1 --var path=/srv
+komando snippet exec oom all --var since=-2h
 ```
 
-Typed alone, `komando recipe run` asks for the recipe, then the target.
+Typed alone, `komando snippet exec` asks for the snippet, then the target.
 
-| Category (`--category`) | Recipes |
-|-------------------------|---------|
+| Category | Snippets |
+|----------|----------|
 | system | `health`, `disk`, `inodes`, `memory`, `big-dirs`, `big-files`, `cron-all`, `time-sync` |
 | process | `top-cpu`, `top-mem`, `process`, `oom` |
 | network | `connections`, `firewall` |
@@ -126,138 +79,102 @@ Typed alone, `komando recipe run` asks for the recipe, then the target.
 | security | `auth-failures`, `last-logins`, `sshd-config`, `sudoers` |
 | maintenance (these change things) | `apt-clean`, `drop-caches`, `journal-vacuum` |
 
-Some recipes have blanks with defaults, for example `big-dirs` takes
-`--var path=/srv --var depth=2`. `komando recipe list` shows each recipe's
-blanks. A time back from now is written with a minus (`since=-2h`), as
-journalctl reads it.
+Some snippets have blanks with defaults, for example `big-dirs` takes
+`--var path=/srv --var depth=2`. `komando snippet show NAME` shows a
+snippet's blanks. A time back from now is written with a minus
+(`since=-2h`), as journalctl reads it.
 
-Checks that have their own command are not recipes:
+TODO(cut): listing one category of snippets waits on the `Options` of
+`snippet list` (PR B).
+
+Checks that read one fact are plain commands, not snippets:
 
 | Check | Command |
 |-------|---------|
-| listening ports | `komando net ports TARGET --sudo` |
-| a name in DNS | `komando net dns TARGET NAME` |
-| a URL answers | `komando net http TARGET URL` |
-| failed units | `komando svc list TARGET --failed` |
-| journal errors | `komando logs TARGET -p err --since 1h --sudo` |
-| pending updates | `komando pkg upgradable TARGET` |
-| security updates | `komando pkg security TARGET` |
-| containers | `komando docker ps TARGET --all` |
-| a Kubernetes cluster | `komando cluster status CLUSTER` |
-| database sessions | `komando db activity CONN` |
-| a cache | `komando cache info CONN` |
-| certificates | `komando cert check TARGET` |
-| Docker clean-up | `komando docker prune TARGET --dry-run` |
+| listening ports | `komando host ssh exec TARGET --read-only --sudo -- ss -tlnp` |
+| failed units | `komando host ssh exec TARGET --read-only -- systemctl --failed` |
+| journal errors | `komando host ssh exec TARGET --read-only --sudo -- journalctl -p err --since -1h --no-pager` |
+| pending updates | `komando host ssh exec TARGET --read-only -- apt list --upgradable` (dnf: `dnf check-update`) |
+| containers | `komando host ssh exec TARGET --read-only -- docker ps -a` |
+| Docker disk use | `komando host ssh exec TARGET --read-only -- docker system df` |
+| a Kubernetes cluster | `komando cluster kubernetes raw prod-k8s -- get nodes` |
+| database sessions | `komando database postgres query prod-db 'SELECT pid, state, query FROM pg_stat_activity'` |
+| a cache | `komando cache redis raw prod-redis -- INFO` |
 
-To save your own checks, see [Recipes](commands.md#recipes-ready-made-and-saved-commands).
+To save your own checks, see [Snippets](commands.md).
 
 ## Check TLS certificates
 
-`cert check` tells you when certificates expire, before your visitors do.
-It only reads.
+Lost: `cert check`, which told you when certificates expire. It comes back
+when paid monitoring exists. Until then, read an expiry with `openssl`
+through `exec`:
 
 ```bash
-komando cert check web1                               # the certificates web1's web servers use
+komando host ssh exec web1 --read-only -- openssl x509 -enddate -noout -in /etc/letsencrypt/live/shop.example.com/cert.pem
+komando host ssh exec @web --read-only --sudo -- sh -c 'for f in /etc/letsencrypt/live/*/cert.pem; do echo $f; openssl x509 -enddate -noout -in $f; done'
 ```
 
-Typed alone, `komando cert check` asks for a server or a URL.
+To see the certificate a website sends, run `openssl s_client` from the
+server:
 
 ```bash
-komando cert check @web --warn 14d                   # flag what expires within 14 days
-komando cert check https://shop.example.com           # the certificate the website sends
-komando cert check api.example.com:8443 intranet.example.com:443 --via bastion
-komando cert check web1 --path /etc/ssl/private/site.pem
+komando host ssh exec web1 --read-only -- sh -c 'openssl s_client -connect shop.example.com:443 -servername shop.example.com </dev/null 2>/dev/null | openssl x509 -noout -subject -issuer -enddate'
 ```
 
-- On a server, komando finds the certificates itself: certbot's
-  (`/etc/letsencrypt/live/*/cert.pem`) and the files nginx
-  (`ssl_certificate`), haproxy (`crt`) and apache (`SSLCertificateFile`)
-  use. Add more with `--path`. Files that need root are read with sudo only
-  when sudo works without a password; komando never asks for one. Only the
-  certificate part of a file is read: a private key in the same file never
-  leaves the server. When certbot is installed, the result also shows its
-  renewal timer and whether the last renewal failed.
-- For a website (`https://NAME`, `NAME:PORT`) or a conn that uses TLS,
-  komando connects from this computer, or through `--via` (a server or VPN),
-  reads the certificate the site sends, and checks that it is trusted and
-  matches the name.
-- Each certificate shows its names, issuer, expiry date, days left, where
-  it came from and a status: `ok`, `expiring`, `expired`, `not_yet_valid`,
-  `not_trusted`, or `unreadable` (missing, or needs root).
-
-| Result | Exit code |
-|--------|-----------|
-| every certificate is fine | 0 |
-| one expires within `--warn` (default 30d), has expired, is not trusted, or certbot's last renewal failed (`CERT_PROBLEMS`) | 1 |
-| a server or site could not be reached | 4 (or 7 on a timeout) |
-
-`unreadable` files are listed but do not fail the command.
+- `-enddate` prints the expiry date. `openssl x509 -checkend 2592000 -noout
+  -in FILE` exits non-zero when the certificate expires within 30 days.
+- Read only the certificate part of a file. Never print a private key.
+- komando finds no certificates for you: certbot keeps its own at
+  `/etc/letsencrypt/live/*/cert.pem`, and nginx, haproxy and apache name
+  theirs in their configuration (`ssl_certificate`, `crt`,
+  `SSLCertificateFile`).
 
 ## Check the network from a server
 
-These checks run *from* your servers, so you see what they see:
+These checks run *from* your servers, so you see what they see. Lost:
+`net check`, `net ports`, `net http` and `net dns`, with their fixed
+results and exit codes. Read each with the tool's own command:
 
 ```bash
-komando net check @web 10.0.0.5:5432 10.0.0.6:6379   # can each server open a TCP connection?
+komando host ssh exec @web --read-only -- nc -zv -w 5 10.0.0.5 5432     # can each server open a TCP connection?
+komando host ssh exec web1 --read-only -- curl -sS -o /dev/null -w '%{http_code} %{time_total}s\n' https://example.com
+komando host ssh exec web1 --read-only --sudo -- ss -tlnp               # listening ports and their programs
+komando host ssh exec web1 --read-only -- dig +short api.example.com
+komando host ssh exec web1 --read-only -- dig +short example.com MX     # MX, TXT, CNAME, NS ...
 ```
 
-Typed alone, `komando net check` asks for the servers, then the addresses.
-
-```bash
-komando net http web1 https://example.com --expect 2xx
-komando net ports web1 --sudo                         # PROTO ADDRESS PORT PROCESS PID
-komando net dns web1 api.example.com
-komando net dns web1 example.com --type MX            # MX, TXT, CNAME, NS ... (with or without dig on the server)
-```
-
-| Command | Fails when | Exit code |
-|---------|-----------|-----------|
-| `net check` | a port does not answer (`PORT_CLOSED`); the result says why: `refused`, `timeout` (after 5 seconds), `dns` or `unreachable` | 5 |
-| `net http` | nothing answers (`NO_RESPONSE`, within 15 seconds, or `--timeout`) | 4 |
-| `net http --expect 2xx` | the status is another one (`UNEXPECTED_STATUS`); `--expect 200` names one status | 5 |
-| `net dns` | the name does not resolve (`NXDOMAIN`) or has no records of that type (`NO_RECORDS`) | 3 |
-
-- `net ports` uses `ss`, or `netstat` on small systems such as busybox. Add
-  `--sudo` to see the process names.
-- `net dns` without `--type` shows the addresses the server would connect
-  to. `--type` takes A, AAAA, CNAME, MX, NS, TXT, SOA, SRV, PTR or CAA. A and
-  AAAA work everywhere; the others use `dig` on the server, or, without it,
-  komando asks the server's resolver itself through the connection.
-- `net http` takes `http://` and `https://` URLs only. It reports the status,
-  timing, the IP it reached and any redirect.
+- `nc`, `curl` and `dig` must be installed on the server. Without `dig`,
+  `getent hosts api.example.com` shows the addresses the server would
+  connect to.
+- `ss` is the tool on most servers; small systems such as busybox have
+  `netstat`.
+- Each result is the tool's own text and exit code (`exit_code` in JSON,
+  per server), not a fixed `PORT_CLOSED`, `NO_RESPONSE` or `NXDOMAIN`
+  error.
 
 ## Limits
 
-- `facts` uses sudo only when it works without a password; it never asks
-  for one. Without root or passwordless sudo, only your own programs in
-  `ports` have names.
-- `facts` never refreshes a package index, so `updates` is as fresh as the
-  server's own index.
-- The support dates cover Ubuntu LTS, Debian, RHEL and its rebuilds, Alpine
-  and Amazon Linux; any other release is `unknown`.
-- `facts` keeps only names, never command lines or environments.
-- `cert check` reads files that need root only when sudo works without a
-  password; such files show as `unreadable` and do not fail the command.
-- `net check` gives up on a port after 5 seconds; `net http` after 15
-  seconds (or `--timeout`).
-- `net http` takes `http://` and `https://` URLs only.
-- `net dns --type` other than A and AAAA uses `dig` on the server; without
-  it, komando asks the server's resolver (`/etc/resolv.conf`) itself over
-  TCP through the SSH connection, which needs TCP forwarding on the server
-  (`AllowTcpForwarding`, on by default).
-- Recipes with blanks refuse a `--var` value that starts with `-`, except a
-  number or a time back from now (see [Recipes](commands.md#recipes-ready-made-and-saved-commands)).
+- `--read-only` runs only commands komando knows only read. Anything else
+  is `READ_ONLY_VIOLATION`.
+- Without root or passwordless sudo, only your own programs in `ss` have
+  names.
+- Checks that read the package index show it as the server's own index is;
+  `apt-get update` refreshes it and is a change.
+- The checks hold no table of OS support dates.
+- A check on a server needs the tool on that server (`nc`, `curl`, `dig`,
+  `openssl`).
+- Snippets with blanks refuse a `--var` value that starts with `-`, except
+  a number or a time back from now (see [Snippets](commands.md)).
 
 ## Troubleshooting
 
 | Error code | What it means | What to do |
 |------------|---------------|------------|
-| `RECIPE_NOT_FOUND` | no recipe of that name (exit 3) | see them with `komando recipe list`; some checks are commands (table above) |
-| `UNKNOWN_VAR` | `--var` names a blank the recipe does not have | check the blanks with `komando recipe list` |
-| `CERT_PROBLEMS` | a certificate expires within `--warn`, has expired, is not trusted, or certbot's last renewal failed (exit 1) | renew or replace the certificates the result marks |
-| `PORT_CLOSED` | `net check`: a port did not answer (exit 5) | the result says why (`refused`, `timeout`, `dns`, `unreachable`): check the address, firewall or service |
-| `NO_RESPONSE` | `net http`: nothing answered (exit 4) | check the URL, and that the server can reach it: `komando net check SERVER HOST:443` |
-| `UNEXPECTED_STATUS` | `net http --expect`: another status came back (exit 5) | check the URL and the service behind it |
-| `NXDOMAIN` | `net dns`: the name does not resolve from this server (exit 3) | check the name and the server's DNS (`/etc/resolv.conf`) |
-| `NO_RECORDS` | `net dns`: no records of that type (exit 3) | check the name and `--type` |
-| `DIG_MISSING` | `net dns --type` found no `dig` on the server, and komando could not ask its resolver itself (no nameserver, or no TCP forwarding) | install the package the error names |
+| `READ_ONLY_VIOLATION` | `--read-only` does not know that the command only reads | check the command, then run it without `--read-only`; a protected server asks first |
+| `SNIPPET_NOT_FOUND` | no snippet of that name (exit 3) | see them with `komando snippet list`; some checks are plain commands (table above) |
+| `UNKNOWN_VAR` | `--var` names a blank the snippet does not have | check the blanks with `komando snippet show NAME` |
+| `TOOL_MISSING` | the tool a check needs (`nc`, `curl`, `dig`, `openssl`) is not on the server | install the package that has it, or use another check |
+| `PERMISSION_DENIED` | the login user may not read that | add `--sudo` |
+
+TODO(cut): the exact error code for an unknown snippet waits on the error
+catalog of the cut (S-8.2).
