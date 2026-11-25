@@ -50,6 +50,68 @@ func TestLeafFloorNotWeaker(t *testing.T) {
 	}
 }
 
+// todayBase is the tier c has today with no flag given: read when its
+// kind is read, else change (a kind that depends on its flags counts as
+// change, and so does a command with no kind).
+func todayBase(c *cobra.Command) tier {
+	if k, ok := kindOf(c); ok && k.Kind == kindRead {
+		return tierRead
+	}
+	return tierChange
+}
+
+// baseExceptions are "leaf key | today ID" pairs a leaf carries only with
+// a flag or a condition, whose row keeps today's tier; with no flag the leaf
+// does less. They count for TestLeafBaseNotWeaker only (the highest-tier
+// checks still see them).
+var baseExceptions = map[string]string{
+	"host ssh test | login":          "v2.7 keeps a session only for a person's two-factor step, the row \"the server asks for a second factor\" (person); plain test keeps nothing (spec O-01)",
+	"host ssh test | logout":         "logout is test --end, whose row is change (spec F5)",
+	"test | logout.aws":              "logout aws is test --end, whose row is change (spec F5)",
+	"cloud aws test | login.aws":     cloudSignIn,
+	"cloud azure test | login.azure": cloudSignIn,
+	"cloud gcp test | login.gcp":     cloudSignIn,
+}
+
+// cloudSignIn: a cloud's sign-in is the person step of test.
+const cloudSignIn = "v2.7 signs in to the cloud in test, run by a person once, the row \"the cloud asks a person to sign in\" (person); an agent reuses the session (spec O-01)"
+
+// TestLeafBaseNotWeaker: with no flag given, every leaf is at least as
+// strict as each command of today it carries. TestLeafFloorNotWeaker
+// compares only the highest tier, so a row with no condition that lowers
+// a leaf's base below a higher conditional row would pass there.
+func TestLeafBaseNotWeaker(t *testing.T) {
+	byID := map[string]*cobra.Command{}
+	for _, c := range allCommands(newRoot(tcl)) {
+		byID[cmdID(c)] = c
+	}
+	n := 0
+	for _, l := range capability.All() {
+		for _, id := range slices.Concat(l.Today, l.Carries) {
+			c, ok := byID[id]
+			if !ok {
+				continue // TestLeafFloorNotWeaker names it
+			}
+			n++
+			want, got := todayBase(c), tier(capability.Base(l.Key))
+			if got >= want {
+				continue
+			}
+			pair := l.Key.String() + " | " + id
+			if _, ok := notWeakerExceptions[pair]; ok {
+				continue
+			}
+			if _, ok := baseExceptions[pair]; ok {
+				continue
+			}
+			t.Errorf("%s: carries %s, which is %s with no flag today, but the leaf's base is %s", l.Key, id, want, got)
+		}
+	}
+	if n == 0 {
+		t.Fatal("no carried command found: the check ran over nothing")
+	}
+}
+
 // TestOldPathsNotWeaker: for every path of today as typed, with every
 // alias, the v2.7 table finds no command, or a leaf whose highest tier is
 // at least today's; and where that leaf keeps a command of today's key,
