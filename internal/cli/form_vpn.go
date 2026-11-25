@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/openvpn"
 	"github.com/sgnd/komando/internal/store"
@@ -51,7 +52,7 @@ func vpnNameQ(example string, suffixes ...string) formQ {
 			return p
 		}
 		for _, sfx := range suffixes {
-			if validName("secret", v+sfx) != nil {
+			if inventory.ValidName("secret", v+sfx) != nil {
 				return "use a shorter name: komando keeps this VPN's secret as " + v + sfx
 			}
 			if users := secretUsers(st, v+sfx); len(users) > 0 {

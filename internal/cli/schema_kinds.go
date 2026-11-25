@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/netx"
 )
@@ -176,7 +177,7 @@ func vpnFlagTable(c *cobra.Command) string {
 		}
 		var parts []string
 		if len(need) > 0 {
-			parts = append(parts, "needs "+joinAnd(need))
+			parts = append(parts, "needs "+term.JoinAnd(need))
 		}
 		if len(takes) > 0 {
 			parts = append(parts, "takes "+strings.Join(takes, ", "))

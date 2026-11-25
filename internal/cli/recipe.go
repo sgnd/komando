@@ -10,6 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/term"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -147,7 +149,7 @@ func (l recipeList) Text() string {
 		if b := recipeBlanks(r); len(b) > 0 {
 			desc += " [" + strings.Join(b, ", ") + "]"
 		}
-		rows = append(rows, []string{r.Name, cat, yesCell(r.ReadOnly), desc})
+		rows = append(rows, []string{r.Name, cat, term.YesCell(r.ReadOnly), desc})
 	}
 	return textTable([]string{"name", "category", "read only", "description"}, rows)
 }
@@ -251,7 +253,7 @@ func recipeAddCmd() *cobra.Command {
   komando recipe add disk-usage 'df -h {{path=/}}' --read-only`,
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			if err := validName("recipe", args[0]); err != nil {
+			if err := inventory.ValidName("recipe", args[0]); err != nil {
 				return err
 			}
 			if builtinRecipe(args[0]) != nil {

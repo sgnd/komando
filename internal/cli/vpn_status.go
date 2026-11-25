@@ -66,7 +66,7 @@ func (d vpnStatusData) Text() string {
 	}
 	rows := [][]string{}
 	for _, r := range d.Vpns {
-		rows = append(rows, []string{r.Name, r.Kind, yesCell(r.Up), ageCell(r.Since), usedByText(r.UsedBy), r.Detail})
+		rows = append(rows, []string{r.Name, r.Kind, term.YesCell(r.Up), ageCell(r.Since), usedByText(r.UsedBy), r.Detail})
 	}
 	return textTable([]string{"name", "kind", "up", "since", "used by", "detail"}, rows)
 }
@@ -133,7 +133,7 @@ func lastSessionEnd(name string, tail bool) (string, []string) {
 		if len(line) > 300 {
 			line = line[:300]
 		}
-		lines = append(lines, cleanText(line))
+		lines = append(lines, term.CleanText(line))
 	}
 	if len(last) > 300 {
 		last = last[:300]
@@ -143,7 +143,7 @@ func lastSessionEnd(name string, tail bool) (string, []string) {
 	} else if len(lines) > 15 {
 		lines = lines[len(lines)-15:]
 	}
-	return cleanText(last), lines
+	return term.CleanText(last), lines
 }
 
 // refWarnings checks, at add time, that the secret references a VPN uses

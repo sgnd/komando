@@ -7,12 +7,12 @@ import (
 	"net"
 	"net/url"
 	"os"
-	"regexp"
 	"slices"
 	"strings"
 	"sync"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -21,79 +21,20 @@ import (
 // Checks for what goes into the inventory, so a bad value is refused when
 // it is saved, not later when komando connects.
 
-// userRe is a login name: what useradd, Active Directory (user@domain) and
-// cloud images use. No spaces, no shell or URL characters.
-var userRe = regexp.MustCompile(`^[A-Za-z0-9_.][A-Za-z0-9_.@$-]{0,63}$`)
-
-func validUser(u string) error {
-	if !userRe.MatchString(u) {
-		return out.Errf(out.ExitUsage, "USAGE", "a login name has letters, digits and . _ - @ $ (no spaces), for example --user deploy",
-			"%q cannot be a login name", u)
-	}
-	return nil
-}
-
-func validPort(p int) error {
-	if p < 0 || p > 65535 {
-		return out.Errf(out.ExitUsage, "USAGE", "a port is a number from 1 to 65535; leave it out for 22",
-			"%d is not a port number", p)
-	}
-	return nil
-}
-
-// validLabelName checks a group or tag name, or a label key: the same rule
-// as host names, so every one of them can be written in a selector
-// (@GROUP, tag:TAG, label:KEY=VALUE).
-func validLabelName(kind, n string) error {
-	if !nameRe.MatchString(n) {
-		return out.Errf(out.ExitUsage, "USAGE", "use letters, digits and . _ - (max 63), for example web or prod-eu",
-			"%q cannot be a %s name", n, kind)
-	}
-	return nil
-}
-
-// checkLabels validates the groups, tags and labels of an inventory entry.
-func checkLabels(groups, tags []string, labels map[string]string) error {
-	for _, gr := range groups {
-		if err := validLabelName("group", gr); err != nil {
-			return err
-		}
-	}
-	for _, t := range tags {
-		if err := validLabelName("tag", t); err != nil {
-			return err
-		}
-	}
-	for k, v := range labels {
-		if err := validLabelName("label", k); err != nil {
-			return err
-		}
-		if strings.ContainsAny(v, ",") || hasControl(v) {
-			return out.Errf(out.ExitUsage, "USAGE", "a label value cannot hold commas or control characters (it would break label:KEY=VALUE selectors)",
-				"the value of label %s holds a comma or a control character", k)
-		}
-	}
-	return nil
-}
-
-func hasControl(s string) bool {
-	return strings.IndexFunc(s, func(r rune) bool { return r < 0x20 || r == 0x7f }) >= 0
-}
-
 // checkHost validates a host before it is saved into s: its port, user,
 // --via path and identity file.
 func checkHost(cl *call, s *store.State, h *store.Host) error {
-	if err := validPort(h.Port); err != nil {
+	if err := inventory.ValidPort(h.Port); err != nil {
 		return err
 	}
 	if h.User != "" {
-		if err := validUser(h.User); err != nil {
+		if err := inventory.ValidUser(h.User); err != nil {
 			return err
 		}
 	}
 	// a leading - would read as an option in the ssh line host ssh-command
 	// prints (ssh -oProxyCommand=...), so it is never an address
-	if h.Address == "" || strings.HasPrefix(h.Address, "-") || strings.ContainsAny(h.Address, " /@") || hasControl(h.Address) {
+	if h.Address == "" || strings.HasPrefix(h.Address, "-") || strings.ContainsAny(h.Address, " /@") || inventory.HasControl(h.Address) {
 		return out.Errf(out.ExitUsage, "USAGE", "give a host name or IP address, for example 10.0.0.5 or web1.example.com", "%q is not a host name or IP address", h.Address)
 	}
 	if h.Identity != "" {
@@ -102,7 +43,7 @@ func checkHost(cl *call, s *store.State, h *store.Host) error {
 				"identity file %s: %v", h.Identity, errText(err))
 		}
 	}
-	if err := checkLabels(h.Groups, h.Tags, h.Labels); err != nil {
+	if err := inventory.CheckLabels(h.Groups, h.Tags, h.Labels); err != nil {
 		return err
 	}
 	return checkHostVia(cl, s, h)
@@ -119,7 +60,7 @@ func errText(err error) string {
 // checkHostVia: every step of the --via path exists, a VPN comes first,
 // the host is not on its own path, and no step's own path leads back.
 func checkHostVia(cl *call, s *store.State, h *store.Host) error {
-	steps := viaChain(h.Via)
+	steps := inventory.ViaChain(h.Via)
 	if err := viaTwice(steps); err != nil {
 		return err
 	}
@@ -154,7 +95,7 @@ func checkHostVia(cl *call, s *store.State, h *store.Host) error {
 			return nil
 		}
 		seen[name] = true
-		for _, step := range viaChain(o.Via) {
+		for _, step := range inventory.ViaChain(o.Via) {
 			if step == h.Name {
 				return out.Errf(out.ExitUsage, "VIA_CYCLE", "change one of the --via settings so the path does not lead back",
 					"--via loop: %s is reached through %s, which is reached through %s", h.Name, name, h.Name)
@@ -416,10 +357,10 @@ func reservedCloud(n string) string {
 	return ""
 }
 
-// checkEntryName is validName for the name of a new server, conn or VPN:
+// checkEntryName is inventory.ValidName for the name of a new server, conn or VPN:
 // the cloud names are refused too.
 func checkEntryName(kind, n string) error {
-	if err := validName(kind, n); err != nil {
+	if err := inventory.ValidName(kind, n); err != nil {
 		return err
 	}
 	if c := reservedCloud(n); c != "" && (kind == "host" || kind == "conn" || kind == "vpn") {

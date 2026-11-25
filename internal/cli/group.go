@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/cli/kit/term"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -153,7 +154,7 @@ func groupAddCmd() *cobra.Command {
 		Args: cobra.MinimumNArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			group := strings.TrimPrefix(args[0], "@")
-			if err := validLabelName("group", group); err != nil {
+			if err := inventory.ValidLabelName("group", group); err != nil {
 				return err
 			}
 			res := map[string]any{"group": group}
@@ -198,7 +199,7 @@ func groupAddCmd() *cobra.Command {
 				return err
 			}
 			audit(cl, nil, "group.add", added, "", true, map[string]any{"group": group})
-			cl.out.Print("group.add", textAs{res, textBlob(changeSay(cl, "add", joinAnd(added), "to @"+group))}, nil)
+			cl.out.Print("group.add", textAs{res, textBlob(changeSay(cl, "add", term.JoinAnd(added), "to @"+group))}, nil)
 			return nil
 		}),
 	}
@@ -280,9 +281,9 @@ Deleting a group with more than 3 members needs --yes; try --dry-run first.`,
 			if cl.flags.dryRun {
 				key = "would_remove"
 			}
-			say := changeSay(cl, "remove", joinAnd(removed), "from @"+group)
+			say := changeSay(cl, "remove", term.JoinAnd(removed), "from @"+group)
 			if len(args) == 1 {
-				say = changeSay(cl, "remove", "group @"+group, "from "+cmp.Or(joinAnd(removed), "nothing"))
+				say = changeSay(cl, "remove", "group @"+group, "from "+cmp.Or(term.JoinAnd(removed), "nothing"))
 			}
 			cl.out.Print("group.rm", textAs{map[string]any{"group": group, key: removed}, textBlob(say)}, nil)
 			return nil

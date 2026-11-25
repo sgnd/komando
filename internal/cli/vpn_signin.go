@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/sgnd/komando/internal/browserx"
+	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/sslvpn"
 	"github.com/sgnd/komando/internal/store"
@@ -91,7 +92,7 @@ func (w *signInWindow) show(ctx context.Context, p sslvpn.BrowserPage) (string, 
 		"  Copy that link's address (it starts with "+sslvpn.GPCallback+")\n"+
 		"  and paste it here.")
 	if p.URL != "" {
-		fmt.Fprintln(w.cl.out.Err, "komando: sign in at "+cleanText(p.URL))
+		fmt.Fprintln(w.cl.out.Err, "komando: sign in at "+term.CleanText(p.URL))
 	}
 	openBrowser(ctx, target)
 	return loginSecret(w.cl, "Address from the last page: ")

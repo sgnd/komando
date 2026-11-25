@@ -158,23 +158,23 @@ func (d runningData) Text() string {
 		rows = append(rows, []string{"vpn", v.Name, detail, humanAge(now.Sub(v.Since))})
 	}
 	for _, l := range d.Logins {
-		rows = append(rows, []string{"login", cleanText(l.Host), "kept for " + humanAge(l.Until.Sub(now)) + " more (`komando logout " + cleanText(l.Host) + "` ends it)", humanAge(now.Sub(l.Since))})
+		rows = append(rows, []string{"login", term.CleanText(l.Host), "kept for " + humanAge(l.Until.Sub(now)) + " more (`komando logout " + term.CleanText(l.Host) + "` ends it)", humanAge(now.Sub(l.Since))})
 	}
 	for _, l := range d.AWSLogins {
 		since := "-"
 		if !l.LoggedInAt.IsZero() {
 			since = humanAge(now.Sub(l.LoggedInAt))
 		}
-		rows = append(rows, []string{"aws", cleanText(strings.Join(l.Profiles, ",")), awsLoginRow(l, now), since})
+		rows = append(rows, []string{"aws", term.CleanText(strings.Join(l.Profiles, ",")), awsLoginRow(l, now), since})
 	}
 	for _, t := range d.Tunnels {
 		listen, to := tunnelEnds(t)
-		rows = append(rows, []string{"tunnel", t.ID, cleanText(listen + " → " + to), humanAge(now.Sub(t.StartedAt))})
+		rows = append(rows, []string{"tunnel", t.ID, term.CleanText(listen + " → " + to), humanAge(now.Sub(t.StartedAt))})
 	}
 	for _, j := range d.Jobs {
-		command := cleanText(j.Command)
+		command := term.CleanText(j.Command)
 		command = term.TruncateWidth(command, 50)
-		rows = append(rows, []string{"job", j.ID, cleanText(j.Host) + ": " + command, humanAge(now.Sub(j.StartedAt))})
+		rows = append(rows, []string{"job", j.ID, term.CleanText(j.Host) + ": " + command, humanAge(now.Sub(j.StartedAt))})
 	}
 	s := textTable([]string{"kind", "name", "detail", "since"}, rows)
 	if len(d.Jobs) > 0 {
