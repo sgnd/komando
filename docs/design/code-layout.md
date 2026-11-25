@@ -86,6 +86,7 @@ or a listed one is gone.
 | `internal/dbx` | SQL and MongoDB against a conn, dump and restore |
 | `internal/driver` | the kinds of conns and the risk levels the safety checks use |
 | `internal/engine` | one komando call: who makes it and its approvals |
+| `internal/execsession` | a long `exec` that outlives the connection: the session ID, the folder on the server, and the shell text that starts, reads and stops a run |
 | `internal/flock` | a file lock between komando processes |
 | `internal/inventory` | the rules for what goes into the inventory: names and the shared name space, login names, ports, labels, `--via` paths and conn families; nothing of `internal/cli` |
 | `internal/ipsec` | komando's own IKEv1 and IKEv2 clients |

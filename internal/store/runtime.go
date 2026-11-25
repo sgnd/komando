@@ -19,7 +19,9 @@ type Runtime struct {
 	Sessions map[string]*VpnSession `json:"vpn_sessions,omitempty"`
 	Logins   map[string]*SSHLogin   `json:"ssh_logins,omitempty"`
 	Jobs     map[string]*Job        `json:"jobs,omitempty"`
-	Tunnels  map[string]*Tunnel     `json:"tunnels,omitempty"`
+	// ExecSessions are exec's runs in a session folder, by session ID
+	ExecSessions map[string]*ExecSession `json:"exec_sessions,omitempty"`
+	Tunnels      map[string]*Tunnel      `json:"tunnels,omitempty"`
 	// LoginDeclined: when a person last cancelled the password window of
 	// a login-ask server, by its record ID (sshx.LoginID); the window stays shut for a
 	// short while after (cli loginCoolDown)
@@ -45,6 +47,9 @@ func (r *Runtime) init() {
 	}
 	if r.Tunnels == nil {
 		r.Tunnels = map[string]*Tunnel{}
+	}
+	if r.ExecSessions == nil {
+		r.ExecSessions = map[string]*ExecSession{}
 	}
 }
 
