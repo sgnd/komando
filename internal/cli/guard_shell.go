@@ -690,7 +690,7 @@ func program(words []string) (string, []string) {
 func isWrapper(w string) bool {
 	switch w {
 	case "env", "sudo", "doas", "time", "nohup", "exec", "command", "nice", "xargs",
-		"timeout", "setsid", "stdbuf", "chrt", "ionice", "taskset", "caffeinate", "busybox", "toybox", "unbuffer":
+		"timeout", "setsid", "stdbuf", "chrt", "ionice", "taskset", "caffeinate", "busybox", "toybox", "unbuffer", "rtk":
 		return true
 	}
 	return false

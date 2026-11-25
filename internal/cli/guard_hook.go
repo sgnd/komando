@@ -461,11 +461,320 @@ func samePath(a, b string) bool {
 }
 
 // readOnlyPrograms only look at the paths they name; a redirect of their
-// output is checked on its own.
-var readOnlyPrograms = map[string]bool{"cat": true, "less": true, "more": true, "head": true, "tail": true, "grep": true,
+// output is checked on its own. Programs that read in one form and write
+// in another are in readsOnly.
+var readOnlyPrograms = map[string]bool{"cat": true, "less": true, "more": true, "head": true, "tail": true, "grep": true, "cut": true,
 	"egrep": true, "fgrep": true, "rg": true, "ls": true, "stat": true, "file": true, "wc": true, "diff": true, "cmp": true,
 	"readlink": true, "realpath": true, "which": true, "type": true, "command": true, "test": true, "[": true, "jq": true,
 	"echo": true, "printf": true, "md5": true, "md5sum": true, "shasum": true, "sha256sum": true, "cd": true, "pushd": true}
+
+// readsOnly says whether the program base, run with args, only reads the
+// files it names: a reader (readOnlyPrograms), or a program that writes
+// only in a form args do not use. sort -o, uniq's output file, sed -i,
+// awk -i inplace and a write or command inside a sed or awk program write.
+func readsOnly(base string, args []string) bool {
+	if readOnlyPrograms[base] {
+		return true
+	}
+	switch base {
+	case "sort":
+		for _, a := range args {
+			if a == "--" {
+				break
+			}
+			if strings.HasPrefix(a, "--o") || strings.HasPrefix(a, "--c") || shortFlagsHave(a, "o") { // --output, --compress-program
+				return false
+			}
+		}
+		return true
+	case "uniq": // uniq [IN [OUT]]: a second file is written
+		return len(nonFlagArgs(args, "fsw")) <= 1
+	case "go":
+		return len(args) > 0 && args[0] == "version"
+	case "sed", "gsed":
+		return sedReadsOnly(args)
+	case "awk", "gawk", "mawk", "nawk":
+		return awkReadsOnly(args)
+	}
+	return false
+}
+
+// shortFlagsHave says whether a is a cluster of short flags (-ni) that
+// holds one of the letters in set.
+func shortFlagsHave(a, set string) bool {
+	return len(a) > 1 && a[0] == '-' && a[1] != '-' && strings.ContainsAny(a[1:], set)
+}
+
+// nonFlagArgs are args that are not flags; a short flag in withValue takes
+// the next word as its value.
+func nonFlagArgs(args []string, withValue string) []string {
+	var l []string
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case a == "--":
+			return append(l, args[i+1:]...)
+		case len(a) == 2 && a[0] == '-' && strings.ContainsRune(withValue, rune(a[1])):
+			i++
+		case strings.HasPrefix(a, "-") && a != "-":
+		default:
+			l = append(l, a)
+		}
+	}
+	return l
+}
+
+// sedReadsOnly says whether sed, run with args, writes no file: no
+// in-place flag, no script file, and scripts that only print, delete,
+// substitute and move between lines (sedScriptReadsOnly).
+func sedReadsOnly(args []string) bool {
+	var scripts []string
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case a == "--":
+			i = len(args)
+		case a == "-e":
+			if i+1 < len(args) {
+				scripts = append(scripts, args[i+1])
+			}
+			i++
+		case strings.HasPrefix(a, "--e"): // --expression, as GNU sed takes it shortened
+			if v, ok := strings.CutPrefix(a[strings.IndexByte(a+"=", '='):], "="); ok {
+				scripts = append(scripts, v)
+			} else if i+1 < len(args) {
+				scripts = append(scripts, args[i+1])
+				i++
+			}
+		case strings.HasPrefix(a, "--f") || strings.HasPrefix(a, "--i") || shortFlagsHave(a, "iIf"):
+			return false // a script file, or an in-place edit (also shortened)
+		}
+	}
+	if len(scripts) == 0 {
+		ops := nonFlagArgs(args, "el")
+		if len(ops) == 0 {
+			return false
+		}
+		scripts = ops[:1]
+	}
+	for _, sc := range scripts {
+		if !sedScriptReadsOnly(sc) {
+			return false
+		}
+	}
+	return true
+}
+
+// sedScriptReadsOnly says whether a sed script writes no file and runs no
+// command: every command is p, d, q, =, a line move or a hold-space step,
+// a substitution without the w or e flag, or y. Anything else (w, W, e, r,
+// R, a, i, c, labels) does not pass.
+func sedScriptReadsOnly(sc string) bool {
+	i := 0
+	skipDelimited := func(delim byte) bool { // past the next unescaped delim
+		for i < len(sc) {
+			switch c := sc[i]; {
+			case c == '\\':
+				i += 2
+			case c == delim:
+				i++
+				return true
+			default:
+				i++
+			}
+		}
+		return false
+	}
+	address := func() bool {
+		switch {
+		case i < len(sc) && sc[i] == '$':
+			i++
+		case i < len(sc) && sc[i] >= '0' && sc[i] <= '9':
+			for i < len(sc) && (sc[i] >= '0' && sc[i] <= '9' || sc[i] == '~') {
+				i++
+			}
+		case i < len(sc) && sc[i] == '/':
+			i++
+			if !skipDelimited('/') {
+				return false
+			}
+			for i < len(sc) && (sc[i] == 'I' || sc[i] == 'M') {
+				i++
+			}
+		}
+		return true
+	}
+	for i < len(sc) {
+		switch sc[i] {
+		case ' ', '\t', '\n', ';', '{', '}':
+			i++
+			continue
+		}
+		if !address() {
+			return false
+		}
+		if i < len(sc) && sc[i] == ',' {
+			i++
+			if !address() {
+				return false
+			}
+		}
+		for i < len(sc) && (sc[i] == ' ' || sc[i] == '!') {
+			i++
+		}
+		if i == len(sc) {
+			return false
+		}
+		c := sc[i]
+		i++
+		switch {
+		case strings.IndexByte("pdDqQ=nNPgGhHxlz", c) >= 0:
+			for i < len(sc) && sc[i] >= '0' && sc[i] <= '9' { // q EXIT
+				i++
+			}
+		case c == '{' || c == '}':
+		case c == 's' || c == 'y':
+			if i == len(sc) {
+				return false
+			}
+			d := sc[i]
+			i++
+			if d == '\\' || d == '\n' || !skipDelimited(d) || !skipDelimited(d) {
+				return false
+			}
+			for i < len(sc) && strings.IndexByte("gpiImM0123456789", sc[i]) >= 0 {
+				i++
+			}
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// awkWrites is awk code that writes a file or runs a command: print or
+// printf into a file (> or >>), a pipe (| but not ||), system(), and
+// gawk's @load and @include (an extension such as inplace or rwarray).
+var awkWrites = regexp.MustCompile(`\bprintf?\b[^;{}]*>|(^|[^|])\|($|[^|])|\bsystem\s*\(|@(load|include)`)
+
+// awkReadsOnly says whether awk, run with args, writes no file: no -i
+// (gawk's inplace), no program file, and a program without awkWrites.
+func awkReadsOnly(args []string) bool {
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case a == "--":
+			i = len(args)
+		case a == "-F" || a == "-v":
+			i++
+		case strings.HasPrefix(a, "-F") || strings.HasPrefix(a, "-v"):
+		case strings.HasPrefix(a, "-"):
+			return false // -f, -i, -E, --include and the rest
+		default:
+			return !awkWrites.MatchString(a)
+		}
+	}
+	return false
+}
+
+// komandoWordHarmless says whether a word w of line that ends in /komando
+// may stay: nothing is at its path p (no file, link or folder), and line
+// cannot create it (harmlessKomandoLine). A repo slug (gh -R sgnd/komando),
+// a URL and a loop over repo slugs name no file.
+func komandoWordHarmless(line, p string) bool {
+	if _, err := os.Lstat(p); err == nil || p == "" {
+		return false
+	}
+	return harmlessKomandoLine(line)
+}
+
+// harmlessKomandoLine is a line that creates no file by a name it holds:
+// no redirect, no command or process substitution, no variable set, and
+// every command a reader, a for loop's list, or gh or git in a form that
+// only reads (ghReadsOnly, gitReadsOnly).
+func harmlessKomandoLine(line string) bool {
+	if redirectTarget.MatchString(line) || strings.ContainsAny(line, "`") || strings.Contains(line, "$(") ||
+		strings.Contains(line, "<(") || strings.Contains(line, ">(") {
+		return false
+	}
+	for _, seg := range splitShell(line) {
+		words := shellWords(seg)
+		if len(words) > 0 && words[0] == "for" {
+			continue // for NAME in WORDS: a list, not a command
+		}
+		for _, w := range words {
+			if envAssign.MatchString(w) {
+				return false
+			}
+		}
+		prog, args := program(words)
+		base := filepath.Base(prog)
+		switch {
+		case prog == "" || readsOnly(base, args):
+		case base == "gh" && ghReadsOnly(args):
+		case base == "git" && gitReadsOnly(args):
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// writesOutput is a flag that names a file a program writes: -o, -O, -D,
+// --output, --dir (also joined to its value).
+func writesOutput(a string) bool {
+	return a == "-O" || a == "-D" || strings.HasPrefix(a, "--output") || strings.HasPrefix(a, "--dir") ||
+		strings.HasPrefix(a, "-o") && !strings.HasPrefix(a, "--")
+}
+
+// ghReadsOnly says whether gh, run with args, writes no local file: a
+// command group that talks to GitHub only, with no download, clone,
+// checkout or copy, and no output flag.
+func ghReadsOnly(args []string) bool {
+	if len(args) == 0 {
+		return false
+	}
+	switch args[0] {
+	case "pr", "issue", "run", "release", "repo", "search", "api", "workflow", "label", "status", "auth", "cache", "variable", "ruleset", "project":
+	default:
+		return false
+	}
+	for _, a := range args[1:] {
+		switch {
+		case writesOutput(a), a == "download", a == "checkout", a == "cp", strings.Contains(a, "clone"):
+			return false
+		}
+	}
+	return true
+}
+
+// gitReadOnlyCommands only read the repository and the remote; fetch
+// writes only inside .git.
+var gitReadOnlyCommands = map[string]bool{"status": true, "log": true, "show": true, "diff": true, "ls-remote": true, "ls-files": true,
+	"ls-tree": true, "rev-parse": true, "rev-list": true, "remote": true, "fetch": true, "describe": true, "blame": true, "grep": true,
+	"cat-file": true, "shortlog": true, "branch": true, "tag": true, "merge-base": true, "for-each-ref": true, "show-ref": true, "reflog": true}
+
+// gitReadsOnly says whether git, run with args, writes no file outside
+// .git: a command in gitReadOnlyCommands, after git's own flags, and no
+// output flag.
+func gitReadsOnly(args []string) bool {
+	i := 0
+	for ; i < len(args) && strings.HasPrefix(args[i], "-"); i++ {
+		switch args[i] {
+		case "-C", "-c", "--git-dir", "--work-tree", "--namespace":
+			i++
+		}
+	}
+	if i == len(args) || !gitReadOnlyCommands[args[i]] {
+		return false
+	}
+	for _, a := range args[i+1:] {
+		if writesOutput(a) {
+			return false
+		}
+	}
+	return true
+}
 
 // redirectTarget is a file a shell segment writes with > or >>.
 var redirectTarget = regexp.MustCompile(`[0-9&]?>>?\|?\s*("[^"]*"|'[^']*'|[^\s;&|<>()]+)`)
@@ -479,7 +788,7 @@ var writesKomandoByName = regexp.MustCompile("(^|[;&|(\\s])(rm|unlink|mv|cp|ln|c
 // checkSelfWrite refuses a shell segment that writes, moves, deletes or
 // changes the mode of a guard file (guardSelfWhy): through a redirect, or
 // as an argument of a program that is not only a reader.
-func checkSelfWrite(cl *call, seg, base string, args []string, home, cwd string) guardDecision {
+func checkSelfWrite(cl *call, line, seg, base string, args []string, home, cwd string) guardDecision {
 	refuse := func(w, why string) guardDecision {
 		return deny("%s is %s; an AI agent does not change it: %s", w, why, selfWayOut(why))
 	}
@@ -489,14 +798,15 @@ func checkSelfWrite(cl *call, seg, base string, args []string, home, cwd string)
 			return refuse(w, why)
 		}
 	}
-	if readOnlyPrograms[base] {
+	if readsOnly(base, args) {
 		return allow()
 	}
 	for _, a := range args {
 		if strings.HasPrefix(a, "-") {
 			continue
 		}
-		if why := guardSelfWhy(guardPathAt(cl, a, home, cwd)); why != "" {
+		p := guardPathAt(cl, a, home, cwd)
+		if why := guardSelfWhy(p); why != "" && !(why == komandoNamedWhy && komandoWordHarmless(line, p)) {
 			return refuse(a, why)
 		}
 	}
@@ -576,7 +886,7 @@ func checkGuardFiles(cl *call, line, seg, prog string, args []string, home, cwd 
 	if base == "komando" {
 		return allow()
 	}
-	if d := checkSelfWrite(cl, seg, base, args, home, cwd); d.Deny || prog == "" || readOnlyPrograms[base] {
+	if d := checkSelfWrite(cl, line, seg, base, args, home, cwd); d.Deny || prog == "" || readsOnly(base, args) {
 		return d
 	}
 	return checkGuardFileNamed(cl, line, base, args, home, cwd)
@@ -600,7 +910,8 @@ func checkGuardFileNamed(cl *call, line, base string, args []string, home, cwd s
 		if runtime.GOOS == "windows" { // \ is a separator there, not an escape
 			w = strings.ReplaceAll(w, `\`, "/")
 		}
-		if why := guardSelfWhy(guardPathAt(cl, w, home, cwd)); why != "" {
+		p := guardPathAt(cl, w, home, cwd)
+		if why := guardSelfWhy(p); why != "" && !(why == komandoNamedWhy && komandoWordHarmless(line, p)) {
 			return refuse(m[1], why)
 		}
 	}
