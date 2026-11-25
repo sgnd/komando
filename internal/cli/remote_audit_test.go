@@ -25,7 +25,7 @@ func auditHome(t *testing.T) string {
 // rawRun runs komando and returns its last JSON line.
 func rawRun(t *testing.T, args ...string) map[string]any {
 	t.Helper()
-	tcl.flags.dryRun, tcl.flags.yes = false, false
+	setGate(tcl, false, gateDryRun, gateYes)
 	root := newRoot(tcl)
 	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs(append([]string{"-o", "json"}, args...))
@@ -192,8 +192,8 @@ func TestStorageFolderDest(t *testing.T) {
 func TestSyncDeleteDryRunSaysBlocked(t *testing.T) {
 	invHome(t)
 	tcl.out.Reset()
-	t.Cleanup(func() { tcl.flags.dryRun = false; tcl.out.Reset() })
-	tcl.flags.dryRun = true
+	t.Cleanup(func() { setGate(tcl, false, gateDryRun); tcl.out.Reset() })
+	setGate(tcl, true, gateDryRun)
 	if err := guardDelete(tcl, syncOpts{delete: true}, "web1:/srv"); err != nil {
 		t.Fatalf("a dry run goes on: %v", err)
 	}

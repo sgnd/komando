@@ -52,7 +52,7 @@ func loginHost(cl *call, ctx context.Context, name string) error {
 	}
 	needsPerson := out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask a person to run `komando login "+h.Name+"` in a terminal; after that your commands to "+h.Name+" need no login",
 		"logging in to %s needs a person at a terminal to answer its questions", h.Name).NoFlag()
-	if !cl.interactive() && !cl.flags.dryRun {
+	if !cl.interactive() && !cl.dryRun() {
 		return needsPerson
 	}
 	keep, _ := time.ParseDuration(st.Settings.LoginFor)
@@ -63,7 +63,7 @@ func loginHost(cl *call, ctx context.Context, name string) error {
 		cl.out.Print("login.host", loginResult{Host: h.Name, Until: l.Until, Already: true}, nil)
 		return nil
 	}
-	if cl.flags.dryRun { // never blocked: what the real run would need is in would_be_blocked
+	if cl.dryRun() { // never blocked: what the real run would need is in would_be_blocked
 		res := map[string]any{"host": h.Name, "would_log_in": true, "keeps_it_for": keep.String()}
 		if !cl.interactive() {
 			res["would_log_in"] = false
@@ -503,7 +503,7 @@ AWS IAM Identity Center (SSO) login.`,
 					return err
 				}
 			}
-			if cl.flags.dryRun {
+			if cl.dryRun() {
 				cl.out.Print("logout", map[string]any{"would_log_out": names}, nil)
 				return nil
 			}

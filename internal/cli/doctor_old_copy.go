@@ -26,7 +26,7 @@ func acceptOldCopy(cl *call) error {
 		cl.out.Print("doctor.accept-old-copy", map[string]any{"accepted": false, "note": "nothing to accept: the folder is not older than the keychain remembers"}, nil)
 		return nil
 	}
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		cl.out.Print("doctor.accept-old-copy", map[string]any{"accepted": false, "would_accept": have, "keychain": kept}, nil)
 		return nil
 	}

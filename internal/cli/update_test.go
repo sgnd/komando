@@ -240,7 +240,8 @@ func updateLab(t *testing.T, running string, f *fakeReleases) (exe, home string)
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	t.Cleanup(func() {
 		releaseSite, selfPath, version.Version, releasePlatforms, retryWait, asRoot = savedSite, savedSelf, savedVersion, savedPlatforms, savedWait, savedRoot
-		tcl.flags.dryRun, tcl.flags.yes, tcl.flags.timeout = false, false, 0
+		setGate(tcl, false, gateDryRun, gateYes)
+		tcl.flags.timeout = 0
 	})
 	return exe, home
 }

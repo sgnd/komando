@@ -29,7 +29,7 @@ func ttyYes(cl *call, what string) {
 // answer counts as --allow-dangerous for this check of this command only.
 // Never under --dry-run, for an AI agent, a script or CI.
 func policyAsk(cl *call, rule string, names ...string) bool {
-	if cl.flags.dryRun || !cl.interactive() {
+	if cl.dryRun() || !cl.interactive() {
 		return false
 	}
 	fmt.Fprintf(cl.out.Err, "Blocked by policy: %s.\n", rule)

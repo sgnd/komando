@@ -200,7 +200,7 @@ func renameVpn(cl *call, s *store.State, from, to string) (mvResult, error) {
 		inventory.RenameSecretRefs(s, n, secrets[n])
 		res.Updated = append(res.Updated, "secret "+n+", now "+secrets[n])
 	}
-	if len(secrets) > 0 && !cl.flags.dryRun {
+	if len(secrets) > 0 && !cl.dryRun() {
 		if err := vault.RenameMany(cl.storeWrite(), secrets); err != nil {
 			return res, out.Errf(out.ExitError, "RENAME_FAILED", "check that the vault opens (`komando secret list`, KOMANDO_VAULT_PASS)",
 				"the vault cannot rename the VPN's secrets: %v; nothing was renamed", err)
@@ -215,7 +215,7 @@ func renameVpn(cl *call, s *store.State, from, to string) (mvResult, error) {
 		oldDir := netx.TailscaleDir(&store.Vpn{Name: from})
 		if _, err := os.Stat(oldDir); err == nil {
 			res.Updated = append(res.Updated, "login state folder")
-			if !cl.flags.dryRun {
+			if !cl.dryRun() {
 				if err := os.Rename(oldDir, netx.TailscaleDir(v)); err != nil && !errors.Is(err, os.ErrNotExist) {
 					if res.undo != nil {
 						res.undo()
@@ -257,7 +257,7 @@ func vpnOwnSecrets(s *store.State, v *store.Vpn, to string) (map[string]string, 
 }
 
 func mvVerb(cl *call) string {
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		return "would_rename"
 	}
 	return "renamed"

@@ -94,7 +94,7 @@ without it a job has no time limit.`,
 			if sp.env, err = parseEnvTo(cl, envs, hosts); err != nil {
 				return err
 			}
-			if cl.flags.dryRun {
+			if cl.dryRun() {
 				plan := map[string]any{"hosts": hostNames(hosts), "command": sp.shown}
 				switch {
 				case so.file != "":
@@ -509,7 +509,7 @@ func jobKillCmd() *cobra.Command {
 				return err
 			}
 			script := jobKillScript(j, sig)
-			if cl.flags.dryRun {
+			if cl.dryRun() {
 				cl.out.Print("job.kill", map[string]any{"job": j.ID, "host": h.Name, "would_run": script}, nil)
 				return nil
 			}
@@ -615,7 +615,7 @@ func jobRmCmd() *cobra.Command {
 							return out.Errf(out.ExitConflict, "JOB_RUNNING", "stop it first with `komando job kill "+id+"`, or pass --kill to stop and remove it",
 								"job %s is still running", id)
 						}
-						if !cl.flags.dryRun {
+						if !cl.dryRun() {
 							script := jobKillScript(j, "TERM")
 							r, err := sshx.Run(cmd.Context(), c, sshx.RunRequest{Command: script, Timeout: 30 * time.Second, MaxOutput: 4096})
 							if err != nil {
@@ -629,7 +629,7 @@ func jobRmCmd() *cobra.Command {
 							}
 						}
 					}
-					if !keepRemote && !cl.flags.dryRun {
+					if !keepRemote && !cl.dryRun() {
 						_, _, err := sshx.Output(cmd.Context(), c, `rm -rf "`+jobDir(j.ID)+`"`, 30*time.Second)
 						return err
 					}
@@ -644,7 +644,7 @@ func jobRmCmd() *cobra.Command {
 				}
 				removed = append(removed, id)
 			}
-			if cl.flags.dryRun {
+			if cl.dryRun() {
 				cl.out.Print("job.rm", map[string]any{"would_remove": removed}, nil)
 				return nil
 			}

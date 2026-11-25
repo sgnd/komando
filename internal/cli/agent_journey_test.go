@@ -139,7 +139,7 @@ func TestGuideUninstall(t *testing.T) {
 		t.Fatalf("install: %s", settings())
 	}
 	asAgent(t, false, true) // the person says no
-	tcl.flags.yes = true
+	setGate(tcl, true, gateYes)
 	if _, e := invRun(t, "guide", "uninstall"); e == nil || e.Code != "SAFETY_SETTING" {
 		t.Fatalf("an agent removes its guard: %+v", e)
 	}
