@@ -123,6 +123,22 @@ func TestNewRefusesBadDefinitions(t *testing.T) {
 		{"number whose longest value is not digits", func(b *Builtin) {
 			b.Vars = []Var{unitVar, {Name: "n", Channel: Number, Pattern: regexp.MustCompile(`^[0-9a-z]+$`), MaxLen: 3, Longest: "abc"}}
 		}, "longest"},
+		{"number marker before a redirect", func(b *Builtin) {
+			b.Vars = []Var{unitVar, {Name: "n", Channel: Number, Pattern: regexp.MustCompile(`^[0-9]+$`), MaxLen: 3, Longest: "999", Required: true}}
+			b.Text[Unix] = "journalctl -u {{var:unit}} -n {{var:n}}>x"
+		}, "word"},
+		{"number marker glued to a word", func(b *Builtin) {
+			b.Vars = []Var{unitVar, {Name: "n", Channel: Number, Pattern: regexp.MustCompile(`^[0-9]+$`), MaxLen: 3, Longest: "999", Required: true}}
+			b.Text[Unix] = "journalctl -u {{var:unit}} -n x{{var:n}}"
+		}, "word"},
+		{"number marker as a parameter", func(b *Builtin) {
+			b.Vars = []Var{unitVar, {Name: "n", Channel: Number, Pattern: regexp.MustCompile(`^[0-9]+$`), MaxLen: 3, Longest: "999", Required: true}}
+			b.Text[Unix] = "echo ${{var:n}} {{var:unit}}"
+		}, "word"},
+		{"number marker as a PowerShell size", func(b *Builtin) {
+			b.Vars = []Var{unitVar, {Name: "n", Channel: Number, Pattern: regexp.MustCompile(`^[0-9]+$`), MaxLen: 3, Longest: "999", Required: true}}
+			b.Text[Windows] = "Get-Service {{var:unit}} -Size {{var:n}}kb"
+		}, "word"},
 		{"optional number without a default", func(b *Builtin) {
 			b.Vars = []Var{unitVar, {Name: "n", Channel: Number, Pattern: regexp.MustCompile(`^[0-9]+$`), MaxLen: 3, Longest: "999"}}
 		}, "default"},
@@ -583,6 +599,18 @@ func numberSample() Builtin {
 	b.Vars = []Var{unitVar, {Name: "n", Channel: Number, Pattern: regexp.MustCompile(`^[0-9]+$`), MaxLen: 5, Longest: "99999", Default: "200"}}
 	b.Text = map[Family]string{Unix: "journalctl -u {{var:unit}} -n {{var:n}}", Windows: "Get-WinEvent -MaxEvents {{var:n}} {{var:unit}}"}
 	return b
+}
+
+// A number marker may stand after a space, an = or the line's start, and
+// before a space or the line's end (Audit A-456-1): a whole word.
+func TestNewTakesANumberAsAWholeWord(t *testing.T) {
+	for _, text := range []string{"tail -n {{var:n}}", "{{var:n}} lines", "x --tail={{var:n}} y", "a\n{{var:n}}\nb", "-n {{var:n}} -u {{var:unit}}"} {
+		b := numberSample()
+		b.Text = map[Family]string{Unix: text}
+		if _, err := New([]Builtin{b}); err != nil {
+			t.Errorf("New(%q) = %v", text, err)
+		}
+	}
 }
 
 // A number goes into the text as its digits, unquoted, in every family:

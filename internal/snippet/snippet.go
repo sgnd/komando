@@ -247,6 +247,16 @@ func validVar(v Var) error {
 	return nil
 }
 
+// wholeWord reports whether text[i:j] stands as a word of its own: after a
+// space, an = or the line's start, and before a space or the line's end.
+// Digits are inert only so: in sh 3>file is a redirect and $3 a parameter,
+// in PowerShell 3kb is a size (Audit A-456-1).
+func wholeWord(text string, i, j int) bool {
+	before := i == 0 || strings.ContainsRune(" =\n", rune(text[i-1]))
+	after := j == len(text) || strings.ContainsRune(" \n", rune(text[j]))
+	return before && after
+}
+
 // anchored reports whether the whole pattern sits between ^ and $: its
 // parsed tree begins with the start of the text and ends with its end, so
 // `^a|b$` (a at the start, or b at the end) is not anchored and
@@ -264,13 +274,17 @@ func validText(text string, vars map[string]Var) error {
 	if n := strings.Count(text, "{{var:"); n != len(markerRe.FindAllString(text, -1)) {
 		return fmt.Errorf("a broken {{var:NAME}} marker")
 	}
-	for _, m := range markerRe.FindAllStringSubmatch(text, -1) {
-		v, ok := vars[m[1]]
+	for _, at := range markerRe.FindAllStringSubmatchIndex(text, -1) {
+		name := text[at[2]:at[3]]
+		v, ok := vars[name]
 		if !ok {
-			return fmt.Errorf("{{var:%s}} is not a declared variable", m[1])
+			return fmt.Errorf("{{var:%s}} is not a declared variable", name)
 		}
 		if v.Channel != Text && v.Channel != Number {
-			return fmt.Errorf("{{var:%s}} is not a text variable: only text variables and numbers go into a text", m[1])
+			return fmt.Errorf("{{var:%s}} is not a text variable: only text variables and numbers go into a text", name)
+		}
+		if v.Channel == Number && !wholeWord(text, at[0], at[1]) {
+			return fmt.Errorf("{{var:%s}} is a number inside a word: put it after a space, = or the line's start, and before a space or the line's end", name)
 		}
 	}
 	return nil
