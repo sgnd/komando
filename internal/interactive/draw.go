@@ -118,10 +118,14 @@ func DrawForm(f *Form, s Style) []string {
 		return append(lines, Draw(l, s)...)
 	}
 	x, t := f.Field(), f.Text()
+	def := ""
+	if x.Default != nil {
+		def = x.Default(f.answers(f.cur))
+	}
 	q := x.Ask + " " + t
 	switch {
-	case t == "" && x.Default != "":
-		q = x.Ask + " [" + x.Default + "]"
+	case t == "" && def != "":
+		q = x.Ask + " [" + def + "]"
 	case t == "":
 		q = x.Ask
 	}

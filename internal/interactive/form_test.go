@@ -11,19 +11,18 @@ import (
 
 func testFields() []Field {
 	return []Field{
-		{Key: "arg0", Ask: "Which database?", Pick: "db", Required: true},
+		{Key: "arg0", Ask: "Which database?", Rows: rows(dbRows...), Required: true},
 		{Key: "arg1", Ask: "Which SQL?", Help: "one statement", Required: true},
-		{Key: "flag:limit", Ask: "How many rows at most?", Default: "100", Advanced: true},
-		{Key: "flag:format", Ask: "Which format?", Choices: []string{"table", "csv"}, Advanced: true},
+		{Key: "flag:limit", Ask: "How many rows at most?", Default: fixed("100"), Advanced: true},
+		{Key: "flag:format", Ask: "Which format?", Rows: rows(Row{Value: "table", Label: "table"}, Row{Value: "csv", Label: "csv"}), Advanced: true},
 	}
 }
 
-func testLister(kind string) []Row {
-	if kind != "db" {
-		return nil
-	}
-	return []Row{{Value: "orders", Label: "orders"}, {Value: "users", Label: "users"}}
-}
+var dbRows = []Row{{Value: "orders", Label: "orders"}, {Value: "users", Label: "users"}}
+
+func rows(r ...Row) func(Answers) []Row { return func(Answers) []Row { return r } }
+
+func fixed(v string) func(Answers) string { return func(Answers) string { return v } }
 
 func fkey(f *Form, k term.KeyKind) (Result, map[string]string) { return f.Key(term.Key{Kind: k}) }
 
@@ -36,7 +35,7 @@ func ftyped(f *Form, s string) {
 // The required fields come first, in order; Enter takes each answer and
 // moves on; after them the form asks whether to see more options.
 func TestFormFillsInOrder(t *testing.T) {
-	f := NewForm("komando database postgres query", testFields(), testLister)
+	f := NewForm("komando database postgres query", testFields())
 	if got := f.Field().Key; got != "arg0" {
 		t.Fatalf("first field %s, want arg0", got)
 	}
@@ -60,7 +59,7 @@ func TestFormFillsInOrder(t *testing.T) {
 // More options adds the advanced fields; a default stands when Enter is
 // pressed on an empty field, and choices are picked from a list.
 func TestFormMoreOptions(t *testing.T) {
-	f := NewForm("komando database postgres query", testFields(), testLister)
+	f := NewForm("komando database postgres query", testFields())
 	fkey(f, term.KeyEnter)
 	ftyped(f, "select 1")
 	fkey(f, term.KeyEnter)
@@ -83,7 +82,7 @@ func TestFormMoreOptions(t *testing.T) {
 
 // A required field takes no empty answer: the form says why and stays.
 func TestFormRequired(t *testing.T) {
-	f := NewForm("komando database postgres query", testFields(), testLister)
+	f := NewForm("komando database postgres query", testFields())
 	fkey(f, term.KeyEnter)
 	if r, _ := fkey(f, term.KeyEnter); r != Stay || f.Field().Key != "arg1" {
 		t.Fatalf("empty Enter on a required field gave %v on %s", r, f.Field().Key)
@@ -99,7 +98,7 @@ func TestFormRequired(t *testing.T) {
 
 // Tab and Shift-Tab move between fields and keep what was typed.
 func TestFormTab(t *testing.T) {
-	f := NewForm("komando database postgres query", testFields(), testLister)
+	f := NewForm("komando database postgres query", testFields())
 	fkey(f, term.KeyTab)
 	ftyped(f, "select 2")
 	fkey(f, term.KeyBackTab)
@@ -119,7 +118,7 @@ func TestFormTab(t *testing.T) {
 
 // A free pick takes typed text that matches no row (a selector).
 func TestFormFreePick(t *testing.T) {
-	f := NewForm("komando host exec", []Field{{Key: "arg0", Ask: "Which hosts?", Pick: "db", Free: true, Required: true}}, testLister)
+	f := NewForm("komando host exec", []Field{{Key: "arg0", Ask: "Which hosts?", Rows: rows(dbRows...), Free: true, Required: true}})
 	ftyped(f, "tag:prod")
 	r, a := fkey(f, term.KeyEnter)
 	if r != Take || a["arg0"] != "tag:prod" {
@@ -130,7 +129,7 @@ func TestFormFreePick(t *testing.T) {
 // Esc clears what is typed first; on an empty field it is Back (to the
 // menu); Ctrl-C quits at once.
 func TestFormEscAndInterrupt(t *testing.T) {
-	f := NewForm("komando database postgres query", testFields(), testLister)
+	f := NewForm("komando database postgres query", testFields())
 	fkey(f, term.KeyEnter)
 	ftyped(f, "select 1")
 	if r, _ := fkey(f, term.KeyEsc); r != Stay || f.Text() != "" {
@@ -147,7 +146,7 @@ func TestFormEscAndInterrupt(t *testing.T) {
 // Text editing: Backspace, Ctrl-U, a paste on one line; ? on an empty
 // field shows its help.
 func TestFormTextEditing(t *testing.T) {
-	f := NewForm("komando database postgres query", testFields(), testLister)
+	f := NewForm("komando database postgres query", testFields())
 	fkey(f, term.KeyTab)
 	ftyped(f, "?")
 	if !f.help || f.Text() != "" {
@@ -169,11 +168,64 @@ func TestFormTextEditing(t *testing.T) {
 
 // The answers hold only fields that were given a value.
 func TestFormAnswersSkipEmpty(t *testing.T) {
-	f := NewForm("komando x", []Field{{Key: "arg0", Ask: "Name?"}, {Key: "flag:note", Ask: "Note?"}}, testLister)
+	f := NewForm("komando x", []Field{{Key: "arg0", Ask: "Name?"}, {Key: "flag:note", Ask: "Note?"}})
 	ftyped(f, "a")
 	fkey(f, term.KeyEnter)
 	_, a := fkey(f, term.KeyEnter)
 	if keys := slices.Sorted(maps.Keys(a)); strings.Join(keys, ",") != "arg0" {
 		t.Errorf("answers %v, want arg0 only", a)
+	}
+}
+
+// A field whose Show says false is skipped, both ways, and its answer is
+// left out; Default and Rows follow the answers given so far.
+func TestFormFollowsAnswers(t *testing.T) {
+	fields := []Field{
+		{Key: "arg0", Ask: "Which kind?", Rows: rows(Row{Value: "postgres", Label: "postgres"}, Row{Value: "mysql", Label: "mysql"}), Required: true},
+		{Key: "flag:schema", Ask: "Which schema?", Show: func(a Answers) bool { return a["arg0"] == "postgres" }},
+		{Key: "flag:port", Ask: "Which port?", Default: func(a Answers) string {
+			if a["arg0"] == "mysql" {
+				return "3306"
+			}
+			return "5432"
+		}},
+		{Key: "flag:db", Ask: "Which database?", Rows: func(a Answers) []Row {
+			return []Row{{Value: a["arg0"] + "-main", Label: a["arg0"] + "-main"}}
+		}},
+	}
+	f := NewForm("komando x", fields)
+	fkey(f, term.KeyDown) // mysql
+	fkey(f, term.KeyEnter)
+	if got := f.Field().Key; got != "flag:port" {
+		t.Fatalf("after mysql the field is %s, want flag:port (schema is for postgres only)", got)
+	}
+	fkey(f, term.KeyEnter) // the default
+	if got := f.Text(); got != "" {
+		t.Fatalf("on the database field the text is %q", got)
+	}
+	r, a := fkey(f, term.KeyEnter)
+	if r != Take {
+		t.Fatalf("the last Enter gave %v", r)
+	}
+	want := map[string]string{"arg0": "mysql", "flag:port": "3306", "flag:db": "mysql-main"}
+	if !maps.Equal(a, want) {
+		t.Errorf("answers %v, want %v", a, want)
+	}
+
+	g := NewForm("komando x", fields)
+	fkey(g, term.KeyEnter) // postgres
+	ftyped(g, "public")
+	fkey(g, term.KeyEnter)
+	fkey(g, term.KeyBackTab)
+	fkey(g, term.KeyBackTab)
+	fkey(g, term.KeyDown) // mysql now
+	fkey(g, term.KeyEnter)
+	fkey(g, term.KeyEnter)
+	_, a = fkey(g, term.KeyEnter)
+	if _, ok := a["flag:schema"]; ok {
+		t.Errorf("a hidden field's answer was kept: %v", a)
+	}
+	if a["flag:db"] != "mysql-main" {
+		t.Errorf("the database list did not follow the new kind: %v", a)
 	}
 }

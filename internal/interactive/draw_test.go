@@ -121,26 +121,26 @@ func TestDrawFitsWidth(t *testing.T) {
 // formStates are the form states the golden screens show.
 func formStates() map[string]*Form {
 	title := "komando database postgres query"
-	start := NewForm(title, testFields(), testLister)
+	start := NewForm(title, testFields())
 
-	typedSQL := NewForm(title, testFields(), testLister)
+	typedSQL := NewForm(title, testFields())
 	fkey(typedSQL, term.KeyEnter)
 	ftyped(typedSQL, "select * from orders")
 
-	needed := NewForm(title, testFields(), testLister)
+	needed := NewForm(title, testFields())
 	fkey(needed, term.KeyEnter)
 	fkey(needed, term.KeyEnter)
 
-	help := NewForm(title, testFields(), testLister)
+	help := NewForm(title, testFields())
 	fkey(help, term.KeyEnter)
 	ftyped(help, "?")
 
-	more := NewForm(title, testFields(), testLister)
+	more := NewForm(title, testFields())
 	fkey(more, term.KeyEnter)
 	ftyped(more, "select 1")
 	fkey(more, term.KeyEnter)
 
-	def := NewForm(title, testFields(), testLister)
+	def := NewForm(title, testFields())
 	fkey(def, term.KeyEnter)
 	ftyped(def, "select 1")
 	fkey(def, term.KeyEnter)
