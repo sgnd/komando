@@ -1,6 +1,13 @@
 package cli
 
-import "testing"
+import (
+	"bytes"
+	"os"
+	"strings"
+	"testing"
+
+	"golang.org/x/term"
+)
 
 // After Ctrl-C at one question, every later question in the command gets
 // no answer at once, and nothing reads the terminal again. The next command
@@ -33,5 +40,57 @@ func TestVpnQuestion(t *testing.T) {
 		if got := loginQuestion(label); got != want {
 			t.Errorf("%q: got %q, want %q", label, got, want)
 		}
+	}
+}
+
+// readAnswerWith runs readAnswer with stdin holding in, and gives the
+// answer, what it printed on stderr and the error.
+func readAnswerWith(t *testing.T, in, label string, hidden bool) (string, string, error) {
+	t.Helper()
+	var errw bytes.Buffer
+	savedIn, savedErr := tcl.stdin, tcl.out.Err
+	tcl.stdin, tcl.out.Err = strings.NewReader(in), &errw
+	defer func() { tcl.stdin, tcl.out.Err = savedIn, savedErr }()
+	a, err := readAnswer(tcl, label, hidden)
+	return a, errw.String(), err
+}
+
+// A shown answer is the line as typed, Enter included; the question goes
+// to stderr.
+func TestReadAnswerLine(t *testing.T) {
+	a, shown, err := readAnswerWith(t, "yes\nmore\n", "Go on? ", false)
+	if a != "yes\n" || err != nil || shown != "Go on? " {
+		t.Errorf("got %q, %v, shown %q", a, err, shown)
+	}
+}
+
+// Ctrl-D (end of input) where the answer shows is an empty answer, and the
+// line is ended, as the terminal does not.
+func TestReadAnswerEndOfInput(t *testing.T) {
+	a, shown, err := readAnswerWith(t, "", "Go on? ", false)
+	if a != "" || err != nil || shown != "Go on? \n" {
+		t.Errorf("got %q, %v, shown %q", a, err, shown)
+	}
+}
+
+// After a Ctrl-C, readAnswer asks nothing and reads nothing.
+func TestReadAnswerAfterInterrupt(t *testing.T) {
+	tcl.interrupted = true
+	defer func() { tcl.interrupted = false }()
+	a, shown, err := readAnswerWith(t, "yes\n", "Go on? ", false)
+	if a != "" || toErr(err).Code != "CANCELLED" || shown != "" {
+		t.Errorf("got %q, %v, shown %q", a, err, shown)
+	}
+}
+
+// A hidden answer needs a terminal: without one it fails before the
+// question shows, so a secret is never read from a pipe with echo on.
+func TestReadAnswerHiddenNeedsTerminal(t *testing.T) {
+	if term.IsTerminal(int(os.Stdin.Fd())) {
+		t.Skip("stdin is a terminal here")
+	}
+	a, shown, err := readAnswerWith(t, "secret\n", "Password: ", true)
+	if a != "" || err == nil || shown != "" {
+		t.Errorf("got %q, %v, shown %q", a, err, shown)
 	}
 }

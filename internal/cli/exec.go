@@ -163,8 +163,8 @@ so nothing is left on the server. --arg values become $1, $2 ... .`,
 			if err := sess.refuseOff(cmd); err != nil {
 				return err
 			}
-			if len(sess.attach) > 0 || cmd.Flags().Changed("offset") {
-				return sess.attachCall(cl, cmd.Context(), args, cmdStr != "" || so.file != "")
+			if sess.wants(cmd) {
+				return sess.attachCall(cl, cmd.Context(), cmd, args, cmdStr != "" || so.file != "")
 			}
 			if so.file != "" {
 				if cmdStr != "" || len(args) > 1 {

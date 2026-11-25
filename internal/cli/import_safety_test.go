@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/sgnd/komando/internal/store"
@@ -112,4 +114,59 @@ func TestImportReplacingAVpnNeedsAPerson(t *testing.T) {
 			t.Fatal("an imported setting was applied")
 		}
 	})
+}
+
+// A dry run records the stop the real run hits: a server whose proxy
+// command the real import leaves out (an AI agent without --yes; a
+// destructive command without --allow-dangerous) shows that stop in the
+// preview's would_be_blocked.
+func TestImportDryRunRecordsTheProxyCommandStop(t *testing.T) {
+	for _, tc := range []struct{ name, proxy, code string }{
+		{"a proxy command", "nc %h %p", "SAFETY_SETTING"},
+		{"a destructive proxy command", "rm -rf /", "POLICY_BLOCKED"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			invHome(t)
+			f := filepath.Join(t.TempDir(), "ssh_config")
+			if err := os.WriteFile(f, []byte("Host imp\n  HostName 10.0.0.7\n  ProxyCommand "+tc.proxy+"\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			setCallerEnv(t, "CLAUDECODE", "1")
+			d, _ := invRun(t, "import", "ssh-config", f, "--dry-run")
+			tcl.flags.dryRun = false
+			if blockedCode(d) != tc.code {
+				t.Fatalf("want %s in would_be_blocked: %v", tc.code, d)
+			}
+		})
+	}
+}
+
+// The real import leaves such a server out and goes on with the rest; a
+// script's import of a plain proxy command needs no flag, so its preview
+// shows no stop.
+func TestImportLeavesOutAProxyCommandServer(t *testing.T) {
+	invHome(t)
+	f := filepath.Join(t.TempDir(), "ssh_config")
+	if err := os.WriteFile(f, []byte("Host imp\n  HostName 10.0.0.7\n  ProxyCommand nc %h %p\nHost plain\n  HostName 10.0.0.8\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	setCallerEnv(t, "CLAUDECODE", "1")
+	if _, e := invRun(t, "import", "ssh-config", f); e != nil && e.Exit == 6 {
+		t.Fatalf("the real import stopped: %+v", e)
+	}
+	st, err := store.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Hosts["plain"] == nil || st.Hosts["imp"] != nil {
+		t.Fatalf("imported %v", st.Hosts)
+	}
+	os.Unsetenv("CLAUDECODE")
+	resetApproval()
+	invHome(t)
+	d, _ := invRun(t, "import", "ssh-config", f, "--dry-run")
+	tcl.flags.dryRun = false
+	if blockedCode(d) != "" {
+		t.Fatalf("a script's preview: %v", d)
+	}
 }

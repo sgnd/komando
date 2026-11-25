@@ -89,7 +89,7 @@ func TestSweepScriptLostRun(t *testing.T) {
 	if exists(filepath.Join(live, "lost")) || exists(filepath.Join(noRecord, "lost")) || !exists(noRecord) {
 		t.Fatal("a live run, or one without a record, counted as lost")
 	}
-	if got := Swept(stdout); !slices.Equal(got, []string{a}) {
+	if got := Swept("sweep-begin "+testID+"\n"+stdout+"sweep-end "+testID+"\n", testID); !slices.Equal(got, []string{a}) {
 		t.Fatalf("swept %v from %q", got, stdout)
 	}
 }
@@ -112,10 +112,79 @@ func TestSweepScriptLostMarkNotThroughALink(t *testing.T) {
 	}
 }
 
+// Swept reads only between the markers that carry the new session's ID:
+// a login banner or a profile script cannot name a session to forget.
 func TestSwept(t *testing.T) {
-	got := Swept("swept " + testID + "\nswept ../x\nnoise\n  swept " + testID + "\n")
-	if !slices.Equal(got, []string{testID}) {
-		t.Fatalf("got %v", got)
+	a, b, n := "b"+testID[1:], "c"+testID[1:], "n"+testID[1:]
+	begin, end := "sweep-begin "+n+"\n", "sweep-end "+n+"\n"
+	for _, tc := range []struct {
+		name, stdout string
+		want         []string
+	}{
+		{"inside the markers", begin + "swept " + a + "\nswept ../x\nnoise\n" + end, []string{a}},
+		{"a banner line outside", "swept " + b + "\n" + begin + "swept " + a + "\n" + end + "swept " + b + "\n", []string{a}},
+		{"only a banner", "swept " + a + "\n", nil},
+		{"markers of another ID", "sweep-begin " + a + "\nswept " + b + "\nsweep-end " + a + "\n", nil},
+		{"a block of another ID first", "sweep-begin " + a + "\nswept " + b + "\nsweep-end " + a + "\n" + begin + "swept " + a + "\n" + end, []string{a}},
+		{"no end marker", begin + "swept " + a + "\n", nil},
+		{"an ID twice", begin + "swept " + a + "\nswept " + a + "\n" + end, nil},
+		{"a second block", begin + "swept " + a + "\n" + end + begin + "swept " + b + "\n" + end, []string{a}},
+		{"leading space", begin + "  swept " + a + "\n" + end, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := Swept(tc.stdout, n); !slices.Equal(got, tc.want) {
+				t.Fatalf("got %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// A run that wrote its own end while its process still lives is not over:
+// with a record, the stored process must be gone too (the run can write
+// exit, killed and lost itself).
+func TestRemoveScriptLiveRunThatWroteItsEnd(t *testing.T) {
+	for _, mark := range []string{"exit", "killed", "lost"} {
+		t.Run(mark, func(t *testing.T) {
+			home := session(t, map[string]string{"out.log": "x\n", mark: "0\n"})
+			text, err := RemoveScript(testID, liveRec(t, testID))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if code := runSh(t, home, text); code != ExitNotRunning || !exists(sessionDir(home)) {
+				t.Fatalf("exit %d, folder there: %v", code, exists(sessionDir(home)))
+			}
+		})
+	}
+	t.Run("process gone", func(t *testing.T) {
+		home := session(t, map[string]string{"out.log": "x\n", "exit": "0\n"})
+		text, err := RemoveScript(testID, lostRec(testID))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if code := runSh(t, home, text); code != 0 || exists(sessionDir(home)) {
+			t.Fatalf("exit %d, folder there: %v", code, exists(sessionDir(home)))
+		}
+	})
+}
+
+// The sweep skips a folder whose record names a live process, whatever
+// files the run wrote; the files alone decide only without a record.
+func TestSweepScriptLiveRunThatWroteItsEnd(t *testing.T) {
+	home := session(t, nil)
+	old := 8 * 24 * time.Hour
+	live, noRecord, noStart, goneYoung := "b"+testID[1:], "c"+testID[1:], "d"+testID[1:], "e"+testID[1:]
+	liveDir := sweepSession(t, home, live, old, true)
+	noRecordDir := sweepSession(t, home, noRecord, old, true)
+	noStartDir := sweepSession(t, home, noStart, old, true)
+	goneYoungDir := sweepSession(t, home, goneYoung, time.Hour, true)
+	recs := []*store.ExecSession{liveRec(t, live), {ID: noStart, PID: os.Getpid(), PGID: os.Getpid()}, lostRec(goneYoung)}
+	stdout, code := runShOut(t, home, Sweep(recs))
+	if code != 0 || !exists(liveDir) || exists(noRecordDir) || exists(noStartDir) {
+		t.Fatalf("exit %d, live run there %v, without a record %v, record without a start %v: %s",
+			code, exists(liveDir), exists(noRecordDir), exists(noStartDir), stdout)
+	}
+	if exists(filepath.Join(goneYoungDir, "lost")) {
+		t.Fatal("a run that wrote its exit was marked lost")
 	}
 }
 
@@ -161,7 +230,7 @@ func TestBeginScriptSweepsThenStarts(t *testing.T) {
 	if code != 0 || exists(old) || !exists(sessionDir(home)) {
 		t.Fatalf("exit %d, old there %v, new there %v: %s", code, exists(old), exists(sessionDir(home)), stdout)
 	}
-	if got := Swept(stdout); !slices.Equal(got, []string{"q" + testID[1:]}) {
+	if got := Swept(stdout, testID); !slices.Equal(got, []string{"q" + testID[1:]}) {
 		t.Fatalf("swept %v", got)
 	}
 	waitFile(t, home, "exit")

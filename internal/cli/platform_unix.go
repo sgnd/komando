@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 )
 
 // detachAttr makes a child process outlive this command and its terminal.
@@ -64,14 +63,5 @@ func noCoreDumps() {
 	if syscall.Getrlimit(syscall.RLIMIT_CORE, &l) == nil && l.Cur != 0 {
 		l.Cur = 0
 		_ = syscall.Setrlimit(syscall.RLIMIT_CORE, &l)
-	}
-}
-
-// raise sends s to komando itself (its handler reset first): the process
-// ends of it, as it would have without a handler.
-func raise(s os.Signal) {
-	if sig, ok := s.(syscall.Signal); ok {
-		_ = syscall.Kill(os.Getpid(), sig)
-		time.Sleep(time.Second) // delivered at once; the caller's exit is the fallback
 	}
 }
