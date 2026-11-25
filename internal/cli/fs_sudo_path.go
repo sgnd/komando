@@ -13,6 +13,7 @@ import (
 
 	"github.com/pkg/sftp"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 )
@@ -120,10 +121,10 @@ func unsafeFolder(p, stderr string) error {
 			break
 		}
 	}
-	if !userRe.MatchString(owner) {
+	if !inventory.UserRe.MatchString(owner) {
 		owner = "(unknown)"
 	}
-	if !userRe.MatchString(group) {
+	if !inventory.UserRe.MatchString(group) {
 		group = "(unknown)"
 	}
 	dir = out.SafeText(out.NoCR(dir))

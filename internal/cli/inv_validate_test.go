@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 )
 
@@ -15,8 +16,8 @@ func TestInvalidNameMessageNamesTheEntry(t *testing.T) {
 		err  error
 		want string
 	}{
-		{"validName", validName("host", "bad name"), `"bad name" cannot be a host name: use letters, digits and . _ - (at most 63)`},
-		{"validLabelName", validLabelName("group", "bad name"), `"bad name" cannot be a group name`},
+		{"validName", inventory.ValidName("host", "bad name"), `"bad name" cannot be a host name: use letters, digits and . _ - (at most 63)`},
+		{"validLabelName", inventory.ValidLabelName("group", "bad name"), `"bad name" cannot be a group name`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var e *out.Error

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
@@ -170,7 +171,7 @@ func matchSelector(cl *call, st *store.State, sel string) (selection, error) {
 		return matchSelector(cl, st, n)
 	}
 	if looksAdhoc(sel) {
-		if h, err := sshx.ParseAdhoc(sel); err == nil && validPort(h.Port) == nil {
+		if h, err := sshx.ParseAdhoc(sel); err == nil && inventory.ValidPort(h.Port) == nil {
 			h.Address = normAddr(h.Address)
 			return selection{Hosts: []*store.Host{h}}, nil
 		}
@@ -186,7 +187,7 @@ func bracketedAdhoc(sel string) *store.Host {
 		return nil
 	}
 	h, err := sshx.ParseAdhoc(sel)
-	if err != nil || validPort(h.Port) != nil {
+	if err != nil || inventory.ValidPort(h.Port) != nil {
 		return nil
 	}
 	h.Address = normAddr(h.Address)
@@ -261,7 +262,7 @@ func matchKind(st *store.State, k string) (selection, error) {
 	}
 	var cs []*store.Conn
 	for _, c := range st.SortedConns() {
-		if c.Kind == k || connFamily(c) == k {
+		if c.Kind == k || inventory.ConnFamily(c) == k {
 			cs = append(cs, c)
 		}
 	}
@@ -417,18 +418,12 @@ func editDistance(a, b string) int {
 	return d[len(a)][len(b)]
 }
 
-// connFamily is the command a conn works with: db, cache or storage.
-func connFamily(c *store.Conn) string {
-	k, _ := driver.Lookup(c.Kind)
-	return k.Family
-}
-
 // useFor says which command works with a target, for skip reasons and hints.
 func useFor(h *store.Host, c *store.Conn) string {
 	if h != nil {
 		return "a server: use `komando exec` and the other server commands"
 	}
-	return fmt.Sprintf("a %s conn: use `komando %s`", c.Kind, connFamily(c))
+	return fmt.Sprintf("a %s conn: use `komando %s`", c.Kind, inventory.ConnFamily(c))
 }
 
 // skipVpns reports the VPNs a selector picked; no command acts on a VPN
@@ -518,17 +513,6 @@ func targetNames(cl *call, st *store.State, expr string) map[string]bool {
 	return names
 }
 
-// viaChain splits a --via value ("vpn1,bastion") into its steps.
-func viaChain(via string) []string {
-	var steps []string
-	for _, s := range strings.Split(via, ",") {
-		if s = strings.TrimSpace(s); s != "" {
-			steps = append(steps, s)
-		}
-	}
-	return steps
-}
-
 // singleHost resolves a selector that must pick exactly one server.
 func singleHost(cl *call, st *store.State, expr string) (*store.Host, error) {
 	hs, err := resolveTargets(cl, st, expr)
@@ -552,7 +536,7 @@ func singleConn(cl *call, st *store.State, expr, family string) (*store.Conn, er
 	var match []*store.Conn
 	var skip []out.Skipped
 	for _, c := range sel.Conns {
-		if connFamily(c) == family {
+		if inventory.ConnFamily(c) == family {
 			match = append(match, c)
 		} else {
 			skip = append(skip, out.Skipped{Name: c.Name, Kind: c.Kind, Reason: useFor(nil, c)})
