@@ -164,7 +164,8 @@ func TestGateFlagsAreParsedOnlyByTheGate(t *testing.T) {
 // TestOneWayGateMethodsHaveTheirCallers: the gate changes during a command
 // only at two reviewed places: kctl's diff turns --dry-run on (withDryRun)
 // and the ssh gate's shell makes the key the caller (asAgent). A command
-// starts its gate only from the root's hook (begin) and status --short.
+// starts its gate only from the root's hook (begin) and status --short,
+// and the ssh gate reads a key's typed flags with newGate without storing it.
 func TestOneWayGateMethodsHaveTheirCallers(t *testing.T) {
 	watched := map[string]bool{"withDryRun": true, "asAgent": true, "startGate": true, "begin": true}
 	got := map[string]int{}
@@ -177,6 +178,9 @@ func TestOneWayGateMethodsHaveTheirCallers(t *testing.T) {
 				if sel, ok := c.Fun.(*ast.SelectorExpr); ok && watched[sel.Sel.Name] {
 					got[name+" "+sel.Sel.Name]++
 				}
+				if id, ok := c.Fun.(*ast.Ident); ok && id.Name == "newGate" {
+					got[name+" newGate"]++
+				}
 			}
 			return true
 		})
@@ -188,6 +192,8 @@ func TestOneWayGateMethodsHaveTheirCallers(t *testing.T) {
 		"status.go startGate":               1,
 		"cluster_kctl_change.go withDryRun": 1,
 		"sshgate_shell.go asAgent":          1,
+		"call.go newGate":                   1, // startGate
+		"sshgate.go newGate":                1, // gateRule reads what a key typed; it stores no gate
 	}
 	if !maps.Equal(got, want) {
 		t.Errorf("callers of begin, startGate, withDryRun and asAgent:\n%s\nwant:\n%s", writerLines(got), writerLines(want))
@@ -312,8 +318,7 @@ func TestAsAgentIsOneWay(t *testing.T) {
 			if got.who != want {
 				t.Errorf("from %+v: caller %+v, want %+v", from, got.who, want)
 			}
-			got.who = before.who
-			if got != before {
+			if got.dryRun != before.dryRun || got.yes != before.yes || got.allowDangerous != before.allowDangerous || got.reveal != before.reveal {
 				t.Errorf("from %+v, flags %v: asAgent changed a gate flag: %+v, was %+v", from, on, got, before)
 			}
 		}
@@ -349,13 +354,12 @@ func TestWithDryRunOnlyTurnsDryRunOn(t *testing.T) {
 	before := cl.gate()
 	want := errors.New("server said no")
 	err := cl.withDryRun(func() error {
-		g := *cl.gate()
+		g := cl.gate()
 		if !g.dryRun {
 			t.Error("inside withDryRun --dry-run is off")
 		}
-		g.dryRun = false
-		if g != *before {
-			t.Errorf("withDryRun changed more than --dry-run: %+v, was %+v", *cl.gate(), *before)
+		if g.yes != before.yes || g.allowDangerous != before.allowDangerous || g.reveal != before.reveal || g.who != before.who {
+			t.Errorf("withDryRun changed more than --dry-run: %+v, was %+v", *g, *before)
 		}
 		return want
 	})

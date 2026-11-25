@@ -17,8 +17,17 @@ var tcl = newCall(processCall(), nil)
 
 // resetApproval starts a new command in tcl: the caller is read again from
 // the environment (a test that sets CLAUDECODE becomes an agent), and no
-// answer given so far counts.
-func resetApproval() { tcl.begin(nil) }
+// answer given so far counts. The gate flags a test set stay: a test sets
+// them for the command it runs next (the program's begin reads them from
+// the command line instead).
+func resetApproval() {
+	old := *tcl.gate()
+	tcl.begin(nil)
+	setGate(tcl, old.dryRun, gateDryRun)
+	setGate(tcl, old.yes, gateYes)
+	setGate(tcl, old.allowDangerous, gateAllowDangerous)
+	setGate(tcl, old.reveal, gateReveal)
+}
 
 // setCallerEnv sets the environment variable key to value for the rest of
 // the test and reads tcl's caller again (a test that sets CLAUDECODE
