@@ -218,15 +218,6 @@ func runSnippetEntry(cl *call, ctx context.Context, st *store.State, b snippet.B
 		audit(cl, st, "snippet.exec", nil, "snippet "+b.Name, false, map[string]any{"conns": connNames(e.conns), "blocked": toErr(err).Code})
 		return err
 	}
-	if risk < driver.RiskDestructive && len(e.conns) > 0 {
-		// a change on a protected entry asks as the replaced command does;
-		// dangerous was asked in the tier stop, with the entries
-		v := driver.Verdict{Risk: risk, RuleIDs: []string{"snippet:" + b.Name}, Reasons: []string{"snippet " + b.Name}}
-		if err := GuardConns(cl, st, e.conns, v); err != nil {
-			audit(cl, st, "snippet.exec", nil, "snippet "+b.Name, false, map[string]any{"conns": connNames(e.conns), "blocked": toErr(err).Code})
-			return err
-		}
-	}
 	var res any
 	err := e.with(ctx, func(c snippet.Client) error {
 		var rerr error

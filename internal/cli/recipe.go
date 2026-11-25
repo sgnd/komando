@@ -528,8 +528,12 @@ func snippetTierStop(cl *call, st *store.State, b snippet.Builtin, conns []*stor
 			"snippet %s runs only for a person at a terminal", b.Name))
 	case b.Tier == capability.Safety:
 		return guardSafety(cl, "snippet "+b.Name)
-	case b.Tier >= capability.Dangerous: // dangerous, and person at a terminal: --allow-dangerous or the typed question
-		return GuardConns(cl, st, conns, driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"snippet:" + b.Name}, Reasons: []string{why}})
+	case b.Tier >= capability.Dangerous || b.Tier >= capability.Change && len(conns) > 0:
+		// dangerous, and person at a terminal: --allow-dangerous or the typed
+		// question; a change on conns (a client snippet) asks for a protected
+		// entry as the replaced command does (a text snippet's hosts are
+		// asked by the run itself)
+		return GuardConns(cl, st, conns, driver.Verdict{Risk: snippetRisk(b), RuleIDs: []string{"snippet:" + b.Name}, Reasons: []string{why}})
 	}
 	return nil
 }

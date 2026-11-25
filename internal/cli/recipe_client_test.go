@@ -42,7 +42,7 @@ func fakeEntry(e snippetEntry, client snippet.Client, opened, closed *int) snipp
 
 // clientRun runs b against the entry named target, whose client is the fake,
 // as `recipe run NAME TARGET` does after it chose the entry.
-func clientRun(t *testing.T, b snippet.Builtin, target string, client snippet.Client, kv map[string]string) (err error, opened, closed int, printed string) {
+func clientRun(t *testing.T, b snippet.Builtin, target string, client snippet.Client, kv map[string]string) (opened, closed int, printed string, err error) {
 	t.Helper()
 	closeStoreAtEnd(t)
 	resetApproval()
@@ -52,7 +52,7 @@ func clientRun(t *testing.T, b snippet.Builtin, target string, client snippet.Cl
 	}
 	e, rerr := resolveSnippetEntry(tcl, st, b, target)
 	if rerr != nil {
-		return rerr, 0, 0, ""
+		return 0, 0, "", rerr
 	}
 	e = fakeEntry(e, client, &opened, &closed)
 	var buf bytes.Buffer
@@ -60,7 +60,7 @@ func clientRun(t *testing.T, b snippet.Builtin, target string, client snippet.Cl
 	tcl.out.W = &buf
 	defer func() { tcl.out.W = saved }()
 	err = runSnippetEntry(tcl, context.Background(), st, b, e, kv)
-	return err, opened, closed, buf.String()
+	return opened, closed, buf.String(), err
 }
 
 func clientCode(err error) string {
@@ -114,7 +114,7 @@ func TestClientSnippetChecksVariablesFirst(t *testing.T) {
 	mustRun(t, "conn", "add", "lite", "sqlite://"+filepath.Join(t.TempDir(), "app.db"))
 	b := clientSnippet("database", capability.Read, nil)
 	for _, kv := range []map[string]string{{"word": "TOO LONG; drop"}, {"other": "x"}} {
-		err, opened, _, _ := clientRun(t, b, "lite", struct{}{}, kv)
+		opened, _, _, err := clientRun(t, b, "lite", struct{}{}, kv)
 		if err == nil || opened != 0 {
 			t.Errorf("--var %v: error %v after %d connections, want it refused before any", kv, err, opened)
 		}
@@ -130,7 +130,7 @@ func TestClientSnippetTiers(t *testing.T) {
 	mustRun(t, "conn", "add", "prod", "sqlite://"+filepath.Join(t.TempDir(), "prod.db"), "--protected")
 
 	read := clientSnippet("database", capability.Read, nil)
-	err, opened, closed, printed := clientRun(t, read, "prod", struct{}{}, nil)
+	opened, closed, printed, err := clientRun(t, read, "prod", struct{}{}, nil)
 	if err != nil || opened != 1 || closed != 1 {
 		t.Fatalf("a read on a protected conn: %v, opened %d, closed %d; want it to run and close", err, opened, closed)
 	}
@@ -141,34 +141,34 @@ func TestClientSnippetTiers(t *testing.T) {
 	}
 
 	change := clientSnippet("database", capability.Change, nil)
-	if err, opened, _, _ := clientRun(t, change, "prod", struct{}{}, nil); clientCode(err) != "PROTECTED_TARGET" || opened != 0 {
+	if opened, _, _, err := clientRun(t, change, "prod", struct{}{}, nil); clientCode(err) != "PROTECTED_TARGET" || opened != 0 {
 		t.Errorf("a change on a protected conn without --yes: %v, opened %d; want PROTECTED_TARGET and nothing opened", err, opened)
 	}
-	if err, opened, _, _ := clientRun(t, change, "lite", struct{}{}, nil); err != nil || opened != 1 {
+	if opened, _, _, err := clientRun(t, change, "lite", struct{}{}, nil); err != nil || opened != 1 {
 		t.Errorf("a change on a plain conn: %v, opened %d; want it to run", err, opened)
 	}
 	setGate(tcl, true, gateYes)
-	if err, opened, _, _ := clientRun(t, change, "prod", struct{}{}, nil); err != nil || opened != 1 {
+	if opened, _, _, err := clientRun(t, change, "prod", struct{}{}, nil); err != nil || opened != 1 {
 		t.Errorf("a change on a protected conn with --yes: %v, opened %d; want it to run", err, opened)
 	}
 	setGate(tcl, false, gateYes)
 
 	danger := clientSnippet("database", capability.Dangerous, nil)
-	if err, opened, _, _ := clientRun(t, danger, "lite", struct{}{}, nil); clientCode(err) != "POLICY_BLOCKED" || opened != 0 {
+	if opened, _, _, err := clientRun(t, danger, "lite", struct{}{}, nil); clientCode(err) != "POLICY_BLOCKED" || opened != 0 {
 		t.Errorf("a dangerous snippet without --allow-dangerous: %v, opened %d; want POLICY_BLOCKED and nothing opened", err, opened)
 	}
 	setGate(tcl, true, gateAllowDangerous)
 	defer setGate(tcl, false, gateAllowDangerous)
 	// a protected conn asks for --yes as well: the entries are part of the stop
-	if err, opened, _, _ := clientRun(t, danger, "prod", struct{}{}, nil); clientCode(err) != "PROTECTED_TARGET" || opened != 0 {
+	if opened, _, _, err := clientRun(t, danger, "prod", struct{}{}, nil); clientCode(err) != "PROTECTED_TARGET" || opened != 0 {
 		t.Errorf("a dangerous snippet on a protected conn with --allow-dangerous only: %v, opened %d; want PROTECTED_TARGET and nothing opened", err, opened)
 	}
-	if err, opened, _, _ := clientRun(t, danger, "lite", struct{}{}, nil); err != nil || opened != 1 {
+	if opened, _, _, err := clientRun(t, danger, "lite", struct{}{}, nil); err != nil || opened != 1 {
 		t.Errorf("a dangerous snippet with --allow-dangerous: %v, opened %d; want it to run", err, opened)
 	}
 
 	person := clientSnippet("database", capability.Person, nil)
-	if err, opened, _, _ := clientRun(t, person, "lite", struct{}{}, nil); clientCode(err) != "NEEDS_PERSON" || opened != 0 {
+	if opened, _, _, err := clientRun(t, person, "lite", struct{}{}, nil); clientCode(err) != "NEEDS_PERSON" || opened != 0 {
 		t.Errorf("a person-only snippet in a script: %v, opened %d; want NEEDS_PERSON and nothing opened", err, opened)
 	}
 }
@@ -183,7 +183,7 @@ func TestClientSnippetAudit(t *testing.T) {
 	change := clientSnippet("database", capability.Change, func(snippet.Client, snippet.Values) (any, error) {
 		return nil, out.Errf(out.ExitConnect, "DB_CONNECT", "check it", "refused")
 	})
-	err, opened, closed, _ := clientRun(t, change, "lite", struct{}{}, nil)
+	opened, closed, _, err := clientRun(t, change, "lite", struct{}{}, nil)
 	if clientCode(err) != "DB_CONNECT" || opened != 1 || closed != 1 {
 		t.Fatalf("a failing change: %v, opened %d, closed %d; want its error and a closed client", err, opened, closed)
 	}
@@ -195,7 +195,7 @@ func TestClientSnippetAudit(t *testing.T) {
 
 	// a read writes no record: the last one is still the change's
 	read := clientSnippet("database", capability.Read, nil)
-	if err, _, _, _ := clientRun(t, read, "lite", struct{}{}, nil); err != nil {
+	if _, _, _, err := clientRun(t, read, "lite", struct{}{}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if b := lastAudit(t); b["ts"] != a["ts"] {
@@ -250,7 +250,7 @@ func TestHostClientChangeSnippetIsRefused(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web1", "u@127.0.0.1:1")
 	b := clientSnippet("host", capability.Change, nil)
-	err, opened, _, _ := clientRun(t, b, "web1", struct{}{}, nil)
+	opened, _, _, err := clientRun(t, b, "web1", struct{}{}, nil)
 	if err == nil || opened != 0 {
 		t.Errorf("a host client snippet at change tier: %v, opened %d; want it refused with nothing opened", err, opened)
 	}
