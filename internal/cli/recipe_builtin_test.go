@@ -512,3 +512,41 @@ func TestSnippetNamesReserved(t *testing.T) {
 		t.Errorf("the renamed recipe: %+v", r)
 	}
 }
+
+// recipe run renames a saved recipe that has a ready-made snippet's name
+// before it looks the name up, once, with a warning and an audit record;
+// a dry run renames nothing.
+func TestSnippetNamesRenamedByRun(t *testing.T) {
+	startReplayServerWith(t, nil, replayStep{stdout: "up\n"}, replayStep{stdout: "up\n"})
+	if err := store.Update(store.Save(), func(st *store.State) error {
+		for _, n := range []string{"facts", "mine"} {
+			st.Snippets[n] = &store.Snippet{Name: n, Command: "uptime", ReadOnly: true}
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	withSnippets(t)
+	has := func(name string) bool {
+		st, err := store.Load()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return st.Snippets[name] != nil
+	}
+	dry := captureOutput(t, func() error { return runRoot(t, "--dry-run", "recipe", "run", "mine", "dev") })
+	if !has("facts") || has("facts-own") || strings.Contains(dry, "renamed") {
+		t.Fatalf("a dry run renamed:\n%s", dry)
+	}
+	got := captureOutput(t, func() error { return runRoot(t, "recipe", "run", "mine", "dev") })
+	if has("facts") || !has("facts-own") || !strings.Contains(got, "facts is now facts-own") {
+		t.Fatalf("recipe run did not rename facts once with a warning:\n%s", got)
+	}
+	if a := auditText(t); !strings.Contains(a, `"recipe.rename"`) || !strings.Contains(a, "facts is now facts-own") {
+		t.Errorf("no audit record recipe.rename naming the rename:\n%s", a)
+	}
+	again := captureOutput(t, func() error { return runRoot(t, "recipe", "run", "mine", "dev") })
+	if strings.Contains(again, "renamed") {
+		t.Errorf("the warning came twice:\n%s", again)
+	}
+}
