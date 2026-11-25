@@ -19,7 +19,7 @@ its highlights; the sections below them give the details. Versions follow
 - On Windows the guard hook calls komando directly, as in 0.17.1, and `komando doctor` says that it lets a call through when komando is missing.
 - A guard hook set up by an older version keeps working the old way until `komando guide install` is run again, once per computer and per project that has one.
 - A refusal of a file named komando says to build it under another name (`go build -o komando-dev`) or ask the user.
-- The guard also refuses hook-file and komando paths written with `\` (PowerShell and cmd); `komando doctor` reads a Windows program without Unix modes, and its Windows line says what the guard cannot do there.
+- The guard also refuses hook-file and komando paths written with `\` (PowerShell and cmd); like on every system it reads the command line only, not a script file the agent wrote or an encoded PowerShell command. `komando doctor` reads a Windows program without Unix modes, and its Windows line says what the guard cannot do there.
 
 ## [0.17.1] - 2026-11-24
 

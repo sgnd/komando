@@ -250,7 +250,7 @@ On Windows there is no `/bin/sh` for the hook line, so the guard runs as in 0.17
 | Go on unchecked once the komando program is gone: the guard refuses an agent's direct removal, but not one done by a script file it wrote and ran, or by an update that moved komando | the hook calls komando directly; when komando is missing the agent tool goes on | keep komando where the hook names it; `komando doctor` says when it is missing |
 | Change the komando program when other users of the computer may write to it | `komando doctor` cannot read Unix modes on Windows, so it gives no warning | keep komando in a folder only you can change |
 
-The guard's protection of its own files works on Windows with paths written with `\` in PowerShell and cmd lines too (`Remove-Item C:\Users\me\.claude\settings.json` and `Remove-Item C:\tools\komando.exe` are refused).
+The guard refuses an agent's change to its hook files and to komando also when the path is written with `\`, as in PowerShell and cmd (`Remove-Item C:\Users\me\.claude\settings.json`, `Remove-Item C:\tools\komando.exe`). Like on every system it reads the command line only: a script file the agent wrote, or an encoded PowerShell command (`-EncodedCommand`), is not read.
 
 ### The approval window in Indonesian
 
