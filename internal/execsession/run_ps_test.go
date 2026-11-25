@@ -114,6 +114,7 @@ func TestStartScriptPSLaunch(t *testing.T) {
 		"Get-CimInstance -ClassName Win32_Process -Filter ('ProcessId = ' + $ks_pid)",
 		"Write-Output ('facts-begin ' + $ks_id)",
 		"ks_put 'run.ps1'", "ks_put 'watch.ps1'",
+		"if ($ks_pid) { $null = & taskkill.exe /PID $ks_pid /T /F }",
 	} {
 		if !strings.Contains(script, want) {
 			t.Errorf("the start script has no %q", want)
