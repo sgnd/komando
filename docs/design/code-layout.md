@@ -86,6 +86,7 @@ or a listed one is gone.
 | `internal/dbx` | SQL and MongoDB against a conn, dump and restore |
 | `internal/driver` | the kinds of conns and the risk levels the safety checks use |
 | `internal/engine` | one komando call: who makes it and its approvals |
+| `internal/execsession` | a long `exec` that outlives the connection: the session ID, the folder on the server, and the shell text that starts, reads and stops a run |
 | `internal/flock` | a file lock between komando processes |
 | `internal/inventory` | the rules for what goes into the inventory: names and the shared name space, login names, ports, labels, `--via` paths and conn families; nothing of `internal/cli` |
 | `internal/ipsec` | komando's own IKEv1 and IKEv2 clients |
@@ -130,14 +131,17 @@ or a listed one is gone.
 Each package below `internal/cli` keeps to the imports of its row, so
 what every command shares never reaches back into the commands. "std" is
 the standard library; the others are import paths (below the module when
-they start with `internal/`). A new package gets its row here, in the same
-words as the move check, in the same change; `internal/layout` fails when
-a package has no row, imports more than its row allows, or a row has no
-code.
+they start with `internal/`). A path followed by a `//go:build`
+expression in brackets, such as `golang.org/x/sys/windows` (windows), is
+allowed only in files that build on no system outside it, by their
+`//go:build` line or their `_<system>` ending. A new package gets its row
+here, in the same words as the move check, in the same change;
+`internal/layout` fails when a package has no row, imports more than its
+row allows, or a row has no code.
 
 | Package | May import |
 |---|---|
-| `internal/cli/kit/term` | std, `internal/out`, `golang.org/x/text`, `golang.org/x/sys/windows` |
+| `internal/cli/kit/term` | std, `internal/out`, `golang.org/x/text`, `golang.org/x/sys/windows` (windows) |
 
 ## Files in internal/cli
 

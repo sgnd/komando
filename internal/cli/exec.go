@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"regexp"
@@ -21,7 +22,11 @@ func readAllStdin(cl *call) ([]byte, error) { return io.ReadAll(cl.stdin) }
 
 type execHostResult struct {
 	Host string `json:"host"`
-	OK   bool   `json:"ok"`
+	// Session: the run's session ID, null when it ran without one; absent
+	// when sessions are off or not for this run
+	Session  json.RawMessage `json:"session,omitempty"`
+	NextFrom *int64          `json:"next_from,omitempty"` // a running session: where --attach reads on
+	OK       bool            `json:"ok"`
 	*sshx.RunResult
 	Error *out.Error `json:"error,omitempty"`
 }
@@ -71,26 +76,6 @@ func (d execData) TextFor(pr *out.Printer) string {
 	return sb.String()
 }
 
-func hostStatus(r execHostResult) string {
-	switch {
-	case r.Error != nil && r.Error.Code == "SKIPPED":
-		return "skipped"
-	case r.OK && r.RunResult != nil:
-		return fmt.Sprintf("ok, exit %d", r.ExitCode)
-	case r.OK:
-		return "ok"
-	case r.Error != nil && r.Error.Code == "CONNECTION_LOST":
-		return "failed: connection lost, outcome unknown"
-	case r.RunResult != nil && r.TimedOut:
-		return "failed: timed out"
-	case r.RunResult != nil:
-		return fmt.Sprintf("failed: exit %d", r.ExitCode)
-	case r.Error != nil:
-		return "failed: " + failReason(0, r.Error)
-	}
-	return "failed"
-}
-
 type execOpts struct {
 	sudo      bool
 	sudoUser  string
@@ -112,6 +97,9 @@ type execOpts struct {
 	// 83 = no such file; user add/rm: a #komando: marker on stdout); nil
 	// keeps the plain "exit N".
 	exitMap func(rr *sshx.RunResult) *out.Error
+	// session: exec's session flags; with sessions on, a run on one Unix
+	// server goes in a session (sessionFor)
+	session *sessionOpts
 }
 
 func (o *execOpts) bind(c *cobra.Command) {
@@ -136,6 +124,7 @@ func execCmd() *cobra.Command {
 	var so scriptOpts
 	var cmdStr string
 	var readOnly bool
+	var sess sessionOpts
 	c := &cobra.Command{
 		Use:     "exec TARGET [-- COMMAND...]",
 		Aliases: []string{"run", "x"},
@@ -171,6 +160,12 @@ so nothing is left on the server. --arg values become $1, $2 ... .`,
   cat deploy.sh | komando exec web1 --stdin-file - -- 'bash -s'`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			if err := sess.refuseOff(cmd); err != nil {
+				return err
+			}
+			if len(sess.attach) > 0 || cmd.Flags().Changed("offset") {
+				return sess.attachCall(cl, cmd.Context(), args, cmdStr != "" || so.file != "")
+			}
 			if so.file != "" {
 				if cmdStr != "" || len(args) > 1 {
 					return out.Usage("give a command or --script FILE, not both")
@@ -207,6 +202,7 @@ so nothing is left on the server. --arg values become $1, $2 ... .`,
 			if err != nil {
 				return err
 			}
+			o.session = &sess
 			return runFleet(cl, cmd.Context(), "exec", args[0], command, stdin, o, mutating)
 		}),
 	}
@@ -216,6 +212,7 @@ so nothing is left on the server. --arg values become $1, $2 ... .`,
 	c.Flags().StringVar(&so.file, "script", "", "run this script from this computer ('-' = komando's stdin); nothing is left on the server")
 	so.bind(c)
 	c.Flags().BoolVar(&readOnly, "read-only", false, "declare that the command only looks: only commands komando knows only read run (protected servers: no --yes)")
+	sess.bind(c)
 	return c
 }
 
@@ -319,15 +316,9 @@ func runFleet(cl *call, ctx context.Context, name, target, command string, stdin
 
 	follow := o.follow || (o.stream && name == "logs") // logs --follow
 	if follow {
-		s := statusLine{What: "following logs", Target: strings.Join(hostNames(hosts), ", "), Tail: "Ctrl-C stops"}
-		if len(hosts) == 1 {
-			s.Route = hostRoute(st, hosts[0])
-		}
-		for _, h := range hosts {
-			s.Protected = s.Protected || protectedHost(st, h)
-		}
-		showStatus(cl, s)
+		followStatus(cl, st, hosts)
 	}
+	sess := sessionFor(name, hosts, o, shown)
 	var mu sync.Mutex
 	var failed bool
 	run := func(ctx context.Context, c *sshx.Client) (any, error) {
@@ -375,7 +366,7 @@ func runFleet(cl *call, ctx context.Context, name, target, command string, stdin
 				}
 			}
 		}
-		res, err := sshx.Run(ctx, c, r)
+		res, err := sess.run(cl, ctx, c, r)
 		if o.stream {
 			mu.Lock()
 			show("stdout", bufs["stdout"].flush())
@@ -413,6 +404,7 @@ func runFleet(cl *call, ctx context.Context, name, target, command string, stdin
 	var fails []hostFail
 	for _, r := range results {
 		hr := execHostResult{Host: r.Host.Name}
+		sess.fill(&hr)
 		if r.Err != nil {
 			hr.Error = toErr(r.Err)
 			if hr.Error.Code == "SKIPPED" {

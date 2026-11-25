@@ -442,6 +442,22 @@ func TestMigrate3FailsClosed(t *testing.T) {
 			code: "STORE_IN_USE",
 		},
 		{
+			// a run on a server: this computer cannot see it, and only its
+			// record here can stop it, so the record alone stops the migration
+			name: "an exec session record",
+			setup: func(t *testing.T) {
+				err := UpdateRuntime(Save(), func(s *State) error {
+					s.ExecSessions["abc"] = &ExecSession{ID: "abc", Host: "web", PID: 4242, PGID: 4242, ProcStart: "proc 1"}
+					return nil
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+			},
+			opts: func(o *migrate3Opts) { o.alive = func(int, string) bool { return false } },
+			code: "STORE_IN_USE",
+		},
+		{
 			name: "a deny pattern changed outside komando",
 			setup: func(t *testing.T) {
 				rowKeyOnly(t, func(tx *sealdb.Tx) error {
