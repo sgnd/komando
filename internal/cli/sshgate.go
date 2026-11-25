@@ -377,7 +377,7 @@ func gateCheck(args []string, key gateKey) (name, output string, refused *out.Er
 		DisableFlagParsing: true, Run: func(*cobra.Command, []string) {}})
 	c, rest, err := root.Find(args)
 	if err != nil {
-		return "", "", nil // komando reports it, and runs nothing
+		return "", "", gateUnknownLine(args)
 	}
 	if c.Name() == cobra.ShellCompRequestCmd {
 		return c.Name(), "", out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "run it on the komando computer itself",
@@ -422,6 +422,9 @@ func gateRule(c *cobra.Command, name string, key gateKey) (string, *out.Error) {
 			"--allow-dangerous is refused: a key cannot skip the dangerous-command stop")
 	}
 	if !c.Runnable() || c.Annotations[groupOnly] == "true" {
+		if len(c.Flags().Args()) > 0 {
+			return name, gateUnknownLine(append(strings.Fields(strings.ReplaceAll(name, ".", " ")), c.Flags().Args()...))
+		}
 		return name, nil // a group only prints its help
 	}
 	here := func(why string) (string, *out.Error) {
@@ -446,6 +449,13 @@ func gateRule(c *cobra.Command, name string, key gateKey) (string, *out.Error) {
 			"komando %s is refused for a read key without network: %s", strings.ReplaceAll(name, ".", " "), why)
 	}
 	return name, nil
+}
+
+// gateUnknownLine refuses a line that names no command, as for a person:
+// komando would run nothing, and an old path must not pass as harmless.
+func gateUnknownLine(words []string) *out.Error {
+	return out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "a person runs it in a terminal on the komando computer itself",
+		"komando %s names no command; a key runs only commands komando knows", strings.Join(words, " "))
 }
 
 // gateWrites says why a read-only key may not run c, or "".
