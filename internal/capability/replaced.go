@@ -10,8 +10,9 @@ type Replaced struct {
 	Today     string
 	Rows      []Key    // v2.7 tier rows, by their key, that reach the carrying leaf
 	Rules     []string // internal/policy rule IDs
+	SQLRules  []string // rule IDs of the SQL classifier (internal/driver SQLRules)
 	EveryRule bool     // every policy rule checks the text, as today's command did
-	Tests     []string // the tests that pin the rules, by function name
+	Tests     []string // the tests that pin the rules or the rating, by function name
 	Stops     []string // in-command stops, by function name
 	NoRule    string   // why no policy rule carries it ("" when one does)
 	Owed      string   // a carrier not on main yet, with its gaps row
@@ -36,9 +37,10 @@ const (
 	cronNoRule  = "Audit K1: no rule, change tier"
 	valueNoRule = "the leaf rates the text itself (by value): dangerous"
 
-	readLost  = "read it with `host ssh exec`; text output, no shape (no built-in snippet, Audit point 1)"
-	o24Lost   = "validate, back up and undo, O-24 (Audit K4); accepted as a loss at v0.18.0: nothing writes a credential reference into a config line and an agent cannot change a [hidden] line; a ready-made change snippet is planned after v0.18.0 (row C374)"
-	typedLost = "the typed-name confirm of a person (the raw path asks only for --allow-dangerous); pin: protected --yes through guardConns, a test per type (row C363) (Audit K4)"
+	readLost          = "read it with `host ssh exec`; text output, no shape (no built-in snippet, Audit point 1)"
+	o24Lost           = "validate, back up and undo, O-24 (Audit K4); accepted as a loss at v0.18.0: nothing writes a credential reference into a config line and an agent cannot change a [hidden] line; a ready-made change snippet is planned after v0.18.0 (row C374)"
+	queryPasswordLost = "a password set through query is on the command line; use `{{credential:NAME}}` or a person's terminal"
+	typedLost         = "the typed-name confirm of a person (the raw path asks only for --allow-dangerous); pin: protected --yes through guardConns, a test per type (row C363) (Audit K4)"
 )
 
 // execPlain is an exec ID with no rule; lost is "" or the plan's words.
@@ -67,7 +69,7 @@ var execReplaced = []Replaced{
 	{Today: "cron.rm", Rows: execRows, Stops: execStops, NoRule: cronNoRule},
 	execPlain("cron.set", ""),
 
-	{Today: "docker.compose", Rows: execRows, Rules: names("docker-host"), Tests: names("TestRuleDocker"),
+	{Today: "docker.compose", Rows: execRows, Rules: names("docker-rm", "docker-kill", "docker-host"), Tests: names("TestRuleDocker"),
 		Stops: names("execComposeReason", "refuseEncodedSecret")},
 	execRule("docker.exec", names("container-shell"), names("TestRuleContainerShell")),
 	execPlain("docker.images", ""),
@@ -110,7 +112,7 @@ var execReplaced = []Replaced{
 	execPlain("pkg.update", ""),
 	execPlain("pkg.upgradable", readLost),
 	{Today: "pkg.upgrade", Rows: execRows, Stops: execStops, NoRule: "the rule of row C362 is owed",
-		Owed: "policy: rule of row C362 (name owed); tests: owed with row C362 (Audit K3); built-in snippet `pkg-upgrade-all` (apps N9)"},
+		Owed: "blocks cut PR D: policy: rule of row C362 (name owed); tests: owed with row C362 (Audit K3); built-in snippet `pkg-upgrade-all` (apps N9)"},
 
 	{Today: "reboot", Rows: execRows, Rules: names("power", "power-systemctl", "win-power"),
 		Tests: names("TestCheck", "TestWindowsRules", "TestRulePower"), Stops: execStops,
@@ -147,17 +149,18 @@ var dbQuery = Key{Type: "database", Verb: "query"}
 // queryReplaced: plan section 1.5.
 var queryReplaced = []Replaced{
 	byValue("db.activity", dbQuery, nil, ""),
-	byValue("db.explain", dbQuery, nil, ""),
+	{Today: "db.explain", Rows: []Key{dbQuery}, Tests: names("TestClassifySQL"),
+		NoRule: valueNoRule + "; EXPLAIN ANALYZE is rated by the statement it runs"},
 	byValue("db.grant", dbQuery, nil, ""),
 	byValue("db.info", dbQuery, nil, ""),
-	byValue("db.kill", dbQuery, nil, ""),
+	{Today: "db.kill", Rows: []Key{dbQuery}, SQLRules: names("sql-kill"), Tests: names("TestClassifySQL")},
 	byValue("db.locks", dbQuery, nil, ""),
 	byValue("db.revoke", dbQuery, nil, ""),
 	byValue("db.schema", dbQuery, nil, ""),
 	byValue("db.sizes", dbQuery, nil, ""),
-	byValue("db.user.add", dbQuery, nil, ""),
+	byValue("db.user.add", dbQuery, nil, queryPasswordLost),
 	byValue("db.user.list", dbQuery, nil, ""),
-	byValue("db.user.passwd", dbQuery, nil, ""),
+	byValue("db.user.passwd", dbQuery, nil, queryPasswordLost),
 	{Today: "db.user.rm", Rows: []Key{dbQuery}, Rules: names("db-drop-user"), Tests: names("TestRuleDBDropUser")},
 	byValue("db.user.show", dbQuery, nil, ""),
 }
@@ -190,6 +193,7 @@ var rawReplaced = []Replaced{
 	byValue("cluster.restart", clusterRaw, kubeRaw, ""),
 	byValue("cluster.rm", clusterRaw, kubeRaw, typedLost),
 	byValue("cluster.rollback", clusterRaw, kubeRaw, ""),
-	byValue("cluster.scale", clusterRaw, kubeRaw, typedLost),
+	{Today: "cluster.scale", Rows: []Key{clusterRaw}, Rules: names("kubectl-scale-zero"), Tests: names("TestRuleKubectlScaleZero"),
+		Stops: kubeRaw, Lost: typedLost},
 	byValue("cluster.status", clusterRaw, kubeRaw, ""),
 }

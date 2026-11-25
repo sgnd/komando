@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/sgnd/komando/internal/capability"
+	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/policy"
 )
 
@@ -22,10 +23,11 @@ import (
 //   - the list holds exactly the IDs an exec, query or raw leaf carries;
 //   - each ID names a carrier: a v2.7 tier row, a policy rule or a stop;
 //   - each named row reaches a leaf that carries the ID, each rule is in
-//     policy.Rules(), each test and stop is a function in this module,
-//     and one of the ID's tests names each of its rules;
+//     policy.Rules() (a SQL rule in driver.SQLRules()), each test and
+//     stop is a function in this module, and one of the ID's tests names
+//     each of its rules;
 //   - an ID that is dangerous today keeps a dangerous carrier: a policy
-//     rule on a leaf with a dangerous row, or a dangerous row that rates
+//     or SQL rule on a leaf with a dangerous row, or a dangerous row that rates
 //     the text itself (byValueRows);
 //   - an ID with no rule says why (NoRule); one whose carrier is not on
 //     main yet names its gaps row (Owed).
@@ -33,6 +35,10 @@ func TestReplacedIDsNameTheirRules(t *testing.T) {
 	rules := map[string]bool{}
 	for _, r := range policy.Rules() {
 		rules[r.ID] = true
+	}
+	sqlRules := map[string]bool{}
+	for _, r := range driver.SQLRules() {
+		sqlRules[r.ID] = true
 	}
 	funcs := moduleFuncs(t)
 	carriers := replacedCarriers()
@@ -48,7 +54,7 @@ func TestReplacedIDsNameTheirRules(t *testing.T) {
 			t.Errorf("%s: in capability.Replacements, but no exec, query or raw leaf carries it", r.Today)
 			continue
 		}
-		for _, why := range replacedGaps(r, leaves, rules, funcs) {
+		for _, why := range replacedGaps(r, leaves, rules, sqlRules, funcs) {
 			t.Errorf("%s (highest row today %s): %s", r.Today, todayTier(cmdKeys[r.Today]), why)
 		}
 	}
@@ -90,9 +96,9 @@ func replacedCarriers() map[string][]capability.Key {
 var gapsRow = regexp.MustCompile(`\bC\d+\b`)
 
 // replacedGaps says what is wrong with one entry, or nothing.
-func replacedGaps(r capability.Replaced, leaves []capability.Key, rules map[string]bool, funcs map[string][]moduleFunc) []string {
+func replacedGaps(r capability.Replaced, leaves []capability.Key, rules, sqlRules map[string]bool, funcs map[string][]moduleFunc) []string {
 	var out []string
-	if len(r.Rows)+len(r.Rules)+len(r.Stops) == 0 && !r.EveryRule {
+	if len(r.Rows)+len(r.Rules)+len(r.SQLRules)+len(r.Stops) == 0 && !r.EveryRule {
 		out = append(out, "names no carrier (row, rule or stop)")
 	}
 	strongest := capability.Read
@@ -103,9 +109,14 @@ func replacedGaps(r capability.Replaced, leaves []capability.Key, rules map[stri
 		}
 		strongest = max(strongest, tier)
 	}
-	hasRule := len(r.Rules) > 0 || r.EveryRule
-	for _, id := range r.Rules {
-		if !rules[id] {
+	hasRule := len(r.Rules)+len(r.SQLRules) > 0 || r.EveryRule
+	for _, id := range r.SQLRules {
+		if !sqlRules[id] {
+			out = append(out, "SQL rule "+id+" is not in driver.SQLRules()")
+		}
+	}
+	for _, id := range slices.Concat(r.Rules, r.SQLRules) {
+		if !rules[id] && !slices.Contains(r.SQLRules, id) {
 			out = append(out, "rule "+id+" is not in policy.Rules()")
 		}
 		if !slices.ContainsFunc(r.Tests, func(tn string) bool { return testNames(funcs[tn], id) }) {
