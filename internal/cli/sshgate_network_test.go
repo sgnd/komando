@@ -81,7 +81,7 @@ func TestGateNoNetwork(t *testing.T) {
 		"cache info c", "cluster run k8s get pods", "cluster status k8s", "cluster logs k8s api-1", "cert check web",
 		"cert check web --path /etc/ssl/site.pem", "pkg security web", "pkg installed web", "storage download s3 a.txt --to -",
 		"storage list s3", "job list", "audit", "export", "conn test pg", "vpn list", "cron list web", "user list web",
-		"net --help", "exec --help", "net", "cluster info k8s", "registry list reg",
+		"net --help", "exec --help", "net", "cluster info k8s", "registry oci image list reg",
 	}
 	for _, line := range allowed {
 		if got := gateKeyAnswer(t, line, readKey); got != "" {

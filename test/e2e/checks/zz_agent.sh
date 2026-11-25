@@ -80,7 +80,7 @@ aok "storage ls" storage ls bucket
 fi
 
 if in_area registry; then
-aok "registry ls" registry ls reg
+aok "registry oci image list" registry oci image list reg
 fi
 
 if in_area k8s; then
@@ -102,7 +102,7 @@ acode "storage rm needs --allow-dangerous" POLICY_BLOCKED storage rm bucket e2e/
 fi
 
 if in_area registry; then
-acode "registry rm needs --allow-dangerous" POLICY_BLOCKED registry rm reg e2e/nothing:1
+acode "registry oci image delete needs --allow-dangerous" POLICY_BLOCKED registry oci image delete reg e2e/nothing:1
 fi
 
 if in_area k8s; then

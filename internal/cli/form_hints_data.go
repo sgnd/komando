@@ -48,32 +48,45 @@ func init() {
 // The questions for `komando cache redis ...` and `cache memcached ...`:
 // the inventory verbs of the table (the same questions conn's verbs ask,
 // for caches) and raw, which is today's `cache run`. The reads of one key
-// at a time (get, keys, info, set, rm) stay under hints of their own in
-// form_hints_data.go until they are removed with the cut's removal step.
+// at a time (get, keys, info, set, rm) stay under hints of their own above
+// until they are removed with the cut's removal step.
 
 func init() {
-	pick := formArg{ask: "Which cache?", pick: "cache", help: "A cache from your list. Add one first: komando cache redis add or komando cache memcached add."}
 	hints := map[string]formHint{}
 	for _, p := range []struct{ word, kind, what string }{{"redis", "Redis or Valkey", "Redis"}, {"memcached", "Memcached", "Memcached"}} {
-		kind := p.kind
-		cmd := "cache " + p.word + " "
-		hints["cache "+p.word] = formHint{}
-		hints[cmd+"add"] = formHint{form: func(cl *call) []formGroup { return formKindOnly(cl, "Caches", kind) },
-			next: []string{cmd + "test {}", cmd + "show {}"}}
-		edit := invConnHints["conn edit"]
-		edit.hide = nil // the table has no -g and -t on edit: only --add-group and --add-tag
-		hints[cmd+"edit"] = edit
-		hints[cmd+"list"] = formHint{args: []formArg{{ask: "Which caches? (leave empty for all)", pick: "cache", free: true,
-			help: "Pick one, or type @group or several names separated by commas."}}}
-		hints[cmd+"remove"] = formHint{args: []formArg{{ask: "Which caches should come off your list?", pick: "cache", free: true,
-			help: "Only komando's list changes; the cache itself is not touched."}}}
-		hints[cmd+"rename"] = formHint{args: []formArg{{ask: "Which cache do you want to rename?", pick: "cache",
-			help: "Groups, notes and everything else that names it are changed too."}, invNewName}}
-		hints[cmd+"show"] = formHint{args: []formArg{pick}}
-		hints[cmd+"test"] = formHint{args: []formArg{invConns}, flags: []formFlag{invWait}}
-		hints[cmd+"raw"] = cacheRawHint(p.what, pick)
+		for k, h := range inventoryHints("cache", p.word, "cache", "Caches", p.kind) {
+			hints[k] = h
+		}
+		hints["cache "+p.word+" raw"] = cacheRawHint(p.what, formArg{ask: "Which cache?", pick: "cache",
+			help: "A cache from your list. Add one first: komando cache redis add or komando cache memcached add."})
 	}
 	addFormHints(hints)
+}
+
+// inventoryHints are the questions of the seven inventory verbs of one
+// provider of a type whose entries are conns: add asks the questions of
+// the form group (of one kind when kindLabel is set), the others ask for
+// the entry.
+func inventoryHints(typ, provider, noun, group, kindLabel string) map[string]formHint {
+	pick := formArg{ask: "Which " + noun + "?", pick: typ, help: "A " + noun + " from your list. Add one first: komando " + typ + " " + provider + " add."}
+	cmd := typ + " " + provider + " "
+	edit := invConnHints["conn edit"]
+	edit.hide = nil // the table has no -g and -t on edit: only --add-group and --add-tag
+	edit.args = []formArg{pick}
+	return map[string]formHint{
+		typ + " " + provider: {},
+		cmd + "add": {form: func(cl *call) []formGroup { return formKindOnly(cl, group, kindLabel) },
+			next: []string{cmd + "test {}", cmd + "show {}"}},
+		cmd + "edit": edit,
+		cmd + "list": {args: []formArg{{ask: "Which " + noun + "s? (leave empty for all)", pick: typ, free: true,
+			help: "Pick one, or type @group or several names separated by commas."}}},
+		cmd + "remove": {args: []formArg{{ask: "Which " + noun + "s should come off your list?", pick: typ, free: true,
+			help: "Only komando's list changes; the " + noun + " itself is not touched."}}},
+		cmd + "rename": {args: []formArg{{ask: "Which " + noun + " do you want to rename?", pick: typ,
+			help: "Groups, notes and everything else that names it are changed too."}, invNewName}},
+		cmd + "show": {args: []formArg{pick}},
+		cmd + "test": {args: []formArg{invConns}, flags: []formFlag{invWait}},
+	}
 }
 
 func cacheRawHint(what string, pick formArg) formHint {
@@ -89,6 +102,9 @@ func cacheRawHint(what string, pick formArg) formHint {
 // formKindOnly is the Add group of a family with only the kind of one
 // provider, so `cache redis add` asks the Redis questions and no others.
 func formKindOnly(cl *call, group, kindLabel string) []formGroup {
+	if kindLabel == "" {
+		return formGroupNamed(cl, group)
+	}
 	var out []formGroup
 	for _, g := range formGroupNamed(cl, group) {
 		g.kinds = append([]formKind(nil), g.kinds...)

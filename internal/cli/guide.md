@@ -294,8 +294,8 @@ refused). `status`, `list`, `events` and `helm list` also take a group
 `komando cluster helm list|status|history|values` (no helm needed; install
 and upgrade stay with helm).
 
-**Registries**: `komando registry list|inspect CONN` read, `registry copy`
-changes, `registry rm` and `registry prune` delete (need
+**Registries**: `komando registry oci image list|inspect CONN` read, `registry oci image copy`
+changes, `registry oci image delete` and `registry oci image prune` delete (need
 `--allow-dangerous`; `prune --dry-run` shows which tags would go).
 
 `--dry-run` never changes anything. In `db` it runs the SQL inside a

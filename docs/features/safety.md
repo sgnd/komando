@@ -170,8 +170,8 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `group rm` | GROUP alone: deleting a group of more than 3 members (CONFIRM_REQUIRED) | change | `--yes` |
 | `queue rm` | always | dangerous | `--allow-dangerous` |
 | `storage rm` | always | dangerous | `--allow-dangerous` |
-| `registry rm` | always | dangerous | `--allow-dangerous` |
-| `registry prune` | always | dangerous | `--allow-dangerous` |
+| `registry oci image delete` | always | dangerous | `--allow-dangerous` |
+| `registry oci image prune` | always | dangerous | `--allow-dangerous` |
 | `db restore` | always | dangerous | `--allow-dangerous` |
 | `key rm` | with --delete-file | dangerous | `--allow-dangerous` |
 | `exec` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
@@ -191,7 +191,7 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `import` | when an AI agent imports a server with a proxy command | safety | `--yes` |
 | `recipe add` | with --overwrite --read-only, when it makes an existing snippet read-only | safety | `--yes` |
 | `host trust` | when an AI agent pins a first host key while host keys are strict | safety | `--yes` |
-| `registry add` | when the address turns TLS off (plain HTTP) | safety | `--yes` |
+| `registry oci add` | when the address turns TLS off (plain HTTP) | safety | `--yes` |
 | `secret run` | when an AI agent hands a saved secret to a program | safety | `--yes` |
 | `storage link` | when an AI agent makes a link (a person allows --reveal) | safety | `--yes` |
 | `guide uninstall` | when it removes komando's guard from an AI agent's settings | safety | `--yes` |

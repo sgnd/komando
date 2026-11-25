@@ -7773,12 +7773,12 @@
         "path": "komando registry",
         "usage": "komando registry [flags]",
         "short": "Container registries: see images, copy them, clean up",
-        "long": "Look at, copy and clean up container images. Add a registry with\n`komando registry add ghcr registry://myuser@ghcr.io --ask-password`,\nor bring in the ones you use with `komando import docker`.\nls and inspect only read, copy writes to the destination, rm and prune\ndelete images and need --allow-dangerous (try --dry-run first).\n\nTLS options in the registry URL: ?ca=secret:NAME trusts a private CA (or\npins the registry's own certificate; the check stays on), ?tls=skip-verify\ndoes not check the certificate, ?tls=false is plain HTTP. ?resolve=IP\nconnects to that IP instead of what DNS says (like curl --resolve). With\n--via the last server looks the name up.",
+        "long": "Look at, copy and clean up container images. Add a registry with\n`komando registry oci add ghcr registry://myuser@ghcr.io --ask-password`,\nor bring in the ones you use with `komando import docker`.\nls and inspect only read, copy writes to the destination, rm and prune\ndelete images and need --allow-dangerous (try --dry-run first).\n\nTLS options in the registry URL: ?ca=secret:NAME trusts a private CA (or\npins the registry's own certificate; the check stays on), ?tls=skip-verify\ndoes not check the certificate, ?tls=false is plain HTTP. ?resolve=IP\nconnects to that IP instead of what DNS says (like curl --resolve). With\n--via the last server looks the name up.",
         "aliases": [
           "oci",
           "registries"
         ],
-        "example": "  komando registry add ghcr registry://myuser@ghcr.io --ask-password\n  komando registry list ghcr myorg/api\n  komando registry inspect ghcr myorg/api:1.4.2\n  komando registry copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2\n  komando registry prune harbor prod/api --keep 10 --dry-run",
+        "example": "  komando registry oci add ghcr registry://myuser@ghcr.io --ask-password\n  komando registry oci image list ghcr myorg/api\n  komando registry oci image show ghcr myorg/api:1.4.2\n  komando registry oci image copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2\n  komando registry oci image prune harbor prod/api --keep 10 --dry-run",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -7788,70 +7788,81 @@
         ]
       },
       {
-        "path": "komando registry add",
-        "usage": "komando registry add NAME URL [flags]",
-        "short": "Add an image registry",
-        "long": "Same as `komando conn add NAME URL`, for an image registry.\n\nSafety: a change; try it with --dry-run first; when the address turns TLS\noff (plain HTTP): it weakens a safety check: a person's yes (--yes).\n\nSaves an image registry under a short name. Typed alone at a terminal, it\nasks step by step. The URL scheme sets the kind: `komando conn kinds` lists\nthem.",
-        "example": "  komando registry add ghcr registry://myuser@ghcr.io --ask-password\n  komando registry add ghcr registry://myuser@ghcr.io --ask-password --dry-run",
+        "path": "komando registry oci",
+        "usage": "komando registry oci [flags]",
+        "short": "OCI registries: save them, and look after their images",
+        "example": "  komando registry oci add ghcr registry://myuser@ghcr.io --ask-password --dry-run\n  komando registry oci add ghcr registry://myuser@ghcr.io --ask-password\n  komando registry oci test ghcr\n  komando registry oci image list ghcr myorg/api\n  komando registry oci image copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2 --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando registry oci add",
+        "usage": "komando registry oci add NAME [URL] [flags]",
+        "short": "Save a oci registry under a short name",
+        "long": "Save a oci registry under a short name.\n\nSafety: a change; try it with --dry-run first; when the address turns TLS\noff (plain HTTP): it weakens a safety check: a person's yes (--yes).",
+        "example": "  komando registry oci add ghcr registry://myuser@ghcr.io --via web1\n  komando registry oci add ghcr registry://myuser@ghcr.io --dry-run",
         "flags": [
           {
             "name": "ask-password",
             "type": "bool",
             "default": "false",
-            "usage": "type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref"
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
           },
           {
             "name": "group",
-            "shorthand": "g",
             "type": "stringSlice",
             "default": "[]",
-            "usage": "put it in these groups (comma-separated)"
+            "usage": "put it in these groups"
           },
           {
             "name": "label",
             "type": "stringArray",
             "default": "[]",
-            "usage": "label KEY=VALUE (repeatable)"
+            "usage": "label KEY=VALUE"
           },
           {
             "name": "login",
             "type": "string",
-            "usage": "how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own)"
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
           },
           {
             "name": "notes",
             "type": "string",
-            "usage": "free-form notes (komando conn show shows them to people and agents)"
+            "usage": "free-form notes, shown to people and agents"
           },
           {
             "name": "option",
             "type": "stringArray",
             "default": "[]",
-            "usage": "an option of this kind, KEY=VALUE (repeatable)"
+            "usage": "an option of this provider, KEY=VALUE"
           },
           {
             "name": "overwrite",
             "type": "bool",
             "default": "false",
-            "usage": "replace a conn that has the same name"
-          },
-          {
-            "name": "password-ref",
-            "type": "string",
-            "usage": "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://..."
+            "usage": "replace an entry that has the same name"
           },
           {
             "name": "protected",
             "type": "bool",
             "default": "false",
-            "usage": "production: komando asks you before every change, and an AI agent needs your yes in a window"
+            "usage": "changes need a person's yes"
           },
           {
             "name": "tag",
-            "shorthand": "t",
             "type": "stringSlice",
             "default": "[]",
-            "usage": "tags, like prod (comma-separated)"
+            "usage": "tags, like prod"
           },
           {
             "name": "via",
@@ -7870,47 +7881,95 @@
             "flag": "--yes",
             "when": "when the address turns TLS off (plain HTTP)"
           }
-        ],
-        "add_kinds": [
-          {
-            "id": "registry",
-            "display_name": "Container registry",
-            "family": "registry",
-            "url_schemes": [
-              "registry",
-              "oci"
-            ],
-            "url_example": "registry://myuser@ghcr.io",
-            "url_note": "Docker Hub: registry://myuser@docker.io; private CA: ?ca=secret:NAME; self-signed: ?tls=skip-verify; no TLS: ?tls=false; wrong or missing DNS: ?resolve=IP",
-            "default_port": 443,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          }
         ]
       },
       {
-        "path": "komando registry copy",
-        "usage": "komando registry copy SRC_CONN:IMAGE DST_CONN[:IMAGE] [flags]",
-        "short": "Copy an image (all platforms) between registries or repositories",
-        "long": "Copies IMAGE (REPO[:TAG] or REPO@DIGEST) from one registry conn to another,\nor to another name on the same registry, with every platform of a\nmulti-platform image. Layers the destination already has are skipped; on the\nsame registry they are linked instead of copied. The image digest stays the\nsame. Leaving out the destination image keeps the source name and tag;\nleaving out only the tag keeps the source tag. --dry-run reads both\nregistries and says what the copy would bring and whether it replaces what\nthe tag points to now.\n\nSafety: a change; try it with --dry-run first.\n\nOnly the destination changes: a protected destination needs --yes.",
-        "aliases": [
-          "cp"
+        "path": "komando registry oci edit",
+        "usage": "komando registry oci edit NAME [flags]",
+        "short": "Change a saved oci registry (only the flags you pass change)",
+        "long": "Change a saved oci registry (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando registry oci edit ghcr --add-tag critical\n  komando registry oci edit ghcr --notes 'main one' --dry-run",
+        "flags": [
+          {
+            "name": "add-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "add-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "add these tags"
+          },
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "rm-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "take it out of these groups"
+          },
+          {
+            "name": "rm-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "remove these tags"
+          },
+          {
+            "name": "unset",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "clear these settings: via, credential, notes, protected"
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "usage": "the new URL (the provider may not change)"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
         ],
-        "example": "  komando registry copy ghcr:org/app:1.4.2 harbor:prod/app:1.4.2\n  komando registry copy ghcr:org/app:1.4.2 harbor:prod/app:1.4.2 --dry-run\n  komando registry copy ghcr:org/app:1.4.2 harbor:\n  komando registry copy reg:app:latest reg:app:stable",
         "runnable": true,
         "kind": "change",
         "confirm": [
@@ -7920,15 +7979,10 @@
         ]
       },
       {
-        "path": "komando registry inspect",
-        "usage": "komando registry inspect CONN IMAGE [flags]",
-        "short": "Digest, size, platforms, created time and labels of an image",
-        "aliases": [
-          "get",
-          "show",
-          "describe"
-        ],
-        "example": "  komando registry inspect ghcr myorg/api:1.4.2\n  komando registry inspect dockerhub nginx            # Docker Hub: library/nginx:latest\n  komando registry inspect harbor shop/api@sha256:4c2e...",
+        "path": "komando registry oci image",
+        "usage": "komando registry oci image [flags]",
+        "short": "The images of a registry: list, show, copy, delete, prune",
+        "example": "  komando registry oci image list ghcr\n  komando registry oci image show ghcr myorg/api:1.4.2\n  komando registry oci image copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2 --dry-run\n  komando registry oci image prune harbor shop/api --keep 10 --dry-run",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -7938,20 +7992,49 @@
         ]
       },
       {
-        "path": "komando registry list",
-        "usage": "komando registry list CONN [REPO] [flags]",
-        "short": "List repositories, or the tags of one repository",
+        "path": "komando registry oci image copy",
+        "usage": "komando registry oci image copy SRC_CONN:IMAGE DST_CONN[:IMAGE] [flags]",
+        "short": "Copy an image from one registry to another",
+        "long": "Copy an image from one registry to another.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando registry oci image copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2 --dry-run\n  komando registry oci image copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando registry oci image delete",
+        "usage": "komando registry oci image delete NAME IMAGE [flags]",
+        "short": "Delete an image from a registry",
+        "long": "Delete an image from a registry.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando registry oci image delete ghcr myorg/api:1.3.0 --dry-run\n  komando registry oci image delete ghcr myorg/api:1.3.0 --allow-dangerous   # after a person's yes",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous"
+          }
+        ]
+      },
+      {
+        "path": "komando registry oci image list",
+        "usage": "komando registry oci image list NAME [REPO] [flags]",
+        "short": "List the repositories of a registry, or the tags of one",
         "aliases": [
           "ls"
         ],
-        "example": "  komando registry list harbor\n  komando registry list ghcr myorg/api",
+        "example": "  komando registry oci image list ghcr\n  komando registry oci image list ghcr myorg/api",
         "flags": [
           {
             "name": "limit",
             "shorthand": "n",
             "type": "int",
-            "default": "1000",
-            "usage": "the most entries to show"
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
           }
         ],
         "runnable": true,
@@ -7963,27 +8046,28 @@
         ]
       },
       {
-        "path": "komando registry prune",
-        "usage": "komando registry prune CONN REPO [flags]",
-        "short": "Delete old images: keep the newest N, or drop older than an age",
-        "long": "Reads every tag's image and build date, then deletes the images the rule\nlets go: --keep N keeps the newest N matching tags, --older-than deletes\nonly images built before that age; with both, a tag goes only when it passes\nboth. \"latest\", tags that do not match --match, and tags with no build date\nalways stay (a multi-platform index has the date of its first image, so it\ncan go). An image a kept tag points at is never deleted. Needs\n--allow-dangerous; --dry-run shows the plan.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous; on a protected server\nor conn, a person's yes (--yes) as well.",
-        "example": "  komando registry prune harbor shop/api --keep 10 --dry-run\n  komando registry prune harbor shop/api --keep 5 --older-than 30d --match '^v' --dry-run\n  komando registry prune harbor shop/api --keep 5 --older-than 30d --match '^v' --allow-dangerous   # after a person's yes",
+        "path": "komando registry oci image prune",
+        "usage": "komando registry oci image prune NAME REPO [flags]",
+        "short": "Delete old tags of a repository, keeping the newest",
+        "long": "Delete old tags of a repository, keeping the newest.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando registry oci image prune ghcr myorg/api --keep 10 --dry-run\n  komando registry oci image prune ghcr myorg/api --keep 10 --allow-dangerous   # after a person's yes",
         "flags": [
           {
             "name": "keep",
             "type": "int",
             "default": "0",
-            "usage": "keep the newest N matching tags"
+            "usage": "keep the newest N tags"
           },
           {
             "name": "match",
             "type": "string",
-            "usage": "only tags matching this regular expression may go"
+            "usage": "only tags that match this pattern"
           },
           {
             "name": "older-than",
             "type": "duration",
-            "usage": "delete only images built before this age (like 30d, 12h)"
+            "default": "0",
+            "usage": "only tags older than this, like 30d"
           }
         ],
         "runnable": true,
@@ -7996,22 +8080,111 @@
         ]
       },
       {
-        "path": "komando registry rm",
-        "usage": "komando registry rm CONN IMAGE [flags]",
-        "short": "Delete an image and every tag on it",
-        "long": "Deletes the image a tag (or digest) points at. A registry deletes images,\nnot tags: every other tag on the same image goes too, latest included.\n--dry-run names each tag that would go. The space comes back after the\nregistry's garbage collection.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous; on a protected server\nor conn, a person's yes (--yes) as well.",
+        "path": "komando registry oci image show",
+        "usage": "komando registry oci image show NAME IMAGE [flags]",
+        "short": "Show an image: its digest, size, platforms and tags",
         "aliases": [
-          "remove",
-          "delete",
-          "del"
+          "describe"
         ],
-        "example": "  komando registry rm harbor myorg/api:old --dry-run\n  komando registry rm harbor myorg/api:old --allow-dangerous   # after a person's yes",
+        "example": "  komando registry oci image show ghcr myorg/api:1.4.2\n  komando registry oci image show ghcr myorg/api@sha256:0123 -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando registry oci list",
+        "usage": "komando registry oci list [TARGET] [flags]",
+        "short": "List the saved oci registrys",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando registry oci list\n  komando registry oci list @web",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando registry oci remove",
+        "usage": "komando registry oci remove TARGET... [flags]",
+        "short": "Forget a saved oci registry (the registry is not touched)",
+        "long": "Forget a saved oci registry (the registry is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "example": "  komando registry oci remove ghcr --dry-run\n  komando registry oci remove ghcr",
         "runnable": true,
         "kind": "change",
         "confirm": [
           {
-            "tier": "dangerous",
-            "flag": "--allow-dangerous"
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando registry oci rename",
+        "usage": "komando registry oci rename NAME NEW [flags]",
+        "short": "Rename a saved oci registry and every reference to it",
+        "long": "Rename a saved oci registry and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando registry oci rename ghcr ghcr-2 --dry-run\n  komando registry oci rename ghcr ghcr-2",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando registry oci show",
+        "usage": "komando registry oci show NAME [flags]",
+        "short": "Show a saved oci registry's settings (credentials as names)",
+        "example": "  komando registry oci show ghcr\n  komando registry oci show ghcr -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando registry oci test",
+        "usage": "komando registry oci test TARGET [flags]",
+        "short": "Check that a saved oci registry answers and lets you in",
+        "example": "  komando registry oci test ghcr\n  komando registry oci test @web",
+        "flags": [
+          {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the session a person's login keeps open"
+          },
+          {
+            "name": "wait",
+            "type": "duration",
+            "default": "0",
+            "usage": "wait this long for a person's sign-in"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
           }
         ]
       },
@@ -11341,7 +11514,7 @@
         "code": "IMAGE_TAG_NOT_FOUND",
         "exit": 3,
         "example": "… not found; the repository has no tags",
-        "hint": "list the repositories with `komando registry list CONN`"
+        "hint": "list the repositories with `komando registry oci image list NAME`"
       },
       {
         "code": "IMPORT_INCOMPLETE",
@@ -11904,7 +12077,7 @@
         "code": "REGISTRY_AUTH",
         "exit": 4,
         "example": "the registry refused to list its repositories: …",
-        "hint": "the login may read images but not list every repository: name one with `komando registry list CONN REPO`; else check the user in the conn URL and its --password-ref"
+        "hint": "the login may read images but not list every repository: name one with `komando registry oci image list NAME REPO`; else check the user in the conn URL and its --password-ref"
       },
       {
         "code": "REGISTRY_ERROR",
@@ -11928,7 +12101,7 @@
         "code": "REGISTRY_UNSUPPORTED",
         "exit": 5,
         "example": "… has no list of every repository",
-        "hint": "name the repository: `komando registry list CONN REPO` (on Docker Hub, nginx means library/nginx)"
+        "hint": "name the repository: `komando registry oci image list NAME REPO` (on Docker Hub, nginx means library/nginx)"
       },
       {
         "code": "RELEASE_SIGNATURE_INVALID",
@@ -11964,7 +12137,7 @@
         "code": "REPOSITORY_NOT_FOUND",
         "exit": 3,
         "example": "no repository named …",
-        "hint": "list the repositories with `komando registry list CONN`"
+        "hint": "list the repositories with `komando registry oci image list NAME`"
       },
       {
         "code": "RESERVED_SECRET",
@@ -12533,7 +12706,7 @@
         "code": "TOO_MANY_TAGS",
         "exit": 2,
         "example": "… has more than … tags",
-        "hint": "komando prunes a repository of at most 10000 tags, and --match does not change that (every tag is read, so a kept tag protects its image): delete some first with `komando registry rm CONN IMAGE`"
+        "hint": "komando prunes a repository of at most 10000 tags, and --match does not change that (every tag is read, so a kept tag protects its image): delete some first with `komando registry oci image delete NAME IMAGE`"
       },
       {
         "code": "TOPIC_EXISTS",

@@ -29,9 +29,9 @@ the tag keeps the source tag. --dry-run reads both registries and says what
 the copy would bring and whether it replaces what the tag points to now.
 
 Only the destination changes: a protected destination needs --yes.`,
-		Example: `  komando registry copy ghcr:org/app:1.4.2 harbor:prod/app:1.4.2
-  komando registry copy ghcr:org/app:1.4.2 harbor:
-  komando registry copy reg:app:latest reg:app:stable`,
+		Example: `  komando registry oci image copy ghcr:org/app:1.4.2 harbor:prod/app:1.4.2
+  komando registry oci image copy ghcr:org/app:1.4.2 harbor:
+  komando registry oci image copy reg:app:latest reg:app:stable`,
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			return runRegistryCopy(cl, cmd.Context(), args[0], args[1])

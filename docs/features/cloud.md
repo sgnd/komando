@@ -52,7 +52,7 @@ the aws CLI uses them, and no key is stored in komando:
 ```bash
 komando conn add backups 's3://my-bucket/db?region=eu-west-1' --option aws_profile=prod   # S3
 komando conn add orders sqs://eu-west-1 --option aws_profile=prod                         # SQS
-komando registry add ecr registry://AWS@123456789012.dkr.ecr.eu-west-1.amazonaws.com --option aws_profile=prod
+komando registry oci add ecr registry://AWS@123456789012.dkr.ecr.eu-west-1.amazonaws.com --option aws_profile=prod
 komando conn edit backups --option aws_profile=staging                                    # another profile
 ```
 

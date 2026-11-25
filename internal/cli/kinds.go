@@ -272,6 +272,13 @@ var commandKinds = map[safetyKey]cmdKind{
 	{"snippet", "", "exec"}:   dependsOn("decided by the recipe's command, like exec"),
 
 	{"registry", "", ""}:            reads,
+	{"registry", "", "edit"}:        changes,
+	{"registry", "", "list"}:        reads,
+	{"registry", "", "remove"}:      changes,
+	{"registry", "", "rename"}:      changes,
+	{"registry", "", "show"}:        reads,
+	{"registry", "", "test"}:        reads,
+	{"registry", "image", ""}:       reads,
 	{"registry", "image", "copy"}:   changes,
 	{"registry", "image", "show"}:   reads,
 	{"registry", "image", "list"}:   reads,

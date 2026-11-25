@@ -45,7 +45,7 @@ title: Save a memcached cache under a short name
 - flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
 ### komando cache memcached edit
 title: Change a saved memcached cache (only the flags you pass change)
-- arg0 | Name | Which conn? | A database, cache, queue, file storage, cluster or registry in your list. |  | choices,check
+- arg0 | Name | Which cache? | A cache from your list. Add one first: komando cache memcached add. |  | choices,check
 - flag:url | --url | New address (URL)? | Like the one you added it with, without the password. Leave empty to keep it. | postgres://app@10.0.0.5:5432/shop | optional,check
 - flag:ask-password | --ask-password | Change the password? | Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line. |  | default,choices
 - flag:protected | --protected | Can a mistake on it hurt real users or real data? | Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away. |  | optional,choices
@@ -78,7 +78,7 @@ title: Rename a saved memcached cache and every reference to it
 - arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
 ### komando cache memcached show
 title: Show a saved memcached cache's settings (credentials as names)
-- arg0 | Name | Which cache? | A cache from your list. Add one first: komando cache redis add or komando cache memcached add. |  | choices,check
+- arg0 | Name | Which cache? | A cache from your list. Add one first: komando cache memcached add. |  | choices,check
 ### komando cache memcached test
 title: Check that a saved memcached cache answers and lets you in
 - arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
@@ -103,7 +103,7 @@ title: Save a redis cache under a short name
 - flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
 ### komando cache redis edit
 title: Change a saved redis cache (only the flags you pass change)
-- arg0 | Name | Which conn? | A database, cache, queue, file storage, cluster or registry in your list. |  | choices,check
+- arg0 | Name | Which cache? | A cache from your list. Add one first: komando cache redis add. |  | choices,check
 - flag:url | --url | New address (URL)? | Like the one you added it with, without the password. Leave empty to keep it. | postgres://app@10.0.0.5:5432/shop | optional,check
 - flag:ask-password | --ask-password | Change the password? | Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line. |  | default,choices
 - flag:protected | --protected | Can a mistake on it hurt real users or real data? | Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away. |  | optional,choices
@@ -136,7 +136,7 @@ title: Rename a saved redis cache and every reference to it
 - arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
 ### komando cache redis show
 title: Show a saved redis cache's settings (credentials as names)
-- arg0 | Name | Which cache? | A cache from your list. Add one first: komando cache redis add or komando cache memcached add. |  | choices,check
+- arg0 | Name | Which cache? | A cache from your list. Add one first: komando cache redis add. |  | choices,check
 ### komando cache redis test
 title: Check that a saved redis cache answers and lets you in
 - arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
@@ -1215,45 +1215,85 @@ title: Run a recipe on servers
 - flag:no-sudo | --no-sudo | Run it without sudo? | Yes when the recipe asks for sudo but you may not use it there. |  | default,choices
 ### komando registry
 title: Container registries: see images, copy them, clean up
-### komando registry add
-title: Add an image registry
+### komando registry oci
+title: OCI registries: save them, and look after their images
+### komando registry oci add
+title: Save a oci registry under a short name
 - arg0 | Name | Name? |  |  | check
-- arg1 | URL | URL? |  |  | check
-- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref |  |  | advanced,default,choices
-- flag:group | --group | Put it in these groups (comma-separated) |  |  | optional,advanced,check
-- flag:label | --label | Label KEY=VALUE (repeatable) |  |  | optional,advanced,check
-- flag:login | --login | How komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own) |  |  | optional,advanced,check
-- flag:notes | --notes | Free-form notes (komando conn show shows them to people and agents) |  |  | optional,advanced,check
-- flag:option | --option | An option of this kind, KEY=VALUE (repeatable) |  |  | optional,advanced,check
-- flag:overwrite | --overwrite | Replace a conn that has the same name |  |  | advanced,default,choices
-- flag:password-ref | --password-ref | Where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://... |  |  | optional,advanced,check
-- flag:protected | --protected | Production: komando asks you before every change, and an AI agent needs your yes in a window |  |  | advanced,default,choices
-- flag:tag | --tag | Tags, like prod (comma-separated) |  |  | optional,advanced,check
+- arg1 | URL | URL? |  |  | optional,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
 - flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
-### komando registry copy
-title: Copy an image (all platforms) between registries or repositories
+### komando registry oci edit
+title: Change a saved oci registry (only the flags you pass change)
+- arg0 | Name | Which registry? | A registry from your list. Add one first: komando registry oci add. |  | choices,check
+- flag:url | --url | New address (URL)? | Like the one you added it with, without the password. Leave empty to keep it. | postgres://app@10.0.0.5:5432/shop | optional,check
+- flag:ask-password | --ask-password | Change the password? | Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line. |  | default,choices
+- flag:protected | --protected | Can a mistake on it hurt real users or real data? | Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away. |  | optional,choices
+- flag:via | --via | Reach it through which server or VPN? | The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now. | bastion | optional,free,choices
+- flag:add-group | --add-group | Add it to a group? | A group lets you pick many at once with @name. Leave empty for none. | web | optional,free,choices
+- flag:notes | --notes | Any notes to keep with it? | Free text, like who owns it or what runs there. AI agents read it too. Leave empty to keep the old notes. | main shop database | optional,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: via, credential, notes, protected |  |  | optional,advanced,check
+### komando registry oci image
+title: The images of a registry: list, show, copy, delete, prune
+### komando registry oci image copy
+title: Copy an image from one registry to another
 - arg0 | Copy from | Copy which image? Type its registry, a colon, then the image | Like ghcr:acme/api:1.4.3: ghcr is the registry's name in your list, acme/api:1.4.3 the image. | ghcr:acme/api:1.4.3 | check
 - arg1 | Copy to | Copy it where? Type the registry, a colon, then the new name | Like harbor:shop/api:1.4.3. Type only harbor: to keep the same name. | harbor:shop/api:1.4.3 | check
-### komando registry inspect
-title: Digest, size, platforms, created time and labels of an image
-- arg0 | Conn | Which registry? | A registry from your list. Add one first with Add, Images (registries). |  | choices,check
-- arg1 | Image | Which image? | The repository and its tag, without the registry's address. komando registry list shows them. | acme/api:1.4.3 | check
-### komando registry list
-title: List repositories, or the tags of one repository
-- arg0 | Conn | Which registry? | A registry from your list. Add one first with Add, Images (registries). |  | choices,check
-- arg1 | Repo | Which repository? (leave empty to list them all) | Empty: every repository. A repository: its tags. Docker Hub cannot list every repository, give one. | acme/api | optional,check
-- flag:limit | --limit | The most entries to show |  |  | optional,advanced,default,check
-### komando registry prune
-title: Delete old images: keep the newest N, or drop older than an age
-- arg0 | Conn | Which registry? | A registry from your list. Add one first with Add, Images (registries). |  | choices,check
-- arg1 | Repo | In which repository? | Old images of this repository are deleted for good; Try it first shows which. komando asks a person first. | acme/api | check
-- flag:keep | --keep | Keep how many of the newest images? | Keep the newest N matching tags | 10 | optional,check
-- flag:older-than | --older-than | Or delete only images older than? (leave empty for any age) | Delete only images built before this age (like 30d, 12h) | 30d or 12h | optional,check
-- flag:match | --match | Only tags matching this regular expression may go |  |  | optional,advanced,check
-### komando registry rm
-title: Delete an image and every tag on it
-- arg0 | Conn | Which registry? | A registry from your list. Add one first with Add, Images (registries). |  | choices,check
+### komando registry oci image delete
+title: Delete an image from a registry
+- arg0 | Name | Which registry? | A registry from your list. Add one first with Add, Images (registries). |  | choices,check
 - arg1 | Image | Which image to delete? | Every tag that points at the same image goes too, and it cannot be undone. komando asks a person first. | acme/api:1.4.3 | check
+### komando registry oci image list
+title: List the repositories of a registry, or the tags of one
+- arg0 | Name | Which registry? | A registry from your list. Add one first with Add, Images (registries). |  | choices,check
+- arg1 | Repo | Which repository? (leave empty to list them all) | Empty: every repository. A repository: its tags. Docker Hub cannot list every repository, give one. | acme/api | optional,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando registry oci image prune
+title: Delete old tags of a repository, keeping the newest
+- arg0 | Name | Which registry? | A registry from your list. Add one first with Add, Images (registries). |  | choices,check
+- arg1 | Repo | In which repository? | Old images of this repository are deleted for good; Try it first shows which. komando asks a person first. | acme/api | check
+- flag:keep | --keep | Keep how many of the newest images? | Keep the newest N tags | 10 | optional,check
+- flag:older-than | --older-than | Or delete only images older than? (leave empty for any age) | Only tags older than this, like 30d | 30d or 12h | optional,check
+- flag:match | --match | Only tags that match this pattern |  |  | optional,advanced,check
+### komando registry oci image show
+title: Show an image: its digest, size, platforms and tags
+- arg0 | Name | Which registry? | A registry from your list. Add one first with Add, Images (registries). |  | choices,check
+- arg1 | Image | Which image? | The repository and its tag, without the registry's address. komando registry oci image list shows them. | acme/api:1.4.3 | check
+### komando registry oci list
+title: List the saved oci registrys
+- arg0 | Target | Which registrys? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando registry oci remove
+title: Forget a saved oci registry (the registry is not touched)
+- arg0 | Target | Which registrys should come off your list? | Only komando's list changes; the registry itself is not touched. |  | free,choices,check
+### komando registry oci rename
+title: Rename a saved oci registry and every reference to it
+- arg0 | Name | Which registry do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
+### komando registry oci show
+title: Show a saved oci registry's settings (credentials as names)
+- arg0 | Name | Which registry? | A registry from your list. Add one first: komando registry oci add. |  | choices,check
+### komando registry oci test
+title: Check that a saved oci registry answers and lets you in
+- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando rename
 title: Rename one entry, or all names starting with OLD (--starts-with)
 - arg0 | Old | Which start of the names should change? | Every name that starts with it is renamed: shop-web and shop-db with shop-. | shop- | check
@@ -2000,7 +2040,7 @@ title: Add a Docker Swarm
 title: Add Docker Hub
 - host | Address | What is the registry's address? | The part before the image name in docker pull, like harbor.example.com in harbor.example.com/shop/api:1.0. | harbor.example.com or registry.example.com:5000 | addr,show,check
 - port | Port | Which port does the registry use? | Almost always 443 (https). A registry:2 container often uses 5000. |  | advanced,default,show,check
-- name | Name | What do you want to call this registry? | A short name you type later, like komando registry list dockerhub. Letters, digits, dot, dash, underscore. | dockerhub | default,check
+- name | Name | What do you want to call this registry? | A short name you type later, like komando registry oci image list dockerhub. Letters, digits, dot, dash, underscore. | dockerhub | default,check
 - user | User | What is your user name on this registry? | Your Docker ID: the name you sign in to hub.docker.com with. | octocat | addr,show,check
 - login | Token | How do you give komando the token (or password)? | Make one on hub.docker.com: Account settings, Personal access tokens. Your account password works too, a token is safer. |  | default,choices,show
 - secret | Saved token | Which saved password holds the token? | One you saved with komando secret set. Kept somewhere else? Type where, like env:REGISTRY_TOKEN. |  | free,choices,show,check
@@ -2016,7 +2056,7 @@ title: Add Docker Hub
 title: Add GitHub
 - host | Address | What is the registry's address? | The part before the image name in docker pull, like harbor.example.com in harbor.example.com/shop/api:1.0. | harbor.example.com or registry.example.com:5000 | addr,show,check
 - port | Port | Which port does the registry use? | Almost always 443 (https). A registry:2 container often uses 5000. |  | advanced,default,show,check
-- name | Name | What do you want to call this registry? | A short name you type later, like komando registry list ghcr. Letters, digits, dot, dash, underscore. | ghcr | default,check
+- name | Name | What do you want to call this registry? | A short name you type later, like komando registry oci image list ghcr. Letters, digits, dot, dash, underscore. | ghcr | default,check
 - user | User | What is your user name on this registry? | Your GitHub user name. | octocat | addr,show,check
 - login | Token | How do you give komando the token (or password)? | GitHub refuses your account password here. Make a token: Settings, Developer settings, Personal access tokens (classic), with read:packages (add write:packages to copy images there, delete:packages to clean up). |  | default,choices,show
 - secret | Saved token | Which saved password holds the token? | One you saved with komando secret set. Kept somewhere else? Type where, like env:REGISTRY_TOKEN. |  | free,choices,show,check
@@ -2032,7 +2072,7 @@ title: Add GitHub
 title: Add GitLab
 - host | Address | What is the registry's address? | registry.gitlab.com on gitlab.com. A company GitLab shows it on a project's Deploy, Container registry page. | harbor.example.com or registry.example.com:5000 | addr,default,show,check
 - port | Port | Which port does the registry use? | Almost always 443 (https). A registry:2 container often uses 5000. |  | advanced,default,show,check
-- name | Name | What do you want to call this registry? | A short name you type later, like komando registry list gitlab. Letters, digits, dot, dash, underscore. | gitlab | default,check
+- name | Name | What do you want to call this registry? | A short name you type later, like komando registry oci image list gitlab. Letters, digits, dot, dash, underscore. | gitlab | default,check
 - user | User | What is your user name on this registry? | Your GitLab user name, or the user name of a deploy token. | octocat | addr,show,check
 - login | Token | How do you give komando the token (or password)? | A personal access token (Preferences, Access tokens) with read_registry, add write_registry to change images; or a deploy token from the project's Settings, Repository. |  | default,choices,show
 - secret | Saved token | Which saved password holds the token? | One you saved with komando secret set. Kept somewhere else? Type where, like env:REGISTRY_TOKEN. |  | free,choices,show,check
@@ -2048,7 +2088,7 @@ title: Add GitLab
 title: Add Amazon ECR
 - host | Address | What is the registry's address? | In the AWS console: Elastic Container Registry, a repository's URI without the part after the /. | 123456789012.dkr.ecr.eu-west-1.amazonaws.com | addr,show,check
 - port | Port | Which port does the registry use? | Almost always 443 (https). A registry:2 container often uses 5000. |  | advanced,default,show,check
-- name | Name | What do you want to call this registry? | A short name you type later, like komando registry list ecr. Letters, digits, dot, dash, underscore. | ecr | default,check
+- name | Name | What do you want to call this registry? | A short name you type later, like komando registry oci image list ecr. Letters, digits, dot, dash, underscore. | ecr | default,check
 - user | User | What is your user name on this registry? |  | octocat | addr,show,check
 - login | Token | How do you give komando the token (or password)? |  |  | default,choices,show
 - secret | Saved token | Which saved password holds the token? | One you saved with komando secret set. Kept somewhere else? Type where, like env:REGISTRY_TOKEN. |  | free,choices,show,check
@@ -2064,7 +2104,7 @@ title: Add Amazon ECR
 title: Add Azure Container Registry
 - host | Address | What is the registry's address? | In the Azure portal: the registry's Overview, Login server. komando logs in like az acr login; the login needs the AcrPull role. | myregistry.azurecr.io | addr,show,check
 - port | Port | Which port does the registry use? | Almost always 443 (https). A registry:2 container often uses 5000. |  | advanced,default,show,check
-- name | Name | What do you want to call this registry? | A short name you type later, like komando registry list acr. Letters, digits, dot, dash, underscore. | acr | default,check
+- name | Name | What do you want to call this registry? | A short name you type later, like komando registry oci image list acr. Letters, digits, dot, dash, underscore. | acr | default,check
 - user | User | What is your user name on this registry? |  | octocat | addr,show,check
 - login | Token | How do you give komando the token (or password)? |  |  | default,choices,show
 - secret | Saved token | Which saved password holds the token? | One you saved with komando secret set. Kept somewhere else? Type where, like env:REGISTRY_TOKEN. |  | free,choices,show,check
@@ -2080,7 +2120,7 @@ title: Add Azure Container Registry
 title: Add Google Artifact Registry
 - host | Address | What is the registry's address? | The part before the project in an image name: europe-west1-docker.pkg.dev, or gcr.io. The login needs the Artifact Registry Reader role. | europe-west1-docker.pkg.dev | addr,show,check
 - port | Port | Which port does the registry use? | Almost always 443 (https). A registry:2 container often uses 5000. |  | advanced,default,show,check
-- name | Name | What do you want to call this registry? | A short name you type later, like komando registry list gar. Letters, digits, dot, dash, underscore. | gar | default,check
+- name | Name | What do you want to call this registry? | A short name you type later, like komando registry oci image list gar. Letters, digits, dot, dash, underscore. | gar | default,check
 - user | User | What is your user name on this registry? |  | octocat | addr,show,check
 - login | Token | How do you give komando the token (or password)? |  |  | default,choices,show
 - secret | Saved token | Which saved password holds the token? | One you saved with komando secret set. Kept somewhere else? Type where, like env:REGISTRY_TOKEN. |  | free,choices,show,check
@@ -2096,7 +2136,7 @@ title: Add Google Artifact Registry
 title: Add your own registry
 - host | Address | What is the registry's address? | The part before the image name in docker pull, like harbor.example.com in harbor.example.com/shop/api:1.0. | harbor.example.com or registry.example.com:5000 | addr,show,check
 - port | Port | Which port does the registry use? | Almost always 443 (https). A registry:2 container often uses 5000. |  | advanced,default,show,check
-- name | Name | What do you want to call this registry? | A short name you type later, like komando registry list harbor. Letters, digits, dot, dash, underscore. | harbor | default,check
+- name | Name | What do you want to call this registry? | A short name you type later, like komando registry oci image list harbor. Letters, digits, dot, dash, underscore. | harbor | default,check
 - user | User | What is your user name on this registry? | The user name you log in to the registry with. Empty when its images are public. | octocat | optional,addr,show,check
 - login | Token | How do you give komando the token (or password)? | The password or access token of that user (Harbor: a robot account's secret). |  | default,choices,show
 - secret | Saved token | Which saved password holds the token? | One you saved with komando secret set. Kept somewhere else? Type where, like env:REGISTRY_TOKEN. |  | free,choices,show,check

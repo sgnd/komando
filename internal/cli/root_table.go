@@ -358,6 +358,15 @@ func familyOfType(typ string) string {
 	return typ
 }
 
+// providerWord is the word of a kind's provider in the table: the kind's
+// own name, but for the kinds the table names otherwise.
+func providerWord(k driver.Kind) string {
+	if w, ok := map[string]string{"registry": "oci"}[k.Name]; ok {
+		return w
+	}
+	return k.Name
+}
+
 func typeWord(family string) string {
 	if w, ok := typeWords[family]; ok {
 		return w
@@ -378,11 +387,11 @@ func entryIsOf(cl *call, st *store.State, name, typ, provider, verb string) erro
 
 func connIsOf(c *store.Conn, typ, provider, verb string) error {
 	t, err := driver.Parse(c.URL)
-	if err != nil || (typeWord(t.Kind.Family) == typ && t.Kind.Name == provider) {
+	if err != nil || (typeWord(t.Kind.Family) == typ && providerWord(t.Kind) == provider) {
 		return nil
 	}
 	return out.Errf(out.ExitUsage, "WRONG_KIND", "use `"+entryPath(t.Kind)+" "+verb+" "+c.Name+"`",
-		"%s is a %s %s, not a %s %s", c.Name, t.Kind.Name, typeWord(t.Kind.Family), provider, typ)
+		"%s is a %s %s, not a %s %s", c.Name, providerWord(t.Kind), typeWord(t.Kind.Family), provider, typ)
 }
 
 // targetsAreOf is nil when every conn the targets pick is a provider
@@ -406,7 +415,7 @@ func targetsAreOf(cl *call, st *store.State, targets []string, typ, provider, ve
 // moved to the table, or today's words before.
 func entryPath(k driver.Kind) string {
 	if slices.Contains(movedTypes, typeWord(k.Family)) {
-		return "komando " + typeWord(k.Family) + " " + k.Name
+		return "komando " + typeWord(k.Family) + " " + providerWord(k)
 	}
 	return "komando " + k.Family
 }
@@ -486,11 +495,11 @@ func withTargets(cl *call, targets []string, typ, provider, verb string) error {
 // the path that fits it. A URL that does not parse is left to add to say.
 func providerOfURL(raw, typ, provider string) error {
 	t, err := driver.Parse(normConnURL(strings.TrimSpace(raw)))
-	if err != nil || (typeWord(t.Kind.Family) == typ && t.Kind.Name == provider) {
+	if err != nil || (typeWord(t.Kind.Family) == typ && providerWord(t.Kind) == provider) {
 		return nil
 	}
 	return out.Errf(out.ExitUsage, "WRONG_KIND", "add it with `"+entryPath(t.Kind)+" add`",
-		"%s is a %s URL, not one for `komando %s %s add`", raw, t.Kind.Name, typ, provider)
+		"%s is a %s URL, not one for `komando %s %s add`", raw, providerWord(t.Kind), typ, provider)
 }
 
 // providerIDs are the IDs of a moved type's commands that more than one

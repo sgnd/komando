@@ -7443,7 +7443,7 @@ Global Flags (all of them: komando --help):
 exit 0
 --- stdout
 Look at, copy and clean up container images. Add a registry with
-`komando registry add ghcr registry://myuser@ghcr.io --ask-password`,
+`komando registry oci add ghcr registry://myuser@ghcr.io --ask-password`,
 or bring in the ones you use with `komando import docker`.
 ls and inspect only read, copy writes to the destination, rm and prune
 delete images and need --allow-dangerous (try --dry-run first).
@@ -7462,19 +7462,14 @@ Aliases:
   registry, oci, registries
 
 Examples:
-  komando registry add ghcr registry://myuser@ghcr.io --ask-password
-  komando registry list ghcr myorg/api
-  komando registry inspect ghcr myorg/api:1.4.2
-  komando registry copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2
-  komando registry prune harbor prod/api --keep 10 --dry-run
+  komando registry oci add ghcr registry://myuser@ghcr.io --ask-password
+  komando registry oci image list ghcr myorg/api
+  komando registry oci image show ghcr myorg/api:1.4.2
+  komando registry oci image copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2
+  komando registry oci image prune harbor prod/api --keep 10 --dry-run
 
 Available Commands:
-  add         Add an image registry
-  copy        Copy an image (all platforms) between registries or repositories
-  inspect     Digest, size, platforms, created time and labels of an image
-  list        List repositories, or the tags of one repository
-  prune       Delete old images: keep the newest N, or drop older than an age
-  rm          Delete an image and every tag on it
+  oci         OCI registries: save them, and look after their images
 
 Flags:
   -h, --help[=true|false]   help for registry
@@ -7489,37 +7484,72 @@ Global Flags (all of them: komando --help):
 
 Use "komando registry [command] --help" for more information about a command.
 --- stderr
-### komando registry add --help
+### komando registry oci --help
 exit 0
 --- stdout
-Same as `komando conn add NAME URL`, for an image registry.
+OCI registries: save them, and look after their images
+
+Usage:
+  komando registry oci [flags]
+  komando registry oci [command]
+
+Examples:
+  komando registry oci add ghcr registry://myuser@ghcr.io --ask-password --dry-run
+  komando registry oci add ghcr registry://myuser@ghcr.io --ask-password
+  komando registry oci test ghcr
+  komando registry oci image list ghcr myorg/api
+  komando registry oci image copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2 --dry-run
+
+Available Commands:
+  add         Save a oci registry under a short name
+  edit        Change a saved oci registry (only the flags you pass change)
+  image       The images of a registry: list, show, copy, delete, prune
+  list        List the saved oci registrys
+  remove      Forget a saved oci registry (the registry is not touched)
+  rename      Rename a saved oci registry and every reference to it
+  show        Show a saved oci registry's settings (credentials as names)
+  test        Check that a saved oci registry answers and lets you in
+
+Flags:
+  -h, --help[=true|false]   help for oci
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando registry oci [command] --help" for more information about a command.
+--- stderr
+### komando registry oci add --help
+exit 0
+--- stdout
+Save a oci registry under a short name.
 
 Safety: a change; try it with --dry-run first; when the address turns TLS
 off (plain HTTP): it weakens a safety check: a person's yes (--yes).
 
-Saves an image registry under a short name. Typed alone at a terminal, it
-asks step by step. The URL scheme sets the kind: `komando conn kinds` lists
-them.
-
 Usage:
-  komando registry add NAME URL [flags]
+  komando registry oci add NAME [URL] [flags]
 
 Examples:
-  komando registry add ghcr registry://myuser@ghcr.io --ask-password
-  komando registry add ghcr registry://myuser@ghcr.io --ask-password --dry-run
+  komando registry oci add ghcr registry://myuser@ghcr.io --via web1
+  komando registry oci add ghcr registry://myuser@ghcr.io --dry-run
 
 Flags:
-      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref
-  -g, --group strings               put it in these groups (comma-separated)
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+      --group strings               put it in these groups
   -h, --help[=true|false]           help for add
-      --label stringArray           label KEY=VALUE (repeatable) (default [])
-      --login string                how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own)
-      --notes string                free-form notes (komando conn show shows them to people and agents)
-      --option stringArray          an option of this kind, KEY=VALUE (repeatable) (default [])
-      --overwrite[=true|false]      replace a conn that has the same name
-      --password-ref string         where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...
-      --protected[=true|false]      production: komando asks you before every change, and an AI agent needs your yes in a window
-  -t, --tag strings                 tags, like prod (comma-separated)
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --overwrite[=true|false]      replace an entry that has the same name
+      --protected[=true|false]      changes need a person's yes
+      --tag strings                 tags, like prod
       --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
 
 Global Flags (all of them: komando --help):
@@ -7530,33 +7560,93 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando registry copy --help
+### komando registry oci edit --help
 exit 0
 --- stdout
-Copies IMAGE (REPO[:TAG] or REPO@DIGEST) from one registry conn to another,
-or to another name on the same registry, with every platform of a
-multi-platform image. Layers the destination already has are skipped; on the
-same registry they are linked instead of copied. The image digest stays the
-same. Leaving out the destination image keeps the source name and tag;
-leaving out only the tag keeps the source tag. --dry-run reads both
-registries and says what the copy would bring and whether it replaces what
-the tag points to now.
+Change a saved oci registry (only the flags you pass change).
 
 Safety: a change; try it with --dry-run first.
 
-Only the destination changes: a protected destination needs --yes.
-
 Usage:
-  komando registry copy SRC_CONN:IMAGE DST_CONN[:IMAGE] [flags]
-
-Aliases:
-  copy, cp
+  komando registry oci edit NAME [flags]
 
 Examples:
-  komando registry copy ghcr:org/app:1.4.2 harbor:prod/app:1.4.2
-  komando registry copy ghcr:org/app:1.4.2 harbor:prod/app:1.4.2 --dry-run
-  komando registry copy ghcr:org/app:1.4.2 harbor:
-  komando registry copy reg:app:latest reg:app:stable
+  komando registry oci edit ghcr --add-tag critical
+  komando registry oci edit ghcr --notes 'main one' --dry-run
+
+Flags:
+      --add-group strings           put it in these groups
+      --add-tag strings             add these tags
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+  -h, --help[=true|false]           help for edit
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --protected[=true|false]      changes need a person's yes
+      --rm-group strings            take it out of these groups
+      --rm-tag strings              remove these tags
+      --unset strings               clear these settings: via, credential, notes, protected
+      --url string                  the new URL (the provider may not change)
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando registry oci image --help
+exit 0
+--- stdout
+The images of a registry: list, show, copy, delete, prune
+
+Usage:
+  komando registry oci image [flags]
+  komando registry oci image [command]
+
+Examples:
+  komando registry oci image list ghcr
+  komando registry oci image show ghcr myorg/api:1.4.2
+  komando registry oci image copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2 --dry-run
+  komando registry oci image prune harbor shop/api --keep 10 --dry-run
+
+Available Commands:
+  copy        Copy an image from one registry to another
+  delete      Delete an image from a registry
+  list        List the repositories of a registry, or the tags of one
+  prune       Delete old tags of a repository, keeping the newest
+  show        Show an image: its digest, size, platforms and tags
+
+Flags:
+  -h, --help[=true|false]   help for image
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando registry oci image [command] --help" for more information about a command.
+--- stderr
+### komando registry oci image copy --help
+exit 0
+--- stdout
+Copy an image from one registry to another.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando registry oci image copy SRC_CONN:IMAGE DST_CONN[:IMAGE] [flags]
+
+Examples:
+  komando registry oci image copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2 --dry-run
+  komando registry oci image copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2
 
 Flags:
   -h, --help[=true|false]   help for copy
@@ -7569,24 +7659,23 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando registry inspect --help
+### komando registry oci image delete --help
 exit 0
 --- stdout
-Digest, size, platforms, created time and labels of an image
+Delete an image from a registry.
+
+Safety: dangerous, it cannot be undone: a person types the name to go on,
+and an AI agent or a script needs --allow-dangerous.
 
 Usage:
-  komando registry inspect CONN IMAGE [flags]
-
-Aliases:
-  inspect, get, show, describe
+  komando registry oci image delete NAME IMAGE [flags]
 
 Examples:
-  komando registry inspect ghcr myorg/api:1.4.2
-  komando registry inspect dockerhub nginx            # Docker Hub: library/nginx:latest
-  komando registry inspect harbor shop/api@sha256:4c2e...
+  komando registry oci image delete ghcr myorg/api:1.3.0 --dry-run
+  komando registry oci image delete ghcr myorg/api:1.3.0 --allow-dangerous   # after a person's yes
 
 Flags:
-  -h, --help[=true|false]   help for inspect
+  -h, --help[=true|false]   help for delete
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -7596,24 +7685,24 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando registry list --help
+### komando registry oci image list --help
 exit 0
 --- stdout
-List repositories, or the tags of one repository
+List the repositories of a registry, or the tags of one
 
 Usage:
-  komando registry list CONN [REPO] [flags]
+  komando registry oci image list NAME [REPO] [flags]
 
 Aliases:
   list, ls
 
 Examples:
-  komando registry list harbor
-  komando registry list ghcr myorg/api
+  komando registry oci image list ghcr
+  komando registry oci image list ghcr myorg/api
 
 Flags:
   -h, --help[=true|false]   help for list
-  -n, --limit int           the most entries to show (default 1000)
+  -n, --limit int           show at most this many (0 = all)
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -7623,34 +7712,26 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando registry prune --help
+### komando registry oci image prune --help
 exit 0
 --- stdout
-Reads every tag's image and build date, then deletes the images the rule
-lets go: --keep N keeps the newest N matching tags, --older-than deletes
-only images built before that age; with both, a tag goes only when it passes
-both. "latest", tags that do not match --match, and tags with no build date
-always stay (a multi-platform index has the date of its first image, so it
-can go). An image a kept tag points at is never deleted. Needs
---allow-dangerous; --dry-run shows the plan.
+Delete old tags of a repository, keeping the newest.
 
 Safety: dangerous, it cannot be undone: a person types the name to go on,
-and an AI agent or a script needs --allow-dangerous; on a protected server
-or conn, a person's yes (--yes) as well.
+and an AI agent or a script needs --allow-dangerous.
 
 Usage:
-  komando registry prune CONN REPO [flags]
+  komando registry oci image prune NAME REPO [flags]
 
 Examples:
-  komando registry prune harbor shop/api --keep 10 --dry-run
-  komando registry prune harbor shop/api --keep 5 --older-than 30d --match '^v' --dry-run
-  komando registry prune harbor shop/api --keep 5 --older-than 30d --match '^v' --allow-dangerous   # after a person's yes
+  komando registry oci image prune ghcr myorg/api --keep 10 --dry-run
+  komando registry oci image prune ghcr myorg/api --keep 10 --allow-dangerous   # after a person's yes
 
 Flags:
   -h, --help[=true|false]     help for prune
-      --keep int              keep the newest N matching tags
-      --match string          only tags matching this regular expression may go
-      --older-than duration   delete only images built before this age (like 30d, 12h)
+      --keep int              keep the newest N tags
+      --match string          only tags that match this pattern
+      --older-than duration   only tags older than this, like 30d
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -7660,30 +7741,149 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando registry rm --help
+### komando registry oci image show --help
 exit 0
 --- stdout
-Deletes the image a tag (or digest) points at. A registry deletes images,
-not tags: every other tag on the same image goes too, latest included.
---dry-run names each tag that would go. The space comes back after the
-registry's garbage collection.
-
-Safety: dangerous, it cannot be undone: a person types the name to go on,
-and an AI agent or a script needs --allow-dangerous; on a protected server
-or conn, a person's yes (--yes) as well.
+Show an image: its digest, size, platforms and tags
 
 Usage:
-  komando registry rm CONN IMAGE [flags]
+  komando registry oci image show NAME IMAGE [flags]
 
 Aliases:
-  rm, remove, delete, del
+  show, describe
 
 Examples:
-  komando registry rm harbor myorg/api:old --dry-run
-  komando registry rm harbor myorg/api:old --allow-dangerous   # after a person's yes
+  komando registry oci image show ghcr myorg/api:1.4.2
+  komando registry oci image show ghcr myorg/api@sha256:0123 -o json
 
 Flags:
-  -h, --help[=true|false]   help for rm
+  -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando registry oci list --help
+exit 0
+--- stdout
+List the saved oci registrys
+
+Usage:
+  komando registry oci list [TARGET] [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando registry oci list
+  komando registry oci list @web
+
+Flags:
+  -h, --help[=true|false]   help for list
+  -n, --limit int           show at most this many (0 = all)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando registry oci remove --help
+exit 0
+--- stdout
+Forget a saved oci registry (the registry is not touched).
+
+Safety: a change; try it with --dry-run first; on a protected server or
+conn, a person's yes (--yes) as well.
+
+Usage:
+  komando registry oci remove TARGET... [flags]
+
+Examples:
+  komando registry oci remove ghcr --dry-run
+  komando registry oci remove ghcr
+
+Flags:
+  -h, --help[=true|false]   help for remove
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando registry oci rename --help
+exit 0
+--- stdout
+Rename a saved oci registry and every reference to it.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando registry oci rename NAME NEW [flags]
+
+Examples:
+  komando registry oci rename ghcr ghcr-2 --dry-run
+  komando registry oci rename ghcr ghcr-2
+
+Flags:
+  -h, --help[=true|false]   help for rename
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando registry oci show --help
+exit 0
+--- stdout
+Show a saved oci registry's settings (credentials as names)
+
+Usage:
+  komando registry oci show NAME [flags]
+
+Examples:
+  komando registry oci show ghcr
+  komando registry oci show ghcr -o json
+
+Flags:
+  -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando registry oci test --help
+exit 0
+--- stdout
+Check that a saved oci registry answers and lets you in
+
+Usage:
+  komando registry oci test TARGET [flags]
+
+Examples:
+  komando registry oci test ghcr
+  komando registry oci test @web
+
+Flags:
+      --end[=true|false]    end the session a person's login keeps open
+  -h, --help[=true|false]   help for test
+      --wait duration       wait this long for a person's sign-in
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing

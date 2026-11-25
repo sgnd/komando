@@ -656,11 +656,11 @@ var connAddKinds = map[string]struct{ what, form, example string }{
 	"queue":    {"message queue", "Message queues", "komando queue add orders kafka://10.0.0.8:9092 --via web1"},
 	"storage":  {"file storage", "File storage", "komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password"},
 	"cluster":  {"cluster", "Kubernetes", "komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref secret:prod-kubeconfig"},
-	"registry": {"image registry", "Container registry", "komando registry add ghcr registry://myuser@ghcr.io --ask-password"},
+	"registry": {"image registry", "Container registry", "komando registry oci add ghcr registry://myuser@ghcr.io --ask-password"},
 }
 
 // addKindFits refuses a URL of another area in `komando KIND add`
-// (registry add k8s://...), and a Kubernetes conn without its kubeconfig,
+// (registry oci add k8s://...), and a Kubernetes conn without its kubeconfig,
 // which could never log in.
 func addKindFits(family, raw, passwordRef string) error {
 	t, err := driver.Parse(normConnURL(strings.TrimSpace(raw)))
