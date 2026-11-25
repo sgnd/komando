@@ -79,7 +79,7 @@ or a listed one is gone.
 | `internal/capability` | the command tree of the next command structure as data: types, providers, areas, verbs, options and tier rows; until the switch, `internal/cli` reads only the keys of its safety tables from it |
 | `internal/ci` | test only: runs the scripts inside the GitHub workflows (the CLA check) |
 | `internal/cli` | every command: flags, safety checks, audit and output |
-| `internal/cli/kit/term` | what every command prints: terminal column widths, text tables, the line of an empty list, whether the terminal reads escape sequences, and reading one answer at the terminal; no cobra, no komando state. Code every command package shares moves into `kit` one part at a time |
+| `internal/cli/kit/term` | what every command prints: terminal column widths, text tables, the line of an empty list, whether the terminal reads escape sequences, reading one answer at the terminal, and the raw-mode screen and the keys of the interactive mode; no cobra, no komando state. Code every command package shares moves into `kit` one part at a time |
 | `internal/cloud` | komando's own clients for cloud and secret-manager APIs |
 | `internal/gcpadc` | finds Google application-default credentials for every client that uses them, after checking where the file found would send what |
 | `internal/codesize` | test only: the 100-line and 800-line limits |
@@ -88,7 +88,8 @@ or a listed one is gone.
 | `internal/engine` | one komando call: who makes it and its approvals |
 | `internal/execsession` | a long `exec` that outlives the connection: the session ID, the folder on the server, and the shell text that starts, reads and stops a run |
 | `internal/flock` | a file lock between komando processes |
-| `internal/inventory` | the rules for what goes into the inventory: names and the shared name space, login names, ports, labels, `--via` paths and conn families; nothing of `internal/cli` |
+| `internal/interactive` | the interactive mode's screens: lists with type-to-search, the menu of the command tree, the form of a command's fields, the review of the line, and how they draw; it returns answers and runs nothing (imports only `internal/capability`, `internal/cli/kit/term`, `internal/out` and std, checked by its own `TestInteractiveImports`); nothing calls it yet |
+| `internal/inventory` | the rules for what goes into the inventory: names and the shared name space, login names, ports, labels, `--via` paths, conn families and the references to vault secrets; nothing of `internal/cli` |
 | `internal/ipsec` | komando's own IKEv1 and IKEv2 clients |
 | `internal/kube` | the Kubernetes API over HTTPS, without client-go |
 | `internal/l2tp` | komando's own L2TP client |

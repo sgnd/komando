@@ -14,7 +14,7 @@ Include what you found, how to reproduce it, and what an attacker could do with 
 ## What counts
 
 - A way to read a secret from the vault without a human approving it, for example through JSON output (`-o json`), an error message, a log or the audit log, or by having komando send it to a place the agent controls.
-- A way to run something on a server that komando should block or refuse: a dangerous command without `--allow-dangerous`, a change on a protected target without `--yes`, a write in `db query` or `cache run` without `--write`.
+- A way to run something on a server that komando should block or refuse: a dangerous command without `--allow-dangerous`, a change on a protected target without `--yes`, a write in `db query` or `cache redis raw` without `--write`.
 - A way to inject shell code, SQL or file paths through a name, a flag or a recipe variable.
 - Connecting to a server whose identity (host key) changed, without an error.
 - Anything that lets an AI agent do more than the person allowed.

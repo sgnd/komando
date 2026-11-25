@@ -13,7 +13,7 @@ import (
 // the exit code and what it printed.
 func runMain(t *testing.T, args ...string) (int, string) {
 	t.Helper()
-	tcl.flags.dryRun, tcl.flags.yes, tcl.flags.allowDangerous = false, false, false
+	setGate(tcl, false, gateDryRun, gateYes, gateAllowDangerous)
 	saved, savedW := tcl.args, tcl.out.W
 	var buf bytes.Buffer
 	tcl.out.W = &buf

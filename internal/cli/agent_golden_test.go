@@ -167,7 +167,7 @@ var goldenExtra = [][]string{
 	{"cluster", "exec", "x1", "x2", "id"},
 	{"cluster", "shell", "x1", "x2", "sh"},
 	{"cluster", "run", "x1", "get", "pods"},
-	{"cache", "run", "x1", "GET", "k"},
+	{"cache", "redis", "raw", "x1", "GET", "k"},
 	// C-F02: two KEY=VALUE pairs in one value (USAGE, exit 2)
 	{"conn", "add", "x1", "postgres://u@10.0.0.9/app", "--option", "a=on,b=x"},
 	{"host", "add", "x1", "u@10.0.0.1", "--env", "A=1,B=2"},
@@ -191,7 +191,7 @@ var goldenGateKeys = []string{
 var goldenSchema = [][]string{
 	{"storage", "link"}, {"cluster", "forward"}, // C-C08: kind read -> change
 	{"host", "add"}, {"conn", "add"}, // C-F02: --env, --option stringArray
-	{"cache", "set"}, {"cert", "check"}, {"registry", "prune"}, // C-F04: duration
+	{"cache", "set"}, {"cert", "check"}, {"registry", "oci", "image", "prune"}, // C-F04: duration
 	{"cluster", "logs"},              // C-F05, C-S01
 	{"cache", "get"}, {"fs", "list"}, // C-F08: --limit int
 	{"fs", "cat"}, {"exec"}, // C-F09: bytes

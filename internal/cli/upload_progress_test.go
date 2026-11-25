@@ -215,7 +215,7 @@ func TestProgressHidesSecretsInNames(t *testing.T) {
 // sync counts every file it copies, with totals from its plan.
 func TestProgressSync(t *testing.T) {
 	useFakeClock(t)
-	tcl.flags.dryRun = false
+	setGate(tcl, false, gateDryRun)
 	src, dst := t.TempDir(), t.TempDir()
 	writeTree(t, src, map[string]string{"a.txt": "12345", "dir/b.txt": "123", "same.txt": "s"})
 	writeTree(t, dst, map[string]string{"same.txt": "s"})

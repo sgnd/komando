@@ -79,7 +79,7 @@ an agent needs a person's yes (--yes).`,
 					return err
 				}
 			}
-			if !cl.flags.dryRun {
+			if !cl.dryRun() {
 				for i := range files {
 					if files[i], err = removeSkill(files[i].Path, false); err != nil {
 						return out.Errf(out.ExitError, "WRITE_FAILED", "check that you may change this folder", "%v", err)
@@ -164,7 +164,7 @@ func removeGuard(cl *call, path string, check bool) (skillFile, error) {
 		delete(settings, "hooks")
 	}
 	f.Action, f.Backup = "updated", newBackup(path)
-	if check || cl.flags.dryRun {
+	if check || cl.dryRun() {
 		return f, nil
 	}
 	var buf bytes.Buffer

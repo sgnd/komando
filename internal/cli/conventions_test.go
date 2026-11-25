@@ -23,7 +23,7 @@ func TestConventions(t *testing.T) {
 	var walk func(c *cobra.Command)
 	walk = func(c *cobra.Command) {
 		path := c.CommandPath()
-		if slices.Contains([]string{"remove", "delete", "del"}, c.Name()) {
+		if slices.Contains([]string{"remove", "delete", "del"}, c.Name()) && !providerIDs[cmdID(c)] { // a leaf of the table names its verb remove (v2.7)
 			t.Errorf("%s: name it rm (remove, delete and del are aliases)", path)
 		}
 		if c.Name() == "rm" && !slices.Equal(c.Aliases, rmAliases) {

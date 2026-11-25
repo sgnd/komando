@@ -31,7 +31,7 @@ func changeSay(cl *call, verb, what, where string) string {
 		return "nothing to " + verb
 	}
 	s := strings.TrimSpace(map[string]string{"add": "added", "remove": "removed", "save": "saved", "import": "imported"}[verb] + " " + what + " " + where)
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		s = strings.TrimSpace("would "+verb+" "+what+" "+where) + " (dry run)"
 	}
 	return s

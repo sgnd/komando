@@ -19,6 +19,7 @@ import (
 
 	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/sshx"
@@ -415,7 +416,7 @@ func sameServer(a, b string) bool {
 
 var dnsCache sync.Map // normalised name -> []string
 
-// cachedIPs is lookupIPs (2s at most) once per name per command.
+// cachedIPs is inventory.LookupIPs (2s at most) once per name per command.
 func cachedIPs(host string) []string {
 	h := normHost(host)
 	if v, ok := dnsCache.Load(h); ok {
@@ -423,7 +424,7 @@ func cachedIPs(host string) []string {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	ips := lookupIPs(ctx, h)
+	ips := inventory.LookupIPs(ctx, h)
 	dnsCache.Store(h, ips)
 	return ips
 }
@@ -523,7 +524,7 @@ func ask(cl *call, question string) string {
 // it (storeUpdate); the question names the targets, so a changed target
 // set is a new question and is asked.
 func confirmYes(cl *call, question string) bool {
-	if cl.flags.dryRun || !cl.interactive() {
+	if cl.dryRun() || !cl.interactive() {
 		return false
 	}
 	if slices.Contains(cl.ttyYes, question) {
@@ -545,7 +546,7 @@ func guardSafety(cl *call, what string) error {
 	if cl.sess.SafetyApproved(what) { // asked already in this command (before the state was locked)
 		return nil
 	}
-	if cl.flags.yes && cl.personAllowsFor("--yes", what) || confirmYes(cl, "This turns off a komando safety check: "+what+". Continue?") {
+	if cl.yesOKFor(what) || confirmYes(cl, "This turns off a komando safety check: "+what+". Continue?") {
 		cl.sess.ApproveSafety(what)
 		return nil
 	}
@@ -592,6 +593,9 @@ func hostNames(hs []*store.Host) []string {
 
 // audit adds one record per action to the sealed store's audit log.
 func audit(cl *call, st *store.State, command string, hosts []string, remote string, ok bool, extra map[string]any) {
+	if cl.out.As != "" {
+		command = cl.out.As // a leaf running a body (runBody) records under its own ID
+	}
 	if st != nil && !st.Settings.Audit {
 		return
 	}
@@ -609,7 +613,7 @@ func audit(cl *call, st *store.State, command string, hosts []string, remote str
 		"ts":      time.Now().UTC().Format(time.RFC3339Nano),
 		"command": command,
 		"ok":      ok,
-		"dry_run": cl.flags.dryRun,
+		"dry_run": cl.dryRun(),
 		"actor":   actor(cl),
 	}
 	if hosts != nil {

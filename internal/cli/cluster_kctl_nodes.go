@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/kube"
 )
 
@@ -303,9 +304,9 @@ func readFromFile(cl *call, p string) ([]byte, error) {
 		return r.b, r.err
 	}
 	var data []byte
-	err := localReadOK(cl, expandHome(p))
+	err := localReadOK(cl, inventory.ExpandHome(p))
 	if err == nil {
-		data, err = os.ReadFile(expandHome(p))
+		data, err = os.ReadFile(inventory.ExpandHome(p))
 	}
 	if cl.manifests == nil {
 		cl.manifests = map[string]manifestRead{}
@@ -320,7 +321,7 @@ type manifestRead struct {
 }
 
 func readManifestFile(cl *call, p string, recursive bool) ([]byte, error) {
-	p = expandHome(p)
+	p = inventory.ExpandHome(p)
 	fi, err := os.Stat(p)
 	if err != nil {
 		return nil, err

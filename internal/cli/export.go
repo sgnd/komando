@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sealfile"
 	"github.com/sgnd/komando/internal/store"
@@ -319,7 +320,7 @@ func buildExport(cl *call, st *store.State, args []string) (exportFile, []string
 	f.Keys, keyFiles, keysSealed = exportKeys(st, keys)
 	for _, c := range sel.Conns {
 		use(c.PasswordRef)
-		for _, r := range urlSecretRefs(c.URL) { // ?ca=secret:NAME
+		for _, r := range inventory.URLSecretRefs(c.URL) { // ?ca=secret:NAME
 			need[r.Name] = true
 		}
 	}

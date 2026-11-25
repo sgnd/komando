@@ -1,0 +1,120 @@
+queue message delete --all dangerous	queue.purge
+queue topic delete dangerous	queue.rm
+storage object delete dangerous	storage.rm
+registry image delete dangerous	registry.rm
+registry image prune dangerous	registry.prune
+database restore dangerous	db.restore
+credential key remove --delete-file dangerous	key.rm
+host exec dynamic dangerous	exec
+snippet exec dynamic dangerous	recipe.run
+cluster exec dynamic dangerous	cluster.exec
+cluster raw dynamic dangerous	cluster.run
+cache raw dynamic dangerous	cache.run
+database query dynamic dangerous	db.query
+host ssh add --proxy-command dynamic dangerous	host.add
+host ssh edit --proxy-command dynamic dangerous	host.edit
+policy remove safety	policy.rm
+policy edit --off safety	policy.edit
+policy edit --add-server safety	policy.edit
+policy edit --add-group safety	policy.edit
+floor	policy.edit
+config set dynamic safety	config.set
+vpn edit --mfa=false safety	vpn.edit
+host tunnel start dynamic safety	tunnel.start
+host ssh add --proxy-command dynamic safety	host.add
+host ssh edit --proxy-command dynamic safety	host.edit
+snippet create --overwrite --read-only dynamic safety	recipe.add
+host ssh trust dynamic safety	host.trust
+agent skill uninstall dynamic safety	guide.uninstall
+host edit --protected=false safety	host.edit
+database edit --protected=false safety	conn.edit
+cache edit --protected=false safety	conn.edit
+queue edit --protected=false safety	conn.edit
+storage edit --protected=false safety	conn.edit
+registry edit --protected=false safety	conn.edit
+cluster edit --protected=false safety	conn.edit
+floor	conn.edit
+floor	conn.rm
+floor	conn.rename
+credential password remove dangerous	secret.rm
+credential token remove dangerous	secret.rm
+floor	secret.rename
+floor	secret.set
+copy --sync --delete dangerous	sync
+floor	sync
+floor	cp
+floor	upload
+floor	download
+floor	storage.upload
+floor	storage.download
+vpn edit --protected=false safety	vpn.edit
+config approval-code person	config.approval-code
+config vault passphrase person	secret.passphrase
+config vault keychain not --off person	secret.keychain
+host shell person	shell
+database shell person	db.shell
+database backup dynamic person	db.dump
+cluster shell person	cluster.shell
+credential certificate add person	host.ca.add
+host ssh trust --reset person	host.trust
+export --sealed person	export
+export --for-phone person	export
+host ssh test --end change	host.test
+host ssh test --end change	host.test
+test --end change	test
+group remove change	group.rm
+floor	cache.add
+floor	cache.run
+floor	cluster.exec
+floor	cluster.forward
+floor	cluster.run
+floor	config.set
+floor	db.add
+floor	db.query
+floor	exec
+floor	exec
+floor	group.add
+floor	group.rename
+floor	guide.install
+floor	guide.uninstall
+floor	host.add
+floor	host.edit
+floor	host.edit
+floor	host.rename
+floor	host.rm
+floor	host.rm
+floor	host.trust
+floor	import
+floor	key.deploy
+floor	key.edit
+floor	key.gen
+floor	key.rename
+floor	key.revoke
+floor	key.rm
+floor	policy.deny
+floor	queue.add
+floor	queue.create
+floor	queue.send
+floor	recipe.add
+floor	recipe.rm
+floor	recipe.run
+floor	registry.add
+registry add dynamic safety	registry.add
+floor	registry.copy
+credential run dynamic safety	secret.run
+floor	ssh-gate.line
+floor	storage.add
+storage object link dynamic safety	storage.link
+floor	storage.mkdir
+floor	storage.mv
+floor	tunnel.start
+floor	vpn.add
+floor	vpn.down
+floor	vpn.edit
+floor	vpn.rename
+floor	vpn.rm
+floor	vpn.up
+floor	key.add
+credential key uninstall dynamic dangerous	key.revoke
+import dynamic dangerous	import
+import dynamic safety	import

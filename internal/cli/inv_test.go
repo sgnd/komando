@@ -23,7 +23,7 @@ func invHome(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test-passphrase-long-enough")
 	t.Cleanup(func() {
-		tcl.flags.dryRun, tcl.flags.yes, tcl.flags.allowDangerous = false, false, false
+		setGate(tcl, false, gateDryRun, gateYes, gateAllowDangerous)
 		tcl.out.Format = "json"
 	})
 }
@@ -32,7 +32,7 @@ func invHome(t *testing.T) {
 func invRun(t *testing.T, args ...string) (map[string]any, *out.Error) {
 	t.Helper()
 	closeStoreAtEnd(t)
-	tcl.flags.dryRun, tcl.flags.yes = false, false
+	setGate(tcl, false, gateDryRun, gateYes)
 	root := newRoot(tcl)
 	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs(append([]string{"-o", "json"}, args...))
@@ -677,7 +677,7 @@ func TestPolicyCheckFor(t *testing.T) {
 // policy deny and rm say "would" in a dry run, and show the pattern as
 // written, not Go-quoted.
 func TestPolicyChangeText(t *testing.T) {
-	t.Cleanup(func() { tcl.flags.dryRun = false })
+	t.Cleanup(func() { setGate(tcl, false, gateDryRun) })
 	yes := true
 	for _, tc := range []struct {
 		dry  bool

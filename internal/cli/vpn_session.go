@@ -473,7 +473,7 @@ func vpnUpCmd() *cobra.Command {
 				cl.out.Print("vpn.up", map[string]any{"vpn": v.Name, "already_up": true, "session": sessionView(s)}, nil)
 				return nil
 			}
-			if cl.flags.dryRun {
+			if cl.dryRun() {
 				cl.out.Print("vpn.up", vpnUpPlan(cl, v), nil)
 				return nil
 			}
@@ -581,7 +581,7 @@ func vpnDownCmd() *cobra.Command {
 					return out.NotFound("vpn", n)
 				}
 			}
-			if cl.flags.dryRun {
+			if cl.dryRun() {
 				res := map[string]any{"would_disconnect": names}
 				if k := keptNotes(st, names); len(k) > 0 {
 					res["notes"] = k

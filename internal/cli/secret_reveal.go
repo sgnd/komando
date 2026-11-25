@@ -41,7 +41,7 @@ func revealGate(cl *call, cmdName, field, name, what string) (string, error) {
 	if cl.isAgent() {
 		return refuse(needsHuman(cmdName, name, false))
 	}
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		return "", nil
 	}
 	if cl.interactive() {
