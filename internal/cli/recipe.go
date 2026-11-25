@@ -429,7 +429,7 @@ var builtinSnippets = mustSnippets(builtinLists()...)
 // replace. Each list lives in that command's file and moves with its
 // package (M5 cache, M9 database, M10 cluster, M11 host).
 func builtinLists() [][]snippet.Builtin {
-	return [][]snippet.Builtin{factsSnippets(), factsOnlySnippets(), svcSnippets(), dockerSnippets(), dockerPruneSnippets()}
+	return [][]snippet.Builtin{factsSnippets(), factsOnlySnippets(), svcSnippets(), dockerSnippets(), dockerPruneSnippets(), logsSnippets()}
 }
 
 func mustSnippets(lists ...[]snippet.Builtin) *snippet.Registry {
@@ -489,7 +489,7 @@ func runSnippet(cl *call, ctx context.Context, b snippet.Builtin, target string,
 	}
 	parse := func(f snippet.Family) func(*store.Host, *sshx.RunResult) (any, *out.Error) {
 		return func(_ *store.Host, r *sshx.RunResult) (any, *out.Error) {
-			return snippet.Parse(b, f, snippet.Output{Stdout: r.Stdout, Stderr: r.Stderr, ExitCode: r.ExitCode})
+			return snippet.Parse(b, f, snippet.Output{Stdout: r.Stdout, Stderr: r.Stderr, ExitCode: r.ExitCode, Truncated: r.StdoutTruncated})
 		}
 	}
 	data, worst, fails, err := collectOps(cl, ctx, opsSpec{name: "snippet.exec", target: target, display: "snippet " + b.Name,

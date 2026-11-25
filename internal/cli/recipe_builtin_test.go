@@ -708,9 +708,10 @@ func TestSnippetSvcUnitNames(t *testing.T) {
 func likeTheCommand(t *testing.T, step replayStep, command []string, snip []string) {
 	t.Helper()
 	type row struct {
-		OK    bool            `json:"ok"`
-		Data  json.RawMessage `json:"data"`
-		Error *out.Error      `json:"error"`
+		OK     bool            `json:"ok"`
+		Data   json.RawMessage `json:"data"`
+		Stdout *string         `json:"stdout"` // a raw row (logs): the text a log snippet splits into lines
+		Error  *out.Error      `json:"error"`
 	}
 	run := func(args ...string) (string, string) {
 		rs := startReplayServerWith(t, nil, step)
@@ -746,7 +747,17 @@ func likeTheCommand(t *testing.T, step replayStep, command []string, snip []stri
 	if b.OK != w.OK || (b.Error == nil) != (w.Error == nil) || b.Error != nil && (b.Error.Code != w.Error.Code || b.Error.Message != w.Error.Message) {
 		t.Fatalf("ok %v error %v, today ok %v error %v", b.OK, b.Error, w.OK, w.Error)
 	}
-	if len(b.Result) > 0 || len(w.Data) > 0 && string(w.Data) != "null" {
+	switch {
+	case w.Stdout != nil && len(b.Result) == 0:
+		if *w.Stdout != "" {
+			t.Errorf("no lines, today's stdout %q", *w.Stdout)
+		}
+	case w.Stdout != nil:
+		lb, _ := json.Marshal(logLines(snippet.Output{}, *w.Stdout))
+		if g := compact(t, b.Result); g != string(lb) {
+			t.Errorf("lines\n got:  %s\n want: %s", g, lb)
+		}
+	case len(w.Data) > 0 && string(w.Data) != "null":
 		if g, want := compact(t, b.Result), compact(t, w.Data); g != want {
 			t.Errorf("result\n got:  %s\n want: %s", g, want)
 		}
@@ -886,5 +897,152 @@ func TestSnippetDockerPrunePreviewFails(t *testing.T) {
 	want := "the login user cannot use docker on this server; run `komando docker prune TARGET --dry-run --sudo` (the command, which asks as it does today), or ask the person whether this user should have docker access"
 	if e == nil || e.Code != "DOCKER_PERMISSION" || e.Hint != want {
 		t.Fatalf("got %+v, want the hint %q", e, want)
+	}
+}
+
+// logs and docker-logs send today's text and give today's lines in the
+// log shape (design 2.1: {"lines": [{"text": ...}], "truncated": bool}).
+func TestSnippetLogsGoldens(t *testing.T) {
+	withSnippets(t, registered()...)
+	for _, c := range []struct {
+		name, family string
+		vars         []string
+	}{
+		{"logs", "journal", []string{"unit=nginx", "limit=3"}},
+		{"docker-logs", "docker", []string{"container=api", "limit=3"}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			dir := filepath.Join("testdata", "snippets", c.name)
+			in, err := os.ReadFile(filepath.Join(dir, c.family+".in"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			rs := startReplayServerWith(t, nil, replayStep{stdout: string(in)})
+			args := []string{c.name, "dev"}
+			for _, v := range c.vars {
+				args = append(args, "--var", v)
+			}
+			raw, e := snippetData(t, args...)
+			if e != nil {
+				t.Fatal(e)
+			}
+			sent, err := os.ReadFile(filepath.Join(dir, c.family+".sent.txt"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			rs.mu.Lock()
+			got := strings.Join(rs.sent, "\n----\n") + "\n"
+			rs.mu.Unlock()
+			if got != string(sent) {
+				t.Errorf("sent\n got:  %s\n want: %s", got, sent)
+			}
+			var golden struct {
+				Data struct {
+					Results []struct {
+						Stdout string `json:"stdout"`
+					} `json:"results"`
+				} `json:"data"`
+			}
+			gb, err := os.ReadFile(filepath.Join(dir, c.family+".out.json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := json.Unmarshal(gb, &golden); err != nil || len(golden.Data.Results) != 1 {
+				t.Fatalf("golden: %v", err)
+			}
+			want := logResult{Lines: []snippetLogLine{}}
+			for _, l := range strings.Split(strings.TrimSuffix(golden.Data.Results[0].Stdout, "\n"), "\n") {
+				want.Lines = append(want.Lines, snippetLogLine{Text: l})
+			}
+			wb, _ := json.Marshal(want)
+			var res struct {
+				Result json.RawMessage `json:"result"`
+			}
+			_ = json.Unmarshal(raw, &res)
+			if g, w := compact(t, res.Result), string(wb); g != w {
+				t.Errorf("result\n got:  %s\n want: %s", g, w)
+			}
+		})
+	}
+}
+
+// logs fails as today's command does on the same server answer, and its
+// permission hint points to the command, never to a group that reads every
+// log (as A-455-1 for docker).
+func TestSnippetLogsLikeTheCommand(t *testing.T) {
+	withSnippets(t, registered()...)
+	for name, step := range map[string]replayStep{
+		"no systemd": {stdout: "#komando:no-systemd\n"},
+		"permission": {stderr: "Hint: You are currently not seeing messages from other users and the system.\n      Users in groups 'adm', 'systemd-journal' can see all messages.\n      Pass -q to turn off this notice.\nNo journal files were opened due to insufficient permissions."},
+		"no journal": {stderr: "No journal files were found.\n"},
+		"empty":      {},
+		"failed":     {exit: 1, stdout: "a line\n"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			likeTheCommand(t, step, []string{"logs", "dev", "--unit", "nginx"}, []string{"logs", "dev", "--var", "unit=nginx"})
+		})
+	}
+	t.Run("permission hint", func(t *testing.T) {
+		startReplayServerWith(t, nil, replayStep{stderr: "No journal files were opened due to insufficient permissions."})
+		_, e := snippetData(t, "logs", "dev", "--var", "unit=nginx")
+		want := "the login user cannot read the system journal; run `komando logs TARGET --unit UNIT --sudo` (the command, which asks as it does today), or ask the person whether this user should read the whole journal"
+		if e == nil || e.Code != "JOURNAL_PERMISSION" || e.Hint != want {
+			t.Fatalf("got %+v, want JOURNAL_PERMISSION with the hint %q (as Audit A-455-1)", e, want)
+		}
+	})
+	t.Run("own entries only", func(t *testing.T) {
+		startReplayServerWith(t, nil, replayStep{stdout: "a line\n", stderr: "Hint: You are currently not seeing messages from other users and the system."})
+		raw, e := snippetData(t, "logs", "dev", "--var", "unit=nginx")
+		var d struct {
+			Warnings []string  `json:"warnings"`
+			Result   logResult `json:"result"`
+		}
+		_ = json.Unmarshal(raw, &d)
+		if e != nil || len(d.Warnings) != 1 || !strings.Contains(d.Warnings[0], "only your own journal entries") || len(d.Result.Lines) != 1 {
+			t.Fatalf("got %v %s, want one line and the own-entries warning", e, raw)
+		}
+	})
+	t.Run("docker-logs failed", func(t *testing.T) {
+		likeTheCommand(t, replayStep{exit: 1, stdout: "Error: No such container: api\n"}, []string{"docker", "logs", "dev", "api"}, []string{"docker-logs", "dev", "--var", "container=api"})
+	})
+}
+
+// A log cut at --max-output says so.
+func TestSnippetLogsTruncated(t *testing.T) {
+	withSnippets(t, registered()...)
+	startReplayServerWith(t, nil, replayStep{stdout: strings.Repeat("a log line\n", 100)})
+	raw, e := snippetData(t, "logs", "dev", "--var", "unit=nginx", "--max-output", "64B")
+	var d struct {
+		Result logResult `json:"result"`
+	}
+	_ = json.Unmarshal(raw, &d)
+	if e != nil || !d.Result.Truncated {
+		t.Fatalf("got %v %s, want truncated", e, raw)
+	}
+}
+
+// The values logs and docker-logs take: today's container names, a
+// systemd unit, and a count.
+func TestSnippetLogsValues(t *testing.T) {
+	withSnippets(t, registered()...)
+	for _, args := range [][]string{
+		{"logs", "dev", "--var", "unit=nginx", "--var", "limit=-1"},
+		{"logs", "dev", "--var", "unit=nginx", "--var", "limit=3;reboot"},
+		{"logs", "dev", "--var", "unit=-x"},
+		{"logs", "dev", "--var", "unit=a b"},
+		{"logs", "dev"},
+		{"docker-logs", "dev", "--var", "container=-it"},
+		{"docker-logs", "dev", "--var", "container=a/b"},
+		{"docker-logs", "dev"},
+	} {
+		rs := startReplayServerWith(t, nil, replayStep{stdout: "x\n"})
+		if _, e := snippetData(t, args...); e == nil || e.Exit != out.ExitUsage {
+			t.Errorf("%q: %v, want a usage refusal", args, e)
+		}
+		rs.mu.Lock()
+		if len(rs.execs) != 0 {
+			t.Errorf("%q ran %q", args, rs.execs)
+		}
+		rs.mu.Unlock()
 	}
 }

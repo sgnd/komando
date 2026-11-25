@@ -120,6 +120,15 @@ func TestNewRefusesBadDefinitions(t *testing.T) {
 			b.Vars = []Var{{Name: "unit", Channel: SQLIdent, Pattern: unitVar.Pattern, MaxLen: 8, Longest: "nginx-ab",
 				Families: map[Family]*regexp.Regexp{Unix: unitVar.Pattern}}}
 		}, "family"},
+		{"number whose longest value is not digits", func(b *Builtin) {
+			b.Vars = []Var{unitVar, {Name: "n", Channel: Number, Pattern: regexp.MustCompile(`^[0-9a-z]+$`), MaxLen: 3, Longest: "abc"}}
+		}, "longest"},
+		{"optional number without a default", func(b *Builtin) {
+			b.Vars = []Var{unitVar, {Name: "n", Channel: Number, Pattern: regexp.MustCompile(`^[0-9]+$`), MaxLen: 3, Longest: "999"}}
+		}, "default"},
+		{"number as a list", func(b *Builtin) {
+			b.Vars = []Var{unitVar, {Name: "n", Channel: Number, Pattern: regexp.MustCompile(`^[0-9]+$`), MaxLen: 3, Longest: "999", List: true, MaxItems: 2}}
+		}, "list"},
 		{"sudo without a Unix text", func(b *Builtin) { b.Sudo = true; delete(b.Text, Unix) }, "sudo"},
 		{"sudo on a client call", func(b *Builtin) {
 			b.Sudo, b.Text, b.Parse = true, nil, nil
@@ -565,5 +574,42 @@ func TestFillFamilyPattern(t *testing.T) {
 	b.Vars[0].Required, b.Vars[0].Default = false, "Web.1"
 	if got, err := Fill(b, Windows, map[string]string{}); code(err) != "USAGE" {
 		t.Errorf("Windows default %q, %v; want USAGE", got, err)
+	}
+}
+
+// numberSample has a count that goes into its text.
+func numberSample() Builtin {
+	b := sample()
+	b.Vars = []Var{unitVar, {Name: "n", Channel: Number, Pattern: regexp.MustCompile(`^[0-9]+$`), MaxLen: 5, Longest: "99999", Default: "200"}}
+	b.Text = map[Family]string{Unix: "journalctl -u {{var:unit}} -n {{var:n}}", Windows: "Get-WinEvent -MaxEvents {{var:n}} {{var:unit}}"}
+	return b
+}
+
+// A number goes into the text as its digits, unquoted, in every family:
+// digits are inert to sh and PowerShell, and the text stays today's.
+func TestFillNumberIsItsDigits(t *testing.T) {
+	r, err := New([]Builtin{numberSample()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := r.Lookup("svc-status")
+	for f, want := range map[Family]string{Unix: "journalctl -u 'nginx' -n 3", Windows: "Get-WinEvent -MaxEvents 3 'nginx'"} {
+		if got, err := Fill(b, f, map[string]string{"unit": "nginx", "n": "3"}); err != nil || got != want {
+			t.Errorf("Fill(%s) = %q, %v; want %q", f, got, err, want)
+		}
+	}
+	if got, err := Fill(b, Unix, map[string]string{"unit": "nginx"}); err != nil || got != "journalctl -u 'nginx' -n 200" {
+		t.Errorf("the default: %q, %v", got, err)
+	}
+}
+
+// Only ASCII digits pass, whatever the variable's pattern takes.
+func TestFillNumberRefusals(t *testing.T) {
+	b := numberSample()
+	b.Vars[1].Pattern = regexp.MustCompile(`^.+$`) // the number rule holds even under a loose pattern
+	for _, v := range []string{"3;reboot", "-1", "1e3", "0x10", "3 4", "\u0663", "１", "$(id)", "123456"} {
+		if got, err := Fill(b, Unix, map[string]string{"unit": "nginx", "n": v}); err == nil {
+			t.Errorf("Fill(n=%q) = %q, want a refusal", v, got)
+		}
 	}
 }
