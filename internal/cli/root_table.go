@@ -67,12 +67,61 @@ func deref[T any](in leafInput, name string) T {
 	return *p
 }
 
-// mountTable adds the built leaves of the table to today's tree. An error
-// is a bug of the table or the handlers, which the build tests catch first.
+// tableLeaves is the table the tree is built from; tests add a leaf of
+// their own.
+var tableLeaves = capability.All
+
+// mountTable takes out of today's tree the commands the table now does,
+// then adds the built leaves that have a handler. An error is a bug of the
+// table or the handlers, which the build tests catch first.
 func mountTable(root *cobra.Command) {
-	if err := mountLeaves(root, capability.All(), handlers, groupShorts); err != nil {
+	leaves := tableLeaves()
+	hideCarried(root, leaves, handlers)
+	if err := mountLeaves(root, leaves, handlers, groupShorts); err != nil {
 		panic("komando: " + err.Error())
 	}
+}
+
+// hideCarried takes out of today's tree each command whose ID every built
+// leaf that names it (in Today or Carries) now does: a command several
+// types carry (conn add) stays until the last of them has moved. A command
+// that exec, query or raw replaces (capability.Replacements) stays until
+// cut step D removes it. A today group left with no command goes too.
+func hideCarried(root *cobra.Command, leaves []capability.Leaf, hs map[capability.Key]handler) {
+	carriers := map[string][]capability.Key{}
+	for _, l := range leaves {
+		if l.State != capability.Built {
+			continue
+		}
+		for _, id := range slices.Concat(l.Today, l.Carries) {
+			carriers[id] = append(carriers[id], l.Key)
+		}
+	}
+	for _, r := range capability.Replacements() {
+		delete(carriers, r.Today)
+	}
+	hide := map[string]bool{}
+	for id, keys := range carriers {
+		hide[id] = !slices.ContainsFunc(keys, func(k capability.Key) bool { return hs[k] == nil })
+	}
+	var drop func(c *cobra.Command) bool
+	drop = func(c *cobra.Command) (hid bool) {
+		for _, s := range c.Commands() {
+			if hide[cmdID(s)] {
+				c.RemoveCommand(s)
+				hid = true
+				continue
+			}
+			if drop(s) {
+				hid = true
+				if !s.HasSubCommands() && !s.Runnable() {
+					c.RemoveCommand(s) // a group whose every command has moved
+				}
+			}
+		}
+		return hid
+	}
+	drop(root)
 }
 
 // mountLeaves adds to root every built leaf of leaves that has a handler.
@@ -88,6 +137,15 @@ func mountLeaves(root *cobra.Command, leaves []capability.Leaf, hs map[capabilit
 			return fmt.Errorf("%s: a handler for a leaf that is not built", l.Key)
 		case l.Short == "":
 			return fmt.Errorf("%s: the leaf has no Short text", l.Key)
+		}
+		for _, o := range l.Options {
+			if root.PersistentFlags().Lookup(o.Name) != nil {
+				return fmt.Errorf("%s: --%s is a global flag; the root reads it for every command", l.Key, o.Name)
+			}
+		}
+		id := strings.Join(l.Key.Path(), ".")
+		if commandWithID(root, id) != nil {
+			return fmt.Errorf("%s: the ID %s is already in the tree", l.Key, id)
 		}
 		words := l.Key.Path()
 		parent := root
@@ -108,6 +166,19 @@ func mountLeaves(root *cobra.Command, leaves []capability.Leaf, hs map[capabilit
 			return fmt.Errorf("%s: today's tree already has %q", l.Key, strings.Join(words, " "))
 		}
 		parent.AddCommand(buildLeaf(l, h))
+	}
+	return nil
+}
+
+// commandWithID is the command under c whose ID is id, or nil.
+func commandWithID(c *cobra.Command, id string) *cobra.Command {
+	for _, s := range c.Commands() {
+		if cmdID(s) == id {
+			return s
+		}
+		if f := commandWithID(s, id); f != nil {
+			return f
+		}
 	}
 	return nil
 }

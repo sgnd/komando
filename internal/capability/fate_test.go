@@ -18,7 +18,7 @@ const cliDir = "../cli/"
 
 func todayIDs(t *testing.T) []string {
 	t.Helper()
-	b, err := os.ReadFile(cliDir + "testdata/command_ids.txt")
+	b, err := os.ReadFile("testdata/v0_17_ids.txt") // frozen: the cut renames internal/cli's list
 	if err != nil {
 		t.Fatal(err)
 	}
