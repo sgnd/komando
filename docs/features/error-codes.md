@@ -226,7 +226,13 @@ This page is made from the code (`komando schema` lists the same under
 | `SECURITY_UNSUPPORTED` | 3 | no package manager komando knows on … | komando knows apt, dnf, yum, zypper, apk and pacman; see what the server has with `komando facts TARGET` |
 | `SELF_NOT_FOUND` | 1 | cannot find the komando program that is running: … | run komando by its full path, for example /usr/local/bin/komando update |
 | `SENSITIVE_FILE` | 6 | … is …, not … | use a database of your own; komando's data is read only through komando's commands (`komando list`, `komando secret list`) |
+| `SESSION_FOLDER_DENIED` | 5 | …: ~/.komando or its sessions folder is a link, a file, not the login user's, or others can write it | look with `komando exec TARGET -- ls -ld ~/.komando ~/.komando/sessions`: each is to be a plain folder of the login user that only it can write (chmod 700) |
+| `SESSION_FOLDER_MISSING` | 3 | no session … on … | check the ID and the server: a session is removed once its starter read it to the end, or after 7 days; `komando audit` shows the exec that started it |
 | `SESSION_NOT_FOUND` | 3 | no session … | list sessions with `komando db activity CONN --all` |
+| `SESSION_RECORD_MISSING` | 3 | session … on … was not started from this computer | only the computer that started the run can stop it: stop it there; `komando audit` there shows the exec that started it |
+| `SESSION_SPACE_DENIED` | 5 | …: the home file system has less free space than the log cap plus 5 percent of the disk; nothing ran | free space in the home folder, or give a smaller log cap: `komando exec TARGET --log-max 100MiB -- COMMAND` |
+| `SESSION_START_FAILED` | 5 | …: the run in a session did not start (…) | the server needs nohup, ps and mkfifo: look with `komando exec TARGET -- command -v setsid nohup ps mkfifo` |
+| `SESSION_WAIT_TIMEOUT` | 7 | session … on … still running after … | it is still running: `komando exec … --attach … --offset …` reads on |
 | `SFTP_UNAVAILABLE` | 4 | sftp: … | enable the sftp subsystem in sshd_config |
 | `SHARED_FOLDER_CONFLICT` | 8 | … can be changed by …, not only by root and the SSH user: as root, komando does not write … there (that user could swap it for a link while root writes) | write it as … instead, for example `komando exec TARGET --sudo-user … --stdin-file FILE -- sh -c 'cat > "$0"' …` |
 | `SHELL_IDLE_TIMEOUT` | 7 | the shell on … ended after … with no input and no output | connect again (ssh -t HOST komando shell …); run long work as a job: `komando job start … -- COMMAND` |
