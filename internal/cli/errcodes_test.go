@@ -788,16 +788,20 @@ var approvalMeanings = map[string]string{
 // order of the files would decide: renaming a file must not change what
 // the catalog shows (these are the texts 0.12.0 showed).
 var catalogSite = map[string]string{
-	"CANCELLED":           "interrupted", // kit/term.Interrupted, the stop of every cancelled command
-	"CONN_UNREACHABLE":    "cannot reach …: …",
-	"NEEDS_PERSON":        "logging in to … needs a person at a terminal to answer its questions",
-	"FILE_EXISTS":         "… already exists on this computer",
-	"PASSPHRASE_MISMATCH": "the two passphrases you typed differ; nothing was changed",
-	"WEAK_PASSPHRASE":     "…; nothing was changed",
-	"WRONG_PASSPHRASE":    "that passphrase does not open the vault; nothing was changed",
-	"NO_FOLDER":           "cannot find the folder: …",
-	"RENAME_FAILED":       "the vault cannot rename the VPN's secrets: …; nothing was renamed",
-	"ROLLOUT_TIMEOUT":     "not rolled out after … (replicas …)…",
+	// codes with a Unix and a Windows message: the catalog shows the Unix one
+	"SESSION_FOLDER_DENIED": "…: ~/.komando or its sessions folder is a link, a file, not the login user's, or others can write it",
+	"SESSION_SPACE_DENIED":  "…: the home file system has less free space than the log cap plus 5 percent of the disk; nothing ran",
+	"SESSION_START_FAILED":  "…: the run in a session did not start (…)",
+	"CANCELLED":             "interrupted", // kit/term.Interrupted, the stop of every cancelled command
+	"CONN_UNREACHABLE":      "cannot reach …: …",
+	"NEEDS_PERSON":          "logging in to … needs a person at a terminal to answer its questions",
+	"FILE_EXISTS":           "… already exists on this computer",
+	"PASSPHRASE_MISMATCH":   "the two passphrases you typed differ; nothing was changed",
+	"WEAK_PASSPHRASE":       "…; nothing was changed",
+	"WRONG_PASSPHRASE":      "that passphrase does not open the vault; nothing was changed",
+	"NO_FOLDER":             "cannot find the folder: …",
+	"RENAME_FAILED":         "the vault cannot rename the VPN's secrets: …; nothing was renamed",
+	"ROLLOUT_TIMEOUT":       "not rolled out after … (replicas …)…",
 }
 
 // renamedFrom are codes given by renaming another error (e.Code =
