@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/sgnd/komando/internal/inventory"
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -87,8 +88,11 @@ func vetImportHosts(cl *call, s *store.State, hosts []*store.Host, overwrite, ow
 			v.Invalid = append(v.Invalid, importSkip{h.Name, toErr(err).Message})
 			continue
 		}
-		if r := proxyCommandSkip(cl, h.ProxyCommand); r != "" {
-			v.Invalid = append(v.Invalid, importSkip{h.Name, r})
+		if e := proxyCommandSkip(cl, h.ProxyCommand); e != nil {
+			v.Invalid = append(v.Invalid, importSkip{h.Name, e.Message})
+			if cl.flags.dryRun { // the preview records the stop the real import leaves it out for
+				_ = cl.policyStop(e)
+			}
 			continue
 		}
 		if err := guardProxyCommand(cl, h.ProxyCommand, h.Name); err != nil {
@@ -134,20 +138,23 @@ func vetImportHosts(cl *call, s *store.State, hosts []*store.Host, overwrite, ow
 	return v, guardHostSends(cl, s, v.Add, prev)
 }
 
-// proxyCommandSkip says why an import leaves out a host whose proxy
-// command guardProxyCommand would stop and no flag asks to let through.
-// With the flag, guardProxyCommand asks the person instead.
-func proxyCommandSkip(cl *call, cmd string) string {
+// proxyCommandSkip is the stop for which an import leaves out a host whose
+// proxy command guardProxyCommand would stop and no flag asks to let
+// through, or nil; its message is the reason the import gives. With the
+// flag, guardProxyCommand asks the person instead.
+func proxyCommandSkip(cl *call, cmd string) *out.Error {
 	if cmd == "" {
-		return ""
+		return nil
 	}
 	if hits := policy.Check(cmd, nil); len(hits) > 0 && !cl.flags.allowDangerous {
-		return "its proxy command matches destructive rules (" + hits[0].Reason + "): import it again with --allow-dangerous once the user confirms it is intended"
+		return out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "import it again with --allow-dangerous once the user confirms it is intended",
+			"its proxy command matches destructive rules (%s): import it again with --allow-dangerous once the user confirms it is intended", hits[0].Reason)
 	}
 	if cl.isAgent() && !cl.flags.yes {
-		return "its proxy command runs on this computer, so an AI agent needs the user's yes: import it again with --yes after the user confirms"
+		return out.Errf(out.ExitPolicy, "SAFETY_SETTING", "import it again with --yes after the user confirms",
+			"its proxy command runs on this computer, so an AI agent needs the user's yes: import it again with --yes after the user confirms")
 	}
-	return ""
+	return nil
 }
 
 func orEmpty(s []string) []string {
