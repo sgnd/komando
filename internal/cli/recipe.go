@@ -458,6 +458,9 @@ func snippetFamily(h *store.Host) snippet.Family {
 // rules (policy.Check, like a typed exec line), protected servers ask for a
 // change, and the result is masked when it is printed.
 func runSnippet(cl *call, ctx context.Context, b snippet.Builtin, target string, kv map[string]string, noSudo bool) error {
+	if err := snippet.RefuseNoSudo(b, noSudo); err != nil {
+		return err
+	}
 	if b.Type != "host" || b.Text == nil {
 		// S1 wires the text snippets of hosts; the client snippets come with
 		// their type's move
