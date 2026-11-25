@@ -75,10 +75,17 @@ func Draw(l *List, s Style) []string {
 }
 
 // keyLine joins the key hints with " · " in at most w columns. A narrow
-// window drops whole hints, the least needed first: the third, the
-// fourth, then the second. The first and the last (stop) stay.
+// window drops whole hints, the least needed first: the third to the one
+// before the last, in order, then the second. The first and the last
+// (stop) stay.
 func keyLine(w int, hints ...string) string {
-	drop := []int{2, 3, 1}
+	var drop []int
+	for i := 2; i < len(hints)-1; i++ {
+		drop = append(drop, i)
+	}
+	if len(hints) > 2 {
+		drop = append(drop, 1)
+	}
 	keep := make([]bool, len(hints))
 	for i := range keep {
 		keep[i] = true
@@ -136,6 +143,38 @@ func DrawForm(f *Form, s Style) []string {
 		esc = "Esc clear"
 	}
 	return append(lines, keyLine(w, "Enter next", esc, "Tab skip", "? help", "Ctrl-C stop"))
+}
+
+// DrawReview is the review as lines: the question, the whole line with a
+// $ first, then its keys. A line wider than the window wraps; no part of
+// it is cut, so what runs is what was shown.
+func DrawReview(r *Review, s Style) []string {
+	w := min(s.Width, maxWidth)
+	lines := []string{"Run this?"}
+	for i, part := range hardWrap("komando "+r.line, max(1, w-4)) {
+		prefix := "    "
+		if i == 0 {
+			prefix = "  $ "
+		}
+		lines = append(lines, prefix+part)
+	}
+	return append(lines, keyLine(w, "Enter run", "Esc back to the form", "Ctrl-C stop"))
+}
+
+// hardWrap breaks s into parts of at most w columns, keeping every
+// character.
+func hardWrap(s string, w int) []string {
+	var parts []string
+	part, used := []rune{}, 0
+	for _, r := range s {
+		rw := term.DisplayWidth(string(r))
+		if used+rw > w && len(part) > 0 {
+			parts = append(parts, string(part))
+			part, used = nil, 0
+		}
+		part, used = append(part, r), used+rw
+	}
+	return append(parts, string(part))
 }
 
 // under is the line below the rows: why there are none, or how many more
