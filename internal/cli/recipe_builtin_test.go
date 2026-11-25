@@ -132,7 +132,7 @@ func TestSnippetsOff(t *testing.T) {
 	if len(builtinSnippets.Names()) != 0 {
 		t.Fatalf("the production list has built-ins %v: they come with the S2 moves", builtinSnippets.Names())
 	}
-	rs := startReplayServer(t, replayStep{stdout: "x"})
+	rs := startReplayServerWith(t, nil, replayStep{stdout: "x"})
 	r, err := snippet.New(samples)
 	if err != nil {
 		t.Fatal(err)
@@ -168,7 +168,7 @@ func TestSnippetSamplesMatchGoldens(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			rs := startReplayServer(t, replayStep{stdout: string(in)})
+			rs := startReplayServerWith(t, nil, replayStep{stdout: string(in)})
 			if c.windows {
 				if err := store.Update(store.Save(), func(st *store.State) error { st.Hosts["dev"].OS = store.OSWindows; return nil }); err != nil {
 					t.Fatal(err)
@@ -228,7 +228,7 @@ func TestSnippetFilledLikeTheReplacedCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 	run := func(args ...string) (string, json.RawMessage) {
-		rs := startReplayServer(t, replayStep{stdout: string(in)})
+		rs := startReplayServerWith(t, nil, replayStep{stdout: string(in)})
 		var data json.RawMessage
 		got := captureOutput(t, func() error { return runRoot(t, append([]string{"-o", "json"}, args...)...) })
 		var env struct {
@@ -339,7 +339,7 @@ func TestSnippetGuardSeesTheFilledText(t *testing.T) {
 		Text:  map[snippet.Family]string{snippet.Unix: "rm -rf {{var:path}}"},
 		Parse: func(o snippet.Output, _ snippet.Family) (any, error) { return o.Stdout, nil }}
 	setCallerEnv(t, "CLAUDECODE", "1")
-	rs := startReplayServer(t, replayStep{stdout: "x"})
+	rs := startReplayServerWith(t, nil, replayStep{stdout: "x"})
 	withSnippets(t, wipe)
 	if _, e := snippetData(t, "wipe", "dev", "--var", "path=/etc"); e == nil || e.Code != "POLICY_BLOCKED" {
 		t.Fatalf("a filled rm -rf = %v, want POLICY_BLOCKED", e)
@@ -379,7 +379,7 @@ func TestSnippetRefusalsRunNothing(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			withSnippets(t, samples...)
-			rs := startReplayServer(t, replayStep{stdout: "x"})
+			rs := startReplayServerWith(t, nil, replayStep{stdout: "x"})
 			if c.windows {
 				if err := store.Update(store.Save(), func(st *store.State) error { st.Hosts["dev"].OS = store.OSWindows; return nil }); err != nil {
 					t.Fatal(err)
@@ -402,7 +402,7 @@ func TestSnippetWrongType(t *testing.T) {
 	dbInfo := snippet.Builtin{Name: "db-info", Type: "database", Replaces: "db info", Reader: "KomandoCall.swift:69-72", Tier: capability.Read, Shape: "db-info/1",
 		Run: func(context.Context, snippet.Values) (any, error) { return map[string]any{}, nil }}
 	withSnippets(t, dbInfo)
-	rs := startReplayServer(t, replayStep{stdout: "x"})
+	rs := startReplayServerWith(t, nil, replayStep{stdout: "x"})
 	if _, e := snippetData(t, "db-info", "dev"); e == nil || e.Code != "SNIPPET_WRONG_TYPE" {
 		t.Fatalf("got %v, want SNIPPET_WRONG_TYPE", e)
 	}
@@ -415,7 +415,7 @@ func TestSnippetWrongType(t *testing.T) {
 
 func TestSnippetParseFailedShowsNoText(t *testing.T) {
 	withSnippets(t, samples...)
-	startReplayServer(t, replayStep{stdout: "not json: s3cret-raw-line\n"})
+	startReplayServerWith(t, nil, replayStep{stdout: "not json: s3cret-raw-line\n"})
 	raw, e := snippetData(t, "docker-ps", "dev")
 	if e == nil || e.Code != "SNIPPET_PARSE_FAILED" {
 		t.Fatalf("got %v, want SNIPPET_PARSE_FAILED", e)
@@ -441,7 +441,7 @@ func TestSnippetResultIsMaskedForAnAgent(t *testing.T) {
 	}
 	setCallerEnv(t, "CLAUDECODE", "1")
 	withSnippets(t, leaky)
-	startReplayServer(t, replayStep{stdout: "x"})
+	startReplayServerWith(t, nil, replayStep{stdout: "x"})
 	raw, e := snippetData(t, "leaky", "dev")
 	if e != nil {
 		t.Fatal(e)
