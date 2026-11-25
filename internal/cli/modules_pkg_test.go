@@ -52,6 +52,10 @@ func TestPkgNames(t *testing.T) {
 		{"openssh-server-", "USAGE"},
 		{"sudo-", "USAGE"},
 		{"sud.", "USAGE"},
+		// a pattern is no package name: apt and dnf would expand it
+		{"openssh*", "USAGE"},
+		{"sud?", "USAGE"},
+		{"[s]udo", "USAGE"},
 		{"g++", ""},
 		// local package files
 		{"./app.deb", "USAGE"},
