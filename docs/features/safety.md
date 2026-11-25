@@ -377,8 +377,8 @@ komando config set mask_personal protected       # back to the default (komando 
 - The same data is not handed over another way. For an AI agent, where
   personal data is hidden: `cp`, `sync` and `download` save files with it
   hidden; `fs replace`, `fs write --dry-run`, `fs restore` and `docker
-  compose` show it hidden; `db dump` stops with `SENSITIVE_FILE` (a dump
-  cannot be masked). A value that is not text is shown as base64; when it
+  compose` show it hidden; `db dump` stops with `NEEDS_PERSON` (a dump
+  cannot be masked; a person runs it in their own terminal). A value that is not text is shown as base64; when it
   holds a secret or personal data, the whole value reads `[hidden]`.
 - A file komando cannot show with personal data hidden stops an AI
   agent's `cp`, `sync`, `download` or `cluster cp` with `SENSITIVE_FILE`:
