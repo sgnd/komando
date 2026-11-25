@@ -7,6 +7,7 @@ import (
 	"encoding/pem"
 	"net"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -154,6 +155,7 @@ var tierRuns = []tierRun{
 	{"floor", "vpn.rm", []string{"wg"}, false},
 	{"floor", "vpn.up", []string{"wg"}, false},
 	{"floor", "key.add", []string{"k5", "id_k5"}, false},
+	{"credential key uninstall dynamic dangerous", "key.revoke", []string{"k6", "kh"}, false},
 	{"import dynamic dangerous", "import", []string{"ssh-config", "ssh_config_rm"}, false},
 	{"import dynamic safety", "import", []string{"ssh-config", "ssh_config_nc"}, false},
 }
@@ -188,18 +190,17 @@ var tierUnreached = map[string]string{
 	"host ssh test --end change | host.test": endNotYet,
 	"test --end change | test":               endNotYet,
 	// the condition needs what a unit run cannot give; the stop is proved there
-	"host ssh test dynamic person | host.test":                "needs a server that asks a second factor (login_ssh_test.go)",
-	"import dynamic person | import":                          "needs a sealed file from export --sealed, which only a person makes (export_sealed_test.go)",
-	"credential key uninstall dynamic dangerous | key.revoke": "needs the key komando logs in with on a real authorized_keys (key_revoke_all_test.go)",
-	"ssh-gate person | ssh-gate":                              "sshd starts it with the key's line; TestGateAnswersPinned pins its answers",
-	"update dynamic safety | update":                          "needs a release site (TestUpdateOlderAgentNeedsWindow)",
-	"floor | update":                                          "needs a release site (update_test.go)",
-	"config vault keychain dynamic safety | secret.keychain":  "tests run with KOMANDO_KEYCHAIN=off (secret_keychain_test.go uses stand-ins)",
-	"floor | secret.keychain":                                 "tests run with KOMANDO_KEYCHAIN=off (secret_keychain_test.go uses stand-ins)",
-	"floor | host.ca.rm":                                      "adding the CA it removes needs a person (host_ca_test.go)",
-	"floor | tunnel.stop":                                     "needs a running tunnel (tunnel_test.go)",
-	"floor | cluster.add":                                     "a Kubernetes conn comes only from import kubeconfig (cluster_test.go)",
-	"floor | queue.purge":                                     "today's queue purge is v2.7's message delete --all: its run is that row",
+	"host ssh test dynamic person | host.test":               "needs a server that asks a second factor",
+	"import dynamic person | import":                         "needs a sealed file from export --sealed, which only a person makes",
+	"ssh-gate person | ssh-gate":                             "sshd starts it with the key's line",
+	"update dynamic safety | update":                         "needs a release site",
+	"floor | update":                                         "needs a release site",
+	"config vault keychain dynamic safety | secret.keychain": "tests run with KOMANDO_KEYCHAIN=off",
+	"floor | secret.keychain":                                "tests run with KOMANDO_KEYCHAIN=off; a plain run is the not --off person row",
+	"floor | host.ca.rm":                                     "adding the CA it removes needs a person",
+	"floor | tunnel.stop":                                    "needs a running tunnel",
+	"floor | cluster.add":                                    "a Kubernetes conn comes only from import kubeconfig; a swarm is no conn kind",
+	"floor | queue.purge":                                    "today's queue purge is v2.7's message delete --all: its run is that row",
 	// the table names a stop the handler has no code for (sent to the coordinator)
 	"cluster tunnel start dynamic safety | cluster.forward": "cluster forward always listens on 127.0.0.1 (cluster_exec.go): no open address to stop",
 }
@@ -224,12 +225,33 @@ var tierDisagree = map[string]string{
 	// --dry-run shows no stop; the real run stops (its own test proves it)
 	"host.ca.add ca1 --key ca.pub --hosts *.corp.example": "", // host_ca.go returns the preview before its NEEDS_PERSON
 	"host.trust dev":                  "", // guardFirstPin runs after the dry run returned
-	"import ssh-config ssh_config_rm": "", // import_safety_test.go
-	"import ssh-config ssh_config_nc": "", // import_safety_test.go
+	"import ssh-config ssh_config_rm": "", // the real run leaves the host out (IMPORT_INCOMPLETE)
+	"import ssh-config ssh_config_nc": "", // the real run leaves the host out (IMPORT_INCOMPLETE)
 	// the handler is stricter than the table (a stop no row names)
 	"registry.add reg3 registry://127.0.0.1:1?tls=false": "SAFETY_SETTING", // plain HTTP
 	"secret.run --env X=secret:pw -- true":               "SECRET_DESTINATION",
 	"storage.link s3 a.txt":                              "SENSITIVE_FILE",
+}
+
+// tierProvedBy names, for each run pinned with no stop under --dry-run and
+// each unreached row whose stop a run can meet, the test function that
+// asserts that stop without --dry-run (Audit's low on #550). Each must
+// exist (TestTierMatchesRuntime scans the test files).
+var tierProvedBy = map[string]string{
+	"host.ca.add ca1 --key ca.pub --hosts *.corp.example": "TestHostCAAddNeedsAPerson",
+	"host.trust dev":                                         "TestStandardConfirmTable", // its host trust row: SAFETY_SETTING
+	"import ssh-config ssh_config_rm":                        "TestImportSSHConfigProxyCommandAgent",
+	"import ssh-config ssh_config_nc":                        "TestImportSSHConfigProxyCommandAgent",
+	"host ssh test dynamic person | host.test":               "TestLoginKeepsATwoFactorLogin",
+	"import dynamic person | import":                         "TestSealedNeedsPerson",
+	"ssh-gate person | ssh-gate":                             "TestGateAnswersPinned",
+	"update dynamic safety | update":                         "TestUpdateOlderAgentNeedsWindow",
+	"floor | update":                                         "TestUpdateInstallsNewest",
+	"config vault keychain dynamic safety | secret.keychain": "TestSecretKeychainOff",
+	"floor | secret.keychain":                                "TestSecretKeychainNeedsPerson",
+	"floor | host.ca.rm":                                     "TestHostCAPersonAddsAndAnyoneRemoves",
+	"floor | tunnel.stop":                                    "TestAllWithNames",
+	"floor | cluster.add":                                    "TestClusterAddKind",
 }
 
 func TestTierMatchesRuntime(t *testing.T) {
@@ -241,6 +263,7 @@ func TestTierMatchesRuntime(t *testing.T) {
 		covered[r.row+" | "+r.id] = true
 	}
 	needed := tierNeeded()
+	tierProofsExist(t)
 	for _, r := range tierRuns {
 		if _, ok := needed[r.row+" | "+r.id]; !ok {
 			t.Errorf("run %q | %s proves no row the table has for that command: remove or rename it", r.row, r.id)
@@ -286,6 +309,40 @@ func TestTierMatchesRuntime(t *testing.T) {
 				t.Errorf("row %q: stop %q, want %q", r.row, got, want)
 			}
 		})
+	}
+}
+
+// tierProofsExist: every run pinned with no stop has a named proof, no
+// reason points at a file instead of a function, and every named test
+// function exists.
+func tierProofsExist(t *testing.T) {
+	for run, code := range tierDisagree {
+		if code == "" && tierProvedBy[run] == "" {
+			t.Errorf("%q shows no stop under --dry-run: name the test that asserts its stop in tierProvedBy", run)
+		}
+	}
+	for need, why := range tierUnreached {
+		if strings.Contains(why, "_test.go") {
+			t.Errorf("tierUnreached %q names a file: name the test function in tierProvedBy", need)
+		}
+	}
+	files, _ := filepath.Glob("*_test.go")
+	var src strings.Builder
+	for _, f := range files {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		src.Write(b)
+	}
+	for key, fn := range tierProvedBy {
+		_, pinned := tierDisagree[key]
+		if _, unreached := tierUnreached[key]; !pinned && !unreached {
+			t.Errorf("tierProvedBy %q names no pinned run or unreached row: remove it", key)
+		}
+		if !strings.Contains(src.String(), "func "+fn+"(t *testing.T)") {
+			t.Errorf("tierProvedBy %q: no test function %s", key, fn)
+		}
 	}
 }
 
@@ -437,6 +494,7 @@ func tierSeed(t *testing.T) {
 	t.Setenv("PW", "secret-value-1")
 	mustRun(t, "secret", "set", "pw", "--from-env", "PW")
 	mustRun(t, "key", "gen", "k1")
+	mustRun(t, "key", "gen", "k6")
 	mustRun(t, "recipe", "add", "wipe", "rm -rf /")
 	mustRun(t, "recipe", "add", "r1", "uptime")
 	mustRun(t, "group", "add", "g1", "dev")
@@ -452,6 +510,13 @@ func tierSeed(t *testing.T) {
 	_ = os.WriteFile("ssh_config", []byte("Host imp1\n  HostName 10.0.0.5\n"), 0o600)
 	_ = os.WriteFile("ssh_config_rm", []byte("Host imp2\n  HostName 10.0.0.6\n  ProxyCommand rm -rf /\n"), 0o600)
 	_ = os.WriteFile("ssh_config_nc", []byte("Host imp3\n  HostName 10.0.0.7\n  ProxyCommand nc %h %p\n"), 0o600)
+	// kh logs in with k6: revoking k6 there locks komando out
+	if err := store.Update(store.Save(), func(st *store.State) error {
+		st.Hosts["kh"] = &store.Host{Name: "kh", Address: "127.0.0.1", Port: 1, User: "deploy", Key: "k6"}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
 	_ = os.WriteFile("a.txt", []byte("a\n"), 0o600)
 	_ = os.WriteFile("dump.sql", []byte("select 1;\n"), 0o600)
 }
