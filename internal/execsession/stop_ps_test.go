@@ -200,3 +200,48 @@ func TestStartScriptPSRefusesMetaPath(t *testing.T) {
 		t.Errorf("the message must name what is refused: %v", err)
 	}
 }
+
+// The Windows stop's exits: a missing process as on Unix; any other
+// failure names no sudo, which Windows has not.
+func TestStopExitPS(t *testing.T) {
+	if err := StopExitPS("win1", testID, 0, ""); err != nil {
+		t.Fatal(err)
+	}
+	var oe *out.Error
+	if err := StopExitPS("win1", testID, ExitNotRunning, ""); !errors.As(err, &oe) || oe.Code != "SESSION_PROCESS_MISSING" || oe.Exit != out.ExitNotFound {
+		t.Errorf("exit %d: %v", ExitNotRunning, err)
+	}
+	err := StopExitPS("win1", testID, 1, "access denied\n")
+	if !errors.As(err, &oe) || oe.Code != "SESSION_STOP_FAILED" || oe.Exit != out.ExitRemote || !strings.Contains(oe.Message, "access denied") {
+		t.Fatalf("exit 1: %v", err)
+	}
+	if strings.Contains(oe.Hint, "sudo") || !strings.Contains(oe.Hint, "`komando ") {
+		t.Errorf("hint %q: no sudo, and a komando command", oe.Hint)
+	}
+}
+
+// The Windows remove's exits carry the Windows folder hint.
+func TestRemoveExitPS(t *testing.T) {
+	if err := RemoveExitPS("win1", testID, 0); err != nil {
+		t.Fatal(err)
+	}
+	for _, tt := range []struct {
+		exit    int
+		code    string
+		outExit int
+		hint    string
+	}{
+		{ExitNotRunning, "SESSION_BUSY", out.ExitConflict, ""},
+		{ExitGone, "SESSION_FOLDER_MISSING", out.ExitNotFound, ""},
+		{ExitUnsafe, "SESSION_FOLDER_DENIED", out.ExitRemote, "icacls"},
+	} {
+		err := RemoveExitPS("win1", testID, tt.exit)
+		var oe *out.Error
+		if !errors.As(err, &oe) || oe.Code != tt.code || oe.Exit != tt.outExit || !strings.Contains(oe.Hint, tt.hint) {
+			t.Errorf("exit %d: %v", tt.exit, err)
+		}
+	}
+	if err := RemoveExitPS("win1", testID, 1); err == nil || !strings.Contains(err.Error(), "remove failed (exit 1)") {
+		t.Errorf("exit 1: %v", err)
+	}
+}

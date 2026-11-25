@@ -108,3 +108,14 @@ func SignalPS(sig string) error {
 		"Windows has no signals: `komando exec TARGET --attach ID --stop` alone ends the run",
 		"--signal %s does not work on Windows servers", sig)
 }
+
+// StopExitPS maps a Windows stop's exit as StopExit does a Unix one; a
+// failure names no sudo, which Windows has not.
+func StopExitPS(host, id string, exit int, stderr string) error {
+	if exit == 0 || exit == ExitNotRunning {
+		return StopExit(host, id, exit, stderr)
+	}
+	return out.Errf(out.ExitRemote, "SESSION_STOP_FAILED",
+		"look with `komando exec TARGET --attach ID`: it reads how the run is doing; a login that is not the starter's may not end its processes",
+		"%s: session %s was not stopped (exit %d): %s", host, id, exit, strings.TrimSpace(stderr))
+}

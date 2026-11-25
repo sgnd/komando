@@ -136,3 +136,12 @@ func BeginScriptPS(s StartPS, recs []*store.ExecSession) (string, []byte, error)
 	}
 	return "Write-Output 'sweep-begin " + s.ID + "'\n" + SweepPS(recs) + "Write-Output 'sweep-end " + s.ID + "'\n" + start, input, nil
 }
+
+// RemoveExitPS maps a Windows remove's exit as RemoveExit does a Unix
+// one, with the Windows folder hint.
+func RemoveExitPS(host, id string, exit int) error {
+	if exit == ExitUnsafe {
+		return Follow{Host: host, ID: id, Windows: true}.readExit(exit)
+	}
+	return RemoveExit(host, id, exit)
+}
