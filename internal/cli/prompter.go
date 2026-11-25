@@ -315,7 +315,7 @@ func readMaskedLine(cl *call, label string, mask func(string) string) (string, e
 			case c == 3: // Ctrl-C
 				fmt.Fprint(promptW(cl), "\r\n")
 				cl.interrupted = true
-				return "", interruptedErr()
+				return "", kitterm.Interrupted()
 			case c == '\r' || c == '\n' || c == 4 && len(line) == 0:
 				fmt.Fprint(promptW(cl), "\r\n")
 				return string(line), nil

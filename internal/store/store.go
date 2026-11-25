@@ -233,22 +233,33 @@ type Tunnel struct {
 }
 
 type Settings struct {
-	HostKeyPolicy    string   `json:"host_key_policy"` // accept-new | strict | off
-	DefaultUser      string   `json:"default_user,omitempty"`
-	DefaultTimeout   string   `json:"default_timeout"`
-	ConnectTimeout   string   `json:"connect_timeout"`
-	Parallel         int      `json:"parallel"`
-	MaxOutputBytes   int      `json:"max_output_bytes"`
-	ExtraDenyPattern []string `json:"extra_deny_patterns,omitempty"`
-	Audit            bool     `json:"audit"`
-	AuditSQL         string   `json:"audit_sql"`                    // full | hash | off: how SQL text is kept in the audit log
-	VpnIdle          string   `json:"vpn_idle"`                     // a VPN session unused this long is disconnected
-	LoginFor         string   `json:"login_for"`                    // how long `komando login SERVER` keeps a server's login
-	ApprovalCode     bool     `json:"approval_code,omitempty"`      // the approval window asks for a TOTP code
-	ApprovalCodeStep int64    `json:"approval_code_step,omitempty"` // the last 30 s step whose code was accepted: it is not taken again
-	AuditSyslog      string   `json:"audit_syslog,omitempty"`       // also send audit records to this log server (udp://, tcp://, tls://)
-	MaskPersonal     string   `json:"mask_personal,omitempty"`      // protected | all | off: where AI agents see personal data hidden
-	ApprovalLanguage string   `json:"approval_language,omitempty"`  // auto | en | id: the approval window's words
+	HostKeyPolicy    string    `json:"host_key_policy"` // accept-new | strict | off
+	DefaultUser      string    `json:"default_user,omitempty"`
+	DefaultTimeout   string    `json:"default_timeout"`
+	ConnectTimeout   string    `json:"connect_timeout"`
+	Parallel         int       `json:"parallel"`
+	MaxOutputBytes   int       `json:"max_output_bytes"`
+	ExtraDenyPattern []string  `json:"extra_deny_patterns,omitempty"`
+	RulesOff         []RuleOff `json:"rules_off,omitempty"` // rules a person switched off (policy edit)
+	Audit            bool      `json:"audit"`
+	AuditSQL         string    `json:"audit_sql"`                    // full | hash | off: how SQL text is kept in the audit log
+	VpnIdle          string    `json:"vpn_idle"`                     // a VPN session unused this long is disconnected
+	LoginFor         string    `json:"login_for"`                    // how long `komando login SERVER` keeps a server's login
+	ApprovalCode     bool      `json:"approval_code,omitempty"`      // the approval window asks for a TOTP code
+	ApprovalCodeStep int64     `json:"approval_code_step,omitempty"` // the last 30 s step whose code was accepted: it is not taken again
+	AuditSyslog      string    `json:"audit_syslog,omitempty"`       // also send audit records to this log server (udp://, tcp://, tls://)
+	MaskPersonal     string    `json:"mask_personal,omitempty"`      // protected | all | off: where AI agents see personal data hidden
+	ApprovalLanguage string    `json:"approval_language,omitempty"`  // auto | en | id: the approval window's words
+}
+
+// RuleOff switches one policy rule off: on every server, or only on the
+// servers HostIDs names by record ID (a group is read into its servers when
+// the switch is made; Groups keeps its name as a label).
+type RuleOff struct {
+	Rule       string   `json:"rule"`
+	Everywhere bool     `json:"everywhere,omitempty"`
+	HostIDs    []string `json:"host_ids,omitempty"`
+	Groups     []string `json:"groups,omitempty"`
 }
 
 func DefaultSettings() Settings {
