@@ -146,7 +146,8 @@ func mountLeaves(root *cobra.Command, leaves []capability.Leaf, hs map[capabilit
 			return fmt.Errorf("%s: the leaf has no Short text", l.Key)
 		}
 		for _, o := range l.Options {
-			if root.PersistentFlags().Lookup(o.Name) != nil {
+			// a local flag of that name would shadow the root's gate flag
+			if root.PersistentFlags().Lookup(o.Name) != nil || o.Name == "help" {
 				return fmt.Errorf("%s: --%s is a global flag; the root reads it for every command", l.Key, o.Name)
 			}
 		}
@@ -158,6 +159,9 @@ func mountLeaves(root *cobra.Command, leaves []capability.Leaf, hs map[capabilit
 		parent := root
 		for i, w := range words[:len(words)-1] {
 			next := childNamed(parent, w)
+			if next == nil && wordUsed(parent, w) {
+				return fmt.Errorf("%s: %q is already a command's alias there", l.Key, strings.Join(words[:i+1], " "))
+			}
 			if next == nil {
 				path := strings.Join(words[:i+1], " ")
 				text := groups[path]
@@ -169,8 +173,10 @@ func mountLeaves(root *cobra.Command, leaves []capability.Leaf, hs map[capabilit
 			}
 			parent = next
 		}
-		if childNamed(parent, words[len(words)-1]) != nil {
-			return fmt.Errorf("%s: today's tree already has %q", l.Key, strings.Join(words, " "))
+		for _, w := range append([]string{words[len(words)-1]}, l.Synonyms...) {
+			if wordUsed(parent, w) {
+				return fmt.Errorf("%s: %q is already a command's name or alias under %q", l.Key, w, parent.CommandPath())
+			}
 		}
 		parent.AddCommand(buildLeaf(l, h))
 	}
@@ -188,6 +194,11 @@ func commandWithID(c *cobra.Command, id string) *cobra.Command {
 		}
 	}
 	return nil
+}
+
+// wordUsed says whether a child of c is called w or has w as an alias.
+func wordUsed(c *cobra.Command, w string) bool {
+	return slices.ContainsFunc(c.Commands(), func(s *cobra.Command) bool { return s.Name() == w || slices.Contains(s.Aliases, w) })
 }
 
 // childNamed is c's child called name (not an alias), or nil.
