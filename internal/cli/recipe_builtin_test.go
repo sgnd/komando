@@ -144,6 +144,8 @@ func TestSnippetSamplesMatchGoldens(t *testing.T) {
 		{"facts", "centos7", false, nil},
 		{"facts", "windows", true, nil},
 		{"facts-only", "debian", false, nil},
+		{"pkg-upgradable", "apt", false, nil},
+		{"pkg-upgradable", "apk", false, nil},
 	} {
 		t.Run(c.name+"/"+c.family, func(t *testing.T) {
 			b, ok := byName[c.name]
@@ -156,7 +158,11 @@ func TestSnippetSamplesMatchGoldens(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			rs := startReplayServerWith(t, nil, replayStep{stdout: string(in)})
+			step := replayStep{stdout: string(in)}
+			if e, err := os.ReadFile(filepath.Join(dir, c.family+".err")); err == nil {
+				step.stderr = string(e)
+			}
+			rs := startReplayServerWith(t, nil, step)
 			if c.windows {
 				if err := store.Update(store.Save(), func(st *store.State) error { st.Hosts["dev"].OS = store.OSWindows; return nil }); err != nil {
 					t.Fatal(err)
@@ -260,10 +266,14 @@ func TestSnippetFilledLikeTheReplacedCommand(t *testing.T) {
 	}
 }
 
-// previewReads are the dry-run previews rule 3.8 rates as reads (decided
-// by the chief with apps N9, accepted in Audit's delta read): the static
-// rating of a command line does not read --dry-run.
-var previewReads = map[string]bool{"docker prune --dry-run": true, "fs write --dry-run": true}
+// previewReads are the command lines a written rule rates as reads where
+// the static rating of a line gives the worst case: a dry-run preview
+// that only reads (rule 3.8, decided by the chief with apps N9, accepted
+// in Audit's delta read), and a command whose tier depends on a flag
+// without it (rule 3.1: --refresh makes pkg upgradable and pkg security a
+// change, and pkg-security-refresh keeps the change).
+var previewReads = map[string]bool{"docker prune --dry-run": true, "fs write --dry-run": true,
+	"pkg upgradable": true, "pkg security": true}
 
 // notWeaker says why b is weaker than the command it replaces, or "".
 func notWeaker(b snippet.Builtin) string {
@@ -283,7 +293,7 @@ func notWeaker(b snippet.Builtin) string {
 	}
 	if previewReads[b.Replaces] {
 		if b.Tier != capability.Read {
-			return fmt.Sprintf("is %v; a preview that only reads is a read (rule 3.8)", b.Tier)
+			return fmt.Sprintf("is %v; this line is a read by its written rule (3.1 or 3.8)", b.Tier)
 		}
 	} else if today := riskOfLine(line); int(b.Tier) < int(today.tier) {
 		return fmt.Sprintf("is %v, weaker than %q at %v", b.Tier, b.Replaces, today.tier)
@@ -319,6 +329,11 @@ func TestSnippetNotWeaker(t *testing.T) {
 	prune.Replaces = "docker prune"
 	if notWeaker(prune) == "" {
 		t.Error("a read snippet replacing docker prune (no --dry-run) passed")
+	}
+	refresh := production("pkg-security-refresh")
+	refresh.Tier = capability.Read
+	if notWeaker(refresh) == "" {
+		t.Error("pkg-security-refresh at read tier passed: --refresh is a change")
 	}
 	prune = production("docker-prune-preview")
 	prune.Tier = capability.Change
@@ -1044,5 +1059,151 @@ func TestSnippetLogsValues(t *testing.T) {
 			t.Errorf("%q ran %q", args, rs.execs)
 		}
 		rs.mu.Unlock()
+	}
+}
+
+// pkg-security and pkg-security-refresh run today's script cut before its
+// apply branch, and give today's row without host, ok and the apply fields.
+func TestSnippetPkgSecurity(t *testing.T) {
+	withSnippets(t, registered()...)
+	for _, c := range []struct{ name, family string }{
+		{"pkg-security", "apt"}, {"pkg-security-refresh", "apt"},
+	} {
+		t.Run(c.name+"/"+c.family, func(t *testing.T) {
+			dir := filepath.Join("testdata", "snippets", c.name)
+			in, err := os.ReadFile(filepath.Join(dir, c.family+".in"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			step := replayStep{stdout: string(in)}
+			if e, err := os.ReadFile(filepath.Join(dir, c.family+".err")); err == nil {
+				step.stderr = string(e)
+			}
+			rs := startReplayServerWith(t, nil, step)
+			raw, _ := snippetData(t, c.name, "dev")
+			var golden struct {
+				Data struct {
+					Results []json.RawMessage `json:"results"`
+				} `json:"data"`
+			}
+			gb, err := os.ReadFile(filepath.Join(dir, c.family+".out.json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := json.Unmarshal(gb, &golden); err != nil || len(golden.Data.Results) != 1 {
+				t.Fatalf("golden: %v", err)
+			}
+			var today map[string]any
+			_ = json.Unmarshal(golden.Data.Results[0], &today)
+			var d struct {
+				OK     bool            `json:"ok"`
+				Result json.RawMessage `json:"result"`
+				Error  *out.Error      `json:"error"`
+			}
+			_ = json.Unmarshal(raw, &d)
+			if d.OK != (today["ok"] == true) {
+				t.Fatalf("ok %v, today %v: %s", d.OK, today["ok"], raw)
+			}
+			if te, _ := today["error"].(map[string]any); te != nil {
+				if d.Error == nil || d.Error.Code != te["code"] || d.Error.Message != te["message"] {
+					t.Fatalf("error %v, today %v", d.Error, te)
+				}
+			} else {
+				var mine map[string]any
+				_ = json.Unmarshal(d.Result, &mine)
+				for _, k := range []string{"host", "ok", "error", "stderr", "duration_ms"} {
+					delete(today, k)
+				}
+				if g, w := slices.Sorted(maps.Keys(mine)), slices.Sorted(maps.Keys(today)); !slices.Equal(g, w) {
+					t.Fatalf("keys %v, today's %v", g, w)
+				}
+				var want pkgSecResult
+				if err := json.Unmarshal(golden.Data.Results[0], &want); err != nil {
+					t.Fatal(err)
+				}
+				var wb bytes.Buffer
+				enc := json.NewEncoder(&wb)
+				enc.SetEscapeHTML(false)
+				_ = enc.Encode(want)
+				if g, w := compact(t, d.Result), strings.TrimSpace(wb.String()); g != w {
+					t.Errorf("result\n got:  %s\n want: %s", g, w)
+				}
+			}
+			rs.mu.Lock()
+			sent := strings.Join(rs.sent, "\n")
+			rs.mu.Unlock()
+			if !strings.HasPrefix(sent, "sudo -n sh -c ") || strings.Contains(sent, "only-upgrade -o DPkg") || strings.Contains(sent, "rmdir") {
+				t.Errorf("sent the apply branch or without sudo:\n%s", sent)
+			}
+			refresh := map[bool]string{true: "REFRESH=1", false: "REFRESH=0"}[c.name == "pkg-security-refresh"]
+			if !strings.HasPrefix(sent, "sudo -n sh -c 'ACTION=list "+refresh+" ") {
+				t.Errorf("sent without %s:\n%.80s", refresh, sent)
+			}
+		})
+	}
+}
+
+// The list script is today's script up to its apply branch, which it ends.
+func TestPkgSecListScriptIsTodaysUpToApply(t *testing.T) {
+	for _, refresh := range []bool{false, true} {
+		today, mine := pkgSecScript(false, refresh, true), pkgSecListScript(refresh)
+		cut := strings.TrimSuffix(mine, "exit 0\n")
+		if !strings.HasPrefix(today, cut) || cut == mine || !strings.HasPrefix(today[len(cut):], pkgSecApplyLine) {
+			t.Errorf("refresh=%v: the list script is not today's script cut at its apply line", refresh)
+		}
+		if hits := policy.Check(mine, nil); len(hits) > 0 {
+			t.Errorf("refresh=%v: the list script hits %v", refresh, hits)
+		}
+	}
+}
+
+// An unknown package manager is an error the app reads, not a skipped host.
+func TestSnippetPkgSecurityUnsupported(t *testing.T) {
+	withSnippets(t, registered()...)
+	startReplayServerWith(t, nil, replayStep{stdout: "#komando:unsupported\nportage\n"})
+	_, e := snippetData(t, "pkg-security", "dev")
+	if e == nil || e.Code != "SECURITY_UNSUPPORTED" {
+		t.Fatalf("got %v, want SECURITY_UNSUPPORTED", e)
+	}
+}
+
+// pkg-security fails as today's command does, and warns as it does when
+// the updates would remove a package the server needs.
+func TestSnippetPkgSecurityFailsAndWarns(t *testing.T) {
+	withSnippets(t, registered()...)
+	startReplayServerWith(t, nil, replayStep{exit: 1, stderr: "E: the package lists are broken"})
+	if _, e := snippetData(t, "pkg-security", "dev"); e == nil || e.Code != "PKG_FAILED" {
+		t.Fatalf("got %v, want PKG_FAILED", e)
+	}
+	in, err := os.ReadFile(filepath.Join("testdata", "snippets", "pkg-security", "apt.in"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	i := strings.Index(string(in), "#komando:removes")
+	if i < 0 {
+		t.Fatal("no removes section in the S0 input")
+	}
+	startReplayServerWith(t, nil, replayStep{stdout: string(in[:i]) + "#komando:removes\nlibc6\n"})
+	raw, e := snippetData(t, "pkg-security", "dev")
+	var d struct {
+		Result pkgSecResult `json:"result"`
+	}
+	_ = json.Unmarshal(raw, &d)
+	if e != nil || len(d.Result.Warnings) != 1 || !strings.Contains(d.Result.Warnings[0], "libc6") || !slices.Contains(d.Result.WouldRemove, "libc6") {
+		t.Fatalf("got %v %s, want the libc6 warning", e, raw)
+	}
+}
+
+// pkg-upgradable warns as today when the package index is old.
+func TestSnippetPkgUpgradableStaleIndex(t *testing.T) {
+	withSnippets(t, registered()...)
+	startReplayServerWith(t, nil, replayStep{stderr: "# package-manager: apt\n# index-age: 259200\n"})
+	raw, e := snippetData(t, "pkg-upgradable", "dev")
+	var d struct {
+		Warnings []string `json:"warnings"`
+	}
+	_ = json.Unmarshal(raw, &d)
+	if e != nil || len(d.Warnings) != 1 {
+		t.Fatalf("got %v %s, want today's stale index warning", e, raw)
 	}
 }
