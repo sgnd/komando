@@ -54,6 +54,10 @@ var tierRuns = []tierRun{
 	{"host ssh edit --proxy-command dynamic dangerous", "host.edit", []string{"dev", "--proxy-command", "rm -rf /"}, false},
 	// safety
 	{"policy remove safety", "policy.rm", []string{"kubectl apply"}, false},
+	{"policy edit --off safety", "policy.edit", []string{"docker-prune", "--off"}, false},
+	{"policy edit --add-server safety", "policy.edit", []string{"docker-prune", "--off", "--add-server", "dev"}, false},
+	{"policy edit --add-group safety", "policy.edit", []string{"docker-prune", "--off", "--add-group", "g1"}, false},
+	{"floor", "policy.edit", []string{"docker-prune", "--rm-server", "dev"}, false},
 	{"config set dynamic safety", "config.set", []string{"audit", "false"}, false},
 	{"vpn edit --mfa=false safety", "vpn.edit", []string{"wg", "--mfa=false"}, false},
 	{"host tunnel start dynamic safety", "tunnel.start", []string{"dev", "-L", "0.0.0.0:15432:localhost:5432"}, false},
