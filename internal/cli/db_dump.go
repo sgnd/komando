@@ -2,7 +2,6 @@ package cli
 
 import (
 	"bufio"
-	"cmp"
 	"compress/gzip"
 	"context"
 	"errors"
@@ -268,8 +267,16 @@ func runDump(cl *call, ctx context.Context, connExpr, to, on string, o dumpOpts)
 	if err != nil {
 		return err
 	}
-	if err := cmp.Or(dumpTarget(cl, c, to), guardRawCopy(cl, st, c, "a dump"), guardAgentCopy(cl, st, c, "a dump")); err != nil {
-		return err
+	// one after the other: the first stop wins, and a later check runs only
+	// when the earlier ones let the dump go on (Audit A-C424-2)
+	for _, check := range []func() error{
+		func() error { return dumpTarget(cl, c, to) },
+		func() error { return guardRawCopy(cl, st, c, "a dump") },
+		func() error { return guardAgentCopy(cl, st, c, "a dump") },
+	} {
+		if err := check(); err != nil {
+			return err
+		}
 	}
 	data := transferData{Conn: c.Name, File: to, RunsOn: "local", DryRun: cl.dryRun()}
 	rec := map[string]any{"conns": []string{c.Name}, "file": to}
