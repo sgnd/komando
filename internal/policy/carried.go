@@ -25,6 +25,7 @@ var carriedRules = []struct {
 	{"docker-kill", "stops containers or services, or changes the swarm (kill, scale to 0, swarm, node)", func(c simpleCommand) bool { return dockerRating(c) == "kill" }},
 	{"docker-host", "gives a container the server (privileged, host namespaces, system folders, plugins)", func(c simpleCommand) bool { return dockerRating(c) == "host" }},
 	{"pkg-remove-essential", "removes a package the server needs (ssh, sudo, systemd, libc ...), which can lock you out or break it", removesEssential},
+	{"pkg-implicit-remove", "upgrades or cleans up in a way that removes packages it does not name (dist-upgrade, full-upgrade, autoremove, distro-sync)", removesImplicitly},
 	{"container-shell", "opens a shell, interpreter or database client in a container, or feeds one input (what it runs cannot be checked)", containerShell},
 	{"kubectl-scale-zero", "scales a kubernetes workload to zero (an outage)", kubectlScalesToZero},
 }
@@ -180,6 +181,39 @@ func withoutValues(args []string, names ...string) []string {
 func removesEssential(c simpleCommand) bool {
 	names, _ := removedPackages(c)
 	return slices.ContainsFunc(names, EssentialPackage)
+}
+
+// implicitRemoveVerbs are the verbs of each package manager that remove
+// packages the command does not name; implicitRemoveOpts are the options
+// that make any verb do so.
+var (
+	implicitRemoveVerbs = map[string][]string{
+		"apt":    {"dist-upgrade", "full-upgrade", "autoremove", "auto-remove", "autopurge"},
+		"zypper": {"dist-upgrade", "dup"},
+		"dnf":    {"distro-sync", "distrosync", "distribution-synchronization", "dsync", "autoremove"},
+	}
+	implicitRemoveOpts = map[string][]string{
+		"apt": {"--autoremove", "--auto-remove"},
+		"dnf": {"--allowerasing"},
+	}
+)
+
+// removesImplicitly: apt dist-upgrade, full-upgrade and autoremove, dnf
+// distro-sync and autoremove, zypper dist-upgrade, and --autoremove or
+// --allowerasing on any verb.
+func removesImplicitly(c simpleCommand) bool {
+	family := map[string]string{"apt": "apt", "apt-get": "apt", "aptitude": "apt", "dnf": "dnf", "yum": "dnf",
+		"microdnf": "dnf", "tdnf": "dnf", "zypper": "zypper"}[c.name()]
+	if family == "" {
+		return false
+	}
+	args := withoutValues(c.args[1:], "-o", "-c", "-t", "--option", "--config-file", "--target-release", "-X", "--repo",
+		"--enablerepo", "--disablerepo", "--root", "-R", "--installroot", "--releasever", "--setopt")
+	if hasOption(args, implicitRemoveOpts[family]...) {
+		return true
+	}
+	ops := operands(args)
+	return len(ops) > 0 && slices.Contains(implicitRemoveVerbs[family], strings.ToLower(ops[0]))
 }
 
 // containerShell: a command in a container that reads its commands from a
