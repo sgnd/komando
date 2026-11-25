@@ -192,13 +192,13 @@ var tierUnreached = map[string]string{
 	// the condition needs what a unit run cannot give; the stop is proved there
 	"host ssh test dynamic person | host.test":               "needs a server that asks a second factor",
 	"import dynamic person | import":                         "needs a sealed file from export --sealed, which only a person makes",
-	"ssh-gate person | ssh-gate":                             "sshd starts it with the key's line",
+	"ssh-gate person | ssh-gate":                             "sshd starts it for a key; an agent never runs ssh-gate itself",
 	"update dynamic safety | update":                         "needs a release site",
 	"floor | update":                                         "needs a release site",
 	"config vault keychain dynamic safety | secret.keychain": "tests run with KOMANDO_KEYCHAIN=off",
 	"floor | secret.keychain":                                "tests run with KOMANDO_KEYCHAIN=off; a plain run is the not --off person row",
 	"floor | host.ca.rm":                                     "adding the CA it removes needs a person",
-	"floor | tunnel.stop":                                    "needs a running tunnel",
+	"floor | tunnel.stop":                                    "no stop for an agent: change on an unprotected target",
 	"floor | cluster.add":                                    "a Kubernetes conn comes only from import kubeconfig; a swarm is no conn kind",
 	"floor | queue.purge":                                    "today's queue purge is v2.7's message delete --all: its run is that row",
 	// the table names a stop the handler has no code for (sent to the coordinator)
@@ -233,25 +233,32 @@ var tierDisagree = map[string]string{
 	"storage.link s3 a.txt":                              "SENSITIVE_FILE",
 }
 
+// tierProof is the test that asserts a stop without --dry-run.
+type tierProof struct {
+	test string // the test function
+	via  string // the table variable it runs, when the case sits there
+	cmd  string // the command it runs, when not the one of the key
+	stop string // the code it asserts, when not the one the tier names
+}
+
 // tierProvedBy names, for each run pinned with no stop under --dry-run and
-// each unreached row whose stop a run can meet, the test function that
-// asserts that stop without --dry-run (Audit's low on #550). Each must
-// exist (TestTierMatchesRuntime scans the test files).
-var tierProvedBy = map[string]string{
-	"host.ca.add ca1 --key ca.pub --hosts *.corp.example": "TestHostCAAddNeedsAPerson",
-	"host.trust dev":                                         "TestStandardConfirmTable", // its host trust row: SAFETY_SETTING
-	"import ssh-config ssh_config_rm":                        "TestImportSSHConfigProxyCommandAgent",
-	"import ssh-config ssh_config_nc":                        "TestImportSSHConfigProxyCommandAgent",
-	"host ssh test dynamic person | host.test":               "TestLoginKeepsATwoFactorLogin",
-	"import dynamic person | import":                         "TestSealedNeedsPerson",
-	"ssh-gate person | ssh-gate":                             "TestGateAnswersPinned",
-	"update dynamic safety | update":                         "TestUpdateOlderAgentNeedsWindow",
-	"floor | update":                                         "TestUpdateInstallsNewest",
-	"config vault keychain dynamic safety | secret.keychain": "TestSecretKeychainOff",
-	"floor | secret.keychain":                                "TestSecretKeychainNeedsPerson",
-	"floor | host.ca.rm":                                     "TestHostCAPersonAddsAndAnyoneRemoves",
-	"floor | tunnel.stop":                                    "TestAllWithNames",
-	"floor | cluster.add":                                    "TestClusterAddKind",
+// each unreached row whose stop a run can meet, the test that asserts that
+// stop without --dry-run (Audit's lows on #550). tierProofsExist checks
+// that the test exists and that its body (with the table it runs) names
+// the command and the code.
+var tierProvedBy = map[string]tierProof{
+	"host.ca.add ca1 --key ca.pub --hosts *.corp.example": {test: "TestHostCAAddNeedsAPerson"},
+	"host.trust dev":                                         {test: "TestStandardConfirmTable", via: "agentStops"},
+	"import ssh-config ssh_config_rm":                        {test: "TestImportSSHConfigProxyCommandAgent", stop: "IMPORT_INCOMPLETE"}, // the host is left out
+	"import ssh-config ssh_config_nc":                        {test: "TestImportSSHConfigProxyCommandAgent", stop: "IMPORT_INCOMPLETE"},
+	"host ssh test dynamic person | host.test":               {test: "TestLoginKeepsATwoFactorLogin", cmd: "login"},
+	"import dynamic person | import":                         {test: "TestSealedNeedsPerson"},
+	"update dynamic safety | update":                         {test: "TestUpdateOlderAgentNeedsWindow"},
+	"floor | update":                                         {test: "TestUpdateInstallsNewest"},
+	"config vault keychain dynamic safety | secret.keychain": {test: "TestSecretKeychainOff"},
+	"floor | secret.keychain":                                {test: "TestSecretKeychainNeedsPerson"},
+	"floor | host.ca.rm":                                     {test: "TestHostCAPersonAddsAndAnyoneRemoves"},
+	"floor | cluster.add":                                    {test: "TestClusterAddKind"},
 }
 
 func TestTierMatchesRuntime(t *testing.T) {
@@ -317,7 +324,7 @@ func TestTierMatchesRuntime(t *testing.T) {
 // function exists.
 func tierProofsExist(t *testing.T) {
 	for run, code := range tierDisagree {
-		if code == "" && tierProvedBy[run] == "" {
+		if _, ok := tierProvedBy[run]; code == "" && !ok {
 			t.Errorf("%q shows no stop under --dry-run: name the test that asserts its stop in tierProvedBy", run)
 		}
 	}
@@ -335,15 +342,71 @@ func tierProofsExist(t *testing.T) {
 		}
 		src.Write(b)
 	}
-	for key, fn := range tierProvedBy {
+	for key, pr := range tierProvedBy {
 		_, pinned := tierDisagree[key]
 		if _, unreached := tierUnreached[key]; !pinned && !unreached {
 			t.Errorf("tierProvedBy %q names no pinned run or unreached row: remove it", key)
 		}
-		if !strings.Contains(src.String(), "func "+fn+"(t *testing.T)") {
-			t.Errorf("tierProvedBy %q: no test function %s", key, fn)
+		body := goBlock(src.String(), "func "+pr.test+"(t *testing.T)")
+		if body == "" {
+			t.Errorf("tierProvedBy %q: no test function %s", key, pr.test)
+			continue
+		}
+		if pr.via != "" {
+			table := goBlock(src.String(), "var "+pr.via+" = ")
+			if table == "" || !strings.Contains(body, pr.via) {
+				t.Errorf("tierProvedBy %q: %s does not run a table %s", key, pr.test, pr.via)
+			}
+			body += table
+		}
+		cmd, stop := tierProofWant(key, pr)
+		for _, w := range strings.Fields(cmd) {
+			if !strings.Contains(body, `"`+w+`"`) && !strings.Contains(body, cmd) {
+				t.Errorf("tierProvedBy %q: %s does not run %q", key, pr.test, cmd)
+				break
+			}
+		}
+		if stop != "" && !strings.Contains(body, `"`+stop+`"`) {
+			t.Errorf("tierProvedBy %q: %s does not assert %s", key, pr.test, stop)
 		}
 	}
+}
+
+// tierProofWant is the command a proof must run and the code it must
+// assert: from the key (a pinned run, or "row | ID") unless the proof says.
+func tierProofWant(key string, pr tierProof) (cmd, stop string) {
+	if row, id, ok := strings.Cut(key, " | "); ok {
+		cmd, stop = strings.ReplaceAll(id, ".", " "), tierStop(tierRun{row: row})
+	} else {
+		id := strings.Fields(key)[0]
+		cmd = strings.ReplaceAll(id, ".", " ")
+		for _, r := range tierRuns {
+			if r.id+" "+strings.Join(r.args, " ") == key {
+				stop = tierStop(r)
+			}
+		}
+	}
+	if pr.cmd != "" {
+		cmd = pr.cmd
+	}
+	if pr.stop != "" {
+		stop = pr.stop
+	}
+	return cmd, stop
+}
+
+// goBlock is the Go source from head to the end of its block (a line that
+// is only "}" or ")"), or "".
+func goBlock(src, head string) string {
+	i := strings.Index(src, head)
+	if i < 0 {
+		return ""
+	}
+	rest := src[i:]
+	if j := strings.Index(rest, "\n}\n"); j >= 0 {
+		return rest[:j]
+	}
+	return rest
 }
 
 // tierStop is the stop a run's tier names.
