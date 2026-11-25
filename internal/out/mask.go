@@ -72,6 +72,7 @@ func MaskSecrets(s string) string {
 	s = pemBody.ReplaceAllString(s, "[hidden: private key]")
 	s = urlPw.ReplaceAllString(s, "${1}"+Hidden+"@")
 	s = bearer.ReplaceAllString(s, "${1}${2}"+Hidden)
+	s = SQLPasswords(s, hideSQLPassword)
 	s = maskAssign(s)
 	s = maskRedis(s)
 	s = tokens.ReplaceAllString(s, Hidden)
@@ -88,8 +89,9 @@ func maskAssign(s string) string {
 	last := 0
 	for _, m := range idx {
 		name, sep, v := s[m[2]:m[3]], s[m[4]:m[5]], s[m[6]:m[7]]
-		if sep == ":" && strings.EqualFold(name, "secret") || keepValue(name, v) || prose(s, m) {
-			// secret:NAME is a komando reference, [secret:NAME] a hidden value
+		if sep == ":" && strings.EqualFold(name, "secret") || keepValue(name, v) || prose(s, m) || sqlHiddenNext(s, m[7]) {
+			// secret:NAME is a komando reference, [secret:NAME] a hidden value;
+			// PASSWORD = N'[hidden]' and PASSWORD('[hidden]') the SQL pass hid
 			continue
 		}
 		b.WriteString(s[last:m[6]])

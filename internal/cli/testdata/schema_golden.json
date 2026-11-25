@@ -2346,6 +2346,12 @@
         "example": "  komando conn test prod-db\n  komando conn test kind:postgres",
         "flags": [
           {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the kept sessions of the servers named (every server when none is named), instead of testing"
+          },
+          {
             "name": "wait",
             "type": "duration",
             "default": "0",
@@ -5294,6 +5300,12 @@
         ],
         "example": "  komando host test web1\n  komando host test @prod --wait 2m",
         "flags": [
+          {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the kept sessions of the servers named (every server when none is named), instead of testing"
+          },
           {
             "name": "wait",
             "type": "duration",
@@ -9020,12 +9032,18 @@
         "path": "komando test",
         "usage": "komando test TARGET [flags]",
         "short": "Check that servers, conns and VPNs answer and let you in",
-        "long": "Logs in to each server (and checks who it is and whether sudo needs a\npassword), connects to each conn and checks each VPN.\n\n--wait 5m waits for new servers: komando tests again every few seconds\nuntil every target passes or the time is up, for example right after a\ncloud server was created or rebuilt. It does not wait out a changed host\nkey (HOSTKEY_MISMATCH), a refused login (AUTH_FAILED: retrying could get\nyour address banned), a VPN that needs a login, or a local key or secret\nproblem: those fail at once. To wait for the server's own start-up too,\nrun `komando exec TARGET --read-only -- cloud-init status --wait` next.",
+        "long": "Logs in to each server (and checks who it is and whether sudo needs a\npassword), connects to each conn and checks each VPN.\n\n--wait 5m waits for new servers: komando tests again every few seconds\nuntil every target passes or the time is up, for example right after a\ncloud server was created or rebuilt. It does not wait out a changed host\nkey (HOSTKEY_MISMATCH), a refused login (AUTH_FAILED: retrying could get\nyour address banned), a VPN that needs a login, or a local key or secret\nproblem: those fail at once. To wait for the server's own start-up too,\nrun `komando exec TARGET --read-only -- cloud-init status --wait` next.\n\nA server that asks for a password or a two-factor code only a person can\nanswer: when a person runs test at a terminal, komando asks once and keeps\nthe session open for the login_for setting (8 hours). An AI agent's commands\nto that server reuse the session; when it has expired they fail and name\nthis command, and an agent never types a code. --end closes the kept session\nof the servers it names, or of every server when it names none; `komando\nstatus` lists the kept sessions.",
         "aliases": [
           "ping"
         ],
-        "example": "  komando test @prod\n  komando test all\n  komando test @new --wait 5m   # right after creating servers",
+        "example": "  komando test @prod\n  komando test all\n  komando test @new --wait 5m   # right after creating servers\n  komando test --end            # end every kept session",
         "flags": [
+          {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the kept sessions of the servers named (every server when none is named), instead of testing"
+          },
           {
             "name": "wait",
             "type": "duration",
@@ -10271,6 +10289,12 @@
         "example": "  komando vpn test office",
         "flags": [
           {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the kept sessions of the servers named (every server when none is named), instead of testing"
+          },
+          {
             "name": "wait",
             "type": "duration",
             "default": "0",
@@ -10342,8 +10366,8 @@
       {
         "code": "AUTH_FAILED",
         "exit": 4,
-        "example": "… asks … (two-factor login); only a person can answer it, and none is at a terminal here",
-        "hint": "run `komando login SERVER` in a terminal: komando asks you for the code once and keeps the login, so later commands (an AI agent's too) need no code; an AI agent asks the user to run it"
+        "example": "… has no user or password for WinRM",
+        "hint": "WinRM logs in with a user and a password: `komando host edit … --ask-password` (and the user in the address, for example winrm://Administrator@HOST)"
       },
       {
         "code": "AWS_FAILED",
@@ -10781,6 +10805,12 @@
         "exit": 3,
         "example": "no group named …",
         "hint": "run `komando group list` to see groups"
+      },
+      {
+        "code": "GUARD_PATH_MISSING",
+        "exit": 3,
+        "example": "komando cannot tell where its own program is, so it writes no guard hook",
+        "hint": "run komando by its full path, such as `/usr/local/bin/komando guide install`; without a guard: `komando guide install --no-guard`"
       },
       {
         "code": "HELM_RELEASE_NOT_FOUND",
@@ -11622,6 +11652,12 @@
         "hint": "use a database of your own; komando's data is read only through komando's commands (`komando list`, `komando secret list`)"
       },
       {
+        "code": "SESSION_BUSY",
+        "exit": 8,
+        "example": "session … on … is still running",
+        "hint": "stop it first with `komando exec TARGET --attach ID --stop`, then remove it once it has ended"
+      },
+      {
         "code": "SESSION_FOLDER_DENIED",
         "exit": 5,
         "example": "…: ~/.komando or its sessions folder is a link, a file, not the login user's, or others can write it",
@@ -11640,10 +11676,16 @@
         "hint": "list sessions with `komando db activity CONN --all`"
       },
       {
+        "code": "SESSION_PROCESS_MISSING",
+        "exit": 3,
+        "example": "session … on … is not running: its process ended, or its PID belongs to another process now",
+        "hint": "`komando exec TARGET --attach ID` reads how it ended; `komando exec TARGET --attach ID --remove` removes it"
+      },
+      {
         "code": "SESSION_RECORD_MISSING",
         "exit": 3,
         "example": "session … on … was not started from this computer",
-        "hint": "only the computer that started the run can stop it: stop it there; `komando audit` there shows the exec that started it"
+        "hint": "only the computer that started the run can stop it: run `komando exec TARGET --attach ID --stop` there; `komando audit` there shows the exec that started it"
       },
       {
         "code": "SESSION_SPACE_DENIED",
@@ -11656,6 +11698,12 @@
         "exit": 5,
         "example": "…: the run in a session did not start (…)",
         "hint": "the server needs nohup, ps and mkfifo: look with `komando exec TARGET -- command -v setsid nohup ps mkfifo`"
+      },
+      {
+        "code": "SESSION_STOP_FAILED",
+        "exit": 5,
+        "example": "…: session … was not stopped (exit …): …",
+        "hint": "a run started with --sudo is stopped through sudo as the same user; when sudo asks for a password there, give the server its sudo password: `komando host edit TARGET --sudo-ref secret:NAME`"
       },
       {
         "code": "SESSION_WAIT_TIMEOUT",

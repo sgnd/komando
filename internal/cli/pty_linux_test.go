@@ -7,6 +7,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// ioctlGetTermios reads a terminal's settings (termios), as kit/term
+// does: the pty tests look at how komando left the terminal.
+const ioctlGetTermios = unix.TCGETS
+
 // openPTY opens a new pseudo-terminal: the side a terminal window holds
 // (master) and the one a program reads and writes as its terminal.
 func openPTY() (master, tty *os.File, err error) {

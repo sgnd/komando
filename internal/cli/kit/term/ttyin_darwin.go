@@ -1,4 +1,4 @@
-package cli
+package term
 
 import "golang.org/x/sys/unix"
 
@@ -8,8 +8,8 @@ const ioctlGetTermios, ioctlSetTermios = unix.TIOCGETA, unix.TIOCSETA
 // fionread is FIONREAD (_IOR('f', 127, int)): bytes waiting to be read.
 const fionread = 0x4004667f
 
-// typedAhead is how many bytes wait unread on the terminal fd.
-func typedAhead(fd int) int {
+// TypedAhead is how many bytes wait unread on the terminal fd.
+func TypedAhead(fd int) int {
 	n, err := unix.IoctlGetInt(fd, fionread)
 	if err != nil {
 		return 0

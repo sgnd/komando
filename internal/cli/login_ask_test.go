@@ -484,7 +484,7 @@ func TestLoginAskScriptNeedsPerson(t *testing.T) {
 	mustRun(t, "host", "add", "web1", "u@127.0.0.1:"+port, "--login", "ask")
 	trustSSHD(t, "web1", port, key)
 	e := wantCode(t, "NEEDS_PERSON", "exec", "web1", "--read-only", "--", "uptime")
-	if e.Exit != out.ExitPolicy || !strings.Contains(e.Hint, "`komando login web1`") {
+	if e.Exit != out.ExitPolicy || !strings.Contains(e.Hint, "`komando test web1`") {
 		t.Errorf("%+v", e)
 	}
 	if n := tries.Load(); n != 0 {
@@ -504,7 +504,7 @@ func TestLoginAskFirstConnectionNeedsPerson(t *testing.T) {
 	wantCode(t, "NEEDS_PERSON", "test", "web1") // a look command logs in too
 	for range 2 {
 		e := wantCode(t, "NEEDS_PERSON", "exec", "web1", "--read-only", "--", "uptime")
-		if !strings.Contains(e.Message, "has not met web1") || !strings.Contains(e.Hint, "`komando login web1`") || !strings.Contains(e.Message, "nothing was sent") {
+		if !strings.Contains(e.Message, "has not met web1") || !strings.Contains(e.Hint, "`komando test web1`") || !strings.Contains(e.Message, "nothing was sent") {
 			t.Fatalf("%+v", e)
 		}
 	}
@@ -691,18 +691,18 @@ func TestLoginAskAgentStops(t *testing.T) {
 
 	loginWindow(t, "", false, false)
 	e := wantCode(t, "NEEDS_PERSON", "exec", "web1", "--read-only", "--", "uptime")
-	if !strings.Contains(e.Hint, "`komando login web1`") || !strings.Contains(e.Hint, "never ask for the password in the chat") {
+	if !strings.Contains(e.Hint, "`komando test web1`") || !strings.Contains(e.Hint, "never ask for the password in the chat") {
 		t.Errorf("no screen: %+v", e)
 	}
 	texts := loginWindow(t, "", false, true)
 	e = wantCode(t, "DECLINED", "exec", "web1", "--read-only", "--", "uptime")
-	if e.Hint != "do not retry: ask the user to run `komando login web1` in their own terminal" {
+	if e.Hint != "do not retry: ask the user to run `komando test web1` in their own terminal" {
 		t.Errorf("cancel: %+v", e)
 	}
 	// the cool-down: no second window, even for a look command
 	wantCode(t, "DECLINED", "test", "web1")
 	e = wantCode(t, "DECLINED", "exec", "web1", "--read-only", "--", "uptime")
-	if len(*texts) != 1 || !strings.Contains(e.Message, "less than a minute ago") || !strings.Contains(e.Hint, "`komando login web1`") {
+	if len(*texts) != 1 || !strings.Contains(e.Message, "less than a minute ago") || !strings.Contains(e.Hint, "`komando test web1`") {
 		t.Errorf("cool-down: %d windows, %+v", len(*texts), e)
 	}
 	// a rename does not end it

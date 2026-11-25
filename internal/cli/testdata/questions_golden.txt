@@ -306,6 +306,7 @@ title: Show all settings of a conn (secrets as references, never values)
 title: Check that conns answer and let you in
 - arg0 | Target (conns) | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the kept sessions of the servers named (every server when none is named), instead of testing |  |  | advanced,default,choices
 ### komando cp
 title: Copy files, written SRC DST with TARGET:PATH (upload/download)
 - arg0 | Src | Copy from where? | A file or folder on this computer (./site), or on a server as SERVER:PATH (web1:/var/log/app). | ./site | check
@@ -793,6 +794,7 @@ title: Print the OpenSSH command komando would use for a server (person only)
 title: Check that servers answer and let you in
 - arg0 | Target (servers) | Which servers? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the kept sessions of the servers named (every server when none is named), instead of testing |  |  | advanced,default,choices
 ### komando host trust
 title: Pin the SSH host keys of servers (--reset after a rebuild)
 - arg0 | Target (servers) | Which servers? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
@@ -1387,6 +1389,7 @@ title: Copy a folder one way, sending only new and changed files
 title: Check that servers, conns and VPNs answer and let you in
 - arg0 | Target | Which ones? | A server, conn or VPN from your list, or @group, tag:prod, or several names separated by spaces or commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the kept sessions of the servers named (every server when none is named), instead of testing |  |  | advanced,default,choices
 ### komando tunnel
 title: Background port forwarding: start, see, stop
 ### komando tunnel list
@@ -1532,6 +1535,7 @@ title: Which VPNs are connected, since when, and what uses them
 title: Check that VPNs connect
 - arg0 | Target (VPNs) | Which VPN should be tested? | komando connects through it and says whether it works. |  | choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 30s or 5m: it tests again every few seconds until it works. Leave empty to test once. | 5m | optional,check
+- flag:end | --end | End the kept sessions of the servers named (every server when none is named), instead of testing |  |  | advanced,default,choices
 ### komando vpn up
 title: Connect a VPN now and keep it up
 - arg0 | Name | Which VPN should connect? | It stays up for later commands. When it asks for a login or a code, type it here. |  | choices,check

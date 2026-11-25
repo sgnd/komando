@@ -22,7 +22,7 @@ import (
 // which files may call it. A call moved between guard and guardScript changes
 // both counts here.
 var reviewedCallSites = map[string]int{
-	"guard":         20,
+	"guard":         22,
 	"guardScript":   5,
 	"guardConns":    25, // +1 snippetTierStop (recipe.go): a dangerous built-in snippet, C368 S1-1
 	"confirmObject": 4,
@@ -102,5 +102,98 @@ func TestLowerFirst(t *testing.T) {
 		if got := lowerFirst(in); got != want {
 			t.Errorf("lowerFirst(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+// term.ReadAnswer reads a person's answer at the terminal. The guard counts
+// every such question (noteAsk), so the program reaches it only through
+// cli's readAnswer, which calls noteAsk first. Any other reference fails
+// here: a call, a function value, or a dot-imported name.
+func TestReadAnswerOnlyThroughTheWrapper(t *testing.T) {
+	const termPath = "github.com/sgnd/komando/internal/cli/kit/term"
+	var callers []string
+	firstIsNoteAsk := false
+	fset := token.NewFileSet()
+	err := filepath.WalkDir("../..", func(p string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if d.Name() == "testdata" || strings.HasPrefix(d.Name(), ".") && p != "../.." {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(p, ".go") || strings.HasSuffix(p, "_test.go") {
+			return nil
+		}
+		file, err := parser.ParseFile(fset, p, nil, parser.SkipObjectResolution)
+		if err != nil {
+			return err
+		}
+		termNames := map[string]bool{}
+		for _, imp := range file.Imports {
+			if strings.Trim(imp.Path.Value, `"`) == termPath {
+				name := "term"
+				if imp.Name != nil {
+					name = imp.Name.Name
+				}
+				termNames[name] = true
+			}
+		}
+		// in kit/term itself, or after a dot import, the name stands alone
+		bare := termNames["."] || file.Name.Name == "term" && strings.HasSuffix(filepath.ToSlash(filepath.Dir(p)), "internal/cli/kit/term")
+		for _, decl := range file.Decls {
+			where := "(package level)"
+			var node ast.Node = decl
+			fn, isFunc := decl.(*ast.FuncDecl)
+			if isFunc {
+				if fn.Body == nil {
+					continue
+				}
+				where, node = fn.Name.Name, fn.Body // not its own name
+			}
+			// every reference counts, not only a call: a function value
+			// (f := term.ReadAnswer) would be a call that skips noteAsk
+			var visit func(ast.Node) bool
+			visit = func(n ast.Node) bool {
+				switch e := n.(type) {
+				case *ast.SelectorExpr:
+					if x, ok := e.X.(*ast.Ident); ok && termNames[x.Name] && e.Sel.Name == "ReadAnswer" {
+						callers = append(callers, filepath.ToSlash(p)+": "+where)
+					}
+					ast.Inspect(e.X, visit)
+					return false // e.Sel alone is a field or method name, not this function
+				case *ast.Ident:
+					if bare && e.Name == "ReadAnswer" {
+						callers = append(callers, filepath.ToSlash(p)+": "+where)
+					}
+				}
+				return true
+			}
+			ast.Inspect(node, visit)
+			if !isFunc {
+				continue
+			}
+			if fn.Name.Name == "readAnswer" && file.Name.Name == "cli" && len(fn.Body.List) > 0 {
+				if es, ok := fn.Body.List[0].(*ast.ExprStmt); ok {
+					if c, ok := es.X.(*ast.CallExpr); ok {
+						if id, ok := c.Fun.(*ast.Ident); ok && id.Name == "noteAsk" {
+							firstIsNoteAsk = true
+						}
+					}
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"../../internal/cli/ttyin.go: readAnswer"}; strings.Join(callers, "\n") != strings.Join(want, "\n") {
+		t.Errorf("term.ReadAnswer is named in:\n%s\nwant only in cli's readAnswer, which calls noteAsk first", strings.Join(callers, "\n"))
+	}
+	if !firstIsNoteAsk {
+		t.Error("cli's readAnswer must call noteAsk before anything else")
 	}
 }
