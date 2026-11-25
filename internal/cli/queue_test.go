@@ -37,37 +37,37 @@ func TestQueueKafka(t *testing.T) {
 		t.Errorf("conn test: %v", d)
 	}
 
-	if d := mustRun(t, "--dry-run", "queue", "create", "events", "orders", "--partitions", "2", "--replicas", "1"); d["dry_run"] != true {
+	if d := mustRun(t, "--dry-run", "queue", "kafka", "topic", "create", "events", "orders", "--partitions", "2", "--replicas", "1"); d["dry_run"] != true {
 		t.Errorf("dry-run create: %v", d)
 	}
 	setGate(tcl, false, gateDryRun)
-	if d := mustRun(t, "queue", "ls", "events"); d["count"].(float64) != 0 {
+	if d := mustRun(t, "queue", "kafka", "topic", "list", "events"); d["count"].(float64) != 0 {
 		t.Fatalf("a dry-run create made a topic: %v", d)
 	}
-	mustRun(t, "queue", "create", "events", "orders", "--partitions", "2", "--replicas", "1", "--config", "retention.ms=3600000")
-	wantCode(t, "TOPIC_EXISTS", "queue", "create", "events", "orders")
+	mustRun(t, "queue", "kafka", "topic", "create", "events", "orders", "--partitions", "2", "--replicas", "1", "--config", "retention.ms=3600000")
+	wantCode(t, "TOPIC_EXISTS", "queue", "kafka", "topic", "create", "events", "orders")
 
-	mustRun(t, "queue", "send", "events", "orders", "--value", `{"id": 1}`, "--key", "1", "--partition", "0")
+	mustRun(t, "queue", "kafka", "message", "create", "events", "orders", "--value", `{"id": 1}`, "--key", "1", "--partition", "0")
 	file := filepath.Join(t.TempDir(), "msg.json")
 	os.WriteFile(file, []byte(`{"id": 2}`), 0o600)
-	if d := mustRun(t, "queue", "send", "events", "orders", "--from", file, "--header", "source=test", "--partition", "1"); d["offset"].(float64) != 0 {
+	if d := mustRun(t, "queue", "kafka", "message", "create", "events", "orders", "--from", file, "--header", "source=test", "--partition", "1"); d["offset"].(float64) != 0 {
 		t.Errorf("send --from: %v", d)
 	}
-	wantCode(t, "TOPIC_NOT_FOUND", "queue", "send", "events", "nope", "--value", "x")
-	wantCode(t, "USAGE", "queue", "send", "events", "orders", "--value", "x", "--from", file)
-	wantCode(t, "USAGE", "queue", "send", "events", "orders", "--header", "novalue", "--value", "x")
-	wantCode(t, "HIDDEN_VALUE", "queue", "send", "events", "orders", "--value", "password=[hidden]")
+	wantCode(t, "TOPIC_NOT_FOUND", "queue", "kafka", "message", "create", "events", "nope", "--value", "x")
+	wantCode(t, "USAGE", "queue", "kafka", "message", "create", "events", "orders", "--value", "x", "--from", file)
+	wantCode(t, "USAGE", "queue", "kafka", "message", "create", "events", "orders", "--header", "novalue", "--value", "x")
+	wantCode(t, "HIDDEN_VALUE", "queue", "kafka", "message", "create", "events", "orders", "--value", "password=[hidden]")
 
-	d := mustRun(t, "queue", "peek", "events", "orders")
+	d := mustRun(t, "queue", "kafka", "message", "list", "events", "orders")
 	if d["count"].(float64) != 2 || !strings.Contains(jsonOf(d), `"source":"test"`) {
 		t.Errorf("peek: %v", d)
 	}
-	wantCode(t, "PARTITION_NOT_FOUND", "queue", "peek", "events", "orders", "--partition", "9")
-	wantCode(t, "USAGE", "queue", "peek", "events", "orders", "-n", "0")
-	if d := mustRun(t, "queue", "describe", "events", "orders"); len(d["partitions"].([]any)) != 2 || d["config"].(map[string]any)["retention.ms"] != "3600000" {
+	wantCode(t, "PARTITION_NOT_FOUND", "queue", "kafka", "message", "list", "events", "orders", "--partition", "9")
+	wantCode(t, "USAGE", "queue", "kafka", "message", "list", "events", "orders", "-n", "0")
+	if d := mustRun(t, "queue", "kafka", "topic", "show", "events", "orders"); len(d["partitions"].([]any)) != 2 || d["config"].(map[string]any)["retention.ms"] != "3600000" {
 		t.Errorf("describe: %v", d)
 	}
-	if d := mustRun(t, "queue", "info", "events"); len(d["brokers"].([]any)) != 1 {
+	if d := mustRun(t, "queue", "kafka", "info", "events"); len(d["brokers"].([]any)) != 1 {
 		t.Errorf("info: %v", d)
 	}
 
@@ -79,43 +79,43 @@ func TestQueueKafka(t *testing.T) {
 		t.Fatal(err)
 	}
 	cl.Close()
-	if d := mustRun(t, "queue", "groups", "events"); d["count"].(float64) != 1 {
+	if d := mustRun(t, "queue", "kafka", "consumer", "list", "events"); d["count"].(float64) != 1 {
 		t.Errorf("groups: %v", d)
 	}
-	if d := mustRun(t, "queue", "lag", "events", "billing"); d["lag"].(float64) != 1 {
+	if d := mustRun(t, "queue", "kafka", "consumer", "show", "events", "billing"); d["lag"].(float64) != 1 {
 		t.Errorf("lag: %v", d)
 	}
-	wantCode(t, "CONSUMER_GROUP_NOT_FOUND", "queue", "lag", "events", "nobody")
+	wantCode(t, "CONSUMER_GROUP_NOT_FOUND", "queue", "kafka", "consumer", "show", "events", "nobody")
 
-	if e := wantCode(t, "POLICY_BLOCKED", "queue", "purge", "events", "orders"); !strings.Contains(e.Message, "deletes every message in orders") {
+	if e := wantCode(t, "POLICY_BLOCKED", "queue", "kafka", "message", "delete", "--all", "events", "orders"); !strings.Contains(e.Message, "deletes every message in orders") {
 		t.Errorf("purge names the topic: %s", e.Message)
 	}
-	if e := wantCode(t, "POLICY_BLOCKED", "queue", "rm", "events", "orders", "audit"); !strings.Contains(e.Message, "deletes orders, audit and every message") {
+	if e := wantCode(t, "POLICY_BLOCKED", "queue", "kafka", "topic", "delete", "events", "orders", "audit"); !strings.Contains(e.Message, "deletes orders, audit and every message") {
 		t.Errorf("rm names the topics: %s", e.Message)
 	}
 
 	// a long list is cut at --limit, the first by name, and says so
-	mustRun(t, "queue", "create", "events", "audit", "--partitions", "1", "--replicas", "1")
-	if d := mustRun(t, "queue", "ls", "events", "-n", "1"); d["count"].(float64) != 1 || d["truncated"] != true || d["topics"].([]any)[0].(map[string]any)["name"] != "audit" {
+	mustRun(t, "queue", "kafka", "topic", "create", "events", "audit", "--partitions", "1", "--replicas", "1")
+	if d := mustRun(t, "queue", "kafka", "topic", "list", "events", "-n", "1"); d["count"].(float64) != 1 || d["truncated"] != true || d["topics"].([]any)[0].(map[string]any)["name"] != "audit" {
 		t.Errorf("ls -n 1: %v", d)
 	}
-	if d := mustRun(t, "queue", "ls", "events", "-n", "2"); d["count"].(float64) != 2 || d["truncated"] != nil {
+	if d := mustRun(t, "queue", "kafka", "topic", "list", "events", "-n", "2"); d["count"].(float64) != 2 || d["truncated"] != nil {
 		t.Errorf("ls -n 2: %v", d)
 	}
-	wantCode(t, "USAGE", "queue", "ls", "events", "-n", "0")
-	mustRun(t, "queue", "rm", "events", "audit", "--allow-dangerous")
+	wantCode(t, "USAGE", "queue", "kafka", "topic", "list", "events", "-n", "0")
+	mustRun(t, "queue", "kafka", "topic", "delete", "events", "audit", "--allow-dangerous")
 	setGate(tcl, false, gateAllowDangerous)
-	if d := mustRun(t, "--dry-run", "queue", "purge", "events", "orders"); d["messages"].(float64) != 2 || !strings.Contains(jsonOf(d), "POLICY_BLOCKED") {
+	if d := mustRun(t, "--dry-run", "queue", "kafka", "message", "delete", "--all", "events", "orders"); d["messages"].(float64) != 2 || !strings.Contains(jsonOf(d), "POLICY_BLOCKED") {
 		t.Errorf("dry-run purge: %v", d)
 	}
 	setGate(tcl, false, gateDryRun)
-	mustRun(t, "queue", "purge", "events", "orders", "--allow-dangerous")
+	mustRun(t, "queue", "kafka", "message", "delete", "--all", "events", "orders", "--allow-dangerous")
 	setGate(tcl, false, gateAllowDangerous)
-	if d := mustRun(t, "queue", "peek", "events", "orders"); d["count"].(float64) != 0 {
+	if d := mustRun(t, "queue", "kafka", "message", "list", "events", "orders"); d["count"].(float64) != 0 {
 		t.Errorf("peek after purge: %v", d)
 	}
-	wantCode(t, "POLICY_BLOCKED", "queue", "rm", "events", "orders")
-	mustRun(t, "queue", "rm", "events", "orders", "--allow-dangerous")
+	wantCode(t, "POLICY_BLOCKED", "queue", "kafka", "topic", "delete", "events", "orders")
+	mustRun(t, "queue", "kafka", "topic", "delete", "events", "orders", "--allow-dangerous")
 	setGate(tcl, false, gateAllowDangerous)
 
 	if e := wantCode(t, "NO_MATCHING_TARGETS", "cache", "info", "events"); !strings.Contains(e.Hint, "komando queue") {

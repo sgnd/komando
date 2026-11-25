@@ -92,46 +92,46 @@ func TestQueueNatsLive(t *testing.T) {
 	if d := mustRun(t, "conn", "test", "stream"); !strings.Contains(jsonOf(d), `"check":"login"`) {
 		t.Errorf("conn test: %v", d)
 	}
-	if d := mustRun(t, "queue", "info", "stream"); d["engine"] != "nats" || d["jetstream"] != true {
+	if d := mustRun(t, "queue", "nats", "info", "stream"); d["engine"] != "nats" || d["jetstream"] != true {
 		t.Errorf("info: %v", d)
 	}
-	invRun(t, "queue", "rm", "stream", "KOMANDO_CLI", "--allow-dangerous") // left by an earlier run
+	invRun(t, "queue", "nats", "topic", "delete", "stream", "KOMANDO_CLI", "--allow-dangerous") // left by an earlier run
 	setGate(tcl, false, gateAllowDangerous)
-	if d := mustRun(t, "--dry-run", "queue", "create", "stream", "KOMANDO_CLI", "--config", "subjects=cli.>"); d["dry_run"] != true {
+	if d := mustRun(t, "--dry-run", "queue", "nats", "topic", "create", "stream", "KOMANDO_CLI", "--config", "subjects=cli.>"); d["dry_run"] != true {
 		t.Errorf("dry-run create: %v", d)
 	}
 	setGate(tcl, false, gateDryRun)
-	wantCode(t, "STREAM_NOT_FOUND", "queue", "describe", "stream", "KOMANDO_CLI")
-	wantCode(t, "NOT_SUPPORTED", "queue", "create", "stream", "KOMANDO_CLI", "--partitions", "3")
-	mustRun(t, "queue", "create", "stream", "KOMANDO_CLI", "--config", "subjects=cli.>", "--config", "max_age=1h")
-	wantCode(t, "STREAM_EXISTS", "queue", "create", "stream", "KOMANDO_CLI")
-	if d := mustRun(t, "queue", "send", "stream", "cli.orders", "--value", `{"id": 1}`, "--header", "source=test"); d["sequence"].(float64) != 1 || d["stream"] != "KOMANDO_CLI" {
+	wantCode(t, "STREAM_NOT_FOUND", "queue", "nats", "topic", "show", "stream", "KOMANDO_CLI")
+	wantCode(t, "NOT_SUPPORTED", "queue", "nats", "topic", "create", "stream", "KOMANDO_CLI", "--partitions", "3")
+	mustRun(t, "queue", "nats", "topic", "create", "stream", "KOMANDO_CLI", "--config", "subjects=cli.>", "--config", "max_age=1h")
+	wantCode(t, "STREAM_EXISTS", "queue", "nats", "topic", "create", "stream", "KOMANDO_CLI")
+	if d := mustRun(t, "queue", "nats", "message", "create", "stream", "cli.orders", "--value", `{"id": 1}`, "--header", "source=test"); d["sequence"].(float64) != 1 || d["stream"] != "KOMANDO_CLI" {
 		t.Errorf("send: %v", d)
 	}
-	wantCode(t, "NOT_SUPPORTED", "queue", "send", "stream", "cli.orders", "--value", "x", "--key", "k")
-	wantCode(t, "STREAM_NOT_FOUND", "queue", "send", "stream", "KOMANDO_CLI", "--value", "x")
-	wantCode(t, "HIDDEN_VALUE", "queue", "send", "stream", "cli.orders", "--value", "password=[hidden]")
+	wantCode(t, "NOT_SUPPORTED", "queue", "nats", "message", "create", "stream", "cli.orders", "--value", "x", "--key", "k")
+	wantCode(t, "STREAM_NOT_FOUND", "queue", "nats", "message", "create", "stream", "KOMANDO_CLI", "--value", "x")
+	wantCode(t, "HIDDEN_VALUE", "queue", "nats", "message", "create", "stream", "cli.orders", "--value", "password=[hidden]")
 	for range 2 { // peek takes nothing away
-		d := mustRun(t, "queue", "peek", "stream", "KOMANDO_CLI")
+		d := mustRun(t, "queue", "nats", "message", "list", "stream", "KOMANDO_CLI")
 		if d["count"].(float64) != 1 || d["stream"] != "KOMANDO_CLI" || !strings.Contains(jsonOf(d), `"source":"test"`) {
 			t.Errorf("peek: %v", d)
 		}
 	}
-	if d := mustRun(t, "queue", "ls", "stream", "KOMANDO_*"); d["count"].(float64) != 1 {
+	if d := mustRun(t, "queue", "nats", "topic", "list", "stream", "KOMANDO_*"); d["count"].(float64) != 1 {
 		t.Errorf("ls: %v", d)
 	}
-	if d := mustRun(t, "queue", "groups", "stream"); d["count"] == nil {
+	if d := mustRun(t, "queue", "nats", "consumer", "list", "stream"); d["count"] == nil {
 		t.Errorf("groups: %v", d)
 	}
-	wantCode(t, "CONSUMER_NOT_FOUND", "queue", "lag", "stream", "KOMANDO_CLI/nobody")
-	wantCode(t, "POLICY_BLOCKED", "queue", "purge", "stream", "KOMANDO_CLI")
-	if d := mustRun(t, "--dry-run", "queue", "purge", "stream", "KOMANDO_CLI"); d["messages"].(float64) != 1 {
+	wantCode(t, "CONSUMER_NOT_FOUND", "queue", "nats", "consumer", "show", "stream", "KOMANDO_CLI/nobody")
+	wantCode(t, "POLICY_BLOCKED", "queue", "nats", "message", "delete", "--all", "stream", "KOMANDO_CLI")
+	if d := mustRun(t, "--dry-run", "queue", "nats", "message", "delete", "--all", "stream", "KOMANDO_CLI"); d["messages"].(float64) != 1 {
 		t.Errorf("dry-run purge: %v", d)
 	}
 	setGate(tcl, false, gateDryRun)
-	mustRun(t, "queue", "purge", "stream", "KOMANDO_CLI", "--allow-dangerous")
+	mustRun(t, "queue", "nats", "message", "delete", "--all", "stream", "KOMANDO_CLI", "--allow-dangerous")
 	setGate(tcl, false, gateAllowDangerous)
-	wantCode(t, "POLICY_BLOCKED", "queue", "rm", "stream", "KOMANDO_CLI")
-	mustRun(t, "queue", "rm", "stream", "KOMANDO_CLI", "--allow-dangerous")
+	wantCode(t, "POLICY_BLOCKED", "queue", "nats", "topic", "delete", "stream", "KOMANDO_CLI")
+	mustRun(t, "queue", "nats", "topic", "delete", "stream", "KOMANDO_CLI", "--allow-dangerous")
 	setGate(tcl, false, gateAllowDangerous)
 }

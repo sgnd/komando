@@ -38,8 +38,6 @@ type tierRun struct {
 
 var tierRuns = []tierRun{
 	// dangerous
-	{"queue message delete --all dangerous", "queue.purge", []string{"q", "jobs"}, false},
-	{"queue topic delete dangerous", "queue.rm", []string{"q", "jobs"}, false},
 	{"storage object delete dangerous", "storage.rm", []string{"s3", "a.txt"}, false},
 	{"registry image delete dangerous", "registry.oci.image.delete", []string{"reg", "app:1"}, false},
 	{"registry image prune dangerous", "registry.oci.image.prune", []string{"reg", "app", "--keep", "1"}, false},
@@ -72,7 +70,6 @@ var tierRuns = []tierRun{
 	{"database edit --protected=false safety", "conn.edit", []string{"pg-prot", "--protected=false"}, false},
 	{"cache edit --protected=false safety", "cache.redis.edit", []string{"r-prot", "--protected=false"}, false},
 	{"cache edit --protected=false safety", "cache.memcached.edit", []string{"m-prot", "--protected=false"}, false},
-	{"queue edit --protected=false safety", "conn.edit", []string{"q-prot", "--protected=false"}, false},
 	{"storage edit --protected=false safety", "conn.edit", []string{"s3-prot", "--protected=false"}, false},
 	{"registry edit --protected=false safety", "registry.oci.edit", []string{"reg-prot", "--protected=false"}, false},
 	{"cluster edit --protected=false safety", "conn.edit", []string{"k8s-prot", "--protected=false"}, false},
@@ -146,9 +143,6 @@ var tierRuns = []tierRun{
 	{"floor", "key.revoke", []string{"k1", "dev"}, false},
 	{"floor", "key.rm", []string{"k1"}, false},
 	{"floor", "policy.deny", []string{"curl evil"}, false},
-	{"floor", "queue.add", []string{"q2", "nats://127.0.0.1:1"}, false},
-	{"floor", "queue.create", []string{"q", "t1"}, false},
-	{"floor", "queue.send", []string{"q", "t1", "--value", "hello"}, false},
 	{"floor", "recipe.add", []string{"r2", "uptime"}, false},
 	{"floor", "recipe.rm", []string{"r1"}, false},
 	{"floor", "recipe.run", []string{"r1", "dev"}, false},
@@ -204,7 +198,6 @@ var tierUnreached = map[string]string{
 	"floor | cluster.add":                                    "a Kubernetes conn comes only from import kubeconfig; a swarm is no conn kind",
 	"floor | secret.run":                                     "an agent always meets the row: secret run always hands a secret on",
 	"floor | storage.link":                                   "an agent always meets the row: a link is always --reveal for an agent",
-	"floor | queue.purge":                                    "today's queue purge is v2.7's message delete --all: its run is that row",
 }
 
 // tierDisagree are the runs whose stop is not the one the tier names, with
@@ -217,7 +210,6 @@ var tierDisagree = map[string]string{
 	"conn.edit pg-prot --protected=false":           "PROTECTED_TARGET",
 	"cache.redis.edit r-prot --protected=false":     "PROTECTED_TARGET",
 	"cache.memcached.edit m-prot --protected=false": "PROTECTED_TARGET",
-	"conn.edit q-prot --protected=false":            "PROTECTED_TARGET",
 	"conn.edit s3-prot --protected=false":           "PROTECTED_TARGET",
 	"registry.oci.edit reg-prot --protected=false":  "PROTECTED_TARGET",
 	"conn.edit k8s-prot --protected=false":          "PROTECTED_TARGET",
@@ -589,14 +581,16 @@ func tierSeed(t *testing.T) {
 		st.Conns["pg-prot"] = &store.Conn{Name: "pg-prot", Kind: "postgres", URL: "postgres://u@127.0.0.1:2/app", Protected: true}
 		st.Conns["r-prot"] = &store.Conn{Name: "r-prot", Kind: "redis", URL: "redis://127.0.0.1:3", Protected: true}
 		st.Conns["m-prot"] = &store.Conn{Name: "m-prot", Kind: "memcached", URL: "memcached://127.0.0.1:3", Protected: true}
-		st.Conns["q-prot"] = &store.Conn{Name: "q-prot", Kind: "nats", URL: "nats://127.0.0.1:3", Protected: true}
 		st.Conns["s3-prot"] = &store.Conn{Name: "s3-prot", Kind: "s3", URL: "s3://key@bucket2/p?endpoint=http://127.0.0.1:3", Protected: true}
 		st.Conns["reg-prot"] = &store.Conn{Name: "reg-prot", Kind: "registry", URL: "registry://127.0.0.1:3?tls=false", Protected: true}
 		st.Conns["k8s-prot"] = &store.Conn{Name: "k8s-prot", Kind: "k8s", URL: "k8s://127.0.0.1:3", Protected: true}
 		st.Conns["r"] = &store.Conn{Name: "r", Kind: "redis", URL: "redis://127.0.0.1:1"}
 		st.Conns["m"] = &store.Conn{Name: "m", Kind: "memcached", URL: "memcached://127.0.0.1:1"}
 		st.Conns["s3"] = &store.Conn{Name: "s3", Kind: "s3", URL: "s3://key@bucket/p?endpoint=http://127.0.0.1:1"}
-		st.Conns["q"] = &store.Conn{Name: "q", Kind: "nats", URL: "nats://127.0.0.1:1"}
+		for _, q := range queueTierConns {
+			st.Conns[q.name] = &store.Conn{Name: q.name, Kind: q.provider, URL: q.url}
+			st.Conns[q.name+"-prot"] = &store.Conn{Name: q.name + "-prot", Kind: q.provider, URL: q.url, Protected: true}
+		}
 		st.Conns["reg"] = &store.Conn{Name: "reg", Kind: "registry", URL: "registry://127.0.0.1:1?tls=false"}
 		st.Conns["k8s"] = &store.Conn{Name: "k8s", Kind: "k8s", URL: "k8s://127.0.0.1:1"}
 		st.Vpns["wg"] = &store.Vpn{Name: "wg", Kind: "socks", Address: "127.0.0.1:1080", MFA: true}
@@ -661,4 +655,36 @@ func listenFakeSSH(t *testing.T) int {
 		}
 	}()
 	return s.port
+}
+
+// queueTierConns are one conn of each queue provider: the runs of the queue
+// leaves use the conn of their provider, and its -prot twin where a run
+// names a protected target.
+var queueTierConns = []struct{ name, provider, url string }{
+	{"qk", "kafka", "kafka://127.0.0.1:1"},
+	{"qr", "rabbitmq", "amqp://guest@127.0.0.1:1/"},
+	{"q", "nats", "nats://127.0.0.1:1"},
+	{"qs", "sqs", "sqs://us-east-1?endpoint=http://127.0.0.1:1"},
+	{"qp", "pubsub", "pubsub://test-project?endpoint=http://127.0.0.1:1"},
+}
+
+// The queue runs: today's queue purge, rm, create, send and the edit with
+// --protected=false, once for each provider of the table (moving a type
+// keeps the runs of each of its IDs on every new path).
+func init() {
+	for _, q := range queueTierConns {
+		id := "queue." + q.provider + "."
+		tierRuns = append(tierRuns,
+			tierRun{"queue message delete --all dangerous", id + "message.delete", []string{"--all", q.name, "jobs"}, false},
+			tierRun{"queue topic delete dangerous", id + "topic.delete", []string{q.name, "jobs"}, false},
+			tierRun{"queue edit --protected=false safety", id + "edit", []string{q.name + "-prot", "--protected=false"}, false},
+			tierRun{"floor", id + "add", []string{q.name + "2", q.url}, false},
+			tierRun{"floor", id + "topic.create", []string{q.name, "t1"}, false},
+			tierRun{"floor", id + "message.create", []string{q.name, "t1", "--value", "hello"}, false},
+			tierRun{"floor", id + "edit", []string{q.name, "--notes", "x"}, false},
+			tierRun{"floor", id + "remove", []string{q.name}, false},
+			tierRun{"floor", id + "rename", []string{q.name, q.name + "9"}, false},
+		)
+		tierDisagree[id+"edit "+q.name+"-prot --protected=false"] = "PROTECTED_TARGET"
+	}
 }
