@@ -105,6 +105,10 @@ func checkValue(v Var, val string) error {
 			return out.Errf(out.ExitUsage, "OPTION_LIKE_VAR", "for a path that starts with -, write ./"+val,
 				"the value of %s may not start with '-' (%q would be read as an option)", v.Name, val)
 		}
+	case Number:
+		if !numberRe.MatchString(val) {
+			return out.Usage("the value of %s is not a number: give 1 to 9 digits 0-9", v.Name)
+		}
 	case KubeName:
 		if len(val) > 253 || !dns1123.MatchString(val) {
 			return out.Usage("the value of %s is not a Kubernetes name (DNS-1123: lowercase letters, digits, - and .)", v.Name)
@@ -130,15 +134,18 @@ func Fill(b Builtin, f Family, given map[string]string) (string, error) {
 	if f == Windows {
 		quote, sep = sshx.PSQ, ", " // a list is a PowerShell array
 	}
-	list := map[string]bool{}
+	list, number := map[string]bool{}, map[string]bool{}
 	for _, v := range b.Vars {
-		list[v.Name] = v.List
+		list[v.Name], number[v.Name] = v.List, v.Channel == Number
 		if err := checkFamily(v, f, vals[v.Name]); err != nil {
 			return "", err
 		}
 	}
 	return markerRe.ReplaceAllStringFunc(text, func(m string) string {
 		name := markerRe.FindStringSubmatch(m)[1]
+		if number[name] {
+			return vals[name] // digits only (checkValue): inert to sh and PowerShell
+		}
 		if !list[name] {
 			return quote(vals[name])
 		}
