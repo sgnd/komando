@@ -118,6 +118,66 @@ func TestDrawFitsWidth(t *testing.T) {
 	}
 }
 
+// formStates are the form states the golden screens show.
+func formStates() map[string]*Form {
+	title := "komando database postgres query"
+	start := NewForm(title, testFields(), testLister)
+
+	typedSQL := NewForm(title, testFields(), testLister)
+	fkey(typedSQL, term.KeyEnter)
+	ftyped(typedSQL, "select * from orders")
+
+	needed := NewForm(title, testFields(), testLister)
+	fkey(needed, term.KeyEnter)
+	fkey(needed, term.KeyEnter)
+
+	help := NewForm(title, testFields(), testLister)
+	fkey(help, term.KeyEnter)
+	ftyped(help, "?")
+
+	more := NewForm(title, testFields(), testLister)
+	fkey(more, term.KeyEnter)
+	ftyped(more, "select 1")
+	fkey(more, term.KeyEnter)
+
+	def := NewForm(title, testFields(), testLister)
+	fkey(def, term.KeyEnter)
+	ftyped(def, "select 1")
+	fkey(def, term.KeyEnter)
+	fkey(def, term.KeyDown)
+	fkey(def, term.KeyEnter)
+
+	return map[string]*Form{"form-start": start, "form-typed": typedSQL, "form-needed": needed, "form-help": help, "form-more": more, "form-default": def}
+}
+
+// Each form state at width 80 with colour and at width 60 without.
+func TestDrawFormGolden(t *testing.T) {
+	unicodeMarks(t, true)
+	for sn, f := range formStates() {
+		for yn, s := range drawStyles {
+			golden(t, sn+"-"+yn, DrawForm(f, s))
+		}
+	}
+}
+
+// A form's lines fit the window too, and start with the command's words.
+func TestDrawFormFitsWidth(t *testing.T) {
+	unicodeMarks(t, true)
+	for sn, f := range formStates() {
+		for w := 10; w <= 120; w++ {
+			lines := DrawForm(f, Style{Width: w, Color: true})
+			if !strings.HasPrefix(lines[0], "komando ") && w >= 20 {
+				t.Fatalf("%s width %d: line 1 is %q, want the command's words", sn, w, lines[0])
+			}
+			for i, line := range lines {
+				if got := term.DisplayWidth(escapes.ReplaceAllString(line, "")); got > min(w, 80) {
+					t.Fatalf("%s width %d line %d is %d wide: %q", sn, w, i, got, line)
+				}
+			}
+		}
+	}
+}
+
 // A narrow window drops whole key hints, the least needed first; the key
 // that stops is always there and no hint is cut in half.
 func TestDrawKeyLineNarrow(t *testing.T) {

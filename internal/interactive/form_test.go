@@ -1,0 +1,179 @@
+package interactive
+
+import (
+	"maps"
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/sgnd/komando/internal/cli/kit/term"
+)
+
+func testFields() []Field {
+	return []Field{
+		{Key: "arg0", Ask: "Which database?", Pick: "db", Required: true},
+		{Key: "arg1", Ask: "Which SQL?", Help: "one statement", Required: true},
+		{Key: "flag:limit", Ask: "How many rows at most?", Default: "100", Advanced: true},
+		{Key: "flag:format", Ask: "Which format?", Choices: []string{"table", "csv"}, Advanced: true},
+	}
+}
+
+func testLister(kind string) []Row {
+	if kind != "db" {
+		return nil
+	}
+	return []Row{{Value: "orders", Label: "orders"}, {Value: "users", Label: "users"}}
+}
+
+func fkey(f *Form, k term.KeyKind) (Result, map[string]string) { return f.Key(term.Key{Kind: k}) }
+
+func ftyped(f *Form, s string) {
+	for _, r := range s {
+		f.Key(term.Key{Kind: term.KeyRune, Rune: r})
+	}
+}
+
+// The required fields come first, in order; Enter takes each answer and
+// moves on; after them the form asks whether to see more options.
+func TestFormFillsInOrder(t *testing.T) {
+	f := NewForm("komando database postgres query", testFields(), testLister)
+	if got := f.Field().Key; got != "arg0" {
+		t.Fatalf("first field %s, want arg0", got)
+	}
+	fkey(f, term.KeyDown) // users
+	fkey(f, term.KeyEnter)
+	ftyped(f, "select 1")
+	fkey(f, term.KeyEnter)
+	if !f.AtMore() {
+		t.Fatalf("after the required fields the form is on %q, want the more-options step", f.Field().Key)
+	}
+	r, a := fkey(f, term.KeyEnter) // the first row: review now
+	if r != Take {
+		t.Fatalf("Enter on review now gave %v", r)
+	}
+	want := map[string]string{"arg0": "users", "arg1": "select 1"}
+	if !maps.Equal(a, want) {
+		t.Errorf("answers %v, want %v", a, want)
+	}
+}
+
+// More options adds the advanced fields; a default stands when Enter is
+// pressed on an empty field, and choices are picked from a list.
+func TestFormMoreOptions(t *testing.T) {
+	f := NewForm("komando database postgres query", testFields(), testLister)
+	fkey(f, term.KeyEnter)
+	ftyped(f, "select 1")
+	fkey(f, term.KeyEnter)
+	fkey(f, term.KeyDown) // more options
+	fkey(f, term.KeyEnter)
+	if got := f.Field().Key; got != "flag:limit" {
+		t.Fatalf("after more options the field is %s, want flag:limit", got)
+	}
+	fkey(f, term.KeyEnter) // the default
+	fkey(f, term.KeyDown)  // csv
+	r, a := fkey(f, term.KeyEnter)
+	if r != Take {
+		t.Fatalf("Enter on the last field gave %v, want Take", r)
+	}
+	want := map[string]string{"arg0": "orders", "arg1": "select 1", "flag:limit": "100", "flag:format": "csv"}
+	if !maps.Equal(a, want) {
+		t.Errorf("answers %v, want %v", a, want)
+	}
+}
+
+// A required field takes no empty answer: the form says why and stays.
+func TestFormRequired(t *testing.T) {
+	f := NewForm("komando database postgres query", testFields(), testLister)
+	fkey(f, term.KeyEnter)
+	if r, _ := fkey(f, term.KeyEnter); r != Stay || f.Field().Key != "arg1" {
+		t.Fatalf("empty Enter on a required field gave %v on %s", r, f.Field().Key)
+	}
+	if f.problem == "" {
+		t.Error("no reason given for the empty required answer")
+	}
+	ftyped(f, "x")
+	if f.problem != "" {
+		t.Errorf("the reason %q stays after typing", f.problem)
+	}
+}
+
+// Tab and Shift-Tab move between fields and keep what was typed.
+func TestFormTab(t *testing.T) {
+	f := NewForm("komando database postgres query", testFields(), testLister)
+	fkey(f, term.KeyTab)
+	ftyped(f, "select 2")
+	fkey(f, term.KeyBackTab)
+	if got := f.Field().Key; got != "arg0" {
+		t.Fatalf("Shift-Tab went to %s, want arg0", got)
+	}
+	fkey(f, term.KeyTab)
+	if got := f.Text(); got != "select 2" {
+		t.Errorf("back on arg1 the text is %q, want select 2", got)
+	}
+	fkey(f, term.KeyBackTab)
+	fkey(f, term.KeyBackTab) // nothing before the first field
+	if got := f.Field().Key; got != "arg0" {
+		t.Errorf("Shift-Tab past the first field went to %s", got)
+	}
+}
+
+// A free pick takes typed text that matches no row (a selector).
+func TestFormFreePick(t *testing.T) {
+	f := NewForm("komando host exec", []Field{{Key: "arg0", Ask: "Which hosts?", Pick: "db", Free: true, Required: true}}, testLister)
+	ftyped(f, "tag:prod")
+	r, a := fkey(f, term.KeyEnter)
+	if r != Take || a["arg0"] != "tag:prod" {
+		t.Errorf("a free pick gave %v %v, want Take tag:prod", r, a)
+	}
+}
+
+// Esc clears what is typed first; on an empty field it is Back (to the
+// menu); Ctrl-C quits at once.
+func TestFormEscAndInterrupt(t *testing.T) {
+	f := NewForm("komando database postgres query", testFields(), testLister)
+	fkey(f, term.KeyEnter)
+	ftyped(f, "select 1")
+	if r, _ := fkey(f, term.KeyEsc); r != Stay || f.Text() != "" {
+		t.Fatalf("Esc with text gave %v and %q", r, f.Text())
+	}
+	if r, _ := fkey(f, term.KeyEsc); r != Back {
+		t.Errorf("Esc on an empty field gave %v, want Back", r)
+	}
+	if r, _ := fkey(f, term.KeyInterrupt); r != Quit {
+		t.Errorf("Ctrl-C gave %v, want Quit", r)
+	}
+}
+
+// Text editing: Backspace, Ctrl-U, a paste on one line; ? on an empty
+// field shows its help.
+func TestFormTextEditing(t *testing.T) {
+	f := NewForm("komando database postgres query", testFields(), testLister)
+	fkey(f, term.KeyTab)
+	ftyped(f, "?")
+	if !f.help || f.Text() != "" {
+		t.Fatalf("? on an empty field: help %v, text %q", f.help, f.Text())
+	}
+	f.Key(term.Key{Kind: term.KeyPaste, Text: "select\n1\tx\x1b"})
+	if got := f.Text(); got != "select 1 x" {
+		t.Errorf("after the paste the text is %q, want lines and tabs as spaces, no control characters", got)
+	}
+	fkey(f, term.KeyBackspace)
+	if got := f.Text(); got != "select 1 " {
+		t.Errorf("after Backspace the text is %q", got)
+	}
+	fkey(f, term.KeyClear)
+	if got := f.Text(); got != "" {
+		t.Errorf("Ctrl-U left %q", got)
+	}
+}
+
+// The answers hold only fields that were given a value.
+func TestFormAnswersSkipEmpty(t *testing.T) {
+	f := NewForm("komando x", []Field{{Key: "arg0", Ask: "Name?"}, {Key: "flag:note", Ask: "Note?"}}, testLister)
+	ftyped(f, "a")
+	fkey(f, term.KeyEnter)
+	_, a := fkey(f, term.KeyEnter)
+	if keys := slices.Sorted(maps.Keys(a)); strings.Join(keys, ",") != "arg0" {
+		t.Errorf("answers %v, want arg0 only", a)
+	}
+}

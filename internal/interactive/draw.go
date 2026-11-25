@@ -98,6 +98,46 @@ func keyLine(w int, hints ...string) string {
 	}
 }
 
+// DrawForm is the form as lines: the command's words, then the field
+// being filled (a list as Draw shows it, or the question with what is
+// typed), then its key line. It only reads f.
+func DrawForm(f *Form, s Style) []string {
+	w := min(s.Width, maxWidth)
+	lines := []string{term.TruncateWidth(term.CleanText(f.Title), w)}
+	if f.more != nil {
+		return append(lines, Draw(f.more, s)...)
+	}
+	if l := f.list(); l != nil {
+		return append(lines, Draw(l, s)...)
+	}
+	x, t := f.Field(), f.Text()
+	q := x.Ask + " " + t
+	switch {
+	case t == "" && x.Default != "":
+		q = x.Ask + " [" + x.Default + "]"
+	case t == "":
+		q = x.Ask
+	}
+	lines = append(lines, term.TruncateWidth(q, w))
+	if f.help {
+		help := x.Help
+		if help == "" {
+			help = "no help for this question"
+		}
+		for _, h := range wrap(help, w-2) {
+			lines = append(lines, "  "+h)
+		}
+	}
+	if f.problem != "" {
+		lines = append(lines, term.TruncateWidth("  ! "+f.problem, w))
+	}
+	esc := "Esc back"
+	if t != "" {
+		esc = "Esc clear"
+	}
+	return append(lines, keyLine(w, "Enter next", esc, "Tab skip", "? help", "Ctrl-C stop"))
+}
+
 // under is the line below the rows: why there are none, or how many more
 // there are; "" when there is nothing to say.
 func (l *List) under(n int) string {
