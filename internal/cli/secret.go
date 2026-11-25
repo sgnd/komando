@@ -3,9 +3,7 @@ package cli
 import (
 	"errors"
 	"fmt"
-	"net/url"
 	"slices"
-	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -49,21 +47,6 @@ func secretNames() []string {
 		}
 	}
 	return n
-}
-
-// protectedUsers are the protected servers, conns and VPNs among users.
-func protectedUsers(st *store.State, users []string) []string {
-	var prot []string
-	for _, u := range users {
-		kind, name, _ := strings.Cut(u, " ")
-		switch {
-		case kind == "host" && st.Hosts[name] != nil && st.Hosts[name].Protected,
-			kind == "conn" && st.Conns[name] != nil && st.Conns[name].Protected,
-			kind == "vpn" && st.Vpns[name] != nil && st.Vpns[name].Protected:
-			prot = append(prot, u)
-		}
-	}
-	return prot
 }
 
 // reservedSecret refuses the secrets komando keeps for itself: the approval
@@ -281,10 +264,10 @@ are not changed.`
 				return err
 			}
 			res := map[string]any{"from": from, "to": to, "ref": "secret:" + to, "replaced": replaced}
-			if cl.flags.dryRun {
+			if cl.dryRun() {
 				res[map[bool]string{true: "would_move", false: "would_copy"}[move]] = true
 				if move {
-					res["would_update"] = orEmpty(secretUsers(st, from))
+					res["would_update"] = orEmpty(inventory.SecretUsers(st, from))
 				}
 				cl.out.Print(command, textAs{res, secretCopyText(cl, move, res)}, nil)
 				return nil
@@ -352,7 +335,7 @@ func moveSecret(cl *call, from, to string, overwrite bool) ([]string, error) {
 	var updated []string
 	renamed := false
 	err := storeUpdate(cl, func(s *store.State) error {
-		updated = renameSecretRefs(s, from, to)
+		updated = inventory.RenameSecretRefs(s, from, to)
 		if err := vault.Rename(cl.storeWrite(), from, to, overwrite); err != nil {
 			return err
 		}
@@ -367,166 +350,6 @@ func moveSecret(cl *call, from, to string, overwrite bool) ([]string, error) {
 		_ = vault.Rename(cl.storeWrite(), to, from, false)
 	}
 	return updated, err
-}
-
-// secretUsers lists the servers, conns, keys and VPNs whose references point
-// at the vault secret name.
-func secretUsers(st *store.State, name string) []string {
-	return walkSecretRefs(st, name, "")
-}
-
-// renameSecretRefs points every reference to secret:from at secret:to and
-// returns what it changed.
-func renameSecretRefs(st *store.State, from, to string) []string {
-	return walkSecretRefs(st, from, to)
-}
-
-// walkSecretRefs finds every reference to secret:name in the state - the
-// password, sudo and passphrase refs, a server's environment variables and
-// WinRM CA (?ca=secret:NAME), a conn URL's options (?ca=secret:NAME) and
-// a VPN's key, preshared key and config - and, when rename is set, points
-// it at secret:rename.
-func walkSecretRefs(st *store.State, name, rename string) []string {
-	ref := "secret:" + name
-	now := time.Now().UTC()
-	users := map[string]bool{}
-	visit := func(user string, touch func(), ps ...*string) {
-		hit := false
-		for _, p := range ps {
-			if *p == ref {
-				hit = true
-				if rename != "" {
-					*p = "secret:" + rename
-				}
-			}
-		}
-		if hit {
-			users[user] = true
-			if rename != "" && touch != nil {
-				touch()
-			}
-		}
-	}
-	for _, h := range st.Hosts {
-		ps := []*string{&h.PasswordRef, &h.SudoRef}
-		if h.WinRMOpts != nil {
-			ps = append(ps, &h.WinRMOpts.CA) // winrm://...?ca=secret:NAME
-		}
-		env := make([]string, 0, len(h.Env))
-		for k := range h.Env {
-			env = append(env, k)
-		}
-		sort.Strings(env)
-		vals := make([]string, len(env))
-		for i, k := range env {
-			vals[i] = h.Env[k]
-			ps = append(ps, &vals[i])
-		}
-		visit("host "+h.Name, func() { h.UpdatedAt = now }, ps...)
-		for i, k := range env {
-			h.Env[k] = vals[i]
-		}
-	}
-	for _, c := range st.Conns {
-		visit("conn "+c.Name, func() { c.UpdatedAt = now }, &c.PasswordRef)
-		// a URL option such as a registry's ?ca=secret:NAME
-		if u, hit := renameURLSecretRefs(c.URL, name, rename); hit {
-			users["conn "+c.Name] = true
-			if rename != "" {
-				c.URL, c.UpdatedAt = u, now
-			}
-		}
-	}
-	for _, k := range st.Keys {
-		visit("key "+k.Name, nil, &k.PassphraseRef)
-	}
-	for _, v := range st.Vpns {
-		visit("vpn "+v.Name, func() { v.UpdatedAt = now }, &v.KeyRef, &v.PSKRef, &v.ConfigRef)
-	}
-	list := make([]string, 0, len(users))
-	for u := range users {
-		list = append(list, u)
-	}
-	sort.Strings(list)
-	return list
-}
-
-// urlSecretRef is a conn URL option whose value is secret:NAME, such as
-// the CA certificate of a registry: ?ca=secret:NAME.
-type urlSecretRef struct{ Option, Name string }
-
-// urlSecretRefs lists the options of a conn URL that name a vault secret,
-// in the order they are written.
-func urlSecretRefs(rawURL string) []urlSecretRef {
-	var refs []urlSecretRef
-	mapURLSecretRefs(rawURL, func(opt, name string) string {
-		refs = append(refs, urlSecretRef{opt, name})
-		return name
-	})
-	return refs
-}
-
-// renameURLSecretRefs reports whether an option of the URL says
-// secret:from and, when to is set, returns the URL with those options
-// saying secret:to. The rest of the URL stays as it was written.
-func renameURLSecretRefs(rawURL, from, to string) (string, bool) {
-	hit := false
-	u := mapURLSecretRefs(rawURL, func(_, name string) string {
-		if name != from {
-			return name
-		}
-		hit = true
-		if to == "" {
-			return name
-		}
-		return to
-	})
-	return u, hit
-}
-
-// mapURLSecretRefs calls fn for every query option of the URL whose value
-// is secret:NAME and writes back the name fn returns. It splits the URL the
-// way net/url does (the query runs from the first ? to the #) and edits
-// the text in place, so options it does not change keep their order and
-// their escaping. Secret names need no escaping (inventory.ValidName).
-func mapURLSecretRefs(rawURL string, fn func(opt, name string) string) string {
-	rest, frag, hasFrag := strings.Cut(rawURL, "#")
-	head, query, ok := strings.Cut(rest, "?")
-	if !ok || query == "" {
-		return rawURL
-	}
-	parts := strings.Split(query, "&")
-	changed := false
-	for i, p := range parts {
-		k, v, ok := strings.Cut(p, "=")
-		if !ok {
-			continue
-		}
-		val, err := url.QueryUnescape(v)
-		if err != nil {
-			continue
-		}
-		name, ok := strings.CutPrefix(val, "secret:")
-		if !ok || name == "" {
-			continue
-		}
-		opt, err := url.QueryUnescape(k)
-		if err != nil {
-			opt = k
-		}
-		if n := fn(opt, name); n != name {
-			parts[i] = k + "=secret:" + n
-			changed = true
-		}
-	}
-	if !changed {
-		return rawURL
-	}
-	u := head + "?" + strings.Join(parts, "&")
-	if hasFrag {
-		u += "#" + frag
-	}
-	return u
 }
 
 func secretKeychainCmd() *cobra.Command {
@@ -553,7 +376,7 @@ unlock it, and an AI agent or a script cannot answer that.`,
 					return err
 				}
 			}
-			if cl.flags.dryRun {
+			if cl.dryRun() {
 				tool, err := vault.KeychainTool()
 				res := map[string]any{"dry_run": true, "would": map[bool]string{false: "move the vault key into the keychain", true: "move the vault key back into store.key"}[off]}
 				if err != nil {
@@ -608,7 +431,7 @@ func secretInUse(name string, users []string) error {
 // secretSetAction says what secret set did, or would do under --dry-run,
 // for the text headline ("stored db-pass", "would replace db-pass").
 func secretSetAction(cl *call, replaced bool) string {
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		return map[bool]string{false: "would_store", true: "would_replace"}[replaced]
 	}
 	return map[bool]string{false: "stored", true: "replaced"}[replaced]
@@ -619,7 +442,7 @@ func secretSetAction(cl *call, replaced bool) string {
 func secretCopyText(cl *call, move bool, res map[string]any) out.Texter {
 	return textFn(func() string {
 		verb := map[bool]string{true: "renamed", false: "copied"}[move]
-		if cl.flags.dryRun {
+		if cl.dryRun() {
 			verb = map[bool]string{true: "would rename", false: "would copy"}[move]
 		}
 		s := fmt.Sprintf("%s secret %v to %v", verb, res["from"], res["to"])
@@ -627,11 +450,11 @@ func secretCopyText(cl *call, move bool, res map[string]any) out.Texter {
 			s += " (its old value replaced)"
 		}
 		users, _ := res["updated"].([]string)
-		if cl.flags.dryRun {
+		if cl.dryRun() {
 			users, _ = res["would_update"].([]string)
 		}
 		if len(users) > 0 {
-			s += "\n  " + map[bool]string{true: "would point at ", false: "now points at "}[cl.flags.dryRun] + res["ref"].(string) + ": " + strings.Join(users, ", ")
+			s += "\n  " + map[bool]string{true: "would point at ", false: "now points at "}[cl.dryRun()] + res["ref"].(string) + ": " + strings.Join(users, ", ")
 		}
 		return s + "\n"
 	})
@@ -650,7 +473,7 @@ func secretCopyStops(cl *call, st *store.State, from, to string, replaced, overw
 	if !replaced {
 		return nil
 	}
-	if prot := protectedUsers(st, secretUsers(st, to)); len(prot) > 0 && !cl.yesOK() && !confirmProtected(cl, prot) {
+	if prot := inventory.ProtectedUsers(st, inventory.SecretUsers(st, to)); len(prot) > 0 && !cl.yesOK() && !confirmProtected(cl, prot) {
 		return cl.policyStop(approvalErr(cl, "PROTECTED_TARGET",
 			"secret "+to+" is used by protected "+strings.Join(prot, ", ")+"; replacing it changes how komando logs in there"))
 	}

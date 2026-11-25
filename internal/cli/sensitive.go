@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/vault"
 )
@@ -89,7 +90,7 @@ func expandSecretRefs(cl *call, s, where string, dollars bool) (string, error) {
 	var err error
 	r := secretRef.ReplaceAllStringFunc(s, func(m string) string {
 		name := secretRef.FindStringSubmatch(m)[1]
-		if cl.isAgent() && cl.flags.dryRun {
+		if cl.isAgent() && cl.dryRun() {
 			return m
 		}
 		v, e := vault.Get(name)
@@ -179,7 +180,7 @@ func localSecret(cl *call, p string) string {
 	if p == "" {
 		return ""
 	}
-	abs, err := filepath.Abs(expandHome(p))
+	abs, err := filepath.Abs(inventory.ExpandHome(p))
 	if err != nil {
 		abs = p
 	}
@@ -301,7 +302,7 @@ func guardLocalRead(cl *call, p string) error {
 
 // revealHint is h, or under --dry-run, why --reveal does not count there.
 func revealHint(cl *call, h string) string {
-	if cl.flags.dryRun && cl.flags.reveal {
+	if cl.dryRun() && cl.reveal() {
 		return "a dry run never asks the user, so --reveal does not count under --dry-run; run it without --dry-run and komando asks the user in a window"
 	}
 	return h
@@ -355,7 +356,7 @@ func readKubeRefFile(cl *call, p string) ([]byte, error) {
 // links compared): an SSH private key, or a credential store other than
 // ~/.kube, is refused; "" otherwise.
 func kubeRefSecret(cl *call, p string) string {
-	abs, err := filepath.Abs(expandHome(p))
+	abs, err := filepath.Abs(inventory.ExpandHome(p))
 	if err != nil {
 		abs = p
 	}

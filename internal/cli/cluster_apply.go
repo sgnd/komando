@@ -121,7 +121,7 @@ the file with ` + "`docker stack config`" + ` on the manager.`,
 // changes, instead of half the file being applied. Without force a field
 // another manager owns stops it (K8S_CONFLICT); force takes it over.
 func kubeApply(cl *call, ctx context.Context, k *kube.Client, conn string, docs []kubeDoc, ns string, force bool) (any, error) {
-	if !cl.flags.dryRun {
+	if !cl.dryRun() {
 		if _, err := applyPass(cl, ctx, k, conn, docs, ns, true, force); err != nil {
 			var oe *out.Error
 			if errors.As(err, &oe) {
@@ -131,7 +131,7 @@ func kubeApply(cl *call, ctx context.Context, k *kube.Client, conn string, docs 
 			return nil, fmt.Errorf("nothing was applied: %w", err)
 		}
 	}
-	return applyPass(cl, ctx, k, conn, docs, ns, cl.flags.dryRun, force)
+	return applyPass(cl, ctx, k, conn, docs, ns, cl.dryRun(), force)
 }
 
 // applyPass applies docs once, as a server dry run (dry) or for real.
@@ -337,7 +337,7 @@ func swarmApply(cl *call, ctx context.Context, t clusterTarget, stack string, fi
 	if esc := composeEscapes(file); esc != "" {
 		risk, why = driver.RiskDestructive, "the stack file: "+esc
 	}
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		st, err := loadState()
 		if err != nil {
 			return err

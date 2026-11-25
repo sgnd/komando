@@ -49,7 +49,7 @@ func (e replaceEdit) on(ctx context.Context, c *sshx.Client) (fsChange, error) {
 		return res, nil
 	}
 	res := fsChange{"path": p, "changed": true, "replacements": pl.n, "diff": unifiedDiff(pl.view, pl.shown, 3)}
-	if e.cl.flags.dryRun {
+	if e.cl.dryRun() {
 		delete(res, "changed")
 		res["would_change"] = true
 		if t, err := resolveLink(e.cl, sc, p); err == nil && t != p {
@@ -131,7 +131,7 @@ Run it with --dry-run first to see each server's diff.`,
 			}
 			e := replaceEdit{cl: cl, path: args[1], oldS: oldS, newS: newS, re: re, all: all, o: o}
 			data, err := runFsFleet(cl, cmd.Context(), st, "fs.replace", args[1], hosts, e.on)
-			if n := data.changedWithBackup(); n > 0 && !cl.flags.dryRun {
+			if n := data.changedWithBackup(); n > 0 && !cl.dryRun() {
 				s := ""
 				if o.sudo {
 					s = " --sudo"

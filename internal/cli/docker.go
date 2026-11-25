@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path"
 	"regexp"
@@ -14,10 +15,12 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
+	"github.com/sgnd/komando/internal/snippet"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -242,15 +245,7 @@ func dockerTableN(cl *call, limit int, headers, fields []string, sortBy ...strin
 		rows := parseJSONLines(h, s)
 		list, ok := rows.([]any)
 		if ok {
-			key := func(r any) string {
-				m, _ := r.(map[string]any)
-				k := ""
-				for _, f := range sortBy {
-					k += str(m[f]) + "\x00"
-				}
-				return k
-			}
-			sort.SliceStable(list, func(i, j int) bool { return key(list[i]) < key(list[j]) })
+			dockerSortRows(list, sortBy...)
 			list = cutRows(cl, list, limit)
 			rows = list
 		}
@@ -275,6 +270,19 @@ func dockerTableN(cl *call, limit int, headers, fields []string, sortBy ...strin
 		}
 		return textTable(headers, cells), nil
 	}
+}
+
+// dockerSortRows sorts docker's rows by the sortBy fields.
+func dockerSortRows(list []any, sortBy ...string) {
+	key := func(r any) string {
+		m, _ := r.(map[string]any)
+		k := ""
+		for _, f := range sortBy {
+			k += str(m[f]) + "\x00"
+		}
+		return k
+	}
+	sort.SliceStable(list, func(i, j int) bool { return key(list[i]) < key(list[j]) })
 }
 
 func parseJSONLines(_ *store.Host, s string) any {
@@ -709,4 +717,62 @@ func dockerListCmds(sudo *bool) []*cobra.Command {
 	}
 	limitFlag(images, &imagesLimit, 0, "images per server")
 	return []*cobra.Command{ps, stats, images}
+}
+
+// errNotJSONLines is a docker list with a line that is not JSON: today's
+// command shows the text, a snippet has no shape for it (design 5.1).
+var errNotJSONLines = errors.New("docker printed a line that is not JSON")
+
+// dockerSnippets are the ready-made snippets of docker ps, images and
+// stats (design 2.1). They move with the host commands' package (M11).
+func dockerSnippets() []snippet.Builtin {
+	list := func(name, verb, text string, sortBy ...string) snippet.Builtin {
+		return snippet.Builtin{
+			Name: name, Type: "host", Replaces: "docker " + verb, Reader: "KomandoCall+Docker.swift:10-54",
+			Tier: capability.Read, Shape: name + "/1",
+			Checks: []string{"TestDockerMissingFromShellText", "TestSnippetDockerLikeTheCommand", "TestSnippetSamplesMatchGoldens/" + name},
+			Text:   map[snippet.Family]string{snippet.Unix: text},
+			Parse:  dockerRows("docker "+verb+" TARGET", sortBy...),
+		}
+	}
+	return []snippet.Builtin{
+		list("docker-ps", "ps", "docker ps --format '{{json .}}'", "Names"),
+		list("docker-images", "images", "docker images --format '{{json .}}'", "Repository", "Tag"),
+		list("docker-stats", "stats", "docker stats --no-stream --format '{{json .}}'", "Name"),
+	}
+}
+
+// dockerRows reads a docker list as today's command does: the rows sorted,
+// and docker's failure as dockerExit names it (docker missing, no access
+// to its socket).
+func dockerRows(command string, sortBy ...string) func(snippet.Output, snippet.Family) (any, error) {
+	return func(o snippet.Output, _ snippet.Family) (any, error) {
+		list, ok := parseJSONLines(nil, o.Stdout).([]any)
+		if ok {
+			dockerSortRows(list, sortBy...)
+		}
+		switch {
+		case o.ExitCode != 0 && ok:
+			return list, dockerSnippetExit(o, command)
+		case o.ExitCode != 0:
+			return nil, dockerSnippetExit(o, command)
+		case !ok:
+			return nil, errNotJSONLines
+		}
+		return list, nil
+	}
+}
+
+// dockerSnippetExit is dockerExit for the snippet that replaces `komando
+// command`: recipe run has no --sudo, so no access to docker's socket
+// points to the command, which asks as it does today. It never steers to
+// the docker group: access to its socket is root on that server (Audit
+// A-455-1).
+func dockerSnippetExit(o snippet.Output, command string) *out.Error {
+	e := dockerExit("", false, snippetRun(o))
+	if e.Code == "DOCKER_PERMISSION" {
+		e.Hint = "the login user cannot use docker on this server; run `komando " + command +
+			" --sudo` (the command, which asks as it does today), or ask the person whether this user should have docker access"
+	}
+	return e
 }

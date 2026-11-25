@@ -12,7 +12,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/snippet"
 	"github.com/sgnd/komando/internal/sshx"
 )
 
@@ -92,7 +94,7 @@ read from docker on the server. The real run deletes and needs
 			if o.agedVolumes() {
 				line += "; docker volume rm (each unused anonymous volume older than " + o.ageText + ")"
 			}
-			if cl.flags.dryRun {
+			if cl.dryRun() {
 				return previewPrune(cl, cmd.Context(), args[0], line, o, *sudo)
 			}
 			if o.agedVolumes() {
@@ -132,6 +134,22 @@ type prunePreview struct {
 	OK          bool        `json:"ok"`
 	Error       *out.Error  `json:"error,omitempty"`
 	volumesWant bool
+}
+
+// prunePreviewResult is one host's preview as the docker-prune-preview
+// snippet gives it: prunePreview's fields, in its order, without host, ok
+// and error, which the snippet's answer carries itself.
+type prunePreviewResult struct {
+	WouldRun   string      `json:"would_run"`
+	Containers []pruneItem `json:"containers"`
+	Images     []pruneItem `json:"images"`
+	Volumes    []pruneItem `json:"volumes,omitzero"`
+	BuildCache string      `json:"build_cache,omitempty"`
+	CacheBytes int64       `json:"build_cache_bytes"`
+	TotalBytes int64       `json:"total_bytes"`
+	Total      string      `json:"total"`
+	DockerDF   []any       `json:"docker_df,omitempty"`
+	Notes      []string    `json:"notes,omitempty"`
 }
 
 type prunePreviewData struct {
@@ -524,4 +542,29 @@ func runPruneAged(cl *call, ctx context.Context, target, line string, o pruneOpt
 	audit(cl, st, "docker.prune", hostNames(hosts), line, len(fails) == 0, map[string]any{"volumes_removed": removed})
 	sum := runSummary{fleetSummary: fleetSummary{Total: len(data.Results), OK: len(data.Results) - len(fails), Failed: len(fails)}}
 	return finishFleet(cl, "docker.prune", data, sum, worst, fails)
+}
+
+// dockerPruneSnippets are the ready-made snippets of docker prune: the
+// preview of the plain prune (design 2.1, rule 3.8: a preview that only
+// reads is a read). They move with the host commands' package (M11).
+// Written losses, decided by CLI-5: no --older-than, --all or --volumes
+// preview; no would_be_blocked (the real prune keeps its own guard); the
+// normal output cap, not the preview's 8 MiB.
+func dockerPruneSnippets() []snippet.Builtin {
+	var o pruneOpts
+	line := "docker " + strings.Join(o.args(), " ")
+	return []snippet.Builtin{{
+		Name: "docker-prune-preview", Type: "host", Replaces: "docker prune --dry-run",
+		Reader: "ContainersSheets.swift:14-100; Models/Docker.swift:235", Tier: capability.Read, Shape: "docker-prune-preview/1",
+		Checks: []string{"TestParsePrunePreview", "TestDockerSize", "TestPrunePreviewEmptyVolumes", "TestSnippetDockerPrunePreview"},
+		Text:   map[snippet.Family]string{snippet.Unix: prunePreviewScript(o)},
+		Parse: func(res snippet.Output, _ snippet.Family) (any, error) {
+			if res.ExitCode != 0 {
+				return nil, dockerSnippetExit(res, "docker prune TARGET --dry-run")
+			}
+			p := parsePrunePreview(res.Stdout, o, time.Now())
+			return prunePreviewResult{WouldRun: line, Containers: p.Containers, Images: p.Images, Volumes: p.Volumes, BuildCache: p.BuildCache,
+				CacheBytes: p.CacheBytes, TotalBytes: p.TotalBytes, Total: p.Total, DockerDF: p.DockerDF, Notes: p.Notes}, nil
+		},
+	}}
 }
