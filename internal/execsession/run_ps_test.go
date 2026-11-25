@@ -24,8 +24,8 @@ func TestRunPSParses(t *testing.T) {
 			if !strings.HasPrefix(string(run), bom) {
 				t.Error("no byte order mark")
 			}
-			psParse(t, s)
 			psOnlyAllowed(t, s)
+			psParse(t, s)
 		})
 	}
 }
