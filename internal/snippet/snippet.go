@@ -154,6 +154,11 @@ func valid(b Builtin) error {
 	if b.Reader == "" {
 		return fmt.Errorf("reader is empty: name the app screen or the agent need")
 	}
+	if b.Tier > capability.Change {
+		// the command passes only "mutating" to the guard, so a built-in above
+		// change would run with a change's stop (Audit S1-1)
+		return fmt.Errorf("tier %s is above change, which the engine does not rate yet: register it after the command acts on Rate (dangerous, safety and person stops)", tierNames[b.Tier])
+	}
 	switch {
 	case b.Run != nil && (b.Text != nil || b.Parse != nil):
 		return fmt.Errorf("has both a text and a client call")
@@ -221,6 +226,9 @@ func validText(text string, vars map[string]Var) error {
 	}
 	return nil
 }
+
+// tierNames are the tiers as komando names them (internal/cli risk.go).
+var tierNames = [...]string{"read", "change", "protected", "dangerous", "safety", "person"}
 
 // Mutating reports whether the snippet changes something: the guard then
 // asks on a protected entry, as the replaced command does.
