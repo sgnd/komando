@@ -360,9 +360,9 @@ func guardProgramProblem(prog string) string {
 	switch {
 	case err != nil:
 		return "its command " + prog + " does not exist"
-	case fi.IsDir() || fi.Mode()&0o111 == 0:
+	case fi.IsDir() || runtime.GOOS != "windows" && fi.Mode()&0o111 == 0: // Windows has no mode bits
 		return "its command " + prog + " is not a program"
-	case fi.Mode()&0o002 != 0:
+	case runtime.GOOS != "windows" && fi.Mode()&0o002 != 0:
 		return "its command " + prog + " may be changed by every user of this computer"
 	}
 	return ""
