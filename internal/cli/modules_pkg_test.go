@@ -124,3 +124,17 @@ func TestPkgRmStopsOnEssentialDependents(t *testing.T) {
 		t.Errorf("result: %+v", e)
 	}
 }
+
+// The risk table rates a removal whose name could pick an essential
+// package as dangerous, by policy's rule: a pattern (* ? [ or a dot) that
+// would pick one counts, even though pkg rm then refuses the name itself.
+func TestPkgRmPatternRatedDangerous(t *testing.T) {
+	for _, name := range []string{"openssh*", "sud?", "[s]udo", "openssh.server", "openssh-server"} {
+		if r := riskOfLine([]string{"pkg", "rm", "web1", name}); r.tier != tierDangerous {
+			t.Errorf("pkg rm web1 %s: tier %v, want dangerous", name, r.tier)
+		}
+	}
+	if r := riskOfLine([]string{"pkg", "rm", "web1", "nginx*"}); r.tier != tierChange {
+		t.Errorf("pkg rm web1 nginx*: tier %v, want change", r.tier)
+	}
+}

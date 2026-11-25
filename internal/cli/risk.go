@@ -6,6 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+
+	"github.com/sgnd/komando/internal/policy"
 )
 
 // One rule table says how much each command and flag combination needs
@@ -138,7 +140,7 @@ var riskRows = []riskRow{
 	{key: safetyKey{"host", "user", "rm"}, tier: tierDangerous, what: "deletes the user"},
 	{key: safetyKey{"credential", "", "remove"}, tier: tierDangerous, what: "deletes the saved passwords"},
 	{key: safetyKey{"credential", "key", "remove"}, when: givesFlag("delete-file"), cond: "with --delete-file, for a key komando made", tier: tierDangerous, what: "deletes the private key komando keeps"},
-	{key: safetyKey{"host", "package", "rm"}, when: func(w []string) bool { return slices.ContainsFunc(riskArgs(w), essentialPkg) }, cond: "a package the server needs (openssh-server, sudo, systemd, ...)", tier: tierDangerous, what: "removes a package the server needs to run or to let you in"},
+	{key: safetyKey{"host", "package", "rm"}, when: func(w []string) bool { return slices.ContainsFunc(riskArgs(w), policy.EssentialPackage) }, cond: "a package the server needs (openssh-server, sudo, systemd, ...)", tier: tierDangerous, what: "removes a package the server needs to run or to let you in"},
 	{key: safetyKey{"host", "package", "rm"}, tier: tierChange, typed: "removes the packages", items: "packages"},
 	{key: safetyKey{"host", "cron", "rm"}, tier: tierChange, typed: "deletes the cron entry", items: "cron entries"},
 	{key: safetyKey{"host", "", "restart"}, tier: tierDangerous, what: "restarts the server (it is away until it is back)"},

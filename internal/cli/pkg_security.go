@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/sshx"
 )
 
@@ -154,7 +155,7 @@ func pkgSecScript(apply, refresh, guardEssential bool) string {
 		action = "apply"
 	}
 	return "ACTION=" + action + " REFRESH=" + b(refresh) + " GUARD=" + b(guardEssential) +
-		" ESSENTIAL=" + sshx.Q(essentialPkgs.String()) + "\n" + pkgSecShell
+		" ESSENTIAL=" + sshx.Q(policy.EssentialPackagePattern()) + "\n" + pkgSecShell
 }
 
 // hostSnapshot is what a server looked like at one moment.
@@ -360,7 +361,7 @@ func pkgSecParse(cl *call, host string, rr *sshx.RunResult, apply, refreshed boo
 	pkgSecLists(&r, sec, refreshed)
 	var ess []string
 	for _, p := range r.WouldRemove {
-		if essentialPkg(p) {
+		if policy.EssentialPackage(p) {
 			ess = append(ess, p)
 		}
 	}
@@ -415,7 +416,7 @@ func pkgSecParse(cl *call, host string, rr *sshx.RunResult, apply, refreshed boo
 		r.Changes, r.Unexpected = diffSnapshots(before, after)
 	}
 	for _, p := range r.Removed {
-		if essentialPkg(p.Name) {
+		if policy.EssentialPackage(p.Name) {
 			r.Unexpected = append(r.Unexpected, "essential package removed: "+p.Name)
 		}
 	}
@@ -682,7 +683,7 @@ func pkgSecurity(cl *call, ctx context.Context, target string, apply, refresh, k
 		}
 		if apply && cl.flags.dryRun && r.Error == nil && !cl.flags.allowDangerous {
 			for _, p := range r.WouldRemove {
-				if essentialPkg(p) {
+				if policy.EssentialPackage(p) {
 					cl.out.WouldBlock(approvalErr(cl, "POLICY_BLOCKED",
 						"on "+r.Host+" the security updates would remove "+p+", which can lock you out of the server or break it"))
 					break
