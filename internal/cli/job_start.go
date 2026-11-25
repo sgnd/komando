@@ -588,7 +588,7 @@ func (s sessionChange) Text() string {
 // nil, nil.
 func changeSession(cl *call, ctx context.Context, st *store.State, h *store.Host, id, shown, script string, input func() ([]byte, error), extra map[string]any) (*sshx.RunResult, error) {
 	extra["attach"] = []string{id}
-	if err := guard(cl, st, []*store.Host{h}, "", true); err != nil {
+	if err := Guard(cl, st, []*store.Host{h}, "", true); err != nil {
 		extra["blocked"] = toErr(err).Code
 		audit(cl, st, "exec", []string{h.Name}, shown, false, extra)
 		return nil, err
