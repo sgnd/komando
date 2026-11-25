@@ -59,6 +59,23 @@ func TestNewRefusesBadDefinitions(t *testing.T) {
 		{"unanchored pattern", func(b *Builtin) {
 			b.Vars = []Var{{Name: "unit", Channel: Text, Pattern: regexp.MustCompile(`[a-z]+`), MaxLen: 8, Longest: "abcdefgh"}}
 		}, "anchored"},
+		{"pattern anchored only at its ends", func(b *Builtin) {
+			b.Vars = []Var{{Name: "unit", Channel: Text, Pattern: regexp.MustCompile(`^a|b$`), MaxLen: 1, Longest: "a"}}
+		}, "anchored"},
+		{"pattern anchored at its start only", func(b *Builtin) {
+			b.Vars = []Var{{Name: "unit", Channel: Text, Pattern: regexp.MustCompile(`^a`), MaxLen: 1, Longest: "a"}}
+		}, "anchored"},
+		{"pattern anchored at its end only", func(b *Builtin) {
+			b.Vars = []Var{{Name: "unit", Channel: Text, Pattern: regexp.MustCompile(`a$`), MaxLen: 1, Longest: "a"}}
+		}, "anchored"},
+		{"pattern of two anchors in an alternation", func(b *Builtin) {
+			b.Vars = []Var{{Name: "unit", Channel: Text, Pattern: regexp.MustCompile(`^|$`), MaxLen: 1, Longest: "a"}}
+		}, "anchored"},
+		{"family pattern anchored only at its ends", func(b *Builtin) {
+			v := unitVar
+			v.Families = map[Family]*regexp.Regexp{Windows: regexp.MustCompile(`^nginx-ab|x$`)}
+			b.Vars = []Var{v}
+		}, "anchored"},
 		{"no max length", func(b *Builtin) {
 			b.Vars = []Var{{Name: "unit", Channel: Text, Pattern: unitVar.Pattern, Longest: "a"}}
 		}, "length"},
