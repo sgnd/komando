@@ -422,7 +422,7 @@ func TestSnippetRefusalsRunNothing(t *testing.T) {
 // A built-in of another entry type is refused before anything runs.
 func TestSnippetTypeUnsupported(t *testing.T) {
 	dbInfo := snippet.Builtin{Name: "db-info", Type: "database", Replaces: "db info", Reader: "KomandoCall.swift:69-72", Tier: capability.Read, Shape: "db-info/1",
-		Run: func(context.Context, snippet.Values) (any, error) { return map[string]any{}, nil }}
+		Run: func(context.Context, snippet.Client, snippet.Values) (any, error) { return map[string]any{}, nil }}
 	withSnippets(t, dbInfo)
 	rs := startReplayServerWith(t, nil, replayStep{stdout: "x"})
 	if _, e := snippetData(t, "db-info", "dev"); e == nil || e.Code != "SNIPPET_TYPE_UNSUPPORTED" {
