@@ -2,7 +2,6 @@ package cli
 
 import (
 	"bufio"
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -13,6 +12,7 @@ import (
 
 	"golang.org/x/term"
 
+	kitterm "github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 )
 
@@ -45,10 +45,6 @@ func readHidden(cl *call, label string) (string, error) {
 	return stripPasteMarks(v), nil
 }
 
-// interruptedErr is what a question gives after Ctrl-C: the CANCELLED
-// error ("interrupted") of a cancelled command.
-func interruptedErr() error { return toErr(context.Canceled) }
-
 // errMoreLines: more input followed a hidden answer, as a paste of several
 // lines leaves it. readAnswer threw it away.
 var errMoreLines = errors.New("more than one line")
@@ -60,13 +56,13 @@ var errMoreLines = errors.New("more than one line")
 // does not watch for it would just go on waiting. readAnswer listens for
 // SIGINT while it reads; on Ctrl-C it puts the terminal back as it was
 // (echo on again after a hidden read), ends the line and returns
-// interruptedErr. Ctrl-D (end of input) where the answer shows is an
+// kitterm.Interrupted. Ctrl-D (end of input) where the answer shows is an
 // empty answer; the line is ended there too, as the terminal does not.
 // (term.ReadPassword takes no notice of Ctrl-D.)
 func readAnswer(cl *call, label string, hidden bool) (string, error) {
 	noteAsk(cl, "terminal question")
 	if cl.interrupted {
-		return "", interruptedErr()
+		return "", kitterm.Interrupted()
 	}
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, os.Interrupt)
@@ -106,7 +102,7 @@ func readAnswer(cl *call, label string, hidden bool) (string, error) {
 		cl.interrupted = true
 		restore()
 		fmt.Fprintln(cl.out.Err)
-		return "", interruptedErr()
+		return "", kitterm.Interrupted()
 	case a := <-got:
 		if hidden {
 			more := a.err == nil && moreWaiting(fd)
