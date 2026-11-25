@@ -27,6 +27,9 @@ type migrate3Opts struct {
 	alive    func(pid int, procStart string) bool
 	refGuard func(kind, name string) error
 	now      func() time.Time
+	// beforeLock runs between the first look at the format and the lock
+	// (tests: another migration finishes meanwhile)
+	beforeLock func()
 }
 
 // migrate3Result is the report for the person, and what the step read

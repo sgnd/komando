@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -36,6 +37,8 @@ var testSecrets = []string{
 func format2Store(t *testing.T) string {
 	t.Helper()
 	home := sealedHome(t)
+	sealdb.CreateFormat = 2
+	t.Cleanup(func() { sealdb.CreateFormat = sealdb.Format })
 	d, err := DB(true)
 	if err != nil {
 		t.Fatal(err)
@@ -85,7 +88,9 @@ func format2Store(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = Update(Save(), func(s *State) error {
+	s := &State{Settings: DefaultSettings()}
+	s.init()
+	{
 		s.Settings.ExtraDenyPattern = []string{"rm -rf /srv"}
 		s.Keys["deploy"] = &Key{Name: "deploy", Path: sealedKeyPrefix + keydataID, Type: "ed25519", PassphraseRef: "secret:deploy-pp", Managed: true}
 		s.Keys["solo"] = &Key{Name: "solo", Path: "/home/me/.ssh/id_solo", Type: "ed25519"}
@@ -114,12 +119,47 @@ func format2Store(t *testing.T) string {
 		s.Vpns["wg"] = &Vpn{Name: "wg", Kind: "wireguard", KeyRef: "secret:wg-key", PSKRef: "secret:wg-psk", MFA: true}
 		s.Vpns["tail"] = &Vpn{Name: "tail", Kind: "tailscale", KeyRef: "secret:ts-auth"}
 		s.Snippets["r1"] = &Snippet{Name: "r1", Command: "echo secret:abc"}
-		return nil
-	})
+	}
+	err = d.Update(context.Background(), func(tx *sealdb.Tx) error { return putFormat2(tx, s) })
 	if err != nil {
 		t.Fatal(err)
 	}
 	return home
+}
+
+// putFormat2 writes s as format-2 records, the shape v0.17 wrote, past
+// this komando's own writer: the fixture stays format 2 whatever shape
+// the store writes now.
+func putFormat2(tx *sealdb.Tx, s *State) error {
+	put := func(kind string, v any) error {
+		b, err := json.Marshal(v)
+		if err == nil {
+			_, err = tx.Put(kind, "", b)
+		}
+		return err
+	}
+	for _, kind := range []struct {
+		kind string
+		vals []any
+	}{
+		{KindKey, anyOf(s.Keys)}, {KindHost, anyOf(s.Hosts)}, {KindConn, anyOf(s.Conns)},
+		{KindVpn, anyOf(s.Vpns)}, {KindRecipe, anyOf(s.Snippets)},
+	} {
+		for _, v := range kind.vals {
+			if err := put(kind.kind, v); err != nil {
+				return err
+			}
+		}
+	}
+	return put(kindSettings, s.Settings)
+}
+
+func anyOf[T any](m map[string]*T) []any {
+	var out []any
+	for _, k := range slices.Sorted(maps.Keys(m)) {
+		out = append(out, m[k])
+	}
+	return out
 }
 
 // notices collects what the store tells the person.
