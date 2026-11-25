@@ -1,8 +1,8 @@
 package inventory
 
 // Package inventory holds the rules for what goes into komando's inventory:
-// names, login names, ports, labels, --via paths and conn families. It
-// imports nothing of internal/cli.
+// names, login names, ports, labels, --via paths, conn families and the
+// references to vault secrets. It imports nothing of internal/cli.
 
 import (
 	"fmt"

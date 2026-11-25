@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
 )
@@ -49,8 +50,8 @@ func TestProtectedVpnSecretNeedsYes(t *testing.T) {
 	}
 	secretIs(t, "office-key", "key-1")
 	secretIs(t, "office-psk", "psk-1")
-	if u := protectedUsers(mustState(t), []string{"vpn office", "vpn nosuch", "host nosuch"}); len(u) != 1 || u[0] != "vpn office" {
-		t.Errorf("protectedUsers: %v", u)
+	if u := inventory.ProtectedUsers(mustState(t), []string{"vpn office", "vpn nosuch", "host nosuch"}); len(u) != 1 || u[0] != "vpn office" {
+		t.Errorf("inventory.ProtectedUsers: %v", u)
 	}
 }
 
@@ -309,23 +310,23 @@ func TestSecretRefsEveryKind(t *testing.T) {
 		},
 	}
 	want := "conn c1,conn c2,host h1,host h2,host h3,host h4,key k1,vpn v1,vpn v2,vpn v3"
-	if got := strings.Join(secretUsers(st, "s"), ","); got != want {
+	if got := strings.Join(inventory.SecretUsers(st, "s"), ","); got != want {
 		t.Fatalf("secretUsers: %s, want %s", got, want)
 	}
-	if got := strings.Join(protectedUsers(st, secretUsers(st, "s")), ","); got != "host h2" {
+	if got := strings.Join(inventory.ProtectedUsers(st, inventory.SecretUsers(st, "s")), ","); got != "host h2" {
 		t.Errorf("protectedUsers: %s", got)
 	}
-	if got := strings.Join(renameSecretRefs(st, "s", "t"), ","); got != want {
+	if got := strings.Join(inventory.RenameSecretRefs(st, "s", "t"), ","); got != want {
 		t.Errorf("renameSecretRefs: %s, want %s", got, want)
 	}
-	if got := strings.Join(secretUsers(st, "t"), ","); got != want {
+	if got := strings.Join(inventory.SecretUsers(st, "t"), ","); got != want {
 		t.Errorf("after the rename: %s, want %s", got, want)
 	}
-	if len(secretUsers(st, "s")) != 0 || st.Hosts["h4"].Env["B"] != "secret:t" || st.Hosts["h4"].Env["A"] != "x" ||
+	if len(inventory.SecretUsers(st, "s")) != 0 || st.Hosts["h4"].Env["B"] != "secret:t" || st.Hosts["h4"].Env["A"] != "x" ||
 		st.Conns["c2"].URL != "registry://u@h?tls=&ca=secret:t#f" || st.Hosts["h5"].PasswordRef != "secret:other" {
 		t.Errorf("rename left: %+v %q", st.Hosts["h4"].Env, st.Conns["c2"].URL)
 	}
-	if got := urlSecretRefs("registry://u@h?tls=&ca=secret:s&cert=secret:c"); len(got) != 2 {
+	if got := inventory.URLSecretRefs("registry://u@h?tls=&ca=secret:s&cert=secret:c"); len(got) != 2 {
 		t.Errorf("urlSecretRefs: %+v, want two", got)
 	}
 }

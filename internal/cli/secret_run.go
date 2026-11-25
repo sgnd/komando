@@ -19,6 +19,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/tmpclean"
@@ -293,7 +294,7 @@ func runGuard(cl *call, st *store.State, refs []string, prog string, plain []str
 	}
 	var prot []string
 	for _, r := range refs {
-		prot = append(prot, protectedUsers(st, secretUsers(st, strings.TrimPrefix(r, "secret:")))...)
+		prot = append(prot, inventory.ProtectedUsers(st, inventory.SecretUsers(st, strings.TrimPrefix(r, "secret:")))...)
 	}
 	if prot = dedupe(prot); len(prot) > 0 && !cl.yesOK() && !confirmProtected(cl, prot) {
 		if err := cl.policyStop(approvalErr(cl, "PROTECTED_TARGET",

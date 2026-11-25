@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -56,7 +57,7 @@ func TestSecretMvUpdatesEveryReference(t *testing.T) {
 	refsTo(t, "old")
 	want := "conn db,host h1,host h2,key k,vpn office"
 	st, _ := loadState()
-	if got := strings.Join(secretUsers(st, "old"), ","); got != want {
+	if got := strings.Join(inventory.SecretUsers(st, "old"), ","); got != want {
 		t.Fatalf("users %s, want %s (a server's env counts too)", got, want)
 	}
 	wantCode(t, "SECRET_IN_USE", "secret", "rm", "old")
@@ -97,7 +98,7 @@ func TestSecretMvUpdatesEveryReference(t *testing.T) {
 	if h2.Env["OTHER"] != "secret:other" {
 		t.Errorf("an unrelated ref changed: %s", h2.Env["OTHER"])
 	}
-	if len(secretUsers(st, "old")) != 0 {
+	if len(inventory.SecretUsers(st, "old")) != 0 {
 		t.Error("something still uses old")
 	}
 

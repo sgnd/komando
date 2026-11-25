@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -44,7 +45,7 @@ func checkVpnSecrets(cl *call, s *store.State, name string, secrets map[string]s
 		if !have[n] {
 			continue
 		}
-		users := secretUsers(s, n)
+		users := inventory.SecretUsers(s, n)
 		if overwrite && vpnOwnsSecret(s.Vpns[name], n) && slices.Equal(users, []string{"vpn " + name}) {
 			continue
 		}
