@@ -219,3 +219,51 @@ func TestPromptedCacheRmAsksOnce(t *testing.T) {
 		t.Errorf("exit %d; the screen:\n%s", code, shown)
 	}
 }
+
+// A filled-in value never becomes a flag: a typed answer that starts with
+// - is refused with the reason and asked again (formArgQ's check; pinned
+// here for Audit I-1).
+func TestPromptFillValueNeverAFlag(t *testing.T) {
+	fillTest(t)
+	for _, bad := range []string{"--allow-dangerous", "--yes", "-y", "--reveal"} {
+		drawn := promptFake(t, bad, "select 1")
+		got, err := promptFill(tcl, []string{"db", "query"})
+		if err != nil {
+			t.Errorf("%s: %v\n%s", bad, err, drawn)
+			continue
+		}
+		if line := pickCommandLine(got); line != "db query app-db 'select 1'" {
+			t.Errorf("%s: the line is %s\n%s", bad, line, drawn)
+		}
+		if !strings.Contains(drawn.String(), "an answer here cannot start with -") {
+			t.Errorf("%s: no reason shown:\n%s", bad, drawn)
+		}
+	}
+}
+
+// The last check, on the filled line: a new argument that starts with -
+// stops the fill, whatever put it there (a default, a list row).
+func TestFillLineRefusesDashValue(t *testing.T) {
+	fillTest(t)
+	cmd, _, err := newRoot(tcl).Find([]string{"db", "query"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := loadState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := newFill(st, cmd)
+	for _, i := range f.missing {
+		f.a[f.sp.qs[i].key] = "--allow-dangerous"
+	}
+	if got, err := f.line([]string{"db", "query"}); err == nil {
+		t.Errorf("a value starting with - was filled in: %v", got)
+	}
+	for _, i := range f.missing {
+		f.a[f.sp.qs[i].key] = "app-db"
+	}
+	if _, err := f.line([]string{"db", "query"}); err != nil {
+		t.Errorf("a plain value was refused: %v", err)
+	}
+}
