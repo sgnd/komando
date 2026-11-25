@@ -161,7 +161,7 @@ func TestRegistryResolve(t *testing.T) {
 // /etc/hosts plus Docker's insecure-registries: the name in the URL is a
 // local name whose public DNS points elsewhere, and the certificate (an
 // unknown CA, issued for another name) is accepted. `conn test` and
-// `registry ls` work, every connection goes to the IP, the name is still
+// `registry oci image list` work, every connection goes to the IP, the name is still
 // sent, and nothing in the output pushes ca=.
 func TestRegistryResolveSkipVerify(t *testing.T) {
 	setHome(t, t.TempDir())
@@ -202,9 +202,9 @@ func TestRegistryResolveSkipVerify(t *testing.T) {
 	if err != nil || !strings.Contains(test, `"check":"login"`) {
 		t.Fatalf("test: %v\n%s", err, test)
 	}
-	ls, err := runCache(t, "-o", "json", "registry", "ls", "reg")
+	ls, err := runCache(t, "-o", "json", "registry", "oci", "image", "list", "reg")
 	if err != nil || !strings.Contains(ls, "team/app") {
-		t.Fatalf("registry ls: %v\n%s", err, ls)
+		t.Fatalf("registry oci image list: %v\n%s", err, ls)
 	}
 	if strings.Contains(test+ls, "ca=") {
 		t.Errorf("output suggests ca=:\n%s\n%s", test, ls)

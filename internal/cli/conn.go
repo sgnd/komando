@@ -652,15 +652,15 @@ func kindExample(raw string, err error) error {
 // terminal, each opens the guided form for that kind only.
 var connAddKinds = map[string]struct{ what, form, example string }{
 	"db":       {"database", "Database", "komando db add prod-db postgres://app@10.0.0.5:5432/app --via web1 --ask-password"},
-	"cache":    {"cache", "Cache", "komando cache add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password"},
+	"cache":    {"cache", "Cache", "komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password"},
 	"queue":    {"message queue", "Message queues", "komando queue add orders kafka://10.0.0.8:9092 --via web1"},
 	"storage":  {"file storage", "File storage", "komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password"},
 	"cluster":  {"cluster", "Kubernetes", "komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref secret:prod-kubeconfig"},
-	"registry": {"image registry", "Container registry", "komando registry add ghcr registry://myuser@ghcr.io --ask-password"},
+	"registry": {"image registry", "Container registry", "komando registry oci add ghcr registry://myuser@ghcr.io --ask-password"},
 }
 
 // addKindFits refuses a URL of another area in `komando KIND add`
-// (registry add k8s://...), and a Kubernetes conn without its kubeconfig,
+// (registry oci add k8s://...), and a Kubernetes conn without its kubeconfig,
 // which could never log in.
 func addKindFits(family, raw, passwordRef string) error {
 	t, err := driver.Parse(normConnURL(strings.TrimSpace(raw)))
@@ -671,8 +671,8 @@ func addKindFits(family, raw, passwordRef string) error {
 		}
 		return nil // conn add says what is wrong with it
 	}
-	if t.Kind.Family != family { // `cache add` must not quietly save a database
-		return out.Errf(out.ExitUsage, "WRONG_KIND", "add it with `komando "+t.Kind.Family+" add` (or `komando conn add`)",
+	if t.Kind.Family != family { // `cache redis add` must not quietly save a database
+		return out.Errf(out.ExitUsage, "WRONG_KIND", "add it with `"+entryPath(t.Kind)+" add` (or `komando conn add`)",
 			"%s is a %s URL, not one for `komando %s add`", raw, t.Kind.Name, family)
 	}
 	if slices.Contains(connKindNeeds(family, t.Kind), "password-ref") && passwordRef == "" {

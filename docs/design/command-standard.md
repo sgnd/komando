@@ -190,7 +190,7 @@ tool-word list S-3.3]
 | Verb | Meaning | Follows |
 |---|---|---|
 | `exec` | a shell command on servers (aliases run, x) | docker exec, kubectl exec |
-| `run` | the area's own raw command (`cache run`, `cluster run`) or a saved recipe | redis-cli, kubectl |
+| `run` | the area's own raw command (`cache redis raw`, `cluster run`) or a saved recipe | redis-cli, kubectl |
 | `query` | SQL or MongoDB | psql -c |
 | `shell` | an interactive session, person only (aliases ssh, connect) | |
 | `upload`, `download` | move files (put, get on storage) | aws s3 cp, gh release download |
@@ -273,7 +273,7 @@ is in parentheses: `tunnel start TARGET (-L SPEC | -R SPEC | -D SPEC)`.
 
 **S-4.4** Passthrough commands: `exec`, `job start`, `docker exec`,
 `docker compose`, `docker raw`, `cluster exec`, `cluster shell`,
-`cluster run`, `cache run` (every command whose Use has `-- COMMAND...` or
+`cluster run`, `cache redis raw` (every command whose Use has `-- COMMAND...` or
 `-- ARGS...`). komando flags are read anywhere before `--`
 (`exec @web -P 20 --read-only -- df -h`). Any word after the fixed positionals (TARGET, CONTAINER,
 `POD|TYPE/NAME`, CONN) must come after `--`. Without `--`, such a word is a

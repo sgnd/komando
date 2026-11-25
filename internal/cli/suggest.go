@@ -146,7 +146,7 @@ var foreignWords = map[string]string{
 	"helm":       "cluster helm list TARGET",
 	"psql":       "db query CONN",
 	"mysql":      "db query CONN",
-	"redis-cli":  "cache run CONN -- ...",
+	"redis-cli":  "cache redis raw NAME -- ...",
 	"apt":        "pkg",
 	"apt-get":    "pkg",
 	"yum":        "pkg",

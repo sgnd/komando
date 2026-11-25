@@ -106,7 +106,7 @@ mixes Windows and Linux servers is refused for `exec` (`MIXED_OS`): run
 it once per shell.
 
 Commands that hand words to another program (`exec`, `job start`, `docker
-exec/compose/raw`, `cluster exec/shell/run`, `cache run`) take those words
+exec/compose/raw`, `cluster exec/shell/run`, `cache redis raw`) take those words
 only after `--`; komando's flags go before it. Without `--` the command
 stops with USAGE and runs nothing (komando would read `-y` as `--yes`).
 
@@ -244,7 +244,7 @@ activity`. `db dump`, `restore`, `locks`, `db user` and `grant` are not
 available (`NOT_SUPPORTED`).
 
 **Caches** (Redis, Valkey, memcached): `cache get|keys|info CONN` read, `cache set`
-changes, `cache rm` deletes (needs `--allow-dangerous`). `komando cache run
+changes, `cache rm` deletes (needs `--allow-dangerous`). `komando cache redis raw
 CONN -- CMD ...` only reads unless you add `--write`. Never use `KEYS`;
 `cache keys` uses SCAN.
 
@@ -294,8 +294,8 @@ refused). `status`, `list`, `events` and `helm list` also take a group
 `komando cluster helm list|status|history|values` (no helm needed; install
 and upgrade stay with helm).
 
-**Registries**: `komando registry list|inspect CONN` read, `registry copy`
-changes, `registry rm` and `registry prune` delete (need
+**Registries**: `komando registry oci image list|inspect CONN` read, `registry oci image copy`
+changes, `registry oci image delete` and `registry oci image prune` delete (need
 `--allow-dangerous`; `prune --dry-run` shows which tags would go).
 
 `--dry-run` never changes anything. In `db` it runs the SQL inside a

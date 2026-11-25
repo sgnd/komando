@@ -637,7 +637,7 @@ no download or cp to a file here (download --to - and cp SRC - stream to
 the key's own output), no change to servers, VPNs, settings, rules, secrets, keys or
 recipes in komando, no update, no change on a sqlite file or a target at
 localhost or 127.x. With --read-only only commands that read run (db
-query and cache run without --write), and only those that stay on the
+query and cache redis raw without --write), and only those that stay on the
 servers and conns in your list: no net, no cert check of a website, no
 exec, job start, docker exec, cluster exec or recipe run, unless the line
 also has --network. ` + "`komando ssh-gate status`" + ` tells a key which it is. Every command a key

@@ -37,17 +37,17 @@ $K cache set cache t-e2edata:a x --ttl -5s >/dev/null; check "negative ttl is us
 check "ttl takes days" 172800 "$($K cache set cache t-e2edata:a x --ttl 2d | jget 'd["data"]["ttl_seconds"]')"
 check "no ttl is null" None "$($K cache set cache t-e2edata:a $'two\nlines' | jget 'd["data"]["ttl_seconds"]')"
 check "cache get keeps a newline on one line" 'value: "two\nlines"' "$($K cache get cache t-e2edata:a -o text | grep '^value:')"
-q $K cache run cache --write -- RPUSH t-e2edata:l a 'b c'
+q $K cache redis raw cache --write -- RPUSH t-e2edata:l a 'b c'
 check "cache get lists items per line" '  2) "b c"' "$($K cache get cache t-e2edata:l -o text | grep '2)')"
-check "cache run text like redis-cli" '2) "b c"' "$($K cache run cache -o text -- LRANGE t-e2edata:l 0 -1 | tail -1)"
+check "cache redis raw text like redis-cli" '2) "b c"' "$($K cache redis raw cache -o text -- LRANGE t-e2edata:l 0 -1 | tail -1)"
 check "cache info is a summary" True "$($K cache info cache | jget '"used_memory_bytes" in d["data"]["summary"]')"
 $K cache info cache nosuchsection >/dev/null; check "unknown info section is usage" 2 $?
-check "DEL hint points at cache rm" True "$($K cache run cache -- DEL t-e2edata:a | jget '"cache rm" in d["error"]["hint"]')"
+check "DEL hint points at cache rm" True "$($K cache redis raw cache -- DEL t-e2edata:a | jget '"cache rm" in d["error"]["hint"]')"
 check "cache rm dry-run lists keys" "['t-e2edata:a']" "$($K cache rm cache t-e2edata:a t-e2edata:none --dry-run | jget 'd["data"]["would_delete"]')"
 q $K cache rm cache t-e2edata:a t-e2edata:l --allow-dangerous
 $K cache keys cache --limit 0 >/dev/null; check "cache keys --limit 0 is usage" 2 $?
-check "SET with an EXAT already past needs --allow-dangerous" POLICY_BLOCKED "$($K cache run cache --write -- SET t-e2edata:x v EXAT 1 | jget 'd["error"]["code"]' || true)"
-check "CLUSTER MEET needs --allow-dangerous" True "$($K cache run cache -- CLUSTER MEET 10.0.0.9 6379 | jget '"--allow-dangerous" in d["error"]["message"]' || true)"
+check "SET with an EXAT already past needs --allow-dangerous" POLICY_BLOCKED "$($K cache redis raw cache --write -- SET t-e2edata:x v EXAT 1 | jget 'd["error"]["code"]' || true)"
+check "CLUSTER MEET needs --allow-dangerous" True "$($K cache redis raw cache -- CLUSTER MEET 10.0.0.9 6379 | jget '"--allow-dangerous" in d["error"]["message"]' || true)"
 
 # storage
 echo e2edata > "$TMP/e2edata.txt"

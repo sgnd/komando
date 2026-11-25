@@ -10,7 +10,7 @@ import (
 )
 
 // The tags of a repository: what prune reads of each, and which tags
-// registry rm takes with an image.
+// registry oci image delete takes with an image.
 
 // pruneTags reads each tag's digest, and the build date of each image a
 // tag of the rule may take.
@@ -20,7 +20,7 @@ func pruneTags(ctx context.Context, r *registry.Client, repo string, rule regist
 		return nil, imageErr(ctx, r, repo, "", err)
 	}
 	if len(tags) > maxRepoTags {
-		return nil, out.Errf(out.ExitUsage, "TOO_MANY_TAGS", "komando prunes a repository of at most 10000 tags, and --match does not change that (every tag is read, so a kept tag protects its image): delete some first with `komando registry rm CONN IMAGE`",
+		return nil, out.Errf(out.ExitUsage, "TOO_MANY_TAGS", "komando prunes a repository of at most 10000 tags, and --match does not change that (every tag is read, so a kept tag protects its image): delete some first with `komando registry oci image delete NAME IMAGE`",
 			"%s has more than %d tags", repo, maxRepoTags)
 	}
 	// a HEAD per tag for its digest (several at once), then one read per

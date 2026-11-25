@@ -181,7 +181,7 @@ func TestGateCheck(t *testing.T) {
 		{"db query pg 'select 1'", "", ""},
 		{"db query pg --write 'delete from t'", "", "SSH_GATE_READ_ONLY"},
 		{"db explain pg --analyze 'delete from t'", "", "SSH_GATE_READ_ONLY"},
-		{"cache run c --write SET a b", "", "SSH_GATE_READ_ONLY"},
+		{"cache redis raw c --write SET a b", "", "SSH_GATE_READ_ONLY"},
 		{"cluster run k8s --write delete pod x", "", "SSH_GATE_READ_ONLY"},
 		{"pkg upgradable web --refresh", "", "SSH_GATE_READ_ONLY"},
 		{"pkg security web --refresh", "", "SSH_GATE_READ_ONLY"},
@@ -290,79 +290,79 @@ func TestGateLocalTargets(t *testing.T) {
 	t.Chdir(t.TempDir())
 	const R = "SSH_GATE_REFUSED"
 	for line, want := range map[string]string{
-		`db query appdb --write "VACUUM INTO '/home/u/.ssh/authorized_keys2'"`:    R,
-		`db query appdb --write "ATTACH '/home/u/.bashrc' AS x"`:                  R,
-		"db restore appdb --from x.sql":                                           R,
-		"db explain appdb --analyze 'select 1'":                                   R,
-		"db user add appdb x --password-ref secret:x":                             R,
-		"db query appdb 'select 1'":                                               R, // a read of a file here
-		"db query pg --write 'delete from t'":                                     "",
-		`db query pglocal --write "COPY t TO PROGRAM 'sh'"`:                       R,
-		"db query pgbehind --write 'delete from t'":                               "", // 127.0.0.1 of bastion
-		"cache run redislocal --write CONFIG SET dir /home/u/.ssh":                R,
-		"cache set redislocal a b":                                                R,
-		"cache run c --write SET a b":                                             "",
-		"cluster apply k8slocal --file pod.yaml":                                  R,
-		"cluster run k8slocal --write -- delete pod x":                            R,
-		"cluster apply k8s --file pod.yaml":                                       R, // reads a file here
-		"storage upload sftplocal x.txt .ssh/authorized_keys":                     R,
-		"storage mkdir sftplocal x":                                               R, // the storage changes meet the local-target rule too
-		"storage mv sftplocal a.txt b.txt":                                        R,
-		"storage chmod sftplocal 0600 a.txt":                                      R,
-		"registry rm reglocal app:1":                                              R,
-		"registry copy reg:app:1 reglocal:app:1":                                  R,
-		"registry copy reg:app:1 reg:app:2":                                       "",
-		"exec me -- id":                                                           R,
-		"exec me --read-only -- uptime":                                           R, // a shell here all the same
-		"exec lh -- id":                                                           R,
-		"exec v6 -- id":                                                           R,
-		"exec short -- id":                                                        R,
-		"exec any -- id":                                                          R,
-		"exec named -- id":                                                        R,
-		"exec u@127.0.0.1 -- id":                                                  R, // ad hoc, not in the inventory
-		"exec 'u@[::1]:22' -- id":                                                 R,
-		"exec u@192.0.2.10 -- id":                                                 R, // ad hoc: could be this computer's own address
-		"exec 192.0.2.10:22 -- id":                                                R,
-		"exec u@127.0.0.1.nip.io -- id":                                           R,
-		"cp ./k u@192.0.2.10:/home/u/.ssh/authorized_keys":                        R,
-		"logs u@192.0.2.10 --file /var/log/x":                                     R, // reads too
-		"exec web,me -- id":                                                       R,
-		"exec @nothing -- id":                                                     R, // cannot tell where: refused
-		"exec behind -- id":                                                       "",
-		"exec loop -- id":                                                         R, // 127.0.0.1 of a server that is this one
-		"exec vpnd -- id":                                                         R, // through a VPN: may be this computer
-		"exec web -- id":                                                          "",
-		"fs write me /home/u/.bashrc":                                             R,
-		"fs restore me /home/u/.bashrc":                                           R,
-		"fs restore web /etc/nginx/nginx.conf":                                    "", // the undo of fs replace --backup
-		"svc restart lh sshd":                                                     R,
-		"docker raw me -- run -v /:/h x":                                          R,
-		"cp ./id.pub me:/home/u/.ssh/x":                                           R,
-		"cp me:/home/u/.ssh/id_ed25519 web:/tmp/k":                                R, // reads a file here
-		"cp web:/tmp/k me:/home/u/.ssh/authorized_keys":                           R,
-		"cp web:/tmp/k sftplocal:.ssh/authorized_keys":                            R,
-		"cp web:/tmp/k web:/tmp/k2":                                               "",
-		"download me /home/u/.ssh/id_ed25519 --to -":                              R, // a stream reads here too
-		"storage download sftplocal .ssh/id_ed25519 --to -":                       R,
-		"cp ./id_ed25519 -":                                                       R, // SRC on this computer, whatever DST is
-		"cp me:/home/u/.ssh/id_ed25519 -":                                         R,
-		"sync ./site web:/var/www":                                                R, // reads files here
-		"recipe run disk me":                                                      R, // runs its command here
-		"recipe run disk web":                                                     "",
-		"db query pghostparam --write 'select 1'":                                 R, // pgx dials ?host=
-		"db query pghostaddr --write 'select 1'":                                  R,
-		"db query pgsocket --write 'select 1'":                                    R, // a socket here
-		"db query pglist --write 'select 1'":                                      R, // any host of the list
-		"db query pghostparam 'select 1'":                                         R, // pg_read_file reads here
-		"db query mongolist --write '{}'":                                         R,
-		"key deploy k me":                                                         R,
-		"key deploy k web":                                                        "",
-		"key deploy k web --set-default":                                          R, // komando's own setup
-		"vpn up office":                                                           "",
-		"cluster run k8s --write -- cp ns/pod:/x LOCAL":                           R,
-		"cluster run k8s --write -- cp ns/pod:/x ./x":                             R,
-		"cluster run k8s --write -- cp -n ns pod:/x /home/u/.ssh":                 R,
-		"cluster run k8s --write -- cp ./x ns/pod:/x":                             R, // reads files here
+		`db query appdb --write "VACUUM INTO '/home/u/.ssh/authorized_keys2'"`: R,
+		`db query appdb --write "ATTACH '/home/u/.bashrc' AS x"`:               R,
+		"db restore appdb --from x.sql":                                        R,
+		"db explain appdb --analyze 'select 1'":                                R,
+		"db user add appdb x --password-ref secret:x":                          R,
+		"db query appdb 'select 1'":                                            R, // a read of a file here
+		"db query pg --write 'delete from t'":                                  "",
+		`db query pglocal --write "COPY t TO PROGRAM 'sh'"`:                    R,
+		"db query pgbehind --write 'delete from t'":                            "", // 127.0.0.1 of bastion
+		"cache redis raw redislocal --write CONFIG SET dir /home/u/.ssh":       R,
+		"cache set redislocal a b":                                             R,
+		"cache redis raw c --write SET a b":                                    "",
+		"cluster apply k8slocal --file pod.yaml":                               R,
+		"cluster run k8slocal --write -- delete pod x":                         R,
+		"cluster apply k8s --file pod.yaml":                                    R, // reads a file here
+		"storage upload sftplocal x.txt .ssh/authorized_keys":                  R,
+		"storage mkdir sftplocal x":                                            R, // the storage changes meet the local-target rule too
+		"storage mv sftplocal a.txt b.txt":                                     R,
+		"storage chmod sftplocal 0600 a.txt":                                   R,
+		"registry oci image delete reglocal app:1":                             R,
+		"registry oci image copy reg:app:1 reglocal:app:1":                     R,
+		"registry oci image copy reg:app:1 reg:app:2":                          "",
+		"exec me -- id":                                           R,
+		"exec me --read-only -- uptime":                           R, // a shell here all the same
+		"exec lh -- id":                                           R,
+		"exec v6 -- id":                                           R,
+		"exec short -- id":                                        R,
+		"exec any -- id":                                          R,
+		"exec named -- id":                                        R,
+		"exec u@127.0.0.1 -- id":                                  R, // ad hoc, not in the inventory
+		"exec 'u@[::1]:22' -- id":                                 R,
+		"exec u@192.0.2.10 -- id":                                 R, // ad hoc: could be this computer's own address
+		"exec 192.0.2.10:22 -- id":                                R,
+		"exec u@127.0.0.1.nip.io -- id":                           R,
+		"cp ./k u@192.0.2.10:/home/u/.ssh/authorized_keys":        R,
+		"logs u@192.0.2.10 --file /var/log/x":                     R, // reads too
+		"exec web,me -- id":                                       R,
+		"exec @nothing -- id":                                     R, // cannot tell where: refused
+		"exec behind -- id":                                       "",
+		"exec loop -- id":                                         R, // 127.0.0.1 of a server that is this one
+		"exec vpnd -- id":                                         R, // through a VPN: may be this computer
+		"exec web -- id":                                          "",
+		"fs write me /home/u/.bashrc":                             R,
+		"fs restore me /home/u/.bashrc":                           R,
+		"fs restore web /etc/nginx/nginx.conf":                    "", // the undo of fs replace --backup
+		"svc restart lh sshd":                                     R,
+		"docker raw me -- run -v /:/h x":                          R,
+		"cp ./id.pub me:/home/u/.ssh/x":                           R,
+		"cp me:/home/u/.ssh/id_ed25519 web:/tmp/k":                R, // reads a file here
+		"cp web:/tmp/k me:/home/u/.ssh/authorized_keys":           R,
+		"cp web:/tmp/k sftplocal:.ssh/authorized_keys":            R,
+		"cp web:/tmp/k web:/tmp/k2":                               "",
+		"download me /home/u/.ssh/id_ed25519 --to -":              R, // a stream reads here too
+		"storage download sftplocal .ssh/id_ed25519 --to -":       R,
+		"cp ./id_ed25519 -":                                       R, // SRC on this computer, whatever DST is
+		"cp me:/home/u/.ssh/id_ed25519 -":                         R,
+		"sync ./site web:/var/www":                                R, // reads files here
+		"recipe run disk me":                                      R, // runs its command here
+		"recipe run disk web":                                     "",
+		"db query pghostparam --write 'select 1'":                 R, // pgx dials ?host=
+		"db query pghostaddr --write 'select 1'":                  R,
+		"db query pgsocket --write 'select 1'":                    R, // a socket here
+		"db query pglist --write 'select 1'":                      R, // any host of the list
+		"db query pghostparam 'select 1'":                         R, // pg_read_file reads here
+		"db query mongolist --write '{}'":                         R,
+		"key deploy k me":                                         R,
+		"key deploy k web":                                        "",
+		"key deploy k web --set-default":                          R, // komando's own setup
+		"vpn up office":                                           "",
+		"cluster run k8s --write -- cp ns/pod:/x LOCAL":           R,
+		"cluster run k8s --write -- cp ns/pod:/x ./x":             R,
+		"cluster run k8s --write -- cp -n ns pod:/x /home/u/.ssh": R,
+		"cluster run k8s --write -- cp ./x ns/pod:/x":             R, // reads files here
 		"cluster run k8s --write -- cp ns/pod:/tmp/k x:/../.ssh/authorized_keys2": R, // a local path to kctl
 		"cluster run k8s --write -- cp ns/pod:/x other/pod:/y":                    R,
 		"cluster run k8s -- get pods":                                             "",

@@ -21,6 +21,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
@@ -38,7 +39,7 @@ func registryCmd() *cobra.Command {
 		Aliases: []string{"oci"},
 		Short:   "Container registries: see images, copy them, clean up",
 		Long: `Look at, copy and clean up container images. Add a registry with
-` + "`komando registry add ghcr registry://myuser@ghcr.io --ask-password`" + `,
+` + "`komando registry oci add ghcr registry://myuser@ghcr.io --ask-password`" + `,
 or bring in the ones you use with ` + "`komando import docker`" + `.
 ls and inspect only read, copy writes to the destination, rm and prune
 delete images and need --allow-dangerous (try --dry-run first).
@@ -48,13 +49,12 @@ pins the registry's own certificate; the check stays on), ?tls=skip-verify
 does not check the certificate, ?tls=false is plain HTTP. ?resolve=IP
 connects to that IP instead of what DNS says (like curl --resolve). With
 --via the last server looks the name up.`,
-		Example: `  komando registry add ghcr registry://myuser@ghcr.io --ask-password
-  komando registry list ghcr myorg/api
-  komando registry inspect ghcr myorg/api:1.4.2
-  komando registry copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2
-  komando registry prune harbor prod/api --keep 10 --dry-run`,
+		Example: `  komando registry oci add ghcr registry://myuser@ghcr.io --ask-password
+  komando registry oci image list ghcr myorg/api
+  komando registry oci image show ghcr myorg/api:1.4.2
+  komando registry oci image copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2
+  komando registry oci image prune harbor prod/api --keep 10 --dry-run`,
 	}
-	c.AddCommand(connAddCmdFor("registry"), registryLsCmd(), registryInspectCmd(), registryCopyCmd(), registryRmCmd(), registryPruneCmd())
 	return c
 }
 
@@ -241,10 +241,10 @@ func catalogErr(r *registry.Client, err error) error {
 	noCatalog := r.DockerHub() || r.Base.Host == "ghcr.io"
 	switch {
 	case noCatalog && (e.Status == 401 || e.Status == 403 || e.Status == 404 || e.Status == 405):
-		return out.Errf(out.ExitRemote, "REGISTRY_UNSUPPORTED", "name the repository: `komando registry list CONN REPO` (on Docker Hub, nginx means library/nginx)",
+		return out.Errf(out.ExitRemote, "REGISTRY_UNSUPPORTED", "name the repository: `komando registry oci image list NAME REPO` (on Docker Hub, nginx means library/nginx)",
 			"%s has no list of every repository", r.Base.Host)
 	case e.Status == 401 || e.Status == 403:
-		return out.Errf(out.ExitConnect, "REGISTRY_AUTH", "the login may read images but not list every repository: name one with `komando registry list CONN REPO`; else check the user in the conn URL and its --password-ref",
+		return out.Errf(out.ExitConnect, "REGISTRY_AUTH", "the login may read images but not list every repository: name one with `komando registry oci image list NAME REPO`; else check the user in the conn URL and its --password-ref",
 			"the registry refused to list its repositories: %s", e.Error())
 	}
 	return err
@@ -296,8 +296,8 @@ func registryLsCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "list CONN [REPO]",
 		Short: "List repositories, or the tags of one repository",
-		Example: `  komando registry list harbor
-  komando registry list ghcr myorg/api`,
+		Example: `  komando registry oci image list harbor
+  komando registry oci image list ghcr myorg/api`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if limit < 1 {
@@ -358,9 +358,9 @@ func registryInspectCmd() *cobra.Command {
 		Use:     "inspect CONN IMAGE",
 		Aliases: []string{"get", "show", "describe"},
 		Short:   "Digest, size, platforms, created time and labels of an image",
-		Example: `  komando registry inspect ghcr myorg/api:1.4.2
-  komando registry inspect dockerhub nginx            # Docker Hub: library/nginx:latest
-  komando registry inspect harbor shop/api@sha256:4c2e...`,
+		Example: `  komando registry oci image show ghcr myorg/api:1.4.2
+  komando registry oci image show dockerhub nginx            # Docker Hub: library/nginx:latest
+  komando registry oci image show harbor shop/api@sha256:4c2e...`,
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			repo, ref, err := imageArg(args[1])
@@ -387,8 +387,8 @@ func registryRmCmd() *cobra.Command {
 not tags: every other tag on the same image goes too, latest included.
 --dry-run names each tag that would go. The space comes back after the
 registry's garbage collection.`,
-		Example: `  komando registry rm harbor myorg/api:old --dry-run
-  komando registry rm harbor myorg/api:old --allow-dangerous`,
+		Example: `  komando registry oci image delete harbor myorg/api:old --dry-run
+  komando registry oci image delete harbor myorg/api:old --allow-dangerous`,
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			// a forgotten tag must not mean latest, the image that usually runs
@@ -568,7 +568,7 @@ func credHelper(helper, server string) (string, string, error) {
 	return r.Username, r.Secret, nil
 }
 
-// rmWhat says what `registry rm` takes: the image and every tag on it.
+// rmWhat says what `registry oci image delete` takes: the image and every tag on it.
 // Tags come from the registry, so only names a tag may have are shown.
 func rmWhat(ctx context.Context, r *registry.Client, repo, ref string) string {
 	d, err := r.Digest(ctx, repo, ref)
@@ -602,7 +602,7 @@ func imageErr(ctx context.Context, r *registry.Client, repo, ref string, err err
 	if !errors.As(err, &e) || e.Status != 404 {
 		return err
 	}
-	hint := "list the repositories with `komando registry list CONN`"
+	hint := "list the repositories with `komando registry oci image list NAME`"
 	tags, terr := r.Tags(ctx, repo, 50)
 	if terr != nil || ref == "" {
 		return out.Errf(out.ExitNotFound, "REPOSITORY_NOT_FOUND", hint, "no repository named %q", repo)
@@ -615,11 +615,11 @@ func imageErr(ctx context.Context, r *registry.Client, repo, ref string, err err
 	if len(tags) == 50 {
 		more = ", ..."
 	}
-	return out.Errf(out.ExitNotFound, "IMAGE_TAG_NOT_FOUND", "list the tags with `komando registry list CONN "+repo+"`",
+	return out.Errf(out.ExitNotFound, "IMAGE_TAG_NOT_FOUND", "list the tags with `komando registry oci image list NAME "+repo+"`",
 		"%s not found; tags: %s%s", name, strings.Join(tags, ", "), more)
 }
 
-// inspectData is `registry inspect`; a person reads the size in MB.
+// inspectData is `registry oci image show`; a person reads the size in MB.
 type inspectData struct{ *registry.Manifest }
 
 func (d inspectData) Text() string {
@@ -664,8 +664,8 @@ only images built before that age; with both, a tag goes only when it passes bot
 always stay (a multi-platform index has the date of its first image, so
 it can go). An image a kept tag points at is never deleted. Needs
 --allow-dangerous; --dry-run shows the plan.`,
-		Example: `  komando registry prune harbor shop/api --keep 10 --dry-run
-  komando registry prune harbor shop/api --keep 5 --older-than 30d --match '^v' --allow-dangerous`,
+		Example: `  komando registry oci image prune harbor shop/api --keep 10 --dry-run
+  komando registry oci image prune harbor shop/api --keep 5 --older-than 30d --match '^v' --allow-dangerous`,
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			rule := registry.PruneRule{Keep: keep}
@@ -732,4 +732,20 @@ it can go). An image a kept tag points at is never deleted. Needs
 	spanText(c.Flags(), &olderThan, "older-than", "", true, "delete only images built before this age (like 30d, 12h)")
 	c.Flags().StringVar(&match, "match", "", "only tags matching this regular expression may go")
 	return c
+}
+
+// The registry type of the table: komando registry oci VERB and registry oci
+// image VERB. The inventory verbs are the shared ones (inventoryHandlers);
+// the image verbs are today's list, inspect, copy, rm and prune.
+func init() {
+	inventoryHandlers("registry", "oci")
+	for verb, body := range map[string]func() *cobra.Command{"list": registryLsCmd, "show": registryInspectCmd,
+		"copy": registryCopyCmd, "delete": registryRmCmd, "prune": registryPruneCmd} {
+		handlers[capability.Key{Type: "registry", Provider: "oci", Area: "image", Verb: verb}] = func(cl *call, ctx context.Context, in leafInput) error {
+			return runBody(cl, ctx, body(), in, nil)
+		}
+	}
+	moveType("registry")
+	groupShorts["registry oci"] = "OCI registries: save them, and look after their images"
+	groupShorts["registry oci image"] = "The images of a registry: list, show, copy, delete, prune"
 }
