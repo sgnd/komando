@@ -38,6 +38,7 @@ const (
 	RESP             // a cache argument: its own RESP argument, never a joined line
 	KubeName         // a Kubernetes name: DNS-1123, passed as an API field
 	SFTPPath         // a remote path: cleaned, an SFTP argument, no shell
+	Number           // a count into the text: ASCII digits only, written as they are
 )
 
 // Var is one variable a snippet takes with --var NAME=VALUE.
@@ -65,6 +66,7 @@ type Var struct {
 type Output struct {
 	Stdout, Stderr string
 	ExitCode       int
+	Truncated      bool // stdout was cut at the output cap
 }
 
 // Values are a snippet's variables after Check, for a client call.
@@ -107,6 +109,7 @@ var waitOnRule = map[string]string{
 
 var (
 	nameRe   = regexp.MustCompile(`^[a-z][a-z0-9]*(-[a-z0-9]+)*$`)
+	numberRe = regexp.MustCompile(`^[0-9]{1,9}$`)
 	markerRe = regexp.MustCompile(`\{\{var:([a-z][a-z0-9_]*)\}\}`)
 )
 
@@ -199,7 +202,7 @@ func valid(b Builtin) error {
 }
 
 func validVar(v Var) error {
-	if v.Channel < Text || v.Channel > SFTPPath {
+	if v.Channel < Text || v.Channel > Number {
 		return fmt.Errorf("no channel")
 	}
 	if v.Pattern == nil {
@@ -220,7 +223,11 @@ func validVar(v Var) error {
 	case !v.List && v.MaxItems != 0:
 		return fmt.Errorf("max items is set but it is not a list")
 	case v.List && v.Channel != Text:
-		return fmt.Errorf("a list goes only into a text: a client call takes one value")
+		return fmt.Errorf("a list goes only into a text, as text values: a client call or a number takes one value")
+	case v.Channel == Number && !numberRe.MatchString(v.Longest):
+		return fmt.Errorf("the longest value of a number is not 1 to 9 digits")
+	case v.Channel == Number && !v.Required && v.Default == "":
+		return fmt.Errorf("a number that is not required needs a default: an empty number would leave a gap in the text")
 	}
 	for f, p := range v.Families {
 		switch {
@@ -240,6 +247,16 @@ func validVar(v Var) error {
 	return nil
 }
 
+// wholeWord reports whether text[i:j] stands as a word of its own: after a
+// space, an = or the line's start, and before a space or the line's end.
+// Digits are inert only so: in sh 3>file is a redirect and $3 a parameter,
+// in PowerShell 3kb is a size (Audit A-456-1).
+func wholeWord(text string, i, j int) bool {
+	before := i == 0 || strings.ContainsRune(" =\n", rune(text[i-1]))
+	after := j == len(text) || strings.ContainsRune(" \n", rune(text[j]))
+	return before && after
+}
+
 // anchored reports whether the whole pattern sits between ^ and $: its
 // parsed tree begins with the start of the text and ends with its end, so
 // `^a|b$` (a at the start, or b at the end) is not anchored and
@@ -257,13 +274,17 @@ func validText(text string, vars map[string]Var) error {
 	if n := strings.Count(text, "{{var:"); n != len(markerRe.FindAllString(text, -1)) {
 		return fmt.Errorf("a broken {{var:NAME}} marker")
 	}
-	for _, m := range markerRe.FindAllStringSubmatch(text, -1) {
-		v, ok := vars[m[1]]
+	for _, at := range markerRe.FindAllStringSubmatchIndex(text, -1) {
+		name := text[at[2]:at[3]]
+		v, ok := vars[name]
 		if !ok {
-			return fmt.Errorf("{{var:%s}} is not a declared variable", m[1])
+			return fmt.Errorf("{{var:%s}} is not a declared variable", name)
 		}
-		if v.Channel != Text {
-			return fmt.Errorf("{{var:%s}} is not a text variable: only text variables go into a text", m[1])
+		if v.Channel != Text && v.Channel != Number {
+			return fmt.Errorf("{{var:%s}} is not a text variable: only text variables and numbers go into a text", name)
+		}
+		if v.Channel == Number && !wholeWord(text, at[0], at[1]) {
+			return fmt.Errorf("{{var:%s}} is a number inside a word: put it after a space, = or the line's start, and before a space or the line's end", name)
 		}
 	}
 	return nil
