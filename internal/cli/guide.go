@@ -6,9 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 
@@ -197,10 +195,11 @@ Safe to run again, for example after an update: a changed file is kept as
 				}
 				files = append(files, f)
 			}
-			// the hook line needs /bin/sh to refuse a call when komando is
-			// missing; on Windows no guard hook is set up (doctor says so)
-			if !noGuard && runtime.GOOS != "windows" {
-				prog, note := hookProgram(project)
+			if !noGuard {
+				prog, note, err := hookProgram(project)
+				if err != nil {
+					return err
+				}
 				// Claude Code asks komando before each tool call (guard.go)
 				f, err := installGuardHook(filepath.Join(base, ".claude", "settings.json"), prog, cl.flags.dryRun)
 				if err != nil {
@@ -246,17 +245,18 @@ Safe to run again, for example after an update: a changed file is kept as
 // hookProgram is how a guard hook calls komando. In a project's own files,
 // which are often shared, it is the name komando has in PATH; a path of
 // this computer gets a note.
-func hookProgram(project bool) (prog, note string) {
+func hookProgram(project bool) (prog, note string, err error) {
 	prog = komandoPath()
-	if !project {
-		return prog, ""
+	if !filepath.IsAbs(prog) {
+		// a bare name is found through PATH, where an AI agent could put a
+		// program of its own before komando
+		return "", "", out.Errf(out.ExitError, "GUARD_PROGRAM_UNKNOWN", "run komando by its full path, such as `/usr/local/bin/komando guide install`; without a guard: `komando guide install --no-guard`",
+			"komando cannot tell where its own program is, so it writes no guard hook")
 	}
-	if p, err := exec.LookPath("komando"); err == nil && filepath.IsAbs(prog) {
-		if a, b := statOf(p), statOf(prog); a != nil && b != nil && os.SameFile(a, b) {
-			return "komando", ""
-		}
+	if project {
+		note = "it calls komando at " + prog + ", a path on this computer only; run komando guide install --project again on each computer"
 	}
-	return prog, "it calls komando at " + prog + ", a path on this computer only; put komando in PATH and run it again before you share this file"
+	return prog, note, nil
 }
 
 type skillResult struct {
