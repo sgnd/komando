@@ -6,7 +6,7 @@ cache.get	kind=read|	target=""
 cache.info	kind=read|	target=""	
 cache.keys	kind=read|	target=""	
 cache.rm	kind=change|	target=""	dangerous||deletes the keys||||
-cache.run	kind=depends|only reads unless --write	target=""	dangerous|||the cache command deletes data (FLUSHALL, ...)|||
+cache.run	kind=depends|only reads unless --write	target=""	dangerous|||the cache command deletes data (DEL, FLUSHALL, ...)|||
 cache.set	kind=change|	target=""	
 cert	kind=read|	target="servers"	
 cert.check	kind=read|	target=""	
@@ -30,7 +30,7 @@ cluster.logs	kind=read|	target="clusters"
 cluster.restart	kind=change|	target="clusters"	
 cluster.rm	kind=change|	target="clusters"	dangerous||deletes it from the cluster||||
 cluster.rollback	kind=change|	target="clusters"	
-cluster.run	kind=depends|only reads unless --write	target="clusters"	dangerous|||the kubectl command deletes something|||
+cluster.run	kind=depends|only reads unless --write	target="clusters"	dangerous|||the cluster command deletes something or scales to 0|||
 cluster.scale	kind=change|	target="clusters"	dangerous|REPLICAS is 0|stops every copy of the app||||
 cluster.shell	kind=depends|an shellNote shell for a person: whatever they type	target="clusters"	person||||||
 cluster.status	kind=read|	target="clusters"	
@@ -42,7 +42,7 @@ completion.zsh	kind=none	target=""
 config	kind=read|	target=""	
 config.approval-code	kind=change|	target=""	person||||||
 config.get	kind=read|	target=""	
-config.set	kind=change|	target=""	safety|||the setting turns a check off (audit, keychain, host key policy, ...)|||
+config.set	kind=change|	target=""	safety|||the setting turns a check off|||
 config.show	kind=read|	target=""	
 conn	kind=read|	target="conns"	
 conn.add	kind=change|	target="conns"	
@@ -67,7 +67,7 @@ db.grant	kind=change|	target=""
 db.info	kind=read|	target=""	
 db.kill	kind=change|	target=""	change|||||ends the session (its client loses the connection)|sessions
 db.locks	kind=read|	target=""	
-db.query	kind=depends|only reads unless --write	target=""	dangerous|||the SQL deletes data (DROP, DELETE without WHERE, ...)|||
+db.query	kind=depends|only reads unless --write	target=""	dangerous|||the query deletes data (DROP, DELETE without WHERE, KILL, ...)|||
 db.restore	kind=change|	target=""	dangerous||replaces what is in the database now||||
 db.revoke	kind=change|	target=""	
 db.schema	kind=read|	target=""	
@@ -99,7 +99,7 @@ download	kind=read|	target="servers or file storage"
 environment	kind=none	target=""	
 exec	kind=depends|changes things unless --read-only says the command only reads (the policy checks it either way)	target="servers"	dangerous|||the command matches a destructive rule|||
 exit-codes	kind=none	target=""	
-export	kind=read|	target=""	person|with --sealed or --for-phone|||||
+export	kind=read|	target=""	person|with --sealed||||| ; person|with --for-phone|||||
 facts	kind=read|	target="servers"	
 fs	kind=read|	target="servers"	
 fs.cat	kind=read|	target="servers"	
@@ -129,15 +129,15 @@ host.ca.add	kind=change|	target="servers"	person||trusts every server the CA sig
 host.ca.list	kind=read|	target="servers"	
 host.ca.revoke	kind=change|	target="servers"	
 host.ca.rm	kind=change|	target="servers"	
-host.edit	kind=change|	target="servers"	dangerous|||--proxy-command matches a destructive rule||| ; safety|with --protected=false|turns protection off|||| ; safety|with --proxy-command||an AI agent runs it (the proxy command runs on this computer)|||
+host.edit	kind=change|	target="servers"	dangerous|||--proxy-command matches a destructive rule||| ; safety|with --proxy-command||an AI agent runs it (the proxy command runs on this computer)||| ; safety|with --protected=false|turns protection off||||
 host.list	kind=read|	target="servers"	
 host.rename	kind=change|	target="servers"	
 host.rm	kind=change|	target="servers"	
 host.show	kind=read|	target="servers"	
 host.ssh-command	kind=read|	target="servers"	person||||||
 host.test	kind=read|	target="servers"	
-host.trust	kind=change|	target="servers"	safety|||an AI agent pins a first host key while host keys are strict||| ; person|with --reset, when a key is pinned|replaces a pinned host key (OD-9)||||
-import	kind=change|	target=""	dangerous|||an imported ProxyCommand matches a destructive rule||| ; safety|||an AI agent imports a server with a proxy command (it runs on this computer; without --yes the server is left out)||| ; safety|SOURCE kubeconfig||an AI agent imports a context whose login runs a program or sends a file of this computer||| ; person|SOURCE komando||the file is sealed (export --sealed): a person types its passphrase|||
+host.trust	kind=change|	target="servers"	safety|||an AI agent pins a first host key while host keys are strict||| ; person|with --reset|replaces a pinned host key||||
+import	kind=change|	target=""	safety|SOURCE kubeconfig||an AI agent imports a context whose login runs a program or sends a file of this computer||| ; person|SOURCE komando||the file is sealed (export --sealed): a person types its passphrase||| ; dangerous|||an imported proxy command matches a destructive rule||| ; safety|||an AI agent imports a server with a proxy command|||
 job	kind=read|	target="servers"	
 job.kill	kind=change|	target="servers"	
 job.list	kind=read|	target="servers"	
@@ -154,7 +154,7 @@ key.gen	kind=change|	target="servers"
 key.list	kind=read|	target="servers"	
 key.rename	kind=change|	target="servers"	
 key.revoke	kind=change|	target="servers"	dangerous|||it is the key komando logs in with|||
-key.rm	kind=change|	target="servers"	dangerous|with --delete-file, for a key komando made|deletes the private key komando keeps||||
+key.rm	kind=change|	target="servers"	dangerous|with --delete-file|deletes the private key komando keeps||||
 key.show	kind=read|	target="servers"	
 komando	kind=none	target=""	
 list	kind=read|	target=""	
@@ -189,20 +189,21 @@ policy.rm	kind=change|	target=""	safety||removes a deny rule||||
 policy.show	kind=read|	target=""	
 probe cluster scale c1 web 0	dangerous|stops every copy of the app||
 probe conn edit app-db --protected=false	safety|turns protection off||
+probe export --for-phone	person|||
 probe export --sealed	person|||
 probe group rm big	change|||deleting a group of more than 3 members
 probe host add web2 root@10.0.0.6 --proxy-command nc	safety||an AI agent runs it (the proxy command runs on this computer)|
 probe host edit web1 --protected=false	safety|turns protection off||
 probe host edit web1 --proxy-command nc	safety||an AI agent runs it (the proxy command runs on this computer)|
-probe host trust web1 --reset	person|replaces a pinned host key (OD-9)||
+probe host trust web1 --reset	person|replaces a pinned host key||
 probe import komando backup.json	person||the file is sealed (export --sealed): a person types its passphrase|
-probe import kubeconfig	safety||an AI agent imports a server with a proxy command (it runs on this computer; without --yes the server is left out)|
+probe import kubeconfig	safety||an AI agent imports a context whose login runs a program or sends a file of this computer|
 probe key rm k1 --delete-file	dangerous|deletes the private key komando keeps||
 probe pkg rm web1 openssh-server	dangerous|removes a package the server needs to run or to let you in||
 probe pkg upgrade web1 --security	dangerous||an update would remove a package the server needs|
 probe policy edit rm-root --off	safety|switches a rule off||
-probe recipe add r1 --overwrite --read-only	safety||it makes an existing recipe read-only|
-probe secret keychain	person|||
+probe recipe add r1 --overwrite --read-only	safety||it makes an existing snippet read-only|
+probe secret keychain	person|moves the key into the keychain||
 probe svc disable web1 ssh.service	dangerous|turns sshd off (no one can log in remotely after a restart)||
 probe svc stop web1 sshd	dangerous|stops sshd (no one can log in remotely)||
 probe sync ./site web1:/srv --delete	dangerous|deletes the files in DST that SRC does not have||
@@ -223,10 +224,10 @@ queue.rm	kind=change|	target=""	dangerous||deletes the topics or queues with the
 queue.send	kind=change|	target=""	
 reboot	kind=change|	target="servers"	dangerous||restarts the server (it is away until it is back)||||
 recipe	kind=read|	target="servers"	
-recipe.add	kind=change|	target="servers"	safety|with --overwrite --read-only||it makes an existing recipe read-only|||
+recipe.add	kind=change|	target="servers"	safety|with --overwrite --read-only||it makes an existing snippet read-only|||
 recipe.list	kind=read|	target="servers"	
 recipe.rm	kind=change|	target="servers"	
-recipe.run	kind=depends|decided by the recipe's command, like exec	target="servers"	dangerous|||the recipe's command matches a destructive rule|||
+recipe.run	kind=depends|decided by the recipe's command, like exec	target="servers"	dangerous|||a step matches a destructive rule|||
 registry	kind=read|	target=""	
 registry.add	kind=change|	target=""	
 registry.copy	kind=change|	target=""	
@@ -240,7 +241,7 @@ schema	kind=read|	target=""
 secret	kind=read|	target=""	
 secret.check	kind=read|	target=""	person||||||
 secret.cp	kind=change|	target=""	
-secret.keychain	kind=change|	target=""	safety|||it turns the keychain off||| ; person|without --off (moving the key into the keychain)|||||
+secret.keychain	kind=change|	target=""	safety|||it turns the keychain off||| ; person|without --off|moves the key into the keychain||||
 secret.list	kind=read|	target=""	
 secret.passphrase	kind=change|	target=""	person||||||
 secret.rename	kind=change|	target=""	
@@ -280,7 +281,7 @@ test	kind=read|	target=""
 tunnel	kind=read|	target="servers"	
 tunnel.list	kind=read|	target="servers"	
 tunnel.serve	kind=none	target="servers"	
-tunnel.start	kind=change|	target="servers"	safety|||it listens on an open address (OPEN_BIND)|||
+tunnel.start	kind=change|	target="servers"	safety|||it listens on an open address|||
 tunnel.stop	kind=change|	target="servers"	
 update	kind=change|	target=""	safety|||it installs an older version|||
 upload	kind=change|	target="servers or file storage"	
@@ -294,7 +295,7 @@ version	kind=read|	target=""
 vpn	kind=read|	target="VPNs"	
 vpn.add	kind=change|	target="VPNs"	
 vpn.down	kind=change|	target="VPNs"	
-vpn.edit	kind=change|	target="VPNs"	safety|with --protected=false|turns protection off|||| ; safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)||||
+vpn.edit	kind=change|	target="VPNs"	safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)|||| ; safety|with --protected=false|turns protection off||||
 vpn.list	kind=read|	target="VPNs"	
 vpn.rename	kind=change|	target="VPNs"	
 vpn.rm	kind=change|	target="VPNs"	

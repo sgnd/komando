@@ -189,6 +189,7 @@ policy.rm	plain=safety	highest=safety
 policy.show	plain=read	highest=read
 probe cluster scale c1 web 0	dangerous
 probe conn edit app-db --protected=false	safety
+probe export --for-phone	person
 probe export --sealed	person
 probe group rm big	change
 probe host add web2 root@10.0.0.6 --proxy-command nc	safety

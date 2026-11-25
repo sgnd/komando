@@ -25,6 +25,10 @@ type TierRow struct {
 	What    string // "deletes the keys": the person reads "This deletes the keys."
 	Dynamic string // set: the tier holds only when this is so; the command decides
 	Bulk    string // set: a bulk confirm the command keeps
+	// Today (pre-cut): internal/cli's riskRows uses this row now, in place
+	// of today's row for the same key, tier and condition. The other rows
+	// wait for the cut, when their leaf's path is live.
+	Today bool
 }
 
 // Cond is when a row applies. Every flag it names is an Option of every
@@ -113,30 +117,30 @@ var typesWithEdit = []string{"host", "database", "cache", "queue", "storage", "c
 var tierRows = concat2(
 	[]TierRow{
 		{Key: Key{Type: "queue", Area: "message", Verb: "delete"}, Tier: Dangerous, When: Cond{Flags: []string{"all"}}, What: "deletes every waiting message"},
-		{Key: Key{Type: "queue", Area: "topic", Verb: "delete"}, Tier: Dangerous, What: "deletes the topics or queues with their messages"},
-		{Key: Key{Type: "storage", Area: "object", Verb: "delete"}, Tier: Dangerous, What: "deletes the files"},
-		{Key: Key{Type: "registry", Area: "image", Verb: "delete"}, Tier: Dangerous, What: "deletes the images"},
-		{Key: Key{Type: "registry", Area: "image", Verb: "prune"}, Tier: Dangerous, What: "deletes the images"},
-		{Key: Key{Type: "database", Verb: "restore"}, Tier: Dangerous, What: "replaces what is in the database now"},
+		{Today: true, Key: Key{Type: "queue", Area: "topic", Verb: "delete"}, Tier: Dangerous, What: "deletes the topics or queues with their messages"},
+		{Today: true, Key: Key{Type: "storage", Area: "object", Verb: "delete"}, Tier: Dangerous, What: "deletes the files"},
+		{Today: true, Key: Key{Type: "registry", Area: "image", Verb: "delete"}, Tier: Dangerous, What: "deletes the images"},
+		{Today: true, Key: Key{Type: "registry", Area: "image", Verb: "prune"}, Tier: Dangerous, What: "deletes the images"},
+		{Today: true, Key: Key{Type: "database", Verb: "restore"}, Tier: Dangerous, What: "replaces what is in the database now"},
 		{Key: own("credential", "password", "remove"), Tier: Dangerous, What: "deletes the saved password"},
 		{Key: own("credential", "token", "remove"), Tier: Dangerous, What: "deletes the saved token"},
-		{Key: own("credential", "key", "remove"), Tier: Dangerous, When: Cond{Flags: []string{"delete-file"}}, What: "deletes the private key komando keeps"},
+		{Today: true, Key: own("credential", "key", "remove"), Tier: Dangerous, When: Cond{Flags: []string{"delete-file"}}, What: "deletes the private key komando keeps"},
 		{Key: top("copy"), Tier: Dangerous, When: Cond{Flags: []string{"sync", "delete"}}, What: "deletes the files in the destination that the source does not have"},
 
-		{Key: Key{Type: "host", Verb: "exec"}, Tier: Dangerous, Dynamic: "the command matches a destructive rule"},
+		{Today: true, Key: Key{Type: "host", Verb: "exec"}, Tier: Dangerous, Dynamic: "the command matches a destructive rule"},
 		{Key: Key{Type: "host", Provider: "ssh", Verb: "exec"}, Tier: Change, When: Cond{Flags: []string{"stop"}}, What: "stops the session's command"},
 		{Key: Key{Type: "host", Provider: "ssh", Verb: "exec"}, Tier: Change, When: Cond{Flags: []string{"remove"}}, What: "removes the session's log from the server"},
-		{Key: own("snippet", "", "exec"), Tier: Dangerous, Dynamic: "a step matches a destructive rule"},
-		{Key: Key{Type: "cluster", Verb: "exec"}, Tier: Dangerous, Dynamic: "the command matches a destructive rule"},
-		{Key: Key{Type: "cluster", Verb: "raw"}, Tier: Dangerous, Dynamic: "the cluster command deletes something or scales to 0"},
-		{Key: Key{Type: "cache", Verb: "raw"}, Tier: Dangerous, Dynamic: "the cache command deletes data (DEL, FLUSHALL, ...)"},
-		{Key: Key{Type: "database", Verb: "query"}, Tier: Dangerous, Dynamic: "the query deletes data (DROP, DELETE without WHERE, KILL, ...)"},
-		{Key: own("credential", "key", "uninstall"), Tier: Dangerous, Dynamic: "it is the key komando logs in with"},
+		{Today: true, Key: own("snippet", "", "exec"), Tier: Dangerous, Dynamic: "a step matches a destructive rule"},
+		{Today: true, Key: Key{Type: "cluster", Verb: "exec"}, Tier: Dangerous, Dynamic: "the command matches a destructive rule"},
+		{Today: true, Key: Key{Type: "cluster", Verb: "raw"}, Tier: Dangerous, Dynamic: "the cluster command deletes something or scales to 0"},
+		{Today: true, Key: Key{Type: "cache", Verb: "raw"}, Tier: Dangerous, Dynamic: "the cache command deletes data (DEL, FLUSHALL, ...)"},
+		{Today: true, Key: Key{Type: "database", Verb: "query"}, Tier: Dangerous, Dynamic: "the query deletes data (DROP, DELETE without WHERE, KILL, ...)"},
+		{Today: true, Key: own("credential", "key", "uninstall"), Tier: Dangerous, Dynamic: "it is the key komando logs in with"},
 		{Key: Key{Type: "host", Provider: "ssh", Verb: "add"}, Tier: Dangerous, When: Cond{Flags: []string{"proxy-command"}}, Dynamic: "the proxy command matches a destructive rule"},
 		{Key: Key{Type: "host", Provider: "ssh", Verb: "edit"}, Tier: Dangerous, When: Cond{Flags: []string{"proxy-command"}}, Dynamic: "the proxy command matches a destructive rule"},
-		{Key: top("import"), Tier: Dangerous, Dynamic: "an imported proxy command matches a destructive rule"},
+		{Today: true, Key: top("import"), Tier: Dangerous, Dynamic: "an imported proxy command matches a destructive rule"},
 
-		{Key: own("policy", "", "remove"), Tier: Safety, What: "removes a deny rule"},
+		{Today: true, Key: own("policy", "", "remove"), Tier: Safety, What: "removes a deny rule"},
 		// policy edit: a Cond names flags only, so these rows are a stricter
 		// copy of switchesOn (internal/cli/risk.go): --off in any spelling,
 		// --off=false too, and each --add- flag is Safety; a line with only
@@ -145,36 +149,36 @@ var tierRows = concat2(
 		{Key: own("policy", "", "edit"), Tier: Safety, When: Cond{Flags: []string{"off"}}, What: "switches a rule off"},
 		{Key: own("policy", "", "edit"), Tier: Safety, When: Cond{Flags: []string{"add-server"}}, What: "switches a rule off"},
 		{Key: own("policy", "", "edit"), Tier: Safety, When: Cond{Flags: []string{"add-group"}}, What: "switches a rule off"},
-		{Key: own("config", "", "set"), Tier: Safety, Dynamic: "the setting turns a check off"},
-		{Key: Key{Type: "vpn", Verb: "edit"}, Tier: Safety, When: Cond{Flags: []string{"mfa"}, Value: "false"}, What: "turns --mfa off (komando may then connect it without a person)"},
-		{Key: top("update"), Tier: Safety, Dynamic: "it installs an older version"},
-		{Key: Key{Type: "host", Area: "tunnel", Verb: "start"}, Tier: Safety, Dynamic: "it listens on an open address"},
+		{Today: true, Key: own("config", "", "set"), Tier: Safety, Dynamic: "the setting turns a check off"},
+		{Today: true, Key: Key{Type: "vpn", Verb: "edit"}, Tier: Safety, When: Cond{Flags: []string{"mfa"}, Value: "false"}, What: "turns --mfa off (komando may then connect it without a person)"},
+		{Today: true, Key: top("update"), Tier: Safety, Dynamic: "it installs an older version"},
+		{Today: true, Key: Key{Type: "host", Area: "tunnel", Verb: "start"}, Tier: Safety, Dynamic: "it listens on an open address"},
 		{Key: Key{Type: "cluster", Area: "tunnel", Verb: "start"}, Tier: Safety, Dynamic: "it listens on an open address"},
-		{Key: own("config", "vault", "keychain"), Tier: Safety, Dynamic: "it turns the keychain off"},
+		{Today: true, Key: own("config", "vault", "keychain"), Tier: Safety, Dynamic: "it turns the keychain off"},
 		{Key: Key{Type: "host", Provider: "ssh", Verb: "add"}, Tier: Safety, When: Cond{Flags: []string{"proxy-command"}}, Dynamic: "an AI agent runs it (the proxy command runs on this computer)"},
 		{Key: Key{Type: "host", Provider: "ssh", Verb: "edit"}, Tier: Safety, When: Cond{Flags: []string{"proxy-command"}}, Dynamic: "an AI agent runs it (the proxy command runs on this computer)"},
-		{Key: top("import"), Tier: Safety, Dynamic: "an AI agent imports a server with a proxy command"},
-		{Key: own("snippet", "", "create"), Tier: Safety, When: Cond{Flags: []string{"overwrite", "read-only"}}, Dynamic: "it makes an existing snippet read-only"},
+		{Today: true, Key: top("import"), Tier: Safety, Dynamic: "an AI agent imports a server with a proxy command"},
+		{Today: true, Key: own("snippet", "", "create"), Tier: Safety, When: Cond{Flags: []string{"overwrite", "read-only"}}, Dynamic: "it makes an existing snippet read-only"},
 		{Key: own("snippet", "", "edit"), Tier: Safety, When: Cond{Flags: []string{"read-only"}}, Dynamic: "it makes an existing snippet read-only"},
-		{Key: Key{Type: "host", Provider: "ssh", Verb: "trust"}, Tier: Safety, Dynamic: "an AI agent pins a first host key while host keys are strict"},
-		{Key: own("agent", "skill", "uninstall"), Tier: Safety, Dynamic: "it removes komando's guard from an AI agent's settings"},
+		{Today: true, Key: Key{Type: "host", Provider: "ssh", Verb: "trust"}, Tier: Safety, Dynamic: "an AI agent pins a first host key while host keys are strict"},
+		{Today: true, Key: own("agent", "skill", "uninstall"), Tier: Safety, Dynamic: "it removes komando's guard from an AI agent's settings"},
 
-		{Key: own("config", "", "approval-code"), Tier: Person},
-		{Key: top("ssh-gate"), Tier: Person}, // kept until the phone engine (C369)
-		{Key: own("config", "vault", "passphrase"), Tier: Person},
-		{Key: own("config", "vault", "keychain"), Tier: Person, When: Cond{Flags: []string{"off"}, Not: true}, What: "moves the key into the keychain"},
-		{Key: Key{Type: "host", Verb: "shell"}, Tier: Person},
-		{Key: Key{Type: "database", Verb: "shell"}, Tier: Person},
-		{Key: Key{Type: "cluster", Verb: "shell"}, Tier: Person},
-		{Key: own("credential", "certificate", "add"), Tier: Person, What: "trusts every server the CA signs"},
-		{Key: Key{Type: "host", Provider: "ssh", Verb: "trust"}, Tier: Person, When: Cond{Flags: []string{"reset"}}, What: "replaces a pinned host key"},
+		{Today: true, Key: own("config", "", "approval-code"), Tier: Person},
+		{Today: true, Key: top("ssh-gate"), Tier: Person}, // kept until the phone engine (C369)
+		{Today: true, Key: own("config", "vault", "passphrase"), Tier: Person},
+		{Today: true, Key: own("config", "vault", "keychain"), Tier: Person, When: Cond{Flags: []string{"off"}, Not: true}, What: "moves the key into the keychain"},
+		{Today: true, Key: Key{Type: "host", Verb: "shell"}, Tier: Person},
+		{Today: true, Key: Key{Type: "database", Verb: "shell"}, Tier: Person},
+		{Today: true, Key: Key{Type: "cluster", Verb: "shell"}, Tier: Person},
+		{Today: true, Key: own("credential", "certificate", "add"), Tier: Person, What: "trusts every server the CA signs"},
+		{Today: true, Key: Key{Type: "host", Provider: "ssh", Verb: "trust"}, Tier: Person, When: Cond{Flags: []string{"reset"}}, What: "replaces a pinned host key"},
 		// data out (backup, export): each leaf has a row with no condition
 		{Key: top("export"), Tier: Read, What: "writes komando's list to a file, secrets left out"},
 		{Key: Key{Type: "database", Verb: "backup"}, Tier: Read, What: "writes the database to a file on this computer"},
 		{Key: own("audit", "", "export"), Tier: Person, What: "writes the audit log, which can hold SQL text, to a file"},
 		{Key: own("audit", "recording", "export"), Tier: Person, What: "writes a recording, with everything that was typed, to a file"},
-		{Key: top("export"), Tier: Person, When: Cond{Flags: []string{"sealed"}}},
-		{Key: top("export"), Tier: Person, When: Cond{Flags: []string{"for-phone"}}},
+		{Today: true, Key: top("export"), Tier: Person, When: Cond{Flags: []string{"sealed"}}},
+		{Today: true, Key: top("export"), Tier: Person, When: Cond{Flags: []string{"for-phone"}}},
 		{Key: top("import"), Tier: Person, Dynamic: "the file is sealed: a person types its passphrase"},
 		{Key: Key{Type: "host", Provider: "ssh", Verb: "test"}, Tier: Person, Dynamic: "the server asks for a second factor"},
 		{Key: Key{Type: "cloud", Verb: "test"}, Tier: Person, Dynamic: "the cloud asks a person to sign in"},
@@ -192,7 +196,8 @@ func protectionOffRows() []TierRow {
 	var out []TierRow
 	for _, typ := range typesWithEdit {
 		out = append(out, TierRow{Key: Key{Type: typ, Verb: "edit"}, Tier: Safety,
-			When: Cond{Flags: []string{"protected"}, Value: "false"}, What: "turns protection off"})
+			When: Cond{Flags: []string{"protected"}, Value: "false"}, What: "turns protection off",
+			Today: typ == "host" || typ == "vpn"}) // today's conn edit keeps its own row
 	}
 	return out
 }

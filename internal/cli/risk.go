@@ -119,9 +119,47 @@ func givesValue(name string) func([]string) bool {
 func protectionOff(w []string) bool { return slices.Contains(w, "--protected=false") }
 
 // riskRows is the table, keyed by (type, area, verb). Rows for one key are
-// read in order; the highest tier that applies wins. The rows live in
-// internal/capability (TodayRows) until the cut.
-var riskRows = rowsOf(capability.TodayRows())
+// read in order; the highest tier that applies wins. It is built from
+// internal/capability: the v2.7 rows that already stand for a command of
+// today (TierRow.Today), and today's own rows (TodayRows) for the commands
+// v2.7 replaces, removes or words differently. Both live there until the cut.
+var riskRows = append(rowsOf(capability.TodayRows()), tableRows(capability.TierRows())...)
+
+// tableRows turns the v2.7 rows marked Today into riskRows: the key without
+// its provider is today's safety key.
+func tableRows(rows []capability.TierRow) []riskRow {
+	var out []riskRow
+	for _, r := range rows {
+		if !r.Today {
+			continue
+		}
+		when, cond := condWhen(r.When)
+		out = append(out, riskRow{key: safetyKey{r.Type, r.Area, r.Verb}, when: when, cond: cond,
+			tier: tier(r.Tier), what: r.What, dynamic: r.Dynamic, bulk: r.Bulk})
+	}
+	return out
+}
+
+// condWhen is a v2.7 condition as a riskRow condition, and in words.
+func condWhen(c capability.Cond) (func([]string) bool, string) {
+	flags := make([]string, len(c.Flags))
+	for i, f := range c.Flags {
+		flags[i] = "--" + f
+	}
+	switch {
+	case len(c.Words) > 0:
+		return anyWord(c.Words...), strings.Join(c.Words, " ")
+	case c.Not && len(c.Flags) == 1:
+		return func(w []string) bool { return !givesFlag(c.Flags[0])(w) }, "without " + flags[0]
+	case c.Value != "" && len(c.Flags) == 1:
+		return anyWord(flags[0] + "=" + c.Value), "with " + flags[0] + "=" + c.Value
+	case len(c.Flags) > 0:
+		return func(w []string) bool {
+			return !slices.ContainsFunc(c.Flags, func(f string) bool { return !givesFlag(f)(w) })
+		}, "with " + strings.Join(flags, " ")
+	}
+	return nil, ""
+}
 
 // rowsOf turns capability's rows into riskRows. A condition name it does
 // not know panics when the package starts, so every test fails at once.

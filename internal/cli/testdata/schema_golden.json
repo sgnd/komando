@@ -321,7 +321,7 @@
         "path": "komando cache run",
         "usage": "komando cache run CONN -- COMMAND... [flags]",
         "short": "Send any Redis or memcached command (read only by default)",
-        "long": "Send any Redis or memcached command (read only by default).\n\nSafety: a change; try it with --dry-run first; when the cache command\ndeletes data (FLUSHALL, ...): dangerous, it cannot be undone: a person types\nthe name to go on, and an AI agent or a script needs --allow-dangerous; on a\nprotected server or conn, a person's yes (--yes) as well.",
+        "long": "Send any Redis or memcached command (read only by default).\n\nSafety: a change; try it with --dry-run first; when the cache command\ndeletes data (DEL, FLUSHALL, ...): dangerous, it cannot be undone: a person\ntypes the name to go on, and an AI agent or a script needs\n--allow-dangerous; on a protected server or conn, a person's yes (--yes) as\nwell.",
         "example": "  komando cache run prod-redis -- HGETALL user:42\n  komando cache run prod-redis -- ZREVRANGE leaderboard 0 9 WITHSCORES\n  komando cache run prod-redis --write -- EXPIRE session:42 3600\n  komando cache run prod-redis --write --dry-run -- EXPIRE session:42 3600\n  komando cache run prod-redis -- \"GET feature:dark-mode\"   # one quoted line works too",
         "flags": [
           {
@@ -341,7 +341,7 @@
           {
             "tier": "dangerous",
             "flag": "--allow-dangerous",
-            "when": "when the cache command deletes data (FLUSHALL, ...)"
+            "when": "when the cache command deletes data (DEL, FLUSHALL, ...)"
           }
         ]
       },
@@ -1143,7 +1143,7 @@
         "path": "komando cluster run",
         "usage": "komando cluster run TARGET -- ARGS... [flags]",
         "short": "Run any kubectl or docker command (read only by default)",
-        "long": "For Kubernetes, komando runs the kubectl command itself (no kubectl\nneeded) and reaches the API through the conn's --via path: get (tables,\nwide, name, json, yaml, jsonpath, custom-columns, -w), describe, logs,\nevents, top, explain, version, api-resources, api-versions, cluster-info,\nauth can-i/whoami, wait, rollout, apply, diff, create, replace, delete,\npatch, label, annotate, scale, set image, cordon, uncordon, drain, taint,\nrun, exec, cp, debug, certificate and config. For Swarm, docker runs on the\nmanager. Commands that change things need --write; delete, drain and other\nrisky verbs also need --allow-dangerous.\n\nSafety: a change; try it with --dry-run first; when the kubectl command\ndeletes something: dangerous, it cannot be undone: a person types the name\nto go on, and an AI agent or a script needs --allow-dangerous; on a\nprotected server or conn, a person's yes (--yes) as well.",
+        "long": "For Kubernetes, komando runs the kubectl command itself (no kubectl\nneeded) and reaches the API through the conn's --via path: get (tables,\nwide, name, json, yaml, jsonpath, custom-columns, -w), describe, logs,\nevents, top, explain, version, api-resources, api-versions, cluster-info,\nauth can-i/whoami, wait, rollout, apply, diff, create, replace, delete,\npatch, label, annotate, scale, set image, cordon, uncordon, drain, taint,\nrun, exec, cp, debug, certificate and config. For Swarm, docker runs on the\nmanager. Commands that change things need --write; delete, drain and other\nrisky verbs also need --allow-dangerous.\n\nSafety: a change; try it with --dry-run first; when the cluster command\ndeletes something or scales to 0: dangerous, it cannot be undone: a person\ntypes the name to go on, and an AI agent or a script needs\n--allow-dangerous; on a protected server or conn, a person's yes (--yes) as\nwell.",
         "example": "  komando cluster run prod-k8s -- get pods -A -o wide\n  komando cluster run prod-k8s --write -- rollout undo deployment/api -n shop\n  komando cluster run prod-k8s --write --dry-run -- rollout undo deployment/api -n shop\n  komando cluster run swarm1 -- service ps web",
         "flags": [
           {
@@ -1163,7 +1163,7 @@
           {
             "tier": "dangerous",
             "flag": "--allow-dangerous",
-            "when": "when the kubectl command deletes something"
+            "when": "when the cluster command deletes something or scales to 0"
           }
         ]
       },
@@ -1309,7 +1309,7 @@
         "path": "komando config set",
         "usage": "komando config set SETTING VALUE [flags]",
         "short": "Change a setting",
-        "long": "Settings:\n  host_key_policy  accept-new | strict | off\n      how server identity is checked: accept-new pins a new server's key, strict needs `host trust` first, off checks nothing (needs --yes)\n  default_user     a login name\n      user for servers that have none (empty: your own user name)\n  default_timeout  duration > 0\n      how long a remote command may run (--timeout overrides it)\n  connect_timeout  duration > 0\n      how long connecting may take (--connect-timeout overrides it)\n  parallel         1 or more\n      how many servers a command works on at once (-P overrides it)\n  max_output_bytes 1024 or more\n      output kept per stream and server, in bytes (--max-output overrides it)\n  audit            on | off\n      keep the audit log (turning it off needs --yes)\n  audit_sql        full | hash | off\n      how SQL text is kept in the audit log: hash keeps a SHA-256 so repeated queries can be matched (off needs --yes)\n  audit_syslog     udp://HOST:514 | tcp://HOST:514 | tls://HOST:6514 | off\n      also send each audit record to a log server (syslog, RFC 5424); changing it needs --yes\n  mask_personal    protected | all | off\n      where AI agents see email addresses, phone numbers, card numbers and IBANs hidden: on protected servers and conns (the default), on all, or nowhere (less needs --yes)\n  login_for        duration\n      how long `komando login SERVER` keeps a server's login for later commands (an AI agent's too)\n  approval_languageauto | en | id\n      the language of the approval window: auto follows the system language (Indonesian when it is id, else English)\n  vpn_idle         duration, 0 = never\n      a VPN kept up with `vpn up` is closed after this long unused\n\nSafety: a change; try it with --dry-run first; when the setting turns a\ncheck off (audit, keychain, host key policy, ...): it weakens a safety\ncheck: a person's yes (--yes).\n\nTo go back to a default, set the value from the DEFAULT column of `komando\nconfig show`.",
+        "long": "Settings:\n  host_key_policy  accept-new | strict | off\n      how server identity is checked: accept-new pins a new server's key, strict needs `host trust` first, off checks nothing (needs --yes)\n  default_user     a login name\n      user for servers that have none (empty: your own user name)\n  default_timeout  duration > 0\n      how long a remote command may run (--timeout overrides it)\n  connect_timeout  duration > 0\n      how long connecting may take (--connect-timeout overrides it)\n  parallel         1 or more\n      how many servers a command works on at once (-P overrides it)\n  max_output_bytes 1024 or more\n      output kept per stream and server, in bytes (--max-output overrides it)\n  audit            on | off\n      keep the audit log (turning it off needs --yes)\n  audit_sql        full | hash | off\n      how SQL text is kept in the audit log: hash keeps a SHA-256 so repeated queries can be matched (off needs --yes)\n  audit_syslog     udp://HOST:514 | tcp://HOST:514 | tls://HOST:6514 | off\n      also send each audit record to a log server (syslog, RFC 5424); changing it needs --yes\n  mask_personal    protected | all | off\n      where AI agents see email addresses, phone numbers, card numbers and IBANs hidden: on protected servers and conns (the default), on all, or nowhere (less needs --yes)\n  login_for        duration\n      how long `komando login SERVER` keeps a server's login for later commands (an AI agent's too)\n  approval_languageauto | en | id\n      the language of the approval window: auto follows the system language (Indonesian when it is id, else English)\n  vpn_idle         duration, 0 = never\n      a VPN kept up with `vpn up` is closed after this long unused\n\nSafety: a change; try it with --dry-run first; when the setting turns a\ncheck off: it weakens a safety check: a person's yes (--yes).\n\nTo go back to a default, set the value from the DEFAULT column of `komando\nconfig show`.",
         "example": "  komando config set parallel 20\n  komando config set parallel 20 --dry-run\n  komando config set default_timeout 10m\n  komando config set host_key_policy strict\n  komando config set audit_sql hash",
         "runnable": true,
         "kind": "change",
@@ -1320,7 +1320,7 @@
           {
             "tier": "safety",
             "flag": "--yes",
-            "when": "when the setting turns a check off (audit, keychain, host key policy, ...)"
+            "when": "when the setting turns a check off"
           }
         ]
       },
@@ -3104,7 +3104,7 @@
         "path": "komando db query",
         "usage": "komando db query CONN [SQL] [flags]",
         "short": "Run SQL (read only by default)",
-        "long": "Runs SQL on a database and prints the rows. Without --write it only reads:\nkomando runs it in a read-only transaction, and stops it after 30s.\n\nSafety: a change; try it with --dry-run first; when the SQL deletes data\n(DROP, DELETE without WHERE, ...): dangerous, it cannot be undone: a person\ntypes the name to go on, and an AI agent or a script needs\n--allow-dangerous; on a protected server or conn, a person's yes (--yes) as\nwell.\n\nMore about db query:\nA run stops after 30s unless --timeout (or the statement_timeout option in\nthe database URL) allows more. Placeholders take their values from\n--arg, in order. -o csv and -o tsv print every row (up to --limit, if\ngiven) for spreadsheets and scripts.\nSQL that starts with a -- comment: pass it after -- or with -f -.\n\nSQL Server has no read-only transaction: without --write komando rolls the\nSQL back, and a statement it does not know as a read (a bare procedure\nname, EXEC) needs --write. Its placeholders are @p1, @p2, ...\n\nOracle: placeholders are :1, :2, ... A PL/SQL block (BEGIN ... END;) runs\nto the end of the text or to a line with only /, and needs --write and\n--allow-dangerous. DDL (CREATE, ALTER, DROP, GRANT) commits on its own in\nOracle, so it needs --write, goes on its own, and a dry run only reports it.\n\nClickHouse has no transactions: without --write every request carries the\nserver's own readonly=1, and a statement that is not a read (INSERT, ALTER,\nCREATE, ...) needs --write, goes on its own, and a dry run only reports it.\nPlaceholders are {p1:String}, {p2:UInt64}, ... (named p1, p2, with a type).\n\nSnowflake has no read-only mode komando can switch on, and each statement\nis a session of its own: without --write komando sends only what it rates\nas a read, and a statement that is not a read needs --write, goes on its\nown, and a dry run only reports it. Log in with a role that may only\nread. Placeholders are ?.\n\nBigQuery: each statement first goes as a dry run, which runs nothing and\nsays what BigQuery sees and how many bytes it would read (which is what\nBigQuery bills). Without --write only a SELECT runs. A query that would\nread more than --max-bytes (default 10GB) does not run, and the job\ncarries that cap too. A write needs --write, goes on its own, and\n--write --dry-run shows BigQuery's dry run. Placeholders are ?; the values\ngo as STRING, so write CAST(? AS INT64) for a number.\n\nOn MongoDB the text is a command document in JSON, its first key\nnaming it ({\"find\": ...}, {\"aggregate\": ...}, {\"update\": ...}). komando rates\nit as it rates SQL: what it does not know as a read needs --write. \"$db\"\npicks another database than the URL's.",
+        "long": "Runs SQL on a database and prints the rows. Without --write it only reads:\nkomando runs it in a read-only transaction, and stops it after 30s.\n\nSafety: a change; try it with --dry-run first; when the query deletes data\n(DROP, DELETE without WHERE, KILL, ...): dangerous, it cannot be undone: a\nperson types the name to go on, and an AI agent or a script needs\n--allow-dangerous; on a protected server or conn, a person's yes (--yes) as\nwell.\n\nMore about db query:\nA run stops after 30s unless --timeout (or the statement_timeout option in\nthe database URL) allows more. Placeholders take their values from\n--arg, in order. -o csv and -o tsv print every row (up to --limit, if\ngiven) for spreadsheets and scripts.\nSQL that starts with a -- comment: pass it after -- or with -f -.\n\nSQL Server has no read-only transaction: without --write komando rolls the\nSQL back, and a statement it does not know as a read (a bare procedure\nname, EXEC) needs --write. Its placeholders are @p1, @p2, ...\n\nOracle: placeholders are :1, :2, ... A PL/SQL block (BEGIN ... END;) runs\nto the end of the text or to a line with only /, and needs --write and\n--allow-dangerous. DDL (CREATE, ALTER, DROP, GRANT) commits on its own in\nOracle, so it needs --write, goes on its own, and a dry run only reports it.\n\nClickHouse has no transactions: without --write every request carries the\nserver's own readonly=1, and a statement that is not a read (INSERT, ALTER,\nCREATE, ...) needs --write, goes on its own, and a dry run only reports it.\nPlaceholders are {p1:String}, {p2:UInt64}, ... (named p1, p2, with a type).\n\nSnowflake has no read-only mode komando can switch on, and each statement\nis a session of its own: without --write komando sends only what it rates\nas a read, and a statement that is not a read needs --write, goes on its\nown, and a dry run only reports it. Log in with a role that may only\nread. Placeholders are ?.\n\nBigQuery: each statement first goes as a dry run, which runs nothing and\nsays what BigQuery sees and how many bytes it would read (which is what\nBigQuery bills). Without --write only a SELECT runs. A query that would\nread more than --max-bytes (default 10GB) does not run, and the job\ncarries that cap too. A write needs --write, goes on its own, and\n--write --dry-run shows BigQuery's dry run. Placeholders are ?; the values\ngo as STRING, so write CAST(? AS INT64) for a number.\n\nOn MongoDB the text is a command document in JSON, its first key\nnaming it ({\"find\": ...}, {\"aggregate\": ...}, {\"update\": ...}). komando rates\nit as it rates SQL: what it does not know as a read needs --write. \"$db\"\npicks another database than the URL's.",
         "example": "  komando db query prod-db \"select id, email from users order by id desc limit 10\"\n  komando db query mongo-db '{\"find\": \"users\", \"filter\": {\"plan\": \"pro\"}, \"limit\": 10}'   # MongoDB\n  komando db query prod-db \"select * from users where email = $1\" --arg bob@example.com\n  komando db query prod-db --write --dry-run \"update users set plan = 'pro' where id = 42\"\n  komando db query prod-db --file migration.sql --write --dry-run\n  komando db query prod-db -o csv \"select * from orders\" > orders.csv\n  komando db query bq \"select count(*) from shop.orders\" --max-bytes 50GB   # BigQuery",
         "flags": [
           {
@@ -3148,7 +3148,7 @@
           {
             "tier": "dangerous",
             "flag": "--allow-dangerous",
-            "when": "when the SQL deletes data (DROP, DELETE without WHERE, ...)"
+            "when": "when the query deletes data (DROP, DELETE without WHERE, KILL, ...)"
           }
         ]
       },
@@ -4094,7 +4094,7 @@
         "path": "komando export",
         "usage": "komando export [TARGET] [flags]",
         "short": "Save servers, conns, VPNs, recipes and settings to a file",
-        "long": "Saves your list to a file (komando-export/1, always JSON) that\n`komando import komando FILE` reads on another computer. Passwords and key\nfiles are never in it (only in a sealed file); it lists the secrets and keys\nto bring along. With a\nTARGET (@prod, kind:host, web1,web2) only those servers, conns and VPNs are\nsaved; without one also your recipes, deny rules and settings. Without --to\nit prints the same JSON.\n\nSafety: it only reads; with --sealed or --for-phone: only a person at a\nterminal can run it; on a protected server or conn, a person's yes (--yes)\nas well.\n\n--sealed writes the same list with the passwords it uses into one sealed\nfile, for moving to another computer: komando asks for a passphrase twice\n(15 or more characters), hidden, and the file opens only with it.\n--for-phone seals the file to the iPhone app's key instead: komando asks\nfor the key file the phone shared and the key check the phone shows. Both\nprint a check phrase of six words; the phone shows the same words for the\nfile it got. --with-keys adds the private keys the servers use.\n\nOnly a person at a terminal can make a sealed file: an AI agent gets\nNEEDS_PERSON, and a dry run says what would be sealed.",
+        "long": "Saves your list to a file (komando-export/1, always JSON) that\n`komando import komando FILE` reads on another computer. Passwords and key\nfiles are never in it (only in a sealed file); it lists the secrets and keys\nto bring along. With a\nTARGET (@prod, kind:host, web1,web2) only those servers, conns and VPNs are\nsaved; without one also your recipes, deny rules and settings. Without --to\nit prints the same JSON.\n\nSafety: it only reads; with --sealed: only a person at a terminal can run\nit; with --for-phone: only a person at a terminal can run it; on a protected\nserver or conn, a person's yes (--yes) as well.\n\n--sealed writes the same list with the passwords it uses into one sealed\nfile, for moving to another computer: komando asks for a passphrase twice\n(15 or more characters), hidden, and the file opens only with it.\n--for-phone seals the file to the iPhone app's key instead: komando asks\nfor the key file the phone shared and the key check the phone shows. Both\nprint a check phrase of six words; the phone shows the same words for the\nfile it got. --with-keys adds the private keys the servers use.\n\nOnly a person at a terminal can make a sealed file: an AI agent gets\nNEEDS_PERSON, and a dry run says what would be sealed.",
         "example": "  komando export --to komando-backup.json\n  komando export @prod --to prod.json\n  komando export kind:host --to servers.json\n  komando import komando komando-backup.json      # on the other computer\n  komando export --sealed --to move.kmdseal       # with passwords; asks a passphrase\n  komando export --for-phone --to phone.kmdseal   # for the iPhone app; asks for its key",
         "flags": [
           {
@@ -4135,7 +4135,11 @@
           },
           {
             "tier": "person",
-            "when": "with --sealed or --for-phone"
+            "when": "with --sealed"
+          },
+          {
+            "tier": "person",
+            "when": "with --for-phone"
           }
         ]
       },
@@ -5040,7 +5044,7 @@
         "path": "komando host edit",
         "usage": "komando host edit TARGET... [flags]",
         "short": "Change one or more servers (only the flags you pass change)",
-        "long": "Changes only the settings you pass. Give one name, several names, or a\nselector (@group, tag:prod, 'web-*') to change many servers at once. Try\n--dry-run first to see which servers would change.\n\nSafety: a change; try it with --dry-run first; when --proxy-command matches\na destructive rule: dangerous, it cannot be undone: a person types the name\nto go on, and an AI agent or a script needs --allow-dangerous; with\n--protected=false: it weakens a safety check: a person's yes (--yes); with\n--proxy-command, when an AI agent runs it (the proxy command runs on this\ncomputer): it weakens a safety check: a person's yes (--yes); on a protected\nserver or conn, a person's yes (--yes) as well.\n\n--protected marks a production server: komando asks you before every change,\nand an AI agent needs your yes in a window. Changing the login of a\nproduction server, or turning its protection off, asks the same way; one yes\ncovers every server in the command.",
+        "long": "Changes only the settings you pass. Give one name, several names, or a\nselector (@group, tag:prod, 'web-*') to change many servers at once. Try\n--dry-run first to see which servers would change.\n\nSafety: a change; try it with --dry-run first; when --proxy-command matches\na destructive rule: dangerous, it cannot be undone: a person types the name\nto go on, and an AI agent or a script needs --allow-dangerous; with\n--proxy-command, when an AI agent runs it (the proxy command runs on this\ncomputer): it weakens a safety check: a person's yes (--yes); with\n--protected=false: it weakens a safety check: a person's yes (--yes); on a\nprotected server or conn, a person's yes (--yes) as well.\n\n--protected marks a production server: komando asks you before every change,\nand an AI agent needs your yes in a window. Changing the login of a\nproduction server, or turning its protection off, asks the same way; one yes\ncovers every server in the command.",
         "example": "  komando host edit web1 --add-tag canary --label env=prod --sudo-ref secret:web1-sudo\n  komando host edit web1 -g web -t prod          # -g/-t add a group/tag\n  komando host edit db1 --protected              # production: ask before changes\n  komando host edit @ubuntu --sudo-ref secret:ubuntu-sudo --dry-run\n  komando host edit web1 web2 web3 --user deploy\n  komando host edit vps1 --ask-password          # type a new password (hidden)\n  komando host edit web2 --login ask             # never store its password; type it at every connect\n  komando host edit web2 --login key --key deploy   # log in with a key komando names\n  komando host edit bastion --forward-agent      # lend it your ssh-agent (asks first)",
         "flags": [
           {
@@ -5186,12 +5190,12 @@
           {
             "tier": "safety",
             "flag": "--yes",
-            "when": "with --protected=false"
+            "when": "with --proxy-command, when an AI agent runs it (the proxy command runs on this computer)"
           },
           {
             "tier": "safety",
             "flag": "--yes",
-            "when": "with --proxy-command, when an AI agent runs it (the proxy command runs on this computer)"
+            "when": "with --protected=false"
           }
         ]
       },
@@ -5313,7 +5317,7 @@
         "path": "komando host trust",
         "usage": "komando host trust TARGET [flags]",
         "short": "Pin the SSH host keys of servers (--reset after a rebuild)",
-        "long": "Fetches the server's host key and stores it in komando's known_hosts, like\nssh-keyscan plus ssh-keygen -R. The key is fetched the way komando reaches\nthe server: directly, or through its --via servers, VPN or proxy command.\n\nSafety: a change; try it with --dry-run first; when an AI agent pins a first\nhost key while host keys are strict: it weakens a safety check: a person's\nyes (--yes); with --reset, when a key is pinned: only a person at a terminal\ncan run it; on a protected server or conn, a person's yes (--yes) as well.\n\nA key that is already pinned is left as it is. If a different key is\npinned, the server may be an impostor (HOSTKEY_MISMATCH): check the new\nfingerprint another way, then replace the pin with --reset. Only a person\nat a terminal replaces a pin: komando shows the old and the new key and\nasks once; an AI agent or a script gets NEEDS_PERSON, whatever flags it\nadds. With --dry-run nothing is fetched or changed; it only counts the\npinned entries --reset would replace.\n\nTARGET can be many servers (@group, tag:, 'web*', a,b): after a rebuild of a\nwhole group, --reset replaces all their keys after a single yes, which names\nevery server with its new key. Each server is in results, with its old and\nnew fingerprint; a server whose key changed is refused without --reset, the\nothers are pinned.\n\nWith --fingerprint SHA256:..., the key is pinned only when the server shows\nthat key: compare-then-pin in one step, for a fingerprint read from the\nserver's console or a cloud provider. Any other key stops with\nHOSTKEY_MISMATCH and nothing is pinned. It takes one server, and the\nfingerprint of the key type the server offers (key_type in the answer).",
+        "long": "Fetches the server's host key and stores it in komando's known_hosts, like\nssh-keyscan plus ssh-keygen -R. The key is fetched the way komando reaches\nthe server: directly, or through its --via servers, VPN or proxy command.\n\nSafety: a change; try it with --dry-run first; when an AI agent pins a first\nhost key while host keys are strict: it weakens a safety check: a person's\nyes (--yes); with --reset: only a person at a terminal can run it; on a\nprotected server or conn, a person's yes (--yes) as well.\n\nA key that is already pinned is left as it is. If a different key is\npinned, the server may be an impostor (HOSTKEY_MISMATCH): check the new\nfingerprint another way, then replace the pin with --reset. Only a person\nat a terminal replaces a pin: komando shows the old and the new key and\nasks once; an AI agent or a script gets NEEDS_PERSON, whatever flags it\nadds. With --dry-run nothing is fetched or changed; it only counts the\npinned entries --reset would replace.\n\nTARGET can be many servers (@group, tag:, 'web*', a,b): after a rebuild of a\nwhole group, --reset replaces all their keys after a single yes, which names\nevery server with its new key. Each server is in results, with its old and\nnew fingerprint; a server whose key changed is refused without --reset, the\nothers are pinned.\n\nWith --fingerprint SHA256:..., the key is pinned only when the server shows\nthat key: compare-then-pin in one step, for a fingerprint read from the\nserver's console or a cloud provider. Any other key stops with\nHOSTKEY_MISMATCH and nothing is pinned. It takes one server, and the\nfingerprint of the key type the server offers (key_type in the answer).",
         "example": "  komando host trust web1\n  komando host trust web1 --reset --dry-run   # how many pinned keys would go\n  komando host trust web1 --reset             # after a real rebuild (a person, at a terminal)\n  komando host trust @web                 # pin new servers; changed keys are refused\n  komando host trust @web --reset         # after rebuilding the whole group: one yes\n  komando host trust web1 --fingerprint SHA256:pVt2...  # pin only this key",
         "flags": [
           {
@@ -5341,7 +5345,7 @@
           },
           {
             "tier": "person",
-            "when": "with --reset, when a key is pinned"
+            "when": "with --reset"
           }
         ]
       },
@@ -5349,7 +5353,7 @@
         "path": "komando import",
         "usage": "komando import SOURCE [FILE] [flags]",
         "short": "Bring in what you have: ssh config, .pgpass, my.cnf, .env",
-        "long": "Adds servers, conns, VPNs and recipes from files you already have.\n\nSafety: a change; try it with --dry-run first; when an imported ProxyCommand\nmatches a destructive rule: dangerous, it cannot be undone: a person types\nthe name to go on, and an AI agent or a script needs --allow-dangerous; when\nan AI agent imports a server with a proxy command (it runs on this computer;\nwithout --yes the server is left out): it weakens a safety check: a person's\nyes (--yes); SOURCE kubeconfig, when an AI agent imports a context whose\nlogin runs a program or sends a file of this computer: it weakens a safety\ncheck: a person's yes (--yes); SOURCE komando, when the file is sealed\n(export --sealed): a person types its passphrase: only a person at a\nterminal can run it.\n\nSources:\n  ssh-config  servers from your OpenSSH config (default ~/.ssh/config)\n  pgpass      PostgreSQL databases and their passwords (default ~/.pgpass)\n  mycnf       MySQL/MariaDB databases from [client] sections (default ~/.my.cnf)\n  env         database, cache and storage URLs (DATABASE_URL, REDIS_URL, ...) (default .env)\n  kubeconfig  Kubernetes clusters, one conn per context (default ~/.kube/config)\n  docker      container registries you are logged in to (default ~/.docker/config.json)\n  filezilla   SFTP sites from FileZilla's Site Manager (default ~/.config/filezilla/sitemanager.xml)\n  rclone      SFTP remotes from rclone (default ~/.config/rclone/rclone.conf)\n  putty       SSH sessions from PuTTY (a .reg file: `reg export HKCU\\Software\\SimonTatham\\PuTTY\\Sessions putty.reg`)\n  mobaxterm   SSH sessions from MobaXterm (a .mxtsessions file: right-click User sessions, Export all sessions to file)\n  securecrt   SSH2 sessions from SecureCRT (File > Export Settings gives an .xml file; or its Sessions folder)\n  aws         an S3 storage conn per bucket of each AWS profile (uses the profile; no key is copied) (default ~/.aws/config)\n  aws-ec2     a server per running EC2 instance of each AWS profile, in its region (read only, with the profile's login) (default ~/.aws/config)\n  dbeaver     databases from DBeaver (passwords set afterwards) (default ~/Library/DBeaverData/workspace6/General/.dbeaver/data-sources.json)\n  komando     a file made by `komando export` (moving to another computer)\n  csv         servers from a spreadsheet (CSV, first row names the columns: name, address (or ip), user, port, key, identity, password-ref, sudo-ref, via, groups (or role), tags, protected, notes)\n\nPasswords go to the vault (as <name>-pass; a kubeconfig as\n<name>-kubeconfig) and are referenced from the conn; they are never\nprinted. Existing names are skipped unless\n--overwrite (replacing a protected one also needs --yes). Proxy commands\nfrom an ssh config run on this computer, so an AI agent needs a person's yes\nfor them. Try --dry-run first to see what would be added.",
+        "long": "Adds servers, conns, VPNs and recipes from files you already have.\n\nSafety: a change; try it with --dry-run first; SOURCE kubeconfig, when an AI\nagent imports a context whose login runs a program or sends a file of this\ncomputer: it weakens a safety check: a person's yes (--yes); SOURCE komando,\nwhen the file is sealed (export --sealed): a person types its passphrase:\nonly a person at a terminal can run it; when an imported proxy command\nmatches a destructive rule: dangerous, it cannot be undone: a person types\nthe name to go on, and an AI agent or a script needs --allow-dangerous; when\nan AI agent imports a server with a proxy command: it weakens a safety\ncheck: a person's yes (--yes).\n\nSources:\n  ssh-config  servers from your OpenSSH config (default ~/.ssh/config)\n  pgpass      PostgreSQL databases and their passwords (default ~/.pgpass)\n  mycnf       MySQL/MariaDB databases from [client] sections (default ~/.my.cnf)\n  env         database, cache and storage URLs (DATABASE_URL, REDIS_URL, ...) (default .env)\n  kubeconfig  Kubernetes clusters, one conn per context (default ~/.kube/config)\n  docker      container registries you are logged in to (default ~/.docker/config.json)\n  filezilla   SFTP sites from FileZilla's Site Manager (default ~/.config/filezilla/sitemanager.xml)\n  rclone      SFTP remotes from rclone (default ~/.config/rclone/rclone.conf)\n  putty       SSH sessions from PuTTY (a .reg file: `reg export HKCU\\Software\\SimonTatham\\PuTTY\\Sessions putty.reg`)\n  mobaxterm   SSH sessions from MobaXterm (a .mxtsessions file: right-click User sessions, Export all sessions to file)\n  securecrt   SSH2 sessions from SecureCRT (File > Export Settings gives an .xml file; or its Sessions folder)\n  aws         an S3 storage conn per bucket of each AWS profile (uses the profile; no key is copied) (default ~/.aws/config)\n  aws-ec2     a server per running EC2 instance of each AWS profile, in its region (read only, with the profile's login) (default ~/.aws/config)\n  dbeaver     databases from DBeaver (passwords set afterwards) (default ~/Library/DBeaverData/workspace6/General/.dbeaver/data-sources.json)\n  komando     a file made by `komando export` (moving to another computer)\n  csv         servers from a spreadsheet (CSV, first row names the columns: name, address (or ip), user, port, key, identity, password-ref, sudo-ref, via, groups (or role), tags, protected, notes)\n\nPasswords go to the vault (as <name>-pass; a kubeconfig as\n<name>-kubeconfig) and are referenced from the conn; they are never\nprinted. Existing names are skipped unless\n--overwrite (replacing a protected one also needs --yes). Proxy commands\nfrom an ssh config run on this computer, so an AI agent needs a person's yes\nfor them. Try --dry-run first to see what would be added.",
         "example": "  komando import ssh-config --dry-run\n  komando import pgpass\n  komando import env ./app/.env --group shop\n  komando import komando backup.json",
         "flags": [
           {
@@ -5373,16 +5377,6 @@
             "tier": "change"
           },
           {
-            "tier": "dangerous",
-            "flag": "--allow-dangerous",
-            "when": "when an imported ProxyCommand matches a destructive rule"
-          },
-          {
-            "tier": "safety",
-            "flag": "--yes",
-            "when": "when an AI agent imports a server with a proxy command (it runs on this computer; without --yes the server is left out)"
-          },
-          {
             "tier": "safety",
             "flag": "--yes",
             "when": "SOURCE kubeconfig, when an AI agent imports a context whose login runs a program or sends a file of this computer"
@@ -5390,6 +5384,16 @@
           {
             "tier": "person",
             "when": "SOURCE komando, when the file is sealed (export --sealed): a person types its passphrase"
+          },
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous",
+            "when": "when an imported proxy command matches a destructive rule"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "when an AI agent imports a server with a proxy command"
           }
         ]
       },
@@ -5899,7 +5903,7 @@
         "path": "komando key rm",
         "usage": "komando key rm NAME [flags]",
         "short": "Remove a key (from komando only)",
-        "long": "Removes the key from komando's key list. --delete-file also deletes the\nprivate key komando keeps for a key it made (key gen), for good; a key file\nyou added stays on disk.\n\nSafety: a change; try it with --dry-run first; with --delete-file, for a key\nkomando made: dangerous, it cannot be undone: a person types the name to go\non, and an AI agent or a script needs --allow-dangerous.",
+        "long": "Removes the key from komando's key list. --delete-file also deletes the\nprivate key komando keeps for a key it made (key gen), for good; a key file\nyou added stays on disk.\n\nSafety: a change; try it with --dry-run first; with --delete-file:\ndangerous, it cannot be undone: a person types the name to go on, and an AI\nagent or a script needs --allow-dangerous.",
         "aliases": [
           "remove",
           "delete",
@@ -5923,7 +5927,7 @@
           {
             "tier": "dangerous",
             "flag": "--allow-dangerous",
-            "when": "with --delete-file, for a key komando made"
+            "when": "with --delete-file"
           }
         ]
       },
@@ -7178,7 +7182,7 @@
         "path": "komando recipe add",
         "usage": "komando recipe add NAME COMMAND [flags]",
         "short": "Save a command as a recipe with blanks to fill in",
-        "long": "Save a command as a recipe with blanks to fill in.\n\nSafety: a change; try it with --dry-run first; with --overwrite --read-only,\nwhen it makes an existing recipe read-only: it weakens a safety check: a\nperson's yes (--yes).",
+        "long": "Save a command as a recipe with blanks to fill in.\n\nSafety: a change; try it with --dry-run first; with --overwrite --read-only,\nwhen it makes an existing snippet read-only: it weakens a safety check: a\nperson's yes (--yes).",
         "example": "  komando recipe add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo\n  komando recipe add disk-usage 'df -h {{path=/}}' --read-only\n  komando recipe add disk-usage 'df -h {{path=/}}' --read-only --dry-run",
         "flags": [
           {
@@ -7214,7 +7218,7 @@
           {
             "tier": "safety",
             "flag": "--yes",
-            "when": "with --overwrite --read-only, when it makes an existing recipe read-only"
+            "when": "with --overwrite --read-only, when it makes an existing snippet read-only"
           }
         ]
       },
@@ -7271,7 +7275,7 @@
         "path": "komando recipe run",
         "usage": "komando recipe run NAME TARGET [flags]",
         "short": "Run a recipe on servers",
-        "long": "Run a recipe on servers.\n\nSafety: a change; try it with --dry-run first; when the recipe's command\nmatches a destructive rule: dangerous, it cannot be undone: a person types\nthe name to go on, and an AI agent or a script needs --allow-dangerous; on a\nprotected server or conn, a person's yes (--yes) as well.",
+        "long": "Run a recipe on servers.\n\nSafety: a change; try it with --dry-run first; when a step matches a\ndestructive rule: dangerous, it cannot be undone: a person types the name to\ngo on, and an AI agent or a script needs --allow-dangerous; on a protected\nserver or conn, a person's yes (--yes) as well.",
         "example": "  komando recipe run health @web\n  komando recipe run disk web1\n  komando recipe run deploy-app @web --var app=shop",
         "flags": [
           {
@@ -7297,7 +7301,7 @@
           {
             "tier": "dangerous",
             "flag": "--allow-dangerous",
-            "when": "when the recipe's command matches a destructive rule"
+            "when": "when a step matches a destructive rule"
           }
         ]
       },
@@ -7679,7 +7683,7 @@
         "path": "komando secret keychain",
         "usage": "komando secret keychain [flags]",
         "short": "Keep the vault key in the OS keychain instead of store.key",
-        "long": "Moves the vault's key out of the store.key file into the operating system's\nkeychain, so a copy of ~/.komando (a backup, a synced folder) no longer\nopens the vault or its secrets. The vault gets a new key as it moves, so a\ncopy of store.key made before opens nothing either, and the vault keeps\nevery secret. --off moves the key back into store.key, which needs --yes.\n\nSafety: a change; try it with --dry-run first; when it turns the keychain\noff: it weakens a safety check: a person's yes (--yes); without --off\n(moving the key into the keychain): only a person at a terminal can run it.\n\nOnly a person at a terminal moves the key in: the keychain may ask them to\nunlock it, and an AI agent or a script cannot answer that.",
+        "long": "Moves the vault's key out of the store.key file into the operating system's\nkeychain, so a copy of ~/.komando (a backup, a synced folder) no longer\nopens the vault or its secrets. The vault gets a new key as it moves, so a\ncopy of store.key made before opens nothing either, and the vault keeps\nevery secret. --off moves the key back into store.key, which needs --yes.\n\nSafety: a change; try it with --dry-run first; when it turns the keychain\noff: it weakens a safety check: a person's yes (--yes); without --off: only\na person at a terminal can run it.\n\nOnly a person at a terminal moves the key in: the keychain may ask them to\nunlock it, and an AI agent or a script cannot answer that.",
         "example": "  komando secret keychain\n  komando secret keychain --dry-run\n  komando secret keychain --off --dry-run\n  komando secret keychain --off --yes   # after a person's yes",
         "flags": [
           {
@@ -7702,7 +7706,7 @@
           },
           {
             "tier": "person",
-            "when": "without --off (moving the key into the keychain)"
+            "when": "without --off"
           }
         ]
       },
@@ -9088,7 +9092,7 @@
         "path": "komando tunnel start",
         "usage": "komando tunnel start TARGET (-L SPEC | -R SPEC | -D SPEC) [flags]",
         "short": "Start a background tunnel",
-        "long": "With a conn name and no -L/-R/-D, the tunnel leads to that conn through its\n--via path: point your database app or psql at the local address it prints.\nWith a server, give one of -L, -R or -D.\n\nSafety: a change; try it with --dry-run first; when it listens on an open\naddress (OPEN_BIND): it weakens a safety check: a person's yes (--yes); on a\nprotected server or conn, a person's yes (--yes) as well.",
+        "long": "With a conn name and no -L/-R/-D, the tunnel leads to that conn through its\n--via path: point your database app or psql at the local address it prints.\nWith a server, give one of -L, -R or -D.\n\nSafety: a change; try it with --dry-run first; when it listens on an open\naddress: it weakens a safety check: a person's yes (--yes); on a protected\nserver or conn, a person's yes (--yes) as well.",
         "example": "  komando tunnel start prod-db               # localhost:<free port> -> prod-db\n  komando tunnel start prod-db --dry-run\n  komando tunnel start prod-db --port 15432\n  komando tunnel start web1 -L 8080:localhost:80\n  komando tunnel start bastion -D 1080       # SOCKS proxy",
         "flags": [
           {
@@ -9125,7 +9129,7 @@
           {
             "tier": "safety",
             "flag": "--yes",
-            "when": "when it listens on an open address (OPEN_BIND)"
+            "when": "when it listens on an open address"
           }
         ]
       },
@@ -10029,7 +10033,7 @@
         "path": "komando vpn edit",
         "usage": "komando vpn edit TARGET... [flags]",
         "short": "Change one or more VPNs (only the flags you pass change)",
-        "long": "Changes the common settings of a VPN. To give a WireGuard or OpenVPN VPN a\nnew config file, add it again with --overwrite. -g and -t add a group or a\ntag, as in host edit; --rm-group and --rm-tag take one away. Give several\nnames or a selector (@group, tag:office) to change many VPNs at once.\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes); with --mfa=false: it weakens\na safety check: a person's yes (--yes); on a protected server or conn, a\nperson's yes (--yes) as well.\n\n--protected marks a VPN komando asks a person about before it is changed\nor removed. Turning that off, or turning --mfa off, needs a person's yes.",
+        "long": "Changes the common settings of a VPN. To give a WireGuard or OpenVPN VPN a\nnew config file, add it again with --overwrite. -g and -t add a group or a\ntag, as in host edit; --rm-group and --rm-tag take one away. Give several\nnames or a selector (@group, tag:office) to change many VPNs at once.\n\nSafety: a change; try it with --dry-run first; with --mfa=false: it weakens\na safety check: a person's yes (--yes); with --protected=false: it weakens a\nsafety check: a person's yes (--yes); on a protected server or conn, a\nperson's yes (--yes) as well.\n\n--protected marks a VPN komando asks a person about before it is changed\nor removed. Turning that off, or turning --mfa off, needs a person's yes.",
         "example": "  komando vpn edit office --check 10.0.0.5:22\n  komando vpn edit lab --proxy-address 127.0.0.1:1081\n  komando vpn edit client-x --password-ref secret:client-x-new\n  komando vpn edit office --server vpn2.example.com --psk-ref secret:office-psk-2\n  komando vpn edit client-x --portal gw2.client.com\n  komando vpn edit office -g jakarta --rm-group old --label site=jkt\n  komando vpn edit @office --protected --dry-run",
         "flags": [
           {
@@ -10162,12 +10166,12 @@
           {
             "tier": "safety",
             "flag": "--yes",
-            "when": "with --protected=false"
+            "when": "with --mfa=false"
           },
           {
             "tier": "safety",
             "flag": "--yes",
-            "when": "with --mfa=false"
+            "when": "with --protected=false"
           }
         ]
       },
