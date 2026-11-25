@@ -282,3 +282,50 @@ func TestMovedHopReachesEverythingBehindIt(t *testing.T) {
 		t.Errorf("no flag, no window: %q", *texts)
 	}
 }
+
+// Every place a vault secret is named counts as a use, and a rename
+// changes each of them: a server's password, sudo, WinRM CA and
+// environment, a conn's password and URL option, a key's passphrase and a
+// VPN's key, preshared key and config. A protected one is named as such.
+func TestSecretRefsEveryKind(t *testing.T) {
+	ref := "secret:s"
+	st := &store.State{
+		Hosts: map[string]*store.Host{
+			"h1": {Name: "h1", PasswordRef: ref},
+			"h2": {Name: "h2", SudoRef: ref, Protected: true},
+			"h3": {Name: "h3", WinRMOpts: &store.WinRMOpts{CA: ref}},
+			"h4": {Name: "h4", Env: map[string]string{"A": "x", "B": ref}},
+			"h5": {Name: "h5", PasswordRef: "secret:other"},
+		},
+		Conns: map[string]*store.Conn{
+			"c1": {Name: "c1", PasswordRef: ref},
+			"c2": {Name: "c2", URL: "registry://u@h?tls=&ca=secret:s#f"},
+		},
+		Keys: map[string]*store.Key{"k1": {Name: "k1", PassphraseRef: ref}},
+		Vpns: map[string]*store.Vpn{
+			"v1": {Name: "v1", KeyRef: ref},
+			"v2": {Name: "v2", PSKRef: ref},
+			"v3": {Name: "v3", ConfigRef: ref},
+		},
+	}
+	want := "conn c1,conn c2,host h1,host h2,host h3,host h4,key k1,vpn v1,vpn v2,vpn v3"
+	if got := strings.Join(secretUsers(st, "s"), ","); got != want {
+		t.Fatalf("secretUsers: %s, want %s", got, want)
+	}
+	if got := strings.Join(protectedUsers(st, secretUsers(st, "s")), ","); got != "host h2" {
+		t.Errorf("protectedUsers: %s", got)
+	}
+	if got := strings.Join(renameSecretRefs(st, "s", "t"), ","); got != want {
+		t.Errorf("renameSecretRefs: %s, want %s", got, want)
+	}
+	if got := strings.Join(secretUsers(st, "t"), ","); got != want {
+		t.Errorf("after the rename: %s, want %s", got, want)
+	}
+	if len(secretUsers(st, "s")) != 0 || st.Hosts["h4"].Env["B"] != "secret:t" || st.Hosts["h4"].Env["A"] != "x" ||
+		st.Conns["c2"].URL != "registry://u@h?tls=&ca=secret:t#f" || st.Hosts["h5"].PasswordRef != "secret:other" {
+		t.Errorf("rename left: %+v %q", st.Hosts["h4"].Env, st.Conns["c2"].URL)
+	}
+	if got := urlSecretRefs("registry://u@h?tls=&ca=secret:s&cert=secret:c"); len(got) != 2 {
+		t.Errorf("urlSecretRefs: %+v, want two", got)
+	}
+}
