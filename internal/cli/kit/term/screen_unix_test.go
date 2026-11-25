@@ -126,13 +126,13 @@ func readKeys(s *Screen, mode string, say func(string, ...any)) {
 const screenWait = 2 * time.Minute
 
 type screenRun struct {
-	t      *testing.T
-	master *os.File
-	tty    *os.File
-	cmd    *exec.Cmd
-	report string
-	before *unix.Termios
-	jobs   bool // the child has its own process group, and no controlling terminal
+	t        *testing.T
+	master   *os.File
+	tty      *os.File
+	cmd      *exec.Cmd
+	report   string
+	before   *unix.Termios
+	jobs     bool // the child has its own process group, and no controlling terminal
 	mu       sync.Mutex
 	screen   bytes.Buffer
 	quit     bool          // the reader of the screen stops after its next read
