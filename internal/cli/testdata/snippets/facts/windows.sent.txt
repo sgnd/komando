@@ -1,0 +1,52 @@
+powershell script:
+$ErrorActionPreference = 'SilentlyContinue'
+function kv($k, $v) { [Console]::Out.WriteLine("$k=$v") }
+$o = Get-CimInstance Win32_OperatingSystem
+$cs = Get-CimInstance Win32_ComputerSystem
+kv os windows
+kv hostname $env:COMPUTERNAME
+kv os_pretty $o.Caption
+kv os_version $o.Version
+kv os_build $o.BuildNumber
+kv arch $env:PROCESSOR_ARCHITECTURE
+kv cpus $cs.NumberOfLogicalProcessors
+kv mem_total_mb ([int64]($cs.TotalPhysicalMemory / 1MB))
+kv mem_available_mb ([int64]($o.FreePhysicalMemory / 1KB))
+kv uptime_sec ([int64]((Get-Date) - $o.LastBootUpTime).TotalSeconds)
+$d = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$env:SystemDrive'"
+if ($d.Size) { kv disk_root_total_gb ([int64]($d.Size / 1GB)); kv disk_root_used_pct ([int64](100 - 100 * $d.FreeSpace / $d.Size)) }
+Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=3' | Where-Object { $_.Size } | ForEach-Object { kv disk (@($_.DeviceID, [int64]($_.Size / 1KB), [int64](($_.Size - $_.FreeSpace) / 1KB), [int64]($_.FreeSpace / 1KB), [int64](100 - 100 * $_.FreeSpace / $_.Size), ($_.DeviceID + '\')) -join [char]9) }
+kv ips ((Get-CimInstance Win32_NetworkAdapterConfiguration -Filter 'IPEnabled=True' | ForEach-Object { $_.IPAddress } | Where-Object { $_ -notmatch ':' }) -join ' ')
+kv virt $cs.Model
+kv domain $cs.Domain
+$id = [Security.Principal.WindowsIdentity]::GetCurrent()
+kv login_user $id.Name
+kv admin ((New-Object Security.Principal.WindowsPrincipal $id).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))
+kv powershell $PSVersionTable.PSVersion
+kv time_utc ((Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'))
+kv timezone ([TimeZoneInfo]::Local.Id)
+kv reboot_required ((Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending') -or (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'))
+$h = Get-HotFix | Where-Object { $_.InstalledOn } | Sort-Object InstalledOn -Descending | Select-Object -First 1
+if ($h) { kv last_update ($h.InstalledOn.ToString('yyyy-MM-dd')); kv last_update_id $h.HotFixID }
+try {
+  $s = (New-Object -ComObject Microsoft.Update.Session).CreateUpdateSearcher()
+  $s.Online = $false
+  $r = $s.Search("IsInstalled=0 and IsHidden=0 and Type='Software'")
+  $n = 0
+  foreach ($u in $r.Updates) { foreach ($c in $u.Categories) { if ($c.Name -eq 'Security Updates') { $n++; break } } }
+  kv upd_total $r.Updates.Count
+  kv upd_security $n
+} catch { kv upd_error ($_.Exception.Message -replace '\s+', ' ') }
+foreach ($t in 'docker', 'git', 'choco', 'winget', 'python', 'node', 'java', 'sqlcmd', 'nginx', 'kubectl', 'openssl', 'curl.exe') {
+  if (Get-Command $t -ErrorAction SilentlyContinue) { kv tool ($t -replace '\.exe$', '') }
+}
+if (Get-Service W3SVC -ErrorAction SilentlyContinue) { kv tool iis }
+Get-CimInstance Win32_Service -Filter "StartMode='Auto' AND State<>'Running'" | ForEach-Object { kv stopped_auto $_.Name }
+$names = @{}
+Get-Process | ForEach-Object { $names[$_.Id] = $_.ProcessName }
+Get-NetTCPConnection -State Listen | ForEach-Object { kv listen ("tcp {0} {1} {2} {3}" -f $_.LocalAddress, $_.LocalPort, $_.OwningProcess, $names[[int]$_.OwningProcess]) }
+Get-NetUDPEndpoint | ForEach-Object { kv listen ("udp {0} {1} {2} {3}" -f $_.LocalAddress, $_.LocalPort, $_.OwningProcess, $names[[int]$_.OwningProcess]) }
+kv done 1
+
+if (-not $?) { if ($LASTEXITCODE) { exit $LASTEXITCODE }; exit 1 }; $global:LASTEXITCODE = 0
+

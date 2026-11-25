@@ -1,0 +1,2 @@
+[ -d /run/systemd/system ] || { echo '#komando:no-systemd'; exit 0; }
+systemctl list-units --type=service --all --no-legend --plain --no-pager

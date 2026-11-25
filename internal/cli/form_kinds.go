@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -72,7 +73,7 @@ func formNameQ(kind, what, example string) formQ {
 // formNameProblem is what is wrong with a new name: its letters, "all", or
 // a server, service or VPN that has it already (names are shared, any case).
 func formNameProblem(st *store.State, kind, v string) string {
-	if err := validName(kind, v); err != nil {
+	if err := inventory.ValidName(kind, v); err != nil {
 		if strings.EqualFold(v, "all") {
 			return `"all" means everything in komando; pick another name`
 		}
@@ -100,7 +101,7 @@ func formFreeName(st *store.State, base string) string {
 	}
 	for n := 2; ; n++ {
 		c := stem + strconv.Itoa(n)
-		if _, _, ok := st.FindName(c); !ok && validName("host", c) == nil {
+		if _, _, ok := st.FindName(c); !ok && inventory.ValidName("host", c) == nil {
 			return c
 		}
 	}
@@ -176,7 +177,7 @@ func formGroupQ() formQ {
 	return formQ{key: "group", label: "Group", ask: "Put it in a group?", advanced: true, optional: true,
 		help: "A group lets one command reach many, like komando test @web. Empty for none.", example: "web",
 		check: func(_ *store.State, _ formAnswers, v string) string {
-			if validName("group", v) != nil {
+			if inventory.ValidName("group", v) != nil {
 				return "use letters, digits, dot, dash and underscore"
 			}
 			return ""
@@ -344,7 +345,7 @@ func serverUserProblem(_ *store.State, _ formAnswers, v string) string {
 	if i := strings.Index(v, `\`); i > 0 {
 		return "write a domain user as user@domain with the domain's full name, like " + v[i+1:] + "@corp.example.com"
 	}
-	if validUser(v) != nil {
+	if inventory.ValidUser(v) != nil {
 		return "a user name has letters, digits, dot, dash and underscore, and no spaces or colon"
 	}
 	return ""

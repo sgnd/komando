@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/sgnd/komando/internal/cli/kit/term"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -94,7 +95,7 @@ var colorOK = func(cl *call) bool {
 func hostRoute(st *store.State, h *store.Host) []string {
 	vpn, hops, err := sshx.Route(st, h)
 	if err != nil {
-		return viaChain(h.Via)
+		return inventory.ViaChain(h.Via)
 	}
 	var r []string
 	if vpn != nil {
@@ -114,7 +115,7 @@ func connRoute(st *store.State, c *store.Conn) []string {
 	h, vpn, err := resolveVia(st, c.Via)
 	switch {
 	case err != nil:
-		return viaChain(c.Via)
+		return inventory.ViaChain(c.Via)
 	case vpn != nil:
 		return []string{"vpn " + vpn.Name}
 	}

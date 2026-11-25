@@ -1,0 +1,1 @@
+{"ok":true,"command":"db.info","data":{"conn":"lite","journal_mode":"delete","kind":"sqlite","size_bytes":"<volatile>","version":"<volatile>"}}

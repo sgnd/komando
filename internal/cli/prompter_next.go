@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -257,7 +258,7 @@ func itemKinds(st *store.State, kind, name string) []string {
 		return []string{"server"}
 	}
 	if c, ok := st.Conns[name]; ok {
-		fam := connFamily(c)
+		fam := inventory.ConnFamily(c)
 		ks := []string{fam}
 		if _, ok := itemCommands[fam+":"+c.Kind]; ok {
 			ks = []string{fam + ":" + c.Kind}

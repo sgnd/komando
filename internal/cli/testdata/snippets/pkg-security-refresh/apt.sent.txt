@@ -1,0 +1,120 @@
+sudo -n sh -c 'ACTION=list REFRESH=1 GUARD=1 ESSENTIAL='"'"'^(openssh-server|openssh|ssh|sudo|systemd|systemd-sysv|init|libc6|glibc|libc|musl|bash|coreutils|util-linux|apt|dpkg|rpm|dnf|yum|apk-tools|busybox|base-files|login|passwd|linux-image.*|kernel.*|linux)$'"'"'
+export LC_ALL=C DEBIAN_FRONTEND=noninteractive
+unset NEEDRESTART_SUSPEND NEEDRESTART_MODE
+if command -v apt-get >/dev/null 2>&1; then PM=apt
+elif command -v dnf >/dev/null 2>&1; then PM=dnf
+elif command -v yum >/dev/null 2>&1; then PM=yum
+elif command -v zypper >/dev/null 2>&1; then PM=zypper
+elif command -v apk >/dev/null 2>&1; then PM=apk
+elif command -v pacman >/dev/null 2>&1; then PM=pacman
+else echo '"'"'#komando:unsupported'"'"'; echo none; exit 0; fi
+echo "# package-manager: $PM" >&2
+echo '"'"'#komando:pm'"'"'; echo $PM
+T=""; T20=""; command -v timeout >/dev/null 2>&1 && { T="timeout 60"; T20="timeout 20"; }
+S=""; HS_ROOT=""; [ "$(id -u)" = 0 ] && HS_ROOT=1
+echo '"'"'#komando:os'"'"'
+if [ -r /etc/os-release ]; then . /etc/os-release; echo "os=$ID"; echo "os_version=$VERSION_ID"; echo "os_pretty=$PRETTY_NAME"; else echo "os=$(uname -s | tr A-Z a-z)"; fi
+if command -v pro >/dev/null 2>&1; then echo "pro_json=$($T20 pro status --format json 2>/dev/null | tr -d '"'"'\n'"'"')"
+elif command -v ua >/dev/null 2>&1; then echo "pro_json=$($T20 ua status --format json 2>/dev/null | tr -d '"'"'\n'"'"')"
+fi
+if [ "$REFRESH" = 1 ]; then case $PM in apt) apt-get update -q >&2 ;; zypper) zypper -n -q refresh >&2 ;; apk) apk update -q >&2 ;; pacman) ;; *) $PM -q makecache >&2 ;; esac; fi
+case $PM in
+apt|zypper) N=yes ;;
+dnf|yum) N=no; [ -n "$({ $PM -q updateinfo list --all 2>/dev/null || $PM -q updateinfo list all 2>/dev/null; } | head -n 1)" ] && N=yes ;;
+pacman) N=no; command -v arch-audit >/dev/null 2>&1 && N=yes ;;
+*) N=no ;;
+esac
+echo '"'"'#komando:notices'"'"'; echo $N
+if [ $PM = apt ]; then t=$(stat -c %Y /var/lib/apt/lists/*Release 2>/dev/null | sort -n | tail -n 1)
+  echo '"'"'#komando:index-age'"'"'; if [ -n "$t" ]; then echo $(( $(date +%s) - t )); else echo never; fi; fi
+secpkgs() { case $PM in
+  apt) apt list --upgradable 2>/dev/null | awk -F'"'"'[/ ]'"'"' '"'"'$2 ~ /-security/'"'"' ;;
+  zypper) zypper -n -q list-patches --category security 2>/dev/null | awk -F'"'"'|'"'"' '"'"'NF >= 6 { n = $2; gsub(/^ +| +$/, "", n); if (n != "" && n != "Name") print n }'"'"' ;;
+  pacman) [ $N = yes ] && arch-audit -u -q 2>/dev/null ;;
+  apk) ;;
+  *) [ $N = yes ] && $PM -q check-update --security 2>/dev/null | awk '"'"'/^Obsoleting/{exit} NF == 3 && $1 ~ /\./'"'"' ;;
+  esac; }
+allpkgs() { case $PM in
+  zypper) zypper -n -q list-updates 2>/dev/null ;;
+  apk) apk -u list 2>/dev/null ;;
+  pacman) pacman -Qu 2>/dev/null ;;
+  *) $PM -q check-update 2>/dev/null | awk '"'"'/^Obsoleting/{exit} NF == 3 && $1 ~ /\./'"'"' ;;
+  esac; }
+inst() { case $PM in
+  apt) dpkg-query -W -f='"'"'${db:Status-Abbrev}\t${binary:Package}\t${Version}\n'"'"' 2>/dev/null | awk -F'"'"'\t'"'"' '"'"'$1 ~ /^ii/ {print $2"\t"$3}'"'"' ;;
+  *) rpm -qa --qf '"'"'%{NAME}.%{ARCH}\t%{EPOCHNUM}:%{VERSION}-%{RELEASE}\n'"'"' 2>/dev/null | sed '"'"'s/\t0:/\t/'"'"' ;;
+  esac | sort; }
+hoststate() {
+  if [ -d /run/systemd/system ]; then echo failed_checked=yes; systemctl list-units --state=failed --no-legend --plain 2>/dev/null | awk '"'"'$1 != "" {print "failed="$1}'"'"'; fi
+  if [ -f /var/run/reboot-required ]; then echo reboot=yes; sed '"'"'s/^/reboot_pkg=/'"'"' /var/run/reboot-required.pkgs 2>/dev/null | sort -u
+  elif command -v dpkg >/dev/null 2>&1; then echo reboot=no
+  elif command -v needs-restarting >/dev/null 2>&1; then $T needs-restarting -r >/dev/null 2>&1; case $? in 0) echo reboot=no;; 1) echo reboot=yes;; esac
+  fi
+  [ -n "$HS_ROOT" ] || return 0
+  if command -v needrestart >/dev/null 2>&1; then
+    o=$($T $S needrestart -b -r l 2>/dev/null) && { echo restart_checked=yes; printf '"'"'%s\n'"'"' "$o" | sed -n '"'"'s/^NEEDRESTART-SVC: */svc=/p; s/^NEEDRESTART-KSTA: */ksta=/p'"'"'; }
+  elif command -v needs-restarting >/dev/null 2>&1; then
+    o=$($T $S needs-restarting -s 2>/dev/null) && { echo restart_checked=yes; printf '"'"'%s\n'"'"' "$o" | awk '"'"'$1 != "" {print "svc="$1}'"'"'; }
+  fi
+  return 0
+}
+snap() {
+  if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then echo "containers=$(docker ps -q 2>/dev/null | wc -l | tr -d '"'"' '"'"')"; fi
+  hoststate
+  case $PM in
+  apt) echo "pending=$(apt list --upgradable 2>/dev/null | grep -c /)" ;;
+  zypper) echo "pending=$(allpkgs | grep -c '"'"'^v '"'"')" ;;
+  apk) echo "pending=$(allpkgs | grep -c '"'"'upgradable from'"'"')" ;;
+  pacman) echo "pending=$(allpkgs | grep -c '"'"' -> '"'"')" ;;
+  *) echo "pending=$($PM -q check-update 2>/dev/null | awk '"'"'/^Obsoleting/{exit} NF == 3 && $1 ~ /\./'"'"' | wc -l | tr -d '"'"' '"'"')" ;;
+  esac
+  echo "security=$(secpkgs | wc -l | tr -d '"'"' '"'"')"
+}
+B=$(snap)
+echo '"'"'#komando:before'"'"'; printf '"'"'%s\n'"'"' "$B"
+echo '"'"'#komando:security'"'"'; secpkgs
+if [ $N = no ]; then echo '"'"'#komando:unclassified'"'"'; allpkgs; fi
+names=
+if [ $PM = apt ]; then
+  names=$(secpkgs | cut -d/ -f1 | grep -E '"'"'^[a-z0-9][a-z0-9.+-]*$'"'"' | tr '"'"'\n'"'"' '"'"' '"'"')
+  gone=
+  if [ -n "$names" ]; then gone=$(apt-get -s install --only-upgrade $names 2>/dev/null | awk '"'"'$1 == "Remv" {sub(/:.*/, "", $2); print $2}'"'"'); fi
+  echo '"'"'#komando:removes'"'"'; printf '"'"'%s\n'"'"' "$gone"
+fi
+[ "$ACTION" = apply ] || exit 0
+case $PM in apk|pacman) echo '"'"'#komando:no-notices'"'"'; exit 0 ;; esac
+[ $N = no ] && { echo '"'"'#komando:no-notices'"'"'; exit 0; }
+if [ -z "$(secpkgs | head -n 1)" ]; then echo '"'"'#komando:nothing'"'"'; exit 0; fi
+if [ "$GUARD" = 1 ] && [ -n "$gone" ]; then
+  hit=$(printf '"'"'%s\n'"'"' "$gone" | grep -E "$ESSENTIAL")
+  if [ -n "$hit" ]; then echo '"'"'#komando:essential'"'"'; printf '"'"'%s\n'"'"' "$hit"; exit 0; fi
+fi
+case $PM in
+apt) if command -v unattended-upgrade >/dev/null 2>&1 && ! apt-config dump Unattended-Upgrade::Automatic-Reboot 2>/dev/null | grep -qiE '"'"'"(true|yes|on|1)"'"'"'; then
+    method=unattended-upgrade; run='"'"'unattended-upgrade -v'"'"'
+  else method=apt-get
+    run="apt-get install -y -q --only-upgrade -o DPkg::Lock::Timeout=300 -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold $names"; fi ;;
+zypper) method=zypper; run="zypper -n patch --category security" ;;
+*) method=$PM; run="$PM upgrade --security -y" ;;
+esac
+echo '"'"'#komando:method'"'"'; echo $method
+d=$(mktemp -d /var/tmp/komando-pkgsec.XXXXXX) || { echo '"'"'#komando:rc'"'"'; echo 1; exit 0; }
+inst > "$d/before"
+printf '"'"'export LC_ALL=C DEBIAN_FRONTEND=noninteractive NEEDRESTART_SUSPEND=1 NEEDRESTART_MODE=l\n%s\necho $? > %s/rc\n'"'"' "$run" "$d" > "$d/run.sh"
+S=$(command -v setsid)
+$S nohup sh "$d/run.sh" > "$d/log" 2>&1 < /dev/null &
+wait $!
+rc=$(cat "$d/rc" 2>/dev/null || echo 1)
+# zypper: 102 a reboot is needed, 103 zypper updated itself (the rest shows as pending)
+[ $PM = zypper ] && case $rc in 102|103) rc=0 ;; esac
+tail -n 80 "$d/log" >&2
+echo '"'"'#komando:rc'"'"'; echo "$rc"
+bc=$(printf '"'"'%s\n'"'"' "$B" | sed -n '"'"'s/^containers=//p'"'"')
+i=0; while [ -n "$bc" ] && [ $i -lt 12 ] && [ "$(docker ps -q 2>/dev/null | wc -l)" -lt "$bc" ]; do sleep 5; i=$((i+1)); done
+echo '"'"'#komando:after'"'"'; snap
+inst > "$d/after"
+echo '"'"'#komando:changed'"'"'
+awk -F'"'"'\t'"'"' '"'"'NR == FNR {b[$1] = $2; next} b[$1] != $2 {print $1"\t"(($1 in b) ? b[$1] : "-")"\t"$2}'"'"' "$d/before" "$d/after"
+awk -F'"'"'\t'"'"' '"'"'NR == FNR {a[$1] = 1; next} !($1 in a) {print $1"\t"$2"\t-"}'"'"' "$d/after" "$d/before"
+rm -f "$d"/*; rmdir "$d"
+exit 0'

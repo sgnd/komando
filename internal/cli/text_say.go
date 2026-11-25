@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/cli/kit/term"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -72,7 +73,7 @@ func connWord(conns []*store.Conn, names []string) string {
 		if !slices.Contains(names, c.Name) {
 			continue
 		}
-		f, ok := familyWord[connFamily(c)]
+		f, ok := familyWord[inventory.ConnFamily(c)]
 		if !ok || w != "" && w != f[0] {
 			return "conn"
 		}
@@ -147,7 +148,7 @@ func wantedNames(st *store.State, wanted, family string) (one, many string, name
 	}
 	conns := func(family string) {
 		for _, c := range st.SortedConns() {
-			if family == "" || connFamily(c) == family {
+			if family == "" || inventory.ConnFamily(c) == family {
 				names = append(names, c.Name)
 			}
 		}
@@ -192,7 +193,7 @@ func otherKindSay(st *store.State, cmd *cobra.Command, kind, name, one string) (
 		what, use = "a server", "use it with `komando exec` and the other server commands"
 	case "conn":
 		c := st.Conns[name]
-		f := connFamily(c)
+		f := inventory.ConnFamily(c)
 		if w, ok := familyWord[f]; one == "conn" || one == "server, conn or VPN" || ok && w[0] == one {
 			return "", ""
 		}
