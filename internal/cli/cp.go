@@ -415,7 +415,7 @@ func runCp(cl *call, ctx context.Context, name, target, remote, local string, up
 		return err // before connecting: a file named like a secret (a folder's files are checked one by one)
 	}
 	o.oneHost = len(hosts) == 1
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		if err := downloadExists(local, remote, !up && !o.overwrite && !o.recursive && !o.resume && len(hosts) == 1); err != nil {
 			return err // the real run would stop here
 		}

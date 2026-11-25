@@ -184,7 +184,7 @@ func TestHostCAAddDryRunRecordsTheStop(t *testing.T) {
 	p, _ := caPub(t)
 	setCallerEnv(t, "CLAUDECODE", "1")
 	d, e := invRun(t, "host", "ca", "add", "corp", "--key", p, "--hosts", "*.corp.example", "--dry-run")
-	tcl.flags.dryRun = false
+	setGate(tcl, false, gateDryRun)
 	if e != nil || d["action"] != "would_add" || blockedCode(d) != "NEEDS_PERSON" {
 		t.Fatalf("dry run: %v %+v", d, e)
 	}

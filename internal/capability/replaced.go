@@ -15,7 +15,6 @@ type Replaced struct {
 	Tests     []string // the tests that pin the rules or the rating, by function name
 	Stops     []string // in-command stops, by function name
 	NoRule    string   // why no policy rule carries it ("" when one does)
-	Owed      string   // a carrier not on main yet, with its gaps row
 	Lost      string   // what goes on purpose, in the plan's words
 }
 
@@ -111,8 +110,7 @@ var execReplaced = []Replaced{
 	execPlain("pkg.security", ""),
 	execPlain("pkg.update", ""),
 	execPlain("pkg.upgradable", readLost),
-	{Today: "pkg.upgrade", Rows: execRows, Stops: execStops, NoRule: "the rule of row C362 is owed",
-		Owed: "blocks cut PR D: policy: rule of row C362 (name owed); tests: owed with row C362 (Audit K3); built-in snippet `pkg-upgrade-all` (apps N9)"},
+	execRule("pkg.upgrade", names("pkg-implicit-remove"), names("TestRulePkgImplicitRemove")),
 
 	{Today: "reboot", Rows: execRows, Rules: names("power", "power-systemctl", "win-power"),
 		Tests: names("TestCheck", "TestWindowsRules", "TestRulePower"), Stops: execStops,

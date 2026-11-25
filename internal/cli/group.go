@@ -278,7 +278,7 @@ Deleting a group with more than 3 members needs --yes; try --dry-run first.`,
 			}
 			audit(cl, nil, "group.rm", removed, "", true, map[string]any{"group": group, "whole_group": len(args) == 1})
 			key := "removed"
-			if cl.flags.dryRun {
+			if cl.dryRun() {
 				key = "would_remove"
 			}
 			say := changeSay(cl, "remove", term.JoinAnd(removed), "from @"+group)

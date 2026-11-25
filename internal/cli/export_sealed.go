@@ -13,6 +13,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sealfile"
 	"github.com/sgnd/komando/internal/store"
@@ -82,7 +83,7 @@ func runExportSealed(cl *call, st *store.State, f exportFile, o exportSealOpts, 
 	}
 	res := exportResult{File: to, Hosts: len(f.Hosts), Conns: len(f.Conns), Vpns: len(f.Vpns), Recipes: len(f.Recipes),
 		DenyRules: len(f.DenyRules), Settings: len(f.Settings) > 0, Sealed: o.mode(), SecretsNeeded: []string{}, KeysNeeded: []string{}}
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		res.DryRun, res.SecretsInFile = true, []string{}
 		for _, n := range sealable(f.Secrets) { // which are there, never their values
 			if _, err := vault.Get(n); errors.Is(err, vault.ErrNotFound) {
@@ -259,11 +260,11 @@ func readPhoneKey(ans string) ([]byte, error) {
 		return nil, bad("no key was given")
 	}
 	b := []byte(ans)
-	if fi, err := os.Stat(expandHome(ans)); err == nil && fi.Mode().IsRegular() {
+	if fi, err := os.Stat(inventory.ExpandHome(ans)); err == nil && fi.Mode().IsRegular() {
 		if fi.Size() > 4096 {
 			return nil, bad(ans + " is too big to be a key")
 		}
-		if b, err = os.ReadFile(expandHome(ans)); err != nil {
+		if b, err = os.ReadFile(inventory.ExpandHome(ans)); err != nil {
 			return nil, bad(errText(err))
 		}
 	}

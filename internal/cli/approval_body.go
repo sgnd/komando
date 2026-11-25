@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 )
 
@@ -34,7 +35,7 @@ type approvalBody struct {
 // resolvedFile is path as the file it names: ~ expanded, absolute, cleaned
 // and with symbolic links followed, so two spellings of one file match.
 func resolvedFile(path string) string {
-	a, err := filepath.Abs(expandHome(path))
+	a, err := filepath.Abs(inventory.ExpandHome(path))
 	if err != nil {
 		return ""
 	}

@@ -46,7 +46,7 @@ func set(words string) map[string]bool {
 // that reaches its servers with a password, has no ~/.ssh/config at all:
 // that is not a wrong path, so the hint is how to add a server instead.
 func sshConfigErr(path string, err error) error {
-	if errors.Is(err, os.ErrNotExist) && expandHome(path) == expandHome("~/.ssh/config") {
+	if errors.Is(err, os.ErrNotExist) && inventory.ExpandHome(path) == inventory.ExpandHome("~/.ssh/config") {
 		e := localFileErr("FILE_NOT_FOUND", err, "add a server instead: `komando host add web1 deploy@10.0.0.5`")
 		e.Message = "there is no ~/.ssh/config on this computer"
 		return e
@@ -70,7 +70,7 @@ func parseSSHConfig(path string) (hosts []*store.Host, notes []string, err error
 		if depth > 5 {
 			return nil
 		}
-		f, err := os.Open(expandHome(p))
+		f, err := os.Open(inventory.ExpandHome(p))
 		if err != nil {
 			if depth == 0 {
 				return sshConfigErr(p, err)
@@ -89,9 +89,9 @@ func parseSSHConfig(path string) (hosts []*store.Host, notes []string, err error
 			switch strings.ToLower(key) {
 			case "include":
 				for _, inc := range strings.Fields(val) {
-					inc = expandHome(inc)
+					inc = inventory.ExpandHome(inc)
 					if !filepath.IsAbs(inc) {
-						inc = filepath.Join(filepath.Dir(expandHome(path)), inc)
+						inc = filepath.Join(filepath.Dir(inventory.ExpandHome(path)), inc)
 					}
 					matches, _ := filepath.Glob(inc)
 					if len(matches) == 0 {
@@ -163,7 +163,7 @@ func parseSSHConfig(path string) (hosts []*store.Host, notes []string, err error
 				h.Port = p
 			}
 			if id := opts["identityfile"]; id != "" {
-				h.Identity = expandHome(id)
+				h.Identity = inventory.ExpandHome(id)
 			}
 			if h.Via == "none" {
 				h.Via = ""
@@ -204,12 +204,4 @@ func splitDirective(line string) (string, string) {
 		return line[:i], strings.TrimSpace(strings.TrimLeft(line[i:], " \t="))
 	}
 	return line, ""
-}
-
-func expandHome(p string) string {
-	if strings.HasPrefix(p, "~/") {
-		home, _ := os.UserHomeDir()
-		return filepath.Join(home, p[2:])
-	}
-	return p
 }

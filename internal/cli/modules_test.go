@@ -465,7 +465,7 @@ func TestRebootNeedsAllowDangerous(t *testing.T) {
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	t.Setenv("KOMANDO_NO_DIALOG", "1")
 	setCallerEnv(t, "CLAUDECODE", "1")
-	defer func() { tcl.flags.dryRun, tcl.flags.allowDangerous = false, false }()
+	defer func() { setGate(tcl, false, gateDryRun, gateAllowDangerous) }()
 	run := func(args ...string) error {
 		root := newRoot(tcl)
 		t.Cleanup(endCommand) // the next test starts with none of this command's flags
@@ -478,7 +478,7 @@ func TestRebootNeedsAllowDangerous(t *testing.T) {
 	if err := run("--dry-run", "reboot", "web1"); err != nil {
 		t.Errorf("dry run: %v", err)
 	}
-	tcl.flags.dryRun = false
+	setGate(tcl, false, gateDryRun)
 	err := run("reboot", "web1")
 	if e := toErr(err); e == nil || e.Code != "POLICY_BLOCKED" {
 		t.Errorf("reboot without --allow-dangerous: %v", err)
@@ -505,7 +505,7 @@ func TestRecipeReadOnlyAsksBeforeLocking(t *testing.T) {
 	}
 	setCallerEnv(t, "CLAUDECODE", "1") // an agent: the approval window asks
 	saved := askOnScreen
-	defer func() { askOnScreen = saved; tcl.flags.yes = false; resetApproval() }()
+	defer func() { askOnScreen = saved; setGate(tcl, false, gateYes); resetApproval() }()
 	lockFree := false
 	askOnScreen = func(*call, string) (bool, bool) {
 		done := make(chan error, 1)
@@ -535,7 +535,7 @@ func TestConfigSetAsksBeforeLocking(t *testing.T) {
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	setCallerEnv(t, "CLAUDECODE", "1")
 	saved := askOnScreen
-	defer func() { askOnScreen = saved; tcl.flags.yes = false; resetApproval() }()
+	defer func() { askOnScreen = saved; setGate(tcl, false, gateYes); resetApproval() }()
 	lockFree := false
 	askOnScreen = func(*call, string) (bool, bool) {
 		done := make(chan error, 1)
@@ -638,12 +638,12 @@ func TestPkgRmIsPkgRm(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	defer func() { tcl.flags.dryRun = false }()
+	defer func() { setGate(tcl, false, gateDryRun) }()
 	o := captureOutput(t, func() error { return runRoot(t, "-o", "json", "--dry-run", "pkg", "rm", "web1", "telnet") })
 	if !strings.Contains(o, `"command":"pkg.rm"`) || !strings.Contains(o, `"remote_command":"pkg rm telnet"`) {
 		t.Errorf("dry run: %s", o)
 	}
-	tcl.flags.dryRun = false
+	setGate(tcl, false, gateDryRun)
 	if e := toErr(runRoot(t, "-o", "json", "pkg", "rm", "win1", "telnet")); e == nil || !strings.Contains(e.Message, "pkg rm does not work on Windows") {
 		t.Errorf("windows: %v", e)
 	}
@@ -664,7 +664,7 @@ func TestOpsDryRunShapes(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	defer func() { tcl.flags.dryRun = false }()
+	defer func() { setGate(tcl, false, gateDryRun) }()
 	for args, want := range map[string]string{
 		"reboot web1":                               `"data":{"order":"one server at a time","would_be_blocked":{"code":"POLICY_BLOCKED"`,
 		"user rm web1 bob --remove-home":            `"remote_command":"user rm bob --remove-home"`,
@@ -673,7 +673,7 @@ func TestOpsDryRunShapes(t *testing.T) {
 		o := captureOutput(t, func() error {
 			return runRoot(t, append([]string{"-o", "json", "--dry-run"}, strings.Fields(args)...)...)
 		})
-		tcl.flags.dryRun = false
+		setGate(tcl, false, gateDryRun)
 		if !strings.Contains(o, want) {
 			t.Errorf("%s: want %s in %s", args, want, o)
 		}
@@ -711,7 +711,7 @@ func TestDockerContainerIsNeverAnOption(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	defer func() { tcl.flags.dryRun = false }()
+	defer func() { setGate(tcl, false, gateDryRun) }()
 	for _, args := range [][]string{
 		{"--dry-run", "docker", "exec", "web1", "--", "--privileged", "-u", "root", "api", "sh"},
 		{"--dry-run", "docker", "exec", "web1", "--", "-e", "X=1", "api", "id"},
@@ -721,7 +721,7 @@ func TestDockerContainerIsNeverAnOption(t *testing.T) {
 		if e := toErr(runRoot(t, append([]string{"-o", "json"}, args...)...)); e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "is not a container name or ID") {
 			t.Errorf("%v: %v", args, e)
 		}
-		tcl.flags.dryRun = false
+		setGate(tcl, false, gateDryRun)
 	}
 	o := captureOutput(t, func() error {
 		return runRoot(t, "-o", "json", "--dry-run", "docker", "exec", "web1", "shop_api.1", "--", "id")
@@ -741,12 +741,12 @@ func TestUserNamesAreChecked(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	defer func() { tcl.flags.dryRun = false }()
+	defer func() { setGate(tcl, false, gateDryRun) }()
 	for _, verb := range []string{"add", "lock", "unlock", "rm"} {
 		if e := toErr(runRoot(t, "-o", "json", "--dry-run", "user", verb, "web1", "--", "-r")); e == nil || e.Code != "USAGE" {
 			t.Errorf("user %s -r: %v", verb, e)
 		}
-		tcl.flags.dryRun = false
+		setGate(tcl, false, gateDryRun)
 	}
 }
 

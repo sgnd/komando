@@ -69,9 +69,9 @@ func wrapsValue(v, base pflag.Value) bool {
 // flag (and value), from a fresh tree; extra adds a spelling first.
 func spellingAnswer(t *testing.T, id, flag, alias string) string {
 	t.Helper()
-	saved := tcl.flags
-	tcl.flags = globalFlags{}
-	defer func() { tcl.flags = saved }()
+	saved := saveFlags(tcl)
+	clearFlags(tcl)
+	defer saved.restore()
 	var c *cobra.Command
 	for _, x := range allCommands(newRoot(tcl)) {
 		if cmdID(x) == id {
