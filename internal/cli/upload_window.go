@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -26,7 +27,7 @@ func noteUpload(cl *call, local string, exclude []string) error {
 	if !cl.caller().IsAgent() {
 		return nil
 	}
-	local = expandHome(local)
+	local = inventory.ExpandHome(local)
 	fi, err := os.Stat(local)
 	if err != nil {
 		return localFileErr("PATH_NOT_FOUND", err, "")

@@ -60,26 +60,26 @@ var gateExec = syscall.Exec
 // (--write, --analyze, --apply, --refresh). Why the command as given may
 // change something, or "". The checks read flag values, which an old
 // spelling of a flag shares (flag_alias.go), so every spelling counts.
-var gateReadForm = map[string]func(c *cobra.Command) string{
-	"exec":           needFlag("read-only"),
-	"job.start":      needFlag("read-only"),
-	"docker.exec":    needFlag("read-only"),
-	"cluster.exec":   needFlag("read-only"),
-	"db.query":       noFlag("write"),
-	"cache.run":      noFlag("write"),
-	"cluster.run":    noFlag("write"),
-	"db.explain":     noFlag("write", "analyze"), // --analyze runs the statement
-	"pkg.upgradable": noFlag("refresh"),          // refreshes the package index
-	"pkg.security":   noFlag("refresh"),
-	"recipe.run":     gateRecipeWrites,
+var gateReadForm = map[safetyKey]func(c *cobra.Command) string{
+	{"host", "", "exec"}:              needFlag("read-only"),
+	{"host", "job", "start"}:          needFlag("read-only"),
+	{"host", "docker", "exec"}:        needFlag("read-only"),
+	{"cluster", "", "exec"}:           needFlag("read-only"),
+	{"database", "", "query"}:         noFlag("write"),
+	{"cache", "", "raw"}:              noFlag("write"),
+	{"cluster", "", "raw"}:            noFlag("write"),
+	{"database", "", "explain"}:       noFlag("write", "analyze"), // --analyze runs the statement
+	{"host", "package", "upgradable"}: noFlag("refresh"),          // refreshes the package index
+	{"host", "package", "security"}:   noFlag("refresh"),
+	{"snippet", "", "exec"}:           gateRecipeWrites,
 }
 
 // gateNotForReadKey are commands a read-only key does not run, with a
 // better reason than "it changes something": they hand out access, so they
 // are of kind change (OD-13), and full keys run them (gateOnServers).
-var gateNotForReadKey = map[string]string{
-	"storage.link":    "it makes a link that opens the data without a login",
-	"cluster.forward": "it opens a port on the komando computer",
+var gateNotForReadKey = map[safetyKey]string{
+	{"storage", "object", "link"}:  "it makes a link that opens the data without a login",
+	{"cluster", "tunnel", "start"}: "it opens a port on the komando computer",
 }
 
 // No gate key, read-only or not, writes on the komando computer itself: a
@@ -96,44 +96,44 @@ var gateNotForReadKey = map[string]string{
 // gateOnServers are the changes a key may run: they act on servers,
 // databases, caches, storage and clusters, or connect a VPN komando already
 // knows. A func says why the command as given writes here, or "".
-var gateOnServers = map[string]func(c *cobra.Command) string{
-	"exec": nil, "reboot": nil, "upload": nil, "recipe.run": nil,
-	"cp": gateLocalDst, "sync": gateLocalDst,
-	"job.start": nil, "job.kill": nil, "job.rm": nil,
-	"fs.chmod": nil, "fs.mkdir": nil, "fs.mv": nil, "fs.replace": nil, "fs.restore": nil, "fs.rm": nil, "fs.write": nil,
-	"svc.daemon-reload": nil, "svc.disable": nil, "svc.enable": nil, "svc.reload": nil,
-	"svc.restart": nil, "svc.start": nil, "svc.stop": nil,
-	"pkg.install": nil, "pkg.rm": nil, "pkg.security": nil, "pkg.update": nil, "pkg.upgradable": nil, "pkg.upgrade": nil,
-	"user.add": nil, "user.lock": nil, "user.rm": nil, "user.unlock": nil,
-	"cron.rm": nil, "cron.set": nil, "key.deploy": gateSetDefault, "key.revoke": nil,
-	"db.explain": nil, "db.grant": nil, "db.kill": nil, "db.query": nil, "db.restore": nil, "db.revoke": nil,
-	"db.user.add": nil, "db.user.passwd": nil, "db.user.rm": nil,
-	"cache.rm": nil, "cache.run": nil, "cache.set": nil, "storage.chmod": nil, "storage.mkdir": nil, "storage.mv": nil, "storage.rm": nil, "storage.upload": nil,
-	"registry.copy": nil, "registry.prune": nil, "registry.rm": nil,
-	"docker.compose": nil, "docker.exec": nil, "docker.prune": nil, "docker.pull": nil, "docker.raw": nil,
-	"docker.restart": nil, "docker.rm": nil, "docker.start": nil, "docker.stop": nil,
-	"cluster.apply": nil, "cluster.deploy": nil, "cluster.exec": nil, "cluster.restart": nil,
-	"cluster.rm": nil, "cluster.rollback": nil, "cluster.run": gateKubectlCp, "cluster.scale": nil,
-	"cluster.forward": nil, "storage.link": nil, // hand out access; as before OD-13 made them changes
-	"vpn.up": nil, "vpn.down": nil,
+var gateOnServers = map[safetyKey]func(c *cobra.Command) string{
+	{"host", "", "exec"}: nil, {"host", "", "restart"}: nil, {"", "upload", "copy"}: nil, {"snippet", "", "exec"}: nil,
+	{"", "cp", "copy"}: gateLocalDst, {"", "sync", "copy"}: gateLocalDst,
+	{"host", "job", "start"}: nil, {"host", "job", "kill"}: nil, {"host", "job", "rm"}: nil,
+	{"host", "file", "chmod"}: nil, {"host", "file", "mkdir"}: nil, {"host", "file", "mv"}: nil, {"host", "file", "replace"}: nil, {"host", "file", "restore"}: nil, {"host", "file", "rm"}: nil, {"host", "file", "write"}: nil,
+	{"host", "service", "daemon-reload"}: nil, {"host", "service", "disable"}: nil, {"host", "service", "enable"}: nil, {"host", "service", "reload"}: nil,
+	{"host", "service", "restart"}: nil, {"host", "service", "start"}: nil, {"host", "service", "stop"}: nil,
+	{"host", "package", "install"}: nil, {"host", "package", "rm"}: nil, {"host", "package", "security"}: nil, {"host", "package", "update"}: nil, {"host", "package", "upgradable"}: nil, {"host", "package", "upgrade"}: nil,
+	{"host", "user", "add"}: nil, {"host", "user", "lock"}: nil, {"host", "user", "rm"}: nil, {"host", "user", "unlock"}: nil,
+	{"host", "cron", "rm"}: nil, {"host", "cron", "set"}: nil, {"credential", "key", "install"}: gateSetDefault, {"credential", "key", "uninstall"}: nil,
+	{"database", "", "explain"}: nil, {"database", "", "grant"}: nil, {"database", "", "kill"}: nil, {"database", "", "query"}: nil, {"database", "", "restore"}: nil, {"database", "", "revoke"}: nil,
+	{"database", "user", "add"}: nil, {"database", "user", "passwd"}: nil, {"database", "user", "rm"}: nil,
+	{"cache", "", "rm"}: nil, {"cache", "", "raw"}: nil, {"cache", "", "set"}: nil, {"storage", "object", "chmod"}: nil, {"storage", "object", "create"}: nil, {"storage", "object", "move"}: nil, {"storage", "object", "delete"}: nil, {"storage", "object", "upload"}: nil,
+	{"registry", "image", "copy"}: nil, {"registry", "image", "prune"}: nil, {"registry", "image", "delete"}: nil,
+	{"host", "docker", "compose"}: nil, {"host", "docker", "exec"}: nil, {"host", "docker", "prune"}: nil, {"host", "docker", "pull"}: nil, {"host", "docker", "raw"}: nil,
+	{"host", "docker", "restart"}: nil, {"host", "docker", "rm"}: nil, {"host", "docker", "start"}: nil, {"host", "docker", "stop"}: nil,
+	{"cluster", "", "apply"}: nil, {"cluster", "", "deploy"}: nil, {"cluster", "", "exec"}: nil, {"cluster", "", "restart"}: nil,
+	{"cluster", "", "rm"}: nil, {"cluster", "", "rollback"}: nil, {"cluster", "", "raw"}: gateKubectlCp, {"cluster", "", "scale"}: nil,
+	{"cluster", "tunnel", "start"}: nil, {"storage", "object", "link"}: nil, // hand out access; as before OD-13 made them changes
+	{"vpn", "", "start"}: nil, {"vpn", "", "stop"}: nil,
 }
 
 // gateSavesHere are reads that save a file on this computer, and when.
-var gateSavesHere = map[string]func(c *cobra.Command) string{
-	"download": func(c *cobra.Command) string {
+var gateSavesHere = map[safetyKey]func(c *cobra.Command) string{
+	{"", "download", "copy"}: func(c *cobra.Command) string {
 		if to, _ := c.Flags().GetString("to"); to == "-" {
 			return "" // to the key's own output
 		}
 		return "it saves files on this computer (--to - streams one instead)"
 	},
-	"db.dump": func(*cobra.Command) string { return "it saves a file on this computer" },
-	"storage.download": func(c *cobra.Command) string {
+	{"database", "", "backup"}: func(*cobra.Command) string { return "it saves a file on this computer" },
+	{"storage", "object", "download"}: func(c *cobra.Command) string {
 		if to, _ := c.Flags().GetString("to"); to == "-" {
 			return "" // to the key's own output
 		}
 		return "it saves files on this computer (--to - prints one instead)"
 	},
-	"export": func(c *cobra.Command) string {
+	{"", "", "export"}: func(c *cobra.Command) string {
 		if to, _ := c.Flags().GetString("to"); to != "" {
 			return "--to saves a file on this computer (without it, export prints)"
 		}
@@ -197,7 +197,7 @@ func gateKubectlCp(c *cobra.Command) string {
 
 // gateHere says why c writes on this computer, or "".
 func gateHere(c *cobra.Command, name string) string {
-	if f := gateSavesHere[name]; f != nil {
+	if f := gateSavesHere[cmdKeys[name]]; f != nil {
 		return f(c)
 	}
 	if top, _, _ := strings.Cut(name, "."); c == c.Root() || top == "help" || top == "completion" {
@@ -207,7 +207,7 @@ func gateHere(c *cobra.Command, name string) string {
 	if ok && k.Kind == kindRead {
 		return ""
 	}
-	f, on := gateOnServers[name]
+	f, on := gateOnServers[cmdKeys[name]]
 	switch {
 	case !on:
 		return "it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself)"
@@ -239,10 +239,10 @@ func noFlag(names ...string) func(c *cobra.Command) string {
 
 // gateNeedsPerson are commands for a person at a terminal on this computer
 // (a shell, a login, the vault's passphrase): a key never runs them.
-var gateNeedsPerson = map[string]bool{
-	"shell": true, "db.shell": true, "cluster.shell": true, "login.aws": true,
-	"config.approval-code": true, "secret.passphrase": true, "secret.check": true,
-	"ssh-gate": true, "ssh-gate.line": true,
+var gateNeedsPerson = map[safetyKey]bool{
+	{"host", "", "shell"}: true, {"database", "", "shell"}: true, {"cluster", "", "shell"}: true, {"login", "", "aws"}: true,
+	{"config", "", "approval-code"}: true, {"config", "vault", "passphrase"}: true, {"credential", "", "check"}: true,
+	{"", "", "ssh-gate"}: true, {"ssh-gate", "", "line"}: true,
 }
 
 // gateRequest is what the key asked for.
@@ -377,7 +377,7 @@ func gateCheck(args []string, key gateKey) (name, output string, refused *out.Er
 		DisableFlagParsing: true, Run: func(*cobra.Command, []string) {}})
 	c, rest, err := root.Find(args)
 	if err != nil {
-		return "", "", nil // komando reports it, and runs nothing
+		return "", "", gateUnknownLine(args)
 	}
 	if c.Name() == cobra.ShellCompRequestCmd {
 		return c.Name(), "", out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "run it on the komando computer itself",
@@ -399,7 +399,7 @@ func gateCheck(args []string, key gateKey) (name, output string, refused *out.Er
 // gateRule is gateCheck's answer for the command c, its flags read.
 func gateRule(c *cobra.Command, name string, key gateKey) (string, *out.Error) {
 	cl := callOf(c)
-	if help, _ := c.Flags().GetBool("help"); help && !gateNeedsPerson[name] {
+	if help, _ := c.Flags().GetBool("help"); help && !gateNeedsPerson[cmdKeys[name]] {
 		return name, nil // it only prints the command's help
 	}
 	for p := c; p != nil; p = p.Parent() {
@@ -411,7 +411,7 @@ func gateRule(c *cobra.Command, name string, key gateKey) (string, *out.Error) {
 		}
 	}
 	switch {
-	case gateNeedsPerson[name]:
+	case gateNeedsPerson[cmdKeys[name]]:
 		return name, out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "a person runs it in a terminal on the komando computer itself",
 			"komando %s needs a person at a terminal on this computer; a key cannot run it", strings.ReplaceAll(name, ".", " "))
 	case cl.flags.reveal:
@@ -422,6 +422,9 @@ func gateRule(c *cobra.Command, name string, key gateKey) (string, *out.Error) {
 			"--allow-dangerous is refused: a key cannot skip the dangerous-command stop")
 	}
 	if !c.Runnable() || c.Annotations[groupOnly] == "true" {
+		if len(c.Flags().Args()) > 0 {
+			return name, gateUnknownLine(append(strings.Fields(strings.ReplaceAll(name, ".", " ")), c.Flags().Args()...))
+		}
 		return name, nil // a group only prints its help
 	}
 	here := func(why string) (string, *out.Error) {
@@ -448,13 +451,20 @@ func gateRule(c *cobra.Command, name string, key gateKey) (string, *out.Error) {
 	return name, nil
 }
 
+// gateUnknownLine refuses a line that names no command, as for a person:
+// komando would run nothing, and an old path must not pass as harmless.
+func gateUnknownLine(words []string) *out.Error {
+	return out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "a person runs it in a terminal on the komando computer itself",
+		"komando %s names no command; a key runs only commands komando knows", strings.Join(words, " "))
+}
+
 // gateWrites says why a read-only key may not run c, or "".
 func gateWrites(c *cobra.Command, name string) string {
 	top, _, _ := strings.Cut(name, ".")
 	if c == c.Root() || top == "help" || top == "completion" {
 		return "" // first steps, help and shell completion scripts
 	}
-	if why := gateNotForReadKey[name]; why != "" {
+	if why := gateNotForReadKey[cmdKeys[name]]; why != "" {
 		return why
 	}
 	k, ok := kindOf(c)
@@ -462,7 +472,7 @@ func gateWrites(c *cobra.Command, name string) string {
 	case !ok || k.Kind == kindChange:
 		return "it changes something"
 	case k.Kind == kindDepends:
-		form := gateReadForm[name]
+		form := gateReadForm[cmdKeys[name]]
 		if form == nil {
 			return "it may change something (" + k.Note + ")"
 		}

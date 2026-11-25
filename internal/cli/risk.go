@@ -6,6 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+
+	"github.com/sgnd/komando/internal/policy"
 )
 
 // One rule table says how much each command and flag combination needs
@@ -138,7 +140,7 @@ var riskRows = []riskRow{
 	{key: safetyKey{"host", "user", "rm"}, tier: tierDangerous, what: "deletes the user"},
 	{key: safetyKey{"credential", "", "remove"}, tier: tierDangerous, what: "deletes the saved passwords"},
 	{key: safetyKey{"credential", "key", "remove"}, when: givesFlag("delete-file"), cond: "with --delete-file, for a key komando made", tier: tierDangerous, what: "deletes the private key komando keeps"},
-	{key: safetyKey{"host", "package", "rm"}, when: func(w []string) bool { return slices.ContainsFunc(riskArgs(w), essentialPkg) }, cond: "a package the server needs (openssh-server, sudo, systemd, ...)", tier: tierDangerous, what: "removes a package the server needs to run or to let you in"},
+	{key: safetyKey{"host", "package", "rm"}, when: func(w []string) bool { return slices.ContainsFunc(riskArgs(w), policy.EssentialPackage) }, cond: "a package the server needs (openssh-server, sudo, systemd, ...)", tier: tierDangerous, what: "removes a package the server needs to run or to let you in"},
 	{key: safetyKey{"host", "package", "rm"}, tier: tierChange, typed: "removes the packages", items: "packages"},
 	{key: safetyKey{"host", "cron", "rm"}, tier: tierChange, typed: "deletes the cron entry", items: "cron entries"},
 	{key: safetyKey{"host", "", "restart"}, tier: tierDangerous, what: "restarts the server (it is away until it is back)"},
@@ -281,11 +283,26 @@ func riskOfLine(line []string) riskRow {
 	if commandTree == nil {
 		return riskRow{tier: tierPerson}
 	}
-	c, words, _ := lineWords(line)
-	if c == nil {
-		return riskRow{tier: tierRead}
+	c, words, pos := lineWords(line)
+	switch {
+	case c == nil && rootOnly(line):
+		return riskRow{tier: tierRead} // komando alone: first steps
+	case c == nil, (!c.Runnable() || c.Annotations[groupOnly] == "true") && len(pos) > 0:
+		// names no command: an unknown word, or words after a group that
+		// name nothing under it (cut PR B2, as at the ssh gate)
+		return riskRow{tier: tierPerson}
 	}
 	return riskOf(c, words)
+}
+
+// rootOnly reports whether line is komando alone, with global flags only.
+func rootOnly(line []string) bool {
+	root := commandTree()
+	c, rest, err := root.Find(line)
+	if err != nil || c != root || root.ParseFlags(rest) != nil {
+		return false
+	}
+	return len(root.Flags().Args()) == 0
 }
 
 // lineWords finds the command of line and gives its words as riskOf

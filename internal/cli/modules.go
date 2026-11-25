@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -293,59 +294,12 @@ pacman:upgradable|pacman:simulate) pacman -Qu $PKGS ;;
   done ;;
 esac`
 
-// essentialPkgs are packages whose removal can lock you out of a server or
-// break it; removing them needs --allow-dangerous.
-var essentialPkgs = regexp.MustCompile(`^(openssh-server|openssh|ssh|sudo|systemd|systemd-sysv|init|libc6|glibc|libc|musl|bash|coreutils|util-linux|apt|dpkg|rpm|dnf|yum|apk-tools|busybox|base-files|login|passwd|linux-image.*|kernel.*|linux)$`)
-
-// essentialSamples are names essentialPkgs matches, one per entry, for
-// testing a name that apt would read as a pattern.
-var essentialSamples = strings.Fields(`openssh-server openssh ssh sudo systemd systemd-sysv init libc6 glibc libc musl bash
-coreutils util-linux apt dpkg rpm dnf yum apk-tools busybox base-files login passwd linux-image-generic kernel-core linux`)
-
 // pkgNameRe is what a package name may look like: letters and digits, and
 // . _ + - with :arch, =version, /release or @repo. Nothing else gets to the
 // server's shell, which splits the list on any space, tab or newline. The
 // last character is a letter, a digit or + (libstdc++): apt reads a name
 // ending in - as "remove this package", even for install.
 var pkgNameRe = regexp.MustCompile(`^[A-Za-z0-9]([A-Za-z0-9._+:~@/=-]{0,198}[A-Za-z0-9+])?$`)
-
-// pkgVersionRe is the -1.2.3 that dnf and yum allow after a name.
-var pkgVersionRe = regexp.MustCompile(`-[0-9].*$`)
-
-// pkgArchRe is the .x86_64 that dnf, yum and zypper allow after a name.
-var pkgArchRe = regexp.MustCompile(`\.(x86_64|i386|i586|i686|aarch64|armv7hl|armhfp|ppc64le|ppc64|s390x|noarch|src|amd64|arm64)$`)
-
-// essentialPkg reports whether name, written any way a package manager
-// takes it (OpenSSH-Server, openssh-server:amd64, sudo=1.9.15,
-// systemd/bookworm, openssh-server-8.0p1, sudo.x86_64), is one of
-// essentialPkgs. A name with a dot that is no package of its own is a
-// regular expression to apt ("openssh.server", "sud."): it counts as
-// essential when it would pick an essential package.
-func essentialPkg(name string) bool {
-	n := strings.ToLower(name)
-	if i := strings.IndexAny(n, ":=/@"); i >= 0 {
-		n = n[:i]
-	}
-	noArch := pkgArchRe.ReplaceAllString(n, "")
-	for _, c := range []string{n, noArch, pkgVersionRe.ReplaceAllString(n, ""), pkgVersionRe.ReplaceAllString(noArch, ""),
-		pkgArchRe.ReplaceAllString(pkgVersionRe.ReplaceAllString(n, ""), "")} {
-		if essentialPkgs.MatchString(c) {
-			return true
-		}
-	}
-	if strings.Contains(n, ".") {
-		re, err := regexp.Compile(strings.ReplaceAll(regexp.QuoteMeta(n), `\.`, "."))
-		if err != nil {
-			return true
-		}
-		for _, e := range essentialSamples {
-			if re.MatchString(e) {
-				return true
-			}
-		}
-	}
-	return false
-}
 
 // pkgFileRe is a local package file, which `pkg` does not install.
 var pkgFileRe = regexp.MustCompile(`(^\.{0,2}/)|\.(deb|rpm|apk)$|\.pkg\.tar\.`)
@@ -418,10 +372,10 @@ func pkgCmd() *cobra.Command {
 				pkgs := strings.Join(args[1:], " ")
 				if action == "remove" {
 					for _, p := range args[1:] {
-						if essentialPkg(p) {
+						if policy.EssentialPackage(p) {
 							askTypes(cl, []string{p}, "packages on "+args[0])
 						}
-						if essentialPkg(p) && !cl.dangerOK() && !confirmDangerous(cl, args[:1], "removes "+p+", which can lock you out of the server or break it") {
+						if policy.EssentialPackage(p) && !cl.dangerOK() && !confirmDangerous(cl, args[:1], "removes "+p+", which can lock you out of the server or break it") {
 							if err := cl.policyStop(approvalErr(cl, "POLICY_BLOCKED",
 								"removing "+p+" can lock you out of the server or break it")); err != nil {
 								return err

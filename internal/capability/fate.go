@@ -50,9 +50,6 @@ var gone = []Gone{
 	{Today: "secret.cp", Why: "removed"},
 	{Today: "cert", Why: "moves to paid monitoring in komando-cloud", Lost: "cert check in the CLI until monitoring exists"},
 	{Today: "cert.check", Why: "moves to paid monitoring in komando-cloud", Lost: "cert check in the CLI until monitoring exists"},
-	{Today: "ssh-gate", Why: "the phone app gets its own engine first"},
-	{Today: "ssh-gate.line", Why: "the phone app gets its own engine first"},
-	{Today: "ssh-gate.status", Why: "the phone app gets its own engine first"},
 }
 
 // internals are hidden commands komando runs itself.

@@ -36,9 +36,9 @@ func TestStandardAliasSpelling(t *testing.T) {
 	n := 0
 	for _, c := range allCommands(newRoot(tcl)) {
 		id := cmdID(c)
-		_, read := gateReadForm[id]
-		_, saves := gateSavesHere[id]
-		_, change := gateOnServers[id]
+		_, read := gateReadForm[cmdKeys[id]]
+		_, saves := gateSavesHere[cmdKeys[id]]
+		_, change := gateOnServers[cmdKeys[id]]
 		if !read && !saves && !change {
 			continue
 		}

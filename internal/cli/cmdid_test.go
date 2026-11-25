@@ -95,12 +95,6 @@ func TestTablesKeyedByID(t *testing.T) {
 	add("personalCmds", keysOf(personalCmds))
 	add("localReads", keysOf(localReads))
 	add("leavesHome", keysOf(leavesHome))
-	add("gateReadForm", keysOf(gateReadForm))
-	add("gateNotForReadKey", keysOf(gateNotForReadKey))
-	add("gateOnServers", keysOf(gateOnServers))
-	add("gateSavesHere", keysOf(gateSavesHere))
-	add("gateNeedsPerson", keysOf(gateNeedsPerson))
-	add("gateTargetArgs", keysOf(gateTargetArgs))
 	add("riskRows", riskRowIDs())
 	add("mask line", []string{"secret.show"})
 	for name, keys := range tables {

@@ -55,7 +55,7 @@ func vpnNameQ(example string, suffixes ...string) formQ {
 			if inventory.ValidName("secret", v+sfx) != nil {
 				return "use a shorter name: komando keeps this VPN's secret as " + v + sfx
 			}
-			if users := secretUsers(st, v+sfx); len(users) > 0 {
+			if users := inventory.SecretUsers(st, v+sfx); len(users) > 0 {
 				return "komando keeps this VPN's secret as " + v + sfx + ", which " + strings.Join(users, ", ") + " uses already; pick another name"
 			}
 		}
@@ -233,7 +233,7 @@ func vpnPerson(a formAnswers) bool {
 
 // vpnFileText is a file's text, or "" when it cannot be read.
 func vpnFileText(p string) string {
-	b, err := os.ReadFile(expandHome(p))
+	b, err := os.ReadFile(inventory.ExpandHome(p))
 	if err != nil {
 		return ""
 	}
