@@ -103,6 +103,7 @@ var tierRows = concat2(
 		{Key: own("agent", "skill", "uninstall"), Tier: Safety, Dynamic: "it removes komando's guard from an AI agent's settings"},
 
 		{Key: own("config", "", "approval-code"), Tier: Person},
+		{Key: top("ssh-gate"), Tier: Person}, // kept until the phone engine (C369)
 		{Key: own("config", "vault", "passphrase"), Tier: Person},
 		{Key: own("config", "vault", "keychain"), Tier: Person, When: Cond{Flags: []string{"off"}, Not: true}, What: "moves the key into the keychain"},
 		{Key: Key{Type: "host", Verb: "shell"}, Tier: Person},
