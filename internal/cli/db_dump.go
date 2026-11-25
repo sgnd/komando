@@ -178,7 +178,7 @@ holds your data: it is created readable only by you.`,
 			if err := runDump(cl, cmd.Context(), args[0], to, on, o); err != nil {
 				return err
 			}
-			if !cl.flags.dryRun {
+			if !cl.dryRun() {
 				textNote(cl, "To load it back: %s", restoreNote(cl, conn, to))
 			}
 			return nil
@@ -271,7 +271,7 @@ func runDump(cl *call, ctx context.Context, connExpr, to, on string, o dumpOpts)
 	if err := cmp.Or(dumpTarget(cl, c, to), guardRawCopy(cl, st, c, "a dump")); err != nil {
 		return err
 	}
-	data := transferData{Conn: c.Name, File: to, RunsOn: "local", DryRun: cl.flags.dryRun}
+	data := transferData{Conn: c.Name, File: to, RunsOn: "local", DryRun: cl.dryRun()}
 	rec := map[string]any{"conns": []string{c.Name}, "file": to}
 
 	if t.Kind.File { // sqlite: a consistent copy of the database file
@@ -283,7 +283,7 @@ func runDump(cl *call, ctx context.Context, connExpr, to, on string, o dumpOpts)
 		}
 		data.Tool = []string{"VACUUM INTO"}
 		rec["runs_on"] = "local"
-		if cl.flags.dryRun {
+		if cl.dryRun() {
 			cl.out.Print("db.dump", data, nil)
 			return nil
 		}
@@ -328,7 +328,7 @@ func runDump(cl *call, ctx context.Context, connExpr, to, on string, o dumpOpts)
 		data.RunsOn, data.LowPriority = h.Name, true
 	}
 	rec["runs_on"] = data.RunsOn
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		cl.out.Print("db.dump", data, nil)
 		return nil
 	}
@@ -452,14 +452,14 @@ func runRestore(cl *call, ctx context.Context, connExpr, from, on string) error 
 	// plain SQL is always run by komando itself: psql and mysql would obey
 	// client commands hidden in the file, on the --via server
 	builtin := !custom
-	data := transferData{Conn: c.Name, File: from, Bytes: fi.Size(), Tool: argv, DryRun: cl.flags.dryRun}
+	data := transferData{Conn: c.Name, File: from, Bytes: fi.Size(), Tool: argv, DryRun: cl.dryRun()}
 	if builtin {
 		// komando runs here; only the connection goes through the --via path
 		data.Tool, data.RunsOn = []string{"komando"}, "local"
 	} else {
 		data.RunsOn = h.Name
 	}
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		cl.out.Print("db.restore", data, nil)
 		textNote(cl, "To keep a way back, save a copy first: komando db dump %s", argQ(c.Name))
 		return nil

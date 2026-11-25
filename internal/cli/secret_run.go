@@ -106,12 +106,12 @@ func runLocal(cl *call, pairs, args []string) error {
 	shown := strings.Join(append([]string{prog}, args[1:]...), " ")
 
 	if err := runGuard(cl, st, refs, prog, plainPairs(env)); err != nil {
-		if !cl.flags.dryRun {
+		if !cl.dryRun() {
 			audit(cl, st, "secret run", nil, shown, false, withBlocked(rec, err))
 		}
 		return err
 	}
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		envShown := map[string]string{}
 		for _, k := range keys {
 			envShown[k] = env[k]

@@ -201,7 +201,7 @@ func TestKctlWrite(t *testing.T) {
 		t.Errorf("overwrite: %d %q", code, se)
 	}
 	// --dry-run reaches the server as dryRun=All
-	saved := tcl.flags.dryRun
+	saved := tcl.dryRun()
 	setGate(tcl, true, gateDryRun)
 	f.writes = nil
 	_, so, _ := run("scale", "deploy/web", "--replicas=0")

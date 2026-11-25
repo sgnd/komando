@@ -200,7 +200,7 @@ type importResult struct {
 
 func applyImport(cl *call, source, file string, plan *importPlan, groups []string, overwrite bool) error {
 	res := importResult{Source: source, File: file, Hosts: []string{}, Conns: []string{}, Vpns: []string{}, Recipes: []string{},
-		Secrets: []string{}, Skipped: []importSkip{}, NotFound: plan.Notes, dryRun: cl.flags.dryRun}
+		Secrets: []string{}, Skipped: []importSkip{}, NotFound: plan.Notes, dryRun: cl.dryRun()}
 	if res.NotFound == nil {
 		res.NotFound = []string{}
 	}
@@ -266,7 +266,7 @@ func applyImport(cl *call, source, file string, plan *importPlan, groups []strin
 	}
 	res.Action = "added"
 	incomplete := importIncomplete(cl, len(v.Invalid))
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		res.Action = "would_add"
 		cl.out.Print("import", res, toErr(incomplete))
 		if incomplete != nil {
@@ -431,7 +431,7 @@ func (r *importResult) replacedAndNext(cl *call, existed map[string]bool, groups
 		}
 	}
 	r.Next = importNext(added, groups)
-	if r.Next != "" && !cl.flags.dryRun {
+	if r.Next != "" && !cl.dryRun() {
 		sayNext(cl, r.Next)
 	}
 }
@@ -782,7 +782,7 @@ func importIncomplete(cl *call, refused int) error {
 	if refused == 0 {
 		return nil
 	}
-	if !cl.flags.dryRun {
+	if !cl.dryRun() {
 		return out.Errf(out.ExitError, "IMPORT_INCOMPLETE", "fix them in the source and import again: the rest is in, and importing again skips it",
 			"%s not imported (see skipped)", map[bool]string{true: "1 server was", false: strconv.Itoa(refused) + " servers were"}[refused == 1])
 	}

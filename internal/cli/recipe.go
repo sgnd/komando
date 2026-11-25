@@ -326,7 +326,7 @@ func recipeRmCmd() *cobra.Command {
 				return err
 			}
 			say := textBlob(changeSay(cl, "remove", "recipe "+args[0], ""))
-			if cl.flags.dryRun {
+			if cl.dryRun() {
 				cl.out.Print("recipe.rm", textAs{map[string]any{"would_remove": args[0]}, say}, nil)
 				return nil
 			}

@@ -92,7 +92,7 @@ read from docker on the server. The real run deletes and needs
 			if o.agedVolumes() {
 				line += "; docker volume rm (each unused anonymous volume older than " + o.ageText + ")"
 			}
-			if cl.flags.dryRun {
+			if cl.dryRun() {
 				return previewPrune(cl, cmd.Context(), args[0], line, o, *sudo)
 			}
 			if o.agedVolumes() {

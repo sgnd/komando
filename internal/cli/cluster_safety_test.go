@@ -210,7 +210,7 @@ func TestClusterRunDryRunSendsNothingReal(t *testing.T) {
 // kctl itself never sends a TokenRequest under --dry-run.
 func TestKctlCreateTokenDryRun(t *testing.T) {
 	l := newLabCluster(t)
-	saved := tcl.flags.dryRun
+	saved := tcl.dryRun()
 	setGate(tcl, true, gateDryRun)
 	defer func() { setGate(tcl, saved, gateDryRun) }()
 	code, so, se := runKctl(context.Background(), l.client(t), "lab", []string{"create", "token", "bot"})

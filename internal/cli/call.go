@@ -153,11 +153,22 @@ func (cl *call) begin() {
 // storeWrite is how this command's changes to the store and the vault go:
 // under --dry-run they are only previewed (store.Preview()).
 func (cl *call) storeWrite() store.Write {
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		return store.Preview()
 	}
 	return store.Save()
 }
+
+// dryRun, yes, allowDangerous and reveal are the call's gate flags as the
+// command line set them (--dry-run, --yes, --allow-dangerous, --reveal).
+// Code outside this file and root.go reads them only through these
+// (TestGateFlagsAreReadThroughMethods). --yes, --allow-dangerous and
+// --reveal are what was typed, not what is allowed: an AI agent's needs a
+// person (yesOK, dangerOK, revealOK).
+func (cl *call) dryRun() bool         { return cl.flags.dryRun }
+func (cl *call) yes() bool            { return cl.flags.yes }
+func (cl *call) allowDangerous() bool { return cl.flags.allowDangerous }
+func (cl *call) reveal() bool         { return cl.flags.reveal }
 
 // caller is who makes the call (engine.Caller).
 func (cl *call) caller() engine.Caller { return *cl.who.Load() }

@@ -56,7 +56,7 @@ func askSecretNow(cmd *cobra.Command, kind, name string, a askSecret) (ref strin
 	}
 	sec := name + "-" + a.suffix
 	ref = "secret:" + sec
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		return ref, undo, nil
 	}
 	if !cl.interactive() {

@@ -110,7 +110,7 @@ func guardHome(cmd *cobra.Command) error {
 		what := "HOME=" + cl.getenv("HOME") + ": komando's data from " + store.Home() + ", unchecked"
 		msg := "komando cannot find this account's home folder in the user database (" + err.Error() +
 			"), so it cannot tell whether HOME was moved to another folder: an AI agent needs a person's yes to use " + store.Home()
-		if cl.flags.dryRun {
+		if cl.dryRun() {
 			// a dry run opens no window, and reads servers all the same
 			return homeStop(cl, msg, "a dry run cannot ask the user: run it without --dry-run and with --yes (komando then asks them in a window on their screen), or ask them to run it in their own terminal")
 		}

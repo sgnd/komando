@@ -24,14 +24,14 @@ import (
 
 func (r *kctlRun) dryQuery() url.Values {
 	q := url.Values{"fieldManager": {"komando"}}
-	if r.cl.flags.dryRun {
+	if r.cl.dryRun() {
 		q.Set("dryRun", "All")
 	}
 	return q
 }
 
 func (r *kctlRun) dryNote() string {
-	if r.cl.flags.dryRun {
+	if r.cl.dryRun() {
 		return " (server dry run)"
 	}
 	return ""
@@ -46,7 +46,7 @@ func (r *kctlRun) apply(diff bool) error {
 	if err != nil {
 		return err
 	}
-	saved := r.cl.flags.dryRun
+	saved := r.cl.dryRun()
 	if diff {
 		r.cl.flags.dryRun = true // diff is an apply the server only pretends to do
 	}
@@ -307,7 +307,7 @@ func (r *kctlRun) create(sub string) error {
 		if len(r.a.pos) < 2 {
 			return kfail("create token needs a service account NAME")
 		}
-		if r.cl.flags.dryRun {
+		if r.cl.dryRun() {
 			// a TokenRequest is not stored anywhere to dry-run: do not count
 			// on the server to sign nothing, never send one
 			return kfail("create token cannot be dry-run: it would make a real token")
@@ -510,7 +510,7 @@ func (r *kctlRun) delete() error {
 			from = " from " + t.space + " namespace" // which copy went, as kubectl says it
 		}
 		fmt.Fprintf(&r.stdout, "%s %q deleted%s%s\n", kindQual(t.rt), t.name, from, r.dryNote())
-		if w, set := r.a.bools["wait"]; (!set || w) && !r.cl.flags.dryRun {
+		if w, set := r.a.bools["wait"]; (!set || w) && !r.cl.dryRun() {
 			// kubectl waits for the object to go; a finalizer can hold it,
 			// so the wait ends after a minute (the delete itself is done)
 			wctx, cancel := context.WithTimeout(r.ctx, time.Minute)

@@ -66,6 +66,26 @@ func TestTestsWriteTheGateThroughHelpers(t *testing.T) {
 	}
 }
 
+// gateFlagFields is every file that names a gate flag field of a call:
+// the methods that read them (call.go), cobra's bindings (root.go), kctl's
+// diff that turns --dry-run on (cluster_kctl_change.go) and the test
+// helper setGate (testcall_test.go). Everything else reads them through
+// cl.dryRun(), cl.yes(), cl.allowDangerous() and cl.reveal(), so the kit
+// gate split moves the fields without touching a command.
+var gateFlagFields = map[string]int{
+	"call.go":                4,
+	"cluster_kctl_change.go": 2,
+	"root.go":                4,
+	"testcall_test.go":       4,
+}
+
+func TestGateFlagsAreReadThroughMethods(t *testing.T) {
+	got := gateFlagUses(t)
+	if !maps.Equal(got, gateFlagFields) {
+		t.Errorf("files that name a gate flag field (x.flags.dryRun, .yes, .allowDangerous, .reveal):\n%s\nwant:\n%s\nread them with cl.dryRun(), cl.yes(), cl.allowDangerous() or cl.reveal()", writerLines(got), writerLines(gateFlagFields))
+	}
+}
+
 // gateWriters counts, per file and expression, the writes of a gate flag,
 // of a call's whole flags and the setCaller calls in the program files
 // (tests false) or the test files (tests true) of internal/cli and the
@@ -94,6 +114,23 @@ func gateWriters(t *testing.T, tests bool) map[string]int {
 				if sel, ok := n.Fun.(*ast.SelectorExpr); ok && sel.Sel.Name == "setCaller" {
 					got[name+" setCaller"]++
 				}
+			}
+			return true
+		})
+	})
+	return got
+}
+
+// gateFlagUses counts, per file, every use of a gate flag field
+// (x.flags.dryRun ...), read or written, in the program and test files of
+// internal/cli and the packages below it.
+func gateFlagUses(t *testing.T) map[string]int {
+	t.Helper()
+	got := map[string]int{}
+	goFiles(t, func(name string, _ bool, file *ast.File) {
+		ast.Inspect(file, func(n ast.Node) bool {
+			if sel, ok := n.(*ast.SelectorExpr); ok && gateTarget(sel) && sel.Sel.Name != "flags" {
+				got[name]++
 			}
 			return true
 		})

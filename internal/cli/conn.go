@@ -443,7 +443,7 @@ func connRmCmd() *cobra.Command {
 				return err
 			}
 			audit(cl, nil, "conn.rm", nil, "", true, map[string]any{"conns": names})
-			cl.out.Print("conn.rm", rmResult{Removed: names, SecretsUnused: unused, dryRun: cl.flags.dryRun}, nil)
+			cl.out.Print("conn.rm", rmResult{Removed: names, SecretsUnused: unused, dryRun: cl.dryRun()}, nil)
 			return nil
 		}),
 	}

@@ -275,7 +275,7 @@ func TestGateCheck(t *testing.T) {
 			t.Errorf("%q --read-only: %q, want %q", c.line, got, c.readOnly)
 		}
 	}
-	if !tcl.flags.yes || tcl.flags.reveal {
+	if !tcl.yes() || tcl.reveal() {
 		t.Errorf("the gate's own flags changed: %+v", tcl.flags)
 	}
 }

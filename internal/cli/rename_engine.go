@@ -106,7 +106,7 @@ func renameTx(cl *call, plan func(s *store.State) (renameSet, renameOpts, error)
 		if err != nil {
 			return err
 		}
-		if res, moves, err = applyRenames(cl, s, set, opts); err != nil || cl.flags.dryRun || set.size() == 0 {
+		if res, moves, err = applyRenames(cl, s, set, opts); err != nil || cl.dryRun() || set.size() == 0 {
 			return err
 		}
 		if sec := set["secret"]; len(sec) > 0 {

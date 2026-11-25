@@ -593,7 +593,7 @@ func pkgUpgradeSecurity(c *cobra.Command, noSudo *bool) *cobra.Command {
 
 // pkgSecRefresh is whether this run refreshes the package index first: a
 // dry run changes nothing on the server, so it lists from the index as it is.
-func pkgSecRefresh(cl *call, refresh bool) bool { return refresh && !cl.flags.dryRun }
+func pkgSecRefresh(cl *call, refresh bool) bool { return refresh && !cl.dryRun() }
 
 // pkgSecurity lists the pending security updates (pkg security), or with
 // apply installs them (pkg upgrade --security), which then audits and
@@ -611,10 +611,10 @@ func pkgSecurity(cl *call, ctx context.Context, target string, apply, refresh, k
 	if apply {
 		id, display = "pkg.upgrade", "pkg upgrade --security"
 	}
-	change := apply && !cl.flags.dryRun
+	change := apply && !cl.dryRun()
 	// an essential package may go only with --allow-dangerous, asked before
 	// anything runs (the script stops on the server when it would happen)
-	guardEssential := !cl.flags.allowDangerous || (change && !cl.dangerOK("the security updates may remove a package the server needs", targetsWhy(st, hosts)))
+	guardEssential := !cl.allowDangerous() || (change && !cl.dangerOK("the security updates may remove a package the server needs", targetsWhy(st, hosts)))
 	script := pkgSecScript(change, pkgSecRefresh(cl, refresh), guardEssential)
 	if apply || refresh {
 		// protected servers need --yes (a new package index is a change too); a dry run records the stop as would_be_blocked
@@ -680,7 +680,7 @@ func pkgSecurity(cl *call, ctx context.Context, target string, apply, refresh, k
 			cl.out.Skip(out.Skipped{Name: r.Host, Kind: "host", Reason: "no package manager komando knows (apt, dnf, yum, zypper, apk, pacman)"})
 			continue
 		}
-		if apply && cl.flags.dryRun && r.Error == nil && !cl.flags.allowDangerous {
+		if apply && cl.dryRun() && r.Error == nil && !cl.allowDangerous() {
 			for _, p := range r.WouldRemove {
 				if essentialPkg(p) {
 					cl.out.WouldBlock(approvalErr(cl, "POLICY_BLOCKED",
@@ -706,7 +706,7 @@ func pkgSecurity(cl *call, ctx context.Context, target string, apply, refresh, k
 		return out.Errf(out.ExitNotFound, "SECURITY_UNSUPPORTED", "komando knows apt, dnf, yum, zypper, apk and pacman; see what the server has with `komando facts TARGET`",
 			"no package manager komando knows on %s", rows[0].Host)
 	}
-	if !change && !cl.flags.dryRun {
+	if !change && !cl.dryRun() {
 		audit(cl, st, id, hostNames(hosts), display, len(fails) == 0, nil)
 	}
 	return finishFleet(cl, id, data, runSummary{fleetSummary: data.Summary}, worst, fails)

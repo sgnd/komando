@@ -100,7 +100,7 @@ fingerprint of the key type the server offers (key_type in the answer).`,
 					return err
 				}
 			}
-			if reset && !cl.flags.dryRun && (cl.isAgent() || !cl.interactive()) {
+			if reset && !cl.dryRun() && (cl.isAgent() || !cl.interactive()) {
 				if err := pinsNeedAPerson(cl, st, hosts); err != nil {
 					return err // before anything is fetched, as the dry run says
 				}
@@ -124,7 +124,7 @@ func replacePin(cl *call, names, prot []string, what string) error {
 			"report it to the user: once they have checked the new key another way, they run `komando host trust "+strings.Join(names, ",")+" --reset` in their own terminal",
 			"%s: only a person at a terminal replaces a pinned host key (a changed key may be an attack)", what).NoFlag())
 	}
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		return nil
 	}
 	cl.askedAbout = names

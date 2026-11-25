@@ -392,7 +392,7 @@ func runPkg(cl *call, ctx context.Context, action, target string, pkgs []string,
 			return pkgChangeResult(cl, action, pkgs, rr)
 		},
 		text: pkgChangeText}
-	if action == "upgrade" && cl.flags.dryRun {
+	if action == "upgrade" && cl.dryRun() {
 		// a dry run asks the package manager what it would upgrade
 		spec.preview = "ACTION=simulate PKGS=" + q + "; " + pkgShell
 		spec.parse = func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return pkgSimulateResult(rr) }

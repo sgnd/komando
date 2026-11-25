@@ -281,7 +281,7 @@ are not changed.`
 				return err
 			}
 			res := map[string]any{"from": from, "to": to, "ref": "secret:" + to, "replaced": replaced}
-			if cl.flags.dryRun {
+			if cl.dryRun() {
 				res[map[bool]string{true: "would_move", false: "would_copy"}[move]] = true
 				if move {
 					res["would_update"] = orEmpty(secretUsers(st, from))
@@ -553,7 +553,7 @@ unlock it, and an AI agent or a script cannot answer that.`,
 					return err
 				}
 			}
-			if cl.flags.dryRun {
+			if cl.dryRun() {
 				tool, err := vault.KeychainTool()
 				res := map[string]any{"dry_run": true, "would": map[bool]string{false: "move the vault key into the keychain", true: "move the vault key back into store.key"}[off]}
 				if err != nil {
@@ -608,7 +608,7 @@ func secretInUse(name string, users []string) error {
 // secretSetAction says what secret set did, or would do under --dry-run,
 // for the text headline ("stored db-pass", "would replace db-pass").
 func secretSetAction(cl *call, replaced bool) string {
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		return map[bool]string{false: "would_store", true: "would_replace"}[replaced]
 	}
 	return map[bool]string{false: "stored", true: "replaced"}[replaced]
@@ -619,7 +619,7 @@ func secretSetAction(cl *call, replaced bool) string {
 func secretCopyText(cl *call, move bool, res map[string]any) out.Texter {
 	return textFn(func() string {
 		verb := map[bool]string{true: "renamed", false: "copied"}[move]
-		if cl.flags.dryRun {
+		if cl.dryRun() {
 			verb = map[bool]string{true: "would rename", false: "would copy"}[move]
 		}
 		s := fmt.Sprintf("%s secret %v to %v", verb, res["from"], res["to"])
@@ -627,11 +627,11 @@ func secretCopyText(cl *call, move bool, res map[string]any) out.Texter {
 			s += " (its old value replaced)"
 		}
 		users, _ := res["updated"].([]string)
-		if cl.flags.dryRun {
+		if cl.dryRun() {
 			users, _ = res["would_update"].([]string)
 		}
 		if len(users) > 0 {
-			s += "\n  " + map[bool]string{true: "would point at ", false: "now points at "}[cl.flags.dryRun] + res["ref"].(string) + ": " + strings.Join(users, ", ")
+			s += "\n  " + map[bool]string{true: "would point at ", false: "now points at "}[cl.dryRun()] + res["ref"].(string) + ": " + strings.Join(users, ", ")
 		}
 		return s + "\n"
 	})

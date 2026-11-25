@@ -223,7 +223,7 @@ func runLogs(cl *call, ctx context.Context, name, target string, lo *logOpts, su
 		return err
 	}
 	if lo.follow {
-		if !cl.flags.dryRun {
+		if !cl.dryRun() {
 			if err := lo.followCheck(cl, ctx, target, sudo); err != nil {
 				return err
 			}

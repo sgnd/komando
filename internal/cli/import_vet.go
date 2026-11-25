@@ -141,10 +141,10 @@ func proxyCommandSkip(cl *call, cmd string) string {
 	if cmd == "" {
 		return ""
 	}
-	if hits := policy.Check(cmd, nil); len(hits) > 0 && !cl.flags.allowDangerous {
+	if hits := policy.Check(cmd, nil); len(hits) > 0 && !cl.allowDangerous() {
 		return "its proxy command matches destructive rules (" + hits[0].Reason + "): import it again with --allow-dangerous once the user confirms it is intended"
 	}
-	if cl.isAgent() && !cl.flags.yes {
+	if cl.isAgent() && !cl.yes() {
 		return "its proxy command runs on this computer, so an AI agent needs the user's yes: import it again with --yes after the user confirms"
 	}
 	return ""

@@ -211,7 +211,7 @@ ever signs.`,
 				rows = append(rows, r)
 			}
 			res := map[string]any{"items": rows, "revoked": len(revoke)}
-			if cl.flags.dryRun {
+			if cl.dryRun() {
 				res["action"] = "would_add"
 				cl.out.Print("host.ca.add", res, nil)
 				return nil
@@ -290,7 +290,7 @@ func hostCARmCmd() *cobra.Command {
 				return out.Errf(out.ExitNotFound, "CA_NOT_FOUND", "see the CAs with `komando host ca list`", "no server CA named %q", args[0])
 			}
 			res := map[string]any{"name": found.Name, "action": "would_remove"}
-			if !cl.flags.dryRun {
+			if !cl.dryRun() {
 				if err := sshx.RemoveHostCA(cmd.Context(), found.Name); err != nil {
 					return err
 				}
@@ -323,7 +323,7 @@ is trusted, and it cannot be pinned or added as a CA.`,
 				return out.Errf(out.ExitUsage, "KEY_INVALID", "give a public key file (.pub)", "%s is not a public key: %v", keyFile, err)
 			}
 			res := map[string]any{"fingerprint": ssh.FingerprintSHA256(k), "action": "would_revoke"}
-			if !cl.flags.dryRun {
+			if !cl.dryRun() {
 				if err := sshx.RevokeHostKeys([]ssh.PublicKey{k}); err != nil {
 					return err
 				}

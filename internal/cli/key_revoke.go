@@ -86,9 +86,9 @@ yourself out. --dry-run counts the lines it would remove.`,
 			if user != "" && !inventory.NameRe.MatchString(user) {
 				return out.Usage("%q cannot be a user name: use letters, digits and . _ -", user)
 			}
-			script := revokeScript(user, blob, cl.flags.dryRun)
+			script := revokeScript(user, blob, cl.dryRun())
 			if allUsers {
-				script = revokeAllScript(blob, cl.flags.dryRun)
+				script = revokeAllScript(blob, cl.dryRun())
 			}
 			res := fanout(cl, cmd.Context(), st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
 				r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: script, Sudo: user != "" || allUsers, Timeout: 30 * time.Second, MaxOutput: 64 << 10})
@@ -108,7 +108,7 @@ yourself out. --dry-run counts the lines it would remove.`,
 				return n, nil
 			})
 			data, worst := revokeResults(cl, label, res)
-			if !cl.flags.dryRun {
+			if !cl.dryRun() {
 				audit(cl, st, "key.revoke", hostNames(hosts), "", data.Summary.Failed == 0, map[string]any{"key": label, "user": user, "all_users": allUsers})
 			}
 			return finish(cl, "key.revoke", data, data.Summary, worst, soleError(res))
@@ -193,7 +193,7 @@ func revokeResults(cl *call, label string, res []outcome) (revokeData, int) {
 			data.Summary.FailedHosts = append(data.Summary.FailedHosts, o.Host.Name)
 		} else {
 			field := "removed"
-			if cl.flags.dryRun {
+			if cl.dryRun() {
 				field = "would_remove"
 			}
 			r["ok"], r[field] = true, o.Value

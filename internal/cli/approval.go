@@ -54,19 +54,19 @@ func (cl *call) wroteBefore() bool { return store.Commits() != cl.commits }
 // something through, so an agent's window appears only when it matters.
 // why, when given, says what the stop is about (the matched rule, the
 // targets); the window shows it on its own line.
-func (cl *call) yesOK(why ...string) bool { return cl.flags.yes && cl.personAllows("--yes", why...) }
+func (cl *call) yesOK(why ...string) bool { return cl.yes() && cl.personAllows("--yes", why...) }
 func (cl *call) dangerOK(why ...string) bool {
-	return cl.flags.allowDangerous && cl.personAllows("--allow-dangerous", why...)
+	return cl.allowDangerous() && cl.personAllows("--allow-dangerous", why...)
 }
 
 // dangerAndYesOK is dangerOK for a destructive change on protected
 // targets: one window names both flags and both reasons, so the --yes
 // check that follows is answered by it.
 func (cl *call) dangerAndYesOK(prot string, why ...string) bool {
-	if !cl.flags.allowDangerous {
+	if !cl.allowDangerous() {
 		return false
 	}
-	if prot == "" || !cl.flags.yes {
+	if prot == "" || !cl.yes() {
 		return cl.personAllows("--allow-dangerous", why...)
 	}
 	return cl.personAllowsFlags([]string{"--allow-dangerous", "--yes"}, "", append([]string{prot}, why...)...)
@@ -75,7 +75,7 @@ func (cl *call) dangerAndYesOK(prot string, why ...string) bool {
 // revealOK never counts under --dry-run: a preview still prints what it
 // reads, and a dry run never asks the person, so it stays masked.
 func (cl *call) revealOK() bool {
-	return cl.flags.reveal && !cl.flags.dryRun && cl.personAllows("--reveal")
+	return cl.reveal() && !cl.dryRun() && cl.personAllows("--reveal")
 }
 
 // approvalMaxLen is the longest command line the window shows. A longer one
@@ -107,7 +107,7 @@ func (cl *call) personAllowsFor(flag, what string, why ...string) bool {
 // window opened for --reveal does not answer a later --yes check, nor the
 // other way round.
 func (cl *call) personAllowsFlags(flags []string, what string, why ...string) bool {
-	if !cl.caller().IsAgent() || cl.flags.dryRun {
+	if !cl.caller().IsAgent() || cl.dryRun() {
 		return true
 	}
 	sess := cl.sess
@@ -349,7 +349,7 @@ func hiddenArgs(args []string) string {
 // says the real run would stop here. A preview of a change on a protected
 // server is exactly when people need one.
 func (cl *call) policyStop(e *out.Error) error {
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		stdApprovalHint(cl, e)
 		cl.out.WouldBlock(e)
 		return nil

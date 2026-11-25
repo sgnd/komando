@@ -76,7 +76,7 @@ func TestHostKeyPinNeedsItsCall(t *testing.T) {
 			case <-stop:
 				return
 			default:
-				setGate(b, !b.flags.dryRun, gateDryRun)
+				setGate(b, !b.dryRun(), gateDryRun)
 				b.personalCmd = !b.personalCmd
 			}
 		}

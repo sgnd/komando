@@ -58,7 +58,7 @@ noticed. At the terminal, paste or type the value after the prompt appears.`,
 			}
 			v, err := secretInput(cmd, args[0], "Paste or type the value for "+args[0]+", then press Enter (it stays hidden): ")
 			var oe *out.Error
-			if err != nil && cl.flags.dryRun && errors.As(err, &oe) && oe.Code == "NEEDS_PERSON" {
+			if err != nil && cl.dryRun() && errors.As(err, &oe) && oe.Code == "NEEDS_PERSON" {
 				// a dry run is never blocked: it says whether NAME would be
 				// replaced, and that the real run needs the user
 				err = cl.policyStop(oe)
@@ -93,7 +93,7 @@ noticed. At the terminal, paste or type the value after the prompt appears.`,
 			if w := valueWarning(args[0], v); w != "" {
 				res["warning"] = w
 			}
-			if cl.flags.dryRun {
+			if cl.dryRun() {
 				res["would_set"] = true
 				cl.out.Print("secret.set", textAs{res, textFn(func() string { return changeText(cl.out, res) })}, nil)
 				return nil
@@ -150,7 +150,7 @@ login; 'komando secret check NAME' lets a person compare it.`,
 				return err
 			}
 			via := ""
-			if cl.flags.reveal {
+			if cl.reveal() {
 				// agents never see passwords (secret_reveal.go); a person at a terminal can
 				// still pipe the value, e.g. into pbcopy, and the Mac app asks in
 				// komando's window
@@ -284,7 +284,7 @@ func secretRmCmd() *cobra.Command {
 			if err := guardLocalDelete(cl, dedupe(args), "secrets", "deletes the saved "+nouns(len(dedupe(args)), "secret")+" "+term.JoinAnd(dedupe(args))+" for good"); err != nil {
 				return err
 			}
-			if cl.flags.dryRun {
+			if cl.dryRun() {
 				cl.out.Print("secret.rm", textAs{map[string]any{"would_remove": args}, textFn(func() string {
 					return "would remove " + nouns(len(args), "secret") + " " + term.JoinAnd(args) + " for good\n"
 				})}, nil)

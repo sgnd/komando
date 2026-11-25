@@ -399,7 +399,7 @@ func checkStoreWritable(cmd *cobra.Command) error {
 	cl := callOf(cmd)
 	name := commandName(cmd)
 	top, _, _ := strings.Cut(name, ".")
-	if cl.flags.dryRun || backgroundCmd(cmd) || name == "komando" || localReads[name] || localReads[top] || leavesHomeNow(cmd) || top == "help" || top == "completion" || name == "secret.passphrase" { // it opens the store with the passphrase a person types
+	if cl.dryRun() || backgroundCmd(cmd) || name == "komando" || localReads[name] || localReads[top] || leavesHomeNow(cmd) || top == "help" || top == "completion" || name == "secret.passphrase" { // it opens the store with the passphrase a person types
 		return nil
 	}
 	err := store.CheckWritable()
@@ -431,9 +431,9 @@ func leavesHomeNow(cmd *cobra.Command) bool { return leavesHome[commandName(cmd)
 // (secret_reveal.go): an agent is never asked and always sees [hidden]. A
 // dry run never approves --reveal.
 func startMask(cl *call, cmd *cobra.Command) {
-	cl.out.Mask = cl.isAgent() && (revealNever[commandName(cmd)] || cl.flags.dryRun || !cl.revealOK())
+	cl.out.Mask = cl.isAgent() && (revealNever[commandName(cmd)] || cl.dryRun() || !cl.revealOK())
 	startPersonal(cmd)
-	if cl.out.Mask && cl.flags.dryRun && cl.flags.reveal {
+	if cl.out.Mask && cl.dryRun() && cl.reveal() {
 		cl.out.WouldBlock(out.Errf(out.ExitPolicy, "REVEAL_NEEDS_PERSON", "values stay [hidden] in a dry run; run it without --dry-run to ask the user in a window on their screen",
 			"--reveal needs the user's yes"))
 	}
@@ -441,7 +441,7 @@ func startMask(cl *call, cmd *cobra.Command) {
 
 func startChecks(cmd *cobra.Command) error {
 	cl := callOf(cmd)
-	if cmd.Name() != "serve" && !leavesHomeNow(cmd) && !cl.flags.dryRun {
+	if cmd.Name() != "serve" && !leavesHomeNow(cmd) && !cl.dryRun() {
 		netx.ReapIdle() // close VPN sessions nobody used for vpn_idle
 	}
 	if err := checkHostKeyFlag(cl); err != nil {
@@ -490,8 +490,8 @@ func newRoot(cl *call) *cobra.Command {
 			cl.out.Format = f
 			cl.out.Pretty = cl.flags.pretty
 			cl.out.Version = version.Version
-			cl.out.DryRun = cl.flags.dryRun
-			cl.oldCopy.Store(cl.flags.dryRun) // a dry run may look at an old copy: it changes nothing
+			cl.out.DryRun = cl.dryRun()
+			cl.oldCopy.Store(cl.dryRun()) // a dry run may look at an old copy: it changes nothing
 			cl.out.Start = time.Now()
 			vault.Passphrase() // take KOMANDO_VAULT_PASS out of the environment children inherit
 			if leavesHomeNow(cmd) {
