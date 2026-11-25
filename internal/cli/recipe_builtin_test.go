@@ -508,4 +508,27 @@ func TestSnippetTierStops(t *testing.T) {
 			}
 		})
 	}
+	// --dry-run reports the person stop as would_be_blocked, as every
+	// policy stop does (policyStop), and writes no blocked audit record
+	t.Run("agent=true/t-person dev --dry-run", func(t *testing.T) {
+		setCallerEnv(t, "CLAUDECODE", "1")
+		withSnippets(t, list...)
+		rs := startReplayServerWith(t, nil, replayStep{stdout: string(in)})
+		d, e := snippetData(t, "t-person", "dev", "--dry-run")
+		rs.mu.Lock()
+		ran := len(rs.execs)
+		rs.mu.Unlock()
+		if e != nil || ran != 0 {
+			t.Fatalf("want a preview and no exec, got %v and %d execs", e, ran)
+		}
+		var data struct {
+			WouldBeBlocked *out.Error `json:"would_be_blocked"`
+		}
+		if err := json.Unmarshal(d, &data); err != nil || data.WouldBeBlocked == nil || data.WouldBeBlocked.Code != "NEEDS_PERSON" {
+			t.Fatalf("want data.would_be_blocked NEEDS_PERSON, got %s", d)
+		}
+		if strings.Contains(auditText(t), "NEEDS_PERSON") {
+			t.Fatal("a dry run wrote a blocked audit record")
+		}
+	})
 }

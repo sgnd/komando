@@ -512,8 +512,8 @@ func snippetTierStop(cl *call, st *store.State, b snippet.Builtin) error {
 	why := "snippet " + b.Name + " cannot be undone"
 	switch {
 	case b.Tier >= capability.Person && !cl.interactive():
-		return out.Errf(out.ExitPolicy, "NEEDS_PERSON", "a person runs `komando recipe run "+b.Name+" TARGET` in their own terminal",
-			"snippet %s runs only for a person at a terminal", b.Name)
+		return cl.policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON", "a person runs `komando recipe run "+b.Name+" TARGET` in their own terminal",
+			"snippet %s runs only for a person at a terminal", b.Name))
 	case b.Tier == capability.Safety:
 		return guardSafety(cl, "snippet "+b.Name)
 	case b.Tier >= capability.Dangerous: // dangerous, and person at a terminal: --allow-dangerous or the typed question
