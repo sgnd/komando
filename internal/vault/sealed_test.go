@@ -117,13 +117,14 @@ func TestSealedVaultParallel(t *testing.T) {
 // server change keeps both.
 func TestSealedVaultBesideInventory(t *testing.T) {
 	sealedVault(t)
-	if err := store.Update(store.Save(), func(s *store.State) error {
-		s.Hosts["web"] = &store.Host{Name: "web", PasswordRef: "secret:db"}
-		return nil
-	}); err != nil {
+	if err := Set(store.Save(), "db", "pw"); err != nil {
 		t.Fatal(err)
 	}
-	if err := Set(store.Save(), "db", "pw"); err != nil {
+	// a server names a credential that exists (format 3)
+	if err := store.Update(store.Save(), func(s *store.State) error {
+		s.Hosts["web"] = &store.Host{Name: "web", PasswordRef: "credential:db"}
+		return nil
+	}); err != nil {
 		t.Fatal(err)
 	}
 	st, err := store.Load()
