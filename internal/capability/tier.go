@@ -153,7 +153,6 @@ var tierRows = concat2(
 		{Today: true, Key: Key{Type: "vpn", Verb: "edit"}, Tier: Safety, When: Cond{Flags: []string{"mfa"}, Value: "false"}, What: "turns --mfa off (komando may then connect it without a person)"},
 		{Today: true, Key: top("update"), Tier: Safety, Dynamic: "it installs an older version"},
 		{Today: true, Key: Key{Type: "host", Area: "tunnel", Verb: "start"}, Tier: Safety, Dynamic: "it listens on an open address"},
-		{Key: Key{Type: "cluster", Area: "tunnel", Verb: "start"}, Tier: Safety, Dynamic: "it listens on an open address"},
 		{Today: true, Key: own("config", "vault", "keychain"), Tier: Safety, Dynamic: "it turns the keychain off"},
 		{Key: Key{Type: "host", Provider: "ssh", Verb: "add"}, Tier: Safety, When: Cond{Flags: []string{"proxy-command"}}, Dynamic: "an AI agent runs it (the proxy command runs on this computer)"},
 		{Key: Key{Type: "host", Provider: "ssh", Verb: "edit"}, Tier: Safety, When: Cond{Flags: []string{"proxy-command"}}, Dynamic: "an AI agent runs it (the proxy command runs on this computer)"},

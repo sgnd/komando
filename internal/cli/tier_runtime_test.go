@@ -201,8 +201,6 @@ var tierUnreached = map[string]string{
 	"floor | tunnel.stop":                                    "no stop for an agent: change on an unprotected target",
 	"floor | cluster.add":                                    "a Kubernetes conn comes only from import kubeconfig; a swarm is no conn kind",
 	"floor | queue.purge":                                    "today's queue purge is v2.7's message delete --all: its run is that row",
-	// the table names a stop the handler has no code for (sent to the coordinator)
-	"cluster tunnel start dynamic safety | cluster.forward": "cluster forward always listens on 127.0.0.1 (cluster_exec.go): no open address to stop",
 }
 
 // tierDisagree are the runs whose stop is not the one the tier names, with
