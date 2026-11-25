@@ -311,6 +311,40 @@ func TestSSHStop(t *testing.T) {
 	}
 }
 
+// TestRulePower pins the power rules by ID: today's reboot command is
+// carried by them after the cut (capability.Replacements).
+func TestRulePower(t *testing.T) {
+	for _, c := range []struct{ cmd, rule string }{
+		{"reboot", "power"},
+		{"sudo shutdown -r now", "power"},
+		{"/sbin/poweroff", "power"},
+		{"systemctl reboot", "power-systemctl"},
+		{"sudo systemctl poweroff", "power-systemctl"},
+	} {
+		if !hasRule(Check(c.cmd, nil), c.rule) {
+			t.Errorf("%q: %s expected", c.cmd, c.rule)
+		}
+	}
+	for _, c := range []string{"grep -r reboot /var/log", "systemctl status reboot.target"} {
+		if hasRule(Check(c, nil), "power") || hasRule(Check(c, nil), "power-systemctl") {
+			t.Errorf("%q: no power rule expected", c)
+		}
+	}
+}
+
+// TestRuleUserdel pins the userdel rule by ID: today's user rm is carried
+// by it after the cut (capability.Replacements).
+func TestRuleUserdel(t *testing.T) {
+	for _, c := range []string{"userdel bob", "sudo userdel -r bob", "deluser --remove-home bob"} {
+		if !hasRule(Check(c, nil), "userdel") {
+			t.Errorf("%q: userdel expected", c)
+		}
+	}
+	if hasRule(Check("useradd bob", nil), "userdel") {
+		t.Error(`"useradd bob": userdel not expected`)
+	}
+}
+
 // A custom rule's id comes from its pattern, so removing another rule
 // does not give it a new one.
 func TestCustomIDIsStable(t *testing.T) {

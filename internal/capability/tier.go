@@ -56,6 +56,55 @@ func Rows(k Key) []TierRow {
 // TierRows returns every row. The slice is a copy.
 func TierRows() []TierRow { return slices.Clone(tierRows) }
 
+// readVerbs only look: their floor is read. Every other verb, and a word
+// outside the closed vocabulary, changes something: its floor is change.
+// backup and export write data out of komando, so they are not here: each
+// such leaf has its own row (TestDataOutHasARow). The floors match today's
+// command kinds (internal/cli kinds.go) for every command a leaf carries;
+// TestLeafFloorNotWeaker there checks it.
+var readVerbs = []string{"list", "show", "info", "read", "check", "test", "status", "get",
+	"version", "schema", "doctor"}
+
+// Floor is the tier a leaf has with no row: read for a verb that only
+// looks, else change.
+func Floor(k Key) Tier {
+	if slices.Contains(readVerbs, k.Verb) {
+		return Read
+	}
+	return Change
+}
+
+// Base is the tier a leaf has when no condition of a row is met: the
+// highest row with no condition that reaches it, else its floor. Only such
+// a row can put a leaf below its floor (a backup that only reads).
+func Base(k Key) Tier {
+	base, found := Read, false
+	for _, r := range Rows(k) {
+		if r.When.zero() && r.Dynamic == "" {
+			base, found = max(base, r.Tier), true
+		}
+	}
+	if !found {
+		return Floor(k)
+	}
+	return base
+}
+
+// zero reports whether c names no condition: the row always applies.
+func (c Cond) zero() bool {
+	return len(c.Flags) == 0 && c.Value == "" && !c.Not && len(c.Words) == 0
+}
+
+// Highest is the highest tier k can have: its base, or the highest row
+// that reaches it, whatever the row's condition.
+func Highest(k Key) Tier {
+	best := Base(k)
+	for _, r := range Rows(k) {
+		best = max(best, r.Tier)
+	}
+	return best
+}
+
 // typesWithEdit are the types whose entries a person can protect.
 var typesWithEdit = []string{"host", "database", "cache", "queue", "storage", "cluster", "registry", "vpn", "cloud"}
 
@@ -111,6 +160,7 @@ var tierRows = concat2(
 		{Key: own("agent", "skill", "uninstall"), Tier: Safety, Dynamic: "it removes komando's guard from an AI agent's settings"},
 
 		{Key: own("config", "", "approval-code"), Tier: Person},
+		{Key: top("ssh-gate"), Tier: Person}, // kept until the phone engine (C369)
 		{Key: own("config", "vault", "passphrase"), Tier: Person},
 		{Key: own("config", "vault", "keychain"), Tier: Person, When: Cond{Flags: []string{"off"}, Not: true}, What: "moves the key into the keychain"},
 		{Key: Key{Type: "host", Verb: "shell"}, Tier: Person},
@@ -118,6 +168,11 @@ var tierRows = concat2(
 		{Key: Key{Type: "cluster", Verb: "shell"}, Tier: Person},
 		{Key: own("credential", "certificate", "add"), Tier: Person, What: "trusts every server the CA signs"},
 		{Key: Key{Type: "host", Provider: "ssh", Verb: "trust"}, Tier: Person, When: Cond{Flags: []string{"reset"}}, What: "replaces a pinned host key"},
+		// data out (backup, export): each leaf has a row with no condition
+		{Key: top("export"), Tier: Read, What: "writes komando's list to a file, secrets left out"},
+		{Key: Key{Type: "database", Verb: "backup"}, Tier: Read, What: "writes the database to a file on this computer"},
+		{Key: own("audit", "", "export"), Tier: Person, What: "writes the audit log, which can hold SQL text, to a file"},
+		{Key: own("audit", "recording", "export"), Tier: Person, What: "writes a recording, with everything that was typed, to a file"},
 		{Key: top("export"), Tier: Person, When: Cond{Flags: []string{"sealed"}}},
 		{Key: top("export"), Tier: Person, When: Cond{Flags: []string{"for-phone"}}},
 		{Key: top("import"), Tier: Person, Dynamic: "the file is sealed: a person types its passphrase"},

@@ -189,3 +189,70 @@ func TestStopCommandSudo(t *testing.T) {
 		t.Errorf("root run names a user: %q", got)
 	}
 }
+
+// The hint of a stop from another computer names the stop to run there.
+func TestForStopHintNamesTheStop(t *testing.T) {
+	_, err := ForStop(runtimeWith(), "web", testID)
+	var oe *out.Error
+	if !errors.As(err, &oe) || !strings.Contains(oe.Hint, "`komando exec TARGET --attach ID --stop` there") {
+		t.Fatalf("%v", err)
+	}
+}
+
+func TestStopExit(t *testing.T) {
+	if err := StopExit("web", testID, 0, ""); err != nil {
+		t.Fatal(err)
+	}
+	for _, tt := range []struct {
+		exit      int
+		code      string
+		outExit   int
+		inMessage string
+	}{
+		{ExitNotRunning, "SESSION_PROCESS_MISSING", out.ExitNotFound, "is not running"},
+		{1, "SESSION_STOP_FAILED", out.ExitRemote, "sudo: a password is required"},
+	} {
+		err := StopExit("web", testID, tt.exit, "sudo: a password is required\n")
+		var oe *out.Error
+		if !errors.As(err, &oe) || oe.Code != tt.code || oe.Exit != tt.outExit || !strings.Contains(oe.Message, tt.inMessage) {
+			t.Errorf("exit %d: %v", tt.exit, err)
+		}
+	}
+}
+
+func TestSignalled(t *testing.T) {
+	for in, want := range map[string]string{
+		"signalled group\n":             "group",
+		"banner\nsignalled pid\n":       "pid",
+		"":                              "",
+		"signalled groups\nsignalled\n": "",
+	} {
+		if got := Signalled(in); got != want {
+			t.Errorf("%q: %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestRemoveExit(t *testing.T) {
+	if err := RemoveExit("web", testID, 0); err != nil {
+		t.Fatal(err)
+	}
+	for _, tt := range []struct {
+		exit    int
+		code    string
+		outExit int
+	}{
+		{ExitNotRunning, "SESSION_BUSY", out.ExitConflict},
+		{ExitGone, "SESSION_FOLDER_MISSING", out.ExitNotFound},
+		{ExitUnsafe, "SESSION_FOLDER_DENIED", out.ExitRemote},
+	} {
+		err := RemoveExit("web", testID, tt.exit)
+		var oe *out.Error
+		if !errors.As(err, &oe) || oe.Code != tt.code || oe.Exit != tt.outExit {
+			t.Errorf("exit %d: %v", tt.exit, err)
+		}
+	}
+	if err := RemoveExit("web", testID, 1); err == nil || !strings.Contains(err.Error(), "remove failed (exit 1)") {
+		t.Errorf("exit 1: %v", err)
+	}
+}

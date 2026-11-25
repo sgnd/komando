@@ -105,6 +105,3 @@ func swapExe(tmp, exe string) error {
 // noCoreDumps: Windows writes no core file of its own (a crash dump needs
 // Windows Error Reporting set up for it).
 func noCoreDumps() {}
-
-// raise: Windows has no signal to end a process with; the caller exits.
-func raise(os.Signal) {}

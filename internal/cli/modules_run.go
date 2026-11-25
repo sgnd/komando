@@ -136,16 +136,28 @@ func indentLines(s, prefix string) string {
 // runOps runs spec on every server of its target, honouring policy,
 // protected servers and --dry-run like `exec` does.
 func runOps(cl *call, ctx context.Context, spec opsSpec) error {
+	data, worst, fails, err := collectOps(cl, ctx, spec)
+	if err != nil || data == nil {
+		return err
+	}
+	// the same closing as exec: each failed server with its own error and hint
+	return finishFleet(cl, spec.name, *data, runSummary{fleetSummary: data.Summary}, worst, fails)
+}
+
+// collectOps is runOps without the printing: the rows, the worst exit
+// code and the failed servers. A nil data with no error means it printed
+// the --dry-run plan itself.
+func collectOps(cl *call, ctx context.Context, spec opsSpec) (*opsData, int, []hostFail, error) {
 	st, err := loadState()
 	if err != nil {
-		return err
+		return nil, 0, nil, err
 	}
 	hosts, err := resolveTargets(cl, st, spec.target)
 	if err != nil {
-		return err
+		return nil, 0, nil, err
 	}
 	if ctx, err = windowsGate(ctx, spec.name, hosts, spec.win != ""); err != nil {
-		return err
+		return nil, 0, nil, err
 	}
 	shown := spec.command
 	if spec.display != "" {
@@ -154,13 +166,13 @@ func runOps(cl *call, ctx context.Context, spec opsSpec) error {
 	guardErr := Guard(cl, st, hosts, strings.TrimSpace(spec.command+"\n"+spec.win), spec.mutating)
 	if guardErr != nil && !cl.flags.dryRun {
 		audit(cl, st, spec.name, hostNames(hosts), shown, false, map[string]any{"blocked": toErr(guardErr).Code})
-		return guardErr
+		return nil, 0, nil, guardErr
 	}
 	command := spec.command
 	if cl.flags.dryRun {
 		if spec.preview == "" {
 			opsDryRun(cl, spec, hosts, shown, guardErr)
-			return nil
+			return nil, 0, nil, nil
 		}
 		command = spec.preview // read-only: shows what would change
 	}
@@ -240,8 +252,7 @@ func runOps(cl *call, ctx context.Context, spec opsSpec) error {
 	if !cl.flags.dryRun {
 		audit(cl, st, spec.name, hostNames(hosts), shown, data.Summary.Failed == 0, nil)
 	}
-	// the same closing as exec: each failed server with its own error and hint
-	return finishFleet(cl, spec.name, data, runSummary{fleetSummary: data.Summary}, worst, fails)
+	return &data, worst, fails, nil
 }
 
 // opsDryRun is runOps' --dry-run without a preview: what would run where.

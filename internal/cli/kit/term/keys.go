@@ -246,9 +246,6 @@ func (d *decoder) csi(params string, final byte) Key {
 	return Key{} // unknown: dropped whole
 }
 
-// pasteEnd is the mark a terminal sends after a paste.
-const pasteEnd = "\x1b[201~"
-
 // nextPaste reads the paste up to its end mark. Escape sequences inside
 // it go whole; control bytes go; CR and CRLF become \n. Past FieldMax the
 // rest is dropped and the paste comes back TooLong.
