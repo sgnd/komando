@@ -454,7 +454,7 @@ func (lk *loginKeys) noAuth(st *store.State, h *store.Host) *out.Error {
 		why, hint = "the ssh-agent at SSH_AUTH_SOCK does not answer", loginWay(st, h)
 	}
 	if lk.skipped == "" && ask() == nil && !adhoc(st, h) {
-		hint += "; if only a person knows the password or code, ask the user to run `komando login " + h.Name + "` once, and later commands use that login"
+		hint += "; if only a person knows the password or code, " + PersonStep(h.Name)
 	}
 	return out.Errf(out.ExitConnect, "NO_AUTH", hint, "no authentication method available for %s: it has no key or password, and %s", h.Name, why)
 }
@@ -484,7 +484,7 @@ func authFailedHint(st *store.State, h *store.Host) string {
 	hint := authFailedCheck(st, h)
 	if ask() == nil && !adhoc(st, h) {
 		// no person here (an AI agent, a script): one can log in once for it
-		hint += "; if only a person knows the password or code, ask the user to run `komando login " + h.Name + "` once, and later commands use that login"
+		hint += "; if only a person knows the password or code, " + PersonStep(h.Name)
 	}
 	return hint
 }

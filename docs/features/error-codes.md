@@ -12,7 +12,7 @@ This page is made from the code (`komando schema` lists the same under
 | `APPROVAL_WINDOW_FAILED` | 1 |  | read the message; `komando doctor` checks this computer's setup |
 | `AUDIT_TAMPERED` | 1 | the audit log chain is broken at line … | keep a copy of the file and find out who changed it; komando keeps adding records after it |
 | `AUDIT_UNAVAILABLE` | 1 | the audit log cannot be written (…), so the key's command does not run | fix the file or folder permissions on the komando computer (`komando doctor` checks them) |
-| `AUTH_FAILED` | 4 | … asks … (two-factor login); only a person can answer it, and none is at a terminal here | run `komando login SERVER` in a terminal: komando asks you for the code once and keeps the login, so later commands (an AI agent's too) need no code; an AI agent asks the user to run it |
+| `AUTH_FAILED` | 4 | … has no user or password for WinRM | WinRM logs in with a user and a password: `komando host edit … --ask-password` (and the user in the address, for example winrm://Administrator@HOST) |
 | `AWS_FAILED` | 4 | AWS profile …: … | check the profile in ~/.aws/config |
 | `AWS_LOGIN_REQUIRED` | 4 | AWS profile …: … | a person runs `komando login aws --profile …` once, then run it again |
 | `AWS_PROFILE_NOT_FOUND` | 3 | there is no AWS profile … | add the profile to ~/.aws/config (or fix --option aws_profile) |
@@ -86,6 +86,7 @@ This page is made from the code (`komando schema` lists the same under
 | `GCP_LOGIN_REQUIRED` | 4 | …: … | a person runs `gcloud auth application-default login` again, or set GOOGLE_APPLICATION_CREDENTIALS to a service account key file; on Google Cloud the machine's service account is used |
 | `GROUP_EXISTS` | 8 | group … exists | pick another name; to merge them, run `komando group add … @…` and then `komando group rm …` |
 | `GROUP_NOT_FOUND` | 3 | no group named … | run `komando group list` to see groups |
+| `GUARD_PATH_MISSING` | 3 | komando cannot tell where its own program is, so it writes no guard hook | run komando by its full path, such as `/usr/local/bin/komando guide install`; without a guard: `komando guide install --no-guard` |
 | `HELM_RELEASE_NOT_FOUND` | 3 | no Helm release named … in namespace … | see the releases with `komando cluster helm list TARGET -A`, and name the namespace with --namespace |
 | `HELM_REVISION_NOT_FOUND` | 3 | … has no revision … | see the revisions with `komando cluster helm history TARGET RELEASE` |
 | `HIDDEN_VALUE` | 2 | stdin holds a value komando hid ([hidden] or [secret:NAME]); uploading it would destroy the real value | edit the file on the server with `komando fs replace` (an --old with [hidden] in it matches the hidden value), and put a secret in with {{secret:NAME}} |
