@@ -229,3 +229,48 @@ func TestFormFollowsAnswers(t *testing.T) {
 		t.Errorf("the database list did not follow the new kind: %v", a)
 	}
 }
+
+// Check refuses an answer with its reason, and the form stays on the
+// field until the answer passes.
+func TestFormCheck(t *testing.T) {
+	f := NewForm("komando x", []Field{{Key: "flag:port", Ask: "Which port?", Check: func(_ Answers, v string) string {
+		if strings.Trim(v, "0123456789") != "" {
+			return "a port is a number"
+		}
+		return ""
+	}}})
+	ftyped(f, "http")
+	if r, _ := fkey(f, term.KeyEnter); r != Stay || f.problem != "a port is a number" {
+		t.Fatalf("a wrong port gave %v and %q", r, f.problem)
+	}
+	fkey(f, term.KeyClear)
+	ftyped(f, "8080")
+	if r, a := fkey(f, term.KeyEnter); r != Take || a["flag:port"] != "8080" {
+		t.Errorf("a right port gave %v %v", r, a)
+	}
+}
+
+// Clean keeps a pasted password out of the screen while it is typed, and
+// takes it out of the answer on Enter, saying so.
+func TestFormClean(t *testing.T) {
+	clean := func(s string) (string, bool) {
+		if i, j := strings.Index(s, ":"), strings.LastIndex(s, "@"); i >= 0 && j > i {
+			return s[:i] + s[j:], true
+		}
+		return s, false
+	}
+	f := NewForm("komando x", []Field{{Key: "arg0", Ask: "Which address?", Clean: clean}, {Key: "arg1", Ask: "Name?"}})
+	f.Key(term.Key{Kind: term.KeyPaste, Text: "root:hunter2@db.example.com"})
+	for _, l := range DrawForm(f, Style{Width: 80}) {
+		if strings.Contains(l, "hunter2") {
+			t.Fatalf("the password is drawn: %q", l)
+		}
+	}
+	fkey(f, term.KeyEnter)
+	if got := f.text["arg0"]; got != "root@db.example.com" {
+		t.Errorf("the answer is %q, want the password taken out", got)
+	}
+	if !strings.Contains(f.notice, "password") {
+		t.Errorf("no notice that a password was taken out: %q", f.notice)
+	}
+}

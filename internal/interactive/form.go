@@ -24,6 +24,12 @@ type Field struct {
 	Default func(Answers) string // what an empty Enter takes; nil: nothing
 	Rows    func(Answers) []Row  // the list it is picked from; nil: typed
 	Show    func(Answers) bool   // asked only while true; nil: always
+
+	// Check is why an answer is refused; "" takes it.
+	Check func(a Answers, v string) string
+	// Clean takes a password out of a pasted address (user:password@);
+	// found says one was there. The screen never draws it.
+	Clean func(v string) (clean string, found bool)
 }
 
 // Form asks a command's fields one after another: the required ones
@@ -41,6 +47,7 @@ type Form struct {
 	more    *List             // the more-options step, while on it
 	help    bool
 	problem string // why the last Enter did not go on
+	notice  string // said once, on the next screen
 }
 
 // NewForm is a form on its first field.
@@ -83,6 +90,7 @@ func (f *Form) Text() string { return f.text[f.Field().Key] }
 // Key applies one key. Take comes with the answers: only shown fields
 // that have a value.
 func (f *Form) Key(k term.Key) (Result, Answers) {
+	f.notice = ""
 	switch k.Kind {
 	case term.KeyInterrupt:
 		return Quit, nil
@@ -99,7 +107,14 @@ func (f *Form) Key(k term.Key) (Result, Answers) {
 		r, v := l.Key(k)
 		switch r {
 		case Take:
-			f.taken[f.Field().Key] = v
+			x := f.Field()
+			if x.Check != nil {
+				if p := x.Check(f.answers(f.cur), v); p != "" {
+					f.problem = p
+					return Stay, nil
+				}
+			}
+			f.taken[x.Key] = v
 			return f.step(1)
 		case Back, Quit:
 			return r, nil
@@ -133,6 +148,12 @@ func (f *Form) textKey(k term.Key) (Result, Answers) {
 		return f.step(1)
 	case term.KeyEnter:
 		x := f.Field()
+		if x.Clean != nil {
+			if c, found := x.Clean(t); found {
+				t, f.text[key] = c, c
+				f.notice = "a password was in it: komando took it out and kept nothing"
+			}
+		}
 		if t == "" && x.Default != nil {
 			t = x.Default(f.answers(f.cur))
 			f.text[key] = t
@@ -140,6 +161,12 @@ func (f *Form) textKey(k term.Key) (Result, Answers) {
 		if t == "" && x.Required {
 			f.problem = "an answer is needed here"
 			return Stay, nil
+		}
+		if x.Check != nil && t != "" {
+			if p := x.Check(f.answers(f.cur), t); p != "" {
+				f.problem = p
+				return Stay, nil
+			}
 		}
 		return f.step(1)
 	case term.KeyEsc:

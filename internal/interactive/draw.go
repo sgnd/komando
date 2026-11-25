@@ -111,6 +111,11 @@ func keyLine(w int, hints ...string) string {
 func DrawForm(f *Form, s Style) []string {
 	w := min(s.Width, maxWidth)
 	lines := []string{term.TruncateWidth(term.CleanText(f.Title), w)}
+	if f.notice != "" {
+		for _, n := range wrap("! "+f.notice, w-2) {
+			lines = append(lines, "  "+n)
+		}
+	}
 	if f.more != nil {
 		return append(lines, Draw(f.more, s)...)
 	}
@@ -118,6 +123,9 @@ func DrawForm(f *Form, s Style) []string {
 		return append(lines, Draw(l, s)...)
 	}
 	x, t := f.Field(), f.Text()
+	if x.Clean != nil {
+		t, _ = x.Clean(t) // a pasted password is never drawn
+	}
 	def := ""
 	if x.Default != nil {
 		def = x.Default(f.answers(f.cur))
