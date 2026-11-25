@@ -131,14 +131,9 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | Command | When | Tier | Flag |
 |---|---|---|---|
 | `queue purge` | always | dangerous | `--allow-dangerous` |
-| `queue rm` | always | dangerous | `--allow-dangerous` |
 | `cache rm` | always | dangerous | `--allow-dangerous` |
-| `storage rm` | always | dangerous | `--allow-dangerous` |
 | `cluster rm` | always | dangerous | `--allow-dangerous` |
 | `cluster scale` | REPLICAS is 0 | dangerous | `--allow-dangerous` |
-| `registry rm` | always | dangerous | `--allow-dangerous` |
-| `registry prune` | always | dangerous | `--allow-dangerous` |
-| `db restore` | always | dangerous | `--allow-dangerous` |
 | `db user rm` | always | dangerous | `--allow-dangerous` |
 | `db kill` | a person types the name of what goes | change |  |
 | `fs rm` | always | dangerous | `--allow-dangerous` |
@@ -147,7 +142,6 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `user rm` | with --remove-home | dangerous | `--allow-dangerous` |
 | `user rm` | always | dangerous | `--allow-dangerous` |
 | `secret rm` | always | dangerous | `--allow-dangerous` |
-| `key rm` | with --delete-file, for a key komando made | dangerous | `--allow-dangerous` |
 | `pkg rm` | a package the server needs (openssh-server, sudo, systemd, ...) | dangerous | `--allow-dangerous` |
 | `pkg rm` | a person types the name of what goes | change |  |
 | `cron rm` | a person types the name of what goes | change |  |
@@ -155,55 +149,65 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `svc stop` | the unit is ssh or sshd | dangerous | `--allow-dangerous` |
 | `svc disable` | the unit is ssh or sshd | dangerous | `--allow-dangerous` |
 | `sync` | with --delete | dangerous | `--allow-dangerous` |
-| `exec` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
 | `job start` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
-| `recipe run` | when the recipe's command matches a destructive rule | dangerous | `--allow-dangerous` |
 | `docker exec` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
 | `docker raw` | when the docker command deletes or stops something | dangerous | `--allow-dangerous` |
 | `docker compose` | when the compose command deletes or stops something | dangerous | `--allow-dangerous` |
-| `cluster exec` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
-| `cluster run` | when the kubectl command deletes something | dangerous | `--allow-dangerous` |
-| `cache run` | when the cache command deletes data (FLUSHALL, ...) | dangerous | `--allow-dangerous` |
-| `db query` | when the SQL deletes data (DROP, DELETE without WHERE, ...) | dangerous | `--allow-dangerous` |
 | `db explain` | with --analyze, when the SQL deletes data | dangerous | `--allow-dangerous` |
 | `pkg upgrade` | with --security, when an update would remove a package the server needs | dangerous | `--allow-dangerous` |
-| `key revoke` | when it is the key komando logs in with | dangerous | `--allow-dangerous` |
 | `host edit` | when --proxy-command matches a destructive rule | dangerous | `--allow-dangerous` |
 | `host add` | when --proxy-command matches a destructive rule | dangerous | `--allow-dangerous` |
-| `import` | when an imported ProxyCommand matches a destructive rule | dangerous | `--allow-dangerous` |
-| `policy rm` | always | safety | `--yes` |
 | `policy edit` | unless it only switches the rule on | safety | `--yes` |
-| `config set` | when the setting turns a check off (audit, keychain, host key policy, ...) | safety | `--yes` |
-| `host edit` | with --protected=false | safety | `--yes` |
 | `conn edit` | with --protected=false | safety | `--yes` |
-| `vpn edit` | with --protected=false | safety | `--yes` |
-| `vpn edit` | with --mfa=false | safety | `--yes` |
-| `update` | when it installs an older version | safety | `--yes` |
-| `tunnel start` | when it listens on an open address (OPEN_BIND) | safety | `--yes` |
-| `secret keychain` | when it turns the keychain off | safety | `--yes` |
 | `host add` | with --proxy-command, when an AI agent runs it (the proxy command runs on this computer) | safety | `--yes` |
 | `host edit` | with --proxy-command, when an AI agent runs it (the proxy command runs on this computer) | safety | `--yes` |
-| `import` | when an AI agent imports a server with a proxy command (it runs on this computer; without --yes the server is left out) | safety | `--yes` |
 | `import` | SOURCE kubeconfig, when an AI agent imports a context whose login runs a program or sends a file of this computer | safety | `--yes` |
-| `recipe add` | with --overwrite --read-only, when it makes an existing recipe read-only | safety | `--yes` |
+| `secret check` | always | person |  |
+| `login` | always | person |  |
+| `login aws` | always | person |  |
+| `host ssh-command` | always | person |  |
+| `import` | SOURCE komando, when the file is sealed (export --sealed): a person types its passphrase | person |  |
+| `group rm` | GROUP alone: deleting a group of more than 3 members (CONFIRM_REQUIRED) | change | `--yes` |
+| `queue rm` | always | dangerous | `--allow-dangerous` |
+| `storage rm` | always | dangerous | `--allow-dangerous` |
+| `registry rm` | always | dangerous | `--allow-dangerous` |
+| `registry prune` | always | dangerous | `--allow-dangerous` |
+| `db restore` | always | dangerous | `--allow-dangerous` |
+| `key rm` | with --delete-file | dangerous | `--allow-dangerous` |
+| `exec` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
+| `recipe run` | when a step matches a destructive rule | dangerous | `--allow-dangerous` |
+| `cluster exec` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
+| `cluster run` | when the cluster command deletes something or scales to 0 | dangerous | `--allow-dangerous` |
+| `cache run` | when the cache command deletes data (DEL, FLUSHALL, ...) | dangerous | `--allow-dangerous` |
+| `db query` | when the query deletes data (DROP, DELETE without WHERE, KILL, ...) | dangerous | `--allow-dangerous` |
+| `key revoke` | when it is the key komando logs in with | dangerous | `--allow-dangerous` |
+| `import` | when an imported proxy command matches a destructive rule | dangerous | `--allow-dangerous` |
+| `policy rm` | always | safety | `--yes` |
+| `config set` | when the setting turns a check off | safety | `--yes` |
+| `vpn edit` | with --mfa=false | safety | `--yes` |
+| `update` | when it installs an older version | safety | `--yes` |
+| `tunnel start` | when it listens on an open address | safety | `--yes` |
+| `secret keychain` | when it turns the keychain off | safety | `--yes` |
+| `import` | when an AI agent imports a server with a proxy command | safety | `--yes` |
+| `recipe add` | with --overwrite --read-only, when it makes an existing snippet read-only | safety | `--yes` |
 | `host trust` | when an AI agent pins a first host key while host keys are strict | safety | `--yes` |
+| `registry add` | when the address turns TLS off (plain HTTP) | safety | `--yes` |
+| `secret run` | when an AI agent hands a saved secret to a program | safety | `--yes` |
+| `storage link` | when an AI agent makes a link (a person allows --reveal) | safety | `--yes` |
 | `guide uninstall` | when it removes komando's guard from an AI agent's settings | safety | `--yes` |
 | `config approval-code` | always | person |  |
+| `ssh-gate` | always | person |  |
 | `secret passphrase` | always | person |  |
-| `secret check` | always | person |  |
+| `secret keychain` | without --off | person |  |
 | `shell` | always | person |  |
 | `db shell` | always | person |  |
 | `cluster shell` | always | person |  |
-| `login` | always | person |  |
-| `login aws` | always | person |  |
-| `ssh-gate` | always | person |  |
-| `host ssh-command` | always | person |  |
 | `host ca add` | always | person |  |
-| `secret keychain` | without --off (moving the key into the keychain) | person |  |
-| `host trust` | with --reset, when a key is pinned | person |  |
-| `export` | with --sealed or --for-phone | person |  |
-| `import` | SOURCE komando, when the file is sealed (export --sealed): a person types its passphrase | person |  |
-| `group rm` | GROUP alone: deleting a group of more than 3 members (CONFIRM_REQUIRED) | change | `--yes` |
+| `host trust` | with --reset | person |  |
+| `export` | with --sealed | person |  |
+| `export` | with --for-phone | person |  |
+| `host edit` | with --protected=false | safety | `--yes` |
+| `vpn edit` | with --protected=false | safety | `--yes` |
 
 <!-- end of tiers -->
 
