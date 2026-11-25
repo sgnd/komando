@@ -13,7 +13,6 @@ import (
 
 	"github.com/sgnd/komando/internal/dbx"
 	"github.com/sgnd/komando/internal/driver"
-	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/queuex"
 	"github.com/sgnd/komando/internal/store"
@@ -164,7 +163,7 @@ func maskingConnOn(st *store.State, h *store.Host) bool {
 		if !maskedConn(c) && maskedTwin(st, c) == nil {
 			continue
 		}
-		if slices.ContainsFunc(inventory.ViaChain(c.Via), func(s string) bool { return strings.EqualFold(s, h.Name) }) {
+		if slices.ContainsFunc(viaChain(c.Via), func(s string) bool { return strings.EqualFold(s, h.Name) }) {
 			return true
 		}
 		t, err := driver.Parse(c.URL)

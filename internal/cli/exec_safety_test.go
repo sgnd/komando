@@ -29,6 +29,9 @@ type fakeServer struct {
 	mu     sync.Mutex
 	execs  []fakeExec
 	chunks []string
+	// answer, when set, gives each exec's whole stdout and exit status
+	// instead of chunks
+	answer func(cmd string) (string, int)
 }
 
 type fakeExec struct{ cmd, stdin string }
@@ -134,7 +137,12 @@ func (s *fakeServer) serve(nc net.Conn, cfg *ssh.ServerConfig) {
 				_ = ssh.Unmarshal(r.Payload, &p)
 				s.mu.Lock()
 				s.execs = append(s.execs, fakeExec{cmd: p.Cmd})
-				i, chunks := len(s.execs)-1, s.chunks
+				i, chunks, status := len(s.execs)-1, s.chunks, 0
+				if s.answer != nil {
+					var o string
+					o, status = s.answer(p.Cmd)
+					chunks = []string{o}
+				}
 				s.mu.Unlock()
 				go func() {
 					read := make(chan struct{})
@@ -159,7 +167,7 @@ func (s *fakeServer) serve(nc net.Conn, cfg *ssh.ServerConfig) {
 					case <-read:
 					case <-time.After(time.Second):
 					}
-					_, _ = ch.SendRequest("exit-status", false, ssh.Marshal(struct{ S uint32 }{0}))
+					_, _ = ch.SendRequest("exit-status", false, ssh.Marshal(struct{ S uint32 }{uint32(status)}))
 					_ = ch.Close()
 				}()
 			}
