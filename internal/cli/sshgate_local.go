@@ -17,6 +17,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -201,7 +202,7 @@ func gateAt(cl *call, st *store.State, addr, via string, depth int) string {
 	if !gateLocalAddr(addr) {
 		return ""
 	}
-	steps := viaChain(via)
+	steps := inventory.ViaChain(via)
 	if len(steps) == 0 {
 		return addr
 	}

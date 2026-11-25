@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -82,7 +83,7 @@ yourself out. --dry-run counts the lines it would remove.`,
 			if err := Guard(cl, st, hosts, "", true); err != nil {
 				return err
 			}
-			if user != "" && !nameRe.MatchString(user) {
+			if user != "" && !inventory.NameRe.MatchString(user) {
 				return out.Usage("%q cannot be a user name: use letters, digits and . _ -", user)
 			}
 			script := revokeScript(user, blob, cl.flags.dryRun)

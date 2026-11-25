@@ -7,6 +7,7 @@ import (
 	"encoding/pem"
 	"net"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -54,6 +55,10 @@ var tierRuns = []tierRun{
 	{"host ssh edit --proxy-command dynamic dangerous", "host.edit", []string{"dev", "--proxy-command", "rm -rf /"}, false},
 	// safety
 	{"policy remove safety", "policy.rm", []string{"kubectl apply"}, false},
+	{"policy edit --off safety", "policy.edit", []string{"docker-prune", "--off"}, false},
+	{"policy edit --add-server safety", "policy.edit", []string{"docker-prune", "--off", "--add-server", "dev"}, false},
+	{"policy edit --add-group safety", "policy.edit", []string{"docker-prune", "--off", "--add-group", "g1"}, false},
+	{"floor", "policy.edit", []string{"docker-prune", "--rm-server", "dev"}, false},
 	{"config set dynamic safety", "config.set", []string{"audit", "false"}, false},
 	{"vpn edit --mfa=false safety", "vpn.edit", []string{"wg", "--mfa=false"}, false},
 	{"host tunnel start dynamic safety", "tunnel.start", []string{"dev", "-L", "0.0.0.0:15432:localhost:5432"}, false},
@@ -150,6 +155,7 @@ var tierRuns = []tierRun{
 	{"floor", "vpn.rm", []string{"wg"}, false},
 	{"floor", "vpn.up", []string{"wg"}, false},
 	{"floor", "key.add", []string{"k5", "id_k5"}, false},
+	{"credential key uninstall dynamic dangerous", "key.revoke", []string{"k6", "kh"}, false},
 	{"import dynamic dangerous", "import", []string{"ssh-config", "ssh_config_rm"}, false},
 	{"import dynamic safety", "import", []string{"ssh-config", "ssh_config_nc"}, false},
 }
@@ -184,18 +190,17 @@ var tierUnreached = map[string]string{
 	"host ssh test --end change | host.test": endNotYet,
 	"test --end change | test":               endNotYet,
 	// the condition needs what a unit run cannot give; the stop is proved there
-	"host ssh test dynamic person | host.test":                "needs a server that asks a second factor (login_ssh_test.go)",
-	"import dynamic person | import":                          "needs a sealed file from export --sealed, which only a person makes (export_sealed_test.go)",
-	"credential key uninstall dynamic dangerous | key.revoke": "needs the key komando logs in with on a real authorized_keys (key_revoke_all_test.go)",
-	"ssh-gate person | ssh-gate":                              "sshd starts it with the key's line; TestGateAnswersPinned pins its answers",
-	"update dynamic safety | update":                          "needs a release site (TestUpdateOlderAgentNeedsWindow)",
-	"floor | update":                                          "needs a release site (update_test.go)",
-	"config vault keychain dynamic safety | secret.keychain":  "tests run with KOMANDO_KEYCHAIN=off (secret_keychain_test.go uses stand-ins)",
-	"floor | secret.keychain":                                 "tests run with KOMANDO_KEYCHAIN=off (secret_keychain_test.go uses stand-ins)",
-	"floor | host.ca.rm":                                      "adding the CA it removes needs a person (host_ca_test.go)",
-	"floor | tunnel.stop":                                     "needs a running tunnel (tunnel_test.go)",
-	"floor | cluster.add":                                     "a Kubernetes conn comes only from import kubeconfig (cluster_test.go)",
-	"floor | queue.purge":                                     "today's queue purge is v2.7's message delete --all: its run is that row",
+	"host ssh test dynamic person | host.test":               "needs a server that asks a second factor",
+	"import dynamic person | import":                         "needs a sealed file from export --sealed, which only a person makes",
+	"ssh-gate person | ssh-gate":                             "sshd starts it for a key; an agent never runs ssh-gate itself",
+	"update dynamic safety | update":                         "needs a release site",
+	"floor | update":                                         "needs a release site",
+	"config vault keychain dynamic safety | secret.keychain": "tests run with KOMANDO_KEYCHAIN=off",
+	"floor | secret.keychain":                                "tests run with KOMANDO_KEYCHAIN=off; a plain run is the not --off person row",
+	"floor | host.ca.rm":                                     "adding the CA it removes needs a person",
+	"floor | tunnel.stop":                                    "no stop for an agent: change on an unprotected target",
+	"floor | cluster.add":                                    "a Kubernetes conn comes only from import kubeconfig; a swarm is no conn kind",
+	"floor | queue.purge":                                    "today's queue purge is v2.7's message delete --all: its run is that row",
 	// the table names a stop the handler has no code for (sent to the coordinator)
 	"cluster tunnel start dynamic safety | cluster.forward": "cluster forward always listens on 127.0.0.1 (cluster_exec.go): no open address to stop",
 }
@@ -220,12 +225,40 @@ var tierDisagree = map[string]string{
 	// --dry-run shows no stop; the real run stops (its own test proves it)
 	"host.ca.add ca1 --key ca.pub --hosts *.corp.example": "", // host_ca.go returns the preview before its NEEDS_PERSON
 	"host.trust dev":                  "", // guardFirstPin runs after the dry run returned
-	"import ssh-config ssh_config_rm": "", // import_safety_test.go
-	"import ssh-config ssh_config_nc": "", // import_safety_test.go
+	"import ssh-config ssh_config_rm": "", // the real run leaves the host out (IMPORT_INCOMPLETE)
+	"import ssh-config ssh_config_nc": "", // the real run leaves the host out (IMPORT_INCOMPLETE)
 	// the handler is stricter than the table (a stop no row names)
 	"registry.add reg3 registry://127.0.0.1:1?tls=false": "SAFETY_SETTING", // plain HTTP
 	"secret.run --env X=secret:pw -- true":               "SECRET_DESTINATION",
 	"storage.link s3 a.txt":                              "SENSITIVE_FILE",
+}
+
+// tierProof is the test that asserts a stop without --dry-run.
+type tierProof struct {
+	test string // the test function
+	via  string // the table variable it runs, when the case sits there
+	cmd  string // the command it runs, when not the one of the key
+	stop string // the code it asserts, when not the one the tier names
+}
+
+// tierProvedBy names, for each run pinned with no stop under --dry-run and
+// each unreached row whose stop a run can meet, the test that asserts that
+// stop without --dry-run (Audit's lows on #550). tierProofsExist checks
+// that the test exists and that its body (with the table it runs) names
+// the command and the code.
+var tierProvedBy = map[string]tierProof{
+	"host.ca.add ca1 --key ca.pub --hosts *.corp.example": {test: "TestHostCAAddNeedsAPerson"},
+	"host.trust dev":                                         {test: "TestStandardConfirmTable", via: "agentStops"},
+	"import ssh-config ssh_config_rm":                        {test: "TestImportSSHConfigProxyCommandAgent", stop: "IMPORT_INCOMPLETE"}, // the host is left out
+	"import ssh-config ssh_config_nc":                        {test: "TestImportSSHConfigProxyCommandAgent", stop: "IMPORT_INCOMPLETE"},
+	"host ssh test dynamic person | host.test":               {test: "TestLoginKeepsATwoFactorLogin", cmd: "login"},
+	"import dynamic person | import":                         {test: "TestSealedNeedsPerson"},
+	"update dynamic safety | update":                         {test: "TestUpdateOlderAgentNeedsWindow"},
+	"floor | update":                                         {test: "TestUpdateInstallsNewest"},
+	"config vault keychain dynamic safety | secret.keychain": {test: "TestSecretKeychainOff"},
+	"floor | secret.keychain":                                {test: "TestSecretKeychainNeedsPerson"},
+	"floor | host.ca.rm":                                     {test: "TestHostCAPersonAddsAndAnyoneRemoves"},
+	"floor | cluster.add":                                    {test: "TestClusterAddKind"},
 }
 
 func TestTierMatchesRuntime(t *testing.T) {
@@ -237,6 +270,7 @@ func TestTierMatchesRuntime(t *testing.T) {
 		covered[r.row+" | "+r.id] = true
 	}
 	needed := tierNeeded()
+	tierProofsExist(t)
 	for _, r := range tierRuns {
 		if _, ok := needed[r.row+" | "+r.id]; !ok {
 			t.Errorf("run %q | %s proves no row the table has for that command: remove or rename it", r.row, r.id)
@@ -283,6 +317,152 @@ func TestTierMatchesRuntime(t *testing.T) {
 			}
 		})
 	}
+}
+
+// tierProofsExist: every run pinned with no stop has a named proof, no
+// reason points at a file instead of a function, and every named test
+// function exists.
+func tierProofsExist(t *testing.T) {
+	for run, code := range tierDisagree {
+		if _, ok := tierProvedBy[run]; code == "" && !ok {
+			t.Errorf("%q shows no stop under --dry-run: name the test that asserts its stop in tierProvedBy", run)
+		}
+	}
+	for need, why := range tierUnreached {
+		if strings.Contains(why, "_test.go") {
+			t.Errorf("tierUnreached %q names a file: name the test function in tierProvedBy", need)
+		}
+	}
+	files, _ := filepath.Glob("*_test.go")
+	var src strings.Builder
+	for _, f := range files {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		src.Write(b)
+	}
+	for key, pr := range tierProvedBy {
+		_, pinned := tierDisagree[key]
+		if _, unreached := tierUnreached[key]; !pinned && !unreached {
+			t.Errorf("tierProvedBy %q names no pinned run or unreached row: remove it", key)
+		}
+		body := goBlock(src.String(), "func "+pr.test+"(t *testing.T)")
+		if body == "" {
+			t.Errorf("tierProvedBy %q: no test function %s", key, pr.test)
+			continue
+		}
+		cmd, stop := tierProofWant(key, pr)
+		if pr.via != "" {
+			table := goBlock(src.String(), "var "+pr.via+" = ")
+			if table == "" || !strings.Contains(body, pr.via) {
+				t.Errorf("tierProvedBy %q: %s does not run a table %s", key, pr.test, pr.via)
+			}
+			// the command and its code on one entry of the table
+			if !tableHasCase(table, cmd, stop) {
+				t.Errorf("tierProvedBy %q: no entry of %s runs %q and asserts %s", key, pr.via, cmd, stop)
+			}
+			continue
+		}
+		if !runsCmd(body, cmd) {
+			t.Errorf("tierProvedBy %q: %s does not run %q", key, pr.test, cmd)
+		}
+		if stop != "" && !strings.Contains(body, `"`+stop+`"`) {
+			t.Errorf("tierProvedBy %q: %s does not assert %s", key, pr.test, stop)
+		}
+	}
+}
+
+// runsCmd: text names every word of cmd quoted, or the whole phrase.
+func runsCmd(text, cmd string) bool {
+	if strings.Contains(text, cmd) {
+		return true
+	}
+	for _, w := range strings.Fields(cmd) {
+		if !strings.Contains(text, `"`+w+`"`) {
+			return false
+		}
+	}
+	return true
+}
+
+// tableHasCase: one entry of a table literal (a composite literal that
+// starts a line at one tab) runs cmd and names stop.
+func tableHasCase(table, cmd, stop string) bool {
+	var entries []string
+	for _, line := range strings.Split(table, "\n") {
+		if strings.HasPrefix(line, "\t{") || len(entries) == 0 {
+			entries = append(entries, line)
+			continue
+		}
+		entries[len(entries)-1] += "\n" + line
+	}
+	for _, e := range entries[1:] {
+		if runsCmd(e, cmd) && (stop == "" || strings.Contains(e, `"`+stop+`"`)) {
+			return true
+		}
+	}
+	return false
+}
+
+// TestTableHasCase: the command and its code must sit on the same entry.
+func TestTableHasCase(t *testing.T) {
+	table := "var cases = []c{\n" +
+		"\t{args: []string{\"host\", \"trust\", \"web1\"}, code: \"POLICY_BLOCKED\"},\n" +
+		"\t{args: []string{\"policy\", \"rm\", \"x\"},\n\t\tcode: \"SAFETY_SETTING\"},\n"
+	tests := []struct {
+		name, cmd, stop string
+		want            bool
+	}{
+		{"code on another entry", "host trust", "SAFETY_SETTING", false},
+		{"same entry", "host trust", "POLICY_BLOCKED", true},
+		{"entry over two lines", "policy rm", "SAFETY_SETTING", true},
+		{"no such command", "host shell", "", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tableHasCase(table, tt.cmd, tt.stop); got != tt.want {
+				t.Errorf("tableHasCase(%q, %q) = %v, want %v", tt.cmd, tt.stop, got, tt.want)
+			}
+		})
+	}
+}
+
+// tierProofWant is the command a proof must run and the code it must
+// assert: from the key (a pinned run, or "row | ID") unless the proof says.
+func tierProofWant(key string, pr tierProof) (cmd, stop string) {
+	if row, id, ok := strings.Cut(key, " | "); ok {
+		cmd, stop = strings.ReplaceAll(id, ".", " "), tierStop(tierRun{row: row})
+	} else {
+		id := strings.Fields(key)[0]
+		cmd = strings.ReplaceAll(id, ".", " ")
+		for _, r := range tierRuns {
+			if r.id+" "+strings.Join(r.args, " ") == key {
+				stop = tierStop(r)
+			}
+		}
+	}
+	if pr.cmd != "" {
+		cmd = pr.cmd
+	}
+	if pr.stop != "" {
+		stop = pr.stop
+	}
+	return cmd, stop
+}
+
+// goBlock is the Go source from head to the end of its block (a line that
+// is only "}" or ")"), or "".
+func goBlock(src, head string) string {
+	i := strings.Index(src, head)
+	if i < 0 {
+		return ""
+	}
+	rest := src[i:]
+	if j := strings.Index(rest, "\n}\n"); j >= 0 {
+		return rest[:j]
+	}
+	return rest
 }
 
 // tierStop is the stop a run's tier names.
@@ -433,6 +613,7 @@ func tierSeed(t *testing.T) {
 	t.Setenv("PW", "secret-value-1")
 	mustRun(t, "secret", "set", "pw", "--from-env", "PW")
 	mustRun(t, "key", "gen", "k1")
+	mustRun(t, "key", "gen", "k6")
 	mustRun(t, "recipe", "add", "wipe", "rm -rf /")
 	mustRun(t, "recipe", "add", "r1", "uptime")
 	mustRun(t, "group", "add", "g1", "dev")
@@ -448,6 +629,13 @@ func tierSeed(t *testing.T) {
 	_ = os.WriteFile("ssh_config", []byte("Host imp1\n  HostName 10.0.0.5\n"), 0o600)
 	_ = os.WriteFile("ssh_config_rm", []byte("Host imp2\n  HostName 10.0.0.6\n  ProxyCommand rm -rf /\n"), 0o600)
 	_ = os.WriteFile("ssh_config_nc", []byte("Host imp3\n  HostName 10.0.0.7\n  ProxyCommand nc %h %p\n"), 0o600)
+	// kh logs in with k6: revoking k6 there locks komando out
+	if err := store.Update(store.Save(), func(st *store.State) error {
+		st.Hosts["kh"] = &store.Host{Name: "kh", Address: "127.0.0.1", Port: 1, User: "deploy", Key: "k6"}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
 	_ = os.WriteFile("a.txt", []byte("a\n"), 0o600)
 	_ = os.WriteFile("dump.sql", []byte("select 1;\n"), 0o600)
 }

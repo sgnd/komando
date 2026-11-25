@@ -20,6 +20,7 @@ import (
 
 	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/kube"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
@@ -44,7 +45,7 @@ func resolveCluster(cl *call, st *store.State, expr string) (clusterTarget, erro
 	}
 	var k8s []*store.Conn
 	for _, c := range sel.Conns {
-		if connFamily(c) == "cluster" {
+		if inventory.ConnFamily(c) == "cluster" {
 			k8s = append(k8s, c)
 		}
 	}

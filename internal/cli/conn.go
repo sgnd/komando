@@ -21,6 +21,7 @@ import (
 	"github.com/sgnd/komando/internal/cachex"
 	"github.com/sgnd/komando/internal/dbx"
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -38,7 +39,7 @@ func checkNewName(cl *call, s *store.State, kind, name string, overwrite bool) e
 	case !ok:
 		return nil
 	case k != kind || existing != name:
-		return nameTaken(k, existing)
+		return inventory.NameTaken(k, existing)
 	case !overwrite:
 		return out.Errf(out.ExitConflict, map[string]string{"host": "HOST_EXISTS", "conn": "CONN_EXISTS", "vpn": "VPN_EXISTS"}[kind], fmt.Sprintf("use `komando %s edit` or pass --overwrite to replace it", kind),
 			"%s %q already exists", out.KindWord(kind), name)
@@ -54,11 +55,6 @@ func checkNewName(cl *call, s *store.State, kind, name string, overwrite bool) e
 		return guardProtection(cl, "vpn", "replacing", []string{name})
 	}
 	return nil
-}
-
-func nameTaken(kind, name string) error {
-	return out.Errf(out.ExitConflict, "NAME_TAKEN", fmt.Sprintf("pick another name; servers, conns and VPNs share one name space (see `komando %s show %s`)", kind, name),
-		"name %q is already used by a %s", name, out.KindWord(kind))
 }
 
 type connFlags struct {
@@ -124,7 +120,7 @@ func checkConn(s *store.State, c *store.Conn) error {
 		return out.Errf(out.ExitUsage, "USAGE", "store the password with `komando secret set NAME` and pass --password-ref secret:NAME ("+vault.RefHelp()+")",
 			"--password-ref takes a reference, not the password itself")
 	}
-	return checkLabels(c.Groups, c.Tags, c.Labels)
+	return inventory.CheckLabels(c.Groups, c.Tags, c.Labels)
 }
 
 func connCmd() *cobra.Command {
@@ -608,7 +604,7 @@ func viaTimeout(c *store.Conn, err error) error {
 		return err
 	}
 	if addr, ok := strings.CutSuffix(e.Message, " timed out"); ok && strings.HasPrefix(addr, "connecting to ") {
-		e.Message = addr + " via " + strings.Join(viaChain(c.Via), " → ") + " timed out"
+		e.Message = addr + " via " + strings.Join(inventory.ViaChain(c.Via), " → ") + " timed out"
 	}
 	return err
 }
@@ -620,7 +616,7 @@ func unreachable(c *store.Conn, t driver.Target, err error) *out.Error {
 		return e
 	}
 	hint := "check the address and port; if it is only reachable from a server, set `komando conn edit " + c.Name + " --via SERVER`"
-	if steps := viaChain(c.Via); len(steps) > 0 {
+	if steps := inventory.ViaChain(c.Via); len(steps) > 0 {
 		last := steps[len(steps)-1]
 		hint = "the address is resolved on " + last + "; check it from there with `komando net check " + last + " " + t.Address + "`"
 		if st, err := loadState(); err == nil {

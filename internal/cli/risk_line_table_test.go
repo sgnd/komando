@@ -37,6 +37,12 @@ func TestRiskOfLineTable(t *testing.T) {
 		{"secret rm", "secret rm token", nil, tierDangerous, "deletes the saved passwords"},
 		{"group rm asks for a bulk confirm", "group rm big", nil, tierChange, "deleting a group of more than 3 members"},
 		{"policy rm", "policy rm deny1", nil, tierSafety, "removes a deny rule"},
+		{"a rule switched on", "policy edit r --off=false", nil, tierChange, ""},
+		{"a rule switched on for some servers", "policy edit r --rm-server web1", nil, tierChange, ""},
+		{"a rule switched off", "policy edit r --off", nil, tierSafety, "switches a rule off"},
+		{"--off in another spelling", "policy edit r --off=true --add-server web1", nil, tierSafety, "switches a rule off"},
+		{"--off=false, then the last value off", "policy edit r --off=false --off", nil, tierSafety, "switches a rule off"},
+		{"a line that does not parse is rated by its words", "policy edit r --off=false --off --bogus", nil, tierSafety, "switches a rule off"},
 		{"a shell is for a person", "shell web1", nil, tierPerson, ""},
 		{"a host key reset is for a person", "host trust web1 --reset", nil, tierPerson, "replaces a pinned host key (OD-9)"},
 		{"a line that names no command is for a person (cut PR B2)", "nosuchcommand", nil, tierPerson, ""},
@@ -46,8 +52,8 @@ func TestRiskOfLineTable(t *testing.T) {
 		{"a sudo flag before --", "exec web1 --sudo -- userdel bob", nil, tierDangerous, "the command matches a destructive rule"},
 		{"--reveal is not a tier of its own", "secret show token --reveal", nil, tierRead, ""},
 	}
-	if len(tests) != 25 {
-		t.Fatalf("%d lines, want 25", len(tests))
+	if len(tests) != 31 {
+		t.Fatalf("%d lines, want 31", len(tests))
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

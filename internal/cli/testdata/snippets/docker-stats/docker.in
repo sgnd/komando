@@ -1,0 +1,2 @@
+{"Name":"web","CPUPerc":"0.12%","MemUsage":"20.5MiB / 1.9GiB","MemPerc":"1.05%","NetIO":"1.2MB / 3.4MB","BlockIO":"0B / 0B","PIDs":"5"}
+{"Name":"db","CPUPerc":"1.50%","MemUsage":"98.2MiB / 1.9GiB","MemPerc":"5.04%","NetIO":"500kB / 1.1MB","BlockIO":"12MB / 40MB","PIDs":"11"}
