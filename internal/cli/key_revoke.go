@@ -27,7 +27,7 @@ func revokeTarget(st *store.State, arg string) (blob, label string, k *store.Key
 			return "", "", nil, out.Errf(out.ExitUsage, "NO_PUBLIC_KEY", "place "+key.Path+".pub next to the key, then `komando key rm "+key.Name+"` and add it again", "komando does not have the public key of %s", key.Name)
 		}
 		line, label, k = key.PublicKey, "key "+key.Name, key
-	} else if b, rerr := os.ReadFile(expandHome(arg)); rerr == nil {
+	} else if b, rerr := os.ReadFile(inventory.ExpandHome(arg)); rerr == nil {
 		line, label = strings.TrimSpace(string(b)), arg
 	}
 	f := strings.Fields(line)

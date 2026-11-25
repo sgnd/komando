@@ -20,6 +20,7 @@ import (
 
 	"github.com/sgnd/komando/internal/cloud"
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/storex"
@@ -111,7 +112,7 @@ func importRclone(cl *call, path string) (*importPlan, error) {
 		switch kv["type"] {
 		case "sftp":
 			n := p.name(name)
-			h := &store.Host{Name: n, Address: kv["host"], User: kv["user"], Identity: expandHome(kv["key_file"])}
+			h := &store.Host{Name: n, Address: kv["host"], User: kv["user"], Identity: inventory.ExpandHome(kv["key_file"])}
 			if port, err := strconv.Atoi(kv["port"]); err == nil && port != 22 {
 				h.Port = port
 			}

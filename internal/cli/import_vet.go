@@ -61,9 +61,9 @@ func vetImportHosts(cl *call, s *store.State, hosts []*store.Host, overwrite, ow
 				continue
 			}
 		}
-		h.Address = normAddr(h.Address)
+		h.Address = inventory.NormAddr(h.Address)
 		if h.Identity != "" {
-			if _, err := os.Stat(expandHome(h.Identity)); err != nil {
+			if _, err := os.Stat(inventory.ExpandHome(h.Identity)); err != nil {
 				later[h] = append(later[h], h.Name+": its identity file "+h.Identity+" was not found; left out")
 				h.Identity = ""
 			}

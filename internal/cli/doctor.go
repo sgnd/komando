@@ -113,7 +113,7 @@ func inventoryChecks(cl *call, st *store.State) []securityCheck {
 			fail(name, toErr(err).Message)
 		}
 		if h.Identity != "" {
-			if _, err := os.Stat(expandHome(h.Identity)); err != nil {
+			if _, err := os.Stat(inventory.ExpandHome(h.Identity)); err != nil {
 				fail(name, "identity file "+h.Identity+" not found")
 			}
 		}

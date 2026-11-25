@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -151,7 +152,7 @@ func runImport(cl *call, source, path string, groups []string, overwrite bool) e
 	}
 	cl.importOverwrite = overwrite // a sealed file's secrets (import_sealed.go)
 	defer func() { cl.importOverwrite, cl.carriedSecrets = false, nil }()
-	plan, err := src.Parse(cl, expandHome(path))
+	plan, err := src.Parse(cl, inventory.ExpandHome(path))
 	if err != nil {
 		return err
 	}
