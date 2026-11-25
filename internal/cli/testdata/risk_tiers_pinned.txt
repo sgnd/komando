@@ -229,7 +229,7 @@ recipe.list	plain=read	highest=read
 recipe.rm	plain=change	highest=read
 recipe.run	plain=dangerous	highest=dangerous
 registry	plain=read	highest=read
-registry.add	plain=change	highest=read
+registry.add	plain=safety	highest=safety
 registry.copy	plain=change	highest=read
 registry.inspect	plain=read	highest=read
 registry.list	plain=read	highest=read
@@ -246,7 +246,7 @@ secret.list	plain=read	highest=read
 secret.passphrase	plain=person	highest=person
 secret.rename	plain=change	highest=read
 secret.rm	plain=dangerous	highest=dangerous
-secret.run	plain=change	highest=read
+secret.run	plain=safety	highest=safety
 secret.set	plain=change	highest=read
 secret.show	plain=read	highest=read
 shell	plain=person	highest=person
@@ -259,7 +259,7 @@ storage.add	plain=change	highest=read
 storage.cat	plain=read	highest=read
 storage.chmod	plain=change	highest=read
 storage.download	plain=read	highest=read
-storage.link	plain=change	highest=read
+storage.link	plain=safety	highest=safety
 storage.list	plain=read	highest=read
 storage.mkdir	plain=change	highest=read
 storage.mv	plain=change	highest=read

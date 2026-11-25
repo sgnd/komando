@@ -139,12 +139,12 @@ var tierRuns = []tierRun{
 	{"floor", "recipe.rm", []string{"r1"}, false},
 	{"floor", "recipe.run", []string{"r1", "dev"}, false},
 	{"floor", "registry.add", []string{"reg2", "registry://127.0.0.1:1"}, false},
-	{"floor", "registry.add", []string{"reg3", "registry://127.0.0.1:1?tls=false"}, false},
+	{"registry add dynamic safety", "registry.add", []string{"reg3", "registry://127.0.0.1:1?tls=false"}, false},
 	{"floor", "registry.copy", []string{"reg:app:1", "reg:app:2"}, false},
-	{"floor", "secret.run", []string{"--env", "X=secret:pw", "--", "true"}, false},
+	{"credential run dynamic safety", "secret.run", []string{"--env", "X=secret:pw", "--", "true"}, false},
 	{"floor", "ssh-gate.line", []string{"--name", "phone", "ca.pub"}, false},
 	{"floor", "storage.add", []string{"s4", "s3://key@bucket/p?endpoint=http://127.0.0.1:1"}, false},
-	{"floor", "storage.link", []string{"s3", "a.txt"}, false},
+	{"storage object link dynamic safety", "storage.link", []string{"s3", "a.txt"}, false},
 	{"floor", "storage.mkdir", []string{"s3", "dir/"}, false},
 	{"floor", "storage.mv", []string{"s3", "a.txt", "b.txt"}, false},
 	{"floor", "tunnel.start", []string{"dev", "-L", "15432:localhost:5432"}, false},
@@ -200,6 +200,8 @@ var tierUnreached = map[string]string{
 	"floor | host.ca.rm":                                     "adding the CA it removes needs a person",
 	"floor | tunnel.stop":                                    "no stop for an agent: change on an unprotected target",
 	"floor | cluster.add":                                    "a Kubernetes conn comes only from import kubeconfig; a swarm is no conn kind",
+	"floor | secret.run":                                     "an agent always meets the row: secret run always hands a secret on",
+	"floor | storage.link":                                   "an agent always meets the row: a link is always --reveal for an agent",
 	"floor | queue.purge":                                    "today's queue purge is v2.7's message delete --all: its run is that row",
 }
 
@@ -208,27 +210,19 @@ var tierUnreached = map[string]string{
 // stricter side holds until it is decided. A run that agrees again fails
 // until its line goes.
 var tierDisagree = map[string]string{
-	// the same stop under another code (strength equal)
-	"shell dev":               "NEEDS_TERMINAL",
-	"db.shell pg":             "NEEDS_TERMINAL",
-	"cluster.shell k8s pod/a": "NEEDS_TERMINAL",
-	"tunnel.start dev -L 0.0.0.0:15432:localhost:5432": "OPEN_BIND",
-	"host.edit prod --protected=false":                 "PROTECTED_TARGET", // vpn edit gives SAFETY_SETTING
-	"conn.edit pg-prot --protected=false":              "PROTECTED_TARGET",
-	"conn.edit r-prot --protected=false":               "PROTECTED_TARGET",
-	"conn.edit q-prot --protected=false":               "PROTECTED_TARGET",
-	"conn.edit s3-prot --protected=false":              "PROTECTED_TARGET",
-	"conn.edit reg-prot --protected=false":             "PROTECTED_TARGET",
-	"conn.edit k8s-prot --protected=false":             "PROTECTED_TARGET",
+	// the same strength under another code (C429: one code later)
+	"host.edit prod --protected=false":     "PROTECTED_TARGET", // vpn edit gives SAFETY_SETTING
+	"conn.edit pg-prot --protected=false":  "PROTECTED_TARGET",
+	"conn.edit r-prot --protected=false":   "PROTECTED_TARGET",
+	"conn.edit q-prot --protected=false":   "PROTECTED_TARGET",
+	"conn.edit s3-prot --protected=false":  "PROTECTED_TARGET",
+	"conn.edit reg-prot --protected=false": "PROTECTED_TARGET",
+	"conn.edit k8s-prot --protected=false": "PROTECTED_TARGET",
 	// --dry-run shows no stop; the real run stops (its own test proves it)
 	"host.ca.add ca1 --key ca.pub --hosts *.corp.example": "", // host_ca.go returns the preview before its NEEDS_PERSON
 	"host.trust dev":                  "", // guardFirstPin runs after the dry run returned
 	"import ssh-config ssh_config_rm": "", // the real run leaves the host out (IMPORT_INCOMPLETE)
 	"import ssh-config ssh_config_nc": "", // the real run leaves the host out (IMPORT_INCOMPLETE)
-	// the handler is stricter than the table (a stop no row names)
-	"registry.add reg3 registry://127.0.0.1:1?tls=false": "SAFETY_SETTING", // plain HTTP
-	"secret.run --env X=secret:pw -- true":               "SECRET_DESTINATION",
-	"storage.link s3 a.txt":                              "SENSITIVE_FILE",
 }
 
 // tierProof is the test that asserts a stop without --dry-run.
@@ -299,6 +293,9 @@ func TestTierMatchesRuntime(t *testing.T) {
 			args := append([]string{"--dry-run", "-o", "json"}, strings.Split(r.id, ".")...)
 			stdout, _, _ := goldenRunWith(t, true, append(args, r.args...), tierSeed)
 			got := runStop(stdout)
+			if slices.Contains(tierStopAlso[want], got) {
+				got = want // the same stop under its handler's code
+			}
 			if e := runErr(stdout); e == "USAGE" || strings.HasSuffix(e, "_NOT_FOUND") {
 				t.Fatalf("the command never reached its checks (%s):\n%s", e, stdout)
 			}
@@ -461,6 +458,15 @@ func goBlock(src, head string) string {
 		return rest[:j]
 	}
 	return rest
+}
+
+// tierStopAlso are other codes that are the stop of a tier: the same stop
+// under the code its handler gives (chief, 2026-11-25: C428 for
+// NEEDS_TERMINAL and OPEN_BIND, C431 for SECRET_DESTINATION and
+// SENSITIVE_FILE).
+var tierStopAlso = map[string][]string{
+	"NEEDS_PERSON":   {"NEEDS_TERMINAL"},
+	"SAFETY_SETTING": {"OPEN_BIND", "SECRET_DESTINATION", "SENSITIVE_FILE"},
 }
 
 // tierStop is the stop a run's tier names.

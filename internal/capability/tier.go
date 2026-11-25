@@ -160,6 +160,9 @@ var tierRows = concat2(
 		{Today: true, Key: own("snippet", "", "create"), Tier: Safety, When: Cond{Flags: []string{"overwrite", "read-only"}}, Dynamic: "it makes an existing snippet read-only"},
 		{Key: own("snippet", "", "edit"), Tier: Safety, When: Cond{Flags: []string{"read-only"}}, Dynamic: "it makes an existing snippet read-only"},
 		{Today: true, Key: Key{Type: "host", Provider: "ssh", Verb: "trust"}, Tier: Safety, Dynamic: "an AI agent pins a first host key while host keys are strict"},
+		{Today: true, Key: Key{Type: "registry", Verb: "add"}, Tier: Safety, Dynamic: "the address turns TLS off (plain HTTP)"},
+		{Today: true, Key: own("credential", "", "run"), Tier: Safety, Dynamic: "an AI agent hands a saved secret to a program"},
+		{Today: true, Key: Key{Type: "storage", Area: "object", Verb: "link"}, Tier: Safety, Dynamic: "an AI agent makes a link (a person allows --reveal)"},
 		{Today: true, Key: own("agent", "skill", "uninstall"), Tier: Safety, Dynamic: "it removes komando's guard from an AI agent's settings"},
 
 		{Today: true, Key: own("config", "", "approval-code"), Tier: Person},

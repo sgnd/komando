@@ -7020,7 +7020,8 @@ exit 0
 --- stdout
 Same as `komando conn add NAME URL`, for an image registry.
 
-Safety: a change; try it with --dry-run first.
+Safety: a change; try it with --dry-run first; when the address turns TLS
+off (plain HTTP): it weakens a safety check: a person's yes (--yes).
 
 Saves an image registry under a short name. Typed alone at a terminal, it
 asks step by step. The URL scheme sets the kind: `komando conn kinds` lists
@@ -7653,7 +7654,9 @@ gets HOME, USER and LOGNAME from your OS account (USERPROFILE on Windows),
 LANG, LC_*, TERM, TMPDIR, TZ, the Windows system folders, a system PATH and
 its --env values.
 
-Safety: a change; try it with --dry-run first.
+Safety: a change; try it with --dry-run first; when an AI agent hands a
+saved secret to a program: it weakens a safety check: a person's yes
+(--yes).
 
 The program's output goes through komando's masking: a vault value it
 prints shows as [secret:NAME]. komando exits with the program's exit code.
@@ -8171,8 +8174,9 @@ the storage address in the conn URL: when komando reaches it through --via,
 only people who can reach that address can use the link. --endpoint signs
 the link for the address they use instead (S3 only).
 
-Safety: a change; try it with --dry-run first; on a protected server or
-conn, a person's yes (--yes) as well.
+Safety: a change; try it with --dry-run first; when an AI agent makes a link
+(a person allows --reveal): it weakens a safety check: a person's yes
+(--yes); on a protected server or conn, a person's yes (--yes) as well.
 
 Usage:
   komando storage link CONN OBJECT [flags]

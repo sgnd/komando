@@ -229,7 +229,7 @@ recipe.list	kind=read|	target="servers"
 recipe.rm	kind=change|	target="servers"	
 recipe.run	kind=depends|decided by the recipe's command, like exec	target="servers"	dangerous|||a step matches a destructive rule|||
 registry	kind=read|	target=""	
-registry.add	kind=change|	target=""	
+registry.add	kind=change|	target=""	safety|||the address turns TLS off (plain HTTP)|||
 registry.copy	kind=change|	target=""	
 registry.inspect	kind=read|	target=""	
 registry.list	kind=read|	target=""	
@@ -246,7 +246,7 @@ secret.list	kind=read|	target=""
 secret.passphrase	kind=change|	target=""	person||||||
 secret.rename	kind=change|	target=""	
 secret.rm	kind=change|	target=""	dangerous||deletes the saved passwords||||
-secret.run	kind=depends|decided by the program it starts on this computer	target=""	
+secret.run	kind=depends|decided by the program it starts on this computer	target=""	safety|||an AI agent hands a saved secret to a program|||
 secret.set	kind=change|	target=""	
 secret.show	kind=read|	target=""	
 shell	kind=depends|an shellNote shell for a person: whatever they type	target="servers"	person||||||
@@ -259,7 +259,7 @@ storage.add	kind=change|	target=""
 storage.cat	kind=read|	target=""	
 storage.chmod	kind=change|	target=""	
 storage.download	kind=read|	target=""	
-storage.link	kind=change|	target=""	
+storage.link	kind=change|	target=""	safety|||an AI agent makes a link (a person allows --reveal)|||
 storage.list	kind=read|	target=""	
 storage.mkdir	kind=change|	target=""	
 storage.mv	kind=change|	target=""	

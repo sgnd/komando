@@ -7327,7 +7327,7 @@
         "path": "komando registry add",
         "usage": "komando registry add NAME URL [flags]",
         "short": "Add an image registry",
-        "long": "Same as `komando conn add NAME URL`, for an image registry.\n\nSafety: a change; try it with --dry-run first.\n\nSaves an image registry under a short name. Typed alone at a terminal, it\nasks step by step. The URL scheme sets the kind: `komando conn kinds` lists\nthem.",
+        "long": "Same as `komando conn add NAME URL`, for an image registry.\n\nSafety: a change; try it with --dry-run first; when the address turns TLS\noff (plain HTTP): it weakens a safety check: a person's yes (--yes).\n\nSaves an image registry under a short name. Typed alone at a terminal, it\nasks step by step. The URL scheme sets the kind: `komando conn kinds` lists\nthem.",
         "example": "  komando registry add ghcr registry://myuser@ghcr.io --ask-password\n  komando registry add ghcr registry://myuser@ghcr.io --ask-password --dry-run",
         "flags": [
           {
@@ -7400,6 +7400,11 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "when the address turns TLS off (plain HTTP)"
           }
         ],
         "add_kinds": [
@@ -7809,7 +7814,7 @@
         "path": "komando secret run",
         "usage": "komando secret run -- COMMAND [ARGS...] [flags]",
         "short": "Run a local command with vault secrets in its environment",
-        "long": "Starts COMMAND on this computer with the --env values in its environment. A\nvalue secret:NAME is read from the vault right before the program starts, so\nit is never in the command line or the shell history. The program starts\ndirectly, without a shell, with your environment minus komando's own\nKOMANDO_* variables and the values that unlock the vault. For an AI agent\nwith secrets, --env may add variables but never replace one komando sets\n(HOME, PATH, USER, LANG, ...), and may not set what decides which code or\nsettings the program loads: LD_PRELOAD, DYLD_*, NODE_OPTIONS, PYTHON*,\nBASH_ENV, a pager, an editor, an askpass helper, an rc file, a proxy, GIT_*,\nSSH_*, XDG_*, a tool's config file (KUBECONFIG, DOCKER_CONFIG,\n*_CONFIG_FILE, AWS_*_FILE, NPM_CONFIG_*) or a toolchain's (CC, CXX, GOFLAGS,\nGOTOOLCHAIN, CARGO_*, RUSTC_WRAPPER, JAVA_HOME, MAVEN_OPTS). The program\ngets HOME, USER and LOGNAME from your OS account (USERPROFILE on Windows),\nLANG, LC_*, TERM, TMPDIR, TZ, the Windows system folders, a system PATH and\nits --env values.\n\nSafety: a change; try it with --dry-run first.\n\nThe program's output goes through komando's masking: a vault value it\nprints shows as [secret:NAME]. komando exits with the program's exit code.\n\nFor an AI agent every secret:NAME needs a person's yes (--yes, then\nkomando's window names the secrets and the program), since the program\ncould print a value in a form masking does not know. A secret a protected\nserver, conn or VPN uses asks a person at a terminal too.",
+        "long": "Starts COMMAND on this computer with the --env values in its environment. A\nvalue secret:NAME is read from the vault right before the program starts, so\nit is never in the command line or the shell history. The program starts\ndirectly, without a shell, with your environment minus komando's own\nKOMANDO_* variables and the values that unlock the vault. For an AI agent\nwith secrets, --env may add variables but never replace one komando sets\n(HOME, PATH, USER, LANG, ...), and may not set what decides which code or\nsettings the program loads: LD_PRELOAD, DYLD_*, NODE_OPTIONS, PYTHON*,\nBASH_ENV, a pager, an editor, an askpass helper, an rc file, a proxy, GIT_*,\nSSH_*, XDG_*, a tool's config file (KUBECONFIG, DOCKER_CONFIG,\n*_CONFIG_FILE, AWS_*_FILE, NPM_CONFIG_*) or a toolchain's (CC, CXX, GOFLAGS,\nGOTOOLCHAIN, CARGO_*, RUSTC_WRAPPER, JAVA_HOME, MAVEN_OPTS). The program\ngets HOME, USER and LOGNAME from your OS account (USERPROFILE on Windows),\nLANG, LC_*, TERM, TMPDIR, TZ, the Windows system folders, a system PATH and\nits --env values.\n\nSafety: a change; try it with --dry-run first; when an AI agent hands a\nsaved secret to a program: it weakens a safety check: a person's yes\n(--yes).\n\nThe program's output goes through komando's masking: a vault value it\nprints shows as [secret:NAME]. komando exits with the program's exit code.\n\nFor an AI agent every secret:NAME needs a person's yes (--yes, then\nkomando's window names the secrets and the program), since the program\ncould print a value in a form masking does not know. A secret a protected\nserver, conn or VPN uses asks a person at a terminal too.",
         "example": "  komando secret run --env PGPASSWORD=secret:db-main -- psql -h 10.0.0.5 -U app\n  komando secret run -e AWS_SECRET_ACCESS_KEY=secret:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan\n  komando secret run --dry-run --env TOKEN=secret:gh-token -- ./deploy.sh",
         "flags": [
           {
@@ -7826,6 +7831,11 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "when an AI agent hands a saved secret to a program"
           }
         ]
       },
@@ -8403,7 +8413,7 @@
         "path": "komando storage link",
         "usage": "komando storage link CONN OBJECT [flags]",
         "short": "Make a temporary download link that works without a login",
-        "long": "Prints a URL anyone can use to download KEY until it expires (default 1\nhour, at most 7 days). Treat it like a password while it is valid. Sharing\nfrom a protected conn needs --yes. An AI agent gets a link only when a\nperson allows --reveal, and never for a file that is a secret by its name\n(.env, a key): a link is the file as it is, past the hiding of storage cat\nand download. The link itself is not stored in the audit log. The link names\nthe storage address in the conn URL: when komando reaches it through --via,\nonly people who can reach that address can use the link. --endpoint signs\nthe link for the address they use instead (S3 only).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "long": "Prints a URL anyone can use to download KEY until it expires (default 1\nhour, at most 7 days). Treat it like a password while it is valid. Sharing\nfrom a protected conn needs --yes. An AI agent gets a link only when a\nperson allows --reveal, and never for a file that is a secret by its name\n(.env, a key): a link is the file as it is, past the hiding of storage cat\nand download. The link itself is not stored in the audit log. The link names\nthe storage address in the conn URL: when komando reaches it through --via,\nonly people who can reach that address can use the link. --endpoint signs\nthe link for the address they use instead (S3 only).\n\nSafety: a change; try it with --dry-run first; when an AI agent makes a link\n(a person allows --reveal): it weakens a safety check: a person's yes\n(--yes); on a protected server or conn, a person's yes (--yes) as well.",
         "aliases": [
           "presign",
           "share"
@@ -8427,6 +8437,11 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "when an AI agent makes a link (a person allows --reveal)"
           }
         ]
       },
