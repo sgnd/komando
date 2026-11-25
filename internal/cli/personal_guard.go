@@ -167,19 +167,55 @@ func maskingConnOn(st *store.State, h *store.Host) bool {
 		if slices.ContainsFunc(inventory.ViaChain(c.Via), func(s string) bool { return strings.EqualFold(s, h.Name) }) {
 			return true
 		}
-		t, err := driver.Parse(c.URL)
-		if err != nil || t.Address == "" {
-			continue
-		}
-		addr := t.Address
-		if a, _, err := net.SplitHostPort(addr); err == nil {
-			addr = a
-		}
-		if strings.EqualFold(addr, h.Address) || strings.EqualFold(addr, h.Name) {
+		if serverNamed(h, connServer(c)) {
 			return true
 		}
 	}
 	return false
+}
+
+// connServer is the server a conn's URL names (its host, without the
+// port), or "" when it names none.
+func connServer(c *store.Conn) string {
+	t, err := driver.Parse(c.URL)
+	if err != nil || t.Address == "" {
+		return ""
+	}
+	if a, _, err := net.SplitHostPort(t.Address); err == nil {
+		return a
+	}
+	return t.Address
+}
+
+// serverNamed says whether addr names h, by its address or its name.
+func serverNamed(h *store.Host, addr string) bool {
+	return addr != "" && (strings.EqualFold(addr, h.Address) || strings.EqualFold(addr, h.Name))
+}
+
+// maskingConnsUnmatched are the conns that hide personal data but reach
+// no server komando knows: no --via, and a URL whose server matches no
+// inventory server by address or name. maskingConnOn cannot follow them
+// to a server (doctor lists them). A database file, a bucket, and a
+// server on this computer have no server to add.
+func maskingConnsUnmatched(st *store.State) map[string]string {
+	res := map[string]string{}
+	for _, c := range st.SortedConns() {
+		if c.Via != "" || !maskedConn(c) && maskedTwin(st, c) == nil {
+			continue
+		}
+		t, err := driver.Parse(c.URL)
+		addr := connServer(c)
+		if err != nil || t.Kind.File || t.Bucket != "" || addr == "" || addr == "localhost" {
+			continue
+		}
+		if ip := net.ParseIP(addr); ip != nil && ip.IsLoopback() {
+			continue
+		}
+		if !slices.ContainsFunc(st.SortedHosts(), func(h *store.Host) bool { return serverNamed(h, addr) }) {
+			res[c.Name] = addr
+		}
+	}
+	return res
 }
 
 // guardRawCopy stops an AI agent from taking a copy that cannot be masked

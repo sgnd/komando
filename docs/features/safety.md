@@ -374,7 +374,9 @@ komando config set mask_personal protected       # back to the default (komando 
   another conn to the same database that does) hides it on its servers
   too: the servers on its `--via` path and the server its URL names. What
   an agent reads there (`exec` output, `download`, `cp`) shows personal
-  data hidden, whatever the setting.
+  data hidden, whatever the setting. `komando doctor` lists such a conn
+  whose server has a name or address komando does not know: add `--via`,
+  or give the host's address.
 - Names and street addresses have no shape komando can find, so name the
   columns that hold them in `mask_columns`, split by spaces. Setting it
   also turns personal data hiding on for that conn.

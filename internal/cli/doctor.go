@@ -167,7 +167,9 @@ func inventoryChecks(cl *call, st *store.State) []securityCheck {
 //     it for the protected one breaks this conn;
 //   - two conns of the same kind with the same URL (user included) and
 //     --via: one is enough;
-//   - an unprotected conn with the label host=SERVER of a protected server.
+//   - an unprotected conn with the label host=SERVER of a protected server;
+//   - a conn that hides personal data on a server komando does not know
+//     by that name or address (maskingConnsUnmatched).
 func connHygiene(st *store.State, warn func(name, detail string, fix ...string)) {
 	prot := map[string][]string{} // secret name → the protected targets using it
 	for _, h := range st.SortedHosts() {
@@ -183,6 +185,7 @@ func connHygiene(st *store.State, warn func(name, detail string, fix ...string))
 		}
 	}
 	same := map[string]string{} // kind, URL and via → the first conn with them
+	unmatched := maskingConnsUnmatched(st)
 	for _, c := range st.SortedConns() {
 		name := "conn:" + c.Name
 		if n, ok := strings.CutPrefix(c.PasswordRef, "secret:"); ok && !c.Protected && len(prot[n]) > 0 {
@@ -199,6 +202,10 @@ func connHygiene(st *store.State, warn func(name, detail string, fix ...string))
 		if h := st.Hosts[c.Labels["host"]]; h != nil && h.Protected && !c.Protected {
 			fix := withFlag(komandoFix("conn", "edit", c.Name), "--protected")
 			warn(name, "has the label host="+h.Name+", a protected server, but is not protected itself: `komando conn edit "+argQ(c.Name)+" --protected`", fix...)
+		}
+		if addr, ok := unmatched[c.Name]; ok {
+			// no fix: only a person knows which server it is
+			warn(name, "a conn that hides personal data names a server komando does not know by that name ("+addr+"); add --via, or give the host's address")
 		}
 	}
 }
