@@ -149,3 +149,63 @@ func TestGuardKomandoProgramStaysProtected(t *testing.T) {
 		"gh run download 1 -R sgnd/komando -D ~/newbin/komando",
 	}, true)
 }
+
+// A sed script glued to its option, alone or in a cluster, is a script as
+// getopt reads it, and is checked: a write in it is refused. So is an
+// option the reader does not know, a script or program file, and sort's
+// temporary folder.
+func TestGuardReaderOptionsAsGetoptReadsThem(t *testing.T) {
+	home, _ := guardLineHome(t)
+	hook := filepath.ToSlash(filepath.Join(home, ".claude", "settings.json"))
+	codex := "./.codex/hooks.json" // no i, I or f in it, as in Audit's case
+	checkLines(t, home, home, []string{
+		"sed -n -es/^/x/w" + codex + " p",
+		"sed -nes/^/x/w" + codex + " p",
+		"sed --expression=s/^/x/w" + codex + " p",
+		"sed --expr=s/^/x/w" + codex + " p",
+		"sed -n --e s/^/x/w" + codex + " p",
+		"sed -n -es/^/x/w" + hook + " p",
+		"sed -n -l 5 -ew/tmp/x " + hook,
+		"sed -nf /tmp/script " + hook,
+		"sed -n --fi=/tmp/script " + hook,
+		"sed -nX p " + hook,
+		// the hook file is only read here: the parser alone must find the write
+		"sed -n -ew/tmp/x p " + hook,
+		"sed -new/tmp/x p " + hook,
+		"sed --expression=w/tmp/x p " + hook,
+		"sed --expression w/tmp/x p " + hook,
+		"sed -n -f p " + hook,
+		"sed -n --fi=/tmp/s p " + hook,
+		"awk -f /tmp/prog " + hook,
+		"awk -vx=1 -fprog " + hook,
+		"sort -T ~/.claude /tmp/x",
+		"sort -T /tmp/t " + hook,
+		"sort --temp=/tmp " + hook,
+		"sort -uo " + hook + " /tmp/x",
+		"uniq --skip-fields 1 /tmp/x " + hook,
+	}, true)
+	checkLines(t, home, home, []string{
+		"sed -n p " + hook,
+		"sed -ne 1,5p " + hook,
+		"sed -n -e 1p -e 2p " + hook,
+		"sed --quiet --expression=1p " + hook,
+		"sed -nE '/hooks/p' " + hook,
+		"sort -k2 -t: " + hook,
+		"uniq -c " + hook,
+		"awk -F: -v n=2 '{print $n}' " + hook,
+	}, false)
+}
+
+// A program that writes in another form is checked against the whole
+// line even in its read form: a hook file named in its script or a flag,
+// not as a file it reads, is refused.
+func TestGuardReaderScriptNamingAHookFile(t *testing.T) {
+	home, _ := guardLineHome(t)
+	hook := filepath.ToSlash(filepath.Join(home, ".claude", "settings.json"))
+	checkLines(t, home, home, []string{
+		"sed -n 's|x|" + hook + "|p' /tmp/x",
+		"awk '{print \"" + hook + "\"}' /tmp/x",
+		"f=" + hook + "; sed -n p /tmp/x",
+		"git fetch https://github.com/sgnd/komando",
+	}, true)
+}

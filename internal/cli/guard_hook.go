@@ -470,100 +470,189 @@ var readOnlyPrograms = map[string]bool{"cat": true, "less": true, "more": true, 
 
 // readsOnly says whether the program base, run with args, only reads the
 // files it names: a reader (readOnlyPrograms), or a program that writes
-// only in a form args do not use. sort -o, uniq's output file, sed -i,
-// awk -i inplace and a write or command inside a sed or awk program write.
+// only in a form args do not use (readerArgs).
 func readsOnly(base string, args []string) bool {
 	if readOnlyPrograms[base] {
 		return true
 	}
+	_, ok := readerArgs(base, args)
+	return ok
+}
+
+// readerArgs says whether a program that reads in one form and writes in
+// another (sort -o, uniq's output file, sed -i, awk -i inplace, a write or
+// a command in a sed or awk program) is run in its read form, and which
+// args are the files it reads. Its options are read as getopt reads them
+// (optSpec); an option it does not know is taken as a write.
+func readerArgs(base string, args []string) (files []int, ok bool) {
+	spec, known := readerSpecs[base]
+	if !known {
+		return nil, false
+	}
+	scripts, operands, ok := spec.parse(args)
+	if !ok {
+		return nil, false
+	}
 	switch base {
 	case "sort":
-		for _, a := range args {
-			if a == "--" {
+		return operands, true
+	case "uniq": // uniq [IN [OUT]]: a second file is written
+		return operands, len(operands) <= 1
+	case "go":
+		if len(operands) == 0 || args[operands[0]] != "version" {
+			return nil, false
+		}
+		return operands[1:], true
+	case "sed", "gsed":
+		if len(scripts) == 0 { // no -e: the first operand is the script
+			if len(operands) == 0 {
+				return nil, false
+			}
+			scripts, operands = []string{args[operands[0]]}, operands[1:]
+		}
+		for _, sc := range scripts {
+			if !sedScriptReadsOnly(sc) {
+				return nil, false
+			}
+		}
+		return operands, true
+	default: // awk: the first operand is the program
+		if len(operands) == 0 || awkWrites.MatchString(args[operands[0]]) {
+			return nil, false
+		}
+		var l []int
+		for _, i := range operands[1:] {
+			if !envAssign.MatchString(args[i]) { // var=value is no file
+				l = append(l, i)
+			}
+		}
+		return l, true
+	}
+}
+
+// optSpec says how a program reads its options, as getopt does: short
+// letters that stand alone (flags), that take a value (the rest of the
+// word, or else the next word), that take a script (a value that is
+// checked), and long names with their kind. A letter or name not listed
+// is refused, and so is a long name shortened so that it could be two.
+type optSpec struct {
+	flags, values, scripts string
+	long                   map[string]optKind
+}
+
+type optKind int
+
+const (
+	optRefuse optKind = iota
+	optFlag
+	optValue
+	optScript
+)
+
+// parse gives the scripts the options carry and the indexes of the
+// operands, or false when an option is refused or unknown.
+func (o optSpec) parse(args []string) (scripts []string, operands []int, ok bool) {
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case a == "--":
+			for j := i + 1; j < len(args); j++ {
+				operands = append(operands, j)
+			}
+			return scripts, operands, true
+		case strings.HasPrefix(a, "--"):
+			name, val, hasVal := strings.Cut(a[2:], "=")
+			k := o.longKind(name)
+			switch {
+			case k == optRefuse:
+				return nil, nil, false
+			case k == optFlag:
+			case hasVal:
+				if k == optScript {
+					scripts = append(scripts, val)
+				}
+			case i+1 < len(args):
+				i++
+				if k == optScript {
+					scripts = append(scripts, args[i])
+				}
+			default:
+				return nil, nil, false
+			}
+		case len(a) > 1 && a[0] == '-':
+			for j := 1; j < len(a); j++ {
+				c := a[j]
+				switch {
+				case strings.IndexByte(o.flags, c) >= 0:
+					continue
+				case strings.IndexByte(o.values, c) >= 0 || strings.IndexByte(o.scripts, c) >= 0:
+					v := a[j+1:]
+					if v == "" {
+						if i+1 == len(args) {
+							return nil, nil, false
+						}
+						i++
+						v = args[i]
+					}
+					if strings.IndexByte(o.scripts, c) >= 0 {
+						scripts = append(scripts, v)
+					}
+				default:
+					return nil, nil, false
+				}
 				break
 			}
-			if strings.HasPrefix(a, "--o") || strings.HasPrefix(a, "--c") || shortFlagsHave(a, "o") { // --output, --compress-program
-				return false
-			}
-		}
-		return true
-	case "uniq": // uniq [IN [OUT]]: a second file is written
-		return len(nonFlagArgs(args, "fsw")) <= 1
-	case "go":
-		return len(args) > 0 && args[0] == "version"
-	case "sed", "gsed":
-		return sedReadsOnly(args)
-	case "awk", "gawk", "mawk", "nawk":
-		return awkReadsOnly(args)
-	}
-	return false
-}
-
-// shortFlagsHave says whether a is a cluster of short flags (-ni) that
-// holds one of the letters in set.
-func shortFlagsHave(a, set string) bool {
-	return len(a) > 1 && a[0] == '-' && a[1] != '-' && strings.ContainsAny(a[1:], set)
-}
-
-// nonFlagArgs are args that are not flags; a short flag in withValue takes
-// the next word as its value.
-func nonFlagArgs(args []string, withValue string) []string {
-	var l []string
-	for i := 0; i < len(args); i++ {
-		a := args[i]
-		switch {
-		case a == "--":
-			return append(l, args[i+1:]...)
-		case len(a) == 2 && a[0] == '-' && strings.ContainsRune(withValue, rune(a[1])):
-			i++
-		case strings.HasPrefix(a, "-") && a != "-":
 		default:
-			l = append(l, a)
+			operands = append(operands, i)
 		}
 	}
-	return l
+	return scripts, operands, true
 }
 
-// sedReadsOnly says whether sed, run with args, writes no file: no
-// in-place flag, no script file, and scripts that only print, delete,
-// substitute and move between lines (sedScriptReadsOnly).
-func sedReadsOnly(args []string) bool {
-	var scripts []string
-	for i := 0; i < len(args); i++ {
-		a := args[i]
-		switch {
-		case a == "--":
-			i = len(args)
-		case a == "-e":
-			if i+1 < len(args) {
-				scripts = append(scripts, args[i+1])
-			}
-			i++
-		case strings.HasPrefix(a, "--e"): // --expression, as GNU sed takes it shortened
-			if v, ok := strings.CutPrefix(a[strings.IndexByte(a+"=", '='):], "="); ok {
-				scripts = append(scripts, v)
-			} else if i+1 < len(args) {
-				scripts = append(scripts, args[i+1])
-				i++
-			}
-		case strings.HasPrefix(a, "--f") || strings.HasPrefix(a, "--i") || shortFlagsHave(a, "iIf"):
-			return false // a script file, or an in-place edit (also shortened)
+// longKind is the kind of a long option name, which may be shortened to
+// any prefix that fits one name only.
+func (o optSpec) longKind(name string) optKind {
+	if k, ok := o.long[name]; ok {
+		return k
+	}
+	found, kind := 0, optRefuse
+	for n, k := range o.long {
+		if strings.HasPrefix(n, name) {
+			found, kind = found+1, k
 		}
 	}
-	if len(scripts) == 0 {
-		ops := nonFlagArgs(args, "el")
-		if len(ops) == 0 {
-			return false
-		}
-		scripts = ops[:1]
+	if found != 1 {
+		return optRefuse
 	}
-	for _, sc := range scripts {
-		if !sedScriptReadsOnly(sc) {
-			return false
-		}
-	}
-	return true
+	return kind
 }
+
+// readerSpecs are the options of the programs readerArgs knows. A form
+// that writes is left out, so it is refused: sort -o, -T and
+// --compress-program, sed -i, -I and -f, awk's every option but -F and -v.
+var readerSpecs = map[string]optSpec{
+	"sort": {flags: "bdfgiMhnRrVcCmsuz", values: "ktS", long: map[string]optKind{
+		"ignore-leading-blanks": optFlag, "dictionary-order": optFlag, "ignore-case": optFlag, "general-numeric-sort": optFlag,
+		"ignore-nonprinting": optFlag, "month-sort": optFlag, "human-numeric-sort": optFlag, "numeric-sort": optFlag,
+		"random-sort": optFlag, "reverse": optFlag, "version-sort": optFlag, "check": optFlag, "merge": optFlag,
+		"stable": optFlag, "unique": optFlag, "zero-terminated": optFlag, "debug": optFlag,
+		"key": optValue, "field-separator": optValue, "buffer-size": optValue, "parallel": optValue, "sort": optValue,
+		"output": optRefuse, "compress-program": optRefuse, "temporary-directory": optRefuse}},
+	"uniq": {flags: "cdDiuz", values: "fsw", long: map[string]optKind{
+		"count": optFlag, "repeated": optFlag, "all-repeated": optFlag, "group": optFlag, "ignore-case": optFlag,
+		"unique": optFlag, "zero-terminated": optFlag, "skip-fields": optValue, "skip-chars": optValue, "check-chars": optValue}},
+	"go":  {flags: "mv"},
+	"sed": sedSpec, "gsed": sedSpec,
+	"awk": awkSpec, "gawk": awkSpec, "mawk": awkSpec, "nawk": awkSpec,
+}
+
+var sedSpec = optSpec{flags: "nErsuzba", values: "l", scripts: "e", long: map[string]optKind{
+	"quiet": optFlag, "silent": optFlag, "regexp-extended": optFlag, "separate": optFlag, "unbuffered": optFlag,
+	"null-data": optFlag, "zero-terminated": optFlag, "posix": optFlag, "debug": optFlag, "sandbox": optFlag,
+	"follow-symlinks": optFlag, "binary": optFlag, "line-length": optValue, "expression": optScript,
+	"file": optRefuse, "in-place": optRefuse}}
+
+var awkSpec = optSpec{values: "Fv"}
 
 // sedScriptReadsOnly says whether a sed script writes no file and runs no
 // command: every command is p, d, q, =, a line move or a hold-space step,
@@ -657,26 +746,6 @@ func sedScriptReadsOnly(sc string) bool {
 // gawk's @load and @include (an extension such as inplace or rwarray).
 var awkWrites = regexp.MustCompile(`\bprintf?\b[^;{}]*>|(^|[^|])\|($|[^|])|\bsystem\s*\(|@(load|include)`)
 
-// awkReadsOnly says whether awk, run with args, writes no file: no -i
-// (gawk's inplace), no program file, and a program without awkWrites.
-func awkReadsOnly(args []string) bool {
-	for i := 0; i < len(args); i++ {
-		a := args[i]
-		switch {
-		case a == "--":
-			i = len(args)
-		case a == "-F" || a == "-v":
-			i++
-		case strings.HasPrefix(a, "-F") || strings.HasPrefix(a, "-v"):
-		case strings.HasPrefix(a, "-"):
-			return false // -f, -i, -E, --include and the rest
-		default:
-			return !awkWrites.MatchString(a)
-		}
-	}
-	return false
-}
-
 // komandoWordHarmless says whether a word w of line that ends in /komando
 // may stay: nothing is at its path p (no file, link or folder), and line
 // cannot create it (harmlessKomandoLine). A repo slug (gh -R sgnd/komando),
@@ -748,10 +817,9 @@ func ghReadsOnly(args []string) bool {
 	return true
 }
 
-// gitReadOnlyCommands only read the repository and the remote; fetch
-// writes only inside .git.
+// gitReadOnlyCommands only read the repository and the remote.
 var gitReadOnlyCommands = map[string]bool{"status": true, "log": true, "show": true, "diff": true, "ls-remote": true, "ls-files": true,
-	"ls-tree": true, "rev-parse": true, "rev-list": true, "remote": true, "fetch": true, "describe": true, "blame": true, "grep": true,
+	"ls-tree": true, "rev-parse": true, "rev-list": true, "remote": true, "describe": true, "blame": true, "grep": true,
 	"cat-file": true, "shortlog": true, "branch": true, "tag": true, "merge-base": true, "for-each-ref": true, "show-ref": true, "reflog": true}
 
 // gitReadsOnly says whether git, run with args, writes no file outside
@@ -879,17 +947,55 @@ var inlineCode = map[string]bool{"python": true, "python2": true, "python3": tru
 
 // checkGuardFiles refuses a segment of line that changes a guard file:
 // named as its argument or redirect (checkSelfWrite), or anywhere on the
-// line when its program is not only a reader (checkGuardFileNamed).
+// line when its program is not only a reader (checkGuardFileNamed). A
+// program that writes in another form (sed, awk, sort, uniq, go) is
+// checked against the line too, without the files the readers on it
+// read (lineWithoutReadFiles): a path in its script or a flag still counts.
 // komando's own commands check the files they write themselves.
 func checkGuardFiles(cl *call, line, seg, prog string, args []string, home, cwd string) guardDecision {
 	base := filepath.Base(prog)
 	if base == "komando" {
 		return allow()
 	}
-	if d := checkSelfWrite(cl, line, seg, base, args, home, cwd); d.Deny || prog == "" || readsOnly(base, args) {
+	if d := checkSelfWrite(cl, line, seg, base, args, home, cwd); d.Deny || prog == "" || readOnlyPrograms[base] {
 		return d
 	}
+	if _, ok := readerArgs(base, args); ok {
+		return checkGuardFileNamed(cl, lineWithoutReadFiles(line), base, args, home, cwd)
+	}
 	return checkGuardFileNamed(cl, line, base, args, home, cwd)
+}
+
+// lineWithoutReadFiles is line, its commands' words joined, without the
+// files its readers read: every argument of a program in
+// readOnlyPrograms, and the operands readerArgs gives for a program in its
+// read form. Scripts, flag values, variables and every other command stay.
+func lineWithoutReadFiles(line string) string {
+	var out []string
+	for _, seg := range splitShell(line) {
+		words := shellWords(seg)
+		prog, args := program(words)
+		first := len(words) - len(args) // where the arguments start
+		base := filepath.Base(prog)
+		drop := map[int]bool{}
+		if prog != "" && readOnlyPrograms[base] {
+			for i := range args {
+				drop[i] = true
+			}
+		} else if files, ok := readerArgs(base, args); prog != "" && ok {
+			for _, i := range files {
+				drop[i] = true
+			}
+		}
+		var kept []string
+		for j, w := range words {
+			if j < first || !drop[j-first] {
+				kept = append(kept, w)
+			}
+		}
+		out = append(out, strings.Join(kept, " "))
+	}
+	return strings.Join(out, " ; ")
 }
 
 // checkGuardFileNamed refuses a command that is not only a reader when its
