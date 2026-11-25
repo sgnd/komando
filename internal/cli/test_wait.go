@@ -209,6 +209,18 @@ func endSessions(cl *call, args []string, only string) error {
 	default:
 		names = slices.Sorted(maps.Keys(st.Logins))
 	}
+	// ending a kept session changes how komando reaches that server: the
+	// change-tier guard, as for any change there (a protected server needs
+	// --yes). A server removed since has no inventory entry to guard.
+	var hosts []*store.Host
+	for _, n := range names {
+		if h := st.Hosts[n]; h != nil {
+			hosts = append(hosts, h)
+		}
+	}
+	if err := Guard(cl, st, hosts, "", true); err != nil {
+		return err
+	}
 	if cl.flags.dryRun {
 		cl.out.Print("test.end", testEndData{Ended: names}, nil)
 		return nil

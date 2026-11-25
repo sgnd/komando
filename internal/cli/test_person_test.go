@@ -108,3 +108,34 @@ func TestTestNeedsATargetWithoutEnd(t *testing.T) {
 	wantCode(t, "USAGE", "test")
 	wantCode(t, "USAGE", "host", "test")
 }
+
+// An AI agent's --end goes through the change-tier guard: ending the kept
+// session of a protected server needs --yes, as any change there does
+// (a dry run reports the stop); other servers' sessions end as before.
+func TestTestEndIsGuarded(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "web1", "u@127.0.0.1:1", "--protected")
+	mustRun(t, "host", "add", "web2", "u@127.0.0.1:2")
+	if err := store.UpdateRuntime(tcl.storeWrite(), func(s *store.State) error {
+		s.Logins["web1"] = &store.SSHLogin{Host: "web1", Until: time.Now().Add(time.Hour)}
+		s.Logins["web2"] = &store.SSHLogin{Host: "web2", Until: time.Now().Add(time.Hour)}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
+	for _, args := range [][]string{{"host", "test", "web1", "--end"}, {"test", "web1", "--end"}, {"test", "--end"}} {
+		wantCode(t, "PROTECTED_TARGET", args...)
+		if st, _ := store.Load(); st.Logins["web1"] == nil || st.Logins["web2"] == nil {
+			t.Fatalf("%v ended a session: %v", args, st.Logins)
+		}
+		if d, e := invRun(t, append([]string{"--dry-run"}, args...)...); e != nil || blockedCode(d) != "PROTECTED_TARGET" {
+			t.Errorf("%v --dry-run reports the stop: %v %+v", args, d, e)
+		}
+		tcl.flags.dryRun = false
+	}
+	mustRun(t, "host", "test", "web2", "--end")
+	if st, _ := store.Load(); st.Logins["web1"] == nil || st.Logins["web2"] != nil {
+		t.Fatalf("host test web2 --end: %v", st.Logins)
+	}
+}
