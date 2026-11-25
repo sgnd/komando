@@ -425,6 +425,7 @@ func TestMigrate3FailsClosed(t *testing.T) {
 		setup func(t *testing.T)
 		opts  func(o *migrate3Opts)
 		code  string
+		says  string // a part of the message, when one matters
 	}{
 		{name: "an AI agent or a script", opts: func(o *migrate3Opts) { o.person = false }, code: "NEEDS_PERSON"},
 		{
@@ -456,6 +457,7 @@ func TestMigrate3FailsClosed(t *testing.T) {
 			},
 			opts: func(o *migrate3Opts) { o.alive = func(int, string) bool { return false } },
 			code: "STORE_IN_USE",
+			says: "or stop it: komando exec web --attach abc --stop, then komando exec web --attach abc --remove",
 		},
 		{
 			name: "a deny pattern changed outside komando",
@@ -548,6 +550,9 @@ func TestMigrate3FailsClosed(t *testing.T) {
 			var e *out.Error
 			if !errors.As(err, &e) || e.Code != tt.code {
 				t.Fatalf("want %s, got %v", tt.code, err)
+			}
+			if !strings.Contains(e.Message, tt.says) {
+				t.Errorf("message %q lacks %q", e.Message, tt.says)
 			}
 			if want := map[string]int{"STORE_IN_USE": out.ExitConflict, "STORE_MIGRATION_FAILED": out.ExitError, "NEEDS_PERSON": out.ExitPolicy}[tt.code]; want != 0 && e.Exit != want {
 				t.Errorf("%s: exit %d, want %d (S-8.2)", tt.code, e.Exit, want)

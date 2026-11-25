@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	kitterm "github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -253,7 +254,7 @@ func TestSecretDiffAndWarning(t *testing.T) {
 			t.Errorf("%q: %q", v, got)
 		}
 	}
-	if got := stripPasteMarks("\x1b[200~pw\x1b[201~"); got != "pw" {
+	if got := kitterm.StripPasteMarks("\x1b[200~pw\x1b[201~"); got != "pw" {
 		t.Errorf("paste marks: %q", got)
 	}
 }
