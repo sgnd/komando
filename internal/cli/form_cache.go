@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
 )
@@ -250,7 +251,7 @@ func formSavedSecretProblem(v string, anyRef bool) string {
 	case !vault.ValidRef(v), !anyRef && !strings.HasPrefix(v, "secret:"):
 		return msg
 	}
-	if n, ok := strings.CutPrefix(v, "secret:"); ok && validName("secret", n) != nil {
+	if n, ok := strings.CutPrefix(v, "secret:"); ok && inventory.ValidName("secret", n) != nil {
 		return msg
 	}
 	return ""

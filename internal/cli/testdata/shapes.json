@@ -1039,7 +1039,8 @@
           "id": "string",
           "reason": "string"
         }
-      ]
+      ],
+      "off": {}
     },
     "error": {
       "code": "code POLICY_BLOCKED",
@@ -1057,7 +1058,8 @@
     "command": "string",
     "data": {
       "blocked": "bool",
-      "matches": []
+      "matches": [],
+      "off": {}
     },
     "meta": {
       "contract": "number",
@@ -1072,6 +1074,7 @@
       "builtin": [
         {
           "id": "string",
+          "off": "string",
           "pattern": "string",
           "reason": "string"
         }

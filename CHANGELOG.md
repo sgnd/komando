@@ -7,6 +7,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+
+- `komando policy edit RULE --off` switches a rule off, everywhere or with `--add-server` and `--add-group` only on those servers (a group as its servers are when you switch it); `--off=false` switches it on again everywhere, and `--rm-server` and `--rm-group` on those servers. komando asks first, naming the rule, the servers and what it will no longer stop; an AI agent's request opens the approval window, and for a rule that keeps the others working (such as `check-failed`, `decode-run` or `rm-root`) you type its name at a terminal. `policy show RULE`, `policy list`, `policy check` and `komando doctor` show every rule that is off, and the audit log keeps each switch with the servers before and after.
+
 ### Changed
 
 - The agent guard's hook line refuses a tool call when the guard cannot answer (komando missing, not a program, or failing), in each agent tool's own format. The guard refuses an AI agent's change to the agents' hook settings and folders and to the komando program the hook runs. `komando doctor` checks every agent's hook line and its program, `komando guide install` replaces an older line, and `komando update` says when one is left. On Windows no guard hook is set up for now; `komando doctor` says so.

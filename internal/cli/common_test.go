@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sealdb"
 	"github.com/sgnd/komando/internal/sealkey"
 	"github.com/sgnd/komando/internal/sealrow"
@@ -137,6 +138,28 @@ func TestOwnScriptsThroughExecHitCarriedRules(t *testing.T) {
 		}
 		if n := len(srv.take()); n != 0 {
 			t.Errorf("%s through exec ran %d times", name, n)
+		}
+	}
+}
+
+// A cancelled command (Ctrl-C, a signal) stops with CANCELLED: agents
+// branch on the code and the exit, a person reads the text.
+func TestCancelledErrorUnchanged(t *testing.T) {
+	for name, e := range map[string]*out.Error{
+		"toErr":   toErr(context.Canceled),
+		"wrapped": toErr(fmt.Errorf("copy: %w", context.Canceled)),
+	} {
+		if e.Code != "CANCELLED" || e.Message != "interrupted" || e.Exit != out.ExitError {
+			t.Errorf("%s: code %q, message %q, exit %d", name, e.Code, e.Message, e.Exit)
+		}
+		if want := "it stopped before the end (Ctrl-C or a signal); check what it left, then run it again"; e.Hint != want {
+			t.Errorf("%s: hint %q, want %q", name, e.Hint, want)
+		}
+		if want := "Stopped (Ctrl-C) before the end; what already ran stays as it is"; e.TextMessage() != want {
+			t.Errorf("%s: text message %q", name, e.TextMessage())
+		}
+		if want := "check what it left, then run it again"; e.TextHint() != want {
+			t.Errorf("%s: text hint %q", name, e.TextHint())
 		}
 	}
 }

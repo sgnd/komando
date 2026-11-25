@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -48,7 +49,7 @@ still work, since the key itself does not change.`,
 				if k.Name == to {
 					return renameSet{}, renameOpts{}, nil
 				}
-				if err := validName("key", to); err != nil {
+				if err := inventory.ValidName("key", to); err != nil {
 					return nil, renameOpts{}, err
 				}
 				if s.Keys[to] != nil {
@@ -95,7 +96,7 @@ renaming it needs --yes, once for all of them.`,
 				if len(spellings) == 0 {
 					return nil, renameOpts{}, groupNotFound(cl, s, from)
 				}
-				if err := validLabelName("group", to); err != nil {
+				if err := inventory.ValidLabelName("group", to); err != nil {
 					return nil, renameOpts{}, err
 				}
 				if !strings.EqualFold(from, to) {

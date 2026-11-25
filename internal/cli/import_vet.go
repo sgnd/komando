@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -49,7 +50,7 @@ func vetImportHosts(cl *call, s *store.State, hosts []*store.Host, overwrite, ow
 			old, isHost := s.Hosts[h.Name]
 			switch {
 			case kind != "host" || existing != h.Name || !isHost:
-				v.Invalid = append(v.Invalid, importSkip{h.Name, toErr(nameTaken(kind, existing)).Message})
+				v.Invalid = append(v.Invalid, importSkip{h.Name, toErr(inventory.NameTaken(kind, existing)).Message})
 				continue
 			case !overwrite:
 				v.Existing = append(v.Existing, h.Name)

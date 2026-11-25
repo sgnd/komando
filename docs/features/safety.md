@@ -172,6 +172,7 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `host add` | when --proxy-command matches a destructive rule | dangerous | `--allow-dangerous` |
 | `import` | when an imported ProxyCommand matches a destructive rule | dangerous | `--allow-dangerous` |
 | `policy rm` | always | safety | `--yes` |
+| `policy edit` | unless it only switches the rule on | safety | `--yes` |
 | `config set` | when the setting turns a check off (audit, keychain, host key policy, ...) | safety | `--yes` |
 | `host edit` | with --protected=false | safety | `--yes` |
 | `conn edit` | with --protected=false | safety | `--yes` |
@@ -287,11 +288,53 @@ backslashes inside a word (`r\m`, `/e""tc`) do not hide it. A custom
 pattern that is not a valid regular expression blocks every command until
 you fix or remove it; `komando doctor` and `policy list` name it.
 
-Built-in rules cannot be removed. A custom rule's id (`custom-` and eight
+Built-in rules cannot be removed, but a person can switch one off (below).
+A custom rule's id (`custom-` and eight
 letters and digits) is made from its pattern, so it stays the same when
 another rule is removed. A pattern that matches empty text (`.*`) is
 refused: it would block every command. Removing a rule turns a check off,
 so komando asks first (a script adds `--yes`).
+
+## Switch a rule off
+
+```bash
+komando policy show docker-prune                                # what it stops and where it is off
+komando policy edit docker-prune --off --add-server build1        # off on one server
+komando policy edit pkg-remove-essential --off --add-group lab  # off on the servers of a group, as it is now
+komando policy edit docker-prune --rm-server build1               # on again on that server
+komando policy edit docker-prune --off=false                    # on again everywhere
+```
+
+Any rule can be switched off, a built-in rule or one of yours. With
+`--add-server` or `--add-group` the rule is off only on those servers: a
+command that also runs on another server is still stopped. A group counts
+as the servers in it when you switch the rule off; a server added to the
+group later is still checked. A server you remove drops out of the switch.
+`--off` without `--add-server` and `--add-group` switches the rule off on
+every server.
+
+Switching a rule off turns a check off, so komando asks first, naming the
+rule, the servers and what it will no longer stop. An AI agent may ask for
+it: the approval window opens on your screen, and the agent cannot answer
+it. A rule that keeps the others working is stricter: you type the rule's
+name at a terminal, even with `--yes`; with no terminal it is refused, and
+an AI agent's request for one is refused with the command for you to run
+yourself (`NEEDS_PERSON`). Those rules are the evasion detectors
+(`check-failed`, `decode-run`, `base64-pipe-sh`, `curl-pipe-sh`, and on
+Windows `win-encoded`, `win-decode-run`, `win-download-run`), the rules for
+the root folder, devices and disks (`rm-root`, `rm-cd-root`,
+`find-delete-root`, `rm-system-dir`, `chmod-root`, `chown-root`, `mkfs`,
+`dd-device`, `redirect-device`, `wipefs`, `win-rm-root`, `win-format`,
+`win-registry-hive`, `win-backups`), the authentication files
+(`passwd-files`, `passwd-files-write`), a container given the server
+(`docker-host`), and the ways in (`sshd-stop`, `win-remote-access`,
+`firewall-drop-all`). Switching a rule on again (`--off=false`, `--rm-server`,
+`--rm-group`) asks nothing.
+
+A rule that is off is never silent: `policy list` and `policy show` show
+where it is off, `policy check` names it, `komando doctor` warns for every
+rule that is off (the rules above first), and the audit log keeps every
+switch as `policy.edit` with the servers before and after.
 
 `policy check` exits 6 when the command would be blocked, so it works in an
 `if`. `--conn-kind` rates a statement for a conn kind instead: `postgres`,
@@ -379,7 +422,7 @@ Every action is in the audit log: time, who ran it, which AI agent asked,
 whether a person allowed it, the targets and the command. Every change to
 the inventory and to safety settings is there too: servers, conns, groups,
 keys, secrets (names only), `config set` (old and new value) and
-`policy deny` and `policy rm`.
+`policy deny`, `policy rm` and `policy edit`.
 
 ```bash
 komando audit -o text                 # one line per entry, newest 50
