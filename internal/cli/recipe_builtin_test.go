@@ -4,13 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
-	"sort"
 	"strings"
 	"testing"
 
@@ -21,12 +20,9 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// The samples the engine tests use: production built-ins, and docker-ps,
-// which lives in this test file until its own S2 step (C455).
-
-// sampleSvcList and sampleSvcStatus are the production built-ins (C454);
-// tests change copies of them.
-var sampleSvcList, sampleSvcStatus = production("svc-list"), production("svc-status")
+// sampleSvcList, sampleSvcStatus and sampleDockerPs are production
+// built-ins; tests change copies of them.
+var sampleSvcList, sampleSvcStatus, sampleDockerPs = production("svc-list"), production("svc-status"), production("docker-ps")
 
 func production(name string) snippet.Builtin {
 	b, ok := builtinSnippets.Lookup(name)
@@ -35,23 +31,6 @@ func production(name string) snippet.Builtin {
 	}
 	return b
 }
-
-var sampleDockerPs = snippet.Builtin{
-	Name: "docker-ps", Type: "host", Replaces: "docker ps", Reader: "KomandoCall+Docker.swift:10-54", Tier: capability.Read, Shape: "docker-ps/1",
-	Checks: []string{"TestSnippetGoldens/docker-ps", "list_order_test.go"},
-	Text:   map[snippet.Family]string{snippet.Unix: "docker ps --format '{{json .}}'"},
-	Parse: func(o snippet.Output, _ snippet.Family) (any, error) {
-		list, ok := parseJSONLines(nil, o.Stdout).([]any) // a line that is not JSON gives the text back: not a shape
-		if !ok {
-			return nil, errNotJSONLines
-		}
-		name := func(r any) string { m, _ := r.(map[string]any); return str(m["Names"]) }
-		sort.SliceStable(list, func(i, j int) bool { return name(list[i]) < name(list[j]) })
-		return list, nil
-	},
-}
-
-var errNotJSONLines = errors.New("not JSON lines")
 
 var samples = []snippet.Builtin{sampleSvcList, sampleSvcStatus, sampleDockerPs}
 
@@ -145,7 +124,7 @@ func TestSnippetsOff(t *testing.T) {
 // Each sample gives the result today's command gives on the same replayed
 // output, and sends the same text.
 func TestSnippetSamplesMatchGoldens(t *testing.T) {
-	all := append(registered(), sampleDockerPs)
+	all := registered()
 	byName := map[string]snippet.Builtin{}
 	for _, b := range all {
 		byName[b.Name] = b
@@ -160,6 +139,8 @@ func TestSnippetSamplesMatchGoldens(t *testing.T) {
 		{"svc-status", "systemd", false, []string{"unit=nginx,postfix"}},
 		{"svc-status", "windows", true, []string{"unit=W3SVC,nope"}},
 		{"docker-ps", "docker", false, nil},
+		{"docker-images", "docker", false, nil},
+		{"docker-stats", "docker", false, nil},
 		{"facts", "centos7", false, nil},
 		{"facts", "windows", true, nil},
 		{"facts-only", "debian", false, nil},
@@ -279,6 +260,11 @@ func TestSnippetFilledLikeTheReplacedCommand(t *testing.T) {
 	}
 }
 
+// previewReads are the dry-run previews rule 3.8 rates as reads (decided
+// by the chief with apps N9, accepted in Audit's delta read): the static
+// rating of a command line does not read --dry-run.
+var previewReads = map[string]bool{"docker prune --dry-run": true, "fs write --dry-run": true}
+
 // notWeaker says why b is weaker than the command it replaces, or "".
 func notWeaker(b snippet.Builtin) string {
 	// the command's words, the target, then its flags: "facts --only x"
@@ -295,7 +281,11 @@ func notWeaker(b snippet.Builtin) string {
 	if c, _, _ := lineWords(line); n == 0 || c == nil || c.Name() != words[n-1] {
 		return fmt.Sprintf("replaces %q, which is not a command", b.Replaces)
 	}
-	if today := riskOfLine(line); int(b.Tier) < int(today.tier) {
+	if previewReads[b.Replaces] {
+		if b.Tier != capability.Read {
+			return fmt.Sprintf("is %v; a preview that only reads is a read (rule 3.8)", b.Tier)
+		}
+	} else if today := riskOfLine(line); int(b.Tier) < int(today.tier) {
 		return fmt.Sprintf("is %v, weaker than %q at %v", b.Tier, b.Replaces, today.tier)
 	}
 	if len(b.Checks) == 0 {
@@ -324,6 +314,16 @@ func TestSnippetNotWeaker(t *testing.T) {
 	none.Replaces = "svc nosuchverb"
 	if notWeaker(none) == "" {
 		t.Error("a snippet replacing no command passed")
+	}
+	prune := production("docker-prune-preview")
+	prune.Replaces = "docker prune"
+	if notWeaker(prune) == "" {
+		t.Error("a read snippet replacing docker prune (no --dry-run) passed")
+	}
+	prune = production("docker-prune-preview")
+	prune.Tier = capability.Change
+	if notWeaker(prune) == "" {
+		t.Error("a preview at change tier passed: rule 3.8 makes it a read")
 	}
 	bare := sampleSvcList
 	bare.Checks = nil
@@ -700,5 +700,181 @@ func TestSnippetSvcUnitNames(t *testing.T) {
 		if (err == nil) != c.ok {
 			t.Errorf("%s %q: %v, want ok %v", c.f, c.unit, err, c.ok)
 		}
+	}
+}
+
+// likeTheCommand runs today's command and the snippet on the same replayed
+// step and compares what they send, their result and their error.
+func likeTheCommand(t *testing.T, step replayStep, command []string, snip []string) {
+	t.Helper()
+	type row struct {
+		OK    bool            `json:"ok"`
+		Data  json.RawMessage `json:"data"`
+		Error *out.Error      `json:"error"`
+	}
+	run := func(args ...string) (string, string) {
+		rs := startReplayServerWith(t, nil, step)
+		got := captureOutput(t, func() error { return runRoot(t, append([]string{"-o", "json"}, args...)...) })
+		var env struct {
+			Data json.RawMessage `json:"data"`
+		}
+		if i := strings.Index(got, "{"); i >= 0 {
+			_ = json.Unmarshal([]byte(got[i:]), &env)
+		}
+		rs.mu.Lock()
+		defer rs.mu.Unlock()
+		return strings.Join(rs.sent, "\n----\n"), string(env.Data)
+	}
+	wantSent, today := run(command...)
+	gotSent, mine := run(append([]string{"recipe", "run"}, snip...)...)
+	if gotSent != wantSent {
+		t.Errorf("sent\n got:  %s\n want: %s", gotSent, wantSent)
+	}
+	var a struct{ Results []row }
+	var b struct {
+		OK     bool            `json:"ok"`
+		Result json.RawMessage `json:"result"`
+		Error  *out.Error      `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(today), &a); err != nil || len(a.Results) != 1 {
+		t.Fatalf("today: %v %s", err, today)
+	}
+	if err := json.Unmarshal([]byte(mine), &b); err != nil {
+		t.Fatalf("snippet: %v %s", err, mine)
+	}
+	w := a.Results[0]
+	if b.OK != w.OK || (b.Error == nil) != (w.Error == nil) || b.Error != nil && (b.Error.Code != w.Error.Code || b.Error.Message != w.Error.Message) {
+		t.Fatalf("ok %v error %v, today ok %v error %v", b.OK, b.Error, w.OK, w.Error)
+	}
+	if len(b.Result) > 0 || len(w.Data) > 0 && string(w.Data) != "null" {
+		if g, want := compact(t, b.Result), compact(t, w.Data); g != want {
+			t.Errorf("result\n got:  %s\n want: %s", g, want)
+		}
+	}
+}
+
+// docker-ps, docker-images and docker-stats fail as today's commands do:
+// docker missing, no access to its socket, another docker error; and they
+// sort as today.
+func TestSnippetDockerLikeTheCommand(t *testing.T) {
+	withSnippets(t, registered()...)
+	steps := map[string]replayStep{
+		"missing":    {exit: 127},
+		"permission": {exit: 1, stderr: "permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock: Get ...: dial unix /var/run/docker.sock: connect: permission denied"},
+		"error":      {exit: 1, stderr: "Error response from daemon: something broke"},
+		// each sort key gives another order: Names api db web, Name x y z
+		// (db api web), Repository and Tag alpine:3 shop:1 shop:2
+		"unsorted": {stdout: `{"Names":"web","Name":"z","Repository":"shop","Tag":"2"}` + "\n" + `{"Names":"api","Name":"y","Repository":"shop","Tag":"1"}` + "\n" +
+			`{"Names":"db","Name":"x","Repository":"alpine","Tag":"3"}` + "\n"},
+	}
+	for _, c := range [][]string{{"docker", "ps"}, {"docker", "images"}, {"docker", "stats"}} {
+		for name, step := range steps {
+			t.Run(strings.Join(c, "-")+"/"+name, func(t *testing.T) {
+				likeTheCommand(t, step, append(slices.Clone(c), "dev"), []string{strings.Join(c, "-"), "dev"})
+			})
+		}
+		// today's command shows a line that is not JSON as text; a snippet
+		// has no shape for it and shows no text (design 5.1)
+		t.Run(strings.Join(c, "-")+"/not json", func(t *testing.T) {
+			startReplayServerWith(t, nil, replayStep{stdout: "WARNING: something\n" + `{"Names":"web"}` + "\n"})
+			raw, e := snippetData(t, strings.Join(c, "-"), "dev")
+			if e == nil || e.Code != "SNIPPET_PARSE_FAILED" || strings.Contains(string(raw), "WARNING") || strings.Contains(string(raw), `"result"`) {
+				t.Fatalf("got %v %s, want SNIPPET_PARSE_FAILED and no text", e, raw)
+			}
+		})
+		// recipe run has no --sudo: the hint names what a person can do
+		t.Run(strings.Join(c, "-")+"/permission hint", func(t *testing.T) {
+			startReplayServerWith(t, nil, steps["permission"])
+			_, e := snippetData(t, strings.Join(c, "-"), "dev")
+			if e == nil || e.Code != "DOCKER_PERMISSION" || strings.Contains(e.Hint, "--sudo") || !strings.Contains(e.Hint, "docker group") {
+				t.Fatalf("got %+v, want DOCKER_PERMISSION with a hint about the docker group and no --sudo", e)
+			}
+		})
+		// a failed docker that printed text keeps today's error, not the text
+		t.Run(strings.Join(c, "-")+"/failed with text", func(t *testing.T) {
+			startReplayServerWith(t, nil, replayStep{exit: 1, stdout: "Cannot connect\n", stderr: "Error response from daemon: something broke"})
+			raw, e := snippetData(t, strings.Join(c, "-"), "dev")
+			if e == nil || e.Code != "DOCKER_ERROR" || strings.Contains(string(raw), "Cannot connect") {
+				t.Fatalf("got %v %s, want DOCKER_ERROR and no text", e, raw)
+			}
+		})
+	}
+}
+
+// docker-prune-preview sends today's preview script and gives today's
+// per-host preview without host, ok and error, which its answer carries
+// itself (decided by CLI-5 on C455).
+func TestSnippetDockerPrunePreview(t *testing.T) {
+	dir := filepath.Join("testdata", "snippets", "docker-prune-preview")
+	in, err := os.ReadFile(filepath.Join(dir, "docker.in"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	withSnippets(t, registered()...)
+	rs := startReplayServerWith(t, nil, replayStep{stdout: string(in)})
+	raw, e := snippetData(t, "docker-prune-preview", "dev")
+	if e != nil {
+		t.Fatal(e)
+	}
+	sent, err := os.ReadFile(filepath.Join(dir, "docker.sent.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rs.mu.Lock()
+	gotSent := strings.Join(rs.sent, "\n----\n") + "\n"
+	rs.mu.Unlock()
+	if gotSent != string(sent) {
+		t.Errorf("sent\n got:  %s\n want: %s", gotSent, sent)
+	}
+	var golden struct {
+		Data struct {
+			Results []json.RawMessage `json:"results"`
+		} `json:"data"`
+	}
+	gb, err := os.ReadFile(filepath.Join(dir, "docker.out.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(gb, &golden); err != nil || len(golden.Data.Results) != 1 {
+		t.Fatalf("golden: %v", err)
+	}
+	var res struct {
+		Result json.RawMessage `json:"result"`
+	}
+	if err := json.Unmarshal(raw, &res); err != nil {
+		t.Fatal(err)
+	}
+	// the same keys as today's object, less the three the answer carries
+	var today, mine map[string]any
+	_ = json.Unmarshal(golden.Data.Results[0], &today)
+	_ = json.Unmarshal(res.Result, &mine)
+	for _, k := range []string{"host", "ok", "error"} {
+		delete(today, k)
+	}
+	if g, w := slices.Sorted(maps.Keys(mine)), slices.Sorted(maps.Keys(today)); !slices.Equal(g, w) {
+		t.Fatalf("keys %v, today's %v", g, w)
+	}
+	var want prunePreviewResult
+	if err := json.Unmarshal(golden.Data.Results[0], &want); err != nil {
+		t.Fatal(err)
+	}
+	var wb bytes.Buffer
+	enc := json.NewEncoder(&wb)
+	enc.SetEscapeHTML(false) // komando prints <none> as it is
+	if err := enc.Encode(want); err != nil {
+		t.Fatal(err)
+	}
+	if g, w := compact(t, res.Result), strings.TrimSpace(wb.String()); g != w {
+		t.Errorf("result\n got:  %s\n want: %s", g, w)
+	}
+}
+
+// A preview on a server without docker fails as today's preview does.
+func TestSnippetDockerPrunePreviewFails(t *testing.T) {
+	withSnippets(t, registered()...)
+	startReplayServerWith(t, nil, replayStep{exit: 127})
+	raw, e := snippetData(t, "docker-prune-preview", "dev")
+	if want := dockerErr("", 127); e == nil || e.Code != want.Code || e.Message != "dev: "+want.Message || strings.Contains(string(raw), `"result"`) {
+		t.Fatalf("got %v %s, want %s and no result", e, raw, want.Code)
 	}
 }
