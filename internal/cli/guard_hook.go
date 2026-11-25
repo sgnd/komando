@@ -425,7 +425,7 @@ func guardSelfWhy(p string) string {
 			return "an AI agent's hook settings, which run komando's guard"
 		}
 		if lb := strings.ToLower(base); (lb == "komando" || lb == "komando.exe") && !komandoFolderOK(c) {
-			return "a program named komando, which a guard hook could run in place of komando"
+			return komandoNamedWhy
 		}
 		for _, prog := range guardPrograms() {
 			if samePath(c, prog) {
@@ -481,7 +481,7 @@ var writesKomandoByName = regexp.MustCompile("(^|[;&|(\\s])(rm|unlink|mv|cp|ln|c
 // as an argument of a program that is not only a reader.
 func checkSelfWrite(cl *call, seg, base string, args []string, home, cwd string) guardDecision {
 	refuse := func(w, why string) guardDecision {
-		return deny("%s is %s; an AI agent does not change it. Ask the user to do it", w, why)
+		return deny("%s is %s; an AI agent does not change it: %s", w, why, selfWayOut(why))
 	}
 	for _, m := range redirectTarget.FindAllStringSubmatch(seg, -1) {
 		w := strings.Trim(m[1], `"'`)
@@ -516,6 +516,18 @@ func checkWholeLine(line string) guardDecision {
 		return deny("process environments hold secrets; ask the user for the one value you need")
 	}
 	return allow()
+}
+
+// komandoNamedWhy is guardSelfWhy's reason for a file named komando.
+const komandoNamedWhy = "a program named komando, which a guard hook could run in place of komando"
+
+// selfWayOut is what an AI agent does instead of changing a guard file:
+// a program it builds gets another name; anything else is the user's.
+func selfWayOut(why string) string {
+	if why == komandoNamedWhy {
+		return "build it under another name (for example go build -o komando-dev), or ask the user to run it"
+	}
+	return "ask the user to do it"
 }
 
 // komandoFolderOK says whether c, named komando, is a folder an agent may
@@ -577,21 +589,21 @@ func checkGuardFiles(cl *call, line, seg, prog string, args []string, home, cwd 
 // Code given to an interpreter may not name komando at all: it can find the
 // program by name (shutil.which).
 func checkGuardFileNamed(cl *call, line, base string, args []string, home, cwd string) guardDecision {
-	refuse := func(what string) guardDecision {
-		return deny("the line names %s and runs %s, which can change it; an AI agent does not change komando's guard. Ask the user to do it", what, base)
+	refuse := func(what, why string) guardDecision {
+		return deny("the line names %s and runs %s, which can change it; an AI agent does not change komando's guard: %s", what, base, selfWayOut(why))
 	}
 	if m := namesGuardFile.FindString(line); m != "" {
-		return refuse(strings.TrimRight(m, "\"' ;&|)"))
+		return refuse(strings.TrimRight(m, "\"' ;&|)"), "")
 	}
 	for _, m := range komandoPathWord.FindAllStringSubmatch(line, -1) {
-		if guardSelfWhy(guardPathAt(cl, m[1], home, cwd)) != "" {
-			return refuse(m[1])
+		if why := guardSelfWhy(guardPathAt(cl, m[1], home, cwd)); why != "" {
+			return refuse(m[1], why)
 		}
 	}
 	if b := strings.TrimSuffix(strings.ToLower(base), ".exe"); inlineCode[b] || strings.HasPrefix(b, "python3.") {
 		for _, a := range args {
 			if (a == "-c" || a == "-e" || a == "-E" || a == "--eval" || a == "-Command" || a == "-command") && komandoWord.MatchString(line) {
-				return refuse("komando")
+				return refuse("komando", komandoNamedWhy)
 			}
 		}
 	}

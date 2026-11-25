@@ -938,6 +938,28 @@ func TestGuardRefusesGuardFilesAnywhereOnTheLine(t *testing.T) {
 	}
 }
 
+// A refusal names the way out: a program the agent builds gets another
+// name; a hook file is the user's.
+func TestGuardSelfRefusalNamesTheWayOut(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	for _, c := range []struct {
+		tool, key, value, want string
+	}{
+		{"Bash", "command", "go build -o ~/bin/komando ./cmd/komando", "go build -o komando-dev"},
+		{"Write", "file_path", home + "/bin/komando", "go build -o komando-dev"},
+		{"Bash", "command", `python3 -c "import shutil; print(shutil.which('komando'))"`, "go build -o komando-dev"},
+		{"Bash", "command", "p=~/bin/komando; cp /bin/true \"$p\"", "go build -o komando-dev"},
+		{"Bash", "command", "rm ~/.claude/settings.json", "ask the user to do it"},
+		{"Bash", "command", "f=~/.codex/hooks.json; rm \"$f\"", "ask the user to do it"},
+	} {
+		d := checkTool(tcl, c.tool, map[string]any{c.key: c.value}, home, home)
+		if !d.Deny || !strings.Contains(d.Reason, c.want) {
+			t.Errorf("%s %q: %v %q, want a refusal naming %q", c.tool, c.value, d.Deny, d.Reason, c.want)
+		}
+	}
+}
+
 // An existing folder named komando outside PATH may be named (go build
 // ./cmd/komando in the repo); a link to a folder, or a folder in a PATH
 // folder, may not: either can be swapped for a program by the same line.

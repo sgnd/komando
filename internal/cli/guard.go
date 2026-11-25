@@ -47,7 +47,7 @@ func checkTool(cl *call, tool string, in map[string]any, home, cwd string) guard
 			return deny("%s is %s. komando keeps it away from AI agents; ask the user if you need something from it%s", p, why, viaKomando(why))
 		}
 		if why := guardSelfWhy(guardPathAt(cl, p, home, cwd)); tool != "Read" && why != "" {
-			return deny("%s is %s; an AI agent does not change it. Ask the user to do it", p, why)
+			return deny("%s is %s; an AI agent does not change it: %s", p, why, selfWayOut(why))
 		}
 	case "Grep", "Glob":
 		if why := secretWord(cl, str("path"), home, cwd, false); why != "" {
