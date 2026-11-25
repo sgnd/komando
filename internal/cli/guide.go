@@ -250,7 +250,7 @@ func hookProgram(project bool) (prog, note string, err error) {
 	if !filepath.IsAbs(prog) {
 		// a bare name is found through PATH, where an AI agent could put a
 		// program of its own before komando
-		return "", "", out.Errf(out.ExitError, "GUARD_PROGRAM_UNKNOWN", "run komando by its full path, such as `/usr/local/bin/komando guide install`; without a guard: `komando guide install --no-guard`",
+		return "", "", out.Errf(out.ExitNotFound, "GUARD_PATH_MISSING", "run komando by its full path, such as `/usr/local/bin/komando guide install`; without a guard: `komando guide install --no-guard`",
 			"komando cannot tell where its own program is, so it writes no guard hook")
 	}
 	if project {

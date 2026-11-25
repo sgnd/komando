@@ -95,8 +95,9 @@ func TestClaudeGuardChecksTheProgram(t *testing.T) {
 		t.Errorf("this program: %v %q", found, problem)
 	}
 	write("komando-nowhere-here guide guard")
-	if _, problem := claudeGuard(p); !strings.Contains(problem, "not in PATH") {
-		t.Errorf("not in PATH: %q", problem)
+	// a bare name is found through PATH, where an agent could put its own
+	if _, problem := claudeGuard(p); !strings.Contains(problem, "not a full path") {
+		t.Errorf("a bare name: %q", problem)
 	}
 	if found, _ := claudeGuard(filepath.Join(dir, "none.json")); found {
 		t.Error("no file: no guard")

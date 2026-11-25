@@ -83,7 +83,7 @@ var errorCodes = []errorCode{
 	{"GCP_LOGIN_REQUIRED", 4, "…: …", "a person runs `gcloud auth application-default login` again, or set GOOGLE_APPLICATION_CREDENTIALS to a service account key file; on Google Cloud the machine's service account is used"},
 	{"GROUP_EXISTS", 8, "group … exists", "pick another name; to merge them, run `komando group add … @…` and then `komando group rm …`"},
 	{"GROUP_NOT_FOUND", 3, "no group named …", "run `komando group list` to see groups"},
-	{"GUARD_PROGRAM_UNKNOWN", 1, "komando cannot tell where its own program is, so it writes no guard hook", "run komando by its full path, such as `/usr/local/bin/komando guide install`; without a guard: `komando guide install --no-guard`"},
+	{"GUARD_PATH_MISSING", 3, "komando cannot tell where its own program is, so it writes no guard hook", "run komando by its full path, such as `/usr/local/bin/komando guide install`; without a guard: `komando guide install --no-guard`"},
 	{"HELM_RELEASE_NOT_FOUND", 3, "no Helm release named … in namespace …", "see the releases with `komando cluster helm list TARGET -A`, and name the namespace with --namespace"},
 	{"HELM_REVISION_NOT_FOUND", 3, "… has no revision …", "see the revisions with `komando cluster helm history TARGET RELEASE`"},
 	{"HIDDEN_VALUE", 2, "stdin holds a value komando hid ([hidden] or [secret:NAME]); uploading it would destroy the real value", "edit the file on the server with `komando fs replace` (an --old with [hidden] in it matches the hidden value), and put a secret in with {{secret:NAME}}"},

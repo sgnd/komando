@@ -969,16 +969,16 @@ func TestGuardHookNeedsAFullPath(t *testing.T) {
 	selfProgram = func() (string, error) { return "", errors.New("unknown") }
 	t.Cleanup(func() { selfProgram = was })
 	t.Setenv("PATH", t.TempDir())
-	if _, _, err := hookProgram(false); toErr(err).Code != "GUARD_PROGRAM_UNKNOWN" {
-		t.Errorf("home install without a full path: %v, want GUARD_PROGRAM_UNKNOWN", err)
+	if _, _, err := hookProgram(false); toErr(err).Code != "GUARD_PATH_MISSING" {
+		t.Errorf("home install without a full path: %v, want GUARD_PATH_MISSING", err)
 	}
-	if _, _, err := hookProgram(true); toErr(err).Code != "GUARD_PROGRAM_UNKNOWN" {
-		t.Errorf("project install without a full path: %v, want GUARD_PROGRAM_UNKNOWN", err)
+	if _, _, err := hookProgram(true); toErr(err).Code != "GUARD_PATH_MISSING" {
+		t.Errorf("project install without a full path: %v, want GUARD_PATH_MISSING", err)
 	}
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	if err := runRoot(t, "guide", "install"); toErr(err).Code != "GUARD_PROGRAM_UNKNOWN" {
-		t.Errorf("guide install without a full path: %v, want GUARD_PROGRAM_UNKNOWN", err)
+	if err := runRoot(t, "guide", "install"); toErr(err).Code != "GUARD_PATH_MISSING" {
+		t.Errorf("guide install without a full path: %v, want GUARD_PATH_MISSING", err)
 	}
 	if _, err := os.Stat(filepath.Join(home, ".claude", "settings.json")); err == nil {
 		t.Error("guide install wrote a hook without a full path")
