@@ -687,40 +687,33 @@ func printQuery(cl *call, name string, c *store.Conn, plan driver.SQLPlan, f dbF
 	return nil
 }
 
-// sqlGap is the space between two words, which may hold comments
-// (IDENTIFIED/**/BY).
-const sqlGap = `(?:\s|/\*.*?\*/|--[^\n]*\n)+`
+// connPassword is password=VALUE inside a connection string the SQL
+// passes on (dblink('host=db password=x')).
+var connPassword = regexp.MustCompile(`(?i)\bpassword\s*=\s*([^\s'";(),]+)`)
 
-// sqlSecret matches the password literal in CREATE/ALTER USER and ROLE,
-// SET PASSWORD and PASSWORD() so the audit log never stores it:
-// PASSWORD 'x' (Postgres), IDENTIFIED [WITH plugin] BY 'x', SET PASSWORD
-// [FOR u] = 'x' (MySQL), PASSWORD = N'x' (SQL Server), IDENTIFIED BY
-// VALUES 'hash' (Oracle).
-var sqlSecret = regexp.MustCompile(`(?is)(\bPASSWORD\s*(?:FOR\s+\S+\s*)?=?\s*\(?\s*N?|\bIDENTIFIED` + sqlGap + `(?:WITH\s+\S+\s+)?BY` + sqlGap + `(?:VALUES` + sqlGap + `)?)('(?:[^'\\]|''|\\.)*'|"(?:[^"\\]|""|\\.)*"|\$[A-Za-z_]*\$.*?\$[A-Za-z_]*\$)`)
-
-// oraSecret is Oracle's IDENTIFIED BY password without quotes.
-var oraSecret = regexp.MustCompile(`(?is)(\bIDENTIFIED` + sqlGap + `BY` + sqlGap + `)([A-Za-z][A-Za-z0-9_$#]*)`)
-
-// oraOld is the old password in Oracle's ALTER USER u IDENTIFIED BY new
-// REPLACE old, once the new one is hidden.
-var oraOld = regexp.MustCompile(`(?is)(\bIDENTIFIED` + sqlGap + `BY` + sqlGap + `(?:'\*\*\*'|\*\*\*)` + sqlGap + `REPLACE` + sqlGap + `)('(?:[^']|'')*'|"(?:[^"]|"")*"|[A-Za-z][A-Za-z0-9_$#]*)`)
-
+// redactSQL hides the passwords in SQL text so the audit log never stores
+// them: what out.SQLPasswords finds ('***', or *** for a bare word), and
+// password=VALUE (a connection string, PASSWORD = 0x... HASHED).
 func redactSQL(q string) string {
-	q = sqlSecret.ReplaceAllString(q, "${1}'***'")
-	q = oraSecret.ReplaceAllStringFunc(q, func(m string) string {
-		p := oraSecret.FindStringSubmatch(m)
-		if strings.EqualFold(p[2], "PASSWORD") || strings.EqualFold(p[2], "VALUES") { // MySQL's IDENTIFIED BY PASSWORD 'hash'
-			return m
+	q = out.SQLPasswords(q, func(lit string) string {
+		if prefix, ok := out.SQLQuoted(lit); ok {
+			return prefix + "'***'"
 		}
-		return p[1] + "***"
+		return "***"
 	})
-	return oraOld.ReplaceAllStringFunc(q, func(m string) string {
-		p := oraOld.FindStringSubmatch(m)
-		if p[2][0] == '\'' || p[2][0] == '"' {
-			return p[1] + "'***'"
+	var b strings.Builder
+	last := 0
+	for _, m := range connPassword.FindAllStringSubmatchIndex(q, -1) {
+		v := q[m[2]:m[3]]
+		if v == "***" || m[3] < len(q) && strings.ContainsRune(`('"&`, rune(q[m[3]])) {
+			continue // a function, or a literal's prefix: out.SQLPasswords hid what follows
 		}
-		return p[1] + "***"
-	})
+		b.WriteString(q[last:m[2]])
+		b.WriteString("***")
+		last = m[3]
+	}
+	b.WriteString(q[last:])
+	return b.String()
 }
 
 // maxBytesFlag reads --max-bytes for dbx.Options.MaxBilled: 0 for the
