@@ -143,18 +143,22 @@ func TestDBShellNeedsTerminal(t *testing.T) {
 
 func TestRedactSQL(t *testing.T) {
 	for in, want := range map[string]string{
-		"CREATE USER app WITH PASSWORD 's3cret'":                      "CREATE USER app WITH PASSWORD '***'",
-		"alter role app encrypted password 'it''s'":                   "alter role app encrypted password '***'",
-		"CREATE USER 'a'@'%' IDENTIFIED BY 'p@ss'":                    "CREATE USER 'a'@'%' IDENTIFIED BY '***'",
-		"ALTER USER a IDENTIFIED WITH mysql_native_password BY \"x\"": "ALTER USER a IDENTIFIED WITH mysql_native_password BY '***'",
-		"SET PASSWORD FOR 'a'@'%' = 'new'":                            "SET PASSWORD FOR 'a'@'%' = '***'",
-		"select * from users where name = 'password'":                 "select * from users where name = 'password'",
-		"ALTER ROLE x PASSWORD $$p$$":                                 "ALTER ROLE x PASSWORD '***'",
-		"ALTER ROLE x PASSWORD /* c */ 'p'":                           "ALTER ROLE x PASSWORD /* c */ '***'",
-		"ALTER ROLE x PASSWORD E'p'":                                  "ALTER ROLE x PASSWORD E'***'",
-		"ALTER ROLE x PASSWORD U&'p'":                                 "ALTER ROLE x PASSWORD U&'***'",
-		"CREATE USER a IDENTIFIED BY E'p'":                            "CREATE USER a IDENTIFIED BY E'***'",
-		"SELECT password FROM users":                                  "SELECT password FROM users",
+		"CREATE USER app WITH PASSWORD 's3cret'":                               "CREATE USER app WITH PASSWORD '***'",
+		"alter role app encrypted password 'it''s'":                            "alter role app encrypted password '***'",
+		"CREATE USER 'a'@'%' IDENTIFIED BY 'p@ss'":                             "CREATE USER 'a'@'%' IDENTIFIED BY '***'",
+		"ALTER USER a IDENTIFIED WITH mysql_native_password BY \"x\"":          "ALTER USER a IDENTIFIED WITH mysql_native_password BY '***'",
+		"SET PASSWORD FOR 'a'@'%' = 'new'":                                     "SET PASSWORD FOR 'a'@'%' = '***'",
+		"select * from users where name = 'password'":                          "select * from users where name = 'password'",
+		"ALTER ROLE x PASSWORD $$p$$":                                          "ALTER ROLE x PASSWORD '***'",
+		"ALTER ROLE x PASSWORD /* c */ 'p'":                                    "ALTER ROLE x PASSWORD /* c */ '***'",
+		"ALTER ROLE x PASSWORD E'p'":                                           "ALTER ROLE x PASSWORD E'***'",
+		"ALTER ROLE x PASSWORD U&'p'":                                          "ALTER ROLE x PASSWORD U&'***'",
+		"CREATE USER a IDENTIFIED BY E'p'":                                     "CREATE USER a IDENTIFIED BY E'***'",
+		"SELECT password FROM users":                                           "SELECT password FROM users",
+		"CREATE LOGIN bob WITH PASSWORD = 0x0200A1B2C3 HASHED":                 "CREATE LOGIN bob WITH PASSWORD = *** HASHED",
+		"CREATE USER u IDENTIFIED EXTERNALLY":                                  "CREATE USER u IDENTIFIED EXTERNALLY",
+		"SELECT dblink('host=db user=a password=s3cret dbname=x', 'select 1')": "SELECT dblink('host=db user=a password=*** dbname=x', 'select 1')",
+		"SET PASSWORD = PASSWORD('p')":                                         "SET PASSWORD = PASSWORD('***')",
 	} {
 		if got := redactSQL(in); got != want {
 			t.Errorf("redactSQL(%q) = %q, want %q", in, got, want)
