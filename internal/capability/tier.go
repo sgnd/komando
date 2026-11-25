@@ -56,6 +56,32 @@ func Rows(k Key) []TierRow {
 // TierRows returns every row. The slice is a copy.
 func TierRows() []TierRow { return slices.Clone(tierRows) }
 
+// readVerbs only look: their floor is read. Every other verb, and a word
+// outside the closed vocabulary, changes something: its floor is change.
+// The floors match today's command kinds (internal/cli kinds.go) for every
+// command a leaf carries; TestLeafFloorNotWeaker there checks it.
+var readVerbs = []string{"list", "show", "info", "read", "check", "test", "status", "get",
+	"version", "schema", "doctor", "backup", "export"}
+
+// Floor is the tier a leaf has with no row: read for a verb that only
+// looks, else change.
+func Floor(k Key) Tier {
+	if slices.Contains(readVerbs, k.Verb) {
+		return Read
+	}
+	return Change
+}
+
+// Highest is the highest tier k can have: its floor, or the highest row
+// that reaches it, whatever the row's condition.
+func Highest(k Key) Tier {
+	best := Floor(k)
+	for _, r := range Rows(k) {
+		best = max(best, r.Tier)
+	}
+	return best
+}
+
 // typesWithEdit are the types whose entries a person can protect.
 var typesWithEdit = []string{"host", "database", "cache", "queue", "storage", "cluster", "registry", "vpn", "cloud"}
 

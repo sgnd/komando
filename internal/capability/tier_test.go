@@ -1,6 +1,7 @@
 package capability
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
@@ -94,5 +95,39 @@ func TestReachesProvider(t *testing.T) {
 	wild := TierRow{Key: Key{Type: "host", Verb: "shell"}}
 	if !wild.Reaches(Key{Type: "host", Provider: "serial", Verb: "shell"}) {
 		t.Error("a row without a provider must reach every provider")
+	}
+}
+
+// TestFloor: a verb that only looks has the floor read, every other verb
+// change; Highest is the floor or the highest row that reaches the leaf,
+// whatever its condition.
+func TestFloor(t *testing.T) {
+	tests := []struct {
+		key  Key
+		want Tier
+	}{
+		{Key{Type: "host", Provider: "ssh", Verb: "list"}, Read},
+		{own("credential", "", "show"), Read},
+		{top("status"), Read},
+		{Key{Type: "database", Provider: "postgres", Verb: "backup"}, Read},
+		{Key{Type: "host", Provider: "ssh", Verb: "add"}, Change},
+		{Key{Type: "host", Provider: "ssh", Verb: "exec"}, Change},
+		{top("ssh-gate"), Change}, // a kept word: not a verb that only looks
+	}
+	for _, tt := range tests {
+		if got := Floor(tt.key); got != tt.want {
+			t.Errorf("Floor(%s) = %d, want %d", tt.key, got, tt.want)
+		}
+	}
+	for _, v := range readVerbs {
+		if !slices.ContainsFunc(Verbs(), func(x Verb) bool { return x.Name == v }) {
+			t.Errorf("readVerbs has %q, which is no verb of the closed vocabulary", v)
+		}
+	}
+	if got := Highest(Key{Type: "host", Provider: "ssh", Verb: "exec"}); got != Dangerous {
+		t.Errorf("Highest(host ssh exec) = %d, want dangerous (its row)", got)
+	}
+	if got := Highest(Key{Type: "host", Provider: "ssh", Verb: "list"}); got != Read {
+		t.Errorf("Highest(host ssh list) = %d, want read (no row, a looking verb)", got)
 	}
 }
