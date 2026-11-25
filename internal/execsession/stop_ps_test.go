@@ -111,7 +111,8 @@ func TestRemoveScriptPSText(t *testing.T) {
 		t.Error("a bad ID made a script")
 	}
 	for _, want := range []string{
-		"& cmd.exe /d /c rmdir /s /q $ks_d",
+		"$ks_rm = 'rmdir /s /q \"' + $ks_d + '\"'", "& cmd.exe /d /c $ks_rm",
+		"if ($ks_unsafe) { exit 90 }",
 		"if (-not (ks_gone 4242 '2026-11-25T10:00:00.1234567Z' $ks_cmdline)) { exit 92 }",
 		"(ks_owner (Get-Acl -LiteralPath $p).Sddl) -ne $ks_sid",
 	} {
@@ -122,6 +123,7 @@ func TestRemoveScriptPSText(t *testing.T) {
 	if strings.Contains(s, "Remove-Item") {
 		t.Error("the remove script deletes with Remove-Item, which may follow a junction")
 	}
+	psSafeBaseChecked(t, "remove", s)
 	psOnlyAllowed(t, s)
 	psParse(t, s)
 	if s, _ := RemoveScriptPS(testID, nil); !strings.Contains(s, "if (-not (ks_ended $ks_d)) { exit 92 }") {
@@ -136,7 +138,7 @@ func TestSweepPSText(t *testing.T) {
 	s := SweepPS([]*store.ExecSession{psRecord(), &other, {ID: "../x"}})
 	for _, want := range []string{
 		"-cmatch '^[a-z2-7]{52}$'", "'ReparsePoint'", "604800",
-		"& cmd.exe /d /c rmdir /s /q $d",
+		"$ks_rm = 'rmdir /s /q \"' + $d + '\"'", "& cmd.exe /d /c $ks_rm",
 		"Write-Output ('swept ' + $n)",
 		"'" + testID + "' { if (-not (ks_gone 4242", "'" + other.ID + "' { if (-not (ks_gone 4242", "{ $skip = $true }", "if ($skip) { continue }",
 		"New-Item -ItemType File -Path (Join-Path $d 'lost')",
@@ -145,6 +147,7 @@ func TestSweepPSText(t *testing.T) {
 			t.Errorf("the sweep has no %q", want)
 		}
 	}
+	psSafeBaseChecked(t, "sweep", s)
 	if strings.Contains(s, "../x") || strings.Contains(s, "Remove-Item") {
 		t.Error("the sweep holds a bad record ID or deletes with Remove-Item")
 	}
@@ -164,4 +167,36 @@ func TestBeginScriptPS(t *testing.T) {
 		t.Error("the sweep is not first and between its markers")
 	}
 	psParse(t, s)
+}
+
+// A-450-1: the folder reaches cmd.exe only inside one /c string, in quotes,
+// and only when %LOCALAPPDATA% holds nothing outside letters, digits,
+// space and _ . - \ : a user name with & ^ ( ) or | would make cmd.exe run
+// a different path first. The bare argument is gone.
+func psSafeBaseChecked(t *testing.T, what, script string) {
+	t.Helper()
+	if !strings.Contains(script, `-cnotmatch '^[A-Za-z]:\\[A-Za-z0-9 _.\\-]+$'`) {
+		t.Errorf("the %s script does not refuse a %%LOCALAPPDATA%% outside [A-Za-z0-9 _.\\-]", what)
+	}
+	for _, bare := range []string{"rmdir /s /q $ks_d", "rmdir /s /q $d"} {
+		if strings.Contains(script, bare) {
+			t.Errorf("the %s script hands the folder to cmd.exe as a bare argument (%s)", what, bare)
+		}
+	}
+}
+
+// The start refuses the same base with the same allowlist (the fallback is
+// a run without a session, never a different folder).
+func TestStartScriptPSRefusesMetaPath(t *testing.T) {
+	script, _, err := StartScriptPS(psStart())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(script, `-cnotmatch '^[A-Za-z]:\\[A-Za-z0-9 _.\\-]+$') { Write-Output 'unsafe-path'; ks_fail 91 }`) {
+		t.Error("the start does not refuse a %LOCALAPPDATA% outside the allowlist")
+	}
+	_, err = ReadStartPS("web1", ExitNoFolder, "unsafe-path\n", "", testID)
+	if err == nil || !strings.Contains(err.Error(), "& ^ ( ) |") {
+		t.Errorf("the message must name what is refused: %v", err)
+	}
 }

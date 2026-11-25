@@ -152,3 +152,36 @@ func TestSweepPSOnWindows(t *testing.T) {
 	stop, _ := StopScriptPS(rec)
 	runAt(t, base, stop)
 }
+
+// A-450-1 on a real PowerShell: a %LOCALAPPDATA% with & in it (a user
+// named a&b) is refused by the start, the remove and the sweep, and no
+// rmdir runs: the planted session folder is still there.
+func TestMetaPathRefusedOnWindows(t *testing.T) {
+	base := filepath.Join(t.TempDir(), "a&b")
+	dir := sessionDirPS(base)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for name, body := range map[string]string{"exit": "0", "started": "1000000000"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rm, err := RemoveScriptPS(testID, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if o, code := runAt(t, base, rm); code != ExitUnsafe {
+		t.Fatalf("remove: exit %d, want %d: %s", code, ExitUnsafe, o)
+	}
+	o, code := runAt(t, base, "Write-Output 'sweep-begin x'\n"+SweepPS(nil)+"Write-Output 'sweep-end x'\n")
+	if got := Swept(o, "x"); code != 0 || len(got) != 0 {
+		t.Fatalf("sweep: exit %d, swept %v: %s", code, got, o)
+	}
+	if _, err := os.Stat(dir); err != nil {
+		t.Errorf("a refused path was deleted from: %v", err)
+	}
+	if o, code := runStartPS(t, base, psStart()); code != ExitNoFolder || !strings.Contains(o, "unsafe-path") {
+		t.Errorf("start: exit %d: %s", code, o)
+	}
+}

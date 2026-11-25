@@ -35,7 +35,11 @@ function ks_gone([int]$p, [string]$created, [string]$cmdline) {
 }
 $ks_base = $env:LOCALAPPDATA
 $ks_s = $null
-if ($ks_base -and $ks_base -match '^[A-Za-z]:\\') { $ks_s = Join-Path (Join-Path $ks_base 'komando') 'sessions' }
+$ks_unsafe = $false
+# a path with & ^ ( ) | or more would reach cmd.exe as several commands (A-450-1)
+if ($ks_base -and $ks_base -match '^[A-Za-z]:\\') {
+    if ($ks_base -cnotmatch '^[A-Za-z]:\\[A-Za-z0-9 _.\\-]+$') { $ks_unsafe = $true } else { $ks_s = Join-Path (Join-Path $ks_base 'komando') 'sessions' }
+}
 `
 
 // goneCheckPS is PowerShell that is true when rec's process is no longer
@@ -66,6 +70,7 @@ func RemoveScriptPS(id string, rec *store.ExecSession) (string, error) {
 		over = strings.Replace(g, sshx.PSQ(cmdline), "$ks_cmdline", 1)
 	}
 	return "$ks_id = " + sshx.PSQ(id) + "\n$ks_cmdline = " + sshx.PSQ(cmdline) + "\n" + psACL + psSession + `try {
+    if ($ks_unsafe) { exit 90 }
     if (-not $ks_s) { exit 95 }
     $ks_d = Join-Path $ks_s $ks_id
     foreach ($p in @((Split-Path -Parent $ks_s), $ks_s, $ks_d)) {
@@ -73,7 +78,8 @@ func RemoveScriptPS(id string, rec *store.ExecSession) (string, error) {
         if (-not (ks_safeDir $p)) { exit 90 }
     }
     if (-not (` + over + `)) { exit 92 }
-    $null = & cmd.exe /d /c rmdir /s /q $ks_d
+    $ks_rm = 'rmdir /s /q "' + $ks_d + '"'
+    $null = & cmd.exe /d /c $ks_rm
     if (Test-Path -LiteralPath $ks_d) { exit 1 }
 } catch {
     exit 99
@@ -112,7 +118,8 @@ func SweepPS(recs []*store.ExecSession) string {
         $b = (-join (@(Get-Content -LiteralPath (Join-Path $d 'started') -Encoding Byte -TotalCount 16 -ErrorAction SilentlyContinue) | ForEach-Object { [char]$_ }))
         if ($b -notmatch '^[0-9]+$') { continue }
         if (($now - [int64]$b) -le ` + strconv.Itoa(Retention) + `) { continue }
-        $null = & cmd.exe /d /c rmdir /s /q $d
+        $ks_rm = 'rmdir /s /q "' + $d + '"'
+        $null = & cmd.exe /d /c $ks_rm
         if (-not (Test-Path -LiteralPath $d)) { Write-Output ('swept ' + $n) }
     }
 }
