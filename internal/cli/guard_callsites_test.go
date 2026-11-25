@@ -22,7 +22,7 @@ import (
 // which files may call it. A call moved between guard and guardScript changes
 // both counts here.
 var reviewedCallSites = map[string]int{
-	"guard":         21,
+	"guard":         22,
 	"guardScript":   5,
 	"guardConns":    24,
 	"confirmObject": 4,
