@@ -389,6 +389,9 @@ func mustDerive(t *testing.T, k []byte, l sealkey.Label) []byte {
 func TestUpgradeEachKeyMode(t *testing.T) {
 	for _, mode := range []string{"keyfile", "passphrase", "keychain"} {
 		t.Run(mode, func(t *testing.T) {
+			// a hang here is a failure, never a stuck run (Audit C2)
+			stuck := time.AfterFunc(time.Minute, func() { panic("TestUpgradeEachKeyMode/" + mode + ": still running after a minute") })
+			defer stuck.Stop()
 			switch mode {
 			case "keyfile":
 				freshHome(t)

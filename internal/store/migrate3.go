@@ -265,8 +265,8 @@ func needsPerson(why string) error {
 	if why == "" {
 		why = "this caller"
 	}
-	return out.Errf(out.ExitPolicy, "NEEDS_PERSON", "run `komando doctor` once in your own terminal",
-		"%s is to move to a new format, and only a person starts that, not %s; nothing was changed: run `komando doctor` once in your own terminal", Path(StoreFile), why)
+	return out.Errf(out.ExitPolicy, "NEEDS_PERSON", "run `komando doctor` with no flags once in your own terminal",
+		"%s is to move to a new format, and only a person starts that, not %s; nothing was changed: run `komando doctor` with no flags once in your own terminal", Path(StoreFile), why)
 }
 
 // migrateGate is step 0: a person at a terminal goes on; the approval
