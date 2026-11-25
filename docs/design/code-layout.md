@@ -113,6 +113,7 @@ or a listed one is gone.
 | `internal/sealfile` | the sealed file of `export --sealed` and `export --for-phone` ([sealed-file.md](sealed-file.md)) |
 | `internal/sealkey` | makes each of the store's keys (row, runtime, value, ticket, policy) from its master key |
 | `internal/sealrow` | seals one record of the local store |
+| `internal/snippet` | the engine of the ready-made snippets: the built-in type, the checks of a definition, the registry, filling a text with quoted variables, the parse step and the JSON contract; it runs nothing itself |
 | `internal/sshx` | SSH: dialing through jump hosts, host keys, running commands |
 | `internal/sslvpn` | komando's own SSL VPN clients (AnyConnect, Fortinet, GlobalProtect, F5, Pulse) |
 | `internal/store` | komando's state: inventory, conns, keys, jobs, tunnels, settings |

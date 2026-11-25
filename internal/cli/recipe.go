@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"maps"
 	"regexp"
 	"slices"
@@ -13,6 +14,7 @@ import (
 	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/snippet"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -345,6 +347,13 @@ func recipeRunCmd() *cobra.Command {
 		Example: "  komando recipe run health @web\n  komando recipe run disk web1\n  komando recipe run deploy-app @web --var app=shop",
 		Args:    cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			if b, ok := builtinSnippets.Lookup(args[0]); ok && snippetsOn {
+				kv, err := parseKV(vars)
+				if err != nil {
+					return err
+				}
+				return runSnippet(cl, cmd.Context(), b, args[1], kv)
+			}
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -402,4 +411,89 @@ func checkRecipeCategory(c string) error {
 	}
 	sort.Strings(cats)
 	return out.Usage("no category %q: use %s, or saved for your own", c, strings.Join(cats, ", "))
+}
+
+// The ready-made snippets (design: komando ready-made snippets, S1).
+
+// snippetsOn turns the ready-made snippets on. It stays off until the v2.7
+// cut: recipe run then reads every name as a recipe, as before, and nothing
+// reaches the engine.
+var snippetsOn = false
+
+// builtinSnippets are the ready-made snippets. The list is empty until the
+// S2 moves hand each type's list to snippet.New.
+var builtinSnippets = mustSnippets()
+
+func mustSnippets(lists ...[]snippet.Builtin) *snippet.Registry {
+	r, err := snippet.New(lists...)
+	if err != nil {
+		panic(err) // a definition the engine refuses is a bug the tests show
+	}
+	return r
+}
+
+// snippetFamily is the shell a host's text is written for.
+func snippetFamily(h *store.Host) snippet.Family {
+	if h.Windows() {
+		return snippet.Windows
+	}
+	return snippet.Unix
+}
+
+// runSnippet runs a text built-in on hosts through runOps, the path of
+// the module commands: the filled text goes through guard with the exec
+// rules (policy.Check, like a typed exec line), protected servers ask for a
+// change, and the result is masked when it is printed.
+func runSnippet(cl *call, ctx context.Context, b snippet.Builtin, target string, kv map[string]string) error {
+	if b.Type != "host" || b.Text == nil {
+		// S1 wires the text snippets of hosts; the client snippets come with
+		// their type's move
+		return snippet.TypeUnsupported(b, target, "host")
+	}
+	st, err := loadState()
+	if err != nil {
+		return err
+	}
+	hosts, err := resolveTargets(cl, st, target)
+	if err != nil {
+		return err
+	}
+	// fill before anything runs: a bad variable or a family with no text
+	// stops the whole run
+	text := map[snippet.Family]string{}
+	for _, h := range hosts {
+		f := snippetFamily(h)
+		if _, done := text[f]; done {
+			continue
+		}
+		if text[f], err = snippet.Fill(b, f, kv); err != nil {
+			return err
+		}
+	}
+	parse := func(f snippet.Family) func(*store.Host, *sshx.RunResult) (any, *out.Error) {
+		return func(_ *store.Host, r *sshx.RunResult) (any, *out.Error) {
+			return snippet.Parse(b, f, snippet.Output{Stdout: r.Stdout, Stderr: r.Stderr, ExitCode: r.ExitCode})
+		}
+	}
+	data, worst, fails, err := collectOps(cl, ctx, opsSpec{name: "snippet.exec", target: target, display: "snippet " + b.Name,
+		command: text[snippet.Unix], win: text[snippet.Windows], mutating: snippet.Mutating(b),
+		parse: parse(snippet.Unix), winParse: parse(snippet.Windows)})
+	if err != nil || data == nil {
+		return err
+	}
+	rows := make([]snippet.Data, len(data.Results))
+	for i, r := range data.Results {
+		rows[i] = snippet.NewData(b, r.Host, r.Data, r.Error, r.ExitCode, r.Warnings)
+	}
+	var shown any = snippetFleet{Results: rows, Summary: data.Summary}
+	if len(rows) == 1 {
+		shown = rows[0]
+	}
+	return finishFleet(cl, "snippet.exec", shown, runSummary{fleetSummary: data.Summary}, worst, fails)
+}
+
+// snippetFleet is the answer for several targets (design 5.1).
+type snippetFleet struct {
+	Results []snippet.Data `json:"results"`
+	Summary fleetSummary   `json:"summary"`
 }

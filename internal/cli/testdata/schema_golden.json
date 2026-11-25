@@ -11729,6 +11729,24 @@
         "hint": "run without --fail-fast to reach every server"
       },
       {
+        "code": "SNIPPET_OS_UNSUPPORTED",
+        "exit": 2,
+        "example": "snippet … has no body for …",
+        "hint": "read it as text with `komando exec TARGET -- COMMAND`; the snippet has no JSON for it"
+      },
+      {
+        "code": "SNIPPET_PARSE_FAILED",
+        "exit": 5,
+        "example": "the output of snippet … did not read as …",
+        "hint": "read it as text with `komando exec TARGET -- COMMAND`; the snippet has no JSON for it"
+      },
+      {
+        "code": "SNIPPET_TYPE_UNSUPPORTED",
+        "exit": 2,
+        "example": "… is a …, not a …",
+        "hint": "run it against a … entry; see them with `komando list`"
+      },
+      {
         "code": "SOURCE_BUILD",
         "exit": 8,
         "example": "this komando was built from source (version …), so update does not replace it",
