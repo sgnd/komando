@@ -878,6 +878,17 @@ func TestGuardRefusesChangesToItself(t *testing.T) {
 		{"Bash", map[string]any{"command": "cp /tmp/x ~/bin/KOMANDO.EXE"}},
 		{"Write", map[string]any{"file_path": home + "/bin/komando.exe"}},
 	}
+	if runtime.GOOS == "windows" { // \ is a separator there
+		refused = append(refused,
+			struct {
+				tool string
+				in   map[string]any
+			}{"Bash", map[string]any{"command": `Remove-Item C:\tools\komando.exe`}},
+			struct {
+				tool string
+				in   map[string]any
+			}{"Bash", map[string]any{"command": "rm -f '" + self + "'"}})
+	}
 	for _, c := range refused {
 		if d := checkTool(tcl, c.tool, c.in, home, home); !d.Deny {
 			t.Errorf("%s %v: want a refusal", c.tool, c.in)
@@ -918,6 +929,11 @@ func TestGuardRefusesGuardFilesAnywhereOnTheLine(t *testing.T) {
 		`python3 -c "import os,shutil; os.remove(shutil.which('komando'))"`,
 		`python3 -c "open('/usr/local/bin/komando','w')"`,
 		`p=~/bin/komando; cp /bin/true "$p"`,
+		// PowerShell and cmd write \ between a path's parts
+		`Remove-Item C:\Users\me\.claude\settings.json`,
+		`Set-Content -Path $HOME\.gemini\settings.json -Value x`,
+		`del %USERPROFILE%\.cursor\hooks.json`,
+		`Move-Item $env:USERPROFILE\.codex C:\old`,
 	}
 	for _, line := range refused {
 		if d := checkTool(tcl, "Bash", map[string]any{"command": line}, home, home); !d.Deny {
