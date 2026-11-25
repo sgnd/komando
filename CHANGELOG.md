@@ -14,7 +14,7 @@ its highlights; the sections below them give the details. Versions follow
 - The agent guard's hook line refuses a tool call when the guard cannot answer (komando missing, not a program, or failing), in each agent tool's own format.
 - The agent guard refuses an AI agent's change to the agents' hook settings and folders and to the komando program the hook runs.
 - `komando doctor` checks every agent's guard hook line and its program; `komando guide install` replaces an older line, and `komando update` says when one is left.
-- Every guard hook names komando by its full path; `komando guide install` refuses with GUARD_PROGRAM_UNKNOWN when komando cannot tell its own path, and `komando doctor` flags a hook that names komando without one.
+- Every guard hook names komando by its full path; `komando guide install` refuses with GUARD_PATH_MISSING when komando cannot tell its own path, and `komando doctor` flags a hook that names komando without one.
 - The agent guard refuses an AI agent's write, move, link or mode change of any file named komando or komando.exe, and a command that names an agent's hook settings or a komando path anywhere on its line unless it only reads.
 - On Windows the guard hook calls komando directly, as in 0.17.1, and `komando doctor` says that it lets a call through when komando is missing.
 - A guard hook set up by an older version keeps working the old way until `komando guide install` is run again, once per computer and per project that has one.
