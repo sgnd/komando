@@ -205,7 +205,7 @@ func (s *sessionOpts) bind(c *cobra.Command) {
 	f := c.Flags()
 	f.StringSliceVar(&s.attach, "attach", nil, "read the rest of these sessions on one server, and their exit codes")
 	f.Int64Var(&s.offset, "offset", 0, "with --attach: start at this byte of the log (next_from of the last read)")
-	f.DurationVar(&s.wait, "wait", 90*time.Second, "wait this long for the run to end; it goes on after (exit 7); 0 returns at once")
+	durVar(f, &s.wait, "wait", time.Minute, "wait this long for the run to end; it goes on after (exit 7); 0 returns at once")
 	s.logMax = 1 << 30
 	f.Var(&bytesFlag{n: &s.logMax}, "log-max", "bytes of output the server keeps for the run, like 100MiB; more is dropped")
 	if !sessionsOn {
@@ -337,7 +337,7 @@ func sessionLine(cl *call, id *string, host string) {
 	if cl.out.Format != "text" {
 		cl.out.Event(map[string]any{"session": id, "host": host})
 	} else if id != nil {
-		fmt.Fprintf(cl.out.Err, "session %s on %s\n", *id, host)
+		fmt.Fprintf(cl.out.Err, "Session %s on %s\n", *id, host)
 	}
 }
 

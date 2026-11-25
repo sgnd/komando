@@ -109,7 +109,7 @@ func ReadStart(host string, exit int, stdout, id string) (Facts, []string, error
 		return Facts{}, nil, folderDenied(host)
 	case ExitNoSpace:
 		return Facts{}, nil, out.Errf(out.ExitRemote, "SESSION_SPACE_DENIED",
-			"free space in the home folder, or give a smaller log cap: `komando exec HOST --log-max 100MiB -- COMMAND`",
+			"free space in the home folder, or give a smaller log cap: `komando exec TARGET --log-max 100MiB -- COMMAND`",
 			"%s: the home file system has less free space than the log cap plus 5 percent of the disk; nothing ran", host)
 	default:
 		return Facts{}, nil, startFailed(host, "exit "+strconv.Itoa(exit))
@@ -132,12 +132,12 @@ func ReadStart(host string, exit int, stdout, id string) (Facts, []string, error
 
 func folderDenied(host string) error {
 	return out.Errf(out.ExitRemote, "SESSION_FOLDER_DENIED",
-		"look with `komando exec HOST -- ls -ld ~/.komando ~/.komando/sessions`: each is to be a plain folder of the login user that only it can write (chmod 700)",
+		"look with `komando exec TARGET -- ls -ld ~/.komando ~/.komando/sessions`: each is to be a plain folder of the login user that only it can write (chmod 700)",
 		"%s: ~/.komando or its sessions folder is a link, a file, not the login user's, or others can write it", host)
 }
 
 func startFailed(host, why string) error {
 	return out.Errf(out.ExitRemote, "SESSION_START_FAILED",
-		"the server needs nohup, ps and mkfifo: look with `komando exec HOST -- command -v setsid nohup ps mkfifo`",
+		"the server needs nohup, ps and mkfifo: look with `komando exec TARGET -- command -v setsid nohup ps mkfifo`",
 		"%s: the run in a session did not start (%s)", host, why)
 }

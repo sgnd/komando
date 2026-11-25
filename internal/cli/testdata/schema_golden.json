@@ -11561,7 +11561,7 @@
         "code": "SESSION_FOLDER_DENIED",
         "exit": 5,
         "example": "…: ~/.komando or its sessions folder is a link, a file, not the login user's, or others can write it",
-        "hint": "look with `komando exec HOST -- ls -ld ~/.komando ~/.komando/sessions`: each is to be a plain folder of the login user that only it can write (chmod 700)"
+        "hint": "look with `komando exec TARGET -- ls -ld ~/.komando ~/.komando/sessions`: each is to be a plain folder of the login user that only it can write (chmod 700)"
       },
       {
         "code": "SESSION_FOLDER_MISSING",
@@ -11585,13 +11585,13 @@
         "code": "SESSION_SPACE_DENIED",
         "exit": 5,
         "example": "…: the home file system has less free space than the log cap plus 5 percent of the disk; nothing ran",
-        "hint": "free space in the home folder, or give a smaller log cap: `komando exec HOST --log-max 100MiB -- COMMAND`"
+        "hint": "free space in the home folder, or give a smaller log cap: `komando exec TARGET --log-max 100MiB -- COMMAND`"
       },
       {
         "code": "SESSION_START_FAILED",
         "exit": 5,
         "example": "…: the run in a session did not start (…)",
-        "hint": "the server needs nohup, ps and mkfifo: look with `komando exec HOST -- command -v setsid nohup ps mkfifo`"
+        "hint": "the server needs nohup, ps and mkfifo: look with `komando exec TARGET -- command -v setsid nohup ps mkfifo`"
       },
       {
         "code": "SESSION_WAIT_TIMEOUT",
