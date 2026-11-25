@@ -74,25 +74,10 @@ func TestTestsWriteTheGateThroughHelpers(t *testing.T) {
 func gateWriters(t *testing.T, tests bool) map[string]int {
 	t.Helper()
 	got := map[string]int{}
-	fset := token.NewFileSet()
-	err := filepath.WalkDir(".", func(p string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err
+	goFiles(t, func(name string, test bool, file *ast.File) {
+		if test != tests {
+			return
 		}
-		if d.IsDir() {
-			if d.Name() == "testdata" {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if !strings.HasSuffix(p, ".go") || strings.HasSuffix(p, "_test.go") != tests {
-			return nil
-		}
-		file, err := parser.ParseFile(fset, p, nil, parser.SkipObjectResolution)
-		if err != nil {
-			return err
-		}
-		name := filepath.ToSlash(p)
 		ast.Inspect(file, func(n ast.Node) bool {
 			switch n := n.(type) {
 			case *ast.AssignStmt:
@@ -112,12 +97,38 @@ func gateWriters(t *testing.T, tests bool) map[string]int {
 			}
 			return true
 		})
+	})
+	return got
+}
+
+// goFiles calls fn with every Go file of internal/cli and the packages
+// below it, parsed, its slash path, and whether it is a test file.
+func goFiles(t *testing.T, fn func(name string, test bool, file *ast.File)) {
+	t.Helper()
+	fset := token.NewFileSet()
+	err := filepath.WalkDir(".", func(p string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if d.Name() == "testdata" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(p, ".go") {
+			return nil
+		}
+		file, err := parser.ParseFile(fset, p, nil, parser.SkipObjectResolution)
+		if err != nil {
+			return err
+		}
+		fn(filepath.ToSlash(p), strings.HasSuffix(p, "_test.go"), file)
 		return nil
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return got
 }
 
 // gateTarget reports whether e is a call's gate flag (x.flags.yes ...) or
