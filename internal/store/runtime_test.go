@@ -126,3 +126,34 @@ func TestUpdateRuntimeDryRun(t *testing.T) {
 		t.Fatal("dry run saved")
 	}
 }
+
+// An exec session's record is runtime data: saved sealed in runtime.json
+// and read back whole, and the inventory is not rewritten for it.
+func TestExecSessionIsRuntime(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("KOMANDO_HOME", home)
+	t.Cleanup(Close)
+	update(t, func(s *State) { s.Hosts["web"] = &Host{Name: "web"} })
+	inv, _ := os.ReadFile(filepath.Join(home, StoreFile))
+	want := ExecSession{ID: "abc", Host: "web", Command: "make", PID: 41, PGID: 41, ProcStart: "proc 9", Sudo: true, SudoUser: "app", Actor: "claude", Agent: true}
+	if err := UpdateRuntime(Save(), func(s *State) error {
+		r := want
+		s.ExecSessions["abc"] = &r
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if after, _ := os.ReadFile(filepath.Join(home, StoreFile)); string(after) != string(inv) {
+		t.Fatal("an exec session rewrote the store")
+	}
+	s, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := s.ExecSessions["abc"]; got == nil || *got != want {
+		t.Fatalf("read back %+v, want %+v", got, want)
+	}
+	if rt, _ := os.ReadFile(filepath.Join(home, "runtime.json")); strings.Contains(string(rt), "proc 9") {
+		t.Fatal("runtime.json is not sealed")
+	}
+}

@@ -422,7 +422,7 @@ Anything that must keep running (a temporary web server, a watcher) is a
 | 3    | NO_MATCHING_TARGETS               | use the command the hint names (for example `db` for a database) |
 | 3    | AWS_PROFILE_NOT_FOUND             | follow `error.hint` (add the profile to ~/.aws/config); never read ~/.aws yourself |
 | 4    | AUTH_FAILED, NO_AUTH, CONNECTION_REFUSED | follow `error.hint`; do not retry blindly |
-| 4    | AUTH_FAILED on a server that asks for a one-time code (two-factor), or a password only a person knows | ask the human to run `komando login SERVER` once in their terminal; your commands then use that login (8h) |
+| 4    | AUTH_FAILED on a server that asks for a one-time code (two-factor), or a password only a person knows | ask the human to run `komando test SERVER` once in their terminal; your commands then use that session (8h). When it has expired, `error.hint` names the same command again; never type a code |
 | 4    | HOSTKEY_MISMATCH                  | never fix it; report it to the human |
 | 4    | HOSTKEY_UNKNOWN                   | host keys are strict: show the human the fingerprint in the message and let them compare it before `host trust` (it asks them) |
 | 4    | VPN_LOGIN_REQUIRED, VPN_DOWN      | ask the human to run `komando vpn up NAME` |
@@ -432,7 +432,7 @@ Anything that must keep running (a temporary web server, a watcher) is a
 | 5    | DB_ERROR                          | fix the SQL; check `db schema` |
 | 5    | REMOTE_WRITE_FAILED               | check that the folder is writable and has free space (`komando exec TARGET --read-only -- df -h`) |
 | 6    | CONFIRM_REQUIRED, DB_BYTES_LIMIT, DECLINED, EMPTY_FOLDER_CONFIRM_REQUIRED, NEEDS_PERSON, OPEN_BIND, POLICY_BLOCKED, PROTECTED_TARGET, READ_ONLY_VIOLATION, REVEAL_NEEDS_PERSON, REVEAL_NEEDS_TERMINAL, SAFETY_SETTING, SECRET_DESTINATION, SENSITIVE_FILE, SHORTER_SCRIPT_REQUIRED, SQL_SAFE_SETTINGS_REQUIRED, SQL_TX_CHECK_REQUIRED, SSH_GATE_NETWORK_REQUIRED, SSH_GATE_READ_ONLY, SSH_GATE_REFUSED, STORE_OLD_COPY, UNSAFE_BACKUP, WRITE_REQUIRES_FLAG | stop and ask the human; no flag clears NEEDS_PERSON, REVEAL_NEEDS_TERMINAL, SQL_SAFE_SETTINGS_REQUIRED, SQL_TX_CHECK_REQUIRED, SSH_GATE_* or STORE_OLD_COPY: a person runs those in their own terminal |
-| 6    | NEEDS_PERSON or DECLINED from a server or conn whose login is `ask` (`host show`/`conn show`: `login: ask`) | its password is typed by the human in komando's window, never by you; do not retry: ask them to run `komando login SERVER` (a conn: the command itself) in their own terminal. Adding one or changing where it goes (address, `--via`, a jump host or VPN on its way) is theirs too |
+| 6    | NEEDS_PERSON or DECLINED from a server or conn whose login is `ask` (`host show`/`conn show`: `login: ask`) | its password is typed by the human in komando's window, never by you; do not retry: ask them to run `komando test SERVER` (a conn: the command itself) in their own terminal. Adding one or changing where it goes (address, `--via`, a jump host or VPN on its way) is theirs too |
 | 7    | CONNECT_TIMEOUT                   | the server did not answer: check the address, `--via` or the VPN; on a slow link raise `--connect-timeout` |
 | 7    | TIMEOUT                           | raise `--timeout` or use `job start` |
 | 8    | NO_MATCH, AMBIGUOUS_MATCH         | re-read the file; use exact, unique `--old` text |

@@ -7,10 +7,13 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
+	"slices"
 	"strings"
 	"time"
 
@@ -133,7 +136,7 @@ func installGuardHook(path, komandoPath string, dryRun bool) (skillFile, error) 
 	case !errors.Is(err, fs.ErrNotExist):
 		return f, err
 	}
-	command := shellQuote(komandoPath) + " guide guard"
+	command := guardHookLine(komandoPath, "claude")
 	hooks, _ := settings["hooks"].(map[string]any)
 	if hooks == nil {
 		hooks = map[string]any{}
@@ -197,6 +200,45 @@ func saveBackup(name string, old []byte) error {
 	return store.WriteFileAtomic(name, old, 0o600)
 }
 
+// guardDidNotRun is the reason a harness reads when komando's guard could
+// not answer: the program is gone, is not a program, crashed or failed.
+const guardDidNotRun = "it did not run, so the call is refused: run komando doctor"
+
+// hookOS is the system the hook line is written for; tests set it.
+var hookOS = runtime.GOOS
+
+// guardHookLine is the hook command for harness h (claude, cursor, gemini,
+// codex). sh runs komando's guard on the call (stdin passes through) and
+// prints its answer only when the guard ran to the end; on any failure it
+// prints h's own deny instead, so the harness refuses the call rather than
+// going on without the guard.
+func guardHookLine(prog, h string) string {
+	if hookOS == "windows" {
+		// no /bin/sh: komando's guard is called directly, as before 0.17.2,
+		// and a call goes through when komando is missing (doctor says so;
+		// a PowerShell wrapper is row C419)
+		line := shellQuote(prog) + " guide guard"
+		if h != "claude" {
+			line += " --for " + h
+		}
+		return line
+	}
+	refuse := strings.TrimSpace(string(guardAnswer(h, deny(guardDidNotRun))))
+	script := `out=$("$0" guide guard --for ` + h + `) && printf %s "$out" || { printf %s ` + shellQuote(refuse) +
+		`; echo ` + shellQuote("komando guard: "+guardDidNotRun) + ` >&2; }`
+	return "/bin/sh -c " + shellQuote(script) + " " + shellQuote(prog)
+}
+
+// hookLineProgram is the komando program a guard hook line runs, and
+// whether the line is guardHookLine's form; an older line names the
+// program as its first word.
+func hookLineProgram(line string) (prog string, wrapped bool) {
+	if w := shellWords(line); len(w) == 4 && w[0] == "/bin/sh" && w[1] == "-c" && strings.Contains(w[2], `"$0" guide guard --for `) {
+		return w[3], true
+	}
+	return firstWord(line), false
+}
+
 func isGuardEntry(m map[string]any) bool {
 	hs, _ := m["hooks"].([]any)
 	for _, h := range hs {
@@ -209,10 +251,12 @@ func isGuardEntry(m map[string]any) bool {
 	return false
 }
 
-// komandoPath is how the hook calls komando: the name found in PATH when it
-// is this program (it survives upgrades), else this program's own path.
+// komandoPath is how the hook calls komando: the full path found in PATH
+// when it is this program (it survives upgrades), else this program's own
+// path, or "" when the system cannot say. Never a bare name: PATH is where
+// an AI agent could put a program of its own first.
 func komandoPath() string {
-	self, _ := os.Executable()
+	self, _ := selfProgram()
 	if p, err := exec.LookPath("komando"); err == nil {
 		if a, b := statOf(p), statOf(self); a != nil && b != nil && os.SameFile(a, b) {
 			if abs, err := filepath.Abs(p); err == nil {
@@ -220,11 +264,11 @@ func komandoPath() string {
 			}
 		}
 	}
-	if self == "" {
-		return "komando"
-	}
 	return self
 }
+
+// selfProgram is os.Executable; tests replace it.
+var selfProgram = os.Executable
 
 func statOf(p string) os.FileInfo {
 	fi, err := os.Stat(p)
@@ -248,56 +292,78 @@ func shellQuote(s string) string {
 
 var plainShellWord = regexp.MustCompile(`^[A-Za-z0-9_./:=@%+,-]+$`)
 
-// claudeGuard reads a Claude Code settings file: whether it has komando's
-// guard, and "" or what keeps that guard from running. A hook command
-// that is not there fails as a hook error, which Claude Code shows and
-// then goes on without the guard.
+// claudeGuard reads a harness's settings file (Claude Code's, or another
+// agent's hook file): whether it has komando's guard, and "" or what keeps
+// that guard from refusing a call it cannot check (guardHookProblem).
 func claudeGuard(path string) (found bool, problem string) {
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return false, ""
 	}
-	settings := map[string]any{}
+	var settings any
 	if json.Unmarshal(b, &settings) != nil {
-		return strings.Contains(string(b), " guide guard"), path + " is not valid JSON, so Claude Code reads no hooks from it"
+		return strings.Contains(string(b), " guide guard"), path + " is not valid JSON, so the agent reads no hooks from it"
 	}
-	hooks, _ := settings["hooks"].(map[string]any)
-	pre, _ := hooks["PreToolUse"].([]any)
-	for _, e := range pre {
-		m, ok := e.(map[string]any)
-		if !ok || !isGuardEntry(m) {
-			continue
-		}
-		hs, _ := m["hooks"].([]any)
-		for _, h := range hs {
-			hm, _ := h.(map[string]any)
-			c, _ := hm["command"].(string)
-			if !strings.Contains(c, " guide guard") {
-				continue
-			}
-			found = true
-			if problem = guardProgramProblem(firstWord(c)); problem == "" {
-				return true, ""
-			}
+	for _, c := range guardHookCommands(settings) {
+		found = true
+		if problem == "" {
+			problem = guardHookProblem(c)
 		}
 	}
 	return found, problem
 }
 
+// guardHookCommands are the guard hook lines anywhere in a settings file,
+// in the old form and in guardHookLine's.
+func guardHookCommands(v any) []string {
+	var lines []string
+	switch v := v.(type) {
+	case map[string]any:
+		if c, ok := v["command"].(string); ok && strings.Contains(c, " guide guard") {
+			lines = append(lines, c)
+		}
+		for _, k := range slices.Sorted(maps.Keys(v)) {
+			lines = append(lines, guardHookCommands(v[k])...)
+		}
+	case []any:
+		for _, e := range v {
+			lines = append(lines, guardHookCommands(e)...)
+		}
+	}
+	return lines
+}
+
+// guardHookProblem says what keeps one guard hook line from refusing a
+// call komando cannot check, or "".
+func guardHookProblem(line string) string {
+	prog, wrapped := hookLineProgram(line)
+	why := guardProgramProblem(prog)
+	switch {
+	case why != "" && wrapped:
+		return why + ", so the agent's every tool call is refused"
+	case why != "":
+		return why + ", so the agent goes on without the guard"
+	case !wrapped && hookOS != "windows":
+		return "it uses the old hook line, which lets a call through when komando is missing"
+	}
+	return ""
+}
+
 // guardProgramProblem says why the program a hook names cannot run, or "".
 func guardProgramProblem(prog string) string {
-	if !strings.Contains(prog, "/") {
-		if _, err := exec.LookPath(prog); err != nil {
-			return "its command " + prog + " is not in PATH"
-		}
-		return ""
+	if !filepath.IsAbs(prog) {
+		// found through PATH when the hook runs, where an AI agent could put
+		// a program of its own first
+		return "its command " + prog + " is not a full path"
 	}
 	fi, err := os.Stat(prog)
 	switch {
 	case err != nil:
 		return "its command " + prog + " does not exist"
-	case fi.IsDir() || fi.Mode()&0o111 == 0:
+	case fi.IsDir() || runtime.GOOS != "windows" && fi.Mode()&0o111 == 0: // Windows has no mode bits
 		return "its command " + prog + " is not a program"
+	case runtime.GOOS != "windows" && fi.Mode()&0o002 != 0:
+		return "its command " + prog + " may be changed by every user of this computer"
 	}
 	return ""
 }
@@ -327,4 +393,223 @@ func firstWord(line string) string {
 		}
 	}
 	return b.String()
+}
+
+// hookSettingFiles are, per AI agent folder, the files that hold its hooks
+// or can switch them off.
+var hookSettingFiles = map[string][]string{
+	".claude": {"settings.json", "settings.local.json"},
+	".codex":  {"hooks.json", "config.toml"},
+	".gemini": {"settings.json"},
+	".cursor": {"hooks.json"},
+}
+
+// guardSelfWhy says why an AI agent may not write, move or delete p, or "":
+// an agent's folder, a file that holds its hooks, or the komando program
+// the guard hook runs. Links are followed; names are folded where the
+// file system folds them.
+func guardSelfWhy(p string) string {
+	if p == "" {
+		return ""
+	}
+	for _, c := range withReal([]string{filepath.Clean(p)}, realPath(p)) {
+		name := c
+		if caseFoldFS {
+			name = foldCase(c)
+		}
+		base, parent := filepath.Base(name), filepath.Base(filepath.Dir(name))
+		if _, ok := hookSettingFiles[base]; ok {
+			return "an AI agent's settings folder, which holds komando's guard hook"
+		}
+		if slices.Contains(hookSettingFiles[parent], base) {
+			return "an AI agent's hook settings, which run komando's guard"
+		}
+		if lb := strings.ToLower(base); (lb == "komando" || lb == "komando.exe") && !komandoFolderOK(c) {
+			return komandoNamedWhy
+		}
+		for _, prog := range guardPrograms() {
+			if samePath(c, prog) {
+				return "the komando program the guard hook runs"
+			}
+		}
+	}
+	return ""
+}
+
+// guardPrograms are the komando programs a guard hook runs: this one and
+// the komando in PATH, each as named and as its link leads.
+func guardPrograms() []string {
+	var l []string
+	if self, err := os.Executable(); err == nil {
+		l = withReal(l, self)
+	}
+	if p, err := exec.LookPath("komando"); err == nil {
+		if abs, err := filepath.Abs(p); err == nil {
+			l = withReal(l, abs)
+		}
+	}
+	return l
+}
+
+// samePath says whether a and b name one file: by identity when both
+// exist, else by their cleaned path.
+func samePath(a, b string) bool {
+	if fa, fb := statOf(a), statOf(b); fa != nil && fb != nil {
+		return os.SameFile(fa, fb)
+	}
+	return filepath.Clean(a) == filepath.Clean(b)
+}
+
+// readOnlyPrograms only look at the paths they name; a redirect of their
+// output is checked on its own.
+var readOnlyPrograms = map[string]bool{"cat": true, "less": true, "more": true, "head": true, "tail": true, "grep": true,
+	"egrep": true, "fgrep": true, "rg": true, "ls": true, "stat": true, "file": true, "wc": true, "diff": true, "cmp": true,
+	"readlink": true, "realpath": true, "which": true, "type": true, "command": true, "test": true, "[": true, "jq": true,
+	"echo": true, "printf": true, "md5": true, "md5sum": true, "shasum": true, "sha256sum": true, "cd": true, "pushd": true}
+
+// redirectTarget is a file a shell segment writes with > or >>.
+var redirectTarget = regexp.MustCompile(`[0-9&]?>>?\|?\s*("[^"]*"|'[^']*'|[^\s;&|<>()]+)`)
+
+// writesKomandoByName is a shell line whose program changes a file named by
+// a command that names komando: rm "$(command -v komando)", chmod 777
+// `which komando`. splitShell gives the command its own segment, so this
+// reads the whole line.
+var writesKomandoByName = regexp.MustCompile("(^|[;&|(\\s])(rm|unlink|mv|cp|ln|chmod|chown|install|truncate|tee|dd|shred|sed|perl)\\s[^;&|\\n]*(\\$\\(|`)[^)`]*\\bkomando\\b")
+
+// checkSelfWrite refuses a shell segment that writes, moves, deletes or
+// changes the mode of a guard file (guardSelfWhy): through a redirect, or
+// as an argument of a program that is not only a reader.
+func checkSelfWrite(cl *call, seg, base string, args []string, home, cwd string) guardDecision {
+	refuse := func(w, why string) guardDecision {
+		return deny("%s is %s; an AI agent does not change it: %s", w, why, selfWayOut(why))
+	}
+	for _, m := range redirectTarget.FindAllStringSubmatch(seg, -1) {
+		w := strings.Trim(m[1], `"'`)
+		if why := guardSelfWhy(guardPathAt(cl, w, home, cwd)); why != "" {
+			return refuse(w, why)
+		}
+	}
+	if readOnlyPrograms[base] {
+		return allow()
+	}
+	for _, a := range args {
+		if strings.HasPrefix(a, "-") {
+			continue
+		}
+		if why := guardSelfWhy(guardPathAt(cl, a, home, cwd)); why != "" {
+			return refuse(a, why)
+		}
+	}
+	return allow()
+}
+
+// checkWholeLine refuses what a line does as a whole, before it is split
+// into commands: reading the vault passphrase or a process environment, and
+// changing the komando program through a command that names it.
+func checkWholeLine(line string) guardDecision {
+	switch {
+	case readsVaultPass.MatchString(line):
+		return deny("KOMANDO_VAULT_PASS opens komando's vault; it is for the user only")
+	case writesKomandoByName.MatchString(line):
+		return deny("the line changes the komando program the guard hook runs; an AI agent does not change it. Ask the user to do it")
+	case procEnviron.MatchString(line): // /proc/PID/environ, not words like "environments"
+		return deny("process environments hold secrets; ask the user for the one value you need")
+	}
+	return allow()
+}
+
+// komandoNamedWhy is guardSelfWhy's reason for a file named komando.
+const komandoNamedWhy = "a program named komando, which a guard hook could run in place of komando"
+
+// selfWayOut is what an AI agent does instead of changing a guard file:
+// a program it builds gets another name; anything else is the user's.
+func selfWayOut(why string) string {
+	if why == komandoNamedWhy {
+		return "build it under another name (for example go build -o komando-dev), or ask the user to run it"
+	}
+	return "ask the user to do it"
+}
+
+// komandoFolderOK says whether c, named komando, is a folder an agent may
+// name: a real folder, not a link, outside every PATH folder, such as
+// cmd/komando in the repo (go build ./cmd/komando). A link, or a folder in
+// a PATH folder, can be swapped for a program by the same line before a
+// hook that names komando by its bare name finds it.
+func komandoFolderOK(c string) bool {
+	fi, err := os.Lstat(c)
+	if err != nil || !fi.IsDir() {
+		return false
+	}
+	dir := filepath.Dir(c)
+	for _, d := range filepath.SplitList(os.Getenv("PATH")) {
+		if d == "" {
+			d = "."
+		}
+		if abs, err := filepath.Abs(d); err == nil && samePath(abs, dir) {
+			return false
+		}
+	}
+	return true
+}
+
+// namesGuardFile is a hook file, an agent's settings folder itself, as a
+// line writes it anywhere: after ~, $HOME or a full path, in code or in a
+// variable, with / or with \ (PowerShell and cmd on Windows).
+var namesGuardFile = regexp.MustCompile(`(?i)\.claude[/\\]settings[^/\\\s'"]*\.json|\.codex[/\\](hooks\.json|config\.toml)|\.gemini[/\\]settings\.json|\.cursor[/\\]hooks\.json|\.(claude|codex|gemini|cursor)[/\\]?(["'\s;&|)]|$)`)
+
+// komandoPathWord is a word of a line that ends in /komando or
+// /komando.exe (or \komando on Windows).
+var komandoPathWord = regexp.MustCompile(`(?i)([^\s'"=;&|()<>,]*[/\\]komando(\.exe)?)(["'\s;&|)<>,]|$)`)
+
+var komandoWord = regexp.MustCompile(`(?i)\bkomando\b`)
+
+// inlineCode are programs that run code given on their line (-c, -e).
+var inlineCode = map[string]bool{"python": true, "python2": true, "python3": true, "node": true, "nodejs": true, "deno": true, "bun": true,
+	"ruby": true, "perl": true, "php": true, "lua": true, "osascript": true, "pwsh": true, "powershell": true, "tclsh": true}
+
+// checkGuardFiles refuses a segment of line that changes a guard file:
+// named as its argument or redirect (checkSelfWrite), or anywhere on the
+// line when its program is not only a reader (checkGuardFileNamed).
+// komando's own commands check the files they write themselves.
+func checkGuardFiles(cl *call, line, seg, prog string, args []string, home, cwd string) guardDecision {
+	base := filepath.Base(prog)
+	if base == "komando" {
+		return allow()
+	}
+	if d := checkSelfWrite(cl, seg, base, args, home, cwd); d.Deny || prog == "" || readOnlyPrograms[base] {
+		return d
+	}
+	return checkGuardFileNamed(cl, line, base, args, home, cwd)
+}
+
+// checkGuardFileNamed refuses a command that is not only a reader when its
+// line names a guard file anywhere, not only as its own argument: in code
+// given to an interpreter (python3 -c "open('~/.claude/settings.json','w')"),
+// or in a variable a later command uses (f=~/.claude/settings.json; rm "$f").
+// Code given to an interpreter may not name komando at all: it can find the
+// program by name (shutil.which).
+func checkGuardFileNamed(cl *call, line, base string, args []string, home, cwd string) guardDecision {
+	refuse := func(what, why string) guardDecision {
+		return deny("the line names %s and runs %s, which can change it; an AI agent does not change komando's guard: %s", what, base, selfWayOut(why))
+	}
+	if m := namesGuardFile.FindString(line); m != "" {
+		return refuse(strings.TrimRight(m, "\"' ;&|)"), "")
+	}
+	for _, m := range komandoPathWord.FindAllStringSubmatch(line, -1) {
+		w := m[1]
+		if runtime.GOOS == "windows" { // \ is a separator there, not an escape
+			w = strings.ReplaceAll(w, `\`, "/")
+		}
+		if why := guardSelfWhy(guardPathAt(cl, w, home, cwd)); why != "" {
+			return refuse(m[1], why)
+		}
+	}
+	if b := strings.TrimSuffix(strings.ToLower(base), ".exe"); inlineCode[b] || strings.HasPrefix(b, "python3.") {
+		for _, a := range args {
+			if (a == "-c" || a == "-e" || a == "-E" || a == "--eval" || a == "-Command" || a == "-command") && komandoWord.MatchString(line) {
+				return refuse("komando", komandoNamedWhy)
+			}
+		}
+	}
+	return allow()
 }
