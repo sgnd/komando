@@ -175,3 +175,17 @@ func TestHostCAChecksReportErrors(t *testing.T) {
 		})
 	}
 }
+
+// A dry run records the stop the real run hits: an AI agent's preview of
+// host ca add says NEEDS_PERSON in would_be_blocked, and still shows what
+// it would add.
+func TestHostCAAddDryRunRecordsTheStop(t *testing.T) {
+	invHome(t)
+	p, _ := caPub(t)
+	setCallerEnv(t, "CLAUDECODE", "1")
+	d, e := invRun(t, "host", "ca", "add", "corp", "--key", p, "--hosts", "*.corp.example", "--dry-run")
+	setGate(tcl, false, gateDryRun)
+	if e != nil || d["action"] != "would_add" || blockedCode(d) != "NEEDS_PERSON" {
+		t.Fatalf("dry run: %v %+v", d, e)
+	}
+}

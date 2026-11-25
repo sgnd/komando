@@ -17,6 +17,7 @@ import (
 	"golang.org/x/sys/unix"
 	"golang.org/x/term"
 
+	kitterm "github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/vault"
 )
@@ -50,7 +51,7 @@ func TestPTYChild(t *testing.T) {
 	echo := err == nil && tm.Lflag&unix.ECHO != 0 && tm.Lflag&unix.ICANON != 0
 	left := -1
 	if old, err := term.MakeRaw(fd); err == nil { // line mode counts only finished lines
-		left = typedAhead(fd)
+		left = kitterm.TypedAhead(fd)
 		_ = term.Restore(fd, old)
 	}
 	_ = os.WriteFile(os.Getenv("KOMANDO_PTY_REPORT"), fmt.Appendf(nil, "%v %d", echo, left), 0o600)
