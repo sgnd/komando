@@ -44,21 +44,21 @@ func TestVpnQuestion(t *testing.T) {
 }
 
 // readAnswerWith runs readAnswer with stdin holding in, and gives the
-// answer, the error and what it printed on stderr.
-func readAnswerWith(t *testing.T, in, label string, hidden bool) (string, error, string) {
+// answer, what it printed on stderr and the error.
+func readAnswerWith(t *testing.T, in, label string, hidden bool) (string, string, error) {
 	t.Helper()
 	var errw bytes.Buffer
 	savedIn, savedErr := tcl.stdin, tcl.out.Err
 	tcl.stdin, tcl.out.Err = strings.NewReader(in), &errw
 	defer func() { tcl.stdin, tcl.out.Err = savedIn, savedErr }()
 	a, err := readAnswer(tcl, label, hidden)
-	return a, err, errw.String()
+	return a, errw.String(), err
 }
 
 // A shown answer is the line as typed, Enter included; the question goes
 // to stderr.
 func TestReadAnswerLine(t *testing.T) {
-	a, err, shown := readAnswerWith(t, "yes\nmore\n", "Go on? ", false)
+	a, shown, err := readAnswerWith(t, "yes\nmore\n", "Go on? ", false)
 	if a != "yes\n" || err != nil || shown != "Go on? " {
 		t.Errorf("got %q, %v, shown %q", a, err, shown)
 	}
@@ -67,7 +67,7 @@ func TestReadAnswerLine(t *testing.T) {
 // Ctrl-D (end of input) where the answer shows is an empty answer, and the
 // line is ended, as the terminal does not.
 func TestReadAnswerEndOfInput(t *testing.T) {
-	a, err, shown := readAnswerWith(t, "", "Go on? ", false)
+	a, shown, err := readAnswerWith(t, "", "Go on? ", false)
 	if a != "" || err != nil || shown != "Go on? \n" {
 		t.Errorf("got %q, %v, shown %q", a, err, shown)
 	}
@@ -77,7 +77,7 @@ func TestReadAnswerEndOfInput(t *testing.T) {
 func TestReadAnswerAfterInterrupt(t *testing.T) {
 	tcl.interrupted = true
 	defer func() { tcl.interrupted = false }()
-	a, err, shown := readAnswerWith(t, "yes\n", "Go on? ", false)
+	a, shown, err := readAnswerWith(t, "yes\n", "Go on? ", false)
 	if a != "" || toErr(err).Code != "CANCELLED" || shown != "" {
 		t.Errorf("got %q, %v, shown %q", a, err, shown)
 	}
@@ -89,7 +89,7 @@ func TestReadAnswerHiddenNeedsTerminal(t *testing.T) {
 	if term.IsTerminal(int(os.Stdin.Fd())) {
 		t.Skip("stdin is a terminal here")
 	}
-	a, err, shown := readAnswerWith(t, "secret\n", "Password: ", true)
+	a, shown, err := readAnswerWith(t, "secret\n", "Password: ", true)
 	if a != "" || err == nil || shown != "" {
 		t.Errorf("got %q, %v, shown %q", a, err, shown)
 	}
