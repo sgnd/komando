@@ -6533,6 +6533,57 @@
         ]
       },
       {
+        "path": "komando policy edit",
+        "usage": "komando policy edit RULE [flags]",
+        "short": "Switch a rule off or on, everywhere or on some servers",
+        "long": "--off switches a rule off, so it no longer stops a command. With\n--add-server or --add-group it is off only on those servers (a group as its\nservers are now): a command that also runs on another server is still\nstopped. Switching a rule off weakens a safety check, so komando asks first:\nan AI agent's request opens the approval window on your screen, and for a\nrule that keeps the others working (check-failed, decode-run, rm-root, mkfs,\nsshd-stop, ...) you type the rule's name at a terminal, with --yes too, and\nan AI agent's request for one is refused. The audit log keeps every switch,\nand `komando doctor` names every rule that is off. --off=false switches it\non again everywhere; --rm-server and --rm-group switch it on again on those\nservers only.\n\nSafety: a change; try it with --dry-run first; unless it only switches the\nrule on: it weakens a safety check: a person's yes (--yes).",
+        "example": "  komando policy edit docker-prune --off --add-server build1\n  komando policy edit docker-prune --off --add-server build1 --dry-run\n  komando policy edit pkg-remove-essential --off --add-group lab\n  komando policy edit docker-prune --rm-server build1\n  komando policy edit docker-prune --off=false",
+        "flags": [
+          {
+            "name": "add-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "with --off: only on the servers in these groups as they are now"
+          },
+          {
+            "name": "add-server",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "with --off: only on these servers"
+          },
+          {
+            "name": "off",
+            "type": "bool",
+            "default": "false",
+            "usage": "switch the rule off; --off=false switches it on again everywhere"
+          },
+          {
+            "name": "rm-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "switch the rule on again on the servers these groups named"
+          },
+          {
+            "name": "rm-server",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "switch the rule on again on these servers"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "unless it only switches the rule on"
+          }
+        ]
+      },
+      {
         "path": "komando policy list",
         "usage": "komando policy list [flags]",
         "short": "List the built-in rules and your deny rules",
@@ -6574,6 +6625,19 @@
           {
             "tier": "safety",
             "flag": "--yes"
+          }
+        ]
+      },
+      {
+        "path": "komando policy show",
+        "usage": "komando policy show RULE [flags]",
+        "short": "Show one rule: what it stops and where it is off",
+        "example": "  komando policy show docker-prune\n  komando policy show rm-root -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
           }
         ]
       },
@@ -10363,7 +10427,7 @@
         "code": "BUILTIN_RULE",
         "exit": 2,
         "example": "… is a built-in rule and cannot be removed",
-        "hint": "built-in rules always apply (see them with `komando policy list`); for one intended command, confirm with the user and pass --allow-dangerous"
+        "hint": "a built-in rule cannot be removed; switch it off with `komando policy edit RULE --off`"
       },
       {
         "code": "CACHE_AUTH",
@@ -11476,8 +11540,8 @@
       {
         "code": "RULE_NOT_FOUND",
         "exit": 3,
-        "example": "no custom deny rule named …",
-        "hint": "see the custom rules and their ids with `komando policy list`"
+        "example": "no rule named …",
+        "hint": "see every rule and its id with `komando policy list`"
       },
       {
         "code": "SAFETY_SETTING",
@@ -11558,10 +11622,46 @@
         "hint": "use a database of your own; komando's data is read only through komando's commands (`komando list`, `komando secret list`)"
       },
       {
+        "code": "SESSION_FOLDER_DENIED",
+        "exit": 5,
+        "example": "…: ~/.komando or its sessions folder is a link, a file, not the login user's, or others can write it",
+        "hint": "look with `komando exec TARGET -- ls -ld ~/.komando ~/.komando/sessions`: each is to be a plain folder of the login user that only it can write (chmod 700)"
+      },
+      {
+        "code": "SESSION_FOLDER_MISSING",
+        "exit": 3,
+        "example": "no session … on …",
+        "hint": "check the ID and the server: a session is removed once its starter read it to the end, or after 7 days; `komando audit` shows the exec that started it"
+      },
+      {
         "code": "SESSION_NOT_FOUND",
         "exit": 3,
         "example": "no session …",
         "hint": "list sessions with `komando db activity CONN --all`"
+      },
+      {
+        "code": "SESSION_RECORD_MISSING",
+        "exit": 3,
+        "example": "session … on … was not started from this computer",
+        "hint": "only the computer that started the run can stop it: stop it there; `komando audit` there shows the exec that started it"
+      },
+      {
+        "code": "SESSION_SPACE_DENIED",
+        "exit": 5,
+        "example": "…: the home file system has less free space than the log cap plus 5 percent of the disk; nothing ran",
+        "hint": "free space in the home folder, or give a smaller log cap: `komando exec TARGET --log-max 100MiB -- COMMAND`"
+      },
+      {
+        "code": "SESSION_START_FAILED",
+        "exit": 5,
+        "example": "…: the run in a session did not start (…)",
+        "hint": "the server needs nohup, ps and mkfifo: look with `komando exec TARGET -- command -v setsid nohup ps mkfifo`"
+      },
+      {
+        "code": "SESSION_WAIT_TIMEOUT",
+        "exit": 7,
+        "example": "session … on … still running after …",
+        "hint": "it is still running: `komando exec … --attach … --offset …` reads on"
       },
       {
         "code": "SFTP_UNAVAILABLE",

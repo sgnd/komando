@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/cli/kit/term"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -251,7 +252,7 @@ are not changed.`
 		Args:    cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			from, to := args[0], args[1]
-			if err := validName("secret", to); err != nil {
+			if err := inventory.ValidName("secret", to); err != nil {
 				return err
 			}
 			for _, n := range args {
@@ -487,7 +488,7 @@ func renameURLSecretRefs(rawURL, from, to string) (string, bool) {
 // is secret:NAME and writes back the name fn returns. It splits the URL the
 // way net/url does (the query runs from the first ? to the #) and edits
 // the text in place, so options it does not change keep their order and
-// their escaping. Secret names need no escaping (validName).
+// their escaping. Secret names need no escaping (inventory.ValidName).
 func mapURLSecretRefs(rawURL string, fn func(opt, name string) string) string {
 	rest, frag, hasFrag := strings.Cut(rawURL, "#")
 	head, query, ok := strings.Cut(rest, "?")

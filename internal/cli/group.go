@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/cli/kit/term"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -153,7 +154,7 @@ func groupAddCmd() *cobra.Command {
 		Args: cobra.MinimumNArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			group := strings.TrimPrefix(args[0], "@")
-			if err := validLabelName("group", group); err != nil {
+			if err := inventory.ValidLabelName("group", group); err != nil {
 				return err
 			}
 			res := map[string]any{"group": group}

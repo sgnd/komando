@@ -79,14 +79,16 @@ or a listed one is gone.
 | `internal/capability` | the command tree of the next command structure as data: types, providers, areas, verbs, options and tier rows; until the switch, `internal/cli` reads only the keys of its safety tables from it |
 | `internal/ci` | test only: runs the scripts inside the GitHub workflows (the CLA check) |
 | `internal/cli` | every command: flags, safety checks, audit and output |
-| `internal/cli/kit/term` | what every command prints: terminal column widths, text tables and the line of an empty list; no cobra, no komando state. Code every command package shares moves into `kit` one part at a time |
+| `internal/cli/kit/term` | what every command prints: terminal column widths, text tables, the line of an empty list and whether the terminal reads escape sequences; no cobra, no komando state. Code every command package shares moves into `kit` one part at a time |
 | `internal/cloud` | komando's own clients for cloud and secret-manager APIs |
 | `internal/gcpadc` | finds Google application-default credentials for every client that uses them, after checking where the file found would send what |
 | `internal/codesize` | test only: the 100-line and 800-line limits |
 | `internal/dbx` | SQL and MongoDB against a conn, dump and restore |
 | `internal/driver` | the kinds of conns and the risk levels the safety checks use |
 | `internal/engine` | one komando call: who makes it and its approvals |
+| `internal/execsession` | a long `exec` that outlives the connection: the session ID, the folder on the server, and the shell text that starts, reads and stops a run |
 | `internal/flock` | a file lock between komando processes |
+| `internal/inventory` | the rules for what goes into the inventory: names and the shared name space, login names, ports, labels, `--via` paths and conn families; nothing of `internal/cli` |
 | `internal/ipsec` | komando's own IKEv1 and IKEv2 clients |
 | `internal/kube` | the Kubernetes API over HTTPS, without client-go |
 | `internal/l2tp` | komando's own L2TP client |
@@ -128,14 +130,17 @@ or a listed one is gone.
 Each package below `internal/cli` keeps to the imports of its row, so
 what every command shares never reaches back into the commands. "std" is
 the standard library; the others are import paths (below the module when
-they start with `internal/`). A new package gets its row here, in the same
-words as the move check, in the same change; `internal/layout` fails when
-a package has no row, imports more than its row allows, or a row has no
-code.
+they start with `internal/`). A path followed by a `//go:build`
+expression in brackets, such as `golang.org/x/sys/windows` (windows), is
+allowed only in files that build on no system outside it, by their
+`//go:build` line or their `_<system>` ending. A new package gets its row
+here, in the same words as the move check, in the same change;
+`internal/layout` fails when a package has no row, imports more than its
+row allows, or a row has no code.
 
 | Package | May import |
 |---|---|
-| `internal/cli/kit/term` | std, `internal/out`, `golang.org/x/text` |
+| `internal/cli/kit/term` | std, `internal/out`, `golang.org/x/text`, `golang.org/x/sys/windows` (windows) |
 
 ## Files in internal/cli
 

@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/cli/kit/term"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -165,7 +166,7 @@ func countPinned(addr string) int {
 
 // renameStep replaces a renamed host in a --via chain.
 func renameStep(via, old, now string) string {
-	steps := viaChain(via)
+	steps := inventory.ViaChain(via)
 	for i, s := range steps {
 		if s == old {
 			steps[i] = now

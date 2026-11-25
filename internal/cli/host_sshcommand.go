@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -82,7 +83,7 @@ func sshPath(st *store.State, h *store.Host, seen map[string]bool) (*store.Vpn, 
 	seen[h.Name] = true
 	var vpn *store.Vpn
 	var hops []*store.Host
-	for _, step := range viaChain(h.Via) {
+	for _, step := range inventory.ViaChain(h.Via) {
 		if v, ok := st.Vpns[step]; ok {
 			if vpn != nil || len(hops) > 0 {
 				return nil, nil, out.Errf(out.ExitUsage, "VIA_ORDER", "put the VPN first in --via", "%s: a VPN can only be the first step of a --via path", h.Name)

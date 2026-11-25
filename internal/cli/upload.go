@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 )
 
@@ -28,7 +29,7 @@ func fileTarget(cl *call, expr string) (storage bool, err error) {
 	}
 	var buckets []string
 	for _, c := range sel.Conns {
-		if connFamily(c) == "storage" {
+		if inventory.ConnFamily(c) == "storage" {
 			buckets = append(buckets, c.Name)
 		}
 	}
