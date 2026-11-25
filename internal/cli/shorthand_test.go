@@ -15,7 +15,7 @@ import (
 func TestFsMkdirParentsNoOp(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
-	defer func() { tcl.flags.dryRun = false }()
+	defer func() { setGate(tcl, false, gateDryRun) }()
 	plan := func(args ...string) string {
 		d := mustRun(t, append([]string{"fs", "mkdir", "web1"}, args...)...)
 		delete(d, "_meta")

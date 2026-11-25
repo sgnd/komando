@@ -3,6 +3,9 @@ package cli
 import (
 	"context"
 	"fmt"
+	"maps"
+	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strconv"
@@ -13,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/capability"
+	"github.com/sgnd/komando/internal/out"
 )
 
 // probeLeaf is a leaf only these tests mount: under today's cache command,
@@ -146,11 +150,32 @@ func TestBuildRefusesWhatItCannotBuild(t *testing.T) {
 		"a path today's tree has": {capability.Leaf{Key: capability.Key{Type: "cache", Verb: "get"}, Short: "x"}, nil, "already"},
 		"no text":                 {capability.Leaf{Key: capability.Key{Type: "cache", Provider: "probeprov", Verb: "probe"}}, probeGroups, "Short"},
 		"a group with no text":    {capability.Leaf{Key: capability.Key{Type: "cache", Provider: "other", Verb: "probe"}, Short: "x"}, probeGroups, "group"},
+		"a global flag":           {capability.Leaf{Key: probeLeaf.Key, Short: "x", Options: []capability.Option{{Name: "dry-run", Kind: capability.Bool}}}, probeGroups, "global flag"},
+		"an option named help":    {capability.Leaf{Key: probeLeaf.Key, Short: "x", Options: []capability.Option{{Name: "help", Kind: capability.Bool}}}, probeGroups, "global flag"},
 	}
 	for name, c := range cases {
 		err := mountLeaves(newRoot(tcl), []capability.Leaf{c.leaf}, map[capability.Key]handler{c.leaf.Key: h}, c.groups)
 		if err == nil || !strings.Contains(err.Error(), c.want) {
 			t.Errorf("%s: %v, want an error naming %q", name, err, c.want)
+		}
+	}
+	// names and aliases of one level never meet (R3): cobra would pick one
+	// silently
+	small := func() *cobra.Command {
+		root := &cobra.Command{Use: "komando"}
+		cache := &cobra.Command{Use: "cache"}
+		cache.AddCommand(&cobra.Command{Use: "keep", Aliases: []string{"kp"}, Run: func(*cobra.Command, []string) {}})
+		root.AddCommand(cache)
+		return root
+	}
+	for name, l := range map[string]capability.Leaf{
+		"a synonym that is a sibling's name":  {Key: capability.Key{Type: "cache", Verb: "hold"}, Short: "x", Synonyms: []string{"keep"}},
+		"a synonym that is a sibling's alias": {Key: capability.Key{Type: "cache", Verb: "hold"}, Short: "x", Synonyms: []string{"kp"}},
+		"a name that is a sibling's alias":    {Key: capability.Key{Type: "cache", Verb: "kp"}, Short: "x"},
+	} {
+		err := mountLeaves(small(), []capability.Leaf{l}, map[capability.Key]handler{l.Key: h}, nil)
+		if err == nil || !strings.Contains(err.Error(), "already") {
+			t.Errorf("%s: %v, want an error saying the word is already used", name, err)
 		}
 	}
 	// a planned leaf and a leaf with no handler are not built
@@ -193,23 +218,6 @@ func TestEveryHandlerHasLeaf(t *testing.T) {
 	}
 }
 
-// A moved leaf's command of today is gone: one command, one path, no alias.
-func TestMovedCommandsAreGone(t *testing.T) {
-	ids := map[string]bool{}
-	walk(newRoot(tcl), func(c *cobra.Command) { ids[cmdID(c)] = true })
-	for _, l := range capability.All() {
-		if handlers[l.Key] == nil {
-			continue
-		}
-		own := strings.Join(l.Key.Path(), ".")
-		for _, id := range l.Today {
-			if id != own && ids[id] {
-				t.Errorf("%s has moved to %s, but today's %s is still in the tree", id, own, id)
-			}
-		}
-	}
-}
-
 // walk calls f for every command under c, c too.
 func walk(c *cobra.Command, f func(*cobra.Command)) {
 	f(c)
@@ -244,6 +252,251 @@ func TestBuiltDefaultsParse(t *testing.T) {
 				if _, err := regexp.Compile(o.Pattern); err != nil {
 					t.Errorf("%s --%s pattern: %v", l.Key, o.Name, err)
 				}
+			}
+		}
+	}
+}
+
+// withTable mounts leaves with hs through the real entry (newRoot) for one
+// test: the package's table, handlers and group texts come back after it.
+func withTable(t *testing.T, leaves []capability.Leaf, hs map[capability.Key]handler, groups map[string]string) {
+	t.Helper()
+	oldLeaves, oldHandlers, oldGroups := tableLeaves, handlers, groupShorts
+	tableLeaves = func() []capability.Leaf { return append(oldLeaves(), leaves...) }
+	handlers, groupShorts = maps.Clone(oldHandlers), maps.Clone(oldGroups)
+	maps.Copy(handlers, hs)
+	maps.Copy(groupShorts, groups)
+	t.Cleanup(func() { tableLeaves, handlers, groupShorts = oldLeaves, oldHandlers, oldGroups })
+}
+
+// A command of today goes only when every built leaf that names its ID has
+// a handler: conn kinds stays while one carrier waits. A command that exec,
+// query or raw replaces stays for cut step D. (Audit R1, R3; cut-c 1, 2)
+func TestHideWaitsForEveryCarrier(t *testing.T) {
+	h := func(*call, context.Context, leafInput) error { return nil }
+	a := capability.Leaf{Key: capability.Key{Type: "cache", Provider: "probeprov", Verb: "kinds"}, Short: "x", Carries: []string{"conn.kinds"}}
+	b := capability.Leaf{Key: capability.Key{Type: "cache", Provider: "probeprov", Verb: "kinds2"}, Short: "x", Carries: []string{"conn.kinds"}}
+	r := capability.Leaf{Key: capability.Key{Type: "cache", Provider: "probeprov", Verb: "rawish"}, Short: "x", Carries: []string{"cache.get"}}
+	has := func(id string) bool { return commandWithID(newRoot(tcl), id) != nil }
+	withTable(t, []capability.Leaf{a, b, r}, map[capability.Key]handler{a.Key: h, r.Key: h}, probeGroups)
+	if !has("conn.kinds") {
+		t.Error("conn kinds went while one of its carriers has no handler")
+	}
+	if !has("cache.get") {
+		t.Error("cache get went before cut step D: raw replaces it")
+	}
+	withTable(t, nil, map[capability.Key]handler{b.Key: h}, nil)
+	if has("conn.kinds") {
+		t.Error("conn kinds stayed after every carrier moved")
+	}
+	if !has("cache.probeprov.kinds") || !has("cache.probeprov.kinds2") {
+		t.Error("the carriers are not in the tree")
+	}
+}
+
+// Every v0.17 ID is in the mounted tree, or every built leaf that names it
+// has a handler: no command vanishes while a carrier waits, and none is
+// there twice. The v0.17 list is frozen (capability/testdata), because the
+// cut renames testdata/command_ids.txt. (Audit R1, R3)
+func TestTodayIDsStayUntilCarried(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("..", "capability", "testdata", "v0_17_ids.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	carried := map[string]bool{}
+	for _, l := range tableLeaves() {
+		for _, id := range slices.Concat(l.Today, l.Carries) {
+			if l.State == capability.Built {
+				carried[id] = carried[id] || handlers[l.Key] == nil
+			}
+		}
+	}
+	paths, ids := map[string]bool{}, map[string]int{}
+	walk(newRoot(tcl), func(c *cobra.Command) {
+		if paths[c.CommandPath()] {
+			t.Errorf("%q is in the tree twice", c.CommandPath())
+		}
+		paths[c.CommandPath()] = true
+		if c.Annotations[cmdIDNote] == "" || cmdID(c) == strings.ReplaceAll(strings.TrimPrefix(c.CommandPath(), "komando "), " ", ".") {
+			ids[cmdID(c)]++ // a wrapper (withID) shares the ID of what it runs
+		}
+	})
+	for id, n := range ids {
+		if n > 1 {
+			t.Errorf("ID %s is in the tree %d times", id, n)
+		}
+	}
+	for _, id := range strings.Fields(string(b)) {
+		waiting, named := carried[id]
+		if ids[id] == 0 && (!named || waiting) {
+			t.Errorf("%s left the tree, but no leaf does it yet", id)
+		}
+	}
+}
+
+// The root's hook runs once for a table leaf, before its handler: begin,
+// the start checks and the personal-data switch; a dry-run stop shows as
+// would_be_blocked. (Audit R5)
+func TestTableLeafRunsThroughTheRoot(t *testing.T) {
+	invHome(t)
+	var dry, personal bool
+	h := func(cl *call, _ context.Context, in leafInput) error {
+		dry, personal = cl.gate().dryRun, cl.personalCmd
+		if err := cl.policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON", "a person runs it", "probe stop")); err != nil {
+			return err
+		}
+		cl.out.Print("cache.probeprov.probe", map[string]any{"ran": true}, nil)
+		return nil
+	}
+	withTable(t, []capability.Leaf{probeLeaf}, map[capability.Key]handler{probeLeaf.Key: h}, probeGroups)
+	personalCmds["cache probeprov probe"] = true
+	t.Cleanup(func() { delete(personalCmds, "cache probeprov probe") })
+
+	root := newRoot(tcl)
+	hook, runs := root.PersistentPreRunE, 0
+	root.PersistentPreRunE = func(c *cobra.Command, a []string) error { runs++; return hook(c, a) }
+	root.SetArgs([]string{"cache", "probeprov", "probe", "c1", "--to", "f", "--dry-run"})
+	if _, err := root.ExecuteC(); err != nil {
+		t.Fatal(err)
+	}
+	if runs != 1 || !dry {
+		t.Errorf("the root's hook ran %d times (dry run seen: %v), want once", runs, dry)
+	}
+	setGate(tcl, false, gateDryRun)
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
+	d, e := invRun(t, "--dry-run", "cache", "probeprov", "probe", "c1", "--to", "f")
+	if e != nil || blockedCode(d) != "NEEDS_PERSON" {
+		t.Errorf("a dry run reports the leaf's stop: %v %+v", d, e)
+	}
+	if !personal {
+		t.Error("the personal-data switch did not reach the leaf")
+	}
+	setGate(tcl, false, gateDryRun)
+}
+
+// safetyAnswers is what every table keyed by command ID says about c: the
+// masking switch, the local reads, the root's home rule, the kind, the
+// risk row, and the ssh-gate's answers. A table keyed by safety key
+// answers through cmdKeys.
+func safetyAnswers(c *cobra.Command) map[string]string {
+	id := cmdID(c)
+	kind, _ := kindOf(c)
+	return map[string]string{
+		"personalCmds":   fmt.Sprint(personalCmds[strings.ReplaceAll(id, ".", " ")]),
+		"localReads":     fmt.Sprint(localReads[id]),
+		"leavesHome":     fmt.Sprint(leavesHome[id]),
+		"kind":           fmt.Sprint(kind),
+		"risk":           riskOf(c, nil).tier.String(),
+		"cmdKeys":        fmt.Sprint(cmdKeys[id]),
+		"gateHere":       gateHere(c, id),
+		"gateWrites":     gateWrites(c, id),
+		"gateLocalRead":  gateLocalRead(c, id),
+		"gateEgress":     gateEgress(c, id),
+		"gateNetwork":    gateNetwork[id],
+		"gateNoNetwork":  fmt.Sprint(gateNoNetwork[id] != nil),
+		"gateLocalFlags": fmt.Sprint(gateLocalFlags[id]),
+		"gateLocalArgs":  fmt.Sprint(gateLocalArgs[id] != nil),
+	}
+}
+
+// tablesFollow says where the moved command's answers differ from those of
+// today's command it does, one line per table.
+func tablesFollow(today, moved *cobra.Command) []string {
+	old, now := safetyAnswers(today), safetyAnswers(moved)
+	var diff []string
+	for _, k := range slices.Sorted(maps.Keys(old)) {
+		if old[k] != now[k] {
+			diff = append(diff, fmt.Sprintf("%s: %s says %q for %s, %q for %s", k, k, old[k], cmdID(today), now[k], cmdID(moved)))
+		}
+	}
+	return diff
+}
+
+// Every table keyed by command ID gives a moved leaf the answer it gave
+// today's command: masking stays on, a key's person-only list holds, the
+// gate keeps reading the same files. One C pull request per type moves
+// the noun's table entries in the same commit. (Audit R4)
+func TestSafetyTablesFollowTheLeaf(t *testing.T) {
+	oldHandlers := handlers
+	handlers = map[capability.Key]handler{}
+	today := newRoot(tcl)
+	handlers = oldHandlers
+	moved := newRoot(tcl)
+	for _, l := range tableLeaves() {
+		if handlers[l.Key] == nil {
+			continue
+		}
+		c := commandWithID(moved, strings.Join(l.Key.Path(), "."))
+		for _, id := range l.Today {
+			if old := commandWithID(today, id); old != nil && c != nil {
+				for _, d := range tablesFollow(old, c) {
+					t.Error(d)
+				}
+			}
+		}
+	}
+	// the check bites: a leaf whose ID no table knows yet differs from
+	// today's cache keys, which hides personal data
+	var in leafInput
+	root := probeRoot(t, &in)
+	probe, _, _ := root.Find([]string{"cache", "probeprov", "probe"})
+	keys, _, _ := root.Find([]string{"cache", "keys"})
+	if d := tablesFollow(keys, probe); !slices.ContainsFunc(d, func(s string) bool { return strings.HasPrefix(s, "personalCmds") }) {
+		t.Errorf("the check missed the masking switch: %v", d)
+	}
+}
+
+// The runs of TestTierMatchesRuntime only grow: a C pull request moves the
+// runs of a today ID to its new path with the same row (so the same
+// expected stop), and no run names a command that is no longer in the
+// tree. testdata/tier_runs.txt is the list of runs (row, today ID) when the
+// builder came; it is never written again. (Audit R2)
+func TestTierRunsNeverShrink(t *testing.T) {
+	file := filepath.Join("testdata", "tier_runs.txt")
+	if os.Getenv("KOMANDO_GOLDEN_UPDATE") == "1" {
+		var b strings.Builder
+		for _, r := range tierRuns {
+			fmt.Fprintf(&b, "%s\t%s\n", r.row, r.id)
+		}
+		if err := os.WriteFile(file, []byte(b.String()), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	b, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	type run struct{ row, id string }
+	var before []run
+	for _, line := range strings.Split(strings.TrimSpace(string(b)), "\n") {
+		row, id, _ := strings.Cut(line, "\t")
+		before = append(before, run{row, id})
+	}
+	root := newRoot(tcl)
+	count := map[string]int{}
+	for _, r := range tierRuns {
+		count[r.row]++
+		if commandWithID(root, r.id) == nil {
+			t.Errorf("run %q names %s, which is not in the tree: move it to the new path", r.row, r.id)
+		}
+	}
+	for _, r := range before {
+		count[r.row]--
+	}
+	for row, n := range count {
+		if n < 0 {
+			t.Errorf("row %q has %d runs fewer than when the builder came: runs never go down", row, -n)
+		}
+	}
+	// a registered leaf has the runs of its today IDs on its new path
+	for _, l := range tableLeaves() {
+		if handlers[l.Key] == nil {
+			continue
+		}
+		id := strings.Join(l.Key.Path(), ".")
+		for _, r := range before {
+			if slices.Contains(l.Today, r.id) && !slices.ContainsFunc(tierRuns, func(n tierRun) bool { return n.id == id && n.row == r.row }) {
+				t.Errorf("%s moved to %s: its run %q is not on the new path", r.id, id, r.row)
 			}
 		}
 	}

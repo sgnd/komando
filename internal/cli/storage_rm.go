@@ -179,7 +179,7 @@ func storageRmPrefix(cl *call, ctx context.Context, connExpr, prefix string, age
 	// a person at the terminal sees what goes before typing the name; an
 	// agent, a script or --allow-dangerous are stopped (or let through)
 	// before anything is listed, as for every destructive command
-	person := !cl.flags.dryRun && !cl.flags.allowDangerous && cl.interactive()
+	person := !cl.dryRun() && !cl.allowDangerous() && cl.interactive()
 	if !person {
 		if err := GuardConns(cl, st, []*store.Conn{c}, driver.DataDelete()); err != nil {
 			return err // under --dry-run this only records the stop
@@ -218,7 +218,7 @@ func storageRmPrefix(cl *call, ctx context.Context, connExpr, prefix string, age
 			"%d objects match, more than --max-remove %d", len(keys), limit))
 		return exitCode(out.ExitConflict)
 	}
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		p.WouldDelete, p.DryRun = keys, true
 		cl.out.Print("storage.rm", p, nil)
 		return nil

@@ -153,3 +153,29 @@ func TestClusterCpNoWriteThroughHardLink(t *testing.T) {
 		t.Errorf("destination holds %q", b)
 	}
 }
+
+// A dump to a place an agent may not write stops there: the person checks
+// after it never run, no window opens, and a dry run reports that stop
+// (Audit A-C424-2).
+func TestAgentDumpBadTargetStopsFirst(t *testing.T) {
+	home, _ := agentWriteHome(t)
+	tcl.ask = func(string) (allowed, shown bool) {
+		t.Error("a dump to a refused place opened the window")
+		return false, true
+	}
+	t.Cleanup(func() { tcl.ask = nil })
+	to := filepath.Join(home, ".ssh", "lite.db")
+	for _, flags := range [][]string{nil, {"--yes"}, {"--reveal"}} {
+		resetApproval()
+		_, e := invRun(t, append([]string{"db", "dump", "lite", "--to", to}, flags...)...)
+		if e == nil || e.Code != "SENSITIVE_FILE" {
+			t.Errorf("%v: want SENSITIVE_FILE, got %+v", flags, e)
+		}
+		setGate(tcl, false, gateYes, gateReveal)
+	}
+	resetApproval()
+	if d, e := invRun(t, "--dry-run", "db", "dump", "lite", "--to", to); e != nil && e.Code != "SENSITIVE_FILE" || e == nil && blockedCode(d) != "SENSITIVE_FILE" {
+		t.Errorf("a dry run reports the first stop: %v %+v", d, e)
+	}
+	setGate(tcl, false, gateDryRun)
+}

@@ -303,13 +303,13 @@ func maskedTwin(st *store.State, c *store.Conn) *store.Conn {
 }
 
 // maskKey is the resource a conn reaches for masking: the server
-// (connAddrKey) and, for PostgreSQL only, the database on it. A
+// (inventory.ConnAddrKey) and, for PostgreSQL only, the database on it. A
 // PostgreSQL conn reads only its own database; MySQL, SQL Server,
 // ClickHouse, MongoDB and the others read every database of the server
 // from any conn to it (select name from shop.users), so there the hiding
 // covers the whole server.
 func maskKey(c *store.Conn) string {
-	k := connAddrKey(c)
+	k := inventory.ConnAddrKey(c)
 	if k == "" {
 		return ""
 	}

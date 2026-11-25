@@ -124,7 +124,7 @@ func hopOptions(st *store.State, h *store.Host, knownHosts string, agentOpts map
 		o = append(o, "-o", "ForwardAgent=yes") // as komando does for it (host edit --forward-agent)
 	}
 	if h.Identity != "" {
-		o = append(o, "-i", expandHome(h.Identity))
+		o = append(o, "-i", inventory.ExpandHome(h.Identity))
 	} else if a, ok := agentOpts[h.Key]; ok {
 		o = append(o, a...)
 	} else if k, ok := st.Keys[h.Key]; ok {

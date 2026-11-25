@@ -9,7 +9,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/policy"
+	"github.com/sgnd/komando/internal/snippet"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -68,7 +71,7 @@ func pkgChangeScript(action string, pkgs []string, guard bool) string {
 	}
 	if action == "remove" && guard {
 		sb.WriteString("if [ -n \"$(echo $todo)\" ]; then gone=$(ACTION=simulate-remove PKGS=\"$todo\"; (" + pkgShell + ") 2>/dev/null)\n" +
-			"hit=$(printf '%s\\n' \"$gone\" | grep -E " + sshx.Q(essentialPkgs.String()) + " | tr '\\n' ' ')\n" +
+			"hit=$(printf '%s\\n' \"$gone\" | grep -E " + sshx.Q(policy.EssentialPackagePattern()) + " | tr '\\n' ' ')\n" +
 			"if [ -n \"$(echo $hit)\" ]; then echo '#komando:essential'; printf '%s\\n' $hit; exit 0; fi; fi\n")
 	}
 	sb.WriteString("rc=0\n")
@@ -392,11 +395,27 @@ func runPkg(cl *call, ctx context.Context, action, target string, pkgs []string,
 			return pkgChangeResult(cl, action, pkgs, rr)
 		},
 		text: pkgChangeText}
-	if action == "upgrade" && cl.flags.dryRun {
+	if action == "upgrade" && cl.dryRun() {
 		// a dry run asks the package manager what it would upgrade
 		spec.preview = "ACTION=simulate PKGS=" + q + "; " + pkgShell
 		spec.parse = func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return pkgSimulateResult(rr) }
 		spec.text = func(data any) string { return pkgUpgradesText(data.(pkgWouldUpgrade).WouldUpgrade) }
 	}
 	return runOps(cl, ctx, spec)
+}
+
+// pkgSnippets are the ready-made snippets of pkg upgradable (design 2.1):
+// today's text, which elevates itself when sudo needs no password. They
+// move with the host commands' package (M11).
+func pkgSnippets() []snippet.Builtin {
+	command := "ACTION=upgradable PKGS=" + sshx.Q("") + "; " + pkgShell
+	return []snippet.Builtin{{
+		Name: "pkg-upgradable", Type: "host", Replaces: "pkg upgradable", Reader: "UpdatesTab.swift:310; KomandoCall+Packages.swift:13",
+		Tier: capability.Read, Shape: "pkg-upgradable/1",
+		Checks: []string{"TestPkgUpgradableIndexAge", "TestPkgUpgradableReadsAsRootWhenItCan", "TestSnippetSamplesMatchGoldens/pkg-upgradable"},
+		Text:   map[snippet.Family]string{snippet.Unix: `if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then exec sudo -n sh -c ` + sshx.Q(command) + "; fi\n" + command},
+		Parse: func(o snippet.Output, _ snippet.Family) (any, error) {
+			return pkgUpgradableResult(snippetRun(o), false)
+		},
+	}}
 }

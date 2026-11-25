@@ -113,7 +113,7 @@ func inventoryChecks(cl *call, st *store.State) []securityCheck {
 			fail(name, toErr(err).Message)
 		}
 		if h.Identity != "" {
-			if _, err := os.Stat(expandHome(h.Identity)); err != nil {
+			if _, err := os.Stat(inventory.ExpandHome(h.Identity)); err != nil {
 				fail(name, "identity file "+h.Identity+" not found")
 			}
 		}
@@ -134,7 +134,7 @@ func inventoryChecks(cl *call, st *store.State) []securityCheck {
 			}
 		}
 		ref(name, "password_ref", c.PasswordRef)
-		for _, r := range urlSecretRefs(c.URL) {
+		for _, r := range inventory.URLSecretRefs(c.URL) {
 			ref(name, "URL option "+r.Option, "secret:"+r.Name)
 		}
 	}

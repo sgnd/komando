@@ -145,7 +145,7 @@ func TestOutputShapes(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	t.Setenv("PG_PASS", "s3cret")
-	defer func() { tcl.flags.dryRun = false }()
+	defer func() { setGate(tcl, false, gateDryRun) }()
 	for _, setup := range [][]string{
 		{"host", "add", "web", "deploy@web.lan", "--group", "lab", "--tag", "prod"},
 		{"secret", "set", "pg-pass", "--from-env", "PG_PASS"},
@@ -184,7 +184,7 @@ func TestOutputShapes(t *testing.T) {
 			t.Cleanup(func() { openBucket = saved })
 		}
 		s := runShape(t, args)
-		tcl.flags.dryRun = false
+		setGate(tcl, false, gateDryRun)
 		var v any
 		if err := json.Unmarshal([]byte(s), &v); err != nil {
 			t.Errorf("%v: not JSON: %v\n%s", args, err, s)

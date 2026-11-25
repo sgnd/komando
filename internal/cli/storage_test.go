@@ -322,7 +322,7 @@ func TestStorageJourneyCommands(t *testing.T) {
 func TestStorageRmMaxRemove(t *testing.T) {
 	m := &memBucket{objs: map[string]string{"daily/a.gz": "aa", "daily/b.gz": "bbb"}}
 	withMemBucket(t, m)
-	defer func() { tcl.flags.dryRun = false }()
+	defer func() { setGate(tcl, false, gateDryRun) }()
 	tcl.out.Reset()
 	e := wantCode(t, "TOO_MANY", "storage", "s3", "object", "delete", "bk", "--prefix", "daily/", "--dry-run", "--max-remove", "1")
 	if !strings.Contains(e.Message, "more than --max-remove 1") || !strings.Contains(e.Hint, "raise --max-remove") {

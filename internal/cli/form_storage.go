@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -392,10 +393,10 @@ func gcsKeyProblem(v string) string {
 	if p := formFileProblem(v); p != "" {
 		return p
 	}
-	if fi, err := os.Stat(expandHome(v)); err == nil && fi.Size() > 1<<20 {
+	if fi, err := os.Stat(inventory.ExpandHome(v)); err == nil && fi.Size() > 1<<20 {
 		return "this file is too big for a key; give the .json key file"
 	}
-	b, err := os.ReadFile(expandHome(v))
+	b, err := os.ReadFile(inventory.ExpandHome(v))
 	var key struct {
 		Type string `json:"type"`
 	}

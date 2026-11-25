@@ -61,9 +61,9 @@ func vetImportHosts(cl *call, s *store.State, hosts []*store.Host, overwrite, ow
 				continue
 			}
 		}
-		h.Address = normAddr(h.Address)
+		h.Address = inventory.NormAddr(h.Address)
 		if h.Identity != "" {
-			if _, err := os.Stat(expandHome(h.Identity)); err != nil {
+			if _, err := os.Stat(inventory.ExpandHome(h.Identity)); err != nil {
 				later[h] = append(later[h], h.Name+": its identity file "+h.Identity+" was not found; left out")
 				h.Identity = ""
 			}
@@ -153,11 +153,11 @@ func proxyCommandSkip(cl *call, cmd string) *out.Error {
 	if cmd == "" {
 		return nil
 	}
-	if hits := policy.Check(cmd, nil); len(hits) > 0 && !cl.flags.allowDangerous {
+	if hits := policy.Check(cmd, nil); len(hits) > 0 && !cl.allowDangerous() {
 		return out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "import it again with --allow-dangerous once the user confirms it is intended",
 			"its proxy command matches destructive rules (%s): import it again with --allow-dangerous once the user confirms it is intended", hits[0].Reason)
 	}
-	if cl.isAgent() && !cl.flags.yes {
+	if cl.isAgent() && !cl.yes() {
 		return out.Errf(out.ExitPolicy, "SAFETY_SETTING", "import it again with --yes after the user confirms",
 			"its proxy command runs on this computer, so an AI agent needs the user's yes: import it again with --yes after the user confirms")
 	}
@@ -244,7 +244,7 @@ func guardImportSecrets(cl *call, st *store.State, names []string, plan *importP
 		} else if err != nil {
 			return err
 		}
-		if prot := protectedUsers(st, secretUsers(st, name)); len(prot) > 0 && !cl.yesOK() && !confirmProtected(cl, prot) {
+		if prot := inventory.ProtectedUsers(st, inventory.SecretUsers(st, name)); len(prot) > 0 && !cl.yesOK() && !confirmProtected(cl, prot) {
 			if err := cl.policyStop(approvalErr(cl, "PROTECTED_TARGET",
 				"secret "+name+" is used by protected "+strings.Join(prot, ", ")+"; replacing it changes how komando logs in there")); err != nil {
 				return err

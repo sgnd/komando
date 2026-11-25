@@ -87,9 +87,9 @@ func TestFactsOnlySystem(t *testing.T) {
 func TestFactsOnlyCommand(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web", "u@10.0.0.5")
-	tcl.flags.dryRun = true
+	setGate(tcl, true, gateDryRun)
 	d := mustRun(t, "facts", "web", "--only", "load,mem,disks", "--dry-run")
-	tcl.flags.dryRun = false
+	setGate(tcl, false, gateDryRun)
 	if run, _ := d["would_run"].(string); !strings.Contains(run, "/proc/loadavg") || strings.Contains(run, "apt-get") {
 		t.Errorf("would_run %q", run)
 	}

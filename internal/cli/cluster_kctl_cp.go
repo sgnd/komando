@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/sgnd/komando/internal/cli/kit/term"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/kube"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -315,7 +316,7 @@ func tarRel(name, base string) (string, bool) {
 
 func tarFrom(cl *call, src, name string, w io.Writer) error {
 	tw := tar.NewWriter(w)
-	src = filepath.Clean(expandHome(src))
+	src = filepath.Clean(inventory.ExpandHome(src))
 	err := filepath.Walk(src, func(p string, fi os.FileInfo, err error) error {
 		if err != nil {
 			return err

@@ -17,7 +17,7 @@ import (
 )
 
 func TestGuardBind(t *testing.T) {
-	tcl.flags.yes = false
+	setGate(tcl, false, gateYes)
 	for spec, open := range map[string]bool{
 		"8080:db:5432":           false,
 		"127.0.0.1:8080:db:5432": false,
@@ -33,8 +33,8 @@ func TestGuardBind(t *testing.T) {
 			t.Errorf("%s: guardBind = %v, want blocked=%v", spec, err, open)
 		}
 	}
-	tcl.flags.yes = true
-	defer func() { tcl.flags.yes = false }()
+	setGate(tcl, true, gateYes)
+	defer func() { setGate(tcl, false, gateYes) }()
 	ts, _ := parseTunnel("dynamic", "0.0.0.0:1080")
 	if err := guardBind(tcl, ts); err != nil {
 		t.Errorf("--yes must allow an open bind: %v", err)
@@ -108,7 +108,7 @@ func TestTunnelStartCtrlC(t *testing.T) {
 // TestParseTunnelIPv6: IPv6 addresses go in brackets, as with ssh; an open
 // IPv6 bind ([::]) still needs a person's yes, the loopback ([::1]) not.
 func TestParseTunnelIPv6(t *testing.T) {
-	tcl.flags.yes = false
+	setGate(tcl, false, gateYes)
 	for _, c := range []struct {
 		kind, spec, bind, target string
 		open                     bool

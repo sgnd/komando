@@ -35,7 +35,7 @@ func agentYes(cl *call, code, msg, what string, why ...string) error {
 	if !cl.isAgent() || cl.sess.SafetyApproved(what) {
 		return nil
 	}
-	if cl.flags.yes && cl.personAllowsFor("--yes", what, why...) {
+	if cl.yesOKFor(what, why...) {
 		cl.sess.ApproveSafety(what)
 		return nil
 	}
@@ -133,7 +133,7 @@ func guardHostEnv(cl *call, hosts []*store.Host, env map[string]string) error {
 	if len(names) == 0 {
 		return nil
 	}
-	if !cl.flags.yes {
+	if !cl.yes() {
 		cl.out.Warn(fmt.Sprintf("the server's env values from the vault (%s on %s) were left out: an AI agent's command gets them only with --yes and the user's yes", strings.Join(dedupe(refs), ", "), strings.Join(names, ", ")))
 		return nil
 	}
@@ -174,7 +174,7 @@ func hostPlace(h *store.Host) secretPlace {
 	if h.AskLogin() {
 		refs = append(refs, loginAskRef)
 	}
-	dest := net.JoinHostPort(normAddr(h.Address), strconv.Itoa(h.EffectivePort()))
+	dest := net.JoinHostPort(inventory.NormAddr(h.Address), strconv.Itoa(h.EffectivePort()))
 	if h.User != "" {
 		dest = h.User + "@" + dest
 	}
@@ -210,7 +210,7 @@ func connPlace(c *store.Conn) secretPlace {
 	if c.AskLogin() {
 		refs = append(refs, loginAskRef)
 	}
-	for _, r := range urlSecretRefs(c.URL) {
+	for _, r := range inventory.URLSecretRefs(c.URL) {
 		refs = append(refs, "secret:"+r.Name)
 	}
 	dest := strings.Join(connPlaces(c), ",")
@@ -685,7 +685,7 @@ func guardTrustSecret(cl *call, st *store.State, name, old string, had bool, now
 	}
 	for _, n := range slices.Sorted(maps.Keys(st.Conns)) {
 		c := st.Conns[n]
-		for _, r := range urlSecretRefs(c.URL) {
+		for _, r := range inventory.URLSecretRefs(c.URL) {
 			if r.Name == name && caOption(r.Option) {
 				weak = append(weak, "conn "+c.Name+" is checked against another CA certificate: another server may pass as it and get its login")
 				break

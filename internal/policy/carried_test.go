@@ -21,7 +21,7 @@ type carriedCase struct {
 
 func runCarried(t *testing.T, cases []carriedCase) {
 	t.Helper()
-	carried := []string{"rm-files", "docker-rm", "docker-prune", "docker-kill", "docker-host", "container-shell", "pkg-remove-essential", "kubectl-scale-zero", "db-drop-user"}
+	carried := []string{"rm-files", "docker-rm", "docker-prune", "docker-kill", "docker-host", "container-shell", "pkg-remove-essential", "pkg-implicit-remove", "kubectl-scale-zero", "db-drop-user"}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			ids := hitIDs(c.cmd)
@@ -174,8 +174,6 @@ func TestRulePackages(t *testing.T) {
 		{"essential apk", "apk del busybox", "pkg-remove-essential"},
 		{"essential dpkg", "dpkg --purge systemd", "pkg-remove-essential"},
 		{"essential install minus", "apt-get install -y nginx sudo-", "pkg-remove-essential"},
-		{"autoremove names no package", "apt-get autoremove -y", ""},
-		{"dist-upgrade", "apt-get dist-upgrade -y", ""},
 		{"apt install", "apt-get install -y nginx", ""},
 		{"apt upgrade", "apt-get upgrade -y", ""},
 		{"dnf upgrade", "dnf upgrade --security -y", ""},
@@ -188,6 +186,63 @@ func TestRulePackages(t *testing.T) {
 			t.Errorf("%q: nginx/httpd is not an essential package", c)
 		}
 	}
+}
+
+// TestRulePkgImplicitRemove: an upgrade or clean-up that removes packages
+// the command does not name (decided as Audit change K3, row C362).
+func TestRulePkgImplicitRemove(t *testing.T) {
+	runCarried(t, []carriedCase{
+		{"apt-get dist-upgrade", "apt-get dist-upgrade -y", "pkg-implicit-remove"},
+		{"apt full-upgrade", "sudo apt full-upgrade -y", "pkg-implicit-remove"},
+		{"aptitude full-upgrade", "aptitude full-upgrade", "pkg-implicit-remove"},
+		{"apt-get autoremove", "apt-get autoremove -y", "pkg-implicit-remove"},
+		{"apt-get auto-remove", "apt-get auto-remove", "pkg-implicit-remove"},
+		{"apt autopurge", "apt autopurge", "pkg-implicit-remove"},
+		{"apt upgrade --autoremove", "apt-get upgrade -y --autoremove", "pkg-implicit-remove"},
+		{"apt option before the verb", "apt-get -o Dpkg::Options::=--force-confold -y dist-upgrade", "pkg-implicit-remove"},
+		{"upper case verb", "apt-get DIST-UPGRADE", "pkg-implicit-remove"},
+		{"dnf distro-sync", "dnf distro-sync -y", "pkg-implicit-remove"},
+		{"dnf distrosync", "dnf distrosync", "pkg-implicit-remove"},
+		{"dnf dsync", "dnf --refresh dsync", "pkg-implicit-remove"},
+		{"dnf autoremove", "dnf autoremove -y", "pkg-implicit-remove"},
+		{"yum autoremove", "yum autoremove", "pkg-implicit-remove"},
+		{"dnf upgrade --allowerasing", "dnf upgrade --allowerasing -y", "pkg-implicit-remove"},
+		{"dnf repo option before the verb", "dnf --repo baseos distro-sync", "pkg-implicit-remove"},
+		{"zypper dist-upgrade", "zypper --non-interactive dist-upgrade", "pkg-implicit-remove"},
+		{"zypper dup", "zypper dup", "pkg-implicit-remove"},
+		{"zypper root option", "zypper --root /mnt dup", "pkg-implicit-remove"},
+		{"in sh -c", "bash -c 'apt-get dist-upgrade -y'", "pkg-implicit-remove"},
+		{"after &&", "apt-get update && apt-get full-upgrade -y", "pkg-implicit-remove"},
+		// a value option komando does not know before the verb
+		{"dnf exclude before the verb", "dnf -x foo distro-sync", "pkg-implicit-remove"},
+		{"yum error and debug levels", "yum -e 0 -d 0 autoremove", "pkg-implicit-remove"},
+		{"zypper -D before the verb", "zypper -D /etc/zypp/repos.d dup", "pkg-implicit-remove"},
+		{"zypper userdata before the verb", "zypper --userdata X dist-upgrade", "pkg-implicit-remove"},
+		// other ways to remove packages nobody named
+		{"dnf old install-only", "dnf remove --oldinstallonly -y", "pkg-implicit-remove"},
+		{"zypper clean deps", "zypper rm --clean-deps nginx", "pkg-implicit-remove"},
+		{"zypper -u", "zypper remove -u nginx", "pkg-implicit-remove"},
+		{"pacman names from stdin", "pacman -Qdtq | pacman -Rns -", "pkg-implicit-remove"},
+		{"flatpak unused", "flatpak uninstall --unused -y", "pkg-implicit-remove"},
+		{"nix garbage", "nix-collect-garbage -d", "pkg-implicit-remove"},
+		// wrappers
+		{"env assignment", "env DEBIAN_FRONTEND=noninteractive apt-get -y dist-upgrade", "pkg-implicit-remove"},
+		{"sudo -E", "sudo -E apt full-upgrade", "pkg-implicit-remove"},
+		{"command builtin", "command apt autoremove", "pkg-implicit-remove"},
+		{"backslash", `\apt dist-upgrade`, "pkg-implicit-remove"},
+		{"xargs", "echo x | xargs apt-get autoremove", "pkg-implicit-remove"},
+		// not implicit
+		{"zypper rm names it", "zypper rm nginx", ""},
+		{"pacman remove names it", "pacman -Rns nginx", ""},
+		{"flatpak uninstall names it", "flatpak uninstall org.gimp.GIMP", ""},
+		{"dnf remove names it", "dnf remove httpd", ""},
+		{"apt upgrade", "apt-get upgrade -y", ""},
+		{"apt install", "apt-get install -y nginx", ""},
+		{"dnf upgrade", "dnf upgrade --security -y", ""},
+		{"zypper update", "zypper update", ""},
+		{"apt-cache", "apt-cache policy dist-upgrade", ""},
+		{"grep for the word", "grep dist-upgrade /var/log/apt/history.log", ""},
+	})
 }
 
 func TestRuleKubectlScaleZero(t *testing.T) {
@@ -216,7 +271,7 @@ func TestRuleDBDropUser(t *testing.T) {
 // Every carried rule names the command it is about, so the approval
 // window and policy list can show it.
 func TestCarriedRulesListed(t *testing.T) {
-	want := []string{"rm-files", "docker-rm", "docker-prune", "docker-kill", "docker-host", "container-shell", "pkg-remove-essential", "kubectl-scale-zero", "db-drop-user"}
+	want := []string{"rm-files", "docker-rm", "docker-prune", "docker-kill", "docker-host", "container-shell", "pkg-remove-essential", "pkg-implicit-remove", "kubectl-scale-zero", "db-drop-user"}
 	var have []string
 	for _, r := range Rules() {
 		have = append(have, r.ID)

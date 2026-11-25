@@ -33,7 +33,7 @@ func TestCallsApartAtOnce(t *testing.T) {
 	run := func(agent string, answer bool) result {
 		c := testCall()
 		c.args = []string{"komando", "host", "rm", "web1", "--yes"}
-		c.setCaller(engine.Caller{Kind: engine.Agent, Agent: agent})
+		setTestCaller(c, engine.Caller{Kind: engine.Agent, Agent: agent})
 		var r result
 		c.ask = func(text string) (bool, bool) {
 			r.asked++
@@ -101,7 +101,7 @@ func TestCallerFromTheCall(t *testing.T) {
 	if !tcl.isAgent() {
 		t.Fatal("the call's caller changed with the environment")
 	}
-	tcl.setCaller(engine.Caller{Kind: engine.Person})
+	setTestCaller(tcl, engine.Caller{Kind: engine.Person})
 	if tcl.isAgent() {
 		t.Fatal("the call's own caller was not used")
 	}

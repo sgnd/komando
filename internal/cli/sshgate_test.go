@@ -141,8 +141,8 @@ func TestGateCheck(t *testing.T) {
 	gateInventory(t)
 	mustRun(t, "recipe", "add", "my-df", "df -h", "--read-only")
 	mustRun(t, "recipe", "add", "my-clean", "rm -rf /tmp/cache")
-	tcl.flags.yes = true // the gate's own flags come back after it read the key's
-	defer func() { tcl.flags.yes = false }()
+	setGate(tcl, true, gateYes) // the gate's own flags come back after it read the key's
+	defer func() { setGate(tcl, false, gateYes) }()
 	const R = "SSH_GATE_REFUSED"
 	cases := []struct {
 		line           string
@@ -275,7 +275,7 @@ func TestGateCheck(t *testing.T) {
 			t.Errorf("%q --read-only: %q, want %q", c.line, got, c.readOnly)
 		}
 	}
-	if !tcl.flags.yes || tcl.flags.reveal {
+	if !tcl.yes() || tcl.reveal() {
 		t.Errorf("the gate's own flags changed: %+v", tcl.flags)
 	}
 }
@@ -522,9 +522,9 @@ func TestSSHGateNoWritesHere(t *testing.T) {
 // With the audit setting off, a key's command is still in the log.
 func TestSSHGateAuditAlways(t *testing.T) {
 	invHome(t)
-	tcl.flags.yes = true
+	setGate(tcl, true, gateYes)
 	mustRun(t, "config", "set", "audit", "off", "--yes")
-	tcl.flags.yes = false
+	setGate(tcl, false, gateYes)
 	ran, _, e := gateRun(t, "komando list", "--name", "phone")
 	if ran == nil {
 		t.Fatalf("did not run: %+v", e)

@@ -417,7 +417,7 @@ func TestHostTrustDryRunRecordsTheFirstPinStop(t *testing.T) {
 	mustRun(t, "config", "set", "host_key_policy", "strict")
 	setCallerEnv(t, "CLAUDECODE", "1")
 	d, e := invRun(t, "host", "trust", "web1", "--dry-run")
-	tcl.flags.dryRun = false
+	setGate(tcl, false, gateDryRun)
 	if e != nil || blockedCode(d) != "SAFETY_SETTING" {
 		t.Fatalf("strict, first pin: %v %+v", d, e)
 	}
@@ -433,7 +433,7 @@ func TestHostTrustDryRunRecordsTheFirstPinStop(t *testing.T) {
 		t.Fatal(err)
 	}
 	d, e = invRun(t, "host", "trust", "web1", "--dry-run") // a key is pinned: no first pin
-	tcl.flags.dryRun = false
+	setGate(tcl, false, gateDryRun)
 	if e != nil || blockedCode(d) != "" {
 		t.Fatalf("strict, pinned already: %v %+v", d, e)
 	}
@@ -443,7 +443,7 @@ func TestHostTrustDryRunRecordsTheFirstPinStop(t *testing.T) {
 	mustRun(t, "host", "add", "web1", "root@192.0.2.10:22")
 	setCallerEnv(t, "CLAUDECODE", "1")
 	d, e = invRun(t, "host", "trust", "web1", "--dry-run")
-	tcl.flags.dryRun = false
+	setGate(tcl, false, gateDryRun)
 	if e != nil || blockedCode(d) != "" {
 		t.Fatalf("not strict: %v %+v", d, e)
 	}

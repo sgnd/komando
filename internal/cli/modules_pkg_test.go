@@ -52,6 +52,10 @@ func TestPkgNames(t *testing.T) {
 		{"openssh-server-", "USAGE"},
 		{"sudo-", "USAGE"},
 		{"sud.", "USAGE"},
+		// a pattern is no package name: apt and dnf would expand it
+		{"openssh*", "USAGE"},
+		{"sud?", "USAGE"},
+		{"[s]udo", "USAGE"},
 		{"g++", ""},
 		// local package files
 		{"./app.deb", "USAGE"},
@@ -118,5 +122,19 @@ func TestPkgRmStopsOnEssentialDependents(t *testing.T) {
 	_, e := pkgChangeResult(tcl, "remove", []string{"libssl3"}, &sshx.RunResult{Stdout: "#komando:essential\nopenssh-server\nsudo\n"})
 	if e == nil || e.Code != "POLICY_BLOCKED" || !strings.Contains(e.Message, "openssh-server, sudo") || e.Exit != out.ExitPolicy {
 		t.Errorf("result: %+v", e)
+	}
+}
+
+// The risk table rates a removal whose name could pick an essential
+// package as dangerous, by policy's rule: a pattern (* ? [ or a dot) that
+// would pick one counts, even though pkg rm then refuses the name itself.
+func TestPkgRmPatternRatedDangerous(t *testing.T) {
+	for _, name := range []string{"openssh*", "sud?", "[s]udo", "openssh.server", "openssh-server"} {
+		if r := riskOfLine([]string{"pkg", "rm", "web1", name}); r.tier != tierDangerous {
+			t.Errorf("pkg rm web1 %s: tier %v, want dangerous", name, r.tier)
+		}
+	}
+	if r := riskOfLine([]string{"pkg", "rm", "web1", "nginx*"}); r.tier != tierChange {
+		t.Errorf("pkg rm web1 nginx*: tier %v, want change", r.tier)
 	}
 }

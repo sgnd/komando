@@ -132,7 +132,7 @@ func TestTestEndIsGuarded(t *testing.T) {
 		if d, e := invRun(t, append([]string{"--dry-run"}, args...)...); e != nil || blockedCode(d) != "PROTECTED_TARGET" {
 			t.Errorf("%v --dry-run reports the stop: %v %+v", args, d, e)
 		}
-		tcl.flags.dryRun = false
+		setGate(tcl, false, gateDryRun)
 	}
 	mustRun(t, "host", "test", "web2", "--end")
 	if st, _ := store.Load(); st.Logins["web1"] == nil || st.Logins["web2"] != nil {

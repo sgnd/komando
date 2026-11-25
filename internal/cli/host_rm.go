@@ -122,7 +122,7 @@ func hostRmCmd() *cobra.Command {
 				return err
 			}
 			audit(cl, nil, "host.rm", names, "", true, nil)
-			res := rmResult{Removed: names, HostKeysKept: kept, SecretsUnused: unused, dryRun: cl.flags.dryRun}
+			res := rmResult{Removed: names, HostKeysKept: kept, SecretsUnused: unused, dryRun: cl.dryRun()}
 			if len(kept) > 0 {
 				res.Note = "the pinned host keys of " + strings.Join(kept, ", ") + " stay in komando's known_hosts, so a server added again at the same address has to show the same key. " +
 					"If it was rebuilt, add it again and replace the pin with `komando host trust NAME --reset` (a person confirms the new key)"
