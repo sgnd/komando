@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -190,15 +191,15 @@ func csvHost(cols, rec []string) (*store.Host, error) {
 	if h.Address == "" {
 		return h, out.Usage("no address")
 	}
-	if err := validPort(h.Port); err != nil {
+	if err := inventory.ValidPort(h.Port); err != nil {
 		return h, err
 	}
 	if h.User != "" {
-		if err := validUser(h.User); err != nil {
+		if err := inventory.ValidUser(h.User); err != nil {
 			return h, err
 		}
 	}
-	if err := checkLabels(h.Groups, h.Tags, nil); err != nil {
+	if err := inventory.CheckLabels(h.Groups, h.Tags, nil); err != nil {
 		return h, err
 	}
 	return h, checkHostRefs(h)

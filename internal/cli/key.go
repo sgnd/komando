@@ -23,6 +23,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/sgnd/komando/internal/cli/kit/term"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -113,14 +114,14 @@ bits.`,
 		Args: cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			name := args[0]
-			if err := validName("key", name); err != nil {
+			if err := inventory.ValidName("key", name); err != nil {
 				return err
 			}
 			typ = strings.ToLower(typ)
 			if comment == "" {
 				comment = "komando-" + name
 			}
-			if hasControl(comment) {
+			if inventory.HasControl(comment) {
 				return out.Errf(out.ExitUsage, "USAGE", "use one line of plain text, for example -C ops@example.com", "the key comment cannot hold line breaks or control characters")
 			}
 			if cl.flags.dryRun {
@@ -206,7 +207,7 @@ login, as ssh does; --cert names one kept somewhere else.`,
   komando secret set id-pass && komando key add work ~/.ssh/id_work --passphrase-ref secret:id-pass`,
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			if err := validName("key", args[0]); err != nil {
+			if err := inventory.ValidName("key", args[0]); err != nil {
 				return err
 			}
 			if err := checkPassphraseRef(passRef); err != nil {

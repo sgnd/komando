@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -105,7 +106,7 @@ func inventoryChecks(cl *call, st *store.State) []securityCheck {
 	}
 	for _, h := range st.SortedHosts() {
 		name := "host:" + h.Name
-		if err := validPort(h.Port); err != nil {
+		if err := inventory.ValidPort(h.Port); err != nil {
 			fail(name, toErr(err).Message)
 		}
 		if err := checkHostVia(cl, st, h); err != nil {

@@ -1,4 +1,4 @@
-package cli
+package term
 
 import (
 	"os"
@@ -14,7 +14,7 @@ func TestConsoleVTPipe(t *testing.T) {
 	}
 	defer r.Close()
 	defer w.Close()
-	ok, restore := consoleVT(int(w.Fd()))
+	ok, restore := ConsoleVT(int(w.Fd()))
 	restore()
 	if ok {
 		t.Error("escape sequences turned on for a pipe")
