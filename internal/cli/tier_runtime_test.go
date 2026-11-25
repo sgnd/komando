@@ -352,23 +352,79 @@ func tierProofsExist(t *testing.T) {
 			t.Errorf("tierProvedBy %q: no test function %s", key, pr.test)
 			continue
 		}
+		cmd, stop := tierProofWant(key, pr)
 		if pr.via != "" {
 			table := goBlock(src.String(), "var "+pr.via+" = ")
 			if table == "" || !strings.Contains(body, pr.via) {
 				t.Errorf("tierProvedBy %q: %s does not run a table %s", key, pr.test, pr.via)
 			}
-			body += table
-		}
-		cmd, stop := tierProofWant(key, pr)
-		for _, w := range strings.Fields(cmd) {
-			if !strings.Contains(body, `"`+w+`"`) && !strings.Contains(body, cmd) {
-				t.Errorf("tierProvedBy %q: %s does not run %q", key, pr.test, cmd)
-				break
+			// the command and its code on one entry of the table
+			if !tableHasCase(table, cmd, stop) {
+				t.Errorf("tierProvedBy %q: no entry of %s runs %q and asserts %s", key, pr.via, cmd, stop)
 			}
+			continue
+		}
+		if !runsCmd(body, cmd) {
+			t.Errorf("tierProvedBy %q: %s does not run %q", key, pr.test, cmd)
 		}
 		if stop != "" && !strings.Contains(body, `"`+stop+`"`) {
 			t.Errorf("tierProvedBy %q: %s does not assert %s", key, pr.test, stop)
 		}
+	}
+}
+
+// runsCmd: text names every word of cmd quoted, or the whole phrase.
+func runsCmd(text, cmd string) bool {
+	if strings.Contains(text, cmd) {
+		return true
+	}
+	for _, w := range strings.Fields(cmd) {
+		if !strings.Contains(text, `"`+w+`"`) {
+			return false
+		}
+	}
+	return true
+}
+
+// tableHasCase: one entry of a table literal (a composite literal that
+// starts a line at one tab) runs cmd and names stop.
+func tableHasCase(table, cmd, stop string) bool {
+	var entries []string
+	for _, line := range strings.Split(table, "\n") {
+		if strings.HasPrefix(line, "\t{") || len(entries) == 0 {
+			entries = append(entries, line)
+			continue
+		}
+		entries[len(entries)-1] += "\n" + line
+	}
+	for _, e := range entries[1:] {
+		if runsCmd(e, cmd) && (stop == "" || strings.Contains(e, `"`+stop+`"`)) {
+			return true
+		}
+	}
+	return false
+}
+
+// TestTableHasCase: the command and its code must sit on the same entry.
+func TestTableHasCase(t *testing.T) {
+	table := "var cases = []c{\n" +
+		"\t{args: []string{\"host\", \"trust\", \"web1\"}, code: \"POLICY_BLOCKED\"},\n" +
+		"\t{args: []string{\"policy\", \"rm\", \"x\"},\n\t\tcode: \"SAFETY_SETTING\"},\n"
+	tests := []struct {
+		name, cmd, stop string
+		want            bool
+	}{
+		{"code on another entry", "host trust", "SAFETY_SETTING", false},
+		{"same entry", "host trust", "POLICY_BLOCKED", true},
+		{"entry over two lines", "policy rm", "SAFETY_SETTING", true},
+		{"no such command", "host shell", "", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tableHasCase(table, tt.cmd, tt.stop); got != tt.want {
+				t.Errorf("tableHasCase(%q, %q) = %v, want %v", tt.cmd, tt.stop, got, tt.want)
+			}
+		})
 	}
 }
 
