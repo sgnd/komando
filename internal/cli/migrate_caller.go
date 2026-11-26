@@ -1,6 +1,10 @@
 package cli
 
 import (
+	"context"
+	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/sgnd/komando/internal/netx"
@@ -15,10 +19,11 @@ import (
 //
 //  1. an AI agent or an ssh-gate key: NEEDS_PERSON
 //  2. CI set: NEEDS_PERSON
-//  3. a person with stdin and stderr terminals and no SSH_CONNECTION or
+//  3. --dry-run: never moves (doctor --dry-run shows what the move would do)
+//  4. a person with stdin and stderr terminals and no SSH_CONNECTION or
 //     SSH_TTY: the terminal path
-//  4. `doctor`, not clickForgeable, no KOMANDO_NO_DIALOG: the window
-//  5. everything else: NEEDS_PERSON
+//  5. `doctor`, not clickForgeable, no KOMANDO_NO_DIALOG: the window
+//  6. everything else: NEEDS_PERSON
 func migrateCallFor(cl *call, command string) store.MigrateCall {
 	c := store.MigrateCall{Way: store.MigrateRefuse, RefGuard: vault.RefGuard}
 	switch {
@@ -26,6 +31,8 @@ func migrateCallFor(cl *call, command string) store.MigrateCall {
 		c.Why = "an AI agent (" + cl.caller().Agent + ")"
 	case cl.getenv("CI") != "":
 		c.Why = "a CI job"
+	case cl.dryRun():
+		c.Why = "a dry run (`komando doctor --dry-run` shows what the move would do)"
 	case cl.terminal && cl.getenv("SSH_CONNECTION") == "" && cl.getenv("SSH_TTY") == "":
 		c.Way = store.MigrateTerminal
 	case command == "doctor" && !clickForgeable(cl) && cl.getenv("KOMANDO_NO_DIALOG") == "":
@@ -64,4 +71,48 @@ func migrateCaller() store.MigrateCall {
 		return store.MigrateCall{Way: store.MigrateRefuse, Why: "a call beside other calls"}
 	}
 	return migrateCallFor(cl, migrateCommand(cl.args))
+}
+
+// migrationPreview is doctor --dry-run on a store that has not moved to
+// format 3 yet: what the move would do, in counts, read without writing.
+type migrationPreview struct{ store.MigrationPreview }
+
+// doctorDryRunMove prints the preview and reports true when the store has
+// still to move; a store of format 3 (or none) goes on to doctor's checks.
+func doctorDryRunMove(cl *call, ctx context.Context) (bool, error) {
+	pv, err := store.PreviewMigration(ctx, vault.RefGuard)
+	if err != nil {
+		return true, toErr(err)
+	}
+	if pv.Format != "1" && pv.Format != "2" {
+		return false, nil
+	}
+	cl.out.Print("doctor", migrationPreview{pv}, nil)
+	return true, nil
+}
+
+func (m migrationPreview) Text() string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "store: format %s\n", m.Format)
+	if m.WouldMove {
+		fmt.Fprintf(&b, "the move to format 3 would go ahead; backup first: %s\n", m.Backup)
+	} else {
+		b.WriteString("the move to format 3 would stop:\n")
+		for _, r := range m.WouldRefuse {
+			fmt.Fprintf(&b, "  ✗ %s\n", r)
+		}
+	}
+	b.WriteString("records (now → after):\n")
+	for _, k := range slices.Sorted(maps.Keys(m.Counts)) {
+		c := m.Counts[k]
+		fmt.Fprintf(&b, "  %-16s %5d → %d\n", k, c[0], c[1])
+	}
+	fmt.Fprintf(&b, "names changed %d, fields rewritten %d, servers with a key and a password %d, snippets with an old reference %d, groups merged %d\n",
+		m.NamesChanged, m.FieldsRewritten, m.KeyAndPassword, m.SnippetsWithOldRef, m.MergedGroups)
+	b.WriteString("checked only by the move itself:\n")
+	for _, n := range m.NotChecked {
+		fmt.Fprintf(&b, "  - %s\n", n)
+	}
+	b.WriteString("nothing was written\n")
+	return b.String()
 }

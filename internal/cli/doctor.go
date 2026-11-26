@@ -218,6 +218,11 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 			if resealMetaFlag || acceptOld {
 				return doctorRepair(cl, resealMetaFlag)
 			}
+			if cl.dryRun() {
+				if done, err := doctorDryRunMove(cl, cmd.Context()); done {
+					return err
+				}
+			}
 			defer lookAtOldCopy(cl)() // doctor must be able to say what is wrong
 			r := doctorReport{optional: map[string]bool{"ssh_agent": true, "openssh_client": true, "hosts": true, "agent_skill": true, "agent_guard": true}, width: textWidth(cl)}
 			add := func(name string, ok bool, detail string, fix ...string) {

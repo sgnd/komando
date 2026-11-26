@@ -164,18 +164,35 @@ var ErrNotStore = errors.New("sealdb: not a komando store")
 // without a finished store is ErrNotStore. It stops with ErrNewerFormat
 // for a file from a newer komando.
 func Open(ctx context.Context, path string, key *sealrow.Key) (*DB, error) {
-	return openFile(ctx, path, key, false, false)
+	return openFile(ctx, path, key, false, false, false)
+}
+
+// OpenReadOnly opens the store at path to read it only (a dry run): SQLite
+// opens the file read-only and refuses every write, and nothing in its
+// folder is made or changed, not even the file's mode.
+func OpenReadOnly(ctx context.Context, path string, key *sealrow.Key) (*DB, error) {
+	return openFile(ctx, path, key, false, false, true)
 }
 
 // Create makes a new store at path, which must not exist (mode 0600),
 // in one write step: a crash leaves no half-made store that Open takes.
 func Create(ctx context.Context, path string, key *sealrow.Key) (*DB, error) {
-	return openFile(ctx, path, key, true, false)
+	return openFile(ctx, path, key, true, false, false)
 }
 
-func openFile(ctx context.Context, path string, key *sealrow.Key, create, skipMeta bool) (*DB, error) {
+func openFile(ctx context.Context, path string, key *sealrow.Key, create, skipMeta, readOnly bool) (*DB, error) {
 	if key == nil {
 		return nil, errors.New("sealdb: no key")
+	}
+	q := url.Values{}
+	if readOnly {
+		if _, err := os.Stat(path); err != nil {
+			return nil, err
+		}
+		q.Set("mode", "ro")
+		q.Add("_pragma", "busy_timeout("+strconv.Itoa(int(busyTimeout/time.Millisecond))+")")
+		q.Add("_pragma", "query_only(ON)")
+		return openDSN(ctx, path, key, q, false, skipMeta)
 	}
 	// make the file with 0600 before SQLite does, so it is never readable
 	// by others, not even for a moment
@@ -193,7 +210,6 @@ func openFile(ctx context.Context, path string, key *sealrow.Key, create, skipMe
 	if err != nil {
 		return nil, err
 	}
-	q := url.Values{}
 	q.Set("mode", mode)
 	for _, p := range []string{
 		"busy_timeout(" + strconv.Itoa(int(busyTimeout/time.Millisecond)) + ")",
@@ -208,6 +224,12 @@ func openFile(ctx context.Context, path string, key *sealrow.Key, create, skipMe
 	} {
 		q.Add("_pragma", p)
 	}
+	return openDSN(ctx, path, key, q, create, skipMeta)
+}
+
+// openDSN opens path with the query q and checks it is a komando store
+// (create: makes the tables first).
+func openDSN(ctx context.Context, path string, key *sealrow.Key, q url.Values, create, skipMeta bool) (*DB, error) {
 	dsn, err := fileURI(path, q)
 	if err != nil {
 		return nil, err

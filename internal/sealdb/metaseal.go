@@ -107,7 +107,7 @@ func (d *DB) MetaSealed(ctx context.Context) (bool, error) {
 // stops it and changes nothing. check, when set, runs on the opened store
 // before anything is written; its error stops the reseal.
 func ResealMeta(ctx context.Context, path string, key *sealrow.Key, check func(*DB) error) (map[string]string, error) {
-	d, err := openFile(ctx, path, key, false, true)
+	d, err := openFile(ctx, path, key, false, true, false)
 	if err != nil {
 		return nil, err
 	}
