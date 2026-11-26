@@ -26,6 +26,7 @@ var gateLocalFlags = map[string][]string{
 	"db.restore":    {"from"},
 	"cluster.apply": {"file"},
 	"fs.write":      {"from"},
+	"queue.send":    {"from"},
 }
 
 var gateLocalArgs = map[string]func(c *cobra.Command) string{

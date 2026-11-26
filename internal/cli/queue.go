@@ -378,22 +378,6 @@ func init() {
 			groupShorts["queue "+p+" "+area] = short
 		}
 	}
-	// What the old commands had in the tables keyed by ID goes to every provider's
-	// leaf (moveType moves an old ID's entry to one leaf only).
-	for _, p := range providers {
-		base := "queue." + p + "."
-		personalCmds["queue "+p+" message list"] = true
-		gateLocalFlags[base+"message.create"] = []string{"from"}
-		for _, id := range []string{"info", "topic.list", "topic.show", "message.list"} {
-			gateNoNetwork[base+id] = nil
-		}
-		if queueHasConsumer(p, "list") {
-			gateNoNetwork[base+"consumer.list"] = nil
-		}
-		if queueHasConsumer(p, "show") {
-			gateNoNetwork[base+"consumer.show"] = nil
-		}
-	}
 	moveType("queue")
 }
 
