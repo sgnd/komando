@@ -98,10 +98,9 @@ func init() {
 		}
 		return nil
 	}
-	// a file the environment or a cloud config names as a login to send
-	// (AZURE_FEDERATED_TOKEN_FILE, AWS_WEB_IDENTITY_TOKEN_FILE, a Google
-	// external_account's credential_source.file) is checked as a file:
-	// reference is
+	// a login file the environment or a cloud config names (AZURE_FEDERATED_TOKEN_FILE,
+	// AWS_WEB_IDENTITY_TOKEN_FILE, a Google external_account's
+	// credential_source.file) is checked as a file: reference is
 	cloud.CheckLocalFile = credentialFileGuard
 	gcpadc.CheckLocalFile = credentialFileGuard
 	// an agent's KOMANDO_KEYCHAIN=off keeps the old-copy check

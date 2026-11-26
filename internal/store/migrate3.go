@@ -85,61 +85,11 @@ func migrateFormat3(ctx context.Context, o migrate3Opts) (migrate3Result, error)
 	if err := migrateStepDone(3); err != nil {
 		return res, err
 	}
-	// 5. the normal open: old-copy count and policy MAC (Audit M4); it
-	// writes nothing, and the process check below reads runtime.json
-	// against this store's mark
-	d, master, err := openFormat2()
+	d, master, vc, carried, err := openForMove(ctx, o, shown)
 	if err != nil {
-		if pe := PolicyErr(err); pe != nil {
-			return res, pe
-		}
 		return res, err
 	}
 	defer clear(master)
-	if err := primeRuntimeKey(master); err != nil {
-		return res, err
-	}
-	vc, err := newValueCipher(master)
-	if err != nil {
-		return res, err
-	}
-	rt, err := runtimeOf2(ctx, d)
-	if err != nil {
-		return res, err
-	}
-	// 4. under the lock: no komando process at work (Audit M6)
-	if err := noLiveProcesses(rt, o.alive); err != nil {
-		return res, err
-	}
-	if err := migrateStepDone(4); err != nil {
-		return res, err
-	}
-	carried := &Runtime{Jobs: rt.Jobs, ExecSessions: rt.ExecSessions}
-	carried.init()
-	if err := migrateStepDone(5); err != nil {
-		return res, err
-	}
-	// 6. the audit chain (Audit M3)
-	if err := d.View(ctx, checkChain); err != nil {
-		return res, out.Errf(out.ExitPolicy, "NEEDS_PERSON",
-			"a person finds out what changed the audit log, then runs `komando audit verify` and `komando doctor`",
-			"the audit log of %s is broken (%v), so the store does not move to a new format; nothing was changed", Path(StoreFile), err)
-	}
-	if err := migrateStepDone(6); err != nil {
-		return res, err
-	}
-	// the counts the window showed must still hold: something wrote
-	// meanwhile otherwise
-	if shown != nil {
-		var now map[string]int
-		if err := d.View(ctx, func(tx *sealdb.Tx) error { now, err = countTypes(tx); return err }); err != nil {
-			return res, err
-		}
-		if !maps.Equal(shown.counts, now) {
-			return res, out.Errf(out.ExitConflict, "STORE_IN_USE", "run `komando doctor` again",
-				"%s changed after the window was shown; nothing was changed", Path(StoreFile))
-		}
-	}
 	// 7. the backup
 	backup, err := backupFormat2(ctx, d, master, o.now())
 	if err != nil {
@@ -166,6 +116,80 @@ func migrateFormat3(ctx context.Context, o migrate3Opts) (migrate3Result, error)
 		p.report.BackupNote = fmt.Sprintf("the backup is %s: the name the window showed, %s, was taken by then",
 			filepath.Base(backup), filepath.Base(shown.backup))
 	}
+	return writeMove(ctx, o, d, master, vc, p, snap, carried, backup)
+}
+
+// openForMove is steps 5, 4 and 6 under the lock: the normal open (old-copy
+// count and policy MAC), no komando process at work, the audit chain, and
+// the counts the window showed. The caller clears master.
+func openForMove(ctx context.Context, o migrate3Opts, shown *shownWindow) (d *sealdb.DB, master []byte, vc *valueCipher, carried *Runtime, err error) {
+	// 5. the normal open: old-copy count and policy MAC (Audit M4); it
+	// writes nothing, and the process check below reads runtime.json
+	// against this store's mark
+	d, master, err = openFormat2()
+	if err != nil {
+		if pe := PolicyErr(err); pe != nil {
+			return nil, nil, nil, nil, pe
+		}
+		return nil, nil, nil, nil, err
+	}
+	m := master
+	defer func() {
+		if err != nil {
+			clear(m) // a stop past the open leaves no key behind
+		}
+	}()
+	if err := primeRuntimeKey(master); err != nil {
+		return nil, nil, nil, nil, err
+	}
+	vc, err = newValueCipher(master)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	rt, err := runtimeOf2(ctx, d)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	// 4. under the lock: no komando process at work (Audit M6)
+	if err := noLiveProcesses(rt, o.alive); err != nil {
+		return nil, nil, nil, nil, err
+	}
+	if err := migrateStepDone(4); err != nil {
+		return nil, nil, nil, nil, err
+	}
+	carried = &Runtime{Jobs: rt.Jobs, ExecSessions: rt.ExecSessions}
+	carried.init()
+	if err := migrateStepDone(5); err != nil {
+		return nil, nil, nil, nil, err
+	}
+	// 6. the audit chain (Audit M3)
+	if err := d.View(ctx, checkChain); err != nil {
+		return nil, nil, nil, nil, out.Errf(out.ExitPolicy, "NEEDS_PERSON",
+			"a person finds out what changed the audit log, then runs `komando audit verify` and `komando doctor`",
+			"the audit log of %s is broken (%v), so the store does not move to a new format; nothing was changed", Path(StoreFile), err)
+	}
+	if err := migrateStepDone(6); err != nil {
+		return nil, nil, nil, nil, err
+	}
+	// the counts the window showed must still hold: something wrote
+	// meanwhile otherwise
+	if shown != nil {
+		var now map[string]int
+		if err := d.View(ctx, func(tx *sealdb.Tx) error { now, err = countTypes(tx); return err }); err != nil {
+			return nil, nil, nil, nil, err
+		}
+		if !maps.Equal(shown.counts, now) {
+			return nil, nil, nil, nil, out.Errf(out.ExitConflict, "STORE_IN_USE", "run `komando doctor` again",
+				"%s changed after the window was shown; nothing was changed", Path(StoreFile))
+		}
+	}
+	return d, master, vc, carried, nil
+}
+
+// writeMove is steps 9 to 14: one write step that the store reads back,
+// then the runtime records and the report.
+func writeMove(ctx context.Context, o migrate3Opts, d *sealdb.DB, master []byte, vc *valueCipher, p *plan3, snap *snapshot2, carried *Runtime, backup string) (migrate3Result, error) {
+	var res migrate3Result
 	// 9 to 11: one write step
 	ks, err := keysFor3(master)
 	if err != nil {

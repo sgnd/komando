@@ -493,6 +493,29 @@ func Resolve(ref string) (string, error) {
 	return v, err
 }
 
+// resolveCredential is the value of credential name: the vault's, else
+// the item of an outside store it names, read there through the guard of
+// that kind of reference.
+func resolveCredential(name string) (string, error) {
+	if RefGuard != nil {
+		if err := RefGuard("secret", name); err != nil {
+			return "", err
+		}
+	}
+	v, err := Get(name)
+	if !errors.Is(err, ErrNotFound) {
+		return v, err
+	}
+	o, oerr := store.OutsideRefOf(name)
+	if oerr != nil {
+		return "", oerr
+	}
+	if o == "" {
+		return "", err
+	}
+	return resolve(o)
+}
+
 func resolve(ref string) (string, error) {
 	if _, old := store.OldReference(ref); old {
 		return "", store.OldRefError("the reference", ref)
@@ -501,26 +524,7 @@ func resolve(ref string) (string, error) {
 	case ref == "":
 		return "", nil
 	case strings.HasPrefix(ref, "credential:"):
-		name := strings.TrimPrefix(ref, "credential:")
-		if RefGuard != nil {
-			if err := RefGuard("secret", name); err != nil {
-				return "", err
-			}
-		}
-		v, err := Get(name)
-		if !errors.Is(err, ErrNotFound) {
-			return v, err
-		}
-		// a credential that names an item of an outside store reads it
-		// there, through the guard of that kind of reference
-		o, oerr := store.OutsideRefOf(name)
-		if oerr != nil {
-			return "", oerr
-		}
-		if o == "" {
-			return "", err
-		}
-		return resolve(o)
+		return resolveCredential(strings.TrimPrefix(ref, "credential:"))
 	case strings.HasPrefix(ref, "env:"):
 		name := strings.TrimPrefix(ref, "env:")
 		if RefGuard != nil {
