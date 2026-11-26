@@ -540,7 +540,7 @@ func newRoot(cl *call) *cobra.Command {
 	root.SetVersionTemplate(`{{.Version}}` + "\n")
 	addCommands(cl, root)
 	mountTable(root)
-	addHelpTopics(root) // and cobra's help command
+	root.InitDefaultHelpCmd()
 	root.InitDefaultCompletionCmd()
 	labelBuiltinCmds(root) // before the conventions: `completion` alone, piped, is a USAGE envelope too
 	applyConventions(root)
@@ -682,7 +682,7 @@ EXAMPLES
   $ komando fs replace web1 /etc/nginx/nginx.conf --old A --new B --backup --dry-run
 
 Leave out an argument at a terminal and komando asks for it.
-LEARN MORE   komando <command> --help · komando help safety|environment|exit-codes|output
+LEARN MORE   komando <command> --help
 `)
 	return b.String()
 }

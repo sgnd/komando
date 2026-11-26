@@ -104,13 +104,6 @@ func TestHostCAPersonAddsAndAnyoneRemoves(t *testing.T) {
 	if _, e := invRun(t, "host", "ca", "rm", "corp"); e == nil || e.Code != "CA_NOT_FOUND" {
 		t.Errorf("rm twice: %+v", e)
 	}
-	p, k2 := caPub(t)
-	if d := mustRun(t, "host", "ca", "revoke", "--key", p); d["action"] != "revoked" {
-		t.Errorf("revoke: %v", d)
-	}
-	if rev, _ := sshx.HostKeyRevoked(k2); !rev {
-		t.Error("not revoked")
-	}
 }
 
 // host show names the CA that vouches for a server; doctor warns about a

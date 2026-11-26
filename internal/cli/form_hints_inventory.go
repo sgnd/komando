@@ -92,10 +92,9 @@ var invHostHints = map[string]formHint{
 		help: "Groups, notes and everything else that names it are changed too."}, invNewName}},
 	"host rm": {args: []formArg{{ask: "Which servers should come off your list?", pick: "host", free: true,
 		help: "Only komando's list changes; the servers themselves are not touched."}}},
-	"host show":        {args: []formArg{invServer}},
-	"host ssh-command": {args: []formArg{invServer}},
-	"host test":        {args: []formArg{invServers}, flags: []formFlag{invWait}},
-	"host ca list":     {},
+	"host show":    {args: []formArg{invServer}},
+	"host test":    {args: []formArg{invServers}, flags: []formFlag{invWait}},
+	"host ca list": {},
 	"host ca add": {
 		args: []formArg{{ask: "A short name for this CA?", example: "corp"}},
 		flags: []formFlag{
@@ -106,8 +105,7 @@ var invHostHints = map[string]formHint{
 			{name: "from", ask: "Or read a known_hosts file's @cert-authority lines?", local: true, example: "~/.ssh/known_hosts"},
 		},
 	},
-	"host ca rm":     {args: []formArg{{ask: "Which CA should komando stop trusting?", help: "See them with `komando host ca list`."}}},
-	"host ca revoke": {flags: []formFlag{{name: "key", ask: "Which public key file (.pub) should never be trusted?", local: true, required: true}}},
+	"host ca rm": {args: []formArg{{ask: "Which CA should komando stop trusting?", help: "See them with `komando host ca list`."}}},
 	"host trust": {
 		args: []formArg{invServers},
 		flags: []formFlag{{name: "reset", ask: "Replace a key komando saved before?",

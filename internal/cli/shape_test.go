@@ -35,7 +35,6 @@ var shapeCases = [][]string{
 	{"host", "list"},
 	{"host", "show", "web"},
 	{"host", "show", "nope"},
-	{"host", "ssh-command", "web"},
 	{"export"},
 	{"export", "--sealed", "--to", "never-written.kmdseal", "--dry-run"},
 	{"conn", "list"},

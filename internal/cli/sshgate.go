@@ -241,7 +241,7 @@ func noFlag(names ...string) func(c *cobra.Command) string {
 // (a shell, a login, the vault's passphrase): a key never runs them.
 var gateNeedsPerson = map[safetyKey]bool{
 	{"host", "", "shell"}: true, {"database", "", "shell"}: true, {"cluster", "", "shell"}: true, {"login", "", "aws"}: true,
-	{"config", "", "approval-code"}: true, {"config", "vault", "passphrase"}: true, {"credential", "", "check"}: true,
+	{"config", "", "approval-code"}: true, {"config", "vault", "passphrase"}: true,
 	{"", "", "ssh-gate"}: true, {"ssh-gate", "", "line"}: true,
 }
 

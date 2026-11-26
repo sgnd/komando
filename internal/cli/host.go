@@ -66,7 +66,7 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 
 func hostCmd() *cobra.Command {
 	c := &cobra.Command{Use: "host", Aliases: []string{"hosts"}, Short: "Servers in komando's list: add, change, check, remove"}
-	c.AddCommand(hostAddCmd(), hostEditCmd(), hostMvCmd(), alias(listCmdFor("host"), "list kind:host", "List servers"), hostShowCmd(), hostRmCmd(), alias(testCmdFor("host"), "test", "Check that servers answer and let you in"), hostTrustCmd(), hostSSHArgsCmd(), hostCACmd())
+	c.AddCommand(hostAddCmd(), hostEditCmd(), hostMvCmd(), alias(listCmdFor("host"), "list kind:host", "List servers"), hostShowCmd(), hostRmCmd(), alias(testCmdFor("host"), "test", "Check that servers answer and let you in"), hostTrustCmd(), hostCACmd())
 	return c
 }
 

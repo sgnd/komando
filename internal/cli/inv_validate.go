@@ -30,8 +30,8 @@ func checkHost(cl *call, s *store.State, h *store.Host) error {
 			return err
 		}
 	}
-	// a leading - would read as an option in the ssh line host ssh-command
-	// prints (ssh -oProxyCommand=...), so it is never an address
+	// a leading - would read as an option of the ssh line komando runs
+	// (ssh -oProxyCommand=...), so it is never an address
 	if h.Address == "" || strings.HasPrefix(h.Address, "-") || strings.ContainsAny(h.Address, " /@") || inventory.HasControl(h.Address) {
 		return out.Errf(out.ExitUsage, "USAGE", "give a host name or IP address, for example 10.0.0.5 or web1.example.com", "%q is not a host name or IP address", h.Address)
 	}

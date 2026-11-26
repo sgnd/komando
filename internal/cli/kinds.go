@@ -198,14 +198,12 @@ var commandKinds = map[safetyKey]cmdKind{
 	{"credential", "certificate", ""}:       reads,
 	{"credential", "certificate", "add"}:    changes,
 	{"credential", "certificate", "list"}:   reads,
-	{"credential", "certificate", "revoke"}: changes,
 	{"credential", "certificate", "remove"}: changes,
 	{"host", "", "edit"}:                    changes,
 	{"host", "", "list"}:                    reads,
 	{"host", "", "rename"}:                  changes,
 	{"host", "", "remove"}:                  changes,
 	{"host", "", "show"}:                    reads,
-	{"host", "", "ssh-command"}:             reads,
 	{"host", "", "test"}:                    reads,
 	{"host", "", "trust"}:                   changes,
 
@@ -289,8 +287,6 @@ var commandKinds = map[safetyKey]cmdKind{
 
 	{"credential", "", ""}:            reads,
 	{"credential", "", "run"}:         dependsOn(localProgram),
-	{"credential", "", "check"}:       reads,
-	{"credential", "", "cp"}:          changes,
 	{"credential", "", "show"}:        reads,
 	{"config", "vault", "keychain"}:   changes,
 	{"credential", "", "list"}:        reads,

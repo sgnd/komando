@@ -639,7 +639,7 @@ func vpnBehindSends(st *store.State, name string) ([]string, error) {
 // edit and conn edit making the same change.
 //
 // nowFrom names where the new value comes from when the agent may not read
-// it (secret cp/rename copies another secret): the window then names that
+// it (secret rename copies another secret): the window then names that
 // secret, never the servers in it.
 func guardTrustSecret(cl *call, st *store.State, name, old string, had bool, now, nowFrom string) error {
 	if !cl.isAgent() || (had && old == now) {

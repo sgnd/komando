@@ -236,7 +236,7 @@ var itemCommands = map[string][]string{
 		"group add {} TARGET", "group rm {} TARGET", "group rename {} NEW"},
 	"key":     {"key deploy {} TARGET", "key revoke {} TARGET", "key edit {}", "key rename {} NEW", "key rm {}"},
 	"job":     {"job logs {} --limit 50", "job wait {}", "job kill {}", "job rm {}"},
-	"secret":  {"secret check {}", "secret set {}", "secret rename {} NEW", "secret cp {} NEW", "secret rm {}"},
+	"secret":  {"secret set {}", "secret rename {} NEW", "secret rm {}"},
 	"setting": {"config set {} VALUE"},
 	"tunnel":  {"tunnel stop {}", "tunnel list"},
 	"recipe":  {"recipe run {} TARGET", "recipe add {} COMMAND --overwrite --dry-run", "recipe rm {}"},

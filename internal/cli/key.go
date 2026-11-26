@@ -105,8 +105,7 @@ func keyGenCmd() *cobra.Command {
 		Use:   "gen NAME",
 		Short: "Make a new SSH key pair (ed25519 by default)",
 		Long: `Makes a key pair like ssh-keygen and adds it to komando's key list. The private
-key is kept in komando's sealed store, never in a file: komando hands it to
-ssh-agent when another program needs it (host ssh-command). Put the public
+key is kept in komando's sealed store, never in a file. Put the public
 part on servers with ` + "`komando key deploy`" + `. RSA keys need at least 3072
 bits.`,
 		Example: `  komando key gen deploy && komando key deploy deploy @web

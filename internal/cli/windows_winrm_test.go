@@ -50,7 +50,7 @@ func TestHostAddWinRM(t *testing.T) {
 			t.Errorf("%v: %s, want %s", code, got, args)
 		}
 	}
-	for _, args := range [][]string{{"shell", "win2"}, {"host", "ssh-command", "win2"}, {"host", "trust", "win2"}} {
+	for _, args := range [][]string{{"shell", "win2"}, {"host", "trust", "win2"}} {
 		if got := runCode(t, args...); got != "NOT_SUPPORTED" && got != "NEEDS_TERMINAL" {
 			t.Errorf("%v: %s", args, got)
 		}

@@ -162,7 +162,6 @@ func TestGateCheck(t *testing.T) {
 		{"db shell pg", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"cluster shell k8s pod/x", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"secret passphrase", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
-		{"secret check db", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"login aws", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"config approval-code", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"ssh-gate --name x", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},

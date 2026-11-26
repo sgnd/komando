@@ -43,7 +43,7 @@ func TestDoctorConnHygiene(t *testing.T) {
 			t.Errorf("%s warned: %s", name, got[name])
 		}
 	}
-	if !strings.Contains(got["conn:dev-minio"], "`komando secret cp prd-minio NEW` and `komando conn edit dev-minio --password-ref secret:NEW`") {
+	if !strings.Contains(got["conn:dev-minio"], "`komando secret set NEW` and `komando conn edit dev-minio --password-ref secret:NEW`") {
 		t.Errorf("dev-minio hint: %s", got["conn:dev-minio"])
 	}
 }

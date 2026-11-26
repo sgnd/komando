@@ -162,7 +162,7 @@ var (
 		"fs cat", "fs stat", "fs chmod", "fs mkdir", "fs write", "fs replace", "fs mv", "svc daemon-reload",
 		"storage chmod", "storage mkdir", "storage mv",
 		"cluster scale", "cluster apply", "cluster rollback", "cluster forward", "cluster helm values",
-		"net dns", "net http", "net ports", "net check", "key gen", "key deploy", "host trust", "host ssh-command",
+		"net dns", "net http", "net ports", "net check", "key gen", "key deploy", "host trust",
 		"ssh-gate line", "conn kinds", "audit verify", "config approval-code", "secret keychain", "secret passphrase"}
 )
 

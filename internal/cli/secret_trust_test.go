@@ -35,7 +35,7 @@ func secretIs(t *testing.T, name, want string) {
 
 // A protected VPN's key, preshared key or profile in the vault is replaced
 // only with a person's yes, like a protected server's password: through
-// secret set, secret cp --overwrite and secret rename --overwrite.
+// secret set and secret rename --overwrite.
 func TestProtectedVpnSecretNeedsYes(t *testing.T) {
 	secretHome(t)
 	putVpn(t, &store.Vpn{Name: "office", Kind: "wireguard", KeyRef: "secret:office-key", PSKRef: "secret:office-psk", Protected: true,
@@ -43,7 +43,6 @@ func TestProtectedVpnSecretNeedsYes(t *testing.T) {
 	texts := windowText(t, true)
 	t.Setenv("V", "agent-value")
 	wantCode(t, "PROTECTED_TARGET", "secret", "set", "office-key", "--from-env", "V")
-	wantCode(t, "PROTECTED_TARGET", "secret", "cp", "other", "office-psk", "--overwrite")
 	wantCode(t, "PROTECTED_TARGET", "secret", "rename", "other", "office-key", "--overwrite")
 	if len(*texts) != 0 {
 		t.Errorf("no flag, no window: %q", *texts)
@@ -60,7 +59,7 @@ const ovpnEvil = "client\nremote evil.example 443\n<ca>\nEVIL\n</ca>\n"
 
 // An OpenVPN VPN's profile in the vault says where its login goes and
 // which CA is trusted. An AI agent that replaces that secret (secret set,
-// cp --overwrite, rename --overwrite) needs a person's yes, as vpn edit
+// rename --overwrite) needs a person's yes, as vpn edit
 // does for the same change; the window names the new servers.
 func TestOvpnProfileSecretNeedsAPerson(t *testing.T) {
 	secretHome(t)
@@ -69,7 +68,6 @@ func TestOvpnProfileSecretNeedsAPerson(t *testing.T) {
 	texts := windowText(t, true)
 	t.Setenv("V", ovpnEvil)
 	wantCode(t, "SECRET_DESTINATION", "secret", "set", "corp-config", "--from-env", "V")
-	wantCode(t, "SECRET_DESTINATION", "secret", "cp", "evil", "corp-config", "--overwrite")
 	wantCode(t, "SECRET_DESTINATION", "secret", "rename", "evil", "corp-config", "--overwrite")
 	if len(*texts) != 0 {
 		t.Errorf("no flag, no window: %q", *texts)
@@ -116,10 +114,8 @@ func TestCASecretNeedsAPerson(t *testing.T) {
 	texts := windowText(t, true)
 	t.Setenv("V", "PEM-AGENT")
 	wantCode(t, "SAFETY_SETTING", "secret", "set", "win-ca", "--from-env", "V")
-	wantCode(t, "SAFETY_SETTING", "secret", "cp", "mine", "win-ca", "--overwrite")
 	wantCode(t, "SAFETY_SETTING", "secret", "rename", "mine", "db-ca", "--overwrite")
 	wantCode(t, "SAFETY_SETTING", "secret", "set", "later-ca", "--from-env", "V")
-	wantCode(t, "SAFETY_SETTING", "secret", "cp", "mine", "later-ca")
 	wantCode(t, "SAFETY_SETTING", "secret", "rename", "mine", "later-ca")
 	if len(*texts) != 0 {
 		t.Errorf("no flag, no window: %q", *texts)
@@ -255,7 +251,7 @@ func TestOvpnProfileCopyAndTypedLogin(t *testing.T) {
 		map[string]string{"corp-config": ovpnOld, "corp-pass": "pw", "hidden-profile": "client\nremote hidden-host.internal 7777\n"})
 	putVpn(t, &store.Vpn{Name: "typed", Kind: "openvpn", ConfigRef: "secret:typed-config"}, map[string]string{"typed-config": ovpnOld})
 	windowText(t, true)
-	for _, args := range [][]string{{"secret", "cp", "hidden-profile", "corp-config", "--overwrite"}, {"secret", "cp", "hidden-profile", "corp-config", "--overwrite", "--dry-run"}} {
+	for _, args := range [][]string{{"secret", "rename", "hidden-profile", "corp-config", "--overwrite"}, {"secret", "rename", "hidden-profile", "corp-config", "--overwrite", "--dry-run"}} {
 		_, text := runMain(t, args...)
 		if strings.Contains(text, "hidden-host") || !strings.Contains(text, "secret hidden-profile") {
 			t.Errorf("%v: %s", args, text)
