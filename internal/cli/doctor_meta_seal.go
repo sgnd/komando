@@ -14,7 +14,7 @@ import (
 // agent's or a script's command never writes it: doctor tells them a
 // person's command does it (C08).
 func carryMetaSeal(cl *call) {
-	if cl.isAgent() || !cl.interactive() || cl.flags.dryRun {
+	if cl.isAgent() || !cl.interactive() || cl.dryRun() {
 		return
 	}
 	wrote, err := sealMeta()
@@ -62,7 +62,7 @@ func resealMeta(cl *call) error {
 			"a person runs `komando doctor --reseal-meta` in their own terminal",
 			"sealing the store's settings row again is for a person at a terminal").NoFlag()
 	}
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		cl.out.Print("doctor.reseal-meta", map[string]any{"resealed": false, "note": "the real run opens the store with your key, checks every record and seals the settings row again"}, nil)
 		return nil
 	}

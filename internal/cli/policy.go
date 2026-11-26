@@ -140,7 +140,7 @@ func policyCheckCmd() *cobra.Command {
 			switch {
 			case kind == "":
 			case kind == "redis" || kind == "memcached":
-				// one quoted argument ("CLIENT LIST") is split as cache run splits it
+				// one quoted argument ("CLIENT LIST") is split as cache redis raw splits it
 				words, err := cachex.SplitCommand(args)
 				if err != nil {
 					return out.Usage("%v", err)
@@ -322,7 +322,7 @@ type policyChange struct {
 func (p policyChange) denied(cl *call) policyChange {
 	p.ID = policy.CustomID(p.pattern)
 	p.Next = "komando policy check 'COMMAND' says whether it blocks a command  |  komando policy rm " + p.ID + " removes it"
-	if !cl.flags.dryRun {
+	if !cl.dryRun() {
 		sayNext(cl, "komando policy check 'COMMAND'", "komando policy rm "+p.ID)
 	}
 	return p

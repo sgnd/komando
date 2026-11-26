@@ -59,6 +59,23 @@ func TestNewRefusesBadDefinitions(t *testing.T) {
 		{"unanchored pattern", func(b *Builtin) {
 			b.Vars = []Var{{Name: "unit", Channel: Text, Pattern: regexp.MustCompile(`[a-z]+`), MaxLen: 8, Longest: "abcdefgh"}}
 		}, "anchored"},
+		{"pattern anchored only at its ends", func(b *Builtin) {
+			b.Vars = []Var{{Name: "unit", Channel: Text, Pattern: regexp.MustCompile(`^a|b$`), MaxLen: 1, Longest: "a"}}
+		}, "anchored"},
+		{"pattern anchored at its start only", func(b *Builtin) {
+			b.Vars = []Var{{Name: "unit", Channel: Text, Pattern: regexp.MustCompile(`^a`), MaxLen: 1, Longest: "a"}}
+		}, "anchored"},
+		{"pattern anchored at its end only", func(b *Builtin) {
+			b.Vars = []Var{{Name: "unit", Channel: Text, Pattern: regexp.MustCompile(`a$`), MaxLen: 1, Longest: "a"}}
+		}, "anchored"},
+		{"pattern of two anchors in an alternation", func(b *Builtin) {
+			b.Vars = []Var{{Name: "unit", Channel: Text, Pattern: regexp.MustCompile(`^|$`), MaxLen: 1, Longest: "a"}}
+		}, "anchored"},
+		{"family pattern anchored only at its ends", func(b *Builtin) {
+			v := unitVar
+			v.Families = map[Family]*regexp.Regexp{Windows: regexp.MustCompile(`^nginx-ab|x$`)}
+			b.Vars = []Var{v}
+		}, "anchored"},
 		{"no max length", func(b *Builtin) {
 			b.Vars = []Var{{Name: "unit", Channel: Text, Pattern: unitVar.Pattern, Longest: "a"}}
 		}, "length"},
@@ -70,6 +87,69 @@ func TestNewRefusesBadDefinitions(t *testing.T) {
 		{"default off pattern", func(b *Builtin) { v := unitVar; v.Required, v.Default = false, "a b"; b.Vars = []Var{v} }, "default"},
 		{"variable twice", func(b *Builtin) { b.Vars = []Var{unitVar, unitVar} }, "twice"},
 		{"no channel", func(b *Builtin) { v := unitVar; v.Channel = 0; b.Vars = []Var{v} }, "channel"},
+		{"list without a max count", func(b *Builtin) { v := unitVar; v.List = true; b.Vars = []Var{v} }, "items"},
+		{"max count without a list", func(b *Builtin) { v := unitVar; v.MaxItems = 3; b.Vars = []Var{v} }, "items"},
+		{"list on a client channel", func(b *Builtin) {
+			b.Text, b.Parse = nil, nil
+			b.Run = func(context.Context, Values) (any, error) { return nil, nil }
+			b.Vars = []Var{{Name: "unit", Channel: SQLIdent, Pattern: unitVar.Pattern, MaxLen: 8, Longest: "nginx-ab", List: true, MaxItems: 2}}
+		}, "list"},
+		{"list default off pattern", func(b *Builtin) {
+			v := unitVar
+			v.List, v.MaxItems, v.Required, v.Default = true, 2, false, "nginx,a b"
+			b.Vars = []Var{v}
+		}, "default"},
+		{"family pattern unanchored", func(b *Builtin) {
+			v := unitVar
+			v.Families = map[Family]*regexp.Regexp{Windows: regexp.MustCompile(`[a-z]+`)}
+			b.Vars = []Var{v}
+		}, "anchored"},
+		{"longest value off a family pattern", func(b *Builtin) {
+			v := unitVar
+			v.Families = map[Family]*regexp.Regexp{Windows: regexp.MustCompile(`^[a-z]+$`)}
+			b.Vars = []Var{v}
+		}, "longest"},
+		{"family pattern of an unknown family", func(b *Builtin) {
+			v := unitVar
+			v.Families = map[Family]*regexp.Regexp{"plan9": regexp.MustCompile(`^[a-z-]+$`)}
+			b.Vars = []Var{v}
+		}, "family"},
+		{"family pattern on a client channel", func(b *Builtin) {
+			b.Text, b.Parse = nil, nil
+			b.Run = func(context.Context, Values) (any, error) { return nil, nil }
+			b.Vars = []Var{{Name: "unit", Channel: SQLIdent, Pattern: unitVar.Pattern, MaxLen: 8, Longest: "nginx-ab",
+				Families: map[Family]*regexp.Regexp{Unix: unitVar.Pattern}}}
+		}, "family"},
+		{"number whose longest value is not digits", func(b *Builtin) {
+			b.Vars = []Var{unitVar, {Name: "n", Channel: Number, Pattern: regexp.MustCompile(`^[0-9a-z]+$`), MaxLen: 3, Longest: "abc"}}
+		}, "longest"},
+		{"number marker before a redirect", func(b *Builtin) {
+			b.Vars = []Var{unitVar, {Name: "n", Channel: Number, Pattern: regexp.MustCompile(`^[0-9]+$`), MaxLen: 3, Longest: "999", Required: true}}
+			b.Text[Unix] = "journalctl -u {{var:unit}} -n {{var:n}}>x"
+		}, "word"},
+		{"number marker glued to a word", func(b *Builtin) {
+			b.Vars = []Var{unitVar, {Name: "n", Channel: Number, Pattern: regexp.MustCompile(`^[0-9]+$`), MaxLen: 3, Longest: "999", Required: true}}
+			b.Text[Unix] = "journalctl -u {{var:unit}} -n x{{var:n}}"
+		}, "word"},
+		{"number marker as a parameter", func(b *Builtin) {
+			b.Vars = []Var{unitVar, {Name: "n", Channel: Number, Pattern: regexp.MustCompile(`^[0-9]+$`), MaxLen: 3, Longest: "999", Required: true}}
+			b.Text[Unix] = "echo ${{var:n}} {{var:unit}}"
+		}, "word"},
+		{"number marker as a PowerShell size", func(b *Builtin) {
+			b.Vars = []Var{unitVar, {Name: "n", Channel: Number, Pattern: regexp.MustCompile(`^[0-9]+$`), MaxLen: 3, Longest: "999", Required: true}}
+			b.Text[Windows] = "Get-Service {{var:unit}} -Size {{var:n}}kb"
+		}, "word"},
+		{"optional number without a default", func(b *Builtin) {
+			b.Vars = []Var{unitVar, {Name: "n", Channel: Number, Pattern: regexp.MustCompile(`^[0-9]+$`), MaxLen: 3, Longest: "999"}}
+		}, "default"},
+		{"number as a list", func(b *Builtin) {
+			b.Vars = []Var{unitVar, {Name: "n", Channel: Number, Pattern: regexp.MustCompile(`^[0-9]+$`), MaxLen: 3, Longest: "999", List: true, MaxItems: 2}}
+		}, "list"},
+		{"sudo without a Unix text", func(b *Builtin) { b.Sudo = true; delete(b.Text, Unix) }, "sudo"},
+		{"sudo on a client call", func(b *Builtin) {
+			b.Sudo, b.Text, b.Parse = true, nil, nil
+			b.Run = func(context.Context, Values) (any, error) { return nil, nil }
+		}, "sudo"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -312,21 +392,11 @@ func TestParse(t *testing.T) {
 	}
 }
 
-func TestRate(t *testing.T) {
-	b := sample()
-	if got := Rate(b, 0); got != capability.Read {
-		t.Errorf("Rate(read, no hit) = %v", got)
-	}
-	if got := Rate(b, 1); got != capability.Dangerous {
-		t.Errorf("Rate(read, one hit) = %v, want dangerous", got)
-	}
-	b.Tier = capability.Person
-	if got := Rate(b, 2); got != capability.Person {
-		t.Errorf("Rate(person, hits) = %v; a hit never lowers the tier", got)
-	}
+func TestMutating(t *testing.T) {
 	if Mutating(sample()) {
 		t.Error("a read snippet is not mutating")
 	}
+	b := sample()
 	b.Tier = capability.Change
 	if !Mutating(b) {
 		t.Error("a change snippet is mutating")
@@ -389,23 +459,229 @@ func TestParseShape(t *testing.T) {
 	}
 }
 
-// Until the command rates a run by Rate's tier (Audit S1-1), the engine
-// takes only read and change built-ins: a dangerous one would otherwise run
-// with only a change's stop.
-func TestNewRefusesATierAboveChange(t *testing.T) {
-	for _, tier := range []capability.Tier{capability.Protected, capability.Dangerous, capability.Safety, capability.Person} {
-		b := sample()
-		b.Tier = tier
-		_, err := New([]Builtin{b})
-		if err == nil || !strings.Contains(err.Error(), "above change") || !strings.Contains(err.Error(), tierNames[tier]) {
-			t.Errorf("tier %s: New() = %v, want a refusal naming the tier", tierNames[tier], err)
-		}
-	}
-	for _, tier := range []capability.Tier{capability.Read, capability.Change} {
+// Every tier registers: the command stops a run by its tier
+// (TestSnippetTierStops in internal/cli).
+func TestNewTakesEveryTier(t *testing.T) {
+	for tier := capability.Read; tier <= capability.Person; tier++ {
 		b := sample()
 		b.Tier = tier
 		if _, err := New([]Builtin{b}); err != nil {
-			t.Errorf("tier %s: %v", tierNames[tier], err)
+			t.Errorf("tier %d: %v", tier, err)
+		}
+	}
+}
+
+// listVar is a text variable that takes several values, like svc-status's
+// units.
+var listVar = Var{Name: "unit", Channel: Text, Pattern: unitVar.Pattern, MaxLen: 8, Required: true, Longest: "nginx-ab", List: true, MaxItems: 3}
+
+func listSample() Builtin {
+	b := sample()
+	b.Vars = []Var{listVar}
+	return b
+}
+
+// Each value of a list is checked alone and quoted as its own word, in
+// the order given.
+func TestFillListQuotesEachValue(t *testing.T) {
+	for _, c := range []struct {
+		f    Family
+		want string
+	}{
+		{Unix, "systemctl show -- 'nginx' 'postfix'"},
+		{Windows, "Get-Service -Name 'nginx', 'postfix'"}, // a PowerShell array
+	} {
+		got, err := Fill(listSample(), c.f, map[string]string{"unit": "nginx,postfix"})
+		if err != nil || got != c.want {
+			t.Errorf("Fill(%s) = %q, %v; want %q", c.f, got, err, c.want)
+		}
+	}
+	if got, err := Fill(listSample(), Unix, map[string]string{"unit": "nginx"}); err != nil || got != "systemctl show -- 'nginx'" {
+		t.Errorf("one value: %q, %v", got, err)
+	}
+}
+
+func TestFillListRefusals(t *testing.T) {
+	for _, c := range []struct {
+		name, val, code string
+	}{
+		{"more than the max count", "a,b,c,d", "USAGE"},
+		{"an empty value inside", "a,,b", "USAGE"},
+		{"an empty value at the end", "a,", "USAGE"},
+		{"an empty value at the start", ",a", "USAGE"},
+		{"only a comma", ",", "USAGE"},
+		{"one value off pattern", "nginx,a;b", "USAGE"},
+		{"one value too long", "nginx,nginx-abc", "USAGE"},
+		{"one value option-like", "nginx,-x", "OPTION_LIKE_VAR"},
+		{"a control character", "nginx,a\nb", "USAGE"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			got, err := Fill(listSample(), Unix, map[string]string{"unit": c.val})
+			if code(err) != c.code {
+				t.Fatalf("Fill(%q) = %q, %v; want code %s", c.val, got, err, c.code)
+			}
+		})
+	}
+	// a comma in a value of a variable that is not a list is a value, and
+	// its pattern decides
+	if _, err := Fill(sample(), Unix, map[string]string{"unit": "a,b"}); code(err) != "USAGE" {
+		t.Errorf("a comma in a single value: %v, want USAGE from the pattern", err)
+	}
+}
+
+// LongestValue is the longest value a variable takes: for a list, the max
+// count of longest values.
+func TestLongestValue(t *testing.T) {
+	if got := LongestValue(unitVar); got != "nginx-ab" {
+		t.Errorf("LongestValue(single) = %q", got)
+	}
+	if got := LongestValue(listVar); got != "nginx-ab,nginx-ab,nginx-ab" {
+		t.Errorf("LongestValue(list) = %q", got)
+	}
+	if _, err := Fill(listSample(), Unix, map[string]string{"unit": LongestValue(listVar)}); err != nil {
+		t.Errorf("the longest list does not fill: %v", err)
+	}
+}
+
+// An empty item is refused even when the pattern would take an empty
+// value: a stray comma is a typo, not a value.
+func TestFillListRefusesAnEmptyItemWhateverThePattern(t *testing.T) {
+	b := sample()
+	b.Vars = []Var{{Name: "unit", Channel: Text, Pattern: regexp.MustCompile(`^[a-z]*$`), MaxLen: 3, Required: true, Longest: "abc", List: true, MaxItems: 3}}
+	if got, err := Fill(b, Unix, map[string]string{"unit": "a,,b"}); code(err) != "USAGE" {
+		t.Fatalf("Fill(a,,b) = %q, %v; want USAGE", got, err)
+	}
+}
+
+// A list's default is checked value by value, as a given list is.
+func TestFillListDefault(t *testing.T) {
+	b := listSample()
+	b.Vars[0].Required, b.Vars[0].Default = false, "nginx,postfix"
+	r, err := New([]Builtin{b})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ = r.Lookup("svc-status")
+	if got, err := Fill(b, Unix, map[string]string{}); err != nil || got != "systemctl show -- 'nginx' 'postfix'" {
+		t.Fatalf("Fill() = %q, %v", got, err)
+	}
+}
+
+// A family pattern narrows the variable for that family's text only:
+// systemd unit names and Windows service names differ.
+func TestFillFamilyPattern(t *testing.T) {
+	b := listSample()
+	b.Vars[0].Families = map[Family]*regexp.Regexp{Windows: regexp.MustCompile(`^[a-z][a-z-]*$`)}
+	if _, err := New([]Builtin{b}); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := Fill(b, Unix, map[string]string{"unit": "nginx,Web.1"}); err != nil || got != "systemctl show -- 'nginx' 'Web.1'" {
+		t.Errorf("Unix: %q, %v", got, err)
+	}
+	for _, val := range []string{"Web.1", "nginx,Web.1"} {
+		if got, err := Fill(b, Windows, map[string]string{"unit": val}); code(err) != "USAGE" {
+			t.Errorf("Windows %q = %q, %v; want USAGE from the family pattern", val, got, err)
+		}
+	}
+	if got, err := Fill(b, Windows, map[string]string{"unit": "nginx,web"}); err != nil || got != "Get-Service -Name 'nginx', 'web'" {
+		t.Errorf("Windows: %q, %v", got, err)
+	}
+	// a default goes through the family pattern too
+	b.Vars[0].Required, b.Vars[0].Default = false, "Web.1"
+	if got, err := Fill(b, Windows, map[string]string{}); code(err) != "USAGE" {
+		t.Errorf("Windows default %q, %v; want USAGE", got, err)
+	}
+}
+
+// numberSample has a count that goes into its text.
+func numberSample() Builtin {
+	b := sample()
+	b.Vars = []Var{unitVar, {Name: "n", Channel: Number, Pattern: regexp.MustCompile(`^[0-9]+$`), MaxLen: 5, Longest: "99999", Default: "200"}}
+	b.Text = map[Family]string{Unix: "journalctl -u {{var:unit}} -n {{var:n}}", Windows: "Get-WinEvent -MaxEvents {{var:n}} {{var:unit}}"}
+	return b
+}
+
+// A number marker may stand after a space, an = or the line's start, and
+// before a space or the line's end (Audit A-456-1): a whole word.
+func TestNewTakesANumberAsAWholeWord(t *testing.T) {
+	for _, text := range []string{"tail -n {{var:n}}", "{{var:n}} lines", "x --tail={{var:n}} y", "a\n{{var:n}}\nb", "-n {{var:n}} -u {{var:unit}}"} {
+		b := numberSample()
+		b.Text = map[Family]string{Unix: text}
+		if _, err := New([]Builtin{b}); err != nil {
+			t.Errorf("New(%q) = %v", text, err)
+		}
+	}
+}
+
+// A number goes into the text as its digits, unquoted, in every family:
+// digits are inert to sh and PowerShell, and the text stays today's.
+func TestFillNumberIsItsDigits(t *testing.T) {
+	r, err := New([]Builtin{numberSample()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := r.Lookup("svc-status")
+	for f, want := range map[Family]string{Unix: "journalctl -u 'nginx' -n 3", Windows: "Get-WinEvent -MaxEvents 3 'nginx'"} {
+		if got, err := Fill(b, f, map[string]string{"unit": "nginx", "n": "3"}); err != nil || got != want {
+			t.Errorf("Fill(%s) = %q, %v; want %q", f, got, err, want)
+		}
+	}
+	if got, err := Fill(b, Unix, map[string]string{"unit": "nginx"}); err != nil || got != "journalctl -u 'nginx' -n 200" {
+		t.Errorf("the default: %q, %v", got, err)
+	}
+}
+
+// Only ASCII digits pass, whatever the variable's pattern takes.
+func TestFillNumberRefusals(t *testing.T) {
+	b := numberSample()
+	b.Vars[1].Pattern = regexp.MustCompile(`^.+$`) // the number rule holds even under a loose pattern
+	for _, v := range []string{"3;reboot", "-1", "1e3", "0x10", "3 4", "\u0663", "１", "$(id)", "123456"} {
+		if got, err := Fill(b, Unix, map[string]string{"unit": "nginx", "n": v}); err == nil {
+			t.Errorf("Fill(n=%q) = %q, want a refusal", v, got)
+		}
+	}
+}
+
+// TestRefuseNoSudo (Audit A-457-1): --no-sudo only drops the sudo the runner
+// adds for Builtin.Sudo. A text that raises itself (exec sudo -n sh -c ...)
+// would elevate anyway, so the engine refuses the flag for it, with the
+// snippet's name, instead of letting a person think the run is unprivileged.
+func TestRefuseNoSudo(t *testing.T) {
+	self := sample()
+	self.Text[Unix] = `if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then exec sudo -n sh -c 'systemctl show -- {{var:unit}}'; fi`
+	runnerSudo := sample()
+	runnerSudo.Sudo = true
+	for _, tc := range []struct {
+		name   string
+		b      Builtin
+		noSudo bool
+		refuse bool
+	}{
+		{"a text that raises itself, --no-sudo", self, true, true},
+		{"a text that raises itself, no flag", self, false, false},
+		{"a plain text, --no-sudo", sample(), true, false},
+		{"the runner's sudo, --no-sudo", runnerSudo, true, false},
+	} {
+		err := RefuseNoSudo(tc.b, tc.noSudo)
+		if (err != nil) != tc.refuse {
+			t.Errorf("%s: error %v, want refused %v", tc.name, err, tc.refuse)
+		}
+		if err != nil && (code(err) != "USAGE" || !strings.Contains(err.Error(), tc.b.Name) || !strings.Contains(err.Error(), "--no-sudo")) {
+			t.Errorf("%s: %q: want a usage error naming the snippet and --no-sudo", tc.name, err)
+		}
+	}
+	for _, text := range []string{"sudo ls", "ls; sudo ls", "a && sudo -n ls", "(sudo ls)", "x | sudo tee f"} {
+		b := sample()
+		b.Text[Unix] = text
+		if !SelfElevates(b) {
+			t.Errorf("%q: not read as raising itself", text)
+		}
+	}
+	for _, text := range []string{"pseudosudo ls", "echo sudoers", "ls /etc/sudoers.d"} {
+		b := sample()
+		b.Text[Unix] = text
+		if SelfElevates(b) {
+			t.Errorf("%q: read as raising itself, but sudo is not a word of it", text)
 		}
 	}
 }

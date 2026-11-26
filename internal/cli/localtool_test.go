@@ -30,7 +30,7 @@ func TestToolSafe(t *testing.T) {
 // VPN password: the program never runs without a person's yes.
 func TestVPNClientFromPATHNeedsAPerson(t *testing.T) {
 	secretHome(t)
-	defer func() { tcl.flags.yes, tcl.flags.dryRun = false, false }()
+	defer func() { setGate(tcl, false, gateYes, gateDryRun) }()
 	mustRun(t, "vpn", "add", "office", "fortinet", "--portal", "vpn.example.com", "--user", "u", "--password-ref", "secret:db-pass")
 	bin := t.TempDir()
 	leak := filepath.Join(t.TempDir(), "leak")

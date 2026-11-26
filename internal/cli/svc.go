@@ -11,8 +11,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/snippet"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -522,4 +524,53 @@ func followLogs(cl *call, ctx context.Context, target, command string, sudo bool
 		cl.flags.timeout = 24 * time.Hour // the person stops it with Ctrl-C
 	}
 	return runFleet(cl, ctx, "logs", target, command, nil, execOpts{sudo: sudo, stream: true, follow: true}, false)
+}
+
+// svcUnitVar is the units svc-status takes. A systemd unit name and a
+// Windows service name allow different characters: each text keeps the
+// pattern today's command checks (winServiceName on Windows).
+var svcUnitVar = snippet.Var{Name: "unit", Channel: snippet.Text,
+	Pattern: regexp.MustCompile(`^(?:` + svcUnitUnix + `|` + strings.Trim(winServiceName.String(), "^$") + `)$`),
+	Families: map[snippet.Family]*regexp.Regexp{
+		snippet.Unix:    regexp.MustCompile(`^` + svcUnitUnix + `$`),
+		snippet.Windows: winServiceName,
+	},
+	MaxLen: 256, Longest: strings.Repeat("a", 256), Required: true, List: true, MaxItems: 32}
+
+// svcUnitUnix is a systemd unit name, with the \x escapes systemd writes.
+const svcUnitUnix = `[A-Za-z0-9@._:\\-]+`
+
+// svcSnippets are the ready-made snippets of svc list and svc status
+// (design 2.1). They move with the host commands' package (M11).
+func svcSnippets() []snippet.Builtin {
+	return []snippet.Builtin{{
+		Name: "svc-list", Type: "host", Replaces: "svc list", Reader: "KomandoCall+Services.swift:36-43; KomandoCall.swift:67",
+		Tier: capability.Read, Shape: "svc-list/1",
+		Checks: []string{"TestSvcStatusFindsMissingUnitsAndNoSystemd", "TestSnippetSamplesMatchGoldens/svc-list", "TestWindowsSvcAndFacts"},
+		Text: map[snippet.Family]string{
+			snippet.Unix:    noSystemd + "systemctl list-units --type=service --all --no-legend --plain --no-pager",
+			snippet.Windows: winSvcListScript,
+		},
+		Parse: func(o snippet.Output, f snippet.Family) (any, error) {
+			if f == snippet.Windows {
+				return winSvcList("")(nil, snippetRun(o))
+			}
+			return svcListResult(snippetRun(o))
+		},
+	}, {
+		Name: "svc-status", Type: "host", Replaces: "svc status", Reader: "KomandoCall+Services.swift:36-43",
+		Tier: capability.Read, Shape: "svc-status/1", Vars: []snippet.Var{svcUnitVar},
+		Checks: []string{"TestSvcStatusFindsMissingUnitsAndNoSystemd", "TestParseSvcShow", "TestWindowsSvcAndFacts",
+			"TestSnippetSvcUnitNames", "TestSnippetSamplesMatchGoldens/svc-status"},
+		Text: map[snippet.Family]string{
+			snippet.Unix:    noSystemd + "systemctl show --no-pager -p " + strings.Join(svcProps, ",") + " -- {{var:unit}}",
+			snippet.Windows: winSvcStatusText("@({{var:unit}})"),
+		},
+		Parse: func(o snippet.Output, f snippet.Family) (any, error) {
+			if f == snippet.Windows {
+				return winServices(snippetRun(o))
+			}
+			return svcResult(snippetRun(o))
+		},
+	}}
 }

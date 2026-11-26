@@ -29,9 +29,9 @@ the tag keeps the source tag. --dry-run reads both registries and says what
 the copy would bring and whether it replaces what the tag points to now.
 
 Only the destination changes: a protected destination needs --yes.`,
-		Example: `  komando registry copy ghcr:org/app:1.4.2 harbor:prod/app:1.4.2
-  komando registry copy ghcr:org/app:1.4.2 harbor:
-  komando registry copy reg:app:latest reg:app:stable`,
+		Example: `  komando registry oci image copy ghcr:org/app:1.4.2 harbor:prod/app:1.4.2
+  komando registry oci image copy ghcr:org/app:1.4.2 harbor:
+  komando registry oci image copy reg:app:latest reg:app:stable`,
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			return runRegistryCopy(cl, cmd.Context(), args[0], args[1])
@@ -119,7 +119,7 @@ func runRegistryCopy(cl *call, ctx context.Context, from, to string) error {
 	data := copyData{From: src.Name + ":" + srcRepo + refSep(srcRef) + srcRef, To: dst.Name + ":" + dstRepo + ":" + dstRef}
 	rec := map[string]any{"conns": []string{src.Name, dst.Name}, "from": data.From, "to": data.To, "risk": "write"}
 	if err := GuardConns(cl, st, []*store.Conn{dst}, driver.Verdict{Risk: driver.RiskWrite}); err != nil {
-		if cl.flags.dryRun {
+		if cl.dryRun() {
 			cl.out.Print("registry.copy", map[string]any{"from": data.From, "to": data.To, "dry_run": true, "would_be_blocked": toErr(err)}, nil)
 			return nil
 		}
@@ -141,7 +141,7 @@ func runRegistryCopy(cl *call, ctx context.Context, from, to string) error {
 	}
 	defer closeDst()
 	srcRepo, dstRepo = sc.Repo(srcRepo), dc.Repo(dstRepo) // Docker Hub: nginx is library/nginx
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		if err := copyDryRun(ctx, &data, sc, srcRepo, srcRef, dc, dstRepo, dstRef); err != nil {
 			return err
 		}

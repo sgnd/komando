@@ -89,7 +89,7 @@ func fileDigest(p string) (int64, string, error) {
 // (a folder's .yaml, .yml and .json files, as the run reads them) and the
 // files of --from-file. The window shows them as cluster apply --file does.
 func noteKubectlFiles(cl *call, args []string) error {
-	if !cl.caller().IsAgent() || cl.flags.dryRun {
+	if !cl.caller().IsAgent() || cl.dryRun() {
 		return nil // a dry run opens no window; the run names any stop
 	}
 	a, err := parseKargs(args)

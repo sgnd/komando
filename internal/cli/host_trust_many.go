@@ -119,7 +119,7 @@ func approveReplacements(cl *call, st *store.State, rows []*trustRow) error {
 	if len(names) == 0 {
 		return nil
 	}
-	if cl.interactive() && !cl.flags.dryRun {
+	if cl.interactive() && !cl.dryRun() {
 		fmt.Fprintln(cl.out.Err, "These servers show a different host key than the one pinned:")
 		for _, r := range rows {
 			if r.Error == nil && r.mismatch() {
@@ -185,7 +185,7 @@ func (d trustData) Text() string {
 
 // trustHosts is `host trust TARGET`.
 func trustHosts(cl *call, ctx context.Context, st *store.State, hosts []*store.Host, reset bool, want string) error {
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		return trustDryRun(cl, st, hosts, reset, want)
 	}
 	rows := fetchTrustRows(cl, ctx, st, hosts)

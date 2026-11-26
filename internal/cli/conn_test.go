@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -74,10 +75,11 @@ func TestGuardConns(t *testing.T) {
 		{"destructive on protected, only --allow-dangerous", []*store.Conn{prod}, destructive, false, true, "PROTECTED_TARGET"},
 		{"destructive on protected, both flags", []*store.Conn{prod}, destructive, true, true, ""},
 	}
-	saved := tcl.flags
-	defer func() { tcl.flags = saved }()
+	saved := saveFlags(tcl)
+	defer saved.restore()
 	for _, c := range cases {
-		tcl.flags.yes, tcl.flags.allowDangerous = c.yes, c.allow
+		setGate(tcl, c.yes, gateYes)
+		setGate(tcl, c.allow, gateAllowDangerous)
 		err := GuardConns(tcl, nil, c.conns, c.v)
 		got := ""
 		if err != nil {
@@ -340,12 +342,15 @@ func TestRedactArgs(t *testing.T) {
 // each family's own example still goes through.
 func TestFamilyAddWrongKind(t *testing.T) {
 	invHome(t)
-	e := wantCode(t, "WRONG_KIND", "cache", "add", "c1", "postgres://app@192.0.2.40/app", "--dry-run")
+	e := wantCode(t, "WRONG_KIND", "cache", "redis", "add", "c1", "postgres://app@192.0.2.40/app", "--dry-run")
 	if e.Exit != 2 || !strings.Contains(e.Hint, "`komando db add`") {
 		t.Errorf("%+v", e)
 	}
 	for kind, k := range connAddKinds {
-		args := strings.Fields(strings.ReplaceAll(k.example, "'", ""))[1:5]
+		args := strings.Fields(strings.ReplaceAll(k.example, "'", ""))[1:]
+		if i := slices.IndexFunc(args, func(w string) bool { return strings.HasPrefix(w, "--") }); i >= 0 {
+			args = args[:i] // the words of the command, not its flags
+		}
 		if d, e := invRun(t, append(args, "--dry-run")...); e != nil && e.Code == "WRONG_KIND" {
 			t.Errorf("%s add with its own example: %v %+v", kind, d, e)
 		}

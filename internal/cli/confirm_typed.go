@@ -63,7 +63,7 @@ func confirmDangerous(cl *call, names []string, reason string) bool {
 // are protected: one typed question covers the protection too (S-7.4),
 // so confirmProtected does not ask again about them.
 func confirmDangerousOn(cl *call, names, prot []string, reason string) bool {
-	if cl.flags.dryRun || !cl.interactive() {
+	if cl.dryRun() || !cl.interactive() {
 		return false
 	}
 	cl.askedAbout = names

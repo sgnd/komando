@@ -39,7 +39,7 @@ func TestStandardRenamedIDs(t *testing.T) {
 		{[]string{"db", "user", "list"}, []string{"db", "user", "ls"}, "db.user.list"},
 		{[]string{"fs", "list"}, []string{"fs", "ls"}, "fs.list"},
 		{[]string{"queue", "list"}, []string{"queue", "ls"}, "queue.list"},
-		{[]string{"registry", "list"}, []string{"registry", "ls"}, "registry.list"},
+		{[]string{"registry", "oci", "image", "list"}, []string{"registry", "oci", "image", "ls"}, "registry.oci.image.list"},
 		{[]string{"storage", "list"}, []string{"storage", "ls"}, "storage.list"},
 	} {
 		now, old := findCmd(t, root, c.now...), findCmd(t, root, c.old...)
@@ -113,7 +113,7 @@ func TestStandardSynonyms(t *testing.T) {
 		{[]string{"group", "show"}, "group.list"}, {[]string{"job", "show"}, "job.status"},
 		{[]string{"tunnel", "show"}, "tunnel.list"}, {[]string{"recipe", "show"}, "recipe.list"},
 		{[]string{"policy", "add"}, "policy.deny"}, {[]string{"secret", "add"}, "secret.set"},
-		{[]string{"docker", "describe"}, "docker.inspect"}, {[]string{"registry", "describe"}, "registry.inspect"},
+		{[]string{"docker", "describe"}, "docker.inspect"}, {[]string{"registry", "oci", "image", "describe"}, "registry.oci.image.show"},
 		{[]string{"user", "create"}, "user.add"}, {[]string{"db", "user", "create"}, "db.user.add"},
 		{[]string{"secret", "copy"}, "secret.cp"}, {[]string{"copy"}, "cp"},
 		{[]string{"job", "stop"}, "job.kill"}, {[]string{"secret", "passwd"}, "secret.passphrase"},

@@ -8,7 +8,7 @@ import "slices"
 
 // Gone is a command of today that no leaf carries.
 type Gone struct {
-	Today string // command ID, as in internal/cli/testdata/command_ids.txt
+	Today string // command ID of v0.17, as in testdata/v0_17_ids.txt (deleted after the v0.18.0 release)
 	Why   string // the decision
 	Lost  string // the function that goes on purpose, "" when none
 }
