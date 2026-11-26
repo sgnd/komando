@@ -318,7 +318,7 @@ in every area:
 1. **Commands komando understands** (`db schema`, `cache get`,
    `storage ls`): structured output, safe. For most daily work.
 2. **A raw path in the native language**, still classified, read-only by
-   default and audited: `exec`, `db query`, `cache run`,
+   default and audited: `exec`, `db query`, `cache redis raw`,
    `cluster run -- <kubectl args>`.
 3. **Your own tool, through komando's path**: `komando tunnel start prod-db`
    gives a local port for any client; `komando shell` opens SSH;

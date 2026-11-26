@@ -175,11 +175,11 @@ func TestConnLoginAskAgentWindow(t *testing.T) {
 	}
 	// a cancel stops it, and the window stays shut for a minute
 	texts = loginWindow(t, "", false, true)
-	e := wantCode(t, "DECLINED", "cache", "run", "cache1", "--", "PING")
+	e := wantCode(t, "DECLINED", "cache", "redis", "raw", "cache1", "--", "PING")
 	if !strings.Contains(e.Hint, "do not retry") || !strings.Contains(e.Hint, "in their own terminal") {
 		t.Errorf("cancel: %+v", e)
 	}
-	wantCode(t, "DECLINED", "cache", "run", "cache1", "--", "PING")
+	wantCode(t, "DECLINED", "cache", "redis", "raw", "cache1", "--", "PING")
 	if len(*texts) != 1 {
 		t.Errorf("the cool-down opened %d windows", len(*texts))
 	}
@@ -192,12 +192,12 @@ func TestConnLoginAskNeedsPerson(t *testing.T) {
 	port, tries := passwordRedis(t, "pw")
 	mustRun(t, "conn", "add", "cache1", "redis://default@127.0.0.1:"+port+"/0", "--login", "ask")
 	noAgent(t)
-	if e := wantCode(t, "NEEDS_PERSON", "cache", "run", "cache1", "--", "PING"); !strings.Contains(e.Hint, "a person run the command") {
+	if e := wantCode(t, "NEEDS_PERSON", "cache", "redis", "raw", "cache1", "--", "PING"); !strings.Contains(e.Hint, "a person run the command") {
 		t.Errorf("script: %+v", e)
 	}
 	setCallerEnv(t, "CLAUDECODE", "1")
 	loginWindow(t, "", false, false)
-	if e := wantCode(t, "NEEDS_PERSON", "cache", "run", "cache1", "--", "PING"); !strings.Contains(e.Hint, "never ask for the password in the chat") {
+	if e := wantCode(t, "NEEDS_PERSON", "cache", "redis", "raw", "cache1", "--", "PING"); !strings.Contains(e.Hint, "never ask for the password in the chat") {
 		t.Errorf("no screen: %+v", e)
 	}
 	if tries.Load() != 0 {

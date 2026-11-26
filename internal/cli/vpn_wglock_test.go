@@ -339,7 +339,7 @@ func TestVpnDownSharedSession(t *testing.T) {
 		t.Fatal(err)
 	}
 	run := func(args ...string) string {
-		tcl.flags.dryRun, tcl.flags.yes = false, false
+		setGate(tcl, false, gateDryRun, gateYes)
 		root := newRoot(tcl)
 		t.Cleanup(endCommand)
 		root.SetArgs(append([]string{"-o", "json"}, args...))

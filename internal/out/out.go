@@ -220,6 +220,10 @@ type Skipped struct {
 // Printer prints one call's output. Each call has its own (no two calls
 // share one), set up by the root command.
 type Printer struct {
+	// As, when set, names every envelope this printer prints: a command
+	// that runs the body of another one (step C of the v0.18.0 cut) prints
+	// under its own ID.
+	As      string
 	Format  string // json | text
 	Pretty  bool
 	Version string
@@ -440,6 +444,9 @@ var OnGenericText func(command string)
 // Print prints data. A non-nil softErr marks the envelope not-ok but still
 // carries data (e.g. multi-host exec with partial failures).
 func (p *Printer) Print(command string, data any, softErr *Error) {
+	if p.As != "" {
+		command = p.As
+	}
 	env := Envelope{OK: softErr == nil, Command: command, Data: data, Error: softErr, Meta: p.meta()}
 	if p.Format == "text" {
 		p.printSkipped()

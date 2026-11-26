@@ -28,7 +28,7 @@ type gateKey struct {
 // targets (TestGateNetworkClassified makes every reachable read be in one
 // of the two lists). SQL and cache commands that reach another server
 // (dblink, COPY TO PROGRAM, url(), MIGRATE ...) are writes already: db query
-// and cache run need --write for them, which no read key has.
+// and cache redis raw need --write for them, which no read key has.
 
 // gateNoNetwork are the reads a no-network read key runs: komando's own
 // reads of targets in the inventory (gateLocalTarget refuses a target not in

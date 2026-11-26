@@ -69,9 +69,9 @@ func wrapsValue(v, base pflag.Value) bool {
 // flag (and value), from a fresh tree; extra adds a spelling first.
 func spellingAnswer(t *testing.T, id, flag, alias string) string {
 	t.Helper()
-	saved := tcl.flags
-	tcl.flags = globalFlags{}
-	defer func() { tcl.flags = saved }()
+	saved := saveFlags(tcl)
+	clearFlags(tcl)
+	defer saved.restore()
 	var c *cobra.Command
 	for _, x := range allCommands(newRoot(tcl)) {
 		if cmdID(x) == id {
@@ -99,7 +99,7 @@ func spellingAnswer(t *testing.T, id, flag, alias string) string {
 // as the flag itself is: pkg upgradable --refresh under another name.
 func TestAliasSpellingReachesGate(t *testing.T) {
 	for _, c := range []struct{ id, flag string }{
-		{"pkg.upgradable", "--refresh"}, {"db.query", "--write"}, {"cache.run", "--write"},
+		{"pkg.upgradable", "--refresh"}, {"db.query", "--write"}, {"cache.redis.raw", "--write"},
 		{"cluster.run", "--write"}, {"db.explain", "--analyze"}, {"pkg.security", "--refresh"},
 	} {
 		if got := spellingAnswer(t, c.id, c.flag, "old-spelling"); got != "SSH_GATE_READ_ONLY" {

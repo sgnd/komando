@@ -35,7 +35,7 @@ func agentYes(cl *call, code, msg, what string, why ...string) error {
 	if !cl.isAgent() || cl.sess.SafetyApproved(what) {
 		return nil
 	}
-	if cl.flags.yes && cl.personAllowsFor("--yes", what, why...) {
+	if cl.yesOKFor(what, why...) {
 		cl.sess.ApproveSafety(what)
 		return nil
 	}
@@ -133,7 +133,7 @@ func guardHostEnv(cl *call, hosts []*store.Host, env map[string]string) error {
 	if len(names) == 0 {
 		return nil
 	}
-	if !cl.flags.yes {
+	if !cl.yes() {
 		cl.out.Warn(fmt.Sprintf("the server's env values from the vault (%s on %s) were left out: an AI agent's command gets them only with --yes and the user's yes", strings.Join(dedupe(refs), ", "), strings.Join(names, ", ")))
 		return nil
 	}

@@ -86,7 +86,7 @@ func TestSafetyKeys(t *testing.T) {
 	}
 	owner := map[safetyKey]string{}
 	for id, k := range cmdKeys {
-		if other, ok := owner[k]; ok {
+		if other, ok := owner[k]; ok && !(providerIDs[id] && providerIDs[other]) {
 			t.Errorf("%s and %s share the key %v: they would share their rows", id, other, k)
 		}
 		owner[k] = id
@@ -179,6 +179,7 @@ var whenProbes = []string{
 	"secret keychain",
 	"host trust web1 --reset",
 	"export --sealed",
+	"export --for-phone",
 	"import komando backup.json",
 	"group rm big",
 	"policy edit rm-root --off",

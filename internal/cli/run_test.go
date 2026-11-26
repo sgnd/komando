@@ -128,7 +128,7 @@ func TestReadOnlyViolation(t *testing.T) {
 			t.Errorf("%q: got %q, want %q", cmd, got, want)
 		}
 	}
-	tcl.flags.dryRun = false
+	setGate(tcl, false, gateDryRun)
 	err := checkReadOnly(tcl, "rm -rf /tmp/x")
 	if e := toErr(err); e == nil || e.Code != "READ_ONLY_VIOLATION" || e.Exit != out.ExitPolicy {
 		t.Errorf("checkReadOnly: %v", err)
@@ -353,7 +353,7 @@ func TestCheckVars(t *testing.T) {
 }
 
 func TestSyncMissingSourceAndEmptyDelete(t *testing.T) {
-	tcl.flags.dryRun = false
+	setGate(tcl, false, gateDryRun)
 	dst := t.TempDir()
 	writeTree(t, dst, map[string]string{"keep.txt": "mine"})
 	ctx := context.Background()
@@ -378,7 +378,7 @@ func TestSyncMissingSourceAndEmptyDelete(t *testing.T) {
 
 func TestSyncLinksModesAndNewFolder(t *testing.T) {
 	unixOnly(t, "symbolic links and file modes")
-	tcl.flags.dryRun = false
+	setGate(tcl, false, gateDryRun)
 	src := t.TempDir()
 	dst := filepath.Join(t.TempDir(), "new")
 	writeTree(t, src, map[string]string{"a.sh": "echo"})
@@ -398,8 +398,8 @@ func TestSyncLinksModesAndNewFolder(t *testing.T) {
 	if fi, _ := os.Stat(filepath.Join(dst, "a.sh")); fi.Mode().Perm() != 0o755 {
 		t.Errorf("mode not applied: %v", fi.Mode())
 	}
-	tcl.flags.dryRun = true
-	defer func() { tcl.flags.dryRun = false }()
+	setGate(tcl, true, gateDryRun)
+	defer func() { setGate(tcl, false, gateDryRun) }()
 	r, _ = runSync(tcl, ctx, localSide{tcl, src}, localSide{tcl, dst}, "src", "dst", syncOpts{})
 	if !strings.Contains(r.Text(), "would copy 0, update 0, delete 0") {
 		t.Errorf("dry-run grammar: %s", r.Text())
@@ -442,7 +442,7 @@ func (f *fakeBucket) Move(context.Context, string, string, storex.MoveOpts) (sto
 func (f *fakeBucket) Close() error { return nil }
 
 func TestSyncSkipsFolderMarkers(t *testing.T) {
-	tcl.flags.dryRun = false
+	setGate(tcl, false, gateDryRun)
 	b := &fakeBucket{objs: []storex.Object{{Key: "tree"}, {Key: "tree/"}, {Key: "tree/sub/"}, {Key: "tree/a.txt", Size: 11}}}
 	dst := t.TempDir()
 	r, err := runSync(tcl, context.Background(), bucketSide{b: b, prefix: "tree/"}, localSide{tcl, dst}, "b:tree", dst, syncOpts{})

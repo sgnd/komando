@@ -26,14 +26,6 @@
 "cache --help"	netread	cache	runs
 "cache --help"	read	cache	runs
 "cache --help"	shell	cache	runs
-"cache add --help"	full	cache.add	runs
-"cache add --help"	netread	cache.add	runs
-"cache add --help"	read	cache.add	runs
-"cache add --help"	shell	cache.add	runs
-"cache add"	full	cache.add	SSH_GATE_REFUSED|komando cache add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"cache add"	netread	cache.add	SSH_GATE_REFUSED|komando cache add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"cache add"	read	cache.add	SSH_GATE_REFUSED|komando cache add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"cache add"	shell	cache.add	SSH_GATE_REFUSED|komando cache add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
 "cache get --help"	full	cache.get	runs
 "cache get --help"	netread	cache.get	runs
 "cache get --help"	read	cache.get	runs
@@ -58,6 +50,182 @@
 "cache keys"	netread	cache.keys	runs
 "cache keys"	read	cache.keys	runs
 "cache keys"	shell	cache.keys	runs
+"cache memcached --help"	full	cache.memcached	runs
+"cache memcached --help"	netread	cache.memcached	runs
+"cache memcached --help"	read	cache.memcached	runs
+"cache memcached --help"	shell	cache.memcached	runs
+"cache memcached add --help"	full	cache.memcached.add	runs
+"cache memcached add --help"	netread	cache.memcached.add	runs
+"cache memcached add --help"	read	cache.memcached.add	runs
+"cache memcached add --help"	shell	cache.memcached.add	runs
+"cache memcached add"	full	cache.memcached.add	SSH_GATE_REFUSED|komando cache memcached add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached add"	netread	cache.memcached.add	SSH_GATE_REFUSED|komando cache memcached add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached add"	read	cache.memcached.add	SSH_GATE_REFUSED|komando cache memcached add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached add"	shell	cache.memcached.add	SSH_GATE_REFUSED|komando cache memcached add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached edit --help"	full	cache.memcached.edit	runs
+"cache memcached edit --help"	netread	cache.memcached.edit	runs
+"cache memcached edit --help"	read	cache.memcached.edit	runs
+"cache memcached edit --help"	shell	cache.memcached.edit	runs
+"cache memcached edit"	full	cache.memcached.edit	SSH_GATE_REFUSED|komando cache memcached edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached edit"	netread	cache.memcached.edit	SSH_GATE_REFUSED|komando cache memcached edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached edit"	read	cache.memcached.edit	SSH_GATE_REFUSED|komando cache memcached edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached edit"	shell	cache.memcached.edit	SSH_GATE_REFUSED|komando cache memcached edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached list --help"	full	cache.memcached.list	runs
+"cache memcached list --help"	netread	cache.memcached.list	runs
+"cache memcached list --help"	read	cache.memcached.list	runs
+"cache memcached list --help"	shell	cache.memcached.list	runs
+"cache memcached list"	full	cache.memcached.list	runs
+"cache memcached list"	netread	cache.memcached.list	runs
+"cache memcached list"	read	cache.memcached.list	runs
+"cache memcached list"	shell	cache.memcached.list	runs
+"cache memcached raw --analyze"	full	cache.memcached.raw	runs
+"cache memcached raw --analyze"	netread	cache.memcached.raw	runs
+"cache memcached raw --analyze"	read	cache.memcached.raw	runs
+"cache memcached raw --analyze"	shell	cache.memcached.raw	runs
+"cache memcached raw --help"	full	cache.memcached.raw	runs
+"cache memcached raw --help"	netread	cache.memcached.raw	runs
+"cache memcached raw --help"	read	cache.memcached.raw	runs
+"cache memcached raw --help"	shell	cache.memcached.raw	runs
+"cache memcached raw --read-only"	full	cache.memcached.raw	runs
+"cache memcached raw --read-only"	netread	cache.memcached.raw	runs
+"cache memcached raw --read-only"	read	cache.memcached.raw	runs
+"cache memcached raw --read-only"	shell	cache.memcached.raw	runs
+"cache memcached raw --refresh"	full	cache.memcached.raw	runs
+"cache memcached raw --refresh"	netread	cache.memcached.raw	runs
+"cache memcached raw --refresh"	read	cache.memcached.raw	runs
+"cache memcached raw --refresh"	shell	cache.memcached.raw	runs
+"cache memcached raw --write"	full	cache.memcached.raw	runs
+"cache memcached raw --write"	netread	cache.memcached.raw	SSH_GATE_READ_ONLY|komando cache memcached raw is refused for a read-only key: with --write it can change something
+"cache memcached raw --write"	read	cache.memcached.raw	SSH_GATE_READ_ONLY|komando cache memcached raw is refused for a read-only key: with --write it can change something
+"cache memcached raw --write"	shell	cache.memcached.raw	runs
+"cache memcached raw"	full	cache.memcached.raw	runs
+"cache memcached raw"	netread	cache.memcached.raw	runs
+"cache memcached raw"	read	cache.memcached.raw	runs
+"cache memcached raw"	shell	cache.memcached.raw	runs
+"cache memcached remove --help"	full	cache.memcached.remove	runs
+"cache memcached remove --help"	netread	cache.memcached.remove	runs
+"cache memcached remove --help"	read	cache.memcached.remove	runs
+"cache memcached remove --help"	shell	cache.memcached.remove	runs
+"cache memcached remove"	full	cache.memcached.remove	SSH_GATE_REFUSED|komando cache memcached remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached remove"	netread	cache.memcached.remove	SSH_GATE_REFUSED|komando cache memcached remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached remove"	read	cache.memcached.remove	SSH_GATE_REFUSED|komando cache memcached remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached remove"	shell	cache.memcached.remove	SSH_GATE_REFUSED|komando cache memcached remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached rename --help"	full	cache.memcached.rename	runs
+"cache memcached rename --help"	netread	cache.memcached.rename	runs
+"cache memcached rename --help"	read	cache.memcached.rename	runs
+"cache memcached rename --help"	shell	cache.memcached.rename	runs
+"cache memcached rename"	full	cache.memcached.rename	SSH_GATE_REFUSED|komando cache memcached rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached rename"	netread	cache.memcached.rename	SSH_GATE_REFUSED|komando cache memcached rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached rename"	read	cache.memcached.rename	SSH_GATE_REFUSED|komando cache memcached rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached rename"	shell	cache.memcached.rename	SSH_GATE_REFUSED|komando cache memcached rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache memcached show --help"	full	cache.memcached.show	runs
+"cache memcached show --help"	netread	cache.memcached.show	runs
+"cache memcached show --help"	read	cache.memcached.show	runs
+"cache memcached show --help"	shell	cache.memcached.show	runs
+"cache memcached show"	full	cache.memcached.show	runs
+"cache memcached show"	netread	cache.memcached.show	runs
+"cache memcached show"	read	cache.memcached.show	runs
+"cache memcached show"	shell	cache.memcached.show	runs
+"cache memcached test --help"	full	cache.memcached.test	runs
+"cache memcached test --help"	netread	cache.memcached.test	runs
+"cache memcached test --help"	read	cache.memcached.test	runs
+"cache memcached test --help"	shell	cache.memcached.test	runs
+"cache memcached test"	full	cache.memcached.test	runs
+"cache memcached test"	netread	cache.memcached.test	runs
+"cache memcached test"	read	cache.memcached.test	runs
+"cache memcached test"	shell	cache.memcached.test	runs
+"cache memcached"	full	cache.memcached	runs
+"cache memcached"	netread	cache.memcached	runs
+"cache memcached"	read	cache.memcached	runs
+"cache memcached"	shell	cache.memcached	runs
+"cache redis --help"	full	cache.redis	runs
+"cache redis --help"	netread	cache.redis	runs
+"cache redis --help"	read	cache.redis	runs
+"cache redis --help"	shell	cache.redis	runs
+"cache redis add --help"	full	cache.redis.add	runs
+"cache redis add --help"	netread	cache.redis.add	runs
+"cache redis add --help"	read	cache.redis.add	runs
+"cache redis add --help"	shell	cache.redis.add	runs
+"cache redis add"	full	cache.redis.add	SSH_GATE_REFUSED|komando cache redis add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis add"	netread	cache.redis.add	SSH_GATE_REFUSED|komando cache redis add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis add"	read	cache.redis.add	SSH_GATE_REFUSED|komando cache redis add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis add"	shell	cache.redis.add	SSH_GATE_REFUSED|komando cache redis add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis edit --help"	full	cache.redis.edit	runs
+"cache redis edit --help"	netread	cache.redis.edit	runs
+"cache redis edit --help"	read	cache.redis.edit	runs
+"cache redis edit --help"	shell	cache.redis.edit	runs
+"cache redis edit"	full	cache.redis.edit	SSH_GATE_REFUSED|komando cache redis edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis edit"	netread	cache.redis.edit	SSH_GATE_REFUSED|komando cache redis edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis edit"	read	cache.redis.edit	SSH_GATE_REFUSED|komando cache redis edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis edit"	shell	cache.redis.edit	SSH_GATE_REFUSED|komando cache redis edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis list --help"	full	cache.redis.list	runs
+"cache redis list --help"	netread	cache.redis.list	runs
+"cache redis list --help"	read	cache.redis.list	runs
+"cache redis list --help"	shell	cache.redis.list	runs
+"cache redis list"	full	cache.redis.list	runs
+"cache redis list"	netread	cache.redis.list	runs
+"cache redis list"	read	cache.redis.list	runs
+"cache redis list"	shell	cache.redis.list	runs
+"cache redis raw --analyze"	full	cache.redis.raw	runs
+"cache redis raw --analyze"	netread	cache.redis.raw	runs
+"cache redis raw --analyze"	read	cache.redis.raw	runs
+"cache redis raw --analyze"	shell	cache.redis.raw	runs
+"cache redis raw --help"	full	cache.redis.raw	runs
+"cache redis raw --help"	netread	cache.redis.raw	runs
+"cache redis raw --help"	read	cache.redis.raw	runs
+"cache redis raw --help"	shell	cache.redis.raw	runs
+"cache redis raw --read-only"	full	cache.redis.raw	runs
+"cache redis raw --read-only"	netread	cache.redis.raw	runs
+"cache redis raw --read-only"	read	cache.redis.raw	runs
+"cache redis raw --read-only"	shell	cache.redis.raw	runs
+"cache redis raw --refresh"	full	cache.redis.raw	runs
+"cache redis raw --refresh"	netread	cache.redis.raw	runs
+"cache redis raw --refresh"	read	cache.redis.raw	runs
+"cache redis raw --refresh"	shell	cache.redis.raw	runs
+"cache redis raw --write"	full	cache.redis.raw	runs
+"cache redis raw --write"	netread	cache.redis.raw	SSH_GATE_READ_ONLY|komando cache redis raw is refused for a read-only key: with --write it can change something
+"cache redis raw --write"	read	cache.redis.raw	SSH_GATE_READ_ONLY|komando cache redis raw is refused for a read-only key: with --write it can change something
+"cache redis raw --write"	shell	cache.redis.raw	runs
+"cache redis raw"	full	cache.redis.raw	runs
+"cache redis raw"	netread	cache.redis.raw	runs
+"cache redis raw"	read	cache.redis.raw	runs
+"cache redis raw"	shell	cache.redis.raw	runs
+"cache redis remove --help"	full	cache.redis.remove	runs
+"cache redis remove --help"	netread	cache.redis.remove	runs
+"cache redis remove --help"	read	cache.redis.remove	runs
+"cache redis remove --help"	shell	cache.redis.remove	runs
+"cache redis remove"	full	cache.redis.remove	SSH_GATE_REFUSED|komando cache redis remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis remove"	netread	cache.redis.remove	SSH_GATE_REFUSED|komando cache redis remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis remove"	read	cache.redis.remove	SSH_GATE_REFUSED|komando cache redis remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis remove"	shell	cache.redis.remove	SSH_GATE_REFUSED|komando cache redis remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis rename --help"	full	cache.redis.rename	runs
+"cache redis rename --help"	netread	cache.redis.rename	runs
+"cache redis rename --help"	read	cache.redis.rename	runs
+"cache redis rename --help"	shell	cache.redis.rename	runs
+"cache redis rename"	full	cache.redis.rename	SSH_GATE_REFUSED|komando cache redis rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis rename"	netread	cache.redis.rename	SSH_GATE_REFUSED|komando cache redis rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis rename"	read	cache.redis.rename	SSH_GATE_REFUSED|komando cache redis rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis rename"	shell	cache.redis.rename	SSH_GATE_REFUSED|komando cache redis rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cache redis show --help"	full	cache.redis.show	runs
+"cache redis show --help"	netread	cache.redis.show	runs
+"cache redis show --help"	read	cache.redis.show	runs
+"cache redis show --help"	shell	cache.redis.show	runs
+"cache redis show"	full	cache.redis.show	runs
+"cache redis show"	netread	cache.redis.show	runs
+"cache redis show"	read	cache.redis.show	runs
+"cache redis show"	shell	cache.redis.show	runs
+"cache redis test --help"	full	cache.redis.test	runs
+"cache redis test --help"	netread	cache.redis.test	runs
+"cache redis test --help"	read	cache.redis.test	runs
+"cache redis test --help"	shell	cache.redis.test	runs
+"cache redis test"	full	cache.redis.test	runs
+"cache redis test"	netread	cache.redis.test	runs
+"cache redis test"	read	cache.redis.test	runs
+"cache redis test"	shell	cache.redis.test	runs
+"cache redis"	full	cache.redis	runs
+"cache redis"	netread	cache.redis	runs
+"cache redis"	read	cache.redis	runs
+"cache redis"	shell	cache.redis	runs
 "cache rm --help"	full	cache.rm	runs
 "cache rm --help"	netread	cache.rm	runs
 "cache rm --help"	read	cache.rm	runs
@@ -66,30 +234,6 @@
 "cache rm"	netread	cache.rm	SSH_GATE_READ_ONLY|komando cache rm is refused for a read-only key: it changes something
 "cache rm"	read	cache.rm	SSH_GATE_READ_ONLY|komando cache rm is refused for a read-only key: it changes something
 "cache rm"	shell	cache.rm	runs
-"cache run --analyze"	full	cache.run	runs
-"cache run --analyze"	netread	cache.run	runs
-"cache run --analyze"	read	cache.run	runs
-"cache run --analyze"	shell	cache.run	runs
-"cache run --help"	full	cache.run	runs
-"cache run --help"	netread	cache.run	runs
-"cache run --help"	read	cache.run	runs
-"cache run --help"	shell	cache.run	runs
-"cache run --read-only"	full	cache.run	runs
-"cache run --read-only"	netread	cache.run	runs
-"cache run --read-only"	read	cache.run	runs
-"cache run --read-only"	shell	cache.run	runs
-"cache run --refresh"	full	cache.run	runs
-"cache run --refresh"	netread	cache.run	runs
-"cache run --refresh"	read	cache.run	runs
-"cache run --refresh"	shell	cache.run	runs
-"cache run --write"	full	cache.run	runs
-"cache run --write"	netread	cache.run	SSH_GATE_READ_ONLY|komando cache run is refused for a read-only key: with --write it can change something
-"cache run --write"	read	cache.run	SSH_GATE_READ_ONLY|komando cache run is refused for a read-only key: with --write it can change something
-"cache run --write"	shell	cache.run	runs
-"cache run"	full	cache.run	runs
-"cache run"	netread	cache.run	runs
-"cache run"	read	cache.run	runs
-"cache run"	shell	cache.run	runs
 "cache set --help"	full	cache.set	runs
 "cache set --help"	netread	cache.set	runs
 "cache set --help"	read	cache.set	runs
@@ -1870,58 +2014,122 @@
 "registry --help"	netread	registry	runs
 "registry --help"	read	registry	runs
 "registry --help"	shell	registry	runs
-"registry add --help"	full	registry.add	runs
-"registry add --help"	netread	registry.add	runs
-"registry add --help"	read	registry.add	runs
-"registry add --help"	shell	registry.add	runs
-"registry add"	full	registry.add	SSH_GATE_REFUSED|komando registry add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"registry add"	netread	registry.add	SSH_GATE_REFUSED|komando registry add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"registry add"	read	registry.add	SSH_GATE_REFUSED|komando registry add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"registry add"	shell	registry.add	SSH_GATE_REFUSED|komando registry add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"registry copy --help"	full	registry.copy	runs
-"registry copy --help"	netread	registry.copy	runs
-"registry copy --help"	read	registry.copy	runs
-"registry copy --help"	shell	registry.copy	runs
-"registry copy web"	full	registry.copy	runs
-"registry copy web"	netread	registry.copy	SSH_GATE_READ_ONLY|komando registry copy is refused for a read-only key: it changes something
-"registry copy web"	read	registry.copy	SSH_GATE_READ_ONLY|komando registry copy is refused for a read-only key: it changes something
-"registry copy web"	shell	registry.copy	runs
-"registry copy"	full	registry.copy	runs
-"registry copy"	netread	registry.copy	SSH_GATE_READ_ONLY|komando registry copy is refused for a read-only key: it changes something
-"registry copy"	read	registry.copy	SSH_GATE_READ_ONLY|komando registry copy is refused for a read-only key: it changes something
-"registry copy"	shell	registry.copy	runs
-"registry inspect --help"	full	registry.inspect	runs
-"registry inspect --help"	netread	registry.inspect	runs
-"registry inspect --help"	read	registry.inspect	runs
-"registry inspect --help"	shell	registry.inspect	runs
-"registry inspect"	full	registry.inspect	runs
-"registry inspect"	netread	registry.inspect	runs
-"registry inspect"	read	registry.inspect	runs
-"registry inspect"	shell	registry.inspect	runs
-"registry list --help"	full	registry.list	runs
-"registry list --help"	netread	registry.list	runs
-"registry list --help"	read	registry.list	runs
-"registry list --help"	shell	registry.list	runs
-"registry list"	full	registry.list	runs
-"registry list"	netread	registry.list	runs
-"registry list"	read	registry.list	runs
-"registry list"	shell	registry.list	runs
-"registry prune --help"	full	registry.prune	runs
-"registry prune --help"	netread	registry.prune	runs
-"registry prune --help"	read	registry.prune	runs
-"registry prune --help"	shell	registry.prune	runs
-"registry prune"	full	registry.prune	runs
-"registry prune"	netread	registry.prune	SSH_GATE_READ_ONLY|komando registry prune is refused for a read-only key: it changes something
-"registry prune"	read	registry.prune	SSH_GATE_READ_ONLY|komando registry prune is refused for a read-only key: it changes something
-"registry prune"	shell	registry.prune	runs
-"registry rm --help"	full	registry.rm	runs
-"registry rm --help"	netread	registry.rm	runs
-"registry rm --help"	read	registry.rm	runs
-"registry rm --help"	shell	registry.rm	runs
-"registry rm"	full	registry.rm	runs
-"registry rm"	netread	registry.rm	SSH_GATE_READ_ONLY|komando registry rm is refused for a read-only key: it changes something
-"registry rm"	read	registry.rm	SSH_GATE_READ_ONLY|komando registry rm is refused for a read-only key: it changes something
-"registry rm"	shell	registry.rm	runs
+"registry oci --help"	full	registry.oci	runs
+"registry oci --help"	netread	registry.oci	runs
+"registry oci --help"	read	registry.oci	runs
+"registry oci --help"	shell	registry.oci	runs
+"registry oci add --help"	full	registry.oci.add	runs
+"registry oci add --help"	netread	registry.oci.add	runs
+"registry oci add --help"	read	registry.oci.add	runs
+"registry oci add --help"	shell	registry.oci.add	runs
+"registry oci add"	full	registry.oci.add	SSH_GATE_REFUSED|komando registry oci add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"registry oci add"	netread	registry.oci.add	SSH_GATE_REFUSED|komando registry oci add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"registry oci add"	read	registry.oci.add	SSH_GATE_REFUSED|komando registry oci add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"registry oci add"	shell	registry.oci.add	SSH_GATE_REFUSED|komando registry oci add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"registry oci edit --help"	full	registry.oci.edit	runs
+"registry oci edit --help"	netread	registry.oci.edit	runs
+"registry oci edit --help"	read	registry.oci.edit	runs
+"registry oci edit --help"	shell	registry.oci.edit	runs
+"registry oci edit"	full	registry.oci.edit	SSH_GATE_REFUSED|komando registry oci edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"registry oci edit"	netread	registry.oci.edit	SSH_GATE_REFUSED|komando registry oci edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"registry oci edit"	read	registry.oci.edit	SSH_GATE_REFUSED|komando registry oci edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"registry oci edit"	shell	registry.oci.edit	SSH_GATE_REFUSED|komando registry oci edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"registry oci image --help"	full	registry.oci.image	runs
+"registry oci image --help"	netread	registry.oci.image	runs
+"registry oci image --help"	read	registry.oci.image	runs
+"registry oci image --help"	shell	registry.oci.image	runs
+"registry oci image copy --help"	full	registry.oci.image.copy	runs
+"registry oci image copy --help"	netread	registry.oci.image.copy	runs
+"registry oci image copy --help"	read	registry.oci.image.copy	runs
+"registry oci image copy --help"	shell	registry.oci.image.copy	runs
+"registry oci image copy web"	full	registry.oci.image.copy	runs
+"registry oci image copy web"	netread	registry.oci.image.copy	SSH_GATE_READ_ONLY|komando registry oci image copy is refused for a read-only key: it changes something
+"registry oci image copy web"	read	registry.oci.image.copy	SSH_GATE_READ_ONLY|komando registry oci image copy is refused for a read-only key: it changes something
+"registry oci image copy web"	shell	registry.oci.image.copy	runs
+"registry oci image copy"	full	registry.oci.image.copy	runs
+"registry oci image copy"	netread	registry.oci.image.copy	SSH_GATE_READ_ONLY|komando registry oci image copy is refused for a read-only key: it changes something
+"registry oci image copy"	read	registry.oci.image.copy	SSH_GATE_READ_ONLY|komando registry oci image copy is refused for a read-only key: it changes something
+"registry oci image copy"	shell	registry.oci.image.copy	runs
+"registry oci image delete --help"	full	registry.oci.image.delete	runs
+"registry oci image delete --help"	netread	registry.oci.image.delete	runs
+"registry oci image delete --help"	read	registry.oci.image.delete	runs
+"registry oci image delete --help"	shell	registry.oci.image.delete	runs
+"registry oci image delete"	full	registry.oci.image.delete	runs
+"registry oci image delete"	netread	registry.oci.image.delete	SSH_GATE_READ_ONLY|komando registry oci image delete is refused for a read-only key: it changes something
+"registry oci image delete"	read	registry.oci.image.delete	SSH_GATE_READ_ONLY|komando registry oci image delete is refused for a read-only key: it changes something
+"registry oci image delete"	shell	registry.oci.image.delete	runs
+"registry oci image list --help"	full	registry.oci.image.list	runs
+"registry oci image list --help"	netread	registry.oci.image.list	runs
+"registry oci image list --help"	read	registry.oci.image.list	runs
+"registry oci image list --help"	shell	registry.oci.image.list	runs
+"registry oci image list"	full	registry.oci.image.list	runs
+"registry oci image list"	netread	registry.oci.image.list	runs
+"registry oci image list"	read	registry.oci.image.list	runs
+"registry oci image list"	shell	registry.oci.image.list	runs
+"registry oci image prune --help"	full	registry.oci.image.prune	runs
+"registry oci image prune --help"	netread	registry.oci.image.prune	runs
+"registry oci image prune --help"	read	registry.oci.image.prune	runs
+"registry oci image prune --help"	shell	registry.oci.image.prune	runs
+"registry oci image prune"	full	registry.oci.image.prune	runs
+"registry oci image prune"	netread	registry.oci.image.prune	SSH_GATE_READ_ONLY|komando registry oci image prune is refused for a read-only key: it changes something
+"registry oci image prune"	read	registry.oci.image.prune	SSH_GATE_READ_ONLY|komando registry oci image prune is refused for a read-only key: it changes something
+"registry oci image prune"	shell	registry.oci.image.prune	runs
+"registry oci image show --help"	full	registry.oci.image.show	runs
+"registry oci image show --help"	netread	registry.oci.image.show	runs
+"registry oci image show --help"	read	registry.oci.image.show	runs
+"registry oci image show --help"	shell	registry.oci.image.show	runs
+"registry oci image show"	full	registry.oci.image.show	runs
+"registry oci image show"	netread	registry.oci.image.show	runs
+"registry oci image show"	read	registry.oci.image.show	runs
+"registry oci image show"	shell	registry.oci.image.show	runs
+"registry oci image"	full	registry.oci.image	runs
+"registry oci image"	netread	registry.oci.image	runs
+"registry oci image"	read	registry.oci.image	runs
+"registry oci image"	shell	registry.oci.image	runs
+"registry oci list --help"	full	registry.oci.list	runs
+"registry oci list --help"	netread	registry.oci.list	runs
+"registry oci list --help"	read	registry.oci.list	runs
+"registry oci list --help"	shell	registry.oci.list	runs
+"registry oci list"	full	registry.oci.list	runs
+"registry oci list"	netread	registry.oci.list	runs
+"registry oci list"	read	registry.oci.list	runs
+"registry oci list"	shell	registry.oci.list	runs
+"registry oci remove --help"	full	registry.oci.remove	runs
+"registry oci remove --help"	netread	registry.oci.remove	runs
+"registry oci remove --help"	read	registry.oci.remove	runs
+"registry oci remove --help"	shell	registry.oci.remove	runs
+"registry oci remove"	full	registry.oci.remove	SSH_GATE_REFUSED|komando registry oci remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"registry oci remove"	netread	registry.oci.remove	SSH_GATE_REFUSED|komando registry oci remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"registry oci remove"	read	registry.oci.remove	SSH_GATE_REFUSED|komando registry oci remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"registry oci remove"	shell	registry.oci.remove	SSH_GATE_REFUSED|komando registry oci remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"registry oci rename --help"	full	registry.oci.rename	runs
+"registry oci rename --help"	netread	registry.oci.rename	runs
+"registry oci rename --help"	read	registry.oci.rename	runs
+"registry oci rename --help"	shell	registry.oci.rename	runs
+"registry oci rename"	full	registry.oci.rename	SSH_GATE_REFUSED|komando registry oci rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"registry oci rename"	netread	registry.oci.rename	SSH_GATE_REFUSED|komando registry oci rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"registry oci rename"	read	registry.oci.rename	SSH_GATE_REFUSED|komando registry oci rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"registry oci rename"	shell	registry.oci.rename	SSH_GATE_REFUSED|komando registry oci rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"registry oci show --help"	full	registry.oci.show	runs
+"registry oci show --help"	netread	registry.oci.show	runs
+"registry oci show --help"	read	registry.oci.show	runs
+"registry oci show --help"	shell	registry.oci.show	runs
+"registry oci show"	full	registry.oci.show	runs
+"registry oci show"	netread	registry.oci.show	runs
+"registry oci show"	read	registry.oci.show	runs
+"registry oci show"	shell	registry.oci.show	runs
+"registry oci test --help"	full	registry.oci.test	runs
+"registry oci test --help"	netread	registry.oci.test	runs
+"registry oci test --help"	read	registry.oci.test	runs
+"registry oci test --help"	shell	registry.oci.test	runs
+"registry oci test"	full	registry.oci.test	runs
+"registry oci test"	netread	registry.oci.test	runs
+"registry oci test"	read	registry.oci.test	runs
+"registry oci test"	shell	registry.oci.test	runs
+"registry oci"	full	registry.oci	runs
+"registry oci"	netread	registry.oci	runs
+"registry oci"	read	registry.oci	runs
+"registry oci"	shell	registry.oci	runs
 "registry"	full	registry	runs
 "registry"	netread	registry	runs
 "registry"	read	registry	runs

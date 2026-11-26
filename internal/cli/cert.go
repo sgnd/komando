@@ -295,7 +295,7 @@ func runCertCheck(cl *call, ctx context.Context, args []string, o certOpts) erro
 	if err := certTargetsFit(ctx, hosts, urls, o); err != nil {
 		return err
 	}
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		plan := map[string]any{"hosts": hostNames(hosts), "warn": o.warnText}
 		if len(hosts) > 0 {
 			plan["would_read"] = append([]string{"certbot, nginx, haproxy and apache certificate files (CERTIFICATE blocks only)"}, o.paths...)

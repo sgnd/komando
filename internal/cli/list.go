@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -89,7 +90,11 @@ var kindWords = map[string]string{"host": "servers", "conn": "conns", "vpn": "VP
 
 func listCmd() *cobra.Command { return listCmdFor("") }
 
-func listCmdFor(only string) *cobra.Command {
+func listCmdFor(only string) *cobra.Command { return listCmdKind(only, "") }
+
+// listCmdKind is listCmdFor that keeps only the conns of one kind (a
+// provider's list: `cache redis list`).
+func listCmdKind(only, kind string) *cobra.Command {
 	var target string
 	var limit int
 	c := &cobra.Command{
@@ -113,6 +118,9 @@ func listCmdFor(only string) *cobra.Command {
 				}
 			}
 			picked := sel
+			if kind != "" {
+				sel.Conns = slices.DeleteFunc(slices.Clone(sel.Conns), func(c *store.Conn) bool { return c.Kind != kind })
+			}
 			if sel = keepOnly(sel, only); target != "" && only != "" && len(sel.Hosts)+len(sel.Conns)+len(sel.Vpns) == 0 {
 				// a selector that picks nothing is an error (ux.md, section 2)
 				return noMatch(target, kindWords[only], picked).WithHint("use `komando list " + target + "` to see everything it picks")

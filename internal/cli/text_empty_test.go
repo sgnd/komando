@@ -37,7 +37,7 @@ func TestStandardEmptyLines(t *testing.T) {
 		"cluster list": kubeList{"type": "Pod"}, "fs list": lsResult{Path: "/tmp/x"},
 		"cluster history": historyData{}, "cluster helm history": helmHistory{}, "cluster helm list": helmList{},
 		"cluster events": eventList{}, "cache keys": keyList{}, "cache keys PATTERN": keyList{Pattern: "user:*"},
-		"queue list": queueTopics{Conn: "prod-kafka"}, "queue groups": queueGroups{}, "registry list": lsData{},
+		"queue list": queueTopics{Conn: "prod-kafka"}, "queue groups": queueGroups{}, "registry oci image list": lsData{},
 		"audit": auditList{},
 	} {
 		if s := x.Text(); !emptyLine.MatchString(s) {

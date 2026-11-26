@@ -82,7 +82,7 @@ func runDBShell(cl *call, ctx context.Context, connExpr string, write bool) erro
 		}
 	}
 	rec := map[string]any{"conns": []string{c.Name}, "write": write, "client": "komando"}
-	if cl.flags.dryRun { // before any VPN, SSH or database contact
+	if cl.dryRun() { // before any VPN, SSH or database contact
 		audit(cl, st, "db.shell", nil, "", true, rec)
 		cl.out.Print("db.shell", map[string]any{"conn": c.Name, "kind": t.Kind.Name, "via": c.Via, "write": write, "dry_run": true}, nil)
 		return nil

@@ -35,10 +35,12 @@ func todayKeys() map[string]safetyKey {
 
 // keyID is the command ID key names, or "" when no command has it.
 func keyID(key safetyKey) string {
+	found := ""
 	for id, k := range cmdKeys {
-		if k == key {
-			return id
+		if k == key && (found == "" || providerOrder[id] < providerOrder[found] ||
+			providerOrder[id] == providerOrder[found] && id < found) { // providers share a key: the first of the table speaks for them
+			found = id
 		}
 	}
-	return ""
+	return found
 }

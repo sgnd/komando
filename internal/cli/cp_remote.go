@@ -237,7 +237,7 @@ func runRemoteCp(ctx context.Context, cmd *cobra.Command, srcT, srcP, dstT, dstP
 		return err
 	}
 	from, to := src.name()+":"+srcP, dst.name()+":"+dstP
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		plan := map[string]any{"src": from, "dst": to, "direction": "copy"}
 		if hosts != nil {
 			plan["hosts"] = hosts

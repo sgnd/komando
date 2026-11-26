@@ -123,14 +123,14 @@ NEEDS_PERSON and asks you to run it. A profile with keys in
 				stop = out.Errf(out.ExitPolicy, "NEEDS_PERSON", "a person runs `"+again+"` in a terminal",
 					"logging in to AWS needs a person at a terminal and a browser")
 			}
-			if stop != nil && !cl.flags.dryRun {
+			if stop != nil && !cl.dryRun() {
 				return stop
 			}
 			sso, err := cloud.AWSProfileSSO(cmd.Context(), profile)
 			if err != nil {
 				return awsErr(profile, err)
 			}
-			if cl.flags.dryRun { // a dry run is never blocked; it says what the real run needs
+			if cl.dryRun() { // a dry run is never blocked; it says what the real run needs
 				if stop != nil {
 					cl.out.WouldBlock(stop)
 				}

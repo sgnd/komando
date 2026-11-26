@@ -11,10 +11,12 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"regexp/syntax"
 	"slices"
 	"strings"
 
 	"github.com/sgnd/komando/internal/capability"
+	"github.com/sgnd/komando/internal/out"
 )
 
 // Family is the shell a text is written for.
@@ -37,6 +39,7 @@ const (
 	RESP             // a cache argument: its own RESP argument, never a joined line
 	KubeName         // a Kubernetes name: DNS-1123, passed as an API field
 	SFTPPath         // a remote path: cleaned, an SFTP argument, no shell
+	Number           // a count into the text: ASCII digits only, written as they are
 )
 
 // Var is one variable a snippet takes with --var NAME=VALUE.
@@ -50,12 +53,21 @@ type Var struct {
 	Longest  string
 	Required bool
 	Default  string // used when the variable is not given and not required
+	// List takes several values, comma-separated: each is checked alone
+	// and quoted as its own word, in the order given (svc-status takes
+	// several units). MaxItems caps how many; MaxLen is per value.
+	List     bool
+	MaxItems int
+	// Families narrows Pattern for one family's text, checked when that
+	// text is filled: systemd unit names and Windows service names differ.
+	Families map[Family]*regexp.Regexp
 }
 
 // Output is what a text printed on the server.
 type Output struct {
 	Stdout, Stderr string
 	ExitCode       int
+	Truncated      bool // stdout was cut at the output cap
 }
 
 // Values are a snippet's variables after Check, for a client call.
@@ -72,9 +84,12 @@ type Builtin struct {
 	Shape    string          // "svc-list/1"
 	Vars     []Var
 	Checks   []string // the checks carried, each named by the test that pins it (Audit A-C368-4)
-	Text     map[Family]string
-	Parse    func(o Output, f Family) (any, error)
-	Run      func(ctx context.Context, v Values) (any, error)
+	// Sudo runs the Unix text with sudo, as the replaced command does;
+	// --no-sudo turns it off. A Windows text never runs with sudo.
+	Sudo  bool
+	Text  map[Family]string
+	Parse func(o Output, f Family) (any, error)
+	Run   func(ctx context.Context, v Values) (any, error)
 }
 
 // types are the entry types a built-in may run against.
@@ -95,6 +110,7 @@ var waitOnRule = map[string]string{
 
 var (
 	nameRe   = regexp.MustCompile(`^[a-z][a-z0-9]*(-[a-z0-9]+)*$`)
+	numberRe = regexp.MustCompile(`^[0-9]{1,9}$`)
 	markerRe = regexp.MustCompile(`\{\{var:([a-z][a-z0-9_]*)\}\}`)
 )
 
@@ -154,11 +170,6 @@ func valid(b Builtin) error {
 	if b.Reader == "" {
 		return fmt.Errorf("reader is empty: name the app screen or the agent need")
 	}
-	if b.Tier > capability.Change {
-		// the command passes only "mutating" to the guard, so a built-in above
-		// change would run with a change's stop (Audit S1-1)
-		return fmt.Errorf("tier %s is above change, which the engine does not rate yet: register it after the command acts on Rate (dangerous, safety and person stops)", tierNames[b.Tier])
-	}
 	switch {
 	case b.Run != nil && (b.Text != nil || b.Parse != nil):
 		return fmt.Errorf("has both a text and a client call")
@@ -166,6 +177,9 @@ func valid(b Builtin) error {
 		return fmt.Errorf("has neither a text nor a client call")
 	case b.Text != nil && b.Parse == nil:
 		return fmt.Errorf("has a text but no parse function")
+	}
+	if _, ok := b.Text[Unix]; b.Sudo && !ok {
+		return fmt.Errorf("sudo is set but there is no Unix text to run with it")
 	}
 	vars := map[string]Var{}
 	for _, v := range b.Vars {
@@ -189,13 +203,13 @@ func valid(b Builtin) error {
 }
 
 func validVar(v Var) error {
-	if v.Channel < Text || v.Channel > SFTPPath {
+	if v.Channel < Text || v.Channel > Number {
 		return fmt.Errorf("no channel")
 	}
 	if v.Pattern == nil {
 		return fmt.Errorf("no pattern")
 	}
-	if p := v.Pattern.String(); !strings.HasPrefix(strings.TrimPrefix(p, "(?s)"), "^") || !strings.HasSuffix(p, "$") {
+	if !anchored(v.Pattern) {
 		return fmt.Errorf("the pattern is not anchored with ^ and $")
 	}
 	if v.MaxLen <= 0 {
@@ -204,10 +218,56 @@ func validVar(v Var) error {
 	if len(v.Longest) != v.MaxLen || !v.Pattern.MatchString(v.Longest) {
 		return fmt.Errorf("the longest value does not have the max length or does not match the pattern")
 	}
-	if !v.Required && v.Default != "" && checkValue(v, v.Default) != nil {
+	switch {
+	case v.List && v.MaxItems <= 0:
+		return fmt.Errorf("a list needs max items")
+	case !v.List && v.MaxItems != 0:
+		return fmt.Errorf("max items is set but it is not a list")
+	case v.List && v.Channel != Text:
+		return fmt.Errorf("a list goes only into a text, as text values: a client call or a number takes one value")
+	case v.Channel == Number && !numberRe.MatchString(v.Longest):
+		return fmt.Errorf("the longest value of a number is not 1 to 9 digits")
+	case v.Channel == Number && !v.Required && v.Default == "":
+		return fmt.Errorf("a number that is not required needs a default: an empty number would leave a gap in the text")
+	}
+	for f, p := range v.Families {
+		switch {
+		case f != Unix && f != Windows:
+			return fmt.Errorf("a family pattern for the unknown family %q (one of %s, %s)", f, Unix, Windows)
+		case v.Channel != Text:
+			return fmt.Errorf("a family pattern is for a text variable only")
+		case p == nil || !anchored(p):
+			return fmt.Errorf("the %s pattern is not anchored with ^ and $", f)
+		case !p.MatchString(v.Longest):
+			return fmt.Errorf("the longest value does not match the %s pattern", f)
+		}
+	}
+	if !v.Required && v.Default != "" && checkVar(v, v.Default) != nil {
 		return fmt.Errorf("the default does not pass the variable's checks")
 	}
 	return nil
+}
+
+// wholeWord reports whether text[i:j] stands as a word of its own: after a
+// space, an = or the line's start, and before a space or the line's end.
+// Digits are inert only so: in sh 3>file is a redirect and $3 a parameter,
+// in PowerShell 3kb is a size (Audit A-456-1).
+func wholeWord(text string, i, j int) bool {
+	before := i == 0 || strings.ContainsRune(" =\n", rune(text[i-1]))
+	after := j == len(text) || strings.ContainsRune(" \n", rune(text[j]))
+	return before && after
+}
+
+// anchored reports whether the whole pattern sits between ^ and $: its
+// parsed tree begins with the start of the text and ends with its end, so
+// `^a|b$` (a at the start, or b at the end) is not anchored and
+// `^(?:a|b)$` is (Audit A-453-2).
+func anchored(p *regexp.Regexp) bool {
+	re, err := syntax.Parse(p.String(), syntax.Perl)
+	if err != nil || re.Op != syntax.OpConcat || len(re.Sub) < 2 {
+		return false
+	}
+	return re.Sub[0].Op == syntax.OpBeginText && re.Sub[len(re.Sub)-1].Op == syntax.OpEndText
 }
 
 // validText checks that every marker names a declared text variable.
@@ -215,31 +275,40 @@ func validText(text string, vars map[string]Var) error {
 	if n := strings.Count(text, "{{var:"); n != len(markerRe.FindAllString(text, -1)) {
 		return fmt.Errorf("a broken {{var:NAME}} marker")
 	}
-	for _, m := range markerRe.FindAllStringSubmatch(text, -1) {
-		v, ok := vars[m[1]]
+	for _, at := range markerRe.FindAllStringSubmatchIndex(text, -1) {
+		name := text[at[2]:at[3]]
+		v, ok := vars[name]
 		if !ok {
-			return fmt.Errorf("{{var:%s}} is not a declared variable", m[1])
+			return fmt.Errorf("{{var:%s}} is not a declared variable", name)
 		}
-		if v.Channel != Text {
-			return fmt.Errorf("{{var:%s}} is not a text variable: only text variables go into a text", m[1])
+		if v.Channel != Text && v.Channel != Number {
+			return fmt.Errorf("{{var:%s}} is not a text variable: only text variables and numbers go into a text", name)
+		}
+		if v.Channel == Number && !wholeWord(text, at[0], at[1]) {
+			return fmt.Errorf("{{var:%s}} is a number inside a word: put it after a space, = or the line's start, and before a space or the line's end", name)
 		}
 	}
 	return nil
 }
 
-// tierNames are the tiers as komando names them (internal/cli risk.go).
-var tierNames = [...]string{"read", "change", "protected", "dangerous", "safety", "person"}
+// sudoWord finds sudo as a command word of a shell text: at the start, or
+// after a space, a separator or an opening bracket.
+var sudoWord = regexp.MustCompile(`(^|[\s;&|(])sudo(\s|$)`)
+
+// SelfElevates reports whether the snippet's Unix text raises itself with
+// sudo (`exec sudo -n sh -c '...'`), as the package reads do.
+func SelfElevates(b Builtin) bool { return sudoWord.MatchString(b.Text[Unix]) }
+
+// RefuseNoSudo is the error for --no-sudo on a snippet that raises itself
+// (Audit A-457-1): the flag only drops the sudo the runner adds for
+// Builtin.Sudo, so the run would elevate anyway. Nil when it is fine.
+func RefuseNoSudo(b Builtin, noSudo bool) error {
+	if !noSudo || !SelfElevates(b) {
+		return nil
+	}
+	return out.Usage("snippet %s raises itself with sudo inside its text, so --no-sudo does not turn it off: leave the flag out, or read it as text with `komando exec TARGET -- COMMAND`", b.Name)
+}
 
 // Mutating reports whether the snippet changes something: the guard then
 // asks on a protected entry, as the replaced command does.
 func Mutating(b Builtin) bool { return b.Tier >= capability.Change }
-
-// Rate is the tier of one run: the static tier, raised to dangerous when
-// the exec rules found hits in the filled text (rule 3.5). A hit never
-// lowers a tier.
-func Rate(b Builtin, hits int) capability.Tier {
-	if hits > 0 && b.Tier < capability.Dangerous {
-		return capability.Dangerous
-	}
-	return b.Tier
-}
