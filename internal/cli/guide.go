@@ -189,7 +189,7 @@ Safe to run again, for example after an update: a changed file is kept as
 			}
 			var files []skillFile
 			for _, d := range skillDirs {
-				f, err := installSkill(filepath.Join(base, d, "komando", "SKILL.md"), cl.flags.dryRun)
+				f, err := installSkill(filepath.Join(base, d, "komando", "SKILL.md"), cl.dryRun())
 				if err != nil {
 					return out.Errf(out.ExitError, "WRITE_FAILED", "check that you may write to this folder", "%v", err)
 				}
@@ -201,7 +201,7 @@ Safe to run again, for example after an update: a changed file is kept as
 					return err
 				}
 				// Claude Code asks komando before each tool call (guard.go)
-				f, err := installGuardHook(filepath.Join(base, ".claude", "settings.json"), prog, cl.flags.dryRun)
+				f, err := installGuardHook(filepath.Join(base, ".claude", "settings.json"), prog, cl.dryRun())
 				if err != nil {
 					return out.Errf(out.ExitError, "WRITE_FAILED", "fix the file, or pass --no-guard to skip the guard", "%v", err)
 				}
@@ -213,7 +213,7 @@ Safe to run again, for example after an update: a changed file is kept as
 					if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
 						continue
 					}
-					f, err := installAgentHook(filepath.Join(dir, h.file), h.add, guardHookLine(prog, h.name), cl.flags.dryRun)
+					f, err := installAgentHook(filepath.Join(dir, h.file), h.add, guardHookLine(prog, h.name), cl.dryRun())
 					if err != nil {
 						return out.Errf(out.ExitError, "WRITE_FAILED", "fix the file, or pass --no-guard to skip the guard", "%v", err)
 					}
@@ -230,7 +230,7 @@ Safe to run again, for example after an update: a changed file is kept as
 					changed++
 				}
 			}
-			if changed > 0 && !cl.flags.dryRun {
+			if changed > 0 && !cl.dryRun() {
 				audit(cl, nil, "guide.install", nil, "", true, map[string]any{"files": changed})
 			}
 			cl.out.Print("guide.install", skillResult{Files: files}, nil)

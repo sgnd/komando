@@ -469,7 +469,7 @@ var redisCliValued = set(`-h -p -t -s -a -u -r -i -n -d -D -X --user --pass --sn
 	--tls-ciphers --tls-ciphersuites --cert --key --show-pushes --lru-test --pipe-timeout --memkeys-samples
 	--pattern --count --quoted-pattern --intrinsic-latency --keystats-samples --top`)
 
-// redisCliWrite: the command redis-cli sends is rated like `cache run`'s
+// redisCliWrite: the command redis-cli sends is rated like `cache redis raw`'s
 // (cachex.Classify). Modes that write here, send a script or load data
 // break the promise; with no command it reads commands from its input.
 func redisCliWrite(cmd string, args []string, input bool) string {

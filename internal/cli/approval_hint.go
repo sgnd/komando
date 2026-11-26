@@ -26,7 +26,7 @@ func stdApprovalHint(cl *call, e *out.Error) bool {
 	if len(flags) == 0 || slices.Contains(flags, "--reveal") {
 		return false
 	}
-	e.Hint = approvalText(cl, flags, cl.isAgent(), cl.flags.dryRun)
+	e.Hint = approvalText(cl, flags, cl.isAgent(), cl.dryRun())
 	return true
 }
 
@@ -124,6 +124,6 @@ func protNeed(prot []string) []string {
 // those flags, for an agent or a script, as approvalHint gives at exit.
 func approvalErr(cl *call, code, why string, need ...string) *out.Error {
 	e := out.Errf(out.ExitPolicy, code, "", "%s", why).Need(need...)
-	e.Hint = approvalText(cl, e.Flags(), cl.isAgent(), cl.flags.dryRun)
+	e.Hint = approvalText(cl, e.Flags(), cl.isAgent(), cl.dryRun())
 	return e
 }

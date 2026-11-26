@@ -60,18 +60,18 @@ func TestWhoIsAsking(t *testing.T) {
 
 func TestScriptFlagsWorkAsBefore(t *testing.T) {
 	resetApproval()
-	tcl.flags.yes, tcl.flags.allowDangerous = true, true
-	defer func() { tcl.flags.yes, tcl.flags.allowDangerous = false, false }()
+	setGate(tcl, true, gateYes, gateAllowDangerous)
+	defer func() { setGate(tcl, false, gateYes, gateAllowDangerous) }()
 	if !tcl.yesOK() || !tcl.dangerOK() { // askOnScreen panics if it is called
 		t.Fatal("a script's flags count")
 	}
 }
 
 func TestAgentFlagsNeedAPerson(t *testing.T) {
-	defer func() { tcl.flags.yes, tcl.flags.allowDangerous = false, false }()
+	defer func() { setGate(tcl, false, gateYes, gateAllowDangerous) }()
 
 	n := asAgent(t, true, true)
-	tcl.flags.yes, tcl.flags.allowDangerous = true, true
+	setGate(tcl, true, gateYes, gateAllowDangerous)
 	if !tcl.yesOK() || !tcl.dangerOK() {
 		t.Fatal("the person allowed it")
 	}
@@ -114,7 +114,7 @@ func TestAgentFlagsNeedAPerson(t *testing.T) {
 	}
 
 	n = asAgent(t, true, true)
-	tcl.flags.yes, tcl.flags.allowDangerous = false, false
+	setGate(tcl, false, gateYes, gateAllowDangerous)
 	if tcl.yesOK() || *n != 0 {
 		t.Error("no flag, no window")
 	}
@@ -344,8 +344,8 @@ func TestAuditRecordsTheAgent(t *testing.T) {
 	setHome(t, t.TempDir())
 	_ = os.MkdirAll(store.Home(), 0o700)
 	asAgent(t, true, true)
-	tcl.flags.yes = true
-	defer func() { tcl.flags.yes = false }()
+	setGate(tcl, true, gateYes)
+	defer func() { setGate(tcl, false, gateYes) }()
 	tcl.yesOK()
 	audit(tcl, nil, "x", nil, "", true, nil)
 	b := []byte(auditText(t))
@@ -405,8 +405,8 @@ func TestAgentProxyCommandNeedsAPerson(t *testing.T) {
 		t.Fatal("the policy filter applies")
 	}
 	asAgent(t, false, true)
-	tcl.flags.yes = true
-	defer func() { tcl.flags.yes = false }()
+	setGate(tcl, true, gateYes)
+	defer func() { setGate(tcl, false, gateYes) }()
 	var oe *out.Error
 	if err := guardProxyCommand(tcl, "nc %h %p"); !errors.As(err, &oe) || oe.Code != "SAFETY_SETTING" {
 		t.Fatalf("agent, denied: %v", err)

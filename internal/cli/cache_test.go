@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"os"
 	"slices"
@@ -12,6 +13,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/out"
 )
 
@@ -39,7 +41,7 @@ func runCache(t *testing.T, args ...string) (string, error) {
 func TestCacheRunScriptsNeedApproval(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	defer func() { tcl.flags.dryRun = false }()
+	defer func() { setGate(tcl, false, gateDryRun) }()
 	if _, err := runCache(t, "-o", "json", "conn", "add", "c", "redis://127.0.0.1:1/0"); err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +62,7 @@ func TestCacheRunScriptsNeedApproval(t *testing.T) {
 		{"TFUNCTION", "LOAD", "REPLACE", "#!js api_version=1.0 name=app"},
 	} {
 		run := func(flags ...string) (string, error) {
-			return runCache(t, append(append([]string{"-o", "json", "cache", "run", "c"}, flags...), append([]string{"--"}, command...)...)...)
+			return runCache(t, append(append([]string{"-o", "json", "cache", "redis", "raw", "c"}, flags...), append([]string{"--"}, command...)...)...)
 		}
 		if _, err := run(); code(err) != "WRITE_REQUIRES_FLAG" || !strings.Contains(err.Error(), "--allow-dangerous") {
 			t.Errorf("%s: %v", command[0], err)
@@ -75,7 +77,7 @@ func TestCacheRunScriptsNeedApproval(t *testing.T) {
 		if err != nil || !strings.Contains(s, "nothing sent") || !strings.Contains(s, "POLICY_BLOCKED") {
 			t.Errorf("%s --write --dry-run: %v\n%s", command[0], err, s)
 		}
-		tcl.flags.dryRun = false
+		setGate(tcl, false, gateDryRun)
 	}
 }
 
@@ -98,7 +100,7 @@ func TestCacheRunHidesPasswordsLive(t *testing.T) {
 	defer func() { tcl.out.Mask = false }()
 	for _, format := range []string{"json", "text"} {
 		for _, param := range []string{"requirepass", "masterauth", "*"} {
-			s, err := runCache(t, "-o", format, "cache", "run", "c", "--", "CONFIG", "GET", param)
+			s, err := runCache(t, "-o", format, "cache", "redis", "raw", "c", "--", "CONFIG", "GET", param)
 			if err != nil || strings.Contains(s, pw) || !strings.Contains(s, out.Hidden) {
 				t.Errorf("%s CONFIG GET %s: %v\n%s", format, param, err, s)
 			}
@@ -114,7 +116,7 @@ func TestCacheRunHidesPasswordsLive(t *testing.T) {
 func TestCacheRunQuotedCommand(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	defer func() { tcl.flags.dryRun = false }()
+	defer func() { setGate(tcl, false, gateDryRun) }()
 	if _, err := runCache(t, "-o", "json", "conn", "add", "c", "redis://127.0.0.1:1/0"); err != nil {
 		t.Fatal(err)
 	}
@@ -125,14 +127,14 @@ func TestCacheRunQuotedCommand(t *testing.T) {
 		}
 		return ""
 	}
-	if _, err := runCache(t, "-o", "json", "cache", "run", "c", "--", "get foo"); code(err) != "CACHE_CONNECT" {
+	if _, err := runCache(t, "-o", "json", "cache", "redis", "raw", "c", "--", "get foo"); code(err) != "CACHE_CONNECT" {
 		t.Errorf("get foo: %v", err)
 	}
 	// without -- the words could hold komando's own flags: refused
-	if _, err := runCache(t, "-o", "json", "cache", "run", "c", "get foo"); code(err) != "USAGE" {
+	if _, err := runCache(t, "-o", "json", "cache", "redis", "raw", "c", "get foo"); code(err) != "USAGE" {
 		t.Errorf("get foo without --: %v", err)
 	}
-	if _, err := runCache(t, "-o", "json", "cache", "run", "c", "--write", "--dry-run", "--", "MONITOR"); code(err) != "NOT_SUPPORTED" {
+	if _, err := runCache(t, "-o", "json", "cache", "redis", "raw", "c", "--write", "--dry-run", "--", "MONITOR"); code(err) != "NOT_SUPPORTED" {
 		t.Errorf("MONITOR: %v", err)
 	}
 }
@@ -207,7 +209,7 @@ func fakeMemcached(t *testing.T) (addr string, lines func() []string) {
 func TestCacheRunMemcachedLineInjection(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	defer func() { tcl.flags.dryRun = false }()
+	defer func() { setGate(tcl, false, gateDryRun) }()
 	addr, lines := fakeMemcached(t)
 	if _, err := runCache(t, "-o", "json", "conn", "add", "m", "memcached://"+addr); err != nil {
 		t.Fatal(err)
@@ -230,12 +232,12 @@ func TestCacheRunMemcachedLineInjection(t *testing.T) {
 		{[]string{"--", "mg", "a T30"}, "WRITE_REQUIRES_FLAG"},
 		{[]string{"--", "watch"}, "NOT_SUPPORTED"},
 	} {
-		_, err := runCache(t, append([]string{"-o", "json", "cache", "run", "m"}, c.args...)...)
+		_, err := runCache(t, append([]string{"-o", "json", "cache", "memcached", "raw", "m"}, c.args...)...)
 		if code(err) != c.want {
 			t.Errorf("%q: %v, want %s", c.args, err, c.want)
 		}
 	}
-	if _, err := runCache(t, "-o", "json", "cache", "run", "m", "--", "GET", "a"); err != nil {
+	if _, err := runCache(t, "-o", "json", "cache", "memcached", "raw", "m", "--", "GET", "a"); err != nil {
 		t.Errorf("a plain get: %v", err)
 	}
 	for _, l := range lines() {
@@ -275,19 +277,19 @@ func TestCacheLimitMustBePositive(t *testing.T) {
 func TestCacheRunClusterWide(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	defer func() { tcl.flags.dryRun = false }()
+	defer func() { setGate(tcl, false, gateDryRun) }()
 	if _, err := runCache(t, "-o", "json", "conn", "add", "cl", "redis://127.0.0.1:1?cluster=1"); err != nil {
 		t.Fatal(err)
 	}
 	for _, args := range [][]string{{"--write", "--", "FLUSHALL"}, {"--", "scan", "0"}, {"--", "RANDOMKEY"}} {
-		_, err := runCache(t, append([]string{"-o", "json", "cache", "run", "cl"}, args...)...)
+		_, err := runCache(t, append([]string{"-o", "json", "cache", "redis", "raw", "cl"}, args...)...)
 		var e *out.Error
 		if !errors.As(err, &e) || e.Code != "NOT_SUPPORTED" {
 			t.Errorf("%q: %v", args, err)
 		}
 	}
 	var e *out.Error
-	if _, err := runCache(t, "-o", "json", "cache", "run", "cl", "--", "DBSIZE"); !errors.As(err, &e) || e.Code != "CACHE_CONNECT" {
+	if _, err := runCache(t, "-o", "json", "cache", "redis", "raw", "cl", "--", "DBSIZE"); !errors.As(err, &e) || e.Code != "CACHE_CONNECT" {
 		t.Errorf("DBSIZE is summed over the masters, so it is sent: %v", err)
 	}
 }
@@ -339,5 +341,155 @@ func TestCacheKeysTypeAndTTL(t *testing.T) {
 	want := "KEY  TYPE    TTL\ns:1  string  30s\ns:2  string  none\n"
 	if text != want {
 		t.Errorf("text:\n%s\nwant:\n%s", text, want)
+	}
+}
+
+// `komando cache redis ...` and `cache memcached ...` are the table's leaves
+// for caches: the words name the provider, and an entry of another provider
+// is refused with the path that fits.
+func TestCacheLeavesFollowTheProvider(t *testing.T) {
+	invHome(t)
+	d := mustRun(t, "cache", "redis", "add", "r1", "redis://127.0.0.1:6379/0", "--credential", "r1-pass", "--tag", "prod")
+	if d["password_ref"] != "secret:r1-pass" {
+		t.Fatalf("--credential names the stored credential: %v", d)
+	}
+	mustRun(t, "cache", "memcached", "add", "m1", "memcached://127.0.0.1:11211")
+
+	e := wantCode(t, "WRONG_KIND", "cache", "memcached", "add", "x1", "redis://127.0.0.1:6379/0", "--dry-run")
+	if !strings.Contains(e.Hint, "komando cache redis add") {
+		t.Errorf("the hint names the path that fits: %q", e.Hint)
+	}
+	wantCode(t, "WRONG_KIND", "cache", "memcached", "show", "r1")
+	wantCode(t, "WRONG_KIND", "cache", "redis", "remove", "m1")
+	wantCode(t, "WRONG_KIND", "cache", "redis", "rename", "m1", "m2")
+	wantCode(t, "WRONG_KIND", "cache", "redis", "edit", "m1", "--notes", "x")
+
+	d = mustRun(t, "cache", "redis", "list")
+	if n, _ := d["count"].(float64); n != 1 {
+		t.Errorf("cache redis list shows the redis caches only: %v", d)
+	}
+	mustRun(t, "cache", "redis", "show", "r1")
+	mustRun(t, "cache", "redis", "edit", "r1", "--notes", "sessions")
+	mustRun(t, "cache", "redis", "rename", "r1", "r2")
+	mustRun(t, "cache", "redis", "remove", "r2")
+}
+
+// raw takes the command after `--`, as `cache run` did: a command with no
+// `--` is a usage error, never half of a command sent to the server.
+func TestCacheRawNeedsTheDash(t *testing.T) {
+	invHome(t)
+	mustRun(t, "cache", "redis", "add", "r1", "redis://127.0.0.1:1/0")
+	wantCode(t, "USAGE", "cache", "redis", "raw", "r1", "get foo")
+}
+
+// The words of today's cache add and cache run are gone: no alias.
+func TestCacheOldAddAndRunAreGone(t *testing.T) {
+	invHome(t)
+	for _, args := range [][]string{{"cache", "add", "c", "redis://127.0.0.1:1"}, {"cache", "run", "c", "--", "PING"}} {
+		if _, e := invRun(t, args...); e == nil || e.Code != "USAGE" {
+			t.Errorf("%v still runs: %+v", args, e)
+		}
+	}
+}
+
+// fakeCacheRead answers every read of one key with value: a Redis server
+// (RESP, refusing HELLO so the client speaks RESP2) or a memcached server.
+func fakeCacheRead(t *testing.T, redis bool, value string) string {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { ln.Close() })
+	go func() {
+		for {
+			c, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func() {
+				defer c.Close()
+				r := bufio.NewReader(c)
+				for {
+					l, err := r.ReadString('\n')
+					if err != nil {
+						return
+					}
+					l = strings.TrimRight(l, "\r\n")
+					if !redis {
+						switch f := strings.Fields(l); {
+						case len(f) == 0:
+						case f[0] == "get":
+							fmt.Fprintf(c, "VALUE %s 0 %d\r\n%s\r\nEND\r\n", f[1], len(value), value)
+						case f[0] == "version":
+							fmt.Fprint(c, "VERSION 1.6.39\r\n")
+						default:
+							fmt.Fprint(c, "ERROR\r\n")
+						}
+						continue
+					}
+					var n int
+					if _, err := fmt.Sscanf(l, "*%d", &n); err != nil {
+						continue
+					}
+					var args []string
+					for range n {
+						r.ReadString('\n') // $len
+						a, _ := r.ReadString('\n')
+						args = append(args, strings.ToUpper(strings.TrimRight(a, "\r\n")))
+					}
+					switch {
+					case len(args) == 0:
+					case args[0] == "HELLO":
+						fmt.Fprint(c, "-ERR unknown command 'HELLO'\r\n")
+					case args[0] == "GET":
+						fmt.Fprintf(c, "$%d\r\n%s\r\n", len(value), value)
+					case args[0] == "PING":
+						fmt.Fprint(c, "+PONG\r\n")
+					default:
+						fmt.Fprint(c, "+OK\r\n")
+					}
+				}
+			}()
+		}
+	}()
+	return ln.Addr().String()
+}
+
+// An AI agent's read of a cache on a protected conn hides personal data
+// in the reply, the same way for every built provider of the type.
+func TestCacheRawHidesPersonalDataForEveryProvider(t *testing.T) {
+	invHome(t)
+	const email = "ada@example.com"
+	read := map[string][]string{"redis": {"GET", "a"}, "memcached": {"get", "a"}} // a read of key a, per provider
+	type ask struct{ provider, url string }
+	var asks []ask
+	for _, l := range capability.All() {
+		if l.Type != "cache" || l.Verb != "raw" || handlers[l.Key] == nil {
+			continue
+		}
+		if read[l.Provider] == nil {
+			t.Errorf("cache %s raw: no fake server here; add one", l.Provider)
+			continue
+		}
+		asks = append(asks, ask{l.Provider, l.Provider + "://" + fakeCacheRead(t, l.Provider == "redis", email)})
+	}
+	if len(asks) < 2 {
+		t.Fatalf("want every built provider of cache, got %v", asks)
+	}
+	for _, a := range asks {
+		mustRun(t, "conn", "add", a.provider+"-c", a.url, "--protected")
+	}
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
+	hidden := map[string]int{}
+	for _, a := range asks {
+		b, _ := json.Marshal(mustRun(t, append([]string{"cache", a.provider, "raw", a.provider + "-c", "--"}, read[a.provider]...)...))
+		if s := string(b); strings.Contains(s, email) || !strings.Contains(s, "[hidden: email]") {
+			t.Errorf("cache %s raw: %s", a.provider, s)
+		}
+		hidden[a.provider] = strings.Count(string(b), "[hidden: email]")
+	}
+	if len(slices.Compact(slices.Sorted(maps.Values(hidden)))) > 1 {
+		t.Errorf("the providers hide differently: %v", hidden)
 	}
 }

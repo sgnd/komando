@@ -93,7 +93,7 @@ func stopHasRow(t *testing.T, line []string, code string) {
 	}
 	var rows []riskRow
 	for _, r := range riskRows {
-		if keyID(r.key) == cmdID(c) && (r.when == nil || r.when(words)) {
+		if cmdKeys[cmdID(c)] == r.key && (r.when == nil || r.when(words)) {
 			rows = append(rows, r)
 		}
 	}

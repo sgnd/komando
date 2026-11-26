@@ -64,11 +64,11 @@ func guardTrees(t *testing.T) (src, dst string) {
 
 func resetGuardFlags(t *testing.T) {
 	t.Cleanup(func() {
-		tcl.flags.dryRun, tcl.flags.allowDangerous = false, false
+		setGate(tcl, false, gateDryRun, gateAllowDangerous)
 		tcl.terminal, tcl.stdin = false, nil
 		tcl.out.Reset()
 	})
-	tcl.flags.dryRun = false
+	setGate(tcl, false, gateDryRun)
 }
 
 func exists(t *testing.T, p string) bool {
@@ -82,7 +82,7 @@ func exists(t *testing.T, p string) bool {
 func TestSyncEmptiedFolderScript(t *testing.T) {
 	noAgent(t)
 	resetGuardFlags(t)
-	tcl.flags.allowDangerous = true
+	setGate(tcl, true, gateAllowDangerous)
 	ctx := context.Background()
 
 	src, dst := guardTrees(t)
@@ -133,7 +133,7 @@ func TestSyncEmptiedFolderScript(t *testing.T) {
 func TestSyncEmptiedFolderDryRun(t *testing.T) {
 	noAgent(t)
 	resetGuardFlags(t)
-	tcl.flags.dryRun = true
+	setGate(tcl, true, gateDryRun)
 	src, dst := guardTrees(t)
 	r, err := runSync(tcl, context.Background(), localSide{tcl, src}, localSide{tcl, dst}, "src", "dst", syncOpts{delete: true})
 	if err != nil || r.Deleted != 2 {
@@ -157,7 +157,7 @@ func TestSyncEmptiedFolderPerson(t *testing.T) {
 		writeTree(t, src, map[string]string{"a/x": "x"})
 		writeTree(t, dst, map[string]string{"a/x": "x", "b/y": "y"})
 		tcl.terminal, tcl.stdin = true, strings.NewReader(c.typed+"\n")
-		tcl.flags.allowDangerous = true // --delete's own question is answered by it
+		setGate(tcl, true, gateAllowDangerous) // --delete's own question is answered by it
 		_, err := runSync(tcl, context.Background(), localSide{tcl, src}, localSide{tcl, dst}, "src", "dst", syncOpts{delete: true})
 		if (err == nil) != c.ok || exists(t, filepath.Join(dst, "b/y")) == c.ok {
 			t.Errorf("typed %q: %v", c.typed, err)
@@ -174,7 +174,7 @@ func TestSyncEmptiedFolderAgent(t *testing.T) {
 		flag, allow, ok bool
 	}{{false, true, false}, {true, false, false}, {true, true, true}} {
 		windows := asAgent(t, c.allow, true)
-		tcl.flags.allowDangerous = c.flag
+		setGate(tcl, c.flag, gateAllowDangerous)
 		src, dst := guardTrees(t)
 		_, err := runSync(tcl, ctx, localSide{tcl, src}, localSide{tcl, dst}, "src", "dst", syncOpts{delete: true})
 		if (err == nil) != c.ok {
@@ -194,7 +194,7 @@ func TestSyncEmptiedFolderAgent(t *testing.T) {
 func TestSyncEmptiedFolderPlainFTP(t *testing.T) {
 	noAgent(t)
 	resetGuardFlags(t)
-	tcl.flags.allowDangerous = true
+	setGate(tcl, true, gateAllowDangerous)
 	s := ftptest.New(t)
 	s.Dirs = map[string]string{
 		"/":    "-rw-r--r-- 1 u u 3 Nov 07 12:00 top.txt\r\ndrwxr-xr-x 1 u u 0 Nov 07 12:00 sub\r\n",
@@ -244,7 +244,7 @@ func TestCheckEmptied(t *testing.T) {
 func TestSyncEmptiedFolderScriptHint(t *testing.T) {
 	noAgent(t)
 	resetGuardFlags(t)
-	tcl.flags.allowDangerous = true
+	setGate(tcl, true, gateAllowDangerous)
 	src, dst := guardTrees(t)
 	_, err := runSync(tcl, context.Background(), localSide{tcl, src}, localSide{tcl, dst}, "src", "dst", syncOpts{delete: true})
 	j, _ := json.Marshal(toErr(err))
@@ -259,7 +259,7 @@ func TestSyncEmptiedFolderScriptHint(t *testing.T) {
 func TestSyncEmptiedFolderSeveralServers(t *testing.T) {
 	noAgent(t)
 	resetGuardFlags(t)
-	tcl.flags.allowDangerous = true
+	setGate(tcl, true, gateAllowDangerous)
 	src, dst := guardTrees(t)
 	_, err := runSync(tcl, context.Background(), localSide{tcl, src}, localSide{tcl, dst}, "src", "dst", syncOpts{delete: true, multi: true, emptied: []string{"b", "gone"}})
 	if e := toErr(err); e == nil || e.Code != "EMPTY_FOLDER_CONFIRM_REQUIRED" {

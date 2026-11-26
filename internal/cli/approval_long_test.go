@@ -18,7 +18,7 @@ func longBodyWindow(t *testing.T, osName, body string) ([]string, error) {
 	savedAsk := askOnScreen
 	t.Cleanup(func() {
 		tcl.args, desktopOS, askOnScreen = saved, savedOS, savedAsk
-		tcl.flags.yes = false
+		setGate(tcl, false, gateYes)
 		resetApproval()
 	})
 	setCallerEnv(t, "CLAUDECODE", "1")
@@ -26,7 +26,7 @@ func longBodyWindow(t *testing.T, osName, body string) ([]string, error) {
 	var texts []string
 	askOnScreen = func(_ *call, text string) (bool, bool) { texts = append(texts, text); return false, true }
 	st := &store.State{Hosts: map[string]*store.Host{"web": {Name: "web", Address: "10.0.0.1", Protected: true}}}
-	tcl.flags.yes = true
+	setGate(tcl, true, gateYes)
 	tcl.args = []string{"komando", "exec", "web", "--script", "./deploy.sh", "--yes"}
 	resetApproval()
 	noteApprovalScript(tcl, scriptLabel("the script", "./deploy.sh"), []byte(body))

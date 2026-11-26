@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/kube"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
@@ -87,14 +88,14 @@ func clusterRmCmd() *cobra.Command {
 					return nil, err
 				}
 				q := url.Values{}
-				if cl.flags.dryRun {
+				if cl.dryRun() {
 					q.Set("dryRun", "All")
 				}
 				space := cmp.Or(ns, k.Namespace)
 				if _, err := k.Do(ctx, "DELETE", r.ObjectPath(space, name), q, nil, ""); err != nil {
 					return nil, err
 				}
-				return map[string]any{"conn": t.conn.Name, "removed": kindRef(r, name), "dry_run": cl.flags.dryRun}, nil
+				return map[string]any{"conn": t.conn.Name, "removed": kindRef(r, name), "dry_run": cl.dryRun()}, nil
 			})
 		}),
 	}
@@ -314,7 +315,7 @@ risky verbs also need --allow-dangerous.`,
 				return err
 			}
 			plan := map[string]any{"conn": t.conn.Name, "dry_run": true, "would_run": "kubectl " + strings.Join(redactArgs(args[1:]), " ")}
-			if cl.flags.dryRun && risk > driver.RiskRead && !serverDryRun(args[1:]) {
+			if cl.dryRun() && risk > driver.RiskRead && !serverDryRun(args[1:]) {
 				// the server cannot dry-run it: show it, run nothing
 				cl.out.Print("cluster.run", plan, nil)
 				return nil
@@ -333,7 +334,7 @@ risky verbs also need --allow-dangerous.`,
 			defer done()
 			code, stdout, stderr, stop := runKctlLive(cl, ctx, k, t.conn.Name, args[1:], func(pod, prefix, line string) { printLogLine(cl, pod, prefix, line) })
 			if stop != nil { // komando's own stop
-				if cl.flags.dryRun && stop.Exit == out.ExitPolicy {
+				if cl.dryRun() && stop.Exit == out.ExitPolicy {
 					cl.out.WouldBlock(stop)
 					cl.out.Print("cluster.run", plan, nil)
 					return nil
@@ -492,7 +493,7 @@ func kubeconfigPaths(path string) []string {
 		if p == "" {
 			continue
 		}
-		p = expandHome(p)
+		p = inventory.ExpandHome(p)
 		all = append(all, p)
 		if _, err := os.Stat(p); p == "-" || !os.IsNotExist(err) {
 			found = append(found, p)

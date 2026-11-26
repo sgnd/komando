@@ -87,9 +87,10 @@ not know? Set `KOMANDO_AGENT=1`.
    - Databases: query with `komando database postgres query prod-db 'SELECT 1'`
      (the provider is the engine: `postgres`, `mysql`, `mongodb`, ...).
      Users, grants, locks, sizes and table lists are SQL through `query`;
-     writes need `--write`. Back up with
-     `komando database postgres backup prod-db --to FILE`, never `pg_dump`
-     through `exec`. Never put a password in a query or on a command line:
+     writes need `--write`. A backup is
+     `komando database postgres backup prod-db --to FILE`, and only a person
+     runs it, in their own terminal (`NEEDS_PERSON`: the file holds every row,
+     secrets included); never `pg_dump` through `exec`. Never put a password in a query or on a command line:
      use a credential.
    - Caches: `komando cache redis raw prod-redis -- GET key`. Reads run; a
      delete (`DEL`, `UNLINK`) is dangerous.

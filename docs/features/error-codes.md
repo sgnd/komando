@@ -96,7 +96,7 @@ This page is made from the code (`komando schema` lists the same under
 | `HOSTKEY_UNREADABLE` | 4 | the pinned host key for … cannot be read | a person checks the server's key and runs `komando host trust` for it in their own terminal |
 | `HOST_EXISTS` | 8 | … … already exists | use `komando … edit` or pass --overwrite to replace it |
 | `HOST_IN_USE` | 8 | server … is on the --via path of … | change them first: … (or --via OTHER), or remove them in the same command |
-| `IMAGE_TAG_NOT_FOUND` | 3 | … not found; the repository has no tags | list the repositories with `komando registry list CONN` |
+| `IMAGE_TAG_NOT_FOUND` | 3 | … not found; the repository has no tags | list the repositories with `komando registry oci image list NAME` |
 | `IMPORT_INCOMPLETE` | 1 | … not imported (see skipped) | fix them in the source and import again: the rest is in, and importing again skips it |
 | `INSECURE_PROTOCOL` | 2 | …:// crosses the network to … without TLS, so the password and the data travel unencrypted | use the URL's TLS form if the server has TLS (rediss://, memcacheds://, amqps://, nats tls://, kafka tls=true, an https:// endpoint, ftps://, webdavs://), or reach it --via an SSH server (`--via HOST`); otherwise add ?insecure=1 to accept that the login and the data travel unencrypted |
 | `IS_A_DIRECTORY` | 2 | …:… is a folder, not a file | copy the folder and everything in it with -r: `komando cp -r … …` |
@@ -190,17 +190,17 @@ This page is made from the code (`komando schema` lists the same under
 | `RECIPE_CHANGED` | 8 | recipe … changed while komando was starting | run it again |
 | `RECIPE_EXISTS` | 8 | recipe … exists | see it with `komando recipe show NAME`, or pass --overwrite to replace it |
 | `RECIPE_NOT_FOUND` | 3 | no recipe named … | see them with `komando recipe list` |
-| `REGISTRY_AUTH` | 4 | the registry refused to list its repositories: … | the login may read images but not list every repository: name one with `komando registry list CONN REPO`; else check the user in the conn URL and its --password-ref |
+| `REGISTRY_AUTH` | 4 | the registry refused to list its repositories: … | the login may read images but not list every repository: name one with `komando registry oci image list NAME REPO`; else check the user in the conn URL and its --password-ref |
 | `REGISTRY_ERROR` | 5 | the registry did not say the image's digest | run it again; if it keeps failing, the registry may not support this image format |
 | `REGISTRY_RATE_LIMIT` | 5 | the registry turned the request down: too many requests (Docker Hub's pull limit) | the registry limits how many requests it takes (Docker Hub: pulls per 6 hours, fewer without a login); wait and run it again |
 | `REGISTRY_TLS` | 4 | the registry's TLS certificate is for another name: … | use the host name the certificate is for in the conn URL; with --via the server on the path looks the name up (its /etc/hosts applies) |
-| `REGISTRY_UNSUPPORTED` | 5 | … has no list of every repository | name the repository: `komando registry list CONN REPO` (on Docker Hub, nginx means library/nginx) |
+| `REGISTRY_UNSUPPORTED` | 5 | … has no list of every repository | name the repository: `komando registry oci image list NAME REPO` (on Docker Hub, nginx means library/nginx) |
 | `RELEASE_SIGNATURE_INVALID` | 2 | komando … is not signed with the komando project's key; nothing was changed | do not install it another way, someone may have replaced the release's files: report it privately at …/security, and check again later with `komando update --dry-run` |
 | `RELEASE_SIGNATURE_NOT_FOUND` | 3 | komando … has no signature, so komando cannot tell it comes from the komando project; nothing was changed | releases up to … have no signature: to go back to one anyway, use the install line with KOMANDO_VERSION=… (…#install); to stay on a signed release, run `komando update` |
 | `REMOTE_ERROR` | 1 | an error from outside komando with no more specific code (its words follow) | run it again with -o json for the details; `komando doctor` checks this computer's setup |
 | `REMOTE_WRITE_FAILED` | 5 | cannot write …: …; the file was not changed | check that the user may write to the folder and the disk has free space: `komando fs stat SERVER PATH` |
 | `RENAME_FAILED` | 1 | the vault cannot rename the VPN's secrets: …; nothing was renamed | check that the vault opens (`komando secret list`, KOMANDO_VAULT_PASS) |
-| `REPOSITORY_NOT_FOUND` | 3 | no repository named … | list the repositories with `komando registry list CONN` |
+| `REPOSITORY_NOT_FOUND` | 3 | no repository named … | list the repositories with `komando registry oci image list NAME` |
 | `RESERVED_SECRET` | 2 | secret … belongs to komando's approval code | a person manages it with `komando config approval-code` |
 | `RESTORE_FAILED` | 5 | the restore stopped at a line: PostgreSQL changed nothing (one transaction), MySQL kept the statements before it | fix the file, then restore it again: `komando db restore … --from …` |
 | `RESTORE_SPACE_MISSING` | 3 | not enough free space for the restore's copy; nothing was sent to the database | free … bytes in … (komando checks a private copy of the backup there before the database is touched), then restore again: `komando db restore CONN --from …` |
@@ -295,7 +295,7 @@ This page is made from the code (`komando schema` lists the same under
 | `TOOL_MISSING` | 3 | … is not a program on this computer: … | check the name, or give the program's path |
 | `TOOL_TOO_OLD` | 5 | … failed on … (exit …): … | pg_dump … is older than the server (…): install postgresql-client-… where the tool runs, or name a server that has it with --run-on HOST |
 | `TOO_MANY` | 8 | … objects match, more than --max-remove … | narrow --prefix or --older-than, or raise --max-remove above … after checking the list |
-| `TOO_MANY_TAGS` | 2 | … has more than … tags | komando prunes a repository of at most 10000 tags, and --match does not change that (every tag is read, so a kept tag protects its image): delete some first with `komando registry rm CONN IMAGE` |
+| `TOO_MANY_TAGS` | 2 | … has more than … tags | komando prunes a repository of at most 10000 tags, and --match does not change that (every tag is read, so a kept tag protects its image): delete some first with `komando registry oci image delete NAME IMAGE` |
 | `TOPIC_EXISTS` | 8 | topic … already exists | pick another name, or see it with `komando queue describe CONN …` |
 | `TOPIC_NOT_FOUND` | 3 | no topic named … | list topics with `komando queue list CONN` |
 | `TUNNEL_FAILED` | 4 | the server refused the port forwarding (AllowTcpForwarding, address) | check that the server allows forwarding (AllowTcpForwarding in sshd_config) and that the address is right |
@@ -340,5 +340,5 @@ This page is made from the code (`komando schema` lists the same under
 | `WINRM_TLS` | 4 | …: the WinRM server's certificate cannot be trusted: … | if the server's certificate comes from your own CA, store it with `komando secret set NAME < ca.crt` and add ?ca=secret:NAME to its winrm:// address (`komando host edit … --address winrm://...`) |
 | `WRITE_FAILED` | 1 | …; nothing was changed | check that you may write to … |
 | `WRITE_REQUIRES_FLAG` | 6 | … needs --write | this command may change data (or is not known to be a read); run it again with --write |
-| `WRONG_KIND` | 2 | … is a … URL, not one for `komando … add` | add it with `komando … add` (or `komando conn add`) |
+| `WRONG_KIND` | 2 | … is a … URL, not one for `komando … add` | add it with `… add` (or `komando conn add`) |
 | `WRONG_PASSPHRASE` | 2 | that passphrase does not open the vault; nothing was changed | run it again and type the passphrase the vault has now |

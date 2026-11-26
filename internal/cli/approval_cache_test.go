@@ -18,7 +18,7 @@ func TestEarlierWindowDoesNotCoverUnshownBody(t *testing.T) {
 	saved := tcl.args
 	t.Cleanup(func() {
 		tcl.args = saved
-		tcl.flags.allowDangerous, tcl.flags.yes, tcl.flags.reveal = false, false, false
+		setGate(tcl, false, gateAllowDangerous, gateYes, gateReveal)
 	})
 	setCallerEnv(t, "CLAUDECODE", "1")
 	var texts []string
@@ -28,7 +28,7 @@ func TestEarlierWindowDoesNotCoverUnshownBody(t *testing.T) {
 
 	st := &store.State{Hosts: map[string]*store.Host{"web": {Name: "web", Address: "10.0.0.1", Protected: true}}}
 	hosts := []*store.Host{st.Hosts["web"]}
-	tcl.flags.yes, tcl.flags.allowDangerous, tcl.flags.reveal = true, true, true
+	setGate(tcl, true, gateYes, gateAllowDangerous, gateReveal)
 	tcl.args = []string{"komando", "exec", "web", "--script", "./deploy.sh", "--yes", "--allow-dangerous", "--reveal"}
 
 	resetApproval()
@@ -75,7 +75,7 @@ func TestEarlierWindowDoesNotCoverUnshownBody(t *testing.T) {
 	// one command, one question, when the first window showed everything
 	resetApproval()
 	texts = nil
-	tcl.flags.reveal = false
+	setGate(tcl, false, gateReveal)
 	tcl.args = []string{"komando", "exec", "web", "--yes", "--allow-dangerous", "--", "rm", "-rf", "/srv/app"}
 	if err := Guard(tcl, st, hosts, "rm -rf /srv/app", true); err != nil || len(texts) != 1 {
 		t.Errorf("destructive on a protected server asks once: %v, %d windows", err, len(texts))

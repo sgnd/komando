@@ -161,6 +161,9 @@ read, or change. "when the ..." rows are decided at run time.
 | `import` | when an AI agent imports a host with a proxy command (it runs on this computer; without `--yes` the host is left out) | safety | `--yes` |
 | `snippet create` | with `--overwrite --read-only`, when it makes an existing snippet read-only | safety | `--yes` |
 | `host ssh trust` | when an AI agent pins a first host key while host keys are strict | safety | `--yes` |
+| `registry oci add` | when the address turns TLS off (plain HTTP) | safety | `--yes` |
+| `credential run` | when an AI agent hands a saved secret to a program | safety | `--yes` |
+| `storage PROVIDER object link` | when an AI agent makes a link (a person allows `--reveal`) | safety | `--yes` |
 | `agent skill uninstall` | when it removes komando's guard from an AI agent's settings | safety | `--yes` |
 | any command that sends a secret | when an AI agent sends a credential to a new place | safety | `--yes` |
 | `config approval-code` | always | person |  |
@@ -173,6 +176,7 @@ read, or change. "when the ..." rows are decided at run time.
 | `credential certificate add` | always | person |  |
 | `ssh-gate` | always | person |  |
 | `host ssh trust` | with `--reset`, when a key is pinned | person |  |
+| `database PROVIDER backup` | when an AI agent runs it (the file holds every row, secrets included) | person |  |
 | `export` | with `--sealed` or `--for-phone` | person |  |
 | `import` | when the file is sealed (`export --sealed`): a person types its passphrase | person |  |
 | `group remove` | a group of more than 3 members (CONFIRM_REQUIRED) | change | `--yes` |
@@ -421,8 +425,8 @@ komando config set mask_personal protected       # back to the default (komando 
   right to read it.
 - The same data is not handed over another way. For an AI agent, where
   personal data is hidden: `copy` saves files with it
-  hidden; `database PROVIDER backup` stops with `NEEDS_PERSON` (a backup
-  cannot be masked; a person runs it in their own terminal). A value that is not text is shown as base64; when it
+  hidden; `database PROVIDER backup` stops with `NEEDS_PERSON` on every database (the
+  file holds every row, secrets included; a person runs it in their own terminal). A value that is not text is shown as base64; when it
   holds a secret or personal data, the whole value reads `[hidden]`.
 - A file komando cannot show with personal data hidden stops an AI
   agent's `copy` with `SENSITIVE_FILE`:

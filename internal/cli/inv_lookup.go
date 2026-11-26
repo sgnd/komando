@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/pflag"
 
+	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -219,7 +220,7 @@ func unusedSecrets(s *store.State, refs []string) []string {
 	var names []string
 	for _, r := range refs {
 		n, ok := strings.CutPrefix(r, "secret:")
-		if !ok || n == "" || slices.Contains(names, n) || len(secretUsers(s, n)) > 0 {
+		if !ok || n == "" || slices.Contains(names, n) || len(inventory.SecretUsers(s, n)) > 0 {
 			continue
 		}
 		if _, err := vault.Get(n); err == nil {

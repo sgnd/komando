@@ -127,7 +127,7 @@ or removed. Turning that off, or turning --mfa off, needs a person's yes.`,
 					return err
 				}
 				for _, v := range res {
-					if !cl.flags.dryRun {
+					if !cl.dryRun() {
 						s.Vpns[v.Name] = v
 					}
 				}
@@ -145,7 +145,7 @@ or removed. Turning that off, or turning --mfa off, needs a person's yes.`,
 // what changed: one VPN as before ({"vpn": ...}), several as a list.
 func runVpnEdit(cmd *cobra.Command, args []string, apply func(*store.State) error, res *[]*store.Vpn) error {
 	cl := callOf(cmd)
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		st, err := loadState()
 		if err != nil {
 			return err
@@ -360,7 +360,7 @@ func vpnRmCmd() *cobra.Command {
 				}
 				return guardProtection(cl, "vpn", "removing", prot)
 			}
-			if cl.flags.dryRun { // the same checks as the real removal
+			if cl.dryRun() { // the same checks as the real removal
 				st, err := loadState()
 				if err != nil {
 					return err
@@ -383,7 +383,7 @@ func vpnRmCmd() *cobra.Command {
 			if len(warnings) > 0 {
 				res["warnings"] = warnings
 			}
-			cl.out.Print("vpn.rm", textAs{res, rmResult{Removed: names, SecretsUnused: unused, dryRun: cl.flags.dryRun}}, nil)
+			cl.out.Print("vpn.rm", textAs{res, rmResult{Removed: names, SecretsUnused: unused, dryRun: cl.dryRun()}}, nil)
 			return nil
 		}),
 	}

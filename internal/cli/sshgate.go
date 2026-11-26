@@ -410,14 +410,17 @@ func gateRule(c *cobra.Command, name string, key gateKey) (string, *out.Error) {
 				"komando %s is komando's own plumbing, not for a key", strings.ReplaceAll(name, ".", " "))
 		}
 	}
+	// what the key typed, from its parsed command line: this command is
+	// checked here, never run, so no begin stored a gate for it
+	typed := newGate(c, cl.caller(), nil)
 	switch {
 	case gateNeedsPerson[cmdKeys[name]]:
 		return name, out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "a person runs it in a terminal on the komando computer itself",
 			"komando %s needs a person at a terminal on this computer; a key cannot run it", strings.ReplaceAll(name, ".", " "))
-	case cl.flags.reveal:
+	case typed.reveal:
 		return name, out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "secret values stay [hidden] for a key; a person reads one in a terminal on the komando computer",
 			"--reveal is refused: a key never gets secret values")
-	case cl.flags.allowDangerous:
+	case typed.allowDangerous:
 		return name, out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "a person runs it in a terminal on the komando computer itself",
 			"--allow-dangerous is refused: a key cannot skip the dangerous-command stop")
 	}
@@ -634,7 +637,7 @@ no download or cp to a file here (download --to - and cp SRC - stream to
 the key's own output), no change to servers, VPNs, settings, rules, secrets, keys or
 recipes in komando, no update, no change on a sqlite file or a target at
 localhost or 127.x. With --read-only only commands that read run (db
-query and cache run without --write), and only those that stay on the
+query and cache redis raw without --write), and only those that stay on the
 servers and conns in your list: no net, no cert check of a website, no
 exec, job start, docker exec, cluster exec or recipe run, unless the line
 also has --network. ` + "`komando ssh-gate status`" + ` tells a key which it is. Every command a key

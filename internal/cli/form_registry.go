@@ -197,7 +197,7 @@ func registryHostProblem(k registryKind, v string) string {
 
 func registryNameQ(k registryKind) formQ {
 	q := formNameQ("conn", "registry", cmp.Or(k.name, "harbor"))
-	q.help = "A short name you type later, like komando registry list " + cmp.Or(k.name, "harbor") +
+	q.help = "A short name you type later, like komando registry oci image list " + cmp.Or(k.name, "harbor") +
 		". Letters, digits, dot, dash, underscore."
 	q.def = func(st *store.State, a formAnswers) string {
 		base := k.name
@@ -411,7 +411,7 @@ func dockerConfigProblem(v string) string {
 		}
 		return p
 	}
-	b, err := os.ReadFile(expandHome(v))
+	b, err := os.ReadFile(inventory.ExpandHome(v))
 	if err != nil {
 		return "komando cannot read " + v
 	}
@@ -433,30 +433,35 @@ func init() {
 	conn := formArg{ask: "Which registry?", pick: "registry",
 		help: "A registry from your list. Add one first with Add, Images (registries)."}
 	image := formArg{ask: "Which image?", example: "acme/api:1.4.3",
-		help: "The repository and its tag, without the registry's address. komando registry list shows them."}
-	addFormHints(map[string]formHint{
-		"registry list": {args: []formArg{conn, {ask: "Which repository? (leave empty to list them all)", example: "acme/api",
+		help: "The repository and its tag, without the registry's address. komando registry oci image list shows them."}
+	hints := inventoryHints("registry", "oci", "registry", "Images (registries)", "")
+	hints["registry oci image"] = formHint{}
+	for k, h := range map[string]formHint{
+		"registry oci image list": {args: []formArg{conn, {ask: "Which repository? (leave empty to list them all)", example: "acme/api",
 			help: "Empty: every repository. A repository: its tags. Docker Hub cannot list every repository, give one."}}},
-		"registry inspect": {args: []formArg{conn, image}},
-		"registry rm": {args: []formArg{conn, {ask: "Which image to delete?", example: "acme/api:1.4.3",
+		"registry oci image show": {args: []formArg{conn, image}},
+		"registry oci image delete": {args: []formArg{conn, {ask: "Which image to delete?", example: "acme/api:1.4.3",
 			help: "Every tag that points at the same image goes too, and it cannot be undone. komando asks a person first."}}},
-		"registry prune": {args: []formArg{conn, {ask: "In which repository?", example: "acme/api",
+		"registry oci image prune": {args: []formArg{conn, {ask: "In which repository?", example: "acme/api",
 			help: "Old images of this repository are deleted for good; Try it first shows which. komando asks a person first."}},
 			flags: []formFlag{{name: "keep", ask: "Keep how many of the newest images?", example: "10"},
 				{name: "older-than", ask: "Or delete only images older than? (leave empty for any age)", example: "30d or 12h"}}},
-		"registry copy": {args: []formArg{
+		"registry oci image copy": {args: []formArg{
 			{ask: "Copy which image? Type its registry, a colon, then the image", label: "Copy from", example: "ghcr:acme/api:1.4.3",
 				help: "Like ghcr:acme/api:1.4.3: ghcr is the registry's name in your list, acme/api:1.4.3 the image."},
 			{ask: "Copy it where? Type the registry, a colon, then the new name", label: "Copy to", example: "harbor:shop/api:1.4.3",
 				help: "Like harbor:shop/api:1.4.3. Type only harbor: to keep the same name."}}},
-	})
+	} {
+		hints[k] = h
+	}
+	addFormHints(hints)
 }
 
 // Next: lines for the registry commands.
 func init() {
 	addFormHints(map[string]formHint{
-		"registry list":    {next: []string{"registry list {} REPO", "registry inspect {} IMAGE", "registry prune {} REPO --keep 10 --dry-run"}},
-		"registry inspect": {next: []string{"registry copy {}:IMAGE DST_CONN", "registry rm {} IMAGE --dry-run"}},
-		"registry copy":    {next: []string{"registry inspect CONN IMAGE"}},
+		"registry oci image list": {next: []string{"registry oci image list {} REPO", "registry oci image show {} IMAGE", "registry oci image prune {} REPO --keep 10 --dry-run"}},
+		"registry oci image show": {next: []string{"registry oci image copy {}:IMAGE DST_CONN", "registry oci image delete {} IMAGE --dry-run"}},
+		"registry oci image copy": {next: []string{"registry oci image show NAME IMAGE"}},
 	})
 }

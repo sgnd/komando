@@ -152,7 +152,7 @@ func guardKubePlugin(cl *call, c *store.Conn, x *kube.Context) error {
 	if hits := policy.Check(line, nil); len(hits) > 0 && !cl.dangerOK() && !policyAsk(cl, "the kubeconfig of conn "+c.Name+" logs in with `"+line+"`, which matches "+hits[0].Reason, c.Name) {
 		stop := out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a credential plugin only prints a token; check the kubeconfig of this conn (if this program is intended, --allow-dangerous lets it run)",
 			"the kubeconfig of conn %s logs in with `%s`, which matches destructive rules: %s (a credential plugin only prints a token: check the kubeconfig of this conn)", c.Name, line, hits[0].Reason)
-		if cl.flags.dryRun {
+		if cl.dryRun() {
 			cl.out.WouldBlock(stop)
 			return errDryRunStopped
 		}
@@ -234,13 +234,13 @@ func guardCloudLogin(cl *call, c *store.Conn, x *kube.Context, b *kube.ExecAuth)
 // or returns stop. A dry run never logs in: it reports the stop and ends
 // before the step.
 func agentLoginYes(cl *call, what string, stop *out.Error) error {
-	if cl.flags.dryRun { // --yes is not asked for here
-		if !cl.flags.yes {
+	if cl.dryRun() { // --yes is not asked for here
+		if !cl.yes() {
 			cl.out.WouldBlock(stop)
 		}
 		return errDryRunStopped
 	}
-	if cl.sess.SafetyApproved(what) || cl.flags.yes && cl.personAllowsFor("--yes", what) {
+	if cl.sess.SafetyApproved(what) || cl.yesOKFor(what) {
 		cl.sess.ApproveSafety(what)
 		return nil
 	}
@@ -493,7 +493,7 @@ func withKubeWhy(cl *call, ctx context.Context, name string, t clusterTarget, ri
 // changes. Agents and scripts are unchanged: they use --allow-dangerous,
 // and a dry run never asks.
 func confirmObject(cl *call, names []string, obj, reason string) error {
-	if cl.flags.allowDangerous || cl.flags.dryRun || !cl.interactive() {
+	if cl.allowDangerous() || cl.dryRun() || !cl.interactive() {
 		return nil
 	}
 	askTypes(cl, []string{obj}, "objects")

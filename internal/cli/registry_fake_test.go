@@ -183,7 +183,7 @@ func (m *memRegistry) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // textRun runs komando with -o text and returns what it printed.
 func textRun(t *testing.T, args ...string) (string, error) {
 	t.Helper()
-	tcl.flags.dryRun, tcl.flags.yes, tcl.flags.allowDangerous = false, false, false
+	setGate(tcl, false, gateDryRun, gateYes, gateAllowDangerous)
 	root := newRoot(tcl)
 	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs(append([]string{"-o", "text"}, args...))
@@ -211,7 +211,7 @@ func memRepo(t *testing.T) (*memRegistry, string) {
 	m.mu.Unlock()
 	m.index("multi/app", "old", m.image("multi/app", "", now.Add(-40*24*time.Hour)))
 	m.index("multi/app", "new", m.image("multi/app", "", now))
-	mustRun(t, "registry", "add", "mem", "registry://"+addr+"?tls=false")
+	mustRun(t, "registry", "oci", "add", "mem", "registry://"+addr+"?tls=false")
 	return m, addr
 }
 
@@ -222,7 +222,7 @@ func TestRegistryRateLimit(t *testing.T) {
 	m.mu.Lock()
 	m.status, m.header = 429, http.Header{"Retry-After": {"120"}}
 	m.mu.Unlock()
-	e := wantCode(t, "REGISTRY_RATE_LIMIT", "registry", "ls", "mem", "shop/api")
+	e := wantCode(t, "REGISTRY_RATE_LIMIT", "registry", "oci", "image", "list", "mem", "shop/api")
 	if !strings.Contains(e.Hint, "after 2m0s") || !strings.Contains(e.Hint, "--password-ref") {
 		t.Errorf("hint: %s", e.Hint)
 	}
@@ -233,21 +233,21 @@ func TestRegistryNamesChecked(t *testing.T) {
 	invHome(t)
 	memRepo(t)
 	for _, args := range [][]string{
-		{"registry", "ls", "mem", "../_catalog"},
-		{"registry", "ls", "mem", "shop/api:v1"},
-		{"registry", "inspect", "mem", "shop/api:v1/../../x"},
-		{"registry", "inspect", "mem", "shop/api@sha256:short"},
-		{"registry", "inspect", "mem", "a/b:-x"},
-		{"--dry-run", "registry", "rm", "mem", "shop/../api:v1"},
-		{"--dry-run", "registry", "prune", "mem", "shop/api?n=1", "--keep", "1"},
-		{"--dry-run", "registry", "copy", "mem:shop/api:v1", "mem:x/../y:1"},
+		{"registry", "oci", "image", "list", "mem", "../_catalog"},
+		{"registry", "oci", "image", "list", "mem", "shop/api:v1"},
+		{"registry", "oci", "image", "show", "mem", "shop/api:v1/../../x"},
+		{"registry", "oci", "image", "show", "mem", "shop/api@sha256:short"},
+		{"registry", "oci", "image", "show", "mem", "a/b:-x"},
+		{"--dry-run", "registry", "oci", "image", "delete", "mem", "shop/../api:v1"},
+		{"--dry-run", "registry", "oci", "image", "prune", "mem", "shop/api?n=1", "--keep", "1"},
+		{"--dry-run", "registry", "oci", "image", "copy", "mem:shop/api:v1", "mem:x/../y:1"},
 	} {
 		wantCode(t, "USAGE", args...)
 	}
-	if e := wantCode(t, "USAGE", "registry", "inspect", "mem", "Shop/API:v1"); !strings.Contains(e.Message, "shop/api") {
+	if e := wantCode(t, "USAGE", "registry", "oci", "image", "show", "mem", "Shop/API:v1"); !strings.Contains(e.Message, "shop/api") {
 		t.Errorf("upper case: %s", e.Message)
 	}
-	mustRun(t, "registry", "inspect", "mem", "shop/api@"+mustRun(t, "registry", "inspect", "mem", "shop/api:v1")["digest"].(string))
+	mustRun(t, "registry", "oci", "image", "show", "mem", "shop/api@"+mustRun(t, "registry", "oci", "image", "show", "mem", "shop/api:v1")["digest"].(string))
 }
 
 // prune reads each image once (Docker Hub counts every manifest read as a
@@ -255,14 +255,14 @@ func TestRegistryNamesChecked(t *testing.T) {
 func TestRegistryPruneReadsAndIndexes(t *testing.T) {
 	invHome(t)
 	m, _ := memRepo(t)
-	d := mustRun(t, "--dry-run", "registry", "prune", "mem", "shop/api", "--keep", "2")
+	d := mustRun(t, "--dry-run", "registry", "oci", "image", "prune", "mem", "shop/api", "--keep", "2")
 	if m.gets != 6 { // 7 tags on 6 images
 		t.Errorf("manifest reads: %d, want 6", m.gets)
 	}
 	if del := d["delete"].([]any); len(del) != 4 {
 		t.Errorf("delete: %v", del)
 	}
-	d = mustRun(t, "--dry-run", "registry", "prune", "mem", "multi/app", "--older-than", "30d")
+	d = mustRun(t, "--dry-run", "registry", "oci", "image", "prune", "mem", "multi/app", "--older-than", "30d")
 	del := d["delete"].([]any)
 	if len(del) != 1 || fmt.Sprint(del[0].(map[string]any)["tags"]) != "[old]" {
 		t.Errorf("index: %v", d)
@@ -278,11 +278,11 @@ func TestRegistryText(t *testing.T) {
 		args []string
 		want []string
 	}{
-		{[]string{"registry", "ls", "mem", "shop/api", "-n", "3"}, []string{"latest\nv1\nv2\n", "the first 3 tags in shop/api; there are more: raise -n"}},
-		{[]string{"registry", "ls", "mem"}, []string{"multi/app\nshop/api\n"}},
-		{[]string{"--dry-run", "registry", "rm", "mem", "shop/api:v9"}, []string{"would delete shop/api@sha256:", "with it goes every tag on that image: latest, v9", "latest is one of them"}},
-		{[]string{"--dry-run", "registry", "prune", "mem", "shop/api", "--keep", "2"}, []string{"shop/api: would delete 4 images of 7 tags", "  - v4 ", "  = latest", "latest is always kept"}},
-		{[]string{"registry", "inspect", "mem", "shop/api:v9"}, []string{"created: " + time.Now().Format("2006-01-02")}},
+		{[]string{"registry", "oci", "image", "list", "mem", "shop/api", "-n", "3"}, []string{"latest\nv1\nv2\n", "the first 3 tags in shop/api; there are more: raise -n"}},
+		{[]string{"registry", "oci", "image", "list", "mem"}, []string{"multi/app\nshop/api\n"}},
+		{[]string{"--dry-run", "registry", "oci", "image", "delete", "mem", "shop/api:v9"}, []string{"would delete shop/api@sha256:", "with it goes every tag on that image: latest, v9", "latest is one of them"}},
+		{[]string{"--dry-run", "registry", "oci", "image", "prune", "mem", "shop/api", "--keep", "2"}, []string{"shop/api: would delete 4 images of 7 tags", "  - v4 ", "  = latest", "latest is always kept"}},
+		{[]string{"registry", "oci", "image", "show", "mem", "shop/api:v9"}, []string{"created: " + time.Now().Format("2006-01-02")}},
 	} {
 		s, err := textRun(t, c.args...)
 		if err != nil {
@@ -298,7 +298,7 @@ func TestRegistryText(t *testing.T) {
 		}
 	}
 	// the Next: line a person gets on stderr names a command for one item
-	for args, want := range map[string]string{"registry ls mem shop/api": "komando registry inspect mem shop/api:TAG", "registry ls mem": "komando registry list mem REPO"} {
+	for args, want := range map[string]string{"registry oci image list mem shop/api": "komando registry oci image show mem shop/api:TAG", "registry oci image list mem": "komando registry oci image list mem REPO"} {
 		if _, err := textRun(t, strings.Fields(args)...); err != nil || !slices.Equal(tcl.nextNow, []string{want}) {
 			t.Errorf("%s: Next: %q, %v", args, tcl.nextNow, err)
 		}
@@ -357,7 +357,7 @@ func TestCatalogErr(t *testing.T) {
 		t.Errorf("hub: %+v", e)
 	}
 	own := registry.New("harbor.example.com", registry.TLS{}, "", "", nil)
-	if e := toErr(catalogErr(own, &registry.Error{Status: 403})); e.Code != "REGISTRY_AUTH" || !strings.Contains(e.Hint, "registry list CONN REPO") {
+	if e := toErr(catalogErr(own, &registry.Error{Status: 403})); e.Code != "REGISTRY_AUTH" || !strings.Contains(e.Hint, "registry oci image list NAME REPO") {
 		t.Errorf("own: %+v", e)
 	}
 	if own.Repo("nginx") != "nginx" || hub.Repo("nginx") != "library/nginx" || hub.Repo("me/app") != "me/app" {
@@ -371,13 +371,13 @@ func TestCatalogErr(t *testing.T) {
 func TestRegistryRmSaysWhatGoes(t *testing.T) {
 	invHome(t)
 	memRepo(t)
-	e := wantCode(t, "POLICY_BLOCKED", "registry", "rm", "mem", "shop/api:v9")
+	e := wantCode(t, "POLICY_BLOCKED", "registry", "oci", "image", "delete", "mem", "shop/api:v9")
 	if !strings.Contains(e.Message, "deletes shop/api@sha256:") || !strings.Contains(e.Message, "every tag on it: latest, v9") {
 		t.Errorf("message: %s", e.Message)
 	}
-	mustRun(t, "registry", "add", "dead", "registry://"+closedAddr(t)+"?tls=false")
-	wantCode(t, "POLICY_BLOCKED", "registry", "rm", "dead", "shop/api:v9")
-	if e := wantCode(t, "POLICY_BLOCKED", "registry", "prune", "mem", "shop/api", "--keep", "1"); !strings.Contains(e.Message, "old images of shop/api") {
+	mustRun(t, "registry", "oci", "add", "dead", "registry://"+closedAddr(t)+"?tls=false")
+	wantCode(t, "POLICY_BLOCKED", "registry", "oci", "image", "delete", "dead", "shop/api:v9")
+	if e := wantCode(t, "POLICY_BLOCKED", "registry", "oci", "image", "prune", "mem", "shop/api", "--keep", "1"); !strings.Contains(e.Message, "old images of shop/api") {
 		t.Errorf("prune: %s", e.Message)
 	}
 }
@@ -388,7 +388,7 @@ func TestRegistryRmSaysWhatGoes(t *testing.T) {
 func TestRegistryPruneMatchAndCap(t *testing.T) {
 	invHome(t)
 	m, _ := memRepo(t)
-	mustRun(t, "--dry-run", "registry", "prune", "mem", "shop/api", "--keep", "0", "--match", "^v[12]$")
+	mustRun(t, "--dry-run", "registry", "oci", "image", "prune", "mem", "shop/api", "--keep", "0", "--match", "^v[12]$")
 	if m.gets != 2 {
 		t.Errorf("manifest reads: %d, want 2", m.gets)
 	}
@@ -399,13 +399,13 @@ func TestRegistryPruneMatchAndCap(t *testing.T) {
 		m.tags["big/app"][fmt.Sprintf("t%d", i)] = d
 	}
 	m.mu.Unlock()
-	pd := mustRun(t, "--dry-run", "registry", "prune", "mem", "big/app", "--keep", "1")
+	pd := mustRun(t, "--dry-run", "registry", "oci", "image", "prune", "mem", "big/app", "--keep", "1")
 	if b, _ := json.Marshal(pd); !strings.Contains(string(b), shortDigest(old)) || strings.Contains(string(b), shortDigest(d)) {
 		t.Errorf("1202 tags: the old image should go, the one 1201 tags keep should stay: %s", b)
 	}
 	// rm sees a tag far down the list too (it used to read only 200)
 	m.image("big/app", "zz-late", time.Now().Add(-72*time.Hour))
-	rd := mustRun(t, "--dry-run", "registry", "rm", "mem", "big/app:zz-late")
+	rd := mustRun(t, "--dry-run", "registry", "oci", "image", "delete", "mem", "big/app:zz-late")
 	if b, _ := json.Marshal(rd); !strings.Contains(string(b), "zz-late") || strings.Contains(string(b), "only the first") {
 		t.Errorf("rm of a late tag in 1203: %s", b)
 	}
@@ -414,7 +414,7 @@ func TestRegistryPruneMatchAndCap(t *testing.T) {
 		m.tags["big/app"][fmt.Sprintf("t%d", i)] = d
 	}
 	m.mu.Unlock()
-	if e := wantCode(t, "TOO_MANY_TAGS", "--dry-run", "registry", "prune", "mem", "big/app", "--keep", "1", "--match", "^t1$"); !strings.Contains(e.Hint, "registry rm") {
+	if e := wantCode(t, "TOO_MANY_TAGS", "--dry-run", "registry", "oci", "image", "prune", "mem", "big/app", "--keep", "1", "--match", "^t1$"); !strings.Contains(e.Hint, "registry oci image delete") {
 		t.Errorf("hint: %s", e.Hint)
 	}
 }

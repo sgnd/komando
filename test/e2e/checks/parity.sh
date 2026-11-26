@@ -112,8 +112,8 @@ check "db schema = psql's tables" "$(native pg psql -U app -d app -At -c "select
 fi
 
 if in_area registry; then
-check "registry ls = the registry's catalog" "$(native bastion curl -s http://registry:5000/v2/_catalog | python3 -c 'import json,sys; print(" ".join(sorted(json.load(sys.stdin)["repositories"])))')" \
-  "$($K registry ls reg | jget '" ".join(sorted(d["data"]["repositories"]))')"
+check "registry oci image list = the registry's catalog" "$(native bastion curl -s http://registry:5000/v2/_catalog | python3 -c 'import json,sys; print(" ".join(sorted(json.load(sys.stdin)["repositories"])))')" \
+  "$($K registry oci image list reg | jget '" ".join(sorted(d["data"]["repositories"]))')"
 fi
 
 if in_area k8s; then

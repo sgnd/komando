@@ -164,12 +164,12 @@ func collectOps(cl *call, ctx context.Context, spec opsSpec) (*opsData, int, []h
 		shown = spec.display
 	}
 	guardErr := Guard(cl, st, hosts, strings.TrimSpace(spec.command+"\n"+spec.win), spec.mutating)
-	if guardErr != nil && !cl.flags.dryRun {
+	if guardErr != nil && !cl.dryRun() {
 		audit(cl, st, spec.name, hostNames(hosts), shown, false, map[string]any{"blocked": toErr(guardErr).Code})
 		return nil, 0, nil, guardErr
 	}
 	command := spec.command
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		if spec.preview == "" {
 			opsDryRun(cl, spec, hosts, shown, guardErr)
 			return nil, 0, nil, nil
@@ -179,14 +179,14 @@ func collectOps(cl *call, ctx context.Context, spec opsSpec) (*opsData, int, []h
 	timeout := max(cmdTimeout(cl, st), spec.timeoutAtLeast)
 	res := fanout(cl, ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
 		cmd := command
-		if c.Host.Windows() && cl.flags.dryRun { // a preview: never run the change itself
+		if c.Host.Windows() && cl.dryRun() { // a preview: never run the change itself
 			return nil, notOnWindows("a --dry-run preview of "+commandWord(spec.name), []string{c.Host.Name})
 		} else if c.Host.Windows() {
 			cmd = spec.win
 		}
 		return spec.run(ctx, c, cmd, timeout, maxOutput(cl, st))
 	})
-	data := opsData{Command: shown, DryRun: cl.flags.dryRun, Results: []opsRow{}}
+	data := opsData{Command: shown, DryRun: cl.dryRun(), Results: []opsRow{}}
 	worst := 0
 	var fails []hostFail
 	for _, o := range res {
@@ -249,7 +249,7 @@ func collectOps(cl *call, ctx context.Context, spec opsSpec) (*opsData, int, []h
 		data.Results = append(data.Results, r)
 	}
 	data.Summary.Total = len(res)
-	if !cl.flags.dryRun {
+	if !cl.dryRun() {
 		audit(cl, st, spec.name, hostNames(hosts), shown, data.Summary.Failed == 0, nil)
 	}
 	return &data, worst, fails, nil
