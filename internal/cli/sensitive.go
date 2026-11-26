@@ -217,16 +217,21 @@ func hardLinkSecret(cl *call, p, home string) string {
 		return ""
 	}
 	for _, f := range protectedFilesOf(cl, home) {
-		if os.SameFile(fi, f.fi) {
-			return f.why
+		if !os.SameFile(fi, f.fi) {
+			continue
+		}
+		if why := secretPath(cl, f.path, home); why != "" {
+			return why
 		}
 	}
 	return ""
 }
 
+// protectedFile is a file in a protected folder; secretPath decides only
+// for the one that is the file asked about, as it is slow for thousands.
 type protectedFile struct {
-	fi  os.FileInfo
-	why string
+	fi   os.FileInfo
+	path string
 }
 
 // protectedFiles caches the files of the protected folders for
@@ -258,10 +263,8 @@ func protectedFilesOf(cl *call, home string) []protectedFile {
 			if !e.Type().IsRegular() {
 				return nil
 			}
-			if why := secretPath(cl, q, home); why != "" {
-				if fi, err := e.Info(); err == nil {
-					files = append(files, protectedFile{fi, why})
-				}
+			if fi, err := e.Info(); err == nil {
+				files = append(files, protectedFile{fi, q})
 			}
 			return nil
 		})
