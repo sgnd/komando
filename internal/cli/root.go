@@ -87,6 +87,9 @@ func execute(cl *call, ctx context.Context, args []string) int {
 	defer cl.leave()
 	// errors raised before flag parsing still need the right format; the
 	// command before in this call does not choose it
+	if agent, ok := guardHookArgs(args); ok {
+		return runGuardHook(cl, agent)
+	}
 	cl.out.Format = "json"
 	if f, ok := outputFormat(cl, cl.getenv("KOMANDO_OUTPUT")); ok {
 		cl.out.Format = f

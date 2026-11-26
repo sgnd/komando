@@ -392,6 +392,7 @@ func Execute() int {
 	vault.TakeUnlockEnv()
 	noCoreDumps() // a crash writes no memory, secrets and all, to disk
 	noPeek()      // Linux: no process of the same user reads komando's memory
+	limitGuardProcess(os.Args[1:])
 	// a Windows console shows colour and line clearing only when asked
 	ok, restore := kitterm.ConsoleVT(int(os.Stderr.Fd()))
 	defer restore()
