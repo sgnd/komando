@@ -277,6 +277,13 @@ func TestQueueProvidersCarryEqualTableEntries(t *testing.T) {
 		if e.localRead != l.LocalRead || e.leavesHome != l.LeavesHome {
 			t.Errorf("%s: localReads %v, leavesHome %v; the leaf says %v, %v", id, e.localRead, e.leavesHome, l.LocalRead, l.LeavesHome)
 		}
+		// What the old queue peek, send and read commands had, every provider keeps.
+		if e.personal != (l.Area == "message" && l.Verb == "list") {
+			t.Errorf("%s: personalCmds is %v", id, e.personal)
+		}
+		if want := map[bool]string{true: "from", false: ""}[l.Area == "message" && l.Verb == "create"]; e.localFlags != want {
+			t.Errorf("%s: gateLocalFlags is %q, want %q", id, e.localFlags, want)
+		}
 		area := [2]string{l.Area, l.Verb}
 		if seen[area] == nil {
 			seen[area] = map[string]entry{}
