@@ -39,7 +39,7 @@ func credOfRef(entry, field, ref string) (string, error) {
 	}
 	return "", out.Errf(out.ExitUsage, "BAD_REFERENCE",
 		"save the value as a credential and name it: credential:NAME",
-		"%s: field %s must name a credential (credential:NAME)", entry, field)
+		"%s: field %s takes a credential (credential:NAME)", entry, field)
 }
 
 // kindOf3 is the conn kind of a (type, provider), for State.
@@ -172,6 +172,25 @@ func (st *stored3) users(name string) []string {
 	return slices.Compact(us)
 }
 
+// loginUsers are the entries that log in with credential name: the ones
+// that see its user. A sudo password, an env value, a VPN key or a key
+// passphrase reads its value only.
+func (st *stored3) loginUsers(name string) []string {
+	var us []string
+	for _, h := range st.hosts {
+		if h.Credential == name {
+			us = append(us, "host "+h.Name)
+		}
+	}
+	for _, c := range st.conns {
+		if c.Credential == name {
+			us = append(us, typeWord(c)+" "+c.Name)
+		}
+	}
+	slices.Sort(us)
+	return us
+}
+
 func typeWord(c *ServiceV3) string {
 	if c.Type == "" {
 		return "service"
@@ -215,7 +234,7 @@ func (st *stored3) fillState(s *State, recipes []sealdb.Record) error {
 				h.PasswordRef = credRef(c.Name)
 			}
 		} else if v.Credential != "" {
-			return fmt.Errorf("host %s names credential %s, which does not exist: %w", v.Name, v.Credential, sealdb.ErrTampered)
+			return fmt.Errorf("server %s names credential %s, which does not exist: %w", v.Name, v.Credential, sealdb.ErrTampered)
 		}
 		s.Hosts[v.Name] = h
 	}
@@ -303,7 +322,7 @@ func (w *writer3) put(typ, id string, v any) (string, error) {
 // credential that others use too.
 func (w *writer3) sharedRefusal(entry, what, cred string) error {
 	return out.Errf(out.ExitUsage, "CREDENTIAL_SHARED",
-		"change it with `komando credential` (it changes it for every entry that uses it), or give this entry its own credential",
+		"give this entry its own: `komando secret cp "+cred+" NEW`, then pass credential:NEW",
 		"%s: changing %s would change credential %s, which these entries use: %s; nothing was changed",
 		entry, what, cred, strings.Join(w.st.users(cred), ", "))
 }
@@ -314,7 +333,15 @@ func (w *writer3) sharedRefusal(entry, what, cred string) error {
 func (w *writer3) loginCred(entry, name, user string, alone func(string) bool) error {
 	c := w.st.cred(name)
 	if c == nil {
-		return fmt.Errorf("%s: credential %s does not exist", entry, name)
+		// named before its value is saved (an import, or `komando secret
+		// set NAME` later), as format 2 allowed: a credential with no value
+		c = &Credential{Name: w.names.keep(name), Kind: CredPassword, User: user}
+		id, err := w.put(KindCredential, "", c)
+		if err != nil {
+			return err
+		}
+		w.st.creds[id], w.st.credID[name] = c, id
+		return nil
 	}
 	if c.User == user {
 		return nil
@@ -361,7 +388,7 @@ func (w *writer3) host(h *Host) error {
 	}
 	v.SudoCredential = sudo
 	alone := func(name string) bool {
-		us := w.st.users(name)
+		us := w.st.loginUsers(name)
 		return len(us) == 0 || len(us) == 1 && us[0] == e
 	}
 	// the credential it logs in with
@@ -375,7 +402,9 @@ func (w *writer3) host(h *Host) error {
 			return err
 		}
 	case h.Key != "":
-		cred = h.Key
+		if cred, err = w.keyFor(e, h.Key, h.User, alone); err != nil {
+			return err
+		}
 	case h.PasswordRef != "":
 		if cred, err = refCred(e, "password", h.PasswordRef); err != nil {
 			return err
@@ -453,7 +482,7 @@ func (w *writer3) conn(c *Conn) error {
 	v.TrustedPlugin, v.PluginProgram, v.PluginSearchPath = c.TrustedPlugin, c.PluginProgram, c.PluginSearchPath
 	v.Manager, v.ManagerID, v.CreatedAt, v.UpdatedAt = c.Manager, c.ManagerID, c.CreatedAt, c.UpdatedAt
 	alone := func(name string) bool {
-		us := w.st.users(name)
+		us := w.st.loginUsers(name)
 		return len(us) == 0 || len(us) == 1 && us[0] == typeWord(v)+" "+v.Name
 	}
 	cred, err := refCred(e, "password", c.PasswordRef)

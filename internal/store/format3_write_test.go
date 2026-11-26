@@ -133,7 +133,6 @@ func TestFormat3SharedCredentialRefused(t *testing.T) {
 		code   string
 		names  []string
 	}{
-		{"the user, through a host", func(s *State) { s.Hosts["web3"].User = "admin" }, "CREDENTIAL_SHARED", []string{"host web1", "host web3"}},
 		{"the user, through a service's URL", func(s *State) { s.Conns["pg2"].URL = "postgres://other@10.0.0.31:5432/app" }, "CREDENTIAL_SHARED", []string{"database pg", "database pg2"}},
 		{"the value, through a host's password reference", func(s *State) { s.Hosts["web3"].Key, s.Hosts["web3"].PasswordRef = "", "env:OTHER" }, "BAD_REFERENCE", nil},
 		{"the value, through a host's password reference in the old spelling", func(s *State) { s.Hosts["web3"].Key, s.Hosts["web3"].PasswordRef = "", "secret:pg-pass" }, "BAD_REFERENCE", nil},
@@ -145,6 +144,10 @@ func TestFormat3SharedCredentialRefused(t *testing.T) {
 			var oe *out.Error
 			if !errorsAs(err, &oe) || oe.Code != c.code || oe.Exit != out.ExitUsage {
 				t.Fatalf("got %v", err)
+			}
+			// the way out must exist today (`komando credential` is C485's)
+			if oe.Code == "CREDENTIAL_SHARED" && (!strings.Contains(oe.Hint, "komando secret cp") || strings.Contains(oe.Hint, "komando credential")) {
+				t.Errorf("hint %q", oe.Hint)
 			}
 			for _, n := range c.names {
 				if !strings.Contains(err.Error(), n) {
@@ -204,5 +207,58 @@ func TestFormat3KeyFileRepointsOneHost(t *testing.T) {
 	}
 	if s, _ := Load(); s.Hosts["web4"].Key != web3.Key {
 		t.Errorf("web4 %q, web3 %q", s.Hosts["web4"].Key, web3.Key)
+	}
+}
+
+// A login named before its value is saved (an import, or `komando secret
+// set NAME` later) is kept as it was in format 2: the entry is written and
+// its credential has no value yet.
+func TestFormat3CredentialNamedBeforeItsValue(t *testing.T) {
+	sealedHome(t)
+	fakeKeys(t)
+	if err := Update(Save(), func(s *State) error {
+		s.Hosts["web"] = &Host{Name: "web", Address: "a", User: "deploy", PasswordRef: "credential:web-pw"}
+		s.Conns["db"] = &Conn{Name: "db", Kind: "postgres", URL: "postgres://app@h/d", PasswordRef: "credential:db-pw"}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	s, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Hosts["web"].PasswordRef != "credential:web-pw" || s.Hosts["web"].User != "deploy" || s.Conns["db"].PasswordRef != "credential:db-pw" {
+		t.Fatalf("host %+v conn %+v", s.Hosts["web"], s.Conns["db"])
+	}
+	creds := 0
+	for _, r := range rawRecords(t) {
+		if string(r["name"]) == `"web-pw"` || string(r["name"]) == `"db-pw"` {
+			creds++
+			if r["value"] != nil {
+				t.Errorf("a credential named before its value holds one: %s", r["name"])
+			}
+		}
+	}
+	if creds != 2 {
+		t.Fatalf("%d credentials made", creds)
+	}
+}
+
+// Only a login carries the credential's user: a credential that one host
+// uses as its sudo password is free for a service to log in with as its
+// own user (E1-2 refuses only a change another login would see).
+func TestFormat3SudoUseIsNoLogin(t *testing.T) {
+	sealedHome(t)
+	fakeKeys(t)
+	if err := Update(Save(), func(s *State) error {
+		s.Hosts["inner"] = &Host{Name: "inner", Address: "a", User: "root", SudoRef: "credential:db-pass"}
+		s.Conns["shop"] = &Conn{Name: "shop", Kind: "postgres", URL: "postgres://app@h/d", PasswordRef: "credential:db-pass"}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	s, err := Load()
+	if err != nil || s.Hosts["inner"].SudoRef != "credential:db-pass" || s.Conns["shop"].PasswordRef != "credential:db-pass" {
+		t.Fatalf("%v %+v %+v", err, s.Hosts["inner"], s.Conns["shop"])
 	}
 }
