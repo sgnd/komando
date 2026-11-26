@@ -226,54 +226,6 @@ func TestWindowsDownloadAndUpload(t *testing.T) {
 	}
 }
 
-func TestWindowsSvcAndFacts(t *testing.T) {
-	srv := startWindowsServer(t)
-	srv.reply(`#komando:json=[{"name":"W3SVC","display_name":"World Wide Web Publishing Service","state":"Running","start_mode":"Auto","pid":4242,"found":true},{"name":"nope","found":false}]` + "\n")
-	if code := runCode(t, "svc", "status", "win", "W3SVC", "nope"); code != "UNIT_NOT_FOUND" {
-		t.Errorf("svc status with a missing service: %s", code)
-	}
-	if s := psScript(t, srv.take()[0]); !strings.Contains(s, "foreach ($n in @('W3SVC', 'nope'))") {
-		t.Errorf("svc status script:\n%s", s)
-	}
-	srv.reply("os=windows\nos_pretty=Microsoft Windows Server 2019 Datacenter\nos_build=17763\ncpus=4\nupd_total=3\nupd_security=1\nlisten=tcp 0.0.0.0 5985 4 System\nadmin=True\n")
-	got := captureOutput(t, func() error { return runRoot(t, "facts", "win") })
-	for _, want := range []string{`"os_build":"17763"`, `"status":"supported"`, `"total":3`, `"port":5985`, `"admin":true`} {
-		if !strings.Contains(got, want) {
-			t.Errorf("facts lack %s: %s", want, got)
-		}
-	}
-	srv.take()
-}
-
-func TestWinSvcScriptQuoting(t *testing.T) {
-	s := winSvcScript("stop", []string{"W3SVC"}, false, 0)
-	if !strings.Contains(s, "Stop-Service -Name 'W3SVC'") {
-		t.Errorf("stop script:\n%s", s)
-	}
-	if s := winSvcScript("start", []string{"x'; Remove-Item C:\\ -Recurse; '"}, false, 0); !strings.HasPrefix(s, "[Console]::Error.WriteLine(") || strings.Contains(s, "Start-Service") {
-		t.Errorf("a name that is no service name must stop the script:\n%s", s)
-	}
-	if winSvcScript("reload", []string{"W3SVC"}, false, 0) != "" {
-		t.Error("reload has no Windows form")
-	}
-	s = winSvcScript("enable", []string{"sshd"}, true, 0)
-	if !strings.Contains(s, "Set-Service -Name 'sshd' -StartupType Automatic") || !strings.Contains(s, "Start-Service -Name 'sshd'") {
-		t.Errorf("enable --now:\n%s", s)
-	}
-	rr := &sshx.RunResult{Stdout: `#komando:json=[{"name":"W3SVC","state":"Stopped","found":true}]` + "\n#komando:rc=1\n"}
-	if _, e := winSvcActionResult("start", 0, rr); e == nil || e.Code != "SVC_FAILED" {
-		t.Errorf("rc=1: %v", e)
-	}
-	rr.Stdout = strings.Replace(rr.Stdout, "rc=1", "rc=0", 1)
-	if _, e := winSvcActionResult("start", 5, rr); e == nil || e.Code != "UNIT_NOT_ACTIVE" {
-		t.Errorf("stopped after --wait: %v", e)
-	}
-	list, _ := winSvcList("failed")(nil, &sshx.RunResult{Stdout: `#komando:json=[{"name":"a","state":"Stopped","start_mode":"Auto","exit_code":1067,"found":true},{"name":"b","state":"Stopped","start_mode":"Manual","found":true}]`})
-	if l, _ := list.([]winService); len(l) != 1 || l[0].Name != "a" {
-		t.Errorf("--failed = %v", list)
-	}
-}
-
 func TestWindowsSelectorsAndHosts(t *testing.T) {
 	st := testState()
 	st.Hosts["win-1"] = &store.Host{Name: "win-1", Address: "w.lan", OS: store.OSWindows}
@@ -324,11 +276,6 @@ func TestWinFactsSupport(t *testing.T) {
 	}
 	if u := f["updates"].(pendingUpdates); u.Total != nil {
 		t.Errorf("unreadable updates must be unknown, got %d", *u.Total)
-	}
-	var b strings.Builder
-	writeWinFactsHost(&b, "win", f)
-	if !strings.Contains(b.String(), "UNSUPPORTED") || !strings.Contains(b.String(), "REBOOT REQUIRED") {
-		t.Errorf("text:\n%s", b.String())
 	}
 	// Windows Server 2025 shipped in November 2024: its support ends on
 	// Microsoft's date, 2034-11-14

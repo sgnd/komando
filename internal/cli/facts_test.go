@@ -151,10 +151,6 @@ func TestParseListening(t *testing.T) {
 	if got[3].Port != 2377 || got[3].Address != "*" || got[4].Process != "" {
 		t.Errorf("rest: %+v", got[3:])
 	}
-	l := listenFacts{Ports: got}
-	if s := portsText(l); !strings.Contains(s, "22 sshd") || !strings.Contains(s, "3000 (local only)") || strings.Count(s, "22 sshd") != 1 {
-		t.Errorf("text: %s", s)
-	}
 
 	ns := []string{
 		"Active Internet connections (only servers)",
@@ -347,15 +343,6 @@ func TestParseFactsUnsupportedUbuntu(t *testing.T) {
 	}
 	if !strings.Contains(string(b), `"security":null`) {
 		t.Errorf("security must be null in JSON: %s", b)
-	}
-
-	txt := factsText(probeData{Results: []probeRow{{Host: "app3", OK: true, Data: f}}})
-	for _, want := range []string{"● app3  Ubuntu 20.04.6 LTS", "UNSUPPORTED", "1 pending, security unknown", "REBOOT REQUIRED",
-		"restart needed: nginx.service", "sudo without password", "swarm manager · 14 running", "(deploy) api online",
-		"22 sshd, 3000 node (local only)", "pm2-deploy.service (active)", "warning: Ubuntu 20.04.6 LTS: standard support ended 2025-05-31"} {
-		if !strings.Contains(txt, want) {
-			t.Errorf("text misses %q:\n%s", want, txt)
-		}
 	}
 }
 

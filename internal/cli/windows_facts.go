@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -12,7 +11,7 @@ import (
 // with the PowerShell they run there.
 var windowsProbes = map[string]string{"facts": winFactsScript}
 
-// winFactsScript is `komando facts` on Windows: key=value lines, like
+// winFactsScript is the facts snippet on Windows: key=value lines, like
 // factsScript. It only reads. Pending updates come from the Windows Update
 // cache on the server (Online = false): it does not search for new ones.
 const winFactsScript = `$ErrorActionPreference = 'SilentlyContinue'
@@ -154,62 +153,4 @@ func winListen(v string) (listenPort, bool) {
 		lp.Process = p[4]
 	}
 	return lp, true
-}
-
-// writeWinFactsHost is the text view of one Windows server's facts.
-func writeWinFactsHost(b *strings.Builder, host string, f map[string]any) {
-	str := func(k string) string { s, _ := f[k].(string); return s }
-	num := func(k string) (int64, bool) { n, ok := f[k].(int64); return n, ok }
-	head := []string{dash(str("os_pretty"))}
-	if v := str("os_build"); v != "" {
-		head = append(head, "build "+v)
-	}
-	if n, ok := num("cpus"); ok {
-		head = append(head, fmt.Sprintf("%d cpu", n))
-	}
-	if n, ok := num("mem_total_mb"); ok {
-		head = append(head, fmt.Sprintf("%.1f GB RAM", float64(n)/1024))
-	}
-	if n, ok := num("disk_root_used_pct"); ok {
-		head = append(head, fmt.Sprintf("disk C: %d%%", n))
-	}
-	if n, ok := num("uptime_sec"); ok {
-		head = append(head, "up "+humanAge(time.Duration(n)*time.Second))
-	}
-	fmt.Fprintf(b, "● %s  %s\n", host, strings.Join(head, " · "))
-	line := func(label, v string) {
-		if v != "" {
-			fmt.Fprintf(b, "  %-10s %s\n", label+":", v)
-		}
-	}
-	if s, ok := f["os_support"].(osSupport); ok {
-		line("support", supportText(s))
-	}
-	var up []string
-	if u, ok := f["updates"].(pendingUpdates); ok {
-		up = append(up, countText(u.Total, "pending")+", "+countText(u.Security, "security"))
-	}
-	if lu, ok := f["last_update"].(map[string]string); ok {
-		up = append(up, "last installed "+lu["installed"])
-	}
-	if r, ok := f["reboot_required"].(bool); ok && r {
-		up = append(up, "REBOOT REQUIRED")
-	}
-	line("updates", strings.Join(up, " · "))
-	acc := []string{"user " + dash(str("login_user"))}
-	if a, ok := f["admin"].(bool); ok {
-		acc = append(acc, map[bool]string{true: "administrator", false: "not an administrator"}[a])
-	}
-	line("access", strings.Join(acc, " · "))
-	if s, ok := f["services_stopped"].([]string); ok && len(s) > 0 {
-		line("stopped", shortList(s, 8)+" (start: automatic)")
-	}
-	if l, ok := f["listening"].(listenFacts); ok {
-		line("ports", portsText(l))
-	}
-	if ws, ok := f["warnings"].([]string); ok {
-		for _, w := range ws {
-			fmt.Fprintf(b, "  warning: %s\n", w)
-		}
-	}
 }

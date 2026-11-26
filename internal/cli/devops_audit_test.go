@@ -8,8 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sgnd/komando/internal/out"
-	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -37,50 +35,8 @@ func blockedBy(d map[string]any) string {
 	return string(b)
 }
 
-func TestSvcStopSSHIsBlocked(t *testing.T) {
+func TestCertCheckRefusesWindows(t *testing.T) {
 	devopsHome(t)
-	for _, args := range [][]string{
-		{"svc", "stop", "web1", "ssh"},
-		{"svc", "stop", "web1", "ssh.service"},
-		{"svc", "stop", "web1", "nginx", "ssh.socket"},
-		{"svc", "disable", "web1", "ssh", "--now"},
-		{"svc", "disable", "web1", "sshd"},
-	} {
-		d := mustRun(t, append(args, "--dry-run")...)
-		if b := blockedBy(d); !strings.Contains(b, "sshd-stop") {
-			t.Errorf("%v: want the sshd-stop rule, got %s", args, b)
-		}
-	}
-	if b := blockedBy(mustRun(t, "svc", "restart", "web1", "ssh", "--dry-run")); b != "" {
-		t.Errorf("a restart keeps SSH up: %s", b)
-	}
-	wantCode(t, "POLICY_BLOCKED", "svc", "stop", "web1", "ssh")
-}
-
-func TestRebootRefusesWindowsFirst(t *testing.T) {
-	devopsHome(t)
-	for _, args := range [][]string{{"reboot", "win1", "--dry-run"}, {"reboot", "all", "--dry-run"}, {"reboot", "all"}} {
-		if e := wantCode(t, "NOT_SUPPORTED", args...); !strings.Contains(e.Message, "reboot") {
-			t.Errorf("%v: %s", args, e.Message)
-		}
-	}
-}
-
-func TestDryRunOnWindowsShowsWhatRuns(t *testing.T) {
-	devopsHome(t)
-	d := mustRun(t, "svc", "list", "win1", "--dry-run")
-	plan := d["would_run"].([]any)[0].(map[string]any)
-	if cmd := plan["remote_command"].(string); strings.Contains(cmd, "systemctl") {
-		t.Errorf("svc list on Windows shows the sh script: %s", cmd)
-	}
-	d = mustRun(t, "facts", "win1", "--dry-run")
-	if cmd := d["would_run"].(string); strings.Contains(cmd, "uname") {
-		t.Errorf("facts on Windows shows the sh script: %.80s", cmd)
-	}
-	d = mustRun(t, "facts", "web1,win1", "--dry-run")
-	if !strings.Contains(d["would_run"].(string), "uname") || d["would_run_on_windows"] == nil {
-		t.Errorf("mixed facts dry run: %v", d)
-	}
 	wantCode(t, "NOT_SUPPORTED", "cert", "check", "win1", "--dry-run")
 }
 
@@ -97,88 +53,6 @@ func TestDockerLogsSudo(t *testing.T) {
 	}
 }
 
-func TestNetHTTPChecksURLAndExpect(t *testing.T) {
-	devopsHome(t)
-	for _, args := range [][]string{
-		{"net", "http", "web2", "--", "-K/tmp/x.cfg"},
-		{"net", "http", "web1", "ftp://x"},
-		{"net", "http", "web1", "localhost:8080"},
-		{"net", "http", "web1", "http://x", "--expect", "abc"},
-		{"net", "http", "web1", "http://x", "--expect", "600"},
-	} {
-		wantCode(t, "USAGE", append([]string{"--dry-run"}, args...)...)
-	}
-	mustRun(t, "net", "http", "web1", "https://x/health", "--expect", "2XX", "--dry-run")
-	if !statusMatches(204, "2XX") || statusMatches(301, "2xx") {
-		t.Error("2XX must match like 2xx")
-	}
-	defer func(d time.Duration) { tcl.flags.timeout = d }(tcl.flags.timeout)
-	tcl.flags.timeout = 0
-	if curlSeconds(tcl) != 15 {
-		t.Error("curl's default limit is 15s")
-	}
-	tcl.flags.timeout = 5 * time.Second
-	if curlSeconds(tcl) != 4 {
-		t.Errorf("--timeout 5s: curl -m %d", curlSeconds(tcl))
-	}
-}
-
-func TestUserLockGuardsTheLogin(t *testing.T) {
-	devopsHome(t)
-	for want, args := range map[string][]string{
-		"komando out of web1: it is the user komando logs in as": {"user", "lock", "web1", "deploy"},
-		"root on web1: root is the account":                      {"user", "lock", "web1", "root"},
-		"komando out of web2: it is the user":                    {"user", "lock", "web1,web2", "ops"},
-		"deleting deploy locks komando out of web1":              {"user", "rm", "web1", "deploy"},
-	} {
-		d := mustRun(t, append(args, "--dry-run")...)
-		if b := blockedBy(d); !strings.Contains(b, want) {
-			t.Errorf("%v: want %q, got %s", args, want, b)
-		}
-	}
-	for _, sh := range []string{"/usr/sbin/nologin", "/bin/false"} {
-		for _, u := range []string{"deploy", "root"} {
-			if b := blockedBy(mustRun(t, "user", "add", "web1", u, "--shell", sh, "--dry-run")); b == "" {
-				t.Errorf("user add %s --shell %s is not blocked", u, sh)
-			}
-		}
-	}
-	if b := blockedBy(mustRun(t, "user", "add", "web1", "deploy", "--shell", "/bin/zsh", "--dry-run")); b != "" {
-		t.Errorf("a login shell is fine: %s", b)
-	}
-	if b := blockedBy(mustRun(t, "user", "add", "web1", "alice", "--shell", "/usr/sbin/nologin", "--dry-run")); b != "" {
-		t.Errorf("nologin for another user is fine: %s", b)
-	}
-	if b := blockedBy(mustRun(t, "user", "lock", "web1", "alice", "--dry-run")); b != "" {
-		t.Errorf("another user is fine: %s", b)
-	}
-	wantCode(t, "POLICY_BLOCKED", "user", "lock", "web1", "deploy")
-	if _, e := userResult("x", "locked", &sshx.RunResult{Stdout: "#komando:no-usermod\n", ExitCode: 127}); e == nil || e.Code != "TOOL_MISSING" {
-		t.Errorf("busybox without usermod: %v", e)
-	}
-}
-
-// user add and rm read the same markers through runFleet's exitMap.
-func TestShadowMissing(t *testing.T) {
-	for _, tool := range []string{"useradd", "userdel", "usermod"} {
-		e := shadowMissing(&sshx.RunResult{Stdout: "#komando:no-" + tool + "\n", Stderr: tool + " is missing on this server", ExitCode: 127})
-		if e == nil || e.Code != "TOOL_MISSING" || e.Exit != out.ExitNotFound || !strings.Contains(e.Message, tool) || !strings.Contains(e.Hint, "pkg install TARGET shadow") {
-			t.Errorf("%s: %+v", tool, e)
-		}
-	}
-	for _, rr := range []*sshx.RunResult{nil, {ExitCode: 1, Stderr: "useradd: user 'x' already exists"}, {Stdout: "#komando:no-user\n"}} {
-		if e := shadowMissing(rr); e != nil {
-			t.Errorf("%+v: unexpected %+v", rr, e)
-		}
-	}
-}
-
-func TestUserAddKeyAndPubkey(t *testing.T) {
-	devopsHome(t)
-	pub := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEqT3xpp0F3DOT3pR0ZJ0sJ1ttRKtz2E0yHkGQ5w5GKJl ci@example.com"
-	wantCode(t, "USAGE", "user", "add", "web1", "ci", "--key", "k1", "--pubkey", pub, "--dry-run")
-}
-
 func TestPkgUpdateTakesNoPackages(t *testing.T) {
 	devopsHome(t)
 	e := wantCode(t, "USAGE", "pkg", "update", "web1", "nginx", "--dry-run")
@@ -189,15 +63,6 @@ func TestPkgUpdateTakesNoPackages(t *testing.T) {
 }
 
 func TestWaitTakesDurations(t *testing.T) {
-	devopsHome(t)
-	mustRun(t, "svc", "restart", "web1", "nginx", "--wait", "10s", "--dry-run")
-	if _, e := invRun(t, "svc", "restart", "web1", "nginx", "--wait", "10", "--dry-run"); e == nil || !strings.Contains(e.Message, "10s") {
-		t.Errorf("--wait 10 names the units: %v", e)
-	}
-	if _, e := invRun(t, "svc", "restart", "web1", "nginx", "--wait", "soon", "--dry-run"); e == nil || !strings.Contains(e.Message, "--wait") {
-		t.Errorf("--wait soon: %v", e)
-	}
-	mustRun(t, "reboot", "web1", "--wait", "600s", "--dry-run")
 	for in, want := range map[string]time.Duration{"10s": 10 * time.Second, "2m": 2 * time.Minute, "1d": 24 * time.Hour} {
 		var d time.Duration
 		if err := (&durFlag{d: &d}).Set(in); err != nil || d != want {
@@ -208,19 +73,6 @@ func TestWaitTakesDurations(t *testing.T) {
 		if got := (&durFlag{d: &d}).String(); got != want {
 			t.Errorf("%v shows as %s, want %s", d, got, want)
 		}
-	}
-}
-
-func TestSvcListFailedAndState(t *testing.T) {
-	devopsHome(t)
-	wantCode(t, "USAGE", "svc", "list", "web1", "--failed", "--state", "running", "--dry-run")
-	mustRun(t, "svc", "list", "web1", "--failed", "--dry-run")
-}
-
-func TestContentListsTakeLs(t *testing.T) {
-	devopsHome(t)
-	for _, n := range []string{"svc", "cron", "user"} {
-		mustRun(t, n, "ls", "web1", "--dry-run")
 	}
 }
 

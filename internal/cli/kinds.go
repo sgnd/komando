@@ -123,11 +123,6 @@ var commandKinds = map[safetyKey]cmdKind{
 
 	{"", "cp", "copy"}: dependsOn("changes the destination: a server or bucket when it is the DST, only this computer when it is the SRC"),
 
-	{"host", "cron", ""}:     reads,
-	{"host", "cron", "list"}: reads,
-	{"host", "cron", "rm"}:   changes,
-	{"host", "cron", "set"}:  changes,
-
 	{"database", "", ""}:           reads,
 	{"database", "", "activity"}:   reads,
 	{"database", "", "backup"}:     reads,
@@ -169,7 +164,6 @@ var commandKinds = map[safetyKey]cmdKind{
 	{"", "download", "copy"}: reads,
 	{"host", "", "exec"}:     dependsOn(unlessReadOnly),
 	{"", "", "export"}:       reads,
-	{"host", "", "info"}:     reads,
 
 	{"host", "file", ""}:        reads,
 	{"host", "file", "cat"}:     reads,
@@ -238,12 +232,6 @@ var commandKinds = map[safetyKey]cmdKind{
 	{"logout", "", "aws"}: changes,
 	{"host", "", "logs"}:  reads,
 
-	{"host", "network", ""}:      reads,
-	{"host", "network", "check"}: reads,
-	{"host", "network", "dns"}:   reads,
-	{"host", "network", "http"}:  reads,
-	{"host", "network", "ports"}: reads,
-
 	{"host", "package", ""}:           reads,
 	{"host", "package", "install"}:    changes,
 	{"host", "package", "installed"}:  reads,
@@ -260,8 +248,6 @@ var commandKinds = map[safetyKey]cmdKind{
 	{"policy", "", "list"}:   reads,
 	{"policy", "", "edit"}:   changes,
 	{"policy", "", "show"}:   reads,
-
-	{"host", "", "restart"}: changes,
 
 	{"", "", "rename"}: changes,
 
@@ -318,18 +304,6 @@ var commandKinds = map[safetyKey]cmdKind{
 	{"storage", "object", "delete"}:   changes,
 	{"storage", "object", "upload"}:   changes,
 
-	{"host", "service", ""}:              reads,
-	{"host", "service", "daemon-reload"}: changes,
-	{"host", "service", "disable"}:       changes,
-	{"host", "service", "enable"}:        changes,
-	{"host", "service", "list"}:          reads,
-	{"host", "service", "logs"}:          reads,
-	{"host", "service", "reload"}:        changes,
-	{"host", "service", "restart"}:       changes,
-	{"host", "service", "start"}:         changes,
-	{"host", "service", "status"}:        reads,
-	{"host", "service", "stop"}:          changes,
-
 	{"", "sync", "copy"}: changes,
 	{"", "", "test"}:     reads,
 
@@ -339,13 +313,6 @@ var commandKinds = map[safetyKey]cmdKind{
 	{"host", "tunnel", "stop"}:  changes,
 
 	{"", "upload", "copy"}: changes,
-
-	{"host", "user", ""}:       reads,
-	{"host", "user", "add"}:    changes,
-	{"host", "user", "list"}:   reads,
-	{"host", "user", "lock"}:   changes,
-	{"host", "user", "rm"}:     changes,
-	{"host", "user", "unlock"}: changes,
 
 	{"", "", "update"}:  changes,
 	{"", "", "version"}: reads,

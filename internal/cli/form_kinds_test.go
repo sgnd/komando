@@ -255,9 +255,9 @@ func TestFormDestructive(t *testing.T) {
 		"registry oci image prune r repo": true, "cluster scale k deployment/api 0": true,
 		"cluster scale k deployment/api 3": false, "host add web1 root@10.0.0.5": false,
 		"fs rm web1 /srv/old --recursive": true, "docker rm web1 api": true, "docker prune web1 --all": true,
-		"user rm web1 bob --remove-home": true, "db user rm db1 bob": true, "db user list db1": false,
+		"db user rm db1 bob": true, "db user list db1": false,
 		"secret rm db-pass": true, "key rm k1 --delete-file": true, "key rm k1": false,
-		"pkg rm web1 nginx": true, "cron rm web1 backup": true, "host rm web1": false,
+		"pkg rm web1 nginx": true, "host rm web1": false,
 	}
 	for line, want := range cases {
 		if got := riskOfLine(strings.Fields(line)).typedWhat() != ""; got != want {
