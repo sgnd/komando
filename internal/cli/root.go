@@ -100,8 +100,7 @@ func (cl *call) execute(ctx context.Context, args []string) int {
 	// them, and an agent's call must count there before they do
 	cl.enter()
 	defer cl.leave()
-	// errors raised before flag parsing still need the right format; the
-	// command before in this call does not choose it
+	// errors before flag parsing still need the right format (not the previous command's)
 	if agent, ok := guardHookArgs(args); ok {
 		return runGuardHook(cl, agent)
 	}
