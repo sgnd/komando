@@ -3,7 +3,7 @@
 The words of every line komando writes for a person: questions and
 confirms, the approval window, warnings and notes, dry-run and `Next:`
 lines, success and empty lines, errors and hints, progress and Ctrl-C
-lines, `doctor` and the guide. Help text follows the
+lines and `doctor`. Help text follows the
 [command standard](command-standard.md) (S-6); only its words follow this
 page. This page adds to the command standard and does not repeat it: S-7
 (confirms), S-8 (errors and hints) and S-9 (output) still hold. The
@@ -50,7 +50,7 @@ plus "a hint never starts with `nothing was`"]
 
 - A *fragment* starts lower-case and has no full stop: `error.message`,
   `error.hint`, warning text, `meta.*` notes, result headlines on stdout
-  (`added web2`, `` no SSH keys yet: `komando key gen NAME` ``), table cells,
+  (`added web2`, `` no SSH keys yet: `komando credential key create NAME` ``), table cells,
   the text after a label. Clauses join with `:` or `;`. A proper name,
   code or flag keeps its own case (`Swarm keeps …`, `KOMANDO_OUTPUT=…`).
 - A *sentence* starts with a capital and ends with `.`, or `?` for a
@@ -77,25 +77,26 @@ capital: a label from this closed set, then a fragment, or a sentence.
 | `Using` | the one item komando picked for a missing argument |
 
 `komando:` starts a line only where a server's output shares the screen:
-status lines of shell, logs -f, cluster exec/forward, vpn up and sign-in,
-tunnels. Lines under a question are indented: `  ! problem`, `  komando …`.
+status lines of every `shell`, `host ssh exec --attach`,
+`cluster kubernetes exec`, `vpn PROVIDER start` and sign-in, and tunnels. Lines under a question are indented: `  ! problem`, `  komando …`.
 [test: every literal written to os.Stderr or promptW starts with a label,
 a capital, `komando:`, two spaces, `$ komando` or a newline]
 
 ## Words
 
-**M-5 One term for one thing,** the same word as the command noun.
+**M-5 One term for one thing,** the same word as the type or noun of the command.
 [test: word list over catalog, Errf/Usage, Warn, prompt ask/help]
 
 | Thing | Word | Not |
 |---|---|---|
 | a `host` entry | server (`host` only as the command) | host, machine, node |
-| a non-SSH target | conn; the family word when known (database, cache …) | service, resource, connection |
-| komando's list of servers, conns and VPNs | your list | inventory (help group title only, S-6.11) |
-| a vault value | secret (a login password stays "password") | credential, saved password |
+| one thing in komando's list | entry; the type's own word when known (database, cache …) | conn, service, resource, connection |
+| komando's list of entries | your list | inventory (help group title only, S-6.11) |
+| what komando logs in with | credential (a login password stays "password") | saved password |
+| a value that stays hidden | secret | |
 | an SSH key komando knows | key / SSH key | keypair, identity |
 | `@name` | group | set, collection |
-| `job start` work | job | task, background command |
+| an `exec` run on the server | exec session | job, task, background command |
 | a deny rule a person added | your deny rule | custom deny pattern |
 | a folder | folder | directory |
 
@@ -183,7 +184,7 @@ go through `Say`, as sentences (M-3). An agent's hint says "ask the user",
 never "you". [review]
 
 **M-15 Other programs' words are data.** The API's own errors in kctl
-("Error from server ..."), db shell's psql-style lines, cache redis raw replies,
+("Error from server ..."), the psql-style lines of `database PROVIDER shell`, `cache PROVIDER raw` replies,
 server output and strings matched against other programs' errors keep their
 own words. kctl's own errors keep kubectl's framing (`error: ` on stderr,
 exit 1) but their words follow these rules, and the tests read them

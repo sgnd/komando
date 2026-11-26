@@ -4,128 +4,130 @@ See and change what runs in Kubernetes and Docker Swarm with one set of
 commands. You do not need `kubectl` or `docker` on your computer: komando
 speaks to the cluster itself. [All docs](README.md)
 
+A cluster command is `komando cluster PROVIDER VERB NAME`: the provider is
+`kubernetes` or `swarm`, and NAME is the cluster's name in komando's list.
+Looking, deploying and changing all go through one verb, `raw`: the words
+after `--` are kubectl's (or docker's), and komando checks them before it
+sends them. Only `exec`, `shell` and `tunnel` are komando's own verbs, on
+`cluster kubernetes`.
+
 ## Check a cluster's health
 
 ```bash
-komando import kubeconfig                  # one conn per kubeconfig context (see Add a cluster)
-komando conn rename my-ctx-name prod-k8s   # give it a short name (import names it after the context)
-komando cluster status prod-k8s            # version, nodes, and every problem
+komando cluster kubernetes list                                 # your Kubernetes clusters
+komando test prod-k8s                                           # can komando reach it and log in?
+komando cluster kubernetes raw prod-k8s -- get nodes
+komando cluster kubernetes raw prod-k8s -- get pods -A --field-selector=status.phase!=Running
 ```
 
-Typed alone at a terminal, `komando cluster status` asks which cluster,
-with a list of yours to pick from.
+Typed alone at a terminal, `komando cluster kubernetes raw` asks which
+cluster, with a list of yours to pick from, then what to run.
 
 ```text
-prod-k8s: version v1.30.4, 3 of 3 nodes ready
-not healthy: 2 problems
-OBJECT                 PROBLEM
-pod/shop/api-7d9f-x2   api: CrashLoopBackOff
-deployment/shop/api    1 of 3 replicas ready
+NAMESPACE  NAME                  READY  STATUS            RESTARTS  AGE
+shop       api-7d9f-x2           0/1    CrashLoopBackOff  14        2d
 ```
 
-`cluster status` lists each problem by name: pods that crash or cannot
-start, deployments, StatefulSets and DaemonSets short of replicas, and
-nodes under pressure (`MemoryPressure`). With none it says
-`healthy: no problems found` (`healthy: true` in JSON). On Swarm it lists
-nodes that are down or drained and services short of replicas, with the
-error of each task that does not run.
+The first command shows the nodes, the second the pods that are not
+running. On Swarm, the same questions are `node ls` and `service ls`:
 
-The same commands work on Kubernetes and on Docker Swarm.
+```bash
+komando cluster swarm raw swarm1 -- node ls                     # nodes that are down or drained
+komando cluster swarm raw swarm1 -- service ls                  # services short of replicas
+```
+
+komando no longer builds a one-page health summary of a cluster. The
+questions above are the way to ask it.
 
 ## Add a cluster
 
 ### Kubernetes
 
-komando reads your kubeconfig (the login file `kubectl` uses, usually
-`~/.kube/config`) and adds one conn per context (one cluster and user in
-that file):
+komando keeps the cluster's kubeconfig (the login file `kubectl` uses) as
+a credential and an entry points at it. The kubeconfig is never typed on a
+command line, and there is no import of a kubeconfig file. One entry holds
+one context (one cluster and user in that file):
 
 ```bash
-komando import kubeconfig --dry-run           # see what would be added
-komando import kubeconfig                     # reads $KUBECONFIG, else ~/.kube/config
-komando conn edit prod-k8s --via bastion      # API server on a private network? reach it like anything else
+komando credential token add prod-kubeconfig                    # the kubeconfig, prod.kubeconfig
+komando cluster kubernetes add prod-k8s --kubeconfig-credential prod-kubeconfig --context prod
+komando cluster kubernetes edit prod-k8s --via bastion          # API server on a private network? reach it like anything else
 ```
 
-Typed alone at a terminal, `komando cluster add` asks whether it is
-Kubernetes (then for your kubeconfig file) or Docker Swarm (then for a
-manager's address).
+TODO(cut): how a kubeconfig file is given to `credential token add` waits
+on the `Options` of that leaf (PR B).
+
+Typed alone at a terminal, `komando cluster kubernetes add` asks for each
+part step by step.
 
 How the login works:
 
-- komando keeps each context's kubeconfig in the vault.
+- komando keeps each context's kubeconfig in a credential.
 - It makes the EKS and GKE logins itself (`aws eks get-token`,
   `aws-iam-authenticator`, `gke-gcloud-auth-plugin`), so you do not need
   those programs. That login is made from this computer's AWS or Google
   Cloud login and sent to the kubeconfig's server, so an AI agent needs a
-  person's yes (`--yes`) to import such a kubeconfig. It goes only over
+  person's yes (`--yes`) to add such a cluster. It goes only over
   https with the server's certificate checked: a server at `http://`, or
   `insecure-skip-tls-verify` with no CA, stops with a usage error.
 - Any other login program the kubeconfig names runs on this computer, so
-  an AI agent needs a person's yes (`--yes`) to import it, as with a
+  an AI agent needs a person's yes (`--yes`) to add it, as with a
   server's `--proxy-command`.
-- Your own import records which file that program is (its full path) and
-  the `PATH` of the import. An AI agent's command runs that file with that
+- A cluster you add records which file that program is (its full path) and
+  the `PATH` of the command. An AI agent's command runs that file with that
   `PATH`, your real home folder and only a few plain variables (user,
   language, screen, temp folder) of its own environment: what the program
   needs beyond those goes in the kubeconfig's `env`. If the file is one
   that programs of your user can replace (Homebrew's `bin`,
   `~/.local/bin`, or on Windows a folder under Program Files that an
   installer let every user write) and its contents changed, for example after an update,
-  agents are asked again until you import the kubeconfig again.
-- An import an AI agent made with your yes trusts nothing for later: its
+  agents are asked again until you add the cluster again.
+- A cluster an AI agent added with your yes trusts nothing for later: its
   cluster commands ask you each time, and after your yes the program runs
-  with the system's `PATH`. Import the kubeconfig yourself to trust it.
+  with the system's `PATH`. Add the cluster yourself to trust it.
 - When that program is missing, cluster commands stop with `TOOL_MISSING`
   (exit 3) and the kubeconfig's own `installHint`. When it runs but cannot
   log in (it may want a person to sign in first), they stop with
   `LOGIN_FAILED` (exit 4).
-- Once a person imported (or allowed) a kubeconfig, agents use the conn
-  without asking. If the kubeconfig in the vault changes to another program
-  or anything in its cluster block (the server, its CA, `tls-server-name`,
-  `proxy-url`, `insecure-skip-tls-verify`; `secret set`), or reads its
+- Once a person added (or allowed) a cluster, agents use the entry
+  without asking. If the kubeconfig in its credential changes to another
+  program or anything in its cluster block (the server, its CA,
+  `tls-server-name`, `proxy-url`, `insecure-skip-tls-verify`), or reads its
   token from a local file (`tokenFile`), every agent command asks again,
-  reads included, until a person imports it again. This holds for the EKS
-  and GKE logins too.
+  reads included, until a person adds the cluster again. This holds for the
+  EKS and GKE logins too.
 
 komando checks the API server's certificate against the kubeconfig's CA.
 A context with `insecure-skip-tls-verify` and no CA skips that check, as
-kubectl does; the import names it in its notes, because its login goes
+kubectl does; the add names it in its notes, because its login goes
 to whoever answers at that address. With a CA, the certificate is always
 checked, even if `insecure-skip-tls-verify` is set too.
 
-To add one cluster by hand, store its kubeconfig in the vault first, then
-name it with `cluster add` (the same as `conn add`, but it refuses a URL
-that is not a cluster):
-
-```bash
-komando secret set prod-kubeconfig < prod.kubeconfig
-komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref secret:prod-kubeconfig
-```
-
 ### Docker Swarm
 
-A Swarm is reached through a manager server: add the manager as a server
-and give it the tag `swarm`, so a group or `all` picks it as a cluster too
-(see [Many clusters at once](#many-clusters-at-once)):
+A Swarm is reached through a manager server, and it is its own entry under
+the provider `swarm`:
 
 ```bash
-komando host add swarm1 admin@10.0.0.10 --tag swarm
-komando host edit swarm1 --add-tag swarm     # a manager already in your list
+komando cluster swarm add swarm1
+komando test swarm1
 ```
 
-`komando cluster add` typed alone at a terminal adds the tag for you when
-you answer Docker Swarm.
+Typed alone at a terminal, `komando cluster swarm add` asks for each part
+step by step.
+
+TODO(cut): how a Swarm entry names its manager server (today a server
+tagged `swarm`) waits on O-41.
 
 ### Remove a cluster from komando
 
 ```bash
-komando conn rm prod-k8s                 # komando forgets it; the cluster is not touched
-komando secret rm prod-kubeconfig        # its kubeconfig, once nothing uses it
+komando cluster kubernetes remove prod-k8s       # komando forgets it; the cluster is not touched
+komando credential token remove prod-kubeconfig  # its kubeconfig, once nothing uses it
 ```
 
-`conn rm` lists the vault secrets nothing uses any more
-(`secrets_unused`). `cluster rm` is different: it deletes an object inside
-the cluster.
+`remove` takes the cluster off komando's list only. Deleting an object
+inside the cluster is `delete` through `raw`.
 
 ## Name objects
 
@@ -133,247 +135,196 @@ Every command names objects the way kubectl does: `TYPE NAME` or
 `TYPE/NAME` (`deployment api`, `deploy/api`, `deployment.apps/api`). If you
 mistype a kind, the error suggests the one you probably meant.
 
-- Name a namespace (see [Glossary](glossary.md)) with `--namespace`, or
-  `-n` as in kubectl. Without it, komando uses the cluster's usual
-  namespace: the one its kubeconfig context names, else `default`. Change
-  it for good with `komando conn edit prod-k8s --option namespace=shop`.
-- How many lines or objects to show is `--limit` (it has no short form in
-  cluster commands). A number after `-n` (`-n 50`) is refused, with a
-  hint: write `--limit 50`, or `--namespace=50` for a namespace named 50.
-- `-A` (`--all-namespaces`) works on `list`, `events` and `helm list`. It
-  cannot go with `--namespace`.
+- Name a namespace (see [Glossary](glossary.md)) with kubectl's `-n` after
+  the `--`. Without it, komando uses the cluster's usual namespace: the one
+  its kubeconfig context names, else `default`. Change it for good with
+  `komando cluster kubernetes edit prod-k8s --option namespace=shop`.
+- `-A` (`--all-namespaces`) is kubectl's too: `get pods -A`.
 - Swarm kinds are `service` (`svc`), `task`, `node` and `stack`. Swarm
-  has no namespaces, so `--namespace` is refused there.
+  has no namespaces.
+
+TODO(cut): the komando-side cluster flags (`--namespace`,
+`--all-namespaces`, `--selector`, `--revision`) wait on the `Options` of
+each leaf in the table (PR C).
 
 ## Look around
 
 ```bash
-komando cluster status prod-k8s --namespace shop                # only the problems in one namespace
-komando cluster list prod-k8s pods --namespace shop
-komando cluster list prod-k8s deploy -A                         # every namespace
-komando cluster list prod-k8s pods -l app=api                   # only objects with these labels
-komando cluster describe prod-k8s deployment/api --namespace shop   # images, strategy, pods, events
-komando cluster events prod-k8s --namespace shop --warnings     # what went wrong, oldest first
-komando cluster events prod-k8s --for deployment/api --namespace shop
-komando cluster get prod-k8s deploy/api --namespace shop        # the whole object (Secret values hidden)
+komando cluster kubernetes raw prod-k8s -- get pods -n shop
+komando cluster kubernetes raw prod-k8s -- get deploy -A                     # every namespace
+komando cluster kubernetes raw prod-k8s -- get pods -n shop -l app=api       # only objects with these labels
+komando cluster kubernetes raw prod-k8s -- describe deployment/api -n shop   # images, strategy, pods, events
+komando cluster kubernetes raw prod-k8s -- get events -n shop --field-selector type=Warning --sort-by=.lastTimestamp
+komando cluster kubernetes raw prod-k8s -- get deploy/api -n shop -o yaml    # the whole object (Secret values hidden)
 
-komando cluster status swarm1                                   # a Swarm manager
-komando cluster list swarm1 services                            # also: tasks, nodes, stacks
-komando cluster describe swarm1 service/web                     # image, replicas, update state, task errors
+komando cluster swarm raw swarm1 -- service ls
+komando cluster swarm raw swarm1 -- service ps web                           # tasks of a service
+komando cluster swarm raw swarm1 -- service inspect web --pretty             # image, replicas, update state
 ```
 
-Typed alone at a terminal, `komando cluster list` asks for the cluster,
-then what to list (pods by default).
-
 ```text
-$ komando cluster list prod-k8s deploy --namespace shop
+$ komando cluster kubernetes raw prod-k8s -- get deploy -n shop
 NAME   READY   UP-TO-DATE   AVAILABLE   AGE
 api    3/3     3            3           12d
 web    2/2     2            2           40d
 ```
 
-`cluster list` shows the useful columns for each kind: ready replicas,
-restarts, ingress hosts, volume claims, job completions, cron schedules and
-autoscaler targets. In text mode the tables look like kubectl's
-(`NAME READY STATUS RESTARTS AGE NODE` for pods). In JSON the same rows are
-under `data.items[]`, for Kubernetes and Swarm alike.
+In text mode the tables look like kubectl's. In JSON the reply is under
+`data`.
 
-In JSON, `cluster describe` of a Kubernetes object also gives
-`data.detail`, made for a program to read: `kind`, `name`, `namespace`,
-`status` (a pod's phase, `ready 2/3` for a workload), `created_at`,
-`labels`, `conditions[]` (`type`, `status`, `reason`, `message`) and
-`events[]` (`type`, `reason`, `message`, `count`, `last_seen_at`). It never
-holds a Secret's values.
+`raw` takes one cluster (NAME). To look at several, run it once for each.
 
-### Many clusters at once
+### Helm releases
 
-`cluster status`, `cluster list`, `cluster events` and `cluster helm list`
-take a selector that picks several clusters: a group, `kind:k8s`, a tag or
-`all`. komando reads them at the same time and shows one block per
-cluster. A server counts as a Swarm manager there only when it has the tag
-`swarm` or is named in the selector; other servers are listed in
-`meta.skipped`:
+komando does not run the `helm` program. Helm keeps each release as a Secret
+in the cluster, so the releases and their revisions are listed with
+kubectl:
 
 ```bash
-komando cluster status kind:k8s                  # health of every Kubernetes cluster
-komando cluster events tag:prod --warnings -A    # what goes wrong anywhere in production
-komando cluster list all nodes
+komando cluster kubernetes raw prod-k8s -- get secrets -A -l owner=helm
+komando cluster kubernetes raw prod-k8s -- get secrets -n shop -l name=shop-api,owner=helm
 ```
 
-In JSON each cluster is a row of `data.results[]` (`cluster`, `engine`,
-`ok`, and its `data` or `error`), with `data.summary`. A cluster that
-cannot be read fails alone: the others still show, and the command ends
-with `PARTIAL_FAILURE`. One cluster gives the same output as always.
-Commands that change a cluster (`apply`, `deploy`, `restart`, `scale`,
-`rm`, `rollback`) and a rollout's `status` stay on one cluster.
+The kubeconfig's user needs to list Secrets in that namespace
+(`K8S_FORBIDDEN` otherwise). Install, upgrade and rollback of a release
+stay with `helm`. To change what runs from komando, set a new image or
+apply manifests, for example the output of `helm template`: see
+[Deploy a new version](#deploy-a-new-version-and-roll-back).
 
-### Helm releases (read-only)
-
-komando reads the Helm releases stored in the cluster, without the `helm`
-program. It only reads: install, upgrade and rollback stay with `helm`. To
-change what runs from komando, `cluster deploy` sets a new image with a
-rollout you can wait for, and `cluster apply` applies manifests, for
-example the output of `helm template` (a server dry run checks them
-first).
-
-```bash
-komando cluster helm list prod-k8s -A                                   # name, revision, status, chart, app version
-komando cluster helm status prod-k8s shop-api --namespace shop          # deployed when, description, notes
-komando cluster helm history prod-k8s shop-api --namespace shop
-komando cluster helm values prod-k8s shop-api --namespace shop          # the values it was installed with
-komando cluster helm values prod-k8s shop-api --namespace shop --all    # with the chart's defaults
-```
-
-`--revision N` shows an older revision in `status` and `values`. Helm keeps
-releases as Secrets, so the kubeconfig's user needs to list Secrets in that
-namespace (`K8S_FORBIDDEN` otherwise). For an AI agent, passwords and
-tokens in the values show as `[hidden]`, as everywhere.
+TODO(cut): reading a release's values, status and history waits on the
+decision whether `raw` runs `helm` words (the replaced `cluster helm`
+commands of the cut plan, section 1.6).
 
 ## Read logs
 
 ```bash
-komando cluster logs prod-k8s api-7d9f-x2 --namespace shop --since 10m --limit 100   # one pod
-komando cluster logs prod-k8s deploy/api --namespace shop -f                         # every pod of a workload, following
-komando cluster logs prod-k8s -l app=api --namespace shop --limit 50                 # every pod with a label
-komando cluster logs prod-k8s api-7d9f-x2 --namespace shop --previous                # the run before the last restart
-komando cluster logs swarm1 service/web -f --timeout 1m                              # a Swarm service
+komando cluster kubernetes raw prod-k8s -- logs api-7d9f-x2 -n shop --since=10m --tail=100   # one pod
+komando cluster kubernetes raw prod-k8s -- logs deploy/api -n shop -f                        # a workload, following
+komando cluster kubernetes raw prod-k8s -- logs -l app=api -n shop --tail=50                 # every pod with a label
+komando cluster kubernetes raw prod-k8s -- logs api-7d9f-x2 -n shop --previous               # the run before the last restart
+komando cluster swarm raw swarm1 -- service logs web -f --tail 100                           # a Swarm service
 ```
-
-Typed alone at a terminal, `komando cluster logs` asks for the cluster,
-then the pod or workload.
 
 ```text
-[api-7d9f-x2] GET /health 200 1ms
-[api-7d9f-k4] GET /orders 500 32ms
+GET /health 200 1ms
+GET /orders 500 32ms
 ```
 
-- When several pods answer, each line starts with `[pod]`. JSON names the
-  `object` and its `pods`.
 - `-f` keeps reading new lines. Ctrl-C or `--timeout` ends it normally.
 - `--since` takes a duration (`10m`, `2h`) or a time (`2026-01-02T10:00:00Z`).
 - `--timestamps` starts each line with its time; `-c` picks a container.
-- In JSON, `data.lines[]` has each line on its own: `logged_at` (its time),
-  `pod`, `container` and `text`. `data.truncated` (and `meta.truncated`) is
-  true when a pod sent `--limit` lines, so it may have older ones.
-  `--limit 0` reads every line.
+- `logs -f` prints lines as they come and follows all selected pods at once
+  (`--max-log-requests`, 5 by default).
 
 ## Deploy a new version, and roll back
 
 ```bash
-komando cluster deploy prod-k8s deployment/api --image ghcr.io/acme/api:1.4.3 --namespace shop --wait
-komando cluster status prod-k8s deployment/api --namespace shop --wait    # has it rolled out?
-komando cluster history prod-k8s deployment/api --namespace shop          # revisions and their images
-komando cluster rollback prod-k8s deployment/api --namespace shop --wait  # back to the previous one
-komando cluster rollback prod-k8s deployment/api --revision 3 --namespace shop  # back to revision 3
+komando cluster kubernetes raw prod-k8s --write -- set image deployment/api api=ghcr.io/acme/api:1.4.3 -n shop
+komando cluster kubernetes raw prod-k8s -- rollout status deployment/api -n shop    # has it rolled out?
+komando cluster kubernetes raw prod-k8s -- rollout history deployment/api -n shop   # revisions and their images
+komando cluster kubernetes raw prod-k8s --write -- rollout undo deployment/api -n shop                  # back to the previous one
+komando cluster kubernetes raw prod-k8s --write -- rollout undo deployment/api --to-revision=3 -n shop  # back to revision 3
 
-komando cluster deploy swarm1 service/web --image nginx:1.27 --wait
-komando cluster rollback swarm1 service/web --wait
+komando cluster swarm raw swarm1 --write -- service update --image nginx:1.27 web
+komando cluster swarm raw swarm1 --write -- service rollback web
 ```
 
-Typed alone at a terminal, `komando cluster deploy` asks for the cluster,
-the workload and the new image.
+Typed alone at a terminal, `komando cluster kubernetes raw` asks for the
+cluster, then the command.
 
-With several containers in a pod, name the one that gets the image with
-`--container` (or `--image CONTAINER=IMAGE`).
+`set image` takes `CONTAINER=IMAGE`, so with several containers in a pod
+it names the one that gets the image. `rollout status` stays until every
+replica runs the new version and ends with kubectl's own words when it does
+not; `--timeout` (global, default 5 minutes) stops the wait.
 
-`--wait` stays until every replica runs the new version. It stops with:
+`rollout undo` without `--to-revision` goes to the previous revision. With
+`--to-revision` it goes to that one.
 
-| Code | When |
-|------|------|
-| `ROLLOUT_FAILED` (exit 5) | the cluster gives up, or pods sit in `ImagePullBackOff`, `CrashLoopBackOff` and the like for 3 minutes |
-| `ROLLOUT_TIMEOUT` (exit 7) | `--timeout` passed (default 5 minutes) |
-
-Both name the stuck pods (or Swarm tasks), why they are stuck, and their
-image. Run `cluster rollback` to go back.
-
-`rollback` without `--revision` goes to the newest earlier revision with
-different images. The revision it replaced (the broken one) is then
-skipped, so rolling back twice does not bring it back. `--revision` picks
-any revision: one that does not exist lists the ones that do, and the
-current one changes nothing (`unchanged`). On Swarm, a rollback you start
-is followed to its end, not reported as a failed update.
+Run a change with `--dry-run` first: komando sends it to the server as a
+server-side dry run, and it never blocks.
 
 ## Change the cluster
 
 ```bash
-komando cluster apply prod-k8s --file app.yaml --dry-run       # the server checks it; nothing changes
-komando cluster apply prod-k8s --file app.yaml                 # created / configured / unchanged per object
-komando cluster restart prod-k8s deployment/api --namespace shop --wait
-komando cluster scale prod-k8s deployment/api 3 --namespace shop --wait
-komando cluster rm prod-k8s pod/api-7d9f-x2 --namespace shop
+komando cluster kubernetes raw prod-k8s --write --dry-run -- apply -f app.yaml   # the server checks it; nothing changes
+komando cluster kubernetes raw prod-k8s --write -- apply -f app.yaml             # created / configured / unchanged per object
+komando cluster kubernetes raw prod-k8s --write -- rollout restart deployment/api -n shop
+komando cluster kubernetes raw prod-k8s --write -- scale deployment/api --replicas=3 -n shop
+komando cluster kubernetes raw prod-k8s --write -- delete pod/api-7d9f-x2 -n shop
 
-komando cluster apply swarm1 --file compose.yml --stack shop --dry-run   # checked like docker stack config
-komando cluster apply swarm1 --file compose.yml --stack shop
-komando cluster scale swarm1 service/web 4
+komando cluster swarm raw swarm1 --write --dry-run -- stack deploy -c compose.yml shop
+komando cluster swarm raw swarm1 --write -- stack deploy -c compose.yml shop
+komando cluster swarm raw swarm1 --write -- service scale web=4
 ```
 
-- `apply` first sends the whole file to the server as a dry run. If the
-  cluster refuses one object (a typo, an unknown field or kind), it stops
-  there and nothing in the file is applied (`K8S_INVALID`, "nothing was
-  applied: configmap/bad: ...").
-- `apply` uses server-side apply as `komando`. A field another tool owns
-  (an autoscaler's replicas, a `kubectl edit`) stops it with `K8S_CONFLICT`,
-  which names that tool and the fields, and nothing is applied. Leave those
-  fields out of the file, or add `--force-conflicts` to take them over (as
+- `apply` sends the file to the server as a dry run first with
+  `--dry-run`. If the cluster refuses one object (a typo, an unknown field
+  or kind), it stops there and nothing in the file is applied
+  (`K8S_INVALID`).
+- A field another tool owns (an autoscaler's replicas, a `kubectl edit`)
+  stops `apply` with `K8S_CONFLICT`, which names that tool and the fields,
+  and nothing is applied. Leave those fields out of the file, or add
+  `--force-conflicts` after the `--` to take them over (as
   `kubectl apply --server-side --force-conflicts` does). It is still a
   change: a protected cluster needs a person's yes, as without it.
-- `apply --dry-run` shows for each object whether it would be created,
-  changed or stay the same, with a diff. Secret values never show: a changed
-  value reads `[hidden, changed]`. Objects in a namespace that the same file
-  creates are reported as created too. `--file -` reads from stdin.
-- An object whose namespace in the file differs from `--namespace` is
-  refused, as kubectl does.
-- `scale` reports `previous_replicas` (or `unchanged`).
+- A dry run of `apply` shows what would be created or changed. Secret
+  values never show for an AI agent.
+- An object whose namespace in the file differs from `-n` is refused, as
+  kubectl does.
 - A protected cluster needs a person's yes before any change.
-- Scaling to 0 and `rm` stop things. At your terminal komando asks you
-  first: type the object's name (`Type the name api-7d9f-x2 to continue`);
-  any other answer, the cluster's name too, changes nothing. An AI agent or
-  a script adds `--allow-dangerous` after a person agrees. See
-  [Safety](safety.md#what-needs-a-yes).
+- Scaling to 0 and `delete` stop things. An AI agent or a script adds
+  `--allow-dangerous` after a person agrees; without it, it gets
+  `POLICY_BLOCKED` (exit 6). See [Safety](safety.md#what-needs-a-yes).
+  One loss to know: through `raw`, a person at a terminal is asked only for
+  `--allow-dangerous`, no longer to type the object's name. For a cluster
+  that matters, mark it protected (`komando cluster kubernetes edit
+  prod-k8s --protected`), which adds a person's yes to every change.
 
 ## Work inside a pod
 
 ```bash
-komando cluster exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml
-komando cluster exec prod-k8s api-7d9f-x2 -c api --namespace shop -- php artisan cache:clear
-komando cluster forward prod-k8s svc/api 8080:80 --namespace shop   # 127.0.0.1:8080 until Ctrl-C
-komando cluster shell prod-k8s deploy/api --namespace shop          # interactive, for people
+komando cluster kubernetes exec prod-k8s deploy/api -n shop --read-only -- cat /app/config.yml
+komando cluster kubernetes exec prod-k8s api-7d9f-x2 -c api -n shop -- php artisan cache:clear
+komando cluster kubernetes tunnel start prod-k8s svc/api 8080:80 -n shop   # 127.0.0.1:8080 until Ctrl-C
+komando cluster kubernetes shell prod-k8s deploy/api -n shop                # interactive, for people
 ```
 
-- `cluster exec` runs one command (not interactive). The
+- `exec` runs one command (not interactive). The
   dangerous-command filter checks it, as with `exec` on servers.
   `--read-only` says it only looks, checked as for `exec`: only a
   command komando knows only reads runs (`cat`, `ls`, `printenv` ...);
   anything else is refused (`READ_ONLY_VIOLATION`; see [Commands](commands.md#protected-servers-and---read-only)).
-- `cluster forward` makes a pod or service port reachable on this
+- `cluster kubernetes tunnel start` makes a pod or service port reachable on this
   computer only (127.0.0.1). For a service, the service port is forwarded to
   the pod port behind it. Ctrl-C or `--timeout` ends it normally. What goes
   through it skips komando's checks, so a protected cluster asks first
-  (`--yes`), and the audit log records the forward.
-- `cluster shell` opens a terminal in the pod (bash, else sh) for a
+  (`--yes`), and the audit log records the tunnel.
+- `shell` opens a terminal in the pod (bash, else sh) for a
   person, and asks first on a protected cluster. Agents get
-  `NEEDS_TERMINAL` and use `cluster exec` instead.
+  `NEEDS_TERMINAL` and use `exec` instead.
 - komando speaks Kubernetes' exec and port-forward protocols itself:
   WebSocket, and SPDY on clusters older than Kubernetes 1.30, as kubectl
   does. A pod or service that does not exist is "not found" (exit 3).
 
 ## Anything else kubectl or docker can do
 
+`raw` sends any kubectl command. It only reads unless you add `--write`:
+
 ```bash
-komando cluster run prod-k8s -- get pods -A -o wide
-komando cluster run prod-k8s --write -- rollout undo deployment/api -n shop
-komando cluster run swarm1 -- service ps web
+komando cluster kubernetes raw prod-k8s -- get pods -A -o wide
+komando cluster kubernetes raw prod-k8s --write -- rollout undo deployment/api -n shop
+komando cluster swarm raw swarm1 -- service ps web
 ```
 
-On Kubernetes, `cluster run` is komando's own kubectl. It understands kubectl
-commands and prints what kubectl prints, through the conn's `--via` path,
+On Kubernetes, `raw` is komando's own kubectl. It understands kubectl
+commands and prints what kubectl prints, through the entry's `--via` path,
 with no kubectl installed. On Swarm the command goes to docker on the
 manager. The words after `--` are kubectl's (or docker's), so `-n` there
 is kubectl's namespace flag.
 
 - It only reads unless you add `--write`. Delete, drain, scaling to 0 and
   similar also need `--allow-dangerous`.
-- A file (`apply -f`, `create -f`, and `cluster apply --file`) is rated by
+- A file (`apply -f`, `create -f`) is rated by
   what is in it. One that gives out rights (a Role, ClusterRole or their
   bindings, a webhook configuration, an APIService, a service account
   token Secret, EKS's `aws-auth` ConfigMap) or opens a node to a pod
@@ -391,7 +342,7 @@ is kubectl's namespace flag.
 - `label` that sets `pod-security.kubernetes.io/enforce=privileged` on a
   namespace, or removes that label, and `set serviceaccount` need
   `--allow-dangerous` too. A Namespace in a manifest (`apply -f`,
-  `run -- apply|create -f`) with that label is read by the same rule.
+  `create -f`) with that label is read by the same rule.
   A Namespace that sets other `pod-security.kubernetes.io/` labels but
   leaves `enforce` out counts as removing it: `apply` drops a label the
   last apply set. A Namespace with no pod-security labels is not rated,
@@ -416,7 +367,7 @@ is kubectl's namespace flag.
   cannot dry-run (`exec`, `cp`, `create token`, `config view`, `get` of
   Secret values for a person) is only shown, not run.
 - For AI agents, Secret values and env values named like secrets
-  (`DB_PASSWORD`) show as hidden in `get` output, as in `cluster get`, so
+  (`DB_PASSWORD`) show as hidden in `get` output, so
   `get secret -o yaml` is a read for them. `apply`, `create` and `replace`
   refuse a file that still holds a hidden value (`HIDDEN_VALUE`): change
   one field with `set image` or `patch` instead.
@@ -429,7 +380,7 @@ is kubectl's namespace flag.
 - `cp POD:SRC DST` writes only inside DST, never into a `.git` folder, and
   skips links and devices, like kubectl cp. It brings at most 512 MiB
   (`FILE_TOO_LARGE`): komando checks every name before it writes any, so
-  it holds the copy in memory. For an AI agent it copies as `download`
+  it holds the copy in memory. For an AI agent it copies as `komando copy`
   does: a file that is a secret by its name (`.env`, a private key) is
   refused (`SENSITIVE_FILE`; when SRC itself is named so, before komando
   reads the pod), a text file is written with its secret
@@ -442,27 +393,22 @@ is kubectl's namespace flag.
   `plugin install|create|enable|set` and a `volume create` that is a host
   folder.
 - It stops at `--timeout` (default 5 minutes). A watch (`get -w`) or follow
-  (`logs -f`) that ends there ends normally. `logs -f` prints lines as they
-  come and follows all selected pods at once (`--max-log-requests`, 5 by
-  default).
-- Sessions have their own commands: `cluster forward` (port-forward) and
-  `cluster shell` (`exec -it`).
+  (`logs -f`) that ends there ends normally.
+- Sessions have their own commands: `cluster kubernetes tunnel start`
+  (port-forward) and `cluster kubernetes shell` (`exec -it`).
 - A command it does not know gets a "did you mean". The commands it knows
   are in [Reference](#reference).
 
 ## Limits
 
-- `cluster status` on a cluster with more than 20000 objects of one kind
-  reads only those, says `truncated: true`, and `healthy` is `null` unless
-  it found a problem. Narrow it with `--namespace`.
-- `cluster run` knows kubectl's own commands, not kubectl plugins (krew).
+- `raw` knows kubectl's own commands, not kubectl plugins (krew).
   `edit` is refused (get the YAML, change it, then `apply -f`), and of
   `config` only `current-context` and `get-contexts` work.
 - komando cannot tell which service accounts outside `kube-system` have
   strong rights (an operator's own namespace, `argocd`, `flux-system`),
   nor that a kubeconfig's default namespace is `kube-system`.
-- Helm: komando reads releases only; install, upgrade and rollback stay
-  with `helm` (`cluster deploy` and `cluster apply` change what runs).
+- komando does not run Helm: install, upgrade and rollback stay with
+  `helm`.
 
 ## Troubleshooting
 
@@ -471,18 +417,17 @@ is kubectl's namespace flag.
 | `TOOL_MISSING` (exit 3) | the login program the kubeconfig names is not installed | install it; the error shows the kubeconfig's `installHint` |
 | `LOGIN_FAILED` (exit 4) | the login program ran but could not log in | a person signs in with that program, then run it again |
 | `CONN_UNREACHABLE` (exit 4) | the API server did not answer | `komando test prod-k8s`, and check its `--via` path or VPN |
-| `K8S_FORBIDDEN` (exit 4) | the kubeconfig's user may not do this (Helm: list Secrets) | give the user the right, or name one namespace with `--namespace` |
+| `K8S_FORBIDDEN` (exit 4) | the kubeconfig's user may not do this (Helm: list Secrets) | give the user the right, or name one namespace with `-n` |
 | `K8S_INVALID` (exit 2) | the cluster refused the request or the file as written | read the cluster's words in the message; fix the YAML or the `-l` selector |
-| `K8S_POD_NOT_FOUND` (exit 3) | the workload has no running pod to read or run in | `komando cluster list prod-k8s pods --namespace shop` |
-| `NOT_SWARM_MANAGER` (exit 3) | the server is not a Swarm manager | name a manager; `komando exec swarm1 --read-only -- docker node ls` shows whether it is one |
-| `ROLLOUT_FAILED` (exit 5), `ROLLOUT_TIMEOUT` (exit 7) | the new version did not come up | `komando cluster describe prod-k8s deployment/api --namespace shop`, then `cluster rollback` |
-| `HIDDEN_VALUE` (exit 2) | the file holds a value komando hid from an AI agent | leave hidden entries out, or change one field with `cluster run ... --write -- set image` or `patch` |
-| `NEEDS_TERMINAL` (exit 2) | `cluster shell` needs a person | agents and scripts use `cluster exec` |
-| `PARTIAL_FAILURE` (exit 1) | some clusters of a selector failed | read each cluster's error in the output |
+| `K8S_POD_NOT_FOUND` (exit 3) | the workload has no running pod to read or run in | `komando cluster kubernetes raw prod-k8s -- get pods -n shop` |
+| `NOT_SWARM_MANAGER` (exit 3) | the server is not a Swarm manager | name a manager; `komando host ssh exec swarm1 --read-only -- docker node ls` shows whether it is one |
+| `HIDDEN_VALUE` (exit 2) | the file holds a value komando hid from an AI agent | leave hidden entries out, or change one field with `raw --write -- set image` or `patch` |
+| `NEEDS_TERMINAL` (exit 2) | `shell` needs a person | agents and scripts use `exec` |
+| `USAGE` (exit 2) | the words for the cluster came without `--` | put `--` before kubectl's words |
 
 ## Reference
 
-Kubectl commands `cluster run` knows:
+Kubectl commands `raw` knows:
 
 | Group | Commands |
 |-------|----------|

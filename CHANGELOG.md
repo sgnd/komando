@@ -5,7 +5,31 @@ its highlights; the sections below them give the details. Versions follow
 [Semantic Versioning](https://semver.org), and the format follows
 [Keep a Changelog](https://keepachangelog.com).
 
-## [Unreleased]
+## v0.18.0 - TODO(cut): release date
+
+### Highlights
+
+- **One command shape.** A command is `komando TYPE PROVIDER VERB NAME`,
+  such as `komando host ssh exec web1 -- uptime`. The types are `host`,
+  `database`, `cache`, `queue`, `storage`, `cluster`, `registry`, `vpn`
+  and `cloud`. komando's own things are `credential`, `group`, `policy`
+  and `snippet`. A command of the old tree that is not in the new tree
+  answers "unknown command".
+- **Credentials.** `komando credential password|token|key|certificate`
+  keeps what komando logs in with. An entry points at one with
+  `--credential NAME`, and a reference is written `credential:NAME`.
+  Stored data moves once, on the first open by a person at a terminal.
+- **Long commands survive a dropped link.** `exec` runs in a session on
+  the server and prints its ID; `komando host ssh exec web1 --attach ID`
+  comes back to it.
+- **The person step is `komando test`.** A person runs `test` once for a
+  two-factor or cloud login; the login stays open for 8 hours and agents
+  reuse it. `komando test --end` ends the kept logins.
+- **`komando copy`** sends and fetches files between this computer, servers
+  and storage, with `--sync` and `--delete`.
+- **`komando agent skill install`** installs the agent skill.
+- **Typed JSON.** The field that names the entry a command ran on is the
+  entry's type word (`host`, `database`, `cache`, ...).
 
 ### Added
 
@@ -13,13 +37,31 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- `exec rm` needs `--allow-dangerous`.
+- `--stack` must be a docker object name.
+- TODO(cut): the compose-up change; the text waits on the exec-rules pull request (#464).
+- What stays stopped through `exec` is decided by the policy rules on the command text: deleting files, removing containers, pruning Docker data, removing an essential package, deleting a user, power commands and stopping sshd. The rules are listed by `komando policy list`.
+- The JSON field `conn` is named by the command's type: `host`, `database`, `cache`, `queue`, `storage`, `cluster`, `registry`, `vpn`, ... The export and import results count per type, keyed by the type word.
+- A person must run `komando test NAME` for a two-factor or cloud login. An agent's error names `test`.
+- `STORE_REFERENCE_UNSUPPORTED` (exit 2): a store with a leftover `secret:` value is refused. The message names the record type, the entry and the field, never the value.
+- The first open of the store by a person at a terminal migrates it and writes a backup, `store-v0-17-backup-...db`, next to it. An agent or CI never migrates: it gets `NEEDS_PERSON`.
+- `komando audit check` verifies the signed audit chain.
 - Registries have a path per provider: `komando registry oci` takes add, edit, list, remove, rename, show and test, and `registry oci image` takes list, show, copy, delete and prune. `registry add`, `list`, `inspect`, `copy`, `rm` and `prune` are gone, with the aliases `get`, `show` and `cp` of the old ones; `--credential NAME` names the stored password. The arguments name the registry as NAME, not CONN.
 - Caches have a path per provider: `komando cache redis` and `komando cache memcached` take add, edit, list, remove, rename, show, test and raw. `cache add` and `cache run` are gone (`cache redis raw NAME -- COMMAND` is `cache run`, with `--write` as before); `--credential NAME` names the stored password. A URL of another provider, or an entry saved for another one, is refused with the path that fits. `cache get`, `keys`, `info`, `set` and `rm` stay until their removal. The short flags `-g` and `-t` of `add` have no form in the new tree.
 - The agent guard's hook line refuses a tool call when the guard cannot answer (komando missing, not a program, or failing), in each agent tool's own format. The guard refuses an AI agent's change to the agents' hook settings and folders and to the komando program the hook runs. `komando doctor` checks every agent's hook line and its program, `komando guide install` replaces an older line, and `komando update` says when one is left. On Windows no guard hook is set up for now; `komando doctor` says so.
-- The agent guard (`komando guide guard`) answers every tool call within 3 seconds: a check that takes longer, or stops with an internal error, refuses the call.
+- The agent guard answers every tool call within 3 seconds: a check that takes longer, or stops with an internal error, refuses the call.
 - The macOS approval window no longer answers to Space or Return: a stray key cannot deny (or allow) for you. Click **Deny** or **Allow once**, or press Esc or Cmd-W to deny. The agent's error names how the person said no (`details.denied_by`: `click` or `key`), and after a key it asks whether that was a slip.
 - The macOS approval window now shows a script of up to 200 lines whole; it scrolls and allows only after the last line. Windows and Linux keep 40 lines.
 - A script too long for the window ends with its own error code, `SHORTER_SCRIPT_REQUIRED`, and the message names the counted number of shown lines and the script's own line count.
+- The agent guard refuses a tool call larger than 4 MiB, which it cannot check whole, in each agent tool's own format.
+
+### Removed
+
+- The format-1 store reader.
+- Old export files are refused. Import them with v0.17.0.
+- `komando import` reads only a file made by `komando export`. The other sources (ssh config, pgpass, mycnf, env, kubeconfig, docker, filezilla, rclone, putty, mobaxterm, securecrt, aws, dbeaver, csv) are gone.
+- The never-trust list of host CAs is gone. Removing a CA with `komando credential certificate remove` only drops it. To cut off one stolen signed key, remove the CA and sign every key again. This is a security gap.
+- Lost functions: validate, back up and undo of a file edit; reboot one server at a time with a boot-ID check; the typed name of a person on a cluster delete or a scale to zero through `raw` (it asks only for `--allow-dangerous`); the certificate expiry check until paid monitoring exists; a key in ssh-agent for an hour for plain ssh; bulk rename.
 - The agent guard (`komando guide guard`) refuses a tool call larger than 4 MiB, which it cannot check whole, in each agent tool's own format.
 - An AI agent's `db dump` stops with `NEEDS_PERSON` on every database, not only where personal data is hidden: the file holds every row as it is, passwords and tokens included. No flag lifts it; a person runs the dump in their own terminal.
 

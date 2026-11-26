@@ -94,10 +94,10 @@ komando update             # install the newest release
 downloads the release for this computer, checks it against the release's
 signed checksums, runs the new program once to make sure it works here,
 and only then puts it in place. If anything fails, the old komando stays.
-Your servers, secrets and history in `~/.komando` stay as they are.
+Your servers, credentials and history in `~/.komando` stay as they are.
 
-After an update, run `komando guide install` again (without `sudo`), so
-your AI agents get the skill of the new version. Until then
+After an update, run `komando agent skill install` again (without `sudo`),
+so your AI agents get the skill of the new version. Until then
 `komando doctor` says the skill is from another version.
 
 - komando is in a folder only root may change, such as `/usr/local/bin`?
@@ -108,9 +108,8 @@ your AI agents get the skill of the new version. Until then
   0.13.0 are signed; see below for older ones). Going back to an older
   version asks you first, because an older komando may lack safety checks
   the newer one has. An AI agent needs `--yes` and your "Allow once".
-- `update` takes only a komando version. `komando update web1` is an
-  error that points at `komando pkg upgrade web1`, which updates the
-  packages on that server.
+- `update` takes only a komando version. Any other word, such as
+  `komando update web1`, is a usage error (exit 2).
 - Without a version, `update` never goes back, even when the newest
   release is older than the komando you run.
 - A komando you built yourself from a commit between releases is not
@@ -157,8 +156,8 @@ Without `sudo` the installer cannot write there, puts the new version in
 
 ## Tab completion
 
-Press Tab to complete commands, flags and the names of your servers,
-conns, groups and tags. Turn it on once, then open a new terminal:
+Press Tab to complete commands, flags and the names of your entries,
+groups and tags. Turn it on once, then open a new terminal:
 
 ```bash
 echo 'source <(komando completion zsh)' >> ~/.zshrc          # zsh (macOS)
@@ -170,15 +169,18 @@ For fish and PowerShell, see `komando completion --help`.
 
 ## Remove komando
 
-1. Stop what komando still runs. `komando status` lists it;
-   `komando vpn down --all` and `komando tunnel stop --all` stop it.
+<!-- TODO(cut): the `--project` flag of `agent skill install` and `agent skill uninstall` waits on the leaf Options of the table (PR B). -->
+
+1. Stop what komando still runs. `komando status` lists it; stop each VPN
+   with `komando vpn wireguard stop office` (the provider and name of that
+   VPN) and each tunnel with `komando host ssh tunnel stop NAME`.
 2. Take the skill and the guard out of your AI agents:
-   `komando guide uninstall` (add `--project` in a folder where you ran
-   `guide install --project`).
-3. Keep a copy of `~/.komando` if you may need your servers or secrets
+   `komando agent skill uninstall` (add `--project` in a folder where you
+   ran `agent skill install --project`).
+3. Keep a copy of `~/.komando` if you may need your servers or credentials
    again (see [Move to another computer](import.md#move-to-another-computer)),
    then delete the folder. Is the vault key in the system keychain? If you
-   keep the copy, first run `komando secret keychain --off`, or the copy
+   keep the copy, first run `komando config vault keychain --off`, or the copy
    cannot be opened later. Otherwise remove the keychain item named
    `komando vault ...` (macOS: the Keychain Access app; Windows:
    Credential Manager).

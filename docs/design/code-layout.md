@@ -20,7 +20,7 @@ are named, and the rules every change keeps. Tests check most of them; the
 | **The JSON answers keep their shape.** Fields are added, never renamed or removed. | `TestOutputShapes`, `TestAgentGolden` |
 | **The command tree holds still while its code moves.** What `komando schema` prints, every `--help`, and every question a person is asked are recorded; they change only on purpose (`KOMANDO_GOLDEN_UPDATE=1`, after reading the diff). | `TestSchemaGolden`, `TestHelpGolden`, `TestQuestionsGolden` |
 | **Post-quantum key exchange first.** SSH offers `mlkem768x25519-sha256` first and no code narrows the list; a TLS config that sets curves names `X25519MLKEM768` (the one exception is listed in the test, and the list only shrinks). | `TestDefaultKeyExchangeIsHybrid`, `TestNoCodeNarrowsKeyExchange`, `TestCurvePreferencesHybrid` |
-| **Start time does not grow.** `komando version`, `komando list` and `komando guide guard` (the agent hook) start no more than 10% (and 3 ms) slower than `main`. | CI `Start time` on pull requests (`scripts/start-time.sh`) |
+| **Start time does not grow.** `komando version`, `komando list` and the agent hook command start no more than 10% (and 3 ms) slower than `main`. | CI `Start time` on pull requests (`scripts/start-time.sh`) |
 | **Functions up to 100 lines, files up to 800.** Split instead of growing. | `internal/codesize` |
 | **Coverage does not drop** below `test/coverage-floor.txt`. | `make cover` |
 | **Every command runs once end to end** (`test/e2e/checks/coverage.sh`). | `make e2e` |
@@ -72,7 +72,7 @@ or a listed one is gone.
 | Package | What it is |
 |---|---|
 | `cmd/komando` | `main`: starts `internal/cli` |
-| `internal/auditlog` | the audit log: records sealed in the local store, read back in short steps, and checked by `komando audit verify` |
+| `internal/auditlog` | the audit log: records sealed in the local store, read back in short steps, and checked by `komando audit check` |
 | `internal/boundary` | test only: the paid boundary (no sync library or Komando Cloud client in the binary, no komando-owned address but the release site) |
 | `internal/browserx` | a sign-in page in a browser window (VPN SAML logins) |
 | `internal/cachex` | Redis-compatible caches and memcached, with the risk of each command |
@@ -83,13 +83,13 @@ or a listed one is gone.
 | `internal/cloud` | komando's own clients for cloud and secret-manager APIs |
 | `internal/gcpadc` | finds Google application-default credentials for every client that uses them, after checking where the file found would send what |
 | `internal/codesize` | test only: the 100-line and 800-line limits |
-| `internal/dbx` | SQL and MongoDB against a conn, dump and restore |
-| `internal/driver` | the kinds of conns and the risk levels the safety checks use |
+| `internal/dbx` | SQL and MongoDB against an entry, backup and restore |
+| `internal/driver` | the providers and the risk levels the safety checks use |
 | `internal/engine` | one komando call: who makes it and its approvals |
 | `internal/execsession` | a long `exec` that outlives the connection: the session ID, the folder on the server, and the shell text that starts, reads and stops a run |
 | `internal/flock` | a file lock between komando processes |
 | `internal/interactive` | the interactive mode's screens: lists with type-to-search, the menu of the command tree, the form of a command's fields, the review of the line, and how they draw; it returns answers and runs nothing (imports only `internal/capability`, `internal/cli/kit/term`, `internal/out` and std, checked by its own `TestInteractiveImports`); nothing calls it yet |
-| `internal/inventory` | the rules for what goes into the inventory: names and the shared name space, login names, ports, labels, `--via` paths, conn families and the references to vault secrets; nothing of `internal/cli` |
+| `internal/inventory` | the rules for what goes into the inventory: names and the shared name space, login names, ports, labels, `--via` paths and provider families; nothing of `internal/cli` |
 | `internal/ipsec` | komando's own IKEv1 and IKEv2 clients |
 | `internal/kube` | the Kubernetes API over HTTPS, without client-go |
 | `internal/l2tp` | komando's own L2TP client |
@@ -117,12 +117,12 @@ or a listed one is gone.
 | `internal/snippet` | the engine of the ready-made snippets: the built-in type, the checks of a definition, the registry, filling a text with quoted variables, the parse step and the JSON contract; it runs nothing itself |
 | `internal/sshx` | SSH: dialing through jump hosts, host keys, running commands |
 | `internal/sslvpn` | komando's own SSL VPN clients (AnyConnect, Fortinet, GlobalProtect, F5, Pulse) |
-| `internal/store` | komando's state: inventory, conns, keys, jobs, tunnels, settings |
+| `internal/store` | komando's state: inventory, credentials, tunnels, settings |
 | `internal/storex` | object storage, FTP, SFTP, WebDAV and SMB behind one interface |
 | `internal/storex/ftptest` | a test FTP and FTPS server for the tests |
 | `internal/testhome` | tests only: a throwaway home folder for each test binary, and the rules that keep tests out of the real one |
 | `internal/tmpclean` | the temporary files of one run, removed on a second Ctrl-C; old leftovers swept |
-| `internal/vault` | the encrypted secrets |
+| `internal/vault` | the encrypted credentials |
 | `internal/version` | komando's version: set at link time with `-X` (the Makefile), else from the module version `go install` records |
 | `internal/winrm` | komando's own WinRM client for Windows servers |
 | `sync` | prototype only, its own Go module: the open sync format and cryptography used by the Komando apps, tested against a hostile in-memory server ([sync-prototype.md](sync-prototype.md)); the CLI never imports it |
@@ -147,19 +147,20 @@ row allows, or a row has no code.
 ## Files in internal/cli
 
 A file is named for the command it serves. The noun is the first word of
-the command (`komando db dump` → `db`), as listed in
-`internal/cli/testdata/command_ids.txt`, with any hyphen left out
-(`ssh-gate` → `sshgate`).
+the command, as listed in `internal/cli/testdata/command_ids.txt`, with any
+hyphen left out (`ssh-gate` → `sshgate`).
+
+TODO(cut): the new folder layout of `internal/cli`, and the file names per type, wait on the M moves (program road table). Until they land, the names below stand.
 
 | Name | Holds | Examples |
 |---|---|---|
-| `<noun>.go` | the command and what most of its verbs share | `host.go`, `db.go`, `cluster.go` |
-| `<noun>_<verb>.go` | one verb, when it is big enough for its own file | `job_start.go`, `fs_replace.go`, `key_revoke.go` |
-| `<noun>_<topic>.go` | one part of the noun | `db_dump_tls.go`, `conn_tls.go`, `cluster_swarm.go` |
+| `<noun>.go` | the command and what most of its verbs share | `host.go`, `cluster.go` |
+| `<noun>_<verb>.go` | one verb, when it is big enough for its own file | see the move pull requests |
+| `<noun>_<topic>.go` | one part of the noun | `cluster_swarm.go` |
 
-- Join words with `_`; never glue them (`db_dump.go`, not `dbdump.go`).
+- Join words with `_`; never glue them.
 - Never shorten a noun or invent a prefix (`cluster_kctl.go`, not
-  `kctl.go`; `user.go`, not `ops_user.go`).
+  `kctl.go`).
 - A topic may have parts of its own: `cluster_kctl_change.go` is part of
   `cluster_kctl.go`, the layer that does the Kubernetes verbs.
 - `errcodes.go` is generated (`KOMANDO_UPDATE_ERRCODES=1 go test
@@ -187,7 +188,6 @@ a reason; `internal/layout` reads this table.
 | `inv` | looking up and checking names and values in the inventory |
 | `kinds` | what each command does, in one word (reads or changes) |
 | `localtool` | finding a program on this computer |
-| `modules` | the module commands (`svc`, `logs`, `pkg`, `net`, `user`, `cron`) and the runner they share |
 | `personal` | hiding personal data from AI agents |
 | `pick` | the lists a question picks from |
 | `platform` | process helpers that differ per operating system |
@@ -207,7 +207,7 @@ a reason; `internal/layout` reads this table.
 
 ## Tests
 
-- A test of one file sits next to it: `db_dump.go` → `db_dump_test.go`.
+- A test of one file sits next to it: `host.go` → `host_test.go`.
 - A test that checks one rule across many files is named for the rule:
   `standard_test.go`, `message_style_test.go`, `agent_golden_test.go`.
 - Expected output and other test data go in `testdata/`. Golden files are
@@ -233,10 +233,11 @@ these endings, and the `//go:build` line agrees with the name:
 
 ## Adding a command, step by step
 
-1. Put it in `<noun>.go` or `<noun>_<verb>.go`. A new top-level noun is
-   rare: the command standard keeps a closed list.
+1. Put it in `<noun>.go` or `<noun>_<verb>.go`. A new top-level command is
+   rare: the command standard keeps a closed list (S-1.4).
 2. Give it an ID and a kind (`commandKinds`), an example, and a row in the
-   risk table (`risk.go`) if it can stop for an approval.
+   risk table (`risk.go`) if it can stop for an approval (S-7.1).
+   TODO(cut): the files and tests named in this page (`commandKinds`, `risk.go`, `command_ids.txt`) move with the table; they wait on the M moves (program road table).
 3. Keep the cobra builder short: it reads the flags and calls one function
    that does the work.
 4. Add a unit test next to the file, and an end-to-end check in
