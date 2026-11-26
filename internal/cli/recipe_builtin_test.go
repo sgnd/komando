@@ -1207,3 +1207,28 @@ func TestSnippetPkgUpgradableStaleIndex(t *testing.T) {
 		t.Fatalf("got %v %s, want today's stale index warning", e, raw)
 	}
 }
+
+// Every built-in whose text raises itself with sudo refuses --no-sudo
+// (Audit A-457-1), and the list of them is the one a person reads here:
+// adding a built-in that elevates itself changes it on purpose.
+func TestBuiltinsThatRaiseThemselvesRefuseNoSudo(t *testing.T) {
+	var self []string
+	for _, name := range builtinSnippets.Names() {
+		b, _ := builtinSnippets.Lookup(name)
+		if b.Run != nil || !snippet.SelfElevates(b) {
+			continue
+		}
+		self = append(self, name)
+		err := runSnippet(tcl, context.Background(), b, "nobody", nil, true)
+		if e, ok := err.(*out.Error); !ok || e.Code != "USAGE" || !strings.Contains(e.Message, name) {
+			t.Errorf("%s --no-sudo: %v, want a usage error naming the snippet", name, err)
+		}
+	}
+	// facts reads with `sudo -n` (S in its script) when passwordless sudo works;
+	// pkg-upgradable raises itself with `exec sudo -n sh -c`. The package
+	// security reads use the runner's sudo (Builtin.Sudo), which --no-sudo drops.
+	want := []string{"facts", "pkg-upgradable"}
+	if !slices.Equal(self, want) {
+		t.Errorf("built-ins whose text raises itself: %v, want %v", self, want)
+	}
+}
