@@ -68,7 +68,7 @@ attributes and --key is the ordering key.`,
 				func(_ *store.State, c *store.Conn, q queuex.Queue) (any, error) {
 					ctx, cancel := queueCtx(cmd)
 					defer cancel()
-					s, err := q.Send(ctx, m, cl.flags.dryRun)
+					s, err := q.Send(ctx, m, cl.dryRun())
 					if err != nil {
 						return nil, err
 					}
@@ -154,7 +154,7 @@ func queueCreateCmd() *cobra.Command {
 				func(_ *store.State, c *store.Conn, q queuex.Queue) (any, error) {
 					ctx, cancel := queueCtx(cmd)
 					defer cancel()
-					r, err := q.Create(ctx, s, cl.flags.dryRun)
+					r, err := q.Create(ctx, s, cl.dryRun())
 					if err != nil {
 						return nil, err
 					}
@@ -183,11 +183,11 @@ func queueRmCmd() *cobra.Command {
 				func(_ *store.State, c *store.Conn, q queuex.Queue) (any, error) {
 					ctx, cancel := queueCtx(cmd)
 					defer cancel()
-					d, err := q.Delete(ctx, topics, cl.flags.dryRun)
+					d, err := q.Delete(ctx, topics, cl.dryRun())
 					if err != nil {
 						return nil, err
 					}
-					return queueDeleted{Conn: c.Name, Topics: d, DryRun: cl.flags.dryRun, kind: c.Kind}, nil
+					return queueDeleted{Conn: c.Name, Topics: d, DryRun: cl.dryRun(), kind: c.Kind}, nil
 				})
 		}),
 	}
@@ -206,7 +206,7 @@ func queuePurgeCmd() *cobra.Command {
 				func(_ *store.State, c *store.Conn, q queuex.Queue) (any, error) {
 					ctx, cancel := queueCtx(cmd)
 					defer cancel()
-					p, err := q.Purge(ctx, args[1], cl.flags.dryRun)
+					p, err := q.Purge(ctx, args[1], cl.dryRun())
 					if err != nil {
 						return nil, err
 					}

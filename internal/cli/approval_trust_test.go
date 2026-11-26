@@ -45,7 +45,7 @@ func TestMacAccessibilityNeedsCode(t *testing.T) {
 		resetOwnerCheck()
 		resetApproval()
 		clicked = 0
-		tcl.setCaller(engine.Caller{Kind: engine.Agent, Agent: "Claude Code"})
+		setTestCaller(tcl, engine.Caller{Kind: engine.Agent, Agent: "Claude Code"})
 		tcl.personAllowsFor("--yes", "")
 		if c.needCode {
 			if tcl.sess.Allowed() || clicked != 0 || tcl.sess.Window().Why != "ax-trusted" {

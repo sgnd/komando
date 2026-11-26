@@ -28,7 +28,7 @@ func TestGated(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cl := testCall()
-			cl.setCaller(engine.Caller{Kind: tt.kind, Agent: tt.agent})
+			setTestCaller(cl, engine.Caller{Kind: tt.kind, Agent: tt.agent})
 			if got := cl.gated(); got != tt.want {
 				t.Errorf("gated() with agent %q = %v, want %v", tt.agent, got, tt.want)
 			}

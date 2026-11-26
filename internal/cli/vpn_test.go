@@ -33,7 +33,7 @@ func TestVpnUpHidesSocksLogin(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, args := range [][]string{{"vpn", "up", "office"}, {"vpn", "up", "office", "--dry-run"}} {
-		tcl.flags.dryRun, tcl.flags.yes = false, false
+		setGate(tcl, false, gateDryRun, gateYes)
 		root := newRoot(tcl)
 		t.Cleanup(endCommand) // the next test starts with none of this command's flags
 		root.SetArgs(append([]string{"-o", "json"}, args...))
@@ -431,7 +431,7 @@ func TestVpnDownSaysWhatStops(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = sleeper.Process.Kill(); _ = sleeper.Wait() }()
-	tcl.flags.dryRun = false // left on by the dry run above
+	setGate(tcl, false, gateDryRun) // left on by the dry run above
 	if err := store.UpdateRuntime(store.Save(), func(st *store.State) error {
 		st.Sessions["client-x"] = &store.VpnSession{Vpn: "client-x", PID: sleeper.Process.Pid, Exe: sleeperExe(), ProcStart: netx.ProcessStart(sleeper.Process.Pid), StartedAt: now, LastUsed: now}
 		return nil

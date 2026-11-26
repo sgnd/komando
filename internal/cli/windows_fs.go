@@ -389,7 +389,7 @@ func winFsWrite(cl *call, ctx context.Context, st *store.State, h *store.Host, p
 	}
 	var old []byte
 	exists := true
-	if appendMode || ifChanged || cl.flags.dryRun {
+	if appendMode || ifChanged || cl.dryRun() {
 		var trunc bool
 		old, _, trunc, err = winReadFile(cl, ctx, st, h, p, 64<<20)
 		switch {
@@ -404,7 +404,7 @@ func winFsWrite(cl *call, ctx context.Context, st *store.State, h *store.Host, p
 	if appendMode {
 		data = append(old, data...)
 	}
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		res := fsChange{"host": h.Name, "path": p, "bytes": len(data), "append": appendMode, "would_change": !exists || !sameForAgent(cl, old, data)}
 		if !exists {
 			res["exists"] = false

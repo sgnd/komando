@@ -115,10 +115,10 @@ func TestSQLShell(t *testing.T) {
 
 func TestDBShellDryRunContactsNothing(t *testing.T) {
 	setHome(t, t.TempDir())
-	saved, savedG := tcl.terminal, tcl.flags
-	defer func() { tcl.terminal, tcl.flags = saved, savedG }()
+	saved, savedG := tcl.terminal, saveFlags(tcl)
+	defer func() { tcl.terminal = saved; savedG.restore() }()
 	tcl.terminal = true
-	tcl.flags.dryRun = true
+	setGate(tcl, true, gateDryRun)
 	err := store.Update(store.Save(), func(st *store.State) error {
 		st.Conns["far"] = &store.Conn{Name: "far", Kind: "postgres", URL: "postgres://app@10.255.255.1/app", Via: "no-such-host"}
 		return nil

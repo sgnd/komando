@@ -28,13 +28,13 @@ func TestApprovalWindowPerson(t *testing.T) {
 	askOnScreen, askMac, axTrustOutput, ownerCheckOutput = realAskOnScreen, realAskMac, realAXTrust, realOwnerCheck
 	t.Cleanup(func() {
 		tcl.args = saved
-		tcl.flags.yes = false
+		setGate(tcl, false, gateYes)
 		askOnScreen, askMac, axTrustOutput, ownerCheckOutput = savedAsk, savedMac, savedAX, savedOwner
 		resetApproval()
 	})
 	setCallerEnv(t, "CLAUDECODE", "1")
 	st := &store.State{Hosts: map[string]*store.Host{"window-check": {Name: "window-check", Address: "192.0.2.10", Protected: true}}}
-	tcl.flags.yes = true
+	setGate(tcl, true, gateYes)
 	tcl.args = []string{"komando", "exec", "window-check", "--script", "./window-check.sh", "--yes"}
 	var body strings.Builder
 	body.WriteString("#!/bin/sh\n# a dummy script for checking the approval window; it never runs\n")

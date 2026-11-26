@@ -27,7 +27,7 @@ func checkHostKeyFlag(cl *call) error {
 	if err != nil || what == "" {
 		return err
 	}
-	if cl.flags.dryRun && cl.isAgent() {
+	if cl.dryRun() && cl.isAgent() {
 		// an agent's preview still connects to read; it does that with
 		// the setting's identity check, since a dry run never asks the
 		// person. People and scripts preview as they run.

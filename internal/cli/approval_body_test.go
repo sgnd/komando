@@ -16,7 +16,7 @@ import (
 // without a window, like a command line.
 func TestApprovalWindowShowsScriptBody(t *testing.T) {
 	saved := tcl.args
-	t.Cleanup(func() { tcl.args = saved; tcl.flags.allowDangerous, tcl.flags.yes = false, false })
+	t.Cleanup(func() { tcl.args = saved; setGate(tcl, false, gateAllowDangerous, gateYes) })
 	setCallerEnv(t, "CLAUDECODE", "1")
 	var texts []string
 	savedAsk := askOnScreen
@@ -25,7 +25,7 @@ func TestApprovalWindowShowsScriptBody(t *testing.T) {
 
 	st := &store.State{Hosts: map[string]*store.Host{"web": {Name: "web", Address: "10.0.0.1", Protected: true}}}
 	hosts := []*store.Host{st.Hosts["web"]}
-	tcl.flags.yes = true
+	setGate(tcl, true, gateYes)
 	tcl.args = []string{"komando", "exec", "web", "--script", "./deploy.sh", "--yes"}
 
 	var body strings.Builder

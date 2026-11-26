@@ -220,14 +220,14 @@ func clusterRestartCmd() *cobra.Command {
 				}
 				patch := fmt.Sprintf(`{"spec":{"template":{"metadata":{"annotations":{"kubectl.kubernetes.io/restartedAt":%q}}}}}`, time.Now().UTC().Format(time.RFC3339))
 				q := url.Values{}
-				if cl.flags.dryRun {
+				if cl.dryRun() {
 					q.Set("dryRun", "All")
 				}
 				space := cmp.Or(ns, k.Namespace)
 				if _, err := k.Do(ctx, "PATCH", r.ObjectPath(space, name), q, []byte(patch), "application/strategic-merge-patch+json"); err != nil {
 					return nil, err
 				}
-				res := map[string]any{"conn": t.conn.Name, "restarted": kindRef(r, name), "namespace": space, "dry_run": cl.flags.dryRun}
+				res := map[string]any{"conn": t.conn.Name, "restarted": kindRef(r, name), "namespace": space, "dry_run": cl.dryRun()}
 				return withRollout(cl, ctx, k, r, space, name, wait, res)
 			})
 		}),
@@ -244,7 +244,7 @@ func kindRef(r kube.ResourceType, name string) string {
 
 // withRollout adds the rollout to res when wait is set (and it is no dry run).
 func withRollout(cl *call, ctx context.Context, k *kube.Client, r kube.ResourceType, space, name string, wait bool, res map[string]any) (any, error) {
-	if !wait || cl.flags.dryRun {
+	if !wait || cl.dryRun() {
 		return res, nil
 	}
 	ro, err := waitRollout(ctx, k, r, space, name, rolloutWait(cl))
@@ -323,13 +323,13 @@ func clusterScaleCmd() *cobra.Command {
 					return nil, err
 				}
 				res := map[string]any{"conn": t.conn.Name, "scaled": kindRef(r, name), "replicas": n, "previous_replicas": cur.Spec.Replicas,
-					"namespace": space, "dry_run": cl.flags.dryRun}
+					"namespace": space, "dry_run": cl.dryRun()}
 				if cur.Spec.Replicas == n {
 					res["unchanged"] = true
 					return withRollout(cl, ctx, k, r, space, name, wait, res)
 				}
 				q := url.Values{}
-				if cl.flags.dryRun {
+				if cl.dryRun() {
 					q.Set("dryRun", "All")
 				}
 				body := fmt.Sprintf(`{"spec":{"replicas":%d}}`, n)

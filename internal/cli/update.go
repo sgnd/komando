@@ -166,7 +166,7 @@ func runUpdate(cl *call, ctx context.Context, want string) (updateResult, error)
 		return r, err
 	}
 	if err := checkWritable(cl, exe, want); err != nil {
-		if !cl.flags.dryRun {
+		if !cl.dryRun() {
 			return r, err
 		}
 		cl.out.WouldBlock(err)
@@ -176,7 +176,7 @@ func runUpdate(cl *call, ctx context.Context, want string) (updateResult, error)
 			return r, err
 		}
 	}
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		return r, nil
 	}
 	err = installRelease(cl, ctx, r.To, exe, sums)

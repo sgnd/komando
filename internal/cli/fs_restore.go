@@ -50,7 +50,7 @@ to see the change without making it.`,
 			}
 			r := restoreEdit{cl: cl, path: args[1], from: from, sudo: sudo}
 			data, err := runFsFleet(cl, cmd.Context(), st, "fs.restore", args[1], hosts, r.on)
-			if !cl.flags.dryRun {
+			if !cl.dryRun() {
 				for _, row := range data.Results {
 					if row["changed"] == true {
 						textNote(cl, "Put back %s on %s from %s.", row["path"], row["host"], row["from"])
@@ -101,7 +101,7 @@ func (r restoreEdit) on(ctx context.Context, c *sshx.Client) (fsChange, error) {
 		a, z = r.cl.out.View(a).Text, r.cl.out.View(z).Text
 	}
 	res := fsChange{"path": p, "from": b, "diff": unifiedDiff(a, z, 3)}
-	if r.cl.flags.dryRun {
+	if r.cl.dryRun() {
 		res["would_change"] = string(cur) != string(old)
 		return res, nil
 	}
@@ -180,7 +180,7 @@ func printChange(cl *call, command, host string, res fsChange, sudo bool) {
 }
 
 func undoNote(cl *call, host string, res fsChange, sudo bool) {
-	if cl.flags.dryRun || res["backup"] == nil || res["changed"] != true {
+	if cl.dryRun() || res["backup"] == nil || res["changed"] != true {
 		return
 	}
 	s := ""

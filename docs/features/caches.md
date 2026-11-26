@@ -6,11 +6,11 @@ Dragonfly) and memcached safely. [All docs](README.md)
 ## Add a cache
 
 ```bash
-komando cache add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password
+komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password
 komando test prod-redis                       # can komando reach it and log in?
 ```
 
-Typed alone, `komando cache add` asks for each part step by step.
+Typed alone, `komando cache redis add` asks for each part step by step.
 
 The URL is `redis://USER@HOST:PORT/DB`; use `rediss://` for TLS. The
 password goes in the vault, never in the URL: `--ask-password` asks for it
@@ -18,7 +18,7 @@ password goes in the vault, never in the URL: `--ask-password` asks for it
 
 ```bash
 komando secret set prod-redis-pass            # each password once, typed hidden
-komando cache add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --password-ref secret:prod-redis-pass
+komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --credential prod-redis-pass
 ```
 
 `--via` reaches a cache through a bastion or a VPN, like any other conn (see
@@ -34,7 +34,7 @@ stops with `USAGE` (exit 2) and a hint with an example
 ### Encryption (TLS)
 
 `redis://` straight over the network (no `--via`, not to this computer)
-sends the password and the data unencrypted, so `cache add` (and
+sends the password and the data unencrypted, so `cache redis add` (and
 `conn edit --url`) refuses it with `INSECURE_PROTOCOL`: use `rediss://` or
 `--via`, or add `?insecure=1` to accept that the traffic is readable on the
 way (for an AI agent that needs a person's yes). The same goes for
@@ -48,7 +48,7 @@ private CA, or a cloud's own):
 
 ```bash
 komando secret set prod-redis-ca < ca.pem
-komando cache add prod-redis 'rediss://default@cache.internal:6380/1?ca=secret:prod-redis-ca' --password-ref secret:prod-redis-pass
+komando cache redis add prod-redis 'rediss://default@cache.internal:6380/1?ca=secret:prod-redis-ca' --credential prod-redis-pass
 ```
 
 ### Redis Cluster and Sentinel
@@ -60,15 +60,15 @@ other nodes from it. Behind Sentinels, add a Sentinel's address with
 master is now, so a failover needs no change.
 
 ```bash
-komando cache add sessions 'rediss://default@clustercfg.sessions.abc123.cache.amazonaws.com:6379?cluster=1' --password-ref secret:sessions-pass
-komando cache add jobs-redis 'redis://default@sentinel1:26379/0?sentinel=mymaster&sentinels=sentinel2,sentinel3' --via web1 --password-ref secret:jobs-redis-pass
+komando cache redis add sessions 'rediss://default@clustercfg.sessions.abc123.cache.amazonaws.com:6379?cluster=1' --credential sessions-pass
+komando cache redis add jobs-redis 'redis://default@sentinel1:26379/0?sentinel=mymaster&sentinels=sentinel2,sentinel3' --via web1 --credential jobs-redis-pass
 ```
 
 - In a Cluster, `cache keys` scans every master and `cache info` adds up
   memory, clients and keys over them, with the cluster's state
   (`cluster_state`, `masters`). A command for one key goes to the node that
   holds it, and `cache rm` deletes keys of different slots one by one.
-  `cache run -- DBSIZE` adds up every master.
+  `cache redis raw -- DBSIZE` adds up every master.
 - Sentinels listen on 26379 when the URL names no port. More Sentinels go
   in `sentinels=HOST[:PORT],...`. The password is for Redis; when the
   Sentinels want it too, add `&sentinel_auth=same`.
@@ -173,13 +173,13 @@ key's name (for several keys, how many). An AI agent or a script adds
 
 ## Any other Redis command
 
-`cache run` sends any command. It only reads unless you add `--write`:
+`cache redis raw` sends any command. It only reads unless you add `--write`:
 
 ```bash
-komando cache run prod-redis -- HGETALL user:42
-komando cache run prod-redis -- ZREVRANGE leaderboard 0 9 WITHSCORES
-komando cache run prod-redis --write -- EXPIRE session:42 3600
-komando cache run prod-redis -- "GET feature:dark-mode"   # one quoted line, split like redis-cli
+komando cache redis raw prod-redis -- HGETALL user:42
+komando cache redis raw prod-redis -- ZREVRANGE leaderboard 0 9 WITHSCORES
+komando cache redis raw prod-redis --write -- EXPIRE session:42 3600
+komando cache redis raw prod-redis -- "GET feature:dark-mode"   # one quoted line, split like redis-cli
 ```
 
 Commands that delete, wipe, block, run scripts or reconfigure the server
@@ -229,7 +229,7 @@ komando has no backup command for caches. Redis saves its own snapshot,
 which you can then fetch from its server:
 
 ```bash
-komando cache run prod-redis --write -- BGSAVE
+komando cache redis raw prod-redis --write -- BGSAVE
 komando download web1 /var/lib/redis/dump.rdb --sudo --to ./
 ```
 
@@ -240,16 +240,16 @@ The same commands work with memcached. The URL is
 with `memcached -Y`, give a user in the URL and the password as a reference:
 
 ```bash
-komando cache add prod-memcached memcached://cache.internal:11211 --via web1
-komando cache add app-memcached memcached://app@cache.internal:11211 --via web1 --password-ref secret:app-memcached-pass
+komando cache memcached add prod-memcached memcached://cache.internal:11211 --via web1
+komando cache memcached add app-memcached memcached://app@cache.internal:11211 --via web1 --credential app-memcached-pass
 komando cache get prod-memcached session:42   # the value, and on 1.6+ its time to live
 komando cache keys prod-memcached 'session:*' # through memcached's LRU crawler
 komando cache info prod-memcached             # a summary of `stats`; `info prod-memcached items` for one section
-komando cache run prod-memcached -- stats slabs
+komando cache memcached raw prod-memcached -- stats slabs
 ```
 
 - `cache set` and `cache rm` work as for Redis, with the same safety rules.
-- `cache run` sends one command line and only reads unless `--write`.
+- `cache redis raw` sends one command line and only reads unless `--write`.
   `flush_all` and commands that change or stop the server are destructive.
   Store values with `cache set`.
 - The line is split at spaces the way memcached reads it, and the command
@@ -258,11 +258,11 @@ komando cache run prod-memcached -- stats slabs
 ## Limits
 
 - `cache rm` takes exact key names, never a pattern.
-- `cache run` prints one reply, so commands that never stop sending
+- `cache redis raw` prints one reply, so commands that never stop sending
   (`MONITOR`, `SUBSCRIBE`, `PSUBSCRIBE`, `XREAD ... BLOCK`) stop with
   `NOT_SUPPORTED`. On memcached, `watch` never returns, so it stops the
   same way.
-- On memcached, a newline or other control character in a `cache run`
+- On memcached, a newline or other control character in a `cache memcached raw`
   line stops with `USAGE` (it would start a second command).
 - A Cluster has only database 0.
 - In a Cluster, `SCAN`, `RANDOMKEY`, `KEYS`, `FLUSHALL`, `FLUSHDB` and

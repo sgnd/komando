@@ -625,7 +625,7 @@ func changeSession(cl *call, ctx context.Context, st *store.State, h *store.Host
 		audit(cl, st, "exec", []string{h.Name}, shown, false, extra)
 		return nil, err
 	}
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		cl.out.Print("exec", map[string]any{"session": id, "host": h.Name, "would_run": script}, nil)
 		return nil, nil
 	}
