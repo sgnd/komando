@@ -6,6 +6,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"slices"
 	"strconv"
@@ -381,22 +382,38 @@ func TestTableLeafRunsThroughTheRoot(t *testing.T) {
 func safetyAnswers(c *cobra.Command) map[string]string {
 	id := cmdID(c)
 	kind, _ := kindOf(c)
-	return map[string]string{
-		"personalCmds":   fmt.Sprint(personalCmds[strings.ReplaceAll(id, ".", " ")]),
-		"localReads":     fmt.Sprint(localReads[id]),
-		"leavesHome":     fmt.Sprint(leavesHome[id]),
-		"kind":           fmt.Sprint(kind),
-		"risk":           riskOf(c, nil).tier.String(),
-		"cmdKeys":        fmt.Sprint(cmdKeys[id]),
-		"gateHere":       gateHere(c, id),
-		"gateWrites":     gateWrites(c, id),
-		"gateLocalRead":  gateLocalRead(c, id),
-		"gateEgress":     gateEgress(c, id),
-		"gateNetwork":    gateNetwork[id],
-		"gateNoNetwork":  fmt.Sprint(gateNoNetwork[id] != nil),
-		"gateLocalFlags": fmt.Sprint(gateLocalFlags[id]),
-		"gateLocalArgs":  fmt.Sprint(gateLocalArgs[id] != nil),
+	a := idAnswers(id)
+	a["kind"] = fmt.Sprint(kind)
+	a["risk"] = riskOf(c, nil).tier.String()
+	a["gateHere"] = gateHere(c, id)
+	a["gateWrites"] = gateWrites(c, id)
+	a["gateLocalRead"] = gateLocalRead(c, id)
+	a["gateEgress"] = gateEgress(c, id)
+	return a
+}
+
+// idAnswers are the answers of the tables keyed by command ID for id:
+// cmdKeys and every table of idTables.
+func idAnswers(id string) map[string]string {
+	a := map[string]string{"cmdKeys": fmt.Sprint(cmdKeys[id])}
+	for _, tb := range idTables() {
+		a[tb.name] = entryText(tb.get(id))
 	}
+	return a
+}
+
+// entryText is an idTable entry as a test compares it: a gate func by
+// whether it checks anything.
+func entryText(v any, ok bool) string {
+	switch {
+	case !ok:
+		return "none"
+	case noCheck(v):
+		return "entry, no check"
+	case reflect.ValueOf(v).Kind() == reflect.Func:
+		return "entry, a check"
+	}
+	return fmt.Sprint(v)
 }
 
 // tablesFollow says where the moved command's answers differ from those of
@@ -429,12 +446,44 @@ func TestSafetyTablesFollowTheLeaf(t *testing.T) {
 		c := commandWithID(moved, strings.Join(l.Key.Path(), "."))
 		for _, id := range l.Today {
 			if old := commandWithID(today, id); old != nil && c != nil {
-				for _, d := range tablesFollow(old, c) {
+				var diff []string
+				asAtStart(id, func() { diff = tablesFollow(old, c) })
+				for _, d := range diff {
 					t.Error(d)
 				}
 			}
 		}
 	}
+	// Each provider of a moved type gets what its old IDs had, read from
+	// the tables as the source writes them, with no Carries to give it the
+	// same entries a second way; the move runs again on those tables.
+	types := slices.Clone(movedTypes)
+	tablesAtStart(func() {
+		for _, typ := range types {
+			var leaves []capability.Leaf
+			for _, l := range capability.All() {
+				if l.Type == typ {
+					l.Carries = nil
+				}
+				leaves = append(leaves, l)
+			}
+			moveLeaves(typ, leaves)
+		}
+		for _, l := range capability.All() {
+			if l.State != capability.Built || !slices.Contains(types, l.Type) {
+				continue
+			}
+			id := strings.Join(l.Key.Path(), ".")
+			for _, old := range l.Today {
+				for _, tb := range idTables() {
+					v, ok := idTablesAtStart[tb.name][old]
+					if got, has := tb.get(id); ok && (!has || !sameEntry(got, v) && !noCheck(v)) {
+						t.Errorf("%s: %s says %q for %s, %q for %s", tb.name, tb.name, entryText(v, ok), old, entryText(got, has), id)
+					}
+				}
+			}
+		}
+	})
 	// the check bites: a leaf whose ID no table knows yet differs from
 	// today's cache keys, which hides personal data
 	var in leafInput
@@ -444,6 +493,215 @@ func TestSafetyTablesFollowTheLeaf(t *testing.T) {
 	if d := tablesFollow(keys, probe); !slices.ContainsFunc(d, func(s string) bool { return strings.HasPrefix(s, "personalCmds") }) {
 		t.Errorf("the check missed the masking switch: %v", d)
 	}
+}
+
+// The tables keyed by command ID as the source writes them: Go sets every
+// package variable before the first init function runs, so no type has
+// moved yet.
+var (
+	idTablesAtStart = func() map[string]map[string]any {
+		at := map[string]map[string]any{}
+		for _, tb := range idTables() {
+			at[tb.name] = map[string]any{}
+			for _, id := range tb.ids() {
+				at[tb.name][id], _ = tb.get(id)
+			}
+		}
+		return at
+	}()
+	cmdKeysAtStart       = maps.Clone(cmdKeys)
+	providerIDsAtStart   = maps.Clone(providerIDs)
+	providerOrderAtStart = maps.Clone(providerOrder)
+)
+
+// asAtStart runs f with id's entries in cmdKeys and idTables as the source
+// wrote them, before its type moved, so today's command answers as it did.
+func asAtStart(id string, f func()) {
+	var undo []func()
+	for _, tb := range idTables() {
+		v, ok := idTablesAtStart[tb.name][id]
+		if !ok {
+			continue
+		}
+		if was, had := tb.get(id); had {
+			undo = append(undo, func() { tb.set(id, was) })
+		} else {
+			undo = append(undo, func() { tb.drop(id) })
+		}
+		tb.set(id, v)
+	}
+	if k, ok := cmdKeysAtStart[id]; ok {
+		was, had := cmdKeys[id]
+		cmdKeys[id] = k
+		undo = append(undo, func() {
+			if had {
+				cmdKeys[id] = was
+			} else {
+				delete(cmdKeys, id)
+			}
+		})
+	}
+	defer func() {
+		for _, u := range undo {
+			u()
+		}
+	}()
+	f()
+}
+
+// tablesAtStart runs f with every table moveType changes as the source
+// wrote it and no type moved, then puts them back as they were.
+func tablesAtStart(f func()) {
+	type saved struct {
+		tb  idTable
+		now map[string]any
+	}
+	var all []saved
+	for _, tb := range idTables() {
+		now := map[string]any{}
+		for _, id := range tb.ids() {
+			now[id], _ = tb.get(id)
+		}
+		all = append(all, saved{tb, now})
+	}
+	put := func(tb idTable, m map[string]any) {
+		for _, id := range tb.ids() {
+			tb.drop(id)
+		}
+		for id, v := range m {
+			tb.set(id, v)
+		}
+	}
+	keys, ids, order, moved := cmdKeys, providerIDs, providerOrder, movedTypes
+	defer func() {
+		cmdKeys, providerIDs, providerOrder, movedTypes = keys, ids, order, moved
+		for _, a := range all {
+			put(a.tb, a.now)
+		}
+	}()
+	cmdKeys, providerIDs, providerOrder = maps.Clone(cmdKeysAtStart), maps.Clone(providerIDsAtStart), maps.Clone(providerOrderAtStart)
+	movedTypes = nil
+	for _, a := range all {
+		put(a.tb, idTablesAtStart[a.tb.name])
+	}
+	f()
+}
+
+// When a type moves, each of its built leaves carries every entry that the
+// IDs it names (Today and Carries) had in the tables keyed by command ID,
+// whichever provider it is; the providers of one key carry the same
+// entries; and no table keeps an ID that only a moved type named.
+func TestMovedLeavesCarryTheirTables(t *testing.T) {
+	stays := map[string]bool{} // IDs a command still has
+	for _, l := range capability.All() {
+		if l.State != capability.Built {
+			continue
+		}
+		if handlers[l.Key] != nil {
+			stays[strings.Join(l.Key.Path(), ".")] = true
+		} else {
+			for _, id := range slices.Concat(l.Today, l.Carries) {
+				stays[id] = true
+			}
+		}
+	}
+	gone := map[string]bool{}
+	byKey := map[string]map[string]string{} // a key's entries, by the leaf that has them
+	for _, l := range capability.All() {
+		if l.State != capability.Built || !slices.Contains(movedTypes, l.Type) {
+			continue
+		}
+		id := strings.Join(l.Key.Path(), ".")
+		var has []string
+		for _, tb := range idTables() {
+			for _, old := range slices.Concat(l.Today, l.Carries) {
+				v, ok := idTablesAtStart[tb.name][old]
+				if !ok {
+					continue
+				}
+				if got, ok := tb.get(id); !ok || !sameEntry(got, v) && !noCheck(v) {
+					t.Errorf("%s: %s does not carry the entry of %s", tb.name, id, old)
+				}
+			}
+			has = append(has, tb.name+"="+entryText(tb.get(id)))
+		}
+		key := fmt.Sprint(safetyKey{l.Type, l.Area, l.Verb})
+		if byKey[key] == nil {
+			byKey[key] = map[string]string{}
+		}
+		byKey[key][id] = strings.Join(has, " ")
+		for _, old := range l.Today {
+			if !stays[old] {
+				gone[old] = true
+			}
+		}
+	}
+	for key, leaves := range byKey {
+		if vals := slices.Compact(slices.Sorted(maps.Values(leaves))); len(vals) > 1 {
+			t.Errorf("the leaves of %s carry different entries: %v", key, leaves)
+		}
+	}
+	for _, tb := range idTables() {
+		for _, id := range slices.Sorted(maps.Keys(idTablesAtStart[tb.name])) {
+			if _, ok := tb.get(id); !ok && !gone[id] {
+				t.Errorf("%s lost %s, which a command still has", tb.name, id)
+			}
+		}
+	}
+	for _, old := range slices.Sorted(maps.Keys(gone)) {
+		if _, ok := cmdKeys[old]; ok {
+			t.Errorf("cmdKeys still has %s, which no command has", old)
+		}
+		for _, tb := range idTables() {
+			if _, ok := tb.get(old); ok {
+				t.Errorf("%s still has %s, which no command has", tb.name, old)
+			}
+		}
+	}
+}
+
+// Every provider of a moved type carries the entries of an old ID that
+// only Today names (no Carries gives them again), however many providers
+// the type has, and the old ID leaves every table after the move.
+func TestMoveGivesEveryProviderTheOldEntries(t *testing.T) {
+	providers := []string{"one", "two", "three"} // a third provider catches a move that stops at two
+	var leaves []capability.Leaf
+	for _, p := range providers {
+		leaves = append(leaves, capability.Leaf{Key: capability.Key{Type: "probetype", Provider: p, Verb: "raw"},
+			State: capability.Built, Today: []string{"probetype.run"}})
+	}
+	tablesAtStart(func() {
+		want := map[string]any{}
+		for _, tb := range idTables() { // an entry of each table, a check where it has one
+			for _, id := range slices.Sorted(maps.Keys(idTablesAtStart[tb.name])) {
+				if v := idTablesAtStart[tb.name][id]; want[tb.name] == nil || !noCheck(v) && noCheck(want[tb.name]) {
+					want[tb.name] = v
+				}
+			}
+			if _, ok := want[tb.name]; !ok {
+				t.Fatalf("%s has no entry to give probetype.run", tb.name)
+			}
+			tb.set("probetype.run", want[tb.name])
+		}
+		cmdKeys["probetype.run"] = safetyKey{"probetype", "", "raw"}
+		moveLeaves("probetype", leaves)
+		for _, l := range leaves {
+			id := strings.Join(l.Key.Path(), ".")
+			for _, tb := range idTables() {
+				if got, ok := tb.get(id); !ok || !sameEntry(got, want[tb.name]) {
+					t.Errorf("%s: %s has %s, probetype.run had %s", tb.name, id, entryText(got, ok), entryText(want[tb.name], true))
+				}
+			}
+		}
+		for _, tb := range idTables() {
+			if _, ok := tb.get("probetype.run"); ok {
+				t.Errorf("%s still has probetype.run", tb.name)
+			}
+		}
+		if _, ok := cmdKeys["probetype.run"]; ok {
+			t.Error("cmdKeys still has probetype.run")
+		}
+	})
 }
 
 // The runs of TestTierMatchesRuntime only grow: a C pull request moves the
