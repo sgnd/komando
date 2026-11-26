@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 
 	"github.com/sgnd/komando/internal/out"
@@ -302,7 +303,8 @@ func (s *State) writeSealed(tx *sealdb.Tx, before map[string]recSnap, setBefore 
 	for n := range st.credID {
 		taken = append(taken, n)
 	}
-	w := &writer3{tx: tx, st: st, names: newNameMaker(taken), ver: map[string]uint64{}}
+	entries := slices.Concat(slices.Collect(maps.Keys(s.Hosts)), slices.Collect(maps.Keys(s.Conns)), slices.Collect(maps.Keys(s.Vpns)))
+	w := &writer3{tx: tx, st: st, names: newNameMaker(taken), entries: newNameMaker(entries), ver: map[string]uint64{}}
 	kept := map[string]bool{}
 	members := map[string][]string{} // entry record ID: its groups
 	refs := s.recs()

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 	"sync"
 
@@ -108,14 +107,20 @@ func resolveClusters(cl *call, st *store.State, expr string) ([]clusterTarget, e
 	}
 	var ts []clusterTarget
 	for _, c := range sel.Conns {
-		if inventory.ConnFamily(c) == "cluster" {
+		switch {
+		case inventory.ConnFamily(c) == "cluster":
 			ts = append(ts, clusterTarget{conn: c})
-		} else {
+		case c.Kind != "swarm": // a swarm service is its manager, below
 			cl.out.Skip(out.Skipped{Name: c.Name, Kind: c.Kind, Reason: useFor(nil, c)})
 		}
 	}
-	for _, h := range sel.Hosts {
-		if len(sel.Hosts) == 1 && len(ts) == 0 || swarmManager(expr, h) {
+	hosts, err := swarmHosts(cl, st, sel)
+	if err != nil {
+		return nil, err
+	}
+	for i, h := range hosts {
+		// past sel.Hosts: the manager of a swarm service the selector picked
+		if len(hosts) == 1 && len(ts) == 0 || i >= len(sel.Hosts) || swarmManager(st, expr, h) {
 			ts = append(ts, clusterTarget{host: h})
 		} else {
 			cl.out.Skip(out.Skipped{Name: h.Name, Kind: "host", Reason: "a server: name it, or tag it swarm (`komando host edit " + h.Name + " --add-tag swarm`), to read it as a Swarm manager"})
@@ -128,11 +133,11 @@ func resolveClusters(cl *call, st *store.State, expr string) ([]clusterTarget, e
 }
 
 // swarmManager: a server a selector of several targets picks (all,
-// @group) is read as a Swarm manager only when it is tagged swarm or named
-// in the selector itself; otherwise every web server in @prod would be
-// asked for a swarm it does not run.
-func swarmManager(expr string, h *store.Host) bool {
-	if slices.Contains(h.Tags, "swarm") {
+// @group) is read as a Swarm manager only when a swarm service names it as
+// its manager, or it is named in the selector itself; otherwise every web
+// server in @prod would be asked for a swarm it does not run.
+func swarmManager(st *store.State, expr string, h *store.Host) bool {
+	if swarmOf(st, h) != nil {
 		return true
 	}
 	for _, part := range strings.Split(expr, ",") {

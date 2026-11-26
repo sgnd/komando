@@ -49,15 +49,19 @@ func resolveCluster(cl *call, st *store.State, expr string) (clusterTarget, erro
 			k8s = append(k8s, c)
 		}
 	}
+	hosts, err := swarmHosts(cl, st, sel)
+	if err != nil {
+		return clusterTarget{}, err
+	}
 	switch {
-	case len(k8s) == 1 && len(sel.Hosts) == 0:
+	case len(k8s) == 1 && len(hosts) == 0:
 		return clusterTarget{conn: k8s[0]}, nil
-	case len(k8s) == 0 && len(sel.Hosts) == 1:
-		return clusterTarget{host: sel.Hosts[0]}, nil
-	case len(k8s)+len(sel.Hosts) == 0:
+	case len(k8s) == 0 && len(hosts) == 1:
+		return clusterTarget{host: hosts[0]}, nil
+	case len(k8s)+len(hosts) == 0:
 		return clusterTarget{}, noMatch(expr, "clusters (a k8s conn, or a Swarm manager server)", sel)
 	}
-	return clusterTarget{}, out.Usage("target %q picks %d clusters; this command works on one", expr, len(k8s)+len(sel.Hosts))
+	return clusterTarget{}, out.Usage("target %q picks %d clusters; this command works on one", expr, len(k8s)+len(hosts))
 }
 
 // kubeClient opens the API of a k8s conn through its --via path.

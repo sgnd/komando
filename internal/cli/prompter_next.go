@@ -252,12 +252,15 @@ func itemKinds(st *store.State, kind, name string) []string {
 		if h.Windows() {
 			return []string{"server:windows"}
 		}
-		if slices.Contains(h.Tags, "swarm") {
+		if swarmOf(st, h) != nil {
 			return []string{"server", "swarm"}
 		}
 		return []string{"server"}
 	}
 	if c, ok := st.Conns[name]; ok {
+		if c.Kind == "swarm" { // its commands work on its manager
+			return []string{"swarm"}
+		}
 		fam := inventory.ConnFamily(c)
 		ks := []string{fam}
 		if _, ok := itemCommands[fam+":"+c.Kind]; ok {

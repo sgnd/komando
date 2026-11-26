@@ -279,10 +279,11 @@ func urlEscapeUser(u string) string {
 
 // writer3 applies State's changes onto the stored v3 records in tx.
 type writer3 struct {
-	tx    *sealdb.Tx
-	st    *stored3
-	names *nameMaker
-	ver   map[string]uint64 // record ID: the version its last write gave it
+	tx      *sealdb.Tx
+	st      *stored3
+	names   *nameMaker        // credential names
+	entries *nameMaker        // host, service and VPN names
+	ver     map[string]uint64 // record ID: the version its last write gave it
 }
 
 // put writes v under typ and id and keeps st in step.
@@ -348,6 +349,8 @@ func (w *writer3) host(h *Host) error {
 	v.Name, v.Address, v.Port, v.Login, v.Via, v.ViaIDs = h.Name, h.Address, h.Port, h.Login, h.Via, h.ViaIDs
 	v.ProxyCommand, v.Tags, v.Labels, v.Env, v.Protected = h.ProxyCommand, h.Tags, h.Labels, h.Env, h.Protected
 	v.ForwardAgent, v.Notes, v.OS, v.WinRMOpts, v.CreatedAt, v.UpdatedAt = h.ForwardAgent, h.Notes, h.OS, h.WinRMOpts, h.CreatedAt, h.UpdatedAt
+	var swarm bool
+	v.Tags, swarm = swarmTagged(h.Tags)
 	v.Provider = "ssh"
 	if h.Transport == TransportWinRM {
 		v.Provider = "winrm"
@@ -398,6 +401,11 @@ func (w *writer3) host(h *Host) error {
 		return err
 	}
 	w.st.hosts[id] = v
+	if swarm {
+		if err := w.swarmService(id, h); err != nil {
+			return err
+		}
+	}
 	if cred != "" {
 		if err := w.loginCred(e, cred, h.User, alone); err != nil {
 			return err
