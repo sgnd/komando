@@ -222,11 +222,17 @@ func checkShellDepth(cl *call, line, home, cwd string, depth int) guardDecision 
 		}
 		recursive := recursiveReader(base, args)
 		first := len(words) - len(args) // where the arguments start
+		pattern := -1                   // grep's pattern: text to look for, not a file
+		if p := grepPattern(base, args); p >= 0 {
+			pattern = first + p
+		}
 		wcwd := cwd
 		for j := 0; j < len(words); j++ {
 			w := words[j]
 			if j >= first {
 				switch {
+				case j == pattern && !globs[j]:
+					continue
 				case (base == "tar" || base == "git" || base == "make") && (w == "-C" || w == "--directory") && j+1 < len(words):
 					// tar -C DIR and git -C DIR: the words after it are read from DIR
 					j++
@@ -261,6 +267,51 @@ func checkShellDepth(cl *call, line, home, cwd string, depth int) guardDecision 
 		}
 	}
 	return allow()
+}
+
+// grepValueFlags are, per search program, the short flags that take the
+// next word as their value (-A 3, -m 1); only flags that always do.
+var grepValueFlags = map[string]string{"grep": "ABCDdefm", "egrep": "ABCDdefm", "fgrep": "ABCDdefm", "rg": "ABCEMTefgjmrt"}
+
+// grepPattern is the index in args of the pattern a search program takes
+// as its first operand, or -1: none when -e or -f gives the patterns, and
+// none when a flag the guard does not know might hide where it is.
+func grepPattern(base string, args []string) int {
+	values, ok := grepValueFlags[base]
+	if !ok {
+		return -1
+	}
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case a == "--":
+			if i+1 < len(args) {
+				return i + 1
+			}
+			return -1
+		case a == "--regexp" || a == "--file" || strings.HasPrefix(a, "--regexp=") || strings.HasPrefix(a, "--file="):
+			return -1
+		case strings.HasPrefix(a, "--"):
+			if !strings.Contains(a, "=") {
+				return -1 // it may take the next word as its value
+			}
+		case len(a) > 1 && a[0] == '-':
+			for j := 1; j < len(a); j++ {
+				if a[j] == 'e' || a[j] == 'f' {
+					return -1
+				}
+				if strings.IndexByte(values, a[j]) >= 0 {
+					if j == len(a)-1 {
+						i++ // its value is the next word
+					}
+					break // the rest of the word is its value
+				}
+			}
+		default:
+			return i
+		}
+	}
+	return -1
 }
 
 // findPattern are find's tests that take a name pattern.

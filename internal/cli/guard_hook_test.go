@@ -210,6 +210,28 @@ func TestGuardHookAnswersAsTheCommand(t *testing.T) {
 	}
 }
 
+// C520: grep's pattern is text to look for, not a file it reads: a pattern
+// that looks like a key file's name passes. A file grep reads, a pattern
+// file (-f) and a glob the shell turns into file names still count.
+func TestGuardGrepPatternIsNoFile(t *testing.T) {
+	home, _ := guardLineHome(t)
+	checkLines(t, home, home, []string{
+		"grep -v scrypt.Key internal/vault/storekey.go",
+		`grep -rn "argon2.IDKey" internal/`,
+		"rg -n vault.Key internal",
+		"grep -n -A 3 tls.key README.md",
+	}, false)
+	checkLines(t, home, home, []string{
+		"grep -f ~/.komando/vault.key notes.txt",
+		"grep -e x ~/.ssh/id_ed25519",
+		"grep x ~/.ssh/id_*",
+		"grep -- x ~/.ssh/id_ed25519",
+		"grep foo server.key",
+		"grep ~/.ssh/id_* notes.txt",
+		"grep -rf ~/.komando/vault.key .",
+	}, true)
+}
+
 // C520: an Orca worktree for komando names the repo komando, a word that
 // names Orca's own record, not a file. Orca with an output or path flag is
 // still checked.
