@@ -115,7 +115,7 @@ Google Cloud and Azure sign-in are not available yet. What works instead:
 
   ```bash
   komando secret set gcs-key < key.json
-  komando conn add media gs://my-bucket/site --password-ref secret:gcs-key
+  komando conn add media gs://my-bucket/site --password-ref credential:gcs-key
   ```
 
 - **Azure**: an Azure blob conn takes the storage account key or a SAS
@@ -126,7 +126,7 @@ Google Cloud and Azure sign-in are not available yet. What works instead:
 
   ```bash
   komando secret set blob-key
-  komando conn add files azblob://mystorageacct@uploads --password-ref secret:blob-key
+  komando conn add files azblob://mystorageacct@uploads --password-ref credential:blob-key
   ```
 
 Registries on Google Cloud and Azure log in the same way: see

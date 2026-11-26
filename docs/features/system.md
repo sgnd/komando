@@ -338,7 +338,7 @@ Commands that read use sudo only when you ask: `--sudo` for `logs`,
 
 When sudo wants a password komando does not have, or the login user may not
 use sudo, the command stops with `PERMISSION_DENIED` and a hint that names
-the fix (`komando host edit web1 --sudo-ref secret:web1-sudo`, see
+the fix (`komando host edit web1 --sudo-ref credential:web1-sudo`, see
 [Sudo passwords](servers.md#sudo-passwords-and-the-vault)). A server with
 no sudo at all gives `TOOL_MISSING` (add `--no-sudo` as root). The same
 holds for `pkg`, `user`, `cron --user`, every `docker` command with
@@ -404,7 +404,7 @@ komando docker prune web1 --older-than 30d --dry-run # what would go, and how mu
 | `UNIT_NOT_FOUND` | no service of that name (exit 3) | check the name with `komando svc list TARGET` |
 | `NO_SYSTEMD` | the server runs without systemd (exit 3) | read its logs with `--file` or `komando docker logs` |
 | `NO_USER_MANAGER` | `--user-units`, and the login user has no systemd manager running (exit 3) | turn lingering on: `loginctl enable-linger USER` (a person with sudo) |
-| `PERMISSION_DENIED` | sudo wants a password komando does not have, or the user may not use sudo | store the sudo password: `komando host edit SERVER --sudo-ref secret:NAME` |
+| `PERMISSION_DENIED` | sudo wants a password komando does not have, or the user may not use sudo | store the sudo password: `komando host edit SERVER --sudo-ref credential:NAME` |
 | `TOOL_MISSING` | sudo, or a tool the command needs, is not installed (exit 3) | as root add `--no-sudo`; on Alpine, `komando pkg install TARGET shadow` for `user` |
 | `PACKAGE_NOT_FOUND` | no such package in the server's package index | check the name; `komando pkg update TARGET` if the package is new |
 | `UNEXPECTED_CHANGE` | a server changed after patching (exit 8); the rest were not patched | check it with `komando docker ps` and `komando svc list --failed`, then run again or add `--keep-going` |

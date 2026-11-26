@@ -38,17 +38,17 @@ func TestParseNATS(t *testing.T) {
 
 func TestParseNATSRefuses(t *testing.T) {
 	for raw, want := range map[string]string{
-		"nats://app:secret@nats":                 "password",
-		"nats://nats/ORDERS":                     "servers only",
-		"nats://nats?tls=skip-verify":            "for tls://",
-		"tls://nats?tls=true":                    "can only be skip-verify",
+		"nats://app:secret@nats":                     "password",
+		"nats://nats/ORDERS":                         "servers only",
+		"nats://nats?tls=skip-verify":                "for tls://",
+		"tls://nats?tls=true":                        "can only be skip-verify",
 		"nats://nats?ca=credential:x":                "use tls://",
 		"tls://nats?tls=skip-verify&ca=credential:x": "do not go together",
-		"nats://nats?creds=/home/me/user.creds":  "credential:NAME",
+		"nats://nats?creds=/home/me/user.creds":      "credential:NAME",
 		"nats://app@nats?creds=credential:x":         "not both",
-		"nats://nats?token=abc":                  "unknown nats URL option",
-		"nats://nats:0":                          "is not a number from 1 to 65535",
-		"nats:///":                               "needs a server",
+		"nats://nats?token=abc":                      "unknown nats URL option",
+		"nats://nats:0":                              "is not a number from 1 to 65535",
+		"nats:///":                                   "needs a server",
 	} {
 		_, err := Parse(raw)
 		if err == nil || !strings.Contains(err.Error(), want) {

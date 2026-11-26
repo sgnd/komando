@@ -135,6 +135,7 @@ func TestFormat3SharedCredentialRefused(t *testing.T) {
 	}{
 		{"the user, through a host", func(s *State) { s.Hosts["web3"].User = "admin" }, "CREDENTIAL_SHARED", []string{"host web1", "host web3"}},
 		{"the user, through a service's URL", func(s *State) { s.Conns["pg2"].URL = "postgres://other@10.0.0.31:5432/app" }, "CREDENTIAL_SHARED", []string{"database pg", "database pg2"}},
+		{"the value, through a host's password reference", func(s *State) { s.Hosts["web3"].Key, s.Hosts["web3"].PasswordRef = "", "env:OTHER" }, "BAD_REFERENCE", nil},
 		{"the value, through a host's password reference in the old spelling", func(s *State) { s.Hosts["web3"].Key, s.Hosts["web3"].PasswordRef = "", "secret:pg-pass" }, "BAD_REFERENCE", nil},
 	}
 	for _, c := range cases {
@@ -203,49 +204,5 @@ func TestFormat3KeyFileRepointsOneHost(t *testing.T) {
 	}
 	if s, _ := Load(); s.Hosts["web4"].Key != web3.Key {
 		t.Errorf("web4 %q, web3 %q", s.Hosts["web4"].Key, web3.Key)
-	}
-}
-
-// Audit E1-2, the value through a host's password reference: an outside
-// reference on a host whose key another host also uses points this host
-// at a credential of its own; the shared credential and every other
-// record stay byte for byte.
-func TestFormat3OutsideRefLeavesSharedCredential(t *testing.T) {
-	migrated(t)
-	if err := Update(Save(), func(s *State) error {
-		s.Hosts["web3"] = &Host{Name: "web3", Address: "10.0.0.30", User: "root", Key: "deploy-root"}
-		return nil
-	}); err != nil {
-		t.Fatal(err)
-	}
-	before := rawRecords(t)
-	if err := Update(Save(), func(s *State) error {
-		s.Hosts["web3"].Key, s.Hosts["web3"].PasswordRef = "", "env:OTHER"
-		return nil
-	}); err != nil {
-		t.Fatal(err)
-	}
-	s, err := Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-	name := strings.TrimPrefix(s.Hosts["web3"].PasswordRef, "credential:")
-	if name == "deploy-root" || name == "" {
-		t.Fatalf("web3 names %q", s.Hosts["web3"].PasswordRef)
-	}
-	if got, err := OutsideRefOf(name); err != nil || got != "env:OTHER" {
-		t.Fatalf("web3's credential reads %q %v", got, err)
-	}
-	if s.Hosts["web1"].Key != "deploy-root" || s.Keys["deploy-root"] == nil {
-		t.Fatalf("web1 lost its key: %+v", s.Hosts["web1"])
-	}
-	after := rawRecords(t)
-	for id, m := range before {
-		if s.Hosts["web3"].Rec.ID == id {
-			continue
-		}
-		if !maps.EqualFunc(m, after[id], func(a, b json.RawMessage) bool { return string(a) == string(b) }) {
-			t.Errorf("record %s changed:\n%s\n%s", id, m, after[id])
-		}
 	}
 }

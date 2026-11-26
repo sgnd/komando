@@ -89,14 +89,14 @@ func TestPrinterPersonalNeedsMask(t *testing.T) {
 
 func TestHasHiddenLabels(t *testing.T) {
 	for s, want := range map[string]bool{
-		"x=[hidden]":             true,
-		"[hidden: private key]":  true,
-		"mail: [hidden: email]":  true,
-		"name: [hidden: column]": true,
-		"pw=[credential:db-pass]":    true,
-		"[hiddenness]":           false,
-		"[hidden:email]":         false,
-		"alice@example.com":      false,
+		"x=[hidden]":              true,
+		"[hidden: private key]":   true,
+		"mail: [hidden: email]":   true,
+		"name: [hidden: column]":  true,
+		"pw=[credential:db-pass]": true,
+		"[hiddenness]":            false,
+		"[hidden:email]":          false,
+		"alice@example.com":       false,
 	} {
 		if got := HasHidden(s); got != want {
 			t.Errorf("HasHidden(%q) = %v, want %v", s, got, want)

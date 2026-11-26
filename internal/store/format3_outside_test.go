@@ -1,84 +1,70 @@
 package store
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/sgnd/komando/internal/out"
 )
 
-// credentialsOf is every credential record of the store by name.
-func credentialsOf(t *testing.T) map[string]Credential {
-	t.Helper()
-	cs := map[string]Credential{}
-	for _, m := range rawRecords(t) {
-		if _, ok := m["kind"]; !ok {
-			continue
-		}
-		b, _ := json.Marshal(m)
-		var c Credential
-		if err := json.Unmarshal(b, &c); err != nil || c.Name == "" {
-			continue
-		}
-		cs[c.Name] = c
-	}
-	return cs
-}
-
-// An outside reference given on a host, a service or a VPN (env:VAR,
-// file:PATH, op://...) is kept as a credential in a credential store, as
-// the migration keeps one: the field names that credential, and writing
-// the entry again makes no second one.
-func TestFormat3OutsideRefBecomesCredential(t *testing.T) {
-	sealedHome(t)
-	fakeKeys(t)
-	if err := Update(Save(), func(s *State) error {
-		s.Hosts["web"] = &Host{Name: "web", Address: "10.0.0.5", User: "app", PasswordRef: "env:KOMANDO_E1_PW"}
-		s.Conns["db"] = &Conn{Name: "db", Kind: "postgres", URL: "postgres://ro@db.internal/sales", PasswordRef: "op://ops/db/password"}
-		return nil
-	}); err != nil {
-		t.Fatal(err)
-	}
+// The migration keeps a field that named an outside value (env:VAR,
+// op://...) as a credential in a credential store. Such a credential
+// reads its value from the reference it was made from; a credential with
+// a value of its own, a key, or no credential at all reads nothing there.
+func TestOutsideRefOfMigrated(t *testing.T) {
+	migrated(t)
 	s, err := Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	ref := s.Hosts["web"].PasswordRef
-	name, ok := strings.CutPrefix(ref, "credential:")
-	if !ok || name == "" {
-		t.Fatalf("host password ref %q, want credential:NAME", ref)
+	for host, want := range map[string]string{"ext1": "env:WEB_PW", "vh": "vault:kv/app#pw"} {
+		name, ok := strings.CutPrefix(s.Hosts[host].PasswordRef, "credential:")
+		if !ok || name == "" {
+			t.Fatalf("%s names %q", host, s.Hosts[host].PasswordRef)
+		}
+		if got, err := OutsideRefOf(name); err != nil || got != want {
+			t.Fatalf("%s: credential %s reads %q %v, want %s", host, name, got, err, want)
+		}
 	}
-	got, err := OutsideRefOf(name)
-	if err != nil || got != "env:KOMANDO_E1_PW" {
-		t.Fatalf("host credential %s reads %q %v, want env:KOMANDO_E1_PW", name, got, err)
+	name := strings.TrimPrefix(s.Hosts["win1"].PasswordRef, "credential:")
+	if got, err := OutsideRefOf(name); name == "" || err != nil || got != "" {
+		t.Fatalf("win1's credential %q with its own value reads %q %v", name, got, err)
 	}
-	if c := credentialsOf(t)[name]; c.User != "app" || c.Store == "" || c.Item != "KOMANDO_E1_PW" || c.Value != nil {
-		t.Fatalf("host credential: %+v", c)
-	}
-	cname := strings.TrimPrefix(s.Conns["db"].PasswordRef, "credential:")
-	if got, err := OutsideRefOf(cname); err != nil || got != "op://ops/db/password" {
-		t.Fatalf("service credential %s reads %q %v", cname, got, err)
-	}
-	n := len(credentialsOf(t))
-	if err := Update(Save(), func(s *State) error {
-		s.Hosts["web"].Address = "10.0.0.6"
-		return nil
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if m := len(credentialsOf(t)); m != n {
-		t.Fatalf("%d credentials after a second write, %d before", m, n)
+	for _, name := range []string{"nothing", "deploy-root"} {
+		if got, err := OutsideRefOf(name); err != nil || got != "" {
+			t.Fatalf("%s reads %q %v", name, got, err)
+		}
 	}
 }
 
-// A credential that holds its own value, or none of an outside store, is
-// no outside reference.
-func TestOutsideRefOfOwnValue(t *testing.T) {
-	sealedHome(t)
-	fakeKeys(t)
-	if got, err := OutsideRefOf("nothing"); err != nil || got != "" {
-		t.Fatal("a missing credential reads as an outside reference")
+// CLI-5, 2026-11-26: a command makes no credential store item. An outside
+// reference on a field of a host, a service, a VPN or a key is refused
+// with a usage error; nothing is written.
+func TestFormat3OutsideRefRefused(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		set  func(s *State)
+	}{
+		{"host password", func(s *State) { s.Hosts["web"] = &Host{Name: "web", Address: "a", PasswordRef: "env:WEB_PW"} }},
+		{"host sudo", func(s *State) { s.Hosts["web"] = &Host{Name: "web", Address: "a", User: "u", SudoRef: "file:/tmp/pw"} }},
+		{"service password", func(s *State) {
+			s.Conns["db"] = &Conn{Name: "db", Kind: "postgres", URL: "postgres://u@h/d", PasswordRef: "op://ops/db/password"}
+		}},
+		{"vpn key", func(s *State) { s.Vpns["office"] = &Vpn{Name: "office", Kind: "wireguard", KeyRef: "vault:kv/wg#key"} }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sealedHome(t)
+			fakeKeys(t)
+			err := Update(Save(), func(s *State) error { tc.set(s); return nil })
+			var oe *out.Error
+			if !errorsAs(err, &oe) || oe.Code != "BAD_REFERENCE" || oe.Exit != out.ExitUsage || !strings.Contains(oe.Hint, "credential:NAME") {
+				t.Fatalf("got %v, want BAD_REFERENCE naming credential:NAME", err)
+			}
+			s, err := Load()
+			if err != nil || len(s.Hosts)+len(s.Conns)+len(s.Vpns) != 0 {
+				t.Fatalf("something was written: %v", err)
+			}
+		})
 	}
 }
 

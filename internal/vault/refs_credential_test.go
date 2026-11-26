@@ -1,12 +1,15 @@
 package vault
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/sealdb"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -16,8 +19,28 @@ import (
 func TestResolveOutsideCredential(t *testing.T) {
 	sealedVault(t)
 	t.Setenv("KOMANDO_E1_PW", "value-from-env")
-	if err := store.Update(store.Save(), func(s *store.State) error {
-		s.Hosts["web"] = &store.Host{Name: "web", Address: "10.0.0.5", User: "app", PasswordRef: "env:KOMANDO_E1_PW"}
+	// what the migration writes for a host that said env:KOMANDO_E1_PW
+	d, err := store.DB(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := d.Update(context.Background(), func(tx *sealdb.Tx) error {
+		for _, r := range []struct {
+			typ string
+			v   any
+		}{
+			{store.KindCredStore, store.CredentialStore{Name: "env", Provider: "env"}},
+			{store.KindCredential, store.Credential{Name: "web-credential", Kind: store.CredPassword, User: "app", Store: "env", Item: "KOMANDO_E1_PW"}},
+			{store.KindHost, store.HostV3{Name: "web", Address: "10.0.0.5", Provider: "ssh", Credential: "web-credential"}},
+		} {
+			b, err := json.Marshal(r.v)
+			if err != nil {
+				return err
+			}
+			if _, err := tx.Put(r.typ, "", b); err != nil {
+				return err
+			}
+		}
 		return nil
 	}); err != nil {
 		t.Fatal(err)

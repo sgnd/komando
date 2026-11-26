@@ -115,9 +115,9 @@ func TestRiskJSON(t *testing.T) {
 
 func TestParseRegistryTLS(t *testing.T) {
 	for raw, want := range map[string][2]string{
-		"registry://me@ghcr.io":                       {"", ""},
-		"registry://me@registry.lan:5000?tls=false":   {"false", ""},
-		"oci://me@registry.lan?tls=skip-verify":       {"skip-verify", ""},
+		"registry://me@ghcr.io":                           {"", ""},
+		"registry://me@registry.lan:5000?tls=false":       {"false", ""},
+		"oci://me@registry.lan?tls=skip-verify":           {"skip-verify", ""},
 		"registry://me@registry.lan?ca=credential:lan-ca": {"", "credential:lan-ca"},
 	} {
 		tg, err := Parse(raw)
@@ -129,10 +129,10 @@ func TestParseRegistryTLS(t *testing.T) {
 		}
 	}
 	for _, raw := range []string{
-		"registry://me@registry.lan?tls=insecure",                // a typo is not a silent default
-		"registry://me@registry.lan?insecure=1",                  // unknown option
-		"registry://me@registry.lan?ca=lan-ca",                   // ca= is a vault reference
-		"registry://me@registry.lan?ca=",                         // empty
+		"registry://me@registry.lan?tls=insecure",                    // a typo is not a silent default
+		"registry://me@registry.lan?insecure=1",                      // unknown option
+		"registry://me@registry.lan?ca=lan-ca",                       // ca= is a vault reference
+		"registry://me@registry.lan?ca=",                             // empty
 		"registry://me@registry.lan?ca=credential:x&tls=skip-verify", // ca= would be ignored
 		"registry://me@registry.lan?ca=credential:x&tls=false",
 	} {
@@ -152,7 +152,7 @@ func TestParseResolve(t *testing.T) {
 		"registry://me@registry.lan?resolve=[2001:db8::1]:8443":                     {"registry.lan:443", "[2001:db8::1]:8443"},
 		"registry://me@registry.lan?resolve=[2001:db8::1]":                          {"registry.lan:443", "[2001:db8::1]:443"},
 		"registry://me@registry.lan?resolve=2001:db8::1":                            {"registry.lan:443", "[2001:db8::1]:443"},
-		"registry://me@registry.lan?ca=credential:lan-ca&resolve=10.0.0.5":              {"registry.lan:443", "10.0.0.5:443"},
+		"registry://me@registry.lan?ca=credential:lan-ca&resolve=10.0.0.5":          {"registry.lan:443", "10.0.0.5:443"},
 		"s3://KEY@backups?endpoint=https://minio.example.com:9000&resolve=10.0.0.9": {"minio.example.com:9000", "10.0.0.9:9000"},
 		"registry://me@registry.lan":                                                {"registry.lan:443", ""},
 		"s3://KEY@backups?endpoint=http://minio.lan&region=us-east-1":               {"minio.lan:80", ""},

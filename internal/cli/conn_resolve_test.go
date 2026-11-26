@@ -127,7 +127,7 @@ func TestRegistryResolve(t *testing.T) {
 	// the check stays on: without ca= the private CA is unknown, and
 	// another name in the URL does not match the certificate
 	for url, wantErr := range map[string]any{
-		"registry://me@registry.test:" + port + "?resolve=127.0.0.1":                  &tls.CertificateVerificationError{},
+		"registry://me@registry.test:" + port + "?resolve=127.0.0.1":                      &tls.CertificateVerificationError{},
 		"registry://me@other.test:" + port + "?ca=credential:reg-ca&resolve=127.0.0.1":    x509.HostnameError{},
 		"registry://me@127.0.0.1:" + port + "?ca=credential:reg-ca":                       x509.HostnameError{}, // why resolve is needed: no IP on the certificate
 		"registry://me@registry.test:" + port + "?ca=credential:reg-ca&resolve=127.0.0.1": nil,

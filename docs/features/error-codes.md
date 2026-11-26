@@ -28,7 +28,7 @@ This page is made from the code (`komando schema` lists the same under
 | `BUCKET_NOT_FOUND` | 3 | bucket does not exist | check the bucket name in the conn URL (`komando conn show NAME`) |
 | `BUILTIN_RULE` | 2 | … is a built-in rule and cannot be removed | a built-in rule cannot be removed; switch it off with `komando policy edit RULE --off` |
 | `CACHE_AUTH` | 4 | memcached refused the login: … | check the user in the URL and the password reference (`komando conn show NAME`) |
-| `CACHE_CONNECT` | 4 | cannot connect to …: … | the server's certificate could not be checked against this computer's CAs: give the CA that signed it with ?ca=secret:NAME (`komando secret set NAME < ca.pem`), or reach the server --via an SSH server with the plain scheme (redis://, memcached://) instead (`komando conn edit NAME --via HOST --url ...`) |
+| `CACHE_CONNECT` | 4 | cannot connect to …: … | the server's certificate could not be checked against this computer's CAs: give the CA that signed it with ?ca=credential:NAME (`komando secret set NAME < ca.pem`), or reach the server --via an SSH server with the plain scheme (redis://, memcached://) instead (`komando conn edit NAME --via HOST --url ...`) |
 | `CACHE_ERROR` | 5 | this memcached cannot list keys: … | start memcached with the LRU crawler on (the default since 1.5); `cache get` works without it |
 | `CACHE_KEY_NOT_FOUND` | 3 | no cache key named … | list keys with `komando cache keys CONN 'pattern*'` |
 | `CACHE_SECTION_NOT_FOUND` | 3 | INFO … returned nothing | this server has no such section; try `komando cache info CONN --all` |
@@ -57,7 +57,7 @@ This page is made from the code (`komando schema` lists the same under
 | `DB_ERROR` | 5 | … (SQLSTATE …) | fix the SQL; `komando db schema CONN TABLE` shows columns and types |
 | `DB_NOT_FOUND` | 3 | … failed on … (exit …): … | check the database name at the end of the conn URL (`komando conn show …`) |
 | `DB_PRIVILEGE` | 5 | … (error …) | the conn's user lacks this right; ask an admin to grant it, or use a conn with an admin user |
-| `DB_USER_EXISTS` | 8 | user … already exists | change its password with `komando db user passwd CONN … --password-ref secret:NAME` |
+| `DB_USER_EXISTS` | 8 | user … already exists | change its password with `komando db user passwd CONN … --password-ref credential:NAME` |
 | `DB_USER_IN_USE` | 8 | the database user owns objects or has sessions, so it is not removed | end its sessions first: find them with `komando db activity CONN --all`, then `komando db kill CONN PID --session` |
 | `DB_USER_NOT_FOUND` | 3 | no database user named … | list users with `komando db user list CONN` |
 | `DECLINED` | 6 | not run: the person said no; nothing was changed | run it again to be asked again |
@@ -75,7 +75,7 @@ This page is made from the code (`komando schema` lists the same under
 | `DUMP_FAILED` | 5 | the backup stopped before the end; no partial file is left | check the conn with `komando test …`; with --run-on HOST, pg_dump or mysqldump on that server runs instead |
 | `DUMP_UNSUPPORTED` | 2 | komando's own dump cannot write an object (the message names it) | run pg_dump on a server that has it and can reach the database (--run-on HOST), or dump the other tables with --table |
 | `EMPTY_FOLDER_CONFIRM_REQUIRED` | 6 | … lists no files in …, so --delete would remove … there in …; nothing was deleted | see what would go with `komando sync SRC DST --delete --dry-run`, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen) |
-| `ENCODED_SECRET_INVALID` | 2 | the script or command holds a private key; komando does not send one this way | put the key in the vault and pass it with secret run: `komando secret set NAME < key`, then `komando secret run --env KEY=secret:NAME -- …`; to search for keys, quote only 'PRIVATE KEY-----', not the whole BEGIN line |
+| `ENCODED_SECRET_INVALID` | 2 | the script or command holds a private key; komando does not send one this way | put the key in the vault and pass it with secret run: `komando secret set NAME < key`, then `komando secret run --env KEY=credential:NAME -- …`; to search for keys, quote only 'PRIVATE KEY-----', not the whole BEGIN line |
 | `ERROR` | 1 | an error with no more specific code (read the message) | read the message; `komando doctor` checks this computer's setup |
 | `FILE_CHANGED` | 8 | … …; nothing was added | run the same command again (`komando cp SRC DST --continue`): komando reads the file's length again |
 | `FILE_ERROR` | 1 | a file on this computer cannot be read or written | check that the folder exists and is writable |
@@ -89,7 +89,7 @@ This page is made from the code (`komando schema` lists the same under
 | `GUARD_PATH_MISSING` | 3 | komando cannot tell where its own program is, so it writes no guard hook | run komando by its full path, such as `/usr/local/bin/komando guide install`; without a guard: `komando guide install --no-guard` |
 | `HELM_RELEASE_NOT_FOUND` | 3 | no Helm release named … in namespace … | see the releases with `komando cluster helm list TARGET -A`, and name the namespace with --namespace |
 | `HELM_REVISION_NOT_FOUND` | 3 | … has no revision … | see the revisions with `komando cluster helm history TARGET RELEASE` |
-| `HIDDEN_VALUE` | 2 | stdin holds a value komando hid ([hidden] or [secret:NAME]); uploading it would destroy the real value | edit the file on the server with `komando fs replace` (an --old with [hidden] in it matches the hidden value), and put a secret in with {{secret:NAME}} |
+| `HIDDEN_VALUE` | 2 | stdin holds a value komando hid ([hidden] or [credential:NAME]); uploading it would destroy the real value | edit the file on the server with `komando fs replace` (an --old with [hidden] in it matches the hidden value), and put a secret in with {{credential:NAME}} |
 | `HOSTKEY_MISMATCH` | 4 | host key for … changed: the server was rebuilt, or someone is intercepting the connection | possible man-in-the-middle: report this to the user and do not re-trust the key yourself; once they have checked the new fingerprint another way, they can run `komando host trust … --reset` |
 | `HOSTKEY_REVOKED` | 4 | … shows the revoked host key …; nothing was sent | this key is on komando's list of revoked host keys: treat the server as compromised, tell its owner, and do not re-trust it with `komando host trust` |
 | `HOSTKEY_UNKNOWN` | 4 | host key for … is not trusted yet (host keys are strict) | compare the fingerprint with what the server's owner sees, then run `komando host trust …` (an AI agent asks the user: its pin needs their yes) |
@@ -208,7 +208,7 @@ This page is made from the code (`komando schema` lists the same under
 | `RESUME_CONFLICT` | 8 | … does not match the source after the copy (sha256 …, the source …); it was left as it is | copy the whole file again without --continue (a download replaces a file here only with --overwrite): `komando cp SRC DST` |
 | `RESUME_UNSUPPORTED` | 2 | … cannot be continued: this kind of storage (S3, Google Cloud Storage, Azure Blob, WebDAV) stores a file whole and cannot add to one; nothing was changed | run it again without --continue to copy the whole file: `komando cp SRC DST` |
 | `REVEAL_NEEDS_PERSON` | 6 | --reveal needs the user's yes | values stay [hidden] in a dry run; run it without --dry-run to ask the user in a window on their screen |
-| `REVEAL_NEEDS_TERMINAL` | 6 | --reveal only works for a person at a terminal | ask a person to run `komando secret show … --reveal` in a terminal; to use the secret in a command, reference it (secret:…) instead |
+| `REVEAL_NEEDS_TERMINAL` | 6 | --reveal only works for a person at a terminal | ask a person to run `komando secret show … --reveal` in a terminal; to use the secret in a command, reference it (credential:…) instead |
 | `REVISION_NOT_FOUND` | 3 | no earlier revision to go back to | see the revisions with `komando cluster history TARGET TYPE/NAME` |
 | `REVOKE_FAILED` | 5 | the key could not be removed from a server's authorized_keys | run it again; to look at the file: `komando fs cat SERVER ~/.ssh/authorized_keys` |
 | `ROLLOUT_FAILED` | 5 | pods stuck for … | see why with `komando cluster describe TARGET …`; `komando cluster rollback` goes back |
@@ -218,7 +218,7 @@ This page is made from the code (`komando schema` lists the same under
 | `SEALED_FILE_INVALID` | 2 | … is damaged or cut short: komando cannot read it as a sealed file; nothing was imported | copy the file again whole, or make it again with `komando export --sealed --to FILE` |
 | `SEALED_FILE_UNSUPPORTED` | 2 | … is sealed for the iPhone app: only the phone whose key it was sealed to opens it; nothing was imported | on the old computer, make a file for this one with `komando export --sealed --to FILE` |
 | `SECRET_DESTINATION` | 6 | an AI agent asked to send …; that needs a person's yes | check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen) |
-| `SECRET_EXISTS` | 8 | secret … is used by … already; --ask-password and --ask-psk do not replace it | use it with --… …, or store this one under another name: `komando secret set NAME`, then --… secret:NAME |
+| `SECRET_EXISTS` | 8 | secret … is used by … already; --ask-password and --ask-psk do not replace it | use it with --… …, or store this one under another name: `komando secret set NAME`, then --… credential:NAME |
 | `SECRET_IN_ARGS` | 2 | refusing a secret value on the command line: it would be saved in shell history | run `komando secret set …` and type it (hidden), use --from-env VAR, or pipe it in (stdin) |
 | `SECRET_IN_USE` | 8 | secret … is used by … | point them at another secret first, for example `…`, or rename it with `komando secret rename` |
 | `SECRET_MISMATCH` | 1 | the value is not the one stored in … | if the stored one is wrong, store the right one with `komando secret set …` |
@@ -235,7 +235,7 @@ This page is made from the code (`komando schema` lists the same under
 | `SESSION_RECORD_MISSING` | 3 | session … on … was not started from this computer | only the computer that started the run can stop it: run `komando exec TARGET --attach ID --stop` there; `komando audit` there shows the exec that started it |
 | `SESSION_SPACE_DENIED` | 5 | …: the home file system has less free space than the log cap plus 5 percent of the disk; nothing ran | free space in the home folder, or give a smaller log cap: `komando exec TARGET --log-max 100MiB -- COMMAND` |
 | `SESSION_START_FAILED` | 5 | …: the run in a session did not start (…) | the server needs nohup, ps and mkfifo: look with `komando exec TARGET -- command -v setsid nohup ps mkfifo` |
-| `SESSION_STOP_FAILED` | 5 | …: session … was not stopped (exit …): … | a run started with --sudo is stopped through sudo as the same user; when sudo asks for a password there, give the server its sudo password: `komando host edit TARGET --sudo-ref secret:NAME` |
+| `SESSION_STOP_FAILED` | 5 | …: session … was not stopped (exit …): … | a run started with --sudo is stopped through sudo as the same user; when sudo asks for a password there, give the server its sudo password: `komando host edit TARGET --sudo-ref credential:NAME` |
 | `SESSION_WAIT_TIMEOUT` | 7 | session … on … still running after … | it is still running: `komando exec … --attach … --offset …` reads on |
 | `SFTP_UNAVAILABLE` | 4 | sftp: … | enable the sftp subsystem in sshd_config |
 | `SHARED_FOLDER_CONFLICT` | 8 | … can be changed by …, not only by root and the SSH user: as root, komando does not write … there (that user could swap it for a link while root writes) | write it as … instead, for example `komando exec TARGET --sudo-user … --stdin-file FILE -- sh -c 'cat > "$0"' …` |
@@ -263,7 +263,7 @@ This page is made from the code (`komando schema` lists the same under
 | `SSH_KEY_NOT_FOUND` | 3 | no SSH key named … | see them with `komando key list` |
 | `SSM_FAILED` | 4 | AWS Session Manager could not open a session to the instance | check the instance ID, its SSM agent and your AWS login (`komando login aws`) |
 | `STATE_CORRUPT` | 1 | nothing was changed: … | the key does not open every record: restore the komando folder from a backup; if komando then calls it an older copy, run `komando doctor --accept-old-copy` |
-| `STORAGE_AUTH` | 4 | an azblob conn needs the storage account's key or a SAS token | store the account key or a SAS token with `komando secret set NAME` and pass --password-ref secret:NAME |
+| `STORAGE_AUTH` | 4 | an azblob conn needs the storage account's key or a SAS token | store the account key or a SAS token with `komando secret set NAME` and pass --password-ref credential:NAME |
 | `STORAGE_CONNECT` | 4 | komando could not reach the bucket or file server | run `komando test TARGET` to check reachability |
 | `STORAGE_ERROR` | 5 | the file is in use | another program has the file open; close it there and run it again |
 | `STORAGE_TLS` | 4 | the storage server's TLS certificate does not verify: … | if the server uses a self-signed certificate you trust, add ?tls=skip-verify to the conn URL |
@@ -311,7 +311,7 @@ This page is made from the code (`komando schema` lists the same under
 | `UNSAFE_PATH` | 5 | path … leads outside …; nothing outside the folder was written | rename the file so it has no .. in its path |
 | `UNSUPPORTED_PLATFORM` | 8 | there is no komando release for … | build komando from source: https://github.com/sgnd/komando#install |
 | `UPLOAD_NOT_RENAMED` | 5 | could not rename the upload into place: …; the old file was removed | the new content is on the server as …: rename it by hand |
-| `URL_HAS_PASSWORD` | 2 | a conn URL holds no password | remove the password from the URL, store it with `komando secret set NAME`, then pass --password-ref secret:NAME |
+| `URL_HAS_PASSWORD` | 2 | a conn URL holds no password | remove the password from the URL, store it with `komando secret set NAME`, then pass --password-ref credential:NAME |
 | `USAGE` | 2 | --… and --unset … contradict each other | pass one of them |
 | `USER_NOT_FOUND` | 3 | no user named … | list the accounts with `komando user list TARGET --all` |
 | `VALIDATION_FAILED` | 8 | --validate rejected the new file: …; the file was not changed | fix the content and run it again |
@@ -337,7 +337,7 @@ This page is made from the code (`komando schema` lists the same under
 | `WINRM_ERROR` | 5 | …: … | read the message; `winrm quickconfig` on the server sets WinRM up, and the user needs the right to use it (an administrator, or the Remote Management Users group) |
 | `WINRM_INSECURE` | 2 | Basic login over plain HTTP sends the password unencrypted | use HTTPS (leave tls=off out), or NTLM (leave auth=basic out), which never sends the password |
 | `WINRM_NOT_HTTPS` | 4 | …: … | the server speaks plain HTTP there: use port 5986 for HTTPS, or ?tls=off if it truly has no HTTPS (commands then travel unencrypted) |
-| `WINRM_TLS` | 4 | …: the WinRM server's certificate cannot be trusted: … | if the server's certificate comes from your own CA, store it with `komando secret set NAME < ca.crt` and add ?ca=secret:NAME to its winrm:// address (`komando host edit … --address winrm://...`) |
+| `WINRM_TLS` | 4 | …: the WinRM server's certificate cannot be trusted: … | if the server's certificate comes from your own CA, store it with `komando secret set NAME < ca.crt` and add ?ca=credential:NAME to its winrm:// address (`komando host edit … --address winrm://...`) |
 | `WRITE_FAILED` | 1 | …; nothing was changed | check that you may write to … |
 | `WRITE_REQUIRES_FLAG` | 6 | … needs --write | this command may change data (or is not known to be a read); run it again with --write |
 | `WRONG_KIND` | 2 | … is a … URL, not one for `komando … add` | add it with `… add` (or `komando conn add`) |

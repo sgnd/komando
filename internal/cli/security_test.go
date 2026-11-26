@@ -367,7 +367,7 @@ func TestPlainConn(t *testing.T) {
 		"ftp://deploy@files.example.com/www?insecure=1":      true,
 		"sqlite:///var/lib/app.db":                           false,
 		"registry://me@registry.lan?tls=skip-verify":         true,
-		"registry://me@registry.lan?ca=credential:lan-ca":        false,
+		"registry://me@registry.lan?ca=credential:lan-ca":    false,
 		"registry://me@ghcr.io":                              false,
 	} {
 		if got := plainConn(&store.Conn{Name: "c", URL: u}) != ""; got != warn {

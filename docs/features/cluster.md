@@ -99,7 +99,7 @@ that is not a cluster):
 
 ```bash
 komando secret set prod-kubeconfig < prod.kubeconfig
-komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref secret:prod-kubeconfig
+komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref credential:prod-kubeconfig
 ```
 
 ### Docker Swarm

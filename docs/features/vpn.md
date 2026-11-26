@@ -57,20 +57,20 @@ VPN's own configuration gives.
 A VPN that logs in with a password, pre-shared key or auth key reads it
 from the vault: store it first with `komando secret set NAME` (it asks for
 it, hidden), then name it in `--password-ref` or `--psk-ref`. Or type it
-when you add the VPN: `--ask-password` stores it as `secret:NAME-pass`, and
-`--ask-psk` stores a pre-shared key as `secret:NAME-psk`.
+when you add the VPN: `--ask-password` stores it as `credential:NAME-pass`, and
+`--ask-psk` stores a pre-shared key as `credential:NAME-psk`.
 
 Pick the line for your kind of VPN:
 
 ```bash
 komando vpn add office wireguard --config ~/Downloads/office.conf --check 10.0.0.5:22
-komando vpn add office openvpn --config office.ovpn --user alice --password-ref secret:office-pass --check 10.8.0.1:22
-komando vpn add office globalprotect --portal vpn.example.com --user alice --password-ref secret:office-pass --mfa
+komando vpn add office openvpn --config office.ovpn --user alice --password-ref credential:office-pass --check 10.8.0.1:22
+komando vpn add office globalprotect --portal vpn.example.com --user alice --password-ref credential:office-pass --mfa
 komando vpn add office globalprotect --portal vpn.example.com     # signs in through a browser window at `vpn up`
-komando vpn add office tailscale --password-ref secret:ts-authkey
-komando vpn add office l2tp --server vpn.example.com --psk-ref secret:office-psk --user alice --password-ref secret:office-pass --check 10.1.0.5:22
-komando vpn add office ipsec --server asa.example.com --id staff --psk-ref secret:office-group --user alice --password-ref secret:office-pass
-komando vpn add office ikev2 --server vpn.example.com --user alice --password-ref secret:office-pass --check 10.2.0.5:22
+komando vpn add office tailscale --password-ref credential:ts-authkey
+komando vpn add office l2tp --server vpn.example.com --psk-ref credential:office-psk --user alice --password-ref credential:office-pass --check 10.1.0.5:22
+komando vpn add office ipsec --server asa.example.com --id staff --psk-ref credential:office-group --user alice --password-ref credential:office-pass
+komando vpn add office ikev2 --server vpn.example.com --user alice --password-ref credential:office-pass --check 10.2.0.5:22
 komando vpn add office system --service "Corp VPN" --check 10.20.0.1:443
 komando vpn add office socks --proxy-address 127.0.0.1:1080
 komando vpn add office proxy --proxy-address proxy.corp.example:3128
@@ -93,7 +93,7 @@ komando vpn add office proxy --proxy-address proxy.corp.example:3128
   and a secret that nothing uses and that holds the same key already (the
   same file added again after `vpn rm`) is reused too.
 - `--password-ref` works like everywhere else in komando:
-  `secret:NAME`, `env:VAR`, a password manager, and so on (see
+  `credential:NAME`, `env:VAR`, a password manager, and so on (see
   [Servers](servers.md)). For Tailscale it is an auth key. The VPN sends
   it (and `--psk-ref`) to its server each time it connects, so when an AI
   agent adds a VPN with one, or points a VPN at another server or address,
@@ -370,8 +370,8 @@ computer where it already works:
 ```bash
 komando secret set office-psk          # type the pre-shared key
 komando secret set office-pass         # type your password
-komando vpn add office l2tp --server vpn.example.com --psk-ref secret:office-psk \
-  --user alice --password-ref secret:office-pass --check 10.1.0.5:22
+komando vpn add office l2tp --server vpn.example.com --psk-ref credential:office-psk \
+  --user alice --password-ref credential:office-pass --check 10.1.0.5:22
 komando test office
 ```
 

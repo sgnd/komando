@@ -47,18 +47,18 @@ func TestParseKafka(t *testing.T) {
 
 func TestParseKafkaRefuses(t *testing.T) {
 	for raw, want := range map[string]string{
-		"kafka://app:secret@b1:9092?sasl=plain":       "password",
-		"kafka://b1:9092/topic":                       "brokers only",
-		"kafka://b1:9092?sasl=plain":                  "logs in as a user",
-		"kafka://app@b1:9092":                         "no sasl=",
-		"kafka://app@b1:9092?sasl=gssapi":             "sasl option",
-		"kafka://b1:9092?tls=maybe":                   "tls option",
+		"kafka://app:secret@b1:9092?sasl=plain":           "password",
+		"kafka://b1:9092/topic":                           "brokers only",
+		"kafka://b1:9092?sasl=plain":                      "logs in as a user",
+		"kafka://app@b1:9092":                             "no sasl=",
+		"kafka://app@b1:9092?sasl=gssapi":                 "sasl option",
+		"kafka://b1:9092?tls=maybe":                       "tls option",
 		"kafka://b1:9092?ca=credential:x":                 "add tls=true",
 		"kafka://b1:9092?tls=skip-verify&ca=credential:x": "do not go together",
-		"kafka://b1:9092?ca=plain":                    "credential:NAME",
-		"kafka://b1:99999":                            "is not a number from 1 to 65535",
-		"kafka://b1:9092?group=x":                     "unknown kafka URL option",
-		"kafka://":                                    "needs a broker",
+		"kafka://b1:9092?ca=plain":                        "credential:NAME",
+		"kafka://b1:99999":                                "is not a number from 1 to 65535",
+		"kafka://b1:9092?group=x":                         "unknown kafka URL option",
+		"kafka://":                                        "needs a broker",
 	} {
 		_, err := Parse(raw)
 		if err == nil || !strings.Contains(err.Error(), want) {

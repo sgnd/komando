@@ -5,8 +5,8 @@ import "testing"
 func TestMongoURLs(t *testing.T) {
 	for raw, want := range map[string][3]string{
 		"mongodb://app@db1.internal:27017,db2.internal/shop?replicaSet=rs0": {"db1.internal:27017", "app", "shop"},
-		"mongodb://db.internal":                                      {"db.internal:27017", "", ""},
-		"mongodb+srv://app@cluster0.abcde.mongodb.net/shop":          {"cluster0.abcde.mongodb.net:27017", "app", "shop"},
+		"mongodb://db.internal":                                          {"db.internal:27017", "", ""},
+		"mongodb+srv://app@cluster0.abcde.mongodb.net/shop":              {"cluster0.abcde.mongodb.net:27017", "app", "shop"},
 		"mongodb://app@db.internal/shop?tls=true&ca=credential:mongo-ca": {"db.internal:27017", "app", "shop"},
 	} {
 		tg, err := Parse(raw)
@@ -20,7 +20,7 @@ func TestMongoURLs(t *testing.T) {
 	for _, bad := range []string{
 		"mongodb://app:pw@db/shop",                 // a password in the URL
 		"mongodb+srv://app@c0.example.net:27017/x", // srv takes no port
-		"mongodb://db/x?ca=credential:ca",              // ca= without TLS
+		"mongodb://db/x?ca=credential:ca",          // ca= without TLS
 		"mongodb://db/x?tls=true&tlsInsecure=true&ca=credential:ca",
 		"mongodb://db:99999/x",
 	} {

@@ -116,6 +116,8 @@ func checkWinRM(h *store.Host) error {
 		return out.Usage("WinRM auth=%s: use ntlm (the default) or basic", o.Auth)
 	case o.TLS != "" && o.TLS != "skip-verify" && o.TLS != "off":
 		return out.Usage("WinRM tls=%s: leave it out to check the certificate, or use skip-verify or off", o.TLS)
+	case oldRef("WinRM ca", o.CA) != nil:
+		return oldRef("WinRM ca", o.CA)
 	case o.CA != "" && !vault.ValidRef(o.CA):
 		return out.Usage("WinRM ca=%s: it takes a reference to the CA's PEM, for example ca=credential:NAME (%s)", o.CA, vault.RefHelp())
 	case o.Auth == "basic" && o.TLS == "off":
