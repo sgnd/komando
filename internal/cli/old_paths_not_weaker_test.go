@@ -34,6 +34,14 @@ func TestLeafFloorNotWeaker(t *testing.T) {
 	for _, l := range capability.All() {
 		for _, id := range slices.Concat(l.Today, l.Carries) {
 			c, ok := byID[id]
+			if !ok && slices.Contains(movedTypes, l.Type) && slices.Contains(l.Today, id) {
+				// the leaf has moved (step C): today's command is gone with its
+				// path, and its safety key, which the rows follow, is the leaf's
+				if k := capability.TodayKeys()[id]; (safetyKey{k.Type, k.Area, k.Verb}) != (safetyKey{l.Type, l.Area, l.Verb}) {
+					t.Errorf("%s: moved from %s, whose key was %v", l.Key, id, k)
+				}
+				continue
+			}
 			if !ok {
 				t.Errorf("%s: carries %s, which is no command", l.Key, id)
 				continue
@@ -147,6 +155,9 @@ func TestOldPathsNotWeaker(t *testing.T) {
 		}
 		gated++
 		kept := byID[l.Today[0]]
+		if kept == nil {
+			continue // the leaf has moved: its typed path is its own, today's is gone (step C)
+		}
 		for _, k := range keys {
 			_, _, before := gateCheck(slices.Clone(typed), k)
 			_, _, after := gateCheck(strings.Fields(strings.TrimPrefix(kept.CommandPath(), "komando")), k)

@@ -125,7 +125,7 @@ func sealedSecrets(cl *call, p *importPlan, vals map[string]string) error {
 	}
 	if len(differ) > 0 {
 		switch {
-		case cl.flags.dryRun:
+		case cl.dryRun():
 			p.Notes = append(p.Notes, "differ here, and the import asks before it replaces them: "+strings.Join(differ, ", "))
 		case confirmYes(cl, fmt.Sprintf("This replaces %s here with the file's: %s. Continue?", countOf(len(differ), "secret"), strings.Join(differ, ", "))):
 			for _, n := range differ {

@@ -40,35 +40,35 @@ func fakeRegistry(t *testing.T) string {
 	return strings.TrimPrefix(srv.URL, "http://")
 }
 
-// registry copy --dry-run reads both registries; a copy onto itself and a
+// registry oci image copy --dry-run reads both registries; a copy onto itself and a
 // delete without a tag are refused; ls -n 0 is refused.
 func TestRegistryChecks(t *testing.T) {
 	invHome(t)
-	mustRun(t, "registry", "add", "lreg", "registry://"+fakeRegistry(t)+"?tls=false")
-	mustRun(t, "registry", "add", "dead", "registry://"+closedAddr(t)+"?tls=false")
-	d, e := invRun(t, "--dry-run", "registry", "copy", "lreg:app:1", "lreg:b")
+	mustRun(t, "registry", "oci", "add", "lreg", "registry://"+fakeRegistry(t)+"?tls=false")
+	mustRun(t, "registry", "oci", "add", "dead", "registry://"+closedAddr(t)+"?tls=false")
+	d, e := invRun(t, "--dry-run", "registry", "oci", "image", "copy", "lreg:app:1", "lreg:b")
 	if e != nil || d["to"] != "lreg:b:1" || d["would_replace"] != true || d["source"] == nil {
 		t.Errorf("dry run: %v %+v", d, e)
 	}
-	if d, e := invRun(t, "--dry-run", "registry", "copy", "lreg:app:1", "lreg:c:2"); e != nil || d["would_replace"] != nil {
+	if d, e := invRun(t, "--dry-run", "registry", "oci", "image", "copy", "lreg:app:1", "lreg:c:2"); e != nil || d["would_replace"] != nil {
 		t.Errorf("new tag: %v %+v", d, e)
 	}
-	if _, e := invRun(t, "--dry-run", "registry", "copy", "lreg:nope:1", "lreg:c:2"); e == nil || e.Code != "REPOSITORY_NOT_FOUND" {
+	if _, e := invRun(t, "--dry-run", "registry", "oci", "image", "copy", "lreg:nope:1", "lreg:c:2"); e == nil || e.Code != "REPOSITORY_NOT_FOUND" {
 		t.Errorf("missing source: %+v", e)
 	}
-	if _, e := invRun(t, "--dry-run", "registry", "copy", "dead:a:1", "lreg:b:1"); e == nil || e.Code != "CONN_UNREACHABLE" {
+	if _, e := invRun(t, "--dry-run", "registry", "oci", "image", "copy", "dead:a:1", "lreg:b:1"); e == nil || e.Code != "CONN_UNREACHABLE" {
 		t.Errorf("unreachable source: %+v", e)
 	}
-	wantCode(t, "USAGE", "--dry-run", "registry", "copy", "lreg:app:1", "lreg:")
-	wantCode(t, "USAGE", "--dry-run", "registry", "copy", "lreg:app:1", "lreg:app:1")
+	wantCode(t, "USAGE", "--dry-run", "registry", "oci", "image", "copy", "lreg:app:1", "lreg:")
+	wantCode(t, "USAGE", "--dry-run", "registry", "oci", "image", "copy", "lreg:app:1", "lreg:app:1")
 	// a digest has no tag to keep: the destination must name one, not fall to latest
-	if e := wantCode(t, "USAGE", "--dry-run", "registry", "copy", "lreg:app@sha256:"+strings.Repeat("a", 64), "lreg:b"); !strings.Contains(e.Message, "destination tag") {
+	if e := wantCode(t, "USAGE", "--dry-run", "registry", "oci", "image", "copy", "lreg:app@sha256:"+strings.Repeat("a", 64), "lreg:b"); !strings.Contains(e.Message, "destination tag") {
 		t.Errorf("digest without a tag: %+v", e)
 	}
-	if e := wantCode(t, "USAGE", "--dry-run", "registry", "rm", "lreg", "app"); !strings.Contains(e.Message, "name the tag") {
+	if e := wantCode(t, "USAGE", "--dry-run", "registry", "oci", "image", "delete", "lreg", "app"); !strings.Contains(e.Message, "name the tag") {
 		t.Errorf("rm: %+v", e)
 	}
-	wantCode(t, "USAGE", "registry", "ls", "lreg", "-n", "0")
+	wantCode(t, "USAGE", "registry", "oci", "image", "list", "lreg", "-n", "0")
 }
 
 func TestCutList(t *testing.T) {

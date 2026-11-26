@@ -13,7 +13,7 @@ import (
 // What a person reads from the registry commands with -o text. The JSON
 // stays the map each command builds.
 
-// lsData is `registry list`: repositories, or one repository's tags.
+// lsData is `registry oci image list`: repositories, or one repository's tags.
 type lsData map[string]any
 
 func (d lsData) Text() string {
@@ -36,18 +36,18 @@ func (d lsData) Text() string {
 	return b.String()
 }
 
-// listed is registry list's result; a person's Next: line names the
+// listed is registry oci image list's result; a person's Next: line names the
 // command for one of its items (a repository's tags, a tag's details).
 func listed(cl *call, m map[string]any) lsData {
 	if repo, ok := m["repo"].(string); ok {
-		sayNext(cl, "komando registry inspect "+fmt.Sprint(m["conn"])+" "+repo+":TAG")
+		sayNext(cl, "komando registry oci image show "+fmt.Sprint(m["conn"])+" "+repo+":TAG")
 	} else {
-		sayNext(cl, "komando registry list "+fmt.Sprint(m["conn"])+" REPO")
+		sayNext(cl, "komando registry oci image list "+fmt.Sprint(m["conn"])+" REPO")
 	}
 	return lsData(m)
 }
 
-// rmData is `registry rm`: the image, and every tag that goes with it.
+// rmData is `registry oci image delete`: the image, and every tag that goes with it.
 type rmData map[string]any
 
 func (d rmData) Text() string {
@@ -77,7 +77,7 @@ func (d rmData) Text() string {
 	return b.String()
 }
 
-// pruneData is `registry prune`: what goes, what stays and why.
+// pruneData is `registry oci image prune`: what goes, what stays and why.
 type pruneData map[string]any
 
 func (d pruneData) Text() string {

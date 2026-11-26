@@ -38,30 +38,6 @@ More:
   komando guide                    the playbook for AI agents
   komando doctor                   check your setup
 --- stderr
-### komando -o json cache add (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"cache.add","error":{"code":"USAGE","message":"komando cache add needs a name and a URL","hint":"for example: komando cache add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password. A person can type `komando cache add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cache add (agent text)
-exit 2
---- stdout
---- stderr
-Error: komando cache add needs a name and a URL
-Hint: for example: komando cache add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password. A person can type `komando cache add` alone at a terminal to be asked step by step
-(code USAGE, exit 2)
-### komando -o json cache add (script json)
-exit 2
---- stdout
-{"ok":false,"command":"cache.add","error":{"code":"USAGE","message":"komando cache add needs a name and a URL","hint":"for example: komando cache add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password. A person can type `komando cache add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cache add (script text)
-exit 2
---- stdout
---- stderr
-Error: komando cache add needs a name and a URL
-Hint: for example: komando cache add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password. A person can type `komando cache add` alone at a terminal to be asked step by step
-(code USAGE, exit 2)
 ### komando -o json cache get (agent json)
 exit 2
 --- stdout
@@ -158,6 +134,438 @@ exit 2
 Error: missing arguments; usage: komando cache keys CONN [PATTERN]
 Hint: for example: komando cache keys prod-redis 'session:*'
 (code USAGE, exit 2)
+### komando -o json cache memcached add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.memcached.add","error":{"code":"USAGE","message":"cache memcached add takes NAME [URL]","hint":"for example: komando cache memcached add app memcached://cache.internal:11211 --via web1 (more in `komando cache memcached add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache memcached add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cache memcached add takes NAME [URL]
+Hint: for example: komando cache memcached add app memcached://cache.internal:11211 --via web1 (more in `komando cache memcached add --help`)
+(code USAGE, exit 2)
+### komando -o json cache memcached add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.memcached.add","error":{"code":"USAGE","message":"cache memcached add takes NAME [URL]","hint":"for example: komando cache memcached add app memcached://cache.internal:11211 --via web1 (more in `komando cache memcached add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache memcached add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cache memcached add takes NAME [URL]
+Hint: for example: komando cache memcached add app memcached://cache.internal:11211 --via web1 (more in `komando cache memcached add --help`)
+(code USAGE, exit 2)
+### komando -o json cache memcached edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.memcached.edit","error":{"code":"USAGE","message":"cache memcached edit takes NAME","hint":"for example: komando cache memcached edit app --add-tag critical (more in `komando cache memcached edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache memcached edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cache memcached edit takes NAME
+Hint: for example: komando cache memcached edit app --add-tag critical (more in `komando cache memcached edit --help`)
+(code USAGE, exit 2)
+### komando -o json cache memcached edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.memcached.edit","error":{"code":"USAGE","message":"cache memcached edit takes NAME","hint":"for example: komando cache memcached edit app --add-tag critical (more in `komando cache memcached edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache memcached edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cache memcached edit takes NAME
+Hint: for example: komando cache memcached edit app --add-tag critical (more in `komando cache memcached edit --help`)
+(code USAGE, exit 2)
+### komando -o json cache memcached raw (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.memcached.raw","error":{"code":"USAGE","message":"cache memcached raw takes NAME -- COMMAND...","hint":"for example: komando cache memcached raw app -- stats (more in `komando cache memcached raw --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache memcached raw (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cache memcached raw takes NAME -- COMMAND...
+Hint: for example: komando cache memcached raw app -- stats (more in `komando cache memcached raw --help`)
+(code USAGE, exit 2)
+### komando -o json cache memcached raw (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.memcached.raw","error":{"code":"USAGE","message":"cache memcached raw takes NAME -- COMMAND...","hint":"for example: komando cache memcached raw app -- stats (more in `komando cache memcached raw --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache memcached raw (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cache memcached raw takes NAME -- COMMAND...
+Hint: for example: komando cache memcached raw app -- stats (more in `komando cache memcached raw --help`)
+(code USAGE, exit 2)
+### komando -o json cache memcached raw x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.memcached.raw","error":{"code":"USAGE","message":"cache memcached raw takes NAME -- COMMAND...","hint":"for example: komando cache memcached raw app -- stats (more in `komando cache memcached raw --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache memcached raw x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cache memcached raw takes NAME -- COMMAND...
+Hint: for example: komando cache memcached raw app -- stats (more in `komando cache memcached raw --help`)
+(code USAGE, exit 2)
+### komando -o json cache memcached raw x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.memcached.raw","error":{"code":"USAGE","message":"cache memcached raw takes NAME -- COMMAND...","hint":"for example: komando cache memcached raw app -- stats (more in `komando cache memcached raw --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache memcached raw x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cache memcached raw takes NAME -- COMMAND...
+Hint: for example: komando cache memcached raw app -- stats (more in `komando cache memcached raw --help`)
+(code USAGE, exit 2)
+### komando -o json cache memcached remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.memcached.remove","error":{"code":"USAGE","message":"cache memcached remove takes TARGET...","hint":"for example: komando cache memcached remove app --dry-run (more in `komando cache memcached remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache memcached remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cache memcached remove takes TARGET...
+Hint: for example: komando cache memcached remove app --dry-run (more in `komando cache memcached remove --help`)
+(code USAGE, exit 2)
+### komando -o json cache memcached remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.memcached.remove","error":{"code":"USAGE","message":"cache memcached remove takes TARGET...","hint":"for example: komando cache memcached remove app --dry-run (more in `komando cache memcached remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache memcached remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cache memcached remove takes TARGET...
+Hint: for example: komando cache memcached remove app --dry-run (more in `komando cache memcached remove --help`)
+(code USAGE, exit 2)
+### komando -o json cache memcached rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.memcached.rename","error":{"code":"USAGE","message":"cache memcached rename takes NAME NEW","hint":"for example: komando cache memcached rename app app-2 --dry-run (more in `komando cache memcached rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache memcached rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cache memcached rename takes NAME NEW
+Hint: for example: komando cache memcached rename app app-2 --dry-run (more in `komando cache memcached rename --help`)
+(code USAGE, exit 2)
+### komando -o json cache memcached rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.memcached.rename","error":{"code":"USAGE","message":"cache memcached rename takes NAME NEW","hint":"for example: komando cache memcached rename app app-2 --dry-run (more in `komando cache memcached rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache memcached rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cache memcached rename takes NAME NEW
+Hint: for example: komando cache memcached rename app app-2 --dry-run (more in `komando cache memcached rename --help`)
+(code USAGE, exit 2)
+### komando -o json cache memcached rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.memcached.rename","error":{"code":"USAGE","message":"cache memcached rename takes NAME NEW","hint":"for example: komando cache memcached rename app app-2 --dry-run (more in `komando cache memcached rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache memcached rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cache memcached rename takes NAME NEW
+Hint: for example: komando cache memcached rename app app-2 --dry-run (more in `komando cache memcached rename --help`)
+(code USAGE, exit 2)
+### komando -o json cache memcached rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.memcached.rename","error":{"code":"USAGE","message":"cache memcached rename takes NAME NEW","hint":"for example: komando cache memcached rename app app-2 --dry-run (more in `komando cache memcached rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache memcached rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cache memcached rename takes NAME NEW
+Hint: for example: komando cache memcached rename app app-2 --dry-run (more in `komando cache memcached rename --help`)
+(code USAGE, exit 2)
+### komando -o json cache memcached show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.memcached.show","error":{"code":"USAGE","message":"cache memcached show takes NAME","hint":"for example: komando cache memcached show app (more in `komando cache memcached show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache memcached show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cache memcached show takes NAME
+Hint: for example: komando cache memcached show app (more in `komando cache memcached show --help`)
+(code USAGE, exit 2)
+### komando -o json cache memcached show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.memcached.show","error":{"code":"USAGE","message":"cache memcached show takes NAME","hint":"for example: komando cache memcached show app (more in `komando cache memcached show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache memcached show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cache memcached show takes NAME
+Hint: for example: komando cache memcached show app (more in `komando cache memcached show --help`)
+(code USAGE, exit 2)
+### komando -o json cache memcached test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.memcached.test","error":{"code":"USAGE","message":"cache memcached test takes TARGET","hint":"for example: komando cache memcached test app (more in `komando cache memcached test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache memcached test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cache memcached test takes TARGET
+Hint: for example: komando cache memcached test app (more in `komando cache memcached test --help`)
+(code USAGE, exit 2)
+### komando -o json cache memcached test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.memcached.test","error":{"code":"USAGE","message":"cache memcached test takes TARGET","hint":"for example: komando cache memcached test app (more in `komando cache memcached test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache memcached test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cache memcached test takes TARGET
+Hint: for example: komando cache memcached test app (more in `komando cache memcached test --help`)
+(code USAGE, exit 2)
+### komando -o json cache redis add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.redis.add","error":{"code":"USAGE","message":"cache redis add takes NAME [URL]","hint":"for example: komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1 (more in `komando cache redis add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache redis add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cache redis add takes NAME [URL]
+Hint: for example: komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1 (more in `komando cache redis add --help`)
+(code USAGE, exit 2)
+### komando -o json cache redis add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.redis.add","error":{"code":"USAGE","message":"cache redis add takes NAME [URL]","hint":"for example: komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1 (more in `komando cache redis add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache redis add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cache redis add takes NAME [URL]
+Hint: for example: komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1 (more in `komando cache redis add --help`)
+(code USAGE, exit 2)
+### komando -o json cache redis edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.redis.edit","error":{"code":"USAGE","message":"cache redis edit takes NAME","hint":"for example: komando cache redis edit prod-redis --add-tag critical (more in `komando cache redis edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache redis edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cache redis edit takes NAME
+Hint: for example: komando cache redis edit prod-redis --add-tag critical (more in `komando cache redis edit --help`)
+(code USAGE, exit 2)
+### komando -o json cache redis edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.redis.edit","error":{"code":"USAGE","message":"cache redis edit takes NAME","hint":"for example: komando cache redis edit prod-redis --add-tag critical (more in `komando cache redis edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache redis edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cache redis edit takes NAME
+Hint: for example: komando cache redis edit prod-redis --add-tag critical (more in `komando cache redis edit --help`)
+(code USAGE, exit 2)
+### komando -o json cache redis raw (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.redis.raw","error":{"code":"USAGE","message":"cache redis raw takes NAME -- COMMAND...","hint":"for example: komando cache redis raw prod-redis -- HGETALL user:42 (more in `komando cache redis raw --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache redis raw (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cache redis raw takes NAME -- COMMAND...
+Hint: for example: komando cache redis raw prod-redis -- HGETALL user:42 (more in `komando cache redis raw --help`)
+(code USAGE, exit 2)
+### komando -o json cache redis raw (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.redis.raw","error":{"code":"USAGE","message":"cache redis raw takes NAME -- COMMAND...","hint":"for example: komando cache redis raw prod-redis -- HGETALL user:42 (more in `komando cache redis raw --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache redis raw (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cache redis raw takes NAME -- COMMAND...
+Hint: for example: komando cache redis raw prod-redis -- HGETALL user:42 (more in `komando cache redis raw --help`)
+(code USAGE, exit 2)
+### komando -o json cache redis raw x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.redis.raw","error":{"code":"USAGE","message":"cache redis raw takes NAME -- COMMAND...","hint":"for example: komando cache redis raw prod-redis -- HGETALL user:42 (more in `komando cache redis raw --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache redis raw x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cache redis raw takes NAME -- COMMAND...
+Hint: for example: komando cache redis raw prod-redis -- HGETALL user:42 (more in `komando cache redis raw --help`)
+(code USAGE, exit 2)
+### komando -o json cache redis raw x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.redis.raw","error":{"code":"USAGE","message":"cache redis raw takes NAME -- COMMAND...","hint":"for example: komando cache redis raw prod-redis -- HGETALL user:42 (more in `komando cache redis raw --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache redis raw x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cache redis raw takes NAME -- COMMAND...
+Hint: for example: komando cache redis raw prod-redis -- HGETALL user:42 (more in `komando cache redis raw --help`)
+(code USAGE, exit 2)
+### komando -o json cache redis remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.redis.remove","error":{"code":"USAGE","message":"cache redis remove takes TARGET...","hint":"for example: komando cache redis remove prod-redis --dry-run (more in `komando cache redis remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache redis remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cache redis remove takes TARGET...
+Hint: for example: komando cache redis remove prod-redis --dry-run (more in `komando cache redis remove --help`)
+(code USAGE, exit 2)
+### komando -o json cache redis remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.redis.remove","error":{"code":"USAGE","message":"cache redis remove takes TARGET...","hint":"for example: komando cache redis remove prod-redis --dry-run (more in `komando cache redis remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache redis remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cache redis remove takes TARGET...
+Hint: for example: komando cache redis remove prod-redis --dry-run (more in `komando cache redis remove --help`)
+(code USAGE, exit 2)
+### komando -o json cache redis rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.redis.rename","error":{"code":"USAGE","message":"cache redis rename takes NAME NEW","hint":"for example: komando cache redis rename prod-redis prod-redis-2 --dry-run (more in `komando cache redis rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache redis rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cache redis rename takes NAME NEW
+Hint: for example: komando cache redis rename prod-redis prod-redis-2 --dry-run (more in `komando cache redis rename --help`)
+(code USAGE, exit 2)
+### komando -o json cache redis rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.redis.rename","error":{"code":"USAGE","message":"cache redis rename takes NAME NEW","hint":"for example: komando cache redis rename prod-redis prod-redis-2 --dry-run (more in `komando cache redis rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache redis rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cache redis rename takes NAME NEW
+Hint: for example: komando cache redis rename prod-redis prod-redis-2 --dry-run (more in `komando cache redis rename --help`)
+(code USAGE, exit 2)
+### komando -o json cache redis rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.redis.rename","error":{"code":"USAGE","message":"cache redis rename takes NAME NEW","hint":"for example: komando cache redis rename prod-redis prod-redis-2 --dry-run (more in `komando cache redis rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache redis rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cache redis rename takes NAME NEW
+Hint: for example: komando cache redis rename prod-redis prod-redis-2 --dry-run (more in `komando cache redis rename --help`)
+(code USAGE, exit 2)
+### komando -o json cache redis rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.redis.rename","error":{"code":"USAGE","message":"cache redis rename takes NAME NEW","hint":"for example: komando cache redis rename prod-redis prod-redis-2 --dry-run (more in `komando cache redis rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache redis rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cache redis rename takes NAME NEW
+Hint: for example: komando cache redis rename prod-redis prod-redis-2 --dry-run (more in `komando cache redis rename --help`)
+(code USAGE, exit 2)
+### komando -o json cache redis show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.redis.show","error":{"code":"USAGE","message":"cache redis show takes NAME","hint":"for example: komando cache redis show prod-redis (more in `komando cache redis show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache redis show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cache redis show takes NAME
+Hint: for example: komando cache redis show prod-redis (more in `komando cache redis show --help`)
+(code USAGE, exit 2)
+### komando -o json cache redis show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.redis.show","error":{"code":"USAGE","message":"cache redis show takes NAME","hint":"for example: komando cache redis show prod-redis (more in `komando cache redis show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache redis show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cache redis show takes NAME
+Hint: for example: komando cache redis show prod-redis (more in `komando cache redis show --help`)
+(code USAGE, exit 2)
+### komando -o json cache redis test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.redis.test","error":{"code":"USAGE","message":"cache redis test takes TARGET","hint":"for example: komando cache redis test prod-redis (more in `komando cache redis test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache redis test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cache redis test takes TARGET
+Hint: for example: komando cache redis test prod-redis (more in `komando cache redis test --help`)
+(code USAGE, exit 2)
+### komando -o json cache redis test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.redis.test","error":{"code":"USAGE","message":"cache redis test takes TARGET","hint":"for example: komando cache redis test prod-redis (more in `komando cache redis test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache redis test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cache redis test takes TARGET
+Hint: for example: komando cache redis test prod-redis (more in `komando cache redis test --help`)
+(code USAGE, exit 2)
 ### komando -o json cache rm (agent json)
 exit 2
 --- stdout
@@ -205,54 +613,6 @@ exit 2
 --- stderr
 Error: missing arguments; usage: komando cache rm CONN KEY...
 Hint: for example: komando cache rm prod-redis session:42 session:43 --dry-run
-(code USAGE, exit 2)
-### komando -o json cache run (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"cache.run","error":{"code":"USAGE","message":"missing arguments; usage: komando cache run CONN -- COMMAND...","hint":"for example: komando cache run prod-redis -- HGETALL user:42"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cache run (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando cache run CONN -- COMMAND...
-Hint: for example: komando cache run prod-redis -- HGETALL user:42
-(code USAGE, exit 2)
-### komando -o json cache run (script json)
-exit 2
---- stdout
-{"ok":false,"command":"cache.run","error":{"code":"USAGE","message":"missing arguments; usage: komando cache run CONN -- COMMAND...","hint":"for example: komando cache run prod-redis -- HGETALL user:42"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cache run (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando cache run CONN -- COMMAND...
-Hint: for example: komando cache run prod-redis -- HGETALL user:42
-(code USAGE, exit 2)
-### komando -o json cache run x1 (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"cache.run","error":{"code":"USAGE","message":"missing arguments; usage: komando cache run CONN -- COMMAND...","hint":"for example: komando cache run prod-redis -- HGETALL user:42"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cache run x1 (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando cache run CONN -- COMMAND...
-Hint: for example: komando cache run prod-redis -- HGETALL user:42
-(code USAGE, exit 2)
-### komando -o json cache run x1 (script json)
-exit 2
---- stdout
-{"ok":false,"command":"cache.run","error":{"code":"USAGE","message":"missing arguments; usage: komando cache run CONN -- COMMAND...","hint":"for example: komando cache run prod-redis -- HGETALL user:42"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cache run x1 (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando cache run CONN -- COMMAND...
-Hint: for example: komando cache run prod-redis -- HGETALL user:42
 (code USAGE, exit 2)
 ### komando -o json cache set (agent json)
 exit 2
@@ -5366,245 +5726,389 @@ exit 2
 Error: missing arguments; usage: komando recipe run NAME TARGET
 Hint: for example: komando recipe run health @web
 (code USAGE, exit 2)
-### komando -o json registry add (agent json)
+### komando -o json registry oci add (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.add","error":{"code":"USAGE","message":"komando registry add needs a name and a URL","hint":"for example: komando registry add ghcr registry://myuser@ghcr.io --ask-password. A person can type `komando registry add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.oci.add","error":{"code":"USAGE","message":"registry oci add takes NAME [URL]","hint":"for example: komando registry oci add ghcr registry://myuser@ghcr.io --via web1 (more in `komando registry oci add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text registry add (agent text)
+### komando -o text registry oci add (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: komando registry add needs a name and a URL
-Hint: for example: komando registry add ghcr registry://myuser@ghcr.io --ask-password. A person can type `komando registry add` alone at a terminal to be asked step by step
+Error: registry oci add takes NAME [URL]
+Hint: for example: komando registry oci add ghcr registry://myuser@ghcr.io --via web1 (more in `komando registry oci add --help`)
 (code USAGE, exit 2)
-### komando -o json registry add (script json)
+### komando -o json registry oci add (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.add","error":{"code":"USAGE","message":"komando registry add needs a name and a URL","hint":"for example: komando registry add ghcr registry://myuser@ghcr.io --ask-password. A person can type `komando registry add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.oci.add","error":{"code":"USAGE","message":"registry oci add takes NAME [URL]","hint":"for example: komando registry oci add ghcr registry://myuser@ghcr.io --via web1 (more in `komando registry oci add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text registry add (script text)
+### komando -o text registry oci add (script text)
 exit 2
 --- stdout
 --- stderr
-Error: komando registry add needs a name and a URL
-Hint: for example: komando registry add ghcr registry://myuser@ghcr.io --ask-password. A person can type `komando registry add` alone at a terminal to be asked step by step
+Error: registry oci add takes NAME [URL]
+Hint: for example: komando registry oci add ghcr registry://myuser@ghcr.io --via web1 (more in `komando registry oci add --help`)
 (code USAGE, exit 2)
-### komando -o json registry copy (agent json)
+### komando -o json registry oci edit (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.copy","error":{"code":"USAGE","message":"missing arguments; usage: komando registry copy SRC_CONN:IMAGE DST_CONN[:IMAGE]","hint":"for example: komando registry copy ghcr:org/app:1.4.2 harbor:prod/app:1.4.2"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.oci.edit","error":{"code":"USAGE","message":"registry oci edit takes NAME","hint":"for example: komando registry oci edit ghcr --add-tag critical (more in `komando registry oci edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text registry copy (agent text)
+### komando -o text registry oci edit (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry copy SRC_CONN:IMAGE DST_CONN[:IMAGE]
-Hint: for example: komando registry copy ghcr:org/app:1.4.2 harbor:prod/app:1.4.2
+Error: registry oci edit takes NAME
+Hint: for example: komando registry oci edit ghcr --add-tag critical (more in `komando registry oci edit --help`)
 (code USAGE, exit 2)
-### komando -o json registry copy (script json)
+### komando -o json registry oci edit (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.copy","error":{"code":"USAGE","message":"missing arguments; usage: komando registry copy SRC_CONN:IMAGE DST_CONN[:IMAGE]","hint":"for example: komando registry copy ghcr:org/app:1.4.2 harbor:prod/app:1.4.2"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.oci.edit","error":{"code":"USAGE","message":"registry oci edit takes NAME","hint":"for example: komando registry oci edit ghcr --add-tag critical (more in `komando registry oci edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text registry copy (script text)
+### komando -o text registry oci edit (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry copy SRC_CONN:IMAGE DST_CONN[:IMAGE]
-Hint: for example: komando registry copy ghcr:org/app:1.4.2 harbor:prod/app:1.4.2
+Error: registry oci edit takes NAME
+Hint: for example: komando registry oci edit ghcr --add-tag critical (more in `komando registry oci edit --help`)
 (code USAGE, exit 2)
-### komando -o json registry copy x1 (agent json)
+### komando -o json registry oci image copy (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.copy","error":{"code":"USAGE","message":"missing arguments; usage: komando registry copy SRC_CONN:IMAGE DST_CONN[:IMAGE]","hint":"for example: komando registry copy ghcr:org/app:1.4.2 harbor:prod/app:1.4.2"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.oci.image.copy","error":{"code":"USAGE","message":"registry oci image copy takes SRC_CONN:IMAGE DST_CONN[:IMAGE]","hint":"for example: komando registry oci image copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2 --dry-run (more in `komando registry oci image copy --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text registry copy x1 (agent text)
+### komando -o text registry oci image copy (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry copy SRC_CONN:IMAGE DST_CONN[:IMAGE]
-Hint: for example: komando registry copy ghcr:org/app:1.4.2 harbor:prod/app:1.4.2
+Error: registry oci image copy takes SRC_CONN:IMAGE DST_CONN[:IMAGE]
+Hint: for example: komando registry oci image copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2 --dry-run (more in `komando registry oci image copy --help`)
 (code USAGE, exit 2)
-### komando -o json registry copy x1 (script json)
+### komando -o json registry oci image copy (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.copy","error":{"code":"USAGE","message":"missing arguments; usage: komando registry copy SRC_CONN:IMAGE DST_CONN[:IMAGE]","hint":"for example: komando registry copy ghcr:org/app:1.4.2 harbor:prod/app:1.4.2"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.oci.image.copy","error":{"code":"USAGE","message":"registry oci image copy takes SRC_CONN:IMAGE DST_CONN[:IMAGE]","hint":"for example: komando registry oci image copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2 --dry-run (more in `komando registry oci image copy --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text registry copy x1 (script text)
+### komando -o text registry oci image copy (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry copy SRC_CONN:IMAGE DST_CONN[:IMAGE]
-Hint: for example: komando registry copy ghcr:org/app:1.4.2 harbor:prod/app:1.4.2
+Error: registry oci image copy takes SRC_CONN:IMAGE DST_CONN[:IMAGE]
+Hint: for example: komando registry oci image copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2 --dry-run (more in `komando registry oci image copy --help`)
 (code USAGE, exit 2)
-### komando -o json registry inspect (agent json)
+### komando -o json registry oci image copy x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.inspect","error":{"code":"USAGE","message":"missing arguments; usage: komando registry inspect CONN IMAGE","hint":"for example: komando registry inspect ghcr myorg/api:1.4.2"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.oci.image.copy","error":{"code":"USAGE","message":"registry oci image copy takes SRC_CONN:IMAGE DST_CONN[:IMAGE]","hint":"for example: komando registry oci image copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2 --dry-run (more in `komando registry oci image copy --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text registry inspect (agent text)
+### komando -o text registry oci image copy x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry inspect CONN IMAGE
-Hint: for example: komando registry inspect ghcr myorg/api:1.4.2
+Error: registry oci image copy takes SRC_CONN:IMAGE DST_CONN[:IMAGE]
+Hint: for example: komando registry oci image copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2 --dry-run (more in `komando registry oci image copy --help`)
 (code USAGE, exit 2)
-### komando -o json registry inspect (script json)
+### komando -o json registry oci image copy x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.inspect","error":{"code":"USAGE","message":"missing arguments; usage: komando registry inspect CONN IMAGE","hint":"for example: komando registry inspect ghcr myorg/api:1.4.2"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.oci.image.copy","error":{"code":"USAGE","message":"registry oci image copy takes SRC_CONN:IMAGE DST_CONN[:IMAGE]","hint":"for example: komando registry oci image copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2 --dry-run (more in `komando registry oci image copy --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text registry inspect (script text)
+### komando -o text registry oci image copy x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry inspect CONN IMAGE
-Hint: for example: komando registry inspect ghcr myorg/api:1.4.2
+Error: registry oci image copy takes SRC_CONN:IMAGE DST_CONN[:IMAGE]
+Hint: for example: komando registry oci image copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2 --dry-run (more in `komando registry oci image copy --help`)
 (code USAGE, exit 2)
-### komando -o json registry inspect x1 (agent json)
+### komando -o json registry oci image delete (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.inspect","error":{"code":"USAGE","message":"missing arguments; usage: komando registry inspect CONN IMAGE","hint":"for example: komando registry inspect ghcr myorg/api:1.4.2"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.oci.image.delete","error":{"code":"USAGE","message":"registry oci image delete takes NAME IMAGE","hint":"for example: komando registry oci image delete ghcr myorg/api:1.3.0 --dry-run (more in `komando registry oci image delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text registry inspect x1 (agent text)
+### komando -o text registry oci image delete (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry inspect CONN IMAGE
-Hint: for example: komando registry inspect ghcr myorg/api:1.4.2
+Error: registry oci image delete takes NAME IMAGE
+Hint: for example: komando registry oci image delete ghcr myorg/api:1.3.0 --dry-run (more in `komando registry oci image delete --help`)
 (code USAGE, exit 2)
-### komando -o json registry inspect x1 (script json)
+### komando -o json registry oci image delete (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.inspect","error":{"code":"USAGE","message":"missing arguments; usage: komando registry inspect CONN IMAGE","hint":"for example: komando registry inspect ghcr myorg/api:1.4.2"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.oci.image.delete","error":{"code":"USAGE","message":"registry oci image delete takes NAME IMAGE","hint":"for example: komando registry oci image delete ghcr myorg/api:1.3.0 --dry-run (more in `komando registry oci image delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text registry inspect x1 (script text)
+### komando -o text registry oci image delete (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry inspect CONN IMAGE
-Hint: for example: komando registry inspect ghcr myorg/api:1.4.2
+Error: registry oci image delete takes NAME IMAGE
+Hint: for example: komando registry oci image delete ghcr myorg/api:1.3.0 --dry-run (more in `komando registry oci image delete --help`)
 (code USAGE, exit 2)
-### komando -o json registry list (agent json)
+### komando -o json registry oci image delete x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.list","error":{"code":"USAGE","message":"missing arguments; usage: komando registry list CONN [REPO]","hint":"for example: komando registry list harbor"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.oci.image.delete","error":{"code":"USAGE","message":"registry oci image delete takes NAME IMAGE","hint":"for example: komando registry oci image delete ghcr myorg/api:1.3.0 --dry-run (more in `komando registry oci image delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text registry list (agent text)
+### komando -o text registry oci image delete x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry list CONN [REPO]
-Hint: for example: komando registry list harbor
+Error: registry oci image delete takes NAME IMAGE
+Hint: for example: komando registry oci image delete ghcr myorg/api:1.3.0 --dry-run (more in `komando registry oci image delete --help`)
 (code USAGE, exit 2)
-### komando -o json registry list (script json)
+### komando -o json registry oci image delete x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.list","error":{"code":"USAGE","message":"missing arguments; usage: komando registry list CONN [REPO]","hint":"for example: komando registry list harbor"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.oci.image.delete","error":{"code":"USAGE","message":"registry oci image delete takes NAME IMAGE","hint":"for example: komando registry oci image delete ghcr myorg/api:1.3.0 --dry-run (more in `komando registry oci image delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text registry list (script text)
+### komando -o text registry oci image delete x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry list CONN [REPO]
-Hint: for example: komando registry list harbor
+Error: registry oci image delete takes NAME IMAGE
+Hint: for example: komando registry oci image delete ghcr myorg/api:1.3.0 --dry-run (more in `komando registry oci image delete --help`)
 (code USAGE, exit 2)
-### komando -o json registry prune (agent json)
+### komando -o json registry oci image list (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.prune","error":{"code":"USAGE","message":"missing arguments; usage: komando registry prune CONN REPO","hint":"for example: komando registry prune harbor shop/api --keep 10 --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.oci.image.list","error":{"code":"USAGE","message":"registry oci image list takes NAME [REPO]","hint":"for example: komando registry oci image list ghcr (more in `komando registry oci image list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text registry prune (agent text)
+### komando -o text registry oci image list (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry prune CONN REPO
-Hint: for example: komando registry prune harbor shop/api --keep 10 --dry-run
+Error: registry oci image list takes NAME [REPO]
+Hint: for example: komando registry oci image list ghcr (more in `komando registry oci image list --help`)
 (code USAGE, exit 2)
-### komando -o json registry prune (script json)
+### komando -o json registry oci image list (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.prune","error":{"code":"USAGE","message":"missing arguments; usage: komando registry prune CONN REPO","hint":"for example: komando registry prune harbor shop/api --keep 10 --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.oci.image.list","error":{"code":"USAGE","message":"registry oci image list takes NAME [REPO]","hint":"for example: komando registry oci image list ghcr (more in `komando registry oci image list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text registry prune (script text)
+### komando -o text registry oci image list (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry prune CONN REPO
-Hint: for example: komando registry prune harbor shop/api --keep 10 --dry-run
+Error: registry oci image list takes NAME [REPO]
+Hint: for example: komando registry oci image list ghcr (more in `komando registry oci image list --help`)
 (code USAGE, exit 2)
-### komando -o json registry prune x1 (agent json)
+### komando -o json registry oci image prune (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.prune","error":{"code":"USAGE","message":"missing arguments; usage: komando registry prune CONN REPO","hint":"for example: komando registry prune harbor shop/api --keep 10 --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.oci.image.prune","error":{"code":"USAGE","message":"registry oci image prune takes NAME REPO","hint":"for example: komando registry oci image prune ghcr myorg/api --keep 10 --dry-run (more in `komando registry oci image prune --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text registry prune x1 (agent text)
+### komando -o text registry oci image prune (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry prune CONN REPO
-Hint: for example: komando registry prune harbor shop/api --keep 10 --dry-run
+Error: registry oci image prune takes NAME REPO
+Hint: for example: komando registry oci image prune ghcr myorg/api --keep 10 --dry-run (more in `komando registry oci image prune --help`)
 (code USAGE, exit 2)
-### komando -o json registry prune x1 (script json)
+### komando -o json registry oci image prune (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.prune","error":{"code":"USAGE","message":"missing arguments; usage: komando registry prune CONN REPO","hint":"for example: komando registry prune harbor shop/api --keep 10 --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.oci.image.prune","error":{"code":"USAGE","message":"registry oci image prune takes NAME REPO","hint":"for example: komando registry oci image prune ghcr myorg/api --keep 10 --dry-run (more in `komando registry oci image prune --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text registry prune x1 (script text)
+### komando -o text registry oci image prune (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry prune CONN REPO
-Hint: for example: komando registry prune harbor shop/api --keep 10 --dry-run
+Error: registry oci image prune takes NAME REPO
+Hint: for example: komando registry oci image prune ghcr myorg/api --keep 10 --dry-run (more in `komando registry oci image prune --help`)
 (code USAGE, exit 2)
-### komando -o json registry rm (agent json)
+### komando -o json registry oci image prune x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando registry rm CONN IMAGE","hint":"for example: komando registry rm harbor myorg/api:old --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.oci.image.prune","error":{"code":"USAGE","message":"registry oci image prune takes NAME REPO","hint":"for example: komando registry oci image prune ghcr myorg/api --keep 10 --dry-run (more in `komando registry oci image prune --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text registry rm (agent text)
+### komando -o text registry oci image prune x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry rm CONN IMAGE
-Hint: for example: komando registry rm harbor myorg/api:old --dry-run
+Error: registry oci image prune takes NAME REPO
+Hint: for example: komando registry oci image prune ghcr myorg/api --keep 10 --dry-run (more in `komando registry oci image prune --help`)
 (code USAGE, exit 2)
-### komando -o json registry rm (script json)
+### komando -o json registry oci image prune x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando registry rm CONN IMAGE","hint":"for example: komando registry rm harbor myorg/api:old --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.oci.image.prune","error":{"code":"USAGE","message":"registry oci image prune takes NAME REPO","hint":"for example: komando registry oci image prune ghcr myorg/api --keep 10 --dry-run (more in `komando registry oci image prune --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text registry rm (script text)
+### komando -o text registry oci image prune x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry rm CONN IMAGE
-Hint: for example: komando registry rm harbor myorg/api:old --dry-run
+Error: registry oci image prune takes NAME REPO
+Hint: for example: komando registry oci image prune ghcr myorg/api --keep 10 --dry-run (more in `komando registry oci image prune --help`)
 (code USAGE, exit 2)
-### komando -o json registry rm x1 (agent json)
+### komando -o json registry oci image show (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando registry rm CONN IMAGE","hint":"for example: komando registry rm harbor myorg/api:old --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.oci.image.show","error":{"code":"USAGE","message":"registry oci image show takes NAME IMAGE","hint":"for example: komando registry oci image show ghcr myorg/api:1.4.2 (more in `komando registry oci image show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text registry rm x1 (agent text)
+### komando -o text registry oci image show (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry rm CONN IMAGE
-Hint: for example: komando registry rm harbor myorg/api:old --dry-run
+Error: registry oci image show takes NAME IMAGE
+Hint: for example: komando registry oci image show ghcr myorg/api:1.4.2 (more in `komando registry oci image show --help`)
 (code USAGE, exit 2)
-### komando -o json registry rm x1 (script json)
+### komando -o json registry oci image show (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando registry rm CONN IMAGE","hint":"for example: komando registry rm harbor myorg/api:old --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.oci.image.show","error":{"code":"USAGE","message":"registry oci image show takes NAME IMAGE","hint":"for example: komando registry oci image show ghcr myorg/api:1.4.2 (more in `komando registry oci image show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text registry rm x1 (script text)
+### komando -o text registry oci image show (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry rm CONN IMAGE
-Hint: for example: komando registry rm harbor myorg/api:old --dry-run
+Error: registry oci image show takes NAME IMAGE
+Hint: for example: komando registry oci image show ghcr myorg/api:1.4.2 (more in `komando registry oci image show --help`)
+(code USAGE, exit 2)
+### komando -o json registry oci image show x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"registry.oci.image.show","error":{"code":"USAGE","message":"registry oci image show takes NAME IMAGE","hint":"for example: komando registry oci image show ghcr myorg/api:1.4.2 (more in `komando registry oci image show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text registry oci image show x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: registry oci image show takes NAME IMAGE
+Hint: for example: komando registry oci image show ghcr myorg/api:1.4.2 (more in `komando registry oci image show --help`)
+(code USAGE, exit 2)
+### komando -o json registry oci image show x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"registry.oci.image.show","error":{"code":"USAGE","message":"registry oci image show takes NAME IMAGE","hint":"for example: komando registry oci image show ghcr myorg/api:1.4.2 (more in `komando registry oci image show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text registry oci image show x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: registry oci image show takes NAME IMAGE
+Hint: for example: komando registry oci image show ghcr myorg/api:1.4.2 (more in `komando registry oci image show --help`)
+(code USAGE, exit 2)
+### komando -o json registry oci remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"registry.oci.remove","error":{"code":"USAGE","message":"registry oci remove takes TARGET...","hint":"for example: komando registry oci remove ghcr --dry-run (more in `komando registry oci remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text registry oci remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: registry oci remove takes TARGET...
+Hint: for example: komando registry oci remove ghcr --dry-run (more in `komando registry oci remove --help`)
+(code USAGE, exit 2)
+### komando -o json registry oci remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"registry.oci.remove","error":{"code":"USAGE","message":"registry oci remove takes TARGET...","hint":"for example: komando registry oci remove ghcr --dry-run (more in `komando registry oci remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text registry oci remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: registry oci remove takes TARGET...
+Hint: for example: komando registry oci remove ghcr --dry-run (more in `komando registry oci remove --help`)
+(code USAGE, exit 2)
+### komando -o json registry oci rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"registry.oci.rename","error":{"code":"USAGE","message":"registry oci rename takes NAME NEW","hint":"for example: komando registry oci rename ghcr ghcr-2 --dry-run (more in `komando registry oci rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text registry oci rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: registry oci rename takes NAME NEW
+Hint: for example: komando registry oci rename ghcr ghcr-2 --dry-run (more in `komando registry oci rename --help`)
+(code USAGE, exit 2)
+### komando -o json registry oci rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"registry.oci.rename","error":{"code":"USAGE","message":"registry oci rename takes NAME NEW","hint":"for example: komando registry oci rename ghcr ghcr-2 --dry-run (more in `komando registry oci rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text registry oci rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: registry oci rename takes NAME NEW
+Hint: for example: komando registry oci rename ghcr ghcr-2 --dry-run (more in `komando registry oci rename --help`)
+(code USAGE, exit 2)
+### komando -o json registry oci rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"registry.oci.rename","error":{"code":"USAGE","message":"registry oci rename takes NAME NEW","hint":"for example: komando registry oci rename ghcr ghcr-2 --dry-run (more in `komando registry oci rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text registry oci rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: registry oci rename takes NAME NEW
+Hint: for example: komando registry oci rename ghcr ghcr-2 --dry-run (more in `komando registry oci rename --help`)
+(code USAGE, exit 2)
+### komando -o json registry oci rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"registry.oci.rename","error":{"code":"USAGE","message":"registry oci rename takes NAME NEW","hint":"for example: komando registry oci rename ghcr ghcr-2 --dry-run (more in `komando registry oci rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text registry oci rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: registry oci rename takes NAME NEW
+Hint: for example: komando registry oci rename ghcr ghcr-2 --dry-run (more in `komando registry oci rename --help`)
+(code USAGE, exit 2)
+### komando -o json registry oci show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"registry.oci.show","error":{"code":"USAGE","message":"registry oci show takes NAME","hint":"for example: komando registry oci show ghcr (more in `komando registry oci show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text registry oci show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: registry oci show takes NAME
+Hint: for example: komando registry oci show ghcr (more in `komando registry oci show --help`)
+(code USAGE, exit 2)
+### komando -o json registry oci show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"registry.oci.show","error":{"code":"USAGE","message":"registry oci show takes NAME","hint":"for example: komando registry oci show ghcr (more in `komando registry oci show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text registry oci show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: registry oci show takes NAME
+Hint: for example: komando registry oci show ghcr (more in `komando registry oci show --help`)
+(code USAGE, exit 2)
+### komando -o json registry oci test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"registry.oci.test","error":{"code":"USAGE","message":"registry oci test takes TARGET","hint":"for example: komando registry oci test ghcr (more in `komando registry oci test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text registry oci test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: registry oci test takes TARGET
+Hint: for example: komando registry oci test ghcr (more in `komando registry oci test --help`)
+(code USAGE, exit 2)
+### komando -o json registry oci test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"registry.oci.test","error":{"code":"USAGE","message":"registry oci test takes TARGET","hint":"for example: komando registry oci test ghcr (more in `komando registry oci test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text registry oci test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: registry oci test takes TARGET
+Hint: for example: komando registry oci test ghcr (more in `komando registry oci test --help`)
 (code USAGE, exit 2)
 ### komando -o json rename (agent json)
 exit 2
@@ -7550,29 +8054,29 @@ exit 2
 Error: komando cluster run takes the words for the cluster after --; nothing was run
 Hint: put -- before the command: `komando cluster run prod-k8s -- get pods -A -o wide`; komando reads its own flags (-y, --dry-run, -P) only before --
 (code USAGE, exit 2)
-### komando -o json cache run x1 GET k (agent json)
+### komando -o json cache redis raw x1 GET k (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"cache.run","error":{"code":"USAGE","message":"komando cache run takes the words for the cache after --; nothing was run","hint":"put -- before the command: `komando cache run prod-redis -- HGETALL user:42`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cache.redis.raw","error":{"code":"USAGE","message":"komando cache redis raw takes the words for the cache after --; nothing was run","hint":"put -- before the command: `komando cache redis raw prod-redis -- HGETALL user:42`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text cache run x1 GET k (agent text)
+### komando -o text cache redis raw x1 GET k (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: komando cache run takes the words for the cache after --; nothing was run
-Hint: put -- before the command: `komando cache run prod-redis -- HGETALL user:42`; komando reads its own flags (-y, --dry-run, -P) only before --
+Error: komando cache redis raw takes the words for the cache after --; nothing was run
+Hint: put -- before the command: `komando cache redis raw prod-redis -- HGETALL user:42`; komando reads its own flags (-y, --dry-run, -P) only before --
 (code USAGE, exit 2)
-### komando -o json cache run x1 GET k (script json)
+### komando -o json cache redis raw x1 GET k (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"cache.run","error":{"code":"USAGE","message":"komando cache run takes the words for the cache after --; nothing was run","hint":"put -- before the command: `komando cache run prod-redis -- HGETALL user:42`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cache.redis.raw","error":{"code":"USAGE","message":"komando cache redis raw takes the words for the cache after --; nothing was run","hint":"put -- before the command: `komando cache redis raw prod-redis -- HGETALL user:42`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text cache run x1 GET k (script text)
+### komando -o text cache redis raw x1 GET k (script text)
 exit 2
 --- stdout
 --- stderr
-Error: komando cache run takes the words for the cache after --; nothing was run
-Hint: put -- before the command: `komando cache run prod-redis -- HGETALL user:42`; komando reads its own flags (-y, --dry-run, -P) only before --
+Error: komando cache redis raw takes the words for the cache after --; nothing was run
+Hint: put -- before the command: `komando cache redis raw prod-redis -- HGETALL user:42`; komando reads its own flags (-y, --dry-run, -P) only before --
 (code USAGE, exit 2)
 ### komando -o json conn add x1 postgres://u@10.0.0.9/app --option a=on,b=x (agent json)
 exit 2
@@ -8054,24 +8558,24 @@ exit 6
 Stopped: this can delete or break things (deletes data that cannot be recovered (cache keys, stored objects)), so komando asks first; nothing was changed
 Hint: If you mean it, run it again in a terminal and type the name to confirm, or add --allow-dangerous in a script. Try --dry-run first.
 (code POLICY_BLOCKED, exit 6)
-### komando -o json cache run cache1 --write -- FLUSHALL (agent json, gate inventory)
+### komando -o json cache redis raw cache1 --write -- FLUSHALL (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"cache.run","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [redis-flush]: deletes every key (FLUSHALL, FLUSHDB, SWAPDB)","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cache.redis.raw","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [redis-flush]: deletes every key (FLUSHALL, FLUSHDB, SWAPDB)","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text cache run cache1 --write -- FLUSHALL (agent text, gate inventory)
+### komando -o text cache redis raw cache1 --write -- FLUSHALL (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: this can delete or break things (deletes every key (FLUSHALL, FLUSHDB, SWAPDB)), so komando asks first; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)
 (code POLICY_BLOCKED, exit 6)
-### komando -o json cache run cache1 --write -- FLUSHALL (script json, gate inventory)
+### komando -o json cache redis raw cache1 --write -- FLUSHALL (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"cache.run","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [redis-flush]: deletes every key (FLUSHALL, FLUSHDB, SWAPDB)","hint":"check with --dry-run, then run it again with --allow-dangerous (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cache.redis.raw","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [redis-flush]: deletes every key (FLUSHALL, FLUSHDB, SWAPDB)","hint":"check with --dry-run, then run it again with --allow-dangerous (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text cache run cache1 --write -- FLUSHALL (script text, gate inventory)
+### komando -o text cache redis raw cache1 --write -- FLUSHALL (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
@@ -8246,48 +8750,48 @@ exit 6
 Stopped: this can delete or break things (deletes data that cannot be recovered (cache keys, stored objects)), so komando asks first; nothing was changed
 Hint: If you mean it, run it again in a terminal and type the name to confirm, or add --allow-dangerous in a script. Try --dry-run first.
 (code POLICY_BLOCKED, exit 6)
-### komando -o json registry rm reg1 a:1 (agent json, gate inventory)
+### komando -o json registry oci image delete reg1 a:1 (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"registry.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [registry]: registry.rm","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.oci.image.delete","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [registry]: registry.rm","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text registry rm reg1 a:1 (agent text, gate inventory)
+### komando -o text registry oci image delete reg1 a:1 (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: this can delete or break things (registry.rm), so komando asks first; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)
 (code POLICY_BLOCKED, exit 6)
-### komando -o json registry rm reg1 a:1 (script json, gate inventory)
+### komando -o json registry oci image delete reg1 a:1 (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"registry.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [registry]: registry.rm","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json registry rm reg1 a:1 --allow-dangerous`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.oci.image.delete","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [registry]: registry.rm","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json registry oci image delete reg1 a:1 --allow-dangerous`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text registry rm reg1 a:1 (script text, gate inventory)
+### komando -o text registry oci image delete reg1 a:1 (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: this can delete or break things (registry.rm), so komando asks first; nothing was changed
 Hint: If you mean it, run it again in a terminal and type the name to confirm, or add --allow-dangerous in a script. Try --dry-run first.
 (code POLICY_BLOCKED, exit 6)
-### komando -o json registry prune reg1 a --keep 5 (agent json, gate inventory)
+### komando -o json registry oci image prune reg1 a --keep 5 (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"registry.prune","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [registry]: registry.prune; deletes old images of a (--dry-run lists them)","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.oci.image.prune","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [registry]: registry.prune; deletes old images of a (--dry-run lists them)","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text registry prune reg1 a --keep 5 (agent text, gate inventory)
+### komando -o text registry oci image prune reg1 a --keep 5 (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: this can delete or break things (registry.prune; deletes old images of a (--dry-run lists them)), so komando asks first; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)
 (code POLICY_BLOCKED, exit 6)
-### komando -o json registry prune reg1 a --keep 5 (script json, gate inventory)
+### komando -o json registry oci image prune reg1 a --keep 5 (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"registry.prune","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [registry]: registry.prune; deletes old images of a (--dry-run lists them)","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json registry prune reg1 a --keep 5 --allow-dangerous`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.oci.image.prune","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [registry]: registry.prune; deletes old images of a (--dry-run lists them)","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json registry oci image prune reg1 a --keep 5 --allow-dangerous`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text registry prune reg1 a --keep 5 (script text, gate inventory)
+### komando -o text registry oci image prune reg1 a --keep 5 (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
@@ -8678,24 +9182,24 @@ exit 6
 Stopped: pcache is a protected cache (production), so komando asks before changing it; nothing was changed
 Hint: Run it again in a terminal to answer the question, or add --yes in a script if you are sure. Try --dry-run first to see what it would do.
 (code PROTECTED_TARGET, exit 6)
-### komando -o json cache run pcache --write -- SET k v (agent json, gate inventory)
+### komando -o json cache redis raw pcache --write -- SET k v (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"cache.run","error":{"code":"PROTECTED_TARGET","message":"a write action on protected conn: pcache","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cache.redis.raw","error":{"code":"PROTECTED_TARGET","message":"a write action on protected conn: pcache","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text cache run pcache --write -- SET k v (agent text, gate inventory)
+### komando -o text cache redis raw pcache --write -- SET k v (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: pcache is a protected cache (production), so komando asks before changing it; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)
 (code PROTECTED_TARGET, exit 6)
-### komando -o json cache run pcache --write -- SET k v (script json, gate inventory)
+### komando -o json cache redis raw pcache --write -- SET k v (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"cache.run","error":{"code":"PROTECTED_TARGET","message":"a write action on protected conn: pcache","hint":"check with --dry-run, then run it again with --yes (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cache.redis.raw","error":{"code":"PROTECTED_TARGET","message":"a write action on protected conn: pcache","hint":"check with --dry-run, then run it again with --yes (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text cache run pcache --write -- SET k v (script text, gate inventory)
+### komando -o text cache redis raw pcache --write -- SET k v (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
@@ -8918,24 +9422,24 @@ exit 6
 Stopped: turning off --mfa of VPN pvpn (komando could then connect it without a person) turns off one of komando's safety checks, so komando asks first; nothing was changed
 Hint: Run it again in a terminal to answer the question, or add --yes in a script if you are sure.
 (code SAFETY_SETTING, exit 6)
-### komando -o json cache run cache1 -- SET k v (agent json, gate inventory)
+### komando -o json cache redis raw cache1 -- SET k v (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"cache.run","error":{"code":"WRITE_REQUIRES_FLAG","message":"SET needs --write","hint":"this command may change data (or is not known to be a read); run it again with --write. komando does not ask the user about this, so ask them first and go on only when they agree"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cache.redis.raw","error":{"code":"WRITE_REQUIRES_FLAG","message":"SET needs --write","hint":"this command may change data (or is not known to be a read); run it again with --write. komando does not ask the user about this, so ask them first and go on only when they agree"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text cache run cache1 -- SET k v (agent text, gate inventory)
+### komando -o text cache redis raw cache1 -- SET k v (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: SET needs --write; nothing was changed
 Hint: this command may change data (or is not known to be a read); run it again with --write. komando does not ask the user about this, so ask them first and go on only when they agree
 (code WRITE_REQUIRES_FLAG, exit 6)
-### komando -o json cache run cache1 -- SET k v (script json, gate inventory)
+### komando -o json cache redis raw cache1 -- SET k v (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"cache.run","error":{"code":"WRITE_REQUIRES_FLAG","message":"SET needs --write","hint":"this command may change data (or is not known to be a read); run it again with --write"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cache.redis.raw","error":{"code":"WRITE_REQUIRES_FLAG","message":"SET needs --write","hint":"this command may change data (or is not known to be a read); run it again with --write"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text cache run cache1 -- SET k v (script text, gate inventory)
+### komando -o text cache redis raw cache1 -- SET k v (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
@@ -9498,7 +10002,7 @@ Hint: this key was added with --read-only and runs only commands that read; use 
 (code SSH_GATE_READ_ONLY, exit 6)
 ### komando schema storage link (schema values)
 exit 0
-komando storage link kind=change confirm=[{"tier":"change"}]
+komando storage link kind=change confirm=[{"tier":"change"},{"flag":"--yes","tier":"safety","when":"when an AI agent makes a link (a person allows --reveal)"}]
   --endpoint type=string
   --expires type=duration default=1h
 ### komando schema cluster forward (schema values)
@@ -9552,12 +10056,12 @@ komando cert check kind=read confirm=[{"tier":"read"}]
   --path type=stringSlice default=[]
   --via type=string
   --warn type=duration default=30d
-### komando schema registry prune (schema values)
+### komando schema registry oci image prune (schema values)
 exit 0
-komando registry prune kind=change confirm=[{"flag":"--allow-dangerous","tier":"dangerous"}]
+komando registry oci image prune kind=change confirm=[{"flag":"--allow-dangerous","tier":"dangerous"}]
   --keep type=int default=0
   --match type=string
-  --older-than type=duration
+  --older-than type=duration default=0
 ### komando schema cluster logs (schema values)
 exit 0
 komando cluster logs kind=read confirm=[{"tier":"read"}]

@@ -249,12 +249,12 @@ func TestPkgRefreshIsAChange(t *testing.T) {
 			t.Errorf("%v: %s", args, text)
 		}
 	}
-	defer func() { tcl.flags.dryRun = false }()
-	tcl.flags.dryRun = false
+	defer func() { setGate(tcl, false, gateDryRun) }()
+	setGate(tcl, false, gateDryRun)
 	if !pkgSecRefresh(tcl, true) || pkgSecRefresh(tcl, false) {
 		t.Error("a real run refreshes when asked")
 	}
-	tcl.flags.dryRun = true
+	setGate(tcl, true, gateDryRun)
 	if pkgSecRefresh(tcl, true) {
 		t.Error("a dry run sends REFRESH=1")
 	}

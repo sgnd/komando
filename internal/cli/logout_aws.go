@@ -119,7 +119,7 @@ Profiles that share the login (one sso-session) are logged out together.
 			case profile == "":
 				profiles = []string{"default"}
 			}
-			if cl.flags.dryRun {
+			if cl.dryRun() {
 				cl.out.Print("logout.aws", map[string]any{"would_log_out": profiles}, nil)
 				return nil
 			}

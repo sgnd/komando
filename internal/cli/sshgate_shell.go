@@ -6,7 +6,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/sgnd/komando/internal/engine"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -101,6 +100,6 @@ func gateRunShell(cl *call, ctx context.Context, label, server string) error {
 	if e := gateShellHost(st, h); e != nil {
 		return e
 	}
-	cl.setCaller(engine.Caller{Kind: engine.Agent, Agent: "ssh-gate key " + label, Actor: cl.caller().Actor})
+	cl.asAgent(label)
 	return openShell(cl, ctx, st, h, label)
 }

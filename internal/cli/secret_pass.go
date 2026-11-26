@@ -179,7 +179,7 @@ func runSecretPassphrase(cl *call, off bool) error {
 	if err != nil {
 		return err
 	}
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		res.DryRun = true
 		opens := vault.Opens("") == nil
 		res.OpensNow = &opens

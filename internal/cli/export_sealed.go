@@ -83,7 +83,7 @@ func runExportSealed(cl *call, st *store.State, f exportFile, o exportSealOpts, 
 	}
 	res := exportResult{File: to, Hosts: len(f.Hosts), Conns: len(f.Conns), Vpns: len(f.Vpns), Recipes: len(f.Recipes),
 		DenyRules: len(f.DenyRules), Settings: len(f.Settings) > 0, Sealed: o.mode(), SecretsNeeded: []string{}, KeysNeeded: []string{}}
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		res.DryRun, res.SecretsInFile = true, []string{}
 		for _, n := range sealable(f.Secrets) { // which are there, never their values
 			if _, err := vault.Get(n); errors.Is(err, vault.ErrNotFound) {

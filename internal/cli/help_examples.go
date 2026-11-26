@@ -5,6 +5,25 @@ package cli
 // (docs/design/principles.md, section 11). A command that sets its own Example
 // keeps it. TestConventions fails when a command has neither.
 var examples = map[string]string{
+	"komando registry oci": "  komando registry oci add ghcr registry://myuser@ghcr.io --ask-password --dry-run\n" +
+		"  komando registry oci add ghcr registry://myuser@ghcr.io --ask-password\n" +
+		"  komando registry oci test ghcr\n" +
+		"  komando registry oci image list ghcr myorg/api\n" +
+		"  komando registry oci image copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2 --dry-run",
+	"komando registry oci image": "  komando registry oci image list ghcr\n" +
+		"  komando registry oci image show ghcr myorg/api:1.4.2\n" +
+		"  komando registry oci image copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2 --dry-run\n" +
+		"  komando registry oci image prune harbor shop/api --keep 10 --dry-run",
+	"komando cache redis": "  komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --dry-run\n" +
+		"  komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1\n" +
+		"  komando cache redis test prod-redis\n" +
+		"  komando cache redis raw prod-redis -- HGETALL user:42\n" +
+		"  komando cache redis raw prod-redis --write -- EXPIRE session:42 3600 --dry-run",
+	"komando cache memcached": "  komando cache memcached add prod-mc memcached://cache.internal:11211 --via web1 --dry-run\n" +
+		"  komando cache memcached add prod-mc memcached://cache.internal:11211 --via web1\n" +
+		"  komando cache memcached test prod-mc\n" +
+		"  komando cache memcached raw prod-mc -- stats\n" +
+		"  komando cache memcached raw prod-mc --write -- flush_all --dry-run",
 	// the groups: the usual journey, in order
 	"komando svc": "  komando svc list web1 --failed                    # what is broken?\n" +
 		"  komando svc status web1 nginx\n" +

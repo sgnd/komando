@@ -80,11 +80,14 @@ const (
 // are not here.
 type Option struct {
 	Name      string
+	Short     string // the one-letter form (-n)
 	Kind      OptKind
 	Enum      []string
 	Default   string
 	Required  bool
 	Repeat    bool
+	Pairs     bool     // each value is KEY=VALUE
+	List      bool     // the values may be given comma-separated, one flag or many
 	Sensitive bool     // never echoed, never in the audit text
 	Generated bool     // komando makes the value at 256 bits; a person never types it
 	Pattern   string   // the value must match before any use
@@ -100,6 +103,7 @@ type Arg struct {
 	Selector bool   // takes @group, tag:x, label:k=v, all
 	Many     bool
 	Optional bool
+	Dash     bool // typed after `--`: words for another program
 }
 
 // Leaf is one command a person or an agent can run.

@@ -33,7 +33,7 @@ agrees (see [When you are at the terminal](#when-you-are-at-the-terminal)).
 |----------|--------------|
 | **Dangerous-command filter** | Blocks commands such as `rm -rf /`, `mkfs`, `reboot`, `DROP DATABASE`, `curl … \| sh`, flushing the firewall and stopping SSH, on your servers, in pods and in databases. See them all with `komando policy list`. |
 | **Protected servers and conns** | Any change on it needs a yes. For the entry itself that means re-pointing it (address, port, user, key, password, `--via`), replacing a secret it uses (a protected VPN's key, pre-shared key or profile too), renaming it, removing it and turning protection off; its tags, groups, labels and notes change without one. Commands that only look can say so with `--read-only` and run without a yes. Anything at the same address and port (a `user@address` target, a second name, a name that resolves to the same IP, a second conn to the same database server, the SSH server behind a protected `sftp://` conn) is protected too, whichever VPN or bastion it goes through. With many targets, komando checks all of them before it runs anything: one protected target stops the whole command before the first one runs (at a terminal, komando asks once), and the error names every protected target. A command never stops halfway because of protection. |
-| **Read-only by default** | `db query`, `cache run` and `cluster run` only read unless you add `--write`. On PostgreSQL, MySQL, Oracle and ClickHouse the database itself enforces it (a read-only transaction, or ClickHouse's readonly=1); SQL Server always rolls the SQL back. On Snowflake, BigQuery and MongoDB komando's own check of each statement keeps it a read: for a hard guarantee, connect with a user that may only read. See [databases](databases.md). |
+| **Read-only by default** | `db query`, `cache redis raw` and `cluster run` only read unless you add `--write`. On PostgreSQL, MySQL, Oracle and ClickHouse the database itself enforces it (a read-only transaction, or ClickHouse's readonly=1); SQL Server always rolls the SQL back. On Snowflake, BigQuery and MongoDB komando's own check of each statement keeps it a read: for a hard guarantee, connect with a user that may only read. See [databases](databases.md). |
 | **Dry run** | `--dry-run` shows what would run and whether it would be blocked (`meta.would_be_blocked`). It is never blocked itself, with one exception: an AI agent's command with `KOMANDO_HOME` set to another folder stops, dry run or not (see the usual data folder, below). It never opens the approval window, so for an AI agent `--reveal` does not count in a dry run (output stays masked), and an agent's preview connects with `--host-key-policy off` ignored. |
 | **Safety settings** | Turning off the audit log or server identity checks, moving the vault key out of the keychain, removing a deny rule, or an AI agent setting a `--proxy-command` (a program on this computer) needs a yes. |
 | **Server identity** | If a server's fingerprint changes, komando refuses to connect (`HOSTKEY_MISMATCH`). |
@@ -131,14 +131,9 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | Command | When | Tier | Flag |
 |---|---|---|---|
 | `queue purge` | always | dangerous | `--allow-dangerous` |
-| `queue rm` | always | dangerous | `--allow-dangerous` |
 | `cache rm` | always | dangerous | `--allow-dangerous` |
-| `storage rm` | always | dangerous | `--allow-dangerous` |
 | `cluster rm` | always | dangerous | `--allow-dangerous` |
 | `cluster scale` | REPLICAS is 0 | dangerous | `--allow-dangerous` |
-| `registry rm` | always | dangerous | `--allow-dangerous` |
-| `registry prune` | always | dangerous | `--allow-dangerous` |
-| `db restore` | always | dangerous | `--allow-dangerous` |
 | `db user rm` | always | dangerous | `--allow-dangerous` |
 | `db kill` | a person types the name of what goes | change |  |
 | `fs rm` | always | dangerous | `--allow-dangerous` |
@@ -147,7 +142,6 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `user rm` | with --remove-home | dangerous | `--allow-dangerous` |
 | `user rm` | always | dangerous | `--allow-dangerous` |
 | `secret rm` | always | dangerous | `--allow-dangerous` |
-| `key rm` | with --delete-file, for a key komando made | dangerous | `--allow-dangerous` |
 | `pkg rm` | a package the server needs (openssh-server, sudo, systemd, ...) | dangerous | `--allow-dangerous` |
 | `pkg rm` | a person types the name of what goes | change |  |
 | `cron rm` | a person types the name of what goes | change |  |
@@ -155,55 +149,66 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `svc stop` | the unit is ssh or sshd | dangerous | `--allow-dangerous` |
 | `svc disable` | the unit is ssh or sshd | dangerous | `--allow-dangerous` |
 | `sync` | with --delete | dangerous | `--allow-dangerous` |
-| `exec` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
 | `job start` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
-| `recipe run` | when the recipe's command matches a destructive rule | dangerous | `--allow-dangerous` |
 | `docker exec` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
 | `docker raw` | when the docker command deletes or stops something | dangerous | `--allow-dangerous` |
 | `docker compose` | when the compose command deletes or stops something | dangerous | `--allow-dangerous` |
-| `cluster exec` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
-| `cluster run` | when the kubectl command deletes something | dangerous | `--allow-dangerous` |
-| `cache run` | when the cache command deletes data (FLUSHALL, ...) | dangerous | `--allow-dangerous` |
-| `db query` | when the SQL deletes data (DROP, DELETE without WHERE, ...) | dangerous | `--allow-dangerous` |
 | `db explain` | with --analyze, when the SQL deletes data | dangerous | `--allow-dangerous` |
 | `pkg upgrade` | with --security, when an update would remove a package the server needs | dangerous | `--allow-dangerous` |
-| `key revoke` | when it is the key komando logs in with | dangerous | `--allow-dangerous` |
 | `host edit` | when --proxy-command matches a destructive rule | dangerous | `--allow-dangerous` |
 | `host add` | when --proxy-command matches a destructive rule | dangerous | `--allow-dangerous` |
-| `import` | when an imported ProxyCommand matches a destructive rule | dangerous | `--allow-dangerous` |
-| `policy rm` | always | safety | `--yes` |
 | `policy edit` | unless it only switches the rule on | safety | `--yes` |
-| `config set` | when the setting turns a check off (audit, keychain, host key policy, ...) | safety | `--yes` |
-| `host edit` | with --protected=false | safety | `--yes` |
 | `conn edit` | with --protected=false | safety | `--yes` |
-| `vpn edit` | with --protected=false | safety | `--yes` |
-| `vpn edit` | with --mfa=false | safety | `--yes` |
-| `update` | when it installs an older version | safety | `--yes` |
-| `tunnel start` | when it listens on an open address (OPEN_BIND) | safety | `--yes` |
-| `secret keychain` | when it turns the keychain off | safety | `--yes` |
 | `host add` | with --proxy-command, when an AI agent runs it (the proxy command runs on this computer) | safety | `--yes` |
 | `host edit` | with --proxy-command, when an AI agent runs it (the proxy command runs on this computer) | safety | `--yes` |
-| `import` | when an AI agent imports a server with a proxy command (it runs on this computer; without --yes the server is left out) | safety | `--yes` |
 | `import` | SOURCE kubeconfig, when an AI agent imports a context whose login runs a program or sends a file of this computer | safety | `--yes` |
-| `recipe add` | with --overwrite --read-only, when it makes an existing recipe read-only | safety | `--yes` |
+| `secret check` | always | person |  |
+| `login` | always | person |  |
+| `login aws` | always | person |  |
+| `host ssh-command` | always | person |  |
+| `import` | SOURCE komando, when the file is sealed (export --sealed): a person types its passphrase | person |  |
+| `group rm` | GROUP alone: deleting a group of more than 3 members (CONFIRM_REQUIRED) | change | `--yes` |
+| `queue rm` | always | dangerous | `--allow-dangerous` |
+| `storage rm` | always | dangerous | `--allow-dangerous` |
+| `registry oci image delete` | always | dangerous | `--allow-dangerous` |
+| `registry oci image prune` | always | dangerous | `--allow-dangerous` |
+| `db restore` | always | dangerous | `--allow-dangerous` |
+| `key rm` | with --delete-file | dangerous | `--allow-dangerous` |
+| `exec` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
+| `recipe run` | when a step matches a destructive rule | dangerous | `--allow-dangerous` |
+| `cluster exec` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
+| `cluster run` | when the cluster command deletes something or scales to 0 | dangerous | `--allow-dangerous` |
+| `cache redis raw` | when the cache command deletes data (DEL, FLUSHALL, ...) | dangerous | `--allow-dangerous` |
+| `db query` | when the query deletes data (DROP, DELETE without WHERE, KILL, ...) | dangerous | `--allow-dangerous` |
+| `key revoke` | when it is the key komando logs in with | dangerous | `--allow-dangerous` |
+| `import` | when an imported proxy command matches a destructive rule | dangerous | `--allow-dangerous` |
+| `policy rm` | always | safety | `--yes` |
+| `config set` | when the setting turns a check off | safety | `--yes` |
+| `vpn edit` | with --mfa=false | safety | `--yes` |
+| `update` | when it installs an older version | safety | `--yes` |
+| `tunnel start` | when it listens on an open address | safety | `--yes` |
+| `secret keychain` | when it turns the keychain off | safety | `--yes` |
+| `import` | when an AI agent imports a server with a proxy command | safety | `--yes` |
+| `recipe add` | with --overwrite --read-only, when it makes an existing snippet read-only | safety | `--yes` |
 | `host trust` | when an AI agent pins a first host key while host keys are strict | safety | `--yes` |
+| `registry oci add` | when the address turns TLS off (plain HTTP) | safety | `--yes` |
+| `secret run` | when an AI agent hands a saved secret to a program | safety | `--yes` |
+| `storage link` | when an AI agent makes a link (a person allows --reveal) | safety | `--yes` |
 | `guide uninstall` | when it removes komando's guard from an AI agent's settings | safety | `--yes` |
 | `config approval-code` | always | person |  |
+| `ssh-gate` | always | person |  |
 | `secret passphrase` | always | person |  |
-| `secret check` | always | person |  |
+| `secret keychain` | without --off | person |  |
 | `shell` | always | person |  |
 | `db shell` | always | person |  |
 | `cluster shell` | always | person |  |
-| `login` | always | person |  |
-| `login aws` | always | person |  |
-| `ssh-gate` | always | person |  |
-| `host ssh-command` | always | person |  |
 | `host ca add` | always | person |  |
-| `secret keychain` | without --off (moving the key into the keychain) | person |  |
-| `host trust` | with --reset, when a key is pinned | person |  |
-| `export` | with --sealed or --for-phone | person |  |
-| `import` | SOURCE komando, when the file is sealed (export --sealed): a person types its passphrase | person |  |
-| `group rm` | GROUP alone: deleting a group of more than 3 members (CONFIRM_REQUIRED) | change | `--yes` |
+| `host trust` | with --reset | person |  |
+| `db dump` | when an AI agent runs it (the file holds every row, secrets included) | person |  |
+| `export` | with --sealed | person |  |
+| `export` | with --for-phone | person |  |
+| `host edit` | with --protected=false | safety | `--yes` |
+| `vpn edit` | with --protected=false | safety | `--yes` |
 
 <!-- end of tiers -->
 
@@ -341,13 +346,13 @@ switch as `policy.edit` with the servers before and after.
 `mysql`, `sqlserver`, `oracle`, `clickhouse`, `snowflake`, `bigquery`,
 `sqlite`, `redis`, `memcached` or `mongodb` (a command document as JSON).
 It exits 6 too when the statement is destructive, which `db query` and
-`cache run` refuse without `--allow-dangerous`.
+`cache redis raw` refuse without `--allow-dangerous`.
 
 ## Personal data
 
 Customer data in production should not end up in an AI model. On protected
 servers and conns, an AI agent sees personal data hidden in what it reads
-from them: `db query` rows (also with `-o csv`), `cache get` and `cache run`,
+from them: `db query` rows (also with `-o csv`), `cache get` and `cache redis raw`,
 `storage cat`, `fs cat`, `exec`, `logs` and the other commands that show
 data from a server or resource. komando's own inventory (server addresses,
 conn URLs) is never hidden.
@@ -418,7 +423,7 @@ komando config set mask_personal protected       # back to the default (komando 
   which a person allows in the approval window, the agent sees them for
   that one command.
 - A masked value is never written back: a `db query --write`, `cache set`
-  or `cache run --write`, and a file write, that still holds
+  or `cache redis raw --write`, and a file write, that still holds
   `[hidden: ...]` stops with `HIDDEN_VALUE`.
 
 ## History
@@ -493,8 +498,8 @@ shell only (see **Shell keys** below). For that key, sshd then runs
 | **Only komando** | The key's command must be one komando command (`ssh HOST komando list -o json`), with at most `KOMANDO_AGENT=NAME` before it. ssh-gate splits it into words like a shell, but runs no shell and expands nothing: an unquoted `;`, `\|`, `&`, `>`, `<`, `$`, backquote or line break is refused, and so is `$` or a backquote inside double quotes (`SSH_GATE_SYNTAX`); put such an argument in single quotes. Any other program, a login shell, `scp` or `sftp` is refused too (`SSH_GATE_REFUSED`). ssh-gate is for keys that sshd starts it for: started by an AI agent on this computer, it runs nothing (`SSH_GATE_REFUSED`); the agent runs komando directly, under its own rules. |
 | **komando treats it as an AI agent** | Secret values stay `[hidden]`. `--reveal` and `--allow-dangerous` are refused, and so are commands for a person at a terminal (`shell`, `db shell`, `cluster shell`, `secret passphrase`, `secret check`, `login aws`, `config approval-code`); a `--shell-access` key may open `komando shell SERVER` (see **Shell keys**). `--yes` on a protected target needs a person on this computer, which the key is not: change protected servers here. No approval window opens for a key. |
 | **Nothing written here** | Every key, read-only or not, runs commands on servers, never one that writes on this computer: a file it saved here could be `~/.ssh/authorized_keys` or a shell startup file. So `download` and `storage download` (except `--to -`, which streams to the key's own output and is a read, allowed for a read-only key too), `db dump`, `export --to`, and `cp` or `sync` to a folder here (except `cp TARGET:PATH -`) are refused, and so is any change to komando's own setup: servers, conns, VPNs, groups, settings, policy rules, secrets, keys, recipes, `guide install`, `import`, `host trust`, `tunnel start` and `stop`, and `update` (`SSH_GATE_REFUSED`). Change those here, as a person. Every key, read-only too, is also refused every command, reads included, on a target that is this computer: a sqlite conn, which is a file here (`VACUUM INTO`, `ATTACH` and `db restore` write any file), and a server, conn or cluster at `localhost`, a `127.x` or `::1` address, a loopback interface (`fe80::1%lo0`) or this computer's name. Through such a target `exec` would be a shell here (`--read-only` is a filter, not a sandbox), `logs --file`, `fs cat` and `fs list` would read any file here, a private key too, and Postgres `COPY TO PROGRAM` or `pg_read_file`, Redis `CONFIG SET dir` and a Kubernetes `hostPath` volume run programs or read and write files here. For a conn every host in its URL counts, a list (`a,b`), Postgres `?host=` and `?hostaddr=`, and a socket path. `cluster run -- cp POD:PATH DST` and `key deploy --set-default` are refused too. A change on a target the gate cannot find is refused; a read runs, unless the name is `localhost`, a loopback address or this computer's own address, as written or as the name resolves (`cert check https://localhost`, `https://ip6-localhost`, a public name that points at 127.0.0.1). What such a read dials is checked again when it connects, so a name whose answer changes in between cannot reach this computer either. A change komando adds later is refused until it is known to act on servers only. No key makes komando read a file here either: `exec` and `job start` with `--script FILE` or `--stdin-file FILE`, `db query --file`, `db restore --from`, `cluster apply --file`, `fs write --from`, `upload`, `storage upload`, `cp` and `sync` from a path here, and `cluster run -- apply -f`, `--from-file` or `cp` to a pod are refused (`SSH_GATE_REFUSED`): the file could be a private key, and the server's answer would hand it back. Send the content on the key's own input instead (`--script -`). |
-| **Read-only keys** | With `--read-only` the key runs only commands komando counts as reads (the `kind` in `komando schema`): `exec` (also with `--script`), `job start`, `docker exec` and `cluster exec` need `--read-only`, `db query`, `cache run` and `cluster run` no `--write`, `db explain` no `--analyze`, `pkg upgradable` no `--refresh`, `pkg security` no `--refresh`, and a recipe must be marked read-only. `storage link` and `cluster forward` are changes (`kind: change`), since they hand out access or open a port here: a read-only key is refused them (`SSH_GATE_READ_ONLY`), a full key runs them. |
-| **Read keys stay off the network** | Reaching the network is no write, but it is a way out: what a key reads could leave in a URL or a DNS name. So a `--read-only` key runs only komando's own reads of the servers and conns in your list (`fs`, `logs`, `facts`, `status`, `svc`, `docker ps`, `db query`, `cache run`, `cluster run`, `cert check SERVER`, ...). It is refused every `net` command, `cert check` of a website (`https://HOST`, `HOST:PORT`, which komando dials from this computer), and `exec`, `job start`, `docker exec`, `cluster exec` and `recipe run`, whose programs (`curl`, `nslookup`, ...) can connect anywhere (`SSH_GATE_NETWORK_REQUIRED`). A read komando adds later is refused until it is known to stay on listed targets. SQL and cache commands that reach another server or a program are writes, so `db query` and `cache run` refuse them without `--write`: Postgres `COPY ... TO PROGRAM` and `dblink`, MySQL `INTO OUTFILE`, `LOAD DATA` and `LOAD_FILE`, SQL Server `OPENROWSET`, `OPENQUERY`, linked-server names (`lnk.db.dbo.t`) and the functions that read a file path (`\\HOST\share`), ClickHouse `url()`, `remote()` and `s3()`, Oracle `UTL_HTTP` and XML the query builds (a DTD can name a URL), BigQuery `EXTERNAL_QUERY`, MongoDB `$out` and `$merge`, Redis `MIGRATE` and `REPLICAOF`. Add `--network` to the line for a read key that may run them. |
+| **Read-only keys** | With `--read-only` the key runs only commands komando counts as reads (the `kind` in `komando schema`): `exec` (also with `--script`), `job start`, `docker exec` and `cluster exec` need `--read-only`, `db query`, `cache redis raw` and `cluster run` no `--write`, `db explain` no `--analyze`, `pkg upgradable` no `--refresh`, `pkg security` no `--refresh`, and a recipe must be marked read-only. `storage link` and `cluster forward` are changes (`kind: change`), since they hand out access or open a port here: a read-only key is refused them (`SSH_GATE_READ_ONLY`), a full key runs them. |
+| **Read keys stay off the network** | Reaching the network is no write, but it is a way out: what a key reads could leave in a URL or a DNS name. So a `--read-only` key runs only komando's own reads of the servers and conns in your list (`fs`, `logs`, `facts`, `status`, `svc`, `docker ps`, `db query`, `cache redis raw`, `cluster run`, `cert check SERVER`, ...). It is refused every `net` command, `cert check` of a website (`https://HOST`, `HOST:PORT`, which komando dials from this computer), and `exec`, `job start`, `docker exec`, `cluster exec` and `recipe run`, whose programs (`curl`, `nslookup`, ...) can connect anywhere (`SSH_GATE_NETWORK_REQUIRED`). A read komando adds later is refused until it is known to stay on listed targets. SQL and cache commands that reach another server or a program are writes, so `db query` and `cache redis raw` refuse them without `--write`: Postgres `COPY ... TO PROGRAM` and `dblink`, MySQL `INTO OUTFILE`, `LOAD DATA` and `LOAD_FILE`, SQL Server `OPENROWSET`, `OPENQUERY`, linked-server names (`lnk.db.dbo.t`) and the functions that read a file path (`\\HOST\share`), ClickHouse `url()`, `remote()` and `s3()`, Oracle `UTL_HTTP` and XML the query builds (a DTD can name a URL), BigQuery `EXTERNAL_QUERY`, MongoDB `$out` and `$merge`, Redis `MIGRATE` and `REPLICAOF`. Add `--network` to the line for a read key that may run them. |
 | **Shell keys** | A line made with `--shell-access` (only for a key that may change things, not with `--read-only`) lets the key open a login shell on one server: `ssh -t HOST komando shell SERVER`, word for word, with at most `KOMANDO_AGENT=NAME` before it. sshd gives the key a terminal only when it asks for one (`ssh -t`), and ssh-gate lets no shell through without it. The server must be one in your list, named as it is written there: no `user@host`, address, group, pattern or other spelling. A protected server, a Windows server (added with `--os windows`, or over WinRM) and a server that is this computer are refused, and so are any other word or flag (`--yes`, `-o`, `--dry-run`), the `ssh` and `connect` spellings, `db shell` and `cluster shell` (`SSH_GATE_REFUSED`). Every other command gets the answer a key without `--shell-access` gets. While you have deny rules of your own (`komando policy deny`), no key opens a shell on any server (`SSH_GATE_REFUSED`): komando does not see what is typed in a shell, so a shell would get past them. On every other server the gate allows, a shell key is full control of that server, as the account komando logs in with there: what is typed is outside komando's per-command policy, masking and audit. Give such a key only to a device you would give that login to. The shell ends after 30 minutes with no input and no output (`SHELL_IDLE_TIMEOUT`), and when the key's terminal changes size, the server's terminal follows. The audit record of each command such a key sends has `shell_access: true`, and each shell session has two more: one when it starts and one when it ends, with the key's name (`ssh_gate`), the server (`hosts`) and `session` (`start` or `end`). The end record adds `duration_ms`, why it ended (`end`: `exit`, `idle`, `hangup` when the key's connection closed, `lost` when the server's broke, or `error` when the shell never opened) and, after `exit`, the shell's `exit_code`. ssh-gate opens the shell in its own process, after its checks; `komando shell` run any other way still needs a person at a terminal. If that process is killed, there is no end record; the start record still shows the session. |
 | **Every command in the history** | Each command a key runs or is refused is in `komando audit`: the key's name (`ssh_gate`), what it sent (`ssh_command`, secret-looking values hidden), the address it came from (`client`) and, when refused, why. What the command then changes is recorded as from `ssh-gate key NAME`. This record is written even when the `audit` setting is off; when it cannot be written, nothing runs. In `komando audit` text, line breaks and terminal escapes in what a key sent show as `\n` and `\x1b`, so a key cannot add or hide rows. |
 

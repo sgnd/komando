@@ -74,155 +74,17 @@
         "path": "komando cache",
         "usage": "komando cache [flags]",
         "short": "Caches (Redis, Valkey, memcached): read and change keys",
-        "long": "Read and change keys in Redis, Valkey or memcached. Add a cache with\n`komando cache add`.\n\nget, keys and info only read. set changes data (a protected cache asks\nfirst); rm deletes keys, so it also needs --allow-dangerous. `cache run`\nsends any command, but only reads unless --write; commands that flush,\nblock, run scripts or reconfigure the server also need --allow-dangerous.",
+        "long": "Read and change keys in Redis, Valkey or memcached. Add a cache with\n`komando cache redis add`.\n\nget, keys and info only read. set changes data (a protected cache asks\nfirst); rm deletes keys, so it also needs --allow-dangerous. `cache redis\nraw` sends any command, but only reads unless --write; commands that flush,\nblock, run scripts or reconfigure the server also need --allow-dangerous.",
         "aliases": [
           "redis",
           "caches"
         ],
-        "example": "  komando cache add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password\n  komando cache info prod-redis\n  komando cache keys prod-redis 'session:*'\n  komando cache get prod-redis session:42\n  komando cache set prod-redis maintenance on --ttl 30m --dry-run",
+        "example": "  komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password\n  komando cache info prod-redis\n  komando cache keys prod-redis 'session:*'\n  komando cache get prod-redis session:42\n  komando cache set prod-redis maintenance on --ttl 30m --dry-run",
         "runnable": true,
         "kind": "read",
         "confirm": [
           {
             "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando cache add",
-        "usage": "komando cache add NAME URL [flags]",
-        "short": "Add a cache",
-        "long": "Same as `komando conn add NAME URL`, for a cache.\n\nSafety: a change; try it with --dry-run first.\n\nSaves a cache under a short name. Typed alone at a terminal, it asks\nstep by step. The URL scheme sets the kind: `komando conn kinds` lists them.",
-        "example": "  komando cache add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password\n  komando cache add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password --dry-run",
-        "flags": [
-          {
-            "name": "ask-password",
-            "type": "bool",
-            "default": "false",
-            "usage": "type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref"
-          },
-          {
-            "name": "group",
-            "shorthand": "g",
-            "type": "stringSlice",
-            "default": "[]",
-            "usage": "put it in these groups (comma-separated)"
-          },
-          {
-            "name": "label",
-            "type": "stringArray",
-            "default": "[]",
-            "usage": "label KEY=VALUE (repeatable)"
-          },
-          {
-            "name": "login",
-            "type": "string",
-            "usage": "how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own)"
-          },
-          {
-            "name": "notes",
-            "type": "string",
-            "usage": "free-form notes (komando conn show shows them to people and agents)"
-          },
-          {
-            "name": "option",
-            "type": "stringArray",
-            "default": "[]",
-            "usage": "an option of this kind, KEY=VALUE (repeatable)"
-          },
-          {
-            "name": "overwrite",
-            "type": "bool",
-            "default": "false",
-            "usage": "replace a conn that has the same name"
-          },
-          {
-            "name": "password-ref",
-            "type": "string",
-            "usage": "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://..."
-          },
-          {
-            "name": "protected",
-            "type": "bool",
-            "default": "false",
-            "usage": "production: komando asks you before every change, and an AI agent needs your yes in a window"
-          },
-          {
-            "name": "tag",
-            "shorthand": "t",
-            "type": "stringSlice",
-            "default": "[]",
-            "usage": "tags, like prod (comma-separated)"
-          },
-          {
-            "name": "via",
-            "type": "string",
-            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ],
-        "add_kinds": [
-          {
-            "id": "memcached",
-            "display_name": "Memcached",
-            "family": "cache",
-            "url_schemes": [
-              "memcached",
-              "memcacheds"
-            ],
-            "url_example": "memcached://cache.internal:11211",
-            "url_note": "memcacheds = TLS",
-            "default_port": 11211,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          },
-          {
-            "id": "redis",
-            "display_name": "Redis or Valkey",
-            "family": "cache",
-            "url_schemes": [
-              "redis",
-              "rediss"
-            ],
-            "url_example": "rediss://default@cache.internal:6379/0",
-            "url_note": "rediss = TLS",
-            "default_port": 6379,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
           }
         ]
       },
@@ -298,6 +160,620 @@
         ]
       },
       {
+        "path": "komando cache memcached",
+        "usage": "komando cache memcached [flags]",
+        "short": "Memcached caches: save them, and send them a command",
+        "example": "  komando cache memcached add prod-mc memcached://cache.internal:11211 --via web1 --dry-run\n  komando cache memcached add prod-mc memcached://cache.internal:11211 --via web1\n  komando cache memcached test prod-mc\n  komando cache memcached raw prod-mc -- stats\n  komando cache memcached raw prod-mc --write -- flush_all --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando cache memcached add",
+        "usage": "komando cache memcached add NAME [URL] [flags]",
+        "short": "Save a memcached cache under a short name",
+        "long": "Save a memcached cache under a short name.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando cache memcached add app memcached://cache.internal:11211 --via web1\n  komando cache memcached add app memcached://cache.internal:11211 --dry-run",
+        "flags": [
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "overwrite",
+            "type": "bool",
+            "default": "false",
+            "usage": "replace an entry that has the same name"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "tags, like prod"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando cache memcached edit",
+        "usage": "komando cache memcached edit NAME [flags]",
+        "short": "Change a saved memcached cache (only the flags you pass change)",
+        "long": "Change a saved memcached cache (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando cache memcached edit app --add-tag critical\n  komando cache memcached edit app --notes 'main one' --dry-run",
+        "flags": [
+          {
+            "name": "add-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "add-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "add these tags"
+          },
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "rm-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "take it out of these groups"
+          },
+          {
+            "name": "rm-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "remove these tags"
+          },
+          {
+            "name": "unset",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "clear these settings: via, credential, notes, protected"
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "usage": "the new URL (the provider may not change)"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando cache memcached list",
+        "usage": "komando cache memcached list [TARGET] [flags]",
+        "short": "List the saved memcached caches",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando cache memcached list\n  komando cache memcached list @web",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando cache memcached raw",
+        "usage": "komando cache memcached raw NAME -- COMMAND... [flags]",
+        "short": "Send one memcached command and show the reply",
+        "long": "Send one memcached command and show the reply.\n\nSafety: a change; try it with --dry-run first; when the cache command\ndeletes data (DEL, FLUSHALL, ...): dangerous, it cannot be undone: a person\ntypes the name to go on, and an AI agent or a script needs\n--allow-dangerous.",
+        "example": "  komando cache memcached raw app -- stats\n  komando cache memcached raw app --write -- flush_all --dry-run\n  komando cache memcached raw app --write -- flush_all --dry-run",
+        "flags": [
+          {
+            "name": "write",
+            "type": "bool",
+            "default": "false",
+            "usage": "allow a command that changes data (it only reads without this)"
+          }
+        ],
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "only reads unless --write",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous",
+            "when": "when the cache command deletes data (DEL, FLUSHALL, ...)"
+          }
+        ]
+      },
+      {
+        "path": "komando cache memcached remove",
+        "usage": "komando cache memcached remove TARGET... [flags]",
+        "short": "Forget a saved memcached cache (the cache is not touched)",
+        "long": "Forget a saved memcached cache (the cache is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "example": "  komando cache memcached remove app --dry-run\n  komando cache memcached remove app",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando cache memcached rename",
+        "usage": "komando cache memcached rename NAME NEW [flags]",
+        "short": "Rename a saved memcached cache and every reference to it",
+        "long": "Rename a saved memcached cache and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando cache memcached rename app app-2 --dry-run\n  komando cache memcached rename app app-2",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando cache memcached show",
+        "usage": "komando cache memcached show NAME [flags]",
+        "short": "Show a saved memcached cache's settings (credentials as names)",
+        "example": "  komando cache memcached show app\n  komando cache memcached show app -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando cache memcached test",
+        "usage": "komando cache memcached test TARGET [flags]",
+        "short": "Check that a saved memcached cache answers and lets you in",
+        "example": "  komando cache memcached test app\n  komando cache memcached test @web",
+        "flags": [
+          {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the session a person's login keeps open"
+          },
+          {
+            "name": "wait",
+            "type": "duration",
+            "default": "0",
+            "usage": "wait this long for a person's sign-in"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando cache redis",
+        "usage": "komando cache redis [flags]",
+        "short": "Redis caches: save them, and send them a command",
+        "example": "  komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --dry-run\n  komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1\n  komando cache redis test prod-redis\n  komando cache redis raw prod-redis -- HGETALL user:42\n  komando cache redis raw prod-redis --write -- EXPIRE session:42 3600 --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando cache redis add",
+        "usage": "komando cache redis add NAME [URL] [flags]",
+        "short": "Save a redis cache under a short name",
+        "long": "Save a redis cache under a short name.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1\n  komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --dry-run",
+        "flags": [
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "overwrite",
+            "type": "bool",
+            "default": "false",
+            "usage": "replace an entry that has the same name"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "tags, like prod"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando cache redis edit",
+        "usage": "komando cache redis edit NAME [flags]",
+        "short": "Change a saved redis cache (only the flags you pass change)",
+        "long": "Change a saved redis cache (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando cache redis edit prod-redis --add-tag critical\n  komando cache redis edit prod-redis --notes 'main one' --dry-run",
+        "flags": [
+          {
+            "name": "add-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "add-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "add these tags"
+          },
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "rm-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "take it out of these groups"
+          },
+          {
+            "name": "rm-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "remove these tags"
+          },
+          {
+            "name": "unset",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "clear these settings: via, credential, notes, protected"
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "usage": "the new URL (the provider may not change)"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando cache redis list",
+        "usage": "komando cache redis list [TARGET] [flags]",
+        "short": "List the saved redis caches",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando cache redis list\n  komando cache redis list @web",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando cache redis raw",
+        "usage": "komando cache redis raw NAME -- COMMAND... [flags]",
+        "short": "Send one redis command and show the reply",
+        "long": "Send one redis command and show the reply.\n\nSafety: a change; try it with --dry-run first; when the cache command\ndeletes data (DEL, FLUSHALL, ...): dangerous, it cannot be undone: a person\ntypes the name to go on, and an AI agent or a script needs\n--allow-dangerous.",
+        "example": "  komando cache redis raw prod-redis -- HGETALL user:42\n  komando cache redis raw prod-redis --write -- EXPIRE session:42 3600 --dry-run\n  komando cache redis raw prod-redis --write -- EXPIRE session:42 3600 --dry-run",
+        "flags": [
+          {
+            "name": "write",
+            "type": "bool",
+            "default": "false",
+            "usage": "allow a command that changes data (it only reads without this)"
+          }
+        ],
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "only reads unless --write",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous",
+            "when": "when the cache command deletes data (DEL, FLUSHALL, ...)"
+          }
+        ]
+      },
+      {
+        "path": "komando cache redis remove",
+        "usage": "komando cache redis remove TARGET... [flags]",
+        "short": "Forget a saved redis cache (the cache is not touched)",
+        "long": "Forget a saved redis cache (the cache is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "example": "  komando cache redis remove prod-redis --dry-run\n  komando cache redis remove prod-redis",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando cache redis rename",
+        "usage": "komando cache redis rename NAME NEW [flags]",
+        "short": "Rename a saved redis cache and every reference to it",
+        "long": "Rename a saved redis cache and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando cache redis rename prod-redis prod-redis-2 --dry-run\n  komando cache redis rename prod-redis prod-redis-2",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando cache redis show",
+        "usage": "komando cache redis show NAME [flags]",
+        "short": "Show a saved redis cache's settings (credentials as names)",
+        "example": "  komando cache redis show prod-redis\n  komando cache redis show prod-redis -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando cache redis test",
+        "usage": "komando cache redis test TARGET [flags]",
+        "short": "Check that a saved redis cache answers and lets you in",
+        "example": "  komando cache redis test prod-redis\n  komando cache redis test @web",
+        "flags": [
+          {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the session a person's login keeps open"
+          },
+          {
+            "name": "wait",
+            "type": "duration",
+            "default": "0",
+            "usage": "wait this long for a person's sign-in"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
         "path": "komando cache rm",
         "usage": "komando cache rm CONN KEY... [flags]",
         "short": "Delete keys by exact name, never by pattern",
@@ -314,34 +790,6 @@
           {
             "tier": "dangerous",
             "flag": "--allow-dangerous"
-          }
-        ]
-      },
-      {
-        "path": "komando cache run",
-        "usage": "komando cache run CONN -- COMMAND... [flags]",
-        "short": "Send any Redis or memcached command (read only by default)",
-        "long": "Send any Redis or memcached command (read only by default).\n\nSafety: a change; try it with --dry-run first; when the cache command\ndeletes data (FLUSHALL, ...): dangerous, it cannot be undone: a person types\nthe name to go on, and an AI agent or a script needs --allow-dangerous; on a\nprotected server or conn, a person's yes (--yes) as well.",
-        "example": "  komando cache run prod-redis -- HGETALL user:42\n  komando cache run prod-redis -- ZREVRANGE leaderboard 0 9 WITHSCORES\n  komando cache run prod-redis --write -- EXPIRE session:42 3600\n  komando cache run prod-redis --write --dry-run -- EXPIRE session:42 3600\n  komando cache run prod-redis -- \"GET feature:dark-mode\"   # one quoted line works too",
-        "flags": [
-          {
-            "name": "write",
-            "type": "bool",
-            "default": "false",
-            "usage": "allow commands that change data"
-          }
-        ],
-        "runnable": true,
-        "kind": "depends",
-        "kind_note": "only reads unless --write",
-        "confirm": [
-          {
-            "tier": "change"
-          },
-          {
-            "tier": "dangerous",
-            "flag": "--allow-dangerous",
-            "when": "when the cache command deletes data (FLUSHALL, ...)"
           }
         ]
       },
@@ -1143,7 +1591,7 @@
         "path": "komando cluster run",
         "usage": "komando cluster run TARGET -- ARGS... [flags]",
         "short": "Run any kubectl or docker command (read only by default)",
-        "long": "For Kubernetes, komando runs the kubectl command itself (no kubectl\nneeded) and reaches the API through the conn's --via path: get (tables,\nwide, name, json, yaml, jsonpath, custom-columns, -w), describe, logs,\nevents, top, explain, version, api-resources, api-versions, cluster-info,\nauth can-i/whoami, wait, rollout, apply, diff, create, replace, delete,\npatch, label, annotate, scale, set image, cordon, uncordon, drain, taint,\nrun, exec, cp, debug, certificate and config. For Swarm, docker runs on the\nmanager. Commands that change things need --write; delete, drain and other\nrisky verbs also need --allow-dangerous.\n\nSafety: a change; try it with --dry-run first; when the kubectl command\ndeletes something: dangerous, it cannot be undone: a person types the name\nto go on, and an AI agent or a script needs --allow-dangerous; on a\nprotected server or conn, a person's yes (--yes) as well.",
+        "long": "For Kubernetes, komando runs the kubectl command itself (no kubectl\nneeded) and reaches the API through the conn's --via path: get (tables,\nwide, name, json, yaml, jsonpath, custom-columns, -w), describe, logs,\nevents, top, explain, version, api-resources, api-versions, cluster-info,\nauth can-i/whoami, wait, rollout, apply, diff, create, replace, delete,\npatch, label, annotate, scale, set image, cordon, uncordon, drain, taint,\nrun, exec, cp, debug, certificate and config. For Swarm, docker runs on the\nmanager. Commands that change things need --write; delete, drain and other\nrisky verbs also need --allow-dangerous.\n\nSafety: a change; try it with --dry-run first; when the cluster command\ndeletes something or scales to 0: dangerous, it cannot be undone: a person\ntypes the name to go on, and an AI agent or a script needs\n--allow-dangerous; on a protected server or conn, a person's yes (--yes) as\nwell.",
         "example": "  komando cluster run prod-k8s -- get pods -A -o wide\n  komando cluster run prod-k8s --write -- rollout undo deployment/api -n shop\n  komando cluster run prod-k8s --write --dry-run -- rollout undo deployment/api -n shop\n  komando cluster run swarm1 -- service ps web",
         "flags": [
           {
@@ -1163,7 +1611,7 @@
           {
             "tier": "dangerous",
             "flag": "--allow-dangerous",
-            "when": "when the kubectl command deletes something"
+            "when": "when the cluster command deletes something or scales to 0"
           }
         ]
       },
@@ -1309,7 +1757,7 @@
         "path": "komando config set",
         "usage": "komando config set SETTING VALUE [flags]",
         "short": "Change a setting",
-        "long": "Settings:\n  host_key_policy  accept-new | strict | off\n      how server identity is checked: accept-new pins a new server's key, strict needs `host trust` first, off checks nothing (needs --yes)\n  default_user     a login name\n      user for servers that have none (empty: your own user name)\n  default_timeout  duration > 0\n      how long a remote command may run (--timeout overrides it)\n  connect_timeout  duration > 0\n      how long connecting may take (--connect-timeout overrides it)\n  parallel         1 or more\n      how many servers a command works on at once (-P overrides it)\n  max_output_bytes 1024 or more\n      output kept per stream and server, in bytes (--max-output overrides it)\n  audit            on | off\n      keep the audit log (turning it off needs --yes)\n  audit_sql        full | hash | off\n      how SQL text is kept in the audit log: hash keeps a SHA-256 so repeated queries can be matched (off needs --yes)\n  audit_syslog     udp://HOST:514 | tcp://HOST:514 | tls://HOST:6514 | off\n      also send each audit record to a log server (syslog, RFC 5424); changing it needs --yes\n  mask_personal    protected | all | off\n      where AI agents see email addresses, phone numbers, card numbers and IBANs hidden: on protected servers and conns (the default), on all, or nowhere (less needs --yes)\n  login_for        duration\n      how long `komando login SERVER` keeps a server's login for later commands (an AI agent's too)\n  approval_languageauto | en | id\n      the language of the approval window: auto follows the system language (Indonesian when it is id, else English)\n  vpn_idle         duration, 0 = never\n      a VPN kept up with `vpn up` is closed after this long unused\n\nSafety: a change; try it with --dry-run first; when the setting turns a\ncheck off (audit, keychain, host key policy, ...): it weakens a safety\ncheck: a person's yes (--yes).\n\nTo go back to a default, set the value from the DEFAULT column of `komando\nconfig show`.",
+        "long": "Settings:\n  host_key_policy  accept-new | strict | off\n      how server identity is checked: accept-new pins a new server's key, strict needs `host trust` first, off checks nothing (needs --yes)\n  default_user     a login name\n      user for servers that have none (empty: your own user name)\n  default_timeout  duration > 0\n      how long a remote command may run (--timeout overrides it)\n  connect_timeout  duration > 0\n      how long connecting may take (--connect-timeout overrides it)\n  parallel         1 or more\n      how many servers a command works on at once (-P overrides it)\n  max_output_bytes 1024 or more\n      output kept per stream and server, in bytes (--max-output overrides it)\n  audit            on | off\n      keep the audit log (turning it off needs --yes)\n  audit_sql        full | hash | off\n      how SQL text is kept in the audit log: hash keeps a SHA-256 so repeated queries can be matched (off needs --yes)\n  audit_syslog     udp://HOST:514 | tcp://HOST:514 | tls://HOST:6514 | off\n      also send each audit record to a log server (syslog, RFC 5424); changing it needs --yes\n  mask_personal    protected | all | off\n      where AI agents see email addresses, phone numbers, card numbers and IBANs hidden: on protected servers and conns (the default), on all, or nowhere (less needs --yes)\n  login_for        duration\n      how long `komando login SERVER` keeps a server's login for later commands (an AI agent's too)\n  approval_languageauto | en | id\n      the language of the approval window: auto follows the system language (Indonesian when it is id, else English)\n  vpn_idle         duration, 0 = never\n      a VPN kept up with `vpn up` is closed after this long unused\n\nSafety: a change; try it with --dry-run first; when the setting turns a\ncheck off: it weakens a safety check: a person's yes (--yes).\n\nTo go back to a default, set the value from the DEFAULT column of `komando\nconfig show`.",
         "example": "  komando config set parallel 20\n  komando config set parallel 20 --dry-run\n  komando config set default_timeout 10m\n  komando config set host_key_policy strict\n  komando config set audit_sql hash",
         "runnable": true,
         "kind": "change",
@@ -1320,7 +1768,7 @@
           {
             "tier": "safety",
             "flag": "--yes",
-            "when": "when the setting turns a check off (audit, keychain, host key policy, ...)"
+            "when": "when the setting turns a check off"
           }
         ]
       },
@@ -2920,8 +3368,8 @@
       {
         "path": "komando db dump",
         "usage": "komando db dump CONN [flags]",
-        "short": "Save a copy of a database to a file on this computer",
-        "long": "Saves a copy of the database to a file on this computer. Without --to the\nfile is CONN-<date>.sql.gz (SQLite: CONN-<date>.db) in this\nfolder. A file ending in .gz is compressed. Afterwards komando prints the\ncommand that loads it back.\n\npg_dump or mysqldump runs on a server that has it: the one you name with\n--run-on HOST, else the database's --via server. It connects to the conn\nURL's address from that server, runs at low priority (nice, ionice) and\nstreams the backup back over SSH. Without such a server (a direct connection\nor a VPN) komando writes plain SQL itself. PostgreSQL can also write its own\narchive with --format custom (compressed, restored with pg_restore; needs\npg_dump on a server). --table and --schema-only narrow the dump. SQLite\ndatabases are copied as a database file instead. An existing FILE is never\noverwritten. The file holds your data: it is created readable only by you.",
+        "short": "Save a copy of a database to a file on this computer (person only)",
+        "long": "Saves a copy of the database to a file on this computer. Without --to the\nfile is CONN-<date>.sql.gz (SQLite: CONN-<date>.db) in this\nfolder. A file ending in .gz is compressed. Afterwards komando prints the\ncommand that loads it back.\n\nSafety: it only reads; when an AI agent runs it (the file holds every row,\nsecrets included): only a person at a terminal can run it; on a protected\nserver or conn, a person's yes (--yes) as well.\n\npg_dump or mysqldump runs on a server that has it: the one you name with\n--run-on HOST, else the database's --via server. It connects to the conn\nURL's address from that server, runs at low priority (nice, ionice) and\nstreams the backup back over SSH. Without such a server (a direct connection\nor a VPN) komando writes plain SQL itself. PostgreSQL can also write its own\narchive with --format custom (compressed, restored with pg_restore; needs\npg_dump on a server). --table and --schema-only narrow the dump. SQLite\ndatabases are copied as a database file instead. An existing FILE is never\noverwritten. The file holds your data: it is created readable only by you.",
         "example": "  komando db dump prod-db                  # saves prod-db-<date>.sql.gz here\n  komando db dump prod-db --to backups/    # the same name, inside backups/\n  komando db dump prod-db --to prod-2026-11-02.sql.gz\n  komando db dump prod-db --to prod.dump --format custom\n  komando db dump prod-db --to prod.dump --format custom --run-on db1\n  komando db dump prod-db --to orders.sql --table public.orders --table public.order_items\n  komando db dump prod-db --to schema.sql --schema-only\n  komando db dump local --to backup.db",
         "flags": [
           {
@@ -2958,6 +3406,10 @@
         "confirm": [
           {
             "tier": "read"
+          },
+          {
+            "tier": "person",
+            "when": "when an AI agent runs it (the file holds every row, secrets included)"
           }
         ]
       },
@@ -3110,7 +3562,7 @@
         "path": "komando db query",
         "usage": "komando db query CONN [SQL] [flags]",
         "short": "Run SQL (read only by default)",
-        "long": "Runs SQL on a database and prints the rows. Without --write it only reads:\nkomando runs it in a read-only transaction, and stops it after 30s.\n\nSafety: a change; try it with --dry-run first; when the SQL deletes data\n(DROP, DELETE without WHERE, ...): dangerous, it cannot be undone: a person\ntypes the name to go on, and an AI agent or a script needs\n--allow-dangerous; on a protected server or conn, a person's yes (--yes) as\nwell.\n\nMore about db query:\nA run stops after 30s unless --timeout (or the statement_timeout option in\nthe database URL) allows more. Placeholders take their values from\n--arg, in order. -o csv and -o tsv print every row (up to --limit, if\ngiven) for spreadsheets and scripts.\nSQL that starts with a -- comment: pass it after -- or with -f -.\n\nSQL Server has no read-only transaction: without --write komando rolls the\nSQL back, and a statement it does not know as a read (a bare procedure\nname, EXEC) needs --write. Its placeholders are @p1, @p2, ...\n\nOracle: placeholders are :1, :2, ... A PL/SQL block (BEGIN ... END;) runs\nto the end of the text or to a line with only /, and needs --write and\n--allow-dangerous. DDL (CREATE, ALTER, DROP, GRANT) commits on its own in\nOracle, so it needs --write, goes on its own, and a dry run only reports it.\n\nClickHouse has no transactions: without --write every request carries the\nserver's own readonly=1, and a statement that is not a read (INSERT, ALTER,\nCREATE, ...) needs --write, goes on its own, and a dry run only reports it.\nPlaceholders are {p1:String}, {p2:UInt64}, ... (named p1, p2, with a type).\n\nSnowflake has no read-only mode komando can switch on, and each statement\nis a session of its own: without --write komando sends only what it rates\nas a read, and a statement that is not a read needs --write, goes on its\nown, and a dry run only reports it. Log in with a role that may only\nread. Placeholders are ?.\n\nBigQuery: each statement first goes as a dry run, which runs nothing and\nsays what BigQuery sees and how many bytes it would read (which is what\nBigQuery bills). Without --write only a SELECT runs. A query that would\nread more than --max-bytes (default 10GB) does not run, and the job\ncarries that cap too. A write needs --write, goes on its own, and\n--write --dry-run shows BigQuery's dry run. Placeholders are ?; the values\ngo as STRING, so write CAST(? AS INT64) for a number.\n\nOn MongoDB the text is a command document in JSON, its first key\nnaming it ({\"find\": ...}, {\"aggregate\": ...}, {\"update\": ...}). komando rates\nit as it rates SQL: what it does not know as a read needs --write. \"$db\"\npicks another database than the URL's.",
+        "long": "Runs SQL on a database and prints the rows. Without --write it only reads:\nkomando runs it in a read-only transaction, and stops it after 30s.\n\nSafety: a change; try it with --dry-run first; when the query deletes data\n(DROP, DELETE without WHERE, KILL, ...): dangerous, it cannot be undone: a\nperson types the name to go on, and an AI agent or a script needs\n--allow-dangerous; on a protected server or conn, a person's yes (--yes) as\nwell.\n\nMore about db query:\nA run stops after 30s unless --timeout (or the statement_timeout option in\nthe database URL) allows more. Placeholders take their values from\n--arg, in order. -o csv and -o tsv print every row (up to --limit, if\ngiven) for spreadsheets and scripts.\nSQL that starts with a -- comment: pass it after -- or with -f -.\n\nSQL Server has no read-only transaction: without --write komando rolls the\nSQL back, and a statement it does not know as a read (a bare procedure\nname, EXEC) needs --write. Its placeholders are @p1, @p2, ...\n\nOracle: placeholders are :1, :2, ... A PL/SQL block (BEGIN ... END;) runs\nto the end of the text or to a line with only /, and needs --write and\n--allow-dangerous. DDL (CREATE, ALTER, DROP, GRANT) commits on its own in\nOracle, so it needs --write, goes on its own, and a dry run only reports it.\n\nClickHouse has no transactions: without --write every request carries the\nserver's own readonly=1, and a statement that is not a read (INSERT, ALTER,\nCREATE, ...) needs --write, goes on its own, and a dry run only reports it.\nPlaceholders are {p1:String}, {p2:UInt64}, ... (named p1, p2, with a type).\n\nSnowflake has no read-only mode komando can switch on, and each statement\nis a session of its own: without --write komando sends only what it rates\nas a read, and a statement that is not a read needs --write, goes on its\nown, and a dry run only reports it. Log in with a role that may only\nread. Placeholders are ?.\n\nBigQuery: each statement first goes as a dry run, which runs nothing and\nsays what BigQuery sees and how many bytes it would read (which is what\nBigQuery bills). Without --write only a SELECT runs. A query that would\nread more than --max-bytes (default 10GB) does not run, and the job\ncarries that cap too. A write needs --write, goes on its own, and\n--write --dry-run shows BigQuery's dry run. Placeholders are ?; the values\ngo as STRING, so write CAST(? AS INT64) for a number.\n\nOn MongoDB the text is a command document in JSON, its first key\nnaming it ({\"find\": ...}, {\"aggregate\": ...}, {\"update\": ...}). komando rates\nit as it rates SQL: what it does not know as a read needs --write. \"$db\"\npicks another database than the URL's.",
         "example": "  komando db query prod-db \"select id, email from users order by id desc limit 10\"\n  komando db query mongo-db '{\"find\": \"users\", \"filter\": {\"plan\": \"pro\"}, \"limit\": 10}'   # MongoDB\n  komando db query prod-db \"select * from users where email = $1\" --arg bob@example.com\n  komando db query prod-db --write --dry-run \"update users set plan = 'pro' where id = 42\"\n  komando db query prod-db --file migration.sql --write --dry-run\n  komando db query prod-db -o csv \"select * from orders\" > orders.csv\n  komando db query bq \"select count(*) from shop.orders\" --max-bytes 50GB   # BigQuery",
         "flags": [
           {
@@ -3154,7 +3606,7 @@
           {
             "tier": "dangerous",
             "flag": "--allow-dangerous",
-            "when": "when the SQL deletes data (DROP, DELETE without WHERE, ...)"
+            "when": "when the query deletes data (DROP, DELETE without WHERE, KILL, ...)"
           }
         ]
       },
@@ -4100,7 +4552,7 @@
         "path": "komando export",
         "usage": "komando export [TARGET] [flags]",
         "short": "Save servers, conns, VPNs, recipes and settings to a file",
-        "long": "Saves your list to a file (komando-export/1, always JSON) that\n`komando import komando FILE` reads on another computer. Passwords and key\nfiles are never in it (only in a sealed file); it lists the secrets and keys\nto bring along. With a\nTARGET (@prod, kind:host, web1,web2) only those servers, conns and VPNs are\nsaved; without one also your recipes, deny rules and settings. Without --to\nit prints the same JSON.\n\nSafety: it only reads; with --sealed or --for-phone: only a person at a\nterminal can run it; on a protected server or conn, a person's yes (--yes)\nas well.\n\n--sealed writes the same list with the passwords it uses into one sealed\nfile, for moving to another computer: komando asks for a passphrase twice\n(15 or more characters), hidden, and the file opens only with it.\n--for-phone seals the file to the iPhone app's key instead: komando asks\nfor the key file the phone shared and the key check the phone shows. Both\nprint a check phrase of six words; the phone shows the same words for the\nfile it got. --with-keys adds the private keys the servers use.\n\nOnly a person at a terminal can make a sealed file: an AI agent gets\nNEEDS_PERSON, and a dry run says what would be sealed.",
+        "long": "Saves your list to a file (komando-export/1, always JSON) that\n`komando import komando FILE` reads on another computer. Passwords and key\nfiles are never in it (only in a sealed file); it lists the secrets and keys\nto bring along. With a\nTARGET (@prod, kind:host, web1,web2) only those servers, conns and VPNs are\nsaved; without one also your recipes, deny rules and settings. Without --to\nit prints the same JSON.\n\nSafety: it only reads; with --sealed: only a person at a terminal can run\nit; with --for-phone: only a person at a terminal can run it; on a protected\nserver or conn, a person's yes (--yes) as well.\n\n--sealed writes the same list with the passwords it uses into one sealed\nfile, for moving to another computer: komando asks for a passphrase twice\n(15 or more characters), hidden, and the file opens only with it.\n--for-phone seals the file to the iPhone app's key instead: komando asks\nfor the key file the phone shared and the key check the phone shows. Both\nprint a check phrase of six words; the phone shows the same words for the\nfile it got. --with-keys adds the private keys the servers use.\n\nOnly a person at a terminal can make a sealed file: an AI agent gets\nNEEDS_PERSON, and a dry run says what would be sealed.",
         "example": "  komando export --to komando-backup.json\n  komando export @prod --to prod.json\n  komando export kind:host --to servers.json\n  komando import komando komando-backup.json      # on the other computer\n  komando export --sealed --to move.kmdseal       # with passwords; asks a passphrase\n  komando export --for-phone --to phone.kmdseal   # for the iPhone app; asks for its key",
         "flags": [
           {
@@ -4141,7 +4593,11 @@
           },
           {
             "tier": "person",
-            "when": "with --sealed or --for-phone"
+            "when": "with --sealed"
+          },
+          {
+            "tier": "person",
+            "when": "with --for-phone"
           }
         ]
       },
@@ -5046,7 +5502,7 @@
         "path": "komando host edit",
         "usage": "komando host edit TARGET... [flags]",
         "short": "Change one or more servers (only the flags you pass change)",
-        "long": "Changes only the settings you pass. Give one name, several names, or a\nselector (@group, tag:prod, 'web-*') to change many servers at once. Try\n--dry-run first to see which servers would change.\n\nSafety: a change; try it with --dry-run first; when --proxy-command matches\na destructive rule: dangerous, it cannot be undone: a person types the name\nto go on, and an AI agent or a script needs --allow-dangerous; with\n--protected=false: it weakens a safety check: a person's yes (--yes); with\n--proxy-command, when an AI agent runs it (the proxy command runs on this\ncomputer): it weakens a safety check: a person's yes (--yes); on a protected\nserver or conn, a person's yes (--yes) as well.\n\n--protected marks a production server: komando asks you before every change,\nand an AI agent needs your yes in a window. Changing the login of a\nproduction server, or turning its protection off, asks the same way; one yes\ncovers every server in the command.",
+        "long": "Changes only the settings you pass. Give one name, several names, or a\nselector (@group, tag:prod, 'web-*') to change many servers at once. Try\n--dry-run first to see which servers would change.\n\nSafety: a change; try it with --dry-run first; when --proxy-command matches\na destructive rule: dangerous, it cannot be undone: a person types the name\nto go on, and an AI agent or a script needs --allow-dangerous; with\n--proxy-command, when an AI agent runs it (the proxy command runs on this\ncomputer): it weakens a safety check: a person's yes (--yes); with\n--protected=false: it weakens a safety check: a person's yes (--yes); on a\nprotected server or conn, a person's yes (--yes) as well.\n\n--protected marks a production server: komando asks you before every change,\nand an AI agent needs your yes in a window. Changing the login of a\nproduction server, or turning its protection off, asks the same way; one yes\ncovers every server in the command.",
         "example": "  komando host edit web1 --add-tag canary --label env=prod --sudo-ref secret:web1-sudo\n  komando host edit web1 -g web -t prod          # -g/-t add a group/tag\n  komando host edit db1 --protected              # production: ask before changes\n  komando host edit @ubuntu --sudo-ref secret:ubuntu-sudo --dry-run\n  komando host edit web1 web2 web3 --user deploy\n  komando host edit vps1 --ask-password          # type a new password (hidden)\n  komando host edit web2 --login ask             # never store its password; type it at every connect\n  komando host edit web2 --login key --key deploy   # log in with a key komando names\n  komando host edit bastion --forward-agent      # lend it your ssh-agent (asks first)",
         "flags": [
           {
@@ -5192,12 +5648,12 @@
           {
             "tier": "safety",
             "flag": "--yes",
-            "when": "with --protected=false"
+            "when": "with --proxy-command, when an AI agent runs it (the proxy command runs on this computer)"
           },
           {
             "tier": "safety",
             "flag": "--yes",
-            "when": "with --proxy-command, when an AI agent runs it (the proxy command runs on this computer)"
+            "when": "with --protected=false"
           }
         ]
       },
@@ -5325,7 +5781,7 @@
         "path": "komando host trust",
         "usage": "komando host trust TARGET [flags]",
         "short": "Pin the SSH host keys of servers (--reset after a rebuild)",
-        "long": "Fetches the server's host key and stores it in komando's known_hosts, like\nssh-keyscan plus ssh-keygen -R. The key is fetched the way komando reaches\nthe server: directly, or through its --via servers, VPN or proxy command.\n\nSafety: a change; try it with --dry-run first; when an AI agent pins a first\nhost key while host keys are strict: it weakens a safety check: a person's\nyes (--yes); with --reset, when a key is pinned: only a person at a terminal\ncan run it; on a protected server or conn, a person's yes (--yes) as well.\n\nA key that is already pinned is left as it is. If a different key is\npinned, the server may be an impostor (HOSTKEY_MISMATCH): check the new\nfingerprint another way, then replace the pin with --reset. Only a person\nat a terminal replaces a pin: komando shows the old and the new key and\nasks once; an AI agent or a script gets NEEDS_PERSON, whatever flags it\nadds. With --dry-run nothing is fetched or changed; it only counts the\npinned entries --reset would replace.\n\nTARGET can be many servers (@group, tag:, 'web*', a,b): after a rebuild of a\nwhole group, --reset replaces all their keys after a single yes, which names\nevery server with its new key. Each server is in results, with its old and\nnew fingerprint; a server whose key changed is refused without --reset, the\nothers are pinned.\n\nWith --fingerprint SHA256:..., the key is pinned only when the server shows\nthat key: compare-then-pin in one step, for a fingerprint read from the\nserver's console or a cloud provider. Any other key stops with\nHOSTKEY_MISMATCH and nothing is pinned. It takes one server, and the\nfingerprint of the key type the server offers (key_type in the answer).",
+        "long": "Fetches the server's host key and stores it in komando's known_hosts, like\nssh-keyscan plus ssh-keygen -R. The key is fetched the way komando reaches\nthe server: directly, or through its --via servers, VPN or proxy command.\n\nSafety: a change; try it with --dry-run first; when an AI agent pins a first\nhost key while host keys are strict: it weakens a safety check: a person's\nyes (--yes); with --reset: only a person at a terminal can run it; on a\nprotected server or conn, a person's yes (--yes) as well.\n\nA key that is already pinned is left as it is. If a different key is\npinned, the server may be an impostor (HOSTKEY_MISMATCH): check the new\nfingerprint another way, then replace the pin with --reset. Only a person\nat a terminal replaces a pin: komando shows the old and the new key and\nasks once; an AI agent or a script gets NEEDS_PERSON, whatever flags it\nadds. With --dry-run nothing is fetched or changed; it only counts the\npinned entries --reset would replace.\n\nTARGET can be many servers (@group, tag:, 'web*', a,b): after a rebuild of a\nwhole group, --reset replaces all their keys after a single yes, which names\nevery server with its new key. Each server is in results, with its old and\nnew fingerprint; a server whose key changed is refused without --reset, the\nothers are pinned.\n\nWith --fingerprint SHA256:..., the key is pinned only when the server shows\nthat key: compare-then-pin in one step, for a fingerprint read from the\nserver's console or a cloud provider. Any other key stops with\nHOSTKEY_MISMATCH and nothing is pinned. It takes one server, and the\nfingerprint of the key type the server offers (key_type in the answer).",
         "example": "  komando host trust web1\n  komando host trust web1 --reset --dry-run   # how many pinned keys would go\n  komando host trust web1 --reset             # after a real rebuild (a person, at a terminal)\n  komando host trust @web                 # pin new servers; changed keys are refused\n  komando host trust @web --reset         # after rebuilding the whole group: one yes\n  komando host trust web1 --fingerprint SHA256:pVt2...  # pin only this key",
         "flags": [
           {
@@ -5353,7 +5809,7 @@
           },
           {
             "tier": "person",
-            "when": "with --reset, when a key is pinned"
+            "when": "with --reset"
           }
         ]
       },
@@ -5361,7 +5817,7 @@
         "path": "komando import",
         "usage": "komando import SOURCE [FILE] [flags]",
         "short": "Bring in what you have: ssh config, .pgpass, my.cnf, .env",
-        "long": "Adds servers, conns, VPNs and recipes from files you already have.\n\nSafety: a change; try it with --dry-run first; when an imported ProxyCommand\nmatches a destructive rule: dangerous, it cannot be undone: a person types\nthe name to go on, and an AI agent or a script needs --allow-dangerous; when\nan AI agent imports a server with a proxy command (it runs on this computer;\nwithout --yes the server is left out): it weakens a safety check: a person's\nyes (--yes); SOURCE kubeconfig, when an AI agent imports a context whose\nlogin runs a program or sends a file of this computer: it weakens a safety\ncheck: a person's yes (--yes); SOURCE komando, when the file is sealed\n(export --sealed): a person types its passphrase: only a person at a\nterminal can run it.\n\nSources:\n  ssh-config  servers from your OpenSSH config (default ~/.ssh/config)\n  pgpass      PostgreSQL databases and their passwords (default ~/.pgpass)\n  mycnf       MySQL/MariaDB databases from [client] sections (default ~/.my.cnf)\n  env         database, cache and storage URLs (DATABASE_URL, REDIS_URL, ...) (default .env)\n  kubeconfig  Kubernetes clusters, one conn per context (default ~/.kube/config)\n  docker      container registries you are logged in to (default ~/.docker/config.json)\n  filezilla   SFTP sites from FileZilla's Site Manager (default ~/.config/filezilla/sitemanager.xml)\n  rclone      SFTP remotes from rclone (default ~/.config/rclone/rclone.conf)\n  putty       SSH sessions from PuTTY (a .reg file: `reg export HKCU\\Software\\SimonTatham\\PuTTY\\Sessions putty.reg`)\n  mobaxterm   SSH sessions from MobaXterm (a .mxtsessions file: right-click User sessions, Export all sessions to file)\n  securecrt   SSH2 sessions from SecureCRT (File > Export Settings gives an .xml file; or its Sessions folder)\n  aws         an S3 storage conn per bucket of each AWS profile (uses the profile; no key is copied) (default ~/.aws/config)\n  aws-ec2     a server per running EC2 instance of each AWS profile, in its region (read only, with the profile's login) (default ~/.aws/config)\n  dbeaver     databases from DBeaver (passwords set afterwards) (default ~/Library/DBeaverData/workspace6/General/.dbeaver/data-sources.json)\n  komando     a file made by `komando export` (moving to another computer)\n  csv         servers from a spreadsheet (CSV, first row names the columns: name, address (or ip), user, port, key, identity, password-ref, sudo-ref, via, groups (or role), tags, protected, notes)\n\nPasswords go to the vault (as <name>-pass; a kubeconfig as\n<name>-kubeconfig) and are referenced from the conn; they are never\nprinted. Existing names are skipped unless\n--overwrite (replacing a protected one also needs --yes). Proxy commands\nfrom an ssh config run on this computer, so an AI agent needs a person's yes\nfor them. Try --dry-run first to see what would be added.",
+        "long": "Adds servers, conns, VPNs and recipes from files you already have.\n\nSafety: a change; try it with --dry-run first; SOURCE kubeconfig, when an AI\nagent imports a context whose login runs a program or sends a file of this\ncomputer: it weakens a safety check: a person's yes (--yes); SOURCE komando,\nwhen the file is sealed (export --sealed): a person types its passphrase:\nonly a person at a terminal can run it; when an imported proxy command\nmatches a destructive rule: dangerous, it cannot be undone: a person types\nthe name to go on, and an AI agent or a script needs --allow-dangerous; when\nan AI agent imports a server with a proxy command: it weakens a safety\ncheck: a person's yes (--yes).\n\nSources:\n  ssh-config  servers from your OpenSSH config (default ~/.ssh/config)\n  pgpass      PostgreSQL databases and their passwords (default ~/.pgpass)\n  mycnf       MySQL/MariaDB databases from [client] sections (default ~/.my.cnf)\n  env         database, cache and storage URLs (DATABASE_URL, REDIS_URL, ...) (default .env)\n  kubeconfig  Kubernetes clusters, one conn per context (default ~/.kube/config)\n  docker      container registries you are logged in to (default ~/.docker/config.json)\n  filezilla   SFTP sites from FileZilla's Site Manager (default ~/.config/filezilla/sitemanager.xml)\n  rclone      SFTP remotes from rclone (default ~/.config/rclone/rclone.conf)\n  putty       SSH sessions from PuTTY (a .reg file: `reg export HKCU\\Software\\SimonTatham\\PuTTY\\Sessions putty.reg`)\n  mobaxterm   SSH sessions from MobaXterm (a .mxtsessions file: right-click User sessions, Export all sessions to file)\n  securecrt   SSH2 sessions from SecureCRT (File > Export Settings gives an .xml file; or its Sessions folder)\n  aws         an S3 storage conn per bucket of each AWS profile (uses the profile; no key is copied) (default ~/.aws/config)\n  aws-ec2     a server per running EC2 instance of each AWS profile, in its region (read only, with the profile's login) (default ~/.aws/config)\n  dbeaver     databases from DBeaver (passwords set afterwards) (default ~/Library/DBeaverData/workspace6/General/.dbeaver/data-sources.json)\n  komando     a file made by `komando export` (moving to another computer)\n  csv         servers from a spreadsheet (CSV, first row names the columns: name, address (or ip), user, port, key, identity, password-ref, sudo-ref, via, groups (or role), tags, protected, notes)\n\nPasswords go to the vault (as <name>-pass; a kubeconfig as\n<name>-kubeconfig) and are referenced from the conn; they are never\nprinted. Existing names are skipped unless\n--overwrite (replacing a protected one also needs --yes). Proxy commands\nfrom an ssh config run on this computer, so an AI agent needs a person's yes\nfor them. Try --dry-run first to see what would be added.",
         "example": "  komando import ssh-config --dry-run\n  komando import pgpass\n  komando import env ./app/.env --group shop\n  komando import komando backup.json",
         "flags": [
           {
@@ -5385,16 +5841,6 @@
             "tier": "change"
           },
           {
-            "tier": "dangerous",
-            "flag": "--allow-dangerous",
-            "when": "when an imported ProxyCommand matches a destructive rule"
-          },
-          {
-            "tier": "safety",
-            "flag": "--yes",
-            "when": "when an AI agent imports a server with a proxy command (it runs on this computer; without --yes the server is left out)"
-          },
-          {
             "tier": "safety",
             "flag": "--yes",
             "when": "SOURCE kubeconfig, when an AI agent imports a context whose login runs a program or sends a file of this computer"
@@ -5402,6 +5848,16 @@
           {
             "tier": "person",
             "when": "SOURCE komando, when the file is sealed (export --sealed): a person types its passphrase"
+          },
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous",
+            "when": "when an imported proxy command matches a destructive rule"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "when an AI agent imports a server with a proxy command"
           }
         ]
       },
@@ -5911,7 +6367,7 @@
         "path": "komando key rm",
         "usage": "komando key rm NAME [flags]",
         "short": "Remove a key (from komando only)",
-        "long": "Removes the key from komando's key list. --delete-file also deletes the\nprivate key komando keeps for a key it made (key gen), for good; a key file\nyou added stays on disk.\n\nSafety: a change; try it with --dry-run first; with --delete-file, for a key\nkomando made: dangerous, it cannot be undone: a person types the name to go\non, and an AI agent or a script needs --allow-dangerous.",
+        "long": "Removes the key from komando's key list. --delete-file also deletes the\nprivate key komando keeps for a key it made (key gen), for good; a key file\nyou added stays on disk.\n\nSafety: a change; try it with --dry-run first; with --delete-file:\ndangerous, it cannot be undone: a person types the name to go on, and an AI\nagent or a script needs --allow-dangerous.",
         "aliases": [
           "remove",
           "delete",
@@ -5935,7 +6391,7 @@
           {
             "tier": "dangerous",
             "flag": "--allow-dangerous",
-            "when": "with --delete-file, for a key komando made"
+            "when": "with --delete-file"
           }
         ]
       },
@@ -7190,7 +7646,7 @@
         "path": "komando recipe add",
         "usage": "komando recipe add NAME COMMAND [flags]",
         "short": "Save a command as a recipe with blanks to fill in",
-        "long": "Save a command as a recipe with blanks to fill in.\n\nSafety: a change; try it with --dry-run first; with --overwrite --read-only,\nwhen it makes an existing recipe read-only: it weakens a safety check: a\nperson's yes (--yes).",
+        "long": "Save a command as a recipe with blanks to fill in.\n\nSafety: a change; try it with --dry-run first; with --overwrite --read-only,\nwhen it makes an existing snippet read-only: it weakens a safety check: a\nperson's yes (--yes).",
         "example": "  komando recipe add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo\n  komando recipe add disk-usage 'df -h {{path=/}}' --read-only\n  komando recipe add disk-usage 'df -h {{path=/}}' --read-only --dry-run",
         "flags": [
           {
@@ -7226,7 +7682,7 @@
           {
             "tier": "safety",
             "flag": "--yes",
-            "when": "with --overwrite --read-only, when it makes an existing recipe read-only"
+            "when": "with --overwrite --read-only, when it makes an existing snippet read-only"
           }
         ]
       },
@@ -7283,7 +7739,7 @@
         "path": "komando recipe run",
         "usage": "komando recipe run NAME TARGET [flags]",
         "short": "Run a recipe on servers",
-        "long": "Run a recipe on servers.\n\nSafety: a change; try it with --dry-run first; when the recipe's command\nmatches a destructive rule: dangerous, it cannot be undone: a person types\nthe name to go on, and an AI agent or a script needs --allow-dangerous; on a\nprotected server or conn, a person's yes (--yes) as well.",
+        "long": "Run a recipe on servers.\n\nSafety: a change; try it with --dry-run first; when a step matches a\ndestructive rule: dangerous, it cannot be undone: a person types the name to\ngo on, and an AI agent or a script needs --allow-dangerous; on a protected\nserver or conn, a person's yes (--yes) as well.",
         "example": "  komando recipe run health @web\n  komando recipe run disk web1\n  komando recipe run deploy-app @web --var app=shop",
         "flags": [
           {
@@ -7309,7 +7765,7 @@
           {
             "tier": "dangerous",
             "flag": "--allow-dangerous",
-            "when": "when the recipe's command matches a destructive rule"
+            "when": "when a step matches a destructive rule"
           }
         ]
       },
@@ -7317,12 +7773,12 @@
         "path": "komando registry",
         "usage": "komando registry [flags]",
         "short": "Container registries: see images, copy them, clean up",
-        "long": "Look at, copy and clean up container images. Add a registry with\n`komando registry add ghcr registry://myuser@ghcr.io --ask-password`,\nor bring in the ones you use with `komando import docker`.\nls and inspect only read, copy writes to the destination, rm and prune\ndelete images and need --allow-dangerous (try --dry-run first).\n\nTLS options in the registry URL: ?ca=secret:NAME trusts a private CA (or\npins the registry's own certificate; the check stays on), ?tls=skip-verify\ndoes not check the certificate, ?tls=false is plain HTTP. ?resolve=IP\nconnects to that IP instead of what DNS says (like curl --resolve). With\n--via the last server looks the name up.",
+        "long": "Look at, copy and clean up container images. Add a registry with\n`komando registry oci add ghcr registry://myuser@ghcr.io --ask-password`,\nor bring in the ones you use with `komando import docker`.\nls and inspect only read, copy writes to the destination, rm and prune\ndelete images and need --allow-dangerous (try --dry-run first).\n\nTLS options in the registry URL: ?ca=secret:NAME trusts a private CA (or\npins the registry's own certificate; the check stays on), ?tls=skip-verify\ndoes not check the certificate, ?tls=false is plain HTTP. ?resolve=IP\nconnects to that IP instead of what DNS says (like curl --resolve). With\n--via the last server looks the name up.",
         "aliases": [
           "oci",
           "registries"
         ],
-        "example": "  komando registry add ghcr registry://myuser@ghcr.io --ask-password\n  komando registry list ghcr myorg/api\n  komando registry inspect ghcr myorg/api:1.4.2\n  komando registry copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2\n  komando registry prune harbor prod/api --keep 10 --dry-run",
+        "example": "  komando registry oci add ghcr registry://myuser@ghcr.io --ask-password\n  komando registry oci image list ghcr myorg/api\n  komando registry oci image show ghcr myorg/api:1.4.2\n  komando registry oci image copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2\n  komando registry oci image prune harbor prod/api --keep 10 --dry-run",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -7332,70 +7788,181 @@
         ]
       },
       {
-        "path": "komando registry add",
-        "usage": "komando registry add NAME URL [flags]",
-        "short": "Add an image registry",
-        "long": "Same as `komando conn add NAME URL`, for an image registry.\n\nSafety: a change; try it with --dry-run first.\n\nSaves an image registry under a short name. Typed alone at a terminal, it\nasks step by step. The URL scheme sets the kind: `komando conn kinds` lists\nthem.",
-        "example": "  komando registry add ghcr registry://myuser@ghcr.io --ask-password\n  komando registry add ghcr registry://myuser@ghcr.io --ask-password --dry-run",
+        "path": "komando registry oci",
+        "usage": "komando registry oci [flags]",
+        "short": "OCI registries: save them, and look after their images",
+        "example": "  komando registry oci add ghcr registry://myuser@ghcr.io --ask-password --dry-run\n  komando registry oci add ghcr registry://myuser@ghcr.io --ask-password\n  komando registry oci test ghcr\n  komando registry oci image list ghcr myorg/api\n  komando registry oci image copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2 --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando registry oci add",
+        "usage": "komando registry oci add NAME [URL] [flags]",
+        "short": "Save a oci registry under a short name",
+        "long": "Save a oci registry under a short name.\n\nSafety: a change; try it with --dry-run first; when the address turns TLS\noff (plain HTTP): it weakens a safety check: a person's yes (--yes).",
+        "example": "  komando registry oci add ghcr registry://myuser@ghcr.io --via web1\n  komando registry oci add ghcr registry://myuser@ghcr.io --dry-run",
         "flags": [
           {
             "name": "ask-password",
             "type": "bool",
             "default": "false",
-            "usage": "type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref"
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
           },
           {
             "name": "group",
-            "shorthand": "g",
             "type": "stringSlice",
             "default": "[]",
-            "usage": "put it in these groups (comma-separated)"
+            "usage": "put it in these groups"
           },
           {
             "name": "label",
             "type": "stringArray",
             "default": "[]",
-            "usage": "label KEY=VALUE (repeatable)"
+            "usage": "label KEY=VALUE"
           },
           {
             "name": "login",
             "type": "string",
-            "usage": "how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own)"
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
           },
           {
             "name": "notes",
             "type": "string",
-            "usage": "free-form notes (komando conn show shows them to people and agents)"
+            "usage": "free-form notes, shown to people and agents"
           },
           {
             "name": "option",
             "type": "stringArray",
             "default": "[]",
-            "usage": "an option of this kind, KEY=VALUE (repeatable)"
+            "usage": "an option of this provider, KEY=VALUE"
           },
           {
             "name": "overwrite",
             "type": "bool",
             "default": "false",
-            "usage": "replace a conn that has the same name"
-          },
-          {
-            "name": "password-ref",
-            "type": "string",
-            "usage": "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://..."
+            "usage": "replace an entry that has the same name"
           },
           {
             "name": "protected",
             "type": "bool",
             "default": "false",
-            "usage": "production: komando asks you before every change, and an AI agent needs your yes in a window"
+            "usage": "changes need a person's yes"
           },
           {
             "name": "tag",
-            "shorthand": "t",
             "type": "stringSlice",
             "default": "[]",
-            "usage": "tags, like prod (comma-separated)"
+            "usage": "tags, like prod"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "when the address turns TLS off (plain HTTP)"
+          }
+        ]
+      },
+      {
+        "path": "komando registry oci edit",
+        "usage": "komando registry oci edit NAME [flags]",
+        "short": "Change a saved oci registry (only the flags you pass change)",
+        "long": "Change a saved oci registry (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando registry oci edit ghcr --add-tag critical\n  komando registry oci edit ghcr --notes 'main one' --dry-run",
+        "flags": [
+          {
+            "name": "add-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "add-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "add these tags"
+          },
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "rm-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "take it out of these groups"
+          },
+          {
+            "name": "rm-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "remove these tags"
+          },
+          {
+            "name": "unset",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "clear these settings: via, credential, notes, protected"
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "usage": "the new URL (the provider may not change)"
           },
           {
             "name": "via",
@@ -7409,47 +7976,27 @@
           {
             "tier": "change"
           }
-        ],
-        "add_kinds": [
+        ]
+      },
+      {
+        "path": "komando registry oci image",
+        "usage": "komando registry oci image [flags]",
+        "short": "The images of a registry: list, show, copy, delete, prune",
+        "example": "  komando registry oci image list ghcr\n  komando registry oci image show ghcr myorg/api:1.4.2\n  komando registry oci image copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2 --dry-run\n  komando registry oci image prune harbor shop/api --keep 10 --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
           {
-            "id": "registry",
-            "display_name": "Container registry",
-            "family": "registry",
-            "url_schemes": [
-              "registry",
-              "oci"
-            ],
-            "url_example": "registry://myuser@ghcr.io",
-            "url_note": "Docker Hub: registry://myuser@docker.io; private CA: ?ca=secret:NAME; self-signed: ?tls=skip-verify; no TLS: ?tls=false; wrong or missing DNS: ?resolve=IP",
-            "default_port": 443,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
+            "tier": "read"
           }
         ]
       },
       {
-        "path": "komando registry copy",
-        "usage": "komando registry copy SRC_CONN:IMAGE DST_CONN[:IMAGE] [flags]",
-        "short": "Copy an image (all platforms) between registries or repositories",
-        "long": "Copies IMAGE (REPO[:TAG] or REPO@DIGEST) from one registry conn to another,\nor to another name on the same registry, with every platform of a\nmulti-platform image. Layers the destination already has are skipped; on the\nsame registry they are linked instead of copied. The image digest stays the\nsame. Leaving out the destination image keeps the source name and tag;\nleaving out only the tag keeps the source tag. --dry-run reads both\nregistries and says what the copy would bring and whether it replaces what\nthe tag points to now.\n\nSafety: a change; try it with --dry-run first.\n\nOnly the destination changes: a protected destination needs --yes.",
-        "aliases": [
-          "cp"
-        ],
-        "example": "  komando registry copy ghcr:org/app:1.4.2 harbor:prod/app:1.4.2\n  komando registry copy ghcr:org/app:1.4.2 harbor:prod/app:1.4.2 --dry-run\n  komando registry copy ghcr:org/app:1.4.2 harbor:\n  komando registry copy reg:app:latest reg:app:stable",
+        "path": "komando registry oci image copy",
+        "usage": "komando registry oci image copy SRC_CONN:IMAGE DST_CONN[:IMAGE] [flags]",
+        "short": "Copy an image from one registry to another",
+        "long": "Copy an image from one registry to another.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando registry oci image copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2 --dry-run\n  komando registry oci image copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2",
         "runnable": true,
         "kind": "change",
         "confirm": [
@@ -7459,38 +8006,35 @@
         ]
       },
       {
-        "path": "komando registry inspect",
-        "usage": "komando registry inspect CONN IMAGE [flags]",
-        "short": "Digest, size, platforms, created time and labels of an image",
-        "aliases": [
-          "get",
-          "show",
-          "describe"
-        ],
-        "example": "  komando registry inspect ghcr myorg/api:1.4.2\n  komando registry inspect dockerhub nginx            # Docker Hub: library/nginx:latest\n  komando registry inspect harbor shop/api@sha256:4c2e...",
+        "path": "komando registry oci image delete",
+        "usage": "komando registry oci image delete NAME IMAGE [flags]",
+        "short": "Delete an image from a registry",
+        "long": "Delete an image from a registry.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando registry oci image delete ghcr myorg/api:1.3.0 --dry-run\n  komando registry oci image delete ghcr myorg/api:1.3.0 --allow-dangerous   # after a person's yes",
         "runnable": true,
-        "kind": "read",
+        "kind": "change",
         "confirm": [
           {
-            "tier": "read"
+            "tier": "dangerous",
+            "flag": "--allow-dangerous"
           }
         ]
       },
       {
-        "path": "komando registry list",
-        "usage": "komando registry list CONN [REPO] [flags]",
-        "short": "List repositories, or the tags of one repository",
+        "path": "komando registry oci image list",
+        "usage": "komando registry oci image list NAME [REPO] [flags]",
+        "short": "List the repositories of a registry, or the tags of one",
         "aliases": [
           "ls"
         ],
-        "example": "  komando registry list harbor\n  komando registry list ghcr myorg/api",
+        "example": "  komando registry oci image list ghcr\n  komando registry oci image list ghcr myorg/api",
         "flags": [
           {
             "name": "limit",
             "shorthand": "n",
             "type": "int",
-            "default": "1000",
-            "usage": "the most entries to show"
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
           }
         ],
         "runnable": true,
@@ -7502,27 +8046,28 @@
         ]
       },
       {
-        "path": "komando registry prune",
-        "usage": "komando registry prune CONN REPO [flags]",
-        "short": "Delete old images: keep the newest N, or drop older than an age",
-        "long": "Reads every tag's image and build date, then deletes the images the rule\nlets go: --keep N keeps the newest N matching tags, --older-than deletes\nonly images built before that age; with both, a tag goes only when it passes\nboth. \"latest\", tags that do not match --match, and tags with no build date\nalways stay (a multi-platform index has the date of its first image, so it\ncan go). An image a kept tag points at is never deleted. Needs\n--allow-dangerous; --dry-run shows the plan.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous; on a protected server\nor conn, a person's yes (--yes) as well.",
-        "example": "  komando registry prune harbor shop/api --keep 10 --dry-run\n  komando registry prune harbor shop/api --keep 5 --older-than 30d --match '^v' --dry-run\n  komando registry prune harbor shop/api --keep 5 --older-than 30d --match '^v' --allow-dangerous   # after a person's yes",
+        "path": "komando registry oci image prune",
+        "usage": "komando registry oci image prune NAME REPO [flags]",
+        "short": "Delete old tags of a repository, keeping the newest",
+        "long": "Delete old tags of a repository, keeping the newest.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando registry oci image prune ghcr myorg/api --keep 10 --dry-run\n  komando registry oci image prune ghcr myorg/api --keep 10 --allow-dangerous   # after a person's yes",
         "flags": [
           {
             "name": "keep",
             "type": "int",
             "default": "0",
-            "usage": "keep the newest N matching tags"
+            "usage": "keep the newest N tags"
           },
           {
             "name": "match",
             "type": "string",
-            "usage": "only tags matching this regular expression may go"
+            "usage": "only tags that match this pattern"
           },
           {
             "name": "older-than",
             "type": "duration",
-            "usage": "delete only images built before this age (like 30d, 12h)"
+            "default": "0",
+            "usage": "only tags older than this, like 30d"
           }
         ],
         "runnable": true,
@@ -7535,22 +8080,111 @@
         ]
       },
       {
-        "path": "komando registry rm",
-        "usage": "komando registry rm CONN IMAGE [flags]",
-        "short": "Delete an image and every tag on it",
-        "long": "Deletes the image a tag (or digest) points at. A registry deletes images,\nnot tags: every other tag on the same image goes too, latest included.\n--dry-run names each tag that would go. The space comes back after the\nregistry's garbage collection.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous; on a protected server\nor conn, a person's yes (--yes) as well.",
+        "path": "komando registry oci image show",
+        "usage": "komando registry oci image show NAME IMAGE [flags]",
+        "short": "Show an image: its digest, size, platforms and tags",
         "aliases": [
-          "remove",
-          "delete",
-          "del"
+          "describe"
         ],
-        "example": "  komando registry rm harbor myorg/api:old --dry-run\n  komando registry rm harbor myorg/api:old --allow-dangerous   # after a person's yes",
+        "example": "  komando registry oci image show ghcr myorg/api:1.4.2\n  komando registry oci image show ghcr myorg/api@sha256:0123 -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando registry oci list",
+        "usage": "komando registry oci list [TARGET] [flags]",
+        "short": "List the saved oci registrys",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando registry oci list\n  komando registry oci list @web",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando registry oci remove",
+        "usage": "komando registry oci remove TARGET... [flags]",
+        "short": "Forget a saved oci registry (the registry is not touched)",
+        "long": "Forget a saved oci registry (the registry is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "example": "  komando registry oci remove ghcr --dry-run\n  komando registry oci remove ghcr",
         "runnable": true,
         "kind": "change",
         "confirm": [
           {
-            "tier": "dangerous",
-            "flag": "--allow-dangerous"
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando registry oci rename",
+        "usage": "komando registry oci rename NAME NEW [flags]",
+        "short": "Rename a saved oci registry and every reference to it",
+        "long": "Rename a saved oci registry and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando registry oci rename ghcr ghcr-2 --dry-run\n  komando registry oci rename ghcr ghcr-2",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando registry oci show",
+        "usage": "komando registry oci show NAME [flags]",
+        "short": "Show a saved oci registry's settings (credentials as names)",
+        "example": "  komando registry oci show ghcr\n  komando registry oci show ghcr -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando registry oci test",
+        "usage": "komando registry oci test TARGET [flags]",
+        "short": "Check that a saved oci registry answers and lets you in",
+        "example": "  komando registry oci test ghcr\n  komando registry oci test @web",
+        "flags": [
+          {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the session a person's login keeps open"
+          },
+          {
+            "name": "wait",
+            "type": "duration",
+            "default": "0",
+            "usage": "wait this long for a person's sign-in"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
           }
         ]
       },
@@ -7598,7 +8232,7 @@
         "path": "komando safety",
         "usage": "komando safety [flags]",
         "short": "How komando keeps a change from going wrong",
-        "long": "How komando keeps a change from going wrong.\n\n  --dry-run           every change can show what it would do first\n  protected targets   a change asks [y/N] at your terminal; scripts and agents need --yes\n  dangerous commands  rm -rf /, DROP DATABASE ...: you type the name; scripts need --allow-dangerous\n  read only           db query, cache run and cluster run only read unless you add --write\n  audit               komando audit shows every change and who asked for it\n\nAn AI agent is never asked: it gets exit 6 and a person allows the flag in a\nwindow on the screen. See docs/features/safety.md.",
+        "long": "How komando keeps a change from going wrong.\n\n  --dry-run           every change can show what it would do first\n  protected targets   a change asks [y/N] at your terminal; scripts and agents need --yes\n  dangerous commands  rm -rf /, DROP DATABASE ...: you type the name; scripts need --allow-dangerous\n  read only           db query, cache redis raw and cluster run only read unless you add --write\n  audit               komando audit shows every change and who asked for it\n\nAn AI agent is never asked: it gets exit 6 and a person allows the flag in a\nwindow on the screen. See docs/features/safety.md.",
         "runnable": false
       },
       {
@@ -7691,7 +8325,7 @@
         "path": "komando secret keychain",
         "usage": "komando secret keychain [flags]",
         "short": "Keep the vault key in the OS keychain instead of store.key",
-        "long": "Moves the vault's key out of the store.key file into the operating system's\nkeychain, so a copy of ~/.komando (a backup, a synced folder) no longer\nopens the vault or its secrets. The vault gets a new key as it moves, so a\ncopy of store.key made before opens nothing either, and the vault keeps\nevery secret. --off moves the key back into store.key, which needs --yes.\n\nSafety: a change; try it with --dry-run first; when it turns the keychain\noff: it weakens a safety check: a person's yes (--yes); without --off\n(moving the key into the keychain): only a person at a terminal can run it.\n\nOnly a person at a terminal moves the key in: the keychain may ask them to\nunlock it, and an AI agent or a script cannot answer that.",
+        "long": "Moves the vault's key out of the store.key file into the operating system's\nkeychain, so a copy of ~/.komando (a backup, a synced folder) no longer\nopens the vault or its secrets. The vault gets a new key as it moves, so a\ncopy of store.key made before opens nothing either, and the vault keeps\nevery secret. --off moves the key back into store.key, which needs --yes.\n\nSafety: a change; try it with --dry-run first; when it turns the keychain\noff: it weakens a safety check: a person's yes (--yes); without --off: only\na person at a terminal can run it.\n\nOnly a person at a terminal moves the key in: the keychain may ask them to\nunlock it, and an AI agent or a script cannot answer that.",
         "example": "  komando secret keychain\n  komando secret keychain --dry-run\n  komando secret keychain --off --dry-run\n  komando secret keychain --off --yes   # after a person's yes",
         "flags": [
           {
@@ -7714,7 +8348,7 @@
           },
           {
             "tier": "person",
-            "when": "without --off (moving the key into the keychain)"
+            "when": "without --off"
           }
         ]
       },
@@ -7817,7 +8451,7 @@
         "path": "komando secret run",
         "usage": "komando secret run -- COMMAND [ARGS...] [flags]",
         "short": "Run a local command with vault secrets in its environment",
-        "long": "Starts COMMAND on this computer with the --env values in its environment. A\nvalue secret:NAME is read from the vault right before the program starts, so\nit is never in the command line or the shell history. The program starts\ndirectly, without a shell, with your environment minus komando's own\nKOMANDO_* variables and the values that unlock the vault. For an AI agent\nwith secrets, --env may add variables but never replace one komando sets\n(HOME, PATH, USER, LANG, ...), and may not set what decides which code or\nsettings the program loads: LD_PRELOAD, DYLD_*, NODE_OPTIONS, PYTHON*,\nBASH_ENV, a pager, an editor, an askpass helper, an rc file, a proxy, GIT_*,\nSSH_*, XDG_*, a tool's config file (KUBECONFIG, DOCKER_CONFIG,\n*_CONFIG_FILE, AWS_*_FILE, NPM_CONFIG_*) or a toolchain's (CC, CXX, GOFLAGS,\nGOTOOLCHAIN, CARGO_*, RUSTC_WRAPPER, JAVA_HOME, MAVEN_OPTS). The program\ngets HOME, USER and LOGNAME from your OS account (USERPROFILE on Windows),\nLANG, LC_*, TERM, TMPDIR, TZ, the Windows system folders, a system PATH and\nits --env values.\n\nSafety: a change; try it with --dry-run first.\n\nThe program's output goes through komando's masking: a vault value it\nprints shows as [secret:NAME]. komando exits with the program's exit code.\n\nFor an AI agent every secret:NAME needs a person's yes (--yes, then\nkomando's window names the secrets and the program), since the program\ncould print a value in a form masking does not know. A secret a protected\nserver, conn or VPN uses asks a person at a terminal too.",
+        "long": "Starts COMMAND on this computer with the --env values in its environment. A\nvalue secret:NAME is read from the vault right before the program starts, so\nit is never in the command line or the shell history. The program starts\ndirectly, without a shell, with your environment minus komando's own\nKOMANDO_* variables and the values that unlock the vault. For an AI agent\nwith secrets, --env may add variables but never replace one komando sets\n(HOME, PATH, USER, LANG, ...), and may not set what decides which code or\nsettings the program loads: LD_PRELOAD, DYLD_*, NODE_OPTIONS, PYTHON*,\nBASH_ENV, a pager, an editor, an askpass helper, an rc file, a proxy, GIT_*,\nSSH_*, XDG_*, a tool's config file (KUBECONFIG, DOCKER_CONFIG,\n*_CONFIG_FILE, AWS_*_FILE, NPM_CONFIG_*) or a toolchain's (CC, CXX, GOFLAGS,\nGOTOOLCHAIN, CARGO_*, RUSTC_WRAPPER, JAVA_HOME, MAVEN_OPTS). The program\ngets HOME, USER and LOGNAME from your OS account (USERPROFILE on Windows),\nLANG, LC_*, TERM, TMPDIR, TZ, the Windows system folders, a system PATH and\nits --env values.\n\nSafety: a change; try it with --dry-run first; when an AI agent hands a\nsaved secret to a program: it weakens a safety check: a person's yes\n(--yes).\n\nThe program's output goes through komando's masking: a vault value it\nprints shows as [secret:NAME]. komando exits with the program's exit code.\n\nFor an AI agent every secret:NAME needs a person's yes (--yes, then\nkomando's window names the secrets and the program), since the program\ncould print a value in a form masking does not know. A secret a protected\nserver, conn or VPN uses asks a person at a terminal too.",
         "example": "  komando secret run --env PGPASSWORD=secret:db-main -- psql -h 10.0.0.5 -U app\n  komando secret run -e AWS_SECRET_ACCESS_KEY=secret:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan\n  komando secret run --dry-run --env TOKEN=secret:gh-token -- ./deploy.sh",
         "flags": [
           {
@@ -7834,6 +8468,11 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "when an AI agent hands a saved secret to a program"
           }
         ]
       },
@@ -7907,7 +8546,7 @@
         "path": "komando ssh-gate",
         "usage": "komando ssh-gate [flags]",
         "short": "Let an SSH key run komando here and nothing else (person only)",
-        "long": "ssh-gate lets an SSH key (a phone's, say) run komando on this computer, and\nnothing else: no shell, no file copy, no port forwarding. Add the key to\n~/.ssh/authorized_keys with the line `komando ssh-gate line` prints; sshd\nthen runs ssh-gate for it, whatever the key asks for.\n\nSafety: only a person at a terminal can run it.\n\nssh-gate takes the command the key sent (SSH_ORIGINAL_COMMAND) only when it\nis one komando command. It splits it into words like a shell, but expands\nnothing and runs no shell: ; | & > < $ and backquotes are refused unless\nthey are quoted. One KOMANDO_AGENT=NAME may come before komando.\n\nkomando then runs as for an AI agent: secret values stay [hidden], --reveal\nand --allow-dangerous are refused, and --yes for a protected server needs a\nperson on this computer. Commands that need a person at a terminal (shell,\ndb shell, secret passphrase ...) are refused (a --shell-access key may open\n`komando shell SERVER`: see ssh-gate line; that shell is full control of the\nserver, outside these rules). The key runs commands on servers, never one\nthat writes on this computer or reads a file here (a script, SQL or upload\nsource by path; '-' for the key's own input works): no download or cp to a\nfile here (download --to - and cp SRC - stream to the key's own output), no\nchange to servers, VPNs, settings, rules, secrets, keys or recipes in\nkomando, no update, no change on a sqlite file or a target at localhost or\n127.x. With --read-only only commands that read run (db query and cache run\nwithout --write), and only those that stay on the servers and conns in your\nlist: no net, no cert check of a website, no exec, job start, docker exec,\ncluster exec or recipe run, unless the line also has --network. `komando\nssh-gate status` tells a key which it is. Every command a key runs or is\nrefused is in `komando audit`, with --name, even when the audit setting is\noff.",
+        "long": "ssh-gate lets an SSH key (a phone's, say) run komando on this computer, and\nnothing else: no shell, no file copy, no port forwarding. Add the key to\n~/.ssh/authorized_keys with the line `komando ssh-gate line` prints; sshd\nthen runs ssh-gate for it, whatever the key asks for.\n\nSafety: only a person at a terminal can run it.\n\nssh-gate takes the command the key sent (SSH_ORIGINAL_COMMAND) only when it\nis one komando command. It splits it into words like a shell, but expands\nnothing and runs no shell: ; | & > < $ and backquotes are refused unless\nthey are quoted. One KOMANDO_AGENT=NAME may come before komando.\n\nkomando then runs as for an AI agent: secret values stay [hidden], --reveal\nand --allow-dangerous are refused, and --yes for a protected server needs a\nperson on this computer. Commands that need a person at a terminal (shell,\ndb shell, secret passphrase ...) are refused (a --shell-access key may open\n`komando shell SERVER`: see ssh-gate line; that shell is full control of the\nserver, outside these rules). The key runs commands on servers, never one\nthat writes on this computer or reads a file here (a script, SQL or upload\nsource by path; '-' for the key's own input works): no download or cp to a\nfile here (download --to - and cp SRC - stream to the key's own output), no\nchange to servers, VPNs, settings, rules, secrets, keys or recipes in\nkomando, no update, no change on a sqlite file or a target at localhost or\n127.x. With --read-only only commands that read run (db query and cache\nredis raw without --write), and only those that stay on the servers and\nconns in your list: no net, no cert check of a website, no exec, job start,\ndocker exec, cluster exec or recipe run, unless the line also has --network.\n`komando ssh-gate status` tells a key which it is. Every command a key runs\nor is refused is in `komando audit`, with --name, even when the audit\nsetting is off.",
         "example": "  komando ssh-gate line --name phone ~/phone.pub\n  komando ssh-gate line --name phone-read --read-only 'ssh-ed25519 AAAA... phone'",
         "runnable": true,
         "kind": "depends",
@@ -8411,7 +9050,7 @@
         "path": "komando storage link",
         "usage": "komando storage link CONN OBJECT [flags]",
         "short": "Make a temporary download link that works without a login",
-        "long": "Prints a URL anyone can use to download KEY until it expires (default 1\nhour, at most 7 days). Treat it like a password while it is valid. Sharing\nfrom a protected conn needs --yes. An AI agent gets a link only when a\nperson allows --reveal, and never for a file that is a secret by its name\n(.env, a key): a link is the file as it is, past the hiding of storage cat\nand download. The link itself is not stored in the audit log. The link names\nthe storage address in the conn URL: when komando reaches it through --via,\nonly people who can reach that address can use the link. --endpoint signs\nthe link for the address they use instead (S3 only).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "long": "Prints a URL anyone can use to download KEY until it expires (default 1\nhour, at most 7 days). Treat it like a password while it is valid. Sharing\nfrom a protected conn needs --yes. An AI agent gets a link only when a\nperson allows --reveal, and never for a file that is a secret by its name\n(.env, a key): a link is the file as it is, past the hiding of storage cat\nand download. The link itself is not stored in the audit log. The link names\nthe storage address in the conn URL: when komando reaches it through --via,\nonly people who can reach that address can use the link. --endpoint signs\nthe link for the address they use instead (S3 only).\n\nSafety: a change; try it with --dry-run first; when an AI agent makes a link\n(a person allows --reveal): it weakens a safety check: a person's yes\n(--yes); on a protected server or conn, a person's yes (--yes) as well.",
         "aliases": [
           "presign",
           "share"
@@ -8435,6 +9074,11 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "when an AI agent makes a link (a person allows --reveal)"
           }
         ]
       },
@@ -9106,7 +9750,7 @@
         "path": "komando tunnel start",
         "usage": "komando tunnel start TARGET (-L SPEC | -R SPEC | -D SPEC) [flags]",
         "short": "Start a background tunnel",
-        "long": "With a conn name and no -L/-R/-D, the tunnel leads to that conn through its\n--via path: point your database app or psql at the local address it prints.\nWith a server, give one of -L, -R or -D.\n\nSafety: a change; try it with --dry-run first; when it listens on an open\naddress (OPEN_BIND): it weakens a safety check: a person's yes (--yes); on a\nprotected server or conn, a person's yes (--yes) as well.",
+        "long": "With a conn name and no -L/-R/-D, the tunnel leads to that conn through its\n--via path: point your database app or psql at the local address it prints.\nWith a server, give one of -L, -R or -D.\n\nSafety: a change; try it with --dry-run first; when it listens on an open\naddress: it weakens a safety check: a person's yes (--yes); on a protected\nserver or conn, a person's yes (--yes) as well.",
         "example": "  komando tunnel start prod-db               # localhost:<free port> -> prod-db\n  komando tunnel start prod-db --dry-run\n  komando tunnel start prod-db --port 15432\n  komando tunnel start web1 -L 8080:localhost:80\n  komando tunnel start bastion -D 1080       # SOCKS proxy",
         "flags": [
           {
@@ -9143,7 +9787,7 @@
           {
             "tier": "safety",
             "flag": "--yes",
-            "when": "when it listens on an open address (OPEN_BIND)"
+            "when": "when it listens on an open address"
           }
         ]
       },
@@ -10047,7 +10691,7 @@
         "path": "komando vpn edit",
         "usage": "komando vpn edit TARGET... [flags]",
         "short": "Change one or more VPNs (only the flags you pass change)",
-        "long": "Changes the common settings of a VPN. To give a WireGuard or OpenVPN VPN a\nnew config file, add it again with --overwrite. -g and -t add a group or a\ntag, as in host edit; --rm-group and --rm-tag take one away. Give several\nnames or a selector (@group, tag:office) to change many VPNs at once.\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes); with --mfa=false: it weakens\na safety check: a person's yes (--yes); on a protected server or conn, a\nperson's yes (--yes) as well.\n\n--protected marks a VPN komando asks a person about before it is changed\nor removed. Turning that off, or turning --mfa off, needs a person's yes.",
+        "long": "Changes the common settings of a VPN. To give a WireGuard or OpenVPN VPN a\nnew config file, add it again with --overwrite. -g and -t add a group or a\ntag, as in host edit; --rm-group and --rm-tag take one away. Give several\nnames or a selector (@group, tag:office) to change many VPNs at once.\n\nSafety: a change; try it with --dry-run first; with --mfa=false: it weakens\na safety check: a person's yes (--yes); with --protected=false: it weakens a\nsafety check: a person's yes (--yes); on a protected server or conn, a\nperson's yes (--yes) as well.\n\n--protected marks a VPN komando asks a person about before it is changed\nor removed. Turning that off, or turning --mfa off, needs a person's yes.",
         "example": "  komando vpn edit office --check 10.0.0.5:22\n  komando vpn edit lab --proxy-address 127.0.0.1:1081\n  komando vpn edit client-x --password-ref secret:client-x-new\n  komando vpn edit office --server vpn2.example.com --psk-ref secret:office-psk-2\n  komando vpn edit client-x --portal gw2.client.com\n  komando vpn edit office -g jakarta --rm-group old --label site=jkt\n  komando vpn edit @office --protected --dry-run",
         "flags": [
           {
@@ -10180,12 +10824,12 @@
           {
             "tier": "safety",
             "flag": "--yes",
-            "when": "with --protected=false"
+            "when": "with --mfa=false"
           },
           {
             "tier": "safety",
             "flag": "--yes",
-            "when": "with --mfa=false"
+            "when": "with --protected=false"
           }
         ]
       },
@@ -10870,7 +11514,7 @@
         "code": "IMAGE_TAG_NOT_FOUND",
         "exit": 3,
         "example": "… not found; the repository has no tags",
-        "hint": "list the repositories with `komando registry list CONN`"
+        "hint": "list the repositories with `komando registry oci image list NAME`"
       },
       {
         "code": "IMPORT_INCOMPLETE",
@@ -11433,7 +12077,7 @@
         "code": "REGISTRY_AUTH",
         "exit": 4,
         "example": "the registry refused to list its repositories: …",
-        "hint": "the login may read images but not list every repository: name one with `komando registry list CONN REPO`; else check the user in the conn URL and its --password-ref"
+        "hint": "the login may read images but not list every repository: name one with `komando registry oci image list NAME REPO`; else check the user in the conn URL and its --password-ref"
       },
       {
         "code": "REGISTRY_ERROR",
@@ -11457,7 +12101,7 @@
         "code": "REGISTRY_UNSUPPORTED",
         "exit": 5,
         "example": "… has no list of every repository",
-        "hint": "name the repository: `komando registry list CONN REPO` (on Docker Hub, nginx means library/nginx)"
+        "hint": "name the repository: `komando registry oci image list NAME REPO` (on Docker Hub, nginx means library/nginx)"
       },
       {
         "code": "RELEASE_SIGNATURE_INVALID",
@@ -11493,7 +12137,7 @@
         "code": "REPOSITORY_NOT_FOUND",
         "exit": 3,
         "example": "no repository named …",
-        "hint": "list the repositories with `komando registry list CONN`"
+        "hint": "list the repositories with `komando registry oci image list NAME`"
       },
       {
         "code": "RESERVED_SECRET",
@@ -12074,7 +12718,7 @@
         "code": "TOO_MANY_TAGS",
         "exit": 2,
         "example": "… has more than … tags",
-        "hint": "komando prunes a repository of at most 10000 tags, and --match does not change that (every tag is read, so a kept tag protects its image): delete some first with `komando registry rm CONN IMAGE`"
+        "hint": "komando prunes a repository of at most 10000 tags, and --match does not change that (every tag is read, so a kept tag protects its image): delete some first with `komando registry oci image delete NAME IMAGE`"
       },
       {
         "code": "TOPIC_EXISTS",
@@ -12344,7 +12988,7 @@
         "code": "WRONG_KIND",
         "exit": 2,
         "example": "… is a … URL, not one for `komando … add`",
-        "hint": "add it with `komando … add` (or `komando conn add`)"
+        "hint": "add it with `… add` (or `komando conn add`)"
       },
       {
         "code": "WRONG_PASSPHRASE",

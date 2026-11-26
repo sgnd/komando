@@ -91,7 +91,10 @@ func promptFill(cl *call, args []string) ([]string, error) {
 		}
 		f.a[f.sp.qs[i].key] = v
 	}
-	filled := f.argv(args)
+	filled, err := f.line(args)
+	if err != nil {
+		return nil, err
+	}
 	cl.fillSeen.prompted, cl.fillSeen.line = true, filled
 	if cl.fillSeen.first == "" && len(f.missing) > 0 && f.sp.qs[f.missing[0]].key == "arg0" {
 		cl.fillSeen.first = f.a["arg0"]
@@ -206,9 +209,9 @@ var promptKinds = map[string]struct{ noun, add string }{
 	"server": {"servers", "komando host add"}, "host": {"servers", "komando host add"},
 	"target": {"servers or conns", "komando host add"}, "files": {"servers or file storage", "komando host add"},
 	"conn": {"conns", "komando conn add"}, "db": {"databases", "komando db add"},
-	"cache": {"caches", "komando cache add"}, "queue": {"message queues", "komando queue add"},
+	"cache": {"caches", "komando cache redis add"}, "queue": {"message queues", "komando queue add"},
 	"storage": {"file storages", "komando storage add"}, "cluster": {"clusters", "komando cluster add"},
-	"registry": {"registries", "komando registry add"}, "vpn": {"VPNs", "komando vpn add"},
+	"registry": {"registries", "komando registry oci add"}, "vpn": {"VPNs", "komando vpn add"},
 	"job": {"jobs", "komando job start"}, "tunnel": {"tunnels", "komando tunnel start"},
 }
 
@@ -293,11 +296,7 @@ func (f *fill) argv(args []string) []string {
 			continue
 		}
 		n, _ := strconv.Atoi(strings.TrimPrefix(q.key, "arg"))
-		var ah formArg
-		if n < len(f.h.args) {
-			ah = f.h.args[n]
-		}
-		words := formArgWords(f.key, f.uses[n], ah, v)
+		words := f.argWords(n, v)
 		if f.uses[n].dashes {
 			dashed = append(dashed, words...)
 		} else {
@@ -309,6 +308,36 @@ func (f *fill) argv(args []string) []string {
 		line = append(append(line, "--"), append(tail, dashed...)...)
 	}
 	return line
+}
+
+// line is the filled-in line. A new argument word that starts with -
+// would be read as a flag, so it stops the fill, whatever put it there (a
+// list row, a default). Typed answers are refused as they are given
+// (formArgQ); this is the last check, on the line itself (Audit I-1).
+func (f *fill) line(args []string) ([]string, error) {
+	for _, i := range f.missing {
+		key := f.sp.qs[i].key
+		n, err := strconv.Atoi(strings.TrimPrefix(key, "arg"))
+		if !strings.HasPrefix(key, "arg") || err != nil || f.uses[n].dashes || f.a[key] == "" {
+			continue
+		}
+		for _, w := range f.argWords(n, f.a[key]) {
+			if strings.HasPrefix(w, "-") {
+				fmt.Fprintf(promptW(f.cl), "  ! %s %q starts with - and would be read as a flag: komando fills in nothing\n", f.uses[n].name, w)
+				return nil, errPromptCancel
+			}
+		}
+	}
+	return f.argv(args), nil
+}
+
+// argWords is argument n's answer v as command line words.
+func (f *fill) argWords(n int, v string) []string {
+	var ah formArg
+	if n < len(f.h.args) {
+		ah = f.h.args[n]
+	}
+	return formArgWords(f.key, f.uses[n], ah, v)
 }
 
 // changes says whether the filled-in command changes something: a change,

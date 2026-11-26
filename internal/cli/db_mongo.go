@@ -121,13 +121,13 @@ func runMongoQuery(cl *call, ctx context.Context, name string, st *store.State, 
 		}
 		return fail(e)
 	}
-	data := mongoQueryData{Conn: c.Name, Database: cmp.Or(db, mongoDB(c)), Command: cmd[0].Key, Risk: v.Risk.String(), Write: f.write, DryRun: cl.flags.dryRun}
+	data := mongoQueryData{Conn: c.Name, Database: cmp.Or(db, mongoDB(c)), Command: cmd[0].Key, Risk: v.Risk.String(), Write: f.write, DryRun: cl.dryRun()}
 	if f.write {
 		v.Risk = max(v.Risk, driver.RiskWrite)
 		if err := GuardConns(cl, st, []*store.Conn{c}, v); err != nil {
 			return fail(err)
 		}
-		if cl.flags.dryRun { // MongoDB cannot roll back a command outside a transaction
+		if cl.dryRun() { // MongoDB cannot roll back a command outside a transaction
 			data.Note = "dry run: nothing was sent (MongoDB cannot roll a write back); the command was rated " + v.Risk.String()
 			audit(cl, st, name, nil, "", true, rec)
 			cl.out.Print(name, data, nil)
@@ -261,7 +261,7 @@ func runMongoKill(cl *call, ctx context.Context, st *store.State, c *store.Conn,
 		return err
 	}
 	const action = "cancel query"
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		cl.out.Print("db.kill", map[string]any{"conn": c.Name, "would": action, "session": s, "dry_run": true}, nil)
 		return nil
 	}

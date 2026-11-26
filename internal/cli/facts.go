@@ -12,7 +12,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/snippet"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -643,4 +645,25 @@ data.results[].data.warnings first.`,
 	}
 	c.Flags().StringSliceVar(&only, "only", nil, "run only these sections, comma-separated: "+strings.Join(factsSectionNames(), ", ")+" (fast, for polling; the other keys are left out)")
 	return c
+}
+
+// factsSnippets are the ready-made snippets of facts (design 2.1). They
+// move with the host commands' package (M11).
+func factsSnippets() []snippet.Builtin {
+	return []snippet.Builtin{{
+		Name: "facts", Type: "host", Replaces: "facts", Reader: "KomandoCall+ReadKey.swift:12,15; KomandoCall.swift:66",
+		Tier: capability.Read, Shape: "facts/1",
+		Checks: []string{"TestParseFactsUnsupportedUbuntu", "TestParseFactsUnknownValues", "TestWinFactsSupport",
+			"TestSnippetResultIsMaskedForAnAgent", "TestSnippetSamplesMatchGoldens/facts"},
+		Text:  map[snippet.Family]string{snippet.Unix: factsScript, snippet.Windows: winFactsScript},
+		Parse: func(o snippet.Output, f snippet.Family) (any, error) { return factsOf(o.Stdout, f), nil },
+	}}
+}
+
+// factsOf reads the facts script's output of a host of family f.
+func factsOf(stdout string, f snippet.Family) map[string]any {
+	if f == snippet.Windows {
+		return parseWinFacts(stdout, time.Now())
+	}
+	return parseFactsAt(stdout, time.Now())
 }

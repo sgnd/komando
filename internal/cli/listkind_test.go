@@ -59,12 +59,12 @@ func TestChangeSay(t *testing.T) {
 		{false, "remove", "recipe up", "", "removed recipe up"},
 		{false, "save", "recipe up", "", "saved recipe up"},
 	} {
-		tcl.flags.dryRun = c.dry
+		setGate(tcl, c.dry, gateDryRun)
 		if got := changeSay(tcl, c.verb, c.what, c.where); got != c.say {
 			t.Errorf("got %q, want %q", got, c.say)
 		}
 	}
-	tcl.flags.dryRun = false
+	setGate(tcl, false, gateDryRun)
 }
 
 // The error says what the selector did pick, as other commands do.

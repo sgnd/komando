@@ -148,9 +148,9 @@ fi
 
 if in_area registry; then
 # registry
-check "a missing tag names the tags there" "3 True" "$($K registry inspect reg mirror/busybox:latest >"$TMP/o"; echo $?) $(jget '"mirror/busybox:latest not found; tags: stable" in d["error"]["message"]' <"$TMP/o")"
-check "rm --dry-run names the tags that go" True "$($K registry rm reg mirror/busybox:stable --dry-run | jget '"stable" in d["data"]["would_remove_tags"]')"
-check "copy without CONN: is a usage error" USAGE "$($K registry copy mirror/busybox:stable reg:x | jget 'd["error"]["code"]')"
+check "a missing tag names the tags there" "3 True" "$($K registry oci image show reg mirror/busybox:latest >"$TMP/o"; echo $?) $(jget '"mirror/busybox:latest not found; tags: stable" in d["error"]["message"]' <"$TMP/o")"
+check "rm --dry-run names the tags that go" True "$($K registry oci image delete reg mirror/busybox:stable --dry-run | jget '"stable" in d["data"]["would_remove_tags"]')"
+check "copy without CONN: is a usage error" USAGE "$($K registry oci image copy mirror/busybox:stable reg:x | jget 'd["error"]["code"]')"
 fi
 
 set -e

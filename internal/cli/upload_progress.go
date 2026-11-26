@@ -76,7 +76,7 @@ func progressFrom(ctx context.Context) *progressPart {
 // a real run, the returned ctx carries it and finish writes the done line.
 // Otherwise ctx is returned as it is and nothing is written.
 func startProgress(cl *call, ctx context.Context, on bool) (context.Context, func(error) error) {
-	if !on || cl.out.Format == "text" || cl.flags.dryRun {
+	if !on || cl.out.Format == "text" || cl.dryRun() {
 		return ctx, func(err error) error { return err }
 	}
 	ctx, p := withProgress(cl, ctx, cl.out.Err)

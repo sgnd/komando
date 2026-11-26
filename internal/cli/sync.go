@@ -375,7 +375,7 @@ func runSync(cl *call, ctx context.Context, src, dst syncSide, srcName, dstName 
 	if err != nil && !newFolder {
 		return nil, err
 	}
-	res := &syncResult{Src: srcName, Dst: dstName, DryRun: cl.flags.dryRun, Actions: []syncAction{}, NewFolder: newFolder}
+	res := &syncResult{Src: srcName, Dst: dstName, DryRun: cl.dryRun(), Actions: []syncAction{}, NewFolder: newFolder}
 	files := 0
 	for rel, f := range sf {
 		switch {
@@ -417,7 +417,7 @@ func runSync(cl *call, ctx context.Context, src, dst syncSide, srcName, dstName 
 	if len(acts) > shown {
 		res.Actions, res.More = acts[:shown], true
 	}
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		return res, nil
 	}
 	pp := progressFrom(ctx)
@@ -694,7 +694,7 @@ func syncStorage(cl *call, ctx context.Context, name, connExpr string, v driver.
 	if err != nil {
 		return err
 	}
-	if v.Risk > driver.RiskRead && !cl.flags.dryRun {
+	if v.Risk > driver.RiskRead && !cl.dryRun() {
 		if err := GuardConns(cl, st, []*store.Conn{c}, v); err != nil {
 			return err
 		}
@@ -781,7 +781,7 @@ func finishSync(cl *call, st *store.State, name string, hosts []*store.Host, res
 		data.Summary.OK++
 		data.Results = append(data.Results, o.Value)
 	}
-	if !cl.flags.dryRun {
+	if !cl.dryRun() {
 		audit(cl, st, name, hostNames(hosts), "", data.Summary.Failed == 0, map[string]any{"src": src, "dst": dst})
 	}
 	return finishFleet(cl, name, data, runSummary{fleetSummary: data.Summary}, worst, fails)

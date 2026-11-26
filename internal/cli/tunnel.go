@@ -177,7 +177,7 @@ point your database app or psql at the local address it prints. With a server, g
 			if h != nil {
 				hostName = h.Name
 			}
-			if cl.flags.dryRun {
+			if cl.dryRun() {
 				cl.out.Print("tunnel.start", tunnelInfo{Host: hostName, Via: via, Conn: conn, Kind: kind, Spec: spec, Target: ts.TargetAddr, would: true}, nil)
 				return nil
 			}
@@ -432,7 +432,7 @@ func tunnelStopCmd() *cobra.Command {
 					if !ok {
 						return out.NotFound("tunnel", id)
 					}
-					if tunnelAlive(t) && !cl.flags.dryRun {
+					if tunnelAlive(t) && !cl.dryRun() {
 						_ = netx.Terminate(t.PID)
 					}
 					delete(s.Tunnels, id)
@@ -443,7 +443,7 @@ func tunnelStopCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if cl.flags.dryRun {
+			if cl.dryRun() {
 				cl.out.Print("tunnel.stop", textAs{map[string]any{"would_stop": stopped}, stoppedText(cl, stopped)}, nil)
 				return nil
 			}
@@ -783,7 +783,7 @@ func stoppedText(cl *call, ids []string) out.Texter {
 		switch {
 		case len(ids) == 0:
 			return "no tunnels were running\n"
-		case cl.flags.dryRun:
+		case cl.dryRun():
 			return "would stop " + term.JoinAnd(ids) + "\n"
 		}
 		return "stopped " + term.JoinAnd(ids) + "\n"

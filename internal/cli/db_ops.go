@@ -197,7 +197,7 @@ operation (killOp) and the client stays connected, so there is no --session.`,
 				return err
 			}
 			action := map[bool]string{true: "end session", false: "cancel query"}[session]
-			if cl.flags.dryRun {
+			if cl.dryRun() {
 				cl.out.Print("db.kill", map[string]any{"conn": c.Name, "would": action, "session": s, "dry_run": true}, nil)
 				return nil
 			}

@@ -252,7 +252,7 @@ func TestFormFamilyAddGroups(t *testing.T) {
 func TestFormDestructive(t *testing.T) {
 	cases := map[string]bool{
 		"queue purge q1 orders": true, "cache rm c1 k": true, "storage rm s3 a": true,
-		"registry prune r repo": true, "cluster scale k deployment/api 0": true,
+		"registry oci image prune r repo": true, "cluster scale k deployment/api 0": true,
 		"cluster scale k deployment/api 3": false, "host add web1 root@10.0.0.5": false,
 		"fs rm web1 /srv/old --recursive": true, "docker rm web1 api": true, "docker prune web1 --all": true,
 		"user rm web1 bob --remove-home": true, "db user rm db1 bob": true, "db user list db1": false,
