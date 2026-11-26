@@ -70,7 +70,7 @@ func guardHookArgs(args []string) (agent string, ok bool) {
 // written.
 func runGuardHook(cl *call, agent string) int {
 	if _, err := cl.out.W.Write(guardHook(cl, agent)); err != nil {
-		fmt.Fprintf(cl.out.Err, "komando guard: %v\n", err)
+		fmt.Fprintf(cl.out.Err, "Error: komando's guard could not write its answer: %v\n", err)
 		return 1
 	}
 	return 0
