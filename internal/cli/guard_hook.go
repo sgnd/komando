@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"runtime/debug"
 	"slices"
 	"strings"
 	"time"
@@ -42,6 +43,52 @@ func guideGuardCmd() *cobra.Command {
 	}
 	c.Flags().StringVar(&agent, "for", "", "the harness: claude (default), cursor, gemini or codex")
 	return c
+}
+
+// guardHookArgs is the harness named by args when they are a hook line's
+// own words (guide guard, with --for H or --for=H), the form
+// guardHookLine writes. Such a call runs the guard alone (runGuardHook):
+// no command tree, store or vault, which every agent tool call would
+// otherwise open. Any other form runs as the command.
+func guardHookArgs(args []string) (agent string, ok bool) {
+	if len(args) < 2 || args[0] != "guide" || args[1] != "guard" {
+		return "", false
+	}
+	switch rest := args[2:]; {
+	case len(rest) == 0:
+		return "", true
+	case len(rest) == 2 && rest[0] == "--for":
+		return rest[1], true
+	case len(rest) == 1 && strings.HasPrefix(rest[0], "--for="):
+		return strings.TrimPrefix(rest[0], "--for="), true
+	}
+	return "", false
+}
+
+// runGuardHook answers one hook call on cl as guideGuardCmd does, and
+// its exit code: a harness refuses the call when the answer cannot be
+// written.
+func runGuardHook(cl *call, agent string) int {
+	if _, err := cl.out.W.Write(guardHook(cl, agent)); err != nil {
+		fmt.Fprintf(cl.out.Err, "komando guard: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+// guardMemory and guardProcs cap one guard process: many agent sessions
+// run a guard on every tool call, all at once.
+const (
+	guardMemory = 64 << 20
+	guardProcs  = 2
+)
+
+// limitGuardProcess caps this process when it runs only the guard hook.
+func limitGuardProcess(args []string) {
+	if _, ok := guardHookArgs(args); ok {
+		debug.SetMemoryLimit(guardMemory)
+		runtime.GOMAXPROCS(guardProcs)
+	}
 }
 
 // guardBudget is how long the guard may take for one call: under every
