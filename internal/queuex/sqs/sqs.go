@@ -257,5 +257,5 @@ func (s *SQS) Lag(context.Context, string) (*queuex.GroupLag, error) {
 	return nil, queuex.NotSupported("queue lag", "sqs", noGroups)
 }
 
-const noGroups = "SQS has no consumer groups: every consumer takes from the same queue. `komando queue describe CONN QUEUE` shows the messages " +
+const noGroups = "SQS has no consumer groups: every consumer takes from the same queue. `komando queue sqs topic show NAME QUEUE` shows the messages " +
 	"waiting (messages), received and not yet deleted (in_flight) and delayed"

@@ -22,7 +22,7 @@ q $K queue rabbitmq message create jobs e2e-emails --value '{"id": 2}'
 check "rabbitmq peek reads both" 2 "$($K queue rabbitmq message list jobs e2e-emails | jget 'd["data"]["count"]')"
 check "rabbitmq peek gives them back, redelivered" "[True, True]" "$($K queue rabbitmq message list jobs e2e-emails | jget '[m["redelivered"] for m in d["data"]["messages"]]')"
 check "rabbitmq peek counts deliveries on a quorum queue" 3 "$($K queue rabbitmq message list jobs e2e-emails | jget 'd["data"]["messages"][0]["deliveries"]')"
-check "rabbitmq groups is not for RabbitMQ" NOT_SUPPORTED "$($K queue rabbitmq consumer list jobs | jget 'd["error"]["code"]')"
+check "rabbitmq has no consumer commands" USAGE "$($K queue rabbitmq consumer list jobs | jget 'd["error"]["code"]')"
 check "rabbitmq purge needs --allow-dangerous" POLICY_BLOCKED "$($K queue rabbitmq message delete --all jobs e2e-emails | jget 'd["error"]["code"]')"
 check "rabbitmq rm needs --allow-dangerous" POLICY_BLOCKED "$($K queue rabbitmq topic delete jobs e2e-emails | jget 'd["error"]["code"]')"
 check "rabbitmq purge --dry-run counts" 2 "$($K --dry-run queue rabbitmq message delete --all jobs e2e-emails | jget 'd["data"]["messages"]')"

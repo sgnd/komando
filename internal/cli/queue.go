@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"slices"
 	"strings"
 	"time"
 
@@ -342,14 +341,11 @@ func queueLagCmd() *cobra.Command {
 func init() {
 	providers := []string{"kafka", "rabbitmq", "nats", "sqs", "pubsub"}
 	inventoryHandlers("queue", providers...)
-	areaBodies := map[[2]string]func() *cobra.Command{
-		{"", "info"}: queueInfoCmd, {"topic", "list"}: queueLsCmd, {"topic", "show"}: queueDescribeCmd,
-		{"topic", "create"}: queueCreateCmd, {"topic", "delete"}: queueRmCmd,
-		{"message", "list"}: queuePeekCmd, {"message", "create"}: queueSendCmd,
-		{"consumer", "list"}: queueGroupsCmd, {"consumer", "show"}: queueLagCmd,
-	}
 	for _, p := range providers {
-		for k, body := range areaBodies {
+		for k, body := range queueBodies {
+			if k[0] == "consumer" && !queueHasConsumer(p, k[1]) {
+				continue
+			}
 			words := strings.TrimSpace(k[0] + " " + k[1])
 			handlers[capability.Key{Type: "queue", Provider: p, Area: k[0], Verb: k[1]}] = func(cl *call, ctx context.Context, in leafInput) error {
 				if err := withEntry(cl, in.Args[0], "queue", p, words); err != nil {
@@ -373,10 +369,10 @@ func init() {
 		queueGroupExamples(p)
 		for area, short := range map[string]string{
 			"topic":    "The topics (queues, streams) of a broker: list, show, create, delete",
-			"message":  "The messages of a topic: list, create, delete --all",
+			"message":  "The messages of a topic: list, create, delete",
 			"consumer": "Consumer groups, consumers or subscriptions: list, show",
 		} {
-			if area == "consumer" && !slices.Contains([]string{"kafka", "nats", "pubsub"}, p) {
+			if area == "consumer" && !queueHasConsumer(p, "list") {
 				continue
 			}
 			groupShorts["queue "+p+" "+area] = short
@@ -391,10 +387,10 @@ func init() {
 		for _, id := range []string{"info", "topic.list", "topic.show", "message.list"} {
 			gateNoNetwork[base+id] = nil
 		}
-		if slices.Contains([]string{"kafka", "nats", "pubsub"}, p) {
+		if queueHasConsumer(p, "list") {
 			gateNoNetwork[base+"consumer.list"] = nil
 		}
-		if slices.Contains([]string{"kafka", "nats"}, p) {
+		if queueHasConsumer(p, "show") {
 			gateNoNetwork[base+"consumer.show"] = nil
 		}
 	}
@@ -434,8 +430,29 @@ func queueGroupExamples(p string) {
 
 var queueExample = map[string]struct{ entry, url, topic string }{
 	"kafka":    {"prod-kafka", "kafka://10.0.0.8:9092", "orders"},
-	"rabbitmq": {"jobs", "amqps://app@10.0.0.9/", "emails"},
-	"nats":     {"events", "nats://app@10.0.0.10:4222", "ORDERS"},
-	"sqs":      {"aws-queues", "sqs://eu-west-1", "orders"},
-	"pubsub":   {"gcp", "pubsub://my-project", "orders"},
+	"rabbitmq": {"prod-rabbit", "amqps://app@10.0.0.9/", "emails"},
+	"nats":     {"prod-nats", "nats://app@10.0.0.10:4222", "ORDERS"},
+	"sqs":      {"prod-sqs", "sqs://eu-west-1", "orders"},
+	"pubsub":   {"prod-pubsub", "pubsub://my-project", "orders"},
+}
+
+// queueHasConsumer says whether a broker has the consumer verb: Kafka and
+// NATS list and show, Pub/Sub lists, RabbitMQ and SQS have none.
+func queueHasConsumer(provider, verb string) bool {
+	switch provider {
+	case "kafka", "nats":
+		return true
+	case "pubsub":
+		return verb == "list"
+	}
+	return false
+}
+
+// queueBodies are today's commands that the queue leaves run (runBody), by area and verb;
+// message delete runs queuePurgeCmd.
+var queueBodies = map[[2]string]func() *cobra.Command{
+	{"", "info"}: queueInfoCmd, {"topic", "list"}: queueLsCmd, {"topic", "show"}: queueDescribeCmd,
+	{"topic", "create"}: queueCreateCmd, {"topic", "delete"}: queueRmCmd,
+	{"message", "list"}: queuePeekCmd, {"message", "create"}: queueSendCmd,
+	{"consumer", "list"}: queueGroupsCmd, {"consumer", "show"}: queueLagCmd,
 }

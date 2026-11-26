@@ -33,7 +33,7 @@ is for the SASL login and its password goes in the vault, never in the URL:
 
 ```bash
 komando secret set kafka-pass
-komando queue kafka add prod-kafka 'kafka://app@b1.example.com:9093?tls=true&sasl=scram-sha-512' --password-ref secret:kafka-pass
+komando queue kafka add prod-kafka 'kafka://app@b1.example.com:9093?tls=true&sasl=scram-sha-512' --credential kafka-pass
 komando queue kafka add audit-kafka 'kafka://app@kafka.internal:9093?tls=true&ca=secret:kafka-ca&sasl=plain' --ask-password
 komando queue kafka add staging-kafka kafka://broker1.internal:9092 --via web1          # no TLS, through an SSH server
 ```
@@ -197,8 +197,8 @@ would delete 212 messages from orders-retry (3 partitions); the topic stays
 
 ```bash
 komando secret set rabbit-pass
-komando queue rabbitmq add prod-rabbit 'amqps://app@rabbit.example.com:5671/%2F?management=15671' --password-ref secret:rabbit-pass
-komando queue rabbitmq add staging-rabbit 'amqp://app@rabbit.internal:5672/prod?management=15672' --via web1 --password-ref secret:rabbit-pass
+komando queue rabbitmq add prod-rabbit 'amqps://app@rabbit.example.com:5671/%2F?management=15671' --credential rabbit-pass
+komando queue rabbitmq add staging-rabbit 'amqp://app@rabbit.internal:5672/prod?management=15672' --via web1 --credential rabbit-pass
 komando queue rabbitmq info prod-rabbit                       # version, cluster, nodes, totals
 komando queue rabbitmq topic list prod-rabbit                         # queues: messages, ready, unacked, consumers
 komando queue rabbitmq message list prod-rabbit emails                # the first 10 messages; all of them go back
@@ -210,9 +210,9 @@ komando queue rabbitmq message list prod-rabbit emails                # the firs
   unless you add `?insecure=1`.
 - The path is the **virtual host** (vhost). The default vhost is `/`,
   written `%2F` or left out (`amqp://app@rabbit.internal/`).
-- The user's password goes in the vault (`--password-ref`), never in the
+- The user's password goes in the vault (`--credential`), never in the
   URL. A URL without a user logs in as `guest` (password `guest`, or the
-  one `--password-ref` gives). RabbitMQ lets `guest` in only from the
+  one `--credential` gives). RabbitMQ lets `guest` in only from the
   server itself, so that works `--via` the server's SSH.
 
 | Option | What it does |
@@ -288,8 +288,8 @@ komando queue rabbitmq topic delete prod-rabbit emails
 
 ```bash
 komando secret set nats-pass
-komando queue nats add prod-nats 'tls://app@nats1.example.com:4222,nats2.example.com:4222' --password-ref secret:nats-pass
-komando queue nats add staging-nats nats://nats.internal:4222 --via web1 --password-ref secret:nats-pass
+komando queue nats add prod-nats 'tls://app@nats1.example.com:4222,nats2.example.com:4222' --credential nats-pass
+komando queue nats add staging-nats nats://nats.internal:4222 --via web1 --credential nats-pass
 komando secret set ngs-creds < user.creds
 komando queue nats add ngs-nats 'tls://connect.ngs.global?creds=secret:ngs-creds'
 komando queue nats info prod-nats                     # version, server, the account's streams and limits
@@ -307,8 +307,8 @@ komando queue nats message list prod-nats ORDERS              # the newest 10 me
   once and does not reconnect or follow the servers the cluster
   advertises.
 - How komando logs in:
-  - a user in the URL and `--password-ref`: user and password;
-  - `--password-ref` without a user: the password is sent as a token;
+  - a user in the URL and `--credential`: user and password;
+  - `--credential` without a user: the password is sent as a token;
   - `?creds=secret:NAME`: a `.creds` file (from `nsc`, NGS or Synadia
     Cloud) that you keep in the vault with `komando secret set NAME < user.creds`;
   - none of these: no login.
@@ -394,7 +394,7 @@ komando queue sqs add prod-sqs sqs://eu-west-1 --option aws_profile=prod   # a p
 komando login aws --profile prod              # a person renews an SSO login when it runs out
 komando queue sqs add staging-sqs sqs://eu-west-1          # no profile: AWS_* variables, ~/.aws default, or the server's role
 komando secret set sqs-secret                  # or: keys of an IAM user
-komando queue sqs add ops-sqs sqs://AKIAIOSFODNN7EXAMPLE@eu-west-1 --password-ref secret:sqs-secret
+komando queue sqs add ops-sqs sqs://AKIAIOSFODNN7EXAMPLE@eu-west-1 --credential sqs-secret
 komando queue sqs info prod-sqs                         # region, account, how many queues
 komando queue sqs topic list prod-sqs                           # queues: waiting, in flight, delayed, dead-letter queue
 komando queue sqs message list prod-sqs orders                  # up to 10 messages; none is hidden or deleted
@@ -402,7 +402,7 @@ komando queue sqs message list prod-sqs orders                  # up to 10 messa
 
 - How komando logs in, in this order: the conn's `aws_profile` option
   (from `~/.aws/config` and `~/.aws/credentials`, SSO included); the
-  access key ID in the URL with the secret key from `--password-ref`; or,
+  access key ID in the URL with the secret key from `--credential`; or,
   with neither, the usual AWS chain (the `AWS_ACCESS_KEY_ID` and
   `AWS_PROFILE` variables, the default profile, an EC2 or ECS role).
 - An expired SSO login stops with `AWS_LOGIN_REQUIRED`: a person runs
@@ -479,7 +479,7 @@ same way as for gs:// buckets and needs no gcloud or Google SDK:
 ```bash
 komando queue pubsub add prod-pubsub pubsub://my-project      # gcloud's login (application default credentials)
 komando secret set pubsub-key < key.json      # or: a service account key
-komando queue pubsub add staging-pubsub pubsub://my-project --password-ref secret:pubsub-key
+komando queue pubsub add staging-pubsub pubsub://my-project --credential pubsub-key
 komando queue pubsub add local-pubsub 'pubsub://test-project?endpoint=http://localhost:8085'   # the emulator: no login
 komando queue pubsub info prod-pubsub                         # how many topics and subscriptions
 komando queue pubsub topic list prod-pubsub                           # topics and how many subscriptions each has
@@ -487,7 +487,7 @@ komando queue pubsub consumer list prod-pubsub                       # subscript
 komando queue pubsub message list prod-pubsub billing                 # up to 10 messages of subscription billing; all given back
 ```
 
-- How komando logs in: the service account key in `--password-ref`, or
+- How komando logs in: the service account key in `--credential`, or
   else, on Google's own endpoint (`*.googleapis.com`), your application
   default credentials (the
   `GOOGLE_APPLICATION_CREDENTIALS` file, the one
@@ -498,9 +498,9 @@ komando queue pubsub message list prod-pubsub billing                 # up to 10
   delete.
 - An `endpoint=` that is not Google's never gets your gcloud login: that
   token is good for your whole Google Cloud account. Give such an endpoint
-  its own key with `--password-ref`, or none.
+  its own key with `--credential`, or none.
 - A login only ever travels over HTTPS. The emulator (`http://`) takes
-  none, so komando sends none there: a key in `--password-ref` on an
+  none, so komando sends none there: a key in `--credential` on an
   `http://` endpoint is refused (`USAGE`).
 - `komando test prod-pubsub` logs in and lists one topic.
 

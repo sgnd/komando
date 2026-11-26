@@ -12,7 +12,7 @@ import (
 
 // noManagement is the hint for what only the management API can tell.
 const noManagement = "AMQP cannot list queues: add the management API's port to the conn's URL (`komando conn edit NAME --url 'amqp://...?management=15672'`), " +
-	"or name a queue with `komando queue describe CONN QUEUE`"
+	"or name a queue with `komando queue rabbitmq topic show NAME QUEUE`"
 
 // Info is the server's own words (product, version, cluster name) from
 // the AMQP login, and with the management API its nodes and totals.
@@ -99,7 +99,7 @@ type mgmtQueue struct {
 // management API. RabbitMQ has no internal queues to hide.
 func (r *Rabbit) Topics(ctx context.Context, pattern string, internal bool, limit int) ([]queuex.Topic, error) {
 	if internal {
-		return nil, queuex.NotSupported("--internal", "rabbitmq", "RabbitMQ has no internal queues: `komando queue list CONN` lists every queue of the vhost")
+		return nil, queuex.NotSupported("--internal", "rabbitmq", "RabbitMQ has no internal queues: `komando queue rabbitmq topic list NAME` lists every queue of the vhost")
 	}
 	if r.t.Management == "" {
 		return nil, queuex.NotSupported("queue list without the management API", "rabbitmq", noManagement)

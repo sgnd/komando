@@ -23,7 +23,7 @@ check "sqs send to a FIFO queue with --key" g1 "$($K queue sqs message create sq
 check "sqs peek receives a sample" 2 "$("${SQSENV[@]}" $K queue sqs message list sqs-profile e2e-orders | jget 'd["data"]["count"]')"
 check "sqs peek hides and takes nothing" "2 0" "$($K queue sqs message list sqs e2e-orders >/dev/null; $K queue sqs topic show sqs e2e-orders | jget '"%d %d" % (d["data"]["messages"], d["data"]["in_flight"])')"
 check "sqs peek --oldest is not supported" NOT_SUPPORTED "$($K queue sqs message list sqs e2e-orders --oldest | jget 'd["error"]["code"]')"
-check "sqs groups is not supported" NOT_SUPPORTED "$($K queue sqs consumer list sqs | jget 'd["error"]["code"]')"
+check "sqs has no consumer commands" USAGE "$($K queue sqs consumer list sqs | jget 'd["error"]["code"]')"
 check "sqs ls" 2 "$($K queue sqs topic list sqs 'e2e-orders*' | jget 'd["data"]["count"]')"
 check "sqs ls -n 1 is cut, the first by name" "1 True e2e-orders" "$($K queue sqs topic list sqs 'e2e-orders*' -n 1 | jget '"%d %s %s" % (d["data"]["count"], d["data"].get("truncated"), d["data"]["topics"][0]["name"])')"
 check "sqs peek --idle is for Kafka" NOT_SUPPORTED "$($K queue sqs message list sqs e2e-orders --idle 2s | jget 'd["error"]["code"]')"

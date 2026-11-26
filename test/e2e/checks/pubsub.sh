@@ -22,7 +22,7 @@ check "pubsub peek --idle is for Kafka" NOT_SUPPORTED "$($K queue pubsub message
 check "pubsub ls -n 1 is cut and says so" "1 True" "$($K queue pubsub topic create pubsub1 e2e-zz >/dev/null; $K queue pubsub topic list pubsub1 'e2e-*' -n 1 | jget '"%d %s" % (d["data"]["count"], d["data"].get("truncated"))')"
 check "pubsub describe lists the subscription" e2e-billing "$($K queue pubsub topic show pubsub1 e2e-orders | jget 'd["data"]["subscription_info"][0]["subscription"]')"
 check "pubsub groups lists subscriptions" pull "$($K queue pubsub consumer list pubsub1 | jget '[g for g in d["data"]["groups"] if g["name"] == "e2e-billing"][0]["delivery"]')"
-check "pubsub lag is not supported" NOT_SUPPORTED "$($K queue pubsub consumer show pubsub1 e2e-billing | jget 'd["error"]["code"]')"
+check "pubsub has no consumer show" USAGE "$($K queue pubsub consumer show pubsub1 e2e-billing | jget 'd["error"]["code"]')"
 check "pubsub purge needs --allow-dangerous" POLICY_BLOCKED "$($K queue pubsub message delete --all pubsub1 e2e-billing | jget 'd["error"]["code"]')"
 check "pubsub rm needs --allow-dangerous" POLICY_BLOCKED "$($K queue pubsub topic delete pubsub1 e2e-orders | jget 'd["error"]["code"]')"
 check "pubsub purge empties the subscription" 0 "$($K queue pubsub message delete --all pubsub1 e2e-billing --allow-dangerous >/dev/null; $K queue pubsub message list pubsub1 e2e-billing | jget 'd["data"]["count"]')"

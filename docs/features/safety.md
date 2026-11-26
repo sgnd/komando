@@ -130,7 +130,7 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 
 | Command | When | Tier | Flag |
 |---|---|---|---|
-| `queue PROVIDER message delete --all` | always | dangerous | `--allow-dangerous` |
+| `queue kafka message delete` | always | dangerous | `--allow-dangerous` |
 | `cache rm` | always | dangerous | `--allow-dangerous` |
 | `cluster rm` | always | dangerous | `--allow-dangerous` |
 | `cluster scale` | REPLICAS is 0 | dangerous | `--allow-dangerous` |
@@ -168,7 +168,7 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `host ssh-command` | always | person |  |
 | `import` | SOURCE komando, when the file is sealed (export --sealed): a person types its passphrase | person |  |
 | `group rm` | GROUP alone: deleting a group of more than 3 members (CONFIRM_REQUIRED) | change | `--yes` |
-| `queue PROVIDER topic delete` | always | dangerous | `--allow-dangerous` |
+| `queue kafka topic delete` | always | dangerous | `--allow-dangerous` |
 | `storage rm` | always | dangerous | `--allow-dangerous` |
 | `registry oci image delete` | always | dangerous | `--allow-dangerous` |
 | `registry oci image prune` | always | dangerous | `--allow-dangerous` |

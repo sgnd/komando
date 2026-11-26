@@ -25,7 +25,7 @@ func (p *Pubsub) topicRef(verb, s string) (string, error) {
 func (p *Pubsub) subRef(verb, s string) (string, error) {
 	r, err := p.parseRef(s)
 	if err == nil && r.kind == "topic" {
-		err = out.Usage("queue %s takes a subscription: a Pub/Sub topic keeps no messages of its own (`komando queue describe CONN %s` lists its subscriptions)", verb, s)
+		err = out.Usage("queue %s takes a subscription: a Pub/Sub topic keeps no messages of its own (`komando queue pubsub topic show NAME %s` lists its subscriptions)", verb, s)
 	}
 	return r.name, err
 }

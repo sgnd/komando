@@ -589,7 +589,7 @@ func tierSeed(t *testing.T) {
 		st.Conns["s3"] = &store.Conn{Name: "s3", Kind: "s3", URL: "s3://key@bucket/p?endpoint=http://127.0.0.1:1"}
 		for _, q := range queueTierConns {
 			st.Conns[q.name] = &store.Conn{Name: q.name, Kind: q.provider, URL: q.url}
-			st.Conns[q.name+"-prot"] = &store.Conn{Name: q.name + "-prot", Kind: q.provider, URL: q.url, Protected: true}
+			st.Conns[q.name+"-prot"] = &store.Conn{Name: q.name + "-prot", Kind: q.provider, URL: strings.Replace(q.url, "127.0.0.1:1", "127.0.0.1:3", 1), Protected: true} // another address: one address is one target
 		}
 		st.Conns["reg"] = &store.Conn{Name: "reg", Kind: "registry", URL: "registry://127.0.0.1:1?tls=false"}
 		st.Conns["k8s"] = &store.Conn{Name: "k8s", Kind: "k8s", URL: "k8s://127.0.0.1:1"}
@@ -685,6 +685,7 @@ func init() {
 			tierRun{"floor", id + "remove", []string{q.name}, false},
 			tierRun{"floor", id + "rename", []string{q.name, q.name + "9"}, false},
 		)
+		tierUnreached["floor | "+id+"message.delete"] = "today's queue purge is v2.7's message delete --all: its run is that row"
 		tierDisagree[id+"edit "+q.name+"-prot --protected=false"] = "PROTECTED_TARGET"
 	}
 }

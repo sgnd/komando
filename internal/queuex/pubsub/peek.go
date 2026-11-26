@@ -60,12 +60,12 @@ func (p *Pubsub) Peek(ctx context.Context, o queuex.PeekOptions) (*queuex.PeekRe
 		return nil, err
 	}
 	if r.kind == "topic" {
-		return nil, out.Usage("a Pub/Sub topic keeps no messages to read: peek a subscription of it (`komando queue describe CONN %s` lists them)", o.Topic)
+		return nil, out.Usage("a Pub/Sub topic keeps no messages to read: peek a subscription of it (`komando queue pubsub topic show NAME %s` lists them)", o.Topic)
 	}
 	s, err := p.getSub(ctx, r.name)
 	if err != nil {
 		if _, terr := p.getTopic(ctx, r.name); terr == nil {
-			return nil, out.Errf(out.ExitNotFound, "SUBSCRIPTION_NOT_FOUND", "peek reads a subscription, and "+r.name+" is a topic: `komando queue describe CONN "+r.name+"` lists its subscriptions",
+			return nil, out.Errf(out.ExitNotFound, "SUBSCRIPTION_NOT_FOUND", "peek reads a subscription, and "+r.name+" is a topic: `komando queue pubsub topic show NAME "+r.name+"` lists its subscriptions",
 				"there is no subscription %s, only a topic of that name", r.name)
 		}
 		return nil, err

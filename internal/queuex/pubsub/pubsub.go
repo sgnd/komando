@@ -295,5 +295,5 @@ func shortName(full string) string { return full[strings.LastIndex(full, "/")+1:
 // Lag: Pub/Sub's API does not count a subscription's backlog.
 func (p *Pubsub) Lag(context.Context, string) (*queuex.GroupLag, error) {
 	return nil, queuex.NotSupported("queue lag", "pubsub",
-		"the Pub/Sub API does not count waiting messages; Cloud Monitoring has them (subscription/num_undelivered_messages). `komando queue groups CONN` lists the subscriptions and `komando queue describe CONN subscriptions/NAME` shows one")
+		"the Pub/Sub API does not count waiting messages; Cloud Monitoring has them (subscription/num_undelivered_messages). `komando queue pubsub consumer list NAME` lists the subscriptions and `komando queue pubsub topic show NAME subscriptions/NAME` shows one")
 }

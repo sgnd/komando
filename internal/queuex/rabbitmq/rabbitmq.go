@@ -157,5 +157,5 @@ func (r *Rabbit) Lag(context.Context, string) (*queuex.GroupLag, error) {
 	return nil, queuex.NotSupported("queue lag", "rabbitmq", noGroups)
 }
 
-const noGroups = "RabbitMQ has no consumer groups: `komando queue describe CONN QUEUE` shows a queue's consumers, " +
+const noGroups = "RabbitMQ has no consumer groups: `komando queue rabbitmq topic show NAME QUEUE` shows a queue's consumers, " +
 	"the messages waiting for them (ready) and those they have not acknowledged yet (unacked)"

@@ -1,5 +1,7 @@
 package capability
 
+import "strings"
+
 // queue: message queues. A queue has no raw command, so its areas stay
 // whole: topic, message and, where the broker has them,
 // consumer groups.
@@ -12,10 +14,10 @@ type queueProvider struct {
 
 var queueProviders = []queueProvider{
 	{provider: provider{name: "kafka", connect: []Option{credentialOpt}, entry: "prod-kafka", url: "kafka://10.0.0.8:9092"}, consumers: []string{"list", "show"}, topic: "orders"},
-	{provider: provider{name: "rabbitmq", connect: []Option{credentialOpt}, entry: "jobs", url: "amqps://app@10.0.0.9/"}, topic: "emails"},
-	{provider: provider{name: "nats", connect: []Option{credentialOpt}, entry: "events", url: "nats://app@10.0.0.10:4222"}, consumers: []string{"list", "show"}, topic: "ORDERS"},
-	{provider: provider{name: "sqs", connect: []Option{credentialOpt}, entry: "aws-queues", url: "sqs://eu-west-1"}, topic: "orders"},
-	{provider: provider{name: "pubsub", connect: []Option{credentialOpt}, entry: "gcp", url: "pubsub://my-project"}, consumers: []string{"list"}, topic: "orders"},
+	{provider: provider{name: "rabbitmq", connect: []Option{credentialOpt}, entry: "prod-rabbit", url: "amqps://app@10.0.0.9/"}, topic: "emails"},
+	{provider: provider{name: "nats", connect: []Option{credentialOpt}, entry: "prod-nats", url: "nats://app@10.0.0.10:4222"}, consumers: []string{"list", "show"}, topic: "ORDERS"},
+	{provider: provider{name: "sqs", connect: []Option{credentialOpt}, entry: "prod-sqs", url: "sqs://eu-west-1"}, topic: "orders"},
+	{provider: provider{name: "pubsub", connect: []Option{credentialOpt}, entry: "prod-pubsub", url: "pubsub://my-project"}, consumers: []string{"list"}, topic: "orders"},
 }
 
 // areaVerb is one verb of an area, with the command of today it was.
@@ -104,52 +106,60 @@ func completeQueue(l *Leaf, p queueProvider) {
 	}
 	cmd += l.Verb + " " + p.entry
 	topic := p.topic
+	of := " of a " + queueWhat[p.name] // every Short differs by its provider (S-1.3)
 	switch l.Area + "/" + l.Verb {
 	case "/info":
-		l.Short = "Server summary: version, brokers or nodes, topic, queue or stream count"
+		l.Short = "Show the version and size" + of
 		l.Example = cmd + "\n" + cmd + " -o json"
 	case "topic/list":
 		l.Args = []Arg{{Name: "NAME"}, {Name: "PATTERN", Optional: true}}
 		l.Options = []Option{queueInternal, queueLimit}
-		l.Short = "List topics (or queues, or streams) with their message counts"
-		l.Example = cmd + "\n" + cmd + " '" + topic[:1] + "*' -n 50"
+		l.Short = "List the topics" + of + " with their message counts"
+		l.Example = cmd + "\n" + cmd + " '" + strings.ToLower(topic[:1]) + "*' -n 50"
 	case "topic/show":
 		l.Args = []Arg{{Name: "NAME"}, {Name: "TOPIC"}}
 		l.Synonyms = []string{"describe"}
-		l.Short = "One topic, queue or stream: messages, settings, and who reads it"
+		l.Short = "Show one topic" + of + ": messages, settings, readers"
 		l.Example = cmd + " " + topic + "\n" + cmd + " " + topic + " -o json"
 	case "topic/create":
 		l.Args = []Arg{{Name: "NAME"}, {Name: "TOPIC"}}
 		l.Options = []Option{createPartition, createReplicas, createType, createConfig}
-		l.Short = "Create a topic, queue or stream"
+		l.Short = "Create a topic" + of
 		l.Example = cmd + " " + topic + " --dry-run\n" + cmd + " " + topic + " --config retention.ms=604800000"
 	case "topic/delete":
 		l.Args = []Arg{{Name: "NAME"}, {Name: "TOPIC", Many: true}}
-		l.Short = "Delete topics, queues or streams with their messages"
+		l.Short = "Delete topics" + of + " with their messages"
 		l.Example = cmd + " old-" + topic + " --dry-run\n" + cmd + " old-" + topic + " --allow-dangerous"
 	case "message/list":
 		l.Args = []Arg{{Name: "NAME"}, {Name: "TOPIC"}}
 		l.Options = []Option{peekLimit, peekOldest, partitionRead, peekIdle}
-		l.Short = "Read the newest (or oldest) messages without removing any"
+		l.Short = "Read the newest (or oldest) messages" + of + ", removing none"
 		l.Example = cmd + " " + topic + "\n" + cmd + " " + topic + " --oldest -n 5"
 	case "message/create":
 		l.Args = []Arg{{Name: "NAME"}, {Name: "TOPIC"}}
 		l.Options = []Option{sendValue, sendFrom, sendKey, sendHeader, partitionSend}
-		l.Short = "Publish one message"
+		l.Short = "Publish one message to a topic" + of
 		l.Example = cmd + " " + topic + " --value test --dry-run\n" + cmd + " " + topic + " --from ./order.json --header source=support"
 	case "message/delete":
 		l.Args = []Arg{{Name: "NAME"}, {Name: "TOPIC"}}
 		l.Options = []Option{allOpt}
-		l.Short = "Empty a topic, queue or stream and keep it"
+		l.Short = "Empty a topic" + of + " and keep it"
 		l.Example = cmd + " " + topic + "-retry --all --dry-run\n" + cmd + " " + topic + "-retry --all --allow-dangerous"
 	case "consumer/list":
 		l.Args = []Arg{{Name: "NAME"}}
 		l.Options = []Option{consumerLimit}
-		l.Short = "List Kafka consumer groups, NATS consumers or Pub/Sub subscriptions"
+		l.Short = "List the " + queueReaders[p.name] + of
 		l.Example = cmd + "\n" + cmd + " -n 20"
 	case "consumer/show":
 		l.Args = []Arg{{Name: "NAME"}, {Name: "CONSUMER"}}
-		l.Short = "How far one Kafka consumer group (or NATS consumer) is behind"
+		l.Short = "Show how far one consumer is behind" + of
 		l.Example = cmd + " billing\n" + cmd + " billing -o json"
 	}
 }
+
+// queueWhat is how a Short names the broker of a provider.
+var queueWhat = map[string]string{"kafka": "Kafka cluster", "rabbitmq": "RabbitMQ broker", "nats": "NATS server",
+	"sqs": "SQS account", "pubsub": "Pub/Sub project"}
+
+// queueReaders are what a provider's consumer list lists.
+var queueReaders = map[string]string{"kafka": "consumer groups", "nats": "consumers", "pubsub": "subscriptions"}

@@ -12,6 +12,7 @@ import (
 	"github.com/twmb/franz-go/pkg/kfake"
 	"github.com/twmb/franz-go/pkg/kgo"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/queuex"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -185,7 +186,7 @@ func TestQueueText(t *testing.T) {
 		want string
 	}{
 		{queueTopics{}, "no topics"},
-		{queueTopics{Conn: "events", Count: 1, Truncated: true, Topics: []queuex.Topic{{Name: "a", KafkaTopic: &queuex.KafkaTopic{}}}}, "only the first 1 by name: narrow it with a pattern (komando queue list events 'orders-*') or raise --limit"},
+		{queueTopics{Conn: "events", kind: "kafka", Count: 1, Truncated: true, Topics: []queuex.Topic{{Name: "a", KafkaTopic: &queuex.KafkaTopic{}}}}, "only the first 1 by name: narrow it with a pattern (komando queue kafka topic list events 'orders-*') or raise --limit"},
 		{queueTopics{Topics: []queuex.Topic{{Name: "orders", Messages: 10, KafkaTopic: &queuex.KafkaTopic{Partitions: 3, Replicas: 2}}}}, "orders  3           2         10"},
 		{queueTopic{TopicDetail: &queuex.TopicDetail{Name: "orders", Messages: 1, KafkaTopicDetail: &queuex.KafkaTopicDetail{Partitions: []queuex.Partition{{Leader: -1}}}}}, "orders (1 partition, 0 replicas, 1 message)"},
 		{queuePeek{PeekResult: &queuex.PeekResult{From: "newest", Count: 1, More: true, Partial: true,
@@ -202,6 +203,41 @@ func TestQueueText(t *testing.T) {
 	} {
 		if got := c.v.Text(); !strings.Contains(got, c.want) {
 			t.Errorf("%T: %q does not hold %q", c.v, got, c.want)
+		}
+	}
+}
+
+// The table and the body agree on every default (Audit A-C479-1, row C514):
+// bodyArgv passes only the options a person typed, so an option that is not
+// typed falls back to the body's default, and help is built from the
+// table's. A number or a duration the body starts at must be the table's
+// default; the zero values (0, false, empty: not given) are the same.
+func TestQueueBodyDefaultsMatchTable(t *testing.T) {
+	zero := func(s string) bool { return s == "" || s == "0" || s == "false" || s == "0s" }
+	for _, l := range capability.All() {
+		if l.Type != "queue" || l.State != capability.Built {
+			continue
+		}
+		body := queueBodies[[2]string{l.Area, l.Verb}]
+		if body == nil {
+			continue
+		}
+		for _, o := range l.Options {
+			if o.Name == "all" {
+				continue // the leaf's own switch: the handler runs the purge body without it
+			}
+			f := body().Flags().Lookup(o.Name)
+			if f == nil {
+				t.Errorf("%s --%s: the body has no such flag", l.Key, o.Name)
+				continue
+			}
+			want := o.Default
+			if o.Kind == capability.Bytes || o.Kind == capability.Duration {
+				continue // the table writes these as text; TestBuiltDefaultsParse reads them
+			}
+			if f.DefValue != want && !(zero(f.DefValue) && zero(want)) {
+				t.Errorf("%s --%s: the table's default is %q, the body's %q", l.Key, o.Name, want, f.DefValue)
+			}
 		}
 	}
 }

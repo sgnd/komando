@@ -200,7 +200,7 @@ func TestStandardPairs(t *testing.T) {
 		}
 		// add/rm in komando's own list, create/rm on a target
 		family := slices.Contains([]string{"db", "cache", "queue", "storage", "cluster", "registry"}, cmdPathOf(c))
-		hasRm := slices.Contains(names, "rm") || slices.Contains(names, "remove")
+		hasRm := slices.Contains(names, "rm") || slices.Contains(names, "remove") || slices.Contains(names, "delete")
 		if !family && slices.Contains(names, "add") && !hasRm || slices.Contains(names, "create") && !hasRm {
 			got[strings.TrimSpace(cmdPathOf(c)+" add|create/rm")] = "has no rm"
 		}
@@ -493,7 +493,7 @@ func TestStandardLong(t *testing.T) {
 
 // sampleNames are S-6.8's sample names, and selectors that pick them.
 var sampleNames = []string{"web1", "web2", "db1", "@web", "prod-db", "staging-db", "prod-redis", "prod-kafka",
-	"backups", "ghcr", "harbor", "prod-k8s", "swarm1", "office", "alice", "app", "all"}
+	"prod-rabbit", "prod-nats", "prod-sqs", "prod-pubsub", "backups", "ghcr", "harbor", "prod-k8s", "swarm1", "office", "alice", "app", "all"}
 
 // S-6.6..S-6.9: example counts, a dry-run line per change command,
 // approval lines after their dry run and marked, sample names, English.
