@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"maps"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -129,18 +131,48 @@ func checkShell(cl *call, line, home, cwd string) guardDecision {
 	return checkShellDepth(cl, line, home, cwd, 0)
 }
 
+// guardDepth is how many shells, evals and command outputs inside each
+// other the guard reads; a line that goes deeper is refused.
+const guardDepth = 3
+
+func tooDeep() guardDecision {
+	return deny("the line nests shells, evals or command outputs more than %d deep, deeper than komando's guard reads; run the inner command on its own", guardDepth)
+}
+
 func checkShellDepth(cl *call, line, home, cwd string, depth int) guardDecision {
-	line = stripQuotedHeredocs(line)
+	return checkShellIn(cl, line, home, cwd, depth, nil)
+}
+
+// checkShellIn is checkShellDepth for a line run where outer's variables
+// are set: a shell's -c script, or eval's.
+func checkShellIn(cl *call, line, home, cwd string, depth int, outer lineVars) guardDecision {
+	line = decodeDollarQuotes(stripQuotedHeredocs(line))
 	if d := checkWholeLine(line); d.Deny {
 		return d
 	}
-	if in := inlineNames(line); in != line && depth < 3 {
-		if d := checkShellDepth(cl, in, home, cwd, depth+1); d.Deny {
+	if in := withoutCommandOutput(cl, inlineNames(line)); in != line {
+		if depth >= guardDepth {
+			return tooDeep()
+		}
+		if d := checkShellIn(cl, in, home, cwd, depth+1, outer); d.Deny {
 			return d
 		}
 	}
-	for _, seg := range splitShell(line) {
+	if d := checkWriteToCommandOutput(line); d.Deny {
+		return d
+	}
+	vars := maps.Clone(outer)
+	if vars == nil {
+		vars = lineVars{}
+	}
+	segs := splitShell(line)
+	for i, seg := range segs {
 		words, globs := shellWordsGlob(seg)
+		next := ""
+		if i+1 < len(segs) {
+			next = segs[i+1]
+		}
+		vars.learn(cl, line, seg, next, cwd, words)
 		if d := checkShellVars(words, depth); d.Deny {
 			return d
 		}
@@ -150,11 +182,8 @@ func checkShellDepth(cl *call, line, home, cwd string, depth int) guardDecision 
 			return d
 		}
 		// the shell writes a redirect's file, whatever the program is
-		files, fileGlobs := redirectWrites(seg)
-		for i, w := range files {
-			if why := secretWord(cl, w, home, cwd, fileGlobs[i]); why != "" {
-				return deny("%s is %s. komando keeps it away from AI agents; ask the user if you need something from it%s", w, why, viaKomando(why))
-			}
+		if d := checkRedirectWrites(cl, seg, vars, home, cwd); d.Deny {
+			return d
 		}
 		switch {
 		case prog == "":
@@ -162,7 +191,13 @@ func checkShellDepth(cl *call, line, home, cwd string, depth int) guardDecision 
 		case base == "komando":
 			continue
 		case base == "cd" || base == "pushd":
-			cwd = nextDir(cl, args, home, cwd)
+			dirs := slices.Clone(args)
+			for k, a := range dirs {
+				if x, known := vars.expand(cl, a, cwd); known && len(x) == 1 {
+					dirs[k] = x[0]
+				}
+			}
+			cwd = nextDir(cl, dirs, home, cwd)
 			if why := secretPath(cl, cwd, home); cwd != "" && why != "" {
 				return deny("%s is %s. komando keeps it away from AI agents; ask the user if you need something from it%s", cwd, why, viaKomando(why))
 			}
@@ -173,8 +208,12 @@ func checkShellDepth(cl *call, line, home, cwd string, depth int) guardDecision 
 			if base == "eval" {
 				script = strings.Join(args, " ")
 			}
-			if script != "" && depth < 3 {
-				if d := checkShellDepth(cl, script, home, cwd, depth+1); d.Deny {
+			if script != "" && depth >= guardDepth {
+				return tooDeep()
+			}
+			if script != "" {
+				// $f in the script is the line's f
+				if d := checkShellIn(cl, script, home, cwd, depth+1, vars); d.Deny {
 					return d
 				}
 			}
@@ -234,15 +273,18 @@ func checkShellDepth(cl *call, line, home, cwd string, depth int) guardDecision 
 					continue
 				}
 			}
-			glob := globs[j] && !strings.HasPrefix(w, "-")
-			if !looksLikePath(w) && !glob {
-				continue
-			}
-			if why := secretWord(cl, w, home, wcwd, glob); why != "" {
-				return deny("%s is %s. komando keeps it away from AI agents; ask the user if you need something from it%s", w, why, viaKomando(why))
-			}
-			if recursive && j >= first && !glob && !strings.HasPrefix(w, "-") && holdsProtected(cl, guardPathAt(cl, w, home, wcwd), home) {
-				return deny("%s holds komando's data and private keys, and %s reads all of it; work on a project folder instead", w, base)
+			values, _ := vars.expand(cl, w, wcwd)
+			for _, v := range values {
+				glob := globs[j] && !strings.HasPrefix(w, "-") || v != w && wordHasGlob(v)
+				if !looksLikePath(v) && !glob {
+					continue
+				}
+				if why := secretWord(cl, v, home, wcwd, glob); why != "" {
+					return deny("%s is %s. komando keeps it away from AI agents; ask the user if you need something from it%s", w, why, viaKomando(why))
+				}
+				if recursive && j >= first && !glob && !strings.HasPrefix(v, "-") && holdsProtected(cl, guardPathAt(cl, v, home, wcwd), home) {
+					return deny("%s holds komando's data and private keys, and %s reads all of it; work on a project folder instead", w, base)
+				}
 			}
 		}
 	}
@@ -425,9 +467,10 @@ func checkAgentVars(words []string, depth int) guardDecision {
 					return why(name)
 				}
 			case "--split-string":
-				if depth < 3 {
-					return checkAgentVars(append(append([]string{"env"}, shellWords(val)...), words[i+1:]...), depth+1)
+				if depth >= guardDepth {
+					return tooDeep()
 				}
+				return checkAgentVars(append(append([]string{"env"}, shellWords(val)...), words[i+1:]...), depth+1)
 			}
 		case wrapper == "env" && w == "-":
 			return cleared("`env -`")
@@ -451,7 +494,10 @@ func checkAgentVars(words []string, depth int) guardDecision {
 						return why(name)
 					}
 				}
-				if c == 'S' && depth < 3 {
+				if c == 'S' && depth >= guardDepth {
+					return tooDeep()
+				}
+				if c == 'S' {
 					return checkAgentVars(append(append([]string{"env"}, shellWords(val)...), words[i+1:]...), depth+1)
 				}
 				break

@@ -515,12 +515,12 @@ var readOnlyPrograms = map[string]bool{"cat": true, "less": true, "more": true, 
 	"readlink": true, "realpath": true, "which": true, "type": true, "command": true, "test": true, "[": true, "jq": true,
 	"echo": true, "printf": true, "md5": true, "md5sum": true, "shasum": true, "sha256sum": true, "cd": true, "pushd": true}
 
-// redirectTarget is a file a shell segment writes with > or >>.
-var redirectTarget = regexp.MustCompile(`[0-9&]?>>?\|?\s*("[^"]*"|'[^']*'|[^\s;&|<>()]+)`)
+// redirectTarget is a file a shell segment writes with >, >>, >| or zsh's >!.
+var redirectTarget = regexp.MustCompile(`[0-9&]?>>?[|!]?\s*("[^"]*"|'[^']*'|[^\s;&|<>()]+)`)
 
 // redirectWrites are the files a simple command's redirects open for
-// writing (>, >>, >|, N>, <> and >&FILE), as the shell reads them: a > in
-// quotes is text, and quotes around the name are removed. For each, glob
+// writing (>, >>, >|, zsh's >!, N>, <> and >&FILE), as the shell reads
+// them: a > in quotes is text, and quotes around the name are removed. For each, glob
 // says the shell expands it, as shellWordsGlob does. The shell opens them,
 // whatever the program is.
 func redirectWrites(seg string) (files []string, globs []bool) {
@@ -556,8 +556,8 @@ func redirectWrites(seg string) (files []string, globs []bool) {
 		case r == '>':
 			flush()
 			target, afterGT = true, true
-		case gt && (r == '&' || r == '|'):
-			afterGT = true // >&FILE and >|FILE: the file follows
+		case gt && (r == '&' || r == '|' || r == '!'):
+			afterGT = true // >&FILE, >|FILE and >!FILE: the file follows
 		case r == ' ' || r == '\t' || r == '<':
 			flush()
 		default:
@@ -569,6 +569,45 @@ func redirectWrites(seg string) (files []string, globs []bool) {
 	}
 	flush()
 	return files, globs
+}
+
+// checkRedirectWrites refuses a shell segment whose redirect writes a
+// secret path or a guard file, read with the line's variables in place
+// (vars), or a file named by a variable the guard cannot read.
+func checkRedirectWrites(cl *call, seg string, vars lineVars, home, cwd string) guardDecision {
+	files, globs := redirectWrites(seg)
+	for i, f := range files {
+		values, known := vars.expand(cl, f, cwd)
+		if !known {
+			return deny("%s names the file this line writes with a value komando's guard cannot read before the line runs; write to a file named on the line", f)
+		}
+		for _, w := range values {
+			if why := secretWord(cl, w, home, cwd, globs[i] || w != f && wordHasGlob(w)); why != "" {
+				return deny("%s is %s. komando keeps it away from AI agents; ask the user if you need something from it%s", f, why, viaKomando(why))
+			}
+			if why := guardSelfWhy(guardPathAt(cl, w, home, cwd)); why != "" {
+				return refuseSelf(f, why)
+			}
+		}
+	}
+	return allow()
+}
+
+// checkWriteToCommandOutput refuses a line that writes to the file a
+// command prints (> $(cat name), > `cat name`): the guard cannot know it
+// before the line runs. $(mktemp ...) makes a new file; withoutCommandOutput
+// checks where.
+func checkWriteToCommandOutput(line string) guardDecision {
+	files, _ := redirectWrites(line)
+	for _, f := range files {
+		if !strings.HasPrefix(f, "$(") && !strings.HasPrefix(f, "`") {
+			continue
+		}
+		if p, _ := program(shellWords(strings.Trim(f, "$()` "))); filepath.Base(p) != "mktemp" {
+			return deny("%s names the file this line writes with a command's output, which komando's guard cannot read before the line runs; write to a file named on the line", f)
+		}
+	}
+	return allow()
 }
 
 // writesKomandoByName is a shell line whose program changes a file named by

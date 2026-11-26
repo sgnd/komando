@@ -200,9 +200,9 @@ func TestGuardRedirectTargetIsCheckedAsSecretPath(t *testing.T) {
 	for _, prog := range []string{"echo x", "printf x", "touch a", "mkdir -p a", "ls", "test -n x", "[ -n x ]", "date"} {
 		t.Run(strings.Fields(prog)[0], func(t *testing.T) {
 			var lines []string
-			for _, op := range []string{">", ">>", " >", "1>", ">&", "&>"} {
+			for _, op := range []string{">", ">>", " >", "1>", ">&", "&>", ">|", ">>|", ">!", ">>!"} {
 				for _, target := range guardSecretTargets() {
-					lines = append(lines, prog+" "+op+" "+target)
+					lines = append(lines, prog+" "+op+" "+target, prog+" "+op+target)
 				}
 			}
 			checkLines(t, home, home, lines, true)
@@ -265,6 +265,11 @@ func TestGuardRedirectTargetWhereTheProgramSkipsWords(t *testing.T) {
 		"echo x <> ~/.komando/vault.json",
 		"komando list > ~/.claude/settings.json",
 		"komando guide >> ~/bin/komando",
+		"echo x >! ~/.claude/settings.json",
+		"echo x >>!~/.claude/settings.local.json",
+		"date >! ~/bin/komando",
+		"bash -c 'echo x >! ~/.komando/state.json'",
+		"date >! .env",
 	}, true)
 	checkLines(t, home, home, []string{
 		"komando list -o json > /tmp/hosts.json",
@@ -288,4 +293,102 @@ func TestGuardSecretPathWrittenOtherWays(t *testing.T) {
 		"cat <<< x > ~/.komando/vault.json",
 		"echo <<< x > ~/.ssh/id_ed25519",
 	}, true)
+}
+
+// dollarQuoted writes the first dot of target, without its double quotes,
+// in each form bash and zsh decode: $'\x2e', $'\056', $'.', $'.'
+// and $".".
+func dollarQuoted(target string) []string {
+	t := strings.Trim(target, `"`)
+	var out []string
+	for _, q := range []string{`$'\x2e'`, `$'\056'`, `$'.'`, `$'.'`, `$"."`} {
+		out = append(out, strings.Replace(t, ".", q, 1))
+	}
+	return out
+}
+
+// A word in $'...' or $"..." quotes is checked as the shell reads it: in
+// a redirect, as an argument that writes and as one that reads.
+func TestGuardDollarQuotedPathIsDecoded(t *testing.T) {
+	home, _ := guardLineHome(t)
+	var lines []string
+	for _, target := range guardSecretTargets() {
+		for _, w := range dollarQuoted(target) {
+			lines = append(lines, "echo x > "+w, "cp /tmp/a "+w, "cat "+w)
+		}
+	}
+	lines = append(lines, `echo x > ~/$'.cl\x61ude'/settings.json`, `cp /tmp/a ~/$'.claude'/settings.json`)
+	checkLines(t, home, home, lines, true)
+	checkLines(t, home, home, []string{
+		`echo $'a\tb' > /tmp/out`,
+		`printf $'x\n' >> notes.txt`,
+		`echo "$'.komando'" > /tmp/out`,
+		`echo '$'"'"'x'"'" > /tmp/out`,
+	}, false)
+}
+
+// A path held in a variable set earlier on the line is checked as the
+// path itself: written, copied or read through the variable. A redirect
+// whose file the guard cannot know (a variable never set on the line or in
+// the environment, or a command's output) is refused.
+func TestGuardPathInAVariable(t *testing.T) {
+	home, _ := guardLineHome(t)
+	t.Setenv("C533_KNOWN_DIR", "/tmp")
+	checkLines(t, home, home, []string{
+		`f=~/.komando/vault.json; cp /tmp/a $f`,
+		`f=~/.komando/vault.json; cat $f`,
+		`f=~/.komando/vault.json; echo x > "$f"`,
+		`f=~/.komando/vault.json && echo x >> "${f}"`,
+		`export f=~/.ssh/id_ed25519; cat "$f"`,
+		`d=~/.komando; echo x > "$d/vault.json"`,
+		`d=~/.kom; echo x > "${d}ando/vault.json"`,
+		`for d in /tmp ~/.kom; do echo x > "${d}ando/vault.json"; done`,
+		`f=$(cat /tmp/name); echo x > "$f"`,
+		`echo x > "$C533_NEVER_SET"`,
+		"echo x > `cat /tmp/name`",
+		`echo x > $(cat /tmp/name)`,
+		`while read f; do echo x > "$f"; done < /tmp/list`,
+	}, true)
+	checkLines(t, home, home, []string{
+		`out=/tmp/x.log; echo x > "$out"`,
+		`for f in a.go b.go; do gofmt "$f" > "$f.tmp"; done`,
+		`tmp=$(mktemp); echo x > "$tmp"`,
+		`echo x > "$C533_KNOWN_DIR/out"`,
+		`f=notes.txt; cat "$f"`,
+		`f=notes.txt; echo x > $f 2>&1`,
+		`echo x > "$HOME/notes.txt"`,
+		`echo x > "$(mktemp)"`,
+		`echo x > /tmp/log.$$`,
+		`echo x > "$PWD/out.txt"`,
+	}, false)
+}
+
+// A shell nested deeper than the guard reads is refused, not let through.
+func TestGuardNestingPastTheLimitIsRefused(t *testing.T) {
+	home, _ := guardLineHome(t)
+	checkLines(t, home, home, []string{
+		`bash -c "bash -c 'bash -c \"bash -c \\\"echo x > ~/.komando/vault.json\\\"\"'"`,
+		`sh -c 'sh -c "sh -c \"sh -c \\\"cat ~/.ssh/id_ed25519\\\"\""'`,
+		`eval 'eval "eval \"eval true\""'`,
+		`env -S 'env -S "env -S \"env -S \\\"true\\\"\""' true`,
+	}, true)
+	checkLines(t, home, home, []string{
+		`bash -c "bash -c 'echo ok > /tmp/out'"`,
+	}, false)
+}
+
+// Ordinary output handling stays allowed.
+func TestGuardOrdinaryRedirectsStayAllowed(t *testing.T) {
+	home, _ := guardLineHome(t)
+	checkLines(t, home, home, []string{
+		"echo x > /dev/null",
+		"ls > /dev/null 2>&1",
+		"go vet ./... 2>&1",
+		"echo done >&2",
+		"go build ./... &> build.log",
+		"make 2>&1 | tee build.log",
+		"echo x >> logs/build.log",
+		"echo X=1 > .env.example",
+		"go test ./... >| /tmp/out",
+	}, false)
 }
