@@ -402,7 +402,7 @@ var queueGroupShort = map[string]string{
 	"rabbitmq": "RabbitMQ: save a broker, and read, send and manage its queues",
 	"nats":     "NATS JetStream: save a server, and read, send and manage its streams",
 	"sqs":      "Amazon SQS: save an account, and read, send and manage its queues",
-	"pubsub":   "Google Cloud Pub/Sub: save a project, and read, send and manage its topics",
+	"pubsub":   "Pub/Sub: save a project, and read, send and manage its topics",
 }
 
 // queueGroupExamples are the examples of a provider's groups (3 to 5

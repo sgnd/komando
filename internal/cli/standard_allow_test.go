@@ -94,22 +94,18 @@ var (
 		"vpn status",
 		"vpn test",
 	}
-	// S-6.8: names outside the sample table where an example needs its own (a second VPN, a cloud queue)
+	// S-6.8: names outside the sample table where an example needs its own (a second VPN)
 	allowSampleNames = []string{
 		"app1",
-		"aws",
 		"bastion",
 		"bq",
 		"client-x",
 		"config",
-		"gcp",
-		"jobs",
 		"lab",
 		"local",
 		"mongo-db",
 		"old-office",
 		"shop-2",
-		"stream",
 		"vps1",
 		"web3",
 	}

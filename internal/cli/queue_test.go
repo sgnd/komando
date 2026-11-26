@@ -213,7 +213,7 @@ func TestQueueText(t *testing.T) {
 // table's. A number or a duration the body starts at must be the table's
 // default; the zero values (0, false, empty: not given) are the same.
 func TestQueueBodyDefaultsMatchTable(t *testing.T) {
-	zero := func(s string) bool { return s == "" || s == "0" || s == "false" || s == "0s" }
+	zero := func(s string) bool { return s == "" || s == "0" || s == "false" || s == "0s" || s == "[]" }
 	for _, l := range capability.All() {
 		if l.Type != "queue" || l.State != capability.Built {
 			continue
@@ -237,6 +237,64 @@ func TestQueueBodyDefaultsMatchTable(t *testing.T) {
 			}
 			if f.DefValue != want && !(zero(f.DefValue) && zero(want)) {
 				t.Errorf("%s --%s: the table's default is %q, the body's %q", l.Key, o.Name, want, f.DefValue)
+			}
+		}
+	}
+}
+
+// TestQueueProvidersCarryEqualTableEntries pins the all-carriers rule for
+// queue: the leaves of one area and verb carry the same entries in every
+// table keyed by ID or path, whichever provider they sit under.
+func TestQueueProvidersCarryEqualTableEntries(t *testing.T) {
+	type entry struct {
+		key         safetyKey
+		personal    bool
+		noNetwork   bool
+		localFlags  string
+		localRead   bool
+		leavesHome  bool
+		providerKey bool
+	}
+	seen := map[[2]string]map[string]entry{}
+	for _, l := range capability.All() {
+		if l.Type != "queue" || l.State != capability.Built {
+			continue
+		}
+		id := strings.Join(l.Key.Path(), ".")
+		_, noNet := gateNoNetwork[id]
+		e := entry{
+			key:         cmdKeys[id],
+			personal:    personalCmds[strings.Join(l.Key.Path(), " ")],
+			noNetwork:   noNet,
+			localFlags:  strings.Join(gateLocalFlags[id], ","),
+			localRead:   localReads[id],
+			leavesHome:  leavesHome[id],
+			providerKey: providerIDs[id],
+		}
+		if want := (safetyKey{l.Type, l.Area, l.Verb}); e.key != want {
+			t.Errorf("%s: cmdKeys has %v, the leaf's key is %v", id, e.key, want)
+		}
+		if e.localRead != l.LocalRead || e.leavesHome != l.LeavesHome {
+			t.Errorf("%s: localReads %v, leavesHome %v; the leaf says %v, %v", id, e.localRead, e.leavesHome, l.LocalRead, l.LeavesHome)
+		}
+		area := [2]string{l.Area, l.Verb}
+		if seen[area] == nil {
+			seen[area] = map[string]entry{}
+		}
+		seen[area][l.Provider] = e
+	}
+	if len(seen) == 0 {
+		t.Fatal("no queue leaf is built")
+	}
+	for area, byProvider := range seen {
+		var first string
+		for p, e := range byProvider {
+			if first == "" {
+				first = p
+				continue
+			}
+			if e != byProvider[first] {
+				t.Errorf("queue %s %s: %s carries %+v, %s carries %+v", area[0], area[1], p, e, first, byProvider[first])
 			}
 		}
 	}

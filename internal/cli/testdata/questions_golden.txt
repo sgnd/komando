@@ -1136,11 +1136,11 @@ title: Save a kafka queue under a short name
 ### komando queue kafka consumer
 title: Consumer groups, consumers or subscriptions: list, show
 ### komando queue kafka consumer list
-title: List Kafka consumer groups, NATS consumers or Pub/Sub subscriptions
+title: List the consumer groups of a Kafka cluster
 - arg0 | Name | Name? |  |  | check
 - flag:limit | --limit | Show at most this many groups, consumers or subscriptions (0 = all) |  |  | optional,advanced,check
 ### komando queue kafka consumer show
-title: How far one Kafka consumer group (or NATS consumer) is behind
+title: Show how far one consumer is behind of a Kafka cluster
 - arg0 | Name | Which message queue? | A Kafka, RabbitMQ, NATS, SQS or Pub/Sub queue from your list. Add one with komando queue PROVIDER add. |  | choices,check
 - arg1 | Consumer | Which consumer group? | Kafka: a consumer group, as consumer list shows. NATS: STREAM/CONSUMER, or the consumer's name alone. | billing | check
 ### komando queue kafka edit
@@ -1161,16 +1161,16 @@ title: Change a saved kafka queue (only the flags you pass change)
 - flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
 - flag:unset | --unset | Clear these settings: via, credential, notes, protected |  |  | optional,advanced,check
 ### komando queue kafka info
-title: Server summary: version, brokers or nodes, topic, queue or stream count
+title: Show the version and size of a Kafka cluster
 - arg0 | Name | Which message queue? | A Kafka, RabbitMQ, NATS, SQS or Pub/Sub queue from your list. Add one with komando queue PROVIDER add. |  | choices,check
 ### komando queue kafka list
 title: List the saved kafka queues
 - arg0 | Target | Which queues? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
 - flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
 ### komando queue kafka message
-title: The messages of a topic: list, create, delete --all
+title: The messages of a topic: list, create, delete
 ### komando queue kafka message create
-title: Publish one message
+title: Publish one message to a topic of a Kafka cluster
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? |  |  | check
 - flag:from | --from | Read the message from this file ('-' for stdin) |  |  | optional,advanced,check
@@ -1179,12 +1179,12 @@ title: Publish one message
 - flag:partition | --partition | Kafka: send to this partition, numbered from 0 (default: the broker's choice) |  |  | optional,advanced,check
 - flag:value | --value | The message |  |  | optional,advanced,check
 ### komando queue kafka message delete
-title: Empty a topic, queue or stream and keep it
+title: Empty a topic of a Kafka cluster and keep it
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? |  |  | check
 - flag:all | --all | Every waiting message; without it nothing is deleted |  |  | advanced,default,choices
 ### komando queue kafka message list
-title: Read the newest (or oldest) messages without removing any
+title: Read the newest (or oldest) messages of a Kafka cluster, removing none
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? |  |  | check
 - flag:idle | --idle | Kafka: stop when no message came for this long |  |  | optional,advanced,default,check
@@ -1209,7 +1209,7 @@ title: Check that a saved kafka queue answers and lets you in
 ### komando queue kafka topic
 title: The topics (queues, streams) of a broker: list, show, create, delete
 ### komando queue kafka topic create
-title: Create a topic, queue or stream
+title: Create a topic of a Kafka cluster
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? |  |  | check
 - flag:config | --config | A setting KEY=VALUE, like retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable) |  |  | optional,advanced,check
@@ -1217,17 +1217,17 @@ title: Create a topic, queue or stream
 - flag:replicas | --replicas | Copies of each message. Kafka: copies of each partition; NATS: copies of the stream (default: the broker's; NATS: 1) |  |  | optional,advanced,check
 - flag:type | --type | RabbitMQ: the queue type, classic, quorum or stream (default: the server's) |  |  | optional,advanced,check
 ### komando queue kafka topic delete
-title: Delete topics, queues or streams with their messages
+title: Delete topics of a Kafka cluster with their messages
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? (several: separate them with spaces) |  |  | check
 ### komando queue kafka topic list
-title: List topics (or queues, or streams) with their message counts
+title: List the topics of a Kafka cluster with their message counts
 - arg0 | Name | Name? |  |  | check
 - arg1 | Pattern | Pattern? |  |  | optional,check
 - flag:internal | --internal | Kafka: also list its own topics (__consumer_offsets, ...) |  |  | advanced,default,choices
 - flag:limit | --limit | The most topics (or queues, or streams) to show, the first by name |  |  | optional,advanced,default,check
 ### komando queue kafka topic show
-title: One topic, queue or stream: messages, settings, and who reads it
+title: Show one topic of a Kafka cluster: messages, settings, readers
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? |  |  | check
 ### komando queue nats
@@ -1250,11 +1250,11 @@ title: Save a nats queue under a short name
 ### komando queue nats consumer
 title: Consumer groups, consumers or subscriptions: list, show
 ### komando queue nats consumer list
-title: List Kafka consumer groups, NATS consumers or Pub/Sub subscriptions
+title: List the consumers of a NATS server
 - arg0 | Name | Name? |  |  | check
 - flag:limit | --limit | Show at most this many groups, consumers or subscriptions (0 = all) |  |  | optional,advanced,check
 ### komando queue nats consumer show
-title: How far one Kafka consumer group (or NATS consumer) is behind
+title: Show how far one consumer is behind of a NATS server
 - arg0 | Name | Which message queue? | A Kafka, RabbitMQ, NATS, SQS or Pub/Sub queue from your list. Add one with komando queue PROVIDER add. |  | choices,check
 - arg1 | Consumer | Which consumer group? | Kafka: a consumer group, as consumer list shows. NATS: STREAM/CONSUMER, or the consumer's name alone. | billing | check
 ### komando queue nats edit
@@ -1275,16 +1275,16 @@ title: Change a saved nats queue (only the flags you pass change)
 - flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
 - flag:unset | --unset | Clear these settings: via, credential, notes, protected |  |  | optional,advanced,check
 ### komando queue nats info
-title: Server summary: version, brokers or nodes, topic, queue or stream count
+title: Show the version and size of a NATS server
 - arg0 | Name | Which message queue? | A Kafka, RabbitMQ, NATS, SQS or Pub/Sub queue from your list. Add one with komando queue PROVIDER add. |  | choices,check
 ### komando queue nats list
 title: List the saved nats queues
 - arg0 | Target | Which queues? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
 - flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
 ### komando queue nats message
-title: The messages of a topic: list, create, delete --all
+title: The messages of a topic: list, create, delete
 ### komando queue nats message create
-title: Publish one message
+title: Publish one message to a topic of a NATS server
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? |  |  | check
 - flag:from | --from | Read the message from this file ('-' for stdin) |  |  | optional,advanced,check
@@ -1293,12 +1293,12 @@ title: Publish one message
 - flag:partition | --partition | Kafka: send to this partition, numbered from 0 (default: the broker's choice) |  |  | optional,advanced,check
 - flag:value | --value | The message |  |  | optional,advanced,check
 ### komando queue nats message delete
-title: Empty a topic, queue or stream and keep it
+title: Empty a topic of a NATS server and keep it
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? |  |  | check
 - flag:all | --all | Every waiting message; without it nothing is deleted |  |  | advanced,default,choices
 ### komando queue nats message list
-title: Read the newest (or oldest) messages without removing any
+title: Read the newest (or oldest) messages of a NATS server, removing none
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? |  |  | check
 - flag:idle | --idle | Kafka: stop when no message came for this long |  |  | optional,advanced,default,check
@@ -1323,7 +1323,7 @@ title: Check that a saved nats queue answers and lets you in
 ### komando queue nats topic
 title: The topics (queues, streams) of a broker: list, show, create, delete
 ### komando queue nats topic create
-title: Create a topic, queue or stream
+title: Create a topic of a NATS server
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? |  |  | check
 - flag:config | --config | A setting KEY=VALUE, like retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable) |  |  | optional,advanced,check
@@ -1331,21 +1331,21 @@ title: Create a topic, queue or stream
 - flag:replicas | --replicas | Copies of each message. Kafka: copies of each partition; NATS: copies of the stream (default: the broker's; NATS: 1) |  |  | optional,advanced,check
 - flag:type | --type | RabbitMQ: the queue type, classic, quorum or stream (default: the server's) |  |  | optional,advanced,check
 ### komando queue nats topic delete
-title: Delete topics, queues or streams with their messages
+title: Delete topics of a NATS server with their messages
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? (several: separate them with spaces) |  |  | check
 ### komando queue nats topic list
-title: List topics (or queues, or streams) with their message counts
+title: List the topics of a NATS server with their message counts
 - arg0 | Name | Name? |  |  | check
 - arg1 | Pattern | Pattern? |  |  | optional,check
 - flag:internal | --internal | Kafka: also list its own topics (__consumer_offsets, ...) |  |  | advanced,default,choices
 - flag:limit | --limit | The most topics (or queues, or streams) to show, the first by name |  |  | optional,advanced,default,check
 ### komando queue nats topic show
-title: One topic, queue or stream: messages, settings, and who reads it
+title: Show one topic of a NATS server: messages, settings, readers
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? |  |  | check
 ### komando queue pubsub
-title: Google Cloud Pub/Sub: save a project, and read, send and manage its topics
+title: Pub/Sub: save a project, and read, send and manage its topics
 ### komando queue pubsub add
 title: Save a pubsub queue under a short name
 - arg0 | Name | Name? |  |  | check
@@ -1364,7 +1364,7 @@ title: Save a pubsub queue under a short name
 ### komando queue pubsub consumer
 title: Consumer groups, consumers or subscriptions: list, show
 ### komando queue pubsub consumer list
-title: List Kafka consumer groups, NATS consumers or Pub/Sub subscriptions
+title: List the subscriptions of a Pub/Sub project
 - arg0 | Name | Which message queue? | A Kafka, RabbitMQ, NATS, SQS or Pub/Sub queue from your list. Add one with komando queue PROVIDER add. |  | choices,check
 - flag:limit | --limit | Show at most this many groups, consumers or subscriptions (0 = all) |  |  | optional,advanced,check
 ### komando queue pubsub edit
@@ -1385,16 +1385,16 @@ title: Change a saved pubsub queue (only the flags you pass change)
 - flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
 - flag:unset | --unset | Clear these settings: via, credential, notes, protected |  |  | optional,advanced,check
 ### komando queue pubsub info
-title: Server summary: version, brokers or nodes, topic, queue or stream count
+title: Show the version and size of a Pub/Sub project
 - arg0 | Name | Which message queue? | A Kafka, RabbitMQ, NATS, SQS or Pub/Sub queue from your list. Add one with komando queue PROVIDER add. |  | choices,check
 ### komando queue pubsub list
 title: List the saved pubsub queues
 - arg0 | Target | Which queues? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
 - flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
 ### komando queue pubsub message
-title: The messages of a topic: list, create, delete --all
+title: The messages of a topic: list, create, delete
 ### komando queue pubsub message create
-title: Publish one message
+title: Publish one message to a topic of a Pub/Sub project
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? |  |  | check
 - flag:from | --from | Read the message from this file ('-' for stdin) |  |  | optional,advanced,check
@@ -1403,12 +1403,12 @@ title: Publish one message
 - flag:partition | --partition | Kafka: send to this partition, numbered from 0 (default: the broker's choice) |  |  | optional,advanced,check
 - flag:value | --value | The message |  |  | optional,advanced,check
 ### komando queue pubsub message delete
-title: Empty a topic, queue or stream and keep it
+title: Empty a topic of a Pub/Sub project and keep it
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? |  |  | check
 - flag:all | --all | Every waiting message; without it nothing is deleted |  |  | advanced,default,choices
 ### komando queue pubsub message list
-title: Read the newest (or oldest) messages without removing any
+title: Read the newest (or oldest) messages of a Pub/Sub project, removing none
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? |  |  | check
 - flag:idle | --idle | Kafka: stop when no message came for this long |  |  | optional,advanced,default,check
@@ -1433,7 +1433,7 @@ title: Check that a saved pubsub queue answers and lets you in
 ### komando queue pubsub topic
 title: The topics (queues, streams) of a broker: list, show, create, delete
 ### komando queue pubsub topic create
-title: Create a topic, queue or stream
+title: Create a topic of a Pub/Sub project
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? |  |  | check
 - flag:config | --config | A setting KEY=VALUE, like retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable) |  |  | optional,advanced,check
@@ -1441,17 +1441,17 @@ title: Create a topic, queue or stream
 - flag:replicas | --replicas | Copies of each message. Kafka: copies of each partition; NATS: copies of the stream (default: the broker's; NATS: 1) |  |  | optional,advanced,check
 - flag:type | --type | RabbitMQ: the queue type, classic, quorum or stream (default: the server's) |  |  | optional,advanced,check
 ### komando queue pubsub topic delete
-title: Delete topics, queues or streams with their messages
+title: Delete topics of a Pub/Sub project with their messages
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? (several: separate them with spaces) |  |  | check
 ### komando queue pubsub topic list
-title: List topics (or queues, or streams) with their message counts
+title: List the topics of a Pub/Sub project with their message counts
 - arg0 | Name | Name? |  |  | check
 - arg1 | Pattern | Pattern? |  |  | optional,check
 - flag:internal | --internal | Kafka: also list its own topics (__consumer_offsets, ...) |  |  | advanced,default,choices
 - flag:limit | --limit | The most topics (or queues, or streams) to show, the first by name |  |  | optional,advanced,default,check
 ### komando queue pubsub topic show
-title: One topic, queue or stream: messages, settings, and who reads it
+title: Show one topic of a Pub/Sub project: messages, settings, readers
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? |  |  | check
 ### komando queue rabbitmq
@@ -1489,16 +1489,16 @@ title: Change a saved rabbitmq queue (only the flags you pass change)
 - flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
 - flag:unset | --unset | Clear these settings: via, credential, notes, protected |  |  | optional,advanced,check
 ### komando queue rabbitmq info
-title: Server summary: version, brokers or nodes, topic, queue or stream count
+title: Show the version and size of a RabbitMQ broker
 - arg0 | Name | Which message queue? | A Kafka, RabbitMQ, NATS, SQS or Pub/Sub queue from your list. Add one with komando queue PROVIDER add. |  | choices,check
 ### komando queue rabbitmq list
 title: List the saved rabbitmq queues
 - arg0 | Target | Which queues? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
 - flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
 ### komando queue rabbitmq message
-title: The messages of a topic: list, create, delete --all
+title: The messages of a topic: list, create, delete
 ### komando queue rabbitmq message create
-title: Publish one message
+title: Publish one message to a topic of a RabbitMQ broker
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? |  |  | check
 - flag:from | --from | Read the message from this file ('-' for stdin) |  |  | optional,advanced,check
@@ -1507,12 +1507,12 @@ title: Publish one message
 - flag:partition | --partition | Kafka: send to this partition, numbered from 0 (default: the broker's choice) |  |  | optional,advanced,check
 - flag:value | --value | The message |  |  | optional,advanced,check
 ### komando queue rabbitmq message delete
-title: Empty a topic, queue or stream and keep it
+title: Empty a topic of a RabbitMQ broker and keep it
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? |  |  | check
 - flag:all | --all | Every waiting message; without it nothing is deleted |  |  | advanced,default,choices
 ### komando queue rabbitmq message list
-title: Read the newest (or oldest) messages without removing any
+title: Read the newest (or oldest) messages of a RabbitMQ broker, removing none
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? |  |  | check
 - flag:idle | --idle | Kafka: stop when no message came for this long |  |  | optional,advanced,default,check
@@ -1537,7 +1537,7 @@ title: Check that a saved rabbitmq queue answers and lets you in
 ### komando queue rabbitmq topic
 title: The topics (queues, streams) of a broker: list, show, create, delete
 ### komando queue rabbitmq topic create
-title: Create a topic, queue or stream
+title: Create a topic of a RabbitMQ broker
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? |  |  | check
 - flag:config | --config | A setting KEY=VALUE, like retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable) |  |  | optional,advanced,check
@@ -1545,17 +1545,17 @@ title: Create a topic, queue or stream
 - flag:replicas | --replicas | Copies of each message. Kafka: copies of each partition; NATS: copies of the stream (default: the broker's; NATS: 1) |  |  | optional,advanced,check
 - flag:type | --type | RabbitMQ: the queue type, classic, quorum or stream (default: the server's) |  |  | optional,advanced,check
 ### komando queue rabbitmq topic delete
-title: Delete topics, queues or streams with their messages
+title: Delete topics of a RabbitMQ broker with their messages
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? (several: separate them with spaces) |  |  | check
 ### komando queue rabbitmq topic list
-title: List topics (or queues, or streams) with their message counts
+title: List the topics of a RabbitMQ broker with their message counts
 - arg0 | Name | Name? |  |  | check
 - arg1 | Pattern | Pattern? |  |  | optional,check
 - flag:internal | --internal | Kafka: also list its own topics (__consumer_offsets, ...) |  |  | advanced,default,choices
 - flag:limit | --limit | The most topics (or queues, or streams) to show, the first by name |  |  | optional,advanced,default,check
 ### komando queue rabbitmq topic show
-title: One topic, queue or stream: messages, settings, and who reads it
+title: Show one topic of a RabbitMQ broker: messages, settings, readers
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? |  |  | check
 ### komando queue sqs
@@ -1593,16 +1593,16 @@ title: Change a saved sqs queue (only the flags you pass change)
 - flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
 - flag:unset | --unset | Clear these settings: via, credential, notes, protected |  |  | optional,advanced,check
 ### komando queue sqs info
-title: Server summary: version, brokers or nodes, topic, queue or stream count
+title: Show the version and size of a SQS account
 - arg0 | Name | Which message queue? | A Kafka, RabbitMQ, NATS, SQS or Pub/Sub queue from your list. Add one with komando queue PROVIDER add. |  | choices,check
 ### komando queue sqs list
 title: List the saved sqs queues
 - arg0 | Target | Which queues? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
 - flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
 ### komando queue sqs message
-title: The messages of a topic: list, create, delete --all
+title: The messages of a topic: list, create, delete
 ### komando queue sqs message create
-title: Publish one message
+title: Publish one message to a topic of a SQS account
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? |  |  | check
 - flag:from | --from | Read the message from this file ('-' for stdin) |  |  | optional,advanced,check
@@ -1611,12 +1611,12 @@ title: Publish one message
 - flag:partition | --partition | Kafka: send to this partition, numbered from 0 (default: the broker's choice) |  |  | optional,advanced,check
 - flag:value | --value | The message |  |  | optional,advanced,check
 ### komando queue sqs message delete
-title: Empty a topic, queue or stream and keep it
+title: Empty a topic of a SQS account and keep it
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? |  |  | check
 - flag:all | --all | Every waiting message; without it nothing is deleted |  |  | advanced,default,choices
 ### komando queue sqs message list
-title: Read the newest (or oldest) messages without removing any
+title: Read the newest (or oldest) messages of a SQS account, removing none
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? |  |  | check
 - flag:idle | --idle | Kafka: stop when no message came for this long |  |  | optional,advanced,default,check
@@ -1641,7 +1641,7 @@ title: Check that a saved sqs queue answers and lets you in
 ### komando queue sqs topic
 title: The topics (queues, streams) of a broker: list, show, create, delete
 ### komando queue sqs topic create
-title: Create a topic, queue or stream
+title: Create a topic of a SQS account
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? |  |  | check
 - flag:config | --config | A setting KEY=VALUE, like retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable) |  |  | optional,advanced,check
@@ -1649,17 +1649,17 @@ title: Create a topic, queue or stream
 - flag:replicas | --replicas | Copies of each message. Kafka: copies of each partition; NATS: copies of the stream (default: the broker's; NATS: 1) |  |  | optional,advanced,check
 - flag:type | --type | RabbitMQ: the queue type, classic, quorum or stream (default: the server's) |  |  | optional,advanced,check
 ### komando queue sqs topic delete
-title: Delete topics, queues or streams with their messages
+title: Delete topics of a SQS account with their messages
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? (several: separate them with spaces) |  |  | check
 ### komando queue sqs topic list
-title: List topics (or queues, or streams) with their message counts
+title: List the topics of a SQS account with their message counts
 - arg0 | Name | Name? |  |  | check
 - arg1 | Pattern | Pattern? |  |  | optional,check
 - flag:internal | --internal | Kafka: also list its own topics (__consumer_offsets, ...) |  |  | advanced,default,choices
 - flag:limit | --limit | The most topics (or queues, or streams) to show, the first by name |  |  | optional,advanced,default,check
 ### komando queue sqs topic show
-title: One topic, queue or stream: messages, settings, and who reads it
+title: Show one topic of a SQS account: messages, settings, readers
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? |  |  | check
 ### komando reboot

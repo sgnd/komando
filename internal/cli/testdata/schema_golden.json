@@ -7233,7 +7233,7 @@
       {
         "path": "komando queue kafka consumer list",
         "usage": "komando queue kafka consumer list NAME [flags]",
-        "short": "List Kafka consumer groups, NATS consumers or Pub/Sub subscriptions",
+        "short": "List the consumer groups of a Kafka cluster",
         "aliases": [
           "ls"
         ],
@@ -7258,7 +7258,7 @@
       {
         "path": "komando queue kafka consumer show",
         "usage": "komando queue kafka consumer show NAME CONSUMER [flags]",
-        "short": "How far one Kafka consumer group (or NATS consumer) is behind",
+        "short": "Show how far one consumer is behind of a Kafka cluster",
         "example": "  komando queue kafka consumer show prod-kafka billing\n  komando queue kafka consumer show prod-kafka billing -o json",
         "runnable": true,
         "kind": "read",
@@ -7366,7 +7366,7 @@
       {
         "path": "komando queue kafka info",
         "usage": "komando queue kafka info NAME [flags]",
-        "short": "Server summary: version, brokers or nodes, topic, queue or stream count",
+        "short": "Show the version and size of a Kafka cluster",
         "example": "  komando queue kafka info prod-kafka\n  komando queue kafka info prod-kafka -o json",
         "runnable": true,
         "kind": "read",
@@ -7404,7 +7404,7 @@
       {
         "path": "komando queue kafka message",
         "usage": "komando queue kafka message [flags]",
-        "short": "The messages of a topic: list, create, delete --all",
+        "short": "The messages of a topic: list, create, delete",
         "example": "  komando queue kafka message list prod-kafka orders\n  komando queue kafka message list prod-kafka orders --oldest -n 5\n  komando queue kafka message create prod-kafka orders --value test --dry-run\n  komando queue kafka message delete prod-kafka orders-retry --all --dry-run",
         "runnable": true,
         "kind": "read",
@@ -7417,8 +7417,8 @@
       {
         "path": "komando queue kafka message create",
         "usage": "komando queue kafka message create NAME TOPIC [flags]",
-        "short": "Publish one message",
-        "long": "Publish one message.\n\nSafety: a change; try it with --dry-run first.",
+        "short": "Publish one message to a topic of a Kafka cluster",
+        "long": "Publish one message to a topic of a Kafka cluster.\n\nSafety: a change; try it with --dry-run first.",
         "example": "  komando queue kafka message create prod-kafka orders --value test --dry-run\n  komando queue kafka message create prod-kafka orders --from ./order.json --header source=support",
         "flags": [
           {
@@ -7460,8 +7460,8 @@
       {
         "path": "komando queue kafka message delete",
         "usage": "komando queue kafka message delete NAME TOPIC [flags]",
-        "short": "Empty a topic, queue or stream and keep it",
-        "long": "Empty a topic, queue or stream and keep it.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "short": "Empty a topic of a Kafka cluster and keep it",
+        "long": "Empty a topic of a Kafka cluster and keep it.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
         "example": "  komando queue kafka message delete prod-kafka orders-retry --all --dry-run\n  komando queue kafka message delete prod-kafka orders-retry --all --allow-dangerous   # after a person's yes",
         "flags": [
           {
@@ -7483,7 +7483,7 @@
       {
         "path": "komando queue kafka message list",
         "usage": "komando queue kafka message list NAME TOPIC [flags]",
-        "short": "Read the newest (or oldest) messages without removing any",
+        "short": "Read the newest (or oldest) messages of a Kafka cluster, removing none",
         "aliases": [
           "ls"
         ],
@@ -7607,8 +7607,8 @@
       {
         "path": "komando queue kafka topic create",
         "usage": "komando queue kafka topic create NAME TOPIC [flags]",
-        "short": "Create a topic, queue or stream",
-        "long": "Create a topic, queue or stream.\n\nSafety: a change; try it with --dry-run first.",
+        "short": "Create a topic of a Kafka cluster",
+        "long": "Create a topic of a Kafka cluster.\n\nSafety: a change; try it with --dry-run first.",
         "example": "  komando queue kafka topic create prod-kafka orders --dry-run\n  komando queue kafka topic create prod-kafka orders --config retention.ms=604800000",
         "flags": [
           {
@@ -7646,8 +7646,8 @@
       {
         "path": "komando queue kafka topic delete",
         "usage": "komando queue kafka topic delete NAME TOPIC... [flags]",
-        "short": "Delete topics, queues or streams with their messages",
-        "long": "Delete topics, queues or streams with their messages.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "short": "Delete topics of a Kafka cluster with their messages",
+        "long": "Delete topics of a Kafka cluster with their messages.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
         "example": "  komando queue kafka topic delete prod-kafka old-orders --dry-run\n  komando queue kafka topic delete prod-kafka old-orders --allow-dangerous   # after a person's yes",
         "runnable": true,
         "kind": "change",
@@ -7661,7 +7661,7 @@
       {
         "path": "komando queue kafka topic list",
         "usage": "komando queue kafka topic list NAME [PATTERN] [flags]",
-        "short": "List topics (or queues, or streams) with their message counts",
+        "short": "List the topics of a Kafka cluster with their message counts",
         "aliases": [
           "ls"
         ],
@@ -7692,7 +7692,7 @@
       {
         "path": "komando queue kafka topic show",
         "usage": "komando queue kafka topic show NAME TOPIC [flags]",
-        "short": "One topic, queue or stream: messages, settings, and who reads it",
+        "short": "Show one topic of a Kafka cluster: messages, settings, readers",
         "aliases": [
           "describe"
         ],
@@ -7709,7 +7709,7 @@
         "path": "komando queue nats",
         "usage": "komando queue nats [flags]",
         "short": "NATS JetStream: save a server, and read, send and manage its streams",
-        "example": "  komando queue nats add events nats://app@10.0.0.10:4222 --via web1 --dry-run\n  komando queue nats add events nats://app@10.0.0.10:4222 --via web1\n  komando queue nats test events\n  komando queue nats topic list events\n  komando queue nats message list events ORDERS -n 5",
+        "example": "  komando queue nats add prod-nats nats://app@10.0.0.10:4222 --via web1 --dry-run\n  komando queue nats add prod-nats nats://app@10.0.0.10:4222 --via web1\n  komando queue nats test prod-nats\n  komando queue nats topic list prod-nats\n  komando queue nats message list prod-nats ORDERS -n 5",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -7723,7 +7723,7 @@
         "usage": "komando queue nats add NAME [URL] [flags]",
         "short": "Save a nats queue under a short name",
         "long": "Save a nats queue under a short name.\n\nSafety: a change; try it with --dry-run first.",
-        "example": "  komando queue nats add events nats://app@10.0.0.10:4222 --via web1\n  komando queue nats add events nats://app@10.0.0.10:4222 --dry-run",
+        "example": "  komando queue nats add prod-nats nats://app@10.0.0.10:4222 --via web1\n  komando queue nats add prod-nats nats://app@10.0.0.10:4222 --dry-run",
         "flags": [
           {
             "name": "ask-password",
@@ -7800,7 +7800,7 @@
         "path": "komando queue nats consumer",
         "usage": "komando queue nats consumer [flags]",
         "short": "Consumer groups, consumers or subscriptions: list, show",
-        "example": "  komando queue nats consumer list events\n  komando queue nats consumer list events -n 20\n  komando queue nats consumer show events billing",
+        "example": "  komando queue nats consumer list prod-nats\n  komando queue nats consumer list prod-nats -n 20\n  komando queue nats consumer show prod-nats billing",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -7812,11 +7812,11 @@
       {
         "path": "komando queue nats consumer list",
         "usage": "komando queue nats consumer list NAME [flags]",
-        "short": "List Kafka consumer groups, NATS consumers or Pub/Sub subscriptions",
+        "short": "List the consumers of a NATS server",
         "aliases": [
           "ls"
         ],
-        "example": "  komando queue nats consumer list events\n  komando queue nats consumer list events -n 20",
+        "example": "  komando queue nats consumer list prod-nats\n  komando queue nats consumer list prod-nats -n 20",
         "flags": [
           {
             "name": "limit",
@@ -7837,8 +7837,8 @@
       {
         "path": "komando queue nats consumer show",
         "usage": "komando queue nats consumer show NAME CONSUMER [flags]",
-        "short": "How far one Kafka consumer group (or NATS consumer) is behind",
-        "example": "  komando queue nats consumer show events billing\n  komando queue nats consumer show events billing -o json",
+        "short": "Show how far one consumer is behind of a NATS server",
+        "example": "  komando queue nats consumer show prod-nats billing\n  komando queue nats consumer show prod-nats billing -o json",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -7852,7 +7852,7 @@
         "usage": "komando queue nats edit NAME [flags]",
         "short": "Change a saved nats queue (only the flags you pass change)",
         "long": "Change a saved nats queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
-        "example": "  komando queue nats edit events --add-tag critical\n  komando queue nats edit events --notes 'main one' --dry-run",
+        "example": "  komando queue nats edit prod-nats --add-tag critical\n  komando queue nats edit prod-nats --notes 'main one' --dry-run",
         "flags": [
           {
             "name": "add-group",
@@ -7945,8 +7945,8 @@
       {
         "path": "komando queue nats info",
         "usage": "komando queue nats info NAME [flags]",
-        "short": "Server summary: version, brokers or nodes, topic, queue or stream count",
-        "example": "  komando queue nats info events\n  komando queue nats info events -o json",
+        "short": "Show the version and size of a NATS server",
+        "example": "  komando queue nats info prod-nats\n  komando queue nats info prod-nats -o json",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -7983,8 +7983,8 @@
       {
         "path": "komando queue nats message",
         "usage": "komando queue nats message [flags]",
-        "short": "The messages of a topic: list, create, delete --all",
-        "example": "  komando queue nats message list events ORDERS\n  komando queue nats message list events ORDERS --oldest -n 5\n  komando queue nats message create events ORDERS --value test --dry-run\n  komando queue nats message delete events ORDERS-retry --all --dry-run",
+        "short": "The messages of a topic: list, create, delete",
+        "example": "  komando queue nats message list prod-nats ORDERS\n  komando queue nats message list prod-nats ORDERS --oldest -n 5\n  komando queue nats message create prod-nats ORDERS --value test --dry-run\n  komando queue nats message delete prod-nats ORDERS-retry --all --dry-run",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -7996,9 +7996,9 @@
       {
         "path": "komando queue nats message create",
         "usage": "komando queue nats message create NAME TOPIC [flags]",
-        "short": "Publish one message",
-        "long": "Publish one message.\n\nSafety: a change; try it with --dry-run first.",
-        "example": "  komando queue nats message create events ORDERS --value test --dry-run\n  komando queue nats message create events ORDERS --from ./order.json --header source=support",
+        "short": "Publish one message to a topic of a NATS server",
+        "long": "Publish one message to a topic of a NATS server.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue nats message create prod-nats ORDERS --value test --dry-run\n  komando queue nats message create prod-nats ORDERS --from ./order.json --header source=support",
         "flags": [
           {
             "name": "from",
@@ -8039,9 +8039,9 @@
       {
         "path": "komando queue nats message delete",
         "usage": "komando queue nats message delete NAME TOPIC [flags]",
-        "short": "Empty a topic, queue or stream and keep it",
-        "long": "Empty a topic, queue or stream and keep it.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
-        "example": "  komando queue nats message delete events ORDERS-retry --all --dry-run\n  komando queue nats message delete events ORDERS-retry --all --allow-dangerous   # after a person's yes",
+        "short": "Empty a topic of a NATS server and keep it",
+        "long": "Empty a topic of a NATS server and keep it.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando queue nats message delete prod-nats ORDERS-retry --all --dry-run\n  komando queue nats message delete prod-nats ORDERS-retry --all --allow-dangerous   # after a person's yes",
         "flags": [
           {
             "name": "all",
@@ -8062,11 +8062,11 @@
       {
         "path": "komando queue nats message list",
         "usage": "komando queue nats message list NAME TOPIC [flags]",
-        "short": "Read the newest (or oldest) messages without removing any",
+        "short": "Read the newest (or oldest) messages of a NATS server, removing none",
         "aliases": [
           "ls"
         ],
-        "example": "  komando queue nats message list events ORDERS\n  komando queue nats message list events ORDERS --oldest -n 5",
+        "example": "  komando queue nats message list prod-nats ORDERS\n  komando queue nats message list prod-nats ORDERS --oldest -n 5",
         "flags": [
           {
             "name": "idle",
@@ -8107,7 +8107,7 @@
         "usage": "komando queue nats remove TARGET... [flags]",
         "short": "Forget a saved nats queue (the queue is not touched)",
         "long": "Forget a saved nats queue (the queue is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando queue nats remove events --dry-run\n  komando queue nats remove events",
+        "example": "  komando queue nats remove prod-nats --dry-run\n  komando queue nats remove prod-nats",
         "runnable": true,
         "kind": "change",
         "confirm": [
@@ -8121,7 +8121,7 @@
         "usage": "komando queue nats rename NAME NEW [flags]",
         "short": "Rename a saved nats queue and every reference to it",
         "long": "Rename a saved nats queue and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
-        "example": "  komando queue nats rename events events-2 --dry-run\n  komando queue nats rename events events-2",
+        "example": "  komando queue nats rename prod-nats prod-nats-2 --dry-run\n  komando queue nats rename prod-nats prod-nats-2",
         "runnable": true,
         "kind": "change",
         "confirm": [
@@ -8134,7 +8134,7 @@
         "path": "komando queue nats show",
         "usage": "komando queue nats show NAME [flags]",
         "short": "Show a saved nats queue's settings (credentials as names)",
-        "example": "  komando queue nats show events\n  komando queue nats show events -o json",
+        "example": "  komando queue nats show prod-nats\n  komando queue nats show prod-nats -o json",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -8147,7 +8147,7 @@
         "path": "komando queue nats test",
         "usage": "komando queue nats test TARGET [flags]",
         "short": "Check that a saved nats queue answers and lets you in",
-        "example": "  komando queue nats test events\n  komando queue nats test @web",
+        "example": "  komando queue nats test prod-nats\n  komando queue nats test @web",
         "flags": [
           {
             "name": "end",
@@ -8174,7 +8174,7 @@
         "path": "komando queue nats topic",
         "usage": "komando queue nats topic [flags]",
         "short": "The topics (queues, streams) of a broker: list, show, create, delete",
-        "example": "  komando queue nats topic list events\n  komando queue nats topic show events ORDERS\n  komando queue nats topic create events ORDERS --dry-run\n  komando queue nats topic delete events old-ORDERS --dry-run",
+        "example": "  komando queue nats topic list prod-nats\n  komando queue nats topic show prod-nats ORDERS\n  komando queue nats topic create prod-nats ORDERS --dry-run\n  komando queue nats topic delete prod-nats old-ORDERS --dry-run",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -8186,9 +8186,9 @@
       {
         "path": "komando queue nats topic create",
         "usage": "komando queue nats topic create NAME TOPIC [flags]",
-        "short": "Create a topic, queue or stream",
-        "long": "Create a topic, queue or stream.\n\nSafety: a change; try it with --dry-run first.",
-        "example": "  komando queue nats topic create events ORDERS --dry-run\n  komando queue nats topic create events ORDERS --config retention.ms=604800000",
+        "short": "Create a topic of a NATS server",
+        "long": "Create a topic of a NATS server.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue nats topic create prod-nats ORDERS --dry-run\n  komando queue nats topic create prod-nats ORDERS --config retention.ms=604800000",
         "flags": [
           {
             "name": "config",
@@ -8225,9 +8225,9 @@
       {
         "path": "komando queue nats topic delete",
         "usage": "komando queue nats topic delete NAME TOPIC... [flags]",
-        "short": "Delete topics, queues or streams with their messages",
-        "long": "Delete topics, queues or streams with their messages.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
-        "example": "  komando queue nats topic delete events old-ORDERS --dry-run\n  komando queue nats topic delete events old-ORDERS --allow-dangerous   # after a person's yes",
+        "short": "Delete topics of a NATS server with their messages",
+        "long": "Delete topics of a NATS server with their messages.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando queue nats topic delete prod-nats old-ORDERS --dry-run\n  komando queue nats topic delete prod-nats old-ORDERS --allow-dangerous   # after a person's yes",
         "runnable": true,
         "kind": "change",
         "confirm": [
@@ -8240,11 +8240,11 @@
       {
         "path": "komando queue nats topic list",
         "usage": "komando queue nats topic list NAME [PATTERN] [flags]",
-        "short": "List topics (or queues, or streams) with their message counts",
+        "short": "List the topics of a NATS server with their message counts",
         "aliases": [
           "ls"
         ],
-        "example": "  komando queue nats topic list events\n  komando queue nats topic list events 'O*' -n 50",
+        "example": "  komando queue nats topic list prod-nats\n  komando queue nats topic list prod-nats 'o*' -n 50",
         "flags": [
           {
             "name": "internal",
@@ -8271,11 +8271,11 @@
       {
         "path": "komando queue nats topic show",
         "usage": "komando queue nats topic show NAME TOPIC [flags]",
-        "short": "One topic, queue or stream: messages, settings, and who reads it",
+        "short": "Show one topic of a NATS server: messages, settings, readers",
         "aliases": [
           "describe"
         ],
-        "example": "  komando queue nats topic show events ORDERS\n  komando queue nats topic show events ORDERS -o json",
+        "example": "  komando queue nats topic show prod-nats ORDERS\n  komando queue nats topic show prod-nats ORDERS -o json",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -8287,8 +8287,8 @@
       {
         "path": "komando queue pubsub",
         "usage": "komando queue pubsub [flags]",
-        "short": "Google Cloud Pub/Sub: save a project, and read, send and manage its topics",
-        "example": "  komando queue pubsub add gcp pubsub://my-project --via web1 --dry-run\n  komando queue pubsub add gcp pubsub://my-project --via web1\n  komando queue pubsub test gcp\n  komando queue pubsub topic list gcp\n  komando queue pubsub message list gcp orders -n 5",
+        "short": "Pub/Sub: save a project, and read, send and manage its topics",
+        "example": "  komando queue pubsub add prod-pubsub pubsub://my-project --via web1 --dry-run\n  komando queue pubsub add prod-pubsub pubsub://my-project --via web1\n  komando queue pubsub test prod-pubsub\n  komando queue pubsub topic list prod-pubsub\n  komando queue pubsub message list prod-pubsub orders -n 5",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -8302,7 +8302,7 @@
         "usage": "komando queue pubsub add NAME [URL] [flags]",
         "short": "Save a pubsub queue under a short name",
         "long": "Save a pubsub queue under a short name.\n\nSafety: a change; try it with --dry-run first.",
-        "example": "  komando queue pubsub add gcp pubsub://my-project --via web1\n  komando queue pubsub add gcp pubsub://my-project --dry-run",
+        "example": "  komando queue pubsub add prod-pubsub pubsub://my-project --via web1\n  komando queue pubsub add prod-pubsub pubsub://my-project --dry-run",
         "flags": [
           {
             "name": "ask-password",
@@ -8379,7 +8379,7 @@
         "path": "komando queue pubsub consumer",
         "usage": "komando queue pubsub consumer [flags]",
         "short": "Consumer groups, consumers or subscriptions: list, show",
-        "example": "  komando queue pubsub consumer list gcp\n  komando queue pubsub consumer list gcp -n 20\n  komando queue pubsub consumer show gcp billing",
+        "example": "  komando queue pubsub consumer list prod-pubsub\n  komando queue pubsub consumer list prod-pubsub -n 20\n  komando queue pubsub consumer show prod-pubsub billing",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -8391,11 +8391,11 @@
       {
         "path": "komando queue pubsub consumer list",
         "usage": "komando queue pubsub consumer list NAME [flags]",
-        "short": "List Kafka consumer groups, NATS consumers or Pub/Sub subscriptions",
+        "short": "List the subscriptions of a Pub/Sub project",
         "aliases": [
           "ls"
         ],
-        "example": "  komando queue pubsub consumer list gcp\n  komando queue pubsub consumer list gcp -n 20",
+        "example": "  komando queue pubsub consumer list prod-pubsub\n  komando queue pubsub consumer list prod-pubsub -n 20",
         "flags": [
           {
             "name": "limit",
@@ -8418,7 +8418,7 @@
         "usage": "komando queue pubsub edit NAME [flags]",
         "short": "Change a saved pubsub queue (only the flags you pass change)",
         "long": "Change a saved pubsub queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
-        "example": "  komando queue pubsub edit gcp --add-tag critical\n  komando queue pubsub edit gcp --notes 'main one' --dry-run",
+        "example": "  komando queue pubsub edit prod-pubsub --add-tag critical\n  komando queue pubsub edit prod-pubsub --notes 'main one' --dry-run",
         "flags": [
           {
             "name": "add-group",
@@ -8511,8 +8511,8 @@
       {
         "path": "komando queue pubsub info",
         "usage": "komando queue pubsub info NAME [flags]",
-        "short": "Server summary: version, brokers or nodes, topic, queue or stream count",
-        "example": "  komando queue pubsub info gcp\n  komando queue pubsub info gcp -o json",
+        "short": "Show the version and size of a Pub/Sub project",
+        "example": "  komando queue pubsub info prod-pubsub\n  komando queue pubsub info prod-pubsub -o json",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -8549,8 +8549,8 @@
       {
         "path": "komando queue pubsub message",
         "usage": "komando queue pubsub message [flags]",
-        "short": "The messages of a topic: list, create, delete --all",
-        "example": "  komando queue pubsub message list gcp orders\n  komando queue pubsub message list gcp orders --oldest -n 5\n  komando queue pubsub message create gcp orders --value test --dry-run\n  komando queue pubsub message delete gcp orders-retry --all --dry-run",
+        "short": "The messages of a topic: list, create, delete",
+        "example": "  komando queue pubsub message list prod-pubsub orders\n  komando queue pubsub message list prod-pubsub orders --oldest -n 5\n  komando queue pubsub message create prod-pubsub orders --value test --dry-run\n  komando queue pubsub message delete prod-pubsub orders-retry --all --dry-run",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -8562,9 +8562,9 @@
       {
         "path": "komando queue pubsub message create",
         "usage": "komando queue pubsub message create NAME TOPIC [flags]",
-        "short": "Publish one message",
-        "long": "Publish one message.\n\nSafety: a change; try it with --dry-run first.",
-        "example": "  komando queue pubsub message create gcp orders --value test --dry-run\n  komando queue pubsub message create gcp orders --from ./order.json --header source=support",
+        "short": "Publish one message to a topic of a Pub/Sub project",
+        "long": "Publish one message to a topic of a Pub/Sub project.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue pubsub message create prod-pubsub orders --value test --dry-run\n  komando queue pubsub message create prod-pubsub orders --from ./order.json --header source=support",
         "flags": [
           {
             "name": "from",
@@ -8605,9 +8605,9 @@
       {
         "path": "komando queue pubsub message delete",
         "usage": "komando queue pubsub message delete NAME TOPIC [flags]",
-        "short": "Empty a topic, queue or stream and keep it",
-        "long": "Empty a topic, queue or stream and keep it.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
-        "example": "  komando queue pubsub message delete gcp orders-retry --all --dry-run\n  komando queue pubsub message delete gcp orders-retry --all --allow-dangerous   # after a person's yes",
+        "short": "Empty a topic of a Pub/Sub project and keep it",
+        "long": "Empty a topic of a Pub/Sub project and keep it.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando queue pubsub message delete prod-pubsub orders-retry --all --dry-run\n  komando queue pubsub message delete prod-pubsub orders-retry --all --allow-dangerous   # after a person's yes",
         "flags": [
           {
             "name": "all",
@@ -8628,11 +8628,11 @@
       {
         "path": "komando queue pubsub message list",
         "usage": "komando queue pubsub message list NAME TOPIC [flags]",
-        "short": "Read the newest (or oldest) messages without removing any",
+        "short": "Read the newest (or oldest) messages of a Pub/Sub project, removing none",
         "aliases": [
           "ls"
         ],
-        "example": "  komando queue pubsub message list gcp orders\n  komando queue pubsub message list gcp orders --oldest -n 5",
+        "example": "  komando queue pubsub message list prod-pubsub orders\n  komando queue pubsub message list prod-pubsub orders --oldest -n 5",
         "flags": [
           {
             "name": "idle",
@@ -8673,7 +8673,7 @@
         "usage": "komando queue pubsub remove TARGET... [flags]",
         "short": "Forget a saved pubsub queue (the queue is not touched)",
         "long": "Forget a saved pubsub queue (the queue is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando queue pubsub remove gcp --dry-run\n  komando queue pubsub remove gcp",
+        "example": "  komando queue pubsub remove prod-pubsub --dry-run\n  komando queue pubsub remove prod-pubsub",
         "runnable": true,
         "kind": "change",
         "confirm": [
@@ -8687,7 +8687,7 @@
         "usage": "komando queue pubsub rename NAME NEW [flags]",
         "short": "Rename a saved pubsub queue and every reference to it",
         "long": "Rename a saved pubsub queue and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
-        "example": "  komando queue pubsub rename gcp gcp-2 --dry-run\n  komando queue pubsub rename gcp gcp-2",
+        "example": "  komando queue pubsub rename prod-pubsub prod-pubsub-2 --dry-run\n  komando queue pubsub rename prod-pubsub prod-pubsub-2",
         "runnable": true,
         "kind": "change",
         "confirm": [
@@ -8700,7 +8700,7 @@
         "path": "komando queue pubsub show",
         "usage": "komando queue pubsub show NAME [flags]",
         "short": "Show a saved pubsub queue's settings (credentials as names)",
-        "example": "  komando queue pubsub show gcp\n  komando queue pubsub show gcp -o json",
+        "example": "  komando queue pubsub show prod-pubsub\n  komando queue pubsub show prod-pubsub -o json",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -8713,7 +8713,7 @@
         "path": "komando queue pubsub test",
         "usage": "komando queue pubsub test TARGET [flags]",
         "short": "Check that a saved pubsub queue answers and lets you in",
-        "example": "  komando queue pubsub test gcp\n  komando queue pubsub test @web",
+        "example": "  komando queue pubsub test prod-pubsub\n  komando queue pubsub test @web",
         "flags": [
           {
             "name": "end",
@@ -8740,7 +8740,7 @@
         "path": "komando queue pubsub topic",
         "usage": "komando queue pubsub topic [flags]",
         "short": "The topics (queues, streams) of a broker: list, show, create, delete",
-        "example": "  komando queue pubsub topic list gcp\n  komando queue pubsub topic show gcp orders\n  komando queue pubsub topic create gcp orders --dry-run\n  komando queue pubsub topic delete gcp old-orders --dry-run",
+        "example": "  komando queue pubsub topic list prod-pubsub\n  komando queue pubsub topic show prod-pubsub orders\n  komando queue pubsub topic create prod-pubsub orders --dry-run\n  komando queue pubsub topic delete prod-pubsub old-orders --dry-run",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -8752,9 +8752,9 @@
       {
         "path": "komando queue pubsub topic create",
         "usage": "komando queue pubsub topic create NAME TOPIC [flags]",
-        "short": "Create a topic, queue or stream",
-        "long": "Create a topic, queue or stream.\n\nSafety: a change; try it with --dry-run first.",
-        "example": "  komando queue pubsub topic create gcp orders --dry-run\n  komando queue pubsub topic create gcp orders --config retention.ms=604800000",
+        "short": "Create a topic of a Pub/Sub project",
+        "long": "Create a topic of a Pub/Sub project.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue pubsub topic create prod-pubsub orders --dry-run\n  komando queue pubsub topic create prod-pubsub orders --config retention.ms=604800000",
         "flags": [
           {
             "name": "config",
@@ -8791,9 +8791,9 @@
       {
         "path": "komando queue pubsub topic delete",
         "usage": "komando queue pubsub topic delete NAME TOPIC... [flags]",
-        "short": "Delete topics, queues or streams with their messages",
-        "long": "Delete topics, queues or streams with their messages.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
-        "example": "  komando queue pubsub topic delete gcp old-orders --dry-run\n  komando queue pubsub topic delete gcp old-orders --allow-dangerous   # after a person's yes",
+        "short": "Delete topics of a Pub/Sub project with their messages",
+        "long": "Delete topics of a Pub/Sub project with their messages.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando queue pubsub topic delete prod-pubsub old-orders --dry-run\n  komando queue pubsub topic delete prod-pubsub old-orders --allow-dangerous   # after a person's yes",
         "runnable": true,
         "kind": "change",
         "confirm": [
@@ -8806,11 +8806,11 @@
       {
         "path": "komando queue pubsub topic list",
         "usage": "komando queue pubsub topic list NAME [PATTERN] [flags]",
-        "short": "List topics (or queues, or streams) with their message counts",
+        "short": "List the topics of a Pub/Sub project with their message counts",
         "aliases": [
           "ls"
         ],
-        "example": "  komando queue pubsub topic list gcp\n  komando queue pubsub topic list gcp 'o*' -n 50",
+        "example": "  komando queue pubsub topic list prod-pubsub\n  komando queue pubsub topic list prod-pubsub 'o*' -n 50",
         "flags": [
           {
             "name": "internal",
@@ -8837,11 +8837,11 @@
       {
         "path": "komando queue pubsub topic show",
         "usage": "komando queue pubsub topic show NAME TOPIC [flags]",
-        "short": "One topic, queue or stream: messages, settings, and who reads it",
+        "short": "Show one topic of a Pub/Sub project: messages, settings, readers",
         "aliases": [
           "describe"
         ],
-        "example": "  komando queue pubsub topic show gcp orders\n  komando queue pubsub topic show gcp orders -o json",
+        "example": "  komando queue pubsub topic show prod-pubsub orders\n  komando queue pubsub topic show prod-pubsub orders -o json",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -8854,7 +8854,7 @@
         "path": "komando queue rabbitmq",
         "usage": "komando queue rabbitmq [flags]",
         "short": "RabbitMQ: save a broker, and read, send and manage its queues",
-        "example": "  komando queue rabbitmq add jobs amqps://app@10.0.0.9/ --via web1 --dry-run\n  komando queue rabbitmq add jobs amqps://app@10.0.0.9/ --via web1\n  komando queue rabbitmq test jobs\n  komando queue rabbitmq topic list jobs\n  komando queue rabbitmq message list jobs emails -n 5",
+        "example": "  komando queue rabbitmq add prod-rabbit amqps://app@10.0.0.9/ --via web1 --dry-run\n  komando queue rabbitmq add prod-rabbit amqps://app@10.0.0.9/ --via web1\n  komando queue rabbitmq test prod-rabbit\n  komando queue rabbitmq topic list prod-rabbit\n  komando queue rabbitmq message list prod-rabbit emails -n 5",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -8868,7 +8868,7 @@
         "usage": "komando queue rabbitmq add NAME [URL] [flags]",
         "short": "Save a rabbitmq queue under a short name",
         "long": "Save a rabbitmq queue under a short name.\n\nSafety: a change; try it with --dry-run first.",
-        "example": "  komando queue rabbitmq add jobs amqps://app@10.0.0.9/ --via web1\n  komando queue rabbitmq add jobs amqps://app@10.0.0.9/ --dry-run",
+        "example": "  komando queue rabbitmq add prod-rabbit amqps://app@10.0.0.9/ --via web1\n  komando queue rabbitmq add prod-rabbit amqps://app@10.0.0.9/ --dry-run",
         "flags": [
           {
             "name": "ask-password",
@@ -8946,7 +8946,7 @@
         "usage": "komando queue rabbitmq edit NAME [flags]",
         "short": "Change a saved rabbitmq queue (only the flags you pass change)",
         "long": "Change a saved rabbitmq queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
-        "example": "  komando queue rabbitmq edit jobs --add-tag critical\n  komando queue rabbitmq edit jobs --notes 'main one' --dry-run",
+        "example": "  komando queue rabbitmq edit prod-rabbit --add-tag critical\n  komando queue rabbitmq edit prod-rabbit --notes 'main one' --dry-run",
         "flags": [
           {
             "name": "add-group",
@@ -9039,8 +9039,8 @@
       {
         "path": "komando queue rabbitmq info",
         "usage": "komando queue rabbitmq info NAME [flags]",
-        "short": "Server summary: version, brokers or nodes, topic, queue or stream count",
-        "example": "  komando queue rabbitmq info jobs\n  komando queue rabbitmq info jobs -o json",
+        "short": "Show the version and size of a RabbitMQ broker",
+        "example": "  komando queue rabbitmq info prod-rabbit\n  komando queue rabbitmq info prod-rabbit -o json",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -9077,8 +9077,8 @@
       {
         "path": "komando queue rabbitmq message",
         "usage": "komando queue rabbitmq message [flags]",
-        "short": "The messages of a topic: list, create, delete --all",
-        "example": "  komando queue rabbitmq message list jobs emails\n  komando queue rabbitmq message list jobs emails --oldest -n 5\n  komando queue rabbitmq message create jobs emails --value test --dry-run\n  komando queue rabbitmq message delete jobs emails-retry --all --dry-run",
+        "short": "The messages of a topic: list, create, delete",
+        "example": "  komando queue rabbitmq message list prod-rabbit emails\n  komando queue rabbitmq message list prod-rabbit emails --oldest -n 5\n  komando queue rabbitmq message create prod-rabbit emails --value test --dry-run\n  komando queue rabbitmq message delete prod-rabbit emails-retry --all --dry-run",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -9090,9 +9090,9 @@
       {
         "path": "komando queue rabbitmq message create",
         "usage": "komando queue rabbitmq message create NAME TOPIC [flags]",
-        "short": "Publish one message",
-        "long": "Publish one message.\n\nSafety: a change; try it with --dry-run first.",
-        "example": "  komando queue rabbitmq message create jobs emails --value test --dry-run\n  komando queue rabbitmq message create jobs emails --from ./order.json --header source=support",
+        "short": "Publish one message to a topic of a RabbitMQ broker",
+        "long": "Publish one message to a topic of a RabbitMQ broker.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue rabbitmq message create prod-rabbit emails --value test --dry-run\n  komando queue rabbitmq message create prod-rabbit emails --from ./order.json --header source=support",
         "flags": [
           {
             "name": "from",
@@ -9133,9 +9133,9 @@
       {
         "path": "komando queue rabbitmq message delete",
         "usage": "komando queue rabbitmq message delete NAME TOPIC [flags]",
-        "short": "Empty a topic, queue or stream and keep it",
-        "long": "Empty a topic, queue or stream and keep it.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
-        "example": "  komando queue rabbitmq message delete jobs emails-retry --all --dry-run\n  komando queue rabbitmq message delete jobs emails-retry --all --allow-dangerous   # after a person's yes",
+        "short": "Empty a topic of a RabbitMQ broker and keep it",
+        "long": "Empty a topic of a RabbitMQ broker and keep it.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando queue rabbitmq message delete prod-rabbit emails-retry --all --dry-run\n  komando queue rabbitmq message delete prod-rabbit emails-retry --all --allow-dangerous   # after a person's yes",
         "flags": [
           {
             "name": "all",
@@ -9156,11 +9156,11 @@
       {
         "path": "komando queue rabbitmq message list",
         "usage": "komando queue rabbitmq message list NAME TOPIC [flags]",
-        "short": "Read the newest (or oldest) messages without removing any",
+        "short": "Read the newest (or oldest) messages of a RabbitMQ broker, removing none",
         "aliases": [
           "ls"
         ],
-        "example": "  komando queue rabbitmq message list jobs emails\n  komando queue rabbitmq message list jobs emails --oldest -n 5",
+        "example": "  komando queue rabbitmq message list prod-rabbit emails\n  komando queue rabbitmq message list prod-rabbit emails --oldest -n 5",
         "flags": [
           {
             "name": "idle",
@@ -9201,7 +9201,7 @@
         "usage": "komando queue rabbitmq remove TARGET... [flags]",
         "short": "Forget a saved rabbitmq queue (the queue is not touched)",
         "long": "Forget a saved rabbitmq queue (the queue is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando queue rabbitmq remove jobs --dry-run\n  komando queue rabbitmq remove jobs",
+        "example": "  komando queue rabbitmq remove prod-rabbit --dry-run\n  komando queue rabbitmq remove prod-rabbit",
         "runnable": true,
         "kind": "change",
         "confirm": [
@@ -9215,7 +9215,7 @@
         "usage": "komando queue rabbitmq rename NAME NEW [flags]",
         "short": "Rename a saved rabbitmq queue and every reference to it",
         "long": "Rename a saved rabbitmq queue and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
-        "example": "  komando queue rabbitmq rename jobs jobs-2 --dry-run\n  komando queue rabbitmq rename jobs jobs-2",
+        "example": "  komando queue rabbitmq rename prod-rabbit prod-rabbit-2 --dry-run\n  komando queue rabbitmq rename prod-rabbit prod-rabbit-2",
         "runnable": true,
         "kind": "change",
         "confirm": [
@@ -9228,7 +9228,7 @@
         "path": "komando queue rabbitmq show",
         "usage": "komando queue rabbitmq show NAME [flags]",
         "short": "Show a saved rabbitmq queue's settings (credentials as names)",
-        "example": "  komando queue rabbitmq show jobs\n  komando queue rabbitmq show jobs -o json",
+        "example": "  komando queue rabbitmq show prod-rabbit\n  komando queue rabbitmq show prod-rabbit -o json",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -9241,7 +9241,7 @@
         "path": "komando queue rabbitmq test",
         "usage": "komando queue rabbitmq test TARGET [flags]",
         "short": "Check that a saved rabbitmq queue answers and lets you in",
-        "example": "  komando queue rabbitmq test jobs\n  komando queue rabbitmq test @web",
+        "example": "  komando queue rabbitmq test prod-rabbit\n  komando queue rabbitmq test @web",
         "flags": [
           {
             "name": "end",
@@ -9268,7 +9268,7 @@
         "path": "komando queue rabbitmq topic",
         "usage": "komando queue rabbitmq topic [flags]",
         "short": "The topics (queues, streams) of a broker: list, show, create, delete",
-        "example": "  komando queue rabbitmq topic list jobs\n  komando queue rabbitmq topic show jobs emails\n  komando queue rabbitmq topic create jobs emails --dry-run\n  komando queue rabbitmq topic delete jobs old-emails --dry-run",
+        "example": "  komando queue rabbitmq topic list prod-rabbit\n  komando queue rabbitmq topic show prod-rabbit emails\n  komando queue rabbitmq topic create prod-rabbit emails --dry-run\n  komando queue rabbitmq topic delete prod-rabbit old-emails --dry-run",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -9280,9 +9280,9 @@
       {
         "path": "komando queue rabbitmq topic create",
         "usage": "komando queue rabbitmq topic create NAME TOPIC [flags]",
-        "short": "Create a topic, queue or stream",
-        "long": "Create a topic, queue or stream.\n\nSafety: a change; try it with --dry-run first.",
-        "example": "  komando queue rabbitmq topic create jobs emails --dry-run\n  komando queue rabbitmq topic create jobs emails --config retention.ms=604800000",
+        "short": "Create a topic of a RabbitMQ broker",
+        "long": "Create a topic of a RabbitMQ broker.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue rabbitmq topic create prod-rabbit emails --dry-run\n  komando queue rabbitmq topic create prod-rabbit emails --config retention.ms=604800000",
         "flags": [
           {
             "name": "config",
@@ -9319,9 +9319,9 @@
       {
         "path": "komando queue rabbitmq topic delete",
         "usage": "komando queue rabbitmq topic delete NAME TOPIC... [flags]",
-        "short": "Delete topics, queues or streams with their messages",
-        "long": "Delete topics, queues or streams with their messages.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
-        "example": "  komando queue rabbitmq topic delete jobs old-emails --dry-run\n  komando queue rabbitmq topic delete jobs old-emails --allow-dangerous   # after a person's yes",
+        "short": "Delete topics of a RabbitMQ broker with their messages",
+        "long": "Delete topics of a RabbitMQ broker with their messages.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando queue rabbitmq topic delete prod-rabbit old-emails --dry-run\n  komando queue rabbitmq topic delete prod-rabbit old-emails --allow-dangerous   # after a person's yes",
         "runnable": true,
         "kind": "change",
         "confirm": [
@@ -9334,11 +9334,11 @@
       {
         "path": "komando queue rabbitmq topic list",
         "usage": "komando queue rabbitmq topic list NAME [PATTERN] [flags]",
-        "short": "List topics (or queues, or streams) with their message counts",
+        "short": "List the topics of a RabbitMQ broker with their message counts",
         "aliases": [
           "ls"
         ],
-        "example": "  komando queue rabbitmq topic list jobs\n  komando queue rabbitmq topic list jobs 'e*' -n 50",
+        "example": "  komando queue rabbitmq topic list prod-rabbit\n  komando queue rabbitmq topic list prod-rabbit 'e*' -n 50",
         "flags": [
           {
             "name": "internal",
@@ -9365,11 +9365,11 @@
       {
         "path": "komando queue rabbitmq topic show",
         "usage": "komando queue rabbitmq topic show NAME TOPIC [flags]",
-        "short": "One topic, queue or stream: messages, settings, and who reads it",
+        "short": "Show one topic of a RabbitMQ broker: messages, settings, readers",
         "aliases": [
           "describe"
         ],
-        "example": "  komando queue rabbitmq topic show jobs emails\n  komando queue rabbitmq topic show jobs emails -o json",
+        "example": "  komando queue rabbitmq topic show prod-rabbit emails\n  komando queue rabbitmq topic show prod-rabbit emails -o json",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -9382,7 +9382,7 @@
         "path": "komando queue sqs",
         "usage": "komando queue sqs [flags]",
         "short": "Amazon SQS: save an account, and read, send and manage its queues",
-        "example": "  komando queue sqs add aws-queues sqs://eu-west-1 --via web1 --dry-run\n  komando queue sqs add aws-queues sqs://eu-west-1 --via web1\n  komando queue sqs test aws-queues\n  komando queue sqs topic list aws-queues\n  komando queue sqs message list aws-queues orders -n 5",
+        "example": "  komando queue sqs add prod-sqs sqs://eu-west-1 --via web1 --dry-run\n  komando queue sqs add prod-sqs sqs://eu-west-1 --via web1\n  komando queue sqs test prod-sqs\n  komando queue sqs topic list prod-sqs\n  komando queue sqs message list prod-sqs orders -n 5",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -9396,7 +9396,7 @@
         "usage": "komando queue sqs add NAME [URL] [flags]",
         "short": "Save a sqs queue under a short name",
         "long": "Save a sqs queue under a short name.\n\nSafety: a change; try it with --dry-run first.",
-        "example": "  komando queue sqs add aws-queues sqs://eu-west-1 --via web1\n  komando queue sqs add aws-queues sqs://eu-west-1 --dry-run",
+        "example": "  komando queue sqs add prod-sqs sqs://eu-west-1 --via web1\n  komando queue sqs add prod-sqs sqs://eu-west-1 --dry-run",
         "flags": [
           {
             "name": "ask-password",
@@ -9474,7 +9474,7 @@
         "usage": "komando queue sqs edit NAME [flags]",
         "short": "Change a saved sqs queue (only the flags you pass change)",
         "long": "Change a saved sqs queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
-        "example": "  komando queue sqs edit aws-queues --add-tag critical\n  komando queue sqs edit aws-queues --notes 'main one' --dry-run",
+        "example": "  komando queue sqs edit prod-sqs --add-tag critical\n  komando queue sqs edit prod-sqs --notes 'main one' --dry-run",
         "flags": [
           {
             "name": "add-group",
@@ -9567,8 +9567,8 @@
       {
         "path": "komando queue sqs info",
         "usage": "komando queue sqs info NAME [flags]",
-        "short": "Server summary: version, brokers or nodes, topic, queue or stream count",
-        "example": "  komando queue sqs info aws-queues\n  komando queue sqs info aws-queues -o json",
+        "short": "Show the version and size of a SQS account",
+        "example": "  komando queue sqs info prod-sqs\n  komando queue sqs info prod-sqs -o json",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -9605,8 +9605,8 @@
       {
         "path": "komando queue sqs message",
         "usage": "komando queue sqs message [flags]",
-        "short": "The messages of a topic: list, create, delete --all",
-        "example": "  komando queue sqs message list aws-queues orders\n  komando queue sqs message list aws-queues orders --oldest -n 5\n  komando queue sqs message create aws-queues orders --value test --dry-run\n  komando queue sqs message delete aws-queues orders-retry --all --dry-run",
+        "short": "The messages of a topic: list, create, delete",
+        "example": "  komando queue sqs message list prod-sqs orders\n  komando queue sqs message list prod-sqs orders --oldest -n 5\n  komando queue sqs message create prod-sqs orders --value test --dry-run\n  komando queue sqs message delete prod-sqs orders-retry --all --dry-run",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -9618,9 +9618,9 @@
       {
         "path": "komando queue sqs message create",
         "usage": "komando queue sqs message create NAME TOPIC [flags]",
-        "short": "Publish one message",
-        "long": "Publish one message.\n\nSafety: a change; try it with --dry-run first.",
-        "example": "  komando queue sqs message create aws-queues orders --value test --dry-run\n  komando queue sqs message create aws-queues orders --from ./order.json --header source=support",
+        "short": "Publish one message to a topic of a SQS account",
+        "long": "Publish one message to a topic of a SQS account.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue sqs message create prod-sqs orders --value test --dry-run\n  komando queue sqs message create prod-sqs orders --from ./order.json --header source=support",
         "flags": [
           {
             "name": "from",
@@ -9661,9 +9661,9 @@
       {
         "path": "komando queue sqs message delete",
         "usage": "komando queue sqs message delete NAME TOPIC [flags]",
-        "short": "Empty a topic, queue or stream and keep it",
-        "long": "Empty a topic, queue or stream and keep it.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
-        "example": "  komando queue sqs message delete aws-queues orders-retry --all --dry-run\n  komando queue sqs message delete aws-queues orders-retry --all --allow-dangerous   # after a person's yes",
+        "short": "Empty a topic of a SQS account and keep it",
+        "long": "Empty a topic of a SQS account and keep it.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando queue sqs message delete prod-sqs orders-retry --all --dry-run\n  komando queue sqs message delete prod-sqs orders-retry --all --allow-dangerous   # after a person's yes",
         "flags": [
           {
             "name": "all",
@@ -9684,11 +9684,11 @@
       {
         "path": "komando queue sqs message list",
         "usage": "komando queue sqs message list NAME TOPIC [flags]",
-        "short": "Read the newest (or oldest) messages without removing any",
+        "short": "Read the newest (or oldest) messages of a SQS account, removing none",
         "aliases": [
           "ls"
         ],
-        "example": "  komando queue sqs message list aws-queues orders\n  komando queue sqs message list aws-queues orders --oldest -n 5",
+        "example": "  komando queue sqs message list prod-sqs orders\n  komando queue sqs message list prod-sqs orders --oldest -n 5",
         "flags": [
           {
             "name": "idle",
@@ -9729,7 +9729,7 @@
         "usage": "komando queue sqs remove TARGET... [flags]",
         "short": "Forget a saved sqs queue (the queue is not touched)",
         "long": "Forget a saved sqs queue (the queue is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando queue sqs remove aws-queues --dry-run\n  komando queue sqs remove aws-queues",
+        "example": "  komando queue sqs remove prod-sqs --dry-run\n  komando queue sqs remove prod-sqs",
         "runnable": true,
         "kind": "change",
         "confirm": [
@@ -9743,7 +9743,7 @@
         "usage": "komando queue sqs rename NAME NEW [flags]",
         "short": "Rename a saved sqs queue and every reference to it",
         "long": "Rename a saved sqs queue and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
-        "example": "  komando queue sqs rename aws-queues aws-queues-2 --dry-run\n  komando queue sqs rename aws-queues aws-queues-2",
+        "example": "  komando queue sqs rename prod-sqs prod-sqs-2 --dry-run\n  komando queue sqs rename prod-sqs prod-sqs-2",
         "runnable": true,
         "kind": "change",
         "confirm": [
@@ -9756,7 +9756,7 @@
         "path": "komando queue sqs show",
         "usage": "komando queue sqs show NAME [flags]",
         "short": "Show a saved sqs queue's settings (credentials as names)",
-        "example": "  komando queue sqs show aws-queues\n  komando queue sqs show aws-queues -o json",
+        "example": "  komando queue sqs show prod-sqs\n  komando queue sqs show prod-sqs -o json",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -9769,7 +9769,7 @@
         "path": "komando queue sqs test",
         "usage": "komando queue sqs test TARGET [flags]",
         "short": "Check that a saved sqs queue answers and lets you in",
-        "example": "  komando queue sqs test aws-queues\n  komando queue sqs test @web",
+        "example": "  komando queue sqs test prod-sqs\n  komando queue sqs test @web",
         "flags": [
           {
             "name": "end",
@@ -9796,7 +9796,7 @@
         "path": "komando queue sqs topic",
         "usage": "komando queue sqs topic [flags]",
         "short": "The topics (queues, streams) of a broker: list, show, create, delete",
-        "example": "  komando queue sqs topic list aws-queues\n  komando queue sqs topic show aws-queues orders\n  komando queue sqs topic create aws-queues orders --dry-run\n  komando queue sqs topic delete aws-queues old-orders --dry-run",
+        "example": "  komando queue sqs topic list prod-sqs\n  komando queue sqs topic show prod-sqs orders\n  komando queue sqs topic create prod-sqs orders --dry-run\n  komando queue sqs topic delete prod-sqs old-orders --dry-run",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -9808,9 +9808,9 @@
       {
         "path": "komando queue sqs topic create",
         "usage": "komando queue sqs topic create NAME TOPIC [flags]",
-        "short": "Create a topic, queue or stream",
-        "long": "Create a topic, queue or stream.\n\nSafety: a change; try it with --dry-run first.",
-        "example": "  komando queue sqs topic create aws-queues orders --dry-run\n  komando queue sqs topic create aws-queues orders --config retention.ms=604800000",
+        "short": "Create a topic of a SQS account",
+        "long": "Create a topic of a SQS account.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue sqs topic create prod-sqs orders --dry-run\n  komando queue sqs topic create prod-sqs orders --config retention.ms=604800000",
         "flags": [
           {
             "name": "config",
@@ -9847,9 +9847,9 @@
       {
         "path": "komando queue sqs topic delete",
         "usage": "komando queue sqs topic delete NAME TOPIC... [flags]",
-        "short": "Delete topics, queues or streams with their messages",
-        "long": "Delete topics, queues or streams with their messages.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
-        "example": "  komando queue sqs topic delete aws-queues old-orders --dry-run\n  komando queue sqs topic delete aws-queues old-orders --allow-dangerous   # after a person's yes",
+        "short": "Delete topics of a SQS account with their messages",
+        "long": "Delete topics of a SQS account with their messages.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando queue sqs topic delete prod-sqs old-orders --dry-run\n  komando queue sqs topic delete prod-sqs old-orders --allow-dangerous   # after a person's yes",
         "runnable": true,
         "kind": "change",
         "confirm": [
@@ -9862,11 +9862,11 @@
       {
         "path": "komando queue sqs topic list",
         "usage": "komando queue sqs topic list NAME [PATTERN] [flags]",
-        "short": "List topics (or queues, or streams) with their message counts",
+        "short": "List the topics of a SQS account with their message counts",
         "aliases": [
           "ls"
         ],
-        "example": "  komando queue sqs topic list aws-queues\n  komando queue sqs topic list aws-queues 'o*' -n 50",
+        "example": "  komando queue sqs topic list prod-sqs\n  komando queue sqs topic list prod-sqs 'o*' -n 50",
         "flags": [
           {
             "name": "internal",
@@ -9893,11 +9893,11 @@
       {
         "path": "komando queue sqs topic show",
         "usage": "komando queue sqs topic show NAME TOPIC [flags]",
-        "short": "One topic, queue or stream: messages, settings, and who reads it",
+        "short": "Show one topic of a SQS account: messages, settings, readers",
         "aliases": [
           "describe"
         ],
-        "example": "  komando queue sqs topic show aws-queues orders\n  komando queue sqs topic show aws-queues orders -o json",
+        "example": "  komando queue sqs topic show prod-sqs orders\n  komando queue sqs topic show prod-sqs orders -o json",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -13537,13 +13537,13 @@
         "code": "CONSUMER_GROUP_NOT_FOUND",
         "exit": 3,
         "example": "no consumer group named …",
-        "hint": "list consumer groups with `komando queue groups CONN`"
+        "hint": "list consumer groups with `komando queue kafka consumer list NAME`"
       },
       {
         "code": "CONSUMER_NOT_FOUND",
         "exit": 3,
         "example": "no consumer named …",
-        "hint": "list consumers with `komando queue groups CONN`; name one as STREAM/CONSUMER"
+        "hint": "list consumers with `komando queue nats consumer list NAME`; name one as STREAM/CONSUMER"
       },
       {
         "code": "CRONTAB_UNREADABLE",
@@ -14219,7 +14219,7 @@
         "code": "PARTITION_NOT_FOUND",
         "exit": 3,
         "example": "topic … has no partition … (it has …)",
-        "hint": "partitions are numbered from 0; see them with `komando queue describe CONN …`"
+        "hint": "partitions are numbered from 0; see them with `komando queue kafka topic show NAME …`"
       },
       {
         "code": "PASSPHRASE_MISMATCH",
@@ -14327,13 +14327,13 @@
         "code": "QUEUE_EXISTS",
         "exit": 8,
         "example": "queue … already exists",
-        "hint": "pick another name, or see it with `komando queue describe CONN …`"
+        "hint": "pick another name, or see it with `komando queue rabbitmq topic show NAME …`"
       },
       {
         "code": "QUEUE_NOT_FOUND",
         "exit": 3,
         "example": "no queue named …",
-        "hint": "list queues with `komando queue list CONN` (it needs ?management=PORT in the conn's URL); the vhost is the URL's path"
+        "hint": "list queues with `komando queue rabbitmq topic list NAME` (it needs ?management=PORT in the conn's URL); the vhost is the URL's path"
       },
       {
         "code": "READ_FAILED",
@@ -14902,25 +14902,25 @@
         "code": "STREAM_EXISTS",
         "exit": 8,
         "example": "stream … already exists",
-        "hint": "pick another name, or see it with `komando queue describe CONN …`"
+        "hint": "pick another name, or see it with `komando queue nats topic show NAME …`"
       },
       {
         "code": "STREAM_NOT_FOUND",
         "exit": 3,
         "example": "no stream named …",
-        "hint": "list streams with `komando queue list CONN`"
+        "hint": "list streams with `komando queue nats topic list NAME`"
       },
       {
         "code": "SUBSCRIPTION_EXISTS",
         "exit": 8,
         "example": "subscription … already exists",
-        "hint": "pick another name, or see it with `komando queue describe CONN subscriptions/…`"
+        "hint": "pick another name, or see it with `komando queue pubsub topic show NAME subscriptions/…`"
       },
       {
         "code": "SUBSCRIPTION_NOT_FOUND",
         "exit": 3,
         "example": "no subscription named …",
-        "hint": "list subscriptions with `komando queue groups CONN`; `komando queue describe CONN TOPIC` shows a topic's own"
+        "hint": "list subscriptions with `komando queue pubsub consumer list NAME`; `komando queue pubsub topic show NAME TOPIC` shows a topic's own"
       },
       {
         "code": "SVC_FAILED",
@@ -15022,13 +15022,13 @@
         "code": "TOPIC_EXISTS",
         "exit": 8,
         "example": "topic … already exists",
-        "hint": "pick another name, or see it with `komando queue describe CONN …`"
+        "hint": "pick another name, or see it with `komando queue kafka topic show NAME …`"
       },
       {
         "code": "TOPIC_NOT_FOUND",
         "exit": 3,
         "example": "no topic named …",
-        "hint": "list topics with `komando queue list CONN`"
+        "hint": "list topics with `komando queue kafka topic list NAME`"
       },
       {
         "code": "TUNNEL_FAILED",
