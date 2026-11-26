@@ -327,6 +327,13 @@ key added with `key add` stays on disk). Such a key has no copy, so at your
 terminal you type the key's name; an AI agent or a script adds
 `--allow-dangerous` after a person agrees.
 
+A key logs in as one user. When a server uses a key that another server
+uses under another user, komando gives that user a copy of its own, named
+`KEY-USER` (a key komando made is copied, sealed as the original). The two
+are separate from then on: rotating or removing one leaves the other, so
+`komando key list` shows both and each is rotated and removed by its own
+name. The audit log records each copy.
+
 To replace a key everywhere, in order, see [Rotate keys and passwords](rotate.md).
 
 ### Keys with a certificate
