@@ -131,3 +131,41 @@ func TestOldReference(t *testing.T) {
 		})
 	}
 }
+
+// CredentialRef is the one check of a reference to a credential, shared by
+// the store's writer and the CLI's flags: empty and credential:NAME pass,
+// the old spelling and an outside store stop with BAD_REFERENCE. Anything
+// else is not a reference; the caller says what it wants instead.
+func TestCredentialRef(t *testing.T) {
+	for _, tc := range []struct {
+		ref, hint string
+	}{
+		{"", ""},
+		{"credential:db-pw", ""},
+		{"hunter2", ""},
+		{"secret:db-pw", "credential:db-pw"},
+		{"env:DB_PW", "credential:NAME"},
+		{"file:/tmp/pw", "credential:NAME"},
+		{"op://ops/db/password", "credential:NAME"},
+		{"vault:kv/app#pw", "credential:NAME"},
+		{"kdbx:~/t.kdbx#a", "credential:NAME"},
+	} {
+		t.Run(tc.ref, func(t *testing.T) {
+			err := CredentialRef("--password-ref", tc.ref)
+			if tc.hint == "" {
+				if err != nil {
+					t.Fatalf("got %v, want nil", err)
+				}
+				return
+			}
+			var oe *out.Error
+			if !errorsAs(err, &oe) || oe.Code != "BAD_REFERENCE" || oe.Exit != out.ExitUsage ||
+				!strings.Contains(oe.Hint, tc.hint) || !strings.Contains(oe.Message, "--password-ref") {
+				t.Fatalf("got %v, want BAD_REFERENCE on --password-ref naming %s", err, tc.hint)
+			}
+			if strings.Contains(oe.Message+oe.Hint, tc.ref) && tc.ref != "secret:db-pw" {
+				t.Fatalf("the message repeats the reference: %v", err)
+			}
+		})
+	}
+}

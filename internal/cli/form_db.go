@@ -215,7 +215,7 @@ func snowflakeForm(_ *call) formSpec {
 			help:  "A .p8 or .pem file without a passphrase. komando reads it each time, so leave it where it is.",
 			check: func(_ *store.State, _ formAnswers, v string) string { return snowflakeKeyProblem(v) }}, login("keyfile")),
 		formWhen(formQ{key: "secret", label: "Saved key", ask: "Which saved secret holds the key or the token?", free: true,
-			help:    "A name from komando secret list, or where it is kept, like credential:NAME or env:VAR.",
+			help:    "A name from komando secret list, or credential:NAME.",
 			choices: cacheSecretRows, check: cacheSecretProblem}, login("secret")),
 		{key: "warehouse", label: "Warehouse", ask: "Which warehouse runs the queries?", optional: true, example: "REPORTING",
 			help: "Most queries need one. Empty is fine for a first test.", check: dbNameProblem},

@@ -75,7 +75,11 @@ komando exec web1 --env DB_PASS=credential:prod-db-pass -- ./migrate.sh
 komando fs replace web1 /srv/app/.env --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{credential:prod-db-pass}}' --backup
 ```
 
-A reference can also read a password your team keeps elsewhere: `env:VAR`,
+A flag that komando keeps with a server, a service, a VPN or a key
+(`--password-ref`, `--sudo-ref`, `--psk-ref`, `--passphrase-ref`) takes
+`credential:NAME` only; another store there is refused with
+`BAD_REFERENCE`. For one command (`--env`, and `db user add` and `passwd`),
+a reference can also read a password your team keeps elsewhere: `env:VAR`,
 `file:PATH`, HashiCorp Vault or OpenBao (`vault:PATH#FIELD`), AWS, Google
 and Azure secret managers (`aws-sm:`, `gcp-sm:`, `azure-kv:`), 1Password
 Connect (`op://`), Bitwarden or Vaultwarden (`bw://`) and KeePass files

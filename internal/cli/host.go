@@ -35,7 +35,7 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 	fl.StringVar(&f.user, "user", "", "the user to log in as")
 	fl.StringVar(&f.key, "key", "", "name of a key in komando's key list (see komando key list)")
 	fl.StringVar(&f.identity, "identity", "", "path to a private key file")
-	fl.StringVar(&f.passwordRef, "password-ref", "", "where the password is: credential:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...")
+	fl.StringVar(&f.passwordRef, "password-ref", "", "where the password is: credential:NAME (saved with komando secret set NAME)")
 	fl.StringVar(&f.login, "login", "", loginFlagUsage)
 	_ = c.RegisterFlagCompletionFunc("login", cobra.FixedCompletions(loginCompletions, cobra.ShellCompDirectiveNoFileComp))
 	fl.StringVar(&f.sudoRef, "sudo-ref", "", "where the sudo password is, written like --password-ref")
@@ -675,11 +675,11 @@ func checkHostRefs(h *store.Host) error {
 		return err
 	}
 	for _, r := range []struct{ flag, ref string }{{"--password-ref", h.PasswordRef}, {"--sudo-ref", h.SudoRef}} {
-		if err := oldRef(r.flag, r.ref); err != nil {
+		if err := store.CredentialRef(r.flag, r.ref); err != nil {
 			return err
 		}
 		if r.ref != "" && !vault.ValidRef(r.ref) {
-			return out.Usage("%s takes a reference, not the password itself (%s); store the password with `komando secret set NAME` first", r.flag, vault.RefHelp())
+			return out.Usage("%s takes a reference, not the password itself: store the password with `komando secret set NAME`, then pass credential:NAME", r.flag)
 		}
 	}
 	return nil

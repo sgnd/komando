@@ -92,9 +92,9 @@ komando vpn add office proxy --proxy-address proxy.corp.example:3128
   reuse the secrets of the VPN it replaces, when nothing else uses them,
   and a secret that nothing uses and that holds the same key already (the
   same file added again after `vpn rm`) is reused too.
-- `--password-ref` works like everywhere else in komando:
-  `credential:NAME`, `env:VAR`, a password manager, and so on (see
-  [Servers](servers.md)). For Tailscale it is an auth key. The VPN sends
+- `--password-ref` and `--psk-ref` take `credential:NAME`, a secret saved
+  with `komando secret set NAME` (see [Secrets](secrets.md)); another store
+  (`env:VAR`, `op://...`) is refused. For Tailscale it is an auth key. The VPN sends
   it (and `--psk-ref`) to its server each time it connects, so when an AI
   agent adds a VPN with one, or points a VPN at another server or address,
   a person allows it: `--yes` and a click in komando's window, which names

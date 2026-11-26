@@ -191,7 +191,7 @@ func (e *vpnEditFlags) bind(c *cobra.Command) {
 	f.StringVar(&e.localID, "id", "", "IPsec: the group name; IKEv2: your identity")
 	f.StringVar(&e.remoteID, "remote-id", "", "IKEv2: the server's identity")
 	f.StringVar(&e.user, "user", "", "user name for the VPN login")
-	f.StringVar(&e.passwordRef, "password-ref", "", "password as credential:NAME | env:VAR | file:PATH | op://... | bw://... | kdbx:... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME | azure-kv:VAULT/NAME")
+	f.StringVar(&e.passwordRef, "password-ref", "", "password as credential:NAME (saved with komando secret set NAME)")
 	f.BoolVar(&e.mfa, "mfa", false, "the login needs a person (MFA, SSO)")
 	f.BoolVar(&e.legacyCrypto, "legacy-crypto", false, "L2TP, IPsec: also offer 3DES and DH groups 2 and 5, for old servers (weak; turning it on needs a person's yes)")
 	f.BoolVar(&e.allowPAP, "allow-pap", false, "L2TP: let the server pick a login that does not prove it is the server: PAP, which hands it your password itself, CHAP-MD5 or none (turning it on needs a person's yes)")

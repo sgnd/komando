@@ -264,7 +264,7 @@ step, starting with the VPN app your company uses.`,
 	f.StringVar(&remoteID, "remote-id", "", "IKEv2: the server's identity, if not its --server name")
 	f.StringVar(&ca, "ca", "", "IKEv2: the CA certificate (PEM) that signed the server's certificate, if not a public one")
 	f.StringVar(&user, "user", "", "user name for the VPN login")
-	f.StringVar(&passwordRef, "password-ref", "", "where the password is (Tailscale: the auth key): credential:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...")
+	f.StringVar(&passwordRef, "password-ref", "", "where the password is (Tailscale: the auth key): credential:NAME (saved with komando secret set NAME)")
 	askPasswordFlag(c, &askPw)
 	f.BoolVar(&askPsk, "ask-psk", false, "L2TP, IPsec, IKEv2: type the pre-shared key now (hidden, a person at a terminal); it is stored in the vault as credential:NAME-psk and used as --psk-ref")
 	f.BoolVar(&mfa, "mfa", false, "the login needs a person (MFA, SSO): only 'vpn up' run by a person connects it")

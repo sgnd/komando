@@ -285,7 +285,7 @@ login, as ssh does; --cert names one kept somewhere else.`,
 			return nil
 		}),
 	}
-	c.Flags().StringVar(&passRef, "passphrase-ref", "", "passphrase reference for encrypted keys (credential:NAME | env:VAR | ...)")
+	c.Flags().StringVar(&passRef, "passphrase-ref", "", "passphrase reference for encrypted keys: credential:NAME")
 	c.Flags().StringVar(&cert, "cert", "", "an OpenSSH user certificate for the key (default: FILE-cert.pub next to it, if there)")
 	return c
 }
@@ -465,7 +465,7 @@ FILE-cert.pub next to the key.`,
 			return nil
 		}),
 	}
-	c.Flags().StringVar(&passRef, "passphrase-ref", "", "where the passphrase is: credential:NAME | env:VAR | ...")
+	c.Flags().StringVar(&passRef, "passphrase-ref", "", "where the passphrase is: credential:NAME")
 	c.Flags().StringVar(&cert, "cert", "", "an OpenSSH user certificate for the key")
 	c.Flags().StringSliceVar(&unset, "unset", nil, "clear this setting: passphrase-ref, cert")
 	return c

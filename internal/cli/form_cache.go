@@ -9,7 +9,6 @@ import (
 
 	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/store"
-	"github.com/sgnd/komando/internal/vault"
 )
 
 // cacheForms are the Add forms for caches. The usual path is short: a
@@ -201,7 +200,7 @@ func cachePasswordQ(ask, help, def string, advanced bool) formQ {
 // cacheSecretQ asks which saved secret holds the password.
 func cacheSecretQ(advanced bool) formQ {
 	return formWhen(formQ{key: "secret", label: "Saved password", ask: "Which saved secret holds the password?",
-		advanced: advanced, free: true, help: "A name from komando secret list, or where it is kept, like credential:NAME or env:VAR.",
+		advanced: advanced, free: true, help: "A name from komando secret list, or credential:NAME.",
 		choices: cacheSecretRows, check: cacheSecretProblem},
 		func(a formAnswers) bool { return a["password"] == "secret" })
 }
@@ -224,31 +223,26 @@ func cacheSecretRows(*store.State, formAnswers) []pickRow {
 }
 
 func cacheSecretProblem(_ *store.State, _ formAnswers, v string) string {
-	return formSavedSecretProblem(v, true)
+	return formSavedSecretProblem(v, "pick a name from komando secret list, or type credential:NAME; never the secret itself")
 }
 
-// cacheCAProblem is cacheSecretProblem for a CA certificate, which only
-// komando's own vault keeps (?ca=credential:NAME).
+// cacheCAProblem is cacheSecretProblem for a CA certificate
+// (?ca=credential:NAME).
 func cacheCAProblem(_ *store.State, _ formAnswers, v string) string {
-	return formSavedSecretProblem(v, false)
+	return formSavedSecretProblem(v, "pick a name from komando secret list, or type credential:NAME; save it first with komando secret set NAME < ca.crt")
 }
 
 // formSavedSecretProblem checks the answer to "which saved secret": a name
-// komando secret list has, or a reference to where it is kept (credential:NAME,
-// env:VAR, op://...; only credential:NAME without anyRef). Anything else may
-// be the token itself, pasted: it is refused, and the message never
-// repeats it.
-func formSavedSecretProblem(v string, anyRef bool) string {
-	msg := "pick a name from komando secret list, or type where it is kept, like credential:NAME or env:VAR; never the secret itself"
-	if !anyRef {
-		msg = "pick a name from komando secret list, or type credential:NAME; save it first with komando secret set NAME < ca.crt"
-	}
+// komando secret list has, or credential:NAME. A command keeps it as a
+// credential, which never names an outside store. Anything else may be the
+// token itself, pasted: it is refused with msg, which never repeats it.
+func formSavedSecretProblem(v, msg string) string {
 	switch {
 	case strings.ContainsAny(v, " \t"):
 		return msg
 	case slices.Contains(secretNames(), v):
 		return ""
-	case !vault.ValidRef(v), !anyRef && !strings.HasPrefix(v, "credential:"):
+	case !strings.HasPrefix(v, "credential:"):
 		return msg
 	}
 	if n, ok := strings.CutPrefix(v, "credential:"); ok && inventory.ValidName("secret", n) != nil {
@@ -258,9 +252,9 @@ func formSavedSecretProblem(v string, anyRef bool) string {
 }
 
 // formSecretRef is a picked or typed saved secret as a reference: a name
-// becomes credential:NAME, a reference stays as it is.
+// becomes credential:NAME, credential:NAME stays as it is.
 func formSecretRef(v string) string {
-	if vault.ValidRef(v) {
+	if strings.HasPrefix(v, "credential:") {
 		return v
 	}
 	return "credential:" + v

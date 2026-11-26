@@ -48,19 +48,30 @@ func (st *stored3) storeNamed(name string) *CredentialStore {
 	return nil
 }
 
-// refCred is the credential a reference field of entry names
-// (credential:NAME). The spelling of format 2 stops with a hint that names
+// CredentialRef checks a reference given as what for a field that names a
+// credential (a password, sudo password, key passphrase, VPN key, shared
+// key or config). The spelling of format 2 stops with a hint that names
 // credential:NAME. An outside reference (env:VAR, op://...) stops too: a
 // command makes no credential store item; only the migration does, once,
 // for a person (CLI-5, 2026-11-26; `komando credential` in C485 adds them).
-func refCred(entry, field, ref string) (string, error) {
+// Empty, credential:NAME and text that is no reference at all pass.
+func CredentialRef(what, ref string) error {
 	if _, old := OldReference(ref); old {
-		return "", OldRefError(entry+": field "+field, ref)
+		return OldRefError(what, ref)
 	}
 	if p, _ := parseRef(ref); p != "" && p != "secret" {
-		return "", out.Errf(out.ExitUsage, "BAD_REFERENCE",
+		return out.Errf(out.ExitUsage, "BAD_REFERENCE",
 			"save the value with `komando secret set NAME`, then name it: credential:NAME",
-			"%s: field %s names an outside store; it takes credential:NAME", entry, field)
+			"%s names an outside store; it takes credential:NAME", what)
+	}
+	return nil
+}
+
+// refCred is the credential a reference field of entry names
+// (credential:NAME), after CredentialRef.
+func refCred(entry, field, ref string) (string, error) {
+	if err := CredentialRef(entry+": field "+field, ref); err != nil {
+		return "", err
 	}
 	return credOfRef(entry, field, ref)
 }

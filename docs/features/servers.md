@@ -627,9 +627,17 @@ secrets, and where its key is kept) is on one page: [Secrets](secrets.md).
 
 ## Passwords from your password manager
 
-Every `--password-ref` and `--sudo-ref` (for servers, conns and VPNs) can
-also point at an environment variable, a file, or the password manager your
-team already uses:
+A password komando keeps for a server, a service or a VPN (`--password-ref`,
+`--sudo-ref`, `--psk-ref`, `--passphrase-ref`) is a credential:
+`credential:NAME`, saved with `komando secret set NAME`. A reference to
+another store on such a flag (`env:VAR`, `op://...`) is refused with
+`BAD_REFERENCE`. The ones a store held before the move to format 3 became
+credentials then, and keep working.
+
+Where komando reads a value for one command only (`--env` of `exec` and
+`secret run`, `--password-ref` of `db user add` and `db user passwd`), a
+reference can also point at an environment variable, a file, or the
+password manager your team already uses:
 
 | Reference | Reads it from | Login it uses |
 |-----------|---------------|---------------|
@@ -645,7 +653,7 @@ team already uses:
 | `op://Vault/Item/field` | 1Password, through a 1Password Connect server | `OP_CONNECT_HOST`, `OP_CONNECT_TOKEN` |
 
 ```bash
-komando conn add prod-db postgres://app@10.0.0.5/shop --password-ref vault:secret/shop#db_password
+komando exec web1 --env DB_PASSWORD=vault:secret/shop#db_password -- ./migrate.sh
 ```
 
 komando talks to Vault, AWS, Google, Azure, Bitwarden, KeePass files and

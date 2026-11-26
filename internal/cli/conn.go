@@ -67,7 +67,7 @@ type connFlags struct {
 func (f *connFlags) bind(c *cobra.Command, edit bool) {
 	fl := c.Flags()
 	fl.StringVar(&f.via, "via", "", "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened")
-	fl.StringVar(&f.passwordRef, "password-ref", "", "where the password is: credential:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...")
+	fl.StringVar(&f.passwordRef, "password-ref", "", "where the password is: credential:NAME (saved with komando secret set NAME)")
 	fl.StringVar(&f.login, "login", "", loginFlagUsage)
 	_ = c.RegisterFlagCompletionFunc("login", cobra.FixedCompletions(connLoginCompletions, cobra.ShellCompDirectiveNoFileComp))
 	fl.StringVar(&f.notes, "notes", "", "free-form notes (komando conn show shows them to people and agents)")
@@ -116,11 +116,11 @@ func checkConn(s *store.State, c *store.Conn) error {
 			return err
 		}
 	}
-	if err := oldRef("--password-ref", c.PasswordRef); err != nil {
+	if err := store.CredentialRef("--password-ref", c.PasswordRef); err != nil {
 		return err
 	}
 	if r := c.PasswordRef; r != "" && !vault.ValidRef(r) {
-		return out.Errf(out.ExitUsage, "USAGE", "store the password with `komando secret set NAME` and pass --password-ref credential:NAME ("+vault.RefHelp()+")",
+		return out.Errf(out.ExitUsage, "USAGE", "store the password with `komando secret set NAME` and pass --password-ref credential:NAME",
 			"--password-ref takes a reference, not the password itself")
 	}
 	return inventory.CheckLabels(c.Groups, c.Tags, c.Labels)
