@@ -9,7 +9,7 @@ func TestRenameURLSecretRefs(t *testing.T) {
 	}{
 		{"registry://u@reg.lan?ca=credential:old", "old", "new", "registry://u@reg.lan?ca=credential:new", true},
 		// the other options keep their order and escaping; the fragment stays
-		{"x://h/p?a=1&ca=secret%3Aold&b=%2F#f", "old", "new", "x://h/p?a=1&ca=credential:new&b=%2F#f", true},
+		{"x://h/p?a=1&ca=credential%3Aold&b=%2F#f", "old", "new", "x://h/p?a=1&ca=credential:new&b=%2F#f", true},
 		{"x://h?ca=credential:old&key=credential:old", "old", "new", "x://h?ca=credential:new&key=credential:new", true},
 		// only the exact name
 		{"x://h?ca=credential:old-2", "old", "new", "x://h?ca=credential:old-2", false},

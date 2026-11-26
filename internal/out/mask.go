@@ -89,7 +89,7 @@ func maskAssign(s string) string {
 	last := 0
 	for _, m := range idx {
 		name, sep, v := s[m[2]:m[3]], s[m[4]:m[5]], s[m[6]:m[7]]
-		if sep == ":" && strings.EqualFold(name, "secret") || keepValue(name, v) || prose(s, m) || sqlHiddenNext(s, m[7]) {
+		if sep == ":" && strings.EqualFold(name, "credential") || keepValue(name, v) || prose(s, m) || sqlHiddenNext(s, m[7]) {
 			// credential:NAME is a komando reference, [credential:NAME] a hidden value;
 			// PASSWORD = N'[hidden]' and PASSWORD('[hidden]') the SQL pass hid
 			continue
