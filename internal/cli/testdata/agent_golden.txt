@@ -7334,102 +7334,78 @@ exit 6
 Stopped: this can delete or break things (powers off or reboots the server), so komando asks first; nothing was changed
 Hint: If you mean it, run it again in a terminal and type the name to confirm, or add --allow-dangerous in a script. Try --dry-run first.
 (code POLICY_BLOCKED, exit 6)
-### komando -o json reboot web1 (agent json, gate inventory)
-exit 2
+### komando -o json exec prod1 -- reboot (agent json, gate inventory)
+exit 6
 --- stdout
-{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"reboot\"","hint":"see `komando --help` for the list of commands"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power]: powers off or reboots the server","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous and --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text reboot web1 (agent text, gate inventory)
-exit 2
---- stdout
---- stderr
-Error: unknown command "reboot"
-Hint: see `komando --help` for the list of commands
-(code USAGE, exit 2)
-### komando -o json reboot web1 (script json, gate inventory)
-exit 2
---- stdout
-{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"reboot\"","hint":"see `komando --help` for the list of commands"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text reboot web1 (script text, gate inventory)
-exit 2
+### komando -o text exec prod1 -- reboot (agent text, gate inventory)
+exit 6
 --- stdout
 --- stderr
-Error: unknown command "reboot"
-Hint: see `komando --help` for the list of commands
-(code USAGE, exit 2)
-### komando -o json reboot prod1 (agent json, gate inventory)
-exit 2
+Stopped: this can delete or break things (powers off or reboots the server), so komando asks first; nothing was changed
+Hint: check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous and --yes (komando then asks them in a window on their screen)
+(code POLICY_BLOCKED, exit 6)
+### komando -o json exec prod1 -- reboot (script json, gate inventory)
+exit 6
 --- stdout
-{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"reboot\"","hint":"see `komando --help` for the list of commands"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power]: powers off or reboots the server","hint":"check with --dry-run, then run it again with --allow-dangerous and --yes (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text reboot prod1 (agent text, gate inventory)
-exit 2
---- stdout
---- stderr
-Error: unknown command "reboot"
-Hint: see `komando --help` for the list of commands
-(code USAGE, exit 2)
-### komando -o json reboot prod1 (script json, gate inventory)
-exit 2
---- stdout
-{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"reboot\"","hint":"see `komando --help` for the list of commands"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text reboot prod1 (script text, gate inventory)
-exit 2
+### komando -o text exec prod1 -- reboot (script text, gate inventory)
+exit 6
 --- stdout
 --- stderr
-Error: unknown command "reboot"
-Hint: see `komando --help` for the list of commands
-(code USAGE, exit 2)
-### komando -o json svc stop web1 sshd (agent json, gate inventory)
-exit 2
+Stopped: this can delete or break things (powers off or reboots the server), so komando asks first; nothing was changed
+Hint: If you mean it, run it again in a terminal and type the name to confirm, or add --allow-dangerous in a script. Try --dry-run first.
+(code POLICY_BLOCKED, exit 6)
+### komando -o json exec web1 -- systemctl stop sshd (agent json, gate inventory)
+exit 6
 --- stdout
-{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"svc\"","hint":"see `komando --help` for the list of commands"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [sshd-stop]: stops sshd (locks out remote access)","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text svc stop web1 sshd (agent text, gate inventory)
-exit 2
---- stdout
---- stderr
-Error: unknown command "svc"
-Hint: see `komando --help` for the list of commands
-(code USAGE, exit 2)
-### komando -o json svc stop web1 sshd (script json, gate inventory)
-exit 2
---- stdout
-{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"svc\"","hint":"see `komando --help` for the list of commands"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text svc stop web1 sshd (script text, gate inventory)
-exit 2
+### komando -o text exec web1 -- systemctl stop sshd (agent text, gate inventory)
+exit 6
 --- stdout
 --- stderr
-Error: unknown command "svc"
-Hint: see `komando --help` for the list of commands
-(code USAGE, exit 2)
-### komando -o json user rm web1 bob (agent json, gate inventory)
-exit 2
+Stopped: this can delete or break things (stops sshd (locks out remote access)), so komando asks first; nothing was changed
+Hint: check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)
+(code POLICY_BLOCKED, exit 6)
+### komando -o json exec web1 -- systemctl stop sshd (script json, gate inventory)
+exit 6
 --- stdout
-{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"user\"","hint":"see `komando --help` for the list of commands"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [sshd-stop]: stops sshd (locks out remote access)","hint":"check with --dry-run, then run it again with --allow-dangerous (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text user rm web1 bob (agent text, gate inventory)
-exit 2
---- stdout
---- stderr
-Error: unknown command "user"
-Hint: see `komando --help` for the list of commands
-(code USAGE, exit 2)
-### komando -o json user rm web1 bob (script json, gate inventory)
-exit 2
---- stdout
-{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"user\"","hint":"see `komando --help` for the list of commands"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text user rm web1 bob (script text, gate inventory)
-exit 2
+### komando -o text exec web1 -- systemctl stop sshd (script text, gate inventory)
+exit 6
 --- stdout
 --- stderr
-Error: unknown command "user"
-Hint: see `komando --help` for the list of commands
-(code USAGE, exit 2)
+Stopped: this can delete or break things (stops sshd (locks out remote access)), so komando asks first; nothing was changed
+Hint: If you mean it, run it again in a terminal and type the name to confirm, or add --allow-dangerous in a script. Try --dry-run first.
+(code POLICY_BLOCKED, exit 6)
+### komando -o json exec web1 -- userdel bob (agent json, gate inventory)
+exit 6
+--- stdout
+{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [userdel]: deletes a user account","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text exec web1 -- userdel bob (agent text, gate inventory)
+exit 6
+--- stdout
+--- stderr
+Stopped: this can delete or break things (deletes a user account), so komando asks first; nothing was changed
+Hint: check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)
+(code POLICY_BLOCKED, exit 6)
+### komando -o json exec web1 -- userdel bob (script json, gate inventory)
+exit 6
+--- stdout
+{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [userdel]: deletes a user account","hint":"check with --dry-run, then run it again with --allow-dangerous (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text exec web1 -- userdel bob (script text, gate inventory)
+exit 6
+--- stdout
+--- stderr
+Stopped: this can delete or break things (deletes a user account), so komando asks first; nothing was changed
+Hint: If you mean it, run it again in a terminal and type the name to confirm, or add --allow-dangerous in a script. Try --dry-run first.
+(code POLICY_BLOCKED, exit 6)
 ### komando -o json pkg rm web1 openssh-server (agent json, gate inventory)
 exit 6
 --- stdout
@@ -7934,54 +7910,6 @@ exit 6
 Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 Hint: Run it again in a terminal to answer the question, or add --yes in a script if you are sure. Try --dry-run first to see what it would do.
 (code PROTECTED_TARGET, exit 6)
-### komando -o json svc restart prod1 nginx (agent json, gate inventory)
-exit 2
---- stdout
-{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"svc\"","hint":"see `komando --help` for the list of commands"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text svc restart prod1 nginx (agent text, gate inventory)
-exit 2
---- stdout
---- stderr
-Error: unknown command "svc"
-Hint: see `komando --help` for the list of commands
-(code USAGE, exit 2)
-### komando -o json svc restart prod1 nginx (script json, gate inventory)
-exit 2
---- stdout
-{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"svc\"","hint":"see `komando --help` for the list of commands"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text svc restart prod1 nginx (script text, gate inventory)
-exit 2
---- stdout
---- stderr
-Error: unknown command "svc"
-Hint: see `komando --help` for the list of commands
-(code USAGE, exit 2)
-### komando -o json user add prod1 bob (agent json, gate inventory)
-exit 2
---- stdout
-{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"user\"","hint":"see `komando --help` for the list of commands"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text user add prod1 bob (agent text, gate inventory)
-exit 2
---- stdout
---- stderr
-Error: unknown command "user"
-Hint: see `komando --help` for the list of commands
-(code USAGE, exit 2)
-### komando -o json user add prod1 bob (script json, gate inventory)
-exit 2
---- stdout
-{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"user\"","hint":"see `komando --help` for the list of commands"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text user add prod1 bob (script text, gate inventory)
-exit 2
---- stdout
---- stderr
-Error: unknown command "user"
-Hint: see `komando --help` for the list of commands
-(code USAGE, exit 2)
 ### komando -o json pkg install prod1 vim (agent json, gate inventory)
 exit 6
 --- stdout
@@ -8078,30 +8006,6 @@ exit 6
 Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 Hint: Run it again in a terminal to answer the question, or add --yes in a script if you are sure. Try --dry-run first to see what it would do.
 (code PROTECTED_TARGET, exit 6)
-### komando -o json cron rm prod1 1 (agent json, gate inventory)
-exit 2
---- stdout
-{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"cron\"","hint":"see `komando --help` for the list of commands"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cron rm prod1 1 (agent text, gate inventory)
-exit 2
---- stdout
---- stderr
-Error: unknown command "cron"
-Hint: see `komando --help` for the list of commands
-(code USAGE, exit 2)
-### komando -o json cron rm prod1 1 (script json, gate inventory)
-exit 2
---- stdout
-{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"cron\"","hint":"see `komando --help` for the list of commands"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cron rm prod1 1 (script text, gate inventory)
-exit 2
---- stdout
---- stderr
-Error: unknown command "cron"
-Hint: see `komando --help` for the list of commands
-(code USAGE, exit 2)
 ### komando -o json upload prod1 testdata/golden_restore.sql /tmp/h (agent json, gate inventory)
 exit 6
 --- stdout
@@ -8896,29 +8800,29 @@ exit 2
 Error: unknown command "exce"; did you mean exec?
 Hint: run it again with exec: `komando -o text exec web1 -- uptime`
 (code USAGE, exit 2)
-### komando -o json svc restat web1 nginx (agent json, release note)
+### komando -o json pkg instal web1 nginx (agent json, release note)
 exit 2
 --- stdout
-{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"svc\"","hint":"see `komando --help` for the list of commands"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"pkg","error":{"code":"USAGE","message":"unknown command \"instal\" for \"komando pkg\"; did you mean install?","hint":"run it again with install: `komando -o json pkg install web1 nginx`","suggestion":"install"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text svc restat web1 nginx (agent text, release note)
+### komando -o text pkg instal web1 nginx (agent text, release note)
 exit 2
 --- stdout
 --- stderr
-Error: unknown command "svc"
-Hint: see `komando --help` for the list of commands
+Error: unknown command "instal" for "komando pkg"; did you mean install?
+Hint: run it again with install: `komando -o text pkg install web1 nginx`
 (code USAGE, exit 2)
-### komando -o json svc restat web1 nginx (script json, release note)
+### komando -o json pkg instal web1 nginx (script json, release note)
 exit 2
 --- stdout
-{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"svc\"","hint":"see `komando --help` for the list of commands"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"pkg","error":{"code":"USAGE","message":"unknown command \"instal\" for \"komando pkg\"; did you mean install?","hint":"run it again with install: `komando -o json pkg install web1 nginx`","suggestion":"install"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text svc restat web1 nginx (script text, release note)
+### komando -o text pkg instal web1 nginx (script text, release note)
 exit 2
 --- stdout
 --- stderr
-Error: unknown command "svc"
-Hint: see `komando --help` for the list of commands
+Error: unknown command "instal" for "komando pkg"; did you mean install?
+Hint: run it again with install: `komando -o text pkg install web1 nginx`
 (code USAGE, exit 2)
 ### komando -o json tunnel start ask1 -L 0:localhost:80 (agent json, release note)
 exit 6

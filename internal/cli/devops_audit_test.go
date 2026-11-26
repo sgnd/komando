@@ -2,7 +2,6 @@ package cli
 
 import (
 	"crypto/tls"
-	"encoding/json"
 	"slices"
 	"strings"
 	"testing"
@@ -25,14 +24,6 @@ func devopsHome(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-}
-
-func blockedBy(d map[string]any) string {
-	b, _ := json.Marshal(d["would_be_blocked"])
-	if string(b) == "null" {
-		return ""
-	}
-	return string(b)
 }
 
 func TestCertCheckRefusesWindows(t *testing.T) {
