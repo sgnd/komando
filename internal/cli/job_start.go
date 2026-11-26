@@ -506,7 +506,7 @@ func attachSessions(cl *call, ctx context.Context, target string, so sessionOpts
 	if so.offset < 0 || (so.offset > 0 && len(so.attach) > 1) {
 		return out.Usage("--offset goes with one session ID, and is 0 or more")
 	}
-	st, h, err := sessionHost(cl, target)
+	ctx, st, h, err := sessionHost(ctx, cl, target)
 	if err != nil {
 		return err
 	}
@@ -554,19 +554,21 @@ func attachSessions(cl *call, ctx context.Context, target string, so sessionOpts
 
 // sessionHost is the one server target names, for --attach
 // and its --stop and --remove.
-func sessionHost(cl *call, target string) (*store.State, *store.Host, error) {
+func sessionHost(ctx context.Context, cl *call, target string) (context.Context, *store.State, *store.Host, error) {
 	st, err := loadState()
 	if err != nil {
-		return nil, nil, err
+		return ctx, nil, nil, err
 	}
 	hosts, err := resolveTargets(cl, st, target)
 	if err != nil {
-		return nil, nil, err
+		return ctx, nil, nil, err
 	}
 	if len(hosts) != 1 {
-		return nil, nil, out.Usage("--attach works on sessions on one server: name that server, as the exec that started them did")
+		return ctx, nil, nil, out.Usage("--attach works on sessions on one server: name that server, as the exec that started them did")
 	}
-	return st, hosts[0], nil
+	// a Windows server is reached only by a command that marked its context
+	ctx, err = windowsGate(ctx, "exec", hosts, true)
+	return ctx, st, hosts[0], err
 }
 
 // readRuntime is this computer's runtime data; none yet reads as empty.
@@ -679,7 +681,7 @@ func ownRun(cl *call, rec *store.ExecSession) bool {
 // record on this computer alone (A-C324-1), through sudo as the run ran
 // (A-C324-2), and keeps the record: the removal drops it.
 func stopSession(cl *call, ctx context.Context, target, id, sig string, sigGiven bool) error {
-	st, h, err := sessionHost(cl, target)
+	ctx, st, h, err := sessionHost(ctx, cl, target)
 	if err != nil {
 		return err
 	}
@@ -723,7 +725,7 @@ func stopSession(cl *call, ctx context.Context, target, id, sig string, sigGiven
 // stored process decides that the run ended; without one, the files on
 // the server.
 func removeSession(cl *call, ctx context.Context, target, id string) error {
-	st, h, err := sessionHost(cl, target)
+	ctx, st, h, err := sessionHost(ctx, cl, target)
 	if err != nil {
 		return err
 	}

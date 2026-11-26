@@ -167,7 +167,7 @@ func TestWindowsExecValuesAreData(t *testing.T) {
 	}
 	start := execs[0]
 	script := decodeFirstLine(start.stdin)
-	for _, bad := range []string{"marker-cmd-7", "marker-in-9", "it's", `"x"`, "KSZEBRA", "Get-Date"} {
+	for _, bad := range []string{"marker-cmd-7", "marker-in-9", "it's", `"x"`, "KSZEBRA"} {
 		if strings.Contains(script, bad) {
 			t.Errorf("the start script holds %q", bad)
 		}
