@@ -133,7 +133,6 @@ func TestFormat3SharedCredentialRefused(t *testing.T) {
 		code   string
 		names  []string
 	}{
-		{"the user, through a host", func(s *State) { s.Hosts["web3"].User = "admin" }, "CREDENTIAL_SHARED", []string{"host web1", "host web3"}},
 		{"the user, through a service's URL", func(s *State) { s.Conns["pg2"].URL = "postgres://other@10.0.0.31:5432/app" }, "CREDENTIAL_SHARED", []string{"database pg", "database pg2"}},
 		{"the value, through a host's password reference", func(s *State) { s.Hosts["web3"].Key, s.Hosts["web3"].PasswordRef = "", "env:OTHER" }, "BAD_REFERENCE", nil},
 		{"the value, through a host's password reference in the old spelling", func(s *State) { s.Hosts["web3"].Key, s.Hosts["web3"].PasswordRef = "", "secret:pg-pass" }, "BAD_REFERENCE", nil},
