@@ -780,19 +780,7 @@ func parseEnv(pairs []string) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := oldEnvRefs(m); err != nil {
-		return nil, err
-	}
-	return m, checkEnvKeys(m)
-}
-
-func checkEnvKeys(m map[string]string) error {
-	for k := range m {
-		if !sshx.ValidEnvKey(k) {
-			return out.Usage("environment variable name %q is not valid: use letters, digits and _, not starting with a digit", k)
-		}
-	}
-	return nil
+	return m, checkEnv(m)
 }
 
 func parseDur(s string) (time.Duration, error) { return time.ParseDuration(s) }

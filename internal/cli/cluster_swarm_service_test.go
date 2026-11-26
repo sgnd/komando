@@ -47,6 +47,9 @@ func sameThroughManager(t *testing.T, host string, args ...string) (map[string]a
 		}
 		resetApproval()
 		d, e := invRun(t, a...)
+		if m, ok := d["_meta"].(map[string]any); ok {
+			delete(m, "duration_ms")
+		}
 		return asJSON(d), d, e
 	}
 	hj, hd, he := run(host)
@@ -63,8 +66,8 @@ func TestSwarmServiceProtectedThroughManager(t *testing.T) {
 	invHome(t)
 	addSwarm(t, "swarm1", "--protected")
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
-	d, e := sameThroughManager(t, "swarm1", "cluster", "run", "TARGET", "--write", "--dry-run", "--", "service", "rm", "web")
-	if !strings.Contains(asJSON(d)+codeOf(e), "PROTECTED") {
+	d, e := sameThroughManager(t, "swarm1", "cluster", "run", "TARGET", "--write", "--dry-run", "--", "service", "scale", "web=3")
+	if !strings.Contains(asJSON(d)+codeOf(e), "protected") {
 		t.Fatalf("a change through a protected manager: %s %+v", asJSON(d), e)
 	}
 }
@@ -76,7 +79,7 @@ func TestSwarmServicePersonalThroughManager(t *testing.T) {
 	invHome(t)
 	addSwarm(t, "swarm1")
 	addSwarm(t, "swarm2")
-	mustRun(t, "conn", "add", "pg", "postgres://u@127.0.0.1:5432/app", "--via", "swarm1", "--option", "mask_personal=on")
+	mustRun(t, "conn", "add", "pg", "postgres://u@10.9.9.9:5432/app", "--via", "swarm1", "--option", "mask_personal=on")
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	for target, want := range map[string]bool{"swarm1-swarm": true, "swarm1": true, "swarm2-swarm": false} {
 		resetApproval()

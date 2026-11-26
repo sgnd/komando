@@ -80,7 +80,7 @@ func vetImportHosts(cl *call, s *store.State, hosts []*store.Host, overwrite, ow
 				h.Key = ""
 			}
 		}
-		if err := checkEnvKeys(h.Env); err != nil {
+		if err := checkEnv(h.Env); err != nil {
 			v.Invalid = append(v.Invalid, importSkip{h.Name, toErr(err).Message})
 			continue
 		}

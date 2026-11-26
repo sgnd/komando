@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -19,6 +20,21 @@ import (
 func oldRef(what, ref string) error {
 	if _, old := store.OldReference(ref); old {
 		return store.OldRefError(what, ref)
+	}
+	return nil
+}
+
+// checkEnv checks environment variables: shell names, because they are
+// exported on the remote side unquoted, and no value in the reference
+// spelling of format 2.
+func checkEnv(m map[string]string) error {
+	if err := oldEnvRefs(m); err != nil {
+		return err
+	}
+	for k := range m {
+		if !sshx.ValidEnvKey(k) {
+			return out.Usage("environment variable name %q is not valid: use letters, digits and _, not starting with a digit", k)
+		}
 	}
 	return nil
 }

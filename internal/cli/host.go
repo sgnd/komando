@@ -538,7 +538,7 @@ func applyHostEdit(h *store.Host, f *hostFlags, fl *pflag.FlagSet) error {
 	if err := applyKV(&h.Env, f.env); err != nil {
 		return err
 	}
-	if err := checkEnvKeys(h.Env); err != nil {
+	if err := checkEnv(h.Env); err != nil {
 		return err
 	}
 	for _, u := range f.unset {
