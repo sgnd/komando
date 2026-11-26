@@ -174,3 +174,118 @@ func TestGuardHookAnswersAsTheCommand(t *testing.T) {
 		t.Errorf("only %d of the corpus's calls were refused; the corpus lost its attacks", denied)
 	}
 }
+
+// guardSecretTargets are files the secret-path rule guards, one per kind:
+// komando's data (also through $HOME and ${KOMANDO_HOME}), a
+// private key, a credential store and a file named as one that holds
+// secrets.
+func guardSecretTargets() []string {
+	return []string{
+		"~/.komando/vault.json",
+		`"$HOME/.komando/state.json"`,
+		"${KOMANDO_HOME}/audit.log",
+		"~/.ssh/id_ed25519",
+		"~/.aws/credentials",
+		"/tmp/site/.pgpass",
+		"/tmp/site/.env",
+	}
+}
+
+// The file a plain > or >> redirect writes is checked as a secret path
+// for every program, as the >& and &> forms are: also for the programs
+// whose own arguments only name files (echo, printf, touch, mkdir, ls,
+// test).
+func TestGuardRedirectTargetIsCheckedAsSecretPath(t *testing.T) {
+	home, _ := guardLineHome(t)
+	for _, prog := range []string{"echo x", "printf x", "touch a", "mkdir -p a", "ls", "test -n x", "[ -n x ]", "date"} {
+		t.Run(strings.Fields(prog)[0], func(t *testing.T) {
+			var lines []string
+			for _, op := range []string{">", ">>", " >", "1>", ">&", "&>"} {
+				for _, target := range guardSecretTargets() {
+					lines = append(lines, prog+" "+op+" "+target)
+				}
+			}
+			checkLines(t, home, home, lines, true)
+		})
+	}
+}
+
+// The same check holds where the redirect stands in a longer line: after
+// a pipe or ;, inside $(...) and backquotes, in the script of bash -c, with
+// no space around the operator, and with the operator before the program.
+func TestGuardRedirectTargetInLongerLines(t *testing.T) {
+	home, _ := guardLineHome(t)
+	checkLines(t, home, home, []string{
+		"cat /tmp/a | echo x > ~/.komando/vault.json",
+		"true; printf x >> ~/.komando/vault.json",
+		"x=$(echo y > ~/.komando/vault.json)",
+		"x=`echo y > ~/.komando/vault.json`",
+		`bash -c 'echo y > ~/.komando/vault.json'`,
+		"echo x>~/.komando/vault.json",
+		"echo x>>~/.ssh/id_ed25519",
+		"> ~/.komando/vault.json echo x",
+		"echo x > /tmp/ok > ~/.komando/vault.json",
+		"cd ~/.ssh/.. && echo x > .komando/vault.json",
+		"echo X=1 > .env",
+	}, true)
+}
+
+// A redirect that writes elsewhere stays allowed, and so do the words
+// these programs only name: a file name in quoted text or in an argument
+// is no redirect.
+func TestGuardRedirectTargetHarmlessStaysAllowed(t *testing.T) {
+	home, _ := guardLineHome(t)
+	checkLines(t, home, home, []string{
+		"echo x > notes.txt",
+		"printf 'a\\n' >> /tmp/out.log",
+		"ls -la > /tmp/listing",
+		"echo x 2>/dev/null",
+		"mkdir -p build > /dev/null",
+		`echo "write the key to ~/.ssh/id_ed25519 > later" > /tmp/note`,
+		"echo 'a > ~/.komando/vault.json'",
+		"echo ~/.komando/vault.json",
+		"ls ~/.komando",
+		"test -f ~/.ssh/id_ed25519",
+		"echo .pgpass >> .gitignore",
+		"echo X=1 > .env.example",
+		"printf 'X=1\\n' >> /tmp/site/.env.sample",
+	}, false)
+}
+
+// The shell, not the program, writes a redirect's file: the check holds
+// for komando's own line, and for a redirect where the program reads a
+// value or a pattern (find -name, grep's pattern), and for <>.
+func TestGuardRedirectTargetWhereTheProgramSkipsWords(t *testing.T) {
+	home, _ := guardLineHome(t)
+	checkLines(t, home, home, []string{
+		"komando list > ~/.komando/vault.json",
+		"komando list -o json >> ~/.ssh/id_ed25519",
+		"find . -name > ~/.komando/vault.json x",
+		"grep > ~/.komando/vault.json foo /tmp/a",
+		"echo x <> ~/.komando/vault.json",
+		"komando list > ~/.claude/settings.json",
+		"komando guide >> ~/bin/komando",
+	}, true)
+	checkLines(t, home, home, []string{
+		"komando list -o json > /tmp/hosts.json",
+		"find . -name '*.go' > /tmp/files",
+	}, false)
+}
+
+// The other ways a line writes a file are checked as secret paths too:
+// tee, cp and mv to it, and a redirect after a here-document or a
+// here-string.
+func TestGuardSecretPathWrittenOtherWays(t *testing.T) {
+	home, _ := guardLineHome(t)
+	checkLines(t, home, home, []string{
+		"echo x | tee ~/.komando/vault.json",
+		"echo x | tee -a ~/.ssh/id_ed25519",
+		"cp /tmp/x ~/.komando/vault.json",
+		"mv /tmp/x ~/.aws/credentials",
+		"cat <<EOF > ~/.komando/vault.json\nx\nEOF",
+		"cat <<'EOF' >> ~/.komando/vault.json\nx\nEOF",
+		"cat > ~/.komando/vault.json <<'EOF'\nx\nEOF",
+		"cat <<< x > ~/.komando/vault.json",
+		"echo <<< x > ~/.ssh/id_ed25519",
+	}, true)
+}

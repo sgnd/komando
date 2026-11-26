@@ -518,6 +518,59 @@ var readOnlyPrograms = map[string]bool{"cat": true, "less": true, "more": true, 
 // redirectTarget is a file a shell segment writes with > or >>.
 var redirectTarget = regexp.MustCompile(`[0-9&]?>>?\|?\s*("[^"]*"|'[^']*'|[^\s;&|<>()]+)`)
 
+// redirectWrites are the files a simple command's redirects open for
+// writing (>, >>, >|, N>, <> and >&FILE), as the shell reads them: a > in
+// quotes is text, and quotes around the name are removed. For each, glob
+// says the shell expands it, as shellWordsGlob does. The shell opens them,
+// whatever the program is.
+func redirectWrites(seg string) (files []string, globs []bool) {
+	var cur strings.Builder
+	var q rune
+	escaped, target, afterGT, inWord, glob, brace := false, false, false, false, false, false
+	flush := func() {
+		if target && (cur.Len() > 0 || inWord) {
+			files = append(files, cur.String())
+			globs = append(globs, glob || brace && strings.Contains(cur.String(), ","))
+			target = false
+		}
+		cur.Reset()
+		inWord, glob, brace = false, false, false
+	}
+	for _, r := range seg {
+		gt := afterGT
+		afterGT = false
+		switch {
+		case escaped:
+			cur.WriteRune(r)
+			escaped = false
+		case r == '\\' && q != '\'':
+			escaped, inWord = true, true
+		case q != 0:
+			if r == q {
+				q = 0
+			} else {
+				cur.WriteRune(r)
+			}
+		case r == '\'' || r == '"':
+			q, inWord = r, true
+		case r == '>':
+			flush()
+			target, afterGT = true, true
+		case gt && (r == '&' || r == '|'):
+			afterGT = true // >&FILE and >|FILE: the file follows
+		case r == ' ' || r == '\t' || r == '<':
+			flush()
+		default:
+			glob = glob || strings.ContainsRune("*?[", r)
+			brace = brace || r == '{'
+			cur.WriteRune(r)
+			inWord = true
+		}
+	}
+	flush()
+	return files, globs
+}
+
 // writesKomandoByName is a shell line whose program changes a file named by
 // a command that names komando: rm "$(command -v komando)", chmod 777
 // `which komando`. splitShell gives the command its own segment, so this
@@ -528,17 +581,8 @@ var writesKomandoByName = regexp.MustCompile("(^|[;&|(\\s])(rm|unlink|mv|cp|ln|c
 // changes the mode of a guard file (guardSelfWhy): through a redirect, or
 // as an argument of a program that is not only a reader.
 func checkSelfWrite(cl *call, line, seg, base string, args []string, home, cwd string) guardDecision {
-	refuse := func(w, why string) guardDecision {
-		return deny("%s is %s; an AI agent does not change it: %s", w, why, selfWayOut(why))
-	}
-	for _, m := range redirectTarget.FindAllStringSubmatch(seg, -1) {
-		w := strings.Trim(m[1], `"'`)
-		if why := guardSelfWhy(guardPathAt(cl, w, home, cwd)); why != "" {
-			return refuse(w, why)
-		}
-	}
-	if readsOnly(base, args) {
-		return allow()
+	if d := checkSelfRedirects(cl, seg, home, cwd); d.Deny || readsOnly(base, args) {
+		return d
 	}
 	for _, a := range args {
 		if strings.HasPrefix(a, "-") {
@@ -546,10 +590,26 @@ func checkSelfWrite(cl *call, line, seg, base string, args []string, home, cwd s
 		}
 		p := guardPathAt(cl, a, home, cwd)
 		if why := guardSelfWhy(p); why != "" && !(why == komandoNamedWhy && komandoWordHarmless(line, p)) {
-			return refuse(a, why)
+			return refuseSelf(a, why)
 		}
 	}
 	return allow()
+}
+
+// checkSelfRedirects refuses a shell segment whose redirect writes a guard
+// file (guardSelfWhy), whatever the program is: the shell writes it.
+func checkSelfRedirects(cl *call, seg, home, cwd string) guardDecision {
+	for _, m := range redirectTarget.FindAllStringSubmatch(seg, -1) {
+		w := strings.Trim(m[1], `"'`)
+		if why := guardSelfWhy(guardPathAt(cl, w, home, cwd)); why != "" {
+			return refuseSelf(w, why)
+		}
+	}
+	return allow()
+}
+
+func refuseSelf(w, why string) guardDecision {
+	return deny("%s is %s; an AI agent does not change it: %s", w, why, selfWayOut(why))
 }
 
 // checkWholeLine refuses what a line does as a whole, before it is split
@@ -622,11 +682,12 @@ var inlineCode = map[string]bool{"python": true, "python2": true, "python3": tru
 // program that writes in another form (sed, awk, sort, uniq, go) is
 // checked against the line too, without the files the readers on it
 // read (lineWithoutReadFiles): a path in its script or a flag still counts.
-// komando's own commands check the files they write themselves.
+// komando's own commands check the files they write themselves; their
+// redirects, which the shell writes, are checked here too.
 func checkGuardFiles(cl *call, line, seg, prog string, args []string, home, cwd string) guardDecision {
 	base := filepath.Base(prog)
 	if base == "komando" {
-		return allow()
+		return checkSelfRedirects(cl, seg, home, cwd) // the shell writes them
 	}
 	if d := checkSelfWrite(cl, line, seg, base, args, home, cwd); d.Deny || prog == "" || readOnlyPrograms[base] {
 		return d

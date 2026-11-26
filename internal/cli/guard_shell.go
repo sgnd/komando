@@ -149,6 +149,13 @@ func checkShellDepth(cl *call, line, home, cwd string, depth int) guardDecision 
 		if d := checkGuardFiles(cl, line, seg, prog, args, home, cwd); d.Deny {
 			return d
 		}
+		// the shell writes a redirect's file, whatever the program is
+		files, fileGlobs := redirectWrites(seg)
+		for i, w := range files {
+			if why := secretWord(cl, w, home, cwd, fileGlobs[i]); why != "" {
+				return deny("%s is %s. komando keeps it away from AI agents; ask the user if you need something from it%s", w, why, viaKomando(why))
+			}
+		}
 		switch {
 		case prog == "":
 			continue
