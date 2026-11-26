@@ -7,6 +7,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+## [0.17.4] - 2026-11-26
+
+### Fixed
+
+- The agent guard (`komando guide guard`) answers each tool call without starting komando's commands, store and vault, so it uses much less memory and answers much faster; with several agent sessions open this was felt on every tool call. It also caps its own memory and CPU, and checks a file with more than one name (a hard link) faster. Every decision stays the same. An idle VPN now closes at the next komando command, not at an agent's next tool call.
+
 ## [0.17.3] - 2026-11-25
 
 ### Changed
