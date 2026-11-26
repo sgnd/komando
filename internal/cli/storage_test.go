@@ -2,15 +2,19 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/url"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/storex"
@@ -349,4 +353,45 @@ func TestStorageFolderIsADirectory(t *testing.T) {
 		t.Errorf("rm: %+v", e)
 	}
 	wantCode(t, "USAGE", "storage", "s3", "object", "delete", "bk", "logs/*.txt")
+}
+
+// An AI agent's read of an object on a protected storage conn hides personal
+// data in the reply, the same way for every built provider of the type.
+func TestStorageReadHidesPersonalDataForEveryProvider(t *testing.T) {
+	invHome(t)
+	const email = "ada@example.com"
+	saved := openBucket
+	openBucket = func(*call, context.Context, *store.State, *store.Conn) (storex.Bucket, error) {
+		return &memBucket{objs: map[string]string{"a.txt": "contact " + email + "\n"}}, nil
+	}
+	t.Cleanup(func() { openBucket = saved })
+	urls := map[string]string{"s3": "s3://AKIAEXAMPLE@shop-dev/backups?region=eu-west-1"} // the first provider; tierProviders has the others
+	maps.Copy(urls, tierProviders["storage"])
+	var providers []string
+	for _, l := range capability.All() {
+		if l.Type != "storage" || l.Area != "object" || l.Verb != "read" || handlers[l.Key] == nil {
+			continue
+		}
+		if urls[l.Provider] == "" {
+			t.Errorf("storage %s object read: no conn URL here; add one", l.Provider)
+			continue
+		}
+		providers = append(providers, l.Provider)
+		mustRun(t, "conn", "add", l.Provider+"-c", urls[l.Provider], "--protected")
+	}
+	if len(providers) < 2 {
+		t.Fatalf("want every built provider of storage, got %v", providers)
+	}
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
+	hidden := map[string]int{}
+	for _, p := range providers {
+		b, _ := json.Marshal(mustRun(t, "storage", p, "object", "read", p+"-c", "a.txt"))
+		if s := string(b); strings.Contains(s, email) || !strings.Contains(s, "[hidden: email]") {
+			t.Errorf("storage %s object read: %s", p, s)
+		}
+		hidden[p] = strings.Count(string(b), "[hidden: email]")
+	}
+	if len(slices.Compact(slices.Sorted(maps.Values(hidden)))) > 1 {
+		t.Errorf("the providers hide differently: %v", hidden)
+	}
 }
