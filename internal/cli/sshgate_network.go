@@ -37,7 +37,7 @@ type gateKey struct {
 var gateNoNetwork = map[string]func(c *cobra.Command) string{
 	"audit": nil, "audit.verify": nil, "version": nil, "status": nil, "schema": nil, "guide": nil, "doctor": nil,
 	"list": nil, "test": nil, "logs": nil, "export": nil, "download": nil, "ssh-gate.status": nil,
-	"cache": nil, "cache.get": nil, "cache.info": nil, "cache.keys": nil,
+	"cache": nil, "cache.get": nil, "cache.info": nil, "cache.keys": nil, "cache.run": nil,
 	"queue": nil, "queue.describe": nil, "queue.groups": nil, "queue.info": nil, "queue.lag": nil, "queue.list": nil, "queue.peek": nil,
 	"cert": nil, "cert.check": gateCertURL,
 	"cluster": nil, "cluster.describe": nil, "cluster.events": nil, "cluster.get": nil, "cluster.helm": nil,
