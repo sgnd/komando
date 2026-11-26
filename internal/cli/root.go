@@ -566,8 +566,8 @@ func addCommands(cl *call, root *cobra.Command) {
 			root.AddCommand(c)
 		}
 	}
-	add("servers", execCmd(), logsCmd(), factsCmd(), fsCmd(), uploadCmd(), downloadCmd(), cpCmd(), syncCmd(),
-		svcCmd(), jobCmd(), dockerCmd(), pkgCmd(), cronCmd(), userCmd(), rebootCmd(), shellCmd(), netCmd(), certCmd(), recipeCmd())
+	add("servers", execCmd(), logsCmd(), fsCmd(), uploadCmd(), downloadCmd(), cpCmd(), syncCmd(),
+		jobCmd(), dockerCmd(), pkgCmd(), shellCmd(), certCmd(), recipeCmd())
 	add("data", dbCmd(), cacheCmd(), queueCmd(), storageCmd())
 	add("platform", clusterCmd(), registryCmd())
 	add("access", vpnCmd(), loginCmd(cl), logoutCmd(cl), loginHolderCmd(), secretCmd(), keyCmd(), tunnelCmd())

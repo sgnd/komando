@@ -359,26 +359,6 @@ func marker(stdout string) string {
 // containers) with a marker the parser turns into NO_SYSTEMD.
 const noSystemd = "[ -d /run/systemd/system ] || { echo '#komando:no-systemd'; exit 0; }\n"
 
-// userManager follows noSystemd in a script for --user-units: systemctl and
-// journalctl then talk to the login user's own systemd manager (systemctl
-// --user), found through XDG_RUNTIME_DIR as a login shell would set it.
-// A user with no running manager (no session and no lingering) gets a
-// marker the parser turns into NO_USER_MANAGER.
-const userManager = `export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
-systemctl() { command systemctl --user "$@"; }
-journalctl() { command journalctl --user "$@"; }
-command systemctl --user show-environment >/dev/null 2>&1 || { echo '#komando:no-user-manager'; exit 0; }
-`
-
-// svcScope makes a systemd script (it starts with noSystemd) run against
-// the login user's manager when user is set.
-func svcScope(script string, user bool) string {
-	if !user {
-		return script
-	}
-	return strings.Replace(script, noSystemd, noSystemd+userManager, 1)
-}
-
 // systemdMissing is the error for a script that stopped at noSystemd or
 // userManager, or nil.
 func systemdMissing(stdout string) *out.Error {
