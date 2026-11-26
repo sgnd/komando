@@ -10,8 +10,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
+	"github.com/sgnd/komando/internal/snippet"
 	"github.com/sgnd/komando/internal/sshx"
 )
 
@@ -156,6 +158,72 @@ func pkgSecScript(apply, refresh, guardEssential bool) string {
 	}
 	return "ACTION=" + action + " REFRESH=" + b(refresh) + " GUARD=" + b(guardEssential) +
 		" ESSENTIAL=" + sshx.Q(policy.EssentialPackagePattern()) + "\n" + pkgSecShell
+}
+
+// pkgSecApplyLine is where pkgSecShell's apply branch starts: a list
+// stops there.
+const pkgSecApplyLine = `[ "$ACTION" = apply ] || exit 0`
+
+// pkgSecListScript is the list script cut before its apply branch: the
+// same run for a list, without the text that installs and cleans up,
+// which the exec rules would read in a snippet's filled text (rule 3.5).
+// A pkgSecShell without that line is sent whole: the guard then stops it.
+func pkgSecListScript(refresh bool) string {
+	s := pkgSecScript(false, refresh, true)
+	i := strings.Index(s, pkgSecApplyLine)
+	if i < 0 {
+		return s
+	}
+	return s[:i] + "exit 0\n"
+}
+
+// pkgSecResult is one host's list as the pkg-security snippets give it:
+// pkgSecRow's fields before a change, in its order, without host, ok,
+// stderr, duration and error, which the snippet's answer carries itself.
+type pkgSecResult struct {
+	PackageManager  string        `json:"package_manager,omitempty"`
+	IndexAge        string        `json:"index_age,omitempty"`
+	OSSupport       *osSupport    `json:"os_support,omitempty"`
+	Security        []pkgUpgrade  `json:"security_updates"`
+	Count           int           `json:"count"`
+	SecurityNotices bool          `json:"security_notices"`
+	Unclassified    []pkgUpgrade  `json:"unclassified_updates,omitempty"`
+	WouldRemove     []string      `json:"would_remove,omitempty"`
+	State           *hostSnapshot `json:"state,omitempty"`
+	RebootRequired  bool          `json:"reboot_required"`
+	Warnings        []string      `json:"warnings,omitempty"`
+}
+
+// pkgSecSnippets are the ready-made snippets of pkg security (design 2.1):
+// the list at read tier, and with a fresh package index at change tier, as
+// today's --refresh is rated. They move with the host commands' package
+// (M11).
+func pkgSecSnippets() []snippet.Builtin {
+	list := func(name, replaces string, tier capability.Tier, refresh bool) snippet.Builtin {
+		return snippet.Builtin{
+			Name: name, Type: "host", Replaces: replaces, Reader: "UpdatesTab.swift:252,309; KomandoCall+Packages.swift:8-9",
+			Tier: tier, Shape: name + "/1", Sudo: true,
+			Checks: []string{"TestPkgSecAptList", "TestPkgSecFailures", "TestPkgSecDnf", "TestPkgRefreshIsAChange", "TestSnippetPkgSecurity", "TestSnippetPkgSecurityUnsupported", "TestPkgSecListScriptIsTodaysUpToApply"},
+			Text:   map[snippet.Family]string{snippet.Unix: pkgSecListScript(refresh)},
+			Parse: func(o snippet.Output, _ snippet.Family) (any, error) {
+				r := pkgSecParse(nil, "", snippetRun(o), false, refresh) // a list reads neither cl nor the host
+				switch {
+				case r.unsupported != "":
+					return nil, out.Errf(out.ExitNotFound, "SECURITY_UNSUPPORTED", "komando knows apt, dnf, yum, zypper, apk and pacman; see what the server has with `komando facts TARGET`",
+						"no package manager komando knows on %s", "this server (it has "+r.unsupported+")") // the catalog's message
+				case r.Error != nil:
+					return nil, r.Error
+				}
+				return pkgSecResult{PackageManager: r.PackageManager, IndexAge: r.IndexAge, OSSupport: r.OSSupport, Security: r.Security, Count: r.Count,
+					SecurityNotices: r.SecurityNotices, Unclassified: r.Unclassified, WouldRemove: r.WouldRemove, State: r.State,
+					RebootRequired: r.RebootRequired, Warnings: r.Warnings}, nil
+			},
+		}
+	}
+	return []snippet.Builtin{
+		list("pkg-security", "pkg security", capability.Read, false),
+		list("pkg-security-refresh", "pkg security --refresh", capability.Change, true),
+	}
 }
 
 // hostSnapshot is what a server looked like at one moment.

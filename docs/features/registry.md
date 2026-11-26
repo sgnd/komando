@@ -10,10 +10,10 @@ Azure Container Registry, Google Artifact Registry and your own
 ```bash
 komando import docker                          # registries you are logged in to
 komando list kind:registry                     # the names the import gave (ghcr.io -> ghcr ...)
-komando registry list ghcr myorg/api           # tags of one repository
+komando registry oci image list ghcr myorg/api           # tags of one repository
 ```
 
-Typed alone at a terminal, `komando registry list` asks for the registry,
+Typed alone at a terminal, `komando registry oci image list` asks for the registry,
 with a list of yours to pick from, then the repository (empty lists every
 repository).
 
@@ -31,9 +31,9 @@ is a `USAGE` error (exit 2) whose hint shows an example.
 
 ```bash
 komando import docker                         # from ~/.docker/config.json
-komando registry add ghcr registry://alice@ghcr.io --ask-password                         # asks for the token, hidden
-komando registry add ghcr registry://alice@ghcr.io --password-ref secret:ghcr-token       # a token you stored with secret set
-komando registry add harbor 'registry://alice@harbor.lan:5000?tls=false' --via bastion    # no TLS, behind a bastion
+komando registry oci add ghcr registry://alice@ghcr.io --ask-password                         # asks for the token, hidden
+komando registry oci add ghcr registry://alice@ghcr.io --credential ghcr-token       # a token you stored with secret set
+komando registry oci add harbor 'registry://alice@harbor.lan:5000?tls=false' --via bastion    # no TLS, behind a bastion
 ```
 
 The password is usually an access token. It needs read rights to look,
@@ -53,14 +53,14 @@ itself is not touched).
 ### Docker Hub
 
 ```bash
-komando registry add dockerhub registry://alice@docker.io --ask-password
-komando registry list dockerhub alice/app       # tags of your repository
-komando registry inspect dockerhub nginx        # an official image: library/nginx:latest
+komando registry oci add dockerhub registry://alice@docker.io --ask-password
+komando registry oci image list dockerhub alice/app       # tags of your repository
+komando registry oci image show dockerhub nginx        # an official image: library/nginx:latest
 ```
 
 - An official image's name without a `/` (`nginx`) means
   `library/nginx`, as with `docker pull`.
-- Docker Hub has no list of every repository: `registry list dockerhub`
+- Docker Hub has no list of every repository: `registry oci image list dockerhub`
   without a repository gives `REGISTRY_UNSUPPORTED`; name one.
 - Docker Hub limits pulls (fewer without a login) and counts every manifest
   read. Past the limit, komando stops with `REGISTRY_RATE_LIMIT` and says
@@ -74,7 +74,7 @@ with your usual AWS login (no aws CLI needed). Leave out `--password-ref`
 and name the AWS profile:
 
 ```bash
-komando registry add ecr registry://AWS@123456789012.dkr.ecr.eu-west-1.amazonaws.com --option aws_profile=prod
+komando registry oci add ecr registry://AWS@123456789012.dkr.ecr.eu-west-1.amazonaws.com --option aws_profile=prod
 ```
 
 If the SSO login has expired, the error is `AWS_LOGIN_REQUIRED`: a person
@@ -95,7 +95,7 @@ registry for a registry login that lasts a few hours. It does this each
 time, keeps nothing, and needs no `az` program:
 
 ```bash
-komando registry add acr registry://myregistry.azurecr.io
+komando registry oci add acr registry://myregistry.azurecr.io
 komando test acr
 ```
 
@@ -135,8 +135,8 @@ file), the login from `gcloud auth application-default login`, or the
 machine's service account on Google Cloud. No `gcloud` program is needed:
 
 ```bash
-komando registry add gar registry://europe-west1-docker.pkg.dev
-komando registry list gar my-project/my-repo/api
+komando registry oci add gar registry://europe-west1-docker.pkg.dev
+komando registry oci image list gar my-project/my-repo/api
 ```
 
 To use a service account key from the vault instead, store the key file
@@ -144,7 +144,7 @@ and name the user `_json_key`:
 
 ```bash
 komando secret set gar-key < key.json
-komando registry add gar registry://_json_key@europe-west1-docker.pkg.dev --password-ref secret:gar-key
+komando registry oci add gar registry://_json_key@europe-west1-docker.pkg.dev --credential gar-key
 ```
 
 The login needs the Artifact Registry Reader role to look, Writer to copy
@@ -164,8 +164,8 @@ an internal CA) is refused with `REGISTRY_TLS`. Two ways to fix it:
 
 ```bash
 komando secret set harbor-ca < ca.crt        # 1. better: trust that CA (its PEM certificate), the check stays on
-komando registry add harbor 'registry://alice@harbor.lan?ca=secret:harbor-ca' --password-ref secret:harbor-token
-komando registry add harbor 'registry://alice@harbor.lan?tls=skip-verify' --password-ref secret:harbor-token   # 2. no check at all
+komando registry oci add harbor 'registry://alice@harbor.lan?ca=secret:harbor-ca' --credential harbor-token
+komando registry oci add harbor 'registry://alice@harbor.lan?tls=skip-verify' --credential harbor-token   # 2. no check at all
 ```
 
 The URL options are in [Reference](#reference). The CA secret counts as
@@ -181,7 +181,7 @@ gets a new certificate, store the new one.
 
 ```bash
 komando secret set harbor-cert < registry.crt    # the registry's own certificate, PEM
-komando registry add harbor 'registry://alice@harbor.lan?ca=secret:harbor-cert'
+komando registry oci add harbor 'registry://alice@harbor.lan?ca=secret:harbor-cert'
 ```
 
 ### When DNS points somewhere else
@@ -196,7 +196,7 @@ server on the `--via` path, and that server looks it up, so its
 still use the name in the URL:
 
 ```bash
-komando registry add harbor 'registry://alice@registry.example.com?ca=secret:harbor-ca' --via web1
+komando registry oci add harbor 'registry://alice@registry.example.com?ca=secret:harbor-ca' --via web1
 ```
 
 With `?resolve=`: if you can reach the registry from your computer, you do
@@ -207,8 +207,8 @@ checked against the name (with or without `ca=`), or not checked at all
 with `tls=skip-verify`:
 
 ```bash
-komando registry add harbor 'registry://alice@registry.example.com?ca=secret:harbor-ca&resolve=203.0.113.10'
-komando registry add harbor 'registry://alice@harbor.lan?tls=skip-verify&resolve=203.0.113.20'
+komando registry oci add harbor 'registry://alice@registry.example.com?ca=secret:harbor-ca&resolve=203.0.113.10'
+komando registry oci add harbor 'registry://alice@harbor.lan?tls=skip-verify&resolve=203.0.113.20'
 komando test harbor
 ```
 
@@ -219,12 +219,12 @@ server on the path connects to the IP. `komando tunnel` uses the IP too.
 ## Look at images
 
 ```bash
-komando registry list harbor                    # repositories (Docker Hub and GHCR do not allow this)
-komando registry list ghcr myorg/api            # tags of one repository
-komando registry inspect ghcr myorg/api:1.4.2   # digest, size, platforms, created, labels
+komando registry oci image list harbor                    # repositories (Docker Hub and GHCR do not allow this)
+komando registry oci image list ghcr myorg/api            # tags of one repository
+komando registry oci image show ghcr myorg/api:1.4.2   # digest, size, platforms, created, labels
 ```
 
-Typed alone at a terminal, `komando registry inspect` asks for the
+Typed alone at a terminal, `komando registry oci image show` asks for the
 registry, then the image.
 
 ```text
@@ -251,12 +251,12 @@ Anything else is refused with `USAGE` before komando sends a request.
 ## Copy images
 
 ```bash
-komando registry copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2   # between registries
-komando registry copy ghcr:myorg/api:1.4.2 harbor:                  # keep the same name and tag
-komando registry copy harbor:app:latest harbor:app:stable           # another tag on the same registry
+komando registry oci image copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2   # between registries
+komando registry oci image copy ghcr:myorg/api:1.4.2 harbor:                  # keep the same name and tag
+komando registry oci image copy harbor:app:latest harbor:app:stable           # another tag on the same registry
 ```
 
-Typed alone at a terminal, `komando registry copy` asks where from
+Typed alone at a terminal, `komando registry oci image copy` asks where from
 (`ghcr:myorg/api:1.4.2`), then where to.
 
 - Both sides are written `CONN:IMAGE`, as with `komando cp`. The image is
@@ -277,8 +277,8 @@ Typed alone at a terminal, `komando registry copy` asks where from
 ## Delete images
 
 ```bash
-komando registry rm harbor shop/api:1.9 --dry-run     # lists every tag that would go
-komando registry rm harbor shop/api:1.9
+komando registry oci image delete harbor shop/api:1.9 --dry-run     # lists every tag that would go
+komando registry oci image delete harbor shop/api:1.9
 ```
 
 `rm` deletes the image the tag points at, so every other tag on the same
@@ -287,7 +287,7 @@ itself. `--dry-run` names every tag that would go (`would_remove_tags`)
 before anything is deleted:
 
 ```text
-$ komando registry rm harbor shop/api:1.9 --dry-run
+$ komando registry oci image delete harbor shop/api:1.9 --dry-run
 would delete shop/api@sha256:4c2e...
 with it goes every tag on that image: 1.9, latest
 latest is one of them: docker pull without a tag stops working
@@ -307,8 +307,8 @@ The disk space comes back after the registry runs its garbage collection.
 ### Delete old images
 
 ```bash
-komando registry prune harbor shop/api --keep 10 --dry-run   # what would go, and why the rest stays
-komando registry prune harbor shop/api --keep 10 --older-than 30d --match '^v'
+komando registry oci image prune harbor shop/api --keep 10 --dry-run   # what would go, and why the rest stays
+komando registry oci image prune harbor shop/api --keep 10 --older-than 30d --match '^v'
 ```
 
 `prune` deletes old images of one repository. At your terminal komando
@@ -345,7 +345,7 @@ any image.
   other tags on the same image.
 - `prune` reads each tag's digest (8 at a time), then each image once, and
   stops with `TOO_MANY_TAGS` above 10000 tags (`--match` does not lift it,
-  since every tag is read): delete some first with `registry rm`.
+  since every tag is read): delete some first with `registry oci image delete`.
 - A registry with deletes turned off (a `registry:2` without
   `REGISTRY_STORAGE_DELETE_ENABLED=true`) answers `rm` and `prune` with
   `REGISTRY_UNSUPPORTED`.
@@ -358,7 +358,7 @@ any image.
 | Code | What it means | What to do |
 |------|---------------|------------|
 | `REGISTRY_AUTH` (exit 4) | the registry refused the login, or the token lacks a right | check the user in the conn URL and its `--password-ref` (a token with the right scopes or role) |
-| `REPOSITORY_NOT_FOUND` (exit 3) | no such repository | `komando registry list harbor` shows the repositories |
+| `REPOSITORY_NOT_FOUND` (exit 3) | no such repository | `komando registry oci image list harbor` shows the repositories |
 | `REGISTRY_UNSUPPORTED` (exit 5) | the registry does not allow it: no list of every repository, or deletes turned off | name the repository; turn deletes on in the registry |
 | `REGISTRY_RATE_LIMIT` (exit 5) | too many requests (Docker Hub's pull limit) | wait the time the hint says, or log in |
 | `REGISTRY_TLS` (exit 4) | the certificate is from a private CA, or for another name | add `?ca=secret:NAME`, or use the name the certificate is for |
@@ -366,7 +366,7 @@ any image.
 | `AWS_LOGIN_REQUIRED` (exit 4) | the ECR profile's AWS login ran out | a person runs `komando login aws --profile prod` |
 | `AZURE_LOGIN_REQUIRED` (exit 4) | no Azure login found | set a service principal, or a person runs `az login` |
 | `GCP_LOGIN_REQUIRED` (exit 4) | the Google login ran out or its file is broken | a person runs `gcloud auth application-default login`, or set `GOOGLE_APPLICATION_CREDENTIALS` |
-| `TOO_MANY_TAGS` (exit 2) | `prune` on a repository with more than 10000 tags (`--match` does not lift it) | delete some first with `registry rm` |
+| `TOO_MANY_TAGS` (exit 2) | `prune` on a repository with more than 10000 tags (`--match` does not lift it) | delete some first with `registry oci image delete` |
 
 ## Reference
 

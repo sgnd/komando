@@ -105,7 +105,6 @@ var (
 		"bq",
 		"client-x",
 		"config",
-		"dockerhub",
 		"gcp",
 		"jobs",
 		"lab",

@@ -99,7 +99,7 @@ func spellingAnswer(t *testing.T, id, flag, alias string) string {
 // as the flag itself is: pkg upgradable --refresh under another name.
 func TestAliasSpellingReachesGate(t *testing.T) {
 	for _, c := range []struct{ id, flag string }{
-		{"pkg.upgradable", "--refresh"}, {"db.query", "--write"}, {"cache.run", "--write"},
+		{"pkg.upgradable", "--refresh"}, {"db.query", "--write"}, {"cache.redis.raw", "--write"},
 		{"cluster.run", "--write"}, {"db.explain", "--analyze"}, {"pkg.security", "--refresh"},
 	} {
 		if got := spellingAnswer(t, c.id, c.flag, "old-spelling"); got != "SSH_GATE_READ_ONLY" {

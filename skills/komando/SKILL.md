@@ -58,20 +58,20 @@ not know? Set `KOMANDO_AGENT=1`.
    `KOMANDO_HOME` set to another folder every command stops, a dry run
    too, and no flag clears it.) Declare read-only shell commands
    with `komando exec TARGET --read-only -- 'COMMAND'`. `db query`,
-   `cache run` and `cluster run` are the other way round: they only read
+   `cache redis raw` and `cluster run` are the other way round: they only read
    unless you add `--write`.
    Every command that hands words to another program (`exec`, `job start`,
    `docker exec`, `docker compose`, `docker raw`, `cluster exec`, `cluster
-   shell`, `cluster run`, `cache run`) takes them only after `--`, and
+   shell`, `cluster run`, `cache redis raw`) takes them only after `--`, and
    komando's own flags go before it. Without `--` it stops with `USAGE`
    and runs nothing.
 3. **Use the command made for the job.**
    - Files: `komando fs replace TARGET PATH --old '...' --new '...' --backup`,
      never `sed -i` over `exec`.
-   - Databases: query with `komando db query`. Back up with
-     `komando db dump CONN --to FILE` (`--run-on HOST` runs `pg_dump` or
-     `mysqldump` on that server, at low priority), never `pg_dump` through
-     `exec` and base64. Manage users with `komando db user` and
+   - Databases: query with `komando db query`. A backup is
+     `komando db dump CONN --to FILE`, and only the human runs it, in their
+     own terminal (`NEEDS_PERSON`: the file holds every row, secrets
+     included); never `pg_dump` through `exec` and base64. Manage users with `komando db user` and
      `komando db grant` (passwords as `--password-ref secret:NAME`, never
      `CREATE USER ... PASSWORD` in a query).
    - Services: after writing a systemd unit, run `komando svc daemon-reload`.

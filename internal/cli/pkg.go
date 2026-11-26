@@ -9,8 +9,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
+	"github.com/sgnd/komando/internal/snippet"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -400,4 +402,20 @@ func runPkg(cl *call, ctx context.Context, action, target string, pkgs []string,
 		spec.text = func(data any) string { return pkgUpgradesText(data.(pkgWouldUpgrade).WouldUpgrade) }
 	}
 	return runOps(cl, ctx, spec)
+}
+
+// pkgSnippets are the ready-made snippets of pkg upgradable (design 2.1):
+// today's text, which elevates itself when sudo needs no password. They
+// move with the host commands' package (M11).
+func pkgSnippets() []snippet.Builtin {
+	command := "ACTION=upgradable PKGS=" + sshx.Q("") + "; " + pkgShell
+	return []snippet.Builtin{{
+		Name: "pkg-upgradable", Type: "host", Replaces: "pkg upgradable", Reader: "UpdatesTab.swift:310; KomandoCall+Packages.swift:13",
+		Tier: capability.Read, Shape: "pkg-upgradable/1",
+		Checks: []string{"TestPkgUpgradableIndexAge", "TestPkgUpgradableReadsAsRootWhenItCan", "TestSnippetSamplesMatchGoldens/pkg-upgradable"},
+		Text:   map[snippet.Family]string{snippet.Unix: `if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then exec sudo -n sh -c ` + sshx.Q(command) + "; fi\n" + command},
+		Parse: func(o snippet.Output, _ snippet.Family) (any, error) {
+			return pkgUpgradableResult(snippetRun(o), false)
+		},
+	}}
 }

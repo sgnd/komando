@@ -429,7 +429,7 @@ var builtinSnippets = mustSnippets(builtinLists()...)
 // replace. Each list lives in that command's file and moves with its
 // package (M5 cache, M9 database, M10 cluster, M11 host).
 func builtinLists() [][]snippet.Builtin {
-	return [][]snippet.Builtin{factsSnippets(), factsOnlySnippets(), svcSnippets(), dockerSnippets(), dockerPruneSnippets()}
+	return [][]snippet.Builtin{factsSnippets(), factsOnlySnippets(), svcSnippets(), dockerSnippets(), dockerPruneSnippets(), logsSnippets(), pkgSnippets(), pkgSecSnippets()}
 }
 
 func mustSnippets(lists ...[]snippet.Builtin) *snippet.Registry {
@@ -458,6 +458,9 @@ func snippetFamily(h *store.Host) snippet.Family {
 // rules (policy.Check, like a typed exec line), protected servers ask for a
 // change, and the result is masked when it is printed.
 func runSnippet(cl *call, ctx context.Context, b snippet.Builtin, target string, kv map[string]string, noSudo bool) error {
+	if err := snippet.RefuseNoSudo(b, noSudo); err != nil {
+		return err
+	}
 	if b.Run != nil {
 		return runClientSnippet(cl, ctx, b, target, kv)
 	}
@@ -490,7 +493,7 @@ func runSnippet(cl *call, ctx context.Context, b snippet.Builtin, target string,
 	}
 	parse := func(f snippet.Family) func(*store.Host, *sshx.RunResult) (any, *out.Error) {
 		return func(_ *store.Host, r *sshx.RunResult) (any, *out.Error) {
-			return snippet.Parse(b, f, snippet.Output{Stdout: r.Stdout, Stderr: r.Stderr, ExitCode: r.ExitCode})
+			return snippet.Parse(b, f, snippet.Output{Stdout: r.Stdout, Stderr: r.Stderr, ExitCode: r.ExitCode, Truncated: r.StdoutTruncated})
 		}
 	}
 	data, worst, fails, err := collectOps(cl, ctx, opsSpec{name: "snippet.exec", target: target, display: "snippet " + b.Name,

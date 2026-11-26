@@ -167,4 +167,7 @@ func TestDataOutHasARow(t *testing.T) {
 	if got := Highest(top("export")); got != Person {
 		t.Errorf("Highest(export) = %d, want person (--sealed, --for-phone)", got)
 	}
+	if got := Highest(Key{Type: "database", Provider: "postgres", Verb: "backup"}); got != Person {
+		t.Errorf("Highest(database postgres backup) = %d, want person (an AI agent's dump, C424)", got)
+	}
 }

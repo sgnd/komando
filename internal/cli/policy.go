@@ -140,7 +140,7 @@ func policyCheckCmd() *cobra.Command {
 			switch {
 			case kind == "":
 			case kind == "redis" || kind == "memcached":
-				// one quoted argument ("CLIENT LIST") is split as cache run splits it
+				// one quoted argument ("CLIENT LIST") is split as cache redis raw splits it
 				words, err := cachex.SplitCommand(args)
 				if err != nil {
 					return out.Usage("%v", err)

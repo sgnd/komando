@@ -120,6 +120,31 @@ func TestNewRefusesBadDefinitions(t *testing.T) {
 			b.Vars = []Var{{Name: "unit", Channel: SQLIdent, Pattern: unitVar.Pattern, MaxLen: 8, Longest: "nginx-ab",
 				Families: map[Family]*regexp.Regexp{Unix: unitVar.Pattern}}}
 		}, "family"},
+		{"number whose longest value is not digits", func(b *Builtin) {
+			b.Vars = []Var{unitVar, {Name: "n", Channel: Number, Pattern: regexp.MustCompile(`^[0-9a-z]+$`), MaxLen: 3, Longest: "abc"}}
+		}, "longest"},
+		{"number marker before a redirect", func(b *Builtin) {
+			b.Vars = []Var{unitVar, {Name: "n", Channel: Number, Pattern: regexp.MustCompile(`^[0-9]+$`), MaxLen: 3, Longest: "999", Required: true}}
+			b.Text[Unix] = "journalctl -u {{var:unit}} -n {{var:n}}>x"
+		}, "word"},
+		{"number marker glued to a word", func(b *Builtin) {
+			b.Vars = []Var{unitVar, {Name: "n", Channel: Number, Pattern: regexp.MustCompile(`^[0-9]+$`), MaxLen: 3, Longest: "999", Required: true}}
+			b.Text[Unix] = "journalctl -u {{var:unit}} -n x{{var:n}}"
+		}, "word"},
+		{"number marker as a parameter", func(b *Builtin) {
+			b.Vars = []Var{unitVar, {Name: "n", Channel: Number, Pattern: regexp.MustCompile(`^[0-9]+$`), MaxLen: 3, Longest: "999", Required: true}}
+			b.Text[Unix] = "echo ${{var:n}} {{var:unit}}"
+		}, "word"},
+		{"number marker as a PowerShell size", func(b *Builtin) {
+			b.Vars = []Var{unitVar, {Name: "n", Channel: Number, Pattern: regexp.MustCompile(`^[0-9]+$`), MaxLen: 3, Longest: "999", Required: true}}
+			b.Text[Windows] = "Get-Service {{var:unit}} -Size {{var:n}}kb"
+		}, "word"},
+		{"optional number without a default", func(b *Builtin) {
+			b.Vars = []Var{unitVar, {Name: "n", Channel: Number, Pattern: regexp.MustCompile(`^[0-9]+$`), MaxLen: 3, Longest: "999"}}
+		}, "default"},
+		{"number as a list", func(b *Builtin) {
+			b.Vars = []Var{unitVar, {Name: "n", Channel: Number, Pattern: regexp.MustCompile(`^[0-9]+$`), MaxLen: 3, Longest: "999", List: true, MaxItems: 2}}
+		}, "list"},
 		{"sudo without a Unix text", func(b *Builtin) { b.Sudo = true; delete(b.Text, Unix) }, "sudo"},
 		{"sudo on a client call", func(b *Builtin) {
 			b.Sudo, b.Text, b.Parse = true, nil, nil
@@ -622,5 +647,98 @@ func TestRunClientChecksBeforeItRuns(t *testing.T) {
 	}
 	if _, err := RunClient(context.Background(), sample(), want, map[string]string{"unit": "nginx"}); err == nil {
 		t.Error("RunClient ran a text built-in; it has no client call")
+	}
+}
+
+// numberSample has a count that goes into its text.
+func numberSample() Builtin {
+	b := sample()
+	b.Vars = []Var{unitVar, {Name: "n", Channel: Number, Pattern: regexp.MustCompile(`^[0-9]+$`), MaxLen: 5, Longest: "99999", Default: "200"}}
+	b.Text = map[Family]string{Unix: "journalctl -u {{var:unit}} -n {{var:n}}", Windows: "Get-WinEvent -MaxEvents {{var:n}} {{var:unit}}"}
+	return b
+}
+
+// A number marker may stand after a space, an = or the line's start, and
+// before a space or the line's end (Audit A-456-1): a whole word.
+func TestNewTakesANumberAsAWholeWord(t *testing.T) {
+	for _, text := range []string{"tail -n {{var:n}}", "{{var:n}} lines", "x --tail={{var:n}} y", "a\n{{var:n}}\nb", "-n {{var:n}} -u {{var:unit}}"} {
+		b := numberSample()
+		b.Text = map[Family]string{Unix: text}
+		if _, err := New([]Builtin{b}); err != nil {
+			t.Errorf("New(%q) = %v", text, err)
+		}
+	}
+}
+
+// A number goes into the text as its digits, unquoted, in every family:
+// digits are inert to sh and PowerShell, and the text stays today's.
+func TestFillNumberIsItsDigits(t *testing.T) {
+	r, err := New([]Builtin{numberSample()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := r.Lookup("svc-status")
+	for f, want := range map[Family]string{Unix: "journalctl -u 'nginx' -n 3", Windows: "Get-WinEvent -MaxEvents 3 'nginx'"} {
+		if got, err := Fill(b, f, map[string]string{"unit": "nginx", "n": "3"}); err != nil || got != want {
+			t.Errorf("Fill(%s) = %q, %v; want %q", f, got, err, want)
+		}
+	}
+	if got, err := Fill(b, Unix, map[string]string{"unit": "nginx"}); err != nil || got != "journalctl -u 'nginx' -n 200" {
+		t.Errorf("the default: %q, %v", got, err)
+	}
+}
+
+// Only ASCII digits pass, whatever the variable's pattern takes.
+func TestFillNumberRefusals(t *testing.T) {
+	b := numberSample()
+	b.Vars[1].Pattern = regexp.MustCompile(`^.+$`) // the number rule holds even under a loose pattern
+	for _, v := range []string{"3;reboot", "-1", "1e3", "0x10", "3 4", "\u0663", "１", "$(id)", "123456"} {
+		if got, err := Fill(b, Unix, map[string]string{"unit": "nginx", "n": v}); err == nil {
+			t.Errorf("Fill(n=%q) = %q, want a refusal", v, got)
+		}
+	}
+}
+
+// TestRefuseNoSudo (Audit A-457-1): --no-sudo only drops the sudo the runner
+// adds for Builtin.Sudo. A text that raises itself (exec sudo -n sh -c ...)
+// would elevate anyway, so the engine refuses the flag for it, with the
+// snippet's name, instead of letting a person think the run is unprivileged.
+func TestRefuseNoSudo(t *testing.T) {
+	self := sample()
+	self.Text[Unix] = `if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then exec sudo -n sh -c 'systemctl show -- {{var:unit}}'; fi`
+	runnerSudo := sample()
+	runnerSudo.Sudo = true
+	for _, tc := range []struct {
+		name   string
+		b      Builtin
+		noSudo bool
+		refuse bool
+	}{
+		{"a text that raises itself, --no-sudo", self, true, true},
+		{"a text that raises itself, no flag", self, false, false},
+		{"a plain text, --no-sudo", sample(), true, false},
+		{"the runner's sudo, --no-sudo", runnerSudo, true, false},
+	} {
+		err := RefuseNoSudo(tc.b, tc.noSudo)
+		if (err != nil) != tc.refuse {
+			t.Errorf("%s: error %v, want refused %v", tc.name, err, tc.refuse)
+		}
+		if err != nil && (code(err) != "USAGE" || !strings.Contains(err.Error(), tc.b.Name) || !strings.Contains(err.Error(), "--no-sudo")) {
+			t.Errorf("%s: %q: want a usage error naming the snippet and --no-sudo", tc.name, err)
+		}
+	}
+	for _, text := range []string{"sudo ls", "ls; sudo ls", "a && sudo -n ls", "(sudo ls)", "x | sudo tee f"} {
+		b := sample()
+		b.Text[Unix] = text
+		if !SelfElevates(b) {
+			t.Errorf("%q: not read as raising itself", text)
+		}
+	}
+	for _, text := range []string{"pseudosudo ls", "echo sudoers", "ls /etc/sudoers.d"} {
+		b := sample()
+		b.Text[Unix] = text
+		if SelfElevates(b) {
+			t.Errorf("%q: read as raising itself, but sudo is not a word of it", text)
+		}
 	}
 }

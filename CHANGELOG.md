@@ -13,12 +13,15 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- Registries have a path per provider: `komando registry oci` takes add, edit, list, remove, rename, show and test, and `registry oci image` takes list, show, copy, delete and prune. `registry add`, `list`, `inspect`, `copy`, `rm` and `prune` are gone, with the aliases `get`, `show` and `cp` of the old ones; `--credential NAME` names the stored password. The arguments name the registry as NAME, not CONN.
+- Caches have a path per provider: `komando cache redis` and `komando cache memcached` take add, edit, list, remove, rename, show, test and raw. `cache add` and `cache run` are gone (`cache redis raw NAME -- COMMAND` is `cache run`, with `--write` as before); `--credential NAME` names the stored password. A URL of another provider, or an entry saved for another one, is refused with the path that fits. `cache get`, `keys`, `info`, `set` and `rm` stay until their removal. The short flags `-g` and `-t` of `add` have no form in the new tree.
 - The agent guard's hook line refuses a tool call when the guard cannot answer (komando missing, not a program, or failing), in each agent tool's own format. The guard refuses an AI agent's change to the agents' hook settings and folders and to the komando program the hook runs. `komando doctor` checks every agent's hook line and its program, `komando guide install` replaces an older line, and `komando update` says when one is left. On Windows no guard hook is set up for now; `komando doctor` says so.
 - The agent guard (`komando guide guard`) answers every tool call within 3 seconds: a check that takes longer, or stops with an internal error, refuses the call.
 - The macOS approval window no longer answers to Space or Return: a stray key cannot deny (or allow) for you. Click **Deny** or **Allow once**, or press Esc or Cmd-W to deny. The agent's error names how the person said no (`details.denied_by`: `click` or `key`), and after a key it asks whether that was a slip.
 - The macOS approval window now shows a script of up to 200 lines whole; it scrolls and allows only after the last line. Windows and Linux keep 40 lines.
 - A script too long for the window ends with its own error code, `SHORTER_SCRIPT_REQUIRED`, and the message names the counted number of shown lines and the script's own line count.
 - The agent guard (`komando guide guard`) refuses a tool call larger than 4 MiB, which it cannot check whole, in each agent tool's own format.
+- An AI agent's `db dump` stops with `NEEDS_PERSON` on every database, not only where personal data is hidden: the file holds every row as it is, passwords and tokens included. No flag lifts it; a person runs the dump in their own terminal.
 
 ### Fixed
 

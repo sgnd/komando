@@ -1,0 +1,8 @@
+Which host?
+  The host the command runs on. Type part of its name or
+  address to narrow the list; Enter takes the highlighted
+  row.
+> web-01  10.0.0.1
+  web-02  10.0.0.2
+  web-03  10.0.0.3
+Enter take · Esc back · ? help · Ctrl-C stop

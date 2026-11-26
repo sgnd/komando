@@ -9,7 +9,7 @@ import (
 )
 
 // Passthrough commands hand words to another program: exec, job start,
-// docker exec/compose/raw, cluster exec/shell/run and cache run (every
+// docker exec/compose/raw, cluster exec/shell/run and cache redis raw and cache memcached raw (every
 // command whose Use has `-- COMMAND...` or `-- ARGS...`). komando reads its
 // own flags anywhere before `--`, so every word for the other program must
 // come after `--`: without it, `komando exec web1 apt-get install -y nginx`
