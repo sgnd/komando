@@ -262,18 +262,9 @@ func TestExecSessionSpaceDenied(t *testing.T) {
 // A group, --pty and the commands built on exec run without a session.
 func TestExecSessionGroupStaysDirect(t *testing.T) {
 	srv := startSessionServer(t, "", false)
-	if err := store.Update(store.Save(), func(st *store.State) error {
-		w := *st.Hosts["dev"]
-		w.Name, w.OS = "win", store.OSWindows
-		st.Hosts["win"] = &w
-		return nil
-	}); err != nil {
-		t.Fatal(err)
-	}
 	for _, args := range [][]string{
 		{"exec", "dev,prod", "--read-only", "--", "uptime"},
 		{"exec", "dev", "--read-only", "--pty", "--", "uptime"},
-		{"exec", "win", "--read-only", "--", "Get-Date"},
 	} {
 		_ = captureOutput(t, func() error { return runRoot(t, args...) })
 		if k := srv.kinds(); slices.Contains(k, "start") || len(k) == 0 {
@@ -282,7 +273,7 @@ func TestExecSessionGroupStaysDirect(t *testing.T) {
 	}
 }
 
-// Only a plain exec on one Unix server without --pty gets a session.
+// Only a plain exec on one server without --pty gets a session.
 func TestSessionForOneUnixServer(t *testing.T) {
 	sessionsOn = true
 	t.Cleanup(func() { sessionsOn = false })
@@ -298,7 +289,7 @@ func TestSessionForOneUnixServer(t *testing.T) {
 		want  bool
 	}{
 		{"one unix server", "exec", []*store.Host{unix}, o, true},
-		{"windows", "exec", []*store.Host{win}, o, false},
+		{"windows", "exec", []*store.Host{win}, o, true},
 		{"two servers", "exec", []*store.Host{unix, unix}, o, false},
 		{"pty", "exec", []*store.Host{unix}, pty, false},
 		{"not exec", "logs", []*store.Host{unix}, o, false},

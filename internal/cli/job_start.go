@@ -264,14 +264,14 @@ func (s *sessionOpts) attachCall(cl *call, ctx context.Context, c *cobra.Command
 	case s.stop && !slices.Contains(execsession.Signals, s.signal):
 		return out.Usage("--signal %q: give one of TERM, INT, HUP, QUIT or KILL", s.signal)
 	case s.stop:
-		return stopSession(cl, ctx, args[0], s.attach[0], s.signal)
+		return stopSession(cl, ctx, args[0], s.attach[0], s.signal, f.Changed("signal"))
 	case s.remove:
 		return removeSession(cl, ctx, args[0], s.attach[0])
 	}
 	return attachSessions(cl, ctx, args[0], *s)
 }
 
-// sessionRun is exec's run in a session folder on one Unix server
+// sessionRun is exec's run in a session folder on one server
 // (execsession): it survives a dropped connection, and --attach reads it
 // on. A nil sessionRun runs the command as before.
 type sessionRun struct {
@@ -282,9 +282,9 @@ type sessionRun struct {
 }
 
 // sessionFor is exec's session for this run, or nil: sessions are on, and
-// the run is a plain exec on one Unix server without --pty.
+// the run is a plain exec on one server without --pty.
 func sessionFor(name string, hosts []*store.Host, o execOpts, shown string) *sessionRun {
-	if !sessionsOn || o.session == nil || name != "exec" || len(hosts) != 1 || hosts[0].Windows() || o.pty {
+	if !sessionsOn || o.session == nil || name != "exec" || len(hosts) != 1 || o.pty {
 		return nil
 	}
 	return &sessionRun{opts: *o.session, shown: shown}
@@ -315,32 +315,13 @@ func (s *sessionRun) run(cl *call, ctx context.Context, c *sshx.Client, r sshx.R
 	if err != nil {
 		return nil, err
 	}
-	exports, err := sshx.EnvExports(c, r.Env)
-	if err != nil {
-		return nil, err
+	var facts execsession.Facts
+	var warns []string
+	if c.Host.Windows() {
+		facts, err = s.beginWindows(cl, ctx, c, r, id)
+	} else {
+		facts, warns, err = s.beginUnix(cl, ctx, c, r, id)
 	}
-	inner, _, err := sshx.BuildCommand(c, sshx.RunRequest{Command: r.Command, Dir: r.Dir, NoEnv: true})
-	if err != nil {
-		return nil, err
-	}
-	if exports != "" {
-		inner = `eval "$(dd bs=1 count=` + strconv.Itoa(len(exports)) + ` 2>/dev/null)"; ` + inner
-	}
-	start, pw, err := jobRunner(c, jobSpec{sudo: r.Sudo, sudoUser: r.SudoUser}, inner)
-	if err != nil {
-		return nil, err
-	}
-	script, err := execsession.BeginScript(execsession.Start{ID: id, Shown: s.shown, Run: start, Env: len(exports),
-		Password: len(pw), Input: r.Stdin != nil, Timeout: r.Timeout, LogMax: s.opts.logMax}, hostSessions(host))
-	if err != nil {
-		return nil, err
-	}
-	b, err := sshx.Run(ctx, c, sshx.RunRequest{Command: script, Stdin: append(append([]byte(exports), pw...), r.Stdin...), Timeout: 30 * time.Second, MaxOutput: 64 << 10})
-	if err != nil {
-		return nil, err
-	}
-	forgetSessions(cl, host, execsession.Swept(b.Stdout, id))
-	facts, warns, err := execsession.ReadStart(host, b.ExitCode, b.Stdout, id)
 	if errors.Is(err, execsession.ErrNoFolder) {
 		sessionLine(cl, nil, host)
 		cl.out.Warn(host + ": no session folder can be made in the login user's home, so the command ran without a session: it ends if the connection drops")
@@ -353,13 +334,46 @@ func (s *sessionRun) run(cl *call, ctx context.Context, c *sshx.Client, r sshx.R
 		cl.out.Warn(host + ": " + w)
 	}
 	s.id = id
-	rec := &store.ExecSession{ID: id, Host: host, Command: s.shown, PID: facts.PID, PGID: facts.PGID, ProcStart: facts.Start,
+	rec := &store.ExecSession{ID: id, Host: host, Command: s.shown, PID: facts.PID, PGID: facts.PGID, ProcStart: facts.Start, Image: facts.Image, CmdLine: facts.CmdLine,
 		StartedAt: time.Now().UTC(), Sudo: r.Sudo, SudoUser: r.SudoUser, Actor: actor(cl), Agent: cl.isAgent()}
 	if err := store.UpdateRuntime(cl.storeWrite(), func(st *store.State) error { st.ExecSessions[id] = rec; return nil }); err != nil {
 		cl.out.Warn(host + ": session " + id + " runs, but this computer could not record it: " + err.Error())
 	}
 	sessionLine(cl, &id, host)
 	return s.follow(cl, ctx, c, 0, s.opts.wait, r)
+}
+
+// beginUnix is the Unix start of a run: one call that sweeps old folders,
+// makes this session's folder and starts the run, then the facts it
+// printed. Whatever the sweep removed is forgotten here.
+func (s *sessionRun) beginUnix(cl *call, ctx context.Context, c *sshx.Client, r sshx.RunRequest, id string) (execsession.Facts, []string, error) {
+	host := c.Host.Name
+	exports, err := sshx.EnvExports(c, r.Env)
+	if err != nil {
+		return execsession.Facts{}, nil, err
+	}
+	inner, _, err := sshx.BuildCommand(c, sshx.RunRequest{Command: r.Command, Dir: r.Dir, NoEnv: true})
+	if err != nil {
+		return execsession.Facts{}, nil, err
+	}
+	if exports != "" {
+		inner = `eval "$(dd bs=1 count=` + strconv.Itoa(len(exports)) + ` 2>/dev/null)"; ` + inner
+	}
+	start, pw, err := jobRunner(c, jobSpec{sudo: r.Sudo, sudoUser: r.SudoUser}, inner)
+	if err != nil {
+		return execsession.Facts{}, nil, err
+	}
+	script, err := execsession.BeginScript(execsession.Start{ID: id, Shown: s.shown, Run: start, Env: len(exports),
+		Password: len(pw), Input: r.Stdin != nil, Timeout: r.Timeout, LogMax: s.opts.logMax}, hostSessions(host))
+	if err != nil {
+		return execsession.Facts{}, nil, err
+	}
+	b, err := sshx.Run(ctx, c, sshx.RunRequest{Command: script, Stdin: append(append([]byte(exports), pw...), r.Stdin...), Timeout: 30 * time.Second, MaxOutput: 64 << 10})
+	if err != nil {
+		return execsession.Facts{}, nil, err
+	}
+	forgetSessions(cl, host, execsession.Swept(b.Stdout, id))
+	return execsession.ReadStart(host, b.ExitCode, b.Stdout, id)
 }
 
 // sessionLine names the session before any output: the first JSON line,
@@ -389,13 +403,13 @@ func (s *sessionRun) follow(cl *call, ctx context.Context, c *sshx.Client, from 
 		buf.WriteString(text)
 	}
 	read := func(ctx context.Context, script string) (string, int, error) {
-		rr, err := sshx.Run(ctx, c, sshx.RunRequest{Command: script, Timeout: 30 * time.Second, MaxOutput: execsession.ReadMax + 4<<10})
+		rr, err := sshx.Run(ctx, c, sshx.RunRequest{Command: script, Timeout: 30 * time.Second, MaxOutput: readOutputMax(c.Host.Windows())})
 		if err != nil {
 			return "", 0, err
 		}
 		return rr.Stdout, rr.ExitCode, nil
 	}
-	f := execsession.Follow{Host: c.Host.Name, ID: s.id, From: from, Wait: wait, Every: time.Second,
+	f := execsession.Follow{Host: c.Host.Name, ID: s.id, Windows: c.Host.Windows(), From: from, Wait: wait, Every: time.Second,
 		Lines: &execsession.Lines{Redact: cl.out.Redact, Agent: cl.isAgent()}, Show: show}
 	done, err := f.Run(ctx, read)
 	res.Stdout, res.DurationMS = buf.String(), time.Since(t0).Milliseconds()
@@ -434,7 +448,7 @@ func (s *sessionRun) removeOwn(cl *call, ctx context.Context, c *sshx.Client) {
 	if rec == nil || rec.Host != c.Host.Name || !ownRun(cl, rec) {
 		return
 	}
-	script, err := execsession.RemoveScript(s.id, rec)
+	script, err := removeScriptFor(c.Host, s.id, rec)
 	if err != nil {
 		return
 	}
@@ -492,7 +506,7 @@ func attachSessions(cl *call, ctx context.Context, target string, so sessionOpts
 	if so.offset < 0 || (so.offset > 0 && len(so.attach) > 1) {
 		return out.Usage("--offset goes with one session ID, and is 0 or more")
 	}
-	st, h, err := sessionHost(cl, target)
+	ctx, st, h, err := sessionHost(ctx, cl, target)
 	if err != nil {
 		return err
 	}
@@ -538,21 +552,23 @@ func attachSessions(cl *call, ctx context.Context, target string, so sessionOpts
 	return finishFleet(cl, "exec", data, data.Summary, worst, fails)
 }
 
-// sessionHost is the one Linux or Unix server target names, for --attach
+// sessionHost is the one server target names, for --attach
 // and its --stop and --remove.
-func sessionHost(cl *call, target string) (*store.State, *store.Host, error) {
+func sessionHost(ctx context.Context, cl *call, target string) (context.Context, *store.State, *store.Host, error) {
 	st, err := loadState()
 	if err != nil {
-		return nil, nil, err
+		return ctx, nil, nil, err
 	}
 	hosts, err := resolveTargets(cl, st, target)
 	if err != nil {
-		return nil, nil, err
+		return ctx, nil, nil, err
 	}
-	if len(hosts) != 1 || hosts[0].Windows() {
-		return nil, nil, out.Usage("--attach works on sessions on one Linux or Unix server: name that server, as the exec that started them did")
+	if len(hosts) != 1 {
+		return ctx, nil, nil, out.Usage("--attach works on sessions on one server: name that server, as the exec that started them did")
 	}
-	return st, hosts[0], nil
+	// a Windows server is reached only by a command that marked its context
+	ctx, err = windowsGate(ctx, "exec", hosts, true)
+	return ctx, st, hosts[0], err
 }
 
 // readRuntime is this computer's runtime data; none yet reads as empty.
@@ -571,12 +587,21 @@ type sessionChange struct {
 	Signal    string `json:"signal,omitempty"`
 	Signalled string `json:"signalled,omitempty"` // group | pid: what the signal went to
 	PID       int    `json:"pid,omitempty"`
+	PIDs      []int  `json:"pids,omitempty"`  // Windows: the processes the stop ended
+	Limit     string `json:"limit,omitempty"` // Windows: what a stop cannot promise
 	Removed   bool   `json:"removed,omitempty"`
 }
 
 func (s sessionChange) Text() string {
 	if s.Removed {
 		return "removed session " + s.Session + " on " + s.Host
+	}
+	if s.PIDs != nil {
+		pids := make([]string, len(s.PIDs))
+		for i, p := range s.PIDs {
+			pids[i] = strconv.Itoa(p)
+		}
+		return "stopped session " + s.Session + " on " + s.Host + " (processes " + strings.Join(pids, ", ") + "); " + s.Limit
 	}
 	return "sent " + s.Signal + " to the " + cmp.Or(s.Signalled, "process") + " of session " + s.Session + " on " + s.Host + " (pid " + strconv.Itoa(s.PID) + ")"
 }
@@ -655,10 +680,13 @@ func ownRun(cl *call, rec *store.ExecSession) bool {
 // stopSession is exec --attach ID --stop: it signals the run from its
 // record on this computer alone (A-C324-1), through sudo as the run ran
 // (A-C324-2), and keeps the record: the removal drops it.
-func stopSession(cl *call, ctx context.Context, target, id, sig string) error {
-	st, h, err := sessionHost(cl, target)
+func stopSession(cl *call, ctx context.Context, target, id, sig string, sigGiven bool) error {
+	ctx, st, h, err := sessionHost(ctx, cl, target)
 	if err != nil {
 		return err
+	}
+	if h.Windows() {
+		return stopWindows(cl, ctx, st, h, id, sig, sigGiven)
 	}
 	rt, err := readRuntime()
 	if err != nil {
@@ -697,7 +725,7 @@ func stopSession(cl *call, ctx context.Context, target, id, sig string) error {
 // stored process decides that the run ended; without one, the files on
 // the server.
 func removeSession(cl *call, ctx context.Context, target, id string) error {
-	st, h, err := sessionHost(cl, target)
+	ctx, st, h, err := sessionHost(ctx, cl, target)
 	if err != nil {
 		return err
 	}
@@ -709,7 +737,7 @@ func removeSession(cl *call, ctx context.Context, target, id string) error {
 	if rec != nil && rec.Host != h.Name {
 		rec = nil
 	}
-	script, err := execsession.RemoveScript(id, rec)
+	script, err := removeScriptFor(h, id, rec)
 	if err != nil {
 		return err
 	}
@@ -717,7 +745,7 @@ func removeSession(cl *call, ctx context.Context, target, id string) error {
 	if err != nil || r == nil {
 		return err
 	}
-	if err := execsession.RemoveExit(h.Name, id, r.ExitCode); err != nil {
+	if err := removeExitFor(h, id, r.ExitCode); err != nil {
 		return err
 	}
 	forgetSessions(cl, h.Name, []string{id})

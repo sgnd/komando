@@ -193,3 +193,44 @@ func TestPSBootstrapReadsUTF8(t *testing.T) {
 		t.Errorf("the bootstrap must set the input encoding before it reads:\n%s", psBootstrap)
 	}
 }
+
+// EnvPairs is the host's env and the run's extra, sorted, vault values
+// read: the data a Windows session's env file carries.
+func TestEnvPairs(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Cleanup(store.Close)
+	c := &Client{Host: &store.Host{Name: "win1", OS: store.OSWindows, Env: map[string]string{"B": "host", "A": "it's"}}}
+	got, err := EnvPairs(c, map[string]string{"B": "run", "C": "x y"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []EnvPair{{"A", "it's"}, {"B", "run"}, {"C", "x y"}}
+	if len(got) != len(want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("pair %d: got %v, want %v", i, got[i], want[i])
+		}
+	}
+	if _, err := EnvPairs(c, map[string]string{"A;B": "1"}); err == nil {
+		t.Error("a bad env name must be refused")
+	}
+	if got, err := EnvPairs(c, nil); err != nil || len(got) != 2 {
+		t.Errorf("host env alone: %v %v", got, err)
+	}
+	if got, err := EnvPairs(&Client{Host: &store.Host{Name: "w"}}, nil); err != nil || got != nil {
+		t.Errorf("no env must give nil, not an empty list: %#v %v", got, err)
+	}
+}
+
+// A host's vault value stays out of a run the cli says no secrets for.
+func TestEnvPairsHonoursHostSecretEnv(t *testing.T) {
+	c := &Client{Host: &store.Host{Name: "win1", Env: map[string]string{"TOKEN": "secret:nope", "PLAIN": "1"}}}
+	HostSecretEnv = func(*Client) bool { return false }
+	t.Cleanup(func() { HostSecretEnv = nil })
+	got, err := EnvPairs(c, nil)
+	if err != nil || len(got) != 1 || got[0].Key != "PLAIN" {
+		t.Errorf("got %v %v, want PLAIN only", got, err)
+	}
+}
