@@ -710,6 +710,9 @@ func printsOnly(words []string) bool {
 	}
 	prog, args := program(words)
 	base := filepath.Base(prog)
+	if len(setNames(base, args)) > 0 {
+		return false // printf -v NAME: a later command reads the variable
+	}
 	return base == "komando" || base != "cd" && base != "pushd" && prog != "" && readsOnly(base, args)
 }
 

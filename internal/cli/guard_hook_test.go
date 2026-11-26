@@ -220,6 +220,7 @@ func TestGuardGrepPatternIsNoFile(t *testing.T) {
 		`grep -rn "argon2.IDKey" internal/`,
 		"rg -n vault.Key internal",
 		"grep -n -A 3 tls.key README.md",
+		"grep --color=auto -n scrypt.Key internal/vault/storekey.go",
 	}, false)
 	checkLines(t, home, home, []string{
 		"grep -f ~/.komando/vault.key notes.txt",
@@ -229,6 +230,22 @@ func TestGuardGrepPatternIsNoFile(t *testing.T) {
 		"grep foo server.key",
 		"grep ~/.ssh/id_* notes.txt",
 		"grep -rf ~/.komando/vault.key .",
+		// grep moves its options to the front: a later -e or -f makes the
+		// first operand a file
+		"grep ~/.komando/vault.key -e .",
+		"grep ~/.ssh/id_ed25519 -e .",
+		"grep -m1 ~/.komando/vault.key -f /dev/null",
+		// a long option is read from a short prefix of its name
+		"grep --regex=. ~/.komando/vault.key",
+		"grep --fil=~/.komando/vault.key x",
+		// GREP_OPTIONS adds options grep reads first
+		"GREP_OPTIONS=-f grep ~/.komando/vault.key notes.txt",
+		"env GREP_OPTIONS=-f grep ~/.komando/vault.key notes.txt",
+		"export GREP_OPTIONS=-f; grep ~/.komando/vault.key notes.txt",
+		// a program in front of grep can give it more arguments
+		"xargs grep ~/.komando/vault.key < notes.txt",
+		"parallel grep ~/.komando/vault.key ::: notes.txt",
+		"find . -exec grep ~/.komando/vault.key {} +",
 	}, true)
 }
 
@@ -297,6 +314,9 @@ func TestGuardKomandoRunNextToAnotherCommand(t *testing.T) {
 		"python3 - <<EOF\nopen(\"\"\"\n" + home + "/bin/komando\n\"\"\".strip(),\"w\")\nEOF",
 		"python3 - <<< ~/bin/komando",
 		`ls ~/bin/komando; cp /bin/true "$_"`,
+		// printf -v sets a variable a later command uses
+		`printf -v p %s ~/bin/komando; cp /bin/true "$p"`,
+		`printf -v p %s ~/.claude/settings.json; python3 -c 'import sys;open(sys.argv[1],"w")' "$p"`,
 		"for f in a; do ls ~/bin/komando; done | xargs rm",
 		"(ls ~/bin/komando; echo) | xargs rm",
 		"{ ls ~/bin/komando; } | xargs rm",
