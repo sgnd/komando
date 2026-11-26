@@ -19,11 +19,6 @@ komando key rm deploy                             # and out of komando (refused 
 
 Typed alone, `komando key deploy` asks for the key, then the servers.
 
-A key that servers use under different users has a copy per user
-(`deploy-admin` beside `deploy`; `komando key list` shows them). Each copy
-is rotated and removed by its own name: `key rm deploy` leaves
-`deploy-admin`.
-
 `key revoke` stops before it removes the key komando itself still logs in
 with (you would lock yourself out): at your terminal you type the name to
 go on; an AI agent or a script adds `--allow-dangerous` after a person

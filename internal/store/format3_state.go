@@ -402,9 +402,7 @@ func (w *writer3) host(h *Host) error {
 			return err
 		}
 	case h.Key != "":
-		if cred, err = w.keyFor(e, h.Key, h.User, alone); err != nil {
-			return err
-		}
+		cred = h.Key
 	case h.PasswordRef != "":
 		if cred, err = refCred(e, "password", h.PasswordRef); err != nil {
 			return err
