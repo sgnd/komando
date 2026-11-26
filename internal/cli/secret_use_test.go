@@ -131,7 +131,7 @@ func TestSecretDestinationsNeedAPerson(t *testing.T) {
 	wantCode(t, "SECRET_DESTINATION", "conn", "add", "shop2", "postgres://app@evil.example/app", "--password-ref", "credential:db-pass")
 	wantCode(t, "SECRET_DESTINATION", "conn", "edit", "shop", "--url", "postgres://app@evil.example/app")
 	wantCode(t, "SECRET_DESTINATION", "conn", "edit", "shop", "--via", "jump")
-	wantCode(t, "SECRET_DESTINATION", "host", "add", "web1", "deploy@10.0.0.1", "--password-ref", "env:GITHUB_TOKEN")
+	wantCode(t, "SECRET_DESTINATION", "host", "add", "web1", "deploy@10.0.0.1", "--password-ref", "credential:github-token")
 	wantCode(t, "SECRET_DESTINATION", "host", "add", "web1", "deploy@10.0.0.1", "--env", "TOKEN=credential:db-pass")
 	if len(*texts) != 0 {
 		t.Fatalf("no flag, no window: %q", *texts)
@@ -145,8 +145,8 @@ func TestSecretDestinationsNeedAPerson(t *testing.T) {
 		t.Fatalf("nothing new goes anywhere: %q", *texts)
 	}
 
-	mustRun(t, "host", "edit", "web1", "--password-ref", "credential:db-pass", "--yes")
-	if len(*texts) != 1 || !strings.Contains((*texts)[0], "credential:db-pass to root@10.0.0.1:22 (server web1)") {
+	mustRun(t, "host", "edit", "web1", "--password-ref", "credential:web1-pass", "--yes")
+	if len(*texts) != 1 || !strings.Contains((*texts)[0], "credential:web1-pass to root@10.0.0.1:22 (server web1)") {
 		t.Fatalf("window: %q", *texts)
 	}
 	resetApproval()
@@ -154,8 +154,8 @@ func TestSecretDestinationsNeedAPerson(t *testing.T) {
 	wantCode(t, "SECRET_DESTINATION", "host", "edit", "web1", "--address", "10.6.6.6")
 	wantCode(t, "SECRET_DESTINATION", "host", "edit", "web1", "--port", "2222")
 	resetApproval()
-	mustRun(t, "conn", "add", "shop3", "postgres://app@10.0.0.6/app", "--password-ref", "env:SHOP_PASS", "--yes")
-	if w := (*texts)[len(*texts)-1]; !strings.Contains(w, "env:SHOP_PASS to 10.0.0.6:5432 (sslmode=verify-full) (conn shop3)") {
+	mustRun(t, "conn", "add", "shop3", "postgres://app@10.0.0.6/app", "--password-ref", "credential:shop-pass", "--yes")
+	if w := (*texts)[len(*texts)-1]; !strings.Contains(w, "credential:shop-pass to 10.0.0.6:5432 (sslmode=verify-full) (conn shop3)") {
 		t.Errorf("window: %q", w)
 	}
 

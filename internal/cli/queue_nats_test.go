@@ -88,7 +88,7 @@ func TestQueueNatsLive(t *testing.T) {
 		t.Skip("set KOMANDO_E2E_NATS and KOMANDO_E2E_NATS_PASSWORD")
 	}
 	invHome(t)
-	mustRun(t, "conn", "add", "stream", url, "--password-ref", "env:KOMANDO_E2E_NATS_PASSWORD")
+	mustRun(t, "conn", "add", "stream", url, "--password-ref", savedRef(t, "stream-pw", os.Getenv("KOMANDO_E2E_NATS_PASSWORD")))
 	if d := mustRun(t, "conn", "test", "stream"); !strings.Contains(jsonOf(d), `"check":"login"`) {
 		t.Errorf("conn test: %v", d)
 	}

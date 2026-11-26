@@ -33,8 +33,7 @@ func TestParseWinRMAddress(t *testing.T) {
 
 func TestHostAddWinRM(t *testing.T) {
 	startFakeServer(t)
-	t.Setenv("WIN_PW", "x")
-	if err := runRoot(t, "host", "add", "win2", "winrm://Administrator@10.0.0.9?tls=skip-verify", "--password-ref", "env:WIN_PW"); err != nil {
+	if err := runRoot(t, "host", "add", "win2", "winrm://Administrator@10.0.0.9?tls=skip-verify", "--password-ref", savedRef(t, "win2-pw", "x")); err != nil {
 		t.Fatal(err)
 	}
 	s, _ := store.Load()
@@ -91,8 +90,7 @@ func TestExecOverWinRM(t *testing.T) {
 		_, _ = io.WriteString(w, `<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:rsp="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"><s:Body>`+body+`</s:Body></s:Envelope>`)
 	}))
 	defer srv.Close()
-	t.Setenv("WIN_PW", "x")
-	if err := runRoot(t, "host", "add", "win2", "winrm://Administrator@"+srv.Listener.Addr().String()+"?tls=skip-verify&auth=basic", "--password-ref", "env:WIN_PW"); err != nil {
+	if err := runRoot(t, "host", "add", "win2", "winrm://Administrator@"+srv.Listener.Addr().String()+"?tls=skip-verify&auth=basic", "--password-ref", savedRef(t, "win2-pw", "x")); err != nil {
 		t.Fatal(err)
 	}
 	got := captureOutput(t, func() error { return runRoot(t, "exec", "win2", "--read-only", "--", "Get-Date") })
@@ -108,11 +106,10 @@ func TestExecOverWinRM(t *testing.T) {
 // --address takes a winrm:// address on add too, as its help says.
 func TestHostAddWinRMAddressFlag(t *testing.T) {
 	startFakeServer(t)
-	t.Setenv("WIN_PW", "x")
-	if err := runRoot(t, "host", "add", "win5", "--address", "winrm://Administrator@10.0.0.9:5999?tls=skip-verify", "--password-ref", "env:WIN_PW"); err != nil {
+	if err := runRoot(t, "host", "add", "win5", "--address", "winrm://Administrator@10.0.0.9:5999?tls=skip-verify", "--password-ref", savedRef(t, "win5-pw", "x")); err != nil {
 		t.Fatal(err)
 	}
-	if err := runRoot(t, "host", "add", "win6", "--address", "winrm://Administrator@10.0.0.8", "--user", "ops", "--port", "5990", "--password-ref", "env:WIN_PW"); err != nil {
+	if err := runRoot(t, "host", "add", "win6", "--address", "winrm://Administrator@10.0.0.8", "--user", "ops", "--port", "5990", "--password-ref", savedRef(t, "win6-pw", "x")); err != nil {
 		t.Fatal(err)
 	}
 	s, _ := store.Load()

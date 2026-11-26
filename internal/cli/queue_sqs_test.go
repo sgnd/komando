@@ -37,8 +37,7 @@ func TestQueueSQSConn(t *testing.T) {
 	t.Setenv("AWS_SHARED_CREDENTIALS_FILE", os.DevNull)
 	t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
 	wantCode(t, "AWS_PROFILE_NOT_FOUND", "queue", "info", "sqs")
-	t.Setenv("KOMANDO_TEST_SQS_SECRET", "x")
-	mustRun(t, "conn", "add", "nokey", "sqs://us-east-1?endpoint=http://127.0.0.1:9", "--password-ref", "env:KOMANDO_TEST_SQS_SECRET")
+	mustRun(t, "conn", "add", "nokey", "sqs://us-east-1?endpoint=http://127.0.0.1:9", "--password-ref", savedRef(t, "nokey-secret", "x"))
 	wantCode(t, "USAGE", "queue", "info", "nokey")
 }
 
@@ -84,7 +83,6 @@ func TestQueueSQSLive(t *testing.T) {
 		t.Skip("set KOMANDO_E2E_SQS to an SQS endpoint (moto, LocalStack)")
 	}
 	invHome(t)
-	t.Setenv("KOMANDO_TEST_SQS_SECRET", "test")
 	creds := filepath.Join(t.TempDir(), "credentials")
 	if err := os.WriteFile(creds, []byte("[e2e]\naws_access_key_id = test\naws_secret_access_key = test\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -92,7 +90,7 @@ func TestQueueSQSLive(t *testing.T) {
 	t.Setenv("AWS_SHARED_CREDENTIALS_FILE", creds)
 	t.Setenv("AWS_CONFIG_FILE", os.DevNull)
 	t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
-	mustRun(t, "conn", "add", "sqs", "sqs://test@us-east-1?endpoint="+endpoint, "--password-ref", "env:KOMANDO_TEST_SQS_SECRET")
+	mustRun(t, "conn", "add", "sqs", "sqs://test@us-east-1?endpoint="+endpoint, "--password-ref", savedRef(t, "sqs-secret", "test"))
 	mustRun(t, "conn", "add", "aws-sso", "sqs://us-east-1?endpoint="+endpoint, "--option", "aws_profile=e2e")
 	const name = "komando-cli"
 	tg, _ := driver.Parse("sqs://test@us-east-1?endpoint=" + endpoint)

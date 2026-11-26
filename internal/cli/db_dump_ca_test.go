@@ -144,15 +144,14 @@ func TestDumpOnHostCA(t *testing.T) {
 	invHome(t)
 	srv := startFakeServer(t)
 	const pw = "s3cret-Pa55"
-	t.Setenv("KOMANDO_TEST_DB_PW", pw)
 	caPEM, _ := testRegistryCert(t, "db.internal")
 	ca := string(caPEM)
 	if err := vault.Set(store.Save(), "db-ca", "Our CA, from the cloud console\n\n"+ca); err != nil {
 		t.Fatal(err)
 	}
-	mustRun(t, "conn", "add", "pg", "postgres://app@db.internal:5432/app?ca=credential:db-ca&application_name=nightly%20backup", "--password-ref", "env:KOMANDO_TEST_DB_PW")
-	mustRun(t, "conn", "add", "shop", "mysql://shop@db.internal:3306/shop?ca=credential:db-ca", "--password-ref", "env:KOMANDO_TEST_DB_PW")
-	mustRun(t, "conn", "add", "lost", "postgres://app@db.internal:5432/app?ca=credential:no-such-ca", "--password-ref", "env:KOMANDO_TEST_DB_PW")
+	mustRun(t, "conn", "add", "pg", "postgres://app@db.internal:5432/app?ca=credential:db-ca&application_name=nightly%20backup", "--password-ref", savedRef(t, "pg-pw", pw))
+	mustRun(t, "conn", "add", "shop", "mysql://shop@db.internal:3306/shop?ca=credential:db-ca", "--password-ref", savedRef(t, "shop-pw", pw))
+	mustRun(t, "conn", "add", "lost", "postgres://app@db.internal:5432/app?ca=credential:no-such-ca", "--password-ref", savedRef(t, "lost-pw", pw))
 	dir := t.TempDir()
 	run := func(args ...string) (map[string]any, *out.Error) {
 		return invRun(t, append([]string{"--host-key-policy", "accept-new"}, args...)...)

@@ -51,7 +51,7 @@ func TestAskPassword(t *testing.T) {
 	if v, err := vault.Get("vps1-pass"); err != nil || v != "Typed-Pass-1" {
 		t.Errorf("vault: %q %v", v, err)
 	}
-	wantCode(t, "USAGE", "host", "edit", "vps1", "--ask-password", "--password-ref", "env:X")
+	wantCode(t, "USAGE", "host", "edit", "vps1", "--ask-password", "--password-ref", "credential:x")
 	// a new password for the same server replaces its own secret
 	readPassword = func(*call, string) (string, error) { return "Typed-Pass-2", nil }
 	mustRun(t, "host", "edit", "vps1", "--ask-password")
@@ -117,7 +117,7 @@ func TestRmNamesUnusedSecrets(t *testing.T) {
 	setSecret(t, "shared-pass", "y")
 	mustRun(t, "conn", "add", "db1", "postgres://app@10.0.0.5/app", "--password-ref", "credential:db-pass")
 	mustRun(t, "conn", "add", "db2", "postgres://app@10.0.0.6/app", "--password-ref", "credential:shared-pass")
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--password-ref", "credential:shared-pass")
+	mustRun(t, "host", "add", "web1", "app@10.0.0.1", "--password-ref", "credential:shared-pass") // the same login user (format 3)
 	d := mustRun(t, "conn", "rm", "db1", "db2")
 	if fmtAny(d["secrets_unused"]) != "[db-pass]" {
 		t.Errorf("only db-pass is left unused: %v", d)

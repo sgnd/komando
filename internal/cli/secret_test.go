@@ -34,12 +34,21 @@ func setSecret(t *testing.T, name, value string) {
 	mustRun(t, "secret", "set", name, "--from-env", "SECRET_TEST_VALUE")
 }
 
+// savedRef saves value as the secret name and returns its reference: a
+// flag that keeps a credential takes credential:NAME only.
+func savedRef(t *testing.T, name, value string) string {
+	t.Helper()
+	setSecret(t, name, value)
+	return "credential:" + name
+}
+
 // refsTo points one of every kind of reference at credential:name.
 func refsTo(t *testing.T, name string) {
 	t.Helper()
 	ref := "credential:" + name
 	err := store.Update(store.Save(), func(s *store.State) error {
-		s.Hosts["h1"] = &store.Host{Name: "h1", Address: "10.0.0.1", PasswordRef: ref}
+		// one login user: a credential carries its user (format 3)
+		s.Hosts["h1"] = &store.Host{Name: "h1", Address: "10.0.0.1", User: "u", PasswordRef: ref}
 		s.Hosts["h2"] = &store.Host{Name: "h2", Address: "10.0.0.2", SudoRef: ref, Env: map[string]string{"TOKEN": ref, "OTHER": "credential:other"}}
 		s.Conns = map[string]*store.Conn{"db": {Name: "db", Kind: "postgres", URL: "postgres://u@db/x", PasswordRef: ref}}
 		s.Keys["k"] = &store.Key{Name: "k", Path: "/x", PassphraseRef: ref}

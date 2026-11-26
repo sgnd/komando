@@ -62,7 +62,7 @@ func TestVpnAddAskPassword(t *testing.T) {
 
 	// refused together with --password-ref, and where no password is used
 	asked = 0
-	wantCode(t, "USAGE", socks("lab2", "--password-ref", "env:X")...)
+	wantCode(t, "USAGE", socks("lab2", "--password-ref", "credential:x")...)
 	wantCode(t, "USAGE", "vpn", "add", "corp", "system", "--check", "10.0.0.1:443", "--ask-password")
 	wantCode(t, "USAGE", "vpn", "add", "tail", "tailscale", "--ask-password")
 	// a name that is taken is refused before anyone is asked

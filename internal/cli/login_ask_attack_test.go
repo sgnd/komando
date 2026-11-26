@@ -23,7 +23,7 @@ func TestLoginAskConnURLSettingsAreThePlace(t *testing.T) {
 	t.Setenv("PW", "stored-pw")
 	mustRun(t, "secret", "set", "evilca", "--from-env", "PW")
 	mustRun(t, "conn", "add", "pg1", "postgres://app@db.internal:5432/app", "--login", "ask")
-	mustRun(t, "conn", "add", "pg2", "postgres://app@db.internal:5432/app", "--password-ref", "env:PW")
+	mustRun(t, "conn", "add", "pg2", "postgres://app@db.internal:5432/app", "--password-ref", savedRef(t, "pg2-pw", "stored-pw"))
 	mustRun(t, "conn", "add", "c1", "rediss://default@10.0.0.5:6379/0", "--login", "ask")
 	mustRun(t, "conn", "add", "m1", "mongodb://app@10.0.0.5:27017/app", "--login", "ask")
 	mustRun(t, "conn", "add", "q1", "amqp://guest@127.0.0.1:5672/", "--login", "ask")

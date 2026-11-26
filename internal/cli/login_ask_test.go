@@ -187,7 +187,7 @@ func TestLoginAskFlag(t *testing.T) {
 		more  []string
 	}{
 		{"agent", nil},
-		{"password", []string{"--password-ref", "env:WEB3_PASS"}},
+		{"password", []string{"--password-ref", "credential:web3-pass"}},
 		{"key", []string{"--identity", keyFile}},
 	} {
 		name := "h-" + c.login
@@ -202,10 +202,10 @@ func TestLoginAskFlag(t *testing.T) {
 		{"--login", "ask", "--password-ref", "credential:web2-pass"},
 		{"--login", "ask", "--ask-password"},
 		{"--login", "password"},
-		{"--login", "password", "--password-ref", "env:X", "--identity", keyFile},
+		{"--login", "password", "--password-ref", "credential:x", "--identity", keyFile},
 		{"--login", "key"},
 		{"--login", "agent", "--identity", keyFile},
-		{"--login", "agent", "--password-ref", "env:X"},
+		{"--login", "agent", "--password-ref", "credential:x"},
 	} {
 		// each names its own way out, not the generic one
 		if e := wantCode(t, "USAGE", append([]string{"host", "add", "web2", "u@10.0.0.2"}, bad...)...); e.Hint == out.UsageHint || e.Hint == "" {
@@ -220,13 +220,13 @@ func TestLoginAskFlag(t *testing.T) {
 
 	// the settings alone say it too
 	mustRun(t, "host", "add", "web2", "u@10.0.0.2")
-	mustRun(t, "host", "add", "web3", "u@10.0.0.3", "--password-ref", "env:WEB3_PASS")
+	mustRun(t, "host", "add", "web3", "u@10.0.0.3", "--password-ref", "credential:web3-pass")
 	if l := loginOf(t); l["web1"] != "ask" || l["web2"] != "agent" || l["web3"] != "password" || l["h-key"] != "key" {
 		t.Errorf("host list logins: %v", l)
 	}
 
 	// edit: a stored password ends login ask; each word switches to itself
-	if d := mustRun(t, "host", "edit", "web1", "--password-ref", "env:WEB1_PASS"); d["login"] != "password" {
+	if d := mustRun(t, "host", "edit", "web1", "--password-ref", "credential:web1-pass"); d["login"] != "password" {
 		t.Errorf("edit --password-ref: %v", d)
 	}
 	mustRun(t, "host", "edit", "web1", "--login", "ask")
@@ -235,14 +235,14 @@ func TestLoginAskFlag(t *testing.T) {
 	}
 	wantCode(t, "USAGE", "host", "edit", "web1", "--login", "key")      // it has no key
 	wantCode(t, "USAGE", "host", "edit", "web1", "--login", "password") // nor a password
-	if d := mustRun(t, "host", "edit", "web1", "--login", "key", "--identity", keyFile, "--password-ref", "env:WEB1_PASS"); d["login"] != "key" {
+	if d := mustRun(t, "host", "edit", "web1", "--login", "key", "--identity", keyFile, "--password-ref", "credential:web1-pass"); d["login"] != "key" {
 		t.Errorf("edit --login key: %v", d)
 	}
 	if d := mustRun(t, "host", "edit", "web1", "--login", "password"); d["login"] != "password" || d["identity"] != nil {
 		t.Errorf("edit --login password keeps the key: %v", d)
 	}
 	st, _ := store.Load()
-	if h := st.Hosts["web1"]; h.Login != "" || h.PasswordRef != "env:WEB1_PASS" {
+	if h := st.Hosts["web1"]; h.Login != "" || h.PasswordRef != "credential:web1-pass" {
 		t.Errorf("stored: %+v", h)
 	}
 }
@@ -319,7 +319,7 @@ func TestLoginAskDestinationNeedsPerson(t *testing.T) {
 	mustRun(t, "host", "add", "other", "u@10.0.0.6")
 	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--login", "ask", "--via", "bastion")
 	t.Setenv("PW", "x")
-	mustRun(t, "host", "add", "web2", "u@10.0.0.2", "--password-ref", "env:PW")
+	mustRun(t, "host", "add", "web2", "u@10.0.0.2", "--password-ref", "credential:web2-pw")
 	setCallerEnv(t, "CLAUDECODE", "1")
 
 	needsPerson := func(want string, args ...string) {

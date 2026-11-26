@@ -11,7 +11,9 @@ import (
 // replayFile is the content of p on the replay server's SFTP tree.
 func replayFile(t *testing.T, rs *replayServer, p string) string {
 	t.Helper()
-	r, err := rs.sftp.FileGet.Fileread(sftp.NewRequest("Get", p))
+	req := sftp.NewRequest("Get", p)
+	req.Flags = 0x1 // read: the in-memory tree refuses a request without it
+	r, err := rs.sftp.FileGet.Fileread(req)
 	if err != nil {
 		t.Fatal(err)
 	}

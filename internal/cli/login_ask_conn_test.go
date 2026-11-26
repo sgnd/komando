@@ -118,16 +118,16 @@ func TestConnLoginAskFlag(t *testing.T) {
 	if s, err := runCache(t, "-o", "text", "conn", "show", "db1"); err != nil || !strings.Contains(s, "ask") {
 		t.Errorf("conn show -o text: %v\n%s", err, s)
 	}
-	mustRun(t, "conn", "add", "db2", "postgres://app@10.0.0.6/app", "--login", "password", "--password-ref", "env:PW")
+	mustRun(t, "conn", "add", "db2", "postgres://app@10.0.0.6/app", "--login", "password", "--password-ref", savedRef(t, "db2-pw", "stored-pw"))
 	mustRun(t, "conn", "add", "db3", "postgres://app@10.0.0.7/app", "--login", "none")
 	if l := loginOf(t); l["db1"] != "ask" || l["db2"] != "password" || l["db3"] != "none" {
 		t.Errorf("list logins: %v", l)
 	}
 	for _, bad := range [][]string{
 		{"postgres://app@10.0.0.8/app", "--login", "key"},
-		{"postgres://app@10.0.0.8/app", "--login", "ask", "--password-ref", "env:PW"},
+		{"postgres://app@10.0.0.8/app", "--login", "ask", "--password-ref", "credential:db2-pw"},
 		{"postgres://app@10.0.0.8/app", "--login", "password"},
-		{"postgres://app@10.0.0.8/app", "--login", "none", "--password-ref", "env:PW"},
+		{"postgres://app@10.0.0.8/app", "--login", "none", "--password-ref", "credential:db2-pw"},
 		{"sqlite:///tmp/app.db", "--login", "ask"},
 	} {
 		if e := wantCode(t, "USAGE", append([]string{"conn", "add", "bad"}, bad...)...); e.Hint == out.UsageHint || e.Hint == "" {
@@ -144,7 +144,7 @@ func TestConnLoginAskFlag(t *testing.T) {
 	if _, err := vault.Get("db2-pass"); err != nil {
 		t.Error("the secret was deleted")
 	}
-	if d := mustRun(t, "conn", "edit", "db2", "--password-ref", "env:PW"); d["login"] != "password" {
+	if d := mustRun(t, "conn", "edit", "db2", "--password-ref", "credential:db2-pass"); d["login"] != "password" {
 		t.Errorf("edit --password-ref: %v", d)
 	}
 	if d := mustRun(t, "conn", "edit", "db2", "--login", "none"); d["login"] != "none" || d["password_ref"] != nil {
@@ -212,7 +212,7 @@ func TestConnLoginAskDestinationNeedsPerson(t *testing.T) {
 	t.Setenv("PW", "x")
 	mustRun(t, "host", "add", "bastion", "u@10.0.0.5")
 	mustRun(t, "conn", "add", "db1", "postgres://app@10.0.0.5/app", "--login", "ask")
-	mustRun(t, "conn", "add", "db2", "postgres://app@10.0.0.6/app", "--password-ref", "env:PW")
+	mustRun(t, "conn", "add", "db2", "postgres://app@10.0.0.6/app", "--password-ref", savedRef(t, "db2-pw", "x"))
 	mustRun(t, "conn", "add", "db3", "postgres://app@10.0.0.7/app", "--login", "ask", "--via", "bastion")
 	setCallerEnv(t, "CLAUDECODE", "1")
 	for _, args := range [][]string{

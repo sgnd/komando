@@ -156,7 +156,7 @@ func TestInvProtectedEditNeedsYes(t *testing.T) {
 	mustRun(t, "host", "edit", "prod", "--add-tag", "x") // a label is no login change
 	mustRun(t, "conn", "add", "db", "postgres://a@10.0.0.5/app", "--protected")
 	wantCode(t, "PROTECTED_TARGET", "conn", "edit", "db", "--via", "jump")
-	wantCode(t, "PROTECTED_TARGET", "conn", "edit", "db", "--password-ref", "env:X")
+	wantCode(t, "PROTECTED_TARGET", "conn", "edit", "db", "--password-ref", "credential:x")
 }
 
 func TestInvHostEditConflicts(t *testing.T) {
