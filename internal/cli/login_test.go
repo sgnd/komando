@@ -158,8 +158,8 @@ func TestHostKeyHintFollowsInteractive(t *testing.T) {
 	// not in CI, and the one call running (sshx.PersonAtTerminal)
 	t.Setenv("CI", "")
 	savedTerm, savedCaller := tcl.terminal, tcl.caller()
-	t.Cleanup(func() { tcl.terminal = savedTerm; tcl.setCaller(savedCaller) })
-	tcl.setCaller(engine.Caller{Kind: engine.Person})
+	t.Cleanup(func() { tcl.terminal = savedTerm; setTestCaller(tcl, savedCaller) })
+	setTestCaller(tcl, engine.Caller{Kind: engine.Person})
 	if soleCall() != tcl {
 		t.Fatal("tcl is not the one call running")
 	}

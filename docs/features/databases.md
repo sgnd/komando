@@ -218,9 +218,11 @@ komando conn edit prod-db --option 'mask_columns=full_name address birth_date'
 
 An AI agent's query that names such a column (to rename it, compute from
 it or filter on it) stops with `REVEAL_NEEDS_PERSON`; `SELECT *` shows it as
-`[hidden: column]`. An agent's `db dump` of a database whose personal data
-is hidden stops with `NEEDS_PERSON`: no flag lifts it, and `--reveal` opens
-no window for it. A person runs the dump in their own terminal.
+`[hidden: column]`. An agent's `db dump` stops with `NEEDS_PERSON` on every
+database: the file holds every row as it is, passwords, tokens and personal
+data included, and the agent would read it next. No flag lifts it, and
+`--reveal` opens no window for it. A person runs the dump in their own
+terminal.
 
 SQL that starts with a `-- comment` looks like a flag to the command
 line. Put `--` before it, or use `--file -`.

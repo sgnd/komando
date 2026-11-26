@@ -6,7 +6,6 @@ import (
 	"go/token"
 	"io/fs"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -29,8 +28,7 @@ import (
 //   - an ID that is dangerous today keeps a dangerous carrier: a policy
 //     or SQL rule on a leaf with a dangerous row, or a dangerous row that rates
 //     the text itself (byValueRows);
-//   - an ID with no rule says why (NoRule); one whose carrier is not on
-//     main yet names its gaps row (Owed).
+//   - an ID with no rule says why (NoRule).
 func TestReplacedIDsNameTheirRules(t *testing.T) {
 	rules := map[string]bool{}
 	for _, r := range policy.Rules() {
@@ -93,8 +91,6 @@ func replacedCarriers() map[string][]capability.Key {
 	return m
 }
 
-var gapsRow = regexp.MustCompile(`\bC\d+\b`)
-
 // replacedGaps says what is wrong with one entry, or nothing.
 func replacedGaps(r capability.Replaced, leaves []capability.Key, rules, sqlRules map[string]bool, funcs map[string][]moduleFunc) []string {
 	var out []string
@@ -145,10 +141,7 @@ func replacedGaps(r capability.Replaced, leaves []capability.Key, rules, sqlRule
 	case !hasRule && strings.TrimSpace(r.NoRule) == "":
 		out = append(out, "names no rule and does not say why (NoRule)")
 	}
-	if r.Owed != "" && !gapsRow.MatchString(r.Owed) {
-		out = append(out, "Owed names no gaps row (C123)")
-	}
-	if int(todayTier(cmdKeys[r.Today])) >= int(capability.Dangerous) && int(strongest) < int(capability.Dangerous) && r.Owed == "" {
+	if int(todayTier(cmdKeys[r.Today])) >= int(capability.Dangerous) && int(strongest) < int(capability.Dangerous) {
 		out = append(out, "dangerous today, but its strongest carrier is "+tier(strongest).String())
 	}
 	return out

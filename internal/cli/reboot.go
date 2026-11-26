@@ -148,7 +148,7 @@ func reboot(cl *call, ctx context.Context, target string, wait time.Duration, su
 		return err
 	}
 	guardErr := Guard(cl, st, hosts, "systemctl reboot", true)
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		plans := []map[string]any{}
 		for _, h := range hosts {
 			plans = append(plans, map[string]any{"host": h.Name, "address": h.Address, "remote_command": "systemctl reboot", "sudo": sudo, "wait": wait.String()})

@@ -26,7 +26,7 @@ The `--` is required: `komando exec web1 apt-get install -y nginx` is a
 usage error (exit 2) and runs nothing, because komando would read `-y` as
 its own `--yes`. The same holds for every command that hands words to
 another program: `job start`, `docker exec`, `docker compose`, `docker raw`,
-`cluster exec`, `cluster shell`, `cluster run` and `cache run`.
+`cluster exec`, `cluster shell`, `cluster run` and `cache redis raw`.
 
 ```bash
 komando exec @web -P 20 -- 'df -h / | tail -1'           # up to 20 servers at once
@@ -367,8 +367,8 @@ Next time: komando logs web1
   what it would do and asks again). One that deletes for good asks you to
   type the name of what goes (or how many). A protected target asks its
   usual `web1 (protected): this command changes it. Continue? [y/N]` instead.
-- `komando host add` (or `conn add`, `vpn add`, `db add`, `cache add`,
-  `queue add`, `storage add`, `cluster add`, `registry add`) typed alone
+- `komando host add` (or `conn add`, `vpn add`, `db add`, `cache redis add`,
+  `queue add`, `storage add`, `cluster add`, `registry oci add`) typed alone
   asks that kind's own questions: which kind, a name, the address or the
   parts of the URL, the user, the port, how you log in, and whether it is
   production. A password is never asked here: the command asks for it

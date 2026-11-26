@@ -80,7 +80,7 @@ aok "storage ls" storage ls bucket
 fi
 
 if in_area registry; then
-aok "registry ls" registry ls reg
+aok "registry oci image list" registry oci image list reg
 fi
 
 if in_area k8s; then
@@ -97,12 +97,12 @@ if in_area data; then
 # what an agent may not do alone: each stops with a code that says why
 acode "db write needs --write" WRITE_REQUIRES_FLAG db query pg 'create table t_agent(x int)'
 acode "db write on a protected conn needs a person" PROTECTED_TARGET db query maria --write 'create table t_agent(x int)'
-acode "cache write needs --write" WRITE_REQUIRES_FLAG cache run cache -- SET t-agent 1
+acode "cache write needs --write" WRITE_REQUIRES_FLAG cache redis raw cache -- SET t-agent 1
 acode "storage rm needs --allow-dangerous" POLICY_BLOCKED storage rm bucket e2e/nothing
 fi
 
 if in_area registry; then
-acode "registry rm needs --allow-dangerous" POLICY_BLOCKED registry rm reg e2e/nothing:1
+acode "registry oci image delete needs --allow-dangerous" POLICY_BLOCKED registry oci image delete reg e2e/nothing:1
 fi
 
 if in_area k8s; then

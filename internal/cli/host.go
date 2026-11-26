@@ -197,7 +197,7 @@ func runHostAdd(cmd *cobra.Command, args []string, f *hostFlags, force, askPw bo
 // addVerb says what an add did, or would do under --dry-run.
 func addVerb(cl *call, replaced bool) string {
 	v := map[bool]string{false: "added", true: "replaced"}[replaced]
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		v = map[bool]string{false: "would_add", true: "would_replace"}[replaced]
 	}
 	return v

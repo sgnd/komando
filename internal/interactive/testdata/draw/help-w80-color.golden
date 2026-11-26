@@ -1,0 +1,7 @@
+Which host?
+  The host the command runs on. Type part of its name or address to narrow the
+  list; Enter takes the highlighted row.
+^[[7m> web-01  10.0.0.1^[[0m
+  web-02  10.0.0.2
+  web-03  10.0.0.3
+Enter take · Esc back · type to search · ? help · Ctrl-C stop

@@ -82,7 +82,9 @@ starship, in ~/.config/starship.toml:
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			if short {
 				// not the root's checks: they close idle VPNs and check
-				// the audit log, which is work and writes on every prompt
+				// the audit log, which is work and writes on every prompt.
+				// The command still runs on its own gate.
+				callOf(cmd).startGate(cmd)
 				return nil
 			}
 			return cmd.Root().PersistentPreRunE(cmd, args)

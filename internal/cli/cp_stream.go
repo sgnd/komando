@@ -69,7 +69,7 @@ func takeStdout(cl *call) io.Writer {
 // so an error it ends with goes to stderr too (one found while its
 // arguments were read).
 func streamsToStdout(cl *call, cmd *cobra.Command) bool {
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		return false
 	}
 	switch cmd.Name() {
@@ -191,7 +191,7 @@ func streamServer(cl *call, ctx context.Context, name, target, p string, o cpOpt
 		return err
 	}
 	from := h.Name + ":" + p
-	if cl.flags.dryRun {
+	if cl.dryRun() {
 		cl.out.Print(name, map[string]any{"src": from, "dst": "stdout", "hosts": []string{h.Name}, "direction": "download"}, nil)
 		return nil
 	}

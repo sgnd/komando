@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/cachex"
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
@@ -18,7 +19,7 @@ import (
 )
 
 // Cache commands follow the same rule as db: named actions (set, del) do
-// what they say, behind the usual seatbelts; the raw `cache run` is
+// what they say, behind the usual seatbelts; the raw `cache redis raw` is
 // read-only unless --write. Redis has no read-only mode, so without
 // --write only commands known to be reads are sent.
 
@@ -28,19 +29,19 @@ func cacheCmd() *cobra.Command {
 		Aliases: []string{"redis"},
 		Short:   "Caches (Redis, Valkey, memcached): read and change keys",
 		Long: `Read and change keys in Redis, Valkey or memcached. Add a cache with
-` + "`komando cache add`" + `.
+` + "`komando cache redis add`" + `.
 
 get, keys and info only read. set changes data (a protected cache asks
-first); rm deletes keys, so it also needs --allow-dangerous. ` + "`cache run`" + `
+first); rm deletes keys, so it also needs --allow-dangerous. ` + "`cache redis raw`" + `
 sends any command, but only reads unless --write; commands that flush,
 block, run scripts or reconfigure the server also need --allow-dangerous.`,
-		Example: `  komando cache add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password
+		Example: `  komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password
   komando cache info prod-redis
   komando cache keys prod-redis 'session:*'
   komando cache get prod-redis session:42
   komando cache set prod-redis maintenance on --ttl 30m --dry-run`,
 	}
-	c.AddCommand(connAddCmdFor("cache"), cacheGetCmd(), cacheKeysCmd(), cacheInfoCmd(), cacheSetCmd(), cacheRmCmd(), cacheRunCmd())
+	c.AddCommand(cacheGetCmd(), cacheKeysCmd(), cacheInfoCmd(), cacheSetCmd(), cacheRmCmd())
 	return c
 }
 
@@ -75,7 +76,7 @@ func withCachePreview(cl *call, ctx context.Context, name, connExpr string, v dr
 		if err := GuardConns(cl, st, []*store.Conn{c}, v); err != nil {
 			return fail(err)
 		}
-		if cl.flags.dryRun {
+		if cl.dryRun() {
 			if preview == nil {
 				audit(cl, st, name, nil, "", true, rec)
 				cl.out.Print(name, map[string]any{"conn": c.Name, "risk": v.Risk.String(), "dry_run": true, "note": "nothing sent: redis cannot roll back"}, nil)
@@ -513,10 +514,10 @@ func cacheRunCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "run CONN -- COMMAND...",
 		Short: "Send any Redis or memcached command (read only by default)",
-		Example: `  komando cache run prod-redis -- HGETALL user:42
-  komando cache run prod-redis -- ZREVRANGE leaderboard 0 9 WITHSCORES
-  komando cache run prod-redis --write -- EXPIRE session:42 3600
-  komando cache run prod-redis -- "GET feature:dark-mode"   # one quoted line works too`,
+		Example: `  komando cache redis raw prod-redis -- HGETALL user:42
+  komando cache redis raw prod-redis -- ZREVRANGE leaderboard 0 9 WITHSCORES
+  komando cache redis raw prod-redis --write -- EXPIRE session:42 3600
+  komando cache redis raw prod-redis -- "GET feature:dark-mode"   # one quoted line works too`,
 		Args: cobra.MinimumNArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			command, err := cachex.SplitCommand(args[1:])
@@ -595,3 +596,19 @@ type cacheReply struct {
 }
 
 func (r cacheReply) Text() string { return cachex.ReplyText(r.Reply) }
+
+// The cache type of the table: komando cache redis|memcached VERB. The
+// inventory verbs are the shared ones (inventoryHandlers); raw is today's
+// `cache run`; its entry in personalCmds and the ssh-gate list moved with it (moveType).
+
+func init() {
+	inventoryHandlers("cache", "redis", "memcached")
+	for _, p := range []string{"redis", "memcached"} {
+		handlers[capability.Key{Type: "cache", Provider: p, Verb: "raw"}] = func(cl *call, ctx context.Context, in leafInput) error {
+			return runBody(cl, ctx, cacheRunCmd(), in, nil)
+		}
+	}
+	moveType("cache")
+	groupShorts["cache redis"] = "Redis caches: save them, and send them a command"
+	groupShorts["cache memcached"] = "Memcached caches: save them, and send them a command"
+}

@@ -13,8 +13,8 @@ import (
 func shellLab(t *testing.T, protected bool) {
 	t.Helper()
 	setHome(t, t.TempDir())
-	saved, savedG := tcl.terminal, tcl.flags
-	t.Cleanup(func() { tcl.terminal, tcl.flags = saved, savedG; resetApproval(); tcl.out.Reset() })
+	saved, savedG := tcl.terminal, saveFlags(tcl)
+	t.Cleanup(func() { tcl.terminal = saved; savedG.restore(); resetApproval(); tcl.out.Reset() })
 	tcl.terminal = true
 	// runShell runs no command (newRoot): what an earlier test's command
 	// recorded (a would-be stop) is forgotten here
@@ -39,7 +39,7 @@ func TestShellNeedsTerminal(t *testing.T) {
 
 func TestShellDryRunContactsNothing(t *testing.T) {
 	shellLab(t, false)
-	tcl.flags.dryRun = true
+	setGate(tcl, true, gateDryRun)
 	if err := runShell(tcl, context.Background(), "web1"); err != nil {
 		t.Fatalf("dry run tried to connect: %v", err)
 	}
@@ -49,14 +49,14 @@ func TestShellProtectedHost(t *testing.T) {
 	shellLab(t, true)
 
 	// dry run: shows the stop instead of hitting it
-	tcl.flags.dryRun = true
+	setGate(tcl, true, gateDryRun)
 	if err := runShell(tcl, context.Background(), "web1"); err != nil {
 		t.Fatalf("dry run: %v", err)
 	}
 	if b := tcl.out.Blocked(); b == nil || b.Code != "PROTECTED_TARGET" {
 		t.Errorf("dry run should report the protected stop, got %+v", b)
 	}
-	tcl.flags.dryRun = false
+	setGate(tcl, false, gateDryRun)
 
 	// the person answers no
 	r, w, err := os.Pipe()
@@ -73,7 +73,7 @@ func TestShellProtectedHost(t *testing.T) {
 	}
 
 	// --yes: past the check, it stops at the bad --via hop instead
-	tcl.flags.yes = true
+	setGate(tcl, true, gateYes)
 	if err := runShell(tcl, context.Background(), "web1"); err == nil || toErr(err).Code == "PROTECTED_TARGET" {
 		t.Errorf("--yes: want a connect error, got %v", err)
 	}

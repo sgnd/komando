@@ -401,7 +401,7 @@ func fsWriteCmd() *cobra.Command {
 			if data, err = expandSecretRefsBytes(cl, data, h.Name+":"+args[1]); err != nil {
 				return err
 			}
-			if cl.flags.dryRun {
+			if cl.dryRun() {
 				return fsWritePreview(cl, cmd.Context(), st, h, args[1], data, appendMode, o)
 			}
 			var res fsChange

@@ -218,7 +218,7 @@ step, starting with the VPN app your company uses.`,
 				}
 				return guardVpnSends(cl, s, s.Vpns[name], v, ovpnServers, true)
 			}
-			if cl.flags.dryRun { // the same checks the real add makes
+			if cl.dryRun() { // the same checks the real add makes
 				st, err := loadState()
 				if err != nil {
 					return err
