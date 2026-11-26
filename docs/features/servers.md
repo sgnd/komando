@@ -50,7 +50,7 @@ The flags you will use most:
 | `--login ask\|password\|key\|agent` | How komando logs in, in the same words `host show` prints: `ask` (you type the password at every connect, never stored: see [Type the password each time](#type-the-password-each-time---login-ask)), `password` (a stored one, with `--ask-password` or `--password-ref`), `key` (with `--key` or `--identity`), `agent` (ssh-agent and `~/.ssh` only). |
 | `--via bastion` | Reach the server through other servers or a VPN first ([tunnels](tunnels.md)). |
 | `--protected` | Mark a production server (see [Protect a production server](#protect-a-production-server)). |
-| `-e`, `--env KEY=VALUE` | Export a variable before every command on this server. A value from the vault (`KEY=secret:NAME`) is left out of an AI agent's commands: the agent could read it back unmasked (`printenv KEY \| rev`). It goes to an agent's `exec` or `job start` only when the agent adds `--yes` and you allow it in komando's window. |
+| `-e`, `--env KEY=VALUE` | Export a variable before every command on this server. A value from the vault (`KEY=credential:NAME`) is left out of an AI agent's commands: the agent could read it back unmasked (`printenv KEY \| rev`). It goes to an agent's `exec` or `job start` only when the agent adds `--yes` and you allow it in komando's window. |
 | `--notes TEXT` | Free notes; agents see them in `host show`. |
 | `--port N` | The SSH port (default 22); same as `:N` after the address. |
 | `--overwrite` | Replace a server that already has this name. |
@@ -112,9 +112,9 @@ CSV, and import it in one go. The first row names the columns:
 
 ```csv
 name,address,user,port,groups,tags,sudo-ref,via,protected,notes
-bastion,203.0.113.10,ubuntu,,edge,prod,secret:ubuntu-sudo,,no,
-web1,10.0.0.11,ubuntu,2222,"web,ubuntu",prod,secret:ubuntu-sudo,bastion,yes,front end
-web2,10.0.0.12,ubuntu,,"web,ubuntu",prod,secret:ubuntu-sudo,bastion,yes,
+bastion,203.0.113.10,ubuntu,,edge,prod,credential:ubuntu-sudo,,no,
+web1,10.0.0.11,ubuntu,2222,"web,ubuntu",prod,credential:ubuntu-sudo,bastion,yes,front end
+web2,10.0.0.12,ubuntu,,"web,ubuntu",prod,credential:ubuntu-sudo,bastion,yes,
 ```
 
 ```bash
@@ -155,8 +155,8 @@ To change many servers at once, give several names or a
 changes all of them or none:
 
 ```bash
-komando host edit @web --sudo-ref secret:ubuntu-sudo --dry-run   # which servers would change
-komando host edit @web --sudo-ref secret:ubuntu-sudo
+komando host edit @web --sudo-ref credential:ubuntu-sudo --dry-run   # which servers would change
+komando host edit @web --sudo-ref credential:ubuntu-sudo
 komando host edit web1 web2 db1 --add-tag canary
 ```
 
@@ -229,7 +229,7 @@ komando rename --starts-with shop- acme-shop- --in-notes --in-labels --dry-run  
   becomes `acme-shop`. `--kind host,conn` renames only some kinds.
 - Every reference follows: `--via` paths (also a server in the middle
   of one, as in `shop-vpn,shop-bastion`), password, sudo, key, preshared
-  key and passphrase references, `secret:NAME` options in conn URLs, the
+  key and passphrase references, `credential:NAME` options in conn URLs, the
   key a server uses, group membership, jobs and tunnels. A key komando made
   (`key gen`) lives in the sealed store, so no file moves; a key file you
   added stays where it is.
@@ -316,8 +316,8 @@ stays where it is. If it has a passphrase, store the passphrase in the vault fir
 
 ```bash
 komando secret set work-pass
-komando key add work ~/.ssh/id_work --passphrase-ref secret:work-pass
-komando key edit work --passphrase-ref secret:new-pass      # change it later (--unset passphrase-ref clears it)
+komando key add work ~/.ssh/id_work --passphrase-ref credential:work-pass
+komando key edit work --passphrase-ref credential:new-pass      # change it later (--unset passphrase-ref clears it)
 ```
 
 `komando key rm NAME` takes a key out of komando's key list; it refuses
@@ -449,8 +449,8 @@ komando's vault (see [Secrets](secrets.md)). In one step, while adding the
 server or later:
 
 ```bash
-komando host add web2 root@203.0.113.20 --ask-password   # stored as secret:web2-pass
-komando host edit web1 --ask-password                     # a new password (stored as secret:web1-pass)
+komando host add web2 root@203.0.113.20 --ask-password   # stored as credential:web2-pass
+komando host edit web1 --ask-password                     # a new password (stored as credential:web1-pass)
 ```
 
 `--ask-password` is for a person at a terminal (an AI agent asks you to run
@@ -459,10 +459,10 @@ in two steps, with a name you choose:
 
 ```bash
 komando secret set web1-pass
-komando host edit web1 --password-ref secret:web1-pass
+komando host edit web1 --password-ref credential:web1-pass
 ```
 
-A `--password-ref secret:NAME` whose secret is not in the vault yet gets a
+A `--password-ref credential:NAME` whose secret is not in the vault yet gets a
 warning right away, with the `secret set` command that stores it.
 
 The password goes to the server's address on every login. So when an AI
@@ -619,7 +619,7 @@ If `sudo` asks for a password on the server, store that too:
 
 ```bash
 komando secret set web1-sudo
-komando host edit web1 --sudo-ref secret:web1-sudo
+komando host edit web1 --sudo-ref credential:web1-sudo
 ```
 
 Everything else about the vault (listing, checking, renaming and removing
@@ -633,7 +633,7 @@ team already uses:
 
 | Reference | Reads it from | Login it uses |
 |-----------|---------------|---------------|
-| `secret:NAME` | komando's vault (`komando secret set NAME`) | none needed |
+| `credential:NAME` | komando's vault (`komando secret set NAME`) | none needed |
 | `env:VAR` | an environment variable | none needed |
 | `file:PATH` | a file | none needed |
 | `vault:secret/shop#db_password` | HashiCorp Vault or OpenBao, KV v1 or v2 | `VAULT_ADDR` and `VAULT_TOKEN` (or `~/.vault-token`; OpenBao's `BAO_ADDR`, `BAO_TOKEN`, `~/.bao-token` work too), `VAULT_NAMESPACE`, `VAULT_CACERT` |

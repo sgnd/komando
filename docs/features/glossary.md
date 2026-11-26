@@ -31,7 +31,7 @@ The words used in these docs, in plain language. [All docs](README.md)
 | Pod | The smallest unit Kubernetes runs: one or more containers together. |
 | Protected | A server, conn or VPN marked with `--protected`, for production. Before a change there, komando asks you; an AI agent or a script needs `--yes`, which a person approves. See [Safety](safety.md). |
 | Recipe | A ready-made or saved command, run with `komando recipe run NAME TARGET`. |
-| Secret | A password, token or key kept in komando's encrypted vault, referred to as `secret:NAME`. |
+| Secret | A password, token or key kept in komando's encrypted vault, referred to as `credential:NAME`. |
 | Selector / target | What a command works on: a name, a group (`@web`), a tag (`tag:prod`), a glob (`web-*`), or `all`. See [Targets](targets.md). |
 | Server | A computer (often in the cloud) that runs your apps. |
 | Service | A background program, such as nginx, managed by systemd (or by Windows). Managed with `komando svc`. |

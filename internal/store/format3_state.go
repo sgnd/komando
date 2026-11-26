@@ -352,7 +352,7 @@ func (w *writer3) host(h *Host) error {
 	if h.Transport == TransportWinRM {
 		v.Provider = "winrm"
 	}
-	sudo, err := w.refCred(e, "sudo", h.Name, "sudo", CredPassword, h.SudoRef, v.SudoCredential)
+	sudo, err := refCred(e, "sudo", h.SudoRef)
 	if err != nil {
 		return err
 	}
@@ -374,7 +374,7 @@ func (w *writer3) host(h *Host) error {
 	case h.Key != "":
 		cred = h.Key
 	case h.PasswordRef != "":
-		if cred, err = w.refCred(e, "password", h.Name, "credential", CredPassword, h.PasswordRef, v.Credential); err != nil {
+		if cred, err = refCred(e, "password", h.PasswordRef); err != nil {
 			return err
 		}
 	case v.Credential != "" && w.st.cred(v.Credential) != nil && (w.st.cred(v.Credential).Ask || isAgent(w.st.cred(v.Credential))):
@@ -448,7 +448,7 @@ func (w *writer3) conn(c *Conn) error {
 		us := w.st.users(name)
 		return len(us) == 0 || len(us) == 1 && us[0] == typeWord(v)+" "+v.Name
 	}
-	cred, err := w.refCred(e, "password", c.Name, "credential", CredPassword, c.PasswordRef, v.Credential)
+	cred, err := refCred(e, "password", c.PasswordRef)
 	if err != nil {
 		return err
 	}
@@ -487,13 +487,13 @@ func (w *writer3) vpn(x *Vpn) error {
 		v = &VpnV3{}
 	}
 	var err error
-	if v.Credential, err = w.refCred(e, "key", x.Name, "credential", CredToken, x.KeyRef, v.Credential); err != nil {
+	if v.Credential, err = refCred(e, "key", x.KeyRef); err != nil {
 		return err
 	}
-	if v.PSKCredential, err = w.refCred(e, "psk", x.Name, "psk", CredToken, x.PSKRef, v.PSKCredential); err != nil {
+	if v.PSKCredential, err = refCred(e, "psk", x.PSKRef); err != nil {
 		return err
 	}
-	if v.ConfigCredential, err = w.refCred(e, "config", x.Name, "config", CredToken, x.ConfigRef, v.ConfigCredential); err != nil {
+	if v.ConfigCredential, err = refCred(e, "config", x.ConfigRef); err != nil {
 		return err
 	}
 	v.Name, v.Provider, v.Config, v.Address, v.Portal, v.Service = x.Name, x.Kind, x.Config, x.Address, x.Portal, x.Service
@@ -518,11 +518,7 @@ func (w *writer3) key(k *Key) error {
 	if c == nil {
 		c = &Credential{Kind: CredKey}
 	}
-	old := ""
-	if c.Key != nil {
-		old = c.Key.Passphrase
-	}
-	pp, err := w.refCred("key "+k.Name, "passphrase", k.Name, "passphrase", CredPassword, k.PassphraseRef, old)
+	pp, err := refCred("key "+k.Name, "passphrase", k.PassphraseRef)
 	if err != nil {
 		return err
 	}

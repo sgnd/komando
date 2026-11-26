@@ -3,8 +3,8 @@ package store
 import (
 	"context"
 	"errors"
-	"strconv"
 
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sealdb"
 )
 
@@ -48,55 +48,21 @@ func (st *stored3) storeNamed(name string) *CredentialStore {
 	return nil
 }
 
-// storeFor is the credential store of provider: the first one the store
-// has, or a new one named after the provider, as the migration makes it.
-func (w *writer3) storeFor(provider string) (string, error) {
-	names := map[string]bool{}
-	for _, s := range w.st.stores {
-		if s.Provider == provider {
-			return s.Name, nil
-		}
-		names[s.Name] = true
-	}
-	name := provider
-	for i := 2; names[name]; i++ {
-		name = provider + "-" + strconv.Itoa(i)
-	}
-	s := &CredentialStore{Name: name, Provider: provider}
-	id, err := w.put(KindCredStore, "", s)
-	if err != nil {
-		return "", err
-	}
-	w.st.stores[id] = s
-	return name, nil
-}
-
-// refCred is the credential a reference field of entry names: the name in
-// credential:NAME; for an outside reference (env:VAR, op://...), the
-// credential the field names now when it reads that same item, else a new
-// one in the store of that provider, named <base>-<part> as the migration
-// names it. The spelling of format 2 and any other text stop.
-func (w *writer3) refCred(entry, field, base, part, kind, ref, current string) (string, error) {
-	if ref == "" {
-		return "", nil
-	}
+// refCred is the credential a reference field of entry names
+// (credential:NAME). The spelling of format 2 stops with a hint that names
+// credential:NAME. An outside reference (env:VAR, op://...) stops too: a
+// command makes no credential store item; only the migration does, once,
+// for a person (CLI-5, 2026-11-26; `komando credential` in C485 adds them).
+func refCred(entry, field, ref string) (string, error) {
 	if _, old := OldReference(ref); old {
 		return "", OldRefError(entry+": field "+field, ref)
 	}
-	provider, item := parseRef(ref)
-	if provider == "" || provider == "secret" {
-		return credOfRef(entry, field, ref)
+	if p, _ := parseRef(ref); p != "" && p != "secret" {
+		return "", out.Errf(out.ExitUsage, "BAD_REFERENCE",
+			"save the value with `komando secret set NAME`, then name it: credential:NAME",
+			"%s: field %s names an outside store; it takes credential:NAME", entry, field)
 	}
-	if c := w.st.cred(current); c != nil && c.Item == item && c.Value == nil {
-		if s := w.st.storeNamed(c.Store); s != nil && s.Provider == provider {
-			return current, nil
-		}
-	}
-	store, err := w.storeFor(provider)
-	if err != nil {
-		return "", err
-	}
-	return w.newCred(base, part, &Credential{Kind: kind, Store: store, Item: item})
+	return credOfRef(entry, field, ref)
 }
 
 // refuseOldRefs is the F10 check on a record before it is written: a

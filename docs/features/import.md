@@ -212,7 +212,7 @@ these limits:
 
 - A `ProxyCommand` is dropped, because it would run on this computer. Set it
   yourself with `komando host edit NAME --proxy-command ...`.
-- A password reference is kept only if it names a `secret:` that does not
+- A password reference is kept only if it names a `credential:` that does not
   exist here yet. Anything else is dropped, so a file cannot point your
   existing passwords at its servers.
 - Recipes marked read-only are imported as changes. Mark them read-only

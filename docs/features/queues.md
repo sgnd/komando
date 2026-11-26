@@ -33,15 +33,15 @@ is for the SASL login and its password goes in the vault, never in the URL:
 
 ```bash
 komando secret set kafka-pass
-komando queue add prod-kafka 'kafka://app@b1.example.com:9093?tls=true&sasl=scram-sha-512' --password-ref secret:kafka-pass
-komando queue add audit-kafka 'kafka://app@kafka.internal:9093?tls=true&ca=secret:kafka-ca&sasl=plain' --ask-password
+komando queue add prod-kafka 'kafka://app@b1.example.com:9093?tls=true&sasl=scram-sha-512' --password-ref credential:kafka-pass
+komando queue add audit-kafka 'kafka://app@kafka.internal:9093?tls=true&ca=credential:kafka-ca&sasl=plain' --ask-password
 komando queue add staging-kafka kafka://broker1.internal:9092 --via web1          # no TLS, through an SSH server
 ```
 
 | Option | What it does |
 |---|---|
 | `tls=true` | TLS; the brokers' certificates are checked against your computer's CAs |
-| `ca=secret:NAME` | also trust your own CA (a company CA, a cloud's own); store it with `komando secret set NAME < ca.pem` |
+| `ca=credential:NAME` | also trust your own CA (a company CA, a cloud's own); store it with `komando secret set NAME < ca.pem` |
 | `tls=skip-verify` | TLS without checking the certificate (`komando doctor` warns; prefer `ca=`) |
 | `sasl=plain`, `sasl=scram-sha-256`, `sasl=scram-sha-512` | how to log in; needs a user in the URL |
 | `insecure=1` | accept a connection without TLS that crosses the network |
@@ -197,8 +197,8 @@ would delete 212 messages from orders-retry (3 partitions); the topic stays
 
 ```bash
 komando secret set rabbit-pass
-komando queue add prod-rabbit 'amqps://app@rabbit.example.com:5671/%2F?management=15671' --password-ref secret:rabbit-pass
-komando queue add staging-rabbit 'amqp://app@rabbit.internal:5672/prod?management=15672' --via web1 --password-ref secret:rabbit-pass
+komando queue add prod-rabbit 'amqps://app@rabbit.example.com:5671/%2F?management=15671' --password-ref credential:rabbit-pass
+komando queue add staging-rabbit 'amqp://app@rabbit.internal:5672/prod?management=15672' --via web1 --password-ref credential:rabbit-pass
 komando queue info prod-rabbit                       # version, cluster, nodes, totals
 komando queue list prod-rabbit                         # queues: messages, ready, unacked, consumers
 komando queue peek prod-rabbit emails                # the first 10 messages; all of them go back
@@ -218,7 +218,7 @@ komando queue peek prod-rabbit emails                # the first 10 messages; al
 | Option | What it does |
 |---|---|
 | `management=PORT` | also use the management HTTP API on this port of the same host (HTTPS for `amqps://`), for `queue list`, the nodes and the totals in `info`, and the details in `describe` |
-| `ca=secret:NAME` | `amqps://`: also trust your own CA (`komando secret set NAME < ca.pem`) |
+| `ca=credential:NAME` | `amqps://`: also trust your own CA (`komando secret set NAME < ca.pem`) |
 | `tls=skip-verify` | `amqps://` without checking the certificate (`komando doctor` warns; prefer `ca=`) |
 | `insecure=1` | accept `amqp://` across the network without TLS |
 
@@ -288,10 +288,10 @@ komando queue rm prod-rabbit emails
 
 ```bash
 komando secret set nats-pass
-komando queue add prod-nats 'tls://app@nats1.example.com:4222,nats2.example.com:4222' --password-ref secret:nats-pass
-komando queue add staging-nats nats://nats.internal:4222 --via web1 --password-ref secret:nats-pass
+komando queue add prod-nats 'tls://app@nats1.example.com:4222,nats2.example.com:4222' --password-ref credential:nats-pass
+komando queue add staging-nats nats://nats.internal:4222 --via web1 --password-ref credential:nats-pass
 komando secret set ngs-creds < user.creds
-komando queue add ngs-nats 'tls://connect.ngs.global?creds=secret:ngs-creds'
+komando queue add ngs-nats 'tls://connect.ngs.global?creds=credential:ngs-creds'
 komando queue info prod-nats                     # version, server, the account's streams and limits
 komando queue list prod-nats                       # streams: subjects, messages, size, consumers
 komando queue peek prod-nats ORDERS              # the newest 10 messages; none is taken away
@@ -309,16 +309,16 @@ komando queue peek prod-nats ORDERS              # the newest 10 messages; none 
 - How komando logs in:
   - a user in the URL and `--password-ref`: user and password;
   - `--password-ref` without a user: the password is sent as a token;
-  - `?creds=secret:NAME`: a `.creds` file (from `nsc`, NGS or Synadia
+  - `?creds=credential:NAME`: a `.creds` file (from `nsc`, NGS or Synadia
     Cloud) that you keep in the vault with `komando secret set NAME < user.creds`;
   - none of these: no login.
 - `komando test prod-nats` logs in and shows the server's version.
 
 | Option | What it does |
 |---|---|
-| `creds=secret:NAME` | log in with the `.creds` file kept in the vault |
+| `creds=credential:NAME` | log in with the `.creds` file kept in the vault |
 | `domain=NAME` | the JetStream domain, for a leaf node with its own JetStream |
-| `ca=secret:NAME` | `tls://`: also trust your own CA (`komando secret set NAME < ca.pem`) |
+| `ca=credential:NAME` | `tls://`: also trust your own CA (`komando secret set NAME < ca.pem`) |
 | `tls=skip-verify` | `tls://` without checking the certificate (`komando doctor` warns; prefer `ca=`) |
 | `insecure=1` | accept `nats://` across the network without TLS |
 
@@ -394,7 +394,7 @@ komando queue add prod-sqs sqs://eu-west-1 --option aws_profile=prod   # a profi
 komando login aws --profile prod              # a person renews an SSO login when it runs out
 komando queue add staging-sqs sqs://eu-west-1          # no profile: AWS_* variables, ~/.aws default, or the server's role
 komando secret set sqs-secret                  # or: keys of an IAM user
-komando queue add ops-sqs sqs://AKIAIOSFODNN7EXAMPLE@eu-west-1 --password-ref secret:sqs-secret
+komando queue add ops-sqs sqs://AKIAIOSFODNN7EXAMPLE@eu-west-1 --password-ref credential:sqs-secret
 komando queue info prod-sqs                         # region, account, how many queues
 komando queue list prod-sqs                           # queues: waiting, in flight, delayed, dead-letter queue
 komando queue peek prod-sqs orders                  # up to 10 messages; none is hidden or deleted
@@ -479,7 +479,7 @@ same way as for gs:// buckets and needs no gcloud or Google SDK:
 ```bash
 komando queue add prod-pubsub pubsub://my-project      # gcloud's login (application default credentials)
 komando secret set pubsub-key < key.json      # or: a service account key
-komando queue add staging-pubsub pubsub://my-project --password-ref secret:pubsub-key
+komando queue add staging-pubsub pubsub://my-project --password-ref credential:pubsub-key
 komando queue add local-pubsub 'pubsub://test-project?endpoint=http://localhost:8085'   # the emulator: no login
 komando queue info prod-pubsub                         # how many topics and subscriptions
 komando queue list prod-pubsub                           # topics and how many subscriptions each has

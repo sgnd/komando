@@ -29,12 +29,12 @@ A security problem in OpenSSH, a database, a cache, Kubernetes or another tool t
   in a password reference), to AWS for `komando login aws`, and to GitHub
   when you run `komando update`.
 
-- Passwords and keys live in an encrypted vault in `~/.komando/`. A new vault keeps its key in the OS keychain (the macOS keychain, the Secret Service on Linux), so a backup or a copy of the folder does not open it. Where there is no keychain, the key is a file beside the vault and `komando doctor` warns. An AI agent refers to a secret as `secret:NAME`. An agent komando recognises (Claude Code, Codex, Cursor, Gemini CLI, or any agent with `KOMANDO_AGENT=1` set) never sees the values. When an agent sends a secret somewhere (into a file on a server, a command's environment, or as the password of a new or moved server, conn or VPN), a person allows it in a window that names the secret and the place.
+- Passwords and keys live in an encrypted vault in `~/.komando/`. A new vault keeps its key in the OS keychain (the macOS keychain, the Secret Service on Linux), so a backup or a copy of the folder does not open it. Where there is no keychain, the key is a file beside the vault and `komando doctor` warns. An AI agent refers to a secret as `credential:NAME`. An agent komando recognises (Claude Code, Codex, Cursor, Gemini CLI, or any agent with `KOMANDO_AGENT=1` set) never sees the values. When an agent sends a secret somewhere (into a file on a server, a command's environment, or as the password of a new or moved server, conn or VPN), a person allows it in a window that names the secret and the place.
 - An AI agent's komando uses your usual data folder: with another `KOMANDO_HOME` its commands stop, a dry run too.
 - Dangerous commands (`rm -rf /`, `reboot`, `DROP TABLE`, `FLUSHALL`, ...) are blocked unless a human allows them.
 - On a protected server or conn, komando asks a person before any change; an agent or a script needs `--yes`, which a person approves. Database queries and cache commands only read unless you add `--write`. On a protected target `--read-only` skips `--yes` only for commands komando knows read; anything it does not recognise still needs `--yes`.
 - Every value sent to a remote shell is quoted. A vault value given to a
-  command (`-e DB_PASS=secret:NAME`) reaches it on its input, never on its
+  command (`-e DB_PASS=credential:NAME`) reaches it on its input, never on its
   command line, where other users of the server could read it.
 - komando refuses to connect when a server's host key changes. The first
   time it trusts a key, it prints the fingerprint so you can compare it with

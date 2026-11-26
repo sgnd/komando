@@ -455,6 +455,9 @@ func vpnAddFlagChecks(v *store.Vpn, pskRef string, labels []string) error {
 		}
 	}
 	for _, r := range []string{v.KeyRef, pskRef} {
+		if err := oldRef("the reference", r); err != nil {
+			return err
+		}
 		if r != "" && !vault.ValidRef(r) {
 			return out.Usage("%q is not a reference: %s", r, vault.RefHelp())
 		}

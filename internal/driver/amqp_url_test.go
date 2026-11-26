@@ -38,16 +38,16 @@ func TestParseAMQP(t *testing.T) {
 
 func TestParseAMQPRefuses(t *testing.T) {
 	for raw, want := range map[string]string{
-		"amqp://app:secret@rabbit":                   "password",
-		"amqp://rabbit/a/b":                          "one virtual host",
-		"amqp://rabbit?tls=skip-verify":              "for amqps",
-		"amqps://rabbit?tls=true":                    "can only be skip-verify",
+		"amqp://app:secret@rabbit":                       "password",
+		"amqp://rabbit/a/b":                              "one virtual host",
+		"amqp://rabbit?tls=skip-verify":                  "for amqps",
+		"amqps://rabbit?tls=true":                        "can only be skip-verify",
 		"amqp://rabbit?ca=credential:x":                  "use amqps",
 		"amqps://rabbit?tls=skip-verify&ca=credential:x": "do not go together",
-		"amqp://rabbit?management=http://x":          "takes a port",
-		"amqp://rabbit?heartbeat=10":                 "unknown rabbitmq URL option",
-		"amqp://rabbit:0":                            "is not a number from 1 to 65535",
-		"amqp:///vhost":                              "needs a host",
+		"amqp://rabbit?management=http://x":              "takes a port",
+		"amqp://rabbit?heartbeat=10":                     "unknown rabbitmq URL option",
+		"amqp://rabbit:0":                                "is not a number from 1 to 65535",
+		"amqp:///vhost":                                  "needs a host",
 	} {
 		_, err := Parse(raw)
 		if err == nil || !strings.Contains(err.Error(), want) {

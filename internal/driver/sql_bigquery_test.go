@@ -184,9 +184,9 @@ func TestBigQueryPlaceholders(t *testing.T) {
 
 func TestParseBigQuery(t *testing.T) {
 	for raw, want := range map[string]BigQueryConn{
-		"bigquery://my-project":                                           {Project: "my-project", Endpoint: BigQueryEndpoint},
-		"bigquery://my-project/shop?location=EU":                          {Project: "my-project", Dataset: "shop", Location: "EU", Endpoint: BigQueryEndpoint},
-		"bigquery://my-project/shop?endpoint=http://127.0.0.1:9050/":      {Project: "my-project", Dataset: "shop", Endpoint: "http://127.0.0.1:9050"},
+		"bigquery://my-project":                                               {Project: "my-project", Endpoint: BigQueryEndpoint},
+		"bigquery://my-project/shop?location=EU":                              {Project: "my-project", Dataset: "shop", Location: "EU", Endpoint: BigQueryEndpoint},
+		"bigquery://my-project/shop?endpoint=http://127.0.0.1:9050/":          {Project: "my-project", Dataset: "shop", Endpoint: "http://127.0.0.1:9050"},
 		"bigquery://my-project/?ca=credential:proxy-ca&location=europe-west1": {Project: "my-project", Location: "europe-west1", Endpoint: BigQueryEndpoint},
 	} {
 		got, err := ParseBigQueryURL(raw)
@@ -202,16 +202,16 @@ func TestParseBigQuery(t *testing.T) {
 		t.Errorf("emulator: %+v, %v", tg, err)
 	}
 	for raw, msg := range map[string]string{
-		"bigquery://app@my-project":                           "has no user",
-		"bigquery://My_Project":                               "not a project ID",
-		"bigquery://my-project:443":                           "not a project ID",
-		"bigquery://abc":                                      "not a project ID",
-		"bigquery://my-project/shop/orders":                   "one dataset",
-		"bigquery://my-project?tls=false":                     "always HTTPS",
-		"bigquery://my-project?credentials=x":                 "unknown bigquery URL option",
-		"bigquery://my-project?location=e%20u":                "not a location",
-		"bigquery://my-project?ca=proxy":                      "credential:NAME",
-		"bigquery://my-project?endpoint=ftp://x":              "endpoint is a URL",
+		"bigquery://app@my-project":                               "has no user",
+		"bigquery://My_Project":                                   "not a project ID",
+		"bigquery://my-project:443":                               "not a project ID",
+		"bigquery://abc":                                          "not a project ID",
+		"bigquery://my-project/shop/orders":                       "one dataset",
+		"bigquery://my-project?tls=false":                         "always HTTPS",
+		"bigquery://my-project?credentials=x":                     "unknown bigquery URL option",
+		"bigquery://my-project?location=e%20u":                    "not a location",
+		"bigquery://my-project?ca=proxy":                          "credential:NAME",
+		"bigquery://my-project?endpoint=ftp://x":                  "endpoint is a URL",
 		"bigquery://my-project?endpoint=http://x&ca=credential:c": "https:// endpoint",
 	} {
 		_, err := Parse(raw)

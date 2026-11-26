@@ -31,7 +31,7 @@ new one. It replaces the old value under the same name, so every server
 that uses it follows:
 
 ```bash
-komando host edit web1 --ask-password        # type the new one (stored as secret:web1-pass)
+komando host edit web1 --ask-password        # type the new one (stored as credential:web1-pass)
 komando test web1
 ```
 
@@ -45,8 +45,8 @@ the conn at it, check, then remove the old one:
 
 ```bash
 komando secret set prod-db-pass-2                                 # the new password, typed once
-komando db user passwd prod-db app --password-ref secret:prod-db-pass-2
-komando conn edit prod-db --password-ref secret:prod-db-pass-2    # komando logs in with it from then on
+komando db user passwd prod-db app --password-ref credential:prod-db-pass-2
+komando conn edit prod-db --password-ref credential:prod-db-pass-2    # komando logs in with it from then on
 komando test prod-db
 komando secret rm prod-db-pass                                    # the old one
 ```

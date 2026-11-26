@@ -199,18 +199,18 @@ func TestParseOracle(t *testing.T) {
 		}
 	}
 	for in, code := range map[string]string{
-		"oracle://app:pw@db/X":                          "URL_HAS_PASSWORD",
-		"oracle://db/X":                                 "USAGE",
-		"oracle://app@/X":                               "USAGE",
-		"oracle://app@db":                               "USAGE",
-		"oracle://app@db/X?sid=Y":                       "USAGE",
-		"oracle://app@db/X)(HOST=evil":                  "USAGE",
-		"oracle://app@db/X?tls=maybe":                   "USAGE",
+		"oracle://app:pw@db/X":                              "URL_HAS_PASSWORD",
+		"oracle://db/X":                                     "USAGE",
+		"oracle://app@/X":                                   "USAGE",
+		"oracle://app@db":                                   "USAGE",
+		"oracle://app@db/X?sid=Y":                           "USAGE",
+		"oracle://app@db/X)(HOST=evil":                      "USAGE",
+		"oracle://app@db/X?tls=maybe":                       "USAGE",
 		"oracle://app@db/X?ca=credential:x":                 "USAGE",
 		"oracle://app@db/X?tls=skip-verify&ca=credential:x": "USAGE",
-		"oracle://app@db/X?tls=true&ca=x":               "USAGE",
-		"oracle://app@db/X?wallet=/tmp":                 "USAGE",
-		"oracle://app@db:0/X":                           "USAGE",
+		"oracle://app@db/X?tls=true&ca=x":                   "USAGE",
+		"oracle://app@db/X?wallet=/tmp":                     "USAGE",
+		"oracle://app@db:0/X":                               "USAGE",
 	} {
 		_, err := Parse(in)
 		if e, ok := err.(*out.Error); !ok || e.Code != code {

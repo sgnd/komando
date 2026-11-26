@@ -23,7 +23,7 @@ func TestParseCA(t *testing.T) {
 		"mysql://shop@db.internal/shop?tls=true&ca=credential:azure-ca":       "credential:azure-ca",
 		"rediss://default@cache.internal:6380/0?ca=credential:elasticache-ca": "credential:elasticache-ca",
 		"memcacheds://cache.internal:11211?ca=credential:ca":                  "credential:ca",
-		"postgres://app@db.internal/app":                                  "",
+		"postgres://app@db.internal/app":                                      "",
 	} {
 		tg, err := Parse(raw)
 		if err != nil || tg.CA != want {
@@ -32,7 +32,7 @@ func TestParseCA(t *testing.T) {
 	}
 	for _, raw := range []string{
 		"postgres://app@db/app?ca=/etc/ssl/ca.pem", // a path, not a secret
-		"postgres://app@db/app?ca=credential:",         // no name
+		"postgres://app@db/app?ca=credential:",     // no name
 		"postgres://app@db/app?sslmode=disable&ca=credential:x",
 		"mysql://shop@db/shop?tls=skip-verify&ca=credential:x",
 		"redis://cache:6379/0?ca=credential:x", // no TLS

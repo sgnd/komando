@@ -22,7 +22,7 @@ import (
 func TestLibpqCAURL(t *testing.T) {
 	const file = "/tmp/komando-ca-x/ca.crt"
 	for raw, want := range map[string]string{
-		"postgres://app@db.internal/app?ca=credential:pg-ca": "postgres://app@db.internal/app?sslmode=verify-full&sslrootcert=/tmp/komando-ca-x/ca.crt",
+		"postgres://app@db.internal/app?ca=credential:pg-ca":                                                                          "postgres://app@db.internal/app?sslmode=verify-full&sslrootcert=/tmp/komando-ca-x/ca.crt",
 		"postgres://app@db.internal:5432/app?sslmode=require&ca=credential:pg-ca&options=-c%20search_path%3Dapp&application_name=a+b": "postgres://app@db.internal:5432/app?options=-c%20search_path%3Dapp&application_name=a+b&sslmode=verify-full&sslrootcert=/tmp/komando-ca-x/ca.crt",
 		// the CA named by ca= is the one komando checks against: a path
 		// from this computer, or a weaker mode, does not go along

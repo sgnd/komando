@@ -1,7 +1,7 @@
 # Secrets
 
 Save a password, key passphrase or token once, then point to it as
-`secret:NAME` instead of typing it. komando shows a saved value only to a
+`credential:NAME` instead of typing it. komando shows a saved value only to a
 person who asks with `--reveal` (`secret show`, `key show`), at a terminal
 or after "Allow once" in komando's window, and never to an AI agent.
 
@@ -9,7 +9,7 @@ or after "Allow once" in komando's window, and never to an AI agent.
 
 ```bash
 komando secret set web1-pass                          # type or paste it after the prompt, nothing is shown
-komando host edit web1 --password-ref secret:web1-pass
+komando host edit web1 --password-ref credential:web1-pass
 komando test web1
 komando secret list                                   # names, when they changed, what uses them
 ```
@@ -68,11 +68,11 @@ Every `--password-ref`, `--sudo-ref`, `--passphrase-ref` and VPN key flag
 takes a reference:
 
 ```bash
-komando host edit web1 --sudo-ref secret:web1-sudo
-komando conn add prod-db postgres://app@10.0.0.5/shop --password-ref secret:prod-db-pass
-komando key add work ~/.ssh/id_work --passphrase-ref secret:work-pass
-komando exec web1 --env DB_PASS=secret:prod-db-pass -- ./migrate.sh
-komando fs replace web1 /srv/app/.env --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:prod-db-pass}}' --backup
+komando host edit web1 --sudo-ref credential:web1-sudo
+komando conn add prod-db postgres://app@10.0.0.5/shop --password-ref credential:prod-db-pass
+komando key add work ~/.ssh/id_work --passphrase-ref credential:work-pass
+komando exec web1 --env DB_PASS=credential:prod-db-pass -- ./migrate.sh
+komando fs replace web1 /srv/app/.env --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{credential:prod-db-pass}}' --backup
 ```
 
 A reference can also read a password your team keeps elsewhere: `env:VAR`,
@@ -86,18 +86,18 @@ needs it and never stores it.
 ## Run a program on this computer with one
 
 ```bash
-komando secret run --env PGPASSWORD=secret:prod-db-pass -- psql -h 10.0.0.5 -U app shop
-komando secret run -e AWS_SECRET_ACCESS_KEY=secret:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan
+komando secret run --env PGPASSWORD=credential:prod-db-pass -- psql -h 10.0.0.5 -U app shop
+komando secret run -e AWS_SECRET_ACCESS_KEY=credential:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan
 ```
 
 `komando secret run` starts the program after `--` on this computer, with the
-`--env` values in its environment. komando reads `secret:NAME` from the
+`--env` values in its environment. komando reads `credential:NAME` from the
 vault right before the program starts, so the value is never in the command
 line or your shell history. The program starts without a shell, and gets
 your environment without komando's own `KOMANDO_*` variables and the
 values that unlock the vault.
 
-- A vault value the program prints shows as `[secret:NAME]`.
+- A vault value the program prints shows as `[credential:NAME]`.
 - komando exits with the program's exit code. On Linux and macOS, a
   program ended by signal N makes komando exit 128+N (143 for `SIGTERM`),
   as a shell does.
@@ -120,11 +120,11 @@ values that unlock the vault.
 - `--dry-run` shows the program's path and which secret goes into which
   variable, and reads no value. It asks nobody: the approval the real run
   needs is in `meta.would_need` and `meta.would_be_blocked`.
-- A reference of any form (`secret:`, `env:`, `file:`, `vault:`, `op://`,
+- A reference of any form (`credential:`, `env:`, `file:`, `vault:`, `op://`,
   ...) in the program's arguments is refused: put it in `--env`. A
   `file://` URL is not a reference and passes. This is a guard against
   mistakes, not a security boundary: komando never resolves a reference in
-  the arguments. It finds `secret:` anywhere, but the other forms only at
+  the arguments. It finds `credential:` anywhere, but the other forms only at
   the start of an argument or after an `=`, so `-penv:PW` is passed on as
   written.
 - An AI agent needs a person's yes for every secret (`SECRET_DESTINATION`):
@@ -192,7 +192,7 @@ komando key show deploy --reveal > deploy.key     # the private key of a key kom
   with `REVEAL_NEEDS_TERMINAL`: run it in a terminal.
 - **An AI agent never gets a value or a private key**, not even with your
   yes: komando refuses with `REVEAL_NEEDS_TERMINAL` and opens no window. The
-  agent uses `secret:NAME` in a command instead. A key through `ssh-gate`
+  agent uses `credential:NAME` in a command instead. A key through `ssh-gate`
   (the iPhone and iPad app) is refused too.
 - A dry run shows no value and asks nobody.
 - Every value shown goes in the audit log, as `secret.reveal` or
@@ -211,9 +211,9 @@ komando secret cp db-pass db-pass-old                          # a copy; nothing
 komando secret rm old-pass other-old-pass                      # all of them, or none
 ```
 
-- `secret rename` points every server, conn, key and VPN that used `secret:OLD`
-  at `secret:NEW` in the same step (conn URL options such as
-  `?ca=secret:OLD` too). Scripts and files of your own are not changed.
+- `secret rename` points every server, conn, key and VPN that used `credential:OLD`
+  at `credential:NEW` in the same step (conn URL options such as
+  `?ca=credential:OLD` too). Scripts and files of your own are not changed.
 - When NEW exists, add `--overwrite`; what uses NEW then gets the value of
   OLD. When a protected server or conn uses NEW, komando asks you first
   (`--yes` for an AI agent or a script).
@@ -263,14 +263,14 @@ inherits them (see [Environment variables](settings.md#environment-variables)).
 
 ## For AI agents
 
-An agent never sees a value: output shows `[secret:NAME]` or `[hidden]`.
+An agent never sees a value: output shows `[credential:NAME]` or `[hidden]`.
 
 | The agent wants to | It runs | Or it gets |
 |---|---|---|
 | store a password the user knows | asks the user to run `komando secret set NAME` | `NEEDS_PERSON` |
 | store a token a program made | `echo "$TOKEN" \| komando secret set NAME` or `--from-env VAR` | |
 | preview a change | the same command with `--dry-run` | `meta.would_be_blocked` names what the real run needs |
-| use a secret | `secret:NAME` in a flag | `SECRET_DESTINATION`: a person allows where it goes |
+| use a secret | `credential:NAME` in a flag | `SECRET_DESTINATION`: a person allows where it goes |
 | rename, copy, remove | `secret rename`, `secret cp`, `secret rm` | |
 | read or compare a value | asks the user (`secret show --reveal`, `key show --reveal`, `secret check`) | `REVEAL_NEEDS_TERMINAL`, `NEEDS_PERSON` |
 
