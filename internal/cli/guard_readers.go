@@ -301,7 +301,7 @@ func komandoWordHarmless(line, p string) bool {
 // every command a reader, a for loop's list, or gh or git in a form that
 // only reads (ghReadsOnly, gitReadsOnly).
 func harmlessKomandoLine(line string) bool {
-	if redirectTarget.MatchString(line) || strings.ContainsAny(line, "`") || strings.Contains(line, "$(") ||
+	if len(redirectFiles(line)) > 0 || strings.ContainsAny(line, "`") || strings.Contains(line, "$(") ||
 		strings.Contains(line, "<(") || strings.Contains(line, ">(") {
 		return false
 	}
@@ -321,11 +321,24 @@ func harmlessKomandoLine(line string) bool {
 		case prog == "" || readsOnly(base, args):
 		case base == "gh" && ghReadsOnly(args):
 		case base == "git" && gitReadsOnly(args):
+		case base == "orca" && orcaNamesNoFile(args):
 		default:
 			return false
 		}
 	}
 	return true
+}
+
+// orcaNamesNoFile says whether orca, run with args, names only Orca's own
+// records (a repo, a worktree, a session: --repo komando): no output and
+// no path flag.
+func orcaNamesNoFile(args []string) bool {
+	for _, a := range args {
+		if writesOutput(a) || strings.HasPrefix(a, "--path") || strings.HasPrefix(a, "--file") {
+			return false
+		}
+	}
+	return len(args) > 0
 }
 
 // writesOutput is a flag that names a file a program writes: -o, -O, -D,

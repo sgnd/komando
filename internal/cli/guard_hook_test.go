@@ -210,6 +210,78 @@ func TestGuardHookAnswersAsTheCommand(t *testing.T) {
 	}
 }
 
+// C520: an Orca worktree for komando names the repo komando, a word that
+// names Orca's own record, not a file. Orca with an output or path flag is
+// still checked.
+func TestGuardOrcaWorktreeNamedKomando(t *testing.T) {
+	home, _ := guardLineHome(t)
+	checkLines(t, home, home, []string{
+		"orca worktree create --repo komando --name komando-c519-guard-hook-weight",
+		"orca worktree create --repo=komando --name komando-c519 --json",
+		"orca worktree create --name komando-c519 --base origin/main",
+	}, false)
+	checkLines(t, home, home, []string{
+		"orca worktree create --repo komando --path komando",
+		"orca worktree create --repo komando -o komando",
+		"orca worktree create --repo komando; cp /bin/true komando",
+	}, true)
+}
+
+// C520: 2>&1 and >&2 copy one output to another: they write no file, so a
+// line naming the komando repo stays a reader's line. >&FILE writes FILE.
+func TestGuardOutputCopyIsNoRedirect(t *testing.T) {
+	home, _ := guardLineHome(t)
+	checkLines(t, home, home, []string{
+		"gh issue view 665 -R sgnd/komando --json title,body 2>&1 | head -60",
+		"gh pr list -R sgnd/komando --state open >&2",
+		"gh issue view 665 -R sgnd/komando 2>&-; echo done",
+	}, false)
+	checkLines(t, home, home, []string{
+		"echo x >&~/.claude/settings.json",
+		"echo x >& ~/.claude/settings.json",
+		"echo x >&~/.komando/vault.json",
+		"echo x &>~/.komando/vault.json",
+		"ls >&~/.ssh/id_ed25519",
+		"cat ~/.ssh/id_ed25519 >&2",
+		`echo \>& cp /bin/true ~/bin/komando`,
+		"gh pr list -R sgnd/komando >&komando",
+		"gh release download v1 -R sgnd/komando -O ~/newbin/komando 2>&1",
+	}, true)
+}
+
+// C520: a line that runs komando, or reads its program, next to another
+// command names komando only for that command: python3 and sleep beside it
+// get nothing from it. A reader whose output goes on (a pipe, a file, a
+// command substitution), cd, a variable and a heredoc still count.
+func TestGuardKomandoRunNextToAnotherCommand(t *testing.T) {
+	home, _ := guardLineHome(t)
+	checkLines(t, home, home, []string{
+		"python3 -c 'print(1)'; komando version",
+		"komando version && sleep 2 && komando list",
+		"sleep 5; ~/bin/komando version",
+		"stat ~/bin/komando; sleep 1",
+		"python3 -c 'print(1)' && ls -la ~/bin/komando",
+		"command -v komando; python3 -c 'print(1)'",
+		"cat ~/.claude/settings.json; python3 -c 'print(1)'",
+	}, false)
+	checkLines(t, home, home, []string{
+		"echo ~/bin/komando | xargs rm",
+		"ls ~/bin/komando > /tmp/t; xargs rm < /tmp/t",
+		"ls ~/bin/komando |& xargs rm",
+		`cp /bin/true "$(ls ~/bin/komando)"`,
+		"cd ~/.claude && python3 -c \"open('settings.json','w')\"",
+		"K=~/bin/komando ls; python3 -c 'print(1)'",
+		"export K=~/bin/komando; python3 -c 'import os; open(os.environ[\"K\"],\"w\")'",
+		"python3 - <<EOF\nopen(\"\"\"\n" + home + "/bin/komando\n\"\"\".strip(),\"w\")\nEOF",
+		"python3 - <<< ~/bin/komando",
+		`ls ~/bin/komando; cp /bin/true "$_"`,
+		"for f in a; do ls ~/bin/komando; done | xargs rm",
+		"(ls ~/bin/komando; echo) | xargs rm",
+		"{ ls ~/bin/komando; } | xargs rm",
+		"exec > /tmp/t; ls ~/bin/komando; xargs rm < /tmp/t",
+	}, true)
+}
+
 // Programs that only read may name a guard file or the komando program:
 // an agent looks at them all the time. rtk only filters what the program
 // after it prints.

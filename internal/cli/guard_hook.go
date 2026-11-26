@@ -515,8 +515,32 @@ var readOnlyPrograms = map[string]bool{"cat": true, "less": true, "more": true, 
 	"readlink": true, "realpath": true, "which": true, "type": true, "command": true, "test": true, "[": true, "jq": true,
 	"echo": true, "printf": true, "md5": true, "md5sum": true, "shasum": true, "sha256sum": true, "cd": true, "pushd": true}
 
-// redirectTarget is a file a shell segment writes with > or >>.
-var redirectTarget = regexp.MustCompile(`[0-9&]?>>?\|?\s*("[^"]*"|'[^']*'|[^\s;&|<>()]+)`)
+// redirectTarget is what a shell segment writes with >, >>, >| or >&: a
+// file, or after >& an output it copies or closes (redirectFiles).
+var redirectTarget = regexp.MustCompile(`[0-9&]?>>?([|&]?)\s*("[^"]*"|'[^']*'|[^\s;&|<>()]+)`)
+
+// outputNumber is the word after >& that copies or closes an output (2>&1,
+// >&2, 2>&-) instead of naming a file.
+var outputNumber = regexp.MustCompile(`^([0-9]+-?|-)$`)
+
+// redirectFiles are the files s writes through a redirect.
+func redirectFiles(s string) []string { return redirectFilesWith(s, false) }
+
+// bothOutputsFiles are the files s writes with >& (its output and its
+// errors in one).
+func bothOutputsFiles(s string) []string { return redirectFilesWith(s, true) }
+
+func redirectFilesWith(s string, onlyBoth bool) []string {
+	var files []string
+	for _, m := range redirectTarget.FindAllStringSubmatch(s, -1) {
+		both := m[1] == "&"
+		if both && outputNumber.MatchString(m[2]) || onlyBoth && !both {
+			continue
+		}
+		files = append(files, strings.Trim(m[2], `"'`))
+	}
+	return files
+}
 
 // writesKomandoByName is a shell line whose program changes a file named by
 // a command that names komando: rm "$(command -v komando)", chmod 777
@@ -531,8 +555,7 @@ func checkSelfWrite(cl *call, line, seg, base string, args []string, home, cwd s
 	refuse := func(w, why string) guardDecision {
 		return deny("%s is %s; an AI agent does not change it: %s", w, why, selfWayOut(why))
 	}
-	for _, m := range redirectTarget.FindAllStringSubmatch(seg, -1) {
-		w := strings.Trim(m[1], `"'`)
+	for _, w := range redirectFiles(seg) {
 		if why := guardSelfWhy(guardPathAt(cl, w, home, cwd)); why != "" {
 			return refuse(w, why)
 		}
@@ -631,10 +654,63 @@ func checkGuardFiles(cl *call, line, seg, prog string, args []string, home, cwd 
 	if d := checkSelfWrite(cl, line, seg, base, args, home, cwd); d.Deny || prog == "" || readOnlyPrograms[base] {
 		return d
 	}
+	line = lineForOthers(line, seg)
 	if _, ok := readerArgs(base, args); ok {
 		return checkGuardFileNamed(cl, lineWithoutReadFiles(line), base, args, home, cwd)
 	}
 	return checkGuardFileNamed(cl, line, base, args, home, cwd)
+}
+
+// lineForOthers is line as its command seg sees it: without the commands
+// that hand seg no word, which are runs of komando and readers (not cd or
+// pushd) that print to the screen. Such a command has no pipe after it
+// and sets no variable. Only a flat line is narrowed: one with no command
+// substitution, group, compound command, heredoc, file redirect or $_.
+// Any of those can carry a word from one command to another.
+func lineForOthers(line, seg string) string {
+	segs, ends := shellCuts(line)
+	if ends == nil || strings.Contains(line, "<<") || strings.Contains(line, "$_") || strings.Contains(line, "${_") ||
+		len(redirectFiles(line)) > 0 {
+		return line
+	}
+	for _, e := range ends {
+		if e == '(' || e == ')' || e == '`' || e == '$' {
+			return line
+		}
+	}
+	var kept []string
+	for i, s := range segs {
+		words := shellWords(s)
+		for _, w := range words {
+			if compoundWord[w] {
+				return line
+			}
+		}
+		piped := ends[i] == '|' && !(i+1 < len(segs) && segs[i+1] == "" && ends[i+1] == '|')
+		if s == seg || piped || !printsOnly(words) {
+			kept = append(kept, s)
+		}
+	}
+	return strings.Join(kept, " ; ")
+}
+
+// compoundWord are the words of the shell's groups and compound commands,
+// whose output goes on as a whole (`for ...; do ls X; done | xargs rm`).
+var compoundWord = map[string]bool{"{": true, "}": true, "!": true, "if": true, "then": true, "else": true, "elif": true, "fi": true,
+	"for": true, "select": true, "while": true, "until": true, "do": true, "done": true, "case": true, "esac": true,
+	"function": true, "coproc": true}
+
+// printsOnly says whether the command words runs komando or a reader, and
+// sets no variable: what it does with the words it names stays its own.
+func printsOnly(words []string) bool {
+	for _, w := range words {
+		if envAssign.MatchString(w) {
+			return false
+		}
+	}
+	prog, args := program(words)
+	base := filepath.Base(prog)
+	return base == "komando" || base != "cd" && base != "pushd" && prog != "" && readsOnly(base, args)
 }
 
 // checkGuardFileNamed refuses a command that is not only a reader when its
