@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"os"
 	"slices"
@@ -12,6 +13,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/out"
 )
 
@@ -387,5 +389,107 @@ func TestCacheOldAddAndRunAreGone(t *testing.T) {
 		if _, e := invRun(t, args...); e == nil || e.Code != "USAGE" {
 			t.Errorf("%v still runs: %+v", args, e)
 		}
+	}
+}
+
+// fakeCacheRead answers every read of one key with value: a Redis server
+// (RESP, refusing HELLO so the client speaks RESP2) or a memcached server.
+func fakeCacheRead(t *testing.T, redis bool, value string) string {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { ln.Close() })
+	go func() {
+		for {
+			c, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func() {
+				defer c.Close()
+				r := bufio.NewReader(c)
+				for {
+					l, err := r.ReadString('\n')
+					if err != nil {
+						return
+					}
+					l = strings.TrimRight(l, "\r\n")
+					if !redis {
+						switch f := strings.Fields(l); {
+						case len(f) == 0:
+						case f[0] == "get":
+							fmt.Fprintf(c, "VALUE %s 0 %d\r\n%s\r\nEND\r\n", f[1], len(value), value)
+						case f[0] == "version":
+							fmt.Fprint(c, "VERSION 1.6.39\r\n")
+						default:
+							fmt.Fprint(c, "ERROR\r\n")
+						}
+						continue
+					}
+					var n int
+					if _, err := fmt.Sscanf(l, "*%d", &n); err != nil {
+						continue
+					}
+					var args []string
+					for range n {
+						r.ReadString('\n') // $len
+						a, _ := r.ReadString('\n')
+						args = append(args, strings.ToUpper(strings.TrimRight(a, "\r\n")))
+					}
+					switch {
+					case len(args) == 0:
+					case args[0] == "HELLO":
+						fmt.Fprint(c, "-ERR unknown command 'HELLO'\r\n")
+					case args[0] == "GET":
+						fmt.Fprintf(c, "$%d\r\n%s\r\n", len(value), value)
+					case args[0] == "PING":
+						fmt.Fprint(c, "+PONG\r\n")
+					default:
+						fmt.Fprint(c, "+OK\r\n")
+					}
+				}
+			}()
+		}
+	}()
+	return ln.Addr().String()
+}
+
+// An AI agent's read of a cache on a protected conn hides personal data
+// in the reply, the same way for every built provider of the type.
+func TestCacheRawHidesPersonalDataForEveryProvider(t *testing.T) {
+	invHome(t)
+	const email = "ada@example.com"
+	read := map[string][]string{"redis": {"GET", "a"}, "memcached": {"get", "a"}} // a read of key a, per provider
+	type ask struct{ provider, url string }
+	var asks []ask
+	for _, l := range capability.All() {
+		if l.Type != "cache" || l.Verb != "raw" || handlers[l.Key] == nil {
+			continue
+		}
+		if read[l.Provider] == nil {
+			t.Errorf("cache %s raw: no fake server here; add one", l.Provider)
+			continue
+		}
+		asks = append(asks, ask{l.Provider, l.Provider + "://" + fakeCacheRead(t, l.Provider == "redis", email)})
+	}
+	if len(asks) < 2 {
+		t.Fatalf("want every built provider of cache, got %v", asks)
+	}
+	for _, a := range asks {
+		mustRun(t, "conn", "add", a.provider+"-c", a.url, "--protected")
+	}
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
+	hidden := map[string]int{}
+	for _, a := range asks {
+		b, _ := json.Marshal(mustRun(t, append([]string{"cache", a.provider, "raw", a.provider + "-c", "--"}, read[a.provider]...)...))
+		if s := string(b); strings.Contains(s, email) || !strings.Contains(s, "[hidden: email]") {
+			t.Errorf("cache %s raw: %s", a.provider, s)
+		}
+		hidden[a.provider] = strings.Count(string(b), "[hidden: email]")
+	}
+	if len(slices.Compact(slices.Sorted(maps.Values(hidden)))) > 1 {
+		t.Errorf("the providers hide differently: %v", hidden)
 	}
 }
