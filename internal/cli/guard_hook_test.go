@@ -210,19 +210,16 @@ func TestGuardHookAnswersAsTheCommand(t *testing.T) {
 	}
 }
 
-// C520: grep's pattern is text to look for, not a file it reads: a pattern
-// that looks like a key file's name passes. A file grep reads, a pattern
-// file (-f) and a glob the shell turns into file names still count.
-func TestGuardGrepPatternIsNoFile(t *testing.T) {
+// A search program's word that names a key file, or looks like one, is
+// checked as a file in every form, its pattern too: a search that names
+// one is refused, as before.
+func TestGuardSearchWordsNamingKeysStayRefused(t *testing.T) {
 	home, _ := guardLineHome(t)
 	checkLines(t, home, home, []string{
 		"grep -v scrypt.Key internal/vault/storekey.go",
-		`grep -rn "argon2.IDKey" internal/`,
 		"rg -n vault.Key internal",
 		"grep -n -A 3 tls.key README.md",
 		"grep --color=auto -n scrypt.Key internal/vault/storekey.go",
-	}, false)
-	checkLines(t, home, home, []string{
 		"grep -f ~/.komando/vault.key notes.txt",
 		"grep -e x ~/.ssh/id_ed25519",
 		"grep x ~/.ssh/id_*",
@@ -230,22 +227,51 @@ func TestGuardGrepPatternIsNoFile(t *testing.T) {
 		"grep foo server.key",
 		"grep ~/.ssh/id_* notes.txt",
 		"grep -rf ~/.komando/vault.key .",
-		// grep moves its options to the front: a later -e or -f makes the
-		// first operand a file
 		"grep ~/.komando/vault.key -e .",
 		"grep ~/.ssh/id_ed25519 -e .",
 		"grep -m1 ~/.komando/vault.key -f /dev/null",
-		// a long option is read from a short prefix of its name
 		"grep --regex=. ~/.komando/vault.key",
 		"grep --fil=~/.komando/vault.key x",
-		// GREP_OPTIONS adds options grep reads first
+		"grep --context=1 ~/.komando/vault.key",
 		"GREP_OPTIONS=-f grep ~/.komando/vault.key notes.txt",
 		"env GREP_OPTIONS=-f grep ~/.komando/vault.key notes.txt",
 		"export GREP_OPTIONS=-f; grep ~/.komando/vault.key notes.txt",
-		// a program in front of grep can give it more arguments
 		"xargs grep ~/.komando/vault.key < notes.txt",
 		"parallel grep ~/.komando/vault.key ::: notes.txt",
 		"find . -exec grep ~/.komando/vault.key {} +",
+		"X=-e.; grep ~/.komando/vault.key $X",
+		"grep ~/.komando/vault.key $X",
+		`grep ~/.komando/vault.key "$@"`,
+		"grep ~/.komando/vault.key *",
+		"touch ./-e.; grep ~/.komando/vault.key *",
+		"grep ~/.komando/vault.key ./-e.",
+		"grep ~/.komando/vault.key {-e,.}",
+		`grep ~/.komando/vault.key $'\x2de' .`,
+		"grep ~/.komando/vault.key $'-e' .",
+		`grep ~/.komando/vault.key \-e .`,
+		"grep ~/.komando/vault.key '-e' .",
+		"grep ~/.komando/vault.key ~-e",
+		`export GREP_OPT""IONS='-e .'; grep ~/.komando/vault.key`,
+		`export GREP_OPT\IONS='-e .'; grep ~/.komando/vault.key`,
+		"declare -x GREP_OPT''IONS=-e.; grep ~/.komando/vault.key",
+		`grep(){ cat "$@"; }; grep ~/.komando/vault.key x`,
+		"grep () { cat $1; }\ngrep ~/.komando/vault.key",
+		"function grep { cat $1; }; grep ~/.komando/vault.key",
+		"shopt -s expand_aliases\nalias grep=cat\ngrep ~/.komando/vault.key",
+		"alias grep=cat; grep ~/.komando/vault.key",
+		"enable -n grep; grep ~/.komando/vault.key",
+		"hash -p /bin/cat grep; grep ~/.komando/vault.key",
+		"PATH=/tmp/x:$PATH; grep ~/.komando/vault.key",
+		"ln -s /bin/cat ./grep; ./grep ~/.komando/vault.key",
+		"/tmp/grep ~/.komando/vault.key",
+		"./grep ~/.komando/vault.key",
+		`\grep ~/.komando/vault.key`,
+		"egrep ~/.komando/vault.key",
+		"rg ~/.komando/vault.key",
+		"grep -- ~/.komando/vault.key -e .",
+		"IFS=,; grep ~/.komando/vault.key,-e,.",
+		`set -- -e .; grep ~/.komando/vault.key "$@"`,
+		"grep --color=auto ~/.komando/vault.key",
 	}, true)
 }
 
@@ -314,8 +340,8 @@ func TestGuardKomandoRunNextToAnotherCommand(t *testing.T) {
 		"python3 - <<EOF\nopen(\"\"\"\n" + home + "/bin/komando\n\"\"\".strip(),\"w\")\nEOF",
 		"python3 - <<< ~/bin/komando",
 		`ls ~/bin/komando; cp /bin/true "$_"`,
-		// printf -v sets a variable a later command uses
 		`printf -v p %s ~/bin/komando; cp /bin/true "$p"`,
+		`read p <<< ~/bin/komando; cp /bin/true "$p"`,
 		`printf -v p %s ~/.claude/settings.json; python3 -c 'import sys;open(sys.argv[1],"w")' "$p"`,
 		"for f in a; do ls ~/bin/komando; done | xargs rm",
 		"(ls ~/bin/komando; echo) | xargs rm",

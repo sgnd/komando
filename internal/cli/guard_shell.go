@@ -222,19 +222,11 @@ func checkShellDepth(cl *call, line, home, cwd string, depth int) guardDecision 
 		}
 		recursive := recursiveReader(base, args)
 		first := len(words) - len(args) // where the arguments start
-		pattern := -1                   // grep's pattern: text to look for, not a file
-		// only grep run as itself: GREP_OPTIONS adds options, and a program
-		// in front of it (xargs, parallel) can add arguments
-		if p := grepPattern(base, args); p >= 0 && first == 1 && !strings.Contains(line, "GREP_OPTIONS") && cl.getenv("GREP_OPTIONS") == "" {
-			pattern = first + p
-		}
 		wcwd := cwd
 		for j := 0; j < len(words); j++ {
 			w := words[j]
 			if j >= first {
 				switch {
-				case j == pattern && !globs[j]:
-					continue
 				case (base == "tar" || base == "git" || base == "make") && (w == "-C" || w == "--directory") && j+1 < len(words):
 					// tar -C DIR and git -C DIR: the words after it are read from DIR
 					j++
@@ -269,64 +261,6 @@ func checkShellDepth(cl *call, line, home, cwd string, depth int) guardDecision 
 		}
 	}
 	return allow()
-}
-
-// grepValueFlags are, per search program, the short flags that take the
-// next word as their value (-A 3, -m 1); only flags that always do.
-var grepValueFlags = map[string]string{"grep": "ABCDdefm", "egrep": "ABCDdefm", "fgrep": "ABCDdefm", "rg": "ABCEMTefgjmrt"}
-
-// grepLongValues are the long options with =value a search program may
-// have before its pattern, by their whole name: grep also reads a short
-// prefix of a name (--regex= for --regexp=), so any other one counts as
-// unknown.
-var grepLongValues = map[string]bool{"--after-context": true, "--before-context": true, "--context": true, "--max-count": true,
-	"--color": true, "--colour": true, "--include": true, "--exclude": true, "--exclude-dir": true, "--glob": true, "--type": true}
-
-// grepPattern is the index in args of the pattern a search program takes
-// as its first operand, or -1: none when -e or -f gives the patterns, when
-// an option the guard does not know might hide where it is, and when an
-// option comes after the operand (grep reads every option first, so a later
-// -e makes the first operand a file).
-func grepPattern(base string, args []string) int {
-	values, ok := grepValueFlags[base]
-	if !ok {
-		return -1
-	}
-	for i := 0; i < len(args); i++ {
-		a := args[i]
-		switch {
-		case a == "--":
-			if i+1 < len(args) {
-				return i + 1
-			}
-			return -1
-		case strings.HasPrefix(a, "--"):
-			name, _, hasValue := strings.Cut(a, "=")
-			if !hasValue || !grepLongValues[name] {
-				return -1
-			}
-		case len(a) > 1 && a[0] == '-':
-			for j := 1; j < len(a); j++ {
-				if a[j] == 'e' || a[j] == 'f' {
-					return -1
-				}
-				if strings.IndexByte(values, a[j]) >= 0 {
-					if j == len(a)-1 {
-						i++ // its value is the next word
-					}
-					break // the rest of the word is its value
-				}
-			}
-		default:
-			for _, b := range args[i+1:] {
-				if strings.HasPrefix(b, "-") {
-					return -1
-				}
-			}
-			return i
-		}
-	}
-	return -1
 }
 
 // findPattern are find's tests that take a name pattern.
