@@ -38,7 +38,7 @@ $ks_s = $null
 $ks_unsafe = $false
 # a path with & ^ ( ) | or more would reach cmd.exe as several commands (A-450-1)
 if ($ks_base -and $ks_base -match '^[A-Za-z]:\\') {
-    if ($ks_base -cnotmatch '^[A-Za-z]:\\[A-Za-z0-9 _.\\-]+$') { $ks_unsafe = $true } else { $ks_s = Join-Path (Join-Path $ks_base 'komando') 'sessions' }
+    if ($ks_base -cnotmatch '^[A-Za-z]:\\[A-Za-z0-9 _.\\-]+\z') { $ks_unsafe = $true } else { $ks_s = Join-Path (Join-Path $ks_base 'komando') 'sessions' }
 }
 `
 

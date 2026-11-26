@@ -223,7 +223,7 @@ func TestStartScriptPSFolderChecks(t *testing.T) {
 		"/inheritance:r", "/grant:r", "ks_own $ks_d 96", "ks_own $p 90", "/setowner", "':(OI)(CI)F'", "'*S-1-5-18:(OI)(CI)F'",
 		"ReparsePoint", "ks_fail 96",
 		"if (Test-Path -LiteralPath $ks_d) { ks_fail 90 }", "whoami.exe /user /fo csv /nh",
-		"-cnotmatch '^[A-Za-z]:\\\\[A-Za-z0-9 _.\\\\-]+$') { Write-Output 'unsafe-path'; ks_fail 91 }",
+		"-cnotmatch '^[A-Za-z]:\\\\[A-Za-z0-9 _.\\\\-]+\\z') { Write-Output 'unsafe-path'; ks_fail 91 }",
 		"if (-not (ks_aclExact (Get-Acl -LiteralPath $ks_d).Sddl $ks_sid)) { ks_fail 96 }",
 		"if (@(Get-ChildItem -LiteralPath $ks_d -Force).Count -ne 0) { ks_fail 96 }",
 		"if ((ks_owner $sd) -ne $ks_sid -or -not (ks_daclSafe $sd $ks_sid)) { ks_fail 90 }",

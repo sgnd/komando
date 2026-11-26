@@ -175,8 +175,12 @@ func TestBeginScriptPS(t *testing.T) {
 // a different path first. The bare argument is gone.
 func psSafeBaseChecked(t *testing.T, what, script string) {
 	t.Helper()
-	if !strings.Contains(script, `-cnotmatch '^[A-Za-z]:\\[A-Za-z0-9 _.\\-]+$'`) {
+	if !strings.Contains(script, `-cnotmatch '^[A-Za-z]:\\[A-Za-z0-9 _.\\-]+\z'`) {
 		t.Errorf("the %s script does not refuse a %%LOCALAPPDATA%% outside [A-Za-z0-9 _.\\-]", what)
+	}
+	// .NET's $ also matches before a trailing newline: the allowlist ends in \z
+	if strings.Contains(script, `_.\\-]+$'`) {
+		t.Errorf("the %s script ends its allowlist with $, which lets a trailing newline pass: use \\z", what)
 	}
 	for _, bare := range []string{"rmdir /s /q $ks_d", "rmdir /s /q $d"} {
 		if strings.Contains(script, bare) {
@@ -192,7 +196,7 @@ func TestStartScriptPSRefusesMetaPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(script, `-cnotmatch '^[A-Za-z]:\\[A-Za-z0-9 _.\\-]+$') { Write-Output 'unsafe-path'; ks_fail 91 }`) {
+	if !strings.Contains(script, `-cnotmatch '^[A-Za-z]:\\[A-Za-z0-9 _.\\-]+\z') { Write-Output 'unsafe-path'; ks_fail 91 }`) {
 		t.Error("the start does not refuse a %LOCALAPPDATA% outside the allowlist")
 	}
 	_, err = ReadStartPS("web1", ExitNoFolder, "unsafe-path\n", "", testID)

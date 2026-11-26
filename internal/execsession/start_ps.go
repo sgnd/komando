@@ -234,7 +234,7 @@ const psStartFolders = `try {
     # run.ps1 and the removal hand the folder to cmd.exe, which expands
     # %NAME% and !NAME! even inside quotes (A-448-1) and reads & ^ ( ) | as
     # more commands (A-450-1): only letters, digits, space and _ . - \ pass
-    if ($ks_base -cnotmatch '^[A-Za-z]:\\[A-Za-z0-9 _.\\-]+$') { Write-Output 'unsafe-path'; ks_fail 91 }
+    if ($ks_base -cnotmatch '^[A-Za-z]:\\[A-Za-z0-9 _.\\-]+\z') { Write-Output 'unsafe-path'; ks_fail 91 }
     $ks_r = Join-Path $ks_base 'komando'
     $ks_s = Join-Path $ks_r 'sessions'
     $ks_v = Get-PSDrive -Name $ks_base.Substring(0, 1) -PSProvider FileSystem -ErrorAction SilentlyContinue
