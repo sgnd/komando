@@ -718,6 +718,10 @@ var meanings = map[string]string{
 	"DB_PRIVILEGE":           "the conn's user lacks a right the command needs",
 	"DB_USER_IN_USE":         "the database user owns objects or has sessions, so it is not removed",
 	"DEPLOY_FAILED":          "key deploy could not add the key to the server's authorized_keys (the server's words follow)",
+	"GATE_BINARY_INVALID":    "the server's komando could be replaced by the paired user (owner, mode or place), so no gate line is written",
+	"GATE_UNSUPPORTED":       "komando on the server has no server mode (ssh-gate --here)",
+	"KEY_USER_INVALID":       "the user is root (uid 0) or is not on the server, so no device key is written for it",
+	"KOMANDO_MISSING":        "komando is not installed on the server, so no gate line can run it",
 	"DOCKER_ERROR":           "docker on the server answered with an error",
 	"DOCKER_PERMISSION":      "the login user may not use docker on the server (add --sudo, or the docker group)",
 	"DRY_RUN_UNSUPPORTED":    "this change cannot be previewed; run it without --dry-run to make it",
@@ -798,6 +802,9 @@ var catalogSite = map[string]string{
 	"NO_FOLDER":           "cannot find the folder: …",
 	"RENAME_FAILED":       "the vault cannot rename the VPN's secrets: …; nothing was renamed",
 	"ROLLOUT_TIMEOUT":     "not rolled out after … (replicas …)…",
+	// the entry of one provider or type used on another's path, and a URL
+	// given to another provider's add
+	"WRONG_KIND": "… is a … …, not a … …",
 }
 
 // renamedFrom are codes given by renaming another error (e.Code =
@@ -812,6 +819,7 @@ var hintMeanings = map[string]string{
 	"VPN_CLIENT_MISSING":      "install the program the message names (macOS: `brew install NAME`; Linux: its package)",
 	"TOOL_FAILED":             "read the message; `komando test CONN` checks reachability (for a known problem, the hint names the fix)",
 	"SHORTER_SCRIPT_REQUIRED": "split it into shorter pieces (the hint names the command for a script, SQL or a file) or ask the user to run it in their own terminal; e.g. `komando exec TARGET --script FILE` for a script",
+	"WRONG_KIND":              "use the path the hint names, for example `komando cluster kubernetes raw NAME` for a Kubernetes entry; a URL of another provider goes to `komando … add`",
 	"AZURE_LOGIN_REQUIRED":    "set AZURE_TENANT_ID, AZURE_CLIENT_ID and AZURE_CLIENT_SECRET for a service principal, run komando on Azure with a managed identity, or a person runs `az login`",
 }
 

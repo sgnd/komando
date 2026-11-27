@@ -116,8 +116,8 @@ export NO_PROXY=.internal,10.0.0.0/8     # names and networks reached directly
 
 | What | How it gets out |
 |---|---|
-| Web APIs: Kubernetes clusters (also `cluster exec`, `cluster forward`, `cluster shell`), registries, S3 storage, secret stores (Vault, 1Password, Bitwarden, AWS, GCP, Azure), the logins and tunnels of AnyConnect, Fortinet, GlobalProtect, F5 and Pulse VPNs, and `komando update` | through `HTTPS_PROXY` (and `HTTP_PROXY` for `http://` addresses), except what `NO_PROXY` names |
-| Servers (SSH), databases, caches, FTP and SFTP | not through `HTTPS_PROXY`: `ssh` and `psql` do not read it either, and a company proxy usually lets only web traffic out. Reach them through the proxy added as a VPN, then `--via NAME`: an HTTP proxy with `komando vpn add NAME proxy --proxy-address HOST:PORT`, a SOCKS proxy with `komando vpn add NAME socks --proxy-address HOST:PORT`; or through a bastion |
+| Web APIs: Kubernetes clusters (also `cluster kubernetes exec`, `cluster kubernetes tunnel start`, `cluster kubernetes shell`), registries, S3 storage, secret stores (Vault, 1Password, Bitwarden, AWS, GCP, Azure), the logins and tunnels of AnyConnect, Fortinet, GlobalProtect, F5 and Pulse VPNs, and `komando update` | through `HTTPS_PROXY` (and `HTTP_PROXY` for `http://` addresses), except what `NO_PROXY` names |
+| Servers (SSH), databases, caches, FTP and SFTP | not through `HTTPS_PROXY`: `ssh` and `psql` do not read it either, and a company proxy usually lets only web traffic out. Reach them through the proxy added as a VPN, then `--via NAME`: an HTTP proxy with `komando vpn proxy add NAME --proxy-address HOST:PORT`, a SOCKS proxy with `komando vpn socks add NAME --proxy-address HOST:PORT`; or through a bastion |
 | WireGuard, L2TP/IPsec, IPsec and IKEv2 VPNs | not through a proxy: they use UDP, which a web proxy cannot carry |
 
 - `HTTPS_PROXY`, `HTTP_PROXY` and `NO_PROXY` count only when a person
@@ -164,5 +164,5 @@ export NO_PROXY=.internal,10.0.0.0/8     # names and networks reached directly
 | `PORT_IN_USE` | the local port is taken (exit 8); for `-R`, sshd on the server may have `AllowTcpForwarding` off | pick another port, or `0` for a free one |
 | `CANCELLED` | Ctrl-C stopped the tunnel before it came up; nothing is left running | start it again |
 | `TUNNEL_NOT_FOUND` | no tunnel with that ID | see them with `komando tunnel list` |
-| `VPN_DOWN` | the VPN or proxy on the path did not come up, or a proxy refused the port | read the message; `komando vpn test NAME` tries again |
+| `VPN_DOWN` | the VPN or proxy on the path did not come up, or a proxy refused the port | read the message; `komando vpn KIND test NAME` tries again |
 | `HOST_IN_USE` | a server you want to remove is still a step on another one's `--via` path | change their `--via` first |

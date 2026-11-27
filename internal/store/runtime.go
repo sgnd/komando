@@ -65,7 +65,7 @@ func (s *State) loadRuntime() error {
 	if b, err = openRuntime(b); err != nil {
 		if errors.Is(err, sealrow.ErrOpen) {
 			return out.Errf(out.ExitError, "STATE_CORRUPT",
-				"the file holds only running VPN sessions, logins, jobs and tunnels: move it away, then connect again (a VPN started before the store's key changed is ended by `komando vpn down`)",
+				"the file holds only running VPN sessions, logins, jobs and tunnels: move it away, then connect again (a VPN started before the store's key changed is ended by `komando vpn KIND stop`)",
 				"%s does not open with the store's key", runtimePath())
 		}
 		return err

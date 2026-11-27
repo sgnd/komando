@@ -34,21 +34,20 @@ func vpnCmd() *cobra.Command {
 		Use:   "vpn",
 		Short: "VPNs komando connects when a path needs one: add, connect, check",
 		Long: `Add a VPN once, then put it first in --via. A command that needs it
-connects it, using the login you saved:
+connects it, using the login you saved. The word after vpn is the kind:
 
-  komando vpn add office wireguard --config ~/Downloads/office.conf
-  komando vpn add client-x globalprotect --portal vpn.client.com --user alice --password-ref secret:client-x --mfa
+  komando vpn wireguard add office --config ~/Downloads/office.conf
+  komando vpn globalprotect add client-x --portal vpn.client.com --user alice --credential client-x --mfa
   komando host add app admin@10.0.0.5 --via office,bastion
   komando exec app -- uptime
 
-VPNs with --mfa need a person: run ` + "`komando vpn up NAME`" + ` once and later
+VPNs with --mfa need a person: run ` + "`komando vpn KIND start NAME`" + ` once and later
 commands (and agents) reuse that session. komando never answers MFA.
 
-Kinds (` + vpnAliasLine() + `):
+Kinds:
 ` + strings.Join(kinds, "\n"),
 	}
-	c.AddCommand(vpnAddCmd(), vpnShowCmd(), vpnEditCmd(), vpnMvCmd(), vpnRmCmd(), vpnUpCmd(), vpnDownCmd(), vpnStatusCmd(), vpnServeCmd(),
-		alias(listCmdFor("vpn"), "list kind:vpn", "List VPNs"), alias(testCmdFor("vpn"), "test", "Check that VPNs connect"))
+	c.AddCommand(vpnServeCmd())
 	return c
 }
 
@@ -68,24 +67,21 @@ func vpnAddCmd() *cobra.Command {
 		Use:   "add NAME KIND",
 		Short: "Add a VPN",
 		Long: `Saves a VPN under a short name. Typed alone at a terminal, it asks step by
-step, starting with the VPN app your company uses.`,
-		Example: `  komando vpn add office wireguard --config ~/Downloads/office.conf --check 10.0.0.5:22
-  komando vpn add client-x globalprotect --portal vpn.client.com   # signs in through a browser window at vpn up
-  komando vpn add office openvpn --config office.ovpn --user alice --password-ref secret:office --check 10.8.0.1:22
-  komando vpn add tailnet tailscale --password-ref secret:ts-authkey
-  komando vpn add office l2tp --server vpn.example.com --psk-ref secret:office-psk --user alice --ask-password   # type the password now (hidden)
-  komando vpn add old-office l2tp --server vpn.example.com --psk-ref secret:old-psk --user alice --legacy-crypto --allow-pap
-  komando vpn add asa ipsec --server asa.client.com --id staff --psk-ref secret:asa-group --user alice
-  komando vpn add cloud ikev2 --server vpn.example.com --user alice --password-ref secret:cloud
-  komando vpn add corp system --service "Corp VPN" --check 10.20.0.1:443
-  komando vpn add lab socks --proxy-address 127.0.0.1:1080
-  komando vpn add office proxy --proxy-address proxy.corp.example:3128   # a company HTTP proxy`,
-		Args: formArgs(cobra.ExactArgs(2)),
+step.`,
+		Example: `  komando vpn wireguard add office --config ~/Downloads/office.conf --check 10.0.0.5:22
+  komando vpn globalprotect add client-x --portal vpn.client.com   # signs in through a browser window at start
+  komando vpn openvpn add office --config office.ovpn --user alice --credential office --check 10.8.0.1:22
+  komando vpn tailscale add tailnet --credential ts-authkey
+  komando vpn l2tp add office --server vpn.example.com --psk-credential office-psk --user alice --ask-password   # type the password now (hidden)
+  komando vpn l2tp add old-office --server vpn.example.com --psk-credential old-psk --user alice --legacy-crypto --allow-pap
+  komando vpn ipsec add asa --server asa.client.com --id staff --psk-credential asa-group --user alice
+  komando vpn ikev2 add cloud --server vpn.example.com --user alice --credential cloud
+  komando vpn system add corp --service "Corp VPN" --check 10.20.0.1:443
+  komando vpn socks add lab --proxy-address 127.0.0.1:1080
+  komando vpn proxy add office --proxy-address proxy.corp.example:3128   # a company HTTP proxy`,
+		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			if len(args) == 0 {
-				return formOrUsage(cmd, "vpn", "komando vpn add office wireguard --config ~/Downloads/office.conf")
-			}
-			name, kind := args[0], vpnKindWord(args[1])
+			name, kind := args[0], args[1]
 			if err := checkEntryName("vpn", name); err != nil {
 				return err
 			}
@@ -145,7 +141,7 @@ step, starting with the VPN app your company uses.`,
 					return err
 				}
 				if user != "" && passwordRef == "" {
-					return out.Usage("--user needs --password-ref (the proxy's password)")
+					return out.Usage("--user needs --credential (the proxy's password)")
 				}
 			case kind == "system":
 				if err = need("check", check != ""); err != nil {
@@ -195,15 +191,11 @@ step, starting with the VPN app your company uses.`,
 					return out.Errf(out.ExitUsage, "OVPN_UNSUPPORTED", "change the profile, or report the option you need at "+releaseSite+"/issues", "%s: %v", config, err)
 				}
 				if p.AuthUserPass && user == "" {
-					return out.Usage("%s logs in with a user name and password (auth-user-pass): add --user, and --password-ref (or --mfa to type it at `vpn up`)", config)
+					return out.Usage("%s logs in with a user name and password (auth-user-pass): add --user, and --credential (or --mfa to type it at `vpn openvpn start`)", config)
 				}
 				ovpnWarn = p.Warnings
 				v.ConfigRef = "secret:" + name + "-config"
 				secrets[name+"-config"] = text
-			}
-			if err := vpnUnusedFlags(kind, map[string]string{"config": config, "proxy-address": address, "portal": portal, "service": service,
-				"server": server, "user": user, "password-ref": passwordRef, "psk-ref": pskRef, "id": localID, "remote-id": remoteID, "ca": ca}); err != nil {
-				return err
 			}
 			now := time.Now().UTC()
 			v.CreatedAt, v.UpdatedAt = now, now
@@ -242,7 +234,7 @@ step, starting with the VPN app your company uses.`,
 				return err
 			}
 			audit(cl, nil, "vpn.add", []string{name}, "", true, map[string]any{"kind": kind, "mfa": v.MFA})
-			res := map[string]any{"vpn": v, "next": "komando vpn up " + name}
+			res := map[string]any{"vpn": v, "next": vpnPath(kind, "start") + " " + name}
 			if notes := vpnAddNotes(v, config, ovpnHasKeys(secrets[name+"-config"])); len(notes) > 0 {
 				res["notes"] = notes
 			}
@@ -276,7 +268,6 @@ step, starting with the VPN app your company uses.`,
 	f.StringVar(&notes, "notes", "", "free-form notes")
 	f.BoolVar(&overwrite, "overwrite", false, "replace a VPN with the same name")
 	inv.bindInv(c, false)
-	c.Long += "\n\n" + vpnFlagTable(c)
 	return c
 }
 
@@ -310,16 +301,16 @@ func vpnAddIPsec(cl *call, v *store.Vpn, server, pskRef, localID, remoteID, ca s
 	switch v.Kind {
 	case "l2tp":
 		if pskRef == "" || v.User == "" {
-			return out.Usage("l2tp needs --psk-ref (the IPsec pre-shared key) and --user (the L2TP login); add --password-ref or --ask-password, or type the password at `komando vpn up`")
+			return out.Usage("l2tp needs --psk-credential (the IPsec pre-shared key) and --user (the L2TP login); add --credential or --ask-password, or type the password at `komando vpn l2tp start`")
 		}
 	case "ipsec":
 		if pskRef == "" {
-			return out.Usage("ipsec needs --psk-ref (the group password) and usually --id (the group name) and --user")
+			return out.Usage("ipsec needs --psk-credential (the group password) and usually --id (the group name) and --user")
 		}
 		v.LocalID = localID
 	case "ikev2":
 		if pskRef == "" && v.User == "" {
-			return out.Usage("ikev2 needs --psk-ref (a pre-shared key) or --user (an EAP login checked with the server's certificate)")
+			return out.Usage("ikev2 needs --psk-credential (a pre-shared key) or --user (an EAP login checked with the server's certificate)")
 		}
 		v.LocalID, v.RemoteID = localID, remoteID
 		if v.CA, err = readVpnCA(cl, ca); err != nil {
@@ -327,7 +318,7 @@ func vpnAddIPsec(cl *call, v *store.Vpn, server, pskRef, localID, remoteID, ca s
 		}
 	}
 	if v.User != "" && v.KeyRef == "" {
-		v.MFA = true // a person types the password at `vpn up`
+		v.MFA = true // a person types the password at start
 	}
 	return nil
 }
@@ -340,10 +331,10 @@ func vpnAskPasswordRef(cmd *cobra.Command, name, kind string, askPw bool, ref *s
 		return nil
 	}
 	if cmd.Flags().Changed("password-ref") {
-		return out.Usage("use --ask-password or --password-ref, not both")
+		return out.Usage("use --ask-password or --credential, not both")
 	}
 	if !vpnTakes(kind, "ask-password") {
-		return out.Usage("--ask-password is not used by %s VPNs (a tailscale auth key: `komando secret set %s-authkey`, then --password-ref secret:%s-authkey)", kind, name, name)
+		return out.Usage("--ask-password is not used by %s VPNs (a tailscale auth key: `komando secret set %s-authkey`, then --credential secret:%s-authkey)", kind, name, name)
 	}
 	*ref = "secret:" + name + "-pass"
 	return nil
@@ -356,7 +347,7 @@ func vpnAskPSKRef(cmd *cobra.Command, name, kind string, askPsk bool, ref *strin
 		return nil
 	}
 	if cmd.Flags().Changed("psk-ref") {
-		return out.Usage("use --ask-psk or --psk-ref, not both")
+		return out.Usage("use --ask-psk or --psk-credential, not both")
 	}
 	if !vpnTakes(kind, "ask-psk") {
 		return out.Usage("--ask-psk is for %s VPNs, not %s", term.JoinAnd(vpnKindsTaking("ask-psk")), kind)
@@ -553,12 +544,12 @@ func vpnAddNotes(v *store.Vpn, config string, keysInFile bool) []string {
 		notes = append(notes, config+" still holds the keys that are now in the vault; delete it if you no longer need it")
 	}
 	if v.Check == "" && (v.Kind == "socks" || v.Kind == "proxy") {
-		notes = append(notes, "without --check, `komando vpn up` and `komando test` only see whether the proxy answers; add an address behind it with `komando vpn edit "+v.Name+" --check HOST:PORT`")
+		notes = append(notes, "without --check, `"+vpnPath(v.Kind, "start")+"` and `komando test` only see whether the proxy answers; add an address behind it with `komando vpn "+v.Kind+" edit "+v.Name+" --check HOST:PORT`")
 	} else if v.Check == "" {
-		notes = append(notes, "without --check, `komando vpn up` and `komando test` cannot tell whether the VPN works; add one with `komando vpn edit "+v.Name+" --check HOST:PORT`")
+		notes = append(notes, "without --check, `"+vpnPath(v.Kind, "start")+"` and `komando test` cannot tell whether the VPN works; add one with `komando vpn "+v.Kind+" edit "+v.Name+" --check HOST:PORT`")
 	}
 	if v.MFA {
-		notes = append(notes, "a person logs in with `komando vpn up "+v.Name+"`; later commands reuse that session")
+		notes = append(notes, "a person logs in with `komando vpn "+v.Kind+" start "+v.Name+"`; later commands reuse that session")
 	}
 	if c := vpnClients(v); len(c) > 0 { // none for a kind komando speaks itself
 		notes = append(notes, "needs "+strings.Join(c, " and ")+" installed (`komando doctor` checks)")
@@ -703,7 +694,7 @@ func (t vpnChangeText) Text() string {
 		field("labels", strings.Join(kvPairs(v.Labels), ", "))
 	}
 	if v.MFA {
-		field("login", "a person logs in at `komando vpn up "+v.Name+"`")
+		field("login", "a person logs in at `komando vpn "+v.Kind+" start "+v.Name+"`")
 	}
 	if v.Protected {
 		field("protected", "yes (changing or removing it needs a person's yes)")

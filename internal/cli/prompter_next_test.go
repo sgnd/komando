@@ -23,7 +23,8 @@ func TestSuggestedCommandsParse(t *testing.T) {
 	}
 	for kind, cmds := range itemCommands {
 		for _, c := range cmds {
-			check("show "+kind, strings.ReplaceAll(c, "{}", "web1"))
+			// a show of a VPN fills in its kind (itemHelp does the same)
+			check("show "+kind, strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(c, "{}", "web1"), "{P}", "s3"), "vpn KIND ", "vpn wireguard "))
 		}
 	}
 	for key, h := range formHints {
@@ -31,7 +32,7 @@ func TestSuggestedCommandsParse(t *testing.T) {
 			t.Errorf("%s: %d Next: lines, at most 3", key, len(h.next))
 		}
 		for _, n := range h.next {
-			check(key+" next", strings.ReplaceAll(n, "{}", "web1"))
+			check(key+" next", strings.ReplaceAll(strings.ReplaceAll(n, "{}", "web1"), "{P}", "s3"))
 		}
 	}
 	// a hint, a show command and a suggestion name real commands, and a
@@ -150,10 +151,10 @@ func TestPromptNext(t *testing.T) {
 	}
 	// a Next: line that needs the first argument is left out without one
 	drawn.Reset()
-	tcl.fillSeen = fillInfo{person: true, key: "vpn down"}
+	tcl.fillSeen = fillInfo{person: true, key: "vpn wireguard stop"}
 	promptNext(tcl)
-	if got := drawn.String(); !strings.Contains(got, "Next: komando vpn status\n") {
-		t.Errorf("vpn down alone: %q", got)
+	if got := drawn.String(); !strings.Contains(got, "Next: komando vpn wireguard status\n") {
+		t.Errorf("vpn stop alone: %q", got)
 	}
 	drawn.Reset()
 	tcl.fillSeen = fillInfo{key: "db add", first: "app-db", prompted: true}
@@ -169,7 +170,7 @@ func TestAddHintForAPerson(t *testing.T) {
 	saved := tcl.terminal
 	tcl.terminal = true
 	defer func() { tcl.terminal = saved }()
-	for family, want := range map[string]string{"db": "komando db add", "host": "komando host add", "vpn": "komando vpn add"} {
+	for family, want := range map[string]string{"db": "komando db add", "host": "komando host add", "vpn": "komando vpn KIND add"} {
 		if h := addHint(tcl, family, ""); !strings.Contains(h, want) || strings.Contains(h, "pick Add") {
 			t.Errorf("%s: %q", family, h)
 		}
@@ -258,15 +259,13 @@ func TestStandardNextPerVerb(t *testing.T) {
 		}
 	}
 	for key, want := range map[string]string{
-		"host add":    "komando test web1",
-		"conn add":    "komando test web1",
-		"host rename": "komando host show web2",
-		"key rename":  "komando key show web2",
-		"rename":      "komando list web2",
-		"user add":    "komando user list web1",
-		"cron rm":     "komando cron list web1",
-		"host rm":     "komando host list",
-		"vpn edit":    "komando vpn show web1",
+		"host add":           "komando test web1",
+		"conn add":           "komando test web1",
+		"host rename":        "komando host show web2",
+		"key rename":         "komando key show web2",
+		"rename":             "komando list web2",
+		"host rm":            "komando host list",
+		"vpn wireguard edit": "komando vpn wireguard show web1",
 	} {
 		if got := nextLines(key, "web1", []string{"web1", "web2"}); len(got) == 0 || got[0] != want {
 			t.Errorf("%s: Next: %q, want %q first", key, got, want)

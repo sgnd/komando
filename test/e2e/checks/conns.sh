@@ -135,28 +135,28 @@ q $K conn rm mc
 # storage
 echo backup-data > "$TMP/obj.txt"
 q $K storage upload bucket "$TMP/obj.txt" 2026/obj.txt
-check "storage ls via bastion" 2026/obj.txt "$($K storage ls bucket --recursive | jget 'd["data"]["objects"][0]["key"]')"
+check "storage s3 object list via bastion" 2026/obj.txt "$($K storage s3 object list bucket --recursive | jget 'd["data"]["objects"][0]["key"]')"
 q $K storage download bucket 2026/obj.txt --to "$TMP/obj-back.txt"
 check "storage round trip" backup-data "$(cat "$TMP/obj-back.txt")"
 # aws_profile: komando reads ~/.aws itself; no aws CLI on PATH
 printf '[e2e]\naws_access_key_id = %s\naws_secret_access_key = %s\n' "$S3ID" "$(awk '/Secret key/{printf "%s", $3}' "$TMP/s3key")" > "$TMP/aws-credentials"
 AWSENV=(env PATH=/usr/bin:/bin AWS_SHARED_CREDENTIALS_FILE="$TMP/aws-credentials" AWS_CONFIG_FILE=/dev/null AWS_EC2_METADATA_DISABLED=true)
 q $K conn add bucket-aws "s3://backups/e2e?endpoint=http://s3:3900&region=garage" --via bastion --option aws_profile=e2e
-check "s3 with aws_profile, no aws CLI" 2026/obj.txt "$("${AWSENV[@]}" $K storage ls bucket-aws --recursive | jget 'd["data"]["objects"][0]["key"]')"
+check "s3 with aws_profile, no aws CLI" 2026/obj.txt "$("${AWSENV[@]}" $K storage s3 object list bucket-aws --recursive | jget 'd["data"]["objects"][0]["key"]')"
 q $K conn edit bucket-aws --option aws_profile=nope
-check "unknown aws_profile is named" AWS_PROFILE_NOT_FOUND "$("${AWSENV[@]}" $K storage ls bucket-aws | jget 'd["error"]["code"]' || true)"
+check "unknown aws_profile is named" AWS_PROFILE_NOT_FOUND "$("${AWSENV[@]}" $K storage s3 object list bucket-aws | jget 'd["error"]["code"]' || true)"
 q $K conn rm bucket-aws
 mkdir -p "$TMP/tree/sub" && echo one > "$TMP/tree/a.txt" && echo two > "$TMP/tree/sub/b.txt" && echo skip > "$TMP/tree/c.tmp"
 check "upload -r to storage" 3 "$($K upload bucket "$TMP/tree" tree -r | jget 'd["data"]["copied"]')"
 check "sync to storage sends nothing new" 0 "$($K sync "$TMP/tree" bucket:tree --exclude '*.tmp' | jget 'd["data"]["copied"] + d["data"]["updated"]')"
-check "storage cat --tail" two "$($K storage cat bucket tree/sub/b.txt --tail 1 | jget 'd["data"]["content"].strip()')"
+check "storage s3 object read --tail" two "$($K storage s3 object read bucket tree/sub/b.txt --tail 1 | jget 'd["data"]["content"].strip()')"
 q $K download bucket tree -r --to "$TMP/tree-back"
 check "download -r from storage" two "$(cat "$TMP/tree-back/sub/b.txt")"
 check "download -r keeps local files" True "$(echo changed > "$TMP/tree-back/a.txt"; $K download bucket tree -r --to "$TMP/tree-back" | jget 'd["data"]["kept"] >= 1')"
-check "rm --prefix --dry-run lists" True "$($K storage rm bucket --prefix tree/ --dry-run | jget 'd["data"]["count"] >= 2')"
-check "rm --prefix needs --allow-dangerous" POLICY_BLOCKED "$($K storage rm bucket --prefix tree/ | jget 'd["error"]["code"]' || true)"
-check "rm --older-than leaves new objects" 0 "$($K storage rm bucket --prefix tree/ --older-than 30d --allow-dangerous | jget 'd["data"]["count"]')"
-check "rm --prefix removes them" True "$($K storage rm bucket --prefix tree/ --allow-dangerous | jget 'd["data"]["count"] >= 2')"
+check "rm --prefix --dry-run lists" True "$($K storage s3 object delete bucket --prefix tree/ --dry-run | jget 'd["data"]["count"] >= 2')"
+check "rm --prefix needs --allow-dangerous" POLICY_BLOCKED "$($K storage s3 object delete bucket --prefix tree/ | jget 'd["error"]["code"]' || true)"
+check "rm --older-than leaves new objects" 0 "$($K storage s3 object delete bucket --prefix tree/ --older-than 30d --allow-dangerous | jget 'd["data"]["count"]')"
+check "rm --prefix removes them" True "$($K storage s3 object delete bucket --prefix tree/ --allow-dangerous | jget 'd["data"]["count"] >= 2')"
 
 # file servers through the bastion: SFTP (shell-less account) and FTPS (TLS required)
 echo -n deploypass | $K secret set files-pass >/dev/null
@@ -165,11 +165,11 @@ q $K conn add files-ftps 'ftps://deploy@ftps/www?tls=skip-verify' --via bastion 
 for c in files-sftp files-ftps; do
   # check the upload itself, so a failed upload shows its own error instead of an empty listing below
   check "$c upload" True "$($K storage upload "$c" "$TMP/obj.txt" 2026/11/obj.txt | jget 'd["ok"] or "%s: %s" % (d["error"]["code"], d["error"]["message"])' || true)"
-  check "$c upload creates folders" 2026/11/obj.txt "$($K storage ls "$c" --recursive | jget '[o["key"] for o in d["data"]["objects"] if not o.get("dir")][0]')"
+  check "$c upload creates folders" 2026/11/obj.txt "$($K storage "$(sprov "$c")" object list "$c" --recursive | jget '[o["key"] for o in d["data"]["objects"] if not o.get("dir")][0]')"
   check "$c upload replaces" True "$($K storage upload "$c" "$TMP/obj.txt" 2026/11/obj.txt | jget 'd["data"]["replaced"]')"
   q $K storage download "$c" 2026/11/obj.txt --to "$TMP/$c.txt"
   check "$c round trip" backup-data "$(cat "$TMP/$c.txt")"
-  set +e; $K storage rm "$c" 2026/11/obj.txt >/dev/null; check "$c rm needs --allow-dangerous" 6 $?; set -e
+  set +e; $K storage "$(sprov "$c")" object delete "$c" 2026/11/obj.txt >/dev/null; check "$c rm needs --allow-dangerous" 6 $?; set -e
 done
 
 # one inventory: targets pick servers and conns together

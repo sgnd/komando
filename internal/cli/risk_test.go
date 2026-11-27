@@ -169,15 +169,15 @@ var agentStops = []agentStop{
 // before (the union, S-7.1).
 func TestRiskPersonGains(t *testing.T) {
 	for _, line := range []string{
-		"reboot web1", "svc stop web1 sshd", "svc disable web1 ssh.service", "sync ./site web1:/var/www --delete",
-		"db kill db1 123", "cron rm web1 backup", "secret rm db-pass", "pkg rm web1 nginx",
+		"sync ./site web1:/var/www --delete",
+		"db kill db1 123", "secret rm db-pass", "pkg rm web1 nginx",
 	} {
 		if riskOfLine(strings.Fields(line)).typedWhat() == "" {
 			t.Errorf("%s: no typed name", line)
 		}
 	}
 	for _, line := range []string{
-		"svc stop web1 nginx", "sync ./site web1:/var/www", "exec web1 -- uptime", "pkg upgrade web1 --security",
+		"sync ./site web1:/var/www", "exec web1 -- uptime", "pkg upgrade web1 --security",
 		"host edit web1 --port 2222", "group rm web web1",
 	} {
 		if r := riskOfLine(strings.Fields(line)); r.typedWhat() != "" {
@@ -192,6 +192,27 @@ func TestRiskPersonGains(t *testing.T) {
 	}
 	if r := riskOfLine(strings.Fields("logs web1")); r.tier != tierRead {
 		t.Errorf("logs: %s", r.tier)
+	}
+}
+
+// Turning protection off is a safety step on every edit that takes
+// --protected, also on an edit whose command moved under a provider
+// (cache redis edit, registry oci edit): a moved key keeps the row (C564).
+func TestProtectionOffSafetyOnEveryEdit(t *testing.T) {
+	var ids []string
+	for _, c := range allCommands(newRoot(tcl)) {
+		if c.Name() != "edit" || c.Flags().Lookup("protected") == nil {
+			continue
+		}
+		ids = append(ids, cmdID(c))
+		if got := riskOf(c, []string{"x", "--protected=false"}).tier; got != tierSafety {
+			t.Errorf("%s --protected=false: %s, want safety", cmdID(c), got)
+		}
+	}
+	for _, want := range []string{"conn.edit", "host.edit", "vpn.wireguard.edit", "cache.redis.edit", "cache.memcached.edit", "registry.oci.edit"} {
+		if !slices.Contains(ids, want) {
+			t.Errorf("%s: not among the edits that take --protected (%v)", want, ids)
+		}
 	}
 }
 

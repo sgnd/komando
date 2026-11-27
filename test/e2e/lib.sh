@@ -23,6 +23,20 @@ export KOMANDO_ACTOR="e2e"
 # keychain on a Mac): every run would leave one there. The unit tests cover
 # the keychain with stand-ins (internal/vault/newkey_test.go).
 export KOMANDO_KEYCHAIN=off
+# the table word of the provider of a storage conn of the lab, for
+# storage PROVIDER object VERB
+sprov() {
+  case "$1" in
+    bucket* | t-ver | t-aws-*) echo s3 ;;
+    cloud-gcs) echo gcs ;;
+    cloud-az) echo azblob ;;
+    files-sftp) echo sftp ;;
+    files-ftps) echo ftp ;;
+    smb-*) echo smb ;;
+    cloud-dav) echo webdav ;;
+    *) echo "sprov: no storage provider for $1" >&2; return 1 ;;
+  esac
+}
 # the audit log and the inventory as text, from the sealed store
 audit_text() { "$K" audit -n 0 -o json 2>/dev/null; }
 inventory_text() { "$K" export -o json 2>/dev/null; }
@@ -153,8 +167,8 @@ setup_maria_conn() {
 # +vpns: the SOCKS VPN lab (through the bastion, in use by target-lab) and
 # the system VPN corp, which is down
 setup_vpns() {
-  q $K vpn add lab socks --proxy-address "127.0.0.1:$E2E_SOCKS" --check pg:5432
-  q $K vpn add corp system --check 127.0.0.1:1
+  q $K vpn socks add lab --proxy-address "127.0.0.1:$E2E_SOCKS" --check pg:5432
+  q $K vpn system add corp --check 127.0.0.1:1
   q $K host add target-lab agent@target --via lab --password-ref secret:agent-pass
 }
 

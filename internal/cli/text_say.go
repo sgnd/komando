@@ -226,7 +226,7 @@ func addHint(cl *call, family, wanted string) string {
 		case family == "conn" || family != "host" && family != "vpn" && wanted == "conn":
 			cmd = "conn add"
 		case family == "vpn" || wanted == "vpn":
-			cmd = "vpn add"
+			return "type `komando vpn KIND add`, with the kind in place of KIND: it asks step by step"
 		}
 		return "type `komando " + cmd + "`: it asks step by step"
 	}
@@ -234,7 +234,7 @@ func addHint(cl *call, family, wanted string) string {
 	case familyWord[family] != [2]string{} || family == "conn" || family != "host" && family != "vpn" && wanted == "conn":
 		return "add one with `komando conn add NAME URL` (`komando conn kinds` lists the kinds)"
 	case family == "vpn" || wanted == "vpn":
-		return "add one with `komando vpn add NAME KIND` (see `komando vpn add --help`)"
+		return "add one with `komando vpn KIND add NAME` (`komando vpn --help` lists the kinds)"
 	}
 	return "add one with `komando host add NAME user@address`, or bring in ~/.ssh/config with `komando import ssh-config`"
 }

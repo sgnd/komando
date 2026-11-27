@@ -17,7 +17,7 @@ import (
 	"github.com/sgnd/komando/internal/storex"
 )
 
-// storage mkdir, mv and chmod: tidy up a bucket or a file server. Each is
+// storage s3 object create, mv and chmod: tidy up a bucket or a file server. Each is
 // a change like upload: --dry-run first, a protected conn asks, and every
 // run is in the audit log.
 
@@ -70,10 +70,10 @@ already there is fine (created: false); a file with that name stops it
 
 S3, Google Cloud Storage and Azure Blob have no real folders, only names
 with / in them: there mkdir stores an empty folder marker (PATH/), as their
-web consoles do, so the folder shows in storage list before any file is in
+web consoles do, so the folder shows in storage s3 object list before any file is in
 it.`,
-		Example: `  komando storage mkdir backups reports/2026 --dry-run
-  komando storage mkdir backups reports/2026`,
+		Example: `  komando storage s3 object create backups reports/2026 --dry-run
+  komando storage s3 object create backups reports/2026`,
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			p, err := storagePath(args[1])
@@ -94,7 +94,7 @@ it.`,
 						return nil, err
 					}
 					if found && !o.Dir {
-						return nil, out.Errf(out.ExitConflict, "FILE_EXISTS", "pick another name; `komando storage list CONN [PREFIX]` shows what is there",
+						return nil, out.Errf(out.ExitConflict, "FILE_EXISTS", "pick another name; `komando storage s3 object list NAME [PREFIX]` shows what is there",
 							"a file named %q is already there", p)
 					}
 					return mkdirData{Conn: c.Name, Path: p + "/", Created: !found, DryRun: true}, nil
@@ -141,9 +141,9 @@ only then deletes the original (method: copy_then_delete). If the check
 fails, the original stays and the copy is deleted (MOVE_FAILED). There
 mv moves one object at a time, not a folder. In a bucket that keeps old
 versions, the original's old versions stay.`,
-		Example: `  komando storage mv backups db/old.sql.gz archive/ --dry-run
-  komando storage mv backups db/old.sql.gz archive/
-  komando storage mv backups reports/draft.pdf reports/q3.pdf --overwrite`,
+		Example: `  komando storage s3 object move backups db/old.sql.gz archive/ --dry-run
+  komando storage s3 object move backups db/old.sql.gz archive/
+  komando storage s3 object move backups reports/draft.pdf reports/q3.pdf --overwrite`,
 		Args: cobra.ExactArgs(3),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			src, err := storagePath(args[1])
@@ -194,13 +194,13 @@ versions, the original's old versions stay.`,
 // guardSensitiveRename stops an AI agent from giving a file that is secret
 // by its name (.env, a private key, a key store) a name that is not: under
 // the new name it would pass the stops for secret files (storage download,
-// cat, cp). A move that keeps a secret name is an ordinary move.
+// object read, cp). A move that keeps a secret name is an ordinary move.
 func guardSensitiveRename(cl *call, src, dst string) error {
 	if !cl.isAgent() || !sensitiveName(src) || sensitiveName(dst) {
 		return nil
 	}
 	return out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
-		fmt.Sprintf("move it with its name kept (`komando storage mv CONN %s FOLDER/`), or ask the user to run the command in their own terminal", argQ(src)),
+		fmt.Sprintf("move it with its name kept (`komando storage s3 object move NAME %s FOLDER/`), or ask the user to run the command in their own terminal", argQ(src)),
 		"%s holds secrets; komando does not give it another kind of name for an AI agent", src).NoFlag()
 }
 
@@ -245,15 +245,15 @@ func storageChmodCmd() *cobra.Command {
 chmod. MODE is in digits: 0644, 640, 0750, or 2775 with the setgid bit; the
 result says the old mode too. Only SFTP servers have modes: other kinds of
 storage stop with STORAGE_UNSUPPORTED before anything is contacted.`,
-		Example: `  komando storage chmod backups 0640 config/app.yml --dry-run
-  komando storage chmod backups 0640 config/app.yml
-  komando storage chmod backups 0750 uploads`,
+		Example: `  komando storage sftp object move backups config/app.yml --mode 0640 --dry-run
+  komando storage sftp object move backups config/app.yml --mode 0640
+  komando storage sftp object move backups uploads --mode 0750`,
 		Args: cobra.ExactArgs(3),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			mode, err := parseStorageMode(args[1])
 			if err != nil {
 				if _, swapped := parseStorageMode(args[2]); swapped == nil {
-					return out.Usage("%q is not a mode in digits like 0644 (the mode goes first: komando storage chmod CONN MODE PATH)", args[1])
+					return out.Usage("%q is not a mode in digits like 0644 (komando storage sftp object move NAME PATH --mode 0640)", args[1])
 				}
 				return err
 			}

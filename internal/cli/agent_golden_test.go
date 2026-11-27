@@ -123,7 +123,7 @@ func goldenCases(t *testing.T) [][]string {
 				continue
 			}
 			path := strings.Fields(commandKey(s))
-			if slices.Contains([]string{"host add", "conn add", "vpn add"}, commandKey(s)) || formFamilyAdd[commandKey(s)] != "" {
+			if slices.Contains([]string{"host add", "conn add"}, commandKey(s)) || isVpnAdd(commandKey(s)) || formFamilyAdd[commandKey(s)] != "" {
 				cases = append(cases, path)
 				continue
 			}
@@ -164,9 +164,9 @@ var goldenExtra = [][]string{
 	{"docker", "exec", "x1", "x2", "id"},
 	{"docker", "compose", "x1", "ps"},
 	{"docker", "raw", "x1", "ps"},
-	{"cluster", "exec", "x1", "x2", "id"},
-	{"cluster", "shell", "x1", "x2", "sh"},
-	{"cluster", "run", "x1", "get", "pods"},
+	{"cluster", "kubernetes", "exec", "x1", "x2", "id"},
+	{"cluster", "kubernetes", "shell", "x1", "x2", "sh"},
+	{"cluster", "kubernetes", "raw", "x1", "get", "pods"},
 	{"cache", "redis", "raw", "x1", "GET", "k"},
 	// C-F02: two KEY=VALUE pairs in one value (USAGE, exit 2)
 	{"conn", "add", "x1", "postgres://u@10.0.0.9/app", "--option", "a=on,b=x"},
@@ -175,27 +175,28 @@ var goldenExtra = [][]string{
 	{"cluster", "ls", "x1", "pods", "-n", "50"},
 	{"cluster", "events", "x1", "-n", "50"},
 	{"cluster", "logs", "x1", "x2", "-n", "50"},
-	// C-F03: storage rm has no -n (its cap is --max-remove): USAGE
-	{"storage", "rm", "x1", "--prefix", "a/", "-n", "10", "--dry-run"},
+	// C-F03: storage s3 object delete has no -n (its cap is --max-remove): USAGE
+	{"storage", "s3", "object", "delete", "x1", "--prefix", "a/", "-n", "10", "--dry-run"},
 }
 
 // goldenGateKeys are the command lines a read-only ssh-gate key sends
 // whose answer changed (changes.md 11b): SSH_GATE_READ_ONLY, exit 6.
 var goldenGateKeys = []string{
-	"komando storage link s3 report.pdf",
-	"komando cluster forward k8s svc/web 8080",
+	"komando storage s3 object link s3 report.pdf",
+	"komando cluster kubernetes tunnel start k8s svc/web 8080",
 }
 
 // goldenSchema are commands whose schema values the release notes list
 // (changes.md 11a), one or more per row.
 var goldenSchema = [][]string{
-	{"storage", "link"}, {"cluster", "forward"}, // C-C08: kind read -> change
+	{"storage", "s3", "object", "link"}, {"cluster", "kubernetes", "tunnel", "start"}, // C-C08: kind read -> change
 	{"host", "add"}, {"conn", "add"}, // C-F02: --env, --option stringArray
 	{"cache", "set"}, {"cert", "check"}, {"registry", "oci", "image", "prune"}, // C-F04: duration
 	{"cluster", "logs"},              // C-F05, C-S01
 	{"cache", "get"}, {"fs", "list"}, // C-F08: --limit int
 	{"fs", "cat"}, {"exec"}, // C-F09: bytes
-	{"queue", "create"},                                            // C-F22: no -1 default
+	{"queue", "kafka", "topic", "create"}, {"queue", "rabbitmq", "topic", "create"}, {"queue", "nats", "topic", "create"}, // C-F22: no -1 default
+	{"queue", "sqs", "topic", "create"}, {"queue", "pubsub", "topic", "create"},
 	{"cluster", "events"}, {"cluster", "list"}, {"cluster", "get"}, // C-S01: -n
 }
 

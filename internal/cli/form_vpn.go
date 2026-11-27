@@ -14,12 +14,12 @@ import (
 )
 
 // The VPN forms of Add, most common first. A secret the person types never
-// goes on the command line: vpn add --ask-password asks the password
-// hidden and keeps it as secret:NAME-pass, and vpn add --ask-psk asks a
+// goes on the command line: the add with --ask-password asks the password
+// hidden and keeps it as secret:NAME-pass, and with --ask-psk it asks a
 // shared secret (pre-shared key, Cisco group password) hidden and keeps it
 // as secret:NAME-psk. A Tailscale auth key is stored first with `komando
 // secret set NAME-authkey`, which asks it hidden too. After the add comes
-// `komando vpn up NAME` when a person has to log in, else `komando test
+// `komando vpn KIND start NAME` when a person has to log in, else `komando test
 // NAME`.
 func vpnForms() []formKind {
 	return []formKind{
@@ -109,13 +109,13 @@ func vpnUserQ(optional bool, help string) formQ {
 }
 
 // vpnPassQ asks how komando gets the VPN password: asked by the command,
-// hidden, and kept in the vault (--ask-password); typed at each `vpn up`;
-// or read from a password manager (--password-ref). def comes first. It is
+// hidden, and kept in the vault (--ask-password); typed at each `start`;
+// or read from a password manager (--credential). def comes first. It is
 // asked only once there is a user name.
 func vpnPassQ(def string, canType bool) formQ {
 	rows := map[string]pickRow{
 		"save": {label: "Save it now, hidden", detail: "the command asks for it without showing it and keeps it as a saved password", value: "save"},
-		"type": {label: "Type it each time I connect", detail: "komando vpn up asks for it; best when you also need a code from your phone", value: "type"},
+		"type": {label: "Type it each time I connect", detail: "komando asks for it at each start; best when you also need a code from your phone", value: "type"},
 		"ref":  {label: "It is in a password manager", detail: "1Password, Bitwarden, KeePass, or an environment variable", value: "ref"},
 	}
 	order := []string{def}
@@ -152,13 +152,13 @@ func vpnRefQ(key, from string) formQ {
 }
 
 // vpnPskQ asks how komando gets a shared secret (a pre-shared key, or a
-// Cisco group password): typed hidden when vpn add --ask-psk asks, or
+// Cisco group password): typed hidden when add --ask-psk asks, or
 // from a password manager.
 func vpnPskQ(label, what, help string) formQ {
 	return formQ{key: "psk", label: label, ask: "How should komando get the " + what + "?", help: help,
 		def: func(*store.State, formAnswers) string { return "save" },
 		choices: func(*store.State, formAnswers) []pickRow {
-			return []pickRow{{label: "Save it now, hidden", detail: "vpn add asks for it, hidden, and keeps it as a saved password", value: "save"},
+			return []pickRow{{label: "Save it now, hidden", detail: "komando asks for it, hidden, and keeps it as a saved password", value: "save"},
 				{label: "It is in a password manager", detail: "1Password, Bitwarden, KeePass, or an environment variable", value: "ref"}}
 		}}
 }
@@ -167,7 +167,7 @@ func vpnPskQ(label, what, help string) formQ {
 // or a browser sign-in. Not asked when the password is typed each time.
 func vpnMfaQ() formQ {
 	return formWhen(formQ{key: "mfa", label: "Extra sign-in step", ask: "After the password, does logging in need one more step?",
-		help: "With an extra step you connect it yourself with komando vpn up; later commands reuse that connection.",
+		help: "With an extra step you connect it yourself with komando vpn KIND start NAME; later commands reuse that connection.",
 		def:  func(*store.State, formAnswers) string { return "no" },
 		choices: func(*store.State, formAnswers) []pickRow {
 			return []pickRow{{label: "No, just the password", detail: "komando connects it by itself", value: "no"},
@@ -192,21 +192,21 @@ func vpnPassArgs(args []string, a formAnswers) []string {
 	case a["pass"] == "save":
 		args = append(args, "--ask-password")
 	case a["pass"] == "ref":
-		args = append(args, "--password-ref", a["ref"])
+		args = append(args, "--credential", a["ref"])
 	}
 	return args
 }
 
-// vpnPskArgs adds --psk-ref for a key already stored, or --ask-psk: vpn
+// vpnPskArgs adds --psk-credential for a key already stored, or --ask-psk: vpn
 // add then asks for it hidden and keeps it as secret:NAME-psk.
 func vpnPskArgs(args []string, a formAnswers) []string {
 	if a["psk"] == "ref" {
-		return append(args, "--psk-ref", a["pskref"])
+		return append(args, "--psk-credential", a["pskref"])
 	}
 	return append(args, "--ask-psk")
 }
 
-// vpnBuild is the commands: the secrets typed first, vpn add, then vpn up
+// vpnBuild is the commands: the secrets typed first, the add, then start
 // when a person logs in, else a test.
 func vpnBuild(a formAnswers, first [][]string, args []string, person bool) [][]string {
 	if a["check"] != "" {
@@ -214,7 +214,7 @@ func vpnBuild(a formAnswers, first [][]string, args []string, person bool) [][]s
 	}
 	next := []string{"test", a["name"]}
 	if person {
-		next = []string{"vpn", "up", a["name"]}
+		next = []string{"vpn", args[1], "start", a["name"]}
 	}
 	return append(first, formFlags(args, a), next)
 }
@@ -225,7 +225,7 @@ func vpnMfa(a formAnswers) bool {
 	return a["user"] != "" && a["pass"] != "type" && a["mfa"] == "yes"
 }
 
-// vpnPerson: a person logs in at vpn up (the password typed each time, or
+// vpnPerson: a person logs in at start (the password typed each time, or
 // a code from a phone).
 func vpnPerson(a formAnswers) bool {
 	return a["user"] != "" && a["pass"] == "type" || vpnMfa(a)
@@ -251,7 +251,7 @@ func wireguardForm(_ *call) formSpec {
 		vpnCheckQ(false, "10.0.0.5:22"),
 		formGroupQ(), formNotesQ(),
 	}, build: func(_ *store.State, a formAnswers) [][]string {
-		return vpnBuild(a, nil, []string{"vpn", "add", a["name"], "wireguard", "--config", formAbs(a["config"])}, false)
+		return vpnBuild(a, nil, []string{"vpn", "wireguard", "add", a["name"], "--config", formAbs(a["config"])}, false)
 	}}
 }
 
@@ -284,7 +284,7 @@ func openvpnForm(_ *call) formSpec {
 		formWhen(vpnMfaQ(), needsUser),
 		formGroupQ(), formNotesQ(),
 	}, build: func(_ *store.State, a formAnswers) [][]string {
-		args := []string{"vpn", "add", a["name"], "openvpn", "--config", formAbs(a["config"])}
+		args := []string{"vpn", "openvpn", "add", a["name"], "--config", formAbs(a["config"])}
 		person := false
 		if ovpnNeedsUser(a["config"]) && a["user"] != "" {
 			args = vpnPassArgs(append(args, "--user", a["user"]), a)
@@ -331,7 +331,7 @@ func tailscaleForm(_ *call) formSpec {
 			help: "An auth key is made on the Tailscale admin page, under Settings, Keys. It starts with tskey-.",
 			def:  func(*store.State, formAnswers) string { return "browser" },
 			choices: func(*store.State, formAnswers) []pickRow {
-				return []pickRow{{label: "Sign in with my browser", detail: "komando vpn up shows a link; you sign in as in the Tailscale app", value: "browser"},
+				return []pickRow{{label: "Sign in with my browser", detail: "komando vpn tailscale start shows a link; you sign in as in the Tailscale app", value: "browser"},
 					{label: "An auth key", detail: "komando secret set asks for it next, hidden; then komando connects by itself", value: "authkey"}}
 			}},
 		vpnCheckQ(false, "100.64.0.5:22"),
@@ -345,7 +345,7 @@ func tailscaleForm(_ *call) formSpec {
 			}}),
 		formGroupQ(), formNotesQ(),
 	}, build: func(_ *store.State, a formAnswers) [][]string {
-		args := []string{"vpn", "add", a["name"], "tailscale"}
+		args := []string{"vpn", "tailscale", "add", a["name"]}
 		if a["server"] != "" {
 			args = append(args, "--server", a["server"])
 		}
@@ -353,7 +353,7 @@ func tailscaleForm(_ *call) formSpec {
 			return vpnBuild(a, nil, args, true)
 		}
 		sec := a["name"] + "-authkey"
-		return vpnBuild(a, [][]string{{"secret", "set", sec}}, append(args, "--password-ref", "secret:"+sec), false)
+		return vpnBuild(a, [][]string{{"secret", "set", sec}}, append(args, "--credential", sec), false)
 	}}
 }
 
@@ -391,7 +391,7 @@ func vpnPortalForm(kind, product string) formSpec {
 		vpnCheckQ(false, "10.0.0.5:22"),
 		formGroupQ(), formNotesQ(),
 	}, build: func(_ *store.State, a formAnswers) [][]string {
-		args := []string{"vpn", "add", a["name"], kind, "--portal", a["portal"]}
+		args := []string{"vpn", kind, "add", a["name"], "--portal", a["portal"]}
 		if a["user"] != "" {
 			args = vpnPassArgs(append(args, "--user", a["user"]), a)
 		}
@@ -419,7 +419,7 @@ func l2tpForm(_ *call) formSpec {
 			"allow a weak login", "only MS-CHAPv2")),
 		formGroupQ(), formNotesQ(),
 	}, build: func(_ *store.State, a formAnswers) [][]string {
-		args := vpnPskArgs([]string{"vpn", "add", a["name"], "l2tp", "--server", a["server"]}, a)
+		args := vpnPskArgs([]string{"vpn", "l2tp", "add", a["name"], "--server", a["server"]}, a)
 		args = vpnPassArgs(append(args, "--user", a["user"]), a)
 		if a["legacy"] == "yes" {
 			args = append(args, "--legacy-crypto")
@@ -445,7 +445,7 @@ func ipsecForm(_ *call) formSpec {
 		vpnLegacyQ(),
 		formGroupQ(), formNotesQ(),
 	}, build: func(_ *store.State, a formAnswers) [][]string {
-		args := vpnPskArgs([]string{"vpn", "add", a["name"], "ipsec", "--server", a["server"]}, a)
+		args := vpnPskArgs([]string{"vpn", "ipsec", "add", a["name"], "--server", a["server"]}, a)
 		if a["id"] != "" {
 			args = append(args, "--id", a["id"])
 		}
@@ -496,7 +496,7 @@ func ikev2Form(_ *call) formSpec {
 }
 
 func ikev2Build(_ *store.State, a formAnswers) [][]string {
-	args := []string{"vpn", "add", a["name"], "ikev2", "--server", a["server"]}
+	args := []string{"vpn", "ikev2", "add", a["name"], "--server", a["server"]}
 	var first [][]string
 	if a["auth"] == "psk" {
 		args = vpnPskArgs(args, a)
@@ -524,10 +524,10 @@ func systemVpnForm(_ *call) formSpec {
 		vpnNameQ("corp"),
 		vpnCheckQ(true, "10.20.0.1:443"),
 		{key: "service", label: "Name in settings", ask: "What is the VPN called in your computer's network settings?", optional: true,
-			example: "Corp VPN", help: "On a Mac: System Settings, VPN. With it, komando vpn up can switch it on. Enter skips it: then you switch it on yourself."},
+			example: "Corp VPN", help: "On a Mac: System Settings, VPN. With it, komando vpn system start can switch it on. Enter skips it: then you switch it on yourself."},
 		formGroupQ(), formNotesQ(),
 	}, build: func(_ *store.State, a formAnswers) [][]string {
-		args := []string{"vpn", "add", a["name"], "system"}
+		args := []string{"vpn", "system", "add", a["name"]}
 		if a["service"] != "" {
 			args = append(args, "--service", a["service"])
 		}
@@ -558,7 +558,7 @@ func vpnProxyForm(kind string) formSpec {
 		formMore(vpnPassQ("save", false)), formMore(vpnRefQ("ref", "pass")),
 		formGroupQ(), formNotesQ(),
 	}, build: func(_ *store.State, a formAnswers) [][]string {
-		args := []string{"vpn", "add", a["name"], kind, "--proxy-address", a["address"]}
+		args := []string{"vpn", kind, "add", a["name"], "--proxy-address", a["address"]}
 		if a["user"] != "" {
 			args = vpnPassArgs(append(args, "--user", a["user"]), a)
 		}

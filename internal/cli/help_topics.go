@@ -12,7 +12,7 @@ var helpTopics = []struct{ name, short, long string }{
   --dry-run           every change can show what it would do first
   protected targets   a change asks [y/N] at your terminal; scripts and agents need --yes
   dangerous commands  rm -rf /, DROP DATABASE ...: you type the name; scripts need --allow-dangerous
-  read only           db query, cache redis raw and cluster run only read unless you add --write
+  read only           db query, cache redis raw and cluster kubernetes raw only read unless you add --write
   audit               komando audit shows every change and who asked for it
 
 An AI agent is never asked: it gets exit 6 and a person allows the flag in a

@@ -282,7 +282,7 @@ komando export [--to FILE]
   runs at once; a change asks `Run it? [y/N, d = --dry-run first]`. The
   questions never add `--yes`, `--allow-dangerous`, `--reveal` or
   `--write`. A command typed in full runs as it always did.
-- `host add`, `conn add`, `vpn add` and each area's add, typed alone, ask
+- `host add`, `conn add`, `vpn KIND add` and each area's add, typed alone, ask
   that kind's own questions, never a password (that is asked hidden).
 - After a command a person ran ends well: `Next time: <line>` when komando
   asked for something, and up to three `Next:` lines. `show` ends with
@@ -319,7 +319,7 @@ in every area:
    `storage ls`): structured output, safe. For most daily work.
 2. **A raw path in the native language**, still classified, read-only by
    default and audited: `exec`, `db query`, `cache redis raw`,
-   `cluster run -- <kubectl args>`.
+   `cluster kubernetes raw -- <kubectl args>`.
 3. **Your own tool, through komando's path**: `komando tunnel start prod-db`
    gives a local port for any client; `komando shell` opens SSH;
    `komando db shell prod-db` opens komando's own SQL shell with the

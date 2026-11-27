@@ -243,7 +243,7 @@ func rabbitForm(_ *call) formSpec {
 		queuePasswordQ(login),
 		cacheSecretQ(false),
 		{key: "management", label: "Management port", ask: "Which port does the management plugin use?", optional: true,
-			help: "queue list and queue peek need it: peek reads a queue's type and delivery limit there, so it never makes a quorum queue drop a message. Usually 15671 with TLS, 15672 without; empty when the plugin is off.",
+			help: "topic list and message list need it: message list reads a queue's type and delivery limit there, so it never makes a quorum queue drop a message. Usually 15671 with TLS, 15672 without; empty when the plugin is off.",
 			def: func(_ *store.State, a formAnswers) string {
 				if queueTLS(a) {
 					return "15671"

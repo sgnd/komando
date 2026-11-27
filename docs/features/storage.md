@@ -7,11 +7,11 @@ on Windows (SMB) shares, all with the same commands. [All docs](README.md)
 ## Add a bucket
 
 ```bash
-komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password
+komando storage s3 add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password
 komando test backups                          # can komando reach it and log in?
 ```
 
-Typed alone, `komando storage add` asks for each part step by step.
+Typed alone, `komando storage s3 add` asks for each part step by step.
 
 For S3, the user part of the URL is the access key ID. The secret access
 key goes in the vault, like a password: `--ask-password` asks for it
@@ -19,7 +19,7 @@ key goes in the vault, like a password: `--ask-password` asks for it
 
 ```bash
 komando secret set backups-secret
-komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --password-ref secret:backups-secret
+komando storage s3 add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --credential backups-secret
 ```
 
 The safest setup is an access key that can only do what komando needs
@@ -29,7 +29,7 @@ The folder in the URL is where the conn starts. Keys are relative to it and
 cannot leave it (`../` is refused, also in a dry run).
 
 At a terminal, a command with the storage or the file left out asks for
-it, with a list of your storages. Typed alone, `komando storage list`
+it, with a list of your storages. Typed alone, `komando storage s3 object list`
 asks which storage. An AI agent or a script gets `USAGE` (exit 2) with a
 full example in the hint.
 
@@ -52,7 +52,7 @@ still checks the certificate fully. Without it, the error is
 
 ```bash
 komando secret set corp-ca < corp-ca.crt
-komando storage add minio 's3://AKIAEXAMPLE@media?endpoint=https://minio.corp.lan:9000&ca=secret:corp-ca' --ask-password
+komando storage s3 add minio 's3://AKIAEXAMPLE@media?endpoint=https://minio.corp.lan:9000&ca=secret:corp-ca' --ask-password
 ```
 
 ### AWS logins (SSO, roles, temporary keys)
@@ -63,7 +63,7 @@ itself, with no aws CLI needed, and fetches fresh keys each time, so SSO,
 assumed roles and temporary keys work as you set them up:
 
 ```bash
-komando storage add backups 's3://my-bucket/db?region=eu-west-1' --option aws_profile=prod
+komando storage s3 add backups 's3://my-bucket/db?region=eu-west-1' --option aws_profile=prod
 ```
 
 - `AWS_LOGIN_REQUIRED`: the SSO login has expired. A person runs
@@ -77,7 +77,7 @@ Amazon ECR registries use AWS logins the same way (see
 ## Browse and read files
 
 ```bash
-komando storage list backups                  # one level (up to 1000 entries; -n/--limit)
+komando storage s3 object list backups                  # one level (up to 1000 entries; -n/--limit)
 ```
 
 ```text
@@ -87,14 +87,14 @@ DIR       -                     2026/
 ```
 
 ```bash
-komando storage list backups 2026/ --recursive        # everything under 2026/
-komando storage cat backups logs/app.log --tail 50    # read text without downloading it
-komando storage cat backups config/app.env --head 20
+komando storage s3 object list backups 2026/ --recursive        # everything under 2026/
+komando storage s3 object read backups logs/app.log --tail 50    # read text without downloading it
+komando storage s3 object read backups config/app.env --head 20
 ```
 
-- `storage list backups 2026` and `storage list backups 2026/` both list
+- `storage s3 object list backups 2026` and `storage s3 object list backups 2026/` both list
   what is in the folder 2026, on every kind of storage. On a bucket, a
-  prefix that names no folder (`storage list backups logs/app-2026-11`)
+  prefix that names no folder (`storage s3 object list backups logs/app-2026-11`)
   lists the keys that start with it.
 - Listing a folder that is empty or does not exist is `FOLDER_NOT_FOUND`
   (exit 3), on every kind of storage. The empty "folder marker" objects
@@ -172,7 +172,7 @@ komando sync backups:2026/ ./restore
 ## Share a file with a temporary link
 
 ```bash
-komando storage link backups 2026/app.sql.gz --expires 24h   # default 1h, at most 7d
+komando storage s3 object link backups 2026/app.sql.gz --expires 24h   # default 1h, at most 7d
 ```
 
 ```text
@@ -180,12 +180,12 @@ https://my-bucket.s3.eu-west-1.amazonaws.com/db/2026/app.sql.gz?X-Amz-Algorithm=
 ```
 
 ```bash
-komando storage link media site/report.pdf                   # Google Cloud and Azure too
-komando storage link backups 2026/app.sql.gz --endpoint https://files.example.com
+komando storage s3 object link media site/report.pdf                   # Google Cloud and Azure too
+komando storage s3 object link backups 2026/app.sql.gz --endpoint https://files.example.com
 ```
 
-- For an AI agent, `storage link` needs a person's yes (`--reveal`): a
-  link is the file as it is, past the hiding that `storage cat` and
+- For an AI agent, `storage s3 object link` needs a person's yes (`--reveal`): a
+  link is the file as it is, past the hiding that `storage s3 object read` and
   `storage download` apply. Without it the command stops with
   `SENSITIVE_FILE`; for a file that is a secret by its name (`.env`, a
   key) it always does.
@@ -205,11 +205,11 @@ komando storage link backups 2026/app.sql.gz --endpoint https://files.example.co
 ## Make folders, move and rename files
 
 ```bash
-komando storage mkdir backups reports/2026 --dry-run       # check first
-komando storage mkdir backups reports/2026                 # missing parents too
-komando storage mv backups db/old.sql.gz archive/          # into a folder, same name
-komando storage mv backups reports/draft.pdf reports/q3.pdf --overwrite
-komando storage chmod backups 0640 config/app.yml          # SFTP only
+komando storage s3 object create backups reports/2026 --dry-run       # check first
+komando storage s3 object create backups reports/2026                 # missing parents too
+komando storage s3 object move backups db/old.sql.gz archive/          # into a folder, same name
+komando storage s3 object move backups reports/draft.pdf reports/q3.pdf --overwrite
+komando storage sftp object move backups config/app.yml --mode 0640   # SFTP only
 ```
 
 ```text
@@ -219,7 +219,7 @@ would move db/old.sql.gz -> archive/old.sql.gz (48.1 MiB, by a copy that is chec
 - `mkdir` makes the folder and any missing folders above it. A folder that
   is already there is fine. S3, Google Cloud and Azure have no real
   folders: `mkdir` stores an empty folder marker (`reports/2026/`), as
-  their web consoles do, so `storage list` shows the empty folder.
+  their web consoles do, so `storage s3 object list` shows the empty folder.
 - `mv` moves one file or folder inside one conn. A `DST` ending in `/` is
   a folder: the file moves into it and keeps its name. A file already at
   `DST` stops the move (`FILE_EXISTS`) unless you add `--overwrite`; a
@@ -248,9 +248,9 @@ would move db/old.sql.gz -> archive/old.sql.gz (48.1 MiB, by a copy that is chec
 ## Delete files
 
 ```bash
-komando storage rm backups --prefix daily/ --older-than 30d --dry-run   # list old backups
-komando storage rm backups --prefix daily/ --older-than 30d             # delete them
-komando storage rm backups 2026/old.sql.gz                              # exact keys
+komando storage s3 object delete backups --prefix daily/ --older-than 30d --dry-run   # list old backups
+komando storage s3 object delete backups --prefix daily/ --older-than 30d             # delete them
+komando storage s3 object delete backups 2026/old.sql.gz                              # exact keys
 ```
 
 ```text
@@ -283,9 +283,9 @@ A bucket with versioning keeps every overwritten or deleted object, and
 key with every version:
 
 ```bash
-komando storage list backups app/ --all-versions               # every version and delete marker
-komando storage rm backups app/config.json --all-versions --dry-run
-komando storage rm backups app/config.json --all-versions      # really gone
+komando storage s3 object list backups app/ --all-versions               # every version and delete marker
+komando storage s3 object delete backups app/config.json --all-versions --dry-run
+komando storage s3 object delete backups app/config.json --all-versions      # really gone
 ```
 
 `--all-versions` takes exact keys and works on S3 and S3-compatible
@@ -294,12 +294,12 @@ stores; it asks first like any `rm`.
 ## Add a Google Cloud or Azure bucket
 
 ```bash
-komando storage add media gs://my-bucket/site                     # logs in like gcloud
+komando storage gcs add media gs://my-bucket/site                     # logs in like gcloud
 komando secret set media-sa < key.json                            # or a service account key
 komando conn edit media --password-ref secret:media-sa
 
 komando secret set files-key                                      # key1 from the portal, or a SAS token
-komando storage add files azblob://mystorageacct@uploads/2026 --password-ref secret:files-key
+komando storage azblob add files azblob://mystorageacct@uploads/2026 --credential files-key
 ```
 
 - Google Cloud Storage without `--password-ref` uses the login gcloud
@@ -310,7 +310,7 @@ komando storage add files azblob://mystorageacct@uploads/2026 --password-ref sec
 - Azure Blob Storage takes the storage account's key (`key1` or `key2`)
   or a SAS token (the part after `?`, starting with `sv=`). A SAS token that
   can only read and list keeps komando to reading.
-- Links (`storage link`) need a key that can sign them: a service
+- Links (`storage s3 object link`) need a key that can sign them: a service
   account key for Google Cloud, the account key for Azure. gcloud's own login
   and a SAS token cannot.
 - An emulator or another cloud takes `?endpoint=URL`, for example
@@ -333,8 +333,8 @@ server as a conn:
 
 ```bash
 komando secret set hosting-pass
-komando storage add site 'ftps://deploy@files.example.com/public_html' --password-ref secret:hosting-pass
-komando storage list site --recursive
+komando storage ftp add site 'ftps://deploy@files.example.com/public_html' --credential hosting-pass
+komando storage s3 object list site --recursive
 komando upload site ./index.html index.html
 komando download site logs/error.log
 ```
@@ -363,8 +363,8 @@ A shared folder on a Windows server, Samba, a NAS or Azure Files (the
 
 ```bash
 komando secret set team-share
-komando storage add team 'smb://alice@fileserver.corp.lan/team/reports?domain=CORP' --password-ref secret:team-share
-komando storage list team
+komando storage smb add team 'smb://alice@fileserver.corp.lan/team/reports?domain=CORP' --credential team-share
+komando storage s3 object list team
 komando upload team ./q3.pdf 2026/q3.pdf
 ```
 
@@ -411,10 +411,10 @@ komando conn rm backups                       # komando forgets it; the files st
 ## Limits
 
 - Keys cannot leave the conn's folder (`../` is refused).
-- `storage mv` stays inside one conn, and on S3, Google Cloud and Azure it
-  moves one object at a time; `storage chmod` is for SFTP conns only.
-- `storage cat` shows text only, at most `--max-bytes` (1 MiB by default).
-- `storage rm` without `--prefix` takes exact keys, no patterns; with
+- `storage s3 object move` stays inside one conn, and on S3, Google Cloud and Azure it
+  moves one object at a time; `object move --mode` is for SFTP conns only.
+- `storage s3 object read` shows text only, at most `--max-bytes` (1 MiB by default).
+- `storage s3 object delete` without `--prefix` takes exact keys, no patterns; with
   `--prefix` it stops above `--max-remove` objects (1000 by default) and
   above a million objects under the prefix.
 - **Buckets that keep old versions** (S3 versioning, Google Cloud object
@@ -425,7 +425,7 @@ komando conn rm backups                       # komando forgets it; the files st
   removes them (see [Old versions](#old-versions-s3-versioning)); on Google
   Cloud and Azure komando does not, and a lifecycle rule on the bucket does.
 - File servers (WebDAV, FTPS, SFTP, FTP, SMB) have no temporary links:
-  `storage link` is for S3, Google Cloud and Azure. gcloud's own login and
+  `storage s3 object link` is for S3, Google Cloud and Azure. gcloud's own login and
   an Azure SAS token cannot sign a link either.
 - A link signed with temporary AWS keys stops working when they expire.
 - SMB: Kerberos tickets are not used, and a guest login cannot sign, so a
@@ -450,9 +450,9 @@ komando conn rm backups                       # komando forgets it; the files st
 | `STORAGE_TLS` | the certificate does not check out | name your CA with `?ca=secret:NAME` |
 | `STORAGE_ERROR` | for example, another program has the file open | close it there and run it again |
 | `BUCKET_NOT_FOUND` | the bucket (or SMB share) does not exist | check the name in the conn URL |
-| `FOLDER_NOT_FOUND` | the folder is empty or does not exist (exit 3) | check it with `komando storage list backups` |
-| `OBJECT_NOT_FOUND` | no such key | `komando storage list backups PREFIX` shows the keys |
-| `NOT_TEXT` | `storage cat` of a binary file (exit 2) | download it instead |
+| `FOLDER_NOT_FOUND` | the folder is empty or does not exist (exit 3) | check it with `komando storage s3 object list backups` |
+| `OBJECT_NOT_FOUND` | no such key | `komando storage s3 object list backups PREFIX` shows the keys |
+| `NOT_TEXT` | `storage s3 object read` of a binary file (exit 2) | download it instead |
 | `FILE_EXISTS` | the download would overwrite a file on this computer | pick another `--to`, or add `--overwrite` |
 | `TOO_MANY` | more objects match than `--max-remove` | narrow `--prefix` or `--older-than`, or raise `--max-remove` after checking the list |
 | `INSECURE_PROTOCOL` | the URL sends the login or the files unencrypted across the network | use the TLS form (`webdavs://`, `ftps://`, `https://`), `--via`, or add `?insecure=1` |

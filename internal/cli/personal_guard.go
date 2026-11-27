@@ -228,7 +228,7 @@ func guardLink(cl *call, key string) error {
 		return nil
 	}
 	return cl.policyStop(out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
-		revealHint(cl, "read it with `komando storage cat` (secrets show as [hidden]); if the user wants a link to hand out, run it again with --reveal"),
+		revealHint(cl, "read it with `komando storage s3 object read` (secrets show as [hidden]); if the user wants a link to hand out, run it again with --reveal"),
 		"a link gives %s as it is to whoever holds the link; komando does not make one for an AI agent", key))
 }
 

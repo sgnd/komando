@@ -1251,32 +1251,11 @@
     },
     "ok": "bool"
   },
-  "schema vpn add": {
+  "schema vpn socks add": {
     "command": "string",
     "data": {
       "commands": [
         {
-          "add_kinds": [
-            {
-              "aliases": [],
-              "browser_note": "string",
-              "description": "string",
-              "display_name": "string",
-              "family": "string",
-              "flag_notes": {
-                "*": "string"
-              },
-              "id": "string",
-              "one_of": [],
-              "opens_browser": "bool",
-              "optional": [
-                "string"
-              ],
-              "required": [
-                "string"
-              ]
-            }
-          ],
           "confirm": [
             {
               "tier": "string"
@@ -1287,7 +1266,6 @@
             {
               "default": "string",
               "name": "string",
-              "shorthand": "string",
               "type": "string",
               "usage": "string"
             }
@@ -1384,6 +1362,7 @@
     "command": "string",
     "data": {
       "gate": "bool",
+      "here": "bool",
       "komando": "string",
       "name": "string",
       "network": "bool",
@@ -1413,7 +1392,73 @@
     },
     "ok": "bool"
   },
-  "storage chmod bk 0640 archive/a.txt": {
+  "storage s3 object create bk reports/2026": {
+    "command": "string",
+    "data": {
+      "conn": "string",
+      "created": "bool",
+      "path": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "storage s3 object create bk reports/2026 --dry-run": {
+    "command": "string",
+    "data": {
+      "conn": "string",
+      "created": "bool",
+      "dry_run": "bool",
+      "path": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "dry_run": "bool",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "storage s3 object move bk a.txt archive/": {
+    "command": "string",
+    "data": {
+      "conn": "string",
+      "dst": "string",
+      "method": "string",
+      "replaced": "bool",
+      "size_bytes": "number",
+      "src": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "storage s3 object move bk a.txt archive/ --dry-run": {
+    "command": "string",
+    "data": {
+      "conn": "string",
+      "dry_run": "bool",
+      "dst": "string",
+      "method": "string",
+      "replaced": "bool",
+      "size_bytes": "number",
+      "src": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "dry_run": "bool",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "storage s3 object move bk archive/a.txt --mode 0640": {
     "command": "string",
     "error": {
       "code": "code STORAGE_UNSUPPORTED",
@@ -1422,72 +1467,6 @@
     },
     "meta": {
       "contract": "number",
-      "duration_ms": "number",
-      "version": "string"
-    },
-    "ok": "bool"
-  },
-  "storage mkdir bk reports/2026": {
-    "command": "string",
-    "data": {
-      "conn": "string",
-      "created": "bool",
-      "path": "string"
-    },
-    "meta": {
-      "contract": "number",
-      "duration_ms": "number",
-      "version": "string"
-    },
-    "ok": "bool"
-  },
-  "storage mkdir bk reports/2026 --dry-run": {
-    "command": "string",
-    "data": {
-      "conn": "string",
-      "created": "bool",
-      "dry_run": "bool",
-      "path": "string"
-    },
-    "meta": {
-      "contract": "number",
-      "dry_run": "bool",
-      "duration_ms": "number",
-      "version": "string"
-    },
-    "ok": "bool"
-  },
-  "storage mv bk a.txt archive/": {
-    "command": "string",
-    "data": {
-      "conn": "string",
-      "dst": "string",
-      "method": "string",
-      "replaced": "bool",
-      "size_bytes": "number",
-      "src": "string"
-    },
-    "meta": {
-      "contract": "number",
-      "duration_ms": "number",
-      "version": "string"
-    },
-    "ok": "bool"
-  },
-  "storage mv bk a.txt archive/ --dry-run": {
-    "command": "string",
-    "data": {
-      "conn": "string",
-      "dry_run": "bool",
-      "dst": "string",
-      "method": "string",
-      "replaced": "bool",
-      "size_bytes": "number",
-      "src": "string"
-    },
-    "meta": {
-      "contract": "number",
-      "dry_run": "bool",
       "duration_ms": "number",
       "version": "string"
     },
@@ -1537,7 +1516,7 @@
     },
     "ok": "bool"
   },
-  "vpn add lab socks --proxy-address 127.0.0.1:1080": {
+  "vpn socks add lab --proxy-address 127.0.0.1:1080": {
     "command": "string",
     "data": {
       "next": "string",
@@ -1559,20 +1538,7 @@
     },
     "ok": "bool"
   },
-  "vpn list": {
-    "command": "string",
-    "data": {
-      "count": "number",
-      "targets": []
-    },
-    "meta": {
-      "contract": "number",
-      "duration_ms": "number",
-      "version": "string"
-    },
-    "ok": "bool"
-  },
-  "vpn rm lab": {
+  "vpn socks remove lab": {
     "command": "string",
     "data": {
       "removed": [
@@ -1586,7 +1552,7 @@
     },
     "ok": "bool"
   },
-  "vpn rm lab --dry-run": {
+  "vpn socks remove lab --dry-run": {
     "command": "string",
     "data": {
       "would_remove": [
@@ -1596,6 +1562,19 @@
     "meta": {
       "contract": "number",
       "dry_run": "bool",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "vpn wireguard list": {
+    "command": "string",
+    "data": {
+      "count": "number",
+      "targets": []
+    },
+    "meta": {
+      "contract": "number",
       "duration_ms": "number",
       "version": "string"
     },

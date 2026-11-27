@@ -742,12 +742,16 @@ func TestDryRunReportsInputStops(t *testing.T) {
 	writes := filepath.Join(tmp, "writes.sh")
 	_ = os.WriteFile(writes, []byte("echo x | tee /etc/motd\n"), 0o600)
 	cases := []struct {
-		args []string
-		code string
+		args       []string
+		code, rule string
 	}{
-		{[]string{"--dry-run", "exec", "dev", "--stdin-file", evil, "--", "bash -s"}, "POLICY_BLOCKED"},
-		{[]string{"--dry-run", "exec", "dev", "--script", evil}, "POLICY_BLOCKED"},
-		{[]string{"--dry-run", "exec", "prod", "--read-only", "--stdin-file", writes, "--", "bash -s"}, "READ_ONLY_VIOLATION"},
+		{[]string{"--dry-run", "exec", "dev", "--stdin-file", evil, "--", "bash -s"}, "POLICY_BLOCKED", ""},
+		{[]string{"--dry-run", "exec", "dev", "--script", evil}, "POLICY_BLOCKED", ""},
+		{[]string{"--dry-run", "exec", "prod", "--read-only", "--stdin-file", writes, "--", "bash -s"}, "READ_ONLY_VIOLATION", ""},
+		// user lock and user add --shell stopped here before the cut (D1)
+		{[]string{"--dry-run", "exec", "dev", "--", "usermod", "-L", "-e", "1", "root"}, "POLICY_BLOCKED", "account-lock"},
+		{[]string{"--dry-run", "exec", "dev", "--", "passwd", "-l", "root"}, "POLICY_BLOCKED", "account-lock"},
+		{[]string{"--dry-run", "exec", "dev", "--", "usermod", "-s", "/sbin/nologin", "root"}, "POLICY_BLOCKED", "account-lock"},
 	}
 	for _, c := range cases {
 		tcl.out.Reset()
@@ -758,6 +762,9 @@ func TestDryRunReportsInputStops(t *testing.T) {
 		}
 		if !strings.Contains(got, `"would_be_blocked"`) || !strings.Contains(got, c.code) {
 			t.Errorf("%v: no would_be_blocked %s:\n%s", c.args, c.code, got)
+		}
+		if !strings.Contains(got, c.rule) {
+			t.Errorf("%v: would_be_blocked names no %s:\n%s", c.args, c.rule, got)
 		}
 		if n := len(srv.take()); n != 0 {
 			t.Errorf("%v: the server ran it", c.args)

@@ -105,6 +105,8 @@ check "selector starting with !" False "$($K list '!direct' | jget 'any(t["name"
 check "names in any case" direct "$($K host show DIRECT | jget 'd["data"]["name"]')"
 check "did you mean on host show" True "$($K host show dirct | jget '"direct" in d["error"]["hint"]')"
 check "schema host.add" "komando host add" "$($K schema host.add | jget 'd["data"]["commands"][0]["path"]')"
+check "schema cache.redis.edit: turning protection off is safety" True "$($K schema cache.redis.edit | jget 'any(c.get("when")=="with --protected=false" and c["tier"]=="safety" for c in d["data"]["commands"][0]["confirm"])')"
+check "schema registry.oci.edit: turning protection off is safety" True "$($K schema registry.oci.edit | jget 'any(c.get("when")=="with --protected=false" and c["tier"]=="safety" for c in d["data"]["commands"][0]["confirm"])')"
 check "test text has USER and SUDO" True "$($K test direct -o text | head -1 | grep -q 'USER *SUDO' && echo True || echo False)"
 $K doctor -o text 2>&1 | grep -E '^✗' | sed 's/^/    doctor says: /' || true
 check "doctor text is a checklist" True "$($K doctor -o text 2>/dev/null | grep -q '^✓ komando folder' && echo True || echo False)"

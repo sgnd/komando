@@ -251,13 +251,13 @@ func TestFormFamilyAddGroups(t *testing.T) {
 // A delete on the review says it cannot be undone; an add does not.
 func TestFormDestructive(t *testing.T) {
 	cases := map[string]bool{
-		"queue purge q1 orders": true, "cache rm c1 k": true, "storage rm s3 a": true,
+		"queue kafka message delete q1 orders --all": true, "cache rm c1 k": true, "storage s3 object delete s3 a": true,
 		"registry oci image prune r repo": true, "cluster scale k deployment/api 0": true,
 		"cluster scale k deployment/api 3": false, "host add web1 root@10.0.0.5": false,
 		"fs rm web1 /srv/old --recursive": true, "docker rm web1 api": true, "docker prune web1 --all": true,
-		"user rm web1 bob --remove-home": true, "db user rm db1 bob": true, "db user list db1": false,
+		"db user rm db1 bob": true, "db user list db1": false,
 		"secret rm db-pass": true, "key rm k1 --delete-file": true, "key rm k1": false,
-		"pkg rm web1 nginx": true, "cron rm web1 backup": true, "host rm web1": false,
+		"pkg rm web1 nginx": true, "host rm web1": false,
 	}
 	for line, want := range cases {
 		if got := riskOfLine(strings.Fields(line)).typedWhat() != ""; got != want {

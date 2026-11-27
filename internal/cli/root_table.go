@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"maps"
-	"reflect"
 	"regexp"
 	"slices"
 	"strconv"
@@ -35,6 +34,10 @@ type handler func(cl *call, ctx context.Context, in leafInput) error
 // handlers are the leaves built so far, by key. A type joins movedTypes in
 // the same pull request that registers its handlers (TestEveryHandlerHasLeaf).
 var handlers = map[capability.Key]handler{}
+
+// leafBodies are the commands whose bodies the leaves run (runBody), by key:
+// TestBodyDefaultsMatchTable reads their flags.
+var leafBodies = map[capability.Key]func() *cobra.Command{}
 
 // movedTypes are the types whose every built leaf has a handler.
 var movedTypes = []string{}
@@ -281,6 +284,12 @@ func buildLeaf(l capability.Leaf, h handler) *cobra.Command {
 
 // addOption declares o on fs and keeps where its value lands in vals.
 func addOption(fs *pflag.FlagSet, o capability.Option, vals map[string]any) {
+	if o.Name == "namespace" && o.Short == "n" { // -n of a cluster command refuses a number (nsShort)
+		o.Short = ""
+		declareOption(fs, o, vals)
+		nsShorthand(fs, fs.Lookup("namespace"))
+		return
+	}
 	if o.Short == "" {
 		declareOption(fs, o, vals)
 		return
@@ -388,7 +397,11 @@ func checkOptions(l capability.Leaf, in leafInput) error {
 // table option that the body names differently is in renames; the
 // credential option is the body's --password-ref (credentialRef).
 func runBody(cl *call, ctx context.Context, body *cobra.Command, in leafInput, renames map[string]string) error {
-	body.SetArgs(bodyArgv(in, renames))
+	argv := bodyArgv(in, renames)
+	if argv == nil {
+		argv = []string{} // nil would make cobra read the process's own arguments
+	}
+	body.SetArgs(argv)
 	body.SilenceErrors, body.SilenceUsage = true, true
 	before := cl.out.As
 	cl.out.As = in.ID // the envelope and the audit record carry the leaf's ID
@@ -399,7 +412,15 @@ func runBody(cl *call, ctx context.Context, body *cobra.Command, in leafInput, r
 // credentialRef is how today's bodies write the name of a credential: the
 // reference to a secret. Row E1 renames it to credential:NAME; this is the
 // one place that changes.
-func credentialRef(name string) string { return "secret:" + name }
+func credentialRef(name string) string {
+	if strings.Contains(name, ":") { // a name never has a colon: this is a whole reference (env:VAR, op://...)
+		return name
+	}
+	return "secret:" + name
+}
+
+// unsetWords are the words of --unset that today's bodies spell otherwise.
+var unsetWords = map[string]string{"credential": "password-ref", "psk-credential": "psk-ref"}
 
 // bodyArgv is the flags the leaf was given, then its arguments, with `--`
 // where it was typed.
@@ -416,8 +437,11 @@ func bodyArgv(in leafInput, renames map[string]string) []string {
 		switch p := in.vals[name].(type) {
 		case *string:
 			v := *p
-			if name == "credential" {
+			switch name {
+			case "credential":
 				flag, v = "password-ref", credentialRef(v)
+			case "psk-credential":
+				flag, v = "psk-ref", credentialRef(v)
 			}
 			argv = append(argv, "--"+flag+"="+v)
 		case *bool:
@@ -430,8 +454,8 @@ func bodyArgv(in leafInput, renames map[string]string) []string {
 			argv = append(argv, "--"+flag+"="+p.String())
 		case *[]string:
 			for _, v := range *p {
-				if name == "unset" && v == "credential" {
-					v = "password-ref"
+				if to, ok := unsetWords[v]; ok && name == "unset" {
+					v = to
 				}
 				argv = append(argv, "--"+flag+"="+v)
 			}
@@ -461,10 +485,19 @@ func familyOfType(typ string) string {
 // providerWord is the word of a kind's provider in the table: the kind's
 // own name, but for the kinds the table names otherwise.
 func providerWord(k driver.Kind) string {
-	if w, ok := map[string]string{"registry": "oci"}[k.Name]; ok {
+	if w, ok := map[string]string{"registry": "oci", "ftps": "ftp", "k8s": "kubernetes"}[k.Name]; ok {
 		return w
 	}
 	return k.Name
+}
+
+// kindOfProvider is the stored kind of a provider's entries: the kind's
+// name, which is not the provider's word for registry and kubernetes.
+func kindOfProvider(provider string) string {
+	if k, ok := map[string]string{"oci": "registry", "kubernetes": "k8s"}[provider]; ok {
+		return k
+	}
+	return provider
 }
 
 func typeWord(family string) string {
@@ -476,11 +509,15 @@ func typeWord(family string) string {
 
 // entryIsOf is nil when the saved conn called name is a provider entry of
 // this type. Another provider's entry, or another type's, is WRONG_KIND
-// with the path that fits it.
+// with the path that fits it. A selector (@group, label:k=v) is checked on
+// every conn it picks, as targetsAreOf does.
 func entryIsOf(cl *call, st *store.State, name, typ, provider, verb string) error {
 	c, err := findConn(cl, st, name)
 	if err != nil {
-		return err
+		if isSelector(name) {
+			return targetsAreOf(cl, st, []string{name}, typ, provider, verb)
+		}
+		return nil // the body says what is wrong with the name, after the flags it checks first
 	}
 	return connIsOf(c, typ, provider, verb)
 }
@@ -500,7 +537,7 @@ func targetsAreOf(cl *call, st *store.State, targets []string, typ, provider, ve
 	for _, target := range targets {
 		sel, err := resolveSelection(cl, st, target)
 		if err != nil {
-			return err
+			return nil // the body says what is wrong with the target
 		}
 		for _, c := range sel.Conns {
 			if err := connIsOf(c, typ, provider, verb); err != nil {
@@ -526,6 +563,7 @@ func inventoryHandlers(typ string, providers ...string) {
 	for _, p := range providers {
 		p := p
 		key := func(verb string) capability.Key { return capability.Key{Type: typ, Provider: p, Verb: verb} }
+		leafBodies[key("add")] = func() *cobra.Command { return connAddCmdFor(familyOfType(typ)) }
 		handlers[key("add")] = func(cl *call, ctx context.Context, in leafInput) error {
 			if len(in.Args) == 2 {
 				if err := providerOfURL(in.Args[1], typ, p); err != nil {
@@ -538,33 +576,39 @@ func inventoryHandlers(typ string, providers ...string) {
 			}
 			return runBody(cl, ctx, connAddCmdFor(familyOfType(typ)), in, nil)
 		}
+		leafBodies[key("edit")] = connEditCmd
 		handlers[key("edit")] = func(cl *call, ctx context.Context, in leafInput) error {
 			if err := withEntry(cl, in.Args[0], typ, p, "edit"); err != nil {
 				return err
 			}
 			return runBody(cl, ctx, connEditCmd(), in, nil)
 		}
+		leafBodies[key("list")] = func() *cobra.Command { return listCmdKind("conn", p) }
 		handlers[key("list")] = func(cl *call, ctx context.Context, in leafInput) error {
-			return runBody(cl, ctx, listCmdKind("conn", p), in, nil)
+			return runBody(cl, ctx, listCmdKind("conn", kindOfProvider(p)), in, nil)
 		}
+		leafBodies[key("show")] = connShowCmd
 		handlers[key("show")] = func(cl *call, ctx context.Context, in leafInput) error {
 			if err := withEntry(cl, in.Args[0], typ, p, "show"); err != nil {
 				return err
 			}
 			return runBody(cl, ctx, connShowCmd(), in, nil)
 		}
+		leafBodies[key("rename")] = connMvCmd
 		handlers[key("rename")] = func(cl *call, ctx context.Context, in leafInput) error {
 			if err := withEntry(cl, in.Args[0], typ, p, "rename"); err != nil {
 				return err
 			}
 			return runBody(cl, ctx, connMvCmd(), in, nil)
 		}
+		leafBodies[key("remove")] = connRmCmd
 		handlers[key("remove")] = func(cl *call, ctx context.Context, in leafInput) error {
 			if err := withTargets(cl, in.Args, typ, p, "remove"); err != nil {
 				return err
 			}
 			return runBody(cl, ctx, connRmCmd(), in, nil)
 		}
+		leafBodies[key("test")] = func() *cobra.Command { return testCmdFor("conn") }
 		handlers[key("test")] = func(cl *call, ctx context.Context, in leafInput) error {
 			if err := withTargets(cl, in.Args, typ, p, "test"); err != nil {
 				return err
@@ -612,168 +656,17 @@ var providerIDs = map[string]bool{}
 // that share a key, the first provider's is the one keyID names.
 var providerOrder = map[string]int{}
 
-// idTable is a table keyed by command ID whose entries move with a
-// command to its new ID when its type moves (moveType).
-type idTable struct {
-	name string
-	ids  func() []string // the IDs it has an entry for
-	get  func(id string) (any, bool)
-	set  func(id string, v any)
-	drop func(id string)
-}
-
-// idTableOf makes m an idTable. spaced is for a table keyed by the words of
-// the ID with spaces (personalCmds).
-func idTableOf[V any](name string, m map[string]V, spaced bool) idTable {
-	key := func(id string) string {
-		if spaced {
-			return strings.ReplaceAll(id, ".", " ")
-		}
-		return id
+// providerOfEntry is the table word of the provider of the saved conn
+// called name, for the {P} of a Next: line; PROVIDER when there is none.
+func providerOfEntry(name string) string {
+	st, err := loadState()
+	if err != nil {
+		return "PROVIDER"
 	}
-	return idTable{name,
-		func() []string {
-			var ids []string
-			for k := range m {
-				ids = append(ids, strings.ReplaceAll(k, " ", "."))
-			}
-			return ids
-		},
-		func(id string) (any, bool) { v, ok := m[key(id)]; return v, ok },
-		func(id string, v any) { m[key(id)] = v.(V) },
-		func(id string) { delete(m, key(id)) }}
-}
-
-// idTables are the tables keyed by command ID, which moveType moves, besides
-// cmdKeys (a new ID's key is its leaf's). A new table keyed by command ID
-// joins here; the tests of moveType and TestSafetyTablesFollowTheLeaf
-// read this list, never one of their own.
-func idTables() []idTable {
-	return []idTable{
-		idTableOf("personalCmds", personalCmds, true),
-		idTableOf("localReads", localReads, false),
-		idTableOf("leavesHome", leavesHome, false),
-		idTableOf("gateNetwork", gateNetwork, false),
-		idTableOf("gateNoNetwork", gateNoNetwork, false),
-		idTableOf("gateLocalFlags", gateLocalFlags, false),
-		idTableOf("gateLocalArgs", gateLocalArgs, false),
-	}
-}
-
-// sameEntry says whether two entries of an idTable are the same: a func
-// (a gate check) by the function it is.
-func sameEntry(a, b any) bool {
-	va, vb := reflect.ValueOf(a), reflect.ValueOf(b)
-	if va.Kind() == reflect.Func && vb.Kind() == reflect.Func {
-		return va.Pointer() == vb.Pointer()
-	}
-	return reflect.DeepEqual(a, b)
-}
-
-// noCheck is an entry that is a func with no check in it: a gate entry
-// that lets every form of the command run.
-func noCheck(v any) bool {
-	rv := reflect.ValueOf(v)
-	return rv.Kind() == reflect.Func && rv.IsNil()
-}
-
-// moveType makes a type's built leaves the commands of their IDs in every
-// table keyed by ID, in the same step that registers their handlers: the
-// new IDs get the safety key of the leaf, and every entry that the IDs the
-// leaf names (Today and Carries) have in idTables, read before any table
-// changes, so every provider of a type gets the same entries. Only then do
-// the old IDs lose theirs, so no table names a command that is gone; an ID
-// that a type not moved yet still names keeps them.
-func moveType(typ string) { moveLeaves(typ, capability.All()) }
-
-// moveLeaves is moveType over the table leaves.
-func moveLeaves(typ string, leaves []capability.Leaf) {
-	movedTypes = append(movedTypes, typ)
-	providerIDs[typ] = true // the type's own group shares its key with the provider groups
-	tables := idTables()
-	carried := map[string][]map[string]any{} // per new ID, per table, the entries it carries
-	var built []capability.Leaf
-	var order []int
-	stays := map[string]bool{}
-	for n, l := range leaves {
-		if l.State != capability.Built {
-			continue
-		}
-		if !slices.Contains(movedTypes, l.Type) {
-			for _, id := range slices.Concat(l.Today, l.Carries) {
-				stays[id] = true
-			}
-		}
-		if l.Type != typ {
-			continue
-		}
-		id := strings.Join(l.Key.Path(), ".")
-		stays[id] = true
-		built, order = append(built, l), append(order, n)
-		got := make([]map[string]any, len(tables))
-		for i, tb := range tables {
-			got[i] = map[string]any{}
-			for _, old := range slices.Concat(l.Today, l.Carries) {
-				if v, ok := tb.get(old); ok {
-					got[i][old] = v
-				}
-			}
-		}
-		carried[id] = got
-	}
-	var gone []string
-	for k, l := range built {
-		words := l.Key.Path()
-		id := strings.Join(words, ".")
-		providerOrder[id] = order[k]
-		cmdKeys[id] = safetyKey{l.Type, l.Area, l.Verb}
-		providerIDs[id] = true
-		for i := 1; i < len(words)-1; i++ { // the provider and area groups
-			gid, gkey := strings.Join(words[:i+1], "."), safetyKey{typ: l.Type}
-			if i >= 2 {
-				gkey.area = words[2]
-			}
-			cmdKeys[gid], providerIDs[gid] = gkey, true
-			if _, ok := gateNoNetwork[typ]; ok {
-				gateNoNetwork[gid] = nil
-			}
-		}
-		for i, tb := range tables {
-			for _, old := range slices.Sorted(maps.Keys(carried[id][i])) {
-				tb.set(id, joinEntry(tb, id, old, carried[id][i][old]))
-			}
-		}
-		if l.LocalRead {
-			localReads[id] = true
-		}
-		if l.LeavesHome {
-			leavesHome[id] = true
-		}
-		for _, old := range l.Today {
-			if !stays[old] {
-				gone = append(gone, old)
-			}
+	if c, ok := st.Conns[name]; ok {
+		if t, err := driver.Parse(c.URL); err == nil {
+			return providerWord(t.Kind)
 		}
 	}
-	for _, old := range gone {
-		delete(cmdKeys, old)
-		for _, tb := range tables {
-			tb.drop(old)
-		}
-	}
-}
-
-// joinEntry is the entry id gets in tb when it carries old's entry v as
-// well as the one it may have already: the stricter of the two, a check
-// over no check. Two different checks mean the tables disagree, and the
-// program stops at start (moveType runs in init).
-func joinEntry(tb idTable, id, old string, v any) any {
-	have, ok := tb.get(id)
-	switch {
-	case !ok || noCheck(have) || sameEntry(have, v):
-		return v
-	case noCheck(v):
-		return have
-	}
-	panic("komando: " + id + " carries two different " + tb.name + " entries, one from " + old)
+	return "PROVIDER"
 }

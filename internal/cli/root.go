@@ -246,7 +246,7 @@ func usageErr(cl *call, cmd *cobra.Command, err error) error {
 	} else if ok {
 		if name == "add" && !cmd.HasParent() {
 			e.Message = fmt.Sprintf("unknown command %q", name)
-			e.Hint = "add a server with `komando host add`, a database with `komando db add` or a VPN with `komando vpn add`; typed alone at a terminal, each one asks step by step"
+			e.Hint = "add a server with `komando host add`, a database with `komando db add` or a VPN with `komando vpn KIND add`; typed alone at a terminal, each one asks step by step"
 			return e
 		}
 		var rest []string
@@ -586,8 +586,8 @@ func addCommands(cl *call, root *cobra.Command) {
 			root.AddCommand(c)
 		}
 	}
-	add("servers", execCmd(), logsCmd(), factsCmd(), fsCmd(), uploadCmd(), downloadCmd(), cpCmd(), syncCmd(),
-		svcCmd(), jobCmd(), dockerCmd(), pkgCmd(), cronCmd(), userCmd(), rebootCmd(), shellCmd(), netCmd(), certCmd(), recipeCmd())
+	add("servers", execCmd(), logsCmd(), fsCmd(), uploadCmd(), downloadCmd(), cpCmd(), syncCmd(),
+		jobCmd(), dockerCmd(), pkgCmd(), shellCmd(), certCmd(), recipeCmd())
 	add("data", dbCmd(), cacheCmd(), queueCmd(), storageCmd())
 	add("platform", clusterCmd(), registryCmd())
 	add("access", vpnCmd(), loginCmd(cl), logoutCmd(cl), loginHolderCmd(), secretCmd(), keyCmd(), tunnelCmd())
@@ -601,7 +601,6 @@ func addCommands(cl *call, root *cobra.Command) {
 // "setup" and gives them komando's wording; dropped old names suggest the
 // command that does it now.
 func labelBuiltinCmds(root *cobra.Command) {
-	suggestHabitWords(root)
 	for _, c := range root.Commands() {
 		switch c.Name() {
 		case "help":
@@ -681,7 +680,7 @@ func personHelp() string {
 	}
 	for _, g := range [][2]string{
 		{"START", "host add · conn add · import ssh-config · list · test TARGET · guide install"},
-		{"SERVERS", "exec  logs  facts  fs  svc  job  docker  pkg  cron  user  reboot  shell"},
+		{"SERVERS", "exec  logs  fs  job  docker  pkg  shell"},
 		{"DATA", "db  cache  queue  storage"},
 		{"PLATFORM", "cluster  registry"},
 		{"INVENTORY", "host  conn  group  import  export  rename"},

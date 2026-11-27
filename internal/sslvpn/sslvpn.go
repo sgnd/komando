@@ -72,7 +72,7 @@ type LoginError struct{ Msg string }
 func (e *LoginError) Error() string { return e.Msg }
 
 // ErrNeedsPerson: the login asks for something only a person can give.
-var ErrNeedsPerson = errors.New("the VPN login needs a person (a one-time code or browser sign-in); run `komando vpn up NAME`")
+var ErrNeedsPerson = errors.New("the VPN login needs a person (a one-time code or browser sign-in); run `komando vpn KIND start NAME`")
 
 func portalURL(p string) (*url.URL, error) {
 	if !strings.Contains(p, "://") {

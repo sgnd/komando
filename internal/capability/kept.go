@@ -1,9 +1,10 @@
 package capability
 
 // keptUntilPhone (pre-cut, row C369) is today's ssh-gate, kept in v0.18.0
-// under today's words and keys: the phone app needs it until its own engine
-// ships. The first CLI release after phase 1 of the phone app removes these
-// leaves. Their words are outside the closed vocabulary and the top-level
+// under today's words and keys. Its server mode (--here) stays after phase
+// 1 of the phone app: a phone's key on a server runs komando through it
+// (chief, 2026-11-27, U107 option C); only the computer-side mode may leave
+// then. Their words are outside the closed vocabulary and the top-level
 // names on purpose; the vocabulary tests skip only these leaves.
 var keptUntilPhone = []Leaf{
 	{Key: top("ssh-gate"), Args: []Arg{{Name: "COMMAND", Many: true, Optional: true}}, Today: []string{"ssh-gate"}},

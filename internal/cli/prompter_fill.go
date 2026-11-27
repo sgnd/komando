@@ -126,7 +126,8 @@ type fill struct {
 
 func newFill(st *store.State, cmd *cobra.Command) *fill {
 	cl := callOf(cmd)
-	f := &fill{cl: cl, st: st, cmd: cmd, key: commandKey(cmd), h: formHints[commandKey(cmd)],
+	h, _ := hintOf(commandKey(cmd))
+	f := &fill{cl: cl, st: st, cmd: cmd, key: commandKey(cmd), h: h,
 		uses: formUseArgs(cmd.Use, cmd.Flags()), sp: formCmdSpec(cmd), a: formAnswers{}, given: map[string]bool{}}
 	pos, dash := cmd.Flags().Args(), cmd.Flags().ArgsLenAtDash()
 	before, after := pos, []string(nil)
@@ -209,9 +210,9 @@ var promptKinds = map[string]struct{ noun, add string }{
 	"server": {"servers", "komando host add"}, "host": {"servers", "komando host add"},
 	"target": {"servers or conns", "komando host add"}, "files": {"servers or file storage", "komando host add"},
 	"conn": {"conns", "komando conn add"}, "db": {"databases", "komando db add"},
-	"cache": {"caches", "komando cache redis add"}, "queue": {"message queues", "komando queue add"},
-	"storage": {"file storages", "komando storage add"}, "cluster": {"clusters", "komando cluster add"},
-	"registry": {"registries", "komando registry oci add"}, "vpn": {"VPNs", "komando vpn add"},
+	"cache": {"caches", "komando cache redis add"}, "queue": {"message queues", "komando queue kafka add"},
+	"storage": {"file storages", "komando storage s3 add"}, "cluster": {"clusters", "komando cluster kubernetes add"},
+	"registry": {"registries", "komando registry oci add"}, "vpn": {"VPNs", "komando vpn KIND add"},
 	"job": {"jobs", "komando job start"}, "tunnel": {"tunnels", "komando tunnel start"},
 }
 

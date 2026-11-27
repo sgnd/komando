@@ -56,7 +56,7 @@ func (l targetList) Text() string {
 		case "conn":
 			return term.NoneYet("conns", "conn add NAME URL")
 		case "vpn":
-			return term.NoneYet("VPNs", "vpn add NAME KIND")
+			return term.NoneYet("VPNs", "vpn KIND add NAME")
 		}
 	}
 	var sb strings.Builder
@@ -92,8 +92,8 @@ func listCmd() *cobra.Command { return listCmdFor("") }
 
 func listCmdFor(only string) *cobra.Command { return listCmdKind(only, "") }
 
-// listCmdKind is listCmdFor that keeps only the conns of one kind (a
-// provider's list: `cache redis list`).
+// listCmdKind is listCmdFor that keeps only the conns or VPNs of one kind (a
+// provider's list: `cache redis list`, `vpn wireguard list`).
 func listCmdKind(only, kind string) *cobra.Command {
 	var target string
 	var limit int
@@ -120,6 +120,7 @@ func listCmdKind(only, kind string) *cobra.Command {
 			picked := sel
 			if kind != "" {
 				sel.Conns = slices.DeleteFunc(slices.Clone(sel.Conns), func(c *store.Conn) bool { return c.Kind != kind })
+				sel.Vpns = slices.DeleteFunc(slices.Clone(sel.Vpns), func(v *store.Vpn) bool { return v.Kind != kind })
 			}
 			if sel = keepOnly(sel, only); target != "" && only != "" && len(sel.Hosts)+len(sel.Conns)+len(sel.Vpns) == 0 {
 				// a selector that picks nothing is an error (ux.md, section 2)

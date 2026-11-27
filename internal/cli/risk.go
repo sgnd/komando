@@ -67,6 +67,23 @@ func givesFlag(name string) func([]string) bool {
 	return func(w []string) bool { return slices.Contains(w, "--"+name) || slices.Contains(w, "--"+name+"=true") }
 }
 
+// givesOption: words give --name, as a switch or with any value but a
+// false one, so a row on an option with a value (--public-key-file FILE,
+// --public-key-file=FILE) applies in every spelling.
+func givesOption(name string) func([]string) bool {
+	return func(w []string) bool {
+		for _, s := range w {
+			if v, ok := strings.CutPrefix(s, "--"+name+"="); s == "--"+name || ok && !slices.Contains(falseWords, v) {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+// falseWords are the spellings of false a boolean flag takes.
+var falseWords = []string{"false", "0", "f", "F", "FALSE", "False"}
+
 // switchesOn: the words only switch a rule on again: --off=false (in any
 // spelling of false) or --rm-server or --rm-group, and no --off with another
 // value and no --add-server or --add-group. cobra keeps a flag's last value,
@@ -156,7 +173,7 @@ func condWhen(c capability.Cond) (func([]string) bool, string) {
 		return anyWord(flags[0] + "=" + c.Value), "with " + flags[0] + "=" + c.Value
 	case len(c.Flags) > 0:
 		return func(w []string) bool {
-			return !slices.ContainsFunc(c.Flags, func(f string) bool { return !givesFlag(f)(w) })
+			return !slices.ContainsFunc(c.Flags, func(f string) bool { return !givesOption(f)(w) })
 		}, "with " + strings.Join(flags, " ")
 	}
 	return nil, ""

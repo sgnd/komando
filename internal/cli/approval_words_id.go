@@ -107,6 +107,7 @@ var riskID = map[string]struct{ en, id string }{
 	"check-failed":         {"fails to read the command, so komando cannot check it", "gagal membaca perintah, sehingga komando tidak bisa memeriksanya"},
 	"container-shell":      {"opens a shell, interpreter or database client in a container, or feeds one input (what it runs cannot be checked)", "membuka shell, interpreter, atau klien database di dalam container, atau mengirim input ke sana (yang dijalankannya tidak bisa diperiksa)"},
 	"db-drop-user":         {"deletes a database user or role", "menghapus pengguna atau role database"},
+	"account-lock":         {"locks or expires a user account, or gives it a shell nobody can log in with (on root or the account komando logs in as, nobody gets in to undo it)", "mengunci akun pengguna atau membuatnya kedaluwarsa, atau memberinya shell yang tidak bisa dipakai login (pada root atau akun yang dipakai komando untuk login, tidak ada yang bisa masuk untuk membatalkannya)"},
 	"win-rm-root":          {"deletes the system drive, a system folder or the users folder recursively", "menghapus drive sistem, folder sistem, atau folder users secara rekursif"},
 	"win-format":           {"formats or wipes a disk", "memformat atau menghapus bersih disk"},
 	"win-power":            {"powers off or restarts the server", "mematikan atau me-restart server"},

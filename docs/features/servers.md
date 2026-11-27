@@ -195,7 +195,7 @@ The address, login, references, protected mark, groups, tags and labels
 stay. Servers, conns and tunnels that go through it (`--via`), and its jobs
 and tunnels, follow the new name in the same step. Pinned host keys belong
 to the address, so `host trust` is not needed again. Renaming a protected
-server asks first. `conn rename` and `vpn rename` do the same for conns and
+server asks first. `conn rename` and `vpn KIND rename` do the same for conns and
 VPNs, `key rename` for a key, and `group rename` for a group.
 
 `komando rename OLD NEW` finds the kind for you: it renames the one
@@ -302,6 +302,7 @@ with the servers' current login (for example a password) to install it:
 komando key gen deploy                           # ed25519; --type rsa|ecdsa, -b BITS, -C COMMENT
 komando key deploy deploy @web --set-default     # install it, then log in with it
 komando key deploy ~/.ssh/id_ed25519.pub web1    # a .pub file works too
+komando key deploy web1 --user anna --public-key-file komando-phone-anna.pub  # a phone's key, behind the gate (a person only)
 komando key list                                 # NAME TYPE FINGERPRINT USED BY
 komando key show deploy                          # the public part
 komando key show deploy --reveal                 # a person: the private key of a key komando made
@@ -530,7 +531,7 @@ So komando keeps the way in your hands:
   `--via` path, proxy command, WinRM transport or its `tls=`, `ca=` or
   `auth=`, changes `default_user` while the server has no user, or changes a server or
   VPN on its way (a jump host's address, a VPN's server; also through
-  `vpn add --overwrite`, an import, or replacing the secret that holds an
+  `vpn KIND add --overwrite`, an import, or replacing the secret that holds an
   OpenVPN profile), or gives one another way at run time (`cert check
   --via hop,web1`) stops with `NEEDS_PERSON`. A server with no user
   logs in as the account komando runs as, taken from the system, never
@@ -871,7 +872,7 @@ told to use `komando exec` or `komando shell`.
 | `HOST_IN_USE` | another server reaches this one through `--via` | change their `--via` first, or remove them in the same command |
 | `VIA_CYCLE` | the `--via` path leads back to itself, or names a step twice | name each server or VPN once, and not the server itself |
 | `NAME_TAKEN` | a rename would give two entries one name | pick other names, or rename or remove what is in the way |
-| `VPN_IN_USE` | a rename needs a connected VPN to go down | `komando vpn down NAME` first |
+| `VPN_IN_USE` | a rename needs a connected VPN to go down | `komando vpn KIND stop NAME` first |
 | `KEY_IN_USE` | `key rm` on a key a server still uses | give the server another key: `komando host edit SERVER --key OTHER` |
 | `KEY_EXISTS` | `key gen`, `key add` or `key rename` to a name that is taken | choose another name, or `komando key rm NAME` first |
 | `SECRET_DESTINATION` | an AI agent asked to send a password to a server | a person allows it in komando's window |

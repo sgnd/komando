@@ -55,7 +55,7 @@ func TestApprovalWindowShowsFileInputs(t *testing.T) {
 		{[]string{"db", "query", "lite", "--file", sql, "--write", "--yes"}, "create table marker_tbl (id int);"},
 		{[]string{"fs", "write", "web", "/etc/app.conf", "--from", conf, "--yes"}, "marker_conf on"},
 		{[]string{"cluster", "apply", "kube", "--file", yaml, "--yes"}, "metadata: {name: marker-cm}"},
-		{[]string{"queue", "send", "bus", "orders", "--from", msg, "--yes"}, `{"marker_msg": 1}`},
+		{[]string{"queue", "rabbitmq", "message", "create", "bus", "orders", "--from", msg, "--yes"}, `{"marker_msg": 1}`},
 	} {
 		*texts = nil
 		resetApproval()

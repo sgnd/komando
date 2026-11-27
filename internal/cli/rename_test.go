@@ -28,7 +28,7 @@ func shopInventory(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	mustRun(t, "vpn", "add", "shop-vpn", "socks", "--proxy-address", "127.0.0.1:1080", "-g", "shop")
+	mustRun(t, "vpn", "socks", "add", "shop-vpn", "--proxy-address", "127.0.0.1:1080", "--group", "shop")
 	mustRun(t, "host", "add", "shop-bastion", "u@10.0.0.1", "--via", "shop-vpn", "-g", "shop", "-g", "shop-stg",
 		"--password-ref", "secret:shop-pass", "--protected", "--label", "dc=jkt", "--notes", "jump for shop-db; see shop-vpn.")
 	mustRun(t, "key", "gen", "shop-key")
@@ -504,7 +504,7 @@ func TestRenameAgentNeedsNoWindow(t *testing.T) {
 	if err := vault.Set(store.Save(), "lab-pass", "v"); err != nil {
 		t.Fatal(err)
 	}
-	mustRun(t, "vpn", "add", "lab-vpn", "socks", "--proxy-address", "127.0.0.1:1080")
+	mustRun(t, "vpn", "socks", "add", "lab-vpn", "--proxy-address", "127.0.0.1:1080")
 	mustRun(t, "host", "add", "lab-a", "u@10.0.0.1", "--via", "lab-vpn", "--password-ref", "secret:lab-pass", "--env", "P=secret:lab-pass")
 	mustRun(t, "conn", "add", "lab-db", "postgres://a@10.0.0.2/x", "--via", "lab-vpn,lab-a", "--password-ref", "secret:lab-pass")
 	setCallerEnv(t, "CLAUDECODE", "1")
@@ -608,7 +608,7 @@ func TestGroupMv(t *testing.T) {
 	mustRun(t, "host", "add", "a", "u@10.0.0.1", "-g", "web")
 	mustRun(t, "host", "add", "b", "u@10.0.0.2", "-g", "Web", "--protected")
 	mustRun(t, "conn", "add", "c", "postgres://a@10.0.0.3/x", "-g", "web", "-g", "db")
-	mustRun(t, "vpn", "add", "v", "socks", "--proxy-address", "127.0.0.1:1080", "-g", "web")
+	mustRun(t, "vpn", "socks", "add", "v", "--proxy-address", "127.0.0.1:1080", "--group", "web")
 
 	// a protected member: one yes
 	wantCode(t, "PROTECTED_TARGET", "group", "mv", "web", "frontend")

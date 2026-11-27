@@ -27,5 +27,5 @@ func TestVersionsOnlyOnS3(t *testing.T) {
 		t.Errorf("wrapped S3: %v", err)
 	}
 	invHome(t)
-	wantCode(t, "USAGE", "storage", "rm", "x", "--prefix", "daily/", "--all-versions")
+	wantCode(t, "USAGE", "storage", "s3", "object", "delete", "x", "--prefix", "daily/", "--all-versions")
 }

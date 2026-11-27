@@ -38,7 +38,7 @@ func runBackground(t *testing.T, stdin string, args ...string) string {
 func TestBackgroundCommandsNeedTheirParent(t *testing.T) {
 	invHome(t)
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
-	mustRun(t, "vpn", "add", "office", "socks", "--proxy-address", "127.0.0.1:1", "--mfa")
+	mustRun(t, "vpn", "socks", "add", "office", "--proxy-address", "127.0.0.1:1", "--mfa")
 	mustRun(t, "host", "add", "web1", "u@127.0.0.1:1")
 	for _, c := range [][]string{
 		{"vpn", "serve", "office", "--password-stdin"},
@@ -59,13 +59,13 @@ func TestBackgroundCommandsNeedTheirParent(t *testing.T) {
 // any program of the user can write in komando's home is not one.
 func TestSpawnTicket(t *testing.T) {
 	invHome(t)
-	mustRun(t, "vpn", "add", "x", "socks", "--proxy-address", "127.0.0.1:1") // the store the ticket's key comes from
+	mustRun(t, "vpn", "socks", "add", "x", "--proxy-address", "127.0.0.1:1") // the store the ticket's key comes from
 	saved := tcl.args
 	t.Cleanup(func() { tcl.args = saved })
 	cmd := []string{"vpn", "serve", "x", "--password-stdin"}
 	tcl.args = append([]string{"komando"}, cmd...)
 	check := func(line string) error {
-		return checkTicket(tcl, strings.TrimRight(line, "\n"), "vpn serve", "vpn up x")
+		return checkTicket(tcl, strings.TrimRight(line, "\n"), "vpn serve", "vpn socks start x")
 	}
 	line, err := ticketLine(cmd)
 	if err != nil {

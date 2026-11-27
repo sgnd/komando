@@ -32,7 +32,7 @@ func TestVpnUpHidesSocksLogin(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range [][]string{{"vpn", "up", "office"}, {"vpn", "up", "office", "--dry-run"}} {
+	for _, args := range [][]string{{"vpn", "anyconnect", "start", "office"}, {"vpn", "anyconnect", "start", "office", "--dry-run"}} {
 		setGate(tcl, false, gateDryRun, gateYes)
 		root := newRoot(tcl)
 		t.Cleanup(endCommand) // the next test starts with none of this command's flags
@@ -73,13 +73,13 @@ func TestVpnDryRunKeepsRuntime(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if d := mustRun(t, "vpn", "up", "office", "--dry-run"); d["already_up"] != true {
+	if d := mustRun(t, "vpn", "anyconnect", "start", "office", "--dry-run"); d["already_up"] != true {
 		t.Fatalf("dry run: %v", d)
 	}
 	if got := mustState(t).Sessions["office"].LastUsed; !got.Equal(used) {
 		t.Errorf("a dry run marked the session used: %v, was %v", got, used)
 	}
-	mustRun(t, "vpn", "up", "office")
+	mustRun(t, "vpn", "anyconnect", "start", "office")
 	if got := mustState(t).Sessions["office"].LastUsed; !got.After(used) {
 		t.Errorf("a plain run did not mark the session used: %v", got)
 	}
@@ -266,13 +266,13 @@ func TestVpnUpNeedsPersonDryRunAndAudit(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	d := mustRun(t, "vpn", "up", "client-x", "--dry-run")
+	d := mustRun(t, "vpn", "anyconnect", "start", "client-x", "--dry-run")
 	meta, _ := d["_meta"].(map[string]any)
 	if b, _ := meta["would_be_blocked"].(map[string]any); d["would_connect"] != false || b["code"] != "VPN_LOGIN_REQUIRED" {
 		t.Errorf("dry run: %v", d)
 	}
-	wantCode(t, "VPN_LOGIN_REQUIRED", "vpn", "up", "client-x")
-	a := mustRun(t, "audit", "--command", "vpn.up")
+	wantCode(t, "VPN_LOGIN_REQUIRED", "vpn", "anyconnect", "start", "client-x")
+	a := mustRun(t, "audit", "--command", "vpn.anyconnect.start")
 	var real []map[string]any
 	for _, e := range a["entries"].([]any) {
 		if m := e.(map[string]any); m["dry_run"] == false {
@@ -301,35 +301,35 @@ func TestNeedsPersonLogin(t *testing.T) {
 // of a kind that has them.
 func TestVpnEditFlags(t *testing.T) {
 	invHome(t)
-	mustRun(t, "vpn", "add", "v1", "socks", "--proxy-address", "127.0.0.1:1080", "-g", "a", "-t", "x")
-	mustRun(t, "vpn", "edit", "v1", "-g", "b", "-t", "y")
+	mustRun(t, "vpn", "socks", "add", "v1", "--proxy-address", "127.0.0.1:1080", "--group", "a", "--tag", "x")
+	mustRun(t, "vpn", "socks", "edit", "v1", "--add-group", "b", "--add-tag", "y")
 	st, _ := store.Load()
 	if v := st.Vpns["v1"]; strings.Join(v.Groups, ",") != "a,b" || strings.Join(v.Tags, ",") != "x,y" {
 		t.Errorf("-g/-t add: %v %v", v.Groups, v.Tags)
 	}
-	mustRun(t, "vpn", "edit", "v1", "--rm-group", "a", "--rm-tag", "x")
+	mustRun(t, "vpn", "socks", "edit", "v1", "--rm-group", "a", "--rm-tag", "x")
 	st, _ = store.Load()
 	if v := st.Vpns["v1"]; strings.Join(v.Groups, ",") != "b" || strings.Join(v.Tags, ",") != "y" {
 		t.Errorf("--rm-group/--rm-tag: %v %v", v.Groups, v.Tags)
 	}
-	wantCode(t, "USAGE", "vpn", "edit", "v1", "-g", "c", "--rm-group", "c")
-	wantCode(t, "USAGE", "vpn", "edit", "v1", "--portal", "vpn.example.com")
+	wantCode(t, "USAGE", "vpn", "socks", "edit", "v1", "--add-group", "c", "--rm-group", "c")
+	wantCode(t, "USAGE", "vpn", "socks", "edit", "v1", "--portal", "vpn.example.com")
 
-	mustRun(t, "vpn", "add", "client-x", "globalprotect", "--portal", "vpn.example.com")
-	mustRun(t, "vpn", "edit", "client-x", "--portal", "gw1.example.com")
+	mustRun(t, "vpn", "globalprotect", "add", "client-x", "--portal", "vpn.example.com")
+	mustRun(t, "vpn", "globalprotect", "edit", "client-x", "--portal", "gw1.example.com")
 	st, _ = store.Load()
 	if p := st.Vpns["client-x"].Portal; p != "gw1.example.com" {
 		t.Errorf("--portal: %q", p)
 	}
-	wantCode(t, "USAGE", "vpn", "edit", "client-x", "--portal", "-x")
-	wantCode(t, "USAGE", "vpn", "edit", "client-x", "--ca", "/nonexistent")
+	wantCode(t, "USAGE", "vpn", "globalprotect", "edit", "client-x", "--portal", "-x")
+	wantCode(t, "USAGE", "vpn", "globalprotect", "edit", "client-x", "--ca", "/nonexistent")
 }
 
 // An alias names the command it stands for in every envelope, its
 // errors too.
 func TestAliasEnvelopeName(t *testing.T) {
 	root := newRoot(tcl)
-	for path, want := range map[string]string{"vpn test": "test", "host list": "list", "vpn add": "vpn.add"} {
+	for path, want := range map[string]string{"host list": "list", "vpn wireguard add": "vpn.wireguard.add"} {
 		c, _, err := root.Find(strings.Fields(path))
 		if err != nil {
 			t.Fatal(err)
@@ -384,16 +384,16 @@ func TestVpnTestProxyMustAnswer(t *testing.T) {
 			c.Close()
 		}
 	}()
-	mustRun(t, "vpn", "add", "deadsocks", "socks", "--proxy-address", deadAddr)
-	mustRun(t, "vpn", "add", "deadproxy", "proxy", "--proxy-address", deadAddr)
-	mustRun(t, "vpn", "add", "livesocks", "socks", "--proxy-address", live.Addr().String())
-	wantCode(t, "VPN_DOWN", "vpn", "up", "deadsocks")
-	wantCode(t, "VPN_DOWN", "vpn", "up", "deadproxy")
-	d, _ := invRun(t, "vpn", "test", "deadproxy")
+	mustRun(t, "vpn", "socks", "add", "deadsocks", "--proxy-address", deadAddr)
+	mustRun(t, "vpn", "proxy", "add", "deadproxy", "--proxy-address", deadAddr)
+	mustRun(t, "vpn", "socks", "add", "livesocks", "--proxy-address", live.Addr().String())
+	wantCode(t, "VPN_DOWN", "vpn", "socks", "start", "deadsocks")
+	wantCode(t, "VPN_DOWN", "vpn", "proxy", "start", "deadproxy")
+	d, _ := invRun(t, "vpn", "proxy", "test", "deadproxy")
 	if r := d["results"].([]any)[0].(map[string]any); r["ok"] != false {
 		t.Errorf("dead proxy tested ok: %v", r)
 	}
-	d = mustRun(t, "vpn", "test", "livesocks")
+	d = mustRun(t, "vpn", "socks", "test", "livesocks")
 	if r := d["results"].([]any)[0].(map[string]any); r["ok"] != true {
 		t.Errorf("live proxy: %v", r)
 	}
@@ -414,15 +414,20 @@ func TestVpnDownSaysWhatStops(t *testing.T) {
 	}
 	mustRun(t, "host", "add", "app", "u@10.0.0.5", "--via", "client-x")
 	mustRun(t, "host", "add", "web", "u@10.0.0.6", "--via", "office")
-	d := mustRun(t, "vpn", "down", "client-x", "office", "--dry-run")
+	d := mustRun(t, "vpn", "anyconnect", "stop", "client-x", "--dry-run")
 	aff, _ := d["affects"].([]any)
-	if len(aff) != 2 {
+	if len(aff) != 1 {
 		t.Fatalf("dry run affects: %v", d)
 	}
-	if a := aff[0].(map[string]any); a["vpn"] != "client-x" || a["until"] != "vpn up" || a["next"] != "komando vpn up client-x" {
+	if a := aff[0].(map[string]any); a["vpn"] != "client-x" || a["until"] != "vpn start" || a["next"] != "komando vpn anyconnect start client-x" {
 		t.Errorf("mfa vpn: %v", a)
 	}
-	if a := aff[1].(map[string]any); a["vpn"] != "office" || a["until"] != "next command" {
+	d = mustRun(t, "vpn", "openvpn", "stop", "office", "--dry-run")
+	aff, _ = d["affects"].([]any)
+	if len(aff) != 1 {
+		t.Fatalf("dry run affects: %v", d)
+	}
+	if a := aff[0].(map[string]any); a["vpn"] != "office" || a["until"] != "next command" {
 		t.Errorf("vpn without a person's login: %v", a)
 	}
 	// a running session (a stand-in process) is stopped, and down says so
@@ -441,12 +446,12 @@ func TestVpnDownSaysWhatStops(t *testing.T) {
 	if x := mustState(t).Sessions["client-x"]; x == nil || !netx.SessionAlive(x) {
 		t.Fatalf("stand-in session: %+v", x)
 	}
-	d = mustRun(t, "vpn", "down", "client-x")
+	d = mustRun(t, "vpn", "anyconnect", "stop", "client-x")
 	if aff, _ := d["affects"].([]any); len(aff) != 1 {
 		t.Fatalf("affects: %v", d)
 	}
 	txt := vpnDownData{Disconnected: []string{"client-x"}, Affects: vpnDownAffects(mustState(t), []string{"client-x"})}.Text()
-	if !strings.Contains(txt, "app stop answering until a person runs `komando vpn up client-x`") {
+	if !strings.Contains(txt, "app stop answering until a person runs `komando vpn anyconnect start client-x`") {
 		t.Errorf("text: %q", txt)
 	}
 }

@@ -99,7 +99,7 @@ func (r *kctlRun) logs() error {
 }
 
 // maxFollowBytes caps a followed log kept in memory (runKctlLive without a
-// live printer); cluster run prints the lines as they come instead.
+// live printer); cluster kubernetes raw prints the lines as they come instead.
 var maxFollowBytes = 8 << 20
 
 // follow reads every pod's new lines at once, as kubectl logs -f does,

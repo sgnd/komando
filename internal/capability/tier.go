@@ -173,6 +173,7 @@ var tierRows = concat2(
 		{Today: true, Key: Key{Type: "database", Verb: "shell"}, Tier: Person},
 		{Today: true, Key: Key{Type: "cluster", Verb: "shell"}, Tier: Person},
 		{Today: true, Key: own("credential", "certificate", "add"), Tier: Person, What: "trusts every server the CA signs"},
+		{Today: true, Key: own("credential", "key", "install"), Tier: Person, When: Cond{Flags: []string{"public-key-file"}}, What: "lets a device's key log in to the server through komando's gate"},
 		{Today: true, Key: Key{Type: "host", Provider: "ssh", Verb: "trust"}, Tier: Person, When: Cond{Flags: []string{"reset"}}, What: "replaces a pinned host key"},
 		// data out (backup, export): each leaf has a row with no condition
 		{Key: top("export"), Tier: Read, What: "writes komando's list to a file, secrets left out"},
@@ -200,10 +201,17 @@ func protectionOffRows() []TierRow {
 	for _, typ := range typesWithEdit {
 		out = append(out, TierRow{Key: Key{Type: typ, Verb: "edit"}, Tier: Safety,
 			When: Cond{Flags: []string{"protected"}, Value: "false"}, What: "turns protection off",
-			Today: typ == "host" || typ == "vpn"}) // today's conn edit keeps its own row
+			Today: slices.Contains(editTypesToday, typ)})
 	}
 	return out
 }
+
+// editTypesToday (pre-cut) are the types whose edit is a command of today
+// under the type's key: host and vpn kept theirs, and a type moved under
+// its providers (cache redis edit) gets it when it moves, so its edit keeps
+// the protection-off row that today's conn edit has (C564). Today's conn
+// edit keeps its own row.
+var editTypesToday = []string{"host", "vpn", "cache", "registry", "queue", "storage", "cluster"}
 
 func concat2(parts ...[]TierRow) []TierRow {
 	var out []TierRow

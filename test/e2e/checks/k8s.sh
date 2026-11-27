@@ -48,9 +48,9 @@ q $K cluster scale lab-k3s deployment/web 2
 check "scale" 2 "$($K cluster get lab-k3s deploy web | jget 'd["data"]["spec"]["replicas"]')"
 set +e; $K cluster scale lab-k3s deployment/web 0 >/dev/null; check "scale to 0 needs --allow-dangerous" 6 $?; set -e
 q $K cluster restart lab-k3s deployment/web
-set +e; $K cluster run lab-k3s -- delete deploy web >/dev/null; check "cluster run delete needs --write" 6 $?; set -e
-check "cluster run secret values need --allow-dangerous" POLICY_BLOCKED "$($K cluster run lab-k3s --write -- get secrets -A -o yaml | jget 'd["error"]["code"]' || true)"
-check "cluster run reads through bastion" True "$(env PATH=/usr/bin:/bin $K cluster run lab-k3s -- get deploy web -o name | jget '"deployment.apps/web" in d["data"]["stdout"]')"
+set +e; $K cluster kubernetes raw lab-k3s -- delete deploy web >/dev/null; check "cluster kubernetes raw delete needs --write" 6 $?; set -e
+check "cluster kubernetes raw secret values need --allow-dangerous" POLICY_BLOCKED "$($K cluster kubernetes raw lab-k3s --write -- get secrets -A -o yaml | jget 'd["error"]["code"]' || true)"
+check "cluster kubernetes raw reads through bastion" True "$(env PATH=/usr/bin:/bin $K cluster kubernetes raw lab-k3s -- get deploy web -o name | jget '"deployment.apps/web" in d["data"]["stdout"]')"
 check "rollout status --wait" True "$($K cluster status lab-k3s deployment/web --wait --timeout 90s | jget 'd["data"]["rolled_out"]')"
 check "deploy a bad image times out" ROLLOUT_TIMEOUT "$($K cluster deploy lab-k3s deployment/web --image komando.invalid/none:1 --wait --timeout 20s | jget 'd["error"]["code"]' || true)"
 check "history keeps the revisions" True "$($K cluster history lab-k3s deployment/web | jget 'len(d["data"]["revisions"]) >= 2 and d["data"]["revisions"][0]["images"] == ["komando.invalid/none:1"]')"
@@ -59,28 +59,28 @@ check "rolled back and healthy" True "$($K cluster status lab-k3s deployment/web
 check "logs of a workload" True "$($K cluster logs lab-k3s deploy/web | jget '"object" in d["data"]')"
 check "logs by label" True "$($K cluster logs lab-k3s -l app=web | jget '"logs" in d["data"]')"
 check "logs -f stops at --timeout" True "$($K cluster logs lab-k3s deploy/web -f --timeout 3s | tail -1 | jget 'd["data"]["followed"]')"
-check "exec in a pod needs --read-only or a change" True "$($K cluster exec lab-k3s deploy/web --read-only --dry-run -- cat /etc/hostname | jget '"exec deploy/web" in d["data"]["would_run"]')"
-check "exec checks the policy" POLICY_BLOCKED "$($K cluster exec lab-k3s deploy/web -- rm -rf / | jget 'd["error"]["code"]' || true)"
-check "forward runs on 127.0.0.1" True "$($K cluster forward lab-k3s deploy/web 18099:80 --dry-run | jget '"--address 127.0.0.1" in d["data"]["would_run"]')"
+check "exec in a pod needs --read-only or a change" True "$($K cluster kubernetes exec lab-k3s deploy/web --read-only --dry-run -- cat /etc/hostname | jget '"exec deploy/web" in d["data"]["would_run"]')"
+check "exec checks the policy" POLICY_BLOCKED "$($K cluster kubernetes exec lab-k3s deploy/web -- rm -rf / | jget 'd["error"]["code"]' || true)"
+check "forward runs on 127.0.0.1" True "$($K cluster kubernetes tunnel start lab-k3s deploy/web 18099:80 --dry-run | jget '"--address 127.0.0.1" in d["data"]["would_run"]')"
 # exec and port-forward for real, with no kubectl on PATH
 write_tools_yaml "$TMP/tools.yaml"
 q $K cluster apply lab-k3s --file "$TMP/tools.yaml"
 $K cluster status lab-k3s deployment/tools --wait --timeout 120s >/dev/null || true
 NOKUBE=(env PATH=/usr/bin:/bin)
-check "exec without kubectl" hello-from-pod "$("${NOKUBE[@]}" $K cluster exec lab-k3s deploy/tools --read-only -- cat /www/index.html | jget 'd["data"]["stdout"].strip()' || true)"
-check "exec keeps stdout, stderr and the exit code" "3 out err" "$("${NOKUBE[@]}" $K cluster exec lab-k3s deploy/tools --read-only -- sh -c 'echo out; echo err >&2; exit 3' | jget 'str(d["data"]["exit_code"]) + " " + d["data"]["stdout"].strip() + " " + d["data"]["stderr"].strip()' || true)"
-"${NOKUBE[@]}" $K cluster forward lab-k3s deploy/tools 18099:8080 --timeout 20s >/dev/null 2>&1 &
-"${NOKUBE[@]}" $K cluster forward lab-k3s svc/tools 18098:80 --timeout 20s >/dev/null 2>&1 &
+check "exec without kubectl" hello-from-pod "$("${NOKUBE[@]}" $K cluster kubernetes exec lab-k3s deploy/tools --read-only -- cat /www/index.html | jget 'd["data"]["stdout"].strip()' || true)"
+check "exec keeps stdout, stderr and the exit code" "3 out err" "$("${NOKUBE[@]}" $K cluster kubernetes exec lab-k3s deploy/tools --read-only -- sh -c 'echo out; echo err >&2; exit 3' | jget 'str(d["data"]["exit_code"]) + " " + d["data"]["stdout"].strip() + " " + d["data"]["stderr"].strip()' || true)"
+"${NOKUBE[@]}" $K cluster kubernetes tunnel start lab-k3s deploy/tools 18099:8080 --timeout 20s >/dev/null 2>&1 &
+"${NOKUBE[@]}" $K cluster kubernetes tunnel start lab-k3s svc/tools 18098:80 --timeout 20s >/dev/null 2>&1 &
 for _ in $(seq 1 20); do curl -sf http://127.0.0.1:18099/ >/dev/null && curl -sf http://127.0.0.1:18098/ >/dev/null && break; sleep 1; done
 check "forward a pod port without kubectl" hello-from-pod "$(curl -sf http://127.0.0.1:18099/ || true)"
 check "forward a service port to its named target port" hello-from-pod "$(curl -sf http://127.0.0.1:18098/ || true)"
 check "two connections through one forward" "hello-from-pod hello-from-pod" "$(curl -sf http://127.0.0.1:18099/ || true) $(curl -sf http://127.0.0.1:18099/ || true)"
 wait
 echo "copied in" > "$TMP/cp-in.txt"
-check "cluster shell needs a person" NEEDS_TERMINAL "$($K cluster shell lab-k3s deploy/tools </dev/null | jget 'd["error"]["code"]' || true)"
-check "cluster shell for a person" hello-from-pod "$(ptyrun 'cat /www/index.html; exit\n' env NO_COLOR=1 "$K" cluster shell lab-k3s deploy/tools | tr -d '\r' | grep -x hello-from-pod | head -1 || true)"
-# cluster run is komando's own kubectl: every verb here runs with no kubectl on PATH
-KR() { "${NOKUBE[@]}" $K cluster run lab-k3s "$@"; }
+check "cluster kubernetes shell needs a person" NEEDS_TERMINAL "$($K cluster kubernetes shell lab-k3s deploy/tools </dev/null | jget 'd["error"]["code"]' || true)"
+check "cluster kubernetes shell for a person" hello-from-pod "$(ptyrun 'cat /www/index.html; exit\n' env NO_COLOR=1 "$K" cluster kubernetes shell lab-k3s deploy/tools | tr -d '\r' | grep -x hello-from-pod | head -1 || true)"
+# cluster kubernetes raw is komando's own kubectl: every verb here runs with no kubectl on PATH
+KR() { "${NOKUBE[@]}" $K cluster kubernetes raw lab-k3s "$@"; }
 KS() { KR "$@" | jget 'd["data"]["stdout"]' || true; }
 check "run: get prints the server's table" True "$(KS -- get pods -l app=tools | python3 -c 'import sys; s=sys.stdin.read(); print(s.startswith("NAME") and "READY" in s and "STATUS" in s and "tools-" in s)')"
 check "run: get -o jsonpath" tools "$(KS -- get deploy tools -o 'jsonpath={.metadata.name}')"
@@ -109,7 +109,7 @@ q KR --write --allow-dangerous -- cp "$POD:/tmp/cp-in.txt" "$TMP/cp-back.txt"
 check "run: cp there and back" "copied in" "$(cat "$TMP/cp-back.txt" 2>/dev/null)"
 q KR --write --allow-dangerous -- exec "$POD" -- sh -c 'echo DB_PASSWORD=e2e-pod-pass > /tmp/.env'
 # an agent's cp stops at the approval gate (cp is destructive); the name check behind it is in kctl_cp_name_test.go
-check "run: an agent's cp from a pod needs a person's yes, nothing copied" "6 no" "$(KOMANDO_AGENT=1 "${NOKUBE[@]}" $K cluster run lab-k3s --write -- cp "$POD:/tmp/.env" "$TMP/agent.env" >/dev/null 2>&1; echo "$? $(test -e "$TMP/agent.env" && echo yes || echo no)")"
+check "run: an agent's cp from a pod needs a person's yes, nothing copied" "6 no" "$(KOMANDO_AGENT=1 "${NOKUBE[@]}" $K cluster kubernetes raw lab-k3s --write -- cp "$POD:/tmp/.env" "$TMP/agent.env" >/dev/null 2>&1; echo "$? $(test -e "$TMP/agent.env" && echo yes || echo no)")"
 q KR --write --allow-dangerous -- cp "$POD:/tmp/.env" "$TMP/person.env"
 check "run: a person's cp of a pod's .env is as it is" "DB_PASSWORD=e2e-pod-pass" "$(cat "$TMP/person.env" 2>/dev/null)"
 check "run: diff a change exits 1" 5 "$(sed 's/replicas: 1/replicas: 2/' "$TMP/tools.yaml" > "$TMP/tools2.yaml"; KR -- diff -f "$TMP/tools2.yaml" >/dev/null; echo $?)"

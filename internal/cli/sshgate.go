@@ -97,18 +97,15 @@ var gateNotForReadKey = map[safetyKey]string{
 // databases, caches, storage and clusters, or connect a VPN komando already
 // knows. A func says why the command as given writes here, or "".
 var gateOnServers = map[safetyKey]func(c *cobra.Command) string{
-	{"host", "", "exec"}: nil, {"host", "", "restart"}: nil, {"", "upload", "copy"}: nil, {"snippet", "", "exec"}: nil,
+	{"host", "", "exec"}: nil, {"", "upload", "copy"}: nil, {"snippet", "", "exec"}: nil,
 	{"", "cp", "copy"}: gateLocalDst, {"", "sync", "copy"}: gateLocalDst,
 	{"host", "job", "start"}: nil, {"host", "job", "kill"}: nil, {"host", "job", "rm"}: nil,
 	{"host", "file", "chmod"}: nil, {"host", "file", "mkdir"}: nil, {"host", "file", "mv"}: nil, {"host", "file", "replace"}: nil, {"host", "file", "restore"}: nil, {"host", "file", "rm"}: nil, {"host", "file", "write"}: nil,
-	{"host", "service", "daemon-reload"}: nil, {"host", "service", "disable"}: nil, {"host", "service", "enable"}: nil, {"host", "service", "reload"}: nil,
-	{"host", "service", "restart"}: nil, {"host", "service", "start"}: nil, {"host", "service", "stop"}: nil,
 	{"host", "package", "install"}: nil, {"host", "package", "rm"}: nil, {"host", "package", "security"}: nil, {"host", "package", "update"}: nil, {"host", "package", "upgradable"}: nil, {"host", "package", "upgrade"}: nil,
-	{"host", "user", "add"}: nil, {"host", "user", "lock"}: nil, {"host", "user", "rm"}: nil, {"host", "user", "unlock"}: nil,
-	{"host", "cron", "rm"}: nil, {"host", "cron", "set"}: nil, {"credential", "key", "install"}: gateSetDefault, {"credential", "key", "uninstall"}: nil,
+	{"credential", "key", "install"}: gateSetDefault, {"credential", "key", "uninstall"}: nil,
 	{"database", "", "explain"}: nil, {"database", "", "grant"}: nil, {"database", "", "kill"}: nil, {"database", "", "query"}: nil, {"database", "", "restore"}: nil, {"database", "", "revoke"}: nil,
 	{"database", "user", "add"}: nil, {"database", "user", "passwd"}: nil, {"database", "user", "rm"}: nil,
-	{"cache", "", "rm"}: nil, {"cache", "", "raw"}: nil, {"cache", "", "set"}: nil, {"storage", "object", "chmod"}: nil, {"storage", "object", "create"}: nil, {"storage", "object", "move"}: nil, {"storage", "object", "delete"}: nil, {"storage", "object", "upload"}: nil,
+	{"cache", "", "rm"}: nil, {"cache", "", "raw"}: nil, {"cache", "", "set"}: nil, {"storage", "object", "create"}: nil, {"storage", "object", "move"}: nil, {"storage", "object", "delete"}: nil, {"storage", "object", "upload"}: nil,
 	{"registry", "image", "copy"}: nil, {"registry", "image", "prune"}: nil, {"registry", "image", "delete"}: nil,
 	{"host", "docker", "compose"}: nil, {"host", "docker", "exec"}: nil, {"host", "docker", "prune"}: nil, {"host", "docker", "pull"}: nil, {"host", "docker", "raw"}: nil,
 	{"host", "docker", "restart"}: nil, {"host", "docker", "rm"}: nil, {"host", "docker", "start"}: nil, {"host", "docker", "stop"}: nil,
@@ -163,10 +160,14 @@ func gateLocalDst(c *cobra.Command) string {
 	return ""
 }
 
-// gateSetDefault: key deploy --set-default changes komando's own setup.
+// gateSetDefault: key deploy --set-default changes komando's own setup,
+// and --public-key-file lets another device in (a person's step, C372).
 func gateSetDefault(c *cobra.Command) string {
 	if on, _ := c.Flags().GetBool("set-default"); on {
 		return "--set-default changes which key komando uses for those servers; deploy without it and set the key here"
+	}
+	if f := c.Flags().Lookup("public-key-file"); f != nil && f.Changed {
+		return "--public-key-file lets a device log in to a server, which only a person at a terminal does"
 	}
 	return ""
 }
@@ -443,6 +444,9 @@ func gateRule(c *cobra.Command, name string, key gateKey) (string, *out.Error) {
 		}
 		return name, nil // a group only prints its help
 	}
+	if key.here {
+		return name, gateServerRule(c, name, key) // on the server itself (sshgate_network.go)
+	}
 	here := func(why string) (string, *out.Error) {
 		return name, out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "a person runs it in a terminal on the komando computer itself",
 			"komando %s is refused for a key: %s; the gate runs commands on servers, not on this computer", strings.ReplaceAll(name, ".", " "), why)
@@ -564,6 +568,9 @@ func gateAudit(cl *call, label string, key gateKey, req gateRequest, name string
 	if key.shellAccess {
 		rec["shell_access"] = true
 	}
+	if key.here {
+		rec["here"] = true
+	}
 	if name != "" {
 		rec["runs"] = name
 	}
@@ -580,6 +587,9 @@ func gateAudit(cl *call, label string, key gateKey, req gateRequest, name string
 	if err := appendAudit(cl, syslog, rec); err != nil {
 		return out.Errf(out.ExitError, "AUDIT_UNAVAILABLE", "fix the file or folder permissions on the komando computer (`komando doctor` checks them)",
 			"the audit log cannot be written (%v), so the key's command does not run", err)
+	}
+	if key.here {
+		gateSystemLog(rec) // a copy the paired user cannot change (rule e)
 	}
 	return nil
 }
@@ -613,8 +623,19 @@ func gateDecide(cl *call, key gateKey) (req gateRequest, runs, output string, re
 		refused = out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "an AI agent runs komando directly (`komando list`), not through ssh-gate",
 			"ssh-gate runs when sshd starts it for a key, and this call comes from an AI agent (%s)", cl.caller().Agent)
 	}
+	if refused == nil && key.here {
+		refused = gateServerRoot()
+	}
+	if refused == nil && key.here && req.agent != "" {
+		// the audit log names a phone's key by its line alone
+		refused = out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "send the komando command alone, without KOMANDO_AGENT=",
+			"KOMANDO_AGENT=%s is refused for this server's key: the key's line names it", req.agent)
+	}
 	if refused == nil {
 		runs, output, refused = gateCheck(req.args, key)
+		if refused == nil && key.here && runs != "ssh-gate.status" {
+			refused = gateServerNotYet(runs)
+		}
 		if f, ok := outputFormat(cl, output); ok && refused != nil && output != "" {
 			cl.out.Format = f // the refusal comes as the key asked for output
 		}
@@ -624,7 +645,7 @@ func gateDecide(cl *call, key gateKey) (req gateRequest, runs, output string, re
 
 func sshGateCmd() *cobra.Command {
 	var name string
-	var readOnly, network, shellAccess bool
+	var readOnly, network, shellAccess, here bool
 	c := &cobra.Command{
 		Use:   "ssh-gate",
 		Short: "Let an SSH key run komando here and nothing else",
@@ -652,7 +673,7 @@ recipes in komando, no update, no change on a sqlite file or a target at
 localhost or 127.x. With --read-only only commands that read run (db
 query and cache redis raw without --write), and only those that stay on the
 servers and conns in your list: no net, no cert check of a website, no
-exec, job start, docker exec, cluster exec or recipe run, unless the line
+exec, job start, docker exec, cluster kubernetes exec or recipe run, unless the line
 also has --network. ` + "`komando ssh-gate status`" + ` tells a key which it is. Every command a key
 runs or is refused is in ` + "`komando audit`" + `, with --name, even when the
 audit setting is off.`,
@@ -675,9 +696,12 @@ audit setting is off.`,
 			if shellAccess && readOnly {
 				return out.Usage("--shell-access goes with a key that may change things, not with --read-only: fix the key's line in authorized_keys")
 			}
+			if shellAccess && here {
+				return out.Usage("--shell-access does not go with --here: a key on the server itself opens no shell; fix the key's line in authorized_keys")
+			}
 			// a key that may change things runs any program on servers, so
 			// --network only narrows a read key
-			key := gateKey{readOnly: readOnly, network: network || !readOnly, shellAccess: shellAccess, tty: gateTTY(cl)}
+			key := gateKey{readOnly: readOnly, network: network || !readOnly, shellAccess: shellAccess, here: here, tty: gateTTY(cl)}
 			cl.terminal = false // the key's terminal: the gate asks nobody anything on it
 			req, runs, output, refused := gateDecide(cl, key)
 			if err := gateAudit(cl, name, key, req, runs, refused); err != nil {
@@ -691,7 +715,8 @@ audit setting is off.`,
 				if f, ok := outputFormat(cl, output); ok && output != "" {
 					cl.out.Format = f
 				}
-				cl.out.Print("ssh-gate.status", gateStatus{Gate: true, Name: name, ReadOnly: key.readOnly, Network: key.network, ShellAccess: key.shellAccess, Komando: version.Version}, nil)
+				cl.out.Print("ssh-gate.status", gateStatus{Gate: true, Name: name, ReadOnly: key.readOnly, Network: key.network, ShellAccess: key.shellAccess,
+					Here: key.here, Komando: version.Version}, nil)
 				return nil
 			}
 			if runs == "shell" && key.shellAccess && key.tty {
@@ -710,11 +735,11 @@ audit setting is off.`,
 	c.Flags().BoolVar(&readOnly, "read-only", false, "run only commands that read")
 	c.Flags().BoolVar(&network, "network", false, "with --read-only: also reads that reach the network")
 	c.Flags().BoolVar(&shellAccess, "shell-access", false, "also komando shell SERVER, with a terminal")
+	c.Flags().BoolVar(&here, "here", false, "server mode: the key runs komando on this server itself (a phone's key)")
 	// set by the line `ssh-gate line` writes, not typed: its help lists them
-	_ = c.Flags().MarkHidden("name")
-	_ = c.Flags().MarkHidden("read-only")
-	_ = c.Flags().MarkHidden("network")
-	_ = c.Flags().MarkHidden("shell-access")
+	for _, f := range []string{"name", "read-only", "network", "shell-access", "here"} {
+		_ = c.Flags().MarkHidden(f)
+	}
 	c.AddCommand(sshGateLineCmd(), sshGateStatusCmd())
 	return c
 }

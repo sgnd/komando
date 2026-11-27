@@ -46,8 +46,7 @@ func formGroupsFor(cl *call, kind string) []formGroup {
 
 // formFamilyAdd is each `komando FAMILY add` and its Add group.
 var formFamilyAdd = map[string]string{
-	"db add": "Databases", "queue add": "Queues",
-	"storage add": "File storage", "cluster add": "Clusters",
+	"db add": "Databases",
 }
 
 // formGroupNamed is the one Add group with this label.
@@ -254,7 +253,7 @@ func formFlags(args []string, a formAnswers) []string {
 		args = append(args, "--protected")
 	}
 	if a["group"] != "" {
-		args = append(args, "-g", a["group"])
+		args = append(args, "--group", a["group"])
 	}
 	if a["notes"] != "" {
 		args = append(args, "--notes", a["notes"])
@@ -620,14 +619,10 @@ func init() {
 	addFormHints(map[string]formHint{
 		"host add": {form: func(cl *call) []formGroup { return formGroupsFor(cl, "host") }, next: []string{"test {}", "host show {}", "host edit {} --protected"}},
 		"conn add": {form: func(cl *call) []formGroup { return formGroupsFor(cl, "conn") }, next: []string{"test {}", "conn show {}"}},
-		"vpn add":  {form: func(cl *call) []formGroup { return formGroupsFor(cl, "vpn") }, next: []string{"vpn up {}", "vpn test {}", "host add NAME USER@ADDRESS --via {}"}},
 	})
 	// db add, cache add, ...: conn add for one family, asked the same way.
 	next := map[string][]string{
-		"db add":      {"db info {}", "db query {} \"select 1\"", "db schema {}"},
-		"queue add":   {"queue info {}", "queue list {}", "queue peek {} TOPIC"},
-		"storage add": {"storage list {}", "conn edit {} --protected"},
-		"cluster add": {"cluster status {}", "cluster list {} pods"},
+		"db add": {"db info {}", "db query {} \"select 1\"", "db schema {}"},
 	}
 	for cmd, label := range formFamilyAdd {
 		addFormHints(map[string]formHint{cmd: {form: func(cl *call) []formGroup { return formGroupNamed(cl, label) }, next: next[cmd]}})

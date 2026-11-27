@@ -376,14 +376,18 @@ func renameOne(cmd *cobra.Command, old, new string) error {
 	}
 	// the kind's rename is not on this line's path: prepare it first, and
 	// run it only if that worked (as the root's check would)
-	words := []string{found[0], "rename"}
-	openPath(cmd.Root(), words)
-	sub, _, err := cmd.Root().Find(words)
+	path := []string{found[0], "rename"}
+	if found[0] == "vpn" { // a VPN is renamed under its kind: komando vpn KIND rename
+		path = []string{"vpn", st.Vpns[old].Kind, "rename"}
+	}
+	openPath(cmd.Root(), path)
+	sub, _, err := cmd.Root().Find(path)
 	if err != nil || sub.RunE == nil {
 		return fmt.Errorf("komando: no %s rename command", found[0])
 	}
 	if e := notPrepared(sub); e != nil {
 		return e
 	}
+	sub.SetContext(cmd.Context()) // a leaf takes its call from its context; only the command cobra ran has one
 	return sub.RunE(sub, []string{old, new})
 }

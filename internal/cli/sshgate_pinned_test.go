@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/spf13/cobra"
 )
 
@@ -37,6 +38,12 @@ func TestGateAnswersPinned(t *testing.T) {
 		seen[id] = true
 		ids = append(ids, id)
 		paths[id] = strings.Fields(strings.TrimPrefix(c.CommandPath(), "komando"))
+	}
+	// no leaf of the vpn type is left out of the probes
+	for _, l := range capability.All() {
+		if l.Type == "vpn" && l.State == capability.Built && !seen[strings.Join(l.Key.Path(), ".")] {
+			t.Errorf("%s: the tree has no command with this ID, so nothing probed it", strings.Join(l.Key.Path(), " "))
+		}
 	}
 	// the answers there must be: one per command, probe and key, counted
 	// before any is asked

@@ -79,7 +79,7 @@ func resource(ctx context.Context, k *kube.Client, typ string) (kube.ResourceTyp
 	var uk *kube.UnknownKindError
 	if errors.As(err, &uk) {
 		e := out.Usage("%v", err)
-		e.Hint = "see every kind with `komando cluster run TARGET -- api-resources`"
+		e.Hint = "see every kind with `komando cluster kubernetes raw NAME -- api-resources`"
 		return r, e
 	}
 	return r, err
@@ -138,11 +138,7 @@ func nsFlags(c *cobra.Command, ns *string, all *bool, lim *limitOpt) {
 	// AddFlag fills, so the shorthand is set on the flag for the parser and
 	// then moved to --namespace for every set derived from this one (help).
 	fl.StringVar(ns, "namespace", "", "Kubernetes namespace (default: the context's, else default)")
-	long := fl.Lookup("namespace")
-	short := &pflag.Flag{Name: "n", Shorthand: "n", Usage: "-n NAMESPACE", Value: &nsShort{long.Value}, Hidden: true,
-		Annotations: map[string][]string{flagAliasOf: {"namespace"}}}
-	fl.AddFlag(short)
-	short.Shorthand, long.Shorthand = "", "n"
+	nsShorthand(fl, fl.Lookup("namespace"))
 	if all != nil {
 		fl.BoolVarP(all, "all-namespaces", "A", false, "every namespace")
 	}
@@ -150,6 +146,14 @@ func nsFlags(c *cobra.Command, ns *string, all *bool, lim *limitOpt) {
 		*lim.p = lim.def
 		fl.Var(&limitValue{lim.p}, "limit", lim.usage)
 	}
+}
+
+// nsShorthand gives the --namespace flag long its -n, through nsShort.
+func nsShorthand(fl *pflag.FlagSet, long *pflag.Flag) {
+	short := &pflag.Flag{Name: "n", Shorthand: "n", Usage: "-n NAMESPACE", Value: &nsShort{long.Value}, Hidden: true,
+		Annotations: map[string][]string{flagAliasOf: {"namespace"}}}
+	fl.AddFlag(short)
+	short.Shorthand, long.Shorthand = "", "n"
 }
 
 // nsOrAll refuses --namespace with -A, which kubectl lets -A win silently.

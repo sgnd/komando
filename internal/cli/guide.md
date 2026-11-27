@@ -43,7 +43,7 @@ komando import ssh-config --dry-run   # (with the human) bring in servers they a
 
 People are asked; you get no questions. At a person's terminal, a command
 typed with something missing asks for it, one line at a time, and
-`komando host add` (or `db add`, `vpn add`) typed alone asks that kind's
+`komando host add` (or `db add`, `vpn KIND add`) typed alone asks that kind's
 questions. komando never asks an AI agent or a
 script anything (under a pseudo-terminal, an agent komando does not know
 sets `KOMANDO_AGENT=1`), so give every argument and flag yourself; `komando` alone
@@ -92,7 +92,7 @@ picks with `komando list 'SELECTOR'`.
 VPNs: `komando list kind:vpn`. A target behind a VPN has the VPN first in its
 `--via`, and komando connects it by itself. `VPN_LOGIN_REQUIRED` (the login
 needs a person, for example an MFA code) or `VPN_DOWN` (a VPN this computer
-runs itself is not connected): ask the human to run `komando vpn up NAME`.
+runs itself is not connected): ask the human to run `komando vpn KIND start NAME`.
 
 Windows servers (`"os": "windows"` in `komando host show`, pick them with
 `os:windows`): commands run in PowerShell, not sh. `exec` (also
@@ -106,7 +106,7 @@ mixes Windows and Linux servers is refused for `exec` (`MIXED_OS`): run
 it once per shell.
 
 Commands that hand words to another program (`exec`, `job start`, `docker
-exec/compose/raw`, `cluster exec/shell/run`, `cache redis raw`) take those words
+exec/compose/raw`, `cluster kubernetes exec/shell/raw`, `cache redis raw`) take those words
 only after `--`; komando's flags go before it. Without `--` the command
 stops with USAGE and runs nothing (komando would read `-y` as `--yes`).
 
@@ -156,7 +156,7 @@ Your list itself changes in bulk too, each with `--dry-run` first:
   many servers (one `--yes` and one approval window for the protected ones,
   which lists every server).
 - `komando host rename OLD NEW` renames a server and every reference to it
-  (`conn rename`, `vpn rename`, `key rename`, `group rename` likewise).
+  (`conn rename`, `vpn KIND rename`, `key rename`, `group rename` likewise).
 - `komando rename --starts-with OLD NEW` renames every server, conn, VPN,
   secret, key and group that starts with OLD in one step (one `--yes` and
   one window for all the protected ones).
@@ -248,35 +248,36 @@ changes, `cache rm` deletes (needs `--allow-dangerous`). `komando cache redis ra
 CONN -- CMD ...` only reads unless you add `--write`. Never use `KEYS`;
 `cache keys` uses SCAN.
 
-**Queues** (Kafka, Redpanda, MSK, RabbitMQ, NATS JetStream, Amazon SQS, Google Cloud Pub/Sub): `komando queue info|list|describe|groups|lag
-CONN` read; `komando queue peek CONN TOPIC -n 20` reads the newest
+**Queues** (Kafka, Redpanda, MSK, RabbitMQ, NATS JetStream, Amazon SQS, Google Cloud Pub/Sub): `komando queue PROVIDER info|topic list|topic show|consumer list|consumer show
+NAME` read (PROVIDER is kafka, rabbitmq, nats, sqs or pubsub; consumer: kafka and
+nats, pubsub list only); `komando queue kafka message list NAME TOPIC -n 20` reads the newest
 messages without joining a consumer group (nothing moves, nothing is
-removed; `--oldest` for the first ones). On RabbitMQ peek takes the first
+removed; `--oldest` for the first ones). On RabbitMQ message list takes the first
 messages of a queue and gives them back (marked redelivered); stop on
-`DELIVERY_LIMIT_NEAR`. On NATS a topic is a stream and peek reads it by
-sequence; `queue send` takes a subject a stream keeps (`orders.new`). On
-SQS peek receives a sample with visibility timeout 0 and deletes nothing,
+`DELIVERY_LIMIT_NEAR`. On NATS a topic is a stream and message list reads it by
+sequence; `queue nats message create` takes a subject a stream keeps (`orders.new`). On
+SQS message list receives a sample with visibility timeout 0 and deletes nothing,
 but each receive counts toward a dead-letter queue (stop on
 `DELIVERY_LIMIT_NEAR`); a FIFO queue needs `--key` (the message group).
-On Pub/Sub you send to a topic, but peek and purge take a subscription
-(`queue groups` lists them); peek pulls and gives every message back
+On Pub/Sub you send to a topic, but message list and message delete take a subscription
+(`queue pubsub consumer list` lists them); message list pulls and gives every message back
 unacknowledged. Delete a subscription as `subscriptions/NAME`.
-`queue send CONN TOPIC --value '...'` and `queue create` change;
-`queue rm` and `queue purge` delete messages (need `--allow-dangerous`). Try every change with `--dry-run`.
+`queue PROVIDER message create NAME TOPIC --value '...'` and `topic create` change;
+`topic delete` and `message delete --all` delete messages (need `--allow-dangerous`). Try every change with `--dry-run`.
 
 **MongoDB** conns use `komando db query CONN '<command JSON>'`, the
 first key naming the command (`{"find": "users", "filter": {...}}`); reads
 run as they are, changes need `--write`, and `db schema`/`db info` describe
 the database.
 
-**Storage** (S3, MinIO, R2, Google Cloud Storage, Azure Blob, WebDAV, FTPS, SFTP, SMB shares): `komando storage list CONN [FOLDER]`,
-`storage cat CONN OBJECT --tail 50` and `komando download CONN OBJECT` read;
-`komando upload CONN FILE` and `storage link` change or share;
-`storage mkdir CONN PATH`, `storage mv CONN SRC DST` (on S3, Google Cloud
-and Azure: a copy that is checked, then the delete) and `storage chmod CONN
-MODE PATH` (SFTP only) change;
-`storage rm` deletes (needs `--allow-dangerous`): list first with
-`storage rm CONN --prefix FOLDER/ --older-than 30d --dry-run`. Object
+**Storage** (S3, MinIO, R2, Google Cloud Storage, Azure Blob, WebDAV, FTPS, SFTP, SMB shares): `komando storage s3 object list CONN [FOLDER]`,
+`storage s3 object read CONN OBJECT --tail 50` and `komando download CONN OBJECT` read;
+`komando upload CONN FILE` and `storage s3 object link` change or share;
+`storage s3 object create CONN PATH`, `storage s3 object move CONN SRC DST` (on S3, Google Cloud
+and Azure: a copy that is checked, then the delete) and `storage sftp object move NAME PATH --mode
+MODE` (SFTP only) change;
+`storage s3 object delete` deletes (needs `--allow-dangerous`): list first with
+`storage s3 object delete CONN --prefix FOLDER/ --older-than 30d --dry-run`. Object
 names are relative to the conn's folder. On a versioned bucket `rm` keeps the old
 versions. The conn itself: `komando test CONN`, `conn edit`, `conn rm`.
 
@@ -286,7 +287,7 @@ CONN` read; `apply` (try `--dry-run` first, the cluster checks it),
 `--allow-dangerous`. To release a new image, use `komando cluster deploy
 CONN deployment/NAME --image IMAGE --wait`; if it goes wrong, `cluster
 rollback CONN deployment/NAME --wait` puts the earlier images back
-(`cluster history` lists the revisions). For anything else, `komando cluster run CONN --
+(`cluster history` lists the revisions). For anything else, `komando cluster kubernetes raw CONN --
 KUBECTL_ARGS...` (needs `--write` to change). Pick a namespace with
 `--namespace` (`-n`); how many is `--limit` (a number after `-n` is
 refused). `status`, `list`, `events` and `helm list` also take a group
@@ -427,7 +428,7 @@ Anything that must keep running (a temporary web server, a watcher) is a
 | 4    | AUTH_FAILED on a server that asks for a one-time code (two-factor), or a password only a person knows | ask the human to run `komando test SERVER` once in their terminal; your commands then use that session (8h). When it has expired, `error.hint` names the same command again; never type a code |
 | 4    | HOSTKEY_MISMATCH                  | never fix it; report it to the human |
 | 4    | HOSTKEY_UNKNOWN                   | host keys are strict: show the human the fingerprint in the message and let them compare it before `host trust` (it asks them) |
-| 4    | VPN_LOGIN_REQUIRED, VPN_DOWN      | ask the human to run `komando vpn up NAME` |
+| 4    | VPN_LOGIN_REQUIRED, VPN_DOWN      | ask the human to run `komando vpn KIND start NAME` |
 | 4    | AWS_LOGIN_REQUIRED                | the AWS SSO login ran out: ask the human to run the `komando login aws --profile NAME` that `error.hint` names (an agent gets NEEDS_PERSON); AWS_FAILED: follow `error.hint` (keys or profile in ~/.aws); never read ~/.aws yourself |
 | 4    | CONNECTION_LOST                   | the link broke mid-command: it may still run or have finished. Check with a read-only command before re-running; use `job start` next time |
 | 5    | COMMAND_FAILED                    | read `data.results[].stderr` and `exit_code` |

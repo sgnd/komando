@@ -44,7 +44,7 @@ func goldenGateSetup(t *testing.T) {
 			{"conn", "add", "st1", "sftp://u@127.0.0.1:1/up"},
 			{"conn", "add", "reg1", "registry://u@127.0.0.1:1?tls=false"},
 			{"policy", "deny", "foo.*bar"},
-			{"vpn", "add", "pvpn", "socks", "--proxy-address", "127.0.0.1:1", "--protected", "--mfa"},
+			{"vpn", "socks", "add", "pvpn", "--proxy-address", "127.0.0.1:1", "--protected", "--mfa"},
 			{"secret", "set", "gsec", "--from-env", "GOLDEN_SECRET"},
 			{"key", "gen", "gkey"},
 		} {
@@ -105,10 +105,9 @@ var goldenGates = [][]string{
 	{"exec", "web1", "--", "reboot"},
 	{"exec", "web1", "--", "foo", "bar"}, // the deny rule foo.*bar
 	{"job", "start", "web1", "--", "reboot"},
-	{"reboot", "web1"},
-	{"reboot", "prod1"},
-	{"svc", "stop", "web1", "sshd"},
-	{"user", "rm", "web1", "bob"},
+	{"exec", "prod1", "--", "reboot"},
+	{"exec", "web1", "--", "systemctl", "stop", "sshd"},
+	{"exec", "web1", "--", "userdel", "bob"},
 	{"pkg", "rm", "web1", "openssh-server"},
 	{"fs", "rm", "web1", "/tmp/x", "--recursive"},
 	{"fs", "rm", "web1", "/"},
@@ -120,9 +119,9 @@ var goldenGates = [][]string{
 	{"db", "query", "pdb", "--write", "UPDATE x SET a=1"},
 	{"db", "user", "rm", "db1", "bob"},
 	{"db", "restore", "db1", "--from", "testdata/golden_restore.sql"},
-	{"queue", "purge", "q1", "t"},
-	{"queue", "rm", "q1", "t"},
-	{"storage", "rm", "st1", "k"},
+	{"queue", "kafka", "message", "delete", "--all", "q1", "t"},
+	{"queue", "kafka", "topic", "delete", "q1", "t"},
+	{"storage", "sftp", "object", "delete", "st1", "k"},
 	{"registry", "oci", "image", "delete", "reg1", "a:1"},
 	{"registry", "oci", "image", "prune", "reg1", "a", "--keep", "5"},
 	{"docker", "rm", "web1", "c1"},
@@ -131,13 +130,10 @@ var goldenGates = [][]string{
 	// PROTECTED_TARGET: a change on a protected server (--yes)
 	{"exec", "prod1", "--", "touch", "/tmp/x"},
 	{"job", "start", "prod1", "--", "touch", "x"},
-	{"svc", "restart", "prod1", "nginx"},
-	{"user", "add", "prod1", "bob"},
 	{"pkg", "install", "prod1", "vim"},
 	{"fs", "write", "prod1", "/tmp/x", "--content", "hi"},
 	{"fs", "rm", "prod1", "/tmp/x"},
 	{"docker", "stop", "prod1", "c1"},
-	{"cron", "rm", "prod1", "1"},
 	{"upload", "prod1", "testdata/golden_restore.sql", "/tmp/h"},
 	{"host", "rm", "prod1"},
 	{"host", "edit", "prod1", "--protected=false"},
@@ -147,13 +143,13 @@ var goldenGates = [][]string{
 	{"db", "kill", "pdb", "1"},
 	{"conn", "rm", "pcache"},
 	{"conn", "edit", "pcache", "--protected=false"},
-	{"vpn", "rm", "pvpn"},
-	{"vpn", "edit", "pvpn", "--notes", "x"},
+	{"vpn", "socks", "remove", "pvpn"},
+	{"vpn", "socks", "edit", "pvpn", "--notes", "x"},
 	// SAFETY_SETTING: weakens komando's own checks (--yes)
 	{"policy", "rm", "foo.*bar"},
 	{"config", "set", "audit", "off"},
-	{"vpn", "edit", "pvpn", "--protected=false"},
-	{"vpn", "edit", "pvpn", "--mfa=false"},
+	{"vpn", "socks", "edit", "pvpn", "--protected=false"},
+	{"vpn", "socks", "edit", "pvpn", "--mfa=false"},
 	// WRITE_REQUIRES_FLAG: a read command asked to write
 	{"cache", "redis", "raw", "cache1", "--", "SET", "k", "v"},
 	{"db", "query", "db1", "DELETE FROM x"},
@@ -172,7 +168,7 @@ var goldenNotes = [][]string{
 	// C-V24: aws, gcp and azure are no new server's, conn's or VPN's name
 	{"host", "add", "azure", "u@10.0.0.1"},
 	{"conn", "add", "aws", "redis://127.0.0.1:1/0"},
-	{"vpn", "add", "gcp", "socks", "--proxy-address", "127.0.0.1:1080"},
+	{"vpn", "socks", "add", "gcp", "--proxy-address", "127.0.0.1:1080"},
 	// C-C03, C-C06 (OD-7): deletes that leave no copy are dangerous
 	{"secret", "rm", "gsec"},
 	{"key", "rm", "gkey", "--delete-file"},
@@ -189,7 +185,7 @@ var goldenNotes = [][]string{
 	{"kubectl", "get", "pods"},
 	{"psql"},
 	{"exce", "web1", "--", "uptime"},
-	{"svc", "restat", "web1", "nginx"},
+	{"pkg", "instal", "web1", "nginx"},
 	// login ask: a server whose password a person types at every connect;
 	// a script or an agent with no window gets NEEDS_PERSON (tunnel start
 	// asks before it connects, so it shows without a server)

@@ -60,8 +60,8 @@ func TestNotFoundSayOtherKind(t *testing.T) {
 			"pg2 is a postgres conn, not a server.", "Use it with `komando db`."},
 		{[]string{"list"}, "", `no server, conn or VPN named "pgg"`,
 			`No server, conn or VPN named "pgg". Did you mean pg2?`, "Your servers, conns and VPNs: pg2, web1."},
-		{[]string{"vpn", "list"}, "", `no server, conn or VPN named "nosuch"`,
-			`No VPN named "nosuch".`, "You have no VPN yet: add one with `komando vpn add NAME KIND`"},
+		{[]string{"vpn", "socks", "list"}, "", `no server, conn or VPN named "nosuch"`,
+			`No VPN named "nosuch".`, "You have no VPN yet: add one with `komando vpn KIND add NAME`"},
 	} {
 		e := out.Errf(out.ExitNotFound, "TARGET_NOT_FOUND", "h", "%s", c.msg).ForKind(c.kind)
 		notFoundSay(tcl, e, sayCmd(t, c.path...))
@@ -85,9 +85,9 @@ func TestNotFoundSayNoMenuForScripts(t *testing.T) {
 	saved := tcl.terminal
 	tcl.terminal = true
 	t.Cleanup(func() { tcl.terminal = saved })
-	for _, c := range [][2]string{{"host", "`komando host add`"}, {"conn", "`komando conn add`"}, {"vpn", "`komando vpn add`"}} {
+	for _, c := range [][2]string{{"host", "`komando host add`"}, {"conn", "`komando conn add`"}, {"vpn", "`komando vpn KIND add`"}} {
 		e = out.Errf(out.ExitNotFound, "TARGET_NOT_FOUND", "h", "%q not found", "nosuch").ForKind(c[0])
-		cmd := map[string][]string{"host": {"host", "show"}, "conn": {"conn", "show"}, "vpn": {"vpn", "up"}}[c[0]]
+		cmd := map[string][]string{"host": {"host", "show"}, "conn": {"conn", "show"}, "vpn": {"vpn", "socks", "start"}}[c[0]]
 		notFoundSay(tcl, e, sayCmd(t, cmd...))
 		if h := e.TextHint(); strings.Contains(h, "pick Add") || strings.Contains(h, "menu") || !strings.Contains(h, c[1]) {
 			t.Errorf("%s at a terminal: %q", c[0], h)
@@ -134,7 +134,7 @@ func TestFillHint(t *testing.T) {
 		t.Errorf("got %q", e.Hint)
 	}
 	// a VPN fills neither TARGET nor CONN, a server fills TARGET but not CONN
-	mustRun(t, "vpn", "add", "corp", "socks", "--proxy-address", "127.0.0.1:1080")
+	mustRun(t, "vpn", "socks", "add", "corp", "--proxy-address", "127.0.0.1:1080")
 	mustRun(t, "host", "add", "web1", "u@192.0.2.10")
 	e = out.Errf(out.ExitConnect, "VPN_DOWN", "run `komando exec TARGET -- true` or `komando test NAME`", "x")
 	fillHint(e, "corp")

@@ -11,13 +11,12 @@ var (
 		"login aws",
 		"logout aws", // login aws's other half: aws names the cloud, not a verb
 		"policy deny",
-		"storage cat",
-		"storage link",
 	}
 	// S-3.2: key revoke pairs with key deploy, pkg rm with pkg install;
 	// host ca revoke is known_hosts' @revoked, which pairs with host ca add
 	allowPairs = []string{
 		"host ca grant/revoke",
+		"cluster kubernetes tunnel start/stop", // tunnel list and stop are new code (State New): not mounted yet
 		"key grant/revoke",
 		"pkg install/uninstall",
 	}
@@ -59,7 +58,6 @@ var (
 		"config show",
 		"conn kinds",
 		"conn show",
-		"cron list",
 		"db info",
 		"db locks",
 		"db sizes",
@@ -76,50 +74,32 @@ var (
 		"host show",
 		"job status",
 		"key list",
-		"net check",
-		"net http",
-		"net ports",
 		"pkg installed",
 		"policy list",
-		"queue describe",
-		"queue groups",
-		"queue info",
 		"secret list",
 		"shell",
 		"ssh-gate",
 		"storage download",
-		"svc logs",
 		"tunnel list",
-		"user list",
 		"version",
-		"vpn list",
-		"vpn show",
-		"vpn status",
-		"vpn test",
 	}
-	// S-6.8: names outside the sample table where an example needs its own (a second VPN, a cloud queue)
+	// S-6.8: names outside the sample table where an example needs its own
 	allowSampleNames = []string{
 		"app1",
-		"aws",
 		"bastion",
 		"bq",
-		"client-x",
-		"config",
-		"gcp",
-		"jobs",
-		"lab",
 		"local",
 		"mongo-db",
-		"old-office",
 		"shop-2",
-		"stream",
 		"vps1",
 		"web3",
 	}
-	// S-6.10: group rename's Long shows a merge with the old and the new name
+	// S-6.10: group rename's Long shows a merge with the old and the new name;
+	// the vpn help writes KIND for the kind a VPN was saved with
 	allowReferences = []string{
 		"group rename: komando group add NEW @OLD",
 		"group rename: komando group rm OLD",
+		"vpn: komando vpn KIND start NAME",
 	}
 	// S-5.9: depends commands without --write or --read-only (they decide by their arguments)
 	allowDependsSwitch = []string{

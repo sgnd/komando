@@ -679,6 +679,7 @@ func deployKey(cl *call, st *store.State, arg string) (name, line string, err er
 
 func keyDeployCmd() *cobra.Command {
 	var setDefault bool
+	var dev deviceKeyOpts
 	c := &cobra.Command{
 		Use:   "deploy NAME TARGET",
 		Short: "Install a public key in ~/.ssh/authorized_keys (like ssh-copy-id)",
@@ -686,11 +687,19 @@ func keyDeployCmd() *cobra.Command {
 komando's key list or a .pub file. komando logs in the way each server is set
 up now (a password, for example) and appends the key to ~/.ssh/authorized_keys
 unless it is already there. With --set-default the servers then log in with
-this key.`,
+this key.
+
+With --public-key-file and --user (no NAME), a person installs a phone's key
+for that user on one server, always behind the server's own komando gate
+(restrict, ssh-gate --here; from= with --from-address).`,
 		Example: `  komando key gen deploy && komando key deploy deploy @web --set-default
-  komando key deploy ~/.ssh/id_ed25519.pub web1`,
-		Args: cobra.ExactArgs(2),
+  komando key deploy ~/.ssh/id_ed25519.pub web1
+  komando key deploy web1 --user anna --public-key-file anna-phone.pub --from-address 10.0.0.0/8`,
+		Args: dev.args,
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			if dev.file != "" {
+				return deviceKeyInstall(cl, cmd, dev, args[0])
+			}
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -764,6 +773,7 @@ this key.`,
 		}),
 	}
 	c.Flags().BoolVar(&setDefault, "set-default", false, "servers that got the key log in with it from now on")
+	dev.flags(c)
 	return c
 }
 

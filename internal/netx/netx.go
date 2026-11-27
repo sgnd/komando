@@ -46,7 +46,7 @@ var Kinds = map[string]Kind{
 	"wireguard":     {Desc: "WireGuard, run inside komando (no admin rights, many at once)"},
 	"socks":         {Desc: "a SOCKS5 proxy that is already running (`komando tunnel start TARGET -D`, a company proxy)"},
 	"proxy":         {Desc: "an HTTP proxy (CONNECT), such as a company proxy: every connection is tunneled through it"},
-	"system":        {Desc: "a VPN set up in your computer's settings; --service lets `vpn up` connect it"},
+	"system":        {Desc: "a VPN set up in your computer's settings; --service lets `vpn KIND start` connect it"},
 	"l2tp":          {Desc: "L2TP/IPsec with a pre-shared key, run inside komando (no admin rights)", Session: true},
 	"ipsec":         {Desc: "Cisco-style IPsec (IKEv1, group name and XAUTH login), run inside komando", Session: true},
 	"ikev2":         {Desc: "IKEv2/IPsec (pre-shared key or EAP login with a server certificate), run inside komando", Session: true},
@@ -88,7 +88,7 @@ func writeFor(ctx context.Context) store.Write {
 
 // LoginRequired is the error for a VPN that needs a human to log in.
 func LoginRequired(v *store.Vpn) error {
-	return out.Errf(out.ExitConnect, "VPN_LOGIN_REQUIRED", "ask a person to run `komando vpn up "+v.Name+"` (it needs their login); then run it again",
+	return out.Errf(out.ExitConnect, "VPN_LOGIN_REQUIRED", "ask a person to run `komando vpn "+v.Kind+" start "+v.Name+"` (it needs their login); then run it again",
 		"VPN %s is not connected and needs a person to log in", v.Name)
 }
 
@@ -387,7 +387,7 @@ func OpenDirect(ctx context.Context, v *store.Vpn, timeout time.Duration) (Diale
 	case "l2tp", "ipsec", "ikev2":
 		return openIPsec(ctx, v, timeout)
 	case "system":
-		if v.Check != "" { // connected by the OS, or by `vpn up` through --service
+		if v.Check != "" { // connected by the OS, or by `vpn KIND start` through --service
 			c, err := (&net.Dialer{Timeout: timeout}).DialContext(ctx, "tcp", v.Check)
 			if err != nil {
 				return nil, nil, Down(v, err)
@@ -422,17 +422,17 @@ func DownHint(v *store.Vpn) string {
 	case v.Kind == "socks":
 		return "start the SOCKS proxy at " + v.Address + ", for example `komando tunnel start TARGET -D " + v.Address + "`, then run it again"
 	case v.Kind == "proxy":
-		return "check that the proxy at " + v.Address + " answers and lets this port through (many company proxies allow only 443), and its login (`komando vpn show " + v.Name + "`)"
+		return "check that the proxy at " + v.Address + " answers and lets this port through (many company proxies allow only 443), and its login (`komando vpn " + v.Kind + " show " + v.Name + "`)"
 	case v.Kind == "wireguard":
-		return "check that the endpoint is reachable from this computer and that the keys match the server's (`komando vpn show " + v.Name + "`)"
+		return "check that the endpoint is reachable from this computer and that the keys match the server's (`komando vpn " + v.Kind + " show " + v.Name + "`)"
 	case Kinds[v.Kind].Session:
-		return "reconnect it with `komando vpn down " + v.Name + "` and `komando vpn up " + v.Name + "`"
+		return "reconnect it with `komando vpn " + v.Kind + " stop " + v.Name + "` and `komando vpn " + v.Kind + " start " + v.Name + "`"
 	}
-	return "check the VPN's settings with `komando vpn show " + v.Name + "`"
+	return "check the VPN's settings with `komando vpn " + v.Kind + " show " + v.Name + "`"
 }
 
 func configErr(v *store.Vpn, err error) error {
-	return out.Errf(out.ExitUsage, "VPN_CONFIG", "fix it with `komando vpn add "+v.Name+" ... --overwrite`", "VPN %s: %v", v.Name, err)
+	return out.Errf(out.ExitUsage, "VPN_CONFIG", "fix it with `komando vpn "+v.Kind+" add "+v.Name+" ... --overwrite`", "VPN %s: %v", v.Name, err)
 }
 
 func secret(v *store.Vpn, ref string) (string, error) {

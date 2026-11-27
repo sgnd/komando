@@ -286,7 +286,7 @@ var formAcronyms = []string{"SQL", "URL", "PID", "TTL", "ID", "IP", "CSV", "DNS"
 // formCmdSpec makes the questions for one command.
 func formCmdSpec(cmd *cobra.Command) formSpec {
 	key := commandKey(cmd)
-	h := formHints[key]
+	h, _ := hintOf(key)
 	sp := formSpec{title: cmd.Short}
 	uses := formUseArgs(cmd.Use, cmd.Flags())
 	for i, u := range uses {
@@ -623,7 +623,7 @@ var formAreas = []struct {
 	label, detail string
 	words         []string
 }{
-	{"Servers", "run commands, logs, services, packages, users, Docker", []string{"exec", "shell", "facts", "logs", "svc", "pkg", "user", "cron", "reboot", "docker", "net", "cert"}},
+	{"Servers", "run commands, logs, packages, Docker, certificates", []string{"exec", "shell", "logs", "pkg", "docker", "cert"}},
 	{"Files", "read, edit, copy and move files on servers", []string{"fs", "upload", "download", "cp", "sync"}},
 	{"Databases", "queries, shells, dumps, users", []string{"db"}},
 	{"Cache", "Redis and Memcached keys", []string{"cache"}},
@@ -642,7 +642,7 @@ var formAreas = []struct {
 // formListed: it has questions. A group command (cache, cluster
 // helm) that only shows its help is left out; its subcommands are listed.
 func formListed(c *cobra.Command) bool {
-	h, hinted := formHints[commandKey(c)]
+	h, hinted := hintOf(commandKey(c))
 	switch {
 	case !c.Runnable() || c.Hidden || h.skip:
 		return false
@@ -656,7 +656,7 @@ func formListed(c *cobra.Command) bool {
 func formAreaOf(c *cobra.Command) int {
 	key := commandKey(c)
 	for i, a := range formAreas {
-		if h, ok := formHints[key]; ok && h.area != "" {
+		if h, ok := hintOf(key); ok && h.area != "" {
 			if h.area == a.label {
 				return i
 			}

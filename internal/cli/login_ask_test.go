@@ -375,18 +375,18 @@ func TestLoginAskDestinationNeedsPerson(t *testing.T) {
 // gets NEEDS_PERSON; its notes and tags are only words.
 func TestLoginAskVpnOnTheWayNeedsPerson(t *testing.T) {
 	invHome(t)
-	mustRun(t, "vpn", "add", "office", "socks", "--proxy-address", "10.0.0.1:1080")
-	mustRun(t, "vpn", "add", "lab", "socks", "--proxy-address", "10.0.0.2:1080")
+	mustRun(t, "vpn", "socks", "add", "office", "--proxy-address", "10.0.0.1:1080")
+	mustRun(t, "vpn", "socks", "add", "lab", "--proxy-address", "10.0.0.2:1080")
 	mustRun(t, "host", "add", "bastion", "u@10.1.0.5", "--via", "office")
 	mustRun(t, "host", "add", "web1", "u@10.1.0.1", "--login", "ask", "--via", "bastion")
 	setCallerEnv(t, "CLAUDECODE", "1")
-	e := wantCode(t, "NEEDS_PERSON", "vpn", "edit", "office", "--proxy-address", "203.0.113.66:1080")
+	e := wantCode(t, "NEEDS_PERSON", "vpn", "socks", "edit", "office", "--proxy-address", "203.0.113.66:1080")
 	if !strings.Contains(e.Message, "VPN office is on the way to server web1") {
 		t.Errorf("%+v", e)
 	}
-	wantCode(t, "NEEDS_PERSON", "vpn", "add", "office", "socks", "--proxy-address", "203.0.113.66:1080", "--overwrite")
-	mustRun(t, "vpn", "edit", "office", "--notes", "the office", "--add-tag", "x")
-	mustRun(t, "vpn", "edit", "lab", "--proxy-address", "10.0.0.3:1080") // on nobody's way
+	wantCode(t, "NEEDS_PERSON", "vpn", "socks", "add", "office", "--proxy-address", "203.0.113.66:1080", "--overwrite")
+	mustRun(t, "vpn", "socks", "edit", "office", "--notes", "the office", "--add-tag", "x")
+	mustRun(t, "vpn", "socks", "edit", "lab", "--proxy-address", "10.0.0.3:1080") // on nobody's way
 	st, _ := store.Load()
 	if v := st.Vpns["office"]; v.Address != "10.0.0.1:1080" {
 		t.Errorf("the VPN changed: %+v", v)
@@ -397,7 +397,7 @@ func TestLoginAskVpnOnTheWayNeedsPerson(t *testing.T) {
 // its address, and a proxy command.
 func TestLoginAskForWay(t *testing.T) {
 	invHome(t)
-	mustRun(t, "vpn", "add", "office", "socks", "--proxy-address", "10.0.0.1:1080")
+	mustRun(t, "vpn", "socks", "add", "office", "--proxy-address", "10.0.0.1:1080")
 	mustRun(t, "host", "add", "bastion", "jump@10.1.0.5:2200", "--via", "office")
 	mustRun(t, "host", "add", "web1", "u@10.1.0.1", "--login", "ask", "--via", "bastion")
 	mustRun(t, "host", "add", "web2", "u@10.1.0.2", "--login", "ask")
@@ -424,7 +424,7 @@ func TestLoginAskVpnProfileSecretNeedsPerson(t *testing.T) {
 	if err := os.WriteFile(profile, []byte(testProfile), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	mustRun(t, "vpn", "add", "office", "openvpn", "--config", profile, "--check", "10.8.0.1:22", "--user", "alice", "--password-ref", "secret:db-pass")
+	mustRun(t, "vpn", "openvpn", "add", "office", "--config", profile, "--check", "10.8.0.1:22", "--user", "alice", "--credential", "db-pass")
 	mustRun(t, "host", "add", "web1", "u@10.8.0.5", "--login", "ask", "--via", "office")
 	setCallerEnv(t, "CLAUDECODE", "1")
 	t.Setenv("EVIL", "remote 203.0.113.66 1194")

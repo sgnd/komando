@@ -283,7 +283,7 @@ command the user runs in their own terminal.
   [Safety](safety.md#limits)).
 - A vault value that is a common word (such as `shared`) is hidden
   wherever that word appears, komando's own notes included. That is the
-  safe side: the value never shows. `secret set`, `import`, `vpn add` and
+  safe side: the value never shows. `secret set`, `import`, `vpn KIND add` and
   `doctor` warn about a value of only letters shorter than 10 characters,
   or a common password; use a longer value, or add digits or symbols.
 - A secret from a password manager (`vault:`, `op://` ...) is read when

@@ -34,9 +34,9 @@ under a pseudo-terminal and komando does not know your agent, set
    (`NEEDS_PERSON`); no flag clears that one, so leave `KOMANDO_HOME`
    alone.
    Declare read-only shell commands with `--read-only`. `db query`,
-   `cache redis raw` and `cluster run` are the other way round: they only read
+   `cache redis raw` and `cluster kubernetes raw` are the other way round: they only read
    unless you add `--write`. A command that hands words to another
-   program (`exec`, `job start`, `docker exec`, `cluster run`, `cache redis raw`
+   program (`exec`, `job start`, `docker exec`, `cluster kubernetes raw`, `cache redis raw`
    ...) takes them only after `--`, its own flags before it:
    `komando exec web1 --read-only -- df -h`.
 5. Edit files with `komando fs replace ... --backup`, never with `sed -i`
@@ -62,7 +62,8 @@ under a pseudo-terminal and komando does not know your agent, set
    person at a terminal can run those. If they deny it, do not retry.
 8. Never "fix" `HOSTKEY_MISMATCH` yourself: report it, it may be an attack.
    For `VPN_LOGIN_REQUIRED` or `VPN_DOWN`, ask the human to run
-   `komando vpn up NAME`. For a server that asks for a two-factor code,
+   `komando vpn KIND start NAME` (KIND is the VPN's kind, for example
+   `wireguard`). For a server that asks for a two-factor code,
    ask them to run `komando test SERVER` once; your commands then use it.
    A server or conn with `login: ask` keeps no password: komando asks the
    human to type it in a window on their screen, never you. On

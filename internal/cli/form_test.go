@@ -313,11 +313,14 @@ func TestFormAddCtrlC(t *testing.T) {
 // usage error, never questions.
 func TestFormAddAloneForAgents(t *testing.T) {
 	invHome(t)
-	for _, kind := range []string{"host", "conn", "vpn"} {
+	for _, kind := range []string{"host", "conn"} {
 		_, e := invRun(t, kind, "add")
 		if e == nil || e.Code != "USAGE" || !strings.Contains(e.Hint, "alone at a terminal") {
 			t.Errorf("%s add: %+v", kind, e)
 		}
+	}
+	if _, e := invRun(t, "vpn", "wireguard", "add"); e == nil || e.Code != "USAGE" {
+		t.Errorf("vpn wireguard add alone: %+v", e)
 	}
 }
 
@@ -326,7 +329,7 @@ func TestFormDryRunBeforeDashes(t *testing.T) {
 	if strings.Join(got, "|") != "exec|web1|--dry-run|--|systemctl restart nginx" {
 		t.Errorf("exec dry run: %q", got)
 	}
-	got = formDry([][]string{{"secret", "set", "x-authkey"}, {"vpn", "add", "x", "tailscale"}})
+	got = formDry([][]string{{"secret", "set", "x-authkey"}, {"vpn", "tailscale", "add", "x"}})
 	if got[0] != "vpn" {
 		t.Errorf("Try it first tries the secret set: %q", got)
 	}
@@ -356,7 +359,7 @@ func TestFormEveryCommandHasAHint(t *testing.T) {
 		for _, s := range c.Commands() {
 			walk(s)
 			if formListed(s) && s.Name() != "help" {
-				if _, ok := formHints[commandKey(s)]; !ok {
+				if _, ok := hintOf(commandKey(s)); !ok {
 					t.Errorf("%s has no formHint: give it one (form_hints_*.go), so its questions read well", commandKey(s))
 				}
 			}
@@ -465,7 +468,7 @@ func TestFormEveryHelpExampleIsReachable(t *testing.T) {
 					if f.Value.Type() != "bool" && !strings.Contains(w, "=") {
 						i++ // its value
 					}
-					h := formHints[commandKey(s)]
+					h, _ := hintOf(commandKey(s))
 					_, why := formHides[commandKey(s)+" "+f.Name]
 					if f.Hidden || why || slices.Contains(h.always, "--"+f.Name) {
 						continue // an old alias of an offered flag, or added to every line
@@ -510,14 +513,17 @@ func TestFormRequiredFlagsAreAsked(t *testing.T) {
 // formHides are the flags a hint keeps out of the menu, each with why. Any
 // other hide fails: the menu leaves nothing out without a reason.
 var formHides = map[string]string{
-	"host edit group":        "-g is --add-group, which is asked",
-	"host edit tag":          "-t is --add-tag, which is asked",
-	"conn edit group":        "-g is --add-group, which is asked",
-	"conn edit tag":          "-t is --add-tag, which is asked",
-	"job start cmd":          "the same as the command words, which are asked",
-	"exec cmd":               "the same as the command words, which are asked",
-	"guide install no-guard": "it turns off the guard that keeps AI agents away from secret files",
-	"rename starts-with":     "always added: the menu renames by the start of the names",
+	"host edit group":            "-g is --add-group, which is asked",
+	"host edit tag":              "-t is --add-tag, which is asked",
+	"conn edit group":            "-g is --add-group, which is asked",
+	"conn edit tag":              "-t is --add-tag, which is asked",
+	"job start cmd":              "the same as the command words, which are asked",
+	"exec cmd":                   "the same as the command words, which are asked",
+	"guide install no-guard":     "it turns off the guard that keeps AI agents away from secret files",
+	"rename starts-with":         "always added: the menu renames by the start of the names",
+	"key deploy public-key-file": "a phone's key takes the server alone, not a key and servers: a person types that line",
+	"key deploy user":            "goes with --public-key-file, which the menu does not ask",
+	"key deploy from-address":    "goes with --public-key-file, which the menu does not ask",
 }
 
 func TestFormHidesHaveAReason(t *testing.T) {
