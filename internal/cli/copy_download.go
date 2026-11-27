@@ -352,7 +352,7 @@ func placeNew(tmp, dst string) error {
 }
 
 func fileExists(p string) error {
-	return out.Errf(out.ExitConflict, "FILE_EXISTS", "choose another --to, remove the file, or pass --overwrite", "%s already exists on this computer", p)
+	return out.Errf(out.ExitConflict, "FILE_EXISTS", "choose another DESTINATION, remove the file, or pass --overwrite", "%s already exists on this computer", p)
 }
 
 // localMode is the mode a file from a server gets on this computer: the

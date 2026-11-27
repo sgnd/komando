@@ -202,10 +202,10 @@ func runDownload(ctx context.Context, cmd *cobra.Command, target, p, to string, 
 		return err
 	}
 	if o.resume && to == "-" {
-		return out.Usage("--continue adds to a file; --to - (stdout) has none")
+		return out.Usage("--continue adds to a file; a copy to - (stdout) has none")
 	}
 	if o.progress && to == "-" {
-		return out.Usage("--progress counts what is saved; --to - (stdout) has one answer on stderr, at the end")
+		return out.Usage("--progress counts what is saved; a copy to - (stdout) has one answer on stderr, at the end")
 	}
 	if cmd.Flags().Lookup("size") != nil && cmd.Flags().Changed("size") {
 		return out.Usage("--size is for an upload from stdin (-)")
@@ -225,7 +225,7 @@ func runDownload(ctx context.Context, cmd *cobra.Command, target, p, to string, 
 			return storageDownloadTo(cl, ctx, name, target, p, to, o.overwrite, o.resume)
 		}
 		if to == "-" {
-			return out.Usage("-r saves a folder; --to - (stdout) takes one file")
+			return out.Usage("-r saves a folder; a copy to - (stdout) takes one file")
 		}
 		if to == "" {
 			to = path.Base(strings.TrimSuffix(p, "/"))
