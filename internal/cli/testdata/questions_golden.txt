@@ -161,22 +161,7 @@ title: Check when the certificates of servers and websites expire
 - flag:path | --path | Also check this certificate file (or folder) on the servers |  |  | optional,advanced,check
 - flag:via | --via | Reach websites through this server or VPN (a --via path) |  |  | optional,advanced,free,choices
 ### komando cluster
-title: Kubernetes and Docker Swarm: check, read logs, roll out, scale
-### komando cluster add
-title: Add a cluster
-- arg0 | Name | Name? |  |  | check
-- arg1 | URL | URL? |  |  | check
-- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref |  |  | advanced,default,choices
-- flag:group | --group | Put it in these groups (comma-separated) |  |  | optional,advanced,check
-- flag:label | --label | Label KEY=VALUE (repeatable) |  |  | optional,advanced,check
-- flag:login | --login | How komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own) |  |  | optional,advanced,check
-- flag:notes | --notes | Free-form notes (komando conn show shows them to people and agents) |  |  | optional,advanced,check
-- flag:option | --option | An option of this kind, KEY=VALUE (repeatable) |  |  | optional,advanced,check
-- flag:overwrite | --overwrite | Replace a conn that has the same name |  |  | advanced,default,choices
-- flag:password-ref | --password-ref | Where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://... |  |  | optional,advanced,check
-- flag:protected | --protected | Production: komando asks you before every change, and an AI agent needs your yes in a window |  |  | advanced,default,choices
-- flag:tag | --tag | Tags, like prod (comma-separated) |  |  | optional,advanced,check
-- flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
+title: Kubernetes clusters: save, check, read logs, roll out, scale
 ### komando cluster apply
 title: Apply Kubernetes YAML or deploy a Swarm stack
 - arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
@@ -204,20 +189,6 @@ title: Recent events, oldest first (--warnings for problems only)
 - flag:all-namespaces | --all-namespaces | Every namespace |  |  | advanced,default,choices
 - flag:for | --for | Only events about this object, like deployment/api |  |  | optional,advanced,check
 - flag:limit | --limit | The most events to show (the newest) |  |  | optional,advanced,default,check
-- flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
-### komando cluster exec
-title: Run a command in a pod, checked by the policy
-- arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
-- arg1 | Pod | Which pod or workload? | A pod's name, or a kind and name like deployment/api (komando picks one of its pods). | deployment/api or api-7d9f8c6b5-x2k4q | check
-- arg2 | Command | Which command should run in the pod? |  | env | 
-- flag:read-only | --read-only | Does the command only look, changing nothing? | Declare that the command only looks: only commands komando knows only read run (protected clusters: no --yes) |  | default,choices
-- flag:container | --container | Container in the pod |  |  | optional,advanced,check
-- flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
-### komando cluster forward
-title: Reach a pod or service port from this computer (127.0.0.1) until Ctrl-C
-- arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
-- arg1 | Type/name | Which pod or service? | A kind and name, like service/web or deployment/api. | service/web | check
-- arg2 | Port | Which port of it? | The port it listens on. LOCAL:REMOTE picks the port on this computer too; you then open 127.0.0.1:LOCAL. | 80 or 9000:80 | default,check
 - flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
 ### komando cluster get
 title: Show one object in full, Secret values hidden
@@ -257,6 +228,87 @@ title: Revisions of a deployment, newest first, with their images
 - arg1 | Type/name | Which deployment? | Written deployment/NAME. komando cluster list TARGET deployments shows them. | deployment/api | check
 - flag:limit | --limit | Show at most this many revisions, newest first (0 = all) |  |  | optional,advanced,check
 - flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
+### komando cluster kubernetes
+title: Kubernetes clusters: save them, and run commands on them
+### komando cluster kubernetes add
+title: Save a kubernetes cluster under a short name
+- arg0 | Name | Name? |  |  | check
+- arg1 | URL | URL? |  |  | optional,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
+### komando cluster kubernetes edit
+title: Change a saved kubernetes cluster (only the flags you pass change)
+- arg0 | Name | Which cluster? | A cluster from your list. Add one first: komando cluster kubernetes add. |  | choices,check
+- flag:url | --url | New address (URL)? | Like the one you added it with, without the password. Leave empty to keep it. | postgres://app@10.0.0.5:5432/shop | optional,check
+- flag:ask-password | --ask-password | Change the password? | Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line. |  | default,choices
+- flag:protected | --protected | Can a mistake on it hurt real users or real data? | Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away. |  | optional,choices
+- flag:via | --via | Reach it through which server or VPN? | The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now. | bastion | optional,free,choices
+- flag:add-group | --add-group | Add it to a group? | A group lets you pick many at once with @name. Leave empty for none. | web | optional,free,choices
+- flag:notes | --notes | Any notes to keep with it? | Free text, like who owns it or what runs there. AI agents read it too. Leave empty to keep the old notes. | main shop database | optional,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: via, credential, notes, protected |  |  | optional,advanced,check
+### komando cluster kubernetes exec
+title: Run a command in a pod, checked by the policy
+- arg0 | Name | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
+- arg1 | Pod | Which pod or workload? | A pod's name, or a kind and name like deployment/api (komando picks one of its pods). | deployment/api or api-7d9f8c6b5-x2k4q | check
+- arg2 | Command | Which command should run in the pod? |  | env | 
+- flag:read-only | --read-only | Does the command only look, changing nothing? | The command only reads (the policy checks it either way) |  | default,choices
+- flag:container | --container | Container in the pod |  |  | optional,advanced,check
+- flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
+### komando cluster kubernetes list
+title: List the saved kubernetes clusters
+- arg0 | Target (clusters) | Which clusters? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando cluster kubernetes raw
+title: Run one kubectl command and show the result
+- arg0 | Name | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
+- arg1 | Command | Which kubectl or docker command? (without kubectl or docker in front) | It runs as the cluster's own tool would run it. | get pods -o wide | 
+- flag:write | --write | Does it change the cluster? | No: komando refuses a command that would change something. |  | default,choices
+### komando cluster kubernetes remove
+title: Forget a saved kubernetes cluster (the cluster is not touched)
+- arg0 | Target (clusters) | Which clusters should come off your list? | Only komando's list changes; the cluster itself is not touched. |  | free,choices,check
+### komando cluster kubernetes rename
+title: Rename a saved kubernetes cluster and every reference to it
+- arg0 | Name | Which cluster do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
+### komando cluster kubernetes shell
+title: Open a shell in a pod, like kubectl exec (person only)
+- arg0 | Name | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
+- arg1 | Pod | Which pod or workload? | A pod's name, or a kind and name like deployment/api (komando picks one of its pods). | deployment/api or api-7d9f8c6b5-x2k4q | check
+- arg2 | Command | A command instead of a shell? (leave empty for the usual shell) | Empty: the usual shell of the container. | bash | optional
+- flag:container | --container | Container in the pod |  |  | optional,advanced,check
+- flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
+### komando cluster kubernetes show
+title: Show a saved kubernetes cluster's settings (credentials as names)
+- arg0 | Name | Which cluster? | A cluster from your list. Add one first: komando cluster kubernetes add. |  | choices,check
+### komando cluster kubernetes test
+title: Check that a saved kubernetes cluster answers and lets you in
+- arg0 | Target (clusters) | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando cluster kubernetes tunnel
+title: Reach a port of a pod or service from this computer: start
+### komando cluster kubernetes tunnel start
+title: Reach a pod or service port from this computer (127.0.0.1) until Ctrl-C
+- arg0 | Name | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
+- arg1 | Object | Which pod or service? | A kind and name, like service/web or deployment/api. | service/web | check
+- arg2 | Port | Which port of it? | The port it listens on. LOCAL:REMOTE picks the port on this computer too; you then open 127.0.0.1:LOCAL. | 80 or 9000:80 | default,check
+- flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
 ### komando cluster list
 title: List pods, deployments, services, nodes ... (Swarm: services, tasks)
 - arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
@@ -295,11 +347,6 @@ title: Go back to an earlier version of a workload
 - flag:wait | --wait | Wait until it is done? | Yes: komando stays until every copy runs the new version, or says what went wrong. |  | default,choices
 - flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
 - flag:revision | --revision | The revision to go back to (default: the previous one with other images) |  |  | optional,advanced,check
-### komando cluster run
-title: Run any kubectl or docker command (read only by default)
-- arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
-- arg1 | Args | Which kubectl or docker command? (without kubectl or docker in front) | It runs as the cluster's own tool would run it. | get pods -o wide | 
-- flag:write | --write | Does it change the cluster? | No: komando refuses a command that would change something. |  | default,choices
 ### komando cluster scale
 title: Set the number of replicas
 - arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
@@ -307,19 +354,19 @@ title: Set the number of replicas
 - arg2 | Replicas | How many copies (replicas) should run? | 0 stops every copy, and the app is down until you scale it up again. komando asks a person first. | 3 | check
 - flag:wait | --wait | Wait until it is done? | Yes: komando stays until every copy runs the new version, or says what went wrong. |  | default,choices
 - flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
-### komando cluster shell
-title: Open a shell in a pod, like kubectl exec (person only)
-- arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
-- arg1 | Pod | Which pod or workload? | A pod's name, or a kind and name like deployment/api (komando picks one of its pods). | deployment/api or api-7d9f8c6b5-x2k4q | check
-- arg2 | Command | A command instead of a shell? (leave empty for the usual shell) | Empty: the usual shell of the container. | bash | optional
-- flag:container | --container | Container in the pod |  |  | optional,advanced,check
-- flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
 ### komando cluster status
 title: Show the version, the nodes and what is not healthy
 - arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
 - arg1 | Type/name | One workload to check its rollout? (leave empty for the whole cluster) | Empty: the whole cluster, its nodes and what is not healthy. | deployment/api | optional,check
 - flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
 - flag:wait | --wait | With TYPE/NAME: wait until it has rolled out (--timeout, default 5m) |  |  | advanced,default,choices
+### komando cluster swarm
+title: Docker Swarm: run docker commands on a manager server
+### komando cluster swarm raw
+title: Run one docker command on a Swarm manager and show the result
+- arg0 | Name | Which Swarm manager server? | A server that is a Swarm manager. |  | choices,check
+- arg1 | Command | Which docker command? (without docker in front) | It runs as docker would run it on the manager. | service ls | 
+- flag:write | --write | Does it change the Swarm? | No: komando refuses a command that would change something. |  | default,choices
 ### komando completion
 title: Print a tab-completion script for your shell
 ### komando completion bash

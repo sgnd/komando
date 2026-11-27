@@ -190,7 +190,7 @@ tool-word list S-3.3]
 | Verb | Meaning | Follows |
 |---|---|---|
 | `exec` | a shell command on servers (aliases run, x) | docker exec, kubectl exec |
-| `run` | the area's own raw command (`cache redis raw`, `cluster run`) or a saved recipe | redis-cli, kubectl |
+| `run` | the area's own raw command (`cache redis raw`, `cluster kubernetes raw`) or a saved recipe | redis-cli, kubectl |
 | `query` | SQL or MongoDB | psql -c |
 | `shell` | an interactive session, person only (aliases ssh, connect) | |
 | `upload`, `download` | move files (put, get on storage) | aws s3 cp, gh release download |
@@ -271,8 +271,8 @@ is in parentheses: `tunnel start TARGET (-L SPEC | -R SPEC | -D SPEC)`.
 [schema: required flag ⇔ present in Use]
 
 **S-4.4** Passthrough commands: `exec`, `job start`, `docker exec`,
-`docker compose`, `docker raw`, `cluster exec`, `cluster shell`,
-`cluster run`, `cache redis raw` (every command whose Use has `-- COMMAND...` or
+`docker compose`, `docker raw`, `cluster kubernetes exec`, `cluster kubernetes shell`,
+`cluster kubernetes raw`, `cache redis raw` (every command whose Use has `-- COMMAND...` or
 `-- ARGS...`). komando flags are read anywhere before `--`
 (`exec @web -P 20 --read-only -- df -h`). Any word after the fixed positionals (TARGET, CONTAINER,
 `POD|TYPE/NAME`, CONN) must come after `--`. Without `--`, such a word is a
@@ -380,7 +380,7 @@ Shell text is a change unless `--read-only`. No third switch. `docker raw`
 and `docker compose` take docker's own verbs, which include `exec` and
 `run`; they have no read form and are always gated as a change.
 [schema: no flag named `--apply`; every `kind: depends` command except
-`docker raw`, `docker compose` and `cluster shell` has exactly one of
+`docker raw`, `docker compose` and `cluster kubernetes shell` has exactly one of
 --write / --read-only]
 
 **S-5.10** Multi-target runs continue after a failure (`--fail-fast` stops).
@@ -446,7 +446,7 @@ including common foreign shorthands (`-n` outside its scope, `-it`, `-L`,
 (1) a curated table of foreign words, each mapped to a full command for
 `error.hint`: `server` (alias), `delete`/`remove` → `komando host rm NAME`
 (or the noun in the next word), `get` → `komando list`,
-`ps` → `komando docker ps TARGET`, `kubectl` → `komando cluster run TARGET -- ...`,
+`ps` → `komando docker ps TARGET`, `kubectl` → `komando cluster kubernetes raw NAME -- ...`,
 `psql`/`mysql` → `komando db query CONN`, `apt`/`yum` → `komando pkg`,
 `systemctl` → `komando svc`; (2) edit distance 1 for words of 4 letters or
 fewer, 2 otherwise, at most 2 suggestions; (3) the hint names a command only
@@ -564,7 +564,7 @@ release note. [schema + rule table]
 classifier hit, never for a command's own built-in tier. [code]
 
 **S-7.10** A command for a person at a terminal (`shell`, `db shell`,
-`cluster shell`, `secret passphrase` ...) never runs for an AI agent or an
+`cluster kubernetes shell`, `secret passphrase` ...) never runs for an AI agent or an
 ssh-gate key. One exception: `komando shell SERVER` for a `--shell-access`
 key, which ssh-gate opens in its own process after its checks; no
 environment variable or terminal lets another komando process do the same.

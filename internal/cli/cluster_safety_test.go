@@ -143,7 +143,7 @@ func cliRun(t *testing.T, args ...string) (map[string]any, *out.Error) {
 	return invRun(t, args...)
 }
 
-// Under --dry-run, `cluster run` sends nothing the server would not
+// Under --dry-run, `cluster kubernetes raw` sends nothing the server would not
 // dry-run itself: no Secret read, no token, on a protected conn as an agent.
 func TestClusterRunDryRunSendsNothingReal(t *testing.T) {
 	invHome(t)
@@ -160,7 +160,7 @@ func TestClusterRunDryRunSendsNothingReal(t *testing.T) {
 		{[]string{"exec", "pod-a", "--", "id"}, "/exec"},
 	} {
 		before := l.seen(c.sent)
-		d, e := cliRun(t, append([]string{"--dry-run", "cluster", "run", "prod", "--"}, c.args...)...)
+		d, e := cliRun(t, append([]string{"--dry-run", "cluster", "kubernetes", "raw", "prod", "--"}, c.args...)...)
 		if e != nil {
 			t.Errorf("%v: %s %s", c.args, e.Code, e.Message)
 			continue
@@ -177,7 +177,7 @@ func TestClusterRunDryRunSendsNothingReal(t *testing.T) {
 	}
 	// config view is refused before anything is rated or sent
 	before := l.seen("GET")
-	if _, e := cliRun(t, "--dry-run", "cluster", "run", "prod", "--", "config", "view", "--raw"); e == nil || e.Code != "USAGE" || l.seen("GET") != before {
+	if _, e := cliRun(t, "--dry-run", "cluster", "kubernetes", "raw", "prod", "--", "config", "view", "--raw"); e == nil || e.Code != "USAGE" || l.seen("GET") != before {
 		t.Errorf("config view: %+v", e)
 	}
 	if *windows != 0 {
@@ -186,7 +186,7 @@ func TestClusterRunDryRunSendsNothingReal(t *testing.T) {
 	// an agent sees Secret values hidden, so reading them is a read: it
 	// runs, with no person asked, and shows no value
 	for _, args := range [][]string{{"get", "secrets", "-A", "-o", "json"}, {"get", "secrets", "-o", "yaml"}} {
-		d, e := cliRun(t, append([]string{"cluster", "run", "prod", "--"}, args...)...)
+		d, e := cliRun(t, append([]string{"cluster", "kubernetes", "raw", "prod", "--"}, args...)...)
 		if e != nil {
 			t.Errorf("%v: %s %s", args, e.Code, e.Message)
 			continue
@@ -199,7 +199,7 @@ func TestClusterRunDryRunSendsNothingReal(t *testing.T) {
 		t.Errorf("a masked Secret read asked a person %d times", *windows)
 	}
 	// what the server dry-runs itself still goes there, with dryRun=All
-	if _, e := cliRun(t, "--dry-run", "cluster", "run", "prod", "--", "scale", "deploy/api", "--replicas=3"); e != nil {
+	if _, e := cliRun(t, "--dry-run", "cluster", "kubernetes", "raw", "prod", "--", "scale", "deploy/api", "--replicas=3"); e != nil {
 		t.Fatalf("scale dry run: %s %s", e.Code, e.Message)
 	}
 	if l.seen("/deployments/api/scale?dryRun=All") != 1 || l.seen("PATCH") != 1 {
@@ -551,8 +551,8 @@ func TestKubeconfigLoginProgramNeedsAPerson(t *testing.T) {
 	if d, e := cliRun(t, "--dry-run", "cluster", "ls", "prod", "pods"); e != nil || d["_meta"].(map[string]any)["would_be_blocked"] == nil {
 		t.Errorf("dry run: %v %+v", d, e)
 	}
-	if d, e := cliRun(t, "--dry-run", "cluster", "run", "prod", "--", "get", "pods"); e != nil || d["would_run"] == nil {
-		t.Errorf("dry run of cluster run: %v %+v", d, e)
+	if d, e := cliRun(t, "--dry-run", "cluster", "kubernetes", "raw", "prod", "--", "get", "pods"); e != nil || d["would_run"] == nil {
+		t.Errorf("dry run of cluster kubernetes raw: %v %+v", d, e)
 	}
 	if ran() || l.seen("/pods") != 0 {
 		t.Fatal("the login program ran without a person's yes")
@@ -629,7 +629,7 @@ func TestClusterForwardProtected(t *testing.T) {
 	l := newLabCluster(t)
 	mustRun(t, "import", "kubeconfig", l.kubeconfigFile(t, "    token: test-token-abcdef"))
 	mustRun(t, "conn", "edit", "prod", "--protected")
-	d, e := cliRun(t, "--dry-run", "cluster", "forward", "prod", "svc/redis", "16379:6379")
+	d, e := cliRun(t, "--dry-run", "cluster", "kubernetes", "tunnel", "start", "prod", "svc/redis", "16379:6379")
 	if e != nil {
 		t.Fatalf("%+v", e)
 	}
@@ -639,7 +639,7 @@ func TestClusterForwardProtected(t *testing.T) {
 	}
 }
 
-// `cluster run -- logs -f` follows every pod at once and hands each
+// `cluster kubernetes raw -- logs -f` follows every pod at once and hands each
 // line on as it comes; a timeout is a normal end.
 func TestKctlFollowLogs(t *testing.T) {
 	l := newLabCluster(t)
@@ -796,7 +796,7 @@ func TestApplyRefusesHiddenValues(t *testing.T) {
 	l := newLabCluster(t)
 	mustRun(t, "import", "kubeconfig", l.kubeconfigFile(t, "    token: test-token-abcdef"))
 	asAgent(t, false, false)
-	d, e := cliRun(t, "cluster", "run", "prod", "--", "get", "deploy", "api", "-o", "yaml")
+	d, e := cliRun(t, "cluster", "kubernetes", "raw", "prod", "--", "get", "deploy", "api", "-o", "yaml")
 	if e != nil {
 		t.Fatalf("%s %s", e.Code, e.Message)
 	}
@@ -808,7 +808,7 @@ func TestApplyRefusesHiddenValues(t *testing.T) {
 	os.WriteFile(file, []byte(strings.ReplaceAll(yml, "replicas: 2", "replicas: 3")), 0o600)
 	for _, args := range [][]string{{"apply", "-f", file}, {"create", "-f", file}} {
 		before := l.seen("PATCH") + l.seen("POST") + l.seen("PUT")
-		_, e := cliRun(t, append([]string{"cluster", "run", "prod", "--write", "--"}, args...)...)
+		_, e := cliRun(t, append([]string{"cluster", "kubernetes", "raw", "prod", "--write", "--"}, args...)...)
 		if e == nil || e.Code != "HIDDEN_VALUE" || !strings.Contains(e.Hint, "set image") {
 			t.Errorf("%v: %+v", args, e)
 		}
@@ -832,7 +832,7 @@ func TestApplyRefusesHiddenValues(t *testing.T) {
 	for _, marker := range []string{"'[hidden]'", "'[hidden, changed]'", "'[hidden, new]'", "(hidden)", "(hidden, changed)"} {
 		sec := filepath.Join(t.TempDir(), "s.yaml")
 		os.WriteFile(sec, []byte("apiVersion: v1\nkind: Secret\nmetadata:\n  name: app-db\nstringData:\n  password: "+marker+"\n"), 0o600)
-		if _, e := cliRun(t, "cluster", "run", "prod", "--write", "--", "apply", "-f", sec); e == nil || e.Code != "HIDDEN_VALUE" {
+		if _, e := cliRun(t, "cluster", "kubernetes", "raw", "prod", "--write", "--", "apply", "-f", sec); e == nil || e.Code != "HIDDEN_VALUE" {
 			t.Errorf("%s Secret: %+v", marker, e)
 		}
 	}
@@ -863,7 +863,7 @@ func TestKctlLocalSecretFiles(t *testing.T) {
 		{"apply", "-f", dir},
 	} {
 		before := l.seen("POST") + l.seen("PATCH") + l.seen("/exec")
-		_, e := cliRun(t, append([]string{"cluster", "run", "prod", "--write", "--"}, args...)...)
+		_, e := cliRun(t, append([]string{"cluster", "kubernetes", "raw", "prod", "--write", "--"}, args...)...)
 		if e == nil || e.Code != "SENSITIVE_FILE" {
 			t.Errorf("%v: %+v", args, e)
 		}
@@ -876,12 +876,12 @@ func TestKctlLocalSecretFiles(t *testing.T) {
 		t.Errorf("cp: %d %q", code, se)
 	}
 	// the dry run reports the stop
-	if d, e := cliRun(t, "--dry-run", "cluster", "run", "prod", "--write", "--", "apply", "-f", secrets); e != nil || d["_meta"].(map[string]any)["would_be_blocked"] == nil {
+	if d, e := cliRun(t, "--dry-run", "cluster", "kubernetes", "raw", "prod", "--write", "--", "apply", "-f", secrets); e != nil || d["_meta"].(map[string]any)["would_be_blocked"] == nil {
 		t.Errorf("dry run: %v %+v", d, e)
 	}
 	// a person sends what they want
 	noAgent(t)
-	if _, e := cliRun(t, "cluster", "run", "prod", "--write", "--", "create", "secret", "generic", "x", "--from-file=k="+env); e != nil {
+	if _, e := cliRun(t, "cluster", "kubernetes", "raw", "prod", "--write", "--", "create", "secret", "generic", "x", "--from-file=k="+env); e != nil {
 		t.Errorf("a person: %+v", e)
 	}
 }
@@ -919,7 +919,7 @@ func TestPluginApprovalNamesTheProgram(t *testing.T) {
 	}
 	setCallerEnv(t, "CLAUDECODE", "1")
 	texts = nil
-	if _, e := cliRun(t, "--yes", "cluster", "run", "prod", "--write", "--", "scale", "deploy/api", "--replicas=3"); e != nil {
+	if _, e := cliRun(t, "--yes", "cluster", "kubernetes", "raw", "prod", "--write", "--", "scale", "deploy/api", "--replicas=3"); e != nil {
 		t.Fatalf("%+v", e)
 	}
 	named := 0
@@ -943,7 +943,7 @@ func TestTrustedKubePlugin(t *testing.T) {
 	plugin := "    exec:\n      apiVersion: client.authentication.k8s.io/v1\n      command: /bin/sh\n      args: [\"-c\", \"echo '{\\\"status\\\":{\\\"token\\\":\\\"t\\\"}}'\"]\n"
 	mustRun(t, "import", "kubeconfig", l.kubeconfigFile(t, plugin)) // a person
 	windows := asAgent(t, false, false)
-	for _, args := range [][]string{{"cluster", "ls", "prod", "pods"}, {"cluster", "run", "prod", "--", "get", "pods"}} {
+	for _, args := range [][]string{{"cluster", "ls", "prod", "pods"}, {"cluster", "kubernetes", "raw", "prod", "--", "get", "pods"}} {
 		if _, e := cliRun(t, args...); e != nil {
 			t.Errorf("%v on a trusted conn: %+v", args, e)
 		}
@@ -961,8 +961,8 @@ func TestTrustedKubePlugin(t *testing.T) {
 			t.Errorf("a changed kubeconfig runs without a yes: %+v", e)
 		}
 		for _, args := range [][]string{
-			{"--dry-run", "cluster", "exec", "prod", "pod-a", "--", "id"},
-			{"--dry-run", "cluster", "forward", "prod", "pod/pod-a", "18080:80"},
+			{"--dry-run", "cluster", "kubernetes", "exec", "prod", "pod-a", "--", "id"},
+			{"--dry-run", "cluster", "kubernetes", "tunnel", "start", "prod", "pod/pod-a", "18080:80"},
 		} {
 			d, e := cliRun(t, args...)
 			wb, _ := d["_meta"].(map[string]any)["would_be_blocked"].(map[string]any)

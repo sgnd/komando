@@ -319,7 +319,7 @@ in every area:
    `storage ls`): structured output, safe. For most daily work.
 2. **A raw path in the native language**, still classified, read-only by
    default and audited: `exec`, `db query`, `cache redis raw`,
-   `cluster run -- <kubectl args>`.
+   `cluster kubernetes raw -- <kubectl args>`.
 3. **Your own tool, through komando's path**: `komando tunnel start prod-db`
    gives a local port for any client; `komando shell` opens SSH;
    `komando db shell prod-db` opens komando's own SQL shell with the

@@ -124,7 +124,7 @@ func commandNames(cmd *cobra.Command) []string {
 var foreignWords = map[string]string{
 	"get":        "list",
 	"ps":         "docker ps TARGET",
-	"kubectl":    "cluster run TARGET -- ...",
+	"kubectl":    "cluster kubernetes raw NAME -- ...",
 	"helm":       "cluster helm list TARGET",
 	"psql":       "db query CONN",
 	"mysql":      "db query CONN",

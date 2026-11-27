@@ -164,7 +164,7 @@ func (r *kctlRun) runPod() error {
 		return kfail("run needs NAME --image=IMAGE")
 	}
 	if r.a.bools["tty"] || r.a.bools["stdin"] {
-		return kfail("run -it opens a terminal: create the pod, then use `komando cluster shell`")
+		return kfail("run -it opens a terminal: create the pod, then use `komando cluster kubernetes shell`")
 	}
 	name := r.a.pos[0]
 	c := map[string]any{"name": name, "image": r.a.val("image")}
@@ -201,7 +201,7 @@ func (r *kctlRun) exec() error {
 		return kfail("exec needs POD -- COMMAND")
 	}
 	if r.a.bools["tty"] || r.a.bools["stdin"] {
-		return kfail("exec -it opens a terminal: use `komando cluster shell TARGET %s`", r.a.pos[0])
+		return kfail("exec -it opens a terminal: use `komando cluster kubernetes shell NAME %s`", r.a.pos[0])
 	}
 	pod, err := onePod(r.ctx, r.k, r.ns(), r.a.pos[0])
 	if err != nil {
@@ -215,7 +215,7 @@ func (r *kctlRun) exec() error {
 	return err
 }
 
-// debug adds an ephemeral container to a pod; open it with cluster shell.
+// debug adds an ephemeral container to a pod; open it with cluster kubernetes shell.
 func (r *kctlRun) debug() error {
 	if len(r.a.pos) != 1 || r.a.val("image") == "" {
 		return kfail("debug needs POD --image=IMAGE (and optionally --target=CONTAINER)")
@@ -234,7 +234,7 @@ func (r *kctlRun) debug() error {
 		r.dryQuery(), body, "application/strategic-merge-patch+json"); err != nil {
 		return err
 	}
-	fmt.Fprintf(&r.stdout, "pod/%s: ephemeral container %s added%s; open it with `komando cluster shell TARGET %s -c %s -- sh`\n", pod, name, r.dryNote(), pod, name)
+	fmt.Fprintf(&r.stdout, "pod/%s: ephemeral container %s added%s; open it with `komando cluster kubernetes shell NAME %s -c %s -- sh`\n", pod, name, r.dryNote(), pod, name)
 	return nil
 }
 

@@ -8,7 +8,7 @@ import (
 )
 
 // Manifests that give out rights or open a node need --allow-dangerous,
-// like `cluster run -- create clusterrolebinding` and `-- run
+// like `cluster kubernetes raw -- create clusterrolebinding` and `-- run
 // --privileged` do; before, a file took them to the cluster as a plain
 // write. Nothing reaches the cluster without the approval.
 func TestManifestTier(t *testing.T) {
@@ -29,8 +29,8 @@ func TestManifestTier(t *testing.T) {
 		}
 		for _, args := range [][]string{
 			{"cluster", "apply", "prod", "--file", file},
-			{"cluster", "run", "prod", "--write", "--", "apply", "-f", file},
-			{"cluster", "run", "prod", "--write", "--", "create", "-f", file},
+			{"cluster", "kubernetes", "raw", "prod", "--write", "--", "apply", "-f", file},
+			{"cluster", "kubernetes", "raw", "prod", "--write", "--", "create", "-f", file},
 		} {
 			_, e := cliRun(t, args...)
 			if e == nil || e.Code != "POLICY_BLOCKED" {
@@ -52,8 +52,8 @@ func TestManifestTier(t *testing.T) {
 	if _, e := cliRun(t, "cluster", "apply", "prod", "--file", file); e != nil {
 		t.Fatalf("a ConfigMap: %+v", e)
 	}
-	if _, e := cliRun(t, "cluster", "run", "prod", "--write", "--", "apply", "-f", file); e != nil {
-		t.Fatalf("a ConfigMap through cluster run: %+v", e)
+	if _, e := cliRun(t, "cluster", "kubernetes", "raw", "prod", "--write", "--", "apply", "-f", file); e != nil {
+		t.Fatalf("a ConfigMap through cluster kubernetes raw: %+v", e)
 	}
 	if got := strings.Join(l.real, ","); got != "plain,plain" {
 		t.Errorf("applied for real: %q", got)

@@ -84,5 +84,5 @@ func TestSchemaConnAddKinds(t *testing.T) {
 			}
 		}
 	}
-	wantCode(t, "USAGE", "cluster", "add", "prod-k8s", "k8s://api.cluster.example:6443")
+	wantCode(t, "USAGE", "cluster", "kubernetes", "add", "prod-k8s", "k8s://api.cluster.example:6443")
 }

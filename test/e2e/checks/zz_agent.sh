@@ -110,7 +110,7 @@ acode "an agent gets no SQL shell" NEEDS_TERMINAL db shell pg
 fi
 
 if in_area k8s; then
-acode "an agent gets no pod shell" NEEDS_TERMINAL cluster shell lab-k3s deploy/web
+acode "an agent gets no pod shell" NEEDS_TERMINAL cluster kubernetes shell lab-k3s deploy/web
 fi
 
 if in_area data; then

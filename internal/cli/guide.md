@@ -106,7 +106,7 @@ mixes Windows and Linux servers is refused for `exec` (`MIXED_OS`): run
 it once per shell.
 
 Commands that hand words to another program (`exec`, `job start`, `docker
-exec/compose/raw`, `cluster exec/shell/run`, `cache redis raw`) take those words
+exec/compose/raw`, `cluster kubernetes exec/shell/raw`, `cache redis raw`) take those words
 only after `--`; komando's flags go before it. Without `--` the command
 stops with USAGE and runs nothing (komando would read `-y` as `--yes`).
 
@@ -287,7 +287,7 @@ CONN` read; `apply` (try `--dry-run` first, the cluster checks it),
 `--allow-dangerous`. To release a new image, use `komando cluster deploy
 CONN deployment/NAME --image IMAGE --wait`; if it goes wrong, `cluster
 rollback CONN deployment/NAME --wait` puts the earlier images back
-(`cluster history` lists the revisions). For anything else, `komando cluster run CONN --
+(`cluster history` lists the revisions). For anything else, `komando cluster kubernetes raw CONN --
 KUBECTL_ARGS...` (needs `--write` to change). Pick a namespace with
 `--namespace` (`-n`); how many is `--limit` (a number after `-n` is
 refused). `status`, `list`, `events` and `helm list` also take a group

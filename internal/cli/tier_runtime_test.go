@@ -48,8 +48,8 @@ var tierRuns = []tierRun{
 	{"credential key remove --delete-file dangerous", "key.rm", []string{"k1", "--delete-file"}, false},
 	{"host exec dynamic dangerous", "exec", []string{"dev", "--", "rm -rf /"}, false},
 	{"snippet exec dynamic dangerous", "recipe.run", []string{"wipe", "dev"}, false},
-	{"cluster exec dynamic dangerous", "cluster.exec", []string{"k8s", "pod/a", "--", "rm -rf /"}, false},
-	{"cluster raw dynamic dangerous", "cluster.run", []string{"k8s", "--write", "--", "delete", "pod", "a"}, false},
+	{"cluster exec dynamic dangerous", "cluster.kubernetes.exec", []string{"k8s", "pod/a", "--", "rm -rf /"}, false},
+	{"cluster raw dynamic dangerous", "cluster.kubernetes.raw", []string{"k8s", "--write", "--", "delete", "pod", "a"}, false},
 	{"cache raw dynamic dangerous", "cache.redis.raw", []string{"r", "--write", "--", "FLUSHALL"}, false},
 	{"database query dynamic dangerous", "db.query", []string{"pg", "--write", "DROP TABLE t"}, false},
 	{"host ssh add --proxy-command dynamic dangerous", "host.add", []string{"x", "--address", "10.0.0.9", "--proxy-command", "rm -rf /"}, false},
@@ -72,7 +72,7 @@ var tierRuns = []tierRun{
 	{"cache edit --protected=false safety", "cache.redis.edit", []string{"r-prot", "--protected=false"}, false},
 	{"storage edit --protected=false safety", "storage.s3.edit", []string{"s3-prot", "--protected=false"}, false},
 	{"registry edit --protected=false safety", "registry.oci.edit", []string{"reg-prot", "--protected=false"}, false},
-	{"cluster edit --protected=false safety", "conn.edit", []string{"k8s-prot", "--protected=false"}, false},
+	{"cluster edit --protected=false safety", "cluster.kubernetes.edit", []string{"k8s-prot", "--protected=false"}, false},
 	{"floor", "conn.edit", []string{"pg", "--notes", "x"}, false},
 	{"floor", "conn.rm", []string{"pg"}, false},
 	{"floor", "conn.rename", []string{"pg", "pg9"}, false},
@@ -94,7 +94,7 @@ var tierRuns = []tierRun{
 	{"host shell person", "shell", []string{"dev"}, false},
 	{"database shell person", "db.shell", []string{"pg"}, false},
 	{"database backup dynamic person", "db.dump", []string{"pg", "--to", "pg.sql"}, false}, // C424: every connection
-	{"cluster shell person", "cluster.shell", []string{"k8s", "pod/a"}, false},
+	{"cluster shell person", "cluster.kubernetes.shell", []string{"k8s", "pod/a"}, false},
 	{"credential certificate add person", "host.ca.add", []string{"ca1", "--key", "ca.pub", "--hosts", "*.corp.example"}, false},
 	{"host ssh trust --reset person", "host.trust", []string{"prod", "--reset"}, false},
 	{"export --sealed person", "export", []string{"--sealed", "--to", "out.kmd"}, false},
@@ -110,9 +110,12 @@ var tierRuns = []tierRun{
 	{"floor", "cache.redis.raw", []string{"r", "--", "GET", "k"}, false},
 	{"floor", "cache.redis.remove", []string{"r"}, false},
 	{"floor", "cache.redis.rename", []string{"r", "r9"}, false},
-	{"floor", "cluster.exec", []string{"k8s", "pod/a", "--", "ls"}, false},
-	{"floor", "cluster.forward", []string{"k8s", "svc/a", "18080:80"}, false},
-	{"floor", "cluster.run", []string{"k8s", "--", "get", "pods"}, false},
+	{"floor", "cluster.kubernetes.edit", []string{"k8s", "--notes", "x"}, false},
+	{"floor", "cluster.kubernetes.exec", []string{"k8s", "pod/a", "--", "ls"}, false},
+	{"floor", "cluster.kubernetes.raw", []string{"k8s", "--", "get", "pods"}, false},
+	{"floor", "cluster.kubernetes.remove", []string{"k8s"}, false},
+	{"floor", "cluster.kubernetes.rename", []string{"k8s", "k8s9"}, false},
+	{"floor", "cluster.kubernetes.tunnel.start", []string{"k8s", "svc/a", "18080:80"}, false},
 	{"floor", "config.set", []string{"parallel", "4"}, false},
 	{"floor", "db.add", []string{"pg2", "postgres://u@127.0.0.1:1/app"}, false},
 	{"floor", "db.query", []string{"pg", "SELECT 1"}, false},
@@ -186,7 +189,9 @@ var tierUnreached = map[string]string{
 	"floor | secret.keychain":                                "tests run with KOMANDO_KEYCHAIN=off; a plain run is the not --off person row",
 	"floor | host.ca.rm":                                     "adding the CA it removes needs a person",
 	"floor | tunnel.stop":                                    "no stop for an agent: change on an unprotected target",
-	"floor | cluster.add":                                    "a Kubernetes conn comes only from import kubeconfig; a swarm is no conn kind",
+	"floor | cluster.swarm.raw":                              "a swarm manager is a server until E1 gives it an entry; kubernetes raw holds the run",
+	"cluster raw dynamic dangerous | cluster.swarm.raw":      "a swarm manager is a server until E1 gives it an entry; kubernetes raw holds the run",
+	"floor | cluster.kubernetes.add":                         "a Kubernetes conn logs in with a whole kubeconfig from the vault, which a unit run has not got",
 	"floor | secret.run":                                     "an agent always meets the row: secret run always hands a secret on",
 	"floor | storage.s3.object.link":                         "an agent always meets the row: a link is always --reveal for an agent",
 }
@@ -197,12 +202,12 @@ var tierUnreached = map[string]string{
 // until its line goes.
 var tierDisagree = map[string]string{
 	// the same strength under another code (C429: one code later)
-	"host.edit prod --protected=false":             "PROTECTED_TARGET", // vpn edit gives SAFETY_SETTING
-	"conn.edit pg-prot --protected=false":          "PROTECTED_TARGET",
-	"cache.redis.edit r-prot --protected=false":    "PROTECTED_TARGET",
-	"storage.s3.edit s3-prot --protected=false":    "PROTECTED_TARGET",
-	"registry.oci.edit reg-prot --protected=false": "PROTECTED_TARGET",
-	"conn.edit k8s-prot --protected=false":         "PROTECTED_TARGET",
+	"host.edit prod --protected=false":                   "PROTECTED_TARGET", // vpn edit gives SAFETY_SETTING
+	"conn.edit pg-prot --protected=false":                "PROTECTED_TARGET",
+	"cache.redis.edit r-prot --protected=false":          "PROTECTED_TARGET",
+	"storage.s3.edit s3-prot --protected=false":          "PROTECTED_TARGET",
+	"registry.oci.edit reg-prot --protected=false":       "PROTECTED_TARGET",
+	"cluster.kubernetes.edit k8s-prot --protected=false": "PROTECTED_TARGET",
 }
 
 // tierProof is the test that asserts a stop without --dry-run.
@@ -226,7 +231,7 @@ var tierProvedBy = map[string]tierProof{
 	"config vault keychain dynamic safety | secret.keychain": {test: "TestSecretKeychainOff"},
 	"floor | secret.keychain":                                {test: "TestSecretKeychainNeedsPerson"},
 	"floor | host.ca.rm":                                     {test: "TestHostCAPersonAddsAndAnyoneRemoves"},
-	"floor | cluster.add":                                    {test: "TestClusterAddKind"},
+	"floor | cluster.kubernetes.add":                         {test: "TestClusterAddKind"},
 }
 
 func TestTierMatchesRuntime(t *testing.T) {

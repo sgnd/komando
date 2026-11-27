@@ -103,7 +103,7 @@ above are gone. There is no "current call" in a package variable.
   program those writers are the process's stdout and stderr, so it
   behaves as before, byte for byte. The notices of a built-in SSL VPN's
   browser sign-in go to the call's stderr (`netx.SSLVPNLogin` takes it). Followed lines from several pods or clusters
-  (`cluster logs --follow`, `cluster run`) take turns on the call's
+  (`cluster logs --follow`, `cluster kubernetes raw`) take turns on the call's
   stdout (`call.liveMu`).
 - Types whose methods need the call keep it in a field set where they are
   made (`kctlRun`, `sqlShell`, `fill`, the sync sides, `connMgr`, the

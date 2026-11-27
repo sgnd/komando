@@ -633,7 +633,7 @@ func (r *kctlRun) scale() error {
 		return err
 	}
 	// the number as read, not the text: -0 or 00 must reach the server as
-	// the 0 that `cluster run` rated (scalesToZero)
+	// the 0 that `cluster kubernetes raw` rated (scalesToZero)
 	n, err := strconv.Atoi(r.a.val("replicas"))
 	if err != nil || n < 0 {
 		return kfail("scale needs --replicas=COUNT, with COUNT 0 or more")

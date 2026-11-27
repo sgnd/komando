@@ -160,7 +160,7 @@ func TestGateCheck(t *testing.T) {
 		{"exec web --read-only -- echo --reveal --allow-dangerous", "", ""}, // words for the server
 		{"shell web", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"db shell pg", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
-		{"cluster shell k8s pod/x", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
+		{"cluster kubernetes shell k8s pod/x", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"secret passphrase", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"secret check db", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"login aws", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
@@ -181,7 +181,7 @@ func TestGateCheck(t *testing.T) {
 		{"db query pg --write 'delete from t'", "", "SSH_GATE_READ_ONLY"},
 		{"db explain pg --analyze 'delete from t'", "", "SSH_GATE_READ_ONLY"},
 		{"cache redis raw c --write SET a b", "", "SSH_GATE_READ_ONLY"},
-		{"cluster run k8s --write delete pod x", "", "SSH_GATE_READ_ONLY"},
+		{"cluster kubernetes raw k8s --write delete pod x", "", "SSH_GATE_READ_ONLY"},
 		{"pkg upgradable web --refresh", "", "SSH_GATE_READ_ONLY"},
 		{"pkg security web --refresh", "", "SSH_GATE_READ_ONLY"},
 		{"pkg upgrade web --security", "", "SSH_GATE_READ_ONLY"},
@@ -202,8 +202,8 @@ func TestGateCheck(t *testing.T) {
 		{"exec web --script - --read-only", "", ""},
 		{"job start web --read-only -- du -sh /var", "", ""},
 		{"job start web -- make backup", "", "SSH_GATE_READ_ONLY"},
-		{"cluster exec k8s pod/x -- ls", "", "SSH_GATE_READ_ONLY"},
-		{"cluster exec k8s pod/x --read-only -- ls", "", ""},
+		{"cluster kubernetes exec k8s pod/x -- ls", "", "SSH_GATE_READ_ONLY"},
+		{"cluster kubernetes exec k8s pod/x --read-only -- ls", "", ""},
 		{"docker compose web ps", "", "SSH_GATE_READ_ONLY"}, // decided by the subcommand: not for a read key
 		{"cp web:/etc/hosts /tmp/hosts", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"download web /etc/hosts", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
@@ -222,7 +222,7 @@ func TestGateCheck(t *testing.T) {
 		{"storage s3 object create s3 reports/2026", "", "SSH_GATE_READ_ONLY"},
 		{"storage s3 object move s3 a.txt b.txt", "", "SSH_GATE_READ_ONLY"},
 		{"storage s3 object move s3 a.txt --mode 0640", "", "SSH_GATE_READ_ONLY"},
-		{"cluster forward k8s svc/web 8080", "", "SSH_GATE_READ_ONLY"},
+		{"cluster kubernetes tunnel start k8s svc/web 8080", "", "SSH_GATE_READ_ONLY"},
 		{"export web", "", ""},
 		// nothing a key runs writes on the komando computer itself
 		{"download web /home/u/.ssh/id_ed25519.pub --to .ssh/authorized_keys --overwrite", R, R},
@@ -301,7 +301,7 @@ func TestGateLocalTargets(t *testing.T) {
 		"cache set redislocal a b":                                             R,
 		"cache redis raw c --write SET a b":                                    "",
 		"cluster apply k8slocal --file pod.yaml":                               R,
-		"cluster run k8slocal --write -- delete pod x":                         R,
+		"cluster kubernetes raw k8slocal --write -- delete pod x":              R,
 		"cluster apply k8s --file pod.yaml":                                    R, // reads a file here
 		"storage upload sftplocal x.txt .ssh/authorized_keys":                  R,
 		"storage sftp object create sftplocal x":                               R, // the storage changes meet the local-target rule too
@@ -310,59 +310,59 @@ func TestGateLocalTargets(t *testing.T) {
 		"registry oci image delete reglocal app:1":                             R,
 		"registry oci image copy reg:app:1 reglocal:app:1":                     R,
 		"registry oci image copy reg:app:1 reg:app:2":                          "",
-		"exec me -- id":                                           R,
-		"exec me --read-only -- uptime":                           R, // a shell here all the same
-		"exec lh -- id":                                           R,
-		"exec v6 -- id":                                           R,
-		"exec short -- id":                                        R,
-		"exec any -- id":                                          R,
-		"exec named -- id":                                        R,
-		"exec u@127.0.0.1 -- id":                                  R, // ad hoc, not in the inventory
-		"exec 'u@[::1]:22' -- id":                                 R,
-		"exec u@192.0.2.10 -- id":                                 R, // ad hoc: could be this computer's own address
-		"exec 192.0.2.10:22 -- id":                                R,
-		"exec u@127.0.0.1.nip.io -- id":                           R,
-		"cp ./k u@192.0.2.10:/home/u/.ssh/authorized_keys":        R,
-		"logs u@192.0.2.10 --file /var/log/x":                     R, // reads too
-		"exec web,me -- id":                                       R,
-		"exec @nothing -- id":                                     R, // cannot tell where: refused
-		"exec behind -- id":                                       "",
-		"exec loop -- id":                                         R, // 127.0.0.1 of a server that is this one
-		"exec vpnd -- id":                                         R, // through a VPN: may be this computer
-		"exec web -- id":                                          "",
-		"fs write me /home/u/.bashrc":                             R,
-		"fs restore me /home/u/.bashrc":                           R,
-		"fs restore web /etc/nginx/nginx.conf":                    "", // the undo of fs replace --backup
-		"docker raw me -- run -v /:/h x":                          R,
-		"cp ./id.pub me:/home/u/.ssh/x":                           R,
-		"cp me:/home/u/.ssh/id_ed25519 web:/tmp/k":                R, // reads a file here
-		"cp web:/tmp/k me:/home/u/.ssh/authorized_keys":           R,
-		"cp web:/tmp/k sftplocal:.ssh/authorized_keys":            R,
-		"cp web:/tmp/k web:/tmp/k2":                               "",
-		"download me /home/u/.ssh/id_ed25519 --to -":              R, // a stream reads here too
-		"storage download sftplocal .ssh/id_ed25519 --to -":       R,
-		"cp ./id_ed25519 -":                                       R, // SRC on this computer, whatever DST is
-		"cp me:/home/u/.ssh/id_ed25519 -":                         R,
-		"sync ./site web:/var/www":                                R, // reads files here
-		"recipe run disk me":                                      R, // runs its command here
-		"recipe run disk web":                                     "",
-		"db query pghostparam --write 'select 1'":                 R, // pgx dials ?host=
-		"db query pghostaddr --write 'select 1'":                  R,
-		"db query pgsocket --write 'select 1'":                    R, // a socket here
-		"db query pglist --write 'select 1'":                      R, // any host of the list
-		"db query pghostparam 'select 1'":                         R, // pg_read_file reads here
-		"db query mongolist --write '{}'":                         R,
-		"key deploy k me":                                         R,
-		"key deploy k web":                                        "",
-		"key deploy k web --set-default":                          R, // komando's own setup
-		"vpn openvpn start office":                                "",
-		"cluster run k8s --write -- cp ns/pod:/x LOCAL":           R,
-		"cluster run k8s --write -- cp ns/pod:/x ./x":             R,
-		"cluster run k8s --write -- cp -n ns pod:/x /home/u/.ssh": R,
-		"cluster run k8s --write -- cp ./x ns/pod:/x":             R, // reads files here
-		"cluster run k8s --write -- cp ns/pod:/tmp/k x:/../.ssh/authorized_keys2": R, // a local path to kctl
-		"cluster run k8s --write -- cp ns/pod:/x other/pod:/y":                    R,
-		"cluster run k8s -- get pods":                                             "",
+		"exec me -- id":                                                      R,
+		"exec me --read-only -- uptime":                                      R, // a shell here all the same
+		"exec lh -- id":                                                      R,
+		"exec v6 -- id":                                                      R,
+		"exec short -- id":                                                   R,
+		"exec any -- id":                                                     R,
+		"exec named -- id":                                                   R,
+		"exec u@127.0.0.1 -- id":                                             R, // ad hoc, not in the inventory
+		"exec 'u@[::1]:22' -- id":                                            R,
+		"exec u@192.0.2.10 -- id":                                            R, // ad hoc: could be this computer's own address
+		"exec 192.0.2.10:22 -- id":                                           R,
+		"exec u@127.0.0.1.nip.io -- id":                                      R,
+		"cp ./k u@192.0.2.10:/home/u/.ssh/authorized_keys":                   R,
+		"logs u@192.0.2.10 --file /var/log/x":                                R, // reads too
+		"exec web,me -- id":                                                  R,
+		"exec @nothing -- id":                                                R, // cannot tell where: refused
+		"exec behind -- id":                                                  "",
+		"exec loop -- id":                                                    R, // 127.0.0.1 of a server that is this one
+		"exec vpnd -- id":                                                    R, // through a VPN: may be this computer
+		"exec web -- id":                                                     "",
+		"fs write me /home/u/.bashrc":                                        R,
+		"fs restore me /home/u/.bashrc":                                      R,
+		"fs restore web /etc/nginx/nginx.conf":                               "", // the undo of fs replace --backup
+		"docker raw me -- run -v /:/h x":                                     R,
+		"cp ./id.pub me:/home/u/.ssh/x":                                      R,
+		"cp me:/home/u/.ssh/id_ed25519 web:/tmp/k":                           R, // reads a file here
+		"cp web:/tmp/k me:/home/u/.ssh/authorized_keys":                      R,
+		"cp web:/tmp/k sftplocal:.ssh/authorized_keys":                       R,
+		"cp web:/tmp/k web:/tmp/k2":                                          "",
+		"download me /home/u/.ssh/id_ed25519 --to -":                         R, // a stream reads here too
+		"storage download sftplocal .ssh/id_ed25519 --to -":                  R,
+		"cp ./id_ed25519 -":                                                  R, // SRC on this computer, whatever DST is
+		"cp me:/home/u/.ssh/id_ed25519 -":                                    R,
+		"sync ./site web:/var/www":                                           R, // reads files here
+		"recipe run disk me":                                                 R, // runs its command here
+		"recipe run disk web":                                                "",
+		"db query pghostparam --write 'select 1'":                            R, // pgx dials ?host=
+		"db query pghostaddr --write 'select 1'":                             R,
+		"db query pgsocket --write 'select 1'":                               R, // a socket here
+		"db query pglist --write 'select 1'":                                 R, // any host of the list
+		"db query pghostparam 'select 1'":                                    R, // pg_read_file reads here
+		"db query mongolist --write '{}'":                                    R,
+		"key deploy k me":                                                    R,
+		"key deploy k web":                                                   "",
+		"key deploy k web --set-default":                                     R, // komando's own setup
+		"vpn openvpn start office":                                           "",
+		"cluster kubernetes raw k8s --write -- cp ns/pod:/x LOCAL":           R,
+		"cluster kubernetes raw k8s --write -- cp ns/pod:/x ./x":             R,
+		"cluster kubernetes raw k8s --write -- cp -n ns pod:/x /home/u/.ssh": R,
+		"cluster kubernetes raw k8s --write -- cp ./x ns/pod:/x":             R, // reads files here
+		"cluster kubernetes raw k8s --write -- cp ns/pod:/tmp/k x:/../.ssh/authorized_keys2": R, // a local path to kctl
+		"cluster kubernetes raw k8s --write -- cp ns/pod:/x other/pod:/y":                    R,
+		"cluster kubernetes raw k8s -- get pods":                                             "",
 	} {
 		if got := gateAnswer(t, line, false); got != want {
 			t.Errorf("%q: %q, want %q", line, got, want)
@@ -376,7 +376,7 @@ func TestGateLocalTargets(t *testing.T) {
 		"exec lh --script ./check.sh --read-only":                           R,
 		"job start v6 --read-only -- du -sh /var":                           R,
 		"docker exec me app --read-only ls":                                 R,
-		"cluster exec k8slocal pod/x --read-only -- ls":                     R,
+		"cluster kubernetes exec k8slocal pod/x --read-only -- ls":          R,
 		"recipe run disk me":                                                R,
 		"exec web --read-only -- uptime":                                    "",
 		"exec me -- id":                                                     "SSH_GATE_READ_ONLY", // not a read: refused before the place
@@ -395,7 +395,7 @@ func TestGateLocalTargets(t *testing.T) {
 		"cluster get k8slocal pods":                                         R,
 		"docker ps me":                                                      R,
 		"fs cat web /etc/hostname":                                          "",
-		"cluster run k8s --write -- cp ./x ns/pod:/x":                       "SSH_GATE_READ_ONLY",
+		"cluster kubernetes raw k8s --write -- cp ./x ns/pod:/x":            "SSH_GATE_READ_ONLY",
 	} {
 		if got := gateAnswer(t, line, true); got != want {
 			t.Errorf("%q --read-only key: %q, want %q", line, got, want)
@@ -637,7 +637,7 @@ func TestSSHGateNoShellWithoutFlag(t *testing.T) {
 	t.Cleanup(func() { tcl.terminal = saved })
 	tcl.terminal = true
 	for _, args := range [][]string{{"--name", "full"}, {"--name", "read", "--read-only"}} {
-		for _, line := range []string{"komando shell web", "komando ssh web", "komando db shell pg", "komando cluster shell k8s pod/x"} {
+		for _, line := range []string{"komando shell web", "komando ssh web", "komando db shell pg", "komando cluster kubernetes shell k8s pod/x"} {
 			ran, _, e := gateRun(t, line, args...)
 			if ran != nil || e == nil || e.Code != "SSH_GATE_REFUSED" || !strings.Contains(e.Message, "needs a person at a terminal on this computer") {
 				t.Errorf("%v %q: ran %q, error %+v", args, line, ran, e)
