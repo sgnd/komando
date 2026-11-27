@@ -333,7 +333,7 @@ func TestGuardDollarQuotedPathIsDecoded(t *testing.T) {
 // the environment, or a command's output) is refused.
 func TestGuardPathInAVariable(t *testing.T) {
 	home, _ := guardLineHome(t)
-	t.Setenv("C533_KNOWN_DIR", "/tmp")
+	t.Setenv("GUARD_TEST_KNOWN_DIR", "/tmp")
 	checkLines(t, home, home, []string{
 		`f=~/.komando/vault.json; cp /tmp/a $f`,
 		`f=~/.komando/vault.json; cat $f`,
@@ -344,7 +344,7 @@ func TestGuardPathInAVariable(t *testing.T) {
 		`d=~/.kom; echo x > "${d}ando/vault.json"`,
 		`for d in /tmp ~/.kom; do echo x > "${d}ando/vault.json"; done`,
 		`f=$(cat /tmp/name); echo x > "$f"`,
-		`echo x > "$C533_NEVER_SET"`,
+		`echo x > "$GUARD_TEST_NEVER_SET"`,
 		"echo x > `cat /tmp/name`",
 		`echo x > $(cat /tmp/name)`,
 		`while read f; do echo x > "$f"; done < /tmp/list`,
@@ -353,7 +353,7 @@ func TestGuardPathInAVariable(t *testing.T) {
 		`out=/tmp/x.log; echo x > "$out"`,
 		`for f in a.go b.go; do gofmt "$f" > "$f.tmp"; done`,
 		`tmp=$(mktemp); echo x > "$tmp"`,
-		`echo x > "$C533_KNOWN_DIR/out"`,
+		`echo x > "$GUARD_TEST_KNOWN_DIR/out"`,
 		`f=notes.txt; cat "$f"`,
 		`f=notes.txt; echo x > $f 2>&1`,
 		`echo x > "$HOME/notes.txt"`,

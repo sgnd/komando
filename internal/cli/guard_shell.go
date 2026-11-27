@@ -73,55 +73,185 @@ var anyOperator = regexp.MustCompile(`[;|&\n()` + "`" + `"']`)
 // not commands. Unquoted heredocs stay: $(...) in them runs. So does the
 // body a shell reads as its script (`bash <<'EOF'`).
 func stripQuotedHeredocs(line string) string {
-	lines := strings.Split(line, "\n")
-	var out []string
-	for i := 0; i < len(lines); i++ {
-		out = append(out, lines[i])
-		m := heredocStart.FindStringSubmatchIndex(lines[i])
-		if m == nil {
+	return dropHeredocs(line, false)
+}
+
+// joinContinuedLines drops each \ and the line break after it, as the
+// shell does before it reads words, outside '...': ~/.koma\<newline>ndo
+// is ~/.komando.
+func joinContinuedLines(line string) string {
+	if !strings.Contains(line, "\\\n") {
+		return line
+	}
+	var b strings.Builder
+	var q byte
+	for i := 0; i < len(line); i++ {
+		c := line[i]
+		switch {
+		case q == '\'':
+			if c == '\'' {
+				q = 0
+			}
+		case c == '\\' && i+1 < len(line) && line[i+1] == '\n':
+			i++
+			continue
+		case c == '\\' && i+1 < len(line):
+			b.WriteByte(c)
+			i++
+			c = line[i]
+		case c == '\'' && q == 0, c == '"' && q == 0:
+			q = c
+		case c == '"' && q == '"':
+			q = 0
+		}
+		b.WriteByte(c)
+	}
+	return b.String()
+}
+
+// heredoc is a here-document of a shell line: its body is line[body:end],
+// quoted says its word is quoted (the shell expands nothing in it), and
+// script that a shell reads the body as its script.
+type heredoc struct {
+	body, end      int
+	quoted, script bool
+}
+
+// dropHeredocs is line without the bodies of its here-documents that are
+// data: the quoted ones, or every one when all is set (the shell globs no
+// body). A body a shell reads as its script stays.
+func dropHeredocs(line string, all bool) string {
+	var b strings.Builder
+	at := 0
+	for _, h := range heredocs(line) {
+		if h.script || !h.quoted && !all {
 			continue
 		}
-		segs := splitShell(lines[i][:m[0]])
-		if prog, _ := program(shellWords(segs[len(segs)-1])); isShell(filepath.Base(prog)) {
-			continue // the body is a script: it runs
-		}
-		end := lines[i][m[4]:m[5]]
-		for i++; i < len(lines) && strings.TrimLeft(lines[i], "\t") != end; i++ {
-		}
-		if i < len(lines) {
-			out = append(out, lines[i])
+		b.WriteString(line[at:h.body])
+		at = h.end
+	}
+	b.WriteString(line[at:])
+	return b.String()
+}
+
+// heredocs are the here-documents of line as the shell reads them: an <<
+// outside quotes, comments and arithmetic, not <<<, and its word; the body
+// runs from the next line to the line that holds the word alone (tabs in
+// front of it allowed), or to the end of the line. $( and ` start over
+// inside "...", as the shell runs them.
+func heredocs(line string) []heredoc {
+	type frame struct {
+		q     byte
+		paren int
+		tick  bool
+	}
+	var out, pending []heredoc
+	var words []string
+	var stack []frame
+	var q byte
+	paren, lineStart, word := 0, 0, false
+	for i := 0; i < len(line); i++ {
+		c := line[i]
+		switch {
+		case q == '\'':
+			if c == '\'' {
+				q = 0
+			}
+		case c == '\\':
+			i++
+			word = true
+		case strings.HasPrefix(line[i:], "$(("), q == 0 && !word && strings.HasPrefix(line[i:], "(("):
+			i, word = arithEnd(line, i), true // arithmetic: << shifts
+		case c == '$' && i+1 < len(line) && line[i+1] == '(':
+			stack = append(stack, frame{q: q, paren: paren})
+			q, paren, word = 0, 0, false
+			i++
+		case c == '`':
+			if n := len(stack); n > 0 && stack[n-1].tick && q == 0 {
+				q, paren, stack = stack[n-1].q, stack[n-1].paren, stack[:n-1]
+				word = true
+			} else {
+				stack = append(stack, frame{q: q, paren: paren, tick: true})
+				q, paren, word = 0, 0, false
+			}
+		case q == '"':
+			if c == '"' {
+				q = 0
+			}
+		case c == '\'' || c == '"':
+			q, word = c, true
+		case c == '#' && !word:
+			for i+1 < len(line) && line[i+1] != '\n' {
+				i++ // a comment
+			}
+		case c == '(':
+			paren++
+			word = false
+		case c == ')':
+			word = false
+			if paren > 0 {
+				paren--
+			} else if n := len(stack); n > 0 && !stack[n-1].tick {
+				q, paren, stack = stack[n-1].q, stack[n-1].paren, stack[:n-1]
+				word = true
+			}
+		case strings.HasPrefix(line[i:], "<<<"):
+			i, word = i+2, false
+		case strings.HasPrefix(line[i:], "<<"):
+			j := i + 2
+			if j < len(line) && line[j] == '-' {
+				j++
+			}
+			for j < len(line) && (line[j] == ' ' || line[j] == '\t') {
+				j++
+			}
+			k := j
+			for k < len(line) && !strings.ContainsRune(" \t\n;&|<>()", rune(line[k])) {
+				k++
+			}
+			w := line[j:k]
+			segs := splitShell(line[lineStart:i])
+			prog, _ := program(shellWords(segs[len(segs)-1]))
+			pending = append(pending, heredoc{quoted: strings.ContainsAny(w, `'"\`), script: isShell(filepath.Base(prog))})
+			words = append(words, strings.NewReplacer(`'`, "", `"`, "", `\`, "").Replace(w))
+			i, word = k-1, false
+		case c == '\n':
+			pos := i + 1
+			for n, h := range pending {
+				h.body, h.end = pos, len(line)
+				for pos < len(line) {
+					lineEnd := len(line)
+					if k := strings.IndexByte(line[pos:], '\n'); k >= 0 {
+						lineEnd = pos + k
+					}
+					if strings.TrimLeft(line[pos:lineEnd], "\t") == words[n] {
+						h.end = pos
+						pos = lineEnd + 1
+						break
+					}
+					pos = lineEnd + 1
+				}
+				pos = min(pos, len(line))
+				out = append(out, h)
+			}
+			pending, words = nil, nil
+			i, lineStart, word = pos-1, pos, false
+		case strings.ContainsRune(" \t;&|<>", rune(c)):
+			word = false
+		default:
+			word = true
 		}
 	}
-	return strings.Join(out, "\n")
+	return out
 }
 
 var (
 	// reading the passphrase's value; setting it (KOMANDO_VAULT_PASS=...) is fine
 	procEnviron    = regexp.MustCompile(`/proc/[^\s'"]*environ\b`)
 	readsVaultPass = regexp.MustCompile(`\$\{?KOMANDO_VAULT_PASS\b|printenv\s+KOMANDO_VAULT_PASS\b`)
-	heredocStart   = regexp.MustCompile(`<<-?[ \t]*(['"])([A-Za-z_][A-Za-z0-9_]*)['"]`)
 	envAssign      = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*(\[[^\]]*\])?\+?=`)
 	remoteSpec     = regexp.MustCompile(`^([A-Za-z0-9_.-]+@)?[A-Za-z0-9_.-]+:`)
-	// $(echo X), `printf X`, $(ls X): their output is the words X, which
-	// become the outer command's arguments
-	nameSubst = regexp.MustCompile(`\$\(\s*(echo|printf|ls|realpath|readlink|dirname)\b([^()` + "`" + `]*)\)|` + "`" + `\s*(echo|printf|ls|realpath|readlink|dirname)\b([^` + "`" + `]*)` + "`")
 )
-
-// inlineNames puts the words of $(echo X) and `echo X` in place of the
-// substitution, as the shell does: `cat $(echo ~)/.komando/state.json`
-// reads ~/.komando/state.json.
-func inlineNames(line string) string {
-	return nameSubst.ReplaceAllStringFunc(line, func(m string) string {
-		g := nameSubst.FindStringSubmatch(m)
-		args := strings.TrimSpace(g[2] + g[4])
-		if g[1]+g[3] == "printf" {
-			if f, rest, ok := strings.Cut(args, " "); ok && strings.Contains(f, "%") {
-				args = strings.TrimSpace(rest) // the format: the rest is what it prints
-			}
-		}
-		return args
-	})
-}
 
 // checkShell looks at each simple command of a shell line, keeping track of
 // `cd` so relative paths are read from the right folder. Arguments of
@@ -146,43 +276,53 @@ func checkShellDepth(cl *call, line, home, cwd string, depth int) guardDecision 
 // checkShellIn is checkShellDepth for a line run where outer's variables
 // are set: a shell's -c script, or eval's.
 func checkShellIn(cl *call, line, home, cwd string, depth int, outer lineVars) guardDecision {
-	line = decodeDollarQuotes(stripQuotedHeredocs(line))
+	line = decodeDollarQuotes(joinContinuedLines(stripQuotedHeredocs(line)))
 	if d := checkWholeLine(line); d.Deny {
 		return d
 	}
-	if in := withoutCommandOutput(cl, inlineNames(line)); in != line {
-		if depth >= guardDepth {
-			return tooDeep()
-		}
-		if d := checkShellIn(cl, in, home, cwd, depth+1, outer); d.Deny {
-			return d
-		}
-	}
-	if d := checkWriteToCommandOutput(line); d.Deny {
+	if d := checkGlobForms(line); d.Deny {
 		return d
 	}
 	vars := maps.Clone(outer)
 	if vars == nil {
 		vars = lineVars{}
 	}
-	segs := splitShell(line)
-	for i, seg := range segs {
-		words, globs := shellWordsGlob(seg)
-		next := ""
-		if i+1 < len(segs) {
-			next = segs[i+1]
+	vars.aliasesFrom(line, -1) // this code is read after the alias was made
+	if redefines.MatchString(line) {
+		vars[redefinedVar] = nil
+	}
+	// each word with a command output in it is checked whole: splitShell
+	// below cuts it where the command starts
+	if in := withCommandOutput(cl, line, vars); in != line {
+		if depth >= guardDepth {
+			return tooDeep()
 		}
-		vars.learn(cl, line, seg, next, cwd, words)
+		if d := checkShellIn(cl, in, home, cwd, depth+1, vars); d.Deny {
+			return d
+		}
+	}
+	// the checks of reads look at the words a command output names
+	rline := strings.ReplaceAll(line, unknownOutput, "")
+	end := 0
+	for _, seg := range splitShell(line) {
+		if at := strings.Index(line[end:], seg); at >= 0 {
+			end += at + len(seg)
+		}
+		mwords, mglobs := shellWordsGlob(seg)
+		vars.aliasesFrom(line, end-len(seg))
+		vars.learn(cl, line, seg, end, home, cwd, mwords)
+		_, margs := program(mwords)
+		rseg := strings.ReplaceAll(seg, unknownOutput, "")
+		words, globs := shellWordsGlob(rseg)
 		if d := checkShellVars(words, depth); d.Deny {
 			return d
 		}
 		prog, args := program(words)
 		base := filepath.Base(prog)
-		if d := checkGuardFiles(cl, line, seg, prog, args, home, cwd); d.Deny {
+		if d := checkGuardFiles(cl, rline, rseg, prog, args, home, cwd); d.Deny {
 			return d
 		}
-		// the shell writes a redirect's file, whatever the program is
-		if d := checkRedirectWrites(cl, seg, vars, home, cwd); d.Deny {
+		if d := checkWrites(cl, seg, mwords, mglobs, vars, home, cwd); d.Deny {
 			return d
 		}
 		switch {
@@ -191,28 +331,59 @@ func checkShellIn(cl *call, line, home, cwd string, depth int, outer lineVars) g
 		case base == "komando":
 			continue
 		case base == "cd" || base == "pushd":
-			dirs := slices.Clone(args)
-			for k, a := range dirs {
-				if x, known := vars.expand(cl, a, cwd); known && len(x) == 1 {
-					dirs[k] = x[0]
-				}
-			}
-			cwd = nextDir(cl, dirs, home, cwd)
+			cwd = cdTarget(cl, margs, vars, home, cwd)
 			if why := secretPath(cl, cwd, home); cwd != "" && why != "" {
 				return deny("%s is %s. komando keeps it away from AI agents; ask the user if you need something from it%s", cwd, why, viaKomando(why))
 			}
-		case isShell(base) || base == "eval":
-			// the script of `bash -c '...'`, `bash -lc '...'` and `eval '...'`
-			// is a shell line too
-			script := shellScript(args)
-			if base == "eval" {
-				script = strings.Join(args, " ")
+		case base == "popd":
+			cwd = lostDir
+		case isShell(base) || base == "eval" || base == "trap":
+			// the script of `bash -c '...'`, `bash -lc '...'`, `eval '...'`
+			// and `trap '...' SIGNAL` is a shell line too
+			script := shellScript(margs)
+			switch base {
+			case "eval":
+				script = strings.Join(margs, " ")
+			case "trap":
+				script = trapScript(margs)
 			}
 			if script != "" && depth >= guardDepth {
 				return tooDeep()
 			}
 			if script != "" {
 				// $f in the script is the line's f
+				if d := checkShellIn(cl, script, home, cwd, depth+1, vars); d.Deny {
+					return d
+				}
+			}
+			if base == "eval" {
+				cwd = lostDir // the script may cd
+			}
+		case base == "source" || base == ".":
+			cwd = lostDir
+		case base == "alias":
+			// an alias's text runs where a later command names it
+			for _, a := range margs {
+				if _, text, ok := strings.Cut(a, "="); ok && text != "" {
+					if depth >= guardDepth {
+						return tooDeep()
+					}
+					if d := checkShellIn(cl, text, home, cwd, depth+1, vars); d.Deny {
+						return d
+					}
+				}
+			}
+		case base == "find":
+			if d := checkFind(cl, margs, mglobs[len(mglobs)-len(margs):], vars, home, cwd, depth); d.Deny {
+				return d
+			}
+		case base == "watch" || scriptOption[base]:
+			// watch runs its words, and script, su, runuser and flock
+			// their -c text, as a shell line
+			if script := commandScript(base, margs); script != "" {
+				if depth >= guardDepth {
+					return tooDeep()
+				}
 				if d := checkShellIn(cl, script, home, cwd, depth+1, vars); d.Deny {
 					return d
 				}
@@ -273,7 +444,7 @@ func checkShellIn(cl *call, line, home, cwd string, depth int, outer lineVars) g
 					continue
 				}
 			}
-			values, _ := vars.expand(cl, w, wcwd)
+			values, _ := vars.expand(cl, w, home, wcwd)
 			for _, v := range values {
 				glob := globs[j] && !strings.HasPrefix(w, "-") || v != w && wordHasGlob(v)
 				if !looksLikePath(v) && !glob {
@@ -335,6 +506,49 @@ func shellScript(args []string) string {
 	return ""
 }
 
+// scriptOption are programs that run the text of their -c (or --command)
+// option as a shell line.
+var scriptOption = map[string]bool{"script": true, "su": true, "runuser": true, "flock": true}
+
+// commandScript is the shell line base ARGS runs: watch's words after its
+// options, the -c text of a scriptOption program, or the command BSD's
+// script FILE COMMAND runs; "" when there is none.
+func commandScript(base string, args []string) string {
+	if base == "script" && !slices.ContainsFunc(args, func(a string) bool { return a == "-c" || strings.HasPrefix(a, "--command") }) {
+		for i, a := range args {
+			if !strings.HasPrefix(a, "-") {
+				if i+1 < len(args) {
+					return findCommandLine(args[i+1:], "{}")
+				}
+				return ""
+			}
+		}
+		return ""
+	}
+	if base == "watch" {
+		for i := 0; i < len(args); i++ {
+			switch a := args[i]; {
+			case a == "-n" || a == "--interval" || a == "-q" || a == "--equexit":
+				i++
+			case a == "--":
+				return strings.Join(args[i+1:], " ")
+			case !strings.HasPrefix(a, "-"):
+				return strings.Join(args[i:], " ")
+			}
+		}
+		return ""
+	}
+	for i, a := range args {
+		if (a == "-c" || a == "--command") && i+1 < len(args) {
+			return args[i+1]
+		}
+		if v, ok := strings.CutPrefix(a, "--command="); ok {
+			return v
+		}
+	}
+	return ""
+}
+
 // recursiveReader reports whether a command reads every file under the
 // folders it is given (grep -r, rg, tar c, zip -r, cp -r, find -exec, ...):
 // given the home folder, it reads komando's data and the private keys too.
@@ -377,29 +591,50 @@ func recursiveReader(base string, args []string) bool {
 	return false
 }
 
-// nextDir is the folder `cd ARGS` moves to from cwd, or "" when the guard
-// cannot know it (`cd -`, `cd "$DIR"`).
+// nextDir is the folder `cd ARGS` moves to from cwd: lostDir when the guard
+// cannot know it (`cd -`, `cd "$DIR"`, a glob, or a relative folder from a
+// lost one), and "" for a relative folder when cwd is "".
 func nextDir(cl *call, args []string, home, cwd string) string {
 	for _, a := range args {
 		if a == "--" || a == "-L" || a == "-P" || a == "-e" || a == "-@" {
 			continue
 		}
-		if a == "-" || strings.ContainsAny(strings.NewReplacer("$HOME", "", "${HOME}", "", "$KOMANDO_HOME", "", "${KOMANDO_HOME}", "").Replace(a), "$`") {
-			return ""
+		if a == "-" || strings.ContainsAny(strings.NewReplacer("$HOME", "", "${HOME}", "", "$KOMANDO_HOME", "", "${KOMANDO_HOME}", "").Replace(a), "$`"+unknownOutput) {
+			return lostDir
 		}
 		if wordHasGlob(a) {
-			return "" // checked as a glob with the other words
+			return lostDir // the word is checked as a glob with the others
 		}
 		p := guardPath(cl, a, home)
 		if filepath.IsAbs(p) {
 			return p
 		}
-		if cwd == "" {
-			return ""
+		if cwd == "" || cwd == lostDir {
+			return cwd
 		}
 		return lexOrKernel(cwd + string(filepath.Separator) + p)
 	}
 	return home
+}
+
+// cdTarget is the folder cd ARGS, words of a line with vars, moves to from
+// cwd (nextDir). A word with more than one value or one the guard cannot
+// read, and a relative name CDPATH can send elsewhere, give lostDir.
+func cdTarget(cl *call, args []string, vars lineVars, home, cwd string) string {
+	dirs := slices.Clone(args)
+	_, cdpath := vars["CDPATH"]
+	cdpath = cdpath || cl.getenv("CDPATH") != ""
+	for k, a := range dirs {
+		x, known := vars.expand(cl, a, home, cwd)
+		if !known || len(x) != 1 {
+			return lostDir
+		}
+		dirs[k] = x[0]
+		if d := x[0]; cdpath && !strings.HasPrefix(d, "-") && d != "." && d != ".." && !strings.HasPrefix(d, "./") && !strings.HasPrefix(d, "../") && !filepath.IsAbs(guardPath(cl, d, home)) {
+			return lostDir
+		}
+	}
+	return nextDir(cl, dirs, home, cwd)
 }
 
 // checkAgentVars stops a command that changes the variables komando knows
@@ -443,7 +678,7 @@ func checkAgentVars(words []string, depth int) guardDecision {
 				}
 			}
 			return allow()
-		case w == "read" || w == "mapfile" || w == "readarray" || w == "printf" || w == "getopts" || w == "for" || w == "select":
+		case w == "read" || w == "mapfile" || w == "readarray" || w == "printf" || w == "print" || w == "getopts" || w == "for" || w == "select":
 			for _, n := range setNames(w, words[i+1:]) {
 				if name, ok := agentVarIn(n); ok {
 					return why(name)
@@ -621,7 +856,8 @@ func agentVarIn(w string) (string, bool) {
 
 // setNames are the variable names a shell builtin that sets variables is
 // given: read's and mapfile's names (not their flags' values), printf -v
-// NAME, getopts' NAME, and for's and select's loop variable.
+// NAME and zsh's print -v NAME, getopts' NAME, and for's and select's loop
+// variable.
 func setNames(builtin string, args []string) []string {
 	var names []string
 	switch builtin {
@@ -633,14 +869,14 @@ func setNames(builtin string, args []string) []string {
 		if len(args) > 1 {
 			names = append(names, args[1])
 		}
-	case "printf":
-		for i, a := range args {
-			if a == "-v" && i+1 < len(args) {
-				names = append(names, args[i+1])
-			} else if strings.HasPrefix(a, "-v") {
-				names = append(names, a[2:])
-			}
-			if !strings.HasPrefix(a, "-") {
+	case "printf", "print": // -v NAME, also in a cluster (-rv NAME)
+		for i := 0; i < len(args) && strings.HasPrefix(args[i], "-") && args[i] != "--"; i++ {
+			if k := strings.IndexByte(args[i], 'v'); k > 0 {
+				if n := args[i][k+1:]; n != "" {
+					names = append(names, n)
+				} else if i+1 < len(args) {
+					names = append(names, args[i+1])
+				}
 				break
 			}
 		}

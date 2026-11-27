@@ -1,0 +1,64 @@
+package cli
+
+import "testing"
+
+// A glob that names a written file is checked against the guard files: the
+// files it matches now, and an agent folder, a hook file or a program named
+// komando it could match by name. A brace list is each of its names.
+func TestGuardGlobNamingAGuardFileIsRefused(t *testing.T) {
+	home, _ := guardLineHome(t)
+	checkLines(t, home, home, []string{
+		`echo x > ~/.claude/setting?.json`,
+		`echo x >> ~/.cl*de/settings.json`,
+		`cp /tmp/a ~/.claude/settings.js[o]n`,
+		`cp /bin/true ~/bin/koman?o`,
+		`cp /bin/true ~/bin/koman[d]o`,
+		`echo x > ~/bin/{komando,other}`,
+		`touch ~/.c?aude`,
+		`rm -rf ~/.claude*`,
+		`python3 build.py ~/bin/koman?o`,
+	}, true)
+}
+
+// A glob that matches no guard file stays allowed; * and ? do not match a
+// leading dot, so a bare * does not name an agent folder.
+func TestGuardOrdinaryGlobWritesStayAllowed(t *testing.T) {
+	home, repo := guardLineHome(t)
+	checkLines(t, home, repo, []string{
+		`rm -f *.o`,
+		`chmod +x scripts/*.sh`,
+		`cp src/*.go /tmp/copy/`,
+		`touch a{1,2}.txt`,
+		`rm -f build/*`,
+		`echo x > /tmp/out-?.log`,
+	}, false)
+}
+
+// A glob qualifier or a ( ) group in a word is a glob form the guard does
+// not read: zsh's *(D) also matches hidden files, *(e:...:) runs code, and
+// a(b|c) is a choice. So is a glob on a line that changes how globs match.
+func TestGuardGlobFormsTheGuardDoesNotReadAreRefused(t *testing.T) {
+	home, _ := guardLineHome(t)
+	checkLines(t, home, home, []string{
+		`cd ~; rm -rf *(D)`,
+		`ls *(e:'echo x > ~/.komando/state.json':)`,
+		`echo x > ~/.koman(d|x)o/state.json`,
+		`cp /tmp/a ~/.ssh/id_*(N)`,
+		`echo "$(rm -rf ~/*(D))"`,
+		`shopt -s extglob; rm -rf ~/!(x)`,
+		`shopt -s dotglob; cd ~; chmod -R 777 *`,
+		`setopt GLOB_DOTS; rm -rf ~/*`,
+		`GLOBIGNORE=x; rm -rf ~/*`,
+	}, true)
+	checkLines(t, home, home, []string{
+		`f() { echo hi; }; f > /tmp/out`,
+		`arr=(a b); echo "${arr[@]}" > /tmp/out`,
+		`echo $((2*(3+4))) > /tmp/n`,
+		`(( n = 2*(1+1) )); echo $n`,
+		`echo "*(D)" > /tmp/out`,
+		`(cd /tmp && ls)`,
+		"cat > /tmp/main.go <<EOF\nfunc main() { fmt.Println(x) }\nEOF",
+		"git commit -m \"$(cat <<'EOF'\nFix the parser (part 1) of 2\nEOF\n)\"",
+		`set -euo pipefail; ls *.go`,
+	}, false)
+}

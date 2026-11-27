@@ -571,43 +571,194 @@ func redirectWrites(seg string) (files []string, globs []bool) {
 	return files, globs
 }
 
-// checkRedirectWrites refuses a shell segment whose redirect writes a
-// secret path or a guard file, read with the line's variables in place
-// (vars), or a file named by a variable the guard cannot read.
-func checkRedirectWrites(cl *call, seg string, vars lineVars, home, cwd string) guardDecision {
-	files, globs := redirectWrites(seg)
+// writingPrograms change the files their arguments name.
+var writingPrograms = map[string]bool{"cp": true, "mv": true, "ln": true, "link": true, "install": true, "tee": true,
+	"dd": true, "truncate": true, "chmod": true, "chown": true, "chgrp": true, "rm": true, "rmdir": true, "unlink": true,
+	"shred": true, "touch": true, "mkdir": true, "mkfifo": true, "rsync": true, "patch": true, "sponge": true, "rename": true}
+
+// writesFiles says whether the program base, run with args, changes the
+// files its arguments name: a writing program, sed, sort, uniq or awk in a
+// form that writes (readerArgs), or less with a log file.
+func writesFiles(base string, args []string) bool {
+	if writingPrograms[base] {
+		return true
+	}
+	if base == "less" {
+		return slices.ContainsFunc(args, func(a string) bool {
+			return strings.HasPrefix(a, "-o") || strings.HasPrefix(a, "-O") || strings.HasPrefix(a, "--log-file") || strings.HasPrefix(a, "--LOG-FILE")
+		})
+	}
+	if _, ok := readerSpecs[base]; ok && base != "go" {
+		_, reads := readerArgs(base, args)
+		return !reads
+	}
+	return false
+}
+
+// checkWrites refuses a command that writes a file the guard cannot name
+// before the line runs, a secret path or a guard file: each file its
+// redirects open, whatever the program is, and each argument of a program
+// that writes the files its arguments name (writesFiles) or whose name the
+// guard cannot read. words and globs are seg's, from shellWordsGlob.
+func checkWrites(cl *call, seg string, words []string, globs []bool, vars lineVars, home, cwd string) guardDecision {
+	files, fglobs := redirectWrites(seg)
 	for i, f := range files {
-		values, known := vars.expand(cl, f, cwd)
-		if !known {
-			return deny("%s names the file this line writes with a value komando's guard cannot read before the line runs; write to a file named on the line", f)
+		if d := checkWritten(cl, f, fglobs[i], true, vars, home, cwd); d.Deny {
+			return d
 		}
-		for _, w := range values {
-			if why := secretWord(cl, w, home, cwd, globs[i] || w != f && wordHasGlob(w)); why != "" {
-				return deny("%s is %s. komando keeps it away from AI agents; ask the user if you need something from it%s", f, why, viaKomando(why))
+	}
+	prog, args := program(words)
+	if prog == "" {
+		return allow()
+	}
+	progs, known := vars.expand(cl, prog, home, cwd)
+	_, aliased := vars[aliasVar]
+	writes := !known || aliased
+	for _, p := range progs {
+		writes = writes || writesFiles(filepath.Base(p), args)
+	}
+	first := len(words) - len(args)
+	if !writes {
+		return checkOutputOptions(cl, filepath.Base(prog), words[first:], globs[first:], vars, home, cwd)
+	}
+	for _, w := range words[:first-1] {
+		if filepath.Base(w) == "xargs" {
+			return deny("xargs gives %s names of files to change that komando's guard cannot read before the line runs; name the files on the line", filepath.Base(prog))
+		}
+	}
+	for j := first; j < len(words); j++ {
+		if d := checkWritten(cl, words[j], globs[j], false, vars, home, cwd); d.Deny {
+			return d
+		}
+	}
+	if b := filepath.Base(prog); copyPrograms[b] {
+		return checkCopyInto(cl, b, args, globs[first:], vars, home, cwd)
+	}
+	return allow()
+}
+
+// copyPrograms write in a destination folder names the line does not
+// write out (checkCopyInto).
+var copyPrograms = map[string]bool{"cp": true, "mv": true, "install": true, "rsync": true, "ln": true, "link": true}
+
+// outputOptions are the options many programs take for the file they
+// write: cc -o FILE, curl --output FILE, go build -o FILE, openssl -out
+// FILE, wget --output-document FILE. wget's -O and -P are too.
+var outputOptions = map[string]bool{"-o": true, "--output": true, "--output-file": true, "--output-document": true,
+	"-out": true, "--out": true, "--log-file": true, "--logfile": true, "--directory-prefix": true}
+
+// checkOutputOptions checks, as checkWritten does, the file an output
+// option of a program that is not only a reader names (outputOptions).
+// komando's -o is a format, and komando checks the files it writes itself.
+func checkOutputOptions(cl *call, base string, args []string, globs []bool, vars lineVars, home, cwd string) guardDecision {
+	if readOnlyPrograms[base] || base == "komando" {
+		return allow()
+	}
+	for j := 0; j < len(args); j++ {
+		a := args[j]
+		file, glob, ok := "", false, false
+		if name, val, eq := strings.Cut(a, "="); eq && strings.HasPrefix(a, "--") && outputOptions[name] {
+			file, glob, ok = val, globs[j], true
+		} else if (outputOptions[a] || base == "wget" && (a == "-O" || a == "-P")) && j+1 < len(args) {
+			j++
+			file, glob, ok = args[j], globs[j], true
+		}
+		if !ok {
+			continue
+		}
+		if d := checkWritten(cl, file, glob, true, vars, home, cwd); d.Deny {
+			return d
+		}
+	}
+	return allow()
+}
+
+// fdNumber is the file descriptor of >&N, or the - of >&-.
+var fdNumber = regexp.MustCompile(`^([0-9]+|-)$`)
+
+// unreadName says whether the shell gives the word w, a file name, a value
+// the guard does not read: zsh's =NAME (the program NAME in PATH), ~+ and
+// ~- (the working folder and the one before), ~N (a folder on the stack),
+// and ~NAME other than the user's own (another user's home folder, or a
+// zsh named folder: hash -d, or a variable that holds a folder).
+func unreadName(cl *call, w string, vars lineVars, home string) bool {
+	if len(w) > 1 && w[0] == '=' && strings.ContainsRune("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.-", rune(w[1])) {
+		return true
+	}
+	name, _, _ := strings.Cut(strings.TrimPrefix(w, "~"), "/")
+	if !strings.HasPrefix(w, "~") || name == "" {
+		return false
+	}
+	if name != filepath.Base(home) || !userName.MatchString(name) {
+		return true
+	}
+	_, set := vars[name]
+	_, redefined := vars[redefinedVar]
+	return set || redefined || cl.getenv(name) != ""
+}
+
+// checkWritten refuses w, a word that names a file the command writes: a
+// redirect's file, or an argument of a program that writes. Refused are a
+// value the guard cannot read (expand), a relative name after a cd it could
+// not follow (lostDir), a secret path and a guard file. An argument is read
+// as the program reads it too: after = (dd of=FILE, --target-directory=DIR)
+// and after a short option's letters (-tDIR).
+func checkWritten(cl *call, w string, glob, redirect bool, vars lineVars, home, cwd string) guardDecision {
+	shown := strings.ReplaceAll(w, unknownOutput, "$(...)")
+	values, known := vars.expand(cl, w, home, cwd)
+	if !known {
+		return deny("%s names the file this line writes with a value komando's guard cannot read before the line runs; write to a file named on the line", shown)
+	}
+	for _, v := range values {
+		if cwd == lostDir && v != "" && !strings.HasPrefix(v, "-") && !fdNumber.MatchString(v) && !filepath.IsAbs(guardPath(cl, v, home)) {
+			return deny("%s names a file in the folder a cd on this line moved to, which komando's guard cannot know before the line runs; write to a full path", shown)
+		}
+		for _, c := range writtenNames(v, redirect) {
+			if c == "" {
+				continue
 			}
-			if why := guardSelfWhy(guardPathAt(cl, w, home, cwd)); why != "" {
-				return refuseSelf(f, why)
+			if unreadName(cl, c, vars, home) {
+				return deny("%s names the file this line writes with a value komando's guard cannot read before the line runs; write to a file named on the line", shown)
+			}
+			g := glob || c != w && wordHasGlob(c)
+			if !redirect && !g && !looksLikePath(c) {
+				continue
+			}
+			if why := secretWord(cl, c, home, cwd, g); why != "" {
+				return deny("%s is %s. komando keeps it away from AI agents; ask the user if you need something from it%s", shown, why, viaKomando(why))
+			}
+			why := guardSelfWhy(guardPathAt(cl, c, home, cwd))
+			if g {
+				why = guardGlobWhy(cl, c, home, cwd)
+			}
+			if why != "" {
+				return refuseSelf(shown, why)
 			}
 		}
 	}
 	return allow()
 }
 
-// checkWriteToCommandOutput refuses a line that writes to the file a
-// command prints (> $(cat name), > `cat name`): the guard cannot know it
-// before the line runs. $(mktemp ...) makes a new file; withoutCommandOutput
-// checks where.
-func checkWriteToCommandOutput(line string) guardDecision {
-	files, _ := redirectWrites(line)
-	for _, f := range files {
-		if !strings.HasPrefix(f, "$(") && !strings.HasPrefix(f, "`") {
-			continue
-		}
-		if p, _ := program(shellWords(strings.Trim(f, "$()` "))); filepath.Base(p) != "mktemp" {
-			return deny("%s names the file this line writes with a command's output, which komando's guard cannot read before the line runs; write to a file named on the line", f)
+// writtenNames are the file names a value that names a written file can
+// give: the value, and for a program's argument the part after = and each
+// part after a short option's letters (-ft/x gives t/x and /x).
+func writtenNames(v string, redirect bool) []string {
+	names := []string{v}
+	if redirect {
+		return names
+	}
+	if i := strings.IndexByte(v, '='); i > 0 {
+		names = append(names, v[i+1:])
+	}
+	if len(v) > 2 && v[0] == '-' && v[1] != '-' {
+		for k := 2; k < len(v); k++ {
+			names = append(names, v[k:])
+			if c := v[k]; !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z') {
+				break
+			}
 		}
 	}
-	return allow()
+	return names
 }
 
 // writesKomandoByName is a shell line whose program changes a file named by
@@ -623,12 +774,18 @@ func checkSelfWrite(cl *call, line, seg, base string, args []string, home, cwd s
 	if d := checkSelfRedirects(cl, seg, home, cwd); d.Deny || readsOnly(base, args) {
 		return d
 	}
-	for _, a := range args {
+	words, globs := shellWordsGlob(seg)
+	off := len(words) - len(args) // args are the last words of seg
+	for i, a := range args {
 		if strings.HasPrefix(a, "-") {
 			continue
 		}
 		p := guardPathAt(cl, a, home, cwd)
-		if why := guardSelfWhy(p); why != "" && !(why == komandoNamedWhy && komandoWordHarmless(line, p)) {
+		why := guardSelfWhy(p)
+		if off >= 0 && globs[off+i] {
+			why = guardGlobWhy(cl, a, home, cwd)
+		}
+		if why != "" && !(why == komandoNamedWhy && komandoWordHarmless(line, p)) {
 			return refuseSelf(a, why)
 		}
 	}

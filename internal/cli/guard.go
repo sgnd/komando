@@ -235,11 +235,11 @@ func realPath(p string) string {
 }
 
 // guardPathAt is guardPath, with a relative path joined to cwd when cwd is
-// known.
+// known (not "" or lostDir).
 func guardPathAt(cl *call, w, home, cwd string) string {
 	p := guardPath(cl, w, home)
 	if !filepath.IsAbs(p) {
-		if cwd == "" {
+		if cwd == "" || cwd == lostDir {
 			return filepath.Clean(p)
 		}
 		p = lexOrKernel(cwd + string(filepath.Separator) + p)
