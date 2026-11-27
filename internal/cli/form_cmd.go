@@ -456,7 +456,7 @@ func formSentence(s string) string {
 // pasted password or token is refused before it reaches a command line.
 func formRefProblem(v string) string {
 	if !vault.ValidRef(v) {
-		return "type where the secret is kept, like secret:NAME (komando secret list), not the secret itself"
+		return "type where the secret is kept, like secret:NAME (komando credential list), not the secret itself"
 	}
 	return ""
 }

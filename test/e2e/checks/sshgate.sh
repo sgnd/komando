@@ -78,7 +78,7 @@ check "a shell key sends komando shell SERVER only" True "$(ktty gate-sh komando
 check "a key without --shell-access gets no terminal" True "$(ktty gate-rw komando shell gx | grep -q 'PTY allocation request failed' && echo True || echo False)"
 check "a key without --shell-access opens no shell" SSH_GATE_REFUSED "$(kssh gate-rw komando shell gx | code || true)"
 # a server the gate's komando reaches (the bastion, on the same network), its host key pinned by a person here
-echo -n agentpass | gx komando secret set gsh-pass -o json >/dev/null
+echo -n agentpass | gx komando credential password add gsh-pass -o json >/dev/null
 gx komando host add gsh agent@bastion --password-ref secret:gsh-pass -o json >/dev/null
 gx komando test gsh -o json >/dev/null
 # kshell KEY SERVER: komando shell SERVER through the gate, in a 24x80 terminal that
@@ -124,12 +124,12 @@ check "no shell: a second command" SSH_GATE_SYNTAX "$(kssh gate-rw 'komando list
 check "no shell: a login" SSH_GATE_REFUSED "$(kssh gate-rw | code || true)"
 # sftp gets ssh-gate's refusal instead of its protocol and gives up (exit 255 or 1)
 check "no file copy (sftp)" True "$(if echo ls | sftp -b - -P "$E2E_SSH_DIRECT" -i "$TMP/gate-rw" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR agent@127.0.0.1 >/dev/null 2>&1; then echo False; else echo True; fi)"
-check "--reveal is refused" SSH_GATE_REFUSED "$(kssh gate-rw komando secret get gx-pass --reveal -o json | code || true)"
-check "a person's command is refused" SSH_GATE_REFUSED "$(kssh gate-rw komando secret passphrase -o json | code || true)"
-check "no key sets a secret" SSH_GATE_REFUSED "$(kssh gate-rw komando secret set gx-other -o json | code || true)"
+check "--reveal is refused" SSH_GATE_REFUSED "$(kssh gate-rw komando credential password show gx-pass --reveal -o json | code || true)"
+check "a person's command is refused" SSH_GATE_REFUSED "$(kssh gate-rw komando config vault passphrase -o json | code || true)"
+check "no key sets a secret" SSH_GATE_REFUSED "$(kssh gate-rw komando credential password add gx-other -o json | code || true)"
 # a secret a person stored, never shown to a key; the vault keeps its key in vault.key here
-check "a person sets a secret here" True "$(echo -n gx-s3cret | gx komando secret set gx-pass -o json | jget 'd["ok"]')"
-check "the value never comes back" False "$(kssh gate-ro komando secret get gx-pass -o json | mentions gx-s3cret)"
+check "a person sets a secret here" True "$(echo -n gx-s3cret | gx komando credential password add gx-pass -o json | jget 'd["ok"]')"
+check "the value never comes back" False "$(kssh gate-ro komando credential password show gx-pass -o json | mentions gx-s3cret)"
 check "no keychain here: the store's key is a file" True "$(gx test -f /home/agent/.komando/store.key && echo True || echo False)"
 # the komando a key runs is an agent: --yes on a protected server needs a person, who is not at this screen
 gx komando host edit gx --protected -o json >/dev/null

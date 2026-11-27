@@ -177,7 +177,7 @@ func secretDiff(stored, given string) string {
 }
 
 const secretLong = `Save a password once, then point to it as secret:NAME instead of typing it:
-  komando secret set web1-pass
+  komando credential password add web1-pass
   komando host edit web1 --password-ref secret:web1-pass
 
 komando shows a saved value only to a person: at a terminal with
@@ -263,7 +263,7 @@ VPN that used secret:OLD at secret:NEW in the same step, so nothing stops
 working and nobody types the value again. The value is never printed, so an
 AI agent can do this too. Scripts or notes of your own that name secret:OLD
 are not changed.`
-		example = "  komando secret rename vpn-password office-vpn-pass --dry-run\n  komando secret rename vpn-password office-vpn-pass"
+		example = "  komando credential password rename vpn-password office-vpn-pass --dry-run\n  komando credential password rename vpn-password office-vpn-pass"
 	}
 	c := &cobra.Command{
 		Use:     verb + " OLD NEW",
@@ -403,12 +403,12 @@ made before opens nothing either, and the vault keeps every secret.
 
 Only a person at a terminal moves the key in: the keychain may ask them to
 unlock it, and an AI agent or a script cannot answer that.`,
-		Example: "  komando secret keychain\n  komando secret keychain --off --yes",
+		Example: "  komando config vault keychain\n  komando config vault keychain --off --yes",
 		Args:    cobra.NoArgs,
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if !off && (cl.isAgent() || !cl.interactive()) {
 				// an unlock prompt nobody answers would keep komando waiting
-				err := cl.policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask the user to run `komando secret keychain` in their own terminal",
+				err := cl.policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask the user to run `komando config vault keychain` in their own terminal",
 					"only a person at a terminal can move the vault key into the keychain: it may ask them to unlock it"))
 				if err != nil {
 					return err
@@ -459,10 +459,10 @@ func secretInUse(name string, users []string) error {
 	hint := map[string]string{
 		"host": "komando host edit " + who + " --password-ref ... (or --sudo-ref ..., --env ...)",
 		"conn": "komando conn edit " + who + " --password-ref ...",
-		"key":  "komando key edit " + who + " --passphrase-ref ...",
+		"key":  "komando credential key edit " + who + " --passphrase-ref ...",
 		"vpn":  "komando vpn edit " + who + " ...",
 	}[kind]
-	return out.Errf(out.ExitConflict, "SECRET_IN_USE", "point them at another secret first, for example `"+hint+"`, or rename it with `komando secret rename`",
+	return out.Errf(out.ExitConflict, "SECRET_IN_USE", "point them at another secret first, for example `"+hint+"`, or rename it with `komando credential password rename`",
 		"secret %s is used by %s", name, strings.Join(users, ", "))
 }
 

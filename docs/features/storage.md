@@ -18,7 +18,7 @@ key goes in the vault, like a password: `--ask-password` asks for it
 (hidden), or store it first and point at it:
 
 ```bash
-komando secret set backups-secret
+komando credential password add backups-secret
 komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --password-ref secret:backups-secret
 ```
 
@@ -51,7 +51,7 @@ still checks the certificate fully. Without it, the error is
 `STORAGE_TLS` with this hint.
 
 ```bash
-komando secret set corp-ca < corp-ca.crt
+komando credential token add corp-ca < corp-ca.crt
 komando storage add minio 's3://AKIAEXAMPLE@media?endpoint=https://minio.corp.lan:9000&ca=secret:corp-ca' --ask-password
 ```
 
@@ -295,10 +295,10 @@ stores; it asks first like any `rm`.
 
 ```bash
 komando storage add media gs://my-bucket/site                     # logs in like gcloud
-komando secret set media-sa < key.json                            # or a service account key
+komando credential token add media-sa < key.json                            # or a service account key
 komando conn edit media --password-ref secret:media-sa
 
-komando secret set files-key                                      # key1 from the portal, or a SAS token
+komando credential password add files-key                                      # key1 from the portal, or a SAS token
 komando storage add files azblob://mystorageacct@uploads/2026 --password-ref secret:files-key
 ```
 
@@ -332,7 +332,7 @@ Web hosting and older systems often give you only file access. Add the
 server as a conn:
 
 ```bash
-komando secret set hosting-pass
+komando credential password add hosting-pass
 komando storage add site 'ftps://deploy@files.example.com/public_html' --password-ref secret:hosting-pass
 komando storage list site --recursive
 komando upload site ./index.html index.html
@@ -362,7 +362,7 @@ A shared folder on a Windows server, Samba, a NAS or Azure Files (the
 `\\fileserver\team` you open in Explorer) is a conn too:
 
 ```bash
-komando secret set team-share
+komando credential password add team-share
 komando storage add team 'smb://alice@fileserver.corp.lan/team/reports?domain=CORP' --password-ref secret:team-share
 komando storage list team
 komando upload team ./q3.pdf 2026/q3.pdf

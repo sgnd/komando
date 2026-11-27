@@ -37,7 +37,7 @@ Or store it first, or point at your password manager (see
 [Secrets](secrets.md)):
 
 ```bash
-komando secret set prod-db-pass
+komando credential password add prod-db-pass
 komando db add prod-db postgres://app@10.0.0.5:5432/app --via web1 --password-ref secret:prod-db-pass --protected
 ```
 
@@ -576,7 +576,7 @@ agrees.
 ## Users and grants
 
 ```bash
-komando secret set app-ro-pass                                  # the password goes to the vault first
+komando credential password add app-ro-pass                                  # the password goes to the vault first
 komando db user add prod-db app_ro --password-ref secret:app-ro-pass
 komando db grant prod-db app_ro --privileges SELECT --on all-tables:public
 komando db user show prod-db app_ro                             # what it may do now
@@ -714,7 +714,7 @@ giving them the password:
   `sslmode=require`, and never without TLS:
 
   ```bash
-  komando secret set rds-ca < global-bundle.pem
+  komando credential token add rds-ca < global-bundle.pem
   komando db add prod-db 'postgres://app@orders.abc123.eu-west-1.rds.amazonaws.com/orders?ca=secret:rds-ca' --password-ref secret:prod-db-pass
   ```
 
@@ -732,7 +732,7 @@ JSON instead of SQL: its first key names the command, as in `runCommand`.
 `db schema`, `db info`, `db explain` and `db activity` work too.
 
 ```bash
-komando secret set shop-mongo-pass
+komando credential password add shop-mongo-pass
 komando db add shop-mongo 'mongodb://app@db1.internal,db2.internal/shop?replicaSet=rs0&authSource=admin' --via web1 --password-ref secret:shop-mongo-pass
 komando db query shop-mongo '{"find": "orders", "filter": {"status": "open"}, "sort": {"_id": -1}, "limit": 10}'
 komando db query shop-mongo '{"aggregate": "orders", "pipeline": [{"$group": {"_id": "$status", "n": {"$sum": 1}}}], "cursor": {}}'
@@ -784,7 +784,7 @@ SQL Server (and Azure SQL Managed Instance) conns take the same `db`
 commands as PostgreSQL and MySQL, in T-SQL:
 
 ```bash
-komando secret set sales-pass
+komando credential password add sales-pass
 komando db add sales 'sqlserver://app@db.internal:1433/sales?encrypt=true' --password-ref secret:sales-pass
 komando db query sales "select top (10) id, email from dbo.users order by id desc"
 komando db query sales "select * from dbo.users where email = @p1" --arg bob@example.com
@@ -855,7 +855,7 @@ Oracle Database conns (19c and later, and Oracle Database Free) take the
 same `db` commands, in Oracle SQL:
 
 ```bash
-komando secret set erp-pass
+komando credential password add erp-pass
 komando db add erp 'oracle://app@db.internal:1521/ERPPDB?tls=true' --password-ref secret:erp-pass
 komando db query erp "select id, email from app.users order by id desc fetch first 10 rows only"
 komando db query erp "select * from app.users where email = :1" --arg bob@example.com
@@ -942,7 +942,7 @@ TLS, 8123 without) with its own client, so nothing else needs to be
 installed:
 
 ```bash
-komando secret set events-pass
+komando credential password add events-pass
 komando db add events 'clickhouse://app@ch.internal:8443/analytics?tls=true' --password-ref secret:events-pass
 komando db query events "select event, count() from hits where day = today() group by event order by 2 desc limit 10"
 komando db query events "select * from hits where user_id = {p1:UInt64} limit 10" --arg 42
@@ -1013,7 +1013,7 @@ speaks Snowflake's SQL API (HTTPS) with its own client, so nothing else
 needs to be installed:
 
 ```bash
-komando secret set analytics-key < rsa_key.p8      # the user's private key (key-pair login)
+komando credential token add analytics-key < rsa_key.p8      # the user's private key (key-pair login)
 komando db add analytics 'snowflake://APP_RO@myorg-myaccount/ANALYTICS/PUBLIC?warehouse=REPORTING&role=ANALYST_RO' --password-ref secret:analytics-key
 komando db query analytics "select region, sum(total) from orders where placed > ? group by 1" --arg 2026-01-01
 komando db schema analytics public.orders          # columns, primary key, clustering key
@@ -1126,7 +1126,7 @@ komando db kill warehouse 4387013457812345          # the pid db activity shows
   file) in `--password-ref`:
 
   ```bash
-  komando secret set warehouse-key < key.json
+  komando credential token add warehouse-key < key.json
   komando db add warehouse 'bigquery://my-project/analytics' --password-ref secret:warehouse-key
   ```
 

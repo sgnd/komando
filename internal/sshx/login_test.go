@@ -169,11 +169,11 @@ func TestEncryptedKeyFromAgent(t *testing.T) {
 		{name: "identity in the agent", inAgent: true},
 		{name: "keychain key in the agent", setup: setup{viaKey: true}, inAgent: true},
 		{name: "agent holds other keys", setup: setup{agentKeys: []any{otherKey()}}, code: "KEY_PASSPHRASE_REQUIRED",
-			inHint:   []string{"load it with `ssh-add ~/.ssh/id_ed25519`", "`komando secret set id_ed25519-pass`", "`komando key add id_ed25519 ~/.ssh/id_ed25519 --passphrase-ref secret:id_ed25519-pass`", "`komando host edit web1 --key id_ed25519 --unset identity`"},
+			inHint:   []string{"load it with `ssh-add ~/.ssh/id_ed25519`", "`komando credential password add id_ed25519-pass`", "`komando credential key add id_ed25519 ~/.ssh/id_ed25519 --passphrase-credential id_ed25519-pass`", "`komando host edit web1 --key id_ed25519 --unset identity`"},
 			notHints: []string{"start ssh-agent", "<name>"}},
 		{name: "no agent", code: "KEY_PASSPHRASE_REQUIRED", inHint: []string{"start ssh-agent and load it with `ssh-add ~/.ssh/id_ed25519`"}},
 		{name: "keychain key, agent holds other keys", setup: setup{agentKeys: []any{otherKey()}, viaKey: true}, code: "KEY_PASSPHRASE_REQUIRED",
-			inHint:   []string{"`komando secret set work-pass`, then `komando key edit work --passphrase-ref secret:work-pass`"},
+			inHint:   []string{"`komando credential password add work-pass`, then `komando credential key edit work --passphrase-credential work-pass`"},
 			notHints: []string{"<name>", "key add"}},
 	}
 	for _, tc := range cases {
@@ -428,7 +428,7 @@ func TestNoAuthHints(t *testing.T) {
 		{"encrypted default key, no agent", true, "unset", []string{"start ssh-agent, then run `ssh-add ~/.ssh/id_ed25519`"}, nil},
 		{"encrypted default key, agent down", true, "down", []string{"`ssh-add ~/.ssh/id_ed25519`"}, []string{"start ssh-agent"}},
 		{"empty agent", false, "empty", []string{"run `ssh-add`"}, []string{"start ssh-agent"}},
-		{"no agent", false, "unset", []string{"save its password: `komando secret set web1-pass`, then `komando host edit web1 --password-ref secret:web1-pass` (or --key KEY)", "start ssh-agent"}, nil},
+		{"no agent", false, "unset", []string{"save its password: `komando credential password add web1-pass`, then `komando host edit web1 --password-ref secret:web1-pass` (or --key KEY)", "start ssh-agent"}, nil},
 		{"agent down", false, "down", []string{"`komando host edit web1 --password-ref secret:web1-pass`"}, []string{"start ssh-agent"}},
 	}
 	for _, tc := range cases {
@@ -471,7 +471,7 @@ func TestAuthFailedHint(t *testing.T) {
 		h    *store.Host
 		want string
 	}{
-		{&store.Host{Name: "web1", PasswordRef: "secret:web1-pass"}, "`komando secret set web1-pass`"},
+		{&store.Host{Name: "web1", PasswordRef: "secret:web1-pass"}, "`komando credential password add web1-pass`"},
 		{&store.Host{Name: "web1", PasswordRef: "env:WEB1_PASS"}, "the password that env:WEB1_PASS holds"},
 		{&store.Host{Name: "web1", Key: "work"}, "check the user and key with `komando host show web1`"},
 		{&store.Host{Name: "u@10.0.0.1:22"}, "`komando host add NAME u@10.0.0.1:22 --key KEY`"},
@@ -532,7 +532,7 @@ func TestHostKeyMismatchShowsTheFingerprint(t *testing.T) {
 
 func TestSudoHintNamesTheHost(t *testing.T) {
 	got := sudoHint(&store.Host{Name: "web1"})
-	if strings.Contains(got, "<") || !strings.Contains(got, "`komando secret set web1-sudo`, then run `komando host edit web1 --sudo-ref secret:web1-sudo`") {
+	if strings.Contains(got, "<") || !strings.Contains(got, "`komando credential password add web1-sudo`, then run `komando host edit web1 --sudo-ref secret:web1-sudo`") {
 		t.Errorf("hint: %s", got)
 	}
 	if got := sudoHint(&store.Host{Name: "u@10.0.0.1"}); strings.Contains(got, "host edit") || strings.Contains(got, "<") {

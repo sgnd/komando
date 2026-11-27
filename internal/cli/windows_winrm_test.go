@@ -172,14 +172,14 @@ func TestSecretRefInWinRMCA(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	d := mustRun(t, "secret", "list")
+	d := mustRun(t, "credential", "list")
 	row := d["secrets"].([]any)[0].(map[string]any)
 	if u := row["used_by"].([]any); len(u) != 1 || u[0] != "host win2" {
 		t.Errorf("secret list used_by: %v", row)
 	}
-	wantCode(t, "SECRET_IN_USE", "secret", "rm", "corp-ca")
+	wantCode(t, "SECRET_IN_USE", "credential", "password", "remove", "corp-ca")
 
-	d = mustRun(t, "secret", "mv", "corp-ca", "win-ca")
+	d = mustRun(t, "credential", "password", "rename", "corp-ca", "win-ca")
 	if u := d["updated"].([]any); len(u) != 1 || u[0] != "host win2" {
 		t.Errorf("mv: %v", d)
 	}

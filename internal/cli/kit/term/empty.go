@@ -5,7 +5,7 @@ import "strings"
 // What a list says on stdout when it shows nothing (S-9.5), in one of two
 // forms, so a person reads the same words in every list:
 //
-//	no SSH keys yet: `komando key gen NAME`
+//	no SSH keys yet: `komando credential key create NAME`
 //	no cache keys match "user:*"
 //
 // JSON keeps its empty array.

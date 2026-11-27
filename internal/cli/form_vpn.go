@@ -332,7 +332,7 @@ func tailscaleForm(_ *call) formSpec {
 			def:  func(*store.State, formAnswers) string { return "browser" },
 			choices: func(*store.State, formAnswers) []pickRow {
 				return []pickRow{{label: "Sign in with my browser", detail: "komando vpn up shows a link; you sign in as in the Tailscale app", value: "browser"},
-					{label: "An auth key", detail: "komando secret set asks for it next, hidden; then komando connects by itself", value: "authkey"}}
+					{label: "An auth key", detail: "komando credential password add asks for it next, hidden; then komando connects by itself", value: "authkey"}}
 			}},
 		vpnCheckQ(false, "100.64.0.5:22"),
 		formMore(formQ{key: "server", label: "Headscale", ask: "Do you use your own Headscale server? Its address:", optional: true,

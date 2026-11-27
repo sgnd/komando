@@ -39,7 +39,7 @@ for _ in $(seq 1 180); do [ "$(docker exec "$SERVER" sh -c 'grep -l "Initializat
 [ "$ready" = 1 ] || fail "the OpenVPN servers did not start within 180 s (apk add openvpn, or a server config)"
 
 routes_before=$(docker exec "$CLIENT" sh -c 'ip route; ip addr' | md5sum)
-in_client sh -c 'printf e2e-pass | komando secret set ovpn-pass' >/dev/null
+in_client sh -c 'printf e2e-pass | komando credential password add ovpn-pass' >/dev/null
 # name profile check-address [extra vpn add flags]
 for spec in "office tcp 10.8.0.1:1194" "crypt crypt 10.9.0.1:1194" "oldstyle auth 10.10.0.1:1194" "login login 10.11.0.1:1194 --user e2e-user --password-ref secret:ovpn-pass"; do
   set -- $spec
@@ -85,7 +85,7 @@ echo "ok   keys from the OpenVPN PRF (no TLS key export)"
 in_client komando vpn down --all >/dev/null
 
 # a wrong password is named
-in_client sh -c 'printf nope | komando secret set ovpn-wrong' >/dev/null
+in_client sh -c 'printf nope | komando credential password add ovpn-wrong' >/dev/null
 in_client komando vpn add badlogin openvpn --config /pki/login.ovpn --check 10.11.0.1:1194 --user e2e-user --password-ref secret:ovpn-wrong >/dev/null
 out=$(in_client komando test badlogin || true)
 grep -q 'refused the login' <<<"$out" || { echo "$out"; in_client tail -5 /tmp/k/vpn/badlogin.log || true; fail "a wrong password says so"; }

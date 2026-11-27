@@ -60,7 +60,7 @@ Options go after `?`, joined with `&`:
 
 | Option | Means |
 |--------|-------|
-| `ca=secret:NAME` | the certificate comes from your own CA: store its PEM with `komando secret set NAME < ca.crt` (the check stays on) |
+| `ca=secret:NAME` | the certificate comes from your own CA: store its PEM with `komando credential token add NAME < ca.crt` (the check stays on) |
 | `auth=basic` | Basic login (local accounts only) instead of NTLM; over plain HTTP (`tls=off`) it is refused (`WINRM_INSECURE`) |
 | `tls=skip-verify` | do not check the certificate (komando warns: anyone in between can pose as the server) |
 | `tls=off` | plain HTTP on port 5985: commands and output travel unencrypted, and the server must allow it |

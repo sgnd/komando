@@ -147,7 +147,7 @@ var srvUserCronHints = map[string]formHint{
 			help: "Small letters, digits, - and _. Nothing happens when the user is there already."}},
 		flags: []formFlag{
 			{name: "key", pick: "key", ask: "Which of your komando keys may log in as this user?",
-				help: "Leave empty to add no key. `komando key list` shows your keys."},
+				help: "Leave empty to add no key. `komando credential key list` shows your keys."},
 			{name: "admin", ask: "Make this user an admin (allowed to use sudo)?"},
 		},
 	},

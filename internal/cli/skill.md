@@ -135,7 +135,7 @@ not know? Set `KOMANDO_AGENT=1`.
      (`{{secret:NAME}}` becomes the vault value on the server). Text that
      still holds `[hidden]` is never written (`HIDDEN_VALUE`).
    - Sending a secret somewhere (that `fs replace`, `--env K=secret:NAME`,
-     `komando secret run --env K=secret:NAME -- COMMAND` on this computer,
+     `komando credential run --env K=secret:NAME -- COMMAND` on this computer,
      a password reference on a new or moved server, conn or VPN) stops with
      `SECRET_DESTINATION`: tell the human which secret goes where, and when
      they agree, re-run with `--yes`.
@@ -145,9 +145,9 @@ not know? Set `KOMANDO_AGENT=1`.
      a real value.
    - `secret show --reveal` and `key show --reveal` are for people only
      (`REVEAL_NEEDS_TERMINAL`), and so is `secret check` (`NEEDS_PERSON`). For a password only the human
-     knows, ask them to run `komando secret set NAME` in their own terminal
+     knows, ask them to run `komando credential password add NAME` in their own terminal
      (it asks for it hidden). Never ask for a password in the chat.
-   - Rename or copy a secret with `komando secret rename OLD NEW` or
+   - Rename or copy a secret with `komando credential password rename OLD NEW` or
      `secret cp OLD NEW` (references follow a rename; the value is never shown)
      instead of asking the human to type it again.
    - Refer to secrets as `secret:NAME`; never put a secret value on a

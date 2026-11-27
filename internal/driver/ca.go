@@ -33,7 +33,7 @@ func parseCA(q url.Values, t *Target) error {
 	ca := q.Get("ca")
 	if name, ok := strings.CutPrefix(ca, "secret:"); !ok || name == "" {
 		return out.Errf(out.ExitUsage, "USAGE",
-			"store the CA certificate with `komando secret set NAME < ca.crt`, then use ?ca=secret:NAME",
+			"store the CA certificate with `komando credential token add NAME < ca.crt`, then use ?ca=secret:NAME",
 			"the %s ca option takes secret:NAME, not %q", t.Kind.Name, ca)
 	}
 	t.CA = ca
@@ -104,7 +104,7 @@ func (t Target) CAPEM() (string, error) {
 		if errors.Is(err, ErrSecretNotFound) {
 			code = "SECRET_NOT_FOUND"
 		}
-		return "", out.Errf(out.ExitNotFound, code, "store the CA certificate with `komando secret set NAME < ca.crt`",
+		return "", out.Errf(out.ExitNotFound, code, "store the CA certificate with `komando credential token add NAME < ca.crt`",
 			"%s CA %s: %v", t.Kind.Name, t.CA, err)
 	}
 	var b strings.Builder
@@ -123,7 +123,7 @@ func (t Target) CAPEM() (string, error) {
 		_ = pem.Encode(&b, &pem.Block{Type: blk.Type, Bytes: blk.Bytes})
 	}
 	if b.Len() == 0 {
-		return "", out.Errf(out.ExitUsage, "BAD_CA", "store the CA certificate (PEM, -----BEGIN CERTIFICATE-----) with `komando secret set NAME < ca.crt`",
+		return "", out.Errf(out.ExitUsage, "BAD_CA", "store the CA certificate (PEM, -----BEGIN CERTIFICATE-----) with `komando credential token add NAME < ca.crt`",
 			"%s CA %s holds no PEM certificate", t.Kind.Name, t.CA)
 	}
 	return b.String(), nil

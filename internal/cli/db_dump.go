@@ -613,7 +613,7 @@ func runTool(cl *call, ctx context.Context, st *store.State, c *store.Conn, h *s
 		return err
 	}
 	if strings.ContainsAny(password, "\r\n") {
-		return out.Errf(out.ExitUsage, "BAD_SECRET", "store the password again without line breaks (`komando secret set NAME`)", "the password for %s contains a line break", c.Name)
+		return out.Errf(out.ExitUsage, "BAD_SECRET", "store the password again without line breaks (`komando credential password add NAME`)", "the password for %s contains a line break", c.Name)
 	}
 	if cl.flags.timeout > 0 {
 		var cancel context.CancelFunc

@@ -16,8 +16,8 @@ if ! BQC exec -T bigquery test -s /e2e/sa.json 2>/dev/null; then
   set -e
   return 0
 fi
-BQC exec -T bigquery cat /e2e/ca.crt | $K secret set bq-ca >/dev/null
-BQC exec -T bigquery cat /e2e/sa.json | $K secret set bq-sa >/dev/null
+BQC exec -T bigquery cat /e2e/ca.crt | $K credential token add bq-ca >/dev/null
+BQC exec -T bigquery cat /e2e/sa.json | $K credential password add bq-sa >/dev/null
 q $K conn add bq 'bigquery://e2e-project/shop?location=EU&endpoint=https://bigquery.e2e.internal&ca=secret:bq-ca' --via bastion --password-ref secret:bq-sa
 check "bigquery conn test logs in with a service account key through --via" login "$($K conn test bq | jget 'd["data"]["results"][0]["detail"]["check"]')"
 check "bigquery reads with a ? placeholder" "['hi', 42]" "$($K db query bq 'select ? as greeting, 42 as n' --arg hi | jget 'd["data"]["results"][0]["rows"][0]')"
@@ -43,5 +43,5 @@ check "bigquery: a certificate from an unknown CA is refused" DB_CONNECT "$($K d
 check "no bigquery key in the audit log" 0 "$(audit_text | grep -c 'PRIVATE KEY' || true)"
 q $K conn rm bq
 q $K conn rm bq-noca
-$K secret rm bq-ca bq-sa --allow-dangerous >/dev/null 2>&1 || true
+$K credential password remove bq-ca bq-sa --allow-dangerous >/dev/null 2>&1 || true
 set -e

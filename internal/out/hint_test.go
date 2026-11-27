@@ -47,7 +47,7 @@ func TestErrorJSONAlwaysHasHint(t *testing.T) {
 		t.Errorf("no default hint: %s", buf.String())
 	}
 	buf.Reset()
-	p.Print("x", map[string]any{"results": []*Error{{Code: "X_Y", Message: "m", Hint: "store it with `komando secret set NAME < ca.crt`"}}}, nil)
+	p.Print("x", map[string]any{"results": []*Error{{Code: "X_Y", Message: "m", Hint: "store it with `komando credential token add NAME < ca.crt`"}}}, nil)
 	if !strings.Contains(buf.String(), "NAME < ca.crt") {
 		t.Errorf("own hint changed: %s", buf.String())
 	}

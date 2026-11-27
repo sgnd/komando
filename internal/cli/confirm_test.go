@@ -72,7 +72,7 @@ func TestWouldNeedEveryFlag(t *testing.T) {
 	if e := wantCode(t, "POLICY_BLOCKED", "fs", "rm", "prod1", "/tmp/x"); !strings.Contains(e.Hint, "--allow-dangerous and --yes") {
 		t.Errorf("fs rm hint: %q", e.Hint)
 	}
-	_, text = runMain(t, "--dry-run", "secret", "rm", "nothing-here")
+	_, text = runMain(t, "--dry-run", "credential", "password", "remove", "nothing-here")
 	if strings.Contains(text, "would_need") {
 		t.Errorf("a missing secret stops before the gate: %s", text)
 	}

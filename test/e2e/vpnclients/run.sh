@@ -41,7 +41,7 @@ sleep 5
 
 echo "==> openconnect family (ocserv, AnyConnect protocol)"
 in_client sh -c 'cp /certs/ca.crt /usr/local/share/ca-certificates/e2e.crt && update-ca-certificates >/dev/null 2>&1'
-in_client sh -c 'printf ocpass | komando secret set oc-pass' >/dev/null
+in_client sh -c 'printf ocpass | komando credential password add oc-pass' >/dev/null
 in_client komando vpn add oc anyconnect --portal https://ocserv --user e2e --password-ref secret:oc-pass --check 192.168.99.1:7000 >/dev/null
 [ "$(kc test oc | jget 'd["data"]["summary"]["ok"]')" = 1 ] || fail "anyconnect connects" ocserv
 ok "anyconnect connects on demand and reaches the VPN side"
@@ -65,7 +65,7 @@ ok "komando status lists the session"
 in_client komando vpn down oc >/dev/null
 gone komando || fail "the AnyConnect session process left running"
 ok "vpn down ends the session"
-in_client sh -c 'printf wrong | komando secret set oc-wrong' >/dev/null
+in_client sh -c 'printf wrong | komando credential password add oc-wrong' >/dev/null
 in_client komando vpn add oc-bad anyconnect --portal https://ocserv --user e2e --password-ref secret:oc-wrong --check 192.168.99.1:7000 >/dev/null
 out=$(in_client komando test oc-bad || true)
 grep -qi 'refused' <<<"$out" || { echo "$out"; fail "a wrong password is named"; }
@@ -81,7 +81,7 @@ sleep 2
 "${DC[@]}" exec -T peer tailscale up --login-server=http://headscale:8080 --authkey="$KEY" --hostname=peer >/dev/null
 "${DC[@]}" exec -T -d peer sh -c 'while true; do nc -l -p 7000 >/dev/null 2>&1; done'
 PEER_IP=$("${DC[@]}" exec -T peer tailscale ip -4 | tr -d '\r')
-in_client sh -c "printf %s '$KEY' | komando secret set ts-key" >/dev/null
+in_client sh -c "printf %s '$KEY' | komando credential password add ts-key" >/dev/null
 in_client komando vpn add tailnet tailscale --server http://headscale:8080 --password-ref secret:ts-key --check "$PEER_IP:7000" >/dev/null
 [ "$(kc test tailnet | jget 'd["data"]["summary"]["ok"]')" = 1 ] || fail "tailscale connects"
 ok "tailscale connects on demand and reaches a tailnet node ($PEER_IP)"

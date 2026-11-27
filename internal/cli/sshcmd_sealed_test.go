@@ -30,7 +30,7 @@ func TestSSHCommandSealedHome(t *testing.T) {
 		t.Fatalf("known_hosts copy %s: %v", kh, err)
 	}
 
-	mustRun(t, "key", "gen", "k1")
+	mustRun(t, "credential", "key", "create", "k1")
 	mustRun(t, "host", "edit", "web1", "--key", "k1")
 	t.Setenv("SSH_AUTH_SOCK", "")
 	if _, e := invRun(t, "host", "ssh-command", "web1"); e == nil || e.Code != "SSH_AGENT_NEEDED" || !strings.Contains(e.Hint, "komando shell") {
@@ -99,7 +99,7 @@ func TestSSHCommandSealedKeyGoesToAgent(t *testing.T) {
 	}
 	t.Cleanup(func() { openAgent = saved })
 
-	mustRun(t, "key", "gen", "k1")
+	mustRun(t, "credential", "key", "create", "k1")
 	mustRun(t, "host", "add", "bastion", "ops@10.0.0.9", "--key", "k1")
 	mustRun(t, "host", "add", "web1", "deploy@10.0.0.1", "--key", "k1", "--via", "bastion")
 	d := mustRun(t, "host", "ssh-command", "web1")

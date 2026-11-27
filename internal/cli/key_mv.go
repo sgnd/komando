@@ -36,8 +36,8 @@ func keyMvCmd() *cobra.Command {
 key komando made (key gen) lives in the sealed store, so no file moves; a key
 added from elsewhere (key add) stays where it is. Public keys already installed on servers keep their comment: they
 still work, since the key itself does not change.`,
-		Example: `  komando key rename deploy deploy-2026
-  komando key rename old-ci ci --dry-run`,
+		Example: `  komando credential key rename deploy deploy-2026
+  komando credential key rename old-ci ci --dry-run`,
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			from, to := args[0], args[1]

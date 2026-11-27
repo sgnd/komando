@@ -2,9 +2,9 @@
 # db user / grant / revoke against PostgreSQL and MariaDB, through the
 # bastion. The proof that the password (from the vault) is right: the new
 # user logs in with it. Self-cleaning.
-printf 'Ro-pass-1' | $K secret set dbu-pass >/dev/null
-printf 'Ro-pass-2' | $K secret set dbu-pass2 >/dev/null
-printf rootpass | $K secret set dbu-root >/dev/null
+printf 'Ro-pass-1' | $K credential password add dbu-pass >/dev/null
+printf 'Ro-pass-2' | $K credential password add dbu-pass2 >/dev/null
+printf rootpass | $K credential password add dbu-root >/dev/null
 q $K conn add dbu-pg 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref secret:pg-pass
 q $K db query dbu-pg --write "create table if not exists dbu_t(id int)"
 q $K db query dbu-pg --write "insert into dbu_t values (1)"
@@ -41,4 +41,4 @@ q $K db user rm dbu-my dbu_ro --allow-dangerous --yes
 check "mariadb: the user is gone" False "$($K db user ls dbu-my | jget 'any(u["name"]=="dbu_ro" for u in d["data"]["users"])')"
 q $K conn rm dbu-my dbu-my-ro --yes
 check "no db user password in the audit log" 0 "$(audit_text | grep -c 'Ro-pass' || true)"
-$K secret rm dbu-pass dbu-pass2 dbu-root --allow-dangerous >/dev/null 2>&1 || true
+$K credential password remove dbu-pass dbu-pass2 dbu-root --allow-dangerous >/dev/null 2>&1 || true

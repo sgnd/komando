@@ -21,7 +21,7 @@ func TestAskPassword(t *testing.T) {
 	if e.Exit != out.ExitPolicy {
 		t.Errorf("a password nobody can type here: exit %d, want 6 (C79)", e.Exit)
 	}
-	if !strings.Contains(e.Hint, "komando secret set vps1-pass") {
+	if !strings.Contains(e.Hint, "komando credential password add vps1-pass") {
 		t.Errorf("script hint: %q", e.Hint)
 	}
 	// an agent
@@ -93,7 +93,7 @@ func TestAskPassword(t *testing.T) {
 func TestAddWarnsAndSaysNext(t *testing.T) {
 	invHome(t)
 	d := mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--password-ref", "secret:web1-pas")
-	if !strings.Contains(fmtAny(d["warnings"]), "secret web1-pas is not in the vault yet: store it with `komando secret set web1-pas`") {
+	if !strings.Contains(fmtAny(d["warnings"]), "secret web1-pas is not in the vault yet: store it with `komando credential password add web1-pas`") {
 		t.Errorf("host add: %v", d)
 	}
 	d = mustRun(t, "conn", "edit", mustConn(t), "--password-ref", "secret:db-pas")
@@ -125,7 +125,7 @@ func TestRmNamesUnusedSecrets(t *testing.T) {
 	if _, err := vault.Get("db-pass"); err != nil {
 		t.Error("komando removed the secret by itself")
 	}
-	if s := (rmResult{Removed: []string{"db1"}, SecretsUnused: []string{"db-pass"}}).Text(); !strings.Contains(s, "removed db1\ndb-pass is no longer used: `komando secret rm db-pass`") {
+	if s := (rmResult{Removed: []string{"db1"}, SecretsUnused: []string{"db-pass"}}).Text(); !strings.Contains(s, "removed db1\ndb-pass is no longer used: `komando credential password remove db-pass`") {
 		t.Errorf("text: %q", s)
 	}
 }
@@ -136,7 +136,7 @@ func TestChangeTextInWords(t *testing.T) {
 	for got, want := range map[string]string{
 		policyChange{Custom: []string{"a", "b"}, Added: &added, pattern: "b"}.denied(tcl).TextFor(realRun()):                       "added the deny rule b as " + policy.CustomID("b") + " (2 custom rules now)\n",
 		policyChange{Custom: []string{"a"}, Removed: "b"}.TextFor(realRun()):                                                       "removed the deny rule b (1 custom rule left)\n",
-		exportResult{File: "f.json", Hosts: 2, Conns: 1, SecretsNeeded: []string{"p"}}.Text():                                      "saved 2 servers, 1 conn to f.json (no passwords)\nset again on the other computer: p (`komando secret set NAME`)\n",
+		exportResult{File: "f.json", Hosts: 2, Conns: 1, SecretsNeeded: []string{"p"}}.Text():                                      "saved 2 servers, 1 conn to f.json (no passwords)\nset again on the other computer: p (`komando credential password add NAME`)\n",
 		renderedText(t, map[string]any{"name": "app-db-pass", "action": "stored", "replaced": false, "ref": "secret:app-db-pass"}): "stored app-db-pass\n  ref: secret:app-db-pass\n",
 	} {
 		if got != want {

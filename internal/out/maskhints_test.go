@@ -13,7 +13,7 @@ import (
 )
 
 // komando's own words reach AI agents through the masker. A hint that
-// names the next command ("save its password: `komando secret set
+// names the next command ("save its password: `komando credential password add
 // web1-pass`") must arrive whole: an agent that reads "[hidden] secret set
 // web1-pass`" cannot follow it. Every Go string that names a komando
 // command, and the playbook and skill agents read, must come out of
@@ -73,7 +73,7 @@ func TestMaskKeepsPlainMessages(t *testing.T) {
 		"the credential helper docker-credential-osxkeychain failed (exit status 1)",
 		"the WireGuard private key does not parse (illegal base64 data at input byte 4)",
 		"komando exec web1 --host-key-policy=strict -- uptime",
-		"store its passphrase: `komando secret set deploy-pass`",
+		"store its passphrase: `komando credential password add deploy-pass`",
 	} {
 		if got := MaskSecrets(s); got != s {
 			t.Errorf("masked:\n  %q\n→ %q", s, got)

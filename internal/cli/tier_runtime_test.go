@@ -44,7 +44,7 @@ var tierRuns = []tierRun{
 	{"registry image delete dangerous", "registry.oci.image.delete", []string{"reg", "app:1"}, false},
 	{"registry image prune dangerous", "registry.oci.image.prune", []string{"reg", "app", "--keep", "1"}, false},
 	{"database restore dangerous", "db.restore", []string{"pg", "--from", "dump.sql"}, false},
-	{"credential key remove --delete-file dangerous", "key.rm", []string{"k1", "--delete-file"}, false},
+	{"credential key remove --delete-file dangerous", "credential.key.remove", []string{"k1", "--delete-file"}, false},
 	{"host exec dynamic dangerous", "exec", []string{"dev", "--", "rm -rf /"}, false},
 	{"snippet exec dynamic dangerous", "recipe.run", []string{"wipe", "dev"}, false},
 	{"cluster exec dynamic dangerous", "cluster.exec", []string{"k8s", "pod/a", "--", "rm -rf /"}, false},
@@ -79,10 +79,12 @@ var tierRuns = []tierRun{
 	{"floor", "conn.edit", []string{"pg", "--notes", "x"}, false},
 	{"floor", "conn.rm", []string{"pg"}, false},
 	{"floor", "conn.rename", []string{"pg", "pg9"}, false},
-	{"credential password remove dangerous", "secret.rm", []string{"pw"}, false},
-	{"credential token remove dangerous", "secret.rm", []string{"pw"}, false},
-	{"floor", "secret.rename", []string{"pw", "pw2"}, false},
-	{"floor", "secret.set", []string{"pw3", "--from-env", "PW"}, false},
+	{"credential password remove dangerous", "credential.password.remove", []string{"pw"}, false},
+	{"credential token remove dangerous", "credential.token.remove", []string{"pw"}, false},
+	{"floor", "credential.password.rename", []string{"pw", "pw2"}, false},
+	{"floor", "credential.token.rename", []string{"pw", "pw2"}, false},
+	{"floor", "credential.password.add", []string{"pw3", "--from-env", "PW"}, false},
+	{"floor", "credential.token.add", []string{"pw3", "--from-env", "PW"}, false},
 	{"copy --sync --delete dangerous", "sync", []string{"dev:/tmp/a", "b", "--delete"}, false},
 	{"floor", "sync", []string{"dev:/tmp/a", "b"}, false},
 	{"floor", "cp", []string{"dev:/tmp/a", "b"}, false},
@@ -93,13 +95,13 @@ var tierRuns = []tierRun{
 	{"vpn edit --protected=false safety", "vpn.edit", []string{"wg-prot", "--protected=false"}, false},
 	// person
 	{"config approval-code person", "config.approval-code", nil, false},
-	{"config vault passphrase person", "secret.passphrase", nil, false},
-	{"config vault keychain not --off person", "secret.keychain", nil, false},
+	{"config vault passphrase person", "config.vault.passphrase", nil, false},
+	{"config vault keychain not --off person", "config.vault.keychain", nil, false},
 	{"host shell person", "shell", []string{"dev"}, false},
 	{"database shell person", "db.shell", []string{"pg"}, false},
 	{"database backup dynamic person", "db.dump", []string{"pg", "--to", "pg.sql"}, false}, // C424: every connection
 	{"cluster shell person", "cluster.shell", []string{"k8s", "pod/a"}, false},
-	{"credential certificate add person", "host.ca.add", []string{"ca1", "--key", "ca.pub", "--hosts", "*.corp.example"}, false},
+	{"credential certificate add person", "credential.certificate.add", []string{"ca1", "--key", "ca.pub", "--hosts", "*.corp.example"}, false},
 	{"host ssh trust --reset person", "host.trust", []string{"prod", "--reset"}, false},
 	{"export --sealed person", "export", []string{"--sealed", "--to", "out.kmd"}, false},
 	{"export --for-phone person", "export", []string{"--for-phone", "--to", "out.kmd"}, false},
@@ -139,12 +141,12 @@ var tierRuns = []tierRun{
 	{"floor", "host.rm", []string{"prod"}, true},
 	{"floor", "host.trust", []string{"prod"}, false},
 	{"floor", "import", []string{"ssh-config", "ssh_config"}, false},
-	{"floor", "key.deploy", []string{"k1", "dev"}, false},
-	{"floor", "key.edit", []string{"k1", "--passphrase-ref", "secret:pw"}, false},
-	{"floor", "key.gen", []string{"k3"}, false},
-	{"floor", "key.rename", []string{"k1", "k4"}, false},
-	{"floor", "key.revoke", []string{"k1", "dev"}, false},
-	{"floor", "key.rm", []string{"k1"}, false},
+	{"floor", "credential.key.install", []string{"k1", "dev"}, false},
+	{"floor", "credential.key.edit", []string{"k1", "--passphrase-credential", "pw"}, false},
+	{"floor", "credential.key.create", []string{"k3"}, false},
+	{"floor", "credential.key.rename", []string{"k1", "k4"}, false},
+	{"floor", "credential.key.uninstall", []string{"k1", "dev"}, false},
+	{"floor", "credential.key.remove", []string{"k1"}, false},
 	{"floor", "policy.deny", []string{"curl evil"}, false},
 	{"floor", "queue.add", []string{"q2", "nats://127.0.0.1:1"}, false},
 	{"floor", "queue.create", []string{"q", "t1"}, false},
@@ -158,7 +160,7 @@ var tierRuns = []tierRun{
 	{"floor", "registry.oci.rename", []string{"reg", "reg9"}, false},
 	{"registry add dynamic safety", "registry.oci.add", []string{"reg3", "registry://127.0.0.1:1?tls=false"}, false},
 	{"floor", "registry.oci.image.copy", []string{"reg:app:1", "reg:app:2"}, false},
-	{"credential run dynamic safety", "secret.run", []string{"--env", "X=secret:pw", "--", "true"}, false},
+	{"credential run dynamic safety", "credential.run", []string{"--env", "X=secret:pw", "--", "true"}, false},
 	{"floor", "ssh-gate.line", []string{"--name", "phone", "ca.pub"}, false},
 	{"floor", "storage.add", []string{"s4", "s3://key@bucket/p?endpoint=http://127.0.0.1:1"}, false},
 	{"storage object link dynamic safety", "storage.link", []string{"s3", "a.txt"}, false},
@@ -171,8 +173,8 @@ var tierRuns = []tierRun{
 	{"floor", "vpn.rename", []string{"wg", "wg9"}, false},
 	{"floor", "vpn.rm", []string{"wg"}, false},
 	{"floor", "vpn.up", []string{"wg"}, false},
-	{"floor", "key.add", []string{"k5", "id_k5"}, false},
-	{"credential key uninstall dynamic dangerous", "key.revoke", []string{"k6", "kh"}, false},
+	{"floor", "credential.key.add", []string{"k5", "id_k5"}, false},
+	{"credential key uninstall dynamic dangerous", "credential.key.uninstall", []string{"k6", "kh"}, false},
 	{"import dynamic dangerous", "import", []string{"ssh-config", "ssh_config_rm"}, false},
 	{"import dynamic safety", "import", []string{"ssh-config", "ssh_config_nc"}, false},
 }
@@ -180,8 +182,6 @@ var tierRuns = []tierRun{
 // tierUnreached are the rows and floors this test cannot run, by name
 // and today's ID, with the reason and where the stop is proved instead.
 var tierUnreached = map[string]string{
-	// leaves with no path today: C gives them one, and this test then runs them
-	"floor | (no path today)": "no path today (credential token rename)",
 	// only sync has --delete today; copy --sync --delete is run as sync above
 	"copy --sync --delete dangerous | cp":               "only sync has --delete today (run as sync)",
 	"copy --sync --delete dangerous | upload":           "only sync has --delete today (run as sync)",
@@ -192,19 +192,19 @@ var tierUnreached = map[string]string{
 	"host ssh exec --stop change | exec":   "--stop arrives with exec sessions (cut step D2); today it is job kill",
 	"host ssh exec --remove change | exec": "--remove arrives with exec sessions (cut step D2); today it is job rm",
 	// the condition needs what a unit run cannot give; the stop is proved there
-	"host ssh test dynamic person | host.test":               "needs a server that asks a second factor",
-	"import dynamic person | import":                         "needs a sealed file from export --sealed, which only a person makes",
-	"ssh-gate person | ssh-gate":                             "sshd starts it for a key; an agent never runs ssh-gate itself",
-	"update dynamic safety | update":                         "needs a release site",
-	"floor | update":                                         "needs a release site",
-	"config vault keychain dynamic safety | secret.keychain": "tests run with KOMANDO_KEYCHAIN=off",
-	"floor | secret.keychain":                                "tests run with KOMANDO_KEYCHAIN=off; a plain run is the not --off person row",
-	"floor | host.ca.rm":                                     "adding the CA it removes needs a person",
-	"floor | tunnel.stop":                                    "no stop for an agent: change on an unprotected target",
-	"floor | cluster.add":                                    "a Kubernetes conn comes only from import kubeconfig; a swarm is no conn kind",
-	"floor | secret.run":                                     "an agent always meets the row: secret run always hands a secret on",
-	"floor | storage.link":                                   "an agent always meets the row: a link is always --reveal for an agent",
-	"floor | queue.purge":                                    "today's queue purge is v2.7's message delete --all: its run is that row",
+	"host ssh test dynamic person | host.test":                     "needs a server that asks a second factor",
+	"import dynamic person | import":                               "needs a sealed file from export --sealed, which only a person makes",
+	"ssh-gate person | ssh-gate":                                   "sshd starts it for a key; an agent never runs ssh-gate itself",
+	"update dynamic safety | update":                               "needs a release site",
+	"floor | update":                                               "needs a release site",
+	"config vault keychain dynamic safety | config.vault.keychain": "tests run with KOMANDO_KEYCHAIN=off",
+	"floor | config.vault.keychain":                                "tests run with KOMANDO_KEYCHAIN=off; a plain run is the not --off person row",
+	"floor | credential.certificate.remove":                        "adding the CA it removes needs a person",
+	"floor | tunnel.stop":                                          "no stop for an agent: change on an unprotected target",
+	"floor | cluster.add":                                          "a Kubernetes conn comes only from import kubeconfig; a swarm is no conn kind",
+	"floor | credential.run":                                       "an agent always meets the row: credential run always hands a secret on",
+	"floor | storage.link":                                         "an agent always meets the row: a link is always --reveal for an agent",
+	"floor | queue.purge":                                          "today's queue purge is v2.7's message delete --all: its run is that row",
 }
 
 // tierDisagree are the runs whose stop is not the one the tier names, with
@@ -237,14 +237,14 @@ type tierProof struct {
 // that the test exists and that its body (with the table it runs) names
 // the command and the code.
 var tierProvedBy = map[string]tierProof{
-	"host ssh test dynamic person | host.test":               {test: "TestLoginKeepsATwoFactorLogin", cmd: "login"},
-	"import dynamic person | import":                         {test: "TestSealedNeedsPerson"},
-	"update dynamic safety | update":                         {test: "TestUpdateOlderAgentNeedsWindow"},
-	"floor | update":                                         {test: "TestUpdateInstallsNewest"},
-	"config vault keychain dynamic safety | secret.keychain": {test: "TestSecretKeychainOff"},
-	"floor | secret.keychain":                                {test: "TestSecretKeychainNeedsPerson"},
-	"floor | host.ca.rm":                                     {test: "TestHostCAPersonAddsAndAnyoneRemoves"},
-	"floor | cluster.add":                                    {test: "TestClusterAddKind"},
+	"host ssh test dynamic person | host.test":                     {test: "TestLoginKeepsATwoFactorLogin", cmd: "login"},
+	"import dynamic person | import":                               {test: "TestSealedNeedsPerson"},
+	"update dynamic safety | update":                               {test: "TestUpdateOlderAgentNeedsWindow"},
+	"floor | update":                                               {test: "TestUpdateInstallsNewest"},
+	"config vault keychain dynamic safety | config.vault.keychain": {test: "TestSecretKeychainOff"},
+	"floor | config.vault.keychain":                                {test: "TestSecretKeychainNeedsPerson"},
+	"floor | credential.certificate.remove":                        {test: "TestHostCAPersonAddsAndAnyoneRemoves"},
+	"floor | cluster.add":                                          {test: "TestClusterAddKind"},
 }
 
 func TestTierMatchesRuntime(t *testing.T) {
@@ -626,9 +626,9 @@ func tierSeed(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("PW", "secret-value-1")
-	mustRun(t, "secret", "set", "pw", "--from-env", "PW")
-	mustRun(t, "key", "gen", "k1")
-	mustRun(t, "key", "gen", "k6")
+	mustRun(t, "credential", "password", "add", "pw", "--from-env", "PW")
+	mustRun(t, "credential", "key", "create", "k1")
+	mustRun(t, "credential", "key", "create", "k6")
 	mustRun(t, "recipe", "add", "wipe", "rm -rf /")
 	mustRun(t, "recipe", "add", "r1", "uptime")
 	mustRun(t, "group", "add", "g1", "dev")

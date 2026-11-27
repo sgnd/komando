@@ -397,7 +397,7 @@ func serverLoginChoices(st *store.State, _ formAnswers) []pickRow {
 		{label: "A key file", detail: "a file somewhere else, like a .pem from your cloud provider", value: "file"},
 	}
 	if len(st.Keys) > 0 {
-		rows = append(rows, pickRow{label: "A komando key", detail: "one from komando key list", value: "keylist"})
+		rows = append(rows, pickRow{label: "A komando key", detail: "one from komando credential key list", value: "keylist"})
 	}
 	return rows
 }

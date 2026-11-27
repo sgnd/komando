@@ -44,7 +44,7 @@ q $K user unlock direct t-fixopsu
 check "user list shows an unlocked account" False "$($K user list direct | jget "[u.get('locked') for u in ${r0}['data'] if u['name'] == 't-fixopsu'][0]")"
 $K user rm direct t-fixopsu --remove-home --allow-dangerous >/dev/null 2>&1 || true
 # a login user without sudo rights: the error names the cause and the next command
-q $K key gen t-fixops-k
+q $K credential key create t-fixops-k
 q $K user add direct t-fixopsns --key t-fixops-k --shell /bin/sh
 q $K host add t-fixops-ns "t-fixopsns@127.0.0.1:$E2E_SSH_DIRECT" --key t-fixops-k
 q $K host trust t-fixops-ns
@@ -57,7 +57,7 @@ done
 check "docker ps --sudo refused says to leave out --sudo as root" True "$($K docker ps t-fixops-ns --sudo | jget "'--user OTHER' in ${r0}['error']['hint'] or 'leave out --sudo' in ${r0}['error']['hint']" || true)"
 q $K host rm t-fixops-ns
 $K user rm direct t-fixopsns --remove-home --allow-dangerous >/dev/null 2>&1 || true
-q $K key rm t-fixops-k
+q $K credential key remove t-fixops-k
 set +e
 $K user lock direct t-fixops-nouser >/dev/null; check "user lock of an unknown user exits 3" 3 $?
 $K user add direct t-fixopsk --pubkey 'not a key' >/dev/null; check "user add checks --pubkey" 2 $?

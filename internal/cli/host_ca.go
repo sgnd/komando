@@ -60,8 +60,8 @@ func hostCAListCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "list",
 		Short: "List the trusted server CAs",
-		Example: `  komando host ca list
-  komando host ca list -o json   # what the apps read`,
+		Example: `  komando credential certificate list
+  komando credential certificate list -o json   # what the apps read`,
 		Args: cobra.NoArgs,
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			cas, err := sshx.HostCAs(cmd.Context())
@@ -129,12 +129,12 @@ func caPatterns(raw []string) ([]string, error) {
 		}
 		n, err := sshx.CheckCAPattern(p)
 		if err != nil {
-			return nil, out.Errf(out.ExitUsage, "CA_HOSTS_INVALID", "name at least the domain, as in `komando host ca add NAME --key FILE --hosts '*.corp.example'` or '10.1.2.*'", "%v", err)
+			return nil, out.Errf(out.ExitUsage, "CA_HOSTS_INVALID", "name at least the domain, as in `komando credential certificate add NAME --key FILE --hosts '*.corp.example'` or '10.1.2.*'", "%v", err)
 		}
 		pats = append(pats, n)
 	}
 	if len(pats) == 0 {
-		return nil, out.Errf(out.ExitUsage, "CA_HOSTS_INVALID", "run `komando host ca add NAME --key FILE --hosts '*.corp.example'`, with the domains the CA may vouch for", "a server CA needs the server names it may vouch for")
+		return nil, out.Errf(out.ExitUsage, "CA_HOSTS_INVALID", "run `komando credential certificate add NAME --key FILE --hosts '*.corp.example'`, with the domains the CA may vouch for", "a server CA needs the server names it may vouch for")
 	}
 	sort.Strings(pats)
 	return pats, nil
@@ -165,8 +165,8 @@ go on the never-trust list. A pattern names at least the domain
 --dry-run shows the patterns as they are kept and the servers they match
 now. Only a person at a terminal can add a CA: it trusts every server it
 ever signs.`,
-		Example: `  komando host ca add corp --key ~/corp-ca.pub --hosts '*.corp.example' --dry-run
-  komando host ca add corp --from ~/.ssh/known_hosts`,
+		Example: `  komando credential certificate add corp --key ~/corp-ca.pub --hosts '*.corp.example' --dry-run
+  komando credential certificate add corp --from ~/.ssh/known_hosts`,
 		Args: cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			name := args[0]
@@ -174,7 +174,7 @@ ever signs.`,
 				return err
 			}
 			if (keyFile == "") == (from == "") {
-				return out.Errf(out.ExitUsage, "USAGE", "give --key FILE.pub with --hosts, or --from KNOWN_HOSTS", "`komando host ca add` takes a CA key or a known_hosts file, one of them")
+				return out.Errf(out.ExitUsage, "USAGE", "give --key FILE.pub with --hosts, or --from KNOWN_HOSTS", "`komando credential certificate add` takes a CA key or a known_hosts file, one of them")
 			}
 			lines, err := caLinesOf(cl, keyFile, from, hosts)
 			if err != nil {
@@ -210,7 +210,7 @@ ever signs.`,
 			res := map[string]any{"items": rows, "revoked": len(revoke)}
 			// a dry run records the stop the real run hits, then shows the preview
 			if cl.isAgent() || !cl.interactive() {
-				if err := cl.policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON", "a person runs `komando host ca add` in their own terminal, after checking the CA's fingerprint",
+				if err := cl.policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON", "a person runs `komando credential certificate add` in their own terminal, after checking the CA's fingerprint",
 					"adding a server CA trusts every server it signs, so only a person at a terminal can do it").NoFlag()); err != nil {
 					return err
 				}
@@ -226,7 +226,7 @@ ever signs.`,
 			for i, c := range cas {
 				if err := sshx.AddHostCA(cmd.Context(), c); err != nil {
 					if errors.Is(err, sshx.ErrHostCAExists) {
-						return out.Errf(out.ExitConflict, "CA_EXISTS", "choose another name, or `komando host ca rm "+c.Name+"` first", "server CA %q already exists", c.Name)
+						return out.Errf(out.ExitConflict, "CA_EXISTS", "choose another name, or `komando credential certificate remove "+c.Name+"` first", "server CA %q already exists", c.Name)
 					}
 					return err
 				}
@@ -273,7 +273,7 @@ func hostCARmCmd() *cobra.Command {
 		Use:     "rm NAME",
 		Short:   "Stop trusting a server CA",
 		Long:    `Stops trusting the CA: its servers are checked against their pins again.`,
-		Example: `  komando host ca rm corp`,
+		Example: `  komando credential certificate remove corp`,
 		Args:    cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			cas, err := sshx.HostCAs(cmd.Context())
@@ -287,7 +287,7 @@ func hostCARmCmd() *cobra.Command {
 				}
 			}
 			if found == nil {
-				return out.Errf(out.ExitNotFound, "CA_NOT_FOUND", "see the CAs with `komando host ca list`", "no server CA named %q", args[0])
+				return out.Errf(out.ExitNotFound, "CA_NOT_FOUND", "see the CAs with `komando credential certificate list`", "no server CA named %q", args[0])
 			}
 			res := map[string]any{"name": found.Name, "action": "would_remove"}
 			if !cl.dryRun() {
@@ -370,7 +370,7 @@ func hostCAChecks(cl *call, st *store.State, add func(name string, ok, warn bool
 		case rerr != nil:
 			add("host_ca:"+c.Name, false, true, "komando cannot read its revoke list to check server CA "+c.Name+": "+rerr.Error())
 		case k == nil || rev:
-			add("host_ca:"+c.Name, false, true, "server CA "+c.Name+" is revoked or unreadable and trusts nothing: `komando host ca rm "+c.Name+"`")
+			add("host_ca:"+c.Name, false, true, "server CA "+c.Name+" is revoked or unreadable and trusts nothing: `komando credential certificate remove "+c.Name+"`")
 		case len(prot) > 0:
 			add("host_ca:"+c.Name, false, true, "server CA "+c.Name+" ("+r.Fingerprint+") vouches for protected servers "+strings.Join(prot, ", ")+": one key decides who they are. Keep it only if that CA is guarded as well as those servers")
 		case time.Since(c.AddedAt) > 2*365*24*time.Hour:

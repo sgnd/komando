@@ -20,7 +20,7 @@ func TestSecretSetNew(t *testing.T) {
 
 	// a stored name: SECRET_EXISTS (exit 8), the value stays
 	withStdin(t, "second\n", func() {
-		e := wantCode(t, "SECRET_EXISTS", "secret", "set", "taken", "--new")
+		e := wantCode(t, "SECRET_EXISTS", "credential", "password", "add", "taken", "--new")
 		if e.Exit != out.ExitConflict || !strings.Contains(e.Hint, "--new") || !strings.Contains(e.Message, `"taken"`) {
 			t.Errorf("error: %+v", e)
 		}
@@ -31,12 +31,12 @@ func TestSecretSetNew(t *testing.T) {
 
 	// the dry run says so too, and is the same error
 	withStdin(t, "second\n", func() {
-		wantCode(t, "SECRET_EXISTS", "secret", "set", "taken", "--new", "--dry-run")
+		wantCode(t, "SECRET_EXISTS", "credential", "password", "add", "taken", "--new", "--dry-run")
 	})
 
 	// a free name: the dry run stores nothing, the real run stores it
 	withStdin(t, "fresh-value\n", func() {
-		d := mustRun(t, "secret", "set", "fresh", "--new", "--dry-run")
+		d := mustRun(t, "credential", "password", "add", "fresh", "--new", "--dry-run")
 		if d["action"] != "would_store" || d["replaced"] != false || d["would_set"] != true {
 			t.Errorf("dry run: %v", d)
 		}
@@ -45,7 +45,7 @@ func TestSecretSetNew(t *testing.T) {
 		t.Fatal("the dry run stored it")
 	}
 	withStdin(t, "fresh-value\n", func() {
-		d := mustRun(t, "secret", "set", "fresh", "--new")
+		d := mustRun(t, "credential", "password", "add", "fresh", "--new")
 		if d["action"] != "stored" || d["replaced"] != false || d["ref"] != "secret:fresh" {
 			t.Errorf("result: %v", d)
 		}
@@ -56,7 +56,7 @@ func TestSecretSetNew(t *testing.T) {
 
 	// without --new, set still replaces
 	withStdin(t, "third\n", func() {
-		if d := mustRun(t, "secret", "set", "taken"); d["replaced"] != true {
+		if d := mustRun(t, "credential", "password", "add", "taken"); d["replaced"] != true {
 			t.Errorf("plain set: %v", d)
 		}
 	})
@@ -111,7 +111,7 @@ func TestSecretSetNewChild(t *testing.T) {
 		t.Skip("a child of TestSecretSetNewRace")
 	}
 	closeStoreAtEnd(t)
-	_, e := invRun(t, "secret", "set", "race", "--new", "--from-env", "SETNEW_VALUE")
+	_, e := invRun(t, "credential", "password", "add", "race", "--new", "--from-env", "SETNEW_VALUE")
 	if e == nil {
 		fmt.Println("SETNEW=ok")
 		return

@@ -135,13 +135,13 @@ Afterwards, put the new passphrase in KOMANDO_VAULT_PASS wherever you set it
 background tunnel or VPN session komando runs: they still hold the old key.
 
 --off goes back to a new random key in store.key (needs --yes): a copy of
-` + "~/.komando" + ` then opens the vault again. ` + "`komando secret keychain`" + ` can move that
+` + "~/.komando" + ` then opens the vault again. ` + "`komando config vault keychain`" + ` can move that
 key into the OS keychain.
 
 Only a person at a terminal can run it: an AI agent that chose the passphrase,
 or put the key back in store.key, could open the vault on its own. Anyone can
 preview it with --dry-run.`,
-		Example: "  komando secret passphrase               # asks for the new passphrase twice, hidden\n  komando secret passphrase --dry-run\n  komando secret passphrase --off --yes   # back to a random key in store.key",
+		Example: "  komando config vault passphrase               # asks for the new passphrase twice, hidden\n  komando config vault passphrase --dry-run\n  komando config vault passphrase --off --yes   # back to a random key in store.key",
 		Args:    cobra.NoArgs,
 		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
 			return runSecretPassphrase(cl, off)
@@ -156,7 +156,7 @@ func passphraseNextSteps(to string) []string {
 	if to == "keyfile" {
 		return []string{
 			"remove KOMANDO_VAULT_PASS wherever you set it (your shell profile, a launch agent): the vault does not use it any more",
-			"`komando secret keychain` moves the new key into the OS keychain, so a copy of " + store.Home() + " does not open the vault",
+			"`komando config vault keychain` moves the new key into the OS keychain, so a copy of " + store.Home() + " does not open the vault",
 		}
 	}
 	return []string{
@@ -170,7 +170,7 @@ func runSecretPassphrase(cl *call, off bool) error {
 		// a dry run is never blocked: it says what would change, and that
 		// the real run needs the user (policyStop records it)
 		if err := cl.policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON",
-			"ask the user to run `komando secret passphrase` in their own terminal",
+			"ask the user to run `komando config vault passphrase` in their own terminal",
 			"only a person at a terminal can change the vault's key: an AI agent that chose the passphrase, or put the key in store.key, could open the vault on its own")); err != nil {
 			return err
 		}
@@ -237,7 +237,7 @@ func passphrasePlan(off bool) (passphraseResult, error) {
 		if res.From != "passphrase" {
 			hint := map[string]string{
 				"keyfile":  "its key is in " + store.Path("store.key") + " already",
-				"keychain": "its key is in the OS keychain; `komando secret keychain --off --yes` moves it into store.key",
+				"keychain": "its key is in the OS keychain; `komando config vault keychain --off --yes` moves it into store.key",
 				"none":     "there is no store yet; without KOMANDO_VAULT_PASS the first change keeps its key in the OS keychain, or in store.key where the keychain cannot keep it",
 			}[res.From]
 			return res, out.Errf(out.ExitUsage, "NO_PASSPHRASE", hint, "the vault has no passphrase to take away")

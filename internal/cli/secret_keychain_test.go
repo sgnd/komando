@@ -56,7 +56,7 @@ func keyStays(t *testing.T, key []byte) {
 func TestSecretKeychainDryRun(t *testing.T) {
 	key := keyfileHome(t)
 	tool, toolErr := vault.KeychainTool()
-	d := mustRun(t, "secret", "keychain", "--dry-run")
+	d := mustRun(t, "config", "vault", "keychain", "--dry-run")
 	if d["dry_run"] != true || d["would"] != "move the vault key into the keychain" {
 		t.Errorf("dry run: %v", d)
 	}
@@ -68,7 +68,7 @@ func TestSecretKeychainDryRun(t *testing.T) {
 	} else if d["keychain"] != tool || d["problem"] != nil {
 		t.Errorf("keychain %q here, dry run says %v", tool, d)
 	}
-	if d = mustRun(t, "secret", "keychain", "--off", "--dry-run"); d["would"] != "move the vault key back into store.key" {
+	if d = mustRun(t, "config", "vault", "keychain", "--off", "--dry-run"); d["would"] != "move the vault key back into store.key" {
 		t.Errorf("--off dry run: %v", d)
 	}
 	keyStays(t, key)
@@ -78,10 +78,10 @@ func TestSecretKeychainDryRun(t *testing.T) {
 // With the key already in store.key it changes nothing and says so.
 func TestSecretKeychainOff(t *testing.T) {
 	key := keyfileHome(t)
-	if e := wantCode(t, "SAFETY_SETTING", "secret", "keychain", "--off"); e.Exit != out.ExitPolicy {
+	if e := wantCode(t, "SAFETY_SETTING", "config", "vault", "keychain", "--off"); e.Exit != out.ExitPolicy {
 		t.Errorf("exit %d", e.Exit)
 	}
-	if d := mustRun(t, "secret", "keychain", "--off", "--yes"); d["key"] != "store.key" {
+	if d := mustRun(t, "config", "vault", "keychain", "--off", "--yes"); d["key"] != "store.key" {
 		t.Errorf("--off --yes: %v", d)
 	}
 	keyStays(t, key)
@@ -93,7 +93,7 @@ func TestSecretKeychainPassphraseVault(t *testing.T) {
 	invHome(t)
 	atTerminal(t)
 	setSecret(t, "db-pass", "s3cret")
-	e := wantCode(t, "KEYCHAIN_FAILED", "secret", "keychain")
+	e := wantCode(t, "KEYCHAIN_FAILED", "config", "vault", "keychain")
 	if e.Exit != out.ExitRemote {
 		t.Errorf("exit %d", e.Exit)
 	}
@@ -113,7 +113,7 @@ func TestSecretKeychainNoTool(t *testing.T) {
 	}
 	key := keyfileHome(t)
 	atTerminal(t)
-	e := wantCode(t, "KEYCHAIN_FAILED", "secret", "keychain")
+	e := wantCode(t, "KEYCHAIN_FAILED", "config", "vault", "keychain")
 	if e.Exit != out.ExitRemote || !strings.HasSuffix(e.Message, "; the vault still uses store.key, nothing was lost") || e.Hint != "a person unlocks the keychain (an AI agent asks the user), then run it again; on Linux it needs secret-tool and a keyring" {
 		t.Errorf("error: %+v", e)
 	}
@@ -130,11 +130,11 @@ func TestSecretKeychainNeedsPerson(t *testing.T) {
 			atTerminal(t) // an agent never counts as a person, terminal or not
 			setCallerEnv(t, "KOMANDO_AGENT", "1")
 		}
-		e := wantCode(t, "NEEDS_PERSON", "secret", "keychain")
+		e := wantCode(t, "NEEDS_PERSON", "config", "vault", "keychain")
 		if e.Exit != out.ExitPolicy || !strings.Contains(e.Hint, "own terminal") {
 			t.Errorf("agent %v: %+v", agent, e)
 		}
-		d := mustRun(t, "secret", "keychain", "--dry-run")
+		d := mustRun(t, "config", "vault", "keychain", "--dry-run")
 		if b, _ := d["_meta"].(map[string]any)["would_be_blocked"].(map[string]any); b["code"] != "NEEDS_PERSON" {
 			t.Errorf("agent %v: dry run: %v", agent, d)
 		}

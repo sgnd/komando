@@ -34,7 +34,7 @@ type sfAuth struct {
 	exp time.Time
 }
 
-const sfNoSecret = "store a programmatic access token (Snowflake: ALTER USER ... ADD PROGRAMMATIC ACCESS TOKEN) or the user's private key (PEM) with `komando secret set NAME`, then `komando conn edit CONN --password-ref secret:NAME`"
+const sfNoSecret = "store a programmatic access token (Snowflake: ALTER USER ... ADD PROGRAMMATIC ACCESS TOKEN) or the user's private key (PEM) with `komando credential password add NAME`, then `komando conn edit CONN --password-ref secret:NAME`"
 
 func newSFAuth(secret string) (*sfAuth, error) {
 	secret = strings.TrimSpace(secret)
@@ -64,7 +64,7 @@ func newSFAuth(secret string) (*sfAuth, error) {
 // makes) or PKCS#1. An encrypted one is refused: the vault already keeps
 // it encrypted, and Go has no reader for encrypted PKCS#8.
 func parseSFKey(text string) (*rsa.PrivateKey, error) {
-	const plain = "store the key without its passphrase, the vault encrypts it: openssl pkcs8 -topk8 -nocrypt -in KEY_FILE | komando secret set NAME"
+	const plain = "store the key without its passphrase, the vault encrypts it: openssl pkcs8 -topk8 -nocrypt -in KEY_FILE | komando credential password add NAME"
 	blk, _ := pem.Decode([]byte(text))
 	if blk == nil {
 		return nil, out.Errf(out.ExitUsage, "USAGE", sfNoSecret, "the conn's secret starts like PEM but holds no PEM block")

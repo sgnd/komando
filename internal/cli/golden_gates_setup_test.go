@@ -45,8 +45,8 @@ func goldenGateSetup(t *testing.T) {
 			{"conn", "add", "reg1", "registry://u@127.0.0.1:1?tls=false"},
 			{"policy", "deny", "foo.*bar"},
 			{"vpn", "add", "pvpn", "socks", "--proxy-address", "127.0.0.1:1", "--protected", "--mfa"},
-			{"secret", "set", "gsec", "--from-env", "GOLDEN_SECRET"},
-			{"key", "gen", "gkey"},
+			{"credential", "password", "add", "gsec", "--from-env", "GOLDEN_SECRET"},
+			{"credential", "key", "create", "gkey"},
 		} {
 			mustRun(t, a...)
 		}
@@ -174,8 +174,8 @@ var goldenNotes = [][]string{
 	{"conn", "add", "aws", "redis://127.0.0.1:1/0"},
 	{"vpn", "add", "gcp", "socks", "--proxy-address", "127.0.0.1:1080"},
 	// C-C03, C-C06 (OD-7): deletes that leave no copy are dangerous
-	{"secret", "rm", "gsec"},
-	{"key", "rm", "gkey", "--delete-file"},
+	{"credential", "password", "remove", "gsec"},
+	{"credential", "key", "remove", "gkey", "--delete-file"},
 	{"fs", "rm", "web1", "/tmp/x"},
 	// C-C13 (OD-9): replacing a pinned host key is for a person only; with
 	// a key pinned, the real run stops before it connects

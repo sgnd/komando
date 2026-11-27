@@ -50,7 +50,7 @@ plus "a hint never starts with `nothing was`"]
 
 - A *fragment* starts lower-case and has no full stop: `error.message`,
   `error.hint`, warning text, `meta.*` notes, result headlines on stdout
-  (`added web2`, `` no SSH keys yet: `komando key gen NAME` ``), table cells,
+  (`added web2`, `` no SSH keys yet: `komando credential key create NAME` ``), table cells,
   the text after a label. Clauses join with `:` or `;`. A proper name,
   code or flag keeps its own case (`Swarm keeps …`, `KOMANDO_OUTPUT=…`).
 - A *sentence* starts with a capital and ends with `.`, or `?` for a

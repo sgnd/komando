@@ -55,7 +55,7 @@ VPN's own configuration gives.
 ## Add a VPN
 
 A VPN that logs in with a password, pre-shared key or auth key reads it
-from the vault: store it first with `komando secret set NAME` (it asks for
+from the vault: store it first with `komando credential password add NAME` (it asks for
 it, hidden), then name it in `--password-ref` or `--psk-ref`. Or type it
 when you add the VPN: `--ask-password` stores it as `secret:NAME-pass`, and
 `--ask-psk` stores a pre-shared key as `secret:NAME-psk`.
@@ -87,7 +87,7 @@ komando vpn add office proxy --proxy-address proxy.corp.example:3128
   (WireGuard) or `NAME-config` (OpenVPN). If a secret of that name exists
   already, `vpn add` stops with `SECRET_EXISTS` and saves nothing, so it
   never replaces a secret that a server or a file uses. Pick another VPN
-  name, or move the secret away first (`komando secret rename`, or `komando
+  name, or move the secret away first (`komando credential password rename`, or `komando
   secret rm` if an earlier VPN of that name left it). `--overwrite` may
   reuse the secrets of the VPN it replaces, when nothing else uses them,
   and a secret that nothing uses and that holds the same key already (the
@@ -223,7 +223,7 @@ komando vpn edit tag:prod --protected         # mark VPNs protected (like host e
 - `vpn rm` refuses a VPN that is still on a `--via` path (`VPN_IN_USE`, also
   with `--dry-run`). Change those `--via` paths first. Its answer lists the
   VPNs it removed (`removed`, always a list); `--dry-run` lists them as
-  `would_remove`. Its keys stay in the vault until `komando secret rm`; a
+  `would_remove`. Its keys stay in the vault until `komando credential password remove`; a
   new WireGuard or OpenVPN VPN of the same name needs them gone first,
   unless it is added from the same file.
 - `vpn edit` changes `--check`, `--proxy-address`, `--user`, `--password-ref`,
@@ -368,8 +368,8 @@ computer where it already works:
 | `ikev2`, pre-shared key | server, local ID, pre-shared key | `--server`, `--id`, `--psk-ref` |
 
 ```bash
-komando secret set office-psk          # type the pre-shared key
-komando secret set office-pass         # type your password
+komando credential password add office-psk          # type the pre-shared key
+komando credential password add office-pass         # type your password
 komando vpn add office l2tp --server vpn.example.com --psk-ref secret:office-psk \
   --user alice --password-ref secret:office-pass --check 10.1.0.5:22
 komando test office

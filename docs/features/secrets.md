@@ -8,18 +8,18 @@ or after "Allow once" in komando's window, and never to an AI agent.
 ## Save a password and use it
 
 ```bash
-komando secret set web1-pass                          # type or paste it after the prompt, nothing is shown
+komando credential password add web1-pass                          # type or paste it after the prompt, nothing is shown
 komando host edit web1 --password-ref secret:web1-pass
 komando test web1
-komando secret list                                   # names, when they changed, what uses them
+komando credential list                                   # names, when they changed, what uses them
 ```
 
-Typed alone, `komando secret set` asks for the name, then the value
+Typed alone, `komando credential password add` asks for the name, then the value
 (hidden).
 
 ## Save one
 
-At your terminal, `komando secret set NAME` asks for the value and hides it
+At your terminal, `komando credential password add NAME` asks for the value and hides it
 as you type or paste:
 
 ```text
@@ -33,13 +33,13 @@ text was the secret, clear the screen and type it again. A value of
 several lines (a key, a certificate) goes in on stdin:
 
 ```bash
-komando secret set web1-pass                   # asks, hidden
-komando secret set db-pass --from-env DB_PASS  # from an environment variable
-pbpaste | komando secret set vpn-pass          # from the clipboard (xclip -o on Linux)
-komando secret set tls-key < server.key        # a value of several lines
+komando credential password add web1-pass                   # asks, hidden
+komando credential password add db-pass --from-env DB_PASS  # from an environment variable
+pbpaste | komando credential password add vpn-pass          # from the clipboard (xclip -o on Linux)
+komando credential token add tls-key < server.key        # a value of several lines
 ```
 
-- A value on the command line (`komando secret set NAME VALUE`) is refused
+- A value on the command line (`komando credential password add NAME VALUE`) is refused
   with `SECRET_IN_ARGS`: it would stay in your shell history.
 - A paste of more than one line at the prompt stops with `USAGE` and
   stores nothing: the shell would otherwise run the other lines.
@@ -59,7 +59,7 @@ komando secret set tls-key < server.key        # a value of several lines
   "would_store"` for a free one.
 
 ```bash
-komando secret set api-token --new --from-env TOKEN   # never replaces one
+komando credential token add api-token --new --from-env TOKEN   # never replaces one
 ```
 
 ## Use one
@@ -70,7 +70,7 @@ takes a reference:
 ```bash
 komando host edit web1 --sudo-ref secret:web1-sudo
 komando conn add prod-db postgres://app@10.0.0.5/shop --password-ref secret:prod-db-pass
-komando key add work ~/.ssh/id_work --passphrase-ref secret:work-pass
+komando credential key add work ~/.ssh/id_work --passphrase-credential work-pass
 komando exec web1 --env DB_PASS=secret:prod-db-pass -- ./migrate.sh
 komando fs replace web1 /srv/app/.env --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:prod-db-pass}}' --backup
 ```
@@ -86,11 +86,11 @@ needs it and never stores it.
 ## Run a program on this computer with one
 
 ```bash
-komando secret run --env PGPASSWORD=secret:prod-db-pass -- psql -h 10.0.0.5 -U app shop
-komando secret run -e AWS_SECRET_ACCESS_KEY=secret:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan
+komando credential run --env PGPASSWORD=secret:prod-db-pass -- psql -h 10.0.0.5 -U app shop
+komando credential run -e AWS_SECRET_ACCESS_KEY=secret:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan
 ```
 
-`komando secret run` starts the program after `--` on this computer, with the
+`komando credential run` starts the program after `--` on this computer, with the
 `--env` values in its environment. komando reads `secret:NAME` from the
 vault right before the program starts, so the value is never in the command
 line or your shell history. The program starts without a shell, and gets
@@ -165,7 +165,7 @@ values that unlock the vault.
 ## Check one
 
 ```bash
-komando secret show web1-pass      # does it exist, what uses it, a warning about spaces (no value)
+komando credential password show web1-pass      # does it exist, what uses it, a warning about spaces (no value)
 komando secret check web1-pass     # type the value you think it is: match or how they differ
 ```
 
@@ -176,9 +176,9 @@ case, or in length. Only a person can run it.
 ## See a value again
 
 ```bash
-komando secret show web1-pass --reveal            # print it (a person, at a terminal)
-komando secret show web1-pass --reveal | pbcopy   # or copy it
-komando key show deploy --reveal > deploy.key     # the private key of a key komando made
+komando credential password show web1-pass --reveal            # print it (a person, at a terminal)
+komando credential password show web1-pass --reveal | pbcopy   # or copy it
+komando credential key show deploy --reveal > deploy.key     # the private key of a key komando made
 ```
 
 - **At a terminal** komando prints the value: you typed the command.
@@ -205,10 +205,10 @@ komando key show deploy --reveal > deploy.key     # the private key of a key kom
 ## Rename, copy and remove
 
 ```bash
-komando secret rename vpn-password office-vpn-pass --dry-run   # what would change
-komando secret rename vpn-password office-vpn-pass             # every server, conn, key and VPN follows
+komando credential password rename vpn-password office-vpn-pass --dry-run   # what would change
+komando credential password rename vpn-password office-vpn-pass             # every server, conn, key and VPN follows
 komando secret cp db-pass db-pass-old                          # a copy; nothing else changes
-komando secret rm old-pass other-old-pass                      # all of them, or none
+komando credential password remove old-pass other-old-pass                      # all of them, or none
 ```
 
 - `secret rename` points every server, conn, key and VPN that used `secret:OLD`
@@ -232,11 +232,11 @@ keychain, or comes from a passphrase in `KOMANDO_VAULT_PASS`.
 
 ```bash
 komando doctor                       # which of the three is in use, and any warning
-komando secret keychain              # move the key from store.key into the keychain
-komando secret keychain --off        # move it back into store.key (komando asks first)
-komando secret passphrase            # give the store a passphrase, or change it
-komando secret passphrase --off      # back to a random key in store.key (komando asks first)
-komando secret passphrase --dry-run
+komando config vault keychain              # move the key from store.key into the keychain
+komando config vault keychain --off        # move it back into store.key (komando asks first)
+komando config vault passphrase            # give the store a passphrase, or change it
+komando config vault passphrase --off      # back to a random key in store.key (komando asks first)
+komando config vault passphrase --dry-run
 ```
 
 komando uses the keychain on its own only when a new store makes its key,
@@ -267,8 +267,8 @@ An agent never sees a value: output shows `[secret:NAME]` or `[hidden]`.
 
 | The agent wants to | It runs | Or it gets |
 |---|---|---|
-| store a password the user knows | asks the user to run `komando secret set NAME` | `NEEDS_PERSON` |
-| store a token a program made | `echo "$TOKEN" \| komando secret set NAME` or `--from-env VAR` | |
+| store a password the user knows | asks the user to run `komando credential password add NAME` | `NEEDS_PERSON` |
+| store a token a program made | `echo "$TOKEN" \| komando credential token add NAME` or `--from-env VAR` | |
 | preview a change | the same command with `--dry-run` | `meta.would_be_blocked` names what the real run needs |
 | use a secret | `secret:NAME` in a flag | `SECRET_DESTINATION`: a person allows where it goes |
 | rename, copy, remove | `secret rename`, `secret cp`, `secret rm` | |
@@ -298,15 +298,15 @@ command the user runs in their own terminal.
 
 | Error | What it means | What to do |
 |-------|---------------|------------|
-| `SECRET_IN_ARGS` (exit 2) | the value was on the command line | `komando secret set NAME`, then type it after the prompt |
-| `USAGE` (exit 2) | an empty value, or a paste of several lines | type it again, or give several lines on stdin: `komando secret set NAME < FILE` |
-| `SECRET_NOT_FOUND`, `SECRET_UNRESOLVED` (exit 3) | no secret by that name, or a reference that cannot be read | `komando secret list` |
-| `SECRET_EXISTS` (exit 8) | `secret rename` or `secret cp` to a name that is taken, or `secret set --new` of a name that is stored | pick another name; to replace it, add `--overwrite` (rename, cp) or run `komando secret set NAME` without `--new` |
+| `SECRET_IN_ARGS` (exit 2) | the value was on the command line | `komando credential password add NAME`, then type it after the prompt |
+| `USAGE` (exit 2) | an empty value, or a paste of several lines | type it again, or give several lines on stdin: `komando credential token add NAME < FILE` |
+| `SECRET_NOT_FOUND`, `SECRET_UNRESOLVED` (exit 3) | no secret by that name, or a reference that cannot be read | `komando credential list` |
+| `SECRET_EXISTS` (exit 8) | `secret rename` or `secret cp` to a name that is taken, or `secret set --new` of a name that is stored | pick another name; to replace it, add `--overwrite` (rename, cp) or run `komando credential password add NAME` without `--new` |
 | `SECRET_IN_USE` (exit 8) | `secret rm` of a secret something still uses | point those at another secret, or `secret rename` it |
-| `SECRET_MISMATCH` (exit 1) | `secret check`: the value you typed is not the stored one | `data.difference` says how they differ; `komando secret set NAME` stores the right one |
+| `SECRET_MISMATCH` (exit 1) | `secret check`: the value you typed is not the stored one | `data.difference` says how they differ; `komando credential password add NAME` stores the right one |
 | `NEEDS_PERSON` (exit 6) | only a person can do this (`secret set` for an agent, `secret check`, `secret keychain`, `secret passphrase`) | the person runs it in their own terminal |
 | `VAULT_LOCKED` (exit 1) | the vault has a passphrase and `KOMANDO_VAULT_PASS` is not set | set `KOMANDO_VAULT_PASS` in the shell that runs komando (an AI agent asks the user) |
 | `VAULT_DECRYPT` (exit 1) | `KOMANDO_VAULT_PASS` is not this vault's passphrase | set the right one; nothing was lost. `komando doctor` says which mode is in use |
-| `VAULT_KEY` (exit 1) | the key is missing: `store.key` is gone, or the keychain item is on another computer | restore `~/.komando/store.key` from a backup, or run `komando secret keychain` on the computer whose keychain holds the key |
+| `VAULT_KEY` (exit 1) | the key is missing: `store.key` is gone, or the keychain item is on another computer | restore `~/.komando/store.key` from a backup, or run `komando config vault keychain` on the computer whose keychain holds the key |
 | `KEYCHAIN_SLOW` (exit 1) | the keychain did not answer in time, so nothing was changed | run it again in a moment; `komando doctor` if it keeps happening |
 | `KEYCHAIN_FAILED` (exit 5) | the keychain could not be read, so komando could not check that the store is the newest copy; nothing was changed | a person unlocks the keychain (an AI agent asks the user), then run it again; on a computer with no working keychain, a person sets `KOMANDO_KEYCHAIN=off` |

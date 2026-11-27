@@ -13,7 +13,7 @@ for _ in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$E2E_AZURITE/" &
 check "azure blob against Azurite (signatures, blocks, SAS link)" 0 $?
 
 # Azurite's published development key (not a secret)
-echo -n 'Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==' | $K secret set az-key >/dev/null
+echo -n 'Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==' | $K credential password add az-key >/dev/null
 q $K conn add cloud-az 'azblob://devstoreaccount1@media/e2e?endpoint=http://azurite:10000/devstoreaccount1' --via bastion --password-ref secret:az-key
 q $K conn add cloud-gcs 'gs://media/e2e?endpoint=http://gcs:4443' --via bastion
 q $K conn add cloud-dav 'webdav://deploy@webdav:8080/e2e?insecure=1' --via bastion --password-ref secret:files-pass

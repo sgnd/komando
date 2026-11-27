@@ -421,7 +421,7 @@ func sudoRefusal(host, asRoot string, rr *sshx.RunResult) *out.Error {
 	case strings.Contains(e, "sudo: a password is required"), strings.Contains(e, "sudo: a terminal is required"),
 		strings.Contains(e, "no tty present and no askpass"):
 		return out.Errf(out.ExitRemote, "PERMISSION_DENIED",
-			"a person stores the sudo password with `komando secret set "+name+"-sudo`, then runs `komando host edit "+name+" --sudo-ref secret:"+name+"-sudo`; when you log in as root, "+asRoot,
+			"a person stores the sudo password with `komando credential password add "+name+"-sudo`, then runs `komando host edit "+name+" --sudo-ref secret:"+name+"-sudo`; when you log in as root, "+asRoot,
 			"sudo asks for a password komando does not have")
 	case strings.Contains(e, "is not in the sudoers file"), strings.Contains(e, "is not allowed to run sudo"),
 		strings.Contains(e, "may not run sudo"):

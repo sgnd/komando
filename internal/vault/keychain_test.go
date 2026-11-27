@@ -184,7 +184,7 @@ func keyFileVault(t *testing.T) []byte {
 	return key
 }
 
-// stillKeyFile checks that a refused `komando secret keychain` left the
+// stillKeyFile checks that a refused `komando config vault keychain` left the
 // vault as it was: its key in vault.key, and its secret readable.
 func stillKeyFile(t *testing.T) {
 	t.Helper()
@@ -196,7 +196,7 @@ func stillKeyFile(t *testing.T) {
 	}
 }
 
-// `komando secret keychain` never replaces another vault's key kept under
+// `komando config vault keychain` never replaces another vault's key kept under
 // this folder's name (Linux): it says so, and the vault keeps vault.key.
 func TestKeyToKeychainItemExistsLinux(t *testing.T) {
 	freshHome(t)
@@ -249,7 +249,7 @@ esac
 
 // KeePassXC with its database locked: lookup and search show nothing, and
 // `secret-tool store` would prompt to unlock, then replace the item. With
-// the default collection locked, `komando secret keychain` stores nothing
+// the default collection locked, `komando config vault keychain` stores nothing
 // and asks for the keychain to be unlocked.
 func TestKeyToKeychainCollectionLocked(t *testing.T) {
 	freshHome(t)
@@ -392,7 +392,7 @@ func TestKeyToKeychainOtherKeyDuringAMove(t *testing.T) {
 }
 
 // macOS: an item find-generic-password finds holds another key, so
-// `komando secret keychain` refuses and runs no add.
+// `komando config vault keychain` refuses and runs no add.
 func TestKeyToKeychainItemExistsMacOS(t *testing.T) {
 	unixOnly(t, "an sh script plays macOS's security tool")
 	freshHome(t)
@@ -469,7 +469,7 @@ esac
 	}
 }
 
-// `komando secret keychain` gives the store a new key as it moves it into
+// `komando config vault keychain` gives the store a new key as it moves it into
 // the keychain: a copy of store.key from before (a backup, a synced
 // folder's history) opens neither the store nor its secrets, the old ones
 // or those added later.

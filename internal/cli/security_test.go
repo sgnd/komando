@@ -159,20 +159,20 @@ func TestAgentOutputIsMasked(t *testing.T) {
 		defer func() { tcl.out.W = saved }()
 		return root.Execute()
 	}
-	if err := run("secret", "list"); err != nil || tcl.out.Mask {
+	if err := run("credential", "list"); err != nil || tcl.out.Mask {
 		t.Fatalf("a script sees what the server sent (err %v)", err)
 	}
 	n := asAgent(t, false, true)
-	if err := run("secret", "list"); err != nil || !tcl.out.Mask || *n != 0 {
+	if err := run("credential", "list"); err != nil || !tcl.out.Mask || *n != 0 {
 		t.Fatalf("an agent sees [hidden] (err %v, windows %d)", err, *n)
 	}
 	n = asAgent(t, true, true)
-	if err := run("secret", "list", "--reveal"); err != nil || tcl.out.Mask || *n != 1 {
+	if err := run("credential", "list", "--reveal"); err != nil || tcl.out.Mask || *n != 1 {
 		t.Fatalf("--reveal, allowed by the person (err %v, windows %d)", err, *n)
 	}
 	// --dry-run never stands in for the person's yes: a dry run reads too
 	n = asAgent(t, true, true)
-	if err := run("secret", "list", "--dry-run", "--reveal"); err != nil || !tcl.out.Mask || *n != 0 {
+	if err := run("credential", "list", "--dry-run", "--reveal"); err != nil || !tcl.out.Mask || *n != 0 {
 		t.Fatalf("--dry-run --reveal unmasked output (err %v, windows %d)", err, *n)
 	}
 	if b := tcl.out.Blocked(); b == nil || b.Code != "REVEAL_NEEDS_PERSON" {
@@ -180,7 +180,7 @@ func TestAgentOutputIsMasked(t *testing.T) {
 	}
 	// secret get --reveal stays for a person at a terminal: no window
 	n = asAgent(t, true, true)
-	err := run("secret", "get", "nope", "--reveal")
+	err := run("credential", "password", "show", "nope", "--reveal")
 	if *n != 0 || !tcl.out.Mask {
 		t.Fatalf("secret get --reveal opened a window (err %v)", err)
 	}

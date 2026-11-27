@@ -273,7 +273,7 @@ group rename.`,
 				set, sk := prefixRenames(s, old, new, want)
 				skipped = sk
 				if set.size() == 0 && len(sk) == 0 {
-					return nil, renameOpts{}, out.Errf(out.ExitNotFound, "NOTHING_TO_RENAME", "check OLD with `komando list` and `komando secret list`; names are matched from the start, as written",
+					return nil, renameOpts{}, out.Errf(out.ExitNotFound, "NOTHING_TO_RENAME", "check OLD with `komando list` and `komando credential list`; names are matched from the start, as written",
 						"no %s starts with %q", strings.Join(slices.Sorted(maps.Keys(want)), ", "), old)
 				}
 				return set, renameOpts{notes: notes, labels: labels, prefix: &renamePair{From: old, To: new},
@@ -362,7 +362,7 @@ func renameOne(cmd *cobra.Command, old, new string) error {
 	switch len(found) {
 	case 0: // USAGE, as before this form existed (rename needed --starts-with)
 		return out.Errf(out.ExitUsage, "USAGE",
-			"to rename every name that starts with it: `komando rename --starts-with "+old+" "+new+" --dry-run`; check the name with `komando list`, `komando secret list`, `komando key list` and `komando group list`",
+			"to rename every name that starts with it: `komando rename --starts-with "+old+" "+new+" --dry-run`; check the name with `komando list`, `komando credential list`, `komando credential key list` and `komando group list`",
 			"no server, conn, VPN, secret, key or group is named %q", old)
 	case 1:
 	default:

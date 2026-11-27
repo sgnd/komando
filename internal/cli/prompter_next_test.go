@@ -135,7 +135,7 @@ func TestPromptNext(t *testing.T) {
 	for _, c := range []struct{ key, first, want, not string }{
 		{"conn show", "notes", "komando db dump notes --to backup.sql", "db user list"},
 		{"conn show", "notes", "komando conn rm notes", "db activity"},
-		{"key show", "deploy", "komando key deploy deploy TARGET", "db "},
+		{"key show", "deploy", "komando credential key install deploy TARGET", "db "},
 		{"job status", "7f3", "komando job logs 7f3 --limit 50", "conn "},
 		{"group rm", "old", "Next: komando group add old TARGET...", "group rm"},
 		{"tunnel show", "db-tunnel", "komando tunnel stop db-tunnel", "conn "},
@@ -261,7 +261,7 @@ func TestStandardNextPerVerb(t *testing.T) {
 		"host add":    "komando test web1",
 		"conn add":    "komando test web1",
 		"host rename": "komando host show web2",
-		"key rename":  "komando key show web2",
+		"key rename":  "komando credential key show web2",
 		"rename":      "komando list web2",
 		"user add":    "komando user list web1",
 		"cron rm":     "komando cron list web1",

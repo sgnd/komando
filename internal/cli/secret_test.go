@@ -31,7 +31,7 @@ func withStdin(t *testing.T, s string, fn func()) {
 func setSecret(t *testing.T, name, value string) {
 	t.Helper()
 	t.Setenv("SECRET_TEST_VALUE", value)
-	mustRun(t, "secret", "set", name, "--from-env", "SECRET_TEST_VALUE")
+	mustRun(t, "credential", "password", "add", name, "--from-env", "SECRET_TEST_VALUE")
 }
 
 // refsTo points one of every kind of reference at secret:name.
@@ -61,10 +61,10 @@ func TestSecretMvUpdatesEveryReference(t *testing.T) {
 	if got := strings.Join(inventory.SecretUsers(st, "old"), ","); got != want {
 		t.Fatalf("users %s, want %s (a server's env counts too)", got, want)
 	}
-	wantCode(t, "SECRET_IN_USE", "secret", "rm", "old")
+	wantCode(t, "SECRET_IN_USE", "credential", "password", "remove", "old")
 
 	// the preview changes nothing
-	d := mustRun(t, "secret", "mv", "old", "new", "--dry-run")
+	d := mustRun(t, "credential", "password", "rename", "old", "new", "--dry-run")
 	if d["would_move"] != true || len(d["would_update"].([]any)) != 5 {
 		t.Errorf("dry run: %v", d)
 	}
@@ -72,7 +72,7 @@ func TestSecretMvUpdatesEveryReference(t *testing.T) {
 		t.Fatal("the dry run renamed it")
 	}
 
-	d = mustRun(t, "secret", "mv", "old", "new")
+	d = mustRun(t, "credential", "password", "rename", "old", "new")
 	if len(d["updated"].([]any)) != 5 || d["ref"] != "secret:new" {
 		t.Errorf("result: %v", d)
 	}
@@ -105,19 +105,19 @@ func TestSecretMvUpdatesEveryReference(t *testing.T) {
 
 	// the audit names the secrets, never the value
 	b := []byte(auditText(t))
-	if !strings.Contains(string(b), `"secret.rename"`) || strings.Contains(string(b), "the-value") {
+	if !strings.Contains(string(b), `"credential.password.rename"`) || strings.Contains(string(b), "the-value") {
 		t.Errorf("audit: %s", b)
 	}
 
 	// NEW is taken: --overwrite, and --yes when a protected server uses it
-	e := wantCode(t, "SECRET_EXISTS", "secret", "mv", "new", "other")
+	e := wantCode(t, "SECRET_EXISTS", "credential", "password", "rename", "new", "other")
 	if e.Exit != out.ExitConflict || !strings.Contains(e.Hint, "--overwrite") {
 		t.Errorf("exists: %+v", e)
 	}
 	mustRun(t, "host", "add", "prod", "u@10.0.0.9", "--protected", "--password-ref", "secret:other")
-	wantCode(t, "PROTECTED_TARGET", "secret", "mv", "new", "other", "--overwrite")
+	wantCode(t, "PROTECTED_TARGET", "credential", "password", "rename", "new", "other", "--overwrite")
 	mustRun(t, "host", "rm", "prod", "--yes")
-	mustRun(t, "secret", "mv", "new", "other", "--overwrite")
+	mustRun(t, "credential", "password", "rename", "new", "other", "--overwrite")
 	if v, _ := vault.Get("other"); v != "the-value" {
 		t.Errorf("overwrite: %q", v)
 	}
@@ -126,9 +126,9 @@ func TestSecretMvUpdatesEveryReference(t *testing.T) {
 		t.Errorf("refs follow an overwrite too: %s", st.Hosts["h1"].PasswordRef)
 	}
 
-	wantCode(t, "SECRET_NOT_FOUND", "secret", "mv", "nope", "x")
-	wantCode(t, "USAGE", "secret", "mv", "other", "other")
-	wantCode(t, "USAGE", "secret", "mv", "other", "bad name")
+	wantCode(t, "SECRET_NOT_FOUND", "credential", "password", "rename", "nope", "x")
+	wantCode(t, "USAGE", "credential", "password", "rename", "other", "other")
+	wantCode(t, "USAGE", "credential", "password", "rename", "other", "bad name")
 }
 
 func TestSecretCp(t *testing.T) {
@@ -162,9 +162,9 @@ func TestSecretReservedName(t *testing.T) {
 	_ = vault.Set(store.Save(), approvalSecret, "SEED")
 	setSecret(t, "x", "v")
 	t.Setenv("SECRET_TEST_VALUE", "MYSEED")
-	wantCode(t, "RESERVED_SECRET", "secret", "set", approvalSecret, "--from-env", "SECRET_TEST_VALUE")
-	wantCode(t, "RESERVED_SECRET", "secret", "rm", approvalSecret)
-	wantCode(t, "RESERVED_SECRET", "secret", "mv", approvalSecret, "y")
+	wantCode(t, "RESERVED_SECRET", "credential", "password", "add", approvalSecret, "--from-env", "SECRET_TEST_VALUE")
+	wantCode(t, "RESERVED_SECRET", "credential", "password", "remove", approvalSecret)
+	wantCode(t, "RESERVED_SECRET", "credential", "password", "rename", approvalSecret, "y")
 	wantCode(t, "RESERVED_SECRET", "secret", "cp", "x", approvalSecret)
 	if v, _ := vault.Get(approvalSecret); v != "SEED" {
 		t.Errorf("changed: %q", v)
@@ -174,13 +174,13 @@ func TestSecretReservedName(t *testing.T) {
 func TestSecretSetFromPipe(t *testing.T) {
 	invHome(t)
 	// pbpaste and echo add a line break: it is not part of the value
-	withStdin(t, "pass word\r\n", func() { mustRun(t, "secret", "set", "p1") })
+	withStdin(t, "pass word\r\n", func() { mustRun(t, "credential", "password", "add", "p1") })
 	if v, _ := vault.Get("p1"); v != "pass word" {
 		t.Errorf("p1 = %q", v)
 	}
 	// a space at the end is kept (a password can hold one), with a warning
 	var d map[string]any
-	withStdin(t, "copied-with-space \n", func() { d = mustRun(t, "secret", "set", "p2") })
+	withStdin(t, "copied-with-space \n", func() { d = mustRun(t, "credential", "password", "add", "p2") })
 	if v, _ := vault.Get("p2"); v != "copied-with-space " {
 		t.Errorf("p2 = %q", v)
 	}
@@ -190,17 +190,17 @@ func TestSecretSetFromPipe(t *testing.T) {
 	}
 	// secret get says so too, for an agent, without the value or its length
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
-	d = mustRun(t, "secret", "get", "p2")
+	d = mustRun(t, "credential", "password", "show", "p2")
 	if w, _ := d["warning"].(string); !strings.Contains(w, "space") {
 		t.Errorf("get: %v", d)
 	}
 	if _, ok := d["length"]; ok {
 		t.Error("get shows the length")
 	}
-	if d = mustRun(t, "secret", "get", "p1"); d["warning"] != nil {
+	if d = mustRun(t, "credential", "password", "show", "p1"); d["warning"] != nil {
 		t.Errorf("no warning for a clean value: %v", d)
 	}
-	withStdin(t, "\n\n", func() { wantCode(t, "USAGE", "secret", "set", "p3") })
+	withStdin(t, "\n\n", func() { wantCode(t, "USAGE", "credential", "password", "add", "p3") })
 }
 
 func TestSecretCheck(t *testing.T) {
@@ -273,12 +273,12 @@ func TestSecretSetWithoutValueSendsAgentToUser(t *testing.T) {
 	tcl.stdin = devnull
 	t.Cleanup(func() { tcl.stdin = saved; devnull.Close() })
 
-	if e := wantCode(t, "USAGE", "secret", "set", "web1-pass"); !strings.Contains(e.Message, "--from-env") {
+	if e := wantCode(t, "USAGE", "credential", "password", "add", "web1-pass"); !strings.Contains(e.Message, "--from-env") {
 		t.Errorf("script: %+v", e)
 	}
 	windows := asAgent(t, true, true)
-	e := wantCode(t, "NEEDS_PERSON", "secret", "set", "web1-pass")
-	if !strings.Contains(e.Hint, "ask the user to run `komando secret set web1-pass` in their own terminal") ||
+	e := wantCode(t, "NEEDS_PERSON", "credential", "password", "add", "web1-pass")
+	if !strings.Contains(e.Hint, "ask the user to run `komando credential password add web1-pass` in their own terminal") ||
 		!strings.Contains(e.Hint, "Never ask for a password in the chat") || e.Exit != out.ExitPolicy {
 		t.Errorf("agent: %+v", e)
 	}
@@ -286,18 +286,18 @@ func TestSecretSetWithoutValueSendsAgentToUser(t *testing.T) {
 		t.Errorf("no flag lets an agent type the user's password; hint %q, %d windows", e.Hint, *windows)
 	}
 	// a value a program makes still works for an agent
-	withStdin(t, "generated-token-123\n", func() { mustRun(t, "secret", "set", "ci-token") })
+	withStdin(t, "generated-token-123\n", func() { mustRun(t, "credential", "token", "add", "ci-token") })
 }
 
 // --from-env with an empty variable stores nothing, as an empty pipe does.
 func TestSecretSetFromEmptyEnv(t *testing.T) {
 	invHome(t)
 	t.Setenv("EMPTY_PASS", "")
-	if e := wantCode(t, "USAGE", "secret", "set", "x", "--from-env", "EMPTY_PASS"); e.Message != "env EMPTY_PASS is empty" {
+	if e := wantCode(t, "USAGE", "credential", "password", "add", "x", "--from-env", "EMPTY_PASS"); e.Message != "env EMPTY_PASS is empty" {
 		t.Errorf("message %q", e.Message)
 	}
 	t.Setenv("EMPTY_PASS", " \n")
-	wantCode(t, "USAGE", "secret", "set", "x", "--from-env", "EMPTY_PASS")
+	wantCode(t, "USAGE", "credential", "password", "add", "x", "--from-env", "EMPTY_PASS")
 	if names := secretNames(); len(names) != 0 {
 		t.Errorf("stored %v", names)
 	}
@@ -339,13 +339,13 @@ func metaWarnings(d map[string]any) string {
 func TestCommonWordWarnings(t *testing.T) {
 	invHome(t)
 	t.Setenv("SECRET_TEST_VALUE", "sunshine")
-	d := mustRun(t, "secret", "set", "web-pass", "--from-env", "SECRET_TEST_VALUE")
+	d := mustRun(t, "credential", "password", "add", "web-pass", "--from-env", "SECRET_TEST_VALUE")
 	w := metaWarnings(d)
 	if !strings.Contains(w, "secret web-pass: this value is a common word") || strings.Contains(w, "sunshine") {
 		t.Errorf("secret set: %s", w)
 	}
 	t.Setenv("SECRET_TEST_VALUE", "Xk3-long-enough-9")
-	if w := metaWarnings(mustRun(t, "secret", "set", "ok-pass", "--from-env", "SECRET_TEST_VALUE")); strings.Contains(w, "common word") {
+	if w := metaWarnings(mustRun(t, "credential", "password", "add", "ok-pass", "--from-env", "SECRET_TEST_VALUE")); strings.Contains(w, "common word") {
 		t.Errorf("a strong value: %s", w)
 	}
 	env := writeTemp(t, ".env", "DATABASE_URL=postgres://app:letmein@127.0.0.1:5432/shop\n")

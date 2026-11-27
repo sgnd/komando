@@ -81,7 +81,7 @@ var invHostHints = map[string]formHint{
 				help: "Usually 22. Leave empty to keep it."},
 			invAskPassword,
 			{name: "key", ask: "Log in with which key from komando's key list?", pick: "key",
-				help: "`komando key list` shows them. Leave empty to keep how it logs in now."},
+				help: "`komando credential key list` shows them. Leave empty to keep how it logs in now."},
 			invProtected, invVia, invAddGroup, invNotes,
 		},
 		hide: []string{"group", "tag"},
@@ -106,7 +106,7 @@ var invHostHints = map[string]formHint{
 			{name: "from", ask: "Or read a known_hosts file's @cert-authority lines?", local: true, example: "~/.ssh/known_hosts"},
 		},
 	},
-	"host ca rm":     {args: []formArg{{ask: "Which CA should komando stop trusting?", help: "See them with `komando host ca list`."}}},
+	"host ca rm":     {args: []formArg{{ask: "Which CA should komando stop trusting?", help: "See them with `komando credential certificate list`."}}},
 	"host ca revoke": {flags: []formFlag{{name: "key", ask: "Which public key file (.pub) should never be trusted?", local: true, required: true}}},
 	"host trust": {
 		args: []formArg{invServers},

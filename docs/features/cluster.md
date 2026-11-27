@@ -98,7 +98,7 @@ name it with `cluster add` (the same as `conn add`, but it refuses a URL
 that is not a cluster):
 
 ```bash
-komando secret set prod-kubeconfig < prod.kubeconfig
+komando credential token add prod-kubeconfig < prod.kubeconfig
 komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref secret:prod-kubeconfig
 ```
 
@@ -120,7 +120,7 @@ you answer Docker Swarm.
 
 ```bash
 komando conn rm prod-k8s                 # komando forgets it; the cluster is not touched
-komando secret rm prod-kubeconfig        # its kubeconfig, once nothing uses it
+komando credential password remove prod-kubeconfig        # its kubeconfig, once nothing uses it
 ```
 
 `conn rm` lists the vault secrets nothing uses any more

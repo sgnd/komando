@@ -40,7 +40,7 @@ func TestDryRunChangesNothing(t *testing.T) {
 		{"conn", "rm", "db1"},
 		{"group", "add", "web", "web1"},
 		{"policy", "deny", "kubectl apply"},
-		{"key", "gen", "k1"},
+		{"credential", "key", "create", "k1"},
 	} {
 		if err := run(append([]string{"--dry-run"}, args...)...); err != nil {
 			t.Errorf("%v --dry-run: %v", args, err)

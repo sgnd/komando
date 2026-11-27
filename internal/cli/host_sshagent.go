@@ -71,7 +71,7 @@ func agentKeys(cl *call, st *store.State, hops []*store.Host, dir string) (map[s
 		}
 		priv, err := ssh.ParseRawPrivateKey(pem)
 		if err != nil {
-			return nil, out.Errf(out.ExitUsage, "KEY_INVALID", "make a new one with `komando key gen`", "key %s: %v", k.Name, err)
+			return nil, out.Errf(out.ExitUsage, "KEY_INVALID", "make a new one with `komando credential key create`", "key %s: %v", k.Name, err)
 		}
 		signer, err := ssh.NewSignerFromKey(priv)
 		if err != nil {

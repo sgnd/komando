@@ -16,9 +16,9 @@ if ! SFC exec -T snowflake test -s /e2e/user.key 2>/dev/null; then
   set -e
   return 0
 fi
-SFC exec -T snowflake cat /e2e/ca.crt | $K secret set sf-ca >/dev/null
-SFC exec -T snowflake cat /e2e/user.key | $K secret set sf-key >/dev/null
-printf 'e2e-pat-1' | $K secret set sf-pat >/dev/null
+SFC exec -T snowflake cat /e2e/ca.crt | $K credential token add sf-ca >/dev/null
+SFC exec -T snowflake cat /e2e/user.key | $K credential password add sf-key >/dev/null
+printf 'e2e-pat-1' | $K credential password add sf-pat >/dev/null
 q $K conn add sf 'snowflake://e2e@e2e-acct/E2E_DB/PUBLIC?warehouse=E2E_WH&ca=secret:sf-ca' --via bastion --password-ref secret:sf-key
 check "snowflake conn test logs in with a key pair through --via" login "$($K conn test sf | jget 'd["data"]["results"][0]["detail"]["check"]')"
 check "snowflake reads with a ? placeholder" "['hi', 42]" "$($K db query sf 'select ? as greeting, 42 as n' --arg hi | jget 'd["data"]["results"][0]["rows"][0]')"
@@ -40,5 +40,5 @@ check "no snowflake secret in the audit log" 0 "$(audit_text | grep -c -E 'e2e-p
 q $K conn rm sf
 q $K conn rm sf-pat
 q $K conn rm sf-noca
-$K secret rm sf-ca sf-key sf-pat --allow-dangerous >/dev/null 2>&1 || true
+$K credential password remove sf-ca sf-key sf-pat --allow-dangerous >/dev/null 2>&1 || true
 set -e

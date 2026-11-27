@@ -379,7 +379,7 @@ func CopyState() (have, kept uint64, guardedStore, old bool, err error) {
 		case perr != nil:
 			// its key is elsewhere, and the keychain cannot say whether it
 			// keeps a newer count: the store is read, never changed
-			return 0, 0, false, false, fmt.Errorf("the keychain could not be read (%v), so komando cannot check that %s is not a backup from before `komando secret keychain`; until it can, komando changes nothing in it", perr, StoreFile)
+			return 0, 0, false, false, fmt.Errorf("the keychain could not be read (%v), so komando cannot check that %s is not a backup from before `komando config vault keychain`; until it can, komando changes nothing in it", perr, StoreFile)
 		}
 	}
 	d, err := openOldCopy()

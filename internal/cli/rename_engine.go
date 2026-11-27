@@ -111,7 +111,7 @@ func renameTx(cl *call, plan func(s *store.State) (renameSet, renameOpts, error)
 		}
 		if sec := set["secret"]; len(sec) > 0 {
 			if err := vault.RenameMany(cl.storeWrite(), sec); err != nil {
-				return out.Errf(out.ExitError, "RENAME_FAILED", "check that the vault opens (`komando secret list`, KOMANDO_VAULT_PASS)",
+				return out.Errf(out.ExitError, "RENAME_FAILED", "check that the vault opens (`komando credential list`, KOMANDO_VAULT_PASS)",
 					"the vault cannot rename the secrets: %v; nothing was renamed", err)
 			}
 			secrets = sec

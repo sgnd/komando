@@ -33,9 +33,9 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 	fl.StringVar(&f.address, "address", "", "host name or IP address (winrm://USER@HOST for a Windows server over WinRM)")
 	fl.IntVar(&f.port, "port", 0, "SSH port (default 22)")
 	fl.StringVar(&f.user, "user", "", "the user to log in as")
-	fl.StringVar(&f.key, "key", "", "name of a key in komando's key list (see komando key list)")
+	fl.StringVar(&f.key, "key", "", "name of a key in komando's key list (see komando credential key list)")
 	fl.StringVar(&f.identity, "identity", "", "path to a private key file")
-	fl.StringVar(&f.passwordRef, "password-ref", "", "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...")
+	fl.StringVar(&f.passwordRef, "password-ref", "", "where the password is: secret:NAME (saved with komando credential password add NAME), env:VAR, file:PATH or a password manager like op://...")
 	fl.StringVar(&f.login, "login", "", loginFlagUsage)
 	_ = c.RegisterFlagCompletionFunc("login", cobra.FixedCompletions(loginCompletions, cobra.ShellCompDirectiveNoFileComp))
 	fl.StringVar(&f.sudoRef, "sudo-ref", "", "where the sudo password is, written like --password-ref")
@@ -415,7 +415,7 @@ type hostEditResult struct {
 	Hosts     []*store.Host `json:"hosts"`               // every server, after the edit
 	Warnings  []string      `json:"warnings,omitempty"`
 	// SecretsUnused: the stored passwords a --login ask or agent left
-	// unused; they stay in the vault (`komando secret rm NAME`)
+	// unused; they stay in the vault (`komando credential password remove NAME`)
 	SecretsUnused []string `json:"secrets_unused,omitempty"`
 }
 
@@ -676,7 +676,7 @@ func checkHostRefs(h *store.Host) error {
 	}
 	for _, r := range []struct{ flag, ref string }{{"--password-ref", h.PasswordRef}, {"--sudo-ref", h.SudoRef}} {
 		if r.ref != "" && !vault.ValidRef(r.ref) {
-			return out.Usage("%s takes a reference, not the password itself (%s); store the password with `komando secret set NAME` first", r.flag, vault.RefHelp())
+			return out.Usage("%s takes a reference, not the password itself (%s); store the password with `komando credential password add NAME` first", r.flag, vault.RefHelp())
 		}
 	}
 	return nil

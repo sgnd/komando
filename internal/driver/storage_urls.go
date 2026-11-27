@@ -84,7 +84,7 @@ func parseAzure(u *url.URL, t Target) (Target, error) {
 	if q.Has("sig") || q.Has("sv") {
 		// a SAS token pasted into the URL: it is a password
 		return Target{}, out.Errf(out.ExitUsage, "URL_HAS_PASSWORD",
-			"remove the SAS token from the URL, store it with `komando secret set NAME`, then pass --password-ref secret:NAME",
+			"remove the SAS token from the URL, store it with `komando credential token add NAME`, then pass --password-ref secret:NAME",
 			"a conn URL holds no password or token")
 	}
 	if err := onlyOptions(q, "azblob", "endpoint", "ca", "insecure"); err != nil {

@@ -9,7 +9,7 @@ for _ in $(seq 1 60); do
   NDC exec -T nats wget -q -O /dev/null 'http://127.0.0.1:8222/healthz?js-enabled-only=true' >/dev/null 2>&1 && break
   sleep 1
 done
-echo -n natspass | $K secret set nats-pass >/dev/null
+echo -n natspass | $K credential password add nats-pass >/dev/null
 q $K conn add stream 'nats://app@nats:4222' --via bastion --password-ref secret:nats-pass
 for _ in $(seq 1 30); do [ "$($K conn test stream | jget 'd["data"]["results"][0]["ok"]' 2>/dev/null)" = True ] && break; sleep 1; done
 check "nats conn test logs in through --via" login "$($K conn test stream | jget 'd["data"]["results"][0]["detail"]["check"]')"

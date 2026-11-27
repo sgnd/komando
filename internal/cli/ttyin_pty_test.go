@@ -225,7 +225,7 @@ func TestPTYCtrlCAtYesNo(t *testing.T) {
 
 func TestPTYCtrlCAtHiddenPrompt(t *testing.T) {
 	invHome(t)
-	p := startPTY(t, "secret", "set", "s1")
+	p := startPTY(t, "credential", "password", "add", "s1")
 	p.answer("(it stays hidden): ", "half-typed")
 	time.Sleep(100 * time.Millisecond)
 	p.master.WriteString("\x03")
@@ -250,7 +250,7 @@ func TestPTYCtrlCAtHiddenPrompt(t *testing.T) {
 
 func TestPTYMultiLinePaste(t *testing.T) {
 	invHome(t)
-	p := startPTY(t, "secret", "set", "s1")
+	p := startPTY(t, "credential", "password", "add", "s1")
 	// a copied key: the last line often comes without a line break
 	p.answer("(it stays hidden): ", "-----BEGIN KEY-----\nline-two\nline-three\n-----END KEY-----")
 	if code := p.exit(); code != out.ExitUsage {
@@ -277,7 +277,7 @@ func TestPTYMultiLinePaste(t *testing.T) {
 func TestPTYOneLinePaste(t *testing.T) {
 	for _, typed := range []string{"s3cret\r", "s3cret\n\n", "\x1b[200~s3cret\n\x1b[201~"} {
 		invHome(t)
-		p := startPTY(t, "secret", "set", "s1")
+		p := startPTY(t, "credential", "password", "add", "s1")
 		p.answer("(it stays hidden): ", typed)
 		if code := p.exit(); code != 0 {
 			t.Errorf("%q: exit %d; the screen:\n%s", typed, code, p.shown())

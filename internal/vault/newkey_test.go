@@ -165,7 +165,7 @@ func TestNewVaultKeychainOff(t *testing.T) {
 
 // A vault that exists keeps its mode: one made with vault.key (and empty,
 // its key not made yet) gets vault.key, and a passphrase vault stays one.
-// Only `komando secret keychain` moves a key.
+// Only `komando config vault keychain` moves a key.
 func TestExistingVaultKeepsMode(t *testing.T) {
 	freshHome(t)
 	if err := Set(store.Save(), "first", "v"); err != nil { // keychain off: a key file store
@@ -198,7 +198,7 @@ func TestExistingVaultKeepsMode(t *testing.T) {
 	}
 }
 
-// `komando secret keychain` on a vault with no secrets yet: its new key
+// `komando config vault keychain` on a vault with no secrets yet: its new key
 // goes straight into the keychain, and vault.json says so.
 func TestKeyToKeychainNewVault(t *testing.T) {
 	freshHome(t)

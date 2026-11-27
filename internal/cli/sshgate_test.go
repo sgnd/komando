@@ -608,11 +608,11 @@ func TestSSHGateRuns(t *testing.T) {
 func TestSSHGateRefuses(t *testing.T) {
 	invHome(t)
 	for line, code := range map[string]string{
-		"komando secret get db --reveal": "SSH_GATE_REFUSED",
-		"sh -c id":                       "SSH_GATE_REFUSED",
-		"":                               "SSH_GATE_REFUSED",
-		"komando list; id":               "SSH_GATE_SYNTAX",
-		"komando svc restart web nginx":  "SSH_GATE_READ_ONLY",
+		"komando credential password show db --reveal": "SSH_GATE_REFUSED",
+		"sh -c id":                      "SSH_GATE_REFUSED",
+		"":                              "SSH_GATE_REFUSED",
+		"komando list; id":              "SSH_GATE_SYNTAX",
+		"komando svc restart web nginx": "SSH_GATE_READ_ONLY",
 	} {
 		ran, _, e := gateRun(t, line, "--name", "phone-read", "--read-only")
 		if ran != nil || e == nil || e.Code != code {

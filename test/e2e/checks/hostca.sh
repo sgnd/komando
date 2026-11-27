@@ -20,7 +20,7 @@ hostcert() {
 set +e
 hostcert -n web.corp.example
 ptyrun '' env NO_COLOR=1 TERM=dumb "$K" host ca add lab --key "$TMP/hostca.pub" --hosts '*.corp.example' >/dev/null
-check "host ca: a person adds the lab CA" lab "$($K host ca list | jget 'd["data"]["items"][0]["name"]')"
+check "host ca: a person adds the lab CA" lab "$($K credential certificate list | jget 'd["data"]["items"][0]["name"]')"
 $K host add t-hostca agent@web.corp.example --via bastion --password-ref secret:agent-pass >/dev/null
 $K --host-key-policy strict exec t-hostca -- true >/dev/null
 check "host ca: a certificate for the dialled name is trusted with no pin" 0 $?
@@ -29,5 +29,5 @@ hostcert
 check "host ca: a certificate with no principals is refused" HOSTKEY_UNKNOWN "$($K --host-key-policy strict exec t-hostca -- true | jget 'd["error"]["code"]')"
 docker exec "$TGT" sh -c 'rm -f /etc/ssh/sshd_config.d/hostca.conf /etc/ssh/ssh_host_ed25519_key-cert.pub && kill -HUP 1'
 $K host rm t-hostca --yes >/dev/null
-$K host ca rm lab --yes >/dev/null
+$K credential certificate remove lab --yes >/dev/null
 set -e

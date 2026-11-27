@@ -4,7 +4,7 @@
 # kinds, a wrong share and the missing links. Uses t-e2esmb/ files and
 # removes them at the end.
 set +e
-echo -n deploypass | $K secret set smb-pass >/dev/null
+echo -n deploypass | $K credential password add smb-pass >/dev/null
 q $K conn add smb-files 'smb://WORKGROUP;deploy@samba/files/e2e' --via bastion --password-ref secret:smb-pass
 q $K conn add smb-noshare 'smb://deploy@samba/nope' --via bastion --password-ref secret:smb-pass
 for _ in $(seq 1 30); do [ "$($K conn test smb-files | jget 'd["data"]["results"][0]["ok"]' 2>/dev/null)" = True ] && break; sleep 1; done

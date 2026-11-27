@@ -202,7 +202,7 @@ func renameVpn(cl *call, s *store.State, from, to string) (mvResult, error) {
 	}
 	if len(secrets) > 0 && !cl.dryRun() {
 		if err := vault.RenameMany(cl.storeWrite(), secrets); err != nil {
-			return res, out.Errf(out.ExitError, "RENAME_FAILED", "check that the vault opens (`komando secret list`, KOMANDO_VAULT_PASS)",
+			return res, out.Errf(out.ExitError, "RENAME_FAILED", "check that the vault opens (`komando credential list`, KOMANDO_VAULT_PASS)",
 				"the vault cannot rename the VPN's secrets: %v; nothing was renamed", err)
 		}
 		back := map[string]string{}

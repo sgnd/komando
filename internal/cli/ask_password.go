@@ -65,7 +65,7 @@ func askSecretNow(cmd *cobra.Command, kind, name string, a askSecret) (ref strin
 				"ask the user to run `"+commandLine(cl)+"` in their own terminal; never ask for a "+a.what+" in the chat",
 				"--%s needs the user to type the %s, so it never passes through an AI agent", a.flag, a.what)
 		}
-		hint := fmt.Sprintf("store it with `komando secret set %s` (it reads stdin too), then pass --%s %s", sec, a.refFlag, ref)
+		hint := fmt.Sprintf("store it with `komando credential password add %s` (it reads stdin too), then pass --%s %s", sec, a.refFlag, ref)
 		if a.flag == askPasswordSecret.flag {
 			return "", undo, out.Errf(out.ExitPolicy, "NEEDS_PERSON", hint, "--ask-password asks at a terminal, and there is none").NoFlag()
 		}
@@ -81,7 +81,7 @@ func askSecretNow(cmd *cobra.Command, kind, name string, a askSecret) (ref strin
 	existed := getErr == nil
 	if existed && len(others) > 0 {
 		return "", undo, out.Errf(out.ExitConflict, "SECRET_EXISTS",
-			fmt.Sprintf("use it with --%s %s, or store this one under another name: `komando secret set NAME`, then --%s secret:NAME", a.refFlag, ref, a.refFlag),
+			fmt.Sprintf("use it with --%s %s, or store this one under another name: `komando credential password add NAME`, then --%s secret:NAME", a.refFlag, ref, a.refFlag),
 			"secret %s is used by %s already; --ask-password and --ask-psk do not replace it", sec, strings.Join(others, ", "))
 	}
 	// a new password for a protected server or conn changes how komando
@@ -110,7 +110,7 @@ func askSecretNow(cmd *cobra.Command, kind, name string, a askSecret) (ref strin
 	if err := put(cl.storeWrite(), sec, v); err != nil {
 		if errors.Is(err, vault.ErrExists) {
 			return "", undo, out.Errf(out.ExitConflict, "SECRET_EXISTS",
-				fmt.Sprintf("use it with --%s %s, or store yours under another name: `komando secret set NAME`, then --%s secret:NAME", a.refFlag, ref, a.refFlag),
+				fmt.Sprintf("use it with --%s %s, or store yours under another name: `komando credential password add NAME`, then --%s secret:NAME", a.refFlag, ref, a.refFlag),
 				"secret %s was stored by something else while you typed; nothing was replaced", sec)
 		}
 		return "", undo, err
@@ -134,7 +134,7 @@ func missingSecretWarnings(refs ...string) []string {
 			continue
 		}
 		if _, err := vault.Get(n); err == vault.ErrNotFound {
-			w = append(w, fmt.Sprintf("secret %s is not in the vault yet: store it with `komando secret set %s`", n, n))
+			w = append(w, fmt.Sprintf("secret %s is not in the vault yet: store it with `komando credential password add %s`", n, n))
 		}
 	}
 	return w

@@ -26,7 +26,7 @@ func readStdinIfPiped(cl *call, limit int64, what string) ([]byte, error) {
 
 // maxStdinValue is the most komando reads from stdin for one value (a
 // secret, a queue message): far more than any of them, and a wrong pipe
-// (`cat big.iso | komando secret set x`) stops early instead of filling
+// (`cat big.iso | komando credential password add x`) stops early instead of filling
 // memory.
 const maxStdinValue = 1 << 20
 

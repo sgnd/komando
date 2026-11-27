@@ -290,7 +290,7 @@ func guardLocalRead(cl *call, p string) error {
 		return nil
 	case why == komandoData:
 		return out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
-			"komando never reads its own folder for an AI agent; use komando commands (`komando list`, `komando secret list`), or ask the user to run this in their own terminal",
+			"komando never reads its own folder for an AI agent; use komando commands (`komando list`, `komando credential list`), or ask the user to run this in their own terminal",
 			"%s is %s", p, why).NoFlag()
 	case why == procEnv:
 		return out.Errf(out.ExitPolicy, "SENSITIVE_FILE",

@@ -98,7 +98,7 @@ func TestYesIsForTheFlagItsWindowNamed(t *testing.T) {
 	mustRun(t, "host", "edit", "web", "--password-ref", "secret:web-pw", "--yes")
 	texts := windowText(t, true)
 	t.Setenv("V", "agent-value")
-	mustRun(t, "secret", "set", "web-pw", "--from-env", "V", "--yes", "--reveal")
+	mustRun(t, "credential", "password", "add", "web-pw", "--from-env", "V", "--yes", "--reveal")
 	if len(*texts) != 2 || !strings.Contains((*texts)[1], "--yes skips") {
 		t.Errorf("the --yes check gets its own window: %q", *texts)
 	}

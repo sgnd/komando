@@ -24,7 +24,7 @@ func revokeTarget(st *store.State, arg string) (blob, label string, k *store.Key
 	line := arg
 	if key, ok := st.Keys[arg]; ok {
 		if key.PublicKey == "" {
-			return "", "", nil, out.Errf(out.ExitUsage, "NO_PUBLIC_KEY", "place "+key.Path+".pub next to the key, then `komando key rm "+key.Name+"` and add it again", "komando does not have the public key of %s", key.Name)
+			return "", "", nil, out.Errf(out.ExitUsage, "NO_PUBLIC_KEY", "place "+key.Path+".pub next to the key, then `komando credential key remove "+key.Name+"` and add it again", "komando does not have the public key of %s", key.Name)
 		}
 		line, label, k = key.PublicKey, "key "+key.Name, key
 	} else if b, rerr := os.ReadFile(inventory.ExpandHome(arg)); rerr == nil {
@@ -32,7 +32,7 @@ func revokeTarget(st *store.State, arg string) (blob, label string, k *store.Key
 	}
 	f := strings.Fields(line)
 	if len(f) < 2 || !strings.HasPrefix(f[0], "ssh-") && !strings.HasPrefix(f[0], "ecdsa-") && !strings.HasPrefix(f[0], "sk-") {
-		return "", "", nil, out.Usage("give a key name from `komando key list`, a .pub file, or a public key line (ssh-ed25519 AAAA...)")
+		return "", "", nil, out.Usage("give a key name from `komando credential key list`, a .pub file, or a public key line (ssh-ed25519 AAAA...)")
 	}
 	if label == "" {
 		label = f[0] + " ..." + f[1][max(0, len(f[1])-12):]
@@ -54,10 +54,10 @@ the dry run names each user whose file holds it). The file keeps its owner
 and mode, and is read and written as its user. Revoking the
 key komando itself logs in with needs --allow-dangerous: you would lock
 yourself out. --dry-run counts the lines it would remove.`,
-		Example: `  komando key revoke ~/keys/alice.pub @prod --dry-run
-  komando key revoke "ssh-ed25519 AAAAC3Nz...xyz alice@laptop" @prod
-  komando key revoke old-deploy @web --user deploy
-  komando key revoke ~/keys/alice.pub @prod --all-users --dry-run`,
+		Example: `  komando credential key uninstall ~/keys/alice.pub @prod --dry-run
+  komando credential key uninstall "ssh-ed25519 AAAAC3Nz...xyz alice@laptop" @prod
+  komando credential key uninstall old-deploy @web --user deploy
+  komando credential key uninstall ~/keys/alice.pub @prod --all-users --dry-run`,
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()

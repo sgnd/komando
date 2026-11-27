@@ -14,7 +14,7 @@ var (
 	accNewName = formArg{ask: "What should the new name be?", example: "office-jkt",
 		help: "Letters, digits, dot, dash and underscore, starting with a letter or digit."}
 	accSecret = formArg{ask: "Which secret?", example: "db-pass", pick: "secret", free: true,
-		help: "The name you saved it under. komando secret list shows your saved passwords."}
+		help: "The name you saved it under. komando credential list shows your saved passwords."}
 	accSecretAdd = formArg{ask: "What name should it have?", example: "db-pass", pick: "secret", free: true,
 		help: "Pick one to give it a new value, or type a new name: letters, digits, dot, dash and underscore, starting with a letter or digit. komando asks for the value next and hides it as you type or paste."}
 	accSecrets = formArg{ask: "Which ones?", example: "old-pass", pick: "secret", free: true,
@@ -24,7 +24,7 @@ var (
 	accOverwrite = formFlag{name: "overwrite", ask: "Replace the new name if it exists already?",
 		help: "No stops when a secret with the new name is there, so nothing is lost by mistake."}
 	accKey = formArg{ask: "Which key?", pick: "key",
-		help: "One of your komando SSH keys. `komando key list` shows them."}
+		help: "One of your komando SSH keys. `komando credential key list` shows them."}
 	accKeyOrPub = formArg{ask: "Which key?", pick: "key", free: true, local: true, example: "~/.ssh/id_ed25519.pub",
 		help: "One of your komando SSH keys, or type the path of a .pub file on this computer."}
 	accServers = formArg{ask: "On which servers?", pick: "host", free: true,
@@ -58,7 +58,7 @@ func init() {
 				{name: "user", ask: "New user name for the VPN login?", example: "alice",
 					help: "Leave empty to keep it."},
 				{name: "password-ref", ask: "Where is the new password kept?", example: "secret:office-pass",
-					help: "Store it first with `komando secret set NAME` (it asks hidden), then type secret:NAME here. Leave empty to keep it."},
+					help: "Store it first with `komando credential password add NAME` (it asks hidden), then type secret:NAME here. Leave empty to keep it."},
 				{name: "notes", ask: "Notes about this VPN?", example: "office in Jakarta, ask Budi for access",
 					help: "Anything to remember. Leave empty to keep them."},
 			}},

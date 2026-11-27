@@ -21,7 +21,7 @@ import (
 func TestLoginAskConnURLSettingsAreThePlace(t *testing.T) {
 	invHome(t)
 	t.Setenv("PW", "stored-pw")
-	mustRun(t, "secret", "set", "evilca", "--from-env", "PW")
+	mustRun(t, "credential", "password", "add", "evilca", "--from-env", "PW")
 	mustRun(t, "conn", "add", "pg1", "postgres://app@db.internal:5432/app", "--login", "ask")
 	mustRun(t, "conn", "add", "pg2", "postgres://app@db.internal:5432/app", "--password-ref", "env:PW")
 	mustRun(t, "conn", "add", "c1", "rediss://default@10.0.0.5:6379/0", "--login", "ask")
@@ -84,13 +84,13 @@ func TestLoginAskPostgresEnvIgnored(t *testing.T) {
 func TestLoginAskRouteSettingsAndSecrets(t *testing.T) {
 	invHome(t)
 	t.Setenv("CAPEM", "x")
-	mustRun(t, "secret", "set", "corpca", "--from-env", "CAPEM")
-	mustRun(t, "secret", "set", "evilca", "--from-env", "CAPEM")
+	mustRun(t, "credential", "password", "add", "corpca", "--from-env", "CAPEM")
+	mustRun(t, "credential", "password", "add", "evilca", "--from-env", "CAPEM")
 	mustRun(t, "host", "add", "win1", "winrm://Administrator@10.0.0.9", "--login", "ask")
 	mustRun(t, "host", "add", "win2", "winrm://Administrator@10.0.0.8?ca=secret:corpca", "--login", "ask")
-	mustRun(t, "secret", "set", "connca", "--from-env", "CAPEM")
+	mustRun(t, "credential", "password", "add", "connca", "--from-env", "CAPEM")
 	mustRun(t, "conn", "add", "pg1", "postgres://app@db.internal:5432/app?ca=secret:connca", "--login", "ask")
-	mustRun(t, "secret", "set", "tskey", "--from-env", "CAPEM")
+	mustRun(t, "credential", "password", "add", "tskey", "--from-env", "CAPEM")
 	mustRun(t, "vpn", "add", "ts", "tailscale", "--password-ref", "secret:tskey")
 	mustRun(t, "host", "add", "web1", "u@100.64.0.5", "--login", "ask", "--via", "ts")
 	setCallerEnv(t, "CLAUDECODE", "1")
@@ -99,7 +99,7 @@ func TestLoginAskRouteSettingsAndSecrets(t *testing.T) {
 	}
 	t.Setenv("EVIL", "y")
 	for _, name := range []string{"corpca", "connca", "tskey"} {
-		if e := wantCode(t, "NEEDS_PERSON", "secret", "set", name, "--from-env", "EVIL"); !strings.Contains(e.Message, name) {
+		if e := wantCode(t, "NEEDS_PERSON", "credential", "password", "add", name, "--from-env", "EVIL"); !strings.Contains(e.Message, name) {
 			t.Errorf("%s: %+v", name, e)
 		}
 	}
@@ -127,7 +127,7 @@ func TestLoginAskViaAtRunTime(t *testing.T) {
 	mustRun(t, "host", "add", "web1", "u@10.0.0.5", "--login", "ask", "--via", "hop")
 	mustRun(t, "host", "add", "plain", "u@10.0.0.6")
 	t.Setenv("K", "x")
-	mustRun(t, "secret", "set", "tskey", "--from-env", "K")
+	mustRun(t, "credential", "password", "add", "tskey", "--from-env", "K")
 	mustRun(t, "vpn", "add", "ts", "tailscale", "--password-ref", "secret:tskey")
 	setCallerEnv(t, "CLAUDECODE", "1")
 	for _, args := range [][]string{
@@ -152,7 +152,7 @@ func TestLoginAskViaAtRunTime(t *testing.T) {
 func TestLoginAskVpnOverwriteWay(t *testing.T) {
 	invHome(t)
 	t.Setenv("K", "x")
-	mustRun(t, "secret", "set", "tskey", "--from-env", "K")
+	mustRun(t, "credential", "password", "add", "tskey", "--from-env", "K")
 	mustRun(t, "vpn", "add", "ts", "tailscale", "--password-ref", "secret:tskey")
 	mustRun(t, "host", "add", "web1", "u@100.64.0.5", "--login", "ask", "--via", "ts")
 	setCallerEnv(t, "CLAUDECODE", "1")

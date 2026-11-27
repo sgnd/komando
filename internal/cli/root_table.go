@@ -413,7 +413,12 @@ func runBody(cl *call, ctx context.Context, body *cobra.Command, in leafInput, r
 // credentialRef is how today's bodies write the name of a credential: the
 // reference to a secret. Row E1 renames it to credential:NAME; this is the
 // one place that changes.
-func credentialRef(name string) string { return "secret:" + name }
+func credentialRef(name string) string {
+	if name == "" {
+		return "" // an empty value clears the setting
+	}
+	return "secret:" + name
+}
 
 // credentialFlags are the table's credential options that today's bodies
 // take as a reference under another name.

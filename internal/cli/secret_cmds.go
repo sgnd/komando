@@ -33,7 +33,7 @@ A value from a pipe loses the line breaks at its end (echo and pbpaste add
 one). Spaces are kept, since a password can hold them; komando warns when the
 value starts or ends with one, so a stray space copied with a password is
 noticed. At the terminal, paste or type the value after the prompt appears.`,
-		Example: "  komando secret set web1-pass          # type or paste it after the prompt, nothing is shown\n  komando secret set db-pass --from-env DB_PASS\n  pbpaste | komando secret set vpn-pass\n  komando secret set api-token --new --from-env TOKEN   # never replaces one",
+		Example: "  komando credential password add web1-pass          # type or paste it after the prompt, nothing is shown\n  komando credential password add db-pass --from-env DB_PASS\n  pbpaste | komando credential password add vpn-pass\n  komando credential token add api-token --new --from-env TOKEN   # never replaces one",
 		Args:    cobra.RangeArgs(1, 2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if err := inventory.ValidName("secret", args[0]); err != nil {
@@ -47,7 +47,7 @@ noticed. At the terminal, paste or type the value after the prompt appears.`,
 				// A value on the command line lands in shell history and in
 				// `ps` for every user on the machine.
 				return out.Errf(out.ExitUsage, "SECRET_IN_ARGS",
-					fmt.Sprintf("run `komando secret set %s` and type it (hidden), use --from-env VAR, or pipe it in (stdin)", args[0]),
+					fmt.Sprintf("run `komando credential password add %s` and type it (hidden), use --from-env VAR, or pipe it in (stdin)", args[0]),
 					"refusing a secret value on the command line: it would be saved in shell history")
 			}
 			// a name that is taken fails before anyone types the value; the
@@ -121,7 +121,7 @@ noticed. At the terminal, paste or type the value after the prompt appears.`,
 // secretSetExists is `secret set NAME --new` when NAME is stored already.
 func secretSetExists(name string) error {
 	return out.Errf(out.ExitConflict, "SECRET_EXISTS",
-		"to replace it, run `komando secret set "+name+"` without --new; or pick another name",
+		"to replace it, run `komando credential password add "+name+"` without --new; or pick another name",
 		"secret %q already exists", name)
 }
 
@@ -138,8 +138,8 @@ at a terminal can add --reveal to print it; from a program without a terminal
 agents never get the value (they reference it as secret:NAME instead). A warning says when the value
 starts or ends with a space, tab or line break, a common cause of a failing
 login; 'komando secret check NAME' lets a person compare it.`,
-		Example: `  komando secret show db-pass
-  komando secret show db-pass --reveal | pbcopy   # a person, at a terminal`,
+		Example: `  komando credential password show db-pass
+  komando credential password show db-pass --reveal | pbcopy   # a person, at a terminal`,
 		Args: cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			v, err := vault.Get(args[0])
@@ -194,7 +194,7 @@ picks would be a way to guess the secret one try at a time.`,
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if cl.isAgent() {
 				return out.Errf(out.ExitPolicy, "NEEDS_PERSON",
-					"ask the user to run `komando secret check "+args[0]+"` in their own terminal; `komando secret show "+args[0]+"` says whether the value starts or ends with a space",
+					"ask the user to run `komando secret check "+args[0]+"` in their own terminal; `komando credential password show "+args[0]+"` says whether the value starts or ends with a space",
 					"only a person can check a secret's value: for an AI agent it would be a way to guess it")
 			}
 			stored, err := vault.Get(args[0])
@@ -218,7 +218,7 @@ picks would be a way to guess the secret one try at a time.`,
 			res["difference"] = secretDiff(stored, given)
 			cl.out.Print("secret.check", res, &out.Error{Code: "SECRET_MISMATCH", Exit: out.ExitError,
 				Message: "the value is not the one stored in " + args[0],
-				Hint:    "if the stored one is wrong, store the right one with `komando secret set " + args[0] + "`"})
+				Hint:    "if the stored one is wrong, store the right one with `komando credential password add " + args[0] + "`"})
 			return exitCode(out.ExitError)
 		}),
 	}
@@ -260,8 +260,8 @@ func secretRmCmd() *cobra.Command {
 	rm := &cobra.Command{
 		Use:   "rm NAME...",
 		Short: "Delete secrets for good",
-		Example: `  komando secret rm old-pass
-  komando secret rm a-pass b-pass --dry-run`,
+		Example: `  komando credential password remove old-pass
+  komando credential password remove a-pass b-pass --dry-run`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()

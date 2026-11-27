@@ -143,7 +143,7 @@ To use a service account key from the vault instead, store the key file
 and name the user `_json_key`:
 
 ```bash
-komando secret set gar-key < key.json
+komando credential token add gar-key < key.json
 komando registry oci add gar registry://_json_key@europe-west1-docker.pkg.dev --credential gar-key
 ```
 
@@ -163,7 +163,7 @@ computer trusts. A registry with a certificate from a private CA (mkcert,
 an internal CA) is refused with `REGISTRY_TLS`. Two ways to fix it:
 
 ```bash
-komando secret set harbor-ca < ca.crt        # 1. better: trust that CA (its PEM certificate), the check stays on
+komando credential token add harbor-ca < ca.crt        # 1. better: trust that CA (its PEM certificate), the check stays on
 komando registry oci add harbor 'registry://alice@harbor.lan?ca=secret:harbor-ca' --credential harbor-token
 komando registry oci add harbor 'registry://alice@harbor.lan?tls=skip-verify' --credential harbor-token   # 2. no check at all
 ```
@@ -180,7 +180,7 @@ checks the name and the dates, and refuses any other. When the registry
 gets a new certificate, store the new one.
 
 ```bash
-komando secret set harbor-cert < registry.crt    # the registry's own certificate, PEM
+komando credential token add harbor-cert < registry.crt    # the registry's own certificate, PEM
 komando registry oci add harbor 'registry://alice@harbor.lan?ca=secret:harbor-cert'
 ```
 

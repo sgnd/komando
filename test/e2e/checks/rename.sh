@@ -9,10 +9,10 @@ code() { jget 'd["error"]["code"] if d.get("error") else "ok"' || true; }
 R="t-ren$$"
 N="t-new$$"
 
-echo -n agentpass | $K secret set "$R-pass" >/dev/null
+echo -n agentpass | $K credential password add "$R-pass" >/dev/null
 q $K host add "$R-jump" "agent@127.0.0.1:$E2E_SSH_BASTION" --password-ref "secret:$R-pass" -g "$R" -g "$R-edge"
 q $K host add "$R-target" agent@target --via "$R-jump" --password-ref "secret:$R-pass" -g "$R" --protected
-q $K key gen "$R-key"
+q $K credential key create "$R-key"
 q $K conn add "$R-db" "postgres://shop@10.9.9.9/shop?sslmode=disable" --via "$R-jump" --password-ref "secret:$R-pass"
 check "rename: the project answers before" True "$($K test "$R-target" | jget 'd["ok"]')"
 
@@ -30,8 +30,8 @@ check "rename: without --yes" PROTECTED_TARGET "$($K rename --starts-with "$R-" 
 check "rename: one --yes" 7 "$($K rename --starts-with "$R-" "$N-" --yes | jget 'd["data"]["count"]')"
 check "rename: still protected" True "$($K host show "$N-target" | jget 'd["data"]["protected"]')"
 check "rename: refs follow" True "$($K host show "$N-target" | jget 'd["data"]["via"] == "'"$N"'-jump" and d["data"]["password_ref"] == "secret:'"$N"'-pass" and "'"$N"'" in d["data"]["groups"]')"
-check "rename: the sealed key follows" True "$($K key show "$N-key" | jget 'd["data"]["path"].startswith("sealed:")')"
-check "rename: the secret moved" True "$($K secret list | jget '"'"$N"'-pass" in [s["name"] for s in d["data"]["secrets"]] and "'"$R"'-pass" not in [s["name"] for s in d["data"]["secrets"]]')"
+check "rename: the sealed key follows" True "$($K credential key show "$N-key" | jget 'd["data"]["path"].startswith("sealed:")')"
+check "rename: the secret moved" True "$($K credential list | jget '"'"$N"'-pass" in [s["name"] for s in d["data"]["secrets"]] and "'"$R"'-pass" not in [s["name"] for s in d["data"]["secrets"]]')"
 check "rename: answers through the renamed path" True "$($K test "$N-target" | jget 'd["ok"]')"
 check "rename: nothing left to rename" NOTHING_TO_RENAME "$($K rename --starts-with "$R-" "$N-" | code)"
 
@@ -44,9 +44,9 @@ q $K host rm "$N-solo"
 
 # key mv and group mv
 q $K host edit "$R-solo" --key "$N-key"
-check "key mv" True "$($K key mv "$N-key" "$N-key2" | jget 'd["data"]["action"] == "renamed"')"
+check "key mv" True "$($K credential key rename "$N-key" "$N-key2" | jget 'd["data"]["action"] == "renamed"')"
 check "key mv: the server follows" "$N-key2" "$($K host show "$R-solo" | jget 'd["data"]["key"]')"
-check "key mv: the key keeps working" True "$($K key show "$N-key2" | jget 'd["data"]["path"].startswith("sealed:")')"
+check "key mv: the key keeps working" True "$($K credential key show "$N-key2" | jget 'd["data"]["path"].startswith("sealed:")')"
 check "group mv: protected member" PROTECTED_TARGET "$($K group mv "$N" "$N-all" | code)"
 check "group mv --yes" True "$($K group mv "$N" "$N-all" --yes | jget 'd["data"]["action"] == "renamed"')"
 check "group mv: members follow" 2 "$($K group list "$N-all" | jget 'len(d["data"]["members"])')"
@@ -54,13 +54,13 @@ check "group mv: members follow" 2 "$($K group list "$N-all" | jget 'len(d["data
 q $K host rm "$N-target" "$R-solo" --yes
 q $K conn rm "$N-db"
 q $K host rm "$N-jump"
-q $K key rm "$N-key2" --delete-file --allow-dangerous
-q $K secret rm "$N-pass" --allow-dangerous
+q $K credential key remove "$N-key2" --delete-file --allow-dangerous
+q $K credential password remove "$N-pass" --allow-dangerous
 
 # notes and labels: only names that clearly mean an entry follow. OLD
 # without its - (a database and a role named $R) and a name that is also
 # the user in a conn URL stay, and are listed in "kept" with the reason.
-echo -n x | $K secret set "$R-ro" >/dev/null
+echo -n x | $K credential password add "$R-ro" >/dev/null
 q $K host add "$R-app" agent@10.9.9.7 -g "$R" --notes "db $R as role $R-ro on $R-db; nodes $R-app*; group @$R"
 q $K conn add "$R-db" "postgres://$R-ro@10.9.9.9/$R" --via "$R-app" --password-ref "secret:$R-ro" --label "host=$R-app" --label "team=$R"
 DRY=$($K rename --starts-with "$R-" "$N-" --dry-run)
@@ -74,4 +74,4 @@ check "rename --in-labels: host= follows" "$N-app" "$($K conn show "$N-db" | jge
 check "rename --in-labels: OLD without - stays" "$R" "$($K conn show "$N-db" | jget 'd["data"]["labels"]["team"]')"
 q $K conn rm "$N-db"
 q $K host rm "$N-app"
-q $K secret rm "$N-ro" --allow-dangerous
+q $K credential password remove "$N-ro" --allow-dangerous

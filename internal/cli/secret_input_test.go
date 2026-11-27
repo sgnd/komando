@@ -30,8 +30,8 @@ func TestAgentInputWithVaultValueAnsweredAsAnyOther(t *testing.T) {
 	setCallerEnv(t, "CLAUDECODE", "1")
 	for _, pair := range [][2][]string{
 		{{"host", "show", v}, {"host", "show", "Tr0ub4dor-wrong-77"}},
-		{{"secret", "show", v}, {"secret", "show", "Tr0ub4dor-wrong-77"}},
-		{{"secret", "show", v, "--dry-run"}, {"secret", "show", "Tr0ub4dor-wrong-77", "--dry-run"}},
+		{{"credential", "password", "show", v}, {"credential", "password", "show", "Tr0ub4dor-wrong-77"}},
+		{{"credential", "password", "show", v, "--dry-run"}, {"credential", "password", "show", "Tr0ub4dor-wrong-77", "--dry-run"}},
 	} {
 		_, hit := invRun(t, pair[0]...)
 		_, miss := invRun(t, pair[1]...)

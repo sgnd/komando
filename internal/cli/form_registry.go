@@ -101,7 +101,7 @@ func registryForm(cl *call, k registryKind) formSpec {
 			check: func(_ *store.State, _ formAnswers, v string) string { return registryUserProblem(v) }}, notCloud),
 		formWhen(registryLoginQ(k), notCloud),
 		formWhen(registrySecretQ("secret", "Saved token", "Which saved password holds the token?",
-			"One you saved with komando secret set. Kept somewhere else? Type where, like env:REGISTRY_TOKEN."),
+			"One you saved with komando credential password add. Kept somewhere else? Type where, like env:REGISTRY_TOKEN."),
 			func(a formAnswers) bool { return !registryCloud(k.id) && a["login"] == regVault }),
 		formWhen(registryProfileQ(cl), is(regECR)),
 		formProtectQ("registry"),
@@ -236,7 +236,7 @@ func registryLoginQ(k registryKind) formQ {
 		choices: func(_ *store.State, a formAnswers) []pickRow {
 			rows := []pickRow{
 				{label: "Type it when the command asks", detail: "hidden; komando keeps it as a saved password", value: regToken},
-				{label: "It is saved in komando already", detail: "a secret from komando secret set", value: regVault},
+				{label: "It is saved in komando already", detail: "a secret from komando credential password add", value: regVault},
 			}
 			if k.id == regOwn {
 				rows = append(rows, pickRow{label: "No login", detail: "public images only", value: regNone})
@@ -302,12 +302,12 @@ func registryTLSQs(own func(formAnswers) bool) []formQ {
 		def:  func(*store.State, formAnswers) string { return "" },
 		choices: func(*store.State, formAnswers) []pickRow {
 			return []pickRow{{label: "Check it", detail: "the normal, safe choice", value: ""},
-				{label: "Check it with my own CA certificate", detail: "store it first: komando secret set NAME < ca.crt", value: "ca"},
+				{label: "Check it with my own CA certificate", detail: "store it first: komando credential token add NAME < ca.crt", value: "ca"},
 				{label: "Do not check it", detail: "self-signed; anyone in between could read the token", value: "skip-verify"},
 				{label: "No encryption (plain http)", detail: "only inside a network you trust", value: "false"}}
 		}})
 	ca := formMore(registrySecretQ("ca", "CA certificate", "Which saved secret holds the CA certificate?",
-		"The CA certificate you stored with komando secret set NAME < ca.crt."))
+		"The CA certificate you stored with komando credential token add NAME < ca.crt."))
 	ca.check = cacheCAProblem
 	resolve := formMore(formQ{key: "resolve", label: "Use IP", ask: "Connect to another IP than DNS gives? (leave empty to use DNS)", optional: true,
 		help:    "Only for a registry whose name is not in DNS yet. The certificate is still checked against the name.",

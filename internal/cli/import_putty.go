@@ -48,7 +48,7 @@ func importPuTTY(cl *call, path string) (*importPlan, error) {
 		}
 		if k := s["PublicKeyFile"]; k != "" {
 			if strings.HasSuffix(strings.ToLower(k), ".ppk") {
-				p.Notes = append(p.Notes, name+": its key "+k+" is in PuTTY's format; convert it (`puttygen KEY.ppk -O private-openssh -o KEY`), then `komando key add NAME KEY` and `komando host edit "+name+" --key NAME`")
+				p.Notes = append(p.Notes, name+": its key "+k+" is in PuTTY's format; convert it (`puttygen KEY.ppk -O private-openssh -o KEY`), then `komando credential key add NAME KEY` and `komando host edit "+name+" --key NAME`")
 			} else {
 				h.Identity = k
 			}

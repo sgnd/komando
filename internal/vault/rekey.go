@@ -7,7 +7,7 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// Changing the store's key (`komando secret passphrase`, sealed_keys.go).
+// Changing the store's key (`komando config vault passphrase`, sealed_keys.go).
 
 // ErrWrongKey: a key that does not open the vault (a wrong
 // KOMANDO_VAULT_PASS, say).

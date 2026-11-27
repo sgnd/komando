@@ -107,9 +107,9 @@ komando import putty putty.reg --dry-run
 komando import putty putty.reg
 ```
 
-PuTTY keeps no passwords, so set them with `komando secret set` or use a
+PuTTY keeps no passwords, so set them with `komando credential password add` or use a
 key. A key in PuTTY's own format (`.ppk`) is listed: convert it with
-`puttygen KEY.ppk -O private-openssh -o KEY`, then `komando key add NAME
+`puttygen KEY.ppk -O private-openssh -o KEY`, then `komando credential key add NAME
 KEY`. A session that reaches its server through a proxy is listed too: set
 the way there with `komando host edit NAME --via JUMP`.
 
@@ -125,7 +125,7 @@ komando import mobaxterm sessions.mxtsessions
 
 SSH sessions come in with their host, port and user, and the folder a
 session sits in becomes a group. MobaXterm keeps passwords apart, so set
-them with `komando secret set` or use a key.
+them with `komando credential password add` or use a key.
 
 ### Coming from SecureCRT
 
@@ -144,7 +144,7 @@ SSH2 sessions come in with their host, port, user and key file, and the
 folder a session sits in becomes a group. Telnet, serial and RDP sessions
 are listed. A key in PuTTY's format (`.ppk`) and a firewall or jump host
 are listed with what to do. komando never reads the passwords and key
-passphrases SecureCRT stores: set them with `komando secret set` or use a
+passphrases SecureCRT stores: set them with `komando credential password add` or use a
 key.
 
 ### Coming from Termius or TablePlus
@@ -182,11 +182,11 @@ On the other computer:
 
 ```bash
 komando import komando komando-backup.json
-komando secret set prod-db-pass               # the import lists the passwords to set again
+komando credential password add prod-db-pass               # the import lists the passwords to set again
 ```
 
 The export file holds no passwords, only their names, so set them again
-with `komando secret set`. The import adds your deny rules (they only stop
+with `komando credential password add`. The import adds your deny rules (they only stop
 more), but changes no setting: it lists the settings that differ, each with
 the `komando config set` command that sets it, because a file from someone
 else must not turn a check off. When komando refuses something in the file,
@@ -194,16 +194,16 @@ the rest still comes in and the import ends with `IMPORT_INCOMPLETE` (exit 1):
 fix those entries and import again (what is in already is skipped).
 
 Private keys are never in an export file either. When a server logs in with
-a key from `komando key`, `export` names the key (`keys_needed`) and its file
+a key from `komando credential key`, `export` names the key (`keys_needed`) and its file
 (`key_files`): copy that file to the other computer yourself. A key
 komando made (`key gen`) is sealed in komando and has no file
-(`keys_sealed`): make a new one on the other computer with `komando key gen
-NAME` and put it on the servers with `komando key deploy`. The import
+(`keys_sealed`): make a new one on the other computer with `komando credential key create
+NAME` and put it on the servers with `komando credential key install`. The import
 still adds the server, says which key it needs, and leaves the key out until
 you bring it (ssh-agent or your default key may log in meanwhile):
 
 ```bash
-komando key add deploy ~/Downloads/deploy     # the copied key file
+komando credential key add deploy ~/Downloads/deploy     # the copied key file
 komando host edit db1 --key deploy
 ```
 
@@ -303,15 +303,15 @@ folder whose key stayed in the old computer's keychain cannot open its
 secrets.
 
 ```bash
-komando secret passphrase                     # on the old computer: type a passphrase (15+ characters)
+komando config vault passphrase                     # on the old computer: type a passphrase (15+ characters)
 # copy ~/.komando to the new computer (a USB stick, scp), then there:
 export KOMANDO_VAULT_PASS='the passphrase'    # or type it when komando asks
 komando doctor                                # the vault opens, the servers are there
 ```
 
 On the new computer you can go back to a key file and move it into the
-keychain: `komando secret passphrase --off --yes`, then `komando secret
-keychain`. Copy SSH key files kept outside `~/.komando` (in `~/.ssh`) too.
+keychain: `komando config vault passphrase --off --yes`, then `komando config
+vault keychain`. Copy SSH key files kept outside `~/.komando` (in `~/.ssh`) too.
 
 ### Restore from a backup (Time Machine, a new computer)
 
@@ -326,7 +326,7 @@ check it before you need the backup:
 | the OS keychain (the default) | opens: the keychain still has the key | does not open its secrets: the key stayed in the old computer's keychain |
 
 So for a backup you can take to a new computer, give the vault a
-passphrase first (`komando secret passphrase`), or keep an
+passphrase first (`komando config vault passphrase`), or keep an
 [export](#export-and-import-no-passwords) next to it and set the passwords
 again from your password manager.
 

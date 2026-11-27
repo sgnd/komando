@@ -365,16 +365,16 @@ Anything that must keep running (a temporary web server, a watcher) is a
 
 - Never print secrets. Credentials are references (`secret:NAME`,
   `env:VAR`), not values.
-- Never put a secret value in a command line: `komando secret set NAME`
+- Never put a secret value in a command line: `komando credential password add NAME`
   reads it from `--from-env VAR` or stdin. A password the human knows (a
   server's login, a database password) is typed by the human: ask them to
-  run `komando secret set NAME` in their own terminal, where it asks for it
+  run `komando credential password add NAME` in their own terminal, where it asks for it
   hidden. Never ask for a password in the chat (`NEEDS_PERSON` says the
   same).
-- Rename a secret with `komando secret rename OLD NEW` (every server, conn, key
+- Rename a secret with `komando credential password rename OLD NEW` (every server, conn, key
   and VPN that uses it follows) and copy one with `secret cp OLD NEW`: the
   value stays in the vault, so nobody retypes it.
-- A login fails and you suspect the stored password: `komando secret show
+- A login fails and you suspect the stored password: `komando credential password show
   NAME` warns when it starts or ends with a space or tab. Only the human can
   compare it with the right one: ask them to run `komando secret check NAME`
   (`NEEDS_PERSON` for you).
@@ -420,7 +420,7 @@ Anything that must keep running (a temporary web server, a watcher) is a
 | 2    | USAGE                             | fix the flags (`komando schema COMMAND`); a group alone (`komando db`) is USAGE and the hint lists its sub-commands |
 | 2    | HIDDEN_VALUE                      | never write `[hidden]` text back; put `{{secret:NAME}}` in its place (fs replace) or leave hidden entries out, as `error.hint` says |
 | 3    | TARGET_NOT_FOUND, TARGET_EMPTY, PATH_NOT_FOUND | `komando list`; for a typo, `error.suggestion` is the closest name and the hint the command line with it |
-| 3    | SECRET_NOT_FOUND, SECRET_UNRESOLVED | `komando secret list`; ask the human to store the secret |
+| 3    | SECRET_NOT_FOUND, SECRET_UNRESOLVED | `komando credential list`; ask the human to store the secret |
 | 3    | NO_MATCHING_TARGETS               | use the command the hint names (for example `db` for a database) |
 | 3    | AWS_PROFILE_NOT_FOUND             | follow `error.hint` (add the profile to ~/.aws/config); never read ~/.aws yourself |
 | 4    | AUTH_FAILED, NO_AUTH, CONNECTION_REFUSED | follow `error.hint`; do not retry blindly |

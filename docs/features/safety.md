@@ -40,7 +40,7 @@ agrees (see [When you are at the terminal](#when-you-are-at-the-terminal)).
 | **Safe edits** | File edits replace exactly the text you name, write the whole file at once (never half-written), and can keep a `.bak` backup. As root (`--sudo`), komando follows no link another server user made, and does not write into a folder another user can change, since that user could swap the file for a link while root writes (`SHARED_FOLDER_CONFLICT`). |
 | **Sealed vault** | Passwords are sealed with AES-256-GCM, with the key in the OS keychain (or, where there is none, in a file beside the store; `komando doctor` warns). Only names are ever shown. Only a person can see a value: at a terminal, or from the Komando Mac app (not released yet) after **Allow once** in komando's window (`secret show --reveal`, `key show --reveal`); an AI agent never can, and every value shown is in the audit log ([See a value again](secrets.md#see-a-value-again)). `secret rename` and `secret cp` rename and copy inside the vault, so a value never has to be shown or typed again. `secret check` lets a person compare a value without showing it. The approval code's key can only be changed with `komando config approval-code` (`RESERVED_SECRET`). See [Secrets](secrets.md). |
 | **Secrets hidden in output** | If a vault secret shows up in what a server sends back (a `.env` file, a log line, `env`), komando prints `[secret:NAME]` instead, also when it is base64- or URL-encoded. Values shorter than 6 characters are not hidden. So that this hiding cannot tell an AI agent which of its guesses is a secret, a vault value in an agent's own arguments, script or input is not hidden in that command's output, and the command answers as it would for any other value; it is written to the audit log, where you see the guessing. |
-| **Encoded data you cannot read** | A person cannot review base64 or hex. When the command or script an approval window shows carries a block of encoded data (64 or more characters of base64, base32 or hex, lines in a row such as a heredoc or `a+="…"` pieces counting as one block, or 16 or more `\xNN` or octal escapes), the window adds a risk line: `Risk: Encoded data (base64), 3,012 bytes (about 2,259 decoded) in lines 4–43; it cannot be reviewed here`. One 64-digit hash alone on a line that names it (`sha256sum -c`, `sha256:`) and public PEM blocks (a certificate, a public key) do not count. A script or command that holds a private key (its `BEGIN … PRIVATE KEY` line is enough, or a PuTTY key file header) is refused for everyone (`ENCODED_SECRET_INVALID`): keep the key in the vault and pass it with `komando secret run`. One that decodes hidden text and runs it is stopped by the deny rule `decode-run` (`win-decode-run` for PowerShell): `base64 -d` (also inside a flag cluster such as `-di`), `basenc -d`, `python3 -m base64 -d`, `xxd -r`, `openssl enc -d`, `printf` with escapes or `%b`, `rev` or a rot13 `tr` piped into a shell or interpreter, `eval "$(… base64 -d)"`, `python -c 'exec(b64decode(…))'`, a decoded file that a later step runs, and `FromBase64String` with `iex` or `[scriptblock]::Create`. It needs `--allow-dangerous` and your yes, like the other rules. The match is on the text: a path built from variables can slip past it, and the risk line still shows the blob. To send a file, upload it first (`komando upload`, which records its SHA-256), then approve a short script that runs it by its path. |
+| **Encoded data you cannot read** | A person cannot review base64 or hex. When the command or script an approval window shows carries a block of encoded data (64 or more characters of base64, base32 or hex, lines in a row such as a heredoc or `a+="…"` pieces counting as one block, or 16 or more `\xNN` or octal escapes), the window adds a risk line: `Risk: Encoded data (base64), 3,012 bytes (about 2,259 decoded) in lines 4–43; it cannot be reviewed here`. One 64-digit hash alone on a line that names it (`sha256sum -c`, `sha256:`) and public PEM blocks (a certificate, a public key) do not count. A script or command that holds a private key (its `BEGIN … PRIVATE KEY` line is enough, or a PuTTY key file header) is refused for everyone (`ENCODED_SECRET_INVALID`): keep the key in the vault and pass it with `komando credential run`. One that decodes hidden text and runs it is stopped by the deny rule `decode-run` (`win-decode-run` for PowerShell): `base64 -d` (also inside a flag cluster such as `-di`), `basenc -d`, `python3 -m base64 -d`, `xxd -r`, `openssl enc -d`, `printf` with escapes or `%b`, `rev` or a rot13 `tr` piped into a shell or interpreter, `eval "$(… base64 -d)"`, `python -c 'exec(b64decode(…))'`, a decoded file that a later step runs, and `FromBase64String` with `iex` or `[scriptblock]::Create`. It needs `--allow-dangerous` and your yes, like the other rules. The match is on the text: a path built from variables can slip past it, and the risk line still shows the blob. To send a file, upload it first (`komando upload`, which records its SHA-256), then approve a short script that runs it by its path. |
 | **History** | Every action is in `komando audit` (see [below](#history)). |
 
 ## When you are at the terminal
@@ -528,7 +528,7 @@ environment only. So:
 - give komando, and so your agent, an SSH user with only the permissions it needs;
 - mark production with `komando host edit NAME --protected`;
 - keep the vault key in the OS keychain (move a key from `store.key` there
-  with `komando secret keychain`), so other people or backups that reach
+  with `komando config vault keychain`), so other people or backups that reach
   `~/.komando` cannot open the vault. A program running as you still can:
   see the approval window below;
 - give another device's SSH key only komando, with `komando ssh-gate line`.
@@ -545,7 +545,7 @@ More limits:
   Touch ID, an Apple Watch or your login password instead of a code, so
   reading the vault does not get such a program past the window; it still
   gets every secret. A passphrase
-  (`komando secret passphrase`) keeps the key out of the keychain and off
+  (`komando config vault passphrase`) keeps the key out of the keychain and off
   the disk, so only someone who knows it can open the vault. The agent's
   own sandbox is the outer boundary; give the agent one.
 - The dangerous-command filter catches common accidents; it is not a
@@ -580,7 +580,7 @@ More limits:
   network path built from pieces (`CHAR(92)+CHAR(92)+...`) and passed to a
   function komando does not list is not recognized.
 - Secrets are never accepted as command arguments, because they would land
-  in your shell history (`SECRET_IN_ARGS`). `komando secret set NAME` asks
+  in your shell history (`SECRET_IN_ARGS`). `komando credential password add NAME` asks
   for the value after the prompt appears; see [Secrets](secrets.md#save-one).
 
 ## Troubleshooting
@@ -591,7 +591,7 @@ what an agent or a script gets.
 
 | Error | Exit | What it means | What to do |
 |-------|------|---------------|------------|
-| `ENCODED_SECRET_INVALID` | 2 | The script or command holds a private key. | Put the key in the vault and pass it with `komando secret run`. To search for keys, quote only `'PRIVATE KEY-----'`, not the whole BEGIN line. |
+| `ENCODED_SECRET_INVALID` | 2 | The script or command holds a private key. | Put the key in the vault and pass it with `komando credential run`. To search for keys, quote only `'PRIVATE KEY-----'`, not the whole BEGIN line. |
 | `POLICY_BLOCKED` | 6 | The command looks destructive. | Check the command. At a terminal komando asks you to type the name of what goes; a script adds `--allow-dangerous` after a person agrees. |
 | `PROTECTED_TARGET`, `PROTECTED_TARGET` | 6 | A change to something protected. | At a terminal komando asks `[y/N]`; a script adds `--yes` (an AI agent's `--yes` opens the approval window). Commands that only look can add `--read-only`. |
 | `SAFETY_SETTING` | 6 | A change that turns a seatbelt off. | At a terminal komando asks `[y/N]`; a script adds `--yes` (an AI agent's `--yes` opens the approval window). |
@@ -614,6 +614,6 @@ what an agent or a script gets.
 | `SSH_GATE_PATH` | 1 | `komando ssh-gate line` cannot tell komando's full path, which the line needs. | Run it by its full path, such as `/usr/local/bin/komando ssh-gate line ...`. |
 | `SHARED_FOLDER_CONFLICT` | 8 | A write as root (`--sudo`) into a folder another server user can change. | Write the file as that user instead; the hint gives the `exec --sudo-user` command. |
 | `HIDDEN_VALUE` | 2 | The text holds `[hidden]` or `[secret:NAME]`. | Change one line with `fs replace`, using `{{secret:NAME}}`. |
-| `SECRET_IN_ARGS` | 2 | A secret value was given on the command line. | Run `komando secret set NAME` and type it after the prompt, or use `--from-env VAR` or a pipe. |
+| `SECRET_IN_ARGS` | 2 | A secret value was given on the command line. | Run `komando credential password add NAME` and type it after the prompt, or use `--from-env VAR` or a pipe. |
 | `HOSTKEY_MISMATCH` | 4 | The server's identity changed. | Never "fix" it blindly; see [Results and errors](output.md#troubleshooting). |
 | `AUDIT_UNAVAILABLE` | 1 | The audit log cannot be written, so nothing runs. | `komando doctor` shows why. |

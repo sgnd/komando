@@ -35,7 +35,7 @@ func revealHome(t *testing.T) {
 	t.Setenv("SSH_CONNECTION", "")
 	t.Setenv("SSH_TTY", "")
 	t.Setenv("KOMANDO_SECRET", "s3cret-value-long")
-	mustRun(t, "secret", "set", "db-pass", "--from-env", "KOMANDO_SECRET")
+	mustRun(t, "credential", "password", "add", "db-pass", "--from-env", "KOMANDO_SECRET")
 	t.Cleanup(endCommand)
 }
 
@@ -45,13 +45,13 @@ func TestRevealFromAnAppAsksInTheWindow(t *testing.T) {
 	revealHome(t)
 	n, text := revealWindow(t, true, true)
 	savedArgs := tcl.args
-	tcl.args = []string{"komando", "secret", "show", "db-pass", "--reveal"} // what the window quotes
+	tcl.args = []string{"komando", "credential", "password", "show", "db-pass", "--reveal"} // what the window quotes
 	t.Cleanup(func() { tcl.args = savedArgs })
-	d := mustRun(t, "secret", "show", "db-pass", "--reveal")
+	d := mustRun(t, "credential", "password", "show", "db-pass", "--reveal")
 	if d["value"] != "s3cret-value-long" || *n != 1 {
 		t.Fatalf("value %v after %d windows", d["value"], *n)
 	}
-	for _, want := range []string{"secret:db-pass", "komando secret show db-pass --reveal", "Started from: Komando ← launchd"} {
+	for _, want := range []string{"secret:db-pass", "komando credential password show db-pass --reveal", "Started from: Komando ← launchd"} {
 		if !strings.Contains(*text, want) {
 			t.Errorf("window text lacks %q: %q", want, *text)
 		}
@@ -71,7 +71,7 @@ func TestRevealFromAnAppAsksInTheWindow(t *testing.T) {
 func TestRevealDeniedOrNoScreen(t *testing.T) {
 	revealHome(t)
 	revealWindow(t, false, true)
-	d, e := invRun(t, "secret", "show", "db-pass", "--reveal")
+	d, e := invRun(t, "credential", "password", "show", "db-pass", "--reveal")
 	if e == nil || e.Code != "DECLINED" || d["value"] != nil {
 		t.Fatalf("Deny: %+v %v", e, d)
 	}
@@ -79,7 +79,7 @@ func TestRevealDeniedOrNoScreen(t *testing.T) {
 		t.Errorf("audit of the refusal: %v", a)
 	}
 	n, _ := revealWindow(t, true, false) // no screen: nobody to ask
-	if e := wantCode(t, "REVEAL_NEEDS_TERMINAL", "secret", "show", "db-pass", "--reveal"); !strings.Contains(e.Hint, "in a terminal") || *n != 1 {
+	if e := wantCode(t, "REVEAL_NEEDS_TERMINAL", "credential", "password", "show", "db-pass", "--reveal"); !strings.Contains(e.Hint, "in a terminal") || *n != 1 {
 		t.Errorf("hint %q after %d windows", e.Hint, *n)
 	}
 }
@@ -91,7 +91,7 @@ func TestRevealNoClickWindowOnLinux(t *testing.T) {
 	n, _ := revealWindow(t, true, true)
 	desktopOS = "linux"
 	t.Setenv("DISPLAY", ":0")
-	wantCode(t, "REVEAL_NEEDS_TERMINAL", "secret", "show", "db-pass", "--reveal")
+	wantCode(t, "REVEAL_NEEDS_TERMINAL", "credential", "password", "show", "db-pass", "--reveal")
 	if *n != 0 {
 		t.Errorf("%d click-only windows on a Linux desktop", *n)
 	}
@@ -102,7 +102,7 @@ func TestRevealAtATerminal(t *testing.T) {
 	revealHome(t)
 	n, _ := revealWindow(t, false, true)
 	tcl.terminal = true // a person at a terminal (TestMain unsets CI)
-	if d := mustRun(t, "secret", "show", "db-pass", "--reveal"); d["value"] != "s3cret-value-long" || *n != 0 {
+	if d := mustRun(t, "credential", "password", "show", "db-pass", "--reveal"); d["value"] != "s3cret-value-long" || *n != 0 {
 		t.Fatalf("value %v after %d windows", d["value"], *n)
 	}
 	if a := lastAudit(t); a["via"] != "terminal" {
@@ -114,7 +114,7 @@ func TestRevealAtATerminal(t *testing.T) {
 func TestRevealDryRun(t *testing.T) {
 	revealHome(t)
 	n, _ := revealWindow(t, true, true)
-	if d := mustRun(t, "secret", "show", "db-pass", "--reveal", "--dry-run"); d["value"] != nil || *n != 0 {
+	if d := mustRun(t, "credential", "password", "show", "db-pass", "--reveal", "--dry-run"); d["value"] != nil || *n != 0 {
 		t.Fatalf("dry run: value %v after %d windows", d["value"], *n)
 	}
 }
@@ -123,11 +123,11 @@ func TestRevealDryRun(t *testing.T) {
 // person's yes: no window opens, and the refusal is recorded with the name.
 func TestRevealNeverForAnAgent(t *testing.T) {
 	revealHome(t)
-	mustRun(t, "key", "gen", "deploy")
+	mustRun(t, "credential", "key", "create", "deploy")
 	n := asAgent(t, true, true)
 	for _, args := range [][]string{
-		{"secret", "show", "db-pass", "--reveal"},
-		{"key", "show", "deploy", "--reveal"},
+		{"credential", "password", "show", "db-pass", "--reveal"},
+		{"credential", "key", "show", "deploy", "--reveal"},
 	} {
 		d, e := invRun(t, args...)
 		if e == nil || e.Code != "REVEAL_NEEDS_TERMINAL" || d["value"] != nil || d["private_key"] != nil || *n != 0 {
@@ -143,12 +143,12 @@ func TestRevealNeverForAnAgent(t *testing.T) {
 // a key added from a file names the file.
 func TestKeyShowReveal(t *testing.T) {
 	revealHome(t)
-	mustRun(t, "key", "gen", "deploy")
-	if d := mustRun(t, "key", "show", "deploy"); d["private_key"] != nil {
+	mustRun(t, "credential", "key", "create", "deploy")
+	if d := mustRun(t, "credential", "key", "show", "deploy"); d["private_key"] != nil {
 		t.Fatalf("key show without --reveal: %v", d)
 	}
 	n, _ := revealWindow(t, true, true)
-	d := mustRun(t, "key", "show", "deploy", "--reveal")
+	d := mustRun(t, "credential", "key", "show", "deploy", "--reveal")
 	if pk, _ := d["private_key"].(string); !strings.Contains(pk, "PRIVATE KEY") || *n != 1 {
 		t.Fatalf("private key %.40q after %d windows", pk, *n)
 	}

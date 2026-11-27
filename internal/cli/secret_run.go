@@ -53,9 +53,9 @@ For an AI agent every secret:NAME needs a person's yes (--yes, then
 komando's window names the secrets and the program), since the program
 could print a value in a form masking does not know. A secret a protected
 server, conn or VPN uses asks a person at a terminal too.`,
-		Example: `  komando secret run --env PGPASSWORD=secret:db-main -- psql -h 10.0.0.5 -U app
-  komando secret run -e AWS_SECRET_ACCESS_KEY=secret:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan
-  komando secret run --dry-run --env TOKEN=secret:gh-token -- ./deploy.sh`,
+		Example: `  komando credential run --env PGPASSWORD=secret:db-main -- psql -h 10.0.0.5 -U app
+  komando credential run -e AWS_SECRET_ACCESS_KEY=secret:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan
+  komando credential run --dry-run --env TOKEN=secret:gh-token -- ./deploy.sh`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			return runLocal(cl, env, args)
@@ -129,7 +129,7 @@ func runLocal(cl *call, pairs, args []string) error {
 		v := env[k]
 		if strings.HasPrefix(v, "secret:") {
 			if v, err = vault.Resolve(v); err != nil {
-				return out.Errf(out.ExitNotFound, "SECRET_UNRESOLVED", "see them with `komando secret list`", "%s for %s: %v", env[k], k, err)
+				return out.Errf(out.ExitNotFound, "SECRET_UNRESOLVED", "see them with `komando credential list`", "%s for %s: %v", env[k], k, err)
 			}
 		}
 		vals = append(vals, k+"="+v)

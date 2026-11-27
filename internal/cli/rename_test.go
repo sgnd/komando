@@ -31,7 +31,7 @@ func shopInventory(t *testing.T) {
 	mustRun(t, "vpn", "add", "shop-vpn", "socks", "--proxy-address", "127.0.0.1:1080", "-g", "shop")
 	mustRun(t, "host", "add", "shop-bastion", "u@10.0.0.1", "--via", "shop-vpn", "-g", "shop", "-g", "shop-stg",
 		"--password-ref", "secret:shop-pass", "--protected", "--label", "dc=jkt", "--notes", "jump for shop-db; see shop-vpn.")
-	mustRun(t, "key", "gen", "shop-key")
+	mustRun(t, "credential", "key", "create", "shop-key")
 	mustRun(t, "host", "add", "shop-data-01", "u@10.0.0.2", "--via", "shop-vpn,shop-bastion", "-g", "shop",
 		"--sudo-ref", "secret:shop-pass", "--key", "shop-key")
 	mustRun(t, "host", "add", "web", "u@10.0.0.3", "--via", "shop-vpn,shop-bastion", "--env", "DB=secret:shop-pass", "--password-ref", "secret:other-pass")
@@ -262,7 +262,7 @@ func TestRenameClashChangesNothing(t *testing.T) {
 			}
 		}},
 		{"a new group name is taken", func() { mustRun(t, "host", "add", "z", "u@10.0.0.8", "-g", "ACME-shop-stg") }},
-		{"a new key name is taken", func() { mustRun(t, "key", "gen", "acme-shop-key") }},
+		{"a new key name is taken", func() { mustRun(t, "credential", "key", "create", "acme-shop-key") }},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -333,7 +333,7 @@ func keptReason(d map[string]any, entry, field, name string) string {
 // entries.
 func TestRenameNotes(t *testing.T) {
 	shopInventory(t)
-	mustRun(t, "key", "gen", "shop-dev")
+	mustRun(t, "credential", "key", "create", "shop-dev")
 	mustRun(t, "conn", "add", "shop-files", "s3://AKIAEXAMPLE@shop-dev/backups?region=eu-west-1", "-g", "shop-dev")
 	mustRun(t, "host", "add", "shop-prod", "u@10.0.0.6") // also the bucket in conn bucket's URL
 	mustRun(t, "host", "add", "shop-prod-db-01", "u@10.0.0.7")
@@ -553,12 +553,12 @@ func TestRenameReservedSecret(t *testing.T) {
 
 func TestKeyMv(t *testing.T) {
 	invHome(t)
-	mustRun(t, "key", "gen", "deploy")
+	mustRun(t, "credential", "key", "create", "deploy")
 	mustRun(t, "host", "add", "web", "u@10.0.0.1", "--key", "deploy")
 	mustRun(t, "host", "add", "db", "u@10.0.0.2", "--key", "deploy", "--protected")
 
 	keep := homeFiles(t)
-	d := mustRun(t, "key", "mv", "deploy", "deploy-2026", "--dry-run")
+	d := mustRun(t, "credential", "key", "rename", "deploy", "deploy-2026", "--dry-run")
 	if moved, _ := d["moved"].([]any); d["action"] != "would_rename" || len(moved) != 0 || len(d["updated"].([]any)) != 2 {
 		t.Errorf("dry run: %v", d)
 	}
@@ -566,7 +566,7 @@ func TestKeyMv(t *testing.T) {
 		t.Fatal("a dry run changed something")
 	}
 
-	d = mustRun(t, "key", "mv", "deploy", "deploy-2026") // the protected db keeps the same key: no --yes
+	d = mustRun(t, "credential", "key", "rename", "deploy", "deploy-2026") // the protected db keeps the same key: no --yes
 	if d["action"] != "renamed" {
 		t.Fatalf("key mv: %v", d)
 	}
@@ -585,8 +585,8 @@ func TestKeyMv(t *testing.T) {
 	if err := os.WriteFile(ext, b, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	mustRun(t, "key", "add", "ext", ext)
-	mustRun(t, "key", "mv", "ext", "external")
+	mustRun(t, "credential", "key", "add", "ext", ext)
+	mustRun(t, "credential", "key", "rename", "ext", "external")
 	st, _ = store.Load()
 	if st.Keys["external"].Path != ext {
 		t.Errorf("an added key's file moved: %+v", st.Keys["external"])
@@ -595,10 +595,10 @@ func TestKeyMv(t *testing.T) {
 		t.Errorf("the added key's file is gone: %v", err)
 	}
 
-	wantCode(t, "SSH_KEY_NOT_FOUND", "key", "mv", "nosuch", "x")
-	wantCode(t, "KEY_EXISTS", "key", "mv", "external", "deploy-2026")
-	wantCode(t, "USAGE", "key", "mv", "external", "bad name")
-	if d := mustRun(t, "key", "mv", "external", "external"); d["action"] != "unchanged" {
+	wantCode(t, "SSH_KEY_NOT_FOUND", "credential", "key", "rename", "nosuch", "x")
+	wantCode(t, "KEY_EXISTS", "credential", "key", "rename", "external", "deploy-2026")
+	wantCode(t, "USAGE", "credential", "key", "rename", "external", "bad name")
+	if d := mustRun(t, "credential", "key", "rename", "external", "external"); d["action"] != "unchanged" {
 		t.Errorf("same name: %v", d)
 	}
 }

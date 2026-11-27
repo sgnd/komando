@@ -57,8 +57,8 @@ check "person: secret check shows neither value" 0 "$(grep -c -E 'wrongpass1|per
 check "person: secret check says how they differ" 1 "$(grep -c 'characters' <<<"$O")"
 O=$(tty '\n' secret set "$P1-empty"); RC=$?
 check "person: an empty answer stores nothing (2)" 2 "$RC"
-check "person: the empty secret is not there" SECRET_NOT_FOUND "$($K secret get "$P1-empty" | jget 'd["error"]["code"]' || true)"
-q $K secret rm "$P1-pass" --allow-dangerous
+check "person: the empty secret is not there" SECRET_NOT_FOUND "$($K credential password show "$P1-empty" | jget 'd["error"]["code"]' || true)"
+q $K credential password remove "$P1-pass" --allow-dangerous
 
 # komando login HOST: a person logs in once, then an AI agent can use it
 q $K host add "$P1-login" "agent@127.0.0.1:$E2E_SSH_DIRECT"

@@ -326,7 +326,7 @@ func TestFormDryRunBeforeDashes(t *testing.T) {
 	if strings.Join(got, "|") != "exec|web1|--dry-run|--|systemctl restart nginx" {
 		t.Errorf("exec dry run: %q", got)
 	}
-	got = formDry([][]string{{"secret", "set", "x-authkey"}, {"vpn", "add", "x", "tailscale"}})
+	got = formDry([][]string{{"credential", "password", "add", "x-authkey"}, {"vpn", "add", "x", "tailscale"}})
 	if got[0] != "vpn" {
 		t.Errorf("Try it first tries the secret set: %q", got)
 	}

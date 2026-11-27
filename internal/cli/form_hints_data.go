@@ -26,7 +26,7 @@ func init() {
 			{ask: "Which key to set?", example: "feature:dark-mode",
 				help: "Its exact name. An old value under this name is replaced."},
 			{ask: "Which value?", example: "on",
-				help: "Plain text. Never put a password here; `komando secret set` keeps one."}},
+				help: "Plain text. Never put a password here; `komando credential password add` keeps one."}},
 			flags: []formFlag{{name: "ttl", ask: "Delete it by itself after how long? (leave empty to keep it)", example: "30m, 24h or 7d",
 				help: "The key's time to live. Empty keeps it until someone deletes it."}}},
 		"cache rm": {args: []formArg{conn, {ask: "Which keys to delete? (several: separate them with spaces)", example: "session:42 session:43",

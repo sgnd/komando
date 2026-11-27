@@ -108,7 +108,7 @@ func (at keychainAt) cmd(ctx context.Context, args ...string) *exec.Cmd {
 // komando holds the vault lock then, and a Secret Service that waits for an
 // unlock prompt (or a slow D-Bus) must not hang it and every komando
 // waiting on that lock. Past it, the new vault keeps its key in store.key.
-// `komando secret keychain` has no such limit: a person is there to answer
+// `komando config vault keychain` has no such limit: a person is there to answer
 // the prompt. Tests shorten it.
 var newKeyTimeout = 5 * time.Second
 
