@@ -9696,7 +9696,7 @@ exit 0
 --- stdout
 would fetch the host key of prod1 (127.0.0.2:1) from the server directly, and remove 1 pinned key
 --- stderr
-Dry run: nothing was changed
+Dry run: nothing was changed (the audit log may note the dry run)
 Without --dry-run this stops here: [NEEDS_PERSON] replacing the pinned host key of prod1 (a key may be replaced): only a person at a terminal replaces a pinned host key (a changed key may be an attack)
 Hint: report it to the user: once they have checked the new key another way, they run `komando host trust prod1 --reset` in their own terminal
 ### komando -o json host trust prod1 --reset --dry-run (script json, release note)
@@ -9709,7 +9709,7 @@ exit 0
 --- stdout
 would fetch the host key of prod1 (127.0.0.2:1) from the server directly, and remove 1 pinned key
 --- stderr
-Dry run: nothing was changed
+Dry run: nothing was changed (the audit log may note the dry run)
 Without --dry-run this stops here: [NEEDS_PERSON] replacing the pinned host key of prod1 (a key may be replaced): only a person at a terminal replaces a pinned host key (a changed key may be an attack)
 Hint: report it to the user: once they have checked the new key another way, they run `komando host trust prod1 --reset` in their own terminal
 ### komando -o json host trust prod1 --reset (agent json, release note)

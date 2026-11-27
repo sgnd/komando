@@ -324,6 +324,9 @@ func migrateGate(ctx context.Context, o migrate3Opts) (*shownWindow, error) {
 	}
 	d, master, err := openFormat2()
 	if err != nil {
+		if pe := PolicyErr(err); pe != nil {
+			return nil, pe // as openForMove: a changed deny rule is POLICY_MAC_FAILED
+		}
 		return nil, err
 	}
 	clear(master)

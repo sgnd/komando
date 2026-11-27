@@ -12573,7 +12573,7 @@
       {
         "code": "STORE_IN_USE",
         "exit": 8,
-        "example": "… changed after the window was shown; nothing was changed",
+        "example": "… changed after the plan was shown; nothing was changed",
         "hint": "run `komando doctor` again"
       },
       {
