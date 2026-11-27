@@ -216,14 +216,20 @@ func otherKindSay(st *store.State, cmd *cobra.Command, kind, name, one string) (
 	return fmt.Sprintf("%s is %s, not a %s.", name, what, one), strings.ToUpper(use[:1]) + use[1:] + "."
 }
 
+// addHintProviders is the provider addHint names for a moved type of conns,
+// as the empty-list hints of the prompter do (komando queue kafka add).
+var addHintProviders = map[string]string{"database": "postgres", "cache": "redis", "queue": "kafka", "storage": "s3",
+	"cluster": "kubernetes", "registry": "oci"}
+
 // addHint says how to add the first of what a command works with. A person
 // at a terminal can type the add command alone, which asks step by step.
 func addHint(cl *call, family, wanted string) string {
 	if cl.interactive() {
 		cmd := "host ssh add"
+		first := addHintProviders[typeWord(family)] // the provider a moved type's add names
 		switch {
-		case slices.Contains(movedTypes, typeWord(family)):
-			cmd = typeWord(family) + " " + map[string]string{"database": "postgres", "cache": "redis", "registry": "oci"}[typeWord(family)] + " add"
+		case first != "" && slices.Contains(movedTypes, typeWord(family)):
+			cmd = typeWord(family) + " " + first + " add"
 		case familyWord[family] != [2]string{}:
 			cmd = family + " add"
 		case family == "conn" || family != "host" && family != "vpn" && wanted == "conn":
