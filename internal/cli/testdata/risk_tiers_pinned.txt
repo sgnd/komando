@@ -203,6 +203,7 @@ policy.edit	plain=safety	highest=safety
 policy.list	plain=read	highest=read
 policy.rm	plain=safety	highest=safety
 policy.show	plain=read	highest=read
+probe cache redis edit prod-redis --protected=false	safety
 probe cluster scale c1 web 0	dangerous
 probe conn edit app-db --protected=false	safety
 probe export --for-phone	person
@@ -219,6 +220,7 @@ probe pkg rm web1 openssh-server	dangerous
 probe pkg upgrade web1 --security	dangerous
 probe policy edit rm-root --off	safety
 probe recipe add r1 --overwrite --read-only	safety
+probe registry oci edit ghcr --protected=false	safety
 probe secret keychain	person
 probe svc disable web1 ssh.service	dangerous
 probe svc stop web1 sshd	dangerous

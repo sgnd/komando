@@ -203,6 +203,7 @@ policy.edit	kind=change|	target=""	safety|unless it only switches the rule on|sw
 policy.list	kind=read|	target=""	
 policy.rm	kind=change|	target=""	safety||removes a deny rule||||
 policy.show	kind=read|	target=""	
+probe cache redis edit prod-redis --protected=false	safety|turns protection off||
 probe cluster scale c1 web 0	dangerous|stops every copy of the app||
 probe conn edit app-db --protected=false	safety|turns protection off||
 probe export --for-phone	person|||
@@ -219,6 +220,7 @@ probe pkg rm web1 openssh-server	dangerous|removes a package the server needs to
 probe pkg upgrade web1 --security	dangerous||an update would remove a package the server needs|
 probe policy edit rm-root --off	safety|switches a rule off||
 probe recipe add r1 --overwrite --read-only	safety||it makes an existing snippet read-only|
+probe registry oci edit ghcr --protected=false	safety|turns protection off||
 probe secret keychain	person|moves the key into the keychain||
 probe svc disable web1 ssh.service	dangerous|turns sshd off (no one can log in remotely after a restart)||
 probe svc stop web1 sshd	dangerous|stops sshd (no one can log in remotely)||
