@@ -22,6 +22,10 @@ func audit(cl *call, st *store.State, command string, hosts []string, remote str
 // auditEvent adds a record of an event from auditEvents (host.key-pinned,
 // secret.set) under the leaf that runs.
 func auditEvent(cl *call, st *store.State, event string, hosts []string, remote string, ok bool, extra map[string]any) {
+	if !slices.Contains(auditEvents, event) { // a bug: the list is closed (rule R1, C625)
+		cl.out.Warn(fmt.Sprintf("%q is not an audit event, so the audit log did not record it", event))
+		return
+	}
 	auditRecord(cl, st, runningLeaf(cl), event, hosts, remote, ok, extra)
 }
 
