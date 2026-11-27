@@ -638,6 +638,7 @@ func storageUpload(cl *call, ctx context.Context, name, conn, file, key string, 
 func init() {
 	providers := []string{"s3", "gcs", "azblob", "sftp", "ftp", "smb", "webdav"}
 	inventoryHandlers("storage", providers...)
+	helpGroups["storage"] = "data" // copy took upload and download (C9): the old noun goes, the table's keeps its help group
 	bodies := map[string]func() *cobra.Command{"list": storageLsCmd, "read": storageCatCmd, "create": storageMkdirCmd,
 		"move": storageMvCmd, "delete": storageRmCmd, "link": storageLinkCmd}
 	for _, p := range providers {
