@@ -48,7 +48,7 @@ jobs:
           old=$(sed -n 's/^const LastFormat2Release = "\(v[0-9.]*\)"$/\1/p' internal/store/migrate3_fix.go)
           [ -n "$old" ] || { echo "no LastFormat2Release in internal/store/migrate3_fix.go"; exit 1; }
           mkdir -p "$RUNNER_TEMP/old"
-          curl --proto '=https' --tlsv1.2 -fsSL "https://raw.githubusercontent.com/sgnd/komando/$old/install.sh" |
+          curl --proto '=https' --tlsv1.2 -fsSL --retry 2 "https://raw.githubusercontent.com/sgnd/komando/$old/install.sh" |
             KOMANDO_VERSION="$old" KOMANDO_INSTALL_DIR="$RUNNER_TEMP/old" sh
       - run: test/e2e/store_move.sh bin/komando "$RUNNER_TEMP/old/komando"
 

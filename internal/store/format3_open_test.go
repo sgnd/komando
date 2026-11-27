@@ -197,6 +197,9 @@ func TestFormat2PlanStopAsksNothing(t *testing.T) {
 	if fileSum(t) != before {
 		t.Error("the stop changed the store")
 	}
+	if b, err := Backups(); err != nil || len(b) != 0 {
+		t.Errorf("the stop left backups %v (%v)", b, err)
+	}
 }
 
 // backupIn is the name of the migration's backup among es, or "-" (in no plan).
