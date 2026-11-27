@@ -515,8 +515,25 @@ var readOnlyPrograms = map[string]bool{"cat": true, "less": true, "more": true, 
 	"readlink": true, "realpath": true, "which": true, "type": true, "command": true, "test": true, "[": true, "jq": true,
 	"echo": true, "printf": true, "md5": true, "md5sum": true, "shasum": true, "sha256sum": true, "cd": true, "pushd": true}
 
-// redirectTarget is a file a shell segment writes with >, >>, >| or zsh's >!.
-var redirectTarget = regexp.MustCompile(`[0-9&]?>>?[|!]?\s*("[^"]*"|'[^']*'|[^\s;&|<>()]+)`)
+// redirectTarget is what a shell segment writes with >, >>, >|, zsh's >!
+// or >&: a file, or after >& an output it copies or closes (redirectFiles).
+var redirectTarget = regexp.MustCompile(`[0-9&]?>>?([|&!]?)\s*("[^"]*"|'[^']*'|[^\s;&|<>()]+)`)
+
+// outputNumber is the word after >& that copies or closes an output (2>&1,
+// >&2, 2>&-) instead of naming a file.
+var outputNumber = regexp.MustCompile(`^([0-9]+-?|-)$`)
+
+// redirectFiles are the files s writes through a redirect.
+func redirectFiles(s string) []string {
+	var files []string
+	for _, m := range redirectTarget.FindAllStringSubmatch(s, -1) {
+		if m[1] == "&" && outputNumber.MatchString(m[2]) {
+			continue
+		}
+		files = append(files, strings.Trim(m[2], `"'`))
+	}
+	return files
+}
 
 // redirectWrites are the files a simple command's redirects open for
 // writing (>, >>, >|, zsh's >!, N>, <> and >&FILE), as the shell reads
@@ -801,8 +818,7 @@ func checkSelfWrite(cl *call, line, seg, base string, args []string, home, cwd s
 // checkSelfRedirects refuses a shell segment whose redirect writes a guard
 // file (guardSelfWhy), whatever the program is: the shell writes it.
 func checkSelfRedirects(cl *call, seg, home, cwd string) guardDecision {
-	for _, m := range redirectTarget.FindAllStringSubmatch(seg, -1) {
-		w := strings.Trim(m[1], `"'`)
+	for _, w := range redirectFiles(seg) {
 		if why := guardSelfWhy(guardPathAt(cl, w, home, cwd)); why != "" {
 			return refuseSelf(w, why)
 		}
@@ -894,6 +910,7 @@ func checkGuardFiles(cl *call, line, seg, prog string, args []string, home, cwd 
 	if d := checkSelfWrite(cl, line, seg, base, args, home, cwd); d.Deny || prog == "" || readOnlyPrograms[base] {
 		return d
 	}
+	line = lineForOthers(line, seg)
 	if _, ok := readerArgs(base, args); ok {
 		return checkGuardFileNamed(cl, lineWithoutReadFiles(line), base, args, home, cwd)
 	}

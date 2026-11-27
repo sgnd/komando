@@ -83,3 +83,21 @@ func underHome(p, home string) string {
 	}
 	return p
 }
+
+// looksLikePath: a word that names a file, not a flag or a plain word
+// (e.g. `grep password` is fine, `cat .env` is not).
+func looksLikePath(w string) bool {
+	w = strings.Trim(w, `"'`)
+	if strings.ContainsAny(w, " \t") {
+		return false // a sentence, e.g. a commit message
+	}
+	if i := strings.Index(w, "="); i >= 0 && strings.HasPrefix(w, "-") {
+		w = w[i+1:]
+	}
+	for _, v := range []string{"$HOME", "${HOME}", "$KOMANDO_HOME", "${KOMANDO_HOME}"} {
+		if strings.HasPrefix(w, v) {
+			return true
+		}
+	}
+	return strings.ContainsAny(w, "/~.") || w == "credentials" || strings.HasPrefix(w, "id_")
+}

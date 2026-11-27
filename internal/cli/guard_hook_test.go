@@ -175,6 +175,295 @@ func TestGuardHookAnswersAsTheCommand(t *testing.T) {
 	}
 }
 
+// A search program's word that names a key file, or looks like one, is
+// checked as a file in every form, its pattern too: a search that names
+// one is refused, as before.
+func TestGuardSearchWordsNamingKeysStayRefused(t *testing.T) {
+	home, _ := guardLineHome(t)
+	checkLines(t, home, home, []string{
+		"grep -v scrypt.Key internal/vault/storekey.go",
+		"rg -n vault.Key internal",
+		"grep -n -A 3 tls.key README.md",
+		"grep --color=auto -n scrypt.Key internal/vault/storekey.go",
+		"grep -f ~/.komando/vault.key notes.txt",
+		"grep -e x ~/.ssh/id_ed25519",
+		"grep x ~/.ssh/id_*",
+		"grep -- x ~/.ssh/id_ed25519",
+		"grep foo server.key",
+		"grep ~/.ssh/id_* notes.txt",
+		"grep -rf ~/.komando/vault.key .",
+		"grep ~/.komando/vault.key -e .",
+		"grep ~/.ssh/id_ed25519 -e .",
+		"grep -m1 ~/.komando/vault.key -f /dev/null",
+		"grep --regex=. ~/.komando/vault.key",
+		"grep --fil=~/.komando/vault.key x",
+		"grep --context=1 ~/.komando/vault.key",
+		"GREP_OPTIONS=-f grep ~/.komando/vault.key notes.txt",
+		"env GREP_OPTIONS=-f grep ~/.komando/vault.key notes.txt",
+		"export GREP_OPTIONS=-f; grep ~/.komando/vault.key notes.txt",
+		"xargs grep ~/.komando/vault.key < notes.txt",
+		"parallel grep ~/.komando/vault.key ::: notes.txt",
+		"find . -exec grep ~/.komando/vault.key {} +",
+		"X=-e.; grep ~/.komando/vault.key $X",
+		"grep ~/.komando/vault.key $X",
+		`grep ~/.komando/vault.key "$@"`,
+		"grep ~/.komando/vault.key *",
+		"touch ./-e.; grep ~/.komando/vault.key *",
+		"grep ~/.komando/vault.key ./-e.",
+		"grep ~/.komando/vault.key {-e,.}",
+		`grep ~/.komando/vault.key $'\x2de' .`,
+		"grep ~/.komando/vault.key $'-e' .",
+		`grep ~/.komando/vault.key \-e .`,
+		"grep ~/.komando/vault.key '-e' .",
+		"grep ~/.komando/vault.key ~-e",
+		`export GREP_OPT""IONS='-e .'; grep ~/.komando/vault.key`,
+		`export GREP_OPT\IONS='-e .'; grep ~/.komando/vault.key`,
+		"declare -x GREP_OPT''IONS=-e.; grep ~/.komando/vault.key",
+		`grep(){ cat "$@"; }; grep ~/.komando/vault.key x`,
+		"grep () { cat $1; }\ngrep ~/.komando/vault.key",
+		"function grep { cat $1; }; grep ~/.komando/vault.key",
+		"shopt -s expand_aliases\nalias grep=cat\ngrep ~/.komando/vault.key",
+		"alias grep=cat; grep ~/.komando/vault.key",
+		"enable -n grep; grep ~/.komando/vault.key",
+		"hash -p /bin/cat grep; grep ~/.komando/vault.key",
+		"PATH=/tmp/x:$PATH; grep ~/.komando/vault.key",
+		"ln -s /bin/cat ./grep; ./grep ~/.komando/vault.key",
+		"/tmp/grep ~/.komando/vault.key",
+		"./grep ~/.komando/vault.key",
+		`\grep ~/.komando/vault.key`,
+		"egrep ~/.komando/vault.key",
+		"rg ~/.komando/vault.key",
+		"grep -- ~/.komando/vault.key -e .",
+		"IFS=,; grep ~/.komando/vault.key,-e,.",
+		`set -- -e .; grep ~/.komando/vault.key "$@"`,
+		"grep --color=auto ~/.komando/vault.key",
+	}, true)
+}
+
+// C520: an Orca worktree for komando names the repo komando, a word that
+// names Orca's own record, not a file. Orca with an output or path flag is
+// still checked.
+func TestGuardOrcaWorktreeNamedKomando(t *testing.T) {
+	home, _ := guardLineHome(t)
+	checkLines(t, home, home, []string{
+		"orca worktree create --repo komando --name komando-c519-guard-hook-weight",
+		"orca worktree create --repo=komando --name komando-c519 --json",
+		"orca worktree create --name komando-c519 --base origin/main",
+	}, false)
+	checkLines(t, home, home, []string{
+		"orca worktree create --repo komando --path komando",
+		"orca worktree create --repo komando -o komando",
+		"orca worktree create --repo komando; cp /bin/true komando",
+	}, true)
+}
+
+// C520: 2>&1 and >&2 copy one output to another: they write no file, so a
+// line naming the komando repo stays a reader's line. >&FILE writes FILE.
+func TestGuardOutputCopyIsNoRedirect(t *testing.T) {
+	home, _ := guardLineHome(t)
+	checkLines(t, home, home, []string{
+		"gh issue view 665 -R sgnd/komando --json title,body 2>&1 | head -60",
+		"gh pr list -R sgnd/komando --state open >&2",
+		"gh issue view 665 -R sgnd/komando 2>&-; echo done",
+	}, false)
+	checkLines(t, home, home, []string{
+		"echo x >&~/.claude/settings.json",
+		"echo x >& ~/.claude/settings.json",
+		"echo x >&~/.komando/vault.json",
+		"echo x &>~/.komando/vault.json",
+		"ls >&~/.ssh/id_ed25519",
+		"cat ~/.ssh/id_ed25519 >&2",
+		`echo \>& cp /bin/true ~/bin/komando`,
+		"gh pr list -R sgnd/komando >&komando",
+		"gh release download v1 -R sgnd/komando -O ~/newbin/komando 2>&1",
+	}, true)
+}
+
+// C520: on a plain line, a command that runs komando or reads its program
+// names komando only for itself: python3 and sleep beside it get nothing
+// from it. A reader whose output goes on (a pipe, a file, a command
+// substitution), cd, a variable and a heredoc still count.
+func TestGuardKomandoRunNextToAnotherCommand(t *testing.T) {
+	home, _ := guardLineHome(t)
+	checkLines(t, home, home, []string{
+		"python3 -c 'print(1)'; komando version",
+		"komando version && sleep 2 && komando list",
+		"sleep 5; ~/bin/komando version",
+		"stat ~/bin/komando; sleep 1",
+		"python3 -c 'print(1)' && ls -la ~/bin/komando",
+		"ls -la /usr/local/bin/komando; python3 --version",
+		"which komando; sleep 1",
+		"cat ~/.claude/settings.json; python3 -c 'print(1)'",
+		"komando version 2>&1; python3 -c 'print(1)'",
+	}, false)
+	checkLines(t, home, home, []string{
+		"echo ~/bin/komando | xargs rm",
+		"ls ~/bin/komando > /tmp/t; xargs rm < /tmp/t",
+		"ls ~/bin/komando |& xargs rm",
+		`cp /bin/true "$(ls ~/bin/komando)"`,
+		"cd ~/.claude && python3 -c \"open('settings.json','w')\"",
+		"K=~/bin/komando ls; python3 -c 'print(1)'",
+		"export K=~/bin/komando; python3 -c 'import os; open(os.environ[\"K\"],\"w\")'",
+		"python3 - <<EOF\nopen(\"\"\"\n" + home + "/bin/komando\n\"\"\".strip(),\"w\")\nEOF",
+		"python3 - <<< ~/bin/komando",
+		`ls ~/bin/komando; cp /bin/true "$_"`,
+		`printf -v p %s ~/bin/komando; cp /bin/true "$p"`,
+		`read p <<< ~/bin/komando; cp /bin/true "$p"`,
+		`printf -v p %s ~/.claude/settings.json; python3 -c 'import sys;open(sys.argv[1],"w")' "$p"`,
+		"for f in a; do ls ~/bin/komando; done | xargs rm",
+		"(ls ~/bin/komando; echo) | xargs rm",
+		"{ ls ~/bin/komando; } | xargs rm",
+		"exec > /tmp/t; ls ~/bin/komando; xargs rm < /tmp/t",
+	}, true)
+}
+
+// C520: the guard reads a line as each command sees it only when every
+// command on it is plain literal text. Each case is a kind of line it
+// reads whole instead, so a command that changes the program still sees
+// the name another command gives. The first line of each case is refused
+// by that check alone; the rest are the review's lines of that kind.
+func TestGuardNarrowsOnlyPlainLines(t *testing.T) {
+	home, _ := guardLineHome(t)
+	bin := filepath.Join(home, "bin", "komando")
+	cases := []struct {
+		name  string
+		lines []string
+	}{
+		{"a dollar sign", []string{
+			`ls ~/bin/komando; cp /bin/true "$_"`,
+			`ls ~/bin/komando; read -r p < /tmp/f; cp /bin/true "$p"`,
+			`x=_; ls ~/bin/komando; cp /bin/true "${!x}"`,
+			`x=_; ls ~/bin/komando; python3 -c 'import sys;open(sys.argv[1],"w")' "${!x}"`,
+			`x=_; cat ~/.claude/settings.json; python3 -c 'import sys;open(sys.argv[1],"w")' "${!x}"`,
+			"ls ~/bin/komando\ncp /bin/true \"${!x}\"",
+			`declare -n r=_; ls ~/bin/komando; cp /bin/true "$r"`,
+		}},
+		{"a backtick", []string{
+			"python3 -c 'import sys;open(sys.argv[1],\"w\")' `which komando`",
+		}},
+		{"a parenthesis outside quotes", []string{
+			"xargs rm < <(ls ~/bin/komando)",
+			"(ls ~/bin/komando; echo) | xargs rm",
+		}},
+		{"a heredoc", []string{
+			"xargs rm <<EOF\n" + bin + "\nEOF",
+		}},
+		{"a redirect to a file", []string{
+			"ls ~/bin/komando > /tmp/t; xargs rm < /tmp/t",
+		}},
+		{"a group or compound command", []string{
+			"{ ls ~/bin/komando; } | xargs rm",
+			"for f in a; do ls ~/bin/komando; done | xargs rm",
+		}},
+		{"a background job", []string{
+			"ls " + bin + " & jobs | xargs rm",
+			"ls ~/bin/komando & python3 -",
+		}},
+		{"an exclamation mark", []string{
+			"ls ~/bin/komando\ncp /bin/true !!:1",
+			"set -o history; ls ~/bin/komando; cp /bin/true !$",
+			"ls ~/bin/komando; history -p '!!' | xargs rm",
+		}},
+		{"BASH_COMMAND", []string{
+			"ls ~/bin/komando; BASH_COMMAND=1 python3 -",
+			`ls ~/bin/komando; cp /bin/true "$BASH_COMMAND"`,
+			`trap 'eval cp /bin/true ${BASH_COMMAND#ls }' DEBUG; ls ~/bin/komando`,
+			`trap 'eval cp /bin/true ${BASH_COMMAND#* }' DEBUG; komando version ~/bin/komando`,
+		}},
+		{"code run at run time", []string{
+			`ls ~/bin/komando; eval 'cp /bin/true "$'_'"'`,
+			`ls ~/bin/komando; eval cp /bin/true '"$'_'"'`,
+		}},
+		{"a change of folder", []string{
+			"cd ~/.claude; python3 -c \"open('settings.json','w')\"",
+			"builtin cd ~/.claude; python3 -c \"open('settings.json','w')\"",
+			"command cd ~/.claude; python3 -c \"open('settings.json','w')\"",
+			"time cd ~/.claude; python3 -c \"open('settings.json','w')\"",
+			"env cd ~/.claude; python3 -c \"open('settings.json','w')\"",
+			"builtin cd ~/bin && python3 -c \"open('komando','w')\"",
+			"builtin pushd ~/.claude; python3 -c \"open('settings.json','w')\"",
+			"builtin cd ~/.komando; python3 -c \"print(open('vault.key').read())\"",
+			"command cd ~/.komando; python3 -c \"print(open('vault.key').read())\"",
+		}},
+		{"a program word redefined", []string{
+			"hash -p /bin/rm ls; ls ~/bin/komando",
+		}},
+		{"a variable a reader sets", []string{
+			"printf -v p %s ~/bin/komando; cp /bin/true ~p",
+		}},
+		{"output that goes on through a pipe", []string{
+			"echo ~/bin/komando | xargs rm",
+			"ls ~/bin/komando |& xargs rm",
+		}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) { checkLines(t, home, home, c.lines, true) })
+	}
+	// every word that runs code, reads the line back or changes the shell
+	// keeps the line whole, wherever it stands
+	for _, w := range []string{"eval", "trap", "source", ".", "bash", "sh", "zsh", "exec", "command", "builtin",
+		"declare", "local", "typeset", "export", "readonly", "alias", "unalias", "hash", "enable", "disable",
+		"autoload", "functions", "zmodload", "set", "setopt", "shopt", "emulate", "history", "fc", "r",
+		"cd", "pushd", "popd", "chdir"} {
+		t.Run("the word "+w, func(t *testing.T) {
+			checkLines(t, home, home, []string{"ls ~/bin/komando; " + w + " x; python3 y.py"}, true)
+		})
+	}
+	checkLines(t, home, home, []string{"command -v komando; python3 -c 'print(1)'"}, true)
+}
+
+// C520: the lines of the independent reviews that change the program, a
+// guard file or a key file, or read a key file, stay refused.
+func TestGuardReviewLinesStayRefused(t *testing.T) {
+	home, _ := guardLineHome(t)
+	checkLines(t, home, home, []string{
+		"rg ~/.komando/vault.key -e .",
+		"grep --regexp=. ~/.komando/vault.key",
+		"grep -r . ~/.komando",
+		"grep -r ~/.komando .",
+		"grep -A ~/.komando/vault.key x",
+		"grep -y ~/.komando/vault.key x",
+		"grep -P ~/.komando/vault.key x",
+		"rg -d 1 ~/.komando/vault.key",
+		"rg --pre=cat x ~/.komando/vault.key",
+		"rg --pre cat ~/.komando/vault.key .",
+		"rg --pre=/bin/cp ~/.komando/vault.key .",
+		`komando version; python3 -c "open('/x/.komando/vault.json','w')"`,
+		"komando version; sleep 1; cp /bin/true ~/bin/komando",
+		`komando version; python3 -c 'import os;os.remove(os.path.expanduser("~/bin/komando"))'`,
+		`command -v komando; rm "$(command -v komando)"`,
+		"type -p komando; rm -f ~/bin/komando",
+		"ls ~/bin/komando; history | tail -1 | python3 -",
+		"ls ~/bin/komando; fc -ln -1 | xargs rm",
+		"ls ~/bin/komando; fc -s ls=rm",
+		"cat ~/.claude/settings.json; sed -i '' s/a/b/ $(!!)",
+		"komando version; perl -pi -e s/a/b/ ~/.claude/settings.json",
+		"jq . ~/.claude/settings.json; jq . notes > ~/.claude/settings.json",
+		"echo ~/bin/komando >&2; cp /bin/true ~/bin/komando",
+		"orca worktree create --repo komando --json -o x",
+		"orca run --repo komando -- rm ~/bin/komando",
+		"orca exec --repo komando rm ~/bin/komando",
+		"orca --repo komando terminal send 'rm ~/bin/komando'",
+		"gh pr list 2>&1 >~/.claude/settings.json",
+		"echo x 1>&2 > ~/bin/komando",
+		"echo x >&2>~/bin/komando",
+		"ls ~/bin/komando 2>&1 | cat; python3 -c 'print(1)'",
+		`grep ~/.komando/vault.key "$@"`,
+		`grep ~/.komando/vault.key ''-e .`,
+		`grep ~/.komando/vault.key ""-e .`,
+		`v=GREP_OPTIONS; export "${v}=-e."; grep ~/.komando/vault.key`,
+		"cp /bin/cat /tmp/grep; /tmp/grep ~/.komando/vault.key",
+		"grep -i ~/.komando/vault.key -ie.",
+		"IFS=e; grep ~/.komando/vault.key -",
+		`read p <<< ~/bin/komando; cp /bin/true "$p"`,
+		`ls ~/bin/komando; read p < /tmp/f; cp /bin/true "$p"`,
+		"command grep ~/.komando/vault.key -e .",
+		"busybox grep ~/.komando/vault.key -e .",
+		"grep --include=* ~/.komando/vault.key -r",
+		"grep -e. --colour=x ~/.komando/vault.key",
+	}, true)
+}
+
 // guardSecretTargets are files the secret-path rule guards, one per kind:
 // komando's data (also through $HOME and ${KOMANDO_HOME}), a
 // private key, a credential store and a file named as one that holds
