@@ -149,6 +149,7 @@ func TestGuardHeredocMarkInAnExpansionIsNoHeredoc(t *testing.T) {
 	checkLines(t, home, repo, []string{
 		"echo ${v:-$(cat <<'EOF'\nrm -rf ~/.ssh\nEOF\n)}",
 		"echo \"${v}\"; cat >f <<'EOF'\nrm -rf ~/.ssh\nEOF",
+		"echo ${v:-${w}}; cat >f <<'EOF'\nrm -rf ~/.ssh\nEOF",
 		"echo ${#v} ${v%%/*}\ncat >f <<'EOF'\nrm -rf ~/.ssh\nEOF",
 		"echo $[2*3]; cat >f <<'EOF'\nrm -rf ~/.ssh\nEOF",
 		"echo $'a\\'b'; cat >f <<'EOF'\nrm -rf ~/.ssh\nEOF",

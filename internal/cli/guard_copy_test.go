@@ -169,7 +169,12 @@ func TestGuardProgramValueWithASeparatorIsAnyProgram(t *testing.T) {
 		`E=; $E $E rm -rf ~`,
 		`E=; $E $E $E rm -rf ~`,
 	}, treeRefusal)
+	// a field of a value not quoted is a glob
+	checkRefusedBy(t, home, home, []string{`R="rm -rf $HOME/.cla?de"; $R`}, "is an AI agent's settings folder")
+	// a $ in a value is text: touch makes a file named $x
+	t.Setenv("GUARD_TEST_CMD", "touch $x")
 	checkLines(t, home, repo, []string{
+		`read x < /tmp/n; $GUARD_TEST_CMD`,
 		`R=rm; $R -rf ./build`,
 		`R="rm -rf"; $R ./build`,
 		`G="go test"; $G ./...`,
@@ -194,6 +199,8 @@ func TestGuardWrapperInAValueIsUnwrapped(t *testing.T) {
 	checkRefusedBy(t, home, home, append(lines, `W=nohup; read p < /tmp/n; $W $p ~/.ssh /tmp/k`, `env rm -rf ~`), treeRefusal)
 	checkRefusedBy(t, home, home, []string{`X=xargs; echo ~ | $X rm -rf`}, "xargs gives rm names")
 	checkRefusedBy(t, home, home, []string{`W=nohup; $W tar -xf /tmp/a.tar -C ~`, `env tar -xf /tmp/a.tar -C ~`}, "tar writes names it reads from elsewhere")
+	// sed reads $s as its script, rm as a file to remove
+	checkRefusedBy(t, home, repo, []string{`P=sed; true || P=rm; read s < /tmp/n; $P -i -e $s notes.txt`}, "names files this line writes with a value")
 	checkLines(t, home, repo, []string{
 		`W=nohup; $W rm -rf ./build`,
 		`W=nohup; $W go test ./...`,
@@ -224,8 +231,9 @@ func TestGuardFolderRuleSplitsValuesAsTheShellDoes(t *testing.T) {
 
 // The folder rule checks each word once, however many argument lists and
 // program values a line gives: a line of 64 lists and 8 program values
-// takes about as long as one of a single list, and well under a second.
-// The words name no path, so the other checks pass over them.
+// takes about as long as one of a single list or of a single program, and
+// well under a second. The words name no path, so the other checks pass
+// over them.
 func TestGuardFolderRuleChecksEachWordOnce(t *testing.T) {
 	home, repo := guardLineHome(t)
 	var words string
@@ -250,9 +258,10 @@ func TestGuardFolderRuleChecksEachWordOnce(t *testing.T) {
 	}
 	one := took(values + "$P -Rf a b a b a b" + words)
 	many := took(values + "$P -Rf $A $A $A $A $A $A" + words)
-	t.Logf("64 lists %v, one list %v", many, one)
-	if many > time.Second || many > 8*one {
-		t.Errorf("64 lists took %v, one list %v: want under 1s and under 8 times as long", many, one)
+	single := took("P=rm; A=a; true || A=b; $P -Rf $A $A $A $A $A $A" + words)
+	t.Logf("64 lists %v, one list %v, one program %v", many, one, single)
+	if many > time.Second || many > 8*one || many > 4*single {
+		t.Errorf("64 lists took %v, one list %v, one program %v: want under 1s, under 8 times one list and under 4 times one program", many, one, single)
 	}
 }
 
