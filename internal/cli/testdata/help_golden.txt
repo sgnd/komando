@@ -1093,7 +1093,7 @@ Flags:
       --notes string                free-form notes (komando conn show shows them to people and agents)
       --option stringArray          an option of this kind, KEY=VALUE (repeatable) (default [])
       --overwrite[=true|false]      replace a conn that has the same name
-      --password-ref string         where the password is: credential:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...
+      --password-ref string         where the password is: credential:NAME (saved with komando secret set NAME)
       --protected[=true|false]      production: komando asks you before every change, and an AI agent needs your yes in a window
   -t, --tag strings                 tags, like prod (comma-separated)
       --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
@@ -2178,7 +2178,7 @@ Flags:
       --notes string                free-form notes (komando conn show shows them to people and agents)
       --option stringArray          an option of this kind, KEY=VALUE (repeatable) (default [])
       --overwrite[=true|false]      replace a conn that has the same name
-      --password-ref string         where the password is: credential:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...
+      --password-ref string         where the password is: credential:NAME (saved with komando secret set NAME)
       --protected[=true|false]      production: komando asks you before every change, and an AI agent needs your yes in a window
   -t, --tag strings                 tags, like prod (comma-separated)
       --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
@@ -2217,7 +2217,7 @@ Flags:
       --login string                how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own)
       --notes string                free-form notes (komando conn show shows them to people and agents)
       --option stringArray          set an option of this kind, KEY=VALUE (an empty value removes it) (default [])
-      --password-ref string         where the password is: credential:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...
+      --password-ref string         where the password is: credential:NAME (saved with komando secret set NAME)
       --protected[=true|false]      production: komando asks you before every change, and an AI agent needs your yes in a window
       --rm-group strings            take it out of these groups
       --rm-tag strings              remove these tags
@@ -2699,7 +2699,7 @@ Flags:
       --notes string                free-form notes (komando conn show shows them to people and agents)
       --option stringArray          an option of this kind, KEY=VALUE (repeatable) (default [])
       --overwrite[=true|false]      replace a conn that has the same name
-      --password-ref string         where the password is: credential:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...
+      --password-ref string         where the password is: credential:NAME (saved with komando secret set NAME)
       --protected[=true|false]      production: komando asks you before every change, and an AI agent needs your yes in a window
   -t, --tag strings                 tags, like prod (comma-separated)
       --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
@@ -4844,7 +4844,7 @@ Flags:
       --notes string                free-form notes (komando host show shows them to people and agents)
       --os string                   the server's OS: windows (commands run in PowerShell) or linux (the default, also for other Unixes)
       --overwrite[=true|false]      replace a server that has the same name
-      --password-ref string         where the password is: credential:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...
+      --password-ref string         where the password is: credential:NAME (saved with komando secret set NAME)
       --port int                    SSH port (default 22)
       --protected[=true|false]      production: komando asks you before every change, and an AI agent needs your yes in a window
       --proxy-command string        a command on this computer that carries the connection (OpenSSH ProxyCommand; %h %p %r)
@@ -5066,7 +5066,7 @@ Flags:
       --login string                 how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own)
       --notes string                 free-form notes (komando host show shows them to people and agents)
       --os string                    the server's OS: windows (commands run in PowerShell) or linux (the default, also for other Unixes)
-      --password-ref string          where the password is: credential:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...
+      --password-ref string          where the password is: credential:NAME (saved with komando secret set NAME)
       --port int                     SSH port (default 22)
       --protected[=true|false]       production: komando asks you before every change, and an AI agent needs your yes in a window
       --proxy-command string         a command on this computer that carries the connection (OpenSSH ProxyCommand; %h %p %r)
@@ -5712,7 +5712,7 @@ Examples:
 Flags:
       --cert string             an OpenSSH user certificate for the key (default: FILE-cert.pub next to it, if there)
   -h, --help[=true|false]       help for add
-      --passphrase-ref string   passphrase reference for encrypted keys (credential:NAME | env:VAR | ...)
+      --passphrase-ref string   passphrase reference for encrypted keys: credential:NAME
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -5780,7 +5780,7 @@ Examples:
 Flags:
       --cert string             an OpenSSH user certificate for the key
   -h, --help[=true|false]       help for edit
-      --passphrase-ref string   where the passphrase is: credential:NAME | env:VAR | ...
+      --passphrase-ref string   where the passphrase is: credential:NAME
       --unset strings           clear this setting: passphrase-ref, cert
 
 Global Flags (all of them: komando --help):
@@ -6920,7 +6920,7 @@ Flags:
       --notes string                free-form notes (komando conn show shows them to people and agents)
       --option stringArray          an option of this kind, KEY=VALUE (repeatable) (default [])
       --overwrite[=true|false]      replace a conn that has the same name
-      --password-ref string         where the password is: credential:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...
+      --password-ref string         where the password is: credential:NAME (saved with komando secret set NAME)
       --protected[=true|false]      production: komando asks you before every change, and an AI agent needs your yes in a window
   -t, --tag strings                 tags, like prod (comma-separated)
       --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
@@ -7909,11 +7909,11 @@ group shop into acme-shop).
 
 Every reference follows, as with `host rename` and `secret rename`: --via
 paths, password, sudo, key, preshared key and passphrase references,
-credential:NAME options in conn URLs, the key a server uses, group membership,
-jobs and tunnels. A key komando made (key gen) lives in the sealed store, so
-no file moves; a key file you added stays where it is. The protected mark,
-labels, notes and creation time stay. Names inside URLs (a bucket, a
-database user) are the resource's own and do not change.
+credential:NAME options in conn URLs, the key a server uses, group
+membership, jobs and tunnels. A key komando made (key gen) lives in the
+sealed store, so no file moves; a key file you added stays where it is. The
+protected mark, labels, notes and creation time stay. Names inside URLs (a
+bucket, a database user) are the resource's own and do not change.
 
 --in-notes also replaces old names in notes, and --in-labels in label
 values: server, conn, VPN and secret names as whole words, a group written
@@ -8003,7 +8003,8 @@ Global Flags (all of them: komando --help):
 ### komando secret --help
 exit 0
 --- stdout
-Save a password once, then point to it as credential:NAME instead of typing it:
+Save a password once, then point to it as credential:NAME instead of typing
+it:
   komando secret set web1-pass
   komando host edit web1 --password-ref credential:web1-pass
 
@@ -8248,10 +8249,10 @@ Global Flags (all of them: komando --help):
 exit 0
 --- stdout
 Renames OLD to NEW inside the vault, and points every server, conn, key and
-VPN that used credential:OLD at credential:NEW in the same step, so nothing stops
-working and nobody types the value again. The value is never printed, so an
-AI agent can do this too. Scripts or notes of your own that name credential:OLD
-are not changed.
+VPN that used credential:OLD at credential:NEW in the same step, so nothing
+stops working and nobody types the value again. The value is never printed,
+so an AI agent can do this too. Scripts or notes of your own that name
+credential:OLD are not changed.
 
 Safety: a change; try it with --dry-run first.
 
@@ -8313,9 +8314,9 @@ Global Flags (all of them: komando --help):
 exit 0
 --- stdout
 Starts COMMAND on this computer with the --env values in its environment. A
-value credential:NAME is read from the vault right before the program starts, so
-it is never in the command line or the shell history. The program starts
-directly, without a shell, with your environment minus komando's own
+value credential:NAME is read from the vault right before the program
+starts, so it is never in the command line or the shell history. The program
+starts directly, without a shell, with your environment minus komando's own
 KOMANDO_* variables and the values that unlock the vault. For an AI agent
 with secrets, --env may add variables but never replace one komando sets
 (HOME, PATH, USER, LANG, ...), and may not set what decides which code or
@@ -8332,8 +8333,8 @@ Safety: a change; try it with --dry-run first; when an AI agent hands a
 saved secret to a program: it weakens a safety check: a person's yes
 (--yes).
 
-The program's output goes through komando's masking: a vault value it
-prints shows as [credential:NAME]. komando exits with the program's exit code.
+The program's output goes through komando's masking: a vault value it prints
+shows as [credential:NAME]. komando exits with the program's exit code.
 
 For an AI agent every credential:NAME needs a person's yes (--yes, then
 komando's window names the secrets and the program), since the program
@@ -8736,7 +8737,7 @@ Flags:
       --notes string                free-form notes (komando conn show shows them to people and agents)
       --option stringArray          an option of this kind, KEY=VALUE (repeatable) (default [])
       --overwrite[=true|false]      replace a conn that has the same name
-      --password-ref string         where the password is: credential:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...
+      --password-ref string         where the password is: credential:NAME (saved with komando secret set NAME)
       --protected[=true|false]      production: komando asks you before every change, and an AI agent needs your yes in a window
   -t, --tag strings                 tags, like prod (comma-separated)
       --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
@@ -10088,7 +10089,7 @@ Flags:
       --mfa[=true|false]             the login needs a person (MFA, SSO): only 'vpn up' run by a person connects it
       --notes string                 free-form notes
       --overwrite[=true|false]       replace a VPN with the same name
-      --password-ref string          where the password is (Tailscale: the auth key): credential:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...
+      --password-ref string          where the password is (Tailscale: the auth key): credential:NAME (saved with komando secret set NAME)
       --portal string                GlobalProtect, Fortinet, AnyConnect, Pulse, F5: the VPN server or portal
       --protected[=true|false]       komando asks a person before it changes or removes this VPN; an AI agent needs their yes in a window
       --proxy-address string         SOCKS: host:port of the proxy; proxy: host:port or http(s)://host:port
@@ -10174,7 +10175,7 @@ Flags:
       --legacy-crypto[=true|false]   L2TP, IPsec: also offer 3DES and DH groups 2 and 5, for old servers (weak; turning it on needs a person's yes)
       --mfa[=true|false]             the login needs a person (MFA, SSO)
       --notes string                 free-form notes
-      --password-ref string          password as credential:NAME | env:VAR | file:PATH | op://... | bw://... | kdbx:... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME | azure-kv:VAULT/NAME
+      --password-ref string          password as credential:NAME (saved with komando secret set NAME)
       --portal string                GlobalProtect, Fortinet, AnyConnect, Pulse, F5: the VPN server or portal
       --protected[=true|false]       komando asks a person before it changes or removes this VPN; an AI agent needs their yes in a window
       --proxy-address string         SOCKS: host:port of the proxy; proxy: host:port or http(s)://host:port

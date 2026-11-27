@@ -22,6 +22,8 @@ This page is made from the code (`komando schema` lists the same under
 | `BACKUP_NOT_FOUND` | 3 | no backup of … found (looked for ….bak) | komando keeps a backup only when you edit with --backup; give another copy with --copy PATH |
 | `BAD_CA` | 2 | registry CA …: … | store the registry's CA certificate (PEM) with `komando secret set NAME < ca.crt` |
 | `BAD_FILE` | 2 | not a backup komando can read: … | give a backup komando can read: plain SQL text or a pg_dump custom archive (-Fc) |
+| `BAD_KIND` | 2 | …: kind … has no type | pick a kind komando knows: `komando conn add --help` lists them |
+| `BAD_REFERENCE` | 2 | … names an outside store; it takes credential:NAME | save the value with `komando secret set NAME`, then name it: credential:NAME |
 | `BAD_RELEASE` | 1 | … is … bytes, more than komando accepts; nothing was changed | report it at …/issues |
 | `BAD_SECRET` | 2 | the password for … contains a line break | store the password again without line breaks (`komando secret set NAME`) |
 | `BINARY_FILE` | 1 | … is a binary file; fs cat shows text only | save it with `komando download … …` |
@@ -50,6 +52,7 @@ This page is made from the code (`komando schema` lists the same under
 | `CONN_UNREACHABLE` | 4 | cannot reach …: … | check the name and port; if the site is only reachable from a server or VPN, run it again with --via: `komando cert check … --via NAME` |
 | `CONSUMER_GROUP_NOT_FOUND` | 3 | no consumer group named … | list consumer groups with `komando queue groups CONN` |
 | `CONSUMER_NOT_FOUND` | 3 | no consumer named … | list consumers with `komando queue groups CONN`; name one as STREAM/CONSUMER |
+| `CREDENTIAL_SHARED` | 2 | …: changing … would change credential …, which these entries use: …; nothing was changed | give this entry its own: `komando secret cp … NEW`, then pass credential:NEW |
 | `CRONTAB_UNREADABLE` | 5 | cannot read the crontab (exit …) | check the user name; reading another user's crontab needs sudo |
 | `DB_AUTH` | 4 | bigquery: the stored key is not a service account key: … | the --password-ref of a bigquery conn holds a service account key (the JSON file from the console), or leave it out to use gcloud's login |
 | `DB_BYTES_LIMIT` | 6 | the query would read …, more than --max-bytes …, so it did not run | BigQuery bills by the bytes a query reads: select fewer columns, filter on the partition or cluster columns, or, if that cost is intended (ask the user), raise --max-bytes |
@@ -270,7 +273,7 @@ This page is made from the code (`komando schema` lists the same under
 | `STORAGE_UNSUPPORTED` | 2 | … is … storage, which has no file modes | chmod works on SFTP conns; `komando list kind:storage` lists yours |
 | `STORE_BUSY` | 8 | komando's store stayed busy for …, so the server's host key could not be checked: … | another komando process is writing komando's store, or one is stuck (`komando status` lists what runs): wait for it to finish, then run it again |
 | `STORE_CONFLICT` | 8 | nothing was done: … was replaced, given a new key or checked again while this command ran, and this command still held it as it was | run the command again: komando opens the store again from the start; if it keeps happening, run `komando doctor` |
-| `STORE_IN_USE` | 8 | … is to move to a new format, and komando still runs: … | end each one as listed, then run `komando doctor` again |
+| `STORE_IN_USE` | 8 | … changed after the window was shown; nothing was changed | run `komando doctor` again |
 | `STORE_KEY_CHANGED` | 1 | …: … | run it again: another komando changed the store's key while this one ran |
 | `STORE_MIGRATION_FAILED` | 1 | …; nothing was changed | fix it with komando v0.17.0, then run `komando doctor` again |
 | `STORE_NEWER` | 1 | … was made by a newer komando | a newer komando made or changed this store; update this one: `komando update` |
@@ -282,6 +285,7 @@ This page is made from the code (`komando schema` lists the same under
 | `SUBSCRIPTION_NOT_FOUND` | 3 | no subscription named … | list subscriptions with `komando queue groups CONN`; `komando queue describe CONN TOPIC` shows a topic's own |
 | `SVC_FAILED` | 5 | systemctl daemon-reload failed (…) | read the error output (stderr) for systemd's reason; a unit file with a mistake is named there |
 | `SWARM_ERROR` | 5 | Docker Swarm answered with an error | check that Docker runs there: `komando exec TARGET --read-only -- docker info` |
+| `SWARM_MANAGER_NOT_FOUND` | 3 | swarm service …: its manager server … is not in your list | add the manager server again (`komando host add NAME ADDRESS`), or remove the swarm service |
 | `SWARM_OBJECT_NOT_FOUND` | 3 | no … named … | list what exists with `komando cluster list TARGET …s` |
 | `SWARM_SERVICE_NOT_FOUND` | 3 | no service named … | list services with `komando cluster list TARGET services` |
 | `SWARM_STACK_NOT_FOUND` | 3 | no stack named … | list the stacks with `komando cluster list … stacks` |

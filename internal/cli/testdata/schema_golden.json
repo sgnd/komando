@@ -935,7 +935,7 @@
           {
             "name": "password-ref",
             "type": "string",
-            "usage": "where the password is: credential:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://..."
+            "usage": "where the password is: credential:NAME (saved with komando secret set NAME)"
           },
           {
             "name": "protected",
@@ -1853,7 +1853,7 @@
           {
             "name": "password-ref",
             "type": "string",
-            "usage": "where the password is: credential:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://..."
+            "usage": "where the password is: credential:NAME (saved with komando secret set NAME)"
           },
           {
             "name": "protected",
@@ -2645,7 +2645,7 @@
           {
             "name": "password-ref",
             "type": "string",
-            "usage": "where the password is: credential:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://..."
+            "usage": "where the password is: credential:NAME (saved with komando secret set NAME)"
           },
           {
             "name": "protected",
@@ -3091,7 +3091,7 @@
           {
             "name": "password-ref",
             "type": "string",
-            "usage": "where the password is: credential:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://..."
+            "usage": "where the password is: credential:NAME (saved with komando secret set NAME)"
           },
           {
             "name": "protected",
@@ -5321,7 +5321,7 @@
           {
             "name": "password-ref",
             "type": "string",
-            "usage": "where the password is: credential:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://..."
+            "usage": "where the password is: credential:NAME (saved with komando secret set NAME)"
           },
           {
             "name": "port",
@@ -5575,7 +5575,7 @@
           {
             "name": "password-ref",
             "type": "string",
-            "usage": "where the password is: credential:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://..."
+            "usage": "where the password is: credential:NAME (saved with komando secret set NAME)"
           },
           {
             "name": "port",
@@ -6189,7 +6189,7 @@
           {
             "name": "passphrase-ref",
             "type": "string",
-            "usage": "passphrase reference for encrypted keys (credential:NAME | env:VAR | ...)"
+            "usage": "passphrase reference for encrypted keys: credential:NAME"
           }
         ],
         "runnable": true,
@@ -6237,7 +6237,7 @@
           {
             "name": "passphrase-ref",
             "type": "string",
-            "usage": "where the passphrase is: credential:NAME | env:VAR | ..."
+            "usage": "where the passphrase is: credential:NAME"
           },
           {
             "name": "unset",
@@ -7182,7 +7182,7 @@
           {
             "name": "password-ref",
             "type": "string",
-            "usage": "where the password is: credential:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://..."
+            "usage": "where the password is: credential:NAME (saved with komando secret set NAME)"
           },
           {
             "name": "protected",
@@ -8192,7 +8192,7 @@
         "path": "komando rename",
         "usage": "komando rename OLD NEW [flags]",
         "short": "Rename one entry, or all names starting with OLD (--starts-with)",
-        "long": "Without --starts-with: renames the one server, conn, VPN, secret, key or\ngroup named OLD, as `komando host rename` and the others do. When OLD names\ntwo kinds of entry (a server and a secret), it says which commands to use.\n\nSafety: a change; try it with --dry-run first.\n\nWith --starts-with: renames every server, conn, VPN, secret, key and group\nwhose name starts with OLD: OLD is replaced with NEW. When OLD ends in -,\nthe name OLD without it is renamed too (--starts-with shop- acme-shop- turns\ngroup shop into acme-shop).\n\nEvery reference follows, as with `host rename` and `secret rename`: --via\npaths, password, sudo, key, preshared key and passphrase references,\ncredential:NAME options in conn URLs, the key a server uses, group membership,\njobs and tunnels. A key komando made (key gen) lives in the sealed store, so\nno file moves; a key file you added stays where it is. The protected mark,\nlabels, notes and creation time stay. Names inside URLs (a bucket, a\ndatabase user) are the resource's own and do not change.\n\n--in-notes also replaces old names in notes, and --in-labels in label\nvalues: server, conn, VPN and secret names as whole words, a group written\n@NAME, and a pattern such as shop-db-* when it matches the same entries\nafter the rename. OLD without its -, group names without @, key names, and a\nname that is also the user, host, bucket or database in a conn URL stay:\nthey often mean something else. The result lists each one it keeps (\"kept\"),\nand each label value that names an old entry, with or without --in-labels.\n\nEverything changes in one step, or nothing does: a new name that is taken\n(or two old names that would get one new name) stops it before anything\nis written. When NEW starts with OLD, names that start with NEW already\nare left alone, so a second run changes nothing.\n\nRenaming protected servers and conns needs --yes once, for all of them (an\nAI agent's --yes opens one window for a person). See what would change with\n--dry-run first. --kind renames only some kinds; references still follow. To\nrename one entry, use host rename, conn rename, vpn rename, secret rename,\nkey rename or group rename.",
+        "long": "Without --starts-with: renames the one server, conn, VPN, secret, key or\ngroup named OLD, as `komando host rename` and the others do. When OLD names\ntwo kinds of entry (a server and a secret), it says which commands to use.\n\nSafety: a change; try it with --dry-run first.\n\nWith --starts-with: renames every server, conn, VPN, secret, key and group\nwhose name starts with OLD: OLD is replaced with NEW. When OLD ends in -,\nthe name OLD without it is renamed too (--starts-with shop- acme-shop- turns\ngroup shop into acme-shop).\n\nEvery reference follows, as with `host rename` and `secret rename`: --via\npaths, password, sudo, key, preshared key and passphrase references,\ncredential:NAME options in conn URLs, the key a server uses, group\nmembership, jobs and tunnels. A key komando made (key gen) lives in the\nsealed store, so no file moves; a key file you added stays where it is. The\nprotected mark, labels, notes and creation time stay. Names inside URLs (a\nbucket, a database user) are the resource's own and do not change.\n\n--in-notes also replaces old names in notes, and --in-labels in label\nvalues: server, conn, VPN and secret names as whole words, a group written\n@NAME, and a pattern such as shop-db-* when it matches the same entries\nafter the rename. OLD without its -, group names without @, key names, and a\nname that is also the user, host, bucket or database in a conn URL stay:\nthey often mean something else. The result lists each one it keeps (\"kept\"),\nand each label value that names an old entry, with or without --in-labels.\n\nEverything changes in one step, or nothing does: a new name that is taken\n(or two old names that would get one new name) stops it before anything\nis written. When NEW starts with OLD, names that start with NEW already\nare left alone, so a second run changes nothing.\n\nRenaming protected servers and conns needs --yes once, for all of them (an\nAI agent's --yes opens one window for a person). See what would change with\n--dry-run first. --kind renames only some kinds; references still follow. To\nrename one entry, use host rename, conn rename, vpn rename, secret rename,\nkey rename or group rename.",
         "example": "  komando rename web1 web-01 --dry-run                 # one entry, whatever kind it is\n  komando rename --starts-with shop- acme-shop- --dry-run   # the old -> new list and every reference\n  komando rename --starts-with shop- acme-shop- --yes   # after a person's yes\n  komando rename --starts-with old-registry registry --kind conn,secret\n  komando rename --starts-with lab- test- --in-notes --in-labels --dry-run",
         "flags": [
           {
@@ -8261,7 +8261,7 @@
         "path": "komando secret",
         "usage": "komando secret [flags]",
         "short": "Saved passwords and tokens: store, check, use as credential:NAME",
-        "long": "Save a password once, then point to it as credential:NAME instead of typing it:\n  komando secret set web1-pass\n  komando host edit web1 --password-ref credential:web1-pass\n\nkomando shows a saved value only to a person: at a terminal with\n`secret show --reveal`, or after \"Allow once\" in komando's window; never\nto an AI agent. `secret check` compares a value with the saved one\nwithout showing either. `secret rename` and `secret cp` rename and copy.\n\nHow it is stored: each secret sealed with AES-256-GCM in\n~/.komando/store.db. The random key is in the OS keychain (or in store.key\nwhere there is none, or with KOMANDO_KEYCHAIN=off), or comes from\n$KOMANDO_VAULT_PASS when that is set at first use (`secret passphrase`\nchanges it).\n\nA --password-ref (and the other -ref flags) can also read a password your\nteam keeps elsewhere; komando reads it when needed and never stores it:\n  env:VAR  file:PATH  vault:PATH#FIELD  aws-sm:NAME[#KEY]  gcp-sm:NAME[@PROJECT]\n  azure-kv:VAULT/NAME[#KEY]  op://VAULT/ITEM/FIELD  bw://ITEM/FIELD  kdbx:FILE#GROUP/ENTRY",
+        "long": "Save a password once, then point to it as credential:NAME instead of typing\nit:\n  komando secret set web1-pass\n  komando host edit web1 --password-ref credential:web1-pass\n\nkomando shows a saved value only to a person: at a terminal with\n`secret show --reveal`, or after \"Allow once\" in komando's window; never\nto an AI agent. `secret check` compares a value with the saved one\nwithout showing either. `secret rename` and `secret cp` rename and copy.\n\nHow it is stored: each secret sealed with AES-256-GCM in\n~/.komando/store.db. The random key is in the OS keychain (or in store.key\nwhere there is none, or with KOMANDO_KEYCHAIN=off), or comes from\n$KOMANDO_VAULT_PASS when that is set at first use (`secret passphrase`\nchanges it).\n\nA --password-ref (and the other -ref flags) can also read a password your\nteam keeps elsewhere; komando reads it when needed and never stores it:\n  env:VAR  file:PATH  vault:PATH#FIELD  aws-sm:NAME[#KEY]  gcp-sm:NAME[@PROJECT]\n  azure-kv:VAULT/NAME[#KEY]  op://VAULT/ITEM/FIELD  bw://ITEM/FIELD  kdbx:FILE#GROUP/ENTRY",
         "aliases": [
           "secrets",
           "vault"
@@ -8406,7 +8406,7 @@
         "path": "komando secret rename",
         "usage": "komando secret rename OLD NEW [flags]",
         "short": "Rename a secret and every reference to it (value never shown)",
-        "long": "Renames OLD to NEW inside the vault, and points every server, conn, key and\nVPN that used credential:OLD at credential:NEW in the same step, so nothing stops\nworking and nobody types the value again. The value is never printed, so an\nAI agent can do this too. Scripts or notes of your own that name credential:OLD\nare not changed.\n\nSafety: a change; try it with --dry-run first.\n\nWhen NEW exists already, --overwrite replaces its value; when a protected\nserver or conn uses NEW, that also needs --yes.",
+        "long": "Renames OLD to NEW inside the vault, and points every server, conn, key and\nVPN that used credential:OLD at credential:NEW in the same step, so nothing\nstops working and nobody types the value again. The value is never printed,\nso an AI agent can do this too. Scripts or notes of your own that name\ncredential:OLD are not changed.\n\nSafety: a change; try it with --dry-run first.\n\nWhen NEW exists already, --overwrite replaces its value; when a protected\nserver or conn uses NEW, that also needs --yes.",
         "aliases": [
           "mv"
         ],
@@ -8451,7 +8451,7 @@
         "path": "komando secret run",
         "usage": "komando secret run -- COMMAND [ARGS...] [flags]",
         "short": "Run a local command with vault secrets in its environment",
-        "long": "Starts COMMAND on this computer with the --env values in its environment. A\nvalue credential:NAME is read from the vault right before the program starts, so\nit is never in the command line or the shell history. The program starts\ndirectly, without a shell, with your environment minus komando's own\nKOMANDO_* variables and the values that unlock the vault. For an AI agent\nwith secrets, --env may add variables but never replace one komando sets\n(HOME, PATH, USER, LANG, ...), and may not set what decides which code or\nsettings the program loads: LD_PRELOAD, DYLD_*, NODE_OPTIONS, PYTHON*,\nBASH_ENV, a pager, an editor, an askpass helper, an rc file, a proxy, GIT_*,\nSSH_*, XDG_*, a tool's config file (KUBECONFIG, DOCKER_CONFIG,\n*_CONFIG_FILE, AWS_*_FILE, NPM_CONFIG_*) or a toolchain's (CC, CXX, GOFLAGS,\nGOTOOLCHAIN, CARGO_*, RUSTC_WRAPPER, JAVA_HOME, MAVEN_OPTS). The program\ngets HOME, USER and LOGNAME from your OS account (USERPROFILE on Windows),\nLANG, LC_*, TERM, TMPDIR, TZ, the Windows system folders, a system PATH and\nits --env values.\n\nSafety: a change; try it with --dry-run first; when an AI agent hands a\nsaved secret to a program: it weakens a safety check: a person's yes\n(--yes).\n\nThe program's output goes through komando's masking: a vault value it\nprints shows as [credential:NAME]. komando exits with the program's exit code.\n\nFor an AI agent every credential:NAME needs a person's yes (--yes, then\nkomando's window names the secrets and the program), since the program\ncould print a value in a form masking does not know. A secret a protected\nserver, conn or VPN uses asks a person at a terminal too.",
+        "long": "Starts COMMAND on this computer with the --env values in its environment. A\nvalue credential:NAME is read from the vault right before the program\nstarts, so it is never in the command line or the shell history. The program\nstarts directly, without a shell, with your environment minus komando's own\nKOMANDO_* variables and the values that unlock the vault. For an AI agent\nwith secrets, --env may add variables but never replace one komando sets\n(HOME, PATH, USER, LANG, ...), and may not set what decides which code or\nsettings the program loads: LD_PRELOAD, DYLD_*, NODE_OPTIONS, PYTHON*,\nBASH_ENV, a pager, an editor, an askpass helper, an rc file, a proxy, GIT_*,\nSSH_*, XDG_*, a tool's config file (KUBECONFIG, DOCKER_CONFIG,\n*_CONFIG_FILE, AWS_*_FILE, NPM_CONFIG_*) or a toolchain's (CC, CXX, GOFLAGS,\nGOTOOLCHAIN, CARGO_*, RUSTC_WRAPPER, JAVA_HOME, MAVEN_OPTS). The program\ngets HOME, USER and LOGNAME from your OS account (USERPROFILE on Windows),\nLANG, LC_*, TERM, TMPDIR, TZ, the Windows system folders, a system PATH and\nits --env values.\n\nSafety: a change; try it with --dry-run first; when an AI agent hands a\nsaved secret to a program: it weakens a safety check: a person's yes\n(--yes).\n\nThe program's output goes through komando's masking: a vault value it prints\nshows as [credential:NAME]. komando exits with the program's exit code.\n\nFor an AI agent every credential:NAME needs a person's yes (--yes, then\nkomando's window names the secrets and the program), since the program\ncould print a value in a form masking does not know. A secret a protected\nserver, conn or VPN uses asks a person at a terminal too.",
         "example": "  komando secret run --env PGPASSWORD=credential:db-main -- psql -h 10.0.0.5 -U app\n  komando secret run -e AWS_SECRET_ACCESS_KEY=credential:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan\n  komando secret run --dry-run --env TOKEN=credential:gh-token -- ./deploy.sh",
         "flags": [
           {
@@ -8700,7 +8700,7 @@
           {
             "name": "password-ref",
             "type": "string",
-            "usage": "where the password is: credential:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://..."
+            "usage": "where the password is: credential:NAME (saved with komando secret set NAME)"
           },
           {
             "name": "protected",
@@ -10194,7 +10194,7 @@
           {
             "name": "password-ref",
             "type": "string",
-            "usage": "where the password is (Tailscale: the auth key): credential:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://..."
+            "usage": "where the password is (Tailscale: the auth key): credential:NAME (saved with komando secret set NAME)"
           },
           {
             "name": "portal",
@@ -10753,7 +10753,7 @@
           {
             "name": "password-ref",
             "type": "string",
-            "usage": "password as credential:NAME | env:VAR | file:PATH | op://... | bw://... | kdbx:... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME | azure-kv:VAULT/NAME"
+            "usage": "password as credential:NAME (saved with komando secret set NAME)"
           },
           {
             "name": "portal",
@@ -11068,6 +11068,18 @@
         "hint": "give a backup komando can read: plain SQL text or a pg_dump custom archive (-Fc)"
       },
       {
+        "code": "BAD_KIND",
+        "exit": 2,
+        "example": "…: kind … has no type",
+        "hint": "pick a kind komando knows: `komando conn add --help` lists them"
+      },
+      {
+        "code": "BAD_REFERENCE",
+        "exit": 2,
+        "example": "… names an outside store; it takes credential:NAME",
+        "hint": "save the value with `komando secret set NAME`, then name it: credential:NAME"
+      },
+      {
         "code": "BAD_RELEASE",
         "exit": 1,
         "example": "… is … bytes, more than komando accepts; nothing was changed",
@@ -11234,6 +11246,12 @@
         "exit": 3,
         "example": "no consumer named …",
         "hint": "list consumers with `komando queue groups CONN`; name one as STREAM/CONSUMER"
+      },
+      {
+        "code": "CREDENTIAL_SHARED",
+        "exit": 2,
+        "example": "…: changing … would change credential …, which these entries use: …; nothing was changed",
+        "hint": "give this entry its own: `komando secret cp … NEW`, then pass credential:NEW"
       },
       {
         "code": "CRONTAB_UNREADABLE",
@@ -12555,8 +12573,8 @@
       {
         "code": "STORE_IN_USE",
         "exit": 8,
-        "example": "… is to move to a new format, and komando still runs: …",
-        "hint": "end each one as listed, then run `komando doctor` again"
+        "example": "… changed after the window was shown; nothing was changed",
+        "hint": "run `komando doctor` again"
       },
       {
         "code": "STORE_KEY_CHANGED",
@@ -12623,6 +12641,12 @@
         "exit": 5,
         "example": "Docker Swarm answered with an error",
         "hint": "check that Docker runs there: `komando exec TARGET --read-only -- docker info`"
+      },
+      {
+        "code": "SWARM_MANAGER_NOT_FOUND",
+        "exit": 3,
+        "example": "swarm service …: its manager server … is not in your list",
+        "hint": "add the manager server again (`komando host add NAME ADDRESS`), or remove the swarm service"
       },
       {
         "code": "SWARM_OBJECT_NOT_FOUND",
