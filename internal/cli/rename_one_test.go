@@ -42,7 +42,7 @@ func TestRenameOneEntry(t *testing.T) {
 	}
 	e := wantCode(t, "USAGE", "rename", "web-01", "web-02")
 	if !strings.Contains(e.Message, `"web-01" is a server and a secret`) ||
-		!strings.Contains(e.Hint, "`komando host rename web-01 web-02` or `komando secret rename web-01 web-02`") {
+		!strings.Contains(e.Hint, "`komando host ssh rename web-01 web-02` or `komando secret rename web-01 web-02`") {
 		t.Errorf("two kinds: %+v", e)
 	}
 	e = wantCode(t, "USAGE", "rename", "nope", "x")

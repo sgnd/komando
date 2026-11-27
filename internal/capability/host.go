@@ -240,7 +240,7 @@ func hostRun() []Leaf {
 			Options: []Option{attachOpt}, Short: "Open a login shell on one server (a person at a terminal)",
 			Example: "  komando host ssh shell web1\n  komando host ssh shell db1", Today: []string{"shell"}},
 		{Key: Key{Type: "host", Provider: "winrm", Verb: "shell"}, Args: shellArgs,
-			Short: "Say that a Windows server has no interactive shell here", Example: "  komando host winrm shell web1", Today: []string{"shell"}},
+			Short: "Say that a Windows server has no interactive shell here", Example: "  komando host winrm shell web1\n  komando host winrm shell db1", Today: []string{"shell"}},
 		{Key: Key{Type: "host", Provider: "telnet", Verb: "shell"}, Args: oneName, State: New},
 		{Key: Key{Type: "host", Provider: "serial", Verb: "shell"}, Args: oneName, State: New},
 		{Key: Key{Type: "host", Provider: "ssh", Verb: "trust"}, Args: []Arg{{Name: "TARGET", Selector: true}},

@@ -5277,7 +5277,7 @@ Examples:
 
 Available Commands:
   list        List tunnels and whether each is up
-  start       Start a background tunnel through a server, VPN or entry's --via
+  start       Start a background tunnel through a saved server, VPN or entry
   stop        Stop tunnels by ID
 
 Flags:
@@ -5323,7 +5323,7 @@ Global Flags (all of them: komando --help):
 ### komando host ssh tunnel start --help
 exit 0
 --- stdout
-Start a background tunnel through a server, VPN or entry's --via.
+Start a background tunnel through a saved server, VPN or entry.
 
 Safety: a change; try it with --dry-run first; when it listens on an open
 address: it weakens a safety check: a person's yes (--yes); on a protected
@@ -5673,7 +5673,6 @@ Usage:
 
 Examples:
   komando host winrm shell web1
-  komando host winrm shell win1
 
 Flags:
   -h, --help[=true|false]   help for shell

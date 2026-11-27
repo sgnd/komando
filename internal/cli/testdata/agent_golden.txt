@@ -3929,26 +3929,26 @@ Hint: for example: komando host ca rm corp
 ### komando -o json host ssh add (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.ssh.add","error":{"code":"USAGE","message":"host ssh add takes NAME [ADDRESS]","hint":"for example: komando host ssh add web1 deploy@10.0.0.11 --group web --tag prod (more in `komando host ssh add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.add","error":{"code":"USAGE","message":"komando host ssh add needs a name and what to add","hint":"for example: komando host ssh add web1 deploy@10.0.0.5. A person can type `komando host ssh add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text host ssh add (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: host ssh add takes NAME [ADDRESS]
-Hint: for example: komando host ssh add web1 deploy@10.0.0.11 --group web --tag prod (more in `komando host ssh add --help`)
+Error: komando host ssh add needs a name and what to add
+Hint: for example: komando host ssh add web1 deploy@10.0.0.5. A person can type `komando host ssh add` alone at a terminal to be asked step by step
 (code USAGE, exit 2)
 ### komando -o json host ssh add (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.ssh.add","error":{"code":"USAGE","message":"host ssh add takes NAME [ADDRESS]","hint":"for example: komando host ssh add web1 deploy@10.0.0.11 --group web --tag prod (more in `komando host ssh add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.add","error":{"code":"USAGE","message":"komando host ssh add needs a name and what to add","hint":"for example: komando host ssh add web1 deploy@10.0.0.5. A person can type `komando host ssh add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text host ssh add (script text)
 exit 2
 --- stdout
 --- stderr
-Error: host ssh add takes NAME [ADDRESS]
-Hint: for example: komando host ssh add web1 deploy@10.0.0.11 --group web --tag prod (more in `komando host ssh add --help`)
+Error: komando host ssh add needs a name and what to add
+Hint: for example: komando host ssh add web1 deploy@10.0.0.5. A person can type `komando host ssh add` alone at a terminal to be asked step by step
 (code USAGE, exit 2)
 ### komando -o json host ssh edit (agent json)
 exit 2
@@ -4217,26 +4217,26 @@ Hint: for example: komando host ssh-command web1
 ### komando -o json host winrm add (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.winrm.add","error":{"code":"USAGE","message":"host winrm add takes NAME [ADDRESS]","hint":"for example: komando host winrm add web1 Administrator@10.0.0.9 --group web --tag prod (more in `komando host winrm add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.winrm.add","error":{"code":"USAGE","message":"komando host winrm add needs a name and what to add","hint":"for example: komando host winrm add web1 deploy@10.0.0.5. A person can type `komando host winrm add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text host winrm add (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: host winrm add takes NAME [ADDRESS]
-Hint: for example: komando host winrm add web1 Administrator@10.0.0.9 --group web --tag prod (more in `komando host winrm add --help`)
+Error: komando host winrm add needs a name and what to add
+Hint: for example: komando host winrm add web1 deploy@10.0.0.5. A person can type `komando host winrm add` alone at a terminal to be asked step by step
 (code USAGE, exit 2)
 ### komando -o json host winrm add (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.winrm.add","error":{"code":"USAGE","message":"host winrm add takes NAME [ADDRESS]","hint":"for example: komando host winrm add web1 Administrator@10.0.0.9 --group web --tag prod (more in `komando host winrm add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.winrm.add","error":{"code":"USAGE","message":"komando host winrm add needs a name and what to add","hint":"for example: komando host winrm add web1 deploy@10.0.0.5. A person can type `komando host winrm add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text host winrm add (script text)
 exit 2
 --- stdout
 --- stderr
-Error: host winrm add takes NAME [ADDRESS]
-Hint: for example: komando host winrm add web1 Administrator@10.0.0.9 --group web --tag prod (more in `komando host winrm add --help`)
+Error: komando host winrm add needs a name and what to add
+Hint: for example: komando host winrm add web1 deploy@10.0.0.5. A person can type `komando host winrm add` alone at a terminal to be asked step by step
 (code USAGE, exit 2)
 ### komando -o json host winrm edit (agent json)
 exit 2

@@ -905,7 +905,7 @@ title: Background tunnels through a server: start, list, stop
 title: List tunnels and whether each is up
 - flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
 ### komando host ssh tunnel start
-title: Start a background tunnel through a server, VPN or entry's --via
+title: Start a background tunnel through a saved server, VPN or entry
 - arg0 | Target (servers) | To which server or conn? | Pick a conn (a database, a cache) to reach it from this computer, or a server to forward a port through it. |  | free,choices,check
 - flag:port | --port | Which port on this computer? (for a conn) | Point your app at localhost and this port. Leave empty for a free one; komando shows which. | 15432 | optional,check
 - flag:local | --local | What should it forward? (for a server) | LOCALPORT:ADDRESS:PORT: localhost:8080 here reaches localhost:80 as the server sees it. Leave empty for a conn. | 8080:localhost:80 | optional,check

@@ -5852,8 +5852,8 @@
       {
         "path": "komando host ssh tunnel start",
         "usage": "komando host ssh tunnel start TARGET [flags]",
-        "short": "Start a background tunnel through a server, VPN or entry's --via",
-        "long": "Start a background tunnel through a server, VPN or entry's --via.\n\nSafety: a change; try it with --dry-run first; when it listens on an open\naddress: it weakens a safety check: a person's yes (--yes); on a protected\nserver or conn, a person's yes (--yes) as well.",
+        "short": "Start a background tunnel through a saved server, VPN or entry",
+        "long": "Start a background tunnel through a saved server, VPN or entry.\n\nSafety: a change; try it with --dry-run first; when it listens on an open\naddress: it weakens a safety check: a person's yes (--yes); on a protected\nserver or conn, a person's yes (--yes) as well.",
         "example": "  komando host ssh tunnel start prod-db --dry-run\n  komando host ssh tunnel start prod-db --port 15432\n  komando host ssh tunnel start web1 -L 8080:localhost:80\n  komando host ssh tunnel start bastion -D 1080",
         "flags": [
           {
@@ -6316,7 +6316,7 @@
         "usage": "komando host winrm shell SERVER [-- COMMAND...] [flags]",
         "short": "Say that a Windows server has no interactive shell here (person only)",
         "long": "Say that a Windows server has no interactive shell here.\n\nSafety: only a person at a terminal can run it.",
-        "example": "  komando host winrm shell web1\n  komando host winrm shell win1",
+        "example": "  komando host winrm shell web1",
         "runnable": true,
         "kind": "depends",
         "kind_note": "an shellNote shell for a person: whatever they type",
@@ -13154,7 +13154,7 @@
         "code": "TUNNEL_NOT_FOUND",
         "exit": 3,
         "example": "no tunnel named …",
-        "hint": "see them with `komando host ssh tunnel list`"
+        "hint": "see them with `komando tunnel list`"
       },
       {
         "code": "TUNNEL_TIMEOUT",
@@ -13399,8 +13399,8 @@
       {
         "code": "WRONG_KIND",
         "exit": 2,
-        "example": "… is a … URL, not one for `komando … add`",
-        "hint": "add it with `… add` (or `komando conn add`)"
+        "example": "… is a WinRM address, not an SSH one",
+        "hint": "use `komando host winrm add`"
       },
       {
         "code": "WRONG_PASSPHRASE",
