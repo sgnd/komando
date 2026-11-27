@@ -1,0 +1,166 @@
+$ks_id = 'abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrst'
+$ks_cap = 1073741824
+$ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
+$ks_d = $null
+$ks_made = $false
+$ks_pid = $null
+function ks_fail([int]$code) {
+    if ($ks_pid) { $null = & taskkill.exe /PID $ks_pid /T /F }
+    if ($ks_made) { Remove-Item -LiteralPath $ks_d -Recurse -Force -ErrorAction SilentlyContinue }
+    exit $code
+}
+# rights of an ACE as a mask; an unknown letter pair counts as every right
+function ks_mask([string]$r) {
+    if ($r -match '^0x[0-9A-Fa-f]+$') { return [int64]$r }
+    $m = @{ GA = 0x10000000; GR = 0x80000000L; GW = 0x40000000; GX = 0x20000000; RC = 0x20000; SD = 0x10000; WD = 0x40000; WO = 0x80000;
+        CC = 0x1; DC = 0x2; LC = 0x4; SW = 0x8; RP = 0x10; WP = 0x20; DT = 0x40; LO = 0x80; CR = 0x100;
+        FA = 0x1F01FF; FR = 0x120089; FW = 0x120116; FX = 0x1200A0 }
+    $n = [int64]0
+    for ($i = 0; $i -lt $r.Length; $i += 2) {
+        if ($i + 2 -gt $r.Length) { return [int64]0xFFFFFFFFL }
+        $k = $r.Substring($i, 2)
+        if (-not $m.ContainsKey($k)) { return [int64]0xFFFFFFFFL }
+        $n = $n -bor $m[$k]
+    }
+    return $n
+}
+# the DACL part of an SDDL: from D: to S: or the end
+function ks_dacl([string]$sd) {
+    $i = $sd.IndexOf('D:')
+    if ($i -lt 0) { return '' }
+    $d = $sd.Substring($i)
+    $j = $d.IndexOf('S:')
+    if ($j -ge 0) { $d = $d.Substring(0, $j) }
+    return $d
+}
+# the owner (a SID or a two-letter alias), '' when there is none
+function ks_owner([string]$sd) {
+    if ($sd -match '^O:(S-[0-9-]+|[A-Z]{2})') { return $Matches[1] }
+    return ''
+}
+# the ACEs of a DACL, each a top-level group in parentheses, or $null
+# when the text is anything else (unbalanced, or text between groups)
+function ks_aceList([string]$d) {
+    if (-not ($d -match '^D:([A-Z]*)')) { return $null }
+    $flags = $Matches[1]
+    $list = @()
+    $depth = 0
+    $start = 0
+    for ($k = 0; $k -lt $d.Length; $k++) {
+        $c = $d[$k]
+        if ($c -eq '(') {
+            if ($depth -eq 0) { $start = $k }
+            $depth++
+        } elseif ($c -eq ')') {
+            $depth--
+            if ($depth -lt 0) { return $null }
+            if ($depth -eq 0) { $list += $d.Substring($start, $k - $start + 1) }
+        }
+    }
+    if ($depth -ne 0 -or ('D:' + $flags + ($list -join '')) -cne $d) { return $null }
+    return ,$list
+}
+# true when no allow ACE lets anyone but sid, SYSTEM and Administrators
+# write, inherit-only ones too (A-447-2); an ACE that is not the plain
+# six fields (a conditional or resource-attribute ACE) makes it false
+function ks_daclSafe([string]$sd, [string]$sid) {
+    $list = ks_aceList (ks_dacl $sd)
+    if ($null -eq $list) { return $false }
+    foreach ($a in $list) {
+        if (-not ($a -match '^\(([^;()]*);([^;()]*);([^;()]*);[^;()]*;[^;()]*;([^;()]*)\)$')) { return $false }
+        $type, $rights, $who = $Matches[1], $Matches[3], $Matches[4]
+        if ($type -notmatch '^(A|OA|XA|ZA)$') { continue }
+        if (@($sid, 'SY', 'S-1-5-18', 'BA', 'S-1-5-32-544') -contains $who) { continue }
+        if ((ks_mask $rights) -band 0x500D0156) { return $false }
+    }
+    return $true
+}
+# true when the owner is sid and the DACL is, as text, protected and
+# exactly full control for sid and SYSTEM, in either order
+function ks_aclExact([string]$sd, [string]$sid) {
+    if ((ks_owner $sd) -ne $sid) { return $false }
+    $d = ks_dacl $sd
+    $a = '(A;OICI;FA;;;' + $sid + ')'
+    $b = '(A;OICI;FA;;;SY)'
+    foreach ($f in @('P', 'PAI', 'PAR', 'PARAI')) {
+        if ($d -ceq ('D:' + $f + $a + $b) -or $d -ceq ('D:' + $f + $b + $a)) { return $true }
+    }
+    return $false
+}
+try {
+    $ks_sid = @(whoami.exe /user /fo csv /nh | ConvertFrom-Csv -Header 'n', 's')
+    if ($ks_sid.Count -ne 1 -or $ks_sid[0].s -notmatch '^S-1-5(-[0-9]+)+$') { ks_fail 99 }
+    $ks_sid = $ks_sid[0].s
+    $ks_base = $env:LOCALAPPDATA
+    if (-not $ks_base -or $ks_base -notmatch '^[A-Za-z]:\\') { ks_fail 91 }
+    # run.ps1 and the removal hand the folder to cmd.exe, which expands
+    # %NAME% and !NAME! even inside quotes (A-448-1) and reads & ^ ( ) | as
+    # more commands (A-450-1): only letters, digits, space and _ . - \ pass
+    if ($ks_base -cnotmatch '^[A-Za-z]:\\[A-Za-z0-9 _.\\-]+\z') { Write-Output 'unsafe-path'; ks_fail 91 }
+    $ks_r = Join-Path $ks_base 'komando'
+    $ks_s = Join-Path $ks_r 'sessions'
+    $ks_v = Get-PSDrive -Name $ks_base.Substring(0, 1) -PSProvider FileSystem -ErrorAction SilentlyContinue
+    if ($ks_v -and $null -ne $ks_v.Free -and $ks_v.Free -lt ($ks_cap + ($ks_v.Used + $ks_v.Free) / 20)) { ks_fail 93 }
+    # an elevated administrator's new folder may be owned by
+    # Administrators: the login user takes it (WRITE_OWNER is its own)
+    function ks_own([string]$p, [int]$code) {
+        $null = & icacls.exe $p /setowner ('*' + $ks_sid)
+        if ($LASTEXITCODE -ne 0) { ks_fail $code }
+    }
+    function ks_dir([string]$p) {
+        if (-not (Test-Path -LiteralPath $p)) {
+            try { $null = New-Item -ItemType Directory -Path $p } catch { ks_fail 91 }
+            ks_own $p 90
+        }
+        $i = Get-Item -LiteralPath $p -Force
+        if (-not $i.PSIsContainer -or $i.Attributes.ToString() -match 'ReparsePoint') { ks_fail 90 }
+        $sd = (Get-Acl -LiteralPath $p).Sddl
+        if ((ks_owner $sd) -ne $ks_sid -or -not (ks_daclSafe $sd $ks_sid)) { ks_fail 90 }
+    }
+    ks_dir $ks_r
+    ks_dir $ks_s
+    $ks_d = Join-Path $ks_s $ks_id
+    if (Test-Path -LiteralPath $ks_d) { ks_fail 90 }
+    try { $null = New-Item -ItemType Directory -Path $ks_d } catch { ks_fail 91 }
+    $ks_made = $true
+    ks_own $ks_d 96
+    $null = & icacls.exe $ks_d /inheritance:r /grant:r ('*' + $ks_sid + ':(OI)(CI)F') '*S-1-5-18:(OI)(CI)F'
+    if ($LASTEXITCODE -ne 0) { ks_fail 96 }
+    if (-not (ks_aclExact (Get-Acl -LiteralPath $ks_d).Sddl $ks_sid)) { ks_fail 96 }
+    # nothing may have come in between New-Item and icacls (A-447-2)
+    if (@(Get-ChildItem -LiteralPath $ks_d -Force).Count -ne 0) { ks_fail 96 }
+    # -Encoding Byte exists only in Windows PowerShell 5.1: komando always
+    # starts powershell.exe (5.1) on Windows servers, never pwsh
+    function ks_put([string]$name) {
+        $l = [Console]::In.ReadLine()
+        if ($null -eq $l) { ks_fail 98 }
+        Set-Content -LiteralPath (Join-Path $ks_d $name) -Value ([Convert]::FromBase64String($l)) -Encoding Byte
+    }
+    ks_put 'cmd.ps1'
+    ks_put 'env'
+    ks_put 'in'
+    ks_put 'run.ps1'
+    $ks_now = [int64](((Get-Date).ToUniversalTime()) - [datetime]'1970-01-01').TotalSeconds
+    Set-Content -LiteralPath (Join-Path $ks_d 'started') -Value ([string]$ks_now) -Encoding ASCII -NoNewline
+    $null = New-Item -ItemType File -Path (Join-Path $ks_d 'out.log')
+    $ks_run = Join-Path $ks_d 'run.ps1'
+    $ks_p = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = ('powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + $ks_run + '"'); CurrentDirectory = $ks_d }
+    if ($ks_p.ReturnValue -ne 0 -or -not $ks_p.ProcessId) { ks_fail 99 }
+    $ks_pid = [int]$ks_p.ProcessId
+    $ks_q = @(Get-CimInstance -ClassName Win32_Process -Filter ('ProcessId = ' + $ks_pid))
+    if ($ks_q.Count -ne 1) { ks_fail 99 }
+    Set-Content -LiteralPath (Join-Path $ks_d 'pid') -Value ([string]$ks_pid) -Encoding ASCII -NoNewline
+    Write-Output ('facts-begin ' + $ks_id)
+    Write-Output ('pid ' + $ks_pid)
+    Write-Output ('created ' + $ks_q[0].CreationDate.ToUniversalTime().ToString('o'))
+    Write-Output ('image ' + $ks_q[0].Name)
+    Write-Output ('cmdline ' + $ks_q[0].CommandLine)
+    Write-Output ('facts-end ' + $ks_id)
+    $null = New-Item -ItemType File -Path (Join-Path $ks_d '.go')
+} catch {
+    $ks_e = ($_.FullyQualifiedErrorId + ' ' + $_.Exception.Message) -replace '[\r\n]+', ' '
+    Write-Output ('failed ' + $ks_e)
+    if ($ks_e -match 'ConstrainedLanguage|language mode|AppLocker|group policy') { ks_fail 97 }
+    ks_fail 99
+}
