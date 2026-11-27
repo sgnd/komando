@@ -340,5 +340,5 @@ This page is made from the code (`komando schema` lists the same under
 | `WINRM_TLS` | 4 | …: the WinRM server's certificate cannot be trusted: … | if the server's certificate comes from your own CA, store it with `komando secret set NAME < ca.crt` and add ?ca=secret:NAME to its winrm:// address (`komando host edit … --address winrm://...`) |
 | `WRITE_FAILED` | 1 | …; nothing was changed | check that you may write to … |
 | `WRITE_REQUIRES_FLAG` | 6 | … needs --write | this command may change data (or is not known to be a read); run it again with --write |
-| `WRONG_KIND` | 2 | … is a … …, not a … … | use the path the hint names: `komando TYPE PROVIDER VERB NAME` for an entry of another provider, `komando TYPE PROVIDER add` for a URL of another provider |
+| `WRONG_KIND` | 2 | … is a … …, not a … … | use the path the hint names, for example `komando cluster kubernetes raw NAME` for a Kubernetes entry; a URL of another provider goes to `komando … add` |
 | `WRONG_PASSPHRASE` | 2 | that passphrase does not open the vault; nothing was changed | run it again and type the passphrase the vault has now |

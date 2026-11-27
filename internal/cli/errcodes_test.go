@@ -815,7 +815,7 @@ var hintMeanings = map[string]string{
 	"VPN_CLIENT_MISSING":      "install the program the message names (macOS: `brew install NAME`; Linux: its package)",
 	"TOOL_FAILED":             "read the message; `komando test CONN` checks reachability (for a known problem, the hint names the fix)",
 	"SHORTER_SCRIPT_REQUIRED": "split it into shorter pieces (the hint names the command for a script, SQL or a file) or ask the user to run it in their own terminal; e.g. `komando exec TARGET --script FILE` for a script",
-	"WRONG_KIND":              "use the path the hint names: `komando TYPE PROVIDER VERB NAME` for an entry of another provider, `komando TYPE PROVIDER add` for a URL of another provider",
+	"WRONG_KIND":              "use the path the hint names, for example `komando cluster kubernetes raw NAME` for a Kubernetes entry; a URL of another provider goes to `komando … add`",
 	"AZURE_LOGIN_REQUIRED":    "set AZURE_TENANT_ID, AZURE_CLIENT_ID and AZURE_CLIENT_SECRET for a service principal, run komando on Azure with a managed identity, or a person runs `az login`",
 }
 
