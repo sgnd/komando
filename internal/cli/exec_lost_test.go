@@ -14,7 +14,8 @@ import (
 // exit -1. The hint names the way on.
 func TestExecConnectionLost(t *testing.T) {
 	srv := startSessionServer(t, "step 1 done\n", false)
-	reads := 0
+	reads := 0 // the server calls answer with srv.mu held
+	srv.mu.Lock()
 	srv.answer = func(cmd string) (string, int) {
 		if readID.MatchString(cmd) {
 			if reads++; reads > 1 {
@@ -24,6 +25,7 @@ func TestExecConnectionLost(t *testing.T) {
 		out, status, _ := sessionAnswer(cmd, srv.log, false, 0)
 		return out, status
 	}
+	srv.mu.Unlock()
 	var err error
 	got := captureOutput(t, func() error {
 		err = runRoot(t, "exec", "dev", "--read-only", "--", "uptime")
@@ -106,7 +108,10 @@ func TestExecSessionAudit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	id := first["session"]
+	id, _ := first["session"].(string)
+	if id == "" {
+		t.Fatalf("first line %v names no session", first)
+	}
 	var recs []map[string]any
 	for _, line := range strings.Split(auditText(t), "\n") {
 		var r map[string]any
