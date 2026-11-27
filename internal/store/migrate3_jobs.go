@@ -83,8 +83,9 @@ func EndOldJobs(ctx context.Context, ids []string, alive func(pid int, procStart
 	}
 	for _, id := range ids {
 		if s == nil || s.Runtime.Jobs[id] == nil || s.Runtime.Jobs[id].Ended != "" {
-			return out.Errf(out.ExitNotFound, "NOT_FOUND", "`komando doctor` lists the v0.17 jobs with no end",
-				"no v0.17 job %s without an end in %s; nothing was marked", id, Path(StoreFile))
+			// doctor names only what OldJobs listed: the records changed meanwhile
+			return out.Errf(out.ExitConflict, "STORE_IN_USE", "run `komando doctor` again",
+				"no v0.17 job %s without an end in %s any more; nothing was marked", id, Path(StoreFile))
 		}
 	}
 	var still []string

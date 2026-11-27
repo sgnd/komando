@@ -27,7 +27,7 @@ var reviewedCallSites = map[string]int{
 	"guardConns":    25, // +1 snippetTierStop (snippet.go): a dangerous built-in snippet, C368 S1-1
 	"confirmObject": 4,
 	"dangerOK":      17, // 16 commands (-1 reboot, C493: TestRulePower), and (*call).dangerOK forwarding to (*gate).dangerOK (C468)
-	"askPerson":     3,  // the third: the window of the move to format 3 (migrateCallFor)
+	"askPerson":     4,  // the third: the window of the move to format 3 (migrateCallFor); the fourth: marking v0.17 jobs ended before it (doctorOldJobs, R3)
 }
 
 func TestGuardCallSitesAreReviewed(t *testing.T) {

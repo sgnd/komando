@@ -111,8 +111,8 @@ func TestEndOldJobsUnknownID(t *testing.T) {
 	for _, ids := range [][]string{{"j9"}, {"j2"}, {"j1", "j9"}} {
 		err := EndOldJobs(context.Background(), ids, dead)
 		var e *out.Error
-		if !errors.As(err, &e) || e.Code != "NOT_FOUND" {
-			t.Fatalf("%v: want NOT_FOUND, got %v", ids, err)
+		if !errors.As(err, &e) || e.Code != "STORE_IN_USE" {
+			t.Fatalf("%v: want STORE_IN_USE, got %v", ids, err)
 		}
 		Close()
 		if jobs, err := OldJobs(context.Background()); err != nil || len(jobs) != 2 {
