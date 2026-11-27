@@ -115,7 +115,10 @@ func askSecretNow(cmd *cobra.Command, kind, name string, a askSecret) (ref strin
 		}
 		return "", undo, err
 	}
-	audit(cl, nil, "secret.set", nil, "", true, map[string]any{"secret": sec, "replaced": existed, "for": self})
+	as := cl.out.As
+	cl.out.As = "credential.password.add" // the stored password's own record, whichever command asked for it
+	audit(cl, nil, "credential.password.add", nil, "", true, map[string]any{"secret": sec, "replaced": existed, "for": self})
+	cl.out.As = as
 	warnCommonWord(cl, sec, v)
 	if !existed {
 		undo = func() { _ = vault.Delete(cl.storeWrite(), sec) }

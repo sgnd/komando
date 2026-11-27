@@ -27,7 +27,7 @@ import (
 
 // revealNever are the commands whose --reveal an AI agent never gets: the
 // root's masking does not ask the person for them.
-var revealNever = map[string]bool{"secret.show": true, "key.show": true, "db.dump": true}
+var revealNever = map[string]bool{"credential.password.show": true, "credential.token.show": true, "credential.key.show": true, "db.dump": true}
 
 // valueShow are the commands that show a saved password or token.
 var valueShow = map[string]bool{"credential.password.show": true, "credential.token.show": true}
@@ -35,7 +35,7 @@ var valueShow = map[string]bool{"credential.password.show": true, "credential.to
 // revealGate says how the person allowed showing what (for example
 // secret:db-pass): "terminal" or "window". It is "" in a dry run, which
 // shows no value and asks nobody. cmdName and field name the audit line
-// of a refusal (secret.show, "secret": NAME); a leaf that runs the body
+// of a refusal (credential.password.show, "secret": NAME); a leaf that runs the body
 // names it by its own ID.
 func revealGate(cl *call, cmdName, field, name, what string) (string, error) {
 	if cl.out.As != "" {

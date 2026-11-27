@@ -127,6 +127,7 @@ func TestRevealNeverForAnAgent(t *testing.T) {
 	n := asAgent(t, true, true)
 	for _, args := range [][]string{
 		{"credential", "password", "show", "db-pass", "--reveal"},
+		{"credential", "token", "show", "db-pass", "--reveal"},
 		{"credential", "key", "show", "deploy", "--reveal"},
 	} {
 		d, e := invRun(t, args...)
@@ -136,6 +137,28 @@ func TestRevealNeverForAnAgent(t *testing.T) {
 	}
 	if a := lastAudit(t); a["blocked"] != "REVEAL_NEEDS_TERMINAL" || a["key"] != "deploy" || a["agent"] != "Claude Code" {
 		t.Errorf("audit of the refusal: %v", a)
+	}
+}
+
+// revealNever names the show commands by their own IDs, both as the source
+// writes it (idTablesAtStart, before any type moved) and after start-up;
+// every entry is a command of the tree.
+func TestRevealNeverNamesTheShowLeaves(t *testing.T) {
+	root := newRoot(tcl)
+	written := idTablesAtStart["revealNever"]
+	for _, path := range [][]string{{"credential", "password", "show"}, {"credential", "token", "show"}, {"credential", "key", "show"}} {
+		id := strings.Join(path, ".")
+		if c, _, err := root.Find(path); err != nil || cmdID(c) != id {
+			t.Errorf("%s: no such command (%v)", id, err)
+		}
+		if _, ok := written[id]; !ok || !revealNever[id] {
+			t.Errorf("%s: revealNever does not name it (written %v, after start-up %v)", id, ok, revealNever[id])
+		}
+	}
+	for id := range written {
+		if c, _, err := root.Find(strings.Split(id, ".")); err != nil || cmdID(c) != id {
+			t.Errorf("revealNever is written with %s, which is no command of the tree: write the command's own ID", id)
+		}
 	}
 }
 
