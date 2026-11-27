@@ -234,6 +234,22 @@ func init() {
 	groupShorts["credential token"] = "Saved tokens: add, show, rename, remove"
 	groupShorts["credential key"] = "SSH keys: make, add, install on servers, uninstall"
 	groupShorts["credential certificate"] = "Server CAs: trust the CA that signs servers' host keys"
+	// the leaves keep the longer help of today's bodies
+	details["komando credential key create"] = keyCreateLong
+	details["komando credential key add"] = keyAddLong
+	details["komando credential key edit"] = keyEditLong
+	details["komando credential key show"] = keyShowLong
+	details["komando credential key remove"] = keyRemoveLong
+	details["komando credential key install"] = keyInstallLong
+	details["komando credential key rename"] = keyRenameLong
+	details["komando credential key uninstall"] = keyUninstallLong
+	details["komando credential certificate add"] = certificateAddLong
+	details["komando credential certificate remove"] = certificateRemoveLong
+	details["komando credential password add"] = secretAddLong
+	details["komando credential token add"] = secretAddLong
+	details["komando credential password show"] = secretShowLong
+	details["komando credential token show"] = secretShowLong
+	details["komando credential run"] = credentialRunLong
 }
 
 // bodyHandler runs body, today's command, with what the leaf was given.
@@ -390,19 +406,21 @@ func moveSecret(cl *call, from, to string, overwrite bool) ([]string, error) {
 	return updated, err
 }
 
-func secretKeychainCmd() *cobra.Command {
-	var off bool
-	c := &cobra.Command{
-		Use:   "keychain",
-		Short: "Keep the vault key in the OS keychain instead of store.key",
-		Long: `Moves the vault's key out of the store.key file into the operating system's
+const vaultKeychainLong = `Moves the vault's key out of the store.key file into the operating system's
 keychain, so a copy of ` + "~/.komando" + ` (a backup, a synced folder) no longer opens
 the vault or its secrets. The vault gets a new key as it moves, so a copy of store.key
 made before opens nothing either, and the vault keeps every secret.
 --off moves the key back into store.key, which needs --yes.
 
 Only a person at a terminal moves the key in: the keychain may ask them to
-unlock it, and an AI agent or a script cannot answer that.`,
+unlock it, and an AI agent or a script cannot answer that.`
+
+func secretKeychainCmd() *cobra.Command {
+	var off bool
+	c := &cobra.Command{
+		Use:     "keychain",
+		Short:   "Keep the vault key in the OS keychain instead of store.key",
+		Long:    vaultKeychainLong,
 		Example: "  komando config vault keychain\n  komando config vault keychain --off --yes",
 		Args:    cobra.NoArgs,
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {

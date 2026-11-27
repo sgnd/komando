@@ -152,19 +152,21 @@ func caMatches(st *store.State, c sshx.HostCA) []string {
 	return names
 }
 
+const certificateAddLong = `Trusts the CA in --key (a .pub file) for the host names in --hosts, or reads
+the @cert-authority lines of a known_hosts file (--from); its @revoked lines
+go on the never-trust list. A pattern names at least the domain
+(*.corp.example, web*.corp.example, 10.1.2.*): '*' and '*.com' are refused.
+--dry-run shows the patterns as they are kept and the servers they match
+now. Only a person at a terminal can add a CA: it trusts every server it
+ever signs.`
+
 func hostCAAddCmd() *cobra.Command {
 	var keyFile, from string
 	var hosts []string
 	c := &cobra.Command{
 		Use:   "add NAME",
 		Short: "Trust a CA for the servers its patterns match",
-		Long: `Trusts the CA in --key (a .pub file) for the host names in --hosts, or reads
-the @cert-authority lines of a known_hosts file (--from); its @revoked lines
-go on the never-trust list. A pattern names at least the domain
-(*.corp.example, web*.corp.example, 10.1.2.*): '*' and '*.com' are refused.
---dry-run shows the patterns as they are kept and the servers they match
-now. Only a person at a terminal can add a CA: it trusts every server it
-ever signs.`,
+		Long:  certificateAddLong,
 		Example: `  komando credential certificate add corp --key ~/corp-ca.pub --hosts '*.corp.example' --dry-run
   komando credential certificate add corp --from ~/.ssh/known_hosts`,
 		Args: cobra.ExactArgs(1),
@@ -268,11 +270,13 @@ func caLinesOf(cl *call, keyFile, from string, hosts []string) ([]caLine, error)
 	return []caLine{{key: k, hosts: hosts}}, nil
 }
 
+const certificateRemoveLong = `Stops trusting the CA: its servers are checked against their pins again.`
+
 func hostCARmCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "rm NAME",
 		Short:   "Stop trusting a server CA",
-		Long:    `Stops trusting the CA: its servers are checked against their pins again.`,
+		Long:    certificateRemoveLong,
 		Example: `  komando credential certificate remove corp`,
 		Args:    cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {

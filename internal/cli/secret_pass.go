@@ -114,12 +114,7 @@ func runningServes() []string {
 	return r
 }
 
-func secretPassphraseCmd() *cobra.Command {
-	var off bool
-	c := &cobra.Command{
-		Use:   "passphrase",
-		Short: "Change the vault passphrase and encrypt the secrets again",
-		Long: `Re-encrypts every secret in the vault under a new passphrase, so you can change
+const vaultPassphraseLong = `Re-encrypts every secret in the vault under a new passphrase, so you can change
 KOMANDO_VAULT_PASS without losing your secrets. A vault whose key is in
 store.key or in the OS keychain gets a passphrase this way, and the old key is
 removed once the new vault is saved and read back.
@@ -140,7 +135,14 @@ key into the OS keychain.
 
 Only a person at a terminal can run it: an AI agent that chose the passphrase,
 or put the key back in store.key, could open the vault on its own. Anyone can
-preview it with --dry-run.`,
+preview it with --dry-run.`
+
+func secretPassphraseCmd() *cobra.Command {
+	var off bool
+	c := &cobra.Command{
+		Use:     "passphrase",
+		Short:   "Change the vault passphrase and encrypt the secrets again",
+		Long:    vaultPassphraseLong,
 		Example: "  komando config vault passphrase               # asks for the new passphrase twice, hidden\n  komando config vault passphrase --dry-run\n  komando config vault passphrase --off --yes   # back to a random key in store.key",
 		Args:    cobra.NoArgs,
 		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {

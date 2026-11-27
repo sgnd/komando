@@ -427,6 +427,11 @@ func init() {
 	helpGroups["config"] = "setup"
 	groupShorts["config"] = "Settings: read and change timeouts, host keys, the audit"
 	groupShorts["config vault"] = "The vault: keep its key in the OS keychain, or change its passphrase"
+	// the leaves keep the longer help of today's bodies
+	details["komando config vault keychain"] = vaultKeychainLong
+	details["komando config vault passphrase"] = vaultPassphraseLong
+	details["komando config approval-code"] = approvalCodeLong
+	details["komando config set"] = configSettingsHelp()
 }
 
 // dataFiles is where komando keeps each kind of data: one sealed file for

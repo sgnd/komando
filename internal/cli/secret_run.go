@@ -26,12 +26,7 @@ import (
 	"github.com/sgnd/komando/internal/vault"
 )
 
-func runCmd() *cobra.Command {
-	var env []string
-	c := &cobra.Command{
-		Use:   "run -- COMMAND [ARGS...]",
-		Short: "Run a local command with vault secrets in its environment",
-		Long: `Starts COMMAND on this computer with the --env values in its environment.
+const credentialRunLong = `Starts PROGRAM on this computer with the --env values in its environment.
 A value secret:NAME is read from the vault right before the program starts,
 so it is never in the command line or the shell history. The program starts
 directly, without a shell, with your environment minus komando's own
@@ -52,7 +47,14 @@ prints shows as [secret:NAME]. komando exits with the program's exit code.
 For an AI agent every secret:NAME needs a person's yes (--yes, then
 komando's window names the secrets and the program), since the program
 could print a value in a form masking does not know. A secret a protected
-server, conn or VPN uses asks a person at a terminal too.`,
+server, conn or VPN uses asks a person at a terminal too.`
+
+func runCmd() *cobra.Command {
+	var env []string
+	c := &cobra.Command{
+		Use:   "run -- COMMAND [ARGS...]",
+		Short: "Run a local command with vault secrets in its environment",
+		Long:  credentialRunLong,
 		Example: `  komando credential run --env PGPASSWORD=secret:db-main -- psql -h 10.0.0.5 -U app
   komando credential run -e AWS_SECRET_ACCESS_KEY=secret:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan
   komando credential run --dry-run --env TOKEN=secret:gh-token -- ./deploy.sh`,

@@ -40,20 +40,22 @@ func revokeTarget(st *store.State, arg string) (blob, label string, k *store.Key
 	return f[1], label, k, nil
 }
 
-func keyRevokeCmd() *cobra.Command {
-	var user string
-	var allUsers bool
-	c := &cobra.Command{
-		Use:   "revoke NAME TARGET",
-		Short: "Take a public key off servers' authorized_keys",
-		Long: `KEY is a key in komando's key list, a .pub file, or a public key line. Every line
+const keyUninstallLong = `NAME is a key in komando's key list, a .pub file, or a public key line. Every line
 with that key is removed from ~/.ssh/authorized_keys of the login user, or
 of --user NAME (with sudo), or of every user on the server with --all-users
 (with sudo: someone who left may have put the key in another account too;
 the dry run names each user whose file holds it). The file keeps its owner
 and mode, and is read and written as its user. Revoking the
 key komando itself logs in with needs --allow-dangerous: you would lock
-yourself out. --dry-run counts the lines it would remove.`,
+yourself out. --dry-run counts the lines it would remove.`
+
+func keyRevokeCmd() *cobra.Command {
+	var user string
+	var allUsers bool
+	c := &cobra.Command{
+		Use:   "revoke NAME TARGET",
+		Short: "Take a public key off servers' authorized_keys",
+		Long:  keyUninstallLong,
 		Example: `  komando credential key uninstall ~/keys/alice.pub @prod --dry-run
   komando credential key uninstall "ssh-ed25519 AAAAC3Nz...xyz alice@laptop" @prod
   komando credential key uninstall old-deploy @web --user deploy

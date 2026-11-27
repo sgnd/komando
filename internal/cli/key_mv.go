@@ -27,15 +27,17 @@ func mvFromRename(kind, from, to string, r renameResult) mvResult {
 	return res
 }
 
+const keyRenameLong = `Gives a key in komando's key list a new name; the servers that use it follow. A
+key komando made (credential key create) lives in the sealed store, so no file moves; a key
+added from elsewhere (credential key add) stays where it is. Public keys already installed on servers keep their comment: they
+still work, since the key itself does not change.`
+
 func keyMvCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "rename OLD NEW",
 		Aliases: []string{"mv"}, // a plain synonym
 		Short:   "Rename a key, and every server that uses it",
-		Long: `Gives a key in komando's key list a new name; the servers that use it follow. A
-key komando made (key gen) lives in the sealed store, so no file moves; a key
-added from elsewhere (key add) stays where it is. Public keys already installed on servers keep their comment: they
-still work, since the key itself does not change.`,
+		Long:    keyRenameLong,
 		Example: `  komando credential key rename deploy deploy-2026
   komando credential key rename old-ci ci --dry-run`,
 		Args: cobra.ExactArgs(2),

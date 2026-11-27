@@ -92,17 +92,19 @@ func newSigner(typ string, bits int) (crypto.Signer, error) {
 	return sk, err
 }
 
+const keyCreateLong = `Makes a key pair like ssh-keygen and adds it to komando's key list. The private
+key is kept in komando's sealed store, never in a file: komando hands it to
+ssh-agent when another program needs it (host ssh-command). Put the public
+part on servers with ` + "`komando credential key install`" + `. RSA keys need at least 3072
+bits.`
+
 func keyGenCmd() *cobra.Command {
 	var typ, comment string
 	var bits int
 	c := &cobra.Command{
 		Use:   "gen NAME",
 		Short: "Make a new SSH key pair (ed25519 by default)",
-		Long: `Makes a key pair like ssh-keygen and adds it to komando's key list. The private
-key is kept in komando's sealed store, never in a file: komando hands it to
-ssh-agent when another program needs it (host ssh-command). Put the public
-part on servers with ` + "`komando credential key install`" + `. RSA keys need at least 3072
-bits.`,
+		Long:  keyCreateLong,
 		Example: `  komando credential key create deploy && komando credential key install deploy @web
   komando credential key create legacy --type rsa -b 4096 -C ops@example.com`,
 		Args: cobra.ExactArgs(1),
@@ -185,17 +187,19 @@ func isPublicKey(b []byte) bool {
 	return err == nil
 }
 
+const keyAddLong = `Adds a private key file you already have to komando's key list; the file stays
+where it is. For a key with a passphrase, save the passphrase as a password
+credential and pass --passphrase-credential NAME.
+
+An OpenSSH user certificate next to the key (FILE-cert.pub) is used at
+login, as ssh does; --cert names one kept somewhere else.`
+
 func keyAddCmd() *cobra.Command {
 	var passRef, cert string
 	c := &cobra.Command{
 		Use:   "add NAME FILE",
 		Short: "Add a private key file you already have (komando keeps its path)",
-		Long: `Adds a private key file you already have to komando's key list; the file stays
-where it is. For a key with a passphrase, store the passphrase in the vault
-and pass --passphrase-ref secret:NAME.
-
-An OpenSSH user certificate next to the key (FILE-cert.pub) is used at
-login, as ssh does; --cert names one kept somewhere else.`,
+		Long:  keyAddLong,
 		Example: `  komando credential key add personal ~/.ssh/id_ed25519
   komando credential key add corp ~/.ssh/id_corp --cert ~/.ssh/corp-ca/id_corp-cert.pub
   komando credential password add id-pass && komando credential key add work ~/.ssh/id_work --passphrase-credential id-pass`,
@@ -373,19 +377,21 @@ func cleanPubLine(pub ssh.PublicKey, comment string) string {
 	return line
 }
 
+const keyEditLong = `Sets where komando finds the passphrase of an encrypted key. Store the
+passphrase with ` + "`komando credential password add NAME`" + ` first and pass
+--passphrase-credential NAME; --unset passphrase-credential clears it.
+
+--cert FILE gives the key an OpenSSH user certificate (for a key komando
+made, or one kept away from the key file); --unset cert goes back to
+FILE-cert.pub next to the key.`
+
 func keyEditCmd() *cobra.Command {
 	var passRef, cert string
 	var unset []string
 	c := &cobra.Command{
 		Use:   "edit NAME",
 		Short: "Change a key's passphrase reference or certificate",
-		Long: `Sets where komando finds the passphrase of an encrypted key. Store the
-passphrase with ` + "`komando credential password add NAME`" + ` first and pass secret:NAME;
---unset passphrase-ref clears it.
-
---cert FILE gives the key an OpenSSH user certificate (for a key komando
-made, or one kept away from the key file); --unset cert goes back to
-FILE-cert.pub next to the key.`,
+		Long:  keyEditLong,
 		Example: `  komando credential password add work-key-pass
   komando credential key edit work --passphrase-credential work-key-pass
   komando credential key edit work --unset passphrase-credential
@@ -525,17 +531,19 @@ type keyShown struct {
 	PrivateKey string `json:"private_key,omitempty"`
 }
 
+const keyShowLong = `Shows a key's type, fingerprint and public part. A person at a terminal can
+add --reveal to print the private key of a key komando made (it is kept in
+komando's sealed store, with no file), for example to keep a copy in a
+password manager; from a program without a terminal (the Komando Mac app),
+komando first asks the person in its own window. A key added with ` + "`credential key add`" + `
+is a file you have already: --reveal names its path. AI agents never get a
+private key.`
+
 func keyShowCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "show NAME",
 		Short: "Show a key's public part, or a person its private key",
-		Long: `Shows a key's type, fingerprint and public part. A person at a terminal can
-add --reveal to print the private key of a key komando made (it is kept in
-komando's sealed store, with no file), for example to keep a copy in a
-password manager; from a program without a terminal (the Komando Mac app),
-komando first asks the person in its own window. A key added with ` + "`key add`" + `
-is a file you have already: --reveal names its path. AI agents never get a
-private key.`,
+		Long:  keyShowLong,
 		Example: `  komando credential key show deploy
   komando credential key show deploy --reveal > deploy.key   # a person, at a terminal`,
 		Args: cobra.ExactArgs(1),
@@ -570,15 +578,17 @@ private key.`,
 	}
 }
 
+const keyRemoveLong = `Removes the key from komando's key list. --delete-file also deletes the private
+key komando keeps for a key it made (credential key create), for good; a key file you
+added stays on disk.`
+
 func keyRmCmd() *cobra.Command {
 	var deleteFile bool
 	c := &cobra.Command{
 		Use:   "rm NAME",
 		Short: "Remove a key (from komando only)",
-		Long: `Removes the key from komando's key list. --delete-file also deletes the private
-key komando keeps for a key it made (key gen), for good; a key file you
-added stays on disk.`,
-		Args: cobra.ExactArgs(1),
+		Long:  keyRemoveLong,
+		Args:  cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			res := map[string]any{"removed": args[0], "file_deleted": false}
 			if deleteFile { // key files komando made have no copy: T3 (OD-7); asked before the state is locked
@@ -671,16 +681,18 @@ func deployKey(cl *call, st *store.State, arg string) (name, line string, err er
 	return "", "", notFoundSuggest(cl, "key", arg, slices.Sorted(maps.Keys(st.Keys))).WithHint("give a key name from `komando credential key list` or a .pub file")
 }
 
+const keyInstallLong = `Installs a public key on servers, like ssh-copy-id. NAME is a key in
+komando's key list or a .pub file. komando logs in the way each server is set
+up now (a password, for example) and appends the key to ~/.ssh/authorized_keys
+unless it is already there. With --set-default the servers then log in with
+this key.`
+
 func keyDeployCmd() *cobra.Command {
 	var setDefault bool
 	c := &cobra.Command{
 		Use:   "deploy NAME TARGET",
 		Short: "Install a public key in ~/.ssh/authorized_keys (like ssh-copy-id)",
-		Long: `Installs a public key on servers, like ssh-copy-id. KEY is a key in
-komando's key list or a .pub file. komando logs in the way each server is set
-up now (a password, for example) and appends the key to ~/.ssh/authorized_keys
-unless it is already there. With --set-default the servers then log in with
-this key.`,
+		Long:  keyInstallLong,
 		Example: `  komando credential key create deploy && komando credential key install deploy @web --set-default
   komando credential key install ~/.ssh/id_ed25519.pub web1`,
 		Args: cobra.ExactArgs(2),
