@@ -288,7 +288,7 @@ func recipeAddCmd() *cobra.Command {
 				return err
 			}
 			if builtinRecipe(args[0]) != nil {
-				return out.Errf(out.ExitConflict, "RECIPE_BUILTIN", "pick another name; see `komando snippet list`", "%q is a built-in recipe", args[0])
+				return out.Errf(out.ExitConflict, "SNIPPET_BUILTIN", "pick another name; see `komando snippet list`", "%q is a built-in recipe", args[0])
 			}
 			s := &store.Snippet{Name: args[0], Command: args[1], Description: desc, Sudo: sudo, ReadOnly: readOnly, CreatedAt: time.Now().UTC()}
 			if s.ReadOnly {
@@ -313,10 +313,10 @@ func recipeAddCmd() *cobra.Command {
 			}
 			err := storeUpdate(cl, func(st *store.State) error {
 				if _, ok := st.Snippets[s.Name]; ok && !overwrite {
-					return out.Errf(out.ExitConflict, "RECIPE_EXISTS", "see it with `komando snippet show NAME`, or pass --overwrite to replace it", "recipe %q exists", s.Name)
+					return out.Errf(out.ExitConflict, "SNIPPET_EXISTS", "see it with `komando snippet show NAME`, or pass --overwrite to replace it", "recipe %q exists", s.Name)
 				}
 				if makesReadOnly(st) && !approved {
-					return out.Errf(out.ExitConflict, "RECIPE_CHANGED", "run it again",
+					return out.Errf(out.ExitConflict, "SNIPPET_CHANGED", "run it again",
 						"recipe %q changed while komando was starting", s.Name)
 				}
 				st.Snippets[s.Name] = s
@@ -344,7 +344,7 @@ func recipeRmCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if builtinRecipe(args[0]) != nil {
-				return out.Errf(out.ExitConflict, "RECIPE_BUILTIN", "remove one of your own recipes instead; see `komando snippet list --category saved`", "%q is a built-in recipe and cannot be removed", args[0])
+				return out.Errf(out.ExitConflict, "SNIPPET_BUILTIN", "remove one of your own recipes instead; see `komando snippet list --category saved`", "%q is a built-in recipe and cannot be removed", args[0])
 			}
 			err := storeUpdate(cl, func(st *store.State) error {
 				if _, ok := st.Snippets[args[0]]; !ok {

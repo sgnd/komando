@@ -286,7 +286,7 @@ func TestRecipeRunNameAndOrder(t *testing.T) {
 	if d, _ := env["data"].(map[string]any); d["recipe"] != "disk" {
 		t.Errorf("data.recipe: %v", env["data"])
 	}
-	e := wantCode(t, "RECIPE_NOT_FOUND", "snippet", "exec", "web2", "disk")
+	e := wantCode(t, "SNIPPET_NOT_FOUND", "snippet", "exec", "web2", "disk")
 	if !strings.Contains(e.Hint, "komando snippet exec disk web2") {
 		t.Errorf("hint %q", e.Hint)
 	}

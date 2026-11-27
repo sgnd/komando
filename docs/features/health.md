@@ -245,6 +245,6 @@ komando net dns web1 example.com --type MX            # MX, TXT, CNAME, NS ... (
 
 | Error code | What it means | What to do |
 |------------|---------------|------------|
-| `RECIPE_NOT_FOUND` | no recipe of that name (exit 3) | see them with `komando snippet list`; some checks are commands (table above) |
+| `SNIPPET_NOT_FOUND` | no recipe of that name (exit 3) | see them with `komando snippet list`; some checks are commands (table above) |
 | `UNKNOWN_VAR` | `--var` names a blank the recipe does not have | check the blanks with `komando snippet list` |
 | `CERT_PROBLEMS` | a certificate expires within `--warn`, has expired, is not trusted, or certbot's last renewal failed (exit 1) | renew or replace the certificates the result marks |

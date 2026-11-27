@@ -135,7 +135,7 @@ func TestSynonymWrappers(t *testing.T) {
 	if d := mustRun(t, "snippet", "show", "disk"); d["count"].(float64) != 1 {
 		t.Errorf("snippet show disk: %v", d)
 	}
-	wantCode(t, "RECIPE_NOT_FOUND", "snippet", "show", "nope")
+	wantCode(t, "SNIPPET_NOT_FOUND", "snippet", "show", "nope")
 	wantCode(t, "TUNNEL_NOT_FOUND", "tunnel", "show", "t-nope")
 	if code, text := runMain(t, "group", "show", "web"); code != 0 || !strings.Contains(text, `"command":"group.show"`) {
 		t.Errorf("group show: exit %d %s", code, text)
