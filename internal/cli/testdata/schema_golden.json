@@ -11972,6 +11972,12 @@
         "hint": "komando runs every command on Windows in Windows PowerShell (powershell.exe): check that it is on the PATH of the login user, and read the message"
       },
       {
+        "code": "PREPARE_FAILED",
+        "exit": 1,
+        "example": "komando did not prepare … for this line, so it runs nothing",
+        "hint": "this is a bug in komando: report it at https://github.com/sgnd/komando/issues"
+      },
+      {
         "code": "PROTECTED_TARGET",
         "exit": 6,
         "example": "a change action on protected conn …: …",

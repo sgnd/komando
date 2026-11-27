@@ -4,6 +4,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/sgnd/komando/internal/out"
 )
 
 // Every command has an ID: its dotted path (fs.list, secret.show,
@@ -74,8 +76,8 @@ const (
 	readyPrepared = "prepared"
 )
 
-// listed reports whether c is ready to be listed and found.
-func listed(c *cobra.Command) bool { return c.Annotations[readyNote] != "" }
+// inList reports whether c is ready to be listed and found.
+func inList(c *cobra.Command) bool { return c.Annotations[readyNote] != "" }
 
 // prepared reports whether c is ready to run and to show its help.
 func prepared(c *cobra.Command) bool { return c.Annotations[readyNote] == readyPrepared }
@@ -84,6 +86,16 @@ func prepared(c *cobra.Command) bool { return c.Annotations[readyNote] == readyP
 // to answer the shell's completion; openPath prepares the words it completes.
 func completeHelper(c *cobra.Command) bool {
 	return c.Name() == cobra.ShellCompRequestCmd && c.HasParent() && !c.Parent().HasParent()
+}
+
+// notPrepared fails closed: a command the tree did not prepare runs
+// nothing, before any check or handler (the root's PersistentPreRunE).
+func notPrepared(c *cobra.Command) *out.Error {
+	if prepared(c) || completeHelper(c) {
+		return nil
+	}
+	return out.Errf(out.ExitError, "PREPARE_FAILED", "this is a bug in komando: report it at https://github.com/sgnd/komando/issues",
+		"komando did not prepare %s for this line, so it runs nothing", c.CommandPath())
 }
 
 func setReady(c *cobra.Command, how string) {
@@ -96,7 +108,7 @@ func setReady(c *cobra.Command, how string) {
 // listNode readies c to be listed: its aliases, its group run, its
 // person-only mark.
 func listNode(c *cobra.Command) {
-	if listed(c) {
+	if inList(c) {
 		return
 	}
 	applyConventions(c)
@@ -165,7 +177,16 @@ func openPath(root *cobra.Command, line []string) {
 			return
 		}
 		if !prepared(c) {
-			openNode(c)
+			// Find may pass a parent by its name in one step: open from
+			// the top, as a parent's step may set up its sub-commands
+			// (completion writes the help of each shell's)
+			var path []*cobra.Command
+			for p := c; p != nil && !prepared(p); p = p.Parent() {
+				path = append(path, p)
+			}
+			for i := len(path) - 1; i >= 0; i-- {
+				openNode(path[i])
+			}
 			continue
 		}
 		if c.Name() == "help" && c.Parent() == root && len(rest) < len(line) {

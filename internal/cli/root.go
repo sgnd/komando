@@ -484,10 +484,8 @@ func treeOf(cl *call) *cobra.Command {
 		Version:       version.Version,
 		RunE:          printFirstSteps,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			if !prepared(cmd) && !completeHelper(cmd) {
-				// fail closed: a command the tree did not prepare runs nothing
-				return out.Errf(out.ExitError, "NOT_PREPARED", "this is a bug in komando: report it at https://github.com/sgnd/komando/issues",
-					"komando did not prepare %s for this line, so it runs nothing", cmd.CommandPath())
+			if err := notPrepared(cmd); err != nil {
+				return err
 			}
 			cmd.SetContext(withCall(cmd.Context(), cl))
 			cl.begin(cmd) // the gate and the answers are this command's only

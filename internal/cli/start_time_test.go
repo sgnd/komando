@@ -295,9 +295,24 @@ func TestEntryPointsPrepareTheirCommand(t *testing.T) {
 			t.Errorf("%q: %q is not prepared", tc.line, tc.want)
 		}
 		for _, s := range c.Commands() {
-			if !listed(s) {
+			if !inList(s) {
 				t.Errorf("%q: %q, which the help of %q lists, is not ready to list", tc.line, s.CommandPath(), tc.want)
 			}
+		}
+	}
+}
+
+// The trees the guard (commandTree) and the ssh gate read prepare the
+// command of their line too; the gate's tree, asked line after line, each.
+func TestReadTreesPrepareTheirCommand(t *testing.T) {
+	sc, gate := gateTree()
+	for _, line := range [][]string{{"host", "list"}, {"-o", "json", "db", "query", "x", "select 1"}, {"cache", "rm", "c1", "k"}, {"host", "ls"}} {
+		if c, _, err := commandTree(line).Find(line); err != nil || !prepared(c) || !c.HasParent() {
+			t.Errorf("%q: the guard's tree finds %q, not prepared (%v)", line, c.CommandPath(), err)
+		}
+		gateCheckIn(sc, gate, slices.Clone(line), gateKey{})
+		if c, _, err := gate.Find(line); err != nil || !prepared(c) || !c.HasParent() {
+			t.Errorf("%q: the gate's tree finds %q, not prepared (%v)", line, c.CommandPath(), err)
 		}
 	}
 }
@@ -314,8 +329,8 @@ func TestUnpreparedCommandRunsNothing(t *testing.T) {
 		root.SetArgs([]string{"zzlazy", "run"})
 		_, err := root.ExecuteC()
 		var oe *out.Error
-		if !errors.As(err, &oe) || oe.Code != "NOT_PREPARED" || oe.Exit != out.ExitError {
-			t.Errorf("prepared for %q, zzlazy run gives %v, want NOT_PREPARED", prepare, err)
+		if !errors.As(err, &oe) || oe.Code != "PREPARE_FAILED" || oe.Exit != out.ExitError {
+			t.Errorf("prepared for %q, zzlazy run gives %v, want PREPARE_FAILED", prepare, err)
 		}
 		if ran {
 			t.Fatalf("prepared for %q, the handler of zzlazy run ran", prepare)
@@ -354,7 +369,7 @@ func TestStartFlatWithMoreLeaves(t *testing.T) {
 			nodes++
 			if prepared(c) {
 				prep++
-			} else if listed(c) {
+			} else if inList(c) {
 				list++
 			}
 		}

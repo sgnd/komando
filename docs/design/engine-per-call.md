@@ -123,7 +123,7 @@ above are gone. There is no "current call" in a package variable.
   the aliases and person-only marks of their sub-commands. `help LINE`
   and the shell's completion prepare the command of the words after them.
   A command the tree did not prepare runs nothing: the root stops it with
-  `NOT_PREPARED`. `newRoot` prepares every command; `komando schema`, the
+  `PREPARE_FAILED`. `newRoot` prepares every command; `komando schema`, the
   goldens and the help tests read that tree, and `TestLineTreeAgreesWithWholeTree`
   holds each command of a line's tree to the same command of the whole one.
 
