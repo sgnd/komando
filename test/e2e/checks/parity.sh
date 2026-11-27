@@ -50,7 +50,7 @@ check "cache TTL = redis-cli TTL" True "$(t=$(native redis redis-cli -a redispas
 echo "parity $V" >"$TMP/$V.txt"
 q $K storage upload files-sftp "$TMP/$V.txt" "$V.txt"
 check "storage upload = file on the sftp server" "parity $V" "$(native sftp cat "/home/deploy/uploads/$V.txt")"
-check "storage s3 object list = ls" True "$($K storage s3 object list files-sftp | jget '"'"$V.txt"'" in json.dumps(d["data"])')"
+check "storage sftp object list = ls" True "$($K storage sftp object list files-sftp | jget '"'"$V.txt"'" in json.dumps(d["data"])')"
 fi
 
 if in_area k8s; then

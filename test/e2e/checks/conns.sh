@@ -165,11 +165,11 @@ q $K conn add files-ftps 'ftps://deploy@ftps/www?tls=skip-verify' --via bastion 
 for c in files-sftp files-ftps; do
   # check the upload itself, so a failed upload shows its own error instead of an empty listing below
   check "$c upload" True "$($K storage upload "$c" "$TMP/obj.txt" 2026/11/obj.txt | jget 'd["ok"] or "%s: %s" % (d["error"]["code"], d["error"]["message"])' || true)"
-  check "$c upload creates folders" 2026/11/obj.txt "$($K storage s3 object list "$c" --recursive | jget '[o["key"] for o in d["data"]["objects"] if not o.get("dir")][0]')"
+  check "$c upload creates folders" 2026/11/obj.txt "$($K storage "$(sprov "$c")" object list "$c" --recursive | jget '[o["key"] for o in d["data"]["objects"] if not o.get("dir")][0]')"
   check "$c upload replaces" True "$($K storage upload "$c" "$TMP/obj.txt" 2026/11/obj.txt | jget 'd["data"]["replaced"]')"
   q $K storage download "$c" 2026/11/obj.txt --to "$TMP/$c.txt"
   check "$c round trip" backup-data "$(cat "$TMP/$c.txt")"
-  set +e; $K storage s3 object delete "$c" 2026/11/obj.txt >/dev/null; check "$c rm needs --allow-dangerous" 6 $?; set -e
+  set +e; $K storage "$(sprov "$c")" object delete "$c" 2026/11/obj.txt >/dev/null; check "$c rm needs --allow-dangerous" 6 $?; set -e
 done
 
 # one inventory: targets pick servers and conns together

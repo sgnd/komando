@@ -55,7 +55,7 @@ for c in bucket files-sftp files-ftps; do
   check "$c upload into a folder keeps the name" t-e2edata/dir/e2edata.txt "$($K storage upload "$c" "$TMP/e2edata.txt" t-e2edata/dir/ | jget 'd["data"]["key"]')"
   $K storage upload "$c" "$TMP/e2edata.txt" ../escape.txt --dry-run >/dev/null; check "$c upload dry-run checks the key" 2 $?
   check "$c upload dry-run says it replaces" True "$($K storage upload "$c" "$TMP/e2edata.txt" t-e2edata/dir/ --dry-run | jget 'd["data"]["replaced"]')"
-  $K storage s3 object list "$c" t-e2edata/nope/ >/dev/null; check "$c ls of a missing folder" 3 $?
+  $K storage "$(sprov "$c")" object list "$c" t-e2edata/nope/ >/dev/null; check "$c ls of a missing folder" 3 $?
   rm -rf "$TMP/e2edata-dl"; mkdir -p "$TMP/e2edata-dl"
   q $K storage download "$c" t-e2edata/dir/e2edata.txt --to "$TMP/e2edata-dl/" --dry-run
   check "$c download dry-run writes nothing" 0 "$(ls -A "$TMP/e2edata-dl" | wc -l | tr -d ' ')"
@@ -80,7 +80,7 @@ check "person: a wrong name deleted nothing" True "$($K storage s3 object list b
 ptyrun 't-e2edata/dir/e2edata.txt\n' env NO_COLOR=1 TERM=dumb "$K" -o text storage s3 object delete bucket --prefix t-e2edata/dir/ >/dev/null
 $K storage s3 object list bucket t-e2edata/dir/ >/dev/null; check "person: the right name deleted the folder" 3 $?
 for c in bucket files-sftp files-ftps; do
-  q $K storage s3 object delete "$c" --prefix t-e2edata/ --allow-dangerous
+  q $K storage "$(sprov "$c")" object delete "$c" --prefix t-e2edata/ --allow-dangerous
 done
 rm -rf "$TMP/e2edata-dl" "$TMP/e2edata.txt" "$TMP/e2edata.bin" "$TMP/e2edata.sql"
 set -e
