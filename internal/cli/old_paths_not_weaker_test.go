@@ -42,6 +42,17 @@ func TestLeafFloorNotWeaker(t *testing.T) {
 				}
 				continue
 			}
+			if !ok && slices.Contains(movedTypes, l.Type) {
+				// a command the moved leaf carries under another key (secret set,
+				// split into password and token) is gone too: its rows, read by
+				// today's key, must not be stricter than the leaf
+				k := capability.TodayKeys()[id]
+				want, got := todayTier(safetyKey{k.Type, k.Area, k.Verb}), capability.Highest(l.Key)
+				if _, ok := notWeakerExceptions[l.Key.String()+" | "+id]; int(got) < int(want) && !ok {
+					t.Errorf("%s: carries %s, which was %s, but the leaf is at most %s", l.Key, id, want, tier(got))
+				}
+				continue
+			}
 			if !ok {
 				t.Errorf("%s: carries %s, which is no command", l.Key, id)
 				continue
