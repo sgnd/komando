@@ -10,22 +10,7 @@ title: Show the audit log: who did what, where, and the result
 ### komando audit verify
 title: Check that no audit record was changed, added or removed outside komando
 ### komando cache
-title: Caches (Redis, Valkey, memcached): read and change keys
-### komando cache get
-title: Show a key: its type, time to live and value (any type)
-- arg0 | Conn | Which cache? | A Redis, Valkey or Memcached cache from your list. Add one first: komando cache redis add. |  | choices,check
-- arg1 | Key | Which key? | Its exact name. `komando cache keys` lists them. | session:42 | check
-- flag:limit | --limit | Show at most how many items of a list, set or hash? | Only for keys that hold many items. A plain text key is shown whole. | 100 | optional,default,check
-### komando cache info
-title: Server summary: version, role, memory, clients, keys, hit rate
-- arg0 | Conn | Which cache? | A Redis, Valkey or Memcached cache from your list. Add one first: komando cache redis add. |  | choices,check
-- arg1 | Section | Only one part? (leave empty for a short summary) | server, clients, memory, persistence, stats, replication, cpu or keyspace. Empty shows version, memory, clients and hit rate. | memory | optional,check
-- flag:all | --all | Show every raw field instead of the summary? | Only when you left the part above empty. |  | default,choices
-### komando cache keys
-title: List keys matching a pattern (uses SCAN, so a big cache is not blocked)
-- arg0 | Conn | Which cache? | A Redis, Valkey or Memcached cache from your list. Add one first: komando cache redis add. |  | choices,check
-- arg1 | Pattern | Which keys? (leave empty for all) | A pattern: * matches anything, so session:* is every key that starts with session:. | session:* | optional,check
-- flag:limit | --limit | Show at most how many keys? | Big caches hold millions of keys, so keep it small for a first look. | 100 | optional,default,check
+title: Caches (Redis, Valkey, memcached): save them, run commands
 ### komando cache memcached
 title: Memcached caches: save them, and send them a command
 ### komando cache memcached add
@@ -142,16 +127,6 @@ title: Check that a saved redis cache answers and lets you in
 - arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
-### komando cache rm
-title: Delete keys by exact name, never by pattern
-- arg0 | Conn | Which cache? | A Redis, Valkey or Memcached cache from your list. Add one first: komando cache redis add. |  | choices,check
-- arg1 | Key | Which keys to delete? (several: separate them with spaces) | Exact names, no patterns. --dry-run shows which exist. Deleting needs --allow-dangerous, a person's extra yes. | session:42 session:43 | check
-### komando cache set
-title: Set a string key, replacing any old value
-- arg0 | Conn | Which cache? | A Redis, Valkey or Memcached cache from your list. Add one first: komando cache redis add. |  | choices,check
-- arg1 | Key | Which key to set? | Its exact name. An old value under this name is replaced. | feature:dark-mode | check
-- arg2 | Value | Which value? | Plain text. Never put a password here; `komando secret set` keeps one. | on | check
-- flag:ttl | --ttl | Delete it by itself after how long? (leave empty to keep it) | The key's time to live. Empty keeps it until someone deletes it. | 30m, 24h or 7d | optional,check
 ### komando cert
 title: TLS certificates: when do they expire, and do they verify
 ### komando cert check
@@ -161,73 +136,7 @@ title: Check when the certificates of servers and websites expire
 - flag:path | --path | Also check this certificate file (or folder) on the servers |  |  | optional,advanced,check
 - flag:via | --via | Reach websites through this server or VPN (a --via path) |  |  | optional,advanced,free,choices
 ### komando cluster
-title: Kubernetes clusters: save, check, read logs, roll out, scale
-### komando cluster apply
-title: Apply Kubernetes YAML or deploy a Swarm stack
-- arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
-- flag:file | --file | Which YAML file on this computer? | The objects in it are created, or changed to match it. | ./k8s/app.yaml | check
-- flag:stack | --stack | Swarm only: the stack's name (empty on Kubernetes) | Swarm: the stack name | shop | optional,check
-- flag:force-conflicts | --force-conflicts | Kubernetes: take over fields another field manager owns |  |  | advanced,default,choices
-- flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
-### komando cluster deploy
-title: Roll out a new image
-- arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
-- arg1 | Type/name | Which workload? | Its kind and name, like deployment/api or statefulset/db. komando cluster list shows them. | deployment/api | check
-- flag:image | --image | Which image should it run now? | The full image name with its new tag, as in docker pull. | ghcr.io/acme/api:1.4.3 | check
-- flag:wait | --wait | Wait until it is done? | Yes: komando stays until every copy runs the new version, or says what went wrong. |  | default,choices
-- flag:container | --container | Which container gets the image (needed when there are several) |  |  | optional,advanced,check
-- flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
-### komando cluster describe
-title: One object in short: state, images, conditions, pods, events
-- arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
-- arg1 | Type/name | What kind of object? | pod, deployment, service, node, ingress, configmap ... On a Swarm: service, task, node, stack. | deployment | check
-- flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
-### komando cluster events
-title: Recent events, oldest first (--warnings for problems only)
-- arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
-- flag:warnings | --warnings | Only problems (Warning events)? | Only Warning events |  | default,choices
-- flag:all-namespaces | --all-namespaces | Every namespace |  |  | advanced,default,choices
-- flag:for | --for | Only events about this object, like deployment/api |  |  | optional,advanced,check
-- flag:limit | --limit | The most events to show (the newest) |  |  | optional,advanced,default,check
-- flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
-### komando cluster get
-title: Show one object in full, Secret values hidden
-- arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
-- arg1 | Type/name | What kind of object? | pod, deployment, service, node, ingress, configmap ... On a Swarm: service, task, node, stack. | deployment | check
-- flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
-### komando cluster helm
-title: Helm releases, read only: see their state, history and values
-### komando cluster helm history
-title: Every stored revision of a Helm release, oldest first
-- arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
-- arg1 | Release | Which Helm release? | komando cluster helm list shows the releases. | ingress-nginx | check
-- flag:limit | --limit | Show at most this many revisions, newest kept (0 = all) |  |  | optional,advanced,check
-- flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
-### komando cluster helm list
-title: Helm releases: name, revision, status, chart and app version
-- arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
-- flag:all-namespaces | --all-namespaces | Every namespace |  |  | advanced,default,choices
-- flag:limit | --limit | Show at most this many releases per cluster (0 = all) |  |  | optional,advanced,check
-- flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
-### komando cluster helm status
-title: One Helm release: status, chart, when it was deployed, and its notes
-- arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
-- arg1 | Release | Which Helm release? | komando cluster helm list shows the releases. | ingress-nginx | check
-- flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
-- flag:revision | --revision | This revision instead of the newest |  |  | optional,advanced,check
-### komando cluster helm values
-title: Show the values a Helm release was installed with
-- arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
-- arg1 | Release | Which Helm release? | komando cluster helm list shows the releases. | ingress-nginx | check
-- flag:all | --all | Also the chart's own default values? | The chart's default values too, as Helm merged them |  | default,choices
-- flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
-- flag:revision | --revision | This revision instead of the newest |  |  | optional,advanced,check
-### komando cluster history
-title: Revisions of a deployment, newest first, with their images
-- arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
-- arg1 | Type/name | Which deployment? | Written deployment/NAME. komando cluster list TARGET deployments shows them. | deployment/api | check
-- flag:limit | --limit | Show at most this many revisions, newest first (0 = all) |  |  | optional,advanced,check
-- flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
+title: Kubernetes and Docker Swarm: save clusters, run commands
 ### komando cluster kubernetes
 title: Kubernetes clusters: save them, and run commands on them
 ### komando cluster kubernetes add
@@ -309,57 +218,6 @@ title: Reach a pod or service port from this computer (127.0.0.1) until Ctrl-C
 - arg1 | Object | Which pod or service? | A kind and name, like service/web or deployment/api. | service/web | check
 - arg2 | Port | Which port of it? | The port it listens on. LOCAL:REMOTE picks the port on this computer too; you then open 127.0.0.1:LOCAL. | 80 or 9000:80 | default,check
 - flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
-### komando cluster list
-title: List pods, deployments, services, nodes ... (Swarm: services, tasks)
-- arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
-- arg1 | Type | What do you want to list? | pods, deployments, services, nodes, ingresses, configmaps ... On a Swarm: services, tasks, nodes, stacks. |  | default,check
-- flag:all-namespaces | --all-namespaces | From every namespace? | No: only the cluster's usual namespace (a namespace is a folder of objects in the cluster). |  | default,choices
-- flag:limit | --limit | The most objects to show |  |  | optional,advanced,default,check
-- flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
-- flag:selector | --selector | Only objects with these labels, like app=api or 'tier in (web,api)' |  |  | optional,advanced,check
-### komando cluster logs
-title: Logs of a pod, a workload, a label (-l) or a Swarm service
-- arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
-- arg1 | Pod | Which pod or workload? | A pod's name, or a kind and name like deployment/api (komando picks one of its pods). | deployment/api or api-7d9f8c6b5-x2k4q | optional,check
-- flag:since | --since | Only lines newer than? (leave empty for the last lines) | Empty: the last lines of each pod. | 10m or 2h | optional,check
-- flag:follow | --follow | Keep showing new lines? (Ctrl-C stops) | Keep reading new lines (Ctrl-C or --timeout stops) |  | default,choices
-- flag:container | --container | Container in the pod |  |  | optional,advanced,check
-- flag:limit | --limit | The most lines per pod (the last ones) |  |  | optional,advanced,default,check
-- flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
-- flag:previous | --previous | The previous run of a restarted container |  |  | advanced,default,choices
-- flag:selector | --selector | Read every pod with these labels, like app=api |  |  | optional,advanced,check
-- flag:timestamps | --timestamps | Start each line with its time |  |  | advanced,default,choices
-### komando cluster restart
-title: Restart a workload with a rolling restart, or a Swarm service
-- arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
-- arg1 | Type/name | Which workload? | Its kind and name, like deployment/api or statefulset/db. komando cluster list shows them. | deployment/api | check
-- flag:wait | --wait | Wait until it is done? | Yes: komando stays until every copy runs the new version, or says what went wrong. |  | default,choices
-- flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
-### komando cluster rm
-title: Delete an object, service or stack
-- arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
-- arg1 | Type/name | What kind of object? | pod, deployment, service, node, ingress, configmap ... On a Swarm: service, task, node, stack. | deployment | check
-- flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
-### komando cluster rollback
-title: Go back to an earlier version of a workload
-- arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
-- arg1 | Type/name | Which workload? | Its kind and name, like deployment/api or statefulset/db. komando cluster list shows them. | deployment/api | check
-- flag:wait | --wait | Wait until it is done? | Yes: komando stays until every copy runs the new version, or says what went wrong. |  | default,choices
-- flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
-- flag:revision | --revision | The revision to go back to (default: the previous one with other images) |  |  | optional,advanced,check
-### komando cluster scale
-title: Set the number of replicas
-- arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
-- arg1 | Type/name | Which workload? | Its kind and name, like deployment/api or statefulset/db. komando cluster list shows them. | deployment/api | check
-- arg2 | Replicas | How many copies (replicas) should run? | 0 stops every copy, and the app is down until you scale it up again. komando asks a person first. | 3 | check
-- flag:wait | --wait | Wait until it is done? | Yes: komando stays until every copy runs the new version, or says what went wrong. |  | default,choices
-- flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
-### komando cluster status
-title: Show the version, the nodes and what is not healthy
-- arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
-- arg1 | Type/name | One workload to check its rollout? (leave empty for the whole cluster) | Empty: the whole cluster, its nodes and what is not healthy. | deployment/api | optional,check
-- flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
-- flag:wait | --wait | With TYPE/NAME: wait until it has rolled out (--timeout, default 5m) |  |  | advanced,default,choices
 ### komando cluster swarm
 title: Docker Swarm: run docker commands on a manager server
 ### komando cluster swarm raw
@@ -642,7 +500,7 @@ title: Pull images from their registry (docker pull)
 - flag:sudo | --sudo | Run docker with sudo? | Say yes when docker says permission denied (your login user is not in the docker group). |  | default,choices
 ### komando docker raw
 title: Run any docker subcommand (the same safety rules apply)
-- arg0 | Target (servers) | Which server? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
+- arg0 | Name | Which server? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
 - arg1 | Args | What should docker do? | The words after docker, as you would type them on the server. | network ls | 
 - flag:sudo | --sudo | Run docker with sudo? | Say yes when docker says permission denied (your login user is not in the docker group). |  | default,choices
 ### komando docker restart

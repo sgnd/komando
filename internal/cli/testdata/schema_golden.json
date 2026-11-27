@@ -73,84 +73,13 @@
       {
         "path": "komando cache",
         "usage": "komando cache [flags]",
-        "short": "Caches (Redis, Valkey, memcached): read and change keys",
-        "long": "Read and change keys in Redis, Valkey or memcached. Add a cache with\n`komando cache redis add`.\n\nget, keys and info only read. set changes data (a protected cache asks\nfirst); rm deletes keys, so it also needs --allow-dangerous. `cache redis\nraw` sends any command, but only reads unless --write; commands that flush,\nblock, run scripts or reconfigure the server also need --allow-dangerous.",
+        "short": "Caches (Redis, Valkey, memcached): save them, run commands",
+        "long": "Save a cache with `komando cache redis add`, then run its native commands\nwith `cache redis raw`. raw only reads unless --write (a protected cache\nasks first); commands that flush, block, run scripts, delete keys or\nreconfigure the server also need --allow-dangerous.",
         "aliases": [
           "redis",
           "caches"
         ],
-        "example": "  komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password\n  komando cache info prod-redis\n  komando cache keys prod-redis 'session:*'\n  komando cache get prod-redis session:42\n  komando cache set prod-redis maintenance on --ttl 30m --dry-run",
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando cache get",
-        "usage": "komando cache get CONN KEY [flags]",
-        "short": "Show a key: its type, time to live and value (any type)",
-        "example": "  komando cache get prod-redis session:42\n  komando cache get prod-redis leaderboard --limit 10",
-        "flags": [
-          {
-            "name": "limit",
-            "shorthand": "n",
-            "type": "int",
-            "default": "100",
-            "usage": "the most items to show of a hash, list, set or sorted set"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando cache info",
-        "usage": "komando cache info CONN [SECTION] [flags]",
-        "short": "Server summary: version, role, memory, clients, keys, hit rate",
-        "long": "Without arguments, a short summary: version, role, uptime, memory use and\nlimit, eviction policy, clients, keys per database and the hit rate. A\nSECTION (server, clients, memory, persistence, stats, replication, cpu,\ncommandstats, keyspace, ...) or --all shows the raw INFO fields.",
-        "example": "  komando cache info prod-redis\n  komando cache info prod-redis memory\n  komando cache info prod-redis --all",
-        "flags": [
-          {
-            "name": "all",
-            "shorthand": "a",
-            "type": "bool",
-            "default": "false",
-            "usage": "every field of the default INFO sections"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando cache keys",
-        "usage": "komando cache keys CONN [PATTERN] [flags]",
-        "short": "List keys matching a pattern (uses SCAN, so a big cache is not blocked)",
-        "aliases": [
-          "list",
-          "ls"
-        ],
-        "example": "  komando cache keys prod-redis 'session:*'\n  komando cache keys prod-redis --limit 1000",
-        "flags": [
-          {
-            "name": "limit",
-            "shorthand": "n",
-            "type": "int",
-            "default": "100",
-            "usage": "the most keys to return"
-          }
-        ],
+        "example": "  komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password\n  komando cache redis raw prod-redis GET session:42\n  komando cache redis raw prod-redis SET maintenance on --write",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -784,47 +713,6 @@
         ]
       },
       {
-        "path": "komando cache rm",
-        "usage": "komando cache rm CONN KEY... [flags]",
-        "short": "Delete keys by exact name, never by pattern",
-        "long": "Delete keys by exact name, never by pattern.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous; on a protected server\nor conn, a person's yes (--yes) as well.",
-        "aliases": [
-          "remove",
-          "delete",
-          "del"
-        ],
-        "example": "  komando cache rm prod-redis session:42 session:43 --dry-run\n  komando cache rm prod-redis session:42 session:43 --allow-dangerous   # after a person's yes",
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "dangerous",
-            "flag": "--allow-dangerous"
-          }
-        ]
-      },
-      {
-        "path": "komando cache set",
-        "usage": "komando cache set CONN KEY VALUE [flags]",
-        "short": "Set a string key, replacing any old value",
-        "long": "Set a string key, replacing any old value.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando cache set prod-redis feature:dark-mode on\n  komando cache set prod-redis feature:dark-mode on --dry-run\n  komando cache set prod-redis maintenance true --ttl 30m\n  komando cache set prod-redis report:weekly done --ttl 7d",
-        "flags": [
-          {
-            "name": "ttl",
-            "type": "duration",
-            "usage": "expire the key after this long (like 30m, 24h, 7d); 0 or left out: never"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
         "path": "komando cert",
         "usage": "komando cert [flags]",
         "short": "TLS certificates: when do they expire, and do they verify",
@@ -877,345 +765,12 @@
       {
         "path": "komando cluster",
         "usage": "komando cluster [flags]",
-        "short": "Kubernetes clusters: save, check, read logs, roll out, scale",
-        "long": "TARGET is a Kubernetes cluster saved with `komando cluster kubernetes add`\nor a Swarm manager server. Reads need nothing; restart, scale and apply\nchange the cluster (protected targets need --yes; try --dry-run); rm needs\n--allow-dangerous. Anything else: `cluster kubernetes raw` passes the native\nkubectl command, read-only unless --write.\n\nA cluster's usual namespace is its kubeconfig context's; change it with\n`komando cluster kubernetes edit NAME --option namespace=shop`, or name one\nper command with --namespace.",
+        "short": "Kubernetes and Docker Swarm: save clusters, run commands",
+        "long": "Save a Kubernetes cluster with `komando cluster kubernetes add`, or use a\nSwarm manager server. `cluster kubernetes raw` passes the native kubectl\ncommand, read-only unless --write; protected targets need --yes, and a\ncommand that deletes or scales to zero also needs --allow-dangerous. The\nbuilt-in snippets helm-list and helm-release read the Helm releases.",
         "aliases": [
           "clusters"
         ],
-        "example": "  komando cluster kubernetes add prod-k8s k8s://api.cluster.example:6443 --credential prod-kubeconfig\n  komando cluster status prod-k8s                     # version, nodes, what is not healthy\n  komando cluster list prod-k8s pods --namespace shop\n  komando cluster logs prod-k8s deploy/api --namespace shop -f\n  komando cluster deploy prod-k8s deploy/api --image ghcr.io/acme/api:1.4.3 --namespace shop --wait",
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando cluster apply",
-        "usage": "komando cluster apply TARGET --file FILE [flags]",
-        "short": "Apply Kubernetes YAML or deploy a Swarm stack",
-        "long": "Kubernetes: applies every object in FILE server-side and says per object\nwhether it was created, configured or unchanged. --dry-run asks the server\nwhat would change and shows it as a diff (Secret values stay hidden; a\nchanged value shows as \"[hidden, changed]\"). Objects without a namespace go\nto --namespace; one that names another namespace is refused.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.\n\nA field another field manager owns (an autoscaler's replicas, a kubectl\nedit) stops the apply with K8S_CONFLICT naming that manager, and nothing\nis applied. --force-conflicts takes those fields over, as\n`kubectl apply --server-side --force-conflicts` does.\n\nSwarm: deploys FILE (a compose file) as the stack --stack; --dry-run checks\nthe file with `docker stack config` on the manager.",
-        "example": "  komando cluster apply prod-k8s --file app.yaml --dry-run\n  komando cluster apply prod-k8s --file app.yaml\n  komando cluster apply swarm1 --file compose.yml --stack shop",
-        "flags": [
-          {
-            "name": "file",
-            "shorthand": "f",
-            "type": "string",
-            "usage": "YAML file ('-' for stdin)"
-          },
-          {
-            "name": "force-conflicts",
-            "type": "bool",
-            "default": "false",
-            "usage": "Kubernetes: take over fields another field manager owns"
-          },
-          {
-            "name": "namespace",
-            "shorthand": "n",
-            "type": "string",
-            "usage": "Kubernetes namespace (default: the context's, else default)"
-          },
-          {
-            "name": "stack",
-            "type": "string",
-            "usage": "Swarm: the stack name"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando cluster deploy",
-        "usage": "komando cluster deploy TARGET TYPE/NAME --image IMAGE [flags]",
-        "short": "Roll out a new image",
-        "long": "Sets the image of a deployment, statefulset or daemonset (Kubernetes) or a\nservice (Swarm). With several containers, name one with --container (or\nwrite --image NAME=IMAGE). --wait stays until every replica runs the new\nimage, the rollout fails, or --timeout (default 5m) passes; go back with\n`komando cluster rollback`.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando cluster deploy prod-k8s deployment/api --image ghcr.io/acme/api:1.4.3 --namespace shop --wait\n  komando cluster deploy prod-k8s deployment/api --image ghcr.io/acme/api:1.4.3 --namespace shop --wait --dry-run\n  komando cluster deploy swarm1 service/web --image nginx:1.27 --wait",
-        "flags": [
-          {
-            "name": "container",
-            "shorthand": "c",
-            "type": "string",
-            "usage": "which container gets the image (needed when there are several)"
-          },
-          {
-            "name": "image",
-            "type": "string",
-            "usage": "the new image, like ghcr.io/acme/api:1.4.3 (or CONTAINER=IMAGE)"
-          },
-          {
-            "name": "namespace",
-            "shorthand": "n",
-            "type": "string",
-            "usage": "Kubernetes namespace (default: the context's, else default)"
-          },
-          {
-            "name": "wait",
-            "type": "bool",
-            "default": "false",
-            "usage": "wait until the rollout finishes (or fails; --timeout, default 5m)"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando cluster describe",
-        "usage": "komando cluster describe TARGET TYPE/NAME [flags]",
-        "short": "One object in short: state, images, conditions, pods, events",
-        "long": "One object in short: state, images, conditions, its pods or tasks, and\nrecent events.",
-        "example": "  komando cluster describe prod-k8s pod/api-7d9f-x2 --namespace shop\n  komando cluster describe prod-k8s deployment/api --namespace shop\n  komando cluster describe swarm1 service/web",
-        "flags": [
-          {
-            "name": "namespace",
-            "shorthand": "n",
-            "type": "string",
-            "usage": "Kubernetes namespace (default: the context's, else default)"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando cluster events",
-        "usage": "komando cluster events TARGET [flags]",
-        "short": "Recent events, oldest first (--warnings for problems only)",
-        "long": "Recent events, oldest first (--warnings for problems only, --for TYPE/NAME\nfor one object).",
-        "example": "  komando cluster events prod-k8s --namespace shop --warnings\n  komando cluster events @prod --warnings -A    # problems in every cluster of the group\n  komando cluster events prod-k8s --for deployment/api --namespace shop",
-        "flags": [
-          {
-            "name": "all-namespaces",
-            "shorthand": "A",
-            "type": "bool",
-            "default": "false",
-            "usage": "every namespace"
-          },
-          {
-            "name": "for",
-            "type": "string",
-            "usage": "only events about this object, like deployment/api"
-          },
-          {
-            "name": "limit",
-            "type": "int",
-            "default": "100",
-            "usage": "the most events to show (the newest)"
-          },
-          {
-            "name": "namespace",
-            "shorthand": "n",
-            "type": "string",
-            "usage": "Kubernetes namespace (default: the context's, else default)"
-          },
-          {
-            "name": "warnings",
-            "type": "bool",
-            "default": "false",
-            "usage": "only Warning events"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando cluster get",
-        "usage": "komando cluster get TARGET TYPE/NAME [flags]",
-        "short": "Show one object in full, Secret values hidden",
-        "example": "  komando cluster get prod-k8s deployment/api --namespace shop\n  komando cluster get prod-k8s deployment.apps/api --namespace shop\n  komando cluster get swarm1 service/web",
-        "flags": [
-          {
-            "name": "namespace",
-            "shorthand": "n",
-            "type": "string",
-            "usage": "Kubernetes namespace (default: the context's, else default)"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando cluster helm",
-        "usage": "komando cluster helm [flags]",
-        "short": "Helm releases, read only: see their state, history and values",
-        "long": "Reads the Helm releases stored in a Kubernetes cluster, without the helm\nprogram. It only reads: install, upgrade and rollback stay with helm. The\nkubeconfig's user needs to list Secrets where the releases are.",
-        "example": "  komando cluster helm list prod-k8s -A\n  komando cluster helm status prod-k8s shop --namespace shop\n  komando cluster helm history prod-k8s shop --namespace shop\n  komando cluster helm values prod-k8s shop --namespace shop",
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando cluster helm history",
-        "usage": "komando cluster helm history TARGET RELEASE [flags]",
-        "short": "Every stored revision of a Helm release, oldest first",
-        "example": "  komando cluster helm history prod-k8s shop-api --namespace shop",
-        "flags": [
-          {
-            "name": "limit",
-            "type": "int",
-            "default": "0",
-            "usage": "show at most this many revisions, newest kept (0 = all)"
-          },
-          {
-            "name": "namespace",
-            "shorthand": "n",
-            "type": "string",
-            "usage": "Kubernetes namespace (default: the context's, else default)"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando cluster helm list",
-        "usage": "komando cluster helm list TARGET [flags]",
-        "short": "Helm releases: name, revision, status, chart and app version",
-        "aliases": [
-          "ls"
-        ],
-        "example": "  komando cluster helm list prod-k8s -A\n  komando cluster helm list prod-k8s --namespace shop\n  komando cluster helm list @prod -A              # every cluster in the group",
-        "flags": [
-          {
-            "name": "all-namespaces",
-            "shorthand": "A",
-            "type": "bool",
-            "default": "false",
-            "usage": "every namespace"
-          },
-          {
-            "name": "limit",
-            "type": "int",
-            "default": "0",
-            "usage": "show at most this many releases per cluster (0 = all)"
-          },
-          {
-            "name": "namespace",
-            "shorthand": "n",
-            "type": "string",
-            "usage": "Kubernetes namespace (default: the context's, else default)"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando cluster helm status",
-        "usage": "komando cluster helm status TARGET RELEASE [flags]",
-        "short": "One Helm release: status, chart, when it was deployed, and its notes",
-        "example": "  komando cluster helm status prod-k8s shop-api --namespace shop",
-        "flags": [
-          {
-            "name": "namespace",
-            "shorthand": "n",
-            "type": "string",
-            "usage": "Kubernetes namespace (default: the context's, else default)"
-          },
-          {
-            "name": "revision",
-            "type": "int",
-            "default": "0",
-            "usage": "this revision instead of the newest"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando cluster helm values",
-        "usage": "komando cluster helm values TARGET RELEASE [flags]",
-        "short": "Show the values a Helm release was installed with",
-        "example": "  komando cluster helm values prod-k8s shop-api --namespace shop\n  komando cluster helm values prod-k8s shop-api --namespace shop --all --revision 3",
-        "flags": [
-          {
-            "name": "all",
-            "shorthand": "a",
-            "type": "bool",
-            "default": "false",
-            "usage": "the chart's default values too, as Helm merged them"
-          },
-          {
-            "name": "namespace",
-            "shorthand": "n",
-            "type": "string",
-            "usage": "Kubernetes namespace (default: the context's, else default)"
-          },
-          {
-            "name": "revision",
-            "type": "int",
-            "default": "0",
-            "usage": "this revision instead of the newest"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando cluster history",
-        "usage": "komando cluster history TARGET TYPE/NAME [flags]",
-        "short": "Revisions of a deployment, newest first, with their images",
-        "example": "  komando cluster history prod-k8s deployment/api --namespace shop",
-        "flags": [
-          {
-            "name": "limit",
-            "type": "int",
-            "default": "0",
-            "usage": "show at most this many revisions, newest first (0 = all)"
-          },
-          {
-            "name": "namespace",
-            "shorthand": "n",
-            "type": "string",
-            "usage": "Kubernetes namespace (default: the context's, else default)"
-          }
-        ],
+        "example": "  komando cluster kubernetes add prod-k8s k8s://api.cluster.example:6443 --credential prod-kubeconfig\n  komando cluster kubernetes raw prod-k8s get pods --namespace shop\n  komando cluster kubernetes raw prod-k8s logs deploy/api --namespace shop\n  komando cluster swarm raw swarm1 service ls",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -1636,265 +1191,6 @@
         "confirm": [
           {
             "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando cluster list",
-        "usage": "komando cluster list TARGET TYPE [flags]",
-        "short": "List pods, deployments, services, nodes ... (Swarm: services, tasks)",
-        "long": "List pods, deployments, services, nodes, ... (Swarm: services, tasks, nodes,\nstacks).",
-        "aliases": [
-          "ls"
-        ],
-        "example": "  komando cluster list prod-k8s pods --namespace shop\n  komando cluster list prod-k8s deploy -A\n  komando cluster list @prod nodes                # every cluster in the group\n  komando cluster list swarm1 services\n  komando cluster list swarm1 tasks --limit 20",
-        "flags": [
-          {
-            "name": "all-namespaces",
-            "shorthand": "A",
-            "type": "bool",
-            "default": "false",
-            "usage": "every namespace"
-          },
-          {
-            "name": "limit",
-            "type": "int",
-            "default": "500",
-            "usage": "the most objects to show"
-          },
-          {
-            "name": "namespace",
-            "shorthand": "n",
-            "type": "string",
-            "usage": "Kubernetes namespace (default: the context's, else default)"
-          },
-          {
-            "name": "selector",
-            "shorthand": "l",
-            "type": "string",
-            "usage": "only objects with these labels, like app=api or 'tier in (web,api)'"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando cluster logs",
-        "usage": "komando cluster logs TARGET [POD|TYPE/NAME] [flags]",
-        "short": "Logs of a pod, a workload, a label (-l) or a Swarm service",
-        "long": "Name a pod, a workload (deploy/api, statefulset/db, svc/web: all its pods)\nor pick pods by label with -l. Lines from several pods start with [pod]. -f\nkeeps reading until Ctrl-C or --timeout (both end it normally); it follows\nthe pods that exist when it starts. --since takes a duration back from now\n(10m, 2h) or a time (2026-01-02T10:00:00Z).",
-        "example": "  komando cluster logs prod-k8s api-7d9f-x2 --namespace shop --since 10m\n  komando cluster logs prod-k8s deploy/api --namespace shop -f\n  komando cluster logs prod-k8s -l app=api --namespace shop --limit 50\n  komando cluster logs swarm1 service/web -f",
-        "flags": [
-          {
-            "name": "container",
-            "shorthand": "c",
-            "type": "string",
-            "usage": "container in the pod"
-          },
-          {
-            "name": "follow",
-            "shorthand": "f",
-            "type": "bool",
-            "default": "false",
-            "usage": "keep reading new lines (Ctrl-C or --timeout stops)"
-          },
-          {
-            "name": "limit",
-            "type": "int",
-            "default": "200",
-            "usage": "the most lines per pod (the last ones)"
-          },
-          {
-            "name": "namespace",
-            "shorthand": "n",
-            "type": "string",
-            "usage": "Kubernetes namespace (default: the context's, else default)"
-          },
-          {
-            "name": "previous",
-            "type": "bool",
-            "default": "false",
-            "usage": "the previous run of a restarted container"
-          },
-          {
-            "name": "selector",
-            "shorthand": "l",
-            "type": "string",
-            "usage": "read every pod with these labels, like app=api"
-          },
-          {
-            "name": "since",
-            "type": "string",
-            "usage": "only newer than this: 10m, 2h, or a time like 2026-01-02T10:00:00Z"
-          },
-          {
-            "name": "timestamps",
-            "type": "bool",
-            "default": "false",
-            "usage": "start each line with its time"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando cluster restart",
-        "usage": "komando cluster restart TARGET TYPE/NAME [flags]",
-        "short": "Restart a workload with a rolling restart, or a Swarm service",
-        "long": "Restart a workload with a rolling restart, or a Swarm service.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando cluster restart prod-k8s deployment/api --namespace shop --wait\n  komando cluster restart prod-k8s deployment/api --namespace shop --wait --dry-run\n  komando cluster restart swarm1 service/web",
-        "flags": [
-          {
-            "name": "namespace",
-            "shorthand": "n",
-            "type": "string",
-            "usage": "Kubernetes namespace (default: the context's, else default)"
-          },
-          {
-            "name": "wait",
-            "type": "bool",
-            "default": "false",
-            "usage": "wait until the restart has rolled out (--timeout, default 5m)"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando cluster rm",
-        "usage": "komando cluster rm TARGET TYPE/NAME [flags]",
-        "short": "Delete an object, service or stack",
-        "long": "Delete an object (Kubernetes) or a service or stack (Swarm); needs\n--allow-dangerous.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous; on a protected server\nor conn, a person's yes (--yes) as well.",
-        "aliases": [
-          "remove",
-          "delete",
-          "del"
-        ],
-        "example": "  komando cluster rm prod-k8s pod/api-7d9f-x2 --namespace shop --dry-run\n  komando cluster rm prod-k8s pod/api-7d9f-x2 --namespace shop --allow-dangerous   # after a person's yes\n  komando cluster rm swarm1 service/web --dry-run\n  komando cluster rm swarm1 service/web --allow-dangerous   # after a person's yes",
-        "flags": [
-          {
-            "name": "namespace",
-            "shorthand": "n",
-            "type": "string",
-            "usage": "Kubernetes namespace (default: the context's, else default)"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "dangerous",
-            "flag": "--allow-dangerous"
-          }
-        ]
-      },
-      {
-        "path": "komando cluster rollback",
-        "usage": "komando cluster rollback TARGET TYPE/NAME [flags]",
-        "short": "Go back to an earlier version of a workload",
-        "long": "Without --revision, a deployment goes back to the newest earlier revision\nthat runs other images than now. After a rollback, the revision it replaced\n(the broken one) is skipped, so a second rollback does not bring it back;\n--revision picks any revision. A Swarm service goes back to its previous\nversion.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando cluster rollback prod-k8s deployment/api --namespace shop --wait\n  komando cluster rollback prod-k8s deployment/api --namespace shop --wait --dry-run\n  komando cluster rollback prod-k8s deployment/api --revision 3 --namespace shop\n  komando cluster rollback swarm1 service/web",
-        "flags": [
-          {
-            "name": "namespace",
-            "shorthand": "n",
-            "type": "string",
-            "usage": "Kubernetes namespace (default: the context's, else default)"
-          },
-          {
-            "name": "revision",
-            "type": "int",
-            "default": "0",
-            "usage": "the revision to go back to (default: the previous one with other images)"
-          },
-          {
-            "name": "wait",
-            "type": "bool",
-            "default": "false",
-            "usage": "wait until the rollback finishes (--timeout, default 5m)"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando cluster scale",
-        "usage": "komando cluster scale TARGET TYPE/NAME REPLICAS [flags]",
-        "short": "Set the number of replicas",
-        "long": "Set the number of replicas.\n\nSafety: a change; try it with --dry-run first; REPLICAS is 0: dangerous, it\ncannot be undone: a person types the name to go on, and an AI agent or a\nscript needs --allow-dangerous; on a protected server or conn, a person's\nyes (--yes) as well.",
-        "example": "  komando cluster scale prod-k8s deployment/api 3 --namespace shop --wait\n  komando cluster scale prod-k8s deployment/api 3 --namespace shop --wait --dry-run\n  komando cluster scale swarm1 service/web 4",
-        "flags": [
-          {
-            "name": "namespace",
-            "shorthand": "n",
-            "type": "string",
-            "usage": "Kubernetes namespace (default: the context's, else default)"
-          },
-          {
-            "name": "wait",
-            "type": "bool",
-            "default": "false",
-            "usage": "wait until every replica is ready (--timeout, default 5m)"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          },
-          {
-            "tier": "dangerous",
-            "flag": "--allow-dangerous",
-            "when": "REPLICAS is 0"
-          }
-        ]
-      },
-      {
-        "path": "komando cluster status",
-        "usage": "komando cluster status TARGET [TYPE/NAME] [flags]",
-        "short": "Show the version, the nodes and what is not healthy",
-        "long": "Without an object: the version, the nodes, and every problem (pods that do\nnot run, workloads short of replicas, nodes that are not ready; on Swarm,\nservices short of replicas with their tasks' errors). --namespace limits it\nto one namespace. A selector that picks several clusters (@prod, kind:k8s)\nshows each in data.results.\n\nWith TYPE/NAME (or TYPE NAME) on one cluster: whether that workload has\nrolled out. --wait stays until it has, it fails, or --timeout (default 5m)\npasses.",
-        "example": "  komando cluster status prod-k8s\n  komando cluster status @prod                  # every cluster in the group, at once\n  komando cluster status prod-k8s deployment/api --namespace shop --wait\n  komando cluster status swarm1 service/web --wait",
-        "flags": [
-          {
-            "name": "namespace",
-            "shorthand": "n",
-            "type": "string",
-            "usage": "Kubernetes namespace (default: the context's, else default)"
-          },
-          {
-            "name": "wait",
-            "type": "bool",
-            "default": "false",
-            "usage": "with TYPE/NAME: wait until it has rolled out (--timeout, default 5m)"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
           }
         ]
       },
@@ -4325,9 +3621,9 @@
       },
       {
         "path": "komando docker raw",
-        "usage": "komando docker raw TARGET -- ARGS... [flags]",
+        "usage": "komando docker raw NAME -- ARGS... [flags]",
         "short": "Run any docker subcommand (the same safety rules apply)",
-        "long": "Run any docker subcommand (the same safety rules apply).\n\nSafety: a change; try it with --dry-run first; when the docker command\ndeletes or stops something: dangerous, it cannot be undone: a person types\nthe name to go on, and an AI agent or a script needs --allow-dangerous; on a\nprotected server or conn, a person's yes (--yes) as well.",
+        "long": "Run any docker subcommand (the same safety rules apply).\n\nSafety: a change; try it with --dry-run first; when the docker command\ndeletes or stops something: dangerous, it cannot be undone: a person types\nthe name to go on, and an AI agent or a script needs --allow-dangerous.",
         "example": "  komando docker raw web1 -- network ls",
         "flags": [
           {
@@ -19436,19 +18732,19 @@
         "code": "CACHE_ERROR",
         "exit": 5,
         "example": "this memcached cannot list keys: …",
-        "hint": "start memcached with the LRU crawler on (the default since 1.5); `cache get` works without it"
+        "hint": "start memcached with the LRU crawler on (the default since 1.5); `komando cache memcached raw NAME -- get KEY` works without it"
       },
       {
         "code": "CACHE_KEY_NOT_FOUND",
         "exit": 3,
         "example": "no cache key named …",
-        "hint": "list keys with `komando cache keys CONN 'pattern*'`"
+        "hint": "list keys with `komando cache redis raw NAME -- SCAN 0 MATCH 'pattern*'`"
       },
       {
         "code": "CACHE_SECTION_NOT_FOUND",
         "exit": 3,
         "example": "INFO … returned nothing",
-        "hint": "this server has no such section; try `komando cache info CONN --all`"
+        "hint": "this server has no such section; try `komando cache redis raw NAME -- INFO`"
       },
       {
         "code": "CANCELLED",
@@ -19663,7 +18959,7 @@
       {
         "code": "DOCKER_OBJECT_NOT_FOUND",
         "exit": 3,
-        "hint": "list what exists with `komando docker ps TARGET --all` or `komando cluster list TARGET services`"
+        "hint": "list what exists with `komando docker ps TARGET --all` or `komando cluster swarm raw NAME -- service ls`"
       },
       {
         "code": "DOCKER_PERMISSION",
@@ -19789,13 +19085,13 @@
         "code": "HELM_RELEASE_NOT_FOUND",
         "exit": 3,
         "example": "no Helm release named … in namespace …",
-        "hint": "see the releases with `komando cluster helm list TARGET -A`, and name the namespace with --namespace"
+        "hint": "see the releases with the helm-list snippet, and name the namespace with --var namespace=NAME"
       },
       {
         "code": "HELM_REVISION_NOT_FOUND",
         "exit": 3,
         "example": "… has no revision …",
-        "hint": "see the revisions with `komando cluster helm history TARGET RELEASE`"
+        "hint": "see the revisions with the helm-release snippet"
       },
       {
         "code": "HIDDEN_VALUE",
@@ -19915,7 +19211,7 @@
         "code": "K8S_CONFLICT",
         "exit": 8,
         "example": "the object changed or exists already (the cluster's words follow)",
-        "hint": "the object changed meanwhile or exists already: look at it with `komando cluster get TARGET TYPE/NAME`, then run it again"
+        "hint": "the object changed meanwhile or exists already: look at it with `komando cluster kubernetes raw NAME -- get TYPE/NAME -o yaml`, then run it again"
       },
       {
         "code": "K8S_CONTAINER_NOT_FOUND",
@@ -19927,7 +19223,7 @@
         "code": "K8S_ERROR",
         "exit": 5,
         "example": "the Kubernetes API answered with an error (its words follow)",
-        "hint": "read the cluster's words; `komando cluster events TARGET --warnings` shows what went wrong lately"
+        "hint": "read the cluster's words; `komando cluster kubernetes raw NAME -- get events` shows what went wrong lately"
       },
       {
         "code": "K8S_FORBIDDEN",
@@ -19944,13 +19240,13 @@
       {
         "code": "K8S_NOT_FOUND",
         "exit": 3,
-        "hint": "list what exists with `komando cluster list TARGET pods` (or deployments, services ...)"
+        "hint": "list what exists with `komando cluster kubernetes raw NAME -- get pods` (or deployments, services ...)"
       },
       {
         "code": "K8S_POD_NOT_FOUND",
         "exit": 3,
         "example": "… has no running pod",
-        "hint": "check them with `komando cluster list TARGET pods`"
+        "hint": "check them with `komando cluster kubernetes raw NAME -- get pods`"
       },
       {
         "code": "KEYCHAIN_FAILED",
@@ -20520,7 +19816,7 @@
         "code": "REVISION_NOT_FOUND",
         "exit": 3,
         "example": "no earlier revision to go back to",
-        "hint": "see the revisions with `komando cluster history TARGET TYPE/NAME`"
+        "hint": "see the revisions with `komando cluster kubernetes raw NAME -- rollout history TYPE/NAME`"
       },
       {
         "code": "REVOKE_FAILED",
@@ -20532,13 +19828,13 @@
         "code": "ROLLOUT_FAILED",
         "exit": 5,
         "example": "pods stuck for …",
-        "hint": "see why with `komando cluster describe TARGET …`; `komando cluster rollback` goes back"
+        "hint": "see why with `komando cluster kubernetes raw NAME -- describe TYPE/NAME`; `-- rollout undo` goes back"
       },
       {
         "code": "ROLLOUT_TIMEOUT",
         "exit": 7,
         "example": "not rolled out after … (replicas …)…",
-        "hint": "see the tasks with `komando cluster describe … service/…`"
+        "hint": "see the tasks with `komando cluster swarm raw NAME -- service ps SERVICE`"
       },
       {
         "code": "RULE_NOT_FOUND",
@@ -20957,19 +20253,19 @@
         "code": "SWARM_OBJECT_NOT_FOUND",
         "exit": 3,
         "example": "no … named …",
-        "hint": "list what exists with `komando cluster list TARGET …s`"
+        "hint": "list what exists with `komando cluster swarm raw NAME -- service ls`"
       },
       {
         "code": "SWARM_SERVICE_NOT_FOUND",
         "exit": 3,
         "example": "no service named …",
-        "hint": "list services with `komando cluster list TARGET services`"
+        "hint": "list services with `komando cluster swarm raw NAME -- service ls`"
       },
       {
         "code": "SWARM_STACK_NOT_FOUND",
         "exit": 3,
         "example": "no stack named …",
-        "hint": "list the stacks with `komando cluster list … stacks`"
+        "hint": "list the stacks with `komando cluster swarm raw NAME -- stack ls`"
       },
       {
         "code": "SYMLINK_LOOP",
@@ -21011,7 +20307,7 @@
         "code": "TOOL_FAILED",
         "exit": 5,
         "example": "kubectl exited …",
-        "hint": "read the error output (stderr) for the reason; `komando cluster events TARGET --warnings` shows the cluster's recent problems"
+        "hint": "read the error output (stderr) for the reason; `komando cluster kubernetes raw NAME -- get events` shows the cluster's recent problems"
       },
       {
         "code": "TOOL_MISSING",

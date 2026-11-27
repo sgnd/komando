@@ -131,8 +131,6 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | Command | When | Tier | Flag |
 |---|---|---|---|
 | `queue kafka message delete` | always | dangerous | `--allow-dangerous` |
-| `cache redis raw` | the command deletes keys (`DEL`, `FLUSHALL`, ...) | dangerous | `--allow-dangerous` |
-| `cluster kubernetes raw` | `delete`, `drain`, or `scale` to 0 | dangerous | `--allow-dangerous` |
 | `db user rm` | always | dangerous | `--allow-dangerous` |
 | `db kill` | a person types the name of what goes | change |  |
 | `fs rm` | always | dangerous | `--allow-dangerous` |

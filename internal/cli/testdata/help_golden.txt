@@ -40,13 +40,13 @@ Servers:
   upload       Upload a file to servers (many at once) or to file storage
 
 Data:
-  cache        Caches (Redis, Valkey, memcached): read and change keys
+  cache        Caches (Redis, Valkey, memcached): save them, run commands
   db           Databases: query safely, look at the schema, back up, restore
   queue        Queues (Kafka, RabbitMQ, NATS, SQS, Pub/Sub): read, send, manage
   storage      Buckets (S3, GCS, Azure) and file servers: browse, copy, remove
 
 Platform:
-  cluster      Kubernetes clusters: save, check, read logs, roll out, scale
+  cluster      Kubernetes and Docker Swarm: save clusters, run commands
   registry     Container registries: see images, copy them, clean up
 
 Inventory:
@@ -194,13 +194,10 @@ Global Flags (all of them: komando --help):
 ### komando cache --help
 exit 0
 --- stdout
-Read and change keys in Redis, Valkey or memcached. Add a cache with
-`komando cache redis add`.
-
-get, keys and info only read. set changes data (a protected cache asks
-first); rm deletes keys, so it also needs --allow-dangerous. `cache redis
-raw` sends any command, but only reads unless --write; commands that flush,
-block, run scripts or reconfigure the server also need --allow-dangerous.
+Save a cache with `komando cache redis add`, then run its native commands
+with `cache redis raw`. raw only reads unless --write (a protected cache
+asks first); commands that flush, block, run scripts, delete keys or
+reconfigure the server also need --allow-dangerous.
 
 Usage:
   komando cache [flags]
@@ -211,19 +208,12 @@ Aliases:
 
 Examples:
   komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password
-  komando cache info prod-redis
-  komando cache keys prod-redis 'session:*'
-  komando cache get prod-redis session:42
-  komando cache set prod-redis maintenance on --ttl 30m --dry-run
+  komando cache redis raw prod-redis GET session:42
+  komando cache redis raw prod-redis SET maintenance on --write
 
 Available Commands:
-  get         Show a key: its type, time to live and value (any type)
-  info        Server summary: version, role, memory, clients, keys, hit rate
-  keys        List keys matching a pattern (uses SCAN, so a big cache is not blocked)
   memcached   Memcached caches: save them, and send them a command
   redis       Redis caches: save them, and send them a command
-  rm          Delete keys by exact name, never by pattern
-  set         Set a string key, replacing any old value
 
 Flags:
   -h, --help[=true|false]   help for cache
@@ -237,85 +227,6 @@ Global Flags (all of them: komando --help):
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 
 Use "komando cache [command] --help" for more information about a command.
---- stderr
-### komando cache get --help
-exit 0
---- stdout
-Show a key: its type, time to live and value (any type)
-
-Usage:
-  komando cache get CONN KEY [flags]
-
-Examples:
-  komando cache get prod-redis session:42
-  komando cache get prod-redis leaderboard --limit 10
-
-Flags:
-  -h, --help[=true|false]   help for get
-  -n, --limit int           the most items to show of a hash, list, set or sorted set (default 100)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando cache info --help
-exit 0
---- stdout
-Without arguments, a short summary: version, role, uptime, memory use and
-limit, eviction policy, clients, keys per database and the hit rate. A
-SECTION (server, clients, memory, persistence, stats, replication, cpu,
-commandstats, keyspace, ...) or --all shows the raw INFO fields.
-
-Usage:
-  komando cache info CONN [SECTION] [flags]
-
-Examples:
-  komando cache info prod-redis
-  komando cache info prod-redis memory
-  komando cache info prod-redis --all
-
-Flags:
-  -a, --all[=true|false]    every field of the default INFO sections
-  -h, --help[=true|false]   help for info
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando cache keys --help
-exit 0
---- stdout
-List keys matching a pattern (uses SCAN, so a big cache is not blocked)
-
-Usage:
-  komando cache keys CONN [PATTERN] [flags]
-
-Aliases:
-  keys, list, ls
-
-Examples:
-  komando cache keys prod-redis 'session:*'
-  komando cache keys prod-redis --limit 1000
-
-Flags:
-  -h, --help[=true|false]   help for keys
-  -n, --limit int           the most keys to return (default 100)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
 ### komando cache memcached --help
 exit 0
@@ -859,65 +770,6 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando cache rm --help
-exit 0
---- stdout
-Delete keys by exact name, never by pattern.
-
-Safety: dangerous, it cannot be undone: a person types the name to go on,
-and an AI agent or a script needs --allow-dangerous; on a protected server
-or conn, a person's yes (--yes) as well.
-
-Usage:
-  komando cache rm CONN KEY... [flags]
-
-Aliases:
-  rm, remove, delete, del
-
-Examples:
-  komando cache rm prod-redis session:42 session:43 --dry-run
-  komando cache rm prod-redis session:42 session:43 --allow-dangerous   # after a person's yes
-
-Flags:
-  -h, --help[=true|false]   help for rm
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando cache set --help
-exit 0
---- stdout
-Set a string key, replacing any old value.
-
-Safety: a change; try it with --dry-run first; on a protected server or
-conn, a person's yes (--yes) as well.
-
-Usage:
-  komando cache set CONN KEY VALUE [flags]
-
-Examples:
-  komando cache set prod-redis feature:dark-mode on
-  komando cache set prod-redis feature:dark-mode on --dry-run
-  komando cache set prod-redis maintenance true --ttl 30m
-  komando cache set prod-redis report:weekly done --ttl 7d
-
-Flags:
-  -h, --help[=true|false]   help for set
-      --ttl duration        expire the key after this long (like 30m, 24h, 7d); 0 or left out: never
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
 ### komando cert --help
 exit 0
 --- stdout
@@ -1000,15 +852,11 @@ Global Flags (all of them: komando --help):
 ### komando cluster --help
 exit 0
 --- stdout
-TARGET is a Kubernetes cluster saved with `komando cluster kubernetes add`
-or a Swarm manager server. Reads need nothing; restart, scale and apply
-change the cluster (protected targets need --yes; try --dry-run); rm needs
---allow-dangerous. Anything else: `cluster kubernetes raw` passes the native
-kubectl command, read-only unless --write.
-
-A cluster's usual namespace is its kubeconfig context's; change it with
-`komando cluster kubernetes edit NAME --option namespace=shop`, or name one
-per command with --namespace.
+Save a Kubernetes cluster with `komando cluster kubernetes add`, or use a
+Swarm manager server. `cluster kubernetes raw` passes the native kubectl
+command, read-only unless --write; protected targets need --yes, and a
+command that deletes or scales to zero also needs --allow-dangerous. The
+built-in snippets helm-list and helm-release read the Helm releases.
 
 Usage:
   komando cluster [flags]
@@ -1019,27 +867,12 @@ Aliases:
 
 Examples:
   komando cluster kubernetes add prod-k8s k8s://api.cluster.example:6443 --credential prod-kubeconfig
-  komando cluster status prod-k8s                     # version, nodes, what is not healthy
-  komando cluster list prod-k8s pods --namespace shop
-  komando cluster logs prod-k8s deploy/api --namespace shop -f
-  komando cluster deploy prod-k8s deploy/api --image ghcr.io/acme/api:1.4.3 --namespace shop --wait
+  komando cluster kubernetes raw prod-k8s get pods --namespace shop
+  komando cluster kubernetes raw prod-k8s logs deploy/api --namespace shop
+  komando cluster swarm raw swarm1 service ls
 
 Available Commands:
-  apply       Apply Kubernetes YAML or deploy a Swarm stack
-  deploy      Roll out a new image
-  describe    One object in short: state, images, conditions, pods, events
-  events      Recent events, oldest first (--warnings for problems only)
-  get         Show one object in full, Secret values hidden
-  helm        Helm releases, read only: see their state, history and values
-  history     Revisions of a deployment, newest first, with their images
   kubernetes  Kubernetes clusters: save them, and run commands on them
-  list        List pods, deployments, services, nodes ... (Swarm: services, tasks)
-  logs        Logs of a pod, a workload, a label (-l) or a Swarm service
-  restart     Restart a workload with a rolling restart, or a Swarm service
-  rm          Delete an object, service or stack
-  rollback    Go back to an earlier version of a workload
-  scale       Set the number of replicas
-  status      Show the version, the nodes and what is not healthy
   swarm       Docker Swarm: run docker commands on a manager server
 
 Flags:
@@ -1054,329 +887,6 @@ Global Flags (all of them: komando --help):
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 
 Use "komando cluster [command] --help" for more information about a command.
---- stderr
-### komando cluster apply --help
-exit 0
---- stdout
-Kubernetes: applies every object in FILE server-side and says per object
-whether it was created, configured or unchanged. --dry-run asks the server
-what would change and shows it as a diff (Secret values stay hidden; a
-changed value shows as "[hidden, changed]"). Objects without a namespace go
-to --namespace; one that names another namespace is refused.
-
-Safety: a change; try it with --dry-run first; on a protected server or
-conn, a person's yes (--yes) as well.
-
-A field another field manager owns (an autoscaler's replicas, a kubectl
-edit) stops the apply with K8S_CONFLICT naming that manager, and nothing
-is applied. --force-conflicts takes those fields over, as
-`kubectl apply --server-side --force-conflicts` does.
-
-Swarm: deploys FILE (a compose file) as the stack --stack; --dry-run checks
-the file with `docker stack config` on the manager.
-
-Usage:
-  komando cluster apply TARGET --file FILE [flags]
-
-Examples:
-  komando cluster apply prod-k8s --file app.yaml --dry-run
-  komando cluster apply prod-k8s --file app.yaml
-  komando cluster apply swarm1 --file compose.yml --stack shop
-
-Flags:
-  -f, --file string                    YAML file ('-' for stdin)
-      --force-conflicts[=true|false]   Kubernetes: take over fields another field manager owns
-  -h, --help[=true|false]              help for apply
-  -n, --namespace string               Kubernetes namespace (default: the context's, else default)
-      --stack string                   Swarm: the stack name
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando cluster deploy --help
-exit 0
---- stdout
-Sets the image of a deployment, statefulset or daemonset (Kubernetes) or a
-service (Swarm). With several containers, name one with --container (or
-write --image NAME=IMAGE). --wait stays until every replica runs the new
-image, the rollout fails, or --timeout (default 5m) passes; go back with
-`komando cluster rollback`.
-
-Safety: a change; try it with --dry-run first; on a protected server or
-conn, a person's yes (--yes) as well.
-
-Usage:
-  komando cluster deploy TARGET TYPE/NAME --image IMAGE [flags]
-
-Examples:
-  komando cluster deploy prod-k8s deployment/api --image ghcr.io/acme/api:1.4.3 --namespace shop --wait
-  komando cluster deploy prod-k8s deployment/api --image ghcr.io/acme/api:1.4.3 --namespace shop --wait --dry-run
-  komando cluster deploy swarm1 service/web --image nginx:1.27 --wait
-
-Flags:
-  -c, --container string    which container gets the image (needed when there are several)
-  -h, --help[=true|false]   help for deploy
-      --image string        the new image, like ghcr.io/acme/api:1.4.3 (or CONTAINER=IMAGE)
-  -n, --namespace string    Kubernetes namespace (default: the context's, else default)
-      --wait[=true|false]   wait until the rollout finishes (or fails; --timeout, default 5m)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando cluster describe --help
-exit 0
---- stdout
-One object in short: state, images, conditions, its pods or tasks, and
-recent events.
-
-Usage:
-  komando cluster describe TARGET TYPE/NAME [flags]
-
-Examples:
-  komando cluster describe prod-k8s pod/api-7d9f-x2 --namespace shop
-  komando cluster describe prod-k8s deployment/api --namespace shop
-  komando cluster describe swarm1 service/web
-
-Flags:
-  -h, --help[=true|false]   help for describe
-  -n, --namespace string    Kubernetes namespace (default: the context's, else default)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando cluster events --help
-exit 0
---- stdout
-Recent events, oldest first (--warnings for problems only, --for TYPE/NAME
-for one object).
-
-Usage:
-  komando cluster events TARGET [flags]
-
-Examples:
-  komando cluster events prod-k8s --namespace shop --warnings
-  komando cluster events @prod --warnings -A    # problems in every cluster of the group
-  komando cluster events prod-k8s --for deployment/api --namespace shop
-
-Flags:
-  -A, --all-namespaces[=true|false]   every namespace
-      --for string                    only events about this object, like deployment/api
-  -h, --help[=true|false]             help for events
-      --limit int                     the most events to show (the newest) (default 100)
-  -n, --namespace string              Kubernetes namespace (default: the context's, else default)
-      --warnings[=true|false]         only Warning events
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando cluster get --help
-exit 0
---- stdout
-Show one object in full, Secret values hidden
-
-Usage:
-  komando cluster get TARGET TYPE/NAME [flags]
-
-Examples:
-  komando cluster get prod-k8s deployment/api --namespace shop
-  komando cluster get prod-k8s deployment.apps/api --namespace shop
-  komando cluster get swarm1 service/web
-
-Flags:
-  -h, --help[=true|false]   help for get
-  -n, --namespace string    Kubernetes namespace (default: the context's, else default)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando cluster helm --help
-exit 0
---- stdout
-Reads the Helm releases stored in a Kubernetes cluster, without the helm
-program. It only reads: install, upgrade and rollback stay with helm. The
-kubeconfig's user needs to list Secrets where the releases are.
-
-Usage:
-  komando cluster helm [flags]
-  komando cluster helm [command]
-
-Examples:
-  komando cluster helm list prod-k8s -A
-  komando cluster helm status prod-k8s shop --namespace shop
-  komando cluster helm history prod-k8s shop --namespace shop
-  komando cluster helm values prod-k8s shop --namespace shop
-
-Available Commands:
-  history     Every stored revision of a Helm release, oldest first
-  list        Helm releases: name, revision, status, chart and app version
-  status      One Helm release: status, chart, when it was deployed, and its notes
-  values      Show the values a Helm release was installed with
-
-Flags:
-  -h, --help[=true|false]   help for helm
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
-
-Use "komando cluster helm [command] --help" for more information about a command.
---- stderr
-### komando cluster helm history --help
-exit 0
---- stdout
-Every stored revision of a Helm release, oldest first
-
-Usage:
-  komando cluster helm history TARGET RELEASE [flags]
-
-Examples:
-  komando cluster helm history prod-k8s shop-api --namespace shop
-
-Flags:
-  -h, --help[=true|false]   help for history
-      --limit int           show at most this many revisions, newest kept (0 = all)
-  -n, --namespace string    Kubernetes namespace (default: the context's, else default)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando cluster helm list --help
-exit 0
---- stdout
-Helm releases: name, revision, status, chart and app version
-
-Usage:
-  komando cluster helm list TARGET [flags]
-
-Aliases:
-  list, ls
-
-Examples:
-  komando cluster helm list prod-k8s -A
-  komando cluster helm list prod-k8s --namespace shop
-  komando cluster helm list @prod -A              # every cluster in the group
-
-Flags:
-  -A, --all-namespaces[=true|false]   every namespace
-  -h, --help[=true|false]             help for list
-      --limit int                     show at most this many releases per cluster (0 = all)
-  -n, --namespace string              Kubernetes namespace (default: the context's, else default)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando cluster helm status --help
-exit 0
---- stdout
-One Helm release: status, chart, when it was deployed, and its notes
-
-Usage:
-  komando cluster helm status TARGET RELEASE [flags]
-
-Examples:
-  komando cluster helm status prod-k8s shop-api --namespace shop
-
-Flags:
-  -h, --help[=true|false]   help for status
-  -n, --namespace string    Kubernetes namespace (default: the context's, else default)
-      --revision int        this revision instead of the newest
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando cluster helm values --help
-exit 0
---- stdout
-Show the values a Helm release was installed with
-
-Usage:
-  komando cluster helm values TARGET RELEASE [flags]
-
-Examples:
-  komando cluster helm values prod-k8s shop-api --namespace shop
-  komando cluster helm values prod-k8s shop-api --namespace shop --all --revision 3
-
-Flags:
-  -a, --all[=true|false]    the chart's default values too, as Helm merged them
-  -h, --help[=true|false]   help for values
-  -n, --namespace string    Kubernetes namespace (default: the context's, else default)
-      --revision int        this revision instead of the newest
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando cluster history --help
-exit 0
---- stdout
-Revisions of a deployment, newest first, with their images
-
-Usage:
-  komando cluster history TARGET TYPE/NAME [flags]
-
-Examples:
-  komando cluster history prod-k8s deployment/api --namespace shop
-
-Flags:
-  -h, --help[=true|false]   help for history
-      --limit int           show at most this many revisions, newest first (0 = all)
-  -n, --namespace string    Kubernetes namespace (default: the context's, else default)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
 ### komando cluster kubernetes --help
 exit 0
@@ -1758,241 +1268,6 @@ Examples:
 Flags:
   -h, --help[=true|false]   help for start
   -n, --namespace string    Kubernetes namespace (default: the context's, else default)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando cluster list --help
-exit 0
---- stdout
-List pods, deployments, services, nodes, ... (Swarm: services, tasks, nodes,
-stacks).
-
-Usage:
-  komando cluster list TARGET TYPE [flags]
-
-Aliases:
-  list, ls
-
-Examples:
-  komando cluster list prod-k8s pods --namespace shop
-  komando cluster list prod-k8s deploy -A
-  komando cluster list @prod nodes                # every cluster in the group
-  komando cluster list swarm1 services
-  komando cluster list swarm1 tasks --limit 20
-
-Flags:
-  -A, --all-namespaces[=true|false]   every namespace
-  -h, --help[=true|false]             help for list
-      --limit int                     the most objects to show (default 500)
-  -n, --namespace string              Kubernetes namespace (default: the context's, else default)
-  -l, --selector string               only objects with these labels, like app=api or 'tier in (web,api)'
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando cluster logs --help
-exit 0
---- stdout
-Name a pod, a workload (deploy/api, statefulset/db, svc/web: all its pods)
-or pick pods by label with -l. Lines from several pods start with [pod]. -f
-keeps reading until Ctrl-C or --timeout (both end it normally); it follows
-the pods that exist when it starts. --since takes a duration back from now
-(10m, 2h) or a time (2026-01-02T10:00:00Z).
-
-Usage:
-  komando cluster logs TARGET [POD|TYPE/NAME] [flags]
-
-Examples:
-  komando cluster logs prod-k8s api-7d9f-x2 --namespace shop --since 10m
-  komando cluster logs prod-k8s deploy/api --namespace shop -f
-  komando cluster logs prod-k8s -l app=api --namespace shop --limit 50
-  komando cluster logs swarm1 service/web -f
-
-Flags:
-  -c, --container string          container in the pod
-  -f, --follow[=true|false]       keep reading new lines (Ctrl-C or --timeout stops)
-  -h, --help[=true|false]         help for logs
-      --limit int                 the most lines per pod (the last ones) (default 200)
-  -n, --namespace string          Kubernetes namespace (default: the context's, else default)
-      --previous[=true|false]     the previous run of a restarted container
-  -l, --selector string           read every pod with these labels, like app=api
-      --since string              only newer than this: 10m, 2h, or a time like 2026-01-02T10:00:00Z
-      --timestamps[=true|false]   start each line with its time
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando cluster restart --help
-exit 0
---- stdout
-Restart a workload with a rolling restart, or a Swarm service.
-
-Safety: a change; try it with --dry-run first; on a protected server or
-conn, a person's yes (--yes) as well.
-
-Usage:
-  komando cluster restart TARGET TYPE/NAME [flags]
-
-Examples:
-  komando cluster restart prod-k8s deployment/api --namespace shop --wait
-  komando cluster restart prod-k8s deployment/api --namespace shop --wait --dry-run
-  komando cluster restart swarm1 service/web
-
-Flags:
-  -h, --help[=true|false]   help for restart
-  -n, --namespace string    Kubernetes namespace (default: the context's, else default)
-      --wait[=true|false]   wait until the restart has rolled out (--timeout, default 5m)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando cluster rm --help
-exit 0
---- stdout
-Delete an object (Kubernetes) or a service or stack (Swarm); needs
---allow-dangerous.
-
-Safety: dangerous, it cannot be undone: a person types the name to go on,
-and an AI agent or a script needs --allow-dangerous; on a protected server
-or conn, a person's yes (--yes) as well.
-
-Usage:
-  komando cluster rm TARGET TYPE/NAME [flags]
-
-Aliases:
-  rm, remove, delete, del
-
-Examples:
-  komando cluster rm prod-k8s pod/api-7d9f-x2 --namespace shop --dry-run
-  komando cluster rm prod-k8s pod/api-7d9f-x2 --namespace shop --allow-dangerous   # after a person's yes
-  komando cluster rm swarm1 service/web --dry-run
-  komando cluster rm swarm1 service/web --allow-dangerous   # after a person's yes
-
-Flags:
-  -h, --help[=true|false]   help for rm
-  -n, --namespace string    Kubernetes namespace (default: the context's, else default)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando cluster rollback --help
-exit 0
---- stdout
-Without --revision, a deployment goes back to the newest earlier revision
-that runs other images than now. After a rollback, the revision it replaced
-(the broken one) is skipped, so a second rollback does not bring it back;
---revision picks any revision. A Swarm service goes back to its previous
-version.
-
-Safety: a change; try it with --dry-run first; on a protected server or
-conn, a person's yes (--yes) as well.
-
-Usage:
-  komando cluster rollback TARGET TYPE/NAME [flags]
-
-Examples:
-  komando cluster rollback prod-k8s deployment/api --namespace shop --wait
-  komando cluster rollback prod-k8s deployment/api --namespace shop --wait --dry-run
-  komando cluster rollback prod-k8s deployment/api --revision 3 --namespace shop
-  komando cluster rollback swarm1 service/web
-
-Flags:
-  -h, --help[=true|false]   help for rollback
-  -n, --namespace string    Kubernetes namespace (default: the context's, else default)
-      --revision int        the revision to go back to (default: the previous one with other images)
-      --wait[=true|false]   wait until the rollback finishes (--timeout, default 5m)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando cluster scale --help
-exit 0
---- stdout
-Set the number of replicas.
-
-Safety: a change; try it with --dry-run first; REPLICAS is 0: dangerous, it
-cannot be undone: a person types the name to go on, and an AI agent or a
-script needs --allow-dangerous; on a protected server or conn, a person's
-yes (--yes) as well.
-
-Usage:
-  komando cluster scale TARGET TYPE/NAME REPLICAS [flags]
-
-Examples:
-  komando cluster scale prod-k8s deployment/api 3 --namespace shop --wait
-  komando cluster scale prod-k8s deployment/api 3 --namespace shop --wait --dry-run
-  komando cluster scale swarm1 service/web 4
-
-Flags:
-  -h, --help[=true|false]   help for scale
-  -n, --namespace string    Kubernetes namespace (default: the context's, else default)
-      --wait[=true|false]   wait until every replica is ready (--timeout, default 5m)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando cluster status --help
-exit 0
---- stdout
-Without an object: the version, the nodes, and every problem (pods that do
-not run, workloads short of replicas, nodes that are not ready; on Swarm,
-services short of replicas with their tasks' errors). --namespace limits it
-to one namespace. A selector that picks several clusters (@prod, kind:k8s)
-shows each in data.results.
-
-With TYPE/NAME (or TYPE NAME) on one cluster: whether that workload has
-rolled out. --wait stays until it has, it fails, or --timeout (default 5m)
-passes.
-
-Usage:
-  komando cluster status TARGET [TYPE/NAME] [flags]
-
-Examples:
-  komando cluster status prod-k8s
-  komando cluster status @prod                  # every cluster in the group, at once
-  komando cluster status prod-k8s deployment/api --namespace shop --wait
-  komando cluster status swarm1 service/web --wait
-
-Flags:
-  -h, --help[=true|false]   help for status
-  -n, --namespace string    Kubernetes namespace (default: the context's, else default)
-      --wait[=true|false]   with TYPE/NAME: wait until it has rolled out (--timeout, default 5m)
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -3799,11 +3074,10 @@ Run any docker subcommand (the same safety rules apply).
 
 Safety: a change; try it with --dry-run first; when the docker command
 deletes or stops something: dangerous, it cannot be undone: a person types
-the name to go on, and an AI agent or a script needs --allow-dangerous; on a
-protected server or conn, a person's yes (--yes) as well.
+the name to go on, and an AI agent or a script needs --allow-dangerous.
 
 Usage:
-  komando docker raw TARGET -- ARGS... [flags]
+  komando docker raw NAME -- ARGS... [flags]
 
 Examples:
   komando docker raw web1 -- network ls

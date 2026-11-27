@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -138,39 +137,6 @@ func TestKubectlFailureNotFoundOnlyFromAPI(t *testing.T) {
 	if f := kubectlFailure(127, "sh: foo: not found\ncommand terminated with exit code 127\n"); f.Code != "TOOL_FAILED" || f.Exit != out.ExitRemote {
 		t.Errorf("exec: %+v", f)
 	}
-}
-
-// statusLab serves a cluster with a short StatefulSet and DaemonSet, and
-// refuses to list nodes, like a namespace-only account.
-func statusLab(t *testing.T) string {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		item := func(kind string, spec, status map[string]any) {
-			json.NewEncoder(w).Encode(map[string]any{"items": []any{map[string]any{"kind": kind,
-				"metadata": map[string]any{"name": "db", "namespace": "shop"}, "spec": spec, "status": status}}})
-		}
-		switch p := r.URL.Path; {
-		case p == "/version":
-			io.WriteString(w, `{"gitVersion":"v1.31.0"}`)
-		case p == "/api/v1/nodes":
-			w.WriteHeader(403)
-			io.WriteString(w, `{"reason":"Forbidden","message":"nodes is forbidden"}`)
-		case strings.HasSuffix(p, "/statefulsets"):
-			item("StatefulSet", map[string]any{"replicas": 3}, map[string]any{"readyReplicas": 0})
-		case strings.HasSuffix(p, "/daemonsets"):
-			item("DaemonSet", nil, map[string]any{"desiredNumberScheduled": 4, "numberReady": 3})
-		case strings.HasSuffix(p, "/pods"):
-			if r.URL.Query().Get("continue") == "" {
-				io.WriteString(w, `{"metadata":{"continue":"next"},"items":[]}`)
-				return
-			}
-			io.WriteString(w, `{"items":[{"metadata":{"name":"p","namespace":"shop"},"status":{"phase":"Pending"}}]}`)
-		default:
-			io.WriteString(w, `{"items":[]}`)
-		}
-	}))
-	t.Cleanup(srv.Close)
-	return srv.URL
 }
 
 // A context that cannot be imported keeps its name: a context whose name
