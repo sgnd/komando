@@ -343,10 +343,10 @@ func orcaNamesNoFile(args []string) bool {
 
 // lineForOthers is line as its command seg sees it: without the commands
 // that only print (printsOnly) and hand no word on through a pipe. Only a
-// plain line (plainLine) is narrowed; any other is returned whole.
+// plain line (plainShellLine) is narrowed; any other is returned whole.
 func lineForOthers(line, seg string) string {
 	segs, ends := shellCuts(line)
-	if !plainLine(line, segs, ends) {
+	if !plainShellLine(line, segs, ends) {
 		return line
 	}
 	var kept []string
@@ -359,20 +359,20 @@ func lineForOthers(line, seg string) string {
 	return strings.Join(kept, " ; ")
 }
 
-// plainLine says whether every command of line is plain literal text, so
+// plainShellLine says whether every command of line is plain literal text, so
 // that none hands another a word except through a pipe. A line is not
 // plain with a $, a backtick or a ! anywhere, a parenthesis outside quotes
 // (a subshell, <( and >(), a heredoc, a redirect to a file, a group, a
 // compound command, a background job, BASH_COMMAND, a source (.) or a word
 // of lineCarrier or a shell anywhere. A line that is not plain is checked
 // whole: a false refusal is the safe side.
-func plainLine(line string, segs []string, ends []byte) bool {
+func plainShellLine(line string, segs []string, ends []byte) bool {
 	if ends == nil || strings.ContainsAny(line, "$`!") || strings.Contains(line, "<<") ||
 		strings.Contains(line, "BASH_COMMAND") || len(redirectFiles(line)) > 0 {
 		return false
 	}
 	for i, e := range ends {
-		if e == '(' || e == ')' || e == '&' && background(segs, ends, i) {
+		if e == '(' || e == ')' || e == '&' && backgroundJob(segs, ends, i) {
 			return false
 		}
 	}
@@ -390,9 +390,9 @@ func plainLine(line string, segs []string, ends []byte) bool {
 	return true
 }
 
-// background says whether the & that ends segs[i] runs it in the
+// backgroundJob says whether the & that ends segs[i] runs it in the
 // background: it is not half of && and not the & of |&.
-func background(segs []string, ends []byte, i int) bool {
+func backgroundJob(segs []string, ends []byte, i int) bool {
 	first := i+1 < len(segs) && segs[i+1] == "" && ends[i+1] == '&'
 	second := i > 0 && segs[i] == "" && (ends[i-1] == '&' || ends[i-1] == '|')
 	return !first && !second
