@@ -11,7 +11,7 @@ import (
 	"github.com/sgnd/komando/internal/out"
 )
 
-// `storage mkdir`, `storage mv` and `storage chmod`: what every kind
+// `storage mkdir`, `storage s3 object move` and `storage chmod`: what every kind
 // shares. Each kind's own steps are next to the rest of its code.
 
 // MoveOpts says how Move goes.
@@ -68,7 +68,7 @@ func renameOver(rename func(from, to string) error, remove func(p string) error,
 	if err := rename(ps, pd); err != nil {
 		if rerr := rename(old, pd); rerr != nil {
 			aside := path.Join(path.Dir(d), path.Base(old))
-			return out.Errf(out.ExitRemote, "MOVE_FAILED", "put the old file back: `komando storage mv CONN "+arg(aside)+" "+arg(d)+"`",
+			return out.Errf(out.ExitRemote, "MOVE_FAILED", "put the old file back: `komando storage s3 object move NAME "+arg(aside)+" "+arg(d)+"`",
 				"could not rename %q to %q (%v), nor put the old %q back from %q (%v)", s, d, err, d, aside, rerr)
 		}
 		return wrap(err)
@@ -80,7 +80,7 @@ func renameOver(rename func(from, to string) error, remove func(p string) error,
 // copyFailed is the error for a server-side copy that ended badly; src
 // stays where it was.
 func copyFailed(store, src, dst, why string) error {
-	return out.Errf(out.ExitRemote, "MOVE_FAILED", fmt.Sprintf("run it again: `komando storage mv CONN %s %s`", arg(src), arg(dst)),
+	return out.Errf(out.ExitRemote, "MOVE_FAILED", fmt.Sprintf("run it again: `komando storage s3 object move NAME %s %s`", arg(src), arg(dst)),
 		"the copy on the server (%s) ended badly: %s; %q was kept", store, why, src)
 }
 
@@ -105,12 +105,12 @@ func arg(s string) string {
 
 // NotThere is the error for a name with nothing at it.
 func NotThere(rel string) error {
-	return out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list what is there with `komando storage list CONN [PREFIX]`",
+	return out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list what is there with `komando storage s3 object list NAME [PREFIX]`",
 		"no file or folder named %q", rel)
 }
 
 func fileInTheWay(rel string) error {
-	return out.Errf(out.ExitConflict, "FILE_EXISTS", "pick another name; `komando storage list CONN [PREFIX]` shows what is there",
+	return out.Errf(out.ExitConflict, "FILE_EXISTS", "pick another name; `komando storage s3 object list NAME [PREFIX]` shows what is there",
 		"a file named %q is already there", rel)
 }
 
@@ -141,7 +141,7 @@ func checkMove(ctx context.Context, b lookuper, src, dst string, o MoveOpts, obj
 	}
 	if so.Dir && objectStore != "" {
 		return Moved{}, out.Errf(out.ExitUsage, "STORAGE_UNSUPPORTED",
-			fmt.Sprintf("list the objects in it with `komando storage list CONN %s --recursive` and move them one at a time", arg(s+"/")),
+			fmt.Sprintf("list the objects in it with `komando storage s3 object list NAME %s --recursive` and move them one at a time", arg(s+"/")),
 			"%q is a folder: %s has no folders to rename, only objects, and mv moves one object", s, objectStore)
 	}
 	do, found, err := b.Lookup(ctx, d)
@@ -151,14 +151,14 @@ func checkMove(ctx context.Context, b lookuper, src, dst string, o MoveOpts, obj
 	switch {
 	case found && do.Dir:
 		return Moved{}, out.Errf(out.ExitConflict, "FILE_EXISTS",
-			fmt.Sprintf("to move it into that folder, end DST with /: `komando storage mv CONN %s %s`", arg(s), arg(d+"/")),
+			fmt.Sprintf("to move it into that folder, end DST with /: `komando storage s3 object move NAME %s %s`", arg(s), arg(d+"/")),
 			"%q is a folder", d)
 	case found && so.Dir:
 		return Moved{}, out.Errf(out.ExitConflict, "FILE_EXISTS", "pick another DST; a folder never replaces a file",
 			"a file named %q is already there", d)
 	case found && !o.Overwrite:
 		return Moved{}, out.Errf(out.ExitConflict, "FILE_EXISTS",
-			fmt.Sprintf("replace it with `komando storage mv CONN %s %s --overwrite`, or pick another DST", arg(s), arg(d)),
+			fmt.Sprintf("replace it with `komando storage s3 object move NAME %s %s --overwrite`, or pick another DST", arg(s), arg(d)),
 			"a file named %q is already there", d)
 	}
 	return Moved{Folder: so.Dir, Replaced: found, Size: so.Size}, nil
@@ -201,11 +201,11 @@ func copyMove(ctx context.Context, b objectCopier, src, dst string, o MoveOpts, 
 	if err != nil {
 		// a copy that does not match is wrong data: it goes, src stays
 		_ = b.Remove(ctx, d)
-		return m, out.Errf(out.ExitRemote, "MOVE_FAILED", fmt.Sprintf("run it again: `komando storage mv CONN %s %s`", arg(s), arg(d)),
+		return m, out.Errf(out.ExitRemote, "MOVE_FAILED", fmt.Sprintf("run it again: `komando storage s3 object move NAME %s %s`", arg(s), arg(d)),
 			"the copy at %q could not be checked against %q (%v); %q was kept and the copy deleted", d, s, err, s)
 	}
 	if err := b.Remove(ctx, s); err != nil {
-		return m, out.Errf(out.ExitRemote, "MOVE_FAILED", fmt.Sprintf("delete the old one: `komando storage rm CONN %s`", arg(s)),
+		return m, out.Errf(out.ExitRemote, "MOVE_FAILED", fmt.Sprintf("delete the old one: `komando storage s3 object delete NAME %s`", arg(s)),
 			"copied %q to %q and checked the copy, but could not delete %q (%v); both are there now", s, d, s, err)
 	}
 	return m, nil

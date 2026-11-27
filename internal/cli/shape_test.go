@@ -97,11 +97,11 @@ var clusterShapeCases = [][]string{
 // storageShapeCases run last, against an S3 conn "bk" whose bucket is in
 // memory (memBucket).
 var storageShapeCases = [][]string{
-	{"storage", "mkdir", "bk", "reports/2026", "--dry-run"},
-	{"storage", "mkdir", "bk", "reports/2026"},
-	{"storage", "mv", "bk", "a.txt", "archive/", "--dry-run"},
-	{"storage", "mv", "bk", "a.txt", "archive/"},
-	{"storage", "chmod", "bk", "0640", "archive/a.txt"},
+	{"storage", "s3", "object", "create", "bk", "reports/2026", "--dry-run"},
+	{"storage", "s3", "object", "create", "bk", "reports/2026"},
+	{"storage", "s3", "object", "move", "bk", "a.txt", "archive/", "--dry-run"},
+	{"storage", "s3", "object", "move", "bk", "a.txt", "archive/"},
+	{"storage", "s3", "object", "move", "bk", "archive/a.txt", "--mode", "0640"},
 }
 
 // TestOutputShapes: agents parse komando's JSON, so a field may be added

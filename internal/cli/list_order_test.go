@@ -117,7 +117,7 @@ func TestServerListsSortByName(t *testing.T) {
 	}
 }
 
-// fs ls and storage ls on SFTP: a server sends a folder in any order.
+// fs ls and storage s3 object list on SFTP: a server sends a folder in any order.
 func TestSFTPListingsSortByName(t *testing.T) {
 	dir := t.TempDir()
 	for _, f := range []string{"c", "b/z", "a", "b/y"} {

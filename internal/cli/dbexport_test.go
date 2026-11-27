@@ -100,7 +100,7 @@ func TestKindAddChecksFamily(t *testing.T) {
 	}{
 		{[]string{"db", "add"}, "redis://127.0.0.1:6379/0", "cache redis add"},
 		{[]string{"queue", "kafka", "add"}, "postgres://x@127.0.0.1/x", "db add"},
-		{[]string{"cache", "redis", "add"}, "s3://AKIAEXAMPLE@b/p?region=eu-west-1", "storage add"},
+		{[]string{"cache", "redis", "add"}, "s3://AKIAEXAMPLE@b/p?region=eu-west-1", "storage s3 add"},
 	} {
 		if e := wantCode(t, "WRONG_KIND", append(c.words, "x", c.url)...); !strings.Contains(e.Hint, c.want) {
 			t.Errorf("%v %s: hint %q", c.words, c.url, e.Hint)
@@ -143,11 +143,11 @@ func TestStorageLinkExpiresDays(t *testing.T) {
 	invHome(t)
 	mustRun(t, "conn", "add", "s3l", "s3://AKIAEXAMPLE@b?region=eu-west-1&endpoint=http://127.0.0.1:9")
 	defer func() { setGate(tcl, false, gateDryRun) }()
-	mustRun(t, "storage", "link", "s3l", "a.txt", "--expires", "7d", "--dry-run")
-	if e := wantCode(t, "USAGE", "storage", "link", "s3l", "a.txt", "--expires", "8d", "--dry-run"); !strings.Contains(e.Message, "7d") {
+	mustRun(t, "storage", "s3", "object", "link", "s3l", "a.txt", "--expires", "7d", "--dry-run")
+	if e := wantCode(t, "USAGE", "storage", "s3", "object", "link", "s3l", "a.txt", "--expires", "8d", "--dry-run"); !strings.Contains(e.Message, "7d") {
 		t.Errorf("8d: %s", e.Message)
 	}
-	if e := wantCode(t, "USAGE", "storage", "link", "s3l", "a.txt", "--expires", "30x"); !strings.Contains(e.Message, "--expires") {
+	if e := wantCode(t, "USAGE", "storage", "s3", "object", "link", "s3l", "a.txt", "--expires", "30x"); !strings.Contains(e.Message, "--expires") {
 		t.Errorf("30x: %s", e.Message)
 	}
 }

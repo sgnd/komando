@@ -704,7 +704,133 @@ func TestMoveGivesEveryProviderTheOldEntries(t *testing.T) {
 		if _, ok := cmdKeys["probetype.run"]; ok {
 			t.Error("cmdKeys still has probetype.run")
 		}
+		moveJoinsTwoOldEntries(t)
 	})
+}
+
+// A leaf that names two old IDs, one in Today and one in Carries, gets the
+// stricter of their entries in each table: a check beats no check, in
+// whichever order the IDs come, and two different checks stop the program.
+// Runs inside tablesAtStart.
+func moveJoinsTwoOldEntries(t *testing.T) {
+	t.Helper()
+	n := 0
+	// join moves one leaf over todayID and carriedID with the given entries and
+	// says what the new ID got, or what the move panicked with.
+	join := func(tb idTable, today, carried any) (got any, ok bool, stop any) {
+		n++
+		typ := fmt.Sprintf("probejoin%d", n)
+		tb.set(typ+".today", today)
+		tb.set(typ+".carried", carried)
+		l := capability.Leaf{Key: capability.Key{Type: typ, Provider: "one", Verb: "raw"}, State: capability.Built,
+			Today: []string{typ + ".today"}, Carries: []string{typ + ".carried"}}
+		func() {
+			defer func() { stop = recover() }()
+			moveLeaves(typ, []capability.Leaf{l})
+		}()
+		got, ok = tb.get(typ + ".one.raw")
+		return got, ok, stop
+	}
+	for _, tb := range idTables() {
+		var have []any // the table's entries at start, with no two the same
+		for _, id := range slices.Sorted(maps.Keys(idTablesAtStart[tb.name])) {
+			v := idTablesAtStart[tb.name][id]
+			if !slices.ContainsFunc(have, func(h any) bool { return sameEntry(h, v) }) {
+				have = append(have, v)
+			}
+		}
+		if len(have) == 0 {
+			t.Fatalf("%s has no entry to join", tb.name)
+		}
+		isFunc := reflect.ValueOf(have[0]).Kind() == reflect.Func
+		if isFunc {
+			// a table of gate checks: no check, and two checks that differ
+			none := reflect.Zero(reflect.TypeOf(have[0])).Interface()
+			checkA := any(func(*cobra.Command) string { return "a" })
+			checkB := any(func(*cobra.Command) string { return "b" }) // another function, so sameEntry tells them apart
+			if reflect.TypeOf(checkA) != reflect.TypeOf(have[0]) {
+				t.Fatalf("%s holds %T: give this test checks of that type", tb.name, have[0])
+			}
+			for _, c := range []struct{ today, carried any }{{checkA, none}, {none, checkA}} {
+				got, ok, stop := join(tb, c.today, c.carried)
+				if stop != nil || !ok || noCheck(got) {
+					t.Errorf("%s: a leaf with a check and no check got %s (stop %v): the check must win", tb.name, entryText(got, ok), stop)
+				}
+			}
+			got, ok, stop := join(tb, none, none)
+			if stop != nil || !ok || !noCheck(got) {
+				t.Errorf("%s: two entries with no check gave %s (stop %v)", tb.name, entryText(got, ok), stop)
+			}
+			if _, _, stop := join(tb, checkA, checkB); stop == nil {
+				t.Errorf("%s: two different checks did not stop the move", tb.name)
+			}
+			continue
+		}
+		if len(have) < 2 {
+			continue // every entry of the table is the same: nothing can disagree
+		}
+		if _, _, stop := join(tb, have[0], have[1]); stop == nil {
+			t.Errorf("%s: two different entries did not stop the move", tb.name)
+		}
+	}
+}
+
+// relaxedEntryOK says whether leaf l may hold an entry in table name that is
+// the relaxed state (a local read, a command with no network): one of its
+// Today IDs had it, or it has no Today ID and every ID it carries had it, or
+// (localReads) the leaf says LocalRead. had says whether an old ID had one.
+func relaxedEntryOK(name string, l capability.Leaf, had func(old string) bool) bool {
+	if slices.ContainsFunc(l.Today, had) {
+		return true
+	}
+	if len(l.Today) == 0 && len(l.Carries) > 0 && !slices.ContainsFunc(l.Carries, func(old string) bool { return !had(old) }) {
+		return true
+	}
+	return name == "localReads" && l.LocalRead
+}
+
+// For localReads and gateNoNetwork an entry is the relaxed state, and
+// joinEntry gives a leaf the entry of any ID it carries: a moved leaf may
+// hold such an entry only where relaxedEntryOK says so. (row C535)
+func TestMovedLeavesGetRelaxedEntriesOnlyFromToday(t *testing.T) {
+	had := func(name string) func(string) bool {
+		return func(old string) bool { _, ok := idTablesAtStart[name][old]; return ok }
+	}
+	for _, tb := range idTables() {
+		if tb.name != "localReads" && tb.name != "gateNoNetwork" {
+			continue
+		}
+		for _, l := range capability.All() {
+			if l.State != capability.Built || !slices.Contains(movedTypes, l.Type) {
+				continue
+			}
+			id := strings.Join(l.Key.Path(), ".")
+			if _, ok := tb.get(id); ok && !relaxedEntryOK(tb.name, l, had(tb.name)) {
+				t.Errorf("%s has %s, which no Today ID of the leaf has (Today %v, Carries %v)", tb.name, id, l.Today, l.Carries)
+			}
+		}
+	}
+	// the check bites: it refuses an entry that only a carried ID gave
+	only := func(ids ...string) func(string) bool {
+		return func(old string) bool { return slices.Contains(ids, old) }
+	}
+	for _, c := range []struct {
+		name string
+		l    capability.Leaf
+		had  func(string) bool
+		want bool
+	}{
+		{"gateNoNetwork", capability.Leaf{Today: []string{"a"}, Carries: []string{"b"}}, only("b"), false},
+		{"gateNoNetwork", capability.Leaf{Today: []string{"a", "b"}}, only("b"), true},
+		{"gateNoNetwork", capability.Leaf{Carries: []string{"b", "c"}}, only("b"), false},
+		{"gateNoNetwork", capability.Leaf{Carries: []string{"b", "c"}}, only("b", "c"), true},
+		{"gateNoNetwork", capability.Leaf{LocalRead: true}, only(), false},
+		{"localReads", capability.Leaf{LocalRead: true}, only(), true},
+	} {
+		if got := relaxedEntryOK(c.name, c.l, c.had); got != c.want {
+			t.Errorf("relaxedEntryOK(%s, %+v) = %v, want %v", c.name, c.l, got, c.want)
+		}
+	}
 }
 
 // The runs of TestTierMatchesRuntime only grow: a C pull request moves the
@@ -760,5 +886,62 @@ func TestTierRunsNeverShrink(t *testing.T) {
 				t.Errorf("%s moved to %s: its run %q is not on the new path", r.id, id, r.row)
 			}
 		}
+	}
+}
+
+// A leaf that runs a body passes only the options the person typed, so an
+// option left out takes the body's default: the table's default must be
+// the same (A-C479-1), else help and the run disagree silently.
+func TestBodyDefaultsMatchTable(t *testing.T) {
+	zero := map[string]string{"": "", "false": "", "0": "", "0s": "", "[]": ""}
+	norm := func(kind capability.OptKind, v string) string {
+		switch kind {
+		case capability.Duration:
+			if d, err := parseSpan(v); err == nil {
+				if d == 0 {
+					return ""
+				}
+				return d.String()
+			}
+		case capability.Bytes:
+			if n, err := parseSize(v); err == nil {
+				return strconv.FormatInt(n, 10)
+			}
+		}
+		if _, ok := zero[v]; ok {
+			return ""
+		}
+		return v
+	}
+	checked := 0
+	for key, body := range leafBodies {
+		leaf, ok := capability.Find(key)
+		if !ok {
+			t.Errorf("%s: a body for a key the table has not", key)
+			continue
+		}
+		for _, o := range leaf.Options {
+			flag := o.Name
+			if o.Name == "credential" {
+				flag = "password-ref"
+			}
+			f := body().Flags().Lookup(flag)
+			if f == nil {
+				if o.Name != "mode" { // --mode is the move leaf's own: its handler runs the chmod body for it
+					t.Errorf("%s --%s: the body has no such flag", key, o.Name)
+				}
+				continue
+			}
+			checked++
+			if o.Repeat || o.Kind == capability.Credential {
+				continue
+			}
+			if got, want := norm(o.Kind, o.Default), norm(o.Kind, f.DefValue); got != want {
+				t.Errorf("%s --%s: the table says %q, the body %q", key, o.Name, o.Default, f.DefValue)
+			}
+		}
+	}
+	if checked == 0 {
+		t.Fatal("no option checked")
 	}
 }

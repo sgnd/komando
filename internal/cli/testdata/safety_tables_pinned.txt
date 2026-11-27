@@ -213,6 +213,7 @@ probe queue kafka edit prod-kafka --protected=false	safety|turns protection off|
 probe recipe add r1 --overwrite --read-only	safety||it makes an existing snippet read-only|
 probe registry oci edit ghcr --protected=false	safety|turns protection off||
 probe secret keychain	person|moves the key into the keychain||
+probe storage s3 edit prod-s3 --protected=false	safety|turns protection off||
 probe sync ./site web1:/srv --delete	dangerous|deletes the files in DST that SRC does not have||
 probe vpn edit kantor --mfa=false	safety|turns --mfa off (komando may then connect it without a person)||
 probe vpn edit kantor --protected=false	safety|turns protection off||
@@ -355,16 +356,109 @@ ssh-gate.line	kind=read|	target=""
 ssh-gate.status	kind=read|	target=""	
 status	kind=read|	target=""	
 storage	kind=read|	target=""	
-storage.add	kind=change|	target=""	
-storage.cat	kind=read|	target=""	
-storage.chmod	kind=change|	target=""	
+storage.azblob	kind=read|	target=""	
+storage.azblob.add	kind=change|	target=""	
+storage.azblob.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+storage.azblob.list	kind=read|	target=""	
+storage.azblob.object	kind=read|	target=""	
+storage.azblob.object.create	kind=change|	target=""	
+storage.azblob.object.delete	kind=change|	target=""	dangerous||deletes the files||||
+storage.azblob.object.link	kind=change|	target=""	safety|||an AI agent makes a link (a person allows --reveal)|||
+storage.azblob.object.list	kind=read|	target=""	
+storage.azblob.object.move	kind=change|	target=""	
+storage.azblob.object.read	kind=read|	target=""	
+storage.azblob.remove	kind=change|	target=""	
+storage.azblob.rename	kind=change|	target=""	
+storage.azblob.show	kind=read|	target=""	
+storage.azblob.test	kind=read|	target=""	
 storage.download	kind=read|	target=""	
-storage.link	kind=change|	target=""	safety|||an AI agent makes a link (a person allows --reveal)|||
-storage.list	kind=read|	target=""	
-storage.mkdir	kind=change|	target=""	
-storage.mv	kind=change|	target=""	
-storage.rm	kind=change|	target=""	dangerous||deletes the files||||
+storage.ftp	kind=read|	target=""	
+storage.ftp.add	kind=change|	target=""	
+storage.ftp.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+storage.ftp.list	kind=read|	target=""	
+storage.ftp.object	kind=read|	target=""	
+storage.ftp.object.create	kind=change|	target=""	
+storage.ftp.object.delete	kind=change|	target=""	dangerous||deletes the files||||
+storage.ftp.object.list	kind=read|	target=""	
+storage.ftp.object.move	kind=change|	target=""	
+storage.ftp.object.read	kind=read|	target=""	
+storage.ftp.remove	kind=change|	target=""	
+storage.ftp.rename	kind=change|	target=""	
+storage.ftp.show	kind=read|	target=""	
+storage.ftp.test	kind=read|	target=""	
+storage.gcs	kind=read|	target=""	
+storage.gcs.add	kind=change|	target=""	
+storage.gcs.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+storage.gcs.list	kind=read|	target=""	
+storage.gcs.object	kind=read|	target=""	
+storage.gcs.object.create	kind=change|	target=""	
+storage.gcs.object.delete	kind=change|	target=""	dangerous||deletes the files||||
+storage.gcs.object.link	kind=change|	target=""	safety|||an AI agent makes a link (a person allows --reveal)|||
+storage.gcs.object.list	kind=read|	target=""	
+storage.gcs.object.move	kind=change|	target=""	
+storage.gcs.object.read	kind=read|	target=""	
+storage.gcs.remove	kind=change|	target=""	
+storage.gcs.rename	kind=change|	target=""	
+storage.gcs.show	kind=read|	target=""	
+storage.gcs.test	kind=read|	target=""	
+storage.s3	kind=read|	target=""	
+storage.s3.add	kind=change|	target=""	
+storage.s3.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+storage.s3.list	kind=read|	target=""	
+storage.s3.object	kind=read|	target=""	
+storage.s3.object.create	kind=change|	target=""	
+storage.s3.object.delete	kind=change|	target=""	dangerous||deletes the files||||
+storage.s3.object.link	kind=change|	target=""	safety|||an AI agent makes a link (a person allows --reveal)|||
+storage.s3.object.list	kind=read|	target=""	
+storage.s3.object.move	kind=change|	target=""	
+storage.s3.object.read	kind=read|	target=""	
+storage.s3.remove	kind=change|	target=""	
+storage.s3.rename	kind=change|	target=""	
+storage.s3.show	kind=read|	target=""	
+storage.s3.test	kind=read|	target=""	
+storage.sftp	kind=read|	target=""	
+storage.sftp.add	kind=change|	target=""	
+storage.sftp.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+storage.sftp.list	kind=read|	target=""	
+storage.sftp.object	kind=read|	target=""	
+storage.sftp.object.create	kind=change|	target=""	
+storage.sftp.object.delete	kind=change|	target=""	dangerous||deletes the files||||
+storage.sftp.object.list	kind=read|	target=""	
+storage.sftp.object.move	kind=change|	target=""	
+storage.sftp.object.read	kind=read|	target=""	
+storage.sftp.remove	kind=change|	target=""	
+storage.sftp.rename	kind=change|	target=""	
+storage.sftp.show	kind=read|	target=""	
+storage.sftp.test	kind=read|	target=""	
+storage.smb	kind=read|	target=""	
+storage.smb.add	kind=change|	target=""	
+storage.smb.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+storage.smb.list	kind=read|	target=""	
+storage.smb.object	kind=read|	target=""	
+storage.smb.object.create	kind=change|	target=""	
+storage.smb.object.delete	kind=change|	target=""	dangerous||deletes the files||||
+storage.smb.object.list	kind=read|	target=""	
+storage.smb.object.move	kind=change|	target=""	
+storage.smb.object.read	kind=read|	target=""	
+storage.smb.remove	kind=change|	target=""	
+storage.smb.rename	kind=change|	target=""	
+storage.smb.show	kind=read|	target=""	
+storage.smb.test	kind=read|	target=""	
 storage.upload	kind=change|	target=""	
+storage.webdav	kind=read|	target=""	
+storage.webdav.add	kind=change|	target=""	
+storage.webdav.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+storage.webdav.list	kind=read|	target=""	
+storage.webdav.object	kind=read|	target=""	
+storage.webdav.object.create	kind=change|	target=""	
+storage.webdav.object.delete	kind=change|	target=""	dangerous||deletes the files||||
+storage.webdav.object.list	kind=read|	target=""	
+storage.webdav.object.move	kind=change|	target=""	
+storage.webdav.object.read	kind=read|	target=""	
+storage.webdav.remove	kind=change|	target=""	
+storage.webdav.rename	kind=change|	target=""	
+storage.webdav.show	kind=read|	target=""	
+storage.webdav.test	kind=read|	target=""	
 sync	kind=change|	target="servers or file storage"	dangerous|with --delete|deletes the files in DST that SRC does not have||||
 test	kind=read|	target=""	
 tunnel	kind=read|	target="servers"	

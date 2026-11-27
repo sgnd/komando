@@ -37,9 +37,9 @@ sso_region = us-east-1
 EOF
 q $K conn add t-aws-expired "s3://backups/e2e?endpoint=http://s3:3900&region=garage" --via bastion --option aws_profile=e2e-sso
 check "an SSO profile without a valid login is AWS_LOGIN_REQUIRED" AWS_LOGIN_REQUIRED \
-  "$(env AWS_CONFIG_FILE="$TMP/aws-sso-config" AWS_SHARED_CREDENTIALS_FILE=/dev/null AWS_EC2_METADATA_DISABLED=true $K storage ls t-aws-expired | jget 'd["error"]["code"]' || true)"
+  "$(env AWS_CONFIG_FILE="$TMP/aws-sso-config" AWS_SHARED_CREDENTIALS_FILE=/dev/null AWS_EC2_METADATA_DISABLED=true $K storage s3 object list t-aws-expired | jget 'd["error"]["code"]' || true)"
 check "the hint says how to log in" True \
-  "$(env AWS_CONFIG_FILE="$TMP/aws-sso-config" AWS_SHARED_CREDENTIALS_FILE=/dev/null AWS_EC2_METADATA_DISABLED=true $K storage ls t-aws-expired | jget '"komando login aws --profile e2e-sso" in d["error"]["hint"]' || true)"
+  "$(env AWS_CONFIG_FILE="$TMP/aws-sso-config" AWS_SHARED_CREDENTIALS_FILE=/dev/null AWS_EC2_METADATA_DISABLED=true $K storage s3 object list t-aws-expired | jget '"komando login aws --profile e2e-sso" in d["error"]["hint"]' || true)"
 q $K conn rm t-aws-expired
 
 # komando login aws is for a person: an agent gets NEEDS_PERSON (exit 6) with
@@ -90,7 +90,7 @@ check "import aws-ec2 groups it by region" True "$($K host show e2e-ec2 | jget '
 q $K host rm e2e-ec2
 rm -f "$TMP/credentials"
 
-# storage list/rm --all-versions in a bucket with versioning (moto)
+# storage s3 object list/rm --all-versions in a bucket with versioning (moto)
 VB="http://127.0.0.1:$E2E_MOTO/e2e-ver"
 # moto takes signed and unsigned requests; like e2e-sts above, try both
 mput() { curl -sf -X PUT --aws-sigv4 "aws:amz:us-east-1:s3" --user test:test "$@" >/dev/null || curl -sf -X PUT "$@" >/dev/null; }
@@ -102,11 +102,11 @@ for v in one two; do mput "$VB/app.cfg" -d "$v" || echo "  (could not put app.cf
 printf '[default]\naws_access_key_id = test\naws_secret_access_key = test\n' > "$TMP/ver-credentials"
 VERENV=(env AWS_SHARED_CREDENTIALS_FILE="$TMP/ver-credentials" AWS_CONFIG_FILE=/dev/null AWS_EC2_METADATA_DISABLED=true AWS_PROFILE=)
 q "${VERENV[@]}" $K conn add t-ver "s3://e2e-ver?endpoint=http://127.0.0.1:$E2E_MOTO&region=us-east-1" --option aws_profile=default
-q "${VERENV[@]}" $K storage rm t-ver app.cfg --allow-dangerous
-check "storage list --all-versions shows the old ones" 3 "$("${VERENV[@]}" $K storage list t-ver --all-versions | jget 'd["data"]["count"]')"
-check "storage rm --all-versions --dry-run counts them" 3 "$("${VERENV[@]}" $K storage rm t-ver app.cfg --all-versions --dry-run | jget 'd["data"]["count"]')"
-q "${VERENV[@]}" $K storage rm t-ver app.cfg --all-versions --allow-dangerous
-check "storage rm --all-versions leaves nothing" 0 "$("${VERENV[@]}" $K storage list t-ver --all-versions | jget 'd["data"]["count"]')"
+q "${VERENV[@]}" $K storage s3 object delete t-ver app.cfg --allow-dangerous
+check "storage s3 object list --all-versions shows the old ones" 3 "$("${VERENV[@]}" $K storage s3 object list t-ver --all-versions | jget 'd["data"]["count"]')"
+check "storage s3 object delete --all-versions --dry-run counts them" 3 "$("${VERENV[@]}" $K storage s3 object delete t-ver app.cfg --all-versions --dry-run | jget 'd["data"]["count"]')"
+q "${VERENV[@]}" $K storage s3 object delete t-ver app.cfg --all-versions --allow-dangerous
+check "storage s3 object delete --all-versions leaves nothing" 0 "$("${VERENV[@]}" $K storage s3 object list t-ver --all-versions | jget 'd["data"]["count"]')"
 q $K conn rm t-ver
 rm -f "$TMP/ver-credentials"
 
@@ -119,9 +119,9 @@ printf '[e2e-src]\naws_access_key_id = test\naws_secret_access_key = test\n' >"$
 ROLEENV=(env PATH=/usr/bin:/bin AWS_CONFIG_FILE="$TMP/aws-role-config" AWS_SHARED_CREDENTIALS_FILE="$TMP/aws-role-credentials" AWS_EC2_METADATA_DISABLED=true)
 q $K conn add t-aws-role "s3://e2e-sts?endpoint=http://127.0.0.1:$E2E_MOTO&region=us-east-1" --option aws_profile=e2e-role
 check "STS: a role from source_profile keys lists the bucket (moto)" True \
-  "$("${ROLEENV[@]}" AWS_ENDPOINT_URL="http://127.0.0.1:$E2E_MOTO" $K storage ls t-aws-role | jget 'd["ok"] or d["error"]["code"] + ": " + d["error"]["message"]' || true)"
+  "$("${ROLEENV[@]}" AWS_ENDPOINT_URL="http://127.0.0.1:$E2E_MOTO" $K storage s3 object list t-aws-role | jget 'd["ok"] or d["error"]["code"] + ": " + d["error"]["message"]' || true)"
 check "STS: a refused role is AWS_FAILED, not a login" AWS_FAILED \
-  "$("${ROLEENV[@]}" AWS_ENDPOINT_URL=http://127.0.0.1:1 AWS_MAX_ATTEMPTS=1 $K storage ls t-aws-role | jget 'd["error"]["code"]' || true)"
+  "$("${ROLEENV[@]}" AWS_ENDPOINT_URL=http://127.0.0.1:1 AWS_MAX_ATTEMPTS=1 $K storage s3 object list t-aws-role | jget 'd["error"]["code"]' || true)"
 q $K conn rm t-aws-role
 
 # Amazon ECR: a fresh login from the ECR API (moto here) on every call,
