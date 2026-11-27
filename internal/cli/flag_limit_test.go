@@ -13,11 +13,11 @@ var listToolWords = map[string]bool{
 	"komando docker ps": true, "komando docker images": true, "komando docker stats": true,
 	"komando pkg installed": true, "komando pkg upgradable": true,
 	"komando queue groups": true, "komando db activity": true, "komando db locks": true,
-	"komando db sizes": true, "komando cache keys": true, "komando net ports": true,
+	"komando db sizes": true, "komando cache keys": true,
 	"komando cluster history": true, "komando cluster helm history": true, "komando cluster events": true,
 	"komando audit": true,
 	// the log readers: the last N lines
-	"komando logs": true, "komando svc logs": true, "komando docker logs": true,
+	"komando logs": true, "komando docker logs": true,
 	"komando cluster logs": true, "komando job logs": true,
 }
 

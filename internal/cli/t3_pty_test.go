@@ -34,14 +34,9 @@ var t3Cases = []struct {
 	{"fs.rm", "the name /tmp/x", []string{"fs", "rm", "web1", "/tmp/x", "--recursive"}},
 	{"docker.rm", "the name c1", []string{"docker", "rm", "web1", "c1"}},
 	{"docker.prune", "the name web1", []string{"docker", "prune", "web1"}},
-	{"user.rm", "the name bob", []string{"user", "rm", "web1", "bob"}},
-	{"user.rm", "the name bob", []string{"user", "rm", "web1", "bob", "--remove-home"}},
 	{"secret.rm", "the name gsec", []string{"secret", "rm", "gsec"}},
 	{"key.rm", "the name gkey", []string{"key", "rm", "gkey", "--delete-file"}},
 	{"pkg.rm", "the name openssh-server", []string{"pkg", "rm", "web1", "openssh-server"}},
-	{"reboot", "the name web1", []string{"reboot", "web1"}},
-	{"svc.stop", "the name web1", []string{"svc", "stop", "web1", "sshd"}},
-	{"svc.disable", "the name web1", []string{"svc", "disable", "web1", "sshd"}},
 	{"sync", "the name web1", []string{"sync", "testdata", "web1:/tmp/x", "--delete"}},
 }
 
@@ -95,7 +90,7 @@ func TestT3AsksTheTypedName(t *testing.T) {
 	// protection too: no [y/N] after it (S-7.4, C-C04)
 	mustRun(t, "host", "add", "prod1", "u@127.0.0.1:1", "--protected")
 	t.Run("protected", func(t *testing.T) {
-		p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "reboot", "prod1")
+		p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "docker", "prune", "prod1")
 		p.answer(" to continue: ", "prod1\r")
 		code := p.exit()
 		shown := p.shown()

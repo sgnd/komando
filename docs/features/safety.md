@@ -139,15 +139,9 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `fs rm` | always | dangerous | `--allow-dangerous` |
 | `docker rm` | always | dangerous | `--allow-dangerous` |
 | `docker prune` | always | dangerous | `--allow-dangerous` |
-| `user rm` | with --remove-home | dangerous | `--allow-dangerous` |
-| `user rm` | always | dangerous | `--allow-dangerous` |
 | `secret rm` | always | dangerous | `--allow-dangerous` |
 | `pkg rm` | a package the server needs (openssh-server, sudo, systemd, ...) | dangerous | `--allow-dangerous` |
 | `pkg rm` | a person types the name of what goes | change |  |
-| `cron rm` | a person types the name of what goes | change |  |
-| `reboot` | always | dangerous | `--allow-dangerous` |
-| `svc stop` | the unit is ssh or sshd | dangerous | `--allow-dangerous` |
-| `svc disable` | the unit is ssh or sshd | dangerous | `--allow-dangerous` |
 | `sync` | with --delete | dangerous | `--allow-dangerous` |
 | `job start` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
 | `docker exec` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |

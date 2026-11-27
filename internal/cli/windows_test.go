@@ -91,7 +91,6 @@ func TestWindowsRefusals(t *testing.T) {
 		{"pkg", "upgrade", "win"},
 		{"exec", "win", "--sudo", "--", "Get-Date"},
 		{"exec", "win", "--pty", "--", "Get-Date"},
-		{"svc", "reload", "win", "W3SVC"},
 		{"fs", "write", "win", `C:\x`, "--content", "a", "--sudo"},
 		{"upload", "win", "./windows_test.go", `C:\x`, "--mode", "0644"},
 	} {

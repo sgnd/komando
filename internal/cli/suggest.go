@@ -182,11 +182,6 @@ func unknownCommandErr(cl *call, cmd *cobra.Command, word string, rest []string)
 		return e
 	}
 	near := nearWords(word, commandNames(cmd))
-	for _, c := range cmd.Commands() {
-		if slices.Contains(c.SuggestFor, word) { // a habit word: only the command that does that job
-			near = []string{c.Name()}
-		}
-	}
 	switch len(near) {
 	case 0:
 		e.Hint = "see `" + cmd.CommandPath() + " --help` for the list of commands"

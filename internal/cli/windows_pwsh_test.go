@@ -150,10 +150,6 @@ func TestPwshRealExec(t *testing.T) {
 	if !strings.Contains(got, `"exit_code":7`) {
 		t.Errorf("exit 7: %s", got)
 	}
-	got = captureOutput(t, func() error { return runRoot(t, "facts", "win") })
-	if !strings.Contains(got, `"powershell":"7.`) || !strings.Contains(got, `"ok":true`) {
-		t.Errorf("facts: %s", got)
-	}
 	// test asks Windows who logs in, which PowerShell on Linux cannot say:
 	// it must report that clearly, not as a broken connection
 	got = captureOutput(t, func() error { return runRoot(t, "test", "win") })
