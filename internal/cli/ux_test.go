@@ -34,9 +34,9 @@ func usageFor(t *testing.T, args ...string) *out.Error {
 func TestTypoSuggestions(t *testing.T) {
 	saved := tcl.args
 	t.Cleanup(func() { tcl.args = saved })
-	tcl.args = []string{"komando", "exce", "web1"}
-	e := usageFor(t, "exce", "web1")
-	if e.Message != `unknown command "exce"; did you mean exec?` || e.Hint != "run it again with exec: `komando host ssh exec web1`" || e.Suggestion != "exec" {
+	tcl.args = []string{"komando", "host", "ssh", "exce", "web1"}
+	e := usageFor(t, "host", "ssh", "exce", "web1")
+	if e.Message != `unknown command "exce" for "komando host ssh"; did you mean exec?` || e.Hint != "run it again with exec: `komando host ssh exec web1`" || e.Suggestion != "exec" {
 		t.Errorf("command typo: %q / %q", e.Message, e.Hint)
 	}
 	tcl.args = saved

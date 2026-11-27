@@ -15,6 +15,7 @@ func TestUnknownCommandWords(t *testing.T) {
 	for word, want := range map[string]string{
 		"ps": "docker ps TARGET", "get": "list", "kubectl": "cluster kubernetes raw NAME -- ...", "psql": "database postgres query NAME",
 		"mysql": "database mysql query NAME", "apt": "pkg", "yum": "pkg", "systemctl": "host ssh exec SERVER -- systemctl",
+		"exec": "host ssh exec SERVER -- ...",
 	} {
 		e := unknownCommandErr(tcl, root, word, nil)
 		if e.Suggestion != want || e.Hint != "run `komando "+want+"` instead" || e.Code != "USAGE" {
@@ -55,7 +56,7 @@ func TestSwappedLine(t *testing.T) {
 		args        []string
 		wrong, want string
 	}{
-		{[]string{"exce", "web1", "--", "uptime"}, "exce", "komando host ssh exec web1 -- uptime"},
+		{[]string{"host", "ssh", "exce", "web1", "--", "uptime"}, "exce", "komando host ssh exec web1 -- uptime"},
 		{[]string{"host", "ssh", "exec", "web1", "--via", "bast,wbe1"}, "wbe1", "komando host ssh exec web1 --via bast,web1"},
 		{[]string{"host", "ssh", "exec", "--limt=5", "web1"}, "--limt", "komando host ssh exec --limit=5 web1"},
 	} {

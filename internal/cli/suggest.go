@@ -134,6 +134,7 @@ var foreignWords = map[string]string{
 	"yum":        "pkg",
 	"dnf":        "pkg",
 	"systemctl":  "host ssh exec SERVER -- systemctl",
+	"exec":       "host ssh exec SERVER -- ...",
 	"journalctl": "logs TARGET",
 	"ssh":        "host ssh shell SERVER",
 	"scp":        "copy",
