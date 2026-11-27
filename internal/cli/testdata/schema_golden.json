@@ -13200,7 +13200,7 @@
         "code": "WRONG_KIND",
         "exit": 2,
         "example": "… is a … …, not a … …",
-        "hint": "use the path the hint names: `komando TYPE PROVIDER VERB NAME` for an entry of another provider, `komando TYPE PROVIDER add` for a URL of another provider"
+        "hint": "use the path the hint names, for example `komando cluster kubernetes raw NAME` for a Kubernetes entry; a URL of another provider goes to `komando … add`"
       },
       {
         "code": "WRONG_PASSPHRASE",
