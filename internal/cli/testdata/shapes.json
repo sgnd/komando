@@ -1,10 +1,29 @@
 {
-  "audit --limit 5": {
+  "audit list --limit 5": {
     "command": "string",
-    "error": {
-      "code": "code REMOTE_ERROR",
-      "hint": "string",
-      "message": "string"
+    "data": {
+      "count": "number",
+      "entries": [
+        {
+          "action": "string",
+          "actor": "string",
+          "command": "string",
+          "conns": [
+            "string"
+          ],
+          "dry_run": "bool",
+          "hosts": [
+            "string"
+          ],
+          "ok": "bool",
+          "read_only": "bool",
+          "recipe": "string",
+          "remote": "string",
+          "replaced": "bool",
+          "secret": "string",
+          "ts": "string"
+        }
+      ]
     },
     "meta": {
       "contract": "number",
@@ -585,10 +604,17 @@
   },
   "group list": {
     "command": "string",
-    "error": {
-      "code": "code REMOTE_ERROR",
-      "hint": "string",
-      "message": "string"
+    "data": {
+      "groups": {
+        "lab": [
+          "string"
+        ]
+      },
+      "tags": {
+        "prod": [
+          "string"
+        ]
+      }
     },
     "meta": {
       "contract": "number",
@@ -849,10 +875,54 @@
   },
   "policy list": {
     "command": "string",
-    "error": {
-      "code": "code REMOTE_ERROR",
-      "hint": "string",
-      "message": "string"
+    "data": {
+      "builtin": [
+        {
+          "id": "string",
+          "off": "string",
+          "pattern": "string",
+          "reason": "string"
+        }
+      ],
+      "custom": "null",
+      "custom_rules": "null",
+      "data": [
+        {
+          "id": "string",
+          "reason": "string"
+        }
+      ],
+      "memcached": [
+        {
+          "id": "string",
+          "reason": "string"
+        }
+      ],
+      "mongodb": [
+        {
+          "id": "string",
+          "reason": "string"
+        }
+      ],
+      "note": "string",
+      "queue": [
+        {
+          "id": "string",
+          "reason": "string"
+        }
+      ],
+      "redis": [
+        {
+          "id": "string",
+          "reason": "string"
+        }
+      ],
+      "sql": [
+        {
+          "id": "string",
+          "reason": "string"
+        }
+      ]
     },
     "meta": {
       "contract": "number",
@@ -1091,10 +1161,22 @@
   },
   "snippet list": {
     "command": "string",
-    "error": {
-      "code": "code REMOTE_ERROR",
-      "hint": "string",
-      "message": "string"
+    "data": {
+      "count": "number",
+      "recipes": [
+        {
+          "builtin": "bool",
+          "category": "string",
+          "command": "string",
+          "description": "string",
+          "name": "string",
+          "params": {
+            "*": "string"
+          },
+          "read_only": "bool",
+          "sudo": "bool"
+        }
+      ]
     },
     "meta": {
       "contract": "number",

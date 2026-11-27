@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -230,4 +231,41 @@ func tableLeaf(words []string) (capability.Leaf, bool) {
 		}
 	}
 	return best, bestLen > 0
+}
+
+// TestOldPathsOfC8AreGone: the words of group, policy, snippet, audit and
+// agent before step C8 find no command, and no alias keeps them.
+func TestOldPathsOfC8AreGone(t *testing.T) {
+	root := newRoot(tcl)
+	for _, words := range [][]string{
+		{"group", "add"}, {"group", "rm"}, {"policy", "deny"}, {"policy", "add"}, {"policy", "rm"},
+		{"recipe"}, {"recipes"}, {"recipe", "list"}, {"audit", "verify"}, {"guide", "install"}, {"guide", "uninstall"},
+	} {
+		if _, rest, _ := root.Find(words); len(rest) == 0 {
+			t.Errorf("komando %s still finds a command", strings.Join(words, " "))
+		}
+	}
+	for _, words := range [][]string{{"snippets", "list"}, {"groups", "list"}, {"policies", "list"}, {"audit", "list"}, {"agent", "skill", "install"}} {
+		if _, rest, _ := root.Find(words); len(rest) != 0 {
+			t.Errorf("komando %s finds no command (rest %v)", strings.Join(words, " "), rest)
+		}
+	}
+	if c, _, _ := root.Find([]string{"audit"}); c.Runnable() && c.Name() == "audit" && c.Flags().Lookup("since") != nil {
+		t.Error("komando audit still runs the log: it is audit list now")
+	}
+}
+
+// A leaf given no argument and no flag runs its body with none: cobra reads
+// the process's own arguments when the list is nil, which would make a
+// body such as policy list refuse them.
+func TestLeafWithNoArgumentsIgnoresTheProcessArguments(t *testing.T) {
+	invHome(t)
+	saved := os.Args
+	os.Args = []string{"komando", "policy", "list", "--no-such-flag", "stray"}
+	t.Cleanup(func() { os.Args = saved })
+	for _, args := range [][]string{{"policy", "list"}, {"group", "list"}, {"snippet", "list"}, {"audit", "list"}, {"audit", "check"}} {
+		if _, e := invRun(t, args...); e != nil {
+			t.Errorf("%v: %s: %s", args, e.Code, e.Message)
+		}
+	}
 }
