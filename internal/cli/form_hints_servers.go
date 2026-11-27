@@ -1,15 +1,13 @@
 package cli
 
-// The questions for the Servers area: commands, logs, services, packages,
-// users, cron, Docker, network and certificate checks.
+// The questions for the Servers area: commands, logs, packages, Docker and
+// certificate checks.
 
 func init() {
 	addFormHints(srvRunHints)
-	addFormHints(srvSvcHints)
 	addFormHints(srvPkgHints)
-	addFormHints(srvUserCronHints)
 	addFormHints(srvDockerHints)
-	addFormHints(srvNetHints)
+	addFormHints(srvCertHints)
 }
 
 // Answers several hints share.
@@ -28,28 +26,16 @@ var (
 		help: "30m or 2h means that long ago; the journal (a service or the whole system) also takes today or 2026-01-02 10:00. Leave empty for the latest lines."}
 	srvUntil = formFlag{name: "until", ask: "Up to when?", example: "10m",
 		help: "Like 10m (ten minutes ago), or a time like 2026-01-02 11:00. Leave empty for up to now."}
-	srvJournalSince = formFlag{name: "since", ask: "From how long ago?", example: "1h",
-		help: "Like 30m, 2h, today, yesterday or 2026-01-02 10:00. Leave empty for the latest lines."}
 	srvDockerSince = formFlag{name: "since", ask: "From how long ago?", example: "1h",
 		help: "Like 30m or 2h (that long ago), or a time like 2026-01-02T10:00:00. Leave empty for the latest lines."}
 	srvGrep = formFlag{name: "grep", ask: "Only lines that contain a word?",
 		help: "Big and small letters count the same. Several words: error|fail. Leave empty for every line.", example: "error"}
 	srvLogSudo = formFlag{name: "sudo", ask: "Read with sudo (as root)?",
 		help: "Say yes for the whole system journal or a log file only root may read."}
-	srvUnit = formArg{ask: "Which service?", example: "nginx",
-		help: "Its name as systemd knows it, like nginx or ssh. `komando svc list` shows them."}
-	srvUnits = formArg{ask: "Which services?", example: "nginx",
-		help: "Their names as systemd knows them, like nginx or ssh. Several: separate them with spaces. `komando svc list` shows them."}
-	srvWait = formFlag{name: "wait", ask: "How long to wait for them to be running?",
-		help: "Like 10s or 2m. It fails when a service is not running by then. Leave empty to not wait.", example: "10s"}
 	srvPkgs = formArg{ask: "Which packages?", example: "htop jq",
 		help: "Their names as the server's package manager (apt, dnf, apk ...) knows them. Several: separate them with spaces."}
 	srvPkgsAll = formArg{ask: "Which packages? (leave empty for all)", example: "nginx openssl",
 		help: "Several: separate them with spaces."}
-	srvUsername = formArg{ask: "Which user?", example: "alice",
-		help: "The account name on the server. `komando user list` shows them."}
-	srvCronUser = formFlag{name: "user", ask: "Whose crontab?",
-		help: "Leave empty for the user komando logs in as. Another user's crontab is read with sudo.", example: "www-data"}
 	srvDockerSudo = formFlag{name: "sudo", ask: "Run docker with sudo?",
 		help: "Say yes when docker says permission denied (your login user is not in the docker group)."}
 	srvContainer = formArg{ask: "Which container?", example: "api",
@@ -91,7 +77,6 @@ var srvRunHints = map[string]formHint{
 		args: []formArg{{ask: "Which server?", pick: "server",
 			help: "One server. You type on it as if you were there; type exit to come back."}},
 	},
-	"facts": {args: []formArg{srvServers}},
 	"logs": {
 		args: []formArg{srvServers},
 		flags: []formFlag{
@@ -104,25 +89,6 @@ var srvRunHints = map[string]formHint{
 			srvWithShow(srvSince, srvNoFile), srvWithShow(srvUntil, srvNoFile), srvGrep, srvLogSudo,
 		},
 	},
-	"reboot": {args: []formArg{srvServers}},
-}
-
-var srvSvcHints = map[string]formHint{
-	"svc daemon-reload": {args: []formArg{srvServers}},
-	"svc disable": {args: []formArg{srvServers, srvUnits}, flags: []formFlag{
-		{name: "now", ask: "Also stop them now?", help: "No only keeps them from starting at the next boot."}}},
-	"svc enable": {args: []formArg{srvServers, srvUnits}, flags: []formFlag{
-		{name: "now", ask: "Also start them now?", help: "No only makes them start at the next boot."}}},
-	"svc list": {args: []formArg{srvServers}, flags: []formFlag{
-		{name: "state", ask: "Only services in one state?", choices: []string{"running", "exited", "failed", "inactive"},
-			help: "Running are up now, exited ran once and finished, inactive are stopped."}}},
-	"svc logs": {args: []formArg{srvServers, srvUnit},
-		flags: []formFlag{srvJournalSince, srvGrep, srvLogSudo}},
-	"svc reload":  {args: []formArg{srvServers, srvUnits}, flags: []formFlag{srvWait}},
-	"svc restart": {args: []formArg{srvServers, srvUnits}, flags: []formFlag{srvWait}},
-	"svc start":   {args: []formArg{srvServers, srvUnits}, flags: []formFlag{srvWait}},
-	"svc status":  {args: []formArg{srvServers, srvUnits}},
-	"svc stop":    {args: []formArg{srvServers, srvUnits}},
 }
 
 var srvPkgHints = map[string]formHint{
@@ -139,39 +105,6 @@ var srvPkgHints = map[string]formHint{
 	"pkg upgrade": {args: []formArg{srvServers, srvPkgsAll}, flags: []formFlag{
 		{name: "security", ask: "Only the security updates, one server at a time?",
 			help: "Yes installs only security fixes and stops when a server comes out of it different. Leave the packages empty then."}}},
-}
-
-var srvUserCronHints = map[string]formHint{
-	"user add": {
-		args: []formArg{srvServers, {ask: "What is the new user's name?", example: "deploy",
-			help: "Small letters, digits, - and _. Nothing happens when the user is there already."}},
-		flags: []formFlag{
-			{name: "key", pick: "key", ask: "Which of your komando keys may log in as this user?",
-				help: "Leave empty to add no key. `komando credential key list` shows your keys."},
-			{name: "admin", ask: "Make this user an admin (allowed to use sudo)?"},
-		},
-	},
-	"user list": {args: []formArg{srvServers}, flags: []formFlag{
-		{name: "all", ask: "Include system accounts too?", help: "Accounts programs use, like www-data. No shows only people."}}},
-	"user lock": {args: []formArg{srvServers, srvUsername}},
-	"user rm": {args: []formArg{srvServers, srvUsername}, flags: []formFlag{
-		{name: "remove-home", ask: "Also delete their home folder and files?", help: "Files deleted this way cannot be brought back."}}},
-	"user unlock": {args: []formArg{srvServers, srvUsername}},
-	"cron list":   {args: []formArg{srvServers}, flags: []formFlag{srvCronUser}},
-	"cron rm": {args: []formArg{srvServers, {ask: "Which entry?", example: "nightly-backup",
-		help: "Its ID: the last column of `komando cron list`."}}, flags: []formFlag{srvCronUser}},
-	"cron set": {
-		args: []formArg{srvServers,
-			{ask: "What name should this entry have?", example: "nightly-backup",
-				help: "A short name komando finds it by later. A name used before replaces that entry."},
-			{ask: "What command should it run?", example: "/usr/local/bin/backup.sh",
-				help: "Type it as you would on the server itself."}},
-		flags: []formFlag{
-			{name: "schedule", required: true, ask: "When should it run?", example: "0 2 * * *",
-				help: "@hourly, @daily, @weekly, @monthly or @reboot, or five fields (minute hour day month weekday): 0 2 * * * is every night at 2:00."},
-			srvCronUser,
-		},
-	},
 }
 
 var srvDockerHints = map[string]formHint{
@@ -216,19 +149,7 @@ var srvDockerHints = map[string]formHint{
 	"docker stop":    {args: []formArg{srvServers, srvContainers}, flags: []formFlag{srvDockerSudo}},
 }
 
-var srvNetHints = map[string]formHint{
-	"net check": {args: []formArg{srvServers, {ask: "Which address and port should it try to reach?", example: "db.internal:5432",
-		help: "Tried from the server, not from this computer. Several: separate them with spaces."}}},
-	"net dns": {args: []formArg{srvServers, {ask: "Which name should it look up?", example: "db.internal",
-		help: "Looked up from the server, so you see what the server sees."}},
-		flags: []formFlag{{name: "type", ask: "Which kind of record?", choices: []string{"A", "AAAA", "CNAME", "MX", "NS", "TXT", "SRV", "PTR", "CAA", "SOA"},
-			help: "Leave empty for the addresses the server would connect to. MX is mail, TXT is text notes."}}},
-	"net http": {args: []formArg{srvServers, {ask: "Which web address?", example: "http://localhost:8080/health",
-		help: "Opened from the server, so localhost means the server itself."}},
-		flags: []formFlag{{name: "expect", ask: "Which answer counts as good?", example: "200",
-			help: "A status like 200, or 2xx for any success. Leave empty to only report it."}}},
-	"net ports": {args: []formArg{srvServers}, flags: []formFlag{
-		{name: "sudo", ask: "Use sudo to see which program owns each port?"}}},
+var srvCertHints = map[string]formHint{
 	"cert check": {
 		args: []formArg{{ask: "Which servers or websites?", pick: "host", free: true, example: "https://shop.example.com",
 			help: "Pick a server, or type a website. Several: separate them with spaces."}},
@@ -240,40 +161,20 @@ var srvNetHints = map[string]formHint{
 // Next: lines for the server commands (server and ops areas).
 func init() {
 	addFormHints(map[string]formHint{
-		"docker rm":         {next: []string{"docker ps {} --all"}},
-		"exec":              {next: []string{"job start {} -- COMMAND", "logs {}", "facts {}"}},
-		"facts":             {next: []string{"pkg upgradable {}", "logs {}", "svc list {}"}},
-		"svc list":          {next: []string{"svc status {} UNIT", "logs {} --unit UNIT --since 30m", "svc restart {} UNIT --wait 10s"}},
-		"svc status":        {next: []string{"logs {} --unit UNIT --since 30m", "svc restart {} UNIT --wait 10s --dry-run"}},
-		"svc start":         {next: []string{"svc status {} UNIT", "logs {} --unit UNIT -n 50"}},
-		"svc restart":       {next: []string{"svc status {} UNIT", "logs {} --unit UNIT -n 50"}},
-		"svc reload":        {next: []string{"svc status {} UNIT", "logs {} --unit UNIT -n 50"}},
-		"svc stop":          {next: []string{"svc status {} UNIT", "svc disable {} UNIT"}},
-		"svc enable":        {next: []string{"svc status {} UNIT"}},
-		"svc disable":       {next: []string{"svc status {} UNIT"}},
-		"svc daemon-reload": {next: []string{"svc restart {} UNIT --wait 10s"}},
-		"logs":              {next: []string{"logs {} --unit UNIT --follow", "svc status {} UNIT"}},
-		"pkg upgradable":    {next: []string{"pkg upgrade {} --dry-run", "pkg security {}"}},
-		"pkg security":      {next: []string{"pkg upgrade {} --security --dry-run", "reboot {} --dry-run"}},
-		"pkg upgrade":       {next: []string{"facts {}", "reboot {} --dry-run"}},
-		"pkg update":        {next: []string{"pkg upgradable {}"}},
-		"pkg install":       {next: []string{"pkg installed {} PACKAGE"}},
-		"pkg rm":            {next: []string{"pkg installed {} PACKAGE"}},
-		"user list":         {next: []string{"user add {} USER --key KEY", "user lock {} USER"}},
-		"user add":          {next: []string{"user list {}"}},
-		"user lock":         {next: []string{"user unlock {} USER", "user rm {} USER --dry-run"}},
-		"docker ps":         {next: []string{"docker logs {} CONTAINER --since 10m", "docker restart {} CONTAINER", "docker stats {}"}},
-		"docker logs":       {next: []string{"docker restart {} CONTAINER", "docker inspect {} CONTAINER"}},
-		"docker prune":      {next: []string{"recipe run disk {}"}},
-		"cron list":         {next: []string{"cron set {} NAME COMMAND --schedule '0 2 * * *'", "cron rm {} NAME"}},
-		"cron set":          {next: []string{"cron list {}"}},
-		"cron rm":           {next: []string{"cron list {}"}},
-		"net ports":         {next: []string{"net check {} ADDRESS:PORT"}},
-		"net check":         {next: []string{"net dns {} DOMAIN", "net http {} URL"}},
-		"cert check":        {next: []string{"cert check {} --warn 14d"}},
-		"reboot":            {next: []string{"facts {}", "svc list {} --failed"}},
-		"recipe list":       {next: []string{"recipe run NAME TARGET"}},
-		"recipe add":        {next: []string{"recipe run {} TARGET --dry-run"}},
-		"recipe run":        {next: []string{"recipe list"}},
+		"docker rm":      {next: []string{"docker ps {} --all"}},
+		"exec":           {next: []string{"job start {} -- COMMAND", "logs {}"}},
+		"logs":           {next: []string{"logs {} --unit UNIT --follow"}},
+		"pkg upgradable": {next: []string{"pkg upgrade {} --dry-run", "pkg security {}"}},
+		"pkg security":   {next: []string{"pkg upgrade {} --security --dry-run"}},
+		"pkg update":     {next: []string{"pkg upgradable {}"}},
+		"pkg install":    {next: []string{"pkg installed {} PACKAGE"}},
+		"pkg rm":         {next: []string{"pkg installed {} PACKAGE"}},
+		"docker ps":      {next: []string{"docker logs {} CONTAINER --since 10m", "docker restart {} CONTAINER", "docker stats {}"}},
+		"docker logs":    {next: []string{"docker restart {} CONTAINER", "docker inspect {} CONTAINER"}},
+		"docker prune":   {next: []string{"recipe run disk {}"}},
+		"cert check":     {next: []string{"cert check {} --warn 14d"}},
+		"recipe list":    {next: []string{"recipe run NAME TARGET"}},
+		"recipe add":     {next: []string{"recipe run {} TARGET --dry-run"}},
+		"recipe run":     {next: []string{"recipe list"}},
 	})
 }

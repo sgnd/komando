@@ -175,7 +175,7 @@ func init() {
 		"logout":       {next: []string{"status"}},
 		"tunnel start": {next: []string{"tunnel list", "tunnel stop TUNNEL"}},
 		"tunnel stop":  {next: []string{"tunnel list"}},
-		"login aws":    {next: []string{"test TARGET", "storage list CONN", "import aws"}},
+		"login aws":    {next: []string{"test TARGET", "storage s3 object list NAME", "import aws"}},
 		"credential password add": {next: []string{"host edit TARGET --password-ref secret:{}", "conn edit NAME --password-ref secret:{}",
 			"credential list"}},
 		"credential token add":       {next: []string{"credential list"}},

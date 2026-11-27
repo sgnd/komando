@@ -656,7 +656,6 @@ var (
 		"cli/cluster_objects.go: List pods, deployments, services, nodes ... (Swarm: services",
 		"cli/cluster_objects.go:   komando cluster list prod-k8s pods --namespace shop\n  koma",
 		"cli/cluster_status.go: Without an object: the version, the nodes, and every problem",
-		"cli/facts.go: Run this first on a server you do not know yet: it tells an ",
 		"cli/pkg_security.go: This only looks: the pending security updates of each server",
 		"cli/cluster_names.go: Swarm has no namespaces: leave out --namespace (a stack's se",
 		"cli/cluster_swarm.go: Swarm lists services, tasks, nodes or stacks",

@@ -71,9 +71,9 @@ func TestStandardTopLevel(t *testing.T) {
 	want := []string{
 		// nouns (S-2.1)
 		"host", "conn", "vpn", "group", "secret", "credential", "recipe", "policy", "job", "tunnel", "config",
-		"fs", "svc", "pkg", "user", "cron", "docker", "net", "cert", "db", "cache", "queue", "storage", "cluster", "registry",
+		"fs", "pkg", "docker", "cert", "db", "cache", "queue", "storage", "cluster", "registry",
 		// shortcuts
-		"list", "test", "exec", "shell", "logs", "cp", "upload", "download", "sync", "facts", "reboot", "status",
+		"list", "test", "exec", "shell", "logs", "cp", "upload", "download", "sync", "status",
 		"login", "logout", "import", "export", "rename",
 		// about komando
 		"audit", "doctor", "schema", "guide", "update", "version", "completion", "help", "ssh-gate",
@@ -132,9 +132,9 @@ func TestStandardNounAliases(t *testing.T) {
 	for noun, aliases := range map[string][]string{
 		"host": {"hosts", "server", "servers"}, "conn": {"conns"}, "vpn": {"vpns"}, "group": {"groups"},
 		"secret": {"secrets"}, "recipe": {"recipes"}, "policy": {"policies"}, "job": {"jobs"},
-		"tunnel": {"tunnels"}, "fs": {"files"}, "svc": {"service", "services"}, "pkg": {"package", "packages"},
-		"user": {"users"}, "cron": {"crons"}, "docker": {"container", "containers"}, "net": {"network"},
-		"cert": {"certs"}, "db": {"dbs", "database", "databases"}, "cache": {"caches"}, "queue": {"queues"},
+		"tunnel": {"tunnels"}, "fs": {"files"}, "pkg": {"package", "packages"},
+		"docker": {"container", "containers"},
+		"cert":   {"certs"}, "db": {"dbs", "database", "databases"}, "cache": {"caches"}, "queue": {"queues"},
 		"cluster": {"clusters"}, "registry": {"registries"},
 	} {
 		want := findCmd(t, root, noun)
@@ -154,15 +154,13 @@ var (
 		"exec", "run", "query", "shell", "upload", "download", "sync", "dump", "restore", "up", "down",
 		"login", "logout", "install", "uninstall", "update", "upgrade",
 		"grant", "revoke", "deploy", "gen", "trust", "lock", "unlock", "passwd",
-		"remove", "raw", "copy", "delete"} // the v2.7 verbs join as their type moves (step C)
+		"remove", "raw", "copy", "delete", "read", "move", "link"} // the v2.7 verbs join as their type moves (step C)
 	toolWords = []string{"docker ps", "docker images", "docker pull", "docker compose", "docker raw", "docker inspect",
-		"registry oci image show", "registry oci image copy", "cache keys", "user add", "db user add", "db grant", "db revoke",
-		"pkg installed", "pkg upgradable", "pkg security", "queue peek", "queue send", "queue lag", "queue groups",
-		"db activity", "db locks", "db sizes", "db explain", "db kill",
-		"fs cat", "fs stat", "fs chmod", "fs mkdir", "fs write", "fs replace", "fs mv", "svc daemon-reload",
-		"storage chmod", "storage mkdir", "storage mv",
-		"cluster scale", "cluster apply", "cluster rollback", "cluster forward", "cluster helm values",
-		"net dns", "net http", "net ports", "net check", "credential key create", "credential key install", "host trust", "host ssh-command",
+		"registry oci image show", "registry oci image copy", "cache keys", "db user add", "db grant", "db revoke",
+		"pkg installed", "pkg upgradable", "pkg security", "db activity", "db locks", "db sizes", "db explain", "db kill",
+		"fs cat", "fs stat", "fs chmod", "fs mkdir", "fs write", "fs replace", "fs mv",
+		"cluster scale", "cluster apply", "cluster rollback", "cluster kubernetes tunnel start", "cluster helm values",
+		"credential key create", "credential key install", "host trust", "host ssh-command",
 		"ssh-gate line", "conn kinds", "audit verify", "config approval-code", "config vault keychain", "config vault passphrase"}
 )
 
@@ -201,7 +199,7 @@ func TestStandardPairs(t *testing.T) {
 		}
 		// add/rm in komando's own list, create/rm on a target
 		family := slices.Contains([]string{"db", "cache", "queue", "storage", "cluster", "registry"}, cmdPathOf(c))
-		hasRm := slices.Contains(names, "rm") || slices.Contains(names, "remove")
+		hasRm := slices.Contains(names, "rm") || slices.Contains(names, "remove") || slices.Contains(names, "delete")
 		if !family && slices.Contains(names, "add") && !hasRm || slices.Contains(names, "create") && !hasRm {
 			got[strings.TrimSpace(cmdPathOf(c)+" add|create/rm")] = "has no rm"
 		}
@@ -230,7 +228,7 @@ func TestStandardReadNoWriteFlag(t *testing.T) {
 			t.Errorf("S-5.9: %s shows --apply; use --write", c.CommandPath())
 		}
 		k, ok := kindOf(c)
-		if !ok || k.Kind != kindDepends || slices.Contains([]string{"docker raw", "docker compose", "cluster shell"}, cmdPathOf(c)) {
+		if !ok || k.Kind != kindDepends || slices.Contains([]string{"docker raw", "docker compose", "cluster kubernetes shell"}, cmdPathOf(c)) {
 			continue
 		}
 		w, r := c.Flags().Lookup("write") != nil, c.Flags().Lookup("read-only") != nil
@@ -494,7 +492,7 @@ func TestStandardLong(t *testing.T) {
 
 // sampleNames are S-6.8's sample names, and selectors that pick them.
 var sampleNames = []string{"web1", "web2", "db1", "@web", "prod-db", "staging-db", "prod-redis", "prod-kafka",
-	"backups", "ghcr", "harbor", "prod-k8s", "swarm1", "office", "alice", "app", "all"}
+	"prod-rabbit", "prod-nats", "prod-sqs", "prod-pubsub", "backups", "ghcr", "harbor", "prod-k8s", "swarm1", "office", "alice", "app", "all"}
 
 // S-6.6..S-6.9: example counts, a dry-run line per change command,
 // approval lines after their dry run and marked, sample names, English.
@@ -644,7 +642,7 @@ func TestStandardReferences(t *testing.T) {
 	}
 	for key, h := range formHints {
 		for _, n := range h.next {
-			check(key+" next", strings.ReplaceAll(n, "{}", "web1"))
+			check(key+" next", strings.ReplaceAll(strings.ReplaceAll(n, "{}", "web1"), "{P}", "s3"))
 		}
 	}
 	allowCheck(t, "S-6.10", got, allowReferences)

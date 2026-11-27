@@ -14,6 +14,16 @@ import (
 // PR B3). TestLeafNotWeaker compares rows by command ID; the two below add
 // the read/change floor and compare by the path a person or agent types.
 
+// replacedByExec are the IDs that exec, query or raw does after the cut
+// (capability.Replacements), for a carried command that step D has removed.
+var replacedByExec = func() map[string]bool {
+	m := map[string]bool{}
+	for _, r := range capability.Replacements() {
+		m[r.Today] = true
+	}
+	return m
+}()
+
 // todayHighest is the highest tier c can have today: change unless its
 // kind is read, or the highest row for its key, whatever the condition.
 func todayHighest(c *cobra.Command) tier {
@@ -34,12 +44,28 @@ func TestLeafFloorNotWeaker(t *testing.T) {
 	for _, l := range capability.All() {
 		for _, id := range slices.Concat(l.Today, l.Carries) {
 			c, ok := byID[id]
-			if !ok && slices.Contains(movedTypes, l.Type) && slices.Contains(l.Today, id) {
+			if !ok && slices.Contains(movedTypes, l.Type) && (slices.Contains(l.Today, id) || carriedByMoved(id)) {
 				// the leaf has moved (step C): today's command is gone with its
-				// path, and its safety key, which the rows follow, is the leaf's
-				if k := capability.TodayKeys()[id]; (safetyKey{k.Type, k.Area, k.Verb}) != (safetyKey{l.Type, l.Area, l.Verb}) {
+				// path. Under its own key the rows follow it, so the key is the
+				// leaf's; one it carries under another key (storage chmod is
+				// object move) must not be stronger than the leaf
+				k := capability.TodayKeys()[id]
+				key := safetyKey{k.Type, k.Area, k.Verb}
+				if slices.Contains(l.Today, id) && key != (safetyKey{l.Type, l.Area, l.Verb}) {
 					t.Errorf("%s: moved from %s, whose key was %v", l.Key, id, k)
 				}
+				base := tierChange
+				if kind, ok := commandKinds[key]; ok && kind.Kind == kindRead {
+					base = tierRead
+				}
+				if want, got := max(base, todayTier(key)), tier(capability.Highest(l.Key)); got < want {
+					t.Errorf("%s: carries %s (%s today), but the leaf is at most %s", l.Key, id, want, got)
+				}
+				continue
+			}
+			if !ok && replacedByExec[id] {
+				// removed in step D: exec carries it, and TestReplacedIDsNameTheirRules
+				// pins the rules and stops that keep its protection
 				continue
 			}
 			if !ok && slices.Contains(movedTypes, l.Type) {

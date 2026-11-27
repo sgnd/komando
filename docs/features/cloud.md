@@ -13,7 +13,7 @@ For a profile in `~/.aws/config` that uses SSO (`sso_session` or
 ```bash
 komando login aws --profile prod                                   # a person signs in once in the browser
 komando conn add backups 's3://my-bucket/db?region=eu-west-1' --option aws_profile=prod
-komando storage list backups                                       # uses the login until it runs out
+komando storage s3 object list backups                                       # uses the login until it runs out
 ```
 
 komando shows a code and opens the AWS sign-in page in your browser.

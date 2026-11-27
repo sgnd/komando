@@ -28,9 +28,9 @@ func kctlUsage(args []string) error {
 	}
 	switch {
 	case oneOf(verb, "port-forward", "proxy", "attach"):
-		return out.Usage("%s is a session: use `komando cluster forward` (ports) or `komando cluster shell` (a terminal)", verb)
+		return out.Usage("%s is a session: use `komando cluster kubernetes tunnel start` (ports) or `komando cluster kubernetes shell` (a terminal)", verb)
 	case verb == "edit":
-		return out.Usage("edit opens an editor: use `komando cluster get TARGET TYPE NAME -o yaml`, change the file, then `cluster run --write -- apply -f FILE`")
+		return out.Usage("edit opens an editor: use `komando cluster get TARGET TYPE NAME -o yaml`, change the file, then `cluster kubernetes raw --write -- apply -f FILE`")
 	case verb == "config" && !oneOf(sub, "current-context", "get-contexts"):
 		return out.Usage("config supports current-context and get-contexts (komando keeps the kubeconfig in its vault; `komando conn show NAME` shows the conn)")
 	case !oneOf(verb, kctlVerbs...):
@@ -38,7 +38,7 @@ func kctlUsage(args []string) error {
 		if near := kube.Nearest(verb, slices.Clone(kctlVerbs)); near != "" {
 			e.Message += fmt.Sprintf("; did you mean %q?", near)
 		}
-		e.Hint = "see the commands it knows with `komando cluster run --help`"
+		e.Hint = "see the commands it knows with `komando cluster kubernetes raw --help`"
 		return e
 	}
 	return nil

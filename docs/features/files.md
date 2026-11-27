@@ -468,7 +468,7 @@ komando sync backups:2026/ ./restore                               # from storag
     nobody watching. A folder name that matches nothing is an error.
   - The other way: remove the folder on the destination first
     (`komando fs rm web1 /var/www/site/old-assets --recursive`, or
-    `komando storage rm CONN --prefix old-assets/`), then sync.
+    `komando storage s3 object delete CONN --prefix old-assets/`), then sync.
 - Symbolic links inside the folder are not copied; they are listed as
   `skipped`. A source folder given as a link is synced as the folder it
   names.

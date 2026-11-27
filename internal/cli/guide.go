@@ -34,7 +34,7 @@ var guideTopics = []string{"orient", "targets", "read", "change", "data", "jobs"
 const guideRules = `komando guide: the rules for AI agents
 
 1. Use komando for all server work, not ssh or scp.
-2. Look first: komando list, komando test TARGET, komando facts TARGET.
+2. Look first: komando list, komando test TARGET.
 3. Run every change once with --dry-run.
 4. Never add --yes, --allow-dangerous or --reveal on your own. When komando
    stops with exit 6, explain what you want to do and ask the person.

@@ -10,8 +10,8 @@ import (
 
 // Rules for what komando's own commands once guarded, so the same words
 // typed through exec stop the same way: deleting files, docker's deletes
-// and host escapes, removing a package the server needs, scaling to zero
-// and dropping a database user. What those commands only asked a person to
+// and host escapes, removing a package the server needs, scaling to zero,
+// dropping a database user and locking a user account. What those commands only asked a person to
 // type (pkg rm of other packages, cron rm) is not carried: it stopped no
 // agent.
 
@@ -28,6 +28,7 @@ var carriedRules = []struct {
 	{"pkg-implicit-remove", "removes packages it does not name (dist-upgrade, autoremove, distro-sync, clean-deps, unused or garbage-collected packages)", removesImplicitly},
 	{"container-shell", "opens a shell, interpreter or database client in a container, or feeds one input (what it runs cannot be checked)", containerShell},
 	{"kubectl-scale-zero", "scales a kubernetes workload to zero (an outage)", kubectlScalesToZero},
+	{"account-lock", "locks or expires a user account, or gives it a shell nobody can log in with (on root or the account komando logs in as, nobody gets in to undo it)", locksAccount},
 }
 
 // dbDropUser is SQL or mongo text, which sits inside a quoted argument.
@@ -332,4 +333,85 @@ func EssentialPackage(name string) bool {
 		return true // a pattern komando cannot read may pick anything
 	}
 	return slices.ContainsFunc(essentialSamples, re.MatchString)
+}
+
+// accountTools are the options of the account tools locksAccount reads:
+// the short letters that take a value and the long options that do.
+var accountTools = map[string]struct {
+	valued string
+	long   []string
+}{
+	"usermod": {"cdefgGlpsuRPZ", []string{"--comment", "--home", "--expiredate", "--inactive", "--gid", "--groups", "--login", "--password", "--shell", "--uid", "--root", "--prefix", "--add-subuids", "--del-subuids", "--add-subgids", "--del-subgids", "--selinux-user"}},
+	"passwd":  {"inrRwxP", []string{"--inactive", "--mindays", "--repository", "--root", "--warndays", "--maxdays", "--prefix"}},
+	"chage":   {"dEImMWRP", []string{"--lastday", "--expiredate", "--inactive", "--mindays", "--maxdays", "--warndays", "--root", "--prefix"}},
+	"chsh":    {"sR", []string{"--shell", "--root"}},
+}
+
+// locksAccount: usermod -L or -e DATE, passwd -l, chage -E DATE, and
+// usermod -s or chsh -s with a shell nobody can log in with. user lock
+// (usermod -L -e 1) and user add --shell stopped on root and on the
+// account komando logs in as; a rule cannot tell that account, so every
+// account stops. An expiry of "" or -1 clears it (user unlock).
+func locksAccount(c simpleCommand) bool {
+	name := c.name()
+	tool, ok := accountTools[name]
+	if !ok {
+		return false
+	}
+	for _, o := range shortOptions(c.args[1:], tool.valued, tool.long) {
+		switch {
+		case o.name == "--lock" || o.name == "-L" && name == "usermod" || o.name == "-l" && name == "passwd":
+			return true
+		case o.name == "--expiredate" || o.name == "-e" && name == "usermod" || o.name == "-E" && name == "chage":
+			if o.val != "" && o.val != "-1" {
+				return true
+			}
+		case o.name == "--shell" || o.name == "-s" && (name == "usermod" || name == "chsh"):
+			switch path.Base(o.val) {
+			case "nologin", "false", "true":
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// option is one option of a command: -L, -e with its value, --lock.
+type option struct{ name, val string }
+
+// shortOptions reads args as getopt does: a short group is read letter by
+// letter, and a letter in valued takes the rest of the group or the next
+// word (-Le1, -e 1, -s/bin/false); a long option in long takes =VALUE or
+// the next word. It stops at --.
+func shortOptions(args []string, valued string, long []string) []option {
+	var out []option
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case a == "--":
+			return out
+		case strings.HasPrefix(a, "--"):
+			k, v, ok := strings.Cut(a, "=")
+			if !ok && slices.Contains(long, k) && i+1 < len(args) {
+				i++
+				v = args[i]
+			}
+			out = append(out, option{k, v})
+		case len(a) > 1 && a[0] == '-':
+			for j := 1; j < len(a); j++ {
+				if !strings.ContainsRune(valued, rune(a[j])) {
+					out = append(out, option{name: "-" + a[j:j+1]})
+					continue
+				}
+				v := a[j+1:]
+				if v == "" && i+1 < len(args) {
+					i++
+					v = args[i]
+				}
+				out = append(out, option{"-" + a[j:j+1], v})
+				break
+			}
+		}
+	}
+	return out
 }

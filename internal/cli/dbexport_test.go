@@ -91,7 +91,7 @@ func TestConnAddRelativeFile(t *testing.T) {
 	mustRun(t, "conn", "add", "home", "sqlite:~/app.db")
 }
 
-// `komando db add` saves only a database, `queue add` only a queue, ...
+// `komando db add` saves only a database, `queue kafka add` only a Kafka cluster, ...
 func TestKindAddChecksFamily(t *testing.T) {
 	invHome(t)
 	for _, c := range []struct {
@@ -99,8 +99,8 @@ func TestKindAddChecksFamily(t *testing.T) {
 		url, want string
 	}{
 		{[]string{"db", "add"}, "redis://127.0.0.1:6379/0", "cache redis add"},
-		{[]string{"queue", "add"}, "postgres://x@127.0.0.1/x", "db add"},
-		{[]string{"cache", "redis", "add"}, "s3://AKIAEXAMPLE@b/p?region=eu-west-1", "storage add"},
+		{[]string{"queue", "kafka", "add"}, "postgres://x@127.0.0.1/x", "db add"},
+		{[]string{"cache", "redis", "add"}, "s3://AKIAEXAMPLE@b/p?region=eu-west-1", "storage s3 add"},
 	} {
 		if e := wantCode(t, "WRONG_KIND", append(c.words, "x", c.url)...); !strings.Contains(e.Hint, c.want) {
 			t.Errorf("%v %s: hint %q", c.words, c.url, e.Hint)
@@ -143,11 +143,11 @@ func TestStorageLinkExpiresDays(t *testing.T) {
 	invHome(t)
 	mustRun(t, "conn", "add", "s3l", "s3://AKIAEXAMPLE@b?region=eu-west-1&endpoint=http://127.0.0.1:9")
 	defer func() { setGate(tcl, false, gateDryRun) }()
-	mustRun(t, "storage", "link", "s3l", "a.txt", "--expires", "7d", "--dry-run")
-	if e := wantCode(t, "USAGE", "storage", "link", "s3l", "a.txt", "--expires", "8d", "--dry-run"); !strings.Contains(e.Message, "7d") {
+	mustRun(t, "storage", "s3", "object", "link", "s3l", "a.txt", "--expires", "7d", "--dry-run")
+	if e := wantCode(t, "USAGE", "storage", "s3", "object", "link", "s3l", "a.txt", "--expires", "8d", "--dry-run"); !strings.Contains(e.Message, "7d") {
 		t.Errorf("8d: %s", e.Message)
 	}
-	if e := wantCode(t, "USAGE", "storage", "link", "s3l", "a.txt", "--expires", "30x"); !strings.Contains(e.Message, "--expires") {
+	if e := wantCode(t, "USAGE", "storage", "s3", "object", "link", "s3l", "a.txt", "--expires", "30x"); !strings.Contains(e.Message, "--expires") {
 		t.Errorf("30x: %s", e.Message)
 	}
 }
@@ -155,7 +155,7 @@ func TestStorageLinkExpiresDays(t *testing.T) {
 // A bad URL of one kind gets that kind's example, not another kind's.
 func TestConnAddKindExample(t *testing.T) {
 	invHome(t)
-	if e := wantCode(t, "USAGE", "queue", "add", "ps", "pubsub://proj"); !strings.Contains(e.Hint, "pubsub://my-project") {
+	if e := wantCode(t, "USAGE", "queue", "pubsub", "add", "ps", "pubsub://proj"); !strings.Contains(e.Hint, "pubsub://my-project") {
 		t.Errorf("hint: %s", e.Hint)
 	}
 }
@@ -185,7 +185,7 @@ func TestSQSEmulatorNoLogin(t *testing.T) {
 	t.Setenv("AWS_CONFIG_FILE", os.DevNull)
 	t.Setenv("AWS_SHARED_CREDENTIALS_FILE", os.DevNull)
 	mustRun(t, "conn", "add", "sq", "sqs://eu-west-1?endpoint=http://127.0.0.1:9")
-	_, e := invRun(t, "queue", "ls", "sq")
+	_, e := invRun(t, "queue", "sqs", "topic", "list", "sq")
 	if e == nil || strings.HasPrefix(e.Code, "AWS_") {
 		t.Errorf("want a connect error, got %+v", e)
 	}

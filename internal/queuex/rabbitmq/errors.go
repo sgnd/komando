@@ -75,10 +75,10 @@ func opErr(err error, what string) error {
 	case amqp.PreconditionFailed:
 		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "the server refused the queue's settings: check --type and --config (RabbitMQ arguments such as x-max-length=1000)", "%s: %s", what, ae.Reason)
 	}
-	return out.Errf(out.ExitRemote, "QUEUE_ERROR", "read the server's words above; `komando queue describe CONN QUEUE` shows the queue", "%s: %s", what, ae.Reason)
+	return out.Errf(out.ExitRemote, "QUEUE_ERROR", "read the server's words above; `komando queue rabbitmq topic show NAME QUEUE` shows the queue", "%s: %s", what, ae.Reason)
 }
 
 func queueNotFound(name string) error {
-	return out.Errf(out.ExitNotFound, "QUEUE_NOT_FOUND", "list queues with `komando queue list CONN` (it needs ?management=PORT in the conn's URL); the vhost is the URL's path",
+	return out.Errf(out.ExitNotFound, "QUEUE_NOT_FOUND", "list queues with `komando queue rabbitmq topic list NAME` (it needs ?management=PORT in the conn's URL); the vhost is the URL's path",
 		"no queue named %q", name)
 }

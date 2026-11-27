@@ -42,7 +42,7 @@ func TestCloudLoginKubeconfigNeedsAPerson(t *testing.T) {
 			noAgent(t)
 			mustRun(t, "import", "kubeconfig", file) // a person brought it in: this server gets the login
 			setCallerEnv(t, "CLAUDECODE", "1")
-			if d, e := cliRun(t, "--dry-run", "cluster", "exec", "prod", "pod-a", "--", "id"); e != nil || blocked(d) != nil {
+			if d, e := cliRun(t, "--dry-run", "cluster", "kubernetes", "exec", "prod", "pod-a", "--", "id"); e != nil || blocked(d) != nil {
 				t.Errorf("an agent on the conn a person imported: %v %+v", d, e)
 			}
 			// the kubeconfig in the vault now names another server (an
@@ -56,7 +56,7 @@ func TestCloudLoginKubeconfigNeedsAPerson(t *testing.T) {
 			if _, e := cliRun(t, "cluster", "ls", "prod", "pods"); e == nil || e.Code != "SAFETY_SETTING" || !strings.Contains(e.Message, "attacker.example") {
 				t.Errorf("an agent's read sends the cloud login to a new server: %+v", e)
 			}
-			if d, e := cliRun(t, "--dry-run", "cluster", "exec", "prod", "pod-a", "--", "id"); e != nil || blocked(d)["code"] != "SAFETY_SETTING" {
+			if d, e := cliRun(t, "--dry-run", "cluster", "kubernetes", "exec", "prod", "pod-a", "--", "id"); e != nil || blocked(d)["code"] != "SAFETY_SETTING" {
 				t.Errorf("dry run: %v %+v", d, e)
 			}
 			if *windows != 0 {
@@ -168,14 +168,14 @@ func TestPluginTrustCoversTheClusterBlock(t *testing.T) {
 			t.Fatal(err)
 		}
 		setCallerEnv(t, "CLAUDECODE", "1")
-		if d, e := cliRun(t, "--dry-run", "cluster", "exec", "prod", "pod-a", "--", "id"); e != nil || blocked(d)["code"] != "SAFETY_SETTING" {
+		if d, e := cliRun(t, "--dry-run", "cluster", "kubernetes", "exec", "prod", "pod-a", "--", "id"); e != nil || blocked(d)["code"] != "SAFETY_SETTING" {
 			t.Errorf("%s: %v %+v", line, d, e)
 		}
 	}
 	noAgent(t)
 	vault.Set(store.Save(), "prod-kubeconfig", kc)
 	setCallerEnv(t, "CLAUDECODE", "1")
-	if d, e := cliRun(t, "--dry-run", "cluster", "exec", "prod", "pod-a", "--", "id"); e != nil || blocked(d) != nil {
+	if d, e := cliRun(t, "--dry-run", "cluster", "kubernetes", "exec", "prod", "pod-a", "--", "id"); e != nil || blocked(d) != nil {
 		t.Errorf("unchanged: %v %+v", d, e)
 	}
 }

@@ -62,12 +62,11 @@ check "no change on a conn whose ?host= is 127.0.0.1" SSH_GATE_REFUSED "$(kssh g
 check "no authorized_keys2" False "$(gx sh -c 'test -e /home/agent/.ssh/authorized_keys2 && echo True || echo False')"
 check "authorized_keys is as it was" "$AK0" "$(gx sha256sum /home/agent/.ssh/authorized_keys)"
 check "a read-only key reads" True "$(kssh gate-ro komando list -o json | mentions gx)"
-check "a read-only key changes nothing" SSH_GATE_READ_ONLY "$(kssh gate-ro komando svc restart gx nginx -o json | code || true)"
+check "a read-only key changes nothing" SSH_GATE_READ_ONLY "$(kssh gate-ro komando pkg install gx htop -o json | code || true)"
 check "exec without --read-only is not a read" SSH_GATE_READ_ONLY "$(kssh gate-ro komando exec gx -o json -- uptime | code || true)"
 # a read key stays off the network unless its line has --network
 check "ssh-gate status: a read key without network" "True False" "$(kssh gate-ro komando ssh-gate status -o json | jget 'str(d["data"]["read_only"]) + " " + str(d["data"]["network"])')"
 check "ssh-gate status: a read key with --network" "True True" "$(kssh gate-net komando ssh-gate status -o json | jget 'str(d["data"]["read_only"]) + " " + str(d["data"]["network"])')"
-check "a read key does not fetch a URL" SSH_GATE_NETWORK_REQUIRED "$(kssh gate-ro komando net http gx https://example.com -o json | code || true)"
 check "a read key runs no program" SSH_GATE_NETWORK_REQUIRED "$(kssh gate-ro komando exec gx --read-only -o json -- curl -s https://example.com | code || true)"
 check "a read key does not dial a website" SSH_GATE_NETWORK_REQUIRED "$(kssh gate-ro komando cert check https://example.com -o json | code || true)"
 check "ssh-gate status: a shell key" "False True" "$(kssh gate-sh komando ssh-gate status -o json | jget 'str(d["data"]["read_only"]) + " " + str(d["data"]["shell_access"])')"

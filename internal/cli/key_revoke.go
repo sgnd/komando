@@ -249,3 +249,10 @@ func revokeScript(user, blob string, dry bool) string {
 	q := sshx.Q(user)
 	return asUserFunc(q) + "h=$(getent passwd " + q + " | cut -d: -f6); ku " + sshx.Q(edit) + ` sh "$h" ` + sshx.Q(blob)
 }
+
+// asUserFunc defines ku, which runs `ku SCRIPT ARG0 ARGS...` as the user
+// q (already quoted): through su from root, or sh when komando logged in
+// as that user.
+func asUserFunc(q string) string {
+	return "ku() { if [ \"$(id -un)\" = " + q + " ]; then sh -c \"$@\"; else su -s /bin/sh " + q + " -c \"$@\"; fi; }; "
+}

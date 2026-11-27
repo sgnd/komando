@@ -1,16 +1,12 @@
 package cli
 
 import (
-	"fmt"
-	"slices"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/snippet"
-	"github.com/sgnd/komando/internal/store"
 )
 
 // facts --only runs the probes of a few sections, for an app that polls a
@@ -77,19 +73,6 @@ func factsOnly(sections []string) (script string, keys []string, err error) {
 	return b.String(), keys, nil
 }
 
-// factsOnlyParse reads the script's lines as facts does and keeps the keys
-// asked for; one komando cannot read is null, as in facts.
-func factsOnlyParse(keys []string) func(h *store.Host, s string) (any, error) {
-	return func(h *store.Host, s string) (any, error) {
-		all, err := parseFacts(h, s)
-		if err != nil {
-			return nil, err
-		}
-		f, _ := all.(map[string]any)
-		return factsKeep(f, keys), nil
-	}
-}
-
 // factsKeep keeps the keys asked for; one komando cannot read is null.
 func factsKeep(f map[string]any, keys []string) map[string]any {
 	res := map[string]any{}
@@ -121,48 +104,4 @@ func factsOnlySnippets() []snippet.Builtin {
 			return factsKeep(factsOf(o.Stdout, f), keys), nil
 		},
 	}}
-}
-
-// factsOnlyText is the -o text view of facts --only: one line per server.
-func factsOnlyText(d probeData) string {
-	var b strings.Builder
-	for _, r := range d.Results {
-		f, _ := r.Data.(map[string]any)
-		if !r.OK || f == nil {
-			msg := "failed"
-			if r.Error != nil {
-				msg = r.Error.Message
-			}
-			fmt.Fprintf(&b, "● %s  failed: %s\n", r.Host, msg)
-			continue
-		}
-		var parts []string
-		if p, ok := f["os_pretty"].(string); ok {
-			parts = append(parts, p)
-		} else if o, ok := f["os"].(string); ok {
-			v, _ := f["os_version"].(string)
-			parts = append(parts, strings.TrimSpace(o+" "+v))
-		}
-		if n, ok := f["uptime_sec"].(int64); ok {
-			parts = append(parts, "up "+humanAge(time.Duration(n)*time.Second))
-		}
-		if l, ok := f["load"].([]float64); ok && len(l) == 3 {
-			parts = append(parts, fmt.Sprintf("load %.2f %.2f %.2f", l[0], l[1], l[2]))
-		}
-		if n, ok := f["cpus"].(int64); ok {
-			parts = append(parts, fmt.Sprintf("%d cpu", n))
-		}
-		if t, ok := f["mem_total_mb"].(int64); ok {
-			if a, ok := f["mem_available_mb"].(int64); ok {
-				parts = append(parts, fmt.Sprintf("mem %d of %d MB free", a, t))
-			}
-		}
-		if ds, ok := f["disks"].([]diskFacts); ok {
-			for _, x := range ds {
-				parts = append(parts, fmt.Sprintf("%s %d%%", x.Mount, x.UsedPct))
-			}
-		}
-		fmt.Fprintf(&b, "● %s  %s\n", r.Host, strings.Join(slices.DeleteFunc(parts, func(s string) bool { return s == "" }), ", "))
-	}
-	return b.String()
 }

@@ -51,17 +51,6 @@ func keyID(key safetyKey) string {
 	return found
 }
 
-// replacedIDs are today's commands that exec, query or raw replace: they
-// stay in the tree until cut step D, so a leaf that carries one leaves
-// their entries alone.
-func replacedIDs() map[string]bool {
-	m := map[string]bool{}
-	for _, r := range capability.Replacements() {
-		m[r.Today] = true
-	}
-	return m
-}
-
 // keyGroups gives a moved type's own top-level group its key, drops the
 // entries of a group of today whose every command has gone (key), and lets
 // a group of today that is left until cut step D (secret, host ca) share

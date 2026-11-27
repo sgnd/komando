@@ -80,23 +80,23 @@ func opErr(err error, what string) error {
 	case errors.Is(err, kerr.GroupIDNotFound):
 		return groupNotFound(what)
 	case errors.Is(err, kerr.TopicAlreadyExists):
-		return out.Errf(out.ExitConflict, "TOPIC_EXISTS", "pick another name, or see it with `komando queue describe CONN "+what+"`", "topic %s already exists", what)
+		return out.Errf(out.ExitConflict, "TOPIC_EXISTS", "pick another name, or see it with `komando queue kafka topic show NAME "+what+"`", "topic %s already exists", what)
 	case errors.Is(err, context.DeadlineExceeded) || IsTimeout(err):
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "the brokers did not answer in time; raise --timeout", "%s: %v", what, err)
 	case errors.Is(err, kerr.InvalidReplicationFactor), errors.Is(err, kerr.InvalidPartitions), errors.Is(err, kerr.InvalidConfig),
 		errors.Is(err, kerr.InvalidTopicException), errors.Is(err, kerr.PolicyViolation):
-		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "the brokers refused the topic's settings: --replicas can be at most the number of brokers (`komando queue info CONN`), and --config names Kafka topic settings such as retention.ms",
+		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "the brokers refused the topic's settings: --replicas can be at most the number of brokers (`komando queue kafka info NAME`), and --config names Kafka topic settings such as retention.ms",
 			"%s: %v", what, err)
 	}
-	return out.Errf(out.ExitRemote, "QUEUE_ERROR", "read the broker's words above; `komando queue describe CONN TOPIC` shows the topic's settings", "%s: %v", what, err)
+	return out.Errf(out.ExitRemote, "QUEUE_ERROR", "read the broker's words above; `komando queue kafka topic show NAME TOPIC` shows the topic's settings", "%s: %v", what, err)
 }
 
 func topicNotFound(topic string) error {
-	return out.Errf(out.ExitNotFound, "TOPIC_NOT_FOUND", "list topics with `komando queue list CONN`", "no topic named %q", topic)
+	return out.Errf(out.ExitNotFound, "TOPIC_NOT_FOUND", "list topics with `komando queue kafka topic list NAME`", "no topic named %q", topic)
 }
 
 func groupNotFound(group string) error {
-	return out.Errf(out.ExitNotFound, "CONSUMER_GROUP_NOT_FOUND", "list consumer groups with `komando queue groups CONN`", "no consumer group named %q", group)
+	return out.Errf(out.ExitNotFound, "CONSUMER_GROUP_NOT_FOUND", "list consumer groups with `komando queue kafka consumer list NAME`", "no consumer group named %q", group)
 }
 
 // NotSupported is the answer of an engine to a verb or flag it cannot do.

@@ -6,7 +6,7 @@ cache.info	kind=read|	target=""
 cache.keys	kind=read|	target=""	
 cache.memcached	kind=read|	target=""	
 cache.memcached.add	kind=change|	target=""	
-cache.memcached.edit	kind=change|	target=""	
+cache.memcached.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
 cache.memcached.list	kind=read|	target=""	
 cache.memcached.raw	kind=depends|only reads unless --write	target=""	dangerous|||the cache command deletes data (DEL, FLUSHALL, ...)|||
 cache.memcached.remove	kind=change|	target=""	
@@ -15,7 +15,7 @@ cache.memcached.show	kind=read|	target=""
 cache.memcached.test	kind=read|	target=""	
 cache.redis	kind=read|	target=""	
 cache.redis.add	kind=change|	target=""	
-cache.redis.edit	kind=change|	target=""	
+cache.redis.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
 cache.redis.list	kind=read|	target=""	
 cache.redis.raw	kind=depends|only reads unless --write	target=""	dangerous|||the cache command deletes data (DEL, FLUSHALL, ...)|||
 cache.redis.remove	kind=change|	target=""	
@@ -27,13 +27,10 @@ cache.set	kind=change|	target=""
 cert	kind=read|	target="servers"	
 cert.check	kind=read|	target=""	
 cluster	kind=read|	target="clusters"	
-cluster.add	kind=change|	target="clusters"	
 cluster.apply	kind=change|	target="clusters"	
 cluster.deploy	kind=change|	target="clusters"	
 cluster.describe	kind=read|	target="clusters"	
 cluster.events	kind=read|	target="clusters"	
-cluster.exec	kind=depends|changes things unless --read-only says the command only reads (the policy checks it either way)	target="clusters"	dangerous|||the command matches a destructive rule|||
-cluster.forward	kind=change|	target="clusters"	
 cluster.get	kind=read|	target="clusters"	
 cluster.helm	kind=read|	target="clusters"	
 cluster.helm.history	kind=read|	target="clusters"	
@@ -41,15 +38,28 @@ cluster.helm.list	kind=read|	target="clusters"
 cluster.helm.status	kind=read|	target="clusters"	
 cluster.helm.values	kind=read|	target="clusters"	
 cluster.history	kind=read|	target="clusters"	
+cluster.kubernetes	kind=read|	target="clusters"	
+cluster.kubernetes.add	kind=change|	target="clusters"	
+cluster.kubernetes.edit	kind=change|	target="clusters"	safety|with --protected=false|turns protection off||||
+cluster.kubernetes.exec	kind=depends|changes things unless --read-only says the command only reads (the policy checks it either way)	target="clusters"	dangerous|||the command matches a destructive rule|||
+cluster.kubernetes.list	kind=read|	target="clusters"	
+cluster.kubernetes.raw	kind=depends|only reads unless --write	target="clusters"	dangerous|||the cluster command deletes something or scales to 0|||
+cluster.kubernetes.remove	kind=change|	target="clusters"	
+cluster.kubernetes.rename	kind=change|	target="clusters"	
+cluster.kubernetes.shell	kind=depends|an shellNote shell for a person: whatever they type	target="clusters"	person||||||
+cluster.kubernetes.show	kind=read|	target="clusters"	
+cluster.kubernetes.test	kind=read|	target="clusters"	
+cluster.kubernetes.tunnel	kind=read|	target="clusters"	
+cluster.kubernetes.tunnel.start	kind=change|	target="clusters"	
 cluster.list	kind=read|	target="clusters"	
 cluster.logs	kind=read|	target="clusters"	
 cluster.restart	kind=change|	target="clusters"	
 cluster.rm	kind=change|	target="clusters"	dangerous||deletes it from the cluster||||
 cluster.rollback	kind=change|	target="clusters"	
-cluster.run	kind=depends|only reads unless --write	target="clusters"	dangerous|||the cluster command deletes something or scales to 0|||
 cluster.scale	kind=change|	target="clusters"	dangerous|REPLICAS is 0|stops every copy of the app||||
-cluster.shell	kind=depends|an shellNote shell for a person: whatever they type	target="clusters"	person||||||
 cluster.status	kind=read|	target="clusters"	
+cluster.swarm	kind=read|	target="clusters"	
+cluster.swarm.raw	kind=depends|only reads unless --write	target="clusters"	dangerous|||the cluster command deletes something or scales to 0|||
 completion	kind=none	target=""	
 completion.bash	kind=none	target=""	
 completion.fish	kind=none	target=""	
@@ -100,10 +110,6 @@ credential.token.add	kind=change|	target="servers"
 credential.token.remove	kind=change|	target="servers"	dangerous||deletes the saved token||||
 credential.token.rename	kind=change|	target="servers"	
 credential.token.show	kind=read|	target="servers"	
-cron	kind=read|	target="servers"	
-cron.list	kind=read|	target="servers"	
-cron.rm	kind=change|	target="servers"	change|||||deletes the cron entry|cron entries
-cron.set	kind=change|	target="servers"	
 db	kind=read|	target=""	
 db.activity	kind=read|	target=""	
 db.add	kind=change|	target=""	
@@ -146,7 +152,6 @@ environment	kind=none	target=""
 exec	kind=depends|changes things unless --read-only says the command only reads (the policy checks it either way)	target="servers"	dangerous|||the command matches a destructive rule|||
 exit-codes	kind=none	target=""	
 export	kind=read|	target=""	person|with --sealed||||| ; person|with --for-phone|||||
-facts	kind=read|	target="servers"	
 fs	kind=read|	target="servers"	
 fs.cat	kind=read|	target="servers"	
 fs.chmod	kind=change|	target="servers"	
@@ -199,11 +204,6 @@ login.gcp	kind=none	target=""
 logout	kind=change|	target=""	
 logout.aws	kind=change|	target=""	
 logs	kind=read|	target="servers"	
-net	kind=read|	target="servers"	
-net.check	kind=read|	target="servers"	
-net.dns	kind=read|	target="servers"	
-net.http	kind=read|	target="servers"	
-net.ports	kind=read|	target="servers"	
 output	kind=none	target=""	
 pkg	kind=read|	target="servers"	
 pkg.install	kind=change|	target="servers"	
@@ -220,6 +220,8 @@ policy.edit	kind=change|	target=""	safety|unless it only switches the rule on|sw
 policy.list	kind=read|	target=""	
 policy.rm	kind=change|	target=""	safety||removes a deny rule||||
 policy.show	kind=read|	target=""	
+probe cache redis edit prod-redis --protected=false	safety|turns protection off||
+probe cluster kubernetes edit prod-k8s --protected=false	safety|turns protection off||
 probe cluster scale c1 web 0	dangerous|stops every copy of the app||
 probe config vault keychain	person|moves the key into the keychain||
 probe conn edit app-db --protected=false	safety|turns protection off||
@@ -236,26 +238,112 @@ probe import kubeconfig	safety||an AI agent imports a context whose login runs a
 probe pkg rm web1 openssh-server	dangerous|removes a package the server needs to run or to let you in||
 probe pkg upgrade web1 --security	dangerous||an update would remove a package the server needs|
 probe policy edit rm-root --off	safety|switches a rule off||
+probe queue kafka edit prod-kafka --protected=false	safety|turns protection off||
 probe recipe add r1 --overwrite --read-only	safety||it makes an existing snippet read-only|
-probe svc disable web1 ssh.service	dangerous|turns sshd off (no one can log in remotely after a restart)||
-probe svc stop web1 sshd	dangerous|stops sshd (no one can log in remotely)||
+probe registry oci edit ghcr --protected=false	safety|turns protection off||
+probe storage s3 edit prod-s3 --protected=false	safety|turns protection off||
 probe sync ./site web1:/srv --delete	dangerous|deletes the files in DST that SRC does not have||
-probe user rm web1 bob --remove-home	dangerous|deletes the user and their home folder||
 probe vpn edit kantor --mfa=false	safety|turns --mfa off (komando may then connect it without a person)||
 probe vpn edit kantor --protected=false	safety|turns protection off||
 queue	kind=read|	target=""	
-queue.add	kind=change|	target=""	
-queue.create	kind=change|	target=""	
-queue.describe	kind=read|	target=""	
-queue.groups	kind=read|	target=""	
-queue.info	kind=read|	target=""	
-queue.lag	kind=read|	target=""	
-queue.list	kind=read|	target=""	
-queue.peek	kind=read|	target=""	
-queue.purge	kind=change|	target=""	dangerous||deletes every waiting message||||
-queue.rm	kind=change|	target=""	dangerous||deletes the topics or queues with their messages||||
-queue.send	kind=change|	target=""	
-reboot	kind=change|	target="servers"	dangerous||restarts the server (it is away until it is back)||||
+queue.kafka	kind=read|	target=""	
+queue.kafka.add	kind=change|	target=""	
+queue.kafka.consumer	kind=read|	target=""	
+queue.kafka.consumer.list	kind=read|	target=""	
+queue.kafka.consumer.show	kind=read|	target=""	
+queue.kafka.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+queue.kafka.info	kind=read|	target=""	
+queue.kafka.list	kind=read|	target=""	
+queue.kafka.message	kind=read|	target=""	
+queue.kafka.message.create	kind=change|	target=""	
+queue.kafka.message.delete	kind=change|	target=""	dangerous||deletes every waiting message||||
+queue.kafka.message.list	kind=read|	target=""	
+queue.kafka.remove	kind=change|	target=""	
+queue.kafka.rename	kind=change|	target=""	
+queue.kafka.show	kind=read|	target=""	
+queue.kafka.test	kind=read|	target=""	
+queue.kafka.topic	kind=read|	target=""	
+queue.kafka.topic.create	kind=change|	target=""	
+queue.kafka.topic.delete	kind=change|	target=""	dangerous||deletes the topics or queues with their messages||||
+queue.kafka.topic.list	kind=read|	target=""	
+queue.kafka.topic.show	kind=read|	target=""	
+queue.nats	kind=read|	target=""	
+queue.nats.add	kind=change|	target=""	
+queue.nats.consumer	kind=read|	target=""	
+queue.nats.consumer.list	kind=read|	target=""	
+queue.nats.consumer.show	kind=read|	target=""	
+queue.nats.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+queue.nats.info	kind=read|	target=""	
+queue.nats.list	kind=read|	target=""	
+queue.nats.message	kind=read|	target=""	
+queue.nats.message.create	kind=change|	target=""	
+queue.nats.message.delete	kind=change|	target=""	dangerous||deletes every waiting message||||
+queue.nats.message.list	kind=read|	target=""	
+queue.nats.remove	kind=change|	target=""	
+queue.nats.rename	kind=change|	target=""	
+queue.nats.show	kind=read|	target=""	
+queue.nats.test	kind=read|	target=""	
+queue.nats.topic	kind=read|	target=""	
+queue.nats.topic.create	kind=change|	target=""	
+queue.nats.topic.delete	kind=change|	target=""	dangerous||deletes the topics or queues with their messages||||
+queue.nats.topic.list	kind=read|	target=""	
+queue.nats.topic.show	kind=read|	target=""	
+queue.pubsub	kind=read|	target=""	
+queue.pubsub.add	kind=change|	target=""	
+queue.pubsub.consumer	kind=read|	target=""	
+queue.pubsub.consumer.list	kind=read|	target=""	
+queue.pubsub.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+queue.pubsub.info	kind=read|	target=""	
+queue.pubsub.list	kind=read|	target=""	
+queue.pubsub.message	kind=read|	target=""	
+queue.pubsub.message.create	kind=change|	target=""	
+queue.pubsub.message.delete	kind=change|	target=""	dangerous||deletes every waiting message||||
+queue.pubsub.message.list	kind=read|	target=""	
+queue.pubsub.remove	kind=change|	target=""	
+queue.pubsub.rename	kind=change|	target=""	
+queue.pubsub.show	kind=read|	target=""	
+queue.pubsub.test	kind=read|	target=""	
+queue.pubsub.topic	kind=read|	target=""	
+queue.pubsub.topic.create	kind=change|	target=""	
+queue.pubsub.topic.delete	kind=change|	target=""	dangerous||deletes the topics or queues with their messages||||
+queue.pubsub.topic.list	kind=read|	target=""	
+queue.pubsub.topic.show	kind=read|	target=""	
+queue.rabbitmq	kind=read|	target=""	
+queue.rabbitmq.add	kind=change|	target=""	
+queue.rabbitmq.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+queue.rabbitmq.info	kind=read|	target=""	
+queue.rabbitmq.list	kind=read|	target=""	
+queue.rabbitmq.message	kind=read|	target=""	
+queue.rabbitmq.message.create	kind=change|	target=""	
+queue.rabbitmq.message.delete	kind=change|	target=""	dangerous||deletes every waiting message||||
+queue.rabbitmq.message.list	kind=read|	target=""	
+queue.rabbitmq.remove	kind=change|	target=""	
+queue.rabbitmq.rename	kind=change|	target=""	
+queue.rabbitmq.show	kind=read|	target=""	
+queue.rabbitmq.test	kind=read|	target=""	
+queue.rabbitmq.topic	kind=read|	target=""	
+queue.rabbitmq.topic.create	kind=change|	target=""	
+queue.rabbitmq.topic.delete	kind=change|	target=""	dangerous||deletes the topics or queues with their messages||||
+queue.rabbitmq.topic.list	kind=read|	target=""	
+queue.rabbitmq.topic.show	kind=read|	target=""	
+queue.sqs	kind=read|	target=""	
+queue.sqs.add	kind=change|	target=""	
+queue.sqs.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+queue.sqs.info	kind=read|	target=""	
+queue.sqs.list	kind=read|	target=""	
+queue.sqs.message	kind=read|	target=""	
+queue.sqs.message.create	kind=change|	target=""	
+queue.sqs.message.delete	kind=change|	target=""	dangerous||deletes every waiting message||||
+queue.sqs.message.list	kind=read|	target=""	
+queue.sqs.remove	kind=change|	target=""	
+queue.sqs.rename	kind=change|	target=""	
+queue.sqs.show	kind=read|	target=""	
+queue.sqs.test	kind=read|	target=""	
+queue.sqs.topic	kind=read|	target=""	
+queue.sqs.topic.create	kind=change|	target=""	
+queue.sqs.topic.delete	kind=change|	target=""	dangerous||deletes the topics or queues with their messages||||
+queue.sqs.topic.list	kind=read|	target=""	
+queue.sqs.topic.show	kind=read|	target=""	
 recipe	kind=read|	target="servers"	
 recipe.add	kind=change|	target="servers"	safety|with --overwrite --read-only||it makes an existing snippet read-only|||
 recipe.list	kind=read|	target="servers"	
@@ -264,7 +352,7 @@ recipe.run	kind=depends|decided by the recipe's command, like exec	target="serve
 registry	kind=read|	target=""	
 registry.oci	kind=read|	target=""	
 registry.oci.add	kind=change|	target=""	safety|||the address turns TLS off (plain HTTP)|||
-registry.oci.edit	kind=change|	target=""	
+registry.oci.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
 registry.oci.image	kind=read|	target=""	
 registry.oci.image.copy	kind=change|	target=""	
 registry.oci.image.delete	kind=change|	target=""	dangerous||deletes the images||||
@@ -288,27 +376,109 @@ ssh-gate.line	kind=read|	target=""
 ssh-gate.status	kind=read|	target=""	
 status	kind=read|	target=""	
 storage	kind=read|	target=""	
-storage.add	kind=change|	target=""	
-storage.cat	kind=read|	target=""	
-storage.chmod	kind=change|	target=""	
+storage.azblob	kind=read|	target=""	
+storage.azblob.add	kind=change|	target=""	
+storage.azblob.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+storage.azblob.list	kind=read|	target=""	
+storage.azblob.object	kind=read|	target=""	
+storage.azblob.object.create	kind=change|	target=""	
+storage.azblob.object.delete	kind=change|	target=""	dangerous||deletes the files||||
+storage.azblob.object.link	kind=change|	target=""	safety|||an AI agent makes a link (a person allows --reveal)|||
+storage.azblob.object.list	kind=read|	target=""	
+storage.azblob.object.move	kind=change|	target=""	
+storage.azblob.object.read	kind=read|	target=""	
+storage.azblob.remove	kind=change|	target=""	
+storage.azblob.rename	kind=change|	target=""	
+storage.azblob.show	kind=read|	target=""	
+storage.azblob.test	kind=read|	target=""	
 storage.download	kind=read|	target=""	
-storage.link	kind=change|	target=""	safety|||an AI agent makes a link (a person allows --reveal)|||
-storage.list	kind=read|	target=""	
-storage.mkdir	kind=change|	target=""	
-storage.mv	kind=change|	target=""	
-storage.rm	kind=change|	target=""	dangerous||deletes the files||||
+storage.ftp	kind=read|	target=""	
+storage.ftp.add	kind=change|	target=""	
+storage.ftp.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+storage.ftp.list	kind=read|	target=""	
+storage.ftp.object	kind=read|	target=""	
+storage.ftp.object.create	kind=change|	target=""	
+storage.ftp.object.delete	kind=change|	target=""	dangerous||deletes the files||||
+storage.ftp.object.list	kind=read|	target=""	
+storage.ftp.object.move	kind=change|	target=""	
+storage.ftp.object.read	kind=read|	target=""	
+storage.ftp.remove	kind=change|	target=""	
+storage.ftp.rename	kind=change|	target=""	
+storage.ftp.show	kind=read|	target=""	
+storage.ftp.test	kind=read|	target=""	
+storage.gcs	kind=read|	target=""	
+storage.gcs.add	kind=change|	target=""	
+storage.gcs.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+storage.gcs.list	kind=read|	target=""	
+storage.gcs.object	kind=read|	target=""	
+storage.gcs.object.create	kind=change|	target=""	
+storage.gcs.object.delete	kind=change|	target=""	dangerous||deletes the files||||
+storage.gcs.object.link	kind=change|	target=""	safety|||an AI agent makes a link (a person allows --reveal)|||
+storage.gcs.object.list	kind=read|	target=""	
+storage.gcs.object.move	kind=change|	target=""	
+storage.gcs.object.read	kind=read|	target=""	
+storage.gcs.remove	kind=change|	target=""	
+storage.gcs.rename	kind=change|	target=""	
+storage.gcs.show	kind=read|	target=""	
+storage.gcs.test	kind=read|	target=""	
+storage.s3	kind=read|	target=""	
+storage.s3.add	kind=change|	target=""	
+storage.s3.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+storage.s3.list	kind=read|	target=""	
+storage.s3.object	kind=read|	target=""	
+storage.s3.object.create	kind=change|	target=""	
+storage.s3.object.delete	kind=change|	target=""	dangerous||deletes the files||||
+storage.s3.object.link	kind=change|	target=""	safety|||an AI agent makes a link (a person allows --reveal)|||
+storage.s3.object.list	kind=read|	target=""	
+storage.s3.object.move	kind=change|	target=""	
+storage.s3.object.read	kind=read|	target=""	
+storage.s3.remove	kind=change|	target=""	
+storage.s3.rename	kind=change|	target=""	
+storage.s3.show	kind=read|	target=""	
+storage.s3.test	kind=read|	target=""	
+storage.sftp	kind=read|	target=""	
+storage.sftp.add	kind=change|	target=""	
+storage.sftp.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+storage.sftp.list	kind=read|	target=""	
+storage.sftp.object	kind=read|	target=""	
+storage.sftp.object.create	kind=change|	target=""	
+storage.sftp.object.delete	kind=change|	target=""	dangerous||deletes the files||||
+storage.sftp.object.list	kind=read|	target=""	
+storage.sftp.object.move	kind=change|	target=""	
+storage.sftp.object.read	kind=read|	target=""	
+storage.sftp.remove	kind=change|	target=""	
+storage.sftp.rename	kind=change|	target=""	
+storage.sftp.show	kind=read|	target=""	
+storage.sftp.test	kind=read|	target=""	
+storage.smb	kind=read|	target=""	
+storage.smb.add	kind=change|	target=""	
+storage.smb.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+storage.smb.list	kind=read|	target=""	
+storage.smb.object	kind=read|	target=""	
+storage.smb.object.create	kind=change|	target=""	
+storage.smb.object.delete	kind=change|	target=""	dangerous||deletes the files||||
+storage.smb.object.list	kind=read|	target=""	
+storage.smb.object.move	kind=change|	target=""	
+storage.smb.object.read	kind=read|	target=""	
+storage.smb.remove	kind=change|	target=""	
+storage.smb.rename	kind=change|	target=""	
+storage.smb.show	kind=read|	target=""	
+storage.smb.test	kind=read|	target=""	
 storage.upload	kind=change|	target=""	
-svc	kind=read|	target="servers"	
-svc.daemon-reload	kind=change|	target="servers"	
-svc.disable	kind=change|	target="servers"	dangerous|the unit is ssh or sshd|turns sshd off (no one can log in remotely after a restart)||||
-svc.enable	kind=change|	target="servers"	
-svc.list	kind=read|	target="servers"	
-svc.logs	kind=read|	target="servers"	
-svc.reload	kind=change|	target="servers"	
-svc.restart	kind=change|	target="servers"	
-svc.start	kind=change|	target="servers"	
-svc.status	kind=read|	target="servers"	
-svc.stop	kind=change|	target="servers"	dangerous|the unit is ssh or sshd|stops sshd (no one can log in remotely)||||
+storage.webdav	kind=read|	target=""	
+storage.webdav.add	kind=change|	target=""	
+storage.webdav.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+storage.webdav.list	kind=read|	target=""	
+storage.webdav.object	kind=read|	target=""	
+storage.webdav.object.create	kind=change|	target=""	
+storage.webdav.object.delete	kind=change|	target=""	dangerous||deletes the files||||
+storage.webdav.object.list	kind=read|	target=""	
+storage.webdav.object.move	kind=change|	target=""	
+storage.webdav.object.read	kind=read|	target=""	
+storage.webdav.remove	kind=change|	target=""	
+storage.webdav.rename	kind=change|	target=""	
+storage.webdav.show	kind=read|	target=""	
+storage.webdav.test	kind=read|	target=""	
 sync	kind=change|	target="servers or file storage"	dangerous|with --delete|deletes the files in DST that SRC does not have||||
 test	kind=read|	target=""	
 tunnel	kind=read|	target="servers"	
@@ -318,12 +488,6 @@ tunnel.start	kind=change|	target="servers"	safety|||it listens on an open addres
 tunnel.stop	kind=change|	target="servers"	
 update	kind=change|	target=""	safety|||it installs an older version|||
 upload	kind=change|	target="servers or file storage"	
-user	kind=read|	target="servers"	
-user.add	kind=change|	target="servers"	
-user.list	kind=read|	target="servers"	
-user.lock	kind=change|	target="servers"	
-user.rm	kind=change|	target="servers"	dangerous|with --remove-home|deletes the user and their home folder|||| ; dangerous||deletes the user||||
-user.unlock	kind=change|	target="servers"	
 version	kind=read|	target=""	
 vpn	kind=read|	target="VPNs"	
 vpn.add	kind=change|	target="VPNs"	

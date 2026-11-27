@@ -50,7 +50,7 @@ check "cache TTL = redis-cli TTL" True "$(t=$(native redis redis-cli -a redispas
 echo "parity $V" >"$TMP/$V.txt"
 q $K storage upload files-sftp "$TMP/$V.txt" "$V.txt"
 check "storage upload = file on the sftp server" "parity $V" "$(native sftp cat "/home/deploy/uploads/$V.txt")"
-check "storage ls = ls" True "$($K storage ls files-sftp | jget '"'"$V.txt"'" in json.dumps(d["data"])')"
+check "storage sftp object list = ls" True "$($K storage sftp object list files-sftp | jget '"'"$V.txt"'" in json.dumps(d["data"])')"
 fi
 
 if in_area k8s; then
@@ -77,21 +77,8 @@ check "pkg installed = dpkg-query" "$(native direct dpkg-query -W -f='${Version}
 check "exec --read-only keeps ssh's exit code" "$(nativeas agent direct sh -c 'ls /nope-missing >/dev/null 2>&1; echo $?') 5" \
   "$(rc=0; $K exec direct --read-only -- 'ls /nope-missing' >"$TMP/ro.json" || rc=$?; echo "$(jget 'd["data"]["results"][0]["exit_code"]' <"$TMP/ro.json") $rc")"
 
-# logs = tail, cron list = crontab -l, user list = getent passwd
+# logs = tail
 check "logs --file = tail" "$(native direct tail -n 5 /etc/passwd)" "$($K logs direct --file /etc/passwd -n 5 | jget 'd["data"]["results"][0]["stdout"].rstrip("\n")')"
-q $K cron set direct "$V" 'true' --schedule '*/5 * * * *'
-check "cron list = crontab -l" "$(nativeas agent direct crontab -l | grep -c "komando:$V")" "$($K cron list direct | jget 'str(sum(1 for r in d["data"]["results"][0]["data"] if r.get("id") == "'"$V"'"))')"
-check "cron schedule = what crontab holds" "*/5 * * * *" "$($K cron list direct | jget 'next(r["schedule"] for r in d["data"]["results"][0]["data"] if r.get("id") == "'"$V"'")')"
-q $K cron rm direct "$V"
-check "user list = getent (uid >= 1000)" "$(native direct getent passwd | awk -F: '$3 >= 1000 && $3 < 65534 {print $1}' | sort | words)" \
-  "$($K user list direct | jget '" ".join(sorted(u["name"] for u in d["data"]["results"][0]["data"] if u["uid"] >= 1000))')"
-
-# net dns = getent, net ports = ss, facts = uname / nproc
-check "net dns = getent ahosts" "$(native direct getent ahosts localhost | awk '{print $1}' | sort -u | words)" "$($K net dns direct localhost | jget '" ".join(sorted(d["data"]["results"][0]["data"]["addresses"]))')"
-check "net ports = ss (tcp listening)" "$(native direct ss -Htln | awk '{n=split($4,a,":"); print a[n]}' | sort -un | words)" \
-  "$($K net ports direct | jget '" ".join(str(p) for p in sorted(set(r["port"] for r in d["data"]["results"][0]["data"] if r["proto"] == "tcp" and r["state"] == "LISTEN")))')"
-check "facts = uname / nproc" "$(native direct sh -c 'uname -n; uname -r; nproc' | words)" \
-  "$($K facts direct | jget '" ".join(str(d["data"]["results"][0]["data"][k]) for k in ("hostname", "kernel", "cpus"))')"
 
 # sync = diff -r afterwards; job logs = the job's own output
 mkdir -p "$TMP/$V.src/sub" && echo one >"$TMP/$V.src/a.txt" && echo two >"$TMP/$V.src/sub/b.txt"

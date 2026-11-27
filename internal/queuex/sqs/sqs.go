@@ -249,13 +249,13 @@ func checkName(name string) error {
 
 // Groups: SQS has no consumer groups.
 func (s *SQS) Groups(context.Context) ([]queuex.Group, error) {
-	return nil, queuex.NotSupported("queue groups", "sqs", noGroups)
+	return nil, queuex.NotSupported("consumer list", "sqs", noGroups)
 }
 
 // Lag: SQS has no consumer groups.
 func (s *SQS) Lag(context.Context, string) (*queuex.GroupLag, error) {
-	return nil, queuex.NotSupported("queue lag", "sqs", noGroups)
+	return nil, queuex.NotSupported("consumer show", "sqs", noGroups)
 }
 
-const noGroups = "SQS has no consumer groups: every consumer takes from the same queue. `komando queue describe CONN QUEUE` shows the messages " +
+const noGroups = "SQS has no consumer groups: every consumer takes from the same queue. `komando queue sqs topic show NAME QUEUE` shows the messages " +
 	"waiting (messages), received and not yet deleted (in_flight) and delayed"

@@ -618,7 +618,7 @@ func unreachable(c *store.Conn, t driver.Target, err error) *out.Error {
 	hint := "check the address and port; if it is only reachable from a server, set `komando conn edit " + c.Name + " --via SERVER`"
 	if steps := inventory.ViaChain(c.Via); len(steps) > 0 {
 		last := steps[len(steps)-1]
-		hint = "the address is resolved on " + last + "; check it from there with `komando net check " + last + " " + t.Address + "`"
+		hint = "the address is resolved on " + last + "; check it from there with `komando exec " + last + " -- nc -z HOST PORT`"
 		if st, err := loadState(); err == nil {
 			if _, isVpn := st.Vpns[last]; isVpn {
 				hint = "the address is reached through VPN " + last + "; check the VPN with `komando test " + last + "` and the address in the conn URL"
@@ -653,9 +653,9 @@ func kindExample(raw string, err error) error {
 var connAddKinds = map[string]struct{ what, form, example string }{
 	"db":       {"database", "Database", "komando db add prod-db postgres://app@10.0.0.5:5432/app --via web1 --ask-password"},
 	"cache":    {"cache", "Cache", "komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password"},
-	"queue":    {"message queue", "Message queues", "komando queue add orders kafka://10.0.0.8:9092 --via web1"},
-	"storage":  {"file storage", "File storage", "komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password"},
-	"cluster":  {"cluster", "Kubernetes", "komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref secret:prod-kubeconfig"},
+	"queue":    {"message queue", "Message queues", "komando queue kafka add orders kafka://10.0.0.8:9092 --via web1"},
+	"storage":  {"file storage", "File storage", "komando storage s3 add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password"},
+	"cluster":  {"cluster", "Kubernetes", "komando cluster kubernetes add prod-k8s k8s://api.cluster.example:6443 --credential prod-kubeconfig"},
 	"registry": {"image registry", "Container registry", "komando registry oci add ghcr registry://myuser@ghcr.io --ask-password"},
 }
 
@@ -676,7 +676,7 @@ func addKindFits(family, raw, passwordRef string) error {
 			"%s is a %s URL, not one for `komando %s add`", raw, t.Kind.Name, family)
 	}
 	if slices.Contains(connKindNeeds(family, t.Kind), "password-ref") && passwordRef == "" {
-		return out.Errf(out.ExitUsage, "USAGE", "bring the cluster in with `komando import kubeconfig FILE` (one conn per context), or store the kubeconfig with `komando credential password add NAME` and pass --password-ref secret:NAME",
+		return out.Errf(out.ExitUsage, "USAGE", "bring the cluster in with `komando import kubeconfig FILE` (one conn per context), or store the kubeconfig with `komando credential password add NAME` and pass --credential NAME",
 			"a Kubernetes conn logs in with a whole kubeconfig, which %s alone does not give", raw)
 	}
 	return nil
@@ -690,7 +690,7 @@ func connAddCmdFor(kind string) *cobra.Command {
 	c.Long = "Same as `komando conn add NAME URL`, for " + article(k.what) + " " + k.what + ".\n\nSaves " + article(k.what) + " " + k.what + " under a short name. Typed alone at a terminal, it asks\nstep by step. The URL scheme sets the kind: `komando conn kinds` lists them."
 	c.Example = "  " + k.example
 	if kind == "cluster" {
-		c.Long += "\n\nA Kubernetes cluster usually comes in with `komando import kubeconfig FILE`\n(one conn per context). Here its kubeconfig must be in the vault already\n(--password-ref). A Docker Swarm manager is a server: `komando host add`."
+		c.Long += "\n\nA Kubernetes cluster usually comes in with `komando import kubeconfig FILE`\n(one conn per context). Here its kubeconfig must be in the vault already\n(--credential NAME). A Docker Swarm manager is a server: `komando host add`."
 	}
 	run := c.RunE
 	c.RunE = func(cmd *cobra.Command, args []string) error {

@@ -243,7 +243,7 @@ func (b *azBucket) Stat(ctx context.Context, rel string) (Object, error) {
 	resp, err := b.send(ctx, http.MethodHead, b.blobURL(full, nil), nil, -1, nil, http.StatusOK)
 	if err != nil {
 		if oe, ok := err.(*out.Error); ok && oe.Code == "OBJECT_NOT_FOUND" {
-			return Object{}, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage list CONN [PREFIX]`", "%s not found", rel)
+			return Object{}, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage s3 object list NAME [PREFIX]`", "%s not found", rel)
 		}
 		return Object{}, err
 	}

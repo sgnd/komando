@@ -187,3 +187,19 @@ func TestStopsOnce(t *testing.T) {
 		}
 	}
 }
+
+// Only the services that sign time-limited links have a storage object link
+// leaf; for the rest the word is not a command (the end-to-end checks "smb
+// has no link command" and "webdav has no link command" expect USAGE).
+func TestStorageLinkOnlyWhereServicesSignLinks(t *testing.T) {
+	var got []string
+	for _, l := range All() {
+		if l.Key.Type == "storage" && l.Key.Area == "object" && l.Key.Verb == "link" {
+			got = append(got, l.Key.Provider)
+		}
+	}
+	slices.Sort(got)
+	if want := []string{"azblob", "gcs", "s3"}; !slices.Equal(got, want) {
+		t.Errorf("storage object link exists for %v, want %v", got, want)
+	}
+}

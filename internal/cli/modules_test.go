@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -28,82 +27,6 @@ func TestSvcStatusFindsMissingUnitsAndNoSystemd(t *testing.T) {
 	if len(units) != 2 || units[0]["healthy"] != true || units[0]["main_pid"] != int64(42) {
 		t.Fatalf("units: %v", units)
 	}
-	if !strings.Contains(svcTable(units), "nginx.service  active") {
-		t.Fatalf("table:\n%s", svcTable(units))
-	}
-}
-
-func TestSvcActionResult(t *testing.T) {
-	ok := "Id=web.service\nLoadState=loaded\nActiveState=active\n#komando:rc=0\n"
-	if _, err := svcActionResult("restart", 5, &sshx.RunResult{Stdout: ok}); err != nil {
-		t.Fatal(err)
-	}
-	failed := "Id=web.service\nLoadState=loaded\nActiveState=failed\n#komando:rc=0\n"
-	if _, err := svcActionResult("restart", 5, &sshx.RunResult{Stdout: failed}); err == nil || err.Code != "UNIT_NOT_ACTIVE" {
-		t.Fatalf("--wait must fail on a failed unit: %v", err)
-	}
-	if _, err := svcActionResult("restart", 0, &sshx.RunResult{Stdout: failed}); err != nil {
-		t.Fatalf("without --wait only systemctl's exit counts: %v", err)
-	}
-	rc := "Id=web.service\nLoadState=loaded\nActiveState=failed\n#komando:rc=1\n"
-	if _, err := svcActionResult("start", 0, &sshx.RunResult{Stdout: rc}); err == nil || err.Code != "SVC_FAILED" {
-		t.Fatalf("systemctl failure: %v", err)
-	}
-	s := svcScript("enable", []string{"web"}, true, 0)
-	if !strings.Contains(s, "systemctl enable --now -- 'web'") || !strings.HasPrefix(s, noSystemd) {
-		t.Fatalf("script:\n%s", s)
-	}
-	if s := svcScript("restart", []string{"web"}, false, 7); !strings.Contains(s, "-lt 7") {
-		t.Fatalf("wait loop missing:\n%s", s)
-	}
-}
-
-// --user-units: the script talks to the login user's own manager, and a user
-// with none running gets NO_USER_MANAGER.
-func TestSvcUser(t *testing.T) {
-	s := svcScope(svcScript("restart", []string{"web"}, false, 0), true)
-	if !strings.HasPrefix(s, noSystemd+userManager) || !strings.Contains(s, `systemctl() { command systemctl --user "$@"; }`) || !strings.Contains(s, "XDG_RUNTIME_DIR") {
-		t.Fatalf("script:\n%s", s)
-	}
-	if svcScope("x", false) != "x" {
-		t.Error("without --user the script stays")
-	}
-	for _, parse := range []func() *out.Error{
-		func() *out.Error { _, e := svcResult(&sshx.RunResult{Stdout: "#komando:no-user-manager\n"}); return e },
-		func() *out.Error {
-			_, e := svcListResult(&sshx.RunResult{Stdout: "#komando:no-user-manager\n"})
-			return e
-		},
-		func() *out.Error {
-			_, e := daemonReloadResult(&sshx.RunResult{Stdout: "#komando:no-user-manager\n"})
-			return e
-		},
-	} {
-		if e := parse(); e == nil || e.Code != "NO_USER_MANAGER" || e.Exit != 3 || !strings.Contains(e.Hint, "enable-linger") {
-			t.Errorf("%+v", e)
-		}
-	}
-
-	srv := startFakeServer(t)
-	srv.reply("Id=web.service\nLoadState=loaded\nActiveState=active\n#komando:rc=0\n")
-	pre := []string{"--host-key-policy", "accept-new"}
-	if _, e := invRun(t, append(pre, "svc", "restart", "dev", "web", "--user-units", "--yes")...); e != nil {
-		t.Fatalf("%+v", e)
-	}
-	if _, e := invRun(t, append(pre, "svc", "status", "dev", "web", "--user-units")...); e != nil {
-		t.Fatalf("%+v", e)
-	}
-	ex := srv.take()
-	if len(ex) != 2 {
-		t.Fatalf("execs %v", ex)
-	}
-	for _, x := range ex {
-		if !strings.Contains(x.cmd, "command systemctl --user") || strings.Contains(x.cmd, "sudo") {
-			t.Errorf("--user-units runs the user's manager, without sudo: %s", x.cmd)
-		}
-	}
-	wantCode(t, "USAGE", append(pre, "svc", "restart", "dev", "web", "--user-units", "--no-sudo")...)
-	wantCode(t, "USAGE", append(pre, "svc", "daemon-reload", "dev", "--user-units", "--no-sudo")...)
 }
 
 func TestLogOptsCheck(t *testing.T) {
@@ -133,8 +56,8 @@ func TestLogOptsCheck(t *testing.T) {
 	}
 }
 
-// svc logs and docker logs only turn their second word into --unit or
-// --container: the flags are the ones of logs, --sudo included.
+// docker logs only turns its second word into --container: the flags are
+// the ones of logs, --sudo included.
 func TestLogsAliases(t *testing.T) {
 	invHome(t)
 	run := func(args ...string) map[string]any {
@@ -154,16 +77,13 @@ func TestLogsAliases(t *testing.T) {
 		{[]string{"docker", "logs", "u@10.9.9.9", "api", "--sudo", "-n", "5"}, "docker logs --tail 5 'api' 2>&1", true},
 		{[]string{"logs", "u@10.9.9.9", "--container", "api", "--sudo", "-n", "5"}, "docker logs --tail 5 'api' 2>&1", true},
 		{[]string{"docker", "logs", "u@10.9.9.9", "api", "--timestamps", "-n", "5"}, "docker logs --timestamps --tail 5 'api' 2>&1", false},
-		{[]string{"svc", "logs", "u@10.9.9.9", "nginx", "-p", "err"}, "journalctl --no-pager -o short-iso -u 'nginx' -p 'err' -n 200", false},
+		{[]string{"logs", "u@10.9.9.9", "--unit", "nginx", "-p", "err"}, "journalctl --no-pager -o short-iso -u 'nginx' -p 'err' -n 200", false},
 	} {
 		w := run(c.args...)
 		if !strings.HasSuffix(w["remote_command"].(string), c.cmd) || w["sudo"] != c.sudo {
 			t.Errorf("%v: %v", c.args, w)
 		}
 	}
-	wantCode(t, "USAGE", "svc", "logs", "u@10.9.9.9", "nginx", "--unit", "ssh")
-	wantCode(t, "USAGE", "svc", "logs", "u@10.9.9.9", "nginx", "--container", "api")
-	wantCode(t, "USAGE", "svc", "logs", "u@10.9.9.9", "nginx", "--timestamps")
 	wantCode(t, "USAGE", "docker", "logs", "u@10.9.9.9", "api", "-p", "err")
 }
 
@@ -253,120 +173,6 @@ func TestPkgChangeResult(t *testing.T) {
 	}
 }
 
-func TestParsePorts(t *testing.T) {
-	ss := "#komando:ss\ntcp LISTEN 0 128 0.0.0.0:22 0.0.0.0:* users:((\"sshd\",pid=12,fd=3))\nudp UNCONN 0 0 [::]:68 [::]:*\n"
-	rows, err := parsePorts(ss)
-	if err != nil || len(rows) != 2 || rows[0]["process"] != "sshd" || rows[0]["pid"] != 12 || rows[0]["port"] != 22 || rows[1]["address"] != "::" {
-		t.Fatalf("ss: %v %v", rows, err)
-	}
-	ns := "#komando:netstat\nActive Internet connections (only servers)\nProto Recv-Q Send-Q Local Address Foreign Address State PID/Program name\n" +
-		"tcp 0 0 0.0.0.0:22 0.0.0.0:* LISTEN 1/sshd\ntcp 0 0 :::2377 :::* LISTEN -\nudp 0 0 0.0.0.0:4789 0.0.0.0:* 34/dockerd\n"
-	rows, err = parsePorts(ns)
-	if err != nil || len(rows) != 3 {
-		t.Fatalf("netstat: %v %v", rows, err)
-	}
-	if rows[0]["process"] != "sshd" || rows[0]["pid"] != 1 || rows[1]["address"] != "::" || rows[1]["port"] != 2377 || rows[1]["process"] != nil ||
-		rows[2]["proto"] != "udp" || rows[2]["state"] != "UNCONN" || rows[2]["pid"] != 34 {
-		t.Fatalf("netstat rows: %v", rows)
-	}
-	if !strings.Contains(netPortsText(rows), "PROTO  ADDRESS") {
-		t.Fatal(netPortsText(rows))
-	}
-	if _, err := parsePorts("#komando:no-tool\n"); err == nil || err.Code != "TOOL_MISSING" {
-		t.Fatalf("no tool: %v", err)
-	}
-}
-
-func TestParseNetCheck(t *testing.T) {
-	rows, err := parseNetCheck("db:5432 open - 3\nredis:6379 closed refused 1\nx:1 closed timeout 5000\n")
-	if err == nil || err.Code != "PORT_CLOSED" || !strings.Contains(err.Message, "redis:6379 (refused)") || !strings.Contains(err.Message, "x:1 (timeout)") {
-		t.Fatalf("closed: %v", err)
-	}
-	if rows[0]["open"] != true || rows[0]["reason"] != nil || rows[1]["reason"] != "refused" || rows[0]["ms"] != 3 {
-		t.Fatalf("rows: %v", rows)
-	}
-	if _, err := parseNetCheck("db:5432 open - 3\n"); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestNetDNS(t *testing.T) {
-	if _, err := dnsCommand("x", "BOGUS"); err == nil {
-		t.Fatal("unknown type must be refused")
-	}
-	// a name is never an option of dig or getent (dig -f FILE reads a file)
-	for _, bad := range []string{"-f/etc/passwd", "-f", "a b", "x;id", "", "$(id)"} {
-		if _, err := dnsCommand(bad, "MX"); err == nil {
-			t.Errorf("%q must be refused", bad)
-		}
-	}
-	for _, good := range []string{"db.internal", "_sip._tcp.example.com", "10.0.0.5", "2001:db8::1", "localhost"} {
-		if _, err := dnsCommand(good, "PTR"); err != nil {
-			t.Errorf("%q: %v", good, err)
-		}
-	}
-	c, _ := dnsCommand("example.com", "mx")
-	if !strings.Contains(c, "dig +short -t MX 'example.com'") || !strings.Contains(c, "no-dig") {
-		t.Fatalf("MX: %s", c)
-	}
-	c, _ = dnsCommand("example.com", "A")
-	if !strings.Contains(c, "getent ahostsv4") {
-		t.Fatalf("A falls back to getent: %s", c)
-	}
-	if _, e := dnsResult("x", "MX", "#komando:no-dig\n"); e == nil || e.Code != "DIG_MISSING" {
-		t.Fatalf("no dig: %v", e)
-	}
-	if _, e := dnsResult("x", "MX", ""); e == nil || e.Code != "NO_RECORDS" || e.Exit != 3 {
-		t.Fatalf("no records: %v", e)
-	}
-	if _, e := dnsResult("x", "", ""); e == nil || e.Code != "NXDOMAIN" {
-		t.Fatalf("nxdomain: %v", e)
-	}
-	d, e := dnsResult("x", "MX", "10 mail.x.\n")
-	if e != nil || dnsText(d) != "10 mail.x.\n" {
-		t.Fatalf("records: %v %v", d, e)
-	}
-}
-
-func TestParseUsersLocked(t *testing.T) {
-	s := "#komando:passwd\nroot:x:0:0::/root:/bin/bash\nbob:x:1001:1001::/home/bob:/bin/sh\neve:x:1002:1002::/home/eve:/bin/sh\nsys:x:5:5::/:/usr/sbin/nologin\n" +
-		"#komando:groups\nsudo:x:27:bob\n#komando:expire\nroot:\nbob:\neve:1\n#komando:today\n20000\n"
-	rows := parseUsers(s, false)
-	if len(rows) != 3 || rows[0].Name != "bob" || rows[1].Name != "eve" || rows[2].Name != "root" {
-		t.Fatalf("rows (by name): %+v", rows)
-	}
-	if !rows[0].AdminGroup || rows[1].AdminGroup || !rows[2].AdminGroup {
-		t.Fatalf("admin groups: %+v", rows)
-	}
-	if rows[0].Locked == nil || *rows[0].Locked || rows[1].Locked == nil || !*rows[1].Locked {
-		t.Fatalf("locked: %+v", rows)
-	}
-	if rows := parseUsers(strings.Replace(s, "eve:1\n", "", 1), false); rows[1].Locked != nil {
-		t.Fatal("without an expiry line the state is unknown")
-	}
-	if !strings.Contains(usersText(rows), "LOCKED") {
-		t.Fatal(usersText(rows))
-	}
-	if _, e := userResult("bob", "locked", &sshx.RunResult{Stdout: "#komando:no-user\n"}); e == nil || e.Code != "USER_NOT_FOUND" || e.Exit != 3 {
-		t.Fatalf("unknown user: %v", e)
-	}
-}
-
-func TestCronParsing(t *testing.T) {
-	r := parseCronLine(`*/5 * * * * date +\%F >/dev/null # komando:bk`)
-	if r["schedule"] != "*/5 * * * *" || r["command"] != `date +\%F >/dev/null` || r["id"] != "bk" {
-		t.Fatalf("parse: %v", r)
-	}
-	r = parseCronLine("@daily  run  me")
-	if r["schedule"] != "@daily" || r["command"] != "run  me" {
-		t.Fatalf("macro: %v", r)
-	}
-	d, _ := cronRemoved(&sshx.RunResult{Stdout: "removed 2\n"})
-	if d.(map[string]any)["removed"] != 2 {
-		t.Fatalf("removed: %v", d)
-	}
-}
-
 func TestRunOpsTextBlocks(t *testing.T) {
 	d := opsData{Results: []opsRow{{Host: "a", OK: true, text: "x\n"}, {Host: "b", Stderr: "boom"}}, Summary: fleetSummary{Total: 2, OK: 1, Failed: 1}}
 	s := d.TextFor(realRun())
@@ -427,7 +233,7 @@ func TestFlagUsageHasNoBackticks(t *testing.T) {
 			walk(sub)
 		}
 	}
-	for _, root := range []func() *cobra.Command{vpnCmd, svcCmd, pkgCmd, netCmd, userCmd, cronCmd, logsCmd} {
+	for _, root := range []func() *cobra.Command{vpnCmd, pkgCmd, logsCmd} {
 		walk(root())
 	}
 }
@@ -437,51 +243,6 @@ func TestJournalWithoutPermissionSaysSudo(t *testing.T) {
 	_, e := j.result(&sshx.RunResult{ExitCode: 1, Stderr: "Hint: You are currently not seeing messages from other users and the system.\nNo journal files were opened due to insufficient permissions.\n"})
 	if e == nil || e.Code != "JOURNAL_PERMISSION" || !strings.Contains(e.Hint, "--sudo") {
 		t.Fatalf("got %+v", e)
-	}
-}
-
-func TestDaemonReloadResult(t *testing.T) {
-	d, err := daemonReloadResult(&sshx.RunResult{Stdout: "#komando:rc=0\n"})
-	if err != nil || d.(map[string]any)["reloaded"] != true {
-		t.Errorf("reload: %v %v", d, err)
-	}
-	d, err = daemonReloadResult(&sshx.RunResult{Stdout: "stale=app.service\n#komando:rc=0\n"})
-	w, ok := d.(opsWarnings)
-	if err != nil || !ok || len(w.warnings) != 1 || !strings.Contains(w.warnings[0], "app.service") {
-		t.Errorf("a unit still stale: %v %v", d, err)
-	}
-	if _, err := daemonReloadResult(&sshx.RunResult{Stdout: "#komando:rc=1\n"}); err == nil || err.Code != "SVC_FAILED" {
-		t.Errorf("failed reload: %v", err)
-	}
-	if _, err := daemonReloadResult(&sshx.RunResult{Stdout: "#komando:no-systemd\n"}); err == nil || err.Code != "NO_SYSTEMD" {
-		t.Errorf("no systemd: %v", err)
-	}
-}
-
-// reboot is destructive: blocked without --allow-dangerous, and --dry-run
-// says so without touching a server.
-func TestRebootNeedsAllowDangerous(t *testing.T) {
-	setHome(t, t.TempDir())
-	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	t.Setenv("KOMANDO_NO_DIALOG", "1")
-	setCallerEnv(t, "CLAUDECODE", "1")
-	defer func() { setGate(tcl, false, gateDryRun, gateAllowDangerous) }()
-	run := func(args ...string) error {
-		root := newRoot(tcl)
-		t.Cleanup(endCommand) // the next test starts with none of this command's flags
-		root.SetArgs(append([]string{"-o", "json"}, args...))
-		return root.Execute()
-	}
-	if err := run("host", "add", "web1", "deploy@10.255.255.1"); err != nil {
-		t.Fatal(err)
-	}
-	if err := run("--dry-run", "reboot", "web1"); err != nil {
-		t.Errorf("dry run: %v", err)
-	}
-	setGate(tcl, false, gateDryRun)
-	err := run("reboot", "web1")
-	if e := toErr(err); e == nil || e.Code != "POLICY_BLOCKED" {
-		t.Errorf("reboot without --allow-dangerous: %v", err)
 	}
 }
 
@@ -652,37 +413,6 @@ func TestPkgRmIsPkgRm(t *testing.T) {
 	}
 }
 
-// reboot --dry-run says it would be blocked in data, like every other
-// dry run; user add/rm show the command, not the shell script; a recipe
-// category typo is a usage error, not an empty list.
-func TestOpsDryRunShapes(t *testing.T) {
-	setHome(t, t.TempDir())
-	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	if err := store.Update(store.Save(), func(st *store.State) error {
-		st.Hosts["web1"] = &store.Host{Name: "web1", Address: "10.255.255.1", User: "deploy"}
-		return nil
-	}); err != nil {
-		t.Fatal(err)
-	}
-	defer func() { setGate(tcl, false, gateDryRun) }()
-	for args, want := range map[string]string{
-		"reboot web1":                               `"data":{"order":"one server at a time","would_be_blocked":{"code":"POLICY_BLOCKED"`,
-		"user rm web1 bob --remove-home":            `"remote_command":"user rm bob --remove-home"`,
-		"user add web1 bob --admin --shell /bin/sh": `"remote_command":"user add bob --shell /bin/sh --admin"`,
-	} {
-		o := captureOutput(t, func() error {
-			return runRoot(t, append([]string{"-o", "json", "--dry-run"}, strings.Fields(args)...)...)
-		})
-		setGate(tcl, false, gateDryRun)
-		if !strings.Contains(o, want) {
-			t.Errorf("%s: want %s in %s", args, want, o)
-		}
-	}
-	if e := toErr(runRoot(t, "-o", "json", "recipe", "list", "--category", "secrity")); e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "security") {
-		t.Errorf("unknown category: %v", e)
-	}
-}
-
 // The Use lines name what each argument is, so help, usage errors and the
 // prompter's pickers can tell a container from an image.
 func TestDockerUseNamesTheArgument(t *testing.T) {
@@ -731,25 +461,6 @@ func TestDockerContainerIsNeverAnOption(t *testing.T) {
 	}
 }
 
-// USERNAME is checked for every user command, not only add.
-func TestUserNamesAreChecked(t *testing.T) {
-	setHome(t, t.TempDir())
-	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	if err := store.Update(store.Save(), func(st *store.State) error {
-		st.Hosts["web1"] = &store.Host{Name: "web1", Address: "10.255.255.1", User: "deploy"}
-		return nil
-	}); err != nil {
-		t.Fatal(err)
-	}
-	defer func() { setGate(tcl, false, gateDryRun) }()
-	for _, verb := range []string{"add", "lock", "unlock", "rm"} {
-		if e := toErr(runRoot(t, "-o", "json", "--dry-run", "user", verb, "web1", "--", "-r")); e == nil || e.Code != "USAGE" {
-			t.Errorf("user %s -r: %v", verb, e)
-		}
-		setGate(tcl, false, gateDryRun)
-	}
-}
-
 // Ctrl-C ends logs --follow: the lines so far are the result, exit 0,
 // not CANCELLED (it is how a person stops a follow, like --timeout).
 func TestFollowEndsCleanlyOnCtrlC(t *testing.T) {
@@ -780,5 +491,14 @@ func TestPkgUpgradableReadsAsRootWhenItCan(t *testing.T) {
 	ex := s.take()
 	if len(ex) == 0 || !strings.Contains(ex[0].cmd, `sudo -n true 2>/dev/null; then exec sudo -n sh -c `) {
 		t.Fatalf("upgradable: %v", ex)
+	}
+}
+
+// A recipe category typo is a usage error, not an empty list.
+func TestRecipeListCategoryTypo(t *testing.T) {
+	setHome(t, t.TempDir())
+	t.Setenv("KOMANDO_VAULT_PASS", "test")
+	if e := toErr(runRoot(t, "-o", "json", "recipe", "list", "--category", "secrity")); e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "security") {
+		t.Errorf("unknown category: %v", e)
 	}
 }

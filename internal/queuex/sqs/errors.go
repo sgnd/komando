@@ -98,14 +98,14 @@ func opErr(err error, what string) error {
 		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "SQS refused a setting: check --config (SQS attribute names such as VisibilityTimeout=60), and that FIFO-only settings go to a queue whose name ends in .fifo",
 			"%s: %v", what, err)
 	}
-	return out.Errf(out.ExitRemote, "QUEUE_ERROR", "read SQS's words above; `komando queue describe CONN QUEUE` shows the queue", "%s: %v", what, err)
+	return out.Errf(out.ExitRemote, "QUEUE_ERROR", "read SQS's words above; `komando queue sqs topic show NAME QUEUE` shows the queue", "%s: %v", what, err)
 }
 
 func queueNotFound(name string) error {
-	return out.Errf(out.ExitNotFound, "QUEUE_NOT_FOUND", "list queues with `komando queue list CONN`; a queue of another AWS account needs ?account=ID in the conn's URL, and the region is the URL's host",
+	return out.Errf(out.ExitNotFound, "QUEUE_NOT_FOUND", "list queues with `komando queue sqs topic list NAME`; a queue of another AWS account needs ?account=ID in the conn's URL, and the region is the URL's host",
 		"no queue named %q", name)
 }
 
 func queueExists(name string) error {
-	return out.Errf(out.ExitConflict, "QUEUE_EXISTS", "pick another name, or see it with `komando queue describe CONN "+name+"`", "queue %s already exists", name)
+	return out.Errf(out.ExitConflict, "QUEUE_EXISTS", "pick another name, or see it with `komando queue sqs topic show NAME "+name+"`", "queue %s already exists", name)
 }
