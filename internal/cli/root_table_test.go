@@ -930,6 +930,22 @@ func TestTierRunsNeverShrink(t *testing.T) {
 	}
 }
 
+// A provider's list typed with no argument at all reaches its body with an
+// empty argument list, not a nil one, and lists the conns of that provider
+// only (bodyArgv, C482 M2).
+func TestDatabaseProviderListWithNoArguments(t *testing.T) {
+	invHome(t)
+	mustRun(t, "conn", "add", "pg1", "postgres://app@10.0.0.9/app")
+	mustRun(t, "conn", "add", "my1", "mysql://app@10.0.0.10/app")
+	d := mustRun(t, "database", "postgres", "list")
+	if n, _ := d["count"].(float64); n != 1 {
+		t.Errorf("database postgres list shows the PostgreSQL conns only: %v", d)
+	}
+	if !strings.Contains(fmt.Sprint(d), "pg1") || strings.Contains(fmt.Sprint(d), "my1") {
+		t.Errorf("database postgres list: %v", d)
+	}
+}
+
 // A leaf that runs a body passes only the options the person typed, so an
 // option left out takes the body's default: the table's default must be
 // the same (A-C479-1), else help and the run disagree silently.
