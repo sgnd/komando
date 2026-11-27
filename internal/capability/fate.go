@@ -42,6 +42,8 @@ var gone = []Gone{
 	{Today: "safety", Why: "help topics become docs articles"},
 	{Today: "help", Why: "help is only --help at each level"},
 	{Today: "guide", Why: "the agent rules live in the skill file"},
+	{Today: "login", Why: "stays a top-level command until the person step moves into host ssh test (cut plan C325)"},
+	{Today: "logout", Why: "stays a top-level command until the person step moves into host ssh test (cut plan C325)"},
 	{Today: "rename", Why: "each provider and noun has its own rename", Lost: "bulk rename (--starts-with, --in-notes, --in-labels): open"},
 	{Today: "host.ssh-command", Why: "removed with no replacement", Lost: "a key in ssh-agent for an hour for plain ssh, scp, git"},
 	{Today: "secret.check", Why: "removed"},
