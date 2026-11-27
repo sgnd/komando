@@ -41,19 +41,19 @@ refusedq() { grep -Eq 'code SSH_GATE_REFUSED|"code":"SSH_GATE_REFUSED"'; } # tex
 mentions() { jget "'$1' in json.dumps(d)"; } # mentions TEXT: the JSON answer holds TEXT
 
 check "a gate key runs komando" True "$(kssh gate-rw 'KOMANDO_AGENT=Komando komando version -o json' | jget 'd["ok"]')"
-gx komando host add gx agent@10.9.9.9 -o json >/dev/null # a person sets komando up here
-check "no key changes komando's servers" SSH_GATE_REFUSED "$(kssh gate-rw komando host add gy agent@10.9.9.8 -o json | code || true)"
+gx komando host ssh add gx agent@10.9.9.9 -o json >/dev/null # a person sets komando up here
+check "no key changes komando's servers" SSH_GATE_REFUSED "$(kssh gate-rw komando host ssh add gy agent@10.9.9.8 -o json | code || true)"
 # no key writes on this computer: a file saved over authorized_keys would give it a shell
 AK0=$(gx sha256sum /home/agent/.ssh/authorized_keys)
 check "no download to this computer" SSH_GATE_REFUSED "$(kssh gate-rw komando download gx /etc/hostname --to .ssh/authorized_keys --overwrite -o json | code || true)"
 check "no cp to this computer" SSH_GATE_REFUSED "$(kssh gate-rw komando cp gx:/etc/hostname .bashrc -o json | code || true)"
 # nor through a target that is this computer: a sqlite file, or a server at 127.0.0.1
 gx komando conn add gxdb sqlite:///home/agent/gx.db -o json >/dev/null
-gx komando host add gme agent@127.0.0.1 -o json >/dev/null
+gx komando host ssh add gme agent@127.0.0.1 -o json >/dev/null
 check "no VACUUM INTO a file here" SSH_GATE_REFUSED "$(kssh gate-rw "komando db query gxdb --write \"VACUUM INTO '/home/agent/.ssh/authorized_keys2'\" -o json" | code || true)"
-check "no change on a server at 127.0.0.1" SSH_GATE_REFUSED "$(kssh gate-rw komando exec gme -o json -- id | code || true)"
+check "no change on a server at 127.0.0.1" SSH_GATE_REFUSED "$(kssh gate-rw komando host ssh exec gme -o json -- id | code || true)"
 # --read-only checks the words of a command, it is not a sandbox: no key, read-only or not, runs exec here
-check "no read-only exec on a server at 127.0.0.1" SSH_GATE_REFUSED "$(kssh gate-ro komando exec gme --read-only -o json -- id | code || true)"
+check "no read-only exec on a server at 127.0.0.1" SSH_GATE_REFUSED "$(kssh gate-ro komando host ssh exec gme --read-only -o json -- id | code || true)"
 # nor a read there: logs --file and fs cat would read any file here, a private key too
 check "no logs --file on a server at 127.0.0.1" SSH_GATE_REFUSED "$(kssh gate-ro "komando logs gme --file .ssh/authorized_keys --grep '^ssh' -o json" | code || true)"
 check "no fs cat on a server at 127.0.0.1" SSH_GATE_REFUSED "$(kssh gate-ro komando fs cat gme /etc/hostname -o json | code || true)"
@@ -63,25 +63,25 @@ check "no authorized_keys2" False "$(gx sh -c 'test -e /home/agent/.ssh/authoriz
 check "authorized_keys is as it was" "$AK0" "$(gx sha256sum /home/agent/.ssh/authorized_keys)"
 check "a read-only key reads" True "$(kssh gate-ro komando list -o json | mentions gx)"
 check "a read-only key changes nothing" SSH_GATE_READ_ONLY "$(kssh gate-ro komando svc restart gx nginx -o json | code || true)"
-check "exec without --read-only is not a read" SSH_GATE_READ_ONLY "$(kssh gate-ro komando exec gx -o json -- uptime | code || true)"
+check "exec without --read-only is not a read" SSH_GATE_READ_ONLY "$(kssh gate-ro komando host ssh exec gx -o json -- uptime | code || true)"
 # a read key stays off the network unless its line has --network
 check "ssh-gate status: a read key without network" "True False" "$(kssh gate-ro komando ssh-gate status -o json | jget 'str(d["data"]["read_only"]) + " " + str(d["data"]["network"])')"
 check "ssh-gate status: a read key with --network" "True True" "$(kssh gate-net komando ssh-gate status -o json | jget 'str(d["data"]["read_only"]) + " " + str(d["data"]["network"])')"
 check "a read key does not fetch a URL" SSH_GATE_NETWORK_REQUIRED "$(kssh gate-ro komando net http gx https://example.com -o json | code || true)"
-check "a read key runs no program" SSH_GATE_NETWORK_REQUIRED "$(kssh gate-ro komando exec gx --read-only -o json -- curl -s https://example.com | code || true)"
+check "a read key runs no program" SSH_GATE_NETWORK_REQUIRED "$(kssh gate-ro komando host ssh exec gx --read-only -o json -- curl -s https://example.com | code || true)"
 check "a read key does not dial a website" SSH_GATE_NETWORK_REQUIRED "$(kssh gate-ro komando cert check https://example.com -o json | code || true)"
 check "ssh-gate status: a shell key" "False True" "$(kssh gate-sh komando ssh-gate status -o json | jget 'str(d["data"]["read_only"]) + " " + str(d["data"]["shell_access"])')"
-check "a shell key opens no shell without a terminal" SSH_GATE_REFUSED "$(kssh gate-sh komando shell gx | code || true)"
-check "a shell key opens no shell on this computer" True "$(ktty gate-sh komando shell gme | refusedq && echo True || echo False)"
-check "a shell key sends komando shell SERVER only" True "$(ktty gate-sh komando shell gx -o json | refusedq && echo True || echo False)"
+check "a shell key opens no shell without a terminal" SSH_GATE_REFUSED "$(kssh gate-sh komando host ssh shell gx | code || true)"
+check "a shell key opens no shell on this computer" True "$(ktty gate-sh komando host ssh shell gme | refusedq && echo True || echo False)"
+check "a shell key sends komando host ssh shell SERVER only" True "$(ktty gate-sh komando host ssh shell gx -o json | refusedq && echo True || echo False)"
 # a line without pty (every key but a --shell-access one): sshd gives no terminal, so the call never starts
-check "a key without --shell-access gets no terminal" True "$(ktty gate-rw komando shell gx | grep -q 'PTY allocation request failed' && echo True || echo False)"
-check "a key without --shell-access opens no shell" SSH_GATE_REFUSED "$(kssh gate-rw komando shell gx | code || true)"
+check "a key without --shell-access gets no terminal" True "$(ktty gate-rw komando host ssh shell gx | grep -q 'PTY allocation request failed' && echo True || echo False)"
+check "a key without --shell-access opens no shell" SSH_GATE_REFUSED "$(kssh gate-rw komando host ssh shell gx | code || true)"
 # a server the gate's komando reaches (the bastion, on the same network), its host key pinned by a person here
 echo -n agentpass | gx komando secret set gsh-pass -o json >/dev/null
-gx komando host add gsh agent@bastion --password-ref secret:gsh-pass -o json >/dev/null
+gx komando host ssh add gsh agent@bastion --password-ref secret:gsh-pass -o json >/dev/null
 gx komando test gsh -o json >/dev/null
-# kshell KEY SERVER: komando shell SERVER through the gate, in a 24x80 terminal that
+# kshell KEY SERVER: komando host ssh shell SERVER through the gate, in a 24x80 terminal that
 # grows to 33x111 once the shell is up; then it types a line and exit. Prints the screen.
 kshell() {
   python3 -I - "$TMP/$1" "$E2E_SSH_DIRECT" "$2" <<'PY' || true
@@ -92,7 +92,7 @@ if pid == 0:
     fcntl.ioctl(0, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 80, 0, 0))
     os.execvp("ssh", ["ssh", "-tt", "-p", port, "-i", key, "-o", "IdentitiesOnly=yes", "-o", "BatchMode=yes",
                       "-o", "PreferredAuthentications=publickey", "-o", "StrictHostKeyChecking=no",
-                      "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR", "agent@127.0.0.1", "komando shell " + server])
+                      "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR", "agent@127.0.0.1", "komando host ssh shell " + server])
 out, start, typed = b"", time.time(), False
 while time.time() - start < 60:
     if not typed and (b"$ " in out or time.time() - start > 20):
@@ -116,9 +116,9 @@ SH=$(kshell gate-sh gsh)
 check "a shell key opens the shell through the gate" True "$(grep -q 'gate-42' <<<"$SH" && echo True || echo False)"
 check "the key's new terminal size reaches the server" True "$(grep -q '33 111' <<<"$SH" && echo True || echo False)"
 gx komando policy deny 'gate-e2e-never' -o json >/dev/null
-check "no shell while a deny rule of your own is set" True "$(ktty gate-sh komando shell gsh | refusedq && echo True || echo False)"
+check "no shell while a deny rule of your own is set" True "$(ktty gate-sh komando host ssh shell gsh | refusedq && echo True || echo False)"
 gx komando policy rm 'gate-e2e-never' --yes -o json >/dev/null
-check "a read key with --network may" True "$(kssh gate-net komando exec gx --read-only -o json -- uptime | jget '(d.get("error") or {}).get("code") != "SSH_GATE_NETWORK_REQUIRED"')"
+check "a read key with --network may" True "$(kssh gate-net komando host ssh exec gx --read-only -o json -- uptime | jget '(d.get("error") or {}).get("code") != "SSH_GATE_NETWORK_REQUIRED"')"
 check "no shell: another program" SSH_GATE_REFUSED "$(kssh gate-rw id | code || true)"
 check "no shell: a second command" SSH_GATE_SYNTAX "$(kssh gate-rw 'komando list; id' | code || true)"
 check "no shell: a login" SSH_GATE_REFUSED "$(kssh gate-rw | code || true)"
@@ -132,15 +132,15 @@ check "a person sets a secret here" True "$(echo -n gx-s3cret | gx komando secre
 check "the value never comes back" False "$(kssh gate-ro komando secret get gx-pass -o json | mentions gx-s3cret)"
 check "no keychain here: the store's key is a file" True "$(gx test -f /home/agent/.komando/store.key && echo True || echo False)"
 # the komando a key runs is an agent: --yes on a protected server needs a person, who is not at this screen
-gx komando host edit gx --protected -o json >/dev/null
-check "--yes from a key needs a person" PROTECTED_TARGET "$(kssh gate-rw komando exec gx --yes -o json -- touch /tmp/gx | code || true)"
-check "a shell key opens no shell on a protected server" True "$(ktty gate-sh komando shell gx | refusedq && echo True || echo False)"
+gx komando host ssh edit gx --protected -o json >/dev/null
+check "--yes from a key needs a person" PROTECTED_TARGET "$(kssh gate-rw komando host ssh exec gx --yes -o json -- touch /tmp/gx | code || true)"
+check "a shell key opens no shell on a protected server" True "$(ktty gate-sh komando host ssh shell gx | refusedq && echo True || echo False)"
 A1=$(gx komando audit -n 200 -o json)
 check "audit: every key command, with the key's name" True "$(jget 'sum(1 for e in d["data"]["entries"] if e["command"] == "ssh-gate" and e.get("ssh_gate") in ("phone", "phone-read", "phone-net")) >= 14' <<<"$A1")"
 check "audit: what no key may write here" True "$(jget 'any(e.get("blocked") == "SSH_GATE_REFUSED" and e.get("runs") == "download" for e in d["data"]["entries"])' <<<"$A1")"
 check "audit: the refusals and why" True "$(jget 'any(e.get("blocked") == "SSH_GATE_READ_ONLY" and e["ok"] is False and e.get("reason") for e in d["data"]["entries"])' <<<"$A1")"
 check "audit: what the key's komando did names the key" True "$(jget 'any(e["command"] != "ssh-gate" and e.get("agent") == "ssh-gate key phone" for e in d["data"]["entries"])' <<<"$A1")"
-check "audit: the shell went through the gate, with sshd's terminal" True "$(jget 'any(e.get("ssh_gate") == "ops" and e.get("runs") == "shell" and e["ok"] is True and e.get("shell_access") is True for e in d["data"]["entries"])' <<<"$A1")"
+check "audit: the shell went through the gate, with sshd's terminal" True "$(jget 'any(e.get("ssh_gate") == "ops" and e.get("runs") == "host.ssh.shell" and e["ok"] is True and e.get("shell_access") is True for e in d["data"]["entries"])' <<<"$A1")"
 check "audit: a key's shell session starts, with the key and the server" True "$(jget 'any(e.get("session") == "start" and e.get("ssh_gate") == "ops" and e.get("hosts") == ["gsh"] for e in d["data"]["entries"])' <<<"$A1")"
 check "audit: and ends, with how long and why" True "$(jget 'any(e.get("session") == "end" and e.get("ssh_gate") == "ops" and e.get("hosts") == ["gsh"] and e.get("end") == "exit" and isinstance(e.get("duration_ms"), int) for e in d["data"]["entries"])' <<<"$A1")"
 check "audit: the client's own name is kept apart" True "$(jget 'any(e.get("client_agent") == "Komando" for e in d["data"]["entries"])' <<<"$A1")"

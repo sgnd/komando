@@ -277,8 +277,8 @@ func TestClusterAddKind(t *testing.T) {
 func TestClusterSelectorSkipsPlainServers(t *testing.T) {
 	invHome(t)
 	mustRun(t, "import", "kubeconfig", kubeconfigAt(t, statusLab(t)))
-	mustRun(t, "host", "add", "web1", "deploy@192.0.2.20")
-	mustRun(t, "host", "add", "sw1", "deploy@192.0.2.21", "--tag", "swarm")
+	mustRun(t, "host", "ssh", "add", "web1", "deploy@192.0.2.20")
+	mustRun(t, "host", "ssh", "add", "sw1", "deploy@192.0.2.21", "--tag", "swarm")
 	st, err := loadState()
 	if err != nil {
 		t.Fatal(err)

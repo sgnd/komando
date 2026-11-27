@@ -8,8 +8,8 @@ import (
 
 func TestExportKindHost(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "-g", "prod")
-	mustRun(t, "host", "add", "db1", "u@10.0.0.2")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1", "-g", "prod")
+	mustRun(t, "host", "ssh", "add", "db1", "u@10.0.0.2")
 	d := mustRun(t, "export", "@prod")
 	if d["format"] != exportFormat || len(d["hosts"].([]any)) != 1 {
 		t.Errorf("export @prod: %v", d)
@@ -46,7 +46,7 @@ func TestHabitWordsSuggestTheCommand(t *testing.T) {
 // line.
 func TestSynonymsPrintNothing(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
 	if note := stderrOf(t, func() { mustRun(t, "--dry-run", "x", "web1", "--", "uptime") }); note != "" {
 		t.Errorf("x printed %q", note)
 	}

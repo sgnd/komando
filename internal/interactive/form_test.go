@@ -118,7 +118,7 @@ func TestFormTab(t *testing.T) {
 
 // A free pick takes typed text that matches no row (a selector).
 func TestFormFreePick(t *testing.T) {
-	f := NewForm("komando host exec", []Field{{Key: "arg0", Ask: "Which hosts?", Rows: rows(dbRows...), Free: true, Required: true}})
+	f := NewForm("komando host ssh exec", []Field{{Key: "arg0", Ask: "Which hosts?", Rows: rows(dbRows...), Free: true, Required: true}})
 	ftyped(f, "tag:prod")
 	r, a := fkey(f, term.KeyEnter)
 	if r != Take || a["arg0"] != "tag:prod" {

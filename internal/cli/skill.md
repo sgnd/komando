@@ -60,18 +60,18 @@ not know? Set `KOMANDO_AGENT=1`.
    with `komando host ssh exec TARGET --read-only -- 'COMMAND'`. `db query`,
    `cache redis raw` and `cluster run` are the other way round: they only read
    unless you add `--write`.
-   Every command that hands words to another program (`exec`, `job start`,
+   Every command that hands words to another program (`host ssh exec`, `job start`,
    `docker exec`, `docker compose`, `docker raw`, `cluster exec`, `cluster
    shell`, `cluster run`, `cache redis raw`) takes them only after `--`, and
    komando's own flags go before it. Without `--` it stops with `USAGE`
    and runs nothing.
 3. **Use the command made for the job.**
    - Files: `komando fs replace TARGET PATH --old '...' --new '...' --backup`,
-     never `sed -i` over `exec`.
+     never `sed -i` over `host ssh exec`.
    - Databases: query with `komando db query`. A backup is
      `komando db dump CONN --to FILE`, and only the human runs it, in their
      own terminal (`NEEDS_PERSON`: the file holds every row, secrets
-     included); never `pg_dump` through `exec` and base64. Manage users with `komando db user` and
+     included); never `pg_dump` through `host ssh exec` and base64. Manage users with `komando db user` and
      `komando db grant` (passwords as `--password-ref secret:NAME`, never
      `CREATE USER ... PASSWORD` in a query).
    - Services: after writing a systemd unit, run `komando svc daemon-reload`.
@@ -91,8 +91,8 @@ not know? Set `KOMANDO_AGENT=1`.
      `komando import csv FILE` (many servers at once).
 4. **Long or fragile work is a job.** Use `komando job start` for anything
    that may take more than about 2 minutes or runs over a shaky link (a
-   VPN): a job survives a dropped connection, `exec` does not.
-   `CONNECTION_LOST` (exit 4) from `exec` means the link broke while the
+   VPN): a job survives a dropped connection, `host ssh exec` does not.
+   `CONNECTION_LOST` (exit 4) from `host ssh exec` means the link broke while the
    command ran: it may still be running, or may have finished. Check with a
    read-only command before you run it again.
 5. **Never add `--allow-dangerous`, `--yes` or `--reveal` on your own.**
@@ -119,7 +119,7 @@ not know? Set `KOMANDO_AGENT=1`.
    the human to run `komando vpn up NAME`. A server that asks for a code
    (`AUTH_FAILED`, two-factor): ask them to run `komando test SERVER` once;
    your commands then use that login. A server or conn added with
-   `--login ask` (`host show` or `conn show` says `login: ask`) has no
+   `--login ask` (`host ssh show` or `conn show` says `login: ask`) has no
    stored password, so komando asks the human to type it in its own
    window, and you never see it. Every command that connects asks, even
    `komando test`. If that gives `NEEDS_PERSON` (no screen, or a first

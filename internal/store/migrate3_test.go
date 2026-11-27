@@ -457,7 +457,7 @@ func TestMigrate3FailsClosed(t *testing.T) {
 			},
 			opts: func(o *migrate3Opts) { o.alive = func(int, string) bool { return false } },
 			code: "STORE_IN_USE",
-			says: "or stop it: komando exec web --attach abc --stop, then komando exec web --attach abc --remove",
+			says: "or stop it: komando host ssh exec web --attach abc --stop, then komando host ssh exec web --attach abc --remove",
 		},
 		{
 			name: "a deny pattern changed outside komando",

@@ -22,7 +22,7 @@ func TestMacAccessibilityNeedsCode(t *testing.T) {
 		resetAccessibilityTrust()
 		resetApproval()
 	})
-	tcl.args = []string{"komando", "host", "rm", "web1", "--yes"}
+	tcl.args = []string{"komando", "host", "ssh", "remove", "web1", "--yes"}
 	desktopOS = "darwin"
 	clicked := 0
 	askOnScreen = func(*call, string) (bool, bool) { clicked++; return true, true }

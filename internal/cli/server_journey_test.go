@@ -68,10 +68,10 @@ func TestExecTimeoutNamesJobStart(t *testing.T) {
 		stdin []byte
 		o     execOpts
 	}{
-		"stdin":  {"exec", []byte("x"), execOpts{stdinFile: "-"}},
-		"pty":    {"exec", nil, execOpts{pty: true}},
+		"stdin":  {"host", "ssh", "exec", []byte("x"), execOpts{stdinFile: "-"}},
+		"pty":    {"host", "ssh", "exec", nil, execOpts{pty: true}},
 		"svc":    {"svc.restart", nil, execOpts{}},
-		"script": {"exec", nil, execOpts{display: "./deploy.sh"}},
+		"script": {"host", "ssh", "exec", nil, execOpts{display: "./deploy.sh"}},
 	} {
 		if got := jobStartLine(c.name, "web1", "uptime", c.stdin, c.o); got != "" {
 			t.Errorf("%s: %q, want none", name, got)
@@ -115,7 +115,7 @@ func TestJobStartScript(t *testing.T) {
 		t.Errorf("got  %s\nwant %s", got, want)
 	}
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
 	dir := t.TempDir()
 	script := dir + "/deploy.sh"
 	if err := os.WriteFile(script, []byte("#!/bin/bash\necho deploying\n"), 0o600); err != nil {

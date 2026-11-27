@@ -47,7 +47,7 @@ func TestRiskOfLineTable(t *testing.T) {
 		{"a host key reset is for a person", "host trust web1 --reset", nil, tierPerson, "replaces a pinned host key"},
 		{"a line that names no command is for a person (cut PR B2)", "nosuchcommand", nil, tierPerson, ""},
 		{"a global flag before the command", "-o json fs rm web1 /tmp/x", nil, tierDangerous, "deletes the files"},
-		{"a proxy command on a host", "", []string{"host", "edit", "web1", "--proxy-command", "nc %h %p"}, tierSafety, "an AI agent runs it (the proxy command runs on this computer)"},
+		{"a proxy command on a host", "", []string{"host", "ssh", "edit", "web1", "--proxy-command", "nc %h %p"}, tierSafety, "an AI agent runs it (the proxy command runs on this computer)"},
 		{"a group selector", "exec @prod -- rm -rf /var/www", nil, tierDangerous, "the command matches a destructive rule"},
 		{"a sudo flag before --", "exec web1 --sudo -- userdel bob", nil, tierDangerous, "the command matches a destructive rule"},
 		{"--reveal is not a tier of its own", "secret show token --reveal", nil, tierRead, ""},
@@ -91,7 +91,7 @@ func TestRiskOfLineNilTreeFailsClosed(t *testing.T) {
 		t.Errorf("lineWords with no tree = %v %v %v, want nothing", c, words, pos)
 	}
 	commandTree = saved
-	if r := riskOfLine([]string{"host", "ls"}); r.tier != tierRead {
+	if r := riskOfLine([]string{"host", "ssh", "list"}); r.tier != tierRead {
 		t.Errorf("riskOfLine(host ls) with the tree = tier %s, want read", r.tier)
 	}
 }

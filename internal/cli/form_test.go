@@ -263,7 +263,7 @@ func TestFormNameProblem(t *testing.T) {
 	}
 }
 
-// `komando host add` alone at a person's terminal asks the server's own
+// `komando host ssh add` alone at a person's terminal asks the server's own
 // questions line by line; a pasted user:password@ is never drawn, the
 // lines are shown before they run, and No adds nothing.
 func TestFormHostAddAtATerminal(t *testing.T) {
@@ -271,7 +271,7 @@ func TestFormHostAddAtATerminal(t *testing.T) {
 		t.Skip("starts a process")
 	}
 	invHome(t)
-	p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "host", "add")
+	p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "host", "ssh", "add")
 	p.answer("Name, like web1: ", "web1\r")
 	p.answer("Address, like", "root:hun@ter2@203.0.113.20\r")
 	p.answer("a password was in it", "\r") // User [root]
@@ -279,7 +279,7 @@ func TestFormHostAddAtATerminal(t *testing.T) {
 	p.answer("Port [22]: ", "\r")
 	p.answer("Login [", "2\r") // A password (the default depends on ~/.ssh)
 	p.answer("Production [Yes, protect it]: ", "\r")
-	p.waitFor("$ komando host add web1 root@203.0.113.20 --ask-password --protected")
+	p.waitFor("$ komando host ssh add web1 root@203.0.113.20 --ask-password --protected")
 	p.waitFor("$ komando test web1")
 	p.answer("Run it? [y/N, d = --dry-run first]: ", "\r") // Enter is No: exit 6 (S-8.9)
 	if code := p.exit(); code != 6 || !strings.Contains(p.shown(), "Cancelled. Nothing was changed.") {
@@ -288,7 +288,7 @@ func TestFormHostAddAtATerminal(t *testing.T) {
 	if strings.Contains(p.shown(), "ter2") || strings.Contains(p.shown(), "hun") {
 		t.Errorf("the pasted password was drawn:\n%s", p.shown())
 	}
-	if _, err := invRun(t, "host", "show", "web1"); err == nil {
+	if _, err := invRun(t, "host", "ssh", "show", "web1"); err == nil {
 		t.Error("web1 was added after No")
 	}
 }
@@ -322,7 +322,7 @@ func TestFormAddAloneForAgents(t *testing.T) {
 }
 
 func TestFormDryRunBeforeDashes(t *testing.T) {
-	got := formDry([][]string{{"exec", "web1", "--", "systemctl restart nginx"}})
+	got := formDry([][]string{{"host", "ssh", "exec", "web1", "--", "systemctl restart nginx"}})
 	if strings.Join(got, "|") != "exec|web1|--dry-run|--|systemctl restart nginx" {
 		t.Errorf("exec dry run: %q", got)
 	}
@@ -534,7 +534,7 @@ func TestFormHidesHaveAReason(t *testing.T) {
 // completion; saved commands, what to go through and settings are lists.
 func TestFormPickKinds(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "root@10.0.0.5")
+	mustRun(t, "host", "ssh", "add", "web1", "root@10.0.0.5")
 	mustRun(t, "conn", "add", "app-db", "postgres://app@10.0.0.9/app")
 	mustRun(t, "recipe", "add", "up", "uptime")
 	root := newRoot(tcl)
@@ -558,7 +558,7 @@ func TestFormPickKinds(t *testing.T) {
 			t.Errorf("%s rows: %v, want %s in them", kind, got, want)
 		}
 	}
-	e, _, _ := root.Find([]string{"host", "edit"})
+	e, _, _ := root.Find([]string{"host", "ssh", "edit"})
 	for _, q := range formCmdSpec(e).qs {
 		if q.key == "flag:via" && q.choices == nil {
 			t.Error("--via is typed, not picked")

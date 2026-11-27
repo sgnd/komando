@@ -56,10 +56,10 @@ func TestLineWordsReadsWordsAndFlags(t *testing.T) {
 		pos     []string
 	}{
 		{"positional words", "cache rm c1 k", "komando cache rm", []string{"c1", "k"}, []string{"c1", "k"}},
-		{"a flag becomes --name=value", "host edit web1 --protected=false", "komando host edit", []string{"web1", "--protected=false"}, []string{"web1"}},
-		{"a bare bool flag becomes =true", "exec web1 --read-only -- df -h", "komando exec", []string{"web1", "--read-only=true", "--", "df", "-h"}, []string{"web1"}},
-		{"words after -- are kept apart", "exec web1 -- uptime", "komando exec", []string{"web1", "--", "uptime"}, []string{"web1"}},
-		{"an alias finds its command", "host ls", "komando host list", nil, nil},
+		{"a flag becomes --name=value", "host ssh edit web1 --protected=false", "komando host ssh edit", []string{"web1", "--protected=false"}, []string{"web1"}},
+		{"a bare bool flag becomes =true", "host ssh exec web1 --read-only -- df -h", "komando host ssh exec", []string{"web1", "--read-only=true", "--", "df", "-h"}, []string{"web1"}},
+		{"words after -- are kept apart", "host ssh exec web1 -- uptime", "komando host ssh exec", []string{"web1", "--", "uptime"}, []string{"web1"}},
+		{"an alias finds its command", "host ssh ls", "komando host ssh list", nil, nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

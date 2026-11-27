@@ -140,20 +140,20 @@ type agentStop struct {
 
 var agentStops = []agentStop{
 	{args: []string{"host", "ssh-command", "web1"}, code: "NEEDS_PERSON",
-		setup: func(t *testing.T) { mustRun(t, "host", "add", "web1", "deploy@10.0.0.1") }},
+		setup: func(t *testing.T) { mustRun(t, "host", "ssh", "add", "web1", "deploy@10.0.0.1") }},
 	{args: []string{"secret", "keychain"}, code: "NEEDS_PERSON"},
-	{args: []string{"host", "add", "px", "u@10.0.0.1", "--proxy-command", "nc %h %p"}, code: "SAFETY_SETTING"},
-	{args: []string{"host", "edit", "web1", "--proxy-command", "nc %h %p"}, code: "SAFETY_SETTING",
-		setup: func(t *testing.T) { mustRun(t, "host", "add", "web1", "deploy@10.0.0.1") }},
+	{args: []string{"host", "ssh", "add", "px", "u@10.0.0.1", "--proxy-command", "nc %h %p"}, code: "SAFETY_SETTING"},
+	{args: []string{"host", "ssh", "edit", "web1", "--proxy-command", "nc %h %p"}, code: "SAFETY_SETTING",
+		setup: func(t *testing.T) { mustRun(t, "host", "ssh", "add", "web1", "deploy@10.0.0.1") }},
 	{args: []string{"import", "ssh-config", "testdata/risk_proxy_ssh_config"}, skipped: "--yes"},
 	{args: []string{"import", "kubeconfig", "testdata/risk_exec_kubeconfig"}, code: "SAFETY_SETTING"},
 	{args: []string{"recipe", "add", "free-space", "df -h", "--overwrite", "--read-only"}, code: "SAFETY_SETTING",
 		setup: func(t *testing.T) { mustRun(t, "recipe", "add", "free-space", "df -h") }},
-	{args: []string{"host", "trust", "web1"}, code: "SAFETY_SETTING", setup: func(t *testing.T) {
+	{args: []string{"host", "ssh", "trust", "web1"}, code: "SAFETY_SETTING", setup: func(t *testing.T) {
 		key := new(atomic.Pointer[ssh.Signer])
 		s := trustSigner(t)
 		key.Store(&s)
-		mustRun(t, "host", "add", "web1", "root@127.0.0.1:"+strconv.Itoa(keySSHD(t, key)))
+		mustRun(t, "host", "ssh", "add", "web1", "root@127.0.0.1:"+strconv.Itoa(keySSHD(t, key)))
 		mustRun(t, "config", "set", "host_key_policy", "strict")
 	}},
 	{args: []string{"guide", "uninstall"}, code: "SAFETY_SETTING", setup: func(t *testing.T) {

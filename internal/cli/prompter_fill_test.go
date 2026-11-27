@@ -15,8 +15,8 @@ import (
 func fillTest(t *testing.T) {
 	t.Helper()
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "root@10.0.0.5")
-	mustRun(t, "host", "add", "prod1", "root@10.0.0.6", "--protected")
+	mustRun(t, "host", "ssh", "add", "web1", "root@10.0.0.5")
+	mustRun(t, "host", "ssh", "add", "prod1", "root@10.0.0.6", "--protected")
 	mustRun(t, "conn", "add", "app-db", "postgres://app@10.0.0.9/app")
 	mustRun(t, "conn", "add", "cache1", "redis://127.0.0.1:6379")
 	saved := promptable
@@ -38,14 +38,14 @@ func TestPromptFill(t *testing.T) {
 		{[]string{"logs", "--since", "1h"}, []string{"1"}, "logs --since 1h prod1", nil},
 		{[]string{"db", "query"}, []string{"select 1"}, "db query app-db 'select 1'", []string{"Using app-db (the only one of your databases)", "SQL: "}},
 		{[]string{"db", "query", "app-db", "--file", "q.sql"}, nil, "db query app-db --file q.sql", nil}, // typed in full
-		{[]string{"exec", "--", "uptime"}, []string{"web1", "y"}, "exec web1 -- uptime", []string{"Run it? [y/N, d = --dry-run first]"}},
-		{[]string{"exec", "web1"}, []string{"df -h", "y"}, "exec web1 -- 'df -h'", []string{"COMMAND: "}},
+		{[]string{"host", "ssh", "exec", "--", "uptime"}, []string{"web1", "y"}, "exec web1 -- uptime", []string{"Run it? [y/N, d = --dry-run first]"}},
+		{[]string{"host", "ssh", "exec", "web1"}, []string{"df -h", "y"}, "exec web1 -- 'df -h'", []string{"COMMAND: "}},
 		{[]string{"fs", "replace", "web1", "/etc/x", "--backup"}, []string{"a", "b", "y"}, "fs replace web1 /etc/x --backup --old=a --new=b", []string{"--old: "}},
 		{[]string{"svc", "restart", "prod1"}, []string{"nginx"}, "svc restart prod1 nginx", nil}, // protected: the command asks, not Run it?
 		// a step that cannot be undone: Run it? here, the typed name in the
 		// command itself, once (S-7.4; TestPromptedCacheRmAsksOnce)
 		{[]string{"cache", "rm", "cache1"}, []string{"k1", "y"}, "cache rm cache1 k1", []string{"Run it? [y/N, d = --dry-run first]"}},
-		{[]string{"host", "rm", "--dry-run"}, []string{"web1"}, "host rm --dry-run web1", nil}, // a dry run runs at once
+		{[]string{"host", "ssh", "remove", "--dry-run"}, []string{"web1"}, "host rm --dry-run web1", nil}, // a dry run runs at once
 		{[]string{"reboot"}, []string{"web1", "y"}, "reboot web1", []string{"Run it? [y/N, d = --dry-run first]"}},
 		{[]string{"svc", "stop", "web1"}, []string{"sshd", "y"}, "svc stop web1 sshd", []string{"Run it? [y/N, d = --dry-run first]"}},
 		// easy to redo, no agent stop (OD-7), yet a person types what goes
@@ -92,11 +92,11 @@ func TestPromptFill(t *testing.T) {
 func TestPromptFillCancel(t *testing.T) {
 	fillTest(t)
 	for _, c := range []struct{ args, answers []string }{
-		{[]string{"exec", "web1"}, []string{"reboot", "n"}},
-		{[]string{"exec", "web1"}, []string{"reboot", ""}},           // Enter is No
-		{[]string{"cache", "rm", "cache1"}, []string{"k1", "cache"}}, // not y at Run it?
-		{[]string{"cron", "rm", "web1"}, []string{"backup", "web1"}}, // the wrong name
-		{[]string{"logs"}, nil},                                      // Ctrl-C at the first question
+		{[]string{"host", "ssh", "exec", "web1"}, []string{"reboot", "n"}},
+		{[]string{"host", "ssh", "exec", "web1"}, []string{"reboot", ""}}, // Enter is No
+		{[]string{"cache", "rm", "cache1"}, []string{"k1", "cache"}},      // not y at Run it?
+		{[]string{"cron", "rm", "web1"}, []string{"backup", "web1"}},      // the wrong name
+		{[]string{"logs"}, nil}, // Ctrl-C at the first question
 	} {
 		promptFake(t, c.answers...)
 		got, err := promptFill(tcl, c.args)
@@ -117,7 +117,7 @@ func TestPromptFillCancel(t *testing.T) {
 // pick from komando says how to add one and stops.
 func TestPromptFillPicks(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "prod1", "root@10.0.0.6", "--protected")
+	mustRun(t, "host", "ssh", "add", "prod1", "root@10.0.0.6", "--protected")
 	saved := promptable
 	promptable = func(*call, string) bool { return true }
 	defer func() { promptable = saved }()
@@ -143,7 +143,7 @@ func TestPromptFillOnlyForAPerson(t *testing.T) {
 	}
 }
 
-// In a real terminal: a person who types `komando host show` is asked
+// In a real terminal: a person who types `komando host ssh show` is asked
 // NAME, sees the line, and it runs; an AI agent in a terminal gets the
 // usage error it always got, and nothing is asked.
 func TestPromptFillAtATerminal(t *testing.T) {
@@ -151,15 +151,15 @@ func TestPromptFillAtATerminal(t *testing.T) {
 		t.Skip("starts a process")
 	}
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "root@10.0.0.5")
-	mustRun(t, "host", "add", "web2", "root@10.0.0.6")
-	p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "host", "show")
+	mustRun(t, "host", "ssh", "add", "web1", "root@10.0.0.5")
+	mustRun(t, "host", "ssh", "add", "web2", "root@10.0.0.6")
+	p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "host", "ssh", "show")
 	p.answer("NAME: ", "2\r")
-	p.waitFor("$ komando host show web2")
+	p.waitFor("$ komando host ssh show web2")
 	if code := p.exit(); code != 0 || !strings.Contains(p.shown(), "10.0.0.6") {
 		t.Errorf("exit %d:\n%s", code, p.shown())
 	}
-	a := startPTYEnv(t, []string{"KOMANDO_PTY_AS=agent"}, "host", "show")
+	a := startPTYEnv(t, []string{"KOMANDO_PTY_AS=agent"}, "host", "ssh", "show")
 	if code := a.exit(); code != 2 || strings.Contains(a.shown(), "NAME: ") {
 		t.Errorf("an agent: exit %d:\n%s", code, a.shown())
 	}
@@ -174,14 +174,14 @@ func TestPolicyAskAtATerminal(t *testing.T) {
 	if testing.Short() {
 		t.Skip("starts processes")
 	}
-	add := []string{"host", "add", "web1", "root@10.0.0.5", "--proxy-command", "rm -rf /"}
+	add := []string{"host", "ssh", "add", "web1", "root@10.0.0.5", "--proxy-command", "rm -rf /"}
 	invHome(t)
 	p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, add...)
 	p.answer("Type the name web1 to run it anyway, this once: ", "y\r")
 	if code := p.exit(); code != out.ExitPolicy {
 		t.Errorf("no: exit %d\n%s", code, p.shown())
 	}
-	if _, err := invRun(t, "host", "show", "web1"); err == nil {
+	if _, err := invRun(t, "host", "ssh", "show", "web1"); err == nil {
 		t.Error("no added it")
 	}
 	a := startPTYEnv(t, []string{"KOMANDO_PTY_AS=agent"}, add...)
@@ -193,7 +193,7 @@ func TestPolicyAskAtATerminal(t *testing.T) {
 	if code := p.exit(); code != 0 {
 		t.Errorf("yes: exit %d\n%s", code, p.shown())
 	}
-	mustRun(t, "host", "show", "web1")
+	mustRun(t, "host", "ssh", "show", "web1")
 	d := mustRun(t, "audit", "--limit", "5")
 	if b, _ := json.Marshal(d); !strings.Contains(string(b), `"confirm":"tty"`) {
 		t.Errorf("the audit does not say a person said yes: %s", b)

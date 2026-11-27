@@ -20,8 +20,8 @@ for rh in rocky:rockylinux/rockylinux:9:dnf:rocky:supported:${E2E_SSH_ROCKY:-222
   docker build -q --build-arg BASE="$base1:$base2" -t "$img" "$R/test/e2e/rhel" >/dev/null
   docker run -d --name "$box" -p "127.0.0.1:$rhel_port:22" "$img" >/dev/null
   for _ in $(seq 1 30); do nc -z 127.0.0.1 "$rhel_port" 2>/dev/null && break; sleep 1; done
-  q $K host add "$host" "agent@127.0.0.1:$rhel_port" --password-ref secret:agent-pass
-  q $K host trust "$host"
+  q $K host ssh add "$host" "agent@127.0.0.1:$rhel_port" --password-ref secret:agent-pass
+  q $K host ssh trust "$host"
   # rd EXPR: EXPR on the server's data (x), or "error CODE" when it failed
   # (a dnf mirror that times out shows as that, not as a Python traceback)
   rd() { jget "(lambda r: (lambda x: $1)(r['data']) if 'data' in r else 'error ' + r['error']['code'])(d['data']['results'][0])"; }
@@ -87,6 +87,6 @@ for rh in rocky:rockylinux/rockylinux:9:dnf:rocky:supported:${E2E_SSH_ROCKY:-222
   check "$name: pkg upgradable = $pm check-update" "$(nupd)" \
     "$($K pkg upgradable "$host" | rd "len(x['packages'])")"
 
-  q $K host rm "$host"
+  q $K host ssh remove "$host"
   docker rm -f "$box" >/dev/null 2>&1 || true
 done

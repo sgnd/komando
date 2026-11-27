@@ -25,11 +25,11 @@ func TestTestKeepsATwoFactorSession(t *testing.T) {
 	setHome(t, home)
 	t.Setenv("KOMANDO_HOLDER_FROM_TESTS", "1")
 	port, logins := twoFactorSSHD(t)
-	mustRun(t, "host", "add", "web1", "u@127.0.0.1:"+port)
+	mustRun(t, "host", "ssh", "add", "web1", "u@127.0.0.1:"+port)
 	t.Cleanup(func() { _, _ = invRun(t, "test", "--end") })
 
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
-	_, e := invRun(t, "exec", "web1", "--read-only", "--", "uptime")
+	_, e := invRun(t, "host", "ssh", "exec", "web1", "--read-only", "--", "uptime")
 	if e == nil || !strings.Contains(e.Hint, "`komando test web1`") || strings.Contains(e.Hint, "komando login") {
 		t.Fatalf("an agent without a session: %+v", e)
 	}
@@ -49,7 +49,7 @@ func TestTestKeepsATwoFactorSession(t *testing.T) {
 
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	for range 2 {
-		d := mustRun(t, "exec", "web1", "--read-only", "--", "uptime")
+		d := mustRun(t, "host", "ssh", "exec", "web1", "--read-only", "--", "uptime")
 		if !strings.Contains(asJSON(d), "ran on web1") {
 			t.Fatalf("exec through the kept session: %v", d)
 		}
@@ -63,11 +63,11 @@ func TestTestKeepsATwoFactorSession(t *testing.T) {
 	}
 
 	// --end on the one server ends it: the agent is back to needing a person
-	mustRun(t, "host", "test", "web1", "--end")
+	mustRun(t, "host", "ssh", "test", "web1", "--end")
 	if st, _ := store.Load(); st.Logins["web1"] != nil {
 		t.Fatal("the session is still kept after --end")
 	}
-	if _, e := invRun(t, "exec", "web1", "--read-only", "--", "uptime"); e == nil || !strings.Contains(e.Hint, "`komando test web1`") {
+	if _, e := invRun(t, "host", "ssh", "exec", "web1", "--read-only", "--", "uptime"); e == nil || !strings.Contains(e.Hint, "`komando test web1`") {
 		t.Fatalf("exec after --end: %+v", e)
 	}
 }
@@ -83,8 +83,8 @@ func TestTestEndAll(t *testing.T) {
 	if st.Logins == nil {
 		st.Logins = map[string]*store.SSHLogin{}
 	}
-	mustRun(t, "host", "add", "web1", "u@127.0.0.1:1")
-	mustRun(t, "host", "add", "web2", "u@127.0.0.1:2")
+	mustRun(t, "host", "ssh", "add", "web1", "u@127.0.0.1:1")
+	mustRun(t, "host", "ssh", "add", "web2", "u@127.0.0.1:2")
 	err := store.UpdateRuntime(tcl.storeWrite(), func(s *store.State) error {
 		s.Logins["web1"] = &store.SSHLogin{Host: "web1", Until: time.Now().Add(time.Hour)}
 		s.Logins["web2"] = &store.SSHLogin{Host: "web2", Until: time.Now().Add(time.Hour)}
@@ -93,7 +93,7 @@ func TestTestEndAll(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustRun(t, "host", "test", "web1", "--end")
+	mustRun(t, "host", "ssh", "test", "web1", "--end")
 	if st, _ := store.Load(); st.Logins["web1"] != nil || st.Logins["web2"] == nil {
 		t.Fatalf("host test web1 --end: %v", st.Logins)
 	}
@@ -106,7 +106,7 @@ func TestTestEndAll(t *testing.T) {
 func TestTestNeedsATargetWithoutEnd(t *testing.T) {
 	invHome(t)
 	wantCode(t, "USAGE", "test")
-	wantCode(t, "USAGE", "host", "test")
+	wantCode(t, "USAGE", "host", "ssh", "test")
 }
 
 // An AI agent's --end goes through the change-tier guard: ending the kept
@@ -114,8 +114,8 @@ func TestTestNeedsATargetWithoutEnd(t *testing.T) {
 // (a dry run reports the stop); other servers' sessions end as before.
 func TestTestEndIsGuarded(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@127.0.0.1:1", "--protected")
-	mustRun(t, "host", "add", "web2", "u@127.0.0.1:2")
+	mustRun(t, "host", "ssh", "add", "web1", "u@127.0.0.1:1", "--protected")
+	mustRun(t, "host", "ssh", "add", "web2", "u@127.0.0.1:2")
 	if err := store.UpdateRuntime(tcl.storeWrite(), func(s *store.State) error {
 		s.Logins["web1"] = &store.SSHLogin{Host: "web1", Until: time.Now().Add(time.Hour)}
 		s.Logins["web2"] = &store.SSHLogin{Host: "web2", Until: time.Now().Add(time.Hour)}
@@ -124,7 +124,7 @@ func TestTestEndIsGuarded(t *testing.T) {
 		t.Fatal(err)
 	}
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
-	for _, args := range [][]string{{"host", "test", "web1", "--end"}, {"test", "web1", "--end"}, {"test", "--end"}} {
+	for _, args := range [][]string{{"host", "ssh", "test", "web1", "--end"}, {"test", "web1", "--end"}, {"test", "--end"}} {
 		wantCode(t, "PROTECTED_TARGET", args...)
 		if st, _ := store.Load(); st.Logins["web1"] == nil || st.Logins["web2"] == nil {
 			t.Fatalf("%v ended a session: %v", args, st.Logins)
@@ -134,7 +134,7 @@ func TestTestEndIsGuarded(t *testing.T) {
 		}
 		setGate(tcl, false, gateDryRun)
 	}
-	mustRun(t, "host", "test", "web2", "--end")
+	mustRun(t, "host", "ssh", "test", "web2", "--end")
 	if st, _ := store.Load(); st.Logins["web1"] == nil || st.Logins["web2"] != nil {
 		t.Fatalf("host test web2 --end: %v", st.Logins)
 	}

@@ -104,9 +104,9 @@ func TestPersonalHiddenValueNotWritten(t *testing.T) {
 
 func TestPersonalOnlyForDataCommands(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "admin@web1.example.com", "--protected")
+	mustRun(t, "host", "ssh", "add", "web1", "admin@web1.example.com", "--protected")
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
-	for _, args := range [][]string{{"host", "show", "web1"}, {"list"}} {
+	for _, args := range [][]string{{"host", "ssh", "show", "web1"}, {"list"}} {
 		b, _ := json.Marshal(mustRun(t, args...))
 		if strings.Contains(string(b), "[hidden") || !strings.Contains(string(b), "web1.example.com") {
 			t.Errorf("%v: komando's own inventory is never hidden: %s", args, b)

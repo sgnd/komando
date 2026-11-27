@@ -93,7 +93,7 @@ func TestGateShellRunsInGate(t *testing.T) {
 	}
 	shellTerminal(t, "/dev/pts/3", true)
 	conn.end <- nil
-	ran, _, e := gateRun(t, "KOMANDO_AGENT=Komando komando shell web", "--name", "ops", "--shell-access")
+	ran, _, e := gateRun(t, "KOMANDO_AGENT=Komando komando host ssh shell web", "--name", "ops", "--shell-access")
 	if ran != nil || e != nil {
 		t.Fatalf("ran %q, error %+v; want the shell in the gate", ran, e)
 	}
@@ -149,12 +149,12 @@ func TestGateShellThisComputer(t *testing.T) {
 		"shell named", "shell loop", "shell vpnd")
 }
 
-// Only `komando shell SERVER` as such: no other word, no flag, no alias,
+// Only `komando host ssh shell SERVER` as such: no other word, no flag, no alias,
 // nothing before or after.
 func TestGateShellExtraArgs(t *testing.T) {
 	invHome(t)
 	shellInventory(t)
-	wantShellRefused(t, shellKey, "komando shell SERVER", "shell", "shell web uptime", "shell web web", "shell web --",
+	wantShellRefused(t, shellKey, "komando host ssh shell SERVER", "shell", "shell web uptime", "shell web web", "shell web --",
 		"shell -- web", "shell web --dry-run", "--dry-run shell web", "shell web -o json", "-o json shell web",
 		"shell --help", "shell web --help", "shell web --yes", "shell --yes web", "shell web --reveal",
 		"shell web --allow-dangerous", "shell web --timeout 1h", "ssh web", "connect web", "shell -web")
@@ -210,7 +210,7 @@ func TestSSHGateShellNoPty(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			shellTerminal(t, c.tty, c.terminal)
-			ran, _, e := gateRun(t, "komando shell web", "--name", "ops", "--shell-access")
+			ran, _, e := gateRun(t, "komando host ssh shell web", "--name", "ops", "--shell-access")
 			if ran != nil || e == nil || e.Code != "SSH_GATE_REFUSED" || !strings.Contains(e.Message, "terminal") {
 				t.Fatalf("ran %q, error %+v", ran, e)
 			}
@@ -237,7 +237,7 @@ func TestSSHGateShellNeedsCommand(t *testing.T) {
 func TestSSHGateShellReadOnlyLine(t *testing.T) {
 	invHome(t)
 	shellTerminal(t, "/dev/pts/3", true)
-	for _, line := range []string{"komando shell web", "komando list"} {
+	for _, line := range []string{"komando host ssh shell web", "komando list"} {
 		if ran, _, e := gateRun(t, line, "--name", "ops", "--read-only", "--shell-access"); ran != nil || e == nil || e.Code != "USAGE" {
 			t.Errorf("%q: ran %q, error %+v", line, ran, e)
 		}
@@ -280,7 +280,7 @@ func gateErrText(e *out.Error) string {
 }
 
 // The komando a key runs never asks its key anything, also when sshd gave
-// the call a terminal, and `komando shell` refuses it: a key's shell is
+// the call a terminal, and `komando host ssh shell` refuses it: a key's shell is
 // opened by the gate alone. Variables that look like the gate's change
 // nothing, whoever sets them.
 func TestGateCallNeverInteractive(t *testing.T) {
@@ -341,7 +341,7 @@ func TestGateShellExtraDenyPatterns(t *testing.T) {
 		denyRule(t)
 		wantShellRefused(t, shellKey, "deny rules of your own", "shell web", "shell bastion", "shell behind")
 		e := shellAnswer(t, "shell web", shellKey)
-		if e == nil || !strings.Contains(e.Hint, "komando exec") {
+		if e == nil || !strings.Contains(e.Hint, "komando host ssh exec") {
 			t.Errorf("hint %+v, want single commands, which the rules check", e)
 		}
 	})
@@ -364,7 +364,7 @@ func TestGateShellExtraDenyPatterns(t *testing.T) {
 // is refused, for the shell and every other command, and the refusal is in
 // the audit log.
 func TestSSHGateAgentCaller(t *testing.T) {
-	for _, line := range []string{"komando shell web", "komando list"} {
+	for _, line := range []string{"komando host ssh shell web", "komando list"} {
 		t.Run(line, func(t *testing.T) {
 			gateSessionLab(t)
 			shellDial = func(*call, context.Context, *store.State, *store.Host, func(shellConn) error) error {

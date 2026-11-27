@@ -22,7 +22,7 @@ func TestExecSessionFlagsOffUntilTheCut(t *testing.T) {
 	if sessionsOn {
 		t.Skip("sessions are on")
 	}
-	c, _, err := newRoot(tcl).Find([]string{"exec"})
+	c, _, err := newRoot(tcl).Find([]string{"host", "ssh", "exec"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,13 +33,13 @@ func TestExecSessionFlagsOffUntilTheCut(t *testing.T) {
 		}
 	}
 	for _, args := range [][]string{
-		{"exec", "web1", "--attach", "x"},
-		{"exec", "web1", "--wait", "5s", "--", "uptime"},
-		{"exec", "web1", "--log-max", "1MiB", "--", "uptime"},
-		{"exec", "web1", "--offset", "3", "--", "uptime"},
-		{"exec", "web1", "--stop", "--", "uptime"},
-		{"exec", "web1", "--signal", "KILL", "--", "uptime"},
-		{"exec", "web1", "--remove", "--", "uptime"},
+		{"host", "ssh", "exec", "web1", "--attach", "x"},
+		{"host", "ssh", "exec", "web1", "--wait", "5s", "--", "uptime"},
+		{"host", "ssh", "exec", "web1", "--log-max", "1MiB", "--", "uptime"},
+		{"host", "ssh", "exec", "web1", "--offset", "3", "--", "uptime"},
+		{"host", "ssh", "exec", "web1", "--stop", "--", "uptime"},
+		{"host", "ssh", "exec", "web1", "--signal", "KILL", "--", "uptime"},
+		{"host", "ssh", "exec", "web1", "--remove", "--", "uptime"},
 	} {
 		var oe *out.Error
 		if err := runRoot(t, args...); !errors.As(err, &oe) || oe.Code != "USAGE" {
@@ -56,7 +56,7 @@ func TestExecSessionOffRunsDirect(t *testing.T) {
 	}
 	srv := startFakeServer(t)
 	srv.reply("up\n")
-	if err := runRoot(t, "exec", "dev", "--read-only", "--", "uptime"); err != nil {
+	if err := runRoot(t, "host", "ssh", "exec", "dev", "--read-only", "--", "uptime"); err != nil {
 		t.Fatal(err)
 	}
 	if e := srv.take(); len(e) != 1 || e[0].cmd != "uptime" {
@@ -169,7 +169,7 @@ func runSession(t *testing.T, args ...string) (first map[string]any, res session
 // by the actor who started it is removed, record and folder.
 func TestExecSessionFirstLine(t *testing.T) {
 	srv := startSessionServer(t, "hello\n", true)
-	first, res, err := runSession(t, "exec", "dev", "--read-only", "--", "uptime")
+	first, res, err := runSession(t, "host", "ssh", "exec", "dev", "--read-only", "--", "uptime")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,7 +193,7 @@ func TestExecSessionFirstLine(t *testing.T) {
 // hint; its record stays, with the facts the server gave.
 func TestExecSessionWaitLimit(t *testing.T) {
 	srv := startSessionServer(t, "step 1\nstep", false)
-	first, res, err := runSession(t, "exec", "dev", "--read-only", "--sudo", "--wait", "1s", "--", "uptime")
+	first, res, err := runSession(t, "host", "ssh", "exec", "dev", "--read-only", "--sudo", "--wait", "1s", "--", "uptime")
 	if code, ok := err.(exitCode); !ok || int(code) != 7 {
 		t.Fatalf("want exit 7, got %v", err)
 	}
@@ -217,7 +217,7 @@ func TestExecSessionWaitLimit(t *testing.T) {
 // --wait 0 reads once and returns.
 func TestExecSessionWaitZero(t *testing.T) {
 	srv := startSessionServer(t, "", false)
-	if _, _, err := runSession(t, "exec", "dev", "--read-only", "--wait", "0", "--", "uptime"); err == nil {
+	if _, _, err := runSession(t, "host", "ssh", "exec", "dev", "--read-only", "--wait", "0", "--", "uptime"); err == nil {
 		t.Fatal("a running session ended the exec")
 	}
 	if k := srv.kinds(); !slices.Equal(k, []string{"start", "read"}) {
@@ -230,7 +230,7 @@ func TestExecSessionWaitZero(t *testing.T) {
 func TestExecSessionNoFolderRunsDirect(t *testing.T) {
 	srv := startSessionServer(t, "", false)
 	srv.begin = execsession.ExitNoFolder
-	first, res, err := runSession(t, "exec", "dev", "--read-only", "--", "uptime")
+	first, res, err := runSession(t, "host", "ssh", "exec", "dev", "--read-only", "--", "uptime")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -250,7 +250,7 @@ func TestExecSessionNoFolderRunsDirect(t *testing.T) {
 func TestExecSessionSpaceDenied(t *testing.T) {
 	srv := startSessionServer(t, "", false)
 	srv.begin = execsession.ExitNoSpace
-	_, res, err := runSession(t, "exec", "dev", "--read-only", "--", "uptime")
+	_, res, err := runSession(t, "host", "ssh", "exec", "dev", "--read-only", "--", "uptime")
 	if code, ok := err.(exitCode); !ok || int(code) != 5 || res.Error.Code != "SESSION_SPACE_DENIED" {
 		t.Fatalf("got %v, %+v", err, res.Error)
 	}
@@ -271,9 +271,9 @@ func TestExecSessionGroupStaysDirect(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, args := range [][]string{
-		{"exec", "dev,prod", "--read-only", "--", "uptime"},
-		{"exec", "dev", "--read-only", "--pty", "--", "uptime"},
-		{"exec", "win", "--read-only", "--", "Get-Date"},
+		{"host", "ssh", "exec", "dev,prod", "--read-only", "--", "uptime"},
+		{"host", "ssh", "exec", "dev", "--read-only", "--pty", "--", "uptime"},
+		{"host", "ssh", "exec", "win", "--read-only", "--", "Get-Date"},
 	} {
 		_ = captureOutput(t, func() error { return runRoot(t, args...) })
 		if k := srv.kinds(); slices.Contains(k, "start") || len(k) == 0 {
@@ -313,7 +313,9 @@ func TestSessionForOneUnixServer(t *testing.T) {
 // --log-max goes to the start as the log cap.
 func TestExecLogMaxFlag(t *testing.T) {
 	srv := startSessionServer(t, "", true)
-	_ = captureOutput(t, func() error { return runRoot(t, "exec", "dev", "--read-only", "--log-max", "2MiB", "--", "uptime") })
+	_ = captureOutput(t, func() error {
+		return runRoot(t, "host", "ssh", "exec", "dev", "--read-only", "--log-max", "2MiB", "--", "uptime")
+	})
 	execs := srv.take()
 	if len(execs) == 0 || !strings.Contains(execs[0].cmd, "head -c 2097152") {
 		t.Fatalf("execs %+v", execs)
@@ -360,7 +362,7 @@ func TestExecSessionSweepKnowsTheRecords(t *testing.T) {
 				}
 				return o, code
 			}
-			_ = captureOutput(t, func() error { return runRoot(t, "exec", "dev", "--read-only", "--", "uptime") })
+			_ = captureOutput(t, func() error { return runRoot(t, "host", "ssh", "exec", "dev", "--read-only", "--", "uptime") })
 			execs := srv.take()
 			if len(execs) == 0 || !strings.Contains(execs[0].cmd, attachID+") [ \"$(ks_start 4242)\" != 'proc 99' ]") {
 				t.Fatalf("start %+v", execs)
@@ -377,7 +379,7 @@ var sweepBegin = regexp.MustCompile(`echo "sweep-begin ([a-z2-7]{52})"`)
 // U4: --attach reads from --offset on; it sweeps nothing (U12).
 func TestExecAttachOffset(t *testing.T) {
 	srv := startSessionServer(t, "line 1\nline 2\n", true)
-	_, res, err := runSession(t, "exec", "dev", "--attach", attachID, "--offset", "7")
+	_, res, err := runSession(t, "host", "ssh", "exec", "dev", "--attach", attachID, "--offset", "7")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -398,7 +400,7 @@ func TestExecAttachKeepsAnotherActorsSession(t *testing.T) {
 	t.Setenv("KOMANDO_ACTOR", "alice")
 	t.Setenv("KOMANDO_AGENT", "1")
 	putRecord(t, attachID, "alice", false)
-	if _, _, err := runSession(t, "exec", "dev", "--attach", attachID); err != nil {
+	if _, _, err := runSession(t, "host", "ssh", "exec", "dev", "--attach", attachID); err != nil {
 		t.Fatal(err)
 	}
 	if k := srv.kinds(); !slices.Equal(k, []string{"read"}) {
@@ -411,7 +413,7 @@ func TestExecAttachKeepsAnotherActorsSession(t *testing.T) {
 		if err := store.UpdateRuntime(store.Save(), func(s *store.State) error { s.ExecSessions[attachID] = rec; return nil }); err != nil {
 			t.Fatal(err)
 		}
-		if _, _, err := runSession(t, "exec", "dev", "--attach", attachID); err != nil {
+		if _, _, err := runSession(t, "host", "ssh", "exec", "dev", "--attach", attachID); err != nil {
 			t.Fatal(err)
 		}
 		if k := srv.kinds(); !slices.Equal(k, []string{"read"}) {
@@ -419,7 +421,7 @@ func TestExecAttachKeepsAnotherActorsSession(t *testing.T) {
 		}
 	}
 	putRecord(t, attachID, "alice", true)
-	if _, _, err := runSession(t, "exec", "dev", "--attach", attachID); err != nil {
+	if _, _, err := runSession(t, "host", "ssh", "exec", "dev", "--attach", attachID); err != nil {
 		t.Fatal(err)
 	}
 	if k := srv.kinds(); !slices.Equal(k, []string{"read", "remove"}) {
@@ -435,13 +437,13 @@ func TestExecAttachKeepsAnotherActorsSession(t *testing.T) {
 func TestExecAttachRefusals(t *testing.T) {
 	srv := startSessionServer(t, "", true)
 	for _, args := range [][]string{
-		{"exec", "dev", "--attach", "../x"},
-		{"exec", "dev", "--attach", attachID[1:]},
-		{"exec", "dev", "--attach", attachID, "--", "uptime"},
-		{"exec", "dev,prod", "--attach", attachID},
-		{"exec", "dev", "--attach", attachID + "," + "b" + attachID[1:], "--offset", "3"},
-		{"exec", "dev", "--offset", "3", "--", "uptime"},
-		{"exec", "dev", "--offset", "3"},
+		{"host", "ssh", "exec", "dev", "--attach", "../x"},
+		{"host", "ssh", "exec", "dev", "--attach", attachID[1:]},
+		{"host", "ssh", "exec", "dev", "--attach", attachID, "--", "uptime"},
+		{"host", "ssh", "exec", "dev,prod", "--attach", attachID},
+		{"host", "ssh", "exec", "dev", "--attach", attachID + "," + "b" + attachID[1:], "--offset", "3"},
+		{"host", "ssh", "exec", "dev", "--offset", "3", "--", "uptime"},
+		{"host", "ssh", "exec", "dev", "--offset", "3"},
 	} {
 		var oe *out.Error
 		if err := runRoot(t, args...); !errors.As(err, &oe) || oe.Code != "USAGE" {

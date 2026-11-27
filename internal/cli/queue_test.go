@@ -129,7 +129,7 @@ func TestQueueConnTLS(t *testing.T) {
 	invHome(t)
 	wantCode(t, "INSECURE_PROTOCOL", "conn", "add", "k", "kafka://broker.example.com:9092")
 	mustRun(t, "conn", "add", "k", "kafka://app@broker.example.com:9093,b2.example.com:9093?tls=true&sasl=scram-sha-512")
-	mustRun(t, "host", "add", "office", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "office", "u@10.0.0.1")
 	mustRun(t, "conn", "add", "k-via", "kafka://broker.internal:9092", "--via", "office")
 	mustRun(t, "conn", "add", "k-plain", "kafka://broker.example.com:9092?insecure=1")
 	if got := plainConn(&store.Conn{Name: "k-plain", URL: "kafka://broker.example.com:9092?insecure=1"}); !strings.Contains(got, "tls=true") {

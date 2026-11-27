@@ -66,7 +66,7 @@ nouns]
 | Kind | Top-level commands |
 |---|---|
 | Nouns | every noun in S-2.1 |
-| Shortcuts | `list`, `test`, `exec`, `shell`, `logs`, `cp`, `upload`, `download`, `sync`, `facts` (alias `info`), `reboot`, `status`, `login`, `logout`, `import`, `export`, `rename` |
+| Shortcuts | `list`, `test`, `logs`, `cp`, `upload`, `download`, `sync`, `facts` (alias `info`), `reboot`, `status`, `login`, `logout`, `import`, `export`, `rename` |
 | About komando | `audit`, `doctor`, `schema`, `guide`, `update`, `version`, `seal`, `completion`, `help`, `ssh-gate` |
 | Help topics (only as `komando help TOPIC`) | `environment`, `exit-codes`, `output`, `safety` |
 
@@ -189,10 +189,10 @@ tool-word list S-3.3]
 
 | Verb | Meaning | Follows |
 |---|---|---|
-| `exec` | a shell command on servers (aliases run, x) | docker exec, kubectl exec |
+| `exec` | a shell command on servers (`host ssh exec`) | docker exec, kubectl exec |
 | `run` | the area's own raw command (`cache redis raw`, `cluster run`) or a saved recipe | redis-cli, kubectl |
 | `query` | SQL or MongoDB | psql -c |
-| `shell` | an interactive session, person only (aliases ssh, connect) | |
+| `shell` | an interactive session, person only (`host ssh shell`) | |
 | `upload`, `download` | move files (put, get on storage) | aws s3 cp, gh release download |
 | `sync`, `dump`, `restore` | copy trees, back up and load | rsync, pg_dump |
 | `up`, `down` | a VPN session | wg-quick, tailscale |
@@ -217,7 +217,7 @@ own tool, is allowed when this list names it:
 `fs cat/stat/chmod/mkdir/write/replace/mv`, `storage mkdir/mv/chmod`,
 `svc daemon-reload`,
 `cluster scale/apply/rollback/forward/values`, `net dns/http/ports/check`,
-`key gen/deploy`, `host trust/ssh-command`, `ssh-gate line`, `conn kinds`,
+`key gen/deploy`, `host ssh trust`, `host ssh-command`, `ssh-gate line`, `conn kinds`,
 `audit verify`, `config approval-code`, `secret keychain/passphrase`.
 [schema: allow-list]
 
@@ -268,10 +268,10 @@ words; the completion and picker map has one entry per word]
 
 **S-4.3** A required flag is shown in the usage line with an UPPERCASE value
 (`db restore CONN --from FILE`); optional flags never are. A choice of flags
-is in parentheses: `tunnel start TARGET (-L SPEC | -R SPEC | -D SPEC)`.
+is in parentheses: `host ssh tunnel start TARGET (-L SPEC | -R SPEC | -D SPEC)`.
 [schema: required flag ⇔ present in Use]
 
-**S-4.4** Passthrough commands: `exec`, `job start`, `docker exec`,
+**S-4.4** Passthrough commands: `host ssh exec`, `job start`, `docker exec`,
 `docker compose`, `docker raw`, `cluster exec`, `cluster shell`,
 `cluster run`, `cache redis raw` (every command whose Use has `-- COMMAND...` or
 `-- ARGS...`). komando flags are read anywhere before `--`
@@ -503,7 +503,7 @@ command's Use words. [code]
 
 **S-6.11** Top-level help groups: Start, Servers, Data, Platform,
 Inventory, Access, Overview, Setup. Start lists commands, not nouns:
-`host add`, `conn add`, `import ssh-config`, `list`, `test TARGET`,
+`host ssh add`, `conn add`, `import ssh-config`, `list`, `test TARGET`,
 `guide install`. Inventory: host, conn, group, import, export, rename.
 Help topics are listed only under `komando help`. [review]
 
@@ -564,7 +564,7 @@ release note. [schema + rule table]
 **S-7.9** "Blocked by …" is used only for a custom deny rule or a policy or
 classifier hit, never for a command's own built-in tier. [code]
 
-**S-7.10** A command for a person at a terminal (`shell`, `db shell`,
+**S-7.10** A command for a person at a terminal (`host ssh shell`, `db shell`,
 `cluster shell`, `secret passphrase` ...) never runs for an AI agent or an
 ssh-gate key. One exception: `komando host ssh shell SERVER` for a `--shell-access`
 key, which ssh-gate opens in its own process after its checks; no

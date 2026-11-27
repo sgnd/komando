@@ -16,9 +16,9 @@ import (
 func auditHome(t *testing.T) string {
 	t.Helper()
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
-	mustRun(t, "host", "add", "web2", "u@10.0.0.2", "-t", "edge")
-	mustRun(t, "host", "edit", "web1", "--protected")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web2", "u@10.0.0.2", "-t", "edge")
+	mustRun(t, "host", "ssh", "edit", "web1", "--protected")
 	return t.TempDir()
 }
 
@@ -73,29 +73,29 @@ func TestCpSelectorsAndAdhocPort(t *testing.T) {
 func TestFlagsAfterDashRefused(t *testing.T) {
 	auditHome(t)
 	for _, args := range [][]string{
-		{"exec", "web2", "--", "uptime", "-P", "2", "--dry-run", "-o", "json"},
-		{"exec", "web2", "--", "apt-get", "upgrade", "--dry-run"},
+		{"host", "ssh", "exec", "web2", "--", "uptime", "-P", "2", "--dry-run", "-o", "json"},
+		{"host", "ssh", "exec", "web2", "--", "apt-get", "upgrade", "--dry-run"},
 		{"job", "start", "web2", "--", "sleep", "100", "--dry-run"},
-		{"exec", "web2", "-c", "ls", "--", "uptime"},
+		{"host", "ssh", "exec", "web2", "-c", "ls", "--", "uptime"},
 		{"job", "start", "web2", "-c", "ls", "--", "uptime"},
 	} {
 		if _, e := invRun(t, args...); e == nil || e.Code != "USAGE" {
 			t.Errorf("%v: want USAGE, got %+v", args, e)
 		}
 	}
-	e := toErr(komandoFlagsAfterDash("exec web2", strings.Fields("uptime -P 2 --dry-run -o json")))
-	if e == nil || !strings.Contains(e.Hint, "komando exec web2 -P 2 --dry-run -o json -- uptime") {
+	e := toErr(komandoFlagsAfterDash("host ssh exec web2", strings.Fields("uptime -P 2 --dry-run -o json")))
+	if e == nil || !strings.Contains(e.Hint, "komando host ssh exec web2 -P 2 --dry-run -o json -- uptime") {
 		t.Errorf("hint: %+v", e)
 	}
-	if e := toErr(komandoFlagsAfterDash("exec web2", strings.Fields("apt-get upgrade -y --dry-run"))); e == nil || !strings.Contains(e.Hint, "komando exec web2 --dry-run -- apt-get upgrade -y`") {
+	if e := toErr(komandoFlagsAfterDash("host ssh exec web2", strings.Fields("apt-get upgrade -y --dry-run"))); e == nil || !strings.Contains(e.Hint, "komando host ssh exec web2 --dry-run -- apt-get upgrade -y`") {
 		t.Errorf("-y stays with the command: %+v", e)
 	}
 	for _, ok := range []string{"kubectl wait --timeout 60s", "rsync --dry-run -a src dst", "uptime", "yum update -y", "apt-get install nginx --yes"} {
-		if err := komandoFlagsAfterDash("exec web2", strings.Fields(ok)); err != nil {
+		if err := komandoFlagsAfterDash("host ssh exec web2", strings.Fields(ok)); err != nil {
 			t.Errorf("%q refused: %v", ok, err)
 		}
 	}
-	d := mustRun(t, "exec", "web2", "-c", "apt-get upgrade --dry-run", "--dry-run")
+	d := mustRun(t, "host", "ssh", "exec", "web2", "-c", "apt-get upgrade --dry-run", "--dry-run")
 	if !strings.Contains(wouldRun(t, d)["remote_command"].(string), "apt-get upgrade --dry-run") {
 		t.Errorf("-c keeps the words: %v", d)
 	}
@@ -103,7 +103,7 @@ func TestFlagsAfterDashRefused(t *testing.T) {
 
 func TestEnvKeepsCommas(t *testing.T) {
 	auditHome(t)
-	d := mustRun(t, "exec", "web2", "-e", "HOSTS=a,b", "--dry-run", "--", "echo $HOSTS")
+	d := mustRun(t, "host", "ssh", "exec", "web2", "-e", "HOSTS=a,b", "--dry-run", "--", "echo $HOSTS")
 	if cmd := wouldRun(t, d)["remote_command"].(string); !strings.Contains(cmd, "HOSTS='a,b'") {
 		t.Errorf("remote_command %q", cmd)
 	}
@@ -146,18 +146,18 @@ func TestScriptInputFlagsAndHiddenValues(t *testing.T) {
 	masked := filepath.Join(dir, "masked.conf")
 	_ = os.WriteFile(masked, []byte("requirepass [hidden]\n"), 0o600)
 
-	d := mustRun(t, "exec", "web2", "--script", s, "--dry-run", "--arg", "a b")
+	d := mustRun(t, "host", "ssh", "exec", "web2", "--script", s, "--dry-run", "--arg", "a b")
 	if cmd := wouldRun(t, d)["remote_command"]; cmd != "bash -e -s -- 'a b'" {
 		t.Errorf("remote_command %v", cmd)
 	}
 	for _, flag := range []string{"--stdin-file=" + in, "--pty"} {
-		if _, e := invRun(t, "exec", "web2", "--script", s, flag, "--dry-run"); e == nil {
+		if _, e := invRun(t, "host", "ssh", "exec", "web2", "--script", s, flag, "--dry-run"); e == nil {
 			t.Errorf("exec --script %s was taken", flag)
 		}
 	}
 	for _, args := range [][]string{
-		{"exec", "web2", "--script", masked, "--dry-run"},
-		{"exec", "web2", "--stdin-file", masked, "--dry-run", "--", "cat > /etc/redis.conf"},
+		{"host", "ssh", "exec", "web2", "--script", masked, "--dry-run"},
+		{"host", "ssh", "exec", "web2", "--stdin-file", masked, "--dry-run", "--", "cat > /etc/redis.conf"},
 	} {
 		if _, e := invRun(t, args...); e == nil || e.Code != "HIDDEN_VALUE" {
 			t.Errorf("%v: want HIDDEN_VALUE, got %+v", args, e)
@@ -204,19 +204,19 @@ func TestSyncDeleteDryRunSaysBlocked(t *testing.T) {
 
 func TestTunnelChecks(t *testing.T) {
 	auditHome(t)
-	d := mustRun(t, "tunnel", "start", "web1", "-R", "8080:localhost:80", "--dry-run")
+	d := mustRun(t, "host", "ssh", "tunnel", "start", "web1", "-R", "8080:localhost:80", "--dry-run")
 	if m, _ := d["_meta"].(map[string]any); m["would_be_blocked"] == nil {
 		t.Errorf("-R on a protected server: %v", d)
 	}
-	d = mustRun(t, "tunnel", "start", "web2", "-R", "8080:localhost:80", "--dry-run")
+	d = mustRun(t, "host", "ssh", "tunnel", "start", "web2", "-R", "8080:localhost:80", "--dry-run")
 	if m, _ := d["_meta"].(map[string]any); m["would_be_blocked"] != nil {
 		t.Errorf("-R on a plain server: %v", d)
 	}
 	for _, args := range [][]string{
-		{"tunnel", "start", "web2", "-L", "99999:localhost:80", "--dry-run"},
-		{"tunnel", "start", "web2", "-L", "8080:localhost:0", "--dry-run"},
-		{"tunnel", "start", "web2", "-D", "x", "--dry-run"},
-		{"tunnel", "start", "web2", "-D", "1080", "--port", "5", "--dry-run"},
+		{"host", "ssh", "tunnel", "start", "web2", "-L", "99999:localhost:80", "--dry-run"},
+		{"host", "ssh", "tunnel", "start", "web2", "-L", "8080:localhost:0", "--dry-run"},
+		{"host", "ssh", "tunnel", "start", "web2", "-D", "x", "--dry-run"},
+		{"host", "ssh", "tunnel", "start", "web2", "-D", "1080", "--port", "5", "--dry-run"},
 	} {
 		if _, e := invRun(t, args...); e == nil || e.Code != "USAGE" {
 			t.Errorf("%v: want USAGE, got %+v", args, e)
@@ -309,7 +309,7 @@ func TestJobChecks(t *testing.T) {
 
 func TestDryRunMissingSecretFails(t *testing.T) {
 	auditHome(t)
-	if d, e := invRun(t, "exec", "web2", "-e", "TOKEN=secret:nope", "--dry-run", "--", "echo ok"); e == nil || e.Code != "SECRET_NOT_FOUND" || e.Exit != out.ExitNotFound {
+	if d, e := invRun(t, "host", "ssh", "exec", "web2", "-e", "TOKEN=secret:nope", "--dry-run", "--", "echo ok"); e == nil || e.Code != "SECRET_NOT_FOUND" || e.Exit != out.ExitNotFound {
 		t.Errorf("a missing secret: want SECRET_NOT_FOUND, got %+v %v", e, d)
 	}
 }

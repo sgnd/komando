@@ -45,15 +45,15 @@ var tierRuns = []tierRun{
 	{"registry image prune dangerous", "registry.oci.image.prune", []string{"reg", "app", "--keep", "1"}, false},
 	{"database restore dangerous", "db.restore", []string{"pg", "--from", "dump.sql"}, false},
 	{"credential key remove --delete-file dangerous", "key.rm", []string{"k1", "--delete-file"}, false},
-	{"host exec dynamic dangerous", "exec", []string{"dev", "--", "rm -rf /"}, false},
+	{"host exec dynamic dangerous", "host.ssh.exec", []string{"dev", "--", "rm -rf /"}, false},
 	{"snippet exec dynamic dangerous", "recipe.run", []string{"wipe", "dev"}, false},
 	{"cluster exec dynamic dangerous", "cluster.exec", []string{"k8s", "pod/a", "--", "rm -rf /"}, false},
 	{"cluster raw dynamic dangerous", "cluster.run", []string{"k8s", "--write", "--", "delete", "pod", "a"}, false},
 	{"cache raw dynamic dangerous", "cache.redis.raw", []string{"r", "--write", "--", "FLUSHALL"}, false},
 	{"cache raw dynamic dangerous", "cache.memcached.raw", []string{"m", "--write", "--", "flush_all"}, false},
 	{"database query dynamic dangerous", "db.query", []string{"pg", "--write", "DROP TABLE t"}, false},
-	{"host ssh add --proxy-command dynamic dangerous", "host.add", []string{"x", "--address", "10.0.0.9", "--proxy-command", "rm -rf /"}, false},
-	{"host ssh edit --proxy-command dynamic dangerous", "host.edit", []string{"dev", "--proxy-command", "rm -rf /"}, false},
+	{"host ssh add --proxy-command dynamic dangerous", "host.ssh.add", []string{"x", "--address", "10.0.0.9", "--proxy-command", "rm -rf /"}, false},
+	{"host ssh edit --proxy-command dynamic dangerous", "host.ssh.edit", []string{"dev", "--proxy-command", "rm -rf /"}, false},
 	// safety
 	{"policy remove safety", "policy.rm", []string{"kubectl apply"}, false},
 	{"policy edit --off safety", "policy.edit", []string{"docker-prune", "--off"}, false},
@@ -62,13 +62,13 @@ var tierRuns = []tierRun{
 	{"floor", "policy.edit", []string{"docker-prune", "--rm-server", "dev"}, false},
 	{"config set dynamic safety", "config.set", []string{"audit", "false"}, false},
 	{"vpn edit --mfa=false safety", "vpn.edit", []string{"wg", "--mfa=false"}, false},
-	{"host tunnel start dynamic safety", "tunnel.start", []string{"dev", "-L", "0.0.0.0:15432:localhost:5432"}, false},
-	{"host ssh add --proxy-command dynamic safety", "host.add", []string{"y", "--address", "10.0.0.9", "--proxy-command", "nc %h %p"}, false},
-	{"host ssh edit --proxy-command dynamic safety", "host.edit", []string{"dev", "--proxy-command", "nc %h %p"}, false},
+	{"host tunnel start dynamic safety", "host.ssh.tunnel.start", []string{"dev", "-L", "0.0.0.0:15432:localhost:5432"}, false},
+	{"host ssh add --proxy-command dynamic safety", "host.ssh.add", []string{"y", "--address", "10.0.0.9", "--proxy-command", "nc %h %p"}, false},
+	{"host ssh edit --proxy-command dynamic safety", "host.ssh.edit", []string{"dev", "--proxy-command", "nc %h %p"}, false},
 	{"snippet create --overwrite --read-only dynamic safety", "recipe.add", []string{"r1", "--overwrite", "--read-only", "--", "uptime"}, false},
-	{"host ssh trust dynamic safety", "host.trust", []string{"dev"}, false},
+	{"host ssh trust dynamic safety", "host.ssh.trust", []string{"dev"}, false},
 	{"agent skill uninstall dynamic safety", "guide.uninstall", []string{"--project"}, false},
-	{"host edit --protected=false safety", "host.edit", []string{"prod", "--protected=false"}, false},
+	{"host edit --protected=false safety", "host.ssh.edit", []string{"prod", "--protected=false"}, false},
 	{"database edit --protected=false safety", "conn.edit", []string{"pg-prot", "--protected=false"}, false},
 	{"cache edit --protected=false safety", "cache.redis.edit", []string{"r-prot", "--protected=false"}, false},
 	{"cache edit --protected=false safety", "cache.memcached.edit", []string{"m-prot", "--protected=false"}, false},
@@ -95,17 +95,17 @@ var tierRuns = []tierRun{
 	{"config approval-code person", "config.approval-code", nil, false},
 	{"config vault passphrase person", "secret.passphrase", nil, false},
 	{"config vault keychain not --off person", "secret.keychain", nil, false},
-	{"host shell person", "shell", []string{"dev"}, false},
+	{"host shell person", "host.ssh.shell", []string{"dev"}, false},
 	{"database shell person", "db.shell", []string{"pg"}, false},
 	{"database backup dynamic person", "db.dump", []string{"pg", "--to", "pg.sql"}, false}, // C424: every connection
 	{"cluster shell person", "cluster.shell", []string{"k8s", "pod/a"}, false},
 	{"credential certificate add person", "host.ca.add", []string{"ca1", "--key", "ca.pub", "--hosts", "*.corp.example"}, false},
-	{"host ssh trust --reset person", "host.trust", []string{"prod", "--reset"}, false},
+	{"host ssh trust --reset person", "host.ssh.trust", []string{"prod", "--reset"}, false},
 	{"export --sealed person", "export", []string{"--sealed", "--to", "out.kmd"}, false},
 	{"export --for-phone person", "export", []string{"--for-phone", "--to", "out.kmd"}, false},
 	// change rows
-	{"host ssh test --end change", "host.test", []string{"dev", "--end"}, false},
-	{"host ssh test --end change", "host.test", []string{"prod", "--end"}, true}, // #558: the change-tier guard
+	{"host ssh test --end change", "host.ssh.test", []string{"dev", "--end"}, false},
+	{"host ssh test --end change", "host.ssh.test", []string{"prod", "--end"}, true}, // #558: the change-tier guard
 	{"test --end change", "test", []string{"--end"}, false},
 	{"group remove change", "group.rm", []string{"g1"}, false},
 	// the floor: a leaf that changes something, run with no row applying
@@ -125,19 +125,19 @@ var tierRuns = []tierRun{
 	{"floor", "config.set", []string{"parallel", "4"}, false},
 	{"floor", "db.add", []string{"pg2", "postgres://u@127.0.0.1:1/app"}, false},
 	{"floor", "db.query", []string{"pg", "SELECT 1"}, false},
-	{"floor", "exec", []string{"dev", "--", "touch /tmp/x"}, false},
-	{"floor", "exec", []string{"prod", "--", "touch /tmp/x"}, true},
+	{"floor", "host.ssh.exec", []string{"dev", "--", "touch /tmp/x"}, false},
+	{"floor", "host.ssh.exec", []string{"prod", "--", "touch /tmp/x"}, true},
 	{"floor", "group.add", []string{"g2", "dev"}, false},
 	{"floor", "group.rename", []string{"g1", "g3"}, false},
 	{"floor", "guide.install", []string{"--project"}, false},
 	{"floor", "guide.uninstall", nil, false},
-	{"floor", "host.add", []string{"h2", "--address", "10.0.0.8"}, false},
-	{"floor", "host.edit", []string{"dev", "--notes", "x"}, false},
-	{"floor", "host.edit", []string{"prod", "--notes", "x"}, false}, // komando's own list: not stopped on a protected host
-	{"floor", "host.rename", []string{"dev", "dev2"}, false},
-	{"floor", "host.rm", []string{"dev"}, false},
-	{"floor", "host.rm", []string{"prod"}, true},
-	{"floor", "host.trust", []string{"prod"}, false},
+	{"floor", "host.ssh.add", []string{"h2", "--address", "10.0.0.8"}, false},
+	{"floor", "host.ssh.edit", []string{"dev", "--notes", "x"}, false},
+	{"floor", "host.ssh.edit", []string{"prod", "--notes", "x"}, false}, // komando's own list: not stopped on a protected host
+	{"floor", "host.ssh.rename", []string{"dev", "dev2"}, false},
+	{"floor", "host.ssh.remove", []string{"dev"}, false},
+	{"floor", "host.ssh.remove", []string{"prod"}, true},
+	{"floor", "host.ssh.trust", []string{"prod"}, false},
 	{"floor", "import", []string{"ssh-config", "ssh_config"}, false},
 	{"floor", "key.deploy", []string{"k1", "dev"}, false},
 	{"floor", "key.edit", []string{"k1", "--passphrase-ref", "secret:pw"}, false},
@@ -164,7 +164,7 @@ var tierRuns = []tierRun{
 	{"storage object link dynamic safety", "storage.link", []string{"s3", "a.txt"}, false},
 	{"floor", "storage.mkdir", []string{"s3", "dir/"}, false},
 	{"floor", "storage.mv", []string{"s3", "a.txt", "b.txt"}, false},
-	{"floor", "tunnel.start", []string{"dev", "-L", "15432:localhost:5432"}, false},
+	{"floor", "host.ssh.tunnel.start", []string{"dev", "-L", "15432:localhost:5432"}, false},
 	{"floor", "vpn.add", []string{"v2", "socks", "--proxy-address", "127.0.0.1:1082"}, false},
 	{"floor", "vpn.down", []string{"wg"}, false},
 	{"floor", "vpn.edit", []string{"wg", "--notes", "x"}, false},
@@ -189,10 +189,10 @@ var tierUnreached = map[string]string{
 	"copy --sync --delete dangerous | storage.upload":   "only sync has --delete today (run as sync)",
 	"copy --sync --delete dangerous | storage.download": "only sync has --delete today (run as sync)",
 	// flags that arrive in the cut
-	"host ssh exec --stop change | exec":   "--stop arrives with exec sessions (cut step D2); today it is job kill",
-	"host ssh exec --remove change | exec": "--remove arrives with exec sessions (cut step D2); today it is job rm",
+	"host ssh exec --stop change | host.ssh.exec":   "--stop arrives with exec sessions (cut step D2); today it is job kill",
+	"host ssh exec --remove change | host.ssh.exec": "--remove arrives with exec sessions (cut step D2); today it is job rm",
 	// the condition needs what a unit run cannot give; the stop is proved there
-	"host ssh test dynamic person | host.test":               "needs a server that asks a second factor",
+	"host ssh test dynamic person | host.ssh.test":           "needs a server that asks a second factor",
 	"import dynamic person | import":                         "needs a sealed file from export --sealed, which only a person makes",
 	"ssh-gate person | ssh-gate":                             "sshd starts it for a key; an agent never runs ssh-gate itself",
 	"update dynamic safety | update":                         "needs a release site",
@@ -200,7 +200,7 @@ var tierUnreached = map[string]string{
 	"config vault keychain dynamic safety | secret.keychain": "tests run with KOMANDO_KEYCHAIN=off",
 	"floor | secret.keychain":                                "tests run with KOMANDO_KEYCHAIN=off; a plain run is the not --off person row",
 	"floor | host.ca.rm":                                     "adding the CA it removes needs a person",
-	"floor | tunnel.stop":                                    "no stop for an agent: change on an unprotected target",
+	"floor | host.ssh.tunnel.stop":                           "no stop for an agent: change on an unprotected target",
 	"floor | cluster.add":                                    "a Kubernetes conn comes only from import kubeconfig; a swarm is no conn kind",
 	"floor | secret.run":                                     "an agent always meets the row: secret run always hands a secret on",
 	"floor | storage.link":                                   "an agent always meets the row: a link is always --reveal for an agent",
@@ -213,7 +213,7 @@ var tierUnreached = map[string]string{
 // until its line goes.
 var tierDisagree = map[string]string{
 	// the same strength under another code (C429: one code later)
-	"host.edit prod --protected=false":              "PROTECTED_TARGET", // vpn edit gives SAFETY_SETTING
+	"host.ssh.edit prod --protected=false":          "PROTECTED_TARGET", // vpn edit gives SAFETY_SETTING
 	"conn.edit pg-prot --protected=false":           "PROTECTED_TARGET",
 	"cache.redis.edit r-prot --protected=false":     "PROTECTED_TARGET",
 	"cache.memcached.edit m-prot --protected=false": "PROTECTED_TARGET",
@@ -237,7 +237,7 @@ type tierProof struct {
 // that the test exists and that its body (with the table it runs) names
 // the command and the code.
 var tierProvedBy = map[string]tierProof{
-	"host ssh test dynamic person | host.test":               {test: "TestLoginKeepsATwoFactorLogin", cmd: "login"},
+	"host ssh test dynamic person | host.ssh.test":           {test: "TestLoginKeepsATwoFactorLogin", cmd: "login"},
 	"import dynamic person | import":                         {test: "TestSealedNeedsPerson"},
 	"update dynamic safety | update":                         {test: "TestUpdateOlderAgentNeedsWindow"},
 	"floor | update":                                         {test: "TestUpdateInstallsNewest"},
@@ -575,7 +575,7 @@ var policyStopCodes = []string{"NEEDS_PERSON", "NEEDS_TERMINAL", "POLICY_BLOCKED
 	"PROTECTED_TARGET", "WRITE_REQUIRES_FLAG", "CONFIRM_REQUIRED", "OPEN_BIND", "SSH_GATE_REFUSED"}
 
 // tierSeed fills the home: hosts dev and prod (protected, its key pinned)
-// on a fake SSH server, one conn or VPN of each kind a run names, and the
+// on a fake SSH server, the WinRM servers wdev and wprod (protected), one conn or VPN of each kind a run names, and the
 // secret, key, snippets, group and deny rule the runs remove.
 func tierSeed(t *testing.T) {
 	t.Chdir(t.TempDir())
@@ -585,6 +585,8 @@ func tierSeed(t *testing.T) {
 	prodPort := listenFakeSSH(t)
 	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Hosts["prod"].Port = prodPort
+		st.Hosts["wdev"] = &store.Host{Name: "wdev", Address: "127.0.0.3", Port: 5985, User: "deploy", OS: store.OSWindows, Transport: store.TransportWinRM, WinRMOpts: &store.WinRMOpts{TLS: "off"}}
+		st.Hosts["wprod"] = &store.Host{Name: "wprod", Address: "127.0.0.4", Port: 5985, User: "deploy", OS: store.OSWindows, Transport: store.TransportWinRM, WinRMOpts: &store.WinRMOpts{TLS: "off"}, Protected: true}
 		st.Conns["pg"] = &store.Conn{Name: "pg", Kind: "postgres", URL: "postgres://u@127.0.0.1:1/app"}
 		st.Conns["pg-prot"] = &store.Conn{Name: "pg-prot", Kind: "postgres", URL: "postgres://u@127.0.0.1:2/app", Protected: true}
 		st.Conns["r-prot"] = &store.Conn{Name: "r-prot", Kind: "redis", URL: "redis://127.0.0.1:3", Protected: true}
@@ -614,7 +616,7 @@ func tierSeed(t *testing.T) {
 	mustRun(t, "group", "add", "g1", "dev")
 	mustRun(t, "policy", "deny", "kubectl apply")
 	mustRun(t, "guide", "install", "--project")
-	mustRun(t, "host", "trust", "prod", "--yes")
+	mustRun(t, "host", "ssh", "trust", "prod", "--yes")
 	mustRun(t, "config", "set", "host_key_policy", "strict")
 	pub, priv, _ := ed25519.GenerateKey(rand.Reader)
 	sp, _ := ssh.NewPublicKey(pub)
@@ -661,4 +663,24 @@ func listenFakeSSH(t *testing.T) int {
 		}
 	}()
 	return s.port
+}
+
+// The runs of the WinRM provider of host: the rows that reach it (exec,
+// shell, protection off) and the floor of each of its leaves that changes
+// something.
+func init() {
+	tierRuns = append(tierRuns,
+		tierRun{"host exec dynamic dangerous", "host.winrm.exec", []string{"wdev", "--", "rm -rf /"}, false},
+		tierRun{"host edit --protected=false safety", "host.winrm.edit", []string{"wprod", "--protected=false"}, false},
+		tierRun{"host shell person", "host.winrm.shell", []string{"wdev"}, false},
+		tierRun{"floor", "host.winrm.exec", []string{"wdev", "--", "touch /tmp/x"}, false},
+		tierRun{"floor", "host.winrm.exec", []string{"wprod", "--", "touch /tmp/x"}, true},
+		tierRun{"floor", "host.winrm.add", []string{"w2", "--address", "10.0.0.8"}, false},
+		tierRun{"floor", "host.winrm.edit", []string{"wdev", "--notes", "x"}, false},
+		tierRun{"floor", "host.winrm.edit", []string{"wprod", "--notes", "x"}, false},
+		tierRun{"floor", "host.winrm.rename", []string{"wdev", "wdev2"}, false},
+		tierRun{"floor", "host.winrm.remove", []string{"wdev"}, false},
+		tierRun{"floor", "host.winrm.remove", []string{"wprod"}, true},
+	)
+	tierDisagree["host.winrm.edit wprod --protected=false"] = "PROTECTED_TARGET"
 }

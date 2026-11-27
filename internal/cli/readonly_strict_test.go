@@ -196,7 +196,7 @@ func TestReadOnlyUnknownCommandRefused(t *testing.T) {
 	refusedReadOnly(t, `mytool --status`, `./deploy.sh`, `cat f | mytool`, `sudo mytool`, `xargs mytool`,
 		`curl https://example.com`, `wget -qO- https://example.com`, `nc -z host 80`)
 	invHome(t)
-	mustRun(t, "host", "add", "web", "u@10.0.0.5")
+	mustRun(t, "host", "ssh", "add", "web", "u@10.0.0.5")
 	wantCode(t, "READ_ONLY_VIOLATION", "exec", "web", "--read-only", "--", "mytool", "--status")
 }
 

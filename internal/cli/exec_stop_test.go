@@ -79,7 +79,7 @@ func runChange(t *testing.T, args ...string) (sessionChangeResult, error) {
 func TestExecSessionStop(t *testing.T) {
 	srv := stopServer(t, 0)
 	putRecord(t, attachID, "alice", false)
-	res, err := runChange(t, "exec", "dev", "--attach", attachID, "--stop", "--yes")
+	res, err := runChange(t, "host", "ssh", "exec", "dev", "--attach", attachID, "--stop", "--yes")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +103,7 @@ func TestExecSessionStop(t *testing.T) {
 func TestExecSessionStopPidAndSignal(t *testing.T) {
 	srv := stopServer(t, 0)
 	putExecSession(t, &store.ExecSession{ID: attachID, Host: "dev", PID: 4242, PGID: 4000, ProcStart: "proc 99"})
-	res, err := runChange(t, "exec", "dev", "--attach", attachID, "--stop", "--signal", "KILL", "--yes")
+	res, err := runChange(t, "host", "ssh", "exec", "dev", "--attach", attachID, "--stop", "--signal", "KILL", "--yes")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +119,7 @@ func TestExecSessionStopPidAndSignal(t *testing.T) {
 func TestExecSessionStopSudo(t *testing.T) {
 	srv := stopServer(t, 0)
 	putExecSession(t, &store.ExecSession{ID: attachID, Host: "dev", PID: 4242, PGID: 4242, ProcStart: "proc 99", Sudo: true, SudoUser: "bob"})
-	if _, err := runChange(t, "exec", "dev", "--attach", attachID, "--stop", "--yes"); err != nil {
+	if _, err := runChange(t, "host", "ssh", "exec", "dev", "--attach", attachID, "--stop", "--yes"); err != nil {
 		t.Fatal(err)
 	}
 	if e := srv.take(); len(e) != 1 || !strings.HasPrefix(e[0].cmd, "sudo -n -u 'bob' sh -c ") {
@@ -140,7 +140,7 @@ func TestExecSessionStopSudoPassword(t *testing.T) {
 		t.Fatal(err)
 	}
 	putExecSession(t, &store.ExecSession{ID: attachID, Host: "dev", PID: 4242, PGID: 4242, ProcStart: "proc 99", Sudo: true})
-	if _, err := runChange(t, "exec", "dev", "--attach", attachID, "--stop", "--yes"); err != nil {
+	if _, err := runChange(t, "host", "ssh", "exec", "dev", "--attach", attachID, "--stop", "--yes"); err != nil {
 		t.Fatal(err)
 	}
 	e := srv.take()
@@ -149,7 +149,7 @@ func TestExecSessionStopSudoPassword(t *testing.T) {
 	}
 	// a run without sudo is stopped without it, and the password stays here
 	putExecSession(t, &store.ExecSession{ID: attachID, Host: "dev", PID: 4242, PGID: 4242, ProcStart: "proc 99"})
-	if _, err := runChange(t, "exec", "dev", "--attach", attachID, "--stop", "--yes"); err != nil {
+	if _, err := runChange(t, "host", "ssh", "exec", "dev", "--attach", attachID, "--stop", "--yes"); err != nil {
 		t.Fatal(err)
 	}
 	if e := srv.take(); len(e) != 1 || e[0].stdin != "" || strings.Contains(e[0].cmd, "sudo") {
@@ -167,7 +167,7 @@ func TestExecSessionStopExits(t *testing.T) {
 		t.Run(tc.want, func(t *testing.T) {
 			stopServer(t, tc.code)
 			putRecord(t, attachID, "alice", false)
-			_, err := runChange(t, "exec", "dev", "--attach", attachID, "--stop", "--yes")
+			_, err := runChange(t, "host", "ssh", "exec", "dev", "--attach", attachID, "--stop", "--yes")
 			if errCode(err) != tc.want {
 				t.Fatalf("got %v", err)
 			}
@@ -205,7 +205,7 @@ func TestExecSessionStopRefusals(t *testing.T) {
 		{[]string{"--attach", attachID, "--stop"}, "SESSION_RECORD_MISSING"},
 		{[]string{"--attach", "b" + attachID[1:], "--stop"}, "SESSION_RECORD_MISSING"},
 	} {
-		if _, err := runChange(t, append([]string{"exec", "dev"}, tc.args...)...); errCode(err) != tc.want {
+		if _, err := runChange(t, append([]string{"host", "ssh", "exec", "dev"}, tc.args...)...); errCode(err) != tc.want {
 			t.Errorf("%v: got %v, want %s", tc.args, err, tc.want)
 		}
 	}
@@ -223,7 +223,7 @@ func TestExecSessionChangeTier(t *testing.T) {
 		t.Run(flag, func(t *testing.T) {
 			srv := stopServer(t, 0)
 			putExecSession(t, &store.ExecSession{ID: attachID, Host: "prod", PID: 4242, PGID: 4242, ProcStart: "proc 99"})
-			if _, err := runChange(t, "exec", "prod", "--attach", attachID, flag); errCode(err) != "PROTECTED_TARGET" {
+			if _, err := runChange(t, "host", "ssh", "exec", "prod", "--attach", attachID, flag); errCode(err) != "PROTECTED_TARGET" {
 				t.Fatalf("want PROTECTED_TARGET, got %v", err)
 			}
 			if e := srv.take(); len(e) != 0 {
@@ -243,7 +243,7 @@ func TestExecSessionChangeTier(t *testing.T) {
 func TestExecSessionChangeDryRun(t *testing.T) {
 	srv := stopServer(t, 0)
 	putRecord(t, attachID, "alice", false)
-	res, err := runChange(t, "exec", "dev", "--attach", attachID, "--stop", "--dry-run", "--yes")
+	res, err := runChange(t, "host", "ssh", "exec", "dev", "--attach", attachID, "--stop", "--dry-run", "--yes")
 	if err != nil || !strings.Contains(res.Data.WouldRun, "kill -TERM -4242") {
 		t.Fatalf("result %+v, err %v", res.Data, err)
 	}
@@ -266,7 +266,7 @@ func TestExecSessionRemove(t *testing.T) {
 			if tc.host != "" {
 				putExecSession(t, &store.ExecSession{ID: attachID, Host: tc.host, PID: 4242, PGID: 4242, ProcStart: "proc 99", Actor: "bob", Agent: true})
 			}
-			res, err := runChange(t, "exec", "dev", "--attach", attachID, "--remove", "--yes")
+			res, err := runChange(t, "host", "ssh", "exec", "dev", "--attach", attachID, "--remove", "--yes")
 			if err != nil || !res.Data.Removed || res.Data.Session != attachID {
 				t.Fatalf("result %+v, err %v", res.Data, err)
 			}
@@ -294,7 +294,7 @@ func TestExecSessionRemoveExits(t *testing.T) {
 		t.Run(tc.want, func(t *testing.T) {
 			stopServer(t, tc.code)
 			putRecord(t, attachID, "alice", false)
-			if _, err := runChange(t, "exec", "dev", "--attach", attachID, "--remove", "--yes"); errCode(err) != tc.want {
+			if _, err := runChange(t, "host", "ssh", "exec", "dev", "--attach", attachID, "--remove", "--yes"); errCode(err) != tc.want {
 				t.Fatalf("got %v", err)
 			}
 			if !hasRecord(attachID) {
@@ -357,7 +357,7 @@ func TestExecSessionAgentChangesAnotherActorsRun(t *testing.T) {
 				rec.ID, rec.Host, rec.PID, rec.PGID, rec.ProcStart = attachID, "dev", 4242, 4242, "proc 99"
 				putExecSession(t, &rec)
 			}
-			args := []string{"exec", "dev", "--attach", attachID, tc.flag}
+			args := []string{"host", "ssh", "exec", "dev", "--attach", attachID, tc.flag}
 			if tc.agent { // a script needs no --yes here; with one it would pass any window check unseen
 				args = append(args, "--yes")
 			}
@@ -394,7 +394,7 @@ func TestExecSessionAgentStopsAnotherActorsRunRefused(t *testing.T) {
 			setCallerEnv(t, "KOMANDO_ACTOR", "bob")
 			setCallerEnv(t, "KOMANDO_AGENT", "1")
 			putRecord(t, attachID, "alice", false)
-			args := []string{"exec", "dev", "--attach", attachID, "--stop"}
+			args := []string{"host", "ssh", "exec", "dev", "--attach", attachID, "--stop"}
 			if tc.yes {
 				args = append(args, "--yes")
 			}
@@ -430,7 +430,7 @@ func TestExecSessionAgentOtherStarterOnProtectedHost(t *testing.T) {
 			setCallerEnv(t, "KOMANDO_ACTOR", "bob")
 			setCallerEnv(t, "KOMANDO_AGENT", "1")
 			putRecord(t, attachID, "alice", false)
-			if _, err := runChange(t, "exec", "dev", "--attach", attachID, flag, "--yes"); err != nil {
+			if _, err := runChange(t, "host", "ssh", "exec", "dev", "--attach", attachID, flag, "--yes"); err != nil {
 				t.Fatal(err)
 			}
 			if len(texts) != 1 || !strings.Contains(texts[0], "started by alice at a terminal or in a script") || !strings.Contains(texts[0], protChangePrefix+"host dev") {

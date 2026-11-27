@@ -35,7 +35,7 @@ func TestTypedAnswer(t *testing.T) {
 // once lets both checks through, with no [y/N] after it.
 func TestDangerOnProtectedAsksOnce(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "prod1", "u@127.0.0.1:1", "--protected")
+	mustRun(t, "host", "ssh", "add", "prod1", "u@127.0.0.1:1", "--protected")
 	personTypes(t, "prod1") // one line: a second question would read no answer
 	_, e := invRun(t, "reboot", "prod1")
 	if e == nil || e.Code == "POLICY_BLOCKED" || e.Code == "PROTECTED_TARGET" {
@@ -47,8 +47,8 @@ func TestDangerOnProtectedAsksOnce(t *testing.T) {
 // first real stop's hint names them all (S-7.5, C-C04).
 func TestWouldNeedEveryFlag(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "prod1", "u@127.0.0.1:1", "--protected")
-	mustRun(t, "host", "add", "web1", "u@127.0.0.1:2")
+	mustRun(t, "host", "ssh", "add", "prod1", "u@127.0.0.1:1", "--protected")
+	mustRun(t, "host", "ssh", "add", "web1", "u@127.0.0.1:2")
 	_, text := runMain(t, "--dry-run", "reboot", "prod1")
 	if !strings.Contains(text, `"would_need":["--allow-dangerous","--yes"]`) {
 		t.Errorf("dry run: %s", text)

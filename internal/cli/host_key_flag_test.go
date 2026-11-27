@@ -10,7 +10,7 @@ import (
 // that strict says a person must trust.
 func TestHostKeyPolicyFlag(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@192.0.2.10")
+	mustRun(t, "host", "ssh", "add", "web1", "u@192.0.2.10")
 	wantCode(t, "USAGE", "--host-key-policy", "bogus", "list")
 	mustRun(t, "--host-key-policy", "STRICT", "list")
 	if tcl.flags.hostKeyPolicy != "strict" {

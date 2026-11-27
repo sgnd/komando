@@ -29,7 +29,7 @@ func TestImportSafetySettingsNeedAPerson(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			invHome(t)
-			mustRun(t, "host", "add", "bast1", "ops@10.0.0.9")
+			mustRun(t, "host", "ssh", "add", "bast1", "ops@10.0.0.9")
 			f := writeTemp(t, "exp.json", c.file)
 			n := asAgent(t, false, true)
 			wantCode(t, "SAFETY_SETTING", "import", "komando", f, "--overwrite")
@@ -50,7 +50,7 @@ func TestImportSafetySettingsNeedAPerson(t *testing.T) {
 	}
 	// a server that already lends the agent keeps it with no question
 	invHome(t)
-	mustRun(t, "host", "add", "bast1", "ops@10.0.0.9")
+	mustRun(t, "host", "ssh", "add", "bast1", "ops@10.0.0.9")
 	if err := store.Update(tcl.storeWrite(), func(s *store.State) error { s.Hosts["bast1"].ForwardAgent = true; return nil }); err != nil {
 		t.Fatal(err)
 	}

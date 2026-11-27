@@ -79,8 +79,8 @@ func trustLab(t *testing.T) (addr string, key *atomic.Pointer[ssh.Signer], real,
 	key.Store(&real)
 	port := keySSHD(t, key)
 	addr = net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
-	mustRun(t, "host", "add", "prod1", "root@"+addr, "--protected")
-	d := mustRun(t, "host", "trust", "prod1")
+	mustRun(t, "host", "ssh", "add", "prod1", "root@"+addr, "--protected")
+	d := mustRun(t, "host", "ssh", "trust", "prod1")
 	if trustRow0(d)["fingerprint"] != ssh.FingerprintSHA256(real.PublicKey()) {
 		t.Fatalf("first pin: %v", d)
 	}
@@ -111,7 +111,7 @@ func TestHostTrustNeverRepinsSilently(t *testing.T) {
 		}
 	}
 
-	d := mustRun(t, "host", "trust", "prod1")
+	d := mustRun(t, "host", "ssh", "trust", "prod1")
 	if trustRow0(d)["already_pinned"] != true {
 		t.Errorf("same key again: %v", d)
 	}
@@ -123,8 +123,8 @@ func TestHostTrustNeverRepinsSilently(t *testing.T) {
 		args []string
 		code string
 	}{
-		{"plain trust of a changed key", []string{"host", "trust", "prod1"}, "HOSTKEY_MISMATCH"},
-		{"--reset from a script", []string{"host", "trust", "prod1", "--reset"}, "NEEDS_PERSON"},
+		{"plain trust of a changed key", []string{"host", "ssh", "trust", "prod1"}, "HOSTKEY_MISMATCH"},
+		{"--reset from a script", []string{"host", "ssh", "trust", "prod1", "--reset"}, "NEEDS_PERSON"},
 	}
 	for _, s := range steps {
 		e := wantCode(t, s.code, s.args...)
@@ -134,7 +134,7 @@ func TestHostTrustNeverRepinsSilently(t *testing.T) {
 		onlyPin(s.name, realFP)
 	}
 
-	d = mustRun(t, "host", "trust", "prod1", "--reset", "--dry-run")
+	d = mustRun(t, "host", "ssh", "trust", "prod1", "--reset", "--dry-run")
 	if d["_meta"].(map[string]any)["would_be_blocked"] == nil {
 		t.Errorf("--reset --dry-run does not say it needs a person: %v", d)
 	}
@@ -142,12 +142,12 @@ func TestHostTrustNeverRepinsSilently(t *testing.T) {
 
 	// a server that cannot be reached keeps its pin, even with --reset
 	keySSHDDown(t)
-	wantCode(t, "NEEDS_PERSON", "host", "trust", "down", "--reset") // a script: stopped before it connects
+	wantCode(t, "NEEDS_PERSON", "host", "ssh", "trust", "down", "--reset") // a script: stopped before it connects
 	personTypes(t, "y")
-	wantCode(t, "CONNECTION_REFUSED", "host", "trust", "down", "--reset")
+	wantCode(t, "CONNECTION_REFUSED", "host", "ssh", "trust", "down", "--reset")
 
 	personTypes(t, "y") // a person at the terminal replaces it (OD-9)
-	d = mustRun(t, "host", "trust", "prod1", "--reset")
+	d = mustRun(t, "host", "ssh", "trust", "prod1", "--reset")
 	if r := trustRow0(d); r["fingerprint"] != impFP || r["removed_entries"].(float64) != 1 {
 		t.Errorf("--reset by a person: %v", d)
 	}
@@ -164,7 +164,7 @@ func keySSHDDown(t *testing.T) {
 	}
 	addr := ln.Addr().String()
 	ln.Close()
-	mustRun(t, "host", "add", "down", "root@"+addr)
+	mustRun(t, "host", "ssh", "add", "down", "root@"+addr)
 	k := trustSigner(t).PublicKey()
 	if _, err := sshx.PinHostKey(addr, k, false); err != nil {
 		t.Fatal(err)
@@ -192,11 +192,11 @@ func TestHostTrustResetNeedsAPersonForAgents(t *testing.T) {
 	addr, key, real, impostor := trustLab(t)
 	key.Store(&impostor)
 	windows := asAgent(t, true, true)
-	e := wantCode(t, "NEEDS_PERSON", "host", "trust", "prod1", "--reset")
+	e := wantCode(t, "NEEDS_PERSON", "host", "ssh", "trust", "prod1", "--reset")
 	if *windows != 0 {
 		t.Errorf("approval windows: %d", *windows)
 	}
-	if !e.Final || !strings.Contains(e.Hint, "komando host trust prod1 --reset") || out.ApprovalFlag(e) != "" {
+	if !e.Final || !strings.Contains(e.Hint, "komando host ssh trust prod1 --reset") || out.ApprovalFlag(e) != "" {
 		t.Errorf("no flag lifts it, and the hint names the person's command: %+v", e)
 	}
 	if fps := pinnedFingerprints(t, addr); len(fps) != 1 || fps[0] != ssh.FingerprintSHA256(real.PublicKey()) {
@@ -242,7 +242,7 @@ func trustGroup(t *testing.T, n int) ([]string, []*atomic.Pointer[ssh.Signer]) {
 		s := trustSigner(t)
 		k.Store(&s)
 		addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(keySSHD(t, k)))
-		mustRun(t, "host", "add", "node"+strconv.Itoa(i+1), "root@"+addr, "-g", "lab")
+		mustRun(t, "host", "ssh", "add", "node"+strconv.Itoa(i+1), "root@"+addr, "-g", "lab")
 		addrs, keys = append(addrs, addr), append(keys, k)
 	}
 	return addrs, keys
@@ -263,7 +263,7 @@ func trustResults(t *testing.T, d map[string]any) map[string]map[string]any {
 // replaces them all after one window that names every changed server.
 func TestHostTrustGroup(t *testing.T) {
 	addrs, keys := trustGroup(t, 3)
-	d := mustRun(t, "host", "trust", "@lab")
+	d := mustRun(t, "host", "ssh", "trust", "@lab")
 	if s := d["summary"].(map[string]any); s["ok"].(float64) != 3 {
 		t.Fatalf("first pin: %v", d)
 	}
@@ -275,7 +275,7 @@ func TestHostTrustGroup(t *testing.T) {
 		newFP = append(newFP, ssh.FingerprintSHA256(s.PublicKey()))
 	}
 	old1 := pinnedFingerprints(t, addrs[0])[0]
-	d, e := invRun(t, "host", "trust", "@lab")
+	d, e := invRun(t, "host", "ssh", "trust", "@lab")
 	if e == nil || e.Code != "PARTIAL_FAILURE" {
 		t.Fatalf("plain trust after the rebuild: %+v", e)
 	}
@@ -298,7 +298,7 @@ func TestHostTrustGroup(t *testing.T) {
 	savedStderr := tcl.out.Err
 	t.Cleanup(func() { tcl.out.Err = savedStderr; _ = screen.Close() })
 	tcl.out.Err = screen
-	d = mustRun(t, "host", "trust", "@lab", "--reset")
+	d = mustRun(t, "host", "ssh", "trust", "@lab", "--reset")
 	shown, _ := os.ReadFile(screen.Name())
 	if text := string(shown); strings.Count(text, "[y/N]") != 1 ||
 		!containsAll(text, "2 servers", "node1 "+shortFP(newFP[0]), "node2 "+shortFP(newFP[1])) || strings.Contains(text, "node3 ") {
@@ -319,20 +319,20 @@ func TestHostTrustGroup(t *testing.T) {
 // run fetches nothing and says what --reset would need.
 func TestHostTrustGroupDenied(t *testing.T) {
 	addrs, keys := trustGroup(t, 2)
-	mustRun(t, "host", "trust", "@lab")
+	mustRun(t, "host", "ssh", "trust", "@lab")
 	before := [][]string{pinnedFingerprints(t, addrs[0]), pinnedFingerprints(t, addrs[1])}
 	for _, k := range keys {
 		s := trustSigner(t)
 		k.Store(&s)
 	}
-	d := mustRun(t, "host", "trust", "@lab", "--reset", "--dry-run")
+	d := mustRun(t, "host", "ssh", "trust", "@lab", "--reset", "--dry-run")
 	if d["_meta"].(map[string]any)["would_be_blocked"] == nil || len(d["results"].([]any)) != 2 {
 		t.Errorf("dry run: %v", d)
 	}
 	asAgent(t, true, true)
-	wantCode(t, "NEEDS_PERSON", "host", "trust", "@lab", "--reset")
+	wantCode(t, "NEEDS_PERSON", "host", "ssh", "trust", "@lab", "--reset")
 	personTypes(t, "n")
-	if e := wantCode(t, "DECLINED", "host", "trust", "@lab", "--reset"); e.Exit != out.ExitPolicy {
+	if e := wantCode(t, "DECLINED", "host", "ssh", "trust", "@lab", "--reset"); e.Exit != out.ExitPolicy {
 		t.Errorf("a person's no: %+v", e)
 	}
 	for i, a := range addrs {
@@ -346,18 +346,18 @@ func TestHostTrustGroupDenied(t *testing.T) {
 // a rebuilt (or impostor) server past HOSTKEY_MISMATCH without a person.
 func TestHostRmKeepsThePin(t *testing.T) {
 	addrs, keys := trustGroup(t, 2)
-	mustRun(t, "host", "trust", "@lab")
-	mustRun(t, "host", "add", "alias1", "root@"+addrs[0]) // same address as node1
+	mustRun(t, "host", "ssh", "trust", "@lab")
+	mustRun(t, "host", "ssh", "add", "alias1", "root@"+addrs[0]) // same address as node1
 
-	d := mustRun(t, "host", "rm", "node1", "node2")
+	d := mustRun(t, "host", "ssh", "remove", "node1", "node2")
 	if kept := d["host_keys_kept"].([]any); len(kept) != 1 || kept[0] != "node2" || !strings.Contains(d["note"].(string), "host trust NAME --reset") {
 		t.Errorf("rm: %v (node1's address is still used by alias1)", d)
 	}
 	s := trustSigner(t)
 	keys[1].Store(&s)
-	mustRun(t, "host", "add", "node2", "root@"+addrs[1])
-	wantCode(t, "HOSTKEY_MISMATCH", "host", "trust", "node2")
-	if d := mustRun(t, "host", "rm", "alias1", "--dry-run"); d["host_keys_kept"] == nil {
+	mustRun(t, "host", "ssh", "add", "node2", "root@"+addrs[1])
+	wantCode(t, "HOSTKEY_MISMATCH", "host", "ssh", "trust", "node2")
+	if d := mustRun(t, "host", "ssh", "remove", "alias1", "--dry-run"); d["host_keys_kept"] == nil {
 		t.Errorf("dry run does not say the key stays: %v", d)
 	}
 }
@@ -371,11 +371,11 @@ func TestHostTrustFingerprint(t *testing.T) {
 	key := new(atomic.Pointer[ssh.Signer])
 	key.Store(&impostor)
 	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(keySSHD(t, key)))
-	mustRun(t, "host", "add", "web1", "root@"+addr)
-	mustRun(t, "host", "add", "web2", "root@"+addr)
+	mustRun(t, "host", "ssh", "add", "web1", "root@"+addr)
+	mustRun(t, "host", "ssh", "add", "web2", "root@"+addr)
 	realFP, impFP := ssh.FingerprintSHA256(real.PublicKey()), ssh.FingerprintSHA256(impostor.PublicKey())
 
-	e := wantCode(t, "HOSTKEY_MISMATCH", "host", "trust", "web1", "--fingerprint", realFP)
+	e := wantCode(t, "HOSTKEY_MISMATCH", "host", "ssh", "trust", "web1", "--fingerprint", realFP)
 	if e.Exit != out.ExitConnect || !containsAll(e.Message, realFP, impFP, "nothing was pinned") {
 		t.Fatalf("mismatch: %+v", e)
 	}
@@ -384,7 +384,7 @@ func TestHostTrustFingerprint(t *testing.T) {
 	}
 
 	key.Store(&real)
-	d := mustRun(t, "host", "trust", "web1", "--fingerprint", realFP)
+	d := mustRun(t, "host", "ssh", "trust", "web1", "--fingerprint", realFP)
 	if r := trustRow0(d); r["fingerprint"] != realFP || r["ok"] != true {
 		t.Fatalf("match: %v", d)
 	}
@@ -392,16 +392,16 @@ func TestHostTrustFingerprint(t *testing.T) {
 		t.Fatalf("pins %v", fps)
 	}
 
-	wantCode(t, "USAGE", "host", "trust", "web1", "--fingerprint", "pVt2abc")
-	wantCode(t, "USAGE", "host", "trust", "web1", "--fingerprint", "MD5:aa:bb")
-	wantCode(t, "USAGE", "host", "trust", "web1,web2", "--fingerprint", realFP)
+	wantCode(t, "USAGE", "host", "ssh", "trust", "web1", "--fingerprint", "pVt2abc")
+	wantCode(t, "USAGE", "host", "ssh", "trust", "web1", "--fingerprint", "MD5:aa:bb")
+	wantCode(t, "USAGE", "host", "ssh", "trust", "web1,web2", "--fingerprint", realFP)
 
 	// an AI agent under strict still needs the person's yes for a first pin
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "root@"+addr)
+	mustRun(t, "host", "ssh", "add", "web1", "root@"+addr)
 	mustRun(t, "config", "set", "host_key_policy", "strict")
 	asAgent(t, false, true)
-	wantCode(t, "SAFETY_SETTING", "host", "trust", "web1", "--fingerprint", realFP)
+	wantCode(t, "SAFETY_SETTING", "host", "ssh", "trust", "web1", "--fingerprint", realFP)
 	if fps := pinnedFingerprints(t, addr); len(fps) != 0 {
 		t.Fatalf("an agent pinned without a yes: %v", fps)
 	}
@@ -413,10 +413,10 @@ func TestHostTrustFingerprint(t *testing.T) {
 // no stop.
 func TestHostTrustDryRunRecordsTheFirstPinStop(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "root@192.0.2.10:22")
+	mustRun(t, "host", "ssh", "add", "web1", "root@192.0.2.10:22")
 	mustRun(t, "config", "set", "host_key_policy", "strict")
 	setCallerEnv(t, "CLAUDECODE", "1")
-	d, e := invRun(t, "host", "trust", "web1", "--dry-run")
+	d, e := invRun(t, "host", "ssh", "trust", "web1", "--dry-run")
 	setGate(tcl, false, gateDryRun)
 	if e != nil || blockedCode(d) != "SAFETY_SETTING" {
 		t.Fatalf("strict, first pin: %v %+v", d, e)
@@ -432,7 +432,7 @@ func TestHostTrustDryRunRecordsTheFirstPinStop(t *testing.T) {
 	if _, err := sshx.PinHostKey("192.0.2.10:22", sp, false); err != nil {
 		t.Fatal(err)
 	}
-	d, e = invRun(t, "host", "trust", "web1", "--dry-run") // a key is pinned: no first pin
+	d, e = invRun(t, "host", "ssh", "trust", "web1", "--dry-run") // a key is pinned: no first pin
 	setGate(tcl, false, gateDryRun)
 	if e != nil || blockedCode(d) != "" {
 		t.Fatalf("strict, pinned already: %v %+v", d, e)
@@ -440,9 +440,9 @@ func TestHostTrustDryRunRecordsTheFirstPinStop(t *testing.T) {
 	os.Unsetenv("CLAUDECODE")
 	resetApproval()
 	invHome(t) // the default policy, not strict
-	mustRun(t, "host", "add", "web1", "root@192.0.2.10:22")
+	mustRun(t, "host", "ssh", "add", "web1", "root@192.0.2.10:22")
 	setCallerEnv(t, "CLAUDECODE", "1")
-	d, e = invRun(t, "host", "trust", "web1", "--dry-run")
+	d, e = invRun(t, "host", "ssh", "trust", "web1", "--dry-run")
 	setGate(tcl, false, gateDryRun)
 	if e != nil || blockedCode(d) != "" {
 		t.Fatalf("not strict: %v %+v", d, e)

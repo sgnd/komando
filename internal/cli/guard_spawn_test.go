@@ -39,7 +39,7 @@ func TestBackgroundCommandsNeedTheirParent(t *testing.T) {
 	invHome(t)
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	mustRun(t, "vpn", "add", "office", "socks", "--proxy-address", "127.0.0.1:1", "--mfa")
-	mustRun(t, "host", "add", "web1", "u@127.0.0.1:1")
+	mustRun(t, "host", "ssh", "add", "web1", "u@127.0.0.1:1")
 	for _, c := range [][]string{
 		{"vpn", "serve", "office", "--password-stdin"},
 		{"tunnel", "serve", "t-1"},

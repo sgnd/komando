@@ -20,7 +20,7 @@ func TestDryRunChangesNothing(t *testing.T) {
 		root.SetArgs(append([]string{"-o", "json"}, args...))
 		return root.Execute()
 	}
-	if err := run("host", "add", "web1", "deploy@10.0.0.1"); err != nil {
+	if err := run("host", "ssh", "add", "web1", "deploy@10.0.0.1"); err != nil {
 		t.Fatal(err)
 	}
 	if err := run("conn", "add", "db1", "postgres://app@10.0.0.2/app"); err != nil {
@@ -33,9 +33,9 @@ func TestDryRunChangesNothing(t *testing.T) {
 	}
 	before := files()
 	for _, args := range [][]string{
-		{"host", "add", "web2", "deploy@10.0.0.3"},
-		{"host", "edit", "web1", "--add-tag", "canary"},
-		{"host", "rm", "web1"},
+		{"host", "ssh", "add", "web2", "deploy@10.0.0.3"},
+		{"host", "ssh", "edit", "web1", "--add-tag", "canary"},
+		{"host", "ssh", "remove", "web1"},
 		{"conn", "edit", "db1", "--add-tag", "x"},
 		{"conn", "rm", "db1"},
 		{"group", "add", "web", "web1"},
@@ -57,12 +57,12 @@ func TestDryRunChangesNothing(t *testing.T) {
 // A removal's preview says would_remove; removed stays for contract 1.
 func TestRmDryRunSaysWouldRemove(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
-	d := mustRun(t, "host", "rm", "web1", "--dry-run")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
+	d := mustRun(t, "host", "ssh", "remove", "web1", "--dry-run")
 	if fmt.Sprint(d["would_remove"]) != "[web1]" {
 		t.Errorf("dry run: %v", d)
 	}
-	d = mustRun(t, "host", "rm", "web1")
+	d = mustRun(t, "host", "ssh", "remove", "web1")
 	if _, ok := d["would_remove"]; ok || fmt.Sprint(d["removed"]) != "[web1]" {
 		t.Errorf("real run: %v", d)
 	}

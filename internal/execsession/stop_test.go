@@ -194,7 +194,7 @@ func TestStopCommandSudo(t *testing.T) {
 func TestForStopHintNamesTheStop(t *testing.T) {
 	_, err := ForStop(runtimeWith(), "web", testID)
 	var oe *out.Error
-	if !errors.As(err, &oe) || !strings.Contains(oe.Hint, "`komando exec TARGET --attach ID --stop` there") {
+	if !errors.As(err, &oe) || !strings.Contains(oe.Hint, "`komando host ssh exec TARGET --attach ID --stop` there") {
 		t.Fatalf("%v", err)
 	}
 }

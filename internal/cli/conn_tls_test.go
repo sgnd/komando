@@ -31,7 +31,7 @@ func TestNewConnsCheckTLS(t *testing.T) {
 		t.Errorf("mysql: %s", url("shop"))
 	}
 	// what the URL says, a --via path and this computer stay as they are
-	mustRun(t, "host", "add", "jump", "deploy@10.0.0.3")
+	mustRun(t, "host", "ssh", "add", "jump", "deploy@10.0.0.3")
 	for name, raw := range map[string]string{
 		"pg-plain": "postgres://app@db.example.com/app?sslmode=disable",
 		"pg-local": "postgres://app@127.0.0.1/app",

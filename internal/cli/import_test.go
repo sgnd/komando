@@ -229,11 +229,11 @@ func TestImportFileZillaStoresServerPassword(t *testing.T) {
 	if !strings.Contains(fmt.Sprint(mustRun(t, "secret", "list")), "web-pass") {
 		t.Errorf("web-pass is not in the vault")
 	}
-	if ref := mustRun(t, "host", "show", "web")["password_ref"]; ref != "secret:web-pass" {
+	if ref := mustRun(t, "host", "ssh", "show", "web")["password_ref"]; ref != "secret:web-pass" {
 		t.Errorf("password_ref %v", ref)
 	}
 	// a secret of that name in the vault stays: the server comes without it
-	mustRun(t, "host", "rm", "web")
+	mustRun(t, "host", "ssh", "remove", "web")
 	d = mustRun(t, "import", "filezilla", writeTemp(t, "sitemanager.xml", `<?xml version="1.0"?><FileZilla3><Servers>
 <Server><Host>web.example</Host><Port>2222</Port><Protocol>1</Protocol><User>deploy</User><Pass encoding="base64">b3RoZXI=</Pass><Name>Web</Name></Server>
 </Servers></FileZilla3>`))

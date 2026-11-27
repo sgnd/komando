@@ -64,13 +64,13 @@ func TestAuditGoesToSyslog(t *testing.T) {
 	if err := run("config", "set", "audit_syslog", "udp://"+pc.LocalAddr().String(), "--yes"); err != nil {
 		t.Fatal(err)
 	}
-	if err := run("host", "add", "web1", "deploy@10.0.0.1"); err != nil {
+	if err := run("host", "ssh", "add", "web1", "deploy@10.0.0.1"); err != nil {
 		t.Fatal(err)
 	}
 	buf := make([]byte, 64<<10)
 	pc.SetReadDeadline(time.Now().Add(3 * time.Second))
 	var msg string
-	for !strings.Contains(msg, `"host.add"`) {
+	for !strings.Contains(msg, `"host.ssh.add"`) {
 		n, _, err := pc.ReadFrom(buf)
 		if err != nil {
 			t.Fatalf("no udp record: %v", err)
@@ -81,7 +81,7 @@ func TestAuditGoesToSyslog(t *testing.T) {
 		t.Errorf("udp record %q", msg)
 	}
 	var rec map[string]any
-	if err := json.Unmarshal([]byte(msg[strings.Index(msg, "{"):]), &rec); err != nil || rec["command"] != "host.add" {
+	if err := json.Unmarshal([]byte(msg[strings.Index(msg, "{"):]), &rec); err != nil || rec["command"] != "host.ssh.add" {
 		t.Errorf("record %v %v", rec, err)
 	}
 	if err := run("config", "set", "audit_syslog", "tcp://"+ln.Addr().String(), "--yes"); err != nil {

@@ -366,7 +366,7 @@ if [ -n "$prev" ]; then
   echo "  komando guide install"
 else
   echo "Next: add your first server, then check it:"
-  echo "  komando host add web1 ubuntu@203.0.113.10"
+  echo "  komando host ssh add web1 ubuntu@203.0.113.10"
   echo "  komando test web1"
   echo "Teach your AI agents (Claude Code, Codex, Cursor, Gemini CLI) to use komando:"
   echo "  komando guide install"

@@ -384,7 +384,7 @@ func gateCheck(args []string, key gateKey) (name, output string, refused *out.Er
 			"komando %s is the shell's completion helper, not for a key", c.Name())
 	}
 	name = commandName(c)
-	if key.shellAccess && name == "shell" {
+	if key.shellAccess && isHostShell(name) {
 		return name, "", gateShell(c, args, key)
 	}
 	c.InitDefaultHelpFlag()
@@ -681,9 +681,9 @@ audit setting is off.`,
 				cl.out.Print("ssh-gate.status", gateStatus{Gate: true, Name: name, ReadOnly: key.readOnly, Network: key.network, ShellAccess: key.shellAccess, Komando: version.Version}, nil)
 				return nil
 			}
-			if runs == "shell" && key.shellAccess && key.tty {
+			if isHostShell(runs) && key.shellAccess && key.tty {
 				// allowed by gateShell: the gate opens it itself
-				return gateRunShell(cl, cmd.Context(), name, req.args[1])
+				return gateRunShell(cl, cmd.Context(), name, req.args[len(req.args)-1])
 			}
 			self, err := os.Executable()
 			if err != nil {

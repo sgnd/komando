@@ -26,10 +26,10 @@ func TestWinRMWeakSettingsNeedAPerson(t *testing.T) {
 		t.Run(q, func(t *testing.T) {
 			invHome(t)
 			noAgent(t)
-			mustRun(t, "host", "add", "win1", "winrm://Administrator@10.0.0.9")
+			mustRun(t, "host", "ssh", "add", "win1", "winrm://Administrator@10.0.0.9")
 			n := asAgent(t, false, true)
-			wantCode(t, "SAFETY_SETTING", "host", "add", "win2", "winrm://Administrator@10.0.0.10?"+q)
-			wantCode(t, "SAFETY_SETTING", "host", "edit", "win1", "--address", "winrm://Administrator@10.0.0.9?"+q)
+			wantCode(t, "SAFETY_SETTING", "host", "ssh", "add", "win2", "winrm://Administrator@10.0.0.10?"+q)
+			wantCode(t, "SAFETY_SETTING", "host", "ssh", "edit", "win1", "--address", "winrm://Administrator@10.0.0.9?"+q)
 			k, v, _ := strings.Cut(q, "=")
 			f := writeTemp(t, "exp.json", `{"format":"komando-export/1","hosts":[{"name":"win3","address":"10.0.0.11","user":"Administrator","transport":"winrm","os":"windows","winrm":{"`+k+`":"`+v+`"}}]}`)
 			wantCode(t, "SAFETY_SETTING", "import", "komando", f)
@@ -41,9 +41,9 @@ func TestWinRMWeakSettingsNeedAPerson(t *testing.T) {
 			}
 			// a person, or a setting the server had already, asks nothing
 			noAgent(t)
-			mustRun(t, "host", "edit", "win1", "--address", "winrm://Administrator@10.0.0.9?"+q)
+			mustRun(t, "host", "ssh", "edit", "win1", "--address", "winrm://Administrator@10.0.0.9?"+q)
 			asAgent(t, false, true)
-			mustRun(t, "host", "edit", "win1", "--notes", "same settings")
+			mustRun(t, "host", "ssh", "edit", "win1", "--notes", "same settings")
 		})
 	}
 }

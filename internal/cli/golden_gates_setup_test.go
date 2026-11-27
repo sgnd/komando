@@ -28,14 +28,14 @@ func goldenGateSetup(t *testing.T) {
 		noAgent(t)
 		t.Setenv("GOLDEN_SECRET", "golden-value")
 		for _, a := range [][]string{
-			{"host", "add", "web1", "u@127.0.0.1:1"},
-			{"host", "add", "prod1", "u@127.0.0.2:1", "--protected"},
-			{"host", "add", "h1", "u@127.0.0.11:1", "-g", "big"},
-			{"host", "add", "h2", "u@127.0.0.12:1", "-g", "big"},
-			{"host", "add", "h3", "u@127.0.0.13:1", "-g", "big"},
-			{"host", "add", "h4", "u@127.0.0.14:1", "-g", "big"},
-			{"host", "add", "ask1", "u@127.0.0.21:1", "--login", "ask"},
-			{"host", "add", "ask2", "u@127.0.0.22:1", "--login", "ask"},
+			{"host", "ssh", "add", "web1", "u@127.0.0.1:1"},
+			{"host", "ssh", "add", "prod1", "u@127.0.0.2:1", "--protected"},
+			{"host", "ssh", "add", "h1", "u@127.0.0.11:1", "-g", "big"},
+			{"host", "ssh", "add", "h2", "u@127.0.0.12:1", "-g", "big"},
+			{"host", "ssh", "add", "h3", "u@127.0.0.13:1", "-g", "big"},
+			{"host", "ssh", "add", "h4", "u@127.0.0.14:1", "-g", "big"},
+			{"host", "ssh", "add", "ask1", "u@127.0.0.21:1", "--login", "ask"},
+			{"host", "ssh", "add", "ask2", "u@127.0.0.22:1", "--login", "ask"},
 			{"conn", "add", "cache1", "redis://127.0.0.1:1/0"},
 			{"conn", "add", "pcache", "redis://127.0.0.3:1/1", "--protected"},
 			{"conn", "add", "db1", "postgres://u@127.0.0.1:1/app"},
@@ -101,9 +101,9 @@ func goldenGateSetup(t *testing.T) {
 // replaces the two lists, so no stop an agent gets today can be lost.
 var goldenGates = [][]string{
 	// POLICY_BLOCKED: cannot be undone, or a policy hit (--allow-dangerous)
-	{"exec", "web1", "--", "rm", "-rf", "/"},
-	{"exec", "web1", "--", "reboot"},
-	{"exec", "web1", "--", "foo", "bar"}, // the deny rule foo.*bar
+	{"host", "ssh", "exec", "web1", "--", "rm", "-rf", "/"},
+	{"host", "ssh", "exec", "web1", "--", "reboot"},
+	{"host", "ssh", "exec", "web1", "--", "foo", "bar"}, // the deny rule foo.*bar
 	{"job", "start", "web1", "--", "reboot"},
 	{"reboot", "web1"},
 	{"reboot", "prod1"},
@@ -129,7 +129,7 @@ var goldenGates = [][]string{
 	{"docker", "prune", "web1"},
 	{"docker", "raw", "web1", "--", "system", "prune", "-af"},
 	// PROTECTED_TARGET: a change on a protected server (--yes)
-	{"exec", "prod1", "--", "touch", "/tmp/x"},
+	{"host", "ssh", "exec", "prod1", "--", "touch", "/tmp/x"},
 	{"job", "start", "prod1", "--", "touch", "x"},
 	{"svc", "restart", "prod1", "nginx"},
 	{"user", "add", "prod1", "bob"},
@@ -139,8 +139,8 @@ var goldenGates = [][]string{
 	{"docker", "stop", "prod1", "c1"},
 	{"cron", "rm", "prod1", "1"},
 	{"upload", "prod1", "testdata/golden_restore.sql", "/tmp/h"},
-	{"host", "rm", "prod1"},
-	{"host", "edit", "prod1", "--protected=false"},
+	{"host", "ssh", "remove", "prod1"},
+	{"host", "ssh", "edit", "prod1", "--protected=false"},
 	// PROTECTED_TARGET: a change on a protected conn (--yes)
 	{"cache", "set", "pcache", "k", "v"},
 	{"cache", "redis", "raw", "pcache", "--write", "--", "SET", "k", "v"},
@@ -170,7 +170,7 @@ var goldenNotes = [][]string{
 	// C-V16: update takes only a version; a server is a usage error
 	{"update", "web1"},
 	// C-V24: aws, gcp and azure are no new server's, conn's or VPN's name
-	{"host", "add", "azure", "u@10.0.0.1"},
+	{"host", "ssh", "add", "azure", "u@10.0.0.1"},
 	{"conn", "add", "aws", "redis://127.0.0.1:1/0"},
 	{"vpn", "add", "gcp", "socks", "--proxy-address", "127.0.0.1:1080"},
 	// C-C03, C-C06 (OD-7): deletes that leave no copy are dangerous
@@ -179,8 +179,8 @@ var goldenNotes = [][]string{
 	{"fs", "rm", "web1", "/tmp/x"},
 	// C-C13 (OD-9): replacing a pinned host key is for a person only; with
 	// a key pinned, the real run stops before it connects
-	{"host", "trust", "prod1", "--reset", "--dry-run"},
-	{"host", "trust", "prod1", "--reset"},
+	{"host", "ssh", "trust", "prod1", "--reset", "--dry-run"},
+	{"host", "ssh", "trust", "prod1", "--reset"},
 	// C-E11 (S-5.17): words from other tools get komando's command, a
 	// typo the nearest name, as error.suggestion and in the hint
 	{"ps"},
@@ -193,8 +193,8 @@ var goldenNotes = [][]string{
 	// login ask: a server whose password a person types at every connect;
 	// a script or an agent with no window gets NEEDS_PERSON (tunnel start
 	// asks before it connects, so it shows without a server)
-	{"tunnel", "start", "ask1", "-L", "0:localhost:80"},
+	{"host", "ssh", "tunnel", "start", "ask1", "-L", "0:localhost:80"},
 	// ...and a login-ask server komando has never met: nobody could see
 	// its new host key, so nobody is asked
-	{"tunnel", "start", "ask2", "-L", "0:localhost:80"},
+	{"host", "ssh", "tunnel", "start", "ask2", "-L", "0:localhost:80"},
 }

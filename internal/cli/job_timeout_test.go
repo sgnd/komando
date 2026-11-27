@@ -42,7 +42,7 @@ func TestJobStatusTimedOut(t *testing.T) {
 // --script, and the dry run names the input, the user and the limit.
 func TestJobStartNewFlags(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "root@10.0.0.5")
+	mustRun(t, "host", "ssh", "add", "web1", "root@10.0.0.5")
 	in := t.TempDir() + "/in.sql"
 	if err := os.WriteFile(in, []byte("select 1;\n"), 0o600); err != nil {
 		t.Fatal(err)

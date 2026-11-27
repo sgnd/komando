@@ -34,7 +34,7 @@ func TestParseWinRMAddress(t *testing.T) {
 func TestHostAddWinRM(t *testing.T) {
 	startFakeServer(t)
 	t.Setenv("WIN_PW", "x")
-	if err := runRoot(t, "host", "add", "win2", "winrm://Administrator@10.0.0.9?tls=skip-verify", "--password-ref", "env:WIN_PW"); err != nil {
+	if err := runRoot(t, "host", "ssh", "add", "win2", "winrm://Administrator@10.0.0.9?tls=skip-verify", "--password-ref", "env:WIN_PW"); err != nil {
 		t.Fatal(err)
 	}
 	s, _ := store.Load()
@@ -43,26 +43,26 @@ func TestHostAddWinRM(t *testing.T) {
 		t.Errorf("host = %+v %+v", h, h.WinRMOpts)
 	}
 	for args, code := range map[string][]string{
-		"WINRM_INSECURE": {"host", "add", "w3", "winrm://a@10.0.0.10?auth=basic&tls=off"},
-		"USAGE":          {"host", "add", "w4", "winrm://a@10.0.0.11?auth=kerberos"},
+		"WINRM_INSECURE": {"host", "ssh", "add", "w3", "winrm://a@10.0.0.10?auth=basic&tls=off"},
+		"USAGE":          {"host", "ssh", "add", "w4", "winrm://a@10.0.0.11?auth=kerberos"},
 	} {
 		if got := errCode(runRoot(t, code...)); got != args {
 			t.Errorf("%v: %s, want %s", code, got, args)
 		}
 	}
-	for _, args := range [][]string{{"shell", "win2"}, {"host", "ssh-command", "win2"}, {"host", "trust", "win2"}} {
+	for _, args := range [][]string{{"host", "ssh", "shell", "win2"}, {"host", "ssh-command", "win2"}, {"host", "ssh", "trust", "win2"}} {
 		if got := runCode(t, args...); got != "NOT_SUPPORTED" && got != "NEEDS_TERMINAL" {
 			t.Errorf("%v: %s", args, got)
 		}
 	}
-	if err := runRoot(t, "host", "edit", "win2", "--address", "winrm://10.0.0.12:5985?tls=off"); err != nil {
+	if err := runRoot(t, "host", "ssh", "edit", "win2", "--address", "winrm://10.0.0.12:5985?tls=off"); err != nil {
 		t.Fatal(err)
 	}
 	s, _ = store.Load()
 	if h := s.Hosts["win2"]; h.Address != "10.0.0.12" || h.EffectivePort() != 5985 || h.User != "Administrator" {
 		t.Errorf("after edit: %+v", h)
 	}
-	if err := runRoot(t, "host", "edit", "win2", "--unset", "transport,port"); err != nil {
+	if err := runRoot(t, "host", "ssh", "edit", "win2", "--unset", "transport,port"); err != nil {
 		t.Fatal(err)
 	}
 	s, _ = store.Load()
@@ -92,10 +92,10 @@ func TestExecOverWinRM(t *testing.T) {
 	}))
 	defer srv.Close()
 	t.Setenv("WIN_PW", "x")
-	if err := runRoot(t, "host", "add", "win2", "winrm://Administrator@"+srv.Listener.Addr().String()+"?tls=skip-verify&auth=basic", "--password-ref", "env:WIN_PW"); err != nil {
+	if err := runRoot(t, "host", "ssh", "add", "win2", "winrm://Administrator@"+srv.Listener.Addr().String()+"?tls=skip-verify&auth=basic", "--password-ref", "env:WIN_PW"); err != nil {
 		t.Fatal(err)
 	}
-	got := captureOutput(t, func() error { return runRoot(t, "exec", "win2", "--read-only", "--", "Get-Date") })
+	got := captureOutput(t, func() error { return runRoot(t, "host", "ssh", "exec", "win2", "--read-only", "--", "Get-Date") })
 	if !strings.Contains(got, "hello from winrm") {
 		t.Errorf("exec over WinRM: %s", got)
 	}
@@ -109,10 +109,10 @@ func TestExecOverWinRM(t *testing.T) {
 func TestHostAddWinRMAddressFlag(t *testing.T) {
 	startFakeServer(t)
 	t.Setenv("WIN_PW", "x")
-	if err := runRoot(t, "host", "add", "win5", "--address", "winrm://Administrator@10.0.0.9:5999?tls=skip-verify", "--password-ref", "env:WIN_PW"); err != nil {
+	if err := runRoot(t, "host", "ssh", "add", "win5", "--address", "winrm://Administrator@10.0.0.9:5999?tls=skip-verify", "--password-ref", "env:WIN_PW"); err != nil {
 		t.Fatal(err)
 	}
-	if err := runRoot(t, "host", "add", "win6", "--address", "winrm://Administrator@10.0.0.8", "--user", "ops", "--port", "5990", "--password-ref", "env:WIN_PW"); err != nil {
+	if err := runRoot(t, "host", "ssh", "add", "win6", "--address", "winrm://Administrator@10.0.0.8", "--user", "ops", "--port", "5990", "--password-ref", "env:WIN_PW"); err != nil {
 		t.Fatal(err)
 	}
 	s, _ := store.Load()
@@ -188,7 +188,7 @@ func TestSecretRefInWinRMCA(t *testing.T) {
 		t.Errorf("CA after mv: %s", got)
 	}
 
-	d = mustRun(t, "host", "rm", "win2")
+	d = mustRun(t, "host", "ssh", "remove", "win2")
 	if u, _ := d["secrets_unused"].([]any); len(u) != 1 || u[0] != "win-ca" {
 		t.Errorf("host rm: %v", d)
 	}

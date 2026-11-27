@@ -45,7 +45,7 @@ func TestSecretRefsInTextNeedAPerson(t *testing.T) {
 		t.Fatalf("reserved secret: %v", err)
 	}
 
-	mustRun(t, "host", "add", "web1", "deploy@10.255.255.1")
+	mustRun(t, "host", "ssh", "add", "web1", "deploy@10.255.255.1")
 	texts := windowText(t, true)
 	// the stop comes before komando connects
 	wantCode(t, "SECRET_DESTINATION", "fs", "write", "web1", "/etc/app.env", "--content", "DB={{secret:db-pass}}")
@@ -91,7 +91,7 @@ func TestSecretRefsInTextNeedAPerson(t *testing.T) {
 // exec --env K=secret:NAME sends the value into a command on the server.
 func TestEnvSecretNeedsAPerson(t *testing.T) {
 	secretHome(t)
-	mustRun(t, "host", "add", "web1", "deploy@10.255.255.1")
+	mustRun(t, "host", "ssh", "add", "web1", "deploy@10.255.255.1")
 	hosts := []*store.Host{{Name: "web1"}}
 	if _, err := parseEnvTo(tcl, []string{"DB=secret:db-pass"}, hosts); err != nil {
 		t.Fatalf("script: %v", err)
@@ -104,7 +104,7 @@ func TestEnvSecretNeedsAPerson(t *testing.T) {
 	if _, err := parseEnvTo(tcl, []string{"K=secret:" + approvalSecret}, hosts); toErr(err).Code != "RESERVED_SECRET" {
 		t.Fatalf("reserved: %v", err)
 	}
-	d := mustRun(t, "exec", "web1", "-e", "DB=secret:db-pass", "--dry-run", "--", "true")
+	d := mustRun(t, "host", "ssh", "exec", "web1", "-e", "DB=secret:db-pass", "--dry-run", "--", "true")
 	if d["_meta"].(map[string]any)["would_be_blocked"] == nil {
 		t.Errorf("the dry run says the real run would stop: %v", d)
 	}
@@ -120,8 +120,8 @@ func TestSecretDestinationsNeedAPerson(t *testing.T) {
 	secretHome(t)
 	// a script is not asked, but a reserved secret is refused
 	mustRun(t, "conn", "add", "shop", "postgres://app@10.0.0.5/app", "--password-ref", "secret:db-pass")
-	mustRun(t, "host", "add", "jump", "u@10.0.0.3")
-	wantCode(t, "RESERVED_SECRET", "host", "add", "x", "u@10.0.0.9", "--password-ref", "secret:"+approvalSecret)
+	mustRun(t, "host", "ssh", "add", "jump", "u@10.0.0.3")
+	wantCode(t, "RESERVED_SECRET", "host", "ssh", "add", "x", "u@10.0.0.9", "--password-ref", "secret:"+approvalSecret)
 	wantCode(t, "RESERVED_SECRET", "conn", "edit", "shop", "--password-ref", "secret:"+approvalSecret)
 	if _, err := vault.Resolve("secret:" + approvalSecret); toErr(err).Code != "RESERVED_SECRET" {
 		t.Errorf("a reference never reads the approval code's key: %v", err)
@@ -131,28 +131,28 @@ func TestSecretDestinationsNeedAPerson(t *testing.T) {
 	wantCode(t, "SECRET_DESTINATION", "conn", "add", "shop2", "postgres://app@evil.example/app", "--password-ref", "secret:db-pass")
 	wantCode(t, "SECRET_DESTINATION", "conn", "edit", "shop", "--url", "postgres://app@evil.example/app")
 	wantCode(t, "SECRET_DESTINATION", "conn", "edit", "shop", "--via", "jump")
-	wantCode(t, "SECRET_DESTINATION", "host", "add", "web1", "deploy@10.0.0.1", "--password-ref", "env:GITHUB_TOKEN")
-	wantCode(t, "SECRET_DESTINATION", "host", "add", "web1", "deploy@10.0.0.1", "--env", "TOKEN=secret:db-pass")
+	wantCode(t, "SECRET_DESTINATION", "host", "ssh", "add", "web1", "deploy@10.0.0.1", "--password-ref", "env:GITHUB_TOKEN")
+	wantCode(t, "SECRET_DESTINATION", "host", "ssh", "add", "web1", "deploy@10.0.0.1", "--env", "TOKEN=secret:db-pass")
 	if len(*texts) != 0 {
 		t.Fatalf("no flag, no window: %q", *texts)
 	}
 	// no reference, or the same place: nothing to ask
-	mustRun(t, "host", "add", "web1", "deploy@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web1", "deploy@10.0.0.1")
 	mustRun(t, "conn", "add", "cache", "rediss://default@10.0.0.7:6379/0")
 	mustRun(t, "conn", "edit", "shop", "--add-tag", "live", "--url", "postgres://other@10.0.0.5/app")
-	mustRun(t, "host", "edit", "web1", "--user", "root")
+	mustRun(t, "host", "ssh", "edit", "web1", "--user", "root")
 	if len(*texts) != 0 {
 		t.Fatalf("nothing new goes anywhere: %q", *texts)
 	}
 
-	mustRun(t, "host", "edit", "web1", "--password-ref", "secret:db-pass", "--yes")
+	mustRun(t, "host", "ssh", "edit", "web1", "--password-ref", "secret:db-pass", "--yes")
 	if len(*texts) != 1 || !strings.Contains((*texts)[0], "secret:db-pass to root@10.0.0.1:22 (server web1)") {
 		t.Fatalf("window: %q", *texts)
 	}
 	resetApproval()
-	mustRun(t, "host", "edit", "web1", "--add-tag", "web")
-	wantCode(t, "SECRET_DESTINATION", "host", "edit", "web1", "--address", "10.6.6.6")
-	wantCode(t, "SECRET_DESTINATION", "host", "edit", "web1", "--port", "2222")
+	mustRun(t, "host", "ssh", "edit", "web1", "--add-tag", "web")
+	wantCode(t, "SECRET_DESTINATION", "host", "ssh", "edit", "web1", "--address", "10.6.6.6")
+	wantCode(t, "SECRET_DESTINATION", "host", "ssh", "edit", "web1", "--port", "2222")
 	resetApproval()
 	mustRun(t, "conn", "add", "shop3", "postgres://app@10.0.0.6/app", "--password-ref", "env:SHOP_PASS", "--yes")
 	if w := (*texts)[len(*texts)-1]; !strings.Contains(w, "env:SHOP_PASS to 10.0.0.6:5432 (sslmode=verify-full) (conn shop3)") {
@@ -161,9 +161,9 @@ func TestSecretDestinationsNeedAPerson(t *testing.T) {
 
 	// a protected server: one window asks about both
 	resetApproval()
-	mustRun(t, "host", "add", "db1", "deploy@10.0.0.2", "--protected")
+	mustRun(t, "host", "ssh", "add", "db1", "deploy@10.0.0.2", "--protected")
 	n := len(*texts)
-	mustRun(t, "host", "edit", "db1", "--sudo-ref", "secret:db-pass", "--yes")
+	mustRun(t, "host", "ssh", "edit", "db1", "--sudo-ref", "secret:db-pass", "--yes")
 	if len(*texts) != n+1 || !strings.Contains((*texts)[n], "protected host: db1") || !strings.Contains((*texts)[n], "secret:db-pass to deploy@10.0.0.2:22 (server db1)") {
 		t.Errorf("one window for the protected server and the secret: %q", (*texts)[n:])
 	}
@@ -265,15 +265,15 @@ func TestAgentOtherHome(t *testing.T) {
 	invHome(t)
 	other := os.Getenv("KOMANDO_HOME")
 
-	mustRun(t, "host", "add", "web1", "deploy@10.0.0.1") // a script: not asked
+	mustRun(t, "host", "ssh", "add", "web1", "deploy@10.0.0.1") // a script: not asked
 	texts := windowText(t, true)
 	e := wantCode(t, "NEEDS_PERSON", "list")
 	if !strings.Contains(e.Message, "KOMANDO_HOME points komando at "+other) {
 		t.Errorf("message: %q", e.Message)
 	}
-	wantCode(t, "NEEDS_PERSON", "host", "add", "prod", "root@10.0.0.2")
+	wantCode(t, "NEEDS_PERSON", "host", "ssh", "add", "prod", "root@10.0.0.2")
 	// a synonym is typed like the command it names: the same stop
-	for _, syn := range [][]string{{"tunnel", "show", "t1"}, {"recipe", "show", "r1"}, {"group", "show", "prod"}, {"cluster", "info", "k1"}} {
+	for _, syn := range [][]string{{"host", "ssh", "tunnel", "show", "t1"}, {"recipe", "show", "r1"}, {"group", "show", "prod"}, {"cluster", "info", "k1"}} {
 		wantCode(t, "NEEDS_PERSON", syn...)
 	}
 	// a background command too: an agent's own home would hold its own
@@ -331,9 +331,9 @@ func TestAgentOtherHome(t *testing.T) {
 func TestAuditActorClaimed(t *testing.T) {
 	invHome(t)
 	setCallerEnv(t, "KOMANDO_ACTOR", "alice")
-	mustRun(t, "host", "add", "web1", "deploy@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web1", "deploy@10.0.0.1")
 	setCallerEnv(t, "CLAUDECODE", "1")
-	mustRun(t, "host", "add", "web2", "deploy@10.0.0.2")
+	mustRun(t, "host", "ssh", "add", "web2", "deploy@10.0.0.2")
 	var recs []map[string]any
 	for _, line := range strings.Split(auditText(t), "\n") {
 		var r map[string]any

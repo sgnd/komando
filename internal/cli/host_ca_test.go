@@ -33,8 +33,8 @@ func caPub(t *testing.T) (string, ssh.PublicKey) {
 // dry run shows what would be kept and which servers it would match.
 func TestHostCAAddNeedsAPerson(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "--address", "web1.corp.example", "--user", "u")
-	mustRun(t, "host", "add", "db1", "--address", "db1.other.example", "--user", "u")
+	mustRun(t, "host", "ssh", "add", "web1", "--address", "web1.corp.example", "--user", "u")
+	mustRun(t, "host", "ssh", "add", "db1", "--address", "db1.other.example", "--user", "u")
 	p, k := caPub(t)
 	d := mustRun(t, "host", "ca", "add", "corp", "--key", p, "--hosts", "*.Corp.example", "--dry-run")
 	items := d["items"].([]any)
@@ -117,15 +117,15 @@ func TestHostCAPersonAddsAndAnyoneRemoves(t *testing.T) {
 // CA that vouches for a protected server.
 func TestHostCAShowAndDoctor(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "--address", "web1.corp.example", "--user", "u")
+	mustRun(t, "host", "ssh", "add", "web1", "--address", "web1.corp.example", "--user", "u")
 	_, k := caPub(t)
 	if err := sshx.AddHostCA(t.Context(), sshx.HostCA{Name: "corp", Key: strings.TrimSpace(string(ssh.MarshalAuthorizedKey(k))), Hosts: []string{"*.corp.example"}}); err != nil {
 		t.Fatal(err)
 	}
-	if d := mustRun(t, "host", "show", "web1"); d["host_ca"] != "corp" {
+	if d := mustRun(t, "host", "ssh", "show", "web1"); d["host_ca"] != "corp" {
 		t.Errorf("show: %v", d["host_ca"])
 	}
-	mustRun(t, "host", "edit", "web1", "--protected")
+	mustRun(t, "host", "ssh", "edit", "web1", "--protected")
 	d, _ := invRun(t, "doctor")
 	found := false
 	for _, c := range d["security"].([]any) {

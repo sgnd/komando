@@ -22,7 +22,7 @@ func TestVpnProxyKind(t *testing.T) {
 	} {
 		wantCode(t, "USAGE", bad...)
 	}
-	mustRun(t, "host", "add", "db1", "admin@10.0.0.5", "--via", "corp")
+	mustRun(t, "host", "ssh", "add", "db1", "admin@10.0.0.5", "--via", "corp")
 	d := mustRun(t, "host", "ssh-command", "db1")
 	if cmd := strings.Join(toStrings(d["argv"]), " "); !strings.Contains(cmd, "ProxyCommand=nc -X connect -x proxy.corp.example:3128 %h %p") {
 		t.Errorf("OpenSSH goes through the proxy too: %s", cmd)

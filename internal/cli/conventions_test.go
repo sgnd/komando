@@ -79,16 +79,16 @@ func TestChangeCommandsOwnText(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, a := range [][]string{
-		{"host", "add", "web1", "u@10.0.0.1"}, {"host", "edit", "web1", "--port", "2222"}, {"host", "rename", "web1", "web2"},
+		{"host", "ssh", "add", "web1", "u@10.0.0.1"}, {"host", "ssh", "edit", "web1", "--port", "2222"}, {"host", "rename", "web1", "web2"},
 		{"conn", "add", "app-db", "postgres://app@10.0.0.9/app"}, {"conn", "edit", "app-db", "--notes", "x"}, {"conn", "rename", "app-db", "db2"},
 		{"vpn", "add", "office", "socks", "--proxy-address", "10.0.0.1:1080"}, {"vpn", "edit", "office", "--notes", "x"}, {"vpn", "rename", "office", "off2"},
 		{"group", "add", "g1", "web2"}, {"group", "rename", "g1", "g2"}, {"group", "rm", "g2", "web2"},
 		{"key", "gen", "k1"}, {"key", "add", "k3", pub}, {"key", "rename", "k1", "k2"},
 		{"secret", "set", "s4", "--from-env", "PATH"}, {"secret", "rename", "s1", "s2"}, {"secret", "cp", "s2", "s3"},
 		{"recipe", "add", "r1", "uptime", "--read-only"}, {"recipe", "rm", "r1"}, {"policy", "deny", "foo bar"},
-		{"config", "set", "default_timeout", "5m"}, {"rename", "db2", "db3"}, {"--dry-run", "host", "trust", "web2"},
+		{"config", "set", "default_timeout", "5m"}, {"rename", "db2", "db3"}, {"--dry-run", "host", "ssh", "trust", "web2"},
 		{"--dry-run", "export", "--to", filepath.Join(t.TempDir(), "x.json")}, {"--dry-run", "secret", "rm", "s3"},
-		{"tunnel", "stop", "--all"}, {"host", "rm", "web2"}, {"conn", "rm", "db3"},
+		{"host", "ssh", "tunnel", "stop", "--all"}, {"host", "ssh", "remove", "web2"}, {"conn", "rm", "db3"},
 		{"vpn", "rm", "off2"}, {"key", "rm", "k2"},
 	} {
 		line = strings.Join(a, " ")

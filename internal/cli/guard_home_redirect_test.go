@@ -34,7 +34,7 @@ func accountHomeAt(t *testing.T, dir string) {
 func TestAgentHomeRedirect(t *testing.T) {
 	real, fake := t.TempDir(), t.TempDir()
 	accountHomeAt(t, real)
-	mustRun(t, "host", "add", "web2", "u@10.0.0.2", "--protected") // the person
+	mustRun(t, "host", "ssh", "add", "web2", "u@10.0.0.2", "--protected") // the person
 	store.Close()
 
 	texts := windowText(t, false)
@@ -103,7 +103,7 @@ func TestGuardProtectsAccountHome(t *testing.T) {
 func TestAgentHomeUnknownStops(t *testing.T) {
 	home := t.TempDir()
 	accountHomeAt(t, home)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.9") // the person
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.9") // the person
 	store.AccountHome = func() (string, error) { return "", errors.New("no entry for uid 4242") }
 	texts := windowText(t, false)
 	if e := wantCode(t, "SAFETY_SETTING", "list"); !strings.Contains(e.Message, "cannot find this account's home folder") {
@@ -126,7 +126,7 @@ func TestAgentHomePairStops(t *testing.T) {
 	saved := defaultHome
 	defaultHome = func() string { return filepath.Join(account, ".komando") } // the real rule
 	t.Cleanup(func() { defaultHome = saved })
-	mustRun(t, "host", "add", "web2", "u@10.0.0.2", "--protected") // the person
+	mustRun(t, "host", "ssh", "add", "web2", "u@10.0.0.2", "--protected") // the person
 	store.Close()
 
 	texts := windowText(t, false)
@@ -187,7 +187,7 @@ func TestAgentOtherHomeIsFinal(t *testing.T) {
 	saved := defaultHome
 	defaultHome = func() string { return filepath.Join(account, ".komando") } // the real rule
 	t.Cleanup(func() { defaultHome = saved })
-	mustRun(t, "host", "add", "web1", "u@10.0.0.9") // the person, in the usual folder
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.9") // the person, in the usual folder
 	store.Close()
 
 	texts := windowText(t, true)

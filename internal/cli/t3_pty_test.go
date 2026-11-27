@@ -67,7 +67,7 @@ func TestT3AsksTheTypedName(t *testing.T) {
 	t.Setenv("T3_SECRET", "t3-value")
 	l := newLabCluster(t)
 	for _, a := range [][]string{
-		{"host", "add", "web1", "u@127.0.0.1:1"},
+		{"host", "ssh", "add", "web1", "u@127.0.0.1:1"},
 		{"conn", "add", "cache1", "redis://127.0.0.1:1/0"},
 		{"conn", "add", "db1", "postgres://u@127.0.0.1:1/app"},
 		{"conn", "add", "q1", "kafka://127.0.0.1:1"},
@@ -93,7 +93,7 @@ func TestT3AsksTheTypedName(t *testing.T) {
 	}
 	// on a protected server the one typed question says so and covers the
 	// protection too: no [y/N] after it (S-7.4, C-C04)
-	mustRun(t, "host", "add", "prod1", "u@127.0.0.1:1", "--protected")
+	mustRun(t, "host", "ssh", "add", "prod1", "u@127.0.0.1:1", "--protected")
 	t.Run("protected", func(t *testing.T) {
 		p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "reboot", "prod1")
 		p.answer(" to continue: ", "prod1\r")

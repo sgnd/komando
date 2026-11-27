@@ -472,7 +472,7 @@ func TestRebootNeedsAllowDangerous(t *testing.T) {
 		root.SetArgs(append([]string{"-o", "json"}, args...))
 		return root.Execute()
 	}
-	if err := run("host", "add", "web1", "deploy@10.255.255.1"); err != nil {
+	if err := run("host", "ssh", "add", "web1", "deploy@10.255.255.1"); err != nil {
 		t.Fatal(err)
 	}
 	if err := run("--dry-run", "reboot", "web1"); err != nil {
@@ -578,9 +578,9 @@ func TestSudoProblem(t *testing.T) {
 		code   string
 		hint   string
 	}{
-		{"sudo: a password is required\n", 1, "PERMISSION_DENIED", "`komando host edit web1 --sudo-ref secret:web1-sudo`"},
+		{"sudo: a password is required\n", 1, "PERMISSION_DENIED", "`komando host ssh edit web1 --sudo-ref secret:web1-sudo`"},
 		{"sudo: a terminal is required to read the password; either use the -S option", 1, "PERMISSION_DENIED", "`komando secret set web1-sudo`"},
-		{"deploy is not in the sudoers file.  This incident will be reported.", 1, "PERMISSION_DENIED", "`komando host edit web1 --user OTHER`"},
+		{"deploy is not in the sudoers file.  This incident will be reported.", 1, "PERMISSION_DENIED", "`komando host ssh edit web1 --user OTHER`"},
 		{"Sorry, user deploy may not run sudo on web1.", 1, "PERMISSION_DENIED", "wheel"},
 		{"sh: 1: sudo: not found", 127, "TOOL_MISSING", "--no-sudo"},
 		{"bash: sudo: command not found", 127, "TOOL_MISSING", "--no-sudo"},

@@ -53,7 +53,7 @@ func TestFirstUsePinIsAnnounced(t *testing.T) {
 	// HOSTKEY_UNKNOWN shows the fingerprint, to compare before pinning
 	h := &store.Host{Name: "web2", Address: "10.0.0.6"}
 	if oe := classify(newState(h), h, err); oe.Code != "HOSTKEY_UNKNOWN" || !strings.Contains(oe.Message, "it shows "+fp) ||
-		!strings.Contains(oe.Hint, "`komando host trust web2`") {
+		!strings.Contains(oe.Hint, "`komando host ssh trust web2`") {
 		t.Errorf("HOSTKEY_UNKNOWN: %s / %s", oe.Message, oe.Hint)
 	}
 }

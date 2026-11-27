@@ -39,12 +39,12 @@ tty 'y\n' policy rm "t-person-word" >/dev/null
 check "person: yes removes the deny rule" False "$($K policy check "echo t-person-word" | jget '"custom" in json.dumps(d)' || true)"
 
 # removing a group with many members: [y/N]
-for i in 1 2 3 4; do q $K host add "$P1-$i" agent@10.9.9.9 -g "$P1"; done
+for i in 1 2 3 4; do q $K host ssh add "$P1-$i" agent@10.9.9.9 -g "$P1"; done
 tty 'n\n' group rm "$P1" >/dev/null
 check "person: no keeps the group" 4 "$($K list "@$P1" | jget 'd["data"]["count"]' || true)"
 tty 'y\n' group rm "$P1" >/dev/null
 check "person: yes deletes the group" TARGET_EMPTY "$($K list "@$P1" | jget 'd["error"]["code"]' || true)"
-q $K host rm "$P1-1" "$P1-2" "$P1-3" "$P1-4"
+q $K host ssh remove "$P1-1" "$P1-2" "$P1-3" "$P1-4"
 
 # a secret typed hidden: never shown on the screen
 O=$(tty 'personpass\n' secret set "$P1-pass"); RC=$?
@@ -61,38 +61,38 @@ check "person: the empty secret is not there" SECRET_NOT_FOUND "$($K secret get 
 q $K secret rm "$P1-pass" --allow-dangerous
 
 # komando login HOST: a person logs in once, then an AI agent can use it
-q $K host add "$P1-login" "agent@127.0.0.1:$E2E_SSH_DIRECT"
-check "person: without a login an agent cannot reach it" False "$(A exec "$P1-login" --read-only -- true </dev/null | jget 'd["ok"]')"
+q $K host ssh add "$P1-login" "agent@127.0.0.1:$E2E_SSH_DIRECT"
+check "person: without a login an agent cannot reach it" False "$(A host ssh exec "$P1-login" --read-only -- true </dev/null | jget 'd["ok"]')"
 O=$(tty 'agentpass\n' login "$P1-login"); RC=$?
 check "person: login asks what the server asks" 1 "$(grep -c 'Password' <<<"$O")"
 check "person: login succeeds" 0 "$RC"
-check "person: an agent uses the kept login" via-login "$(A exec "$P1-login" --read-only -- echo via-login </dev/null | jget 'd["data"]["results"][0]["stdout"].strip()')"
+check "person: an agent uses the kept login" via-login "$(A host ssh exec "$P1-login" --read-only -- echo via-login </dev/null | jget 'd["data"]["results"][0]["stdout"].strip()')"
 check "person: status lists the login" True "$($K status | jget "'$P1-login' in json.dumps(d)")"
 q $K logout "$P1-login"
-check "person: after logout the agent is out again" False "$(A exec "$P1-login" --read-only -- true </dev/null | jget 'd["ok"]')"
-q $K host rm "$P1-login"
+check "person: after logout the agent is out again" False "$(A host ssh exec "$P1-login" --read-only -- true </dev/null | jget 'd["ok"]')"
+q $K host ssh remove "$P1-login"
 
 # --login ask: a person types the password at every connect; an AI agent
 # can neither make the first connection nor move the server
-q $K host add "$P1-ask" "agent@127.0.0.1:$E2E_SSH_DIRECT" --login ask
-check "person: an agent cannot meet a login-ask server" NEEDS_PERSON "$(A exec "$P1-ask" --read-only -- true </dev/null | jget 'd["error"]["code"]')"
+q $K host ssh add "$P1-ask" "agent@127.0.0.1:$E2E_SSH_DIRECT" --login ask
+check "person: an agent cannot meet a login-ask server" NEEDS_PERSON "$(A host ssh exec "$P1-ask" --read-only -- true </dev/null | jget 'd["error"]["code"]')"
 O=$(tty 'agentpass\n' exec "$P1-ask" --read-only -- echo typed-ok); RC=$?
 check "person: login ask asks the password" 1 "$(grep -c 'Password' <<<"$O")"
 check "person: login ask logs in" 0 "$RC"
 check "person: login ask runs the command" 1 "$(grep -c typed-ok <<<"$O")"
 check "person: the typed password is not shown" 0 "$(grep -c agentpass <<<"$O")"
-check "person: no window, no screen: the agent stops" NEEDS_PERSON "$(A exec "$P1-ask" --read-only -- true </dev/null | jget 'd["error"]["code"]')"
-check "person: an agent cannot move a login-ask server" NEEDS_PERSON "$(A host edit "$P1-ask" --port 2222 </dev/null | jget 'd["error"]["code"]')"
-q $K host rm "$P1-ask"
+check "person: no window, no screen: the agent stops" NEEDS_PERSON "$(A host ssh exec "$P1-ask" --read-only -- true </dev/null | jget 'd["error"]["code"]')"
+check "person: an agent cannot move a login-ask server" NEEDS_PERSON "$(A host ssh edit "$P1-ask" --port 2222 </dev/null | jget 'd["error"]["code"]')"
+q $K host ssh remove "$P1-ask"
 
 # typed commands at a terminal: what is missing is asked, the line shown
 O=$(ptykeys -- env TERM=xterm "$K" | tr -d '\r')
 check "person: komando alone shows the commands by group" True "$(grep -q 'START' <<<"$O" && grep -q 'SERVERS' <<<"$O" && echo True || echo False)"
-O=$(ptykeys 'target\r' -- env TERM=xterm "$K" host show | tr -d '\r')
-check "person: a missing NAME is asked, then the line runs" True "$(grep -q 'NAME' <<<"$O" && grep -q '\$ komando host show target' <<<"$O" && echo True || echo False)"
+O=$(ptykeys 'target\r' -- env TERM=xterm "$K" host ssh show | tr -d '\r')
+check "person: a missing NAME is asked, then the line runs" True "$(grep -q 'NAME' <<<"$O" && grep -q '\$ komando host ssh show target' <<<"$O" && echo True || echo False)"
 # a change on a protected server: the server's own [y/N] is the question, and no changes nothing
 O=$(ptykeys "/tmp/$P1-dir\r" 'n\r' -- env TERM=xterm "$K" fs mkdir target | tr -d '\r')
 check "person: a filled-in change on a protected server asks [y/N]" 1 "$(grep -c '(protected): this command changes it. Continue? \[y/N\]' <<<"$O")"
 check "person: no to it made nothing" False "$($K fs stat target "/tmp/$P1-dir" | jget 'd["data"]["exists"]')"
-check "person: an agent at a terminal is never asked" 0 "$(ptykeys -- env TERM=xterm KOMANDO_AGENT=1 "$K" host show </dev/null | grep -c 'NAME:' || true)"
+check "person: an agent at a terminal is never asked" 0 "$(ptykeys -- env TERM=xterm KOMANDO_AGENT=1 "$K" host ssh show </dev/null | grep -c 'NAME:' || true)"
 set -e

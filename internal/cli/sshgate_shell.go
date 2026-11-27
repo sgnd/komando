@@ -25,6 +25,10 @@ import (
 // be a terminal as well.
 func gateTTY(cl *call) bool { return cl.terminal && cl.getenv("SSH_TTY") != "" }
 
+// isHostShell is true for the ID of a server shell (the db and cluster shells
+// are other commands).
+func isHostShell(id string) bool { return id == "host.ssh.shell" || id == "host.winrm.shell" }
+
 // gateShell says whether a --shell-access key may open the shell args asks for (c
 // is the shell command, found in args): nil, or the stop.
 func gateShell(c *cobra.Command, args []string, key gateKey) *out.Error {
@@ -32,17 +36,17 @@ func gateShell(c *cobra.Command, args []string, key gateKey) *out.Error {
 		return out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", hint, format, a...)
 	}
 	onlyShell := refuse("send exactly: komando host ssh shell SERVER", "a key opens a shell only as `komando host ssh shell SERVER`, with no other word or flag")
-	if len(args) != 2 || args[0] != "shell" || strings.HasPrefix(args[1], "-") {
+	if len(args) != 4 || args[0] != "host" || !isHostShell(strings.Join(args[:3], ".")) || strings.HasPrefix(args[3], "-") {
 		return onlyShell
 	}
-	if err := c.ParseFlags(args[1:]); err != nil || len(c.Flags().Args()) != 1 {
+	if err := c.ParseFlags(args[3:]); err != nil || len(c.Flags().Args()) != 1 {
 		return onlyShell
 	}
 	if !key.tty {
 		return refuse("connect with a terminal: ssh -t HOST komando host ssh shell SERVER",
 			"komando host ssh shell needs the terminal sshd gives a key that asks for one, and this call has none")
 	}
-	server := args[1]
+	server := args[3]
 	st, err := store.Load()
 	if err != nil {
 		return refuse("check the inventory on the komando computer (`komando doctor`)", "the inventory could not be read")
@@ -58,7 +62,7 @@ func gateShell(c *cobra.Command, args []string, key gateKey) *out.Error {
 		return refuse("name one server exactly as `komando list` shows it",
 			"%q is no server in your list; a key opens a shell only on one listed server, named as it is written there", server)
 	}
-	if why := gateLocalTarget(c, "shell"); why != "" {
+	if why := gateLocalTarget(c, commandName(c)); why != "" {
 		return refuse("a person uses a terminal on the komando computer itself",
 			"komando host ssh shell is refused for a key: %s; the gate opens shells on servers, not on this computer", why)
 	}

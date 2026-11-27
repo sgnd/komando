@@ -205,8 +205,8 @@ func TestPkgSecScript(t *testing.T) {
 // instead), and it takes no --apply or --keep-going.
 func TestPkgSecGates(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "root@127.0.0.1", "--port", "2")
-	mustRun(t, "host", "edit", "web1", "--protected")
+	mustRun(t, "host", "ssh", "add", "web1", "root@127.0.0.1", "--port", "2")
+	mustRun(t, "host", "ssh", "edit", "web1", "--protected")
 	if _, e := invRun(t, "pkg", "security", "web1"); e == nil || e.Code == "PROTECTED_TARGET" {
 		t.Errorf("list: %+v", e)
 	}
@@ -235,8 +235,8 @@ func TestPkgSecText(t *testing.T) {
 // for it, and a dry run never refreshes.
 func TestPkgRefreshIsAChange(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "root@127.0.0.1", "--port", "2")
-	mustRun(t, "host", "edit", "web1", "--protected")
+	mustRun(t, "host", "ssh", "add", "web1", "root@127.0.0.1", "--port", "2")
+	mustRun(t, "host", "ssh", "edit", "web1", "--protected")
 	wantCode(t, "PROTECTED_TARGET", "pkg", "security", "web1", "--refresh")
 	wantCode(t, "PROTECTED_TARGET", "pkg", "upgradable", "web1", "--refresh")
 	for _, args := range [][]string{{"pkg", "security", "web1"}, {"pkg", "upgradable", "web1"}} {

@@ -27,7 +27,7 @@ func TestStandardRenamedIDs(t *testing.T) {
 		now, old []string
 		id       string
 	}{
-		{[]string{"host", "rename"}, []string{"host", "mv"}, "host.rename"},
+		{[]string{"host", "rename"}, []string{"host", "ssh", "rename"}, "host.rename"},
 		{[]string{"conn", "rename"}, []string{"conn", "mv"}, "conn.rename"},
 		{[]string{"vpn", "rename"}, []string{"vpn", "mv"}, "vpn.rename"},
 		{[]string{"key", "rename"}, []string{"key", "mv"}, "key.rename"},
@@ -58,8 +58,8 @@ func TestStandardRenamedIDs(t *testing.T) {
 // mv is a synonym of rename and prints the same command ID.
 func TestRenameMvSynonym(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
-	mustRun(t, "host", "mv", "web1", "web-01")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "rename", "web1", "web-01")
 	if d := mustRun(t, "host", "rename", "web-01", "web-02"); d["to"] != "web-02" {
 		t.Errorf("host rename: %v", d)
 	}
@@ -111,7 +111,7 @@ func TestStandardSynonyms(t *testing.T) {
 		{[]string{"tunnels", "list"}, "tunnel.list"}, {[]string{"policies", "list"}, "policy.list"},
 		{[]string{"cache", "list"}, "cache.keys"}, {[]string{"cache", "ls"}, "cache.keys"},
 		{[]string{"group", "show"}, "group.list"}, {[]string{"job", "show"}, "job.status"},
-		{[]string{"tunnel", "show"}, "tunnel.list"}, {[]string{"recipe", "show"}, "recipe.list"},
+		{[]string{"host", "ssh", "tunnel", "show"}, "tunnel.list"}, {[]string{"recipe", "show"}, "recipe.list"},
 		{[]string{"policy", "add"}, "policy.deny"}, {[]string{"secret", "add"}, "secret.set"},
 		{[]string{"docker", "describe"}, "docker.inspect"}, {[]string{"registry", "oci", "image", "describe"}, "registry.oci.image.show"},
 		{[]string{"user", "create"}, "user.add"}, {[]string{"db", "user", "create"}, "db.user.add"},
@@ -129,7 +129,7 @@ func TestStandardSynonyms(t *testing.T) {
 // command they stand for.
 func TestSynonymWrappers(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--group", "web")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1", "--group", "web")
 	d := mustRun(t, "group", "show", "web")
 	if m := d["members"].([]any); len(m) != 1 || m[0] != "web1" {
 		t.Errorf("group show web: %v", d)

@@ -19,7 +19,7 @@ func TestAskSecretNeverReplacesOneMadeWhileTyping(t *testing.T) {
 		sec  string
 		args []string
 	}{
-		{"vps7-pass", []string{"host", "add", "vps7", "root@10.0.0.70", "--ask-password"}},
+		{"vps7-pass", []string{"host", "ssh", "add", "vps7", "root@10.0.0.70", "--ask-password"}},
 		{"app7-pass", []string{"conn", "add", "app7", "postgres://app@10.0.0.71/app", "--ask-password"}},
 	} {
 		readPassword = func(*call, string) (string, error) {

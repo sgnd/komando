@@ -22,8 +22,8 @@ func leaf(state capability.State, short string, words ...string) capability.Leaf
 
 func testLeaves() []capability.Leaf {
 	return []capability.Leaf{
-		leaf(capability.Built, "run a command on hosts", "host", "exec"),
-		leaf(capability.Built, "list hosts", "host", "list"),
+		leaf(capability.Built, "run a command on hosts", "host", "ssh", "exec"),
+		leaf(capability.Built, "list hosts", "host", "ssh", "list"),
 		leaf(capability.New, "not built yet", "host", "plan"),
 		leaf(capability.Built, "run SQL", "database", "postgres", "query"),
 		leaf(capability.Built, "list databases", "database", "postgres", "list"),

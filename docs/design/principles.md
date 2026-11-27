@@ -54,7 +54,7 @@ risk     = read | write | destructive  ->  the same guard for all
 
 | Command | Family |
 |---|---|
-| `exec`, `fs`, `cp`, `svc`, `docker`, ... | host (Linux; Windows over SSH or WinRM) |
+| `host ssh exec`, `fs`, `cp`, `svc`, `docker`, ... | host (Linux; Windows over SSH or WinRM) |
 | `db` | sql and document databases |
 | `cache` | key-value |
 | `queue` | message queues |
@@ -83,7 +83,7 @@ komando storage upload backups ./dump.sql.gz
 - **A few shortcuts live at the top level** (`exec`, `logs`, `cp`, `list`,
   `test`, `upload`, `download`), with the same shape as the long form.
 - **Words for a server go after `--`** on every command that passes them
-  on (`exec web1 -- uptime`), so komando never reads them as its own flags.
+  on (`host ssh exec web1 -- uptime`), so komando never reads them as its own flags.
 - **One cluster command.** Verbs every engine has sit under `cluster` and
   work on any cluster; a feature only one engine has says so on the other
   (`cluster helm` is for Kubernetes). `docker` is for one server.
@@ -113,7 +113,7 @@ Selectors pick everything: servers and conns alike.
 
 1. **Commands that look** (`list`, `test`, `show`, `audit`) use everything
    picked.
-2. **Commands that act** use the members they can serve (`exec` → hosts,
+2. **Commands that act** use the members they can serve (`host ssh exec` → hosts,
    `db` → databases). The rest are listed in `meta.skipped` with the
    reason, never dropped quietly.
 3. If none can be served: `NO_MATCHING_TARGETS` (exit 3) with a hint that
@@ -282,7 +282,7 @@ komando export [--to FILE]
   runs at once; a change asks `Run it? [y/N, d = --dry-run first]`. The
   questions never add `--yes`, `--allow-dangerous`, `--reveal` or
   `--write`. A command typed in full runs as it always did.
-- `host add`, `conn add`, `vpn add` and each area's add, typed alone, ask
+- `host ssh add`, `conn add`, `vpn add` and each area's add, typed alone, ask
   that kind's own questions, never a password (that is asked hidden).
 - After a command a person ran ends well: `Next time: <line>` when komando
   asked for something, and up to three `Next:` lines. `show` ends with

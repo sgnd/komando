@@ -115,7 +115,7 @@ func TestLineLimitFromKind(t *testing.T) {
 // The hint for a body too long to show says what to do for that kind.
 func TestTooLongHintByKind(t *testing.T) {
 	for kind, want := range map[bodyKind]string{
-		bodyScript: "`komando exec TARGET --script FILE`",
+		bodyScript: "`komando host ssh exec TARGET --script FILE`",
 		bodySQL:    "`komando db query CONN --file FILE`",
 		bodyInput:  "put it in a script file",
 		bodyData:   "smaller pieces",

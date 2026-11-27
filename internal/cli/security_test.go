@@ -260,7 +260,7 @@ func TestGuard(t *testing.T) {
 		{"Bash", map[string]any{"command": "cat /proc/1/environ"}, true},
 		// allowed: komando itself, ordinary work, names without reading
 		{"Bash", map[string]any{"command": "komando fs cat web1 /srv/app/.env"}, false},
-		{"Bash", map[string]any{"command": "komando exec web1 'cat /etc/shadow' --read-only"}, false},
+		{"Bash", map[string]any{"command": "komando host ssh exec web1 'cat /etc/shadow' --read-only"}, false},
 		{"Bash", map[string]any{"command": "set -euo pipefail; go test ./..."}, false},
 		{"Bash", map[string]any{"command": "echo .env >> .gitignore"}, false},
 		{"Bash", map[string]any{"command": "git commit -m 'load .env on start'"}, false},

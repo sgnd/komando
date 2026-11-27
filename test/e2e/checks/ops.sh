@@ -46,8 +46,8 @@ $K user rm direct t-fixopsu --remove-home --allow-dangerous >/dev/null 2>&1 || t
 # a login user without sudo rights: the error names the cause and the next command
 q $K key gen t-fixops-k
 q $K user add direct t-fixopsns --key t-fixops-k --shell /bin/sh
-q $K host add t-fixops-ns "t-fixopsns@127.0.0.1:$E2E_SSH_DIRECT" --key t-fixops-k
-q $K host trust t-fixops-ns
+q $K host ssh add t-fixops-ns "t-fixopsns@127.0.0.1:$E2E_SSH_DIRECT" --key t-fixops-k
+q $K host ssh trust t-fixops-ns
 check "svc restart without sudo rights names PERMISSION_DENIED" PERMISSION_DENIED "$($K svc restart t-fixops-ns ssh | jget "${r0}['error']['code']" || true)"
 check "pkg install without sudo rights names the next command" True "$($K pkg install t-fixops-ns tree | jget "'--sudo-ref secret:t-fixops-ns-sudo' in ${r0}['error']['hint'] or '--user OTHER' in ${r0}['error']['hint']" || true)"
 check "user add without sudo rights names PERMISSION_DENIED" PERMISSION_DENIED "$($K user add t-fixops-ns t-fixopsx | jget "${r0}['error']['code']" || true)"
@@ -55,7 +55,7 @@ for sub in ps stats images; do
   check "docker $sub --sudo without sudo rights names PERMISSION_DENIED" PERMISSION_DENIED "$($K docker $sub t-fixops-ns --sudo | jget "${r0}['error']['code']" || true)"
 done
 check "docker ps --sudo refused says to leave out --sudo as root" True "$($K docker ps t-fixops-ns --sudo | jget "'--user OTHER' in ${r0}['error']['hint'] or 'leave out --sudo' in ${r0}['error']['hint']" || true)"
-q $K host rm t-fixops-ns
+q $K host ssh remove t-fixops-ns
 $K user rm direct t-fixopsns --remove-home --allow-dangerous >/dev/null 2>&1 || true
 q $K key rm t-fixops-k
 set +e
@@ -115,10 +115,10 @@ $K vpn add lab socks --proxy-address 127.0.0.1:1 --dry-run >/dev/null; check "vp
 $K vpn add direct socks --proxy-address 127.0.0.1:1 --dry-run >/dev/null; check "vpn add --dry-run sees NAME_TAKEN" 8 $?
 set -e
 check "vpn status: stopped SOCKS proxy is down" False "$($K vpn status | jget '[v["up"] for v in d["data"]["vpns"] if v["name"] == "lab"][0]')"
-q $K tunnel start bastion -D "127.0.0.1:$E2E_SOCKS"
+q $K host ssh tunnel start bastion -D "127.0.0.1:$E2E_SOCKS"
 check "vpn status: running SOCKS proxy is up" True "$($K vpn status | jget '[v["up"] for v in d["data"]["vpns"] if v["name"] == "lab"][0]')"
 check "vpn down of a SOCKS VPN names the tunnel" True "$($K vpn down lab | jget '"tunnel stop" in d["data"]["notes"][0]')"
-q $K tunnel stop --all
+q $K host ssh tunnel stop --all
 check "vpn down --all with nothing up" True "$($K vpn down --all | jget 'd["ok"] and d["data"]["disconnected"] == []')"
 check "vpn test hint is not itself" True "$($K vpn test lab | jget '"tunnel start" in d["data"]["results"][0]["error"]["hint"]' || true)"
 check "vpn edit changes notes" t-fixops "$($K vpn edit corp --notes t-fixops | jget 'd["data"]["vpn"]["notes"]')"
@@ -135,15 +135,15 @@ check "person: a wrong name stops docker prune (6)" 6 "$RC"
 O=$(tty 'wrong\n' pkg rm direct openssh-server); RC=$?
 check "person: removing an essential package asks for its name" 1 "$(grep -c 'Type the name openssh-server to continue' <<<"$O")"
 check "person: a wrong name keeps the package (6)" "6 True" "$RC $($K pkg installed direct openssh-server | jget "${r0}['data'][0]['installed']")"
-q $K host add t-fixops-p "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref secret:agent-pass --protected
-q $K host trust t-fixops-p
+q $K host ssh add t-fixops-p "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref secret:agent-pass --protected
+q $K host ssh trust t-fixops-p
 O=$(tty 'n\n' svc restart t-fixops-p ssh); RC=$?
 check "person: svc restart on a protected server asks [y/N]" 1 "$(grep -c 't-fixops-p (protected): this command changes it. Continue? \[y/N\]' <<<"$O")"
 check "person: no to svc restart stops (6)" 6 "$RC"
 O=$(tty 'wrong\n' reboot t-fixops-p); RC=$?
 check "person: reboot asks for the server's name" 1 "$(grep -c 'Type the name t-fixops-p to continue' <<<"$O")"
 check "person: a wrong name stops the reboot (6)" 6 "$RC"
-q $K host rm t-fixops-p --yes # a protected server: a script removes it with --yes (no agent here)
+q $K host ssh remove t-fixops-p --yes # a protected server: a script removes it with --yes (no agent here)
 # logs --follow ends with Ctrl-C: a clean stop, not an error
 O=$(ptyrun $'\x03' env NO_COLOR=1 TERM=dumb "$K" -o text logs direct --file /etc/hostname --follow | tr -d '\r'); RC=$?
 check "person: logs --follow shows the lines before Ctrl-C" 1 "$(grep -c '^direct' <<<"$O")"

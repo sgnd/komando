@@ -32,9 +32,9 @@ var shapeCases = [][]string{
 	{"policy", "check", "uptime"},
 	{"recipe", "list"},
 	{"list"},
-	{"host", "list"},
-	{"host", "show", "web"},
-	{"host", "show", "nope"},
+	{"host", "ssh", "list"},
+	{"host", "ssh", "show", "web"},
+	{"host", "ssh", "show", "nope"},
 	{"host", "ssh-command", "web"},
 	{"export"},
 	{"export", "--sealed", "--to", "never-written.kmdseal", "--dry-run"},
@@ -48,14 +48,14 @@ var shapeCases = [][]string{
 	{"secret", "set", "pg-new", "--new", "--from-env", "PG_PASS", "--dry-run"},
 	{"schema", "secret", "set"},
 	{"key", "list"},
-	{"tunnel", "list"},
+	{"host", "ssh", "tunnel", "list"},
 	{"vpn", "list"},
 	{"job", "list"},
 	{"status"},
 	{"audit", "--limit", "5"},
-	{"host", "edit", "web", "--port", "2222", "--dry-run"},
-	{"exec", "web", "--dry-run", "--", "uptime"},
-	{"exec", "web", "--", "rm", "-rf", "/"},
+	{"host", "ssh", "edit", "web", "--port", "2222", "--dry-run"},
+	{"host", "ssh", "exec", "web", "--dry-run", "--", "uptime"},
+	{"host", "ssh", "exec", "web", "--", "rm", "-rf", "/"},
 	// cp between two remote places: the plan names both sides
 	{"cp", "web:/etc/hosts", "web:/tmp/hosts", "--dry-run"},
 	// streams: a dry run reads nothing and answers on stdout
@@ -64,10 +64,10 @@ var shapeCases = [][]string{
 	// a dry run names what it would remove would_remove, never removed;
 	// vpn rm lists the VPNs it removed; host trust answers with results
 	// for one server or many
-	{"host", "rm", "web", "--dry-run"},
+	{"host", "ssh", "remove", "web", "--dry-run"},
 	{"conn", "rm", "pg", "--dry-run"},
-	{"host", "trust", "web", "--dry-run"},
-	{"host", "trust", "web", "--fingerprint", "SHA256:pVt2Cc0dD2Q8dVqf7aNzK7TQzWm0yXcQe3uUe0t1abc", "--dry-run"},
+	{"host", "ssh", "trust", "web", "--dry-run"},
+	{"host", "ssh", "trust", "web", "--fingerprint", "SHA256:pVt2Cc0dD2Q8dVqf7aNzK7TQzWm0yXcQe3uUe0t1abc", "--dry-run"},
 	{"vpn", "add", "lab", "socks", "--proxy-address", "127.0.0.1:1080"},
 	{"vpn", "rm", "lab", "--dry-run"},
 	{"vpn", "rm", "lab"},
@@ -147,7 +147,7 @@ func TestOutputShapes(t *testing.T) {
 	t.Setenv("PG_PASS", "s3cret")
 	defer func() { setGate(tcl, false, gateDryRun) }()
 	for _, setup := range [][]string{
-		{"host", "add", "web", "deploy@web.lan", "--group", "lab", "--tag", "prod"},
+		{"host", "ssh", "add", "web", "deploy@web.lan", "--group", "lab", "--tag", "prod"},
 		{"secret", "set", "pg-pass", "--from-env", "PG_PASS"},
 		{"conn", "add", "pg", "postgres://app@db.lan:5432/app", "--password-ref", "secret:pg-pass"},
 		{"recipe", "add", "hello", "echo {{who=world}}"},

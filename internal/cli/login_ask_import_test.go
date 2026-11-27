@@ -20,7 +20,7 @@ func TestLoginAskImportKeepsTheSecretOnTheWay(t *testing.T) {
 	t.Setenv("TSKEY", "tskey-the-persons")
 	mustRun(t, "secret", "set", "corp-pass", "--from-env", "TSKEY")
 	mustRun(t, "vpn", "add", "ts", "tailscale", "--password-ref", "secret:corp-pass")
-	mustRun(t, "host", "add", "web1", "u@100.64.0.5", "--login", "ask", "--via", "ts")
+	mustRun(t, "host", "ssh", "add", "web1", "u@100.64.0.5", "--login", "ask", "--via", "ts")
 	setCallerEnv(t, "CLAUDECODE", "1")
 	env := writeTemp(t, ".env", "CORP_URL=postgres://app:tskey-the-agents@127.0.0.1:5432/app\n")
 	e := wantCode(t, "NEEDS_PERSON", "import", "env", env, "--overwrite")
@@ -38,10 +38,10 @@ func TestLoginAskImportKeepsTheSecretOnTheWay(t *testing.T) {
 // host edit --user on that jump server does.
 func TestLoginAskDefaultUserOfAJumpServer(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "bastion", "10.0.0.1")
-	mustRun(t, "host", "add", "web1", "u@10.0.0.5", "--login", "ask", "--via", "bastion")
+	mustRun(t, "host", "ssh", "add", "bastion", "10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.5", "--login", "ask", "--via", "bastion")
 	setCallerEnv(t, "CLAUDECODE", "1")
-	wantCode(t, "NEEDS_PERSON", "host", "edit", "bastion", "--user", "root")
+	wantCode(t, "NEEDS_PERSON", "host", "ssh", "edit", "bastion", "--user", "root")
 	e := wantCode(t, "NEEDS_PERSON", "config", "set", "default_user", "root")
 	if !strings.Contains(e.Message, "bastion") || !strings.Contains(e.Message, "web1") {
 		t.Errorf("%+v", e)
@@ -52,7 +52,7 @@ func TestLoginAskDefaultUserOfAJumpServer(t *testing.T) {
 // then the typed passwords. Without a ticket it stops, whatever follows.
 func TestLoginAskServeReadsTicketThenLogins(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.5", "--login", "ask") // the store the ticket's key comes from
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.5", "--login", "ask") // the store the ticket's key comes from
 	saved, savedIn := tcl.args, tcl.stdin
 	t.Cleanup(func() { tcl.args, tcl.stdin = saved, savedIn; resetApproval() })
 	cmd := []string{"tunnel", "serve", "t1", loginsStdinFlag}
@@ -86,7 +86,7 @@ func TestLoginAskServeReadsTicketThenLogins(t *testing.T) {
 func TestLoginAskImportCannotMakeTheSecretOnTheWay(t *testing.T) {
 	secretHome(t)
 	mustRun(t, "vpn", "add", "ts", "tailscale", "--password-ref", "secret:corp-pass")
-	mustRun(t, "host", "add", "web1", "u@100.64.0.5", "--login", "ask", "--via", "ts")
+	mustRun(t, "host", "ssh", "add", "web1", "u@100.64.0.5", "--login", "ask", "--via", "ts")
 	setCallerEnv(t, "CLAUDECODE", "1")
 	env := writeTemp(t, ".env", "CORP_URL=postgres://app:tskey-the-agents@127.0.0.1:5432/app\n")
 	wantCode(t, "NEEDS_PERSON", "import", "env", env)

@@ -663,12 +663,12 @@ func personHelp() string {
 		b.WriteString("Nothing added yet: komando host ssh add  or  komando import ssh-config\n\n")
 	}
 	for _, g := range [][2]string{
-		{"START", "host add · conn add · import ssh-config · list · test TARGET · guide install"},
-		{"SERVERS", "exec  logs  facts  fs  svc  job  docker  pkg  cron  user  reboot  shell"},
+		{"START", "host ssh add · conn add · import ssh-config · list · test TARGET · guide install"},
+		{"SERVERS", "logs  facts  fs  svc  job  docker  pkg  cron  user  reboot"},
 		{"DATA", "db  cache  queue  storage"},
 		{"PLATFORM", "cluster  registry"},
 		{"INVENTORY", "host  conn  group  import  export  rename"},
-		{"ACCESS", "vpn  login  secret  key  tunnel"},
+		{"ACCESS", "vpn  login  secret  key"},
 		{"OVERVIEW", "status  audit  list  test  doctor"},
 		{"SETUP", "config  policy  guide  schema  completion"},
 	} {

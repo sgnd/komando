@@ -86,7 +86,7 @@ func TestFactsOnlySystem(t *testing.T) {
 
 func TestFactsOnlyCommand(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web", "u@10.0.0.5")
+	mustRun(t, "host", "ssh", "add", "web", "u@10.0.0.5")
 	setGate(tcl, true, gateDryRun)
 	d := mustRun(t, "facts", "web", "--only", "load,mem,disks", "--dry-run")
 	setGate(tcl, false, gateDryRun)

@@ -15,7 +15,7 @@ func TestQueueRabbitConn(t *testing.T) {
 	invHome(t)
 	wantCode(t, "INSECURE_PROTOCOL", "conn", "add", "r", "amqp://app@rabbit.example.com/")
 	mustRun(t, "conn", "add", "r", "amqps://app@rabbit.example.com/%2F?management=15671")
-	mustRun(t, "host", "add", "office", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "office", "u@10.0.0.1")
 	mustRun(t, "conn", "add", "r-via", "amqp://app@rabbit.internal/", "--via", "office")
 	mustRun(t, "conn", "add", "r-plain", "amqp://app@rabbit.example.com:5672/?insecure=1")
 	if got := plainConn(&store.Conn{Name: "r-plain", URL: "amqp://app@rabbit.example.com:5672/prod?insecure=1"}); !strings.Contains(got, "amqps://app@rabbit.example.com:5671/prod") {

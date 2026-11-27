@@ -13,7 +13,7 @@ import (
 // a service the server still stops.
 func TestSwarmApplyNotJudgedAsExec(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "swarm1", "deploy@"+closedAddr(t))
+	mustRun(t, "host", "ssh", "add", "swarm1", "deploy@"+closedAddr(t))
 	dir := t.TempDir()
 	plain := filepath.Join(dir, "plain.yml")
 	os.WriteFile(plain, []byte("services:\n  web:\n    image: nginx:1.27\n"), 0o600)
@@ -40,7 +40,7 @@ func TestSwarmApplyNotJudgedAsExec(t *testing.T) {
 // leading dash as a flag. Every Swarm entry refuses such a name first.
 func TestSwarmEntryNames(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "swarm1", "deploy@"+closedAddr(t))
+	mustRun(t, "host", "ssh", "add", "swarm1", "deploy@"+closedAddr(t))
 	for _, args := range [][]string{
 		{"cluster", "rm", "swarm1", "service/--help"},
 		{"cluster", "rm", "swarm1", "stack/--help"},

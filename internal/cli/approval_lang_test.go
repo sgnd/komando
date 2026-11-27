@@ -87,7 +87,7 @@ func idView(v approvalView) approvalView { v.Lang = "id"; return v }
 // command, the script, names and the agent stay as they are.
 func TestApprovalViewIndonesian(t *testing.T) {
 	v := idView(testView("Codex", []string{"--allow-dangerous", "--yes"}, "", []string{"it runs on web-1.example.test (protected), db-1.example.test", "[rm-system-dir,db-drop] deletes a system folder recursively; drops a database"},
-		"komando exec web-1.example.test,db-1.example.test --user deploy --allow-dangerous --yes -- rm -rf /etc/x", ""))
+		"komando host ssh exec web-1.example.test,db-1.example.test --user deploy --allow-dangerous --yes -- rm -rf /etc/x", ""))
 	if got, want := v.title(), "Jalankan perintah di 2 server"; got != want {
 		t.Errorf("title %q, want %q", got, want)
 	}
@@ -139,7 +139,7 @@ func TestApprovalRiskWordsIndonesian(t *testing.T) {
 // by its label: the macOS script returns a fixed token, and a translated
 // label printed back allows nothing.
 func TestApprovalAllowKeyedOnIdentifier(t *testing.T) {
-	args := macArgs(idView(testView("Codex", nil, "", []string{"it runs on web-1.example.test"}, "komando exec web-1.example.test -- id", "")))
+	args := macArgs(idView(testView("Codex", nil, "", []string{"it runs on web-1.example.test"}, "komando host ssh exec web-1.example.test -- id", "")))
 	if args[10] != "komando minta persetujuan Anda" || args[11] != "Tolak" || args[12] != "Izinkan sekali" {
 		t.Errorf("labels %q", args[10:])
 	}
@@ -156,14 +156,14 @@ func TestApprovalAllowKeyedOnIdentifier(t *testing.T) {
 
 // Golden: the Indonesian window for the cases of approval_window.txt.
 func TestApprovalWindowGoldenIndonesian(t *testing.T) {
-	long := "komando exec web-1.example.test -- " + strings.Repeat("echo abcdefghij && ", 12) + "true"
+	long := "komando host ssh exec web-1.example.test -- " + strings.Repeat("echo abcdefghij && ", 12) + "true"
 	views := []approvalView{
 		idView(testView("Claude Code", []string{"--yes"}, "", []string{protWhy([]string{"web-1.example.test"}), "it runs on web-1.example.test (protected)"},
 			"komando fs write web-1.example.test /etc/app.yaml --content $'a: 1\\nb:\\n  c: 2' --yes", "")),
 		idView(testView("Codex", []string{"--allow-dangerous", "--yes"}, "", []string{"it runs on web-1.example.test (protected)", "[rm-system-dir] deletes a system folder recursively", protWhy([]string{"web-1.example.test"})}, long, "")),
-		idView(testView("Claude Code", []string{"--yes"}, "the program /usr/local/bin/x", []string{"it runs on db-2.example.test"}, "komando exec db-2.example.test --script ./deploy.sh --yes",
+		idView(testView("Claude Code", []string{"--yes"}, "the program /usr/local/bin/x", []string{"it runs on db-2.example.test"}, "komando host ssh exec db-2.example.test --script ./deploy.sh --yes",
 			"It also sends the script ./deploy.sh (40 bytes, 3 lines, SHA-256 ab12), all of it:\n\n  1  #!/bin/sh\n  2  set -e\n  3  systemctl restart app\n\n")),
-		idView(testView("Claude Code", []string{"--yes"}, "", []string{"it runs on web-1.example.test"}, "komando host rm web-1.example.test --yes", "")),
+		idView(testView("Claude Code", []string{"--yes"}, "", []string{"it runs on web-1.example.test"}, "komando host ssh remove web-1.example.test --yes", "")),
 		idView(testView("Codex", []string{"--reveal"}, "", nil, "komando db query shop --reveal -- select 1", "")),
 	}
 	windowGolden(t, "approval_window_id.txt", views)

@@ -14,7 +14,7 @@ import (
 // no-op, not an unknown flag.
 func TestFsMkdirParentsNoOp(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
 	defer func() { setGate(tcl, false, gateDryRun) }()
 	plan := func(args ...string) string {
 		d := mustRun(t, append([]string{"fs", "mkdir", "web1"}, args...)...)
@@ -44,9 +44,9 @@ func TestShorthandDidYouMean(t *testing.T) {
 	}{
 		{[]string{"fs", "ls", "web1", "/", "-n", "5"}, ""}, // fs ls has no --limit yet
 		{[]string{"db", "sizes", "x1", "-n", "5"}, ""},     // has -n
-		{[]string{"docker", "exec", "web1", "api", "-it", "--", "sh"}, "`komando shell TARGET`"},
+		{[]string{"docker", "exec", "web1", "api", "-it", "--", "sh"}, "`komando host ssh shell TARGET`"},
 		{[]string{"cluster", "exec", "k", "api", "-it", "--", "sh"}, "`komando cluster shell TARGET POD`"},
-		{[]string{"exec", "web1", "-L", "8080:localhost:80", "--", "true"}, "`komando tunnel start TARGET -L SPEC`"},
+		{[]string{"host", "ssh", "exec", "web1", "-L", "8080:localhost:80", "--", "true"}, "`komando host ssh tunnel start TARGET -L SPEC`"},
 		{[]string{"svc", "restart", "web1", "nginx", "-w", "10s"}, "did you mean --wait?"},
 		{[]string{"cache", "get", "c1", "k", "-x"}, ""},
 		{[]string{"fs", "replace", "web1", "/etc/x", "-b"}, "did you mean --backup?"},

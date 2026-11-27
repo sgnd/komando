@@ -436,7 +436,7 @@ func TestExecOnAMaskingConnsServerHidesPersonalData(t *testing.T) {
 		t.Fatal(err)
 	}
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
-	if got := asJSON(mustRun(t, "exec", "dev", "--read-only", "--", "cat", "/tmp/x.csv")); !strings.Contains(got, "ann@example.com") {
+	if got := asJSON(mustRun(t, "host", "ssh", "exec", "dev", "--read-only", "--", "cat", "/tmp/x.csv")); !strings.Contains(got, "ann@example.com") {
 		t.Fatalf("no masking conn yet: %s", got)
 	}
 	to := filepath.Join(t.TempDir(), "x.csv")
@@ -448,7 +448,7 @@ func TestExecOnAMaskingConnsServerHidesPersonalData(t *testing.T) {
 	resetApproval()
 	mustRun(t, "conn", "add", "pg", "postgres://u@127.0.0.1:5432/app", "--via", "dev", "--option", "mask_personal=on")
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
-	got := asJSON(mustRun(t, "exec", "dev", "--read-only", "--", "cat", "/tmp/x.csv"))
+	got := asJSON(mustRun(t, "host", "ssh", "exec", "dev", "--read-only", "--", "cat", "/tmp/x.csv"))
 	if strings.Contains(got, "ann@example.com") || !strings.Contains(got, "[hidden: email]") {
 		t.Fatalf("a masking conn reaches the database through dev: %s", got)
 	}

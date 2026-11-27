@@ -157,9 +157,9 @@ func goldenCases(t *testing.T) [][]string {
 // (release note, changes.md 11b), recorded so they stay as decided.
 var goldenExtra = [][]string{
 	// C-S02: words for the other program only after -- (USAGE, exit 2)
-	{"exec", "x1", "apt-get", "install", "-y", "nginx"},
-	{"exec", "x1", "uptime", "--dry-run"},
-	{"exec", "x1", "stray", "--", "uptime"},
+	{"host", "ssh", "exec", "x1", "apt-get", "install", "-y", "nginx"},
+	{"host", "ssh", "exec", "x1", "uptime", "--dry-run"},
+	{"host", "ssh", "exec", "x1", "stray", "--", "uptime"},
 	{"job", "start", "x1", "uptime"},
 	{"docker", "exec", "x1", "x2", "id"},
 	{"docker", "compose", "x1", "ps"},
@@ -170,7 +170,7 @@ var goldenExtra = [][]string{
 	{"cache", "redis", "raw", "x1", "GET", "k"},
 	// C-F02: two KEY=VALUE pairs in one value (USAGE, exit 2)
 	{"conn", "add", "x1", "postgres://u@10.0.0.9/app", "--option", "a=on,b=x"},
-	{"host", "add", "x1", "u@10.0.0.1", "--env", "A=1,B=2"},
+	{"host", "ssh", "add", "x1", "u@10.0.0.1", "--env", "A=1,B=2"},
 	// C-S01: -n is --namespace in cluster; a count there is refused (USAGE, exit 2)
 	{"cluster", "ls", "x1", "pods", "-n", "50"},
 	{"cluster", "events", "x1", "-n", "50"},
@@ -190,11 +190,11 @@ var goldenGateKeys = []string{
 // (changes.md 11a), one or more per row.
 var goldenSchema = [][]string{
 	{"storage", "link"}, {"cluster", "forward"}, // C-C08: kind read -> change
-	{"host", "add"}, {"conn", "add"}, // C-F02: --env, --option stringArray
+	{"host", "ssh", "add"}, {"conn", "add"}, // C-F02: --env, --option stringArray
 	{"cache", "set"}, {"cert", "check"}, {"registry", "oci", "image", "prune"}, // C-F04: duration
 	{"cluster", "logs"},              // C-F05, C-S01
 	{"cache", "get"}, {"fs", "list"}, // C-F08: --limit int
-	{"fs", "cat"}, {"exec"}, // C-F09: bytes
+	{"fs", "cat"}, {"host", "ssh", "exec"}, // C-F09: bytes
 	{"queue", "create"},                                            // C-F22: no -1 default
 	{"cluster", "events"}, {"cluster", "list"}, {"cluster", "get"}, // C-S01: -n
 }
@@ -310,7 +310,7 @@ func TestAgentGoldenPTY(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range [][]string{{"logs"}, {"db", "query"}, {"host", "show"}, {"exec"}, {"host", "add"}, {"db", "add"}, {"fs", "replace"}} {
+	for _, args := range [][]string{{"logs"}, {"db", "query"}, {"host", "ssh", "show"}, {"host", "ssh", "exec"}, {"host", "ssh", "add"}, {"db", "add"}, {"fs", "replace"}} {
 		head := "### komando -o text " + strings.Join(args, " ") + " (agent text)\n"
 		i := strings.Index(string(rec), head)
 		if i < 0 {
@@ -321,7 +321,7 @@ func TestAgentGoldenPTY(t *testing.T) {
 		fmt.Sscanf(block, "exit %d", &code)
 		msg := strings.TrimSpace(strings.SplitN(strings.SplitN(block, "--- stderr\n", 2)[1], "\n", 2)[0])
 		invHome(t)
-		mustRun(t, "host", "add", "web1", "root@10.0.0.5")
+		mustRun(t, "host", "ssh", "add", "web1", "root@10.0.0.5")
 		p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=agent"}, args...)
 		if got := p.exit(); got != code || !strings.Contains(p.shown(), msg) || strings.Contains(p.shown(), "$ komando") {
 			t.Errorf("%v: exit %d, want %d and %q; the screen:\n%s", args, got, code, msg, p.shown())

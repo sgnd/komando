@@ -23,7 +23,7 @@ func TestOracleConnsCheckTLS(t *testing.T) {
 	if url("erp") != "oracle://app@db.example.com/ERP?tls=true" || !strings.Contains(fmt.Sprint(d["warnings"]), "added tls=true") {
 		t.Errorf("oracle: %s, %v", url("erp"), d)
 	}
-	mustRun(t, "host", "add", "jump", "deploy@10.0.0.3")
+	mustRun(t, "host", "ssh", "add", "jump", "deploy@10.0.0.3")
 	for name, raw := range map[string]string{
 		"o-plain": "oracle://app@db.example.com/ERP?tls=false",
 		"o-local": "oracle://app@127.0.0.1/FREEPDB1",

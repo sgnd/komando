@@ -97,7 +97,7 @@ func TestFollowWaitLimit(t *testing.T) {
 	if !errors.As(err, &oe) || oe.Code != "SESSION_WAIT_TIMEOUT" || oe.Exit != out.ExitTimeout {
 		t.Fatalf("got %v", err)
 	}
-	if res.NextFrom != 2 || !strings.Contains(oe.Hint, "`komando exec web1 --attach "+testID+" --offset 2`") {
+	if res.NextFrom != 2 || !strings.Contains(oe.Hint, "`komando host ssh exec web1 --attach "+testID+" --offset 2`") {
 		t.Fatalf("next_from %d, hint %q", res.NextFrom, oe.Hint)
 	}
 }

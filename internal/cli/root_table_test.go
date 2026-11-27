@@ -746,13 +746,19 @@ func TestTierRunsNeverShrink(t *testing.T) {
 			t.Errorf("row %q has %d runs fewer than when the builder came: runs never go down", row, -n)
 		}
 	}
-	// a registered leaf has the runs of its today IDs on its new path
+	// a registered leaf has the runs of its today IDs on its new path, for
+	// each row the table has for that path (a row of one provider, such as
+	// host ssh add --proxy-command, is not run on another provider's leaf)
+	need := tierNeeded()
 	for _, l := range tableLeaves() {
 		if handlers[l.Key] == nil {
 			continue
 		}
 		id := strings.Join(l.Key.Path(), ".")
 		for _, r := range before {
+			if _, ok := need[r.row+" | "+id]; !ok {
+				continue
+			}
 			if slices.Contains(l.Today, r.id) && !slices.ContainsFunc(tierRuns, func(n tierRun) bool { return n.id == id && n.row == r.row }) {
 				t.Errorf("%s moved to %s: its run %q is not on the new path", r.id, id, r.row)
 			}

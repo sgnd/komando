@@ -9,12 +9,12 @@ import (
 // and Tab offers only those (S-4.2, C-A04).
 func TestTargetKinds(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "root@10.0.0.5")
+	mustRun(t, "host", "ssh", "add", "web1", "root@10.0.0.5")
 	mustRun(t, "conn", "add", "app-db", "postgres://app@10.0.0.9/app")
 	mustRun(t, "conn", "add", "prod-k8s", "kubernetes://10.0.0.20:6443")
 	root := newRoot(tcl)
 	for line, want := range map[string]string{
-		"exec": "Target (servers)", "svc restart": "Target (servers)", "cluster status": "Target (clusters)",
+		"host ssh exec": "Target (servers)", "svc restart": "Target (servers)", "cluster status": "Target (clusters)",
 		"upload": "Target (servers or file storage)", "conn rm": "Target (conns)", "test": "Target",
 	} {
 		c, _, err := root.Find(shellWords(line))
@@ -26,7 +26,7 @@ func TestTargetKinds(t *testing.T) {
 			t.Errorf("%s: label %q, want %q", line, sp.qs[0].label, want)
 		}
 	}
-	c, _, _ := root.Find([]string{"exec"})
+	c, _, _ := root.Find([]string{"host", "ssh", "exec"})
 	got, _ := c.ValidArgsFunction(c, nil, "")
 	if !slices.Contains(got, "web1") || slices.Contains(got, "app-db") || !slices.Contains(got, "all") {
 		t.Errorf("exec <TAB>: %v", got)

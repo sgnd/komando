@@ -17,8 +17,8 @@ done
 if [ "$up" != yes ]; then
   echo "  skipped: systemd cannot run as PID 1 in a container on this machine"
 else
-  q $K host add t-sysd "agent@127.0.0.1:$SYSD_PORT" --password-ref secret:agent-pass
-  q $K host trust t-sysd
+  q $K host ssh add t-sysd "agent@127.0.0.1:$SYSD_PORT" --password-ref secret:agent-pass
+  q $K host ssh trust t-sysd
   state() { $K svc status t-sysd t-svc | jget 'd["data"]["results"][0]["data"][0]["active_state"]'; }
   pid() { sys systemctl show -p MainPID --value t-svc; }
 
@@ -78,6 +78,6 @@ else
     "$($K reboot t-sysd --allow-dangerous --wait 120s | jget 'str(d["data"]["results"][0]["rebooted"]) + " " + str(d["data"]["results"][0]["back_after_s"] > 0)' || true)"
   check "after reboot: a new PID 1 and the service is back" "True active" \
     "$([ "$(sys cut -d' ' -f22 /proc/1/stat)" != "$pid1" ] && echo True || echo False) $(sys systemctl is-active t-svc || true)"
-  q $K host rm t-sysd
+  q $K host ssh remove t-sysd
 fi
 docker rm -f "$SYSD" >/dev/null 2>&1 || true

@@ -38,7 +38,7 @@ under a pseudo-terminal and komando does not know your agent, set
    unless you add `--write`. A command that hands words to another
    program (`exec`, `job start`, `docker exec`, `cluster run`, `cache redis raw`
    ...) takes them only after `--`, its own flags before it:
-   `komando exec web1 --read-only -- df -h`.
+   `komando host ssh exec web1 --read-only -- df -h`.
 5. Edit files with `komando fs replace ... --backup`, never with `sed -i`
    over `exec`. Query databases with `komando db query`, never `psql` or
    `mysql` over `exec`.
@@ -110,7 +110,7 @@ komando guide install            # teach Claude Code, Codex, Cursor and Gemini C
 export KOMANDO_AGENT=1           # only for an agent komando does not know (not Claude Code, Codex, Cursor, Gemini CLI)
 export KOMANDO_ACTOR=claude      # the name shown in `komando audit` (add it to ~/.zshrc or ~/.bashrc)
 komando list                     # check that your servers are there
-komando host edit web1 --protected   # production: changes need a person's yes
+komando host ssh edit web1 --protected   # production: changes need a person's yes
 ```
 
-To add a server yourself, type `komando host add` at your terminal: it asks for each part, one line at a time.
+To add a server yourself, type `komando host ssh add` at your terminal: it asks for each part, one line at a time.

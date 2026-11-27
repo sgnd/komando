@@ -23,7 +23,7 @@ if in_area data; then
 aok "version" version
 aok "list" list
 aok "test direct" test direct
-aok "host show (references, no values)" host show direct
+aok "host ssh show (references, no values)" host ssh show direct
 aok "conn show" conn show pg
 aok "conn kinds" conn kinds
 aok "vpn list" vpn list

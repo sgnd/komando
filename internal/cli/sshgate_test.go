@@ -23,16 +23,16 @@ func TestGateWords(t *testing.T) {
 	ok := map[string][]string{
 		"komando list":      {"komando", "list"},
 		"  komando\tlist  ": {"komando", "list"},
-		"komando exec web --read-only -- 'echo a; echo b'": {"komando", "exec", "web", "--read-only", "--", "echo a; echo b"},
-		`komando exec web -- "a b" c`:                      {"komando", "exec", "web", "--", "a b", "c"},
-		`komando list web-* ~ db-?`:                        {"komando", "list", "web-*", "~", "db-?"}, // nothing is expanded
-		`komando x "a\"b\\c\$d" 'e\f'`:                     {"komando", "x", `a"b\c$d`, `e\f`},
-		`komando a\ b \;`:                                  {"komando", "a b", ";"},
-		`komando '' "" x`:                                  {"komando", "", "", "x"},
-		"komando 'line one\nline two'":                     {"komando", "line one\nline two"},
-		"komando list\\\n web":                             {"komando", "list", "web"},
-		`komando a'b'"c"d`:                                 {"komando", "abcd"},
-		`komando x#y`:                                      {"komando", "x#y"},
+		"komando host ssh exec web --read-only -- 'echo a; echo b'": {"komando", "exec", "web", "--read-only", "--", "echo a; echo b"},
+		`komando host ssh exec web -- "a b" c`:                      {"komando", "exec", "web", "--", "a b", "c"},
+		`komando list web-* ~ db-?`:                                 {"komando", "list", "web-*", "~", "db-?"}, // nothing is expanded
+		`komando x "a\"b\\c\$d" 'e\f'`:                              {"komando", "x", `a"b\c$d`, `e\f`},
+		`komando a\ b \;`:                                           {"komando", "a b", ";"},
+		`komando '' "" x`:                                           {"komando", "", "", "x"},
+		"komando 'line one\nline two'":                              {"komando", "line one\nline two"},
+		"komando list\\\n web":                                      {"komando", "list", "web"},
+		`komando a'b'"c"d`:                                          {"komando", "abcd"},
+		`komando x#y`:                                               {"komando", "x#y"},
 	}
 	for in, want := range ok {
 		got, err := gateWords(in)
@@ -196,8 +196,8 @@ func TestGateCheck(t *testing.T) {
 		{"no-such-command", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"}, // names no command: as for a person (cut PR B1)
 		{"completion bash", "", ""},
 		{"exec web --read-only --dry-run -- uptime", "", ""},
-		{"host rm x --dry-run", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"}, // no key changes komando's inventory, nor previews it
-		{"exec web --script ./check.sh", R, "SSH_GATE_READ_ONLY"},       // no key reads a file on the komando computer
+		{"host ssh remove x --dry-run", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"}, // no key changes komando's inventory, nor previews it
+		{"exec web --script ./check.sh", R, "SSH_GATE_READ_ONLY"},               // no key reads a file on the komando computer
 		{"exec web --script ./check.sh --read-only", R, R},
 		{"exec web --script -", "", "SSH_GATE_READ_ONLY"}, // the key's own input
 		{"exec web --script - --read-only", "", ""},
@@ -501,7 +501,7 @@ func TestSSHGateNoWritesHere(t *testing.T) {
 	for _, line := range []string{
 		"komando download web /tmp/k.pub --to .ssh/authorized_keys --overwrite",
 		"komando cp web:/tmp/k.pub .ssh/authorized_keys --overwrite",
-		"komando host add me u@127.0.0.1",
+		"komando host ssh add me u@127.0.0.1",
 		"komando config set audit off --yes",
 		"komando update",
 	} {
@@ -539,7 +539,7 @@ func TestSSHGateAuditAlways(t *testing.T) {
 func TestSSHGateAuditText(t *testing.T) {
 	invHome(t)
 	gateRun(t, "komando list 'x\n2026-01-01 00:00:00  alice  host.rm  web  ok\r\x1b[2K'", "--name", "phone")
-	gateRun(t, "komando exec web --read-only -- 'a\n\x1b[1Ab'", "--name", "phone")
+	gateRun(t, "komando host ssh exec web --read-only -- 'a\n\x1b[1Ab'", "--name", "phone")
 	d := mustRun(t, "audit")
 	var entries []map[string]any
 	for _, e := range d["entries"].([]any) {
@@ -640,7 +640,7 @@ func TestSSHGateNoShellWithoutFlag(t *testing.T) {
 	t.Cleanup(func() { tcl.terminal = saved })
 	tcl.terminal = true
 	for _, args := range [][]string{{"--name", "full"}, {"--name", "read", "--read-only"}} {
-		for _, line := range []string{"komando shell web", "komando ssh web", "komando db shell pg", "komando cluster shell k8s pod/x"} {
+		for _, line := range []string{"komando host ssh shell web", "komando ssh web", "komando db shell pg", "komando cluster shell k8s pod/x"} {
 			ran, _, e := gateRun(t, line, args...)
 			if ran != nil || e == nil || e.Code != "SSH_GATE_REFUSED" || !strings.Contains(e.Message, "needs a person at a terminal on this computer") {
 				t.Errorf("%v %q: ran %q, error %+v", args, line, ran, e)

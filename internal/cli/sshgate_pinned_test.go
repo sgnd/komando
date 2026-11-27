@@ -33,7 +33,7 @@ func TestGateAnswersPinned(t *testing.T) {
 			for _, k := range []struct {
 				name string
 				key  gateKey
-			}{{"read", readKey}, {"netread", netReadKey}, {"full", fullKey}, {"shell", shellAccessKey}} {
+			}{{"read", readKey}, {"netread", netReadKey}, {"full", fullKey}, {"host", "ssh", "shell", shellAccessKey}} {
 				name, _, e := gateCheck(slices.Clone(words), k.key)
 				answer := "runs"
 				if e != nil {

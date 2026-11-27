@@ -91,11 +91,11 @@ func TestEarlierWindowDoesNotCoverUnshownBody(t *testing.T) {
 // names both.
 func TestYesIsForTheFlagItsWindowNamed(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web", "u@10.0.0.9", "--protected")
+	mustRun(t, "host", "ssh", "add", "web", "u@10.0.0.9", "--protected")
 	if err := vault.Set(store.Save(), "web-pw", "old-value"); err != nil {
 		t.Fatal(err)
 	}
-	mustRun(t, "host", "edit", "web", "--password-ref", "secret:web-pw", "--yes")
+	mustRun(t, "host", "ssh", "edit", "web", "--password-ref", "secret:web-pw", "--yes")
 	texts := windowText(t, true)
 	t.Setenv("V", "agent-value")
 	mustRun(t, "secret", "set", "web-pw", "--from-env", "V", "--yes", "--reveal")

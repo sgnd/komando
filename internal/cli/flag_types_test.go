@@ -202,8 +202,8 @@ func TestStandardKeyValue(t *testing.T) {
 	if strings.Contains(e.Message+e.Hint, "hunter2") || strings.Contains(e.Message+e.Hint, "require") {
 		t.Errorf("the values are shown: %+v", e)
 	}
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--env", "A=1", "--env", "B=x,y", "--label", "team=ops", "--label", "env=prod")
-	h := mustRun(t, "host", "show", "web1")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1", "--env", "A=1", "--env", "B=x,y", "--label", "team=ops", "--label", "env=prod")
+	h := mustRun(t, "host", "ssh", "show", "web1")
 	if s := jsonStr(h); !strings.Contains(s, `"B":"x,y"`) || !strings.Contains(s, `"team":"ops"`) || !strings.Contains(s, `"env":"prod"`) {
 		t.Errorf("host show: %s", s)
 	}

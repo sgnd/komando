@@ -13,7 +13,7 @@ import (
 // with the commands to use (C-V23).
 func TestRenameOneEntry(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
 	if d := mustRun(t, "--dry-run", "rename", "web1", "web-01"); d["to"] != "web-01" {
 		t.Errorf("dry run: %v", d)
 	}

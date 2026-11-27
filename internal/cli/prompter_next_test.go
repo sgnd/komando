@@ -100,10 +100,10 @@ func TestFormHintsNextMerge(t *testing.T) {
 func TestPersonHelp(t *testing.T) {
 	invHome(t)
 	h := personHelp()
-	if !strings.Contains(h, "Nothing added yet: komando host add") || strings.Index(h, "START") > strings.Index(h, "SERVERS") {
+	if !strings.Contains(h, "Nothing added yet: komando host ssh add") || strings.Index(h, "START") > strings.Index(h, "SERVERS") {
 		t.Errorf("%s", h)
 	}
-	mustRun(t, "host", "add", "web1", "root@10.0.0.5")
+	mustRun(t, "host", "ssh", "add", "web1", "root@10.0.0.5")
 	if strings.Contains(personHelp(), "Nothing added yet") {
 		t.Error("an inventory with a server is called empty")
 	}
@@ -138,7 +138,7 @@ func TestPromptNext(t *testing.T) {
 		{"key show", "deploy", "komando key deploy deploy TARGET", "db "},
 		{"job status", "7f3", "komando job logs 7f3 --limit 50", "conn "},
 		{"group rm", "old", "Next: komando group add old TARGET...", "group rm"},
-		{"tunnel show", "db-tunnel", "komando tunnel stop db-tunnel", "conn "},
+		{"tunnel show", "db-tunnel", "komando host ssh tunnel stop db-tunnel", "conn "},
 		{"recipe show", "health", "komando recipe run health TARGET", "conn "},
 	} {
 		drawn.Reset()
@@ -169,7 +169,7 @@ func TestAddHintForAPerson(t *testing.T) {
 	saved := tcl.terminal
 	tcl.terminal = true
 	defer func() { tcl.terminal = saved }()
-	for family, want := range map[string]string{"db": "komando db add", "host": "komando host add", "vpn": "komando vpn add"} {
+	for family, want := range map[string]string{"db": "komando db add", "host": "komando host ssh add", "vpn": "komando vpn add"} {
 		if h := addHint(tcl, family, ""); !strings.Contains(h, want) || strings.Contains(h, "pick Add") {
 			t.Errorf("%s: %q", family, h)
 		}
@@ -258,15 +258,15 @@ func TestStandardNextPerVerb(t *testing.T) {
 		}
 	}
 	for key, want := range map[string]string{
-		"host add":    "komando test web1",
-		"conn add":    "komando test web1",
-		"host rename": "komando host show web2",
-		"key rename":  "komando key show web2",
-		"rename":      "komando list web2",
-		"user add":    "komando user list web1",
-		"cron rm":     "komando cron list web1",
-		"host rm":     "komando host list",
-		"vpn edit":    "komando vpn show web1",
+		"host ssh add":    "komando test web1",
+		"conn add":        "komando test web1",
+		"host rename":     "komando host ssh show web2",
+		"key rename":      "komando key show web2",
+		"rename":          "komando list web2",
+		"user add":        "komando user list web1",
+		"cron rm":         "komando cron list web1",
+		"host ssh remove": "komando host ssh list",
+		"vpn edit":        "komando vpn show web1",
 	} {
 		if got := nextLines(key, "web1", []string{"web1", "web2"}); len(got) == 0 || got[0] != want {
 			t.Errorf("%s: Next: %q, want %q first", key, got, want)

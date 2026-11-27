@@ -5,17 +5,17 @@ R=/tmp/t-e2erun
 L="$TMP/e2erun"
 rm -rf "$L"; mkdir -p "$L/site/sub"
 echo a > "$L/site/a.txt"; echo b > "$L/site/sub/b.txt"; ln -s a.txt "$L/site/link"
-q $K exec direct --allow-dangerous -- "rm -rf $R ~/t-e2erun; mkdir -p $R/avail $R/enabled $R/dl/sub && printf 'x\n' > $R/avail/site && ln -s ../avail/site $R/enabled/site && echo 1 > $R/dl/ok && echo 2 > $R/dl/sub/locked && chmod 000 $R/dl/sub/locked"
+q $K host ssh exec direct --allow-dangerous -- "rm -rf $R ~/t-e2erun; mkdir -p $R/avail $R/enabled $R/dl/sub && printf 'x\n' > $R/avail/site && ln -s ../avail/site $R/enabled/site && echo 1 > $R/dl/ok && echo 2 > $R/dl/sub/locked && chmod 000 $R/dl/sub/locked"
 
 # exec / runner
-check "--read-only refuses a change" READ_ONLY_VIOLATION "$($K exec direct --read-only -- "touch $R/nothing" | jget 'd["error"]["code"]' || true)"
-check "--read-only allows a read" 0 "$($K exec direct --read-only -- 'cat /etc/hostname' >/dev/null; echo $?)"
-check "single host failure names the exit code" 1 "$({ $K exec direct -o text -- 'exit 3' 2>&1 >/dev/null || true; } | grep -c 'failed (exit 3)')"
-check "stderr inside each host block" True "$($K exec bastion,direct -o text -- 'echo oops >&2' 2>/dev/null | grep -q '^\[stderr\] oops' && echo True || echo False)"
-check "--fail-fast reports skipped hosts" 1 "$($K exec bastion,direct --fail-fast -P 1 -- false | jget 'd["data"]["summary"]["skipped"]' || true)"
-check "--stream text prints output once" 1 "$($K exec direct --stream -o text -- 'echo once' | grep -c once)"
-check "exec --script --arg reaches perl" hello "$($K exec direct --script /dev/stdin --interpreter perl --arg hello <<< 'print $ARGV[0];' | jget 'd["data"]["results"][0]["stdout"]')"
-set +e; $K exec direct --stdin-file "$L/nofile" -- cat >/dev/null; check "missing --stdin-file -> 3" 3 $?; set -e
+check "--read-only refuses a change" READ_ONLY_VIOLATION "$($K host ssh exec direct --read-only -- "touch $R/nothing" | jget 'd["error"]["code"]' || true)"
+check "--read-only allows a read" 0 "$($K host ssh exec direct --read-only -- 'cat /etc/hostname' >/dev/null; echo $?)"
+check "single host failure names the exit code" 1 "$({ $K host ssh exec direct -o text -- 'exit 3' 2>&1 >/dev/null || true; } | grep -c 'failed (exit 3)')"
+check "stderr inside each host block" True "$($K host ssh exec bastion,direct -o text -- 'echo oops >&2' 2>/dev/null | grep -q '^\[stderr\] oops' && echo True || echo False)"
+check "--fail-fast reports skipped hosts" 1 "$($K host ssh exec bastion,direct --fail-fast -P 1 -- false | jget 'd["data"]["summary"]["skipped"]' || true)"
+check "--stream text prints output once" 1 "$($K host ssh exec direct --stream -o text -- 'echo once' | grep -c once)"
+check "exec --script --arg reaches perl" hello "$($K host ssh exec direct --script /dev/stdin --interpreter perl --arg hello <<< 'print $ARGV[0];' | jget 'd["data"]["results"][0]["stdout"]')"
+set +e; $K host ssh exec direct --stdin-file "$L/nofile" -- cat >/dev/null; check "missing --stdin-file -> 3" 3 $?; set -e
 check "logs --follow ends at --timeout" 0 "$($K logs direct --file $R/dl/ok --follow --timeout 2s >/dev/null; echo $?)"
 
 # fs
@@ -64,10 +64,10 @@ q $K job rm "$JR"
 # recipes, tunnels
 set +e; $K recipe run disk direct --var pth=/ >/dev/null; check "unknown recipe --var -> 2" 2 $?; set -e
 check "an unknown recipe" RECIPE_NOT_FOUND "$($K recipe run t-e2enope direct | jget 'd["error"]["code"]' || true)"
-TUN=$($K tunnel start direct -L 0:localhost:22)
+TUN=$($K host ssh tunnel start direct -L 0:localhost:22)
 TP=$(echo "$TUN" | jget 'd["data"]["listen"].split(":")[1]')
-check "a port in use" PORT_IN_USE "$($K tunnel start direct -L "${TP}:localhost:22" | jget 'd["error"]["code"]' || true)"
-q $K tunnel stop "$(echo "$TUN" | jget 'd["data"]["id"]')"
+check "a port in use" PORT_IN_USE "$($K host ssh tunnel start direct -L "${TP}:localhost:22" | jget 'd["error"]["code"]' || true)"
+q $K host ssh tunnel stop "$(echo "$TUN" | jget 'd["data"]["id"]')"
 
-q $K exec direct --allow-dangerous -- "chmod -R u+rwx $R; rm -rf $R ~/t-e2erun-a.txt"
+q $K host ssh exec direct --allow-dangerous -- "chmod -R u+rwx $R; rm -rf $R ~/t-e2erun-a.txt"
 rm -rf "$L"
