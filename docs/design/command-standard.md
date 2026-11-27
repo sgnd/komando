@@ -694,7 +694,7 @@ here as "none". [schema: for each kind, each verb resolves]
 `--label`, `--protected`, `--unset` as host and conn; `rm` and `edit` take
 `NAME|TARGET...` alike. `--unset` may not name `mfa` or `protected`;
 `--protected=false` and clearing `--mfa` are T3s (S-7.2); a multi-target
-`vpn rm` follows the `host rm` tier. [schema; code: parity test with host]
+`vpn rm` follows the `host ssh remove` tier. [schema; code: parity test with host]
 
 **S-10.3** A family `rm` given only a conn name, at a terminal, says what it
 deletes and how to take the conn out of komando instead, before any

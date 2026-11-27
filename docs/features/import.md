@@ -74,7 +74,7 @@ appear in komando's list, output or history.
   `?insecure=1`.
 - With `--overwrite`, the result lists what it replaced. Without a yes, a
   protected server, conn or VPN is skipped, in the dry run too.
-- A file cannot turn on what `host edit` and `vpn edit` ask a person for:
+- A file cannot turn on what `host ssh edit` and `vpn edit` ask a person for:
   `forward_agent` on a server that did not lend your ssh-agent before,
   `legacy_crypto` or `allow_pap` on a VPN, and, for a VPN it replaces, a CA
   it no longer checks the server against or `mfa` or protection turned
@@ -84,7 +84,7 @@ appear in komando's list, output or history.
   the result lists them in `settings_differ` with the command to run.
 - The result names the command that checks what came in in `data.next`,
   and a person sees it on stderr: `Next: komando test @shop`.
-- Servers are checked like `host add` (ports, users, `--via`). A bad one is
+- Servers are checked like `host ssh add` (ports, users, `--via`). A bad one is
   skipped, with the reason. A `csv` import is stricter: one bad row stops
   the whole import, and nothing is added.
 - Whatever komando cannot import is listed, with the reason. For example: a

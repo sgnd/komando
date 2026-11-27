@@ -306,7 +306,7 @@ If so, extend that one.
 - Doing one item or many at once may be two commands, sharing the same
   code.
 
-Examples in place: `test` (`host test` and `conn test` call it), `list`,
+Examples in place: `test` (`host ssh test` and `conn test` call it), `list`,
 `logs` (`svc logs` and `docker logs` call it), `recipe`, `upload` /
 `download`, `exec --script`, `import` / `export`, `status --short`.
 

@@ -425,8 +425,8 @@ is not.
   `list` and `secret list` (which open the store) through `RunCall`:
   under `-race`, nothing a hook reads is written without a lock. It
   fails if the hooks never ran while both kinds of call were running.
-- `TestDryRunBesideARealChange`: a person's `host add --ask-password`
-  has started and waits for its password while a dry run's `host add`
+- `TestDryRunBesideARealChange`: a person's `host ssh add --ask-password`
+  has started and waits for its password while a dry run's `host ssh add`
   runs from start to end; then the person's call saves its server and
   its password, and the dry run's server is not saved. Six more pairs
   run at once in no set order.

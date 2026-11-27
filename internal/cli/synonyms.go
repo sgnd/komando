@@ -5,8 +5,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-
-	"github.com/sgnd/komando/internal/out"
 )
 
 // A synonym is a second name that is permanent and silent (S-1.7). Most

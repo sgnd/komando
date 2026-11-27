@@ -205,7 +205,7 @@ komando vpn edit office --check 10.0.0.6:22   # change a setting (see the list b
 komando vpn status                            # which are up, since when, what uses them
 komando vpn rename office office-jkt          # rename; every --via path follows
 komando vpn rm office                         # remove (several names or a selector allowed)
-komando vpn edit tag:prod --protected         # mark VPNs protected (like host edit)
+komando vpn edit tag:prod --protected         # mark VPNs protected (like host ssh edit)
 ```
 
 - `vpn status`: a session VPN is up while its session runs; a SOCKS or
@@ -237,7 +237,7 @@ komando vpn edit tag:prod --protected         # mark VPNs protected (like host e
   needs a person's yes (`SAFETY_SETTING`): another CA lets another server
   get the VPN's login.
 - `vpn edit` and `vpn rm` take several names or a selector (`@office`,
-  `tag:lab`), as `host edit` and `host rm` do.
+  `tag:lab`), as `host ssh edit` and `host ssh remove` do.
 - A protected VPN (`--protected`) needs a person's yes before it is
   changed, replaced or removed (`PROTECTED_TARGET`). At your terminal
   komando asks you first; an AI agent or a script adds `--yes` after a

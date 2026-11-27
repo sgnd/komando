@@ -47,11 +47,11 @@ The flags you will use most:
 | `-g`, `--group` / `-t`, `--tag` / `--label KEY=VALUE` | Sort servers so one [target](targets.md) can pick many. |
 | `--key NAME` / `--identity PATH` | Log in with a key from komando's key list (`komando key`), or with a key file. |
 | `--password-ref` / `--sudo-ref` | Where the login or sudo password is kept (see [Use a password](#use-a-password)). |
-| `--login ask\|password\|key\|agent` | How komando logs in, in the same words `host show` prints: `ask` (you type the password at every connect, never stored: see [Type the password each time](#type-the-password-each-time---login-ask)), `password` (a stored one, with `--ask-password` or `--password-ref`), `key` (with `--key` or `--identity`), `agent` (ssh-agent and `~/.ssh` only). |
+| `--login ask\|password\|key\|agent` | How komando logs in, in the same words `host ssh show` prints: `ask` (you type the password at every connect, never stored: see [Type the password each time](#type-the-password-each-time---login-ask)), `password` (a stored one, with `--ask-password` or `--password-ref`), `key` (with `--key` or `--identity`), `agent` (ssh-agent and `~/.ssh` only). |
 | `--via bastion` | Reach the server through other servers or a VPN first ([tunnels](tunnels.md)). |
 | `--protected` | Mark a production server (see [Protect a production server](#protect-a-production-server)). |
 | `-e`, `--env KEY=VALUE` | Export a variable before every command on this server. A value from the vault (`KEY=secret:NAME`) is left out of an AI agent's commands: the agent could read it back unmasked (`printenv KEY \| rev`). It goes to an agent's `exec` or `job start` only when the agent adds `--yes` and you allow it in komando's window. |
-| `--notes TEXT` | Free notes; agents see them in `host show`. |
+| `--notes TEXT` | Free notes; agents see them in `host ssh show`. |
 | `--port N` | The SSH port (default 22); same as `:N` after the address. |
 | `--overwrite` | Replace a server that already has this name. |
 
@@ -126,7 +126,7 @@ Only `name` and `address` are needed. The columns are `name`, `address`
 (or `ip`), `user`, `port`, `key`, `identity`, `password-ref`, `sudo-ref`,
 `via`, `groups` (or `role`), `tags`, `protected` (yes or no) and `notes`; a
 cell with several groups or tags separates them with commas, `;` or spaces.
-Each row is checked like `host add`, and rows may use each other in `via`.
+Each row is checked like `host ssh add`, and rows may use each other in `via`.
 komando checks every row before it writes anything: one bad row (an unknown
 column, a bad port, a `via` to a server that does not exist) stops the whole
 import and lists every problem. Servers that already exist are skipped;
@@ -138,7 +138,7 @@ the vault (`komando secret set ubuntu-sudo` first).
 
 ## Change a server
 
-`host edit` changes only the options you pass:
+`host ssh edit` changes only the options you pass:
 
 ```bash
 komando host ssh edit web1 --add-tag canary --port 2222
@@ -194,7 +194,7 @@ komando host ssh rename web1 web-01
 The address, login, references, protected mark, groups, tags and labels
 stay. Servers, conns and tunnels that go through it (`--via`), and its jobs
 and tunnels, follow the new name in the same step. Pinned host keys belong
-to the address, so `host trust` is not needed again. Renaming a protected
+to the address, so `host ssh trust` is not needed again. Renaming a protected
 server asks first. `conn rename` and `vpn rename` do the same for conns and
 VPNs, `key rename` for a key, and `group rename` for a group.
 
@@ -266,7 +266,7 @@ komando rename --starts-with shop- acme-shop- --in-notes --in-labels --dry-run  
 
 ## Remove a server
 
-`host rm` removes servers from komando's list. It does not touch the server
+`host ssh remove` removes servers from komando's list. It does not touch the server
 itself. It takes names or a [target](targets.md):
 
 ```bash
@@ -279,7 +279,7 @@ A protected server asks first. A server that another server still reaches
 through `--via` is kept (`HOST_IN_USE`, which lists every one of them).
 `conn rm` works the same way for databases, caches and storage.
 
-`host rm` does not forget a server's pinned host key (see
+`host ssh remove` does not forget a server's pinned host key (see
 [Server keys](#server-keys-host-keys)).
 
 ## Log in with a key
@@ -487,7 +487,7 @@ komando host ssh edit web1 --login agent                  # back to ssh-agent an
 komando host ssh edit web1 --login password --ask-password   # back to a stored password
 ```
 
-`--login` takes the words `host show` and `host list` print in their
+`--login` takes the words `host ssh show` and `host ssh list` print in their
 `login` field, and each reads back as written:
 
 | `--login` | How komando logs in | Needs |
@@ -549,7 +549,7 @@ So komando keeps the way in your hands:
   So the typed password goes only to a key you have logged in to this
   server with; a key pinned some other way counts as a first connection
   (`nobody has logged in to web1 ... with a typed password yet`). A
-  rename keeps what you met; `host trust --reset` forgets it. An app's
+  rename keeps what you met; `host ssh trust --reset` forgets it. An app's
   window warns on a first connection or login. The same holds while
   `host_key_policy` is `off`, and for a WinRM server with `tls=off` or
   `tls=skip-verify`: nothing checks who answers there.
@@ -739,7 +739,7 @@ Only a person at a terminal replaces a pinned key: komando shows the old
 and the new fingerprint and asks once. An AI agent or a script gets
 `NEEDS_PERSON` (exit 6) whatever flags it adds, because an agent that
 re-pins the key could be talking to an impostor; its hint names the
-command for you to run. Without `--reset`, `host trust` never adds a
+command for you to run. Without `--reset`, `host ssh trust` never adds a
 second key: a different key stops with `HOSTKEY_MISMATCH`, and a server
 that cannot be reached keeps its old key.
 
@@ -759,7 +759,7 @@ its new fingerprint. Compare them with your cloud console first.
 
 `komando host ssh remove` does not forget a server's key. If you remove a server
 and add it again at the same address, it must still show the same key, so
-`rm` plus `add` is no way around `HOSTKEY_MISMATCH`. `host rm` says which
+`rm` plus `add` is no way around `HOSTKEY_MISMATCH`. `host ssh remove` says which
 keys it kept (`host_keys_kept`); after a rebuild, replace them with `host
 trust --reset`.
 
@@ -797,7 +797,7 @@ your yes, and replacing a pinned key still needs `--reset` at your
 terminal.
 
 `HOSTKEY_UNKNOWN` says which fingerprint the server shows. With `strict`,
-an AI agent cannot pin a first key by itself: `host trust` needs your yes in
+an AI agent cannot pin a first key by itself: `host ssh trust` needs your yes in
 komando's window, which shows the fingerprint to compare (with the default
 `accept-new` the first login pins it anyway).
 
@@ -833,10 +833,10 @@ told to use `komando host ssh exec` or `komando host ssh shell`.
 - A server name uses letters, digits, `.`, `_` and `-` (see
   [Targets](targets.md#limits)). A server cannot be named `aws`, `gcp` or
   `azure`: `komando login aws` is the AWS login.
-- `--address` in `host edit` works on one server only.
+- `--address` in `host ssh edit` works on one server only.
 - A key file added with `key add` is never moved or deleted by komando.
 - `--ask-password`, `komando login`, `host ssh-command` and replacing a
-  pinned host key (`host trust --reset`) need a person at a terminal.
+  pinned host key (`host ssh trust --reset`) need a person at a terminal.
 - A `--login ask` server's password is typed by a person: a script, cron
   or CI job reaches it only through a `komando login` a person started,
   and its first connection needs a person at a terminal. A WinRM server
@@ -877,7 +877,7 @@ told to use `komando host ssh exec` or `komando host ssh shell`.
 | `SECRET_DESTINATION` | an AI agent asked to send a password to a server | a person allows it in komando's window |
 | `SECRET_UNRESOLVED` | komando could not read a reference (no login for the password manager, or no such secret) | follow the hint: it names the logins that work |
 | `SSH_AGENT_NEEDED` | `host ssh-command` for a key komando made, with no ssh-agent running | `eval "$(ssh-agent)"`, or use `komando host ssh shell SERVER` |
-| `NEEDS_PERSON` | only a person at a terminal can do this (`host trust --reset`, `host ssh-command`), or a `--login ask` server's password and nobody can type it, or its first connection (a host key nobody has logged in with), or an AI agent changed where its password goes (its address, port, user, `--via`, proxy command, a server or VPN on its way) | run the command in your own terminal, or `komando login SERVER` once |
+| `NEEDS_PERSON` | only a person at a terminal can do this (`host ssh trust --reset`, `host ssh-command`), or a `--login ask` server's password and nobody can type it, or its first connection (a host key nobody has logged in with), or an AI agent changed where its password goes (its address, port, user, `--via`, proxy command, a server or VPN on its way) | run the command in your own terminal, or `komando login SERVER` once |
 | `DECLINED` | the person cancelled the password window of a `--login ask` server (or did so less than a minute ago) | a person runs `komando login SERVER` |
 | `NEEDS_PERSON` | `komando login` without a person at a terminal (an AI agent or a script) | a person runs `komando login SERVER` |
 | `IMPORT_INCOMPLETE` | some servers were not imported (listed under `skipped`) | fix them in the source and import again |

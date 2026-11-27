@@ -68,12 +68,12 @@ Options go after `?`, joined with `&`:
 
 `auth=basic`, `tls=skip-verify` and `tls=off` give up a protection of the
 password or of the server check, so an AI agent that sets one (with `host
-add`, `host edit --address` or `import`) needs your yes in komando's
+add`, `host ssh edit --address` or `import`) needs your yes in komando's
 window (`SAFETY_SETTING` without it). A server that has the setting
 already asks nothing again.
 
 `--via` works: the connection goes through the bastion or VPN. WinRM
-carries commands only, so `shell`, tunnels, `host trust`, `login` and
+carries commands only, so `shell`, tunnels, `host ssh trust`, `login` and
 `host ssh-command` need OpenSSH. To switch a server back to SSH:
 `komando host ssh edit win2 --unset transport`. Use NTLM with a domain user,
 over HTTPS (see [Limits](#limits) for what WinRM does not do).
@@ -237,7 +237,7 @@ lists services that should start automatically but stopped with an error.
 | `fs list`, `stat`, `cat`, `write` | `fs replace`, `fs restore`, `fs rm`, `mkdir`, `mv`, `chmod`, `sync` |
 | `upload`, `download`, `cp` (single files) | `job`, `cp -r`, `svc reload`, `svc daemon-reload`, `svc logs` |
 | `svc status`, `list`, `start`, `stop`, `restart`, `enable`, `disable` | `--sudo`, `--pty`, `--mode`, `--owner` |
-| `host trust`, `login`, `tunnel`, `--via` through a Windows server (SSH only) | `shell`, tunnels, `host trust` over WinRM |
+| `host ssh trust`, `login`, `tunnel`, `--via` through a Windows server (SSH only) | `shell`, tunnels, `host ssh trust` over WinRM |
 
 A command that is not there yet stops with `NOT_SUPPORTED` before anything
 runs; `fs restore` stops with a usage error (`USAGE`) that names
@@ -257,7 +257,7 @@ runs; `fs restore` stops with a usage error (`USAGE`) that names
   Windows: copy the backup back with `komando host ssh exec SERVER -- Copy-Item ...`.
 - Kerberos, CredSSP, client certificates and WinRM's own message encryption
   over plain HTTP are not supported.
-- WinRM carries commands only: `shell`, tunnels, `host trust`, `login` and
+- WinRM carries commands only: `shell`, tunnels, `host ssh trust`, `login` and
   `host ssh-command` need OpenSSH.
 - Windows has no sudo: `--sudo` and `--pty` are refused.
 - A target that picks Windows and other servers at once is refused for
