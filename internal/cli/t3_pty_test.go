@@ -37,6 +37,7 @@ var t3Cases = []struct {
 	{"user.rm", "the name bob", []string{"user", "rm", "web1", "bob"}},
 	{"user.rm", "the name bob", []string{"user", "rm", "web1", "bob", "--remove-home"}},
 	{"credential.password.remove", "the name gsec", []string{"credential", "password", "remove", "gsec"}},
+	{"credential.token.remove", "the name gsec", []string{"credential", "token", "remove", "gsec"}}, // one saved value for both kinds until step E
 	{"credential.key.remove", "the name gkey", []string{"credential", "key", "remove", "gkey", "--delete-file"}},
 	{"pkg.rm", "the name openssh-server", []string{"pkg", "rm", "web1", "openssh-server"}},
 	{"reboot", "the name web1", []string{"reboot", "web1"}},
