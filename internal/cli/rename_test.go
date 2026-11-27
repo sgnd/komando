@@ -23,20 +23,21 @@ import (
 func shopInventory(t *testing.T) {
 	t.Helper()
 	invHome(t)
-	for _, n := range []string{"shop-pass", "shop-psk", "shop-ca", "other-pass", "db-pass"} {
+	for _, n := range []string{"shop-pass", "shop-psk", "shop-ca", "other-pass"} {
 		if err := vault.Set(store.Save(), n, "value of "+n); err != nil {
 			t.Fatal(err)
 		}
 	}
 	mustRun(t, "vpn", "add", "shop-vpn", "socks", "--proxy-address", "127.0.0.1:1080", "-g", "shop")
-	mustRun(t, "host", "add", "shop-bastion", "u@10.0.0.1", "--via", "shop-vpn", "-g", "shop", "-g", "shop-stg",
-		"--password-ref", "credential:other-pass", "--protected", "--label", "dc=jkt", "--notes", "jump for shop-db; see shop-vpn.")
+	// shop-pass logs in as one user everywhere: a credential carries its user (format 3)
+	mustRun(t, "host", "add", "shop-bastion", "shop-admin@10.0.0.1", "--via", "shop-vpn", "-g", "shop", "-g", "shop-stg",
+		"--password-ref", "credential:shop-pass", "--protected", "--label", "dc=jkt", "--notes", "jump for shop-db; see shop-vpn.")
 	mustRun(t, "key", "gen", "shop-key")
 	mustRun(t, "host", "add", "shop-data-01", "u@10.0.0.2", "--via", "shop-vpn,shop-bastion", "-g", "shop",
 		"--sudo-ref", "credential:shop-pass", "--key", "shop-key")
 	mustRun(t, "host", "add", "web", "u@10.0.0.3", "--via", "shop-vpn,shop-bastion", "--env", "DB=credential:shop-pass", "--password-ref", "credential:other-pass")
-	mustRun(t, "conn", "add", "shop-db", "postgres://shop@10.0.0.5/shop", "--via", "shop-vpn,shop-bastion",
-		"--password-ref", "credential:db-pass", "--protected", "-g", "shop") // one login user per credential (format 3)
+	mustRun(t, "conn", "add", "shop-db", "postgres://shop-admin@10.0.0.5/shop", "--via", "shop-vpn,shop-bastion",
+		"--password-ref", "credential:shop-pass", "--protected", "-g", "shop")
 	mustRun(t, "conn", "add", "bucket", "s3://shop-admin@shop-prod?region=eu-west-1", "--password-ref", "credential:shop-pass")
 	mustRun(t, "conn", "add", "reg", "registry://u@reg.lan?ca=credential:shop-ca")
 	if err := store.Update(store.Save(), func(s *store.State) error {
@@ -506,7 +507,7 @@ func TestRenameAgentNeedsNoWindow(t *testing.T) {
 	}
 	mustRun(t, "vpn", "add", "lab-vpn", "socks", "--proxy-address", "127.0.0.1:1080")
 	mustRun(t, "host", "add", "lab-a", "u@10.0.0.1", "--via", "lab-vpn", "--password-ref", "credential:lab-pass", "--env", "P=credential:lab-pass")
-	mustRun(t, "conn", "add", "lab-db", "postgres://a@10.0.0.2/x", "--via", "lab-vpn,lab-a", "--password-ref", "credential:lab-pass")
+	mustRun(t, "conn", "add", "lab-db", "postgres://u@10.0.0.2/x", "--via", "lab-vpn,lab-a", "--password-ref", "credential:lab-pass")
 	setCallerEnv(t, "CLAUDECODE", "1")
 	d := mustRun(t, "rename", "--starts-with", "lab-", "test-")
 	if d["action"] != "renamed" || d["count"].(float64) != 4 {

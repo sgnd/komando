@@ -55,6 +55,17 @@ func treeOf(t *testing.T, roots ...string) map[string]fileState {
 	return m
 }
 
+// filesOf is tree without its folders.
+func filesOf(tree map[string]fileState) map[string]fileState {
+	m := map[string]fileState{}
+	for p, st := range tree {
+		if !st.mode.IsDir() {
+			m[p] = st
+		}
+	}
+	return m
+}
+
 // The person's dry run before the move to format 3 (owner, 2026-11-27):
 // `komando doctor --dry-run` on a store of format 2 says what the move
 // would do, in counts, and writes nothing: every file of the home is
@@ -68,17 +79,26 @@ func TestDoctorDryRunPreviewsTheMove(t *testing.T) {
 	}
 	store.Close()
 	sealdb.CreateFormat = sealdb.Format
-	roots := []string{store.Home()}
+	// a real komando home is 0700; komando tightens a wider one at start
+	if err := os.Chmod(store.Home(), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	// komando's other folders: the files in them (the test binary shares
+	// these folders, so their own times are not compared)
+	var shared []string
 	for _, dir := range []func() (string, error){os.UserCacheDir, os.UserConfigDir} {
 		if d, err := dir(); err == nil {
-			roots = append(roots, filepath.Join(d, "komando"))
+			shared = append(shared, filepath.Join(d, "komando"))
 		}
 	}
 	time.Sleep(10 * time.Millisecond) // a write now would show in the times
-	before := treeOf(t, roots...)
+	before, beforeShared := treeOf(t, store.Home()), filesOf(treeOf(t, shared...))
 	d := mustRun(t, "doctor", "--dry-run")
-	if after := treeOf(t, roots...); !maps.Equal(before, after) {
+	if after := treeOf(t, store.Home()); !maps.Equal(before, after) {
 		t.Fatalf("the dry run changed the home:\nbefore %v\nafter  %v", before, after)
+	}
+	if after := filesOf(treeOf(t, shared...)); !maps.Equal(beforeShared, after) {
+		t.Fatalf("the dry run changed komando's other folders:\nbefore %v\nafter  %v", beforeShared, after)
 	}
 	if d["format"] != "2" || d["would_move"] != true {
 		t.Fatalf("dry run: %s", asJSON(d))
