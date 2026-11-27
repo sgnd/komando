@@ -53,7 +53,7 @@ func TestCloudLoginKubeconfigNeedsAPerson(t *testing.T) {
 				t.Fatalf("vault: %v %q", err, kc)
 			}
 			setCallerEnv(t, "CLAUDECODE", "1")
-			if _, e := cliRun(t, "cluster", "ls", "prod", "pods"); e == nil || e.Code != "SAFETY_SETTING" || !strings.Contains(e.Message, "attacker.example") {
+			if _, e := cliRun(t, "cluster", "kubernetes", "raw", "prod", "--", "get", "pods"); e == nil || e.Code != "SAFETY_SETTING" || !strings.Contains(e.Message, "attacker.example") {
 				t.Errorf("an agent's read sends the cloud login to a new server: %+v", e)
 			}
 			if d, e := cliRun(t, "--dry-run", "cluster", "kubernetes", "exec", "prod", "pod-a", "--", "id"); e != nil || blocked(d)["code"] != "SAFETY_SETTING" {
@@ -101,7 +101,7 @@ func TestTrustedPluginIsTheProgramImported(t *testing.T) {
 	windows := asAgent(t, false, false)
 	t.Setenv("PATH", fake+string(os.PathListSeparator)+personPath) // PATH=<dir>:$PATH komando ...
 	t.Setenv("KOMANDO_TEST_STEER", "agent")                        // any variable that steers a program
-	if _, e := cliRun(t, "cluster", "ls", "prod", "pods"); e != nil {
+	if _, e := cliRun(t, "cluster", "kubernetes", "raw", "prod", "--", "get", "pods"); e != nil {
 		t.Fatalf("an agent on a trusted conn: %+v", e)
 	}
 	got := runs()

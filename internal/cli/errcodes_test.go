@@ -801,7 +801,6 @@ var catalogSite = map[string]string{
 	"WRONG_PASSPHRASE":    "that passphrase does not open the vault; nothing was changed",
 	"NO_FOLDER":           "cannot find the folder: …",
 	"RENAME_FAILED":       "the vault cannot rename the VPN's secrets: …; nothing was renamed",
-	"ROLLOUT_TIMEOUT":     "not rolled out after … (replicas …)…",
 	// the entry of one provider or type used on another's path, and a URL
 	// given to another provider's add
 	"WRONG_KIND": "… is a … …, not a … …",
