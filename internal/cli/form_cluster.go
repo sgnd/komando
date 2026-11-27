@@ -261,6 +261,11 @@ func clusterChangeHints() map[string]formHint {
 func init() {
 	// raw, exec, shell and tunnel start are in clusterChangeHints.
 	addFormHints(inventoryHints("cluster", "kubernetes", "cluster", "Clusters", "Kubernetes"))
+	addFormHints(map[string]formHint{"cluster swarm raw": {
+		args: []formArg{{ask: "Which Swarm manager server?", pick: "server", help: "A server that is a Swarm manager."},
+			{ask: "Which docker command? (without docker in front)", example: "service ls", help: "It runs as docker would run it on the manager."}},
+		flags: []formFlag{{name: "write", ask: "Does it change the Swarm?",
+			help: "No: komando refuses a command that would change something."}}}})
 	addFormHints(map[string]formHint{
 		"cluster status":   {next: []string{"cluster list {} pods", "cluster events {} --warnings"}},
 		"cluster list":     {next: []string{"cluster describe {} TYPE NAME", "cluster logs {} TYPE/NAME"}},

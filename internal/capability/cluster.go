@@ -35,6 +35,11 @@ var (
 var clusterLeaves = each(clusterProviders, func(p provider) []Leaf {
 	out := conns("cluster", "cluster.add").leaves(p)
 	cmd := "  komando cluster " + p.name + " "
+	for i, l := range out {
+		if l.Verb == "list" { // -n is --namespace in cluster commands: --limit has no short form here
+			out[i].Options = []Option{{Name: "limit", Kind: Int, Help: limitOpt.Help}}
+		}
+	}
 	if p.name == "kubernetes" {
 		for i, l := range out {
 			if l.Verb == "add" {
@@ -54,7 +59,8 @@ var clusterLeaves = each(clusterProviders, func(p provider) []Leaf {
 		raw.Example = cmd + "raw " + p.entry + " -- " + p.rawExample + "\n" + cmd + "raw " + p.entry + " --write -- " + p.writeExample + " --dry-run"
 	case "swarm":
 		raw.State = Built
-		raw.Today = nil // kubernetes raw holds the runs of cluster.run until the swarm entry (E1) has its own
+		// kubernetes raw holds cluster.run's runs; swarm raw carries its table entries
+		raw.Today, raw.Carries = nil, join(rawCarries, []string{"cluster.run"})
 		raw.Short = "Run one docker command on a Swarm manager and show the result"
 		raw.Example = cmd + "raw swarm1 -- service ls\n" + cmd + "raw swarm1 -- service ps web\n" +
 			cmd + "raw swarm1 --write -- service scale web=3 --dry-run"

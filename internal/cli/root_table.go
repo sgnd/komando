@@ -281,6 +281,12 @@ func buildLeaf(l capability.Leaf, h handler) *cobra.Command {
 
 // addOption declares o on fs and keeps where its value lands in vals.
 func addOption(fs *pflag.FlagSet, o capability.Option, vals map[string]any) {
+	if o.Name == "namespace" && o.Short == "n" { // -n of a cluster command refuses a number (nsShort)
+		o.Short = ""
+		declareOption(fs, o, vals)
+		nsShorthand(fs, fs.Lookup("namespace"))
+		return
+	}
 	if o.Short == "" {
 		declareOption(fs, o, vals)
 		return

@@ -78,8 +78,8 @@ func TestKubeErrWords(t *testing.T) {
 func TestClusterUnreachableIsUnreachable(t *testing.T) {
 	invHome(t)
 	mustRun(t, "import", "kubeconfig", kubeconfigAt(t, "https://"+closedAddr(t)))
-	for _, args := range [][]string{{"run", "prod", "--", "get", "pods"}, {"run", "prod", "--", "version"}} {
-		if _, e := invRun(t, append([]string{"cluster"}, args...)...); e == nil || e.Code != "CONN_UNREACHABLE" || e.Exit != out.ExitConnect {
+	for _, args := range [][]string{{"raw", "prod", "--", "get", "pods"}, {"raw", "prod", "--", "version"}} {
+		if _, e := invRun(t, append([]string{"cluster", "kubernetes"}, args...)...); e == nil || e.Code != "CONN_UNREACHABLE" || e.Exit != out.ExitConnect {
 			t.Errorf("%v: %+v", args, e)
 		}
 	}
