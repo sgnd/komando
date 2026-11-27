@@ -37,9 +37,8 @@ func (r migration3Report) text() string {
 	return b.String()
 }
 
-// plan is what the person reads before the move and answers yes or no
-// to, at the terminal and in the approval window alike: what moves, the
-// counts, the backup, who can no longer open the store, the way back.
+// plan is what the person answers yes or no to, at the terminal and in the
+// window alike: the counts, the backup, who can no longer open it, the way back.
 func (w *shownWindow) plan() string {
 	return strings.Join([]string{
 		"komando is to move its store to a new format (format 3).",

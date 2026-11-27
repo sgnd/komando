@@ -80,10 +80,8 @@ func notDoctor(id string) string {
 	return "`komando " + strings.ReplaceAll(id, ".", " ") + "`"
 }
 
-// answerMove is the person's answer to the move (ask shows the plan and
-// asks: a y/N at the terminal, default no, or the window). It holds for the
-// rest of the command: the store opens more than once in one command, and
-// a no is not asked again.
+// answerMove asks once per command (ask: the y/N at the terminal or the
+// window); the store opens more than once in a command, and a no stays a no.
 func answerMove(cl *call, ask func() bool) bool {
 	if cl.moveAnswer == 0 {
 		cl.moveAnswer = -1

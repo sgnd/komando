@@ -181,9 +181,8 @@ type gate struct {
 	yes            bool // --yes as typed: what counts is yesOK
 	allowDangerous bool // --allow-dangerous as typed: what counts is dangerOK
 	reveal         bool // --reveal as typed: what counts is revealOK
-	// cmdID is the parsed command (commandName: "doctor", "host.add");
-	// "" before a line is parsed. Only `doctor` moves the store to format 3
-	// (migrateCallFor).
+	// cmdID is the parsed command ("doctor", "host.add"), "" before a line is
+	// parsed; only `doctor` moves the store to format 3 (migrateCallFor).
 	cmdID string
 	who   engine.Caller
 	// hooks is how the gate's decisions reach the call they decide for:

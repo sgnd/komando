@@ -66,8 +66,8 @@ func promptFill(cl *call, args []string) ([]string, error) {
 	if cmd.Hidden {
 		return args, nil
 	}
-	// the questions only list entries: a store of format 2 is never moved
-	// here (migrateCallFor), so nothing is asked until `komando doctor` has
+	// the questions only list entries, so a store of format 2 is never moved
+	// here (migrateCallFor) and nothing is asked before `komando doctor` moves it
 	cl.noMove.Store(true)
 	st, err := loadState()
 	cl.noMove.Store(false)
