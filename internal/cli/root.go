@@ -484,6 +484,9 @@ func treeOf(cl *call) *cobra.Command {
 		Version:       version.Version,
 		RunE:          printFirstSteps,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if n := cmd.Name(); n == cobra.ShellCompRequestCmd || n == cobra.ShellCompNoDescRequestCmd {
+				dropHelpCommand(cmd.Root())
+			}
 			if err := notPrepared(cmd); err != nil {
 				return err
 			}
@@ -563,11 +566,24 @@ func treeOf(cl *call) *cobra.Command {
 	mountTable(root)
 	// cobra adds a help command when it runs: a hidden one, in a group (no "Additional
 	// Commands"), leaves a typed help word unknown; the flag --help is the help
-	root.SetHelpCommand(&cobra.Command{Use: "__help", Hidden: true, GroupID: "setup"})
+	root.SetHelpCommand(&cobra.Command{Use: helpCommandName, Hidden: true, GroupID: "setup"})
 	root.InitDefaultCompletionCmd()
 	labelBuiltinCmds(root) // before the conventions: `completion` alone, piped, is a USAGE envelope too
 	useShortGlobals(root)
 	return root
+}
+
+// helpCommandName is the hidden help command cobra needs: not a word a person types.
+const helpCommandName = "__help"
+
+// dropHelpCommand takes the hidden help command out of root: cobra completes
+// its help command even when it is hidden, and the shell must not offer it.
+func dropHelpCommand(root *cobra.Command) {
+	for _, c := range root.Commands() {
+		if c.Name() == helpCommandName {
+			root.RemoveCommand(c)
+		}
+	}
 }
 
 // addCommands adds komando's commands to root under the groups of
