@@ -201,15 +201,18 @@ func keepValue(name, v string) bool {
 }
 
 // HasHidden reports whether text holds a value komando hid from an agent
-// ([hidden], [hidden: KIND] or [credential:NAME]). Such text must not be
-// written to a file or a database: it would destroy the real value.
+// ([hidden], [hidden: KIND] or [credential:NAME], or [secret:NAME] that
+// v0.17 printed). Such text must not be written to a file or a database:
+// it would destroy the real value.
 func HasHidden(s string) bool {
-	return hiddenLabel.MatchString(s) || secretLabel.MatchString(s)
+	return hiddenLabel.MatchString(s) || secretLabel.MatchString(s) || format2Label.MatchString(s)
 }
 
 var (
 	secretLabel = regexp.MustCompile(`\[credential:[A-Za-z0-9_.@/-]+\]`)
 	hiddenLabel = regexp.MustCompile(`\[hidden(?:: [a-z ]+)?\]`)
+	// format2Label is the vault value's label before the store's format 3
+	format2Label = regexp.MustCompile(`\[secret:[A-Za-z0-9_.@/-]+\]`)
 )
 
 // maskJSON hides secrets inside the string values of a JSON document: each

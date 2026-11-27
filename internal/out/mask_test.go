@@ -108,7 +108,9 @@ func TestVaultValueEncodings(t *testing.T) {
 }
 
 func TestHasHidden(t *testing.T) {
-	for s, want := range map[string]bool{"A=[hidden]": true, "A=[credential:db]": true, "[hidden: private key]": true, "A=1": false, "[secret]": false} {
+	// [secret:db] is the label komando v0.17 printed: text an agent read
+	// then still holds it, and writing it back would destroy the value
+	for s, want := range map[string]bool{"A=[hidden]": true, "A=[credential:db]": true, "A=[secret:db]": true, "[hidden: private key]": true, "A=1": false, "[secret]": false} {
 		if HasHidden(s) != want {
 			t.Errorf("HasHidden(%q) = %v", s, !want)
 		}

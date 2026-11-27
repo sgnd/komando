@@ -17,9 +17,9 @@ import (
 )
 
 // The format-3 migration (vault note
-// 2026-11-24-komando-v2-7-stored-data-migration-design, section 5). It is
-// not switched on: migrateFormat3 is unexported and only its tests call
-// it; the v2.7 cut calls it at the first open of a format-2 store.
+// 2026-11-24-komando-v2-7-stored-data-migration-design, section 5). The first
+// open of a format-2 store calls it (migrateOnOpen); MigrateCaller lets only
+// `komando doctor` typed by a person start it (cli doctor_migrate.go).
 
 // migrate3Opts is what the caller knows: how it may start the
 // migration (MigrateCall), which processes are alive, and the vault's
