@@ -5746,7 +5746,7 @@ Examples:
   komando key gen deploy && komando key deploy deploy @web --set-default
   komando key deploy ~/.ssh/id_ed25519.pub web1
   komando key deploy ~/.ssh/id_ed25519.pub web1 --dry-run
-  komando key deploy web1 --user anna --public-key-file komando-phone-anna.pub --from-address 10.0.0.0/8
+  komando key deploy web1 --user anna --public-key-file anna-phone.pub --from-address 10.0.0.0/8
 
 Flags:
       --from-address string        with --public-key-file: the addresses the device logs in from, as the server sees them (from= in authorized_keys)

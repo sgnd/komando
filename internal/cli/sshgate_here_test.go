@@ -151,7 +151,7 @@ func TestGateServerProtectsTheRealSSHFolder(t *testing.T) {
 		if name == "dir" {
 			target = p + "/authorized_keys"
 		}
-		if code, msg := serverAnswer(t, "komando upload localhost - "+target, hereKey); code != "SSH_GATE_REFUSED" || !strings.Contains(msg, "no key changes it") {
+		if code, msg := serverAnswer(t, "komando upload localhost - "+target, hereKey); code != "SSH_GATE_PATH_DENIED" || !strings.Contains(msg, "no key changes it") {
 			t.Errorf("%s: %s %q, want rule a's refusal", name, code, msg)
 		}
 	}

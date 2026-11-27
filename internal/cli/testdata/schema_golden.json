@@ -6205,7 +6205,7 @@
         "usage": "komando key deploy NAME TARGET [flags]",
         "short": "Install a public key in ~/.ssh/authorized_keys (like ssh-copy-id)",
         "long": "Installs a public key on servers, like ssh-copy-id. KEY is a key in\nkomando's key list or a .pub file. komando logs in the way each server is\nset up now (a password, for example) and appends the key to\n~/.ssh/authorized_keys unless it is already there. With --set-default the\nservers then log in with this key.\n\nSafety: a change; try it with --dry-run first; with --public-key-file: only\na person at a terminal can run it; on a protected server or conn, a person's\nyes (--yes) as well.\n\nWith --public-key-file and --user (no NAME), a person installs a phone's key\nfor that user on one server, always behind the server's own komando gate\n(restrict, ssh-gate --here; from= with --from-address).",
-        "example": "  komando key gen deploy && komando key deploy deploy @web --set-default\n  komando key deploy ~/.ssh/id_ed25519.pub web1\n  komando key deploy ~/.ssh/id_ed25519.pub web1 --dry-run\n  komando key deploy web1 --user anna --public-key-file komando-phone-anna.pub --from-address 10.0.0.0/8",
+        "example": "  komando key gen deploy && komando key deploy deploy @web --set-default\n  komando key deploy ~/.ssh/id_ed25519.pub web1\n  komando key deploy ~/.ssh/id_ed25519.pub web1 --dry-run\n  komando key deploy web1 --user anna --public-key-file anna-phone.pub --from-address 10.0.0.0/8",
         "flags": [
           {
             "name": "from-address",
