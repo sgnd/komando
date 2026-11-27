@@ -53,7 +53,7 @@ The storage itself: komando storage add, komando test CONN, komando conn
 edit CONN, komando conn rm CONN. komando list kind:storage lists them.`,
 		Example: `  komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password
   komando storage list backups 2026/
-  komando download backups 2026/app.sql.gz --to ./
+  komando copy backups:2026/app.sql.gz ./
   komando storage rm backups --prefix daily/ --older-than 30d --dry-run`,
 	}
 	add := connAddCmdFor("storage")
