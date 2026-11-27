@@ -86,7 +86,7 @@ func TestKeyRmInUseAndText(t *testing.T) {
 	mustRun(t, "host", "ssh", "add", "a", "u@10.0.0.1", "--key", "k1")
 	mustRun(t, "host", "ssh", "add", "b", "u@10.0.0.2", "--key", "k1")
 	e := wantCode(t, "KEY_IN_USE", "key", "rm", "k1")
-	if !strings.Contains(e.Message, "a and b") || !strings.Contains(e.Hint, "host edit a b --key OTHER") {
+	if !strings.Contains(e.Message, "a and b") || !strings.Contains(e.Hint, "host ssh edit a b --key OTHER") {
 		t.Errorf("want both servers named: %s / %s", e.Message, e.Hint)
 	}
 	mustRun(t, "host", "ssh", "edit", "a", "b", "--unset", "key")
