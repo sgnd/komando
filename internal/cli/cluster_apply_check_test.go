@@ -82,3 +82,71 @@ func (l *applyLab) kubeconfig(t *testing.T, user string) string {
 	}
 	return p
 }
+
+// A real `cluster kubernetes raw -- apply -f` checks the whole file with
+// the server first: when one object is refused, nothing in the file is
+// applied (otherwise the objects above it would be, and the file left half
+// applied).
+func TestRawApplyChecksTheWholeFileFirst(t *testing.T) {
+	invHome(t)
+	l := newApplyLab(t)
+	mustRun(t, "import", "kubeconfig", l.kubeconfig(t, "    token: test-token-abcdef"))
+	file := filepath.Join(t.TempDir(), "app.yaml")
+	yaml := "apiVersion: v1\nkind: ConfigMap\nmetadata: {name: good}\ndata: {a: b}\n---\napiVersion: v1\nkind: ConfigMap\nmetadata: {name: bad}\ndata: {a: b}\n"
+	if err := os.WriteFile(file, []byte(yaml), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, e := cliRun(t, "cluster", "kubernetes", "raw", "prod", "--write", "--", "apply", "-f", file)
+	if e == nil || !strings.Contains(e.Message, "K8S_INVALID") || !strings.Contains(e.Message, "nothing was applied") || !strings.Contains(e.Message, "configmap/bad") {
+		t.Fatalf("want K8S_INVALID naming configmap/bad and saying nothing was applied, got %+v", e)
+	}
+	if len(l.real) != 0 {
+		t.Errorf("a file with a refused object applied %v for real", l.real)
+	}
+	// a good file: checked first, then applied, each object once for real
+	if err := os.WriteFile(file, []byte(strings.ReplaceAll(yaml, "name: bad", "name: also-good")), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	d, e := cliRun(t, "cluster", "kubernetes", "raw", "prod", "--write", "--", "apply", "-f", file)
+	if e != nil {
+		t.Fatalf("%s %s", e.Code, e.Message)
+	}
+	if got := strings.Join(l.real, ","); got != "good,also-good" {
+		t.Errorf("applied for real: %q", got)
+	}
+	if so, _ := d["stdout"].(string); !strings.Contains(so, "configmap/good") || !strings.Contains(so, "configmap/also-good") {
+		t.Errorf("stdout: %q", so)
+	}
+}
+
+// raw apply leaves fields another field manager owns alone: a conflict
+// stops it with K8S_CONFLICT naming that manager and nothing is applied.
+// --force-conflicts takes them over.
+func TestRawApplyConflictNeedsForceConflicts(t *testing.T) {
+	invHome(t)
+	l := newApplyLab(t)
+	mustRun(t, "import", "kubeconfig", l.kubeconfig(t, "    token: test-token-abcdef"))
+	file := filepath.Join(t.TempDir(), "app.yaml")
+	yaml := "apiVersion: v1\nkind: ConfigMap\nmetadata: {name: good}\ndata: {a: b}\n---\napiVersion: v1\nkind: ConfigMap\nmetadata: {name: owned}\ndata: {a: b}\n"
+	if err := os.WriteFile(file, []byte(yaml), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, e := cliRun(t, "cluster", "kubernetes", "raw", "prod", "--write", "--", "apply", "-f", file)
+	if e == nil || !strings.Contains(e.Message, "K8S_CONFLICT") || !strings.Contains(e.Message, "nothing was applied") ||
+		!strings.Contains(e.Message, "configmap/owned") || !strings.Contains(e.Message, `"kubectl-edit"`) {
+		t.Fatalf("want K8S_CONFLICT naming configmap/owned and kubectl-edit, got %+v", e)
+	}
+	if len(l.real) != 0 || len(l.forced) != 0 {
+		t.Fatalf("without --force-conflicts: applied %v, forced %v", l.real, l.forced)
+	}
+
+	if _, e := cliRun(t, "cluster", "kubernetes", "raw", "prod", "--write", "--", "apply", "-f", file, "--force-conflicts"); e != nil {
+		t.Fatalf("--force-conflicts: %s %s", e.Code, e.Message)
+	}
+	if got := strings.Join(l.real, ","); got != "good,owned" {
+		t.Errorf("applied for real: %q", got)
+	}
+	if got := strings.Join(l.forced, ","); got != "good,owned,good,owned" { // the check pass, then the real one
+		t.Errorf("sent with force=true: %q", got)
+	}
+}
