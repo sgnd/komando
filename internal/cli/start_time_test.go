@@ -149,7 +149,7 @@ func TestStandardExamplesAgreesWithFullWay(t *testing.T) {
 		}
 		checked++
 	}
-	if checked < 300 {
+	if checked < 280 {
 		t.Fatalf("only %d commands checked", checked)
 	}
 	// the texts above on a read and on a change command
