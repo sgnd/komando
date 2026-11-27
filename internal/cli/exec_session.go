@@ -58,9 +58,6 @@ type sessionOpts struct {
 	remove bool
 }
 
-// sessionFlags are exec's flags that come with sessions.
-var sessionFlags = []string{"attach", "offset", "wait", "log-max", "stop", "signal", "remove"}
-
 func (s *sessionOpts) bind(c *cobra.Command) {
 	f := c.Flags()
 	f.StringSliceVar(&s.attach, "attach", nil, "read the rest of these sessions on one server, and their exit codes")

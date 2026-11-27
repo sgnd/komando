@@ -266,10 +266,7 @@ func hostRun() []Leaf {
 	}
 }
 
-var (
-	oneName            = []Arg{{Name: "NAME"}}
-	selectorAndCommand = []Arg{{Name: "NAME", Selector: true}, {Name: "COMMAND", Many: true, Optional: true}}
-)
+var oneName = []Arg{{Name: "NAME"}}
 
 // hostOption is the option of os with this name; a name the list does not
 // hold is a bug in the table.
