@@ -122,7 +122,8 @@ func init() {
 			help: "Only for a key komando made. A deleted private key cannot be brought back."}}},
 		"key deploy": {args: []formArg{accKeyOrPub, accServers},
 			flags: []formFlag{{name: "set-default", ask: "Should komando log in with this key from now on?",
-				help: "Yes switches each server where it worked to this key."}}},
+				help: "Yes switches each server where it worked to this key."}},
+			hide: []string{"public-key-file", "user", "from-address"}}, // a phone's key takes TARGET alone: typed, not asked
 		"key revoke": {args: []formArg{accKeyOrPub, accServers},
 			flags: []formFlag{{name: "user", ask: "Whose login should lose the key?", example: "deploy",
 				help: "Leave empty for the user komando logs in as. Another user's file is changed with sudo."}}},

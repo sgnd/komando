@@ -1384,6 +1384,7 @@
     "command": "string",
     "data": {
       "gate": "bool",
+      "here": "bool",
       "komando": "string",
       "name": "string",
       "network": "bool",

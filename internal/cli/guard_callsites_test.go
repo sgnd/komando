@@ -22,7 +22,7 @@ import (
 // which files may call it. A call moved between guard and guardScript changes
 // both counts here.
 var reviewedCallSites = map[string]int{
-	"guard":         22,
+	"guard":         23, // +1 deviceKeyInstall (key_revoke.go): a phone's key on one server, mutating, C372
 	"guardScript":   5,
 	"guardConns":    25, // +1 snippetTierStop (recipe.go): a dangerous built-in snippet, C368 S1-1
 	"confirmObject": 4,

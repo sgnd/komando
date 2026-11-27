@@ -109,7 +109,7 @@ func CheckAddress(s string) (hostnames bool, err error) {
 		case hostPattern.MatchString(item):
 			hostnames = true
 		default:
-			return false, fmt.Errorf("%q is no address, network or host pattern (letters, digits, . - : * ?)", item)
+			return false, fmt.Errorf("%q is no address, network or name pattern (letters, digits, . - : * ?)", item)
 		}
 	}
 	return hostnames, nil

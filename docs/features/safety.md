@@ -203,6 +203,7 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `db shell` | always | person |  |
 | `cluster shell` | always | person |  |
 | `host ca add` | always | person |  |
+| `key deploy` | with --public-key-file | person |  |
 | `host trust` | with --reset | person |  |
 | `db dump` | when an AI agent runs it (the file holds every row, secrets included) | person |  |
 | `export` | with --sealed | person |  |

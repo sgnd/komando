@@ -960,9 +960,6 @@ title: Install a public key in ~/.ssh/authorized_keys (like ssh-copy-id)
 - arg0 | Name | Which key? | One of your komando SSH keys, or type the path of a .pub file on this computer. | ~/.ssh/id_ed25519.pub | free,choices,check
 - arg1 | Target (servers) | On which servers? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
 - flag:set-default | --set-default | Should komando log in with this key from now on? | Yes switches each server where it worked to this key. |  | default,choices
-- flag:from-address | --from-address | With --public-key-file: the addresses the device logs in from, as the server sees them (from= in authorized_keys) |  |  | optional,advanced,check
-- flag:public-key-file | --public-key-file | A device's public key file (a phone's): install it for --user behind komando's gate on the server; a person at a terminal only |  |  | optional,advanced,check
-- flag:user | --user | With --public-key-file: the user the device logs in as (never root) |  |  | optional,advanced,check
 ### komando key edit
 title: Change a key's passphrase reference or certificate
 - arg0 | Name | Which key? | One of your komando SSH keys. `komando key list` shows them. |  | choices,check
