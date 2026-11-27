@@ -397,7 +397,8 @@ exit 0
 --- stdout
 Change a saved memcached cache (only the flags you pass change).
 
-Safety: a change; try it with --dry-run first.
+Safety: a change; try it with --dry-run first; with --protected=false: it
+weakens a safety check: a person's yes (--yes).
 
 Usage:
   komando cache memcached edit NAME [flags]
@@ -667,7 +668,8 @@ exit 0
 --- stdout
 Change a saved redis cache (only the flags you pass change).
 
-Safety: a change; try it with --dry-run first.
+Safety: a change; try it with --dry-run first; with --protected=false: it
+weakens a safety check: a person's yes (--yes).
 
 Usage:
   komando cache redis edit NAME [flags]
@@ -9722,7 +9724,8 @@ exit 0
 --- stdout
 Change a saved oci registry (only the flags you pass change).
 
-Safety: a change; try it with --dry-run first.
+Safety: a change; try it with --dry-run first; with --protected=false: it
+weakens a safety check: a person's yes (--yes).
 
 Usage:
   komando registry oci edit NAME [flags]
