@@ -21,6 +21,13 @@ import (
 func invHome(t *testing.T) {
 	t.Helper()
 	setHome(t, t.TempDir())
+	invEnv(t)
+}
+
+// invEnv is invHome for a test that keeps a home an earlier test (its
+// parent) made: the vault passphrase and the reset of the call.
+func invEnv(t *testing.T) {
+	t.Helper()
 	t.Setenv("KOMANDO_VAULT_PASS", "test-passphrase-long-enough")
 	t.Cleanup(func() {
 		setGate(tcl, false, gateDryRun, gateYes, gateAllowDangerous)

@@ -38,14 +38,14 @@ func TestPromptFill(t *testing.T) {
 		{[]string{"logs", "--since", "1h"}, []string{"1"}, "logs --since 1h prod1", nil},
 		{[]string{"db", "query"}, []string{"select 1"}, "db query app-db 'select 1'", []string{"Using app-db (the only one of your databases)", "SQL: "}},
 		{[]string{"db", "query", "app-db", "--file", "q.sql"}, nil, "db query app-db --file q.sql", nil}, // typed in full
-		{[]string{"host", "ssh", "exec", "--", "uptime"}, []string{"web1", "y"}, "exec web1 -- uptime", []string{"Run it? [y/N, d = --dry-run first]"}},
-		{[]string{"host", "ssh", "exec", "web1"}, []string{"df -h", "y"}, "exec web1 -- 'df -h'", []string{"COMMAND: "}},
+		{[]string{"host", "ssh", "exec", "--", "uptime"}, []string{"web1", "y"}, "host ssh exec web1 -- uptime", []string{"Run it? [y/N, d = --dry-run first]"}},
+		{[]string{"host", "ssh", "exec", "web1"}, []string{"df -h", "y"}, "host ssh exec web1 -- 'df -h'", []string{"COMMAND: "}},
 		{[]string{"fs", "replace", "web1", "/etc/x", "--backup"}, []string{"a", "b", "y"}, "fs replace web1 /etc/x --backup --old=a --new=b", []string{"--old: "}},
 		{[]string{"svc", "restart", "prod1"}, []string{"nginx"}, "svc restart prod1 nginx", nil}, // protected: the command asks, not Run it?
 		// a step that cannot be undone: Run it? here, the typed name in the
 		// command itself, once (S-7.4; TestPromptedCacheRmAsksOnce)
 		{[]string{"cache", "rm", "cache1"}, []string{"k1", "y"}, "cache rm cache1 k1", []string{"Run it? [y/N, d = --dry-run first]"}},
-		{[]string{"host", "ssh", "remove", "--dry-run"}, []string{"web1"}, "host rm --dry-run web1", nil}, // a dry run runs at once
+		{[]string{"host", "ssh", "remove", "--dry-run"}, []string{"web1"}, "host ssh remove --dry-run web1", nil}, // a dry run runs at once
 		{[]string{"reboot"}, []string{"web1", "y"}, "reboot web1", []string{"Run it? [y/N, d = --dry-run first]"}},
 		{[]string{"svc", "stop", "web1"}, []string{"sshd", "y"}, "svc stop web1 sshd", []string{"Run it? [y/N, d = --dry-run first]"}},
 		// easy to redo, no agent stop (OD-7), yet a person types what goes

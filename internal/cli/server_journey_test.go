@@ -68,10 +68,10 @@ func TestExecTimeoutNamesJobStart(t *testing.T) {
 		stdin []byte
 		o     execOpts
 	}{
-		"stdin":  {"host", "ssh", "exec", []byte("x"), execOpts{stdinFile: "-"}},
-		"pty":    {"host", "ssh", "exec", nil, execOpts{pty: true}},
+		"stdin":  {"exec", []byte("x"), execOpts{stdinFile: "-"}},
+		"pty":    {"exec", nil, execOpts{pty: true}},
 		"svc":    {"svc.restart", nil, execOpts{}},
-		"script": {"host", "ssh", "exec", nil, execOpts{display: "./deploy.sh"}},
+		"script": {"exec", nil, execOpts{display: "./deploy.sh"}},
 	} {
 		if got := jobStartLine(c.name, "web1", "uptime", c.stdin, c.o); got != "" {
 			t.Errorf("%s: %q, want none", name, got)
