@@ -502,6 +502,15 @@
       "ref": "string",
       "replaced": "bool",
       "would_set": "bool"
+    },
+    "meta": {
+      "contract": "number",
+      "dry_run": "bool",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
   "copy web:/etc/hosts - --dry-run": {
     "command": "string",
     "data": {
