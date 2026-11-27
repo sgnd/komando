@@ -85,7 +85,18 @@ func sameDir(a, b string) bool {
 
 // homeFree are the commands that never read komando's data, so they run in
 // any folder: help, version and the playbooks.
-var homeFree = map[string]bool{"komando": true, "help": true, "completion": true, "version": true, "schema": true, "guide": true, "agent": true}
+var homeFree = map[string]bool{"komando": true, "help": true, "completion": true, "version": true, "schema": true, "guide": true}
+
+// homeFreeOne are single commands of a noun that is not free as a whole:
+// the playbook install reads no data; agent skill uninstall takes the agent
+// guard out, and the rest of the agent noun (agent mcp) is no playbook.
+var homeFreeOne = map[string]bool{"agent.skill.install": true}
+
+// homeFreeCommand says whether the command with this ID runs in any folder.
+func homeFreeCommand(name string) bool {
+	top, _, _ := strings.Cut(name, ".")
+	return homeFree[top] || homeFreeOne[name]
+}
 
 // guardHome stops an AI agent's command that would use another data folder
 // than ~/.komando. The stop is final (homeStop). Only the commands that
@@ -93,10 +104,7 @@ var homeFree = map[string]bool{"komando": true, "help": true, "completion": true
 // like any other.
 func guardHome(cmd *cobra.Command) error {
 	cl := callOf(cmd)
-	top, _, _ := strings.Cut(commandName(cmd), ".")
-	// agent skill uninstall takes the agent guard out: it is no playbook
-	free := homeFree[top] && commandName(cmd) != "agent.skill.uninstall"
-	if !cl.isAgent() || free {
+	if !cl.isAgent() || homeFreeCommand(commandName(cmd)) {
 		return nil
 	}
 	// first: with no account in the user database either, a KOMANDO_HOME

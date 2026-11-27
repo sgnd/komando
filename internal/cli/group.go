@@ -107,7 +107,7 @@ const manyMembers = 3
 // one group.
 func init() {
 	for verb, body := range map[string]func() *cobra.Command{"create": groupAddCmd, "list": groupListCmd,
-		"show": groupListCmd, "rename": groupMvCmd, "remove": groupRmCmd} {
+		"show": groupShowCmd, "rename": groupMvCmd, "remove": groupRmCmd} {
 		handlers[capability.Key{Type: "group", Verb: verb}] = bodyHandler(body)
 	}
 	moveType("group")
@@ -126,8 +126,16 @@ A group exists while something is in it.`,
 	}
 }
 
-// groupListCmd is today's group list, the body of the list and show leaves.
-func groupListCmd() *cobra.Command {
+// groupListCmd is today's group list, the body of the list leaf.
+func groupListCmd() *cobra.Command { return groupReadCmd("group.list") }
+
+// groupShowCmd is the body of the show leaf: the list body, printing as
+// group.show.
+func groupShowCmd() *cobra.Command { return groupReadCmd("group.show") }
+
+// groupReadCmd reads the groups and tags, or the members of one group, and
+// prints them as the command id.
+func groupReadCmd(id string) *cobra.Command {
 	var limit int
 	list := &cobra.Command{
 		Use:   "list [GROUP]",
@@ -146,12 +154,12 @@ func groupListCmd() *cobra.Command {
 				if len(m) == 0 {
 					return groupNotFound(cl, st, group)
 				}
-				cl.out.Print("group.list", groupMembers{Group: group, Members: cutRows(cl, m, limit)}, nil)
+				cl.out.Print(id, groupMembers{Group: group, Members: cutRows(cl, m, limit)}, nil)
 				return nil
 			}
 			l := allGroups(st)
 			l.Groups, l.Tags = cutMap(cl, l.Groups, limit), cutMap(cl, l.Tags, limit)
-			cl.out.Print("group.list", l, nil)
+			cl.out.Print(id, l, nil)
 			return nil
 		}),
 	}

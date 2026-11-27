@@ -205,7 +205,7 @@ func init() {
 		handlers[capability.Key{Type: "snippet", Verb: verb}] = bodyHandler(body)
 	}
 	moveType("snippet")
-	cmdKeys["snippet"] = cmdKeys["recipe"] // the noun's ID changes with its word
+	cmdKeys["snippet"] = safetyKey{typ: "snippet"} // the noun has the key of its type, whatever order the init functions run in
 	delete(cmdKeys, "recipe")
 }
 

@@ -80,6 +80,7 @@ func TestGateNoNetwork(t *testing.T) {
 		"cert check web --path /etc/ssl/site.pem", "pkg security web", "pkg installed web", "storage download s3 a.txt --to -",
 		"storage s3 object list s3", "job list", "audit list", "export", "conn test pg", "vpn socks list",
 		"exec --help", "cluster info k8s", "registry oci image list reg",
+		"group show web", "group list", "snippet show disk", "snippet list", // a read key keeps the reads of groups and snippets
 	}
 	for _, line := range allowed {
 		if got := gateKeyAnswer(t, line, readKey); got != "" {

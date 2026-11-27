@@ -226,3 +226,17 @@ func TestAgentOtherHomeIsFinal(t *testing.T) {
 		t.Errorf("unknown account: a window opened: %q", *texts)
 	}
 }
+
+// Only the agent playbook install runs in any folder: the rest of the agent
+// noun (agent mcp, agent skill uninstall) reads komando's data like any other.
+func TestHomeFreeIsAgentSkillInstallAlone(t *testing.T) {
+	for name, want := range map[string]bool{
+		"agent.skill.install": true, "guide": true, "help": true, "version": true,
+		"agent": false, "agent.skill": false, "agent.skill.uninstall": false, "agent.mcp.start": false, "agent.mcp.stop": false, "agent.mcp": false,
+		"host.list": false, "audit.list": false,
+	} {
+		if got := homeFreeCommand(name); got != want {
+			t.Errorf("homeFreeCommand(%q) = %v, want %v", name, got, want)
+		}
+	}
+}
