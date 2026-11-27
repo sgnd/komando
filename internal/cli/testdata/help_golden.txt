@@ -208,8 +208,8 @@ Aliases:
 
 Examples:
   komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password
-  komando cache redis raw prod-redis GET session:42
-  komando cache redis raw prod-redis SET maintenance on --write
+  komando cache redis raw prod-redis -- GET session:42
+  komando cache redis raw prod-redis --write -- SET maintenance on
 
 Available Commands:
   memcached   Memcached caches: save them, and send them a command
@@ -867,9 +867,9 @@ Aliases:
 
 Examples:
   komando cluster kubernetes add prod-k8s k8s://api.cluster.example:6443 --credential prod-kubeconfig
-  komando cluster kubernetes raw prod-k8s get pods --namespace shop
-  komando cluster kubernetes raw prod-k8s logs deploy/api --namespace shop
-  komando cluster swarm raw swarm1 service ls
+  komando cluster kubernetes raw prod-k8s -- get pods -n shop
+  komando cluster kubernetes raw prod-k8s -- logs deploy/api -n shop
+  komando cluster swarm raw swarm1 -- service ls
 
 Available Commands:
   kubernetes  Kubernetes clusters: save them, and run commands on them

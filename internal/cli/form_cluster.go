@@ -96,8 +96,8 @@ func kubeconfigNames(path string) []string {
 }
 
 // kubeconfigBuild imports the file, protects what it adds when asked, and
-// ends with cluster status, which logs in to each cluster (komando test
-// only checks that its port answers).
+// ends with komando test, which only checks that the port of each cluster
+// answers (it does not log in).
 func kubeconfigBuild(st *store.State, a formAnswers) [][]string {
 	file := cmp.Or(a["file"], kubeconfigDefault)
 	args := []string{"import", "kubeconfig"}

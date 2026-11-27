@@ -8,6 +8,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 // Every command komando suggests to a person (komando alone, the COMMANDS
@@ -270,5 +272,31 @@ func TestStandardNextPerVerb(t *testing.T) {
 		if got := nextLines(key, "web1", []string{"web1", "web2"}); len(got) == 0 || got[0] != want {
 			t.Errorf("%s: Next: %q, want %q first", key, got, want)
 		}
+	}
+}
+
+// Every example line of the cache and cluster commands (the `--help` text,
+// the guide's table) parses as written: words for the other program come
+// after --, and a group does not swallow the name of a command that is gone.
+func TestCacheClusterExamplesParse(t *testing.T) {
+	var walk func(c *cobra.Command)
+	checked := 0
+	walk = func(c *cobra.Command) {
+		if path := c.CommandPath(); c.Example != "" && (strings.HasPrefix(path, "komando cache") || strings.HasPrefix(path, "komando cluster")) {
+			for _, m := range exampleLine.FindAllStringSubmatch(c.Example, -1) {
+				if strings.ContainsAny(m[1], "<>") {
+					continue
+				}
+				formParse(t, "`"+path+"` Example", formSplitWords(strings.TrimSpace(m[1])))
+				checked++
+			}
+		}
+		for _, sub := range c.Commands() {
+			walk(sub)
+		}
+	}
+	walk(newRoot(tcl))
+	if checked < 10 {
+		t.Errorf("checked only %d example lines", checked)
 	}
 }

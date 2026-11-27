@@ -27,8 +27,8 @@ func cacheCmd() *cobra.Command {
 commands that flush, block, run scripts, delete keys or reconfigure the server
 also need --allow-dangerous.`,
 		Example: `  komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password
-  komando cache redis raw prod-redis GET session:42
-  komando cache redis raw prod-redis SET maintenance on --write`,
+  komando cache redis raw prod-redis -- GET session:42
+  komando cache redis raw prod-redis --write -- SET maintenance on`,
 	}
 }
 

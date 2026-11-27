@@ -16,7 +16,7 @@ import (
 // count follows a function into a package under internal/cli (the
 // exported spelling counts as the same name), so a move keeps the numbers;
 // a changed count is a call added or dropped, and fails here until it is
-// reviewed. guardScript is counted here as calls only (five); the test where
+// reviewed. guardScript is counted here as calls only (three); the test where
 // it is defined, TestGuardScriptCallers, counts the text "guardScript(" per
 // file, which includes the declaration line and so adds one, and it pins
 // which files may call it. A call moved between guard and guardScript changes
@@ -24,7 +24,7 @@ import (
 var reviewedCallSites = map[string]int{
 	"guard":       22, // -1 reboot (C493): exec rule power, TestRulePower; +1 deviceKeyInstall (key_revoke.go): a phone's key on one server, C372
 	"guardScript": 3,  // -2 swarmApply, swarmDo (D4, C496): `cluster swarm raw` is rated by guardSwarmRun, pinned by TestRawProtectedYes
-	"guardConns":  22, // +1 snippetTierStop (recipe.go): a dangerous built-in snippet, C368 S1-1; -3 withKubeWhy, kubeApply, swarmDo (D4, C496): the raw leaf is guarded by capability/build.go, pinned by TestRawProtectedYes
+	"guardConns":  22, // +1 snippetTierStop (recipe.go): a dangerous built-in snippet, C368 S1-1; -3 withKubeWhy, swarmApply, swarmDo (D4, C496): the raw leaf is guarded by capability/build.go, pinned by TestRawProtectedYes
 	"dangerOK":    16, // 15 commands (-1 reboot, C493: TestRulePower; -1 swarmDo, D4 C496: TestRawScaleToZeroDangerous), and (*call).dangerOK forwarding to (*gate).dangerOK (C468)
 	"askPerson":   3,  // the third: the window of the move to format 3 (migrateCallFor)
 }

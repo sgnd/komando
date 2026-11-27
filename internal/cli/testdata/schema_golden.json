@@ -79,7 +79,7 @@
           "redis",
           "caches"
         ],
-        "example": "  komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password\n  komando cache redis raw prod-redis GET session:42\n  komando cache redis raw prod-redis SET maintenance on --write",
+        "example": "  komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password\n  komando cache redis raw prod-redis -- GET session:42\n  komando cache redis raw prod-redis --write -- SET maintenance on",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -770,7 +770,7 @@
         "aliases": [
           "clusters"
         ],
-        "example": "  komando cluster kubernetes add prod-k8s k8s://api.cluster.example:6443 --credential prod-kubeconfig\n  komando cluster kubernetes raw prod-k8s get pods --namespace shop\n  komando cluster kubernetes raw prod-k8s logs deploy/api --namespace shop\n  komando cluster swarm raw swarm1 service ls",
+        "example": "  komando cluster kubernetes add prod-k8s k8s://api.cluster.example:6443 --credential prod-kubeconfig\n  komando cluster kubernetes raw prod-k8s -- get pods -n shop\n  komando cluster kubernetes raw prod-k8s -- logs deploy/api -n shop\n  komando cluster swarm raw swarm1 -- service ls",
         "runnable": true,
         "kind": "read",
         "confirm": [

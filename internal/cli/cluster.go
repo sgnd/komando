@@ -447,9 +447,9 @@ unless --write; protected targets need --yes, and a command that deletes or
 scales to zero also needs --allow-dangerous. The built-in snippets helm-list and
 helm-release read the Helm releases.`,
 		Example: `  komando cluster kubernetes add prod-k8s k8s://api.cluster.example:6443 --credential prod-kubeconfig
-  komando cluster kubernetes raw prod-k8s get pods --namespace shop
-  komando cluster kubernetes raw prod-k8s logs deploy/api --namespace shop
-  komando cluster swarm raw swarm1 service ls`,
+  komando cluster kubernetes raw prod-k8s -- get pods -n shop
+  komando cluster kubernetes raw prod-k8s -- logs deploy/api -n shop
+  komando cluster swarm raw swarm1 -- service ls`,
 	}
 }
 

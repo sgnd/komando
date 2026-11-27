@@ -30,6 +30,11 @@ func formParse(t *testing.T, source string, args []string) *cobra.Command {
 	if err := cmd.ValidateArgs(cmd.Flags().Args()); err != nil {
 		t.Errorf("%s: `komando %s`: %v", source, pickCommandLine(args), err)
 	}
+	// a group takes any arguments (so a typo can fail with a suggestion), which
+	// hides a line that names a command that is gone: `komando cache get web1 KEY`
+	if cmd.Annotations[groupOnly] == "true" && len(cmd.Flags().Args()) > 0 {
+		t.Errorf("%s: `komando %s`: %q is not a command of `%s`", source, pickCommandLine(args), cmd.Flags().Args()[0], cmd.CommandPath())
+	}
 	return cmd
 }
 

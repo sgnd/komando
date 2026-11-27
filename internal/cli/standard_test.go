@@ -313,7 +313,7 @@ func TestStandardRequiredInUse(t *testing.T) {
 // requiredByCode are flags a command requires with its own check (a USAGE
 // error that says how), not cobra's.
 var requiredByCode = []string{"db restore --from", "db user add --password-ref", "db user passwd --password-ref",
-	"fs replace --old", "fs replace --new", "cluster deploy --image", "cluster apply --file"}
+	"fs replace --old", "fs replace --new"}
 
 // S-5.1, S-5.6: one type per flag name, except the S-5.1 exceptions.
 func TestStandardFlagTypes(t *testing.T) {

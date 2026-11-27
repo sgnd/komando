@@ -42,7 +42,7 @@ var controllerKinds = map[string]string{
 	"argoproj.io/clusterworkflowtemplate":       "runs pods as any service account it names",
 }
 
-// manifestEscalatesIn is manifestEscalates for objects that name no
+// manifestEscalatesIn is the check of a manifest for objects that name no
 // namespace of their own going to ns (kubectl's -n).
 func manifestEscalatesIn(docs []kubeDoc, ns string) string {
 	for _, d := range docs {
