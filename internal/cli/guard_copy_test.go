@@ -167,6 +167,10 @@ func TestGuardProgramValueWithASeparatorIsAnyProgram(t *testing.T) {
 		`R=rm; $R -rf ./build`,
 		`R="rm -rf"; $R ./build`,
 		`G="go test"; $G ./...`,
+		// a quoted value is one program name, blanks and all
+		`B="/Applications/My App.app/Contents/MacOS/My App"; read h < /tmp/n; "$B" --size=$h`,
+		// a value that may be empty leaves the next word as the program
+		`true && S=/tmp/x/run.sh; read h < /tmp/n; $S --size=$h`,
 	}, false)
 }
 

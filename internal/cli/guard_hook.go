@@ -397,18 +397,16 @@ func checkWritesIn(cl *call, seg string, vars lineVars, home, cwd string) guardD
 	}
 	progs, known := vars.expand(cl, prog, home, cwd)
 	_, aliased := vars[aliasVar]
-	// a value that is empty or holds a separator runs other words than a
-	// program's name: the guard cannot name the program, and the value's
-	// words join its arguments
-	seps, _ := vars.separators()
-	named := known && !aliased && !slices.ContainsFunc(progs, func(p string) bool {
-		return p != prog && (p == "" || strings.ContainsAny(p, seps))
-	})
-	writes := !named
-	for _, p := range progs {
-		writes = writes || writesFiles(filepath.Base(p), unmarked(args))
-	}
 	first := len(words) - len(args)
+	seps, _ := vars.separators()
+	bases, writes, ownWords := programBases(prog, progs, args, bare[first-1], seps)
+	from := first
+	if ownWords {
+		from = first - 1 // the value's own words are among the arguments
+	}
+	if !known || aliased {
+		bases, writes, from = []string{anyProgram}, true, first
+	}
 	if !writes {
 		if d := checkPartWriters(cl, filepath.Base(prog), words[first:], globs[first:], vars, home, cwd); d.Deny {
 			return d
@@ -433,16 +431,6 @@ func checkWritesIn(cl *call, seg string, vars lineVars, home, cwd string) guardD
 			return d
 		}
 	}
-	bases, from := []string{anyProgram}, first
-	switch {
-	case named:
-		bases = bases[:0]
-		for _, p := range progs {
-			bases = append(bases, filepath.Base(p))
-		}
-	case known && !aliased:
-		from = first - 1 // a value with a separator: its words are among the arguments
-	}
 	if d := checkTreeChange(cl, bases, words[from:], globs[from:], vars, home, cwd); d.Deny {
 		return d
 	}
@@ -450,6 +438,33 @@ func checkWritesIn(cl *call, seg string, vars lineVars, home, cwd string) guardD
 		return checkCopyInto(cl, b, args, globs[first:], vars, home, cwd)
 	}
 	return allow()
+}
+
+// programBases are the base names of the programs a command may run whose
+// program word prog has the values progs, whether one of them writes the
+// files its arguments name, and whether a value's own words are among the
+// arguments. An unquoted value (split) is split at the line's separators:
+// its first field is the program and the rest are arguments; an empty one
+// is gone, and the next word is the program.
+func programBases(prog string, progs, args []string, split bool, seps string) (bases []string, writes, ownWords bool) {
+	for _, p := range progs {
+		fields, rest := []string{p}, unmarked(args)
+		if split && p != prog {
+			fields = splitAt(p, seps)
+		}
+		if len(fields) == 0 {
+			next, nargs := program(args)
+			if next == "" {
+				continue
+			}
+			fields, rest = []string{next}, unmarked(nargs)
+		}
+		ownWords = ownWords || len(fields) > 1
+		base := filepath.Base(fields[0])
+		bases = append(bases, base)
+		writes = writes || writesFiles(base, append(fields[1:len(fields):len(fields)], rest...))
+	}
+	return bases, writes, ownWords
 }
 
 // copyPrograms write in a destination folder names the line does not
