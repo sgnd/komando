@@ -141,6 +141,12 @@ func connsOfFamily(names []string, family string) []string {
 }
 
 func flagCompletion(c *cobra.Command, flag string, f func(prefix string) []string) {
+	// LocalFlags copies every flag of the command, for each of the three
+	// flags a command is asked about: look at what the command declares
+	// first, which is where a local flag lives.
+	if c.Flags().Lookup(flag) == nil && c.PersistentFlags().Lookup(flag) == nil {
+		return
+	}
 	if c.LocalFlags().Lookup(flag) == nil {
 		return
 	}
