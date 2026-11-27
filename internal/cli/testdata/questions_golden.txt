@@ -429,16 +429,16 @@ title: Saved passwords, tokens, SSH keys and server CAs
 title: Server CAs: trust the CA that signs servers' host keys
 ### komando credential certificate add
 title: Trust a CA for the servers its patterns match (person only)
-- arg0 | Name | Name? |  |  | check
-- flag:from | --from | A known_hosts file: read its @cert-authority and @revoked lines |  |  | optional,advanced,check
-- flag:hosts | --hosts | Server name patterns the CA may vouch for (*.corp.example,10.1.2.*) |  |  | optional,advanced,check
-- flag:key | --key | The CA's public key file (.pub) |  |  | optional,advanced,free,choices
+- arg0 | Name | A short name for this CA? |  | corp | check
+- flag:key | --key | The CA's public key file (.pub)? | Check its fingerprint with the people who run the CA first: it will vouch for every server it signs. | ~/corp-ca.pub | optional,free,choices
+- flag:hosts | --hosts | Which server names may it vouch for? | Name at least the domain: *.corp.example or 10.1.2.*. A lone * is refused. | *.corp.example | optional,check
+- flag:from | --from | Or read a known_hosts file's @cert-authority lines? | A known_hosts file: read its @cert-authority and @revoked lines | ~/.ssh/known_hosts | optional,check
 ### komando credential certificate list
 title: List the trusted server CAs
 - flag:limit | --limit | The first N CAs (0 = all) |  |  | optional,advanced,check
 ### komando credential certificate remove
 title: Stop trusting a server CA
-- arg0 | Name | Name? |  |  | check
+- arg0 | Name | Which CA should komando stop trusting? | See them with `komando credential certificate list`. |  | check
 ### komando credential key
 title: SSH keys: make, add, install on servers, uninstall
 ### komando credential key add

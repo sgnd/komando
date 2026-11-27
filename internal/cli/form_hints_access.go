@@ -132,8 +132,12 @@ func init() {
 		"credential key uninstall": {args: []formArg{accKeyOrPub, accServers},
 			flags: []formFlag{{name: "user", ask: "Whose login should lose the key?", example: "deploy",
 				help: "Leave empty for the user komando logs in as. Another user's file is changed with sudo."}}},
+	})
+}
 
-		// Server CAs
+// The questions for the server CAs (credential certificate).
+func init() {
+	addFormHints(map[string]formHint{
 		"credential certificate list": {},
 		"credential certificate add": {
 			args: []formArg{{ask: "A short name for this CA?", example: "corp"}},
