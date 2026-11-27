@@ -561,7 +561,9 @@ func treeOf(cl *call) *cobra.Command {
 	root.SetVersionTemplate(`{{.Version}}` + "\n")
 	addCommands(cl, root)
 	mountTable(root)
-	root.SetHelpCommand(&cobra.Command{Use: "__help", Hidden: true}) // cobra adds one; komando has none: `komando X --help` is the help
+	// cobra adds a help command when it runs: a hidden one, in a group (no "Additional
+	// Commands"), leaves a typed help word unknown; the flag --help is the help
+	root.SetHelpCommand(&cobra.Command{Use: "__help", Hidden: true, GroupID: "setup"})
 	root.InitDefaultCompletionCmd()
 	labelBuiltinCmds(root) // before the conventions: `completion` alone, piped, is a USAGE envelope too
 	useShortGlobals(root)

@@ -133,3 +133,21 @@ func matchesAtStart(re *regexp.Regexp, line string) bool {
 	}
 	return false
 }
+
+// There is no help command and there are no help topics: `komando help` and
+// `komando help safety` are unknown commands, and `--help` is the help.
+func TestHelpIsOnlyTheFlag(t *testing.T) {
+	invHome(t)
+	for _, args := range [][]string{{"help"}, {"help", "host", "list"}, {"help", "safety"}} {
+		e := wantCode(t, "USAGE", args...)
+		if !strings.Contains(e.Message, "unknown command") || !strings.Contains(e.Hint, "komando --help") {
+			t.Errorf("%v: %+v, want an unknown command that points at komando --help", args, e)
+		}
+	}
+	root := newRoot(tcl)
+	for _, c := range root.Commands() {
+		if c.Name() == "help" {
+			t.Errorf("the tree has a help command")
+		}
+	}
+}
