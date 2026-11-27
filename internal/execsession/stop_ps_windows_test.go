@@ -38,7 +38,7 @@ func alive(t *testing.T, pid int) bool {
 // process lives on), then ends the run's whole tree, a child it started
 // included, notes the stop, and a second stop finds nothing to stop.
 func TestStopPSOnWindows(t *testing.T) {
-	base := t.TempDir()
+	base := loginBase(t)
 	s := psStart()
 	s.Env, s.Stdin = nil, nil
 	s.Command = "Start-Process powershell.exe -WindowStyle Hidden -ArgumentList '-NoProfile', '-Command', 'Start-Sleep 120'; Start-Sleep 120"
@@ -81,7 +81,7 @@ func TestStopPSOnWindows(t *testing.T) {
 // W9 in part: remove refuses a running session, deletes an ended one, and
 // a junction inside the folder is removed without what it points to.
 func TestRemovePSOnWindows(t *testing.T) {
-	base := t.TempDir()
+	base := loginBase(t)
 	s := psStart()
 	s.Env, s.Stdin = nil, nil
 	s.Command = "Start-Sleep 120"
@@ -122,7 +122,7 @@ func TestRemovePSOnWindows(t *testing.T) {
 // W9 in part: the sweep deletes an ended session older than 7 days by the
 // server's clock and nothing else, and a running session is never swept.
 func TestSweepPSOnWindows(t *testing.T) {
-	base := t.TempDir()
+	base := loginBase(t)
 	old, fresh, running := psStart(), psStart(), psStart()
 	fresh.ID, running.ID = strings.Repeat("b", 52), strings.Repeat("c", 52)
 	for _, s := range []*StartPS{&old, &fresh, &running} {
@@ -157,7 +157,7 @@ func TestSweepPSOnWindows(t *testing.T) {
 // named a&b) is refused by the start, the remove and the sweep, and no
 // rmdir runs: the planted session folder is still there.
 func TestMetaPathRefusedOnWindows(t *testing.T) {
-	base := filepath.Join(t.TempDir(), "a&b")
+	base := filepath.Join(loginBase(t), "a&b")
 	dir := sessionDirPS(base)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatal(err)
