@@ -185,6 +185,8 @@ func TestGuardProgramValueWithASeparatorIsAnyProgram(t *testing.T) {
 		// a value that may be empty leaves the next word as the program
 		`true && S=/tmp/x/run.sh; $S --size=4`,
 		`E=; $E $E ls`,
+		// a program written on the line is its name, an escaped ` in it too
+		"cat >f <<EOF\n(2) \\`service.ts\\` ~128-149: price check\nEOF",
 	}, false)
 }
 
