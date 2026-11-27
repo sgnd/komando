@@ -173,7 +173,7 @@ This page is made from the code (`komando schema` lists the same under
 | `PORT_CLOSED` | 5 | cannot connect to … | check the address, firewall or service on the other side |
 | `PORT_IN_USE` | 8 | cannot listen on 127.0.0.1:…: … | pick another LOCAL port (`komando tunnel list` shows the ones komando holds) |
 | `POWERSHELL_FAILED` | 5 | the login check in PowerShell failed on … (exit …): … | komando runs every command on Windows in Windows PowerShell (powershell.exe): check that it is on the PATH of the login user, and read the message |
-| `PREPARE_FAILED` | 1 | komando did not prepare … for this line, so it runs nothing | this is a bug in komando: report it at https://github.com/sgnd/komando/issues |
+| `PREPARE_FAILED` | 1 | komando did not prepare … for this line, so it runs nothing | run `komando doctor` to check this computer's setup, then report this bug in komando at https://github.com/sgnd/komando/issues |
 | `PROTECTED_TARGET` | 6 | a change action on protected conn …: … | check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen) |
 | `PROXY_FAILED` | 4 | proxy command for …: … | check the program in --proxy-command is installed |
 | `PROXY_NOT_FIRST` | 2 | … has a proxy command but is reached through another hop | a proxy command can only start a path; put that server first in --via |

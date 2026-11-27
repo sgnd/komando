@@ -11975,7 +11975,7 @@
         "code": "PREPARE_FAILED",
         "exit": 1,
         "example": "komando did not prepare … for this line, so it runs nothing",
-        "hint": "this is a bug in komando: report it at https://github.com/sgnd/komando/issues"
+        "hint": "run `komando doctor` to check this computer's setup, then report this bug in komando at https://github.com/sgnd/komando/issues"
       },
       {
         "code": "PROTECTED_TARGET",

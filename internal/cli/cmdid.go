@@ -94,7 +94,7 @@ func notPrepared(c *cobra.Command) *out.Error {
 	if prepared(c) || completeHelper(c) {
 		return nil
 	}
-	return out.Errf(out.ExitError, "PREPARE_FAILED", "this is a bug in komando: report it at https://github.com/sgnd/komando/issues",
+	return out.Errf(out.ExitError, "PREPARE_FAILED", "run `komando doctor` to check this computer's setup, then report this bug in komando at https://github.com/sgnd/komando/issues",
 		"komando did not prepare %s for this line, so it runs nothing", c.CommandPath())
 }
 
