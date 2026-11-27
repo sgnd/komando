@@ -278,6 +278,41 @@ func TestGateCheck(t *testing.T) {
 	}
 }
 
+// A read-only key runs a snippet only when the filled-in command reads, so
+// the gate reads the blanks as the person typed them: a value with a comma
+// or a double quote is one value, and blanks it cannot read are refused.
+func TestGateSnippetBlanksAreReadAsTyped(t *testing.T) {
+	invHome(t)
+	gateInventory(t)
+	// stored as a read-only snippet whose blank sits in a verb position;
+	// with no --var it reads (the default), so only the values decide
+	err := store.Update(store.Save(), func(st *store.State) error {
+		st.Snippets["dk"] = &store.Snippet{Name: "dk", Command: "docker {{sub=ps}} ps", ReadOnly: true}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	setGate(tcl, true, gateYes)
+	defer func() { setGate(tcl, false, gateYes) }()
+	const RO = "SSH_GATE_READ_ONLY"
+	for line, want := range map[string]string{
+		"snippet exec dk web --var sub=ps":     "",
+		"snippet exec dk web --var sub=a,b":    RO, // one value, "a,b": no read
+		`snippet exec dk web --var 'sub="rm'`:  RO, // a quote does not drop the blank
+		`snippet exec dk web --var 'sub=a,"b'`: RO,
+		"snippet exec dk web --var sub":        RO, // no NAME=VALUE: the blanks could not be read
+	} {
+		if got := gateAnswer(t, line, true); got != want {
+			t.Errorf("%q, read-only key: %q, want %q", line, got, want)
+		}
+	}
+	words, _ := gateWords("snippet exec dk web --var sub")
+	if _, _, e := gateCheck(words, gateKey{readOnly: true, network: true}); e == nil || !strings.Contains(e.Message, "the blanks could not be read") {
+		t.Errorf("refusal: %+v", e)
+	}
+}
+
 // A command on a target that is this computer runs here: exec on localhost
 // is a shell, logs --file and fs cat read any file here, a sqlite conn is a
 // file here (VACUUM INTO writes any file), a database, cache or cluster at

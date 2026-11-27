@@ -145,3 +145,14 @@ func TestLineWordsEveryCommandID(t *testing.T) {
 		}
 	}
 }
+
+// A repeatable flag gives one word per value, as the person typed it: a
+// comma or a double quote in a value does not join it to the next value or
+// hide it from a risk word (snippet exec --var is a KEY=VALUE flag).
+func TestLineWordsOneWordPerFlagValue(t *testing.T) {
+	_, words, _ := lineWords([]string{"snippet", "exec", "dk", "web", "--var", "sub=a,b", "--var", `k="rm`, "--no-sudo"})
+	want := []string{"dk", "web", "--no-sudo=true", "--var=sub=a,b", `--var=k="rm`}
+	if !slices.Equal(words, want) {
+		t.Errorf("words %q, want %q", words, want)
+	}
+}

@@ -13,6 +13,7 @@ import (
 	"github.com/sgnd/komando/internal/version"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -511,10 +512,19 @@ func gateRecipeWrites(c *cobra.Command) string {
 	if !r.ReadOnly {
 		return "the recipe " + r.Name + " is not marked read-only"
 	}
-	vars, _ := c.Flags().GetStringArray("var")
-	kv, err := parseKV(vars)
+	// the values as typed: the string getters re-parse the flag's text, which
+	// drops or splits a value with a comma or a double quote
+	f := c.Flags().Lookup("var")
+	if f == nil {
+		return "the blanks could not be read"
+	}
+	sv, ok := f.Value.(pflag.SliceValue)
+	if !ok {
+		return "the blanks could not be read"
+	}
+	kv, err := parseKV(sv.GetSlice())
 	if err != nil {
-		return ""
+		return "the blanks could not be read"
 	}
 	if checkVars(r, kv) != nil {
 		return ""

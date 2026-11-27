@@ -950,3 +950,71 @@ func TestBodyDefaultsMatchTable(t *testing.T) {
 		t.Fatal("no option checked")
 	}
 }
+
+// The gate, risk, policy and guard code sees the table's leaf, not the body
+// command. A flag the table builds with a type of its own (a KEY=VALUE flag,
+// a list, a number) must not be read back through the string getters, which
+// re-parse the flag's text: read a repeatable flag through pflag.SliceValue
+// and refuse when it cannot be read. A source check: the files may call a
+// string getter only on a table option that is a plain string.
+func TestGateRiskPolicyGuardReadNoBuiltFlagAsText(t *testing.T) {
+	plain := map[string]bool{} // option names the table builds as a plain string
+	built := map[string]bool{} // option names built with another type somewhere
+	for _, l := range capability.All() {
+		for _, o := range l.Options {
+			if o.Repeat || o.Pairs || o.List || o.Kind == capability.Bool || o.Kind == capability.Int ||
+				o.Kind == capability.Duration || o.Kind == capability.Bytes {
+				built[o.Name] = true
+			} else {
+				plain[o.Name] = true
+			}
+		}
+	}
+	call := regexp.MustCompile(`\.Get(StringArray|StringSlice|String)\(([^)]*)\)`)
+	var files []string
+	for _, pat := range []string{"sshgate*.go", "risk*.go", "policy*.go", "guard*.go", "gate*.go"} {
+		m, err := filepath.Glob(pat)
+		if err != nil {
+			t.Fatal(err)
+		}
+		files = append(files, m...)
+	}
+	checked := 0
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") {
+			continue
+		}
+		src, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		checked++
+		for _, m := range call.FindAllStringSubmatch(string(src), -1) {
+			getter, arg := m[1], strings.TrimSpace(m[2])
+			name, quoted := strings.CutPrefix(arg, `"`)
+			name, closed := strings.CutSuffix(name, `"`)
+			switch {
+			case !quoted || !closed:
+				t.Errorf("%s: Get%s(%s): name the flag with a string literal, so this check can see its type", f, getter, arg)
+			case getter != "String" || built[name] && !plain[name]:
+				t.Errorf("%s: Get%s(%q) re-reads the text of a flag the table builds: use Flag.Value.(pflag.SliceValue) and refuse when it cannot be read", f, getter, name)
+			}
+		}
+	}
+	if checked < 10 {
+		t.Errorf("only %d files checked: the file patterns match nothing", checked)
+	}
+}
+
+// The bare nouns of cut step C8 have the safety key of their type, set
+// where each noun is made, whatever order the files' init functions run in.
+func TestC8NounsHaveTheirOwnKey(t *testing.T) {
+	for _, noun := range []string{"snippet", "group", "policy", "audit", "agent"} {
+		if got := cmdKeys[noun]; got != (safetyKey{typ: noun}) {
+			t.Errorf("cmdKeys[%q] = %+v, want the key of type %s", noun, got, noun)
+		}
+	}
+	if _, ok := cmdKeys["recipe"]; ok {
+		t.Error(`cmdKeys["recipe"] is still there: the noun is snippet`)
+	}
+}
