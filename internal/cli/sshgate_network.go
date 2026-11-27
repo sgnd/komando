@@ -20,9 +20,9 @@ type gateKey struct {
 
 // A read key (--read-only) without --network runs only the reads that stay
 // on the servers and conns a person put in the inventory. Reaching the
-// network is no write, but it is a way out: `net http web URL`, `cert check
-// https://HOST` (dialed from this computer) or `exec --read-only -- curl`
-// carry what the key reads to any host, in a URL or a DNS name. So the rule
+// network is no write, but it is a way out: `net http web URL` or
+// `exec --read-only -- curl` carry what the key reads to any host, in a URL
+// or a DNS name. So the rule
 // fails closed: a read runs only when gateNoNetwork names it, and a command
 // added later is refused until someone decides it reaches only known
 // targets (TestGateNetworkClassified makes every reachable read be in one
@@ -39,7 +39,6 @@ var gateNoNetwork = map[string]func(c *cobra.Command) string{
 	"list": nil, "test": nil, "facts": nil, "logs": nil, "export": nil, "download": nil, "ssh-gate.status": nil,
 	"cache": nil, "cache.get": nil, "cache.info": nil, "cache.keys": nil, "cache.run": nil,
 	"queue": nil, "queue.describe": nil, "queue.groups": nil, "queue.info": nil, "queue.lag": nil, "queue.list": nil, "queue.peek": nil,
-	"cert": nil, "cert.check": gateCertURL,
 	"cluster": nil, "cluster.describe": nil, "cluster.events": nil, "cluster.get": nil, "cluster.helm": nil,
 	"cluster.helm.history": nil, "cluster.helm.list": nil, "cluster.helm.status": nil, "cluster.helm.values": nil,
 	"cluster.history": nil, "cluster.list": nil, "cluster.logs": nil, "cluster.run": nil, "cluster.status": nil,
@@ -95,21 +94,6 @@ func gateEgress(c *cobra.Command, name string) string {
 		return why
 	}
 	return "komando does not know that it stays on the servers and conns in your list"
-}
-
-// gateCertURL: cert check of a website (a URL or HOST:PORT that names no
-// server or conn) connects from the komando computer to that place.
-func gateCertURL(c *cobra.Command) string {
-	st, err := store.Load()
-	if err != nil {
-		return "your list of servers and conns could not be read"
-	}
-	for _, a := range c.Flags().Args() {
-		if addr, _, ok, _ := parseCertURL(st, a); ok {
-			return "it connects from the komando computer to " + addr + ", which is no server or conn in your list"
-		}
-	}
-	return ""
 }
 
 // gateStatus is what `ssh-gate status` prints: which key the caller holds
