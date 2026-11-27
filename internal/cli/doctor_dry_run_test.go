@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"io/fs"
 	"maps"
@@ -124,10 +125,56 @@ func dryRunPreviewsTheMove(t *testing.T, mode os.FileMode) {
 	}
 }
 
+// P0 of 2026-11-27: a person at a terminal runs `doctor --dry-run` on a
+// store of format 2 through the whole program (promptFill first): the
+// preview, and store.db stays format 2, byte-equal, with no backup made.
+func TestPersonDryRunAtTerminalNeverMoves(t *testing.T) {
+	invHome(t)
+	noAgent(t)
+	t.Setenv("SSH_CONNECTION", "")
+	t.Setenv("SSH_TTY", "")
+	sealdb.CreateFormat = 2
+	t.Cleanup(func() { sealdb.CreateFormat = sealdb.Format })
+	if _, err := store.DB(true); err != nil {
+		t.Fatal(err)
+	}
+	store.Close()
+	sealdb.CreateFormat = sealdb.Format
+	saved := promptable
+	promptable = func(*call, string) bool { return true }
+	t.Cleanup(func() { promptable = saved })
+	// the person's call is the only one running, as in the program
+	tcl.leave()
+	t.Cleanup(tcl.enter)
+	before, err := os.ReadFile(store.DBPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"doctor", "--dry-run"}, {"-o", "text", "doctor", "--dry-run"}} {
+		var o, e strings.Builder
+		c := processCall()
+		c.Terminal, c.Stdout, c.Stderr = true, &o, &e
+		code := execute(newCall(c, args), t.Context(), args)
+		store.Close()
+		if code != 0 || !strings.Contains(o.String(), "would") {
+			t.Fatalf("%v: exit %d\n%s%s", args, code, o.String(), e.String())
+		}
+		if after, err := os.ReadFile(store.DBPath()); err != nil || !bytes.Equal(before, after) {
+			t.Fatalf("%v changed store.db: %v", args, err)
+		}
+		if f, err := sealdb.Peek(t.Context(), store.DBPath()); err != nil || f["format"] != "2" {
+			t.Fatalf("%v moved the store: %v %v", args, f, err)
+		}
+		if b, _ := filepath.Glob(store.Path("store-v0-17-backup-*")); len(b) > 0 {
+			t.Fatalf("%v made a backup: %v", args, b)
+		}
+	}
+}
+
 // A dry run never moves the store, whoever runs it.
 func TestMigrateCallForDryRun(t *testing.T) {
 	cl := testCall()
-	setGate(cl, true, gateDryRun)
+	parsedGate(t, cl, "doctor", "--dry-run")
 	if c := migrateCallFor(cl, "doctor"); c.Way != store.MigrateRefuse || !strings.Contains(c.Why, "dry run") {
 		t.Fatalf("a dry run: way %d, why %q", c.Way, c.Why)
 	}

@@ -55,6 +55,9 @@ type call struct {
 	// a dry run). The store asks every running call (oldCopyAllowed), so
 	// it is atomic.
 	oldCopy atomic.Bool
+	// noMove: the store opens now without the move to format 3 (promptFill
+	// lists entries before the command line is read); atomic like oldCopy.
+	noMove atomic.Bool
 
 	// command numbers the command running in the call (enter), unique in
 	// the process: a path through jump hosts is shared only within one
@@ -174,7 +177,10 @@ type gate struct {
 	yes            bool // --yes as typed: what counts is yesOK
 	allowDangerous bool // --allow-dangerous as typed: what counts is dangerOK
 	reveal         bool // --reveal as typed: what counts is revealOK
-	who            engine.Caller
+	// parsed: made from a parsed command line; before one is, --dry-run
+	// reads false, so the move to format 3 never starts (migrateCallFor)
+	parsed bool
+	who    engine.Caller
 	// hooks is how the gate's decisions reach the call they decide for:
 	// its approvals, the window and the would_be_blocked record. Given to
 	// newGate and never set after; nil (noGate, a command only checked)
@@ -227,7 +233,7 @@ func newGate(cmd *cobra.Command, who engine.Caller, hooks gateIO) *gate {
 			on[i] = v
 		}
 	}
-	return &gate{dryRun: on[0], yes: on[1], allowDangerous: on[2], reveal: on[3], who: who, hooks: hooks}
+	return &gate{dryRun: on[0], yes: on[1], allowDangerous: on[2], reveal: on[3], parsed: cmd != nil, who: who, hooks: hooks}
 }
 
 // startGate stores the gate of the command cmd starts: from its parsed

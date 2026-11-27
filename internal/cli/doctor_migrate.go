@@ -19,19 +19,24 @@ import (
 //
 //  1. an AI agent or an ssh-gate key: NEEDS_PERSON
 //  2. CI set: NEEDS_PERSON
-//  3. --dry-run: never moves (doctor --dry-run shows what the move would do)
-//  4. a person with stdin and stderr terminals and no SSH_CONNECTION or
+//  3. the command line not read yet (newCall's gate, promptFill): never
+//     moves, as --dry-run is not known yet
+//  4. --dry-run: never moves (doctor --dry-run shows what the move would do)
+//  5. a person with stdin and stderr terminals and no SSH_CONNECTION or
 //     SSH_TTY: the terminal path
-//  5. `doctor`, not clickForgeable, no KOMANDO_NO_DIALOG: the window
-//  6. everything else: NEEDS_PERSON
+//  6. `doctor`, not clickForgeable, no KOMANDO_NO_DIALOG: the window
+//  7. everything else: NEEDS_PERSON
 func migrateCallFor(cl *call, command string) store.MigrateCall {
 	c := store.MigrateCall{Way: store.MigrateRefuse, RefGuard: vault.RefGuard}
+	g := cl.gate()
 	switch {
-	case cl.isAgent():
-		c.Why = "an AI agent (" + cl.caller().Agent + ")"
+	case g.who.IsAgent():
+		c.Why = "an AI agent (" + g.who.Agent + ")"
 	case cl.getenv("CI") != "":
 		c.Why = "a CI job"
-	case cl.dryRun():
+	case !g.parsed || cl.noMove.Load():
+		c.Why = "a look at the store before the command line was read"
+	case g.dryRun:
 		c.Why = "a dry run (`komando doctor --dry-run` shows what the move would do)"
 	case cl.terminal && cl.getenv("SSH_CONNECTION") == "" && cl.getenv("SSH_TTY") == "":
 		c.Way = store.MigrateTerminal
