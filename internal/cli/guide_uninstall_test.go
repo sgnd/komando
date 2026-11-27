@@ -11,7 +11,7 @@ import (
 	"github.com/sgnd/komando/internal/out"
 )
 
-// A guide uninstall that stops for the guard removes nothing, not even the
+// A agent skill uninstall that stops for the guard removes nothing, not even the
 // skill files, and says so in the audit log; its dry run names the stop.
 func TestGuideUninstallStopsBeforeRemovingAnything(t *testing.T) {
 	invHome(t)
@@ -19,15 +19,15 @@ func TestGuideUninstallStopsBeforeRemovingAnything(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home) // os.UserHomeDir reads USERPROFILE on Windows
 	noAgent(t)
-	mustRun(t, "guide", "install")
+	mustRun(t, "agent", "skill", "install")
 	skill := filepath.Join(home, ".claude", "skills", "komando", "SKILL.md")
 	asAgent(t, false, true)
-	d := mustRun(t, "guide", "uninstall", "--dry-run")
+	d := mustRun(t, "agent", "skill", "uninstall", "--dry-run")
 	meta, _ := d["_meta"].(map[string]any)
 	if b, _ := meta["would_be_blocked"].(map[string]any); b["code"] != "SAFETY_SETTING" {
 		t.Errorf("dry run: meta %v", meta)
 	}
-	if _, e := invRun(t, "guide", "uninstall"); e == nil || e.Code != "SAFETY_SETTING" {
+	if _, e := invRun(t, "agent", "skill", "uninstall"); e == nil || e.Code != "SAFETY_SETTING" {
 		t.Fatalf("an agent removes its guard: %+v", e)
 	}
 	for _, p := range []string{skill, filepath.Join(home, ".agents", "skills", "komando", "SKILL.md")} {
@@ -35,7 +35,7 @@ func TestGuideUninstallStopsBeforeRemovingAnything(t *testing.T) {
 			t.Errorf("a stopped uninstall removed %s", p)
 		}
 	}
-	a := mustRun(t, "audit", "--command", "guide.uninstall")
+	a := mustRun(t, "audit", "list", "--command", "agent.skill.uninstall")
 	found := false
 	for _, e := range a["entries"].([]any) {
 		m := e.(map[string]any)
@@ -78,7 +78,7 @@ func TestClaudeGuardChecksTheProgram(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "settings.json")
 	write := func(cmd string) {
-		c, _ := json.Marshal(cmd) // a Windows path's \ is escaped, as guide install writes it
+		c, _ := json.Marshal(cmd) // a Windows path's \ is escaped, as agent skill install writes it
 		os.WriteFile(p, []byte(`{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":`+string(c)+`}]}]}}`), 0o600)
 	}
 	self, _ := os.Executable()
@@ -116,7 +116,7 @@ func TestClaudeGuardChecksTheProgram(t *testing.T) {
 	}
 }
 
-// guide install --project writes the name komando has in PATH, which works
+// agent skill install --project writes the name komando has in PATH, which works
 // on every computer the project's files go to.
 func TestGuideInstallProjectUsesThePathName(t *testing.T) {
 	self, err := os.Executable()

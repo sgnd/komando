@@ -370,12 +370,12 @@ func folderOwner(dir string) string {
 // uses the old line.
 func nextAfterUpdate() string {
 	if asRoot() {
-		return "komando guide install, without sudo (gives your AI agents this version's skill)"
+		return "komando agent skill install, without sudo (gives your AI agents this version's skill)"
 	}
 	if oldGuardHooks() {
-		return "komando guide install (guard hooks use the old line; it also gives your AI agents this version's skill)"
+		return "komando agent skill install (guard hooks use the old line; it also gives your AI agents this version's skill)"
 	}
-	return "komando guide install (gives your AI agents this version's skill)"
+	return "komando agent skill install (gives your AI agents this version's skill)"
 }
 
 // oldGuardHooks says whether an AI agent's guard hook in this home still

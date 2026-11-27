@@ -8,7 +8,7 @@ import (
 	"github.com/sgnd/komando/internal/out"
 )
 
-// auditFilter picks the entries `komando audit` shows.
+// auditFilter picks the entries `komando audit list` shows.
 type auditFilter struct {
 	command  string          // command prefix, "" for all
 	failed   bool            // only failed or blocked actions

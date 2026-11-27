@@ -153,7 +153,7 @@ func Invalid(extra []string) map[int]string {
 
 func badPattern(p string, err error) string {
 	return "matches every command: your deny rule " + p + " is not a regular expression komando can read (" + err.Error() +
-		"); fix it, or remove it with `komando policy rm " + CustomID(p) + "`"
+		"); fix it, or remove it with `komando policy remove " + CustomID(p) + "`"
 }
 
 // CustomID is the id of a custom deny pattern: made from the pattern, so

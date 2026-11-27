@@ -38,8 +38,8 @@ func TestDryRunChangesNothing(t *testing.T) {
 		{"host", "rm", "web1"},
 		{"conn", "edit", "db1", "--add-tag", "x"},
 		{"conn", "rm", "db1"},
-		{"group", "add", "web", "web1"},
-		{"policy", "deny", "kubectl apply"},
+		{"group", "create", "web", "web1"},
+		{"policy", "create", "kubectl apply"},
 		{"key", "gen", "k1"},
 	} {
 		if err := run(append([]string{"--dry-run"}, args...)...); err != nil {

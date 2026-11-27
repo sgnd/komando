@@ -96,7 +96,7 @@ signed checksums, runs the new program once to make sure it works here,
 and only then puts it in place. If anything fails, the old komando stays.
 Your servers, secrets and history in `~/.komando` stay as they are.
 
-After an update, run `komando guide install` again (without `sudo`), so
+After an update, run `komando agent skill install` again (without `sudo`), so
 your AI agents get the skill of the new version. Until then
 `komando doctor` says the skill is from another version.
 
@@ -173,8 +173,8 @@ For fish and PowerShell, see `komando completion --help`.
 1. Stop what komando still runs. `komando status` lists it;
    `komando vpn KIND stop NAME` (once for each VPN it lists) and `komando tunnel stop --all` stop it.
 2. Take the skill and the guard out of your AI agents:
-   `komando guide uninstall` (add `--project` in a folder where you ran
-   `guide install --project`).
+   `komando agent skill uninstall` (add `--project` in a folder where you ran
+   `agent skill install --project`).
 3. Keep a copy of `~/.komando` if you may need your servers or secrets
    again (see [Move to another computer](import.md#move-to-another-computer)),
    then delete the folder. Is the vault key in the system keychain? If you

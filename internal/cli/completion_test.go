@@ -95,7 +95,7 @@ func TestConnCompletionByFamily(t *testing.T) {
 	for _, args := range [][]string{
 		{"conn", "add", "app-db", "postgres://app@10.0.0.5/app"},
 		{"conn", "add", "app-cache", "rediss://default@10.0.0.7:6379/0"},
-		{"group", "add", "prod", "app-db"},
+		{"group", "create", "prod", "app-db"},
 	} {
 		if _, e := invRun(t, args...); e != nil {
 			t.Fatalf("%v: %v", args, e)

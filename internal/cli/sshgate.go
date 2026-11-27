@@ -492,7 +492,7 @@ func gateWrites(c *cobra.Command, name string) string {
 	return ""
 }
 
-// gateRecipeWrites says why `recipe run` may change something, or "": a
+// gateRecipeWrites says why `snippet exec` may change something, or "": a
 // recipe komando runs as a read is marked read-only, and its filled-in
 // command passes the --read-only check.
 func gateRecipeWrites(c *cobra.Command) string {
@@ -647,9 +647,9 @@ recipes in komando, no update, no change on a sqlite file or a target at
 localhost or 127.x. With --read-only only commands that read run (db
 query and cache redis raw without --write), and only those that stay on the
 servers and conns in your list: no net, no cert check of a website, no
-exec, job start, docker exec, cluster kubernetes exec or recipe run, unless the line
+exec, job start, docker exec, cluster kubernetes exec or snippet exec, unless the line
 also has --network. ` + "`komando ssh-gate status`" + ` tells a key which it is. Every command a key
-runs or is refused is in ` + "`komando audit`" + `, with --name, even when the
+runs or is refused is in ` + "`komando audit list`" + `, with --name, even when the
 audit setting is off.`,
 		Example: `  komando ssh-gate line --name phone ~/phone.pub
   komando ssh-gate line --name phone-read --read-only 'ssh-ed25519 AAAA... phone'`,

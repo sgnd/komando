@@ -58,7 +58,7 @@ func TestGuardOtherAgents(t *testing.T) {
 	}
 }
 
-// guide install sets the guard up for the agents whose folders exist,
+// agent skill install sets the guard up for the agents whose folders exist,
 // keeps the person's own hooks, and is unchanged when run again.
 func TestGuideInstallOtherAgents(t *testing.T) {
 	home := t.TempDir()
@@ -72,7 +72,7 @@ func TestGuideInstallOtherAgents(t *testing.T) {
 	run := func() {
 		root := newRoot(tcl)
 		t.Cleanup(endCommand) // the next test starts with none of this command's flags
-		root.SetArgs([]string{"-o", "json", "guide", "install"})
+		root.SetArgs([]string{"-o", "json", "agent", "skill", "install"})
 		if err := root.Execute(); err != nil {
 			t.Fatal(err)
 		}

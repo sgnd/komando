@@ -12,7 +12,7 @@ import (
 
 // The audit log is a hash chain: every record carries "prev", the SHA-256 of
 // the line before it, so a record edited or removed in the middle shows up
-// in `komando audit verify` (ISO 27001 A.8.15, NIST SP 800-53 AU-9). Someone
+// in `komando audit check` (ISO 27001 A.8.15, NIST SP 800-53 AU-9). Someone
 // who can write the file can still rebuild the whole chain or cut its end;
 // send the log elsewhere when that matters.
 
@@ -43,12 +43,12 @@ func auditVerifyCmd() *cobra.Command {
 				return err
 			}
 			if !r.OK {
-				cl.out.Print("audit.verify", r, &out.Error{Code: "AUDIT_TAMPERED", Exit: out.ExitError,
+				cl.out.Print("audit.check", r, &out.Error{Code: "AUDIT_TAMPERED", Exit: out.ExitError,
 					Message: "the audit log chain is broken at line " + strconv.Itoa(r.FirstBroken),
 					Hint:    "keep a copy of the file and find out who changed it; komando keeps adding records after it"})
 				return exitCode(out.ExitError)
 			}
-			cl.out.Print("audit.verify", r, nil)
+			cl.out.Print("audit.check", r, nil)
 			return nil
 		}),
 	}

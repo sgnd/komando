@@ -332,7 +332,7 @@ komando cron list db1 --user root            # root's crontab
 ## Sudo
 
 Commands that change something use sudo unless you add `--no-sudo` (`svc`,
-`pkg`, `user`, `reboot`, `recipe run`): add it when you log in as root.
+`pkg`, `user`, `reboot`, `snippet exec`): add it when you log in as root.
 Commands that read use sudo only when you ask: `--sudo` for `logs`,
 `docker` and `net ports`, `--user` for another user's crontab.
 
@@ -373,7 +373,7 @@ komando cron list db1
 komando cron rm db1 nightly-backup
 
 # a full disk on a Docker server
-komando recipe run disk web1
+komando snippet exec disk web1
 komando docker prune web1 --older-than 30d --dry-run # what would go, and how much
 ```
 

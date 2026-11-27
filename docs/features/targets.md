@@ -76,21 +76,21 @@ komando host edit web1 --rm-group prod --rm-tag web
 Or manage a group for many entries at once:
 
 ```bash
-komando group add prod 'web-*'          # add everything a target picks
-komando group add prod web1 web2        # several names
+komando group create prod 'web-*'       # add everything a target picks
+komando group create prod web1 web2     # several names
 komando group list                      # every group and tag with its members
 komando group list prod                 # the members of one group
-komando group rm prod web2              # take web2 out of prod
-komando group rm old --dry-run          # delete a whole group: who would leave it
-komando group rm old                    # more than 3 members: asks first
+komando group remove prod web2          # take web2 out of prod
+komando group remove old --dry-run      # delete a whole group: who would leave it
+komando group remove old                # more than 3 members: asks first
 ```
 
-Typed alone, `komando group add` asks for the group, then what goes in it.
+Typed alone, `komando group create` asks for the group, then what goes in it.
 
 Deleting a group with more than 3 members asks first: at your terminal
 komando asks `[y/N]`; an AI agent or a script adds `--yes` after a person
-agrees ([Safety](safety.md)). At a terminal, `group rm` ends with the way
-back: `Next: komando group add old TARGET...`.
+agrees ([Safety](safety.md)). At a terminal, `group remove` ends with the way
+back: `Next: komando group create old TARGET...`.
 
 ## Limits
 
@@ -112,4 +112,4 @@ back: `Next: komando group add old TARGET...`.
 | `NO_MATCHING_TARGETS` | the target picked only things this command cannot use (exit 3) | the hint names the command for what it picked |
 | `TARGET_NOT_FOUND` | no server of that name (exit 3) | check the "did you mean", or `komando host list` |
 | `USAGE` | a command that needs exactly one conn got a target with several | name the one conn |
-| `CONFIRM_REQUIRED` | `group rm` of a group with more than 3 members, from an AI agent or a script without `--yes` | check the members with `komando group list GROUP`, then add `--yes` after a person agrees |
+| `CONFIRM_REQUIRED` | `group remove` of a group with more than 3 members, from an AI agent or a script without `--yes` | check the members with `komando group list GROUP`, then add `--yes` after a person agrees |

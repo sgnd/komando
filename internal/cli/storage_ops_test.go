@@ -66,7 +66,7 @@ func TestStorageMv(t *testing.T) {
 		t.Errorf("same: %v", e)
 	}
 	wantCode(t, "USAGE", "storage", "s3", "object", "move", "bk", "a.txt", "../a.txt")
-	if a := mustRun(t, "audit", "--limit", "20"); !strings.Contains(fmt.Sprint(a), "storage.s3.object.move") {
+	if a := mustRun(t, "audit", "list", "--limit", "20"); !strings.Contains(fmt.Sprint(a), "storage.s3.object.move") {
 		t.Errorf("no audit entry: %v", a)
 	}
 }
@@ -139,7 +139,7 @@ func TestStorageChmod(t *testing.T) {
 		t.Errorf("chmod: %v %v", d, perm())
 	}
 	wantCode(t, "OBJECT_NOT_FOUND", "storage", "sftp", "object", "move", "files", "nope.yml", "--mode", "0600")
-	if a := mustRun(t, "audit", "--limit", "20"); !strings.Contains(fmt.Sprint(a), "storage.sftp.object.move") {
+	if a := mustRun(t, "audit", "list", "--limit", "20"); !strings.Contains(fmt.Sprint(a), "storage.sftp.object.move") {
 		t.Errorf("no audit entry: %v", a)
 	}
 }

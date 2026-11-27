@@ -14,7 +14,7 @@ import (
 )
 
 // Tests that lived with the menu and are about what stays: the line a
-// command is shown as, how a built command runs, imports, guide install.
+// command is shown as, how a built command runs, imports, agent skill install.
 
 func TestImportVetHosts(t *testing.T) {
 	// --overwrite with a copy that is refused (its --via does not exist)
@@ -76,7 +76,7 @@ func TestCommandKeepsVaultPass(t *testing.T) {
 func TestCommandLineQuoting(t *testing.T) {
 	cases := map[string][]string{
 		"shell web1":                    {"shell", "web1"},
-		"audit --limit 20":              {"audit", "--limit", "20"},
+		"audit list --limit 20":         {"audit", "list", "--limit", "20"},
 		"host add web1 deploy@10.0.0.5": {"host", "add", "web1", "deploy@10.0.0.5"},
 		"host add web1 'a;b'":           {"host", "add", "web1", "a;b"},
 		`host add web1 'it'\''s'`:       {"host", "add", "web1", "it's"},

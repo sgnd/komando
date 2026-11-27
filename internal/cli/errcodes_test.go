@@ -707,7 +707,7 @@ func example(format string) string {
 // meanings stand in for an example where the message is all values (the
 // server's own words): what the code means, in a few words.
 var meanings = map[string]string{
-	"AUDIT_TAMPERED":         "the audit log was changed outside komando (komando audit verify)",
+	"AUDIT_TAMPERED":         "the audit log was changed outside komando (komando audit check)",
 	"BAD_FILE":               "a file komando was given cannot be used as it is",
 	"CACHE_AUTH":             "the cache refused the login (password or ACL user)",
 	"CACHE_ERROR":            "the cache answered with an error (its words follow)",
@@ -763,7 +763,7 @@ var meanings = map[string]string{
 	"VAULT_LOCKED":           "the vault has a passphrase and none was given (KOMANDO_VAULT_PASS)",
 	"VPN_STOP_FAILED":        "the VPN session could not be stopped",
 	"WEAK_PASSPHRASE":        "the passphrase is shorter than 15 characters",
-	"WRITE_FAILED":           "a file on this computer could not be written (guide install, update)",
+	"WRITE_FAILED":           "a file on this computer could not be written (agent skill install, update)",
 	"REMOTE_WRITE_FAILED":    "a file on a server could not be written (fs --sudo, sync, Windows fs)",
 	"CONNECTION_REFUSED":     "the server refused the connection: nothing listens on that port",
 	"DNS_ERROR":              "the server's name does not resolve on this computer",

@@ -60,7 +60,7 @@ local log stays the record: when the log server does not answer, komando
 says so once on stderr and the command goes on. A copy on another machine keeps the
 history even if someone with your user account rewrites the local file.
 
-Negative values are refused. Every change is recorded in `komando audit`
+Negative values are refused. Every change is recorded in `komando audit list`
 with the old and the new value.
 
 Most settings also have a flag for one run: `--timeout`,
@@ -128,7 +128,7 @@ run the command yourself (see [Safety](safety.md#seatbelts-for-ai-agents)).
 | `KOMANDO_HOME` | where komando keeps its data (default `~/.komando`, on Windows `%USERPROFILE%\.komando`). For an AI agent, every command with another folder stops, a dry run too (see [Safety](safety.md#seatbelts-for-ai-agents)); if you keep the data elsewhere, make `~/.komando` a link to it instead |
 | `KOMANDO_VAULT_PASS` | optional: the vault's passphrase, instead of a key in the keychain or in `store.key`. A new vault takes it at your first secret; `komando secret passphrase` adds or changes it later (see [below](#a-passphrase-instead-of-the-keychain)) |
 | `KOMANDO_KEYCHAIN` | `off`: komando uses no keychain, and a new vault keeps its key in `store.key` (CI runners, containers, test runs). On a Mac, a path to a keychain file to use instead of the login keychain, for the store's key and its change count. An AI agent cannot move the keychain: its `off` does not move the change count (the old-copy check), and its path is not used at all, so an agent's call keeps the key and the count in the login keychain. A store whose key is in your own keychain file is opened only by your commands, not an agent's. The other way round, a store an agent made keeps its key in the login keychain, so your commands with `KOMANDO_KEYCHAIN` set to a file do not find it there |
-| `KOMANDO_ACTOR` | the name recorded in `komando audit` (for example `claude`) |
+| `KOMANDO_ACTOR` | the name recorded in `komando audit list` (for example `claude`) |
 | `KOMANDO_OUTPUT` | default output: `json` or `text` |
 | `KOMANDO_AGENT`, `AI_AGENT` | mark the caller as an AI agent, for agents komando does not know by their own variables: output hides secrets and `--yes`, `--allow-dangerous` and `--reveal` need a person to allow them (see [Safety](safety.md#seatbelts-for-ai-agents)). Any value counts, also `0` or empty |
 | `KOMANDO_NO_DIALOG` | any value: never show the approval window, as over SSH. An AI agent's `--yes`, `--allow-dangerous` or `--reveal` is then refused, and the agent asks you to run the command in your own terminal |

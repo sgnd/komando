@@ -165,7 +165,7 @@ not know? Set `KOMANDO_AGENT=1`.
     gets `error.suggestion` (the name komando thinks you meant), and the
     hint is the whole command line with it in place.
 11. When done, summarize what you changed, on which targets, and how to roll
-    back (`komando audit --limit 20` helps).
+    back (`komando audit list --limit 20` helps).
 
 ## Reading the output
 

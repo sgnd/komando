@@ -114,9 +114,9 @@ PY
 SH=$(kshell gate-sh gsh)
 check "a shell key opens the shell through the gate" True "$(grep -q 'gate-42' <<<"$SH" && echo True || echo False)"
 check "the key's new terminal size reaches the server" True "$(grep -q '33 111' <<<"$SH" && echo True || echo False)"
-gx komando policy deny 'gate-e2e-never' -o json >/dev/null
+gx komando policy create 'gate-e2e-never' -o json >/dev/null
 check "no shell while a deny rule of your own is set" True "$(ktty gate-sh komando shell gsh | refusedq && echo True || echo False)"
-gx komando policy rm 'gate-e2e-never' --yes -o json >/dev/null
+gx komando policy remove 'gate-e2e-never' --yes -o json >/dev/null
 check "a read key with --network may" True "$(kssh gate-net komando exec gx --read-only -o json -- uptime | jget '(d.get("error") or {}).get("code") != "SSH_GATE_NETWORK_REQUIRED"')"
 check "no shell: another program" SSH_GATE_REFUSED "$(kssh gate-rw id | code || true)"
 check "no shell: a second command" SSH_GATE_SYNTAX "$(kssh gate-rw 'komando list; id' | code || true)"
@@ -134,7 +134,7 @@ check "no keychain here: the store's key is a file" True "$(gx test -f /home/age
 gx komando host edit gx --protected -o json >/dev/null
 check "--yes from a key needs a person" PROTECTED_TARGET "$(kssh gate-rw komando exec gx --yes -o json -- touch /tmp/gx | code || true)"
 check "a shell key opens no shell on a protected server" True "$(ktty gate-sh komando shell gx | refusedq && echo True || echo False)"
-A1=$(gx komando audit -n 200 -o json)
+A1=$(gx komando audit list -n 200 -o json)
 check "audit: every key command, with the key's name" True "$(jget 'sum(1 for e in d["data"]["entries"] if e["command"] == "ssh-gate" and e.get("ssh_gate") in ("phone", "phone-read", "phone-net")) >= 14' <<<"$A1")"
 check "audit: what no key may write here" True "$(jget 'any(e.get("blocked") == "SSH_GATE_REFUSED" and e.get("runs") == "download" for e in d["data"]["entries"])' <<<"$A1")"
 check "audit: the refusals and why" True "$(jget 'any(e.get("blocked") == "SSH_GATE_READ_ONLY" and e["ok"] is False and e.get("reason") for e in d["data"]["entries"])' <<<"$A1")"

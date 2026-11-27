@@ -171,10 +171,10 @@ func init() {
 		"pkg rm":         {next: []string{"pkg installed {} PACKAGE"}},
 		"docker ps":      {next: []string{"docker logs {} CONTAINER --since 10m", "docker restart {} CONTAINER", "docker stats {}"}},
 		"docker logs":    {next: []string{"docker restart {} CONTAINER", "docker inspect {} CONTAINER"}},
-		"docker prune":   {next: []string{"recipe run disk {}"}},
+		"docker prune":   {next: []string{"snippet exec disk {}"}},
 		"cert check":     {next: []string{"cert check {} --warn 14d"}},
-		"recipe list":    {next: []string{"recipe run NAME TARGET"}},
-		"recipe add":     {next: []string{"recipe run {} TARGET --dry-run"}},
-		"recipe run":     {next: []string{"recipe list"}},
+		"snippet list":   {next: []string{"snippet exec NAME TARGET"}},
+		"snippet create": {next: []string{"snippet exec {} TARGET --dry-run"}},
+		"snippet exec":   {next: []string{"snippet list"}},
 	})
 }

@@ -1,5 +1,10 @@
+agent	plain=read	highest=read
+agent.skill	plain=read	highest=read
+agent.skill.install	plain=change	highest=read
+agent.skill.uninstall	plain=safety	highest=safety
 audit	plain=read	highest=read
-audit.verify	plain=read	highest=read
+audit.check	plain=read	highest=read
+audit.list	plain=read	highest=read
 cache	plain=read	highest=read
 cache.get	plain=read	highest=read
 cache.info	plain=read	highest=read
@@ -134,14 +139,13 @@ fs.rm	plain=dangerous	highest=dangerous
 fs.stat	plain=read	highest=read
 fs.write	plain=change	highest=read
 group	plain=read	highest=read
-group.add	plain=change	highest=read
+group.create	plain=change	highest=read
 group.list	plain=read	highest=read
+group.remove	plain=change	highest=change
 group.rename	plain=change	highest=read
-group.rm	plain=change	highest=change
+group.show	plain=read	highest=read
 guide	plain=read	highest=read
 guide.guard	plain=change	highest=read
-guide.install	plain=change	highest=read
-guide.uninstall	plain=safety	highest=safety
 help	plain=change	highest=read
 host	plain=read	highest=read
 host.add	plain=dangerous	highest=safety
@@ -198,10 +202,10 @@ pkg.upgradable	plain=change	highest=read
 pkg.upgrade	plain=change	highest=dangerous
 policy	plain=read	highest=read
 policy.check	plain=read	highest=read
-policy.deny	plain=change	highest=read
+policy.create	plain=change	highest=read
 policy.edit	plain=safety	highest=safety
 policy.list	plain=read	highest=read
-policy.rm	plain=safety	highest=safety
+policy.remove	plain=safety	highest=safety
 policy.show	plain=read	highest=read
 probe cache redis edit prod-redis --protected=false	safety
 probe cluster kubernetes edit prod-k8s --protected=false	safety
@@ -209,7 +213,7 @@ probe cluster scale c1 web 0	dangerous
 probe conn edit app-db --protected=false	safety
 probe export --for-phone	person
 probe export --sealed	person
-probe group rm big	change
+probe group remove big	change
 probe host add web2 root@10.0.0.6 --proxy-command nc	safety
 probe host edit web1 --protected=false	safety
 probe host edit web1 --proxy-command nc	safety
@@ -221,9 +225,9 @@ probe pkg rm web1 openssh-server	dangerous
 probe pkg upgrade web1 --security	dangerous
 probe policy edit rm-root --off	safety
 probe queue kafka edit prod-kafka --protected=false	safety
-probe recipe add r1 --overwrite --read-only	safety
 probe registry oci edit ghcr --protected=false	safety
 probe secret keychain	person
+probe snippet create r1 --overwrite --read-only	safety
 probe storage s3 edit prod-s3 --protected=false	safety
 probe sync ./site web1:/srv --delete	dangerous
 probe vpn socks edit kantor --mfa=false	safety
@@ -327,11 +331,6 @@ queue.sqs.topic.create	plain=change	highest=read
 queue.sqs.topic.delete	plain=dangerous	highest=dangerous
 queue.sqs.topic.list	plain=read	highest=read
 queue.sqs.topic.show	plain=read	highest=read
-recipe	plain=read	highest=read
-recipe.add	plain=change	highest=safety
-recipe.list	plain=read	highest=read
-recipe.rm	plain=change	highest=read
-recipe.run	plain=dangerous	highest=dangerous
 registry	plain=read	highest=read
 registry.oci	plain=read	highest=read
 registry.oci.add	plain=safety	highest=safety
@@ -362,6 +361,12 @@ secret.run	plain=safety	highest=safety
 secret.set	plain=change	highest=read
 secret.show	plain=read	highest=read
 shell	plain=person	highest=person
+snippet	plain=read	highest=read
+snippet.create	plain=change	highest=safety
+snippet.exec	plain=dangerous	highest=dangerous
+snippet.list	plain=read	highest=read
+snippet.remove	plain=change	highest=read
+snippet.show	plain=read	highest=read
 ssh-gate	plain=person	highest=person
 ssh-gate.line	plain=read	highest=read
 ssh-gate.status	plain=read	highest=read

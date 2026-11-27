@@ -107,15 +107,15 @@ komando comes with ready-made checks (built-in recipes). Run one on any
 target:
 
 ```bash
-komando recipe run health @web                    # uptime, load, memory, disk, failed services
-komando recipe list                               # all of them, with what they run
-komando recipe list --category security           # one category
-komando recipe run top-mem web1
-komando recipe run big-dirs web1 --var path=/srv
-komando recipe run oom all --var since=-2h
+komando snippet exec health @web                  # uptime, load, memory, disk, failed services
+komando snippet list                              # all of them, with what they run
+komando snippet list --category security          # one category
+komando snippet exec top-mem web1
+komando snippet exec big-dirs web1 --var path=/srv
+komando snippet exec oom all --var since=-2h
 ```
 
-Typed alone, `komando recipe run` asks for the recipe, then the target.
+Typed alone, `komando snippet exec` asks for the recipe, then the target.
 
 | Category (`--category`) | Recipes |
 |-------------------------|---------|
@@ -127,7 +127,7 @@ Typed alone, `komando recipe run` asks for the recipe, then the target.
 | maintenance (these change things) | `apt-clean`, `drop-caches`, `journal-vacuum` |
 
 Some recipes have blanks with defaults, for example `big-dirs` takes
-`--var path=/srv --var depth=2`. `komando recipe list` shows each recipe's
+`--var path=/srv --var depth=2`. `komando snippet list` shows each recipe's
 blanks. A time back from now is written with a minus (`since=-2h`), as
 journalctl reads it.
 
@@ -245,6 +245,6 @@ komando net dns web1 example.com --type MX            # MX, TXT, CNAME, NS ... (
 
 | Error code | What it means | What to do |
 |------------|---------------|------------|
-| `RECIPE_NOT_FOUND` | no recipe of that name (exit 3) | see them with `komando recipe list`; some checks are commands (table above) |
-| `UNKNOWN_VAR` | `--var` names a blank the recipe does not have | check the blanks with `komando recipe list` |
+| `RECIPE_NOT_FOUND` | no recipe of that name (exit 3) | see them with `komando snippet list`; some checks are commands (table above) |
+| `UNKNOWN_VAR` | `--var` names a blank the recipe does not have | check the blanks with `komando snippet list` |
 | `CERT_PROBLEMS` | a certificate expires within `--warn`, has expired, is not trusted, or certbot's last renewal failed (exit 1) | renew or replace the certificates the result marks |

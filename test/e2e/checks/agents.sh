@@ -27,9 +27,9 @@ check "guard stops reading the vault" deny "$(printf '{"tool_name":"Read","tool_
 check "guard stops ssh around komando" deny "$(echo '{"tool_name":"Bash","tool_input":{"command":"ssh web1 cat .env"}}' | $K guide guard | jget 'd["hookSpecificOutput"]["permissionDecision"]')"
 check "guard lets komando through" "" "$(echo '{"tool_name":"Bash","tool_input":{"command":"komando fs cat web1 /srv/.env"}}' | $K guide guard)"
 mkdir -p "$TMP/home"
-q env HOME="$TMP/home" "$K" guide install
-check "guide install adds the Claude Code guard" True "$(jget '"guide guard" in json.dumps(d["hooks"]["PreToolUse"])' < "$TMP/home/.claude/settings.json")"
-check "guide uninstall takes the guard out only with a yes" SAFETY_SETTING "$(env HOME="$TMP/home" "$K" guide uninstall | jget 'd["error"]["code"]' || true)"
-q env HOME="$TMP/home" "$K" guide uninstall --yes
-check "guide uninstall takes the guard out" False "$(jget '"guide guard" in json.dumps(d.get("hooks", {}))' < "$TMP/home/.claude/settings.json")"
-check "guide uninstall takes the skill out" False "$([ -e "$TMP/home/.claude/skills/komando" ] && echo True || echo False)"
+q env HOME="$TMP/home" "$K" agent skill install
+check "agent skill install adds the Claude Code guard" True "$(jget '"guide guard" in json.dumps(d["hooks"]["PreToolUse"])' < "$TMP/home/.claude/settings.json")"
+check "agent skill uninstall takes the guard out only with a yes" SAFETY_SETTING "$(env HOME="$TMP/home" "$K" agent skill uninstall | jget 'd["error"]["code"]' || true)"
+q env HOME="$TMP/home" "$K" agent skill uninstall --yes
+check "agent skill uninstall takes the guard out" False "$(jget '"guide guard" in json.dumps(d.get("hooks", {}))' < "$TMP/home/.claude/settings.json")"
+check "agent skill uninstall takes the skill out" False "$([ -e "$TMP/home/.claude/skills/komando" ] && echo True || echo False)"

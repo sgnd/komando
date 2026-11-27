@@ -30,7 +30,7 @@ func Check(b Builtin, given map[string]string) (Values, error) {
 			if len(b.Vars) > 0 {
 				has = "its variables: " + strings.Join(varNames(b), ", ")
 			}
-			return nil, out.Errf(out.ExitUsage, "UNKNOWN_VAR", "give only the variables the snippet names, as `komando recipe run "+b.Name+" TARGET --var NAME=VALUE`",
+			return nil, out.Errf(out.ExitUsage, "UNKNOWN_VAR", "give only the variables the snippet names, as `komando snippet exec "+b.Name+" TARGET --var NAME=VALUE`",
 				"snippet %s has no variable named %q (%s)", b.Name, name, has)
 		}
 	}

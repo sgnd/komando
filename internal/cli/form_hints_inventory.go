@@ -41,7 +41,7 @@ var (
 	invGroup = formArg{ask: "Which group?", pick: "group",
 		help: "A group is a name you give to several servers, conns and VPNs, like web or prod."}
 	invRecipe = formArg{ask: "Which recipe?", example: "health",
-		help: "Its name. `komando recipe list` shows the built-in ones (health, disk, memory ...) and yours."}
+		help: "Its name. `komando snippet list` shows the built-in ones (health, disk, memory ...) and yours."}
 	invSudo = formFlag{name: "sudo", ask: "Run it with sudo (as root)?",
 		help: "Say yes when it needs admin rights, like changing system files or services."}
 	invReadOnly = formFlag{name: "read-only", ask: "Does it only look, without changing anything?",
@@ -174,13 +174,14 @@ var invListHints = map[string]formHint{
 		},
 	},
 	"group": {},
-	"group add": {args: []formArg{invGroupNew, {ask: "What goes in it?", pick: "target", free: true,
+	"group create": {args: []formArg{invGroupNew, {ask: "What goes in it?", pick: "target", free: true,
 		help: "A server, conn or VPN, or tag:prod or several names separated by spaces or commas."}}},
 	"group list": {args: []formArg{{ask: "Which group? (leave empty for all)", pick: "group", free: true,
 		help: "Empty lists every group and tag with what is in it."}}},
+	"group show": {args: []formArg{invGroup}},
 	"group rename": {args: []formArg{invGroup, {ask: "What should the new name be?", example: "web-prod",
 		help: "Letters, digits, dot, dash and underscore."}}},
-	"group rm": {args: []formArg{invGroup, {ask: "What should come out of it? (leave empty to delete the group)",
+	"group remove": {args: []formArg{invGroup, {ask: "What should come out of it? (leave empty to delete the group)",
 		pick: "target", free: true,
 		help: "Empty deletes the group itself; the servers, conns and VPNs in it stay in your list."}}},
 }
@@ -219,21 +220,22 @@ var invJobHints = map[string]formHint{
 }
 
 var invRecipeHints = map[string]formHint{
-	"recipe":      {},
-	"recipe list": {},
-	"recipe run": {
+	"snippet":      {},
+	"snippet show": {args: []formArg{invRecipe}},
+	"snippet list": {},
+	"snippet exec": {
 		args: []formArg{invRecipe, invServers},
 		flags: []formFlag{
 			{name: "var", ask: "Fill in a blank?", example: "path=/var",
-				help: "Some recipes have blanks, like path for big-dirs: NAME=VALUE. `komando recipe list` shows them. Leave empty for the defaults."},
+				help: "Some recipes have blanks, like path for big-dirs: NAME=VALUE. `komando snippet list` shows them. Leave empty for the defaults."},
 			{name: "no-sudo", ask: "Run it without sudo?",
 				help: "Yes when the recipe asks for sudo but you may not use it there."},
 		},
 	},
-	"recipe add": {
+	"snippet create": {
 		args: []formArg{
 			{ask: "What do you want to call this recipe?", example: "app-logs",
-				help: "A short name you run later, like komando recipe run app-logs web1."},
+				help: "A short name you run later, like komando snippet exec app-logs web1."},
 			{ask: "What command should it run?", example: "tail -n {{lines=100}} /srv/app/app.log",
 				help: "Type it as you would on the server. {{name}} is a blank you fill in when you run it; {{name=100}} has a default."},
 		},
@@ -244,12 +246,12 @@ var invRecipeHints = map[string]formHint{
 				help: "Yes lets it run on a production server without asking you first. Say yes only when that is true."},
 		},
 	},
-	"recipe rm": {args: []formArg{{ask: "Which of your saved recipes should go?", example: "app-logs",
-		help: "Built-in recipes cannot be removed. `komando recipe list --category saved` shows yours."}}},
+	"snippet remove": {args: []formArg{{ask: "Which of your saved recipes should go?", example: "app-logs",
+		help: "Built-in recipes cannot be removed. `komando snippet list --category saved` shows yours."}}},
 }
 
 var invSafetyHints = map[string]formHint{
-	"audit": {flags: []formFlag{
+	"audit list": {flags: []formFlag{
 		{name: "since", ask: "From when?", example: "today",
 			help: "Like 2h, 7d, today or 2026-11-07. Leave empty for the newest entries."},
 		{name: "target", ask: "Only for which servers or conns?", pick: "target",
@@ -258,16 +260,16 @@ var invSafetyHints = map[string]formHint{
 		{name: "actor", ask: "Only what one person or AI agent did?", example: "claude",
 			help: "Part of the name, like claude or codex. Leave empty for everyone."},
 	}},
-	"audit verify": {},
-	"doctor":       {},
-	"status":       {},
-	"policy":       {},
-	"policy list":  {},
+	"audit check": {},
+	"doctor":      {},
+	"status":      {},
+	"policy":      {},
+	"policy list": {},
 	"policy check": {args: []formArg{{ask: "Which command do you want to check?", example: "rm -rf /",
 		help: "komando says whether it would refuse to run it. Nothing runs."}}},
-	"policy deny": {args: []formArg{{ask: "Which command should komando block?", example: `kubectl\s+delete`,
+	"policy create": {args: []formArg{{ask: "Which command should komando block?", example: `kubectl\s+delete`,
 		help: `Like kubectl delete: write it as kubectl\s+delete (\s+ means spaces, .* means anything). Then check it with komando policy check "kubectl delete pod web".`}}},
-	"policy rm": {args: []formArg{{ask: "Which of your own rules should go?", example: "custom-1a2b3c4d",
+	"policy remove": {args: []formArg{{ask: "Which of your own rules should go?", example: "custom-1a2b3c4d",
 		help: "Its id (custom-1a2b3c4d ...) or the pattern as you wrote it. `komando policy list` shows them. A built-in rule cannot be removed; `komando policy edit` switches it off."}}},
 	"policy show": {args: []formArg{{ask: "Which rule?", example: "docker-prune",
 		help: "Its id: `komando policy list` shows them. komando prints what it stops and where it is off."}}},
@@ -299,7 +301,7 @@ var invSafetyHints = map[string]formHint{
 			help: "The .pub file of the key (on this computer), or its line: ssh-ed25519 AAAA... phone. Never the private key."}},
 		flags: []formFlag{
 			{name: "name", ask: "What do you want to call this key?", example: "phone", required: true,
-				help: "It shows in `komando audit` for every command the key runs. Letters, digits, dot, dash, underscore."},
+				help: "It shows in `komando audit list` for every command the key runs. Letters, digits, dot, dash, underscore."},
 			{name: "read-only", ask: "Should the key only run commands that look, without changing anything?",
 				help: "Yes is safer for a phone or a shared key."},
 			{name: "network", ask: "Should this read-only key also run network checks and programs on servers?",
@@ -314,8 +316,8 @@ var invSafetyHints = map[string]formHint{
 
 var invSetupHints = map[string]formHint{
 	"guide":                 {},
-	"guide install":         {flags: []formFlag{invProject}, hide: []string{"no-guard"}},
-	"guide uninstall":       {flags: []formFlag{invProject}},
+	"agent skill install":   {flags: []formFlag{invProject}, hide: []string{"no-guard"}},
+	"agent skill uninstall": {flags: []formFlag{invProject}},
 	"version":               {},
 	"update":                {args: []formArg{{ask: "Which version? (leave empty for the newest)", example: "v0.6.0", help: "Empty installs the newest release."}}},
 	"schema":                {args: []formArg{{ask: "For which command? (leave empty for all)", example: "db query", help: "Its words, like db query. The list is for programs and AI agents."}}},
@@ -339,18 +341,18 @@ func importSourceNames() []string {
 // release areas): what a person usually runs after each command.
 func init() {
 	addFormHints(map[string]formHint{
-		"host edit":    {next: []string{"host show {}", "test {}"}},
-		"import":       {next: []string{"list", "test all"}},
-		"group add":    {next: []string{"list @{}", "test @{}"}},
-		"group rm":     {next: []string{"group add {} TARGET..."}}, // to put them back
-		"job status":   {next: []string{"job logs {} --limit 50", "job wait {}", "job kill {}"}},
-		"job wait":     {next: []string{"job logs {} --limit 50", "job rm {}"}},
-		"job kill":     {next: []string{"job status {}", "job rm {}"}},
-		"job list":     {next: []string{"job list --refresh", "job status JOB", "job rm JOB"}},
-		"policy deny":  {next: []string{"policy check 'COMMAND'", "policy list", "policy rm RULE"}},
-		"policy check": {next: []string{"policy list"}},
-		"audit":        {next: []string{"audit verify", "audit --failed"}},
-		"update":       {next: []string{"guide install", "version"}},
+		"host edit":     {next: []string{"host show {}", "test {}"}},
+		"import":        {next: []string{"list", "test all"}},
+		"group create":  {next: []string{"list @{}", "test @{}"}},
+		"group remove":  {next: []string{"group create {} TARGET..."}}, // to put them back
+		"job status":    {next: []string{"job logs {} --limit 50", "job wait {}", "job kill {}"}},
+		"job wait":      {next: []string{"job logs {} --limit 50", "job rm {}"}},
+		"job kill":      {next: []string{"job status {}", "job rm {}"}},
+		"job list":      {next: []string{"job list --refresh", "job status JOB", "job rm JOB"}},
+		"policy create": {next: []string{"policy check 'COMMAND'", "policy list", "policy remove RULE"}},
+		"policy check":  {next: []string{"policy list"}},
+		"audit list":    {next: []string{"audit check", "audit list --failed"}},
+		"update":        {next: []string{"agent skill install", "version"}},
 	})
 }
 

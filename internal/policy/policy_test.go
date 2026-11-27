@@ -175,7 +175,7 @@ func TestInvalidCustomPattern(t *testing.T) {
 	hits := Check("uptime", extra)
 	id := CustomID(extra[1])
 	if len(hits) != 1 || hits[0].ID != id || !strings.Contains(hits[0].Reason, "not a regular expression komando can read") ||
-		!strings.Contains(hits[0].Reason, "policy rm "+id) {
+		!strings.Contains(hits[0].Reason, "policy remove "+id) {
 		t.Errorf("hits = %+v", hits)
 	}
 	if bad := Invalid(extra); len(bad) != 1 || bad[1] == "" {

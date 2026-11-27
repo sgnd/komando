@@ -40,10 +40,19 @@ func KindWord(kind string) string {
 	return kind
 }
 
+// listWord is the command word that lists a kind: a saved recipe is a
+// snippet to a person.
+func listWord(kind string) string {
+	if kind == "recipe" {
+		return "snippet"
+	}
+	return kind
+}
+
 // NotFound is the error for a name komando does not know, worded the one
 // way S-8.4 asks: no <kind> named "<name>".
 func NotFound(kind, name string) *Error {
-	list := kind + " list"
+	list := listWord(kind) + " list"
 	if kind == "vpn" {
 		list = "list" // a VPN is listed under its kind, so `komando list` is the one command for all of them
 	}

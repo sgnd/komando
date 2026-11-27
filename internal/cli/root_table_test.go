@@ -651,7 +651,11 @@ func TestMovedLeavesCarryTheirTables(t *testing.T) {
 			}
 		}
 	}
+	inTree := idsInTree(newRoot(tcl))
 	for _, old := range slices.Sorted(maps.Keys(gone)) {
+		if inTree[old] {
+			continue // a noun (audit) keeps the ID of the command that moved under it
+		}
 		if _, ok := cmdKeys[old]; ok {
 			t.Errorf("cmdKeys still has %s, which no command has", old)
 		}

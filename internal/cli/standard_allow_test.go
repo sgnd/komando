@@ -10,7 +10,6 @@ var (
 		"docker stats",
 		"login aws",
 		"logout aws", // login aws's other half: aws names the cloud, not a verb
-		"policy deny",
 	}
 	// S-3.2: key revoke pairs with key deploy, pkg rm with pkg install;
 	// host ca revoke is known_hosts' @revoked, which pairs with host ca add
@@ -50,8 +49,6 @@ var (
 	}
 	// S-6.6, S-6.7: commands with fewer examples than S-6.6 asks (a second one is still to write)
 	allowExamples = []string{
-		"audit",
-		"audit verify",
 		"cluster helm history",
 		"cluster helm status",
 		"cluster history",
@@ -75,7 +72,6 @@ var (
 		"job status",
 		"key list",
 		"pkg installed",
-		"policy list",
 		"secret list",
 		"shell",
 		"ssh-gate",
@@ -97,8 +93,8 @@ var (
 	// S-6.10: group rename's Long shows a merge with the old and the new name;
 	// the vpn help writes KIND for the kind a VPN was saved with
 	allowReferences = []string{
-		"group rename: komando group add NEW @OLD",
-		"group rename: komando group rm OLD",
+		"group rename: komando group create NEW @OLD",
+		"group rename: komando group remove OLD",
 		"vpn: komando vpn KIND start NAME",
 	}
 	// S-5.9: depends commands without --write or --read-only (they decide by their arguments)
@@ -106,7 +102,7 @@ var (
 		"cp",
 		"pkg security",
 		"pkg upgradable",
-		"recipe run",
+		"snippet exec",
 		"secret run",
 		"shell",
 	}

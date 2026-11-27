@@ -41,7 +41,7 @@ func fakeEntry(e snippetEntry, client snippet.Client, opened, closed *int) snipp
 }
 
 // clientRun runs b against the entry named target, whose client is the fake,
-// as `recipe run NAME TARGET` does after it chose the entry.
+// as `snippet exec NAME TARGET` does after it chose the entry.
 func clientRun(t *testing.T, b snippet.Builtin, target string, client snippet.Client, kv map[string]string) (opened, closed int, printed string, err error) {
 	t.Helper()
 	closeStoreAtEnd(t)

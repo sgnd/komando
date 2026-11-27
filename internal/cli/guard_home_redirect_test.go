@@ -55,7 +55,7 @@ func TestAgentHomeRedirect(t *testing.T) {
 	noAgent(t)
 	t.Setenv("HOME", real)
 	t.Setenv("USERPROFILE", real)
-	d := mustRun(t, "audit", "--failed", "-n", "0")
+	d := mustRun(t, "audit", "list", "--failed", "-n", "0")
 	found := false
 	for _, e := range d["entries"].([]any) {
 		m := e.(map[string]any)
@@ -192,7 +192,7 @@ func TestAgentOtherHomeIsFinal(t *testing.T) {
 
 	texts := windowText(t, true)
 	t.Setenv("KOMANDO_HOME", other)
-	for _, args := range [][]string{{"list"}, {"list", "--yes"}, {"list", "--dry-run"}, {"list", "--reveal"}, {"guide", "uninstall", "--yes"}} {
+	for _, args := range [][]string{{"list"}, {"list", "--yes"}, {"list", "--dry-run"}, {"list", "--reveal"}, {"agent", "skill", "uninstall", "--yes"}} {
 		code, text := runMain(t, args...)
 		if code != out.ExitPolicy || !strings.Contains(text, `"code":"NEEDS_PERSON"`) {
 			t.Errorf("%v: exit %d %s", args, code, text)

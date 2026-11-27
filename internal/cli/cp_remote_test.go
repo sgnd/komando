@@ -159,7 +159,7 @@ func TestRemoteCopyCommand(t *testing.T) {
 	if two.objs["2026/db.sql"] != one.objs["db.sql"] {
 		t.Error("the copy did not arrive")
 	}
-	a := mustRun(t, "audit", "--limit", "20")
+	a := mustRun(t, "audit", "list", "--limit", "20")
 	n := 0
 	for _, e := range a["entries"].([]any) {
 		e := e.(map[string]any)

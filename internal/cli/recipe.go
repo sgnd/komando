@@ -124,7 +124,7 @@ func checkVars(r recipeRow, kv map[string]string) error {
 			if len(blanks) > 0 {
 				has = "its blanks: " + strings.Join(blanks, ", ")
 			}
-			return out.Errf(out.ExitUsage, "UNKNOWN_VAR", "see the recipe with `komando recipe list`",
+			return out.Errf(out.ExitUsage, "UNKNOWN_VAR", "see the recipe with `komando snippet list`",
 				"recipe %s has no blank named %q (%s)", r.Name, k, has)
 		}
 	}
@@ -138,7 +138,7 @@ type recipeList struct {
 
 func (l recipeList) Text() string {
 	if len(l.Recipes) == 0 {
-		return "no recipes in this category: `komando recipe list` shows them all\n"
+		return "no recipes in this category: `komando snippet list` shows them all\n"
 	}
 	rows := [][]string{}
 	for _, r := range l.Recipes {
@@ -198,14 +198,41 @@ func findRecipe(st *store.State, name string) (recipeRow, bool) {
 	return recipeRow{}, false
 }
 
-func recipeCmd() *cobra.Command {
-	c := &cobra.Command{
-		Use:     "recipe",
-		Aliases: []string{"recipes"},
-		Short:   "Ready-made and saved commands: run them, save your own",
+// The snippet leaves run today's recipe commands (runBody).
+func init() {
+	for verb, body := range map[string]func() *cobra.Command{"create": recipeAddCmd, "exec": recipeRunCmd, "list": recipeListCmd,
+		"show": snippetShowCmd, "remove": recipeRmCmd} {
+		handlers[capability.Key{Type: "snippet", Verb: verb}] = bodyHandler(body)
 	}
-	c.AddCommand(recipeListCmd(), recipeAddCmd(), recipeRmCmd(), recipeRunCmd(), recipeShowCmd())
-	return c
+	moveType("snippet")
+	cmdKeys["snippet"] = cmdKeys["recipe"] // the noun's ID changes with its word
+	delete(cmdKeys, "recipe")
+}
+
+// snippetCmd is the bare noun; its commands come from the table.
+func snippetCmd() *cobra.Command {
+	return &cobra.Command{Use: "snippet", Short: "Ready-made and saved commands: run them, save your own"}
+}
+
+// snippetShowCmd is today's snippet show: the list for one snippet.
+func snippetShowCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "show NAME",
+		Short: "Show one snippet: its command, blanks and whether it needs sudo",
+		Args:  cobra.ExactArgs(1),
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			st, err := loadState()
+			if err != nil {
+				return err
+			}
+			r, ok := findRecipe(st, args[0])
+			if !ok {
+				return recipeNotFound(args[0])
+			}
+			cl.out.Print("snippet.show", recipeList{Count: 1, Recipes: []recipeRow{r}}, nil)
+			return nil
+		}),
+	}
 }
 
 func recipeListCmd() *cobra.Command {
@@ -238,7 +265,7 @@ func recipeListCmd() *cobra.Command {
 			// by name; the category column says which are your own ("saved")
 			sort.SliceStable(rows, func(i, j int) bool { return rows[i].Name < rows[j].Name })
 			rows = cutRows(cl, rows, limit)
-			cl.out.Print("recipe.list", recipeList{Count: len(rows), Recipes: rows}, nil)
+			cl.out.Print("snippet.list", recipeList{Count: len(rows), Recipes: rows}, nil)
 			return nil
 		}),
 	}
@@ -253,15 +280,15 @@ func recipeAddCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "add NAME COMMAND",
 		Short: "Save a command as a recipe with blanks to fill in",
-		Example: `  komando recipe add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo
-  komando recipe add disk-usage 'df -h {{path=/}}' --read-only`,
+		Example: `  komando snippet create deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo
+  komando snippet create disk-usage 'df -h {{path=/}}' --read-only`,
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if err := inventory.ValidName("recipe", args[0]); err != nil {
 				return err
 			}
 			if builtinRecipe(args[0]) != nil {
-				return out.Errf(out.ExitConflict, "RECIPE_BUILTIN", "pick another name; see `komando recipe list`", "%q is a built-in recipe", args[0])
+				return out.Errf(out.ExitConflict, "RECIPE_BUILTIN", "pick another name; see `komando snippet list`", "%q is a built-in recipe", args[0])
 			}
 			s := &store.Snippet{Name: args[0], Command: args[1], Description: desc, Sudo: sudo, ReadOnly: readOnly, CreatedAt: time.Now().UTC()}
 			if s.ReadOnly {
@@ -286,7 +313,7 @@ func recipeAddCmd() *cobra.Command {
 			}
 			err := storeUpdate(cl, func(st *store.State) error {
 				if _, ok := st.Snippets[s.Name]; ok && !overwrite {
-					return out.Errf(out.ExitConflict, "RECIPE_EXISTS", "see it with `komando recipe show NAME`, or pass --overwrite to replace it", "recipe %q exists", s.Name)
+					return out.Errf(out.ExitConflict, "RECIPE_EXISTS", "see it with `komando snippet show NAME`, or pass --overwrite to replace it", "recipe %q exists", s.Name)
 				}
 				if makesReadOnly(st) && !approved {
 					return out.Errf(out.ExitConflict, "RECIPE_CHANGED", "run it again",
@@ -298,12 +325,12 @@ func recipeAddCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			audit(cl, nil, "recipe.add", nil, s.Command, true, map[string]any{"recipe": s.Name, "read_only": s.ReadOnly})
-			cl.out.Print("recipe.add", textAs{s, textBlob(changeSay(cl, "save", "recipe "+s.Name, ""))}, nil)
+			audit(cl, nil, "snippet.create", nil, s.Command, true, map[string]any{"recipe": s.Name, "read_only": s.ReadOnly})
+			cl.out.Print("snippet.create", textAs{s, textBlob(changeSay(cl, "save", "recipe "+s.Name, ""))}, nil)
 			return nil
 		}),
 	}
-	c.Flags().StringVar(&desc, "desc", "", "what the recipe does, in a few words (shown in recipe list)")
+	c.Flags().StringVar(&desc, "desc", "", "what the recipe does, in a few words (shown in snippet list)")
 	c.Flags().BoolVar(&sudo, "needs-sudo", false, "the recipe runs with sudo")
 	c.Flags().BoolVar(&readOnly, "read-only", false, "the recipe only reads, so protected servers don't need --yes")
 	c.Flags().BoolVar(&overwrite, "overwrite", false, "replace a recipe with the same name")
@@ -317,7 +344,7 @@ func recipeRmCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if builtinRecipe(args[0]) != nil {
-				return out.Errf(out.ExitConflict, "RECIPE_BUILTIN", "remove one of your own recipes instead; see `komando recipe list --category saved`", "%q is a built-in recipe and cannot be removed", args[0])
+				return out.Errf(out.ExitConflict, "RECIPE_BUILTIN", "remove one of your own recipes instead; see `komando snippet list --category saved`", "%q is a built-in recipe and cannot be removed", args[0])
 			}
 			err := storeUpdate(cl, func(st *store.State) error {
 				if _, ok := st.Snippets[args[0]]; !ok {
@@ -331,10 +358,10 @@ func recipeRmCmd() *cobra.Command {
 			}
 			say := textBlob(changeSay(cl, "remove", "recipe "+args[0], ""))
 			if cl.dryRun() {
-				cl.out.Print("recipe.rm", textAs{map[string]any{"would_remove": args[0]}, say}, nil)
+				cl.out.Print("snippet.remove", textAs{map[string]any{"would_remove": args[0]}, say}, nil)
 				return nil
 			}
-			cl.out.Print("recipe.rm", textAs{map[string]any{"removed": args[0]}, say}, nil)
+			cl.out.Print("snippet.remove", textAs{map[string]any{"removed": args[0]}, say}, nil)
 			return nil
 		}),
 	}
@@ -346,7 +373,7 @@ func recipeRunCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "run NAME TARGET",
 		Short:   "Run a recipe on servers",
-		Example: "  komando recipe run health @web\n  komando recipe run disk web1\n  komando recipe run deploy-app @web --var app=shop",
+		Example: "  komando snippet exec health @web\n  komando snippet exec disk web1\n  komando snippet exec deploy-app @web --var app=shop",
 		Args:    cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if b, ok := builtinSnippets.Lookup(args[0]); ok && snippetsOn {
@@ -364,7 +391,7 @@ func recipeRunCmd() *cobra.Command {
 			if !ok {
 				e := recipeNotFound(args[0])
 				if _, swapped := findRecipe(st, args[1]); swapped && knownTarget(cl, args[0]) {
-					e.Hint = "the recipe name goes first, then the target: `komando recipe run " + args[1] + " " + args[0] + "`"
+					e.Hint = "the recipe name goes first, then the target: `komando snippet exec " + args[1] + " " + args[0] + "`"
 				}
 				return e
 			}
@@ -388,7 +415,7 @@ func recipeRunCmd() *cobra.Command {
 			// name: a stored recipe can be replaced between two runs
 			sudo := r.Sudo && !noSudo
 			noteApprovalBody(cl, "the command of recipe "+r.Name+map[bool]string{true: ", which runs with sudo", false: ""}[sudo], []byte(command))
-			return runFleet(cl, cmd.Context(), "recipe.run", args[1], command, nil, execOpts{sudo: sudo, recipe: r.Name, exitMap: orSudo(soleHost(cl, args[1]), nil)}, mutating)
+			return runFleet(cl, cmd.Context(), "snippet.exec", args[1], command, nil, execOpts{sudo: sudo, recipe: r.Name, exitMap: orSudo(soleHost(cl, args[1]), nil)}, mutating)
 		}),
 	}
 	c.Flags().StringArrayVar(&vars, "var", nil, "fill in a blank: NAME=VALUE (repeatable)")
@@ -418,7 +445,7 @@ func checkRecipeCategory(c string) error {
 // The ready-made snippets (design: komando ready-made snippets, S1).
 
 // snippetsOn turns the ready-made snippets on. It stays off until the v2.7
-// cut: recipe run then reads every name as a recipe, as before, and nothing
+// cut: snippet exec then reads every name as a recipe, as before, and nothing
 // reaches the engine.
 var snippetsOn = false
 
@@ -527,7 +554,7 @@ func snippetTierStop(cl *call, st *store.State, b snippet.Builtin, conns []*stor
 	why := "snippet " + b.Name + " cannot be undone"
 	switch {
 	case b.Tier >= capability.Person && !cl.interactive():
-		return cl.policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON", "a person runs `komando recipe run "+b.Name+" TARGET` in their own terminal",
+		return cl.policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON", "a person runs `komando snippet exec "+b.Name+" TARGET` in their own terminal",
 			"snippet %s runs only for a person at a terminal", b.Name))
 	case b.Tier == capability.Safety:
 		return guardSafety(cl, "snippet "+b.Name)

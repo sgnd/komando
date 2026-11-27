@@ -12,7 +12,7 @@ Start:
   komando import ssh-config            bring in the servers you already have
   komando list                         see everything komando knows about
   komando test TARGET                  check that it answers and lets you in
-  komando guide install                let your AI agent use komando safely
+  komando agent skill install                let your AI agent use komando safely
 
 Targets: a server or service name, a pattern (web-*), @group, tag:NAME,
 label:key=value, kind:KIND (host, db, cache, storage, postgres, ...),
@@ -34,8 +34,8 @@ Servers:
   job          Long-running jobs on servers: start, follow, wait for, stop
   logs         Read logs from journald, a file or a container
   pkg          Packages on servers: install, update, remove, check for updates
-  recipe       Ready-made and saved commands: run them, save your own
   shell        Open a login shell on one server (person only)
+  snippet      Ready-made and saved commands: run them, save your own
   sync         Copy a folder one way, sending only new and changed files
   upload       Upload a file to servers (many at once) or to file storage
 
@@ -66,13 +66,14 @@ Access:
   vpn          VPNs komando connects when a path needs one: add, connect, check
 
 Overview:
-  audit        Show the audit log: who did what, where, and the result
+  audit        The audit log: see what was done, check it was not changed
   doctor       Check komando's setup, your list and its security
   list         List servers, conns and VPNs
   status       What komando left running: VPNs, logins, tunnels, jobs
   test         Check that servers, conns and VPNs answer and let you in
 
 Setup:
+  agent        AI agents: the komando skill and the guard that protects secrets
   completion   Print a tab-completion script for your shell
   config       Settings: read and change timeouts, host keys, the audit
   guide        The rules for AI agents, and how komando works (read first)
@@ -120,7 +121,206 @@ For scripts and AI agents:
               8 precondition or conflict.
   komando guide is the playbook for agents; komando schema lists every command.
 --- stderr
+### komando agent --help
+exit 0
+--- stdout
+AI agents: the komando skill and the guard that protects secrets
+
+Usage:
+  komando agent [flags]
+  komando agent [command]
+
+Examples:
+  komando agent skill install --dry-run
+  komando agent skill install
+  komando agent skill install --project
+  komando agent skill uninstall --dry-run
+
+Available Commands:
+  skill       The komando skill and guard in your AI agents: install, uninstall
+
+Flags:
+  -h, --help[=true|false]   help for agent
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando agent [command] --help" for more information about a command.
+--- stderr
+### komando agent skill --help
+exit 0
+--- stdout
+The komando skill and guard in your AI agents: install, uninstall
+
+Usage:
+  komando agent skill [flags]
+  komando agent skill [command]
+
+Examples:
+  komando agent skill install --dry-run
+  komando agent skill install
+  komando agent skill uninstall --dry-run
+  komando agent skill uninstall
+
+Available Commands:
+  install     Add the komando skill to Claude Code, Codex, Cursor, Gemini CLI
+  uninstall   Take the komando skill and guard out of your AI agents
+
+Flags:
+  -h, --help[=true|false]   help for skill
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando agent skill [command] --help" for more information about a command.
+--- stderr
+### komando agent skill install --help
+exit 0
+--- stdout
+Teaches Claude Code, Codex, Cursor and Gemini CLI to use komando safely.
+Then restart the agent. In Codex, also approve the guard once in /hooks.
+
+Safety: a change; try it with --dry-run first.
+
+It adds the komando skill (komando/SKILL.md) to the folders AI agents read
+skills from: ~/.claude/skills (Claude Code) and ~/.agents/skills (Codex,
+Cursor, Gemini CLI and others). The agent then uses komando by itself
+whenever a task touches a server, database, cache or storage.
+
+It also adds a guard: before the agent reads a file or runs a shell command
+on this computer, komando checks it and stops the ones that would read
+secrets (~/.komando, private keys, .env files, credential stores, all
+environment variables at once) or use ssh around komando. It goes into
+Claude Code (.claude/settings.json), and into Cursor (.cursor/hooks.json),
+Gemini CLI (.gemini/settings.json, v0.26+) and Codex (.codex/hooks.json;
+approve it once in /hooks) where their folders exist. Skip it with
+--no-guard.
+
+Safe to run again, for example after an update: a changed file is kept as
+.bak. `komando agent skill uninstall` takes the skill and the guard out
+again.
+
+Usage:
+  komando agent skill install [flags]
+
+Examples:
+  komando agent skill install             # for every project on this computer
+  komando agent skill install --project   # only for the folder you are in
+  komando agent skill install --dry-run   # show where it would go
+
+Flags:
+  -h, --help[=true|false]       help for install
+      --no-guard[=true|false]   do not add the guard that keeps AI agents away from secret files on this computer
+      --project[=true|false]    use the current folder instead of your home folder
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando agent skill uninstall --help
+exit 0
+--- stdout
+Removes what `komando agent skill install` added: komando/SKILL.md in
+~/.claude/skills and ~/.agents/skills, and komando's guard entries in
+.claude/settings.json, .cursor/hooks.json, .gemini/settings.json and
+.codex/hooks.json. Everything else in those files stays; a changed file is
+kept as .bak. Taking the guard away from an AI agent lets it read secret
+files on this computer again, so an agent needs a person's yes (--yes).
+
+Safety: a change; try it with --dry-run first; when it removes komando's
+guard from an AI agent's settings: it weakens a safety check: a person's yes
+(--yes).
+
+Usage:
+  komando agent skill uninstall [flags]
+
+Examples:
+  komando agent skill uninstall             # from your home folder
+  komando agent skill uninstall --project   # from the folder you are in
+  komando agent skill uninstall --dry-run   # show what it would remove
+
+Flags:
+  -h, --help[=true|false]      help for uninstall
+      --project[=true|false]   use the current folder instead of your home folder
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
 ### komando audit --help
+exit 0
+--- stdout
+The audit log: see what was done, check it was not changed
+
+Usage:
+  komando audit [flags]
+  komando audit [command]
+
+Examples:
+  komando audit list
+  komando audit list --since 2h --failed
+  komando audit list -n 0 --target @prod
+  komando audit check
+
+Available Commands:
+  check       Check that no audit record was changed, added or removed outside komando
+  list        Show the audit log: who did what, where, and the result
+
+Flags:
+  -h, --help[=true|false]   help for audit
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando audit [command] --help" for more information about a command.
+--- stderr
+### komando audit check --help
+exit 0
+--- stdout
+Check that no audit record was changed, added or removed outside komando
+
+Usage:
+  komando audit check [flags]
+
+Examples:
+  komando audit check
+  komando audit check -o json
+
+Flags:
+  -h, --help[=true|false]   help for check
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando audit list --help
 exit 0
 --- stdout
 Every change komando makes, and every blocked attempt, is a sealed record in
@@ -134,54 +334,28 @@ on, --until those before it. With either, every match is shown unless -n
 is given.
 
 Usage:
-  komando audit [flags]
-  komando audit [command]
+  komando audit list [flags]
+
+Aliases:
+  list, ls
 
 Examples:
-  komando audit                      # the last 50
-  komando audit -n 0 --target @prod  # everything about @prod
-  komando audit --command host. --failed
-  komando audit --since 2h           # everything in the last two hours
-  komando audit --since yesterday --until today --target @prod
-  komando audit --actor claude --since 7d        # what Claude Code did this week
-  komando audit verify               # was the log changed outside komando?
-
-Available Commands:
-  verify      Check that no audit record was changed, added or removed outside komando
+  komando audit list                      # the last 50
+  komando audit list -n 0 --target @prod  # everything about @prod
+  komando audit list --command host. --failed
+  komando audit list --since 2h           # everything in the last two hours
+  komando audit list --since yesterday --until today --target @prod
+  komando audit list --actor claude --since 7d   # what Claude Code did this week
 
 Flags:
       --actor string          only what this one did: part of the name in KOMANDO_ACTOR, the AI agent (claude, codex ...) or the computer account
       --command string        only commands that start with this (like exec, fs.)
       --failed[=true|false]   only actions that failed or were blocked
-  -h, --help[=true|false]     help for audit
+  -h, --help[=true|false]     help for list
   -n, --limit int             the newest N entries (0 = all; with --since or --until, all unless given) (default 50)
       --since string          only entries from this time on: 2h, 7d, today, 2026-11-07 or '2026-11-07 14:30'
       --target string         only entries for these servers or conns (a selector, like @prod)
       --until string          only entries before this time (the same forms as --since)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
-
-Use "komando audit [command] --help" for more information about a command.
---- stderr
-### komando audit verify --help
-exit 0
---- stdout
-Check that no audit record was changed, added or removed outside komando
-
-Usage:
-  komando audit verify [flags]
-
-Examples:
-  komando audit verify
-
-Flags:
-  -h, --help[=true|false]   help for verify
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -4573,15 +4747,16 @@ Aliases:
 
 Examples:
   komando group list
-  komando group add web web1,web2 --dry-run
-  komando group add web web1,web2
-  komando group rm web web2
+  komando group create web web1,web2 --dry-run
+  komando group create web web1,web2
+  komando group remove web web2
 
 Available Commands:
-  add         Add servers, conns and VPNs matching TARGET to GROUP
-  list        List groups and tags with their members, or the members of one group
+  create      Add servers, conns and VPNs matching TARGET to GROUP
+  list        List groups and tags with their members, or one group's members
+  remove      Take entries out of a group, or delete the group (from komando only)
   rename      Rename a group on every server, conn and VPN in it
-  rm          Take entries out of a group, or delete the group (from komando only)
+  show        Show the members of one group
 
 Flags:
   -h, --help[=true|false]   help for group
@@ -4596,7 +4771,7 @@ Global Flags (all of them: komando --help):
 
 Use "komando group [command] --help" for more information about a command.
 --- stderr
-### komando group add --help
+### komando group create --help
 exit 0
 --- stdout
 Add servers, conns and VPNs matching TARGET to GROUP.
@@ -4605,16 +4780,15 @@ Safety: a change; try it with --dry-run first; on a protected server or
 conn, a person's yes (--yes) as well.
 
 Usage:
-  komando group add GROUP TARGET... [flags]
+  komando group create GROUP TARGET... [flags]
 
 Examples:
-  komando group add web web1,web2
-  komando group add web web1,web2 --dry-run
-  komando group add web web3 web4
-  komando group add prod 'tag:live,!staging-*'
+  komando group create web web1,web2 --dry-run
+  komando group create web web3 web4
+  komando group create prod 'tag:live,!staging-*'
 
 Flags:
-  -h, --help[=true|false]   help for add
+  -h, --help[=true|false]   help for create
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -4627,7 +4801,7 @@ Global Flags (all of them: komando --help):
 ### komando group list --help
 exit 0
 --- stdout
-List groups and tags with their members, or the members of one group
+List groups and tags with their members, or one group's members
 
 Usage:
   komando group list [GROUP] [flags]
@@ -4651,14 +4825,44 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
+### komando group remove --help
+exit 0
+--- stdout
+Takes the entries TARGET picks out of GROUP; entries that are not in it are
+left alone. Without TARGET the group is deleted: every member leaves it.
+Deleting a group with more than 3 members needs --yes; try --dry-run first.
+
+Safety: a change; try it with --dry-run first; GROUP alone: deleting a group
+of more than 3 members (CONFIRM_REQUIRED): a change; try it with --dry-run
+first; on a protected server or conn, a person's yes (--yes) as well.
+
+Usage:
+  komando group remove GROUP [TARGET...] [flags]
+
+Examples:
+  komando group remove web web2
+  komando group remove old-batch --dry-run   # who would leave it
+  komando group remove old-batch --yes   # after a person's yes
+
+Flags:
+  -h, --help[=true|false]   help for remove
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
 ### komando group rename --help
 exit 0
 --- stdout
 Gives a group a new name on every member. OLD matches in any case, like
 @OLD. When NEW is a group already, nothing changes (GROUP_EXISTS): to merge
-two groups, add the members with `komando group add NEW @OLD` and then run
-`komando group rm OLD`. When a protected server or conn is in the group,
-renaming it needs --yes, once for all of them.
+two groups, add the members with `komando group create NEW @OLD` and then
+run `komando group remove OLD`. When a protected server or conn is in the
+group, renaming it needs --yes, once for all of them.
 
 Safety: a change; try it with --dry-run first.
 
@@ -4669,8 +4873,8 @@ Aliases:
   rename, mv
 
 Examples:
-  komando group rename web frontend
   komando group rename prod production --dry-run
+  komando group rename web frontend
 
 Flags:
   -h, --help[=true|false]   help for rename
@@ -4683,30 +4887,20 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando group rm --help
+### komando group show --help
 exit 0
 --- stdout
-Takes the entries TARGET picks out of GROUP; entries that are not in it are
-left alone. Without TARGET the group is deleted: every member leaves it.
-Deleting a group with more than 3 members needs --yes; try --dry-run first.
-
-Safety: a change; try it with --dry-run first; GROUP alone: deleting a group
-of more than 3 members (CONFIRM_REQUIRED): a change; try it with --dry-run
-first; on a protected server or conn, a person's yes (--yes) as well.
+Show the members of one group
 
 Usage:
-  komando group rm GROUP [TARGET...] [flags]
-
-Aliases:
-  rm, remove, delete, del
+  komando group show GROUP [flags]
 
 Examples:
-  komando group rm web web2
-  komando group rm old-batch --dry-run   # who would leave it
-  komando group rm old-batch --yes   # after a person's yes
+  komando group show web
+  komando group show web -o json
 
 Flags:
-  -h, --help[=true|false]   help for rm
+  -h, --help[=true|false]   help for show
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -4725,102 +4919,15 @@ part. Piped (as an agent reads it), it prints the whole playbook as JSON.
 
 Usage:
   komando guide [TOPIC] [flags]
-  komando guide [command]
 
 Examples:
   komando guide
   komando guide change
   komando guide --all
 
-Available Commands:
-  install     Add the komando skill to Claude Code, Codex, Cursor, Gemini CLI
-  uninstall   Take the komando skill and guard out of your AI agents
-
 Flags:
   -a, --all[=true|false]    print the whole playbook
   -h, --help[=true|false]   help for guide
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
-
-Use "komando guide [command] --help" for more information about a command.
---- stderr
-### komando guide install --help
-exit 0
---- stdout
-Teaches Claude Code, Codex, Cursor and Gemini CLI to use komando safely.
-Then restart the agent. In Codex, also approve the guard once in /hooks.
-
-Safety: a change; try it with --dry-run first.
-
-It adds the komando skill (komando/SKILL.md) to the folders AI agents read
-skills from: ~/.claude/skills (Claude Code) and ~/.agents/skills (Codex,
-Cursor, Gemini CLI and others). The agent then uses komando by itself
-whenever a task touches a server, database, cache or storage.
-
-It also adds a guard: before the agent reads a file or runs a shell command
-on this computer, komando checks it and stops the ones that would read
-secrets (~/.komando, private keys, .env files, credential stores, all
-environment variables at once) or use ssh around komando. It goes into
-Claude Code (.claude/settings.json), and into Cursor (.cursor/hooks.json),
-Gemini CLI (.gemini/settings.json, v0.26+) and Codex (.codex/hooks.json;
-approve it once in /hooks) where their folders exist. Skip it with
---no-guard.
-
-Safe to run again, for example after an update: a changed file is kept as
-.bak. `komando guide uninstall` takes the skill and the guard out again.
-
-Usage:
-  komando guide install [flags]
-
-Examples:
-  komando guide install             # for every project on this computer
-  komando guide install --project   # only for the folder you are in
-  komando guide install --dry-run   # show where it would go
-
-Flags:
-  -h, --help[=true|false]       help for install
-      --no-guard[=true|false]   do not add the guard that keeps AI agents away from secret files on this computer
-      --project[=true|false]    install into the current folder instead of your home folder
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando guide uninstall --help
-exit 0
---- stdout
-Removes what `komando guide install` added: komando/SKILL.md in
-~/.claude/skills and ~/.agents/skills, and komando's guard entries in
-.claude/settings.json, .cursor/hooks.json, .gemini/settings.json and
-.codex/hooks.json. Everything else in those files stays; a changed file is
-kept as .bak. Taking the guard away from an AI agent lets it read secret
-files on this computer again, so an agent needs a person's yes (--yes).
-
-Safety: a change; try it with --dry-run first; when it removes komando's
-guard from an AI agent's settings: it weakens a safety check: a person's yes
-(--yes).
-
-Usage:
-  komando guide uninstall [flags]
-
-Examples:
-  komando guide uninstall             # from your home folder
-  komando guide uninstall --project   # from the folder you are in
-  komando guide uninstall --dry-run   # show what it would remove
-
-Flags:
-  -h, --help[=true|false]      help for uninstall
-      --project[=true|false]   remove from the current folder instead of your home folder
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -6589,15 +6696,15 @@ Aliases:
 Examples:
   komando policy list
   komando policy check 'rm -rf /srv/app'
-  komando policy deny 'systemctl stop postgresql' --dry-run
-  komando policy deny 'systemctl stop postgresql'
+  komando policy create 'systemctl stop postgresql' --dry-run
+  komando policy create 'systemctl stop postgresql'
 
 Available Commands:
   check       Check whether a command would be blocked
-  deny        Add a deny rule (a Go regular expression)
+  create      Add a deny rule (a Go regular expression)
   edit        Switch a rule off or on, everywhere or on some servers
   list        List the built-in rules and your deny rules
-  rm          Remove a deny rule you added (from komando only)
+  remove      Remove a deny rule you added (from komando only)
   show        Show one rule: what it stops and where it is off
 
 Flags:
@@ -6620,7 +6727,7 @@ Test whether a shell command would be blocked (exit 6), or rate SQL, Redis
 or memcached commands with --conn-kind KIND.
 
 Usage:
-  komando policy check COMMAND [flags]
+  komando policy check COMMAND... [flags]
 
 Examples:
   komando policy check 'rm -rf /var/www'
@@ -6629,7 +6736,7 @@ Examples:
   komando policy check --conn-kind redis FLUSHALL
 
 Flags:
-      --conn-kind string    rate the argument for a conn kind instead: bigquery, clickhouse, mysql, oracle, postgres, snowflake, sqlite, sqlserver, redis, memcached, mongodb (a command document as JSON)
+      --conn-kind string    rate the argument for a conn kind instead (a command document as JSON)
   -h, --help[=true|false]   help for check
 
 Global Flags (all of them: komando --help):
@@ -6640,7 +6747,7 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando policy deny --help
+### komando policy create --help
 exit 0
 --- stdout
 Add a deny rule (a Go regular expression).
@@ -6648,17 +6755,14 @@ Add a deny rule (a Go regular expression).
 Safety: a change; try it with --dry-run first.
 
 Usage:
-  komando policy deny REGEX [flags]
-
-Aliases:
-  deny, add
+  komando policy create REGEX [flags]
 
 Examples:
-  komando policy deny 'kubectl\s+delete'
-  komando policy deny 'kubectl\s+delete' --dry-run
+  komando policy create 'kubectl\s+delete' --dry-run
+  komando policy create 'kubectl\s+delete'
 
 Flags:
-  -h, --help[=true|false]   help for deny
+  -h, --help[=true|false]   help for create
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -6725,6 +6829,7 @@ Aliases:
 
 Examples:
   komando policy list
+  komando policy list -n 5 -o json
 
 Flags:
   -h, --help[=true|false]   help for list
@@ -6738,11 +6843,11 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando policy rm --help
+### komando policy remove --help
 exit 0
 --- stdout
-Removes a rule added with `policy deny`. Give it as you wrote it, or by its
-id in `policy list` (custom- and eight letters and digits, made from the
+Removes a rule added with `policy create`. Give it as you wrote it, or by
+its id in `policy list` (custom- and eight letters and digits, made from the
 pattern, so it does not change when another rule goes). Built-in rules
 cannot be removed. Removing a rule weakens a safety check, so komando asks
 first.
@@ -6750,18 +6855,15 @@ first.
 Safety: it weakens a safety check: a person's yes (--yes).
 
 Usage:
-  komando policy rm RULE [flags]
-
-Aliases:
-  rm, remove, delete, del
+  komando policy remove RULE [flags]
 
 Examples:
-  komando policy rm 'kubectl\s+delete'
-  komando policy rm 'kubectl\s+delete' --dry-run
-  komando policy rm custom-1a2b3c4d
+  komando policy remove 'kubectl\s+delete'
+  komando policy remove 'kubectl\s+delete' --dry-run
+  komando policy remove custom-1a2b3c4d
 
 Flags:
-  -h, --help[=true|false]   help for rm
+  -h, --help[=true|false]   help for remove
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -9712,164 +9814,6 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando recipe --help
-exit 0
---- stdout
-Ready-made and saved commands: health, disk, oom, ... plus your own
-({{blank}} to fill in).
-
-Usage:
-  komando recipe [flags]
-  komando recipe [command]
-
-Aliases:
-  recipe, recipes
-
-Examples:
-  komando recipe list
-  komando recipe run health @web
-  komando recipe add app-logs 'tail -n 100 /srv/{{app}}/log/app.log' --read-only
-  komando recipe run app-logs web1 --var app=shop
-  komando recipe rm app-logs
-
-Available Commands:
-  add         Save a command as a recipe with blanks to fill in
-  list        List built-in and saved recipes
-  rm          Remove a saved recipe (from komando only)
-  run         Run a recipe on servers
-
-Flags:
-  -h, --help[=true|false]   help for recipe
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
-
-Use "komando recipe [command] --help" for more information about a command.
---- stderr
-### komando recipe add --help
-exit 0
---- stdout
-Save a command as a recipe with blanks to fill in.
-
-Safety: a change; try it with --dry-run first; with --overwrite --read-only,
-when it makes an existing snippet read-only: it weakens a safety check: a
-person's yes (--yes).
-
-Usage:
-  komando recipe add NAME COMMAND [flags]
-
-Examples:
-  komando recipe add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo
-  komando recipe add disk-usage 'df -h {{path=/}}' --read-only
-  komando recipe add disk-usage 'df -h {{path=/}}' --read-only --dry-run
-
-Flags:
-      --desc string               what the recipe does, in a few words (shown in recipe list)
-  -h, --help[=true|false]         help for add
-      --needs-sudo[=true|false]   the recipe runs with sudo
-      --overwrite[=true|false]    replace a recipe with the same name
-      --read-only[=true|false]    the recipe only reads, so protected servers don't need --yes
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando recipe list --help
-exit 0
---- stdout
-List built-in and saved recipes
-
-Usage:
-  komando recipe list [flags]
-
-Aliases:
-  list, ls
-
-Examples:
-  komando recipe list
-  komando recipe list --category security
-
-Flags:
-      --category string     only this category (or "saved" for your own)
-  -h, --help[=true|false]   help for list
-  -n, --limit int           show at most this many recipes (0 = all)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando recipe rm --help
-exit 0
---- stdout
-Remove a saved recipe (from komando only).
-
-Safety: a change; try it with --dry-run first.
-
-Usage:
-  komando recipe rm NAME [flags]
-
-Aliases:
-  rm, remove, delete, del
-
-Examples:
-  komando recipe rm du-srv
-  komando recipe rm du-srv --dry-run
-
-Flags:
-  -h, --help[=true|false]   help for rm
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando recipe run --help
-exit 0
---- stdout
-Run a recipe on servers.
-
-Safety: a change; try it with --dry-run first; when a step matches a
-destructive rule: dangerous, it cannot be undone: a person types the name to
-go on, and an AI agent or a script needs --allow-dangerous; on a protected
-server or conn, a person's yes (--yes) as well.
-
-Usage:
-  komando recipe run NAME TARGET [flags]
-
-Examples:
-  komando recipe run health @web
-  komando recipe run disk web1
-  komando recipe run deploy-app @web --var app=shop
-
-Flags:
-  -h, --help[=true|false]      help for run
-      --no-sudo[=true|false]   do not use sudo even if the recipe asks for it
-      --var stringArray        fill in a blank: NAME=VALUE (repeatable)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
 ### komando registry --help
 exit 0
 --- stdout
@@ -10400,7 +10344,7 @@ How komando keeps a change from going wrong.
   protected targets   a change asks [y/N] at your terminal; scripts and agents need --yes
   dangerous commands  rm -rf /, DROP DATABASE ...: you type the name; scripts need --allow-dangerous
   read only           db query, cache redis raw and cluster kubernetes raw only read unless you add --write
-  audit               komando audit shows every change and who asked for it
+  audit               komando audit list shows every change and who asked for it
 
 An AI agent is never asked: it gets exit 6 and a person allows the flag in a
 window on the screen. See docs/features/safety.md.
@@ -10893,6 +10837,185 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
+### komando snippet --help
+exit 0
+--- stdout
+Ready-made and saved commands: health, disk, oom, ... plus your own
+({{blank}} to fill in).
+
+Usage:
+  komando snippet [flags]
+  komando snippet [command]
+
+Aliases:
+  snippet, snippets
+
+Examples:
+  komando snippet list
+  komando snippet exec health @web
+  komando snippet create app-logs 'tail -n 100 /srv/{{app}}/log/app.log' --read-only
+  komando snippet exec app-logs web1 --var app=shop
+  komando snippet remove app-logs
+
+Available Commands:
+  create      Save a command as a snippet with blanks to fill in
+  exec        Run a snippet on servers
+  list        List built-in and saved snippets
+  remove      Remove a saved snippet (from komando only)
+  show        Show one snippet: its command, blanks and whether it needs sudo
+
+Flags:
+  -h, --help[=true|false]   help for snippet
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando snippet [command] --help" for more information about a command.
+--- stderr
+### komando snippet create --help
+exit 0
+--- stdout
+Save a command as a snippet with blanks to fill in.
+
+Safety: a change; try it with --dry-run first; with --overwrite --read-only,
+when it makes an existing snippet read-only: it weakens a safety check: a
+person's yes (--yes).
+
+Usage:
+  komando snippet create NAME COMMAND [flags]
+
+Examples:
+  komando snippet create deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo
+  komando snippet create disk-usage 'df -h {{path=/}}' --read-only
+  komando snippet create disk-usage 'df -h {{path=/}}' --read-only --dry-run
+
+Flags:
+      --desc string               what the snippet does, in a few words (shown in snippet list)
+  -h, --help[=true|false]         help for create
+      --needs-sudo[=true|false]   the snippet runs with sudo
+      --overwrite[=true|false]    replace a snippet with the same name
+      --read-only[=true|false]    every step only reads, so protected servers don't need --yes
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando snippet exec --help
+exit 0
+--- stdout
+Run a snippet on servers.
+
+Safety: a change; try it with --dry-run first; when a step matches a
+destructive rule: dangerous, it cannot be undone: a person types the name to
+go on, and an AI agent or a script needs --allow-dangerous; on a protected
+server or conn, a person's yes (--yes) as well.
+
+Usage:
+  komando snippet exec NAME TARGET [flags]
+
+Examples:
+  komando snippet exec health @web
+  komando snippet exec disk web1
+  komando snippet exec deploy-app @web --var app=shop
+
+Flags:
+  -h, --help[=true|false]      help for exec
+      --no-sudo[=true|false]   do not use sudo even if the snippet asks for it
+      --var stringArray        fill in a blank: NAME=VALUE (repeatable) (default [])
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando snippet list --help
+exit 0
+--- stdout
+List built-in and saved snippets
+
+Usage:
+  komando snippet list [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando snippet list
+  komando snippet list --category security
+
+Flags:
+      --category string     only this category (or "saved" for your own)
+  -h, --help[=true|false]   help for list
+  -n, --limit int           show at most this many snippets (0 = all)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando snippet remove --help
+exit 0
+--- stdout
+Remove a saved snippet (from komando only).
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando snippet remove NAME [flags]
+
+Examples:
+  komando snippet remove app-logs --dry-run
+  komando snippet remove app-logs
+
+Flags:
+  -h, --help[=true|false]   help for remove
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando snippet show --help
+exit 0
+--- stdout
+Show one snippet: its command, blanks and whether it needs sudo
+
+Usage:
+  komando snippet show NAME [flags]
+
+Examples:
+  komando snippet show health
+  komando snippet show app-logs -o json
+
+Flags:
+  -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
 ### komando ssh-gate --help
 exit 0
 --- stdout
@@ -10922,10 +11045,10 @@ komando, no update, no change on a sqlite file or a target at localhost or
 127.x. With --read-only only commands that read run (db query and cache
 redis raw without --write), and only those that stay on the servers and
 conns in your list: no net, no cert check of a website, no exec, job start,
-docker exec, cluster kubernetes exec or recipe run, unless the line also has
---network. `komando ssh-gate status` tells a key which it is. Every command
-a key runs or is refused is in `komando audit`, with --name, even when the
-audit setting is off.
+docker exec, cluster kubernetes exec or snippet exec, unless the line also
+has --network. `komando ssh-gate status` tells a key which it is. Every
+command a key runs or is refused is in `komando audit list`, with --name,
+even when the audit setting is off.
 
 Usage:
   komando ssh-gate [flags]
@@ -10963,8 +11086,8 @@ this komando by its full path, as sshd does not search PATH.
 A --read-only key runs only commands that read, and only those that stay on
 the servers and conns in your list: no net checks, no cert check of a
 website, and no exec, job start, docker exec, cluster kubernetes exec or
-recipe run, whose programs can connect anywhere and carry what they read in
-a URL or a DNS name. Add --network too for a read key that may do those.
+snippet exec, whose programs can connect anywhere and carry what they read
+in a URL or a DNS name. Add --network too for a read key that may do those.
 
 With --shell-access (not with --read-only) the key may also open a login
 shell on one server: ssh -t HOST komando shell SERVER, word for word. Its
@@ -10976,8 +11099,8 @@ kubernetes shell stay refused. On the servers it opens on, the shell is full
 control of the server, as the account komando logs in with: what is typed is
 outside komando's per-command rules, masking and audit. Give such a key only
 to a device you would give that login to. Each session's start and end are
-in komando audit (key, server, how long, why it ended), and a session with
-no input and no output for 30 minutes ends.
+in komando audit list (key, server, how long, why it ended), and a session
+with no input and no output for 30 minutes ends.
 
 Usage:
   komando ssh-gate line PUBLIC_KEY --name NAME [flags]

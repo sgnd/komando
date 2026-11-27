@@ -4,11 +4,121 @@
   "data": {
     "commands": [
       {
+        "path": "komando agent",
+        "usage": "komando agent [flags]",
+        "short": "AI agents: the komando skill and the guard that protects secrets",
+        "example": "  komando agent skill install --dry-run\n  komando agent skill install\n  komando agent skill install --project\n  komando agent skill uninstall --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando agent skill",
+        "usage": "komando agent skill [flags]",
+        "short": "The komando skill and guard in your AI agents: install, uninstall",
+        "example": "  komando agent skill install --dry-run\n  komando agent skill install\n  komando agent skill uninstall --dry-run\n  komando agent skill uninstall",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando agent skill install",
+        "usage": "komando agent skill install [flags]",
+        "short": "Add the komando skill to Claude Code, Codex, Cursor, Gemini CLI",
+        "long": "Teaches Claude Code, Codex, Cursor and Gemini CLI to use komando safely.\nThen restart the agent. In Codex, also approve the guard once in /hooks.\n\nSafety: a change; try it with --dry-run first.\n\nIt adds the komando skill (komando/SKILL.md) to the folders AI agents read\nskills from: ~/.claude/skills (Claude Code) and ~/.agents/skills (Codex,\nCursor, Gemini CLI and others). The agent then uses komando by itself\nwhenever a task touches a server, database, cache or storage.\n\nIt also adds a guard: before the agent reads a file or runs a shell command\non this computer, komando checks it and stops the ones that would read\nsecrets (~/.komando, private keys, .env files, credential stores, all\nenvironment variables at once) or use ssh around komando. It goes into\nClaude Code (.claude/settings.json), and into Cursor (.cursor/hooks.json),\nGemini CLI (.gemini/settings.json, v0.26+) and Codex (.codex/hooks.json;\napprove it once in /hooks) where their folders exist. Skip it with\n--no-guard.\n\nSafe to run again, for example after an update: a changed file is kept as\n.bak. `komando agent skill uninstall` takes the skill and the guard out\nagain.",
+        "example": "  komando agent skill install             # for every project on this computer\n  komando agent skill install --project   # only for the folder you are in\n  komando agent skill install --dry-run   # show where it would go",
+        "flags": [
+          {
+            "name": "no-guard",
+            "type": "bool",
+            "default": "false",
+            "usage": "do not add the guard that keeps AI agents away from secret files on this computer"
+          },
+          {
+            "name": "project",
+            "type": "bool",
+            "default": "false",
+            "usage": "use the current folder instead of your home folder"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando agent skill uninstall",
+        "usage": "komando agent skill uninstall [flags]",
+        "short": "Take the komando skill and guard out of your AI agents",
+        "long": "Removes what `komando agent skill install` added: komando/SKILL.md in\n~/.claude/skills and ~/.agents/skills, and komando's guard entries in\n.claude/settings.json, .cursor/hooks.json, .gemini/settings.json and\n.codex/hooks.json. Everything else in those files stays; a changed file is\nkept as .bak. Taking the guard away from an AI agent lets it read secret\nfiles on this computer again, so an agent needs a person's yes (--yes).\n\nSafety: a change; try it with --dry-run first; when it removes komando's\nguard from an AI agent's settings: it weakens a safety check: a person's yes\n(--yes).",
+        "example": "  komando agent skill uninstall             # from your home folder\n  komando agent skill uninstall --project   # from the folder you are in\n  komando agent skill uninstall --dry-run   # show what it would remove",
+        "flags": [
+          {
+            "name": "project",
+            "type": "bool",
+            "default": "false",
+            "usage": "use the current folder instead of your home folder"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "when it removes komando's guard from an AI agent's settings"
+          }
+        ]
+      },
+      {
         "path": "komando audit",
         "usage": "komando audit [flags]",
+        "short": "The audit log: see what was done, check it was not changed",
+        "example": "  komando audit list\n  komando audit list --since 2h --failed\n  komando audit list -n 0 --target @prod\n  komando audit check",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando audit check",
+        "usage": "komando audit check [flags]",
+        "short": "Check that no audit record was changed, added or removed outside komando",
+        "example": "  komando audit check\n  komando audit check -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando audit list",
+        "usage": "komando audit list [flags]",
         "short": "Show the audit log: who did what, where, and the result",
         "long": "Every change komando makes, and every blocked attempt, is a sealed record in\n~/.komando/store.db: when, who (and which AI agent), the command, its\ntargets and whether it worked. The newest entries come last.\n\n--since and --until take how long ago (30m, 12h, 7d), today, yesterday,\nor a time (2026-11-07, '2026-11-07 14:30', 2026-11-07T14:30:00Z); a time\nwithout a zone is this computer's. --since keeps entries from that moment\non, --until those before it. With either, every match is shown unless -n\nis given.",
-        "example": "  komando audit                      # the last 50\n  komando audit -n 0 --target @prod  # everything about @prod\n  komando audit --command host. --failed\n  komando audit --since 2h           # everything in the last two hours\n  komando audit --since yesterday --until today --target @prod\n  komando audit --actor claude --since 7d        # what Claude Code did this week\n  komando audit verify               # was the log changed outside komando?",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando audit list                      # the last 50\n  komando audit list -n 0 --target @prod  # everything about @prod\n  komando audit list --command host. --failed\n  komando audit list --since 2h           # everything in the last two hours\n  komando audit list --since yesterday --until today --target @prod\n  komando audit list --actor claude --since 7d   # what Claude Code did this week",
         "flags": [
           {
             "name": "actor",
@@ -49,19 +159,6 @@
             "usage": "only entries before this time (the same forms as --since)"
           }
         ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando audit verify",
-        "usage": "komando audit verify [flags]",
-        "short": "Check that no audit record was changed, added or removed outside komando",
-        "example": "  komando audit verify",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -5167,7 +5264,7 @@
         "aliases": [
           "groups"
         ],
-        "example": "  komando group list\n  komando group add web web1,web2 --dry-run\n  komando group add web web1,web2\n  komando group rm web web2",
+        "example": "  komando group list\n  komando group create web web1,web2 --dry-run\n  komando group create web web1,web2\n  komando group remove web web2",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -5177,11 +5274,11 @@
         ]
       },
       {
-        "path": "komando group add",
-        "usage": "komando group add GROUP TARGET... [flags]",
+        "path": "komando group create",
+        "usage": "komando group create GROUP TARGET... [flags]",
         "short": "Add servers, conns and VPNs matching TARGET to GROUP",
         "long": "Add servers, conns and VPNs matching TARGET to GROUP.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando group add web web1,web2\n  komando group add web web1,web2 --dry-run\n  komando group add web web3 web4\n  komando group add prod 'tag:live,!staging-*'",
+        "example": "  komando group create web web1,web2 --dry-run\n  komando group create web web3 web4\n  komando group create prod 'tag:live,!staging-*'",
         "runnable": true,
         "kind": "change",
         "confirm": [
@@ -5193,7 +5290,7 @@
       {
         "path": "komando group list",
         "usage": "komando group list [GROUP] [flags]",
-        "short": "List groups and tags with their members, or the members of one group",
+        "short": "List groups and tags with their members, or one group's members",
         "aliases": [
           "ls"
         ],
@@ -5216,33 +5313,11 @@
         ]
       },
       {
-        "path": "komando group rename",
-        "usage": "komando group rename OLD NEW [flags]",
-        "short": "Rename a group on every server, conn and VPN in it",
-        "long": "Gives a group a new name on every member. OLD matches in any case, like\n@OLD. When NEW is a group already, nothing changes (GROUP_EXISTS): to merge\ntwo groups, add the members with `komando group add NEW @OLD` and then run\n`komando group rm OLD`. When a protected server or conn is in the group,\nrenaming it needs --yes, once for all of them.\n\nSafety: a change; try it with --dry-run first.",
-        "aliases": [
-          "mv"
-        ],
-        "example": "  komando group rename web frontend\n  komando group rename prod production --dry-run",
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando group rm",
-        "usage": "komando group rm GROUP [TARGET...] [flags]",
+        "path": "komando group remove",
+        "usage": "komando group remove GROUP [TARGET...] [flags]",
         "short": "Take entries out of a group, or delete the group (from komando only)",
         "long": "Takes the entries TARGET picks out of GROUP; entries that are not in it are\nleft alone. Without TARGET the group is deleted: every member leaves it.\nDeleting a group with more than 3 members needs --yes; try --dry-run first.\n\nSafety: a change; try it with --dry-run first; GROUP alone: deleting a group\nof more than 3 members (CONFIRM_REQUIRED): a change; try it with --dry-run\nfirst; on a protected server or conn, a person's yes (--yes) as well.",
-        "aliases": [
-          "remove",
-          "delete",
-          "del"
-        ],
-        "example": "  komando group rm web web2\n  komando group rm old-batch --dry-run   # who would leave it\n  komando group rm old-batch --yes   # after a person's yes",
+        "example": "  komando group remove web web2\n  komando group remove old-batch --dry-run   # who would leave it\n  komando group remove old-batch --yes   # after a person's yes",
         "runnable": true,
         "kind": "change",
         "confirm": [
@@ -5253,6 +5328,36 @@
             "tier": "change",
             "flag": "--yes",
             "when": "GROUP alone: deleting a group of more than 3 members (CONFIRM_REQUIRED)"
+          }
+        ]
+      },
+      {
+        "path": "komando group rename",
+        "usage": "komando group rename OLD NEW [flags]",
+        "short": "Rename a group on every server, conn and VPN in it",
+        "long": "Gives a group a new name on every member. OLD matches in any case, like\n@OLD. When NEW is a group already, nothing changes (GROUP_EXISTS): to merge\ntwo groups, add the members with `komando group create NEW @OLD` and then\nrun `komando group remove OLD`. When a protected server or conn is in the\ngroup, renaming it needs --yes, once for all of them.\n\nSafety: a change; try it with --dry-run first.",
+        "aliases": [
+          "mv"
+        ],
+        "example": "  komando group rename prod production --dry-run\n  komando group rename web frontend",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando group show",
+        "usage": "komando group show GROUP [flags]",
+        "short": "Show the members of one group",
+        "example": "  komando group show web\n  komando group show web -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
           }
         ]
       },
@@ -5276,61 +5381,6 @@
         "confirm": [
           {
             "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando guide install",
-        "usage": "komando guide install [flags]",
-        "short": "Add the komando skill to Claude Code, Codex, Cursor, Gemini CLI",
-        "long": "Teaches Claude Code, Codex, Cursor and Gemini CLI to use komando safely.\nThen restart the agent. In Codex, also approve the guard once in /hooks.\n\nSafety: a change; try it with --dry-run first.\n\nIt adds the komando skill (komando/SKILL.md) to the folders AI agents read\nskills from: ~/.claude/skills (Claude Code) and ~/.agents/skills (Codex,\nCursor, Gemini CLI and others). The agent then uses komando by itself\nwhenever a task touches a server, database, cache or storage.\n\nIt also adds a guard: before the agent reads a file or runs a shell command\non this computer, komando checks it and stops the ones that would read\nsecrets (~/.komando, private keys, .env files, credential stores, all\nenvironment variables at once) or use ssh around komando. It goes into\nClaude Code (.claude/settings.json), and into Cursor (.cursor/hooks.json),\nGemini CLI (.gemini/settings.json, v0.26+) and Codex (.codex/hooks.json;\napprove it once in /hooks) where their folders exist. Skip it with\n--no-guard.\n\nSafe to run again, for example after an update: a changed file is kept as\n.bak. `komando guide uninstall` takes the skill and the guard out again.",
-        "example": "  komando guide install             # for every project on this computer\n  komando guide install --project   # only for the folder you are in\n  komando guide install --dry-run   # show where it would go",
-        "flags": [
-          {
-            "name": "no-guard",
-            "type": "bool",
-            "default": "false",
-            "usage": "do not add the guard that keeps AI agents away from secret files on this computer"
-          },
-          {
-            "name": "project",
-            "type": "bool",
-            "default": "false",
-            "usage": "install into the current folder instead of your home folder"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando guide uninstall",
-        "usage": "komando guide uninstall [flags]",
-        "short": "Take the komando skill and guard out of your AI agents",
-        "long": "Removes what `komando guide install` added: komando/SKILL.md in\n~/.claude/skills and ~/.agents/skills, and komando's guard entries in\n.claude/settings.json, .cursor/hooks.json, .gemini/settings.json and\n.codex/hooks.json. Everything else in those files stays; a changed file is\nkept as .bak. Taking the guard away from an AI agent lets it read secret\nfiles on this computer again, so an agent needs a person's yes (--yes).\n\nSafety: a change; try it with --dry-run first; when it removes komando's\nguard from an AI agent's settings: it weakens a safety check: a person's yes\n(--yes).",
-        "example": "  komando guide uninstall             # from your home folder\n  komando guide uninstall --project   # from the folder you are in\n  komando guide uninstall --dry-run   # show what it would remove",
-        "flags": [
-          {
-            "name": "project",
-            "type": "bool",
-            "default": "false",
-            "usage": "remove from the current folder instead of your home folder"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          },
-          {
-            "tier": "safety",
-            "flag": "--yes",
-            "when": "when it removes komando's guard from an AI agent's settings"
           }
         ]
       },
@@ -6957,7 +7007,7 @@
         "aliases": [
           "policies"
         ],
-        "example": "  komando policy list\n  komando policy check 'rm -rf /srv/app'\n  komando policy deny 'systemctl stop postgresql' --dry-run\n  komando policy deny 'systemctl stop postgresql'",
+        "example": "  komando policy list\n  komando policy check 'rm -rf /srv/app'\n  komando policy create 'systemctl stop postgresql' --dry-run\n  komando policy create 'systemctl stop postgresql'",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -6968,7 +7018,7 @@
       },
       {
         "path": "komando policy check",
-        "usage": "komando policy check COMMAND [flags]",
+        "usage": "komando policy check COMMAND... [flags]",
         "short": "Check whether a command would be blocked",
         "long": "Test whether a shell command would be blocked (exit 6), or rate SQL, Redis\nor memcached commands with --conn-kind KIND.",
         "example": "  komando policy check 'rm -rf /var/www'\n  if komando policy check \"$CMD\" >/dev/null; then echo allowed; fi\n  komando policy check --conn-kind postgres 'delete from users'\n  komando policy check --conn-kind redis FLUSHALL",
@@ -6976,7 +7026,7 @@
           {
             "name": "conn-kind",
             "type": "string",
-            "usage": "rate the argument for a conn kind instead: bigquery, clickhouse, mysql, oracle, postgres, snowflake, sqlite, sqlserver, redis, memcached, mongodb (a command document as JSON)"
+            "usage": "rate the argument for a conn kind instead (a command document as JSON)"
           }
         ],
         "runnable": true,
@@ -6988,14 +7038,11 @@
         ]
       },
       {
-        "path": "komando policy deny",
-        "usage": "komando policy deny REGEX [flags]",
+        "path": "komando policy create",
+        "usage": "komando policy create REGEX [flags]",
         "short": "Add a deny rule (a Go regular expression)",
         "long": "Add a deny rule (a Go regular expression).\n\nSafety: a change; try it with --dry-run first.",
-        "aliases": [
-          "add"
-        ],
-        "example": "  komando policy deny 'kubectl\\s+delete'\n  komando policy deny 'kubectl\\s+delete' --dry-run",
+        "example": "  komando policy create 'kubectl\\s+delete' --dry-run\n  komando policy create 'kubectl\\s+delete'",
         "runnable": true,
         "kind": "change",
         "confirm": [
@@ -7062,7 +7109,7 @@
         "aliases": [
           "ls"
         ],
-        "example": "  komando policy list",
+        "example": "  komando policy list\n  komando policy list -n 5 -o json",
         "flags": [
           {
             "name": "limit",
@@ -7081,16 +7128,11 @@
         ]
       },
       {
-        "path": "komando policy rm",
-        "usage": "komando policy rm RULE [flags]",
+        "path": "komando policy remove",
+        "usage": "komando policy remove RULE [flags]",
         "short": "Remove a deny rule you added (from komando only)",
-        "long": "Removes a rule added with `policy deny`. Give it as you wrote it, or by its\nid in `policy list` (custom- and eight letters and digits, made from the\npattern, so it does not change when another rule goes). Built-in rules\ncannot be removed. Removing a rule weakens a safety check, so komando asks\nfirst.\n\nSafety: it weakens a safety check: a person's yes (--yes).",
-        "aliases": [
-          "remove",
-          "delete",
-          "del"
-        ],
-        "example": "  komando policy rm 'kubectl\\s+delete'\n  komando policy rm 'kubectl\\s+delete' --dry-run\n  komando policy rm custom-1a2b3c4d",
+        "long": "Removes a rule added with `policy create`. Give it as you wrote it, or by\nits id in `policy list` (custom- and eight letters and digits, made from the\npattern, so it does not change when another rule goes). Built-in rules\ncannot be removed. Removing a rule weakens a safety check, so komando asks\nfirst.\n\nSafety: it weakens a safety check: a person's yes (--yes).",
+        "example": "  komando policy remove 'kubectl\\s+delete'\n  komando policy remove 'kubectl\\s+delete' --dry-run\n  komando policy remove custom-1a2b3c4d",
         "runnable": true,
         "kind": "change",
         "confirm": [
@@ -9936,150 +9978,6 @@
         ]
       },
       {
-        "path": "komando recipe",
-        "usage": "komando recipe [flags]",
-        "short": "Ready-made and saved commands: run them, save your own",
-        "long": "Ready-made and saved commands: health, disk, oom, ... plus your own\n({{blank}} to fill in).",
-        "aliases": [
-          "recipes"
-        ],
-        "example": "  komando recipe list\n  komando recipe run health @web\n  komando recipe add app-logs 'tail -n 100 /srv/{{app}}/log/app.log' --read-only\n  komando recipe run app-logs web1 --var app=shop\n  komando recipe rm app-logs",
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando recipe add",
-        "usage": "komando recipe add NAME COMMAND [flags]",
-        "short": "Save a command as a recipe with blanks to fill in",
-        "long": "Save a command as a recipe with blanks to fill in.\n\nSafety: a change; try it with --dry-run first; with --overwrite --read-only,\nwhen it makes an existing snippet read-only: it weakens a safety check: a\nperson's yes (--yes).",
-        "example": "  komando recipe add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo\n  komando recipe add disk-usage 'df -h {{path=/}}' --read-only\n  komando recipe add disk-usage 'df -h {{path=/}}' --read-only --dry-run",
-        "flags": [
-          {
-            "name": "desc",
-            "type": "string",
-            "usage": "what the recipe does, in a few words (shown in recipe list)"
-          },
-          {
-            "name": "needs-sudo",
-            "type": "bool",
-            "default": "false",
-            "usage": "the recipe runs with sudo"
-          },
-          {
-            "name": "overwrite",
-            "type": "bool",
-            "default": "false",
-            "usage": "replace a recipe with the same name"
-          },
-          {
-            "name": "read-only",
-            "type": "bool",
-            "default": "false",
-            "usage": "the recipe only reads, so protected servers don't need --yes"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          },
-          {
-            "tier": "safety",
-            "flag": "--yes",
-            "when": "with --overwrite --read-only, when it makes an existing snippet read-only"
-          }
-        ]
-      },
-      {
-        "path": "komando recipe list",
-        "usage": "komando recipe list [flags]",
-        "short": "List built-in and saved recipes",
-        "aliases": [
-          "ls"
-        ],
-        "example": "  komando recipe list\n  komando recipe list --category security",
-        "flags": [
-          {
-            "name": "category",
-            "type": "string",
-            "usage": "only this category (or \"saved\" for your own)"
-          },
-          {
-            "name": "limit",
-            "shorthand": "n",
-            "type": "int",
-            "default": "0",
-            "usage": "show at most this many recipes (0 = all)"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando recipe rm",
-        "usage": "komando recipe rm NAME [flags]",
-        "short": "Remove a saved recipe (from komando only)",
-        "long": "Remove a saved recipe (from komando only).\n\nSafety: a change; try it with --dry-run first.",
-        "aliases": [
-          "remove",
-          "delete",
-          "del"
-        ],
-        "example": "  komando recipe rm du-srv\n  komando recipe rm du-srv --dry-run",
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando recipe run",
-        "usage": "komando recipe run NAME TARGET [flags]",
-        "short": "Run a recipe on servers",
-        "long": "Run a recipe on servers.\n\nSafety: a change; try it with --dry-run first; when a step matches a\ndestructive rule: dangerous, it cannot be undone: a person types the name to\ngo on, and an AI agent or a script needs --allow-dangerous; on a protected\nserver or conn, a person's yes (--yes) as well.",
-        "example": "  komando recipe run health @web\n  komando recipe run disk web1\n  komando recipe run deploy-app @web --var app=shop",
-        "flags": [
-          {
-            "name": "no-sudo",
-            "type": "bool",
-            "default": "false",
-            "usage": "do not use sudo even if the recipe asks for it"
-          },
-          {
-            "name": "var",
-            "type": "stringArray",
-            "default": "[]",
-            "usage": "fill in a blank: NAME=VALUE (repeatable)"
-          }
-        ],
-        "runnable": true,
-        "kind": "depends",
-        "kind_note": "decided by the recipe's command, like exec",
-        "confirm": [
-          {
-            "tier": "change"
-          },
-          {
-            "tier": "dangerous",
-            "flag": "--allow-dangerous",
-            "when": "when a step matches a destructive rule"
-          }
-        ]
-      },
-      {
         "path": "komando registry",
         "usage": "komando registry [flags]",
         "short": "Container registries: see images, copy them, clean up",
@@ -10547,7 +10445,7 @@
         "path": "komando safety",
         "usage": "komando safety [flags]",
         "short": "How komando keeps a change from going wrong",
-        "long": "How komando keeps a change from going wrong.\n\n  --dry-run           every change can show what it would do first\n  protected targets   a change asks [y/N] at your terminal; scripts and agents need --yes\n  dangerous commands  rm -rf /, DROP DATABASE ...: you type the name; scripts need --allow-dangerous\n  read only           db query, cache redis raw and cluster kubernetes raw only read unless you add --write\n  audit               komando audit shows every change and who asked for it\n\nAn AI agent is never asked: it gets exit 6 and a person allows the flag in a\nwindow on the screen. See docs/features/safety.md.",
+        "long": "How komando keeps a change from going wrong.\n\n  --dry-run           every change can show what it would do first\n  protected targets   a change asks [y/N] at your terminal; scripts and agents need --yes\n  dangerous commands  rm -rf /, DROP DATABASE ...: you type the name; scripts need --allow-dangerous\n  read only           db query, cache redis raw and cluster kubernetes raw only read unless you add --write\n  audit               komando audit list shows every change and who asked for it\n\nAn AI agent is never asked: it gets exit 6 and a person allows the flag in a\nwindow on the screen. See docs/features/safety.md.",
         "runnable": false
       },
       {
@@ -10858,10 +10756,162 @@
         ]
       },
       {
+        "path": "komando snippet",
+        "usage": "komando snippet [flags]",
+        "short": "Ready-made and saved commands: run them, save your own",
+        "long": "Ready-made and saved commands: health, disk, oom, ... plus your own\n({{blank}} to fill in).",
+        "aliases": [
+          "snippets"
+        ],
+        "example": "  komando snippet list\n  komando snippet exec health @web\n  komando snippet create app-logs 'tail -n 100 /srv/{{app}}/log/app.log' --read-only\n  komando snippet exec app-logs web1 --var app=shop\n  komando snippet remove app-logs",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando snippet create",
+        "usage": "komando snippet create NAME COMMAND [flags]",
+        "short": "Save a command as a snippet with blanks to fill in",
+        "long": "Save a command as a snippet with blanks to fill in.\n\nSafety: a change; try it with --dry-run first; with --overwrite --read-only,\nwhen it makes an existing snippet read-only: it weakens a safety check: a\nperson's yes (--yes).",
+        "example": "  komando snippet create deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo\n  komando snippet create disk-usage 'df -h {{path=/}}' --read-only\n  komando snippet create disk-usage 'df -h {{path=/}}' --read-only --dry-run",
+        "flags": [
+          {
+            "name": "desc",
+            "type": "string",
+            "usage": "what the snippet does, in a few words (shown in snippet list)"
+          },
+          {
+            "name": "needs-sudo",
+            "type": "bool",
+            "default": "false",
+            "usage": "the snippet runs with sudo"
+          },
+          {
+            "name": "overwrite",
+            "type": "bool",
+            "default": "false",
+            "usage": "replace a snippet with the same name"
+          },
+          {
+            "name": "read-only",
+            "type": "bool",
+            "default": "false",
+            "usage": "every step only reads, so protected servers don't need --yes"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --overwrite --read-only, when it makes an existing snippet read-only"
+          }
+        ]
+      },
+      {
+        "path": "komando snippet exec",
+        "usage": "komando snippet exec NAME TARGET [flags]",
+        "short": "Run a snippet on servers",
+        "long": "Run a snippet on servers.\n\nSafety: a change; try it with --dry-run first; when a step matches a\ndestructive rule: dangerous, it cannot be undone: a person types the name to\ngo on, and an AI agent or a script needs --allow-dangerous; on a protected\nserver or conn, a person's yes (--yes) as well.",
+        "example": "  komando snippet exec health @web\n  komando snippet exec disk web1\n  komando snippet exec deploy-app @web --var app=shop",
+        "flags": [
+          {
+            "name": "no-sudo",
+            "type": "bool",
+            "default": "false",
+            "usage": "do not use sudo even if the snippet asks for it"
+          },
+          {
+            "name": "var",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "fill in a blank: NAME=VALUE (repeatable)"
+          }
+        ],
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "decided by the recipe's command, like exec",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous",
+            "when": "when a step matches a destructive rule"
+          }
+        ]
+      },
+      {
+        "path": "komando snippet list",
+        "usage": "komando snippet list [flags]",
+        "short": "List built-in and saved snippets",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando snippet list\n  komando snippet list --category security",
+        "flags": [
+          {
+            "name": "category",
+            "type": "string",
+            "usage": "only this category (or \"saved\" for your own)"
+          },
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many snippets (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando snippet remove",
+        "usage": "komando snippet remove NAME [flags]",
+        "short": "Remove a saved snippet (from komando only)",
+        "long": "Remove a saved snippet (from komando only).\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando snippet remove app-logs --dry-run\n  komando snippet remove app-logs",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando snippet show",
+        "usage": "komando snippet show NAME [flags]",
+        "short": "Show one snippet: its command, blanks and whether it needs sudo",
+        "example": "  komando snippet show health\n  komando snippet show app-logs -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
         "path": "komando ssh-gate",
         "usage": "komando ssh-gate [flags]",
         "short": "Let an SSH key run komando here and nothing else (person only)",
-        "long": "ssh-gate lets an SSH key (a phone's, say) run komando on this computer, and\nnothing else: no shell, no file copy, no port forwarding. Add the key to\n~/.ssh/authorized_keys with the line `komando ssh-gate line` prints; sshd\nthen runs ssh-gate for it, whatever the key asks for.\n\nSafety: only a person at a terminal can run it.\n\nssh-gate takes the command the key sent (SSH_ORIGINAL_COMMAND) only when it\nis one komando command. It splits it into words like a shell, but expands\nnothing and runs no shell: ; | & > < $ and backquotes are refused unless\nthey are quoted. One KOMANDO_AGENT=NAME may come before komando.\n\nkomando then runs as for an AI agent: secret values stay [hidden], --reveal\nand --allow-dangerous are refused, and --yes for a protected server needs a\nperson on this computer. Commands that need a person at a terminal (shell,\ndb shell, secret passphrase ...) are refused (a --shell-access key may open\n`komando shell SERVER`: see ssh-gate line; that shell is full control of the\nserver, outside these rules). The key runs commands on servers, never one\nthat writes on this computer or reads a file here (a script, SQL or upload\nsource by path; '-' for the key's own input works): no download or cp to a\nfile here (download --to - and cp SRC - stream to the key's own output), no\nchange to servers, VPNs, settings, rules, secrets, keys or recipes in\nkomando, no update, no change on a sqlite file or a target at localhost or\n127.x. With --read-only only commands that read run (db query and cache\nredis raw without --write), and only those that stay on the servers and\nconns in your list: no net, no cert check of a website, no exec, job start,\ndocker exec, cluster kubernetes exec or recipe run, unless the line also has\n--network. `komando ssh-gate status` tells a key which it is. Every command\na key runs or is refused is in `komando audit`, with --name, even when the\naudit setting is off.",
+        "long": "ssh-gate lets an SSH key (a phone's, say) run komando on this computer, and\nnothing else: no shell, no file copy, no port forwarding. Add the key to\n~/.ssh/authorized_keys with the line `komando ssh-gate line` prints; sshd\nthen runs ssh-gate for it, whatever the key asks for.\n\nSafety: only a person at a terminal can run it.\n\nssh-gate takes the command the key sent (SSH_ORIGINAL_COMMAND) only when it\nis one komando command. It splits it into words like a shell, but expands\nnothing and runs no shell: ; | & > < $ and backquotes are refused unless\nthey are quoted. One KOMANDO_AGENT=NAME may come before komando.\n\nkomando then runs as for an AI agent: secret values stay [hidden], --reveal\nand --allow-dangerous are refused, and --yes for a protected server needs a\nperson on this computer. Commands that need a person at a terminal (shell,\ndb shell, secret passphrase ...) are refused (a --shell-access key may open\n`komando shell SERVER`: see ssh-gate line; that shell is full control of the\nserver, outside these rules). The key runs commands on servers, never one\nthat writes on this computer or reads a file here (a script, SQL or upload\nsource by path; '-' for the key's own input works): no download or cp to a\nfile here (download --to - and cp SRC - stream to the key's own output), no\nchange to servers, VPNs, settings, rules, secrets, keys or recipes in\nkomando, no update, no change on a sqlite file or a target at localhost or\n127.x. With --read-only only commands that read run (db query and cache\nredis raw without --write), and only those that stay on the servers and\nconns in your list: no net, no cert check of a website, no exec, job start,\ndocker exec, cluster kubernetes exec or snippet exec, unless the line also\nhas --network. `komando ssh-gate status` tells a key which it is. Every\ncommand a key runs or is refused is in `komando audit list`, with --name,\neven when the audit setting is off.",
         "example": "  komando ssh-gate line --name phone ~/phone.pub\n  komando ssh-gate line --name phone-read --read-only 'ssh-ed25519 AAAA... phone'",
         "runnable": true,
         "kind": "depends",
@@ -10876,7 +10926,7 @@
         "path": "komando ssh-gate line",
         "usage": "komando ssh-gate line PUBLIC_KEY --name NAME [flags]",
         "short": "Print the authorized_keys line that limits a key to komando",
-        "long": "Prints the line to add to ~/.ssh/authorized_keys on this computer, so the\nkey runs komando through ssh-gate and nothing else. PUBLIC_KEY is the key's\nline (ssh-ed25519 AAAA... comment) or a .pub file holding it. The line names\nthis komando by its full path, as sshd does not search PATH.\n\nA --read-only key runs only commands that read, and only those that stay on\nthe servers and conns in your list: no net checks, no cert check of a\nwebsite, and no exec, job start, docker exec, cluster kubernetes exec or\nrecipe run, whose programs can connect anywhere and carry what they read in\na URL or a DNS name. Add --network too for a read key that may do those.\n\nWith --shell-access (not with --read-only) the key may also open a login\nshell on one server: ssh -t HOST komando shell SERVER, word for word. Its\nline has restrict,pty, so sshd gives it a terminal when it asks for one. The\nshell is refused on a protected server, a Windows server or this computer,\nwith any other word or flag, without the terminal, and on every server while\nyou have deny rules of your own (komando policy list); db shell and cluster\nkubernetes shell stay refused. On the servers it opens on, the shell is full\ncontrol of the server, as the account komando logs in with: what is typed is\noutside komando's per-command rules, masking and audit. Give such a key only\nto a device you would give that login to. Each session's start and end are\nin komando audit (key, server, how long, why it ended), and a session with\nno input and no output for 30 minutes ends.",
+        "long": "Prints the line to add to ~/.ssh/authorized_keys on this computer, so the\nkey runs komando through ssh-gate and nothing else. PUBLIC_KEY is the key's\nline (ssh-ed25519 AAAA... comment) or a .pub file holding it. The line names\nthis komando by its full path, as sshd does not search PATH.\n\nA --read-only key runs only commands that read, and only those that stay on\nthe servers and conns in your list: no net checks, no cert check of a\nwebsite, and no exec, job start, docker exec, cluster kubernetes exec or\nsnippet exec, whose programs can connect anywhere and carry what they read\nin a URL or a DNS name. Add --network too for a read key that may do those.\n\nWith --shell-access (not with --read-only) the key may also open a login\nshell on one server: ssh -t HOST komando shell SERVER, word for word. Its\nline has restrict,pty, so sshd gives it a terminal when it asks for one. The\nshell is refused on a protected server, a Windows server or this computer,\nwith any other word or flag, without the terminal, and on every server while\nyou have deny rules of your own (komando policy list); db shell and cluster\nkubernetes shell stay refused. On the servers it opens on, the shell is full\ncontrol of the server, as the account komando logs in with: what is typed is\noutside komando's per-command rules, masking and audit. Give such a key only\nto a device you would give that login to. Each session's start and end are\nin komando audit list (key, server, how long, why it ended), and a session\nwith no input and no output for 30 minutes ends.",
         "example": "  komando ssh-gate line --name phone ~/phone.pub\n  komando ssh-gate line --name phone-read --read-only 'ssh-ed25519 AAAA... phone'\n  komando ssh-gate line --name phone-checks --read-only --network ~/phone.pub\n  komando ssh-gate line --name ops --shell-access ~/ops.pub",
         "flags": [
           {
@@ -19734,7 +19784,7 @@
         "code": "GROUP_EXISTS",
         "exit": 8,
         "example": "group … exists",
-        "hint": "pick another name; to merge them, run `komando group add … @…` and then `komando group rm …`"
+        "hint": "pick another name; to merge them, run `komando group create … @…` and then `komando group remove …`"
       },
       {
         "code": "GROUP_NOT_FOUND",
@@ -19746,7 +19796,7 @@
         "code": "GUARD_PATH_MISSING",
         "exit": 3,
         "example": "komando cannot tell where its own program is, so it writes no guard hook",
-        "hint": "run komando by its full path, such as `/usr/local/bin/komando guide install`; without a guard: `komando guide install --no-guard`"
+        "hint": "run komando by its full path, such as `/usr/local/bin/komando agent skill install`; without a guard: `komando agent skill install --no-guard`"
       },
       {
         "code": "HELM_RELEASE_NOT_FOUND",
@@ -20309,7 +20359,7 @@
         "code": "RECIPE_BUILTIN",
         "exit": 8,
         "example": "… is a built-in recipe",
-        "hint": "pick another name; see `komando recipe list`"
+        "hint": "pick another name; see `komando snippet list`"
       },
       {
         "code": "RECIPE_CHANGED",
@@ -20321,13 +20371,13 @@
         "code": "RECIPE_EXISTS",
         "exit": 8,
         "example": "recipe … exists",
-        "hint": "see it with `komando recipe show NAME`, or pass --overwrite to replace it"
+        "hint": "see it with `komando snippet show NAME`, or pass --overwrite to replace it"
       },
       {
         "code": "RECIPE_NOT_FOUND",
         "exit": 3,
         "example": "no recipe named …",
-        "hint": "see them with `komando recipe list`"
+        "hint": "see them with `komando snippet list`"
       },
       {
         "code": "REGISTRY_AUTH",
@@ -20567,7 +20617,7 @@
         "code": "SESSION_FOLDER_MISSING",
         "exit": 3,
         "example": "no session … on …",
-        "hint": "check the ID and the server: a session is removed once its starter read it to the end, or after 7 days; `komando audit` shows the exec that started it"
+        "hint": "check the ID and the server: a session is removed once its starter read it to the end, or after 7 days; `komando audit list` shows the exec that started it"
       },
       {
         "code": "SESSION_NOT_FOUND",
@@ -20585,7 +20635,7 @@
         "code": "SESSION_RECORD_MISSING",
         "exit": 3,
         "example": "session … on … was not started from this computer",
-        "hint": "only the computer that started the run can stop it: run `komando exec TARGET --attach ID --stop` there; `komando audit` there shows the exec that started it"
+        "hint": "only the computer that started the run can stop it: run `komando exec TARGET --attach ID --stop` there; `komando audit list` there shows the exec that started it"
       },
       {
         "code": "SESSION_SPACE_DENIED",
@@ -21010,7 +21060,7 @@
         "code": "UNKNOWN_VAR",
         "exit": 2,
         "example": "recipe … has no blank named … (…)",
-        "hint": "see the recipe with `komando recipe list`"
+        "hint": "see the recipe with `komando snippet list`"
       },
       {
         "code": "UNSAFE_BACKUP",

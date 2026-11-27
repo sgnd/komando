@@ -19,7 +19,7 @@ var emptyLine = regexp.MustCompile("^no [^\n]+ (yet(: `komando [^`]+`)?|match [^
 func TestStandardEmptyLines(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web1", "u@10.0.0.1") // so host list is not the empty inventory
-	for _, a := range []string{"conn list", "vpn socks list", "key list", "secret list", "job list", "tunnel list", "vpn socks status", "audit --failed"} {
+	for _, a := range []string{"conn list", "vpn socks list", "key list", "secret list", "job list", "tunnel list", "vpn socks status", "audit list --failed"} {
 		s, err := textRun(t, strings.Fields(a)...)
 		if err != nil || !emptyLine.MatchString(s) {
 			t.Errorf("%s: %q (%v)", a, s, err)
@@ -38,7 +38,7 @@ func TestStandardEmptyLines(t *testing.T) {
 		"cluster history": historyData{}, "cluster helm history": helmHistory{}, "cluster helm list": helmList{},
 		"cluster events": eventList{}, "cache keys": keyList{}, "cache keys PATTERN": keyList{Pattern: "user:*"},
 		"queue kafka topic list": queueTopics{Conn: "prod-kafka"}, "queue kafka consumer list": queueGroups{}, "registry oci image list": lsData{},
-		"audit": auditList{},
+		"audit list": auditList{},
 	} {
 		if s := x.Text(); !emptyLine.MatchString(s) {
 			t.Errorf("%s: %q", name, s)

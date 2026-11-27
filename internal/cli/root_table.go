@@ -118,7 +118,9 @@ func hideCarried(root *cobra.Command, leaves []capability.Leaf, hs map[capabilit
 	var drop func(c *cobra.Command) bool
 	drop = func(c *cobra.Command) (hid bool) {
 		for _, s := range c.Commands() {
-			if hide[cmdID(s)] {
+			// a bare noun (audit) shares its ID with a command that moved
+			// under it: it stays, only a command that runs goes
+			if hide[cmdID(s)] && (s.Runnable() || s.HasSubCommands()) {
 				c.RemoveCommand(s)
 				hid = true
 				continue
@@ -407,6 +409,13 @@ func runBody(cl *call, ctx context.Context, body *cobra.Command, in leafInput, r
 	cl.out.As = in.ID // the envelope and the audit record carry the leaf's ID
 	defer func() { cl.out.As = before }()
 	return body.ExecuteContext(withCall(ctx, cl))
+}
+
+// bodyHandler is the handler of a leaf that runs today's command body.
+func bodyHandler(body func() *cobra.Command) handler {
+	return func(cl *call, ctx context.Context, in leafInput) error {
+		return runBody(cl, ctx, body(), in, nil)
+	}
 }
 
 // credentialRef is how today's bodies write the name of a credential: the
