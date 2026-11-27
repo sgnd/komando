@@ -12,7 +12,8 @@ import (
 )
 
 // Runtime is what komando's background work keeps between commands: VPN
-// sessions, server logins, jobs and tunnels. It lives in runtime.json, apart
+// sessions, server logins, exec sessions and tunnels, and v0.17's job
+// records, which only the store's move reads. It lives in runtime.json, apart
 // from the inventory in store.db, so a VPN marking itself used does not
 // rewrite the inventory, and the coming sealed store can seal it on its own.
 type Runtime struct {
