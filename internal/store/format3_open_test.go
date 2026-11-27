@@ -27,7 +27,7 @@ func callerIs(t *testing.T, c MigrateCall) {
 }
 
 func atTerminal() MigrateCall {
-	return MigrateCall{Way: MigrateTerminal, Alive: func(int, string) bool { return false }}
+	return MigrateCall{Way: MigrateTerminal, Alive: func(int, string) bool { return false }, Ask: func(string) bool { return true }}
 }
 
 // codeOf is the store error's code and exit, or "" for an error without one.
@@ -122,47 +122,67 @@ func TestFormat2CallerNeedsPerson(t *testing.T) {
 	}
 }
 
-// The window path: the window names the backup and the counts; a no
-// writes nothing; a yes migrates and the audit entry says how.
-func TestFormat2Window(t *testing.T) {
-	t.Run("no", func(t *testing.T) {
-		format2Store(t)
-		Close()
-		before := fileSum(t)
-		var shown string
-		callerIs(t, MigrateCall{Way: MigrateWindow, Alive: func(int, string) bool { return false },
-			Ask: func(text string) bool { shown = text; return false }})
-		_, err := Load()
-		if code, _ := codeOf(err); code != "NEEDS_PERSON" && code != "CANCELLED" {
-			t.Fatalf("a no: %v", err)
+// The person's paths, the terminal and the window: the person is shown the
+// plan (the counts, the backup, that the last format-2 release no longer
+// opens the store, the way back) and answers; a no writes nothing; a yes
+// migrates and the audit entry says how.
+func TestFormat2AsksThePerson(t *testing.T) {
+	for way, via := range map[MigrateWay]string{MigrateTerminal: "terminal", MigrateWindow: "window"} {
+		t.Run(via+" no", func(t *testing.T) {
+			format2Store(t)
+			Close()
+			before := fileSum(t)
+			var shown string
+			callerIs(t, MigrateCall{Way: way, Alive: func(int, string) bool { return false },
+				Ask: func(text string) bool { shown = text; return false }})
+			_, err := Load()
+			if code, _ := codeOf(err); code != "NEEDS_PERSON" || !strings.Contains(err.Error(), "nothing was changed") {
+				t.Fatalf("a no: %v", err)
+			}
+			for _, want := range []string{"store-v0-17-backup-", "12 servers", "komando " + LastFormat2Release + " and older no longer open", "--accept-old-copy"} {
+				if !strings.Contains(shown, want) {
+					t.Errorf("the plan lacks %q:\n%s", want, shown)
+				}
+			}
+			if fileSum(t) != before {
+				t.Error("a no changed the store")
+			}
+			if m, _ := os.ReadDir(Home()); hasBackup(m) {
+				t.Error("a no left a backup")
+			}
+		})
+		t.Run(via+" yes", func(t *testing.T) {
+			format2Store(t)
+			Close()
+			asked := 0
+			var shown string
+			callerIs(t, MigrateCall{Way: way, Alive: func(int, string) bool { return false },
+				Ask: func(text string) bool { asked++; shown = text; return true }})
+			if _, err := Load(); err != nil {
+				t.Fatal(err)
+			}
+			if asked != 1 || formatNow(t) != "3" {
+				t.Fatalf("asked %d, format %s", asked, formatNow(t))
+			}
+			entry := lastAudit(t)
+			if !strings.Contains(entry, `"via":"`+via+`"`) || !strings.Contains(entry, "store-v0-17-backup-") {
+				t.Errorf("audit entry %s", entry)
+			}
+			if m, _ := os.ReadDir(Home()); !strings.Contains(shown, backupIn(m)) {
+				t.Errorf("the backup %q is not the one shown:\n%s", backupIn(m), shown)
+			}
+		})
+	}
+}
+
+// backupIn is the name of the migration's backup among es, or "-" (in no plan).
+func backupIn(es []os.DirEntry) string {
+	for _, e := range es {
+		if strings.HasPrefix(e.Name(), "store-v0-17-backup-") {
+			return e.Name()
 		}
-		if !strings.Contains(shown, "store-v0-17-backup-") || !strings.Contains(shown, "12 servers") {
-			t.Errorf("the window showed %q", shown)
-		}
-		if fileSum(t) != before {
-			t.Error("a no changed the store")
-		}
-		if m, _ := os.ReadDir(Home()); hasBackup(m) {
-			t.Error("a no left a backup")
-		}
-	})
-	t.Run("yes", func(t *testing.T) {
-		format2Store(t)
-		Close()
-		asked := 0
-		callerIs(t, MigrateCall{Way: MigrateWindow, Alive: func(int, string) bool { return false },
-			Ask: func(string) bool { asked++; return true }})
-		if _, err := Load(); err != nil {
-			t.Fatal(err)
-		}
-		if asked != 1 || formatNow(t) != "3" {
-			t.Fatalf("asked %d, format %s", asked, formatNow(t))
-		}
-		entry := lastAudit(t)
-		if !strings.Contains(entry, `"via":"window"`) || !strings.Contains(entry, "store-v0-17-backup-") {
-			t.Errorf("audit entry %s", entry)
-		}
-	})
+	}
+	return "-"
 }
 
 func hasBackup(es []os.DirEntry) bool {

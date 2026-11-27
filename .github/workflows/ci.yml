@@ -92,6 +92,30 @@ jobs:
           (cd "$RUNNER_TEMP/main" && CGO_ENABLED=0 go build -trimpath -o "$RUNNER_TEMP/komando-main" ./cmd/komando)
       - run: scripts/start-time.sh "$RUNNER_TEMP/komando-branch" "$RUNNER_TEMP/komando-main"
 
+  # The store moves to format 3 only from `komando doctor` answered y: the
+  # built komando at a pseudo-terminal on a store made by the last format-2
+  # release (LastFormat2Release, installed with its own signed installer),
+  # in a temp home (test/e2e/store_move.sh).
+  store-move:
+    name: Store move
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - run: CGO_ENABLED=0 go build -trimpath -o "$RUNNER_TEMP/komando-new" ./cmd/komando
+      - run: |
+          old=$(sed -n 's/^const LastFormat2Release = "\(v[0-9.]*\)"$/\1/p' internal/store/migrate3_fix.go)
+          [ -n "$old" ] || { echo "no LastFormat2Release in internal/store/migrate3_fix.go"; exit 1; }
+          mkdir -p "$RUNNER_TEMP/old"
+          curl --proto '=https' --tlsv1.2 -fsSL "https://raw.githubusercontent.com/sgnd/komando/$old/install.sh" |
+            KOMANDO_VERSION="$old" KOMANDO_INSTALL_DIR="$RUNNER_TEMP/old" sh
+      - run: test/e2e/store_move.sh "$RUNNER_TEMP/komando-new" "$RUNNER_TEMP/old/komando"
+
   # Windows: komando builds there natively and runs, and every unit test
   # runs; a test that needs Unix (a POSIX shell, file modes) says so when it
   # skips. The console tests use a Windows pseudo console (ConPTY).

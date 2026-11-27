@@ -125,10 +125,12 @@ func dryRunPreviewsTheMove(t *testing.T, mode os.FileMode) {
 	}
 }
 
-// P0 of 2026-11-27: a person at a terminal runs `doctor --dry-run` on a
-// store of format 2 through the whole program (promptFill first): the
-// preview, and store.db stays format 2, byte-equal, with no backup made.
-func TestPersonDryRunAtTerminalNeverMoves(t *testing.T) {
+// P0 of 2026-11-27 and its re-audit: a person at a terminal runs commands
+// on a store of format 2 through the whole program (promptFill first).
+// Only `komando doctor` with a yes moves it: a dry run, help, version,
+// completion (run from .zshrc), a mistyped line and every other command
+// leave store.db byte-equal, format 2, with no backup made.
+func TestPersonAtTerminalOnlyDoctorMoves(t *testing.T) {
 	invHome(t)
 	noAgent(t)
 	t.Setenv("SSH_CONNECTION", "")
@@ -150,28 +152,45 @@ func TestPersonDryRunAtTerminalNeverMoves(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range [][]string{{"doctor", "--dry-run"}, {"-o", "text", "doctor", "--dry-run"}} {
+	for _, c := range []struct {
+		args []string
+		ok   bool
+		says string // on stdout or stderr
+	}{
+		{[]string{"doctor", "--dry-run"}, true, "would"},
+		{[]string{"-o", "text", "doctor", "--dry-run"}, true, "nothing was written"},
+		{[]string{"version"}, true, ""},
+		{[]string{"completion", "zsh"}, true, ""},
+		{[]string{"help"}, true, ""},
+		{[]string{"schema"}, true, ""},
+		{[]string{"guide"}, true, ""},
+		{nil, true, ""},
+		{[]string{"__complete", "host", "show", ""}, true, ""}, // the shell's helper, typed by hand
+		{[]string{"list"}, false, "only `komando doctor`"},
+		{[]string{"logs"}, false, "nothing is asked: the store is still to move to format 3"},
+		{[]string{"lsit"}, false, ""},
+	} {
 		var o, e strings.Builder
-		c := processCall()
-		c.Terminal, c.Stdout, c.Stderr = true, &o, &e
-		code := execute(newCall(c, args), t.Context(), args)
+		pc := processCall()
+		pc.Terminal, pc.Stdout, pc.Stderr = true, &o, &e
+		code := execute(newCall(pc, c.args), t.Context(), c.args)
 		store.Close()
-		if code != 0 || !strings.Contains(o.String(), "would") {
-			t.Fatalf("%v: exit %d\n%s%s", args, code, o.String(), e.String())
+		if (code == 0) != c.ok || !strings.Contains(o.String()+e.String(), c.says) {
+			t.Fatalf("%v: exit %d\n%s%s", c.args, code, o.String(), e.String())
 		}
 		// owner, 2026-11-27: "Dry run: nothing was changed" came right after
-		// the move's report; the line is true only with no report before it
+		// the move's report
 		if strings.Contains(e.String(), "moved its store") {
-			t.Fatalf("%v moved the store before its dry run:\n%s", args, e.String())
+			t.Fatalf("%v moved the store:\n%s", c.args, e.String())
 		}
 		if after, err := os.ReadFile(store.DBPath()); err != nil || !bytes.Equal(before, after) {
-			t.Fatalf("%v changed store.db: %v", args, err)
+			t.Fatalf("%v changed store.db: %v", c.args, err)
 		}
 		if f, err := sealdb.Peek(t.Context(), store.DBPath()); err != nil || f["format"] != "2" {
-			t.Fatalf("%v moved the store: %v %v", args, f, err)
+			t.Fatalf("%v moved the store: %v %v", c.args, f, err)
 		}
 		if b, _ := filepath.Glob(store.Path("store-v0-17-backup-*")); len(b) > 0 {
-			t.Fatalf("%v made a backup: %v", args, b)
+			t.Fatalf("%v made a backup: %v", c.args, b)
 		}
 	}
 }
@@ -180,7 +199,7 @@ func TestPersonDryRunAtTerminalNeverMoves(t *testing.T) {
 func TestMigrateCallForDryRun(t *testing.T) {
 	cl := testCall()
 	parsedGate(t, cl, "doctor", "--dry-run")
-	if c := migrateCallFor(cl, "doctor"); c.Way != store.MigrateRefuse || !strings.Contains(c.Why, "dry run") {
+	if c := migrateCallFor(cl); c.Way != store.MigrateRefuse || !strings.Contains(c.Why, "dry run") {
 		t.Fatalf("a dry run: way %d, why %q", c.Way, c.Why)
 	}
 }

@@ -408,7 +408,7 @@ func TestUpgradeEachKeyMode(t *testing.T) {
 			}
 			old := store.MigrateCaller
 			store.MigrateCaller = func() store.MigrateCall {
-				return store.MigrateCall{Way: store.MigrateTerminal, Alive: func(int, string) bool { return false }}
+				return store.MigrateCall{Way: store.MigrateTerminal, Alive: func(int, string) bool { return false }, Ask: func(string) bool { return true }}
 			}
 			t.Cleanup(func() { store.MigrateCaller = old })
 			store.Close() // the next command

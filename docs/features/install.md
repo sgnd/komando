@@ -157,9 +157,13 @@ Without `sudo` the installer cannot write there, puts the new version in
 
 ## Update to v0.18.0
 
-v0.18.0 moves the store to a new format (format 3) the first time you use
-it. A store that holds something the move cannot take stops it, and the fix
-for that is made with the last v0.17 release. So look first:
+v0.18.0 moves the store to a new format (format 3). It moves only one way:
+you type `komando doctor` in your own terminal (not over SSH), read the
+plan and answer `y`. The Komando app does the same through komando's
+approval window. Every other command changes nothing on a store that has
+not moved, and says to run `komando doctor`. A store that holds something
+the move cannot take stops it, and the fix for that is made with the last
+v0.17 release. So look first:
 
 1. Run the dry run of the new version beside the one you have. It reads
    the store and changes nothing. Download the archive of v0.18.0 for your
@@ -172,18 +176,25 @@ for that is made with the last v0.17 release. So look first:
 
    On Windows: `.\komando.exe doctor --dry-run`.
 2. It says `the move to format 3 would go ahead`: update with
-   `komando update`. The first command you run then makes a backup and
-   moves the store.
+   `komando update`, then run `komando doctor`. It shows the plan (the
+   counts, the backup it makes first, that the v0.17 releases no longer open
+   the store after the move, and the way back) and asks
+   `Move the store to format 3 now? [y/N]`. Only `y` moves it; anything
+   else changes nothing.
 3. It says `the move to format 3 would stop`: it lists each field and the
    steps under `to fix it`. They name the last v0.17 release with its install
    line, the two commands to run there, and the update after them. Do them,
    then run step 1 again.
 4. Delete the folder `komando-v0-18-0`.
 
-Updated already? Run `komando doctor --dry-run` before any other command:
-the store moves only at the first command that opens it, and the dry run
-does not open it for writing. If the move stops, it writes nothing, makes
-no backup and gives the same steps.
+Updated already? Run `komando doctor --dry-run` first: it never moves the
+store. Then `komando doctor` and answer `y`. If the move stops, it writes
+nothing, makes no backup and gives the same steps.
+
+Back to the last v0.17 release after the move: install it, stop komando,
+move `store.db` aside, copy the backup
+`store-v0-17-backup-YYYY-MM-DD-HHMMSS.db` to `store.db`, then run that
+release's `komando doctor --accept-old-copy` in your own terminal.
 
 ## Tab completion
 

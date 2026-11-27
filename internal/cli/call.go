@@ -58,6 +58,9 @@ type call struct {
 	// noMove: the store opens now without the move to format 3 (promptFill
 	// lists entries before the command line is read); atomic like oldCopy.
 	noMove atomic.Bool
+	// moveAnswer is the person's answer to the move to format 3 in this
+	// command: 0 not asked, 1 yes, -1 no (answerMove; begin resets it).
+	moveAnswer int8
 
 	// command numbers the command running in the call (enter), unique in
 	// the process: a path through jump hosts is shared only within one
@@ -153,6 +156,7 @@ func (cl *call) begin(cmd *cobra.Command) {
 	cl.commits = store.Commits()
 	cl.ttyYes, cl.typed, cl.typedProt, cl.body, cl.manifests = nil, nil, nil, nil, nil
 	cl.askedInStep = false
+	cl.moveAnswer = 0
 	cl.logins.reset()
 }
 
@@ -177,10 +181,11 @@ type gate struct {
 	yes            bool // --yes as typed: what counts is yesOK
 	allowDangerous bool // --allow-dangerous as typed: what counts is dangerOK
 	reveal         bool // --reveal as typed: what counts is revealOK
-	// parsed: made from a parsed command line; before one is, --dry-run
-	// reads false, so the move to format 3 never starts (migrateCallFor)
-	parsed bool
-	who    engine.Caller
+	// cmdID is the parsed command (commandName: "doctor", "host.add");
+	// "" before a line is parsed. Only `doctor` moves the store to format 3
+	// (migrateCallFor).
+	cmdID string
+	who   engine.Caller
 	// hooks is how the gate's decisions reach the call they decide for:
 	// its approvals, the window and the would_be_blocked record. Given to
 	// newGate and never set after; nil (noGate, a command only checked)
@@ -218,7 +223,9 @@ var gateFlagNames = [4]string{"dry-run", "yes", "allow-dangerous", "reveal"}
 // values; nothing else in komando holds them.
 func newGate(cmd *cobra.Command, who engine.Caller, hooks gateIO) *gate {
 	var on [4]bool
+	id := ""
 	if cmd != nil {
+		id = commandName(cmd)
 		for i, name := range gateFlagNames {
 			// Flag also finds the root's persistent flags on a command whose
 			// flags were not parsed and merged yet
@@ -233,7 +240,7 @@ func newGate(cmd *cobra.Command, who engine.Caller, hooks gateIO) *gate {
 			on[i] = v
 		}
 	}
-	return &gate{dryRun: on[0], yes: on[1], allowDangerous: on[2], reveal: on[3], parsed: cmd != nil, who: who, hooks: hooks}
+	return &gate{dryRun: on[0], yes: on[1], allowDangerous: on[2], reveal: on[3], cmdID: id, who: who, hooks: hooks}
 }
 
 // startGate stores the gate of the command cmd starts: from its parsed

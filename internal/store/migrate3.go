@@ -107,8 +107,12 @@ func migrateFormat3(ctx context.Context, o migrate3Opts) (migrate3Result, error)
 	if err != nil {
 		return res, err
 	}
-	// 7. the backup
-	backup, err := backupFormat2(ctx, d, master, o.now())
+	// 7. the backup, under the name the person was shown when it is free
+	at := o.now()
+	if shown != nil {
+		at = shown.at
+	}
+	backup, err := backupFormat2(ctx, d, master, at)
 	if err != nil {
 		return res, err
 	}
@@ -117,7 +121,7 @@ func migrateFormat3(ctx context.Context, o migrate3Opts) (migrate3Result, error)
 		return res, err
 	}
 	if shown != nil && shown.backup != backup {
-		p.report.BackupNote = fmt.Sprintf("the backup is %s: the name the window showed, %s, was taken by then",
+		p.report.BackupNote = fmt.Sprintf("the backup is %s: the name shown before the move, %s, was taken by then",
 			filepath.Base(backup), filepath.Base(shown.backup))
 	}
 	if o.afterPlan != nil {
@@ -178,7 +182,7 @@ func openForMove(ctx context.Context, o migrate3Opts, shown *shownWindow) (d *se
 	if err := migrateStepDone(6); err != nil {
 		return nil, nil, nil, nil, err
 	}
-	// the counts the window showed must still hold: something wrote
+	// the counts the person was shown must still hold: something wrote
 	// meanwhile otherwise
 	if shown != nil {
 		var now map[string]int
@@ -187,7 +191,7 @@ func openForMove(ctx context.Context, o migrate3Opts, shown *shownWindow) (d *se
 		}
 		if !maps.Equal(shown.counts, now) {
 			return nil, nil, nil, nil, out.Errf(out.ExitConflict, "STORE_IN_USE", "run `komando doctor` again",
-				"%s changed after the window was shown; nothing was changed", Path(StoreFile))
+				"%s changed after the plan was shown; nothing was changed", Path(StoreFile))
 		}
 	}
 	return d, master, vc, carried, nil
@@ -293,8 +297,10 @@ func needsMigration3(ctx context.Context) (bool, error) {
 	return false, migrationFailed("%s is of format %q", Path(StoreFile), meta["format"])
 }
 
-// shownWindow is what the approval window showed the person.
+// shownWindow is the plan the person was shown before the move, at the
+// terminal or in the approval window.
 type shownWindow struct {
+	at     time.Time // the backup's name is made from it
 	backup string
 	counts map[string]int
 }
@@ -306,21 +312,14 @@ func needsPerson(why string) error {
 		why = "this caller"
 	}
 	return out.Errf(out.ExitPolicy, "NEEDS_PERSON", "run `komando doctor` with no flags once in your own terminal",
-		"%s is to move to a new format, and only a person starts that, not %s; nothing was changed: run `komando doctor` with no flags once in your own terminal", Path(StoreFile), why)
+		"%s is to move to a new format, which only `komando doctor` typed by a person in their own terminal starts, not %s; nothing was changed: run `komando doctor` with no flags once in your own terminal", Path(StoreFile), why)
 }
 
-// migrateGate is step 0: a person at a terminal goes on; the approval
-// window asks the person, naming the backup and the counts; every other
-// caller gets NEEDS_PERSON. It returns what the window showed.
+// migrateGate is step 0: a person at a terminal or in the approval window
+// is shown the plan (shownWindow.plan) and answers yes or no; every other
+// caller gets NEEDS_PERSON. It returns what the person was shown.
 func migrateGate(ctx context.Context, o migrate3Opts) (*shownWindow, error) {
-	switch o.way {
-	case MigrateTerminal:
-		return nil, nil
-	case MigrateWindow:
-		if o.ask == nil {
-			return nil, needsPerson(o.why)
-		}
-	default:
+	if (o.way != MigrateTerminal && o.way != MigrateWindow) || o.ask == nil {
 		return nil, needsPerson(o.why)
 	}
 	d, master, err := openFormat2()
@@ -328,20 +327,18 @@ func migrateGate(ctx context.Context, o migrate3Opts) (*shownWindow, error) {
 		return nil, err
 	}
 	clear(master)
-	backup, err := backupName(o.now())
+	at := o.now()
+	backup, err := backupName(at)
 	if err != nil {
 		return nil, migrationFailed("no name for the backup (%v)", err)
 	}
-	w := &shownWindow{backup: backup}
+	w := &shownWindow{at: at, backup: backup}
 	if err := d.View(ctx, func(tx *sealdb.Tx) error { w.counts, err = countTypes(tx); return err }); err != nil {
 		return nil, err
 	}
-	text := fmt.Sprintf("komando changes how it stores its data (format 3). A backup is made first: %s. "+
-		"Records: %d servers, %d services, %d VPNs, %d secrets, %d keys.",
-		w.backup, w.counts[KindHost], w.counts[KindConn], w.counts[KindVpn], w.counts["secret"], w.counts[KindKey])
-	if !o.ask(text) {
+	if !o.ask(w.plan()) {
 		return nil, out.Errf(out.ExitPolicy, "NEEDS_PERSON", "run `komando doctor` again when you are ready",
-			"the store was not moved to a new format: the window was not allowed; nothing was changed")
+			"the store was not moved to format 3: the answer was not yes; nothing was changed")
 	}
 	return w, nil
 }

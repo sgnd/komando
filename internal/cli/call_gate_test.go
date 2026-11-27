@@ -24,7 +24,7 @@ import (
 // gateFields are the fields of a gate: the four gate flags and who is
 // calling. A write to a field of that name is a write to a gate, unless it
 // is reviewed here as something else.
-var gateFields = map[string]bool{"dryRun": true, "yes": true, "allowDangerous": true, "reveal": true, "parsed": true, "who": true, "hooks": true}
+var gateFields = map[string]bool{"dryRun": true, "yes": true, "allowDangerous": true, "reveal": true, "cmdID": true, "who": true, "hooks": true}
 
 // programGateWriters is every place the program code of internal/cli stores
 // a gate (g.Store), writes a gate's field, or makes a gate value (gate{}):

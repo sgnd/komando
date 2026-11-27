@@ -37,6 +37,20 @@ func (r migration3Report) text() string {
 	return b.String()
 }
 
+// plan is what the person reads before the move and answers yes or no
+// to, at the terminal and in the approval window alike: what moves, the
+// counts, the backup, who can no longer open the store, the way back.
+func (w *shownWindow) plan() string {
+	return strings.Join([]string{
+		"komando is to move its store to a new format (format 3).",
+		fmt.Sprintf("Records: %d servers, %d services, %d VPNs, %d secrets, %d keys.",
+			w.counts[KindHost], w.counts[KindConn], w.counts[KindVpn], w.counts["secret"], w.counts[KindKey]),
+		"A backup is made first: " + w.backup + ".",
+		"After the move, komando " + LastFormat2Release + " and older no longer open the store.",
+		"To go back: install komando " + LastFormat2Release + ", copy the backup over " + Path(StoreFile) + ", then run `komando doctor --accept-old-copy`.",
+	}, "\n")
+}
+
 // BackupFile is a backup the store migration left in the komando home.
 type BackupFile struct {
 	Name     string

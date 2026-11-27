@@ -451,8 +451,9 @@ func (p *Printer) Print(command string, data any, softErr *Error) {
 	if p.Format == "text" {
 		p.printSkipped()
 		if p.DryRun {
-			// a person must never read a preview as a result
-			fmt.Fprintln(p.Stderr(), "Dry run: nothing was changed")
+			// a person must never read a preview as a result; the audit log
+			// keeps a dry run's row on purpose (who tried what)
+			fmt.Fprintln(p.Stderr(), "Dry run: nothing was changed (the audit log may note the dry run)")
 			if p.blocked != nil {
 				fmt.Fprintf(p.Stderr(), "Without --dry-run this stops here: [%s] %s\n", p.blocked.Code, Marks(noteText(p.Redact(p.blocked.Message))))
 				p.hint(p.blocked.hintOrDefault())

@@ -66,12 +66,15 @@ func promptFill(cl *call, args []string) ([]string, error) {
 	if cmd.Hidden {
 		return args, nil
 	}
-	// the questions only list entries: a store of format 2 is not moved
-	// here, but by the command once its line is read (migrateCallFor)
+	// the questions only list entries: a store of format 2 is never moved
+	// here (migrateCallFor), so nothing is asked until `komando doctor` has
 	cl.noMove.Store(true)
 	st, err := loadState()
 	cl.noMove.Store(false)
 	if err != nil {
+		if toErr(err).Code == "NEEDS_PERSON" && len(newFill(&store.State{}, cmd).missing) > 0 {
+			fmt.Fprintln(promptW(cl), "komando: nothing is asked: the store is still to move to format 3; run `komando doctor` first")
+		}
 		return args, nil
 	}
 	cl.promptOn = true

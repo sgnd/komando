@@ -239,7 +239,7 @@ func notices(t *testing.T) *bytes.Buffer {
 }
 
 func personOpts() migrate3Opts {
-	return migrate3Opts{way: MigrateTerminal, alive: func(int, string) bool { return false }}
+	return migrate3Opts{way: MigrateTerminal, alive: func(int, string) bool { return false }, ask: func(string) bool { return true }}
 }
 
 func formatNow(t *testing.T) string {
