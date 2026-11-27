@@ -208,6 +208,8 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `export` | with --sealed | person |  |
 | `export` | with --for-phone | person |  |
 | `host edit` | with --protected=false | safety | `--yes` |
+| `cache redis edit` | with --protected=false | safety | `--yes` |
+| `registry oci edit` | with --protected=false | safety | `--yes` |
 | `vpn edit` | with --protected=false | safety | `--yes` |
 
 <!-- end of tiers -->

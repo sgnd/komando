@@ -170,6 +170,8 @@ var whenProbes = []string{
 	"pkg upgrade web1 --security",
 	"host edit web1 --protected=false",
 	"conn edit app-db --protected=false",
+	"cache redis edit prod-redis --protected=false",
+	"registry oci edit ghcr --protected=false",
 	"vpn edit kantor --protected=false",
 	"vpn edit kantor --mfa=false",
 	"host add web2 root@10.0.0.6 --proxy-command nc",

@@ -254,7 +254,7 @@
         "path": "komando cache memcached edit",
         "usage": "komando cache memcached edit NAME [flags]",
         "short": "Change a saved memcached cache (only the flags you pass change)",
-        "long": "Change a saved memcached cache (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "long": "Change a saved memcached cache (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes).",
         "example": "  komando cache memcached edit app --add-tag critical\n  komando cache memcached edit app --notes 'main one' --dry-run",
         "flags": [
           {
@@ -342,6 +342,11 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
           }
         ]
       },
@@ -561,7 +566,7 @@
         "path": "komando cache redis edit",
         "usage": "komando cache redis edit NAME [flags]",
         "short": "Change a saved redis cache (only the flags you pass change)",
-        "long": "Change a saved redis cache (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "long": "Change a saved redis cache (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes).",
         "example": "  komando cache redis edit prod-redis --add-tag critical\n  komando cache redis edit prod-redis --notes 'main one' --dry-run",
         "flags": [
           {
@@ -649,6 +654,11 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
           }
         ]
       },
@@ -10197,7 +10207,7 @@
         "path": "komando registry oci edit",
         "usage": "komando registry oci edit NAME [flags]",
         "short": "Change a saved oci registry (only the flags you pass change)",
-        "long": "Change a saved oci registry (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "long": "Change a saved oci registry (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes).",
         "example": "  komando registry oci edit ghcr --add-tag critical\n  komando registry oci edit ghcr --notes 'main one' --dry-run",
         "flags": [
           {
@@ -10285,6 +10295,11 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
           }
         ]
       },

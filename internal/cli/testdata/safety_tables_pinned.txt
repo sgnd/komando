@@ -6,7 +6,7 @@ cache.info	kind=read|	target=""
 cache.keys	kind=read|	target=""	
 cache.memcached	kind=read|	target=""	
 cache.memcached.add	kind=change|	target=""	
-cache.memcached.edit	kind=change|	target=""	
+cache.memcached.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
 cache.memcached.list	kind=read|	target=""	
 cache.memcached.raw	kind=depends|only reads unless --write	target=""	dangerous|||the cache command deletes data (DEL, FLUSHALL, ...)|||
 cache.memcached.remove	kind=change|	target=""	
@@ -15,7 +15,7 @@ cache.memcached.show	kind=read|	target=""
 cache.memcached.test	kind=read|	target=""	
 cache.redis	kind=read|	target=""	
 cache.redis.add	kind=change|	target=""	
-cache.redis.edit	kind=change|	target=""	
+cache.redis.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
 cache.redis.list	kind=read|	target=""	
 cache.redis.raw	kind=depends|only reads unless --write	target=""	dangerous|||the cache command deletes data (DEL, FLUSHALL, ...)|||
 cache.redis.remove	kind=change|	target=""	
@@ -203,6 +203,7 @@ policy.edit	kind=change|	target=""	safety|unless it only switches the rule on|sw
 policy.list	kind=read|	target=""	
 policy.rm	kind=change|	target=""	safety||removes a deny rule||||
 policy.show	kind=read|	target=""	
+probe cache redis edit prod-redis --protected=false	safety|turns protection off||
 probe cluster scale c1 web 0	dangerous|stops every copy of the app||
 probe conn edit app-db --protected=false	safety|turns protection off||
 probe export --for-phone	person|||
@@ -219,6 +220,7 @@ probe pkg rm web1 openssh-server	dangerous|removes a package the server needs to
 probe pkg upgrade web1 --security	dangerous||an update would remove a package the server needs|
 probe policy edit rm-root --off	safety|switches a rule off||
 probe recipe add r1 --overwrite --read-only	safety||it makes an existing snippet read-only|
+probe registry oci edit ghcr --protected=false	safety|turns protection off||
 probe secret keychain	person|moves the key into the keychain||
 probe svc disable web1 ssh.service	dangerous|turns sshd off (no one can log in remotely after a restart)||
 probe svc stop web1 sshd	dangerous|stops sshd (no one can log in remotely)||
@@ -334,7 +336,7 @@ recipe.run	kind=depends|decided by the recipe's command, like exec	target="serve
 registry	kind=read|	target=""	
 registry.oci	kind=read|	target=""	
 registry.oci.add	kind=change|	target=""	safety|||the address turns TLS off (plain HTTP)|||
-registry.oci.edit	kind=change|	target=""	
+registry.oci.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
 registry.oci.image	kind=read|	target=""	
 registry.oci.image.copy	kind=change|	target=""	
 registry.oci.image.delete	kind=change|	target=""	dangerous||deletes the images||||
