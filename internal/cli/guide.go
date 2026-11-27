@@ -155,6 +155,8 @@ func init() {
 	handlers[capability.Key{Type: "agent", Area: "skill", Verb: "install"}] = bodyHandler(guideInstallCmd)
 	handlers[capability.Key{Type: "agent", Area: "skill", Verb: "uninstall"}] = bodyHandler(guideUninstallCmd)
 	moveType("agent")
+	cmdKeys["agent"] = safetyKey{typ: "agent"}
+	providerIDs["guide"] = true // the playbook shares the agent noun's key until cut step D removes it
 	groupShorts["agent skill"] = "The komando skill and guard in your AI agents: install, uninstall"
 	details["komando agent skill install"] = skillInstallLong
 	details["komando agent skill uninstall"] = skillUninstallLong

@@ -198,8 +198,8 @@ var itemCommands = map[string][]string{
 	"server": {"logs {} --since 30m", "exec {} -- uptime", "shell {}",
 		"pkg upgradable {}", "docker ps {}", "fs list {} /etc", "upload {} ./FILE /tmp/FILE",
 		"download {} /var/log/syslog --to ./", "job start {} -- make", "tunnel start {} -L 8080:localhost:80",
-		"key deploy KEY {}", "audit --target {}", "host edit {}", "host rename {} NEW", "host rm {}", "test {}"},
-	"server:windows": {"exec {} -- Get-Date", "audit --target {}", "host edit {}", "host rename {} NEW", "host rm {}", "test {}"},
+		"key deploy KEY {}", "audit list --target {}", "host edit {}", "host rename {} NEW", "host rm {}", "test {}"},
+	"server:windows": {"exec {} -- Get-Date", "audit list --target {}", "host edit {}", "host rename {} NEW", "host rm {}", "test {}"},
 	// a server tagged swarm is also a Docker Swarm manager
 	"swarm": {"cluster status {}", "cluster list {} services", "cluster logs {} service/NAME",
 		"cluster deploy {} service/NAME --image IMAGE --wait", "cluster apply {} --file compose.yml --stack STACK"},

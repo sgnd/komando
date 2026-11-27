@@ -312,8 +312,8 @@ A recipe is a saved command. komando comes with ready-made ones
 can save your own next to them.
 
 ```bash
-komando snippet list                                   # built-in and saved
-komando snippet list --category saved                  # only your own
+komando snippet list                                  # built-in and saved
+komando snippet list --category saved                 # only your own
 komando snippet create restart-app 'systemctl restart {{app}}' --needs-sudo
 komando snippet create disk-of 'df -h {{path=/}}' --read-only --desc 'Disk use of a path'
 komando snippet exec restart-app @web --var app=shop

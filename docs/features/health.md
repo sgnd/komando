@@ -107,9 +107,9 @@ komando comes with ready-made checks (built-in recipes). Run one on any
 target:
 
 ```bash
-komando snippet exec health @web                    # uptime, load, memory, disk, failed services
-komando snippet list                               # all of them, with what they run
-komando snippet list --category security           # one category
+komando snippet exec health @web                  # uptime, load, memory, disk, failed services
+komando snippet list                              # all of them, with what they run
+komando snippet list --category security          # one category
 komando snippet exec top-mem web1
 komando snippet exec big-dirs web1 --var path=/srv
 komando snippet exec oom all --var since=-2h

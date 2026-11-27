@@ -76,7 +76,7 @@ func TestCommandKeepsVaultPass(t *testing.T) {
 func TestCommandLineQuoting(t *testing.T) {
 	cases := map[string][]string{
 		"shell web1":                    {"shell", "web1"},
-		"audit --limit 20":              {"audit", "--limit", "20"},
+		"audit list --limit 20":         {"audit", "list", "--limit", "20"},
 		"host add web1 deploy@10.0.0.5": {"host", "add", "web1", "deploy@10.0.0.5"},
 		"host add web1 'a;b'":           {"host", "add", "web1", "a;b"},
 		`host add web1 'it'\''s'`:       {"host", "add", "web1", "it's"},

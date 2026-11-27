@@ -43,6 +43,7 @@ const (
 
 // commandKinds is keyed by the command's (type, area, verb) (risk_keys.go).
 var commandKinds = map[safetyKey]cmdKind{
+	{"audit", "", ""}:      reads,
 	{"audit", "", "list"}:  reads,
 	{"audit", "", "check"}: reads,
 
@@ -189,6 +190,7 @@ var commandKinds = map[safetyKey]cmdKind{
 	{"group", "", ""}:       reads,
 	{"group", "", "create"}: changes,
 	{"group", "", "list"}:   reads,
+	{"group", "", "show"}:   reads,
 	{"group", "", "rename"}: changes,
 	{"group", "", "remove"}: changes,
 
@@ -263,6 +265,7 @@ var commandKinds = map[safetyKey]cmdKind{
 	{"snippet", "", ""}:       reads,
 	{"snippet", "", "create"}: changes,
 	{"snippet", "", "list"}:   reads,
+	{"snippet", "", "show"}:   reads,
 	{"snippet", "", "remove"}: changes,
 	{"snippet", "", "exec"}:   dependsOn("decided by the recipe's command, like exec"),
 

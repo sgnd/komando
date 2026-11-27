@@ -402,7 +402,7 @@ func tableHasCase(table, cmd, stop string) bool {
 func TestTableHasCase(t *testing.T) {
 	table := "var cases = []c{\n" +
 		"\t{args: []string{\"host\", \"trust\", \"web1\"}, code: \"POLICY_BLOCKED\"},\n" +
-		"\t{args: []string{\"policy\", \"rm\", \"x\"},\n\t\tcode: \"SAFETY_SETTING\"},\n"
+		"\t{args: []string{\"policy\", \"remove\", \"x\"},\n\t\tcode: \"SAFETY_SETTING\"},\n"
 	tests := []struct {
 		name, cmd, stop string
 		want            bool

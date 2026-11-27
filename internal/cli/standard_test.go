@@ -70,13 +70,13 @@ func TestStandardTopLevel(t *testing.T) {
 	root := newRoot(tcl)
 	want := []string{
 		// nouns (S-2.1)
-		"host", "conn", "vpn", "group", "secret", "key", "recipe", "policy", "job", "tunnel", "config",
+		"host", "conn", "vpn", "group", "secret", "key", "snippet", "policy", "job", "tunnel", "config",
 		"fs", "pkg", "docker", "cert", "db", "cache", "queue", "storage", "cluster", "registry",
 		// shortcuts
 		"list", "test", "exec", "shell", "logs", "cp", "upload", "download", "sync", "status",
 		"login", "logout", "import", "export", "rename",
 		// about komando
-		"audit", "doctor", "schema", "guide", "update", "version", "completion", "help", "ssh-gate",
+		"audit", "doctor", "schema", "guide", "agent", "update", "version", "completion", "help", "ssh-gate",
 	}
 	var got []string
 	for _, c := range root.Commands() {
@@ -131,7 +131,7 @@ func TestStandardNounAliases(t *testing.T) {
 	root := newRoot(tcl)
 	for noun, aliases := range map[string][]string{
 		"host": {"hosts", "server", "servers"}, "conn": {"conns"}, "vpn": {"vpns"}, "group": {"groups"},
-		"secret": {"secrets"}, "key": {"keys"}, "recipe": {"recipes"}, "policy": {"policies"}, "job": {"jobs"},
+		"secret": {"secrets"}, "key": {"keys"}, "snippet": {"snippets"}, "policy": {"policies"}, "job": {"jobs"},
 		"tunnel": {"tunnels"}, "fs": {"files"}, "pkg": {"package", "packages"},
 		"docker": {"container", "containers"},
 		"cert":   {"certs"}, "db": {"dbs", "database", "databases"}, "cache": {"caches"}, "queue": {"queues"},
@@ -653,16 +653,16 @@ func TestStandardReferences(t *testing.T) {
 func TestStandardJourneys(t *testing.T) {
 	root := newRoot(tcl)
 	for kind, verbs := range map[string][]string{
-		"host":   {"add", "test", "show", "list", "edit", "rename", "rm"},
-		"conn":   {"add", "test", "show", "list", "edit", "rename", "rm"},
-		"vpn":    {"add", "test", "show", "list", "edit", "rename", "rm"},
-		"key":    {"gen", "add", "show", "list", "edit", "rename", "rm"},
-		"secret": {"set", "add", "check", "show", "get", "list", "rename", "rm"},
-		"group":  {"add", "show", "list", "rename", "rm"},
-		"recipe": {"add", "show", "list", "rm"},
-		"policy": {"deny", "add", "check", "list", "rm"},
-		"job":    {"start", "status", "show", "list", "kill", "stop", "rm"},
-		"tunnel": {"start", "show", "list", "stop"},
+		"host":    {"add", "test", "show", "list", "edit", "rename", "rm"},
+		"conn":    {"add", "test", "show", "list", "edit", "rename", "rm"},
+		"vpn":     {"add", "test", "show", "list", "edit", "rename", "rm"},
+		"key":     {"gen", "add", "show", "list", "edit", "rename", "rm"},
+		"secret":  {"set", "add", "check", "show", "get", "list", "rename", "rm"},
+		"group":   {"create", "show", "list", "rename", "remove"},
+		"snippet": {"create", "show", "list", "remove"},
+		"policy":  {"create", "check", "list", "remove"},
+		"job":     {"start", "status", "show", "list", "kill", "stop", "rm"},
+		"tunnel":  {"start", "show", "list", "stop"},
 	} {
 		noun := findCmd(t, root, kind)
 		for _, v := range verbs {

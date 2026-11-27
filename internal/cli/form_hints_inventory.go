@@ -178,6 +178,7 @@ var invListHints = map[string]formHint{
 		help: "A server, conn or VPN, or tag:prod or several names separated by spaces or commas."}}},
 	"group list": {args: []formArg{{ask: "Which group? (leave empty for all)", pick: "group", free: true,
 		help: "Empty lists every group and tag with what is in it."}}},
+	"group show": {args: []formArg{invGroup}},
 	"group rename": {args: []formArg{invGroup, {ask: "What should the new name be?", example: "web-prod",
 		help: "Letters, digits, dot, dash and underscore."}}},
 	"group remove": {args: []formArg{invGroup, {ask: "What should come out of it? (leave empty to delete the group)",
@@ -219,7 +220,8 @@ var invJobHints = map[string]formHint{
 }
 
 var invRecipeHints = map[string]formHint{
-	"recipe":       {},
+	"snippet":      {},
+	"snippet show": {args: []formArg{invRecipe}},
 	"snippet list": {},
 	"snippet exec": {
 		args: []formArg{invRecipe, invServers},
@@ -249,7 +251,7 @@ var invRecipeHints = map[string]formHint{
 }
 
 var invSafetyHints = map[string]formHint{
-	"audit": {flags: []formFlag{
+	"audit list": {flags: []formFlag{
 		{name: "since", ask: "From when?", example: "today",
 			help: "Like 2h, 7d, today or 2026-11-07. Leave empty for the newest entries."},
 		{name: "target", ask: "Only for which servers or conns?", pick: "target",
@@ -349,7 +351,7 @@ func init() {
 		"job list":      {next: []string{"job list --refresh", "job status JOB", "job rm JOB"}},
 		"policy create": {next: []string{"policy check 'COMMAND'", "policy list", "policy remove RULE"}},
 		"policy check":  {next: []string{"policy list"}},
-		"audit":         {next: []string{"audit check", "audit --failed"}},
+		"audit list":    {next: []string{"audit check", "audit list --failed"}},
 		"update":        {next: []string{"agent skill install", "version"}},
 	})
 }

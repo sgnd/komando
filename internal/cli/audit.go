@@ -91,7 +91,10 @@ func auditCell(s string) string {
 func init() {
 	handlers[capability.Key{Type: "audit", Verb: "list"}] = bodyHandler(auditListCmd)
 	handlers[capability.Key{Type: "audit", Verb: "check"}] = bodyHandler(auditVerifyCmd)
+	keep := keepNounEntries("audit")
 	moveType("audit")
+	keep()
+	cmdKeys["audit"] = safetyKey{typ: "audit"}
 	details["komando audit list"] = auditListLong
 }
 

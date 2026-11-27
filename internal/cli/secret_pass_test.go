@@ -113,7 +113,7 @@ func TestPTYSecretPassphrase(t *testing.T) {
 	// the audit log, read by a komando that opens the store with the new key
 	t.Setenv("KOMANDO_VAULT_PASS", ptyNewPass)
 	vault.ReadPassStdin(strings.NewReader(ptyNewPass))
-	a := startPTY(t, "audit", "-n", "0", "--command", "secret.", "-o", "json")
+	a := startPTY(t, "audit", "list", "-n", "0", "--command", "secret.", "-o", "json")
 	if code := a.exit(); code != 0 {
 		t.Fatalf("audit: exit %d\n%s", code, a.shown())
 	}

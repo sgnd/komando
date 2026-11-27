@@ -13,7 +13,7 @@ it:
 komando host edit web1 --protected        # komando asks before every change on web1
 komando conn edit prod-db --protected     # the same for a database
 komando policy check 'rm -rf /'           # would this be blocked? (exit 6 if so)
-komando audit list -o text                     # what was done, and by whom
+komando audit list -o text                # what was done, and by whom
 ```
 
 Typed alone, `komando host edit` asks for the server, then what to change.
@@ -277,10 +277,10 @@ The command, the script, server names and the agent's name are never translated.
 ## Add your own rules
 
 ```bash
-komando policy create 'terraform\s+destroy'           # a Go regular expression; prints its id
+komando policy create 'terraform\s+destroy'         # a Go regular expression; prints its id
 komando policy list                                  # built-in rules and your deny rules, with ids
-komando policy remove 'terraform\s+destroy'              # remove it again
-komando policy remove custom-1a2b3c4d                    # or remove it by its id
+komando policy remove 'terraform\s+destroy'          # remove it again
+komando policy remove custom-1a2b3c4d                # or remove it by its id
 komando policy check 'terraform destroy'             # exit 6 when it would be blocked
 komando policy check --conn-kind postgres 'delete from users'   # rate SQL, Redis or MongoDB instead
 ```
@@ -432,14 +432,14 @@ keys, secrets (names only), `config set` (old and new value) and
 `policy create`, `policy remove` and `policy edit`.
 
 ```bash
-komando audit list -o text                 # one line per entry, newest 50
-komando audit list -n 0                    # all entries
-komando audit list --failed                # only failed or blocked actions
-komando audit list --target @web           # only these servers or conns
-komando audit list --command exec          # only one command family
-komando audit list --since 2h              # everything in the last two hours
+komando audit list -o text            # one line per entry, newest 50
+komando audit list -n 0               # all entries
+komando audit list --failed           # only failed or blocked actions
+komando audit list --target @web      # only these servers or conns
+komando audit list --command exec     # only one command family
+komando audit list --since 2h         # everything in the last two hours
 komando audit list --since yesterday --until today   # all of yesterday
-komando audit check                  # check the chain
+komando audit check                   # check the chain
 ```
 
 Each record carries the hash of the one before, so `komando audit check`

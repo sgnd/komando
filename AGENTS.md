@@ -106,7 +106,7 @@ under a pseudo-terminal and komando does not know your agent, set
 ## Setup for the human
 
 ```bash
-komando agent skill install            # teach Claude Code, Codex, Cursor and Gemini CLI to use komando
+komando agent skill install      # teach Claude Code, Codex, Cursor and Gemini CLI to use komando
 export KOMANDO_AGENT=1           # only for an agent komando does not know (not Claude Code, Codex, Cursor, Gemini CLI)
 export KOMANDO_ACTOR=claude      # the name shown in `komando audit list` (add it to ~/.zshrc or ~/.bashrc)
 komando list                     # check that your servers are there

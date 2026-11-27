@@ -52,7 +52,7 @@ var shapeCases = [][]string{
 	{"vpn", "list"},
 	{"job", "list"},
 	{"status"},
-	{"audit", "--limit", "5"},
+	{"audit", "list", "--limit", "5"},
 	{"host", "edit", "web", "--port", "2222", "--dry-run"},
 	{"exec", "web", "--dry-run", "--", "uptime"},
 	{"exec", "web", "--", "rm", "-rf", "/"},

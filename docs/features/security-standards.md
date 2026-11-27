@@ -15,7 +15,7 @@ to do* (a step only you can take).
 
 ```bash
 komando doctor          # security: permissions, vault, audit chain, unencrypted conns
-komando audit check    # nobody edited the audit log
+komando audit check     # nobody edited the audit log
 make lint security      # staticcheck, govulncheck (run in a copy of the source code)
 make fuzz               # fuzz the parsers that read untrusted text
 ```

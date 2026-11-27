@@ -78,7 +78,7 @@ func TestGateNoNetwork(t *testing.T) {
 		"docker logs web app", "db query pg 'select 1'", "db schema pg", "db activity pg", "cache get c a", "cache redis raw c GET a",
 		"cache info c", "cluster run k8s get pods", "cluster status k8s", "cluster logs k8s api-1", "cert check web",
 		"cert check web --path /etc/ssl/site.pem", "pkg security web", "pkg installed web", "storage download s3 a.txt --to -",
-		"storage list s3", "job list", "audit", "export", "conn test pg", "vpn list",
+		"storage list s3", "job list", "audit list", "export", "conn test pg", "vpn list",
 		"exec --help", "cluster info k8s", "registry oci image list reg",
 	}
 	for _, line := range allowed {

@@ -76,13 +76,13 @@ komando host edit web1 --rm-group prod --rm-tag web
 Or manage a group for many entries at once:
 
 ```bash
-komando group create prod 'web-*'          # add everything a target picks
-komando group create prod web1 web2        # several names
+komando group create prod 'web-*'       # add everything a target picks
+komando group create prod web1 web2     # several names
 komando group list                      # every group and tag with its members
 komando group list prod                 # the members of one group
-komando group remove prod web2              # take web2 out of prod
-komando group remove old --dry-run          # delete a whole group: who would leave it
-komando group remove old                    # more than 3 members: asks first
+komando group remove prod web2          # take web2 out of prod
+komando group remove old --dry-run      # delete a whole group: who would leave it
+komando group remove old                # more than 3 members: asks first
 ```
 
 Typed alone, `komando group create` asks for the group, then what goes in it.

@@ -115,7 +115,9 @@ func hideCarried(root *cobra.Command, leaves []capability.Leaf, hs map[capabilit
 	var drop func(c *cobra.Command) bool
 	drop = func(c *cobra.Command) (hid bool) {
 		for _, s := range c.Commands() {
-			if hide[cmdID(s)] {
+			// a bare noun (audit) shares its ID with a command that moved
+			// under it: it stays, only a command that runs goes
+			if hide[cmdID(s)] && (s.Runnable() || s.HasSubCommands()) {
 				c.RemoveCommand(s)
 				hid = true
 				continue
