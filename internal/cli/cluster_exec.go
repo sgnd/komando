@@ -23,7 +23,7 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// cluster exec, shell and forward speak Kubernetes' streaming protocols
+// cluster kubernetes exec, shell and forward speak Kubernetes' streaming protocols
 // themselves (internal/kube), so kubectl is not needed.
 
 func clusterExecCmd() *cobra.Command {
@@ -36,9 +36,9 @@ func clusterExecCmd() *cobra.Command {
 output. Commands that only look can say so with --read-only: it runs only
 commands komando knows only read (cat, ls, printenv ...) and refuses any
 other; a protected cluster then needs no --yes. For an
-interactive shell use ` + "`komando cluster shell TARGET POD`" + `.`,
-		Example: `  komando cluster exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml
-  komando cluster exec prod-k8s api-7d9f-x2 -c api --namespace shop -- php artisan cache:clear`,
+interactive shell use ` + "`komando cluster kubernetes shell TARGET POD`" + `.`,
+		Example: `  komando cluster kubernetes exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml
+  komando cluster kubernetes exec prod-k8s api-7d9f-x2 -c api --namespace shop -- php artisan cache:clear`,
 		Args: cobra.MinimumNArgs(3),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
@@ -164,14 +164,14 @@ func clusterShellCmd() *cobra.Command {
 		Use:   "shell TARGET POD|TYPE/NAME [-- COMMAND...]",
 		Short: "Open a shell in a pod, like kubectl exec",
 		Long: `Opens a terminal in the pod's container: bash when it has one, else sh, or
-COMMAND. For people at a terminal; agents use ` + "`komando cluster exec`" + `.
+COMMAND. For people at a terminal; agents use ` + "`komando cluster kubernetes exec`" + `.
 Anything can be typed inside, so a protected cluster asks first.`,
-		Example: `  komando cluster shell prod-k8s deploy/api --namespace shop
-  komando cluster shell prod-k8s api-7d9f-x2 -c api -- /bin/ash`,
+		Example: `  komando cluster kubernetes shell prod-k8s deploy/api --namespace shop
+  komando cluster kubernetes shell prod-k8s api-7d9f-x2 -c api -- /bin/ash`,
 		Args: cobra.MinimumNArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if !cl.interactive() {
-				return out.Errf(out.ExitUsage, "NEEDS_TERMINAL", "agents and scripts use `komando cluster exec`", "cluster shell needs a person at a terminal")
+				return out.Errf(out.ExitUsage, "NEEDS_TERMINAL", "agents and scripts use `komando cluster kubernetes exec`", "cluster kubernetes shell needs a person at a terminal")
 			}
 			st, err := loadState()
 			if err != nil {
@@ -263,9 +263,9 @@ func clusterForwardCmd() *cobra.Command {
 service, through the conn's --via path. It runs until Ctrl-C (or --timeout).
 Only this computer can use it. For a service, REMOTE is the service's port;
 komando forwards to the pod's port behind it.`,
-		Example: `  komando cluster forward prod-k8s svc/api 8080:80 --namespace shop
-  komando cluster forward prod-k8s deploy/db 15432:5432 --namespace shop
-  komando cluster forward prod-k8s svc/api :80 --namespace shop   # any free local port`,
+		Example: `  komando cluster kubernetes tunnel start prod-k8s svc/api 8080:80 --namespace shop
+  komando cluster kubernetes tunnel start prod-k8s deploy/db 15432:5432 --namespace shop
+  komando cluster kubernetes tunnel start prod-k8s svc/api :80 --namespace shop   # any free local port`,
 		Args: cobra.ExactArgs(3),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			local, remote, ok := strings.Cut(args[2], ":")
@@ -296,7 +296,7 @@ komando forwards to the pod's port behind it.`,
 				return err
 			}
 			// raw access to a pod's port gets around every check komando
-			// makes on commands (like cluster shell): a protected cluster asks
+			// makes on commands (like cluster kubernetes shell): a protected cluster asks
 			if err := GuardConns(cl, st, []*store.Conn{t.conn}, driver.Verdict{Risk: driver.RiskWrite, RuleIDs: []string{"cluster-forward"},
 				Reasons: []string{"forward to " + args[1] + ":" + remote}}); err != nil {
 				return err

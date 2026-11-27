@@ -161,7 +161,7 @@ var (
 		"db activity", "db locks", "db sizes", "db explain", "db kill",
 		"fs cat", "fs stat", "fs chmod", "fs mkdir", "fs write", "fs replace", "fs mv", "svc daemon-reload",
 		"storage chmod", "storage mkdir", "storage mv",
-		"cluster scale", "cluster apply", "cluster rollback", "cluster forward", "cluster helm values",
+		"cluster scale", "cluster apply", "cluster rollback", "cluster kubernetes tunnel start", "cluster helm values",
 		"net dns", "net http", "net ports", "net check", "key gen", "key deploy", "host trust", "host ssh-command",
 		"ssh-gate line", "conn kinds", "audit verify", "config approval-code", "secret keychain", "secret passphrase"}
 )
@@ -230,7 +230,7 @@ func TestStandardReadNoWriteFlag(t *testing.T) {
 			t.Errorf("S-5.9: %s shows --apply; use --write", c.CommandPath())
 		}
 		k, ok := kindOf(c)
-		if !ok || k.Kind != kindDepends || slices.Contains([]string{"docker raw", "docker compose", "cluster shell"}, cmdPathOf(c)) {
+		if !ok || k.Kind != kindDepends || slices.Contains([]string{"docker raw", "docker compose", "cluster kubernetes shell"}, cmdPathOf(c)) {
 			continue
 		}
 		w, r := c.Flags().Lookup("write") != nil, c.Flags().Lookup("read-only") != nil

@@ -24,6 +24,17 @@ var examples = map[string]string{
 		"  komando cache memcached test prod-mc\n" +
 		"  komando cache memcached raw prod-mc -- stats\n" +
 		"  komando cache memcached raw prod-mc --write -- flush_all --dry-run",
+	"komando cluster kubernetes": "  komando cluster kubernetes add prod-k8s k8s://api.cluster.example:6443 --credential prod-kubeconfig --dry-run\n" +
+		"  komando cluster kubernetes add prod-k8s k8s://api.cluster.example:6443 --credential prod-kubeconfig\n" +
+		"  komando cluster kubernetes test prod-k8s\n" +
+		"  komando cluster kubernetes raw prod-k8s -- get pods -A -o wide\n" +
+		"  komando cluster kubernetes exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml",
+	"komando cluster swarm": "  komando cluster swarm raw swarm1 -- service ls\n" +
+		"  komando cluster swarm raw swarm1 -- service ps web\n" +
+		"  komando cluster swarm raw swarm1 --write -- service scale web=3 --dry-run",
+	"komando cluster kubernetes tunnel": "  komando cluster kubernetes tunnel start prod-k8s svc/api 8080:80 --namespace shop --dry-run\n" +
+		"  komando cluster kubernetes tunnel start prod-k8s svc/api 8080:80 --namespace shop\n" +
+		"  komando cluster kubernetes tunnel start prod-k8s deploy/db 15432:5432 --namespace shop",
 	// the groups: the usual journey, in order
 	"komando svc": "  komando svc list web1 --failed                    # what is broken?\n" +
 		"  komando svc status web1 nginx\n" +

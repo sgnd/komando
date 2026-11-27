@@ -44,7 +44,7 @@ func shorthandSuggest(cmd *cobra.Command, letter, word string) string {
 	switch {
 	case word == "-it" || word == "-ti":
 		if strings.HasPrefix(cmd.CommandPath(), "komando cluster") {
-			return "komando runs one command and returns; for a shell in a pod: `komando cluster shell TARGET POD`"
+			return "komando runs one command and returns; for a shell in a pod: `komando cluster kubernetes shell TARGET POD`"
 		}
 		return "komando runs one command and returns; for a shell on a server: `komando shell TARGET`"
 	case letter == "n" && has("limit"):

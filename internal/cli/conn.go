@@ -655,7 +655,7 @@ var connAddKinds = map[string]struct{ what, form, example string }{
 	"cache":    {"cache", "Cache", "komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password"},
 	"queue":    {"message queue", "Message queues", "komando queue add orders kafka://10.0.0.8:9092 --via web1"},
 	"storage":  {"file storage", "File storage", "komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password"},
-	"cluster":  {"cluster", "Kubernetes", "komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref secret:prod-kubeconfig"},
+	"cluster":  {"cluster", "Kubernetes", "komando cluster kubernetes add prod-k8s k8s://api.cluster.example:6443 --credential prod-kubeconfig"},
 	"registry": {"image registry", "Container registry", "komando registry oci add ghcr registry://myuser@ghcr.io --ask-password"},
 }
 
@@ -676,7 +676,7 @@ func addKindFits(family, raw, passwordRef string) error {
 			"%s is a %s URL, not one for `komando %s add`", raw, t.Kind.Name, family)
 	}
 	if slices.Contains(connKindNeeds(family, t.Kind), "password-ref") && passwordRef == "" {
-		return out.Errf(out.ExitUsage, "USAGE", "bring the cluster in with `komando import kubeconfig FILE` (one conn per context), or store the kubeconfig with `komando secret set NAME` and pass --password-ref secret:NAME",
+		return out.Errf(out.ExitUsage, "USAGE", "bring the cluster in with `komando import kubeconfig FILE` (one conn per context), or store the kubeconfig with `komando secret set NAME` and pass --credential NAME",
 			"a Kubernetes conn logs in with a whole kubeconfig, which %s alone does not give", raw)
 	}
 	return nil

@@ -105,7 +105,7 @@ func clusterRmCmd() *cobra.Command {
 
 // kubectlForbidden are flags that would point kubectl at another cluster or
 // identity than the conn's (sending the conn's credentials elsewhere), or
-// undo komando's own --dry-run. They are refused in `cluster run`.
+// undo komando's own --dry-run. They are refused in `cluster kubernetes raw`.
 var kubectlForbidden = []string{"--kubeconfig", "--server", "-s", "--token", "--context", "--cluster", "--user",
 	"--certificate-authority", "--client-certificate", "--client-key", "--insecure-skip-tls-verify",
 	"--tls-server-name", "--username", "--password", "--as", "--as-group", "--as-uid", "--dry-run"}
@@ -114,7 +114,7 @@ func checkKubectlFlags(args []string) error {
 	for _, a := range args {
 		name, _, _ := strings.Cut(a, "=")
 		if oneOf(name, kubectlForbidden...) {
-			return out.Usage("%s is not allowed in cluster run: the conn decides the cluster and identity (and komando adds --dry-run itself)", name)
+			return out.Usage("%s is not allowed in cluster kubernetes raw: the conn decides the cluster and identity (and komando adds --dry-run itself)", name)
 		}
 		if oneOf(name, "-k", "--kustomize") {
 			// komando reads every manifest it sends; it cannot render kustomize
@@ -268,9 +268,8 @@ patch, label, annotate, scale, set image, cordon, uncordon, drain, taint,
 run, exec, cp, debug, certificate and config. For Swarm, docker runs on the
 manager. Commands that change things need --write; delete, drain and other
 risky verbs also need --allow-dangerous.`,
-		Example: `  komando cluster run prod-k8s -- get pods -A -o wide
-  komando cluster run prod-k8s --write -- rollout undo deployment/api -n shop
-  komando cluster run swarm1 -- service ps web`,
+		Example: `  komando cluster kubernetes raw prod-k8s -- get pods -A -o wide
+  komando cluster kubernetes raw prod-k8s --write -- rollout undo deployment/api -n shop`,
 		Args: cobra.MinimumNArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
@@ -373,7 +372,7 @@ func execInstead(err error, verb string) error {
 		return err
 	}
 	c := *e
-	c.Hint = "for a command in a pod, `komando cluster exec TARGET POD --read-only -- CMD` runs one that only reads without it; otherwise: " + e.Hint
+	c.Hint = "for a command in a pod, `komando cluster kubernetes exec TARGET POD --read-only -- CMD` runs one that only reads without it; otherwise: " + e.Hint
 	return &c
 }
 
@@ -606,7 +605,7 @@ func nilData(v any) bool {
 	return false
 }
 
-// guardSwarmRun is cluster run's stop for a destructive docker command on
+// guardSwarmRun is the stop of a Swarm manager's raw command for a destructive docker command on
 // a Swarm manager: a person types the server's name.
 func guardSwarmRun(cl *call, st *store.State, host string, risk driver.Risk, verb string) error {
 	if risk != driver.RiskDestructive || cl.dangerOK() {
@@ -645,7 +644,7 @@ func psaPrivileged(k, v string) bool {
 	return strings.EqualFold(strings.TrimSpace(k), "pod-security.kubernetes.io/enforce") && strings.EqualFold(strings.TrimSpace(v), "privileged")
 }
 
-// clusterRunRisk rates a `cluster run` command line: docker's rules on a
+// clusterRunRisk rates a `cluster kubernetes raw` command line: docker's rules on a
 // Swarm manager (with the stack files there read first), kubectl's
 // otherwise.
 func clusterRunRisk(cl *call, st *store.State, t clusterTarget, args []string) (driver.Risk, string, error) {

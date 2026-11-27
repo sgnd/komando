@@ -86,16 +86,16 @@ check "scale refuses pods" USAGE "$($K cluster scale lab-k3s pod/x 1 --namespace
 check "a bad label selector is a usage error" 2 "$($K cluster ls lab-k3s pods -l 'app in (' --namespace t-e2eclu >/dev/null; echo $?)"
 check "rollback --revision a missing revision lists them" True "$($K cluster rollback lab-k3s deploy/web --revision 99 --namespace t-e2eclu | jget '"revision 99 not found; revisions: 1" in d["error"]["message"]')"
 check "rollback to the current revision is unchanged" True "$($K cluster rollback lab-k3s deploy/web --revision 1 --namespace t-e2eclu | jget 'd["data"]["unchanged"]')"
-check "exec in a missing pod is not found" 3 "$($K cluster exec lab-k3s nopod --namespace t-e2eclu --read-only -- ls >/dev/null 2>&1; echo $?)"
+check "exec in a missing pod is not found" 3 "$($K cluster kubernetes exec lab-k3s nopod --namespace t-e2eclu --read-only -- ls >/dev/null 2>&1; echo $?)"
 check "logs of a missing container is not found" 3 "$($K cluster logs lab-k3s deploy/web --namespace t-e2eclu -c nope >/dev/null; echo $?)"
 check "logs of a workload name the object and its pods" "deploy/web 1" "$($K cluster logs lab-k3s deploy/web --namespace t-e2eclu | jget 'd["data"]["object"] + " " + str(len(d["data"]["pods"]))')"
-check "cluster run ends a watch at --timeout" 0 "$($K cluster run lab-k3s --timeout 3s -- get pods -n t-e2eclu -w >/dev/null; echo $?)"
+check "cluster kubernetes raw ends a watch at --timeout" 0 "$($K cluster kubernetes raw lab-k3s --timeout 3s -- get pods -n t-e2eclu -w >/dev/null; echo $?)"
 # :80 takes any free local port (like kubectl), so the check never meets a port in use;
 # kubectl's words stay in $TMP/fw.err to show why if it fails
-check "forward ends normally at --timeout" "0 True" "$($K cluster forward lab-k3s deploy/web :80 --namespace t-e2eclu --timeout 5s >"$TMP/o" 2>"$TMP/fw.err"; echo $?) $(jget 'd["ok"]' <"$TMP/o")"
+check "forward ends normally at --timeout" "0 True" "$($K cluster kubernetes tunnel start lab-k3s deploy/web :80 --namespace t-e2eclu --timeout 5s >"$TMP/o" 2>"$TMP/fw.err"; echo $?) $(jget 'd["ok"]' <"$TMP/o")"
 [ "$(jget 'd["ok"]' <"$TMP/o")" = True ] || { echo "  forward stderr:"; head -5 "$TMP/fw.err"; }
 # Ctrl-C ends a forward cleanly: exit 0, the local port is closed again
-$K cluster forward lab-k3s deploy/web 18096:80 --namespace t-e2eclu >"$TMP/fwi.out" 2>/dev/null &
+$K cluster kubernetes tunnel start lab-k3s deploy/web 18096:80 --namespace t-e2eclu >"$TMP/fwi.out" 2>/dev/null &
 FW=$!
 for _ in $(seq 1 40); do (exec 3<>/dev/tcp/127.0.0.1/18096) 2>/dev/null && break; sleep 0.5; done
 kill -INT "$FW"; wait "$FW"; RC=$?
@@ -120,7 +120,7 @@ check "--namespace on Swarm is refused" USAGE "$($K cluster ls swarm1 services -
 # a Swarm service pulls by digest, so the tag may not be there to copy
 q $K docker pull swarm1 "$CLU_IMG"
 q $K docker raw swarm1 -- tag "$CLU_IMG" t-e2eclu/busybox:2
-q $K cluster run swarm1 --write -- service create --detach --name t-e2eclu-web "$CLU_IMG" sleep 86400
+q $K cluster swarm raw swarm1 --write -- service create --detach --name t-e2eclu-web "$CLU_IMG" sleep 86400
 check "Swarm service rolls out" True "$($K cluster status swarm1 svc/t-e2eclu-web --wait --timeout 90s | jget 'd["data"]["rolled_out"]')"
 check "Swarm ls has items with ready" "1/1" "$($K cluster ls swarm1 svc | jget '[i["ready"] for i in d["data"]["items"] if i["name"]=="t-e2eclu-web"][0]')"
 check "Swarm ls tasks -n limits" 1 "$($K cluster ls swarm1 tasks --limit 1 | jget 'len(d["data"]["items"])')"

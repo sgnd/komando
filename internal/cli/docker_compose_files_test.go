@@ -208,7 +208,7 @@ func TestDockerLineFolderKnown(t *testing.T) {
 	}
 }
 
-// The lab's stack files at unit level: a `cluster run` or `docker raw`
+// The lab's stack files at unit level: a `cluster kubernetes raw` or `docker raw`
 // stack deploy line, as komando builds it, reads its file and rates it. A
 // plain file stays a write; a privileged, missing or unreadable file, or
 // one from standard input, stops.

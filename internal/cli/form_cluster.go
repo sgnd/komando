@@ -239,23 +239,34 @@ func clusterChangeHints() map[string]formHint {
 			example: "./k8s/app.yaml", help: "The objects in it are created, or changed to match it."},
 			{name: "stack", ask: "Swarm only: the stack's name (empty on Kubernetes)", example: "shop"}}},
 		"cluster rm": {args: []formArg{t, clusterTypeArg, clusterNameArg}},
-		"cluster exec": {args: []formArg{t, clusterPodArg, {ask: "Which command should run in the pod?", example: "env"}},
+		"cluster kubernetes exec": {args: []formArg{t, clusterPodArg, {ask: "Which command should run in the pod?", example: "env"}},
 			flags: []formFlag{{name: "read-only", ask: "Does the command only look, changing nothing?"}}},
-		"cluster shell": {args: []formArg{t, clusterPodArg, {ask: "A command instead of a shell? (leave empty for the usual shell)", example: "bash",
+		"cluster kubernetes shell": {args: []formArg{t, clusterPodArg, {ask: "A command instead of a shell? (leave empty for the usual shell)", example: "bash",
 			help: "Empty: the usual shell of the container."}}},
-		"cluster forward": {args: []formArg{t, {ask: "Which pod or service?", example: "service/web",
+		"cluster kubernetes tunnel start": {args: []formArg{t, {ask: "Which pod or service?", example: "service/web",
 			help: "A kind and name, like service/web or deployment/api."},
 			{ask: "Which port of it?", label: "Port", def: "80", example: "80 or 9000:80",
 				help: "The port it listens on. LOCAL:REMOTE picks the port on this computer too; you then open 127.0.0.1:LOCAL."}}},
-		"cluster run": {args: []formArg{t, {ask: "Which kubectl or docker command? (without kubectl or docker in front)",
+		"cluster kubernetes raw": {args: []formArg{t, {ask: "Which kubectl or docker command? (without kubectl or docker in front)",
 			example: "get pods -o wide", help: "It runs as the cluster's own tool would run it."}},
 			flags: []formFlag{{name: "write", ask: "Does it change the cluster?",
 				help: "No: komando refuses a command that would change something."}}},
 	}
 }
 
-// Next: lines for the cluster commands.
+// Next: lines for the cluster commands, and the questions of `komando
+// cluster kubernetes ...`: the inventory verbs of the table and raw, exec,
+// shell and tunnel start, which are today's cluster kubernetes raw, exec, shell and
+// forward.
 func init() {
+	hints := inventoryHints("cluster", "kubernetes", "cluster", "Clusters", "Kubernetes")
+	for k, h := range clusterChangeHints() {
+		if strings.HasPrefix(k, "cluster kubernetes ") {
+			hints[k] = h
+		}
+	}
+	hints["cluster kubernetes"] = formHint{}
+	addFormHints(hints)
 	addFormHints(map[string]formHint{
 		"cluster status":   {next: []string{"cluster list {} pods", "cluster events {} --warnings"}},
 		"cluster list":     {next: []string{"cluster describe {} TYPE NAME", "cluster logs {} TYPE/NAME"}},

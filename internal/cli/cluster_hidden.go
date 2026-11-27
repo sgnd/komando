@@ -49,7 +49,7 @@ func refuseHidden(docs []kubeDoc) error {
 		var o any
 		if json.Unmarshal(d.JSON, &o) == nil && holdsHidden(o) {
 			return out.Errf(out.ExitUsage, "HIDDEN_VALUE",
-				"leave the hidden entries out of the file (or use valueFrom.secretKeyRef), or change only what you need with `cluster run TARGET --write -- set image|patch ...`",
+				"leave the hidden entries out of the file (or use valueFrom.secretKeyRef), or change only what you need with `cluster kubernetes raw TARGET --write -- set image|patch ...`",
 				"%s/%s holds a value komando hid from you ([hidden]); sending it would write that text over the real value", strings.ToLower(d.Kind), d.Name)
 		}
 	}

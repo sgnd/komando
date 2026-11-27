@@ -191,7 +191,7 @@ func TestDbUserShowReplacesGrants(t *testing.T) {
 }
 
 // The top-level `forward` (another name for tunnel, which read like
-// `cluster forward`) is gone; `pf` stays a synonym (C-V17).
+// `cluster kubernetes tunnel start`) is gone; `pf` stays a synonym (C-V17).
 func TestForwardGone(t *testing.T) {
 	invHome(t)
 	if code, _ := runMain(t, "forward", "list"); code != out.ExitUsage {

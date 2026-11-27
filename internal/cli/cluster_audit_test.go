@@ -42,7 +42,7 @@ func closedAddr(t *testing.T) string {
 }
 
 // --timeout ends a cluster that does not answer, for every command, not
-// only cluster run.
+// only cluster kubernetes raw.
 func TestClusterTimeout(t *testing.T) {
 	invHome(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { <-r.Context().Done() }))
@@ -73,7 +73,7 @@ func TestKubeErrWords(t *testing.T) {
 	}
 }
 
-// An unreachable cluster is CONN_UNREACHABLE in cluster run and apply too,
+// An unreachable cluster is CONN_UNREACHABLE in cluster kubernetes raw and apply too,
 // not "no resource type" (exit 5) or a usage error (exit 2).
 func TestClusterUnreachableIsUnreachable(t *testing.T) {
 	invHome(t)
@@ -107,7 +107,7 @@ func TestClusterRunBrokenWriteIsAudited(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 	mustRun(t, "import", "kubeconfig", kubeconfigAt(t, srv.URL))
-	if _, e := invRun(t, "cluster", "run", "prod", "--write", "--", "create", "configmap", "x"); e == nil || e.Code != "CONN_UNREACHABLE" {
+	if _, e := invRun(t, "cluster", "kubernetes", "raw", "prod", "--write", "--", "create", "configmap", "x"); e == nil || e.Code != "CONN_UNREACHABLE" {
 		t.Fatalf("run: %+v", e)
 	}
 	d := mustRun(t, "audit", "--failed")
@@ -125,13 +125,13 @@ func TestClusterRunUsageFirst(t *testing.T) {
 		{"config view", "config supports current-context and get-contexts"},
 		{"port-forward svc/x 80", "is a session"},
 	} {
-		e := wantCode(t, "USAGE", append([]string{"cluster", "run", "prod", "--"}, strings.Fields(c.args)...)...)
+		e := wantCode(t, "USAGE", append([]string{"cluster", "kubernetes", "raw", "prod", "--"}, strings.Fields(c.args)...)...)
 		if !strings.Contains(e.Message, c.want) {
 			t.Errorf("%s: %q", c.args, e.Message)
 		}
 	}
 	e := toErr(execInstead(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "re-run with --allow-dangerous", "x"), "exec"))
-	if !strings.Contains(e.Hint, "komando cluster exec") || !strings.Contains(e.Hint, "--allow-dangerous") {
+	if !strings.Contains(e.Hint, "komando cluster kubernetes exec") || !strings.Contains(e.Hint, "--allow-dangerous") {
 		t.Errorf("exec hint: %q", e.Hint)
 	}
 }
@@ -260,16 +260,16 @@ func TestImportKubeconfigPluginNote(t *testing.T) {
 	}
 }
 
-// cluster add takes only a cluster URL, and a k8s one only with its kubeconfig.
+// cluster kubernetes add takes only a cluster URL, and a k8s one only with its kubeconfig.
 func TestClusterAddKind(t *testing.T) {
 	invHome(t)
-	wantCode(t, "USAGE", "cluster", "add", "k1", "k8s://127.0.0.1:6451")
-	wantCode(t, "WRONG_KIND", "cluster", "add", "r1", "registry://ghcr.io")
+	wantCode(t, "USAGE", "cluster", "kubernetes", "add", "k1", "k8s://127.0.0.1:6451")
+	wantCode(t, "WRONG_KIND", "cluster", "kubernetes", "add", "r1", "registry://ghcr.io")
 	wantCode(t, "WRONG_KIND", "registry", "oci", "add", "k3", "k8s://1.2.3.4")
-	if e := wantCode(t, "USAGE", "cluster", "add", "sw1", "ssh://deploy@10.0.0.9"); !strings.Contains(e.Hint, "host add") {
+	if e := wantCode(t, "USAGE", "cluster", "kubernetes", "add", "sw1", "ssh://deploy@10.0.0.9"); !strings.Contains(e.Hint, "host add") {
 		t.Errorf("swarm: %+v", e)
 	}
-	mustRun(t, "cluster", "add", "k2", "k8s://127.0.0.1:6451", "--password-ref", "secret:k2-kubeconfig")
+	mustRun(t, "cluster", "kubernetes", "add", "k2", "k8s://127.0.0.1:6451", "--credential", "k2-kubeconfig")
 }
 
 // all and @group read a server as a Swarm manager only when it is tagged

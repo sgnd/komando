@@ -81,7 +81,7 @@ This page is made from the code (`komando schema` lists the same under
 | `FILE_ERROR` | 1 | a file on this computer cannot be read or written | check that the folder exists and is writable |
 | `FILE_EXISTS` | 8 | … already exists on this computer | choose another --to, remove the file, or pass --overwrite |
 | `FILE_NOT_FOUND` | 3 | identity file …: … | give the path of a private key file, or register it with `komando key add NAME FILE` and use --key |
-| `FILE_TOO_LARGE` | 8 | …:… is more than …; komando holds a copy from a pod in memory, and stopped | copy a smaller part, or pack it smaller in the pod first: `komando cluster run TARGET --write -- exec POD -- gzip PATH` |
+| `FILE_TOO_LARGE` | 8 | …:… is more than …; komando holds a copy from a pod in memory, and stopped | copy a smaller part, or pack it smaller in the pod first: `komando cluster kubernetes raw TARGET --write -- exec POD -- gzip PATH` |
 | `FOLDER_NOT_FOUND` | 3 | no folder named … | add -p/--parents to create it |
 | `GCP_LOGIN_REQUIRED` | 4 | …: … | a person runs `gcloud auth application-default login` again, or set GOOGLE_APPLICATION_CREDENTIALS to a service account key file; on Google Cloud the machine's service account is used |
 | `GROUP_EXISTS` | 8 | group … exists | pick another name; to merge them, run `komando group add … @…` and then `komando group rm …` |
@@ -132,7 +132,7 @@ This page is made from the code (`komando schema` lists the same under
 | `MOVE_FAILED` | 5 | the copy on the server (…) ended badly: …; … was kept | run it again: `komando storage mv CONN … …` |
 | `NAME_TAKEN` | 8 | the rename clashes: …; nothing was renamed | pick other names, or rename or remove what is in the way first |
 | `NEEDS_PERSON` | 6 | logging in to … needs a person at a terminal to answer its questions | ask a person to run `komando login …` in a terminal; after that your commands to … need no login |
-| `NEEDS_TERMINAL` | 2 | cluster shell needs a person at a terminal | agents and scripts use `komando cluster exec` |
+| `NEEDS_TERMINAL` | 2 | cluster kubernetes shell needs a person at a terminal | agents and scripts use `komando cluster kubernetes exec` |
 | `NOTHING_TO_RENAME` | 3 | no … starts with … | check OLD with `komando list` and `komando secret list`; names are matched from the start, as written |
 | `NOT_A_FOLDER` | 8 | … is a file, not a folder | give a folder path, not a file |
 | `NOT_SUPPORTED` | 2 | … waits for data that keeps coming, so cache run would never return | cache run sends one command and prints its one reply; drop BLOCK from XREAD, and use redis-cli for MONITOR or SUBSCRIBE |
