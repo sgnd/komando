@@ -32,6 +32,12 @@ func TestMaskSecretsText(t *testing.T) {
 		{"valueFrom: {secretKeyRef: {name: db, key: password}}", "valueFrom: {secretKeyRef: {name: db, key: password}}"},
 		{"api_key_file: /run/secrets/api", "api_key_file: /run/secrets/api"},
 		{"DB_PASSWORD=12345678", "DB_PASSWORD=[hidden]"},
+		// PostgreSQL's BYPASSRLS holds "pass" but is a role attribute, not a secret
+		{"verify_reader has no BYPASSRLS: each one fails", "verify_reader has no BYPASSRLS: each one fails"},
+		{"bypass_rls=each", "bypass_rls=each"},
+		{"pg_bypass_rls: each", "pg_bypass_rls: each"},
+		{"password: bypassed", "password: [hidden]"},
+		{"DB_PASS=hunter2", "DB_PASS=[hidden]"},
 		{"login ok token=abc123xyz", "login ok token=[hidden]"},
 		// Redis config: a space between name and value
 		{"port 6379\nrequirepass s3cretpw\nmasterauth s3cretpw\n", "port 6379\nrequirepass [hidden]\nmasterauth [hidden]\n"},
@@ -59,6 +65,38 @@ func TestMaskSecretsText(t *testing.T) {
 	for _, c := range cases {
 		if got := MaskSecrets(c.in); got != c.want {
 			t.Errorf("MaskSecrets(%q)\n got %q\nwant %q", c.in, got, c.want)
+		}
+	}
+}
+
+// A word that holds pass, secret or token inside a longer word is matched
+// as a name when ":" or "=" follows it. This records what is refused today
+// (C574); it is not a wish list, and a change to it is a design decision.
+func TestMaskSecretsWordsHoldingSecretWords(t *testing.T) {
+	cases := []struct {
+		in      string
+		refused bool
+	}{
+		{"PASS: komando is known", true},
+		{"Passed: all checks", true},
+		{"compass: north", true},
+		{"compass.heading=north", true},
+		{"passive: mode", true},
+		{"passive: yes", false},
+		{"passthrough=enabled", true},
+		{"passthrough=on", false},
+		{"tokenizer: word", true},
+		{"secretary: Jane", true},
+		{"monkey=banana", false},
+		{"turkey: roast", false},
+		{"keyboard: us", false},
+		{"my-keyboard: us", true},
+		{"tokens_per_min: 100", false},
+		{"PASS komando is known", false},
+	}
+	for _, c := range cases {
+		if got := MaskSecrets(c.in) != c.in; got != c.refused {
+			t.Errorf("MaskSecrets(%q) changed = %v, recorded %v", c.in, got, c.refused)
 		}
 	}
 }
