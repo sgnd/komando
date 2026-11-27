@@ -294,7 +294,7 @@ func TestStartScriptPSNoLocalAppData(t *testing.T) {
 // skipped, non-ASCII text comes back unchanged, next_from is the file's
 // size, and a read from a later offset gives exactly the rest.
 func TestFollowPSOnWindows(t *testing.T) {
-	base := t.TempDir()
+	base := loginBase(t)
 	s := psStart()
 	s.Env, s.Stdin = nil, nil
 	s.Command = "Write-Output 'é 日本'; Write-Output 'b'"
