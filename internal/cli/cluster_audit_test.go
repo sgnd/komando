@@ -302,6 +302,22 @@ func TestClusterSelectorSkipsPlainServers(t *testing.T) {
 	}
 }
 
+// `cluster swarm raw` takes a manager server: a Kubernetes entry is WRONG_KIND
+// with its own path, and a destructive docker verb is stopped before komando
+// connects (swarm is rated by the docker rules, not the kubectl ones).
+func TestClusterSwarmRawManager(t *testing.T) {
+	invHome(t)
+	mustRun(t, "import", "kubeconfig", kubeconfigAt(t, "https://"+closedAddr(t)))
+	mustRun(t, "host", "add", "sw1", "deploy@192.0.2.21", "--tag", "swarm")
+	e := wantCode(t, "WRONG_KIND", "cluster", "swarm", "raw", "prod", "--", "service", "ls")
+	if !strings.Contains(e.Hint, "komando cluster kubernetes raw prod") {
+		t.Errorf("WRONG_KIND hint: %q", e.Hint)
+	}
+	if _, e := cliRun(t, "cluster", "swarm", "raw", "sw1", "--write", "--", "service", "rm", "web"); e == nil || e.Code != "POLICY_BLOCKED" {
+		t.Errorf("service rm on a manager: %+v", e)
+	}
+}
+
 // Flags that cannot be right are refused before komando connects.
 func TestClusterFlagChecks(t *testing.T) {
 	invHome(t)

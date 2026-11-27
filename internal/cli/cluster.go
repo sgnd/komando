@@ -573,6 +573,7 @@ func init() {
 	moveType("cluster")
 	// `cluster list` (objects) stays until its removal and shares the key
 	// {cluster, list} with the entries' `cluster kubernetes list`; both read.
+	// Drop this line when the removal of `cluster list` lands (a gaps row tracks it).
 	providerIDs["cluster.list"] = true
 	groupShorts["cluster swarm"] = "Docker Swarm: run docker commands on a manager server"
 	groupShorts["cluster kubernetes"] = "Kubernetes clusters: save them, and run commands on them"
