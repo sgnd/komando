@@ -10704,7 +10704,7 @@
         "aliases": [
           "s3"
         ],
-        "example": "  komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password\n  komando storage list backups 2026/\n  komando download backups 2026/app.sql.gz --to ./\n  komando storage rm backups --prefix daily/ --older-than 30d --dry-run",
+        "example": "  komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password\n  komando storage list backups 2026/\n  komando copy backups:2026/app.sql.gz ./\n  komando storage rm backups --prefix daily/ --older-than 30d --dry-run",
         "runnable": true,
         "kind": "read",
         "confirm": [
