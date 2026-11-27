@@ -8,16 +8,9 @@ import (
 	"github.com/sgnd/komando/internal/capability"
 )
 
-// What every start pays before the first command runs: BenchmarkNewRoot is
-// the tree from the table (mountTable and the passes after it);
 // BenchmarkMoveLeaves is the move of the safety tables that init runs once
-// per moved type. A start that got slower shows here first.
-func BenchmarkNewRoot(b *testing.B) {
-	for b.Loop() {
-		newRoot(tcl)
-	}
-}
-
+// per moved type (BenchmarkNewRoot, in root_bench_test.go, is the tree). A
+// start that got slower shows in one of the two first.
 func BenchmarkMoveLeaves(b *testing.B) {
 	types := slices.Clone(movedTypes)
 	for b.Loop() {
