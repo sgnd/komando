@@ -106,7 +106,7 @@ func addCompletion(c *cobra.Command) {
 }
 
 // commandFamily is the conn family a command works with: "cache" for
-// `cache info`, "db" for `db user grants`; "" for other commands.
+// `cache redis raw`, "db" for `db user grants`; "" for other commands.
 func commandFamily(c *cobra.Command) string {
 	for ; c.HasParent(); c = c.Parent() {
 		if !c.Parent().HasParent() {

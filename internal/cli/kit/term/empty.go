@@ -6,7 +6,7 @@ import "strings"
 // forms, so a person reads the same words in every list:
 //
 //	no SSH keys yet: `komando key gen NAME`
-//	no cache keys match "user:*"
+//	no keys match "user:*"
 //
 // JSON keeps its empty array.
 

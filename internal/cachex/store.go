@@ -42,14 +42,6 @@ func ClassifyFor(kind string, args []string) driver.Verdict {
 	return Classify(args)
 }
 
-// SectionsFor are the info sections the kind takes.
-func SectionsFor(kind string) []string {
-	if kind == "memcached" {
-		return MemcacheSections
-	}
-	return InfoSections
-}
-
 // SummarizeFor is Summarize for the kind.
 func SummarizeFor(kind string, info map[string]map[string]string) Summary {
 	if kind == "memcached" {

@@ -24,9 +24,8 @@ import (
 // personalCmds are the command IDs (as in commandKinds) whose output
 // carries data read from a server or resource.
 var personalCmds = map[string]bool{
-	"cache get": true, "cache keys": true, "cache run": true, // moveType moves cache run to each provider's raw
-	"cluster describe": true, "cluster events": true, "cluster exec": true, "cluster get": true, "cluster logs": true, "cluster run": true,
-	"cluster helm status": true, "cluster helm values": true,
+	"cache run":    true, // moveType moves cache run to each provider's raw
+	"cluster exec": true, "cluster run": true,
 	"db activity": true, "db explain": true, "db locks": true, "db query": true,
 	"docker compose": true, "docker exec": true, "docker inspect": true, "docker logs": true, "docker raw": true,
 	"cp": true, "download": true, "exec": true, "recipe run": true, "sync": true,

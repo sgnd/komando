@@ -50,7 +50,7 @@ interactive shell use ` + "`komando cluster kubernetes shell NAME POD`" + `.`,
 				return err
 			}
 			if t.host != nil {
-				return out.Usage("on Swarm, run it in the container with `komando docker exec NODE CONTAINER -- ...` on the node that runs the task (`komando cluster describe TARGET service NAME` shows it)")
+				return out.Usage("on Swarm, run it in the container with `komando docker exec NODE CONTAINER -- ...` on the node that runs the task (`komando cluster swarm raw TARGET -- service ps NAME` shows it)")
 			}
 			inner := strings.Join(args[2:], " ")
 			// the policy sees the command as typed, like `exec` on servers
@@ -153,7 +153,7 @@ func runningPods(ctx context.Context, k *kube.Client, space, ref string) ([]stri
 		}
 	}
 	if len(running) == 0 {
-		return nil, out.Errf(out.ExitNotFound, "K8S_POD_NOT_FOUND", "check them with `komando cluster list TARGET pods`", "%s has no running pod", ref)
+		return nil, out.Errf(out.ExitNotFound, "K8S_POD_NOT_FOUND", "check them with `komando cluster kubernetes raw TARGET -- get pods`", "%s has no running pod", ref)
 	}
 	return running, nil
 }

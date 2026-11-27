@@ -310,10 +310,10 @@ func kubectlFailure(code int, stderr string) *out.Error {
 	if strings.Contains(stderr, "Error from server (NotFound)") {
 		msg = strings.TrimPrefix(msg, "Error from server (NotFound): ")
 		return &out.Error{Code: "K8S_NOT_FOUND", Message: cmp.Or(msg, "not found"), Exit: out.ExitNotFound,
-			Hint: "list what exists with `komando cluster list TARGET TYPE`"}
+			Hint: "list what exists with `komando cluster kubernetes raw TARGET -- get TYPE`"}
 	}
 	return &out.Error{Code: "TOOL_FAILED", Message: "kubectl exited " + strconv.Itoa(code) + cmp.Or(": "+firstLine(msg), ""), Exit: out.ExitRemote,
-		Hint: "read the error output (stderr) for the reason; `komando cluster events TARGET --warnings` shows the cluster's recent problems"}
+		Hint: "read the error output (stderr) for the reason; `komando cluster kubernetes raw TARGET -- get events` shows the cluster's recent problems"}
 }
 
 // importKubeconfig makes one k8s conn per context; each context's

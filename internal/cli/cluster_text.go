@@ -73,7 +73,7 @@ func cluCell(v any) string {
 	return fmt.Sprint(v)
 }
 
-// describeData is `cluster describe`: a summary, then tables of what the
+// describeData is `describe`: a summary, then tables of what the
 // object has (containers, pods, tasks, conditions, events).
 type describeData map[string]any
 

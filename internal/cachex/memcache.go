@@ -234,7 +234,7 @@ func (m *memcache) classicGet(ctx context.Context, key string, maxBytes int) (*V
 }
 
 func notFound(key string) error {
-	return out.Errf(out.ExitNotFound, "CACHE_KEY_NOT_FOUND", "list keys with `komando cache keys CONN 'pattern*'`", "no cache key named %q", key)
+	return out.Errf(out.ExitNotFound, "CACHE_KEY_NOT_FOUND", "list keys with `komando cache memcached raw TARGET -- lru_crawler metadump all`", "no cache key named %q", key)
 }
 
 // mcMaxRelative is the longest expiry memcached reads as seconds from now
@@ -328,7 +328,7 @@ func (m *memcache) Keys(ctx context.Context, pattern string, limit int) ([]KeyIn
 		line, err := m.line()
 		if err != nil {
 			if strings.Contains(line, "lru crawler") || line == "ERROR" {
-				return nil, false, out.Errf(out.ExitRemote, "CACHE_ERROR", "start memcached with the LRU crawler on (the default since 1.5); `cache get` works without it",
+				return nil, false, out.Errf(out.ExitRemote, "CACHE_ERROR", "start memcached with the LRU crawler on (the default since 1.5); `komando cache memcached raw TARGET -- get KEY` works without it",
 					"this memcached cannot list keys: %s", line)
 			}
 			return nil, false, mcErr(err)
@@ -409,9 +409,6 @@ func metadumpKey(line string, now int64) (KeyInfo, bool) {
 	return k, true
 }
 
-// MemcacheSections are the sections `stats` takes ("" is the general one).
-var MemcacheSections = []string{"items", "slabs", "settings", "sizes", "conns"}
-
 func (m *memcache) Info(ctx context.Context, section string) (map[string]map[string]string, error) {
 	line := "stats"
 	name := "stats"
@@ -452,7 +449,7 @@ func memcacheSummary(info map[string]map[string]string) Summary {
 	return s
 }
 
-// Run sends one command line (no data block: use `cache set` to store) and
+// Run sends one command line (no data block: a store command is refused) and
 // returns the reply lines; values come with their data.
 func (m *memcache) Run(ctx context.Context, args []string) (any, error) {
 	args, err := MemcacheWords(args) // again here, so no caller can skip it
@@ -460,7 +457,7 @@ func (m *memcache) Run(ctx context.Context, args []string) (any, error) {
 		return nil, err
 	}
 	if storeCmds[args[0]] {
-		return nil, out.Usage("%s needs a data block; use `komando cache set CONN KEY VALUE`", args[0])
+		return nil, out.Usage("%s needs a data block, which `cache memcached raw` does not send", args[0])
 	}
 	if err := m.send(ctx, strings.Join(args, " ")); err != nil {
 		return nil, mcErr(err)

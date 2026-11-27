@@ -285,7 +285,7 @@ func containerStates(pod map[string]any) []map[string]any {
 	return rows
 }
 
-// eventList is `cluster events`: a table for a person.
+// eventList is `events`: a table for a person.
 type eventList map[string]any
 
 func (e eventList) Text() string {

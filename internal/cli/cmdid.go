@@ -59,7 +59,7 @@ func cmdID(c *cobra.Command) string {
 }
 
 // idKey is c's ID with spaces for dots, as personalCmds writes it
-// ("cache keys").
+// ("queue topic list").
 func idKey(c *cobra.Command) string {
 	return strings.ReplaceAll(cmdID(c), ".", " ")
 }

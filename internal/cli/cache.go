@@ -211,9 +211,9 @@ func cacheRunCmd() *cobra.Command {
 func runHint(cmd string, v driver.Verdict) string {
 	switch {
 	case cmd == "KEYS":
-		return "list keys with `komando cache keys CONN 'pattern*'` (uses SCAN, safe on big caches) instead of KEYS"
+		return "list keys with SCAN instead of KEYS (safe on big caches): `komando cache redis raw TARGET -- SCAN 0 MATCH 'pattern*'`"
 	case slices.Contains(v.RuleIDs, "data-delete"):
-		return "to delete keys, confirm with the user first and use `komando cache rm CONN KEY... --allow-dangerous` (try --dry-run first)"
+		return "to delete keys, confirm with the user first, then run it again with --write --allow-dangerous (try --dry-run first)"
 	}
 	return "only if that is intended: confirm with the user first, then run it again with --write --allow-dangerous"
 }

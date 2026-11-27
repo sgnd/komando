@@ -44,7 +44,7 @@ var dataRules = []Rule{
 // DataRules lists rules for named delete actions (cache rm, storage rm).
 func DataRules() []Rule { return append([]Rule(nil), dataRules...) }
 
-// DataDelete is the verdict for deleting cache keys or stored objects.
+// DataDelete is the verdict for deleting keys or stored objects.
 func DataDelete() Verdict {
 	return Verdict{Risk: RiskDestructive, RuleIDs: []string{"data-delete"}, Reasons: []string{dataRules[0].Reason}}
 }

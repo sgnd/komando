@@ -299,7 +299,7 @@ func (r riskRow) typedWhat() string {
 // set one cannot let a line through as a read.
 var commandTree func(line []string) *cobra.Command
 
-// riskOfLine is riskOf for a command line ("cache rm c1 k").
+// riskOfLine is riskOf for a command line ("queue topic delete q1 t").
 func riskOfLine(line []string) riskRow {
 	if commandTree == nil {
 		return riskRow{tier: tierPerson}

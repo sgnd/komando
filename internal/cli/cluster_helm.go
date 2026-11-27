@@ -163,7 +163,7 @@ func helmRevisions(ctx context.Context, k *kube.Client, ns, release string) ([]h
 	}
 	if len(items) == 0 {
 		return nil, out.Errf(out.ExitNotFound, "HELM_RELEASE_NOT_FOUND",
-			"see the releases with `komando cluster helm list TARGET -A`, and name the namespace with --namespace",
+			"see the releases with the helm-list snippet, and name the namespace with --var namespace=NAME",
 			"no Helm release named %q in namespace %q", release, ns)
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].version < items[j].version })
@@ -192,7 +192,7 @@ func pickRevision(revs []helmRelease, n int) (helmRelease, error) {
 		}
 	}
 	return helmRelease{}, out.Errf(out.ExitNotFound, "HELM_REVISION_NOT_FOUND",
-		"see the revisions with `komando cluster helm history TARGET RELEASE`", "%s has no revision %d", revs[0].Name, n)
+		"see the revisions with the helm-release snippet", "%s has no revision %d", revs[0].Name, n)
 }
 
 // mergeValues lays over on top of base, map by map, as Helm does.

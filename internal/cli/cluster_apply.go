@@ -77,7 +77,7 @@ func applyPass(cl *call, ctx context.Context, k *kube.Client, conn string, docs 
 		if errors.As(err, &ae) && ae.Code == 409 && strings.HasPrefix(ae.Message, "Apply failed with") {
 			// the server's words name the other manager and its fields
 			return res, out.Errf(out.ExitConflict, "K8S_CONFLICT",
-				"another field manager owns these fields (named above): leave them out of the file, or take them over with `komando cluster apply TARGET --file FILE --force-conflicts`",
+				"another field manager owns these fields (named above): leave them out of the file, or take them over with `komando cluster kubernetes raw TARGET --write -- apply -f FILE --force-conflicts`",
 				"%s: %s", name, ae.Message)
 		}
 		if err != nil {
@@ -97,7 +97,7 @@ func applyPass(cl *call, ctx context.Context, k *kube.Client, conn string, docs 
 	return res, nil
 }
 
-// applyData is `cluster apply`: what happened to each object (created,
+// applyData is `apply`: what happened to each object (created,
 // configured, unchanged), or with --dry-run what would (create, change,
 // none) and the diff.
 type applyData struct {
@@ -143,7 +143,7 @@ func (a applyData) Text() string {
 	return b.String()
 }
 
-// objectChange is one object in `cluster apply`: what the server did or
+// objectChange is one object in `apply`: what the server did or
 // would do with it, and with --dry-run the difference as a unified diff.
 type objectChange struct {
 	Object    string `json:"object"`

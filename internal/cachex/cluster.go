@@ -149,7 +149,7 @@ func ClusterWideProblem(args []string) error {
 	if !clusterWide[cmd] || cmd == "DBSIZE" {
 		return nil
 	}
-	hint := "list keys with `komando cache keys CONN 'pattern*'`, which scans every master"
+	hint := "scan each master: add it as its own conn (without ?cluster=1) and run `komando cache redis raw TARGET -- SCAN 0 MATCH 'pattern*'` on each"
 	if cmd == "FLUSHALL" || cmd == "FLUSHDB" || cmd == "SWAPDB" {
 		hint = "to run it on every master, add each master as its own conn (without ?cluster=1) and run it on each, with the user's yes"
 	}
