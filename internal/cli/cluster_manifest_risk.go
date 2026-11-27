@@ -43,7 +43,7 @@ var controllerKinds = map[string]string{
 }
 
 // manifestEscalates says why objects in a manifest give more rights than
-// the change itself: "" when none does. `cluster run -- create
+// the change itself: "" when none does. `cluster kubernetes raw -- create
 // clusterrolebinding ...` and `-- run --privileged` need
 // --allow-dangerous (classifyKubectl); the same objects in a file need it
 // too. It looks at what the file says, anywhere in an object, so a pod

@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/sgnd/komando/internal/inventory"
@@ -669,43 +670,67 @@ func smbUserQ() formQ {
 // The storage commands: what a typed command asks for when it is missing.
 
 func init() {
-	conn := formArg{ask: "Which file storage?", pick: "storage", help: "A bucket or file server from your list (komando list kind:storage). Add one first with komando storage add."}
+	conn := formArg{ask: "Which file storage?", pick: "storage", help: "A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add."}
 	key := func(ask, help, example string) formArg { return formArg{ask: ask, help: help, example: example} }
-	addFormHints(map[string]formHint{
+	hints := map[string]formHint{
 		"storage list": {args: []formArg{conn,
 			key("Which folder inside it?", "Empty lists the top. A folder ends in /, like db/2026-11/.", "db/")},
 			flags: []formFlag{{name: "recursive", ask: "List everything below it too, not only one level?"}}},
 		"storage cat": {args: []formArg{conn,
-			key("Which file?", "Its name inside the storage, as storage list shows it.", "logs/app.log")},
+			key("Which file?", "Its name inside the storage, as object list shows it.", "logs/app.log")},
 			flags: []formFlag{{name: "tail", ask: "Show only the last how many lines?", help: "Empty shows the whole file, up to 1 MiB.", example: "50"}}},
 		"storage rm": {args: []formArg{conn,
-			key("Which files to delete? (several: separate them with spaces)", "Exact names as storage list shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first.", "tmp/old.sql.gz")},
+			key("Which files to delete? (several: separate them with spaces)", "Exact names as object list shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first.", "tmp/old.sql.gz")},
 			flags: []formFlag{
 				{name: "prefix", ask: "Delete everything in a folder?", help: "Empty when you named the files above. A folder ends in /, like daily/.", example: "daily/"},
 				{name: "older-than", ask: "Only files older than?", help: "With a folder: newer ones are kept. Like 30d (days) or 12h (hours).", example: "30d"}}},
 		"storage mkdir": {args: []formArg{conn,
 			key("Which folder should be made?", "Its path inside the storage; missing folders on the way are made too.", "reports/2026")}},
 		"storage mv": {args: []formArg{conn,
-			key("Which file (or folder) do you want to move or rename?", "Its name inside the storage, as storage list shows it. On S3, Google Cloud and Azure only one file at a time.", "db/old.sql.gz"),
+			key("Which file (or folder) do you want to move or rename?", "Its name inside the storage, as object list shows it. On S3, Google Cloud and Azure only one file at a time.", "db/old.sql.gz"),
 			key("Where to? (the new name)", "A new name, or a folder ending in / to move it into with its own name.", "archive/")},
 			flags: []formFlag{{name: "overwrite", ask: "Replace a file that is already there?"}}},
-		"storage chmod": {args: []formArg{conn,
-			key("Which permissions? (as a number)", "640: owner reads and writes, group reads, others nothing. 755: everyone can read and open, only the owner writes. SFTP storage only.", "640"),
-			key("Which file or folder?", "Its name inside the storage, as storage list shows it.", "config/app.yml")}},
 		"storage link": {args: []formArg{conn,
 			key("Which file to share?", "Its name inside the storage. Anyone with the link can download it until it ends.", "reports/q3.pdf")},
 			flags: []formFlag{{name: "expires", ask: "How long should the link work?", help: "Like 30m or 24h; at most 168h (7 days).", def: "1h"}}},
-	})
+	}
+	// the object commands of the table: one hint per provider
+	oldToNew := map[string]string{"list": "object list", "cat": "object read", "rm": "object delete", "mkdir": "object create", "mv": "object move", "link": "object link"}
+	labels := map[string]string{"s3": "S3 bucket", "gcs": "Google Cloud Storage bucket", "azblob": "Azure Blob Storage container",
+		"sftp": "SFTP file server", "ftp": "FTP or FTPS file server", "webdav": "WebDAV folder", "smb": "Windows share (SMB)"}
+	for _, p := range []string{"s3", "gcs", "azblob", "sftp", "ftp", "smb", "webdav"} {
+		for k, h := range inventoryHints("storage", p, "storage", "File storage", labels[p]) {
+			hints[k] = h
+		}
+		hints["storage "+p+" object"] = formHint{}
+		for old, nw := range oldToNew {
+			if h, ok := hints["storage "+old]; ok && (old != "link" || p == "s3" || p == "gcs" || p == "azblob") {
+				if p == "sftp" && old == "mv" { // only an SFTP server has modes: move --mode is chmod
+					h.flags = append(slices.Clone(h.flags), formFlag{name: "mode", ask: "Change its permissions instead? (as a number)",
+						help: "Like 0644 or 0750. Then the file is not moved.", example: "0640"})
+				}
+				hints["storage "+p+" "+nw] = h
+			}
+		}
+	}
+	for old := range oldToNew {
+		delete(hints, "storage "+old)
+	}
+	addFormHints(hints)
 }
 
 // Next: lines for the storage commands.
 func init() {
-	addFormHints(map[string]formHint{
-		"storage list":  {next: []string{"storage cat {} OBJECT --tail 50", "copy {}:reports/q3.pdf ./", "storage list {} PREFIX/ --recursive"}},
-		"storage cat":   {next: []string{"copy {}:logs/app.log ./"}},
-		"storage rm":    {next: []string{"storage list {} --recursive"}},
-		"storage mkdir": {next: []string{"copy ./report.pdf {}:reports/", "storage list {} PREFIX/"}},
-		"storage mv":    {next: []string{"storage list {} PREFIX/"}},
-		"storage chmod": {next: []string{"storage list {} PREFIX/"}},
-	})
+	next := map[string][]string{
+		"list":   {"storage {P} object read {} OBJECT --tail 50", "copy {}:reports/q3.pdf ./", "storage {P} object list {} PREFIX/ --recursive"},
+		"read":   {"copy {}:logs/app.log ./"},
+		"delete": {"storage {P} object list {} --recursive"},
+		"create": {"copy ./report.pdf {}:reports/", "storage {P} object list {} PREFIX/"},
+		"move":   {"storage {P} object list {} PREFIX/"},
+	}
+	for _, p := range []string{"s3", "gcs", "azblob", "sftp", "ftp", "smb", "webdav"} {
+		for verb, lines := range next {
+			addFormHints(map[string]formHint{"storage " + p + " object " + verb: {next: lines}})
+		}
+	}
 }

@@ -36,7 +36,7 @@ func TestApprovalWindowShowsSentFiles(t *testing.T) {
 		{[]string{"copy", conf, "web:/etc/app.conf", "--yes"}, []string{"marker_upload on", "SHA-256"}},
 		{[]string{"copy", "-r", dir, "web:/srv/", "--yes"}, []string{"index.html", "css/app.css", "SHA-256"}},
 		{[]string{"copy", dir, "web:/srv/site", "--sync", "--yes"}, []string{"index.html", "css/app.css", "SHA-256"}},
-		{[]string{"cluster", "run", "kube", "--write", "--yes", "--", "apply", "-f", yaml}, []string{"metadata: {name: marker-run-cm}", "SHA-256"}},
+		{[]string{"cluster", "kubernetes", "raw", "kube", "--write", "--yes", "--", "apply", "-f", yaml}, []string{"metadata: {name: marker-run-cm}", "SHA-256"}},
 	} {
 		*texts = nil
 		resetApproval()

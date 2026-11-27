@@ -189,7 +189,7 @@ func TestGateShellDBShell(t *testing.T) {
 func TestGateShellClusterShell(t *testing.T) {
 	invHome(t)
 	shellInventory(t)
-	wantShellRefused(t, shellKey, "needs a person at a terminal", "cluster shell k8s pod/x", "cluster shell k8s pod/x -- sh")
+	wantShellRefused(t, shellKey, "needs a person at a terminal", "cluster kubernetes shell k8s pod/x", "cluster kubernetes shell k8s pod/x -- sh")
 }
 
 // The shell needs the terminal sshd gives a key that asks for one (ssh

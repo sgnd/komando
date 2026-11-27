@@ -185,7 +185,7 @@ komando pkg update web1                         # only refresh the package index
   (`libssl3` takes openssh-server) stops with `POLICY_BLOCKED` before
   anything is removed.
 - Package names are exact names: no options, patterns or a trailing `-`.
-  For a local `.deb` or `.rpm`, use `komando upload` and `komando exec`.
+  For a local `.deb` or `.rpm`, use `komando copy` and `komando exec`.
 
 ### Security updates
 

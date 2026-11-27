@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# Files rows C69, C70, C71 against real servers: storage mkdir, mv and
+# Files rows C69, C70, C71 against real servers: storage s3 object create, mv and
 # chmod on S3 (Garage), SFTP and FTPS; cp between two servers, a server and
 # a bucket, and two conns; --continue on upload, download and cp. Uses
 # t-e2eops/ keys and /tmp/e2eops paths, and removes them at the end.
@@ -8,28 +8,28 @@ q $K conn add files-sftp 'sftp://deploy@sftp/uploads' --via bastion --password-r
 q $K conn add files-ftps 'ftps://deploy@ftps/www?tls=skip-verify' --via bastion --password-ref secret:files-pass
 echo e2eops > "$TMP/e2eops.txt"
 
-echo "==> storage mkdir, mv, chmod"
+echo "==> storage s3 object create, mv, chmod"
 for c in bucket files-sftp files-ftps; do
-  check "$c mkdir --dry-run" True "$($K storage mkdir "$c" t-e2eops/new/deep --dry-run | jget 'd["data"]["created"] and d["data"]["dry_run"]')"
-  check "$c mkdir" True "$($K storage mkdir "$c" t-e2eops/new/deep | jget 'd["data"]["created"]')"
-  check "$c mkdir again" False "$($K storage mkdir "$c" t-e2eops/new/deep | jget 'd["data"]["created"]')"
-  check "$c the empty folder lists" 0 "$($K storage ls "$c" t-e2eops/new/deep/ | jget 'd["data"]["count"]')"
+  check "$c mkdir --dry-run" True "$($K storage "$(sprov "$c")" object create "$c" t-e2eops/new/deep --dry-run | jget 'd["data"]["created"] and d["data"]["dry_run"]')"
+  check "$c mkdir" True "$($K storage "$(sprov "$c")" object create "$c" t-e2eops/new/deep | jget 'd["data"]["created"]')"
+  check "$c mkdir again" False "$($K storage "$(sprov "$c")" object create "$c" t-e2eops/new/deep | jget 'd["data"]["created"]')"
+  check "$c the empty folder lists" 0 "$($K storage "$(sprov "$c")" object list "$c" t-e2eops/new/deep/ | jget 'd["data"]["count"]')"
   q $K copy "$TMP/e2eops.txt" "$c:t-e2eops/a.txt"
   q $K copy "$TMP/e2eops.txt" "$c:t-e2eops/b.txt"
-  check "$c mv --dry-run" True "$($K storage mv "$c" t-e2eops/a.txt t-e2eops/new/ --dry-run | jget 'd["data"]["dry_run"]')"
-  check "$c mv --dry-run changes nothing" True "$($K storage cat "$c" t-e2eops/a.txt | jget 'd["ok"]')"
-  check "$c mv into a folder" t-e2eops/new/a.txt "$($K storage mv "$c" t-e2eops/a.txt t-e2eops/new/ | jget 'd["data"]["dst"]')"
-  check "$c mv took it away" OBJECT_NOT_FOUND "$($K storage cat "$c" t-e2eops/a.txt | jget 'd["error"]["code"]')"
-  check "$c mv over a file stops" FILE_EXISTS "$($K storage mv "$c" t-e2eops/b.txt t-e2eops/new/a.txt | jget 'd["error"]["code"]')"
-  check "$c mv --overwrite" True "$($K storage mv "$c" t-e2eops/b.txt t-e2eops/new/a.txt --overwrite | jget 'd["data"]["replaced"]')"
-  check "$c mv over a file keeps no aside copy" "['t-e2eops/new/a.txt', 't-e2eops/new/deep/']" "$($K storage ls "$c" t-e2eops/new/ | jget 'sorted(o["key"] for o in d["data"]["objects"])')"
+  check "$c mv --dry-run" True "$($K storage "$(sprov "$c")" object move "$c" t-e2eops/a.txt t-e2eops/new/ --dry-run | jget 'd["data"]["dry_run"]')"
+  check "$c mv --dry-run changes nothing" True "$($K storage "$(sprov "$c")" object read "$c" t-e2eops/a.txt | jget 'd["ok"]')"
+  check "$c mv into a folder" t-e2eops/new/a.txt "$($K storage "$(sprov "$c")" object move "$c" t-e2eops/a.txt t-e2eops/new/ | jget 'd["data"]["dst"]')"
+  check "$c mv took it away" OBJECT_NOT_FOUND "$($K storage "$(sprov "$c")" object read "$c" t-e2eops/a.txt | jget 'd["error"]["code"]')"
+  check "$c mv over a file stops" FILE_EXISTS "$($K storage "$(sprov "$c")" object move "$c" t-e2eops/b.txt t-e2eops/new/a.txt | jget 'd["error"]["code"]')"
+  check "$c mv --overwrite" True "$($K storage "$(sprov "$c")" object move "$c" t-e2eops/b.txt t-e2eops/new/a.txt --overwrite | jget 'd["data"]["replaced"]')"
+  check "$c mv over a file keeps no aside copy" "['t-e2eops/new/a.txt', 't-e2eops/new/deep/']" "$($K storage "$(sprov "$c")" object list "$c" t-e2eops/new/ | jget 'sorted(o["key"] for o in d["data"]["objects"])')"
 done
-check "bucket mv is a checked copy" copy_then_delete "$($K storage mv bucket t-e2eops/new/a.txt t-e2eops/c.txt | jget 'd["data"]["method"]')"
-check "bucket mv of a folder is refused" STORAGE_UNSUPPORTED "$($K storage mv bucket t-e2eops/new t-e2eops/old | jget 'd["error"]["code"]')"
-check "sftp mv of a folder" True "$($K storage mv files-sftp t-e2eops/new t-e2eops/old | jget 'd["data"]["folder"]')"
-check "sftp chmod" "0640 0644" "$($K storage chmod files-sftp 0640 t-e2eops/old/a.txt | jget 'd["data"]["mode"] + " " + d["data"]["old_mode"]')"
-check "sftp chmod again says the new mode" 0640 "$($K storage chmod files-sftp 0600 t-e2eops/old/a.txt --dry-run | jget 'd["data"]["old_mode"]')"
-check "chmod on a bucket is refused" STORAGE_UNSUPPORTED "$($K storage chmod bucket 0640 t-e2eops/c.txt | jget 'd["error"]["code"]')"
+check "bucket mv is a checked copy" copy_then_delete "$($K storage s3 object move bucket t-e2eops/new/a.txt t-e2eops/c.txt | jget 'd["data"]["method"]')"
+check "bucket mv of a folder is refused" STORAGE_UNSUPPORTED "$($K storage s3 object move bucket t-e2eops/new t-e2eops/old | jget 'd["error"]["code"]')"
+check "sftp mv of a folder" True "$($K storage sftp object move files-sftp t-e2eops/new t-e2eops/old | jget 'd["data"]["folder"]')"
+check "sftp chmod" "0640 0644" "$($K storage sftp object move files-sftp t-e2eops/old/a.txt --mode 0640 | jget 'd["data"]["mode"] + " " + d["data"]["old_mode"]')"
+check "sftp chmod again says the new mode" 0640 "$($K storage sftp object move files-sftp t-e2eops/old/a.txt --mode 0600 --dry-run | jget 'd["data"]["old_mode"]')"
+check "chmod on a bucket is refused" STORAGE_UNSUPPORTED "$($K storage s3 object move bucket t-e2eops/c.txt --mode 0640 | jget 'd["error"]["code"]')"
 
 echo "==> cp between two remote places"
 dd if=/dev/urandom of="$TMP/e2eops.bin" bs=1048576 count=6 2>/dev/null
@@ -46,7 +46,7 @@ mkdir -p "$TMP/e2eops-tree/sub" && echo one > "$TMP/e2eops-tree/a.txt" && echo t
 q $K copy "$TMP/e2eops-tree" direct:/tmp/e2eops/tree -r
 check "cp -r server to bucket" 2 "$($K copy -r direct:/tmp/e2eops/tree bucket:t-e2eops/ | jget 'd["data"]["results"][0]["files"]')"
 check "cp -r bucket to ftps conn" 2 "$($K copy -r bucket:t-e2eops/tree files-ftps:t-e2eops/ | jget 'd["data"]["results"][0]["files"]')"
-check "cp -r arrived" two "$($K storage cat files-ftps t-e2eops/tree/sub/b.txt | jget 'd["data"]["content"].strip()')"
+check "cp -r arrived" two "$($K storage ftp object read files-ftps t-e2eops/tree/sub/b.txt | jget 'd["data"]["content"].strip()')"
 
 echo "==> --continue"
 head -c 2500000 "$TMP/e2eops.bin" > "$TMP/e2eops.part"
@@ -87,7 +87,7 @@ for c in bucket files-sftp files-ftps; do
 done
 check "an agent's stream shows secret values as [hidden]" True "$(printf 'API_TOKEN=s3cr3t-e2e-value\n' | $K copy - direct:/tmp/e2eops/app.conf >/dev/null; A copy direct:/tmp/e2eops/app.conf - 2>/dev/null | python3 -c 'import sys; s=sys.stdin.read(); print("s3cr3t-e2e-value" not in s)')"
 
-for c in bucket files-sftp files-ftps; do q $K storage rm "$c" --prefix t-e2eops/ --allow-dangerous; done
+for c in bucket files-sftp files-ftps; do q $K storage "$(sprov "$c")" object delete "$c" --prefix t-e2eops/ --allow-dangerous; done
 q $K exec direct --allow-dangerous -- rm -rf /tmp/e2eops
 q $K exec bastion --allow-dangerous -- rm -rf /tmp/e2eops
 q $K conn rm files-sftp files-ftps

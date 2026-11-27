@@ -41,7 +41,7 @@ func TestStandardRenamedIDs(t *testing.T) {
 		{[]string{"queue", "kafka", "topic", "list"}, []string{"queue", "kafka", "topic", "ls"}, "queue.kafka.topic.list"},
 		{[]string{"queue", "kafka", "topic", "show"}, []string{"queue", "kafka", "topic", "describe"}, "queue.kafka.topic.show"},
 		{[]string{"registry", "oci", "image", "list"}, []string{"registry", "oci", "image", "ls"}, "registry.oci.image.list"},
-		{[]string{"storage", "list"}, []string{"storage", "ls"}, "storage.list"},
+		{[]string{"storage", "s3", "object", "list"}, []string{"storage", "s3", "object", "ls"}, "storage.s3.object.list"},
 	} {
 		now, old := findCmd(t, root, c.now...), findCmd(t, root, c.old...)
 		if now != old {
@@ -192,7 +192,7 @@ func TestDbUserShowReplacesGrants(t *testing.T) {
 }
 
 // The top-level `forward` (another name for tunnel, which read like
-// `cluster forward`) is gone; `pf` stays a synonym (C-V17).
+// `cluster kubernetes tunnel start`) is gone; `pf` stays a synonym (C-V17).
 func TestForwardGone(t *testing.T) {
 	invHome(t)
 	if code, _ := runMain(t, "forward", "list"); code != out.ExitUsage {

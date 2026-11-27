@@ -106,7 +106,7 @@ mixes Windows and Linux servers is refused for `exec` (`MIXED_OS`): run
 it once per shell.
 
 Commands that hand words to another program (`exec`, `job start`, `docker
-exec/compose/raw`, `cluster exec/shell/run`, `cache redis raw`) take those words
+exec/compose/raw`, `cluster kubernetes exec/shell/raw`, `cache redis raw`) take those words
 only after `--`; komando's flags go before it. Without `--` the command
 stops with USAGE and runs nothing (komando would read `-y` as `--yes`).
 
@@ -270,14 +270,14 @@ first key naming the command (`{"find": "users", "filter": {...}}`); reads
 run as they are, changes need `--write`, and `db schema`/`db info` describe
 the database.
 
-**Storage** (S3, MinIO, R2, Google Cloud Storage, Azure Blob, WebDAV, FTPS, SFTP, SMB shares): `komando storage list CONN [FOLDER]`,
-`storage cat CONN OBJECT --tail 50` and `komando copy CONN:OBJECT .` read;
-`komando copy FILE CONN:OBJECT` and `storage link` change or share;
-`storage mkdir CONN PATH`, `storage mv CONN SRC DST` (on S3, Google Cloud
-and Azure: a copy that is checked, then the delete) and `storage chmod CONN
-MODE PATH` (SFTP only) change;
-`storage rm` deletes (needs `--allow-dangerous`): list first with
-`storage rm CONN --prefix FOLDER/ --older-than 30d --dry-run`. Object
+**Storage** (S3, MinIO, R2, Google Cloud Storage, Azure Blob, WebDAV, FTPS, SFTP, SMB shares): `komando storage s3 object list CONN [FOLDER]`,
+`storage s3 object read CONN OBJECT --tail 50` and `komando copy CONN:OBJECT .` read;
+`komando copy FILE CONN:OBJECT` and `storage s3 object link` change or share;
+`storage s3 object create CONN PATH`, `storage s3 object move CONN SRC DST` (on S3, Google Cloud
+and Azure: a copy that is checked, then the delete) and `storage sftp object move NAME PATH --mode
+MODE` (SFTP only) change;
+`storage s3 object delete` deletes (needs `--allow-dangerous`): list first with
+`storage s3 object delete CONN --prefix FOLDER/ --older-than 30d --dry-run`. Object
 names are relative to the conn's folder. On a versioned bucket `rm` keeps the old
 versions. The conn itself: `komando test CONN`, `conn edit`, `conn rm`.
 
@@ -287,7 +287,7 @@ CONN` read; `apply` (try `--dry-run` first, the cluster checks it),
 `--allow-dangerous`. To release a new image, use `komando cluster deploy
 CONN deployment/NAME --image IMAGE --wait`; if it goes wrong, `cluster
 rollback CONN deployment/NAME --wait` puts the earlier images back
-(`cluster history` lists the revisions). For anything else, `komando cluster run CONN --
+(`cluster history` lists the revisions). For anything else, `komando cluster kubernetes raw CONN --
 KUBECTL_ARGS...` (needs `--write` to change). Pick a namespace with
 `--namespace` (`-n`); how many is `--limit` (a number after `-n` is
 refused). `status`, `list`, `events` and `helm list` also take a group

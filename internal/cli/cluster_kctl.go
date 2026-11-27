@@ -24,7 +24,7 @@ import (
 )
 
 // kctl is komando's own implementation of the kubectl commands behind
-// `cluster run`: it speaks to the API itself (no kubectl), writes what
+// `cluster kubernetes raw`: it speaks to the API itself (no kubectl), writes what
 // kubectl would print, and ends with kubectl's exit codes (0, or 1 with
 // "error: ..." / "Error from server (...)" on stderr).
 
@@ -140,7 +140,7 @@ func parseKargs(args []string) (kargs, error) {
 			a.bools[key] = !hasVal || val == "true"
 			continue
 		}
-		return a, fmt.Errorf("%s is not a flag of komando's kubectl (see `komando cluster run --help`)", name)
+		return a, fmt.Errorf("%s is not a flag of komando's kubectl (see `komando cluster kubernetes raw --help`)", name)
 	}
 	return a, nil
 }
@@ -157,7 +157,7 @@ func (r *kctlRun) ns() string {
 }
 
 // kctlError ends a command with kubectl's exit code 1. stop, when set, is
-// komando's own safety stop (with its code and hint), which `cluster run`
+// komando's own safety stop (with its code and hint), which `cluster kubernetes raw`
 // returns as it is.
 type kctlError struct {
 	msg  string

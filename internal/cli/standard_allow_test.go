@@ -11,13 +11,12 @@ var (
 		"login aws",
 		"logout aws", // login aws's other half: aws names the cloud, not a verb
 		"policy deny",
-		"storage cat",
-		"storage link",
 	}
 	// S-3.2: key revoke pairs with key deploy, pkg rm with pkg install;
 	// host ca revoke is known_hosts' @revoked, which pairs with host ca add
 	allowPairs = []string{
 		"host ca grant/revoke",
+		"cluster kubernetes tunnel start/stop", // tunnel list and stop are new code (State New): not mounted yet
 		"key grant/revoke",
 		"pkg install/uninstall",
 	}
@@ -92,7 +91,6 @@ var (
 		"bastion",
 		"bq",
 		"client-x",
-		"config",
 		"lab",
 		"local",
 		"mongo-db",

@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"encoding/pem"
+	"maps"
 	"net"
 	"os"
 	"path/filepath"
@@ -38,17 +39,16 @@ type tierRun struct {
 
 var tierRuns = []tierRun{
 	// dangerous
-	{"storage object delete dangerous", "storage.rm", []string{"s3", "a.txt"}, false},
+	{"storage object delete dangerous", "storage.s3.object.delete", []string{"s3", "a.txt"}, false},
 	{"registry image delete dangerous", "registry.oci.image.delete", []string{"reg", "app:1"}, false},
 	{"registry image prune dangerous", "registry.oci.image.prune", []string{"reg", "app", "--keep", "1"}, false},
 	{"database restore dangerous", "db.restore", []string{"pg", "--from", "dump.sql"}, false},
 	{"credential key remove --delete-file dangerous", "key.rm", []string{"k1", "--delete-file"}, false},
 	{"host exec dynamic dangerous", "exec", []string{"dev", "--", "rm -rf /"}, false},
 	{"snippet exec dynamic dangerous", "recipe.run", []string{"wipe", "dev"}, false},
-	{"cluster exec dynamic dangerous", "cluster.exec", []string{"k8s", "pod/a", "--", "rm -rf /"}, false},
-	{"cluster raw dynamic dangerous", "cluster.run", []string{"k8s", "--write", "--", "delete", "pod", "a"}, false},
+	{"cluster exec dynamic dangerous", "cluster.kubernetes.exec", []string{"k8s", "pod/a", "--", "rm -rf /"}, false},
+	{"cluster raw dynamic dangerous", "cluster.kubernetes.raw", []string{"k8s", "--write", "--", "delete", "pod", "a"}, false},
 	{"cache raw dynamic dangerous", "cache.redis.raw", []string{"r", "--write", "--", "FLUSHALL"}, false},
-	{"cache raw dynamic dangerous", "cache.memcached.raw", []string{"m", "--write", "--", "flush_all"}, false},
 	{"database query dynamic dangerous", "db.query", []string{"pg", "--write", "DROP TABLE t"}, false},
 	{"host ssh add --proxy-command dynamic dangerous", "host.add", []string{"x", "--address", "10.0.0.9", "--proxy-command", "rm -rf /"}, false},
 	{"host ssh edit --proxy-command dynamic dangerous", "host.edit", []string{"dev", "--proxy-command", "rm -rf /"}, false},
@@ -69,10 +69,9 @@ var tierRuns = []tierRun{
 	{"host edit --protected=false safety", "host.edit", []string{"prod", "--protected=false"}, false},
 	{"database edit --protected=false safety", "conn.edit", []string{"pg-prot", "--protected=false"}, false},
 	{"cache edit --protected=false safety", "cache.redis.edit", []string{"r-prot", "--protected=false"}, false},
-	{"cache edit --protected=false safety", "cache.memcached.edit", []string{"m-prot", "--protected=false"}, false},
-	{"storage edit --protected=false safety", "conn.edit", []string{"s3-prot", "--protected=false"}, false},
+	{"storage edit --protected=false safety", "storage.s3.edit", []string{"s3-prot", "--protected=false"}, false},
 	{"registry edit --protected=false safety", "registry.oci.edit", []string{"reg-prot", "--protected=false"}, false},
-	{"cluster edit --protected=false safety", "conn.edit", []string{"k8s-prot", "--protected=false"}, false},
+	{"cluster edit --protected=false safety", "cluster.kubernetes.edit", []string{"k8s-prot", "--protected=false"}, false},
 	{"floor", "conn.edit", []string{"pg", "--notes", "x"}, false},
 	{"floor", "conn.rm", []string{"pg"}, false},
 	{"floor", "conn.rename", []string{"pg", "pg9"}, false},
@@ -95,7 +94,7 @@ var tierRuns = []tierRun{
 	{"host shell person", "shell", []string{"dev"}, false},
 	{"database shell person", "db.shell", []string{"pg"}, false},
 	{"database backup dynamic person", "db.dump", []string{"pg", "--to", "pg.sql"}, false}, // C424: every connection
-	{"cluster shell person", "cluster.shell", []string{"k8s", "pod/a"}, false},
+	{"cluster shell person", "cluster.kubernetes.shell", []string{"k8s", "pod/a"}, false},
 	{"credential certificate add person", "host.ca.add", []string{"ca1", "--key", "ca.pub", "--hosts", "*.corp.example"}, false},
 	{"host ssh trust --reset person", "host.trust", []string{"prod", "--reset"}, false},
 	{"export --sealed person", "export", []string{"--sealed", "--to", "out.kmd"}, false},
@@ -111,14 +110,12 @@ var tierRuns = []tierRun{
 	{"floor", "cache.redis.raw", []string{"r", "--", "GET", "k"}, false},
 	{"floor", "cache.redis.remove", []string{"r"}, false},
 	{"floor", "cache.redis.rename", []string{"r", "r9"}, false},
-	{"floor", "cache.memcached.add", []string{"m2", "memcached://127.0.0.1:1"}, false},
-	{"floor", "cache.memcached.edit", []string{"m", "--notes", "x"}, false},
-	{"floor", "cache.memcached.raw", []string{"m", "--", "stats"}, false},
-	{"floor", "cache.memcached.remove", []string{"m"}, false},
-	{"floor", "cache.memcached.rename", []string{"m", "m9"}, false},
-	{"floor", "cluster.exec", []string{"k8s", "pod/a", "--", "ls"}, false},
-	{"floor", "cluster.forward", []string{"k8s", "svc/a", "18080:80"}, false},
-	{"floor", "cluster.run", []string{"k8s", "--", "get", "pods"}, false},
+	{"floor", "cluster.kubernetes.edit", []string{"k8s", "--notes", "x"}, false},
+	{"floor", "cluster.kubernetes.exec", []string{"k8s", "pod/a", "--", "ls"}, false},
+	{"floor", "cluster.kubernetes.raw", []string{"k8s", "--", "get", "pods"}, false},
+	{"floor", "cluster.kubernetes.remove", []string{"k8s"}, false},
+	{"floor", "cluster.kubernetes.rename", []string{"k8s", "k8s9"}, false},
+	{"floor", "cluster.kubernetes.tunnel.start", []string{"k8s", "svc/a", "18080:80"}, false},
 	{"floor", "config.set", []string{"parallel", "4"}, false},
 	{"floor", "db.add", []string{"pg2", "postgres://u@127.0.0.1:1/app"}, false},
 	{"floor", "db.query", []string{"pg", "SELECT 1"}, false},
@@ -154,10 +151,13 @@ var tierRuns = []tierRun{
 	{"floor", "registry.oci.image.copy", []string{"reg:app:1", "reg:app:2"}, false},
 	{"credential run dynamic safety", "secret.run", []string{"--env", "X=secret:pw", "--", "true"}, false},
 	{"floor", "ssh-gate.line", []string{"--name", "phone", "ca.pub"}, false},
-	{"floor", "storage.add", []string{"s4", "s3://key@bucket/p?endpoint=http://127.0.0.1:1"}, false},
-	{"storage object link dynamic safety", "storage.link", []string{"s3", "a.txt"}, false},
-	{"floor", "storage.mkdir", []string{"s3", "dir/"}, false},
-	{"floor", "storage.mv", []string{"s3", "a.txt", "b.txt"}, false},
+	{"floor", "storage.s3.add", []string{"s4", "s3://key@bucket/p?endpoint=http://127.0.0.1:1"}, false},
+	{"floor", "storage.s3.edit", []string{"s3", "--notes", "x"}, false},
+	{"floor", "storage.s3.remove", []string{"s3"}, false},
+	{"floor", "storage.s3.rename", []string{"s3", "s39"}, false},
+	{"storage object link dynamic safety", "storage.s3.object.link", []string{"s3", "a.txt"}, false},
+	{"floor", "storage.s3.object.create", []string{"s3", "dir/"}, false},
+	{"floor", "storage.s3.object.move", []string{"s3", "a.txt", "b.txt"}, false},
 	{"floor", "tunnel.start", []string{"dev", "-L", "15432:localhost:5432"}, false},
 	{"floor", "vpn.add", []string{"v2", "socks", "--proxy-address", "127.0.0.1:1082"}, false},
 	{"floor", "vpn.down", []string{"wg"}, false},
@@ -189,9 +189,11 @@ var tierUnreached = map[string]string{
 	"floor | secret.keychain":                                "tests run with KOMANDO_KEYCHAIN=off; a plain run is the not --off person row",
 	"floor | host.ca.rm":                                     "adding the CA it removes needs a person",
 	"floor | tunnel.stop":                                    "no stop for an agent: change on an unprotected target",
-	"floor | cluster.add":                                    "a Kubernetes conn comes only from import kubeconfig; a swarm is no conn kind",
+	"floor | cluster.swarm.raw":                              "a swarm manager is a server until E1 gives it an entry; kubernetes raw holds the run",
+	"cluster raw dynamic dangerous | cluster.swarm.raw":      "a swarm manager is a server until E1 gives it an entry; kubernetes raw holds the run",
+	"floor | cluster.kubernetes.add":                         "a Kubernetes conn logs in with a whole kubeconfig from the vault, which a unit run has not got",
 	"floor | secret.run":                                     "an agent always meets the row: secret run always hands a secret on",
-	"floor | storage.link":                                   "an agent always meets the row: a link is always --reveal for an agent",
+	"floor | storage.s3.object.link":                         "an agent always meets the row: a link is always --reveal for an agent",
 }
 
 // tierDisagree are the runs whose stop is not the one the tier names, with
@@ -200,13 +202,12 @@ var tierUnreached = map[string]string{
 // until its line goes.
 var tierDisagree = map[string]string{
 	// the same strength under another code (C429: one code later)
-	"host.edit prod --protected=false":              "PROTECTED_TARGET", // vpn edit gives SAFETY_SETTING
-	"conn.edit pg-prot --protected=false":           "PROTECTED_TARGET",
-	"cache.redis.edit r-prot --protected=false":     "PROTECTED_TARGET",
-	"cache.memcached.edit m-prot --protected=false": "PROTECTED_TARGET",
-	"conn.edit s3-prot --protected=false":           "PROTECTED_TARGET",
-	"registry.oci.edit reg-prot --protected=false":  "PROTECTED_TARGET",
-	"conn.edit k8s-prot --protected=false":          "PROTECTED_TARGET",
+	"host.edit prod --protected=false":                   "PROTECTED_TARGET", // vpn edit gives SAFETY_SETTING
+	"conn.edit pg-prot --protected=false":                "PROTECTED_TARGET",
+	"cache.redis.edit r-prot --protected=false":          "PROTECTED_TARGET",
+	"storage.s3.edit s3-prot --protected=false":          "PROTECTED_TARGET",
+	"registry.oci.edit reg-prot --protected=false":       "PROTECTED_TARGET",
+	"cluster.kubernetes.edit k8s-prot --protected=false": "PROTECTED_TARGET",
 }
 
 // tierProof is the test that asserts a stop without --dry-run.
@@ -230,7 +231,7 @@ var tierProvedBy = map[string]tierProof{
 	"config vault keychain dynamic safety | secret.keychain": {test: "TestSecretKeychainOff"},
 	"floor | secret.keychain":                                {test: "TestSecretKeychainNeedsPerson"},
 	"floor | host.ca.rm":                                     {test: "TestHostCAPersonAddsAndAnyoneRemoves"},
-	"floor | cluster.add":                                    {test: "TestClusterAddKind"},
+	"floor | cluster.kubernetes.add":                         {test: "TestClusterAddKind"},
 }
 
 func TestTierMatchesRuntime(t *testing.T) {
@@ -488,7 +489,8 @@ func tierNeeded() map[string]string {
 		}
 		ids := l.Today // a leaf with no command of its own is run as the one it carries
 		if handlers[l.Key] != nil {
-			ids = []string{strings.Join(l.Path(), ".")} // a moved leaf is run as itself
+			own := strings.Join(l.Path(), ".")
+			ids = []string{own} // a moved leaf is run as itself
 		}
 		if len(ids) == 0 {
 			ids = l.Carries
@@ -594,12 +596,11 @@ func tierSeed(t *testing.T) {
 		st.Conns["pg"] = &store.Conn{Name: "pg", Kind: "postgres", URL: "postgres://u@127.0.0.1:1/app"}
 		st.Conns["pg-prot"] = &store.Conn{Name: "pg-prot", Kind: "postgres", URL: "postgres://u@127.0.0.1:2/app", Protected: true}
 		st.Conns["r-prot"] = &store.Conn{Name: "r-prot", Kind: "redis", URL: "redis://127.0.0.1:3", Protected: true}
-		st.Conns["m-prot"] = &store.Conn{Name: "m-prot", Kind: "memcached", URL: "memcached://127.0.0.1:3", Protected: true}
 		st.Conns["s3-prot"] = &store.Conn{Name: "s3-prot", Kind: "s3", URL: "s3://key@bucket2/p?endpoint=http://127.0.0.1:3", Protected: true}
 		st.Conns["reg-prot"] = &store.Conn{Name: "reg-prot", Kind: "registry", URL: "registry://127.0.0.1:3?tls=false", Protected: true}
 		st.Conns["k8s-prot"] = &store.Conn{Name: "k8s-prot", Kind: "k8s", URL: "k8s://127.0.0.1:3", Protected: true}
 		st.Conns["r"] = &store.Conn{Name: "r", Kind: "redis", URL: "redis://127.0.0.1:1"}
-		st.Conns["m"] = &store.Conn{Name: "m", Kind: "memcached", URL: "memcached://127.0.0.1:1"}
+		maps.Copy(st.Conns, tierProviderConns())
 		st.Conns["s3"] = &store.Conn{Name: "s3", Kind: "s3", URL: "s3://key@bucket/p?endpoint=http://127.0.0.1:1"}
 		for _, q := range queueTierConns {
 			st.Conns[q.name] = &store.Conn{Name: q.name, Kind: q.provider, URL: q.url}
@@ -669,6 +670,65 @@ func listenFakeSSH(t *testing.T) int {
 		}
 	}()
 	return s.port
+}
+
+// tierProviders are the providers a moved type runs: each provider of a key
+// has its own run of every row, on its own path (TestTierRunsNeverShrink).
+var tierProviders = map[string]map[string]string{
+	"cache": {"memcached": "memcached://127.0.0.1:1"},
+	"storage": {"gcs": "gs://bucket/p", "azblob": "azblob://acct@box/p", "sftp": "sftp://u@127.0.0.1:1/p",
+		"ftp": "ftps://u@127.0.0.1:1/p", "smb": "smb://u@127.0.0.1:1/share", "webdav": "webdav://u@127.0.0.1:1/dav?insecure=1"},
+}
+
+// tierProviderConns are the conns the runs of tierProviders name: one for
+// each provider and a protected one.
+func tierProviderConns() map[string]*store.Conn {
+	conns := map[string]*store.Conn{}
+	for _, byProvider := range tierProviders {
+		for p, url := range byProvider {
+			kind := strings.SplitN(url, "://", 2)[0]
+			if p == "gcs" {
+				kind = "gcs" // gs://
+			}
+			conns[p] = &store.Conn{Name: p, Kind: kind, URL: url}
+			// komando takes two names of one server as one: the protected conn has an address of its own
+			prot := strings.NewReplacer("127.0.0.1:1", "127.0.0.1:3", "bucket/", "bucket-prot/", "box/", "box-prot/").Replace(url)
+			conns[p+"-prot"] = &store.Conn{Name: p + "-prot", Kind: kind, URL: prot, Protected: true}
+		}
+	}
+	return conns
+}
+
+func init() {
+	for p, url := range tierProviders["cache"] {
+		id := "cache." + p
+		tierRuns = append(tierRuns,
+			tierRun{"cache raw dynamic dangerous", id + ".raw", []string{p, "--write", "--", "flush_all"}, false},
+			tierRun{"cache edit --protected=false safety", id + ".edit", []string{p + "-prot", "--protected=false"}, false},
+			tierRun{"floor", id + ".add", []string{p + "2", url}, false},
+			tierRun{"floor", id + ".edit", []string{p, "--notes", "x"}, false},
+			tierRun{"floor", id + ".raw", []string{p, "--", "stats"}, false},
+			tierRun{"floor", id + ".remove", []string{p}, false},
+			tierRun{"floor", id + ".rename", []string{p, p + "9"}, false})
+		tierDisagree[id+".edit "+p+"-prot --protected=false"] = "PROTECTED_TARGET"
+	}
+	for p, url := range tierProviders["storage"] {
+		id := "storage." + p
+		tierRuns = append(tierRuns,
+			tierRun{"storage object delete dangerous", id + ".object.delete", []string{p, "a.txt"}, false},
+			tierRun{"storage edit --protected=false safety", id + ".edit", []string{p + "-prot", "--protected=false"}, false},
+			tierRun{"floor", id + ".add", []string{p + "2", url}, false},
+			tierRun{"floor", id + ".edit", []string{p, "--notes", "x"}, false},
+			tierRun{"floor", id + ".remove", []string{p}, false},
+			tierRun{"floor", id + ".rename", []string{p, p + "9"}, false},
+			tierRun{"floor", id + ".object.create", []string{p, "dir/"}, false},
+			tierRun{"floor", id + ".object.move", []string{p, "a.txt", "b.txt"}, false})
+		tierDisagree[id+".edit "+p+"-prot --protected=false"] = "PROTECTED_TARGET"
+		if p == "gcs" || p == "azblob" {
+			tierRuns = append(tierRuns, tierRun{"storage object link dynamic safety", id + ".object.link", []string{p, "a.txt"}, false})
+			tierUnreached["floor | "+id+".object.link"] = "an agent always meets the row: a link is always --reveal for an agent"
+		}
+	}
 }
 
 // queueTierConns are one conn of each queue provider: the runs of the queue

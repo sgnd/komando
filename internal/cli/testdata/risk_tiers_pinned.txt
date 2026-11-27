@@ -27,13 +27,10 @@ cache.set	plain=change	highest=read
 cert	plain=read	highest=read
 cert.check	plain=read	highest=read
 cluster	plain=read	highest=read
-cluster.add	plain=change	highest=read
 cluster.apply	plain=change	highest=read
 cluster.deploy	plain=change	highest=read
 cluster.describe	plain=read	highest=read
 cluster.events	plain=read	highest=read
-cluster.exec	plain=dangerous	highest=dangerous
-cluster.forward	plain=change	highest=read
 cluster.get	plain=read	highest=read
 cluster.helm	plain=read	highest=read
 cluster.helm.history	plain=read	highest=read
@@ -41,15 +38,28 @@ cluster.helm.list	plain=read	highest=read
 cluster.helm.status	plain=read	highest=read
 cluster.helm.values	plain=read	highest=read
 cluster.history	plain=read	highest=read
+cluster.kubernetes	plain=read	highest=read
+cluster.kubernetes.add	plain=change	highest=read
+cluster.kubernetes.edit	plain=change	highest=safety
+cluster.kubernetes.exec	plain=dangerous	highest=dangerous
+cluster.kubernetes.list	plain=read	highest=read
+cluster.kubernetes.raw	plain=dangerous	highest=dangerous
+cluster.kubernetes.remove	plain=change	highest=read
+cluster.kubernetes.rename	plain=change	highest=read
+cluster.kubernetes.shell	plain=person	highest=person
+cluster.kubernetes.show	plain=read	highest=read
+cluster.kubernetes.test	plain=read	highest=read
+cluster.kubernetes.tunnel	plain=read	highest=read
+cluster.kubernetes.tunnel.start	plain=change	highest=read
 cluster.list	plain=read	highest=read
 cluster.logs	plain=read	highest=read
 cluster.restart	plain=change	highest=read
 cluster.rm	plain=dangerous	highest=dangerous
 cluster.rollback	plain=change	highest=read
-cluster.run	plain=dangerous	highest=dangerous
 cluster.scale	plain=change	highest=dangerous
-cluster.shell	plain=person	highest=person
 cluster.status	plain=read	highest=read
+cluster.swarm	plain=read	highest=read
+cluster.swarm.raw	plain=dangerous	highest=dangerous
 completion	plain=change	highest=read
 completion.bash	plain=change	highest=read
 completion.fish	plain=change	highest=read
@@ -69,7 +79,7 @@ conn.rename	plain=change	highest=read
 conn.rm	plain=change	highest=read
 conn.show	plain=read	highest=read
 conn.test	plain=read	highest=read
-copy	plain=change	highest=dangerous
+cp	plain=change	highest=read
 db	plain=read	highest=read
 db.activity	plain=read	highest=read
 db.add	plain=change	highest=read
@@ -107,6 +117,7 @@ docker.start	plain=change	highest=read
 docker.stats	plain=read	highest=read
 docker.stop	plain=change	highest=read
 doctor	plain=read	highest=read
+download	plain=read	highest=read
 environment	plain=change	highest=read
 exec	plain=dangerous	highest=dangerous
 exit-codes	plain=change	highest=read
@@ -193,9 +204,9 @@ policy.list	plain=read	highest=read
 policy.rm	plain=safety	highest=safety
 policy.show	plain=read	highest=read
 probe cache redis edit prod-redis --protected=false	safety
+probe cluster kubernetes edit prod-k8s --protected=false	safety
 probe cluster scale c1 web 0	dangerous
 probe conn edit app-db --protected=false	safety
-probe copy ./site web1:/srv --sync --delete	dangerous
 probe export --for-phone	person
 probe export --sealed	person
 probe group rm big	change
@@ -213,6 +224,8 @@ probe queue kafka edit prod-kafka --protected=false	safety
 probe recipe add r1 --overwrite --read-only	safety
 probe registry oci edit ghcr --protected=false	safety
 probe secret keychain	person
+probe storage s3 edit prod-s3 --protected=false	safety
+probe sync ./site web1:/srv --delete	dangerous
 probe vpn edit kantor --mfa=false	safety
 probe vpn edit kantor --protected=false	safety
 queue	plain=read	highest=read
@@ -354,14 +367,110 @@ ssh-gate.line	plain=read	highest=read
 ssh-gate.status	plain=read	highest=read
 status	plain=read	highest=read
 storage	plain=read	highest=read
-storage.add	plain=change	highest=read
-storage.cat	plain=read	highest=read
-storage.chmod	plain=change	highest=read
-storage.link	plain=safety	highest=safety
-storage.list	plain=read	highest=read
-storage.mkdir	plain=change	highest=read
-storage.mv	plain=change	highest=read
-storage.rm	plain=dangerous	highest=dangerous
+storage.azblob	plain=read	highest=read
+storage.azblob.add	plain=change	highest=read
+storage.azblob.edit	plain=change	highest=safety
+storage.azblob.list	plain=read	highest=read
+storage.azblob.object	plain=read	highest=read
+storage.azblob.object.create	plain=change	highest=read
+storage.azblob.object.delete	plain=dangerous	highest=dangerous
+storage.azblob.object.link	plain=safety	highest=safety
+storage.azblob.object.list	plain=read	highest=read
+storage.azblob.object.move	plain=change	highest=read
+storage.azblob.object.read	plain=read	highest=read
+storage.azblob.remove	plain=change	highest=read
+storage.azblob.rename	plain=change	highest=read
+storage.azblob.show	plain=read	highest=read
+storage.azblob.test	plain=read	highest=read
+storage.download	plain=read	highest=read
+storage.ftp	plain=read	highest=read
+storage.ftp.add	plain=change	highest=read
+storage.ftp.edit	plain=change	highest=safety
+storage.ftp.list	plain=read	highest=read
+storage.ftp.object	plain=read	highest=read
+storage.ftp.object.create	plain=change	highest=read
+storage.ftp.object.delete	plain=dangerous	highest=dangerous
+storage.ftp.object.list	plain=read	highest=read
+storage.ftp.object.move	plain=change	highest=read
+storage.ftp.object.read	plain=read	highest=read
+storage.ftp.remove	plain=change	highest=read
+storage.ftp.rename	plain=change	highest=read
+storage.ftp.show	plain=read	highest=read
+storage.ftp.test	plain=read	highest=read
+storage.gcs	plain=read	highest=read
+storage.gcs.add	plain=change	highest=read
+storage.gcs.edit	plain=change	highest=safety
+storage.gcs.list	plain=read	highest=read
+storage.gcs.object	plain=read	highest=read
+storage.gcs.object.create	plain=change	highest=read
+storage.gcs.object.delete	plain=dangerous	highest=dangerous
+storage.gcs.object.link	plain=safety	highest=safety
+storage.gcs.object.list	plain=read	highest=read
+storage.gcs.object.move	plain=change	highest=read
+storage.gcs.object.read	plain=read	highest=read
+storage.gcs.remove	plain=change	highest=read
+storage.gcs.rename	plain=change	highest=read
+storage.gcs.show	plain=read	highest=read
+storage.gcs.test	plain=read	highest=read
+storage.s3	plain=read	highest=read
+storage.s3.add	plain=change	highest=read
+storage.s3.edit	plain=change	highest=safety
+storage.s3.list	plain=read	highest=read
+storage.s3.object	plain=read	highest=read
+storage.s3.object.create	plain=change	highest=read
+storage.s3.object.delete	plain=dangerous	highest=dangerous
+storage.s3.object.link	plain=safety	highest=safety
+storage.s3.object.list	plain=read	highest=read
+storage.s3.object.move	plain=change	highest=read
+storage.s3.object.read	plain=read	highest=read
+storage.s3.remove	plain=change	highest=read
+storage.s3.rename	plain=change	highest=read
+storage.s3.show	plain=read	highest=read
+storage.s3.test	plain=read	highest=read
+storage.sftp	plain=read	highest=read
+storage.sftp.add	plain=change	highest=read
+storage.sftp.edit	plain=change	highest=safety
+storage.sftp.list	plain=read	highest=read
+storage.sftp.object	plain=read	highest=read
+storage.sftp.object.create	plain=change	highest=read
+storage.sftp.object.delete	plain=dangerous	highest=dangerous
+storage.sftp.object.list	plain=read	highest=read
+storage.sftp.object.move	plain=change	highest=read
+storage.sftp.object.read	plain=read	highest=read
+storage.sftp.remove	plain=change	highest=read
+storage.sftp.rename	plain=change	highest=read
+storage.sftp.show	plain=read	highest=read
+storage.sftp.test	plain=read	highest=read
+storage.smb	plain=read	highest=read
+storage.smb.add	plain=change	highest=read
+storage.smb.edit	plain=change	highest=safety
+storage.smb.list	plain=read	highest=read
+storage.smb.object	plain=read	highest=read
+storage.smb.object.create	plain=change	highest=read
+storage.smb.object.delete	plain=dangerous	highest=dangerous
+storage.smb.object.list	plain=read	highest=read
+storage.smb.object.move	plain=change	highest=read
+storage.smb.object.read	plain=read	highest=read
+storage.smb.remove	plain=change	highest=read
+storage.smb.rename	plain=change	highest=read
+storage.smb.show	plain=read	highest=read
+storage.smb.test	plain=read	highest=read
+storage.upload	plain=change	highest=read
+storage.webdav	plain=read	highest=read
+storage.webdav.add	plain=change	highest=read
+storage.webdav.edit	plain=change	highest=safety
+storage.webdav.list	plain=read	highest=read
+storage.webdav.object	plain=read	highest=read
+storage.webdav.object.create	plain=change	highest=read
+storage.webdav.object.delete	plain=dangerous	highest=dangerous
+storage.webdav.object.list	plain=read	highest=read
+storage.webdav.object.move	plain=change	highest=read
+storage.webdav.object.read	plain=read	highest=read
+storage.webdav.remove	plain=change	highest=read
+storage.webdav.rename	plain=change	highest=read
+storage.webdav.show	plain=read	highest=read
+storage.webdav.test	plain=read	highest=read
+sync	plain=change	highest=dangerous
 test	plain=read	highest=read
 tunnel	plain=read	highest=read
 tunnel.list	plain=read	highest=read
@@ -369,6 +478,7 @@ tunnel.serve	plain=change	highest=read
 tunnel.start	plain=safety	highest=safety
 tunnel.stop	plain=change	highest=read
 update	plain=safety	highest=safety
+upload	plain=change	highest=read
 version	plain=read	highest=read
 vpn	plain=read	highest=read
 vpn.add	plain=change	highest=read

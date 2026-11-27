@@ -23,7 +23,7 @@ var t3Cases = []struct {
 	{"queue.kafka.topic.delete", "the name t", []string{"queue", "kafka", "topic", "delete", "q1", "t"}},
 	{"cache.rm", "the name k", []string{"cache", "rm", "cache1", "k"}},
 	{"cache.rm", "2 (", []string{"cache", "rm", "cache1", "k", "k2"}},
-	{"storage.rm", "the name k", []string{"storage", "rm", "st1", "k"}},
+	{"storage.s3.object.delete", "the name k", []string{"storage", "sftp", "object", "delete", "st1", "k"}},
 	{"cluster.rm", "the name web", []string{"cluster", "rm", "prod", "deployment", "web"}},
 	{"cluster.scale", "the name web", []string{"cluster", "scale", "prod", "deploy/web", "0"}},
 	{"registry.oci.image.delete", "the name a:1", []string{"registry", "oci", "image", "delete", "reg1", "a:1"}},

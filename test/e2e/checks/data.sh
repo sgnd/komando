@@ -55,7 +55,7 @@ for c in bucket files-sftp files-ftps; do
   check "$c upload into a folder keeps the name" t-e2edata/dir/e2edata.txt "$($K copy "$TMP/e2edata.txt" "$c:t-e2edata/dir/" | jget 'd["data"]["key"]')"
   $K copy "$TMP/e2edata.txt" "$c:../escape.txt" --dry-run >/dev/null; check "$c upload dry-run checks the key" 2 $?
   check "$c upload dry-run says it replaces" True "$($K copy "$TMP/e2edata.txt" "$c:t-e2edata/dir/" --dry-run | jget 'd["data"]["replaced"]')"
-  $K storage ls "$c" t-e2edata/nope/ >/dev/null; check "$c ls of a missing folder" 3 $?
+  $K storage "$(sprov "$c")" object list "$c" t-e2edata/nope/ >/dev/null; check "$c ls of a missing folder" 3 $?
   rm -rf "$TMP/e2edata-dl"; mkdir -p "$TMP/e2edata-dl"
   q $K copy "$c:t-e2edata/dir/e2edata.txt" "$TMP/e2edata-dl/" --dry-run
   check "$c download dry-run writes nothing" 0 "$(ls -A "$TMP/e2edata-dl" | wc -l | tr -d ' ')"
@@ -66,21 +66,21 @@ for c in bucket files-sftp files-ftps; do
 done
 printf 'ab\0cd' > "$TMP/e2edata.bin"
 q $K copy "$TMP/e2edata.bin" bucket:t-e2edata/
-$K storage cat bucket t-e2edata/e2edata.bin >/dev/null; check "cat of binary is usage" 2 $?
-$K storage cat bucket t-e2edata/dir/e2edata.txt --head 1 --tail 1 >/dev/null; check "cat --head with --tail is usage" 2 $?
-check "cat cap is said on stderr" True "$($K storage cat bucket t-e2edata/dir/e2edata.txt --max-bytes 2 -o text 2>&1 >/dev/null | grep -q 'raise --max-bytes' && echo True || echo False)"
-check "link through --via warns" True "$($K storage link bucket t-e2edata/dir/e2edata.txt | jget '"bastion" in d["data"]["warning"]')"
-check "rm dry-run text has one key per line" True "$($K storage rm bucket --prefix t-e2edata/ --dry-run -o text 2>/dev/null | grep -q '  t-e2edata/dir/e2edata.txt$' && echo True || echo False)"
+$K storage s3 object read bucket t-e2edata/e2edata.bin >/dev/null; check "cat of binary is usage" 2 $?
+$K storage s3 object read bucket t-e2edata/dir/e2edata.txt --head 1 --tail 1 >/dev/null; check "cat --head with --tail is usage" 2 $?
+check "cat cap is said on stderr" True "$($K storage s3 object read bucket t-e2edata/dir/e2edata.txt --max-bytes 2 -o text 2>&1 >/dev/null | grep -q 'raise --max-bytes' && echo True || echo False)"
+check "link through --via warns" True "$($K storage s3 object link bucket t-e2edata/dir/e2edata.txt | jget '"bastion" in d["data"]["warning"]')"
+check "rm dry-run text has one key per line" True "$($K storage s3 object delete bucket --prefix t-e2edata/ --dry-run -o text 2>/dev/null | grep -q '  t-e2edata/dir/e2edata.txt$' && echo True || echo False)"
 # a person deleting a folder sees the list, then types what goes: the one
 # object's name here (several are asked as a count)
-O=$(ptyrun 'wrong\n' env NO_COLOR=1 TERM=dumb "$K" -o text storage rm bucket --prefix t-e2edata/dir/ | tr -d '\r'); RC=$?
-check "person: storage rm --prefix lists before asking" 1 "$(sed -n '/e2edata.txt/,$p' <<<"$O" | grep -c 'Type the name t-e2edata/dir/e2edata.txt to continue')"
-check "person: a wrong name stops storage rm (6)" 6 "$RC"
-check "person: a wrong name deleted nothing" True "$($K storage ls bucket t-e2edata/dir/ | jget 'len(d["data"]["objects"]) == 1')"
-ptyrun 't-e2edata/dir/e2edata.txt\n' env NO_COLOR=1 TERM=dumb "$K" -o text storage rm bucket --prefix t-e2edata/dir/ >/dev/null
-$K storage ls bucket t-e2edata/dir/ >/dev/null; check "person: the right name deleted the folder" 3 $?
+O=$(ptyrun 'wrong\n' env NO_COLOR=1 TERM=dumb "$K" -o text storage s3 object delete bucket --prefix t-e2edata/dir/ | tr -d '\r'); RC=$?
+check "person: storage s3 object delete --prefix lists before asking" 1 "$(sed -n '/e2edata.txt/,$p' <<<"$O" | grep -c 'Type the name t-e2edata/dir/e2edata.txt to continue')"
+check "person: a wrong name stops storage s3 object delete (6)" 6 "$RC"
+check "person: a wrong name deleted nothing" True "$($K storage s3 object list bucket t-e2edata/dir/ | jget 'len(d["data"]["objects"]) == 1')"
+ptyrun 't-e2edata/dir/e2edata.txt\n' env NO_COLOR=1 TERM=dumb "$K" -o text storage s3 object delete bucket --prefix t-e2edata/dir/ >/dev/null
+$K storage s3 object list bucket t-e2edata/dir/ >/dev/null; check "person: the right name deleted the folder" 3 $?
 for c in bucket files-sftp files-ftps; do
-  q $K storage rm "$c" --prefix t-e2edata/ --allow-dangerous
+  q $K storage "$(sprov "$c")" object delete "$c" --prefix t-e2edata/ --allow-dangerous
 done
 rm -rf "$TMP/e2edata-dl" "$TMP/e2edata.txt" "$TMP/e2edata.bin" "$TMP/e2edata.sql"
 set -e
