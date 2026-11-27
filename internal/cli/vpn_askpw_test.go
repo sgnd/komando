@@ -54,14 +54,14 @@ func TestVpnAddAskPassword(t *testing.T) {
 	if v, err := vault.Get("lab-pass"); err != nil || v != "Typed-Vpn-1" {
 		t.Errorf("vault: %q %v", v, err)
 	}
-	var rec map[string]any // the stored password's record, not vpn add's
+	var rec map[string]any // the stored password's record: vpn add with the event secret.set (rule R1)
 	for _, line := range strings.Split(auditText(t), "\n") {
 		var r map[string]any
 		if json.Unmarshal([]byte(line), &r) == nil && r["secret"] == "lab-pass" {
 			rec = r
 		}
 	}
-	if rec["command"] != "credential.password.add" || rec["for"] != "vpn lab" || strings.Contains(fmtAny(rec), "Typed-Vpn-1") {
+	if rec["command"] != "vpn.socks.add" || rec["event"] != "secret.set" || rec["for"] != "vpn lab" || strings.Contains(fmtAny(rec), "Typed-Vpn-1") {
 		t.Errorf("the password's audit record: %v", rec)
 	}
 	// an l2tp login: the password is stored, so no person is needed at vpn up
