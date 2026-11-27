@@ -158,8 +158,10 @@ func sshGateStatusCmd() *cobra.Command {
 		Long: `Through an SSH key that ssh-gate limits, prints the key's name and what it
 may do: change things, or read only, whether its reads may reach the
 network (--network on its line), and whether it may open a login shell on
-a server (--shell-access on its line). ssh-gate answers it itself, so an app
-can check what its key is before it sends anything else. Typed on the
+a server (--shell-access on its line), and whether it acts on this server
+only (here: a phone's key on a server, see key deploy --public-key-file).
+ssh-gate answers it itself, so an app can check what its key is before it
+sends anything else. Typed on the
 komando computer, it says the command did not come through a key.`,
 		Example: "  ssh HOST komando ssh-gate status -o json\n  komando ssh-gate status",
 		Args:    cobra.NoArgs,
