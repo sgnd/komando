@@ -356,6 +356,7 @@ func TestGuardAssignedCommandOutputStaysKnown(t *testing.T) {
 		`tmp="$(mktemp)"; echo x > "$tmp"`,
 		`d="$(mktemp -d)"; cp a.txt "$d/a.txt"`,
 		`stamp=$(date '+%F %T'); echo x > "/tmp/run $stamp.log"`,
+		`stamp=$(date '+%F rm -rf /'); echo "$stamp"`,
 	}, false)
 	checkLines(t, home, home, []string{
 		`tmp="$(mktemp; cat /tmp/n)"; echo x > "$tmp"`,
@@ -458,6 +459,7 @@ func TestGuardAliasedCommandIsCheckedAsAWriter(t *testing.T) {
 	// and can change files itself: the commands after it keep their own check.
 	checkLines(t, home, home, []string{
 		`alias ll='ls -l'; ll > /tmp/out`,
+		`alias ll='ls -l'; read d < /tmp/n; ls "$d"`,
 		`source ./env.sh; echo "$NAME" > /tmp/out`,
 		"source ./aliases.sh\ncat \"$X\"",
 		"eval \"$(cat /tmp/n)\"\n[ -n \"$err\" ] && echo \"$err\"",
@@ -515,6 +517,7 @@ func TestGuardScriptTextNamesNoWrittenFile(t *testing.T) {
 		`sed -i 's/a/$b/' notes.md`,
 		`sed -i.bak 's/^$1$/x/' notes.md`,
 		`echo x > '$HOME-notes.txt'`,
+		`read x < /tmp/n; echo x > '/tmp/$x'`,
 		`a=$(grep -n x notes.md | cut -d: -f1); sed -n "${a},$((a+5))p" notes.md`,
 		`f=$(grep -rln x .); sed -n "$(grep -n y $f | cut -d: -f1),+45p" $f`,
 		`read n < /tmp/n; sed -i '' "s/a/$n/" notes.md`,

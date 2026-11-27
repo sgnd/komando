@@ -19,6 +19,8 @@ func TestGuardCopyIntoAProtectedFolderIsRefused(t *testing.T) {
 		`mv /tmp/x/.komando ~/`,
 		`cp -r /tmp/x/* ~/`,
 		`cp -R /tmp/x/.claude ~`,
+		`ditto /tmp/x ~`,
+		`ditto /tmp/x ~/`,
 		`cp -at ~ /tmp/x/.ssh`,
 		`cp -r -t ~ /tmp/x/.ssh`,
 		`cp /tmp/x/settings.json ~/.claude/`,
@@ -133,8 +135,17 @@ func TestGuardGitWritesTheWorktreeIsChecked(t *testing.T) {
 		`git -C /tmp/r config --file ~/.claude/settings.json a.b c`,
 		`git -C /tmp/r config --file=`+repo+`/.claude/settings.json a.b c`,
 		`git -C /tmp/r bundle create ~/.claude/settings.json HEAD`,
+		`x=$(cat /tmp/n); git -C /tmp/r worktree add "$x"`,
+		`x=$(cat /tmp/n); git -C /tmp/r worktree move /tmp/r/wt "$x"`,
+		`x=$(cat /tmp/n); git -C /tmp/r config --file "$x" a.b c`,
+		`x=$(cat /tmp/n); git -C /tmp/r bundle create "$x" HEAD`,
 	)
 	checkLines(t, home, repo, lines, true)
+	// from a folder that holds no guard file, only the -C folder can refuse
+	checkLines(t, home, t.TempDir(), []string{
+		`git -C ~ checkout -- .`,
+		`git -C ` + repo + ` pull`,
+	}, true)
 }
 
 // A worktree Claude Code keeps in REPO/.claude/worktrees/NAME is a project
