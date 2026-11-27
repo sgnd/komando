@@ -31,7 +31,7 @@ func TestHiddenColumnCannotBeRenamed(t *testing.T) {
 		"select * from (select card c from users)",
 		"select id, name from users",
 	} {
-		e := wantCode(t, "REVEAL_NEEDS_PERSON", "db", "query", "dev", q)
+		e := wantCode(t, "REVEAL_NEEDS_PERSON", "database", "sqlite", "query", "dev", q)
 		if strings.Contains(e.Message+e.Hint, "Ada") || !strings.Contains(e.Hint, "*") {
 			t.Errorf("%s: %+v", q, e)
 		}
@@ -40,12 +40,12 @@ func TestHiddenColumnCannotBeRenamed(t *testing.T) {
 	if got := strs(customer(t, "dev")); got[1] != "[hidden: column]" || got[4] != "[hidden: column]" {
 		t.Errorf("select *: %v", got)
 	}
-	mustRun(t, "db", "query", "dev", "select id, email from users where id = 1")
-	mustRun(t, "db", "query", "dev", "select count(*) as names from users") // "names" is another word
+	mustRun(t, "database", "sqlite", "query", "dev", "select id, email from users where id = 1")
+	mustRun(t, "database", "sqlite", "query", "dev", "select count(*) as names from users") // "names" is another word
 	// a person's query is theirs
 	os.Unsetenv("KOMANDO_AGENT")
 	resetApproval()
-	d := mustRun(t, "db", "query", "dev", "select name as customer from users")
+	d := mustRun(t, "database", "sqlite", "query", "dev", "select name as customer from users")
 	if b, _ := json.Marshal(d); !strings.Contains(string(b), "Ada Lovelace") {
 		t.Errorf("a person: %s", b)
 	}
@@ -78,7 +78,7 @@ func TestDumpRefusedWherePersonalDataIsHidden(t *testing.T) {
 	personalDB(t)
 	dir := t.TempDir()
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
-	e := wantCode(t, "NEEDS_PERSON", "db", "dump", "prod", "--to", filepath.Join(dir, "prod.db"))
+	e := wantCode(t, "NEEDS_PERSON", "database", "sqlite", "backup", "prod", "--to", filepath.Join(dir, "prod.db"))
 	if !strings.Contains(e.Hint, "own terminal") || strings.Contains(e.Hint, "--reveal") || len(e.Flags()) != 0 {
 		t.Errorf("hint: %+v", e)
 	}
@@ -86,24 +86,24 @@ func TestDumpRefusedWherePersonalDataIsHidden(t *testing.T) {
 		t.Error("the dump was written")
 	}
 	// the cli tests' window stand-in panics: --reveal must not ask
-	wantCode(t, "NEEDS_PERSON", "db", "dump", "prod", "--to", filepath.Join(dir, "prod.db"), "--reveal")
+	wantCode(t, "NEEDS_PERSON", "database", "sqlite", "backup", "prod", "--to", filepath.Join(dir, "prod.db"), "--reveal")
 	setGate(tcl, false, gateReveal)
 	if _, err := os.Stat(filepath.Join(dir, "prod.db")); err == nil {
 		t.Error("the dump was written with --reveal")
 	}
-	if d, e := invRun(t, "--dry-run", "db", "dump", "prod", "--to", filepath.Join(dir, "prod.db")); e != nil || blockedCode(d) != "NEEDS_PERSON" {
+	if d, e := invRun(t, "--dry-run", "database", "sqlite", "backup", "prod", "--to", filepath.Join(dir, "prod.db")); e != nil || blockedCode(d) != "NEEDS_PERSON" {
 		t.Errorf("a dry run reports the stop: %v %+v", d, e)
 	}
 	setGate(tcl, false, gateDryRun)
-	wantCode(t, "NEEDS_PERSON", "db", "dump", "dev", "--to", filepath.Join(dir, "dev.db")) // nothing hidden there, still a dump (TestAgentDumpNeedsPersonOnEveryConn)
+	wantCode(t, "NEEDS_PERSON", "database", "sqlite", "backup", "dev", "--to", filepath.Join(dir, "dev.db")) // nothing hidden there, still a dump (TestAgentDumpNeedsPersonOnEveryConn)
 	os.Unsetenv("KOMANDO_AGENT")
 	resetApproval()
 	mustRun(t, "conn", "edit", "dev", "--option", "mask_columns=name")
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
-	wantCode(t, "NEEDS_PERSON", "db", "dump", "dev", "--to", filepath.Join(dir, "dev2.db"))
+	wantCode(t, "NEEDS_PERSON", "database", "sqlite", "backup", "dev", "--to", filepath.Join(dir, "dev2.db"))
 	os.Unsetenv("KOMANDO_AGENT")
 	resetApproval()
-	mustRun(t, "db", "dump", "prod", "--to", filepath.Join(dir, "person.db")) // a person's own
+	mustRun(t, "database", "sqlite", "backup", "prod", "--to", filepath.Join(dir, "person.db")) // a person's own
 }
 
 // blockedCode is the code of the stop a dry run reports, or "".
@@ -238,8 +238,8 @@ func TestMaskingSurvivesOtherWaysToTheConn(t *testing.T) {
 	if got := strs(customer(t, "dev2")); got[1] != "[hidden: column]" || got[2] != "[hidden: email]" {
 		t.Errorf("a second conn to the same database: %v", got)
 	}
-	wantCode(t, "REVEAL_NEEDS_PERSON", "db", "query", "dev2", "select name n from users")
-	wantCode(t, "NEEDS_PERSON", "db", "dump", "dev2", "--to", filepath.Join(t.TempDir(), "x.db"))
+	wantCode(t, "REVEAL_NEEDS_PERSON", "database", "sqlite", "query", "dev2", "select name n from users")
+	wantCode(t, "NEEDS_PERSON", "database", "sqlite", "backup", "dev2", "--to", filepath.Join(t.TempDir(), "x.db"))
 }
 
 // A MongoDB command is searched as the server reads it: an escape in the
@@ -472,19 +472,19 @@ func TestAgentDumpNeedsPersonOnEveryConn(t *testing.T) {
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	tcl.ask = func(string) (allowed, shown bool) { t.Error("an agent's dump opened the window"); return true, true }
 	t.Cleanup(func() { tcl.ask = nil })
-	e := wantCode(t, "NEEDS_PERSON", "db", "dump", "dev", "--to", file)
+	e := wantCode(t, "NEEDS_PERSON", "database", "sqlite", "backup", "dev", "--to", file)
 	if !strings.Contains(e.Hint, "own terminal") || len(e.Flags()) != 0 {
 		t.Errorf("hint: %+v", e)
 	}
 	for _, flag := range []string{"--yes", "--allow-dangerous", "--reveal"} {
 		resetApproval()
-		wantCode(t, "NEEDS_PERSON", "db", "dump", "dev", "--to", file, flag)
+		wantCode(t, "NEEDS_PERSON", "database", "sqlite", "backup", "dev", "--to", file, flag)
 		setGate(tcl, false, gateYes, gateAllowDangerous, gateReveal)
 	}
 	if _, err := os.Stat(file); err == nil {
 		t.Error("the dump was written for an AI agent")
 	}
-	if d, e := invRun(t, "--dry-run", "db", "dump", "dev", "--to", file); e != nil || blockedCode(d) != "NEEDS_PERSON" {
+	if d, e := invRun(t, "--dry-run", "database", "sqlite", "backup", "dev", "--to", file); e != nil || blockedCode(d) != "NEEDS_PERSON" {
 		t.Errorf("a dry run reports the stop: %v %+v", d, e)
 	}
 	setGate(tcl, false, gateDryRun)
@@ -492,5 +492,5 @@ func TestAgentDumpNeedsPersonOnEveryConn(t *testing.T) {
 	// a person's own dump asks nothing
 	os.Unsetenv("KOMANDO_AGENT")
 	resetApproval()
-	mustRun(t, "db", "dump", "dev", "--to", filepath.Join(dir, "person.db"))
+	mustRun(t, "database", "sqlite", "backup", "dev", "--to", filepath.Join(dir, "person.db"))
 }

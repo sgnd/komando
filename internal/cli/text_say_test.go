@@ -35,7 +35,7 @@ func TestNotFoundSayScopedWithNearMatch(t *testing.T) {
 		t.Errorf("JSON message changed: %q", e.Message)
 	}
 	e = out.Errf(out.ExitNotFound, "TARGET_NOT_FOUND", "h", "target %q picked no conns", "nosuch").ForKind("conn")
-	notFoundSay(tcl, e, sayCmd(t, "db", "query"))
+	notFoundSay(tcl, e, sayCmd(t, "database", "postgres", "query"))
 	if e.TextMessage() != `No database named "nosuch".` || !strings.Contains(e.TextHint(), "no database yet") {
 		t.Errorf("no databases: %q / %q", e.TextMessage(), e.TextHint())
 	}
@@ -141,9 +141,9 @@ func TestFillHint(t *testing.T) {
 	if e.Hint != "run `komando exec TARGET -- true` or `komando test corp`" {
 		t.Errorf("vpn: got %q", e.Hint)
 	}
-	e = out.Errf(out.ExitConnect, "X", "`komando exec TARGET -- true`; `komando db query CONN \"select 1\"`", "x")
+	e = out.Errf(out.ExitConnect, "X", "`komando exec TARGET -- true`; `komando database KIND query NAME \"select 1\"`", "x")
 	fillHint(e, "web1")
-	if e.Hint != "`komando exec web1 -- true`; `komando db query CONN \"select 1\"`" {
+	if e.Hint != "`komando exec web1 -- true`; `komando database KIND query NAME \"select 1\"`" {
 		t.Errorf("server: got %q", e.Hint)
 	}
 	// S-8.7: SERVER only with a server, NAME only in a command of the

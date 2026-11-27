@@ -88,6 +88,16 @@ func moveType(typ string) { moveLeaves(typ, capability.All()) }
 func moveLeaves(typ string, leaves []capability.Leaf) {
 	movedTypes = append(movedTypes, typ)
 	providerIDs[typ] = true // the type's own group shares its key with the provider groups
+	if old := familyOfType(typ); old != typ {
+		// the type's group had another word today (db): the new group gets
+		// its key and its gate entry; the old group keeps them while it
+		// still holds commands
+		cmdKeys[typ] = safetyKey{typ: typ}
+		providerIDs[old] = true // the old group runs nothing of its own either
+		if v, ok := gateNoNetwork[old]; ok {
+			gateNoNetwork[typ] = v
+		}
+	}
 	tables := idTables()
 	carried := map[string][]map[string]any{} // per new ID, per table, the entries it carries
 	var built []capability.Leaf
@@ -133,7 +143,7 @@ func moveLeaves(typ string, leaves []capability.Leaf) {
 				gkey.area = words[i]
 			}
 			cmdKeys[gid], providerIDs[gid] = gkey, true
-			if _, ok := gateNoNetwork[typ]; ok {
+			if _, ok := gateNoNetwork[typ]; ok { // set above when today's word differs
 				gateNoNetwork[gid] = nil
 			}
 		}

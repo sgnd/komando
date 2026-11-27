@@ -85,12 +85,12 @@ func TestWouldNeedEveryFlag(t *testing.T) {
 func TestDryRunNotSimulated(t *testing.T) {
 	invHome(t)
 	mustRun(t, "conn", "add", "lite", "sqlite://"+filepath.Join(t.TempDir(), "app.db"))
-	mustRun(t, "db", "query", "lite", "--write", "CREATE TABLE a (x int)") // the file is there
-	_, text := runMain(t, "--dry-run", "db", "query", "lite", "--write", "VACUUM")
+	mustRun(t, "database", "sqlite", "query", "lite", "--write", "CREATE TABLE a (x int)") // the file is there
+	_, text := runMain(t, "--dry-run", "database", "sqlite", "query", "lite", "--write", "VACUUM")
 	if !strings.Contains(text, `"not_simulated":["VACUUM statement: this statement cannot be rolled back, so it was not executed"]`) {
 		t.Errorf("dry run of VACUUM: %s", text)
 	}
-	if _, text = runMain(t, "--dry-run", "db", "query", "lite", "--write", "CREATE TABLE t (x int)"); strings.Contains(text, "not_simulated") {
+	if _, text = runMain(t, "--dry-run", "database", "sqlite", "query", "lite", "--write", "CREATE TABLE t (x int)"); strings.Contains(text, "not_simulated") {
 		t.Errorf("a statement the dry run tried: %s", text)
 	}
 	if e := toErr(fmt.Errorf("vault: %w", store.ErrDryRun)); e.Code != "DRY_RUN_UNSUPPORTED" || e.Exit != out.ExitUsage {

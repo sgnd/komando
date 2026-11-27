@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
-	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -19,7 +18,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/sgnd/komando/internal/cli/kit/term"
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/dbx"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
@@ -36,50 +35,49 @@ import (
 
 const dbDefaultTimeout = 30 * time.Second
 
+// dbCmd is today's db group: what is left in it (schema, info, sessions,
+// users ...) is done by `database KIND query` and goes in cut step D. The
+// database type itself (add, query, backup, restore, shell and the
+// inventory verbs) is built from the table (init below).
 func dbCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "db",
 		Aliases: []string{"sql"},
-		Short:   "Databases: query safely, look at the schema, back up, restore",
-		Long: `Look at and query your databases. Add one with ` + "`komando db add`" + `.
+		Short:   "Databases: the schema, sessions, sizes and users",
+		Long: `Look at a database's schema, sessions, locks, sizes and users. Add a
+database, query it, back it up and restore it with ` + "`komando database postgres`" + `
+(or mysql, sqlserver, oracle, sqlite, mongodb, clickhouse, snowflake,
+bigquery): ` + "`komando database postgres add`" + `, ` + "`komando database postgres query`" + `.
 
-Without --write every query runs in a read-only transaction (SQL Server: one
-that is always rolled back), so nothing can change. With --write, try
---dry-run first: it runs the SQL and rolls it back, showing how many rows
-would change.
-
-Each database is a conn: list them with ` + "`komando list kind:db`" + `, check one with
-` + "`komando test TARGET`" + `, change it with ` + "`komando conn edit NAME`" + `, rename it with
-` + "`komando conn rename OLD NEW`" + ` and remove it with ` + "`komando conn rm TARGET`" + `.`,
-		Example: `  komando db add prod-db postgres://app@10.0.0.5:5432/shop --password-ref secret:shop-pw
-  komando db query prod-db "select id, email from users order by id desc limit 10"
-  komando db schema prod-db users
-  komando db dump prod-db --to prod.sql.gz
-  komando db restore staging-db --from prod.sql.gz --dry-run`,
+Each database is a conn: list them with ` + "`komando list kind:db`" + `.`,
+		Example: `  komando db schema prod-db users
+  komando db info prod-db
+  komando db activity prod-db
+  komando db user list prod-db`,
 	}
-	c.AddCommand(connAddCmdFor("db"), dbQueryCmd(), dbSchemaCmd(), dbExplainCmd(), dbInfoCmd(), dbActivityCmd(), dbLocksCmd(), dbSizesCmd(), dbKillCmd(), dbUserCmd(), dbGrantCmd(false), dbGrantCmd(true), dbShellCmd(), dbDumpCmd(), dbRestoreCmd())
+	c.AddCommand(dbSchemaCmd(), dbExplainCmd(), dbInfoCmd(), dbActivityCmd(), dbLocksCmd(), dbSizesCmd(), dbKillCmd(), dbUserCmd(), dbGrantCmd(false), dbGrantCmd(true))
 	var withTimeout func(*cobra.Command)
 	withTimeout = func(cmd *cobra.Command) {
 		for _, sub := range cmd.Commands() {
 			connHints(sub)
-			switch sub.Name() {
-			case "add", "dump", "restore": // dump and restore have no time limit of their own
-			default:
-				if sub.Annotations == nil {
-					sub.Annotations = map[string]string{}
-				}
-				sub.Annotations[timeoutHelp] = "time limit for each query (default 30s, or the conn's statement_timeout option)"
-				withTimeout(sub)
+			if sub.Annotations == nil {
+				sub.Annotations = map[string]string{}
 			}
+			sub.Annotations[timeoutHelp] = queryTimeout
+			withTimeout(sub)
 		}
 	}
 	withTimeout(c)
 	return c
 }
 
+// queryTimeout is the --timeout line of a command that runs queries.
+const queryTimeout = "time limit for each query (default 30s, or the conn's statement_timeout option)"
+
 // connHints makes the hints of a db command name the conn it was given:
-// `komando db schema CONN TABLE` becomes `komando db schema prod-db TABLE`,
-// so a hint is the exact next command for a person and an agent.
+// `komando db schema CONN TABLE` becomes `komando db schema prod-db
+// TABLE`, so a hint is the exact next command for a person and an agent
+// (fillHint also puts the provider in place of KIND).
 func connHints(c *cobra.Command) {
 	if f := strings.Fields(c.Use); c.RunE == nil || len(f) < 2 || f[1] != "CONN" {
 		return
@@ -97,8 +95,27 @@ func connHints(c *cobra.Command) {
 	}
 }
 
-// connInHint is CONN inside a komando db or conn command in a hint.
-var connInHint = regexp.MustCompile("`komando (?:db|conn) [a-z ]*?CONN\\b")
+// connInHint is CONN inside a komando db, conn or database command in a
+// hint.
+var connInHint = regexp.MustCompile("`komando (?:db|conn|database [A-Za-z]+) [a-z ]*?CONN\\b")
+
+// connKindWord is the provider word of the saved conn called name, or ""
+// when there is none: a hint then keeps KIND.
+func connKindWord(name string) string {
+	st, err := loadState()
+	if err != nil {
+		return ""
+	}
+	c, ok := st.Conns[name]
+	if !ok {
+		return ""
+	}
+	t, err := driver.Parse(c.URL)
+	if err != nil {
+		return ""
+	}
+	return providerWord(t.Kind)
+}
 
 type dbFlags struct {
 	write bool
@@ -115,15 +132,8 @@ type dbFlags struct {
 	maxBytes string
 }
 
-func dbQueryCmd() *cobra.Command {
-	var f dbFlags
-	var file string
-	c := &cobra.Command{
-		Use:   "query CONN [SQL]",
-		Short: "Run SQL (read only by default)",
-		Long: `Runs SQL on a database and prints the rows. Without --write it only reads:
-komando runs it in a read-only transaction, and stops it after 30s.`,
-		Annotations: map[string]string{tableOutput: "yes", helpNotes: `More about db query:
+// queryNotes is the longer help of `database KIND query`.
+const queryNotes = `More about query:
 A run stops after 30s unless --timeout (or the statement_timeout option in
 the database URL) allows more. Placeholders take their values from
 --arg, in order. -o csv and -o tsv print every row (up to --limit, if
@@ -161,15 +171,16 @@ go as STRING, so write CAST(? AS INT64) for a number.
 On MongoDB the text is a command document in JSON, its first key
 naming it ({"find": ...}, {"aggregate": ...}, {"update": ...}). komando rates
 it as it rates SQL: what it does not know as a read needs --write. "$db"
-picks another database than the URL's.`},
-		Example: `  komando db query prod-db "select id, email from users order by id desc limit 10"
-  komando db query mongo-db '{"find": "users", "filter": {"plan": "pro"}, "limit": 10}'   # MongoDB
-  komando db query prod-db "select * from users where email = $1" --arg bob@example.com
-  komando db query prod-db --write --dry-run "update users set plan = 'pro' where id = 42"
-  komando db query prod-db --file migration.sql --write --dry-run
-  komando db query prod-db -o csv "select * from orders" > orders.csv
-  komando db query bq "select count(*) from shop.orders" --max-bytes 50GB   # BigQuery`,
-		Args: cobra.RangeArgs(1, 2),
+picks another database than the URL's.`
+
+// dbQueryCmd is the body of `database KIND query` (runBody).
+func dbQueryCmd() *cobra.Command {
+	var f dbFlags
+	var file string
+	c := &cobra.Command{
+		Use:   "query CONN [SQL]",
+		Short: "Run SQL (read only by default)",
+		Args:  cobra.RangeArgs(1, 2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			var q string
 			switch {
@@ -197,7 +208,6 @@ picks another database than the URL's.`},
 	}
 	f.bind(c)
 	c.Flags().StringVarP(&file, "file", "f", "", "read SQL from a file ('-' for stdin)")
-	c.SetFlagErrorFunc(sqlFlagError)
 	return c
 }
 
@@ -215,7 +225,7 @@ func (f *dbFlags) pickTable(cmd *cobra.Command) {
 // starts with a -- comment, which reads as a flag.
 func sqlFlagError(cmd *cobra.Command, err error) error {
 	if rest, ok := strings.CutPrefix(err.Error(), "unknown flag: --"); ok && (rest == "" || strings.ContainsAny(rest, " \t\n")) {
-		return out.Errf(out.ExitUsage, "USAGE", "put -- before the SQL (komando db query CONN -- \"-- note ...\"), or read it with -f FILE or -f - (stdin)",
+		return out.Errf(out.ExitUsage, "USAGE", "put -- before the SQL (komando database KIND query NAME -- \"-- note ...\"), or read it with -f FILE or -f - (stdin)",
 			"the SQL starts with a -- comment, which reads as a flag")
 	}
 	return err
@@ -346,73 +356,6 @@ type schemaData struct {
 	Tables []dbx.Table `json:"tables"`
 }
 
-func (d schemaData) Text() string {
-	if len(d.Tables) == 0 {
-		return term.NoneYet("tables", "", "the database is empty, or the conn's user cannot see them")
-	}
-	var sb strings.Builder
-	detailed := false
-	for _, t := range d.Tables {
-		if len(t.Columns) > 0 {
-			detailed = true
-		}
-	}
-	if !detailed {
-		var rows [][]string
-		for _, t := range d.Tables {
-			n := ""
-			if t.RowEstimate != nil {
-				n = fmt.Sprint(*t.RowEstimate)
-			}
-			rows = append(rows, []string{qualified(t), t.Type, n})
-		}
-		return term.DataTable([]string{"table", "type", "rows (est.)"}, rows)
-	}
-	for i, t := range d.Tables {
-		if i > 0 {
-			sb.WriteString("\n")
-		}
-		fmt.Fprintf(&sb, "%s (%s)\n", qualified(t), t.Type)
-		var rows [][]string
-		for _, c := range t.Columns {
-			var notes []string
-			if c.PrimaryKey {
-				notes = append(notes, "primary key")
-			}
-			switch c.Identity {
-			case "":
-			case "auto_increment", "identity":
-				notes = append(notes, c.Identity)
-			default:
-				notes = append(notes, "generated "+c.Identity+" as identity")
-			}
-			if !c.Nullable {
-				notes = append(notes, "not null")
-			}
-			if c.Default != nil {
-				notes = append(notes, "default "+*c.Default)
-			}
-			rows = append(rows, []string{"  " + c.Name, c.Type, strings.Join(notes, ", ")})
-		}
-		tab := term.LayoutTable([]string{"", "", ""}, rows)
-		sb.WriteString(tab[strings.Index(tab, "\n")+1:]) // no header line
-		for _, ix := range t.Indexes {
-			fmt.Fprintf(&sb, "  index %s\n", dash(ix.Definition))
-		}
-		for _, c := range t.Constraints {
-			fmt.Fprintf(&sb, "  %s %s: %s\n", c.Type, c.Name, c.Definition)
-		}
-	}
-	return sb.String()
-}
-
-func qualified(t dbx.Table) string {
-	if t.Schema == "" || t.Schema == "public" {
-		return t.Name
-	}
-	return t.Schema + "." + t.Name
-}
-
 // dbTimeout is --timeout, or 30s without it.
 func dbTimeout(cl *call) time.Duration {
 	if cl.flags.timeout > 0 {
@@ -472,81 +415,6 @@ type queryData struct {
 	*dbx.Result
 }
 
-func (d queryData) Text() string {
-	var sb strings.Builder
-	for i, r := range d.Results {
-		if len(d.Results) > 1 {
-			if i > 0 {
-				sb.WriteString("\n")
-			}
-			fmt.Fprintf(&sb, "-- %s\n", r.SQL)
-		}
-		switch {
-		case r.Skipped != "":
-			fmt.Fprintf(&sb, "(%s)\n", r.Skipped)
-		case r.Columns != nil:
-			wide := len(r.Columns) == 1 // a single column (EXPLAIN plans, lists) is shown in full
-			names := make([]string, len(r.Columns))
-			for j, c := range r.Columns {
-				names[j] = c.Name
-			}
-			rows := make([][]string, len(r.Rows))
-			for k, row := range r.Rows {
-				rows[k] = make([]string, len(row))
-				for j, v := range row {
-					rows[k][j] = cellText(v, wide)
-				}
-			}
-			sb.WriteString(term.LayoutTable(names, rows))
-			note := ""
-			switch r.Truncated {
-			case "rows":
-				note = ", stopped at the --limit row cap: add LIMIT/WHERE, or raise --limit (0 = none)"
-			case "bytes":
-				note = ", stopped at the output size cap: select fewer columns or rows, or raise --max-output"
-			}
-			fmt.Fprintf(&sb, "(%d row%s%s)\n", r.RowCount, term.Plural(r.RowCount), note)
-		case r.RowsAffected != nil:
-			fmt.Fprintf(&sb, "%d row%s affected\n", *r.RowsAffected, term.Plural(int(*r.RowsAffected)))
-		default:
-			sb.WriteString("ok\n")
-		}
-		if r.BytesProcessed != nil && r.Skipped == "" {
-			fmt.Fprintf(&sb, "(BigQuery read %s)\n", term.HumanBytes(*r.BytesProcessed))
-		}
-	}
-	if d.RolledBack {
-		sb.WriteString("dry run: rolled back, nothing changed\n")
-	}
-	return sb.String()
-}
-
-// cellText shows one value in a table: NULL, text with tabs and newlines
-// escaped, binary as \x hex (like psql).
-func cellText(v any, wide bool) string {
-	switch x := v.(type) {
-	case nil:
-		return "NULL"
-	case string:
-		x = strings.NewReplacer("\t", `\t`, "\n", `\n`, "\r", `\r`).Replace(x)
-		if !wide {
-			x = term.TruncateWidth(x, 80)
-		}
-		return x
-	case map[string]string:
-		b, err := base64.StdEncoding.DecodeString(x["base64"])
-		if err != nil {
-			return "<binary>"
-		}
-		h := `\x` + hex.EncodeToString(b)
-		if !wide {
-			h = term.TruncateWidth(h, 80)
-		}
-		return h
-	}
-	return fmt.Sprint(v)
-}
-
 // runSQL classifies, guards, runs and audits one SQL text on one conn.
 func runSQL(cl *call, ctx context.Context, name, connExpr, query string, f dbFlags) error {
 	st, err := loadState()
@@ -594,7 +462,7 @@ func runSQL(cl *call, ctx context.Context, name, connExpr, query string, f dbFla
 	}
 	if f.write {
 		// --write opens a read-write transaction whatever the SQL looks like,
-		// so a protected conn asks even for SQL rated read (as db shell does)
+		// so a protected conn asks even for SQL rated read (as shell does)
 		v := plan.Verdict
 		v.Risk = max(v.Risk, driver.RiskWrite)
 		if err := GuardConns(cl, st, []*store.Conn{c}, v); err != nil {
@@ -654,7 +522,7 @@ func printQuery(cl *call, name string, c *store.Conn, plan driver.SQLPlan, f dbF
 		// a cut export would look whole in a file: refuse it instead
 		for _, r := range res.Results {
 			if r.Truncated == "bytes" {
-				return out.Errf(out.ExitError, "OUTPUT_TRUNCATED", "raise --max-output (bytes, for example --max-output 104857600), or narrow the SQL with WHERE or LIMIT; a whole database copies with `komando db dump`",
+				return out.Errf(out.ExitError, "OUTPUT_TRUNCATED", "raise --max-output (bytes, for example --max-output 104857600), or narrow the SQL with WHERE or LIMIT; a whole database copies with `komando database "+dbKindOf(c)+" backup "+c.Name+"`",
 					"the rows are more than the output size cap (--max-output) allows; nothing was printed")
 			}
 		}
@@ -762,4 +630,144 @@ func classifyQuery(kind, query string, f dbFlags) (driver.SQLPlan, error) {
 		return plan, err
 	}
 	return driver.PlanOnly(plan), nil
+}
+
+// The database type of the table: komando database KIND VERB. The
+// inventory verbs are the shared ones (inventoryHandlers); query, backup,
+// restore and shell run today's db query, dump, restore and shell, each on
+// the conns of its provider only.
+func init() {
+	providers := []string{"postgres", "mysql", "sqlserver", "oracle", "sqlite", "mongodb", "clickhouse", "snowflake", "bigquery"}
+	inventoryHandlers("database", providers...)
+	backups := map[string]bool{}
+	for _, l := range capability.All() { // one pass: a provider has only the verbs the table builds
+		if l.Type == "database" && l.Verb == "backup" && l.State == capability.Built {
+			backups[l.Provider] = true
+		}
+		body := databaseBodies[l.Verb]
+		if l.Type != "database" || l.State != capability.Built || body == nil {
+			continue
+		}
+		p, verb := l.Provider, l.Verb
+		handlers[l.Key] = func(cl *call, ctx context.Context, in leafInput) error {
+			if err := withDatabase(cl, in.Args[0], p, verb); err != nil {
+				return err
+			}
+			b := body()
+			connHints(b)
+			return runBody(cl, ctx, b, in, nil)
+		}
+	}
+	groupShorts["database"] = "Databases: save them, query them, back them up and restore them"
+	examples["komando database"] = `  komando database postgres add prod-db postgres://app@10.0.0.5:5432/shop --via web1 --dry-run
+  komando database postgres query prod-db "select id, email from users order by id desc limit 10"
+  komando database sqlite query local "select count(*) from users"
+  komando database mysql backup shop-mysql --to backups/`
+	for _, p := range providers {
+		groupShorts["database "+p] = databaseGroupShort[p]
+		examples["komando database "+p] = databaseGroupExamples(p, backups[p])
+	}
+	moveType("database")
+}
+
+// databaseGroupExamples are the examples of `komando database PROVIDER`
+// (3 to 5 lines, a --dry-run line before the add): save, test, query, and
+// a backup where the provider has one.
+func databaseGroupExamples(p string, backup bool) string {
+	entry, url, read, _ := capability.DatabaseExample(p)
+	c := "  komando database " + p + " "
+	via := " --via web1"
+	if p == "sqlite" {
+		via = "" // a file on this computer
+	}
+	ex := c + "add " + entry + " " + url + via + " --dry-run\n" +
+		c + "add " + entry + " " + url + via + "\n" +
+		c + "test " + entry + "\n" +
+		c + "query " + entry + " " + read
+	if backup {
+		ex += "\n" + c + "backup " + entry + " --to backups/"
+	}
+	return ex
+}
+
+// leafExtras give the leaves of a key what cobra keeps outside the table:
+// the annotations their help and output read (tableOutput, helpNotes,
+// timeoutHelp) and their own flag error. Keyed by (type, area, verb), so
+// every provider of a verb gets the same.
+var leafExtras = map[safetyKey]func(c *cobra.Command){
+	{"database", "", "query"}: func(c *cobra.Command) {
+		c.Annotations = map[string]string{tableOutput: "yes", helpNotes: queryNotes, timeoutHelp: queryTimeout}
+		c.SetFlagErrorFunc(sqlFlagError)
+	},
+	{"database", "", "shell"}: func(c *cobra.Command) {
+		c.Annotations = map[string]string{helpNotes: shellNotes, timeoutHelp: queryTimeout}
+	},
+	{"database", "", "backup"}: func(c *cobra.Command) {
+		c.Annotations = map[string]string{helpNotes: backupNotes}
+	},
+	{"database", "", "restore"}: func(c *cobra.Command) {
+		c.Annotations = map[string]string{helpNotes: restoreNotes}
+	},
+}
+
+// databaseBodies are today's commands that the database leaves run
+// (runBody), by verb.
+var databaseBodies = map[string]func() *cobra.Command{
+	"query": dbQueryCmd, "backup": dbDumpCmd, "restore": dbRestoreCmd, "shell": dbShellCmd,
+}
+
+var databaseGroupShort = map[string]string{
+	"postgres":   "PostgreSQL: save a database, query it, back it up and restore it",
+	"mysql":      "MySQL and MariaDB: save a database, query it, back it up and restore it",
+	"sqlserver":  "SQL Server: save a database and query it",
+	"oracle":     "Oracle: save a database and query it",
+	"sqlite":     "SQLite: save a database file, query it and back it up",
+	"mongodb":    "MongoDB: save a database and send it commands",
+	"clickhouse": "ClickHouse: save a database and query it",
+	"snowflake":  "Snowflake: save an account and query it",
+	"bigquery":   "BigQuery: save a project and query it",
+}
+
+// withDatabase is withEntry for the database verbs: a conn of another
+// provider is WRONG_KIND with the path that fits it. A database whose
+// provider has no such verb (a MongoDB backup, a SQLite restore) goes on
+// to the body, which refuses it with the reason and the way to do it.
+// name may be a selector that picks one database (@group, kind:postgres),
+// as for today's db commands.
+func withDatabase(cl *call, name, provider, verb string) error {
+	st, err := loadState()
+	if err != nil {
+		return err
+	}
+	c, err := singleConn(cl, st, name, "db")
+	if err != nil {
+		return err
+	}
+	if t, err := driver.Parse(c.URL); err == nil && typeWord(t.Kind.Family) == "database" {
+		l, ok := capability.Find(capability.Key{Type: "database", Provider: providerWord(t.Kind), Verb: verb})
+		if !ok || l.State != capability.Built {
+			return nil
+		}
+	}
+	return connIsOf(c, "database", provider, verb)
+}
+
+// dbPath is the words that run verb on the saved database called name
+// (komando database postgres backup), with KIND when no conn has that name.
+func dbPath(name, verb string) string {
+	return "komando database " + cmp.Or(connKindWord(name), "KIND") + " " + verb
+}
+
+// dbPathOf is dbPath for a conn in hand.
+func dbPathOf(c *store.Conn, verb string) string {
+	return "komando database " + dbKindOf(c) + " " + verb
+}
+
+// dbKindOf is the provider word of a conn in hand, KIND when its URL does
+// not parse; hints spell the rest of the path so the catalog can read it.
+func dbKindOf(c *store.Conn) string {
+	if t, err := driver.Parse(c.URL); err == nil {
+		return providerWord(t.Kind)
+	}
+	return "KIND"
 }

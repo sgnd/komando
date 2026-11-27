@@ -31,7 +31,7 @@ another program: `job start`, `docker exec`, `docker compose`, `docker raw`,
 ```bash
 komando exec @web -P 20 -- 'df -h / | tail -1'           # up to 20 servers at once
 komando exec tag:prod --sudo -- systemctl is-active nginx
-komando exec db1 --read-only -- 'df -h /var/lib/postgresql'   # SQL itself: komando db query
+komando exec db1 --read-only -- 'df -h /var/lib/postgresql'   # SQL itself: komando database postgres query
 ```
 
 | Flag | What it does |
@@ -147,7 +147,7 @@ subcommand it has not heard of, `kubectl --kubeconfig` and other client
 settings, `sudo -E`, unquoted braces (`{a,b}`), `${x@P}` and other
 expansions bash evaluates, `let`, `printf -v`, `test -v`, `set -x`,
 `psql` and `mysql` (nothing holds them to a read-only transaction; use
-`komando db query`, which is), and setting a variable with an upper-case
+`komando database KIND query`, which is), and setting a variable with an upper-case
 name (`PATH`, `PS4`, `TAR_OPTIONS`, `KUBECONFIG` ...: programs read such
 names as settings or code) by `NAME=`, `export`, `read`, `for` or `-e`.
 Use a name with a lower-case letter (`-e dir=/var/log -- 'du -sh $dir'`);
@@ -353,7 +353,7 @@ Next time: komando logs web1
 ```
 
 - It asks only what the command needs: missing arguments, required flags,
-  and the few values a command is useless without (the SQL of `db query`,
+  and the few values a command is useless without (the SQL of `database KIND query`,
   the command of `exec`). Labels are the real names: `CONN (database):`,
   `TARGET:`, `--old:`. `?` explains the question; Enter takes the default
   in brackets.
@@ -367,7 +367,7 @@ Next time: komando logs web1
   what it would do and asks again). One that deletes for good asks you to
   type the name of what goes (or how many). A protected target asks its
   usual `web1 (protected): this command changes it. Continue? [y/N]` instead.
-- `komando host add` (or `conn add`, `vpn KIND add`, `db add`, `cache redis add`,
+- `komando host add` (or `conn add`, `vpn KIND add`, `database KIND add`, `cache redis add`,
   `queue kafka add`, `storage s3 add`, `cluster kubernetes add`, `registry oci add`) typed alone
   asks that kind's own questions: which kind, a name, the address or the
   parts of the URL, the user, the port, how you log in, and whether it is
@@ -400,7 +400,7 @@ komando shell web1 --dry-run   # shows the server, address, user and --via path;
 
 `shell` logs you in to the server, through its `--via` path (VPN and
 bastions) when it has one. Inside a shell you can type anything, so on a
-protected server komando asks `[y/N]` first, as `db shell` does on a
+protected server komando asks `[y/N]` first, as `database KIND shell` does on a
 protected conn. A shell needs a person at a terminal: agents and scripts
 get `NEEDS_TERMINAL` and use `exec` or `job` instead.
 
@@ -408,7 +408,7 @@ get `NEEDS_TERMINAL` and use `exec` or `job` instead.
 
 When you type a command yourself, komando prints one line saying where you
 are working, before it connects. It does this for the commands you stay
-inside: `shell`, `db shell`, `cluster kubernetes shell`, `cluster kubernetes tunnel start`,
+inside: `shell`, `database KIND shell`, `cluster kubernetes shell`, `cluster kubernetes tunnel start`,
 `logs --follow` and `cluster logs -f`.
 
 ```text
@@ -427,7 +427,7 @@ komando: following logs on web1, web2 (Ctrl-C stops)
   (errors, hints, warnings) in ASCII: `+` for ✓, `x` for ✗, `*` for ●, `->`
   for →, `-` for ·. A result (a file, a row, a log line) is always shown as
   it is.
-- When a `shell` or `db shell` ends, one more line says how:
+- When a `shell` or `database KIND shell` ends, one more line says how:
   `komando: left web1 (exit 0, 12m)` or
   `komando: connection to web1 lost after 3m`.
 - When a command connects a VPN by itself, komando says that the VPN stays

@@ -96,6 +96,7 @@ func mountTable(root *cobra.Command) {
 			c.GroupID = g
 		}
 	}
+	addNounAliases(root) // a top-level group the table made (database) gets its plural too
 }
 
 // hideCarried takes out of today's tree each command whose ID every built
@@ -278,6 +279,12 @@ func buildLeaf(l capability.Leaf, h handler) *cobra.Command {
 		if !o.Generated { // komando makes the value; a person never types it
 			addOption(c.Flags(), o, vals)
 		}
+	}
+	if l.Provider != "" && l.Area == "" && len(l.Args) > 0 && l.Args[0].Name == "NAME" && slices.Contains(movedTypes, l.Type) {
+		c.ValidArgsFunction = entryCompletion(familyOfType(l.Type))
+	}
+	if extra := leafExtras[safetyKey{l.Type, l.Area, l.Verb}]; extra != nil {
+		extra(c)
 	}
 	c.RunE = func(cmd *cobra.Command, args []string) error {
 		in := leafInput{Args: args, ID: strings.Join(l.Key.Path(), "."), Dash: cmd.ArgsLenAtDash(), vals: vals, changed: func(n string) bool { return cmd.Flags().Changed(n) }}

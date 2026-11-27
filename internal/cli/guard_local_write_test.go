@@ -25,7 +25,7 @@ func agentWriteHome(t *testing.T) (home string, protected []string) {
 	mustRun(t, "host", "add", "web1", "u@10.0.0.9") // a person: makes ~/.komando
 	db := filepath.Join(t.TempDir(), "app.db")
 	mustRun(t, "conn", "add", "lite", "sqlite://"+db)
-	mustRun(t, "db", "query", "lite", "--write", "create table t (id int)")
+	mustRun(t, "database", "sqlite", "query", "lite", "--write", "create table t (id int)")
 	for _, d := range []string{".ssh", ".aws", ".kube", ".config/gcloud"} {
 		os.MkdirAll(filepath.Join(home, d), 0o700)
 	}
@@ -69,7 +69,7 @@ func TestAgentLocalWriteCommands(t *testing.T) {
 		for _, args := range [][]string{
 			{"download", "web1", "/etc/hosts", "--to", p},
 			{"cp", "web1:/etc/hosts", p},
-			{"db", "dump", "lite", "--to", p},
+			{"database", "sqlite", "backup", "lite", "--to", p},
 			{"export", "--to", p},
 			{"sync", "web1:/srv/app", p},
 		} {
@@ -92,7 +92,7 @@ func TestAgentLocalWriteCommands(t *testing.T) {
 	// still needs a person there (C424, TestAgentDumpNeedsPersonOnEveryConn)
 	dir := t.TempDir()
 	mustRun(t, "export", "--to", filepath.Join(dir, "list.json"))
-	if _, e := invRun(t, "db", "dump", "lite", "--to", filepath.Join(dir, "lite.db")); e == nil || e.Code != "NEEDS_PERSON" {
+	if _, e := invRun(t, "database", "sqlite", "backup", "lite", "--to", filepath.Join(dir, "lite.db")); e == nil || e.Code != "NEEDS_PERSON" {
 		t.Errorf("an agent's dump to another folder: want NEEDS_PERSON, got %+v", e)
 	}
 }
@@ -167,14 +167,14 @@ func TestAgentDumpBadTargetStopsFirst(t *testing.T) {
 	to := filepath.Join(home, ".ssh", "lite.db")
 	for _, flags := range [][]string{nil, {"--yes"}, {"--reveal"}} {
 		resetApproval()
-		_, e := invRun(t, append([]string{"db", "dump", "lite", "--to", to}, flags...)...)
+		_, e := invRun(t, append([]string{"database", "sqlite", "backup", "lite", "--to", to}, flags...)...)
 		if e == nil || e.Code != "SENSITIVE_FILE" {
 			t.Errorf("%v: want SENSITIVE_FILE, got %+v", flags, e)
 		}
 		setGate(tcl, false, gateYes, gateReveal)
 	}
 	resetApproval()
-	if d, e := invRun(t, "--dry-run", "db", "dump", "lite", "--to", to); e != nil && e.Code != "SENSITIVE_FILE" || e == nil && blockedCode(d) != "SENSITIVE_FILE" {
+	if d, e := invRun(t, "--dry-run", "database", "sqlite", "backup", "lite", "--to", to); e != nil && e.Code != "SENSITIVE_FILE" || e == nil && blockedCode(d) != "SENSITIVE_FILE" {
 		t.Errorf("a dry run reports the first stop: %v %+v", d, e)
 	}
 	setGate(tcl, false, gateDryRun)

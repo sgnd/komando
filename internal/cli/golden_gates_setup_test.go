@@ -115,10 +115,10 @@ var goldenGates = [][]string{
 	{"cache", "rm", "cache1", "k"},
 	{"cache", "rm", "pcache", "k"},
 	{"cache", "redis", "raw", "cache1", "--write", "--", "FLUSHALL"},
-	{"db", "query", "db1", "--write", "DROP TABLE x"},
-	{"db", "query", "pdb", "--write", "UPDATE x SET a=1"},
+	{"database", "postgres", "query", "db1", "--write", "DROP TABLE x"},
+	{"database", "postgres", "query", "pdb", "--write", "UPDATE x SET a=1"},
 	{"db", "user", "rm", "db1", "bob"},
-	{"db", "restore", "db1", "--from", "testdata/golden_restore.sql"},
+	{"database", "postgres", "restore", "db1", "--from", "testdata/golden_restore.sql"},
 	{"queue", "kafka", "message", "delete", "--all", "q1", "t"},
 	{"queue", "kafka", "topic", "delete", "q1", "t"},
 	{"storage", "sftp", "object", "delete", "st1", "k"},
@@ -152,7 +152,7 @@ var goldenGates = [][]string{
 	{"vpn", "socks", "edit", "pvpn", "--mfa=false"},
 	// WRITE_REQUIRES_FLAG: a read command asked to write
 	{"cache", "redis", "raw", "cache1", "--", "SET", "k", "v"},
-	{"db", "query", "db1", "DELETE FROM x"},
+	{"database", "postgres", "query", "db1", "DELETE FROM x"},
 	// CONFIRM_REQUIRED: a bulk change (group of more than 3 members)
 	{"group", "remove", "big"},
 	// NEEDS_PERSON: only a person at a terminal

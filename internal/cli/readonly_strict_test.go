@@ -335,7 +335,7 @@ func TestReadOnlyEnvNames(t *testing.T) {
 
 // psql and mysql run in no read-only transaction under exec: a function a
 // SELECT calls may write, and their meta commands run a shell (\echo `id`).
-// komando db query runs SQL in a read-only transaction instead.
+// komando database KIND query runs SQL in a read-only transaction instead.
 func TestReadOnlySQLClientsRefused(t *testing.T) {
 	refusedReadOnly(t, `psql -c 'select 1'`, `psql app`, `sudo -u postgres psql -c 'select f()'`,
 		`mysql -e 'select 1'`, `mariadb app`, `psql -c '\echo `+"`id`"+`'`)

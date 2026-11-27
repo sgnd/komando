@@ -77,13 +77,13 @@ func TestRestoreWindowShowsTheSQL(t *testing.T) {
 	short := writeTemp(t, "fix.sql", "create table marker_restore (id int);\n")
 	long := writeTemp(t, "long.sql", strings.Repeat("insert into t values (1);\n", 60))
 	texts := windowText(t, false)
-	invRun(t, "db", "restore", "pg", "--from", short, "--allow-dangerous", "--yes")
+	invRun(t, "database", "postgres", "restore", "pg", "--from", short, "--allow-dangerous", "--yes")
 	if len(*texts) != 1 || !strings.Contains((*texts)[0], "create table marker_restore") || !strings.Contains((*texts)[0], "SHA-256") {
 		t.Errorf("a short SQL file: %q", *texts)
 	}
 	*texts = nil
 	resetApproval()
-	if _, e := invRun(t, "db", "restore", "pg", "--from", long, "--allow-dangerous", "--yes"); e == nil || len(*texts) != 0 {
+	if _, e := invRun(t, "database", "postgres", "restore", "pg", "--from", long, "--allow-dangerous", "--yes"); e == nil || len(*texts) != 0 {
 		t.Errorf("a 60-line SQL file: %v, %q", e, *texts)
 	}
 }
@@ -117,7 +117,7 @@ func TestApprovalWindowBigUploads(t *testing.T) {
 	}
 	*texts = nil
 	resetApproval()
-	invRun(t, "db", "restore", "pg", "--from", archive, "--run-on", "web", "--allow-dangerous", "--yes")
+	invRun(t, "database", "postgres", "restore", "pg", "--from", archive, "--run-on", "web", "--allow-dangerous", "--yes")
 	if len(*texts) != 1 || !strings.Contains((*texts)[0], "the archive "+archive) || !strings.Contains((*texts)[0], "SHA-256") {
 		t.Errorf("a pg_dump archive: %q", *texts)
 	}

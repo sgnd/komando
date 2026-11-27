@@ -159,7 +159,7 @@ func TestGateCheck(t *testing.T) {
 		{"exec web --allow-dangerous -- rm -rf /tmp/x", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"exec web --read-only -- echo --reveal --allow-dangerous", "", ""}, // words for the server
 		{"shell web", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
-		{"db shell pg", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
+		{"database postgres shell pg", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"cluster kubernetes shell k8s pod/x", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"config vault passphrase", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"secret check db", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
@@ -177,8 +177,8 @@ func TestGateCheck(t *testing.T) {
 		{"exec web --read-only -- uptime", "", ""},
 		{"docker exec web app ls", "", "SSH_GATE_READ_ONLY"},
 		{"docker exec web app --read-only ls", "", ""},
-		{"db query pg 'select 1'", "", ""},
-		{"db query pg --write 'delete from t'", "", "SSH_GATE_READ_ONLY"},
+		{"database postgres query pg 'select 1'", "", ""},
+		{"database postgres query pg --write 'delete from t'", "", "SSH_GATE_READ_ONLY"},
 		{"db explain pg --analyze 'delete from t'", "", "SSH_GATE_READ_ONLY"},
 		{"cache redis raw c --write SET a b", "", "SSH_GATE_READ_ONLY"},
 		{"cluster kubernetes raw k8s --write delete pod x", "", "SSH_GATE_READ_ONLY"},
@@ -217,7 +217,7 @@ func TestGateCheck(t *testing.T) {
 		{"sync - web:/tmp/app", "SSH_GATE_REFUSED", "SSH_GATE_READ_ONLY"},   // to sync, - is a folder here
 		{"cp web:/etc/hosts -", "", "SSH_GATE_READ_ONLY"},                   // cp is a change kind: read-only keys use download --to -
 		{"sync web:/var/log/app -", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"}, // sync has no stream: - is a folder here
-		{"db dump pg --to /tmp/x.sql", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
+		{"database postgres backup pg --to /tmp/x.sql", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"storage s3 object link s3 report.pdf", "", "SSH_GATE_READ_ONLY"},
 		{"storage s3 object create s3 reports/2026", "", "SSH_GATE_READ_ONLY"},
 		{"storage s3 object move s3 a.txt b.txt", "", "SSH_GATE_READ_ONLY"},
@@ -323,28 +323,28 @@ func TestGateLocalTargets(t *testing.T) {
 	t.Chdir(t.TempDir())
 	const R = "SSH_GATE_REFUSED"
 	for line, want := range map[string]string{
-		`db query appdb --write "VACUUM INTO '/home/u/.ssh/authorized_keys2'"`: R,
-		`db query appdb --write "ATTACH '/home/u/.bashrc' AS x"`:               R,
-		"db restore appdb --from x.sql":                                        R,
-		"db explain appdb --analyze 'select 1'":                                R,
-		"db user add appdb x --password-ref secret:x":                          R,
-		"db query appdb 'select 1'":                                            R, // a read of a file here
-		"db query pg --write 'delete from t'":                                  "",
-		`db query pglocal --write "COPY t TO PROGRAM 'sh'"`:                    R,
-		"db query pgbehind --write 'delete from t'":                            "", // 127.0.0.1 of bastion
-		"cache redis raw redislocal --write CONFIG SET dir /home/u/.ssh":       R,
-		"cache set redislocal a b":                                             R,
-		"cache redis raw c --write SET a b":                                    "",
-		"cluster apply k8slocal --file pod.yaml":                               R,
-		"cluster kubernetes raw k8slocal --write -- delete pod x":              R,
-		"cluster apply k8s --file pod.yaml":                                    R, // reads a file here
-		"storage upload sftplocal x.txt .ssh/authorized_keys":                  R,
-		"storage sftp object create sftplocal x":                               R, // the storage changes meet the local-target rule too
-		"storage sftp object move sftplocal a.txt b.txt":                       R,
-		"storage sftp object move sftplocal a.txt --mode 0600":                 R,
-		"registry oci image delete reglocal app:1":                             R,
-		"registry oci image copy reg:app:1 reglocal:app:1":                     R,
-		"registry oci image copy reg:app:1 reg:app:2":                          "",
+		`database sqlite query appdb --write "VACUUM INTO '/home/u/.ssh/authorized_keys2'"`: R,
+		`database sqlite query appdb --write "ATTACH '/home/u/.bashrc' AS x"`:               R,
+		"database sqlite restore appdb --from x.sql":                                        R,
+		"db explain appdb --analyze 'select 1'":                                             R,
+		"db user add appdb x --password-ref secret:x":                                       R,
+		"database sqlite query appdb 'select 1'":                                            R, // a read of a file here
+		"database postgres query pg --write 'delete from t'":                                "",
+		`database postgres query pglocal --write "COPY t TO PROGRAM 'sh'"`:                  R,
+		"database postgres query pgbehind --write 'delete from t'":                          "", // 127.0.0.1 of bastion
+		"cache redis raw redislocal --write CONFIG SET dir /home/u/.ssh":                    R,
+		"cache set redislocal a b":                                                          R,
+		"cache redis raw c --write SET a b":                                                 "",
+		"cluster apply k8slocal --file pod.yaml":                                            R,
+		"cluster kubernetes raw k8slocal --write -- delete pod x":                           R,
+		"cluster apply k8s --file pod.yaml":                                                 R, // reads a file here
+		"storage upload sftplocal x.txt .ssh/authorized_keys":                               R,
+		"storage sftp object create sftplocal x":                                            R, // the storage changes meet the local-target rule too
+		"storage sftp object move sftplocal a.txt b.txt":                                    R,
+		"storage sftp object move sftplocal a.txt --mode 0600":                              R,
+		"registry oci image delete reglocal app:1":                                          R,
+		"registry oci image copy reg:app:1 reglocal:app:1":                                  R,
+		"registry oci image copy reg:app:1 reg:app:2":                                       "",
 		"exec me -- id":                                                      R,
 		"exec me --read-only -- uptime":                                      R, // a shell here all the same
 		"exec lh -- id":                                                      R,
@@ -381,12 +381,12 @@ func TestGateLocalTargets(t *testing.T) {
 		"sync ./site web:/var/www":                                           R, // reads files here
 		"snippet exec disk me":                                               R, // runs its command here
 		"snippet exec disk web":                                              "",
-		"db query pghostparam --write 'select 1'":                            R, // pgx dials ?host=
-		"db query pghostaddr --write 'select 1'":                             R,
-		"db query pgsocket --write 'select 1'":                               R, // a socket here
-		"db query pglist --write 'select 1'":                                 R, // any host of the list
-		"db query pghostparam 'select 1'":                                    R, // pg_read_file reads here
-		"db query mongolist --write '{}'":                                    R,
+		"database postgres query pghostparam --write 'select 1'":             R, // pgx dials ?host=
+		"database postgres query pghostaddr --write 'select 1'":              R,
+		"database postgres query pgsocket --write 'select 1'":                R, // a socket here
+		"database postgres query pglist --write 'select 1'":                  R, // any host of the list
+		"database postgres query pghostparam 'select 1'":                     R, // pg_read_file reads here
+		"database mongodb query mongolist --write '{}'":                      R,
 		"credential key install k me":                                        R,
 		"credential key install k web":                                       "",
 		"credential key install k web --set-default":                         R, // komando's own setup
@@ -415,7 +415,7 @@ func TestGateLocalTargets(t *testing.T) {
 		"snippet exec disk me":                                              R,
 		"exec web --read-only -- uptime":                                    "",
 		"exec me -- id":                                                     "SSH_GATE_READ_ONLY", // not a read: refused before the place
-		"db query pglocal 'select 1'":                                       R,                    // pg_read_file reads here
+		"database postgres query pglocal 'select 1'":                        R,                    // pg_read_file reads here
 		"logs me --file /home/u/.ssh/id_ed25519 --grep '^[A-Za-z0-9+/=]+$'": R,
 		"fs cat me /home/u/.ssh/id_ed25519":                                 R,
 		"fs ls me /home/u/.ssh":                                             R,
@@ -437,11 +437,11 @@ func TestGateLocalTargets(t *testing.T) {
 		}
 	}
 	// the attack, through the gate as sshd runs it: nothing runs, the audit says why
-	ran, _, e := gateRun(t, `komando db query appdb --write "VACUUM INTO '/home/u/.ssh/authorized_keys2'"`, "--name", "phone")
+	ran, _, e := gateRun(t, `komando database sqlite query appdb --write "VACUUM INTO '/home/u/.ssh/authorized_keys2'"`, "--name", "phone")
 	if ran != nil || e == nil || e.Code != R || !strings.Contains(e.Message, "appdb is a file on this computer") {
 		t.Errorf("VACUUM INTO: ran %q, error %+v", ran, e)
 	}
-	if a := lastAudit(t); a["blocked"] != R || a["runs"] != "db.query" {
+	if a := lastAudit(t); a["blocked"] != R || a["runs"] != "database.sqlite.query" {
 		t.Errorf("audit %v", a)
 	}
 }
@@ -672,7 +672,7 @@ func TestSSHGateNoShellWithoutFlag(t *testing.T) {
 	t.Cleanup(func() { tcl.terminal = saved })
 	tcl.terminal = true
 	for _, args := range [][]string{{"--name", "full"}, {"--name", "read", "--read-only"}} {
-		for _, line := range []string{"komando shell web", "komando ssh web", "komando db shell pg", "komando cluster kubernetes shell k8s pod/x"} {
+		for _, line := range []string{"komando shell web", "komando ssh web", "komando database postgres shell pg", "komando cluster kubernetes shell k8s pod/x"} {
 			ran, _, e := gateRun(t, line, args...)
 			if ran != nil || e == nil || e.Code != "SSH_GATE_REFUSED" || !strings.Contains(e.Message, "needs a person at a terminal on this computer") {
 				t.Errorf("%v %q: ran %q, error %+v", args, line, ran, e)

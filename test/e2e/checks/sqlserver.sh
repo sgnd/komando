@@ -24,39 +24,39 @@ if [ "$(MSC ps -q --status running mssql 2>/dev/null)" = "" ]; then
   return 0
 fi
 check "sqlserver conn test logs in through --via" login "$($K conn test sa-mssql | jget 'd["data"]["results"][0]["detail"]["check"]')"
-check "create database needs --write" WRITE_REQUIRES_FLAG "$($K db query sa-mssql 'create database e2e_sales' | jget 'd["error"]["code"]')"
-q $K db query sa-mssql --write 'create database e2e_sales'
+check "create database needs --write" WRITE_REQUIRES_FLAG "$($K database sqlserver query sa-mssql 'create database e2e_sales' | jget 'd["error"]["code"]')"
+q $K database sqlserver query sa-mssql --write 'create database e2e_sales'
 q $K conn add shop-mssql 'sqlserver://sa@mssql:1433/e2e_sales' --via bastion --password-ref secret:mssql-sa
-q $K db query shop-mssql --write "create table dbo.orders (id int identity primary key, item nvarchar(50) not null, total decimal(10,2), placed datetime2 default sysdatetime())"
-check "sqlserver insert needs --write" WRITE_REQUIRES_FLAG "$($K db query shop-mssql "insert into dbo.orders (item, total) values (N'pen', 1.50)" | jget 'd["error"]["code"]')"
-check "sqlserver insert" 2 "$($K db query shop-mssql --write "insert into dbo.orders (item, total) values (N'pen', 1.50), (N'ink', 12.25)" | jget 'd["data"]["results"][0]["rows_affected"]')"
-check "sqlserver select with @p1" "['pen', '1.50']" "$($K db query shop-mssql 'select item, total from dbo.orders where id = @p1' --arg 1 | jget 'd["data"]["results"][0]["rows"][0]')"
-check "sqlserver dry run counts the rows" 2 "$($K db query shop-mssql --write --dry-run 'delete from dbo.orders where id > 0' | jget 'd["data"]["results"][0]["rows_affected"]')"
-check "sqlserver dry run rolled back" 2 "$($K db query shop-mssql 'select count(*) from dbo.orders' | jget 'd["data"]["results"][0]["rows"][0][0]')"
-check "a second statement without ; is caught" WRITE_REQUIRES_FLAG "$($K db query shop-mssql 'select 1 delete from dbo.orders' | jget 'd["error"]["code"]')"
-check "a bare procedure name is a procedure call" WRITE_REQUIRES_FLAG "$($K db query shop-mssql 'sp_who' | jget 'd["error"]["code"]')"
-check "sqlserver delete-all is destructive" POLICY_BLOCKED "$($K db query shop-mssql --write 'delete from dbo.orders' | jget 'd["error"]["code"]')"
-check "sqlserver commit is refused" SQL_TX_CONTROL "$($K db query shop-mssql 'select 1 commit' | jget 'd["error"]["code"]')"
+q $K database sqlserver query shop-mssql --write "create table dbo.orders (id int identity primary key, item nvarchar(50) not null, total decimal(10,2), placed datetime2 default sysdatetime())"
+check "sqlserver insert needs --write" WRITE_REQUIRES_FLAG "$($K database sqlserver query shop-mssql "insert into dbo.orders (item, total) values (N'pen', 1.50)" | jget 'd["error"]["code"]')"
+check "sqlserver insert" 2 "$($K database sqlserver query shop-mssql --write "insert into dbo.orders (item, total) values (N'pen', 1.50), (N'ink', 12.25)" | jget 'd["data"]["results"][0]["rows_affected"]')"
+check "sqlserver select with @p1" "['pen', '1.50']" "$($K database sqlserver query shop-mssql 'select item, total from dbo.orders where id = @p1' --arg 1 | jget 'd["data"]["results"][0]["rows"][0]')"
+check "sqlserver dry run counts the rows" 2 "$($K database sqlserver query shop-mssql --write --dry-run 'delete from dbo.orders where id > 0' | jget 'd["data"]["results"][0]["rows_affected"]')"
+check "sqlserver dry run rolled back" 2 "$($K database sqlserver query shop-mssql 'select count(*) from dbo.orders' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+check "a second statement without ; is caught" WRITE_REQUIRES_FLAG "$($K database sqlserver query shop-mssql 'select 1 delete from dbo.orders' | jget 'd["error"]["code"]')"
+check "a bare procedure name is a procedure call" WRITE_REQUIRES_FLAG "$($K database sqlserver query shop-mssql 'sp_who' | jget 'd["error"]["code"]')"
+check "sqlserver delete-all is destructive" POLICY_BLOCKED "$($K database sqlserver query shop-mssql --write 'delete from dbo.orders' | jget 'd["error"]["code"]')"
+check "sqlserver commit is refused" SQL_TX_CONTROL "$($K database sqlserver query shop-mssql 'select 1 commit' | jget 'd["error"]["code"]')"
 check "sqlserver schema lists the table" "['dbo.orders']" "$($K db schema shop-mssql | jget '[t["schema"] + "." + t["name"] for t in d["data"]["tables"]]')"
 check "sqlserver schema shows the identity" "['id']" "$($K db schema shop-mssql dbo.orders | jget '[c["name"] for c in d["data"]["tables"][0]["columns"] if c.get("identity")]')"
 check "sqlserver info" primary "$($K db info shop-mssql | jget 'd["data"]["role"]')"
 check "sqlserver explain plans a delete without --write" True "$($K db explain shop-mssql 'delete from dbo.orders where id = 1' | jget 'any("Delete" in r[0] for r in d["data"]["results"][0]["rows"])')"
-check "sqlserver explain ran nothing" 2 "$($K db query shop-mssql 'select count(*) from dbo.orders' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+check "sqlserver explain ran nothing" 2 "$($K database sqlserver query shop-mssql 'select count(*) from dbo.orders' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 check "sqlserver sizes lists the table" True "$($K db sizes shop-mssql | jget 'any(t["name"] == "orders" for t in d["data"]["tables"])')"
 check "sqlserver activity answers" True "$($K db activity shop-mssql --all | jget 'd["ok"]')"
 check "sqlserver kill needs --session" NOT_SUPPORTED "$($K db kill shop-mssql 99 | jget 'd["error"]["code"]')"
 q $K db user add shop-mssql sales_ro --password-ref secret:mssql-ro --allow-dangerous
 q $K db grant shop-mssql sales_ro --privileges SELECT --on schema:dbo --allow-dangerous
 q $K conn add ro-mssql 'sqlserver://sales_ro@mssql:1433/e2e_sales' --via bastion --password-ref secret:mssql-ro
-check "sqlserver: the new user logs in with the vault password" 2 "$($K db query ro-mssql 'select count(*) from dbo.orders' | jget 'd["data"]["results"][0]["rows"][0][0]')"
-check "sqlserver: and may only read what was granted" False "$($K db query ro-mssql --write "insert into dbo.orders (item) values (N'x')" | jget 'd["ok"]')"
+check "sqlserver: the new user logs in with the vault password" 2 "$($K database sqlserver query ro-mssql 'select count(*) from dbo.orders' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+check "sqlserver: and may only read what was granted" False "$($K database sqlserver query ro-mssql --write "insert into dbo.orders (item) values (N'x')" | jget 'd["ok"]')"
 check "sqlserver db user show shows SELECT on dbo" True "$($K db user show shop-mssql sales_ro | jget 'any(g["object"] == "dbo" and "SELECT" in g["privileges"] for g in d["data"]["grants"])')"
 q $K db user rm shop-mssql sales_ro --allow-dangerous
 check "sqlserver db user rm removed it" False "$($K db user ls shop-mssql | jget 'any(u["name"] == "sales_ro" for u in d["data"]["users"])')"
-check "sqlserver dump is not supported yet" NOT_SUPPORTED "$($K db dump shop-mssql --to "$TMP/s.sql" | jget 'd["error"]["code"]')"
+check "sqlserver has no backup command" USAGE "$($K database sqlserver backup shop-mssql | jget 'd["error"]["code"]')"
 check "no sqlserver password in the audit log" 0 "$(audit_text | grep -c -E 'Sales-pass|Ro-pass-1x' || true)"
 q $K conn rm ro-mssql shop-mssql
-q $K db query sa-mssql --write --allow-dangerous 'drop database e2e_sales'
+q $K database sqlserver query sa-mssql --write --allow-dangerous 'drop database e2e_sales'
 q $K conn rm sa-mssql
 $K credential password remove mssql-sa mssql-ro --allow-dangerous >/dev/null 2>&1 || true
 set -e

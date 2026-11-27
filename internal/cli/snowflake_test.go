@@ -27,15 +27,15 @@ func TestSnowflakeConns(t *testing.T) {
 	}
 	wantCode(t, "USAGE", "conn", "add", "sf-tls", "snowflake://app@acct/db?tls=false")
 	wantCode(t, "URL_HAS_PASSWORD", "conn", "add", "sf-pw", "snowflake://app:pw@acct/db")
-	wantCode(t, "NOT_SUPPORTED", "db", "dump", "sf", "--to", t.TempDir()+"/s.sql")
-	wantCode(t, "NOT_SUPPORTED", "db", "restore", "sf", "--from", "x.sql", "--dry-run")
+	wantCode(t, "USAGE", "database", "snowflake", "backup", "sf")  // no backup leaf+"/s.sql")
+	wantCode(t, "USAGE", "database", "snowflake", "restore", "sf") // no restore leaf
 	wantCode(t, "NOT_SUPPORTED", "db", "explain", "sf", "select 1", "--analyze")
 	wantCode(t, "NOT_SUPPORTED", "db", "user", "add", "sf", "bob", "--password-ref", "secret:x")
 	wantCode(t, "NOT_SUPPORTED", "db", "user", "rm", "sf", "bob")
 	wantCode(t, "NOT_SUPPORTED", "db", "grant", "sf", "bob", "--role", "readers")
 	// the classifier says what needs --write before anything connects
-	wantCode(t, "WRITE_REQUIRES_FLAG", "db", "query", "sf", "insert into t values (1)")
-	wantCode(t, "SQL_HIDDEN_CODE", "db", "query", "sf", "select 1 // a\x0bdrop table t")
+	wantCode(t, "WRITE_REQUIRES_FLAG", "database", "snowflake", "query", "sf", "insert into t values (1)")
+	wantCode(t, "SQL_HIDDEN_CODE", "database", "snowflake", "query", "sf", "select 1 // a\x0bdrop table t")
 	p, e := invRun(t, "policy", "check", "--conn-kind", "snowflake", "select system$cancel_query('x')")
 	if p["risk"] != "destructive" || e == nil || e.Code != "POLICY_BLOCKED" {
 		t.Errorf("policy check: %v %+v", p, e)

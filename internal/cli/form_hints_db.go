@@ -1,5 +1,12 @@
 package cli
 
+import (
+	"maps"
+	"slices"
+
+	"github.com/sgnd/komando/internal/capability"
+)
+
 // The questions for the Databases area: queries, the shell, health checks,
 // backups and database users.
 
@@ -7,12 +14,13 @@ func init() {
 	addFormHints(dbLookHints)
 	addFormHints(dbChangeHints)
 	addFormHints(dbUserHints)
+	addFormHints(databaseHints())
 }
 
 // Answers several hints share.
 var (
 	dbConn = formArg{ask: "Which database?", pick: "db",
-		help: "A database from your list (`komando list kind:db`). Add one with `komando db add`."}
+		help: "A database from your list (`komando list kind:db`). Add one with `komando database KIND add` (postgres, mysql, sqlite ...)."}
 	dbSQL = formArg{ask: "Which SQL should it run?", example: "select id, email from users order by id desc limit 10",
 		help: "One or more statements, ending with ; when there are several. On MongoDB: a JSON command like {\"find\": \"users\"}."}
 	dbWrite = formFlag{name: "write", ask: "May it change data?",
@@ -36,14 +44,6 @@ var (
 
 // dbLookHints are the commands that only read.
 var dbLookHints = map[string]formHint{
-	"db query": {
-		args: []formArg{dbConn, {ask: "Which SQL should it run? (leave empty to read it from a file)",
-			example: dbSQL.example, help: dbSQL.help, need: func(a formAnswers) bool { return a["flag:file"] == "" }}},
-		flags: []formFlag{dbWrite,
-			{name: "file", ask: "Or read the SQL from which file on this computer?", example: "./migration.sql", local: true,
-				help: "Only when you left the SQL empty. A .sql file on this computer."},
-			dbArg, dbLimit},
-	},
 	"db explain": {
 		args: []formArg{dbConn, {ask: "Which query should it explain?", example: "select * from orders where user_id = 42",
 			help: "The SQL you want to make faster. It shows how the database finds the rows (an index or a full scan)."}},
@@ -72,12 +72,90 @@ var dbLookHints = map[string]formHint{
 		flags: []formFlag{dbFrom},
 	},
 	"db user list": {args: []formArg{dbConn}},
-	"db shell": {
+}
+
+// databaseVerbHints are the questions of `database KIND query`, shell,
+// backup and restore, by verb: every provider asks the same.
+var databaseVerbHints = map[string]formHint{
+	"query": {
+		args: []formArg{dbConn, {ask: "Which SQL should it run? (leave empty to read it from a file)",
+			example: dbSQL.example, help: dbSQL.help, need: func(a formAnswers) bool { return a["flag:file"] == "" }}},
+		flags: []formFlag{dbWrite,
+			{name: "file", ask: "Or read the SQL from which file on this computer?", example: "./migration.sql", local: true,
+				help: "Only when you left the SQL empty. A .sql file on this computer."},
+			dbArg, dbLimit},
+	},
+	"shell": {
 		args: []formArg{{ask: "Which database?", pick: "db",
 			help: "You type SQL in it and see the rows. \\q leaves, \\? lists what else it knows."}},
 		flags: []formFlag{{name: "write", ask: "May the statements you type change data?",
 			help: "No keeps the whole session read-only. Say yes only when you plan to insert, update or delete."}},
 	},
+	"backup": {
+		args: []formArg{{ask: "Which database should it back up?", pick: "db",
+			help: "A database you added to komando."}},
+		flags: []formFlag{
+			{name: "to", ask: "Save the backup to which file on this computer?", local: true,
+				example: "./prod-2026-11-10.sql.gz",
+				help:    "A new file; it never overwrites one. Ending in .gz makes it smaller. Only you can read it. Left out: NAME-<date>.sql.gz in this folder."},
+			{name: "format", ask: "Which kind of backup?", choices: []string{"plain", "custom"},
+				help: "plain is SQL any database tool reads. custom is PostgreSQL's own archive (needs pg_dump on a server; no .gz then)."},
+			{name: "schema-only", ask: "Only the tables' shape, without the rows?",
+				help: "Yes saves tables, indexes and functions but no data."},
+			{name: "table", ask: "Only one table?", example: "public.orders",
+				help: "Leave empty for the whole database. On PostgreSQL write schema.table."},
+			dbOn},
+	},
+	"restore": {
+		args: []formArg{{ask: "Which database should it load the backup into?", pick: "db",
+			help: "What is in it now is replaced. Back it up first with `komando database KIND backup`, or pick a test copy when you only want to try."}},
+		flags: []formFlag{
+			{name: "from", ask: "Which backup file on this computer?", required: true, local: true, example: "./prod-2026-11-10.sql.gz",
+				help: "A file from `komando database KIND backup`, pg_dump or mysqldump. A .gz file is read as it is."},
+			{name: "run-on", ask: "Which server should run pg_restore?", pick: "server",
+				help: "Only for a PostgreSQL custom archive. Leave empty to use the server the database is reached through."}},
+	},
+}
+
+// databaseHints are the questions of `komando database KIND ...`: the
+// inventory verbs of each provider, and query, shell, backup and restore
+// where the table builds them (one pass over the table). A flag the
+// provider's leaf does not have is left out; the Next: lines name the
+// provider's own words.
+func databaseHints() map[string]formHint {
+	hints := map[string]formHint{}
+	for p, label := range databaseFormLabels {
+		maps.Copy(hints, inventoryHints("database", p, "database", "Databases", label))
+	}
+	for _, l := range capability.All() {
+		h, ok := databaseVerbHints[l.Verb]
+		if l.Type != "database" || l.State != capability.Built || !ok {
+			continue
+		}
+		h.flags = slices.DeleteFunc(slices.Clone(h.flags), func(f formFlag) bool {
+			return !slices.ContainsFunc(l.Options, func(o capability.Option) bool { return o.Name == f.name })
+		})
+		db := "database " + l.Provider + " "
+		switch l.Verb {
+		case "query":
+			h.next = []string{"db schema {} TABLE", db + "query {} --write --dry-run \"update ...\""}
+		case "backup":
+			if r, ok := capability.Find(capability.Key{Type: "database", Provider: l.Provider, Verb: "restore"}); ok && r.State == capability.Built {
+				h.next = []string{db + "restore {} --from FILE --dry-run"}
+			}
+		case "restore":
+			h.next = []string{"db schema {}", db + "query {} \"select count(*) from TABLE\""}
+		}
+		hints[db+l.Verb] = h
+	}
+	return hints
+}
+
+// databaseFormLabels are the Add form's kind of each database provider,
+// so `database postgres add` asks the PostgreSQL questions only.
+var databaseFormLabels = map[string]string{
+	"postgres": "PostgreSQL", "mysql": "MySQL or MariaDB", "sqlserver": "SQL Server", "oracle": "Oracle Database",
+	"mongodb": "MongoDB", "clickhouse": "ClickHouse", "snowflake": "Snowflake", "bigquery": "Google BigQuery", "sqlite": "SQLite",
 }
 
 // dbChangeHints are the commands that stop, save or load something.
@@ -87,31 +165,6 @@ var dbChangeHints = map[string]formHint{
 			help: "The pid column of `komando db activity` or `komando db locks`."}},
 		flags: []formFlag{{name: "session", ask: "End the whole connection, not only its query?",
 			help: "No stops only the running query and the program stays connected. Yes disconnects it."}},
-	},
-	"db dump": {
-		next: []string{"db restore {} --from FILE --dry-run"},
-		args: []formArg{{ask: "Which database should it back up?", pick: "db",
-			help: "A database you added to komando."}},
-		flags: []formFlag{
-			{name: "to", ask: "Save the backup to which file on this computer?", local: true,
-				example: "./prod-2026-11-10.sql.gz",
-				help:    "A new file; it never overwrites one. Ending in .gz makes it smaller. Only you can read it. Left out: CONN-<date>.sql.gz in this folder."},
-			{name: "format", ask: "Which kind of backup?", choices: []string{"plain", "custom"},
-				help: "plain is SQL any database tool reads. custom is PostgreSQL's own archive (needs pg_dump on a server; no .gz then)."},
-			{name: "schema-only", ask: "Only the tables' shape, without the rows?",
-				help: "Yes saves tables, indexes and functions but no data."},
-			{name: "table", ask: "Only one table?", example: "public.orders",
-				help: "Leave empty for the whole database. On PostgreSQL write schema.table."},
-			dbOn},
-	},
-	"db restore": {
-		args: []formArg{{ask: "Which database should it load the backup into?", pick: "db",
-			help: "What is in it now is replaced. Back it up first with komando db dump, or pick a test copy when you only want to try."}},
-		flags: []formFlag{
-			{name: "from", ask: "Which backup file on this computer?", required: true, local: true, example: "./prod-2026-11-10.sql.gz",
-				help: "A file from `komando db dump`, pg_dump or mysqldump. A .gz file is read as it is."},
-			{name: "run-on", ask: "Which server should run pg_restore?", pick: "server",
-				help: "Only for a PostgreSQL custom archive. Leave empty to use the server the database is reached through."}},
 	},
 }
 
@@ -160,18 +213,18 @@ func dbGrantHint(ask string, revoke bool) formHint {
 	}
 }
 
-// Next: lines for the database commands (db dump has its own above).
+// Next: lines for the db commands (the database verbs have theirs in
+// databaseHints). A line names no `database KIND` verb: the kind is the
+// conn's, which a line here does not know.
 func init() {
 	addFormHints(map[string]formHint{
-		"db query":       {next: []string{"db schema {} TABLE", "db query {} --write --dry-run \"update ...\"", "db dump {} --to backup.sql"}},
-		"db schema":      {next: []string{"db schema {} TABLE", "db query {} \"select * from TABLE limit 10\""}},
+		"db schema":      {next: []string{"db schema {} TABLE", "db explain {} \"select * from TABLE limit 10\""}},
 		"db explain":     {next: []string{"db explain {} --analyze \"select ...\"", "db schema {} TABLE"}},
 		"db info":        {next: []string{"db sizes {}", "db activity {}"}},
 		"db activity":    {next: []string{"db locks {}", "db kill {} PID --dry-run"}},
 		"db locks":       {next: []string{"db kill {} PID --dry-run", "db activity {}"}},
 		"db kill":        {next: []string{"db activity {}"}},
-		"db sizes":       {next: []string{"db schema {} TABLE", "db dump {} --to backup.sql"}},
-		"db restore":     {next: []string{"db schema {}", "db query {} \"select count(*) from TABLE\""}},
+		"db sizes":       {next: []string{"db schema {} TABLE", "db info {}"}},
 		"db user list":   {next: []string{"db user show {} USER", "db user add {} USER --password-ref secret:NAME"}},
 		"db user add":    {next: []string{"db grant {} USER --privileges SELECT --on all-tables:public", "db user show {} USER"}},
 		"db user passwd": {next: []string{"db user show {} USER"}},

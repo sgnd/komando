@@ -174,7 +174,7 @@ func CheckRestore(kind string, r io.Reader) (Verdict, error) {
 }
 
 // restoreCheck reads each statement of a restore with the classifier of
-// `komando db query` (splitSQL): it collects the rules a restore names and
+// `komando database KIND query` (splitSQL): it collects the rules a restore names and
 // refuses changes to the settings that decide how quotes are read.
 type restoreCheck struct {
 	kind  string
@@ -394,7 +394,7 @@ func unsafeLine(line int, text string) error {
 
 func unsureLine(line int, text, why string) error {
 	return out.Errf(out.ExitPolicy, "UNSAFE_BACKUP",
-		"komando refuses a backup it cannot read with certainty, because a misread file could hide client commands; restore a file written by `komando db dump`, pg_dump or mysqldump, or fix that line",
+		"komando refuses a backup it cannot read with certainty, because a misread file could hide client commands; restore a file written by `komando database KIND backup`, pg_dump or mysqldump, or fix that line",
 		"line %d cannot be checked (%s): %s", line, why, short(text)).NoFlag()
 }
 

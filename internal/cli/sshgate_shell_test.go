@@ -183,7 +183,7 @@ func TestGateShellListedServerOnly(t *testing.T) {
 func TestGateShellDBShell(t *testing.T) {
 	invHome(t)
 	shellInventory(t)
-	wantShellRefused(t, shellKey, "needs a person at a terminal", "db shell pg", "db shell pg --write")
+	wantShellRefused(t, shellKey, "needs a person at a terminal", "database postgres shell pg", "database postgres shell pg --write")
 }
 
 func TestGateShellClusterShell(t *testing.T) {

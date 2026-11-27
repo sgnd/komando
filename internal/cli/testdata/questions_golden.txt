@@ -482,143 +482,646 @@ title: Copy files, written SRC DST with TARGET:PATH (upload/download)
 - flag:parents | --parents | Upload: create missing parent folders |  |  | advanced,default,choices
 - flag:progress | --progress | With -o json, write progress to the error output (stderr), one JSON object per line |  |  | advanced,default,choices
 - flag:size | --size | An upload from stdin (-): how many bytes it sends, like 10MiB; a stream of another length replaces nothing (SIZE_CONFLICT) |  |  | optional,advanced,check
-### komando credential
-title: Saved passwords, tokens, SSH keys and server CAs
-### komando credential certificate
-title: Server CAs: trust the CA that signs servers' host keys
-### komando credential certificate add
-title: Trust a CA for the servers its patterns match (person only)
-- arg0 | Name | A short name for this CA? |  | corp | check
-- flag:key | --key | The CA's public key file (.pub)? | Check its fingerprint with the people who run the CA first: it will vouch for every server it signs. | ~/corp-ca.pub | optional,free,choices
-- flag:hosts | --hosts | Which server names may it vouch for? | Name at least the domain: *.corp.example or 10.1.2.*. A lone * is refused. | *.corp.example | optional,check
-- flag:from | --from | Or read a known_hosts file's @cert-authority lines? | A known_hosts file: read its @cert-authority and @revoked lines | ~/.ssh/known_hosts | optional,check
-### komando credential certificate list
-title: List the trusted server CAs
-- flag:limit | --limit | The first N CAs (0 = all) |  |  | optional,advanced,check
-### komando credential certificate remove
-title: Stop trusting a server CA
-- arg0 | Name | Which CA should komando stop trusting? | See them with `komando credential certificate list`. |  | check
-### komando credential key
-title: SSH keys: make, add, install on servers, uninstall
-### komando credential key add
-title: Add a private key file you already have (komando keeps its path)
-- arg0 | Name | What name should the key have in komando? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | personal | check
-- arg1 | File | Where is the private key file on this computer? | The file without .pub at the end. It stays where it is. ~/ means your home folder. | ~/.ssh/id_ed25519 | check
-- flag:passphrase-credential | --passphrase-credential | Which saved password opens the key? | Only for a key that has a passphrase. Save it first with `komando credential password add NAME` (it asks hidden), then type its NAME here. Leave empty for a key without one. | work-key-pass | optional,check
-- flag:cert | --cert | An OpenSSH user certificate for the key (default: FILE-cert.pub next to it, if there) |  |  | optional,advanced,check
-### komando credential key create
-title: Make a new SSH key pair (ed25519 by default)
-- arg0 | Name | What name should the new key have? | Letters, digits, dot, dash and underscore, starting with a letter or digit. Next, `komando credential key install` puts it on your servers. | deploy | check
-- flag:type | --type | Which kind of key? | ed25519 is short and safe; pick rsa only for an old server that does not take ed25519. |  | optional,default,choices
-- flag:bits | --bits | Key size: RSA 3072-16384 (default 4096), ECDSA 256|384|521 |  |  | optional,advanced,check
-- flag:comment | --comment | Public key comment (default komando-NAME) |  |  | optional,advanced,check
-### komando credential key edit
-title: Change a key's passphrase credential or certificate
-- arg0 | Name | Which key? | One of your komando SSH keys. `komando credential key list` shows them. |  | choices,check
-- flag:passphrase-credential | --passphrase-credential | Which saved password opens the key? | Only for a key that has a passphrase. Save it first with `komando credential password add NAME` (it asks hidden), then type its NAME here. Leave empty for a key without one. | work-key-pass | optional,check
-- flag:cert | --cert | An OpenSSH user certificate for the key |  |  | optional,advanced,check
-- flag:unset | --unset | Clear this setting: passphrase-credential, cert |  |  | optional,advanced,check
-### komando credential key install
-title: Install a public key in ~/.ssh/authorized_keys (like ssh-copy-id)
-- arg0 | Name | Which key? | One of your komando SSH keys, or type the path of a .pub file on this computer. | ~/.ssh/id_ed25519.pub | free,choices,check
-- arg1 | Target (servers) | On which servers? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
-- flag:set-default | --set-default | Should komando log in with this key from now on? | Yes switches each server where it worked to this key. |  | default,choices
-### komando credential key list
-title: List the SSH keys and the servers that use them
-- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
-### komando credential key remove
-title: Remove a key (from komando only)
-- arg0 | Name | Which key? | One of your komando SSH keys. `komando credential key list` shows them. |  | choices,check
-- flag:delete-file | --delete-file | Also delete the private key? | Only for a key komando made. A deleted private key cannot be brought back. |  | default,choices
-### komando credential key rename
-title: Rename a key, and every server that uses it
-- arg0 | Name | Which key? | One of your komando SSH keys. `komando credential key list` shows them. |  | choices,check
-- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | deploy-2026 | check
-### komando credential key show
-title: Show a key's public part, or a person its private key
-- arg0 | Name | Which key? | One of your komando SSH keys. `komando credential key list` shows them. |  | choices,check
-### komando credential key uninstall
-title: Take a public key off servers' authorized_keys
-- arg0 | Name | Which key? | One of your komando SSH keys, or type the path of a .pub file on this computer. | ~/.ssh/id_ed25519.pub | free,choices,check
-- arg1 | Target (servers) | On which servers? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
-- flag:user | --user | Whose login should lose the key? | Leave empty for the user komando logs in as. Another user's file is changed with sudo. | deploy | optional,check
-- flag:all-users | --all-users | Edit every user's authorized_keys on the server (uses sudo) |  |  | advanced,default,choices
-### komando credential list
-title: List the saved passwords and tokens and what uses them
-- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
-### komando credential password
-title: Saved passwords: add, show, rename, remove
-### komando credential password add
-title: Save a password, typed hidden or from a variable or a pipe
-- arg0 | Name | What name should it have? | Pick one to give it a new value, or type a new name: letters, digits, dot, dash and underscore, starting with a letter or digit. komando asks for the value next and hides it as you type or paste. | db-pass | free,choices,check
-- flag:from-env | --from-env | Read the value from this environment variable |  |  | optional,advanced,check
-- flag:new | --new | Only save one that is not saved yet; a taken NAME stops with SECRET_EXISTS |  |  | advanced,default,choices
-### komando credential password remove
-title: Delete saved passwords for good
-- arg0 | Name | Which ones? | Their names. Several: separate them with spaces. One still in use is not deleted. | old-pass | free,choices,check
-### komando credential password rename
-title: Rename a password and every reference to it (value never shown)
-- arg0 | Name | Which secret? | The name you saved it under. komando credential list shows your saved passwords. | db-pass | free,choices,check
-- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | db-pass-old | check
-- flag:overwrite | --overwrite | Replace the new name if it exists already? | No stops when a secret with the new name is there, so nothing is lost by mistake. |  | default,choices
-### komando credential password show
-title: Show that a password is saved and what uses it, its value hidden
-- arg0 | Name | Which secret? | The name you saved it under. komando credential list shows your saved passwords. | db-pass | free,choices,check
-### komando credential run
-title: Run a command here with saved credentials in its environment
-- arg0 | Command | Which program should run on this computer? | The program and its arguments, as you would type them here. Its secrets go in the next question, never here. | terraform plan | 
-- flag:env | --env | Which variable gets which secret? | KEY=secret:NAME reads NAME from the vault right before the program starts. KEY=VALUE sets a plain value. | TOKEN=secret:gh-token | optional,check
-### komando credential token
-title: Saved tokens: add, show, rename, remove
-### komando credential token add
-title: Save a token, typed hidden or from a variable or a pipe
-- arg0 | Name | What name should it have? | Pick one to give it a new value, or type a new name: letters, digits, dot, dash and underscore, starting with a letter or digit. komando asks for the value next and hides it as you type or paste. | db-pass | free,choices,check
-- flag:from-env | --from-env | Read the value from this environment variable |  |  | optional,advanced,check
-- flag:new | --new | Only save one that is not saved yet; a taken NAME stops with SECRET_EXISTS |  |  | advanced,default,choices
-### komando credential token remove
-title: Delete saved tokens for good
-- arg0 | Name | Which ones? | Their names. Several: separate them with spaces. One still in use is not deleted. | old-pass | free,choices,check
-### komando credential token rename
-title: Rename a token and every reference to it (value never shown)
-- arg0 | Name | Which secret? | The name you saved it under. komando credential list shows your saved passwords. | db-pass | free,choices,check
-- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | db-pass-old | check
-- flag:overwrite | --overwrite | Replace the new name if it exists already? | No stops when a secret with the new name is there, so nothing is lost by mistake. |  | default,choices
-### komando credential token show
-title: Show that a token is saved and what uses it, its value hidden
-- arg0 | Name | Which secret? | The name you saved it under. komando credential list shows your saved passwords. | db-pass | free,choices,check
-### komando db
-title: Databases: query safely, look at the schema, back up, restore
-### komando db activity
-title: Sessions running something now: pid, user, how long, what
-- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando db add`. |  | choices,check
-- flag:all | --all | Show idle sessions too? | No shows only sessions running something now. |  | default,choices
-- flag:limit | --limit | Show at most this many sessions (0 = all) |  |  | optional,advanced,check
-### komando db add
-title: Add a database
+### komando cron
+title: Cron entries on servers: see, set and remove them
+- flag:user | --user | Crontab of this user (uses sudo) |  |  | optional,advanced,check
+### komando cron list
+title: Show crontab entries
+- arg0 | Target (servers) | Which server? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
+- flag:user | --user | Whose crontab? | Leave empty for the user komando logs in as. Another user's crontab is read with sudo. | www-data | optional,check
+- flag:limit | --limit | Show at most this many entries per server (0 = all) |  |  | optional,advanced,check
+### komando cron rm
+title: Remove the cron entry with this NAME
+- arg0 | Target (servers) | Which server? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
+- arg1 | Name | Which entry? | Its ID: the last column of `komando cron list`. | nightly-backup | check
+- flag:user | --user | Whose crontab? | Leave empty for the user komando logs in as. Another user's crontab is read with sudo. | www-data | optional,check
+### komando cron set
+title: Create or replace the entry with this NAME
+- arg0 | Target (servers) | Which server? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
+- arg1 | Name | What name should this entry have? | A short name komando finds it by later. A name used before replaces that entry. | nightly-backup | check
+- arg2 | Command | What command should it run? | Type it as you would on the server itself. | /usr/local/bin/backup.sh | check
+- flag:schedule | --schedule | When should it run? | @hourly, @daily, @weekly, @monthly or @reboot, or five fields (minute hour day month weekday): 0 2 * * * is every night at 2:00. | 0 2 * * * | check
+- flag:user | --user | Whose crontab? | Leave empty for the user komando logs in as. Another user's crontab is read with sudo. | www-data | optional,check
+### komando database
+title: Databases: save them, query them, back them up and restore them
+### komando database bigquery
+title: BigQuery: save a project and query it
+### komando database bigquery add
+title: Save a bigquery database under a short name
 - arg0 | Name | Name? |  |  | check
-- arg1 | URL | URL? |  |  | check
-- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref |  |  | advanced,default,choices
-- flag:group | --group | Put it in these groups (comma-separated) |  |  | optional,advanced,check
-- flag:label | --label | Label KEY=VALUE (repeatable) |  |  | optional,advanced,check
-- flag:login | --login | How komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own) |  |  | optional,advanced,check
-- flag:notes | --notes | Free-form notes (komando conn show shows them to people and agents) |  |  | optional,advanced,check
-- flag:option | --option | An option of this kind, KEY=VALUE (repeatable) |  |  | optional,advanced,check
-- flag:overwrite | --overwrite | Replace a conn that has the same name |  |  | advanced,default,choices
-- flag:password-ref | --password-ref | Where the password is: secret:NAME (saved with komando credential password add NAME), env:VAR, file:PATH or a password manager like op://... |  |  | optional,advanced,check
-- flag:protected | --protected | Production: komando asks you before every change, and an AI agent needs your yes in a window |  |  | advanced,default,choices
-- flag:tag | --tag | Tags, like prod (comma-separated) |  |  | optional,advanced,check
+- arg1 | URL | URL? |  |  | optional,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
 - flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
-### komando db dump
-title: Save a copy of a database to a file on this computer (person only)
-- arg0 | Conn | Which database should it back up? | A database you added to komando. |  | choices,check
-- flag:to | --to | Save the backup to which file on this computer? | A new file; it never overwrites one. Ending in .gz makes it smaller. Only you can read it. Left out: CONN-<date>.sql.gz in this folder. | ./prod-2026-11-10.sql.gz | optional,check
+### komando database bigquery edit
+title: Change a saved bigquery database (only the flags you pass change)
+- arg0 | Name | Which database? | A database from your list. Add one first: komando database bigquery add. |  | choices,check
+- flag:url | --url | New address (URL)? | Like the one you added it with, without the password. Leave empty to keep it. | postgres://app@10.0.0.5:5432/shop | optional,check
+- flag:ask-password | --ask-password | Change the password? | Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line. |  | default,choices
+- flag:protected | --protected | Can a mistake on it hurt real users or real data? | Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away. |  | optional,choices
+- flag:via | --via | Reach it through which server or VPN? | The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now. | bastion | optional,free,choices
+- flag:add-group | --add-group | Add it to a group? | A group lets you pick many at once with @name. Leave empty for none. | web | optional,free,choices
+- flag:notes | --notes | Any notes to keep with it? | Free text, like who owns it or what runs there. AI agents read it too. Leave empty to keep the old notes. | main shop database | optional,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: via, credential, notes, protected |  |  | optional,advanced,check
+### komando database bigquery list
+title: List the saved bigquery databases
+- arg0 | Target | Which databases? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando database bigquery query
+title: Run a query on a BigQuery database (read only by default)
+- arg0 | Name | Which database? | A database from your list (`komando list kind:db`). Add one with `komando database KIND add` (postgres, mysql, sqlite ...). |  | choices,check
+- arg1 | SQL | Which SQL should it run? (leave empty to read it from a file) | One or more statements, ending with ; when there are several. On MongoDB: a JSON command like {"find": "users"}. | select id, email from users order by id desc limit 10 | optional,check
+- flag:write | --write | May it change data? | No runs it read-only, so nothing can change. Say yes only for insert, update, delete or create. |  | default,choices
+- flag:file | --file | Or read the SQL from which file on this computer? | Only when you left the SQL empty. A .sql file on this computer. | ./migration.sql | optional,check
+- flag:arg | --arg | A value for a placeholder in the SQL? | When the SQL has a placeholder ($1 PostgreSQL; ? MySQL, SQLite, Snowflake, BigQuery; @p1 SQL Server; :1 Oracle; {p1:UInt64} ClickHouse), its value goes here, so you never paste it into the SQL. Leave empty when there is none. | bob@example.com | optional,check
+- flag:limit | --limit | Show at most how many rows? | 0 shows every row. Big results are cut anyway, so keep it small for a first look. | 100 | optional,default,check
+- flag:max-bytes | --max-bytes | The most a query may read, which BigQuery bills by, like 50GB (default 10GB; 0 = no cap) |  |  | optional,advanced,check
+### komando database bigquery remove
+title: Forget a saved bigquery database (the database is not touched)
+- arg0 | Target | Which databases should come off your list? | Only komando's list changes; the database itself is not touched. |  | free,choices,check
+### komando database bigquery rename
+title: Rename a saved bigquery database and every reference to it
+- arg0 | Name | Which database do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
+### komando database bigquery shell
+title: Open komando's SQL shell on a BigQuery database (person only)
+- arg0 | Name | Which database? | You type SQL in it and see the rows. \q leaves, \? lists what else it knows. |  | choices,check
+- flag:write | --write | May the statements you type change data? | No keeps the whole session read-only. Say yes only when you plan to insert, update or delete. |  | default,choices
+### komando database bigquery show
+title: Show a saved bigquery database's settings (credentials as names)
+- arg0 | Name | Which database? | A database from your list. Add one first: komando database bigquery add. |  | choices,check
+### komando database bigquery test
+title: Check that a saved bigquery database answers and lets you in
+- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando database clickhouse
+title: ClickHouse: save a database and query it
+### komando database clickhouse add
+title: Save a clickhouse database under a short name
+- arg0 | Name | Name? |  |  | check
+- arg1 | URL | URL? |  |  | optional,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
+### komando database clickhouse edit
+title: Change a saved clickhouse database (only the flags you pass change)
+- arg0 | Name | Which database? | A database from your list. Add one first: komando database clickhouse add. |  | choices,check
+- flag:url | --url | New address (URL)? | Like the one you added it with, without the password. Leave empty to keep it. | postgres://app@10.0.0.5:5432/shop | optional,check
+- flag:ask-password | --ask-password | Change the password? | Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line. |  | default,choices
+- flag:protected | --protected | Can a mistake on it hurt real users or real data? | Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away. |  | optional,choices
+- flag:via | --via | Reach it through which server or VPN? | The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now. | bastion | optional,free,choices
+- flag:add-group | --add-group | Add it to a group? | A group lets you pick many at once with @name. Leave empty for none. | web | optional,free,choices
+- flag:notes | --notes | Any notes to keep with it? | Free text, like who owns it or what runs there. AI agents read it too. Leave empty to keep the old notes. | main shop database | optional,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: via, credential, notes, protected |  |  | optional,advanced,check
+### komando database clickhouse list
+title: List the saved clickhouse databases
+- arg0 | Target | Which databases? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando database clickhouse query
+title: Run a query on a ClickHouse database (read only by default)
+- arg0 | Name | Which database? | A database from your list (`komando list kind:db`). Add one with `komando database KIND add` (postgres, mysql, sqlite ...). |  | choices,check
+- arg1 | SQL | Which SQL should it run? (leave empty to read it from a file) | One or more statements, ending with ; when there are several. On MongoDB: a JSON command like {"find": "users"}. | select id, email from users order by id desc limit 10 | optional,check
+- flag:write | --write | May it change data? | No runs it read-only, so nothing can change. Say yes only for insert, update, delete or create. |  | default,choices
+- flag:file | --file | Or read the SQL from which file on this computer? | Only when you left the SQL empty. A .sql file on this computer. | ./migration.sql | optional,check
+- flag:arg | --arg | A value for a placeholder in the SQL? | When the SQL has a placeholder ($1 PostgreSQL; ? MySQL, SQLite, Snowflake, BigQuery; @p1 SQL Server; :1 Oracle; {p1:UInt64} ClickHouse), its value goes here, so you never paste it into the SQL. Leave empty when there is none. | bob@example.com | optional,check
+- flag:limit | --limit | Show at most how many rows? | 0 shows every row. Big results are cut anyway, so keep it small for a first look. | 100 | optional,default,check
+### komando database clickhouse remove
+title: Forget a saved clickhouse database (the database is not touched)
+- arg0 | Target | Which databases should come off your list? | Only komando's list changes; the database itself is not touched. |  | free,choices,check
+### komando database clickhouse rename
+title: Rename a saved clickhouse database and every reference to it
+- arg0 | Name | Which database do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
+### komando database clickhouse shell
+title: Open komando's SQL shell on a ClickHouse database (person only)
+- arg0 | Name | Which database? | You type SQL in it and see the rows. \q leaves, \? lists what else it knows. |  | choices,check
+- flag:write | --write | May the statements you type change data? | No keeps the whole session read-only. Say yes only when you plan to insert, update or delete. |  | default,choices
+### komando database clickhouse show
+title: Show a saved clickhouse database's settings (credentials as names)
+- arg0 | Name | Which database? | A database from your list. Add one first: komando database clickhouse add. |  | choices,check
+### komando database clickhouse test
+title: Check that a saved clickhouse database answers and lets you in
+- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando database mongodb
+title: MongoDB: save a database and send it commands
+### komando database mongodb add
+title: Save a mongodb database under a short name
+- arg0 | Name | Name? |  |  | check
+- arg1 | URL | URL? |  |  | optional,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
+### komando database mongodb edit
+title: Change a saved mongodb database (only the flags you pass change)
+- arg0 | Name | Which database? | A database from your list. Add one first: komando database mongodb add. |  | choices,check
+- flag:url | --url | New address (URL)? | Like the one you added it with, without the password. Leave empty to keep it. | postgres://app@10.0.0.5:5432/shop | optional,check
+- flag:ask-password | --ask-password | Change the password? | Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line. |  | default,choices
+- flag:protected | --protected | Can a mistake on it hurt real users or real data? | Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away. |  | optional,choices
+- flag:via | --via | Reach it through which server or VPN? | The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now. | bastion | optional,free,choices
+- flag:add-group | --add-group | Add it to a group? | A group lets you pick many at once with @name. Leave empty for none. | web | optional,free,choices
+- flag:notes | --notes | Any notes to keep with it? | Free text, like who owns it or what runs there. AI agents read it too. Leave empty to keep the old notes. | main shop database | optional,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: via, credential, notes, protected |  |  | optional,advanced,check
+### komando database mongodb list
+title: List the saved mongodb databases
+- arg0 | Target | Which databases? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando database mongodb query
+title: Run a query on a MongoDB database (read only by default)
+- arg0 | Name | Which database? | A database from your list (`komando list kind:db`). Add one with `komando database KIND add` (postgres, mysql, sqlite ...). |  | choices,check
+- arg1 | SQL | Which SQL should it run? (leave empty to read it from a file) | One or more statements, ending with ; when there are several. On MongoDB: a JSON command like {"find": "users"}. | select id, email from users order by id desc limit 10 | optional,check
+- flag:write | --write | May it change data? | No runs it read-only, so nothing can change. Say yes only for insert, update, delete or create. |  | default,choices
+- flag:file | --file | Or read the SQL from which file on this computer? | Only when you left the SQL empty. A .sql file on this computer. | ./migration.sql | optional,check
+- flag:arg | --arg | A value for a placeholder in the SQL? | When the SQL has a placeholder ($1 PostgreSQL; ? MySQL, SQLite, Snowflake, BigQuery; @p1 SQL Server; :1 Oracle; {p1:UInt64} ClickHouse), its value goes here, so you never paste it into the SQL. Leave empty when there is none. | bob@example.com | optional,check
+- flag:limit | --limit | Show at most how many rows? | 0 shows every row. Big results are cut anyway, so keep it small for a first look. | 100 | optional,default,check
+### komando database mongodb remove
+title: Forget a saved mongodb database (the database is not touched)
+- arg0 | Target | Which databases should come off your list? | Only komando's list changes; the database itself is not touched. |  | free,choices,check
+### komando database mongodb rename
+title: Rename a saved mongodb database and every reference to it
+- arg0 | Name | Which database do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
+### komando database mongodb show
+title: Show a saved mongodb database's settings (credentials as names)
+- arg0 | Name | Which database? | A database from your list. Add one first: komando database mongodb add. |  | choices,check
+### komando database mongodb test
+title: Check that a saved mongodb database answers and lets you in
+- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando database mysql
+title: MySQL and MariaDB: save a database, query it, back it up and restore it
+### komando database mysql add
+title: Save a mysql database under a short name
+- arg0 | Name | Name? |  |  | check
+- arg1 | URL | URL? |  |  | optional,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
+### komando database mysql backup
+title: Copy a MySQL database to a file on this computer (person only)
+- arg0 | Name | Which database should it back up? | A database you added to komando. |  | choices,check
+- flag:to | --to | Save the backup to which file on this computer? | A new file; it never overwrites one. Ending in .gz makes it smaller. Only you can read it. Left out: NAME-<date>.sql.gz in this folder. | ./prod-2026-11-10.sql.gz | optional,check
+- flag:schema-only | --schema-only | Only the tables' shape, without the rows? | Yes saves tables, indexes and functions but no data. |  | default,choices
+- flag:table | --table | Only one table? | Leave empty for the whole database. On PostgreSQL write schema.table. | public.orders | optional,check
+- flag:run-on | --run-on | Which server should run the backup tool? | A server that has pg_dump or mysqldump and can reach the database. Leave empty to use the server the database is reached through. |  | optional,free,choices
+### komando database mysql edit
+title: Change a saved mysql database (only the flags you pass change)
+- arg0 | Name | Which database? | A database from your list. Add one first: komando database mysql add. |  | choices,check
+- flag:url | --url | New address (URL)? | Like the one you added it with, without the password. Leave empty to keep it. | postgres://app@10.0.0.5:5432/shop | optional,check
+- flag:ask-password | --ask-password | Change the password? | Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line. |  | default,choices
+- flag:protected | --protected | Can a mistake on it hurt real users or real data? | Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away. |  | optional,choices
+- flag:via | --via | Reach it through which server or VPN? | The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now. | bastion | optional,free,choices
+- flag:add-group | --add-group | Add it to a group? | A group lets you pick many at once with @name. Leave empty for none. | web | optional,free,choices
+- flag:notes | --notes | Any notes to keep with it? | Free text, like who owns it or what runs there. AI agents read it too. Leave empty to keep the old notes. | main shop database | optional,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: via, credential, notes, protected |  |  | optional,advanced,check
+### komando database mysql list
+title: List the saved mysql databases
+- arg0 | Target | Which databases? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando database mysql query
+title: Run a query on a MySQL database (read only by default)
+- arg0 | Name | Which database? | A database from your list (`komando list kind:db`). Add one with `komando database KIND add` (postgres, mysql, sqlite ...). |  | choices,check
+- arg1 | SQL | Which SQL should it run? (leave empty to read it from a file) | One or more statements, ending with ; when there are several. On MongoDB: a JSON command like {"find": "users"}. | select id, email from users order by id desc limit 10 | optional,check
+- flag:write | --write | May it change data? | No runs it read-only, so nothing can change. Say yes only for insert, update, delete or create. |  | default,choices
+- flag:file | --file | Or read the SQL from which file on this computer? | Only when you left the SQL empty. A .sql file on this computer. | ./migration.sql | optional,check
+- flag:arg | --arg | A value for a placeholder in the SQL? | When the SQL has a placeholder ($1 PostgreSQL; ? MySQL, SQLite, Snowflake, BigQuery; @p1 SQL Server; :1 Oracle; {p1:UInt64} ClickHouse), its value goes here, so you never paste it into the SQL. Leave empty when there is none. | bob@example.com | optional,check
+- flag:limit | --limit | Show at most how many rows? | 0 shows every row. Big results are cut anyway, so keep it small for a first look. | 100 | optional,default,check
+### komando database mysql remove
+title: Forget a saved mysql database (the database is not touched)
+- arg0 | Target | Which databases should come off your list? | Only komando's list changes; the database itself is not touched. |  | free,choices,check
+### komando database mysql rename
+title: Rename a saved mysql database and every reference to it
+- arg0 | Name | Which database do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
+### komando database mysql restore
+title: Load a backup into a MySQL database
+- arg0 | Name | Which database should it load the backup into? | What is in it now is replaced. Back it up first with `komando database KIND backup`, or pick a test copy when you only want to try. |  | choices,check
+- flag:from | --from | Which backup file on this computer? | A file from `komando database KIND backup`, pg_dump or mysqldump. A .gz file is read as it is. | ./prod-2026-11-10.sql.gz | check
+### komando database mysql shell
+title: Open komando's SQL shell on a MySQL database (person only)
+- arg0 | Name | Which database? | You type SQL in it and see the rows. \q leaves, \? lists what else it knows. |  | choices,check
+- flag:write | --write | May the statements you type change data? | No keeps the whole session read-only. Say yes only when you plan to insert, update or delete. |  | default,choices
+### komando database mysql show
+title: Show a saved mysql database's settings (credentials as names)
+- arg0 | Name | Which database? | A database from your list. Add one first: komando database mysql add. |  | choices,check
+### komando database mysql test
+title: Check that a saved mysql database answers and lets you in
+- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando database oracle
+title: Oracle: save a database and query it
+### komando database oracle add
+title: Save a oracle database under a short name
+- arg0 | Name | Name? |  |  | check
+- arg1 | URL | URL? |  |  | optional,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
+### komando database oracle edit
+title: Change a saved oracle database (only the flags you pass change)
+- arg0 | Name | Which database? | A database from your list. Add one first: komando database oracle add. |  | choices,check
+- flag:url | --url | New address (URL)? | Like the one you added it with, without the password. Leave empty to keep it. | postgres://app@10.0.0.5:5432/shop | optional,check
+- flag:ask-password | --ask-password | Change the password? | Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line. |  | default,choices
+- flag:protected | --protected | Can a mistake on it hurt real users or real data? | Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away. |  | optional,choices
+- flag:via | --via | Reach it through which server or VPN? | The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now. | bastion | optional,free,choices
+- flag:add-group | --add-group | Add it to a group? | A group lets you pick many at once with @name. Leave empty for none. | web | optional,free,choices
+- flag:notes | --notes | Any notes to keep with it? | Free text, like who owns it or what runs there. AI agents read it too. Leave empty to keep the old notes. | main shop database | optional,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: via, credential, notes, protected |  |  | optional,advanced,check
+### komando database oracle list
+title: List the saved oracle databases
+- arg0 | Target | Which databases? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando database oracle query
+title: Run a query on an Oracle database (read only by default)
+- arg0 | Name | Which database? | A database from your list (`komando list kind:db`). Add one with `komando database KIND add` (postgres, mysql, sqlite ...). |  | choices,check
+- arg1 | SQL | Which SQL should it run? (leave empty to read it from a file) | One or more statements, ending with ; when there are several. On MongoDB: a JSON command like {"find": "users"}. | select id, email from users order by id desc limit 10 | optional,check
+- flag:write | --write | May it change data? | No runs it read-only, so nothing can change. Say yes only for insert, update, delete or create. |  | default,choices
+- flag:file | --file | Or read the SQL from which file on this computer? | Only when you left the SQL empty. A .sql file on this computer. | ./migration.sql | optional,check
+- flag:arg | --arg | A value for a placeholder in the SQL? | When the SQL has a placeholder ($1 PostgreSQL; ? MySQL, SQLite, Snowflake, BigQuery; @p1 SQL Server; :1 Oracle; {p1:UInt64} ClickHouse), its value goes here, so you never paste it into the SQL. Leave empty when there is none. | bob@example.com | optional,check
+- flag:limit | --limit | Show at most how many rows? | 0 shows every row. Big results are cut anyway, so keep it small for a first look. | 100 | optional,default,check
+### komando database oracle remove
+title: Forget a saved oracle database (the database is not touched)
+- arg0 | Target | Which databases should come off your list? | Only komando's list changes; the database itself is not touched. |  | free,choices,check
+### komando database oracle rename
+title: Rename a saved oracle database and every reference to it
+- arg0 | Name | Which database do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
+### komando database oracle shell
+title: Open komando's SQL shell on an Oracle database (person only)
+- arg0 | Name | Which database? | You type SQL in it and see the rows. \q leaves, \? lists what else it knows. |  | choices,check
+- flag:write | --write | May the statements you type change data? | No keeps the whole session read-only. Say yes only when you plan to insert, update or delete. |  | default,choices
+### komando database oracle show
+title: Show a saved oracle database's settings (credentials as names)
+- arg0 | Name | Which database? | A database from your list. Add one first: komando database oracle add. |  | choices,check
+### komando database oracle test
+title: Check that a saved oracle database answers and lets you in
+- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando database postgres
+title: PostgreSQL: save a database, query it, back it up and restore it
+### komando database postgres add
+title: Save a postgres database under a short name
+- arg0 | Name | Name? |  |  | check
+- arg1 | URL | URL? |  |  | optional,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
+### komando database postgres backup
+title: Copy a PostgreSQL database to a file on this computer (person only)
+- arg0 | Name | Which database should it back up? | A database you added to komando. |  | choices,check
+- flag:to | --to | Save the backup to which file on this computer? | A new file; it never overwrites one. Ending in .gz makes it smaller. Only you can read it. Left out: NAME-<date>.sql.gz in this folder. | ./prod-2026-11-10.sql.gz | optional,check
 - flag:format | --format | Which kind of backup? | plain is SQL any database tool reads. custom is PostgreSQL's own archive (needs pg_dump on a server; no .gz then). |  | optional,default,choices
 - flag:schema-only | --schema-only | Only the tables' shape, without the rows? | Yes saves tables, indexes and functions but no data. |  | default,choices
 - flag:table | --table | Only one table? | Leave empty for the whole database. On PostgreSQL write schema.table. | public.orders | optional,check
 - flag:run-on | --run-on | Which server should run the backup tool? | A server that has pg_dump or mysqldump and can reach the database. Leave empty to use the server the database is reached through. |  | optional,free,choices
+### komando database postgres edit
+title: Change a saved postgres database (only the flags you pass change)
+- arg0 | Name | Which database? | A database from your list. Add one first: komando database postgres add. |  | choices,check
+- flag:url | --url | New address (URL)? | Like the one you added it with, without the password. Leave empty to keep it. | postgres://app@10.0.0.5:5432/shop | optional,check
+- flag:ask-password | --ask-password | Change the password? | Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line. |  | default,choices
+- flag:protected | --protected | Can a mistake on it hurt real users or real data? | Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away. |  | optional,choices
+- flag:via | --via | Reach it through which server or VPN? | The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now. | bastion | optional,free,choices
+- flag:add-group | --add-group | Add it to a group? | A group lets you pick many at once with @name. Leave empty for none. | web | optional,free,choices
+- flag:notes | --notes | Any notes to keep with it? | Free text, like who owns it or what runs there. AI agents read it too. Leave empty to keep the old notes. | main shop database | optional,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: via, credential, notes, protected |  |  | optional,advanced,check
+### komando database postgres list
+title: List the saved postgres databases
+- arg0 | Target | Which databases? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando database postgres query
+title: Run a query on a PostgreSQL database (read only by default)
+- arg0 | Name | Which database? | A database from your list (`komando list kind:db`). Add one with `komando database KIND add` (postgres, mysql, sqlite ...). |  | choices,check
+- arg1 | SQL | Which SQL should it run? (leave empty to read it from a file) | One or more statements, ending with ; when there are several. On MongoDB: a JSON command like {"find": "users"}. | select id, email from users order by id desc limit 10 | optional,check
+- flag:write | --write | May it change data? | No runs it read-only, so nothing can change. Say yes only for insert, update, delete or create. |  | default,choices
+- flag:file | --file | Or read the SQL from which file on this computer? | Only when you left the SQL empty. A .sql file on this computer. | ./migration.sql | optional,check
+- flag:arg | --arg | A value for a placeholder in the SQL? | When the SQL has a placeholder ($1 PostgreSQL; ? MySQL, SQLite, Snowflake, BigQuery; @p1 SQL Server; :1 Oracle; {p1:UInt64} ClickHouse), its value goes here, so you never paste it into the SQL. Leave empty when there is none. | bob@example.com | optional,check
+- flag:limit | --limit | Show at most how many rows? | 0 shows every row. Big results are cut anyway, so keep it small for a first look. | 100 | optional,default,check
+### komando database postgres remove
+title: Forget a saved postgres database (the database is not touched)
+- arg0 | Target | Which databases should come off your list? | Only komando's list changes; the database itself is not touched. |  | free,choices,check
+### komando database postgres rename
+title: Rename a saved postgres database and every reference to it
+- arg0 | Name | Which database do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
+### komando database postgres restore
+title: Load a backup into a PostgreSQL database
+- arg0 | Name | Which database should it load the backup into? | What is in it now is replaced. Back it up first with `komando database KIND backup`, or pick a test copy when you only want to try. |  | choices,check
+- flag:from | --from | Which backup file on this computer? | A file from `komando database KIND backup`, pg_dump or mysqldump. A .gz file is read as it is. | ./prod-2026-11-10.sql.gz | check
+- flag:run-on | --run-on | Which server should run pg_restore? | Only for a PostgreSQL custom archive. Leave empty to use the server the database is reached through. |  | optional,free,choices
+### komando database postgres shell
+title: Open komando's SQL shell on a PostgreSQL database (person only)
+- arg0 | Name | Which database? | You type SQL in it and see the rows. \q leaves, \? lists what else it knows. |  | choices,check
+- flag:write | --write | May the statements you type change data? | No keeps the whole session read-only. Say yes only when you plan to insert, update or delete. |  | default,choices
+### komando database postgres show
+title: Show a saved postgres database's settings (credentials as names)
+- arg0 | Name | Which database? | A database from your list. Add one first: komando database postgres add. |  | choices,check
+### komando database postgres test
+title: Check that a saved postgres database answers and lets you in
+- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando database snowflake
+title: Snowflake: save an account and query it
+### komando database snowflake add
+title: Save a snowflake database under a short name
+- arg0 | Name | Name? |  |  | check
+- arg1 | URL | URL? |  |  | optional,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
+### komando database snowflake edit
+title: Change a saved snowflake database (only the flags you pass change)
+- arg0 | Name | Which database? | A database from your list. Add one first: komando database snowflake add. |  | choices,check
+- flag:url | --url | New address (URL)? | Like the one you added it with, without the password. Leave empty to keep it. | postgres://app@10.0.0.5:5432/shop | optional,check
+- flag:ask-password | --ask-password | Change the password? | Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line. |  | default,choices
+- flag:protected | --protected | Can a mistake on it hurt real users or real data? | Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away. |  | optional,choices
+- flag:via | --via | Reach it through which server or VPN? | The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now. | bastion | optional,free,choices
+- flag:add-group | --add-group | Add it to a group? | A group lets you pick many at once with @name. Leave empty for none. | web | optional,free,choices
+- flag:notes | --notes | Any notes to keep with it? | Free text, like who owns it or what runs there. AI agents read it too. Leave empty to keep the old notes. | main shop database | optional,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: via, credential, notes, protected |  |  | optional,advanced,check
+### komando database snowflake list
+title: List the saved snowflake databases
+- arg0 | Target | Which databases? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando database snowflake query
+title: Run a query on a Snowflake database (read only by default)
+- arg0 | Name | Which database? | A database from your list (`komando list kind:db`). Add one with `komando database KIND add` (postgres, mysql, sqlite ...). |  | choices,check
+- arg1 | SQL | Which SQL should it run? (leave empty to read it from a file) | One or more statements, ending with ; when there are several. On MongoDB: a JSON command like {"find": "users"}. | select id, email from users order by id desc limit 10 | optional,check
+- flag:write | --write | May it change data? | No runs it read-only, so nothing can change. Say yes only for insert, update, delete or create. |  | default,choices
+- flag:file | --file | Or read the SQL from which file on this computer? | Only when you left the SQL empty. A .sql file on this computer. | ./migration.sql | optional,check
+- flag:arg | --arg | A value for a placeholder in the SQL? | When the SQL has a placeholder ($1 PostgreSQL; ? MySQL, SQLite, Snowflake, BigQuery; @p1 SQL Server; :1 Oracle; {p1:UInt64} ClickHouse), its value goes here, so you never paste it into the SQL. Leave empty when there is none. | bob@example.com | optional,check
+- flag:limit | --limit | Show at most how many rows? | 0 shows every row. Big results are cut anyway, so keep it small for a first look. | 100 | optional,default,check
+### komando database snowflake remove
+title: Forget a saved snowflake database (the database is not touched)
+- arg0 | Target | Which databases should come off your list? | Only komando's list changes; the database itself is not touched. |  | free,choices,check
+### komando database snowflake rename
+title: Rename a saved snowflake database and every reference to it
+- arg0 | Name | Which database do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
+### komando database snowflake shell
+title: Open komando's SQL shell on a Snowflake database (person only)
+- arg0 | Name | Which database? | You type SQL in it and see the rows. \q leaves, \? lists what else it knows. |  | choices,check
+- flag:write | --write | May the statements you type change data? | No keeps the whole session read-only. Say yes only when you plan to insert, update or delete. |  | default,choices
+### komando database snowflake show
+title: Show a saved snowflake database's settings (credentials as names)
+- arg0 | Name | Which database? | A database from your list. Add one first: komando database snowflake add. |  | choices,check
+### komando database snowflake test
+title: Check that a saved snowflake database answers and lets you in
+- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando database sqlite
+title: SQLite: save a database file, query it and back it up
+### komando database sqlite add
+title: Save a sqlite database under a short name
+- arg0 | Name | Name? |  |  | check
+- arg1 | URL | URL? |  |  | optional,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
+### komando database sqlite backup
+title: Copy a SQLite database to a file on this computer (person only)
+- arg0 | Name | Which database should it back up? | A database you added to komando. |  | choices,check
+- flag:to | --to | Save the backup to which file on this computer? | A new file; it never overwrites one. Ending in .gz makes it smaller. Only you can read it. Left out: NAME-<date>.sql.gz in this folder. | ./prod-2026-11-10.sql.gz | optional,check
+### komando database sqlite edit
+title: Change a saved sqlite database (only the flags you pass change)
+- arg0 | Name | Which database? | A database from your list. Add one first: komando database sqlite add. |  | choices,check
+- flag:url | --url | New address (URL)? | Like the one you added it with, without the password. Leave empty to keep it. | postgres://app@10.0.0.5:5432/shop | optional,check
+- flag:ask-password | --ask-password | Change the password? | Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line. |  | default,choices
+- flag:protected | --protected | Can a mistake on it hurt real users or real data? | Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away. |  | optional,choices
+- flag:via | --via | Reach it through which server or VPN? | The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now. | bastion | optional,free,choices
+- flag:add-group | --add-group | Add it to a group? | A group lets you pick many at once with @name. Leave empty for none. | web | optional,free,choices
+- flag:notes | --notes | Any notes to keep with it? | Free text, like who owns it or what runs there. AI agents read it too. Leave empty to keep the old notes. | main shop database | optional,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: via, credential, notes, protected |  |  | optional,advanced,check
+### komando database sqlite list
+title: List the saved sqlite databases
+- arg0 | Target | Which databases? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando database sqlite query
+title: Run a query on a SQLite database (read only by default)
+- arg0 | Name | Which database? | A database from your list (`komando list kind:db`). Add one with `komando database KIND add` (postgres, mysql, sqlite ...). |  | choices,check
+- arg1 | SQL | Which SQL should it run? (leave empty to read it from a file) | One or more statements, ending with ; when there are several. On MongoDB: a JSON command like {"find": "users"}. | select id, email from users order by id desc limit 10 | optional,check
+- flag:write | --write | May it change data? | No runs it read-only, so nothing can change. Say yes only for insert, update, delete or create. |  | default,choices
+- flag:file | --file | Or read the SQL from which file on this computer? | Only when you left the SQL empty. A .sql file on this computer. | ./migration.sql | optional,check
+- flag:arg | --arg | A value for a placeholder in the SQL? | When the SQL has a placeholder ($1 PostgreSQL; ? MySQL, SQLite, Snowflake, BigQuery; @p1 SQL Server; :1 Oracle; {p1:UInt64} ClickHouse), its value goes here, so you never paste it into the SQL. Leave empty when there is none. | bob@example.com | optional,check
+- flag:limit | --limit | Show at most how many rows? | 0 shows every row. Big results are cut anyway, so keep it small for a first look. | 100 | optional,default,check
+### komando database sqlite remove
+title: Forget a saved sqlite database (the database is not touched)
+- arg0 | Target | Which databases should come off your list? | Only komando's list changes; the database itself is not touched. |  | free,choices,check
+### komando database sqlite rename
+title: Rename a saved sqlite database and every reference to it
+- arg0 | Name | Which database do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
+### komando database sqlite shell
+title: Open komando's SQL shell on a SQLite database (person only)
+- arg0 | Name | Which database? | You type SQL in it and see the rows. \q leaves, \? lists what else it knows. |  | choices,check
+- flag:write | --write | May the statements you type change data? | No keeps the whole session read-only. Say yes only when you plan to insert, update or delete. |  | default,choices
+### komando database sqlite show
+title: Show a saved sqlite database's settings (credentials as names)
+- arg0 | Name | Which database? | A database from your list. Add one first: komando database sqlite add. |  | choices,check
+### komando database sqlite test
+title: Check that a saved sqlite database answers and lets you in
+- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando database sqlserver
+title: SQL Server: save a database and query it
+### komando database sqlserver add
+title: Save a sqlserver database under a short name
+- arg0 | Name | Name? |  |  | check
+- arg1 | URL | URL? |  |  | optional,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
+### komando database sqlserver edit
+title: Change a saved sqlserver database (only the flags you pass change)
+- arg0 | Name | Which database? | A database from your list. Add one first: komando database sqlserver add. |  | choices,check
+- flag:url | --url | New address (URL)? | Like the one you added it with, without the password. Leave empty to keep it. | postgres://app@10.0.0.5:5432/shop | optional,check
+- flag:ask-password | --ask-password | Change the password? | Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line. |  | default,choices
+- flag:protected | --protected | Can a mistake on it hurt real users or real data? | Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away. |  | optional,choices
+- flag:via | --via | Reach it through which server or VPN? | The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now. | bastion | optional,free,choices
+- flag:add-group | --add-group | Add it to a group? | A group lets you pick many at once with @name. Leave empty for none. | web | optional,free,choices
+- flag:notes | --notes | Any notes to keep with it? | Free text, like who owns it or what runs there. AI agents read it too. Leave empty to keep the old notes. | main shop database | optional,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: via, credential, notes, protected |  |  | optional,advanced,check
+### komando database sqlserver list
+title: List the saved sqlserver databases
+- arg0 | Target | Which databases? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando database sqlserver query
+title: Run a query on a SQL Server database (read only by default)
+- arg0 | Name | Which database? | A database from your list (`komando list kind:db`). Add one with `komando database KIND add` (postgres, mysql, sqlite ...). |  | choices,check
+- arg1 | SQL | Which SQL should it run? (leave empty to read it from a file) | One or more statements, ending with ; when there are several. On MongoDB: a JSON command like {"find": "users"}. | select id, email from users order by id desc limit 10 | optional,check
+- flag:write | --write | May it change data? | No runs it read-only, so nothing can change. Say yes only for insert, update, delete or create. |  | default,choices
+- flag:file | --file | Or read the SQL from which file on this computer? | Only when you left the SQL empty. A .sql file on this computer. | ./migration.sql | optional,check
+- flag:arg | --arg | A value for a placeholder in the SQL? | When the SQL has a placeholder ($1 PostgreSQL; ? MySQL, SQLite, Snowflake, BigQuery; @p1 SQL Server; :1 Oracle; {p1:UInt64} ClickHouse), its value goes here, so you never paste it into the SQL. Leave empty when there is none. | bob@example.com | optional,check
+- flag:limit | --limit | Show at most how many rows? | 0 shows every row. Big results are cut anyway, so keep it small for a first look. | 100 | optional,default,check
+### komando database sqlserver remove
+title: Forget a saved sqlserver database (the database is not touched)
+- arg0 | Target | Which databases should come off your list? | Only komando's list changes; the database itself is not touched. |  | free,choices,check
+### komando database sqlserver rename
+title: Rename a saved sqlserver database and every reference to it
+- arg0 | Name | Which database do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
+### komando database sqlserver shell
+title: Open komando's SQL shell on a SQL Server database (person only)
+- arg0 | Name | Which database? | You type SQL in it and see the rows. \q leaves, \? lists what else it knows. |  | choices,check
+- flag:write | --write | May the statements you type change data? | No keeps the whole session read-only. Say yes only when you plan to insert, update or delete. |  | default,choices
+### komando database sqlserver show
+title: Show a saved sqlserver database's settings (credentials as names)
+- arg0 | Name | Which database? | A database from your list. Add one first: komando database sqlserver add. |  | choices,check
+### komando database sqlserver test
+title: Check that a saved sqlserver database answers and lets you in
+- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando db
+title: Databases: the schema, sessions, sizes and users
+### komando db activity
+title: Sessions running something now: pid, user, how long, what
+- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando database KIND add` (postgres, mysql, sqlite ...). |  | choices,check
+- flag:all | --all | Show idle sessions too? | No shows only sessions running something now. |  | default,choices
+- flag:limit | --limit | Show at most this many sessions (0 = all) |  |  | optional,advanced,check
 ### komando db explain
 title: Show how the database would run a query (--analyze runs it and measures)
-- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando db add`. |  | choices,check
+- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando database KIND add` (postgres, mysql, sqlite ...). |  | choices,check
 - arg1 | SQL | Which query should it explain? | The SQL you want to make faster. It shows how the database finds the rows (an index or a full scan). | select * from orders where user_id = 42 | check
 - flag:analyze | --analyze | Run the query too and measure the real time? | Yes runs it for real, which takes as long as the query. A query that changes data then needs a yes to the next question. |  | default,choices
 - flag:write | --write | May it change data? | No runs it read-only, so nothing can change. Say yes only for insert, update, delete or create. |  | default,choices
@@ -627,7 +1130,7 @@ title: Show how the database would run a query (--analyze runs it and measures)
 - flag:max-bytes | --max-bytes | BigQuery: the most a query may read, which BigQuery bills by, like 50GB (default 10GB; 0 = no cap) |  |  | optional,advanced,check
 ### komando db grant
 title: Give a user privileges on a database, schema or table (or a role)
-- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando db add`. |  | choices,check
+- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando database KIND add` (postgres, mysql, sqlite ...). |  | choices,check
 - arg1 | User | Which database user? | The user name inside the database, not your SSH user. `komando db user list` shows them. | app_ro | check
 - flag:privileges | --privileges | Give the user which rights? | Separate several with commas, like SELECT,INSERT,UPDATE, or ALL. Leave empty when you give a role instead. | SELECT | optional,check
 - flag:on | --on | On what? | PostgreSQL: database:NAME, schema:NAME, table:NAME or all-tables:SCHEMA. MySQL: shop.* or shop.orders. Needed with rights. | all-tables:public | optional,check
@@ -635,33 +1138,19 @@ title: Give a user privileges on a database, schema or table (or a role)
 - flag:from-host | --from-host | MySQL only: from where does this user connect? | The account host, like 10.0.0.% or localhost. Leave empty for % (anywhere), or on PostgreSQL. | 10.0.0.% | optional,check
 ### komando db info
 title: Show the version, size, connections and the replica role
-- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando db add`. |  | choices,check
+- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando database KIND add` (postgres, mysql, sqlite ...). |  | choices,check
 ### komando db kill
 title: Stop a session's running query (--session ends the connection)
-- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando db add`. |  | choices,check
+- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando database KIND add` (postgres, mysql, sqlite ...). |  | choices,check
 - arg1 | PID | Which session number (PID)? | The pid column of `komando db activity` or `komando db locks`. | 4821 | check
 - flag:session | --session | End the whole connection, not only its query? | No stops only the running query and the program stays connected. Yes disconnects it. |  | default,choices
 ### komando db locks
 title: Sessions waiting for a lock, and the session that holds it
-- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando db add`. |  | choices,check
+- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando database KIND add` (postgres, mysql, sqlite ...). |  | choices,check
 - flag:limit | --limit | Show at most this many waiting sessions (0 = all) |  |  | optional,advanced,check
-### komando db query
-title: Run SQL (read only by default)
-- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando db add`. |  | choices,check
-- arg1 | SQL | Which SQL should it run? (leave empty to read it from a file) | One or more statements, ending with ; when there are several. On MongoDB: a JSON command like {"find": "users"}. | select id, email from users order by id desc limit 10 | optional,check
-- flag:write | --write | May it change data? | No runs it read-only, so nothing can change. Say yes only for insert, update, delete or create. |  | default,choices
-- flag:file | --file | Or read the SQL from which file on this computer? | Only when you left the SQL empty. A .sql file on this computer. | ./migration.sql | optional,check
-- flag:arg | --arg | A value for a placeholder in the SQL? | When the SQL has a placeholder ($1 PostgreSQL; ? MySQL, SQLite, Snowflake, BigQuery; @p1 SQL Server; :1 Oracle; {p1:UInt64} ClickHouse), its value goes here, so you never paste it into the SQL. Leave empty when there is none. | bob@example.com | optional,check
-- flag:limit | --limit | Show at most how many rows? | 0 shows every row. Big results are cut anyway, so keep it small for a first look. | 100 | optional,default,check
-- flag:max-bytes | --max-bytes | BigQuery: the most a query may read, which BigQuery bills by, like 50GB (default 10GB; 0 = no cap) |  |  | optional,advanced,check
-### komando db restore
-title: Load a backup into a database
-- arg0 | Conn | Which database should it load the backup into? | What is in it now is replaced. Back it up first with komando db dump, or pick a test copy when you only want to try. |  | choices,check
-- flag:from | --from | Which backup file on this computer? | A file from `komando db dump`, pg_dump or mysqldump. A .gz file is read as it is. | ./prod-2026-11-10.sql.gz | check
-- flag:run-on | --run-on | Which server should run pg_restore? | Only for a PostgreSQL custom archive. Leave empty to use the server the database is reached through. |  | optional,free,choices
 ### komando db revoke
 title: Take privileges (or a role) away from a user
-- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando db add`. |  | choices,check
+- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando database KIND add` (postgres, mysql, sqlite ...). |  | choices,check
 - arg1 | User | Which database user? | The user name inside the database, not your SSH user. `komando db user list` shows them. | app_ro | check
 - flag:privileges | --privileges | Take which rights away? | Separate several with commas, like SELECT,INSERT,UPDATE, or ALL. Leave empty when you name a role instead. | SELECT | optional,check
 - flag:on | --on | On what? | PostgreSQL: database:NAME, schema:NAME, table:NAME or all-tables:SCHEMA. MySQL: shop.* or shop.orders. Needed with rights. | all-tables:public | optional,check
@@ -669,43 +1158,39 @@ title: Take privileges (or a role) away from a user
 - flag:from-host | --from-host | MySQL only: from where does this user connect? | The account host, like 10.0.0.% or localhost. Leave empty for % (anywhere), or on PostgreSQL. | 10.0.0.% | optional,check
 ### komando db schema
 title: List tables, or show columns and indexes of the named tables
-- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando db add`. |  | choices,check
+- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando database KIND add` (postgres, mysql, sqlite ...). |  | choices,check
 - arg1 | Table | Which tables? (leave empty to list them all) | Names of tables to see their columns and indexes. Several: separate them with spaces. On PostgreSQL also schema.table. | users orders | optional,check
-### komando db shell
-title: Open an SQL shell, read only by default (person only)
-- arg0 | Conn | Which database? | You type SQL in it and see the rows. \q leaves, \? lists what else it knows. |  | choices,check
-- flag:write | --write | May the statements you type change data? | No keeps the whole session read-only. Say yes only when you plan to insert, update or delete. |  | default,choices
 ### komando db sizes
 title: Databases, and the biggest tables and indexes
-- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando db add`. |  | choices,check
+- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando database KIND add` (postgres, mysql, sqlite ...). |  | choices,check
 - flag:limit | --limit | Show how many of the biggest tables and indexes? | How many tables and indexes | 10 | optional,default,check
 ### komando db user
 title: Database users: see, add, change passwords, remove
 ### komando db user add
 title: Create a user with a password from a secret reference
-- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando db add`. |  | choices,check
+- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando database KIND add` (postgres, mysql, sqlite ...). |  | choices,check
 - arg1 | User | What is the new user's name? | The name a program or person logs in to the database with. Letters, digits and underscore. | app_ro | check
 - flag:password-ref | --password-ref | Where is the password kept? | A secret reference, never the password itself. Save it first with `komando credential password add app-ro-pass`, then type secret:app-ro-pass. Leave empty only with a user that cannot log in. | secret:app-ro-pass | optional,check
 - flag:no-login | --no-login | A role that cannot log in (a group)? | Yes makes a group of rights you give to other users later. It needs no password. |  | default,choices
 - flag:from-host | --from-host | MySQL only: from where does this user connect? | The account host, like 10.0.0.% or localhost. Leave empty for % (anywhere), or on PostgreSQL. | 10.0.0.% | optional,check
 ### komando db user list
 title: List the users and roles of a database
-- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando db add`. |  | choices,check
+- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando database KIND add` (postgres, mysql, sqlite ...). |  | choices,check
 - flag:limit | --limit | Show at most this many users (0 = all) |  |  | optional,advanced,check
 ### komando db user passwd
 title: Set a user's password from a secret reference (rotation)
-- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando db add`. |  | choices,check
+- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando database KIND add` (postgres, mysql, sqlite ...). |  | choices,check
 - arg1 | User | Which database user? | The user name inside the database, not your SSH user. `komando db user list` shows them. | app_ro | check
 - flag:password-ref | --password-ref | Where is the password kept? | A secret reference, never the password itself. Save it first with `komando credential password add app-ro-pass`, then type secret:app-ro-pass. | secret:app-ro-pass | check
 - flag:from-host | --from-host | MySQL only: from where does this user connect? | The account host, like 10.0.0.% or localhost. Leave empty for % (anywhere), or on PostgreSQL. | 10.0.0.% | optional,check
 ### komando db user rm
 title: Remove a database user
-- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando db add`. |  | choices,check
+- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando database KIND add` (postgres, mysql, sqlite ...). |  | choices,check
 - arg1 | User | Which database user? | The user name inside the database, not your SSH user. `komando db user list` shows them. | app_ro | check
 - flag:from-host | --from-host | MySQL only: from where does this user connect? | The account host, like 10.0.0.% or localhost. Leave empty for % (anywhere), or on PostgreSQL. | 10.0.0.% | optional,check
 ### komando db user show
 title: What a user may do: privileges on tables and databases, and its roles
-- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando db add`. |  | choices,check
+- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando database KIND add` (postgres, mysql, sqlite ...). |  | choices,check
 - arg1 | User | Which database user? | The user name inside the database, not your SSH user. `komando db user list` shows them. | app_ro | check
 - flag:from-host | --from-host | MySQL only: from where does this user connect? | The account host, like 10.0.0.% or localhost. Leave empty for % (anywhere), or on PostgreSQL. | 10.0.0.% | optional,check
 ### komando docker
@@ -1818,7 +2303,7 @@ title: Rename one entry, or all names starting with OLD (--starts-with)
 - flag:kind | --kind | Rename only these kinds: host, conn, vpn, secret, key, group (default: all) |  |  | optional,advanced,check
 ### komando schema
 title: Every command, flag and exit code, machine-readable
-- arg0 | Command | For which command? (leave empty for all) | Its words, like db query. The list is for programs and AI agents. | db query | optional,check
+- arg0 | Command | For which command? (leave empty for all) | Its words, like database postgres query. The list is for programs and AI agents. | database postgres query | optional,check
 - flag:compact | --compact | Only paths and short descriptions |  |  | advanced,default,choices
 ### komando secret
 title: Check or copy a saved password or token

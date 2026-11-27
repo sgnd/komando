@@ -1,5 +1,5 @@
 # Disposable SSH server used by the end-to-end tests. Never use in production.
-# The database clients let `komando db dump/restore` run here through --via.
+# The database clients let `komando database KIND backup` and restore run here through --via.
 FROM debian:13-slim
 RUN apt-get update -q && apt-get install -y -q --no-install-recommends \
       openssh-server sudo procps iproute2 curl netcat-openbsd ca-certificates cron \

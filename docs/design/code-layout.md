@@ -151,7 +151,7 @@ row allows, or a row has no code.
 ## Files in internal/cli
 
 A file is named for the command it serves. The noun is the first word of
-the command (`komando db dump` → `db`), as listed in
+the command (`komando database postgres backup` → `database`), as listed in
 `internal/cli/testdata/command_ids.txt`, with any hyphen left out
 (`ssh-gate` → `sshgate`).
 

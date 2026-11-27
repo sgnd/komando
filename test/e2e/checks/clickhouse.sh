@@ -21,20 +21,20 @@ if [ "$($K conn test admin-ch | jget 'd["data"]["results"][0]["ok"]' 2>/dev/null
   return 0
 fi
 check "clickhouse conn test logs in through --via" login "$($K conn test admin-ch | jget 'd["data"]["results"][0]["detail"]["check"]')"
-check "clickhouse create database needs --write" WRITE_REQUIRES_FLAG "$($K db query admin-ch 'create database e2e_ch' | jget 'd["error"]["code"]')"
-q $K db query admin-ch --write 'create database e2e_ch'
+check "clickhouse create database needs --write" WRITE_REQUIRES_FLAG "$($K database clickhouse query admin-ch 'create database e2e_ch' | jget 'd["error"]["code"]')"
+q $K database clickhouse query admin-ch --write 'create database e2e_ch'
 q $K conn add shop-ch 'clickhouse://admin@clickhouse:8123/e2e_ch' --via bastion --password-ref secret:ch-admin
-q $K db query shop-ch --write "create table orders (id UInt64, item String, total Decimal(10, 2), placed DateTime default now()) engine = MergeTree order by id"
-check "clickhouse insert needs --write" WRITE_REQUIRES_FLAG "$($K db query shop-ch "insert into orders (id, item, total) values (1, 'pen', 1.5)" | jget 'd["error"]["code"]')"
-check "clickhouse a dry run only reports a write" True "$($K db query shop-ch --write --dry-run "insert into orders (id, item, total) values (1, 'pen', 1.5)" | jget '"skipped" in d["data"]["results"][0]')"
-check "clickhouse insert" 2 "$($K db query shop-ch --write "insert into orders (id, item, total) values (1, 'pen', 1.5), (2, 'ink', 12.25)" | jget 'd["data"]["results"][0]["rows_affected"]')"
-check "clickhouse a write goes alone" USAGE "$($K db query shop-ch --write "insert into orders (id, item) values (3, 'x'); select 1" | jget 'd["error"]["code"]')"
-check "clickhouse select with {p1:UInt64}" "['ink', '12.25']" "$($K db query shop-ch 'select item, total from orders where id = {p1:UInt64}' --arg 2 | jget 'd["data"]["results"][0]["rows"][0]')"
-check "clickhouse settings are refused in a read" USAGE "$($K db query shop-ch 'select 1 settings readonly = 0' | jget 'd["error"]["code"]')"
-check "clickhouse url() needs --allow-dangerous" WRITE_REQUIRES_FLAG "$($K db query shop-ch "select * from url('http://bastion:1/x', CSV, 'a String')" | jget 'd["error"]["code"]')"
-check "clickhouse heredocs are refused" SQL_HIDDEN_CODE "$($K db query shop-ch 'select $$x$$' | jget 'd["error"]["code"]')"
-check "clickhouse quotes hide nothing" True "$($K db query shop-ch "select 'it\\'s; drop table orders' as t" | jget 'd["ok"]')"
-check "clickhouse drop is destructive" POLICY_BLOCKED "$($K db query shop-ch --write 'drop table orders' | jget 'd["error"]["code"]')"
+q $K database clickhouse query shop-ch --write "create table orders (id UInt64, item String, total Decimal(10, 2), placed DateTime default now()) engine = MergeTree order by id"
+check "clickhouse insert needs --write" WRITE_REQUIRES_FLAG "$($K database clickhouse query shop-ch "insert into orders (id, item, total) values (1, 'pen', 1.5)" | jget 'd["error"]["code"]')"
+check "clickhouse a dry run only reports a write" True "$($K database clickhouse query shop-ch --write --dry-run "insert into orders (id, item, total) values (1, 'pen', 1.5)" | jget '"skipped" in d["data"]["results"][0]')"
+check "clickhouse insert" 2 "$($K database clickhouse query shop-ch --write "insert into orders (id, item, total) values (1, 'pen', 1.5), (2, 'ink', 12.25)" | jget 'd["data"]["results"][0]["rows_affected"]')"
+check "clickhouse a write goes alone" USAGE "$($K database clickhouse query shop-ch --write "insert into orders (id, item) values (3, 'x'); select 1" | jget 'd["error"]["code"]')"
+check "clickhouse select with {p1:UInt64}" "['ink', '12.25']" "$($K database clickhouse query shop-ch 'select item, total from orders where id = {p1:UInt64}' --arg 2 | jget 'd["data"]["results"][0]["rows"][0]')"
+check "clickhouse settings are refused in a read" USAGE "$($K database clickhouse query shop-ch 'select 1 settings readonly = 0' | jget 'd["error"]["code"]')"
+check "clickhouse url() needs --allow-dangerous" WRITE_REQUIRES_FLAG "$($K database clickhouse query shop-ch "select * from url('http://bastion:1/x', CSV, 'a String')" | jget 'd["error"]["code"]')"
+check "clickhouse heredocs are refused" SQL_HIDDEN_CODE "$($K database clickhouse query shop-ch 'select $$x$$' | jget 'd["error"]["code"]')"
+check "clickhouse quotes hide nothing" True "$($K database clickhouse query shop-ch "select 'it\\'s; drop table orders' as t" | jget 'd["ok"]')"
+check "clickhouse drop is destructive" POLICY_BLOCKED "$($K database clickhouse query shop-ch --write 'drop table orders' | jget 'd["error"]["code"]')"
 check "clickhouse schema lists the table" True "$($K db schema shop-ch | jget 'any(t["schema"] + "." + t["name"] == "e2e_ch.orders" and t["engine"] == "MergeTree" for t in d["data"]["tables"])')"
 check "clickhouse schema shows the key" "['id']" "$($K db schema shop-ch e2e_ch.orders | jget '[c["name"] for c in d["data"]["tables"][0]["columns"] if c.get("primary_key")]')"
 check "clickhouse info" True "$($K db info admin-ch | jget 'd["data"]["version"] != ""')"
@@ -45,16 +45,16 @@ check "clickhouse locks is not supported" NOT_SUPPORTED "$($K db locks admin-ch 
 q $K db user add admin-ch e2e_ro --password-ref secret:ch-ro --allow-dangerous
 q $K db grant admin-ch e2e_ro --privileges SELECT --on 'e2e_ch.*' --allow-dangerous
 q $K conn add ro-ch 'clickhouse://e2e_ro@clickhouse:8123/e2e_ch' --via bastion --password-ref secret:ch-ro
-check "clickhouse: the new user logs in with the vault password" 2 "$($K db query ro-ch 'select count() from orders' | jget 'd["data"]["results"][0]["rows"][0][0]')"
-check "clickhouse: and may only read what was granted" False "$($K db query ro-ch --write "insert into orders (id) values (9)" | jget 'd["ok"]')"
+check "clickhouse: the new user logs in with the vault password" 2 "$($K database clickhouse query ro-ch 'select count() from orders' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+check "clickhouse: and may only read what was granted" False "$($K database clickhouse query ro-ch --write "insert into orders (id) values (9)" | jget 'd["ok"]')"
 check "clickhouse db user show shows SELECT" True "$($K db user show admin-ch e2e_ro | jget 'any(g["object"] == "e2e_ch.*" and "SELECT" in g["privileges"] for g in d["data"]["grants"])')"
 q $K conn rm ro-ch
 q $K db user rm admin-ch e2e_ro --allow-dangerous
 check "clickhouse db user rm removed it" False "$($K db user ls admin-ch | jget 'any(u["name"] == "e2e_ro" for u in d["data"]["users"])')"
-check "clickhouse dump is not supported" NOT_SUPPORTED "$($K db dump shop-ch --to "$TMP/c.sql" | jget 'd["error"]["code"]')"
+check "clickhouse has no backup command" USAGE "$($K database clickhouse backup shop-ch | jget 'd["error"]["code"]')"
 check "no clickhouse password in the audit log" 0 "$(audit_text | grep -c -E 'Admin-pass-1|Ro-pass-1x' || true)"
 q $K conn rm shop-ch
-q $K db query admin-ch --write --allow-dangerous 'drop database e2e_ch'
+q $K database clickhouse query admin-ch --write --allow-dangerous 'drop database e2e_ch'
 q $K conn rm admin-ch
 $K credential password remove ch-admin ch-ro --allow-dangerous >/dev/null 2>&1 || true
 set -e

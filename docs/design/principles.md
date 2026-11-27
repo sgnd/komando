@@ -68,7 +68,7 @@ risk     = read | write | destructive  ->  the same guard for all
 
 ```
 komando <noun> <verb> [ITEM] [TARGET] [args] [flags]
-komando db query prod-db "select 1"
+komando database postgres query prod-db "select 1"
 komando storage upload backups ./dump.sql.gz
 ```
 
@@ -124,7 +124,7 @@ Selectors pick everything: servers and conns alike.
 6. **Safety checks run for the whole batch before anything runs.** One
    protected target that needs a yes stops the whole batch, and every such
    target is named.
-7. `db query` runs against one database; a selector that picks several is
+7. `database KIND query` runs against one database; a selector that picks several is
    refused.
 
 ## 4. Flags
@@ -318,11 +318,11 @@ in every area:
 1. **Commands komando understands** (`db schema`, `cache get`,
    `storage ls`): structured output, safe. For most daily work.
 2. **A raw path in the native language**, still classified, read-only by
-   default and audited: `exec`, `db query`, `cache redis raw`,
+   default and audited: `exec`, `database KIND query`, `cache redis raw`,
    `cluster kubernetes raw -- <kubectl args>`.
 3. **Your own tool, through komando's path**: `komando tunnel start prod-db`
    gives a local port for any client; `komando shell` opens SSH;
-   `komando db shell prod-db` opens komando's own SQL shell with the
+   `komando database postgres shell prod-db` opens komando's own SQL shell with the
    password from the vault.
 
 Paths 2 and 3 are not overlaps: they exist on purpose, with the same

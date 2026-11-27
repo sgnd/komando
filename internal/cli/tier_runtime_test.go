@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/base64"
@@ -44,14 +45,12 @@ var tierRuns = []tierRun{
 	{"storage object delete dangerous", "storage.s3.object.delete", []string{"s3", "a.txt"}, false},
 	{"registry image delete dangerous", "registry.oci.image.delete", []string{"reg", "app:1"}, false},
 	{"registry image prune dangerous", "registry.oci.image.prune", []string{"reg", "app", "--keep", "1"}, false},
-	{"database restore dangerous", "db.restore", []string{"pg", "--from", "dump.sql"}, false},
 	{"credential key remove --delete-file dangerous", "credential.key.remove", []string{"k1", "--delete-file"}, false},
 	{"host exec dynamic dangerous", "exec", []string{"dev", "--", "rm -rf /"}, false},
 	{"snippet exec dynamic dangerous", "snippet.exec", []string{"wipe", "dev"}, false},
 	{"cluster exec dynamic dangerous", "cluster.kubernetes.exec", []string{"k8s", "pod/a", "--", "rm -rf /"}, false},
 	{"cluster raw dynamic dangerous", "cluster.kubernetes.raw", []string{"k8s", "--write", "--", "delete", "pod", "a"}, false},
 	{"cache raw dynamic dangerous", "cache.redis.raw", []string{"r", "--write", "--", "FLUSHALL"}, false},
-	{"database query dynamic dangerous", "db.query", []string{"pg", "--write", "DROP TABLE t"}, false},
 	{"host ssh add --proxy-command dynamic dangerous", "host.add", []string{"x", "--address", "10.0.0.9", "--proxy-command", "rm -rf /"}, false},
 	{"host ssh edit --proxy-command dynamic dangerous", "host.edit", []string{"dev", "--proxy-command", "rm -rf /"}, false},
 	// safety
@@ -68,7 +67,6 @@ var tierRuns = []tierRun{
 	{"host ssh trust dynamic safety", "host.trust", []string{"dev"}, false},
 	{"agent skill uninstall dynamic safety", "agent.skill.uninstall", []string{"--project"}, false},
 	{"host edit --protected=false safety", "host.edit", []string{"prod", "--protected=false"}, false},
-	{"database edit --protected=false safety", "conn.edit", []string{"pg-prot", "--protected=false"}, false},
 	{"cache edit --protected=false safety", "cache.redis.edit", []string{"r-prot", "--protected=false"}, false},
 	{"storage edit --protected=false safety", "storage.s3.edit", []string{"s3-prot", "--protected=false"}, false},
 	{"registry edit --protected=false safety", "registry.oci.edit", []string{"reg-prot", "--protected=false"}, false},
@@ -93,11 +91,9 @@ var tierRuns = []tierRun{
 	{"config approval-code person", "config.approval-code", nil, false},
 	{"config vault passphrase person", "config.vault.passphrase", nil, false},
 	{"config vault keychain not --off person", "config.vault.keychain", nil, false},
-	{"host shell person", "shell", []string{"dev"}, false},
-	{"database shell person", "db.shell", []string{"pg"}, false},
-	{"database backup dynamic person", "db.dump", []string{"pg", "--to", "pg.sql"}, false}, // C424: every connection
 	{"cluster shell person", "cluster.kubernetes.shell", []string{"k8s", "pod/a"}, false},
 	{"credential certificate add person", "credential.certificate.add", []string{"ca1", "--key", "ca.pub", "--hosts", "*.corp.example"}, false},
+	{"host shell person", "shell", []string{"dev"}, false},
 	{"host ssh trust --reset person", "host.trust", []string{"prod", "--reset"}, false},
 	{"export --sealed person", "export", []string{"--sealed", "--to", "out.kmd"}, false},
 	{"export --for-phone person", "export", []string{"--for-phone", "--to", "out.kmd"}, false},
@@ -119,8 +115,6 @@ var tierRuns = []tierRun{
 	{"floor", "cluster.kubernetes.rename", []string{"k8s", "k8s9"}, false},
 	{"floor", "cluster.kubernetes.tunnel.start", []string{"k8s", "svc/a", "18080:80"}, false},
 	{"floor", "config.set", []string{"parallel", "4"}, false},
-	{"floor", "db.add", []string{"pg2", "postgres://u@127.0.0.1:1/app"}, false},
-	{"floor", "db.query", []string{"pg", "SELECT 1"}, false},
 	{"floor", "exec", []string{"dev", "--", "touch /tmp/x"}, false},
 	{"floor", "exec", []string{"prod", "--", "touch /tmp/x"}, true},
 	{"floor", "group.create", []string{"g2", "dev"}, false},
@@ -195,6 +189,55 @@ var tierUnreached = map[string]string{
 	"floor | cluster.kubernetes.add":                                           "a Kubernetes conn logs in with a whole kubeconfig from the vault, which a unit run has not got",
 	"floor | credential.run":                                                   "an agent always meets the row: credential run always hands a secret on",
 	"floor | storage.s3.object.link":                                           "an agent always meets the row: a link is always --reveal for an agent",
+}
+
+// databaseTierConns are one conn of each database provider: the runs of
+// the database leaves use the conn of their provider. Snowflake goes
+// through dev, so no run looks up a Snowflake host; BigQuery has an
+// emulator endpoint, so no run asks Google for a login.
+var databaseTierConns = []struct{ name, provider, url, prot, via, drop string }{
+	{"pg", "postgres", "postgres://u@127.0.0.1:1/app", "postgres://u@127.0.0.1:2/app", "", "DROP TABLE t"},
+	{"my", "mysql", "mysql://u@127.0.0.1:1/app", "mysql://u@127.0.0.1:2/app", "", "DROP TABLE t"},
+	{"ms", "sqlserver", "sqlserver://u@127.0.0.1:1/app", "sqlserver://u@127.0.0.1:2/app", "", "DROP TABLE t"},
+	{"ora", "oracle", "oracle://u@127.0.0.1:1/APP", "oracle://u@127.0.0.1:2/APP", "", "DROP TABLE t"},
+	{"lite", "sqlite", "", "", "", "DROP TABLE t"}, // files in the seed's folder
+	{"mg", "mongodb", "mongodb://u@127.0.0.1:1/app", "mongodb://u@127.0.0.1:2/app", "", `{"dropDatabase": 1}`},
+	{"ch", "clickhouse", "clickhouse://u@127.0.0.1:1/app", "clickhouse://u@127.0.0.1:2/app", "", "DROP TABLE t"},
+	{"sf", "snowflake", "snowflake://u@acct/APP/PUBLIC", "snowflake://u@acct2/APP/PUBLIC", "dev", "DROP TABLE t"},
+	{"bq", "bigquery", "bigquery://my-project/app?endpoint=http://127.0.0.1:1", "bigquery://my-project/app?endpoint=http://127.0.0.1:2", "", "DROP TABLE t"},
+}
+
+// The database runs: today's db query, dump, restore, shell and add, on
+// every provider of the table that has the verb (moving a type keeps the
+// runs of each of its IDs on every new path).
+func init() {
+	for _, d := range databaseTierConns {
+		id := "database." + d.provider + "."
+		tierRuns = append(tierRuns,
+			tierRun{"database query dynamic dangerous", id + "query", []string{d.name, "--write", d.drop}, false},
+			tierRun{"floor", id + "query", []string{d.name, map[bool]string{true: `{"find": "t"}`, false: "SELECT 1"}[d.provider == "mongodb"]}, false},
+			// add saves another one; a plain-HTTP endpoint would need a yes there
+			tierRun{"floor", id + "add", []string{d.name + "2", strings.Replace(cmp.Or(d.url, "sqlite:///var/lib/app2.db"), "endpoint=http:", "endpoint=https:", 1)}, false},
+			tierRun{"database edit --protected=false safety", id + "edit", []string{d.name + "-prot", "--protected=false"}, false},
+			tierRun{"floor", id + "edit", []string{d.name, "--notes", "x"}, false},
+			tierRun{"floor", id + "remove", []string{d.name}, false},
+			tierRun{"floor", id + "rename", []string{d.name, d.name + "9"}, false},
+		)
+		tierDisagree[id+"edit "+d.name+"-prot --protected=false"] = "PROTECTED_TARGET" // as conn edit (C429)
+		built := func(verb string) bool {
+			l, ok := capability.Find(capability.Key{Type: "database", Provider: d.provider, Verb: verb})
+			return ok && l.State == capability.Built
+		}
+		if built("shell") {
+			tierRuns = append(tierRuns, tierRun{"database shell person", id + "shell", []string{d.name}, false})
+		}
+		if built("backup") { // C424: every connection
+			tierRuns = append(tierRuns, tierRun{"database backup dynamic person", id + "backup", []string{d.name, "--to", d.name + "-copy.sql"}, false})
+		}
+		if built("restore") {
+			tierRuns = append(tierRuns, tierRun{"database restore dangerous", id + "restore", []string{d.name, "--from", "dump.sql"}, false})
+		}
+	}
 }
 
 // tierDisagree are the runs whose stop is not the one the tier names, with
@@ -614,8 +657,23 @@ func tierSeed(t *testing.T) {
 	prodPort := listenFakeSSH(t)
 	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Hosts["prod"].Port = prodPort
-		st.Conns["pg"] = &store.Conn{Name: "pg", Kind: "postgres", URL: "postgres://u@127.0.0.1:1/app"}
-		st.Conns["pg-prot"] = &store.Conn{Name: "pg-prot", Kind: "postgres", URL: "postgres://u@127.0.0.1:2/app", Protected: true}
+		wd, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+		for _, d := range databaseTierConns {
+			c := &store.Conn{Name: d.name, Kind: d.provider, URL: d.url, Via: d.via}
+			if d.provider == "sqlite" {
+				c.URL = "sqlite://" + filepath.Join(wd, "tier.db")
+			}
+			st.Conns[d.name] = c
+			// its protected twin at another address: one address is one target
+			p := &store.Conn{Name: d.name + "-prot", Kind: d.provider, URL: d.prot, Via: d.via, Protected: true}
+			if d.provider == "sqlite" {
+				p.URL = "sqlite://" + filepath.Join(wd, "tier-prot.db")
+			}
+			st.Conns[p.Name] = p
+		}
 		st.Conns["r-prot"] = &store.Conn{Name: "r-prot", Kind: "redis", URL: "redis://127.0.0.1:3", Protected: true}
 		st.Conns["s3-prot"] = &store.Conn{Name: "s3-prot", Kind: "s3", URL: "s3://key@bucket2/p?endpoint=http://127.0.0.1:3", Protected: true}
 		st.Conns["reg-prot"] = &store.Conn{Name: "reg-prot", Kind: "registry", URL: "registry://127.0.0.1:3?tls=false", Protected: true}

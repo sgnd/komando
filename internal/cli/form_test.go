@@ -299,8 +299,8 @@ func TestFormAddCtrlC(t *testing.T) {
 		t.Skip("starts a process")
 	}
 	invHome(t)
-	p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "db", "add")
-	p.answer("KIND: ", "\x03")
+	p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "database", "postgres", "add")
+	p.answer("NAME: ", "\x03") // one kind: the PostgreSQL questions start with the name
 	if code := p.exit(); code != 1 || !strings.Contains(p.shown(), "Stopped.") {
 		t.Errorf("exit %d; the screen:\n%s", code, p.shown())
 	}
@@ -544,10 +544,10 @@ func TestFormPickKinds(t *testing.T) {
 	mustRun(t, "conn", "add", "app-db", "postgres://app@10.0.0.9/app")
 	mustRun(t, "snippet", "create", "up", "uptime")
 	root := newRoot(tcl)
-	c, _, _ := root.Find([]string{"db", "dump"})
+	c, _, _ := root.Find([]string{"database", "postgres", "backup"})
 	got, _ := c.ValidArgsFunction(c, nil, "")
 	if !slices.Contains(got, "app-db") {
-		t.Errorf("db dump <TAB>: %v", got)
+		t.Errorf("database postgres backup <TAB>: %v", got)
 	}
 	if p, _ := formArgPick("SERVER"); p != "server" {
 		t.Errorf("SERVER picks %q", p) // one server (S-4.2)

@@ -356,7 +356,7 @@ func TestScriptHelpShowsTheSafetyLine(t *testing.T) {
 // command of their line too; the gate's tree, asked line after line, each.
 func TestReadTreesPrepareTheirCommand(t *testing.T) {
 	sc, gate := gateTree()
-	for _, line := range [][]string{{"host", "list"}, {"-o", "json", "db", "query", "x", "select 1"}, {"cache", "rm", "c1", "k"}, {"host", "ls"}} {
+	for _, line := range [][]string{{"host", "list"}, {"-o", "json", "database", "postgres", "query", "x", "select 1"}, {"cache", "rm", "c1", "k"}, {"host", "ls"}} {
 		if c, _, err := commandTree(line).Find(line); err != nil || !prepared(c) || !c.HasParent() {
 			t.Errorf("%q: the guard's tree finds %q, not prepared (%v)", line, c.CommandPath(), err)
 		}

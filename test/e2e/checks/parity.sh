@@ -32,14 +32,14 @@ check "fs cat = cat" "$(native direct cat "/tmp/$V.conf")" "$($K fs cat direct "
 check "fs ls = ls" "$(native direct ls -A /tmp | grep -c "^$V")" "$($K fs ls direct /tmp | jget 'str(sum(1 for e in d["data"]["entries"] if e["name"].startswith("'"$V"'")))')"
 
 # PostgreSQL (psql -At -c)
-check "db query = psql" "$(native pg psql -U app -d app -At -c 'select 6*7, current_user')" \
-  "$($K db query pg 'select 6*7, current_user' | jget '"|".join(str(v) for v in d["data"]["results"][0]["rows"][0])')"
-check "db query dates = psql" "$(native pg psql -U app -d app -At -c "select date '2024-02-29', timestamp '2024-01-01 10:00:00'")" \
-  "$($K db query pg "select date '2024-02-29', timestamp '2024-01-01 10:00:00'" | jget '"|".join(str(v) for v in d["data"]["results"][0]["rows"][0])')"
+check "database postgres query = psql" "$(native pg psql -U app -d app -At -c 'select 6*7, current_user')" \
+  "$($K database postgres query pg 'select 6*7, current_user' | jget '"|".join(str(v) for v in d["data"]["results"][0]["rows"][0])')"
+check "database postgres query dates = psql" "$(native pg psql -U app -d app -At -c "select date '2024-02-29', timestamp '2024-01-01 10:00:00'")" \
+  "$($K database postgres query pg "select date '2024-02-29', timestamp '2024-01-01 10:00:00'" | jget '"|".join(str(v) for v in d["data"]["results"][0]["rows"][0])')"
 
 # MariaDB (mariadb -N -e)
-check "db query = mariadb" "$(native maria mariadb -ushop -pshoppass shop -N -e 'select 6*7' 2>/dev/null)" \
-  "$($K db query maria 'select 6*7' | jget 'str(d["data"]["results"][0]["rows"][0][0])')"
+check "database postgres query = mariadb" "$(native maria mariadb -ushop -pshoppass shop -N -e 'select 6*7' 2>/dev/null)" \
+  "$($K database mysql query maria 'select 6*7' | jget 'str(d["data"]["results"][0]["rows"][0][0])')"
 
 # Redis (redis-cli SET / GET / TTL)
 q $K cache set cache "$V:k" "hello world" --ttl 1h

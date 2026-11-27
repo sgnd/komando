@@ -209,7 +209,7 @@ func TestDatabaseClientIsReadOnly(t *testing.T) {
 	invHome(t)
 	path := filepath.Join(t.TempDir(), "app.db")
 	mustRun(t, "conn", "add", "lite", "sqlite://"+path)
-	mustRun(t, "db", "query", "lite", "--write", "create table t (id int)")
+	mustRun(t, "database", "sqlite", "query", "lite", "--write", "create table t (id int)")
 	var wrote, read error
 	b := clientSnippet("database", capability.Read, func(c snippet.Client, _ snippet.Values) (any, error) {
 		db := c.(*dbClient).db

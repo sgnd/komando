@@ -72,7 +72,7 @@ func TestLoginAskPostgresEnvIgnored(t *testing.T) {
 	setCallerEnv(t, "CLAUDECODE", "1")
 	t.Setenv("PGSSLROOTCERT", caFile)
 	loginWindow(t, pw, true, true)
-	_, _ = runCache(t, "-o", "json", "db", "query", "pg1", "--", "select 1")
+	_, _ = runCache(t, "-o", "json", "database", "postgres", "query", "pg1", "--", "select 1")
 	if v, _ := got.Load().(string); v == pw {
 		t.Fatalf("the fake server got the typed password")
 	}

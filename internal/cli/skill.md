@@ -28,7 +28,7 @@ Update komando only when the human asks: `komando update` (when it stops with
 
 At a person's terminal, a command typed with something missing asks for
 it, one line at a time, and shows the whole line before it runs.
-`komando host add` (or `db add`, `vpn KIND add`) typed alone asks that kind's
+`komando host add` (or `database KIND add`, `vpn KIND add`) typed alone asks that kind's
 questions.
 
 komando never asks an AI agent or a script anything. Give every argument
@@ -57,7 +57,7 @@ not know? Set `KOMANDO_AGENT=1`.
    show the human what you will ask for. (One exception: with
    `KOMANDO_HOME` set to another folder every command stops, a dry run
    too, and no flag clears it.) Declare read-only shell commands
-   with `komando exec TARGET --read-only -- 'COMMAND'`. `db query`,
+   with `komando exec TARGET --read-only -- 'COMMAND'`. `database KIND query`,
    `cache redis raw` and `cluster kubernetes raw` are the other way round: they only read
    unless you add `--write`.
    Every command that hands words to another program (`exec`, `job start`,
@@ -68,8 +68,9 @@ not know? Set `KOMANDO_AGENT=1`.
 3. **Use the command made for the job.**
    - Files: `komando fs replace TARGET PATH --old '...' --new '...' --backup`,
      never `sed -i` over `exec`.
-   - Databases: query with `komando db query`. A backup is
-     `komando db dump CONN --to FILE`, and only the human runs it, in their
+   - Databases: query with `komando database KIND query NAME` (KIND is
+     postgres, mysql, sqlite, mongodb ...). A backup is
+     `komando database KIND backup NAME --to FILE`, and only the human runs it, in their
      own terminal (`NEEDS_PERSON`: the file holds every row, secrets
      included); never `pg_dump` through `exec` and base64. Manage users with `komando db user` and
      `komando db grant` (passwords as `--password-ref secret:NAME`, never

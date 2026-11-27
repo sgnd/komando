@@ -17,18 +17,18 @@ check "person: yes to a protected server runs it" True "$($K fs stat target "/tm
 q $K fs rm target "/tmp/$P1" --yes --allow-dangerous
 
 # a destructive command: type the name to go on
-q $K db query pg --write "create table if not exists t_person(x int)"
-O=$(tty 'wrong\n' db query pg --write "drop table t_person"); RC=$?
+q $K database postgres query pg --write "create table if not exists t_person(x int)"
+O=$(tty 'wrong\n' database postgres query pg --write "drop table t_person"); RC=$?
 check "person: a destructive query asks for the name" 1 "$(grep -c 'Type the name pg to continue' <<<"$O")"
 check "person: a wrong name stops it (6)" 6 "$RC"
-check "person: the table is still there" 1 "$($K db query pg "select count(*) from information_schema.tables where table_name='t_person'" | jget 'd["data"]["results"][0]["rows"][0][0]')"
-tty 'pg\n' db query pg --write "drop table t_person" >/dev/null
-check "person: the right name runs it" 0 "$($K db query pg "select count(*) from information_schema.tables where table_name='t_person'" | jget 'd["data"]["results"][0]["rows"][0][0]')"
+check "person: the table is still there" 1 "$($K database postgres query pg "select count(*) from information_schema.tables where table_name='t_person'" | jget 'd["data"]["results"][0]["rows"][0][0]')"
+tty 'pg\n' database postgres query pg --write "drop table t_person" >/dev/null
+check "person: the right name runs it" 0 "$($K database postgres query pg "select count(*) from information_schema.tables where table_name='t_person'" | jget 'd["data"]["results"][0]["rows"][0][0]')"
 
 # `komando db` alone: examples and the conn journey, exit 0
 O=$(tty '' db); RC=$?
 check "person: komando db shows how to list databases" 1 "$(grep -c 'komando list kind:db' <<<"$O")"
-check "person: komando db shows examples" 1 "$(grep -c '^  komando db dump prod-db --to prod.sql.gz' <<<"$O")"
+check "person: komando db shows examples" 1 "$(grep -c '^  komando db info prod-db' <<<"$O")"
 check "person: komando db alone exits 0" 0 "$RC"
 
 # a change that weakens komando's own safety: [y/N]

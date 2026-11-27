@@ -7,11 +7,19 @@ safely. [All docs](README.md)
 ## Add a database
 
 ```bash
-komando db add prod-db postgres://app@10.0.0.5:5432/app --via web1 --ask-password --protected
+komando database postgres add prod-db postgres://app@10.0.0.5:5432/app --via web1 --ask-password --protected
 komando test prod-db                         # can komando reach it and log in?
 ```
 
-Typed alone, `komando db add` asks for each part step by step.
+Each kind of database has its own words: `komando database postgres`,
+`mysql`, `sqlserver`, `oracle`, `clickhouse`, `snowflake`, `bigquery`,
+`sqlite` and `mongodb`. Each takes `add`, `edit`, `list`, `remove`,
+`rename`, `show`, `test` and `query`; PostgreSQL and MySQL also take
+`backup` and `restore`, SQLite `backup`, and every SQL kind `shell`.
+`komando database KIND --help` lists what a kind has. A conn of another
+kind is refused with the words that fit it (`WRONG_KIND`).
+
+Typed alone, `komando database postgres add` asks for each part step by step.
 
 komando calls a database a **conn** (see the [glossary](glossary.md)).
 The kind comes from the start of the URL:
@@ -38,7 +46,7 @@ Or store it first, or point at your password manager (see
 
 ```bash
 komando credential password add prod-db-pass
-komando db add prod-db postgres://app@10.0.0.5:5432/app --via web1 --password-ref secret:prod-db-pass --protected
+komando database postgres add prod-db postgres://app@10.0.0.5:5432/app --via web1 --credential prod-db-pass --protected
 ```
 
 A URL says more than its address: Postgres reads `host=`, `port=`,
@@ -54,14 +62,14 @@ password from `~/.pgpass` unless the URL names a `passfile=`.
 A SQLite conn never opens komando's own folder. For an AI agent it also
 never opens a file in a folder where logins are kept (`~/.ssh`, `~/.aws`,
 `~/.config/gcloud`, `~/.azure`, `~/.kube`, `~/.docker`) or any other file
-komando keeps from agents, links followed, and `db dump --to` and
-`db restore --from` refuse the same paths (`SENSITIVE_FILE`).
+komando keeps from agents, links followed, and `database KIND backup --to` and
+`database KIND restore --from` refuse the same paths (`SENSITIVE_FILE`).
 
 A password that should never be kept on this computer can be typed each
 time instead, with `--login ask`:
 
 ```bash
-komando db add prod-db postgres://app@10.0.0.5:5432/app --via web1 --login ask
+komando database postgres add prod-db postgres://app@10.0.0.5:5432/app --via web1 --login ask
 komando conn edit prod-db --login ask        # stop using the stored password
 komando conn edit prod-db --login password --ask-password   # back to a stored one
 ```
@@ -82,7 +90,7 @@ agent that adds a login-ask conn, changes its URL (its user too) or `--via`, tur
 to `--login ask`, changes a server or VPN on its way, or replaces a
 secret its URL names (`ca=secret:`) gets `NEEDS_PERSON`; as for a stored
 password (above), every setting of the URL except the few that move
-nothing counts as where it goes. An agent's `db dump` and `db restore`
+nothing counts as where it goes. An agent's `database KIND backup` and `restore`
 of such a conn stop too: the dump tool would get the password in its environment, where
 the agent's own programs could read it; run those yourself. A file
 (SQLite) or a cluster has no password to type: `--login ask` is refused
@@ -98,7 +106,7 @@ the network should use TLS: see [Encryption (TLS)](#encryption-tls).
 
 At a terminal, a command with the database or the SQL left out asks for
 it, with a list of your databases, then prints the full command. Typed
-alone, `komando db query` asks which database, then the SQL. An AI agent
+alone, `komando database KIND query` asks which database, then the SQL. An AI agent
 or a script gets `USAGE` (exit 2) with an example in the hint. Every error
 ends with a hint that names the next command to run, with your conn in it.
 
@@ -145,7 +153,7 @@ users   table  1204
 ## Run a query
 
 ```bash
-komando db query prod-db "select id, email from users order by id desc limit 2"
+komando database postgres query prod-db "select id, email from users order by id desc limit 2"
 ```
 
 ```text
@@ -159,7 +167,7 @@ Queries only read unless you add `--write` (see [Change data](#change-data)).
 
 ```bash
 komando db explain prod-db "select * from orders where user_id = 42"
-komando db query prod-db --file report.sql   # SQL from a file (--file - reads stdin)
+komando database postgres query prod-db --file report.sql   # SQL from a file (--file - reads stdin)
 ```
 
 Use `--arg` for values instead of pasting them into the SQL. The
@@ -169,7 +177,7 @@ BigQuery (where the values go as `STRING`), and `{p1:String}`,
 `{p2:UInt64}` in ClickHouse (named `p1`, `p2`, with a type):
 
 ```bash
-komando db query prod-db "select * from users where email = $1" --arg bob@example.com
+komando database postgres query prod-db "select * from users where email = $1" --arg bob@example.com
 ```
 
 The number of `--arg` values must match the placeholders (`USAGE`, exit 2).
@@ -183,14 +191,14 @@ For spreadsheets and scripts, `-o csv` or `-o tsv` prints the rows
 instead of JSON or a table. NULL is an empty field, binary is `\x` hex:
 
 ```bash
-komando db query prod-db -o csv "select id, email from users" > users.csv
+komando database postgres query prod-db -o csv "select id, email from users" > users.csv
 ```
 
 A CSV or TSV export has every row, unless you give `--limit` (komando
 then says on stderr when it stopped there). If the rows are more than
 `--max-output` bytes, komando prints nothing and fails with
 `OUTPUT_TRUNCATED` (exit 1), so a file is never cut without you knowing:
-raise `--max-output`, or for a whole database use `komando db dump`.
+raise `--max-output`, or for a whole database use `komando database KIND backup`.
 Errors go to stderr, so the file holds only rows.
 
 ### How much comes back, and how long it may run
@@ -218,7 +226,7 @@ komando conn edit prod-db --option 'mask_columns=full_name address birth_date'
 
 An AI agent's query that names such a column (to rename it, compute from
 it or filter on it) stops with `REVEAL_NEEDS_PERSON`; `SELECT *` shows it as
-`[hidden: column]`. An agent's `db dump` stops with `NEEDS_PERSON` on every
+`[hidden: column]`. An agent's `database KIND backup` stops with `NEEDS_PERSON` on every
 database: the file holds every row as it is, passwords, tokens and personal
 data included, and the agent would read it next. No flag lifts it, and
 `--reveal` opens no window for it. A person runs the dump in their own
@@ -232,7 +240,7 @@ each column type looks in JSON is in [Reference](#how-values-come-back-json).
 
 ## Change data
 
-`komando db query` does not change your data unless you add `--write`.
+`komando database KIND query` does not change your data unless you add `--write`.
 Without it, the query runs in a read-only transaction and the database
 itself refuses changes.
 
@@ -240,8 +248,8 @@ Changing data takes two steps. First a dry run: the SQL really runs, you
 see how many rows it touches, and then everything is rolled back.
 
 ```bash
-komando db query prod-db --write --dry-run "update users set plan = 'pro' where id = 42"
-komando db query prod-db --write "update users set plan = 'pro' where id = 42"
+komando database postgres query prod-db --write --dry-run "update users set plan = 'pro' where id = 42"
+komando database postgres query prod-db --write "update users set plan = 'pro' where id = 42"
 ```
 
 ```text
@@ -299,46 +307,46 @@ with only the rights it needs.
 ## Back up and restore
 
 ```bash
-komando db dump prod-db --to backups/
+komando database postgres backup prod-db --to backups/
 ```
 
 ```text
 prod-db: backups/prod-db-2026-11-13.sql.gz (48.2 MiB)
 ```
 
-Typed alone, `komando db dump` asks which database to back up, then
+Typed alone, `komando database KIND backup` asks which database to back up, then
 which file to save it to.
 
 Which kinds komando can back up itself:
 
-| Kind | `db dump` / `db restore` | Instead |
+| Kind | `database KIND backup` / `restore` | Instead |
 |------|--------------------------|---------|
 | PostgreSQL | yes | |
 | MySQL / MariaDB | yes | |
 | SQLite | `dump` copies the database file; no `restore` | stop the app, then copy the file back |
 | MongoDB | no | `mongodump` on a server, with `komando exec` |
-| SQL Server | no | `BACKUP DATABASE ... TO DISK` with `db query --write`, then `komando download` the `.bak` file |
+| SQL Server | no | `BACKUP DATABASE ... TO DISK` with `database sqlserver query --write`, then `komando download` the `.bak` file |
 | Oracle | no | Data Pump (`expdp`, `impdp`) or RMAN with `komando exec`, then `komando download` |
-| ClickHouse | no | `BACKUP TABLE ... TO Disk('backups', 'name.zip')` (or `S3(...)`) with `db query --write` |
+| ClickHouse | no | `BACKUP TABLE ... TO Disk('backups', 'name.zip')` (or `S3(...)`) with `database clickhouse query --write` |
 | Snowflake | no | `COPY INTO @stage`, Time Travel or `CLONE` |
 | BigQuery | no | `EXPORT DATA` to Cloud Storage, or table snapshots |
 
 A "no" kind answers `NOT_SUPPORTED`, with this hint. The backup SQL in
 the "Instead" column needs `--allow-dangerous` too. For a big job, use
 `komando job` instead of `komando exec`. For a few rows,
-`komando db query CONN -o csv` is a copy on this computer.
+`komando database KIND query NAME -o csv` is a copy on this computer.
 
 ```bash
-komando db dump prod-db                                   # prod-db-<date>.sql.gz in this folder
-komando db dump prod-db --to prod-2026-11-02.sql.gz       # plain SQL, compressed (.gz)
-komando db dump prod-db --to prod.dump --format custom    # PostgreSQL archive, for pg_restore
-komando db dump prod-db --to orders.sql --table public.orders   # one table (repeatable)
-komando db dump prod-db --to schema.sql --schema-only     # no rows
-komando db restore staging-db --from prod-2026-11-02.sql.gz --dry-run   # checks the file, changes nothing
-komando db restore staging-db --from prod-2026-11-02.sql.gz
-komando db restore staging-db --from prod.dump            # an archive: pg_restore on the conn's --via server
-komando db dump prod-db --to prod.dump --format custom --run-on db1     # pg_dump runs on the server db1
-komando db restore staging-db --from prod.dump --run-on db1             # pg_restore runs on db1
+komando database postgres backup prod-db                                   # prod-db-<date>.sql.gz in this folder
+komando database postgres backup prod-db --to prod-2026-11-02.sql.gz       # plain SQL, compressed (.gz)
+komando database postgres backup prod-db --to prod.dump --format custom    # PostgreSQL archive, for pg_restore
+komando database postgres backup prod-db --to orders.sql --table public.orders   # one table (repeatable)
+komando database postgres backup prod-db --to schema.sql --schema-only     # no rows
+komando database postgres restore staging-db --from prod-2026-11-02.sql.gz --dry-run   # checks the file, changes nothing
+komando database postgres restore staging-db --from prod-2026-11-02.sql.gz
+komando database postgres restore staging-db --from prod.dump            # an archive: pg_restore on the conn's --via server
+komando database postgres backup prod-db --to prod.dump --format custom --run-on db1     # pg_dump runs on the server db1
+komando database postgres restore staging-db --from prod.dump --run-on db1             # pg_restore runs on db1
 ```
 
 A restore can overwrite data. At your terminal komando asks you first;
@@ -395,8 +403,8 @@ plain SQL itself) but a server you manage has `pg_dump` and can reach the
 database, often the database server itself:
 
 ```bash
-komando db dump prod-db --to prod.dump --format custom --run-on db1 --dry-run
-komando db dump prod-db --to prod.dump --format custom --run-on db1
+komando database postgres backup prod-db --to prod.dump --format custom --run-on db1 --dry-run
+komando database postgres backup prod-db --to prod.dump --format custom --run-on db1
 ```
 
 - `HOST` is a server from your list (a name or a selector that picks
@@ -407,7 +415,7 @@ komando db dump prod-db --to prod.dump --format custom --run-on db1
 - The tool there connects to the conn URL's address as that server sees
   it. When the database only listens on `127.0.0.1` on that server, add a
   second conn for that address reached through it
-  (`komando db add prod-db-local postgres://app@127.0.0.1:5432/app --via db1 --password-ref secret:prod-db-pass`)
+  (`komando database postgres add prod-db-local postgres://app@127.0.0.1:5432/app --via db1 --credential prod-db-pass`)
   and dump that one; `CONN_UNREACHABLE` says this when it happens.
 - A dump runs at low priority (`nice -n 10`, plus `ionice -c3` where the
   server has it), so the server keeps serving its users. `low_priority` in
@@ -420,7 +428,7 @@ komando db dump prod-db --to prod.dump --format custom --run-on db1
   (`postgresql-client-NN`). A server named with `--run-on` is never skipped: a
   missing or old tool there is an error, while a `--via` server without a
   usable tool falls back to komando's own plain SQL dump.
-- `db restore --run-on HOST` runs `pg_restore` there for an archive, streaming
+- `database postgres restore --run-on HOST` runs `pg_restore` there for an archive, streaming
   the file to it over SSH. It asks the same as any restore. Plain SQL is
   always restored by komando itself, so `--run-on` with a SQL file is refused.
 - PostgreSQL 17 tools write `SET transaction_timeout`, which servers before
@@ -460,7 +468,7 @@ Plain SQL that psql and mysql can also read:
   save the database as it is now (`Save a copy of staging-db as it is now
   first, so you can go back? [Y/n]`), then asks you to type the conn's
   name instead of `--allow-dangerous`. Scripts and AI agents get no
-  question: run `komando db dump CONN` first yourself, then add
+  question: run `komando database KIND backup NAME` first yourself, then add
   `--allow-dangerous` (and `--yes` on a protected conn) after a person
   agrees.
 - The file that was checked is the file that is restored. komando keeps
@@ -505,7 +513,7 @@ Plain SQL that psql and mysql can also read:
   switches databases (`\connect`, from
   `pg_dump --create` or `pg_dumpall`) is refused too
   (`RESTORE_UNSUPPORTED`): dump the one database without `--create`. Real
-  single-database dumps pass. `db restore --dry-run` runs this check too and
+  single-database dumps pass. `database KIND restore --dry-run` runs this check too and
   says what would stop the real run.
 - SQL in the file that does more than write data is named next to
   `db-restore` in the approval and in `POLICY_BLOCKED`, with the line where
@@ -516,7 +524,7 @@ Plain SQL that psql and mysql can also read:
   `sql-privileges`.
 - `--table` takes table names only; a value that starts with `-` is
   refused.
-- `db restore` does not take a SQLite file: stop the programs that use the
+- `database KIND restore` does not take a SQLite file: stop the programs that use the
   database, then copy the backup over the database file.
 - Big databases take time: `dump` and `restore` have no timeout unless you
   pass `--timeout`.
@@ -592,7 +600,7 @@ where the password is kept. To change the password of the conn's own
 user, see [Rotate passwords](rotate.md).
 
 - `db user add`, `db user passwd`, `db grant` and `db revoke` change who
-  may do what, like `GRANT` or `CREATE USER` sent with `db query`. At
+  may do what, like `GRANT` or `CREATE USER` sent with `database KIND query`. At
   your terminal komando asks you to type the user's name; scripts and AI
   agents add `--allow-dangerous` after a person agrees (`POLICY_BLOCKED`
   without it). `db user rm` asks the same.
@@ -613,7 +621,7 @@ user, see [Rotate passwords](rotate.md).
   database (`usersInfo`, never their stored credentials) and `db user show
   USER` (or `DB.USER`) their roles and the actions the roles give; adding,
   changing and granting are not available (send `createUser` or
-  `grantRolesToUser` with `db query --write`, which needs
+  `grantRolesToUser` with `database mongodb query --write`, which needs
   `--allow-dangerous`).
 - Adding users and grants are changes: a protected conn asks first.
   Removing a user is destructive: at your terminal you type the user's
@@ -624,16 +632,16 @@ user, see [Rotate passwords](rotate.md).
 ## Interactive SQL shell (for people)
 
 ```bash
-komando db shell staging-db           # komando's own SQL shell; starts read-only
-komando db shell staging-db --write   # allow changes
-komando db shell prod-db              # a protected conn asks first
+komando database postgres shell staging-db           # komando's own SQL shell; starts read-only
+komando database postgres shell staging-db --write   # allow changes
+komando database postgres shell prod-db              # a protected conn asks first
 ```
 
-`db shell` is komando's own SQL shell for PostgreSQL, MySQL/MariaDB,
+`database KIND shell` is komando's own SQL shell for PostgreSQL, MySQL/MariaDB,
 SQL Server, Oracle, ClickHouse, Snowflake, BigQuery and SQLite, so nothing
 else needs to be installed. It connects through the conn's `--via` path,
 and every statement gets the same checks as
-`db query`: read-only unless you started it with `--write`, destructive
+`database KIND query`: read-only unless you started it with `--write`, destructive
 statements only after you type the conn's name, and each one is written
 to the audit log. A statement ends with `;` (an Oracle PL/SQL block: a
 line with only `/`) and runs in its own transaction.
@@ -663,10 +671,10 @@ staging-db> \q
 Up and down arrows recall earlier lines. The read-only mode is the
 database's own (a read-only transaction): `\write` connects again with
 changes allowed. A destructive statement (`DROP`, `TRUNCATE`, a `DELETE`
-without `WHERE`) asks you to type the conn's name first, as `db query` does
+without `WHERE`) asks you to type the conn's name first, as `database KIND query` does
 at the command line; anything else is `Not run.`. The shell is for people at
-a terminal: agents and scripts get `NEEDS_TERMINAL` and use `db query`,
-which returns JSON. MongoDB has no `db shell`.
+a terminal: agents and scripts get `NEEDS_TERMINAL` and use `database KIND query`,
+which returns JSON. MongoDB has no `database mongodb shell`.
 
 ## Encryption (TLS)
 
@@ -695,7 +703,7 @@ giving them the password:
   without `tls=true` uses no TLS; Oracle's own network encryption, when the
   server turns it on, encrypts but does not prove who the server is. A
   ClickHouse conn without `tls=true` is plain HTTP.
-- komando checks by default. When `db add` (or `conn edit --url`) saves
+- komando checks by default. When `database KIND add` (or `conn edit --url`) saves
   such a conn and its URL does not say how to use TLS, komando adds
   `sslmode=verify-full` (Postgres), `tls=true` (MySQL, Oracle, ClickHouse,
   whose port 8123 becomes 8443) or `encrypt=true` (SQL Server) and says so in
@@ -715,7 +723,7 @@ giving them the password:
 
   ```bash
   komando credential token add rds-ca < global-bundle.pem
-  komando db add prod-db 'postgres://app@orders.abc123.eu-west-1.rds.amazonaws.com/orders?ca=secret:rds-ca' --password-ref secret:prod-db-pass
+  komando database postgres add prod-db 'postgres://app@orders.abc123.eu-west-1.rds.amazonaws.com/orders?ca=secret:rds-ca' --credential prod-db-pass
   ```
 
   For Postgres a file on this computer works too:
@@ -727,16 +735,16 @@ giving them the password:
 
 ## MongoDB
 
-A MongoDB conn takes the same `db query`, with a command document in
+A MongoDB conn takes the same `database mongodb query`, with a command document in
 JSON instead of SQL: its first key names the command, as in `runCommand`.
 `db schema`, `db info`, `db explain` and `db activity` work too.
 
 ```bash
 komando credential password add shop-mongo-pass
-komando db add shop-mongo 'mongodb://app@db1.internal,db2.internal/shop?replicaSet=rs0&authSource=admin' --via web1 --password-ref secret:shop-mongo-pass
-komando db query shop-mongo '{"find": "orders", "filter": {"status": "open"}, "sort": {"_id": -1}, "limit": 10}'
-komando db query shop-mongo '{"aggregate": "orders", "pipeline": [{"$group": {"_id": "$status", "n": {"$sum": 1}}}], "cursor": {}}'
-komando db query shop-mongo --write '{"update": "orders", "updates": [{"q": {"_id": {"$oid": "5f1d7f1b2c3a4b5c6d7e8f90"}}, "u": {"$set": {"status": "paid"}}}]}'
+komando database mongodb add shop-mongo 'mongodb://app@db1.internal,db2.internal/shop?replicaSet=rs0&authSource=admin' --via web1 --credential shop-mongo-pass
+komando database mongodb query shop-mongo '{"find": "orders", "filter": {"status": "open"}, "sort": {"_id": -1}, "limit": 10}'
+komando database mongodb query shop-mongo '{"aggregate": "orders", "pipeline": [{"$group": {"_id": "$status", "n": {"$sum": 1}}}], "cursor": {}}'
+komando database mongodb query shop-mongo --write '{"update": "orders", "updates": [{"q": {"_id": {"$oid": "5f1d7f1b2c3a4b5c6d7e8f90"}}, "u": {"$set": {"status": "paid"}}}]}'
 komando db schema shop-mongo                      # collections, sizes, indexes
 komando db schema shop-mongo orders               # fields and their types, from a sample
 komando db info shop-mongo                        # version, primary or secondary, sizes
@@ -772,9 +780,9 @@ komando db user show shop-mongo app               # what app may do
   A command that writes is refused.
 - `db kill` stops one operation (`killOp`); there is no `--session`.
   `db user list` and `db user show` read users; adding, changing and
-  granting go through `db query --write`.
+  granting go through `database mongodb query --write`.
 - For SQL databases only: `dump`, `restore`, `locks`, `sizes`, user
-  changes and grants, and `db shell`. On MongoDB they say so
+  changes and grants, and `database mongodb shell`. On MongoDB they say so
   (`NOT_SUPPORTED`). For a backup, see
   [Back up and restore](#back-up-and-restore).
 
@@ -785,10 +793,10 @@ commands as PostgreSQL and MySQL, in T-SQL:
 
 ```bash
 komando credential password add sales-pass
-komando db add sales 'sqlserver://app@db.internal:1433/sales?encrypt=true' --password-ref secret:sales-pass
-komando db query sales "select top (10) id, email from dbo.users order by id desc"
-komando db query sales "select * from dbo.users where email = @p1" --arg bob@example.com
-komando db query sales --write --dry-run "update dbo.users set plan = 'pro' where id = 42"
+komando database sqlserver add sales 'sqlserver://app@db.internal:1433/sales?encrypt=true' --credential sales-pass
+komando database sqlserver query sales "select top (10) id, email from dbo.users order by id desc"
+komando database sqlserver query sales "select * from dbo.users where email = @p1" --arg bob@example.com
+komando database sqlserver query sales --write --dry-run "update dbo.users set plan = 'pro' where id = 42"
 komando db schema sales dbo.orders                  # columns, identity, indexes, foreign keys, checks
 komando db explain sales "select * from dbo.orders where user_id = 42"   # the plan; nothing runs
 komando db info sales
@@ -856,10 +864,10 @@ same `db` commands, in Oracle SQL:
 
 ```bash
 komando credential password add erp-pass
-komando db add erp 'oracle://app@db.internal:1521/ERPPDB?tls=true' --password-ref secret:erp-pass
-komando db query erp "select id, email from app.users order by id desc fetch first 10 rows only"
-komando db query erp "select * from app.users where email = :1" --arg bob@example.com
-komando db query erp --write --dry-run "update app.users set plan = 'pro' where id = 42"
+komando database oracle add erp 'oracle://app@db.internal:1521/ERPPDB?tls=true' --credential erp-pass
+komando database oracle query erp "select id, email from app.users order by id desc fetch first 10 rows only"
+komando database oracle query erp "select * from app.users where email = :1" --arg bob@example.com
+komando database oracle query erp --write --dry-run "update app.users set plan = 'pro' where id = 42"
 komando db schema erp app.orders                   # columns, identity, indexes, foreign keys, checks
 komando db explain erp "select * from app.orders where user_id = 42"   # EXPLAIN PLAN; nothing runs
 komando db info erp
@@ -885,7 +893,7 @@ komando db kill erp 371 --session                  # 371 is the SID
   with only `/`, as in SQL*Plus:
 
   ```bash
-  komando db query erp --write -f - <<'SQL'
+  komando database oracle query erp --write -f - <<'SQL'
   begin
     app.close_month(date '2026-10-31');
   end;
@@ -943,10 +951,10 @@ installed:
 
 ```bash
 komando credential password add events-pass
-komando db add events 'clickhouse://app@ch.internal:8443/analytics?tls=true' --password-ref secret:events-pass
-komando db query events "select event, count() from hits where day = today() group by event order by 2 desc limit 10"
-komando db query events "select * from hits where user_id = {p1:UInt64} limit 10" --arg 42
-komando db query events --write "insert into notes (id, text) values (1, 'hello')"
+komando database clickhouse add events 'clickhouse://app@ch.internal:8443/analytics?tls=true' --credential events-pass
+komando database clickhouse query events "select event, count() from hits where day = today() group by event order by 2 desc limit 10"
+komando database clickhouse query events "select * from hits where user_id = {p1:UInt64} limit 10" --arg 42
+komando database clickhouse query events --write "insert into notes (id, text) values (1, 'hello')"
 komando db schema events analytics.hits             # columns, engine, ORDER BY, skipping indexes
 komando db explain events "select count() from hits where user_id = 42"   # the plan, with the indexes used
 komando db sizes events                              # from system.parts
@@ -1013,9 +1021,9 @@ speaks Snowflake's SQL API (HTTPS) with its own client, so nothing else
 needs to be installed:
 
 ```bash
-komando credential token add analytics-key < rsa_key.p8      # the user's private key (key-pair login)
-komando db add analytics 'snowflake://APP_RO@myorg-myaccount/ANALYTICS/PUBLIC?warehouse=REPORTING&role=ANALYST_RO' --password-ref secret:analytics-key
-komando db query analytics "select region, sum(total) from orders where placed > ? group by 1" --arg 2026-01-01
+komando credential password add analytics-key < rsa_key.p8      # the user's private key (key-pair login)
+komando database snowflake add analytics 'snowflake://APP_RO@myorg-myaccount/ANALYTICS/PUBLIC?warehouse=REPORTING&role=ANALYST_RO' --credential analytics-key
+komando database snowflake query analytics "select region, sum(total) from orders where placed > ? group by 1" --arg 2026-01-01
 komando db schema analytics public.orders          # columns, primary key, clustering key
 komando db explain analytics "select * from orders where id = 42"
 komando db activity analytics                      # running and queued queries
@@ -1088,9 +1096,10 @@ komando db user show analytics APP_RO              # its roles, and what each ro
   see. `db explain` is `EXPLAIN` (not run); `--analyze` is not available.
   Unquoted names are upper case, so `db schema analytics orders` finds
   `ORDERS`.
-- **Not available** (`NOT_SUPPORTED`): `db dump` and `db restore` (see
-  [Back up and restore](#back-up-and-restore)), `db user add`, `passwd`
-  and `rm`, `db grant` and `revoke` (send the SQL with `db query --write`),
+- There is no `database snowflake backup` or `restore` (see
+  [Back up and restore](#back-up-and-restore)).
+- **Not available** (`NOT_SUPPORTED`): `db user add`, `passwd`
+  and `rm`, `db grant` and `revoke` (send the SQL with `database snowflake query --write`),
   and `db locks`.
 
 ## BigQuery
@@ -1100,10 +1109,10 @@ BigQuery's REST API with its own client (not the Google Cloud SDK), so
 nothing else needs to be installed:
 
 ```bash
-komando db add warehouse 'bigquery://my-project/analytics?location=EU'   # gcloud's login
-komando db query warehouse --dry-run "select * from orders where placed > '2026-01-01'"  # what it would read
-komando db query warehouse "select region, sum(total) from orders where placed > ? group by 1" --arg 2026-01-01
-komando db query warehouse "select * from logs.events" --max-bytes 200GB   # allow a bigger read
+komando database bigquery add warehouse 'bigquery://my-project/analytics?location=EU'   # gcloud's login
+komando database bigquery query warehouse --dry-run "select * from orders where placed > '2026-01-01'"  # what it would read
+komando database bigquery query warehouse "select region, sum(total) from orders where placed > ? group by 1" --arg 2026-01-01
+komando database bigquery query warehouse "select * from logs.events" --max-bytes 200GB   # allow a bigger read
 komando db schema warehouse analytics.orders        # columns, primary key, partitioning, clustering
 komando db explain warehouse "select * from orders where id = 42"
 komando db activity warehouse                       # jobs that are not done
@@ -1126,8 +1135,8 @@ komando db kill warehouse 4387013457812345          # the pid db activity shows
   file) in `--password-ref`:
 
   ```bash
-  komando credential token add warehouse-key < key.json
-  komando db add warehouse 'bigquery://my-project/analytics' --password-ref secret:warehouse-key
+  komando credential password add warehouse-key < key.json
+  komando database bigquery add warehouse 'bigquery://my-project/analytics' --credential warehouse-key
   ```
 
   gcloud's login is only sent to Google's own hosts
@@ -1175,8 +1184,9 @@ komando db kill warehouse 4387013457812345          # the pid db activity shows
   available. `db activity` reads `region-LOCATION.INFORMATION_SCHEMA.JOBS`
   (seeing other people's jobs needs `bigquery.jobs.listAll`) and `db
   sizes` reads `INFORMATION_SCHEMA.TABLE_STORAGE`.
-- **Not available** (`NOT_SUPPORTED`): `db dump` and `db restore` (see
-  [Back up and restore](#back-up-and-restore)), `db user`, `db grant` and
+- There is no `database bigquery backup` or `restore` (see
+  [Back up and restore](#back-up-and-restore)).
+- **Not available** (`NOT_SUPPORTED`): `db user`, `db grant` and
   `revoke` (Google Cloud IAM), and `db locks`.
 
 ## Limits
@@ -1199,7 +1209,7 @@ komando db kill warehouse 4387013457812345          # the pid db activity shows
   characters other than letters, digits and `_ $ # . -`.
 - `db user add` and `db user passwd` refuse a password with a `"` or a line
   break in it: Oracle cannot quote it.
-- `EXPLAIN PLAN` typed into `db query` is refused: use `db explain`.
+- `EXPLAIN PLAN` typed into `database oracle query` is refused: use `db explain`.
 - A trigger `ON DATABASE` (a logon trigger can lock everyone out) is
   destructive.
 
@@ -1234,7 +1244,7 @@ komando db kill warehouse 4387013457812345          # the pid db activity shows
 - komando's BigQuery client is built from Google's REST reference and
   tested against a stand-in server, not against a real Google Cloud
   project. Please report anything that does not work.
-- `db shell`, `db info`, `db activity` and `db sizes` always use the
+- `database bigquery shell`, `db info`, `db activity` and `db sizes` always use the
   default `--max-bytes` cap.
 - `db schema` lists at most 10,000 tables.
 - `db activity` shows the jobs that are not done from the last two days,
@@ -1254,7 +1264,7 @@ komando db kill warehouse 4387013457812345          # the pid db activity shows
 | `DB_PRIVILEGE` | 5 | the conn's user lacks a right (for example to see lock waits in `db locks`, or to manage users) | ask the database admin for the right |
 | `DB_BYTES_LIMIT` | 6 | a BigQuery query would read more than `--max-bytes` (default 10GB), so it did not run | narrow the query, or raise `--max-bytes` after a person agrees |
 | `NOT_SUPPORTED` | 2 | the command does not work for this kind: `dump` and `restore` on SQL Server, Oracle, ClickHouse, Snowflake, BigQuery and MongoDB; `--analyze` on Oracle, ClickHouse, Snowflake and BigQuery; SQL commands on MongoDB | the hint says what to use instead |
-| `OUTPUT_TRUNCATED` | 1 | a CSV or TSV export is bigger than `--max-output`; nothing was printed | raise `--max-output`, narrow the SQL, or use `komando db dump` |
+| `OUTPUT_TRUNCATED` | 1 | a CSV or TSV export is bigger than `--max-output`; nothing was printed | raise `--max-output`, narrow the SQL, or use `komando database KIND backup` |
 | `SQL_HIDDEN_CODE` | 2 | SQL komando cannot read the way the server does | rewrite it as the hint says |
 | `DUMP_UNSUPPORTED` | 2 | komando's own dump cannot write an object; the message names it | dump with `--run-on HOST` (pg_dump), or dump the other tables with `--table` |
 | `TOOL_MISSING` | 3 | `pg_dump`, `mysqldump` or `pg_restore` is not installed where it should run | install it there, or pick another server with `--run-on` |
@@ -1265,9 +1275,9 @@ komando db kill warehouse 4387013457812345          # the pid db activity shows
 | `RESTORE_FAILED` | 5 | the restore stopped at a line; PostgreSQL changed nothing, MySQL kept what ran before | fix the file, then restore it again |
 | `RESTORE_SPACE_MISSING` | 3 | too little free space in komando's run folder for the checked copy of the backup; the database was not touched | free the bytes the hint names in that folder, then restore again |
 | `DB_USER_IN_USE` | 8 | the user owns objects or has sessions | end its sessions (`komando db activity CONN --all`, then `komando db kill CONN PID --session`) |
-| `NEEDS_TERMINAL` | 2 | `db shell` was run without a terminal | use `db query` |
+| `NEEDS_TERMINAL` | 2 | `database KIND shell` was run without a terminal | use `database KIND query` |
 
-`db dump` and `db restore` report the same connection errors as `db query`.
+`database KIND backup` and `restore` report the same connection errors as `query`.
 Every code is in [Error codes](error-codes.md).
 
 ## Reference

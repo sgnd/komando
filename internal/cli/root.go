@@ -64,7 +64,7 @@ func pickTableOutput(cmd *cobra.Command) error {
 	cl.flags.table = ""
 	if (cl.flags.output == "csv" || cl.flags.output == "tsv") && cmd.Flags().Changed("output") {
 		if cmd.Annotations[tableOutput] == "" {
-			return out.Usage("-o %s works with db query only; here use -o json or -o text", cl.flags.output)
+			return out.Usage("-o %s works with database KIND query only; here use -o json or -o text", cl.flags.output)
 		}
 		cl.flags.table, cl.flags.output = cl.flags.output, "text"
 	}
@@ -192,10 +192,14 @@ func firstArg(cmd *cobra.Command) string {
 	return ""
 }
 
-// topCommand is the command family cmd belongs to ("db" for db query).
+// topCommand is the command family cmd belongs to ("db" for db query and
+// for database postgres query).
 func topCommand(cmd *cobra.Command) string {
 	for cmd.HasParent() && cmd.Parent().HasParent() {
 		cmd = cmd.Parent()
+	}
+	if slices.Contains(movedTypes, cmd.Name()) {
+		return familyOfType(cmd.Name())
 	}
 	return cmd.Name()
 }
@@ -246,7 +250,7 @@ func usageErr(cl *call, cmd *cobra.Command, err error) error {
 	} else if ok {
 		if name == "add" && !cmd.HasParent() {
 			e.Message = fmt.Sprintf("unknown command %q", name)
-			e.Hint = "add a server with `komando host add`, a database with `komando db add` or a VPN with `komando vpn KIND add`; typed alone at a terminal, each one asks step by step"
+			e.Hint = "add a server with `komando host add`, a database with `komando database postgres add` (or mysql, sqlite ...) or a VPN with `komando vpn KIND add`; typed alone at a terminal, each one asks step by step"
 			return e
 		}
 		var rest []string
@@ -497,7 +501,7 @@ func treeOf(cl *call) *cobra.Command {
 				if !cmd.Flags().Changed("output") && cl.getenv("KOMANDO_OUTPUT") != "" {
 					return out.Usage("KOMANDO_OUTPUT=%s: it takes auto, json or text", cl.getenv("KOMANDO_OUTPUT"))
 				}
-				return out.Usage("--output takes auto, json or text (db query also takes csv and tsv)")
+				return out.Usage("--output takes auto, json or text (database KIND query also takes csv and tsv)")
 			}
 			switch {
 			case cl.flags.parallel < 0:
@@ -540,7 +544,7 @@ func treeOf(cl *call) *cobra.Command {
 	root.SetErr(cl.out.Err)
 	root.SetIn(cl.stdin)
 	pf := root.PersistentFlags()
-	pf.StringVarP(&cl.flags.output, "output", "o", "", "json or text (default $KOMANDO_OUTPUT, or\ntext in a terminal, JSON when piped); db query also\ntakes csv and tsv")
+	pf.StringVarP(&cl.flags.output, "output", "o", "", "json or text (default $KOMANDO_OUTPUT, or\ntext in a terminal, JSON when piped); database KIND\nquery also takes csv and tsv")
 	pf.BoolVar(&cl.flags.pretty, "pretty", false, "indent JSON output")
 	// the gate flags: cobra keeps what was typed, and only the gate reads
 	// it (newGate), when the command starts
@@ -611,7 +615,7 @@ func labelBuiltinCmds(root *cobra.Command) {
 		case "help":
 			c.GroupID = "setup"
 			c.Short = "Show the help of a command"
-			c.Long = "Shows what a command does, its flags and examples: komando help db query\n(the same as komando db query --help)."
+			c.Long = "Shows what a command does, its flags and examples: komando help database postgres query\n(the same as komando database postgres query --help)."
 		case "completion":
 			c.GroupID = "setup"
 			c.Short = "Print a tab-completion script for your shell"
@@ -699,7 +703,7 @@ func personHelp() string {
 EXAMPLES
   $ komando host add web1 deploy@10.0.0.5
   $ komando logs web1 --unit nginx --since 30m
-  $ komando db query prod-db "select now()"
+  $ komando database postgres query prod-db "select now()"
   $ komando fs replace web1 /etc/nginx/nginx.conf --old A --new B --backup --dry-run
 
 Leave out an argument at a terminal and komando asks for it.

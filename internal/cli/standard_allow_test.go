@@ -79,8 +79,6 @@ var (
 	allowSampleNames = []string{
 		"app1",
 		"bastion",
-		"bq",
-		"local",
 		"mongo-db",
 		"shop-2",
 		"vps1",

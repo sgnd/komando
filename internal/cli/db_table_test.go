@@ -32,8 +32,8 @@ func tableDB(t *testing.T, rows int) {
 	t.Helper()
 	invHome(t)
 	mustRun(t, "conn", "add", "lite", "sqlite://"+filepath.Join(t.TempDir(), "app.db"))
-	mustRun(t, "db", "query", "lite", "--write", "create table t (id int, name text)")
-	mustRun(t, "db", "query", "lite", "--write", "with recursive n(i) as (select 1 union all select i+1 from n where i < "+
+	mustRun(t, "database", "sqlite", "query", "lite", "--write", "create table t (id int, name text)")
+	mustRun(t, "database", "sqlite", "query", "lite", "--write", "with recursive n(i) as (select 1 union all select i+1 from n where i < "+
 		strconv.Itoa(rows)+") insert into t select i, 'row ' || i from n")
 }
 
@@ -51,7 +51,7 @@ func TestDBQueryTableOutput(t *testing.T) {
 		{[]string{"-o", "csv", "--limit", "10"}, 11, "id,name"},
 		{[]string{"-o", "tsv", "-n", "3"}, 4, "id\tname"},
 	} {
-		s, e := tableRun(t, append(append([]string{"db", "query", "lite"}, c.args...), "select id, name from t order by id")...)
+		s, e := tableRun(t, append(append([]string{"database", "sqlite", "query", "lite"}, c.args...), "select id, name from t order by id")...)
 		lines := strings.Split(strings.TrimSpace(s), "\n")
 		if e != nil || len(lines) != c.lines || lines[0] != c.first {
 			t.Errorf("%v: %d lines, first %q, %v", c.args, len(lines), lines[0], e)
@@ -62,10 +62,10 @@ func TestDBQueryTableOutput(t *testing.T) {
 func TestDBQueryTableConflicts(t *testing.T) {
 	tableDB(t, 3)
 	q := "select id from t"
-	if s, e := tableRun(t, "db", "query", "lite", "-o", "tsv", "-o", "csv", q); e != nil || !strings.HasPrefix(s, "id\n") {
+	if s, e := tableRun(t, "database", "sqlite", "query", "lite", "-o", "tsv", "-o", "csv", q); e != nil || !strings.HasPrefix(s, "id\n") {
 		t.Errorf("the last -o wins: %q %+v", s, e)
 	}
-	if _, e := tableRun(t, "list", "-o", "csv"); e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "db query") {
+	if _, e := tableRun(t, "list", "-o", "csv"); e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "database KIND query") {
 		t.Errorf("-o csv elsewhere: %+v", e)
 	}
 }
@@ -74,8 +74,11 @@ func TestDBQueryTableConflicts(t *testing.T) {
 // file never looks whole when it is not.
 func TestDBQueryTableTruncated(t *testing.T) {
 	tableDB(t, 200)
-	s, e := tableRun(t, "db", "query", "lite", "-o", "csv", "--max-output", "1000", "select id, name from t")
+	s, e := tableRun(t, "database", "sqlite", "query", "lite", "-o", "csv", "--max-output", "1000", "select id, name from t")
 	if e == nil || e.Code != "OUTPUT_TRUNCATED" || e.Exit != out.ExitError || s != "" {
-		t.Errorf("cut export: %q %+v", s, e)
+		t.Fatalf("cut export: %q %+v", s, e)
+	}
+	if !strings.Contains(e.Hint, "`komando database sqlite backup lite`") {
+		t.Errorf("the hint names the conn's own backup: %q", e.Hint)
 	}
 }

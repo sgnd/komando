@@ -88,47 +88,114 @@ conn.rm	kind=change|	target="conns"
 conn.show	kind=read|	target="conns"	
 conn.test	kind=read|	target="conns"	
 cp	kind=depends|changes the destination: a server or bucket when it is the DST, only this computer when it is the SRC	target="servers or file storage"	
-credential	kind=read|	target=""	
-credential.certificate	kind=read|	target="servers"	
-credential.certificate.add	kind=change|	target="servers"	person||trusts every server the CA signs||||
-credential.certificate.list	kind=read|	target="servers"	
-credential.certificate.remove	kind=change|	target="servers"	
-credential.key	kind=read|	target="servers"	
-credential.key.add	kind=change|	target="servers"	
-credential.key.create	kind=change|	target="servers"	
-credential.key.edit	kind=change|	target="servers"	
-credential.key.install	kind=change|	target="servers"	
-credential.key.list	kind=read|	target="servers"	
-credential.key.remove	kind=change|	target="servers"	dangerous|with --delete-file|deletes the private key komando keeps||||
-credential.key.rename	kind=change|	target="servers"	
-credential.key.show	kind=read|	target="servers"	
-credential.key.uninstall	kind=change|	target="servers"	dangerous|||it is the key komando logs in with|||
-credential.list	kind=read|	target=""	
-credential.password	kind=read|	target="servers"	
-credential.password.add	kind=change|	target="servers"	
-credential.password.remove	kind=change|	target="servers"	dangerous||deletes the saved password||||
-credential.password.rename	kind=change|	target="servers"	
-credential.password.show	kind=read|	target="servers"	
-credential.run	kind=depends|decided by the program it starts on this computer	target=""	safety|||an AI agent hands a saved secret to a program|||
-credential.token	kind=read|	target="servers"	
-credential.token.add	kind=change|	target="servers"	
-credential.token.remove	kind=change|	target="servers"	dangerous||deletes the saved token||||
-credential.token.rename	kind=change|	target="servers"	
-credential.token.show	kind=read|	target="servers"	
+cron	kind=read|	target="servers"	
+cron.list	kind=read|	target="servers"	
+cron.rm	kind=change|	target="servers"	change|||||deletes the cron entry|cron entries
+cron.set	kind=change|	target="servers"	
+database	kind=read|	target=""	
+database.bigquery	kind=read|	target=""	
+database.bigquery.add	kind=change|	target=""	
+database.bigquery.edit	kind=change|	target=""	
+database.bigquery.list	kind=read|	target=""	
+database.bigquery.query	kind=depends|only reads unless --write	target=""	dangerous|||the query deletes data (DROP, DELETE without WHERE, KILL, ...)|||
+database.bigquery.remove	kind=change|	target=""	
+database.bigquery.rename	kind=change|	target=""	
+database.bigquery.shell	kind=depends|an shellNote shell for a person: whatever they type; read-only unless --write	target=""	person||||||
+database.bigquery.show	kind=read|	target=""	
+database.bigquery.test	kind=read|	target=""	
+database.clickhouse	kind=read|	target=""	
+database.clickhouse.add	kind=change|	target=""	
+database.clickhouse.edit	kind=change|	target=""	
+database.clickhouse.list	kind=read|	target=""	
+database.clickhouse.query	kind=depends|only reads unless --write	target=""	dangerous|||the query deletes data (DROP, DELETE without WHERE, KILL, ...)|||
+database.clickhouse.remove	kind=change|	target=""	
+database.clickhouse.rename	kind=change|	target=""	
+database.clickhouse.shell	kind=depends|an shellNote shell for a person: whatever they type; read-only unless --write	target=""	person||||||
+database.clickhouse.show	kind=read|	target=""	
+database.clickhouse.test	kind=read|	target=""	
+database.mongodb	kind=read|	target=""	
+database.mongodb.add	kind=change|	target=""	
+database.mongodb.edit	kind=change|	target=""	
+database.mongodb.list	kind=read|	target=""	
+database.mongodb.query	kind=depends|only reads unless --write	target=""	dangerous|||the query deletes data (DROP, DELETE without WHERE, KILL, ...)|||
+database.mongodb.remove	kind=change|	target=""	
+database.mongodb.rename	kind=change|	target=""	
+database.mongodb.show	kind=read|	target=""	
+database.mongodb.test	kind=read|	target=""	
+database.mysql	kind=read|	target=""	
+database.mysql.add	kind=change|	target=""	
+database.mysql.backup	kind=read|	target=""	person|||an AI agent runs it (the file holds every row, secrets included)|||
+database.mysql.edit	kind=change|	target=""	
+database.mysql.list	kind=read|	target=""	
+database.mysql.query	kind=depends|only reads unless --write	target=""	dangerous|||the query deletes data (DROP, DELETE without WHERE, KILL, ...)|||
+database.mysql.remove	kind=change|	target=""	
+database.mysql.rename	kind=change|	target=""	
+database.mysql.restore	kind=change|	target=""	dangerous||replaces what is in the database now||||
+database.mysql.shell	kind=depends|an shellNote shell for a person: whatever they type; read-only unless --write	target=""	person||||||
+database.mysql.show	kind=read|	target=""	
+database.mysql.test	kind=read|	target=""	
+database.oracle	kind=read|	target=""	
+database.oracle.add	kind=change|	target=""	
+database.oracle.edit	kind=change|	target=""	
+database.oracle.list	kind=read|	target=""	
+database.oracle.query	kind=depends|only reads unless --write	target=""	dangerous|||the query deletes data (DROP, DELETE without WHERE, KILL, ...)|||
+database.oracle.remove	kind=change|	target=""	
+database.oracle.rename	kind=change|	target=""	
+database.oracle.shell	kind=depends|an shellNote shell for a person: whatever they type; read-only unless --write	target=""	person||||||
+database.oracle.show	kind=read|	target=""	
+database.oracle.test	kind=read|	target=""	
+database.postgres	kind=read|	target=""	
+database.postgres.add	kind=change|	target=""	
+database.postgres.backup	kind=read|	target=""	person|||an AI agent runs it (the file holds every row, secrets included)|||
+database.postgres.edit	kind=change|	target=""	
+database.postgres.list	kind=read|	target=""	
+database.postgres.query	kind=depends|only reads unless --write	target=""	dangerous|||the query deletes data (DROP, DELETE without WHERE, KILL, ...)|||
+database.postgres.remove	kind=change|	target=""	
+database.postgres.rename	kind=change|	target=""	
+database.postgres.restore	kind=change|	target=""	dangerous||replaces what is in the database now||||
+database.postgres.shell	kind=depends|an shellNote shell for a person: whatever they type; read-only unless --write	target=""	person||||||
+database.postgres.show	kind=read|	target=""	
+database.postgres.test	kind=read|	target=""	
+database.snowflake	kind=read|	target=""	
+database.snowflake.add	kind=change|	target=""	
+database.snowflake.edit	kind=change|	target=""	
+database.snowflake.list	kind=read|	target=""	
+database.snowflake.query	kind=depends|only reads unless --write	target=""	dangerous|||the query deletes data (DROP, DELETE without WHERE, KILL, ...)|||
+database.snowflake.remove	kind=change|	target=""	
+database.snowflake.rename	kind=change|	target=""	
+database.snowflake.shell	kind=depends|an shellNote shell for a person: whatever they type; read-only unless --write	target=""	person||||||
+database.snowflake.show	kind=read|	target=""	
+database.snowflake.test	kind=read|	target=""	
+database.sqlite	kind=read|	target=""	
+database.sqlite.add	kind=change|	target=""	
+database.sqlite.backup	kind=read|	target=""	person|||an AI agent runs it (the file holds every row, secrets included)|||
+database.sqlite.edit	kind=change|	target=""	
+database.sqlite.list	kind=read|	target=""	
+database.sqlite.query	kind=depends|only reads unless --write	target=""	dangerous|||the query deletes data (DROP, DELETE without WHERE, KILL, ...)|||
+database.sqlite.remove	kind=change|	target=""	
+database.sqlite.rename	kind=change|	target=""	
+database.sqlite.shell	kind=depends|an shellNote shell for a person: whatever they type; read-only unless --write	target=""	person||||||
+database.sqlite.show	kind=read|	target=""	
+database.sqlite.test	kind=read|	target=""	
+database.sqlserver	kind=read|	target=""	
+database.sqlserver.add	kind=change|	target=""	
+database.sqlserver.edit	kind=change|	target=""	
+database.sqlserver.list	kind=read|	target=""	
+database.sqlserver.query	kind=depends|only reads unless --write	target=""	dangerous|||the query deletes data (DROP, DELETE without WHERE, KILL, ...)|||
+database.sqlserver.remove	kind=change|	target=""	
+database.sqlserver.rename	kind=change|	target=""	
+database.sqlserver.shell	kind=depends|an shellNote shell for a person: whatever they type; read-only unless --write	target=""	person||||||
+database.sqlserver.show	kind=read|	target=""	
+database.sqlserver.test	kind=read|	target=""	
 db	kind=read|	target=""	
 db.activity	kind=read|	target=""	
-db.add	kind=change|	target=""	
-db.dump	kind=read|	target=""	person|||an AI agent runs it (the file holds every row, secrets included)|||
 db.explain	kind=depends|only plans the query; --analyze runs it, and a write needs --write too	target=""	dangerous|with --analyze||the SQL deletes data|||
 db.grant	kind=change|	target=""	
 db.info	kind=read|	target=""	
 db.kill	kind=change|	target=""	change|||||ends the session (its client loses the connection)|sessions
 db.locks	kind=read|	target=""	
-db.query	kind=depends|only reads unless --write	target=""	dangerous|||the query deletes data (DROP, DELETE without WHERE, KILL, ...)|||
-db.restore	kind=change|	target=""	dangerous||replaces what is in the database now||||
 db.revoke	kind=change|	target=""	
 db.schema	kind=read|	target=""	
-db.shell	kind=depends|an shellNote shell for a person: whatever they type; read-only unless --write	target=""	person||||||
 db.sizes	kind=read|	target=""	
 db.user	kind=read|	target=""	
 db.user.add	kind=change|	target=""	

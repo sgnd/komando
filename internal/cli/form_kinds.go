@@ -45,9 +45,7 @@ func formGroupsFor(cl *call, kind string) []formGroup {
 }
 
 // formFamilyAdd is each `komando FAMILY add` and its Add group.
-var formFamilyAdd = map[string]string{
-	"db add": "Databases",
-}
+var formFamilyAdd = map[string]string{}
 
 // formGroupNamed is the one Add group with this label.
 func formGroupNamed(cl *call, label string) []formGroup {
@@ -361,7 +359,7 @@ func serverAddressProblem(_ *store.State, _ formAnswers, v string) string {
 		if strings.HasPrefix(v, "ssh://") {
 			return "type it without ssh://, like root@vps.example.com"
 		}
-		return "this looks like a web address or a database URL; for a server type only its address. To add a database instead, leave with Ctrl-C and type komando db add"
+		return "this looks like a web address or a database URL; for a server type only its address. To add a database instead, leave with Ctrl-C and type komando database postgres add (or mysql, sqlite ...)"
 	}
 	if strings.HasPrefix(v, "-") || strings.ContainsAny(v, " \t/") {
 		return "type only the address, like 203.0.113.20 or vps.example.com"
@@ -620,10 +618,8 @@ func init() {
 		"host add": {form: func(cl *call) []formGroup { return formGroupsFor(cl, "host") }, next: []string{"test {}", "host show {}", "host edit {} --protected"}},
 		"conn add": {form: func(cl *call) []formGroup { return formGroupsFor(cl, "conn") }, next: []string{"test {}", "conn show {}"}},
 	})
-	// db add, cache add, ...: conn add for one family, asked the same way.
-	next := map[string][]string{
-		"db add": {"db info {}", "db query {} \"select 1\"", "db schema {}"},
-	}
+	// queue add, storage add, ...: conn add for one family, asked the same way.
+	next := map[string][]string{}
 	for cmd, label := range formFamilyAdd {
 		addFormHints(map[string]formHint{cmd: {form: func(cl *call) []formGroup { return formGroupNamed(cl, label) }, next: next[cmd]}})
 	}

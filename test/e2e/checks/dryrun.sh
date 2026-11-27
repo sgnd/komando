@@ -25,8 +25,8 @@ check "download --dry-run writes nothing here" "True no" "$(dry download direct 
 check "exec --dry-run runs nothing" "True no" "$(dry exec direct -- touch "/tmp/$D.exec") $(nat direct sh -c "[ -e /tmp/$D.exec ] && echo yes || echo no")"
 
 # databases, caches, storage
-check "db query --write --dry-run rolls back" "True 0" \
-  "$(dry db query pg --write "create table $D (id int)") $(nat pg psql -U app -d app -At -c "select count(*) from information_schema.tables where table_name = '$D'")"
+check "database postgres query --write --dry-run rolls back" "True 0" \
+  "$(dry database postgres query pg --write "create table $D (id int)") $(nat pg psql -U app -d app -At -c "select count(*) from information_schema.tables where table_name = '$D'")"
 check "cache set --dry-run" "True 0" "$(dry cache set cache "$D:k" v) $(nat redis redis-cli -a redispass --no-auth-warning EXISTS "$D:k")"
 echo data >"$TMP/$D.obj"
 check "storage upload --dry-run" "True no" "$(dry storage upload files-sftp "$TMP/$D.obj" "$D.obj") $(nat sftp sh -c "[ -e /home/deploy/uploads/$D.obj ] && echo yes || echo no")"

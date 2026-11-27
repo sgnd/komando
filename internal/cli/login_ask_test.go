@@ -255,7 +255,7 @@ func TestLoginAskSchemaNotHidden(t *testing.T) {
 	t.Setenv("PW", "s3cret-in-env")
 	mustRun(t, "credential", "password", "add", "web1-pass", "--from-env", "PW")
 	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--password-ref", "secret:web1-pass")
-	for _, cmd := range [][]string{{"host", "add"}, {"host", "edit"}, {"conn", "add"}, {"conn", "edit"}, {"db", "add"}} {
+	for _, cmd := range [][]string{{"host", "add"}, {"host", "edit"}, {"conn", "add"}, {"conn", "edit"}} {
 		s, err := runCache(t, append([]string{"-o", "json", "schema"}, cmd...)...)
 		if err != nil {
 			t.Fatal(err)
@@ -263,6 +263,10 @@ func TestLoginAskSchemaNotHidden(t *testing.T) {
 		if strings.Contains(s, "[hidden") || strings.Contains(s, "s3cret-in-env") || !strings.Contains(s, loginFlagUsage[:40]) {
 			t.Errorf("schema %v:\n%s", cmd, s)
 		}
+	}
+	// a table leaf's add has the table's --login text; nothing in it is hidden
+	if s, err := runCache(t, "-o", "json", "schema", "database", "postgres", "add"); err != nil || strings.Contains(s, "[hidden") || strings.Contains(s, "s3cret-in-env") || !strings.Contains(s, `"login"`) {
+		t.Errorf("schema database postgres add (%v):\n%s", err, s)
 	}
 	for _, c := range []struct{ cmd, example string }{
 		{"host", "never store its password; type it at every connect"},

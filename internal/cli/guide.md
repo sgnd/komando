@@ -43,7 +43,7 @@ komando import ssh-config --dry-run   # (with the human) bring in servers they a
 
 People are asked; you get no questions. At a person's terminal, a command
 typed with something missing asks for it, one line at a time, and
-`komando host add` (or `db add`, `vpn KIND add`) typed alone asks that kind's
+`komando host add` (or `database KIND add`, `vpn KIND add`) typed alone asks that kind's
 questions. komando never asks an AI agent or a
 script anything (under a pseudo-terminal, an agent komando does not know
 sets `KOMANDO_AGENT=1`), so give every argument and flag yourself; `komando` alone
@@ -169,15 +169,19 @@ These are conns (`komando list kind:conn`). Each has its own command; never
 reach them through `exec`.
 
 **Databases** (PostgreSQL, MySQL/MariaDB, SQL Server, Oracle, ClickHouse, Snowflake, BigQuery, SQLite):
+each kind has its own words, `komando database KIND` (postgres, mysql,
+sqlserver, oracle, clickhouse, snowflake, bigquery, sqlite, mongodb), with
+add, list, show, test, query and, where the kind has them, backup, restore
+and shell. `komando database KIND --help` lists them.
 
 ```bash
-komando db schema CONN [TABLE...]                       # tables, then columns and indexes
-komando db query CONN "select ..."                      # read-only transaction: data cannot change
-komando db query CONN "... where id = $1" --arg 42      # pass values as arguments, never pasted in
-komando db query CONN --write --dry-run "update ..."    # runs, reports rows_affected, rolls back
-komando db query CONN --write "update ..."              # commits
-komando db explain CONN "select ..."                    # the query plan, without running the query
-komando db sizes CONN                                   # the biggest tables
+komando db schema CONN [TABLE...]                                  # tables, then columns and indexes
+komando database postgres query NAME "select ..."                  # read-only transaction: data cannot change
+komando database postgres query NAME "... where id = $1" --arg 42  # pass values as arguments, never pasted in
+komando database postgres query NAME --write --dry-run "update ..."  # runs, reports rows_affected, rolls back
+komando database postgres query NAME --write "update ..."          # commits
+komando db explain CONN "select ..."                               # the query plan, without running the query
+komando db sizes CONN                                              # the biggest tables
 ```
 
 Without `--write` the database itself refuses changes. `WRITE_REQUIRES_FLAG`
@@ -186,28 +190,28 @@ Without `--write` the database itself refuses changes. `WRITE_REQUIRES_FLAG`
 run `psql`/`mysql` through `exec`: you lose the read-only guarantee and the
 structured rows, and the password shows up in the server's process list.
 
-A backup is `komando db dump CONN --to FILE` (the file lands on this
-computer), never `pg_dump`/`mysqldump` through `exec` and base64. Only the
+A backup is `komando database KIND backup NAME --to FILE` (PostgreSQL, MySQL
+and SQLite; the file lands on this computer), never `pg_dump`/`mysqldump` through `exec` and base64. Only the
 human runs it, in their own terminal: for you it stops with `NEEDS_PERSON`,
 because the file holds every row, secrets included.
 `--run-on HOST` runs `pg_dump`/`mysqldump` on that server from your list (at low
 priority, password in its environment, backup streamed back over SSH), for example
 when the conn goes through a VPN and you need `--format custom`. Dry-run it
-first: `runs_on` says where it runs. `db restore` needs `--allow-dangerous`.
+first: `runs_on` says where it runs. `database KIND restore` needs `--allow-dangerous`.
 
 **SQL Server** conns take T-SQL with `@p1`, `@p2` placeholders. There is no
 read-only transaction: without `--write` komando rolls everything back, and
 a statement it does not know as a read (a bare procedure name, `EXEC`) needs
-`--write`. End each statement with `;`. `db dump` and `restore` are not
-available there (`NOT_SUPPORTED`).
+`--write`. End each statement with `;`. There is no `database sqlserver backup` or
+`restore`.
 
 **Oracle** conns take Oracle SQL with `:1`, `:2` placeholders. DDL
 (`CREATE`, `ALTER`, `DROP`, `GRANT`) commits on its own, so it needs
 `--write`, goes alone, and a dry run only reports it. A PL/SQL block
 (`BEGIN ... END;`) ends with a line holding only `/` and needs `--write`
 and `--allow-dangerous`: ask the human first. Table names are upper case
-(`db schema CONN` shows them). `db dump` and `restore` are not available
-(`NOT_SUPPORTED`).
+(`db schema CONN` shows them). There is no `database oracle backup` or
+`restore`.
 
 **ClickHouse** conns take ClickHouse SQL with `{p1:String}`, `{p2:UInt64}`
 placeholders. There are no transactions: without `--write` the server runs
@@ -216,8 +220,8 @@ everything with `readonly=1`; a write (`INSERT`, `ALTER`, ...) needs
 human before the real one. Leave out `SETTINGS`, `SET` and `FORMAT`.
 Table functions that reach out (`url()`, `s3()`, `remote()`, `file()`)
 need `--allow-dangerous`: ask the human first. `db kill` takes the `pid`
-from `db activity`. `db dump`, `restore` and `locks` are not available
-(`NOT_SUPPORTED`).
+from `db activity`. There is no `database clickhouse backup` or `restore`,
+and `db locks` is not available (`NOT_SUPPORTED`).
 
 **Snowflake** conns take Snowflake SQL with `?` placeholders. Snowflake has
 no read-only mode: komando's own check is all there is, so without
@@ -226,13 +230,13 @@ needs `--write`, goes alone, and a dry run only reports it, so dry-run and
 ask the human before the real one. Most queries need `?warehouse=` in the
 URL. `SYSTEM$` functions that change something, `CALL`, `EXECUTE
 IMMEDIATE`, stage files and `CREATE OR REPLACE` need `--allow-dangerous`:
-ask the human first. `db kill` takes the `pid` from `db activity`. `db
-dump`, `restore`, `locks`, `user add` and `grant` are not available
-(`NOT_SUPPORTED`).
+ask the human first. `db kill` takes the `pid` from `db activity`. There is
+no `database snowflake backup` or `restore`, and `db locks`, `db user add`
+and `db grant` are not available (`NOT_SUPPORTED`).
 
 **BigQuery** conns take GoogleSQL with `?` placeholders (values go as
 `STRING`: write `CAST(? AS INT64)`). BigQuery bills by the bytes a query
-reads: run `db query CONN --dry-run "..."` first, which runs nothing
+reads: run `database bigquery query NAME --dry-run "..."` first, which runs nothing
 and shows `bytes_processed`. A query over `--max-bytes` (default 10GB)
 stops with `DB_BYTES_LIMIT`: narrow it, or ask the human before you raise
 `--max-bytes`. Without `--write` only what BigQuery itself calls a
@@ -240,8 +244,8 @@ stops with `DB_BYTES_LIMIT`: narrow it, or ask the human before you raise
 `EXTERNAL_QUERY`, `CREATE OR REPLACE`, `CALL` and `EXECUTE IMMEDIATE`
 need `--allow-dangerous`: ask the human first. Scripts (`DECLARE`,
 `SET`, `BEGIN ... END`) are refused. `db kill` takes the `pid` from `db
-activity`. `db dump`, `restore`, `locks`, `db user` and `grant` are not
-available (`NOT_SUPPORTED`).
+activity`. There is no `database bigquery backup` or `restore`, and
+`db locks`, `db user` and `db grant` are not available (`NOT_SUPPORTED`).
 
 **Caches** (Redis, Valkey, memcached): `cache get|keys|info CONN` read, `cache set`
 changes, `cache rm` deletes (needs `--allow-dangerous`). `komando cache redis raw
@@ -265,7 +269,7 @@ unacknowledged. Delete a subscription as `subscriptions/NAME`.
 `queue PROVIDER message create NAME TOPIC --value '...'` and `topic create` change;
 `topic delete` and `message delete --all` delete messages (need `--allow-dangerous`). Try every change with `--dry-run`.
 
-**MongoDB** conns use `komando db query CONN '<command JSON>'`, the
+**MongoDB** conns use `komando database mongodb query NAME '<command JSON>'`, the
 first key naming the command (`{"find": "users", "filter": {...}}`); reads
 run as they are, changes need `--write`, and `db schema`/`db info` describe
 the database.

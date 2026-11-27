@@ -100,7 +100,7 @@ check "vpn rename takes the conn's --via along" "conn $C-db --via" "$($K vpn soc
 check "conn mv" "renamed $C-db2" "$($K conn mv "$C-db" "$C-db2" | jget 'd["data"]["action"] + " " + d["data"]["to"]')"
 check "the conn has both new names" "$C-db2 $C-vpn2" "$($K conn show "$C-db2" | jget 'd["data"]["name"] + " " + d["data"]["via"]')"
 check "the old conn name is gone" TARGET_NOT_FOUND "$($K conn show "$C-db" | jget 'd["error"]["code"]' || true)"
-check "db query through the renamed conn and VPN" 1 "$($K db query "$C-db2" 'select 1' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+check "database postgres query through the renamed conn and VPN" 1 "$($K database postgres query "$C-db2" 'select 1' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 q $K conn rm "$C-db2"
 q $K vpn socks remove "$C-vpn2"
 q $K tunnel stop "$TUN"

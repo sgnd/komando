@@ -2678,6 +2678,2046 @@ exit 2
 Error: credential token show takes NAME
 Hint: for example: komando credential token show api-token (more in `komando credential token show --help`)
 (code USAGE, exit 2)
+### komando -o json database bigquery add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.bigquery.add","error":{"code":"USAGE","message":"database bigquery add takes NAME [URL]","hint":"for example: komando database bigquery add bq bigquery://my-project/shop --via web1 (more in `komando database bigquery add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database bigquery add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database bigquery add takes NAME [URL]
+Hint: for example: komando database bigquery add bq bigquery://my-project/shop --via web1 (more in `komando database bigquery add --help`)
+(code USAGE, exit 2)
+### komando -o json database bigquery add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.bigquery.add","error":{"code":"USAGE","message":"database bigquery add takes NAME [URL]","hint":"for example: komando database bigquery add bq bigquery://my-project/shop --via web1 (more in `komando database bigquery add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database bigquery add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database bigquery add takes NAME [URL]
+Hint: for example: komando database bigquery add bq bigquery://my-project/shop --via web1 (more in `komando database bigquery add --help`)
+(code USAGE, exit 2)
+### komando -o json database bigquery edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.bigquery.edit","error":{"code":"USAGE","message":"database bigquery edit takes NAME","hint":"for example: komando database bigquery edit bq --add-tag critical (more in `komando database bigquery edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database bigquery edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database bigquery edit takes NAME
+Hint: for example: komando database bigquery edit bq --add-tag critical (more in `komando database bigquery edit --help`)
+(code USAGE, exit 2)
+### komando -o json database bigquery edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.bigquery.edit","error":{"code":"USAGE","message":"database bigquery edit takes NAME","hint":"for example: komando database bigquery edit bq --add-tag critical (more in `komando database bigquery edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database bigquery edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database bigquery edit takes NAME
+Hint: for example: komando database bigquery edit bq --add-tag critical (more in `komando database bigquery edit --help`)
+(code USAGE, exit 2)
+### komando -o json database bigquery query (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.bigquery.query","error":{"code":"USAGE","message":"database bigquery query takes NAME [SQL]","hint":"for example: komando database bigquery query bq \"select count(*) from shop.orders\" (more in `komando database bigquery query --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database bigquery query (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database bigquery query takes NAME [SQL]
+Hint: for example: komando database bigquery query bq "select count(*) from shop.orders" (more in `komando database bigquery query --help`)
+(code USAGE, exit 2)
+### komando -o json database bigquery query (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.bigquery.query","error":{"code":"USAGE","message":"database bigquery query takes NAME [SQL]","hint":"for example: komando database bigquery query bq \"select count(*) from shop.orders\" (more in `komando database bigquery query --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database bigquery query (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database bigquery query takes NAME [SQL]
+Hint: for example: komando database bigquery query bq "select count(*) from shop.orders" (more in `komando database bigquery query --help`)
+(code USAGE, exit 2)
+### komando -o json database bigquery remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.bigquery.remove","error":{"code":"USAGE","message":"database bigquery remove takes TARGET...","hint":"for example: komando database bigquery remove bq --dry-run (more in `komando database bigquery remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database bigquery remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database bigquery remove takes TARGET...
+Hint: for example: komando database bigquery remove bq --dry-run (more in `komando database bigquery remove --help`)
+(code USAGE, exit 2)
+### komando -o json database bigquery remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.bigquery.remove","error":{"code":"USAGE","message":"database bigquery remove takes TARGET...","hint":"for example: komando database bigquery remove bq --dry-run (more in `komando database bigquery remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database bigquery remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database bigquery remove takes TARGET...
+Hint: for example: komando database bigquery remove bq --dry-run (more in `komando database bigquery remove --help`)
+(code USAGE, exit 2)
+### komando -o json database bigquery rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.bigquery.rename","error":{"code":"USAGE","message":"database bigquery rename takes NAME NEW","hint":"for example: komando database bigquery rename bq bq-2 --dry-run (more in `komando database bigquery rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database bigquery rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database bigquery rename takes NAME NEW
+Hint: for example: komando database bigquery rename bq bq-2 --dry-run (more in `komando database bigquery rename --help`)
+(code USAGE, exit 2)
+### komando -o json database bigquery rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.bigquery.rename","error":{"code":"USAGE","message":"database bigquery rename takes NAME NEW","hint":"for example: komando database bigquery rename bq bq-2 --dry-run (more in `komando database bigquery rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database bigquery rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database bigquery rename takes NAME NEW
+Hint: for example: komando database bigquery rename bq bq-2 --dry-run (more in `komando database bigquery rename --help`)
+(code USAGE, exit 2)
+### komando -o json database bigquery rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.bigquery.rename","error":{"code":"USAGE","message":"database bigquery rename takes NAME NEW","hint":"for example: komando database bigquery rename bq bq-2 --dry-run (more in `komando database bigquery rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database bigquery rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database bigquery rename takes NAME NEW
+Hint: for example: komando database bigquery rename bq bq-2 --dry-run (more in `komando database bigquery rename --help`)
+(code USAGE, exit 2)
+### komando -o json database bigquery rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.bigquery.rename","error":{"code":"USAGE","message":"database bigquery rename takes NAME NEW","hint":"for example: komando database bigquery rename bq bq-2 --dry-run (more in `komando database bigquery rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database bigquery rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database bigquery rename takes NAME NEW
+Hint: for example: komando database bigquery rename bq bq-2 --dry-run (more in `komando database bigquery rename --help`)
+(code USAGE, exit 2)
+### komando -o json database bigquery shell (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.bigquery.shell","error":{"code":"USAGE","message":"database bigquery shell takes NAME","hint":"for example: komando database bigquery shell bq (more in `komando database bigquery shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database bigquery shell (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database bigquery shell takes NAME
+Hint: for example: komando database bigquery shell bq (more in `komando database bigquery shell --help`)
+(code USAGE, exit 2)
+### komando -o json database bigquery shell (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.bigquery.shell","error":{"code":"USAGE","message":"database bigquery shell takes NAME","hint":"for example: komando database bigquery shell bq (more in `komando database bigquery shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database bigquery shell (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database bigquery shell takes NAME
+Hint: for example: komando database bigquery shell bq (more in `komando database bigquery shell --help`)
+(code USAGE, exit 2)
+### komando -o json database bigquery show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.bigquery.show","error":{"code":"USAGE","message":"database bigquery show takes NAME","hint":"for example: komando database bigquery show bq (more in `komando database bigquery show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database bigquery show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database bigquery show takes NAME
+Hint: for example: komando database bigquery show bq (more in `komando database bigquery show --help`)
+(code USAGE, exit 2)
+### komando -o json database bigquery show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.bigquery.show","error":{"code":"USAGE","message":"database bigquery show takes NAME","hint":"for example: komando database bigquery show bq (more in `komando database bigquery show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database bigquery show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database bigquery show takes NAME
+Hint: for example: komando database bigquery show bq (more in `komando database bigquery show --help`)
+(code USAGE, exit 2)
+### komando -o json database bigquery test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.bigquery.test","error":{"code":"USAGE","message":"database bigquery test takes TARGET","hint":"for example: komando database bigquery test bq (more in `komando database bigquery test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database bigquery test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database bigquery test takes TARGET
+Hint: for example: komando database bigquery test bq (more in `komando database bigquery test --help`)
+(code USAGE, exit 2)
+### komando -o json database bigquery test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.bigquery.test","error":{"code":"USAGE","message":"database bigquery test takes TARGET","hint":"for example: komando database bigquery test bq (more in `komando database bigquery test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database bigquery test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database bigquery test takes TARGET
+Hint: for example: komando database bigquery test bq (more in `komando database bigquery test --help`)
+(code USAGE, exit 2)
+### komando -o json database clickhouse add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.clickhouse.add","error":{"code":"USAGE","message":"database clickhouse add takes NAME [URL]","hint":"for example: komando database clickhouse add events-ch clickhouse://app@10.0.0.10:8123/events --via web1 (more in `komando database clickhouse add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database clickhouse add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database clickhouse add takes NAME [URL]
+Hint: for example: komando database clickhouse add events-ch clickhouse://app@10.0.0.10:8123/events --via web1 (more in `komando database clickhouse add --help`)
+(code USAGE, exit 2)
+### komando -o json database clickhouse add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.clickhouse.add","error":{"code":"USAGE","message":"database clickhouse add takes NAME [URL]","hint":"for example: komando database clickhouse add events-ch clickhouse://app@10.0.0.10:8123/events --via web1 (more in `komando database clickhouse add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database clickhouse add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database clickhouse add takes NAME [URL]
+Hint: for example: komando database clickhouse add events-ch clickhouse://app@10.0.0.10:8123/events --via web1 (more in `komando database clickhouse add --help`)
+(code USAGE, exit 2)
+### komando -o json database clickhouse edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.clickhouse.edit","error":{"code":"USAGE","message":"database clickhouse edit takes NAME","hint":"for example: komando database clickhouse edit events-ch --add-tag critical (more in `komando database clickhouse edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database clickhouse edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database clickhouse edit takes NAME
+Hint: for example: komando database clickhouse edit events-ch --add-tag critical (more in `komando database clickhouse edit --help`)
+(code USAGE, exit 2)
+### komando -o json database clickhouse edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.clickhouse.edit","error":{"code":"USAGE","message":"database clickhouse edit takes NAME","hint":"for example: komando database clickhouse edit events-ch --add-tag critical (more in `komando database clickhouse edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database clickhouse edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database clickhouse edit takes NAME
+Hint: for example: komando database clickhouse edit events-ch --add-tag critical (more in `komando database clickhouse edit --help`)
+(code USAGE, exit 2)
+### komando -o json database clickhouse query (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.clickhouse.query","error":{"code":"USAGE","message":"database clickhouse query takes NAME [SQL]","hint":"for example: komando database clickhouse query events-ch \"select count() from hits where day = today()\" (more in `komando database clickhouse query --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database clickhouse query (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database clickhouse query takes NAME [SQL]
+Hint: for example: komando database clickhouse query events-ch "select count() from hits where day = today()" (more in `komando database clickhouse query --help`)
+(code USAGE, exit 2)
+### komando -o json database clickhouse query (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.clickhouse.query","error":{"code":"USAGE","message":"database clickhouse query takes NAME [SQL]","hint":"for example: komando database clickhouse query events-ch \"select count() from hits where day = today()\" (more in `komando database clickhouse query --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database clickhouse query (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database clickhouse query takes NAME [SQL]
+Hint: for example: komando database clickhouse query events-ch "select count() from hits where day = today()" (more in `komando database clickhouse query --help`)
+(code USAGE, exit 2)
+### komando -o json database clickhouse remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.clickhouse.remove","error":{"code":"USAGE","message":"database clickhouse remove takes TARGET...","hint":"for example: komando database clickhouse remove events-ch --dry-run (more in `komando database clickhouse remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database clickhouse remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database clickhouse remove takes TARGET...
+Hint: for example: komando database clickhouse remove events-ch --dry-run (more in `komando database clickhouse remove --help`)
+(code USAGE, exit 2)
+### komando -o json database clickhouse remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.clickhouse.remove","error":{"code":"USAGE","message":"database clickhouse remove takes TARGET...","hint":"for example: komando database clickhouse remove events-ch --dry-run (more in `komando database clickhouse remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database clickhouse remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database clickhouse remove takes TARGET...
+Hint: for example: komando database clickhouse remove events-ch --dry-run (more in `komando database clickhouse remove --help`)
+(code USAGE, exit 2)
+### komando -o json database clickhouse rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.clickhouse.rename","error":{"code":"USAGE","message":"database clickhouse rename takes NAME NEW","hint":"for example: komando database clickhouse rename events-ch events-ch-2 --dry-run (more in `komando database clickhouse rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database clickhouse rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database clickhouse rename takes NAME NEW
+Hint: for example: komando database clickhouse rename events-ch events-ch-2 --dry-run (more in `komando database clickhouse rename --help`)
+(code USAGE, exit 2)
+### komando -o json database clickhouse rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.clickhouse.rename","error":{"code":"USAGE","message":"database clickhouse rename takes NAME NEW","hint":"for example: komando database clickhouse rename events-ch events-ch-2 --dry-run (more in `komando database clickhouse rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database clickhouse rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database clickhouse rename takes NAME NEW
+Hint: for example: komando database clickhouse rename events-ch events-ch-2 --dry-run (more in `komando database clickhouse rename --help`)
+(code USAGE, exit 2)
+### komando -o json database clickhouse rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.clickhouse.rename","error":{"code":"USAGE","message":"database clickhouse rename takes NAME NEW","hint":"for example: komando database clickhouse rename events-ch events-ch-2 --dry-run (more in `komando database clickhouse rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database clickhouse rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database clickhouse rename takes NAME NEW
+Hint: for example: komando database clickhouse rename events-ch events-ch-2 --dry-run (more in `komando database clickhouse rename --help`)
+(code USAGE, exit 2)
+### komando -o json database clickhouse rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.clickhouse.rename","error":{"code":"USAGE","message":"database clickhouse rename takes NAME NEW","hint":"for example: komando database clickhouse rename events-ch events-ch-2 --dry-run (more in `komando database clickhouse rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database clickhouse rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database clickhouse rename takes NAME NEW
+Hint: for example: komando database clickhouse rename events-ch events-ch-2 --dry-run (more in `komando database clickhouse rename --help`)
+(code USAGE, exit 2)
+### komando -o json database clickhouse shell (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.clickhouse.shell","error":{"code":"USAGE","message":"database clickhouse shell takes NAME","hint":"for example: komando database clickhouse shell events-ch (more in `komando database clickhouse shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database clickhouse shell (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database clickhouse shell takes NAME
+Hint: for example: komando database clickhouse shell events-ch (more in `komando database clickhouse shell --help`)
+(code USAGE, exit 2)
+### komando -o json database clickhouse shell (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.clickhouse.shell","error":{"code":"USAGE","message":"database clickhouse shell takes NAME","hint":"for example: komando database clickhouse shell events-ch (more in `komando database clickhouse shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database clickhouse shell (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database clickhouse shell takes NAME
+Hint: for example: komando database clickhouse shell events-ch (more in `komando database clickhouse shell --help`)
+(code USAGE, exit 2)
+### komando -o json database clickhouse show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.clickhouse.show","error":{"code":"USAGE","message":"database clickhouse show takes NAME","hint":"for example: komando database clickhouse show events-ch (more in `komando database clickhouse show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database clickhouse show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database clickhouse show takes NAME
+Hint: for example: komando database clickhouse show events-ch (more in `komando database clickhouse show --help`)
+(code USAGE, exit 2)
+### komando -o json database clickhouse show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.clickhouse.show","error":{"code":"USAGE","message":"database clickhouse show takes NAME","hint":"for example: komando database clickhouse show events-ch (more in `komando database clickhouse show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database clickhouse show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database clickhouse show takes NAME
+Hint: for example: komando database clickhouse show events-ch (more in `komando database clickhouse show --help`)
+(code USAGE, exit 2)
+### komando -o json database clickhouse test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.clickhouse.test","error":{"code":"USAGE","message":"database clickhouse test takes TARGET","hint":"for example: komando database clickhouse test events-ch (more in `komando database clickhouse test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database clickhouse test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database clickhouse test takes TARGET
+Hint: for example: komando database clickhouse test events-ch (more in `komando database clickhouse test --help`)
+(code USAGE, exit 2)
+### komando -o json database clickhouse test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.clickhouse.test","error":{"code":"USAGE","message":"database clickhouse test takes TARGET","hint":"for example: komando database clickhouse test events-ch (more in `komando database clickhouse test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database clickhouse test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database clickhouse test takes TARGET
+Hint: for example: komando database clickhouse test events-ch (more in `komando database clickhouse test --help`)
+(code USAGE, exit 2)
+### komando -o json database mongodb add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mongodb.add","error":{"code":"USAGE","message":"database mongodb add takes NAME [URL]","hint":"for example: komando database mongodb add prod-mongo mongodb://app@10.0.0.9:27017/app --via web1 (more in `komando database mongodb add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mongodb add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database mongodb add takes NAME [URL]
+Hint: for example: komando database mongodb add prod-mongo mongodb://app@10.0.0.9:27017/app --via web1 (more in `komando database mongodb add --help`)
+(code USAGE, exit 2)
+### komando -o json database mongodb add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mongodb.add","error":{"code":"USAGE","message":"database mongodb add takes NAME [URL]","hint":"for example: komando database mongodb add prod-mongo mongodb://app@10.0.0.9:27017/app --via web1 (more in `komando database mongodb add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mongodb add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database mongodb add takes NAME [URL]
+Hint: for example: komando database mongodb add prod-mongo mongodb://app@10.0.0.9:27017/app --via web1 (more in `komando database mongodb add --help`)
+(code USAGE, exit 2)
+### komando -o json database mongodb edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mongodb.edit","error":{"code":"USAGE","message":"database mongodb edit takes NAME","hint":"for example: komando database mongodb edit prod-mongo --add-tag critical (more in `komando database mongodb edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mongodb edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database mongodb edit takes NAME
+Hint: for example: komando database mongodb edit prod-mongo --add-tag critical (more in `komando database mongodb edit --help`)
+(code USAGE, exit 2)
+### komando -o json database mongodb edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mongodb.edit","error":{"code":"USAGE","message":"database mongodb edit takes NAME","hint":"for example: komando database mongodb edit prod-mongo --add-tag critical (more in `komando database mongodb edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mongodb edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database mongodb edit takes NAME
+Hint: for example: komando database mongodb edit prod-mongo --add-tag critical (more in `komando database mongodb edit --help`)
+(code USAGE, exit 2)
+### komando -o json database mongodb query (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mongodb.query","error":{"code":"USAGE","message":"database mongodb query takes NAME [SQL]","hint":"for example: komando database mongodb query prod-mongo '{\"find\": \"users\", \"filter\": {\"plan\": \"pro\"}, \"limit\": 10}' (more in `komando database mongodb query --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mongodb query (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database mongodb query takes NAME [SQL]
+Hint: for example: komando database mongodb query prod-mongo '{"find": "users", "filter": {"plan": "pro"}, "limit": 10}' (more in `komando database mongodb query --help`)
+(code USAGE, exit 2)
+### komando -o json database mongodb query (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mongodb.query","error":{"code":"USAGE","message":"database mongodb query takes NAME [SQL]","hint":"for example: komando database mongodb query prod-mongo '{\"find\": \"users\", \"filter\": {\"plan\": \"pro\"}, \"limit\": 10}' (more in `komando database mongodb query --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mongodb query (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database mongodb query takes NAME [SQL]
+Hint: for example: komando database mongodb query prod-mongo '{"find": "users", "filter": {"plan": "pro"}, "limit": 10}' (more in `komando database mongodb query --help`)
+(code USAGE, exit 2)
+### komando -o json database mongodb remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mongodb.remove","error":{"code":"USAGE","message":"database mongodb remove takes TARGET...","hint":"for example: komando database mongodb remove prod-mongo --dry-run (more in `komando database mongodb remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mongodb remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database mongodb remove takes TARGET...
+Hint: for example: komando database mongodb remove prod-mongo --dry-run (more in `komando database mongodb remove --help`)
+(code USAGE, exit 2)
+### komando -o json database mongodb remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mongodb.remove","error":{"code":"USAGE","message":"database mongodb remove takes TARGET...","hint":"for example: komando database mongodb remove prod-mongo --dry-run (more in `komando database mongodb remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mongodb remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database mongodb remove takes TARGET...
+Hint: for example: komando database mongodb remove prod-mongo --dry-run (more in `komando database mongodb remove --help`)
+(code USAGE, exit 2)
+### komando -o json database mongodb rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mongodb.rename","error":{"code":"USAGE","message":"database mongodb rename takes NAME NEW","hint":"for example: komando database mongodb rename prod-mongo prod-mongo-2 --dry-run (more in `komando database mongodb rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mongodb rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database mongodb rename takes NAME NEW
+Hint: for example: komando database mongodb rename prod-mongo prod-mongo-2 --dry-run (more in `komando database mongodb rename --help`)
+(code USAGE, exit 2)
+### komando -o json database mongodb rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mongodb.rename","error":{"code":"USAGE","message":"database mongodb rename takes NAME NEW","hint":"for example: komando database mongodb rename prod-mongo prod-mongo-2 --dry-run (more in `komando database mongodb rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mongodb rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database mongodb rename takes NAME NEW
+Hint: for example: komando database mongodb rename prod-mongo prod-mongo-2 --dry-run (more in `komando database mongodb rename --help`)
+(code USAGE, exit 2)
+### komando -o json database mongodb rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mongodb.rename","error":{"code":"USAGE","message":"database mongodb rename takes NAME NEW","hint":"for example: komando database mongodb rename prod-mongo prod-mongo-2 --dry-run (more in `komando database mongodb rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mongodb rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database mongodb rename takes NAME NEW
+Hint: for example: komando database mongodb rename prod-mongo prod-mongo-2 --dry-run (more in `komando database mongodb rename --help`)
+(code USAGE, exit 2)
+### komando -o json database mongodb rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mongodb.rename","error":{"code":"USAGE","message":"database mongodb rename takes NAME NEW","hint":"for example: komando database mongodb rename prod-mongo prod-mongo-2 --dry-run (more in `komando database mongodb rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mongodb rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database mongodb rename takes NAME NEW
+Hint: for example: komando database mongodb rename prod-mongo prod-mongo-2 --dry-run (more in `komando database mongodb rename --help`)
+(code USAGE, exit 2)
+### komando -o json database mongodb show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mongodb.show","error":{"code":"USAGE","message":"database mongodb show takes NAME","hint":"for example: komando database mongodb show prod-mongo (more in `komando database mongodb show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mongodb show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database mongodb show takes NAME
+Hint: for example: komando database mongodb show prod-mongo (more in `komando database mongodb show --help`)
+(code USAGE, exit 2)
+### komando -o json database mongodb show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mongodb.show","error":{"code":"USAGE","message":"database mongodb show takes NAME","hint":"for example: komando database mongodb show prod-mongo (more in `komando database mongodb show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mongodb show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database mongodb show takes NAME
+Hint: for example: komando database mongodb show prod-mongo (more in `komando database mongodb show --help`)
+(code USAGE, exit 2)
+### komando -o json database mongodb test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mongodb.test","error":{"code":"USAGE","message":"database mongodb test takes TARGET","hint":"for example: komando database mongodb test prod-mongo (more in `komando database mongodb test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mongodb test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database mongodb test takes TARGET
+Hint: for example: komando database mongodb test prod-mongo (more in `komando database mongodb test --help`)
+(code USAGE, exit 2)
+### komando -o json database mongodb test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mongodb.test","error":{"code":"USAGE","message":"database mongodb test takes TARGET","hint":"for example: komando database mongodb test prod-mongo (more in `komando database mongodb test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mongodb test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database mongodb test takes TARGET
+Hint: for example: komando database mongodb test prod-mongo (more in `komando database mongodb test --help`)
+(code USAGE, exit 2)
+### komando -o json database mysql add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mysql.add","error":{"code":"USAGE","message":"database mysql add takes NAME [URL]","hint":"for example: komando database mysql add shop-mysql mysql://app@10.0.0.6:3306/shop --via web1 (more in `komando database mysql add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mysql add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database mysql add takes NAME [URL]
+Hint: for example: komando database mysql add shop-mysql mysql://app@10.0.0.6:3306/shop --via web1 (more in `komando database mysql add --help`)
+(code USAGE, exit 2)
+### komando -o json database mysql add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mysql.add","error":{"code":"USAGE","message":"database mysql add takes NAME [URL]","hint":"for example: komando database mysql add shop-mysql mysql://app@10.0.0.6:3306/shop --via web1 (more in `komando database mysql add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mysql add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database mysql add takes NAME [URL]
+Hint: for example: komando database mysql add shop-mysql mysql://app@10.0.0.6:3306/shop --via web1 (more in `komando database mysql add --help`)
+(code USAGE, exit 2)
+### komando -o json database mysql backup (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mysql.backup","error":{"code":"USAGE","message":"database mysql backup takes NAME","hint":"for example: komando database mysql backup shop-mysql --to backups/ (more in `komando database mysql backup --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mysql backup (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database mysql backup takes NAME
+Hint: for example: komando database mysql backup shop-mysql --to backups/ (more in `komando database mysql backup --help`)
+(code USAGE, exit 2)
+### komando -o json database mysql backup (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mysql.backup","error":{"code":"USAGE","message":"database mysql backup takes NAME","hint":"for example: komando database mysql backup shop-mysql --to backups/ (more in `komando database mysql backup --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mysql backup (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database mysql backup takes NAME
+Hint: for example: komando database mysql backup shop-mysql --to backups/ (more in `komando database mysql backup --help`)
+(code USAGE, exit 2)
+### komando -o json database mysql edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mysql.edit","error":{"code":"USAGE","message":"database mysql edit takes NAME","hint":"for example: komando database mysql edit shop-mysql --add-tag critical (more in `komando database mysql edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mysql edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database mysql edit takes NAME
+Hint: for example: komando database mysql edit shop-mysql --add-tag critical (more in `komando database mysql edit --help`)
+(code USAGE, exit 2)
+### komando -o json database mysql edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mysql.edit","error":{"code":"USAGE","message":"database mysql edit takes NAME","hint":"for example: komando database mysql edit shop-mysql --add-tag critical (more in `komando database mysql edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mysql edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database mysql edit takes NAME
+Hint: for example: komando database mysql edit shop-mysql --add-tag critical (more in `komando database mysql edit --help`)
+(code USAGE, exit 2)
+### komando -o json database mysql query (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mysql.query","error":{"code":"USAGE","message":"database mysql query takes NAME [SQL]","hint":"for example: komando database mysql query shop-mysql \"select id, email from users order by id desc limit 10\" (more in `komando database mysql query --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mysql query (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database mysql query takes NAME [SQL]
+Hint: for example: komando database mysql query shop-mysql "select id, email from users order by id desc limit 10" (more in `komando database mysql query --help`)
+(code USAGE, exit 2)
+### komando -o json database mysql query (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mysql.query","error":{"code":"USAGE","message":"database mysql query takes NAME [SQL]","hint":"for example: komando database mysql query shop-mysql \"select id, email from users order by id desc limit 10\" (more in `komando database mysql query --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mysql query (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database mysql query takes NAME [SQL]
+Hint: for example: komando database mysql query shop-mysql "select id, email from users order by id desc limit 10" (more in `komando database mysql query --help`)
+(code USAGE, exit 2)
+### komando -o json database mysql remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mysql.remove","error":{"code":"USAGE","message":"database mysql remove takes TARGET...","hint":"for example: komando database mysql remove shop-mysql --dry-run (more in `komando database mysql remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mysql remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database mysql remove takes TARGET...
+Hint: for example: komando database mysql remove shop-mysql --dry-run (more in `komando database mysql remove --help`)
+(code USAGE, exit 2)
+### komando -o json database mysql remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mysql.remove","error":{"code":"USAGE","message":"database mysql remove takes TARGET...","hint":"for example: komando database mysql remove shop-mysql --dry-run (more in `komando database mysql remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mysql remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database mysql remove takes TARGET...
+Hint: for example: komando database mysql remove shop-mysql --dry-run (more in `komando database mysql remove --help`)
+(code USAGE, exit 2)
+### komando -o json database mysql rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mysql.rename","error":{"code":"USAGE","message":"database mysql rename takes NAME NEW","hint":"for example: komando database mysql rename shop-mysql shop-mysql-2 --dry-run (more in `komando database mysql rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mysql rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database mysql rename takes NAME NEW
+Hint: for example: komando database mysql rename shop-mysql shop-mysql-2 --dry-run (more in `komando database mysql rename --help`)
+(code USAGE, exit 2)
+### komando -o json database mysql rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mysql.rename","error":{"code":"USAGE","message":"database mysql rename takes NAME NEW","hint":"for example: komando database mysql rename shop-mysql shop-mysql-2 --dry-run (more in `komando database mysql rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mysql rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database mysql rename takes NAME NEW
+Hint: for example: komando database mysql rename shop-mysql shop-mysql-2 --dry-run (more in `komando database mysql rename --help`)
+(code USAGE, exit 2)
+### komando -o json database mysql rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mysql.rename","error":{"code":"USAGE","message":"database mysql rename takes NAME NEW","hint":"for example: komando database mysql rename shop-mysql shop-mysql-2 --dry-run (more in `komando database mysql rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mysql rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database mysql rename takes NAME NEW
+Hint: for example: komando database mysql rename shop-mysql shop-mysql-2 --dry-run (more in `komando database mysql rename --help`)
+(code USAGE, exit 2)
+### komando -o json database mysql rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mysql.rename","error":{"code":"USAGE","message":"database mysql rename takes NAME NEW","hint":"for example: komando database mysql rename shop-mysql shop-mysql-2 --dry-run (more in `komando database mysql rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mysql rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database mysql rename takes NAME NEW
+Hint: for example: komando database mysql rename shop-mysql shop-mysql-2 --dry-run (more in `komando database mysql rename --help`)
+(code USAGE, exit 2)
+### komando -o json database mysql restore (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mysql.restore","error":{"code":"USAGE","message":"database mysql restore takes NAME","hint":"for example: komando database mysql restore shop-mysql --from shop-mysql.sql.gz --dry-run (more in `komando database mysql restore --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mysql restore (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database mysql restore takes NAME
+Hint: for example: komando database mysql restore shop-mysql --from shop-mysql.sql.gz --dry-run (more in `komando database mysql restore --help`)
+(code USAGE, exit 2)
+### komando -o json database mysql restore (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mysql.restore","error":{"code":"USAGE","message":"database mysql restore takes NAME","hint":"for example: komando database mysql restore shop-mysql --from shop-mysql.sql.gz --dry-run (more in `komando database mysql restore --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mysql restore (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database mysql restore takes NAME
+Hint: for example: komando database mysql restore shop-mysql --from shop-mysql.sql.gz --dry-run (more in `komando database mysql restore --help`)
+(code USAGE, exit 2)
+### komando -o json database mysql shell (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mysql.shell","error":{"code":"USAGE","message":"database mysql shell takes NAME","hint":"for example: komando database mysql shell shop-mysql (more in `komando database mysql shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mysql shell (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database mysql shell takes NAME
+Hint: for example: komando database mysql shell shop-mysql (more in `komando database mysql shell --help`)
+(code USAGE, exit 2)
+### komando -o json database mysql shell (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mysql.shell","error":{"code":"USAGE","message":"database mysql shell takes NAME","hint":"for example: komando database mysql shell shop-mysql (more in `komando database mysql shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mysql shell (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database mysql shell takes NAME
+Hint: for example: komando database mysql shell shop-mysql (more in `komando database mysql shell --help`)
+(code USAGE, exit 2)
+### komando -o json database mysql show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mysql.show","error":{"code":"USAGE","message":"database mysql show takes NAME","hint":"for example: komando database mysql show shop-mysql (more in `komando database mysql show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mysql show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database mysql show takes NAME
+Hint: for example: komando database mysql show shop-mysql (more in `komando database mysql show --help`)
+(code USAGE, exit 2)
+### komando -o json database mysql show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mysql.show","error":{"code":"USAGE","message":"database mysql show takes NAME","hint":"for example: komando database mysql show shop-mysql (more in `komando database mysql show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mysql show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database mysql show takes NAME
+Hint: for example: komando database mysql show shop-mysql (more in `komando database mysql show --help`)
+(code USAGE, exit 2)
+### komando -o json database mysql test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mysql.test","error":{"code":"USAGE","message":"database mysql test takes TARGET","hint":"for example: komando database mysql test shop-mysql (more in `komando database mysql test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mysql test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database mysql test takes TARGET
+Hint: for example: komando database mysql test shop-mysql (more in `komando database mysql test --help`)
+(code USAGE, exit 2)
+### komando -o json database mysql test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.mysql.test","error":{"code":"USAGE","message":"database mysql test takes TARGET","hint":"for example: komando database mysql test shop-mysql (more in `komando database mysql test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database mysql test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database mysql test takes TARGET
+Hint: for example: komando database mysql test shop-mysql (more in `komando database mysql test --help`)
+(code USAGE, exit 2)
+### komando -o json database oracle add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.oracle.add","error":{"code":"USAGE","message":"database oracle add takes NAME [URL]","hint":"for example: komando database oracle add erp-oracle oracle://app@10.0.0.8:1521/ERP --via web1 (more in `komando database oracle add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database oracle add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database oracle add takes NAME [URL]
+Hint: for example: komando database oracle add erp-oracle oracle://app@10.0.0.8:1521/ERP --via web1 (more in `komando database oracle add --help`)
+(code USAGE, exit 2)
+### komando -o json database oracle add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.oracle.add","error":{"code":"USAGE","message":"database oracle add takes NAME [URL]","hint":"for example: komando database oracle add erp-oracle oracle://app@10.0.0.8:1521/ERP --via web1 (more in `komando database oracle add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database oracle add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database oracle add takes NAME [URL]
+Hint: for example: komando database oracle add erp-oracle oracle://app@10.0.0.8:1521/ERP --via web1 (more in `komando database oracle add --help`)
+(code USAGE, exit 2)
+### komando -o json database oracle edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.oracle.edit","error":{"code":"USAGE","message":"database oracle edit takes NAME","hint":"for example: komando database oracle edit erp-oracle --add-tag critical (more in `komando database oracle edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database oracle edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database oracle edit takes NAME
+Hint: for example: komando database oracle edit erp-oracle --add-tag critical (more in `komando database oracle edit --help`)
+(code USAGE, exit 2)
+### komando -o json database oracle edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.oracle.edit","error":{"code":"USAGE","message":"database oracle edit takes NAME","hint":"for example: komando database oracle edit erp-oracle --add-tag critical (more in `komando database oracle edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database oracle edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database oracle edit takes NAME
+Hint: for example: komando database oracle edit erp-oracle --add-tag critical (more in `komando database oracle edit --help`)
+(code USAGE, exit 2)
+### komando -o json database oracle query (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.oracle.query","error":{"code":"USAGE","message":"database oracle query takes NAME [SQL]","hint":"for example: komando database oracle query erp-oracle \"select id, email from users order by id desc fetch first 10 rows only\" (more in `komando database oracle query --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database oracle query (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database oracle query takes NAME [SQL]
+Hint: for example: komando database oracle query erp-oracle "select id, email from users order by id desc fetch first 10 rows only" (more in `komando database oracle query --help`)
+(code USAGE, exit 2)
+### komando -o json database oracle query (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.oracle.query","error":{"code":"USAGE","message":"database oracle query takes NAME [SQL]","hint":"for example: komando database oracle query erp-oracle \"select id, email from users order by id desc fetch first 10 rows only\" (more in `komando database oracle query --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database oracle query (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database oracle query takes NAME [SQL]
+Hint: for example: komando database oracle query erp-oracle "select id, email from users order by id desc fetch first 10 rows only" (more in `komando database oracle query --help`)
+(code USAGE, exit 2)
+### komando -o json database oracle remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.oracle.remove","error":{"code":"USAGE","message":"database oracle remove takes TARGET...","hint":"for example: komando database oracle remove erp-oracle --dry-run (more in `komando database oracle remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database oracle remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database oracle remove takes TARGET...
+Hint: for example: komando database oracle remove erp-oracle --dry-run (more in `komando database oracle remove --help`)
+(code USAGE, exit 2)
+### komando -o json database oracle remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.oracle.remove","error":{"code":"USAGE","message":"database oracle remove takes TARGET...","hint":"for example: komando database oracle remove erp-oracle --dry-run (more in `komando database oracle remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database oracle remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database oracle remove takes TARGET...
+Hint: for example: komando database oracle remove erp-oracle --dry-run (more in `komando database oracle remove --help`)
+(code USAGE, exit 2)
+### komando -o json database oracle rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.oracle.rename","error":{"code":"USAGE","message":"database oracle rename takes NAME NEW","hint":"for example: komando database oracle rename erp-oracle erp-oracle-2 --dry-run (more in `komando database oracle rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database oracle rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database oracle rename takes NAME NEW
+Hint: for example: komando database oracle rename erp-oracle erp-oracle-2 --dry-run (more in `komando database oracle rename --help`)
+(code USAGE, exit 2)
+### komando -o json database oracle rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.oracle.rename","error":{"code":"USAGE","message":"database oracle rename takes NAME NEW","hint":"for example: komando database oracle rename erp-oracle erp-oracle-2 --dry-run (more in `komando database oracle rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database oracle rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database oracle rename takes NAME NEW
+Hint: for example: komando database oracle rename erp-oracle erp-oracle-2 --dry-run (more in `komando database oracle rename --help`)
+(code USAGE, exit 2)
+### komando -o json database oracle rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.oracle.rename","error":{"code":"USAGE","message":"database oracle rename takes NAME NEW","hint":"for example: komando database oracle rename erp-oracle erp-oracle-2 --dry-run (more in `komando database oracle rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database oracle rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database oracle rename takes NAME NEW
+Hint: for example: komando database oracle rename erp-oracle erp-oracle-2 --dry-run (more in `komando database oracle rename --help`)
+(code USAGE, exit 2)
+### komando -o json database oracle rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.oracle.rename","error":{"code":"USAGE","message":"database oracle rename takes NAME NEW","hint":"for example: komando database oracle rename erp-oracle erp-oracle-2 --dry-run (more in `komando database oracle rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database oracle rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database oracle rename takes NAME NEW
+Hint: for example: komando database oracle rename erp-oracle erp-oracle-2 --dry-run (more in `komando database oracle rename --help`)
+(code USAGE, exit 2)
+### komando -o json database oracle shell (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.oracle.shell","error":{"code":"USAGE","message":"database oracle shell takes NAME","hint":"for example: komando database oracle shell erp-oracle (more in `komando database oracle shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database oracle shell (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database oracle shell takes NAME
+Hint: for example: komando database oracle shell erp-oracle (more in `komando database oracle shell --help`)
+(code USAGE, exit 2)
+### komando -o json database oracle shell (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.oracle.shell","error":{"code":"USAGE","message":"database oracle shell takes NAME","hint":"for example: komando database oracle shell erp-oracle (more in `komando database oracle shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database oracle shell (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database oracle shell takes NAME
+Hint: for example: komando database oracle shell erp-oracle (more in `komando database oracle shell --help`)
+(code USAGE, exit 2)
+### komando -o json database oracle show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.oracle.show","error":{"code":"USAGE","message":"database oracle show takes NAME","hint":"for example: komando database oracle show erp-oracle (more in `komando database oracle show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database oracle show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database oracle show takes NAME
+Hint: for example: komando database oracle show erp-oracle (more in `komando database oracle show --help`)
+(code USAGE, exit 2)
+### komando -o json database oracle show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.oracle.show","error":{"code":"USAGE","message":"database oracle show takes NAME","hint":"for example: komando database oracle show erp-oracle (more in `komando database oracle show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database oracle show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database oracle show takes NAME
+Hint: for example: komando database oracle show erp-oracle (more in `komando database oracle show --help`)
+(code USAGE, exit 2)
+### komando -o json database oracle test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.oracle.test","error":{"code":"USAGE","message":"database oracle test takes TARGET","hint":"for example: komando database oracle test erp-oracle (more in `komando database oracle test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database oracle test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database oracle test takes TARGET
+Hint: for example: komando database oracle test erp-oracle (more in `komando database oracle test --help`)
+(code USAGE, exit 2)
+### komando -o json database oracle test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.oracle.test","error":{"code":"USAGE","message":"database oracle test takes TARGET","hint":"for example: komando database oracle test erp-oracle (more in `komando database oracle test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database oracle test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database oracle test takes TARGET
+Hint: for example: komando database oracle test erp-oracle (more in `komando database oracle test --help`)
+(code USAGE, exit 2)
+### komando -o json database postgres add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.postgres.add","error":{"code":"USAGE","message":"database postgres add takes NAME [URL]","hint":"for example: komando database postgres add prod-db postgres://app@10.0.0.5:5432/shop --via web1 (more in `komando database postgres add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database postgres add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database postgres add takes NAME [URL]
+Hint: for example: komando database postgres add prod-db postgres://app@10.0.0.5:5432/shop --via web1 (more in `komando database postgres add --help`)
+(code USAGE, exit 2)
+### komando -o json database postgres add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.postgres.add","error":{"code":"USAGE","message":"database postgres add takes NAME [URL]","hint":"for example: komando database postgres add prod-db postgres://app@10.0.0.5:5432/shop --via web1 (more in `komando database postgres add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database postgres add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database postgres add takes NAME [URL]
+Hint: for example: komando database postgres add prod-db postgres://app@10.0.0.5:5432/shop --via web1 (more in `komando database postgres add --help`)
+(code USAGE, exit 2)
+### komando -o json database postgres backup (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.postgres.backup","error":{"code":"USAGE","message":"database postgres backup takes NAME","hint":"for example: komando database postgres backup prod-db --to backups/ (more in `komando database postgres backup --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database postgres backup (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database postgres backup takes NAME
+Hint: for example: komando database postgres backup prod-db --to backups/ (more in `komando database postgres backup --help`)
+(code USAGE, exit 2)
+### komando -o json database postgres backup (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.postgres.backup","error":{"code":"USAGE","message":"database postgres backup takes NAME","hint":"for example: komando database postgres backup prod-db --to backups/ (more in `komando database postgres backup --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database postgres backup (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database postgres backup takes NAME
+Hint: for example: komando database postgres backup prod-db --to backups/ (more in `komando database postgres backup --help`)
+(code USAGE, exit 2)
+### komando -o json database postgres edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.postgres.edit","error":{"code":"USAGE","message":"database postgres edit takes NAME","hint":"for example: komando database postgres edit prod-db --add-tag critical (more in `komando database postgres edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database postgres edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database postgres edit takes NAME
+Hint: for example: komando database postgres edit prod-db --add-tag critical (more in `komando database postgres edit --help`)
+(code USAGE, exit 2)
+### komando -o json database postgres edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.postgres.edit","error":{"code":"USAGE","message":"database postgres edit takes NAME","hint":"for example: komando database postgres edit prod-db --add-tag critical (more in `komando database postgres edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database postgres edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database postgres edit takes NAME
+Hint: for example: komando database postgres edit prod-db --add-tag critical (more in `komando database postgres edit --help`)
+(code USAGE, exit 2)
+### komando -o json database postgres query (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.postgres.query","error":{"code":"USAGE","message":"database postgres query takes NAME [SQL]","hint":"for example: komando database postgres query prod-db \"select id, email from users order by id desc limit 10\" (more in `komando database postgres query --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database postgres query (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database postgres query takes NAME [SQL]
+Hint: for example: komando database postgres query prod-db "select id, email from users order by id desc limit 10" (more in `komando database postgres query --help`)
+(code USAGE, exit 2)
+### komando -o json database postgres query (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.postgres.query","error":{"code":"USAGE","message":"database postgres query takes NAME [SQL]","hint":"for example: komando database postgres query prod-db \"select id, email from users order by id desc limit 10\" (more in `komando database postgres query --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database postgres query (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database postgres query takes NAME [SQL]
+Hint: for example: komando database postgres query prod-db "select id, email from users order by id desc limit 10" (more in `komando database postgres query --help`)
+(code USAGE, exit 2)
+### komando -o json database postgres remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.postgres.remove","error":{"code":"USAGE","message":"database postgres remove takes TARGET...","hint":"for example: komando database postgres remove prod-db --dry-run (more in `komando database postgres remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database postgres remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database postgres remove takes TARGET...
+Hint: for example: komando database postgres remove prod-db --dry-run (more in `komando database postgres remove --help`)
+(code USAGE, exit 2)
+### komando -o json database postgres remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.postgres.remove","error":{"code":"USAGE","message":"database postgres remove takes TARGET...","hint":"for example: komando database postgres remove prod-db --dry-run (more in `komando database postgres remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database postgres remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database postgres remove takes TARGET...
+Hint: for example: komando database postgres remove prod-db --dry-run (more in `komando database postgres remove --help`)
+(code USAGE, exit 2)
+### komando -o json database postgres rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.postgres.rename","error":{"code":"USAGE","message":"database postgres rename takes NAME NEW","hint":"for example: komando database postgres rename prod-db prod-db-2 --dry-run (more in `komando database postgres rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database postgres rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database postgres rename takes NAME NEW
+Hint: for example: komando database postgres rename prod-db prod-db-2 --dry-run (more in `komando database postgres rename --help`)
+(code USAGE, exit 2)
+### komando -o json database postgres rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.postgres.rename","error":{"code":"USAGE","message":"database postgres rename takes NAME NEW","hint":"for example: komando database postgres rename prod-db prod-db-2 --dry-run (more in `komando database postgres rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database postgres rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database postgres rename takes NAME NEW
+Hint: for example: komando database postgres rename prod-db prod-db-2 --dry-run (more in `komando database postgres rename --help`)
+(code USAGE, exit 2)
+### komando -o json database postgres rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.postgres.rename","error":{"code":"USAGE","message":"database postgres rename takes NAME NEW","hint":"for example: komando database postgres rename prod-db prod-db-2 --dry-run (more in `komando database postgres rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database postgres rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database postgres rename takes NAME NEW
+Hint: for example: komando database postgres rename prod-db prod-db-2 --dry-run (more in `komando database postgres rename --help`)
+(code USAGE, exit 2)
+### komando -o json database postgres rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.postgres.rename","error":{"code":"USAGE","message":"database postgres rename takes NAME NEW","hint":"for example: komando database postgres rename prod-db prod-db-2 --dry-run (more in `komando database postgres rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database postgres rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database postgres rename takes NAME NEW
+Hint: for example: komando database postgres rename prod-db prod-db-2 --dry-run (more in `komando database postgres rename --help`)
+(code USAGE, exit 2)
+### komando -o json database postgres restore (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.postgres.restore","error":{"code":"USAGE","message":"database postgres restore takes NAME","hint":"for example: komando database postgres restore prod-db --from prod-db.sql.gz --dry-run (more in `komando database postgres restore --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database postgres restore (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database postgres restore takes NAME
+Hint: for example: komando database postgres restore prod-db --from prod-db.sql.gz --dry-run (more in `komando database postgres restore --help`)
+(code USAGE, exit 2)
+### komando -o json database postgres restore (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.postgres.restore","error":{"code":"USAGE","message":"database postgres restore takes NAME","hint":"for example: komando database postgres restore prod-db --from prod-db.sql.gz --dry-run (more in `komando database postgres restore --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database postgres restore (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database postgres restore takes NAME
+Hint: for example: komando database postgres restore prod-db --from prod-db.sql.gz --dry-run (more in `komando database postgres restore --help`)
+(code USAGE, exit 2)
+### komando -o json database postgres shell (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.postgres.shell","error":{"code":"USAGE","message":"database postgres shell takes NAME","hint":"for example: komando database postgres shell prod-db (more in `komando database postgres shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database postgres shell (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database postgres shell takes NAME
+Hint: for example: komando database postgres shell prod-db (more in `komando database postgres shell --help`)
+(code USAGE, exit 2)
+### komando -o json database postgres shell (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.postgres.shell","error":{"code":"USAGE","message":"database postgres shell takes NAME","hint":"for example: komando database postgres shell prod-db (more in `komando database postgres shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database postgres shell (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database postgres shell takes NAME
+Hint: for example: komando database postgres shell prod-db (more in `komando database postgres shell --help`)
+(code USAGE, exit 2)
+### komando -o json database postgres show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.postgres.show","error":{"code":"USAGE","message":"database postgres show takes NAME","hint":"for example: komando database postgres show prod-db (more in `komando database postgres show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database postgres show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database postgres show takes NAME
+Hint: for example: komando database postgres show prod-db (more in `komando database postgres show --help`)
+(code USAGE, exit 2)
+### komando -o json database postgres show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.postgres.show","error":{"code":"USAGE","message":"database postgres show takes NAME","hint":"for example: komando database postgres show prod-db (more in `komando database postgres show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database postgres show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database postgres show takes NAME
+Hint: for example: komando database postgres show prod-db (more in `komando database postgres show --help`)
+(code USAGE, exit 2)
+### komando -o json database postgres test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.postgres.test","error":{"code":"USAGE","message":"database postgres test takes TARGET","hint":"for example: komando database postgres test prod-db (more in `komando database postgres test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database postgres test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database postgres test takes TARGET
+Hint: for example: komando database postgres test prod-db (more in `komando database postgres test --help`)
+(code USAGE, exit 2)
+### komando -o json database postgres test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.postgres.test","error":{"code":"USAGE","message":"database postgres test takes TARGET","hint":"for example: komando database postgres test prod-db (more in `komando database postgres test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database postgres test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database postgres test takes TARGET
+Hint: for example: komando database postgres test prod-db (more in `komando database postgres test --help`)
+(code USAGE, exit 2)
+### komando -o json database snowflake add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.snowflake.add","error":{"code":"USAGE","message":"database snowflake add takes NAME [URL]","hint":"for example: komando database snowflake add analytics snowflake://app_ro@myorg-acct/ANALYTICS/PUBLIC?warehouse=REPORTING --via web1 (more in `komando database snowflake add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database snowflake add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database snowflake add takes NAME [URL]
+Hint: for example: komando database snowflake add analytics snowflake://app_ro@myorg-acct/ANALYTICS/PUBLIC?warehouse=REPORTING --via web1 (more in `komando database snowflake add --help`)
+(code USAGE, exit 2)
+### komando -o json database snowflake add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.snowflake.add","error":{"code":"USAGE","message":"database snowflake add takes NAME [URL]","hint":"for example: komando database snowflake add analytics snowflake://app_ro@myorg-acct/ANALYTICS/PUBLIC?warehouse=REPORTING --via web1 (more in `komando database snowflake add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database snowflake add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database snowflake add takes NAME [URL]
+Hint: for example: komando database snowflake add analytics snowflake://app_ro@myorg-acct/ANALYTICS/PUBLIC?warehouse=REPORTING --via web1 (more in `komando database snowflake add --help`)
+(code USAGE, exit 2)
+### komando -o json database snowflake edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.snowflake.edit","error":{"code":"USAGE","message":"database snowflake edit takes NAME","hint":"for example: komando database snowflake edit analytics --add-tag critical (more in `komando database snowflake edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database snowflake edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database snowflake edit takes NAME
+Hint: for example: komando database snowflake edit analytics --add-tag critical (more in `komando database snowflake edit --help`)
+(code USAGE, exit 2)
+### komando -o json database snowflake edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.snowflake.edit","error":{"code":"USAGE","message":"database snowflake edit takes NAME","hint":"for example: komando database snowflake edit analytics --add-tag critical (more in `komando database snowflake edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database snowflake edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database snowflake edit takes NAME
+Hint: for example: komando database snowflake edit analytics --add-tag critical (more in `komando database snowflake edit --help`)
+(code USAGE, exit 2)
+### komando -o json database snowflake query (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.snowflake.query","error":{"code":"USAGE","message":"database snowflake query takes NAME [SQL]","hint":"for example: komando database snowflake query analytics \"select count(*) from orders\" (more in `komando database snowflake query --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database snowflake query (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database snowflake query takes NAME [SQL]
+Hint: for example: komando database snowflake query analytics "select count(*) from orders" (more in `komando database snowflake query --help`)
+(code USAGE, exit 2)
+### komando -o json database snowflake query (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.snowflake.query","error":{"code":"USAGE","message":"database snowflake query takes NAME [SQL]","hint":"for example: komando database snowflake query analytics \"select count(*) from orders\" (more in `komando database snowflake query --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database snowflake query (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database snowflake query takes NAME [SQL]
+Hint: for example: komando database snowflake query analytics "select count(*) from orders" (more in `komando database snowflake query --help`)
+(code USAGE, exit 2)
+### komando -o json database snowflake remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.snowflake.remove","error":{"code":"USAGE","message":"database snowflake remove takes TARGET...","hint":"for example: komando database snowflake remove analytics --dry-run (more in `komando database snowflake remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database snowflake remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database snowflake remove takes TARGET...
+Hint: for example: komando database snowflake remove analytics --dry-run (more in `komando database snowflake remove --help`)
+(code USAGE, exit 2)
+### komando -o json database snowflake remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.snowflake.remove","error":{"code":"USAGE","message":"database snowflake remove takes TARGET...","hint":"for example: komando database snowflake remove analytics --dry-run (more in `komando database snowflake remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database snowflake remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database snowflake remove takes TARGET...
+Hint: for example: komando database snowflake remove analytics --dry-run (more in `komando database snowflake remove --help`)
+(code USAGE, exit 2)
+### komando -o json database snowflake rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.snowflake.rename","error":{"code":"USAGE","message":"database snowflake rename takes NAME NEW","hint":"for example: komando database snowflake rename analytics analytics-2 --dry-run (more in `komando database snowflake rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database snowflake rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database snowflake rename takes NAME NEW
+Hint: for example: komando database snowflake rename analytics analytics-2 --dry-run (more in `komando database snowflake rename --help`)
+(code USAGE, exit 2)
+### komando -o json database snowflake rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.snowflake.rename","error":{"code":"USAGE","message":"database snowflake rename takes NAME NEW","hint":"for example: komando database snowflake rename analytics analytics-2 --dry-run (more in `komando database snowflake rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database snowflake rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database snowflake rename takes NAME NEW
+Hint: for example: komando database snowflake rename analytics analytics-2 --dry-run (more in `komando database snowflake rename --help`)
+(code USAGE, exit 2)
+### komando -o json database snowflake rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.snowflake.rename","error":{"code":"USAGE","message":"database snowflake rename takes NAME NEW","hint":"for example: komando database snowflake rename analytics analytics-2 --dry-run (more in `komando database snowflake rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database snowflake rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database snowflake rename takes NAME NEW
+Hint: for example: komando database snowflake rename analytics analytics-2 --dry-run (more in `komando database snowflake rename --help`)
+(code USAGE, exit 2)
+### komando -o json database snowflake rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.snowflake.rename","error":{"code":"USAGE","message":"database snowflake rename takes NAME NEW","hint":"for example: komando database snowflake rename analytics analytics-2 --dry-run (more in `komando database snowflake rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database snowflake rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database snowflake rename takes NAME NEW
+Hint: for example: komando database snowflake rename analytics analytics-2 --dry-run (more in `komando database snowflake rename --help`)
+(code USAGE, exit 2)
+### komando -o json database snowflake shell (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.snowflake.shell","error":{"code":"USAGE","message":"database snowflake shell takes NAME","hint":"for example: komando database snowflake shell analytics (more in `komando database snowflake shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database snowflake shell (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database snowflake shell takes NAME
+Hint: for example: komando database snowflake shell analytics (more in `komando database snowflake shell --help`)
+(code USAGE, exit 2)
+### komando -o json database snowflake shell (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.snowflake.shell","error":{"code":"USAGE","message":"database snowflake shell takes NAME","hint":"for example: komando database snowflake shell analytics (more in `komando database snowflake shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database snowflake shell (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database snowflake shell takes NAME
+Hint: for example: komando database snowflake shell analytics (more in `komando database snowflake shell --help`)
+(code USAGE, exit 2)
+### komando -o json database snowflake show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.snowflake.show","error":{"code":"USAGE","message":"database snowflake show takes NAME","hint":"for example: komando database snowflake show analytics (more in `komando database snowflake show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database snowflake show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database snowflake show takes NAME
+Hint: for example: komando database snowflake show analytics (more in `komando database snowflake show --help`)
+(code USAGE, exit 2)
+### komando -o json database snowflake show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.snowflake.show","error":{"code":"USAGE","message":"database snowflake show takes NAME","hint":"for example: komando database snowflake show analytics (more in `komando database snowflake show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database snowflake show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database snowflake show takes NAME
+Hint: for example: komando database snowflake show analytics (more in `komando database snowflake show --help`)
+(code USAGE, exit 2)
+### komando -o json database snowflake test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.snowflake.test","error":{"code":"USAGE","message":"database snowflake test takes TARGET","hint":"for example: komando database snowflake test analytics (more in `komando database snowflake test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database snowflake test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database snowflake test takes TARGET
+Hint: for example: komando database snowflake test analytics (more in `komando database snowflake test --help`)
+(code USAGE, exit 2)
+### komando -o json database snowflake test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.snowflake.test","error":{"code":"USAGE","message":"database snowflake test takes TARGET","hint":"for example: komando database snowflake test analytics (more in `komando database snowflake test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database snowflake test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database snowflake test takes TARGET
+Hint: for example: komando database snowflake test analytics (more in `komando database snowflake test --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlite add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlite.add","error":{"code":"USAGE","message":"database sqlite add takes NAME [URL]","hint":"for example: komando database sqlite add local sqlite:///var/lib/app.db --via web1 (more in `komando database sqlite add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlite add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlite add takes NAME [URL]
+Hint: for example: komando database sqlite add local sqlite:///var/lib/app.db --via web1 (more in `komando database sqlite add --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlite add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlite.add","error":{"code":"USAGE","message":"database sqlite add takes NAME [URL]","hint":"for example: komando database sqlite add local sqlite:///var/lib/app.db --via web1 (more in `komando database sqlite add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlite add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlite add takes NAME [URL]
+Hint: for example: komando database sqlite add local sqlite:///var/lib/app.db --via web1 (more in `komando database sqlite add --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlite backup (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlite.backup","error":{"code":"USAGE","message":"database sqlite backup takes NAME","hint":"for example: komando database sqlite backup local --to backup.db (more in `komando database sqlite backup --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlite backup (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlite backup takes NAME
+Hint: for example: komando database sqlite backup local --to backup.db (more in `komando database sqlite backup --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlite backup (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlite.backup","error":{"code":"USAGE","message":"database sqlite backup takes NAME","hint":"for example: komando database sqlite backup local --to backup.db (more in `komando database sqlite backup --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlite backup (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlite backup takes NAME
+Hint: for example: komando database sqlite backup local --to backup.db (more in `komando database sqlite backup --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlite edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlite.edit","error":{"code":"USAGE","message":"database sqlite edit takes NAME","hint":"for example: komando database sqlite edit local --add-tag critical (more in `komando database sqlite edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlite edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlite edit takes NAME
+Hint: for example: komando database sqlite edit local --add-tag critical (more in `komando database sqlite edit --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlite edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlite.edit","error":{"code":"USAGE","message":"database sqlite edit takes NAME","hint":"for example: komando database sqlite edit local --add-tag critical (more in `komando database sqlite edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlite edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlite edit takes NAME
+Hint: for example: komando database sqlite edit local --add-tag critical (more in `komando database sqlite edit --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlite query (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlite.query","error":{"code":"USAGE","message":"database sqlite query takes NAME [SQL]","hint":"for example: komando database sqlite query local \"select id, email from users order by id desc limit 10\" (more in `komando database sqlite query --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlite query (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlite query takes NAME [SQL]
+Hint: for example: komando database sqlite query local "select id, email from users order by id desc limit 10" (more in `komando database sqlite query --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlite query (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlite.query","error":{"code":"USAGE","message":"database sqlite query takes NAME [SQL]","hint":"for example: komando database sqlite query local \"select id, email from users order by id desc limit 10\" (more in `komando database sqlite query --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlite query (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlite query takes NAME [SQL]
+Hint: for example: komando database sqlite query local "select id, email from users order by id desc limit 10" (more in `komando database sqlite query --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlite remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlite.remove","error":{"code":"USAGE","message":"database sqlite remove takes TARGET...","hint":"for example: komando database sqlite remove local --dry-run (more in `komando database sqlite remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlite remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlite remove takes TARGET...
+Hint: for example: komando database sqlite remove local --dry-run (more in `komando database sqlite remove --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlite remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlite.remove","error":{"code":"USAGE","message":"database sqlite remove takes TARGET...","hint":"for example: komando database sqlite remove local --dry-run (more in `komando database sqlite remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlite remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlite remove takes TARGET...
+Hint: for example: komando database sqlite remove local --dry-run (more in `komando database sqlite remove --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlite rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlite.rename","error":{"code":"USAGE","message":"database sqlite rename takes NAME NEW","hint":"for example: komando database sqlite rename local local-2 --dry-run (more in `komando database sqlite rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlite rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlite rename takes NAME NEW
+Hint: for example: komando database sqlite rename local local-2 --dry-run (more in `komando database sqlite rename --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlite rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlite.rename","error":{"code":"USAGE","message":"database sqlite rename takes NAME NEW","hint":"for example: komando database sqlite rename local local-2 --dry-run (more in `komando database sqlite rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlite rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlite rename takes NAME NEW
+Hint: for example: komando database sqlite rename local local-2 --dry-run (more in `komando database sqlite rename --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlite rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlite.rename","error":{"code":"USAGE","message":"database sqlite rename takes NAME NEW","hint":"for example: komando database sqlite rename local local-2 --dry-run (more in `komando database sqlite rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlite rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlite rename takes NAME NEW
+Hint: for example: komando database sqlite rename local local-2 --dry-run (more in `komando database sqlite rename --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlite rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlite.rename","error":{"code":"USAGE","message":"database sqlite rename takes NAME NEW","hint":"for example: komando database sqlite rename local local-2 --dry-run (more in `komando database sqlite rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlite rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlite rename takes NAME NEW
+Hint: for example: komando database sqlite rename local local-2 --dry-run (more in `komando database sqlite rename --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlite shell (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlite.shell","error":{"code":"USAGE","message":"database sqlite shell takes NAME","hint":"for example: komando database sqlite shell local (more in `komando database sqlite shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlite shell (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlite shell takes NAME
+Hint: for example: komando database sqlite shell local (more in `komando database sqlite shell --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlite shell (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlite.shell","error":{"code":"USAGE","message":"database sqlite shell takes NAME","hint":"for example: komando database sqlite shell local (more in `komando database sqlite shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlite shell (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlite shell takes NAME
+Hint: for example: komando database sqlite shell local (more in `komando database sqlite shell --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlite show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlite.show","error":{"code":"USAGE","message":"database sqlite show takes NAME","hint":"for example: komando database sqlite show local (more in `komando database sqlite show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlite show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlite show takes NAME
+Hint: for example: komando database sqlite show local (more in `komando database sqlite show --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlite show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlite.show","error":{"code":"USAGE","message":"database sqlite show takes NAME","hint":"for example: komando database sqlite show local (more in `komando database sqlite show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlite show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlite show takes NAME
+Hint: for example: komando database sqlite show local (more in `komando database sqlite show --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlite test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlite.test","error":{"code":"USAGE","message":"database sqlite test takes TARGET","hint":"for example: komando database sqlite test local (more in `komando database sqlite test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlite test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlite test takes TARGET
+Hint: for example: komando database sqlite test local (more in `komando database sqlite test --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlite test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlite.test","error":{"code":"USAGE","message":"database sqlite test takes TARGET","hint":"for example: komando database sqlite test local (more in `komando database sqlite test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlite test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlite test takes TARGET
+Hint: for example: komando database sqlite test local (more in `komando database sqlite test --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlserver add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlserver.add","error":{"code":"USAGE","message":"database sqlserver add takes NAME [URL]","hint":"for example: komando database sqlserver add sales-mssql sqlserver://app@10.0.0.7:1433/sales --via web1 (more in `komando database sqlserver add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlserver add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlserver add takes NAME [URL]
+Hint: for example: komando database sqlserver add sales-mssql sqlserver://app@10.0.0.7:1433/sales --via web1 (more in `komando database sqlserver add --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlserver add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlserver.add","error":{"code":"USAGE","message":"database sqlserver add takes NAME [URL]","hint":"for example: komando database sqlserver add sales-mssql sqlserver://app@10.0.0.7:1433/sales --via web1 (more in `komando database sqlserver add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlserver add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlserver add takes NAME [URL]
+Hint: for example: komando database sqlserver add sales-mssql sqlserver://app@10.0.0.7:1433/sales --via web1 (more in `komando database sqlserver add --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlserver edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlserver.edit","error":{"code":"USAGE","message":"database sqlserver edit takes NAME","hint":"for example: komando database sqlserver edit sales-mssql --add-tag critical (more in `komando database sqlserver edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlserver edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlserver edit takes NAME
+Hint: for example: komando database sqlserver edit sales-mssql --add-tag critical (more in `komando database sqlserver edit --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlserver edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlserver.edit","error":{"code":"USAGE","message":"database sqlserver edit takes NAME","hint":"for example: komando database sqlserver edit sales-mssql --add-tag critical (more in `komando database sqlserver edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlserver edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlserver edit takes NAME
+Hint: for example: komando database sqlserver edit sales-mssql --add-tag critical (more in `komando database sqlserver edit --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlserver query (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlserver.query","error":{"code":"USAGE","message":"database sqlserver query takes NAME [SQL]","hint":"for example: komando database sqlserver query sales-mssql \"select top 10 id, email from users order by id desc\" (more in `komando database sqlserver query --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlserver query (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlserver query takes NAME [SQL]
+Hint: for example: komando database sqlserver query sales-mssql "select top 10 id, email from users order by id desc" (more in `komando database sqlserver query --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlserver query (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlserver.query","error":{"code":"USAGE","message":"database sqlserver query takes NAME [SQL]","hint":"for example: komando database sqlserver query sales-mssql \"select top 10 id, email from users order by id desc\" (more in `komando database sqlserver query --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlserver query (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlserver query takes NAME [SQL]
+Hint: for example: komando database sqlserver query sales-mssql "select top 10 id, email from users order by id desc" (more in `komando database sqlserver query --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlserver remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlserver.remove","error":{"code":"USAGE","message":"database sqlserver remove takes TARGET...","hint":"for example: komando database sqlserver remove sales-mssql --dry-run (more in `komando database sqlserver remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlserver remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlserver remove takes TARGET...
+Hint: for example: komando database sqlserver remove sales-mssql --dry-run (more in `komando database sqlserver remove --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlserver remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlserver.remove","error":{"code":"USAGE","message":"database sqlserver remove takes TARGET...","hint":"for example: komando database sqlserver remove sales-mssql --dry-run (more in `komando database sqlserver remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlserver remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlserver remove takes TARGET...
+Hint: for example: komando database sqlserver remove sales-mssql --dry-run (more in `komando database sqlserver remove --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlserver rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlserver.rename","error":{"code":"USAGE","message":"database sqlserver rename takes NAME NEW","hint":"for example: komando database sqlserver rename sales-mssql sales-mssql-2 --dry-run (more in `komando database sqlserver rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlserver rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlserver rename takes NAME NEW
+Hint: for example: komando database sqlserver rename sales-mssql sales-mssql-2 --dry-run (more in `komando database sqlserver rename --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlserver rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlserver.rename","error":{"code":"USAGE","message":"database sqlserver rename takes NAME NEW","hint":"for example: komando database sqlserver rename sales-mssql sales-mssql-2 --dry-run (more in `komando database sqlserver rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlserver rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlserver rename takes NAME NEW
+Hint: for example: komando database sqlserver rename sales-mssql sales-mssql-2 --dry-run (more in `komando database sqlserver rename --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlserver rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlserver.rename","error":{"code":"USAGE","message":"database sqlserver rename takes NAME NEW","hint":"for example: komando database sqlserver rename sales-mssql sales-mssql-2 --dry-run (more in `komando database sqlserver rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlserver rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlserver rename takes NAME NEW
+Hint: for example: komando database sqlserver rename sales-mssql sales-mssql-2 --dry-run (more in `komando database sqlserver rename --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlserver rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlserver.rename","error":{"code":"USAGE","message":"database sqlserver rename takes NAME NEW","hint":"for example: komando database sqlserver rename sales-mssql sales-mssql-2 --dry-run (more in `komando database sqlserver rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlserver rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlserver rename takes NAME NEW
+Hint: for example: komando database sqlserver rename sales-mssql sales-mssql-2 --dry-run (more in `komando database sqlserver rename --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlserver shell (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlserver.shell","error":{"code":"USAGE","message":"database sqlserver shell takes NAME","hint":"for example: komando database sqlserver shell sales-mssql (more in `komando database sqlserver shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlserver shell (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlserver shell takes NAME
+Hint: for example: komando database sqlserver shell sales-mssql (more in `komando database sqlserver shell --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlserver shell (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlserver.shell","error":{"code":"USAGE","message":"database sqlserver shell takes NAME","hint":"for example: komando database sqlserver shell sales-mssql (more in `komando database sqlserver shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlserver shell (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlserver shell takes NAME
+Hint: for example: komando database sqlserver shell sales-mssql (more in `komando database sqlserver shell --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlserver show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlserver.show","error":{"code":"USAGE","message":"database sqlserver show takes NAME","hint":"for example: komando database sqlserver show sales-mssql (more in `komando database sqlserver show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlserver show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlserver show takes NAME
+Hint: for example: komando database sqlserver show sales-mssql (more in `komando database sqlserver show --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlserver show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlserver.show","error":{"code":"USAGE","message":"database sqlserver show takes NAME","hint":"for example: komando database sqlserver show sales-mssql (more in `komando database sqlserver show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlserver show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlserver show takes NAME
+Hint: for example: komando database sqlserver show sales-mssql (more in `komando database sqlserver show --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlserver test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlserver.test","error":{"code":"USAGE","message":"database sqlserver test takes TARGET","hint":"for example: komando database sqlserver test sales-mssql (more in `komando database sqlserver test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlserver test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlserver test takes TARGET
+Hint: for example: komando database sqlserver test sales-mssql (more in `komando database sqlserver test --help`)
+(code USAGE, exit 2)
+### komando -o json database sqlserver test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"database.sqlserver.test","error":{"code":"USAGE","message":"database sqlserver test takes TARGET","hint":"for example: komando database sqlserver test sales-mssql (more in `komando database sqlserver test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text database sqlserver test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: database sqlserver test takes TARGET
+Hint: for example: komando database sqlserver test sales-mssql (more in `komando database sqlserver test --help`)
+(code USAGE, exit 2)
 ### komando -o json db activity (agent json)
 exit 2
 --- stdout
@@ -2701,54 +4741,6 @@ exit 2
 --- stderr
 Error: missing arguments; usage: komando db activity CONN
 Hint: for example: komando db activity prod-db
-(code USAGE, exit 2)
-### komando -o json db add (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"db.add","error":{"code":"USAGE","message":"komando db add needs a name and a URL","hint":"for example: komando db add prod-db postgres://app@10.0.0.5:5432/app --via web1 --ask-password. A person can type `komando db add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text db add (agent text)
-exit 2
---- stdout
---- stderr
-Error: komando db add needs a name and a URL
-Hint: for example: komando db add prod-db postgres://app@10.0.0.5:5432/app --via web1 --ask-password. A person can type `komando db add` alone at a terminal to be asked step by step
-(code USAGE, exit 2)
-### komando -o json db add (script json)
-exit 2
---- stdout
-{"ok":false,"command":"db.add","error":{"code":"USAGE","message":"komando db add needs a name and a URL","hint":"for example: komando db add prod-db postgres://app@10.0.0.5:5432/app --via web1 --ask-password. A person can type `komando db add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text db add (script text)
-exit 2
---- stdout
---- stderr
-Error: komando db add needs a name and a URL
-Hint: for example: komando db add prod-db postgres://app@10.0.0.5:5432/app --via web1 --ask-password. A person can type `komando db add` alone at a terminal to be asked step by step
-(code USAGE, exit 2)
-### komando -o json db dump (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"db.dump","error":{"code":"USAGE","message":"missing arguments; usage: komando db dump CONN","hint":"for example: komando db dump prod-db"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text db dump (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando db dump CONN
-Hint: for example: komando db dump prod-db
-(code USAGE, exit 2)
-### komando -o json db dump (script json)
-exit 2
---- stdout
-{"ok":false,"command":"db.dump","error":{"code":"USAGE","message":"missing arguments; usage: komando db dump CONN","hint":"for example: komando db dump prod-db"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text db dump (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando db dump CONN
-Hint: for example: komando db dump prod-db
 (code USAGE, exit 2)
 ### komando -o json db explain (agent json)
 exit 2
@@ -2942,54 +4934,6 @@ exit 2
 Error: missing arguments; usage: komando db locks CONN
 Hint: for example: komando db locks prod-db
 (code USAGE, exit 2)
-### komando -o json db query (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"db.query","error":{"code":"USAGE","message":"missing arguments; usage: komando db query CONN [SQL]","hint":"for example: komando db query prod-db \"select id, email from users order by id desc limit 10\""},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text db query (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando db query CONN [SQL]
-Hint: for example: komando db query prod-db "select id, email from users order by id desc limit 10"
-(code USAGE, exit 2)
-### komando -o json db query (script json)
-exit 2
---- stdout
-{"ok":false,"command":"db.query","error":{"code":"USAGE","message":"missing arguments; usage: komando db query CONN [SQL]","hint":"for example: komando db query prod-db \"select id, email from users order by id desc limit 10\""},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text db query (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando db query CONN [SQL]
-Hint: for example: komando db query prod-db "select id, email from users order by id desc limit 10"
-(code USAGE, exit 2)
-### komando -o json db restore (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"db.restore","error":{"code":"USAGE","message":"missing arguments; usage: komando db restore CONN --from FILE","hint":"for example: komando db restore staging-db --from prod-2026-11-02.sql.gz --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text db restore (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando db restore CONN --from FILE
-Hint: for example: komando db restore staging-db --from prod-2026-11-02.sql.gz --dry-run
-(code USAGE, exit 2)
-### komando -o json db restore (script json)
-exit 2
---- stdout
-{"ok":false,"command":"db.restore","error":{"code":"USAGE","message":"missing arguments; usage: komando db restore CONN --from FILE","hint":"for example: komando db restore staging-db --from prod-2026-11-02.sql.gz --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text db restore (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando db restore CONN --from FILE
-Hint: for example: komando db restore staging-db --from prod-2026-11-02.sql.gz --dry-run
-(code USAGE, exit 2)
 ### komando -o json db revoke (agent json)
 exit 2
 --- stdout
@@ -3061,30 +5005,6 @@ exit 2
 --- stderr
 Error: missing arguments; usage: komando db schema CONN [TABLE...]
 Hint: for example: komando db schema prod-db
-(code USAGE, exit 2)
-### komando -o json db shell (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"db.shell","error":{"code":"USAGE","message":"missing arguments; usage: komando db shell CONN","hint":"for example: komando db shell prod-db"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text db shell (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando db shell CONN
-Hint: for example: komando db shell prod-db
-(code USAGE, exit 2)
-### komando -o json db shell (script json)
-exit 2
---- stdout
-{"ok":false,"command":"db.shell","error":{"code":"USAGE","message":"missing arguments; usage: komando db shell CONN","hint":"for example: komando db shell prod-db"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text db shell (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando db shell CONN
-Hint: for example: komando db shell prod-db
 (code USAGE, exit 2)
 ### komando -o json db sizes (agent json)
 exit 2
@@ -15374,48 +17294,48 @@ exit 6
 Stopped: this can delete or break things (deletes every key (FLUSHALL, FLUSHDB, SWAPDB)), so komando asks first; nothing was changed
 Hint: If you mean it, run it again in a terminal and type the name to confirm, or add --allow-dangerous in a script. Try --dry-run first.
 (code POLICY_BLOCKED, exit 6)
-### komando -o json db query db1 --write DROP TABLE x (agent json, gate inventory)
+### komando -o json database postgres query db1 --write DROP TABLE x (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.query","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [sql-drop]: drops a database object or column","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"database.postgres.query","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [sql-drop]: drops a database object or column","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text db query db1 --write DROP TABLE x (agent text, gate inventory)
+### komando -o text database postgres query db1 --write DROP TABLE x (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: this can delete or break things (drops a database object or column), so komando asks first; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)
 (code POLICY_BLOCKED, exit 6)
-### komando -o json db query db1 --write DROP TABLE x (script json, gate inventory)
+### komando -o json database postgres query db1 --write DROP TABLE x (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.query","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [sql-drop]: drops a database object or column","hint":"check with --dry-run, then run it again with --allow-dangerous"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"database.postgres.query","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [sql-drop]: drops a database object or column","hint":"check with --dry-run, then run it again with --allow-dangerous"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text db query db1 --write DROP TABLE x (script text, gate inventory)
+### komando -o text database postgres query db1 --write DROP TABLE x (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: this can delete or break things (drops a database object or column), so komando asks first; nothing was changed
 Hint: If you mean it, run it again in a terminal and type the name to confirm, or add --allow-dangerous in a script. Try --dry-run first.
 (code POLICY_BLOCKED, exit 6)
-### komando -o json db query pdb --write UPDATE x SET a=1 (agent json, gate inventory)
+### komando -o json database postgres query pdb --write UPDATE x SET a=1 (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.query","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [sql-update-no-where]: changes every row (UPDATE without WHERE)","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous and --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"database.postgres.query","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [sql-update-no-where]: changes every row (UPDATE without WHERE)","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous and --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text db query pdb --write UPDATE x SET a=1 (agent text, gate inventory)
+### komando -o text database postgres query pdb --write UPDATE x SET a=1 (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: this can delete or break things (changes every row (UPDATE without WHERE)), so komando asks first; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous and --yes (komando then asks them in a window on their screen)
 (code POLICY_BLOCKED, exit 6)
-### komando -o json db query pdb --write UPDATE x SET a=1 (script json, gate inventory)
+### komando -o json database postgres query pdb --write UPDATE x SET a=1 (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.query","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [sql-update-no-where]: changes every row (UPDATE without WHERE)","hint":"check with --dry-run, then run it again with --allow-dangerous and --yes"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"database.postgres.query","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [sql-update-no-where]: changes every row (UPDATE without WHERE)","hint":"check with --dry-run, then run it again with --allow-dangerous and --yes"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text db query pdb --write UPDATE x SET a=1 (script text, gate inventory)
+### komando -o text database postgres query pdb --write UPDATE x SET a=1 (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
@@ -15446,24 +17366,24 @@ exit 6
 Stopped: this can delete or break things (removes the user bob), so komando asks first; nothing was changed
 Hint: If you mean it, run it again in a terminal and type the name to confirm, or add --allow-dangerous in a script. Try --dry-run first.
 (code POLICY_BLOCKED, exit 6)
-### komando -o json db restore db1 --from testdata/golden_restore.sql (agent json, gate inventory)
+### komando -o json database postgres restore db1 --from testdata/golden_restore.sql (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.restore","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [db-restore]: restores a backup, which can overwrite existing data","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0,"body_sha256":"4a45092ccf992ea92250053a80b931b787924ba61648f420555511b84f10ab6c"}}
+{"ok":false,"command":"database.postgres.restore","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [db-restore]: restores a backup, which can overwrite existing data","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0,"body_sha256":"4a45092ccf992ea92250053a80b931b787924ba61648f420555511b84f10ab6c"}}
 --- stderr
-### komando -o text db restore db1 --from testdata/golden_restore.sql (agent text, gate inventory)
+### komando -o text database postgres restore db1 --from testdata/golden_restore.sql (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: this can delete or break things (restores a backup, which can overwrite existing data), so komando asks first; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)
 (code POLICY_BLOCKED, exit 6)
-### komando -o json db restore db1 --from testdata/golden_restore.sql (script json, gate inventory)
+### komando -o json database postgres restore db1 --from testdata/golden_restore.sql (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.restore","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [db-restore]: restores a backup, which can overwrite existing data","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json db restore db1 --from testdata/golden_restore.sql --allow-dangerous`"},"meta":{"contract":2,"version":"V","duration_ms":0,"body_sha256":"4a45092ccf992ea92250053a80b931b787924ba61648f420555511b84f10ab6c"}}
+{"ok":false,"command":"database.postgres.restore","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [db-restore]: restores a backup, which can overwrite existing data","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json database postgres restore db1 --from testdata/golden_restore.sql --allow-dangerous`"},"meta":{"contract":2,"version":"V","duration_ms":0,"body_sha256":"4a45092ccf992ea92250053a80b931b787924ba61648f420555511b84f10ab6c"}}
 --- stderr
-### komando -o text db restore db1 --from testdata/golden_restore.sql (script text, gate inventory)
+### komando -o text database postgres restore db1 --from testdata/golden_restore.sql (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
@@ -16166,24 +18086,24 @@ exit 6
 Stopped: SET needs --write; nothing was changed
 Hint: this command may change data (or is not known to be a read); run it again with --write
 (code WRITE_REQUIRES_FLAG, exit 6)
-### komando -o json db query db1 DELETE FROM x (agent json, gate inventory)
+### komando -o json database postgres query db1 DELETE FROM x (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.query","error":{"code":"WRITE_REQUIRES_FLAG","message":"destructive statement needs --write (and --allow-dangerous: removes every row (DELETE without WHERE))","hint":"this SQL removes every row (DELETE without WHERE): only if that is intended, confirm with the user and run it again with --write --allow-dangerous. komando does not ask the user about this, so ask them first and go on only when they agree"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"database.postgres.query","error":{"code":"WRITE_REQUIRES_FLAG","message":"destructive statement needs --write (and --allow-dangerous: removes every row (DELETE without WHERE))","hint":"this SQL removes every row (DELETE without WHERE): only if that is intended, confirm with the user and run it again with --write --allow-dangerous. komando does not ask the user about this, so ask them first and go on only when they agree"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text db query db1 DELETE FROM x (agent text, gate inventory)
+### komando -o text database postgres query db1 DELETE FROM x (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: destructive statement needs --write (and --allow-dangerous: removes every row (DELETE without WHERE)); nothing was changed
 Hint: this SQL removes every row (DELETE without WHERE): only if that is intended, confirm with the user and run it again with --write --allow-dangerous. komando does not ask the user about this, so ask them first and go on only when they agree
 (code WRITE_REQUIRES_FLAG, exit 6)
-### komando -o json db query db1 DELETE FROM x (script json, gate inventory)
+### komando -o json database postgres query db1 DELETE FROM x (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.query","error":{"code":"WRITE_REQUIRES_FLAG","message":"destructive statement needs --write (and --allow-dangerous: removes every row (DELETE without WHERE))","hint":"this SQL removes every row (DELETE without WHERE): only if that is intended, confirm with the user and run it again with --write --allow-dangerous"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"database.postgres.query","error":{"code":"WRITE_REQUIRES_FLAG","message":"destructive statement needs --write (and --allow-dangerous: removes every row (DELETE without WHERE))","hint":"this SQL removes every row (DELETE without WHERE): only if that is intended, confirm with the user and run it again with --write --allow-dangerous"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text db query db1 DELETE FROM x (script text, gate inventory)
+### komando -o text database postgres query db1 DELETE FROM x (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
@@ -16555,26 +18475,26 @@ Hint: run `komando cluster kubernetes raw NAME -- ...` instead
 ### komando -o json psql (agent json, release note)
 exit 2
 --- stdout
-{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"psql\"; komando does this with `komando db query CONN`","hint":"run `komando db query CONN` instead","suggestion":"db query CONN"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"psql\"; komando does this with `komando database postgres query NAME`","hint":"run `komando database postgres query NAME` instead","suggestion":"database postgres query NAME"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text psql (agent text, release note)
 exit 2
 --- stdout
 --- stderr
-Error: unknown command "psql"; komando does this with `komando db query CONN`
-Hint: run `komando db query CONN` instead
+Error: unknown command "psql"; komando does this with `komando database postgres query NAME`
+Hint: run `komando database postgres query NAME` instead
 (code USAGE, exit 2)
 ### komando -o json psql (script json, release note)
 exit 2
 --- stdout
-{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"psql\"; komando does this with `komando db query CONN`","hint":"run `komando db query CONN` instead","suggestion":"db query CONN"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"psql\"; komando does this with `komando database postgres query NAME`","hint":"run `komando database postgres query NAME` instead","suggestion":"database postgres query NAME"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text psql (script text, release note)
 exit 2
 --- stdout
 --- stderr
-Error: unknown command "psql"; komando does this with `komando db query CONN`
-Hint: run `komando db query CONN` instead
+Error: unknown command "psql"; komando does this with `komando database postgres query NAME`
+Hint: run `komando database postgres query NAME` instead
 (code USAGE, exit 2)
 ### komando -o json exce web1 -- uptime (agent json, release note)
 exit 2
