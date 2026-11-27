@@ -41,6 +41,31 @@ func psRunFile(t *testing.T, script string, stdin []byte, env []string, args ...
 	return string(b), 0
 }
 
+// loginBase is a temp folder that stands for %LOCALAPPDATA%. The runner's
+// TEMP is an 8.3 short path (C:\Users\RUNNER~1\...) and ~ is outside the
+// session path allowlist, so the long form is used.
+func loginBase(t *testing.T) string {
+	t.Helper()
+	ok := regexp.MustCompile(`^[A-Za-z]:\\[A-Za-z0-9 _.\\-]+$`)
+	d, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok.MatchString(d) {
+		return d
+	}
+	if rt := os.Getenv("RUNNER_TEMP"); ok.MatchString(rt) {
+		d, err = os.MkdirTemp(rt, "ks")
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { os.RemoveAll(d) })
+		return d
+	}
+	t.Fatalf("the temp folder %q holds a character the session path allowlist refuses", d)
+	return ""
+}
+
 // runStartPS runs the start script with %LOCALAPPDATA% at base.
 func runStartPS(t *testing.T, base string, s StartPS) (string, int) {
 	t.Helper()
@@ -77,7 +102,7 @@ var sddlACE = regexp.MustCompile(`\([^()]*\)`)
 // W3 in part: the session folder is owned by the login user, protected,
 // and holds exactly two entries; the files hold exactly what was sent.
 func TestStartScriptPSOnWindows(t *testing.T) {
-	base := t.TempDir()
+	base := loginBase(t)
 	s := psStart()
 	got, code := runStartPS(t, base, s)
 	if code != 0 {
@@ -145,7 +170,7 @@ func readLogPS(t *testing.T, d string) string {
 // The run gets its input byte for byte, and its errors land in out.log
 // with its output; its exit code is the command's.
 func TestRunPSInputAndExitOnWindows(t *testing.T) {
-	base := t.TempDir()
+	base := loginBase(t)
 	s := psStart()
 	s.Env = nil
 	s.Stdin = []byte("abc\r\ndef\n")
@@ -165,7 +190,7 @@ func TestRunPSInputAndExitOnWindows(t *testing.T) {
 // A run past its timeout is ended by the watcher: killed says why, and
 // no exit code is written.
 func TestRunPSTimeoutOnWindows(t *testing.T) {
-	base := t.TempDir()
+	base := loginBase(t)
 	s := psStart()
 	s.Env, s.Stdin, s.Timeout = nil, nil, 2*time.Second
 	s.Command = "Start-Sleep -Seconds 60"
@@ -185,7 +210,7 @@ func TestRunPSTimeoutOnWindows(t *testing.T) {
 // Past the cap, lines are dropped and counted in truncated; the run
 // goes on to its end.
 func TestRunPSCapOnWindows(t *testing.T) {
-	base := t.TempDir()
+	base := loginBase(t)
 	s := psStart()
 	s.Env, s.Stdin, s.LogMax = nil, nil, 10
 	s.Command = "Write-Output 'abc'; Write-Output 'defg'; Write-Output 'x'"
@@ -207,7 +232,7 @@ func TestRunPSCapOnWindows(t *testing.T) {
 // cmd.ps1 sets each env value as given, deletes the env file before the
 // command runs, and the command then sees the values (W5 in part).
 func TestCmdPSReadsEnvOnWindows(t *testing.T) {
-	base := t.TempDir()
+	base := loginBase(t)
 	s := psStart()
 	s.Command = "Write-Output ('a=' + $env:A_B + '|p=' + $env:PGPASSWORD + '|env:' + (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'env')))"
 	if got, code := runStartPS(t, base, s); code != 0 {
@@ -238,7 +263,7 @@ func TestStartScriptPSRefusesUnsafeFolders(t *testing.T) {
 	}
 	for name, setup := range cases {
 		t.Run(name, func(t *testing.T) {
-			base := t.TempDir()
+			base := loginBase(t)
 			if o, code := psRunFile(t, "param([string]$p)\n$ErrorActionPreference = 'Stop'\n"+setup+"\n", nil, nil, base); code != 0 {
 				t.Fatalf("setup: exit %d: %s", code, o)
 			}
@@ -306,7 +331,7 @@ func TestFollowPSOnWindows(t *testing.T) {
 
 // A-448-1: a %LOCALAPPDATA% with a % in it makes no folder.
 func TestStartScriptPSRefusesPercentPath(t *testing.T) {
-	base := filepath.Join(t.TempDir(), "a%PATH%b")
+	base := filepath.Join(loginBase(t), "a%PATH%b")
 	if err := os.MkdirAll(base, 0o700); err != nil {
 		t.Fatal(err)
 	}
