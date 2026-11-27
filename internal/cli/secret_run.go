@@ -108,7 +108,7 @@ func runLocal(cl *call, pairs, args []string) error {
 
 	if err := runGuard(cl, st, refs, prog, plainPairs(env)); err != nil {
 		if !cl.dryRun() {
-			audit(cl, st, "secret run", nil, shown, false, withBlocked(rec, err))
+			audit(cl, st, "secret.run", nil, shown, false, withBlocked(rec, err))
 		}
 		return err
 	}
@@ -137,7 +137,7 @@ func runLocal(cl *call, pairs, args []string) error {
 	if after, err := os.Stat(prog); err != nil || !sameFile(before, after) {
 		return out.Errf(out.ExitNotFound, "TOOL_MISSING", "run it again", "%s changed after komando checked it; it did not run", prog)
 	}
-	audit(cl, st, "secret run", nil, shown, true, rec)
+	audit(cl, st, "secret.run", nil, shown, true, rec)
 
 	c := exec.Command(prog, args[1:]...)
 	c.Args[0] = args[0]

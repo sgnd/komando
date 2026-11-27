@@ -737,7 +737,7 @@ says on stderr which key it trusted:
 komando: first connection to web1 (203.0.113.10:22): trusted its ssh-ed25519 host key SHA256:pVt2...
 ```
 
-The audit log keeps it too (`host.key-pinned` in `komando audit`), and the
+The audit log keeps it too (event `host.key-pinned` in `komando audit`), and the
 JSON answer lists it in `meta.host_keys_pinned`, so an AI agent can show
 it to you. Compare that fingerprint with the server's own: run
 `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` on the server's console,

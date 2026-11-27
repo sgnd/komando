@@ -135,7 +135,7 @@ func runExportSealed(cl *call, st *store.State, f exportFile, o exportSealOpts, 
 		return err
 	}
 	res.CheckPhrase = sealfile.CheckPhrase(file)
-	audit(cl, nil, "export.sealed", nil, "", true, map[string]any{"file": to, "mode": res.Sealed, "hosts": res.Hosts, "conns": res.Conns,
+	auditEvent(cl, nil, "export.sealed", nil, "", true, map[string]any{"file": to, "mode": res.Sealed, "hosts": res.Hosts, "conns": res.Conns,
 		"vpns": res.Vpns, "recipes": res.Recipes, "secrets": len(res.SecretsInFile), "keys": len(res.KeysInFile)})
 	if !o.forPhone {
 		sayNext(cl, "komando import komando "+to+" (on the other computer; it asks for the passphrase)")

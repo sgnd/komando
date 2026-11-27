@@ -60,7 +60,7 @@ messages.
 | Field | Meaning |
 |-------|---------|
 | `ok` | `true` only when everything succeeded |
-| `command` | the command's ID: its words joined by dots (`exec`, `db.query`, `fs.list`, `secret.show`). `komando audit --command` takes the same IDs |
+| `command` | the command's ID: its words joined by dots (`exec`, `db.query`, `fs.list`, `secret.show`). `komando audit --command` takes the same IDs, and those of v0.17 |
 | `data` | the result. Commands that run on many servers use `data.results[]` (one per server) and `data.summary`. Each result names its server in `host` (`exec`, `facts`, `test`, `cp` ...) |
 | `error` | `{code, message, hint}` when `ok` is false. `data` can still be there when servers failed (`PARTIAL_FAILURE`) |
 | `error.suggestion` | for a typo: the name komando thinks you meant (a command, a server, a flag). The hint is then the whole command line with it in place. A word from another tool (`ps`, `kubectl`, `psql`) gets the komando command that does that job. Left out otherwise |

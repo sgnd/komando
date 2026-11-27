@@ -20,7 +20,7 @@ type auditFilter struct {
 }
 
 func (f auditFilter) keep(e map[string]any) bool {
-	if c, _ := e["command"].(string); f.command != "" && !strings.HasPrefix(c, f.command) {
+	if f.command != "" && !f.commandMatches(e) {
 		return false
 	}
 	if f.failed && e["ok"] == true {
@@ -48,6 +48,23 @@ func (f auditFilter) keep(e map[string]any) bool {
 		return false // without a time it cannot be in the window
 	}
 	return (f.since.IsZero() || !t.Before(f.since)) && (f.until.IsZero() || t.Before(f.until))
+}
+
+// commandMatches: the record's command or event starts with the filter,
+// or the filter is a command ID (of v0.17 or of now) with the record's
+// safety key (rule R1).
+func (f auditFilter) commandMatches(e map[string]any) bool {
+	c, _ := e["command"].(string)
+	ev, _ := e["event"].(string)
+	if strings.HasPrefix(c, f.command) || ev != "" && strings.HasPrefix(ev, f.command) {
+		return true
+	}
+	want, ok := auditKeyOf(f.command)
+	if !ok {
+		return false
+	}
+	got, ok := recordKey(e)
+	return ok && got == want
 }
 
 // auditNames reports whether the entry names one of the servers or conns.

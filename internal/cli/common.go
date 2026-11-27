@@ -596,12 +596,17 @@ func audit(cl *call, st *store.State, command string, hosts []string, remote str
 	if cl.out.As != "" {
 		command = cl.out.As
 	}
-	auditEvent(cl, st, command, hosts, remote, ok, extra)
+	auditRecord(cl, st, command, "", hosts, remote, ok, extra)
 }
 
-// auditEvent adds a record the call names itself (host.key-pinned,
-// secret.set): it keeps that name under any leaf.
-func auditEvent(cl *call, st *store.State, command string, hosts []string, remote string, ok bool, extra map[string]any) {
+// auditEvent adds a record of an event from auditEvents (host.key-pinned,
+// secret.set) under the leaf that runs.
+func auditEvent(cl *call, st *store.State, event string, hosts []string, remote string, ok bool, extra map[string]any) {
+	auditRecord(cl, st, runningLeaf(cl), event, hosts, remote, ok, extra)
+}
+
+// auditRecord is the one writer of the audit log (rule R1, audit_identity.go).
+func auditRecord(cl *call, st *store.State, command, event string, hosts []string, remote string, ok bool, extra map[string]any) {
 	if st != nil && !st.Settings.Audit {
 		return
 	}
@@ -656,6 +661,16 @@ func auditEvent(cl *call, st *store.State, command string, hosts []string, remot
 	}
 	for k, v := range extra {
 		rec[k] = v
+	}
+	// after extra: no field of a call can change who the record names
+	rec["command"] = command
+	delete(rec, "safety_key")
+	if k, found := auditKeyOf(command); found {
+		rec["safety_key"] = keyRecord(k)
+	}
+	delete(rec, "event")
+	if event != "" {
+		rec["event"] = event
 	}
 	if rec["blocked"] != nil {
 		cl.blockAudited = true

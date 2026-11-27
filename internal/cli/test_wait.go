@@ -245,7 +245,7 @@ func endSessions(cl *call, args []string, only string) error {
 		return err
 	}
 	if len(data.Ended) > 0 {
-		audit(cl, st, "test.end", data.Ended, "", true, nil)
+		auditEvent(cl, st, "test.end", data.Ended, "", true, nil)
 	}
 	cl.out.Print("test.end", data, nil)
 	return nil

@@ -94,6 +94,6 @@ func agentKeys(cl *call, st *store.State, hops []*store.Host, dir string) (map[s
 		opts[k.Name] = []string{"-o", "IdentitiesOnly=yes", "-o", "IdentityAgent=" + sock, "-i", pub}
 		byKey[fp] = opts[k.Name]
 	}
-	auditEvent(cl, st, "host ssh-command", nil, "", true, map[string]any{"agent_keys": added, "agent_lifetime_secs": agentLifetime})
+	audit(cl, st, "host.ssh-command", nil, "", true, map[string]any{"agent_keys": added, "agent_lifetime_secs": agentLifetime})
 	return opts, nil
 }

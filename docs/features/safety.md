@@ -434,6 +434,17 @@ the inventory and to safety settings is there too: servers, conns, groups,
 keys, secrets (names only), `config set` (old and new value) and
 `policy deny`, `policy rm` and `policy edit`.
 
+Each record names the command that ran (`command`, its ID) and its place
+in the safety tables (`safety_key`: type, area, verb). A record of
+something that happened inside a command adds its name (`event`) from one
+closed list: `host.key-pinned`, `secret.set` (a password typed with
+`--ask-password`), `login.host`, `test.end`, `export.sealed`,
+`doctor.accept-old-copy`, `doctor.reseal-meta`, `upload`, `download`,
+`sync`, `delete`. `audit --command` finds a record by the start of its
+command or event, or by an ID with the same safety key: the IDs of
+v0.17 still find the records written then, and those of now.
+Records already written are never changed.
+
 ```bash
 komando audit -o text                 # one line per entry, newest 50
 komando audit -n 0                    # all entries
