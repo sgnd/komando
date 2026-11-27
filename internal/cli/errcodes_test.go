@@ -736,7 +736,7 @@ var meanings = map[string]string{
 	"K8S_ERROR":              "the Kubernetes API answered with an error (its words follow)",
 	"K8S_INVALID":            "the cluster refused the request as written (its words follow)",
 	"KEYCHAIN_FAILED":        "the system keychain refused (locked, or no Secret Service on Linux)",
-	"KILL_FAILED":            "the session or job could not be stopped",
+	"KILL_FAILED":            "the session could not be stopped",
 	"PARTIAL_FAILURE":        "some targets failed and some worked (see each result)",
 	"QUEUE_AUTH":             "the queue server refused the login (user, Kafka sasl= mechanism or password)",
 	"QUEUE_CONNECT":          "komando could not connect to the queue server (address, TLS or --via path)",

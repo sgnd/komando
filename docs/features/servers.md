@@ -50,7 +50,7 @@ The flags you will use most:
 | `--login ask\|password\|key\|agent` | How komando logs in, in the same words `host ssh show` prints: `ask` (you type the password at every connect, never stored: see [Type the password each time](#type-the-password-each-time---login-ask)), `password` (a stored one, with `--ask-password` or `--password-ref`), `key` (with `--key` or `--identity`), `agent` (ssh-agent and `~/.ssh` only). |
 | `--via bastion` | Reach the server through other servers or a VPN first ([tunnels](tunnels.md)). |
 | `--protected` | Mark a production server (see [Protect a production server](#protect-a-production-server)). |
-| `-e`, `--env KEY=VALUE` | Export a variable before every command on this server. A value from the vault (`KEY=credential:NAME`) is left out of an AI agent's commands: the agent could read it back unmasked (`printenv KEY \| rev`). It goes to an agent's `exec` or `job start` only when the agent adds `--yes` and you allow it in komando's window. |
+| `-e`, `--env KEY=VALUE` | Export a variable before every command on this server. A value from the vault (`KEY=credential:NAME`) is left out of an AI agent's commands: the agent could read it back unmasked (`printenv KEY \| rev`). It goes to an agent's `exec` only when the agent adds `--yes` and you allow it in komando's window. |
 | `--notes TEXT` | Free notes; agents see them in `host ssh show`. |
 | `--port N` | The SSH port (default 22); same as `:N` after the address. |
 | `--overwrite` | Replace a server that already has this name. |
@@ -192,8 +192,8 @@ komando host ssh rename web1 web-01
 ```
 
 The address, login, references, protected mark, groups, tags and labels
-stay. Servers, conns and tunnels that go through it (`--via`), and its jobs
-and tunnels, follow the new name in the same step. Pinned host keys belong
+stay. Servers, conns and tunnels that go through it (`--via`), and its exec
+sessions and tunnels, follow the new name in the same step. Pinned host keys belong
 to the address, so `host ssh trust` is not needed again. Renaming a protected
 server asks first. `conn rename` and `vpn KIND rename` do the same for conns and
 VPNs, `credential key rename` for a key, and `group rename` for a group.
@@ -230,7 +230,7 @@ komando rename --starts-with shop- acme-shop- --in-notes --in-labels --dry-run  
 - Every reference follows: `--via` paths (also a server in the middle
   of one, as in `shop-vpn,shop-bastion`), password, sudo, key, preshared
   key and passphrase references, `credential:NAME` options in conn URLs, the
-  key a server uses, group membership, jobs and tunnels. A key komando made
+  key a server uses, group membership, exec sessions and tunnels. A key komando made
   (`credential key create`) lives in the sealed store, so no file moves; a key file you
   added stays where it is.
 - The protected mark, labels, notes and creation time stay.

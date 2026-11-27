@@ -19,8 +19,8 @@ func TestGateLocalReads(t *testing.T) {
 	const R = "SSH_GATE_REFUSED"
 	refused := []string{
 		"host ssh exec web --read-only --script /home/u/.ssh/id_ed25519", "host ssh exec web --script=.ssh/id_ed25519",
-		"host ssh exec web --read-only --stdin-file .ssh/id_ed25519 -- cat", "job start web --read-only --script ./x.sh",
-		"job start web --stdin-file x -- cat", "database postgres query pg --file /home/u/.ssh/id_ed25519",
+		"host ssh exec web --read-only --stdin-file .ssh/id_ed25519 -- cat",
+		"database postgres query pg --file /home/u/.ssh/id_ed25519",
 		"database postgres restore pg --from ./dump.sql", "cluster apply k8s --file ./x.yaml", "fs write web /tmp/k --from .ssh/id_ed25519",
 		"copy .ssh/id_ed25519 s3:",
 		"copy .ssh/id_ed25519 web:/tmp/k", "copy .ssh web:/tmp/k --sync", "cluster kubernetes raw k8s -- apply -f /home/u/.ssh/id_ed25519",

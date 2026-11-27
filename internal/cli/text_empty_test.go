@@ -19,7 +19,7 @@ var emptyLine = regexp.MustCompile("^no [^\n]+ (yet(: `komando [^`]+`)?|match [^
 func TestStandardEmptyLines(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1") // so host ssh list is not the empty inventory
-	for _, a := range []string{"conn list", "vpn socks list", "credential key list", "credential list", "job list", "host ssh tunnel list", "vpn socks status", "audit list --failed"} {
+	for _, a := range []string{"conn list", "vpn socks list", "credential key list", "credential list", "host ssh tunnel list", "vpn socks status", "audit list --failed"} {
 		s, err := textRun(t, strings.Fields(a)...)
 		if err != nil || !emptyLine.MatchString(s) {
 			t.Errorf("%s: %q (%v)", a, s, err)

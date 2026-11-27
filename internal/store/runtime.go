@@ -12,7 +12,8 @@ import (
 )
 
 // Runtime is what komando's background work keeps between commands: VPN
-// sessions, server logins, jobs and tunnels. It lives in runtime.json, apart
+// sessions, server logins, exec sessions and tunnels, and v0.17's job
+// records, which only the store's move reads. It lives in runtime.json, apart
 // from the inventory in store.db, so a VPN marking itself used does not
 // rewrite the inventory, and the coming sealed store can seal it on its own.
 type Runtime struct {
@@ -66,7 +67,7 @@ func (s *State) loadRuntime() error {
 	if b, err = openRuntime(b); err != nil {
 		if errors.Is(err, sealrow.ErrOpen) {
 			return out.Errf(out.ExitError, "STATE_CORRUPT",
-				"the file holds only running VPN sessions, logins, jobs and tunnels: move it away, then connect again (a VPN started before the store's key changed is ended by `komando vpn KIND stop`)",
+				"the file holds only running VPN sessions, logins, exec sessions and tunnels: move it away, then connect again (a VPN started before the store's key changed is ended by `komando vpn KIND stop`)",
 				"%s does not open with the store's key", runtimePath())
 		}
 		return err
@@ -75,7 +76,7 @@ func (s *State) loadRuntime() error {
 	if err := json.Unmarshal(b, &rt); err != nil {
 		// only live sessions are lost: they are found again or made again
 		return out.Errf(out.ExitError, "STATE_CORRUPT",
-			"the file holds only running VPN sessions, logins, jobs and tunnels, no servers or settings: move it away, then connect again",
+			"the file holds only running VPN sessions, logins, exec sessions and tunnels, no servers or settings: move it away, then connect again",
 			"corrupt runtime file %s: %v", runtimePath(), err)
 	}
 	if rt.Mark != s.runtimeMark {

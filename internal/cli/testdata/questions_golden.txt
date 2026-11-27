@@ -1279,13 +1279,20 @@ title: Run a shell command on one or many servers in parallel
 - flag:sudo | --sudo | Run it with sudo (as root)? | Say yes when it needs admin rights, like changing system files or services. |  | default,choices
 - flag:read-only | --read-only | Does it only look, and change nothing on the server? | Not sure? Say no. Yes is only for commands that read, like df -h or cat. |  | default,choices
 - flag:dir | --dir | In which folder on the server should it run? | Leave empty for the login user's home folder. | /srv/app | optional,check
+- flag:attach | --attach | Read the rest of these sessions on one server, and their exit codes |  |  | optional,advanced,check
 - flag:env | --env | Export KEY=VALUE before the command (repeatable) |  |  | optional,advanced,check
 - flag:fail-fast | --fail-fast | Start no more servers after the first failure |  |  | advanced,default,choices
 - flag:interpreter | --interpreter | With --script: the interpreter on the server (default: from the #! line, else sh) |  |  | optional,advanced,check
+- flag:log-max | --log-max | Bytes of output the server keeps for the run, like 100MiB; more is dropped |  |  | optional,advanced,default,check
+- flag:offset | --offset | With --attach: start at this byte of the log (next_from of the last read) |  |  | optional,advanced,check
 - flag:pty | --pty | Allocate a pseudo-terminal (some tools need one) |  |  | advanced,default,choices
+- flag:remove | --remove | With --attach ID: delete a finished session's folder on the server |  |  | advanced,default,choices
+- flag:signal | --signal | With --stop: TERM, INT, HUP, QUIT or KILL |  |  | optional,advanced,default,check
 - flag:stdin-file | --stdin-file | Send this file on this computer as stdin ('-' = komando's stdin) |  |  | optional,advanced,check
+- flag:stop | --stop | With --attach ID: stop the run, from the computer that started it |  |  | advanced,default,choices
 - flag:stream | --stream | Stream output as NDJSON events while it runs |  |  | advanced,default,choices
 - flag:sudo-user | --sudo-user | Run as this user with sudo -u |  |  | optional,advanced,check
+- flag:wait | --wait | Wait this long for the run to end; it goes on after (exit 7); 0 returns at once |  |  | optional,advanced,default,check
 ### komando export
 title: Save servers, conns, VPNs, recipes and settings to a file
 - arg0 | Target | Which ones? (pick all for everything) | A server, conn or VPN from your list, or @group, tag:prod, or several names separated by spaces or commas. |  | optional,free,choices,check
@@ -2334,7 +2341,7 @@ title: Print the authorized_keys line that limits a key to komando
 ### komando ssh-gate status
 title: Say which ssh-gate key runs this, and what it may do
 ### komando status
-title: What komando left running: VPNs, logins, tunnels, jobs
+title: What komando left running: VPNs, logins, tunnels, exec sessions
 - flag:short | --short | One line for your shell prompt, like vpn:1 tun:2 (no JSON, never fails) |  |  | advanced,default,choices
 ### komando storage
 title: Buckets (S3, GCS, Azure) and file servers: browse, copy, remove

@@ -18,7 +18,7 @@ import (
 )
 
 // startRun is Start for a plain command: its feed piped into sh -c, as
-// job start builds it for a run without sudo.
+// exec builds it for a run without sudo.
 func startRun(inner string) string { return Feed(false) + " | sh -c " + sshx.Q(inner) + " & w=$!" }
 
 // runStart runs the start script under sh (umask 022, as a login has)

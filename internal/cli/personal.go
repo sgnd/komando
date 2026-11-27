@@ -31,7 +31,6 @@ var personalCmds = map[string]bool{
 	"docker compose": true, "docker exec": true, "docker inspect": true, "docker logs": true, "docker raw": true,
 	"cp": true, "download": true, "exec": true, "recipe run": true, "sync": true,
 	"fs cat": true, "fs list": true, "fs replace": true, "fs restore": true, "fs write": true,
-	"job logs": true, "job status": true, "job wait": true,
 	"logs":        true,
 	"queue peek":  true,
 	"storage cat": true, "storage download": true, "storage list": true,

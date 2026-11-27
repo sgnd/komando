@@ -92,10 +92,6 @@ var examples = map[string]string{
 		"  komando host winrm add win1 Administrator@10.0.0.9 --ask-password\n" +
 		"  komando host winrm test win1\n" +
 		"  komando host winrm exec win1 -- 'Get-Date'",
-	"komando job": "  komando job start @web -- ./deploy.sh\n" +
-		"  komando job list\n" +
-		"  komando job wait j1103-101500-ab12cd34 --timeout 30m\n" +
-		"  komando job logs j1103-101500-ab12cd34 --limit 50",
 	"komando credential": "  komando credential password add web1-pass   # typed hidden\n" +
 		"  komando credential list\n" +
 		"  komando credential key create deploy\n" +
@@ -174,12 +170,6 @@ var examples = map[string]string{
 	"komando fs rm":    "  komando fs rm web1 /tmp/upload.tar.gz\n  komando fs rm web1 /srv/app/releases/old --recursive --allow-dangerous",
 	"komando fs stat":  "  komando fs stat web1 /etc/nginx/nginx.conf --sha256",
 
-	"komando job kill":   "  komando job kill j1103-101500-ab12cd34\n  komando job kill j1103-101500-ab12cd34 --signal KILL",
-	"komando job list":   "  komando job list\n  komando job list --refresh --target web1",
-	"komando job logs":   "  komando job logs j1103-101500-ab12cd34 --limit 100\n  komando job logs j1103-101500-ab12cd34 --offset 4096   # only what is new since then",
-	"komando job rm":     "  komando job rm j1103-101500-ab12cd34",
-	"komando job status": "  komando job status j1103-101500-ab12cd34",
-
 	"komando pkg install":    "  komando pkg install web1 htop jq",
 	"komando pkg installed":  "  komando pkg installed @web nginx openssl",
 	"komando pkg rm":         "  komando pkg rm web1 telnet",
@@ -202,9 +192,6 @@ var details = map[string]string{
 	"komando fs replace":       "Edit a file on a server by exact (or --regex) replacement. It fails when the text is not found, or matches more than once without --all.",
 	"komando guide":            "Playbook for AI agents: workflow, safety rules, recipes (read this first).",
 	"komando host ssh remove":  "Remove servers from your list. The servers are not touched, and their pinned host keys stay.",
-	"komando job kill":         "Send a signal to a job's process group (default TERM). A job that already ended is left as it is.",
-	"komando job logs":         "Read a job's output piece by piece (--offset with the next_offset of the last call), or its last --limit N lines.",
-	"komando job rm":           "Forget jobs and delete their log folders on the server (a running job needs `job kill` or --kill).",
 	"komando list":             "List servers, conns (databases, caches, queues, storage, clusters and\nregistries) and VPNs together: everything, or what TARGET picks.",
 	"komando logs":             "Read logs from journald (--unit), a file (--file) or a container (--container).",
 	"komando pkg":              "Packages on servers through apt, dnf, yum, apk, zypper or pacman (komando finds which one the server has).",

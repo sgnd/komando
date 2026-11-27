@@ -4,8 +4,10 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/subtle"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -32,6 +34,13 @@ import (
 
 // Tunnels run as detached background komando processes so that an agent's
 // tool call returns immediately while the forward stays up.
+
+// newID is a tunnel's ID: its prefix, the start time and four random bytes.
+func newID(prefix string) string {
+	b := make([]byte, 4)
+	_, _ = rand.Read(b)
+	return prefix + time.Now().UTC().Format("0102-150405") + "-" + hex.EncodeToString(b)
+}
 
 // tunnelCmd is the tunnel group of today's tree, left with the one command
 // that tunnel start starts in the background (tunnel serve). The commands a

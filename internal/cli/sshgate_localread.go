@@ -21,7 +21,6 @@ import (
 // reach that reads here be in one of them.
 var gateLocalFlags = map[string][]string{
 	"exec":          {"script", "stdin-file"},
-	"job.start":     {"script", "stdin-file"},
 	"db.query":      {"file"},
 	"db.restore":    {"from"},
 	"cluster.apply": {"file"},

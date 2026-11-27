@@ -16,51 +16,27 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// Until the cut, exec runs as before: the session flags exist (hints and
-// docs name them) but are hidden and refused.
-func TestExecSessionFlagsOffUntilTheCut(t *testing.T) {
-	if sessionsOn {
-		t.Skip("sessions are on")
-	}
+// exec's session flags are part of exec: shown in help, taken as given.
+func TestExecSessionFlagsShown(t *testing.T) {
 	c, _, err := newRoot(tcl).Find([]string{"host", "ssh", "exec"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"attach", "offset", "wait", "log-max", "stop", "signal", "remove"} {
 		f := c.Flags().Lookup(name)
-		if f == nil || !f.Hidden {
-			t.Errorf("--%s: missing or shown", name)
-		}
-	}
-	for _, args := range [][]string{
-		{"host", "ssh", "exec", "web1", "--attach", "x"},
-		{"host", "ssh", "exec", "web1", "--wait", "5s", "--", "uptime"},
-		{"host", "ssh", "exec", "web1", "--log-max", "1MiB", "--", "uptime"},
-		{"host", "ssh", "exec", "web1", "--offset", "3", "--", "uptime"},
-		{"host", "ssh", "exec", "web1", "--stop", "--", "uptime"},
-		{"host", "ssh", "exec", "web1", "--signal", "KILL", "--", "uptime"},
-		{"host", "ssh", "exec", "web1", "--remove", "--", "uptime"},
-	} {
-		var oe *out.Error
-		if err := runRoot(t, args...); !errors.As(err, &oe) || oe.Code != "USAGE" {
-			t.Errorf("%v: got %v, want a usage error", args, err)
+		if f == nil || f.Hidden {
+			t.Errorf("--%s: missing or hidden", name)
 		}
 	}
 }
 
-// With sessions off, a plain exec on one Unix server runs as before:
-// nothing reaches the session code.
-func TestExecSessionOffRunsDirect(t *testing.T) {
-	if sessionsOn {
-		t.Skip("sessions are on")
-	}
-	srv := startFakeServer(t)
-	srv.reply("up\n")
-	if err := runRoot(t, "host", "ssh", "exec", "dev", "--read-only", "--", "uptime"); err != nil {
-		t.Fatal(err)
-	}
-	if e := srv.take(); len(e) != 1 || e[0].cmd != "uptime" {
-		t.Fatalf("execs %+v", e)
+// A plain exec on one Unix server runs in a session, with no switch to
+// turn on first.
+func TestExecRunsInSessionByDefault(t *testing.T) {
+	srv := startSessionServer(t, "up\n", true)
+	_ = captureOutput(t, func() error { return runRoot(t, "host", "ssh", "exec", "dev", "--read-only", "--", "uptime") })
+	if k := srv.kinds(); len(k) == 0 || k[0] != "start" {
+		t.Fatalf("calls %v, want a session start first", k)
 	}
 }
 
@@ -83,29 +59,37 @@ var (
 
 func startSessionServer(t *testing.T, log string, ended bool) *sessionServer {
 	t.Helper()
-	sessionsOn = true
-	t.Cleanup(func() { sessionsOn = false })
 	s := &sessionServer{fakeServer: startFakeServer(t), log: log, ended: ended}
 	s.answer = func(cmd string) (string, int) {
-		switch {
-		case strings.Contains(cmd, "mkfifo"):
-			if s.begin != 0 {
-				return "", s.begin
-			}
-			id := startID.FindStringSubmatch(cmd)[1]
-			return "facts-begin " + id + "\npid 4242\npgid 4242\nstart proc 99\nfacts-end " + id + "\n", 0
-		case readID.MatchString(cmd):
-			id := readID.FindStringSubmatch(cmd)[1]
-			from, _ := strconv.Atoi(readAt.FindStringSubmatch(cmd)[1])
-			head := "read-begin " + id + "\n"
-			if s.ended {
-				head += "exit 0\n"
-			}
-			return head + "size " + strconv.Itoa(len(s.log)) + "\nread-end " + id + "\n" + s.log[min(from-1, len(s.log)):], 0
+		if out, status, ok := sessionAnswer(cmd, s.log, s.ended, s.begin); ok {
+			return out, status
 		}
 		return "direct\n", 0
 	}
 	return s
+}
+
+// sessionAnswer is a Unix server's reply to a session start (the run's
+// facts, or nothing and begin as the exit) or a read (status and log from
+// the offset); ok is false for any other call.
+func sessionAnswer(cmd, log string, ended bool, begin int) (out string, status int, ok bool) {
+	switch {
+	case strings.Contains(cmd, "mkfifo"):
+		if begin != 0 {
+			return "", begin, true
+		}
+		id := startID.FindStringSubmatch(cmd)[1]
+		return "facts-begin " + id + "\npid 4242\npgid 4242\nstart proc 99\nfacts-end " + id + "\n", 0, true
+	case readID.MatchString(cmd):
+		id := readID.FindStringSubmatch(cmd)[1]
+		from, _ := strconv.Atoi(readAt.FindStringSubmatch(cmd)[1])
+		head := "read-begin " + id + "\n"
+		if ended {
+			head += "exit 0\n"
+		}
+		return head + "size " + strconv.Itoa(len(log)) + "\nread-end " + id + "\n" + log[min(from-1, len(log)):], 0, true
+	}
+	return "", 0, false
 }
 
 // kinds sorts the server's execs: start, read, remove or other.
@@ -132,6 +116,7 @@ type sessionResult struct {
 			Session  *string `json:"session"`
 			ExitCode int     `json:"exit_code"`
 			Stdout   string  `json:"stdout"`
+			Cut      bool    `json:"stdout_truncated"`
 			NextFrom *int64  `json:"next_from"`
 		} `json:"results"`
 	} `json:"data"`
@@ -186,6 +171,19 @@ func TestExecSessionFirstLine(t *testing.T) {
 	}
 	if rt, _ := store.ReadRuntime(); rt.ExecSessions[id] != nil {
 		t.Fatal("the record stayed after a full read")
+	}
+}
+
+// --max-output holds when a session is read: the output stops there and
+// the result says it was cut.
+func TestExecSessionOutputLimit(t *testing.T) {
+	startSessionServer(t, "0123456789abcdef\n", true)
+	_, res, err := runSession(t, "host", "ssh", "exec", "dev", "--read-only", "--max-output", "8", "--", "uptime")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r := res.Data.Results[0]; r.Stdout != "01234567" || !r.Cut {
+		t.Fatalf("result %+v", r)
 	}
 }
 
@@ -284,8 +282,6 @@ func TestExecSessionGroupStaysDirect(t *testing.T) {
 
 // Only a plain exec on one Unix server without --pty gets a session.
 func TestSessionForOneUnixServer(t *testing.T) {
-	sessionsOn = true
-	t.Cleanup(func() { sessionsOn = false })
 	unix, win := &store.Host{Name: "a"}, &store.Host{Name: "w", OS: store.OSWindows}
 	o := execOpts{session: &sessionOpts{}}
 	pty := o
@@ -304,7 +300,7 @@ func TestSessionForOneUnixServer(t *testing.T) {
 		{"not exec", "logs", []*store.Host{unix}, o, false},
 		{"no session flags", "exec", []*store.Host{unix}, execOpts{}, false},
 	} {
-		if got := sessionFor(tc.cmd, tc.hosts, tc.o, "x") != nil; got != tc.want {
+		if got := sessionFor(nil, tc.cmd, tc.hosts, tc.o, "x") != nil; got != tc.want {
 			t.Errorf("%s: session %v", tc.name, got)
 		}
 	}
@@ -452,5 +448,16 @@ func TestExecAttachRefusals(t *testing.T) {
 	}
 	if e := srv.take(); len(e) != 0 {
 		t.Fatalf("connected: %+v", e)
+	}
+}
+
+// exec holds the whole job: no job group is left. A long run is `exec`, its
+// way back `host ssh exec --attach ID`, its stop `--stop`, its removal `--remove`.
+func TestNoJobGroup(t *testing.T) {
+	root := newRoot(tcl)
+	for _, path := range [][]string{{"job"}, {"jobs"}, {"job", "kill"}, {"job", "rm"}, {"job", "start"}} {
+		if c, _, _ := root.Find(path); c != nil && c != root {
+			t.Errorf("%v: found %q, the job group is gone", path, c.CommandPath())
+		}
 	}
 }

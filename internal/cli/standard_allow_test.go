@@ -64,7 +64,6 @@ var (
 		"doctor",
 		"fs replace dry-run",
 		"fs stat",
-		"job status",
 		"pkg installed",
 		"ssh-gate",
 		"version",

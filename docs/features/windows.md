@@ -235,7 +235,7 @@ lists services that should start automatically but stopped with an error.
 |-------|--------------------------------------|
 | `test`, `facts`, `exec` (also `--script`), `shell` | `pkg`, `user`, `cron`, `logs`, `docker`, `net`, `cert check`, `snippet exec`, `reboot` |
 | `fs list`, `stat`, `cat`, `write` | `fs replace`, `fs restore`, `fs rm`, `mkdir`, `mv`, `chmod`, `copy --sync` |
-| `copy` (single files) | `job`, `copy -r`, `svc reload`, `svc daemon-reload`, `svc logs` |
+| `copy` (single files) | exec sessions (a run on Windows has none), `copy -r`, `svc reload`, `svc daemon-reload`, `svc logs` |
 | `svc status`, `list`, `start`, `stop`, `restart`, `enable`, `disable` | `--sudo`, `--pty`, `--mode`, `--owner` |
 | `host ssh trust`, `login`, `tunnel`, `--via` through a Windows server (SSH only) | `shell`, tunnels, `host ssh trust` over WinRM |
 

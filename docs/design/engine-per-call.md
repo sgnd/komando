@@ -338,7 +338,7 @@ is not.
    `sshx.ChainOwner`, `netx.StartSession` and `netx.WriteFor` get the
    context of the connection, which carries the call: they answer for
    that call. Every command's context carries its call (`newRoot` and
-   `execute` put it there; each dial, tunnel, job, VPN session and the
+   `execute` put it there; each dial, tunnel, exec session, VPN session and the
    ssh gate's commands use the command's context). A context that
    carries no call is a bug, and these hooks never answer for another
    running call instead: `sshx.MayPin` refuses to pin a new server's key

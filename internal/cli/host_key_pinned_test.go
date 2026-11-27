@@ -25,10 +25,9 @@ func TestPinnedKeyIsAudited(t *testing.T) {
 // says so in meta.host_keys_pinned, for an agent to show the person; the
 // next connection pins nothing.
 func TestPinnedKeyInOutput(t *testing.T) {
-	srv := startFakeServer(t)
+	startSessionServer(t, "up 1 day\n", true)
 	run := func() []any {
 		t.Helper()
-		srv.reply("up 1 day")
 		d, e := invRun(t, "--host-key-policy", "accept-new", "host", "ssh", "exec", "dev", "--read-only", "--", "uptime")
 		if e != nil {
 			t.Fatal(e)

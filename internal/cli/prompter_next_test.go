@@ -137,7 +137,6 @@ func TestPromptNext(t *testing.T) {
 		{"conn show", "notes", "komando database sqlite backup notes --to backup.db", "db user list"},
 		{"conn show", "notes", "komando conn rm notes", "db activity"},
 		{"credential key show", "deploy", "komando credential key install deploy TARGET", "db "},
-		{"job status", "7f3", "komando job logs 7f3 --limit 50", "conn "},
 		{"group remove", "old", "Next: komando group create old TARGET...", "group remove"},
 		{"snippet show", "health", "komando snippet exec health TARGET", "conn "},
 	} {
@@ -224,16 +223,6 @@ func TestNextOnlyOnStderr(t *testing.T) {
 				t.Errorf("%s:%d: a next line outside promptNext: %s", f, i+1, strings.TrimSpace(l))
 			}
 		}
-	}
-	// a command that worked out its next lines puts them in the Next: line
-	invHome(t)
-	drawn := promptFake(t)
-	tcl.fillSeen = fillInfo{person: true, key: "job start", first: "web1"}
-	defer func() { tcl.fillSeen, tcl.nextNow = fillInfo{}, nil }()
-	jobStarted{Jobs: []started{{ID: "j1", Host: "web1", OK: true}}}.withNext(tcl)
-	promptNext(tcl)
-	if got := drawn.String(); got != "Next: komando job logs j1 --limit 20 · komando job wait j1 · komando job status j1\n" {
-		t.Errorf("job start: %q", got)
 	}
 }
 

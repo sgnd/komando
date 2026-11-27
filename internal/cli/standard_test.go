@@ -70,7 +70,7 @@ func TestStandardTopLevel(t *testing.T) {
 	root := newRoot(tcl)
 	want := []string{
 		// nouns (S-2.1)
-		"host", "conn", "vpn", "group", "secret", "credential", "snippet", "policy", "job", "config",
+		"host", "conn", "vpn", "group", "secret", "credential", "snippet", "policy", "config",
 		"fs", "pkg", "docker", "cert", "db", "database", "cache", "queue", "storage", "cluster", "registry",
 		// shortcuts
 		"list", "test", "logs", "copy", "status",
@@ -131,7 +131,7 @@ func TestStandardNounAliases(t *testing.T) {
 	root := newRoot(tcl)
 	for noun, aliases := range map[string][]string{
 		"host": {"hosts", "server", "servers"}, "conn": {"conns"}, "vpn": {"vpns"}, "group": {"groups"},
-		"secret": {"secrets"}, "snippet": {"snippets"}, "policy": {"policies"}, "job": {"jobs"},
+		"secret": {"secrets"}, "snippet": {"snippets"}, "policy": {"policies"},
 		"fs": {"files"}, "pkg": {"package", "packages"},
 		"docker": {"container", "containers"},
 		"cert":   {"certs"}, "db": {"dbs"}, "database": {"databases"}, "cache": {"caches"}, "queue": {"queues"},
@@ -281,7 +281,7 @@ func TestStandardUseGrammar(t *testing.T) {
 		}
 	}
 	allowCheck(t, "S-4.2", got, nil)
-	for _, w := range []string{"TARGET", "SERVER", "CONN", "GROUP", "JOB", "TUNNEL"} {
+	for _, w := range []string{"TARGET", "SERVER", "CONN", "GROUP", "TUNNEL"} {
 		if p, _ := formArgPick(w); p == "" {
 			t.Errorf("S-4.2: %s has no picker", w)
 		}
@@ -661,7 +661,6 @@ func TestStandardJourneys(t *testing.T) {
 		"group":           {"create", "show", "list", "rename", "remove"},
 		"snippet":         {"create", "show", "list", "remove"},
 		"policy":          {"create", "check", "list", "remove"},
-		"job":             {"start", "status", "show", "list", "kill", "stop", "rm"},
 		"host ssh tunnel": {"start", "list", "stop"},
 	} {
 		noun := findCmd(t, root, strings.Fields(kind)...)

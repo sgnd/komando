@@ -1,6 +1,6 @@
 # shellcheck shell=bash
 # The lab's servers: inventory and vault, logins through the bastion, exec,
-# shell, secret managers (OpenBao, AWS Secrets Manager), fs, sudo, cp, jobs,
+# shell, secret managers (OpenBao, AWS Secrets Manager), fs, sudo, cp, exec sessions,
 # keys, tunnels and modules. Moved here from run.sh; runs first in the core area.
 check "host ssh list count" 3 "$($K host ssh list | jget 'd["data"]["count"]')"
 # every --via bastion connection starts with a login there: sshd's default
@@ -151,35 +151,28 @@ printf '#!/bin/sh\nwhoami\n' > "$TMP/who.sh"
 check "sudo with password" root "$($K host ssh exec ops --sudo -- whoami | jget 'd["data"]["results"][0]["stdout"].strip()')"
 check "sudo password then stdin" payload "$($K host ssh exec ops --sudo --stdin-file "$TMP/f" -- cat | jget 'd["data"]["results"][0]["stdout"].strip()')"
 check "script with sudo password" root "$($K host ssh exec ops --script "$TMP/who.sh" --sudo | jget 'd["data"]["results"][0]["stdout"].strip()')"
-SJ=$($K job start ops --sudo -- 'whoami; cat; echo end' | jget 'd["data"]["jobs"][0]["id"]')
-check "job with sudo password" exited "$($K job wait "$SJ" --interval 1s | jget 'd["data"]["state"]')"
-check "job with sudo password runs as root" "root end" "$($K job logs "$SJ" | jget '" ".join(d["data"]["content"].split())')"
-check "job sudo password file is deleted" False "$($K fs stat ops ".komando/jobs/$SJ/pw" | jget 'd["data"]["exists"]')"
-# a long script from this computer as a job: exec --script's twin
-SJ=$($K job start ops --sudo --script "$TMP/who.sh" | jget 'd["data"]["jobs"][0]["id"]')
-check "job start --script with sudo password" exited "$($K job wait "$SJ" --interval 1s | jget 'd["data"]["state"]')"
-check "job start --script runs the script as root" root "$($K job logs "$SJ" | jget 'd["data"]["content"].strip()')"
-check "job start --script leaves no copy on the server" False "$($K fs stat ops ".komando/jobs/$SJ/script" | jget 'd["data"]["exists"]')"
-# job start --sudo-user and --stdin-file, with a sudo password: the env and
+O=$($K host ssh exec ops --sudo -- 'whoami; cat; echo end'); SJ=$(echo "$O" | sess_id)
+check "session with sudo password runs as root" "root end" "$(echo "$O" | jget '" ".join(d["data"]["results"][0]["stdout"].split())')"
+check "session sudo password file is deleted" False "$($K fs stat ops "$(SDIR "$SJ")/pw" | jget 'd["data"]["exists"]')"
+# a long script from this computer in a session: exec --script
+O=$($K host ssh exec ops --sudo --script "$TMP/who.sh"); SJ=$(echo "$O" | sess_id)
+check "exec --script runs in a session as root" root "$(echo "$O" | jget 'd["data"]["results"][0]["stdout"].strip()')"
+check "exec --script leaves no copy on the server" False "$($K fs stat ops "$(SDIR "$SJ")/script" | jget 'd["data"]["exists"]')"
+# exec --sudo-user and --stdin-file, with a sudo password: the env and
 # the input reach a command that runs as another user
-SJ=$($K job start ops --sudo-user agent -e GREETING=hi --stdin-file "$TMP/f" -- 'echo "$(whoami) $GREETING $(cat)"' | jget 'd["data"]["jobs"][0]["id"]')
-check "job start --sudo-user --stdin-file with sudo password" exited "$($K job wait "$SJ" --interval 1s | jget 'd["data"]["state"]')"
-check "job --sudo-user gets the env and the input" "agent hi payload" "$($K job logs "$SJ" | jget 'd["data"]["content"].strip()')"
-check "job --stdin-file leaves no copy on the server" False "$($K fs stat ops ".komando/jobs/$SJ/in" | jget 'd["data"]["exists"]')"
-check "job --sudo-user deletes the sudo password" False "$($K fs stat ops ".komando/jobs/$SJ/pw" | jget 'd["data"]["exists"]')"
+O=$($K host ssh exec ops --sudo-user agent -e GREETING=hi --stdin-file "$TMP/f" -- 'echo "$(whoami) $GREETING $(cat)"'); SJ=$(echo "$O" | sess_id)
+check "exec --sudo-user gets the env and the input" "agent hi payload" "$(echo "$O" | jget 'd["data"]["results"][0]["stdout"].strip()')"
+check "exec --stdin-file leaves no copy on the server" False "$($K fs stat ops "$(SDIR "$SJ")/in" | jget 'd["data"]["exists"]')"
+check "exec --sudo-user deletes the sudo password" False "$($K fs stat ops "$(SDIR "$SJ")/pw" | jget 'd["data"]["exists"]')"
 printf '#!/usr/bin/env bash\necho "got:$1:$2"\n' > "$TMP/args.sh"
-SJ=$($K job start direct --script "$TMP/args.sh" --arg 'a b' --arg c | jget 'd["data"]["jobs"][0]["id"]')
-$K job wait "$SJ" --interval 1s >/dev/null
-check "job start --script --arg" "got:a b:c" "$($K job logs "$SJ" | jget 'd["data"]["content"].strip()')"
-check "job list shows the script, not its text" True "$($K job list | jget 'any(j["command"].startswith("--script") for j in d["data"]["jobs"])')"
+check "exec --script --arg" "got:a b:c" "$($K host ssh exec direct --script "$TMP/args.sh" --arg 'a b' --arg c | jget 'd["data"]["results"][0]["stdout"].strip()')"
 # sudo never asks on a NOPASSWD host, so the password must not reach the command
 $K host ssh edit direct --sudo-credential credential:agent-pass >/dev/null
 check "unasked sudo password not leaked" False "$($K host ssh exec direct --script "$TMP/who.sh" --sudo | jget '"agentpass" in json.dumps(d)')"
 check "unasked sudo password not in stdin" payload "$($K host ssh exec direct --sudo --stdin-file "$TMP/f" -- cat | jget 'd["data"]["results"][0]["stdout"].strip()')"
-SJ=$($K job start direct --sudo --stdin-file "$TMP/f" -- 'cat' | jget 'd["data"]["jobs"][0]["id"]')
-$K job wait "$SJ" --interval 1s >/dev/null
-check "job: unasked sudo password not in its input" payload "$($K job logs "$SJ" | jget 'd["data"]["content"].strip()')"
-check "job: unasked sudo password is deleted unread" False "$($K fs stat direct ".komando/jobs/$SJ/pw" | jget 'd["data"]["exists"]')"
+O=$($K host ssh exec direct --sudo --stdin-file "$TMP/f" -- 'cat'); SJ=$(echo "$O" | sess_id)
+check "session: unasked sudo password not in its input" payload "$(echo "$O" | jget 'd["data"]["results"][0]["stdout"].strip()')"
+check "session: unasked sudo password is deleted unread" False "$($K fs stat direct "$(SDIR "$SJ")/pw" | jget 'd["data"]["exists"]')"
 $K host ssh edit direct --unset sudo-credential >/dev/null
 $K host ssh remove ops >/dev/null
 $K host ssh exec direct --sudo -- 'mkdir -m 700 /etc/private && install -m 600 /dev/null /etc/private/token' >/dev/null
@@ -189,22 +182,24 @@ check "upload to group" 3 "$($K copy "$TMP/f" @lab:/tmp/f --yes | jget 'd["data"
 $K copy '@lab:/tmp/f' "$TMP/down" >/dev/null
 check "download per host" payload "$(cat "$TMP/down/target/f")"
 
-echo "==> jobs"
-JID=$($K job start direct -- 'echo a; sleep 1; echo b' | jget 'd["data"]["jobs"][0]["id"]')
-check "job wait ok" exited "$($K job wait "$JID" --interval 1s | jget 'd["data"]["state"]')"
-check "job logs" "a b" "$($K job logs "$JID" | jget '" ".join(d["data"]["content"].split())')"
-JT=$($K job start direct --timeout 2s -- 'sleep 31; echo late' | jget 'd["data"]["jobs"][0]["id"]')
-check "job start --timeout stops the job" "killed True" "$($K job wait "$JT" --interval 1s | jget 'd["data"]["state"]+" "+str(d["data"]["timed_out"])' || true)"
-check "a timed-out job does not run on" "" "$($K job logs "$JT" | jget 'd["data"]["content"].strip()')"
-check "a timed-out job leaves no process" 0 "$($K host ssh exec direct --read-only -o text -- 'pgrep -fxc "sleep 31" || true')"
-J2=$($K job start direct -- 'exit 3' | jget 'd["data"]["jobs"][0]["id"]')
-set +e; $K job wait "$JID" "$J2" --interval 1s >/dev/null; check "job wait several: worst exit" 5 $?; set -e
-check "job wait several" 1 "$($K job wait "$JID" "$J2" --interval 1s | jget 'd["data"]["summary"]["ok"]' || true)"
+echo "==> exec sessions"
+O=$($K host ssh exec direct --wait 0 -- 'echo a; sleep 2; echo b' || true); JID=$(echo "$O" | sess_id)
+check "exec --wait 0 returns at once, the run goes on" SESSION_WAIT_TIMEOUT "$(echo "$O" | jget 'd["error"]["code"]')"
+check "status lists the running session" True "$($K status | jget 'any(e["id"] == "'"$JID"'" for e in d["data"]["exec_sessions"])')"
+O=$($K host ssh exec direct --attach "$JID" --wait 1m)
+check "--attach reads the output and the exit code" "a b 0" "$(echo "$O" | jget '" ".join(d["data"]["results"][0]["stdout"].split()) + " " + str(d["data"]["results"][0]["exit_code"])')"
+O=$($K host ssh exec direct --wait 0 -- 'echo a; sleep 31; echo late' || true); JT=$(echo "$O" | sess_id)
+q $K host ssh exec direct --attach "$JT" --stop
+check "--stop ends the run" 0 "$($K host ssh exec direct --read-only -o text -- 'pgrep -fxc "sleep 31" || true')"
+check "a stopped session does not run on" "a" "$($K host ssh exec direct --attach "$JT" --wait 1m | jget 'd["data"]["results"][0]["stdout"].strip()' || true)"
+q $K host ssh exec direct --attach "$JT" --remove
+check "--remove deletes the session's folder" False "$($K fs stat direct "$(SDIR "$JT")" | jget 'd["data"]["exists"]')"
+O=$($K host ssh exec direct -- 'exit 3' || true)
+check "a failed run in a session says its exit code" 3 "$(echo "$O" | jget 'd["data"]["results"][0]["exit_code"]')"
 check "exec gets a vault secret as env" match "$($K host ssh exec direct -e P=credential:agent-pass -- 'test "$P" = agentpass && echo match' | jget 'd["data"]["results"][0]["stdout"].strip()')"
-JID=$($K job start direct -e P=credential:agent-pass -- 'test "$P" = agentpass && echo job-match' | jget 'd["data"]["jobs"][0]["id"]')
-$K job wait "$JID" --interval 1s >/dev/null
-check "job gets a vault secret as env" True "$($K job logs "$JID" | jget '"job-match" in d["data"]["content"]')"
-check "job env file is deleted" False "$($K fs stat direct ".komando/jobs/$JID/env" | jget 'd["data"]["exists"]')"
+O=$($K host ssh exec direct --wait 0 -e P=credential:agent-pass -- 'sleep 1; test "$P" = agentpass && echo session-match' || true); JID=$(echo "$O" | sess_id)
+check "a session gets a vault secret as env" True "$($K host ssh exec direct --attach "$JID" --wait 1m | jget '"session-match" in d["data"]["results"][0]["stdout"]')"
+check "the session's env file is deleted" False "$($K fs stat direct "$(SDIR "$JID")/env" | jget 'd["data"]["exists"]')"
 $K fs write direct /home/agent/t/app.env --content 'DB_PASSWORD=agentpass' >/dev/null
 check "secret values hidden in output" "DB_PASSWORD=[credential:agent-pass]" "$($K fs cat direct /home/agent/t/app.env | jget 'd["data"]["content"].strip()')"
 

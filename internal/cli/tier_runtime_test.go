@@ -102,6 +102,10 @@ var tierRuns = []tierRun{
 	{"host ssh test --end change", "host.ssh.test", []string{"prod", "--end"}, true}, // #558: the change-tier guard
 	{"test --end change", "test", []string{"--end"}, false},
 	{"group remove change", "group.remove", []string{"g1"}, false},
+	{"host ssh exec --stop change", "host.ssh.exec", []string{"dev", "--attach", attachID, "--stop"}, false},
+	{"host ssh exec --stop change", "host.ssh.exec", []string{"prod", "--attach", tierProdSession, "--stop"}, true},
+	{"host ssh exec --remove change", "host.ssh.exec", []string{"dev", "--attach", attachID, "--remove"}, false},
+	{"host ssh exec --remove change", "host.ssh.exec", []string{"prod", "--attach", tierProdSession, "--remove"}, true},
 	// the floor: a leaf that changes something, run with no row applying
 	{"floor", "cache.redis.add", []string{"c2", "redis://127.0.0.1:1"}, false},
 	{"floor", "cache.redis.edit", []string{"r", "--notes", "x"}, false},
@@ -164,9 +168,6 @@ var tierRuns = []tierRun{
 // tierUnreached are the rows and floors this test cannot run, by name
 // and today's ID, with the reason and where the stop is proved instead.
 var tierUnreached = map[string]string{
-	// flags that arrive in the cut
-	"host ssh exec --stop change | host.ssh.exec":   "--stop arrives with exec sessions (cut step D2); today it is job kill",
-	"host ssh exec --remove change | host.ssh.exec": "--remove arrives with exec sessions (cut step D2); today it is job rm",
 	// the condition needs what a unit run cannot give; the stop is proved there
 	"host ssh test dynamic person | host.ssh.test":                             "needs a server that asks a second factor",
 	"import dynamic person | import":                                           "needs a sealed file from export --sealed, which only a person makes",
@@ -646,6 +647,10 @@ var policyStopCodes = []string{"NEEDS_PERSON", "NEEDS_TERMINAL", "POLICY_BLOCKED
 // tierSeed fills the home: hosts dev and prod (protected, its key pinned)
 // on a fake SSH server, the WinRM servers wdev and wprod (protected), one conn or VPN of each kind a run names, and the
 // secret, key, snippets, group and deny rule the runs remove.
+// tierProdSession is the session of prod that tierSeed records: --stop
+// needs the record of the run on this computer.
+var tierProdSession = "b" + attachID[1:]
+
 func tierSeed(t *testing.T) {
 	t.Chdir(t.TempDir())
 	startFakeServer(t)
@@ -703,6 +708,12 @@ func tierSeed(t *testing.T) {
 		return nil
 	}); err != nil {
 		t.Fatal(err)
+	}
+	// the runs of dev and prod, started by this agent: stopping one's own run
+	// asks no window, so the stop is the tier's alone
+	setCallerEnv(t, "KOMANDO_ACTOR", "tier-actor")
+	for id, host := range map[string]string{attachID: "dev", tierProdSession: "prod"} {
+		putExecSession(t, &store.ExecSession{ID: id, Host: host, Command: "sleep 99", PID: 4242, PGID: 4242, ProcStart: "proc 99", Actor: "tier-actor", Agent: true})
 	}
 	t.Setenv("PW", "secret-value-1")
 	mustRun(t, "credential", "password", "add", "pw", "--from-env", "PW")

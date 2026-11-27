@@ -120,7 +120,6 @@ uses for a noun (S-2.3) always resolves as that noun.
 | `key` | an SSH key komando knows | keys |
 | `recipe` | a saved command | recipes |
 | `policy` | your own block rules | policies |
-| `job` | a long command running on a server | jobs |
 | `tunnel` | a port forward komando keeps running | tunnels, pf |
 | `config` | komando settings | |
 | `fs` | files on servers | files |
@@ -173,13 +172,13 @@ tool-word list S-3.3]
 | `describe` | everything about one object | | kubectl describe |
 | `get` | the raw value of one item | | kubectl get, redis GET |
 | `info` | a summary of the target: version, role, size | | redis INFO, docker info |
-| `status` | state of something that runs (unit, job, rollout, release, VPN session) | | systemctl status |
+| `status` | state of something that runs (unit, rollout, release, VPN session) | | systemctl status |
 | `logs`, `history`, `events` | what happened | | kubectl logs/events, helm history |
 | `create` | make a new thing on the target | | kubectl create, gh |
 | `set` | write one value | | redis SET, gh secret set |
 | `rm` | delete a thing on the target (needs `--allow-dangerous`) | remove, delete, del | kubectl delete |
 | `start`, `stop`, `restart`, `reload`, `enable`, `disable` | change the run state of an existing thing (a service, a VPN session) | | systemctl, docker, wg-quick, tailscale |
-| `kill` | signal something running now | stop (on job) | kill, docker kill |
+| `kill` | signal something running now | | kill, docker kill |
 | `wait` | wait until it ends | | kubectl wait |
 | `purge` | empty it but keep it | | rabbitmqctl purge_queue |
 | `prune` | delete old things by a rule | | docker prune |
@@ -253,7 +252,7 @@ words; the completion and picker map has one entry per word]
 | `NAME` | one item of the command's own noun (or a new name in `add`; a cron entry's name in `cron`) | that noun |
 | `GROUP` | an inventory group | groups |
 | `USER` | an account (Linux or database) | none |
-| `JOB`, `TUNNEL`, `RULE` (policy), `SETTING` (config) | that item | jobs, tunnels, none |
+| `TUNNEL`, `RULE` (policy), `SETTING` (config) | that item | tunnels, none |
 | `KEY` | a cache key only | none |
 | `OBJECT` | a storage object | none |
 | `CONSUMER` | a queue consumer group | none |
@@ -270,7 +269,7 @@ words; the completion and picker map has one entry per word]
 is in parentheses: `host ssh tunnel start TARGET (-L SPEC | -R SPEC | -D SPEC)`.
 [schema: required flag ⇔ present in Use]
 
-**S-4.4** Passthrough commands: `host ssh exec`, `job start`, `docker exec`,
+**S-4.4** Passthrough commands: `host ssh exec`, `docker exec`,
 `docker compose`, `docker raw`, `cluster kubernetes exec`, `cluster kubernetes shell`,
 `cluster kubernetes raw`, `cache redis raw` (every command whose Use has `-- COMMAND...` or
 `-- ARGS...`). komando flags are read anywhere before `--`
@@ -302,9 +301,9 @@ group has one type; meanings checked by usage-text template where one exists]
 | Flag | Short | Type | Meaning | Default and units |
 |---|---|---|---|---|
 | `--limit` | `-n` (not in cluster, not on storage rm) | int | the most items, rows or log lines to show (last ones for logs). Never a safety cap. Says in its usage text whether it counts per target or in total | each command keeps its current default; a `--limit` added where there was none defaults to 0 = no limit. 0 = no limit wherever the text says so |
-| `--head`, `--tail` | | int | first or last N lines of one file or log (`fs cat`, `storage cat`); *exception*: on `job status`/`job wait`, `--tail` = also show the last N lines of output (0 = none) | 0 = all on fs/storage cat; job status 20, job wait 30 |
+| `--head`, `--tail` | | int | first or last N lines of one file or log (`fs cat`, `storage cat`); | 0 = all |
 | `--max-<noun>` | | bytes or int | a safety cap: the run is refused above it (`--max-remove`, `--max-bytes`, `--max-output`) | stated per flag |
-| `--timeout` | | duration | how long this command may run per target (global). *exception*: `job wait --timeout` is local, total across servers, default 10m, ends with WAIT_TIMEOUT | setting, 5m |
+| `--timeout` | | duration | how long this command may run per target (global). | setting, 5m |
 | `--wait` | | duration | wait for the result up to this long; the global `--timeout` still applies and whichever ends first stops the run. *exception*: on `cluster deploy/restart/rollback/scale/status` it is a bool (as in helm), bounded by `--timeout` | 0 = do not wait |
 | `--idle` | | duration | stop after this long with nothing new | stated per flag |
 | `--interval`, `--expires`, `--ttl`, `--older-than`, `--warn` | | duration | a span | per flag; "0 = never" or "> 0" in the usage text |
@@ -417,7 +416,7 @@ tree, compare every shorthand with this table]
 | `-v` | `--version` | root only | |
 | `-a` | `--all` | read commands only (docker ps, fs ls, user list, db activity, cache info, cluster helm values, guide); `docker prune -a` kept (docker's own) | ls, docker ps |
 | `-A` | `--all-namespaces` | cluster | kubectl |
-| `-c` | `--container` | any --container; `--cmd` only on exec and job start | kubectl |
+| `-c` | `--container` | any --container; `--cmd` only on exec | kubectl |
 | `-C` | `--dir` | any --dir; `--comment` only on key gen | git, make |
 | `-e` | `--env` | any --env | docker |
 | `-f` | `--follow` on log streamers; `--file` elsewhere | | tail, kubectl apply |
@@ -686,7 +685,6 @@ here as "none". [schema: for each kind, each verb resolves]
 | group | add | test @GROUP | show | list | add/rm members | rename | rm (no TARGET) | export |
 | recipe | add | none | show | list | add --overwrite | none | rm | export |
 | policy rule | deny (alias add) | check | none | list | none | none | rm | export |
-| job | start | none | status (alias show) | list | none | none | kill (alias stop), rm | none |
 | tunnel | start | none | show | list | none | none | stop | none |
 
 **S-10.2** Flags match across kinds: `vpn KIND add` and `vpn KIND edit` take the same

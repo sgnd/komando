@@ -98,7 +98,7 @@ func TestStandardShorthands(t *testing.T) {
 			return in(p, "docker ps", "docker prune", "fs list", "db activity", "cache info", "cluster helm values", "guide")
 		}},
 		"A": {"all-namespaces": cluster},
-		"c": {"container": nil, "cmd": func(p string) bool { return in(p, "host ssh exec", "host winrm exec", "job start") }},
+		"c": {"container": nil, "cmd": func(p string) bool { return in(p, "host ssh exec", "host winrm exec") }},
 		"C": {"dir": nil, "comment": func(p string) bool { return in(p, "credential key create") }},
 		"e": {"env": nil},
 		"f": {"follow": func(p string) bool { return in(p, logStreamers...) }, "file": func(p string) bool { return !in(p, logStreamers...) }},

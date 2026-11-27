@@ -164,8 +164,8 @@ var srvCertHints = map[string]formHint{
 func init() {
 	addFormHints(map[string]formHint{
 		"docker rm":       {next: []string{"docker ps {} --all"}},
-		"host ssh exec":   {next: []string{"job start {} -- COMMAND", "logs {}"}},
-		"host winrm exec": {next: []string{"job start {} -- COMMAND", "logs {}"}},
+		"host ssh exec":   {next: []string{"host ssh exec {} --attach ID", "logs {}"}},
+		"host winrm exec": {next: []string{"logs {}"}},
 		"logs":            {next: []string{"logs {} --unit UNIT --follow"}},
 		"pkg upgradable":  {next: []string{"pkg upgrade {} --dry-run", "pkg security {}"}},
 		"pkg security":    {next: []string{"pkg upgrade {} --security --dry-run"}},

@@ -432,15 +432,15 @@ func (w *refRewriter) rewrite(s *store.State) {
 	w.rewriteRest(s)
 }
 
-// rewriteRest: key passphrases, jobs and tunnels.
+// rewriteRest: key passphrases, exec sessions and tunnels.
 func (w *refRewriter) rewriteRest(s *store.State) {
 	for _, name := range slices.Sorted(maps.Keys(s.Keys)) {
 		k := s.Keys[name]
 		w.change("key "+name, "passphrase_ref", &k.PassphraseRef, w.ref(k.PassphraseRef))
 	}
-	for _, id := range slices.Sorted(maps.Keys(s.Jobs)) {
-		if j := s.Jobs[id]; w.rs["host"][j.Host] != "" {
-			w.change("job "+id, "host", &j.Host, w.rs["host"][j.Host])
+	for _, id := range slices.Sorted(maps.Keys(s.ExecSessions)) {
+		if e := s.ExecSessions[id]; w.rs["host"][e.Host] != "" {
+			w.change("exec session "+id, "host", &e.Host, w.rs["host"][e.Host])
 		}
 	}
 	for _, id := range slices.Sorted(maps.Keys(s.Tunnels)) {

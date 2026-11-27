@@ -102,12 +102,6 @@ This page is made from the code (`komando schema` lists the same under
 | `INSECURE_PROTOCOL` | 2 | …:// crosses the network to … without TLS, so the password and the data travel unencrypted | use the URL's TLS form if the server has TLS (rediss://, memcacheds://, amqps://, nats tls://, kafka tls=true, an https:// endpoint, ftps://, webdavs://), or reach it --via an SSH server (`--via HOST`); otherwise add ?insecure=1 to accept that the login and the data travel unencrypted |
 | `IS_A_DIRECTORY` | 2 | …:… is a folder, not a file | copy the folder and everything in it with -r: `komando copy -r … …` |
 | `IS_A_SYMLINK` | 8 | … is a symbolic link (--no-follow) | drop --no-follow to write the file it points to |
-| `JOB_FAILED` | 5 | job exited with … | read its output with `komando job logs … --limit 50` |
-| `JOB_KILLED` | 5 | job … was killed (…) | it was stopped with `komando job kill` |
-| `JOB_LOST` | 5 | job … lost | it stopped without an exit code (killed, or the server restarted): `komando job logs … --limit 50` shows how far it got; start it again with `komando job start … -- …` if needed |
-| `JOB_NOT_FOUND` | 3 | no job named … | see them with `komando job list` |
-| `JOB_RUNNING` | 8 | job … is still running | stop it first with `komando job kill …`, or pass --kill to stop and remove it |
-| `JOB_START_FAILED` | 5 | could not start job: … | check that /bin/sh and nohup work there: `komando test TARGET` |
 | `JOURNAL_PERMISSION` | 5 | this user may not read the system journal | add --sudo, or add the login user to the systemd-journal group |
 | `K8S_CONFLICT` | 8 | the object changed or exists already (the cluster's words follow) | the object changed meanwhile or exists already: look at it with `komando cluster get TARGET TYPE/NAME`, then run it again |
 | `K8S_CONTAINER_NOT_FOUND` | 3 | no container named … | its containers: … |
@@ -239,7 +233,7 @@ This page is made from the code (`komando schema` lists the same under
 | `SESSION_WAIT_TIMEOUT` | 7 | session … on … still running after … | it is still running: `komando exec … --attach … --offset …` reads on |
 | `SFTP_UNAVAILABLE` | 4 | sftp: … | enable the sftp subsystem in sshd_config |
 | `SHARED_FOLDER_CONFLICT` | 8 | … can be changed by …, not only by root and the SSH user: as root, komando does not write … there (that user could swap it for a link while root writes) | write it as … instead, for example `komando exec TARGET --sudo-user … --stdin-file FILE -- sh -c 'cat > "$0"' …` |
-| `SHELL_IDLE_TIMEOUT` | 7 | the shell on … ended after … with no input and no output | connect again (ssh -t HOST komando shell …); run long work as a job: `komando job start … -- COMMAND` |
+| `SHELL_IDLE_TIMEOUT` | 7 | the shell on … ended after … with no input and no output | connect again (ssh -t HOST komando shell …); run long work in a session: `komando exec … -- COMMAND` goes on there when the connection drops |
 | `SHORTER_SCRIPT_REQUIRED` | 6 |  | split it into shorter pieces (the hint names the command for a script, SQL or a file) or ask the user to run it in their own terminal; e.g. `komando exec TARGET --script FILE` for a script |
 | `SIZE_CONFLICT` | 8 | --size said … bytes, and stdin sent …; nothing was put into place | send the whole file again: `komando copy - DESTINATION --size N` |
 | `SKIPPED` | 1 | skipped: another server failed first, and --fail-fast is on | run without --fail-fast to reach every server |

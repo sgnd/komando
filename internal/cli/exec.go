@@ -87,9 +87,9 @@ type execOpts struct {
 	failFast  bool
 	display   string // what output and the audit log show instead of a long generated script
 	recipe    string // snippet exec: the recipe's name, in the result and the audit log
-	// jobScript: exec --script's flags for job start (--script FILE ...),
-	// so a timeout can name the job that runs the same script
-	jobScript string
+	// scriptFlags: exec --script's flags (--script FILE ...), so a timeout
+	// can name the exec that runs the same script
+	scriptFlags string
 	// follow: a log follow (logs --follow). Reaching --timeout is how it
 	// ends, not a failure.
 	follow bool
@@ -137,8 +137,14 @@ not answer within --connect-timeout exits 7 (CONNECT_TIMEOUT).
 If the connection breaks while the command runs, that server's result has
 error code CONNECTION_LOST (exit 4) and the output that came so far: the
 command may still be running there, or may have finished. Check with a
-read-only command before running it again. For long tasks over a shaky link
-use ` + "`komando job start` and `komando job wait`" + `: they survive a drop.
+read-only command before running it again.
+
+On one Linux or Unix server (no --pty) the command runs in a session on the
+server, so it survives a drop: exec prints the session ID first (the first
+JSON line), waits --wait for the end and returns the output and the exit
+code, or exit 7 with next_from when the run goes on. Read the rest with
+` + "`komando host ssh exec TARGET --attach ID`" + `, stop it with ` + "`--attach ID --stop`" + `, and
+delete a finished one with ` + "`--attach ID --remove`" + `.
 
 Commands that destroy things (rm -rf /, mkfs, reboot, DROP DATABASE, ...)
 and any change on a production server: at a terminal komando asks you
@@ -156,15 +162,16 @@ so nothing is left on the server. --arg values become $1, $2 ... .`,
   komando host ssh exec db1 --read-only -- df -h
   komando host ssh exec @web --script ./deploy.sh --arg v1.2.3 --sudo
   komando host ssh exec db1 --script ./backup.py --interpreter python3
-  cat deploy.sh | komando host ssh exec web1 --stdin-file - -- 'bash -s'`,
+  cat deploy.sh | komando host ssh exec web1 --stdin-file - -- 'bash -s'
+  komando host ssh exec web1 --attach ID --offset 4096
+  komando host ssh exec web1 --attach ID --stop
+  komando host ssh exec web1 --attach ID --remove`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			if err := sess.refuseOff(cmd); err != nil {
-				return err
-			}
 			if sess.wants(cmd) {
-				return sess.attachCall(cl, cmd.Context(), cmd, args, cmdStr != "" || so.file != "")
+				return sess.attachCall(cl, cmd.Context(), cmd, args, cmdStr != "" || so.file != "", readOnly)
 			}
+			o.session = &sess
 			if so.file != "" {
 				if cmdStr != "" || len(args) > 1 {
 					return out.Usage("give a command or --script FILE, not both")
@@ -181,27 +188,14 @@ so nothing is left on the server. --arg values become $1, $2 ... .`,
 			if strings.TrimSpace(command) == "" {
 				return out.Usage("no command given: komando host ssh exec TARGET -- COMMAND")
 			}
-			var stdin []byte
-			if o.stdinFile != "" {
-				var err error
-				if stdin, err = readFileOrStdin(cl, o.stdinFile); err != nil {
-					return localFileErr("FILE_NOT_FOUND", err, "check the --stdin-file path")
-				}
-				if err := hiddenInInput(cl, o.stdinFile, stdin); err != nil {
-					return err
-				}
-				noteApprovalBody(cl, scriptLabel("the input", o.stdinFile), stdin)
-				// the input may be a script (bash -s): the policy reads it
-				// like the command, as script does with its file
-				if err := guardBody(cl, string(stdin)); err != nil {
-					return err
-				}
+			stdin, err := execInput(cl, o)
+			if err != nil {
+				return err
 			}
 			mutating, err := execReadOnly(cl, args[0], command, stdin, o, readOnly)
 			if err != nil {
 				return err
 			}
-			o.session = &sess
 			return runFleet(cl, cmd.Context(), "exec", args[0], command, stdin, o, mutating)
 		}),
 	}
@@ -317,7 +311,7 @@ func runFleet(cl *call, ctx context.Context, name, target, command string, stdin
 	if follow {
 		followStatus(cl, st, hosts)
 	}
-	sess := sessionFor(name, hosts, o, shown)
+	sess := sessionFor(st, name, hosts, o, shown)
 	var mu sync.Mutex
 	var failed bool
 	run := func(ctx context.Context, c *sshx.Client) (any, error) {
@@ -414,7 +408,7 @@ func runFleet(cl *call, ctx context.Context, name, target, command string, stdin
 			}
 			// a lost connection keeps what the command printed before it broke
 			hr.RunResult, _ = r.Value.(*sshx.RunResult)
-			lostJobHint(hr.Error, jobStartLine(name, hr.Host, command, stdin, o))
+			lostHint(hr.Error, sess, hr.Host, execLine(name, r.Host, command, stdin, o))
 			worst = worse(worst, hr.Error.Exit)
 			fails = append(fails, hostFail{host: hr.Host, reason: failReason(0, hr.Error), err: hr.Error})
 		} else {
@@ -426,7 +420,11 @@ func runFleet(cl *call, ctx context.Context, name, target, command string, stdin
 			hr.OK = hr.ExitCode == 0 && !hr.TimedOut
 			switch {
 			case hr.TimedOut:
-				hr.Error = execTimeoutErr(jobStartLine(name, hr.Host, command, stdin, o), req.Timeout)
+				line := ""
+				if sess == nil || sess.id == "" {
+					line = execLine(name, r.Host, command, stdin, o)
+				}
+				hr.Error = execTimeoutErr(line, req.Timeout)
 				worst = worse(worst, out.ExitTimeout)
 				fails = append(fails, hostFail{host: hr.Host, reason: "timed out", err: hr.Error})
 			case !hr.OK && o.exitMap != nil && o.exitMap(hr.RunResult) != nil:
@@ -447,7 +445,7 @@ func runFleet(cl *call, ctx context.Context, name, target, command string, stdin
 		data.Results = append(data.Results, hr)
 	}
 	data.Summary.Total = len(results)
-	audit(cl, st, name, hostNames(hosts), shown, data.Summary.Failed == 0, withRecipe(map[string]any{"exit_codes": exitCodes(data.Results), "sudo": req.Sudo}, o.recipe))
+	audit(cl, st, name, hostNames(hosts), shown, data.Summary.Failed == 0, sess.note(withRecipe(map[string]any{"exit_codes": exitCodes(data.Results), "sudo": req.Sudo}, o.recipe)))
 	if o.stream && cl.out.Format != "text" {
 		cl.out.Event(map[string]any{"event": "done", "summary": data.Summary})
 	}

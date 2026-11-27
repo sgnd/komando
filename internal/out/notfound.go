@@ -8,7 +8,6 @@ var notFoundCodes = map[string]string{
 	"host":   "TARGET_NOT_FOUND",
 	"conn":   "TARGET_NOT_FOUND",
 	"vpn":    "TARGET_NOT_FOUND",
-	"job":    "JOB_NOT_FOUND",
 	"key":    "SSH_KEY_NOT_FOUND",
 	"recipe": "SNIPPET_NOT_FOUND",
 	"secret": "SECRET_NOT_FOUND",

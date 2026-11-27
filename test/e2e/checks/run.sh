@@ -1,6 +1,6 @@
 # shellcheck shell=bash
-# Running commands, files, transfers, sync, jobs and tunnels behave like the
-# native tools (ssh, scp, rsync, sed -i, nohup).
+# Running commands, files, transfers, sync, exec sessions and tunnels behave
+# like the native tools (ssh, scp, rsync, sed -i, nohup).
 R=/tmp/t-e2erun
 L="$TMP/e2erun"
 rm -rf "$L"; mkdir -p "$L/site/sub"
@@ -51,15 +51,15 @@ check "sync never deleted the local files" k "$(cat "$L/keep/k")"
 check "sync from a file" NOT_A_FOLDER "$($K copy direct:$R/b "$L/x" --sync | jget 'd["error"]["code"]' || true)"
 check "sync dry-run grammar" True "$($K copy "$L/site" direct:$R/s --sync --dry-run -o text 2>/dev/null | grep -q '^would copy 2, update 0, delete 0' && echo True || echo False)"
 
-# jobs
-JR=$($K job start direct -- 'sleep 60' | jget 'd["data"]["jobs"][0]["id"]')
-check "job rm of a running job -> JOB_RUNNING" JOB_RUNNING "$($K job rm "$JR" | jget 'd["error"]["code"]' || true)"
-set +e; $K job wait "$JR" --timeout 2s --interval 1s >/dev/null; check "job wait --timeout" 7 $?; set -e
-q $K job kill "$JR"
-check "a killed job says killed" killed "$($K job status "$JR" | jget 'd["data"]["state"]')"
-check "kill again is a no-op" 0 "$($K job kill "$JR" >/dev/null; echo $?)"
-set +e; $K job logs "$JR" --offset -5 >/dev/null; check "negative --offset -> 2" 2 $?; set -e
-q $K job rm "$JR"
+# exec sessions
+JR=$($K host ssh exec direct --wait 0 -- 'sleep 60' | sess_id || true)
+check "--remove of a running session -> SESSION_BUSY" SESSION_BUSY "$($K host ssh exec direct --attach "$JR" --remove | jget 'd["error"]["code"]' || true)"
+set +e; $K host ssh exec direct --attach "$JR" --wait 2s >/dev/null; check "--attach --wait runs out -> 7" 7 $?; set -e
+q $K host ssh exec direct --attach "$JR" --stop
+check "a stopped session says which signal ended it" TERM "$($K host ssh exec direct --attach "$JR" --wait 1m | jget 'd["data"]["results"][0]["signal"]' || true)"
+check "--stop again is a no-op" 0 "$($K host ssh exec direct --attach "$JR" --stop >/dev/null; echo $?)"
+set +e; $K host ssh exec direct --attach "$JR" --offset -5 >/dev/null; check "negative --offset -> 2" 2 $?; set -e
+q $K host ssh exec direct --attach "$JR" --remove
 
 # recipes, tunnels
 set +e; $K snippet exec disk direct --var pth=/ >/dev/null; check "unknown recipe --var -> 2" 2 $?; set -e

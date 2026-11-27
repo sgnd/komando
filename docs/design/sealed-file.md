@@ -157,8 +157,8 @@ The `komando export` document (`komando-export/1`: `hosts`, `conns`,
 
 `secrets_needed` still lists every secret the records name; a name in it
 that is not in `secrets` was not in the vault. Not inside: pinned host
-keys (each is checked again on first use), the audit log, jobs, tunnels,
-sessions, logins, the approval-code key, cloud tokens. A security key
+keys (each is checked again on first use), the audit log, exec sessions,
+tunnels, sessions, logins, the approval-code key, cloud tokens. A security key
 (FIDO2) stays on its device.
 
 ## Check phrase

@@ -20,7 +20,7 @@ const (
 	ExitOK       = 0
 	ExitError    = 1 // generic / internal error
 	ExitUsage    = 2 // bad flags or arguments
-	ExitNotFound = 3 // host, key, secret, job ... not found
+	ExitNotFound = 3 // host, key, secret, session ... not found
 	ExitConnect  = 4 // ssh connection / auth / host-key failure; CONNECTION_LOST: broke mid-command
 	ExitRemote   = 5 // remote command ran but exited non-zero
 	ExitPolicy   = 6 // blocked for safety: needs a person's yes or a person at a terminal
@@ -135,7 +135,7 @@ func DefaultHint(exit int) string {
 	case ExitPolicy:
 		return "stop and tell the user what you want to do and why; `komando guide` explains the safety stops"
 	case ExitTimeout:
-		return "give it more time with --timeout (for example --timeout 30m), or run long work as a job: `komando job start TARGET -- COMMAND`"
+		return "give it more time with --timeout (for example --timeout 30m), or run long work in a session: `komando host ssh exec TARGET -- COMMAND` returns after --wait and goes on there"
 	case ExitConflict:
 		return "the state is not what the command expected: look at it again, then run it again"
 	}

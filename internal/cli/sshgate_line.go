@@ -37,7 +37,7 @@ this komando by its full path, as sshd does not search PATH.
 
 A --read-only key runs only commands that read, and only those that stay
 on the servers and conns in your list: no net checks, no cert check of
-a website, and no exec, job start, docker exec, cluster kubernetes exec or snippet exec,
+a website, and no exec, docker exec, cluster kubernetes exec or snippet exec,
 whose programs can connect anywhere and carry what they read in a URL or a
 DNS name. Add --network too for a read key that may do those.
 

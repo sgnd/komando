@@ -59,7 +59,6 @@ var gateNoNetwork = map[string]func(c *cobra.Command) string{
 	"fs": nil, "fs.cat": nil, "fs.list": nil, "fs.stat": nil,
 	"group": nil, "group.list": nil, "group.show": nil,
 	"host": nil, "host.ca": nil, "host.ca.list": nil, "host.list": nil, "host.show": nil, "host.ssh-command": nil, "host.test": nil,
-	"job": nil, "job.list": nil, "job.logs": nil, "job.status": nil, "job.wait": nil,
 	"key": nil, "key.list": nil, "key.show": nil,
 	"pkg": nil, "pkg.installed": nil, "pkg.security": nil, "pkg.upgradable": nil,
 	"policy": nil, "policy.check": nil, "policy.list": nil, "policy.show": nil,
@@ -74,7 +73,6 @@ var gateNoNetwork = map[string]func(c *cobra.Command) string{
 // gateNetwork are the reads that may reach a place the key names, and why.
 var gateNetwork = map[string]string{
 	"exec":         "it runs a program of your choosing, which can connect anywhere",
-	"job.start":    "it runs a program of your choosing, which can connect anywhere",
 	"docker.exec":  "it runs a program of your choosing in a container, which can connect anywhere",
 	"cluster.exec": "it runs a program of your choosing in a pod, which can connect anywhere",
 	"recipe.run":   "a recipe is a shell command with blanks you fill in, which can connect anywhere",

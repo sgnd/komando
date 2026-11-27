@@ -427,8 +427,7 @@ func TestHostOfAMaskingConnIsPersonal(t *testing.T) {
 // What an AI agent's exec prints on a server that a masking conn reaches
 // through shows personal data hidden; before that conn, it shows as sent.
 func TestExecOnAMaskingConnsServerHidesPersonalData(t *testing.T) {
-	srv := startFakeServer(t)
-	srv.answer = func(string) (string, int) { return "id,email\n1,ann@example.com\n", 0 }
+	startSessionServer(t, "id,email\n1,ann@example.com\n", true)
 	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Hosts["prod"].Protected = false // dev is the same server: neither is a personal target by the setting
 		return nil

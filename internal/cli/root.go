@@ -391,7 +391,7 @@ var localReads = map[string]bool{
 	"audit": true, "list": true, "config.show": true, "policy.list": true, "policy.check": true, "policy.show": true,
 	"conn.kinds": true, "conn.show": true, "host.show": true, "vpn.show": true, "key.list": true,
 	"key.show": true, "secret.list": true, "group.list": true, "recipe.list": true, "vpn.status": true,
-	"tunnel.list": true, "job.list": true, "status": true,
+	"tunnel.list": true, "status": true,
 	"host.list": true, "conn.list": true, "vpn.list": true, "secret.show": true,
 }
 
@@ -602,7 +602,7 @@ func addCommands(cl *call, root *cobra.Command) {
 		}
 	}
 	add("servers", logsCmd(), fsCmd(), uploadCmd(), downloadCmd(), cpCmd(), syncCmd(),
-		jobCmd(), dockerCmd(), pkgCmd(), certCmd(), snippetCmd())
+		dockerCmd(), pkgCmd(), certCmd(), snippetCmd())
 	add("data", dbCmd(), cacheCmd(), queueCmd(), storageCmd())
 	add("platform", clusterCmd(), registryCmd())
 	add("access", vpnCmd(), loginCmd(cl), logoutCmd(cl), loginHolderCmd(), secretCmd(), tunnelCmd())
@@ -695,7 +695,7 @@ func personHelp() string {
 	}
 	for _, g := range [][2]string{
 		{"START", "host ssh add · conn add · import ssh-config · list · test TARGET · agent skill install"},
-		{"SERVERS", "logs  fs  job  docker  pkg"},
+		{"SERVERS", "logs  fs  docker  pkg"},
 		{"DATA", "db  cache  queue  storage"},
 		{"PLATFORM", "cluster  registry"},
 		{"INVENTORY", "host  conn  group  import  export  rename"},

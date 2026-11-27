@@ -60,7 +60,7 @@ komando: one safe command line for servers, databases, caches, queues, storage, 
 Nothing added yet: komando host ssh add  or  komando import ssh-config
 
 START        host ssh add · conn add · import ssh-config · list · test TARGET · agent skill install
-SERVERS      logs  facts  fs  svc  job  docker  pkg  cron  user  reboot
+SERVERS      logs  facts  fs  svc  docker  pkg  cron  user  reboot
 DATA         db  cache  queue  storage
 ...
 ```
@@ -119,7 +119,7 @@ you a window to allow it once. The agent never sees your passwords.
 | See and check everything at once | `list`, `test`, `status` |
 | Keep your list of servers and how to log in | `host`, `group`, `key`, `secret`, `login` |
 | Bring in what you already have, or move to another computer | `import`, `export` |
-| Run commands on one or many servers | `host ssh exec`, `job`, `host ssh shell` |
+| Run commands on one or many servers | `host ssh exec` (long tasks run in sessions), `host ssh shell` |
 | Read, edit and copy files | `fs`, `copy` |
 | Check health and certificates | `facts`, `recipe`, `cert` |
 | Services, logs, Docker, packages, users, schedules, restarts | `svc`, `logs`, `docker`, `pkg`, `user`, `cron`, `reboot` |

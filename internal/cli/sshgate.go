@@ -62,8 +62,7 @@ var gateExec = syscall.Exec
 // change something, or "". The checks read flag values, which an old
 // spelling of a flag shares (flag_alias.go), so every spelling counts.
 var gateReadForm = map[safetyKey]func(c *cobra.Command) string{
-	{"host", "", "exec"}:              needFlag("read-only"),
-	{"host", "job", "start"}:          needFlag("read-only"),
+	{"host", "", "exec"}:              gateExecRead,
 	{"host", "docker", "exec"}:        needFlag("read-only"),
 	{"cluster", "", "exec"}:           needFlag("read-only"),
 	{"database", "", "query"}:         noFlag("write"),
@@ -111,8 +110,7 @@ var gateNotForReadKey = map[safetyKey]string{
 // knows. A func says why the command as given writes here, or "".
 var gateOnServers = map[safetyKey]func(c *cobra.Command) string{
 	{"host", "", "exec"}: nil, {"snippet", "", "exec"}: nil,
-	{"", "", "copy"}:         gateLocalDst,
-	{"host", "job", "start"}: nil, {"host", "job", "kill"}: nil, {"host", "job", "rm"}: nil,
+	{"", "", "copy"}:          gateLocalDst,
 	{"host", "file", "chmod"}: nil, {"host", "file", "mkdir"}: nil, {"host", "file", "mv"}: nil, {"host", "file", "replace"}: nil, {"host", "file", "restore"}: nil, {"host", "file", "rm"}: nil, {"host", "file", "write"}: nil,
 	{"host", "package", "install"}: nil, {"host", "package", "rm"}: nil, {"host", "package", "security"}: nil, {"host", "package", "update"}: nil, {"host", "package", "upgradable"}: nil, {"host", "package", "upgrade"}: nil,
 	{"credential", "key", "install"}: gateSetDefault, {"credential", "key", "uninstall"}: nil,
@@ -226,6 +224,15 @@ func needFlag(name string) func(c *cobra.Command) string {
 		}
 		return ""
 	}
+}
+
+// gateExecRead: exec reads with --read-only, but --stop signals a run and
+// --remove deletes its folder on the server, whatever --read-only says.
+func gateExecRead(c *cobra.Command) string {
+	if why := noFlag("stop", "remove")(c); why != "" {
+		return why
+	}
+	return needFlag("read-only")(c)
 }
 
 func noFlag(names ...string) func(c *cobra.Command) string {
@@ -683,7 +690,7 @@ recipes in komando, no update, no change on a sqlite file or a target at
 localhost or 127.x. With --read-only only commands that read run (database
 KIND query and cache redis raw without --write), and only those that stay on the
 servers and conns in your list: no net, no cert check of a website, no
-exec, job start, docker exec, cluster kubernetes exec or snippet exec, unless the line
+exec, docker exec, cluster kubernetes exec or snippet exec, unless the line
 also has --network. ` + "`komando ssh-gate status`" + ` tells a key which it is. Every command a key
 runs or is refused is in ` + "`komando audit list`" + `, with --name, even when the
 audit setting is off.`,

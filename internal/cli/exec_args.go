@@ -9,7 +9,7 @@ import (
 	"github.com/sgnd/komando/internal/sshx"
 )
 
-// commandWords is the remote command of exec and job start: -c, or the
+// commandWords is the remote command of exec: -c, or the
 // words after --, never both (one would be dropped without a word).
 func commandWords(cmdStr string, words []string, verb string) (string, error) {
 	if cmdStr != "" {
@@ -102,4 +102,25 @@ func envProgram(f []string) int {
 		}
 	}
 	return len(f)
+}
+
+// execInput is exec's --stdin-file: the input, checked for hidden values and
+// by the policy (the input may be a script, bash -s: the policy reads it like
+// the command, as --script does with its file). Nil without --stdin-file.
+func execInput(cl *call, o execOpts) ([]byte, error) {
+	if o.stdinFile == "" {
+		return nil, nil
+	}
+	stdin, err := readFileOrStdin(cl, o.stdinFile)
+	if err != nil {
+		return nil, localFileErr("FILE_NOT_FOUND", err, "check the --stdin-file path")
+	}
+	if err := hiddenInInput(cl, o.stdinFile, stdin); err != nil {
+		return nil, err
+	}
+	noteApprovalBody(cl, scriptLabel("the input", o.stdinFile), stdin)
+	if err := guardBody(cl, string(stdin)); err != nil {
+		return nil, err
+	}
+	return stdin, nil
 }

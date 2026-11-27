@@ -519,7 +519,6 @@ var formHides = map[string]string{
 	"host winrm edit tag":                    "-t is --add-tag, which is asked",
 	"conn edit group":                        "-g is --add-group, which is asked",
 	"conn edit tag":                          "-t is --add-tag, which is asked",
-	"job start cmd":                          "the same as the command words, which are asked",
 	"host ssh exec cmd":                      "the same as the command words, which are asked",
 	"host winrm exec cmd":                    "the same as the command words, which are asked",
 	"agent skill install no-guard":           "it turns off the guard that keeps AI agents away from secret files",

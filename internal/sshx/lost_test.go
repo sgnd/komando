@@ -166,7 +166,7 @@ func TestRunConnectionLost(t *testing.T) {
 					t.Fatalf("message %q lacks %q", e.Message, w)
 				}
 			}
-			if !strings.Contains(e.Hint, "--read-only") || !strings.Contains(e.Hint, "job start") {
+			if !strings.Contains(e.Hint, "--read-only") || !strings.Contains(e.Hint, "session") {
 				t.Fatalf("hint: %q", e.Hint)
 			}
 		})

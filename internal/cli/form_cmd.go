@@ -46,7 +46,7 @@ type formArg struct {
 	label                   string // its short name on the review; "" takes it from Use
 	// pick is the list it is picked from: server (one server), host
 	// (servers, groups, all), target, conn, db, cache, storage, cluster,
-	// queue, registry, vpn, key, group, job, tunnel, secret; "" typed
+	// queue, registry, vpn, key, group, tunnel, secret; "" typed
 	pick    string
 	free    bool     // with pick: something not in the list may be typed (tag:prod)
 	local   bool     // a path on this computer: ~/ is your home folder
@@ -220,8 +220,6 @@ func formArgPick(name string) (string, bool) {
 		return "vpn", false
 	case "GROUP":
 		return "group", true
-	case "JOB":
-		return "job", true
 	case "TUNNEL":
 		return "tunnel", true
 	}
@@ -259,10 +257,6 @@ func formPickRows(st *store.State, pick string) []pickRow {
 	case "key":
 		for _, n := range pickNames(st.Keys, "key") {
 			rows = append(rows, pickRow{label: n, value: n})
-		}
-	case "job":
-		for _, n := range slices.Sorted(maps.Keys(st.Jobs)) {
-			rows = append(rows, pickRow{label: n, detail: st.Jobs[n].Host, value: n})
 		}
 	case "tunnel":
 		for _, n := range slices.Sorted(maps.Keys(st.Tunnels)) {
@@ -502,7 +496,7 @@ func formValueProblem(typ, v string) string {
 
 // formJoined are the commands that join the words after -- into one
 // shell line themselves: their command is passed as one word, as typed.
-var formJoined = []string{"host ssh exec", "host winrm exec", "job start"}
+var formJoined = []string{"host ssh exec", "host winrm exec"}
 
 // formCmdArgs is the command line for the answers: the command, its
 // arguments in order, then each flag that differs from its default.
@@ -654,7 +648,7 @@ var formAreas = []struct {
 	{"VPNs, logins and tunnels", "connect, log in once, forward ports", []string{"vpn", "tunnel", "login", "logout"}},
 	{"Secrets and keys", "the vault and SSH keys", []string{"credential", "secret"}},
 	{"Your list", "servers, conns, groups: add, change, import", []string{"host", "conn", "group", "list", "rename", "import", "export", "test"}},
-	{"Jobs and snippets", "long tasks and saved commands", []string{"job", "snippet"}},
+	{"Snippets", "saved commands", []string{"snippet"}},
 	{"Safety and audit", "what happened, rules, checks", []string{"audit", "policy", "doctor", "status", "config", "ssh-gate"}},
 	{"Setup", "AI agents, updates", []string{"guide", "agent", "update", "version", "schema", "completion"}},
 }

@@ -107,12 +107,11 @@ func TestStandardSynonyms(t *testing.T) {
 		{[]string{"databases", "postgres", "query"}, "database.postgres.query"}, {[]string{"files", "cat"}, "fs.cat"},
 		{[]string{"policies", "list"}, "policy.list"},
 		{[]string{"cache", "list"}, "cache.keys"}, {[]string{"cache", "ls"}, "cache.keys"},
-		{[]string{"group", "show"}, "group.show"}, {[]string{"job", "show"}, "job.status"},
+		{[]string{"group", "show"}, "group.show"},
 		{[]string{"snippet", "show"}, "snippet.show"},
 		{[]string{"docker", "describe"}, "docker.inspect"}, {[]string{"registry", "oci", "image", "describe"}, "registry.oci.image.show"},
 		{[]string{"db", "user", "create"}, "db.user.add"},
 		{[]string{"secret", "copy"}, "secret.cp"},
-		{[]string{"job", "stop"}, "job.kill"},
 		{[]string{"cluster", "info"}, "cluster.status"},
 	} {
 		if got := cmdID(findCmd(t, root, c.args...)); got != c.id {

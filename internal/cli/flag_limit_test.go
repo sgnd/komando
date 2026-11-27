@@ -18,7 +18,7 @@ var listToolWords = map[string]bool{
 	"komando audit list": true,
 	// the log readers: the last N lines
 	"komando logs": true, "komando docker logs": true,
-	"komando cluster logs": true, "komando job logs": true,
+	"komando cluster logs": true,
 }
 
 // TestStandardListLimit: every list command has --limit (S-5.8), the log
@@ -103,19 +103,5 @@ func TestFsLsLimitSpelling(t *testing.T) {
 	f := fsLsCmd().Flags().Lookup("limit")
 	if f == nil || f.Shorthand != "n" || f.DefValue != "1000" {
 		t.Fatalf("fs list --limit: %+v", f)
-	}
-}
-
-// job logs: -n/--limit is primary (default 0, read from --offset); --tail
-// is a permanent hidden synonym.
-func TestJobLogsLimit(t *testing.T) {
-	c := jobLogsCmd()
-	f := c.Flags().Lookup("limit")
-	if f == nil || f.Shorthand != "n" || f.DefValue != "0" {
-		t.Fatalf("job logs --limit: %+v", f)
-	}
-	tail := c.Flags().Lookup("tail")
-	if tail == nil || !tail.Hidden || tail.Value != f.Value {
-		t.Fatalf("job logs --tail must be a silent synonym of --limit: %+v", tail)
 	}
 }

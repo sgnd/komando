@@ -50,7 +50,6 @@ var shapeCases = [][]string{
 	{"credential", "key", "list"},
 	{"host", "ssh", "tunnel", "list"},
 	{"vpn", "wireguard", "list"},
-	{"job", "list"},
 	{"status"},
 	{"audit", "list", "--limit", "5"},
 	{"host", "ssh", "edit", "web", "--port", "2222", "--dry-run"},

@@ -204,7 +204,7 @@ func useArgs(c *cobra.Command) []string {
 // itemCommands; "" finds the kind in the inventory (a server, conn or VPN).
 var showKinds = map[string]string{
 	"host ssh show": "", "conn show": "",
-	"group list": "group", "credential key show": "key", "job status": "job", "credential password show": "secret",
+	"group list": "group", "credential key show": "key", "credential password show": "secret",
 	"credential token show": "secret", "config get": "setting",
 	"snippet show": "recipe",
 }
@@ -215,7 +215,7 @@ var showKinds = map[string]string{
 var itemCommands = map[string][]string{
 	"server": {"logs {} --since 30m", "host ssh exec {} -- uptime", "host ssh shell {}",
 		"pkg upgradable {}", "docker ps {}", "fs list {} /etc", "copy ./FILE {}:/tmp/FILE",
-		"copy {}:/var/log/syslog ./", "job start {} -- make", "host ssh tunnel start {} -L 8080:localhost:80",
+		"copy {}:/var/log/syslog ./", "host ssh tunnel start {} -L 8080:localhost:80",
 		"credential key install KEY {}", "audit list --target {}", "host ssh edit {}", "host ssh rename {} NEW", "host ssh remove {}", "test {}"},
 	"server:windows": {"host winrm exec {} -- Get-Date", "audit list --target {}", "host winrm edit {}", "host winrm rename {} NEW", "host winrm remove {}", "test {}"},
 	// a server tagged swarm is also a Docker Swarm manager
@@ -262,7 +262,6 @@ var itemCommands = map[string][]string{
 		"group create {} TARGET", "group remove {} TARGET", "group rename {} NEW"},
 	"key": {"credential key install {} TARGET", "credential key uninstall {} TARGET", "credential key edit {}",
 		"credential key rename {} NEW", "credential key remove {}"},
-	"job": {"job logs {} --limit 50", "job wait {}", "job kill {}", "job rm {}"},
 	"secret": {"secret check {}", "credential password add {}", "credential password rename {} NEW", "secret cp {} NEW",
 		"credential password remove {}"},
 	"setting": {"config set {} VALUE"},

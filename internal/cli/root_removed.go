@@ -10,6 +10,7 @@ import "slices"
 // tables after the release.
 var removedIDs = []string{
 	"cron", "cron.list", "cron.rm", "cron.set", "facts",
+	"job", "job.kill", "job.list", "job.logs", "job.rm", "job.start", "job.status", "job.wait",
 	"net", "net.check", "net.dns", "net.http", "net.ports", "reboot",
 	"svc", "svc.daemon-reload", "svc.disable", "svc.enable", "svc.list", "svc.logs", "svc.reload",
 	"svc.restart", "svc.start", "svc.status", "svc.stop",

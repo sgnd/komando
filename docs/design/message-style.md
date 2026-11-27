@@ -95,7 +95,7 @@ a capital, `komando:`, two spaces, `$ komando` or a newline]
 | a vault value | secret (a login password stays "password") | credential, saved password |
 | an SSH key komando knows | key / SSH key | keypair, identity |
 | `@name` | group | set, collection |
-| `job start` work | job | task, background command |
+| a long `exec` run on a server | session (exec session) | job, task, background command |
 | a deny rule a person added | your deny rule | custom deny pattern |
 | a folder | folder | directory |
 

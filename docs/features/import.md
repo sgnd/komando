@@ -330,8 +330,8 @@ passphrase first (`komando config vault passphrase`), or keep an
 [export](#export-and-import-no-passwords) next to it and set the passwords
 again from your password manager.
 
-Put the folder back with komando running nothing (no VPN, tunnel or job
-started from it; `komando status` shows them), then:
+Put the folder back with komando running nothing (no VPN, tunnel or exec
+session started from it; `komando status` shows them), then:
 
 ```bash
 komando doctor                                # the vault opens, the servers are there

@@ -34,7 +34,7 @@ func TestHostMv(t *testing.T) {
 	mustRun(t, "host", "ssh", "add", "web", "u@10.0.0.2", "--via", "jump")
 	mustRun(t, "conn", "add", "db", "postgres://a@10.0.0.5/app", "--via", "jump")
 	if err := store.Update(store.Save(), func(s *store.State) error {
-		s.Jobs["j1"] = &store.Job{ID: "j1", Host: "jump", Command: "sleep 1"}
+		s.ExecSessions["x1"] = &store.ExecSession{ID: "x1", Host: "jump", Command: "sleep 1"}
 		s.Tunnels["t1"] = &store.Tunnel{ID: "t1", Host: "jump", Via: "jump", Kind: "local"}
 		return nil
 	}); err != nil {
@@ -59,9 +59,9 @@ func TestHostMv(t *testing.T) {
 	if st.Hosts["jump"] != nil || b == nil || b.Name != "bastion" || b.SudoRef != "credential:j" || len(b.Groups) != 1 || len(b.Tags) != 1 {
 		t.Fatalf("the entry keeps everything: %+v", b)
 	}
-	if st.Hosts["web"].Via != "bastion" || st.Conns["db"].Via != "bastion" || st.Jobs["j1"].Host != "bastion" ||
+	if st.Hosts["web"].Via != "bastion" || st.Conns["db"].Via != "bastion" || st.ExecSessions["x1"].Host != "bastion" ||
 		st.Tunnels["t1"].Host != "bastion" || st.Tunnels["t1"].Via != "bastion" {
-		t.Errorf("references follow the new name: %+v %+v %+v %+v", st.Hosts["web"], st.Conns["db"], st.Jobs["j1"], st.Tunnels["t1"])
+		t.Errorf("references follow the new name: %+v %+v %+v %+v", st.Hosts["web"], st.Conns["db"], st.ExecSessions["x1"], st.Tunnels["t1"])
 	}
 
 	wantCode(t, "NAME_TAKEN", "host", "ssh", "rename", "bastion", "db")

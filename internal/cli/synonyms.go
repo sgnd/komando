@@ -42,7 +42,7 @@ func addAliases(c *cobra.Command, names ...string) *cobra.Command {
 var nounAliases = map[string][]string{
 	"host": {"hosts", "server", "servers"}, "conn": {"conns"}, "vpn": {"vpns"},
 	"group": {"groups"}, "secret": {"secrets"}, "snippet": {"snippets"},
-	"policy": {"policies"}, "job": {"jobs"}, "fs": {"files"},
+	"policy": {"policies"}, "fs": {"files"},
 	"pkg": {"package", "packages"}, "docker": {"container", "containers"},
 	"cert": {"certs"}, "db": {"dbs"}, "database": {"databases"}, "cache": {"caches"},
 	"queue": {"queues"}, "cluster": {"clusters"}, "registry": {"registries"},

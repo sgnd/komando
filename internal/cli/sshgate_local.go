@@ -39,12 +39,11 @@ import (
 // that is one of this computer's network addresses (gateLocalAddr).
 //
 // gateTargetArgs reads the targets of the changes whose target is not where
-// their Use line says (gateUseTargets). Jobs were started through the gate;
-// VPNs are no target.
+// their Use line says (gateUseTargets). VPNs are no target.
 var gateTargetArgs = map[safetyKey]func(cl *call, args []string) []string{
 	{"snippet", "", "exec"}: argAt(1), {"credential", "key", "install"}: argAt(1), {"credential", "key", "uninstall"}: argAt(1),
 	{"", "", "copy"}: gateRemoteSides, {"registry", "image", "copy"}: gateRemoteSides,
-	{"host", "job", "kill"}: argAt(-1), {"host", "job", "rm"}: argAt(-1), {"vpn", "", "start"}: argAt(-1), {"vpn", "", "stop"}: argAt(-1),
+	{"vpn", "", "start"}: argAt(-1), {"vpn", "", "stop"}: argAt(-1),
 }
 
 // argAt reads argument i as the target (none when i < 0).

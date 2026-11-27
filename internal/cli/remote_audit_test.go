@@ -76,9 +76,7 @@ func TestFlagsAfterDashRefused(t *testing.T) {
 	for _, args := range [][]string{
 		{"host", "ssh", "exec", "web2", "--", "uptime", "-P", "2", "--dry-run", "-o", "json"},
 		{"host", "ssh", "exec", "web2", "--", "apt-get", "upgrade", "--dry-run"},
-		{"job", "start", "web2", "--", "sleep", "100", "--dry-run"},
 		{"host", "ssh", "exec", "web2", "-c", "ls", "--", "uptime"},
-		{"job", "start", "web2", "-c", "ls", "--", "uptime"},
 	} {
 		if _, e := invRun(t, args...); e == nil || e.Code != "USAGE" {
 			t.Errorf("%v: want USAGE, got %+v", args, e)
@@ -107,10 +105,6 @@ func TestEnvKeepsCommas(t *testing.T) {
 	d := mustRun(t, "host", "ssh", "exec", "web2", "-e", "HOSTS=a,b", "--dry-run", "--", "echo $HOSTS")
 	if cmd := wouldRun(t, d)["remote_command"].(string); !strings.Contains(cmd, "HOSTS='a,b'") {
 		t.Errorf("remote_command %q", cmd)
-	}
-	d = mustRun(t, "job", "start", "web2", "-e", "HOSTS=a,b", "--dry-run", "--", "echo $HOSTS")
-	if d["command"] != "echo $HOSTS" {
-		t.Errorf("job start: %v", d)
 	}
 }
 
@@ -289,21 +283,6 @@ func TestRecipeRunNameAndOrder(t *testing.T) {
 	e := wantCode(t, "SNIPPET_NOT_FOUND", "snippet", "exec", "web2", "disk")
 	if !strings.Contains(e.Hint, "komando snippet exec disk web2") {
 		t.Errorf("hint %q", e.Hint)
-	}
-}
-
-func TestJobChecks(t *testing.T) {
-	auditHome(t)
-	if _, e := invRun(t, "job", "list", "--target", "nosuch"); e == nil {
-		t.Error("job list --target nosuch was ok")
-	}
-	mustRun(t, "job", "list", "--target", "web2")
-	w := jobWaitCmd()
-	if f := w.Flags().Lookup("timeout"); f == nil || f.DefValue != "10m" {
-		t.Errorf("job wait --timeout: %+v", f)
-	}
-	if s := (jobStarted{}); strings.Contains(jsonStr(s), "next") {
-		t.Errorf("next without a job: %s", jsonStr(s))
 	}
 }
 

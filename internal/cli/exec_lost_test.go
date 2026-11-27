@@ -4,18 +4,28 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
 )
 
-// A connection that breaks while the command runs is CONNECTION_LOST
-// (exit 4), with the output that came before it, on each server; not a
-// bare exit -1.
+// A connection that breaks while the session is read is CONNECTION_LOST
+// (exit 4), with the output read before it, on each server; not a bare
+// exit -1. The hint names the way on.
 func TestExecConnectionLost(t *testing.T) {
-	srv := startFakeServer(t)
-	srv.reply("step 1 done\n", dropMark)
+	srv := startSessionServer(t, "step 1 done\n", false)
+	reads := 0 // the server calls answer with srv.mu held
+	srv.mu.Lock()
+	srv.answer = func(cmd string) (string, int) {
+		if readID.MatchString(cmd) {
+			if reads++; reads > 1 {
+				return dropMark, 0
+			}
+		}
+		out, status, _ := sessionAnswer(cmd, srv.log, false, 0)
+		return out, status
+	}
+	srv.mu.Unlock()
 	var err error
 	got := captureOutput(t, func() error {
 		err = runRoot(t, "host", "ssh", "exec", "dev", "--read-only", "--", "uptime")
@@ -41,10 +51,11 @@ func TestExecConnectionLost(t *testing.T) {
 			Hint string `json:"hint"`
 		} `json:"error"`
 	}
-	if e := json.Unmarshal([]byte(got), &env); e != nil {
+	got = strings.TrimSpace(got)
+	if e := json.Unmarshal([]byte(got[strings.LastIndex(got, "\n")+1:]), &env); e != nil { // after the session's line
 		t.Fatalf("%v\n%s", e, got)
 	}
-	if env.Error.Code != "CONNECTION_LOST" || !strings.Contains(env.Error.Hint, "job start") {
+	if env.Error.Code != "CONNECTION_LOST" || !strings.Contains(env.Error.Hint, "session") {
 		t.Fatalf("top error: %+v", env.Error)
 	}
 	r := env.Data.Results[0]
@@ -54,12 +65,12 @@ func TestExecConnectionLost(t *testing.T) {
 	}
 }
 
-// job start --sudo works with a sudo password: it goes as input to a
-// private file, never on a command line. The job first asks sudo whether
-// it needs one: when it does not, the file is deleted unread; when it
-// does, sudo reads it before the command starts, so the command never can.
-func TestJobStartSudoPassword(t *testing.T) {
-	srv := startFakeServer(t)
+// A session run with --sudo and the server's sudo password: the password
+// goes as input to a private file, never on the command line. sudo is
+// first asked whether it needs one: when it does not, the file is deleted
+// unread; when it does, sudo reads it before the command starts.
+func TestExecSessionSudoPassword(t *testing.T) {
+	srv := startSessionServer(t, "up\n", true)
 	const pw = "hunter2-Sudo-pw"
 	if err := vault.Set(store.Save(), "dev-sudo", pw); err != nil {
 		t.Fatal(err)
@@ -67,12 +78,11 @@ func TestJobStartSudoPassword(t *testing.T) {
 	if err := store.Update(store.Save(), func(st *store.State) error { st.Hosts["dev"].SudoRef = "credential:dev-sudo"; return nil }); err != nil {
 		t.Fatal(err)
 	}
-	srv.reply("4242\n")
-	if err := runRoot(t, "job", "start", "dev", "--sudo", "--read-only", "--", "uptime"); err != nil {
+	if _, _, err := runSession(t, "exec", "dev", "--sudo", "--read-only", "--", "uptime"); err != nil {
 		t.Fatal(err)
 	}
 	execs := srv.take()
-	if len(execs) != 1 {
+	if len(execs) == 0 || !strings.Contains(execs[0].cmd, "mkfifo") {
 		t.Fatalf("execs: %+v", execs)
 	}
 	e := execs[0]
@@ -90,34 +100,26 @@ func TestJobStartSudoPassword(t *testing.T) {
 	}
 }
 
-// job wait takes several IDs: one result per job, a fleet summary, and
-// the worst exit code.
-func TestJobWaitSeveral(t *testing.T) {
-	srv := startFakeServer(t)
-	if err := store.Update(store.Save(), func(st *store.State) error {
-		for _, id := range []string{"j1", "j2"} {
-			st.Jobs[id] = &store.Job{ID: id, Host: "dev", Command: "x", PID: 7, StartedAt: time.Now()}
-		}
-		return nil
-	}); err != nil {
+// The audit log has the session's start, with its ID, when the run
+// starts, and the end names the same session.
+func TestExecSessionAudit(t *testing.T) {
+	startSessionServer(t, "up\n", true)
+	first, _, err := runSession(t, "exec", "dev", "--read-only", "--", "uptime")
+	if err != nil {
 		t.Fatal(err)
 	}
-	srv.reply("EXIT 3\n10\n100\n110\n" + statusEnd + "\n")
-	var err error
-	got := captureOutput(t, func() error {
-		err = runRoot(t, "job", "wait", "j1", "j2", "--tail", "0")
-		return err
-	})
-	if code, ok := err.(exitCode); !ok || int(code) != 5 {
-		t.Fatalf("want exit 5, got %v\n%s", err, got)
+	id, _ := first["session"].(string)
+	if id == "" {
+		t.Fatalf("first line %v names no session", first)
 	}
-	var env struct {
-		Data jobWaited `json:"data"`
+	var recs []map[string]any
+	for _, line := range strings.Split(auditText(t), "\n") {
+		var r map[string]any
+		if json.Unmarshal([]byte(line), &r) == nil && r["session"] == id {
+			recs = append(recs, r)
+		}
 	}
-	if e := json.Unmarshal([]byte(got), &env); e != nil {
-		t.Fatalf("%v\n%s", e, got)
-	}
-	if len(env.Data.Jobs) != 2 || env.Data.Summary.Failed != 2 || env.Data.Jobs[1].Error.Code != "JOB_FAILED" || env.Data.Jobs[0].Status.State != "exited" {
-		t.Fatalf("%s", got)
+	if len(recs) != 2 || recs[0]["started"] != true || recs[1]["exit_codes"] == nil {
+		t.Fatalf("audit records of session %v: %v", id, recs)
 	}
 }
