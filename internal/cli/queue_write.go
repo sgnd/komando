@@ -12,7 +12,7 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// maxQueueMessage is the largest message `queue send` takes: Kafka's
+// maxQueueMessage is the largest message `message create` takes: Kafka's
 // default limit (message.max.bytes) is about 1 MiB, and a message queue is
 // no place for bigger ones.
 const maxQueueMessage = 1 << 20
@@ -39,9 +39,9 @@ Amazon SQS: text only; --header values become message attributes. A FIFO
 queue (name.fifo) needs --key, the message group.
 Google Cloud Pub/Sub: TOPIC is a topic; --header values become message
 attributes and --key is the ordering key.`,
-		Example: `  komando queue send prod-kafka orders --value '{"id": 42, "status": "paid"}' --key 42
-  komando queue send prod-kafka orders --from ./order.json --header source=support
-  komando queue send prod-kafka orders --value test --dry-run`,
+		Example: `  komando queue kafka message create prod-kafka orders --value '{"id": 42, "status": "paid"}' --key 42
+  komando queue kafka message create prod-kafka orders --from ./order.json --header source=support
+  komando queue kafka message create prod-kafka orders --value test --dry-run`,
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			data, err := queueValue(cmd, value, from)
@@ -133,13 +133,13 @@ func queueCreateCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "create CONN TOPIC",
 		Short: "Create a topic, queue or stream",
-		Example: `  komando queue create prod-kafka orders --partitions 6 --replicas 3 --dry-run
-  komando queue create prod-kafka orders --partitions 6 --replicas 3 --config retention.ms=604800000
-  komando queue create jobs emails --type quorum --config x-max-length=10000
-  komando queue create stream ORDERS --replicas 3 --config subjects='orders.>' --config max_age=7d
-  komando queue create aws orders.fifo --config ContentBasedDeduplication=true
-  komando queue create gcp orders --config messageRetentionDuration=7d
-  komando queue create gcp subscriptions/billing --config topic=orders --config ackDeadlineSeconds=60`,
+		Example: `  komando queue kafka topic create prod-kafka orders --partitions 6 --replicas 3 --dry-run
+  komando queue kafka topic create prod-kafka orders --partitions 6 --replicas 3 --config retention.ms=604800000
+  komando queue rabbitmq topic create jobs emails --type quorum --config x-max-length=10000
+  komando queue nats topic create stream ORDERS --replicas 3 --config subjects='orders.>' --config max_age=7d
+  komando queue sqs topic create aws orders.fifo --config ContentBasedDeduplication=true
+  komando queue pubsub topic create gcp orders --config messageRetentionDuration=7d
+  komando queue pubsub topic create gcp subscriptions/billing --config topic=orders --config ackDeadlineSeconds=60`,
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			cfg, err := parseKV(configs)
@@ -173,8 +173,8 @@ func queueRmCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "rm CONN TOPIC...",
 		Short: "Delete topics, queues or streams with their messages",
-		Example: `  komando queue rm prod-kafka old-orders --dry-run
-  komando queue rm prod-kafka old-orders --allow-dangerous`,
+		Example: `  komando queue kafka topic delete prod-kafka old-orders --dry-run
+  komando queue kafka topic delete prod-kafka old-orders --allow-dangerous`,
 		Args: cobra.MinimumNArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			topics := args[1:]
@@ -197,8 +197,8 @@ func queuePurgeCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "purge CONN TOPIC",
 		Short: "Empty a topic, queue or stream and keep it",
-		Example: `  komando queue purge prod-kafka orders-retry --dry-run
-  komando queue purge prod-kafka orders-retry --allow-dangerous`,
+		Example: `  komando queue kafka message delete prod-kafka orders-retry --all --dry-run
+  komando queue kafka message delete prod-kafka orders-retry --all --allow-dangerous`,
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			askTypes(cl, args[1:], "topics or queues in "+args[0])

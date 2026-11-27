@@ -162,7 +162,7 @@ func TestKctlRead(t *testing.T) {
 	if code, _, se := run("frobnicate"); code != 1 || !strings.Contains(se, "is not a command") {
 		t.Errorf("unknown verb: %d %q", code, se)
 	}
-	if code, _, se := run("port-forward", "x"); code != 1 || !strings.Contains(se, "komando cluster forward") {
+	if code, _, se := run("port-forward", "x"); code != 1 || !strings.Contains(se, "komando cluster kubernetes tunnel start") {
 		t.Errorf("sessions point at komando's own commands: %d %q", code, se)
 	}
 }

@@ -33,11 +33,11 @@ func TestStandardEmptyLines(t *testing.T) {
 	// the lists that read a server or a conn, as they render nothing
 	for name, x := range map[string]interface{ Text() string }{
 		"group list": groupList{}, "db schema": schemaData{}, "db activity": activityData{},
-		"storage list": objectList{Conn: "backups"}, "storage list PREFIX": objectList{Conn: "backups", Prefix: "logs/"},
+		"storage s3 object list": objectList{Conn: "backups"}, "storage s3 object list PREFIX": objectList{Conn: "backups", Prefix: "logs/"},
 		"cluster list": kubeList{"type": "Pod"}, "fs list": lsResult{Path: "/tmp/x"},
 		"cluster history": historyData{}, "cluster helm history": helmHistory{}, "cluster helm list": helmList{},
 		"cluster events": eventList{}, "cache keys": keyList{}, "cache keys PATTERN": keyList{Pattern: "user:*"},
-		"queue list": queueTopics{Conn: "prod-kafka"}, "queue groups": queueGroups{}, "registry oci image list": lsData{},
+		"queue kafka topic list": queueTopics{Conn: "prod-kafka"}, "queue kafka consumer list": queueGroups{}, "registry oci image list": lsData{},
 		"audit": auditList{},
 	} {
 		if s := x.Text(); !emptyLine.MatchString(s) {

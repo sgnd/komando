@@ -449,3 +449,10 @@ func deviceKeyRefusal(f phonekey.Facts, user, host string) error {
 	}
 	return out.Errf(out.ExitUsage, "GATE_BINARY_INVALID", hint, "%s: %s", host, why)
 }
+
+// asUserFunc defines ku, which runs `ku SCRIPT ARG0 ARGS...` as the user
+// q (already quoted): through su from root, or sh when komando logged in
+// as that user.
+func asUserFunc(q string) string {
+	return "ku() { if [ \"$(id -un)\" = " + q + " ]; then sh -c \"$@\"; else su -s /bin/sh " + q + " -c \"$@\"; fi; }; "
+}

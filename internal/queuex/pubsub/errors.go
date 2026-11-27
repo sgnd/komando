@@ -91,25 +91,25 @@ func opErr(err error, what string, missing func(string) error) error {
 		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "Pub/Sub refused the request: check --config (Pub/Sub's setting names, such as ackDeadlineSeconds=60 or messageRetentionDuration=7d) and the message's --header names",
 			"%s: %v", what, err)
 	}
-	return out.Errf(out.ExitRemote, "QUEUE_ERROR", "read Pub/Sub's words above; `komando queue describe CONN NAME` shows the topic or subscription", "%s: %v", what, err)
+	return out.Errf(out.ExitRemote, "QUEUE_ERROR", "read Pub/Sub's words above; `komando queue pubsub topic show NAME NAME` shows the topic or subscription", "%s: %v", what, err)
 }
 
 func topicNotFound(name string) error {
-	return out.Errf(out.ExitNotFound, "TOPIC_NOT_FOUND", "list topics with `komando queue list CONN`; a subscription is written subscriptions/NAME, and the project is the conn URL's host",
+	return out.Errf(out.ExitNotFound, "TOPIC_NOT_FOUND", "list topics with `komando queue pubsub topic list NAME`; a subscription is written subscriptions/NAME, and the project is the conn URL's host",
 		"no topic named %q", name)
 }
 
 func subNotFound(name string) error {
-	return out.Errf(out.ExitNotFound, "SUBSCRIPTION_NOT_FOUND", "list subscriptions with `komando queue groups CONN`; `komando queue describe CONN TOPIC` shows a topic's own",
+	return out.Errf(out.ExitNotFound, "SUBSCRIPTION_NOT_FOUND", "list subscriptions with `komando queue pubsub consumer list NAME`; `komando queue pubsub topic show NAME TOPIC` shows a topic's own",
 		"no subscription named %q", name)
 }
 
 func topicExists(name string) error {
-	return out.Errf(out.ExitConflict, "TOPIC_EXISTS", "pick another name, or see it with `komando queue describe CONN topics/"+name+"`", "topic %s already exists", name)
+	return out.Errf(out.ExitConflict, "TOPIC_EXISTS", "pick another name, or see it with `komando queue pubsub topic show NAME topics/"+name+"`", "topic %s already exists", name)
 }
 
 func subExists(name string) error {
-	return out.Errf(out.ExitConflict, "SUBSCRIPTION_EXISTS", "pick another name, or see it with `komando queue describe CONN subscriptions/"+name+"`", "subscription %s already exists", name)
+	return out.Errf(out.ExitConflict, "SUBSCRIPTION_EXISTS", "pick another name, or see it with `komando queue pubsub topic show NAME subscriptions/"+name+"`", "subscription %s already exists", name)
 }
 
 // isCode says whether err is komando's error with this code.

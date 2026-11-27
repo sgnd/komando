@@ -26,7 +26,7 @@ The `--` is required: `komando exec web1 apt-get install -y nginx` is a
 usage error (exit 2) and runs nothing, because komando would read `-y` as
 its own `--yes`. The same holds for every command that hands words to
 another program: `job start`, `docker exec`, `docker compose`, `docker raw`,
-`cluster exec`, `cluster shell`, `cluster run` and `cache redis raw`.
+`cluster kubernetes exec`, `cluster kubernetes shell`, `cluster kubernetes raw` and `cache redis raw`.
 
 ```bash
 komando exec @web -P 20 -- 'df -h / | tail -1'           # up to 20 servers at once
@@ -156,9 +156,9 @@ Use a name with a lower-case letter (`-e dir=/var/log -- 'du -sh $dir'`);
 cannot check. A value with `*`, `?`, `[`, `{`, `~` or a backslash is refused:
 bash would expand it into names komando cannot see. `kubectl config view --raw` is refused too: it prints the
 kubeconfig's credentials. For a server's state, komando's
-own reads need no shell command at all: `komando facts`, `logs`,
-`svc status`, `fs read`, `docker ps`, `cert check`. `docker exec` and
-`cluster exec` check their `--read-only` the same way.
+own reads need no shell command at all: `komando logs`, `fs cat`,
+`docker ps`, `cert check`. `docker exec` and
+`cluster kubernetes exec` check their `--read-only` the same way.
 
 A command komando cannot follow is refused the same way: `eval`, `source`,
 a command name in a variable (`$X file`), a shell or python reading a
@@ -368,7 +368,7 @@ Next time: komando logs web1
   type the name of what goes (or how many). A protected target asks its
   usual `web1 (protected): this command changes it. Continue? [y/N]` instead.
 - `komando host add` (or `conn add`, `vpn add`, `db add`, `cache redis add`,
-  `queue add`, `storage add`, `cluster add`, `registry oci add`) typed alone
+  `queue kafka add`, `storage s3 add`, `cluster kubernetes add`, `registry oci add`) typed alone
   asks that kind's own questions: which kind, a name, the address or the
   parts of the URL, the user, the port, how you log in, and whether it is
   production. A password is never asked here: the command asks for it
@@ -408,7 +408,7 @@ get `NEEDS_TERMINAL` and use `exec` or `job` instead.
 
 When you type a command yourself, komando prints one line saying where you
 are working, before it connects. It does this for the commands you stay
-inside: `shell`, `db shell`, `cluster shell`, `cluster forward`,
+inside: `shell`, `db shell`, `cluster kubernetes shell`, `cluster kubernetes tunnel start`,
 `logs --follow` and `cluster logs -f`.
 
 ```text

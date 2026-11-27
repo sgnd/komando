@@ -190,7 +190,7 @@ tool-word list S-3.3]
 | Verb | Meaning | Follows |
 |---|---|---|
 | `exec` | a shell command on servers (aliases run, x) | docker exec, kubectl exec |
-| `run` | the area's own raw command (`cache redis raw`, `cluster run`) or a saved recipe | redis-cli, kubectl |
+| `run` | the area's own raw command (`cache redis raw`, `cluster kubernetes raw`) or a saved recipe | redis-cli, kubectl |
 | `query` | SQL or MongoDB | psql -c |
 | `shell` | an interactive session, person only (aliases ssh, connect) | |
 | `upload`, `download` | move files (put, get on storage) | aws s3 cp, gh release download |
@@ -213,7 +213,7 @@ own tool, is allowed when this list names it:
 `registry inspect/copy` (crane, skopeo), `cache keys` (Redis KEYS),
 `user add`, `db user add` (useradd; hidden alias `create`),
 `db grant/revoke` (SQL), `pkg installed/upgradable/security`,
-`queue peek/send/lag/groups`, `db activity/locks/sizes/explain/kill`,
+`queue PROVIDER message list/message create/consumer show/consumer list`, `db activity/locks/sizes/explain/kill`,
 `fs cat/stat/chmod/mkdir/write/replace/mv`, `storage mkdir/mv/chmod`,
 `svc daemon-reload`,
 `cluster scale/apply/rollback/forward/values`, `net dns/http/ports/check`,
@@ -272,8 +272,8 @@ is in parentheses: `tunnel start TARGET (-L SPEC | -R SPEC | -D SPEC)`.
 [schema: required flag ⇔ present in Use]
 
 **S-4.4** Passthrough commands: `exec`, `job start`, `docker exec`,
-`docker compose`, `docker raw`, `cluster exec`, `cluster shell`,
-`cluster run`, `cache redis raw` (every command whose Use has `-- COMMAND...` or
+`docker compose`, `docker raw`, `cluster kubernetes exec`, `cluster kubernetes shell`,
+`cluster kubernetes raw`, `cache redis raw` (every command whose Use has `-- COMMAND...` or
 `-- ARGS...`). komando flags are read anywhere before `--`
 (`exec @web -P 20 --read-only -- df -h`). Any word after the fixed positionals (TARGET, CONTAINER,
 `POD|TYPE/NAME`, CONN) must come after `--`. Without `--`, such a word is a
@@ -310,12 +310,12 @@ group has one type; meanings checked by usage-text template where one exists]
 | `--idle` | | duration | stop after this long with nothing new | stated per flag |
 | `--interval`, `--expires`, `--ttl`, `--older-than`, `--warn` | | duration | a span | per flag; "0 = never" or "> 0" in the usage text |
 | `--since`, `--until` | | when | a point in time | `30m`, `7d`, `today`, `yesterday`, `2026-11-07 14:30`, RFC3339 |
-| `--from` | | string | a local input file, the pair of `--to` (`db restore`, `fs write`, `queue send`) | `-` = stdin |
+| `--from` | | string | a local input file, the pair of `--to` (`db restore`, `fs write`, `queue PROVIDER message create`) | `-` = stdin |
 | `--to` | | string | a local output file | `-` = stdout |
 | `--file` | `-f` (not on log streamers) | string | a manifest or input file a tool reads (`cluster apply`, `docker compose`, `db query`); *exception*: `logs --file PATH` is a log file on the server | `-` = stdin where the tool allows it |
 | `--content` | | string | inline file content (`fs write`) | |
-| `--config` | | tool word | *exception*: `queue create --config KEY=VALUE` (kafka-topics), `vpn add --config FILE` (OpenVPN, WireGuard) | |
-| `--key` | | string | *exception*: `queue send --key` is the message key (Kafka); elsewhere an SSH key file | |
+| `--config` | | tool word | *exception*: `queue PROVIDER topic create --config KEY=VALUE` (kafka-topics), `vpn add --config FILE` (OpenVPN, WireGuard) | |
+| `--key` | | string | *exception*: `queue PROVIDER message create --key` is the message key (Kafka); elsewhere an SSH key file | |
 | `--env`, `--label`, `--option`, `--var`, `--header`, `--config` (queue) | `-e` for --env | stringArray | `KEY=VALUE`, repeatable, never split on commas. A value whose text after a comma looks like `KEY=` is a USAGE error: "repeat --option for each KEY=VALUE" | |
 | `--group`, `--tag`, `--add-*`, `--rm-*`, `--kind`, `--unset` | `-g`, `-t` | stringSlice | a list of names, comma-separated | |
 | `--only` | | stringSlice | run only these parts of a read (`facts --only load,mem,disks`); the usage text lists the values, an unknown one is a USAGE error naming them | all parts |
@@ -381,7 +381,7 @@ Shell text is a change unless `--read-only`. No third switch. `docker raw`
 and `docker compose` take docker's own verbs, which include `exec` and
 `run`; they have no read form and are always gated as a change.
 [schema: no flag named `--apply`; every `kind: depends` command except
-`docker raw`, `docker compose` and `cluster shell` has exactly one of
+`docker raw`, `docker compose` and `cluster kubernetes shell` has exactly one of
 --write / --read-only]
 
 **S-5.10** Multi-target runs continue after a failure (`--fail-fast` stops).
@@ -447,7 +447,7 @@ including common foreign shorthands (`-n` outside its scope, `-it`, `-L`,
 (1) a curated table of foreign words, each mapped to a full command for
 `error.hint`: `server` (alias), `delete`/`remove` → `komando host rm NAME`
 (or the noun in the next word), `get` → `komando list`,
-`ps` → `komando docker ps TARGET`, `kubectl` → `komando cluster run TARGET -- ...`,
+`ps` → `komando docker ps TARGET`, `kubectl` → `komando cluster kubernetes raw NAME -- ...`,
 `psql`/`mysql` → `komando db query CONN`, `apt`/`yum` → `komando pkg`,
 `systemctl` → `komando svc`; (2) edit distance 1 for words of 4 letters or
 fewer, 2 otherwise, at most 2 suggestions; (3) the hint names a command only
@@ -565,7 +565,7 @@ release note. [schema + rule table]
 classifier hit, never for a command's own built-in tier. [code]
 
 **S-7.10** A command for a person at a terminal (`shell`, `db shell`,
-`cluster shell`, `secret passphrase` ...) never runs for an AI agent or an
+`cluster kubernetes shell`, `secret passphrase` ...) never runs for an AI agent or an
 ssh-gate key. One exception: `komando shell SERVER` for a `--shell-access`
 key, which ssh-gate opens in its own process after its checks; no
 environment variable or terminal lets another komando process do the same.

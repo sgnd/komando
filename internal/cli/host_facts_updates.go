@@ -6,7 +6,7 @@ import (
 
 // Counting pending updates from what the package manager already knows,
 // without refreshing its index (that would change the server). Shared by
-// `komando facts`; other commands that count security updates can use the
+// the facts snippet; other code that counts security updates can use the
 // same helpers.
 
 // aptSimCommand lists what an upgrade would install, without root and

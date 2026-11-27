@@ -14,8 +14,8 @@ import (
 	"github.com/sgnd/komando/internal/storex"
 )
 
-// Old versions in a bucket that keeps them (S3 versioning): storage list
-// --all-versions shows them, storage rm --all-versions removes a key with
+// Old versions in a bucket that keeps them (S3 versioning): storage s3 object list
+// --all-versions shows them, storage s3 object delete --all-versions removes a key with
 // every version, so it is really gone.
 
 // versioned is s as a bucket that keeps versions, or NOT_SUPPORTED.
@@ -80,7 +80,7 @@ func cmpPrefix(p string) string {
 	return p
 }
 
-// listVersions is storage list --all-versions.
+// listVersions is storage s3 object list --all-versions.
 func listVersions(cl *call, ctx context.Context, c *store.Conn, s storex.Bucket, prefix string, limit int) (any, error) {
 	v, err := versioned(c, s)
 	if err != nil {
@@ -113,7 +113,7 @@ func keyVersions(ctx context.Context, v storex.Versioned, keys []string) ([]stor
 	return all, nil
 }
 
-// rmVersionsData is storage rm --all-versions: each version it took (or
+// rmVersionsData is storage s3 object delete --all-versions: each version it took (or
 // in a dry run would take).
 type rmVersionsData struct {
 	Conn     string                 `json:"conn"`
@@ -134,7 +134,7 @@ func (d rmVersionsData) Text() string {
 	return fmt.Sprintf("%s %d version%s of %s\n", verb, d.Count, term.Plural(d.Count), strings.Join(slices.Sorted(maps.Keys(keys)), ", "))
 }
 
-// storageRmVersions is storage rm --all-versions: a preview under
+// storageRmVersions is storage s3 object delete --all-versions: a preview under
 // --dry-run, else the same confirmation as rm, then every version goes.
 func storageRmVersions(cl *call, ctx context.Context, conn string, keys []string, rec map[string]any) error {
 	rec["all_versions"] = true

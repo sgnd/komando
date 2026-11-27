@@ -15,7 +15,7 @@ import (
 	"github.com/sgnd/komando/internal/vault"
 )
 
-// O16: `cluster run TARGET -- cp POD:PATH DST` wrote a pod's files here as
+// O16: `cluster kubernetes raw NAME -- cp POD:PATH DST` wrote a pod's files here as
 // they were, for an AI agent too: no secret-file guard, no masking, and
 // the whole tar stream in memory with no limit. It now follows the SFTP
 // download's rules, checked before anything is written.

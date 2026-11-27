@@ -39,6 +39,7 @@ const (
 	readLost          = "read it with `host ssh exec`; text output, no shape (no built-in snippet, Audit point 1)"
 	o24Lost           = "validate, back up and undo, O-24 (Audit K4); accepted as a loss at v0.18.0: nothing writes a credential reference into a config line and an agent cannot change a [hidden] line; a ready-made change snippet is planned after v0.18.0 (row C374)"
 	queryPasswordLost = "a password set through query is on the command line; use a person's terminal"
+	keyLost           = "the safe key write of --key: the key went in as the user, so a link in their home could not point the write at a root file; write authorized_keys as the user (`su USER -c ...`)"
 	typedLost         = "the typed-name confirm of a person (the raw path asks only for --allow-dangerous); pin: protected --yes through guardConns, a test per type (row C363) (Audit K4)"
 )
 
@@ -127,9 +128,9 @@ var execReplaced = []Replaced{
 	execPlain("svc.status", ""),
 	execRule("svc.stop", names("sshd-stop", "win-remote-access"), names("TestSSHStop", "TestWindowsRules")),
 
-	execPlain("user.add", ""),
+	{Today: "user.add", Rows: execRows, Rules: names("account-lock"), Tests: names("TestRuleAccountLock"), Stops: execStops, Lost: keyLost},
 	execPlain("user.list", readLost),
-	execPlain("user.lock", ""),
+	execRule("user.lock", names("account-lock"), names("TestRuleAccountLock")),
 	execRule("user.rm", names("userdel", "win-user-delete"), names("TestCheck", "TestWindowsRules", "TestRuleUserdel")),
 	execPlain("user.unlock", ""),
 

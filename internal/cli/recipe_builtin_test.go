@@ -221,51 +221,6 @@ func TestSnippetSamplesMatchGoldens(t *testing.T) {
 	}
 }
 
-// A filled variable gives the text and the result today's command gives
-// for the same unit.
-func TestSnippetFilledLikeTheReplacedCommand(t *testing.T) {
-	in, err := os.ReadFile(filepath.Join("testdata", "snippets", "svc-status", "systemd.in"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	run := func(args ...string) (string, json.RawMessage) {
-		rs := startReplayServerWith(t, nil, replayStep{stdout: string(in)})
-		var data json.RawMessage
-		got := captureOutput(t, func() error { return runRoot(t, append([]string{"-o", "json"}, args...)...) })
-		var env struct {
-			Data json.RawMessage `json:"data"`
-		}
-		_ = json.Unmarshal([]byte(got[strings.Index(got, "{"):]), &env)
-		data = env.Data
-		rs.mu.Lock()
-		defer rs.mu.Unlock()
-		return strings.Join(rs.sent, "\n----\n"), data
-	}
-	wantSent, today := run("svc", "status", "dev", "nginx")
-	withSnippets(t, samples...)
-	gotSent, mine := run("recipe", "run", "svc-status", "dev", "--var", "unit=nginx")
-	if gotSent != wantSent {
-		t.Errorf("sent\n got:  %s\n want: %s", gotSent, wantSent)
-	}
-	var a struct {
-		Results []struct {
-			Data json.RawMessage `json:"data"`
-		} `json:"results"`
-	}
-	var b struct {
-		Result json.RawMessage `json:"result"`
-	}
-	if err := json.Unmarshal(today, &a); err != nil || len(a.Results) != 1 {
-		t.Fatalf("today: %v %s", err, today)
-	}
-	if err := json.Unmarshal(mine, &b); err != nil {
-		t.Fatal(err)
-	}
-	if g, w := compact(t, b.Result), compact(t, a.Results[0].Data); g != w {
-		t.Errorf("result\n got:  %s\n want: %s", g, w)
-	}
-}
-
 // previewReads are the command lines a written rule rates as reads where
 // the static rating of a line gives the worst case: a dry-run preview
 // that only reads (rule 3.8, decided by the chief with apps N9, accepted
@@ -283,6 +238,14 @@ func notWeaker(b snippet.Builtin) string {
 	n := slices.IndexFunc(words, func(w string) bool { return strings.HasPrefix(w, "-") })
 	if n < 0 {
 		n = len(words)
+	}
+	// a command step D removed has no rating left to compare with: exec
+	// carries it, and TestReplacedIDsNameTheirRules pins what protects it
+	if n > 0 && slices.Contains(removedIDs, strings.Join(words[:n], ".")) {
+		if len(b.Checks) == 0 {
+			return "carries no checks"
+		}
+		return ""
 	}
 	line := append(append(slices.Clone(words[:n]), "dev"), words[n:]...)
 	for _, v := range b.Vars {
@@ -311,14 +274,14 @@ func TestSnippetNotWeaker(t *testing.T) {
 			t.Errorf("%s %s", b.Name, why)
 		}
 	}
-	restart := sampleSvcStatus
-	restart.Replaces = "svc restart"
-	if notWeaker(restart) == "" {
-		t.Error("a read snippet replacing svc restart passed")
+	install := sampleSvcStatus
+	install.Replaces = "pkg install"
+	if notWeaker(install) == "" {
+		t.Error("a read snippet replacing pkg install passed")
 	}
-	restart.Tier = capability.Change
-	if why := notWeaker(restart); why != "" {
-		t.Errorf("a change snippet replacing svc restart: %s", why)
+	install.Tier = capability.Change
+	if why := notWeaker(install); why != "" {
+		t.Errorf("a change snippet replacing pkg install: %s", why)
 	}
 	none := sampleSvcList
 	none.Replaces = "svc nosuchverb"
@@ -568,64 +531,6 @@ func TestSnippetTierStops(t *testing.T) {
 			t.Fatal("a dry run wrote a blocked audit record")
 		}
 	})
-}
-
-// facts-only on a Windows host gives what `facts --only` gives there (the
-// full probe, its keys kept) and sends the same text. No S0 golden has a
-// Windows facts --only, so the two run side by side on facts' Windows .in.
-func TestSnippetFactsOnlyWindowsLikeTheCommand(t *testing.T) {
-	base, err := os.ReadFile(filepath.Join("testdata", "snippets", "facts", "windows.in"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	// the S0 input has none of the polled keys; the second carries them
-	polled := "os_version=6.3.9600\nuptime_sec=86400\nmem_total_mb=8192\nmem_available_mb=2048\n" +
-		"disk_root_total_gb=127\ndisk_root_used_pct=40\ndisk=C:\t133169152\t53267660\t79901492\t40\tC:\\\n"
-	for name, in := range map[string]string{"s0": string(base), "polled": string(base) + polled} {
-		t.Run(name, func(t *testing.T) { factsOnlyWindowsLikeTheCommand(t, in) })
-	}
-}
-
-func factsOnlyWindowsLikeTheCommand(t *testing.T, in string) {
-	run := func(args ...string) (string, json.RawMessage) {
-		rs := startReplayServerWith(t, nil, replayStep{stdout: in})
-		if err := store.Update(store.Save(), func(st *store.State) error { st.Hosts["dev"].OS = store.OSWindows; return nil }); err != nil {
-			t.Fatal(err)
-		}
-		got := captureOutput(t, func() error { return runRoot(t, append([]string{"-o", "json"}, args...)...) })
-		var env struct {
-			Data json.RawMessage `json:"data"`
-		}
-		if i := strings.Index(got, "{"); i >= 0 {
-			_ = json.Unmarshal([]byte(got[i:]), &env)
-		}
-		rs.mu.Lock()
-		defer rs.mu.Unlock()
-		return strings.Join(rs.sent, "\n----\n"), env.Data
-	}
-	wantSent, today := run("facts", "dev", "--only", strings.Join(factsOnlyAll, ","))
-	withSnippets(t, registered()...)
-	gotSent, mine := run("recipe", "run", "facts-only", "dev")
-	if gotSent != wantSent {
-		t.Errorf("sent\n got:  %s\n want: %s", gotSent, wantSent)
-	}
-	var a struct {
-		Results []struct {
-			Data json.RawMessage `json:"data"`
-		} `json:"results"`
-	}
-	var b struct {
-		Result json.RawMessage `json:"result"`
-	}
-	if err := json.Unmarshal(today, &a); err != nil || len(a.Results) != 1 {
-		t.Fatalf("today: %v %s", err, today)
-	}
-	if err := json.Unmarshal(mine, &b); err != nil || len(b.Result) == 0 {
-		t.Fatalf("snippet: %v %s", err, mine)
-	}
-	if g, w := compact(t, b.Result), compact(t, a.Results[0].Data); g != w {
-		t.Errorf("result\n got:  %s\n want: %s", g, w)
-	}
 }
 
 // A list variable gives the text and the result `svc status` gives for

@@ -756,7 +756,7 @@ func probeText(cl *call, ctx context.Context, name, target, command string, sudo
 					}
 				}
 				if r.Error != nil && r.Error.Exit != 0 {
-					exit = r.Error.Exit // the parser or exitMap named the problem (NXDOMAIN, closed port ...): its code wins
+					exit = r.Error.Exit // the parser or exitMap named the problem (docker missing, a closed port ...): its code wins
 					f = hostFail{host: r.Host, reason: failReason(0, r.Error), err: r.Error}
 				}
 				if rr.TimedOut {

@@ -50,7 +50,7 @@ func (r *Rabbit) Send(ctx context.Context, m queuex.Message, dryRun bool) (*queu
 		case err != nil:
 			return err
 		case !acked:
-			return out.Errf(out.ExitRemote, "QUEUE_ERROR", "the server could not keep the message (a full queue with overflow=reject-publish, or a disk or memory alarm): `komando queue describe CONN "+m.Topic+"`",
+			return out.Errf(out.ExitRemote, "QUEUE_ERROR", "the server could not keep the message (a full queue with overflow=reject-publish, or a disk or memory alarm): `komando queue rabbitmq topic show NAME "+m.Topic+"`",
 				"the server refused the message for %s", m.Topic)
 		}
 		select {
@@ -91,7 +91,7 @@ func (r *Rabbit) Create(ctx context.Context, s queuex.TopicSpec, dryRun bool) (*
 		s.Type = t
 	}
 	if _, err := r.declared(ctx, s.Topic); err == nil {
-		return nil, out.Errf(out.ExitConflict, "QUEUE_EXISTS", "pick another name, or see it with `komando queue describe CONN "+s.Topic+"`", "queue %s already exists", s.Topic)
+		return nil, out.Errf(out.ExitConflict, "QUEUE_EXISTS", "pick another name, or see it with `komando queue rabbitmq topic show NAME "+s.Topic+"`", "queue %s already exists", s.Topic)
 	} else if e, ok := err.(*out.Error); !ok || e.Code != "QUEUE_NOT_FOUND" {
 		return nil, err
 	}

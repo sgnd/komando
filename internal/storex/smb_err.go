@@ -81,7 +81,7 @@ func smbErr(err error) error {
 	}
 	switch {
 	case errors.Is(err, os.ErrNotExist):
-		return out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list files with `komando storage list CONN [PREFIX]`", "file not found")
+		return out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list files with `komando storage s3 object list NAME [PREFIX]`", "file not found")
 	case errors.Is(err, os.ErrPermission):
 		return out.Errf(out.ExitConnect, "STORAGE_AUTH", "the account may not read or write here; check the share's and the folder's permissions", "access denied")
 	}

@@ -267,6 +267,6 @@ func (k *Kafka) Purge(ctx context.Context, topic string, dryRun bool) (*Purged, 
 }
 
 func partitionNotFound(topic string, p int32, n int) error {
-	return out.Errf(out.ExitNotFound, "PARTITION_NOT_FOUND", "partitions are numbered from 0; see them with `komando queue describe CONN "+topic+"`",
+	return out.Errf(out.ExitNotFound, "PARTITION_NOT_FOUND", "partitions are numbered from 0; see them with `komando queue kafka topic show NAME "+topic+"`",
 		"topic %s has no partition %d (it has %d)", topic, p, n)
 }

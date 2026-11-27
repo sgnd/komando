@@ -70,7 +70,7 @@ func TestExecTimeoutNamesJobStart(t *testing.T) {
 	}{
 		"stdin":  {"exec", []byte("x"), execOpts{stdinFile: "-"}},
 		"pty":    {"exec", nil, execOpts{pty: true}},
-		"svc":    {"svc.restart", nil, execOpts{}},
+		"module": {"pkg.upgrade", nil, execOpts{}},
 		"script": {"exec", nil, execOpts{display: "./deploy.sh"}},
 	} {
 		if got := jobStartLine(c.name, "web1", "uptime", c.stdin, c.o); got != "" {

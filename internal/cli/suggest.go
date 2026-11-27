@@ -16,24 +16,6 @@ import (
 // that reads only the hint can run it. A person reads the "did you mean"
 // in the message.
 
-// habitWords are words people type from another tool's habit, by the
-// command that does that job (its path under komando): typing one
-// suggests that command.
-var habitWords = map[string][]string{
-	"facts": {"inspect"}, // docker inspect
-	"svc":   {"systemd"},
-}
-
-// suggestHabitWords lets each command in habitWords suggest itself for its
-// words (unknownCommandErr then names only that command).
-func suggestHabitWords(root *cobra.Command) {
-	for path, words := range habitWords {
-		if c, _, err := root.Find(strings.Fields(path)); err == nil && c != root {
-			c.SuggestFor = append(c.SuggestFor, words...)
-		}
-	}
-}
-
 // suggest records right as the suggestion for wrong: error.suggestion, and
 // a hint with the command line it gives.
 func suggest(cl *call, e *out.Error, wrong, right string) *out.Error {
@@ -142,7 +124,7 @@ func commandNames(cmd *cobra.Command) []string {
 var foreignWords = map[string]string{
 	"get":        "list",
 	"ps":         "docker ps TARGET",
-	"kubectl":    "cluster run TARGET -- ...",
+	"kubectl":    "cluster kubernetes raw NAME -- ...",
 	"helm":       "cluster helm list TARGET",
 	"psql":       "db query CONN",
 	"mysql":      "db query CONN",
@@ -151,12 +133,12 @@ var foreignWords = map[string]string{
 	"apt-get":    "pkg",
 	"yum":        "pkg",
 	"dnf":        "pkg",
-	"systemctl":  "svc",
+	"systemctl":  "exec SERVER -- systemctl",
 	"journalctl": "logs TARGET",
 	"ssh":        "shell SERVER",
 	"scp":        "cp",
 	"rsync":      "sync",
-	"crontab":    "cron list TARGET",
+	"crontab":    "exec SERVER -- crontab -l",
 	"aws":        "login aws",
 	"ls":         "list",
 	"rm":         "host rm NAME",
@@ -200,11 +182,6 @@ func unknownCommandErr(cl *call, cmd *cobra.Command, word string, rest []string)
 		return e
 	}
 	near := nearWords(word, commandNames(cmd))
-	for _, c := range cmd.Commands() {
-		if slices.Contains(c.SuggestFor, word) { // a habit word: only the command that does that job
-			near = []string{c.Name()}
-		}
-	}
 	switch len(near) {
 	case 0:
 		e.Hint = "see `" + cmd.CommandPath() + " --help` for the list of commands"

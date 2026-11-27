@@ -18,6 +18,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/inventory"
@@ -351,7 +352,7 @@ func kubeErr(err error) error {
 		code, exit, hint := "K8S_ERROR", out.ExitRemote, "read the cluster's words; `komando cluster events TARGET --warnings` shows what went wrong lately"
 		switch {
 		case e.Code == 401 || e.Code == 403:
-			code, exit, hint = "K8S_FORBIDDEN", out.ExitConnect, "the conn's account may not do this: see who it is with `komando cluster run TARGET -- auth whoami` and what it may do with `komando cluster run TARGET -- auth can-i --list`"
+			code, exit, hint = "K8S_FORBIDDEN", out.ExitConnect, "the conn's account may not do this: see who it is with `komando cluster kubernetes raw NAME -- auth whoami` and what it may do with `komando cluster kubernetes raw NAME -- auth can-i --list`"
 		case e.Code == 404:
 			code, exit, hint = "K8S_NOT_FOUND", out.ExitNotFound, "list what exists with `komando cluster list TARGET pods` (or deployments, services ...)"
 		case e.Code == 409:
@@ -515,19 +516,18 @@ func age(ts string) string {
 
 func clusterCmd() *cobra.Command {
 	c := &cobra.Command{
-		Use:     "cluster",
-		Aliases: []string{"k8s", "kube", "swarm"},
-		Short:   "Kubernetes and Docker Swarm: check, read logs, roll out, scale",
-		Long: `TARGET is a Kubernetes cluster (bring yours in with ` + "`komando import kubeconfig`" + `)
-or a Swarm manager server. The same verbs work on both. Reads need nothing; restart,
-scale and apply change the cluster (protected targets need --yes; try
---dry-run); rm needs --allow-dangerous. Anything else: ` + "`cluster run`" + `
-passes the native kubectl or docker command, read-only unless --write.
+		Use:   "cluster",
+		Short: "Kubernetes clusters: save, check, read logs, roll out, scale",
+		Long: `TARGET is a Kubernetes cluster saved with ` + "`komando cluster kubernetes add`" + ` or a Swarm
+manager server. Reads need nothing; restart, scale and apply change the cluster
+(protected targets need --yes; try --dry-run); rm needs --allow-dangerous.
+Anything else: ` + "`cluster kubernetes raw`" + ` passes the native kubectl command, read-only
+unless --write.
 
 A cluster's usual namespace is its kubeconfig context's; change it with
-` + "`komando conn edit NAME --option namespace=shop`" + `, or name one per command
+` + "`komando cluster kubernetes edit NAME --option namespace=shop`" + `, or name one per command
 with --namespace.`,
-		Example: `  komando import kubeconfig                       # one cluster per kubeconfig context
+		Example: `  komando cluster kubernetes add prod-k8s k8s://api.cluster.example:6443 --credential prod-kubeconfig
   komando cluster status prod-k8s                     # version, nodes, what is not healthy
   komando cluster list prod-k8s pods --namespace shop
   komando cluster logs prod-k8s deploy/api --namespace shop -f
@@ -535,9 +535,64 @@ with --namespace.`,
 	}
 	status := clusterStatusCmd()
 	c.AddCommand(synonymWrapper(status, "info TARGET", "cluster.status", "cluster status TARGET", cobra.ExactArgs(1)))
-	c.AddCommand(connAddCmdFor("cluster"), status, clusterLsCmd(), clusterGetCmd(), clusterDescribeCmd(), clusterEventsCmd(), clusterLogsCmd(), clusterDeployCmd(), clusterHistoryCmd(), clusterRollbackCmd(), clusterExecCmd(), clusterShellCmd(), clusterForwardCmd(), clusterRestartCmd(),
-		clusterScaleCmd(), clusterApplyCmd(), clusterRmCmd(), clusterRunCmd(), clusterHelmCmd())
+	c.AddCommand(status, clusterLsCmd(), clusterGetCmd(), clusterDescribeCmd(), clusterEventsCmd(), clusterLogsCmd(), clusterDeployCmd(), clusterHistoryCmd(), clusterRollbackCmd(), clusterRestartCmd(),
+		clusterScaleCmd(), clusterApplyCmd(), clusterRmCmd(), clusterHelmCmd())
 	return c
+}
+
+// The cluster type of the table: komando cluster kubernetes VERB. The
+// inventory verbs are the shared ones (inventoryHandlers); raw is today's
+// `cluster kubernetes raw`, exec and shell are today's, and tunnel start is today's
+// `cluster kubernetes tunnel start`: each runs its body on the cluster NAME, which must be
+// a Kubernetes entry (WRONG_KIND). Swarm waits on its entry kind (E1).
+
+var clusterBodies = map[[2]string]func() *cobra.Command{
+	{"", "raw"}:         clusterRunCmd,
+	{"", "exec"}:        clusterExecCmd,
+	{"", "shell"}:       clusterShellCmd,
+	{"tunnel", "start"}: clusterForwardCmd,
+}
+
+func init() {
+	inventoryHandlers("cluster", "kubernetes")
+	for k, body := range clusterBodies {
+		words := strings.TrimSpace(k[0] + " " + k[1])
+		handlers[capability.Key{Type: "cluster", Provider: "kubernetes", Area: k[0], Verb: k[1]}] = func(cl *call, ctx context.Context, in leafInput) error {
+			if err := withEntry(cl, in.Args[0], "cluster", "kubernetes", words); err != nil {
+				return err
+			}
+			return runBody(cl, ctx, body(), in, nil)
+		}
+	}
+	handlers[capability.Key{Type: "cluster", Provider: "swarm", Verb: "raw"}] = func(cl *call, ctx context.Context, in leafInput) error {
+		if err := withManager(cl, in.Args[0]); err != nil {
+			return err
+		}
+		return runBody(cl, ctx, clusterRunCmd(), in, nil)
+	}
+	moveType("cluster")
+	// `cluster list` (objects) stays until its removal and shares the key
+	// {cluster, list} with the entries' `cluster kubernetes list`; both read.
+	// Drop this line when the removal of `cluster list` lands (a gaps row tracks it).
+	providerIDs["cluster.list"] = true
+	groupShorts["cluster swarm"] = "Docker Swarm: run docker commands on a manager server"
+	groupShorts["cluster kubernetes"] = "Kubernetes clusters: save them, and run commands on them"
+	groupShorts["cluster kubernetes tunnel"] = "Reach a port of a pod or service from this computer: start"
+}
+
+// withManager is nil when name is not a Kubernetes cluster: a Swarm is a
+// manager server today (E1 gives it an entry), so `cluster swarm raw` takes
+// the server's name. A Kubernetes entry is WRONG_KIND with its own path.
+func withManager(cl *call, name string) error {
+	st, err := loadState()
+	if err != nil {
+		return err
+	}
+	if c := st.Conns[name]; c != nil && inventory.ConnFamily(c) == "cluster" {
+		return out.Errf(out.ExitUsage, "WRONG_KIND", "use `komando cluster kubernetes raw "+name+"`",
+			"%s is a Kubernetes cluster, not a Swarm manager", name)
+	}
+	return nil
 }
 
 func str(v any) string {

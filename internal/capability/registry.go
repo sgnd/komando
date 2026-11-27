@@ -27,7 +27,9 @@ func completeImage(l *Leaf, entry string) {
 	switch l.Verb {
 	case "list":
 		l.Args = []Arg{{Name: "NAME"}, {Name: "REPO", Optional: true}}
-		l.Options = []Option{limitOpt}
+		limit := limitOpt
+		limit.Default = "1000" // the body shows at most 1000 unless told otherwise
+		l.Options = []Option{limit}
 		l.Short = "List the repositories of a registry, or the tags of one"
 		l.Example = cmd + entry + "\n" + cmd + entry + " myorg/api"
 	case "show":

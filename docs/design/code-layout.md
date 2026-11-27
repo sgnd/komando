@@ -191,7 +191,7 @@ a reason; `internal/layout` reads this table.
 | `inv` | looking up and checking names and values in the inventory |
 | `kinds` | what each command does, in one word (reads or changes) |
 | `localtool` | finding a program on this computer |
-| `modules` | the module commands (`svc`, `logs`, `pkg`, `net`, `user`, `cron`) and the runner they share |
+| `modules` | the module commands (`logs`, `pkg`) and the runner they share |
 | `personal` | hiding personal data from AI agents |
 | `pick` | the lists a question picks from |
 | `platform` | process helpers that differ per operating system |

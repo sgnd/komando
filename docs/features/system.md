@@ -260,9 +260,9 @@ again, and checks that the server really started anew (a new boot ID).
 Only then does it go on to the next server.
 
 - `--wait` is how long each server may take to come back (default 5m).
-- A server that does not come back in time stops the rest with
-  `REBOOT_TIMEOUT` (exit 7). Any other failure stops the rest too. The
-  servers after it are listed in `not_rebooted`.
+- A server that does not come back in time stops the rest (exit 7). Any
+  other failure stops the rest too. The servers after it are listed in
+  `not_rebooted`.
 - A reboot is destructive: at your terminal komando asks you to type the
   server's name (several: how many); an AI agent or a script adds
   `--allow-dangerous` after a person agrees.
@@ -401,14 +401,13 @@ komando docker prune web1 --older-than 30d --dry-run # what would go, and how mu
 
 | Error code | What it means | What to do |
 |------------|---------------|------------|
-| `UNIT_NOT_FOUND` | no service of that name (exit 3) | check the name with `komando svc list TARGET` |
+| `UNIT_NOT_FOUND` | no service of that name (exit 3) | check the name with `komando exec TARGET -- systemctl list-units` |
 | `NO_SYSTEMD` | the server runs without systemd (exit 3) | read its logs with `--file` or `komando docker logs` |
-| `NO_USER_MANAGER` | `--user-units`, and the login user has no systemd manager running (exit 3) | turn lingering on: `loginctl enable-linger USER` (a person with sudo) |
+| `NO_USER_MANAGER` | `--user-units`, and the login user has no systemd manager running (exit 3) | turn lingering on: a person with sudo runs `komando exec TARGET --sudo -- loginctl enable-linger USER` |
 | `PERMISSION_DENIED` | sudo wants a password komando does not have, or the user may not use sudo | store the sudo password: `komando host edit SERVER --sudo-ref secret:NAME` |
 | `TOOL_MISSING` | sudo, or a tool the command needs, is not installed (exit 3) | as root add `--no-sudo`; on Alpine, `komando pkg install TARGET shadow` for `user` |
 | `PACKAGE_NOT_FOUND` | no such package in the server's package index | check the name; `komando pkg update TARGET` if the package is new |
-| `UNEXPECTED_CHANGE` | a server changed after patching (exit 8); the rest were not patched | check it with `komando docker ps` and `komando svc list --failed`, then run again or add `--keep-going` |
-| `REBOOT_TIMEOUT` | a server did not come back within `--wait` (exit 7) | check the server's console; the servers after it were not rebooted |
+| `UNEXPECTED_CHANGE` | a server changed after patching (exit 8); the rest were not patched | check it with `komando docker ps` and `komando exec TARGET -- systemctl --failed`, then run again or add `--keep-going` |
 | `TIMEOUT` | a `--security` upgrade ran longer than `--timeout`; it goes on | run `komando pkg security` later to see what is left |
 | `POLICY_BLOCKED` | a delete, a reboot or removing an essential package without `--allow-dangerous` | check with `--dry-run`, ask a person, then add `--allow-dangerous` |
 
