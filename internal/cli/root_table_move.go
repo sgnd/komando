@@ -92,6 +92,7 @@ func moveLeaves(typ string, leaves []capability.Leaf) {
 	var built []capability.Leaf
 	var order []int
 	stays := map[string]bool{}
+	carriedAway := carriedByMovedIn(leaves)
 	for n, l := range leaves {
 		if l.State != capability.Built {
 			continue
@@ -152,7 +153,7 @@ func moveLeaves(typ string, leaves []capability.Leaf) {
 			}
 		}
 		for _, cid := range l.Carries { // conn.list stays a command until every type has moved
-			if carriedByMoved(cid) {
+			if carriedAway(cid) {
 				gone = append(gone, cid)
 			}
 		}
@@ -167,22 +168,27 @@ func moveLeaves(typ string, leaves []capability.Leaf) {
 
 // carriedByMoved says whether every built leaf that carries id is of a moved
 // type (hideCarried then takes the command out of the tree).
-func carriedByMoved(id string) bool {
+func carriedByMoved(id string) bool { return carriedByMovedIn(capability.All())(id) }
+
+// carriedByMovedIn is carriedByMoved over leaves, read once: moveLeaves asks
+// for every carried ID of a type at start, so a scan for each ID would cost
+// every command a run.
+func carriedByMovedIn(leaves []capability.Leaf) func(id string) bool {
+	carried, waits := map[string]bool{}, map[string]bool{} // carried by a built leaf; by one of a type not moved
+	for _, l := range leaves {
+		if l.State != capability.Built {
+			continue
+		}
+		moved := slices.Contains(movedTypes, l.Type)
+		for _, id := range l.Carries {
+			carried[id] = true
+			waits[id] = waits[id] || !moved
+		}
+	}
 	for _, r := range capability.Replacements() {
-		if r.Today == id {
-			return false // exec, query or raw replaces it: it stays until cut step D
-		}
+		waits[r.Today] = true // exec, query or raw replaces it: it stays until cut step D
 	}
-	found := false
-	for _, l := range capability.All() {
-		if l.State == capability.Built && slices.Contains(l.Carries, id) {
-			found = true
-			if !slices.Contains(movedTypes, l.Type) {
-				return false
-			}
-		}
-	}
-	return found
+	return func(id string) bool { return carried[id] && !waits[id] }
 }
 
 // joinEntry is the entry id gets in tb when it carries old's entry v as
