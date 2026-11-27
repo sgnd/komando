@@ -215,7 +215,7 @@ With --starts-with: renames every server, conn, VPN, secret, key and group whose
 name starts with OLD: OLD is replaced with NEW. When OLD ends in -, the name OLD without
 it is renamed too (--starts-with shop- acme-shop- turns group shop into acme-shop).
 
-Every reference follows, as with ` + "`host rename`" + ` and ` + "`credential password rename`" + `: --via paths,
+Every reference follows, as with ` + "`komando host ssh rename`" + ` and ` + "`komando credential password rename`" + `: --via paths,
 password, sudo, key, preshared key and passphrase references, credential:NAME
 options in conn URLs, the key a server uses, group membership, exec sessions and
 tunnels. A key komando made (credential key create) lives in the sealed store, so no file
@@ -240,8 +240,9 @@ Renaming protected servers and conns needs --yes once, for all of them
 (an AI agent's --yes opens one window for a person). See what would change
 with --dry-run first. --kind renames only some kinds; references still
 follow.
-To rename one entry, use host ssh rename, conn rename, vpn rename,
-credential password rename, credential key rename or group rename.`,
+To rename one entry, use ` + "`komando host ssh rename`" + `, ` + "`komando conn rename`" + `,
+each VPN kind's rename (` + "`komando vpn socks rename`" + `), ` + "`komando credential password rename`" + `,
+` + "`komando credential key rename`" + ` or ` + "`komando group rename`" + `.`,
 		Example: `  komando rename web1 web-01 --dry-run                 # one entry, whatever kind it is
   komando rename --starts-with shop- acme-shop- --dry-run   # the old -> new list and every reference
   komando rename --starts-with shop- acme-shop- --yes       # some of them are protected
