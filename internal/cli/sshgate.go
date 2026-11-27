@@ -639,7 +639,7 @@ they are quoted. One KOMANDO_AGENT=NAME may come before komando.
 komando then runs as for an AI agent: secret values stay [hidden], --reveal
 and --allow-dangerous are refused, and --yes for a protected server needs a
 person on this computer. Commands that need a person at a terminal (shell,
-db shell, secret passphrase ...) are refused (a --shell-access key may open
+database KIND shell, secret passphrase ...) are refused (a --shell-access key may open
 ` + "`komando shell SERVER`" + `: see ssh-gate line; that shell is full control
 of the server, outside these rules). The key runs commands on
 servers, never one that writes on this computer or reads a file here (a
@@ -647,8 +647,8 @@ script, SQL or upload source by path; '-' for the key's own input works):
 no download or cp to a file here (download --to - and cp SRC - stream to
 the key's own output), no change to servers, VPNs, settings, rules, secrets, keys or
 recipes in komando, no update, no change on a sqlite file or a target at
-localhost or 127.x. With --read-only only commands that read run (db
-query and cache redis raw without --write), and only those that stay on the
+localhost or 127.x. With --read-only only commands that read run (database
+KIND query and cache redis raw without --write), and only those that stay on the
 servers and conns in your list: no net, no cert check of a website, no
 exec, job start, docker exec, cluster exec or recipe run, unless the line
 also has --network. ` + "`komando ssh-gate status`" + ` tells a key which it is. Every command a key

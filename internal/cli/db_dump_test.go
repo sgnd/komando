@@ -334,7 +334,12 @@ func TestDatabaseSelectorWrongKind(t *testing.T) {
 	mustRun(t, "group", "add", "g", "my")
 	cases := 0
 	for _, sel := range []string{"my", "@g", "label:env=shop"} {
-		for _, verb := range [][]string{{"query", "select 1"}, {"backup", "--to", filepath.Join(t.TempDir(), "x.sql")}} {
+		for _, verb := range [][]string{
+			{"query", "select 1"},
+			{"backup", "--to", filepath.Join(t.TempDir(), "x.sql")},
+			{"restore", "--from", filepath.Join(t.TempDir(), "x.sql")},
+			{"shell"},
+		} {
 			args := append([]string{"database", "postgres", verb[0], sel}, verb[1:]...)
 			if e := wantCode(t, "WRONG_KIND", args...); e != nil && !strings.Contains(e.Hint, "komando database mysql "+verb[0]) {
 				t.Errorf("%v: hint %q", args, e.Hint)
@@ -342,7 +347,18 @@ func TestDatabaseSelectorWrongKind(t *testing.T) {
 			cases++
 		}
 	}
-	if cases != 6 {
-		t.Fatalf("%d cases, want 6", cases)
+	if cases != 12 {
+		t.Fatalf("%d cases, want 12", cases)
+	}
+}
+
+// A database whose provider has no such verb (MongoDB has no shell) is no
+// WRONG_KIND: the body refuses it with the way to do it.
+func TestDatabaseVerbTheProviderLacks(t *testing.T) {
+	invHome(t)
+	mustRun(t, "conn", "add", "mg", "mongodb://10.0.0.9:27017/app")
+	personAnswers(t, "")
+	if e := wantCode(t, "NOT_SUPPORTED", "database", "postgres", "shell", "mg"); !strings.Contains(e.Hint, "komando database mongodb query") {
+		t.Errorf("hint %q", e.Hint)
 	}
 }

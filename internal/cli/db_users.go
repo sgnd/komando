@@ -192,7 +192,7 @@ DB.*, DB.TABLE or *.* (with --from-host for the account host). For ClickHouse:
 DB.*, DB.TABLE or *.*, or database:DB, table:DB.TABLE. Snowflake: not
 available (db user show reads them). BigQuery: not available (Google Cloud
 IAM). MongoDB: not available (db user show reads them; send grantRolesToUser
-with db query). --dry-run shows the statement.`,
+with database mongodb query --write). --dry-run shows the statement.`,
 		Example: `  komando db ` + verb + ` prod-db app_ro --privileges SELECT --on all-tables:public --dry-run   # shows the statement
   komando db ` + verb + ` prod-db app_ro --privileges SELECT --on all-tables:public --allow-dangerous
   komando db ` + verb + ` prod-db app_ro --role readers --allow-dangerous
