@@ -3,6 +3,7 @@ package cli
 import (
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 )
@@ -128,6 +129,9 @@ func wrapHelp(s string, width int) string {
 	if s == "" {
 		return s
 	}
+	if !hasLineWider(s, width) {
+		return s
+	}
 	paras := strings.Split(s, "\n\n")
 	for i, p := range paras {
 		lines := strings.Split(p, "\n")
@@ -137,6 +141,19 @@ func wrapHelp(s string, width int) string {
 		paras[i] = wrapPara(lines, width)
 	}
 	return strings.Join(paras, "\n\n")
+}
+
+// hasLineWider says whether a line of s is wider than width runes, without
+// splitting s.
+func hasLineWider(s string, width int) bool {
+	for s != "" {
+		line, rest, _ := strings.Cut(s, "\n")
+		if utf8.RuneCountInString(line) > width {
+			return true
+		}
+		s = rest
+	}
+	return false
 }
 
 // wrapPara fills one paragraph, item by item.
@@ -202,9 +219,18 @@ func standardExamples(c *cobra.Command) string {
 	lines := strings.Split(c.Example, "\n")
 	k, _ := kindOf(c)
 	change := k.Kind == kindChange || k.Kind == kindDepends
-	hasDry := slices.ContainsFunc(lines, func(l string) bool { return exampleOf(c, l) && slices.Contains(exampleFlags(l), "--dry-run") })
+	// Splitting a line into words costs more than the rest of start for a
+	// big tree, so a line is parsed only when its text could hold the flag
+	// the step looks for.
+	hasDry := change && slices.ContainsFunc(lines, func(l string) bool {
+		return strings.Contains(l, "--dry-run") && exampleOf(c, l) && slices.Contains(exampleFlags(l), "--dry-run")
+	})
 	var out []string
 	for _, l := range lines {
+		if !mayHaveApproval(l) && !(change && !hasDry) {
+			out = append(out, l) // neither step changes it
+			continue
+		}
 		if !exampleOf(c, l) {
 			out = append(out, l)
 			continue
@@ -230,6 +256,12 @@ func standardExamples(c *cobra.Command) string {
 		out = append(out, l)
 	}
 	return strings.Join(out, "\n")
+}
+
+// mayHaveApproval says whether the text of l could hold an approval flag:
+// a line that does not cannot be one (a false yes only costs a parse).
+func mayHaveApproval(l string) bool {
+	return strings.Contains(l, "-y") || slices.ContainsFunc(safetyOverrides, func(f string) bool { return strings.Contains(l, "--"+f) })
 }
 
 // exampleCommand is an example line without its comment.

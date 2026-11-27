@@ -22,6 +22,7 @@ func BenchmarkMoveLeaves(b *testing.B) {
 			}
 			b.StopTimer()
 		})
+		b.StartTimer() // B.Loop must find the timer running
 	}
 }
 
