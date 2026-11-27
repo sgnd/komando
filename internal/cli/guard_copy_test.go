@@ -79,6 +79,14 @@ func TestGuardTreeChangeOfAProtectedFolderIsRefused(t *testing.T) {
 		`M=mv; "$M" ~/.ssh /tmp/k`,
 		`read p < /tmp/n; $p ~/.ssh /tmp/k`,
 		"alias m2=mv\nm2 ~/.ssh /tmp/k",
+		`mv {~/.ssh,/tmp/k}`,
+		`mv /tmp/x {~/.ssh,/tmp/k}`,
+		`mv {~,/tmp/h}`,
+		`rm {-rf,~}`,
+		`rm {-rf,~/.ssh}`,
+		`f=-rf; rm $f ~/.ssh`,
+		`o='-rf ~/.ssh'; rm $o`,
+		`r=-R; chmod $r 777 ~/.ssh`,
 	}, true)
 	checkLines(t, home, filepath.Join(home, "Documents"), []string{`rm -rf ..`}, true)
 	checkLines(t, home, repo, []string{
@@ -89,6 +97,10 @@ func TestGuardTreeChangeOfAProtectedFolderIsRefused(t *testing.T) {
 		`mv --target ~ build`,
 		`R=rm; $R -rf ./build`,
 		`M=mv; "$M" build /tmp/out`,
+		`rm -rf {build,dist}`,
+		`mv {build,/tmp/out}`,
+		`f=-rf; rm $f ./build`,
+		`mv build {/tmp/a,/tmp/b}`,
 		`mv a.txt b.txt`,
 		`chmod -R u+w .`,
 		`chown -R me build`,

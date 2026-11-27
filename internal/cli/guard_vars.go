@@ -501,3 +501,60 @@ func dateOutput(args []string, quoted bool) (string, bool) {
 	}
 	return b.String(), true
 }
+
+// treeWords are args as the program gets them: each value the guard knows
+// a word may have, split at blanks when it comes from a value, and brace
+// lists expanded, so `rm {-rf,~}` and `f=-rf; rm $f ~` give their options.
+func treeWords(cl *call, args []string, globs []bool, vars lineVars, home, cwd string) ([]string, []bool) {
+	var words []string
+	var wglobs []bool
+	for i, a := range args {
+		vals, _ := vars.expand(cl, a, home, cwd)
+		for _, v := range vals {
+			fields := []string{v}
+			if v != a {
+				fields = strings.Fields(v)
+			}
+			for _, f := range fields {
+				glob := globs[i] || v != a && wordHasGlob(f)
+				pats := []string{f}
+				if glob && strings.Contains(f, "{") {
+					pats = expandBraces(f, 0)
+				}
+				for _, p := range pats {
+					words, wglobs = append(words, p), append(wglobs, glob && wordHasGlob(p))
+				}
+			}
+		}
+	}
+	return words, wglobs
+}
+
+// treeTargets are the paths the word v names: a brace list's names, and a
+// glob's names as they are now; past 500 of them, the folder the glob
+// starts in stands for the rest.
+func treeTargets(cl *call, v string, glob bool, home, cwd string) []string {
+	if !glob {
+		return []string{guardPathAt(cl, v, home, cwd)}
+	}
+	var out []string
+	for _, pat := range expandBraces(v, 0) {
+		p := guardPathAt(cl, pat, home, cwd)
+		out = append(out, p)
+		m, _ := filepath.Glob(p)
+		for i, f := range m {
+			if i == 500 {
+				dir := p
+				for wordHasGlob(dir) && dir != filepath.Dir(dir) {
+					dir = filepath.Dir(dir)
+				}
+				out = append(out, dir)
+				break
+			}
+			if shellGlobMatches(p, f) {
+				out = append(out, f)
+			}
+		}
+	}
+	return out
+}

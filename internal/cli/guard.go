@@ -505,16 +505,14 @@ func checkTreeChange(cl *call, base string, args []string, globs []bool, vars li
 	case anyProgram:
 		verb = "may remove or move"
 	}
-	for _, i := range treeOperands(base, args) {
-		vals, _ := vars.expand(cl, args[i], home, cwd)
-		for _, v := range vals {
-			if v == "" {
-				continue // an empty value names no folder: the word goes, or rm "" fails
-			}
-			for _, p := range treeTargets(cl, v, globs[i] || v != args[i] && wordHasGlob(v), home, cwd) {
-				if filepath.IsAbs(p) && touchesProtected(cl, p, home) {
-					return deny("%s %s %s and everything under it, which is or holds komando's data, private keys or guard files; name the files inside instead", base, verb, p)
-				}
+	words, wglobs := treeWords(cl, args, globs, vars, home, cwd)
+	for _, i := range treeOperands(base, words) {
+		if words[i] == "" {
+			continue // an empty value names no folder: the word goes, or rm "" fails
+		}
+		for _, p := range treeTargets(cl, words[i], wglobs[i], home, cwd) {
+			if filepath.IsAbs(p) && touchesProtected(cl, p, home) {
+				return deny("%s %s %s and everything under it, which is or holds komando's data, private keys or guard files; name the files inside instead", base, verb, p)
 			}
 		}
 	}
@@ -574,35 +572,6 @@ func treeOperands(base string, args []string) []int {
 // it GNU tools accept (--rec for --recursive, --t for --target-directory).
 func longOption(name, opt string) bool {
 	return len(name) > 2 && strings.HasPrefix(opt, name)
-}
-
-// treeTargets are the paths the word v names: a brace list's names, and a
-// glob's names as they are now; past 500 of them, the folder the glob
-// starts in stands for the rest.
-func treeTargets(cl *call, v string, glob bool, home, cwd string) []string {
-	if !glob {
-		return []string{guardPathAt(cl, v, home, cwd)}
-	}
-	var out []string
-	for _, pat := range expandBraces(v, 0) {
-		p := guardPathAt(cl, pat, home, cwd)
-		out = append(out, p)
-		m, _ := filepath.Glob(p)
-		for i, f := range m {
-			if i == 500 {
-				dir := p
-				for wordHasGlob(dir) && dir != filepath.Dir(dir) {
-					dir = filepath.Dir(dir)
-				}
-				out = append(out, dir)
-				break
-			}
-			if shellGlobMatches(p, f) {
-				out = append(out, f)
-			}
-		}
-	}
-	return out
 }
 
 // guardNameGlob says why a name the glob p could match is a guard file by
