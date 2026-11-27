@@ -31,7 +31,6 @@ This page is made from the code (`komando schema` lists the same under
 | `CACHE_CONNECT` | 4 | cannot connect to …: … | the server's certificate could not be checked against this computer's CAs: give the CA that signed it with ?ca=credential:NAME (`komando secret set NAME < ca.pem`), or reach the server --via an SSH server with the plain scheme (redis://, memcached://) instead (`komando conn edit NAME --via HOST --url ...`) |
 | `CACHE_ERROR` | 5 | this memcached cannot list keys: … | start memcached with the LRU crawler on (the default since 1.5); `komando cache memcached raw NAME -- get KEY` works without it |
 | `CACHE_KEY_NOT_FOUND` | 3 | no cache key named … | list keys with `komando cache redis raw NAME -- SCAN 0 MATCH 'pattern*'` |
-| `CACHE_SECTION_NOT_FOUND` | 3 | INFO … returned nothing | this server has no such section; try `komando cache redis raw NAME -- INFO` |
 | `CANCELLED` | 1 | interrupted | it stopped before the end (Ctrl-C or a signal); check what it left, then run it again |
 | `CA_EXISTS` | 8 | server CA … already exists | choose another name, or `komando host ca rm …` first |
 | `CA_HOSTS_INVALID` | 2 | a server CA needs the server names it may vouch for | run `komando host ca add NAME --key FILE --hosts '*.corp.example'`, with the domains the CA may vouch for |
@@ -110,7 +109,7 @@ This page is made from the code (`komando schema` lists the same under
 | `JOB_START_FAILED` | 5 | could not start job: … | check that /bin/sh and nohup work there: `komando test TARGET` |
 | `JOURNAL_PERMISSION` | 5 | this user may not read the system journal | add --sudo, or add the login user to the systemd-journal group |
 | `K8S_CONFLICT` | 8 | the object changed or exists already (the cluster's words follow) | the object changed meanwhile or exists already: look at it with `komando cluster kubernetes raw NAME -- get TYPE/NAME -o yaml`, then run it again |
-| `K8S_CONTAINER_NOT_FOUND` | 3 | no container named … | its containers: … |
+| `K8S_CONTAINER_NOT_FOUND` | 3 |  | see the pod's containers with `komando cluster kubernetes raw NAME -- describe pod NAME` |
 | `K8S_ERROR` | 5 | the Kubernetes API answered with an error (its words follow) | read the cluster's words; `komando cluster kubernetes raw NAME -- get events` shows what went wrong lately |
 | `K8S_FORBIDDEN` | 4 | listing Helm releases: … | Helm keeps releases as Secrets: the kubeconfig's user needs to list secrets there (or name one namespace with --namespace) |
 | `K8S_INVALID` | 2 | the cluster refused the request as written (its words follow) | the cluster refused it as written: check the label selector (-l) or the object's YAML |
@@ -141,7 +140,6 @@ This page is made from the code (`komando schema` lists the same under
 | `NOTHING_TO_RENAME` | 3 | no … starts with … | check OLD with `komando list` and `komando secret list`; names are matched from the start, as written |
 | `NOT_A_FOLDER` | 8 | … is a file, not a folder | give a folder path, not a file |
 | `NOT_SUPPORTED` | 2 | … waits for data that keeps coming, so cache run would never return | cache run sends one command and prints its one reply; drop BLOCK from XREAD, and use redis-cli for MONITOR or SUBSCRIBE |
-| `NOT_SWARM_MANAGER` | 3 | … is not a Swarm manager (docker not found) | Swarm commands run on a manager: `komando exec … --read-only -- docker node ls` shows whether it is one |
 | `NOT_TEXT` | 2 | … is not text | download it with `komando storage download CONN OBJECT` |
 | `NOT_WRITABLE` | 8 | cannot replace …: …: …; nothing was changed | make … writable, or install komando in another folder with the install line (KOMANDO_INSTALL_DIR=DIR) |
 | `NO_AUTH` | 4 | no authentication method available for …: it has no key or password, and … | start ssh-agent, then run … |
@@ -212,8 +210,8 @@ This page is made from the code (`komando schema` lists the same under
 | `REVEAL_NEEDS_TERMINAL` | 6 | --reveal only works for a person at a terminal | ask a person to run `komando secret show … --reveal` in a terminal; to use the secret in a command, reference it (credential:…) instead |
 | `REVISION_NOT_FOUND` | 3 | no earlier revision to go back to | see the revisions with `komando cluster kubernetes raw NAME -- rollout history TYPE/NAME` |
 | `REVOKE_FAILED` | 5 | the key could not be removed from a server's authorized_keys | run it again; to look at the file: `komando fs cat SERVER ~/.ssh/authorized_keys` |
-| `ROLLOUT_FAILED` | 5 | pods stuck for … | see why with `komando cluster kubernetes raw NAME -- describe TYPE/NAME`; `-- rollout undo` goes back |
-| `ROLLOUT_TIMEOUT` | 7 | not rolled out after … (replicas …)… | see the tasks with `komando cluster swarm raw NAME -- service ps SERVICE` |
+| `ROLLOUT_FAILED` | 5 | pods stuck for … | see why with `komando cluster kubernetes raw NAME -- describe …`; `-- rollout undo` goes back |
+| `ROLLOUT_TIMEOUT` | 7 | not rolled out after …: … | see why with `komando cluster kubernetes raw NAME -- describe …`; `-- rollout undo` goes back |
 | `RULE_NOT_FOUND` | 3 | no rule named … | see every rule and its id with `komando policy list` |
 | `SAFETY_SETTING` | 6 | … weakens komando's safety checks | check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen) |
 | `SEALED_FILE_INVALID` | 2 | … is damaged or cut short: komando cannot read it as a sealed file; nothing was imported | copy the file again whole, or make it again with `komando export --sealed --to FILE` |
@@ -281,11 +279,7 @@ This page is made from the code (`komando schema` lists the same under
 | `STREAM_NOT_FOUND` | 3 | no stream named … | list streams with `komando queue nats topic list NAME` |
 | `SUBSCRIPTION_EXISTS` | 8 | subscription … already exists | pick another name, or see it with `komando queue pubsub topic show NAME subscriptions/…` |
 | `SUBSCRIPTION_NOT_FOUND` | 3 | no subscription named … | list subscriptions with `komando queue pubsub consumer list NAME`; `komando queue pubsub topic show NAME TOPIC` shows a topic's own |
-| `SWARM_ERROR` | 5 | Docker Swarm answered with an error | check that Docker runs there: `komando exec TARGET --read-only -- docker info` |
 | `SWARM_MANAGER_NOT_FOUND` | 3 | swarm service …: its manager server … is not in your list | add the manager server again (`komando host add NAME ADDRESS`), or remove the swarm service |
-| `SWARM_OBJECT_NOT_FOUND` | 3 | no … named … | list what exists with `komando cluster swarm raw NAME -- service ls` |
-| `SWARM_SERVICE_NOT_FOUND` | 3 | no service named … | list services with `komando cluster swarm raw NAME -- service ls` |
-| `SWARM_STACK_NOT_FOUND` | 3 | no stack named … | list the stacks with `komando cluster swarm raw NAME -- stack ls` |
 | `SYMLINK_LOOP` | 8 | …: too many levels of symbolic links | a link points back to itself; look at it with `komando fs stat SERVER PATH` |
 | `TABLE_NOT_FOUND` | 3 | no table named … | run `komando db schema CONN` to list tables |
 | `TARGET_EMPTY` | 3 | target … matched nothing | run `komando list` to see servers, conns, groups and tags |

@@ -18741,12 +18741,6 @@
         "hint": "list keys with `komando cache redis raw NAME -- SCAN 0 MATCH 'pattern*'`"
       },
       {
-        "code": "CACHE_SECTION_NOT_FOUND",
-        "exit": 3,
-        "example": "INFO … returned nothing",
-        "hint": "this server has no such section; try `komando cache redis raw NAME -- INFO`"
-      },
-      {
         "code": "CANCELLED",
         "exit": 1,
         "example": "interrupted",
@@ -19216,8 +19210,7 @@
       {
         "code": "K8S_CONTAINER_NOT_FOUND",
         "exit": 3,
-        "example": "no container named …",
-        "hint": "its containers: …"
+        "hint": "see the pod's containers with `komando cluster kubernetes raw NAME -- describe pod NAME`"
       },
       {
         "code": "K8S_ERROR",
@@ -19397,12 +19390,6 @@
         "exit": 2,
         "example": "… waits for data that keeps coming, so cache run would never return",
         "hint": "cache run sends one command and prints its one reply; drop BLOCK from XREAD, and use redis-cli for MONITOR or SUBSCRIBE"
-      },
-      {
-        "code": "NOT_SWARM_MANAGER",
-        "exit": 3,
-        "example": "… is not a Swarm manager (docker not found)",
-        "hint": "Swarm commands run on a manager: `komando exec … --read-only -- docker node ls` shows whether it is one"
       },
       {
         "code": "NOT_TEXT",
@@ -19828,13 +19815,13 @@
         "code": "ROLLOUT_FAILED",
         "exit": 5,
         "example": "pods stuck for …",
-        "hint": "see why with `komando cluster kubernetes raw NAME -- describe TYPE/NAME`; `-- rollout undo` goes back"
+        "hint": "see why with `komando cluster kubernetes raw NAME -- describe …`; `-- rollout undo` goes back"
       },
       {
         "code": "ROLLOUT_TIMEOUT",
         "exit": 7,
-        "example": "not rolled out after … (replicas …)…",
-        "hint": "see the tasks with `komando cluster swarm raw NAME -- service ps SERVICE`"
+        "example": "not rolled out after …: …",
+        "hint": "see why with `komando cluster kubernetes raw NAME -- describe …`; `-- rollout undo` goes back"
       },
       {
         "code": "RULE_NOT_FOUND",
@@ -20238,34 +20225,10 @@
         "hint": "list subscriptions with `komando queue pubsub consumer list NAME`; `komando queue pubsub topic show NAME TOPIC` shows a topic's own"
       },
       {
-        "code": "SWARM_ERROR",
-        "exit": 5,
-        "example": "Docker Swarm answered with an error",
-        "hint": "check that Docker runs there: `komando exec TARGET --read-only -- docker info`"
-      },
-      {
         "code": "SWARM_MANAGER_NOT_FOUND",
         "exit": 3,
         "example": "swarm service …: its manager server … is not in your list",
         "hint": "add the manager server again (`komando host add NAME ADDRESS`), or remove the swarm service"
-      },
-      {
-        "code": "SWARM_OBJECT_NOT_FOUND",
-        "exit": 3,
-        "example": "no … named …",
-        "hint": "list what exists with `komando cluster swarm raw NAME -- service ls`"
-      },
-      {
-        "code": "SWARM_SERVICE_NOT_FOUND",
-        "exit": 3,
-        "example": "no service named …",
-        "hint": "list services with `komando cluster swarm raw NAME -- service ls`"
-      },
-      {
-        "code": "SWARM_STACK_NOT_FOUND",
-        "exit": 3,
-        "example": "no stack named …",
-        "hint": "list the stacks with `komando cluster swarm raw NAME -- stack ls`"
       },
       {
         "code": "SYMLINK_LOOP",
