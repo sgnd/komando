@@ -11,7 +11,7 @@ import (
 
 // Every change command has its own text (S-9.7); the generic renderer
 // is a fallback. changeText is the text of a change to one record (host
-// add, conn edit, key gen): what happened first, in words, then each field
+// add, conn edit, credential key create): what happened first, in words, then each field
 // as words ("password ref: secret:web1-pass", not password_ref), warnings
 // last. The command to run next is data.next and the Next: line.
 func changeText(p *out.Printer, data any) string {

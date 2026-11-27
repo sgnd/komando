@@ -32,7 +32,7 @@ type secretList struct {
 
 func (l secretList) Text() string {
 	if len(l.Secrets) == 0 {
-		return term.NoneYet("secrets", "secret set NAME")
+		return term.NoneYet("credentials", "credential password add NAME", "or `komando credential token add NAME`")
 	}
 	var rows [][]string
 	for _, s := range l.Secrets {

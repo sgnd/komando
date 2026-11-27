@@ -366,7 +366,7 @@ type exportResult struct {
 	SecretsNeeded []string `json:"secrets_needed"`
 	KeysNeeded    []string `json:"keys_needed"`
 	KeyFiles      []string `json:"key_files,omitempty"` // private keys: copied by hand, never put in an export file
-	// KeysSealed are keys komando made (key gen): sealed in store.db, so
+	// KeysSealed are keys komando made (credential key create): sealed in store.db, so
 	// there is no file to copy; the other computer makes its own
 	KeysSealed []string `json:"keys_sealed,omitempty"`
 	// A sealed export (--sealed, --for-phone): how it opens (passphrase or

@@ -208,7 +208,7 @@ This page is made from the code (`komando schema` lists the same under
 | `RESUME_CONFLICT` | 8 | … does not match the source after the copy (sha256 …, the source …); it was left as it is | copy the whole file again without --continue (a download replaces a file here only with --overwrite): `komando cp SRC DST` |
 | `RESUME_UNSUPPORTED` | 2 | … cannot be continued: this kind of storage (S3, Google Cloud Storage, Azure Blob, WebDAV) stores a file whole and cannot add to one; nothing was changed | run it again without --continue to copy the whole file: `komando cp SRC DST` |
 | `REVEAL_NEEDS_PERSON` | 6 | --reveal needs the user's yes | values stay [hidden] in a dry run; run it without --dry-run to ask the user in a window on their screen |
-| `REVEAL_NEEDS_TERMINAL` | 6 | --reveal only works for a person at a terminal | ask a person to run … in a terminal; to use the secret in a command, reference it (secret:…) instead |
+| `REVEAL_NEEDS_TERMINAL` | 6 | --reveal only works for a person at a terminal | ask a person to run `komando … … --reveal` in a terminal; to use the secret in a command, reference it (secret:…) instead |
 | `REVISION_NOT_FOUND` | 3 | no earlier revision to go back to | see the revisions with `komando cluster history TARGET TYPE/NAME` |
 | `REVOKE_FAILED` | 5 | the key could not be removed from a server's authorized_keys | run it again; to look at the file: `komando fs cat SERVER ~/.ssh/authorized_keys` |
 | `ROLLOUT_FAILED` | 5 | pods stuck for … | see why with `komando cluster describe TARGET …`; `komando cluster rollback` goes back |

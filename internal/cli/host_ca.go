@@ -246,7 +246,7 @@ func hostCAAddCmd() *cobra.Command {
 	return c
 }
 
-// caLinesOf reads the CA lines of host ca add: from --from's known_hosts
+// caLinesOf reads the CA lines of credential certificate add: from --from's known_hosts
 // file, or the one CA of --key with --hosts.
 func caLinesOf(cl *call, keyFile, from string, hosts []string) ([]caLine, error) {
 	if from != "" {

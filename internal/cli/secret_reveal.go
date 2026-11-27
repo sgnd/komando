@@ -83,9 +83,10 @@ func revealGate(cl *call, cmdName, field, name, what string) (string, error) {
 // credential.key.show) and name: for an AI agent, or where no window could
 // ask (noScreen).
 func needsHuman(cmdName, name string, noScreen bool) *out.Error {
-	run := "`komando " + strings.ReplaceAll(cmdName, ".", " ") + " " + name + " --reveal`"
+	path := strings.ReplaceAll(cmdName, ".", " ")
+	run := "`komando " + path + " " + name + " --reveal`"
 	e := out.Errf(out.ExitPolicy, "REVEAL_NEEDS_TERMINAL",
-		"ask a person to run "+run+" in a terminal; to use the secret in a command, reference it (secret:"+name+") instead",
+		"ask a person to run `komando "+path+" "+name+" --reveal` in a terminal; to use the secret in a command, reference it (secret:"+name+") instead",
 		"--reveal only works for a person at a terminal")
 	switch {
 	case noScreen:

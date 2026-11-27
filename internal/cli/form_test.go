@@ -328,7 +328,7 @@ func TestFormDryRunBeforeDashes(t *testing.T) {
 	}
 	got = formDry([][]string{{"credential", "password", "add", "x-authkey"}, {"vpn", "add", "x", "tailscale"}})
 	if got[0] != "vpn" {
-		t.Errorf("Try it first tries the secret set: %q", got)
+		t.Errorf("Try it first tries the credential password add: %q", got)
 	}
 }
 

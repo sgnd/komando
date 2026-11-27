@@ -246,7 +246,7 @@ func keyAddCmd() *cobra.Command {
 						k.PublicKey = cleanPubLine(pub, comment)
 					}
 				} else {
-					res.Warnings = append(res.Warnings, "no "+filepath.Base(p)+".pub next to it, so the public key is unknown (needed by key deploy)")
+					res.Warnings = append(res.Warnings, "no "+filepath.Base(p)+".pub next to it, so the public key is unknown (needed by credential key install)")
 				}
 			case skPublic(p) != nil:
 				// a FIDO2 key: komando signs with it through ssh-agent
@@ -483,7 +483,7 @@ type sshKeyList struct {
 
 func (l sshKeyList) Text() string {
 	if len(l.Keys) == 0 {
-		return term.NoneYet("SSH keys", "key gen NAME", "or `komando credential key add NAME FILE`")
+		return term.NoneYet("SSH keys", "credential key create NAME", "or `komando credential key add NAME FILE`")
 	}
 	var rows [][]string
 	for _, k := range l.Keys {

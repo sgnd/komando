@@ -167,9 +167,6 @@ var examples = map[string]string{
 	"komando job rm":     "  komando job rm j1103-101500-ab12cd34",
 	"komando job status": "  komando job status j1103-101500-ab12cd34",
 
-	"komando credential key list":   "  komando credential key list",
-	"komando credential key remove": "  komando credential key remove old-deploy",
-
 	"komando net http":  "  komando net http web1 http://localhost:8080/health --expect 200",
 	"komando net ports": "  komando net ports web1",
 
@@ -179,11 +176,10 @@ var examples = map[string]string{
 	"komando pkg update":     "  komando pkg update @web",
 	"komando pkg upgradable": "  komando pkg upgradable @web\n  komando pkg upgradable web1 --refresh",
 
-	"komando policy list":     "  komando policy list",
-	"komando recipe list":     "  komando recipe list\n  komando recipe list --category security",
-	"komando recipe rm":       "  komando recipe rm du-srv",
-	"komando credential list": "  komando credential list",
-	"komando shell":           "  komando shell web1",
+	"komando policy list": "  komando policy list",
+	"komando recipe list": "  komando recipe list\n  komando recipe list --category security",
+	"komando recipe rm":   "  komando recipe rm du-srv",
+	"komando shell":       "  komando shell web1",
 
 	"komando svc disable": "  komando svc disable web1 apache2 --now",
 	"komando svc enable":  "  komando svc enable web1 nginx --now",

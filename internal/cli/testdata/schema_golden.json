@@ -12295,7 +12295,7 @@
         "code": "REVEAL_NEEDS_TERMINAL",
         "exit": 6,
         "example": "--reveal only works for a person at a terminal",
-        "hint": "ask a person to run … in a terminal; to use the secret in a command, reference it (secret:…) instead"
+        "hint": "ask a person to run `komando … … --reveal` in a terminal; to use the secret in a command, reference it (secret:…) instead"
       },
       {
         "code": "REVISION_NOT_FOUND",
