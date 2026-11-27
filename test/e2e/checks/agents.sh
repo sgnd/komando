@@ -26,6 +26,8 @@ check "agent secret get --reveal refused" REVEAL_NEEDS_TERMINAL "$(A secret get 
 check "guard stops reading the vault" deny "$(printf '{"tool_name":"Read","tool_input":{"file_path":"%s/.komando/vault.key"}}' "$HOME" | $K guide guard | jget 'd["hookSpecificOutput"]["permissionDecision"]')"
 check "guard stops ssh around komando" deny "$(echo '{"tool_name":"Bash","tool_input":{"command":"ssh web1 cat .env"}}' | $K guide guard | jget 'd["hookSpecificOutput"]["permissionDecision"]')"
 check "guard lets komando through" "" "$(echo '{"tool_name":"Bash","tool_input":{"command":"komando fs cat web1 /srv/.env"}}' | $K guide guard)"
+check "guard stops a write to a name it cannot read first" deny "$(echo '{"tool_name":"Bash","tool_input":{"command":"read f < /tmp/n; echo x > \"$f\""}}' | $K guide guard | jget 'd["hookSpecificOutput"]["permissionDecision"]')"
+check "guard lets a write to a named file through" "" "$(echo '{"tool_name":"Bash","tool_input":{"command":"echo x > /tmp/komando-e2e-out.txt"}}' | $K guide guard)"
 mkdir -p "$TMP/home"
 q env HOME="$TMP/home" "$K" guide install
 check "guide install adds the Claude Code guard" True "$(jget '"guide guard" in json.dumps(d["hooks"]["PreToolUse"])' < "$TMP/home/.claude/settings.json")"

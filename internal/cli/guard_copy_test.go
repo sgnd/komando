@@ -1,6 +1,10 @@
 package cli
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 // cp, mv and rsync write DEST/NAME, or a folder's contents into DEST; ln
 // makes a path that leads where its target does. A destination that is or
@@ -22,6 +26,9 @@ func TestGuardCopyIntoAProtectedFolderIsRefused(t *testing.T) {
 		`ln -s / /tmp/root`,
 		`ln -s .. /tmp/up`,
 		`cd /tmp && ln -s ~/. h`,
+		`cp -r /tmp/x/.ssh ~/ 2>/dev/null`,
+		`cp -r /tmp/x/.claude ~ </dev/null`,
+		`mv /tmp/x/.komando ~/ >/tmp/log 2>&1`,
 	}, true)
 }
 
@@ -86,4 +93,83 @@ func TestGuardOtherWritersInAProjectStayAllowed(t *testing.T) {
 		`zip -r /tmp/a.zip src`,
 		`split -l 100 big.txt /tmp/part-`,
 	}, false)
+}
+
+// git writes the files of a folder only in the commands that change its
+// worktree (checkout, merge, pull, stash pop, reset --hard, an alias it
+// does not know). The rest write inside .git or nowhere, also in a
+// repository that holds an agent's settings folder; worktree add, move and
+// remove write their path, read from the -C folder.
+func TestGuardGitWritesOnlyInsideDotGitStayAllowed(t *testing.T) {
+	home, repo := guardLineHome(t)
+	agentRepo(t, repo)
+	var lines []string
+	for _, cmd := range []string{
+		`fetch origin`, `worktree list`, `worktree prune`, `push origin main`, `commit -m x`, `add a.txt`,
+		`stash list`, `reset -q HEAD~1`, `bundle list-heads /tmp/a.bundle`, `worktree add /tmp/wt-x -b x`,
+		`worktree remove /tmp/wt-x`, `archive -o /tmp/a.tar HEAD`, `config user.name x`, `branch -D old`,
+		`-c color.ui=never log --oneline -3`, `worktree add ../wt-y`,
+	} {
+		lines = append(lines, "git -C "+repo+" "+cmd)
+	}
+	lines = append(lines, `for w in /tmp/a /tmp/b; do git -C $w pull --ff-only; done`)
+	checkLines(t, home, home, lines, false)
+}
+
+func TestGuardGitWritesTheWorktreeIsChecked(t *testing.T) {
+	home, repo := guardLineHome(t)
+	agentRepo(t, repo)
+	var lines []string
+	for _, cmd := range []string{`checkout -- .`, `stash pop`, `stash`, `reset --hard`, `pull`, `co main`, `merge x`} {
+		lines = append(lines, "git -C "+repo+" "+cmd)
+	}
+	lines = append(lines,
+		`git -C /tmp/r worktree add ~/.ssh/x`,
+		`git -C ~/.kom* checkout -- .`,
+		`for w in /tmp/a ~/.ssh; do git -C $w checkout -- .; done`,
+		`git worktree add ~/.komando/x`,
+		`git -C ~ worktree add .komando/x`,
+		`git -C /tmp/r worktree move /tmp/r/wt ~/.ssh/wt`,
+		`git -C /tmp/r config --file ~/.claude/settings.json a.b c`,
+		`git -C /tmp/r config --file=`+repo+`/.claude/settings.json a.b c`,
+		`git -C /tmp/r bundle create ~/.claude/settings.json HEAD`,
+	)
+	checkLines(t, home, repo, lines, true)
+}
+
+// A worktree Claude Code keeps in REPO/.claude/worktrees/NAME is a project
+// folder of its own: its files are ordinary files, and only its own agent
+// folder and what holds it are guarded.
+func TestGuardWorktreeInAnAgentFolderIsAProject(t *testing.T) {
+	home, repo := guardLineHome(t)
+	agentRepo(t, repo)
+	wt := filepath.Join(repo, ".claude", "worktrees", "wt-x")
+	agentRepo(t, wt)
+	checkLines(t, home, wt, []string{
+		`mv /tmp/gi .gitignore`,
+		`cp /tmp/a internal/x.go`,
+		`ln -s ../../../.venv .venv`,
+		`find build -name '*.o' -delete`,
+		`cp -r /tmp/src/. internal/`,
+		`ln -sfn ` + filepath.Join(repo, ".claude", "skills", "x") + ` /tmp/skill`,
+	}, false)
+	checkLines(t, home, wt, []string{
+		`mv /tmp/a .claude/settings.json`,
+		`cp -r /tmp/x/. .`,
+		`rm -rf .claude`,
+		`cp -r /tmp/x/. ` + filepath.Join(repo, ".claude", "worktrees"),
+		`ln -s ` + filepath.Join(repo, ".claude", "worktrees") + ` /tmp/l`,
+		`ln -s ` + wt + ` /tmp/l`,
+	}, true)
+}
+
+// agentRepo makes dir a project folder that holds Claude Code's settings.
+func agentRepo(t *testing.T, dir string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Join(dir, ".claude"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".claude", "settings.json"), []byte("{}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 }

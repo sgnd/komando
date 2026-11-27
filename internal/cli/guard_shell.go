@@ -231,24 +231,8 @@ func heredocs(line string) []heredoc {
 			words = append(words, strings.NewReplacer(`'`, "", `"`, "", `\`, "").Replace(w))
 			i, word = k-1, false
 		case c == '\n':
-			pos := i + 1
-			for n, h := range pending {
-				h.body, h.end = pos, len(line)
-				for pos < len(line) {
-					lineEnd := len(line)
-					if k := strings.IndexByte(line[pos:], '\n'); k >= 0 {
-						lineEnd = pos + k
-					}
-					if strings.TrimLeft(line[pos:lineEnd], "\t") == words[n] {
-						h.end = pos
-						pos = lineEnd + 1
-						break
-					}
-					pos = lineEnd + 1
-				}
-				pos = min(pos, len(line))
-				out = append(out, h)
-			}
+			done, pos := endHeredocs(line, i+1, pending, words)
+			out = append(out, done...)
 			pending, words = nil, nil
 			i, lineStart, word = pos-1, pos, false
 		case strings.ContainsRune(" \t;&|<>", rune(c)):
@@ -258,6 +242,31 @@ func heredocs(line string) []heredoc {
 		}
 	}
 	return out
+}
+
+// endHeredocs gives the here-documents pending, whose words are words, with
+// their bodies read from line[pos:], the text after the line break that
+// ends their line; and where the line goes on after the last body.
+func endHeredocs(line string, pos int, pending []heredoc, words []string) ([]heredoc, int) {
+	var out []heredoc
+	for n, h := range pending {
+		h.body, h.end = pos, len(line)
+		for pos < len(line) {
+			lineEnd := len(line)
+			if k := strings.IndexByte(line[pos:], '\n'); k >= 0 {
+				lineEnd = pos + k
+			}
+			if strings.TrimLeft(line[pos:lineEnd], "\t") == words[n] {
+				h.end = pos
+				pos = lineEnd + 1
+				break
+			}
+			pos = lineEnd + 1
+		}
+		pos = min(pos, len(line))
+		out = append(out, h)
+	}
+	return out, pos
 }
 
 var (
@@ -337,140 +346,162 @@ func checkShellIn(cl *call, line, home, cwd string, depth int, outer lineVars) g
 		if d := checkGuardFiles(cl, rline, rseg, prog, args, home, cwd); d.Deny {
 			return d
 		}
-		if d := checkWrites(cl, seg, mwords, mglobs, vars, home, cwd); d.Deny {
+		if d := checkWrites(cl, seg, vars, home, cwd); d.Deny {
 			return d
 		}
-		switch {
-		case prog == "":
+		if prog == "" || base == "komando" {
 			continue
-		case base == "komando":
-			continue
-		case base == "cd" || base == "pushd":
-			cwd = cdTarget(cl, margs, vars, home, cwd)
-			if why := secretPath(cl, cwd, home); cwd != "" && why != "" {
-				return deny("%s is %s. komando keeps it away from AI agents; ask the user if you need something from it%s", cwd, why, viaKomando(why))
-			}
-		case base == "popd":
-			cwd = lostDir
-		case isShell(base) || base == "eval" || base == "trap":
-			// the script of `bash -c '...'`, `bash -lc '...'`, `eval '...'`
-			// and `trap '...' SIGNAL` is a shell line too
-			script := shellScript(margs)
-			switch base {
-			case "eval":
-				script = strings.Join(margs, " ")
-			case "trap":
-				script = trapScript(margs)
-			}
-			if script != "" && depth >= guardDepth {
-				return tooDeep()
-			}
-			if script != "" {
-				// $f in the script is the line's f
-				if d := checkShellIn(cl, script, home, cwd, depth+1, vars); d.Deny {
-					return d
-				}
-			}
-			if base == "eval" {
-				cwd = lostDir // the script may cd
-			}
-		case base == "source" || base == ".":
-			cwd = lostDir
-		case base == "alias":
-			// an alias's text runs where a later command names it
-			for _, a := range margs {
-				if _, text, ok := strings.Cut(a, "="); ok && text != "" {
-					if depth >= guardDepth {
-						return tooDeep()
-					}
-					if d := checkShellIn(cl, text, home, cwd, depth+1, vars); d.Deny {
-						return d
-					}
-				}
-			}
-		case base == "find":
-			if d := checkFind(cl, margs, mglobs[len(mglobs)-len(margs):], vars, home, cwd, depth); d.Deny {
-				return d
-			}
-		case base == "watch" || scriptOption[base]:
-			// watch runs its words, and script, su, runuser and flock
-			// their -c text, as a shell line
-			if script := commandScript(base, margs); script != "" {
-				if depth >= guardDepth {
-					return tooDeep()
-				}
-				if d := checkShellIn(cl, script, home, cwd, depth+1, vars); d.Deny {
-					return d
-				}
-			}
-		case base == "ssh" || base == "scp" || base == "sftp" || base == "mosh" || base == "sshpass":
-			return deny("use komando for servers (`komando exec`, `komando fs`, `komando cp`), not %s: komando checks every command, hides secrets and keeps an audit log", base)
-		case base == "rsync":
-			for _, a := range args {
-				if !strings.HasPrefix(a, "-") && !strings.Contains(a, "://") && remoteSpec.MatchString(a) {
-					return deny("use `komando sync` or `komando cp` for servers, not rsync")
-				}
-			}
-		case base == "printenv" || base == "env" || base == "set" || base == "export" || base == "declare" || base == "typeset":
-			// only the forms that list every variable: `set -e` is fine
-			dump := len(args) == 0
-			if (base == "export" || base == "declare" || base == "typeset") && len(args) == 1 && (args[0] == "-p" || args[0] == "-x" || args[0] == "-px") {
-				dump = true
-			}
-			if dump {
-				return deny("listing every environment variable shows tokens and passwords; read only the variable you need (`echo \"$NAME\"`)")
-			}
-		case base == "security":
-			for _, a := range args {
-				if a == "-w" || a == "-g" || a == "dump-keychain" || a == "export" {
-					return deny("reading passwords from the keychain is for the user only")
-				}
-			}
 		}
+		var d guardDecision
+		if cwd, d = checkProgram(cl, base, args, margs, mglobs, vars, home, cwd, depth); d.Deny {
+			return d
+		}
+		if d := checkReadWords(cl, base, words, globs, args, vars, home, cwd); d.Deny {
+			return d
+		}
+	}
+	return allow()
+}
+
+// checkProgram checks what the program base does beyond the files it
+// names: a cd, a script it runs, a command it refuses outright. args are
+// its arguments with command outputs left out, margs with them in
+// (mglobs are margs' globs and those before). It gives the working folder
+// after it.
+func checkProgram(cl *call, base string, args, margs []string, mglobs []bool, vars lineVars, home, cwd string, depth int) (string, guardDecision) {
+	switch {
+	case base == "cd" || base == "pushd":
+		cwd = cdTarget(cl, margs, vars, home, cwd)
+		if why := secretPath(cl, cwd, home); cwd != "" && why != "" {
+			return cwd, deny("%s is %s. komando keeps it away from AI agents; ask the user if you need something from it%s", cwd, why, viaKomando(why))
+		}
+	case base == "popd":
+		cwd = lostDir
+	case isShell(base) || base == "eval" || base == "trap":
+		// the script of `bash -c '...'`, `bash -lc '...'`, `eval '...'`
+		// and `trap '...' SIGNAL` is a shell line too
+		script := shellScript(margs)
 		switch base {
-		case "echo", "printf", "touch", "mkdir", "ls", "test", "[":
-			continue // they name files without reading them
+		case "eval":
+			script = strings.Join(margs, " ")
+		case "trap":
+			script = trapScript(margs)
 		}
-		recursive := recursiveReader(base, args)
-		first := len(words) - len(args) // where the arguments start
-		wcwd := cwd
-		for j := 0; j < len(words); j++ {
-			w := words[j]
-			if j >= first {
-				switch {
-				case (base == "tar" || base == "git" || base == "make") && (w == "-C" || w == "--directory") && j+1 < len(words):
-					// tar -C DIR and git -C DIR: the words after it are read from DIR
-					j++
-					if wcwd = nextDir(cl, words[j:j+1], home, wcwd); wcwd != "" {
-						if why := secretPath(cl, wcwd, home); why != "" {
-							return deny("%s is %s. komando keeps it away from AI agents; ask the user if you need something from it%s", wcwd, why, viaKomando(why))
-						}
-					}
-					continue
-				case (base == "tar" || base == "git" || base == "make") && strings.HasPrefix(w, "--directory="):
-					if wcwd = nextDir(cl, []string{strings.TrimPrefix(w, "--directory=")}, home, wcwd); wcwd != "" {
-						if why := secretPath(cl, wcwd, home); why != "" {
-							return deny("%s is %s. komando keeps it away from AI agents; ask the user if you need something from it%s", wcwd, why, viaKomando(why))
-						}
-					}
-					continue
-				case base == "find" && findPattern[w]:
-					j++ // a name pattern: find lists names; -exec, which reads, is checked
-					continue
+		if script != "" && depth >= guardDepth {
+			return cwd, tooDeep()
+		}
+		if script != "" {
+			// $f in the script is the line's f
+			if d := checkShellIn(cl, script, home, cwd, depth+1, vars); d.Deny {
+				return cwd, d
+			}
+		}
+		if base == "eval" {
+			cwd = lostDir // the script may cd
+		}
+	case base == "source" || base == ".":
+		cwd = lostDir
+	case base == "alias":
+		// an alias's text runs where a later command names it
+		for _, a := range margs {
+			if _, text, ok := strings.Cut(a, "="); ok && text != "" {
+				if depth >= guardDepth {
+					return cwd, tooDeep()
+				}
+				if d := checkShellIn(cl, text, home, cwd, depth+1, vars); d.Deny {
+					return cwd, d
 				}
 			}
-			values, _ := vars.expand(cl, w, home, wcwd)
-			for _, v := range values {
-				glob := globs[j] && !strings.HasPrefix(w, "-") || v != w && wordHasGlob(v)
-				if !looksLikePath(v) && !glob {
-					continue
+		}
+	case base == "find":
+		if d := checkFind(cl, margs, mglobs[len(mglobs)-len(margs):], vars, home, cwd, depth); d.Deny {
+			return cwd, d
+		}
+	case base == "watch" || scriptOption[base]:
+		// watch runs its words, and script, su, runuser and flock
+		// their -c text, as a shell line
+		if script := commandScript(base, margs); script != "" {
+			if depth >= guardDepth {
+				return cwd, tooDeep()
+			}
+			if d := checkShellIn(cl, script, home, cwd, depth+1, vars); d.Deny {
+				return cwd, d
+			}
+		}
+	case base == "ssh" || base == "scp" || base == "sftp" || base == "mosh" || base == "sshpass":
+		return cwd, deny("use komando for servers (`komando exec`, `komando fs`, `komando cp`), not %s: komando checks every command, hides secrets and keeps an audit log", base)
+	case base == "rsync":
+		for _, a := range args {
+			if !strings.HasPrefix(a, "-") && !strings.Contains(a, "://") && remoteSpec.MatchString(a) {
+				return cwd, deny("use `komando sync` or `komando cp` for servers, not rsync")
+			}
+		}
+	case base == "printenv" || base == "env" || base == "set" || base == "export" || base == "declare" || base == "typeset":
+		// only the forms that list every variable: `set -e` is fine
+		dump := len(args) == 0
+		if (base == "export" || base == "declare" || base == "typeset") && len(args) == 1 && (args[0] == "-p" || args[0] == "-x" || args[0] == "-px") {
+			dump = true
+		}
+		if dump {
+			return cwd, deny("listing every environment variable shows tokens and passwords; read only the variable you need (`echo \"$NAME\"`)")
+		}
+	case base == "security":
+		for _, a := range args {
+			if a == "-w" || a == "-g" || a == "dump-keychain" || a == "export" {
+				return cwd, deny("reading passwords from the keychain is for the user only")
+			}
+		}
+	}
+	return cwd, allow()
+}
+
+// checkReadWords refuses a command whose words name a secret path, or that
+// reads all of a folder holding one (recursiveReader): words and globs are
+// the command's, args its arguments.
+func checkReadWords(cl *call, base string, words []string, globs []bool, args []string, vars lineVars, home, cwd string) guardDecision {
+	switch base {
+	case "echo", "printf", "touch", "mkdir", "ls", "test", "[":
+		return allow() // they name files without reading them
+	}
+	recursive := recursiveReader(base, args)
+	first := len(words) - len(args) // where the arguments start
+	wcwd := cwd
+	for j := 0; j < len(words); j++ {
+		w := words[j]
+		if j >= first {
+			switch {
+			case (base == "tar" || base == "git" || base == "make") && (w == "-C" || w == "--directory") && j+1 < len(words):
+				// tar -C DIR and git -C DIR: the words after it are read from DIR
+				j++
+				if wcwd = nextDir(cl, words[j:j+1], home, wcwd); wcwd != "" {
+					if why := secretPath(cl, wcwd, home); why != "" {
+						return deny("%s is %s. komando keeps it away from AI agents; ask the user if you need something from it%s", wcwd, why, viaKomando(why))
+					}
 				}
-				if why := secretWord(cl, v, home, wcwd, glob); why != "" {
-					return deny("%s is %s. komando keeps it away from AI agents; ask the user if you need something from it%s", w, why, viaKomando(why))
+				continue
+			case (base == "tar" || base == "git" || base == "make") && strings.HasPrefix(w, "--directory="):
+				if wcwd = nextDir(cl, []string{strings.TrimPrefix(w, "--directory=")}, home, wcwd); wcwd != "" {
+					if why := secretPath(cl, wcwd, home); why != "" {
+						return deny("%s is %s. komando keeps it away from AI agents; ask the user if you need something from it%s", wcwd, why, viaKomando(why))
+					}
 				}
-				if recursive && j >= first && !glob && !strings.HasPrefix(v, "-") && holdsProtected(cl, guardPathAt(cl, v, home, wcwd), home) {
-					return deny("%s holds komando's data and private keys, and %s reads all of it; work on a project folder instead", w, base)
-				}
+				continue
+			case base == "find" && findPattern[w]:
+				j++ // a name pattern: find lists names; -exec, which reads, is checked
+				continue
+			}
+		}
+		values, _ := vars.expand(cl, w, home, wcwd)
+		for _, v := range values {
+			glob := globs[j] && !strings.HasPrefix(w, "-") || v != w && wordHasGlob(v)
+			if !looksLikePath(v) && !glob {
+				continue
+			}
+			if why := secretWord(cl, v, home, wcwd, glob); why != "" {
+				return deny("%s is %s. komando keeps it away from AI agents; ask the user if you need something from it%s", w, why, viaKomando(why))
+			}
+			if recursive && j >= first && !glob && !strings.HasPrefix(v, "-") && holdsProtected(cl, guardPathAt(cl, v, home, wcwd), home) {
+				return deny("%s holds komando's data and private keys, and %s reads all of it; work on a project folder instead", w, base)
 			}
 		}
 	}
@@ -564,397 +595,6 @@ func commandScript(base string, args []string) string {
 	return ""
 }
 
-// recursiveReader reports whether a command reads every file under the
-// folders it is given (grep -r, rg, tar c, zip -r, cp -r, find -exec, ...):
-// given the home folder, it reads komando's data and the private keys too.
-func recursiveReader(base string, args []string) bool {
-	cluster := func(letters string) bool {
-		for _, a := range args {
-			if len(a) > 1 && a[0] == '-' && a[1] != '-' && strings.ContainsAny(a[1:], letters) {
-				return true
-			}
-		}
-		return false
-	}
-	has := func(long ...string) bool {
-		for _, a := range args {
-			for _, l := range long {
-				if a == l || strings.HasPrefix(a, l+"=") {
-					return true
-				}
-			}
-		}
-		return false
-	}
-	switch base {
-	case "rg", "ag", "ack", "ack-grep", "rclone", "restic", "borg", "7z", "7za", "7zz":
-		return true
-	case "grep", "egrep", "fgrep", "zgrep", "ugrep":
-		return cluster("rR") || has("--recursive", "--dereference-recursive", "--directories=recurse")
-	case "zip", "diff":
-		return cluster("rR") || has("--recurse-paths", "--recursive")
-	case "cp", "rsync":
-		return cluster("rRa") || has("--recursive", "--archive")
-	case "tar", "bsdtar", "gtar":
-		if has("--extract", "--list", "--get", "--diff", "--compare") || cluster("xtd") {
-			return false
-		}
-		return len(args) == 0 || strings.HasPrefix(args[0], "-") || !strings.ContainsAny(args[0], "xtd")
-	case "find":
-		return has("-exec", "-execdir", "-ok", "-okdir")
-	}
-	return false
-}
-
-// nextDir is the folder `cd ARGS` moves to from cwd: lostDir when the guard
-// cannot know it (`cd -`, `cd "$DIR"`, a glob, or a relative folder from a
-// lost one), and "" for a relative folder when cwd is "".
-func nextDir(cl *call, args []string, home, cwd string) string {
-	for _, a := range args {
-		if a == "--" || a == "-L" || a == "-P" || a == "-e" || a == "-@" {
-			continue
-		}
-		if a == "-" || strings.ContainsAny(strings.NewReplacer("$HOME", "", "${HOME}", "", "$KOMANDO_HOME", "", "${KOMANDO_HOME}", "").Replace(a), "$`"+unknownOutput) {
-			return lostDir
-		}
-		if wordHasGlob(a) {
-			return lostDir // the word is checked as a glob with the others
-		}
-		p := guardPath(cl, a, home)
-		if filepath.IsAbs(p) {
-			return p
-		}
-		if cwd == "" || cwd == lostDir {
-			return cwd
-		}
-		return lexOrKernel(cwd + string(filepath.Separator) + p)
-	}
-	return home
-}
-
-// cdTarget is the folder cd ARGS, words of a line with vars, moves to from
-// cwd (nextDir). A word with more than one value or one the guard cannot
-// read, and a relative name CDPATH can send elsewhere, give lostDir.
-func cdTarget(cl *call, args []string, vars lineVars, home, cwd string) string {
-	dirs := slices.Clone(args)
-	_, cdpath := vars["CDPATH"]
-	cdpath = cdpath || cl.getenv("CDPATH") != ""
-	for k, a := range dirs {
-		x, known := vars.expand(cl, a, home, cwd)
-		if !known || len(x) != 1 {
-			return lostDir
-		}
-		dirs[k] = x[0]
-		if d := x[0]; cdpath && !strings.HasPrefix(d, "-") && d != "." && d != ".." && !strings.HasPrefix(d, "./") && !strings.HasPrefix(d, "../") && !filepath.IsAbs(guardPath(cl, d, home)) {
-			return lostDir
-		}
-	}
-	return nextDir(cl, dirs, home, cwd)
-}
-
-// checkAgentVars stops a command that changes the variables komando knows
-// an AI agent by (agentVars), or KOMANDO_HOME (homeVar): `CLAUDECODE=0
-// komando ...`, `KOMANDO_HOME=/tmp/x komando ...`, `unset`, `export`,
-// `read`, `env -u`, `env -i` and `exec -c` would make komando treat the
-// agent as a script and skip the person's window, masking and the
-// secret-file stops. So would `sudo komando`, which starts komando with a
-// clean environment. A name komando cannot read (`unset $V`, `${!CLAUDE*}`)
-// or a pattern (`CLAUDE*`, `CLAUDE{CODE,_CODE_ENTRYPOINT}`) that could be
-// one counts as that name.
-func checkAgentVars(words []string, depth int) guardDecision {
-	why := varChangeDenied
-	cleared := func(how string) guardDecision {
-		return deny("%s clears the variables komando knows an AI agent by, which would switch off komando's safety stops for agents", how)
-	}
-	// the words up to the program: shell keywords, NAME=value words and
-	// wrappers (sudo, env, ...) with their flags; and the arguments of the
-	// shell's own commands that set or remove variables
-	wrapper, pos := "", 0
-	sudo, keepsEnv := "", false
-	for i := 0; i < len(words); i++ {
-		w := words[i]
-		base := filepath.Base(w)
-		switch {
-		case wrapper == "" && shellKeyword[w]:
-			if w == "function" {
-				i++
-			}
-		case envAssign.MatchString(w):
-			if name, ok := agentVarIn(assignName(w)); ok {
-				return why(name)
-			}
-		case w == "unset" || w == "export" || w == "declare" || w == "typeset" || w == "local" || w == "readonly" || w == "integer" || w == "float":
-			for _, a := range words[i+1:] {
-				if strings.HasPrefix(a, "-") || strings.HasPrefix(a, "+") {
-					continue // -n, -x, +x, -m: the names are what count
-				}
-				if name, ok := agentVarIn(assignName(a)); ok {
-					return why(name)
-				}
-			}
-			return allow()
-		case w == "read" || w == "mapfile" || w == "readarray" || w == "printf" || w == "print" || w == "getopts" || w == "for" || w == "select":
-			for _, n := range setNames(w, words[i+1:]) {
-				if name, ok := agentVarIn(n); ok {
-					return why(name)
-				}
-			}
-			return allow()
-		case wrapper == "env" && strings.HasPrefix(w, "--") && w != "--":
-			opt, val, hasVal := envLongOption(w)
-			switch opt {
-			case "--ignore-environment":
-				return cleared("`env " + w + "`")
-			case "--unset", "--chdir", "--split-string", "--argv0":
-				if !hasVal && i+1 < len(words) {
-					i++
-					val = words[i]
-				}
-			}
-			switch opt {
-			case "--unset":
-				if name, ok := agentVarIn(val); ok {
-					return why(name)
-				}
-			case "--split-string":
-				if depth >= guardDepth {
-					return tooDeep()
-				}
-				return checkAgentVars(append(append([]string{"env"}, shellWords(val)...), words[i+1:]...), depth+1)
-			}
-		case wrapper == "env" && w == "-":
-			return cleared("`env -`")
-		case wrapper == "env" && len(w) > 1 && w[0] == '-' && w[1] != '-':
-			// a cluster of short flags: -i, -vu NAME, -uNAME, -S 'words'
-			for j := 1; j < len(w); j++ {
-				c := w[j]
-				if c == 'i' {
-					return cleared("`env " + w + "`")
-				}
-				if c != 'u' && c != 'C' && c != 'S' && c != 'a' {
-					continue
-				}
-				val := w[j+1:]
-				if val == "" && i+1 < len(words) {
-					i++
-					val = words[i]
-				}
-				if c == 'u' {
-					if name, ok := agentVarIn(val); ok {
-						return why(name)
-					}
-				}
-				if c == 'S' && depth >= guardDepth {
-					return tooDeep()
-				}
-				if c == 'S' {
-					return checkAgentVars(append(append([]string{"env"}, shellWords(val)...), words[i+1:]...), depth+1)
-				}
-				break
-			}
-		case wrapper == "exec" && len(w) > 1 && w[0] == '-' && w[1] != '-' && strings.ContainsRune(w, 'c'):
-			return cleared("`exec -c`")
-		case isWrapper(base):
-			wrapper, pos = base, 0
-			if base == "sudo" || base == "doas" {
-				sudo = base
-			}
-		case strings.HasPrefix(w, "-") && wrapper != "":
-			if wrapper == "sudo" && (strings.HasPrefix(w, "--preserve-env") || len(w) > 1 && w[1] != '-' && strings.ContainsRune(w, 'E')) {
-				keepsEnv = true
-			}
-			if wrapperValue[wrapper][w] {
-				i++
-			}
-		case pos < wrapperPositional[wrapper]:
-			pos++ // timeout 10, taskset 0x1
-		default:
-			// the program: its arguments are its own
-			if base == "komando" && (sudo == "doas" || sudo == "sudo" && !keepsEnv) {
-				return deny("%s starts komando with a clean environment, so komando would not know that an AI agent runs it; run komando without %s (it does not need root on this computer)", sudo, sudo)
-			}
-			return allow()
-		}
-	}
-	return allow()
-}
-
-// homeVar moves komando's data folder. An agent's shell line must not
-// change it either: komando would then use another inventory, without the
-// person's protected servers, deny rules, host keys and audit log
-// (guardHome stops the command when it happens anyway).
-const homeVar = "KOMANDO_HOME"
-
-// homeVars are the home folder's variables. Setting them in front of
-// komando is refused; elsewhere they are the agent's own business (a test
-// run with its own HOME).
-var homeVars = map[string]bool{"HOME": true, "USERPROFILE": true}
-
-// checkShellVars is checkAgentVars, and refuses HOME= or USERPROFILE= among
-// the words in front of komando (its NAME=value words and wrappers).
-func checkShellVars(words []string, depth int) guardDecision {
-	if d := checkAgentVars(words, depth); d.Deny {
-		return d
-	}
-	prog, args := program(words)
-	if filepath.Base(prog) != "komando" {
-		return allow()
-	}
-	for _, w := range words[:len(words)-len(args)-1] {
-		if envAssign.MatchString(w) && homeVars[assignName(w)] {
-			return deny("%s=... in front of komando would move its data folder away from the user's protected servers, deny rules, host keys and audit log (komando keeps an agent's data in the account's own home folder all the same). Run komando without it", assignName(w))
-		}
-	}
-	return allow()
-}
-
-// watchedVars are the variables the guard keeps an agent's shell lines
-// from changing: the agent variables and homeVar.
-func watchedVars() []string {
-	names := []string{homeVar}
-	for _, a := range agentVars {
-		names = append(names, a.env)
-	}
-	return names
-}
-
-// varChangeDenied is the guard's answer to a line that changes name.
-func varChangeDenied(name string) guardDecision {
-	if name == homeVar {
-		return deny("%s moves komando's data folder: komando would use another list of servers, without the user's protected servers, deny rules, host keys and audit log. Leave it as it is; ask the user if komando should use another folder", name)
-	}
-	return deny("%s tells komando that an AI agent is running it; changing or clearing it would switch off komando's safety stops for agents. Leave it as it is", name)
-}
-
-// shellKeyword are words that can start a simple command before the
-// command itself: `{ unset X; }`, `! unset X`, `if unset X`, `builtin unset X`.
-var shellKeyword = map[string]bool{"{": true, "}": true, "!": true, "if": true, "then": true, "else": true, "elif": true, "fi": true,
-	"do": true, "done": true, "while": true, "until": true, "builtin": true, "coproc": true, "noglob": true, "nocorrect": true, "function": true}
-
-// assignName is the variable name of NAME=value or NAME+=value.
-func assignName(w string) string {
-	n, _, _ := strings.Cut(w, "=")
-	return strings.TrimSuffix(n, "+")
-}
-
-// agentVarIn reports the watched variable (watchedVars) a name word sets
-// or removes: the name itself, one of a {a,b} list, one a pattern matches
-// (zsh `unset -m`), or any when the name is not known until the shell runs
-// ($V, ${!P*}, `...`).
-func agentVarIn(w string) (string, bool) {
-	if strings.ContainsAny(w, "$`") {
-		for _, env := range watchedVars() {
-			if strings.Contains(w, env) {
-				return env, true
-			}
-		}
-		return agentVars[0].env + " (or another agent variable)", true
-	}
-	for _, x := range expandBraces(w, 0) {
-		elem := x
-		if i := strings.IndexByte(x, '['); i > 0 && strings.HasSuffix(x, "]") {
-			elem = x[:i] // NAME[i]: an element of the variable NAME
-		}
-		for _, env := range watchedVars() {
-			if x == env || elem == env {
-				return env, true
-			}
-			if strings.ContainsAny(x, "*?[") {
-				if ok, _ := filepath.Match(x, env); ok {
-					return env, true
-				}
-			}
-		}
-	}
-	return "", false
-}
-
-// setNames are the variable names a shell builtin that sets variables is
-// given: read's and mapfile's names (not their flags' values), printf -v
-// NAME and zsh's print -v NAME, getopts' NAME, and for's and select's loop
-// variable.
-func setNames(builtin string, args []string) []string {
-	var names []string
-	switch builtin {
-	case "for", "select":
-		if len(args) > 0 {
-			names = append(names, args[0])
-		}
-	case "getopts":
-		if len(args) > 1 {
-			names = append(names, args[1])
-		}
-	case "printf", "print": // -v NAME, also in a cluster (-rv NAME)
-		for i := 0; i < len(args) && strings.HasPrefix(args[i], "-") && args[i] != "--"; i++ {
-			if k := strings.IndexByte(args[i], 'v'); k > 0 {
-				if n := args[i][k+1:]; n != "" {
-					names = append(names, n)
-				} else if i+1 < len(args) {
-					names = append(names, args[i+1])
-				}
-				break
-			}
-		}
-	case "read", "mapfile", "readarray":
-		values := "dnOsuCc" // flags whose value is not a name
-		if builtin == "read" {
-			values = "dinNptu"
-		}
-		for i := 0; i < len(args); i++ {
-			a := args[i]
-			if a == "--" {
-				names = append(names, args[i+1:]...)
-				break
-			}
-			if len(a) < 2 || a[0] != '-' {
-				n, _, _ := strings.Cut(a, "?") // zsh: read NAME?prompt
-				names = append(names, n)
-				continue
-			}
-			for j := 1; j < len(a); j++ {
-				if c := a[j]; strings.IndexByte(values, c) >= 0 || c == 'a' || c == 'A' {
-					v := a[j+1:]
-					if v == "" && i+1 < len(args) {
-						i++
-						v = args[i]
-					}
-					if c == 'a' || c == 'A' {
-						names = append(names, v) // read -a NAME: an array
-					}
-					break
-				}
-			}
-		}
-	}
-	return names
-}
-
-// envLongOption is the GNU env option w names: GNU takes any unambiguous
-// start of a long option (--uns, --ignore-env). An ambiguous start that
-// could clear or remove variables is taken as that, to be safe.
-func envLongOption(w string) (opt, val string, hasVal bool) {
-	name, val, hasVal := strings.Cut(w, "=")
-	var match []string
-	for _, o := range []string{"--ignore-environment", "--null", "--unset", "--chdir", "--split-string", "--block-signal",
-		"--default-signal", "--ignore-signal", "--list-signal-handling", "--debug", "--argv0", "--help", "--version"} {
-		if o == name {
-			return o, val, hasVal
-		}
-		if len(name) > 2 && strings.HasPrefix(o, name) {
-			match = append(match, o)
-		}
-	}
-	for _, o := range match {
-		if o == "--ignore-environment" || o == "--unset" || o == "--split-string" {
-			return o, val, hasVal
-		}
-	}
-	if len(match) == 1 {
-		return match[0], val, hasVal
-	}
-	return name, val, hasVal
-}
-
 // program is the command a simple command runs, after shell keywords,
 // VAR=value words and wrappers such as sudo, env, time, timeout and nohup.
 func program(words []string) (string, []string) {
@@ -1031,18 +671,25 @@ func shellWords(s string) []string {
 // it as a glob: it has *, ?, [ or a {a,b} list outside quotes. `cat .e*`
 // does, `grep -o '.*' f` and `cat ${HOME}/notes` do not.
 func shellWordsGlob(s string) ([]string, []bool) {
-	var words []string
-	var globs []bool
+	words, globs, _ := shellWordsFlags(s)
+	return words, globs
+}
+
+// shellWordsFlags is shellWordsGlob, and for each word whether it has a $,
+// a backquote or a command output outside quotes: the shell splits such a
+// value into more words.
+func shellWordsFlags(s string) (words []string, globs, bare []bool) {
 	var cur strings.Builder
 	var q rune
-	glob, brace, inWord := false, false, false
+	glob, brace, inWord, expands := false, false, false, false
 	flush := func() {
 		if cur.Len() > 0 || inWord {
 			words = append(words, cur.String())
 			globs = append(globs, glob || brace && strings.Contains(cur.String(), ","))
+			bare = append(bare, expands)
 			cur.Reset()
 		}
-		glob, brace, inWord = false, false, false
+		glob, brace, inWord, expands = false, false, false, false
 	}
 	escaped, redirect := false, false
 	for _, r := range s {
@@ -1075,10 +722,67 @@ func shellWordsGlob(s string) ([]string, []bool) {
 			if r == '{' {
 				brace = true
 			}
+			expands = expands || r == '$' || r == '`' || string(r) == unknownOutput
 			cur.WriteRune(r)
 			inWord = true
 		}
 	}
 	flush()
-	return words, globs
+	return words, globs, bare
+}
+
+// dropRedirects is the simple command seg without its redirects (2>/dev/null,
+// >out, <in, <<<text, <<EOF): the words its program is given. A file
+// descriptor written right before the operator goes with it.
+func dropRedirects(seg string) string {
+	var b, cur strings.Builder
+	var q rune
+	escaped, skip, quoted := false, false, false
+	end := func() {
+		if !skip && (cur.Len() > 0 || quoted) {
+			b.WriteString(cur.String())
+			b.WriteByte(' ')
+		}
+		cur.Reset()
+		skip, quoted = false, false
+	}
+	rs := []rune(seg)
+	for i := 0; i < len(rs); i++ {
+		r := rs[i]
+		switch {
+		case escaped:
+			escaped = false
+			cur.WriteRune(r)
+		case r == '\\' && q != '\'':
+			escaped = true
+			cur.WriteRune(r)
+		case q != 0:
+			if r == q {
+				q = 0
+			}
+			cur.WriteRune(r)
+		case r == '\'' || r == '"':
+			q, quoted = r, true
+			cur.WriteRune(r)
+		case r == '<' || r == '>':
+			if !quoted && strings.Trim(cur.String(), "0123456789") == "" || cur.String() == "&" {
+				cur.Reset() // 2>, &>: part of the operator
+			} else {
+				end()
+			}
+			for i+1 < len(rs) && strings.ContainsRune("<>&|!-", rs[i+1]) {
+				i++
+			}
+			for i+1 < len(rs) && (rs[i+1] == ' ' || rs[i+1] == '\t') {
+				i++
+			}
+			skip = true // the operator's word
+		case r == ' ' || r == '\t':
+			end()
+		default:
+			cur.WriteRune(r)
+		}
+	}
+	end()
+	return b.String()
 }

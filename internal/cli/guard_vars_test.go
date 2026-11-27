@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -49,6 +50,43 @@ func TestGuardCommandOutputIsKnownOnlyWhenProved(t *testing.T) {
 		`echo x > /tmp/log.$(date -u +%Y%m%dT%H%M%S)`,
 		`f=$(date '+%F %T'); echo x > "/tmp/$f.log"`,
 	}, false)
+}
+
+// The proof of mktemp and date is lost only where the line can change what
+// the name runs or where mktemp writes: alias, function, eval, source or .
+// as a command, and PATH, path or TMPDIR set or unset. The same words as
+// text, a path or a value read ($TMPDIR, find ., source-parser.ts, f())
+// keep it.
+func TestGuardProofIsLostOnlyByARealRedefinition(t *testing.T) {
+	home, _ := guardLineHome(t)
+	for _, pre := range []string{
+		`PATH=/tmp/bin:$PATH`, `export TMPDIR=~/.komando`, `path+=(/tmp/bin)`, `typeset -U path`, `unset TMPDIR`,
+		`. /tmp/env.sh`, `source /tmp/env.sh`, `mktemp() { cat /tmp/n; }`, `function mktemp { cat /tmp/n; }`,
+		`if true; then alias mktemp=x; fi`, `command eval "$(cat /tmp/n)"`, `true && hash -p /tmp/x mktemp`,
+	} {
+		checkLines(t, home, home, []string{pre + `; f=$(mktemp); echo x > "$f"`}, true)
+	}
+	for _, pre := range []string{
+		`D=$TMPDIR/x`, `find . -name '*.go' | head`, `curl -o /tmp/sp.ts https://x/src/source-parser.ts`,
+		`echo "$PATH"`, `grep -n 'func f()' main.go`, `go test ./... -run 'TestAlias'`, `echo hash enable`,
+		"git commit -m 'Keep `~/.komando`. Then run (see docs). Done'",
+	} {
+		checkLines(t, home, home, []string{pre + `; f=$(mktemp); echo x > "$f"`}, false)
+	}
+}
+
+// ${NAME:?} and ${NAME?} give NAME's value, or stop the line before the
+// command runs.
+func TestGuardErrorFormGivesTheValue(t *testing.T) {
+	home, _ := guardLineHome(t)
+	checkLines(t, home, home, []string{
+		`L=/tmp/locks; G=; until mkdir "${L:?}/gate-1" 2>/dev/null && G=gate-1; do sleep 1; done; rmdir "${L:?}/${G:?}"`,
+		`D=/tmp/out; rm -rf "${D?no folder}"`,
+	}, false)
+	checkLines(t, home, home, []string{
+		`L=~/.komando; rm -rf "${L:?}/keys"`,
+		`read L < /tmp/n; echo x > "${L:?}"`,
+	}, true)
 }
 
 // A command's output inside a word leaves the whole word unknown: the
@@ -181,8 +219,9 @@ func TestGuardWritingProgramArgumentIsReadAsTheProgramReadsIt(t *testing.T) {
 }
 
 // After a cd the guard cannot follow (cd -, a folder it cannot read, popd,
-// eval or source), a relative name a command writes is refused; reads and
-// full paths stay allowed.
+// eval or source), a relative name a command writes is read as a fixed name
+// in an unknown folder: refused when it is a protected name, the folder
+// itself, a glob or unknown; reads and full paths stay allowed.
 func TestGuardWriteAfterAnUnknownFolderChangeIsRefused(t *testing.T) {
 	home, _ := guardLineHome(t)
 	checkLines(t, home, home, []string{
@@ -194,6 +233,11 @@ func TestGuardWriteAfterAnUnknownFolderChangeIsRefused(t *testing.T) {
 		`pushd /tmp; popd; echo x > state.json`,
 		`eval "cd $(cat /tmp/d)"; echo x > state.json`,
 		`CDPATH=~; cd .komando; echo x > state.json`,
+		`cd - && echo x > settings.json`,
+		`cd - && rm -rf .`,
+		`cd - && rm -f *`,
+		`read n < /tmp/n; cd -; echo x > "$n"`,
+		`cd -; cp /tmp/a .ssh/rc`,
 	}, true)
 	checkLines(t, home, home, []string{
 		`cd - && cat state.json`,
@@ -202,7 +246,62 @@ func TestGuardWriteAfterAnUnknownFolderChangeIsRefused(t *testing.T) {
 		`cd "$(mktemp -d)" && echo x > out.txt`,
 		`cd -; ls > /dev/null 2>&1`,
 		`cd src && echo x > out.txt`,
+		`cd -; echo x > out.txt`,
+		`read d < /tmp/d; cd "$d" && rm -rf build/out`,
 	}, false)
+}
+
+// A part the guard cannot know may hold / and .., so it can lead out of
+// any folder before it. A written name whose last part is unknown is a
+// wholly unknown target and refused, in /tmp too; a last part with a fixed
+// ending after the unknown part is allowed when no protected name has that
+// ending. Anything else stays refused.
+func TestGuardUnknownLastNameIsRefusedUnlessItsEndingIsSafe(t *testing.T) {
+	home, repo := guardLineHome(t)
+	checkLines(t, home, repo, []string{
+		`echo x > "/tmp/out-$(cat /tmp/n).log"`,
+		`echo x > "build/$(git rev-parse --short HEAD).txt"`,
+		`read n < /tmp/n; cp a.txt "$PWD/build/$n.bak"`,
+	}, false)
+	checkLines(t, home, repo, []string{
+		`read n < /tmp/n; echo x > "/tmp/$n"`,
+		`read n < /tmp/n; cp a.txt "$PWD/build/$n"`,
+		`read n < /tmp/n; echo x > "$HOME/$n"`,
+		`echo x > ~/.claude/$(cat /tmp/n)`,
+		`read n < /tmp/n; echo x > ~/.komando/"$n"`,
+		`read n < /tmp/n; cd ~ && echo x > "log-$n"`,
+		`read n < /tmp/n; echo x > "/tmp/$n/settings.json"`,
+		`read n < /tmp/n; echo x > "/tmp/$n.json"`,
+		`read n < /tmp/n; echo x > "/tmp/x-$n.key"`,
+		`read n < /tmp/n; echo x > "/tmp/$n-$n"`,
+	}, true)
+}
+
+func TestGuardFixedNameAfterAnUnknownFolderIsAllowed(t *testing.T) {
+	home, repo := guardLineHome(t)
+	checkLines(t, home, repo, []string{
+		`read d < /tmp/d; echo x > "$d/out.txt"`,
+		`cp a.txt "$(git rev-parse --show-toplevel)/build/a.txt"`,
+		`echo x > "$(pwd)/notes.txt"`,
+		`read d < /tmp/d; ln -sf /tmp/a "$d/link"`,
+		`read d < /tmp/d; cp -r /tmp/src "$d/x"`,
+	}, false)
+	var lines []string
+	for _, name := range []string{"settings.json", "settings.local.json", "hooks.json", "state.json", "vault.key",
+		"store.db", ".env", "komando", "id_ed25519", ".ssh/rc", ".claude", ".komando/x", "", ".", "..", "*", "*.json", "{a,komando}"} {
+		lines = append(lines, `read d < /tmp/d; echo x > "$d"/`+name)
+	}
+	lines = append(lines,
+		`read d < /tmp/d; cp /tmp/settings.json "$d/x"`,
+		`read d < /tmp/d; cp -r /tmp/src/. "$d/x"`,
+		`read d < /tmp/d; rsync -a /tmp/src/ "$d/x"`,
+		`read d < /tmp/d; cp /tmp/a $d/out.txt`,
+		`read d < /tmp/d; cp --target-directory="$d" /tmp/a`,
+		`read d < /tmp/d; cp -t"$d" /tmp/a`,
+		`read f < /tmp/f; dd if=/tmp/a of="$f"`,
+		`read d < /tmp/d; tar -xf /tmp/a.tar -C "$d/x"`,
+	)
+	checkLines(t, home, repo, lines, true)
 }
 
 // The shell's own numbers are known: [0-9]* stands for each value, so they
@@ -341,21 +440,28 @@ func TestGuardOutputOptionNamesAWrittenFile(t *testing.T) {
 	}, false)
 }
 
-// After alias, eval or source, the program a command name runs on a later
-// line is not known: its arguments are checked as files it writes. The
-// shell reads a line whole before it runs it, so on the same line an alias
-// does not count yet. The alias's own text is checked as a shell line.
+// After an alias the guard reads (alias, or the word alias in an eval's
+// text), the program a command name runs on a later line is not known: its
+// arguments are checked as files it writes. The shell reads a line whole
+// before it runs it, so on the same line an alias does not count yet. The
+// alias's own text is checked as a shell line.
 func TestGuardAliasedCommandIsCheckedAsAWriter(t *testing.T) {
 	home, _ := guardLineHome(t)
 	checkLines(t, home, home, []string{
 		"alias c='cp /tmp/a'\nread f < /tmp/n; c \"$f\"",
 		"eval 'alias c=cp'\nread f < /tmp/n; c /tmp/a \"$f\"",
-		"source ./aliases.sh\ncat \"$X\"",
+		"eval alias c=cp\nread f < /tmp/n; c /tmp/a \"$f\"",
+		"eval 'x=1; alias c=cp'\nread f < /tmp/n; c /tmp/a \"$f\"",
 		`alias w='echo x > ~/.komando/state.json'`,
 	}, true)
+	// Code the guard does not read (a sourced file, eval "$x") is outside it
+	// and can change files itself: the commands after it keep their own check.
 	checkLines(t, home, home, []string{
 		`alias ll='ls -l'; ll > /tmp/out`,
 		`source ./env.sh; echo "$NAME" > /tmp/out`,
+		"source ./aliases.sh\ncat \"$X\"",
+		"eval \"$(cat /tmp/n)\"\n[ -n \"$err\" ] && echo \"$err\"",
+		". ./env.sh\necho $OUT",
 	}, false)
 }
 
@@ -377,5 +483,51 @@ func TestGuardProofOfMktempAndDateNeedsTheSystemProgram(t *testing.T) {
 	checkLines(t, home, home, []string{
 		`f=$(mktemp); echo x > "$f"`,
 		`echo x > "$(mktemp)"`,
+	}, true)
+}
+
+// Only one path proves each program: /usr/bin/mktemp and /bin/date, links
+// followed (on Linux /bin is often a link to /usr/bin). A second path is a
+// second program to trust.
+func TestGuardMktempAndDateAreProvedAtOnePathEach(t *testing.T) {
+	want := map[string][]string{"mktemp": {"/usr/bin/mktemp"}, "date": {"/bin/date"}}
+	if len(trustedPrograms) != len(want) {
+		t.Fatalf("trustedPrograms has %d programs, want %d", len(trustedPrograms), len(want))
+	}
+	for name, paths := range want {
+		if got := trustedPrograms[name]; !slices.Equal(got, paths) {
+			t.Errorf("trustedPrograms[%q] = %q, want %q", name, got, paths)
+		}
+	}
+}
+
+// Text in single quotes is literal: $0 and $1 in an awk program or a sed
+// script are no shell values. A sed script or an awk program is code, not a
+// file name: a value in it names no written file (code is row C534's), and
+// sed without -i only reads its files. A file sed -i edits stays checked.
+func TestGuardScriptTextNamesNoWrittenFile(t *testing.T) {
+	home, repo := guardLineHome(t)
+	checkLines(t, home, repo, []string{
+		`awk 'NR>=24 && NR<=29 {print index($0,"->")}' notes.md`,
+		`awk '/^<<<<<<<|^=======|^>>>>>>>/{print NR": "$0}' notes.md`,
+		`awk '{print $1 > "/tmp/out.txt"}' notes.md`,
+		`sed -i 's/x$/y/' notes.md`,
+		`sed -i 's/a/$b/' notes.md`,
+		`sed -i.bak 's/^$1$/x/' notes.md`,
+		`echo x > '$HOME-notes.txt'`,
+		`a=$(grep -n x notes.md | cut -d: -f1); sed -n "${a},$((a+5))p" notes.md`,
+		`f=$(grep -rln x .); sed -n "$(grep -n y $f | cut -d: -f1),+45p" $f`,
+		`read n < /tmp/n; sed -i '' "s/a/$n/" notes.md`,
+		`read n < /tmp/n; sed -i -e "s/a/$n/" notes.md`,
+		`read n < /tmp/n; awk -v n="$n" '{print > "/tmp/out.txt"}' notes.md`,
+		`sed -n '$p' ~/.claude/settings.json`,
+	}, false)
+	checkLines(t, home, repo, []string{
+		`read f < /tmp/n; awk '{print $1}' notes.md > "$f"`,
+		`read f < /tmp/n; sed -i 's/x$/y/' "$f"`,
+		`read f < /tmp/n; echo x > "$f"'.txt'"$f"`,
+		`read f < /tmp/n; sed -i '' "s/a/b/" "$f"`,
+		`read f < /tmp/n; sed -i -e "s/a/$f/" $f`,
+		`read f < /tmp/n; sed -i "s/a/$f/" notes.md $f`,
 	}, true)
 }

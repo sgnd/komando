@@ -225,7 +225,8 @@ func TestGuardCwdAndGlobs(t *testing.T) {
 		{"Bash", "", map[string]any{"command": "cp -r ~ /tmp/h"}, true},
 		{"Bash", "", map[string]any{"command": "find ~ -type f -exec cat {} +"}, true},
 		{"Bash", "/Users/me/code/app", map[string]any{"command": "grep -rn TODO ."}, false},
-		{"Bash", "/Users/me/code/app", map[string]any{"command": "tar -xzf build.tgz -C ~"}, false},
+		{"Bash", "/Users/me/code/app", map[string]any{"command": "tar -tzf build.tgz -C ~"}, false},
+		{"Bash", "/Users/me/code/app", map[string]any{"command": "tar -xzf build.tgz -C ~"}, true}, // the archive's names land in the home folder
 		{"Bash", "", map[string]any{"command": "find ~ -name '*.log'"}, false},
 		{"Bash", "", map[string]any{"command": "cp -r ~/code/app /tmp/app"}, false},
 		// command substitution and ~user
