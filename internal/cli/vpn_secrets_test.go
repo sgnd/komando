@@ -108,11 +108,11 @@ func TestVpnAddKeepsOtherSecrets(t *testing.T) {
 	// --overwrite with no VPN of that name to replace changes nothing
 	wantCode(t, "SECRET_EXISTS", "vpn", "openvpn", "add", "lab", "--config", ovpn("1"), "--check", "10.8.0.1:22", "--overwrite")
 	kept("lab-config")
-	// nor does --overwrite of a VPN that only points at the secret: a SOCKS
-	// VPN's password is not a key `vpn add` stored
+	// nor does --overwrite of a VPN of another kind (a SOCKS VPN's password
+	// is not a key `vpn add` stored): it is WRONG_KIND, before any secret
 	mustRun(t, "vpn", "socks", "add", "corp", "--proxy-address", "127.0.0.1:1080", "--user", "alice", "--credential", "corp-key")
 	set("corp-key")
-	wantCode(t, "SECRET_EXISTS", "vpn", "wireguard", "add", "corp", "--config", wg("1"), "--overwrite")
+	wantCode(t, "WRONG_KIND", "vpn", "wireguard", "add", "corp", "--config", wg("1"), "--overwrite")
 	kept("corp-key")
 	if st, _ := store.Load(); st.Vpns["corp"].Kind != "socks" {
 		t.Error("the SOCKS VPN was replaced")

@@ -169,8 +169,8 @@ func TestImportMovesNoTypedLogin(t *testing.T) {
 }
 
 // The hints of VPN_DOWN, VPN_STOP_FAILED and NEEDS_PERSON name the path of
-// the VPN's own kind. A session left from a removed VPN has no kind, and its
-// stop hint names no path.
+// the VPN's own kind. A session left from a removed VPN has no kind: its
+// stop hint says KIND, which the stop of any kind reaches.
 func TestVpnHintsNameTheKindsPath(t *testing.T) {
 	invHome(t)
 	mustRun(t, "vpn", "socks", "add", "office", "--proxy-address", "127.0.0.1:1")
@@ -180,11 +180,8 @@ func TestVpnHintsNameTheKindsPath(t *testing.T) {
 	if got := vpnKindWord("gone"); got != "KIND" {
 		t.Errorf("a VPN not saved gives %q, want the word KIND", got)
 	}
-	if got, want := vpnStopAgain("socks", "office"), "run `komando vpn socks stop office` again"; got != want {
-		t.Errorf("stop hint: %q, want %q", got, want)
-	}
-	if got := vpnStopAgain("", "gone"); strings.Contains(got, "vpn  ") || strings.Contains(got, "KIND") || !strings.Contains(got, "stop again") {
-		t.Errorf("a session of a removed VPN gets a hint with no path: %q", got)
+	if got := kindWord(""); got != "KIND" {
+		t.Errorf("a session of a removed VPN has no kind: %q", got)
 	}
 }
 

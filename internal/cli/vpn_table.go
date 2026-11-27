@@ -171,21 +171,20 @@ func vpnKindsTaking(option string) []string {
 // vpnPath is the words that run a verb on a VPN of this kind.
 func vpnPath(kind, verb string) string { return "komando vpn " + kind + " " + verb }
 
-// vpnKindWord is the kind of the saved VPN called name, for a hint that
-// names its path; the word KIND when none is saved under it.
-func vpnKindWord(name string) string {
-	if st, err := loadState(); err == nil && st.Vpns[name] != nil {
-		return st.Vpns[name].Kind
+// kindWord is a VPN's kind in a hint that names its path: the word KIND
+// when it has none (a session left from a removed VPN, which the stop of
+// any kind reaches).
+func kindWord(kind string) string {
+	if kind == "" {
+		return "KIND"
 	}
-	return "KIND"
+	return kind
 }
 
-// vpnStopAgain is the hint of a failed stop: the path that stops the VPN
-// called name again. A session left from a removed VPN has no kind, so the
-// hint names no path.
-func vpnStopAgain(kind, name string) string {
-	if kind == "" {
-		return "run the same stop again"
+// vpnKindWord is kindWord of the saved VPN called name.
+func vpnKindWord(name string) string {
+	if st, err := loadState(); err == nil && st.Vpns[name] != nil {
+		return kindWord(st.Vpns[name].Kind)
 	}
-	return "run `" + vpnPath(kind, "stop") + " " + name + "` again"
+	return kindWord("")
 }
