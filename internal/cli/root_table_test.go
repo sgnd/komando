@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/out"
@@ -978,9 +979,15 @@ func TestGateRiskPolicyGuardReadNoBuiltFlagAsText(t *testing.T) {
 			}
 		}
 	}
-	call := regexp.MustCompile(`\.Get(StringArray|StringSlice|String)\(([^)]*)\)`)
+	call := regexp.MustCompile(`\.Get(StringArray|StringSlice|StringToString|StringToInt64|StringToInt|String)\(([^)]*)\)`)
+	valueString := regexp.MustCompile(`\.Value\.String\(\)`) // also Lookup("x").Value.String()
+	// Value.String() is exact for a plain string flag and for the fallback of
+	// a flag already tried as a SliceValue: these uses, by file, are checked
+	// below (gateLocalFlags names plain string flags) or just above the call
+	valueStringUses := map[string]int{"risk.go": 1, "sshgate_localread.go": 1}
 	var files []string
-	for _, pat := range []string{"sshgate*.go", "risk*.go", "policy*.go", "guard*.go", "gate*.go"} {
+	for _, pat := range []string{"sshgate*.go", "risk*.go", "policy*.go", "guard*.go", "gate*.go",
+		"common.go", "flag_*.go", "kinds.go"} {
 		m, err := filepath.Glob(pat)
 		if err != nil {
 			t.Fatal(err)
@@ -997,6 +1004,9 @@ func TestGateRiskPolicyGuardReadNoBuiltFlagAsText(t *testing.T) {
 			t.Fatal(err)
 		}
 		checked++
+		if n := len(valueString.FindAllString(string(src), -1)); n != valueStringUses[f] {
+			t.Errorf("%s: %d reads of Flag.Value.String(), want %d: it is the flag's text, which a list or KEY=VALUE flag writes with brackets and quotes; read those through pflag.SliceValue (and add a file here only for a plain string flag)", f, n, valueStringUses[f])
+		}
 		for _, m := range call.FindAllStringSubmatch(string(src), -1) {
 			getter, arg := m[1], strings.TrimSpace(m[2])
 			name, quoted := strings.CutPrefix(arg, `"`)
@@ -1009,8 +1019,25 @@ func TestGateRiskPolicyGuardReadNoBuiltFlagAsText(t *testing.T) {
 			}
 		}
 	}
-	if checked < 10 {
+	if checked < 15 {
 		t.Errorf("only %d files checked: the file patterns match nothing", checked)
+	}
+	// the flags gateLocalRead reads as text are plain string flags in the tree
+	seen := map[string]bool{}
+	for _, c := range allCommands(newRoot(tcl)) {
+		for _, name := range gateLocalFlags[cmdID(c)] {
+			f := c.Flags().Lookup(name)
+			if f == nil {
+				continue
+			}
+			if _, slice := f.Value.(pflag.SliceValue); slice || f.Value.Type() != "string" {
+				t.Errorf("%s --%s: gateLocalRead reads it as text, so it must be a plain string flag", cmdID(c), name)
+			}
+			seen[cmdID(c)+" --"+name] = true
+		}
+	}
+	if len(seen) < 5 {
+		t.Errorf("only %d flags of gateLocalFlags found in the tree: %v", len(seen), seen)
 	}
 }
 
