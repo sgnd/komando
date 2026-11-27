@@ -37,7 +37,7 @@ func (p *Pubsub) Send(ctx context.Context, m queuex.Message, dryRun bool) (*queu
 	if m.Partition >= 0 {
 		return nil, queuex.NotSupported("--partition", "pubsub", "a Pub/Sub topic has no partitions: drop --partition (--key sets the ordering key)")
 	}
-	name, err := p.topicRef("send", m.Topic)
+	name, err := p.topicRef("pubsub message create", m.Topic)
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +206,7 @@ func (p *Pubsub) Delete(ctx context.Context, names []string, dryRun bool) ([]que
 // subscriber pulled and has not acknowledged yet. Other subscriptions of
 // the topic keep theirs. Pub/Sub does not count them, so messages is -1.
 func (p *Pubsub) Purge(ctx context.Context, name string, dryRun bool) (*queuex.Purged, error) {
-	sub, err := p.subRef("purge", name)
+	sub, err := p.subRef("pubsub message delete", name)
 	if err != nil {
 		return nil, err
 	}
