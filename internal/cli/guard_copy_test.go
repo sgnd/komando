@@ -183,6 +183,26 @@ func TestGuardProgramValueWithASeparatorIsAnyProgram(t *testing.T) {
 	}, false)
 }
 
+// A wrapper held in a value (nohup, env, xargs) runs the program after it,
+// which the guard checks as it checks that program written on the line.
+func TestGuardWrapperInAValueIsUnwrapped(t *testing.T) {
+	home, repo := guardLineHome(t)
+	var lines []string
+	for _, w := range []string{"nohup", "env", "command", "nice", "exec", "time", "sudo", `"nohup nice"`} {
+		lines = append(lines, "W="+w+"; $W rm -rf ~")
+	}
+	checkRefusedBy(t, home, home, append(lines, `W=nohup; read p < /tmp/n; $W $p ~/.ssh /tmp/k`, `env rm -rf ~`), treeRefusal)
+	checkRefusedBy(t, home, home, []string{`X=xargs; echo ~ | $X rm -rf`}, "xargs gives rm names")
+	checkRefusedBy(t, home, home, []string{`W=nohup; $W tar -xf /tmp/a.tar -C ~`, `env tar -xf /tmp/a.tar -C ~`}, "tar writes names it reads from elsewhere")
+	checkLines(t, home, repo, []string{
+		`W=nohup; $W rm -rf ./build`,
+		`W=nohup; $W go test ./...`,
+		`env go test ./...`,
+		`W=nice; $W -n 5 make build`,
+		`X=xargs; echo a | $X wc -l`,
+	}, false)
+}
+
 // The folder rule splits a value where the shell may: at the line's own
 // IFS, never at \v, \f, \r or a non-breaking space; and a quoted value
 // stays one word.

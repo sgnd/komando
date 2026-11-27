@@ -343,7 +343,7 @@ func program(words []string) (string, []string) {
 		case isWrapper(base) && base != "env":
 			wrapper, pos = base, 0
 			continue
-		case base == "env" && i+1 < len(words) && (envAssign.MatchString(words[i+1]) || strings.HasPrefix(words[i+1], "-")):
+		case base == "env" && i+1 < len(words): // env alone lists the variables
 			wrapper, pos = "env", 0
 			continue
 		case strings.HasPrefix(w, "-") && i > 0:
@@ -360,6 +360,68 @@ func program(words []string) (string, []string) {
 	}
 	return "", nil
 }
+
+// programRun is what a simple command may run: the base names of the
+// programs, the words they are given, whether the shell globs each,
+// whether each holds a value outside quotes, and whether they run under
+// xargs.
+type programRun struct {
+	bases       []string
+	words       []string
+	globs, bare []bool
+	xargs       bool
+}
+
+// valueRuns are what a simple command may run whose program word,
+// words[0], has the values progs; programs given the same words share one
+// run. A value not quoted (split) is split at the line's separators, and
+// its fields and the words after it are read as a line is (program): an
+// empty value is gone and a wrapper runs the program after it. A program
+// that is still a value is one the guard cannot name.
+func valueRuns(progs, words []string, globs, bare []bool, split bool, seps string) []programRun {
+	var runs []programRun
+	add := func(base string, r programRun) {
+		for i, o := range runs {
+			if o.xargs == r.xargs && slices.Equal(o.words, r.words) && slices.Equal(o.globs, r.globs) && slices.Equal(o.bare, r.bare) {
+				if !slices.Contains(o.bases, base) {
+					runs[i].bases = append(o.bases, base)
+				}
+				return
+			}
+		}
+		r.bases = []string{base}
+		runs = append(runs, r)
+	}
+	for _, p := range progs {
+		if p == words[0] { // the program written on the line
+			add(filepath.Base(p), programRun{words: words[1:], globs: globs[1:], bare: bare[1:]})
+			continue
+		}
+		fields := []string{p}
+		if split {
+			fields = splitAt(p, seps)
+		}
+		all, allGlobs := slices.Clone(words[1:]), slices.Clone(globs[1:])
+		for i := len(fields) - 1; i >= 0; i-- {
+			all = slices.Insert(all, 0, strings.ReplaceAll(fields[i], "$", literalDollar))
+			allGlobs = slices.Insert(allGlobs, 0, split && wordHasGlob(fields[i]))
+		}
+		allBare := append(make([]bool, len(fields)), bare[1:]...)
+		next, rest := program(all)
+		if next == "" {
+			continue
+		}
+		at := len(all) - len(rest)
+		base := filepath.Base(next)
+		if strings.ContainsAny(next, "$`") || strings.Contains(next, unknownOutput) {
+			base = anyProgram
+		}
+		add(base, programRun{words: rest, globs: allGlobs[at:], bare: allBare[at:], xargs: slices.ContainsFunc(all[:at-1], isXargs)})
+	}
+	return runs
+}
+
+func isXargs(w string) bool { return filepath.Base(w) == "xargs" }
 
 func isWrapper(w string) bool {
 	switch w {

@@ -398,78 +398,70 @@ func checkWritesIn(cl *call, seg string, vars lineVars, home, cwd string) guardD
 	progs, known := vars.expand(cl, prog, home, cwd)
 	_, aliased := vars[aliasVar]
 	first := len(words) - len(args)
-	seps, _ := vars.separators()
-	bases, writes, ownWords := programBases(prog, progs, args, bare[first-1], seps)
-	from := first
-	if ownWords {
-		from = first - 1 // the value's own words are among the arguments
+	runs := []programRun{{[]string{anyProgram}, words[first:], globs[first:], bare[first:], false}}
+	if known && !aliased {
+		seps, _ := vars.separators()
+		runs = valueRuns(progs, words[first-1:], globs[first-1:], bare[first-1:], bare[first-1], seps)
 	}
-	if !known || aliased {
-		bases, writes, from = []string{anyProgram}, true, first
-	}
-	if !writes {
-		if d := checkPartWriters(cl, filepath.Base(prog), words[first:], globs[first:], vars, home, cwd); d.Deny {
+	xargs := slices.ContainsFunc(words[:first-1], isXargs)
+	for _, r := range runs {
+		r.xargs = r.xargs || xargs
+		if d := checkRun(cl, r, vars, home, cwd); d.Deny {
 			return d
 		}
-		return checkOutputOptions(cl, filepath.Base(prog), words[first:], globs[first:], vars, home, cwd)
-	}
-	for _, w := range words[:first-1] {
-		if filepath.Base(w) == "xargs" {
-			return deny("xargs gives %s names of files to change that komando's guard cannot read before the line runs; name the files on the line", filepath.Base(prog))
-		}
-	}
-	text := scriptWords(filepath.Base(prog), args)
-	for j := first; j < len(words); j++ {
-		_, known := vars.expand(cl, words[j], home, cwd)
-		if !known && text[j-first] {
-			continue // code or a file read: a value in it names no written file
-		}
-		if bare[j] && !known {
-			return deny("%s names files this line writes with a value komando's guard cannot read before the line runs, outside quotes, where the shell can make more names of it; name the files on the line", strings.ReplaceAll(words[j], unknownOutput, "$(...)"))
-		}
-		if d := checkWritten(cl, words[j], globs[j], false, vars, home, cwd); d.Deny {
-			return d
-		}
-	}
-	if d := checkTreeChange(cl, bases, words[from:], globs[from:], vars, home, cwd); d.Deny {
-		return d
-	}
-	if b := filepath.Base(prog); copyPrograms[b] {
-		return checkCopyInto(cl, b, args, globs[first:], vars, home, cwd)
 	}
 	return allow()
 }
 
-// programBases are the base names of the programs a command may run whose
-// program word prog has the values progs, whether one of them writes the
-// files its arguments name, and whether a value's own words are among the
-// arguments. An unquoted value (split) is split at the line's separators:
-// its first field is the program and the rest are arguments; an empty one
-// is gone, and the next word is the program, a program the guard cannot
-// name when it is a value too.
-func programBases(prog string, progs, args []string, split bool, seps string) (bases []string, writes, ownWords bool) {
-	for _, p := range progs {
-		fields, rest := []string{p}, unmarked(args)
-		if split && p != prog {
-			fields = splitAt(p, seps)
+// checkRun is checkWrites for what a simple command may run (programRun).
+func checkRun(cl *call, r programRun, vars lineVars, home, cwd string) guardDecision {
+	var writers []string
+	for _, b := range r.bases {
+		if b == anyProgram || writesFiles(b, unmarked(r.words)) {
+			writers = append(writers, b)
+			continue
 		}
-		if len(fields) == 0 {
-			next, nargs := program(args)
-			if next == "" {
-				continue
-			}
-			if strings.ContainsAny(next, "$`") || strings.Contains(next, unknownOutput) {
-				bases, writes = append(bases, anyProgram), true
-				continue
-			}
-			fields, rest = []string{next}, unmarked(nargs)
+		if d := checkPartWriters(cl, b, r.words, r.globs, vars, home, cwd); d.Deny {
+			return d
 		}
-		ownWords = ownWords || len(fields) > 1
-		base := filepath.Base(fields[0])
-		bases = append(bases, base)
-		writes = writes || writesFiles(base, append(fields[1:len(fields):len(fields)], rest...))
+		if d := checkOutputOptions(cl, b, r.words, r.globs, vars, home, cwd); d.Deny {
+			return d
+		}
 	}
-	return bases, writes, ownWords
+	if writers == nil {
+		return allow()
+	}
+	if r.xargs {
+		return deny("xargs gives %s names of files to change that komando's guard cannot read before the line runs; name the files on the line", strings.Join(writers, " or "))
+	}
+	texts := make([]map[int]bool, len(writers))
+	for i, b := range writers {
+		texts[i] = scriptWords(b, r.words)
+	}
+	for j, w := range r.words {
+		_, known := vars.expand(cl, w, home, cwd)
+		if !known && !slices.ContainsFunc(texts, func(text map[int]bool) bool { return !text[j] }) {
+			continue // code or a file read for each program: a value in it names no written file
+		}
+		if r.bare[j] && !known {
+			return deny("%s names files this line writes with a value komando's guard cannot read before the line runs, outside quotes, where the shell can make more names of it; name the files on the line", strings.ReplaceAll(w, unknownOutput, "$(...)"))
+		}
+		if d := checkWritten(cl, w, r.globs[j], false, vars, home, cwd); d.Deny {
+			return d
+		}
+	}
+	if d := checkTreeChange(cl, r.bases, r.words, r.globs, vars, home, cwd); d.Deny {
+		return d
+	}
+	for _, b := range writers {
+		if !copyPrograms[b] {
+			continue
+		}
+		if d := checkCopyInto(cl, b, r.words, r.globs, vars, home, cwd); d.Deny {
+			return d
+		}
+	}
+	return allow()
 }
 
 // copyPrograms write in a destination folder names the line does not
