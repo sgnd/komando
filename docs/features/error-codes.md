@@ -177,7 +177,7 @@ This page is made from the code (`komando schema` lists the same under
 | `QUEUE_EXISTS` | 8 | queue … already exists | pick another name, or see it with `komando queue describe CONN …` |
 | `QUEUE_NOT_FOUND` | 3 | no queue named … | list queues with `komando queue list CONN` (it needs ?management=PORT in the conn's URL); the vhost is the URL's path |
 | `READ_FAILED` | 5 | cannot read …: … | run it again; the output was cut (raise --max-output?) |
-| `READ_ONLY_VIOLATION` | 6 | --read-only, but the command is not known to only read (…) | --read-only runs only what komando knows only reads: for a server's state use komando facts, logs, svc status or fs read; otherwise tell the user what the command does, then run it without --read-only (a protected server also needs --yes) |
+| `READ_ONLY_VIOLATION` | 6 | --read-only, but the command is not known to only read (…) | --read-only runs only what komando knows only reads: for a server's state use komando logs, fs cat, or exec --read-only with a read command; otherwise tell the user what the command does, then run it without --read-only (a protected server also needs --yes) |
 | `RECIPE_BUILTIN` | 8 | … is a built-in recipe | pick another name; see `komando recipe list` |
 | `RECIPE_CHANGED` | 8 | recipe … changed while komando was starting | run it again |
 | `RECIPE_EXISTS` | 8 | recipe … exists | see it with `komando recipe show NAME`, or pass --overwrite to replace it |

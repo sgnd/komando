@@ -38,6 +38,11 @@ var t3Cases = []struct {
 	{"key.rm", "the name gkey", []string{"key", "rm", "gkey", "--delete-file"}},
 	{"pkg.rm", "the name openssh-server", []string{"pkg", "rm", "web1", "openssh-server"}},
 	{"sync", "the name web1", []string{"sync", "testdata", "web1:/tmp/x", "--delete"}},
+	// what user rm, svc stop and user lock asked before the cut (D1): exec
+	// on a server that is not protected asks for its name
+	{"host.exec", "the name web1", []string{"exec", "web1", "--", "userdel", "bob"}},
+	{"host.exec", "the name web1", []string{"exec", "web1", "--", "systemctl", "stop", "sshd"}},
+	{"host.exec", "the name web1", []string{"exec", "web1", "--", "usermod", "-L", "root"}},
 }
 
 // Every T3 row a command always has (not one decided at run time) asks a

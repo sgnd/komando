@@ -593,7 +593,7 @@ what an agent or a script gets.
 | `OPEN_BIND` | 6 | A tunnel would listen on an address other machines can reach. | Keep the default 127.0.0.1, or add `--yes` after a person agrees. |
 | `CONFIRM_REQUIRED` | 6 | A change that touches many entries (deleting a group). | Check them first, then add `--yes` after a person agrees. |
 | `WRITE_REQUIRES_FLAG` | 6 | The query or command changes data. | Try `--write --dry-run`, then `--write`. |
-| `READ_ONLY_VIOLATION` | 6 | `--read-only` was given, but komando does not know the command only reads: it changes something, or it is a program, option or subcommand komando has not heard of. | Use komando's own read (`facts`, `logs`, `svc status`, `fs read`), or drop `--read-only`; a person may confirm with `--yes`. |
+| `READ_ONLY_VIOLATION` | 6 | `--read-only` was given, but komando does not know the command only reads: it changes something, or it is a program, option or subcommand komando has not heard of. | Use komando's own read (`logs`, `fs cat`) or a read command under `exec --read-only`, or drop `--read-only`; a person may confirm with `--yes`. |
 | `DB_BYTES_LIMIT` | 6 | A BigQuery query would read more bytes than `--max-bytes` allows, so it did not run. | Select fewer columns or filter more; raise `--max-bytes` only if the person agrees to the cost. |
 | `SQL_SAFE_SETTINGS_REQUIRED` | 6 | The ClickHouse user reads queries in another dialect, so komando cannot check them. | Use a user whose settings keep `dialect = 'clickhouse'`. |
 | `UNSAFE_BACKUP` | 6 | The backup file holds a client command, not SQL, that could run programs where the restore runs. | Remove that line if the dump is not trusted. |

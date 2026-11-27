@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# Server operations: logs, pkg, docker, vpn. The lab's
+# Server operations: logs, sudo refusals, pkg, docker, vpn. The lab's
 # servers are containers without systemd. Self-cleaning: everything made
 # here is named t-fixops*.
 r0='d["data"]["results"][0]'
@@ -16,6 +16,22 @@ $K logs direct --file /t-fixops-nope --follow --timeout 3s >/dev/null; check "lo
 set -e
 check "logs --unit names NO_JOURNAL or NO_SYSTEMD" True "$($K logs direct --unit ssh | jget "${r0}[\"error\"][\"code\"] in ('NO_JOURNAL', 'NO_SYSTEMD')" || true)"
 check "logs --file reads the file" direct "$($K logs direct --file /etc/hostname -n 1 | jget "${r0}[\"stdout\"].strip()")"
+
+# a login user without sudo rights: the error names the cause and the next
+# command. The user is made through exec, with the key written as root.
+q $K key gen t-fixops-k
+NSKEY=$($K key show t-fixops-k | jget 'd["data"]["public_key"]')
+q $K exec direct --sudo -- "useradd -m -s /bin/sh t-fixopsns && mkdir -p ~t-fixopsns/.ssh && echo '$NSKEY' > ~t-fixopsns/.ssh/authorized_keys && chown -R t-fixopsns ~t-fixopsns/.ssh && chmod 700 ~t-fixopsns/.ssh"
+q $K host add t-fixops-ns "t-fixopsns@127.0.0.1:$E2E_SSH_DIRECT" --key t-fixops-k
+q $K host trust t-fixops-ns
+check "pkg install without sudo rights names the next command" True "$($K pkg install t-fixops-ns tree | jget "'--sudo-ref secret:t-fixops-ns-sudo' in ${r0}['error']['hint'] or '--user OTHER' in ${r0}['error']['hint']" || true)"
+for sub in ps stats images; do
+  check "docker $sub --sudo without sudo rights names PERMISSION_DENIED" PERMISSION_DENIED "$($K docker $sub t-fixops-ns --sudo | jget "${r0}['error']['code']" || true)"
+done
+check "docker ps --sudo refused says to leave out --sudo as root" True "$($K docker ps t-fixops-ns --sudo | jget "'--user OTHER' in ${r0}['error']['hint'] or 'leave out --sudo' in ${r0}['error']['hint']" || true)"
+q $K host rm t-fixops-ns
+$K exec direct --sudo --allow-dangerous -- 'userdel -r t-fixopsns' >/dev/null 2>&1 || true
+q $K key rm t-fixops-k
 
 # pkg: option injection, essential packages, installed rows, changed, unknown
 set +e
