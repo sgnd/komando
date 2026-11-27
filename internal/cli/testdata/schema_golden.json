@@ -888,7 +888,7 @@
         "path": "komando cluster add",
         "usage": "komando cluster add NAME URL [flags]",
         "short": "Add a cluster",
-        "long": "Same as `komando conn add NAME URL`, for a cluster.\n\nSafety: a change; try it with --dry-run first.\n\nSaves a cluster under a short name. Typed alone at a terminal, it asks\nstep by step. The URL scheme sets the kind: `komando conn kinds` lists them.\n\nA Kubernetes cluster usually comes in with `komando import kubeconfig FILE`\n(one conn per context). Here its kubeconfig must be in the vault already\n(--password-ref). A Docker Swarm manager is a server: `komando host ssh\nadd`.",
+        "long": "Same as `komando conn add NAME URL`, for a cluster.\n\nSafety: a change; try it with --dry-run first.\n\nSaves a cluster under a short name. Typed alone at a terminal, it asks\nstep by step. The URL scheme sets the kind: `komando conn kinds` lists them.\n\nA Kubernetes cluster usually comes in with `komando import kubeconfig FILE`\n(one conn per context). Here its kubeconfig must be in the vault already\n(--credential). A Docker Swarm manager is a server: `komando host ssh add`.",
         "example": "  komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref secret:prod-kubeconfig\n  komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref secret:prod-kubeconfig --dry-run",
         "flags": [
           {
@@ -5578,12 +5578,6 @@
             "usage": "an argument for the script, $1 and on"
           },
           {
-            "name": "attach",
-            "type": "stringSlice",
-            "default": "[]",
-            "usage": "read the rest of these sessions on one server, and their exit codes"
-          },
-          {
             "name": "cmd",
             "shorthand": "c",
             "type": "string",
@@ -5614,18 +5608,6 @@
             "usage": "the interpreter on the server (default: from the #! line, else sh)"
           },
           {
-            "name": "log-max",
-            "type": "bytes",
-            "default": "1GiB",
-            "usage": "bytes of output the server keeps for the run; more is dropped"
-          },
-          {
-            "name": "offset",
-            "type": "int",
-            "default": "0",
-            "usage": "start at this byte of the log (next_from of the last read)"
-          },
-          {
             "name": "pty",
             "type": "bool",
             "default": "false",
@@ -5638,32 +5620,14 @@
             "usage": "the command only reads (the policy checks it either way)"
           },
           {
-            "name": "remove",
-            "type": "bool",
-            "default": "false",
-            "usage": "remove a finished session's log from the server"
-          },
-          {
             "name": "script",
             "type": "string",
             "usage": "run this script from this computer ('-' is komando's stdin); nothing is left on the server"
           },
           {
-            "name": "signal",
-            "type": "string",
-            "default": "TERM",
-            "usage": "the signal --stop sends"
-          },
-          {
             "name": "stdin-file",
             "type": "string",
             "usage": "send this file as stdin ('-' is komando's stdin)"
-          },
-          {
-            "name": "stop",
-            "type": "bool",
-            "default": "false",
-            "usage": "stop the session's command"
           },
           {
             "name": "stream",
@@ -5682,12 +5646,6 @@
             "name": "sudo-user",
             "type": "string",
             "usage": "run as this user with sudo -u"
-          },
-          {
-            "name": "wait",
-            "type": "duration",
-            "default": "1m",
-            "usage": "wait this long for the run to end; it goes on after (exit 7); 0 returns at once"
           }
         ],
         "runnable": true,
@@ -8860,7 +8818,7 @@
         "path": "komando secret",
         "usage": "komando secret [flags]",
         "short": "Saved passwords and tokens: store, check, use as secret:NAME",
-        "long": "Save a password once, then point to it as secret:NAME instead of typing it:\n  komando secret set web1-pass\n  komando host ssh edit web1 --password-ref secret:web1-pass\n\nkomando shows a saved value only to a person: at a terminal with\n`secret show --reveal`, or after \"Allow once\" in komando's window; never\nto an AI agent. `secret check` compares a value with the saved one\nwithout showing either. `secret rename` and `secret cp` rename and copy.\n\nHow it is stored: each secret sealed with AES-256-GCM in\n~/.komando/store.db. The random key is in the OS keychain (or in store.key\nwhere there is none, or with KOMANDO_KEYCHAIN=off), or comes from\n$KOMANDO_VAULT_PASS when that is set at first use (`secret passphrase`\nchanges it).\n\nA --password-ref (and the other -ref flags) can also read a password your\nteam keeps elsewhere; komando reads it when needed and never stores it:\n  env:VAR  file:PATH  vault:PATH#FIELD  aws-sm:NAME[#KEY]  gcp-sm:NAME[@PROJECT]\n  azure-kv:VAULT/NAME[#KEY]  op://VAULT/ITEM/FIELD  bw://ITEM/FIELD  kdbx:FILE#GROUP/ENTRY",
+        "long": "Save a password once, then point to it as secret:NAME instead of typing it:\n  komando secret set web1-pass\n  komando host ssh edit web1 --credential secret:web1-pass\n\nkomando shows a saved value only to a person: at a terminal with\n`secret show --reveal`, or after \"Allow once\" in komando's window; never\nto an AI agent. `secret check` compares a value with the saved one\nwithout showing either. `secret rename` and `secret cp` rename and copy.\n\nHow it is stored: each secret sealed with AES-256-GCM in\n~/.komando/store.db. The random key is in the OS keychain (or in store.key\nwhere there is none, or with KOMANDO_KEYCHAIN=off), or comes from\n$KOMANDO_VAULT_PASS when that is set at first use (`secret passphrase`\nchanges it).\n\nA --password-ref (and the other -ref flags) can also read a password your\nteam keeps elsewhere; komando reads it when needed and never stores it:\n  env:VAR  file:PATH  vault:PATH#FIELD  aws-sm:NAME[#KEY]  gcp-sm:NAME[@PROJECT]\n  azure-kv:VAULT/NAME[#KEY]  op://VAULT/ITEM/FIELD  bw://ITEM/FIELD  kdbx:FILE#GROUP/ENTRY",
         "aliases": [
           "secrets",
           "vault"
@@ -12817,7 +12775,7 @@
         "code": "SESSION_STOP_FAILED",
         "exit": 5,
         "example": "…: session … was not stopped (exit …): …",
-        "hint": "a run started with --sudo is stopped through sudo as the same user; when sudo asks for a password there, give the server its sudo password: `komando host ssh edit TARGET --sudo-ref secret:NAME`"
+        "hint": "a run started with --sudo is stopped through sudo as the same user; when sudo asks for a password there, give the server its sudo password: `komando host ssh edit TARGET --sudo-credential secret:NAME`"
       },
       {
         "code": "SESSION_WAIT_TIMEOUT",

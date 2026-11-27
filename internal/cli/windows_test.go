@@ -292,7 +292,7 @@ func TestWindowsSelectorsAndHosts(t *testing.T) {
 	}
 
 	startFakeServer(t)
-	if err := runRoot(t, "host", "ssh", "add", "w2", "Administrator@10.0.0.9", "--os", "Windows"); err != nil {
+	if err := runRoot(t, "host", "ssh", "add", "w2", "Administrator@10.0.0.9", "--os", "windows"); err != nil {
 		t.Fatal(err)
 	}
 	s, _ := store.Load()

@@ -260,7 +260,7 @@ func TestStandardNextPerVerb(t *testing.T) {
 	for key, want := range map[string]string{
 		"host ssh add":    "komando test web1",
 		"conn add":        "komando test web1",
-		"host rename":     "komando host ssh show web2",
+		"host ssh rename": "komando host ssh show web2",
 		"key rename":      "komando key show web2",
 		"rename":          "komando list web2",
 		"user add":        "komando user list web1",

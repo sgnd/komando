@@ -33,7 +33,7 @@ func shopInventory(t *testing.T) {
 		"--password-ref", "secret:shop-pass", "--protected", "--label", "dc=jkt", "--notes", "jump for shop-db; see shop-vpn.")
 	mustRun(t, "key", "gen", "shop-key")
 	mustRun(t, "host", "ssh", "add", "shop-data-01", "u@10.0.0.2", "--via", "shop-vpn,shop-bastion", "-g", "shop",
-		"--sudo-ref", "secret:shop-pass", "--key", "shop-key")
+		"--sudo-credential", "secret:shop-pass", "--key", "shop-key")
 	mustRun(t, "host", "ssh", "add", "web", "u@10.0.0.3", "--via", "shop-vpn,shop-bastion", "--env", "DB=secret:shop-pass", "--credential", "secret:other-pass")
 	mustRun(t, "conn", "add", "shop-db", "postgres://shop@10.0.0.5/shop", "--via", "shop-vpn,shop-bastion",
 		"--password-ref", "secret:shop-pass", "--protected", "-g", "shop")

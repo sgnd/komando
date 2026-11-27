@@ -95,7 +95,7 @@ func TestLoginAskRouteSettingsAndSecrets(t *testing.T) {
 	mustRun(t, "host", "ssh", "add", "web1", "u@100.64.0.5", "--login", "ask", "--via", "ts")
 	setCallerEnv(t, "CLAUDECODE", "1")
 	for _, a := range []string{"winrm://Administrator@10.0.0.9?ca=secret:evilca", "winrm://Administrator@10.0.0.9?auth=basic"} {
-		wantCode(t, "NEEDS_PERSON", "host", "ssh", "edit", "win1", "--address", a)
+		wantCode(t, "NEEDS_PERSON", "host", "winrm", "edit", "win1", "--address", a)
 	}
 	t.Setenv("EVIL", "y")
 	for _, name := range []string{"corpca", "connca", "tskey"} {

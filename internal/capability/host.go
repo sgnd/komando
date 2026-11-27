@@ -69,7 +69,7 @@ var (
 	hostKeyOpt      = Option{Name: "key", Kind: Entry, Help: "the name of a key in komando's key list"}
 	hostIdentityOpt = Option{Name: "identity", Kind: File, Help: "the path of a private key file"}
 	hostLoginOpt    = Option{Name: "login", Kind: Enum, Enum: []string{"ask", "password", "key", "agent"},
-		Help: "how komando logs in: ask at every connect, a stored password, a key, or the ssh-agent"}
+		Help: "how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one), key (with --key or --identity) or agent (ssh-agent and ~/.ssh only)"}
 	hostOSOpt  = Option{Name: "os", Kind: Enum, Enum: []string{"windows", "linux"}, Help: "the server's OS: windows runs commands in PowerShell"}
 	hostSSMOpt = Option{Name: "ssm", Kind: Bool, Help: "reach it through AWS Systems Manager; the address is the instance ID"}
 	hostEnvOpt = Option{Name: "env", Short: "e", Kind: String, Repeat: true, Pairs: true, Help: "env KEY=VALUE exported before every command"}
@@ -147,8 +147,8 @@ func completeHost(l *Leaf, p provider) {
 			unset = []string{"user", "credential", "via", "notes", "port", "protected"}
 		}
 		o = append(o, protectedOpt, notesOpt, labelOpt, hostEnvOpt,
-			withShort(hostOption(connEditOptions, "add-group"), "g"), hostOption(connEditOptions, "rm-group"),
-			withShort(hostOption(connEditOptions, "add-tag"), "t"), hostOption(connEditOptions, "rm-tag"), askPassOpt)
+			hostOption(connEditOptions, "add-group"), hostOption(connEditOptions, "rm-group"),
+			hostOption(connEditOptions, "add-tag"), hostOption(connEditOptions, "rm-tag"), askPassOpt)
 		if p.name == "ssh" {
 			o = append(o, hostFwdOpt)
 		}
@@ -156,7 +156,7 @@ func completeHost(l *Leaf, p provider) {
 		l.Options = o
 		l.Short = "Change saved " + many + " (only the flags you pass change)"
 		l.Example = lines(cmd+"edit web1 --add-tag canary --label env=prod", cmd+"edit @web --user deploy --dry-run",
-			cmd+"edit db1 --protected")
+			cmd+"edit db1 --protected", cmd+"edit web2 --login ask   # never store its password; type it at every connect")
 	case "list":
 		l.Args = []Arg{{Name: "TARGET", Selector: true, Optional: true}}
 		l.Options = []Option{limitOpt}
@@ -201,7 +201,7 @@ func execOptions(sudo bool) []Option {
 			Option{Name: "sudo-user", Kind: String, Help: "run as this user with sudo -u"})
 	}
 	o = append(o,
-		Option{Name: "env", Short: "e", Kind: String, Repeat: true, Help: "export KEY=VALUE before the command"},
+		Option{Name: "env", Short: "e", Kind: String, Repeat: true, Pairs: true, Help: "export KEY=VALUE before the command"},
 		Option{Name: "dir", Short: "C", Kind: String, Help: "the working folder on the server"},
 		Option{Name: "stream", Kind: Bool, Help: "print the output as NDJSON events while it runs"},
 		Option{Name: "fail-fast", Kind: Bool, Help: "start no more servers after the first failure"},
@@ -212,7 +212,7 @@ func execOptions(sudo bool) []Option {
 
 // shellArgs are the arguments of shell: the server. Words after it are
 // refused with the way to run a command (exec).
-var shellArgs = []Arg{{Name: "NAME"}, {Name: "COMMAND", Many: true, Optional: true, Dash: true}}
+var shellArgs = []Arg{{Name: "SERVER"}, {Name: "COMMAND", Many: true, Optional: true, Dash: true}}
 
 func hostRun() []Leaf {
 	execAttach := attachOpt
@@ -253,14 +253,14 @@ func hostRun() []Leaf {
 				{Name: "remote", Short: "R", Kind: String, Help: "remote forward [rbind:]RPORT:LHOST:LPORT"},
 				{Name: "dynamic", Short: "D", Kind: String, Help: "SOCKS5 proxy [bind:]PORT"},
 				{Name: "port", Kind: Int, Help: "with a saved entry as TARGET: the local port (default: a free one)"}},
-			Short: "Start a background tunnel through a server, a VPN or an entry's --via path",
+			Short: "Start a background tunnel through a server, VPN or entry's --via",
 			Example: "  komando host ssh tunnel start prod-db --dry-run\n  komando host ssh tunnel start prod-db --port 15432\n" +
 				"  komando host ssh tunnel start web1 -L 8080:localhost:80\n  komando host ssh tunnel start bastion -D 1080",
 			Today: []string{"tunnel.start"}},
 		{Key: Key{Type: "host", Provider: "ssh", Area: "tunnel", Verb: "list"}, LocalRead: true,
 			Options: []Option{limitOpt}, Short: "List tunnels and whether each is up",
 			Example: "  komando host ssh tunnel list\n  komando host ssh tunnel list -o json", Synonyms: []string{"ls"}, Today: []string{"tunnel.list"}},
-		{Key: Key{Type: "host", Provider: "ssh", Area: "tunnel", Verb: "stop"}, Args: []Arg{{Name: "ID", Many: true, Optional: true}},
+		{Key: Key{Type: "host", Provider: "ssh", Area: "tunnel", Verb: "stop"}, Args: []Arg{{Name: "TUNNEL", Many: true, Optional: true}},
 			Options: []Option{{Name: "all", Kind: Bool, Help: "stop every tunnel"}}, Short: "Stop tunnels by ID",
 			Example: "  komando host ssh tunnel stop t1102\n  komando host ssh tunnel stop --all --dry-run", Today: []string{"tunnel.stop"}},
 	}

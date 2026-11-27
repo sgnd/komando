@@ -68,7 +68,7 @@ func TestSynonymsGetEveryCheck(t *testing.T) {
 			t.Errorf("%s: a synonym is skipped as a background command", c.CommandPath())
 		}
 	}
-	if n < 4 {
-		t.Errorf("found %d synonym wrappers, want at least 4", n)
+	if n < 3 {
+		t.Errorf("found %d synonym wrappers, want at least 3", n)
 	}
 }

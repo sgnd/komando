@@ -1072,8 +1072,7 @@ step by step. The URL scheme sets the kind: `komando conn kinds` lists them.
 
 A Kubernetes cluster usually comes in with `komando import kubeconfig FILE`
 (one conn per context). Here its kubeconfig must be in the vault already
-(--password-ref). A Docker Swarm manager is a server: `komando host ssh
-add`.
+(--credential). A Docker Swarm manager is a server: `komando host ssh add`.
 
 Usage:
   komando cluster add NAME URL [flags]
@@ -5053,26 +5052,19 @@ Examples:
 
 Flags:
       --arg stringArray          an argument for the script, $1 and on
-      --attach strings           read the rest of these sessions on one server, and their exit codes
   -c, --cmd string               the command as one string, instead of the words after --
   -C, --dir string               the working folder on the server
   -e, --env stringArray          export KEY=VALUE before the command
       --fail-fast[=true|false]   start no more servers after the first failure
   -h, --help[=true|false]        help for exec
       --interpreter string       the interpreter on the server (default: from the #! line, else sh)
-      --log-max bytes            bytes of output the server keeps for the run; more is dropped (default 1GiB)
-      --offset int               start at this byte of the log (next_from of the last read)
       --pty[=true|false]         ask for a pseudo-terminal (some tools need one)
       --read-only[=true|false]   the command only reads (the policy checks it either way)
-      --remove[=true|false]      remove a finished session's log from the server
       --script string            run this script from this computer ('-' is komando's stdin); nothing is left on the server
-      --signal string            the signal --stop sends (default "TERM")
       --stdin-file string        send this file as stdin ('-' is komando's stdin)
-      --stop[=true|false]        stop the session's command
       --stream[=true|false]      print the output as NDJSON events while it runs
   -s, --sudo[=true|false]        run with sudo (it never prompts; it uses the server's sudo credential)
       --sudo-user string         run as this user with sudo -u
-      --wait duration            wait this long for the run to end; it goes on after (exit 7); 0 returns at once (default 1m)
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -8433,7 +8425,7 @@ exit 0
 --- stdout
 Save a password once, then point to it as secret:NAME instead of typing it:
   komando secret set web1-pass
-  komando host ssh edit web1 --password-ref secret:web1-pass
+  komando host ssh edit web1 --credential secret:web1-pass
 
 komando shows a saved value only to a person: at a terminal with
 `secret show --reveal`, or after "Allow once" in komando's window; never

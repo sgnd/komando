@@ -621,7 +621,7 @@ func init() {
 		"host ssh add":   {form: func(cl *call) []formGroup { return formGroupsFor(cl, "host") }, next: []string{"test {}", "host ssh show {}", "host ssh edit {} --protected"}},
 		"host winrm add": {form: func(cl *call) []formGroup { return formGroupsFor(cl, "host") }, next: []string{"test {}", "host winrm show {}", "host winrm edit {} --ask-password"}},
 		"conn add":       {form: func(cl *call) []formGroup { return formGroupsFor(cl, "conn") }, next: []string{"test {}", "conn show {}"}},
-		"vpn add":        {form: func(cl *call) []formGroup { return formGroupsFor(cl, "vpn") }, next: []string{"vpn up {}", "vpn test {}", "host ssh add NAME USER@ADDRESS --via {}"}},
+		"vpn add":        {form: func(cl *call) []formGroup { return formGroupsFor(cl, "vpn") }, next: []string{"vpn up {}", "vpn test {}", "host ssh add NAME ADDRESS --via {}"}},
 	})
 	// db add, cache add, ...: conn add for one family, asked the same way.
 	next := map[string][]string{

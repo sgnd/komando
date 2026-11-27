@@ -154,10 +154,6 @@ var examples = map[string]string{
 	"komando fs rm":    "  komando fs rm web1 /tmp/upload.tar.gz\n  komando fs rm web1 /srv/app/releases/old --recursive --allow-dangerous",
 	"komando fs stat":  "  komando fs stat web1 /etc/nginx/nginx.conf --sha256",
 
-	"komando host ssh list": "  komando host ssh list\n  komando host ssh list @web",
-	"komando host ssh show": "  komando host ssh show web1",
-	"komando host ssh test": "  komando host ssh test web1\n  komando host ssh test @prod --wait 2m",
-
 	"komando job kill":   "  komando job kill j1103-101500-ab12cd34\n  komando job kill j1103-101500-ab12cd34 --signal KILL",
 	"komando job list":   "  komando job list\n  komando job list --refresh --target web1",
 	"komando job logs":   "  komando job logs j1103-101500-ab12cd34 --limit 100\n  komando job logs j1103-101500-ab12cd34 --offset 4096   # only what is new since then",
@@ -176,20 +172,16 @@ var examples = map[string]string{
 	"komando pkg update":     "  komando pkg update @web",
 	"komando pkg upgradable": "  komando pkg upgradable @web\n  komando pkg upgradable web1 --refresh",
 
-	"komando policy list":    "  komando policy list",
-	"komando recipe list":    "  komando recipe list\n  komando recipe list --category security",
-	"komando recipe rm":      "  komando recipe rm du-srv",
-	"komando secret list":    "  komando secret list",
-	"komando host ssh shell": "  komando host ssh shell web1",
+	"komando policy list": "  komando policy list",
+	"komando recipe list": "  komando recipe list\n  komando recipe list --category security",
+	"komando recipe rm":   "  komando recipe rm du-srv",
+	"komando secret list": "  komando secret list",
 
 	"komando svc disable": "  komando svc disable web1 apache2 --now",
 	"komando svc enable":  "  komando svc enable web1 nginx --now",
 	"komando svc list":    "  komando svc list web1 --failed\n  komando svc list web1 --state running",
 	"komando svc logs":    "  komando svc logs web1 nginx --since 30m --grep error",
 	"komando svc stop":    "  komando svc stop web1 nginx",
-
-	"komando host ssh tunnel list": "  komando host ssh tunnel list",
-	"komando host ssh tunnel stop": "  komando host ssh tunnel stop t1102-101500-ab12cd34\n  komando host ssh tunnel stop --all",
 
 	"komando user list":   "  komando user list web1",
 	"komando user lock":   "  komando user lock web1 alice",

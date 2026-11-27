@@ -187,7 +187,7 @@ func TestLoginAskFlag(t *testing.T) {
 		more  []string
 	}{
 		{"agent", nil},
-		{"password", []string{"--password-ref", "env:WEB3_PASS"}},
+		{"password", []string{"--credential", "env:WEB3_PASS"}},
 		{"key", []string{"--identity", keyFile}},
 	} {
 		name := "h-" + c.login
@@ -199,13 +199,13 @@ func TestLoginAskFlag(t *testing.T) {
 	// what each word needs, and what it cannot go with
 	for _, bad := range [][]string{
 		{"--login", "always"},
-		{"--login", "ask", "--password-ref", "secret:web2-pass"},
+		{"--login", "ask", "--credential", "secret:web2-pass"},
 		{"--login", "ask", "--ask-password"},
 		{"--login", "password"},
-		{"--login", "password", "--password-ref", "env:X", "--identity", keyFile},
+		{"--login", "password", "--credential", "env:X", "--identity", keyFile},
 		{"--login", "key"},
 		{"--login", "agent", "--identity", keyFile},
-		{"--login", "agent", "--password-ref", "env:X"},
+		{"--login", "agent", "--credential", "env:X"},
 	} {
 		// each names its own way out, not the generic one
 		if e := wantCode(t, "USAGE", append([]string{"host", "ssh", "add", "web2", "u@10.0.0.2"}, bad...)...); e.Hint == out.UsageHint || e.Hint == "" {
@@ -265,10 +265,10 @@ func TestLoginAskSchemaNotHidden(t *testing.T) {
 		}
 	}
 	for _, c := range []struct{ cmd, example string }{
-		{"host", "never store its password; type it at every connect"},
+		{"host ssh", "never store its password; type it at every connect"},
 		{"conn", "never store its password; type it at every connect"},
 	} {
-		if s, _ := runCache(t, "-o", "json", "schema", c.cmd, "edit"); !strings.Contains(s, c.example) {
+		if s, _ := runCache(t, append([]string{"-o", "json", "schema"}, append(strings.Fields(c.cmd), "edit")...)...); !strings.Contains(s, c.example) {
 			t.Errorf("schema %s edit lacks its --login example", c.cmd)
 		}
 	}
@@ -559,7 +559,7 @@ func TestLoginAskPinAloneNeedsPerson(t *testing.T) {
 		t.Errorf("after a person's login: %v, %q", err, *texts)
 	}
 	// a rename keeps it: the login is noted by the server's record
-	mustRun(t, "host", "rename", "web1", "web9")
+	mustRun(t, "host", "ssh", "rename", "web1", "web9")
 	if _, err := runCache(t, "-o", "json", "host", "ssh", "exec", "web9", "--read-only", "--", "uptime"); err != nil {
 		t.Errorf("after a rename: %v", err)
 	}
@@ -706,11 +706,11 @@ func TestLoginAskAgentStops(t *testing.T) {
 		t.Errorf("cool-down: %d windows, %+v", len(*texts), e)
 	}
 	// a rename does not end it
-	mustRun(t, "host", "rename", "web1", "web9")
+	mustRun(t, "host", "ssh", "rename", "web1", "web9")
 	if e := wantCode(t, "DECLINED", "host", "ssh", "exec", "web9", "--read-only", "--", "uptime"); len(*texts) != 1 || !strings.Contains(e.Message, "less than a minute ago") {
 		t.Errorf("after a rename: %d windows, %+v", len(*texts), e)
 	}
-	mustRun(t, "host", "rename", "web9", "web1")
+	mustRun(t, "host", "ssh", "rename", "web9", "web1")
 	if n := tries.Load(); n != 0 {
 		t.Fatalf("the server got %d passwords", n)
 	}

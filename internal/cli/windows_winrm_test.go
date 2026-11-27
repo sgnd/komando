@@ -50,8 +50,8 @@ func TestHostAddWinRM(t *testing.T) {
 			t.Errorf("%v: %s, want %s", code, got, args)
 		}
 	}
-	for _, args := range [][]string{{"host", "ssh", "shell", "win2"}, {"host", "ssh-command", "win2"}, {"host", "ssh", "trust", "win2"}} {
-		if got := runCode(t, args...); got != "NOT_SUPPORTED" && got != "NEEDS_TERMINAL" {
+	for _, args := range [][]string{{"host", "winrm", "shell", "win2"}, {"host", "ssh-command", "win2"}, {"host", "ssh", "trust", "win2"}} {
+		if got := runCode(t, args...); got != "NOT_SUPPORTED" && got != "NEEDS_TERMINAL" && got != "WRONG_KIND" {
 			t.Errorf("%v: %s", args, got)
 		}
 	}
@@ -62,7 +62,7 @@ func TestHostAddWinRM(t *testing.T) {
 	if h := s.Hosts["win2"]; h.Address != "10.0.0.12" || h.EffectivePort() != 5985 || h.User != "Administrator" {
 		t.Errorf("after edit: %+v", h)
 	}
-	if err := runRoot(t, "host", "ssh", "edit", "win2", "--unset", "transport,port"); err != nil {
+	if err := runRoot(t, "host", "winrm", "edit", "win2", "--unset", "transport,port"); err != nil {
 		t.Fatal(err)
 	}
 	s, _ = store.Load()
@@ -95,7 +95,7 @@ func TestExecOverWinRM(t *testing.T) {
 	if err := runRoot(t, "host", "winrm", "add", "win2", "winrm://Administrator@"+srv.Listener.Addr().String()+"?tls=skip-verify&auth=basic", "--credential", "env:WIN_PW"); err != nil {
 		t.Fatal(err)
 	}
-	got := captureOutput(t, func() error { return runRoot(t, "host", "ssh", "exec", "win2", "--read-only", "--", "Get-Date") })
+	got := captureOutput(t, func() error { return runRoot(t, "host", "winrm", "exec", "win2", "--read-only", "--", "Get-Date") })
 	if !strings.Contains(got, "hello from winrm") {
 		t.Errorf("exec over WinRM: %s", got)
 	}
@@ -188,7 +188,7 @@ func TestSecretRefInWinRMCA(t *testing.T) {
 		t.Errorf("CA after mv: %s", got)
 	}
 
-	d = mustRun(t, "host", "ssh", "remove", "win2")
+	d = mustRun(t, "host", "winrm", "remove", "win2")
 	if u, _ := d["secrets_unused"].([]any); len(u) != 1 || u[0] != "win-ca" {
 		t.Errorf("host rm: %v", d)
 	}

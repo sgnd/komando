@@ -10311,25 +10311,18 @@ komando fs cat kind=read confirm=[{"tier":"read"}]
 exit 0
 komando host ssh exec kind=depends confirm=[{"tier":"change"},{"flag":"--allow-dangerous","tier":"dangerous","when":"when the command matches a destructive rule"}]
   --arg type=stringArray default=[]
-  --attach type=stringSlice default=[]
   --cmd shorthand=c type=string
   --dir shorthand=C type=string
   --env shorthand=e type=stringArray default=[]
   --fail-fast type=bool default=false
   --interpreter type=string
-  --log-max type=bytes default=1GiB
-  --offset type=int default=0
   --pty type=bool default=false
   --read-only type=bool default=false
-  --remove type=bool default=false
   --script type=string
-  --signal type=string default=TERM
   --stdin-file type=string
-  --stop type=bool default=false
   --stream type=bool default=false
   --sudo shorthand=s type=bool default=false
   --sudo-user type=string
-  --wait type=duration default=1m
 ### komando schema queue create (schema values)
 exit 0
 komando queue create kind=change confirm=[{"tier":"change"}]

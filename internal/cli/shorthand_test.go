@@ -98,7 +98,7 @@ func TestStandardShorthands(t *testing.T) {
 			return in(p, "docker ps", "docker prune", "fs list", "user list", "db activity", "cache info", "cluster helm values", "guide")
 		}},
 		"A": {"all-namespaces": cluster},
-		"c": {"container": nil, "cmd": func(p string) bool { return in(p, "exec", "job start") }},
+		"c": {"container": nil, "cmd": func(p string) bool { return in(p, "host ssh exec", "host winrm exec", "job start") }},
 		"C": {"dir": nil, "comment": func(p string) bool { return in(p, "key gen") }},
 		"e": {"env": nil},
 		"f": {"follow": func(p string) bool { return in(p, logStreamers...) }, "file": func(p string) bool { return !in(p, logStreamers...) }},
@@ -111,9 +111,9 @@ func TestStandardShorthands(t *testing.T) {
 		"t": {"tag": editOrAdd},
 		"u": {"unit": func(p string) bool { return in(p, "logs", "svc logs", "docker logs") }}, // the logs family
 		"b": {"bits": func(p string) bool { return in(p, "key gen") }},
-		"D": {"dynamic": func(p string) bool { return in(p, "tunnel start") }},
-		"L": {"local": func(p string) bool { return in(p, "tunnel start") }},
-		"R": {"remote": func(p string) bool { return in(p, "tunnel start") }},
+		"D": {"dynamic": func(p string) bool { return in(p, "host ssh tunnel start") }},
+		"L": {"local": func(p string) bool { return in(p, "host ssh tunnel start") }},
+		"R": {"remote": func(p string) bool { return in(p, "host ssh tunnel start") }},
 	}
 	never := []string{"allow-dangerous", "reveal", "write", "dry-run", "port", "user", "label"}
 	root := newRoot(tcl)

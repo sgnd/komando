@@ -614,7 +614,7 @@ const rootLong = `komando is one safe command line for
 for people and AI agents alike.
 
 Start:
-  komando host ssh add NAME USER@ADDRESS   add a server
+  komando host ssh add NAME ADDRESS   add a server
   komando conn add NAME URL            add a database, cache, queue, storage,
                                        cluster or registry
   komando import ssh-config            bring in the servers you already have

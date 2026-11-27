@@ -19,7 +19,7 @@ var emptyLine = regexp.MustCompile("^no [^\n]+ (yet(: `komando [^`]+`)?|match [^
 func TestStandardEmptyLines(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1") // so host list is not the empty inventory
-	for _, a := range []string{"conn list", "vpn list", "key list", "secret list", "job list", "tunnel list", "vpn status", "audit --failed"} {
+	for _, a := range []string{"conn list", "vpn list", "key list", "secret list", "job list", "host ssh tunnel list", "vpn status", "audit --failed"} {
 		s, err := textRun(t, strings.Fields(a)...)
 		if err != nil || !emptyLine.MatchString(s) {
 			t.Errorf("%s: %q (%v)", a, s, err)
@@ -27,7 +27,7 @@ func TestStandardEmptyLines(t *testing.T) {
 	}
 	mustRun(t, "host", "ssh", "remove", "web1")
 	mustRun(t, "conn", "add", "app-db", "postgres://app@10.0.0.9/app")
-	if s, _ := textRun(t, "host", "ssh", "list"); s != "no servers yet: `komando host ssh add NAME USER@ADDRESS`\n" {
+	if s, _ := textRun(t, "host", "ssh", "list"); s != "no servers yet: `komando host ssh add NAME ADDRESS`\n" {
 		t.Errorf("host list: %q", s)
 	}
 	// the lists that read a server or a conn, as they render nothing

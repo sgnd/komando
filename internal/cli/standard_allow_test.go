@@ -46,7 +46,6 @@ var (
 		"cp",
 		"import",
 		"secret",
-		"tunnel",
 		"vpn",
 	}
 	// S-6.6, S-6.7: commands with fewer examples than S-6.6 asks (a second one is still to write)
@@ -87,7 +86,6 @@ var (
 		"ssh-gate",
 		"storage download",
 		"svc logs",
-		"tunnel list",
 		"user list",
 		"version",
 		"vpn list",
@@ -111,7 +109,6 @@ var (
 		"old-office",
 		"shop-2",
 		"stream",
-		"vps1",
 		"web3",
 	}
 	// S-6.10: group rename's Long shows a merge with the old and the new name
@@ -121,6 +118,8 @@ var (
 	}
 	// S-5.9: depends commands without --write or --read-only (they decide by their arguments)
 	allowDependsSwitch = []string{
+		"host ssh shell",
+		"host winrm shell",
 		"cp",
 		"pkg security",
 		"pkg upgradable",

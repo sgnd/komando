@@ -103,7 +103,7 @@ func verbNext(key string) []string {
 		return nil
 	}
 	show, list := cmdByKey(root, noun+" show"), cmdByKey(root, noun+" list")
-	inventory := slices.Contains([]string{"host", "conn", "vpn"}, noun)
+	inventory := slices.Contains([]string{"host", "conn", "vpn"}, w[0])
 	// sameFirst: c takes the same first argument as cmd (user list TARGET
 	// after user add TARGET USER), so {} fills it
 	sameFirst := func(c *cobra.Command) bool {
@@ -156,7 +156,7 @@ func verbNext(key string) []string {
 		} else {
 			add(listLine())
 		}
-	case "rm":
+	case "rm", "remove":
 		add(listLine())
 	}
 	return next
@@ -231,7 +231,7 @@ var itemCommands = map[string][]string{
 	"registry": {"registry oci image list {}", "registry oci image list {} REPO", "registry oci image show {} IMAGE", "registry oci image copy {}:IMAGE DST_CONN",
 		"registry oci image prune {} REPO --keep 10 --dry-run", "registry oci image delete {} IMAGE --dry-run"},
 	"vpn": {"vpn up {}", "vpn test {}", "vpn down {}", "vpn edit {} --check HOST:PORT", "vpn rename {} NEW", "vpn rm {}",
-		"host ssh add NAME USER@ADDRESS --via {}"},
+		"host ssh add NAME ADDRESS --via {}"},
 	"group": {"list @{}", "test @{}", "host ssh exec @{} -- uptime", "facts @{}", "pkg upgradable @{}", "recipe run health @{}",
 		"group add {} TARGET", "group rm {} TARGET", "group rename {} NEW"},
 	"key":     {"key deploy {} TARGET", "key revoke {} TARGET", "key edit {}", "key rename {} NEW", "key rm {}"},

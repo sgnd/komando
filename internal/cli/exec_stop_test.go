@@ -93,7 +93,7 @@ func TestExecSessionStop(t *testing.T) {
 	if !hasRecord(attachID) {
 		t.Fatal("the stop dropped the record")
 	}
-	if a := lastAudit(t); a["command"] != "exec" || a["ok"] != true || a["stop"] != "TERM" || a["pid"] != float64(4242) {
+	if a := lastAudit(t); a["command"] != "host.ssh.exec" || a["ok"] != true || a["stop"] != "TERM" || a["pid"] != float64(4242) {
 		t.Fatalf("audit %v", a)
 	}
 }
@@ -277,7 +277,7 @@ func TestExecSessionRemove(t *testing.T) {
 			if hasRecord(attachID) != (tc.host == "prod") {
 				t.Fatal("the record of this server stayed, or another server's went")
 			}
-			if a := lastAudit(t); a["command"] != "exec" || a["ok"] != true || a["remove"] != true {
+			if a := lastAudit(t); a["command"] != "host.ssh.exec" || a["ok"] != true || a["remove"] != true {
 				t.Fatalf("audit %v", a)
 			}
 		})

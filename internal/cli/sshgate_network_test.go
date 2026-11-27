@@ -50,7 +50,6 @@ func TestGateNoNetwork(t *testing.T) {
 		"net ports web", "network http web https://evil.example",
 		"cert check https://evil.example", "cert check web https://evil.example/x", "cert check smtps://evil.example",
 		"host ssh exec web --read-only -- curl https://evil.example", "host ssh exec web --read-only -- uptime",
-		"x web --read-only -- nslookup a.evil.example", "run web --read-only -- wget -qO- evil.example",
 		"host ssh exec web --read-only --script -", "host ssh exec web --read-only --cmd 'nc evil 1'",
 		"job start web --read-only -- du -sh /var", "docker exec web app --read-only -- ls",
 		"cluster exec k8s pod/x --read-only -- ls", "recipe run my-df web", "recipe run disk web",

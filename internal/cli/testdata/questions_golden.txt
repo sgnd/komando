@@ -863,20 +863,13 @@ title: Run a command on saved servers, in parallel
 - flag:sudo | --sudo | Run it with sudo (as root)? | Say yes when it needs admin rights, like changing system files or services. |  | default,choices
 - flag:read-only | --read-only | Does it only look, and change nothing on the server? | Not sure? Say no. Yes is only for commands that read, like df -h or cat. |  | default,choices
 - flag:dir | --dir | In which folder on the server should it run? | Leave empty for the login user's home folder. | /srv/app | optional,check
-- flag:attach | --attach | Read the rest of these sessions on one server, and their exit codes |  |  | optional,advanced,check
 - flag:env | --env | Export KEY=VALUE before the command |  |  | optional,advanced,check
 - flag:fail-fast | --fail-fast | Start no more servers after the first failure |  |  | advanced,default,choices
 - flag:interpreter | --interpreter | The interpreter on the server (default: from the #! line, else sh) |  |  | optional,advanced,check
-- flag:log-max | --log-max | Bytes of output the server keeps for the run; more is dropped |  |  | optional,advanced,default,check
-- flag:offset | --offset | Start at this byte of the log (next_from of the last read) |  |  | optional,advanced,check
 - flag:pty | --pty | Ask for a pseudo-terminal (some tools need one) |  |  | advanced,default,choices
-- flag:remove | --remove | Remove a finished session's log from the server |  |  | advanced,default,choices
-- flag:signal | --signal | The signal --stop sends |  |  | optional,advanced,default,check
 - flag:stdin-file | --stdin-file | Send this file as stdin ('-' is komando's stdin) |  |  | optional,advanced,check
-- flag:stop | --stop | Stop the session's command |  |  | advanced,default,choices
 - flag:stream | --stream | Print the output as NDJSON events while it runs |  |  | advanced,default,choices
 - flag:sudo-user | --sudo-user | Run as this user with sudo -u |  |  | optional,advanced,check
-- flag:wait | --wait | Wait this long for the run to end; it goes on after (exit 7); 0 returns at once |  |  | optional,advanced,default,check
 ### komando host ssh list
 title: List the saved SSH servers
 - arg0 | Target (servers) | Which servers? (pick all for every server) | Pick one, or type @group, tag:prod or several names separated by spaces or commas. |  | optional,free,choices,check

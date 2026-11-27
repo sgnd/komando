@@ -70,10 +70,10 @@ func TestStandardTopLevel(t *testing.T) {
 	root := newRoot(tcl)
 	want := []string{
 		// nouns (S-2.1)
-		"host", "conn", "vpn", "group", "secret", "key", "recipe", "policy", "job", "tunnel", "config",
+		"host", "conn", "vpn", "group", "secret", "key", "recipe", "policy", "job", "config",
 		"fs", "svc", "pkg", "user", "cron", "docker", "net", "cert", "db", "cache", "queue", "storage", "cluster", "registry",
 		// shortcuts
-		"list", "test", "exec", "shell", "logs", "cp", "upload", "download", "sync", "facts", "reboot", "status",
+		"list", "test", "logs", "cp", "upload", "download", "sync", "facts", "reboot", "status",
 		"login", "logout", "import", "export", "rename",
 		// about komando
 		"audit", "doctor", "schema", "guide", "update", "version", "completion", "help", "ssh-gate",
@@ -132,7 +132,7 @@ func TestStandardNounAliases(t *testing.T) {
 	for noun, aliases := range map[string][]string{
 		"host": {"hosts", "server", "servers"}, "conn": {"conns"}, "vpn": {"vpns"}, "group": {"groups"},
 		"secret": {"secrets"}, "key": {"keys"}, "recipe": {"recipes"}, "policy": {"policies"}, "job": {"jobs"},
-		"tunnel": {"tunnels"}, "fs": {"files"}, "svc": {"service", "services"}, "pkg": {"package", "packages"},
+		"fs": {"files"}, "svc": {"service", "services"}, "pkg": {"package", "packages"},
 		"user": {"users"}, "cron": {"crons"}, "docker": {"container", "containers"}, "net": {"network"},
 		"cert": {"certs"}, "db": {"dbs", "database", "databases"}, "cache": {"caches"}, "queue": {"queues"},
 		"cluster": {"clusters"}, "registry": {"registries"},
@@ -654,18 +654,18 @@ func TestStandardReferences(t *testing.T) {
 func TestStandardJourneys(t *testing.T) {
 	root := newRoot(tcl)
 	for kind, verbs := range map[string][]string{
-		"host":   {"add", "test", "show", "list", "edit", "rename", "rm"},
-		"conn":   {"add", "test", "show", "list", "edit", "rename", "rm"},
-		"vpn":    {"add", "test", "show", "list", "edit", "rename", "rm"},
-		"key":    {"gen", "add", "show", "list", "edit", "rename", "rm"},
-		"secret": {"set", "add", "check", "show", "get", "list", "rename", "rm"},
-		"group":  {"add", "show", "list", "rename", "rm"},
-		"recipe": {"add", "show", "list", "rm"},
-		"policy": {"deny", "add", "check", "list", "rm"},
-		"job":    {"start", "status", "show", "list", "kill", "stop", "rm"},
-		"tunnel": {"start", "show", "list", "stop"},
+		"host ssh":        {"add", "test", "show", "list", "edit", "rename", "remove"},
+		"conn":            {"add", "test", "show", "list", "edit", "rename", "rm"},
+		"vpn":             {"add", "test", "show", "list", "edit", "rename", "rm"},
+		"key":             {"gen", "add", "show", "list", "edit", "rename", "rm"},
+		"secret":          {"set", "add", "check", "show", "get", "list", "rename", "rm"},
+		"group":           {"add", "show", "list", "rename", "rm"},
+		"recipe":          {"add", "show", "list", "rm"},
+		"policy":          {"deny", "add", "check", "list", "rm"},
+		"job":             {"start", "status", "show", "list", "kill", "stop", "rm"},
+		"host ssh tunnel": {"start", "list", "stop"},
 	} {
-		noun := findCmd(t, root, kind)
+		noun := findCmd(t, root, strings.Fields(kind)...)
 		for _, v := range verbs {
 			if c, _, err := noun.Find([]string{v}); err != nil || c == noun {
 				t.Errorf("S-10.1: %s %s does not resolve", kind, v)

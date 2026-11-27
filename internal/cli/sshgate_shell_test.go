@@ -157,7 +157,7 @@ func TestGateShellExtraArgs(t *testing.T) {
 	wantShellRefused(t, shellKey, "komando host ssh shell SERVER", "host ssh shell", "host ssh shell web uptime", "host ssh shell web web", "host ssh shell web --",
 		"host ssh shell -- web", "host ssh shell web --dry-run", "--dry-run host ssh shell web", "host ssh shell web -o json", "-o json host ssh shell web",
 		"host ssh shell --help", "host ssh shell web --help", "host ssh shell web --yes", "host ssh shell --yes web", "host ssh shell web --reveal",
-		"host ssh shell web --allow-dangerous", "host ssh shell web --timeout 1h", "ssh web", "connect web", "host ssh shell -web")
+		"host ssh shell web --allow-dangerous", "host ssh shell web --timeout 1h", "host ssh shell -web")
 }
 
 // The server must be one in the list, named as it is written there: no ad
