@@ -89,10 +89,6 @@ var (
 		"tunnel list",
 		"user list",
 		"version",
-		"vpn list",
-		"vpn show",
-		"vpn status",
-		"vpn test",
 	}
 	// S-6.8: names outside the sample table where an example needs its own (a second VPN)
 	allowSampleNames = []string{

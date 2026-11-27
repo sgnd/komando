@@ -41,20 +41,20 @@ func TestVpnConfigErrorsQuoteNoContent(t *testing.T) {
 	pgpass := filepath.Join(dir, "pgpass")
 	os.WriteFile(pgpass, []byte("db.internal:5432:app:app:PgDummyPw77\n"), 0o600)
 	for _, kind := range []string{"openvpn", "wireguard"} {
-		_, e := invRun(t, "--dry-run", "vpn", "add", "x", kind, "--config", pgpass, "--check", "10.0.0.1:22")
+		_, e := invRun(t, "--dry-run", "vpn", kind, "add", "x", "--config", pgpass, "--check", "10.0.0.1:22")
 		if e == nil || strings.Contains(e.Message+e.Hint, "PgDummyPw77") || strings.Contains(e.Message+e.Hint, "db.internal") {
 			t.Fatalf("%s: %+v", kind, e)
 		}
 	}
 	tok := store.Path("zz-token")
 	os.WriteFile(tok, []byte("s3cretvalue123\n"), 0o600)
-	if e := wantCode(t, "SENSITIVE_FILE", "--dry-run", "vpn", "add", "x", "openvpn", "--config", tok, "--check", "10.0.0.1:22"); strings.Contains(e.Message, "s3cret") {
+	if e := wantCode(t, "SENSITIVE_FILE", "--dry-run", "vpn", "openvpn", "add", "x", "--config", tok, "--check", "10.0.0.1:22"); strings.Contains(e.Message, "s3cret") {
 		t.Fatal(e.Message)
 	}
 	// a known refused option is still named, for the person to fix
 	up := filepath.Join(dir, "up.ovpn")
 	os.WriteFile(up, []byte("client\nup /tmp/x.sh\n"), 0o600)
-	if _, e := invRun(t, "--dry-run", "vpn", "add", "x", "openvpn", "--config", up, "--check", "10.0.0.1:22"); e == nil || !strings.Contains(e.Message, `"up" is not allowed`) {
+	if _, e := invRun(t, "--dry-run", "vpn", "openvpn", "add", "x", "--config", up, "--check", "10.0.0.1:22"); e == nil || !strings.Contains(e.Message, `"up" is not allowed`) {
 		t.Fatalf("a known option: %+v", e)
 	}
 }
@@ -69,16 +69,16 @@ func TestVpnCAKeepsOnlyCertificates(t *testing.T) {
 	profile := filepath.Join(dir, "client.ovpn")
 	os.WriteFile(profile, []byte("client\n<ca>\n"+ca+"</ca>\n<tls-crypt>\n-----BEGIN OpenVPN Static key V1-----\n6b3f0e1a\n-----END OpenVPN Static key V1-----\n</tls-crypt>\n<auth-user-pass>\nalice\nZZ-dummy-vpn-pw-4711\n</auth-user-pass>\n"), 0o600)
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
-	wantCode(t, "SENSITIVE_FILE", "--dry-run", "vpn", "add", "x", "ikev2", "--server", "vpn.example.com", "--user", "alice", "--ca", profile)
+	wantCode(t, "SENSITIVE_FILE", "--dry-run", "vpn", "ikev2", "add", "x", "--server", "vpn.example.com", "--user", "alice", "--ca", profile)
 	noAgent(t)
-	d := mustRun(t, "--dry-run", "vpn", "add", "x", "ikev2", "--server", "vpn.example.com", "--user", "alice", "--ca", profile)
+	d := mustRun(t, "--dry-run", "vpn", "ikev2", "add", "x", "--server", "vpn.example.com", "--user", "alice", "--ca", profile)
 	got, _ := d["would_add"].(map[string]any)["ca"].(string)
 	if got != ca {
 		t.Fatalf("ca kept %q", got)
 	}
 	notCA := filepath.Join(dir, "notes.txt")
 	os.WriteFile(notCA, []byte("hello\n"), 0o600)
-	wantCode(t, "USAGE", "--dry-run", "vpn", "add", "x", "ikev2", "--server", "vpn.example.com", "--user", "alice", "--ca", notCA)
+	wantCode(t, "USAGE", "--dry-run", "vpn", "ikev2", "add", "x", "--server", "vpn.example.com", "--user", "alice", "--ca", notCA)
 }
 
 // A VPN without a stored login gets the one a person types at `vpn up`.
@@ -88,12 +88,12 @@ func TestVpnCAKeepsOnlyCertificates(t *testing.T) {
 func TestVpnTypedLoginMoveNeedsAPerson(t *testing.T) {
 	invHome(t)
 	noAgent(t)
-	mustRun(t, "vpn", "add", "corp", "globalprotect", "--portal", "vpn.corp.example", "--user", "alice", "--mfa")
-	mustRun(t, "vpn", "add", "cloud", "ikev2", "--server", "vpn.corp.example", "--user", "alice")
+	mustRun(t, "vpn", "globalprotect", "add", "corp", "--portal", "vpn.corp.example", "--user", "alice", "--mfa")
+	mustRun(t, "vpn", "ikev2", "add", "cloud", "--server", "vpn.corp.example", "--user", "alice")
 	texts := windowText(t, false)
 	for _, args := range [][]string{
-		{"vpn", "edit", "corp", "--portal", "vpn.attacker.example"},
-		{"vpn", "edit", "cloud", "--server", "vpn.attacker.example"},
+		{"vpn", "globalprotect", "edit", "corp", "--portal", "vpn.attacker.example"},
+		{"vpn", "ikev2", "edit", "cloud", "--server", "vpn.attacker.example"},
 	} {
 		if e := wantCode(t, "NEEDS_PERSON", args...); e.Exit != 6 {
 			t.Fatalf("%v: exit %d", args, e.Exit)
@@ -105,10 +105,10 @@ func TestVpnTypedLoginMoveNeedsAPerson(t *testing.T) {
 	// an --mfa VPN with a stored password: a person types the code, so
 	// its move is for a person too, not an approvable SECRET_DESTINATION
 	noAgent(t)
-	mustRun(t, "vpn", "add", "mfa", "ikev2", "--server", "vpn.corp.example", "--user", "alice", "--password-ref", "secret:db-pass", "--mfa")
+	mustRun(t, "vpn", "ikev2", "add", "mfa", "--server", "vpn.corp.example", "--user", "alice", "--credential", "db-pass", "--mfa")
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
-	wantCode(t, "NEEDS_PERSON", "vpn", "edit", "mfa", "--server", "vpn.attacker.example")
-	mustRun(t, "vpn", "edit", "corp", "--notes", "head office")
+	wantCode(t, "NEEDS_PERSON", "vpn", "ikev2", "edit", "mfa", "--server", "vpn.attacker.example")
+	mustRun(t, "vpn", "globalprotect", "edit", "corp", "--notes", "head office")
 	st, _ := store.Load()
 	if st.Vpns["corp"].Portal != "vpn.corp.example" || st.Vpns["cloud"].Server != "vpn.corp.example" {
 		t.Fatal("a refused move was saved")
@@ -136,9 +136,9 @@ func TestReplacedTailscaleStartsFresh(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	mustRun(t, "vpn", "add", "tnet", "tailscale")
+	mustRun(t, "vpn", "tailscale", "add", "tnet")
 	plant("tnet")
-	mustRun(t, "vpn", "add", "tnet", "tailscale", "--overwrite")
+	mustRun(t, "vpn", "tailscale", "add", "tnet", "--overwrite")
 	if _, ok := stateOf("tnet"); ok {
 		t.Fatal("vpn add --overwrite kept the old node state")
 	}
@@ -155,7 +155,7 @@ func TestReplacedTailscaleStartsFresh(t *testing.T) {
 func TestImportMovesNoTypedLogin(t *testing.T) {
 	invHome(t)
 	noAgent(t)
-	mustRun(t, "vpn", "add", "corp", "globalprotect", "--portal", "vpn.corp.example", "--user", "alice", "--mfa")
+	mustRun(t, "vpn", "globalprotect", "add", "corp", "--portal", "vpn.corp.example", "--user", "alice", "--mfa")
 	windowText(t, false)
 	file := writeTemp(t, "exp.json", `{"format":"komando-export/1","vpns":[{"name":"corp","kind":"globalprotect","portal":"vpn.attacker.example","user":"alice","mfa":true}]}`)
 	wantCode(t, "NEEDS_PERSON", "import", "komando", file, "--overwrite")

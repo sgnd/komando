@@ -28,7 +28,7 @@ Update komando only when the human asks: `komando update` (when it stops with
 
 At a person's terminal, a command typed with something missing asks for
 it, one line at a time, and shows the whole line before it runs.
-`komando host add` (or `db add`, `vpn add`) typed alone asks that kind's
+`komando host add` (or `db add`, `vpn KIND add`) typed alone asks that kind's
 questions.
 
 komando never asks an AI agent or a script anything. Give every argument
@@ -116,7 +116,7 @@ not know? Set `KOMANDO_AGENT=1`.
 6. **Never "fix" `HOSTKEY_MISMATCH` yourself.** Report it: it may be an
    attack.
 7. **Logins that need a person.** `VPN_LOGIN_REQUIRED` or `VPN_DOWN`: ask
-   the human to run `komando vpn up NAME`. A server that asks for a code
+   the human to run `komando vpn KIND start NAME`. A server that asks for a code
    (`AUTH_FAILED`, two-factor): ask them to run `komando test SERVER` once;
    your commands then use that login. A server or conn added with
    `--login ask` (`host show` or `conn show` says `login: ask`) has no

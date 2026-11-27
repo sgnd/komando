@@ -653,18 +653,18 @@ func TestStandardReferences(t *testing.T) {
 func TestStandardJourneys(t *testing.T) {
 	root := newRoot(tcl)
 	for kind, verbs := range map[string][]string{
-		"host":   {"add", "test", "show", "list", "edit", "rename", "rm"},
-		"conn":   {"add", "test", "show", "list", "edit", "rename", "rm"},
-		"vpn":    {"add", "test", "show", "list", "edit", "rename", "rm"},
-		"key":    {"gen", "add", "show", "list", "edit", "rename", "rm"},
-		"secret": {"set", "add", "check", "show", "get", "list", "rename", "rm"},
-		"group":  {"add", "show", "list", "rename", "rm"},
-		"recipe": {"add", "show", "list", "rm"},
-		"policy": {"deny", "add", "check", "list", "rm"},
-		"job":    {"start", "status", "show", "list", "kill", "stop", "rm"},
-		"tunnel": {"start", "show", "list", "stop"},
+		"host":          {"add", "test", "show", "list", "edit", "rename", "rm"},
+		"conn":          {"add", "test", "show", "list", "edit", "rename", "rm"},
+		"vpn wireguard": {"add", "test", "show", "list", "edit", "rename", "remove"},
+		"key":           {"gen", "add", "show", "list", "edit", "rename", "rm"},
+		"secret":        {"set", "add", "check", "show", "get", "list", "rename", "rm"},
+		"group":         {"add", "show", "list", "rename", "rm"},
+		"recipe":        {"add", "show", "list", "rm"},
+		"policy":        {"deny", "add", "check", "list", "rm"},
+		"job":           {"start", "status", "show", "list", "kill", "stop", "rm"},
+		"tunnel":        {"start", "show", "list", "stop"},
 	} {
-		noun := findCmd(t, root, kind)
+		noun := findCmd(t, root, strings.Fields(kind)...)
 		for _, v := range verbs {
 			if c, _, err := noun.Find([]string{v}); err != nil || c == noun {
 				t.Errorf("S-10.1: %s %s does not resolve", kind, v)

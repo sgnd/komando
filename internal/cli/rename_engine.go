@@ -505,7 +505,7 @@ func checkRenameSet(cl *call, s *store.State, set renameSet) error {
 	}
 	for _, from := range slices.Sorted(maps.Keys(set["vpn"])) {
 		if _, up := s.Sessions[from]; up {
-			return out.Errf(out.ExitConflict, "VPN_IN_USE", "disconnect it first with `komando vpn down "+from+"`, then rename",
+			return out.Errf(out.ExitConflict, "VPN_IN_USE", "disconnect it first with `komando vpn "+s.Vpns[from].Kind+" stop "+from+"`, then rename",
 				"VPN %s is connected; nothing was renamed", from)
 		}
 		if s.Vpns[from].Kind != "tailscale" {

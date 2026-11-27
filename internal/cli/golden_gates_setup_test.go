@@ -44,7 +44,7 @@ func goldenGateSetup(t *testing.T) {
 			{"conn", "add", "st1", "sftp://u@127.0.0.1:1/up"},
 			{"conn", "add", "reg1", "registry://u@127.0.0.1:1?tls=false"},
 			{"policy", "deny", "foo.*bar"},
-			{"vpn", "add", "pvpn", "socks", "--proxy-address", "127.0.0.1:1", "--protected", "--mfa"},
+			{"vpn", "socks", "add", "pvpn", "--proxy-address", "127.0.0.1:1", "--protected", "--mfa"},
 			{"secret", "set", "gsec", "--from-env", "GOLDEN_SECRET"},
 			{"key", "gen", "gkey"},
 		} {
@@ -147,13 +147,13 @@ var goldenGates = [][]string{
 	{"db", "kill", "pdb", "1"},
 	{"conn", "rm", "pcache"},
 	{"conn", "edit", "pcache", "--protected=false"},
-	{"vpn", "rm", "pvpn"},
-	{"vpn", "edit", "pvpn", "--notes", "x"},
+	{"vpn", "socks", "remove", "pvpn"},
+	{"vpn", "socks", "edit", "pvpn", "--notes", "x"},
 	// SAFETY_SETTING: weakens komando's own checks (--yes)
 	{"policy", "rm", "foo.*bar"},
 	{"config", "set", "audit", "off"},
-	{"vpn", "edit", "pvpn", "--protected=false"},
-	{"vpn", "edit", "pvpn", "--mfa=false"},
+	{"vpn", "socks", "edit", "pvpn", "--protected=false"},
+	{"vpn", "socks", "edit", "pvpn", "--mfa=false"},
 	// WRITE_REQUIRES_FLAG: a read command asked to write
 	{"cache", "redis", "raw", "cache1", "--", "SET", "k", "v"},
 	{"db", "query", "db1", "DELETE FROM x"},
@@ -172,7 +172,7 @@ var goldenNotes = [][]string{
 	// C-V24: aws, gcp and azure are no new server's, conn's or VPN's name
 	{"host", "add", "azure", "u@10.0.0.1"},
 	{"conn", "add", "aws", "redis://127.0.0.1:1/0"},
-	{"vpn", "add", "gcp", "socks", "--proxy-address", "127.0.0.1:1080"},
+	{"vpn", "socks", "add", "gcp", "--proxy-address", "127.0.0.1:1080"},
 	// C-C03, C-C06 (OD-7): deletes that leave no copy are dangerous
 	{"secret", "rm", "gsec"},
 	{"key", "rm", "gkey", "--delete-file"},

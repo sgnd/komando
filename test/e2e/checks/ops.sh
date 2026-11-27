@@ -110,19 +110,19 @@ check "net ports on busybox (netstat)" True "$($K net ports swarm1 | jget "any(r
 
 # vpn: status sees a working SOCKS proxy, dry-run makes the real checks
 set +e
-$K vpn rm lab --dry-run >/dev/null; check "vpn rm --dry-run sees VPN_IN_USE" 8 $?
-$K vpn add lab socks --proxy-address 127.0.0.1:1 --dry-run >/dev/null; check "vpn add --dry-run sees VPN_EXISTS" 8 $?
-$K vpn add direct socks --proxy-address 127.0.0.1:1 --dry-run >/dev/null; check "vpn add --dry-run sees NAME_TAKEN" 8 $?
+$K vpn socks remove lab --dry-run >/dev/null; check "vpn rm --dry-run sees VPN_IN_USE" 8 $?
+$K vpn socks add lab --proxy-address 127.0.0.1:1 --dry-run >/dev/null; check "vpn add --dry-run sees VPN_EXISTS" 8 $?
+$K vpn socks add direct --proxy-address 127.0.0.1:1 --dry-run >/dev/null; check "vpn add --dry-run sees NAME_TAKEN" 8 $?
 set -e
-check "vpn status: stopped SOCKS proxy is down" False "$($K vpn status | jget '[v["up"] for v in d["data"]["vpns"] if v["name"] == "lab"][0]')"
+check "vpn status: stopped SOCKS proxy is down" False "$($K vpn socks status | jget '[v["up"] for v in d["data"]["vpns"] if v["name"] == "lab"][0]')"
 q $K tunnel start bastion -D "127.0.0.1:$E2E_SOCKS"
-check "vpn status: running SOCKS proxy is up" True "$($K vpn status | jget '[v["up"] for v in d["data"]["vpns"] if v["name"] == "lab"][0]')"
-check "vpn down of a SOCKS VPN names the tunnel" True "$($K vpn down lab | jget '"tunnel stop" in d["data"]["notes"][0]')"
+check "vpn status: running SOCKS proxy is up" True "$($K vpn socks status | jget '[v["up"] for v in d["data"]["vpns"] if v["name"] == "lab"][0]')"
+check "vpn stop of a SOCKS VPN names the tunnel" True "$($K vpn socks stop lab | jget '"tunnel stop" in d["data"]["notes"][0]')"
 q $K tunnel stop --all
-check "vpn down --all with nothing up" True "$($K vpn down --all | jget 'd["ok"] and d["data"]["disconnected"] == []')"
-check "vpn test hint is not itself" True "$($K vpn test lab | jget '"tunnel start" in d["data"]["results"][0]["error"]["hint"]' || true)"
-check "vpn edit changes notes" t-fixops "$($K vpn edit corp --notes t-fixops | jget 'd["data"]["vpn"]["notes"]')"
-q $K vpn edit corp --notes ''
+check "vpn stop with nothing up" True "$($K vpn socks stop lab | jget 'd["ok"]')"
+check "vpn test hint is not itself" True "$($K vpn socks test lab | jget '"tunnel start" in d["data"]["results"][0]["error"]["hint"]' || true)"
+check "vpn edit changes notes" t-fixops "$($K vpn system edit corp --notes t-fixops | jget 'd["data"]["vpn"]["notes"]')"
+q $K vpn system edit corp --notes ''
 
 # a person at a terminal: deletes ask for the name of what goes, a protected
 # server asks [y/N], "no" changes nothing (komando's own questions, no flags)

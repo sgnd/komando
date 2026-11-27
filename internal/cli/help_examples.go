@@ -97,10 +97,10 @@ var examples = map[string]string{
 		"  komando secret list\n" +
 		"  komando conn edit prod-db --password-ref secret:prod-db-pass\n" +
 		"  komando secret rm old-pass --dry-run",
-	"komando vpn": "  komando vpn add office wireguard --config ~/Downloads/office.conf\n" +
-		"  komando vpn test office\n" +
+	"komando vpn": "  komando vpn wireguard add office --config ~/Downloads/office.conf\n" +
+		"  komando vpn wireguard test office\n" +
 		"  komando host edit db1 --via office --dry-run\n" +
-		"  komando vpn up office",
+		"  komando vpn wireguard start office",
 	"komando cert": "  komando cert check web1                           # certificates on the server\n" +
 		"  komando cert check @web --warn 30d\n" +
 		"  komando cert check https://shop.example.com --warn 14d",
@@ -184,13 +184,6 @@ var examples = map[string]string{
 	"komando user unlock": "  komando user unlock web1 alice",
 
 	"komando version": "  komando version",
-
-	"komando vpn down":   "  komando vpn down office\n  komando vpn down --all",
-	"komando vpn list":   "  komando vpn list",
-	"komando vpn show":   "  komando vpn show office",
-	"komando vpn status": "  komando vpn status",
-	"komando vpn test":   "  komando vpn test office",
-	"komando vpn up":     "  komando vpn up office",
 }
 
 // details is the help text of commands whose one-line Short had to be
@@ -220,6 +213,4 @@ var details = map[string]string{
 	"komando svc daemon-reload": "Reload systemd's unit files (after writing a unit), and say which units still need it.",
 	"komando svc status":        "Structured unit status (active_state, sub_state, main_pid, n_restarts, memory ...).",
 	"komando user lock":         "Lock an account (password + expire, so SSH keys stop working too) without deleting it.",
-	"komando vpn rm":            "Remove VPNs from komando (their keys stay in the vault until `komando secret rm`).",
-	"komando vpn up":            "Connect a VPN now and keep it up for later commands (a person logs in here, MFA included).",
 }

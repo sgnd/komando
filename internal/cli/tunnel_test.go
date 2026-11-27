@@ -137,14 +137,12 @@ func TestParseTunnelIPv6(t *testing.T) {
 	}
 }
 
-// TestAllWithNames: vpn down and tunnel stop refuse names together with
-// --all, as logout does; the names (even unknown ones) were ignored.
+// TestAllWithNames: tunnel stop refuses names together with --all, as
+// logout does; the names (even unknown ones) were ignored.
 func TestAllWithNames(t *testing.T) {
 	invHome(t)
-	wantCode(t, "USAGE", "vpn", "down", "nosuch", "--all")
 	wantCode(t, "USAGE", "tunnel", "stop", "t-nosuch", "--all")
 	wantCode(t, "USAGE", "logout", "web1", "--all")
-	mustRun(t, "vpn", "down", "--all")
 	mustRun(t, "tunnel", "stop", "--all")
 }
 
@@ -153,7 +151,7 @@ func TestAllWithNames(t *testing.T) {
 // "put the VPN first", and a,b,a was accepted.
 func TestViaTwice(t *testing.T) {
 	invHome(t)
-	mustRun(t, "vpn", "add", "office", "socks", "--proxy-address", "127.0.0.1:1")
+	mustRun(t, "vpn", "socks", "add", "office", "--proxy-address", "127.0.0.1:1")
 	mustRun(t, "host", "add", "bastion", "u@10.0.0.1")
 	mustRun(t, "host", "add", "b2", "u@10.0.0.3")
 	e := wantCode(t, "VIA_CYCLE", "host", "add", "app", "u@10.0.0.2", "--via", "office,office")

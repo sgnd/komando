@@ -554,8 +554,8 @@ func guardTypedLoginMove(cl *call, old, now *store.Vpn, servers string) error {
 	if !moved {
 		return nil
 	}
-	return out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask the user to run this `komando vpn edit` in their own terminal",
-		"vpn %s gets the login a person types at `vpn up`; an AI agent may not change where it goes", now.Name).NoFlag()
+	return out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask the user to run this `komando vpn KIND edit` in their own terminal",
+		"vpn %s gets the login a person types at `vpn KIND start`; an AI agent may not change where it goes", now.Name).NoFlag()
 }
 
 // guardVpnSends is guardSends for a VPN an add or edit leaves as now; old
@@ -656,7 +656,7 @@ func guardTrustSecret(cl *call, st *store.State, name, old string, had bool, now
 		// points: moving it is for a person only, as vpn edit has it
 		if v.KeyRef == "" || v.MFA {
 			return out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask the user to replace secret "+name+" in their own terminal",
-				"secret %s is the profile of vpn %s, which gets the login a person types at `vpn up`; an AI agent may not change where it goes", name, v.Name).NoFlag()
+				"secret %s is the profile of vpn %s, which gets the login a person types at `vpn KIND start`; an AI agent may not change where it goes", name, v.Name).NoFlag()
 		}
 		servers, err := ovpnRemotes(now)
 		if err != nil || servers == "" {

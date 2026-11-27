@@ -305,7 +305,7 @@ type Vpn struct {
 	ConfigRef string            `json:"config_ref,omitempty"` // openvpn: the whole .ovpn, kept in the vault (it may hold keys)
 	Address   string            `json:"address,omitempty"`    // socks: host:port of the proxy
 	Portal    string            `json:"portal,omitempty"`     // openconnect kinds: the VPN server or portal
-	Service   string            `json:"service,omitempty"`    // system: the OS VPN's name, to connect it with `vpn up`
+	Service   string            `json:"service,omitempty"`    // system: the OS VPN's name, to connect it with `vpn KIND start`
 	Server    string            `json:"server,omitempty"`     // tailscale: a Headscale login server; l2tp, ipsec, ikev2: the VPN server
 	User      string            `json:"user,omitempty"`       // user name, if the VPN wants one
 	KeyRef    string            `json:"key_ref,omitempty"`    // password, private key or auth key, as secret:/env:/file:
@@ -313,7 +313,7 @@ type Vpn struct {
 	LocalID   string            `json:"id,omitempty"`         // ipsec: the group name; ikev2: our identity
 	RemoteID  string            `json:"remote_id,omitempty"`  // ikev2: the server's identity (default: --server)
 	CA        string            `json:"ca,omitempty"`         // ikev2: PEM of the CA that signed the server certificate
-	MFA       bool              `json:"mfa,omitempty"`        // a human must log in (`vpn up`); never automated
+	MFA       bool              `json:"mfa,omitempty"`        // a human must log in (`vpn KIND start`); never automated
 	Protected bool              `json:"protected,omitempty"`  // changing or removing it needs a person's yes
 	Check     string            `json:"check,omitempty"`      // host:port that answers only through the VPN
 	Groups    []string          `json:"groups,omitempty"`

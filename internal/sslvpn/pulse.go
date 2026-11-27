@@ -465,7 +465,7 @@ func (s *pulseSession) answer(avps []pulseAVP) ([]byte, error) {
 	}
 	if s.resume {
 		// a tunnel with a cookie is asked anything else: the session is gone
-		return nil, &LoginError{Msg: "the VPN did not take the session cookie (the session ended); log in again with `komando vpn up`"}
+		return nil, &LoginError{Msg: "the VPN did not take the session cookie (the session ended); log in again with `komando vpn KIND start`"}
 	}
 	switch {
 	case len(realms) > 0:

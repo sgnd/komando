@@ -15,7 +15,7 @@ func TestVpnAddAskPassword(t *testing.T) {
 	invHome(t)
 	noAgent(t)
 	socks := func(name string, extra ...string) []string {
-		return append([]string{"vpn", "add", name, "socks", "--proxy-address", "127.0.0.1:1080", "--user", "budi", "--ask-password"}, extra...)
+		return append([]string{"vpn", "socks", "add", name, "--proxy-address", "127.0.0.1:1080", "--user", "budi", "--ask-password"}, extra...)
 	}
 	// a script: no terminal
 	if e := wantCode(t, "NEEDS_PERSON", socks("lab")...); !strings.Contains(e.Hint, "komando secret set lab-pass") {
@@ -27,7 +27,7 @@ func TestVpnAddAskPassword(t *testing.T) {
 		t.Errorf("agent hint: %q", e.Hint)
 	}
 	noAgent(t)
-	if _, e := invRun(t, "vpn", "show", "lab"); e == nil {
+	if _, e := invRun(t, "vpn", "socks", "show", "lab"); e == nil {
 		t.Error("lab was added without its password")
 	}
 
@@ -55,7 +55,7 @@ func TestVpnAddAskPassword(t *testing.T) {
 	}
 	// an l2tp login: the password is stored, so no person is needed at vpn up
 	setSecret(t, "office-psk", "k3y-0ffice-psk")
-	d = mustRun(t, "vpn", "add", "office", "l2tp", "--server", "vpn.example.com", "--psk-ref", "secret:office-psk", "--user", "budi", "--ask-password")
+	d = mustRun(t, "vpn", "l2tp", "add", "office", "--server", "vpn.example.com", "--psk-credential", "office-psk", "--user", "budi", "--ask-password")
 	if v, _ := d["vpn"].(map[string]any); v["key_ref"] != "secret:office-pass" || v["mfa"] == true {
 		t.Errorf("l2tp --ask-password: %v", d)
 	}
@@ -63,8 +63,8 @@ func TestVpnAddAskPassword(t *testing.T) {
 	// refused together with --password-ref, and where no password is used
 	asked = 0
 	wantCode(t, "USAGE", socks("lab2", "--password-ref", "env:X")...)
-	wantCode(t, "USAGE", "vpn", "add", "corp", "system", "--check", "10.0.0.1:443", "--ask-password")
-	wantCode(t, "USAGE", "vpn", "add", "tail", "tailscale", "--ask-password")
+	wantCode(t, "USAGE", "vpn", "system", "add", "corp", "--check", "10.0.0.1:443", "--ask-password")
+	wantCode(t, "USAGE", "vpn", "tailscale", "add", "tail", "--ask-password")
 	// a name that is taken is refused before anyone is asked
 	wantCode(t, "VPN_EXISTS", socks("lab")...)
 	if asked != 0 {
@@ -107,7 +107,7 @@ func TestVpnAddAskPasswordOverwriteRefused(t *testing.T) {
 	asked := 0
 	readPassword = func(*call, string) (string, error) { asked++; return "Old-Vpn-1", nil }
 	socks := func(extra ...string) []string {
-		return append([]string{"vpn", "add", "lab", "socks", "--proxy-address", "127.0.0.1:1080", "--user", "budi", "--ask-password"}, extra...)
+		return append([]string{"vpn", "socks", "add", "lab", "--proxy-address", "127.0.0.1:1080", "--user", "budi", "--ask-password"}, extra...)
 	}
 	mustRun(t, socks()...)
 	if asked != 1 {

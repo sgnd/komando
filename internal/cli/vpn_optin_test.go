@@ -15,8 +15,8 @@ import (
 // off does not, and only the kinds they apply to take them.
 func TestVpnEditOptIns(t *testing.T) {
 	invHome(t)
-	mustRun(t, "vpn", "add", "kantor", "l2tp", "--server", "vpn.kantor.id", "--psk-ref", "secret:kantor-psk", "--user", "budi", "--password-ref", "secret:kantor")
-	mustRun(t, "vpn", "add", "asa", "ipsec", "--server", "asa.client.com", "--id", "staff", "--psk-ref", "secret:asa-group", "--user", "budi")
+	mustRun(t, "vpn", "l2tp", "add", "kantor", "--server", "vpn.kantor.id", "--psk-credential", "kantor-psk", "--user", "budi", "--credential", "kantor")
+	mustRun(t, "vpn", "ipsec", "add", "asa", "--server", "asa.client.com", "--id", "staff", "--psk-credential", "asa-group", "--user", "budi")
 	vpn := func(name string) *store.Vpn {
 		st, err := store.Load()
 		if err != nil {
@@ -24,29 +24,29 @@ func TestVpnEditOptIns(t *testing.T) {
 		}
 		return st.Vpns[name]
 	}
-	if _, e := cliRun(t, "vpn", "edit", "kantor", "--legacy-crypto"); e == nil || e.Code != "SAFETY_SETTING" || !strings.Contains(e.Message, "3DES") {
+	if _, e := cliRun(t, "vpn", "l2tp", "edit", "kantor", "--legacy-crypto"); e == nil || e.Code != "SAFETY_SETTING" || !strings.Contains(e.Message, "3DES") {
 		t.Fatalf("without --yes: %+v", e)
 	}
 	if v := vpn("kantor"); v.LegacyCrypto {
 		t.Fatal("a refused change was saved")
 	}
-	d, e := cliRun(t, "--dry-run", "vpn", "edit", "kantor", "--allow-pap")
+	d, e := cliRun(t, "--dry-run", "vpn", "l2tp", "edit", "kantor", "--allow-pap")
 	if e != nil || !strings.Contains(fmt.Sprint(d["_meta"]), "SAFETY_SETTING") || vpn("kantor").AllowPAP {
 		t.Errorf("--dry-run: %v %v", d, e)
 	}
-	mustRun(t, "vpn", "edit", "kantor", "--legacy-crypto", "--allow-pap", "--yes")
+	mustRun(t, "vpn", "l2tp", "edit", "kantor", "--legacy-crypto", "--allow-pap", "--yes")
 	if v := vpn("kantor"); !v.LegacyCrypto || !v.AllowPAP {
 		t.Fatalf("with --yes: %+v", v)
 	}
-	mustRun(t, "vpn", "edit", "kantor", "--legacy-crypto=false", "--allow-pap=false") // safer: no yes needed
+	mustRun(t, "vpn", "l2tp", "edit", "kantor", "--legacy-crypto=false", "--allow-pap=false") // safer: no yes needed
 	if v := vpn("kantor"); v.LegacyCrypto || v.AllowPAP {
 		t.Fatalf("turning them off: %+v", v)
 	}
-	if _, e := cliRun(t, "vpn", "edit", "asa", "--allow-pap", "--yes"); e == nil || !strings.Contains(e.Message, "--allow-pap is not used by ipsec") {
+	if _, e := cliRun(t, "vpn", "ipsec", "edit", "asa", "--allow-pap", "--yes"); e == nil || !strings.Contains(e.Message, "--allow-pap is not used by ipsec") {
 		t.Errorf("--allow-pap on ipsec: %+v", e)
 	}
 	windows := asAgent(t, false, true)
-	if _, e := cliRun(t, "vpn", "edit", "asa", "--legacy-crypto", "--yes"); e == nil || e.Code != "SAFETY_SETTING" || *windows != 1 || vpn("asa").LegacyCrypto {
+	if _, e := cliRun(t, "vpn", "ipsec", "edit", "asa", "--legacy-crypto", "--yes"); e == nil || e.Code != "SAFETY_SETTING" || *windows != 1 || vpn("asa").LegacyCrypto {
 		t.Errorf("an agent whose person says no: %+v, %d windows", e, *windows)
 	}
 }
@@ -56,7 +56,7 @@ func TestVpnEditOptIns(t *testing.T) {
 // (--legacy-crypto) take them.
 func TestVpnAddOptIns(t *testing.T) {
 	invHome(t)
-	l2tp := []string{"vpn", "add", "old-office", "l2tp", "--server", "vpn.example.com", "--psk-ref", "secret:old-psk", "--user", "alice", "--password-ref", "secret:old"}
+	l2tp := []string{"vpn", "l2tp", "add", "old-office", "--server", "vpn.example.com", "--psk-credential", "old-psk", "--user", "alice", "--credential", "old"}
 	saved := func() bool {
 		st, err := store.Load()
 		if err != nil {
@@ -78,15 +78,15 @@ func TestVpnAddOptIns(t *testing.T) {
 	}
 	mustRun(t, append(l2tp, "--overwrite", "--legacy-crypto=false")...) // off: no yes needed
 	for _, bad := range [][]string{
-		{"vpn", "add", "asa", "ipsec", "--server", "asa.example.com", "--psk-ref", "secret:g", "--allow-pap", "--yes"},
-		{"vpn", "add", "cloud", "ikev2", "--server", "vpn.example.com", "--user", "alice", "--legacy-crypto", "--yes"},
+		{"vpn", "ipsec", "add", "asa", "--server", "asa.example.com", "--psk-credential", "g", "--allow-pap", "--yes"},
+		{"vpn", "ikev2", "add", "cloud", "--server", "vpn.example.com", "--user", "alice", "--legacy-crypto", "--yes"},
 	} {
 		if _, e := cliRun(t, bad...); e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "is not used by") {
 			t.Errorf("%v: %+v", bad, e)
 		}
 	}
 	windows := asAgent(t, false, true)
-	if _, e := cliRun(t, "vpn", "add", "asa", "ipsec", "--server", "asa.example.com", "--psk-ref", "secret:g", "--legacy-crypto", "--yes"); e == nil || e.Code != "SAFETY_SETTING" || *windows != 1 {
+	if _, e := cliRun(t, "vpn", "ipsec", "add", "asa", "--server", "asa.example.com", "--psk-credential", "g", "--legacy-crypto", "--yes"); e == nil || e.Code != "SAFETY_SETTING" || *windows != 1 {
 		t.Errorf("an agent whose person says no: %+v, %d windows", e, *windows)
 	}
 }
@@ -117,19 +117,19 @@ func TestVpnSecretsNeedAPerson(t *testing.T) {
 		t.Fatal(err)
 	}
 	// a person or a script: no window, and the profile's warning is shown
-	d := mustRun(t, "vpn", "add", "office", "openvpn", "--config", profile, "--check", "10.8.0.1:22", "--user", "alice", "--password-ref", "secret:db-pass")
+	d := mustRun(t, "vpn", "openvpn", "add", "office", "--config", profile, "--check", "10.8.0.1:22", "--user", "alice", "--credential", "db-pass")
 	if w := fmt.Sprint(d["warnings"]); !strings.Contains(w, "does not say how to check the server's certificate") {
 		t.Errorf("the profile's warning: %v", d)
 	}
-	wantCode(t, "RESERVED_SECRET", "vpn", "add", "x", "l2tp", "--server", "vpn.example.com", "--psk-ref", "secret:"+approvalSecret, "--user", "alice")
+	wantCode(t, "RESERVED_SECRET", "vpn", "l2tp", "add", "x", "--server", "vpn.example.com", "--psk-credential", ""+approvalSecret, "--user", "alice")
 
 	texts := windowText(t, true)
-	add := []string{"vpn", "add", "branch", "l2tp", "--server", "vpn.example.com", "--psk-ref", "secret:branch-psk", "--user", "alice", "--password-ref", "secret:db-pass"}
+	add := []string{"vpn", "l2tp", "add", "branch", "--server", "vpn.example.com", "--psk-credential", "branch-psk", "--user", "alice", "--credential", "db-pass"}
 	for _, args := range [][]string{
 		add,
-		{"vpn", "add", "lab", "socks", "--proxy-address", "proxy.example.com:1080", "--user", "alice", "--password-ref", "env:GITHUB_TOKEN"},
-		{"vpn", "add", "tailnet", "tailscale", "--password-ref", "file:/etc/ssl/private/site.key"},
-		{"vpn", "edit", "office", "--password-ref", "secret:other"},
+		{"vpn", "socks", "add", "lab", "--proxy-address", "proxy.example.com:1080", "--user", "alice", "--password-ref", "env:GITHUB_TOKEN"},
+		{"vpn", "tailscale", "add", "tailnet", "--password-ref", "file:/etc/ssl/private/site.key"},
+		{"vpn", "openvpn", "edit", "office", "--credential", "other"},
 	} {
 		if _, e := cliRun(t, args...); e == nil || e.Code != "SECRET_DESTINATION" {
 			t.Fatalf("%v: want SECRET_DESTINATION, got %+v", args, e)
@@ -139,8 +139,8 @@ func TestVpnSecretsNeedAPerson(t *testing.T) {
 		t.Fatalf("no flag, no window: %q", *texts)
 	}
 	// no reference, or nothing new: nothing to ask
-	mustRun(t, "vpn", "add", "lab", "socks", "--proxy-address", "127.0.0.1:1080")
-	mustRun(t, "vpn", "edit", "office", "--notes", "head office", "--user", "bob")
+	mustRun(t, "vpn", "socks", "add", "lab", "--proxy-address", "127.0.0.1:1080")
+	mustRun(t, "vpn", "openvpn", "edit", "office", "--notes", "head office", "--user", "bob")
 	if len(*texts) != 0 {
 		t.Fatalf("nothing new goes anywhere: %q", *texts)
 	}
@@ -151,10 +151,10 @@ func TestVpnSecretsNeedAPerson(t *testing.T) {
 	if len(*texts) != 1 || !strings.Contains((*texts)[0], "secret:branch-psk, secret:db-pass to vpn.example.com (vpn branch)") {
 		t.Fatalf("window: %q", *texts)
 	}
-	if _, e := cliRun(t, "vpn", "edit", "branch", "--server", "vpn.evil.example"); e == nil || e.Code != "SECRET_DESTINATION" {
+	if _, e := cliRun(t, "vpn", "l2tp", "edit", "branch", "--server", "vpn.evil.example"); e == nil || e.Code != "SECRET_DESTINATION" {
 		t.Errorf("a new server: %+v", e)
 	}
-	if _, e := cliRun(t, "vpn", "add", "office", "openvpn", "--config", profile, "--check", "10.8.0.1:22", "--user", "alice", "--password-ref", "secret:db-pass", "--overwrite", "--yes"); e != nil {
+	if _, e := cliRun(t, "vpn", "openvpn", "add", "office", "--config", profile, "--check", "10.8.0.1:22", "--user", "alice", "--credential", "db-pass", "--overwrite", "--yes"); e != nil {
 		t.Fatal(e)
 	}
 	if w := (*texts)[len(*texts)-1]; !strings.Contains(w, "secret:db-pass to vpn.example.com:1194, vpn2.example.com:443 (vpn office)") {
@@ -163,7 +163,7 @@ func TestVpnSecretsNeedAPerson(t *testing.T) {
 
 	// the person says no
 	windowText(t, false)
-	if _, e := cliRun(t, "vpn", "edit", "branch", "--server", "vpn.evil.example", "--yes"); e == nil || e.Code != "SECRET_DESTINATION" {
+	if _, e := cliRun(t, "vpn", "l2tp", "edit", "branch", "--server", "vpn.evil.example", "--yes"); e == nil || e.Code != "SECRET_DESTINATION" {
 		t.Errorf("denied: %+v", e)
 	}
 	st, _ := store.Load()
@@ -198,12 +198,12 @@ func TestVpnEditCANeedsAPerson(t *testing.T) {
 		}
 		return p
 	}
-	mustRun(t, "vpn", "add", "cloud", "ikev2", "--server", "vpn.example.com", "--user", "alice")
+	mustRun(t, "vpn", "ikev2", "add", "cloud", "--server", "vpn.example.com", "--user", "alice")
 	windows := asAgent(t, false, true)
-	mustRun(t, "vpn", "edit", "cloud", "--ca", ca("first", first))
+	mustRun(t, "vpn", "ikev2", "edit", "cloud", "--ca", ca("first", first))
 	for _, args := range [][]string{
-		{"vpn", "edit", "cloud", "--ca", ca("other", certPEM(t))},
-		{"vpn", "edit", "cloud", "--ca", ""},
+		{"vpn", "ikev2", "edit", "cloud", "--ca", ca("other", certPEM(t))},
+		{"vpn", "ikev2", "edit", "cloud", "--ca", ""},
 	} {
 		if _, e := cliRun(t, args...); e == nil || e.Code != "SAFETY_SETTING" {
 			t.Errorf("%v: want SAFETY_SETTING, got %+v", args, e)

@@ -161,7 +161,7 @@ func passphraseNextSteps(to string) []string {
 	}
 	return []string{
 		"put the new passphrase in KOMANDO_VAULT_PASS wherever you set it (your shell profile, a password manager, a launch agent); until then komando cannot open the vault",
-		"restart background tunnels and VPN sessions komando runs (`komando tunnel list`, `komando vpn status`): they still hold the old key",
+		"restart background tunnels and VPN sessions komando runs (`komando tunnel list`, `komando vpn KIND status`): they still hold the old key",
 	}
 }
 

@@ -199,7 +199,7 @@ var settings = []setting{
 			st.Settings.ApprovalLanguage = v
 			return nil
 		}},
-	{"vpn_idle", "duration, 0 = never", "a VPN kept up with `vpn up` is closed after this long unused",
+	{"vpn_idle", "duration, 0 = never", "a VPN kept up with `vpn KIND start` is closed after this long unused",
 		func(s *store.Settings) string { return s.VpnIdle },
 		func(cl *call, st *store.State, v string) (err error) {
 			if v, err = positiveDur("vpn_idle", v, true); err != nil {

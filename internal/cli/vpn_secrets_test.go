@@ -71,7 +71,7 @@ func TestVpnAddKeepsOtherSecrets(t *testing.T) {
 	// wireguard: NAME-key is taken, and a server uses it
 	set("prod-key")
 	for _, dry := range []bool{true, false} {
-		args := []string{"vpn", "add", "prod", "wireguard", "--config", wg("1")}
+		args := []string{"vpn", "wireguard", "add", "prod", "--config", wg("1")}
 		if dry {
 			args = append([]string{"--dry-run"}, args...)
 		}
@@ -89,7 +89,7 @@ func TestVpnAddKeepsOtherSecrets(t *testing.T) {
 
 	// wireguard: only NAME-psk is taken; nothing is stored
 	set("edge-psk")
-	wantCode(t, "SECRET_EXISTS", "vpn", "add", "edge", "wireguard", "--config", wg("1"))
+	wantCode(t, "SECRET_EXISTS", "vpn", "wireguard", "add", "edge", "--config", wg("1"))
 	kept("edge-psk")
 	noVpn("edge")
 	if _, err := vault.Get("edge-key"); err == nil {
@@ -98,7 +98,7 @@ func TestVpnAddKeepsOtherSecrets(t *testing.T) {
 
 	// openvpn: NAME-config is taken, by nothing komando knows of
 	set("lab-config")
-	e := wantCode(t, "SECRET_EXISTS", "vpn", "add", "lab", "openvpn", "--config", ovpn("1"), "--check", "10.8.0.1:22")
+	e := wantCode(t, "SECRET_EXISTS", "vpn", "openvpn", "add", "lab", "--config", ovpn("1"), "--check", "10.8.0.1:22")
 	if !strings.Contains(e.Message, "OpenVPN profile") || strings.Contains(e.Message, "used by") {
 		t.Errorf("openvpn: %s", e.Message)
 	}
@@ -106,13 +106,13 @@ func TestVpnAddKeepsOtherSecrets(t *testing.T) {
 	noVpn("lab")
 
 	// --overwrite with no VPN of that name to replace changes nothing
-	wantCode(t, "SECRET_EXISTS", "vpn", "add", "lab", "openvpn", "--config", ovpn("1"), "--check", "10.8.0.1:22", "--overwrite")
+	wantCode(t, "SECRET_EXISTS", "vpn", "openvpn", "add", "lab", "--config", ovpn("1"), "--check", "10.8.0.1:22", "--overwrite")
 	kept("lab-config")
 	// nor does --overwrite of a VPN that only points at the secret: a SOCKS
 	// VPN's password is not a key `vpn add` stored
-	mustRun(t, "vpn", "add", "corp", "socks", "--proxy-address", "127.0.0.1:1080", "--user", "alice", "--password-ref", "secret:corp-key")
+	mustRun(t, "vpn", "socks", "add", "corp", "--proxy-address", "127.0.0.1:1080", "--user", "alice", "--credential", "corp-key")
 	set("corp-key")
-	wantCode(t, "SECRET_EXISTS", "vpn", "add", "corp", "wireguard", "--config", wg("1"), "--overwrite")
+	wantCode(t, "SECRET_EXISTS", "vpn", "wireguard", "add", "corp", "--config", wg("1"), "--overwrite")
 	kept("corp-key")
 	if st, _ := store.Load(); st.Vpns["corp"].Kind != "socks" {
 		t.Error("the SOCKS VPN was replaced")
@@ -134,20 +134,20 @@ func TestVpnAddOverwriteReusesOwnSecrets(t *testing.T) {
 		return v
 	}
 
-	mustRun(t, "vpn", "add", "office", "wireguard", "--config", wg("1"))
+	mustRun(t, "vpn", "wireguard", "add", "office", "--config", wg("1"))
 	key1, psk1 := get("office-key"), get("office-psk")
-	wantCode(t, "VPN_EXISTS", "vpn", "add", "office", "wireguard", "--config", wg("2"))
-	mustRun(t, "--dry-run", "vpn", "add", "office", "wireguard", "--config", wg("2"), "--overwrite")
+	wantCode(t, "VPN_EXISTS", "vpn", "wireguard", "add", "office", "--config", wg("2"))
+	mustRun(t, "--dry-run", "vpn", "wireguard", "add", "office", "--config", wg("2"), "--overwrite")
 	if get("office-key") != key1 {
 		t.Fatal("a dry run stored the key")
 	}
-	mustRun(t, "vpn", "add", "office", "wireguard", "--config", wg("2"), "--overwrite")
+	mustRun(t, "vpn", "wireguard", "add", "office", "--config", wg("2"), "--overwrite")
 	if get("office-key") == key1 || get("office-psk") == psk1 {
 		t.Error("--overwrite kept the old keys")
 	}
 
-	mustRun(t, "vpn", "add", "lab", "openvpn", "--config", ovpn("1"), "--check", "10.8.0.1:22")
-	mustRun(t, "vpn", "add", "lab", "openvpn", "--config", ovpn("2"), "--check", "10.8.0.1:22", "--overwrite")
+	mustRun(t, "vpn", "openvpn", "add", "lab", "--config", ovpn("1"), "--check", "10.8.0.1:22")
+	mustRun(t, "vpn", "openvpn", "add", "lab", "--config", ovpn("2"), "--check", "10.8.0.1:22", "--overwrite")
 	if !strings.Contains(get("lab-config"), "vpn2.example.com") {
 		t.Error("--overwrite kept the old profile")
 	}
@@ -159,7 +159,7 @@ func TestVpnAddOverwriteReusesOwnSecrets(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	e := wantCode(t, "SECRET_EXISTS", "vpn", "add", "lab", "openvpn", "--config", ovpn("1"), "--check", "10.8.0.1:22", "--overwrite")
+	e := wantCode(t, "SECRET_EXISTS", "vpn", "openvpn", "add", "lab", "--config", ovpn("1"), "--check", "10.8.0.1:22", "--overwrite")
 	if !strings.Contains(e.Message, "vpn lab") || !strings.Contains(e.Message, "host web") {
 		t.Errorf("shared secret: %s", e.Message)
 	}
@@ -169,7 +169,7 @@ func TestVpnAddOverwriteReusesOwnSecrets(t *testing.T) {
 
 	// `vpn mv` moves the secrets only it uses to the new name, so the old
 	// name is free again; one a server uses too keeps its name
-	mustRun(t, "vpn", "mv", "office", "office-east")
+	mustRun(t, "vpn", "wireguard", "rename", "office", "office-east")
 	key2 := get("office-east-key")
 	if _, err := vault.Get("office-key"); err == nil {
 		t.Error("office-key is still there after vpn mv")
@@ -177,11 +177,11 @@ func TestVpnAddOverwriteReusesOwnSecrets(t *testing.T) {
 	if st, _ := store.Load(); st.Vpns["office-east"].KeyRef != "secret:office-east-key" || st.Vpns["office-east"].PSKRef != "secret:office-east-psk" {
 		t.Errorf("refs after vpn mv: %+v", st.Vpns["office-east"])
 	}
-	mustRun(t, "vpn", "add", "office", "wireguard", "--config", wg("1"))
+	mustRun(t, "vpn", "wireguard", "add", "office", "--config", wg("1"))
 	if get("office-east-key") != key2 {
 		t.Error("the renamed VPN's key was replaced")
 	}
-	d := mustRun(t, "vpn", "mv", "lab", "lab-2")
+	d := mustRun(t, "vpn", "openvpn", "rename", "lab", "lab-2")
 	if w := d["warnings"].([]any); len(w) != 1 || !strings.Contains(w[0].(string), "lab-config keeps its name") {
 		t.Errorf("shared secret on vpn mv: %v", d)
 	}
@@ -196,10 +196,10 @@ func TestVpnAddOverwriteReusesOwnSecrets(t *testing.T) {
 func TestVpnReAddAfterRm(t *testing.T) {
 	invHome(t)
 	wg, _ := vpnSecretFiles(t)
-	mustRun(t, "vpn", "add", "wg2", "wireguard", "--config", wg("1"))
-	mustRun(t, "vpn", "rm", "wg2")
-	wantCode(t, "SECRET_EXISTS", "vpn", "add", "wg2", "wireguard", "--config", wg("2"))
-	d := mustRun(t, "vpn", "add", "wg2", "wireguard", "--config", wg("1"), "--check", "10.77.0.1:22")
+	mustRun(t, "vpn", "wireguard", "add", "wg2", "--config", wg("1"))
+	mustRun(t, "vpn", "wireguard", "remove", "wg2")
+	wantCode(t, "SECRET_EXISTS", "vpn", "wireguard", "add", "wg2", "--config", wg("2"))
+	d := mustRun(t, "vpn", "wireguard", "add", "wg2", "--config", wg("1"), "--check", "10.77.0.1:22")
 	if d["warnings"] != nil {
 		t.Errorf("warnings for the keys this add stored: %v", d["warnings"])
 	}
@@ -219,10 +219,10 @@ func TestVpnAddNoEqualityOracle(t *testing.T) {
 		t.Fatal(err)
 	}
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
-	wantCode(t, "SECRET_EXISTS", "--dry-run", "vpn", "add", "probe", "wireguard", "--config", path)
+	wantCode(t, "SECRET_EXISTS", "--dry-run", "vpn", "wireguard", "add", "probe", "--config", path)
 	bad := filepath.Join(t.TempDir(), "guess.conf")
 	os.WriteFile(bad, []byte(strings.Replace(string(b), key, "hunter2", 1)), 0o600)
-	if e := wantCode(t, "VPN_CONFIG", "--dry-run", "vpn", "add", "probe2", "wireguard", "--config", bad); strings.Contains(e.Message, "hunter2") {
+	if e := wantCode(t, "VPN_CONFIG", "--dry-run", "vpn", "wireguard", "add", "probe2", "--config", bad); strings.Contains(e.Message, "hunter2") {
 		t.Fatalf("the guess is in the error: %s", e.Message)
 	}
 }
