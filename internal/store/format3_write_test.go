@@ -149,8 +149,10 @@ func TestFormat3SharedCredentialRefused(t *testing.T) {
 			if !errorsAs(err, &oe) || oe.Code != c.code || oe.Exit != wantExit {
 				t.Fatalf("got %v", err)
 			}
-			// the way out must exist today (`komando credential` is C485's)
-			if oe.Code == "CREDENTIAL_IN_USE" && (!strings.Contains(oe.Hint, "komando secret cp") || strings.Contains(oe.Hint, "komando credential")) {
+			// rule R7 (C610): the way out is a command of v0.18, and names
+			// the credential the plain way (rule R2: no credential:NAME)
+			if oe.Code == "CREDENTIAL_IN_USE" && (!strings.Contains(oe.Hint, "`komando credential password add NEW`, then pass --credential NEW") ||
+				strings.Contains(oe.Hint, "secret cp") || strings.Contains(oe.Hint, "credential:")) {
 				t.Errorf("hint %q", oe.Hint)
 			}
 			for _, n := range c.names {

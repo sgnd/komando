@@ -47,7 +47,7 @@ var errorCodes = []errorCode{
 	{"CONN_UNREACHABLE", 4, "cannot reach …: …", "check the name and port; if the site is only reachable from a server or VPN, run it again with --via: `komando cert check … --via NAME`"},
 	{"CONSUMER_GROUP_NOT_FOUND", 3, "no consumer group named …", "list consumer groups with `komando queue kafka consumer list NAME`"},
 	{"CONSUMER_NOT_FOUND", 3, "no consumer named …", "list consumers with `komando queue nats consumer list NAME`; name one as STREAM/CONSUMER"},
-	{"CREDENTIAL_IN_USE", 8, "…: changing … would change credential …, which these entries use: …; nothing was changed", "give this entry its own: `komando secret cp … NEW`, then pass credential:NEW"},
+	{"CREDENTIAL_IN_USE", 8, "…: changing … would change credential …, which these entries use: …; nothing was changed", "give this entry its own: `komando credential password add NEW`, then pass --credential NEW"},
 	{"DB_AUTH", 4, "bigquery: the stored key is not a service account key: …", "the --password-ref of a bigquery conn holds a service account key (the JSON file from the console), or leave it out to use gcloud's login"},
 	{"DB_BYTES_LIMIT", 6, "the query would read …, more than --max-bytes …, so it did not run", "BigQuery bills by the bytes a query reads: select fewer columns, filter on the partition or cluster columns, or, if that cost is intended (ask the user), raise --max-bytes"},
 	{"DB_CONNECT", 4, "cannot open …: …", "check the file path in the conn URL (`komando conn show NAME`)"},
