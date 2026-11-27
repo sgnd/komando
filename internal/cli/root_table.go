@@ -292,7 +292,13 @@ var leafExtras = map[safetyKey]func(c *cobra.Command){
 		c.SetFlagErrorFunc(sqlFlagError)
 	},
 	{"database", "", "shell"}: func(c *cobra.Command) {
-		c.Annotations = map[string]string{timeoutHelp: queryTimeout}
+		c.Annotations = map[string]string{helpNotes: shellNotes, timeoutHelp: queryTimeout}
+	},
+	{"database", "", "backup"}: func(c *cobra.Command) {
+		c.Annotations = map[string]string{helpNotes: backupNotes}
+	},
+	{"database", "", "restore"}: func(c *cobra.Command) {
+		c.Annotations = map[string]string{helpNotes: restoreNotes}
 	},
 }
 

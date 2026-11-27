@@ -343,7 +343,7 @@ func clickhouseErr(err error) error {
 	case 394: // QUERY_WAS_CANCELLED: KILL QUERY
 		return out.Errf(out.ExitRemote, "DB_ERROR", "someone stopped this query (`komando db kill`, or KILL QUERY on the server); run it again if it is still needed", "%s", msg)
 	case 81:
-		return out.Errf(out.ExitNotFound, "DB_NOT_FOUND", "list databases with `komando db query CONN 'SHOW DATABASES'`", "%s", msg)
+		return out.Errf(out.ExitNotFound, "DB_NOT_FOUND", "list databases with `komando database clickhouse query CONN 'SHOW DATABASES'`", "%s", msg)
 	case 62: // SYNTAX_ERROR; at komando's own FORMAT when the SQL has one
 		if strings.Contains(msg, "FORMAT "+chFormat) {
 			return out.Errf(out.ExitUsage, "USAGE", "leave out FORMAT and INTO OUTFILE: komando reads the rows as JSON and prints them itself (--csv, --tsv, -o text)", "%s", msg)

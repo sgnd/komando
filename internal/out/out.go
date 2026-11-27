@@ -176,7 +176,7 @@ type Meta struct {
 	DurationMS int64  `json:"duration_ms"`
 	DryRun     bool   `json:"dry_run,omitempty"`
 	// Skipped lists targets a selector picked that this command cannot work
-	// with (a database picked by `exec @prod`, a server by `db query @prod`).
+	// with (a database picked by `exec @prod`, a server by `database postgres query @prod`).
 	Skipped []Skipped `json:"skipped,omitempty"`
 	// WouldBeBlocked: under --dry-run, the safety stop the real run would hit
 	WouldBeBlocked *Error `json:"would_be_blocked,omitempty"`

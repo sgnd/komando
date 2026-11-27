@@ -186,20 +186,20 @@ func maskingConnOn(st *store.State, h *store.Host) bool {
 // (a database dump) of a target whose personal data is hidden from it:
 // the agent would read the file next with its own tools, past the masking.
 // No flag lifts it (C424): a person runs it in their own terminal, and
-// db dump is in revealNever, so --reveal opens no window for it. Under
+// backup is in revealNever, so --reveal opens no window for it. Under
 // --dry-run the stop is only reported.
 func guardRawCopy(cl *call, st *store.State, c *store.Conn, what string) error {
 	if !cl.isAgent() || !personalTarget(st, nil, []*store.Conn{c}) {
 		return nil
 	}
 	return cl.policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON",
-		"read what you need with `komando db query` (personal data shows as [hidden: KIND]); if the user wants the whole copy on this computer, ask them to run this exact command in their own terminal: "+commandLine(cl),
+		"read what you need with `"+dbPathOf(c, "query")+"` (personal data shows as [hidden: KIND]); if the user wants the whole copy on this computer, ask them to run this exact command in their own terminal: "+commandLine(cl),
 		"%s holds every row of %s as it is, and %s hides personal data from AI agents; komando does not write it to this computer for an AI agent", what, c.Name, c.Name).NoFlag())
 }
 
 // guardAgentCopy stops an AI agent from writing every row of a database to
 // a file here, on every connection (C424): the file passes the masking of
-// secrets that db query applies (password and token columns), and the
+// secrets that query applies (password and token columns), and the
 // agent reads it next with its own tools. It is the person tier: no flag
 // lifts it and no window opens; a person runs it in their own terminal.
 // Where personal data is hidden from agents, guardRawCopy has stopped it
@@ -209,7 +209,7 @@ func guardAgentCopy(cl *call, st *store.State, c *store.Conn, what string) error
 		return nil
 	}
 	return cl.policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON",
-		"read what you need with `komando db query` (secrets show as [hidden]); if the user wants the whole copy on this computer, ask them to run this exact command in their own terminal: "+commandLine(cl),
+		"read what you need with `"+dbPathOf(c, "query")+"` (secrets show as [hidden]); if the user wants the whole copy on this computer, ask them to run this exact command in their own terminal: "+commandLine(cl),
 		"%s holds every row of %s as it is, passwords and tokens included, and komando does not write it to this computer for an AI agent", what, c.Name).NoFlag())
 }
 

@@ -23,32 +23,34 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// db shell is komando's own SQL shell for a person at a terminal: no psql,
+// The shell is komando's own SQL shell for a person at a terminal: no psql,
 // mysql or sqlite3 needed. Every statement goes through the same checks as
-// db query (classified, read-only unless --write, destructive SQL needs
-// --allow-dangerous) and is audited. Agents use db query instead.
+// query (classified, read-only unless --write, destructive SQL needs
+// --allow-dangerous) and is audited. Agents use query instead.
 
+// shellNotes is the longer help of `database KIND shell`.
+const shellNotes = `More about shell:
+Opens komando's own SQL shell on the database, through its --via path when
+it has one. Nothing else needs to be installed.
+
+Each statement ends with ; (an Oracle PL/SQL block with a line holding
+only /) and runs with the checks of query: read-only unless the shell was
+started with --write, destructive statements only with --allow-dangerous,
+and every statement is audited. A statement runs in its own transaction.
+A protected conn asks first.
+
+Inside: \q quits, \? lists the commands, \d [TABLE] shows tables or one
+table, \l databases, \dn schemas, \du roles, \x switches expanded rows,
+\timing shows how long each statement took, \i FILE runs a file, and a
+statement ending in \G is shown expanded. Up and down arrows recall lines.`
+
+// dbShellCmd is the body of `database KIND shell` (runBody).
 func dbShellCmd() *cobra.Command {
 	var write bool
 	c := &cobra.Command{
 		Use:   "shell CONN",
 		Short: "Open an SQL shell, read only by default",
-		Long: `Opens komando's own SQL shell on CONN (PostgreSQL, MySQL/MariaDB, SQL Server, Oracle, ClickHouse, Snowflake, BigQuery or SQLite),
-through its --via path when it has one. Nothing else needs to be installed.
-
-Each statement ends with ; (an Oracle PL/SQL block with a line holding
-only /) and runs with the checks of db query: read-only
-unless the shell was started with --write, destructive statements only with
---allow-dangerous, and every statement is audited. A statement runs in its
-own transaction. A protected conn asks first.
-
-Inside: \q quits, \? lists the commands, \d [TABLE] shows tables or one
-table, \l databases, \dn schemas, \du roles, \x switches expanded rows,
-\timing shows how long each statement took, \i FILE runs a file, and a
-statement ending in \G is shown expanded. Up and down arrows recall lines.`,
-		Example: `  komando db shell prod-db
-  komando db shell staging-db --write`,
-		Args: cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			return runDBShell(cl, cmd.Context(), args[0], write)
 		}),
@@ -60,8 +62,8 @@ statement ending in \G is shown expanded. Up and down arrows recall lines.`,
 func runDBShell(cl *call, ctx context.Context, connExpr string, write bool) error {
 	if !cl.interactive() {
 		return out.Errf(out.ExitUsage, "NEEDS_TERMINAL",
-			"agents and scripts use `komando db query CONN \"SQL\"`, which returns JSON and checks every statement",
-			"db shell needs a person at a terminal")
+			"agents and scripts use `komando database KIND query CONN \"SQL\"`, which returns JSON and checks every statement",
+			"the SQL shell needs a person at a terminal")
 	}
 	st, err := loadState()
 	if err != nil {

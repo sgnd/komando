@@ -123,7 +123,7 @@ func Open(ctx context.Context, rawURL string, t driver.Target, password string, 
 		}
 	case "mongodb":
 		return nil, out.Errf(out.ExitUsage, "NOT_SUPPORTED",
-			"on MongoDB use `komando db query CONN '{\"find\": ...}'`, `db schema` and `db info`; for a backup, run mongodump on a server with `komando exec`",
+			"on MongoDB use `komando database mongodb query CONN '{\"find\": ...}'`, `db schema` and `db info`; for a backup, run mongodump on a server with `komando exec`",
 			"this db command is for SQL databases, not MongoDB")
 	default:
 		return nil, out.Usage("%s conns do not take SQL", t.Kind.Name)
@@ -448,7 +448,7 @@ const txMark = "komando_tx"
 
 func txEscaped(n int, st driver.Statement, err error) error {
 	return out.Errf(out.ExitPolicy, "SQL_TX_CHECK_REQUIRED",
-		"leave transactions to komando, and tell the user: what ran before this point may have been committed; look at the data with `komando db query CONN -- SELECT ...`",
+		"leave transactions to komando, and tell the user: what ran before this point may have been committed; look at the data with `komando database KIND query CONN -- SELECT ...`",
 		"statement %d (%s) ended komando's transaction, so komando stopped (%v)", n, st.Keyword, err)
 }
 
