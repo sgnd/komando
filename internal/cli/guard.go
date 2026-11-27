@@ -506,6 +506,9 @@ func checkTreeChange(cl *call, base string, args []string, globs []bool, vars li
 	for _, i := range treeOperands(base, args) {
 		vals, _ := vars.expand(cl, args[i], home, cwd)
 		for _, v := range vals {
+			if v == "" {
+				continue // an empty value names no folder: the word goes, or rm "" fails
+			}
 			for _, p := range treeTargets(cl, v, globs[i] || v != args[i] && wordHasGlob(v), home, cwd) {
 				if filepath.IsAbs(p) && touchesProtected(cl, p, home) {
 					return deny("%s %s %s and everything under it, which is or holds komando's data, private keys or guard files; name the files inside instead", base, verb, p)

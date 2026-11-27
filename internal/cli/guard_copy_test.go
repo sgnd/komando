@@ -77,6 +77,11 @@ func TestGuardTreeChangeOfAProtectedFolderIsRefused(t *testing.T) {
 		`mv ~/notes.txt /tmp/`,
 		`rm -rf /tmp/x`,
 	}, false)
+	agentRepo(t, repo)
+	checkLines(t, home, repo, []string{
+		`true && S=/tmp/x && rm -rf $S`,
+		`rm -rf ""`,
+	}, false)
 }
 
 // Copies and links in project and temporary folders stay allowed.
