@@ -209,6 +209,7 @@ probe key rm k1 --delete-file	dangerous
 probe pkg rm web1 openssh-server	dangerous
 probe pkg upgrade web1 --security	dangerous
 probe policy edit rm-root --off	safety
+probe queue kafka edit prod-kafka --protected=false	safety
 probe recipe add r1 --overwrite --read-only	safety
 probe registry oci edit ghcr --protected=false	safety
 probe secret keychain	person
@@ -221,7 +222,7 @@ queue.kafka.add	plain=change	highest=read
 queue.kafka.consumer	plain=read	highest=read
 queue.kafka.consumer.list	plain=read	highest=read
 queue.kafka.consumer.show	plain=read	highest=read
-queue.kafka.edit	plain=change	highest=read
+queue.kafka.edit	plain=change	highest=safety
 queue.kafka.info	plain=read	highest=read
 queue.kafka.list	plain=read	highest=read
 queue.kafka.message	plain=read	highest=read
@@ -242,7 +243,7 @@ queue.nats.add	plain=change	highest=read
 queue.nats.consumer	plain=read	highest=read
 queue.nats.consumer.list	plain=read	highest=read
 queue.nats.consumer.show	plain=read	highest=read
-queue.nats.edit	plain=change	highest=read
+queue.nats.edit	plain=change	highest=safety
 queue.nats.info	plain=read	highest=read
 queue.nats.list	plain=read	highest=read
 queue.nats.message	plain=read	highest=read
@@ -262,7 +263,7 @@ queue.pubsub	plain=read	highest=read
 queue.pubsub.add	plain=change	highest=read
 queue.pubsub.consumer	plain=read	highest=read
 queue.pubsub.consumer.list	plain=read	highest=read
-queue.pubsub.edit	plain=change	highest=read
+queue.pubsub.edit	plain=change	highest=safety
 queue.pubsub.info	plain=read	highest=read
 queue.pubsub.list	plain=read	highest=read
 queue.pubsub.message	plain=read	highest=read
@@ -280,7 +281,7 @@ queue.pubsub.topic.list	plain=read	highest=read
 queue.pubsub.topic.show	plain=read	highest=read
 queue.rabbitmq	plain=read	highest=read
 queue.rabbitmq.add	plain=change	highest=read
-queue.rabbitmq.edit	plain=change	highest=read
+queue.rabbitmq.edit	plain=change	highest=safety
 queue.rabbitmq.info	plain=read	highest=read
 queue.rabbitmq.list	plain=read	highest=read
 queue.rabbitmq.message	plain=read	highest=read
@@ -298,7 +299,7 @@ queue.rabbitmq.topic.list	plain=read	highest=read
 queue.rabbitmq.topic.show	plain=read	highest=read
 queue.sqs	plain=read	highest=read
 queue.sqs.add	plain=change	highest=read
-queue.sqs.edit	plain=change	highest=read
+queue.sqs.edit	plain=change	highest=safety
 queue.sqs.info	plain=read	highest=read
 queue.sqs.list	plain=read	highest=read
 queue.sqs.message	plain=read	highest=read

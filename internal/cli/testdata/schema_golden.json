@@ -7052,7 +7052,7 @@
         "path": "komando queue kafka edit",
         "usage": "komando queue kafka edit NAME [flags]",
         "short": "Change a saved kafka queue (only the flags you pass change)",
-        "long": "Change a saved kafka queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "long": "Change a saved kafka queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes).",
         "example": "  komando queue kafka edit prod-kafka --add-tag critical\n  komando queue kafka edit prod-kafka --notes 'main one' --dry-run",
         "flags": [
           {
@@ -7140,6 +7140,11 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
           }
         ]
       },
@@ -7631,7 +7636,7 @@
         "path": "komando queue nats edit",
         "usage": "komando queue nats edit NAME [flags]",
         "short": "Change a saved nats queue (only the flags you pass change)",
-        "long": "Change a saved nats queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "long": "Change a saved nats queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes).",
         "example": "  komando queue nats edit prod-nats --add-tag critical\n  komando queue nats edit prod-nats --notes 'main one' --dry-run",
         "flags": [
           {
@@ -7719,6 +7724,11 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
           }
         ]
       },
@@ -8197,7 +8207,7 @@
         "path": "komando queue pubsub edit",
         "usage": "komando queue pubsub edit NAME [flags]",
         "short": "Change a saved pubsub queue (only the flags you pass change)",
-        "long": "Change a saved pubsub queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "long": "Change a saved pubsub queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes).",
         "example": "  komando queue pubsub edit prod-pubsub --add-tag critical\n  komando queue pubsub edit prod-pubsub --notes 'main one' --dry-run",
         "flags": [
           {
@@ -8285,6 +8295,11 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
           }
         ]
       },
@@ -8725,7 +8740,7 @@
         "path": "komando queue rabbitmq edit",
         "usage": "komando queue rabbitmq edit NAME [flags]",
         "short": "Change a saved rabbitmq queue (only the flags you pass change)",
-        "long": "Change a saved rabbitmq queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "long": "Change a saved rabbitmq queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes).",
         "example": "  komando queue rabbitmq edit prod-rabbit --add-tag critical\n  komando queue rabbitmq edit prod-rabbit --notes 'main one' --dry-run",
         "flags": [
           {
@@ -8813,6 +8828,11 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
           }
         ]
       },
@@ -9253,7 +9273,7 @@
         "path": "komando queue sqs edit",
         "usage": "komando queue sqs edit NAME [flags]",
         "short": "Change a saved sqs queue (only the flags you pass change)",
-        "long": "Change a saved sqs queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "long": "Change a saved sqs queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes).",
         "example": "  komando queue sqs edit prod-sqs --add-tag critical\n  komando queue sqs edit prod-sqs --notes 'main one' --dry-run",
         "flags": [
           {
@@ -9341,6 +9361,11 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
           }
         ]
       },

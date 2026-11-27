@@ -6742,7 +6742,8 @@ exit 0
 --- stdout
 Change a saved kafka queue (only the flags you pass change).
 
-Safety: a change; try it with --dry-run first.
+Safety: a change; try it with --dry-run first; with --protected=false: it
+weakens a safety check: a person's yes (--yes).
 
 Usage:
   komando queue kafka edit NAME [flags]
@@ -7352,7 +7353,8 @@ exit 0
 --- stdout
 Change a saved nats queue (only the flags you pass change).
 
-Safety: a change; try it with --dry-run first.
+Safety: a change; try it with --dry-run first; with --protected=false: it
+weakens a safety check: a person's yes (--yes).
 
 Usage:
   komando queue nats edit NAME [flags]
@@ -7938,7 +7940,8 @@ exit 0
 --- stdout
 Change a saved pubsub queue (only the flags you pass change).
 
-Safety: a change; try it with --dry-run first.
+Safety: a change; try it with --dry-run first; with --protected=false: it
+weakens a safety check: a person's yes (--yes).
 
 Usage:
   komando queue pubsub edit NAME [flags]
@@ -8466,7 +8469,8 @@ exit 0
 --- stdout
 Change a saved rabbitmq queue (only the flags you pass change).
 
-Safety: a change; try it with --dry-run first.
+Safety: a change; try it with --dry-run first; with --protected=false: it
+weakens a safety check: a person's yes (--yes).
 
 Usage:
   komando queue rabbitmq edit NAME [flags]
@@ -8994,7 +8998,8 @@ exit 0
 --- stdout
 Change a saved sqs queue (only the flags you pass change).
 
-Safety: a change; try it with --dry-run first.
+Safety: a change; try it with --dry-run first; with --protected=false: it
+weakens a safety check: a person's yes (--yes).
 
 Usage:
   komando queue sqs edit NAME [flags]

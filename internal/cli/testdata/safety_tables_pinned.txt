@@ -209,6 +209,7 @@ probe key rm k1 --delete-file	dangerous|deletes the private key komando keeps||
 probe pkg rm web1 openssh-server	dangerous|removes a package the server needs to run or to let you in||
 probe pkg upgrade web1 --security	dangerous||an update would remove a package the server needs|
 probe policy edit rm-root --off	safety|switches a rule off||
+probe queue kafka edit prod-kafka --protected=false	safety|turns protection off||
 probe recipe add r1 --overwrite --read-only	safety||it makes an existing snippet read-only|
 probe registry oci edit ghcr --protected=false	safety|turns protection off||
 probe secret keychain	person|moves the key into the keychain||
@@ -221,7 +222,7 @@ queue.kafka.add	kind=change|	target=""
 queue.kafka.consumer	kind=read|	target=""	
 queue.kafka.consumer.list	kind=read|	target=""	
 queue.kafka.consumer.show	kind=read|	target=""	
-queue.kafka.edit	kind=change|	target=""	
+queue.kafka.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
 queue.kafka.info	kind=read|	target=""	
 queue.kafka.list	kind=read|	target=""	
 queue.kafka.message	kind=read|	target=""	
@@ -242,7 +243,7 @@ queue.nats.add	kind=change|	target=""
 queue.nats.consumer	kind=read|	target=""	
 queue.nats.consumer.list	kind=read|	target=""	
 queue.nats.consumer.show	kind=read|	target=""	
-queue.nats.edit	kind=change|	target=""	
+queue.nats.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
 queue.nats.info	kind=read|	target=""	
 queue.nats.list	kind=read|	target=""	
 queue.nats.message	kind=read|	target=""	
@@ -262,7 +263,7 @@ queue.pubsub	kind=read|	target=""
 queue.pubsub.add	kind=change|	target=""	
 queue.pubsub.consumer	kind=read|	target=""	
 queue.pubsub.consumer.list	kind=read|	target=""	
-queue.pubsub.edit	kind=change|	target=""	
+queue.pubsub.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
 queue.pubsub.info	kind=read|	target=""	
 queue.pubsub.list	kind=read|	target=""	
 queue.pubsub.message	kind=read|	target=""	
@@ -280,7 +281,7 @@ queue.pubsub.topic.list	kind=read|	target=""
 queue.pubsub.topic.show	kind=read|	target=""	
 queue.rabbitmq	kind=read|	target=""	
 queue.rabbitmq.add	kind=change|	target=""	
-queue.rabbitmq.edit	kind=change|	target=""	
+queue.rabbitmq.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
 queue.rabbitmq.info	kind=read|	target=""	
 queue.rabbitmq.list	kind=read|	target=""	
 queue.rabbitmq.message	kind=read|	target=""	
@@ -298,7 +299,7 @@ queue.rabbitmq.topic.list	kind=read|	target=""
 queue.rabbitmq.topic.show	kind=read|	target=""	
 queue.sqs	kind=read|	target=""	
 queue.sqs.add	kind=change|	target=""	
-queue.sqs.edit	kind=change|	target=""	
+queue.sqs.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
 queue.sqs.info	kind=read|	target=""	
 queue.sqs.list	kind=read|	target=""	
 queue.sqs.message	kind=read|	target=""	
