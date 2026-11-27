@@ -49,8 +49,7 @@ func TestClusterTimeout(t *testing.T) {
 	for _, args := range [][]string{{"kubernetes", "raw", "prod", "--", "get", "pods"}, {"kubernetes", "raw", "prod", "--", "get", "events"}, {"kubernetes", "raw", "prod", "--", "get", "pod", "x"}, {"kubernetes", "raw", "prod", "--", "version"}} {
 		start := time.Now()
 		_, e := invRun(t, append([]string{"--timeout", "300ms", "cluster"}, args...)...)
-		// raw reports kubectl's own failure (TOOL_FAILED, "timed out"), not TIMEOUT: found when D4 removed the typed commands (row C496)
-		if e == nil || !strings.Contains(e.Message, "timed out") {
+		if e == nil || e.Code != "TIMEOUT" || e.Exit != out.ExitTimeout {
 			t.Errorf("%v: %+v", args, e)
 		}
 		if d := time.Since(start); d > 10*time.Second {
@@ -107,6 +106,31 @@ func TestClusterRunBrokenWriteIsAudited(t *testing.T) {
 	d := mustRun(t, "audit", "--failed")
 	if b, _ := json.Marshal(d); !strings.Contains(string(b), "kubectl create configmap x") {
 		t.Errorf("the broken write is not in the audit log: %s", b)
+	}
+}
+
+// A change that gets no answer in time may have happened: it is TIMEOUT
+// and still lands in the audit log, as a broken connection does.
+func TestClusterRunTimedOutWriteIsAudited(t *testing.T) {
+	invHome(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1":
+			w.Write([]byte(`{"resources":[{"name":"configmaps","kind":"ConfigMap","namespaced":true}]}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/apis":
+			w.Write([]byte(`{"groups":[]}`))
+		default:
+			<-r.Context().Done()
+		}
+	}))
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
+	mustRun(t, "import", "kubeconfig", kubeconfigAt(t, srv.URL))
+	if _, e := invRun(t, "--timeout", "500ms", "cluster", "kubernetes", "raw", "prod", "--write", "--", "create", "configmap", "x"); e == nil || e.Code != "TIMEOUT" || e.Exit != out.ExitTimeout {
+		t.Fatalf("run: %+v", e)
+	}
+	d := mustRun(t, "audit", "--failed")
+	if b, _ := json.Marshal(d); !strings.Contains(string(b), "kubectl create configmap x") {
+		t.Errorf("the timed out write is not in the audit log: %s", b)
 	}
 }
 
