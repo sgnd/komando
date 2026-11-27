@@ -278,7 +278,7 @@ is in parentheses: `tunnel start TARGET (-L SPEC | -R SPEC | -D SPEC)`.
 (`exec @web -P 20 --read-only -- df -h`). Any word after the fixed positionals (TARGET, CONTAINER,
 `POD|TYPE/NAME`, CONN) must come after `--`. Without `--`, such a word is a
 USAGE error (exit 2) with the hint
-``put -- before the command: `komando exec web1 -- apt-get install -y nginx` ``.
+``put -- before the command: `komando host ssh exec web1 -- apt-get install -y nginx` ``.
 So `-y` in `apt-get install -y nginx` can never be read as `--yes`, and a
 trailing `--dry-run`, `-P 1` or `--fail-fast` is never read by komando
 while the words around it go to the server. `kubectl exec` has
@@ -445,7 +445,7 @@ including common foreign shorthands (`-n` outside its scope, `-it`, `-L`,
 
 **S-5.17** An unknown command word gets help in this order:
 (1) a curated table of foreign words, each mapped to a full command for
-`error.hint`: `server` (alias), `delete`/`remove` → `komando host rm NAME`
+`error.hint`: `server` (alias), `delete`/`remove` → `komando host ssh remove NAME`
 (or the noun in the next word), `get` → `komando list`,
 `ps` → `komando docker ps TARGET`, `kubectl` → `komando cluster run TARGET -- ...`,
 `psql`/`mysql` → `komando db query CONN`, `apt`/`yum` → `komando pkg`,
@@ -566,7 +566,7 @@ classifier hit, never for a command's own built-in tier. [code]
 
 **S-7.10** A command for a person at a terminal (`shell`, `db shell`,
 `cluster shell`, `secret passphrase` ...) never runs for an AI agent or an
-ssh-gate key. One exception: `komando shell SERVER` for a `--shell-access`
+ssh-gate key. One exception: `komando host ssh shell SERVER` for a `--shell-access`
 key, which ssh-gate opens in its own process after its checks; no
 environment variable or terminal lets another komando process do the same.
 That shell asks nothing: what a person would be asked (a protected server)

@@ -288,7 +288,7 @@ func runDownload(ctx context.Context, cmd *cobra.Command, target, p, to string, 
 		to = "."
 	}
 	if o.sudo && o.recursive {
-		return out.Usage("--sudo downloads single files; copy the folder to a readable place with `komando exec --sudo -- cp -r`, then download that")
+		return out.Usage("--sudo downloads single files; copy the folder to a readable place with `komando host ssh exec --sudo -- cp -r`, then download that")
 	}
 	return runCp(cl, ctx, name, target, p, to, false, o)
 }

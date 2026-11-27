@@ -328,7 +328,7 @@ func RefuseNoSudo(b Builtin, noSudo bool) error {
 	if !noSudo || !SelfElevates(b) {
 		return nil
 	}
-	return out.Usage("snippet %s raises itself with sudo inside its text, so --no-sudo does not turn it off: leave the flag out, or read it as text with `komando exec TARGET -- COMMAND`", b.Name)
+	return out.Usage("snippet %s raises itself with sudo inside its text, so --no-sudo does not turn it off: leave the flag out, or read it as text with `komando host ssh exec TARGET -- COMMAND`", b.Name)
 }
 
 // Mutating reports whether the snippet changes something: the guard then

@@ -314,7 +314,7 @@ func Route(st *store.State, h *store.Host) (*store.Vpn, []*store.Host, error) {
 // hops [via1, via2, ..., target].
 func resolveChain(st *store.State, h *store.Host, seen map[string]bool) (*store.Vpn, []*store.Host, error) {
 	if seen[h.Name] {
-		return nil, nil, out.Errf(out.ExitUsage, "VIA_CYCLE", "fix the path: `komando host edit "+h.Name+" --via OTHER` (or --unset via)", "--via cycle detected at %q", h.Name)
+		return nil, nil, out.Errf(out.ExitUsage, "VIA_CYCLE", "fix the path: `komando host ssh edit "+h.Name+" --via OTHER` (or --unset via)", "--via cycle detected at %q", h.Name)
 	}
 	seen[h.Name] = true
 	if h.Via == "" {
@@ -455,9 +455,9 @@ func HostKeyMismatch(host, offered string, pinned []string) *out.Error {
 	case offered != "":
 		msg += "; the server now shows " + offered
 	}
-	hint := fmt.Sprintf("possible man-in-the-middle: report this to the user and do not re-trust the key yourself; once they have checked the new fingerprint another way, they can run `komando host trust %s --reset`", host)
+	hint := fmt.Sprintf("possible man-in-the-middle: report this to the user and do not re-trust the key yourself; once they have checked the new fingerprint another way, they can run `komando host ssh trust %s --reset`", host)
 	if PersonAtTerminal() {
-		hint = fmt.Sprintf("if you rebuilt %s, compare this fingerprint with the one on its console, then run `komando host trust %s --reset`", host, host)
+		hint = fmt.Sprintf("if you rebuilt %s, compare this fingerprint with the one on its console, then run `komando host ssh trust %s --reset`", host, host)
 	}
 	return out.Errf(out.ExitConnect, "HOSTKEY_MISMATCH", hint, "%s", msg)
 }
@@ -494,7 +494,7 @@ func classify(st *store.State, h *store.Host, err error) *out.Error {
 	switch {
 	case errors.As(err, &rv):
 		return out.Errf(out.ExitConnect, "HOSTKEY_REVOKED",
-			"this key is on komando's list of revoked host keys: treat the server as compromised, tell its owner, and do not re-trust it with `komando host trust`",
+			"this key is on komando's list of revoked host keys: treat the server as compromised, tell its owner, and do not re-trust it with `komando host ssh trust`",
 			"%s shows the revoked host key %s; nothing was sent", host, ssh.FingerprintSHA256(rv.Revoked.Key))
 	case errors.As(err, &hk):
 		return hk.outErr(host)
@@ -512,20 +512,20 @@ func classify(st *store.State, h *store.Host, err error) *out.Error {
 			args = append(args, fp)
 		}
 		return out.Errf(out.ExitConnect, "HOSTKEY_UNKNOWN",
-			fmt.Sprintf("compare the fingerprint with what the server's owner sees, then run `komando host trust %s` (an AI agent asks the user: its pin needs their yes)", host),
+			fmt.Sprintf("compare the fingerprint with what the server's owner sees, then run `komando host ssh trust %s` (an AI agent asks the user: its pin needs their yes)", host),
 			what, args...)
 	case errors.As(err, &ua):
 		return ua.authFailed(st, h)
 	case strings.Contains(msg, "unable to authenticate"), strings.Contains(msg, "no supported methods"):
 		return out.Errf(out.ExitConnect, "AUTH_FAILED", authFailedHint(st, h), "authentication to %s failed: %s", host, msg)
 	case strings.Contains(msg, "i/o timeout"), strings.Contains(msg, "deadline exceeded"):
-		return out.Errf(out.ExitTimeout, "CONNECT_TIMEOUT", "a firewall drops the connection, or the server is private: check the address with `komando host show "+host+"`, reach it through a bastion or VPN (`komando host edit "+host+" --via NAME`), or raise --connect-timeout on a slow link", "connecting to %s timed out", host)
+		return out.Errf(out.ExitTimeout, "CONNECT_TIMEOUT", "a firewall drops the connection, or the server is private: check the address with `komando host ssh show "+host+"`, reach it through a bastion or VPN (`komando host ssh edit "+host+" --via NAME`), or raise --connect-timeout on a slow link", "connecting to %s timed out", host)
 	case Refused(err):
-		return out.Errf(out.ExitConnect, "CONNECTION_REFUSED", "check that sshd runs on the server and listens on this port: `komando host show "+host+"`", "%s: %s", host, msg)
+		return out.Errf(out.ExitConnect, "CONNECTION_REFUSED", "check that sshd runs on the server and listens on this port: `komando host ssh show "+host+"`", "%s: %s", host, msg)
 	case strings.Contains(msg, "no such host"):
-		return out.Errf(out.ExitConnect, "DNS_ERROR", "the name does not resolve here: check it with `komando host show "+host+"` and fix it with `komando host edit "+host+" --address ADDRESS`; a name only a VPN resolves needs --via that VPN", "%s: %s", host, msg)
+		return out.Errf(out.ExitConnect, "DNS_ERROR", "the name does not resolve here: check it with `komando host ssh show "+host+"` and fix it with `komando host ssh edit "+host+" --address ADDRESS`; a name only a VPN resolves needs --via that VPN", "%s: %s", host, msg)
 	}
-	return out.Errf(out.ExitConnect, "CONN_UNREACHABLE", "check the address and the path with `komando host show "+host+"`; `komando doctor` checks this computer's setup", "%s: %s", host, msg)
+	return out.Errf(out.ExitConnect, "CONN_UNREACHABLE", "check the address and the path with `komando host ssh show "+host+"`; `komando doctor` checks this computer's setup", "%s: %s", host, msg)
 }
 
 // clientConfig is the login for one hop. The ssh-agent connection it opens

@@ -7,7 +7,7 @@ import (
 )
 
 // sshAskMu: one login question at a time. Servers that log in at once
-// (`komando exec @web`) take turns, so each question stands on its own line
+// (`komando host ssh exec @web`) take turns, so each question stands on its own line
 // with the name of the server that asks it.
 var sshAskMu sync.Mutex
 

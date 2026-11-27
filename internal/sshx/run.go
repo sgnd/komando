@@ -456,7 +456,7 @@ func lostError(c *Client, started bool) error {
 			"the connection to %s was lost before the command started%s; it did not run", name, why)
 	}
 	return out.Errf(out.ExitConnect, "CONNECTION_LOST",
-		"do not just run it again: first check on the server with a read-only command whether it finished (its log, `ps`, the change it makes), for example `komando exec "+name+" --read-only -- 'ps -ef'`; for long tasks over a shaky link use `komando job start` and `komando job wait`, which survive a dropped connection",
+		"do not just run it again: first check on the server with a read-only command whether it finished (its log, `ps`, the change it makes), for example `komando host ssh exec "+name+" --read-only -- 'ps -ef'`; for long tasks over a shaky link use `komando job start` and `komando job wait`, which survive a dropped connection",
 		"the connection to %s was lost while the command was running%s; the command may still be running there, or it may have finished: komando cannot tell", name, why)
 }
 
@@ -621,8 +621,8 @@ func Pipe(ctx context.Context, c *Client, cmd string, stdin io.Reader, stdout io
 // sudoHint says how to give the server its sudo password.
 func sudoHint(h *store.Host) string {
 	if h == nil || h.Name == "" || strings.ContainsAny(h.Name, "@:") {
-		return "sudo needs a password; save the server with `komando host add NAME ADDRESS --sudo-ref secret:NAME` to give it one"
+		return "sudo needs a password; save the server with `komando host ssh add NAME ADDRESS --sudo-ref secret:NAME` to give it one"
 	}
 	sec := secretName(h.Name, "sudo")
-	return fmt.Sprintf("sudo needs a password; store it with `komando secret set %s`, then run `komando host edit %s --sudo-ref secret:%s`", sec, h.Name, sec)
+	return fmt.Sprintf("sudo needs a password; store it with `komando secret set %s`, then run `komando host ssh edit %s --sudo-ref secret:%s`", sec, h.Name, sec)
 }

@@ -64,7 +64,7 @@ func (f Follow) Run(ctx context.Context, read Reader) (Followed, error) {
 		}
 		if !time.Now().Before(deadline) {
 			return res, out.Errf(out.ExitTimeout, "SESSION_WAIT_TIMEOUT",
-				"it is still running: `komando exec "+f.Host+" --attach "+f.ID+" --offset "+strconv.FormatInt(res.NextFrom, 10)+"` reads on",
+				"it is still running: `komando host ssh exec "+f.Host+" --attach "+f.ID+" --offset "+strconv.FormatInt(res.NextFrom, 10)+"` reads on",
 				"session %s on %s still running after %s", f.ID, f.Host, f.Wait)
 		}
 		if len(data) < ReadMax {

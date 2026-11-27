@@ -7,7 +7,7 @@ One page per feature, task by task. AI agents: run `komando guide`.
 New to komando? Do these in order:
 
 1. [Install komando](install.md).
-2. Add a server: type `komando host add` and answer one question per
+2. Add a server: type `komando host ssh add` and answer one question per
    line. komando then shows the full command, so next time you can type
    it yourself ([Servers](servers.md)). Already have a list of servers?
    [Import it](import.md).

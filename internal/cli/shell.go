@@ -42,7 +42,7 @@ func shellCmd() *cobra.Command {
 func runShell(cl *call, ctx context.Context, target string) error {
 	if !cl.interactive() {
 		return out.Errf(out.ExitUsage, "NEEDS_TERMINAL",
-			"agents and scripts use `komando exec` or `komando job start`",
+			"agents and scripts use `komando host ssh exec` or `komando job start`",
 			"shell needs a person at a terminal")
 	}
 	st, err := loadState()
@@ -115,7 +115,7 @@ func openShell(cl *call, ctx context.Context, st *store.State, h *store.Host, ke
 		stop, err = driveShell(ctx, conn, tt, sio, func() { started = time.Now() })
 		switch stop {
 		case sessionIdle:
-			return out.Errf(out.ExitTimeout, "SHELL_IDLE_TIMEOUT", "connect again (ssh -t HOST komando shell "+h.Name+"); run long work as a job: `komando job start "+h.Name+" -- COMMAND`",
+			return out.Errf(out.ExitTimeout, "SHELL_IDLE_TIMEOUT", "connect again (ssh -t HOST komando host ssh shell "+h.Name+"); run long work as a job: `komando job start "+h.Name+" -- COMMAND`",
 				"the shell on %s ended after %s with no input and no output", h.Name, shellIdleLimit)
 		case sessionHangup:
 			return ctx.Err()

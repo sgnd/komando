@@ -72,7 +72,7 @@ func init() {
 			}},
 		"tunnel list": {},
 		"tunnel stop": {args: []formArg{{ask: "Which tunnels should stop? (leave empty with --all)", pick: "tunnel", free: true,
-			help: "Their IDs: `komando tunnel list` shows them. Several: separate them with spaces."}},
+			help: "Their IDs: `komando host ssh tunnel list` shows them. Several: separate them with spaces."}},
 			flags: []formFlag{{name: "all", ask: "Stop every tunnel instead?"}}},
 
 		// Logins

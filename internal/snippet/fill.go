@@ -179,7 +179,7 @@ func checkFamily(v Var, f Family, val string) error {
 // Unsupported is the error for a family (or provider) the snippet has no
 // body for.
 func Unsupported(b Builtin, family string) *out.Error {
-	return out.Errf(out.ExitUsage, "SNIPPET_OS_UNSUPPORTED", "read it as text with `komando exec TARGET -- COMMAND`; the snippet has no JSON for it",
+	return out.Errf(out.ExitUsage, "SNIPPET_OS_UNSUPPORTED", "read it as text with `komando host ssh exec TARGET -- COMMAND`; the snippet has no JSON for it",
 		"snippet %s has no body for %s", b.Name, family)
 }
 

@@ -315,9 +315,9 @@ uses them, so the old name is free again. Disconnect it first
 }
 
 func hostMvCmd() *cobra.Command {
-	return mvCmd("host", `  komando host rename web1 web-01
-  komando host rename db1 prod-db1 --dry-run   # what would change
-  komando host rename db1 prod-db1 --yes       # db1 is protected`, renameHost)
+	return mvCmd("host", `  komando host ssh rename web1 web-01
+  komando host ssh rename db1 prod-db1 --dry-run   # what would change
+  komando host ssh rename db1 prod-db1 --yes       # db1 is protected`, renameHost)
 }
 
 func connMvCmd() *cobra.Command {

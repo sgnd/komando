@@ -111,7 +111,7 @@ PuTTY keeps no passwords, so set them with `komando secret set` or use a
 key. A key in PuTTY's own format (`.ppk`) is listed: convert it with
 `puttygen KEY.ppk -O private-openssh -o KEY`, then `komando key add NAME
 KEY`. A session that reaches its server through a proxy is listed too: set
-the way there with `komando host edit NAME --via JUMP`.
+the way there with `komando host ssh edit NAME --via JUMP`.
 
 ### Coming from MobaXterm
 
@@ -204,14 +204,14 @@ you bring it (ssh-agent or your default key may log in meanwhile):
 
 ```bash
 komando key add deploy ~/Downloads/deploy     # the copied key file
-komando host edit db1 --key deploy
+komando host ssh edit db1 --key deploy
 ```
 
 An export file may come from someone else, so komando imports it with
 these limits:
 
 - A `ProxyCommand` is dropped, because it would run on this computer. Set it
-  yourself with `komando host edit NAME --proxy-command ...`.
+  yourself with `komando host ssh edit NAME --proxy-command ...`.
 - A password reference is kept only if it names a `secret:` that does not
   exist here yet. Anything else is dropped, so a file cannot point your
   existing passwords at its servers.
@@ -349,7 +349,7 @@ komando doctor --accept-old-copy
 ```
 
 Then check what changed since the backup: servers or rules you added
-later, and host keys pinned since (`komando host trust` asks again for a
+later, and host keys pinned since (`komando host ssh trust` asks again for a
 server it no longer knows).
 
 The store's settings row (its key mode, salt and scrypt cost) must stay

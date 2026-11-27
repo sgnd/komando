@@ -141,7 +141,7 @@ func winSvcActionResult(action string, wait int, rr *sshx.RunResult) (any, *out.
 		return svcs, err
 	}
 	if winMarkers(rr.Stdout)["rc"] != "0" {
-		return svcs, out.Errf(out.ExitRemote, "SVC_FAILED", "the reason is in the error output (stderr); the service's own log is in the Windows event log: `komando exec TARGET --read-only -- Get-WinEvent -LogName System -MaxEvents 20`",
+		return svcs, out.Errf(out.ExitRemote, "SVC_FAILED", "the reason is in the error output (stderr); the service's own log is in the Windows event log: `komando host ssh exec TARGET --read-only -- Get-WinEvent -LogName System -MaxEvents 20`",
 			"%s failed", commandWord("svc."+action))
 	}
 	if wait > 0 {
@@ -152,7 +152,7 @@ func winSvcActionResult(action string, wait int, rr *sshx.RunResult) (any, *out.
 			}
 		}
 		if len(down) > 0 {
-			return svcs, out.Errf(out.ExitRemote, "UNIT_NOT_ACTIVE", "read why in the event log: `komando exec TARGET --read-only -- Get-WinEvent -LogName System -MaxEvents 20`",
+			return svcs, out.Errf(out.ExitRemote, "UNIT_NOT_ACTIVE", "read why in the event log: `komando host ssh exec TARGET --read-only -- Get-WinEvent -LogName System -MaxEvents 20`",
 				"not running after %ds: %s", wait, strings.Join(down, ", "))
 		}
 	}

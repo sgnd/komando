@@ -61,7 +61,7 @@ func jobWhat(cl *call, args []string, cmdStr string, so scriptOpts, stdinFile st
 		interpreter := cmp.Or(so.interpreter, shebangInterpreter(string(sp.input)))
 		if win, err := targetWindows(cl, args[0]); err != nil || win {
 			if err == nil {
-				err = out.Usage("job start --script runs on Linux and other Unix servers; on Windows use `komando exec TARGET --script FILE`")
+				err = out.Usage("job start --script runs on Linux and other Unix servers; on Windows use `komando host ssh exec TARGET --script FILE`")
 			}
 			return sp, err
 		}

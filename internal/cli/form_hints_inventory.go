@@ -304,7 +304,7 @@ var invSafetyHints = map[string]formHint{
 				help: "Yes is safer for a phone or a shared key."},
 			{name: "network", ask: "Should this read-only key also run network checks and programs on servers?",
 				help: "No is safer: what the key reads cannot leave through a URL or a name lookup. Yes allows net, cert check of a website and exec --read-only."},
-			{name: "shell-access", ask: "Should this key also open a login shell on a server (ssh -t HOST komando shell SERVER)?",
+			{name: "shell-access", ask: "Should this key also open a login shell on a server (ssh -t HOST komando host ssh shell SERVER)?",
 				show: func(a formAnswers) bool { return a["flag:read-only"] != "true" },
 				help: "No is safer. Yes lets sshd give the key a terminal, for a shell on a listed server that is not protected, not Windows and not this computer."},
 		},

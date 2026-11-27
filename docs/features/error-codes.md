@@ -12,13 +12,13 @@ This page is made from the code (`komando schema` lists the same under
 | `APPROVAL_WINDOW_FAILED` | 1 |  | read the message; `komando doctor` checks this computer's setup |
 | `AUDIT_TAMPERED` | 1 | the audit log chain is broken at line … | keep a copy of the file and find out who changed it; komando keeps adding records after it |
 | `AUDIT_UNAVAILABLE` | 1 | the audit log cannot be written (…), so the key's command does not run | fix the file or folder permissions on the komando computer (`komando doctor` checks them) |
-| `AUTH_FAILED` | 4 | … has no user or password for WinRM | WinRM logs in with a user and a password: `komando host edit … --ask-password` (and the user in the address, for example winrm://Administrator@HOST) |
+| `AUTH_FAILED` | 4 | … has no user or password for WinRM | WinRM logs in with a user and a password: `komando host winrm edit … --ask-password` (and the user in the address, for example winrm://Administrator@HOST) |
 | `AWS_FAILED` | 4 | AWS profile …: … | check the profile in ~/.aws/config |
 | `AWS_LOGIN_REQUIRED` | 4 | AWS profile …: … | a person runs `komando login aws --profile …` once, then run it again |
 | `AWS_PROFILE_NOT_FOUND` | 3 | there is no AWS profile … | add the profile to ~/.aws/config (or fix --option aws_profile) |
 | `AZURE_FAILED` | 4 | …: … | check that this computer reaches login.microsoftonline.com |
 | `AZURE_LOGIN_REQUIRED` | 4 | …: … | set AZURE_TENANT_ID, AZURE_CLIENT_ID and AZURE_CLIENT_SECRET for a service principal, run komando on Azure with a managed identity, or a person runs `az login` |
-| `BACKUP_FAILED` | 5 | could not make a backup of …: …; the file was not changed | check free space with `komando exec TARGET --read-only -- df -h`, or run without --backup |
+| `BACKUP_FAILED` | 5 | could not make a backup of …: …; the file was not changed | check free space with `komando host ssh exec TARGET --read-only -- df -h`, or run without --backup |
 | `BACKUP_NOT_FOUND` | 3 | no backup of … found (looked for ….bak) | komando keeps a backup only when you edit with --backup; give another copy with --copy PATH |
 | `BAD_CA` | 2 | registry CA …: … | store the registry's CA certificate (PEM) with `komando secret set NAME < ca.crt` |
 | `BAD_FILE` | 2 | not a backup komando can read: … | give a backup komando can read: plain SQL text or a pg_dump custom archive (-Fc) |
@@ -44,8 +44,8 @@ This page is made from the code (`komando schema` lists the same under
 | `COMMAND_NOT_FOUND` | 3 | no command … | run `komando schema --compact` to see every command |
 | `CONFIRM_REQUIRED` | 6 | deleting group … takes … entries out of it | check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen) |
 | `CONNECTION_LOST` | 4 | the connection to … broke while reading the job's status | run it again; the job keeps running on the server |
-| `CONNECTION_REFUSED` | 4 | the server refused the connection: nothing listens on that port | check that sshd runs on the server and listens on this port: `komando host show …` |
-| `CONNECT_TIMEOUT` | 7 | connecting to … timed out | a firewall drops the connection, or the server is private: check the address with `komando host show …`, reach it through a bastion or VPN (`komando host edit … --via NAME`), or raise --connect-timeout on a slow link |
+| `CONNECTION_REFUSED` | 4 | the server refused the connection: nothing listens on that port | check that sshd runs on the server and listens on this port: `komando host ssh show …` |
+| `CONNECT_TIMEOUT` | 7 | connecting to … timed out | a firewall drops the connection, or the server is private: check the address with `komando host ssh show …`, reach it through a bastion or VPN (`komando host ssh edit … --via NAME`), or raise --connect-timeout on a slow link |
 | `CONN_EXISTS` | 8 | … … already exists | use `komando … edit` or pass --overwrite to replace it |
 | `CONN_UNREACHABLE` | 4 | cannot reach …: … | check the name and port; if the site is only reachable from a server or VPN, run it again with --via: `komando cert check … --via NAME` |
 | `CONSUMER_GROUP_NOT_FOUND` | 3 | no consumer group named … | list consumer groups with `komando queue groups CONN` |
@@ -65,8 +65,8 @@ This page is made from the code (`komando schema` lists the same under
 | `DELIVERY_LIMIT_NEAR` | 8 | subscription … moves a message to its dead-letter topic after … deliveries, and peek would count as one | do not peek this subscription: every delivery counts, and a message delivered too often goes to the dead-letter topic. Peek a subscription of the dead-letter topic instead, or raise maxDeliveryAttempts |
 | `DEPLOY_FAILED` | 5 | key deploy could not add the key to the server's authorized_keys (the server's words follow) | check that ~/.ssh is writable there: `komando fs stat SERVER ~/.ssh` |
 | `DIG_MISSING` | 3 | … records need dig, which is not installed on this server, and komando could not ask the server's resolver itself (no nameserver in /etc/resolv.conf, or the se… | install dig (Debian/Ubuntu: dnsutils, Alpine: bind-tools, RHEL: bind-utils), for example `komando pkg install TARGET dnsutils`; A and AAAA work without it |
-| `DNS_ERROR` | 4 | the server's name does not resolve on this computer | the name does not resolve here: check it with `komando host show …` and fix it with `komando host edit … --address ADDRESS`; a name only a VPN resolves needs --via that VPN |
-| `DOCKER_ERROR` | 5 | docker on the server answered with an error | check that Docker runs there: `komando exec TARGET --read-only -- docker info` |
+| `DNS_ERROR` | 4 | the server's name does not resolve on this computer | the name does not resolve here: check it with `komando host ssh show …` and fix it with `komando host ssh edit … --address ADDRESS`; a name only a VPN resolves needs --via that VPN |
+| `DOCKER_ERROR` | 5 | docker on the server answered with an error | check that Docker runs there: `komando host ssh exec TARGET --read-only -- docker info` |
 | `DOCKER_MISSING` | 3 | docker not found | install Docker on the server, or pick another server |
 | `DOCKER_OBJECT_NOT_FOUND` | 3 |  | list what exists with `komando docker ps TARGET --all` or `komando cluster list TARGET services` |
 | `DOCKER_PERMISSION` | 5 | the login user may not use docker on the server (add --sudo, or the docker group) | add --sudo, or add the login user to the docker group |
@@ -90,10 +90,10 @@ This page is made from the code (`komando schema` lists the same under
 | `HELM_RELEASE_NOT_FOUND` | 3 | no Helm release named … in namespace … | see the releases with `komando cluster helm list TARGET -A`, and name the namespace with --namespace |
 | `HELM_REVISION_NOT_FOUND` | 3 | … has no revision … | see the revisions with `komando cluster helm history TARGET RELEASE` |
 | `HIDDEN_VALUE` | 2 | stdin holds a value komando hid ([hidden] or [secret:NAME]); uploading it would destroy the real value | edit the file on the server with `komando fs replace` (an --old with [hidden] in it matches the hidden value), and put a secret in with {{secret:NAME}} |
-| `HOSTKEY_MISMATCH` | 4 | host key for … changed: the server was rebuilt, or someone is intercepting the connection | possible man-in-the-middle: report this to the user and do not re-trust the key yourself; once they have checked the new fingerprint another way, they can run `komando host trust … --reset` |
-| `HOSTKEY_REVOKED` | 4 | … shows the revoked host key …; nothing was sent | this key is on komando's list of revoked host keys: treat the server as compromised, tell its owner, and do not re-trust it with `komando host trust` |
-| `HOSTKEY_UNKNOWN` | 4 | host key for … is not trusted yet (host keys are strict) | compare the fingerprint with what the server's owner sees, then run `komando host trust …` (an AI agent asks the user: its pin needs their yes) |
-| `HOSTKEY_UNREADABLE` | 4 | the pinned host key for … cannot be read | a person checks the server's key and runs `komando host trust` for it in their own terminal |
+| `HOSTKEY_MISMATCH` | 4 | host key for … changed: the server was rebuilt, or someone is intercepting the connection | possible man-in-the-middle: report this to the user and do not re-trust the key yourself; once they have checked the new fingerprint another way, they can run `komando host ssh trust … --reset` |
+| `HOSTKEY_REVOKED` | 4 | … shows the revoked host key …; nothing was sent | this key is on komando's list of revoked host keys: treat the server as compromised, tell its owner, and do not re-trust it with `komando host ssh trust` |
+| `HOSTKEY_UNKNOWN` | 4 | host key for … is not trusted yet (host keys are strict) | compare the fingerprint with what the server's owner sees, then run `komando host ssh trust …` (an AI agent asks the user: its pin needs their yes) |
+| `HOSTKEY_UNREADABLE` | 4 | the pinned host key for … cannot be read | a person checks the server's key and runs `komando host ssh trust` for it in their own terminal |
 | `HOST_EXISTS` | 8 | … … already exists | use `komando … edit` or pass --overwrite to replace it |
 | `HOST_IN_USE` | 8 | server … is on the --via path of … | change them first: … (or --via OTHER), or remove them in the same command |
 | `IMAGE_TAG_NOT_FOUND` | 3 | … not found; the repository has no tags | list the repositories with `komando registry oci image list NAME` |
@@ -118,11 +118,11 @@ This page is made from the code (`komando schema` lists the same under
 | `KEYCHAIN_FAILED` | 5 | …; the vault still uses store.key, nothing was lost | a person unlocks the keychain (an AI agent asks the user), then run it again; on Linux it needs secret-tool and a keyring |
 | `KEYCHAIN_SLOW` | 1 | nothing was changed: the keychain did not answer in time, so komando could not check that … is the newest copy | run it again in a moment; if it keeps happening, run `komando doctor` |
 | `KEYCHAIN_TAKEN` | 8 | …; the vault still uses store.key, nothing was lost | put back the vault you moved aside, or once no vault needs that key, a person deletes the keychain item (an AI agent asks the user), then run it again |
-| `KEYSCAN_FAILED` | 4 | cannot fetch host key from …: … | check the address and port with `komando host show …` |
+| `KEYSCAN_FAILED` | 4 | cannot fetch host key from …: … | check the address and port with `komando host ssh show …` |
 | `KEY_EXISTS` | 8 | key … already exists | choose another name, or `komando key rm …` first |
 | `KEY_FAILED` | 1 | could not read key …: …; nothing was written | check the key with `komando key show …`, or leave out --with-keys |
 | `KEY_INVALID` | 2 | … is not a public key: … | give the CA's public key file (.pub) |
-| `KEY_IN_USE` | 8 | server … still uses this key | give the server another key first: `komando host edit … --key OTHER` |
+| `KEY_IN_USE` | 8 | server … still uses this key | give the server another key first: `komando host ssh edit … --key OTHER` |
 | `KEY_PASSPHRASE_REQUIRED` | 2 | key … is encrypted and … | load the key into ssh-agent with `ssh-add PATH`, or store its passphrase with `komando secret set NAME` (the hint gives the whole commands) |
 | `KEY_UNREADABLE` | 4 | cannot read key …: … | check the key path (`komando key list` shows the keys komando knows) |
 | `KILL_FAILED` | 5 | the server did not stop session … | you may lack the right to stop another user's session |
@@ -136,7 +136,7 @@ This page is made from the code (`komando schema` lists the same under
 | `NOTHING_TO_RENAME` | 3 | no … starts with … | check OLD with `komando list` and `komando secret list`; names are matched from the start, as written |
 | `NOT_A_FOLDER` | 8 | … is a file, not a folder | give a folder path, not a file |
 | `NOT_SUPPORTED` | 2 | … waits for data that keeps coming, so cache run would never return | cache run sends one command and prints its one reply; drop BLOCK from XREAD, and use redis-cli for MONITOR or SUBSCRIBE |
-| `NOT_SWARM_MANAGER` | 3 | … is not a Swarm manager (docker not found) | Swarm commands run on a manager: `komando exec … --read-only -- docker node ls` shows whether it is one |
+| `NOT_SWARM_MANAGER` | 3 | … is not a Swarm manager (docker not found) | Swarm commands run on a manager: `komando host ssh exec … --read-only -- docker node ls` shows whether it is one |
 | `NOT_TEXT` | 2 | … is not text | download it with `komando storage download CONN OBJECT` |
 | `NOT_WRITABLE` | 8 | cannot replace …: …: …; nothing was changed | make … writable, or install komando in another folder with the install line (KOMANDO_INSTALL_DIR=DIR) |
 | `NO_AUTH` | 4 | no authentication method available for …: it has no key or password, and … | start ssh-agent, then run … |
@@ -171,7 +171,7 @@ This page is made from the code (`komando schema` lists the same under
 | `POLICY_BLOCKED` | 6 | the command matches destructive rules [rm-rf]: deletes files recursively | check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen) |
 | `POLICY_MAC_FAILED` | 1 | …: …, so komando does not run (the safety rows no longer match their policy MAC) | something other than komando changed a protection, rule, setting or pinned host key; a person finds out what, then restores the komando folder from a backup made before it (`komando doctor` then says whether that copy is older than the keychain remembers) |
 | `PORT_CLOSED` | 5 | cannot connect to … | check the address, firewall or service on the other side |
-| `PORT_IN_USE` | 8 | cannot listen on 127.0.0.1:…: … | pick another LOCAL port (`komando tunnel list` shows the ones komando holds) |
+| `PORT_IN_USE` | 8 | cannot listen on 127.0.0.1:…: … | pick another LOCAL port (`komando host ssh tunnel list` shows the ones komando holds) |
 | `POWERSHELL_FAILED` | 5 | the login check in PowerShell failed on … (exit …): … | komando runs every command on Windows in Windows PowerShell (powershell.exe): check that it is on the PATH of the login user, and read the message |
 | `PROTECTED_TARGET` | 6 | a change action on protected conn …: … | check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen) |
 | `PROXY_FAILED` | 4 | proxy command for …: … | check the program in --proxy-command is installed |
@@ -227,24 +227,24 @@ This page is made from the code (`komando schema` lists the same under
 | `SECURITY_UNSUPPORTED` | 3 | no package manager komando knows on … | komando knows apt, dnf, yum, zypper, apk and pacman; see what the server has with `komando facts TARGET` |
 | `SELF_NOT_FOUND` | 1 | cannot find the komando program that is running: … | run komando by its full path, for example /usr/local/bin/komando update |
 | `SENSITIVE_FILE` | 6 | … is …, not … | use a database of your own; komando's data is read only through komando's commands (`komando list`, `komando secret list`) |
-| `SESSION_BUSY` | 8 | session … on … is still running | stop it first with `komando exec TARGET --attach ID --stop`, then remove it once it has ended |
-| `SESSION_FOLDER_DENIED` | 5 | …: ~/.komando or its sessions folder is a link, a file, not the login user's, or others can write it | look with `komando exec TARGET -- ls -ld ~/.komando ~/.komando/sessions`: each is to be a plain folder of the login user that only it can write (chmod 700) |
+| `SESSION_BUSY` | 8 | session … on … is still running | stop it first with `komando host ssh exec TARGET --attach ID --stop`, then remove it once it has ended |
+| `SESSION_FOLDER_DENIED` | 5 | …: ~/.komando or its sessions folder is a link, a file, not the login user's, or others can write it | look with `komando host ssh exec TARGET -- ls -ld ~/.komando ~/.komando/sessions`: each is to be a plain folder of the login user that only it can write (chmod 700) |
 | `SESSION_FOLDER_MISSING` | 3 | no session … on … | check the ID and the server: a session is removed once its starter read it to the end, or after 7 days; `komando audit` shows the exec that started it |
 | `SESSION_NOT_FOUND` | 3 | no session … | list sessions with `komando db activity CONN --all` |
-| `SESSION_PROCESS_MISSING` | 3 | session … on … is not running: its process ended, or its PID belongs to another process now | `komando exec TARGET --attach ID` reads how it ended; `komando exec TARGET --attach ID --remove` removes it |
-| `SESSION_RECORD_MISSING` | 3 | session … on … was not started from this computer | only the computer that started the run can stop it: run `komando exec TARGET --attach ID --stop` there; `komando audit` there shows the exec that started it |
-| `SESSION_SPACE_DENIED` | 5 | …: the home file system has less free space than the log cap plus 5 percent of the disk; nothing ran | free space in the home folder, or give a smaller log cap: `komando exec TARGET --log-max 100MiB -- COMMAND` |
-| `SESSION_START_FAILED` | 5 | …: the run in a session did not start (…) | the server needs nohup, ps and mkfifo: look with `komando exec TARGET -- command -v setsid nohup ps mkfifo` |
-| `SESSION_STOP_FAILED` | 5 | …: session … was not stopped (exit …): … | a run started with --sudo is stopped through sudo as the same user; when sudo asks for a password there, give the server its sudo password: `komando host edit TARGET --sudo-ref secret:NAME` |
-| `SESSION_WAIT_TIMEOUT` | 7 | session … on … still running after … | it is still running: `komando exec … --attach … --offset …` reads on |
+| `SESSION_PROCESS_MISSING` | 3 | session … on … is not running: its process ended, or its PID belongs to another process now | `komando host ssh exec TARGET --attach ID` reads how it ended; `komando host ssh exec TARGET --attach ID --remove` removes it |
+| `SESSION_RECORD_MISSING` | 3 | session … on … was not started from this computer | only the computer that started the run can stop it: run `komando host ssh exec TARGET --attach ID --stop` there; `komando audit` there shows the exec that started it |
+| `SESSION_SPACE_DENIED` | 5 | …: the home file system has less free space than the log cap plus 5 percent of the disk; nothing ran | free space in the home folder, or give a smaller log cap: `komando host ssh exec TARGET --log-max 100MiB -- COMMAND` |
+| `SESSION_START_FAILED` | 5 | …: the run in a session did not start (…) | the server needs nohup, ps and mkfifo: look with `komando host ssh exec TARGET -- command -v setsid nohup ps mkfifo` |
+| `SESSION_STOP_FAILED` | 5 | …: session … was not stopped (exit …): … | a run started with --sudo is stopped through sudo as the same user; when sudo asks for a password there, give the server its sudo password: `komando host ssh edit TARGET --sudo-ref secret:NAME` |
+| `SESSION_WAIT_TIMEOUT` | 7 | session … on … still running after … | it is still running: `komando host ssh exec … --attach … --offset …` reads on |
 | `SFTP_UNAVAILABLE` | 4 | sftp: … | enable the sftp subsystem in sshd_config |
-| `SHARED_FOLDER_CONFLICT` | 8 | … can be changed by …, not only by root and the SSH user: as root, komando does not write … there (that user could swap it for a link while root writes) | write it as … instead, for example `komando exec TARGET --sudo-user … --stdin-file FILE -- sh -c 'cat > "$0"' …` |
-| `SHELL_IDLE_TIMEOUT` | 7 | the shell on … ended after … with no input and no output | connect again (ssh -t HOST komando shell …); run long work as a job: `komando job start … -- COMMAND` |
-| `SHORTER_SCRIPT_REQUIRED` | 6 |  | split it into shorter pieces (the hint names the command for a script, SQL or a file) or ask the user to run it in their own terminal; e.g. `komando exec TARGET --script FILE` for a script |
+| `SHARED_FOLDER_CONFLICT` | 8 | … can be changed by …, not only by root and the SSH user: as root, komando does not write … there (that user could swap it for a link while root writes) | write it as … instead, for example `komando host ssh exec TARGET --sudo-user … --stdin-file FILE -- sh -c 'cat > "$0"' …` |
+| `SHELL_IDLE_TIMEOUT` | 7 | the shell on … ended after … with no input and no output | connect again (ssh -t HOST komando host ssh shell …); run long work as a job: `komando job start … -- COMMAND` |
+| `SHORTER_SCRIPT_REQUIRED` | 6 |  | split it into shorter pieces (the hint names the command for a script, SQL or a file) or ask the user to run it in their own terminal; e.g. `komando host ssh exec TARGET --script FILE` for a script |
 | `SIZE_CONFLICT` | 8 | --size said … bytes, and stdin sent …; nothing was put into place | send the whole file again: `komando upload TARGET - DEST --size N` |
 | `SKIPPED` | 1 | skipped: another server failed first, and --fail-fast is on | run without --fail-fast to reach every server |
-| `SNIPPET_OS_UNSUPPORTED` | 2 | snippet … has no body for … | read it as text with `komando exec TARGET -- COMMAND`; the snippet has no JSON for it |
-| `SNIPPET_PARSE_FAILED` | 5 | the output of snippet … did not read as … | read it as text with `komando exec TARGET -- COMMAND`; the snippet has no JSON for it |
+| `SNIPPET_OS_UNSUPPORTED` | 2 | snippet … has no body for … | read it as text with `komando host ssh exec TARGET -- COMMAND`; the snippet has no JSON for it |
+| `SNIPPET_PARSE_FAILED` | 5 | the output of snippet … did not read as … | read it as text with `komando host ssh exec TARGET -- COMMAND`; the snippet has no JSON for it |
 | `SNIPPET_TYPE_UNSUPPORTED` | 2 | … is a …, not a … | run it against a … entry; see them with `komando list` |
 | `SOURCE_BUILD` | 8 | this komando was built from source (version …), so update does not replace it | build it again (git pull, then make build), or install a release with the install line: https://github.com/sgnd/komando#install |
 | `SOURCE_EMPTY` | 3 | … has no files to sync, so --delete would remove everything in …; nothing was deleted | check the source path |
@@ -253,8 +253,8 @@ This page is made from the code (`komando schema` lists the same under
 | `SQL_STRING_RULES` | 2 | changing … is not allowed in komando db | leave this setting alone: komando checks SQL with the server's default string rules |
 | `SQL_TX_CHECK_REQUIRED` | 6 | statement … (…) ended komando's transaction, so komando stopped (…) | leave transactions to komando, and tell the user: what ran before this point may have been committed; look at the data with `komando db query CONN -- SELECT ...` |
 | `SQL_TX_CONTROL` | 2 | … is not allowed in komando db | leave transactions to komando: without --write it runs a read-only transaction, with --write one transaction that --dry-run rolls back |
-| `SSH_AGENT_NEEDED` | 2 | a key komando made is sealed in its store and never written to a file, so OpenSSH gets it from a running ssh-agent, and none was found (SSH_AUTH_SOCK) | start one with `eval "$(ssh-agent)"` and run this again, or use `komando shell SERVER`, which logs in with the key itself |
-| `SSH_AGENT_REFUSED` | 1 | the ssh-agent did not take key …: … | check the ssh-agent, or use `komando shell SERVER` |
+| `SSH_AGENT_NEEDED` | 2 | a key komando made is sealed in its store and never written to a file, so OpenSSH gets it from a running ssh-agent, and none was found (SSH_AUTH_SOCK) | start one with `eval "$(ssh-agent)"` and run this again, or use `komando host ssh shell SERVER`, which logs in with the key itself |
+| `SSH_AGENT_REFUSED` | 1 | the ssh-agent did not take key …: … | check the ssh-agent, or use `komando host ssh shell SERVER` |
 | `SSH_GATE_NETWORK_REQUIRED` | 6 | komando … is refused for a read key without network: … | this key was added with --read-only and without --network: it runs only reads that stay on the servers and conns in your list; a person adds a key for this with `komando ssh-gate line --read-only --network`, or runs it on the komando computer |
 | `SSH_GATE_PATH` | 1 | komando cannot tell its own full path, which the line needs | run komando by its full path, for example /usr/local/bin/komando ssh-gate line ... |
 | `SSH_GATE_READ_ONLY` | 6 | komando … is refused for a read-only key: … | this key was added with --read-only and runs only commands that read; use a key that may change things, or the komando computer itself |
@@ -281,7 +281,7 @@ This page is made from the code (`komando schema` lists the same under
 | `SUBSCRIPTION_EXISTS` | 8 | subscription … already exists | pick another name, or see it with `komando queue describe CONN subscriptions/…` |
 | `SUBSCRIPTION_NOT_FOUND` | 3 | no subscription named … | list subscriptions with `komando queue groups CONN`; `komando queue describe CONN TOPIC` shows a topic's own |
 | `SVC_FAILED` | 5 | systemctl daemon-reload failed (…) | read the error output (stderr) for systemd's reason; a unit file with a mistake is named there |
-| `SWARM_ERROR` | 5 | Docker Swarm answered with an error | check that Docker runs there: `komando exec TARGET --read-only -- docker info` |
+| `SWARM_ERROR` | 5 | Docker Swarm answered with an error | check that Docker runs there: `komando host ssh exec TARGET --read-only -- docker info` |
 | `SWARM_OBJECT_NOT_FOUND` | 3 | no … named … | list what exists with `komando cluster list TARGET …s` |
 | `SWARM_SERVICE_NOT_FOUND` | 3 | no service named … | list services with `komando cluster list TARGET services` |
 | `SWARM_STACK_NOT_FOUND` | 3 | no stack named … | list the stacks with `komando cluster list … stacks` |
@@ -299,7 +299,7 @@ This page is made from the code (`komando schema` lists the same under
 | `TOPIC_EXISTS` | 8 | topic … already exists | pick another name, or see it with `komando queue describe CONN …` |
 | `TOPIC_NOT_FOUND` | 3 | no topic named … | list topics with `komando queue list CONN` |
 | `TUNNEL_FAILED` | 4 | the server refused the port forwarding (AllowTcpForwarding, address) | check that the server allows forwarding (AllowTcpForwarding in sshd_config) and that the address is right |
-| `TUNNEL_NOT_FOUND` | 3 | no tunnel named … | see them with `komando tunnel list` |
+| `TUNNEL_NOT_FOUND` | 3 | no tunnel named … | see them with `komando host ssh tunnel list` |
 | `TUNNEL_TIMEOUT` | 7 | tunnel did not become ready… | check that … answers: `komando test …`; a person reads the whole log in … |
 | `UNEXPECTED_CHANGE` | 8 | … changed after patching: … | check the server (`komando docker ps …`, `komando svc list … --failed`); servers after it were not patched: run it again with --keep-going to patch them anyway |
 | `UNEXPECTED_STATUS` | 5 | HTTP …, expected … | check the URL and the service behind it |
@@ -327,17 +327,17 @@ This page is made from the code (`komando schema` lists the same under
 | `VPN_CONFIG` | 2 | …: … | check the file is a WireGuard (wg-quick) config |
 | `VPN_DOWN` | 4 | VPN … did not start: … | the message ends with its log; `komando vpn test …` tries again, and a person reads the whole log in … |
 | `VPN_EXISTS` | 8 | … … already exists | use `komando … edit` or pass --overwrite to replace it |
-| `VPN_IN_USE` | 8 | VPN … is on the --via path of … | change their --via first: `komando host edit TARGET --via OTHER` |
+| `VPN_IN_USE` | 8 | VPN … is on the --via path of … | change their --via first: `komando host ssh edit TARGET --via OTHER` |
 | `VPN_KEY_IN_USE` | 8 | VPN …: its WireGuard key is in use by komando process … (VPN …, komando home …) | one WireGuard key runs in one session at a time: stop the other with `…`, or give this VPN a key of its own with `komando vpn add … wireguard --config FILE` |
 | `VPN_LOGIN_REQUIRED` | 4 | VPN … is not connected and needs a person to log in | ask a person to run `komando vpn up …` (it needs their login); then run it again |
-| `VPN_NOT_FOR_OPENSSH` | 2 | VPN … (…) runs inside komando; OpenSSH cannot use it | use `komando shell SERVER` (it opens the VPN itself), or connect the VPN on this computer and leave it out of --via |
+| `VPN_NOT_FOR_OPENSSH` | 2 | VPN … (…) runs inside komando; OpenSSH cannot use it | use `komando host ssh shell SERVER` (it opens the VPN itself), or connect the VPN on this computer and leave it out of --via |
 | `VPN_STOP_FAILED` | 1 | could not disconnect …: … | run `komando vpn down …` again; if it still fails, end process … yourself |
 | `WAIT_TIMEOUT` | 7 | job … still running after … | it is still running: `komando job wait …` waits again, `komando job logs … --limit 50` shows its output so far |
 | `WEAK_PASSPHRASE` | 2 | …; nothing was changed | run it again with another passphrase |
 | `WINRM_ERROR` | 5 | …: … | read the message; `winrm quickconfig` on the server sets WinRM up, and the user needs the right to use it (an administrator, or the Remote Management Users group) |
 | `WINRM_INSECURE` | 2 | Basic login over plain HTTP sends the password unencrypted | use HTTPS (leave tls=off out), or NTLM (leave auth=basic out), which never sends the password |
 | `WINRM_NOT_HTTPS` | 4 | …: … | the server speaks plain HTTP there: use port 5986 for HTTPS, or ?tls=off if it truly has no HTTPS (commands then travel unencrypted) |
-| `WINRM_TLS` | 4 | …: the WinRM server's certificate cannot be trusted: … | if the server's certificate comes from your own CA, store it with `komando secret set NAME < ca.crt` and add ?ca=secret:NAME to its winrm:// address (`komando host edit … --address winrm://...`) |
+| `WINRM_TLS` | 4 | …: the WinRM server's certificate cannot be trusted: … | if the server's certificate comes from your own CA, store it with `komando secret set NAME < ca.crt` and add ?ca=secret:NAME to its winrm:// address (`komando host winrm edit … --address winrm://...`) |
 | `WRITE_FAILED` | 1 | …; nothing was changed | check that you may write to … |
 | `WRITE_REQUIRES_FLAG` | 6 | … needs --write | this command may change data (or is not known to be a read); run it again with --write |
 | `WRONG_KIND` | 2 | … is a … URL, not one for `komando … add` | add it with `… add` (or `komando conn add`) |

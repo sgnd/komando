@@ -37,7 +37,7 @@ import (
 // line also has --network (sshgate_network.go).
 // `restrict` turns off port, agent and X11 forwarding and the terminal, so
 // the key opens nothing else (OpenSSH 7.2 and later). A line with --shell-access
-// gives back the terminal (pty), for `komando shell SERVER` (sshgate_shell.go).
+// gives back the terminal (pty), for `komando host ssh shell SERVER` (sshgate_shell.go).
 
 // gateEnv names the key (its --name) in the environment of the komando the
 // gate runs: that komando counts as an agent (agentVars) and its audit
@@ -629,7 +629,7 @@ komando then runs as for an AI agent: secret values stay [hidden], --reveal
 and --allow-dangerous are refused, and --yes for a protected server needs a
 person on this computer. Commands that need a person at a terminal (shell,
 db shell, secret passphrase ...) are refused (a --shell-access key may open
-` + "`komando shell SERVER`" + `: see ssh-gate line; that shell is full control
+` + "`komando host ssh shell SERVER`" + `: see ssh-gate line; that shell is full control
 of the server, outside these rules). The key runs commands on
 servers, never one that writes on this computer or reads a file here (a
 script, SQL or upload source by path; '-' for the key's own input works):
@@ -696,7 +696,7 @@ audit setting is off.`,
 	c.Flags().StringVar(&name, "name", "key", "the key's name in the audit log")
 	c.Flags().BoolVar(&readOnly, "read-only", false, "run only commands that read")
 	c.Flags().BoolVar(&network, "network", false, "with --read-only: also reads that reach the network")
-	c.Flags().BoolVar(&shellAccess, "shell-access", false, "also komando shell SERVER, with a terminal")
+	c.Flags().BoolVar(&shellAccess, "shell-access", false, "also komando host ssh shell SERVER, with a terminal")
 	// set by the line `ssh-gate line` writes, not typed: its help lists them
 	_ = c.Flags().MarkHidden("name")
 	_ = c.Flags().MarkHidden("read-only")

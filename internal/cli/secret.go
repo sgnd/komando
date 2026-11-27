@@ -176,7 +176,7 @@ func secretDiff(stored, given string) string {
 
 const secretLong = `Save a password once, then point to it as secret:NAME instead of typing it:
   komando secret set web1-pass
-  komando host edit web1 --password-ref secret:web1-pass
+  komando host ssh edit web1 --password-ref secret:web1-pass
 
 komando shows a saved value only to a person: at a terminal with
 ` + "`secret show --reveal`" + `, or after "Allow once" in komando's window; never
@@ -419,7 +419,7 @@ unlock it, and an AI agent or a script cannot answer that.`,
 func secretInUse(name string, users []string) error {
 	kind, who, _ := strings.Cut(users[0], " ")
 	hint := map[string]string{
-		"host": "komando host edit " + who + " --password-ref ... (or --sudo-ref ..., --env ...)",
+		"host": "komando host ssh edit " + who + " --password-ref ... (or --sudo-ref ..., --env ...)",
 		"conn": "komando conn edit " + who + " --password-ref ...",
 		"key":  "komando key edit " + who + " --passphrase-ref ...",
 		"vpn":  "komando vpn edit " + who + " ...",

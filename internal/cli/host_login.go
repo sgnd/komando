@@ -75,7 +75,7 @@ func errAskStored(kind, name string) *out.Error {
 // login-ask server with a stored password.
 func checkLogin(h *store.Host) error {
 	if h.Login != "" && h.Login != store.LoginAsk {
-		return loginUsage("`komando host edit "+h.Name+" --login WORD`, with one of: "+strings.Join(loginModes, ", "),
+		return loginUsage("`komando host ssh edit "+h.Name+" --login WORD`, with one of: "+strings.Join(loginModes, ", "),
 			"unknown login %q", h.Login)
 	}
 	if h.AskLogin() && h.PasswordRef != "" {

@@ -28,14 +28,14 @@ Update komando only when the human asks: `komando update` (when it stops with
 
 At a person's terminal, a command typed with something missing asks for
 it, one line at a time, and shows the whole line before it runs.
-`komando host add` (or `db add`, `vpn add`) typed alone asks that kind's
+`komando host ssh add` (or `db add`, `vpn add`) typed alone asks that kind's
 questions.
 
 komando never asks an AI agent or a script anything. Give every argument
 and flag on the command line. When a step needs a person (a yes, a
 password, a two-factor code), the command stops with an error code, and
 `error.hint` says what to ask the human for. If the human would rather add
-servers themselves, tell them to type `komando host add` in their own
+servers themselves, tell them to type `komando host ssh add` in their own
 terminal. Running komando under a pseudo-terminal as an agent komando does
 not know? Set `KOMANDO_AGENT=1`.
 
@@ -46,7 +46,7 @@ not know? Set `KOMANDO_AGENT=1`.
    `facts` warnings first. `null` means unknown, never 0 or false (an
    unsupported OS shows security updates as `null`). Each multi-target
    result names its server in `host`.
-   To read a command's output, add `-o text` (`komando exec web1 --read-only
+   To read a command's output, add `-o text` (`komando host ssh exec web1 --read-only
    -o text -- cat FILE`). Keep JSON when you branch on each server's exit
    code or error, or need to know whether output was cut (`stdout_truncated`).
    On a Windows server (`os:windows`) commands are PowerShell, there is no
@@ -57,7 +57,7 @@ not know? Set `KOMANDO_AGENT=1`.
    show the human what you will ask for. (One exception: with
    `KOMANDO_HOME` set to another folder every command stops, a dry run
    too, and no flag clears it.) Declare read-only shell commands
-   with `komando exec TARGET --read-only -- 'COMMAND'`. `db query`,
+   with `komando host ssh exec TARGET --read-only -- 'COMMAND'`. `db query`,
    `cache redis raw` and `cluster run` are the other way round: they only read
    unless you add `--write`.
    Every command that hands words to another program (`exec`, `job start`,
@@ -83,8 +83,8 @@ not know? Set `KOMANDO_AGENT=1`.
      `CERT_PROBLEMS` when one expires within `--warn`, default 30d).
    - Docker disk space: `komando docker prune TARGET --dry-run` first; it
      lists what would be removed and how much space that frees.
-   - Your list in bulk: `komando host edit TARGET --sudo-ref secret:NAME`
-     (one approval for every server), `komando host rename OLD NEW` (updates
+   - Your list in bulk: `komando host ssh edit TARGET --sudo-ref secret:NAME`
+     (one approval for every server), `komando host ssh rename OLD NEW` (updates
      every reference; `key rename` and `group rename` likewise),
      `komando rename --starts-with OLD NEW --dry-run` (every server, conn, VPN,
      secret, key and group of a project, one approval for all of them),

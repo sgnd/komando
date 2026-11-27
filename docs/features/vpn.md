@@ -7,8 +7,8 @@ same time, without switching between them. [All docs](README.md)
 
 ```bash
 komando vpn add office wireguard --config ~/Downloads/office.conf --check 10.0.0.5:22
-komando host add db1 admin@10.0.0.5 --via office    # a server inside the VPN
-komando exec db1 -- uptime                          # connects the VPN by itself
+komando host ssh add db1 admin@10.0.0.5 --via office    # a server inside the VPN
+komando host ssh exec db1 -- uptime                          # connects the VPN by itself
 komando test kind:vpn                               # do all VPNs work?
 komando vpn status                                  # which VPNs are up, and what uses them
 ```
@@ -38,7 +38,7 @@ office   wireguard      -     -       db1       connects for each command
 | `l2tp` | L2TP/IPsec with a pre-shared key (Windows Server, MikroTik, strongSwan + xl2tpd, many routers) | inside komando | no |
 | `ipsec` (also `cisco`, `xauth`) | Cisco-style IPsec: group name and password, then your login (XAUTH): Cisco ASA/IOS, MikroTik, strongSwan; the "IPSec" type of macOS and iOS | inside komando | no |
 | `ikev2` | IKEv2/IPsec, with a pre-shared key or a user login (EAP-MSCHAPv2) checked against the server's certificate | inside komando | no |
-| `socks` | a SOCKS5 proxy that is already running (`komando tunnel start bastion -D 1080`, a company proxy); with a login: `--user` and `--password-ref` | already running | no |
+| `socks` | a SOCKS5 proxy that is already running (`komando host ssh tunnel start bastion -D 1080`, a company proxy); with a login: `--user` and `--password-ref` | already running | no |
 | `proxy` | an HTTP proxy that tunnels connections (CONNECT), such as a company proxy: `--proxy-address proxy.corp:3128` or `https://proxy.corp`, its login with `--user` and `--password-ref` | already running | no |
 | `system` | a VPN set up in your computer's own settings | by your computer | yes |
 
@@ -116,11 +116,11 @@ komando vpn add office proxy --proxy-address proxy.corp.example:3128
 Put the VPN first in `--via`. A command that needs it connects it by itself:
 
 ```bash
-komando host add db1 admin@10.0.0.5 --via office                        # a server inside the VPN
+komando host ssh add db1 admin@10.0.0.5 --via office                        # a server inside the VPN
 komando conn add prod-db postgres://app@10.0.0.9/app --via office,bastion # VPN, then a bastion
-komando exec db1 -- uptime
-komando tunnel start prod-db                                            # open it in TablePlus, psql, ...
-komando tunnel start office -D 1080                                     # a SOCKS proxy on port 1080 that goes through the VPN
+komando host ssh exec db1 -- uptime
+komando host ssh tunnel start prod-db                                            # open it in TablePlus, psql, ...
+komando host ssh tunnel start office -D 1080                                     # a SOCKS proxy on port 1080 that goes through the VPN
 ```
 
 How long a VPN stays up depends on its kind:
@@ -169,7 +169,7 @@ Then a person connects it once:
 
 ```bash
 komando vpn up corp           # log in here, MFA included
-komando exec web1 -- uptime   # later commands (and agents) reuse the session
+komando host ssh exec web1 -- uptime   # later commands (and agents) reuse the session
 komando vpn down corp         # or: komando vpn down --all
 ```
 
@@ -444,7 +444,7 @@ komando test office
 
 | Code | What it means | What to do |
 |------|---------------|------------|
-| `VPN_DOWN` (exit 4) | the VPN does not answer | the hint depends on the kind: connect the `system` VPN; start the SOCKS proxy (`komando tunnel start bastion -D 1080`); check that the HTTP proxy answers and lets the port through (many company proxies allow only 443); check that a WireGuard endpoint is reachable and the keys match; for a session VPN, reconnect with `komando vpn down NAME` and `komando vpn up NAME` |
+| `VPN_DOWN` (exit 4) | the VPN does not answer | the hint depends on the kind: connect the `system` VPN; start the SOCKS proxy (`komando host ssh tunnel start bastion -D 1080`); check that the HTTP proxy answers and lets the port through (many company proxies allow only 443); check that a WireGuard endpoint is reachable and the keys match; for a session VPN, reconnect with `komando vpn down NAME` and `komando vpn up NAME` |
 | `VPN_DOWN` at `vpn up` on WireGuard | nothing answered at `--check` through the tunnel (no handshake yet) | check the endpoint and the keys (`komando vpn show office`) |
 | `VPN_LOGIN_REQUIRED` (exit 4) | the VPN needs a person's login and has no session | a person runs `komando vpn up NAME` |
 | `VPN_CLIENT_MISSING` (exit 3) | `openconnect` or `ocproxy` is not installed | install the program the message names |

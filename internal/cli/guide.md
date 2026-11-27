@@ -12,8 +12,8 @@ To read what a command printed on a server, add `-o text` instead of
 pulling `stdout` out of the JSON with python or jq:
 
 ```bash
-komando exec web1 --read-only -o text -- cat /etc/os-release   # the server's output as it is
-komando exec @web --read-only -o text -- uptime                # one "=== web1 [ok, exit 0]" block per server
+komando host ssh exec web1 --read-only -o text -- cat /etc/os-release   # the server's output as it is
+komando host ssh exec @web --read-only -o text -- uptime                # one "=== web1 [ok, exit 0]" block per server
 ```
 
 - One server: its stdout as it is. Its stderr goes to stderr (or into
@@ -43,7 +43,7 @@ komando import ssh-config --dry-run   # (with the human) bring in servers they a
 
 People are asked; you get no questions. At a person's terminal, a command
 typed with something missing asks for it, one line at a time, and
-`komando host add` (or `db add`, `vpn add`) typed alone asks that kind's
+`komando host ssh add` (or `db add`, `vpn add`) typed alone asks that kind's
 questions. komando never asks an AI agent or a
 script anything (under a pseudo-terminal, an agent komando does not know
 sets `KOMANDO_AGENT=1`), so give every argument and flag yourself; `komando` alone
@@ -53,7 +53,7 @@ error code, and `error.hint` says what to ask the human for.
 
 Just created or rebuilt a server? Do not sleep and retry in a loop: run
 `komando test TARGET --wait 5m` (it waits until SSH answers and the login
-works), then `komando exec TARGET --read-only -- cloud-init status --wait`.
+works), then `komando host ssh exec TARGET --read-only -- cloud-init status --wait`.
 
 Run `facts` before your first change on an unfamiliar server: it tells you
 whether to use apt or dnf, whether systemd and Docker exist, and how full the
@@ -94,7 +94,7 @@ VPNs: `komando list kind:vpn`. A target behind a VPN has the VPN first in its
 needs a person, for example an MFA code) or `VPN_DOWN` (a VPN this computer
 runs itself is not connected): ask the human to run `komando vpn up NAME`.
 
-Windows servers (`"os": "windows"` in `komando host show`, pick them with
+Windows servers (`"os": "windows"` in `komando host ssh show`, pick them with
 `os:windows`): commands run in PowerShell, not sh. `exec` (also
 `--script`), `facts`, `fs list/stat/cat/write`, `upload`, `download` and
 `svc` (not `reload`, `daemon-reload` or `logs`) work; there
@@ -115,7 +115,7 @@ stops with USAGE and runs nothing (komando would read `-y` as `--yes`).
 | Need                         | Command |
 |------------------------------|---------|
 | Quick health                 | `komando recipe run health TARGET` |
-| Any read-only shell command  | `komando exec TARGET --read-only -- 'COMMAND'` |
+| Any read-only shell command  | `komando host ssh exec TARGET --read-only -- 'COMMAND'` |
 | Logs                         | `komando logs TARGET --unit nginx --since 30m --grep 'error'` |
 | Service state (structured)   | `komando svc status TARGET nginx` |
 | File content                 | `komando fs cat TARGET /etc/nginx/nginx.conf --line-numbers` |
@@ -152,10 +152,10 @@ Writes are atomic (temporary file, then rename). `fs write --if-changed` and
 
 Your list itself changes in bulk too, each with `--dry-run` first:
 
-- `komando host edit TARGET --sudo-ref secret:NAME` sets one value on
+- `komando host ssh edit TARGET --sudo-ref secret:NAME` sets one value on
   many servers (one `--yes` and one approval window for the protected ones,
   which lists every server).
-- `komando host rename OLD NEW` renames a server and every reference to it
+- `komando host ssh rename OLD NEW` renames a server and every reference to it
   (`conn rename`, `vpn rename`, `key rename`, `group rename` likewise).
 - `komando rename --starts-with OLD NEW` renames every server, conn, VPN,
   secret, key and group that starts with OLD in one step (one `--yes` and
@@ -327,7 +327,7 @@ detached on the server and komando waits up to 30 minutes per server, so do
 not wrap it in `job start`. It never reboots: report `reboot_required` and
 `services_need_restart` to the human.
 
-A process started with `&` inside `komando exec` ends with that command.
+A process started with `&` inside `komando host ssh exec` ends with that command.
 Anything that must keep running (a temporary web server, a watcher) is a
 `job start`.
 
@@ -399,7 +399,7 @@ Anything that must keep running (a temporary web server, a watcher) is a
   keys for the first time. Show the human each `host` and `fingerprint` to
   compare with the server's own.
 - If the human says the servers were rebuilt, ask for one command for all
-  of them to run in their own terminal: `komando host trust @group --reset`
+  of them to run in their own terminal: `komando host ssh trust @group --reset`
   (or `'name-*'`). Only a person replaces a pinned key (you get
   `NEEDS_PERSON`); they confirm every new key with one answer. `host rm` plus `host add` does
   not get past a mismatch: the old key stays pinned.
@@ -432,7 +432,7 @@ Anything that must keep running (a temporary web server, a watcher) is a
 | 4    | CONNECTION_LOST                   | the link broke mid-command: it may still run or have finished. Check with a read-only command before re-running; use `job start` next time |
 | 5    | COMMAND_FAILED                    | read `data.results[].stderr` and `exit_code` |
 | 5    | DB_ERROR                          | fix the SQL; check `db schema` |
-| 5    | REMOTE_WRITE_FAILED               | check that the folder is writable and has free space (`komando exec TARGET --read-only -- df -h`) |
+| 5    | REMOTE_WRITE_FAILED               | check that the folder is writable and has free space (`komando host ssh exec TARGET --read-only -- df -h`) |
 | 6    | CONFIRM_REQUIRED, DB_BYTES_LIMIT, DECLINED, EMPTY_FOLDER_CONFIRM_REQUIRED, NEEDS_PERSON, OPEN_BIND, POLICY_BLOCKED, PROTECTED_TARGET, READ_ONLY_VIOLATION, REVEAL_NEEDS_PERSON, REVEAL_NEEDS_TERMINAL, SAFETY_SETTING, SECRET_DESTINATION, SENSITIVE_FILE, SHORTER_SCRIPT_REQUIRED, SQL_SAFE_SETTINGS_REQUIRED, SQL_TX_CHECK_REQUIRED, SSH_GATE_NETWORK_REQUIRED, SSH_GATE_READ_ONLY, SSH_GATE_REFUSED, STORE_OLD_COPY, UNSAFE_BACKUP, WRITE_REQUIRES_FLAG | stop and ask the human; no flag clears NEEDS_PERSON, REVEAL_NEEDS_TERMINAL, SQL_SAFE_SETTINGS_REQUIRED, SQL_TX_CHECK_REQUIRED, SSH_GATE_* or STORE_OLD_COPY: a person runs those in their own terminal |
 | 6    | NEEDS_PERSON or DECLINED from a server or conn whose login is `ask` (`host show`/`conn show`: `login: ask`) | its password is typed by the human in komando's window, never by you; do not retry: ask them to run `komando test SERVER` (a conn: the command itself) in their own terminal. Adding one or changing where it goes (address, `--via`, a jump host or VPN on its way) is theirs too |
 | 7    | CONNECT_TIMEOUT                   | the server did not answer: check the address, `--via` or the VPN; on a slow link raise `--connect-timeout` |

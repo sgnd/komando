@@ -379,7 +379,7 @@ func runCp(cl *call, ctx context.Context, name, target, remote, local string, up
 			return out.Usage("%s is a folder; add -r", local)
 		}
 		if fi.IsDir() && o.sudo {
-			return out.Usage("--sudo uploads single files; upload the folder to a place you own (for example /tmp/%s), then `komando exec %s --sudo -- cp -r /tmp/%s/. DEST/`",
+			return out.Usage("--sudo uploads single files; upload the folder to a place you own (for example /tmp/%s), then `komando host ssh exec %s --sudo -- cp -r /tmp/%s/. DEST/`",
 				filepath.Base(local), target, filepath.Base(local))
 		}
 	}

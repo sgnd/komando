@@ -112,7 +112,7 @@ var examples = map[string]string{
 		"  komando secret rm old-pass --dry-run",
 	"komando vpn": "  komando vpn add office wireguard --config ~/Downloads/office.conf\n" +
 		"  komando vpn test office\n" +
-		"  komando host edit db1 --via office --dry-run\n" +
+		"  komando host ssh edit db1 --via office --dry-run\n" +
 		"  komando vpn up office",
 	"komando cert": "  komando cert check web1                           # certificates on the server\n" +
 		"  komando cert check @web --warn 30d\n" +
@@ -154,9 +154,9 @@ var examples = map[string]string{
 	"komando fs rm":    "  komando fs rm web1 /tmp/upload.tar.gz\n  komando fs rm web1 /srv/app/releases/old --recursive --allow-dangerous",
 	"komando fs stat":  "  komando fs stat web1 /etc/nginx/nginx.conf --sha256",
 
-	"komando host list": "  komando host list\n  komando host list @web",
-	"komando host show": "  komando host show web1",
-	"komando host test": "  komando host test web1\n  komando host test @prod --wait 2m",
+	"komando host ssh list": "  komando host ssh list\n  komando host ssh list @web",
+	"komando host ssh show": "  komando host ssh show web1",
+	"komando host ssh test": "  komando host ssh test web1\n  komando host ssh test @prod --wait 2m",
 
 	"komando job kill":   "  komando job kill j1103-101500-ab12cd34\n  komando job kill j1103-101500-ab12cd34 --signal KILL",
 	"komando job list":   "  komando job list\n  komando job list --refresh --target web1",
@@ -180,7 +180,7 @@ var examples = map[string]string{
 	"komando recipe list": "  komando recipe list\n  komando recipe list --category security",
 	"komando recipe rm":   "  komando recipe rm du-srv",
 	"komando secret list": "  komando secret list",
-	"komando shell":       "  komando shell web1",
+	"komando host ssh shell":       "  komando host ssh shell web1",
 
 	"komando svc disable": "  komando svc disable web1 apache2 --now",
 	"komando svc enable":  "  komando svc enable web1 nginx --now",
@@ -188,8 +188,8 @@ var examples = map[string]string{
 	"komando svc logs":    "  komando svc logs web1 nginx --since 30m --grep error",
 	"komando svc stop":    "  komando svc stop web1 nginx",
 
-	"komando tunnel list": "  komando tunnel list",
-	"komando tunnel stop": "  komando tunnel stop t1102-101500-ab12cd34\n  komando tunnel stop --all",
+	"komando host ssh tunnel list": "  komando host ssh tunnel list",
+	"komando host ssh tunnel stop": "  komando host ssh tunnel stop t1102-101500-ab12cd34\n  komando host ssh tunnel stop --all",
 
 	"komando user list":   "  komando user list web1",
 	"komando user lock":   "  komando user lock web1 alice",
@@ -218,7 +218,7 @@ var details = map[string]string{
 	"komando export":            "Save servers, conns, VPNs, recipes, your deny rules and settings to a file, to move them to another computer (no passwords).",
 	"komando fs replace":        "Edit a file on a server by exact (or --regex) replacement. It fails when the text is not found, or matches more than once without --all.",
 	"komando guide":             "Playbook for AI agents: workflow, safety rules, recipes (read this first).",
-	"komando host rm":           "Remove servers from your list. The servers are not touched, and their pinned host keys stay.",
+	"komando host ssh remove":           "Remove servers from your list. The servers are not touched, and their pinned host keys stay.",
 	"komando job kill":          "Send a signal to a job's process group (default TERM). A job that already ended is left as it is.",
 	"komando job logs":          "Read a job's output piece by piece (--offset with the next_offset of the last call), or its last --limit N lines.",
 	"komando job rm":            "Forget jobs and delete their log folders on the server (a running job needs `job kill` or --kill).",

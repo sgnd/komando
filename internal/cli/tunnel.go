@@ -84,7 +84,7 @@ func (t tunnelInfo) Text() string {
 	if t.would {
 		return "would start a tunnel: " + line + "\n"
 	}
-	return "tunnel " + t.ID + " is up: " + line + "\nstop it with: komando tunnel stop " + t.ID + "\n"
+	return "tunnel " + t.ID + " is up: " + line + "\nstop it with: komando host ssh tunnel stop " + t.ID + "\n"
 }
 
 func tunnelStartCmd() *cobra.Command {
@@ -95,10 +95,10 @@ func tunnelStartCmd() *cobra.Command {
 		Short: "Start a background tunnel",
 		Long: `With a conn name and no -L/-R/-D, the tunnel leads to that conn through its --via path:
 point your database app or psql at the local address it prints. With a server, give one of -L, -R or -D.`,
-		Example: `  komando tunnel start prod-db               # localhost:<free port> -> prod-db
-  komando tunnel start prod-db --port 15432
-  komando tunnel start web1 -L 8080:localhost:80
-  komando tunnel start bastion -D 1080       # SOCKS proxy`,
+		Example: `  komando host ssh tunnel start prod-db               # localhost:<free port> -> prod-db
+  komando host ssh tunnel start prod-db --port 15432
+  komando host ssh tunnel start web1 -L 8080:localhost:80
+  komando host ssh tunnel start bastion -D 1080       # SOCKS proxy`,
 		Args: cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			conn, via := "", ""
@@ -250,7 +250,7 @@ func tunnelWait(cl *call, ctx context.Context, st *store.State, info tunnelInfo,
 			undo()
 			_ = os.Remove(info.Log)
 			e := toErr(err)
-			e.Hint = "the tunnel was stopped before it came up; nothing is left running (`komando tunnel list` shows the rest)"
+			e.Hint = "the tunnel was stopped before it came up; nothing is left running (`komando host ssh tunnel list` shows the rest)"
 			return e
 		}
 		b, _ := os.ReadFile(info.Log)
@@ -405,7 +405,7 @@ func tunnelStopCmd() *cobra.Command {
 				return out.Usage("give tunnel IDs or --all")
 			}
 			if all && len(args) > 0 {
-				return out.Errf(out.ExitUsage, "USAGE", "use `komando tunnel stop --all` or `komando tunnel stop "+strings.Join(args, " ")+"`", "--all stops every tunnel; give IDs or --all, not both")
+				return out.Errf(out.ExitUsage, "USAGE", "use `komando host ssh tunnel stop --all` or `komando host ssh tunnel stop "+strings.Join(args, " ")+"`", "--all stops every tunnel; give IDs or --all, not both")
 			}
 			stopped := []string{}
 			err := store.UpdateRuntime(cl.storeWrite(), func(s *store.State) error {

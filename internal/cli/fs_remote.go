@@ -346,7 +346,7 @@ func rmScript(paths []string, recursive, asRoot bool) string {
 
 func rmMissing(p string) string {
 	if hasGlob(p) {
-		return "no file named '" + p + "' (globs are not expanded; use `komando exec` for patterns)"
+		return "no file named '" + p + "' (globs are not expanded; use `komando host ssh exec` for patterns)"
 	}
 	return "not found: " + p + " (nothing removed)"
 }

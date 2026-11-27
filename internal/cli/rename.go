@@ -208,7 +208,7 @@ func renameCmd() *cobra.Command {
 		Use:   "rename OLD NEW",
 		Short: "Rename one entry, or all names starting with OLD (--starts-with)",
 		Long: `Without --starts-with: renames the one server, conn, VPN, secret, key or group
-named OLD, as ` + "`komando host rename`" + ` and the others do. When OLD names
+named OLD, as ` + "`komando host ssh rename`" + ` and the others do. When OLD names
 two kinds of entry (a server and a secret), it says which commands to use.
 
 With --starts-with: renames every server, conn, VPN, secret, key and group whose

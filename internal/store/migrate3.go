@@ -196,7 +196,7 @@ func noLiveProcesses(alive func(int, string) bool) error {
 	}
 	for _, n := range slices.Sorted(maps.Keys(rt.Tunnels)) {
 		if tn := rt.Tunnels[n]; alive(tn.PID, tn.ProcStart) {
-			running = append(running, fmt.Sprintf("tunnel %s (stop it: komando tunnel stop %s)", n, n))
+			running = append(running, fmt.Sprintf("tunnel %s (stop it: komando host ssh tunnel stop %s)", n, n))
 		}
 	}
 	for _, n := range slices.Sorted(maps.Keys(rt.Jobs)) {
@@ -208,7 +208,7 @@ func noLiveProcesses(alive func(int, string) bool) error {
 	// record here is the only way to stop it, so a record alone stops this
 	for _, n := range slices.Sorted(maps.Keys(rt.ExecSessions)) {
 		e := rt.ExecSessions[n]
-		running = append(running, fmt.Sprintf("exec session %s on %s (read it to the end: komando exec %s --attach %s; or stop it: komando exec %s --attach %s --stop, then komando exec %s --attach %s --remove)",
+		running = append(running, fmt.Sprintf("exec session %s on %s (read it to the end: komando host ssh exec %s --attach %s; or stop it: komando host ssh exec %s --attach %s --stop, then komando host ssh exec %s --attach %s --remove)",
 			n, e.Host, e.Host, n, e.Host, n, e.Host, n))
 	}
 	if len(running) > 0 {

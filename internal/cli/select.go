@@ -78,7 +78,7 @@ func resolveSelection(cl *call, st *store.State, expr string) (selection, error)
 		hint := "run `komando list` to see servers, conns, groups and tags"
 		near := ""
 		if len(st.Hosts)+len(st.Conns)+len(st.Vpns) == 0 {
-			hint = "your list is empty: add a server with `komando host add web1 deploy@10.0.0.5`, or import ~/.ssh/config with `komando import ssh-config`"
+			hint = "your list is empty: add a server with `komando host ssh add web1 deploy@10.0.0.5`, or import ~/.ssh/config with `komando import ssh-config`"
 		} else {
 			near = closestSelector(st, expr)
 		}
@@ -421,7 +421,7 @@ func editDistance(a, b string) int {
 // useFor says which command works with a target, for skip reasons and hints.
 func useFor(h *store.Host, c *store.Conn) string {
 	if h != nil {
-		return "a server: use `komando exec` and the other server commands"
+		return "a server: use `komando host ssh exec` and the other server commands"
 	}
 	return fmt.Sprintf("a %s conn: use `komando %s`", c.Kind, inventory.ConnFamily(c))
 }

@@ -118,7 +118,7 @@ func resolveClusters(cl *call, st *store.State, expr string) ([]clusterTarget, e
 		if len(sel.Hosts) == 1 && len(ts) == 0 || swarmManager(expr, h) {
 			ts = append(ts, clusterTarget{host: h})
 		} else {
-			cl.out.Skip(out.Skipped{Name: h.Name, Kind: "host", Reason: "a server: name it, or tag it swarm (`komando host edit " + h.Name + " --add-tag swarm`), to read it as a Swarm manager"})
+			cl.out.Skip(out.Skipped{Name: h.Name, Kind: "host", Reason: "a server: name it, or tag it swarm (`komando host ssh edit " + h.Name + " --add-tag swarm`), to read it as a Swarm manager"})
 		}
 	}
 	if len(ts) == 0 {

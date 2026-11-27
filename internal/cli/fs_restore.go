@@ -43,7 +43,7 @@ to see the change without making it.`,
 				return err
 			}
 			if w := windowsNames(hosts); len(w) > 0 {
-				return out.Usage("fs restore does not work on Windows servers yet (%s); copy the backup back with `komando exec %s -- Copy-Item ...`", strings.Join(w, ", "), w[0])
+				return out.Usage("fs restore does not work on Windows servers yet (%s); copy the backup back with `komando host ssh exec %s -- Copy-Item ...`", strings.Join(w, ", "), w[0])
 			}
 			if err := Guard(cl, st, hosts, "", true); err != nil {
 				return err
@@ -90,7 +90,7 @@ func (r restoreEdit) on(ctx context.Context, c *sshx.Client) (fsChange, error) {
 		return nil, err
 	}
 	if trunc {
-		return nil, out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "copy it back with `komando exec TARGET -- cp BACKUP PATH`", "%s is larger than 64MiB, the most fs restore reads", b)
+		return nil, out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "copy it back with `komando host ssh exec TARGET -- cp BACKUP PATH`", "%s is larger than 64MiB, the most fs restore reads", b)
 	}
 	cur, _, cerr := readRemote(r.cl, ctx, c, sc, p, r.sudo, 64<<20)
 	if cerr != nil && toErr(cerr).Code != "PATH_NOT_FOUND" {

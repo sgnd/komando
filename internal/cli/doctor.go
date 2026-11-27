@@ -235,7 +235,7 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 			}
 			hostDetail := countOf(len(st.Hosts), "server")
 			if len(st.Hosts) == 0 {
-				hostDetail = "none yet; add with `komando host add` or `komando import ssh-config`"
+				hostDetail = "none yet; add with `komando host ssh add` or `komando import ssh-config`"
 			}
 			add("hosts", len(st.Hosts) > 0, hostDetail)
 			add("keys", true, countOf(len(st.Keys), "SSH key"))

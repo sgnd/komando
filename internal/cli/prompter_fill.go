@@ -206,13 +206,13 @@ func (f *fill) pick(key string) string {
 // promptKinds says, for a list of existing things, what they are called
 // and how one is added; only these are ever picked for the person.
 var promptKinds = map[string]struct{ noun, add string }{
-	"server": {"servers", "komando host add"}, "host": {"servers", "komando host add"},
-	"target": {"servers or conns", "komando host add"}, "files": {"servers or file storage", "komando host add"},
+	"server": {"servers", "komando host ssh add"}, "host": {"servers", "komando host ssh add"},
+	"target": {"servers or conns", "komando host ssh add"}, "files": {"servers or file storage", "komando host ssh add"},
 	"conn": {"conns", "komando conn add"}, "db": {"databases", "komando db add"},
 	"cache": {"caches", "komando cache redis add"}, "queue": {"message queues", "komando queue add"},
 	"storage": {"file storages", "komando storage add"}, "cluster": {"clusters", "komando cluster add"},
 	"registry": {"registries", "komando registry oci add"}, "vpn": {"VPNs", "komando vpn add"},
-	"job": {"jobs", "komando job start"}, "tunnel": {"tunnels", "komando tunnel start"},
+	"job": {"jobs", "komando job start"}, "tunnel": {"tunnels", "komando host ssh tunnel start"},
 }
 
 // label is a question's name as the command spells it: CONN (database),

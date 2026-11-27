@@ -187,7 +187,7 @@ func checkShellDepth(cl *call, line, home, cwd string, depth int) guardDecision 
 				}
 			}
 		case base == "ssh" || base == "scp" || base == "sftp" || base == "mosh" || base == "sshpass":
-			return deny("use komando for servers (`komando exec`, `komando fs`, `komando cp`), not %s: komando checks every command, hides secrets and keeps an audit log", base)
+			return deny("use komando for servers (`komando host ssh exec`, `komando fs`, `komando cp`), not %s: komando checks every command, hides secrets and keeps an audit log", base)
 		case base == "rsync":
 			for _, a := range args {
 				if !strings.HasPrefix(a, "-") && !strings.Contains(a, "://") && remoteSpec.MatchString(a) {

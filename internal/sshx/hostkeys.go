@@ -76,7 +76,7 @@ func WritePinsFile(dir string, addrs []string) (string, error) {
 // FingerprintMismatch is host trust --fingerprint's error: the server shows
 // another key than the fingerprint given, so nothing was pinned.
 func FingerprintMismatch(host, want, offered string) *out.Error {
-	hint := fmt.Sprintf("possible man-in-the-middle, or the fingerprint of another key type: compare again with `ssh-keygen -lf` on %s's console for the key type it offers, then run `komando host trust %s --fingerprint` with that one; do not pin this key without it", host, host)
+	hint := fmt.Sprintf("possible man-in-the-middle, or the fingerprint of another key type: compare again with `ssh-keygen -lf` on %s's console for the key type it offers, then run `komando host ssh trust %s --fingerprint` with that one; do not pin this key without it", host, host)
 	return out.Errf(out.ExitConnect, "HOSTKEY_MISMATCH", hint,
 		"host key for %s is not the one given: --fingerprint %s, the server shows %s; nothing was pinned", host, want, offered)
 }

@@ -31,7 +31,7 @@ new one. It replaces the old value under the same name, so every server
 that uses it follows:
 
 ```bash
-komando host edit web1 --ask-password        # type the new one (stored as secret:web1-pass)
+komando host ssh edit web1 --ask-password        # type the new one (stored as secret:web1-pass)
 komando test web1
 ```
 

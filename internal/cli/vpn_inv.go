@@ -352,7 +352,7 @@ func vpnRmCmd() *cobra.Command {
 				var prot []string
 				for _, v := range vs {
 					if users := vpnUsers(s, v.Name); len(users) > 0 {
-						return out.Errf(out.ExitConflict, "VPN_IN_USE", "change their --via first: `komando host edit TARGET --via OTHER`", "VPN %s is on the --via path of %s", v.Name, strings.Join(users, ", "))
+						return out.Errf(out.ExitConflict, "VPN_IN_USE", "change their --via first: `komando host ssh edit TARGET --via OTHER`", "VPN %s is on the --via path of %s", v.Name, strings.Join(users, ", "))
 					}
 					if v.Protected {
 						prot = append(prot, v.Name)

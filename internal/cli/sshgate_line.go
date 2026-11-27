@@ -42,7 +42,7 @@ whose programs can connect anywhere and carry what they read in a URL or a
 DNS name. Add --network too for a read key that may do those.
 
 With --shell-access (not with --read-only) the key may also open a login
-shell on one server: ssh -t HOST komando shell SERVER, word for word. Its
+shell on one server: ssh -t HOST komando host ssh shell SERVER, word for word. Its
 line has restrict,pty, so sshd gives it a terminal when it asks for one.
 The shell is refused on a protected server, a Windows server or this
 computer, with any other word or flag, without the terminal, and on every
@@ -103,7 +103,7 @@ it ended), and a session with no input and no output for 30 minutes ends.`,
 	c.Flags().StringVar(&name, "name", "", "the key's name in the audit log (required)")
 	c.Flags().BoolVar(&readOnly, "read-only", false, "the key runs only commands that read")
 	c.Flags().BoolVar(&network, "network", false, "with --read-only: the key may also run reads that reach the network (net, cert check of a URL, exec --read-only)")
-	c.Flags().BoolVar(&shellAccess, "shell-access", false, "the key may also open a login shell on one server (ssh -t HOST komando shell SERVER); not with --read-only")
+	c.Flags().BoolVar(&shellAccess, "shell-access", false, "the key may also open a login shell on one server (ssh -t HOST komando host ssh shell SERVER); not with --read-only")
 	_ = c.MarkFlagRequired("name")
 	return c
 }

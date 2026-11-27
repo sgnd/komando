@@ -148,7 +148,7 @@ func unsafeFolder(p, stderr string) error {
 		}
 	}
 	return out.Errf(out.ExitConflict, "SHARED_FOLDER_CONFLICT",
-		"write it as "+as+" instead, for example `komando exec TARGET --sudo-user "+user+" --stdin-file FILE -- sh -c 'cat > \"$0\"' "+sshx.Q(p)+"`",
+		"write it as "+as+" instead, for example `komando host ssh exec TARGET --sudo-user "+user+" --stdin-file FILE -- sh -c 'cat > \"$0\"' "+sshx.Q(p)+"`",
 		"%s can be changed by %s, not only by root and the SSH user: as root, komando does not write %s there (that user could swap it for a link while root writes)", dir, by, pathLine(p))
 }
 
@@ -198,7 +198,7 @@ func writeRemoteSudo(cl *call, ctx context.Context, c *sshx.Client, sc *sftp.Cli
 		return nil, folderMissing(path.Dir(p))
 	case r.ExitCode != 0:
 		_ = sc.Remove(tmp)
-		return nil, out.Errf(out.ExitRemote, "REMOTE_WRITE_FAILED", "check that the folder is writable and has free space: `komando exec TARGET --read-only -- df -h`", "%s", strings.TrimSpace(r.Stderr))
+		return nil, out.Errf(out.ExitRemote, "REMOTE_WRITE_FAILED", "check that the folder is writable and has free space: `komando host ssh exec TARGET --read-only -- df -h`", "%s", strings.TrimSpace(r.Stderr))
 	}
 	res["mode"] = sudoInstallResult(r.Stdout, mode, o, res)
 	return res, nil

@@ -109,8 +109,8 @@ and give it the tag `swarm`, so a group or `all` picks it as a cluster too
 (see [Many clusters at once](#many-clusters-at-once)):
 
 ```bash
-komando host add swarm1 admin@10.0.0.10 --tag swarm
-komando host edit swarm1 --add-tag swarm     # a manager already in your list
+komando host ssh add swarm1 admin@10.0.0.10 --tag swarm
+komando host ssh edit swarm1 --add-tag swarm     # a manager already in your list
 ```
 
 `komando cluster add` typed alone at a terminal adds the tag for you when
@@ -474,7 +474,7 @@ is kubectl's namespace flag.
 | `K8S_FORBIDDEN` (exit 4) | the kubeconfig's user may not do this (Helm: list Secrets) | give the user the right, or name one namespace with `--namespace` |
 | `K8S_INVALID` (exit 2) | the cluster refused the request or the file as written | read the cluster's words in the message; fix the YAML or the `-l` selector |
 | `K8S_POD_NOT_FOUND` (exit 3) | the workload has no running pod to read or run in | `komando cluster list prod-k8s pods --namespace shop` |
-| `NOT_SWARM_MANAGER` (exit 3) | the server is not a Swarm manager | name a manager; `komando exec swarm1 --read-only -- docker node ls` shows whether it is one |
+| `NOT_SWARM_MANAGER` (exit 3) | the server is not a Swarm manager | name a manager; `komando host ssh exec swarm1 --read-only -- docker node ls` shows whether it is one |
 | `ROLLOUT_FAILED` (exit 5), `ROLLOUT_TIMEOUT` (exit 7) | the new version did not come up | `komando cluster describe prod-k8s deployment/api --namespace shop`, then `cluster rollback` |
 | `HIDDEN_VALUE` (exit 2) | the file holds a value komando hid from an AI agent | leave hidden entries out, or change one field with `cluster run ... --write -- set image` or `patch` |
 | `NEEDS_TERMINAL` (exit 2) | `cluster shell` needs a person | agents and scripts use `cluster exec` |

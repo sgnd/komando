@@ -190,7 +190,7 @@ func otherKindSay(st *store.State, cmd *cobra.Command, kind, name, one string) (
 		if one == "server" || one == "server, conn or VPN" {
 			return "", ""
 		}
-		what, use = "a server", "use it with `komando exec` and the other server commands"
+		what, use = "a server", "use it with `komando host ssh exec` and the other server commands"
 	case "conn":
 		c := st.Conns[name]
 		f := inventory.ConnFamily(c)
@@ -236,7 +236,7 @@ func addHint(cl *call, family, wanted string) string {
 	case family == "vpn" || wanted == "vpn":
 		return "add one with `komando vpn add NAME KIND` (see `komando vpn add --help`)"
 	}
-	return "add one with `komando host add NAME user@address`, or bring in ~/.ssh/config with `komando import ssh-config`"
+	return "add one with `komando host ssh add NAME user@address`, or bring in ~/.ssh/config with `komando import ssh-config`"
 }
 
 // fillHint puts the target into the commands a hint names with a
@@ -246,7 +246,7 @@ func addHint(cl *call, family, wanted string) string {
 // argument. TARGET is filled with a server or conn, SERVER only with a
 // server, CONN only with a conn, and NAME only in a command of the
 // target's own noun (`komando conn edit NAME` with a conn), so `vpn up
-// corp` never turns into `komando exec corp`. `komando test TARGET` takes
+// corp` never turns into `komando host ssh exec corp`. `komando test TARGET` takes
 // any of them or a VPN. `komando conn test` becomes `komando test`, the
 // one spelling.
 func fillHint(e *out.Error, target string) {

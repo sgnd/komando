@@ -320,8 +320,8 @@ in every area:
 2. **A raw path in the native language**, still classified, read-only by
    default and audited: `exec`, `db query`, `cache redis raw`,
    `cluster run -- <kubectl args>`.
-3. **Your own tool, through komando's path**: `komando tunnel start prod-db`
-   gives a local port for any client; `komando shell` opens SSH;
+3. **Your own tool, through komando's path**: `komando host ssh tunnel start prod-db`
+   gives a local port for any client; `komando host ssh shell` opens SSH;
    `komando db shell prod-db` opens komando's own SQL shell with the
    password from the vault.
 

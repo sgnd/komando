@@ -22,7 +22,7 @@ The words used in these docs, in plain language. [All docs](README.md)
 | Fingerprint / host key | A server's ID card. If it changes, komando does not connect (`HOSTKEY_MISMATCH`). |
 | Flag | An option added to a command, such as `--yes` or `--dry-run`. |
 | Group | A named set of servers and conns, used as a target with `@name` (for example `@web`). |
-| Host | The command word for a server: `komando host add`, `komando host edit`. Results name each target in a field called `host`. |
+| Host | The command word for a server: `komando host ssh add`, `komando host ssh edit`. Results name each target in a field called `host`. |
 | Job | A long task left running on a server, started with `komando job start`. |
 | JSON | Structured text that programs read easily. komando answers agents and scripts in JSON. |
 | Message queue | A service that passes messages from one app to another: Kafka, RabbitMQ, NATS, Amazon SQS, Google Cloud Pub/Sub. See [Queues](queues.md). |

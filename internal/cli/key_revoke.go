@@ -222,7 +222,7 @@ func guardRevokeSelf(cl *call, st *store.State, hosts []*store.Host, key string)
 	}
 	askTypes(cl, []string{key}, "keys")
 	return GuardConns(cl, st, nil, driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"key-revoke-self"},
-		Reasons: []string{"komando logs in to " + strings.Join(self, ", ") + " with this key; switch them first (`komando host edit TARGET --key OTHER`)"}})
+		Reasons: []string{"komando logs in to " + strings.Join(self, ", ") + " with this key; switch them first (`komando host ssh edit TARGET --key OTHER`)"}})
 }
 
 // revokeEdit removes the key ($2) from $1/.ssh/authorized_keys and prints

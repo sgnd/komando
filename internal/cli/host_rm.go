@@ -43,7 +43,7 @@ func hostsInUse(s *store.State, names []string, batch map[string]bool) error {
 		for _, o := range s.SortedHosts() {
 			if !batch[o.Name] && slices.Contains(inventory.ViaChain(o.Via), n) {
 				users = append(users, "server "+o.Name+viaNote(names, n))
-				fixes = append(fixes, "`komando host edit "+o.Name+" --unset via`")
+				fixes = append(fixes, "`komando host ssh edit "+o.Name+" --unset via`")
 			}
 		}
 		for _, c := range s.SortedConns() {
@@ -76,9 +76,9 @@ func hostRmCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "rm TARGET...",
 		Short: "Remove servers (from komando only)",
-		Example: `  komando host rm web3
-  komando host rm @old --dry-run     # what a selector would remove
-  komando host rm 'tmp-*'`,
+		Example: `  komando host ssh remove web3
+  komando host ssh remove @old --dry-run     # what a selector would remove
+  komando host ssh remove 'tmp-*'`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			var names, kept, unused []string
@@ -125,7 +125,7 @@ func hostRmCmd() *cobra.Command {
 			res := rmResult{Removed: names, HostKeysKept: kept, SecretsUnused: unused, dryRun: cl.dryRun()}
 			if len(kept) > 0 {
 				res.Note = "the pinned host keys of " + strings.Join(kept, ", ") + " stay in komando's known_hosts, so a server added again at the same address has to show the same key. " +
-					"If it was rebuilt, add it again and replace the pin with `komando host trust NAME --reset` (a person confirms the new key)"
+					"If it was rebuilt, add it again and replace the pin with `komando host ssh trust NAME --reset` (a person confirms the new key)"
 			}
 			cl.out.Print("host.rm", res, nil)
 			return nil

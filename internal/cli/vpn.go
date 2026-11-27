@@ -38,8 +38,8 @@ connects it, using the login you saved:
 
   komando vpn add office wireguard --config ~/Downloads/office.conf
   komando vpn add client-x globalprotect --portal vpn.client.com --user alice --password-ref secret:client-x --mfa
-  komando host add app admin@10.0.0.5 --via office,bastion
-  komando exec app -- uptime
+  komando host ssh add app admin@10.0.0.5 --via office,bastion
+  komando host ssh exec app -- uptime
 
 VPNs with --mfa need a person: run ` + "`komando vpn up NAME`" + ` once and later
 commands (and agents) reuse that session. komando never answers MFA.
