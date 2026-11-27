@@ -21,6 +21,7 @@ var (
 	// S-5.1 exceptions: --wait is a bool on cluster commands; --config a file on vpn add, KEY=VALUE on queue create;
 	// --new a bool on secret set (create only), the replacement text on fs replace
 	allowFlagTypes = []string{
+		"--attach", // host ssh shell (a tmux session) and host ssh exec (session IDs): the v0.18.0 flag review gives them one word each
 		"--config",
 		"--new",
 		"--wait",
