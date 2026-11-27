@@ -33,23 +33,12 @@ import (
 // Tunnels run as detached background komando processes so that an agent's
 // tool call returns immediately while the forward stays up.
 
+// tunnelCmd is the tunnel group of today's tree, left with the one command
+// that tunnel start starts in the background (tunnel serve). The commands a
+// person types are `host ssh tunnel VERB`.
 func tunnelCmd() *cobra.Command {
-	c := &cobra.Command{
-		Use:     "tunnel",
-		Aliases: []string{"pf"},
-		Short:   "Background port forwarding: start, see, stop",
-		Long: `Specs:
-  -L [bind:]LPORT:RHOST:RPORT   local port -> RHOST:RPORT as seen from the server
-  -R [rbind:]RPORT:LHOST:LPORT  server port -> LHOST:LPORT on this computer
-  -D [bind:]PORT                SOCKS5 proxy through the server
-LPORT/PORT 0 picks a free port; the chosen address is returned.
-IPv6 addresses go in brackets, as with ssh: -L 8080:[::1]:80.`,
-		Example: `  komando tunnel start db1 -L 15432:localhost:5432
-  komando tunnel start bastion -D 1080
-  komando tunnel list
-  komando tunnel stop t1102-...`,
-	}
-	c.AddCommand(tunnelStartCmd(), tunnelListCmd(), tunnelStopCmd(), tunnelServeCmd(), tunnelShowCmd())
+	c := &cobra.Command{Use: "tunnel", Short: "Background port forwarding: start, see, stop", Hidden: true}
+	c.AddCommand(tunnelServeCmd())
 	return c
 }
 

@@ -92,8 +92,8 @@ func listCmd() *cobra.Command { return listCmdFor("") }
 
 func listCmdFor(only string) *cobra.Command { return listCmdKind(only, "") }
 
-// listCmdKind is listCmdFor that keeps only the conns of one kind (a
-// provider's list: `cache redis list`).
+// listCmdKind is listCmdFor that keeps only the servers or conns of one kind
+// (a provider's list: `cache redis list`, `host ssh list`).
 func listCmdKind(only, kind string) *cobra.Command {
 	var target string
 	var limit int
@@ -119,6 +119,7 @@ func listCmdKind(only, kind string) *cobra.Command {
 			}
 			picked := sel
 			if kind != "" {
+				sel.Hosts = slices.DeleteFunc(slices.Clone(sel.Hosts), func(h *store.Host) bool { return hostProvider(h) != kind })
 				sel.Conns = slices.DeleteFunc(slices.Clone(sel.Conns), func(c *store.Conn) bool { return c.Kind != kind })
 			}
 			if sel = keepOnly(sel, only); target != "" && only != "" && len(sel.Hosts)+len(sel.Conns)+len(sel.Vpns) == 0 {

@@ -95,32 +95,6 @@ func synonymWrapper(of *cobra.Command, use, id, now string, args cobra.Positiona
 	return c
 }
 
-// tunnelShowCmd is `tunnel show TUNNEL`: tunnel list for one tunnel.
-func tunnelShowCmd() *cobra.Command {
-	c := &cobra.Command{
-		Use:    "show TUNNEL",
-		Short:  "Same as `komando tunnel list`, for one tunnel",
-		Hidden: true,
-		Args:   cobra.ExactArgs(1),
-		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			st, err := loadState()
-			if err != nil {
-				return err
-			}
-			t, ok := st.Tunnels[args[0]]
-			if !ok {
-				return out.NotFound("tunnel", args[0])
-			}
-			row := tunnelRow{Tunnel: t, Alive: tunnelAlive(t), Listen: tunnelListen(t)}
-			cl.out.Print("tunnel.list", tunnelList{Count: 1, Tunnels: []tunnelRow{row}}, nil)
-			return nil
-		}),
-	}
-	withID(c, "tunnel.list")
-	c.Annotations[synonymNote] = "tunnel list"
-	return c
-}
-
 // recipeShowCmd is `recipe show NAME`: recipe list for one recipe.
 func recipeShowCmd() *cobra.Command {
 	c := &cobra.Command{

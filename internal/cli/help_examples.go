@@ -76,11 +76,24 @@ var examples = map[string]string{
 		"  komando group add web web1,web2 --dry-run\n" +
 		"  komando group add web web1,web2\n" +
 		"  komando group rm web web2",
-	"komando host": "  komando host add web1 deploy@10.0.0.5\n" +
-		"  komando test web1\n" +
-		"  komando host edit web1 --protected --dry-run\n" +
-		"  komando host edit web1 --protected\n" +
-		"  komando host rm web1                              # from komando only",
+	"komando host": "  komando host ssh add web1 deploy@10.0.0.5\n" +
+		"  komando host ssh test web1\n" +
+		"  komando host ssh exec web1 -- uptime\n" +
+		"  komando host winrm add win1 Administrator@10.0.0.9 --ask-password\n" +
+		"  komando host ssh remove web1                      # from komando only",
+	"komando host ssh": "  komando host ssh add web1 deploy@10.0.0.5 --dry-run\n" +
+		"  komando host ssh add web1 deploy@10.0.0.5\n" +
+		"  komando host ssh test web1\n" +
+		"  komando host ssh exec web1 -- uptime\n" +
+		"  komando host ssh tunnel start db1 -L 15432:localhost:5432",
+	"komando host ssh tunnel": "  komando host ssh tunnel start db1 -L 15432:localhost:5432\n" +
+		"  komando host ssh tunnel start bastion -D 1080\n" +
+		"  komando host ssh tunnel list\n" +
+		"  komando host ssh tunnel stop --all",
+	"komando host winrm": "  komando host winrm add win1 Administrator@10.0.0.9 --ask-password --dry-run\n" +
+		"  komando host winrm add win1 Administrator@10.0.0.9 --ask-password\n" +
+		"  komando host winrm test win1\n" +
+		"  komando host winrm exec win1 -- 'Get-Date'",
 	"komando job": "  komando job start @web -- ./deploy.sh\n" +
 		"  komando job list\n" +
 		"  komando job wait j1103-101500-ab12cd34 --timeout 30m\n" +

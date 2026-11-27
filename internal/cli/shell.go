@@ -13,20 +13,19 @@ import (
 )
 
 // shellCmd is the interactive login shell, meant for humans taking over
-// from an agent. Agents should use exec / job instead.
+// from an agent. Agents should use `host ssh exec` instead.
 func shellCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "shell SERVER",
-		Aliases: []string{"ssh", "connect"},
-		Short:   "Open a login shell on one server",
+		Use:   "shell SERVER",
+		Short: "Open a login shell on one server",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 1 {
 				// `ssh host command` runs a command in ssh; here that is exec
-				hint := "run a command with `komando exec " + args[0] + " -- " + strings.Join(args[1:], " ") + "`"
-				if err := komandoFlagsAfterDash("exec "+args[0], args[1:]); err != nil {
+				hint := "run a command with `komando host ssh exec " + args[0] + " -- " + strings.Join(args[1:], " ") + "`"
+				if err := komandoFlagsAfterDash("host ssh exec "+args[0], args[1:]); err != nil {
 					hint = toErr(err).Hint
 				}
-				return out.Errf(out.ExitUsage, "USAGE", hint, "komando %s opens an interactive shell and takes no command", cmd.CalledAs())
+				return out.Errf(out.ExitUsage, "USAGE", hint, "komando host ssh shell opens an interactive shell and takes no command")
 			}
 			return cobra.ExactArgs(1)(cmd, args)
 		},
