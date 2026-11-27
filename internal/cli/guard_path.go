@@ -426,20 +426,35 @@ func protectedName(cl *call, name, home string) bool {
 // and at each character of an IFS value the line sets. An IFS the guard
 // cannot know leaves them unknown.
 func (v lineVars) fields(vals []string) ([]string, bool) {
-	seps := " \t\n"
-	if ifs, ok := v["IFS"]; ok {
-		if ifs == nil {
-			return vals, false
-		}
-		seps += strings.Join(ifs, "")
+	seps, ok := v.separators()
+	if !ok {
+		return vals, false
 	}
 	out := vals
 	for _, val := range vals {
-		if f := strings.FieldsFunc(val, func(r rune) bool { return strings.ContainsRune(seps, r) }); len(f) > 1 {
+		if f := splitAt(val, seps); len(f) > 1 {
 			out = append(out, f...)
 		}
 	}
 	return out, true
+}
+
+// separators are the characters the shell may split a value at: blanks,
+// and each character of an IFS value the line sets; ok is false when the
+// line sets IFS to a value the guard cannot know.
+func (v lineVars) separators() (seps string, ok bool) {
+	seps = " \t\n"
+	ifs, set := v["IFS"]
+	if set && ifs == nil {
+		return seps, false
+	}
+	return seps + strings.Join(ifs, ""), true
+}
+
+// splitAt is val's fields between the characters of seps, empty ones left
+// out.
+func splitAt(val, seps string) []string {
+	return strings.FieldsFunc(val, func(r rune) bool { return strings.ContainsRune(seps, r) })
 }
 
 // values are the values name may have when the line uses it, and whether

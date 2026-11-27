@@ -512,34 +512,37 @@ type treeWord struct {
 
 // treeLines are the argument lists the program may get, so `rm {-rf,~}` and
 // `f=-rf; rm $f ~` give their options: one list for each choice among the
-// values the guard knows a word may have, each value split at blanks and
-// brace lists expanded. Past 64 choices one list holds every value, and
-// flat is set. whole is false when a brace list gives more names than the
-// guard reads.
+// values the guard knows a word may have, a value both whole (quoted, or
+// in zsh) and split at the line's separators, brace lists expanded. Past 64
+// choices one list holds every value, and flat is set. whole is false when
+// a brace list gives more names than the guard reads.
 func treeLines(cl *call, args []string, globs []bool, vars lineVars, home, cwd string) (lines [][]treeWord, flat, whole bool) {
+	seps, _ := vars.separators()
 	lines, all := [][]treeWord{nil}, []treeWord(nil)
 	for i, a := range args {
 		vals, _ := vars.expand(cl, a, home, cwd)
 		var alts [][]treeWord
 		for _, v := range vals {
-			fields := []string{v}
-			if v != a {
-				fields = strings.Fields(v)
+			ways := [][]string{{v}}
+			if f := splitAt(v, seps); v != a && !slices.Equal(f, ways[0]) {
+				ways = append(ways, f)
 			}
-			var seq []treeWord
-			for _, f := range fields {
-				glob := globs[i] || v != a && wordHasGlob(f)
-				pats := []string{f}
-				if glob && strings.Contains(f, "{") {
-					if pats, whole = expandBraces(f); !whole {
-						return nil, false, false
+			for _, fields := range ways {
+				var seq []treeWord
+				for _, f := range fields {
+					glob := globs[i] || v != a && wordHasGlob(f)
+					pats := []string{f}
+					if glob && strings.Contains(f, "{") {
+						if pats, whole = expandBraces(f); !whole {
+							return nil, false, false
+						}
+					}
+					for _, p := range pats {
+						seq = append(seq, treeWord{p, glob && wordHasGlob(p)})
 					}
 				}
-				for _, p := range pats {
-					seq = append(seq, treeWord{p, glob && wordHasGlob(p)})
-				}
+				alts, all = append(alts, seq), append(all, seq...)
 			}
-			alts, all = append(alts, seq), append(all, seq...)
 		}
 		if lines == nil || len(lines)*len(alts) > 64 {
 			lines = nil // too many choices: all holds every value

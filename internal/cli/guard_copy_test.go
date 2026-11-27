@@ -147,6 +147,24 @@ func TestGuardFolderRulePastTheChoicesReadsEveryOperand(t *testing.T) {
 	}, false)
 }
 
+// The folder rule splits a value where the shell may: at the line's own
+// IFS, never at \v, \f, \r or a non-breaking space; and a quoted value
+// stays one word.
+func TestGuardFolderRuleSplitsValuesAsTheShellDoes(t *testing.T) {
+	home, repo := guardLineHome(t)
+	checkRefusedBy(t, home, home, []string{
+		`S=$'x\v-S'; mkdir -p /tmp/k; mv "$S" ~/.ssh /tmp/k`,
+		"S='x -S'; mkdir -p /tmp/k; mv \"$S\" ~/.ssh /tmp/k",
+		`IFS=,; o="$HOME/.ssh,/tmp/k"; mv $o`,
+		`IFS=,; o="-rf,$HOME"; rm $o`,
+		`mkdir -p "$HOME/x y"; d="$HOME/x y/.."; rm -rf "$d"`,
+	}, treeRefusal)
+	checkLines(t, home, repo, []string{
+		`S='a b'; mv "$S" /tmp/out`,
+		`IFS=,; o="build,/tmp/out"; mv $o`,
+	}, false)
+}
+
 // Copies and links in project and temporary folders stay allowed.
 func TestGuardOrdinaryCopiesStayAllowed(t *testing.T) {
 	home, repo := guardLineHome(t)
