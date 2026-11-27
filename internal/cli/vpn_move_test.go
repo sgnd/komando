@@ -16,6 +16,7 @@ func TestVpnMoveNamesPasswordsBehindIt(t *testing.T) {
 	noAgent(t)
 	mustRun(t, "vpn", "socks", "add", "lab", "--proxy-address", "127.0.0.1:1080")
 	mustRun(t, "host", "ssh", "add", "jump", "u@10.0.0.1", "--via", "lab", "--identity", writeTemp(t, "id", "k"))
+	saveSecrets(t, "db1-pass")
 	mustRun(t, "host", "ssh", "add", "db1", "u@10.0.0.2", "--via", "jump", "--credential", "db1-pass")
 	mustRun(t, "conn", "add", "app-db", "postgres://a@10.0.0.3/x", "--via", "lab", "--password-ref", "credential:app-pass")
 	mustRun(t, "host", "ssh", "add", "keyonly", "u@10.0.0.4", "--via", "lab", "--identity", writeTemp(t, "id2", "k"))
@@ -52,6 +53,7 @@ func TestVpnMoveNeighbours(t *testing.T) {
 		noAgent(t)
 		mustRun(t, "vpn", "socks", "add", "lab", "--proxy-address", "127.0.0.1:1080")
 		mustRun(t, "vpn", "socks", "add", "other", "--proxy-address", "127.0.0.1:1081")
+		saveSecrets(t, "db1-pass")
 		mustRun(t, "host", "ssh", "add", "db1", "u@10.0.0.2", "--via", "lab", "--credential", "db1-pass")
 		setCallerEnv(t, "KOMANDO_AGENT", "1")
 	}
@@ -62,6 +64,7 @@ func TestVpnMoveNeighbours(t *testing.T) {
 	t.Run("a new VPN under a name the way already names", func(t *testing.T) {
 		setup(t)
 		noAgent(t)
+		saveSecrets(t, "db2-pass")
 		_, e := invRun(t, "host", "ssh", "add", "db2", "u@10.0.0.3", "--via", "ghost", "--credential", "db2-pass")
 		setCallerEnv(t, "KOMANDO_AGENT", "1")
 		if e == nil {

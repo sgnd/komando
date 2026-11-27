@@ -59,8 +59,8 @@ func TestAskPassword(t *testing.T) {
 		t.Errorf("edit did not store the new password: %q", v)
 	}
 	// a secret of that name that another server uses is never replaced
-	mustRun(t, "host", "ssh", "add", "other", "root@10.0.0.21", "--credential", "web9-pass")
 	setSecret(t, "web9-pass", "keep-me")
+	mustRun(t, "host", "ssh", "add", "other", "root@10.0.0.21", "--credential", "web9-pass")
 	if e := wantCode(t, "SECRET_EXISTS", "host", "ssh", "add", "web9", "root@10.0.0.22", "--ask-password"); !strings.Contains(e.Message, "host other") {
 		t.Errorf("collision: %+v", e)
 	}

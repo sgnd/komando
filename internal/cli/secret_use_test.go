@@ -146,6 +146,7 @@ func TestSecretDestinationsNeedAPerson(t *testing.T) {
 		t.Fatalf("nothing new goes anywhere: %q", *texts)
 	}
 
+	saveSecrets(t, "web1-pass")
 	mustRun(t, "host", "ssh", "edit", "web1", "--credential", "web1-pass", "--yes")
 	if len(*texts) != 1 || !strings.Contains((*texts)[0], "credential:web1-pass to root@10.0.0.1:22 (server web1)") {
 		t.Fatalf("window: %q", *texts)
