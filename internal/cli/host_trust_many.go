@@ -3,16 +3,20 @@ package cli
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
 
 	"golang.org/x/crypto/ssh"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/spf13/cobra"
 )
 
 // `host trust TARGET` pins the host keys of one server or many, with one
@@ -295,4 +299,189 @@ func trustDryText(rows []map[string]any) out.Texter {
 		}
 		return b.String()
 	})
+}
+
+// The host type of the table: komando host ssh|winrm VERB. The verbs are
+// today's commands run through runBody (add, edit, list, show, rename,
+// remove, test, exec, shell, trust and the tunnel verbs), each on the
+// servers of its provider only: the provider in the path must be the one the
+// server was saved with (WRONG_KIND). The provider groups, their texts and
+// their options come from the table when the tree is mounted.
+
+func init() {
+	for _, p := range []string{"ssh", "winrm"} {
+		key := func(verb string) capability.Key { return capability.Key{Type: "host", Provider: p, Verb: verb} }
+		on := func(verb string, body func() *cobra.Command, targets func(leafInput) []string) {
+			handlers[key(verb)] = func(cl *call, ctx context.Context, in leafInput) error {
+				if err := withHostTargets(cl, targets(in), p, verb); err != nil {
+					return err
+				}
+				return runBody(cl, ctx, body(), hostBodyInput(in), nil)
+			}
+		}
+		first := func(in leafInput) []string { return in.Args[:min(1, len(in.Args))] }
+		all := func(in leafInput) []string { return in.Args }
+		handlers[key("add")] = func(cl *call, ctx context.Context, in leafInput) error {
+			if err := hostAddressOfProvider(&in, p); err != nil {
+				return err
+			}
+			return runBody(cl, ctx, hostAddCmd(), hostBodyInput(in), nil)
+		}
+		on("edit", hostEditCmd, all)
+		on("show", hostShowCmd, first)
+		on("rename", hostMvCmd, first)
+		on("remove", hostRmCmd, all)
+		handlers[key("list")] = func(cl *call, ctx context.Context, in leafInput) error {
+			return runBody(cl, ctx, listCmdKind("host", p), in, nil)
+		}
+		handlers[key("test")] = func(cl *call, ctx context.Context, in leafInput) error {
+			if !in.Changed("end") || len(in.Args) > 0 {
+				if err := withHostTargets(cl, in.Args, p, "test"); err != nil {
+					return err
+				}
+			}
+			return runBody(cl, ctx, testCmdFor("host"), in, nil)
+		}
+		on("exec", execCmd, first)
+		handlers[key("shell")] = func(cl *call, ctx context.Context, in leafInput) error {
+			if in.Changed("attach") {
+				return out.Usage("--attach comes with shell sessions, which this build does not have yet")
+			}
+			if err := withHostTargets(cl, in.Args, p, "shell"); err != nil {
+				return err
+			}
+			return runBody(cl, ctx, shellCmd(), in, nil)
+		}
+	}
+	on := func(verb string, body func() *cobra.Command) {
+		handlers[capability.Key{Type: "host", Provider: "ssh", Verb: verb}] = func(cl *call, ctx context.Context, in leafInput) error {
+			if err := withHostTargets(cl, in.Args, "ssh", verb); err != nil {
+				return err
+			}
+			return runBody(cl, ctx, body(), in, nil)
+		}
+	}
+	on("trust", hostTrustCmd)
+	for verb, body := range map[string]func() *cobra.Command{"start": tunnelStartCmd, "list": tunnelListCmd, "stop": tunnelStopCmd} {
+		handlers[capability.Key{Type: "host", Provider: "ssh", Area: "tunnel", Verb: verb}] = func(cl *call, ctx context.Context, in leafInput) error {
+			return runBody(cl, ctx, body(), in, nil)
+		}
+	}
+	moveType("host")
+	providerIDs["tunnel"] = true // the hidden group of tunnel serve keeps its old key, which host ssh tunnel has too
+	groupShorts["host ssh"] = "SSH servers: save them, run commands on them, tunnel through them"
+	groupShorts["host winrm"] = "Windows servers over WinRM: save them and run commands on them"
+	groupShorts["host ssh tunnel"] = "Background tunnels through a server: start, list, stop"
+}
+
+// hostProvider is the word of the provider a server was saved with.
+func hostProvider(h *store.Host) string {
+	if h.WinRM() {
+		return "winrm"
+	}
+	return "ssh"
+}
+
+// hostIsOf is nil when h is a server of this provider; another provider is
+// WRONG_KIND with the path that fits it.
+func hostIsOf(h *store.Host, provider, verb string) error {
+	if p := hostProvider(h); p != provider {
+		return out.Errf(out.ExitUsage, "WRONG_KIND", "use `komando host "+p+" "+verb+" "+h.Name+"`",
+			"%s is a %s server, not a %s one", h.Name, p, provider)
+	}
+	return nil
+}
+
+// withHostTargets is nil when every server the targets name or pick is of
+// this provider. A name that is no server, or a selector that picks none, is
+// left to the command to say.
+func withHostTargets(cl *call, targets []string, provider, verb string) error {
+	if len(targets) == 0 {
+		return nil
+	}
+	st, err := loadState()
+	if err != nil {
+		return err
+	}
+	for _, t := range targets {
+		if h := st.Hosts[t]; h != nil {
+			if err := hostIsOf(h, provider, verb); err != nil {
+				return err
+			}
+			continue
+		}
+		if !isSelector(t) {
+			continue
+		}
+		sel, err := resolveSelection(cl, st, t)
+		if err != nil {
+			return err
+		}
+		for _, h := range sel.Hosts {
+			if err := hostIsOf(h, provider, verb); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// hostAddressOfProvider makes the address of add what today's add reads: a
+// WinRM server is written winrm://USER@ADDRESS, which `host winrm add` puts
+// before the address it is given; an SSH server is not written that way.
+func hostAddressOfProvider(in *leafInput, provider string) error {
+	fix := func(a string) (string, error) {
+		switch {
+		case a == "":
+			return a, nil
+		case provider == "winrm" && !isWinRMAddress(a):
+			return "winrm://" + a, nil
+		case provider == "ssh" && isWinRMAddress(a):
+			return "", out.Errf(out.ExitUsage, "WRONG_KIND", "use `komando host winrm add`", "%s is a WinRM address, not an SSH one", a)
+		}
+		return a, nil
+	}
+	if len(in.Args) == 2 {
+		a, err := fix(in.Args[1])
+		if err != nil {
+			return err
+		}
+		in.Args = []string{in.Args[0], a}
+	}
+	if p, ok := in.vals["address"].(*string); ok && *p != "" {
+		a, err := fix(*p)
+		if err != nil {
+			return err
+		}
+		*p = a
+	}
+	return nil
+}
+
+// hostBodyInput is the input as today's host commands read it: the sudo
+// credential is their --sudo-ref, a reference to a credential.
+func hostBodyInput(in leafInput) leafInput {
+	if p, ok := in.vals["sudo-credential"].(*string); ok {
+		in.vals = maps.Clone(in.vals)
+		in.vals["sudo-ref"] = &[]string{credentialRef(*p)}[0]
+		delete(in.vals, "sudo-credential")
+		changed := in.changed
+		in.changed = func(n string) bool {
+			if n == "sudo-ref" {
+				n = "sudo-credential"
+			}
+			return changed(n)
+		}
+	}
+	if p, ok := in.vals["unset"].(*[]string); ok {
+		words := slices.Clone(*p)
+		for i, w := range words {
+			if w == "sudo-credential" {
+				words[i] = "sudo-ref"
+			}
+		}
+		in.vals = maps.Clone(in.vals)
+		in.vals["unset"] = &words
+	}
+	return in
 }

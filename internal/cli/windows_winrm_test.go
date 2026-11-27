@@ -193,3 +193,24 @@ func TestSecretRefInWinRMCA(t *testing.T) {
 		t.Errorf("host rm: %v", d)
 	}
 }
+
+// A selector that picks a server of another provider is WRONG_KIND under the
+// path that does not fit it, whether it names a group or a label, and the
+// hint names the path that does.
+func TestHostProviderPathSelectors(t *testing.T) {
+	invHome(t)
+	t.Setenv("WIN_PW", "x")
+	mustRun(t, "host", "ssh", "add", "s1", "u@10.0.0.1", "--group", "mixed", "--label", "k=v")
+	mustRun(t, "host", "winrm", "add", "w1", "Administrator@10.0.0.2", "--group", "mixed", "--label", "k=v", "--credential", "env:WIN_PW")
+	for _, sel := range []string{"@mixed", "label:k=v", "s1,w1"} {
+		for _, provider := range []string{"ssh", "winrm"} {
+			e := wantCode(t, "WRONG_KIND", "host", provider, "edit", sel, "--notes", "x")
+			other := map[string]string{"ssh": "w1", "winrm": "s1"}[provider]
+			if !strings.Contains(e.Message, other) {
+				t.Errorf("host %s edit %s: %q does not name %s", provider, sel, e.Message, other)
+			}
+		}
+	}
+	mustRun(t, "host", "ssh", "edit", "s1", "--notes", "x")
+	mustRun(t, "host", "winrm", "edit", "w1", "--notes", "x")
+}
