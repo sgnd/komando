@@ -5817,8 +5817,13 @@ set up now (a password, for example) and appends the key to
 ~/.ssh/authorized_keys unless it is already there. With --set-default the
 servers then log in with this key.
 
-Safety: a change; try it with --dry-run first; on a protected server or
-conn, a person's yes (--yes) as well.
+Safety: a change; try it with --dry-run first; with --public-key-file: only
+a person at a terminal can run it; on a protected server or conn, a person's
+yes (--yes) as well.
+
+With --public-key-file and --user (no NAME), a person installs a phone's key
+for that user on one server, always behind the server's own komando gate
+(restrict, ssh-gate --here; from= with --from-address).
 
 Usage:
   komando key deploy NAME TARGET [flags]
@@ -5827,10 +5832,14 @@ Examples:
   komando key gen deploy && komando key deploy deploy @web --set-default
   komando key deploy ~/.ssh/id_ed25519.pub web1
   komando key deploy ~/.ssh/id_ed25519.pub web1 --dry-run
+  komando key deploy web1 --user anna --public-key-file anna-phone.pub --from-address 10.0.0.0/8
 
 Flags:
+      --from-address string        with --public-key-file: the addresses the device logs in from, as the server sees them (from= in authorized_keys)
   -h, --help[=true|false]          help for deploy
+      --public-key-file string     a device's public key file (a phone's): install it for --user behind komando's gate on the server; a person at a terminal only
       --set-default[=true|false]   servers that got the key log in with it from now on
+      --user string                with --public-key-file: the user the device logs in as (never root)
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -11009,8 +11018,10 @@ exit 0
 Through an SSH key that ssh-gate limits, prints the key's name and what it
 may do: change things, or read only, whether its reads may reach the
 network (--network on its line), and whether it may open a login shell on
-a server (--shell-access on its line). ssh-gate answers it itself, so an app
-can check what its key is before it sends anything else. Typed on the
+a server (--shell-access on its line), and whether it acts on this server
+only (here: a phone's key on a server, see key deploy --public-key-file).
+ssh-gate answers it itself, so an app can check what its key is before it
+sends anything else. Typed on the
 komando computer, it says the command did not come through a key.
 
 Usage:

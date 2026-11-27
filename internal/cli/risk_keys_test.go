@@ -182,6 +182,7 @@ var whenProbes = []string{
 	"host trust web1 --reset",
 	"export --sealed",
 	"export --for-phone",
+	"key deploy web1 --user anna --public-key-file k.pub",
 	"import komando backup.json",
 	"group rm big",
 	"policy edit rm-root --off",

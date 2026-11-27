@@ -169,7 +169,7 @@ job.status	plain=read	highest=read
 job.wait	plain=read	highest=read
 key	plain=read	highest=read
 key.add	plain=change	highest=read
-key.deploy	plain=change	highest=read
+key.deploy	plain=change	highest=person
 key.edit	plain=change	highest=read
 key.gen	plain=change	highest=read
 key.list	plain=read	highest=read
@@ -216,6 +216,7 @@ probe host edit web1 --proxy-command nc	safety
 probe host trust web1 --reset	person
 probe import komando backup.json	person
 probe import kubeconfig	safety
+probe key deploy web1 --user anna --public-key-file k.pub	person
 probe key rm k1 --delete-file	dangerous
 probe pkg rm web1 openssh-server	dangerous
 probe pkg upgrade web1 --security	dangerous

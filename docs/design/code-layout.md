@@ -79,6 +79,8 @@ or a listed one is gone.
 | `internal/capability` | the command tree of the next command structure as data: types, providers, areas, verbs, options and tier rows; until the switch, `internal/cli` reads only the keys of its safety tables from it |
 | `internal/ci` | test only: runs the scripts inside the GitHub workflows (the CLA check) |
 | `internal/cli` | every command: flags, safety checks, audit and output |
+| `internal/cli/kit/gatehere` | the rules of ssh-gate's server mode (`--here`): which commands a phone's key may run on the server, the files the gate protects and the files it never reads; pure, the cli hands in the paths and the words |
+| `internal/cli/kit/phonekey` | what `key deploy --public-key-file` checks and writes: a phone's public key line behind komando's gate, the facts read from the server, and the scripts that probe and write them; nothing is spliced into a script's text |
 | `internal/cli/kit/term` | what every command prints: terminal column widths, text tables, the line of an empty list, whether the terminal reads escape sequences, reading one answer at the terminal, and the raw-mode screen and the keys of the interactive mode; no cobra, no komando state. Code every command package shares moves into `kit` one part at a time |
 | `internal/cloud` | komando's own clients for cloud and secret-manager APIs |
 | `internal/gcpadc` | finds Google application-default credentials for every client that uses them, after checking where the file found would send what |
@@ -142,6 +144,8 @@ row allows, or a row has no code.
 
 | Package | May import |
 |---|---|
+| `internal/cli/kit/gatehere` | std |
+| `internal/cli/kit/phonekey` | std, `internal/engine`, `golang.org/x/crypto/ssh` |
 | `internal/cli/kit/term` | std, `internal/out`, `golang.org/x/text`, `golang.org/x/term`, `golang.org/x/sys/unix` (unix), `golang.org/x/sys/windows` (windows) |
 
 ## Files in internal/cli

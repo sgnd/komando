@@ -197,6 +197,7 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `db shell` | always | person |  |
 | `cluster kubernetes shell` | always | person |  |
 | `host ca add` | always | person |  |
+| `key deploy` | with --public-key-file | person |  |
 | `host trust` | with --reset | person |  |
 | `db dump` | when an AI agent runs it (the file holds every row, secrets included) | person |  |
 | `export` | with --sealed | person |  |
@@ -506,6 +507,84 @@ Give each device its own key and name, so `komando audit` tells them apart
 and you can remove one line to lock one device out. The key reaches komando
 as the account it logs in to: use that account for komando only, or one
 with only the permissions komando needs.
+
+## A phone's key on a server (server mode)
+
+The lines above are for a key on the komando computer. A phone (the iPhone
+app) logs in to a server itself, as a named user there, and runs komando on
+that server through the same gate in server mode (`ssh-gate --here`). A
+person installs its key from the komando computer:
+
+```bash
+komando key deploy web1 --user anna --public-key-file komando-phone-anna.pub
+komando key deploy web1 --user anna --public-key-file komando-phone-anna.pub --from-address 10.0.0.0/8
+```
+
+The line it writes in `anna`'s `~/.ssh/authorized_keys` on `web1` is always:
+
+```
+restrict,command="/usr/local/bin/komando ssh-gate --here --name komando-phone-anna"[,from="10.0.0.0/8"] ecdsa-sha2-nistp256 AAAA... komando-phone-anna
+```
+
+No flag writes a phone's key without the gate. Only a person at a terminal
+runs this form (`NEEDS_PERSON` for an AI agent or a script; the gate on the
+komando computer refuses it for every key).
+
+| Check before the line is written | Refused with |
+|----------------------------------|--------------|
+| The file holds exactly one public key line, no options, no private key; its comment names the key (`komando-phone-DEVICE`, 1 to 64 letters, digits, dots, dashes or underscores) | `KEY_INVALID` |
+| `--user` is a plain user name, the user exists on the server and its uid (read with `id`, not by name) is not 0 | `USAGE`, `KEY_USER_INVALID` |
+| `--from-address` holds only addresses, networks and host patterns, so nothing can end the quoted `from=""` | `USAGE` |
+| komando is installed on the server; the line names its real path (symlinks resolved), with no character that needs quoting | `KOMANDO_MISSING`, `GATE_BINARY_INVALID` |
+| That komando is one the user cannot replace: owned by root, not group or world writable, and every folder above it the same, outside the user's home | `GATE_BINARY_INVALID` |
+| The folders of the PATH the gate gives its commands (`/usr/local/sbin`, `/usr/local/bin`, `/usr/sbin`, `/usr/bin`, `/sbin`, `/bin`) are owned by root and not group or world writable: a program the user put there would run at the gate's next command | `GATE_BINARY_INVALID` |
+| That komando has the server mode | `GATE_UNSUPPORTED` |
+| The key has no other line in `authorized_keys` or `authorized_keys2` (sshd uses the first line that matches) | `KEY_LINE_CONFLICT` |
+
+komando writes the line as that user (`sudo -n -u USER` when it logs in as
+another one, never as root), never through a symlink, and adds a line break
+first when the file lacks one. The output and the audit record carry the
+key's SHA256 fingerprint; the inventory does not keep it yet.
+
+`from=` matches the address the server sees the phone connect from. A host
+name or pattern there matches only when the server's sshd has `UseDNS yes`,
+which is not its default: with `UseDNS no` it never matches, so give
+addresses or networks.
+
+Through such a key the gate runs komando on that server only:
+
+| Rule | What the gate does |
+|------|--------------------|
+| **The gate protects itself** (a) | No command through the key writes, moves, removes or changes the mode of: the gate's own program; `~/.ssh` and in it `authorized_keys`, `authorized_keys2`, `config`, `rc`, `environment`; the shell start files `.profile`, `.bash_profile`, `.bash_login`, `.bashrc`, `.bash_logout`, `.zshenv`, `.zprofile`, `.zshrc`, `.zlogin`, `.zlogout`, `.kshrc`, `.mkshrc`, `.cshrc`, `.tcshrc`, `.login`, `.logout`, `.xprofile`, `.xsession`, `.xinitrc`, `.pam_environment` and the folders `.config/fish`, `.config/environment.d`, `.config/systemd`, `.config/autostart`; the AI agents' folders where komando's guard lives (`.claude`, `.codex`, `.cursor`, `.gemini`, `.agents`); komando's own folder (settings, rules, audit). Each is checked as named and as its symlinks resolve, a folder that holds one counts (a rename moves what is in it), and a file with other names (a hardlink) is refused. `SSH_GATE_REFUSED` naming the path, even for a command the key could otherwise run. |
+| **Its program cannot be swapped** (b) | `key deploy --public-key-file` checks it before it writes the line (above). |
+| **The command is data** (c) | The command the phone sends is split into words without a shell and nothing is expanded, as on the komando computer. An empty command (a plain login) is refused: no shell opens. `KOMANDO_AGENT=NAME` before komando is refused for this key: the audit log names it by its line alone. |
+| **Few commands** (d) | Only readings (`facts`, `logs`), the service commands (`svc`), the package commands (`pkg`), the file reads (`fs cat`, `fs list`, `fs stat`), `ssh-gate status` and `version`. `exec`, `job start`, `docker exec`, `snippet exec` and every other command that runs a program of your choosing is a shell on that server and refused. The dangerous tier (`svc stop SERVER sshd`, `pkg rm SERVER openssh-server`) and `--sudo` are refused. The only target is the server itself, written `localhost`. A command komando adds later is refused until someone decides it belongs on a phone. |
+| **The history** (e) | Every command, run or refused, is in komando's audit log on the server with the key's name and `here`, and a copy goes to the server's system log (auth facility). |
+| **Not as root** (f) | When the gate runs as root (uid 0), it refuses every command, `ssh-gate status` too, whatever the line says: a phone's line in root's `authorized_keys` runs nothing. |
+| **No reading of secrets** | No read of another user's home, of `~/.ssh` or of komando's own folder. |
+
+`komando ssh-gate status -o json` answers `gate`, `name`, `read_only`,
+`shell_access` and `here` for the key: the phone checks them after pairing.
+
+Until komando can act on its own server without SSH (the local transport,
+a later release) the server mode answers `ssh-gate status` and refuses
+every other command, including the ones its rules allow.
+
+Honest limits. The gate is a filter, not a sandbox: a command it lets
+through runs with the user's rights, so pair an account without `sudo`
+where you can. Once the server mode runs commands, a stolen phone's key
+can do what rule d allows: start, stop, restart and enable services,
+install, upgrade and remove packages, and read files. What the gate keeps
+from it: the dangerous tier, a terminal, tunnels and forwarding, `sudo`,
+and the gate's own files.
+
+komando's audit log on the server is in the paired user's home, inside
+komando's store, and that user owns it: `komando audit verify` shows a
+change but does not stop one, and `chattr +a` cannot lock a store that is
+rewritten in place. The system log copy is the one the user cannot
+change; `key deploy --public-key-file` says when the server has no system
+log. A path is checked when the command arrives; another program of
+the same user could change a link between that check and the command.
 
 ## Limits
 

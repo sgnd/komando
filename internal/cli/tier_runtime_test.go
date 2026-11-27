@@ -180,20 +180,21 @@ var tierUnreached = map[string]string{
 	"host ssh exec --stop change | exec":   "--stop arrives with exec sessions (cut step D2); today it is job kill",
 	"host ssh exec --remove change | exec": "--remove arrives with exec sessions (cut step D2); today it is job rm",
 	// the condition needs what a unit run cannot give; the stop is proved there
-	"host ssh test dynamic person | host.test":               "needs a server that asks a second factor",
-	"import dynamic person | import":                         "needs a sealed file from export --sealed, which only a person makes",
-	"ssh-gate person | ssh-gate":                             "sshd starts it for a key; an agent never runs ssh-gate itself",
-	"update dynamic safety | update":                         "needs a release site",
-	"floor | update":                                         "needs a release site",
-	"config vault keychain dynamic safety | secret.keychain": "tests run with KOMANDO_KEYCHAIN=off",
-	"floor | secret.keychain":                                "tests run with KOMANDO_KEYCHAIN=off; a plain run is the not --off person row",
-	"floor | host.ca.rm":                                     "adding the CA it removes needs a person",
-	"floor | tunnel.stop":                                    "no stop for an agent: change on an unprotected target",
-	"floor | cluster.swarm.raw":                              "a swarm manager is a server until E1 gives it an entry; kubernetes raw holds the run",
-	"cluster raw dynamic dangerous | cluster.swarm.raw":      "a swarm manager is a server until E1 gives it an entry; kubernetes raw holds the run",
-	"floor | cluster.kubernetes.add":                         "a Kubernetes conn logs in with a whole kubeconfig from the vault, which a unit run has not got",
-	"floor | secret.run":                                     "an agent always meets the row: secret run always hands a secret on",
-	"floor | storage.s3.object.link":                         "an agent always meets the row: a link is always --reveal for an agent",
+	"host ssh test dynamic person | host.test":                     "needs a server that asks a second factor",
+	"import dynamic person | import":                               "needs a sealed file from export --sealed, which only a person makes",
+	"ssh-gate person | ssh-gate":                                   "sshd starts it for a key; an agent never runs ssh-gate itself",
+	"update dynamic safety | update":                               "needs a release site",
+	"floor | update":                                               "needs a release site",
+	"config vault keychain dynamic safety | secret.keychain":       "tests run with KOMANDO_KEYCHAIN=off",
+	"floor | secret.keychain":                                      "tests run with KOMANDO_KEYCHAIN=off; a plain run is the not --off person row",
+	"floor | host.ca.rm":                                           "adding the CA it removes needs a person",
+	"credential key install --public-key-file person | key.deploy": "a device's key is put by a person at a terminal: a unit run has none",
+	"floor | tunnel.stop":                                          "no stop for an agent: change on an unprotected target",
+	"floor | cluster.swarm.raw":                                    "a swarm manager is a server until E1 gives it an entry; kubernetes raw holds the run",
+	"cluster raw dynamic dangerous | cluster.swarm.raw":            "a swarm manager is a server until E1 gives it an entry; kubernetes raw holds the run",
+	"floor | cluster.kubernetes.add":                               "a Kubernetes conn logs in with a whole kubeconfig from the vault, which a unit run has not got",
+	"floor | secret.run":                                           "an agent always meets the row: secret run always hands a secret on",
+	"floor | storage.s3.object.link":                               "an agent always meets the row: a link is always --reveal for an agent",
 }
 
 // tierDisagree are the runs whose stop is not the one the tier names, with
@@ -224,14 +225,15 @@ type tierProof struct {
 // that the test exists and that its body (with the table it runs) names
 // the command and the code.
 var tierProvedBy = map[string]tierProof{
-	"host ssh test dynamic person | host.test":               {test: "TestLoginKeepsATwoFactorLogin", cmd: "login"},
-	"import dynamic person | import":                         {test: "TestSealedNeedsPerson"},
-	"update dynamic safety | update":                         {test: "TestUpdateOlderAgentNeedsWindow"},
-	"floor | update":                                         {test: "TestUpdateInstallsNewest"},
-	"config vault keychain dynamic safety | secret.keychain": {test: "TestSecretKeychainOff"},
-	"floor | secret.keychain":                                {test: "TestSecretKeychainNeedsPerson"},
-	"floor | host.ca.rm":                                     {test: "TestHostCAPersonAddsAndAnyoneRemoves"},
-	"floor | cluster.kubernetes.add":                         {test: "TestClusterAddKind"},
+	"host ssh test dynamic person | host.test":                     {test: "TestLoginKeepsATwoFactorLogin", cmd: "login"},
+	"import dynamic person | import":                               {test: "TestSealedNeedsPerson"},
+	"update dynamic safety | update":                               {test: "TestUpdateOlderAgentNeedsWindow"},
+	"floor | update":                                               {test: "TestUpdateInstallsNewest"},
+	"config vault keychain dynamic safety | secret.keychain":       {test: "TestSecretKeychainOff"},
+	"floor | secret.keychain":                                      {test: "TestSecretKeychainNeedsPerson"},
+	"floor | host.ca.rm":                                           {test: "TestHostCAPersonAddsAndAnyoneRemoves"},
+	"floor | cluster.kubernetes.add":                               {test: "TestClusterAddKind"},
+	"credential key install --public-key-file person | key.deploy": {test: "TestDeviceKeyChecksFirst"},
 }
 
 func TestTierMatchesRuntime(t *testing.T) {

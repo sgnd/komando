@@ -1,10 +1,17 @@
 package cli
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
+	"github.com/sgnd/komando/internal/cli/kit/gatehere"
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/version"
 )
@@ -15,6 +22,7 @@ type gateKey struct {
 	readOnly    bool // --read-only: only commands that read
 	network     bool // reads that reach the network too (always, for a full key)
 	shellAccess bool // --shell-access: also a login shell on one server (sshgate_shell.go)
+	here        bool // --here: server mode, the key runs komando on this server itself
 	tty         bool // the call has the terminal sshd gives a --shell-access line (gateTTY)
 }
 
@@ -112,6 +120,7 @@ type gateStatus struct {
 	ReadOnly    bool   `json:"read_only"`    // only commands that read
 	Network     bool   `json:"network"`      // reads that reach the network too
 	ShellAccess bool   `json:"shell_access"` // a login shell on one server too
+	Here        bool   `json:"here"`         // server mode: komando acts on this server only
 	Komando     string `json:"komando"`      // komando's version
 }
 
@@ -128,6 +137,9 @@ func (s gateStatus) Text() string {
 	case s.ShellAccess:
 		mode = "may change things and open a shell on a server"
 	}
+	if s.Here {
+		mode += ", on this server only"
+	}
 	return "key " + s.Name + ": " + mode + " (komando " + s.Komando + ")\n"
 }
 
@@ -138,8 +150,10 @@ func sshGateStatusCmd() *cobra.Command {
 		Long: `Through an SSH key that ssh-gate limits, prints the key's name and what it
 may do: change things, or read only, whether its reads may reach the
 network (--network on its line), and whether it may open a login shell on
-a server (--shell-access on its line). ssh-gate answers it itself, so an app
-can check what its key is before it sends anything else. Typed on the
+a server (--shell-access on its line), and whether it acts on this server
+only (here: a phone's key on a server, see key deploy --public-key-file).
+ssh-gate answers it itself, so an app can check what its key is before it
+sends anything else. Typed on the
 komando computer, it says the command did not come through a key.`,
 		Example: "  ssh HOST komando ssh-gate status -o json\n  komando ssh-gate status",
 		Args:    cobra.NoArgs,
@@ -147,5 +161,154 @@ komando computer, it says the command did not come through a key.`,
 			cl.out.Print("ssh-gate.status", gateStatus{Network: true, Komando: version.Version}, nil)
 			return nil
 		}),
+	}
+}
+
+// The server mode (--here, U117) is the line `credential key install
+// --public-key-file` writes for a phone's key on a server: komando there
+// acts on that server itself, the one place the computer-side gate
+// refuses (gateLocalTarget). Its rules, lettered as in the U107 note, are
+// in internal/cli/kit/gatehere: (a) nothing through the gate writes the
+// gate, the key files, a start file or komando's own files, by any name;
+// (d) only readings and the typed service, package and file-read commands
+// run, exec is a shell and the dangerous tier is refused; (e) the system
+// log copy of each record; (f) nothing runs as root. Beside them, the read
+// limit: no read of another user's home, of ~/.ssh or of komando's own
+// folder. sshd, the line and parseGate give (b) and (c).
+
+// gatePasswd is the user database the server mode reads other users'
+// homes from; tests point it elsewhere.
+var gatePasswd = "/etc/passwd"
+
+// gateServerPaths are what the server mode protects, for the user the
+// key logs in as.
+func gateServerPaths() (gatehere.Paths, error) {
+	home, err := store.AccountHome()
+	if err != nil {
+		return gatehere.Paths{}, err
+	}
+	self, err := os.Executable()
+	if err != nil {
+		return gatehere.Paths{}, err
+	}
+	if r, err := filepath.EvalSymlinks(self); err == nil {
+		self = r
+	}
+	passwd, _ := os.ReadFile(gatePasswd) // none (macOS): the homes next to this one count
+	homes := gatehere.NextTo(home)
+	for n, h := range gatehere.OtherHomes(passwd, home) {
+		homes[n] = h
+	}
+	return gatehere.Paths{Home: home, Komando: store.Home(), Self: self, Homes: homes}, nil
+}
+
+// gateServerRule is gateRule's answer in server mode, for a command c
+// whose flags are read.
+func gateServerRule(c *cobra.Command, name string, key gateKey) *out.Error {
+	if top, _, _ := strings.Cut(name, "."); c == c.Root() || top == "help" || top == "completion" {
+		return nil // first steps, help and shell completion scripts: printed
+	}
+	refuse := func(why string) *out.Error {
+		return out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "a person runs it on this server, or from the komando computer",
+			"komando %s is refused for this server's key: %s", strings.ReplaceAll(name, ".", " "), why)
+	}
+	paths, err := gateServerPaths()
+	if err != nil {
+		return refuse("the gate cannot tell this user's home (" + err.Error() + ")")
+	}
+	k, _ := kindOf(c)
+	writes := k.Kind != kindRead || gateSavesHere[cmdKeys[name]] != nil // a read that saves a file (download)
+	for _, w := range gateServerWords(c) {
+		if why := paths.WriteRefusal(w); why != "" && writes {
+			// rule a, before the list: the phone's probe 5 expects this refusal
+			return out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "a person changes it on this server itself; `komando ssh-gate status` shows what this key may do",
+				"komando %s is refused for this server's key: %s; no key changes it", strings.ReplaceAll(name, ".", " "), why)
+		}
+		if why := paths.ReadRefusal(w); why != "" {
+			return refuse(why) // the read limit
+		}
+	}
+	key3 := cmdKeys[name]
+	if ok, why := gatehere.Runs(key3.typ, key3.area, key3.verb); !ok {
+		return refuse(why) // rule d
+	}
+	for _, f := range []string{"sudo", "sudo-user"} {
+		if fl := c.Flags().Lookup(f); fl != nil && fl.Changed {
+			return refuse("--" + f + " is refused: a phone's key runs as the user it logs in as, never through sudo")
+		}
+	}
+	if why := gateWrites(c, name); key.readOnly && why != "" {
+		return out.Errf(out.ExitPolicy, "SSH_GATE_READ_ONLY", "this key was added with --read-only and runs only commands that read",
+			"komando %s is refused for a read-only key: %s", strings.ReplaceAll(name, ".", " "), why)
+	}
+	for _, t := range gateUseTargets(c, c.Flags().Args()) {
+		if why := gatehere.Target(t); why != "" {
+			return refuse(why)
+		}
+	}
+	if r := riskOf(c, gateRiskWords(c)); r.tier >= tierDangerous {
+		return refuse("it is " + r.tier.String() + " (" + strings.TrimSpace(r.what+" "+r.dynamic) + "), and a phone's key runs no dangerous command")
+	}
+	return nil
+}
+
+// gateUID is the gate's own effective uid; tests set it.
+var gateUID = os.Geteuid
+
+// gateServerRoot refuses every command when the server mode runs as root
+// (rule f), whatever the line says: a phone's line in root's
+// authorized_keys runs nothing.
+func gateServerRoot() *out.Error {
+	if gateUID() != 0 {
+		return nil
+	}
+	return out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "a person removes this key's line from root's ~/.ssh/authorized_keys and pairs a user that is not root with `komando key deploy`",
+		"this server's key logs in as root (uid 0), and the gate runs nothing as root")
+}
+
+// gateServerNotYet refuses a command the server mode allows but cannot
+// run yet: komando acts on its own server only through the local
+// transport (row C549), so until then the gate answers ssh-gate status
+// and runs nothing else. No komando is started for the key meanwhile.
+func gateServerNotYet(name string) *out.Error {
+	return out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "update komando on this server; this version answers `komando ssh-gate status` only",
+		"komando %s is allowed for this server's key, but this komando does not run commands on its own server yet", strings.ReplaceAll(name, ".", " "))
+}
+
+// gateServerWords are the words rules a and f check as paths: every
+// argument (and the PATH of TARGET:PATH) and every flag value.
+func gateServerWords(c *cobra.Command) []string {
+	var w []string
+	for _, a := range c.Flags().Args() {
+		w = append(w, a)
+		if _, p, ok := strings.Cut(a, ":"); ok {
+			w = append(w, p)
+		}
+	}
+	c.Flags().Visit(func(f *pflag.Flag) {
+		if s, ok := f.Value.(pflag.SliceValue); ok {
+			w = append(w, s.GetSlice()...)
+			return
+		}
+		w = append(w, f.Value.String())
+	})
+	return w
+}
+
+// gateRiskWords are c's words as the risk table reads them: the
+// arguments, and each flag given as --name=value.
+func gateRiskWords(c *cobra.Command) []string {
+	w := slices.Clone(c.Flags().Args())
+	c.Flags().Visit(func(f *pflag.Flag) { w = append(w, "--"+f.Name+"="+f.Value.String()) })
+	return w
+}
+
+// gateSystemLog sends a server-mode record to this server's system log
+// too, which the paired user cannot change or remove (rule e). The
+// record in komando's audit log is the one that counts: this copy is
+// best effort.
+var gateSystemLog = func(rec map[string]any) {
+	if b, err := json.Marshal(rec); err == nil {
+		_ = gatehere.SystemLog(string(b))
 	}
 }

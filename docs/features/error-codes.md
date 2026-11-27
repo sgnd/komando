@@ -62,7 +62,7 @@ This page is made from the code (`komando schema` lists the same under
 | `DECLINED` | 6 | not run: the person said no; nothing was changed | run it again to be asked again |
 | `DELETE_FAILED` | 1 | cannot delete …: … | check the file's permissions |
 | `DELIVERY_LIMIT_NEAR` | 8 | subscription … moves a message to its dead-letter topic after … deliveries, and peek would count as one | do not peek this subscription: every delivery counts, and a message delivered too often goes to the dead-letter topic. Peek a subscription of the dead-letter topic instead, or raise maxDeliveryAttempts |
-| `DEPLOY_FAILED` | 5 | key deploy could not add the key to the server's authorized_keys (the server's words follow) | check that ~/.ssh is writable there: `komando fs stat SERVER ~/.ssh` |
+| `DEPLOY_FAILED` | 5 | …: …; komando writes through no link, so nothing was written | make ~/.ssh and its key files plain files and folders on the server, then run `komando key deploy` again |
 | `DNS_ERROR` | 4 | the server's name does not resolve on this computer | the name does not resolve here: check it with `komando host show …` and fix it with `komando host edit … --address ADDRESS`; a name only a VPN resolves needs --via that VPN |
 | `DOCKER_ERROR` | 5 | docker on the server answered with an error | check that Docker runs there: `komando exec TARGET --read-only -- docker info` |
 | `DOCKER_MISSING` | 3 | docker not found | install Docker on the server, or pick another server |
@@ -81,6 +81,8 @@ This page is made from the code (`komando schema` lists the same under
 | `FILE_NOT_FOUND` | 3 | identity file …: … | give the path of a private key file, or register it with `komando key add NAME FILE` and use --key |
 | `FILE_TOO_LARGE` | 8 | …:… is more than …; komando holds a copy from a pod in memory, and stopped | copy a smaller part, or pack it smaller in the pod first: `komando cluster kubernetes raw NAME --write -- exec POD -- gzip PATH` |
 | `FOLDER_NOT_FOUND` | 3 | no folder named … | add -p/--parents to create it |
+| `GATE_BINARY_INVALID` | 2 | the server's komando could be replaced by the paired user (owner, mode or place), so no gate line is written | fix it on the server as the message says, then run `komando key deploy` again |
+| `GATE_UNSUPPORTED` | 2 | komando on the server has no server mode (ssh-gate --here) | fix it on the server as the message says, then run `komando key deploy` again |
 | `GCP_LOGIN_REQUIRED` | 4 | …: … | a person runs `gcloud auth application-default login` again, or set GOOGLE_APPLICATION_CREDENTIALS to a service account key file; on Google Cloud the machine's service account is used |
 | `GROUP_EXISTS` | 8 | group … exists | pick another name; to merge them, run `komando group add … @…` and then `komando group rm …` |
 | `GROUP_NOT_FOUND` | 3 | no group named … | run `komando group list` to see groups |
@@ -121,9 +123,12 @@ This page is made from the code (`komando schema` lists the same under
 | `KEY_FAILED` | 1 | could not read key …: …; nothing was written | check the key with `komando key show …`, or leave out --with-keys |
 | `KEY_INVALID` | 2 | … is not a public key: … | give the CA's public key file (.pub) |
 | `KEY_IN_USE` | 8 | server … still uses this key | give the server another key first: `komando host edit … --key OTHER` |
+| `KEY_LINE_CONFLICT` | 8 | …: the key is there already in another line, which sshd would use first; nothing was written | remove the older line for this key from …'s ~/.ssh/authorized_keys on the server, then run `komando key deploy` again |
 | `KEY_PASSPHRASE_REQUIRED` | 2 | key … is encrypted and … | load the key into ssh-agent with `ssh-add PATH`, or store its passphrase with `komando secret set NAME` (the hint gives the whole commands) |
 | `KEY_UNREADABLE` | 4 | cannot read key …: … | check the key path (`komando key list` shows the keys komando knows) |
+| `KEY_USER_INVALID` | 2 | the user is root (uid 0) or is not on the server, so no device key is written for it | name a user that is not root: fix it on the server as the message says, then run `komando key deploy` again |
 | `KILL_FAILED` | 5 | the server did not stop session … | you may lack the right to stop another user's session |
+| `KOMANDO_MISSING` | 3 | komando is not installed on the server, so no gate line can run it | fix it on the server as the message says, then run `komando key deploy` again |
 | `KUBECONFIG` | 2 | conn …: … | import it again with `komando import kubeconfig` |
 | `LOGIN_FAILED` | 4 | the login to … ended early (…) | a person reads the whole log in … |
 | `MIXED_OS` | 2 | the target picks Windows servers (…) and other servers (…) | a command is written for one shell: run it twice, once with TARGET,os:windows (PowerShell) and once with TARGET,!os:windows (sh) |
