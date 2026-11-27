@@ -26,6 +26,9 @@ type MigrationPreview struct {
 	Backup             string            `json:"backup_would_be,omitempty"`
 	// WouldRefuse is each reason the move would stop, by kind and field.
 	WouldRefuse []string `json:"would_refuse,omitempty"`
+	// Fix is the steps for the fields in WouldRefuse, the same the move
+	// gives when it stops on them (C558).
+	Fix []string `json:"fix,omitempty"`
 	// NotChecked is what only the real move checks.
 	NotChecked []string `json:"not_checked,omitempty"`
 }
@@ -91,6 +94,7 @@ func PreviewMigration(ctx context.Context, refGuard func(kind, name string) erro
 	}
 	p := buildPlan3(snap, refGuard)
 	pv.WouldRefuse = append(pv.WouldRefuse, p.plain...)
+	pv.Fix = p.fix()
 	r := p.report
 	pv.Counts, pv.NamesChanged, pv.FieldsRewritten = r.Counts, len(r.Names), len(r.Rewritten)
 	pv.KeyAndPassword, pv.SnippetsWithOldRef, pv.MergedGroups = len(r.KeyAndPassword), len(r.SnippetsWithOldRef), len(r.MergedGroups)

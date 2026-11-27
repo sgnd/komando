@@ -141,10 +141,12 @@ func TestURLPassword(t *testing.T) {
 // Condition 1 of C547: a format-2 store with a login that names an outside
 // store (a host on vault: and on env:, a conn on bw://, a sudo password, a
 // VPN shared key and a key passphrase) does not move. The move stops before
-// it changes the store (store.db byte for byte, still format 2), names each
-// entry by kind, name and field with the fix and never the reference, and
-// `komando doctor --dry-run` (PreviewMigration) lists the same entries in
-// the same words, by kind and field.
+// it changes the store (store.db byte for byte, still format 2), says so
+// and names the backup, names each entry by kind, name and field and never
+// the reference, and gives the steps of the fix (C558): the last release
+// that opens the store with its install line, the two commands, update
+// again. `komando doctor --dry-run` (PreviewMigration) lists the same
+// entries in the same words, by kind and field, and the same steps.
 func TestMigrate3StopsOnOutsideLogin(t *testing.T) {
 	format2Store(t)
 	format2Edit(t, func(s *State) {
@@ -168,7 +170,21 @@ func TestMigrate3StopsOnOutsideLogin(t *testing.T) {
 	if f := formatNow(t); f != "2" {
 		t.Fatalf("format %s after the stopped move", f)
 	}
-	fix := "which a login no longer reads: with komando v0.17.0 save the secret as a credential with `komando secret set NAME` and point the field at secret:NAME, and the move makes it credential:NAME"
+	fix := "which a login no longer reads"
+	bs, err := Backups()
+	if err != nil || len(bs) != 1 || !strings.Contains(e.Message, "so nothing was changed; the backup is at ") || !strings.Contains(e.Message, bs[0].Name) {
+		t.Errorf("the move does not say that nothing was changed and where the backup is (%v %v):\n%s", bs, err, e.Message)
+	}
+	r := LastFormat2Release
+	steps := []string{
+		"install komando " + r + ", the last release that opens this store: curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/sgnd/komando/" + r +
+			"/install.sh | KOMANDO_VERSION=" + r + " sh (on Windows: komando_windows_amd64.zip of " + r + " from https://github.com/sgnd/komando/releases)",
+		"there, for each field that names an outside store: save the secret with `komando secret set NAME`, then point the field at it, for example `komando host edit HOST --password-ref secret:<NAME>`",
+		"then run `komando update` again; the move makes each saved secret credential:NAME",
+	}
+	if want := "1. " + steps[0] + " 2. " + steps[1] + " 3. " + steps[2]; e.Hint != want {
+		t.Errorf("hint\n%s\nwant\n%s", e.Hint, want)
+	}
 	want := []struct{ kind, name, field, provider string }{
 		{"host", "he", "password_ref", "env"},
 		{"host", "hv", "password_ref", "vault"},
@@ -180,7 +196,7 @@ func TestMigrate3StopsOnOutsideLogin(t *testing.T) {
 	for _, w := range want {
 		line := w.kind + " " + w.name + ": field " + w.field + " names an outside store (" + w.provider + "), " + fix
 		if !strings.Contains(e.Message, line) {
-			t.Errorf("the move does not name %s %s %s with the fix:\n%s", w.kind, w.name, w.field, e.Message)
+			t.Errorf("the move does not name %s %s %s:\n%s", w.kind, w.name, w.field, e.Message)
 		}
 	}
 	values := []string{"kv/hv#pw", "HE_PW", "cb-item", "prod/web1-sudo", "kv/wg-psk", "/home/me/deploy-pp"}
@@ -203,6 +219,9 @@ func TestMigrate3StopsOnOutsideLogin(t *testing.T) {
 	slices.Sort(lines)
 	if pv.WouldMove || !slices.Equal(got, lines) {
 		t.Fatalf("the dry run lists\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(lines, "\n"))
+	}
+	if !slices.Equal(pv.Fix, steps) {
+		t.Errorf("the dry run's steps\n%s\nwant the move's\n%s", strings.Join(pv.Fix, "\n"), strings.Join(steps, "\n"))
 	}
 	for _, r := range pv.WouldRefuse {
 		for _, v := range values {

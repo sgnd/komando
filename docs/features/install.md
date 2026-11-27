@@ -155,6 +155,36 @@ Without `sudo` the installer cannot write there, puts the new version in
 `~/.local/bin`, and your terminal may keep running the old one.
 `komando version` shows which one runs.
 
+## Update to v0.18.0
+
+v0.18.0 moves the store to a new format (format 3) the first time you use
+it. A store that holds something the move cannot take stops it, and the fix
+for that is made with the last v0.17 release. So look first:
+
+1. Run the dry run of the new version, installed beside the one you have.
+   It reads the store and changes nothing:
+
+   ```bash
+   curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/sgnd/komando/v0.18.0/install.sh | KOMANDO_INSTALL_DIR="$HOME/komando-v0-18-0" KOMANDO_VERSION=v0.18.0 sh
+   "$HOME/komando-v0-18-0/komando" doctor --dry-run
+   ```
+
+   On Windows, unpack `komando.exe` of v0.18.0 into a new folder and run
+   `.\komando.exe doctor --dry-run` there.
+2. It says `the move to format 3 would go ahead`: update with
+   `komando update`. The first command you run then makes a backup and
+   moves the store.
+3. It says `the move to format 3 would stop`: it lists each field and the
+   steps under `to fix it`. They name the last v0.17 release with its install
+   line, the two commands to run there, and the update after them. Do them,
+   then run step 1 again.
+4. Delete the folder `komando-v0-18-0`.
+
+Updated already? Run `komando doctor --dry-run` before any other command:
+the store moves only at the first command that opens it, and the dry run
+does not open it for writing. If the move stops, it changes nothing, names
+the backup it made and gives the same steps.
+
 ## Tab completion
 
 Press Tab to complete commands, flags and the names of your servers,

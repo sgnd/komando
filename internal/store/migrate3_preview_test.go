@@ -8,6 +8,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -88,6 +89,9 @@ func TestMigrationPreviewRefusals(t *testing.T) {
 	}
 	if p.WouldMove || len(p.WouldRefuse) != 1 || p.WouldRefuse[0] != "host: field password_ref names a secret that does not exist" {
 		t.Fatalf("preview %+v", p)
+	}
+	if !slices.Equal(p.Fix, fixSteps(false, true)) {
+		t.Fatalf("the dry run's steps %q", p.Fix)
 	}
 	b, _ := json.Marshal(p)
 	if strings.Contains(string(b), "win1") || strings.Contains(string(b), "missing-pw") {

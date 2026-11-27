@@ -104,7 +104,7 @@ func migrateFormat3(ctx context.Context, o migrate3Opts) (migrate3Result, error)
 	}); err != nil {
 		return res, err
 	}
-	p, err := planFormat3(snap, o.refGuard)
+	p, err := planFormat3(snap, o.refGuard, backup)
 	if err != nil {
 		return res, err
 	}

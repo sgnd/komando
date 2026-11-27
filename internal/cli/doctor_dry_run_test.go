@@ -120,3 +120,15 @@ func TestMigrateCallForDryRun(t *testing.T) {
 		t.Fatalf("a dry run: way %d, why %q", c.Way, c.Why)
 	}
 }
+
+// C558: the dry run's text gives the steps of the fix word for word, as
+// the move does when it stops (the store builds both from one list).
+func TestDoctorDryRunTextGivesTheFix(t *testing.T) {
+	pv := store.MigrationPreview{Format: "2", WouldRefuse: []string{"host: field password_ref names an outside store (vault), which a login no longer reads"},
+		Fix: []string{"install komando " + store.LastFormat2Release + ", the last release", "there, do it", "then run `komando update` again"}}
+	s := migrationPreview{pv}.Text()
+	want := "the move to format 3 would stop:\n  ✗ " + pv.WouldRefuse[0] + "\nto fix it:\n  1. " + pv.Fix[0] + "\n  2. " + pv.Fix[1] + "\n  3. " + pv.Fix[2] + "\n"
+	if !strings.Contains(s, want) {
+		t.Fatalf("text\n%s\nlacks\n%s", s, want)
+	}
+}

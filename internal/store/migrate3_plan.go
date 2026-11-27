@@ -57,6 +57,18 @@ type plan3 struct {
 	// plain are the problems again, with no name of a record or a secret
 	// (the dry run shows them)
 	plain []string
+	// outsideLogins counts the problems that are a login naming an
+	// outside store
+	outsideLogins int
+}
+
+// fix is what the person does about the problems: the same steps in the
+// move's hint and in the dry run; nil when there is none.
+func (p *plan3) fix() []string {
+	if len(p.problems) == 0 {
+		return nil
+	}
+	return fixSteps(p.outsideLogins > 0, len(p.problems) > p.outsideLogins)
 }
 
 // credPlan is one credential to write: its value comes from the vault
@@ -126,13 +138,13 @@ type outsideUse struct {
 }
 
 // planFormat3 is the plan for snap, or STORE_MIGRATION_FAILED naming every
-// record and field it cannot move.
-func planFormat3(snap *snapshot2, refGuard func(kind, name string) error) (*plan3, error) {
+// record and field it cannot move, the backup already made, and the steps
+// of the fix.
+func planFormat3(snap *snapshot2, refGuard func(kind, name string) error, backup string) (*plan3, error) {
 	p := buildPlan3(snap, refGuard)
 	if len(p.problems) > 0 {
-		return nil, out.Errf(out.ExitError, "STORE_MIGRATION_FAILED",
-			"fix each one with komando v0.17.0, then run `komando doctor` again",
-			"the store cannot move to format 3, so nothing was changed: %s", strings.Join(p.problems, "; "))
+		return nil, out.Errf(out.ExitError, "STORE_MIGRATION_FAILED", numbered(p.fix()),
+			"the store cannot move to format 3, so nothing was changed; the backup is at %s: %s", backup, strings.Join(p.problems, "; "))
 	}
 	return p, nil
 }
@@ -371,6 +383,7 @@ func (pl *planner) ref(ref string, u *use) {
 		if loginFields[u.field] {
 			why := outsideLoginWhy(provider)
 			pl.problem(u.entry, u.field, why, why)
+			pl.p.outsideLogins++
 			return
 		}
 		if g := pl.refGuard; g != nil && (provider == "env" || provider == "file") {
@@ -583,16 +596,6 @@ func keyUsers(uses []keyUse) []string {
 // --passphrase-ref (and a VPN's key and config) set.
 var loginFields = map[string]bool{
 	"password_ref": true, "sudo_ref": true, "key_ref": true, "psk_ref": true, "config_ref": true, "passphrase": true,
-}
-
-// outsideLoginWhy is why the move stops on a login field that names an
-// outside store, and its fix (C547): the same words in the refusal of the
-// move and in `komando doctor --dry-run`, never the reference itself. The
-// store is still format 2, so the fix is made with komando v0.17.0, where
-// a saved secret is spelled secret:NAME.
-func outsideLoginWhy(provider string) string {
-	return "names an outside store (" + provider + "), which a login no longer reads: " +
-		"with komando v0.17.0 save the secret as a credential with `komando secret set NAME` and point the field at secret:NAME, and the move makes it credential:NAME"
 }
 
 // outsideCredentials makes a store per provider and a credential per field

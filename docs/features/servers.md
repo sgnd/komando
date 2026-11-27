@@ -639,10 +639,11 @@ A password komando keeps for a server, a service or a VPN (`--password-ref`,
 `credential:NAME`, saved with `komando secret set NAME`. A reference to
 another store on such a flag (`env:VAR`, `op://...`) is refused with
 `REFERENCE_UNSUPPORTED`. A store that still holds one does not move to format 3:
-the move stops before it changes anything, names each server, service, VPN or
-key by kind and field, and `komando doctor --dry-run` lists the same ones. Fix
-each with komando v0.17.0: save the secret with `komando secret set NAME` and
-point the field at `secret:NAME`; the move makes it `credential:NAME`.
+the move changes nothing, names each server, service, VPN or key by kind and
+field, and gives the steps of the fix (the last v0.17 release and its install
+line, `komando secret set NAME` and `secret:NAME` there, then `komando update`
+again). `komando doctor --dry-run` gives the same, so you can fix it before
+you update: see [Update to v0.18.0](install.md#update-to-v0180).
 
 Where komando reads a value for one command only (`--env` of `exec` and
 `secret run`, `--password-ref` of `db user add` and `db user passwd`), a

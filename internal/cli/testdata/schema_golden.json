@@ -12088,8 +12088,8 @@
       {
         "code": "REFERENCE_UNSUPPORTED",
         "exit": 2,
-        "example": "… names an outside store; it takes credential:NAME",
-        "hint": "save the secret as a credential with `komando secret set NAME`, then use credential:NAME"
+        "example": "… holds the old marker of a secret, which komando no longer reads; nothing was written",
+        "hint": "write …: komando puts a credential's value into a file only for {{credential:NAME}}"
       },
       {
         "code": "REGISTRY_AUTH",

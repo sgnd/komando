@@ -101,6 +101,12 @@ func (m migrationPreview) Text() string {
 		for _, r := range m.WouldRefuse {
 			fmt.Fprintf(&b, "  ✗ %s\n", r)
 		}
+		if len(m.Fix) > 0 {
+			b.WriteString("to fix it:\n")
+			for i, s := range m.Fix {
+				fmt.Fprintf(&b, "  %d. %s\n", i+1, s)
+			}
+		}
 	}
 	b.WriteString("records (now → after):\n")
 	for _, k := range slices.Sorted(maps.Keys(m.Counts)) {
