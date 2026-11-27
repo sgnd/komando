@@ -391,6 +391,12 @@ func (w *writer3) host(h *Host) error {
 		us := w.st.loginUsers(name)
 		return len(us) == 0 || len(us) == 1 && us[0] == e
 	}
+	// one login credential: a password given beside a key is refused; the
+	// stored one goes when the server moves to a key (as the migration)
+	if (h.Identity != "" || h.Key != "") && h.PasswordRef != "" && h.PasswordRef != credRef(v.Credential) {
+		return out.Errf(out.ExitUsage, "USAGE", "give one: drop --password-ref to log in with the key, or drop the key to log in with the password",
+			"server %s logs in with one credential: a key and a password were given", h.Name)
+	}
 	// the credential it logs in with
 	var cred string
 	switch {

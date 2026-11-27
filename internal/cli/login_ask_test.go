@@ -235,10 +235,14 @@ func TestLoginAskFlag(t *testing.T) {
 	}
 	wantCode(t, "USAGE", "host", "edit", "web1", "--login", "key")      // it has no key
 	wantCode(t, "USAGE", "host", "edit", "web1", "--login", "password") // nor a password
-	if d := mustRun(t, "host", "edit", "web1", "--login", "key", "--identity", keyFile, "--password-ref", "credential:web1-pass"); d["login"] != "key" {
+	if d := mustRun(t, "host", "edit", "web1", "--login", "key", "--identity", keyFile); d["login"] != "key" {
 		t.Errorf("edit --login key: %v", d)
 	}
-	if d := mustRun(t, "host", "edit", "web1", "--login", "password"); d["login"] != "password" || d["identity"] != nil {
+	// format 3: a server keeps one credential, so a key's server has no
+	// stored password to switch to, and a password beside a key is refused
+	wantCode(t, "USAGE", "host", "edit", "web1", "--login", "password")
+	wantCode(t, "USAGE", "host", "edit", "web1", "--password-ref", "credential:web1-pass")
+	if d := mustRun(t, "host", "edit", "web1", "--login", "password", "--password-ref", "credential:web1-pass"); d["login"] != "password" || d["identity"] != nil {
 		t.Errorf("edit --login password keeps the key: %v", d)
 	}
 	st, _ := store.Load()

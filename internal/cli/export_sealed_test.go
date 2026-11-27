@@ -46,7 +46,8 @@ func sealLab(t *testing.T) {
 	setSecret(t, "web1-pass", "s3cret value")
 	setSecret(t, "shop-pass", "db s3cret")
 	mustRun(t, "key", "gen", "deploy")
-	mustRun(t, "host", "add", "web1", "u@10.0.0.5", "--password-ref", "credential:web1-pass", "--key", "deploy")
+	// a key and a sudo password: a server logs in with one credential (format 3)
+	mustRun(t, "host", "add", "web1", "u@10.0.0.5", "--sudo-ref", "credential:web1-pass", "--key", "deploy")
 	mustRun(t, "host", "add", "web2", "u@10.0.0.6", "--password-ref", "credential:missing-pass")
 	mustRun(t, "conn", "add", "shop", "postgres://app@db.example.com/shop", "--password-ref", "credential:shop-pass")
 }
@@ -95,7 +96,7 @@ func TestExportSealedRoundTrip(t *testing.T) {
 		t.Errorf("web1-pass: %q %v", v, err)
 	}
 	st, _ := store.Load()
-	if h := st.Hosts["web1"]; h.Key != "deploy" || h.PasswordRef != "credential:web1-pass" {
+	if h := st.Hosts["web1"]; h.Key != "deploy" || h.SudoRef != "credential:web1-pass" {
 		t.Errorf("web1 %+v", h)
 	}
 	if st.Conns["shop"].PasswordRef != "credential:shop-pass" {
@@ -130,7 +131,7 @@ func TestImportSealedKeepsOtherSecrets(t *testing.T) {
 	if v, _ := vault.Get("web1-pass"); v != "mine" || strings.Contains(asJSON(d["secrets"]), "web1-pass") {
 		t.Fatalf("%v (web1-pass %q)", d, v)
 	}
-	if st, _ := store.Load(); st.Hosts["web1"].PasswordRef != "" {
+	if st, _ := store.Load(); st.Hosts["web1"].SudoRef != "" {
 		t.Errorf("web1 points at this computer's secret: %+v", st.Hosts["web1"])
 	}
 	if !strings.Contains(asJSON(d["not_imported"]), "web1-pass: kept the value here") {
@@ -142,7 +143,7 @@ func TestImportSealedKeepsOtherSecrets(t *testing.T) {
 	if v, _ := vault.Get("web1-pass"); v != "s3cret value" || !strings.Contains(asJSON(d["secrets"]), "web1-pass") {
 		t.Fatalf("%v (web1-pass %q)", d, v)
 	}
-	if st, _ := store.Load(); st.Hosts["web1"].PasswordRef != "credential:web1-pass" {
+	if st, _ := store.Load(); st.Hosts["web1"].SudoRef != "credential:web1-pass" {
 		t.Errorf("web1 %+v", st.Hosts["web1"])
 	}
 }

@@ -262,3 +262,30 @@ func TestFormat3SudoUseIsNoLogin(t *testing.T) {
 		t.Fatalf("%v %+v %+v", err, s.Hosts["inner"], s.Conns["shop"])
 	}
 }
+
+// A server logs in with one credential in format 3: a password given
+// beside a key is refused, never dropped without a word. Moving a server
+// from its stored password to a key lets the password go, as the
+// migration does.
+func TestFormat3KeyAndPasswordRefused(t *testing.T) {
+	migrated(t)
+	err := Update(Save(), func(s *State) error {
+		s.Hosts["web9"] = &Host{Name: "web9", Address: "10.0.0.90", User: "root", Key: "deploy-root", PasswordRef: "credential:pg-pass"}
+		return nil
+	})
+	var oe *out.Error
+	if !errorsAs(err, &oe) || oe.Exit != out.ExitUsage || !strings.Contains(oe.Message, "web9") {
+		t.Fatalf("a key and a password: %v", err)
+	}
+	if err := Update(Save(), func(s *State) error {
+		s.Hosts["win1"].Key = "deploy-root"
+		s.Hosts["win1"].User = "root"
+		return nil
+	}); err != nil {
+		t.Fatalf("a server moved from its password to a key: %v", err)
+	}
+	s, err := Load()
+	if err != nil || s.Hosts["win1"].Key != "deploy-root" || s.Hosts["win1"].PasswordRef != "" {
+		t.Fatalf("%v %+v", err, s.Hosts["win1"])
+	}
+}
