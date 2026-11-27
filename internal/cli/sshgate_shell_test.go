@@ -113,7 +113,7 @@ func TestGateShellRunsInGate(t *testing.T) {
 			gate = r
 		}
 	}
-	for k, want := range map[string]any{"ok": true, "runs": "host ssh shell", "ssh_gate": "ops", "shell_access": true, "read_only": false} {
+	for k, want := range map[string]any{"ok": true, "runs": "host.ssh.shell", "ssh_gate": "ops", "shell_access": true, "read_only": false} {
 		if gate[k] != want {
 			t.Errorf("gate record %s = %v, want %v", k, gate[k], want)
 		}
@@ -214,7 +214,7 @@ func TestSSHGateShellNoPty(t *testing.T) {
 			if ran != nil || e == nil || e.Code != "SSH_GATE_REFUSED" || !strings.Contains(e.Message, "terminal") {
 				t.Fatalf("ran %q, error %+v", ran, e)
 			}
-			if a := lastAudit(t); a["ok"] != false || a["runs"] != "host ssh shell" || a["shell_access"] != true {
+			if a := lastAudit(t); a["ok"] != false || a["runs"] != "host.ssh.shell" || a["shell_access"] != true {
 				t.Errorf("audit %v", a)
 			}
 		})
