@@ -412,8 +412,8 @@ func TestVpnDownSaysWhatStops(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	mustRun(t, "host", "add", "app", "u@10.0.0.5", "--via", "client-x")
-	mustRun(t, "host", "add", "web", "u@10.0.0.6", "--via", "office")
+	mustRun(t, "host", "ssh", "add", "app", "u@10.0.0.5", "--via", "client-x")
+	mustRun(t, "host", "ssh", "add", "web", "u@10.0.0.6", "--via", "office")
 	d := mustRun(t, "vpn", "anyconnect", "stop", "client-x", "--dry-run")
 	aff, _ := d["affects"].([]any)
 	if len(aff) != 1 {

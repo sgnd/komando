@@ -81,7 +81,7 @@ func TestEmptyListLines(t *testing.T) {
 	}{
 		{"yet with an add command", NoneYet("SSH keys", "credential key create NAME"), "no SSH keys yet: `komando credential key create NAME`\n"},
 		{"yet for a list komando does not fill", NoneYet("recordings", ""), "no recordings yet\n"},
-		{"yet with notes", NoneYet("servers", "host add NAME", "a", "b"), "no servers yet: `komando host add NAME` (a; b)\n"},
+		{"yet with notes", NoneYet("servers", "host ssh add NAME", "a", "b"), "no servers yet: `komando host ssh add NAME` (a; b)\n"},
 		{"match", NoneMatch("cache keys", `"user:*"`), "no cache keys match \"user:*\"\n"},
 		{"match with a note", NoneMatch("jobs", "web", "5 hidden"), "no jobs match web (5 hidden)\n"},
 	}

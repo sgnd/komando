@@ -73,7 +73,7 @@ func serverWinRMUsualPort(a formAnswers) string {
 	return "5986"
 }
 
-// serverWinRMBuild is host add NAME winrm://USER@HOST: WinRM always logs
+// serverWinRMBuild is host winrm add NAME winrm://USER@HOST: WinRM always logs
 // in with a password, which the command asks for hidden.
 func serverWinRMBuild(a formAnswers) [][]string {
 	addr := a["address"]
@@ -84,6 +84,6 @@ func serverWinRMBuild(a formAnswers) [][]string {
 	if a["winrmtls"] != "" {
 		w += "?" + url.Values{"tls": {a["winrmtls"]}}.Encode()
 	}
-	args := []string{"host", "add", a["name"], w, "--ask-password"}
+	args := []string{"host", "winrm", "add", a["name"], w, "--ask-password"}
 	return [][]string{formFlags(args, a), {"test", a["name"]}}
 }

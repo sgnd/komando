@@ -126,9 +126,8 @@ func execCmd() *cobra.Command {
 	var readOnly bool
 	var sess sessionOpts
 	c := &cobra.Command{
-		Use:     "exec TARGET [-- COMMAND...]",
-		Aliases: []string{"run", "x"},
-		Short:   "Run a shell command on one or many servers in parallel",
+		Use:   "exec TARGET [-- COMMAND...]",
+		Short: "Run a shell command on one or many servers in parallel",
 		Long: `Runs COMMAND through the login shell on every server TARGET picks
 (PowerShell on Windows servers). Each server's result has its stdout,
 stderr, exit_code and duration. A non-zero exit on any server makes
@@ -151,13 +150,13 @@ any other, so a production server does not ask.
 --script FILE runs a script from this computer instead: it is sent to the
 interpreter (from its #! line, else sh; --interpreter to choose) as input,
 so nothing is left on the server. --arg values become $1, $2 ... .`,
-		Example: `  komando exec web1 -- uptime
-  komando exec @web -P 20 -- 'df -h / | tail -1'
-  komando exec tag:prod --sudo -- systemctl is-active nginx
-  komando exec db1 --read-only -- df -h
-  komando exec @web --script ./deploy.sh --arg v1.2.3 --sudo
-  komando exec db1 --script ./backup.py --interpreter python3
-  cat deploy.sh | komando exec web1 --stdin-file - -- 'bash -s'`,
+		Example: `  komando host ssh exec web1 -- uptime
+  komando host ssh exec @web -P 20 -- 'df -h / | tail -1'
+  komando host ssh exec tag:prod --sudo -- systemctl is-active nginx
+  komando host ssh exec db1 --read-only -- df -h
+  komando host ssh exec @web --script ./deploy.sh --arg v1.2.3 --sudo
+  komando host ssh exec db1 --script ./backup.py --interpreter python3
+  cat deploy.sh | komando host ssh exec web1 --stdin-file - -- 'bash -s'`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if err := sess.refuseOff(cmd); err != nil {
@@ -180,7 +179,7 @@ so nothing is left on the server. --arg values become $1, $2 ... .`,
 				return err
 			}
 			if strings.TrimSpace(command) == "" {
-				return out.Usage("no command given: komando exec TARGET -- COMMAND")
+				return out.Usage("no command given: komando host ssh exec TARGET -- COMMAND")
 			}
 			var stdin []byte
 			if o.stdinFile != "" {

@@ -8,7 +8,7 @@ tidy. [All docs](README.md)
 Give each server a short name, then its user and address:
 
 ```bash
-komando host add web1 ubuntu@203.0.113.10
+komando host ssh add web1 ubuntu@203.0.113.10
 komando test web1                                # can komando log in?
 ```
 
@@ -24,7 +24,7 @@ NAME  KIND  RESULT  LATENCY  USER    SUDO  NOTE
 web1  host  ok      48ms     ubuntu  yes   -
 ```
 
-Typed alone at your terminal, `komando host add` asks for each part, one
+Typed alone at your terminal, `komando host ssh add` asks for each part, one
 line at a time: a name, the address, the user, the port, how komando logs
 in, and whether it is production. Any command typed with an argument
 missing asks for it the same way (see
@@ -34,10 +34,10 @@ scripts and AI agents get a usage error with an example.
 More ways to write it:
 
 ```bash
-komando host add web2 ubuntu@203.0.113.11 --group web --tag prod
-komando host add web2 ubuntu@203.0.113.11:2222               # another SSH port
-komando host add db1 admin@10.0.0.5 --via bastion            # reached through bastion
-komando host add web2 --address 203.0.113.11 --user deploy --key deploy
+komando host ssh add web2 ubuntu@203.0.113.11 --group web --tag prod
+komando host ssh add web2 ubuntu@203.0.113.11:2222               # another SSH port
+komando host ssh add db1 admin@10.0.0.5 --via bastion            # reached through bastion
+komando host ssh add web2 --address 203.0.113.11 --user deploy --key deploy
 ```
 
 The flags you will use most:
@@ -47,11 +47,11 @@ The flags you will use most:
 | `-g`, `--group` / `-t`, `--tag` / `--label KEY=VALUE` | Sort servers so one [target](targets.md) can pick many. |
 | `--key NAME` / `--identity PATH` | Log in with a key from komando's key list (`komando credential key`), or with a key file. |
 | `--password-ref` / `--sudo-ref` | Where the login or sudo password is kept (see [Use a password](#use-a-password)). |
-| `--login ask\|password\|key\|agent` | How komando logs in, in the same words `host show` prints: `ask` (you type the password at every connect, never stored: see [Type the password each time](#type-the-password-each-time---login-ask)), `password` (a stored one, with `--ask-password` or `--password-ref`), `key` (with `--key` or `--identity`), `agent` (ssh-agent and `~/.ssh` only). |
+| `--login ask\|password\|key\|agent` | How komando logs in, in the same words `host ssh show` prints: `ask` (you type the password at every connect, never stored: see [Type the password each time](#type-the-password-each-time---login-ask)), `password` (a stored one, with `--ask-password` or `--password-ref`), `key` (with `--key` or `--identity`), `agent` (ssh-agent and `~/.ssh` only). |
 | `--via bastion` | Reach the server through other servers or a VPN first ([tunnels](tunnels.md)). |
 | `--protected` | Mark a production server (see [Protect a production server](#protect-a-production-server)). |
 | `-e`, `--env KEY=VALUE` | Export a variable before every command on this server. A value from the vault (`KEY=secret:NAME`) is left out of an AI agent's commands: the agent could read it back unmasked (`printenv KEY \| rev`). It goes to an agent's `exec` or `job start` only when the agent adds `--yes` and you allow it in komando's window. |
-| `--notes TEXT` | Free notes; agents see them in `host show`. |
+| `--notes TEXT` | Free notes; agents see them in `host ssh show`. |
 | `--port N` | The SSH port (default 22); same as `:N` after the address. |
 | `--overwrite` | Replace a server that already has this name. |
 
@@ -69,7 +69,7 @@ without a password (`SUDO`). `komando facts` reports the same sudo check,
 plus much more ([Health](health.md)).
 
 Servers behind the same `--via` hosts share one connection to them within a
-command: `komando exec @db -P 10` logs in to the bastion once and reaches
+command: `komando host ssh exec @db -P 10` logs in to the bastion once and reaches
 the ten servers through it, like OpenSSH's ControlMaster. The bastion's
 connection limits (`MaxStartups`) and its login log see one client.
 
@@ -87,8 +87,8 @@ for one with WinRM. komando then runs PowerShell there. See
 [Windows servers](windows.md) for setup and what works.
 
 ```bash
-komando host add win1 Administrator@10.0.0.9 --os windows --ask-password
-komando host add win2 winrm://Administrator@10.0.0.9 --ask-password
+komando host ssh add win1 Administrator@10.0.0.9 --os windows --ask-password
+komando host winrm add win2 winrm://Administrator@10.0.0.9 --ask-password
 ```
 
 ### A new server that is still starting
@@ -98,7 +98,7 @@ Right after you create or rebuild a cloud server, SSH may not answer yet.
 
 ```bash
 komando test @new --wait 5m                                  # until SSH answers and the login works
-komando exec @new --read-only -- cloud-init status --wait    # then: until its own start-up is done
+komando host ssh exec @new --read-only -- cloud-init status --wait    # then: until its own start-up is done
 ```
 
 It does not wait out a changed host key (`HOSTKEY_MISMATCH`) or a refused
@@ -126,7 +126,7 @@ Only `name` and `address` are needed. The columns are `name`, `address`
 (or `ip`), `user`, `port`, `key`, `identity`, `password-ref`, `sudo-ref`,
 `via`, `groups` (or `role`), `tags`, `protected` (yes or no) and `notes`; a
 cell with several groups or tags separates them with commas, `;` or spaces.
-Each row is checked like `host add`, and rows may use each other in `via`.
+Each row is checked like `host ssh add`, and rows may use each other in `via`.
 komando checks every row before it writes anything: one bad row (an unknown
 column, a bad port, a `via` to a server that does not exist) stops the whole
 import and lists every problem. Servers that already exist are skipped;
@@ -138,12 +138,12 @@ the vault (`komando credential password add ubuntu-sudo` first).
 
 ## Change a server
 
-`host edit` changes only the options you pass:
+`host ssh edit` changes only the options you pass:
 
 ```bash
-komando host edit web1 --add-tag canary --port 2222
-komando host edit web1 --rm-group old --label dc=jkt         # an empty value removes a label
-komando host edit web1 --unset via,sudo-ref                   # clear settings (see `--help` for the list)
+komando host ssh edit web1 --add-tag canary --port 2222
+komando host ssh edit web1 --rm-group old --label dc=jkt         # an empty value removes a label
+komando host ssh edit web1 --unset via,sudo-credential            # clear settings (see `--help` for the list)
 ```
 
 ```text
@@ -155,9 +155,9 @@ To change many servers at once, give several names or a
 changes all of them or none:
 
 ```bash
-komando host edit @web --sudo-ref secret:ubuntu-sudo --dry-run   # which servers would change
-komando host edit @web --sudo-ref secret:ubuntu-sudo
-komando host edit web1 web2 db1 --add-tag canary
+komando host ssh edit @web --sudo-credential secret:ubuntu-sudo --dry-run   # which servers would change
+komando host ssh edit @web --sudo-credential secret:ubuntu-sudo
+komando host ssh edit web1 web2 db1 --add-tag canary
 ```
 
 One yes covers the whole command. When an AI agent asks, komando's window
@@ -168,7 +168,7 @@ server only (two servers never share one).
 ## Protect a production server
 
 ```bash
-komando host edit web1 --protected
+komando host ssh edit web1 --protected
 ```
 
 On a protected server, every change on the server needs a yes. For the
@@ -187,14 +187,14 @@ approval window. See [Safety](safety.md) for the details.
 `host rename` gives a server a new name and keeps everything else:
 
 ```bash
-komando host rename web1 web-01 --dry-run   # what would change
-komando host rename web1 web-01
+komando host ssh rename web1 web-01 --dry-run   # what would change
+komando host ssh rename web1 web-01
 ```
 
 The address, login, references, protected mark, groups, tags and labels
 stay. Servers, conns and tunnels that go through it (`--via`), and its jobs
 and tunnels, follow the new name in the same step. Pinned host keys belong
-to the address, so `host trust` is not needed again. Renaming a protected
+to the address, so `host ssh trust` is not needed again. Renaming a protected
 server asks first. `conn rename` and `vpn KIND rename` do the same for conns and
 VPNs, `credential key rename` for a key, and `group rename` for a group.
 
@@ -266,20 +266,20 @@ komando rename --starts-with shop- acme-shop- --in-notes --in-labels --dry-run  
 
 ## Remove a server
 
-`host rm` removes servers from komando's list. It does not touch the server
+`host ssh remove` removes servers from komando's list. It does not touch the server
 itself. It takes names or a [target](targets.md):
 
 ```bash
-komando host rm @old --dry-run         # list what would be removed
-komando host rm web2
-komando host rm 'tmp-*'
+komando host ssh remove @old --dry-run         # list what would be removed
+komando host ssh remove web2
+komando host ssh remove 'tmp-*'
 ```
 
 A protected server asks first. A server that another server still reaches
 through `--via` is kept (`HOST_IN_USE`, which lists every one of them).
 `conn rm` works the same way for databases, caches and storage.
 
-`host rm` does not forget a server's pinned host key (see
+`host ssh remove` does not forget a server's pinned host key (see
 [Server keys](#server-keys-host-keys)).
 
 ## Log in with a key
@@ -391,8 +391,8 @@ lends the server the keys in your ssh-agent while komando is connected, as
 `ssh -A` does:
 
 ```bash
-komando host edit bastion --forward-agent        # asks first
-komando host edit bastion --unset forward-agent  # stop lending it
+komando host ssh edit bastion --forward-agent        # asks first
+komando host ssh edit bastion --unset forward-agent  # stop lending it
 ```
 
 Anyone who is root on that server can use your keys while komando is
@@ -411,7 +411,7 @@ through ssh-agent, as `ssh` does:
 ```bash
 ssh-add ~/.ssh/id_ed25519_sk                     # touch the key when it blinks
 komando credential key add yubikey ~/.ssh/id_ed25519_sk     # reads the public key from id_ed25519_sk.pub
-komando host edit web1 --key yubikey
+komando host ssh edit web1 --key yubikey
 ```
 
 At each login the key asks for a touch. Without ssh-agent holding it, the
@@ -450,8 +450,8 @@ komando's vault (see [Secrets](secrets.md)). In one step, while adding the
 server or later:
 
 ```bash
-komando host add web2 root@203.0.113.20 --ask-password   # stored as secret:web2-pass
-komando host edit web1 --ask-password                     # a new password (stored as secret:web1-pass)
+komando host ssh add web2 root@203.0.113.20 --ask-password   # stored as secret:web2-pass
+komando host ssh edit web1 --ask-password                     # a new password (stored as secret:web1-pass)
 ```
 
 `--ask-password` is for a person at a terminal (an AI agent asks you to run
@@ -460,7 +460,7 @@ in two steps, with a name you choose:
 
 ```bash
 komando credential password add web1-pass
-komando host edit web1 --password-ref secret:web1-pass
+komando host ssh edit web1 --credential web1-pass
 ```
 
 A `--password-ref secret:NAME` whose secret is not in the vault yet gets a
@@ -482,13 +482,13 @@ komando stores nothing: a person types the password whenever komando
 connects, and it is used for that one command only.
 
 ```bash
-komando host add web2 root@203.0.113.21 --login ask   # never stored
-komando host edit web1 --login ask                    # stop using the stored password
-komando host edit web1 --login agent                  # back to ssh-agent and ~/.ssh
-komando host edit web1 --login password --ask-password   # back to a stored password
+komando host ssh add web2 root@203.0.113.21 --login ask   # never stored
+komando host ssh edit web1 --login ask                    # stop using the stored password
+komando host ssh edit web1 --login agent                  # back to ssh-agent and ~/.ssh
+komando host ssh edit web1 --login password --ask-password   # back to a stored password
 ```
 
-`--login` takes the words `host show` and `host list` print in their
+`--login` takes the words `host ssh show` and `host ssh list` print in their
 `login` field, and each reads back as written:
 
 | `--login` | How komando logs in | Needs |
@@ -550,7 +550,7 @@ So komando keeps the way in your hands:
   So the typed password goes only to a key you have logged in to this
   server with; a key pinned some other way counts as a first connection
   (`nobody has logged in to web1 ... with a typed password yet`). A
-  rename keeps what you met; `host trust --reset` forgets it. An app's
+  rename keeps what you met; `host ssh trust --reset` forgets it. An app's
   window warns on a first connection or login. The same holds while
   `host_key_policy` is `off`, and for a WinRM server with `tls=off` or
   `tls=skip-verify`: nothing checks who answers there.
@@ -559,7 +559,7 @@ So komando keeps the way in your hands:
   `NEEDS_PERSON`), whose questions it would answer as if it were
   you.
 
-One command asks once per server: `komando exec @web -P 10` asks each
+One command asks once per server: `komando host ssh exec @web -P 10` asks each
 login-ask server once, and a jump host once for every server behind it.
 A password the server refuses is not sent again: the command forgets it,
 and the next connection (in the same command or the next one) asks
@@ -572,7 +572,7 @@ To type it once for a while instead, log in with `komando login web1`
 (below): every command, an AI agent's too, uses that login until it ends,
 and nobody is asked. A server that prints the password back cannot be
 masked then: the command that uses the login never had it. A tunnel runs
-in the background, so `komando tunnel start` asks now and hands the
+in the background, so `komando host ssh tunnel start` asks now and hands the
 password to the tunnel's process on its input; that process keeps it in
 memory for the tunnel's whole life (its reconnects), until the tunnel
 stops. `tunnel start` asks only for servers you have logged in to with
@@ -591,7 +591,7 @@ login of a protected server needs the same yes as any change to it.
 When a server also asks for a one-time code (or any
 other question), komando shows you the server's question with its name
 (`web1: Verification code:`) and sends what you type, hidden unless the
-server lets it show. Servers that log in at once (`komando exec @web`) ask
+server lets it show. Servers that log in at once (`komando host ssh exec @web`) ask
 one at a time. Ctrl-C stops the login (`CANCELLED`). Only a person at a
 terminal is asked: for an AI agent or a script the login stops with
 `AUTH_FAILED`, the message quotes the server's question, and no wrong code
@@ -620,7 +620,7 @@ If `sudo` asks for a password on the server, store that too:
 
 ```bash
 komando credential password add web1-sudo
-komando host edit web1 --sudo-ref secret:web1-sudo
+komando host ssh edit web1 --sudo-credential web1-sudo
 ```
 
 Everything else about the vault (listing, checking, renaming and removing
@@ -685,9 +685,9 @@ Give komando that tool's command, as in OpenSSH's `ProxyCommand` (`%h` is the
 address, `%p` the port, `%r` the user):
 
 ```bash
-komando host add web1 ec2-user@i-0abc123 --ssm     # AWS Systems Manager: the address is the instance ID
-komando host add web2 me@web2 --proxy-command 'gcloud compute start-iap-tunnel %h %p --listen-on-stdin --zone europe-west1-b'
-komando host add db1 me@ssh.example.com --proxy-command 'cloudflared access ssh --hostname %h'
+komando host ssh add web1 ec2-user@i-0abc123 --ssm     # AWS Systems Manager: the address is the instance ID
+komando host ssh add web2 me@web2 --proxy-command 'gcloud compute start-iap-tunnel %h %p --listen-on-stdin --zone europe-west1-b'
+komando host ssh add db1 me@ssh.example.com --proxy-command 'cloudflared access ssh --hostname %h'
 komando conn add prod-db postgres://app@mydb.xyz.rds.amazonaws.com/app --via web1   # a database behind it
 ```
 
@@ -732,15 +732,15 @@ After a real rebuild, check the new fingerprint another way (your cloud
 console or the server's own console), then replace the old key:
 
 ```bash
-komando host trust web1 --reset --dry-run   # how many pinned keys would go
-komando host trust web1 --reset             # shows the old and new key, asks once
+komando host ssh trust web1 --reset --dry-run   # how many pinned keys would go
+komando host ssh trust web1 --reset             # shows the old and new key, asks once
 ```
 
 Only a person at a terminal replaces a pinned key: komando shows the old
 and the new fingerprint and asks once. An AI agent or a script gets
 `NEEDS_PERSON` (exit 6) whatever flags it adds, because an agent that
 re-pins the key could be talking to an impostor; its hint names the
-command for you to run. Without `--reset`, `host trust` never adds a
+command for you to run. Without `--reset`, `host ssh trust` never adds a
 second key: a different key stops with `HOSTKEY_MISMATCH`, and a server
 that cannot be reached keeps its old key.
 
@@ -749,8 +749,8 @@ trust` the group instead of one name. It takes every kind of target, like
 `exec`: `@group`, `tag:`, `'web*'` or `a,b`.
 
 ```bash
-komando host trust @web                 # new servers get pinned; changed keys are refused
-komando host trust @web --reset         # after the rebuild: one yes for all of them
+komando host ssh trust @web                 # new servers get pinned; changed keys are refused
+komando host ssh trust @web --reset         # after the rebuild: one yes for all of them
 ```
 
 `data.results` (in `-o json`) lists every server with its new `fingerprint`
@@ -758,15 +758,15 @@ and, when the key changed, its `old_fingerprints`. With `--reset` you answer
 once: the question names every server whose key changes, with the start of
 its new fingerprint. Compare them with your cloud console first.
 
-`komando host rm` does not forget a server's key. If you remove a server
+`komando host ssh remove` does not forget a server's key. If you remove a server
 and add it again at the same address, it must still show the same key, so
-`rm` plus `add` is no way around `HOSTKEY_MISMATCH`. `host rm` says which
+`rm` plus `add` is no way around `HOSTKEY_MISMATCH`. `host ssh remove` says which
 keys it kept (`host_keys_kept`); after a rebuild, replace them with `host
 trust --reset`.
 
 ### Pin a key before the first connection
 
-`komando host trust web1` (without `--reset`) pins a key before the first
+`komando host ssh trust web1` (without `--reset`) pins a key before the first
 connection; the same key again changes nothing. The key is fetched the way
 komando reaches the server: directly, or through its `--via` path, VPN or
 proxy command.
@@ -777,7 +777,7 @@ server's own first:
 
 ```bash
 komando config set host_key_policy strict   # unknown keys stop with HOSTKEY_UNKNOWN
-komando host trust web1                     # data.results[0] has key_type and fingerprint
+komando host ssh trust web1                     # data.results[0] has key_type and fingerprint
 ```
 
 When you already have the fingerprint (from the server's console or your
@@ -785,7 +785,7 @@ cloud provider), let komando compare it for you: `--fingerprint` pins the
 key only when the server shows that one.
 
 ```bash
-komando host trust web1 --fingerprint SHA256:pVt2...   # pinned only if it matches
+komando host ssh trust web1 --fingerprint SHA256:pVt2...   # pinned only if it matches
 ```
 
 Any other key stops with `HOSTKEY_MISMATCH` (exit 4) and nothing is
@@ -798,7 +798,7 @@ your yes, and replacing a pinned key still needs `--reset` at your
 terminal.
 
 `HOSTKEY_UNKNOWN` says which fingerprint the server shows. With `strict`,
-an AI agent cannot pin a first key by itself: `host trust` needs your yes in
+an AI agent cannot pin a first key by itself: `host ssh trust` needs your yes in
 komando's window, which shows the fingerprint to compare (with the default
 `accept-new` the first login pins it anyway).
 
@@ -814,30 +814,30 @@ $(komando host ssh-command web1 -o text)      # open a shell with OpenSSH
 
 Servers behind `--via` get one `ProxyCommand` per hop, so each hop uses its
 own key. A SOCKS VPN becomes `nc -X 5`. VPNs that run inside komando cannot
-be used by OpenSSH; use `komando shell SERVER` for those.
+be used by OpenSSH; use `komando host ssh shell SERVER` for those.
 
 A key made with `komando credential key create` is sealed in komando's store and is never
 written to a file. For OpenSSH, `host ssh-command` gives it to the ssh-agent
 your shell already runs (`SSH_AUTH_SOCK`), which keeps it for one hour, and
 the printed line picks it with its public key. With no ssh-agent it stops
 with `SSH_AGENT_NEEDED`: start one with `eval "$(ssh-agent)"`, or use
-`komando shell SERVER`.
+`komando host ssh shell SERVER`.
 
 Only a person at a terminal can run `host ssh-command`: it writes a copy of
 the pinned host keys for OpenSSH, in a private temporary folder
 (`komando-ssh-*`). A line printed more than a day ago may stop working: the
 next `host ssh-command` removes copies that old. An AI agent gets `NEEDS_PERSON` and is
-told to use `komando exec` or `komando shell`.
+told to use `komando host ssh exec` or `komando host ssh shell`.
 
 ## Limits
 
 - A server name uses letters, digits, `.`, `_` and `-` (see
   [Targets](targets.md#limits)). A server cannot be named `aws`, `gcp` or
   `azure`: `komando login aws` is the AWS login.
-- `--address` in `host edit` works on one server only.
+- `--address` in `host ssh edit` works on one server only.
 - A key file added with `credential key add` is never moved or deleted by komando.
 - `--ask-password`, `komando login`, `host ssh-command` and replacing a
-  pinned host key (`host trust --reset`) need a person at a terminal.
+  pinned host key (`host ssh trust --reset`) need a person at a terminal.
 - A `--login ask` server's password is typed by a person: a script, cron
   or CI job reaches it only through a `komando login` a person started,
   and its first connection needs a person at a terminal. A WinRM server
@@ -867,18 +867,18 @@ told to use `komando exec` or `komando shell`.
 |------------|---------------|------------|
 | `AUTH_FAILED` | the server refused the login, or asked a question (a two-factor code) with no person at a terminal | check the user and password; for a code, run `komando login SERVER` once |
 | `KEY_PASSPHRASE_REQUIRED` | the key is encrypted and no ssh-agent holds it | `ssh-add PATH`, or store its passphrase and use `--passphrase-credential` |
-| `HOSTKEY_MISMATCH` | the server shows another host key than the pinned one: rebuilt, or someone is in between | check the fingerprint another way; after a real rebuild, `komando host trust SERVER --reset` in your own terminal |
-| `HOSTKEY_UNKNOWN` | `host_key_policy` is `strict` and this key is not pinned yet | compare the fingerprint, then `komando host trust SERVER` |
+| `HOSTKEY_MISMATCH` | the server shows another host key than the pinned one: rebuilt, or someone is in between | check the fingerprint another way; after a real rebuild, `komando host ssh trust SERVER --reset` in your own terminal |
+| `HOSTKEY_UNKNOWN` | `host_key_policy` is `strict` and this key is not pinned yet | compare the fingerprint, then `komando host ssh trust SERVER` |
 | `HOST_IN_USE` | another server reaches this one through `--via` | change their `--via` first, or remove them in the same command |
 | `VIA_CYCLE` | the `--via` path leads back to itself, or names a step twice | name each server or VPN once, and not the server itself |
 | `NAME_TAKEN` | a rename would give two entries one name | pick other names, or rename or remove what is in the way |
 | `VPN_IN_USE` | a rename needs a connected VPN to go down | `komando vpn KIND stop NAME` first |
-| `KEY_IN_USE` | `credential key remove` on a key a server still uses | give the server another key: `komando host edit SERVER --key OTHER` |
+| `KEY_IN_USE` | `credential key remove` on a key a server still uses | give the server another key: `komando host ssh edit SERVER --key OTHER` |
 | `KEY_EXISTS` | `credential key create`, `credential key add` or `credential key rename` to a name that is taken | choose another name, or `komando credential key remove NAME` first |
 | `SECRET_DESTINATION` | an AI agent asked to send a password to a server | a person allows it in komando's window |
 | `SECRET_UNRESOLVED` | komando could not read a reference (no login for the password manager, or no such secret) | follow the hint: it names the logins that work |
-| `SSH_AGENT_NEEDED` | `host ssh-command` for a key komando made, with no ssh-agent running | `eval "$(ssh-agent)"`, or use `komando shell SERVER` |
-| `NEEDS_PERSON` | only a person at a terminal can do this (`host trust --reset`, `host ssh-command`), or a `--login ask` server's password and nobody can type it, or its first connection (a host key nobody has logged in with), or an AI agent changed where its password goes (its address, port, user, `--via`, proxy command, a server or VPN on its way) | run the command in your own terminal, or `komando login SERVER` once |
+| `SSH_AGENT_NEEDED` | `host ssh-command` for a key komando made, with no ssh-agent running | `eval "$(ssh-agent)"`, or use `komando host ssh shell SERVER` |
+| `NEEDS_PERSON` | only a person at a terminal can do this (`host ssh trust --reset`, `host ssh-command`), or a `--login ask` server's password and nobody can type it, or its first connection (a host key nobody has logged in with), or an AI agent changed where its password goes (its address, port, user, `--via`, proxy command, a server or VPN on its way) | run the command in your own terminal, or `komando login SERVER` once |
 | `DECLINED` | the person cancelled the password window of a `--login ask` server (or did so less than a minute ago) | a person runs `komando login SERVER` |
 | `NEEDS_PERSON` | `komando login` without a person at a terminal (an AI agent or a script) | a person runs `komando login SERVER` |
 | `IMPORT_INCOMPLETE` | some servers were not imported (listed under `skipped`) | fix them in the source and import again |

@@ -167,9 +167,24 @@ func moveWhere(typ string, leaves []capability.Leaf, pick func(capability.Leaf) 
 			}
 		}
 		for i, tb := range tables {
+			// the leaf's own commands of today first: their entry is the one a
+			// reason or a list keeps when the carried commands have others
+			var own, rest []string
 			for _, old := range slices.Sorted(maps.Keys(carried[id][i])) {
+				if slices.Contains(l.Today, old) {
+					own = append(own, old)
+				} else {
+					rest = append(rest, old)
+				}
+			}
+			for _, old := range append(own, rest...) {
 				tb.set(id, joinEntry(tb, id, old, carried[id][i][old]))
 			}
+		}
+		if _, needs := gateNetwork[id]; needs {
+			// a leaf that carries reads and a program of your choosing (host ssh
+			// exec) has both entries: the reason it needs a network is the one
+			delete(gateNoNetwork, id)
 		}
 		if l.LocalRead {
 			localReads[id] = true
@@ -224,8 +239,10 @@ func carriedByMovedIn(leaves []capability.Leaf) func(id string) bool {
 
 // joinEntry is the entry id gets in tb when it carries old's entry v as
 // well as the one it may have already: the stricter of the two, a check
-// over no check. Two different checks mean the tables disagree, and the
-// program stops at start (moveType runs in init).
+// over no check. Two reasons (gateNetwork) say the same thing, so the first
+// one stays; two lists of flags (gateLocalFlags) join. Two different checks
+// mean the tables disagree, and the program stops at start (moveType runs
+// in init).
 func joinEntry(tb idTable, id, old string, v any) any {
 	have, ok := tb.get(id)
 	switch {
@@ -233,6 +250,14 @@ func joinEntry(tb idTable, id, old string, v any) any {
 		return v
 	case noCheck(v):
 		return have
+	case isString(have) && isString(v):
+		return have
+	case isStrings(have) && isStrings(v):
+		return slices.Compact(slices.Sorted(slices.Values(slices.Concat(have.([]string), v.([]string)))))
 	}
 	panic("komando: " + id + " carries two different " + tb.name + " entries, one from " + old)
 }
+
+func isString(v any) bool { _, ok := v.(string); return ok }
+
+func isStrings(v any) bool { _, ok := v.([]string); return ok }

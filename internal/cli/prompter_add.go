@@ -11,7 +11,7 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// `komando host add` (conn add, vpn add, db add, cache add ...) typed alone
+// `komando host ssh add` (conn add, vpn add, db add, cache add ...) typed alone
 // by a person at a terminal asks that kind's own questions, one line each:
 // which kind, a name, the address or the parts of a URL, how to log in,
 // whether it is production. The answers make ordinary command lines, shown
@@ -23,7 +23,7 @@ import (
 // which have questions of their own.
 func formAddCmd(cmd *cobra.Command) bool {
 	k := commandKey(cmd)
-	return k == "host add" || k == "conn add" || isVpnAdd(k) || formFamilyAdd[k] != ""
+	return k == "host ssh add" || k == "host winrm add" || k == "conn add" || isVpnAdd(k) || formFamilyAdd[k] != ""
 }
 
 // isVpnAdd: the key of vpn KIND add.

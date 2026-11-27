@@ -7,7 +7,7 @@ import "slices"
 // and vpn add have hand-made forms (form_kinds.go).
 
 func init() {
-	addFormHints(invHostHints)
+	addFormHints(withWinRM(invHostHints))
 	addFormHints(invConnHints)
 	addFormHints(invListHints)
 	addFormHints(invJobHints)
@@ -69,8 +69,8 @@ var (
 )
 
 var invHostHints = map[string]formHint{
-	"host": {},
-	"host edit": {
+	"host": {}, "host ssh": {}, "host winrm": {}, "host ssh tunnel": {},
+	"host ssh edit": {
 		args: []formArg{invServers},
 		flags: []formFlag{
 			{name: "address", ask: "New address?", example: "203.0.113.20",
@@ -86,17 +86,17 @@ var invHostHints = map[string]formHint{
 		},
 		hide: []string{"group", "tag"},
 	},
-	"host list": {args: []formArg{{ask: "Which servers? (pick all for every server)", pick: "host", free: true,
+	"host ssh list": {args: []formArg{{ask: "Which servers? (pick all for every server)", pick: "host", free: true,
 		help: "Pick one, or type @group, tag:prod or several names separated by spaces or commas."}}},
-	"host rename": {args: []formArg{{ask: "Which server do you want to rename?", pick: "server",
+	"host ssh rename": {args: []formArg{{ask: "Which server do you want to rename?", pick: "server",
 		help: "Groups, notes and everything else that names it are changed too."}, invNewName}},
-	"host rm": {args: []formArg{{ask: "Which servers should come off your list?", pick: "host", free: true,
+	"host ssh remove": {args: []formArg{{ask: "Which servers should come off your list?", pick: "host", free: true,
 		help: "Only komando's list changes; the servers themselves are not touched."}}},
-	"host show":        {args: []formArg{invServer}},
+	"host ssh show":    {args: []formArg{invServer}},
 	"host ssh-command": {args: []formArg{invServer}},
-	"host test":        {args: []formArg{invServers}, flags: []formFlag{invWait}},
+	"host ssh test":    {args: []formArg{invServers}, flags: []formFlag{invWait}},
 	"host ca revoke":   {flags: []formFlag{{name: "key", ask: "Which public key file (.pub) should never be trusted?", local: true, required: true}}},
-	"host trust": {
+	"host ssh trust": {
 		args: []formArg{invServers},
 		flags: []formFlag{{name: "reset", ask: "Replace a key komando saved before?",
 			help: "Only after you rebuilt or reinstalled the server. A changed key can also mean someone pretends to be your server: ask its admin first."}},
@@ -294,7 +294,7 @@ var invSafetyHints = map[string]formHint{
 				help: "Yes is safer for a phone or a shared key."},
 			{name: "network", ask: "Should this read-only key also run network checks and programs on servers?",
 				help: "No is safer: what the key reads cannot leave through a URL or a name lookup. Yes allows net, cert check of a website and exec --read-only."},
-			{name: "shell-access", ask: "Should this key also open a login shell on a server (ssh -t HOST komando shell SERVER)?",
+			{name: "shell-access", ask: "Should this key also open a login shell on a server (ssh -t HOST komando host ssh shell SERVER)?",
 				show: func(a formAnswers) bool { return a["flag:read-only"] != "true" },
 				help: "No is safer. Yes lets sshd give the key a terminal, for a shell on a listed server that is not protected, not Windows and not this computer."},
 		},
@@ -329,7 +329,7 @@ func importSourceNames() []string {
 // release areas): what a person usually runs after each command.
 func init() {
 	addFormHints(map[string]formHint{
-		"host edit":     {next: []string{"host show {}", "test {}"}},
+		"host ssh edit": {next: []string{"host ssh show {}", "test {}"}},
 		"import":        {next: []string{"list", "test all"}},
 		"group create":  {next: []string{"list @{}", "test @{}"}},
 		"group remove":  {next: []string{"group create {} TARGET..."}}, // to put them back

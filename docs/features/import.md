@@ -74,7 +74,7 @@ appear in komando's list, output or history.
   `?insecure=1`.
 - With `--overwrite`, the result lists what it replaced. Without a yes, a
   protected server, conn or VPN is skipped, in the dry run too.
-- A file cannot turn on what `host edit` and `vpn KIND edit` ask a person for:
+- A file cannot turn on what `host ssh edit` and `vpn KIND edit` ask a person for:
   `forward_agent` on a server that did not lend your ssh-agent before,
   `legacy_crypto` or `allow_pap` on a VPN, and, for a VPN it replaces, a CA
   it no longer checks the server against or `mfa` or protection turned
@@ -84,7 +84,7 @@ appear in komando's list, output or history.
   the result lists them in `settings_differ` with the command to run.
 - The result names the command that checks what came in in `data.next`,
   and a person sees it on stderr: `Next: komando test @shop`.
-- Servers are checked like `host add` (ports, users, `--via`). A bad one is
+- Servers are checked like `host ssh add` (ports, users, `--via`). A bad one is
   skipped, with the reason. A `csv` import is stricter: one bad row stops
   the whole import, and nothing is added.
 - Whatever komando cannot import is listed, with the reason. For example: a
@@ -111,7 +111,7 @@ PuTTY keeps no passwords, so set them with `komando credential password add` or 
 key. A key in PuTTY's own format (`.ppk`) is listed: convert it with
 `puttygen KEY.ppk -O private-openssh -o KEY`, then `komando credential key add NAME
 KEY`. A session that reaches its server through a proxy is listed too: set
-the way there with `komando host edit NAME --via JUMP`.
+the way there with `komando host ssh edit NAME --via JUMP`.
 
 ### Coming from MobaXterm
 
@@ -204,14 +204,14 @@ you bring it (ssh-agent or your default key may log in meanwhile):
 
 ```bash
 komando credential key add deploy ~/Downloads/deploy     # the copied key file
-komando host edit db1 --key deploy
+komando host ssh edit db1 --key deploy
 ```
 
 An export file may come from someone else, so komando imports it with
 these limits:
 
 - A `ProxyCommand` is dropped, because it would run on this computer. Set it
-  yourself with `komando host edit NAME --proxy-command ...`.
+  yourself with `komando host ssh edit NAME --proxy-command ...`.
 - A password reference is kept only if it names a `secret:` that does not
   exist here yet. Anything else is dropped, so a file cannot point your
   existing passwords at its servers.
@@ -349,7 +349,7 @@ komando doctor --accept-old-copy
 ```
 
 Then check what changed since the backup: servers or rules you added
-later, and host keys pinned since (`komando host trust` asks again for a
+later, and host keys pinned since (`komando host ssh trust` asks again for a
 server it no longer knows).
 
 The store's settings row (its key mode, salt and scrypt cost) must stay

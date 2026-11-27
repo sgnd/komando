@@ -15,7 +15,7 @@ import (
 // a person allows names the file's SHA-256 and shows it when it can.
 func TestApprovalWindowShowsSentFiles(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web", "root@127.0.0.1", "--port", "2", "--protected")
+	mustRun(t, "host", "ssh", "add", "web", "root@127.0.0.1", "--port", "2", "--protected")
 	mustRun(t, "conn", "add", "kube", "kubernetes://127.0.0.1:2", "--protected")
 	conf := writeTemp(t, "app.conf", "listen 8080\nmarker_upload on\n")
 	dir := filepath.Join(t.TempDir(), "site")
@@ -60,7 +60,7 @@ func TestApprovalWindowShowsSentFiles(t *testing.T) {
 // it is not shown, as for a named file too long to show.
 func TestApprovalWindowNamesBinaryFile(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web", "root@127.0.0.1", "--port", "2", "--protected")
+	mustRun(t, "host", "ssh", "add", "web", "root@127.0.0.1", "--port", "2", "--protected")
 	bin := writeTemp(t, "app.tar", strings.Repeat("PK\x00\x01binary\x00data", 400))
 	texts := windowText(t, false)
 	invRun(t, "copy", bin, "web:/srv/app.tar", "--yes")
@@ -93,7 +93,7 @@ func TestRestoreWindowShowsTheSQL(t *testing.T) {
 // window, as a script that does not fit; a pg_dump archive is named.
 func TestApprovalWindowBigUploads(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web", "root@127.0.0.1", "--port", "2", "--protected")
+	mustRun(t, "host", "ssh", "add", "web", "root@127.0.0.1", "--port", "2", "--protected")
 	mustRun(t, "conn", "add", "pg", "postgres://app@127.0.0.1:2/app", "--protected")
 	big := writeTemp(t, "big.conf", strings.Repeat("a line of config text\n", bodyMaxBytes/10))
 	dir := t.TempDir()

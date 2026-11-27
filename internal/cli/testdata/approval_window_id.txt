@@ -48,7 +48,7 @@ Ubah web-1.example.test
 Diminta oleh Claude Code
 Pengecekan dilewati: pengecekan perubahan berisiko
 
-Perintah: komando host rm web-1.example.test --yes
+Perintah: komando host ssh remove web-1.example.test --yes
 [owner]
 komando: izinkan web-1.example.test
 [windows sizes]

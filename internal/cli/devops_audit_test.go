@@ -16,8 +16,8 @@ func devopsHome(t *testing.T) {
 	t.Helper()
 	invHome(t)
 	t.Setenv("KOMANDO_NO_DIALOG", "1")
-	mustRun(t, "host", "add", "web1", "deploy@10.255.255.1")
-	mustRun(t, "host", "add", "web2", "ops@10.255.255.2")
+	mustRun(t, "host", "ssh", "add", "web1", "deploy@10.255.255.1")
+	mustRun(t, "host", "ssh", "add", "web2", "ops@10.255.255.2")
 	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Hosts["win1"] = &store.Host{Name: "win1", Address: "10.255.255.3", User: "Administrator", OS: store.OSWindows}
 		return nil

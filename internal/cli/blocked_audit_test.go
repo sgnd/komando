@@ -27,18 +27,18 @@ func runMain(t *testing.T, args ...string) (int, string) {
 // a deny rule), and the text view says "blocked".
 func TestBlockedAttemptsAreAudited(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web2", "u@10.0.0.2", "--protected")
+	mustRun(t, "host", "ssh", "add", "web2", "u@10.0.0.2", "--protected")
 	mustRun(t, "policy", "create", "foo.*bar")
-	if code, _ := runMain(t, "host", "rm", "web2"); code != out.ExitPolicy {
+	if code, _ := runMain(t, "host", "ssh", "remove", "web2"); code != out.ExitPolicy {
 		t.Fatalf("host rm: exit %d", code)
 	}
 	if code, _ := runMain(t, "policy", "remove", "foo.*bar"); code != out.ExitPolicy {
 		t.Fatalf("policy remove: exit %d", code)
 	}
-	if code, _ := runMain(t, "exec", "web2", "--", "touch", "/tmp/x"); code != out.ExitPolicy {
+	if code, _ := runMain(t, "host", "ssh", "exec", "web2", "--", "touch", "/tmp/x"); code != out.ExitPolicy {
 		t.Fatalf("exec: exit %d", code)
 	}
-	if code, _ := runMain(t, "host", "rm", "web2", "--dry-run"); code != 0 {
+	if code, _ := runMain(t, "host", "ssh", "remove", "web2", "--dry-run"); code != 0 {
 		t.Fatalf("dry run: exit %d", code)
 	}
 	d := mustRun(t, "audit", "list", "--failed", "-n", "0")
@@ -79,10 +79,10 @@ func TestGuideInstallIsAudited(t *testing.T) {
 // servers and conns it picked, not "-": `audit --target web2` finds it.
 func TestBlockedAttemptNamesSelectedTargets(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web2", "u@10.0.0.2", "--protected", "--group", "prod")
-	mustRun(t, "host", "add", "web3", "u@10.0.0.3", "--protected", "--tag", "edge")
+	mustRun(t, "host", "ssh", "add", "web2", "u@10.0.0.2", "--protected", "--group", "prod")
+	mustRun(t, "host", "ssh", "add", "web3", "u@10.0.0.3", "--protected", "--tag", "edge")
 	for _, sel := range []string{"@prod", "tag:edge"} {
-		if code, _ := runMain(t, "host", "rm", sel); code != out.ExitPolicy {
+		if code, _ := runMain(t, "host", "ssh", "remove", sel); code != out.ExitPolicy {
 			t.Fatalf("host rm %s: exit %d", sel, code)
 		}
 	}
@@ -99,7 +99,7 @@ func TestBlockedAttemptNamesSelectedTargets(t *testing.T) {
 // sent to a syslog server is the same record.
 func TestAuditRecordHidesSecretsInTheCommand(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.9")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.9")
 	st := mustState(t)
 	audit(tcl, st, "exec", []string{"web1"}, "PGPASSWORD=Sup3rS3cretValue99 psql --password=hunter2222x -h db -c 'select 1'", true, nil)
 	d := mustRun(t, "audit", "list", "-n", "0")

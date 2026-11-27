@@ -85,13 +85,13 @@ func tooLongAdvice(kind bodyKind) string {
 	var do string
 	switch kind {
 	case bodyScript:
-		do = "Split the script into shorter ones and run each with `komando exec TARGET --script FILE`"
+		do = "Split the script into shorter ones and run each with `komando host ssh exec TARGET --script FILE`"
 	case bodySQL:
 		do = "Split the SQL into shorter files and run each with `komando database KIND query NAME --file FILE`"
 	case bodyData:
 		do = "Send it in smaller pieces (a few `komando fs replace` runs instead of one big change)"
 	default:
-		do = "Shorten it, or put it in a script file and run it with `komando exec TARGET --script FILE`"
+		do = "Shorten it, or put it in a script file and run it with `komando host ssh exec TARGET --script FILE`"
 	}
 	return do + ", or ask the user to run it in their own terminal"
 }

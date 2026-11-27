@@ -33,7 +33,7 @@ check "an agent cannot check a secret" NEEDS_PERSON "$(echo agentpass | A secret
 check "group list" True "$($K group list | has lab)"
 q $K group create "$C-g" direct
 check "group remove" True "$($K group remove "$C-g" direct | ok)"
-check "host trust" True "$($K host trust direct | ok)"
+check "host ssh trust" True "$($K host ssh trust direct | ok)"
 check "export" True "$($K export kind:host | has direct)"
 $K export kind:host >"$TMP/hosts.json"
 check "import komando (dry run)" True "$($K import komando "$TMP/hosts.json" --dry-run | ok)"
@@ -55,7 +55,7 @@ q $K fs mkdir direct "/tmp/$C/sub"
 q $K fs write direct "/tmp/$C/a.txt" --content one
 check "fs ls" True "$($K fs ls direct "/tmp/$C" | has a.txt)"
 q $K fs chmod direct 640 "/tmp/$C/a.txt"
-check "fs chmod" 640 "$($K exec direct --read-only -- stat -c %a "/tmp/$C/a.txt" | jget 'd["data"]["results"][0]["stdout"].strip()')"
+check "fs chmod" 640 "$($K host ssh exec direct --read-only -- stat -c %a "/tmp/$C/a.txt" | jget 'd["data"]["results"][0]["stdout"].strip()')"
 q $K fs mv direct "/tmp/$C/a.txt" "/tmp/$C/sub/b.txt"
 check "fs mv" True "$($K fs stat direct "/tmp/$C/sub/b.txt" | jget 'd["data"]["exists"]')"
 JID=$($K job start direct -- 'sleep 30' | jget 'd["data"]["jobs"][0]["id"]')
@@ -66,7 +66,7 @@ q $K job rm "$JID"
 q $K snippet create "$C-hello" 'echo hello {{who}}' --read-only
 check "snippet exec" "hello lab" "$($K snippet exec "$C-hello" direct --var who=lab | jget 'd["data"]["results"][0]["stdout"].strip()')"
 q $K snippet remove "$C-hello"
-check "tunnel list" True "$($K tunnel list | ok)"
+check "tunnel list" True "$($K host ssh tunnel list | ok)"
 
 # data
 check "db explain" True "$($K db explain pg 'select 1' | ok)"
@@ -76,7 +76,7 @@ q $K copy "$TMP/hosts.json" "bucket:$C/hosts.json"
 check "storage s3 object link" True "$($K storage s3 object link bucket "$C/hosts.json" | jget 'd["data"]["url"].startswith("http")')"
 check "storage s3 object link --endpoint signs for that address" True "$($K storage s3 object link bucket "$C/hosts.json" --endpoint https://files.example.com | jget 'd["data"]["url"].startswith("https://files.example.com/") and "warning" not in d["data"]')"
 U=$($K storage s3 object link bucket "$C/hosts.json" --endpoint http://s3:3900 | jget 'd["data"]["url"]')
-check "a link signed for an address works there" True "$($K exec bastion -- "curl -sf '$U'" | has direct)"
+check "a link signed for an address works there" True "$($K host ssh exec bastion -- "curl -sf '$U'" | has direct)"
 
 # system modules
 check "pkg installed" True "$($K pkg installed direct curl | jget 'd["data"]["results"][0]["data"][0]["installed"]')"
@@ -93,7 +93,7 @@ check "vpn list" True "$($K vpn system list | has corp)"
 check "vpn show" corp "$($K vpn system show corp | jget 'd["data"]["vpn"]["name"]')"
 check "vpn test of a VPN that is down" VPN_DOWN "$($K vpn system test corp | jget 'd["data"]["results"][0]["error"]["code"]' || true)"
 # renames: a conn reached through a SOCKS VPN keeps working when both get new names
-TUN=$($K tunnel start bastion -D "127.0.0.1:$E2E_SOCKS" | jget 'd["data"]["id"]')
+TUN=$($K host ssh tunnel start bastion -D "127.0.0.1:$E2E_SOCKS" | jget 'd["data"]["id"]')
 q $K vpn socks add "$C-vpn" --proxy-address "127.0.0.1:$E2E_SOCKS"
 q $K conn add "$C-db" 'postgres://app@pg:5432/app?sslmode=disable' --via "$C-vpn" --password-ref secret:pg-pass
 check "vpn rename takes the conn's --via along" "conn $C-db --via" "$($K vpn socks rename "$C-vpn" "$C-vpn2" | jget '" ".join(d["data"]["updated"])')"
@@ -103,7 +103,7 @@ check "the old conn name is gone" TARGET_NOT_FOUND "$($K conn show "$C-db" | jge
 check "database postgres query through the renamed conn and VPN" 1 "$($K database postgres query "$C-db2" 'select 1' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 q $K conn rm "$C-db2"
 q $K vpn socks remove "$C-vpn2"
-q $K tunnel stop "$TUN"
+q $K host ssh tunnel stop "$TUN"
 fi
 
 if in_area swarm; then

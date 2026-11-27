@@ -19,17 +19,17 @@ func TestRiskOfLineTable(t *testing.T) {
 		tier tier
 		note string // the row's wording: what, dynamic, bulk or typed
 	}{
-		{"exec is rated by the command it runs", "exec web1 -- rm -rf /var/www", nil, tierDangerous, "the command matches a destructive rule"},
+		{"host ssh exec is rated by the command it runs", "host ssh exec web1 -- rm -rf /var/www", nil, tierDangerous, "the command matches a destructive rule"},
 		// pins today; C353 may lower it with Audit
-		{"a bool flag before a positional", "exec --read-only web1 -- df -h", nil, tierDangerous, "the command matches a destructive rule"},
+		{"a bool flag before a positional", "host ssh exec --read-only web1 -- df -h", nil, tierDangerous, "the command matches a destructive rule"},
 		{"fs rm", "fs rm web1 /tmp/x", nil, tierDangerous, "deletes the files"},
 		{"cache rm", "cache rm c1 k", nil, tierDangerous, "deletes the keys"},
 		{"cluster scale to 0", "cluster scale prod deploy/app 0", nil, tierDangerous, "stops every copy of the app"},
 		{"cluster scale to 3", "cluster scale prod deploy/app 3", nil, tierChange, ""},
-		{"a --yes on a host rm does not change the tier", "host rm web1 --yes", nil, tierChange, ""},
-		{"protection off", "host edit web1 --protected=false", nil, tierSafety, "turns protection off"},
-		{"an alias", "host ls", nil, tierRead, ""},
-		{"a plural", "servers list", nil, tierRead, ""},
+		{"a --yes on a host remove does not change the tier", "host ssh remove web1 --yes", nil, tierChange, ""},
+		{"protection off", "host ssh edit web1 --protected=false", nil, tierSafety, "turns protection off"},
+		{"an alias", "host ssh ls", nil, tierRead, ""},
+		{"a plural", "servers ssh list", nil, tierRead, ""},
 		{"removing an essential package", "pkg rm web1 openssh-server", nil, tierDangerous, "removes a package the server needs to run or to let you in"},
 		{"removing another package", "pkg rm web1 htop", nil, tierChange, "removes the packages"},
 		{"a security upgrade", "pkg upgrade web1 --security", nil, tierDangerous, "an update would remove a package the server needs"},
@@ -43,13 +43,13 @@ func TestRiskOfLineTable(t *testing.T) {
 		{"--off in another spelling", "policy edit r --off=true --add-server web1", nil, tierSafety, "switches a rule off"},
 		{"--off=false, then the last value off", "policy edit r --off=false --off", nil, tierSafety, "switches a rule off"},
 		{"a line that does not parse is rated by its words", "policy edit r --off=false --off --bogus", nil, tierSafety, "switches a rule off"},
-		{"a shell is for a person", "shell web1", nil, tierPerson, ""},
-		{"a host key reset is for a person", "host trust web1 --reset", nil, tierPerson, "replaces a pinned host key"},
+		{"a shell is for a person", "host ssh shell web1", nil, tierPerson, ""},
+		{"a host key reset is for a person", "host ssh trust web1 --reset", nil, tierPerson, "replaces a pinned host key"},
 		{"a line that names no command is for a person (cut PR B2)", "nosuchcommand", nil, tierPerson, ""},
 		{"a global flag before the command", "-o json fs rm web1 /tmp/x", nil, tierDangerous, "deletes the files"},
-		{"a proxy command on a host", "", []string{"host", "edit", "web1", "--proxy-command", "nc %h %p"}, tierSafety, "an AI agent runs it (the proxy command runs on this computer)"},
-		{"a group selector", "exec @prod -- rm -rf /var/www", nil, tierDangerous, "the command matches a destructive rule"},
-		{"a sudo flag before --", "exec web1 --sudo -- userdel bob", nil, tierDangerous, "the command matches a destructive rule"},
+		{"a proxy command on a host", "", []string{"host", "ssh", "edit", "web1", "--proxy-command", "nc %h %p"}, tierSafety, "an AI agent runs it (the proxy command runs on this computer)"},
+		{"a group selector", "host ssh exec @prod -- rm -rf /var/www", nil, tierDangerous, "the command matches a destructive rule"},
+		{"a sudo flag before --", "host ssh exec web1 --sudo -- userdel bob", nil, tierDangerous, "the command matches a destructive rule"},
 		{"--reveal is not a tier of its own", "credential token show token --reveal", nil, tierRead, ""},
 	}
 	if len(tests) != 31 {
@@ -82,7 +82,7 @@ func TestRiskOfLineNilTreeFailsClosed(t *testing.T) {
 	saved := commandTree
 	t.Cleanup(func() { commandTree = saved })
 	commandTree = nil
-	for _, line := range []string{"cache rm c1 k", "host ls", "version", "no such command", ""} {
+	for _, line := range []string{"cache rm c1 k", "host ssh ls", "version", "no such command", ""} {
 		if r := riskOfLine(strings.Fields(line)); r.tier != tierPerson {
 			t.Errorf("riskOfLine(%q) with no tree = tier %s, want %s", line, r.tier, tierPerson)
 		}
@@ -91,7 +91,7 @@ func TestRiskOfLineNilTreeFailsClosed(t *testing.T) {
 		t.Errorf("lineWords with no tree = %v %v %v, want nothing", c, words, pos)
 	}
 	commandTree = saved
-	if r := riskOfLine([]string{"host", "ls"}); r.tier != tierRead {
+	if r := riskOfLine([]string{"host", "ssh", "list"}); r.tier != tierRead {
 		t.Errorf("riskOfLine(host ls) with the tree = tier %s, want read", r.tier)
 	}
 }

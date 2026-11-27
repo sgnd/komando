@@ -4487,7 +4487,7 @@ title: Add a VPN on this computer
 ### add form: VPN / SOCKS proxy
 title: Add a SOCKS proxy
 - name | Name | What do you want to call this VPN? | A short name you type later, like komando test lab. Letters, digits, dot, dash, underscore. | lab | check
-- address | Address | What is the proxy's address? | Its address and port. For komando tunnel start web1 -D 1080 it is 127.0.0.1:1080. | 127.0.0.1:1080 | addr,check
+- address | Address | What is the proxy's address? | Its address and port. For komando host ssh tunnel start web1 -D 1080 it is 127.0.0.1:1080. | 127.0.0.1:1080 | addr,check
 - user | User | What is your VPN user name? | Only when the proxy asks for a login. Empty for none. | budi | optional,advanced,check
 - pass | Password | How should komando get your VPN password? | The password is never shown and never written in the command. |  | advanced,default,choices,show
 - ref | Kept in | Where is it kept? | A reference, never the secret itself: op://Work/VPN/password (1Password), bw://item (Bitwarden), env:VPN_PASS (a variable). | op://Work/VPN/password | advanced,show,check

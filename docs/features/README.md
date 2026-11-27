@@ -7,7 +7,7 @@ One page per feature, task by task. AI agents: run `komando guide`.
 New to komando? Do these in order:
 
 1. [Install komando](install.md).
-2. Add a server: type `komando host add` and answer one question per
+2. Add a server: type `komando host ssh add` and answer one question per
    line. komando then shows the full command, so next time you can type
    it yourself ([Servers](servers.md)). Already have a list of servers?
    [Import it](import.md).
@@ -25,7 +25,7 @@ Unsure about a word? See the [glossary](glossary.md).
 | [Install, update, remove](install.md) | install komando on macOS, Linux or Windows, update it, tab completion, remove it | `update`, `completion` |
 | [Servers](servers.md) | add servers, log in with keys, passwords or your password manager | `host`, `key`, `secret`, `login` |
 | [Secrets](secrets.md) | save passwords and tokens once, use them as secret:NAME, read them from Vault, cloud secret managers, 1Password, Bitwarden or KeePass | `secret` |
-| [Windows servers](windows.md) | run PowerShell, files, copies and services on Windows servers | `host add --os windows`, `exec`, `svc` |
+| [Windows servers](windows.md) | run PowerShell, files, copies and services on Windows servers | `host ssh add --os windows`, `exec`, `svc` |
 | [Moving in and moving computers](import.md) | import ssh config, .pgpass, my.cnf, .env; export to another computer | `import`, `export` |
 | [Targets](targets.md) | pick what a command works on: one name, a group, a tag, everything | `list`, `test`, `group` |
 | [Running commands](commands.md) | run commands and scripts, long tasks, saved commands, what komando asks at your terminal | `exec`, `job`, `recipe`, `shell` |

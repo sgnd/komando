@@ -30,7 +30,7 @@ func TestClickHouseConnsCheckTLS(t *testing.T) {
 			t.Errorf("%s: %s, %v", name, url(name), d["warnings"])
 		}
 	}
-	mustRun(t, "host", "add", "jump", "deploy@10.0.0.3")
+	mustRun(t, "host", "ssh", "add", "jump", "deploy@10.0.0.3")
 	for name, raw := range map[string]string{
 		"c-plain": "clickhouse://app@ch.example.com/db?tls=false",
 		"c-local": "clickhouse://app@127.0.0.1/default",

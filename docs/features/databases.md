@@ -324,16 +324,16 @@ Which kinds komando can back up itself:
 | PostgreSQL | yes | |
 | MySQL / MariaDB | yes | |
 | SQLite | `dump` copies the database file; no `restore` | stop the app, then copy the file back |
-| MongoDB | no | `mongodump` on a server, with `komando exec` |
+| MongoDB | no | `mongodump` on a server, with `komando host ssh exec` |
 | SQL Server | no | `BACKUP DATABASE ... TO DISK` with `database sqlserver query --write`, then `komando copy` the `.bak` file |
-| Oracle | no | Data Pump (`expdp`, `impdp`) or RMAN with `komando exec`, then `komando copy` |
+| Oracle | no | Data Pump (`expdp`, `impdp`) or RMAN with `komando host ssh exec`, then `komando copy` |
 | ClickHouse | no | `BACKUP TABLE ... TO Disk('backups', 'name.zip')` (or `S3(...)`) with `database clickhouse query --write` |
 | Snowflake | no | `COPY INTO @stage`, Time Travel or `CLONE` |
 | BigQuery | no | `EXPORT DATA` to Cloud Storage, or table snapshots |
 
 A "no" kind answers `NOT_SUPPORTED`, with this hint. The backup SQL in
 the "Instead" column needs `--allow-dangerous` too. For a big job, use
-`komando job` instead of `komando exec`. For a few rows,
+`komando job` instead of `komando host ssh exec`. For a few rows,
 `komando database KIND query NAME -o csv` is a copy on this computer.
 
 ```bash

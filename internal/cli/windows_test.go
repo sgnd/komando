@@ -76,9 +76,9 @@ func TestWindowsRefusals(t *testing.T) {
 	startWindowsServer(t)
 	cases := map[string][]string{
 		"NOT_SUPPORTED":       {"logs", "win"},
-		"MIXED_OS":            {"exec", "all", "--", "hostname"},
-		"POLICY_BLOCKED":      {"exec", "win", "--", `Remove-Item -Recurse -Force C:\`},
-		"READ_ONLY_VIOLATION": {"exec", "win", "--read-only", "--", `Get-Item C:\x | Remove-Item`},
+		"MIXED_OS":            {"host", "ssh", "exec", "all", "--", "hostname"},
+		"POLICY_BLOCKED":      {"host", "ssh", "exec", "win", "--", `Remove-Item -Recurse -Force C:\`},
+		"READ_ONLY_VIOLATION": {"host", "ssh", "exec", "win", "--read-only", "--", `Get-Item C:\x | Remove-Item`},
 	}
 	for code, args := range cases {
 		if got := runCode(t, args...); got != code {
@@ -89,8 +89,8 @@ func TestWindowsRefusals(t *testing.T) {
 		{"docker", "ps", "win"},
 		{"fs", "rm", "win", `C:\x`},
 		{"pkg", "upgrade", "win"},
-		{"exec", "win", "--sudo", "--", "Get-Date"},
-		{"exec", "win", "--pty", "--", "Get-Date"},
+		{"host", "ssh", "exec", "win", "--sudo", "--", "Get-Date"},
+		{"host", "ssh", "exec", "win", "--pty", "--", "Get-Date"},
 		{"fs", "write", "win", `C:\x`, "--content", "a", "--sudo"},
 		{"copy", "./windows_test.go", "win:" + `C:\x`, "--mode", "0644"},
 	} {
@@ -106,7 +106,7 @@ func TestWindowsReadOnlyFailsClosed(t *testing.T) {
 	srv := startWindowsServer(t)
 	var err error
 	_ = captureOutput(t, func() error {
-		err = runRoot(t, "exec", "win", "--read-only", "--", "Get-Service $name")
+		err = runRoot(t, "host", "ssh", "exec", "win", "--read-only", "--", "Get-Service $name")
 		return err
 	})
 	e, ok := err.(*out.Error)
@@ -122,7 +122,7 @@ func TestWindowsExecSendsPowerShell(t *testing.T) {
 	srv := startWindowsServer(t)
 	srv.reply("Running\n")
 	got := captureOutput(t, func() error {
-		return runRoot(t, "exec", "win", "--read-only", "-e", "MODE=it's", "-C", `C:\app`, "--", "Get-Service W3SVC")
+		return runRoot(t, "host", "ssh", "exec", "win", "--read-only", "-e", "MODE=it's", "-C", `C:\app`, "--", "Get-Service W3SVC")
 	})
 	execs := srv.take()
 	if len(execs) != 1 {
@@ -143,7 +143,7 @@ func TestWindowsScriptArgs(t *testing.T) {
 	srv := startWindowsServer(t)
 	f := filepath.Join(t.TempDir(), "check.ps1")
 	_ = os.WriteFile(f, []byte("Write-Output $args[0]\n"), 0o600)
-	_ = captureOutput(t, func() error { return runRoot(t, "exec", "win", "--script", f, "--arg", "a'b") })
+	_ = captureOutput(t, func() error { return runRoot(t, "host", "ssh", "exec", "win", "--script", f, "--arg", "a'b") })
 	execs := srv.take()
 	if len(execs) != 1 || !strings.Contains(psScript(t, execs[0]), "& ([scriptblock]::Create('Write-Output $args[0]\n"+sshx.PSTrailer+"')) 'a''b'\n") {
 		t.Fatalf("execs = %v", execs)
@@ -153,13 +153,13 @@ func TestWindowsScriptArgs(t *testing.T) {
 	// outside that block
 	_ = os.WriteFile(f, []byte("param([string]$Stage)\nWrite-Output $Stage\n"), 0o600)
 	_ = captureOutput(t, func() error {
-		return runRoot(t, "exec", "win", "--script", f, "-e", "A=1", "-C", `C:\app`, "--arg", "staging", "--arg", "-x")
+		return runRoot(t, "host", "ssh", "exec", "win", "--script", f, "-e", "A=1", "-C", `C:\app`, "--arg", "staging", "--arg", "-x")
 	})
 	execs = srv.take()
 	if s := psScript(t, execs[0]); !strings.Contains(s, "\n& ([scriptblock]::Create('param([string]$Stage)\n") || !strings.Contains(s, "')) 'staging' '-x'\n") {
 		t.Fatalf("param script:\n%s", s)
 	}
-	if got := errCode(runRoot(t, "exec", "win", "--script", f, "--interpreter", "python3")); got != "NOT_SUPPORTED" {
+	if got := errCode(runRoot(t, "host", "ssh", "exec", "win", "--script", f, "--interpreter", "python3")); got != "NOT_SUPPORTED" {
 		t.Errorf("--interpreter python3 on Windows: %s", got)
 	}
 }
@@ -243,17 +243,17 @@ func TestWindowsSelectorsAndHosts(t *testing.T) {
 	}
 
 	startFakeServer(t)
-	if err := runRoot(t, "host", "add", "w2", "Administrator@10.0.0.9", "--os", "Windows"); err != nil {
+	if err := runRoot(t, "host", "ssh", "add", "w2", "Administrator@10.0.0.9", "--os", "windows"); err != nil {
 		t.Fatal(err)
 	}
 	s, _ := store.Load()
 	if s.Hosts["w2"].OS != store.OSWindows {
 		t.Errorf("os = %q", s.Hosts["w2"].OS)
 	}
-	if errCode(runRoot(t, "host", "add", "w3", "a@10.0.0.10", "--os", "mac")) != "USAGE" {
+	if errCode(runRoot(t, "host", "ssh", "add", "w3", "a@10.0.0.10", "--os", "mac")) != "USAGE" {
 		t.Error("--os mac must be refused")
 	}
-	if err := runRoot(t, "host", "edit", "w2", "--os", "linux"); err != nil {
+	if err := runRoot(t, "host", "ssh", "edit", "w2", "--os", "linux"); err != nil {
 		t.Fatal(err)
 	}
 	s, _ = store.Load()

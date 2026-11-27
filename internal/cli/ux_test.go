@@ -36,7 +36,7 @@ func TestTypoSuggestions(t *testing.T) {
 	t.Cleanup(func() { tcl.args = saved })
 	tcl.args = []string{"komando", "exce", "web1"}
 	e := usageFor(t, "exce", "web1")
-	if e.Message != `unknown command "exce"; did you mean exec?` || e.Hint != "run it again with exec: `komando exec web1`" || e.Suggestion != "exec" {
+	if e.Message != `unknown command "exce"; did you mean exec?` || e.Hint != "run it again with exec: `komando host ssh exec web1`" || e.Suggestion != "exec" {
 		t.Errorf("command typo: %q / %q", e.Message, e.Hint)
 	}
 	tcl.args = saved
@@ -45,17 +45,17 @@ func TestTypoSuggestions(t *testing.T) {
 	}
 	// add alone points at the add commands, which ask step by step; the
 	// first-run menu has no Add something row to send a person to
-	if e := usageFor(t, "add"); strings.Contains(e.Message, "did you mean") || !strings.Contains(e.Hint, "komando host add") ||
+	if e := usageFor(t, "add"); strings.Contains(e.Message, "did you mean") || !strings.Contains(e.Hint, "komando host ssh add") ||
 		!strings.Contains(e.Hint, "step by step") || strings.Contains(e.Hint, "Add something") || e.Code != "USAGE" {
 		t.Errorf("add: %q / %q", e.Message, e.Hint)
 	}
 	if e := usageFor(t, "zzzz"); strings.Contains(e.Message, "did you mean") {
 		t.Errorf("no suggestion for nonsense: %q", e.Message)
 	}
-	if e := usageFor(t, "exec", "--tiemout", "3s", "web1", "--", "uptime"); !strings.HasSuffix(e.Message, "did you mean --timeout?") {
+	if e := usageFor(t, "host", "ssh", "exec", "--tiemout", "3s", "web1", "--", "uptime"); !strings.HasSuffix(e.Message, "did you mean --timeout?") {
 		t.Errorf("flag typo: %q", e.Message)
 	}
-	if e := usageFor(t, "exec", "--xyzabc", "web1"); strings.Contains(e.Message, "did you mean") {
+	if e := usageFor(t, "host", "ssh", "exec", "--xyzabc", "web1"); strings.Contains(e.Message, "did you mean") {
 		t.Errorf("no suggestion for nonsense flag: %q", e.Message)
 	}
 }

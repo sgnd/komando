@@ -18,9 +18,9 @@ import (
 // stops audit check at its number.
 func TestSealedAudit(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "audited-web", "deploy@10.0.0.1")
-	mustRun(t, "host", "edit", "audited-web", "--add-tag", "x")
-	mustRun(t, "host", "edit", "audited-web", "--add-tag", "y")
+	mustRun(t, "host", "ssh", "add", "audited-web", "deploy@10.0.0.1")
+	mustRun(t, "host", "ssh", "edit", "audited-web", "--add-tag", "x")
+	mustRun(t, "host", "ssh", "edit", "audited-web", "--add-tag", "y")
 	if _, err := os.Stat(store.Path("audit.jsonl")); !os.IsNotExist(err) {
 		t.Fatal("audit.jsonl written on a sealed home")
 	}
@@ -78,7 +78,7 @@ func TestAuditListNewest(t *testing.T) {
 func TestAuditUnwritable(t *testing.T) {
 	unixOnly(t, "files made read-only with chmod 0400/0500")
 	invHome(t)
-	mustRun(t, "host", "add", "web", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web", "u@10.0.0.1")
 	db := store.Path(store.StoreFile)
 	if err := os.Chmod(db, 0o400); err != nil {
 		t.Fatal(err)
@@ -87,8 +87,8 @@ func TestAuditUnwritable(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("root writes any file")
 	}
-	wantCode(t, "AUDIT_UNAVAILABLE", "host", "add", "db", "u@10.0.0.2")
-	mustRun(t, "host", "list") // reads still run
+	wantCode(t, "AUDIT_UNAVAILABLE", "host", "ssh", "add", "db", "u@10.0.0.2")
+	mustRun(t, "host", "ssh", "list") // reads still run
 	// a folder where no store can be made: the record fails to write
 	ro := t.TempDir()
 	os.Chmod(ro, 0o500)

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/sgnd/komando/internal/capability"
@@ -16,13 +17,11 @@ import (
 // notWeakerExceptions are "leaf key | today ID" pairs with the reason the
 // leaf may stay below today's highest row.
 var notWeakerExceptions = map[string]string{
-	"host winrm add | host.add":  proxyOnlySSH,
-	"host telnet add | host.add": proxyOnlySSH,
-	"host serial add | host.add": proxyOnlySSH,
+	"host winrm add | host.winrm.add": proxyOnlySSH,
 }
 
-// proxyOnlySSH: host.add's rows are about --proxy-command, an OpenSSH
-// ProxyCommand (host.go); only host ssh add takes it, and keeps the rows.
+// proxyOnlySSH: the rows of today's host add are about --proxy-command, an
+// OpenSSH ProxyCommand; only host ssh add takes it, and keeps the rows.
 const proxyOnlySSH = "the rows are about --proxy-command, which carries only an SSH connection; this provider has no such option"
 
 func TestTierScalesMatch(t *testing.T) {
@@ -84,7 +83,7 @@ func leafTier(k capability.Key) capability.Tier {
 
 func exceptionUsed(pair string) bool {
 	for _, l := range capability.All() {
-		for _, id := range slices.Concat(l.Today, l.Carries) {
+		for _, id := range slices.Concat(l.Today, l.Carries, []string{strings.Join(l.Key.Path(), ".")}) {
 			if l.Key.String()+" | "+id == pair && int(leafTier(l.Key)) < int(todayTier(cmdKeys[id])) {
 				return true
 			}

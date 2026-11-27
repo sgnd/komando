@@ -21,8 +21,8 @@ func wouldBlock(t *testing.T, args ...string) string {
 // komando knows read skip --yes.
 func TestDockerExecReadOnly(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "db1", "deploy@10.0.0.2", "--protected")
-	mustRun(t, "host", "add", "web1", "deploy@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "db1", "deploy@10.0.0.2", "--protected")
+	mustRun(t, "host", "ssh", "add", "web1", "deploy@10.0.0.1")
 	for _, c := range []struct {
 		args []string
 		want string

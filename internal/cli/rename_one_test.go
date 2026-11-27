@@ -13,7 +13,7 @@ import (
 // with the commands to use (C-V23).
 func TestRenameOneEntry(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
 	if d := mustRun(t, "--dry-run", "rename", "web1", "web-01"); d["to"] != "web-01" {
 		t.Errorf("dry run: %v", d)
 	}
@@ -21,7 +21,7 @@ func TestRenameOneEntry(t *testing.T) {
 		t.Fatal("a dry run renamed it")
 	}
 	code, text := runMain(t, "rename", "web1", "web-01")
-	if code != 0 || !strings.Contains(text, `"command":"host.rename"`) {
+	if code != 0 || !strings.Contains(text, `"command":"host.ssh.rename"`) {
 		t.Fatalf("rename web1: exit %d %s", code, text)
 	}
 	if st, _ := loadState(); st.Hosts["web-01"] == nil || st.Hosts["web1"] != nil {
@@ -42,7 +42,7 @@ func TestRenameOneEntry(t *testing.T) {
 	}
 	e := wantCode(t, "USAGE", "rename", "web-01", "web-02")
 	if !strings.Contains(e.Message, `"web-01" is a server and a secret`) ||
-		!strings.Contains(e.Hint, "`komando host rename web-01 web-02` or `komando credential password rename web-01 web-02`") {
+		!strings.Contains(e.Hint, "`komando host ssh rename web-01 web-02` or `komando credential password rename web-01 web-02`") {
 		t.Errorf("two kinds: %+v", e)
 	}
 	e = wantCode(t, "USAGE", "rename", "nope", "x")

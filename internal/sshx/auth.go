@@ -398,7 +398,7 @@ func storePassphrase(st *store.State, h *store.Host, k lockedKey) string {
 		return fmt.Sprintf("store its passphrase: `komando credential password add %s`, then `komando credential key edit %s --passphrase-credential %s`", sec, k.keyName, sec)
 	}
 	name, have := keychainKeyFor(st, h, k.path)
-	use := fmt.Sprintf("`komando host edit %s --key %s --unset identity`", h.Name, name)
+	use := fmt.Sprintf("`komando host ssh edit %s --key %s --unset identity`", h.Name, name)
 	if have != nil && have.PassphraseRef != "" {
 		return "use the keychain key " + name + ", which has its passphrase: " + use
 	}
@@ -464,11 +464,11 @@ func loginWay(st *store.State, h *store.Host) string {
 	sec := secretName(h.Name, "pass")
 	switch {
 	case st.Hosts[h.Name] != nil:
-		return fmt.Sprintf("save its password: `komando credential password add %s`, then `komando host edit %s --password-ref secret:%s` (or --key KEY)", sec, h.Name, sec)
+		return fmt.Sprintf("save its password: `komando credential password add %s`, then `komando host ssh edit %s --credential %s` (or --key KEY)", sec, h.Name, sec)
 	case st.Conns[h.Name] != nil:
 		return fmt.Sprintf("save its password: `komando credential password add %s`, then `komando conn edit %s --password-ref secret:%s`", sec, h.Name, sec)
 	}
-	return "save the server with `komando host add NAME " + h.Name + " --key KEY` (or --password-ref secret:NAME)"
+	return "save the server with `komando host ssh add NAME " + h.Name + " --key KEY` (or --credential secret:NAME)"
 }
 
 // adhoc reports a server that is not in the inventory: a user@address
@@ -493,18 +493,18 @@ func authFailedCheck(st *store.State, h *store.Host) string {
 	name := h.Name
 	switch {
 	case h.AskLogin():
-		return fmt.Sprintf("check the user with `komando host show %s` and run the command again to type the password again; komando never stores it (login ask)", name)
+		return fmt.Sprintf("check the user with `komando host ssh show %s` and run the command again to type the password again; komando never stores it (login ask)", name)
 	case adhoc(st, h):
-		return "check the user, and that ssh-agent or ~/.ssh holds a key the server accepts; save it with `komando host add NAME " + name + " --key KEY` (or --password-ref) to log in another way"
+		return "check the user, and that ssh-agent or ~/.ssh holds a key the server accepts; save it with `komando host ssh add NAME " + name + " --key KEY` (or --credential) to log in another way"
 	case h.Key == "" && h.Identity == "" && h.PasswordRef != "":
 		if sec, ok := strings.CutPrefix(h.PasswordRef, "secret:"); ok {
-			return fmt.Sprintf("check the user with `komando host show %s`; if the password changed, store the new one with `komando credential password add %s`", name, sec)
+			return fmt.Sprintf("check the user with `komando host ssh show %s`; if the password changed, store the new one with `komando credential password add %s`", name, sec)
 		}
-		return fmt.Sprintf("check the user with `komando host show %s`, and the password that %s holds", name, h.PasswordRef)
+		return fmt.Sprintf("check the user with `komando host ssh show %s`, and the password that %s holds", name, h.PasswordRef)
 	case h.PasswordRef != "":
-		return fmt.Sprintf("check the user, key and password with `komando host show %s`; the server needs the key's public part in ~/.ssh/authorized_keys", name)
+		return fmt.Sprintf("check the user, key and password with `komando host ssh show %s`; the server needs the key's public part in ~/.ssh/authorized_keys", name)
 	}
-	return fmt.Sprintf("check the user and key with `komando host show %s`; the server needs the key's public part in ~/.ssh/authorized_keys", name)
+	return fmt.Sprintf("check the user and key with `komando host ssh show %s`; the server needs the key's public part in ~/.ssh/authorized_keys", name)
 }
 
 // secretName is a vault or keychain name for host: "web1-pass".

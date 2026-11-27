@@ -66,7 +66,7 @@ nouns]
 | Kind | Top-level commands |
 |---|---|
 | Nouns | every noun in S-2.1 |
-| Shortcuts | `list`, `test`, `exec`, `shell`, `logs`, `copy`, `facts` (alias `info`), `reboot`, `status`, `login`, `logout`, `import`, `export`, `rename` |
+| Shortcuts | `list`, `test`, `logs`, `copy`, `facts` (alias `info`), `reboot`, `status`, `login`, `logout`, `import`, `export`, `rename` |
 | About komando | `audit`, `doctor`, `schema`, `guide`, `update`, `version`, `seal`, `completion`, `help`, `ssh-gate` |
 | Help topics (only as `komando help TOPIC`) | `environment`, `exit-codes`, `output`, `safety` |
 
@@ -188,10 +188,10 @@ tool-word list S-3.3]
 
 | Verb | Meaning | Follows |
 |---|---|---|
-| `exec` | a shell command on servers (aliases run, x) | docker exec, kubectl exec |
+| `exec` | a shell command on servers (`host ssh exec`) | docker exec, kubectl exec |
 | `run` | the area's own raw command (`cache redis raw`, `cluster kubernetes raw`) or a saved recipe | redis-cli, kubectl |
 | `query` | SQL or MongoDB | psql -c |
-| `shell` | an interactive session, person only (aliases ssh, connect) | |
+| `shell` | an interactive session, person only (`host ssh shell`) | |
 | `copy` | files between this computer, servers and file storage; `--sync` sends only what changed | cp, scp, rsync, aws s3 cp |
 | `dump`, `restore` | back up and load | pg_dump |
 | `up`, `down` | a VPN session | wg-quick, tailscale |
@@ -216,7 +216,7 @@ own tool, is allowed when this list names it:
 `fs cat/stat/chmod/mkdir/write/replace/mv`, `storage mkdir/mv/chmod`,
 `svc daemon-reload`,
 `cluster scale/apply/rollback/forward/values`, `net dns/http/ports/check`,
-`credential key create/install`, `host trust/ssh-command`, `ssh-gate line`, `conn kinds`,
+`credential key create/install`, `host ssh trust`, `host ssh-command`, `ssh-gate line`, `conn kinds`,
 `audit check`, `config approval-code`, `config vault keychain/passphrase`.
 [schema: allow-list]
 
@@ -267,17 +267,17 @@ words; the completion and picker map has one entry per word]
 
 **S-4.3** A required flag is shown in the usage line with an UPPERCASE value
 (`database KIND restore NAME --from FILE`); optional flags never are. A choice of flags
-is in parentheses: `tunnel start TARGET (-L SPEC | -R SPEC | -D SPEC)`.
+is in parentheses: `host ssh tunnel start TARGET (-L SPEC | -R SPEC | -D SPEC)`.
 [schema: required flag ⇔ present in Use]
 
-**S-4.4** Passthrough commands: `exec`, `job start`, `docker exec`,
+**S-4.4** Passthrough commands: `host ssh exec`, `job start`, `docker exec`,
 `docker compose`, `docker raw`, `cluster kubernetes exec`, `cluster kubernetes shell`,
 `cluster kubernetes raw`, `cache redis raw` (every command whose Use has `-- COMMAND...` or
 `-- ARGS...`). komando flags are read anywhere before `--`
 (`exec @web -P 20 --read-only -- df -h`). Any word after the fixed positionals (TARGET, CONTAINER,
 `POD|TYPE/NAME`, CONN) must come after `--`. Without `--`, such a word is a
 USAGE error (exit 2) with the hint
-``put -- before the command: `komando exec web1 -- apt-get install -y nginx` ``.
+``put -- before the command: `komando host ssh exec web1 -- apt-get install -y nginx` ``.
 So `-y` in `apt-get install -y nginx` can never be read as `--yes`, and a
 trailing `--dry-run`, `-P 1` or `--fail-fast` is never read by komando
 while the words around it go to the server. `kubectl exec` has
@@ -444,7 +444,7 @@ including common foreign shorthands (`-n` outside its scope, `-it`, `-L`,
 
 **S-5.17** An unknown command word gets help in this order:
 (1) a curated table of foreign words, each mapped to a full command for
-`error.hint`: `server` (alias), `delete`/`remove` → `komando host rm NAME`
+`error.hint`: `server` (alias), `delete`/`remove` → `komando host ssh remove NAME`
 (or the noun in the next word), `get` → `komando list`,
 `ps` → `komando docker ps TARGET`, `kubectl` → `komando cluster kubernetes raw NAME -- ...`,
 `psql`/`mysql` → `komando database KIND query NAME`, `apt`/`yum` → `komando pkg`,
@@ -502,7 +502,7 @@ command's Use words. [code]
 
 **S-6.11** Top-level help groups: Start, Servers, Data, Platform,
 Inventory, Access, Overview, Setup. Start lists commands, not nouns:
-`host add`, `conn add`, `import ssh-config`, `list`, `test TARGET`,
+`host ssh add`, `conn add`, `import ssh-config`, `list`, `test TARGET`,
 `agent skill install`. Inventory: host, conn, group, import, export, rename.
 Help topics are listed only under `komando help`. [review]
 
@@ -563,9 +563,9 @@ release note. [schema + rule table]
 **S-7.9** "Blocked by …" is used only for a custom deny rule or a policy or
 classifier hit, never for a command's own built-in tier. [code]
 
-**S-7.10** A command for a person at a terminal (`shell`, `database KIND shell`,
+**S-7.10** A command for a person at a terminal (`host ssh shell`, `database KIND shell`,
 `cluster kubernetes shell`, `config vault passphrase` ...) never runs for an AI agent or an
-ssh-gate key. One exception: `komando shell SERVER` for a `--shell-access`
+ssh-gate key. One exception: `komando host ssh shell SERVER` for a `--shell-access`
 key, which ssh-gate opens in its own process after its checks; no
 environment variable or terminal lets another komando process do the same.
 That shell asks nothing: what a person would be asked (a protected server)
@@ -693,7 +693,7 @@ here as "none". [schema: for each kind, each verb resolves]
 `--label`, `--protected`, `--unset` as host and conn; `rm` and `edit` take
 `NAME|TARGET...` alike. `--unset` may not name `mfa` or `protected`;
 `--protected=false` and clearing `--mfa` are T3s (S-7.2); a multi-target
-`vpn KIND remove` follows the `host rm` tier. [schema; code: parity test with host]
+`vpn KIND remove` follows the `host ssh remove` tier. [schema; code: parity test with host]
 
 **S-10.3** A family `rm` given only a conn name, at a terminal, says what it
 deletes and how to take the conn out of komando instead, before any

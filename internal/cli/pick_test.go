@@ -75,11 +75,11 @@ func TestCommandKeepsVaultPass(t *testing.T) {
 
 func TestCommandLineQuoting(t *testing.T) {
 	cases := map[string][]string{
-		"shell web1":                    {"shell", "web1"},
-		"audit list --limit 20":         {"audit", "list", "--limit", "20"},
-		"host add web1 deploy@10.0.0.5": {"host", "add", "web1", "deploy@10.0.0.5"},
-		"host add web1 'a;b'":           {"host", "add", "web1", "a;b"},
-		`host add web1 'it'\''s'`:       {"host", "add", "web1", "it's"},
+		"host ssh shell web1":               {"host", "ssh", "shell", "web1"},
+		"audit list --limit 20":             {"audit", "list", "--limit", "20"},
+		"host ssh add web1 deploy@10.0.0.5": {"host", "ssh", "add", "web1", "deploy@10.0.0.5"},
+		"host ssh add web1 'a;b'":           {"host", "ssh", "add", "web1", "a;b"},
+		`host ssh add web1 'it'\''s'`:       {"host", "ssh", "add", "web1", "it's"},
 	}
 	for want, args := range cases {
 		if got := pickCommandLine(args); got != want {
@@ -95,7 +95,7 @@ func TestFirstRunImport(t *testing.T) {
 	cfg := filepath.Join(home, ".ssh", "config")
 	_, err := os.Open(cfg)
 	e := toErr(sshConfigErr(cfg, err))
-	if e.Code != "FILE_NOT_FOUND" || e.Message != "there is no ~/.ssh/config on this computer" || !strings.Contains(e.Hint, "komando host add web1") {
+	if e.Code != "FILE_NOT_FOUND" || e.Message != "there is no ~/.ssh/config on this computer" || !strings.Contains(e.Hint, "komando host ssh add web1") {
 		t.Errorf("no ~/.ssh/config: %+v", e)
 	}
 	other := filepath.Join(home, "other")

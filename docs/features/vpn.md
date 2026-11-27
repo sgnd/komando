@@ -14,8 +14,8 @@ that fits.
 
 ```bash
 komando vpn wireguard add office --config ~/Downloads/office.conf --check 10.0.0.5:22
-komando host add db1 admin@10.0.0.5 --via office    # a server inside the VPN
-komando exec db1 -- uptime                          # connects the VPN by itself
+komando host ssh add db1 admin@10.0.0.5 --via office    # a server inside the VPN
+komando host ssh exec db1 -- uptime                          # connects the VPN by itself
 komando test kind:vpn                               # do all VPNs work?
 komando vpn wireguard status                                  # which VPNs are up, and what uses them
 ```
@@ -44,7 +44,7 @@ office   wireguard      -     -       db1       connects for each command
 | `l2tp` | L2TP/IPsec with a pre-shared key (Windows Server, MikroTik, strongSwan + xl2tpd, many routers) | inside komando | no |
 | `ipsec` | Cisco-style IPsec: group name and password, then your login (XAUTH): Cisco ASA/IOS, MikroTik, strongSwan; the "IPSec" type of macOS and iOS | inside komando | no |
 | `ikev2` | IKEv2/IPsec, with a pre-shared key or a user login (EAP-MSCHAPv2) checked against the server's certificate | inside komando | no |
-| `socks` | a SOCKS5 proxy that is already running (`komando tunnel start bastion -D 1080`, a company proxy); with a login: `--user` and `--credential` | already running | no |
+| `socks` | a SOCKS5 proxy that is already running (`komando host ssh tunnel start bastion -D 1080`, a company proxy); with a login: `--user` and `--credential` | already running | no |
 | `proxy` | an HTTP proxy that tunnels connections (CONNECT), such as a company proxy: `--proxy-address proxy.corp:3128` or `https://proxy.corp`, its login with `--user` and `--credential` | already running | no |
 | `system` | a VPN set up in your computer's own settings | by your computer | yes |
 
@@ -122,11 +122,11 @@ komando vpn proxy add office --proxy-address proxy.corp.example:3128
 Put the VPN first in `--via`. A command that needs it connects it by itself:
 
 ```bash
-komando host add db1 admin@10.0.0.5 --via office                        # a server inside the VPN
+komando host ssh add db1 admin@10.0.0.5 --via office                        # a server inside the VPN
 komando conn add prod-db postgres://app@10.0.0.9/app --via office,bastion # VPN, then a bastion
-komando exec db1 -- uptime
-komando tunnel start prod-db                                            # open it in TablePlus, psql, ...
-komando tunnel start office -D 1080                                     # a SOCKS proxy on port 1080 that goes through the VPN
+komando host ssh exec db1 -- uptime
+komando host ssh tunnel start prod-db                                            # open it in TablePlus, psql, ...
+komando host ssh tunnel start office -D 1080                                     # a SOCKS proxy on port 1080 that goes through the VPN
 ```
 
 How long a VPN stays up depends on its kind:
@@ -175,7 +175,7 @@ Then a person connects it once:
 
 ```bash
 komando vpn globalprotect start corp           # log in here, MFA included
-komando exec web1 -- uptime   # later commands (and agents) reuse the session
+komando host ssh exec web1 -- uptime   # later commands (and agents) reuse the session
 komando vpn globalprotect stop corp
 ```
 
@@ -211,7 +211,7 @@ komando vpn wireguard edit office --check 10.0.0.6:22   # change a setting (see 
 komando vpn wireguard status                            # which are up, since when, what uses them
 komando vpn wireguard rename office office-jkt          # rename; every --via path follows
 komando vpn wireguard remove office                         # remove (several names or a selector allowed)
-komando vpn socks edit tag:prod --protected        # mark VPNs protected (like host edit)
+komando vpn socks edit tag:prod --protected        # mark VPNs protected (like host ssh edit)
 ```
 
 - `vpn wireguard status`: a session VPN is up while its session runs; a SOCKS or
@@ -243,7 +243,7 @@ komando vpn socks edit tag:prod --protected        # mark VPNs protected (like h
   needs a person's yes (`SAFETY_SETTING`): another CA lets another server
   get the VPN's login.
 - `vpn KIND edit` and `vpn KIND remove` take several names or a selector (`@office`,
-  `tag:lab`), as `host edit` and `host rm` do.
+  `tag:lab`), as `host ssh edit` and `host ssh remove` do.
 - A protected VPN (`--protected`) needs a person's yes before it is
   changed, replaced or removed (`PROTECTED_TARGET`). At your terminal
   komando asks you first; an AI agent or a script adds `--yes` after a
@@ -450,7 +450,7 @@ komando test office
 
 | Code | What it means | What to do |
 |------|---------------|------------|
-| `VPN_DOWN` (exit 4) | the VPN does not answer | the hint depends on the kind: connect the `system` VPN; start the SOCKS proxy (`komando tunnel start bastion -D 1080`); check that the HTTP proxy answers and lets the port through (many company proxies allow only 443); check that a WireGuard endpoint is reachable and the keys match; for a session VPN, reconnect with `komando vpn KIND stop NAME` and `komando vpn KIND start NAME` |
+| `VPN_DOWN` (exit 4) | the VPN does not answer | the hint depends on the kind: connect the `system` VPN; start the SOCKS proxy (`komando host ssh tunnel start bastion -D 1080`); check that the HTTP proxy answers and lets the port through (many company proxies allow only 443); check that a WireGuard endpoint is reachable and the keys match; for a session VPN, reconnect with `komando vpn KIND stop NAME` and `komando vpn KIND start NAME` |
 | `VPN_DOWN` at `vpn KIND start` on WireGuard | nothing answered at `--check` through the tunnel (no handshake yet) | check the endpoint and the keys (`komando vpn wireguard show office`) |
 | `VPN_LOGIN_REQUIRED` (exit 4) | the VPN needs a person's login and has no session | a person runs `komando vpn KIND start NAME` |
 | `VPN_CLIENT_MISSING` (exit 3) | `openconnect` or `ocproxy` is not installed | install the program the message names |

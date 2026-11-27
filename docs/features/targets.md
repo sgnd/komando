@@ -9,7 +9,7 @@ Most commands take a *target*. One target picks servers, conns (databases,
 caches, queues, storage, clusters, registries) and VPNs together:
 
 ```bash
-komando exec @web -- uptime            # run on every server in group web
+komando host ssh exec @web -- uptime            # run on every server in group web
 ```
 
 | Write | Picks |
@@ -57,7 +57,7 @@ komando test @prod           # reach and log in to each one
 ## What each command does with a target
 
 Each command uses what it can work with and tells you what it left out. For
-example, `komando exec @prod -- uptime` runs on the servers in `prod` and
+example, `komando host ssh exec @prod -- uptime` runs on the servers in `prod` and
 lists the databases under "skipped". `komando database KIND query @prod "..."` does the
 opposite: it uses the one database in `@prod` (a `db` command needs exactly
 one) and skips the servers. If a target picks nothing the command can use,
@@ -69,8 +69,8 @@ an error, not an empty result.
 Set them when you add or edit a server or conn:
 
 ```bash
-komando host edit web1 --add-group prod --add-tag web --label dc=jkt
-komando host edit web1 --rm-group prod --rm-tag web
+komando host ssh edit web1 --add-group prod --add-tag web --label dc=jkt
+komando host ssh edit web1 --rm-group prod --rm-tag web
 ```
 
 Or manage a group for many entries at once:
@@ -110,6 +110,6 @@ back: `Next: komando group create old TARGET...`.
 |------------|---------------|------------|
 | `TARGET_EMPTY` | the target matched nothing (exit 3) | `komando list` shows servers, conns, groups and tags |
 | `NO_MATCHING_TARGETS` | the target picked only things this command cannot use (exit 3) | the hint names the command for what it picked |
-| `TARGET_NOT_FOUND` | no server of that name (exit 3) | check the "did you mean", or `komando host list` |
+| `TARGET_NOT_FOUND` | no server of that name (exit 3) | check the "did you mean", or `komando host ssh list` |
 | `USAGE` | a command that needs exactly one conn got a target with several | name the one conn |
 | `CONFIRM_REQUIRED` | `group remove` of a group with more than 3 members, from an AI agent or a script without `--yes` | check the members with `komando group list GROUP`, then add `--yes` after a person agrees |

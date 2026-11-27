@@ -6,14 +6,14 @@ commands you use often. [All docs](README.md)
 ## Run a command
 
 ```bash
-komando exec web1 -- uptime
+komando host ssh exec web1 -- uptime
 ```
 
 ```text
  10:42:01 up 34 days,  2:11,  1 user,  load average: 0.12, 0.08, 0.05
 ```
 
-Typed alone at your terminal, `komando exec` asks for the server (from your
+Typed alone at your terminal, `komando host ssh exec` asks for the server (from your
 list), then the command.
 
 Everything after `--` is the command. It runs through the server's login
@@ -22,16 +22,16 @@ is refused, because `--dry-run` there would be part of the command and the
 command would really run. When the command on the server takes such a flag
 itself (`apt-get upgrade --dry-run`), give it as one string with `-c`.
 
-The `--` is required: `komando exec web1 apt-get install -y nginx` is a
+The `--` is required: `komando host ssh exec web1 apt-get install -y nginx` is a
 usage error (exit 2) and runs nothing, because komando would read `-y` as
 its own `--yes`. The same holds for every command that hands words to
 another program: `job start`, `docker exec`, `docker compose`, `docker raw`,
 `cluster kubernetes exec`, `cluster kubernetes shell`, `cluster kubernetes raw` and `cache redis raw`.
 
 ```bash
-komando exec @web -P 20 -- 'df -h / | tail -1'           # up to 20 servers at once
-komando exec tag:prod --sudo -- systemctl is-active nginx
-komando exec db1 --read-only -- 'df -h /var/lib/postgresql'   # SQL itself: komando database postgres query
+komando host ssh exec @web -P 20 -- 'df -h / | tail -1'           # up to 20 servers at once
+komando host ssh exec tag:prod --sudo -- systemctl is-active nginx
+komando host ssh exec db1 --read-only -- 'df -h /var/lib/postgresql'   # SQL itself: komando database postgres query
 ```
 
 | Flag | What it does |
@@ -89,8 +89,8 @@ hurt). First look, with a read-only command: its log file, `ps`,
 or the change it should have made:
 
 ```bash
-komando exec web2 --read-only -- 'tail -20 /var/log/unattended-upgrades/unattended-upgrades.log'
-komando exec web2 --read-only -- 'ps -ef | grep -v grep | grep apt'
+komando host ssh exec web2 --read-only -- 'tail -20 /var/log/unattended-upgrades/unattended-upgrades.log'
+komando host ssh exec web2 --read-only -- 'ps -ef | grep -v grep | grep apt'
 ```
 
 If the server stops answering (a VPN that went away without a word),
@@ -221,12 +221,12 @@ Help shows one name per command. Plurals and the words people often type
 
 ## Run a local script
 
-`komando exec TARGET --script FILE` sends a script file from this computer
+`komando host ssh exec TARGET --script FILE` sends a script file from this computer
 to the servers and runs it. Nothing is left on the server's disk.
 
 ```bash
-komando exec @web --script ./deploy.sh --arg v1.2.3 --sudo
-komando exec db1 --script ./backup.py --interpreter python3
+komando host ssh exec @web --script ./deploy.sh --arg v1.2.3 --sudo
+komando host ssh exec db1 --script ./backup.py --interpreter python3
 ```
 
 The interpreter comes from the script's `#!` line, or from `--interpreter`
@@ -367,7 +367,7 @@ Next time: komando logs web1
   what it would do and asks again). One that deletes for good asks you to
   type the name of what goes (or how many). A protected target asks its
   usual `web1 (protected): this command changes it. Continue? [y/N]` instead.
-- `komando host add` (or `conn add`, `vpn KIND add`, `database KIND add`, `cache redis add`,
+- `komando host ssh add` (or `conn add`, `vpn KIND add`, `database KIND add`, `cache redis add`,
   `queue kafka add`, `storage s3 add`, `cluster kubernetes add`, `registry oci add`) typed alone
   asks that kind's own questions: which kind, a name, the address or the
   parts of the URL, the user, the port, how you log in, and whether it is
@@ -394,8 +394,8 @@ output: they get the usual `USAGE` error that names what is missing.
 ## Interactive shell (for people)
 
 ```bash
-komando shell web1             # log in, with a status line first
-komando shell web1 --dry-run   # shows the server, address, user and --via path; connects nothing
+komando host ssh shell web1             # log in, with a status line first
+komando host ssh shell web1 --dry-run   # shows the server, address, user and --via path; connects nothing
 ```
 
 `shell` logs you in to the server, through its `--via` path (VPN and
@@ -535,4 +535,4 @@ crashed a moment ago can still show until the next komando command.
 | `JOB_NOT_FOUND` | no job with that ID | see them with `komando job list` |
 | `OPTION_LIKE_VAR` | a recipe `--var` value starts with `-` | write a path like that as `./-name` |
 | `UNKNOWN_VAR` | the recipe has no blank of that name | check its blanks with `komando snippet list` |
-| `NEEDS_TERMINAL` | `shell` without a person at a terminal | use `komando exec` or `komando job start` |
+| `NEEDS_TERMINAL` | `shell` without a person at a terminal | use `komando host ssh exec` or `komando job start` |

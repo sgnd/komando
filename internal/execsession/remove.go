@@ -139,7 +139,7 @@ func RemoveExit(host, id string, exit int) error {
 		return nil
 	case ExitNotRunning:
 		return out.Errf(out.ExitConflict, "SESSION_BUSY",
-			"stop it first with `komando exec TARGET --attach ID --stop`, then remove it once it has ended",
+			"stop it first with `komando host ssh exec TARGET --attach ID --stop`, then remove it once it has ended",
 			"session %s on %s is still running", id, host)
 	case ExitGone, ExitUnsafe:
 		return Follow{Host: host, ID: id}.readExit(exit)

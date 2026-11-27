@@ -64,7 +64,7 @@ check "storage upload --continue to ftps" 2500000 "$($K copy "$TMP/e2eops.bin" f
 check "storage upload --continue arrived" "$SUM" "$($K copy files-ftps:t-e2eops/cont.bin bucket:t-e2eops/cont-check.bin | jget 'd["data"]["results"][0]["sha256"]')"
 q $K copy "$TMP/e2eops.part" bucket:t-e2eops/cut.bin
 check "upload --continue to a bucket is refused" RESUME_UNSUPPORTED "$($K copy "$TMP/e2eops.bin" bucket:t-e2eops/cut.bin --continue | jget 'd["error"]["code"]')"
-q $K exec direct -- truncate -s 1000000 /tmp/e2eops/back.bin
+q $K host ssh exec direct -- truncate -s 1000000 /tmp/e2eops/back.bin
 check "cp --continue between two remote places" "1000000 $SUM" "$($K copy files-sftp:t-e2eops/src.bin direct:/tmp/e2eops/back.bin --continue | jget 'str(d["data"]["results"][0]["continued_from_bytes"]) + " " + d["data"]["results"][0]["sha256"]')"
 
 echo "==> streams (--to -, upload -)"
@@ -88,8 +88,8 @@ done
 check "an agent's stream shows secret values as [hidden]" True "$(printf 'API_TOKEN=s3cr3t-e2e-value\n' | $K copy - direct:/tmp/e2eops/app.conf >/dev/null; A copy direct:/tmp/e2eops/app.conf - 2>/dev/null | python3 -c 'import sys; s=sys.stdin.read(); print("s3cr3t-e2e-value" not in s)')"
 
 for c in bucket files-sftp files-ftps; do q $K storage "$(sprov "$c")" object delete "$c" --prefix t-e2eops/ --allow-dangerous; done
-q $K exec direct --allow-dangerous -- rm -rf /tmp/e2eops
-q $K exec bastion --allow-dangerous -- rm -rf /tmp/e2eops
+q $K host ssh exec direct --allow-dangerous -- rm -rf /tmp/e2eops
+q $K host ssh exec bastion --allow-dangerous -- rm -rf /tmp/e2eops
 q $K conn rm files-sftp files-ftps
 rm -rf "$TMP"/e2eops*
 set -e

@@ -28,7 +28,7 @@ func ForStop(rt *store.Runtime, host, id string) (*store.ExecSession, error) {
 	rec := rt.ExecSessions[id]
 	if rec == nil || rec.Host != host {
 		return nil, out.Errf(out.ExitNotFound, "SESSION_RECORD_MISSING",
-			"only the computer that started the run can stop it: run `komando exec TARGET --attach ID --stop` there; `komando audit list` there shows the exec that started it",
+			"only the computer that started the run can stop it: run `komando host ssh exec TARGET --attach ID --stop` there; `komando audit list` there shows the exec that started it",
 			"session %s on %s was not started from this computer", id, host)
 	}
 	return rec, nil
@@ -89,11 +89,11 @@ func StopExit(host, id string, exit int, stderr string) error {
 		return nil
 	case ExitNotRunning:
 		return out.Errf(out.ExitNotFound, "SESSION_PROCESS_MISSING",
-			"`komando exec TARGET --attach ID` reads how it ended; `komando exec TARGET --attach ID --remove` removes it",
+			"`komando host ssh exec TARGET --attach ID` reads how it ended; `komando host ssh exec TARGET --attach ID --remove` removes it",
 			"session %s on %s is not running: its process ended, or its PID belongs to another process now", id, host)
 	}
 	return out.Errf(out.ExitRemote, "SESSION_STOP_FAILED",
-		"a run started with --sudo is stopped through sudo as the same user; when sudo asks for a password there, give the server its sudo password: `komando host edit TARGET --sudo-ref secret:NAME`",
+		"a run started with --sudo is stopped through sudo as the same user; when sudo asks for a password there, give the server its sudo password: `komando host ssh edit TARGET --sudo-credential secret:NAME`",
 		"%s: session %s was not stopped (exit %d): %s", host, id, exit, strings.TrimSpace(stderr))
 }
 

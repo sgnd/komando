@@ -6,7 +6,7 @@ servers, databases, caches, queues, storage, clusters and VPNs,
 for people and AI agents alike.
 
 Start:
-  komando host add NAME USER@ADDRESS   add a server
+  komando host ssh add NAME ADDRESS   add a server
   komando conn add NAME URL            add a database, cache, queue, storage,
                                        cluster or registry
   komando import ssh-config            bring in the servers you already have
@@ -1263,7 +1263,7 @@ step by step. The URL scheme sets the kind: `komando conn kinds` lists them.
 
 A Kubernetes cluster usually comes in with `komando import kubeconfig FILE`
 (one conn per context). Here its kubeconfig must be in the vault already
-(--password-ref). A Docker Swarm manager is a server: `komando host add`.
+(--credential). A Docker Swarm manager is a server: `komando host ssh add`.
 
 Usage:
   komando cluster add NAME URL [flags]
@@ -19446,7 +19446,11 @@ exit 0
 --- stdout
 Save a Cisco AnyConnect VPN under a short name.
 
-Safety: a change; try it with --dry-run first.
+Safety: a change; try it with --dry-run first; when --proxy-command matches
+a destructive rule: dangerous, it cannot be undone: a person types the name
+to go on, and an AI agent or a script needs --allow-dangerous; with
+--proxy-command, when an AI agent runs it (the proxy command runs on this
+computer): it weakens a safety check: a person's yes (--yes).
 
 Usage:
   komando vpn anyconnect add NAME [flags]

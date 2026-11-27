@@ -159,7 +159,7 @@ func certConnErr(address, via string, err error) error {
 	}
 	hint := "check the name and port; if the site is only reachable from a server or VPN, run it again with --via: `komando cert check " + address + " --via NAME`"
 	if via != "" {
-		hint = "the address is reached through " + via + "; check it from there with `komando exec " + via + " -- nc -z HOST PORT`"
+		hint = "the address is reached through " + via + "; check it from there with `komando host ssh exec " + via + " -- nc -z HOST PORT`"
 	}
 	return out.Errf(out.ExitConnect, "CONN_UNREACHABLE", hint, "cannot reach %s: %v", address, err)
 }

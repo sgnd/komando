@@ -7,8 +7,8 @@ import (
 
 func TestExportKindHost(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "-g", "prod")
-	mustRun(t, "host", "add", "db1", "u@10.0.0.2")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1", "-g", "prod")
+	mustRun(t, "host", "ssh", "add", "db1", "u@10.0.0.2")
 	d := mustRun(t, "export", "@prod")
 	if d["format"] != exportFormat || len(d["hosts"].([]any)) != 1 {
 		t.Errorf("export @prod: %v", d)
@@ -32,17 +32,16 @@ func TestExportTextIsTheFile(t *testing.T) {
 // line.
 func TestSynonymsPrintNothing(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
-	if note := stderrOf(t, func() { mustRun(t, "--dry-run", "x", "web1", "--", "uptime") }); note != "" {
-		t.Errorf("x printed %q", note)
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
+	if note := stderrOf(t, func() { mustRun(t, "host", "ssh", "ls") }); note != "" {
+		t.Errorf("ls printed %q", note)
 	}
 }
 
-// TestSynonymsGetEveryCheck: a synonym wrapper (cluster info,
-// tunnel show) is hidden but typed by a person or an agent, so
-// it gets every check of the command it names: guardHome and the
-// store-writable check do not skip it as a background command, and the
-// ssh-gate does not refuse it as plumbing.
+// TestSynonymsGetEveryCheck: a synonym wrapper is hidden but typed by a
+// person or an agent, so it gets every check of the command it names:
+// guardHome and the store-writable check do not skip it as a background
+// command, and the ssh-gate does not refuse it as plumbing.
 func TestSynonymsGetEveryCheck(t *testing.T) {
 	n := 0
 	for _, c := range allCommands(newRoot(tcl)) {
@@ -54,7 +53,7 @@ func TestSynonymsGetEveryCheck(t *testing.T) {
 			t.Errorf("%s: a synonym is skipped as a background command", c.CommandPath())
 		}
 	}
-	if n < 2 {
-		t.Errorf("found %d synonym wrappers, want at least 2", n)
+	if n < 1 {
+		t.Errorf("found %d synonym wrappers, want at least 1", n)
 	}
 }

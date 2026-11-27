@@ -16538,10 +16538,11 @@
         "short": "Files and folders of webdav storage",
         "example": "  komando storage webdav object list backups 2026/\n  komando storage webdav object read backups logs/app.log --tail 50\n  komando storage webdav object create backups reports/2026 --dry-run\n  komando storage webdav object delete backups --prefix daily/ --older-than 30d --dry-run",
         "runnable": true,
-        "kind": "read",
+        "kind": "depends",
+        "kind_note": "an shellNote shell for a person: whatever they type",
         "confirm": [
           {
-            "tier": "read"
+            "tier": "person"
           }
         ]
       },
@@ -21664,7 +21665,7 @@
         "code": "AUTH_FAILED",
         "exit": 4,
         "example": "… has no user or password for WinRM",
-        "hint": "WinRM logs in with a user and a password: `komando host edit … --ask-password` (and the user in the address, for example winrm://Administrator@HOST)"
+        "hint": "WinRM logs in with a user and a password: `komando host winrm edit … --ask-password` (and the user in the address, for example winrm://Administrator@HOST)"
       },
       {
         "code": "AWS_FAILED",
@@ -21700,7 +21701,7 @@
         "code": "BACKUP_FAILED",
         "exit": 5,
         "example": "could not make a backup of …: …; the file was not changed",
-        "hint": "check free space with `komando exec TARGET --read-only -- df -h`, or run without --backup"
+        "hint": "check free space with `komando host ssh exec TARGET --read-only -- df -h`, or run without --backup"
       },
       {
         "code": "BACKUP_NOT_FOUND",
@@ -21856,13 +21857,13 @@
         "code": "CONNECTION_REFUSED",
         "exit": 4,
         "example": "the server refused the connection: nothing listens on that port",
-        "hint": "check that sshd runs on the server and listens on this port: `komando host show …`"
+        "hint": "check that sshd runs on the server and listens on this port: `komando host ssh show …`"
       },
       {
         "code": "CONNECT_TIMEOUT",
         "exit": 7,
         "example": "connecting to … timed out",
-        "hint": "a firewall drops the connection, or the server is private: check the address with `komando host show …`, reach it through a bastion or VPN (`komando host edit … --via NAME`), or raise --connect-timeout on a slow link"
+        "hint": "a firewall drops the connection, or the server is private: check the address with `komando host ssh show …`, reach it through a bastion or VPN (`komando host ssh edit … --via NAME`), or raise --connect-timeout on a slow link"
       },
       {
         "code": "CONN_EXISTS",
@@ -21970,13 +21971,13 @@
         "code": "DNS_ERROR",
         "exit": 4,
         "example": "the server's name does not resolve on this computer",
-        "hint": "the name does not resolve here: check it with `komando host show …` and fix it with `komando host edit … --address ADDRESS`; a name only a VPN resolves needs --via that VPN"
+        "hint": "the name does not resolve here: check it with `komando host ssh show …` and fix it with `komando host ssh edit … --address ADDRESS`; a name only a VPN resolves needs --via that VPN"
       },
       {
         "code": "DOCKER_ERROR",
         "exit": 5,
         "example": "docker on the server answered with an error",
-        "hint": "check that Docker runs there: `komando exec TARGET --read-only -- docker info`"
+        "hint": "check that Docker runs there: `komando host ssh exec TARGET --read-only -- docker info`"
       },
       {
         "code": "DOCKER_MISSING",
@@ -22131,25 +22132,25 @@
         "code": "HOSTKEY_MISMATCH",
         "exit": 4,
         "example": "host key for … changed: the server was rebuilt, or someone is intercepting the connection",
-        "hint": "possible man-in-the-middle: report this to the user and do not re-trust the key yourself; once they have checked the new fingerprint another way, they can run `komando host trust … --reset`"
+        "hint": "possible man-in-the-middle: report this to the user and do not re-trust the key yourself; once they have checked the new fingerprint another way, they can run `komando host ssh trust … --reset`"
       },
       {
         "code": "HOSTKEY_REVOKED",
         "exit": 4,
         "example": "… shows the revoked host key …; nothing was sent",
-        "hint": "this key is on komando's list of revoked host keys: treat the server as compromised, tell its owner, and do not re-trust it with `komando host trust`"
+        "hint": "this key is on komando's list of revoked host keys: treat the server as compromised, tell its owner, and do not re-trust it with `komando host ssh trust`"
       },
       {
         "code": "HOSTKEY_UNKNOWN",
         "exit": 4,
         "example": "host key for … is not trusted yet (host keys are strict)",
-        "hint": "compare the fingerprint with what the server's owner sees, then run `komando host trust …` (an AI agent asks the user: its pin needs their yes)"
+        "hint": "compare the fingerprint with what the server's owner sees, then run `komando host ssh trust …` (an AI agent asks the user: its pin needs their yes)"
       },
       {
         "code": "HOSTKEY_UNREADABLE",
         "exit": 4,
         "example": "the pinned host key for … cannot be read",
-        "hint": "a person checks the server's key and runs `komando host trust` for it in their own terminal"
+        "hint": "a person checks the server's key and runs `komando host ssh trust` for it in their own terminal"
       },
       {
         "code": "HOST_EXISTS",
@@ -22298,7 +22299,7 @@
         "code": "KEYSCAN_FAILED",
         "exit": 4,
         "example": "cannot fetch host key from …: …",
-        "hint": "check the address and port with `komando host show …`"
+        "hint": "check the address and port with `komando host ssh show …`"
       },
       {
         "code": "KEY_EXISTS",
@@ -22322,7 +22323,7 @@
         "code": "KEY_IN_USE",
         "exit": 8,
         "example": "server … still uses this key",
-        "hint": "give the server another key first: `komando host edit … --key OTHER`"
+        "hint": "give the server another key first: `komando host ssh edit … --key OTHER`"
       },
       {
         "code": "KEY_LINE_CONFLICT",
@@ -22424,7 +22425,7 @@
         "code": "NOT_SWARM_MANAGER",
         "exit": 3,
         "example": "… is not a Swarm manager (docker not found)",
-        "hint": "Swarm commands run on a manager: `komando exec … --read-only -- docker node ls` shows whether it is one"
+        "hint": "Swarm commands run on a manager: `komando host ssh exec … --read-only -- docker node ls` shows whether it is one"
       },
       {
         "code": "NOT_TEXT",
@@ -22610,7 +22611,7 @@
         "code": "PORT_IN_USE",
         "exit": 8,
         "example": "cannot listen on 127.0.0.1:…: …",
-        "hint": "pick another LOCAL port (`komando tunnel list` shows the ones komando holds)"
+        "hint": "pick another LOCAL port (`komando host ssh tunnel list` shows the ones komando holds)"
       },
       {
         "code": "POWERSHELL_FAILED",
@@ -22940,13 +22941,13 @@
         "code": "SESSION_BUSY",
         "exit": 8,
         "example": "session … on … is still running",
-        "hint": "stop it first with `komando exec TARGET --attach ID --stop`, then remove it once it has ended"
+        "hint": "stop it first with `komando host ssh exec TARGET --attach ID --stop`, then remove it once it has ended"
       },
       {
         "code": "SESSION_FOLDER_DENIED",
         "exit": 5,
         "example": "…: ~/.komando or its sessions folder is a link, a file, not the login user's, or others can write it",
-        "hint": "look with `komando exec TARGET -- ls -ld ~/.komando ~/.komando/sessions`: each is to be a plain folder of the login user that only it can write (chmod 700)"
+        "hint": "look with `komando host ssh exec TARGET -- ls -ld ~/.komando ~/.komando/sessions`: each is to be a plain folder of the login user that only it can write (chmod 700)"
       },
       {
         "code": "SESSION_FOLDER_MISSING",
@@ -22964,7 +22965,7 @@
         "code": "SESSION_PROCESS_MISSING",
         "exit": 3,
         "example": "session … on … is not running: its process ended, or its PID belongs to another process now",
-        "hint": "`komando exec TARGET --attach ID` reads how it ended; `komando exec TARGET --attach ID --remove` removes it"
+        "hint": "`komando host ssh exec TARGET --attach ID` reads how it ended; `komando host ssh exec TARGET --attach ID --remove` removes it"
       },
       {
         "code": "SESSION_RECORD_MISSING",
@@ -22976,25 +22977,25 @@
         "code": "SESSION_SPACE_DENIED",
         "exit": 5,
         "example": "…: the home file system has less free space than the log cap plus 5 percent of the disk; nothing ran",
-        "hint": "free space in the home folder, or give a smaller log cap: `komando exec TARGET --log-max 100MiB -- COMMAND`"
+        "hint": "free space in the home folder, or give a smaller log cap: `komando host ssh exec TARGET --log-max 100MiB -- COMMAND`"
       },
       {
         "code": "SESSION_START_FAILED",
         "exit": 5,
         "example": "…: the run in a session did not start (…)",
-        "hint": "the server needs nohup, ps and mkfifo: look with `komando exec TARGET -- command -v setsid nohup ps mkfifo`"
+        "hint": "the server needs nohup, ps and mkfifo: look with `komando host ssh exec TARGET -- command -v setsid nohup ps mkfifo`"
       },
       {
         "code": "SESSION_STOP_FAILED",
         "exit": 5,
         "example": "…: session … was not stopped (exit …): …",
-        "hint": "a run started with --sudo is stopped through sudo as the same user; when sudo asks for a password there, give the server its sudo password: `komando host edit TARGET --sudo-ref secret:NAME`"
+        "hint": "a run started with --sudo is stopped through sudo as the same user; when sudo asks for a password there, give the server its sudo password: `komando host ssh edit TARGET --sudo-credential secret:NAME`"
       },
       {
         "code": "SESSION_WAIT_TIMEOUT",
         "exit": 7,
         "example": "session … on … still running after …",
-        "hint": "it is still running: `komando exec … --attach … --offset …` reads on"
+        "hint": "it is still running: `komando host ssh exec … --attach … --offset …` reads on"
       },
       {
         "code": "SFTP_UNAVAILABLE",
@@ -23006,18 +23007,18 @@
         "code": "SHARED_FOLDER_CONFLICT",
         "exit": 8,
         "example": "… can be changed by …, not only by root and the SSH user: as root, komando does not write … there (that user could swap it for a link while root writes)",
-        "hint": "write it as … instead, for example `komando exec TARGET --sudo-user … --stdin-file FILE -- sh -c 'cat > \"$0\"' …`"
+        "hint": "write it as … instead, for example `komando host ssh exec TARGET --sudo-user … --stdin-file FILE -- sh -c 'cat > \"$0\"' …`"
       },
       {
         "code": "SHELL_IDLE_TIMEOUT",
         "exit": 7,
         "example": "the shell on … ended after … with no input and no output",
-        "hint": "connect again (ssh -t HOST komando shell …); run long work as a job: `komando job start … -- COMMAND`"
+        "hint": "connect again (ssh -t HOST komando host ssh shell …); run long work as a job: `komando job start … -- COMMAND`"
       },
       {
         "code": "SHORTER_SCRIPT_REQUIRED",
         "exit": 6,
-        "hint": "split it into shorter pieces (the hint names the command for a script, SQL or a file) or ask the user to run it in their own terminal; e.g. `komando exec TARGET --script FILE` for a script"
+        "hint": "split it into shorter pieces (the hint names the command for a script, SQL or a file) or ask the user to run it in their own terminal; e.g. `komando host ssh exec TARGET --script FILE` for a script"
       },
       {
         "code": "SIZE_CONFLICT",
@@ -23035,13 +23036,13 @@
         "code": "SNIPPET_OS_UNSUPPORTED",
         "exit": 2,
         "example": "snippet … has no body for …",
-        "hint": "read it as text with `komando exec TARGET -- COMMAND`; the snippet has no JSON for it"
+        "hint": "read it as text with `komando host ssh exec TARGET -- COMMAND`; the snippet has no JSON for it"
       },
       {
         "code": "SNIPPET_PARSE_FAILED",
         "exit": 5,
         "example": "the output of snippet … did not read as …",
-        "hint": "read it as text with `komando exec TARGET -- COMMAND`; the snippet has no JSON for it"
+        "hint": "read it as text with `komando host ssh exec TARGET -- COMMAND`; the snippet has no JSON for it"
       },
       {
         "code": "SNIPPET_TYPE_UNSUPPORTED",
@@ -23095,13 +23096,13 @@
         "code": "SSH_AGENT_NEEDED",
         "exit": 2,
         "example": "a key komando made is sealed in its store and never written to a file, so OpenSSH gets it from a running ssh-agent, and none was found (SSH_AUTH_SOCK)",
-        "hint": "start one with `eval \"$(ssh-agent)\"` and run this again, or use `komando shell SERVER`, which logs in with the key itself"
+        "hint": "start one with `eval \"$(ssh-agent)\"` and run this again, or use `komando host ssh shell SERVER`, which logs in with the key itself"
       },
       {
         "code": "SSH_AGENT_REFUSED",
         "exit": 1,
         "example": "the ssh-agent did not take key …: …",
-        "hint": "check the ssh-agent, or use `komando shell SERVER`"
+        "hint": "check the ssh-agent, or use `komando host ssh shell SERVER`"
       },
       {
         "code": "SSH_GATE_NETWORK_REQUIRED",
@@ -23257,7 +23258,7 @@
         "code": "SWARM_ERROR",
         "exit": 5,
         "example": "Docker Swarm answered with an error",
-        "hint": "check that Docker runs there: `komando exec TARGET --read-only -- docker info`"
+        "hint": "check that Docker runs there: `komando host ssh exec TARGET --read-only -- docker info`"
       },
       {
         "code": "SWARM_OBJECT_NOT_FOUND",
@@ -23365,7 +23366,7 @@
         "code": "TUNNEL_NOT_FOUND",
         "exit": 3,
         "example": "no tunnel named …",
-        "hint": "see them with `komando tunnel list`"
+        "hint": "see them with `komando host ssh tunnel list`"
       },
       {
         "code": "TUNNEL_TIMEOUT",
@@ -23515,7 +23516,7 @@
         "code": "VPN_IN_USE",
         "exit": 8,
         "example": "VPN … is on the --via path of …",
-        "hint": "change their --via first: `komando host edit TARGET --via OTHER`"
+        "hint": "change their --via first: `komando host ssh edit TARGET --via OTHER`"
       },
       {
         "code": "VPN_KEY_IN_USE",
@@ -23533,7 +23534,7 @@
         "code": "VPN_NOT_FOR_OPENSSH",
         "exit": 2,
         "example": "VPN … (…) runs inside komando; OpenSSH cannot use it",
-        "hint": "use `komando shell SERVER` (it opens the VPN itself), or connect the VPN on this computer and leave it out of --via"
+        "hint": "use `komando host ssh shell SERVER` (it opens the VPN itself), or connect the VPN on this computer and leave it out of --via"
       },
       {
         "code": "VPN_STOP_FAILED",

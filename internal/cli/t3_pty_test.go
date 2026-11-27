@@ -41,9 +41,9 @@ var t3Cases = []struct {
 	{"copy", "the name web1", []string{"copy", "testdata", "web1:/tmp/x", "--sync", "--delete"}},
 	// what user rm, svc stop and user lock asked before the cut (D1): exec
 	// on a server that is not protected asks for its name
-	{"host.exec", "the name web1", []string{"exec", "web1", "--", "userdel", "bob"}},
-	{"host.exec", "the name web1", []string{"exec", "web1", "--", "systemctl", "stop", "sshd"}},
-	{"host.exec", "the name web1", []string{"exec", "web1", "--", "usermod", "-L", "root"}},
+	{"host.exec", "the name web1", []string{"host", "ssh", "exec", "web1", "--", "userdel", "bob"}},
+	{"host.exec", "the name web1", []string{"host", "ssh", "exec", "web1", "--", "systemctl", "stop", "sshd"}},
+	{"host.exec", "the name web1", []string{"host", "ssh", "exec", "web1", "--", "usermod", "-L", "root"}},
 }
 
 // Every T3 row a command always has (not one decided at run time) asks a
@@ -68,7 +68,7 @@ func TestT3AsksTheTypedName(t *testing.T) {
 	t.Setenv("T3_SECRET", "t3-value")
 	l := newLabCluster(t)
 	for _, a := range [][]string{
-		{"host", "add", "web1", "u@127.0.0.1:1"},
+		{"host", "ssh", "add", "web1", "u@127.0.0.1:1"},
 		{"conn", "add", "cache1", "redis://127.0.0.1:1/0"},
 		{"conn", "add", "db1", "postgres://u@127.0.0.1:1/app"},
 		{"conn", "add", "q1", "kafka://127.0.0.1:1"},
@@ -94,9 +94,9 @@ func TestT3AsksTheTypedName(t *testing.T) {
 	}
 	// on a protected server the one typed question says so and covers the
 	// protection too: no [y/N] after it (S-7.4, C-C04)
-	mustRun(t, "host", "add", "prod1", "u@127.0.0.1:1", "--protected")
+	mustRun(t, "host", "ssh", "add", "prod1", "u@127.0.0.1:1", "--protected")
 	t.Run("protected", func(t *testing.T) {
-		p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "exec", "prod1", "--", "reboot")
+		p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "host", "ssh", "exec", "prod1", "--", "reboot")
 		p.answer(" to continue: ", "prod1\r")
 		code := p.exit()
 		shown := p.shown()

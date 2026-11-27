@@ -47,7 +47,7 @@ func set(words string) map[string]bool {
 // that is not a wrong path, so the hint is how to add a server instead.
 func sshConfigErr(path string, err error) error {
 	if errors.Is(err, os.ErrNotExist) && inventory.ExpandHome(path) == inventory.ExpandHome("~/.ssh/config") {
-		e := localFileErr("FILE_NOT_FOUND", err, "add a server instead: `komando host add web1 deploy@10.0.0.5`")
+		e := localFileErr("FILE_NOT_FOUND", err, "add a server instead: `komando host ssh add web1 deploy@10.0.0.5`")
 		e.Message = "there is no ~/.ssh/config on this computer"
 		return e
 	}
@@ -123,7 +123,7 @@ func parseSSHConfig(path string) (hosts []*store.Host, notes []string, err error
 		return nil, nil, err
 	}
 	if matches > 0 {
-		notes = append(notes, fmt.Sprintf("%s skipped: komando cannot evaluate Match; add those settings to the hosts with `komando host edit`", countOf(matches, "Match block")))
+		notes = append(notes, fmt.Sprintf("%s skipped: komando cannot evaluate Match; add those settings to the hosts with `komando host ssh edit`", countOf(matches, "Match block")))
 	}
 	for _, b := range blocks {
 		for _, pat := range b.patterns {

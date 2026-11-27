@@ -9,44 +9,44 @@ code() { jget 'd["error"]["code"] if d.get("error") else "ok"' || true; }
 set +e; $K audit -n -1 >/dev/null; check "audit -n -1 is a usage error" 2 $?; set -e
 check "audit text is one line per entry" True "$($K audit -n 3 -o text | head -1 | grep -q '^TIME *ACTOR *COMMAND *TARGETS *OK' && echo True || echo False)"
 
-# host add/edit validation
-check "port out of range" USAGE "$($K host add t-e2einv1 'agent@127.0.0.1:99999' | code)"
-check "empty user" USAGE "$($K host add t-e2einv1 '@127.0.0.1' | code)"
-check "unknown --via" VIA_NOT_FOUND "$($K host add t-e2einv1 agent@10.9.9.9 --via nosuch | code)"
-check "--via itself" VIA_CYCLE "$($K host add t-e2einv1 agent@10.9.9.9 --via t-e2einv1 | code)"
-check "missing identity file" FILE_NOT_FOUND "$($K host add t-e2einv1 agent@10.9.9.9 --identity "$TMP/no-such-key" | code)"
-check "bad group name" USAGE "$($K host add t-e2einv1 agent@10.9.9.9 -g 'a b' | code)"
-check "dry-run says would_add" would_add "$($K host add t-e2einv1 agent@10.9.9.9 --dry-run | jget 'd["data"]["action"]')"
+# host ssh add/edit validation
+check "port out of range" USAGE "$($K host ssh add t-e2einv1 'agent@127.0.0.1:99999' | code)"
+check "empty user" USAGE "$($K host ssh add t-e2einv1 '@127.0.0.1' | code)"
+check "unknown --via" VIA_NOT_FOUND "$($K host ssh add t-e2einv1 agent@10.9.9.9 --via nosuch | code)"
+check "--via itself" VIA_CYCLE "$($K host ssh add t-e2einv1 agent@10.9.9.9 --via t-e2einv1 | code)"
+check "missing identity file" FILE_NOT_FOUND "$($K host ssh add t-e2einv1 agent@10.9.9.9 --identity "$TMP/no-such-key" | code)"
+check "bad group name" USAGE "$($K host ssh add t-e2einv1 agent@10.9.9.9 -g 'a b' | code)"
+check "dry-run says would_add" would_add "$($K host ssh add t-e2einv1 agent@10.9.9.9 --dry-run | jget 'd["data"]["action"]')"
 
 # the same server under another spelling is protected too
-check "trailing dot alias is protected" True "$($K host add t-e2einv1 agent@TARGET. --via bastion | jget 'd["data"]["protected"]')"
-q $K host rm t-e2einv1 --yes
+check "trailing dot alias is protected" True "$($K host ssh add t-e2einv1 agent@TARGET. --via bastion | jget 'd["data"]["protected"]')"
+q $K host ssh remove t-e2einv1 --yes
 check "conn alias is protected" True "$($K conn add t-e2einv2 'mysql://shop@maria.:3306/shop' --via bastion | jget 'd["data"]["protected"]')"
 q $K conn rm t-e2einv2 --yes
 
 # protected entries cannot be re-pointed without --yes
-check "re-point protected host" PROTECTED_TARGET "$($K host edit target --via direct | code)"
+check "re-point protected host" PROTECTED_TARGET "$($K host ssh edit target --via direct | code)"
 check "re-point protected conn" PROTECTED_TARGET "$($K conn edit maria --via direct | code)"
-check "dry-run shows that stop" PROTECTED_TARGET "$($K host edit target --via direct --dry-run | jget 'd["meta"]["would_be_blocked"]["code"]')"
-check "edit without changes" USAGE "$($K host edit direct | code)"
-check "conflicting edit" USAGE "$($K host edit direct --add-tag x --rm-tag x | code)"
+check "dry-run shows that stop" PROTECTED_TARGET "$($K host ssh edit target --via direct --dry-run | jget 'd["meta"]["would_be_blocked"]["code"]')"
+check "edit without changes" USAGE "$($K host ssh edit direct | code)"
+check "conflicting edit" USAGE "$($K host ssh edit direct --add-tag x --rm-tag x | code)"
 
 # rm of a host and the host behind it, together
-q $K host add t-e2einv3 agent@10.9.9.1
-q $K host add t-e2einv4 agent@10.9.9.2 --via t-e2einv3
-check "rm a via host alone" HOST_IN_USE "$($K host rm t-e2einv3 | code)"
-check "rm both together" ok "$($K host rm t-e2einv3 t-e2einv4 | code)"
-q $K host add t-e2einv6 agent@10.9.9.6
-q $K host add t-e2einv7 agent@10.9.9.7
-check "rm a selector --dry-run lists it" 2 "$($K host rm 't-e2einv*' --dry-run | jget 'len(d["data"]["would_remove"])')"
-check "rm a selector" ok "$($K host rm 't-e2einv*' | code)"
+q $K host ssh add t-e2einv3 agent@10.9.9.1
+q $K host ssh add t-e2einv4 agent@10.9.9.2 --via t-e2einv3
+check "rm a via host alone" HOST_IN_USE "$($K host ssh remove t-e2einv3 | code)"
+check "rm both together" ok "$($K host ssh remove t-e2einv3 t-e2einv4 | code)"
+q $K host ssh add t-e2einv6 agent@10.9.9.6
+q $K host ssh add t-e2einv7 agent@10.9.9.7
+check "rm a selector --dry-run lists it" 2 "$($K host ssh remove 't-e2einv*' --dry-run | jget 'len(d["data"]["would_remove"])')"
+check "rm a selector" ok "$($K host ssh remove 't-e2einv*' | code)"
 # @lab holds bastion (the --via host of the conns) and target (protected)
-check "rm @group still in use removes nothing" HOST_IN_USE "$($K host rm @lab | code)"
-check "rm @group protected stop in dry-run" PROTECTED_TARGET "$($K host rm target --dry-run | jget 'd["meta"]["would_be_blocked"]["code"]')"
+check "rm @group still in use removes nothing" HOST_IN_USE "$($K host ssh remove @lab | code)"
+check "rm @group protected stop in dry-run" PROTECTED_TARGET "$($K host ssh remove target --dry-run | jget 'd["meta"]["would_be_blocked"]["code"]')"
 
-# host trust --reset --dry-run changes nothing
-N1=$($K host trust direct --reset --dry-run | jget 'd["data"]["results"][0]["would_remove_entries"]')
-N2=$($K host trust direct --reset --dry-run | jget 'd["data"]["results"][0]["would_remove_entries"]')
+# host ssh trust --reset --dry-run changes nothing
+N1=$($K host ssh trust direct --reset --dry-run | jget 'd["data"]["results"][0]["would_remove_entries"]')
+N2=$($K host ssh trust direct --reset --dry-run | jget 'd["data"]["results"][0]["would_remove_entries"]')
 check "trust --reset --dry-run removes nothing" "$N1" "$N2"
 check "trust --reset --dry-run counts the pinned key" True "$([ "$N1" -ge 1 ] && echo True || echo False)"
 
@@ -101,42 +101,42 @@ check "grep mkfs is allowed" False "$($K policy check 'grep mkfs notes.txt' | jg
 
 # selectors and lookups
 check "selector starting with !" False "$($K list '!direct' | jget 'any(t["name"] == "direct" for t in d["data"]["targets"])')"
-check "names in any case" direct "$($K host show DIRECT | jget 'd["data"]["name"]')"
-check "did you mean on host show" True "$($K host show dirct | jget '"direct" in d["error"]["hint"]')"
-check "schema host.add" "komando host add" "$($K schema host.add | jget 'd["data"]["commands"][0]["path"]')"
+check "names in any case" direct "$($K host ssh show DIRECT | jget 'd["data"]["name"]')"
+check "did you mean on host ssh show" True "$($K host ssh show dirct | jget '"direct" in d["error"]["hint"]')"
+check "schema host.ssh.add" "komando host ssh add" "$($K schema host.ssh.add | jget 'd["data"]["commands"][0]["path"]')"
 check "schema cache.redis.edit: turning protection off is safety" True "$($K schema cache.redis.edit | jget 'any(c.get("when")=="with --protected=false" and c["tier"]=="safety" for c in d["data"]["commands"][0]["confirm"])')"
 check "schema registry.oci.edit: turning protection off is safety" True "$($K schema registry.oci.edit | jget 'any(c.get("when")=="with --protected=false" and c["tier"]=="safety" for c in d["data"]["commands"][0]["confirm"])')"
 check "test text has USER and SUDO" True "$($K test direct -o text | head -1 | grep -q 'USER *SUDO' && echo True || echo False)"
 $K doctor -o text 2>&1 | grep -E '^✗' | sed 's/^/    doctor says: /' || true
 check "doctor text is a checklist" True "$($K doctor -o text 2>/dev/null | grep -q '^✓ komando folder' && echo True || echo False)"
 
-# a rebuilt server (new host keys, same address) inside a group: host trust
+# a rebuilt server (new host keys, same address) inside a group: host ssh trust
 # @lab refuses only that one; a script's --reset gets NEEDS_PERSON; a person
 # at a terminal answers y and it is re-pinned, the others stay
 DC() { docker compose -p "$PROJECT" -f "$E2E/compose.yml" "$@"; }
-oldfp=$($K host trust direct | jget 'd["data"]["results"][0]["fingerprint"]')
+oldfp=$($K host ssh trust direct | jget 'd["data"]["results"][0]["fingerprint"]')
 DC exec -T direct sh -c 'rm -f /etc/ssh/ssh_host_*; ssh-keygen -q -A; kill -HUP 1' >/dev/null
 sleep 1
-check "host trust @lab refuses only the rebuilt server" "PARTIAL_FAILURE HOSTKEY_MISMATCH True" \
-  "$($K host trust @lab | jget 'd["error"]["code"] + " " + [r for r in d["data"]["results"] if r["host"] == "direct"][0]["error"]["code"] + " " + str(all(r["ok"] for r in d["data"]["results"] if r["host"] != "direct"))' || true)"
-check "a script cannot replace a pinned key" NEEDS_PERSON "$($K host trust @lab --reset | jget 'd["error"]["code"]' || true)"
-o=$(ptyrun 'y\n' env NO_COLOR=1 TERM=dumb "$K" -o json host trust @lab --reset 2>/dev/null | tr -d '\r' | grep '^{')
-check "host trust @lab --reset by a person re-pins it, with the old key named" "True True" \
+check "host ssh trust @lab refuses only the rebuilt server" "PARTIAL_FAILURE HOSTKEY_MISMATCH True" \
+  "$($K host ssh trust @lab | jget 'd["error"]["code"] + " " + [r for r in d["data"]["results"] if r["host"] == "direct"][0]["error"]["code"] + " " + str(all(r["ok"] for r in d["data"]["results"] if r["host"] != "direct"))' || true)"
+check "a script cannot replace a pinned key" NEEDS_PERSON "$($K host ssh trust @lab --reset | jget 'd["error"]["code"]' || true)"
+o=$(ptyrun 'y\n' env NO_COLOR=1 TERM=dumb "$K" -o json host ssh trust @lab --reset 2>/dev/null | tr -d '\r' | grep '^{')
+check "host ssh trust @lab --reset by a person re-pins it, with the old key named" "True True" \
   "$(jget '[str(r["fingerprint"] != r["old_fingerprints"][0]) + " " + str(r["old_fingerprints"][0] == "'"$oldfp"'") for r in d["data"]["results"] if r["host"] == "direct"][0]' <<<"$o")"
-check "the rebuilt server works again" direct "$($K exec direct --read-only -- hostname | jget 'd["data"]["results"][0]["stdout"].strip()')"
+check "the rebuilt server works again" direct "$($K host ssh exec direct --read-only -- hostname | jget 'd["data"]["results"][0]["stdout"].strip()')"
 
 # command journeys (audit-core 2026-11-12)
-# host rm names every user of a --via server at once
-q $K host add t-e2einv8 agent@10.9.9.8
-q $K host add t-e2einv9 agent@10.9.9.9 --via t-e2einv8
+# host ssh remove names every user of a --via server at once
+q $K host ssh add t-e2einv8 agent@10.9.9.8
+q $K host ssh add t-e2einv9 agent@10.9.9.9 --via t-e2einv8
 q $K conn add t-e2einva redis://10.9.9.10:6379/0 --via t-e2einv8
 check "rm a via host names every user" "True True" \
-  "$($K host rm t-e2einv8 | jget 'str("t-e2einv9" in d["error"]["message"]) + " " + str("conn edit t-e2einva --unset via" in d["error"]["hint"])' || true)"
+  "$($K host ssh remove t-e2einv8 | jget 'str("t-e2einv9" in d["error"]["message"]) + " " + str("conn edit t-e2einva --unset via" in d["error"]["hint"])' || true)"
 # group create/rm take several names
 check "group create takes several names" ok "$($K group create t-e2einvg t-e2einv8 t-e2einv9 | code)"
 check "group remove takes several names" ok "$($K group remove t-e2einvg t-e2einv8 t-e2einv9 | code)"
 q $K conn rm t-e2einva
-q $K host rm t-e2einv8 t-e2einv9
+q $K host ssh remove t-e2einv8 t-e2einv9
 # import: the TLS default of conn add, a next step, a protected conn skipped in the dry run too
 printf 'REDIS_URL=redis://:pw@t-e2einv.example:6379/0\nDATABASE_URL=postgres://app:pw@t-e2einv.example:5432/shop\n' >"$TMP/inv.env"
 o=$($K import env "$TMP/inv.env" --group t-e2einvi)

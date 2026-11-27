@@ -140,20 +140,20 @@ type agentStop struct {
 
 var agentStops = []agentStop{
 	{args: []string{"host", "ssh-command", "web1"}, code: "NEEDS_PERSON",
-		setup: func(t *testing.T) { mustRun(t, "host", "add", "web1", "deploy@10.0.0.1") }},
+		setup: func(t *testing.T) { mustRun(t, "host", "ssh", "add", "web1", "deploy@10.0.0.1") }},
 	{args: []string{"config", "vault", "keychain"}, code: "NEEDS_PERSON"},
-	{args: []string{"host", "add", "px", "u@10.0.0.1", "--proxy-command", "nc %h %p"}, code: "SAFETY_SETTING"},
-	{args: []string{"host", "edit", "web1", "--proxy-command", "nc %h %p"}, code: "SAFETY_SETTING",
-		setup: func(t *testing.T) { mustRun(t, "host", "add", "web1", "deploy@10.0.0.1") }},
+	{args: []string{"host", "ssh", "add", "px", "u@10.0.0.1", "--proxy-command", "nc %h %p"}, code: "SAFETY_SETTING"},
+	{args: []string{"host", "ssh", "edit", "web1", "--proxy-command", "nc %h %p"}, code: "SAFETY_SETTING",
+		setup: func(t *testing.T) { mustRun(t, "host", "ssh", "add", "web1", "deploy@10.0.0.1") }},
 	{args: []string{"import", "ssh-config", "testdata/risk_proxy_ssh_config"}, skipped: "--yes"},
 	{args: []string{"import", "kubeconfig", "testdata/risk_exec_kubeconfig"}, code: "SAFETY_SETTING"},
 	{args: []string{"snippet", "create", "free-space", "df -h", "--overwrite", "--read-only"}, code: "SAFETY_SETTING",
 		setup: func(t *testing.T) { mustRun(t, "snippet", "create", "free-space", "df -h") }},
-	{args: []string{"host", "trust", "web1"}, code: "SAFETY_SETTING", setup: func(t *testing.T) {
+	{args: []string{"host", "ssh", "trust", "web1"}, code: "SAFETY_SETTING", setup: func(t *testing.T) {
 		key := new(atomic.Pointer[ssh.Signer])
 		s := trustSigner(t)
 		key.Store(&s)
-		mustRun(t, "host", "add", "web1", "root@127.0.0.1:"+strconv.Itoa(keySSHD(t, key)))
+		mustRun(t, "host", "ssh", "add", "web1", "root@127.0.0.1:"+strconv.Itoa(keySSHD(t, key)))
 		mustRun(t, "config", "set", "host_key_policy", "strict")
 	}},
 	{args: []string{"agent", "skill", "uninstall"}, code: "SAFETY_SETTING", setup: func(t *testing.T) {
@@ -177,14 +177,14 @@ func TestRiskPersonGains(t *testing.T) {
 		}
 	}
 	for _, line := range []string{
-		"copy ./site web1:/var/www --sync", "exec web1 -- uptime", "pkg upgrade web1 --security",
-		"host edit web1 --port 2222", "group remove web web1",
+		"copy ./site web1:/var/www --sync", "host ssh exec web1 -- uptime", "pkg upgrade web1 --security",
+		"host ssh edit web1 --port 2222", "group remove web web1",
 	} {
 		if r := riskOfLine(strings.Fields(line)); r.typedWhat() != "" {
 			t.Errorf("%s: typed name %q", line, r.what)
 		}
 	}
-	if r := riskOfLine(strings.Fields("host edit web1 --protected=false")); r.tier != tierSafety {
+	if r := riskOfLine(strings.Fields("host ssh edit web1 --protected=false")); r.tier != tierSafety {
 		t.Errorf("protection off: %s", r.tier)
 	}
 	if r := riskOfLine(strings.Fields("group remove big")); r.bulk == "" {

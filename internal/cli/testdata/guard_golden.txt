@@ -4,7 +4,7 @@ exit 0
 --- stdout
 --- stderr
 ### allow: a komando command
-komando guide guard < {"tool_name":"Bash","tool_input":{"command":"komando exec web1 --read-only -- uptime"},"cwd":"/p"}
+komando guide guard < {"tool_name":"Bash","tool_input":{"command":"komando host ssh exec web1 --read-only -- uptime"},"cwd":"/p"}
 exit 0
 --- stdout
 --- stderr

@@ -297,7 +297,7 @@ func TestContinueStorage(t *testing.T) {
 // Flags that do not go with --continue are refused before anything runs.
 func TestContinueFlags(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
 	f := filepath.Join(t.TempDir(), "a.txt")
 	writeFile(t, f, []byte("a"))
 	for _, args := range [][]string{

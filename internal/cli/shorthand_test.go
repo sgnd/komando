@@ -14,7 +14,7 @@ import (
 // no-op, not an unknown flag.
 func TestFsMkdirParentsNoOp(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
 	defer func() { setGate(tcl, false, gateDryRun) }()
 	plan := func(args ...string) string {
 		d := mustRun(t, append([]string{"fs", "mkdir", "web1"}, args...)...)
@@ -44,9 +44,9 @@ func TestShorthandDidYouMean(t *testing.T) {
 	}{
 		{[]string{"fs", "ls", "web1", "/", "-n", "5"}, ""}, // fs ls has no --limit yet
 		{[]string{"db", "sizes", "x1", "-n", "5"}, ""},     // has -n
-		{[]string{"docker", "exec", "web1", "api", "-it", "--", "sh"}, "`komando shell TARGET`"},
+		{[]string{"docker", "exec", "web1", "api", "-it", "--", "sh"}, "`komando host ssh shell TARGET`"},
 		{[]string{"cluster", "kubernetes", "exec", "k", "api", "-it", "--", "sh"}, "`komando cluster kubernetes shell NAME POD`"},
-		{[]string{"exec", "web1", "-L", "8080:localhost:80", "--", "true"}, "`komando tunnel start TARGET -L SPEC`"},
+		{[]string{"host", "ssh", "exec", "web1", "-L", "8080:localhost:80", "--", "true"}, "`komando host ssh tunnel start TARGET -L SPEC`"},
 		{[]string{"cluster", "restart", "k", "api", "-w", "10s"}, "did you mean --wait?"},
 		{[]string{"cache", "get", "c1", "k", "-x"}, ""},
 		{[]string{"fs", "replace", "web1", "/etc/x", "-b"}, "did you mean --backup?"},
@@ -98,7 +98,7 @@ func TestStandardShorthands(t *testing.T) {
 			return in(p, "docker ps", "docker prune", "fs list", "db activity", "cache info", "cluster helm values", "guide")
 		}},
 		"A": {"all-namespaces": cluster},
-		"c": {"container": nil, "cmd": func(p string) bool { return in(p, "exec", "job start") }},
+		"c": {"container": nil, "cmd": func(p string) bool { return in(p, "host ssh exec", "host winrm exec", "job start") }},
 		"C": {"dir": nil, "comment": func(p string) bool { return in(p, "credential key create") }},
 		"e": {"env": nil},
 		"f": {"follow": func(p string) bool { return in(p, logStreamers...) }, "file": func(p string) bool { return !in(p, logStreamers...) }},
@@ -111,9 +111,9 @@ func TestStandardShorthands(t *testing.T) {
 		"t": {"tag": editOrAdd},
 		"u": {"unit": func(p string) bool { return in(p, "logs", "docker logs") }}, // the logs family
 		"b": {"bits": func(p string) bool { return in(p, "credential key create") }},
-		"D": {"dynamic": func(p string) bool { return in(p, "tunnel start") }},
-		"L": {"local": func(p string) bool { return in(p, "tunnel start") }},
-		"R": {"remote": func(p string) bool { return in(p, "tunnel start") }},
+		"D": {"dynamic": func(p string) bool { return in(p, "host ssh tunnel start") }},
+		"L": {"local": func(p string) bool { return in(p, "host ssh tunnel start") }},
+		"R": {"remote": func(p string) bool { return in(p, "host ssh tunnel start") }},
 	}
 	never := []string{"allow-dangerous", "reveal", "write", "dry-run", "port", "user", "label"}
 	root := newRoot(tcl)

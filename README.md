@@ -57,10 +57,10 @@ At your terminal it lists the commands by what they work on:
 ```text
 komando: one safe command line for servers, databases, caches, queues, storage, clusters and VPNs
 
-Nothing added yet: komando host add  or  komando import ssh-config
+Nothing added yet: komando host ssh add  or  komando import ssh-config
 
-START        host add · conn add · import ssh-config · list · test TARGET · agent skill install
-SERVERS      exec  logs  facts  fs  svc  job  docker  pkg  cron  user  reboot  shell
+START        host ssh add · conn add · import ssh-config · list · test TARGET · agent skill install
+SERVERS      logs  facts  fs  svc  job  docker  pkg  cron  user  reboot
 DATA         db  cache  queue  storage
 ...
 ```
@@ -71,7 +71,7 @@ brings them in.
 ### 2. Add a server
 
 ```bash
-komando host add
+komando host ssh add
 ```
 
 Typed alone, it asks one question per line: a name, the address, the user,
@@ -80,7 +80,7 @@ default in brackets, `?` explains the question. Then it shows the full
 command it made, and asks before it runs:
 
 ```text
-$ komando host add web1 ubuntu@203.0.113.10 --protected
+$ komando host ssh add web1 ubuntu@203.0.113.10 --protected
 Run it? [y/N, d = --dry-run first]: y
 ```
 
@@ -93,7 +93,7 @@ Next time you can type that line yourself. A production server is
 komando test web1                 # can komando reach it and log in?
 komando facts web1                # what is this server?
 komando logs web1 --unit nginx    # read a service's logs
-komando exec web1 -- uptime       # run any command (words for the server go after --)
+komando host ssh exec web1 -- uptime       # run any command (words for the server go after --)
 ```
 
 Leave out an argument and komando asks for it, with a numbered list of
@@ -119,7 +119,7 @@ you a window to allow it once. The agent never sees your passwords.
 | See and check everything at once | `list`, `test`, `status` |
 | Keep your list of servers and how to log in | `host`, `group`, `key`, `secret`, `login` |
 | Bring in what you already have, or move to another computer | `import`, `export` |
-| Run commands on one or many servers | `exec`, `job`, `shell` |
+| Run commands on one or many servers | `host ssh exec`, `job`, `host ssh shell` |
 | Read, edit and copy files | `fs`, `copy` |
 | Check health and certificates | `facts`, `recipe`, `cert` |
 | Services, logs, Docker, packages, users, schedules, restarts | `svc`, `logs`, `docker`, `pkg`, `user`, `cron`, `reboot` |

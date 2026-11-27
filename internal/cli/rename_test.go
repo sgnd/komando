@@ -29,12 +29,12 @@ func shopInventory(t *testing.T) {
 		}
 	}
 	mustRun(t, "vpn", "socks", "add", "shop-vpn", "--proxy-address", "127.0.0.1:1080", "--group", "shop")
-	mustRun(t, "host", "add", "shop-bastion", "u@10.0.0.1", "--via", "shop-vpn", "-g", "shop", "-g", "shop-stg",
-		"--password-ref", "secret:shop-pass", "--protected", "--label", "dc=jkt", "--notes", "jump for shop-db; see shop-vpn.")
+	mustRun(t, "host", "ssh", "add", "shop-bastion", "u@10.0.0.1", "--via", "shop-vpn", "-g", "shop", "-g", "shop-stg",
+		"--credential", "shop-pass", "--protected", "--label", "dc=jkt", "--notes", "jump for shop-db; see shop-vpn.")
 	mustRun(t, "credential", "key", "create", "shop-key")
-	mustRun(t, "host", "add", "shop-data-01", "u@10.0.0.2", "--via", "shop-vpn,shop-bastion", "-g", "shop",
-		"--sudo-ref", "secret:shop-pass", "--key", "shop-key")
-	mustRun(t, "host", "add", "web", "u@10.0.0.3", "--via", "shop-vpn,shop-bastion", "--env", "DB=secret:shop-pass", "--password-ref", "secret:other-pass")
+	mustRun(t, "host", "ssh", "add", "shop-data-01", "u@10.0.0.2", "--via", "shop-vpn,shop-bastion", "-g", "shop",
+		"--sudo-credential", "shop-pass", "--key", "shop-key")
+	mustRun(t, "host", "ssh", "add", "web", "u@10.0.0.3", "--via", "shop-vpn,shop-bastion", "--env", "DB=secret:shop-pass", "--credential", "other-pass")
 	mustRun(t, "conn", "add", "shop-db", "postgres://shop@10.0.0.5/shop", "--via", "shop-vpn,shop-bastion",
 		"--password-ref", "secret:shop-pass", "--protected", "-g", "shop")
 	mustRun(t, "conn", "add", "bucket", "s3://shop-admin@shop-prod?region=eu-west-1", "--password-ref", "secret:shop-pass")
@@ -224,7 +224,7 @@ func TestRenamePrefix(t *testing.T) {
 func TestRenamePrefixTwice(t *testing.T) {
 	invHome(t)
 	mustRun(t, "conn", "add", "team-registry", "registry://u@reg.lan", "-g", "team")
-	mustRun(t, "host", "add", "team", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "team", "u@10.0.0.1")
 	d := mustRun(t, "rename", "--starts-with", "team-", "team-ops-")
 	if pairs(d, "conn")["team-registry"] != "team-ops-registry" || pairs(d, "group")["team"] != "team-ops" ||
 		pairs(d, "host")["team"] != "team-ops" {
@@ -239,8 +239,8 @@ func TestRenamePrefixTwice(t *testing.T) {
 		t.Error("the second run changed something")
 	}
 	// a bare name only counts when OLD ends in -
-	mustRun(t, "host", "add", "lab", "u@10.0.0.2")
-	mustRun(t, "host", "add", "lab2", "u@10.0.0.3")
+	mustRun(t, "host", "ssh", "add", "lab", "u@10.0.0.2")
+	mustRun(t, "host", "ssh", "add", "lab2", "u@10.0.0.3")
 	d = mustRun(t, "rename", "--starts-with", "lab", "test", "--kind", "host")
 	if h := pairs(d, "host"); len(h) != 2 || h["lab"] != "test" || h["lab2"] != "test2" {
 		t.Errorf("no - : %v", h)
@@ -261,7 +261,7 @@ func TestRenameClashChangesNothing(t *testing.T) {
 				t.Fatal(err)
 			}
 		}},
-		{"a new group name is taken", func() { mustRun(t, "host", "add", "z", "u@10.0.0.8", "-g", "ACME-shop-stg") }},
+		{"a new group name is taken", func() { mustRun(t, "host", "ssh", "add", "z", "u@10.0.0.8", "-g", "ACME-shop-stg") }},
 		{"a new key name is taken", func() { mustRun(t, "credential", "key", "create", "acme-shop-key") }},
 	}
 	for _, c := range cases {
@@ -335,14 +335,14 @@ func TestRenameNotes(t *testing.T) {
 	shopInventory(t)
 	mustRun(t, "credential", "key", "create", "shop-dev")
 	mustRun(t, "conn", "add", "shop-files", "s3://AKIAEXAMPLE@shop-dev/backups?region=eu-west-1", "-g", "shop-dev")
-	mustRun(t, "host", "add", "shop-prod", "u@10.0.0.6") // also the bucket in conn bucket's URL
-	mustRun(t, "host", "add", "shop-prod-db-01", "u@10.0.0.7")
-	mustRun(t, "host", "add", "shop-prod-db-02", "u@10.0.0.8")
-	mustRun(t, "host", "add", "shop-web-1", "u@10.0.0.9")
-	mustRun(t, "host", "add", "acme-shop-web-9", "u@10.0.0.10") // in the way of acme-shop-web-*
+	mustRun(t, "host", "ssh", "add", "shop-prod", "u@10.0.0.6") // also the bucket in conn bucket's URL
+	mustRun(t, "host", "ssh", "add", "shop-prod-db-01", "u@10.0.0.7")
+	mustRun(t, "host", "ssh", "add", "shop-prod-db-02", "u@10.0.0.8")
+	mustRun(t, "host", "ssh", "add", "shop-web-1", "u@10.0.0.9")
+	mustRun(t, "host", "ssh", "add", "acme-shop-web-9", "u@10.0.0.10") // in the way of acme-shop-web-*
 	note := "db shop, role shop on shop-db; dump to bucket shop-dev. Copy to shop-prod, then shop-prod-db-* and shop-web-*. " +
 		"Password: secret:shop-pass. Members: @shop and @shop-stg (shop-stg); ssh u@shop. Is it shop-vpn?"
-	mustRun(t, "host", "add", "ops", "u@10.0.0.11", "--notes", note)
+	mustRun(t, "host", "ssh", "add", "ops", "u@10.0.0.11", "--notes", note)
 
 	d := mustRun(t, "rename", "--starts-with", "shop-", "acme-shop-", "--in-notes", "--yes", "--dry-run")
 	from, to, ok := updatedRef(d, "host ops", "notes")
@@ -390,7 +390,7 @@ func TestRenameNotes(t *testing.T) {
 
 	// --kind conn: the servers keep their names, so a pattern for them stays
 	invHome(t)
-	mustRun(t, "host", "add", "lab-db-1", "u@10.0.0.1", "--notes", "backups on lab-db-* via lab-gw")
+	mustRun(t, "host", "ssh", "add", "lab-db-1", "u@10.0.0.1", "--notes", "backups on lab-db-* via lab-gw")
 	mustRun(t, "conn", "add", "lab-gw", "postgres://a@10.0.0.2/x")
 	d = mustRun(t, "rename", "--starts-with", "lab-", "test-", "--kind", "conn", "--in-notes")
 	if _, to, _ := updatedRef(d, "host lab-db-1", "notes"); to != "backups on lab-db-* via test-gw" {
@@ -452,9 +452,9 @@ func TestNameTextReplace(t *testing.T) {
 // it, by the same rules as --notes.
 func TestRenameLabels(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "shop-web", "u@10.0.0.1", "-g", "shop")
+	mustRun(t, "host", "ssh", "add", "shop-web", "u@10.0.0.1", "-g", "shop")
 	mustRun(t, "conn", "add", "shop-db", "postgres://app@10.0.0.2/app", "--label", "host=shop-web", "--label", "team=shop", "--label", "dc=eu")
-	mustRun(t, "host", "add", "other", "u@10.0.0.3", "--label", "backup=shop-db")
+	mustRun(t, "host", "ssh", "add", "other", "u@10.0.0.3", "--label", "backup=shop-db")
 
 	d := mustRun(t, "rename", "--starts-with", "shop-", "acme-shop-", "--dry-run")
 	for _, c := range []struct{ entry, field, name, to, why string }{
@@ -480,7 +480,7 @@ func TestRenameLabels(t *testing.T) {
 
 	// --labels: the values that name entries follow; the bare name stays
 	invHome(t)
-	mustRun(t, "host", "add", "shop-web", "u@10.0.0.1", "-g", "shop")
+	mustRun(t, "host", "ssh", "add", "shop-web", "u@10.0.0.1", "-g", "shop")
 	mustRun(t, "conn", "add", "shop-db", "postgres://app@10.0.0.2/app", "--label", "host=shop-web", "--label", "team=shop", "--label", "dc=eu")
 	d = mustRun(t, "rename", "--starts-with", "shop-", "acme-shop-", "--in-labels")
 	if from, to, ok := updatedRef(d, "conn acme-shop-db", "label host"); !ok || from != "shop-web" || to != "acme-shop-web" {
@@ -505,7 +505,7 @@ func TestRenameAgentNeedsNoWindow(t *testing.T) {
 		t.Fatal(err)
 	}
 	mustRun(t, "vpn", "socks", "add", "lab-vpn", "--proxy-address", "127.0.0.1:1080")
-	mustRun(t, "host", "add", "lab-a", "u@10.0.0.1", "--via", "lab-vpn", "--password-ref", "secret:lab-pass", "--env", "P=secret:lab-pass")
+	mustRun(t, "host", "ssh", "add", "lab-a", "u@10.0.0.1", "--via", "lab-vpn", "--credential", "lab-pass", "--env", "P=secret:lab-pass")
 	mustRun(t, "conn", "add", "lab-db", "postgres://a@10.0.0.2/x", "--via", "lab-vpn,lab-a", "--password-ref", "secret:lab-pass")
 	setCallerEnv(t, "CLAUDECODE", "1")
 	d := mustRun(t, "rename", "--starts-with", "lab-", "test-")
@@ -513,7 +513,7 @@ func TestRenameAgentNeedsNoWindow(t *testing.T) {
 		t.Errorf("agent rename: %v", d)
 	}
 	// a protected entry still needs a person: no screen, so it is refused
-	mustRun(t, "host", "add", "lab-p", "u@10.0.0.3", "--protected")
+	mustRun(t, "host", "ssh", "add", "lab-p", "u@10.0.0.3", "--protected")
 	saved := askOnScreen
 	askOnScreen = func(*call, string) (bool, bool) { return false, false } // no screen
 	t.Cleanup(func() { askOnScreen = saved })
@@ -554,8 +554,8 @@ func TestRenameReservedSecret(t *testing.T) {
 func TestKeyMv(t *testing.T) {
 	invHome(t)
 	mustRun(t, "credential", "key", "create", "deploy")
-	mustRun(t, "host", "add", "web", "u@10.0.0.1", "--key", "deploy")
-	mustRun(t, "host", "add", "db", "u@10.0.0.2", "--key", "deploy", "--protected")
+	mustRun(t, "host", "ssh", "add", "web", "u@10.0.0.1", "--key", "deploy")
+	mustRun(t, "host", "ssh", "add", "db", "u@10.0.0.2", "--key", "deploy", "--protected")
 
 	keep := homeFiles(t)
 	d := mustRun(t, "credential", "key", "rename", "deploy", "deploy-2026", "--dry-run")
@@ -605,8 +605,8 @@ func TestKeyMv(t *testing.T) {
 
 func TestGroupMv(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "a", "u@10.0.0.1", "-g", "web")
-	mustRun(t, "host", "add", "b", "u@10.0.0.2", "-g", "Web", "--protected")
+	mustRun(t, "host", "ssh", "add", "a", "u@10.0.0.1", "-g", "web")
+	mustRun(t, "host", "ssh", "add", "b", "u@10.0.0.2", "-g", "Web", "--protected")
 	mustRun(t, "conn", "add", "c", "postgres://a@10.0.0.3/x", "-g", "web", "-g", "db")
 	mustRun(t, "vpn", "socks", "add", "v", "--proxy-address", "127.0.0.1:1080", "--group", "web")
 

@@ -21,17 +21,17 @@ sigint() {
   if kill -0 "$pid" 2>/dev/null; then kill -9 "$pid"; wait "$pid" 2>/dev/null; echo "999"; return; fi
   wait "$pid"; echo "$?"
 }
-leftovers() { $K exec direct --read-only -o text -- 'ls -a /tmp /tmp/e2efiles-dir /tmp/e2efiles-sync 2>/dev/null | grep -c "^\.komando-" || true'; }
+leftovers() { $K host ssh exec direct --read-only -o text -- 'ls -a /tmp /tmp/e2efiles-dir /tmp/e2efiles-sync 2>/dev/null | grep -c "^\.komando-" || true'; }
 
 check "Ctrl-C stops an upload" 1 "$(sigint $K copy "$F/big.bin" direct:/tmp/e2efiles-big.bin -o text)"
 check "Ctrl-C upload says CANCELLED" True "$(grep -q CANCELLED "$F/out" && echo True || echo False)"
-check "Ctrl-C upload leaves no file" 1 "$($K exec direct --read-only -o text -- 'test -e /tmp/e2efiles-big.bin; echo $?')"
+check "Ctrl-C upload leaves no file" 1 "$($K host ssh exec direct --read-only -o text -- 'test -e /tmp/e2efiles-big.bin; echo $?')"
 mkdir -p "$F/dir"; cp "$F/big.bin" "$F/dir/"
 check "Ctrl-C stops a folder upload" 1 "$(sigint $K copy "$F/dir" direct:/tmp/e2efiles-dir -r -o text)"
 check "Ctrl-C stops a sync" 1 "$(sigint $K copy "$F/dir" direct:/tmp/e2efiles-sync --sync -o text)"
 check "Ctrl-C leaves no temporary file on the server" 0 "$(leftovers)"
 
-q $K exec direct -o text -- 'head -c 300000000 /dev/zero > /tmp/e2efiles-big.bin'
+q $K host ssh exec direct -o text -- 'head -c 300000000 /dev/zero > /tmp/e2efiles-big.bin'
 # sigint_when GLOB CMD...: like sigint, but the SIGINT goes as soon as a file
 # matching GLOB shows (the copy has started), so a fast machine cannot finish
 # the whole copy before it
@@ -56,14 +56,14 @@ check "no progress in a pipe" 0 "$($K copy direct:/tmp/e2efiles-big.bin "$F/pipe
 
 # a download that meets a file already here saved nothing and says only that
 echo mine > "$F/a.txt"
-q $K exec direct -o text -- 'echo theirs > /tmp/e2efiles-a.txt'
+q $K host ssh exec direct -o text -- 'echo theirs > /tmp/e2efiles-a.txt'
 out=$($K copy direct:/tmp/e2efiles-a.txt "$F/a.txt" -o text 2>&1)
 check "refused download exits 8" 8 $?
 check "refused download does not say downloaded" 0 "$(echo "$out" | grep -c downloaded)"
 check "refused download keeps the file here" mine "$(cat "$F/a.txt")"
 
 # a folder download keeps the files already here and copies the rest
-q $K exec direct -o text -- 'mkdir -p /tmp/e2efiles-tree/sub && echo theirs > /tmp/e2efiles-tree/a.txt && echo b > /tmp/e2efiles-tree/sub/b.txt'
+q $K host ssh exec direct -o text -- 'mkdir -p /tmp/e2efiles-tree/sub && echo theirs > /tmp/e2efiles-tree/a.txt && echo b > /tmp/e2efiles-tree/sub/b.txt'
 mkdir -p "$F/tree"; echo mine > "$F/tree/a.txt"
 out=$($K copy direct:/tmp/e2efiles-tree/ "$F/tree" -r)
 check "folder download goes on past a file here" "1 1" "$(echo "$out" | jget 'str(d["data"]["results"][0]["files"])+" "+str(d["data"]["results"][0]["kept"])')"
@@ -80,16 +80,16 @@ check "sync of a linked folder copies its files" 2 "$($K copy "$F/current" direc
 # sync --sudo: a folder only root may write, each file installed as root,
 # a second run sends nothing; a folder others may change is refused
 mkdir -p "$F/conf/sub"; echo a > "$F/conf/a.conf"; echo b > "$F/conf/sub/b.conf"; chmod 640 "$F/conf/a.conf"
-q $K exec direct --sudo -- 'mkdir -p /etc/e2esync && chmod 755 /etc/e2esync'
+q $K host ssh exec direct --sudo -- 'mkdir -p /etc/e2esync && chmod 755 /etc/e2esync'
 check "sync --sudo without sudo is refused by the folder" True "$($K copy "$F/conf" direct:/etc/e2esync --sync | jget 'd["ok"] == False' || true)"
 check "sync --sudo copies as root" 2 "$($K copy "$F/conf" direct:/etc/e2esync --sync --sudo | jget 'd["data"]["results"][0]["copied"]')"
-check "sync --sudo keeps the mode" "640 root" "$($K exec direct --read-only -- 'stat -c "%a %U" /etc/e2esync/a.conf' | jget 'd["data"]["results"][0]["stdout"].strip()')"
+check "sync --sudo keeps the mode" "640 root" "$($K host ssh exec direct --read-only -- 'stat -c "%a %U" /etc/e2esync/a.conf' | jget 'd["data"]["results"][0]["stdout"].strip()')"
 check "sync --sudo a second time sends nothing" "0 0" "$($K copy "$F/conf" direct:/etc/e2esync --sync --sudo | jget 'str(d["data"]["results"][0]["copied"])+" "+str(d["data"]["results"][0]["updated"])')"
-q $K exec direct --sudo -- 'mkdir -p /tmp/e2eshared && chmod 777 /tmp/e2eshared'
-check "exec rm needs --allow-dangerous" POLICY_BLOCKED "$($K exec direct -- 'rm -f /tmp/e2efiles-x' | jget 'd["error"]["code"]' || true)"
+q $K host ssh exec direct --sudo -- 'mkdir -p /tmp/e2eshared && chmod 777 /tmp/e2eshared'
+check "exec rm needs --allow-dangerous" POLICY_BLOCKED "$($K host ssh exec direct -- 'rm -f /tmp/e2efiles-x' | jget 'd["error"]["code"]' || true)"
 check "sync --sudo into a folder others may change" SHARED_FOLDER_CONFLICT "$($K copy "$F/conf" direct:/tmp/e2eshared --sync --sudo | jget 'd["data"]["results"][0]["error"]["code"]' || true)"
-q $K exec direct --sudo --allow-dangerous -- 'rm -rf /etc/e2esync /tmp/e2eshared'
+q $K host ssh exec direct --sudo --allow-dangerous -- 'rm -rf /etc/e2esync /tmp/e2eshared'
 
-q $K exec direct -o text --allow-dangerous -- 'rm -rf /tmp/e2efiles* /tmp/.komando-*'
+q $K host ssh exec direct -o text --allow-dangerous -- 'rm -rf /tmp/e2efiles* /tmp/.komando-*'
 rm -rf "$F"
 set -e

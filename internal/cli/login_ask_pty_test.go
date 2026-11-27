@@ -27,9 +27,9 @@ func TestLoginAskPersonAtTerminal(t *testing.T) {
 	invHome(t)
 	const pw = "terminal-Pa55"
 	port, tries, _ := passwordSSHD(t, pw)
-	mustRun(t, "host", "add", "web1", "u@127.0.0.1:"+port, "--login", "ask")
+	mustRun(t, "host", "ssh", "add", "web1", "u@127.0.0.1:"+port, "--login", "ask")
 	// a first connection: the person sees the new host key, then types
-	p := startPTY(t, "exec", "web1", "--read-only", "--", "uptime")
+	p := startPTY(t, "host", "ssh", "exec", "web1", "--read-only", "--", "uptime")
 	p.answer("web1: Password: ", pw+"\r")
 	if code := p.exit(); code != 0 {
 		t.Fatalf("exit %d; the screen:\n%s", code, p.shown())
@@ -49,12 +49,12 @@ func TestLoginAskPersonAtTerminal(t *testing.T) {
 func TestLoginAskTunnelStartHandsOff(t *testing.T) {
 	invHome(t)
 	const pw = "tunnel-Pa55"
-	mustRun(t, "host", "add", "web1", "u@127.0.0.1:2", "--login", "ask")
+	mustRun(t, "host", "ssh", "add", "web1", "u@127.0.0.1:2", "--login", "ask")
 	setCallerEnv(t, "CLAUDECODE", "1")
 	texts := loginWindow(t, pw, true, true)
 	// a server komando never met: the background process could show its
 	// key to nobody, so tunnel start does not ask
-	e := wantCode(t, "NEEDS_PERSON", "tunnel", "start", "web1", "-L", "0:localhost:80")
+	e := wantCode(t, "NEEDS_PERSON", "host", "ssh", "tunnel", "start", "web1", "-L", "0:localhost:80")
 	if len(*texts) != 0 || !strings.Contains(e.Hint, "`komando test web1`") {
 		t.Fatalf("unknown key: %d windows, %+v", len(*texts), e)
 	}
@@ -75,7 +75,7 @@ func TestLoginAskTunnelStartHandsOff(t *testing.T) {
 	time.AfterFunc(700*time.Millisecond, cancel)
 	root := newRoot(tcl)
 	t.Cleanup(endCommand)
-	root.SetArgs([]string{"-o", "json", "tunnel", "start", "web1", "-L", "0:localhost:80"})
+	root.SetArgs([]string{"-o", "json", "host", "ssh", "tunnel", "start", "web1", "-L", "0:localhost:80"})
 	var buf bytes.Buffer
 	savedW := tcl.out.W
 	tcl.out.W = &buf
@@ -117,7 +117,7 @@ func TestLoginAskHeldLogin(t *testing.T) {
 	t.Setenv("KOMANDO_HOLDER_FROM_TESTS", "1")
 	const pw = "held-Pa55"
 	port, tries, _ := passwordSSHD(t, pw)
-	mustRun(t, "host", "add", "web1", "u@127.0.0.1:"+port, "--login", "ask")
+	mustRun(t, "host", "ssh", "add", "web1", "u@127.0.0.1:"+port, "--login", "ask")
 	t.Cleanup(func() { _, _ = invRun(t, "logout", "--all") })
 	savedAsker := sshx.Asker
 
@@ -134,7 +134,7 @@ func TestLoginAskHeldLogin(t *testing.T) {
 	setCallerEnv(t, "CLAUDECODE", "1")
 	texts := loginWindow(t, "never-typed", true, true)
 	for range 2 {
-		s, err := runCache(t, "-o", "json", "exec", "web1", "--read-only", "--", "uptime")
+		s, err := runCache(t, "-o", "json", "host", "ssh", "exec", "web1", "--read-only", "--", "uptime")
 		// (this agent's command never had the password, so it cannot hide
 		// what a server prints of it: the test server echoes it)
 		if err != nil || !strings.Contains(s, "logged in with") {

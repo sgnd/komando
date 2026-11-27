@@ -25,7 +25,7 @@ import (
 // (--sudo), and how a file lands on this computer (fetchFile).
 
 // downloadPermHint is what to do about a file the SSH user cannot read.
-const downloadPermHint = "the SSH user cannot read it; for one file add --sudo, for a folder copy it to a readable place first with `komando exec --sudo`"
+const downloadPermHint = "the SSH user cannot read it; for one file add --sudo, for a folder copy it to a readable place first with `komando host ssh exec --sudo`"
 
 // download copies src from the server to dst on this computer. Files that
 // already exist stay as they are unless overwrite is set: one file stops
@@ -211,7 +211,7 @@ func sudoDownload(cl *call, ctx context.Context, c *sshx.Client, src, dst string
 	case r.ExitCode != 0:
 		return xferStats{}, out.Errf(out.ExitRemote, "READ_FAILED", "check the path and its permissions with `komando fs stat SERVER PATH`, or add --sudo", "%s", strings.TrimSpace(r.Stderr))
 	case r.StdoutTruncated:
-		return xferStats{}, out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "copy it to a place the SSH user can read with `komando exec TARGET --sudo -- cp PATH /tmp/`, then download that",
+		return xferStats{}, out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "copy it to a place the SSH user can read with `komando host ssh exec TARGET --sudo -- cp PATH /tmp/`, then download that",
 			"%s is larger than %s, the most a --sudo download reads", src, term.HumanBytes(sudoMaxBytes))
 	}
 	if intoDir {

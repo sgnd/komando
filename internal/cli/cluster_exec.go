@@ -290,7 +290,7 @@ komando forwards to the pod's port behind it.`,
 				return err
 			}
 			if t.host != nil {
-				return out.Usage("on Swarm, use `komando tunnel start MANAGER -L LOCAL:SERVICE:PORT` (published ports are on every node)")
+				return out.Usage("on Swarm, use `komando host ssh tunnel start MANAGER -L LOCAL:SERVICE:PORT` (published ports are on every node)")
 			}
 			if _, _, err := splitRef(args[1]); err != nil {
 				return err
@@ -328,7 +328,7 @@ komando forwards to the pod's port behind it.`,
 			}
 			ln, err := net.Listen("tcp", "127.0.0.1:"+local)
 			if err != nil {
-				return out.Errf(out.ExitConflict, "PORT_IN_USE", "pick another LOCAL port (`komando tunnel list` shows the ones komando holds)", "cannot listen on 127.0.0.1:%s: %v", local, err)
+				return out.Errf(out.ExitConflict, "PORT_IN_USE", "pick another LOCAL port (`komando host ssh tunnel list` shows the ones komando holds)", "cannot listen on 127.0.0.1:%s: %v", local, err)
 			}
 			defer ln.Close()
 			go func() { <-ctx.Done(); ln.Close() }()

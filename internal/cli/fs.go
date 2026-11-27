@@ -183,7 +183,7 @@ func fsLsCmd() *cobra.Command {
 			}
 			res, err := oneHost(cl, cmd.Context(), args[0], func(_ *store.State, _ *sshx.Client, sc *sftp.Client) (any, error) {
 				dir := expandRemote(sc, arg)
-				permHint := "fs list reads as the SSH user; list it as root with `komando exec " + args[0] + " --sudo -- ls -la " + sshx.Q(dir) + "`"
+				permHint := "fs list reads as the SSH user; list it as root with `komando host ssh exec " + args[0] + " --sudo -- ls -la " + sshx.Q(dir) + "`"
 				r := lsResult{Path: dir, Entries: []fileInfo{}, recursive: recursive}
 				if fi, err := sc.Stat(dir); err != nil {
 					return nil, fsErrHint(dir, err, permHint)
@@ -280,7 +280,7 @@ func fsStatCmd() *cobra.Command {
 				if hash && inf.Type == "file" {
 					f, err := sc.Open(p)
 					if err != nil {
-						return nil, fsErrHint(p, err, "fs stat --sha256 reads as the SSH user; use `komando exec --sudo -- sha256sum FILE`")
+						return nil, fsErrHint(p, err, "fs stat --sha256 reads as the SSH user; use `komando host ssh exec --sudo -- sha256sum FILE`")
 					}
 					defer f.Close()
 					h := sha256.New()
@@ -589,7 +589,7 @@ func fsRmCmd() *cobra.Command {
 	c.Long = `Removes files like rm -f: a path that does not exist is reported ("not found")
 and the command still succeeds. A folder needs --recursive, which also needs
 --allow-dangerous. Paths are taken literally: '*.log' is not a pattern (use
-komando exec for that).`
+komando host ssh exec for that).`
 	return c
 }
 

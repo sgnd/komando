@@ -14,8 +14,8 @@ stdout_of() { jget 'd["data"]["results"][0]["stdout"]'; }
 if in_area data; then
 # a command on a server (ssh host CMD)
 check "exec = native shell" "$(nativeas agent direct sh -c 'uname -n; id -un' | words)" \
-  "$($K exec direct --read-only -- 'uname -n; id -un' | stdout_of | words)"
-check "exec keeps the remote exit code (like ssh)" 3 "$($K exec direct -- 'exit 3' | jget 'd["data"]["results"][0]["exit_code"]' || true)"
+  "$($K host ssh exec direct --read-only -- 'uname -n; id -un' | stdout_of | words)"
+check "exec keeps the remote exit code (like ssh)" 3 "$($K host ssh exec direct -- 'exit 3' | jget 'd["data"]["results"][0]["exit_code"]' || true)"
 
 # copying a file (scp): byte for byte, both ways
 head -c 300000 /dev/urandom >"$TMP/$V.bin"
@@ -75,7 +75,7 @@ check "pkg installed = dpkg-query" "$(native direct dpkg-query -W -f='${Version}
 
 # a read that exits non-zero fails, as with ssh: the exit code is the result
 check "exec --read-only keeps ssh's exit code" "$(nativeas agent direct sh -c 'ls /nope-missing >/dev/null 2>&1; echo $?') 5" \
-  "$(rc=0; $K exec direct --read-only -- 'ls /nope-missing' >"$TMP/ro.json" || rc=$?; echo "$(jget 'd["data"]["results"][0]["exit_code"]' <"$TMP/ro.json") $rc")"
+  "$(rc=0; $K host ssh exec direct --read-only -- 'ls /nope-missing' >"$TMP/ro.json" || rc=$?; echo "$(jget 'd["data"]["results"][0]["exit_code"]' <"$TMP/ro.json") $rc")"
 
 # logs = tail
 check "logs --file = tail" "$(native direct tail -n 5 /etc/passwd)" "$($K logs direct --file /etc/passwd -n 5 | jget 'd["data"]["results"][0]["stdout"].rstrip("\n")')"
@@ -116,13 +116,13 @@ fi
 
 if in_area data; then
 # a tunnel reaches the same service as a direct connection
-T=$($K tunnel start direct -L 0:localhost:22 | jget 'd["data"]["listen"] + " " + d["data"]["id"]')
+T=$($K host ssh tunnel start direct -L 0:localhost:22 | jget 'd["data"]["listen"] + " " + d["data"]["id"]')
 banner() { python3 -c 'import socket,sys; h,p=sys.argv[1].rsplit(":",1); s=socket.create_connection((h,int(p)),5); print(s.recv(64).decode().split()[0])' "$1"; }
 check "tunnel -L = the service itself" "$(banner "127.0.0.1:$E2E_SSH_DIRECT")" "$(banner "${T% *}")"
-q $K tunnel stop "${T#* }"
+q $K host ssh tunnel stop "${T#* }"
 
-q $K exec direct --allow-dangerous -- "rm -rf /tmp/$V.sync"
+q $K host ssh exec direct --allow-dangerous -- "rm -rf /tmp/$V.sync"
 q $K cache rm cache "$V:a" "$V:b" --allow-dangerous
-q $K exec direct --allow-dangerous -- "rm -f /tmp/$V.bin /tmp/$V.conf"
+q $K host ssh exec direct --allow-dangerous -- "rm -f /tmp/$V.bin /tmp/$V.conf"
 q $K cache rm cache "$V:k" --allow-dangerous
 fi

@@ -28,7 +28,7 @@ func hostSSHArgsCmd() *cobra.Command {
 known_hosts file and --via path komando uses. A server behind --via servers gets
 a ProxyCommand per hop (ssh -W), so every hop uses its own key. A SOCKS VPN
 becomes nc -X 5; VPNs that run inside komando cannot be used by OpenSSH:
-use ` + "`komando shell SERVER`" + ` for those. A key made with komando credential key create is never
+use ` + "`komando host ssh shell SERVER`" + ` for those. A key made with komando credential key create is never
 written to a file: it goes to your running ssh-agent (SSH_AUTH_SOCK) for one
 hour, and the line picks it by its public key.`,
 		Example: `  komando host ssh-command web1
@@ -78,7 +78,7 @@ func shellLine(parts []string) string {
 // sshx.Dial resolves them: each step's own --via comes first.
 func sshPath(st *store.State, h *store.Host, seen map[string]bool) (*store.Vpn, []*store.Host, error) {
 	if seen[h.Name] {
-		return nil, nil, out.Errf(out.ExitUsage, "VIA_CYCLE", "fix the --via setting with `komando host edit "+h.Name+" --via ...`", "--via loop at %q", h.Name)
+		return nil, nil, out.Errf(out.ExitUsage, "VIA_CYCLE", "fix the --via setting with `komando host ssh edit "+h.Name+" --via ...`", "--via loop at %q", h.Name)
 	}
 	seen[h.Name] = true
 	var vpn *store.Vpn
@@ -95,7 +95,7 @@ func sshPath(st *store.State, h *store.Host, seen map[string]bool) (*store.Vpn, 
 		if !ok {
 			a, err := sshx.ParseAdhoc(step)
 			if err != nil || !strings.Contains(step, "@") {
-				return nil, nil, out.Errf(out.ExitNotFound, "VIA_NOT_FOUND", "fix it with `komando host edit "+h.Name+" --via ...`", "%s: no server or VPN named %q", h.Name, step)
+				return nil, nil, out.Errf(out.ExitNotFound, "VIA_NOT_FOUND", "fix it with `komando host ssh edit "+h.Name+" --via ...`", "%s: no server or VPN named %q", h.Name, step)
 			}
 			jh = a
 		}
@@ -166,7 +166,7 @@ func vpnProxy(st *store.State, v *store.Vpn) (string, error) {
 	}
 	if socks == "" {
 		return "", out.Errf(out.ExitUsage, "VPN_NOT_FOR_OPENSSH",
-			"use `komando shell SERVER` (it opens the VPN itself), or connect the VPN on this computer and leave it out of --via",
+			"use `komando host ssh shell SERVER` (it opens the VPN itself), or connect the VPN on this computer and leave it out of --via",
 			"VPN %s (%s) runs inside komando; OpenSSH cannot use it", v.Name, v.Kind)
 	}
 	return "nc -X 5 -x " + socks + " %h %p", nil
@@ -179,7 +179,7 @@ func vpnProxy(st *store.State, v *store.Vpn) (string, error) {
 func sealedSSHFiles(cl *call, st *store.State, hops []*store.Host) (string, map[string][]string, error) {
 	if cl.isAgent() {
 		return "", nil, out.Errf(out.ExitPolicy, "NEEDS_PERSON",
-			"use `komando exec` or `komando shell`; a person who wants OpenSSH runs `komando host ssh-command` in their own terminal",
+			"use `komando host ssh exec` or `komando host ssh shell`; a person who wants OpenSSH runs `komando host ssh-command` in their own terminal",
 			"host ssh-command writes a copy of the pinned host keys for OpenSSH, so only a person at a terminal can run it here")
 	}
 	var addrs []string
@@ -209,7 +209,7 @@ func sshCommandFor(cl *call, st *store.State, h *store.Host) ([]string, error) {
 		// saved before addresses were checked for it: ssh would read it as
 		// an option (-oProxyCommand=...), not as the server
 		if strings.HasPrefix(hop.Address, "-") || strings.HasPrefix(hop.User, "-") {
-			return nil, out.Errf(out.ExitUsage, "USAGE", "fix it with `komando host edit "+hop.Name+" --address ADDRESS --user USER`",
+			return nil, out.Errf(out.ExitUsage, "USAGE", "fix it with `komando host ssh edit "+hop.Name+" --address ADDRESS --user USER`",
 				"server %s has an address or user that starts with -, which ssh would read as an option", hop.Name)
 		}
 	}

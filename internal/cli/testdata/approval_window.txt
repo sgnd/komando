@@ -48,7 +48,7 @@ Change web-1.example.test
 Asked by Claude Code
 Skips: the safety-change check
 
-Command: komando host rm web-1.example.test --yes
+Command: komando host ssh remove web-1.example.test --yes
 [owner]
 komando: allow web-1.example.test
 [windows sizes]

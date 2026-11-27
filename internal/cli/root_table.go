@@ -193,7 +193,17 @@ func mountLeaves(root *cobra.Command, leaves []capability.Leaf, hs map[capabilit
 				return fmt.Errorf("%s: %q is already a command's name or alias under %q", l.Key, w, parent.CommandPath())
 			}
 		}
-		parent.AddCommand(buildLeaf(l, h))
+		leaf := buildLeaf(l, h)
+		if l.Key.Type == "host" && l.Key.Verb == "exec" && !sessionsOn {
+			// exec's session flags are listed in the table, and hidden and
+			// refused (refuseOff) until the cut turns sessions on
+			for _, n := range sessionFlags {
+				if f := leaf.Flags().Lookup(n); f != nil {
+					f.Hidden = true
+				}
+			}
+		}
+		parent.AddCommand(leaf)
 	}
 	return nil
 }
@@ -273,7 +283,10 @@ func buildLeaf(l capability.Leaf, h handler) *cobra.Command {
 		Example: l.Example,
 		Aliases: slices.Clone(l.Synonyms),
 		GroupID: group,
-		Args: func(_ *cobra.Command, args []string) error {
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 && l.Type == "host" && formAddCmd(cmd) { // a server's add alone asks, or says how
+				return formOrUsage(cmd, strings.Join(l.Key.Path()[:len(l.Key.Path())-1], " "), "komando "+strings.Join(l.Key.Path(), " ")+" web1 deploy@10.0.0.5")
+			}
 			if len(args) < least || most >= 0 && len(args) > most {
 				return out.Usage("%s takes %s", strings.Join(l.Key.Path(), " "), strings.Join(use[1:], " "))
 			}
@@ -375,8 +388,21 @@ func checkOptions(l capability.Leaf, in leafInput) error {
 			return out.Usage("%s needs --%s", strings.Join(l.Key.Path(), " "), o.Name)
 		case !set:
 			continue
+		case o.Kind == capability.Enum && o.Repeat:
+			for _, v := range in.Strings(o.Name) {
+				if !slices.Contains(o.Enum, v) {
+					return out.Usage("--%s takes %s", o.Name, strings.Join(o.Enum, ", "))
+				}
+			}
 		case o.Kind == capability.Enum && !slices.Contains(o.Enum, in.String(o.Name)):
 			return out.Usage("--%s takes %s", o.Name, strings.Join(o.Enum, ", "))
+		}
+		if o.Name == "unset" {
+			for _, w := range in.Strings(o.Name) {
+				if _, ok := in.vals[w]; ok && in.Changed(w) {
+					return out.Errf(out.ExitUsage, "USAGE", "pass one of them", "--%s and --unset %s contradict each other", w, w)
+				}
+			}
 		}
 		if o.Pattern != "" {
 			values := []string{}

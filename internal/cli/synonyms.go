@@ -5,8 +5,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-
-	"github.com/sgnd/komando/internal/out"
 )
 
 // A synonym is a second name that is permanent and silent (S-1.7). Most
@@ -44,7 +42,7 @@ func addAliases(c *cobra.Command, names ...string) *cobra.Command {
 var nounAliases = map[string][]string{
 	"host": {"hosts", "server", "servers"}, "conn": {"conns"}, "vpn": {"vpns"},
 	"group": {"groups"}, "secret": {"secrets"}, "key": {"keys"}, "snippet": {"snippets"},
-	"policy": {"policies"}, "job": {"jobs"}, "tunnel": {"tunnels"}, "fs": {"files"},
+	"policy": {"policies"}, "job": {"jobs"}, "fs": {"files"},
 	"pkg": {"package", "packages"}, "docker": {"container", "containers"},
 	"cert": {"certs"}, "db": {"dbs"}, "database": {"databases"}, "cache": {"caches"},
 	"queue": {"queues"}, "cluster": {"clusters"}, "registry": {"registries"},
@@ -91,31 +89,5 @@ func synonymWrapper(of *cobra.Command, use, id, now string, args cobra.Positiona
 	}
 	withID(c, id)
 	c.Annotations[synonymNote] = now
-	return c
-}
-
-// tunnelShowCmd is `tunnel show TUNNEL`: tunnel list for one tunnel.
-func tunnelShowCmd() *cobra.Command {
-	c := &cobra.Command{
-		Use:    "show TUNNEL",
-		Short:  "Same as `komando tunnel list`, for one tunnel",
-		Hidden: true,
-		Args:   cobra.ExactArgs(1),
-		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			st, err := loadState()
-			if err != nil {
-				return err
-			}
-			t, ok := st.Tunnels[args[0]]
-			if !ok {
-				return out.NotFound("tunnel", args[0])
-			}
-			row := tunnelRow{Tunnel: t, Alive: tunnelAlive(t), Listen: tunnelListen(t)}
-			cl.out.Print("tunnel.list", tunnelList{Count: 1, Tunnels: []tunnelRow{row}}, nil)
-			return nil
-		}),
-	}
-	withID(c, "tunnel.list")
-	c.Annotations[synonymNote] = "tunnel list"
 	return c
 }

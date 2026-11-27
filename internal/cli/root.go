@@ -250,7 +250,7 @@ func usageErr(cl *call, cmd *cobra.Command, err error) error {
 	} else if ok {
 		if name == "add" && !cmd.HasParent() {
 			e.Message = fmt.Sprintf("unknown command %q", name)
-			e.Hint = "add a server with `komando host add`, a database with `komando database postgres add` (or mysql, sqlite ...) or a VPN with `komando vpn KIND add`; typed alone at a terminal, each one asks step by step"
+			e.Hint = "add a server with `komando host ssh add`, a database with `komando database postgres add` (or mysql, sqlite ...) or a VPN with `komando vpn KIND add`; typed alone at a terminal, each one asks step by step"
 			return e
 		}
 		var rest []string
@@ -601,14 +601,14 @@ func addCommands(cl *call, root *cobra.Command) {
 			root.AddCommand(c)
 		}
 	}
-	add("servers", execCmd(), logsCmd(), fsCmd(), uploadCmd(), downloadCmd(), cpCmd(), syncCmd(),
-		jobCmd(), dockerCmd(), pkgCmd(), shellCmd(), certCmd(), snippetCmd())
+	add("servers", logsCmd(), fsCmd(), uploadCmd(), downloadCmd(), cpCmd(), syncCmd(),
+		jobCmd(), dockerCmd(), pkgCmd(), certCmd(), snippetCmd())
 	add("data", dbCmd(), cacheCmd(), queueCmd(), storageCmd())
 	add("platform", clusterCmd(), registryCmd())
 	add("access", vpnCmd(), loginCmd(cl), logoutCmd(cl), loginHolderCmd(), secretCmd(), tunnelCmd())
 	add("overview", statusCmd(), auditCmd(), listCmd(), testCmd(), doctorCmd())
 	add("inventory", hostCmd(), connCmd(), groupCmd(), importCmd(), exportCmd(), renameCmd())
-	add("setup", configCmd(), policyCmd(), guideCmd(), agentCmd(), schemaCmd(root), updateCmd(), versionCmd(), sshGateCmd())
+	add("setup", policyCmd(), guideCmd(), agentCmd(), schemaCmd(root), updateCmd(), versionCmd(), sshGateCmd())
 	addNounAliases(root)
 }
 
@@ -645,7 +645,7 @@ const rootLong = `komando is one safe command line for
 for people and AI agents alike.
 
 Start:
-  komando host add NAME USER@ADDRESS   add a server
+  komando host ssh add NAME ADDRESS   add a server
   komando conn add NAME URL            add a database, cache, queue, storage,
                                        cluster or registry
   komando import ssh-config            bring in the servers you already have
@@ -691,15 +691,15 @@ func personHelp() string {
 	var b strings.Builder
 	b.WriteString("komando: one safe command line for " + tagline + "\n\n")
 	if st, err := loadState(); err == nil && len(st.Hosts) == 0 && len(st.Conns) == 0 && len(st.Vpns) == 0 {
-		b.WriteString("Nothing added yet: komando host add  or  komando import ssh-config\n\n")
+		b.WriteString("Nothing added yet: komando host ssh add  or  komando import ssh-config\n\n")
 	}
 	for _, g := range [][2]string{
-		{"START", "host add · conn add · import ssh-config · list · test TARGET · agent skill install"},
-		{"SERVERS", "exec  logs  fs  job  docker  pkg  shell"},
+		{"START", "host ssh add · conn add · import ssh-config · list · test TARGET · agent skill install"},
+		{"SERVERS", "logs  fs  job  docker  pkg"},
 		{"DATA", "db  cache  queue  storage"},
 		{"PLATFORM", "cluster  registry"},
 		{"INVENTORY", "host  conn  group  import  export  rename"},
-		{"ACCESS", "vpn  login  credential  tunnel"},
+		{"ACCESS", "vpn  login  credential"},
 		{"OVERVIEW", "status  audit  list  test  doctor"},
 		{"SETUP", "config  policy  guide  schema  completion"},
 	} {
@@ -707,7 +707,7 @@ func personHelp() string {
 	}
 	b.WriteString(`
 EXAMPLES
-  $ komando host add web1 deploy@10.0.0.5
+  $ komando host ssh add web1 deploy@10.0.0.5
   $ komando logs web1 --unit nginx --since 30m
   $ komando database postgres query prod-db "select now()"
   $ komando fs replace web1 /etc/nginx/nginx.conf --old A --new B --backup --dry-run
@@ -728,7 +728,7 @@ const firstSteps = `komando: one safe command line for ` + tagline + `.
 First steps:
   komando import ssh-config        bring in the servers you already have
   komando list                     see everything komando knows about
-  komando exec web1 -- uptime      run a command on a server
+  komando host ssh exec web1 -- uptime      run a command on a server
 
 More:
   komando --help                   every command

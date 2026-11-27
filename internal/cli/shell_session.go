@@ -43,7 +43,7 @@ var shellDial = func(cl *call, ctx context.Context, st *store.State, h *store.Ho
 	})
 }
 
-// shellTerm is the terminal komando shell runs on; tests stand in for it.
+// shellTerm is the terminal komando host ssh shell runs on; tests stand in for it.
 type shellTerm interface {
 	Size() (w, h int, err error)
 	MakeRaw() (restore func(), err error)

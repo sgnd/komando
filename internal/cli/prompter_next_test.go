@@ -101,10 +101,10 @@ func TestFormHintsNextMerge(t *testing.T) {
 func TestPersonHelp(t *testing.T) {
 	invHome(t)
 	h := personHelp()
-	if !strings.Contains(h, "Nothing added yet: komando host add") || strings.Index(h, "START") > strings.Index(h, "SERVERS") {
+	if !strings.Contains(h, "Nothing added yet: komando host ssh add") || strings.Index(h, "START") > strings.Index(h, "SERVERS") {
 		t.Errorf("%s", h)
 	}
-	mustRun(t, "host", "add", "web1", "root@10.0.0.5")
+	mustRun(t, "host", "ssh", "add", "web1", "root@10.0.0.5")
 	if strings.Contains(personHelp(), "Nothing added yet") {
 		t.Error("an inventory with a server is called empty")
 	}
@@ -139,7 +139,6 @@ func TestPromptNext(t *testing.T) {
 		{"credential key show", "deploy", "komando credential key install deploy TARGET", "db "},
 		{"job status", "7f3", "komando job logs 7f3 --limit 50", "conn "},
 		{"group remove", "old", "Next: komando group create old TARGET...", "group remove"},
-		{"tunnel show", "db-tunnel", "komando tunnel stop db-tunnel", "conn "},
 		{"snippet show", "health", "komando snippet exec health TARGET", "conn "},
 	} {
 		drawn.Reset()
@@ -167,10 +166,12 @@ func TestPromptNext(t *testing.T) {
 // A person told there is nothing yet is given the add command to type,
 // never a menu that is gone.
 func TestAddHintForAPerson(t *testing.T) {
+	noAgent(t)
+	setCallerEnv(t, "CI", "") // in CI a terminal is no person: the hint would come from the other branch
 	saved := tcl.terminal
 	tcl.terminal = true
 	defer func() { tcl.terminal = saved }()
-	for family, want := range map[string]string{"db": "komando database postgres add", "host": "komando host add", "vpn": "komando vpn KIND add"} {
+	for family, want := range map[string]string{"db": "komando database postgres add", "host": "komando host ssh add", "vpn": "komando vpn KIND add"} {
 		if h := addHint(tcl, family, ""); !strings.Contains(h, want) || strings.Contains(h, "pick Add") {
 			t.Errorf("%s: %q", family, h)
 		}
@@ -259,12 +260,12 @@ func TestStandardNextPerVerb(t *testing.T) {
 		}
 	}
 	for key, want := range map[string]string{
-		"host add":              "komando test web1",
+		"host ssh add":          "komando test web1",
 		"conn add":              "komando test web1",
-		"host rename":           "komando host show web2",
+		"host ssh rename":       "komando host ssh show web2",
 		"credential key rename": "komando credential key show web2",
 		"rename":                "komando list web2",
-		"host rm":               "komando host list",
+		"host ssh remove":       "komando host ssh list",
 		"vpn wireguard edit":    "komando vpn wireguard show web1",
 	} {
 		if got := nextLines(key, "web1", []string{"web1", "web2"}); len(got) == 0 || got[0] != want {

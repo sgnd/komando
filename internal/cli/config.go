@@ -49,7 +49,7 @@ func intAtLeast(key, v string, minV int) (int, error) {
 }
 
 var settings = []setting{
-	{"host_key_policy", "accept-new | strict | off", "how server identity is checked: accept-new pins a new server's key, strict needs `host trust` first, off checks nothing (needs --yes)",
+	{"host_key_policy", "accept-new | strict | off", "how server identity is checked: accept-new pins a new server's key, strict needs `host ssh trust` first, off checks nothing (needs --yes)",
 		func(s *store.Settings) string { return s.HostKeyPolicy },
 		func(cl *call, st *store.State, v string) error {
 			v = strings.ToLower(v)

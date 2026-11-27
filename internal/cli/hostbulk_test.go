@@ -29,8 +29,8 @@ func windowText(t *testing.T, allow bool) *[]string {
 
 func TestHostMv(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "jump", "u@10.0.0.1", "-g", "edge", "-t", "prod", "--sudo-ref", "secret:j")
-	mustRun(t, "host", "add", "web", "u@10.0.0.2", "--via", "jump")
+	mustRun(t, "host", "ssh", "add", "jump", "u@10.0.0.1", "-g", "edge", "-t", "prod", "--sudo-credential", "secret:j")
+	mustRun(t, "host", "ssh", "add", "web", "u@10.0.0.2", "--via", "jump")
 	mustRun(t, "conn", "add", "db", "postgres://a@10.0.0.5/app", "--via", "jump")
 	if err := store.Update(store.Save(), func(s *store.State) error {
 		s.Jobs["j1"] = &store.Job{ID: "j1", Host: "jump", Command: "sleep 1"}
@@ -40,7 +40,7 @@ func TestHostMv(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	d := mustRun(t, "host", "mv", "jump", "bastion", "--dry-run")
+	d := mustRun(t, "host", "ssh", "rename", "jump", "bastion", "--dry-run")
 	if d["action"] != "would_rename" || len(d["updated"].([]any)) != 5 {
 		t.Errorf("dry run: %v", d)
 	}
@@ -49,7 +49,7 @@ func TestHostMv(t *testing.T) {
 		t.Fatal("a dry run changed the inventory")
 	}
 
-	d = mustRun(t, "host", "mv", "jump", "bastion")
+	d = mustRun(t, "host", "ssh", "rename", "jump", "bastion")
 	if d["action"] != "renamed" || d["from"] != "jump" || d["to"] != "bastion" {
 		t.Errorf("mv: %v", d)
 	}
@@ -63,23 +63,23 @@ func TestHostMv(t *testing.T) {
 		t.Errorf("references follow the new name: %+v %+v %+v %+v", st.Hosts["web"], st.Conns["db"], st.Jobs["j1"], st.Tunnels["t1"])
 	}
 
-	wantCode(t, "NAME_TAKEN", "host", "mv", "bastion", "db")
-	wantCode(t, "TARGET_NOT_FOUND", "host", "mv", "nosuch", "x")
-	wantCode(t, "USAGE", "host", "mv", "web", "bad name")
-	wantCode(t, "USAGE", "host", "mv", "web", "all")
-	if d := mustRun(t, "host", "mv", "web", "web"); d["action"] != "unchanged" {
+	wantCode(t, "NAME_TAKEN", "host", "ssh", "rename", "bastion", "db")
+	wantCode(t, "TARGET_NOT_FOUND", "host", "ssh", "rename", "nosuch", "x")
+	wantCode(t, "USAGE", "host", "ssh", "rename", "web", "bad name")
+	wantCode(t, "USAGE", "host", "ssh", "rename", "web", "all")
+	if d := mustRun(t, "host", "ssh", "rename", "web", "web"); d["action"] != "unchanged" {
 		t.Errorf("same name: %v", d)
 	}
-	mustRun(t, "host", "mv", "web", "WEB") // only the case changes
+	mustRun(t, "host", "ssh", "rename", "web", "WEB") // only the case changes
 
 	// protected: a person's yes, once
-	mustRun(t, "host", "add", "prod", "u@10.0.0.9", "--protected")
-	wantCode(t, "PROTECTED_TARGET", "host", "mv", "prod", "prod1")
-	if d := mustRun(t, "host", "mv", "prod", "prod1", "--dry-run"); d["_meta"].(map[string]any)["would_be_blocked"] == nil {
+	mustRun(t, "host", "ssh", "add", "prod", "u@10.0.0.9", "--protected")
+	wantCode(t, "PROTECTED_TARGET", "host", "ssh", "rename", "prod", "prod1")
+	if d := mustRun(t, "host", "ssh", "rename", "prod", "prod1", "--dry-run"); d["_meta"].(map[string]any)["would_be_blocked"] == nil {
 		t.Errorf("dry run shows the stop: %v", d)
 	}
 	texts := windowText(t, true)
-	mustRun(t, "host", "mv", "prod", "prod1", "--yes")
+	mustRun(t, "host", "ssh", "rename", "prod", "prod1", "--yes")
 	if len(*texts) != 1 || !strings.Contains((*texts)[0], "renaming protected host: prod") {
 		t.Errorf("one window that says why: %q", *texts)
 	}
@@ -110,8 +110,8 @@ func TestConnMv(t *testing.T) {
 func TestVpnMv(t *testing.T) {
 	invHome(t)
 	mustRun(t, "vpn", "socks", "add", "lab", "--proxy-address", "127.0.0.1:1080")
-	mustRun(t, "host", "add", "h1", "u@10.0.0.1", "--via", "lab")
-	mustRun(t, "host", "add", "h2", "u@10.0.0.2", "--via", "lab,h1")
+	mustRun(t, "host", "ssh", "add", "h1", "u@10.0.0.1", "--via", "lab")
+	mustRun(t, "host", "ssh", "add", "h2", "u@10.0.0.2", "--via", "lab,h1")
 	d := mustRun(t, "vpn", "socks", "rename", "lab", "office")
 	if d["action"] != "renamed" || len(d["updated"].([]any)) != 2 {
 		t.Errorf("vpn mv: %v", d)
@@ -133,13 +133,13 @@ func TestVpnMv(t *testing.T) {
 
 func TestHostEditMany(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "a", "u@10.0.0.1", "-g", "ubuntu")
-	mustRun(t, "host", "add", "b", "u@10.0.0.2", "-g", "ubuntu", "--protected")
-	mustRun(t, "host", "add", "c", "u@10.0.0.3", "-g", "ubuntu", "--protected")
-	mustRun(t, "host", "add", "d", "u@10.0.0.4")
+	mustRun(t, "host", "ssh", "add", "a", "u@10.0.0.1", "-g", "ubuntu")
+	mustRun(t, "host", "ssh", "add", "b", "u@10.0.0.2", "-g", "ubuntu", "--protected")
+	mustRun(t, "host", "ssh", "add", "c", "u@10.0.0.3", "-g", "ubuntu", "--protected")
+	mustRun(t, "host", "ssh", "add", "d", "u@10.0.0.4")
 
-	wantCode(t, "PROTECTED_TARGET", "host", "edit", "@ubuntu", "--sudo-ref", "secret:ubuntu-sudo")
-	d := mustRun(t, "host", "edit", "@ubuntu", "--sudo-ref", "secret:ubuntu-sudo", "--dry-run")
+	wantCode(t, "PROTECTED_TARGET", "host", "ssh", "edit", "@ubuntu", "--sudo-credential", "secret:ubuntu-sudo")
+	d := mustRun(t, "host", "ssh", "edit", "@ubuntu", "--sudo-credential", "secret:ubuntu-sudo", "--dry-run")
 	if len(d["changed"].([]any)) != 3 || len(d["protected"].([]any)) != 2 || d["_meta"].(map[string]any)["would_be_blocked"] == nil {
 		t.Errorf("dry run lists every server and the stop: %v", d)
 	}
@@ -150,7 +150,7 @@ func TestHostEditMany(t *testing.T) {
 
 	// an AI agent: one window that names every server
 	texts := windowText(t, true)
-	mustRun(t, "host", "edit", "@ubuntu", "--sudo-ref", "secret:ubuntu-sudo", "--yes")
+	mustRun(t, "host", "ssh", "edit", "@ubuntu", "--sudo-credential", "secret:ubuntu-sudo", "--yes")
 	if len(*texts) != 1 {
 		t.Fatalf("one window for the whole command, got %d", len(*texts))
 	}
@@ -170,22 +170,22 @@ func TestHostEditMany(t *testing.T) {
 	resetApproval()
 
 	// names and selectors together, each server once; the same again changes nothing
-	d = mustRun(t, "host", "edit", "a", "d", "@ubuntu", "--add-tag", "lab")
+	d = mustRun(t, "host", "ssh", "edit", "a", "d", "@ubuntu", "--add-tag", "lab")
 	if len(d["changed"].([]any)) != 4 {
 		t.Errorf("a, d, b, c: %v", d)
 	}
-	d = mustRun(t, "host", "edit", "a", "d", "--add-tag", "lab")
+	d = mustRun(t, "host", "ssh", "edit", "a", "d", "--add-tag", "lab")
 	if len(d["changed"].([]any)) != 0 || len(d["unchanged"].([]any)) != 2 {
 		t.Errorf("nothing to change: %v", d)
 	}
 	// one server's value only
-	wantCode(t, "USAGE", "host", "edit", "a", "d", "--address", "10.9.9.9")
-	wantCode(t, "TARGET_NOT_FOUND", "host", "edit", "a", "nosuch", "--add-tag", "x")
-	wantCode(t, "TARGET_EMPTY", "host", "edit", "@nosuch", "--add-tag", "x")
+	wantCode(t, "USAGE", "host", "ssh", "edit", "a", "d", "--address", "10.9.9.9")
+	wantCode(t, "TARGET_NOT_FOUND", "host", "ssh", "edit", "a", "nosuch", "--add-tag", "x")
+	wantCode(t, "TARGET_EMPTY", "host", "ssh", "edit", "@nosuch", "--add-tag", "x")
 	// all or nothing: a bad value for one server stops every change
-	wantCode(t, "SSH_KEY_NOT_FOUND", "host", "edit", "a", "d", "--key", "nokey")
+	wantCode(t, "SSH_KEY_NOT_FOUND", "host", "ssh", "edit", "a", "d", "--key", "nokey")
 	// one name keeps its old output
-	d = mustRun(t, "host", "edit", "a", "--add-tag", "one")
+	d = mustRun(t, "host", "ssh", "edit", "a", "--add-tag", "one")
 	if d["name"] != "a" || d["changed"] != true {
 		t.Errorf("single edit output: %v", d)
 	}
@@ -205,7 +205,7 @@ func TestImportCSV(t *testing.T) {
 	if err := vault.Set(store.Save(), "ubuntu-sudo", "pw"); err != nil {
 		t.Fatal(err)
 	}
-	mustRun(t, "host", "add", "old", "u@10.0.0.99")
+	mustRun(t, "host", "ssh", "add", "old", "u@10.0.0.99")
 	f := writeCSV(t, "\xef\xbb\xbfName,IP,User,Port,Role,Tags,Sudo_Ref,Protected,Via,Notes\n"+
 		"# a comment\n"+
 		"bastion,10.0.0.1,ubuntu,,edge,prod,secret:ubuntu-sudo,no,,\n"+

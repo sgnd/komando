@@ -208,7 +208,7 @@ func renameCmd() *cobra.Command {
 		Use:   "rename OLD NEW",
 		Short: "Rename one entry, or all names starting with OLD (--starts-with)",
 		Long: `Without --starts-with: renames the one server, conn, VPN, secret, key or group
-named OLD, as ` + "`komando host rename`" + ` and the others do. When OLD names
+named OLD, as ` + "`komando host ssh rename`" + ` and the others do. When OLD names
 two kinds of entry (a server and a secret), it says which commands to use.
 
 With --starts-with: renames every server, conn, VPN, secret, key and group whose
@@ -240,7 +240,7 @@ Renaming protected servers and conns needs --yes once, for all of them
 (an AI agent's --yes opens one window for a person). See what would change
 with --dry-run first. --kind renames only some kinds; references still
 follow.
-To rename one entry, use host rename, conn rename, vpn rename,
+To rename one entry, use host ssh rename, conn rename, vpn rename,
 credential password rename, credential key rename or group rename.`,
 		Example: `  komando rename web1 web-01 --dry-run                 # one entry, whatever kind it is
   komando rename --starts-with shop- acme-shop- --dry-run   # the old -> new list and every reference
@@ -369,17 +369,14 @@ func renameOne(cmd *cobra.Command, old, new string) error {
 		var what, cmds []string
 		for _, k := range found {
 			what = append(what, renameKindWords[k])
-			cmds = append(cmds, "`komando "+strings.Join(renamePath(k), " ")+" "+old+" "+new+"`")
+			cmds = append(cmds, "`komando "+strings.Join(renamePath(st, k, old), " ")+" "+old+" "+new+"`")
 		}
 		return out.Errf(out.ExitUsage, "USAGE", "say which: "+strings.Join(cmds, " or "),
 			"%q is a %s; rename one of them", old, strings.Join(what, " and a "))
 	}
 	// the kind's rename is not on this line's path: prepare it first, and
 	// run it only if that worked (as the root's check would)
-	path := renamePath(found[0])
-	if found[0] == "vpn" { // a VPN is renamed under its kind: komando vpn KIND rename
-		path = []string{"vpn", st.Vpns[old].Kind, "rename"}
-	}
+	path := renamePath(st, found[0], old)
 	openPath(cmd.Root(), path)
 	sub, _, err := cmd.Root().Find(path)
 	if err != nil || sub.Name() != "rename" || sub.RunE == nil {
@@ -392,14 +389,23 @@ func renameOne(cmd *cobra.Command, old, new string) error {
 	return sub.RunE(sub, []string{old, new})
 }
 
-// renamePath is the rename command of a kind of entry: a saved value and a
-// key are renamed under credential.
-func renamePath(kind string) []string {
+// renamePath is the command that renames old of this kind: a saved value and
+// a key under credential, a VPN under its kind, a server under the provider it
+// was saved with (host ssh rename).
+func renamePath(st *store.State, kind, old string) []string {
 	switch kind {
 	case "secret":
 		return []string{"credential", "password", "rename"}
 	case "key":
 		return []string{"credential", "key", "rename"}
+	case "vpn":
+		if v := st.Vpns[old]; v != nil {
+			return []string{"vpn", v.Kind, "rename"}
+		}
+	case "host":
+		if h := st.Hosts[old]; h != nil {
+			return []string{"host", hostProvider(h), "rename"}
+		}
 	}
 	return []string{kind, "rename"}
 }

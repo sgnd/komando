@@ -74,11 +74,24 @@ var examples = map[string]string{
 		"  komando group create web web1,web2 --dry-run\n" +
 		"  komando group create web web1,web2\n" +
 		"  komando group remove web web2",
-	"komando host": "  komando host add web1 deploy@10.0.0.5\n" +
-		"  komando test web1\n" +
-		"  komando host edit web1 --protected --dry-run\n" +
-		"  komando host edit web1 --protected\n" +
-		"  komando host rm web1                              # from komando only",
+	"komando host": "  komando host ssh add web1 deploy@10.0.0.5\n" +
+		"  komando host ssh test web1\n" +
+		"  komando host ssh exec web1 -- uptime\n" +
+		"  komando host winrm add win1 Administrator@10.0.0.9 --ask-password\n" +
+		"  komando host ssh remove web1                      # from komando only",
+	"komando host ssh": "  komando host ssh add web1 deploy@10.0.0.5 --dry-run\n" +
+		"  komando host ssh add web1 deploy@10.0.0.5\n" +
+		"  komando host ssh test web1\n" +
+		"  komando host ssh exec web1 -- uptime\n" +
+		"  komando host ssh tunnel start db1 -L 15432:localhost:5432",
+	"komando host ssh tunnel": "  komando host ssh tunnel start db1 -L 15432:localhost:5432\n" +
+		"  komando host ssh tunnel start bastion -D 1080\n" +
+		"  komando host ssh tunnel list\n" +
+		"  komando host ssh tunnel stop --all",
+	"komando host winrm": "  komando host winrm add win1 Administrator@10.0.0.9 --ask-password --dry-run\n" +
+		"  komando host winrm add win1 Administrator@10.0.0.9 --ask-password\n" +
+		"  komando host winrm test win1\n" +
+		"  komando host winrm exec win1 -- 'Get-Date'",
 	"komando job": "  komando job start @web -- ./deploy.sh\n" +
 		"  komando job list\n" +
 		"  komando job wait j1103-101500-ab12cd34 --timeout 30m\n" +
@@ -111,7 +124,7 @@ var examples = map[string]string{
 		"  komando secret cp db-pass db-pass-old",
 	"komando vpn": "  komando vpn wireguard add office --config ~/Downloads/office.conf\n" +
 		"  komando vpn wireguard test office\n" +
-		"  komando host edit db1 --via office --dry-run\n" +
+		"  komando host ssh edit db1 --via office --dry-run\n" +
 		"  komando vpn wireguard start office",
 	"komando cert": "  komando cert check web1                           # certificates on the server\n" +
 		"  komando cert check @web --warn 30d\n" +
@@ -161,10 +174,6 @@ var examples = map[string]string{
 	"komando fs rm":    "  komando fs rm web1 /tmp/upload.tar.gz\n  komando fs rm web1 /srv/app/releases/old --recursive --allow-dangerous",
 	"komando fs stat":  "  komando fs stat web1 /etc/nginx/nginx.conf --sha256",
 
-	"komando host list": "  komando host list\n  komando host list @web",
-	"komando host show": "  komando host show web1",
-	"komando host test": "  komando host test web1\n  komando host test @prod --wait 2m",
-
 	"komando job kill":   "  komando job kill j1103-101500-ab12cd34\n  komando job kill j1103-101500-ab12cd34 --signal KILL",
 	"komando job list":   "  komando job list\n  komando job list --refresh --target web1",
 	"komando job logs":   "  komando job logs j1103-101500-ab12cd34 --limit 100\n  komando job logs j1103-101500-ab12cd34 --offset 4096   # only what is new since then",
@@ -176,11 +185,6 @@ var examples = map[string]string{
 	"komando pkg rm":         "  komando pkg rm web1 telnet",
 	"komando pkg update":     "  komando pkg update @web",
 	"komando pkg upgradable": "  komando pkg upgradable @web\n  komando pkg upgradable web1 --refresh",
-
-	"komando shell": "  komando shell web1",
-
-	"komando tunnel list": "  komando tunnel list",
-	"komando tunnel stop": "  komando tunnel stop t1102-101500-ab12cd34\n  komando tunnel stop --all",
 
 	"komando version": "  komando version",
 }
@@ -197,7 +201,7 @@ var details = map[string]string{
 	"komando export":           "Save servers, conns, VPNs, recipes, your deny rules and settings to a file, to move them to another computer (no passwords).",
 	"komando fs replace":       "Edit a file on a server by exact (or --regex) replacement. It fails when the text is not found, or matches more than once without --all.",
 	"komando guide":            "Playbook for AI agents: workflow, safety rules, recipes (read this first).",
-	"komando host rm":          "Remove servers from your list. The servers are not touched, and their pinned host keys stay.",
+	"komando host ssh remove":  "Remove servers from your list. The servers are not touched, and their pinned host keys stay.",
 	"komando job kill":         "Send a signal to a job's process group (default TERM). A job that already ended is left as it is.",
 	"komando job logs":         "Read a job's output piece by piece (--offset with the next_offset of the last call), or its last --limit N lines.",
 	"komando job rm":           "Forget jobs and delete their log folders on the server (a running job needs `job kill` or --kill).",

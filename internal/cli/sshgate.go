@@ -38,7 +38,7 @@ import (
 // line also has --network (sshgate_network.go).
 // `restrict` turns off port, agent and X11 forwarding and the terminal, so
 // the key opens nothing else (OpenSSH 7.2 and later). A line with --shell-access
-// gives back the terminal (pty), for `komando shell SERVER` (sshgate_shell.go).
+// gives back the terminal (pty), for `komando host ssh shell SERVER` (sshgate_shell.go).
 
 // gateEnv names the key (its --name) in the environment of the komando the
 // gate runs: that komando counts as an agent (agentVars) and its audit
@@ -399,7 +399,7 @@ func gateCheckIn(sc *call, root *cobra.Command, args []string, key gateKey) (nam
 			"komando %s is the shell's completion helper, not for a key", c.Name())
 	}
 	name = commandName(c)
-	if key.shellAccess && name == "shell" {
+	if key.shellAccess && isHostShell(name) {
 		return name, "", gateShell(c, args, key)
 	}
 	c.InitDefaultHelpFlag()
@@ -673,7 +673,7 @@ komando then runs as for an AI agent: secret values stay [hidden], --reveal
 and --allow-dangerous are refused, and --yes for a protected server needs a
 person on this computer. Commands that need a person at a terminal (shell,
 database KIND shell, config vault passphrase ...) are refused (a --shell-access key may open
-` + "`komando shell SERVER`" + `: see ssh-gate line; that shell is full control
+` + "`komando host ssh shell SERVER`" + `: see ssh-gate line; that shell is full control
 of the server, outside these rules). The key runs commands on
 servers, never one that writes on this computer or reads a file here (a
 script, SQL or upload source by path; '-' for the key's own input works):
@@ -729,9 +729,9 @@ audit setting is off.`,
 					Here: key.here, Komando: version.Version}, nil)
 				return nil
 			}
-			if runs == "shell" && key.shellAccess && key.tty {
+			if isHostShell(runs) && key.shellAccess && key.tty {
 				// allowed by gateShell: the gate opens it itself
-				return gateRunShell(cl, cmd.Context(), name, req.args[1])
+				return gateRunShell(cl, cmd.Context(), name, req.args[len(req.args)-1])
 			}
 			self, err := os.Executable()
 			if err != nil {
@@ -744,7 +744,7 @@ audit setting is off.`,
 	c.Flags().StringVar(&name, "name", "key", "the key's name in the audit log")
 	c.Flags().BoolVar(&readOnly, "read-only", false, "run only commands that read")
 	c.Flags().BoolVar(&network, "network", false, "with --read-only: also reads that reach the network")
-	c.Flags().BoolVar(&shellAccess, "shell-access", false, "also komando shell SERVER, with a terminal")
+	c.Flags().BoolVar(&shellAccess, "shell-access", false, "also komando host ssh shell SERVER, with a terminal")
 	c.Flags().BoolVar(&here, "here", false, "server mode: the key runs komando on this server itself (a phone's key)")
 	// set by the line `ssh-gate line` writes, not typed: its help lists them
 	for _, f := range []string{"name", "read-only", "network", "shell-access", "here"} {

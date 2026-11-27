@@ -110,7 +110,7 @@ func TestAliasSpellingReachesGate(t *testing.T) {
 		}
 	}
 	// --read-only under another spelling still says the command only reads
-	if got := spellingAnswer(t, "exec", "--read-only", "only-reads"); got != "" {
+	if got := spellingAnswer(t, "host.ssh.exec", "--read-only", "only-reads"); got != "" {
 		t.Errorf("exec --only-reads: %q", got)
 	}
 }

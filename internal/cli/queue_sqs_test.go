@@ -21,7 +21,7 @@ func TestQueueSQSConn(t *testing.T) {
 	invHome(t)
 	wantCode(t, "INSECURE_PROTOCOL", "conn", "add", "s", "sqs://us-east-1?endpoint=http://sqs.example.com")
 	mustRun(t, "conn", "add", "sqs", "sqs://eu-west-1", "--option", "aws_profile=nowhere")
-	mustRun(t, "host", "add", "office", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "office", "u@10.0.0.1")
 	mustRun(t, "conn", "add", "s-via", "sqs://us-east-1?endpoint=http://moto:5000", "--via", "office")
 	mustRun(t, "conn", "add", "s-plain", "sqs://us-east-1?endpoint=http://sqs.example.com&insecure=1")
 	if got := plainConn(&store.Conn{Name: "s-plain", URL: "sqs://us-east-1?endpoint=http://sqs.example.com&insecure=1"}); !strings.Contains(got, "https endpoint") {

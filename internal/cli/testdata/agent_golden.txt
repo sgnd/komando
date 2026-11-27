@@ -11,7 +11,7 @@ komando: one safe command line for servers, databases, caches, queues, storage, 
 First steps:
   komando import ssh-config        bring in the servers you already have
   komando list                     see everything komando knows about
-  komando exec web1 -- uptime      run a command on a server
+  komando host ssh exec web1 -- uptime      run a command on a server
 
 More:
   komando --help                   every command
@@ -31,7 +31,7 @@ komando: one safe command line for servers, databases, caches, queues, storage, 
 First steps:
   komando import ssh-config        bring in the servers you already have
   komando list                     see everything komando knows about
-  komando exec web1 -- uptime      run a command on a server
+  komando host ssh exec web1 -- uptime      run a command on a server
 
 More:
   komando --help                   every command
@@ -16310,77 +16310,77 @@ exit 2
 Error: vpn wireguard test takes TARGET
 Hint: for example: komando vpn wireguard test office (more in `komando vpn wireguard test --help`)
 (code USAGE, exit 2)
-### komando -o json exec x1 apt-get install -y nginx (agent json)
+### komando -o json host ssh exec x1 apt-get install -y nginx (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"USAGE","message":"komando exec takes the words for the server after --; nothing was run","hint":"put -- before the command: `komando exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.exec","error":{"code":"USAGE","message":"komando host ssh exec takes the words for the server after --; nothing was run","hint":"put -- before the command: `komando host ssh exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text exec x1 apt-get install -y nginx (agent text)
+### komando -o text host ssh exec x1 apt-get install -y nginx (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: komando exec takes the words for the server after --; nothing was run
-Hint: put -- before the command: `komando exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --
+Error: komando host ssh exec takes the words for the server after --; nothing was run
+Hint: put -- before the command: `komando host ssh exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --
 (code USAGE, exit 2)
-### komando -o json exec x1 apt-get install -y nginx (script json)
+### komando -o json host ssh exec x1 apt-get install -y nginx (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"USAGE","message":"komando exec takes the words for the server after --; nothing was run","hint":"put -- before the command: `komando exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.exec","error":{"code":"USAGE","message":"komando host ssh exec takes the words for the server after --; nothing was run","hint":"put -- before the command: `komando host ssh exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text exec x1 apt-get install -y nginx (script text)
+### komando -o text host ssh exec x1 apt-get install -y nginx (script text)
 exit 2
 --- stdout
 --- stderr
-Error: komando exec takes the words for the server after --; nothing was run
-Hint: put -- before the command: `komando exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --
+Error: komando host ssh exec takes the words for the server after --; nothing was run
+Hint: put -- before the command: `komando host ssh exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --
 (code USAGE, exit 2)
-### komando -o json exec x1 uptime --dry-run (agent json)
+### komando -o json host ssh exec x1 uptime --dry-run (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"USAGE","message":"komando exec takes the words for the server after --; nothing was run","hint":"put -- before the command: `komando exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.exec","error":{"code":"USAGE","message":"komando host ssh exec takes the words for the server after --; nothing was run","hint":"put -- before the command: `komando host ssh exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text exec x1 uptime --dry-run (agent text)
+### komando -o text host ssh exec x1 uptime --dry-run (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: komando exec takes the words for the server after --; nothing was run
-Hint: put -- before the command: `komando exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --
+Error: komando host ssh exec takes the words for the server after --; nothing was run
+Hint: put -- before the command: `komando host ssh exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --
 (code USAGE, exit 2)
-### komando -o json exec x1 uptime --dry-run (script json)
+### komando -o json host ssh exec x1 uptime --dry-run (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"USAGE","message":"komando exec takes the words for the server after --; nothing was run","hint":"put -- before the command: `komando exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.exec","error":{"code":"USAGE","message":"komando host ssh exec takes the words for the server after --; nothing was run","hint":"put -- before the command: `komando host ssh exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text exec x1 uptime --dry-run (script text)
+### komando -o text host ssh exec x1 uptime --dry-run (script text)
 exit 2
 --- stdout
 --- stderr
-Error: komando exec takes the words for the server after --; nothing was run
-Hint: put -- before the command: `komando exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --
+Error: komando host ssh exec takes the words for the server after --; nothing was run
+Hint: put -- before the command: `komando host ssh exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --
 (code USAGE, exit 2)
-### komando -o json exec x1 stray -- uptime (agent json)
+### komando -o json host ssh exec x1 stray -- uptime (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"USAGE","message":"komando exec takes the words for the server after --; nothing was run","hint":"put -- before the command: `komando exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.exec","error":{"code":"USAGE","message":"komando host ssh exec takes the words for the server after --; nothing was run","hint":"put -- before the command: `komando host ssh exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text exec x1 stray -- uptime (agent text)
+### komando -o text host ssh exec x1 stray -- uptime (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: komando exec takes the words for the server after --; nothing was run
-Hint: put -- before the command: `komando exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --
+Error: komando host ssh exec takes the words for the server after --; nothing was run
+Hint: put -- before the command: `komando host ssh exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --
 (code USAGE, exit 2)
-### komando -o json exec x1 stray -- uptime (script json)
+### komando -o json host ssh exec x1 stray -- uptime (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"USAGE","message":"komando exec takes the words for the server after --; nothing was run","hint":"put -- before the command: `komando exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.exec","error":{"code":"USAGE","message":"komando host ssh exec takes the words for the server after --; nothing was run","hint":"put -- before the command: `komando host ssh exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text exec x1 stray -- uptime (script text)
+### komando -o text host ssh exec x1 stray -- uptime (script text)
 exit 2
 --- stdout
 --- stderr
-Error: komando exec takes the words for the server after --; nothing was run
-Hint: put -- before the command: `komando exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --
+Error: komando host ssh exec takes the words for the server after --; nothing was run
+Hint: put -- before the command: `komando host ssh exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --
 (code USAGE, exit 2)
 ### komando -o json job start x1 uptime (agent json)
 exit 2
@@ -16598,24 +16598,24 @@ exit 2
 Error: --option: a=...,b=... holds 2 KEY=VALUE pairs; repeat --option for each KEY=VALUE
 Hint: for example: --option a=... --option b=...
 (code USAGE, exit 2)
-### komando -o json host add x1 u@10.0.0.1 --env A=1,B=2 (agent json)
+### komando -o json host ssh add x1 u@10.0.0.1 --env A=1,B=2 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.add","error":{"code":"USAGE","message":"--env: A=...,B=... holds 2 KEY=VALUE pairs; repeat --env for each KEY=VALUE","hint":"for example: --env A=... --env B=..."},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.add","error":{"code":"USAGE","message":"--env: A=...,B=... holds 2 KEY=VALUE pairs; repeat --env for each KEY=VALUE","hint":"for example: --env A=... --env B=..."},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text host add x1 u@10.0.0.1 --env A=1,B=2 (agent text)
+### komando -o text host ssh add x1 u@10.0.0.1 --env A=1,B=2 (agent text)
 exit 2
 --- stdout
 --- stderr
 Error: --env: A=...,B=... holds 2 KEY=VALUE pairs; repeat --env for each KEY=VALUE
 Hint: for example: --env A=... --env B=...
 (code USAGE, exit 2)
-### komando -o json host add x1 u@10.0.0.1 --env A=1,B=2 (script json)
+### komando -o json host ssh add x1 u@10.0.0.1 --env A=1,B=2 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.add","error":{"code":"USAGE","message":"--env: A=...,B=... holds 2 KEY=VALUE pairs; repeat --env for each KEY=VALUE","hint":"for example: --env A=... --env B=..."},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.add","error":{"code":"USAGE","message":"--env: A=...,B=... holds 2 KEY=VALUE pairs; repeat --env for each KEY=VALUE","hint":"for example: --env A=... --env B=..."},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text host add x1 u@10.0.0.1 --env A=1,B=2 (script text)
+### komando -o text host ssh add x1 u@10.0.0.1 --env A=1,B=2 (script text)
 exit 2
 --- stdout
 --- stderr
@@ -16718,72 +16718,72 @@ exit 2
 Error: unknown shorthand flag: 'n' in -n
 Hint: see `komando storage s3 object delete --help`
 (code USAGE, exit 2)
-### komando -o json exec web1 -- rm -rf / (agent json, gate inventory)
+### komando -o json host ssh exec web1 -- rm -rf / (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [rm-root,rm-files]: deletes / or the home folder recursively; deletes files","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [rm-root,rm-files]: deletes / or the home folder recursively; deletes files","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text exec web1 -- rm -rf / (agent text, gate inventory)
+### komando -o text host ssh exec web1 -- rm -rf / (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: this can delete or break things (deletes / or the home folder recursively; deletes files), so komando asks first; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)
 (code POLICY_BLOCKED, exit 6)
-### komando -o json exec web1 -- rm -rf / (script json, gate inventory)
+### komando -o json host ssh exec web1 -- rm -rf / (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [rm-root,rm-files]: deletes / or the home folder recursively; deletes files","hint":"check with --dry-run, then run it again with --allow-dangerous (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [rm-root,rm-files]: deletes / or the home folder recursively; deletes files","hint":"check with --dry-run, then run it again with --allow-dangerous (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text exec web1 -- rm -rf / (script text, gate inventory)
+### komando -o text host ssh exec web1 -- rm -rf / (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: this can delete or break things (deletes / or the home folder recursively; deletes files), so komando asks first; nothing was changed
 Hint: If you mean it, run it again in a terminal and type the name to confirm, or add --allow-dangerous in a script. Try --dry-run first.
 (code POLICY_BLOCKED, exit 6)
-### komando -o json exec web1 -- reboot (agent json, gate inventory)
+### komando -o json host ssh exec web1 -- reboot (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power]: powers off or reboots the server","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power]: powers off or reboots the server","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text exec web1 -- reboot (agent text, gate inventory)
+### komando -o text host ssh exec web1 -- reboot (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: this can delete or break things (powers off or reboots the server), so komando asks first; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)
 (code POLICY_BLOCKED, exit 6)
-### komando -o json exec web1 -- reboot (script json, gate inventory)
+### komando -o json host ssh exec web1 -- reboot (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power]: powers off or reboots the server","hint":"check with --dry-run, then run it again with --allow-dangerous (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power]: powers off or reboots the server","hint":"check with --dry-run, then run it again with --allow-dangerous (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text exec web1 -- reboot (script text, gate inventory)
+### komando -o text host ssh exec web1 -- reboot (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: this can delete or break things (powers off or reboots the server), so komando asks first; nothing was changed
 Hint: If you mean it, run it again in a terminal and type the name to confirm, or add --allow-dangerous in a script. Try --dry-run first.
 (code POLICY_BLOCKED, exit 6)
-### komando -o json exec web1 -- foo bar (agent json, gate inventory)
+### komando -o json host ssh exec web1 -- foo bar (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [custom-3d4b9b20]: matches your deny rule foo.*bar","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [custom-3d4b9b20]: matches your deny rule foo.*bar","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text exec web1 -- foo bar (agent text, gate inventory)
+### komando -o text host ssh exec web1 -- foo bar (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: this can delete or break things (matches your deny rule foo.*bar), so komando asks first; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)
 (code POLICY_BLOCKED, exit 6)
-### komando -o json exec web1 -- foo bar (script json, gate inventory)
+### komando -o json host ssh exec web1 -- foo bar (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [custom-3d4b9b20]: matches your deny rule foo.*bar","hint":"check with --dry-run, then run it again with --allow-dangerous (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [custom-3d4b9b20]: matches your deny rule foo.*bar","hint":"check with --dry-run, then run it again with --allow-dangerous (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text exec web1 -- foo bar (script text, gate inventory)
+### komando -o text host ssh exec web1 -- foo bar (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
@@ -17342,24 +17342,24 @@ exit 6
 Stopped: this can delete or break things (docker system prune -af), so komando asks first; nothing was changed
 Hint: If you mean it, run it again in a terminal and type the name to confirm, or add --allow-dangerous in a script. Try --dry-run first.
 (code POLICY_BLOCKED, exit 6)
-### komando -o json exec prod1 -- touch /tmp/x (agent json, gate inventory)
+### komando -o json host ssh exec prod1 -- touch /tmp/x (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.exec","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text exec prod1 -- touch /tmp/x (agent text, gate inventory)
+### komando -o text host ssh exec prod1 -- touch /tmp/x (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)
 (code PROTECTED_TARGET, exit 6)
-### komando -o json exec prod1 -- touch /tmp/x (script json, gate inventory)
+### komando -o json host ssh exec prod1 -- touch /tmp/x (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.exec","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text exec prod1 -- touch /tmp/x (script text, gate inventory)
+### komando -o text host ssh exec prod1 -- touch /tmp/x (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
@@ -17510,53 +17510,53 @@ exit 6
 Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 Hint: Run it again in a terminal to answer the question, or add --yes in a script if you are sure. Try --dry-run first to see what it would do.
 (code PROTECTED_TARGET, exit 6)
-### komando -o json host rm prod1 (agent json, gate inventory)
+### komando -o json host ssh remove prod1 (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"host.rm","error":{"code":"PROTECTED_TARGET","message":"removing protected host: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.remove","error":{"code":"PROTECTED_TARGET","message":"removing protected host: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text host rm prod1 (agent text, gate inventory)
+### komando -o text host ssh remove prod1 (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: removing protected host: prod1; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)
 (code PROTECTED_TARGET, exit 6)
-### komando -o json host rm prod1 (script json, gate inventory)
+### komando -o json host ssh remove prod1 (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"host.rm","error":{"code":"PROTECTED_TARGET","message":"removing protected host: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json host rm prod1 --yes`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.remove","error":{"code":"PROTECTED_TARGET","message":"removing protected host: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json host ssh remove prod1 --yes`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text host rm prod1 (script text, gate inventory)
+### komando -o text host ssh remove prod1 (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: removing protected host: prod1; nothing was changed
-Hint: check with --dry-run, then run it again with --yes: `komando -o text host rm prod1 --yes`
+Hint: check with --dry-run, then run it again with --yes: `komando -o text host ssh remove prod1 --yes`
 (code PROTECTED_TARGET, exit 6)
-### komando -o json host edit prod1 --protected=false (agent json, gate inventory)
+### komando -o json host ssh edit prod1 --protected=false (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"host.edit","error":{"code":"PROTECTED_TARGET","message":"turning off protection of protected host: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.edit","error":{"code":"PROTECTED_TARGET","message":"turning off protection of protected host: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text host edit prod1 --protected=false (agent text, gate inventory)
+### komando -o text host ssh edit prod1 --protected=false (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: turning off protection of protected host: prod1; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)
 (code PROTECTED_TARGET, exit 6)
-### komando -o json host edit prod1 --protected=false (script json, gate inventory)
+### komando -o json host ssh edit prod1 --protected=false (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"host.edit","error":{"code":"PROTECTED_TARGET","message":"turning off protection of protected host: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json host edit prod1 --protected=false --yes`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.edit","error":{"code":"PROTECTED_TARGET","message":"turning off protection of protected host: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json host ssh edit prod1 --protected=false --yes`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text host edit prod1 --protected=false (script text, gate inventory)
+### komando -o text host ssh edit prod1 --protected=false (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: turning off protection of protected host: prod1; nothing was changed
-Hint: check with --dry-run, then run it again with --yes: `komando -o text host edit prod1 --protected=false --yes`
+Hint: check with --dry-run, then run it again with --yes: `komando -o text host ssh edit prod1 --protected=false --yes`
 (code PROTECTED_TARGET, exit 6)
 ### komando -o json cache set pcache k v (agent json, gate inventory)
 exit 6
@@ -17942,24 +17942,24 @@ exit 2
 Error: "web1" is the server web1, not a komando version: `komando update` updates komando itself; `komando pkg upgrade web1` updates the packages there
 Hint: komando pkg upgrade web1
 (code USAGE, exit 2)
-### komando -o json host add azure u@10.0.0.1 (agent json, release note)
+### komando -o json host ssh add azure u@10.0.0.1 (agent json, release note)
 exit 2
 --- stdout
-{"ok":false,"command":"host.add","error":{"code":"USAGE","message":"\"azure\" cannot be a server name: `komando login azure` is the cloud login","hint":"pick another name, for example azure-1"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.add","error":{"code":"USAGE","message":"\"azure\" cannot be a server name: `komando login azure` is the cloud login","hint":"pick another name, for example azure-1"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text host add azure u@10.0.0.1 (agent text, release note)
+### komando -o text host ssh add azure u@10.0.0.1 (agent text, release note)
 exit 2
 --- stdout
 --- stderr
 Error: "azure" cannot be a server name: `komando login azure` is the cloud login
 Hint: pick another name, for example azure-1
 (code USAGE, exit 2)
-### komando -o json host add azure u@10.0.0.1 (script json, release note)
+### komando -o json host ssh add azure u@10.0.0.1 (script json, release note)
 exit 2
 --- stdout
-{"ok":false,"command":"host.add","error":{"code":"USAGE","message":"\"azure\" cannot be a server name: `komando login azure` is the cloud login","hint":"pick another name, for example azure-1"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.add","error":{"code":"USAGE","message":"\"azure\" cannot be a server name: `komando login azure` is the cloud login","hint":"pick another name, for example azure-1"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text host add azure u@10.0.0.1 (script text, release note)
+### komando -o text host ssh add azure u@10.0.0.1 (script text, release note)
 exit 2
 --- stdout
 --- stderr
@@ -18086,55 +18086,55 @@ exit 6
 Stopped: this can delete or break things (deletes /tmp/x on web1 for good), so komando asks first; nothing was changed
 Hint: If you mean it, run it again in a terminal and type the name to confirm, or add --allow-dangerous in a script. Try --dry-run first.
 (code POLICY_BLOCKED, exit 6)
-### komando -o json host trust prod1 --reset --dry-run (agent json, release note)
+### komando -o json host ssh trust prod1 --reset --dry-run (agent json, release note)
 exit 0
 --- stdout
-{"ok":true,"command":"host.trust","data":{"results":[{"address":"127.0.0.2:1","host":"prod1","would_fetch_from":"the server directly","would_remove_entries":1}]},"meta":{"contract":2,"version":"V","duration_ms":0,"dry_run":true,"would_be_blocked":{"code":"NEEDS_PERSON","message":"replacing the pinned host key of prod1 (a key may be replaced): only a person at a terminal replaces a pinned host key (a changed key may be an attack)","hint":"report it to the user: once they have checked the new key another way, they run `komando host trust prod1 --reset` in their own terminal"}}}
+{"ok":true,"command":"host.ssh.trust","data":{"results":[{"address":"127.0.0.2:1","host":"prod1","would_fetch_from":"the server directly","would_remove_entries":1}]},"meta":{"contract":2,"version":"V","duration_ms":0,"dry_run":true,"would_be_blocked":{"code":"NEEDS_PERSON","message":"replacing the pinned host key of prod1 (a key may be replaced): only a person at a terminal replaces a pinned host key (a changed key may be an attack)","hint":"report it to the user: once they have checked the new key another way, they run `komando host ssh trust prod1 --reset` in their own terminal"}}}
 --- stderr
-### komando -o text host trust prod1 --reset --dry-run (agent text, release note)
-exit 0
---- stdout
-would fetch the host key of prod1 (127.0.0.2:1) from the server directly, and remove 1 pinned key
---- stderr
-Dry run: nothing was changed
-Without --dry-run this stops here: [NEEDS_PERSON] replacing the pinned host key of prod1 (a key may be replaced): only a person at a terminal replaces a pinned host key (a changed key may be an attack)
-Hint: report it to the user: once they have checked the new key another way, they run `komando host trust prod1 --reset` in their own terminal
-### komando -o json host trust prod1 --reset --dry-run (script json, release note)
-exit 0
---- stdout
-{"ok":true,"command":"host.trust","data":{"results":[{"address":"127.0.0.2:1","host":"prod1","would_fetch_from":"the server directly","would_remove_entries":1}]},"meta":{"contract":2,"version":"V","duration_ms":0,"dry_run":true,"would_be_blocked":{"code":"NEEDS_PERSON","message":"replacing the pinned host key of prod1 (a key may be replaced): only a person at a terminal replaces a pinned host key (a changed key may be an attack)","hint":"report it to the user: once they have checked the new key another way, they run `komando host trust prod1 --reset` in their own terminal"}}}
---- stderr
-### komando -o text host trust prod1 --reset --dry-run (script text, release note)
+### komando -o text host ssh trust prod1 --reset --dry-run (agent text, release note)
 exit 0
 --- stdout
 would fetch the host key of prod1 (127.0.0.2:1) from the server directly, and remove 1 pinned key
 --- stderr
 Dry run: nothing was changed
 Without --dry-run this stops here: [NEEDS_PERSON] replacing the pinned host key of prod1 (a key may be replaced): only a person at a terminal replaces a pinned host key (a changed key may be an attack)
-Hint: report it to the user: once they have checked the new key another way, they run `komando host trust prod1 --reset` in their own terminal
-### komando -o json host trust prod1 --reset (agent json, release note)
+Hint: report it to the user: once they have checked the new key another way, they run `komando host ssh trust prod1 --reset` in their own terminal
+### komando -o json host ssh trust prod1 --reset --dry-run (script json, release note)
+exit 0
+--- stdout
+{"ok":true,"command":"host.ssh.trust","data":{"results":[{"address":"127.0.0.2:1","host":"prod1","would_fetch_from":"the server directly","would_remove_entries":1}]},"meta":{"contract":2,"version":"V","duration_ms":0,"dry_run":true,"would_be_blocked":{"code":"NEEDS_PERSON","message":"replacing the pinned host key of prod1 (a key may be replaced): only a person at a terminal replaces a pinned host key (a changed key may be an attack)","hint":"report it to the user: once they have checked the new key another way, they run `komando host ssh trust prod1 --reset` in their own terminal"}}}
+--- stderr
+### komando -o text host ssh trust prod1 --reset --dry-run (script text, release note)
+exit 0
+--- stdout
+would fetch the host key of prod1 (127.0.0.2:1) from the server directly, and remove 1 pinned key
+--- stderr
+Dry run: nothing was changed
+Without --dry-run this stops here: [NEEDS_PERSON] replacing the pinned host key of prod1 (a key may be replaced): only a person at a terminal replaces a pinned host key (a changed key may be an attack)
+Hint: report it to the user: once they have checked the new key another way, they run `komando host ssh trust prod1 --reset` in their own terminal
+### komando -o json host ssh trust prod1 --reset (agent json, release note)
 exit 6
 --- stdout
-{"ok":false,"command":"host.trust","error":{"code":"NEEDS_PERSON","message":"replacing the pinned host key of prod1: only a person at a terminal replaces a pinned host key (a changed key may be an attack)","hint":"report it to the user: once they have checked the new key another way, they run `komando host trust prod1 --reset` in their own terminal"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.trust","error":{"code":"NEEDS_PERSON","message":"replacing the pinned host key of prod1: only a person at a terminal replaces a pinned host key (a changed key may be an attack)","hint":"report it to the user: once they have checked the new key another way, they run `komando host ssh trust prod1 --reset` in their own terminal"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text host trust prod1 --reset (agent text, release note)
+### komando -o text host ssh trust prod1 --reset (agent text, release note)
 exit 6
 --- stdout
 --- stderr
 Stopped: replacing the pinned host key of prod1: only a person at a terminal replaces a pinned host key (a changed key may be an attack); nothing was changed
-Hint: report it to the user: once they have checked the new key another way, they run `komando host trust prod1 --reset` in their own terminal
+Hint: report it to the user: once they have checked the new key another way, they run `komando host ssh trust prod1 --reset` in their own terminal
 (code NEEDS_PERSON, exit 6)
-### komando -o json host trust prod1 --reset (script json, release note)
+### komando -o json host ssh trust prod1 --reset (script json, release note)
 exit 6
 --- stdout
-{"ok":false,"command":"host.trust","error":{"code":"NEEDS_PERSON","message":"replacing the pinned host key of prod1: only a person at a terminal replaces a pinned host key (a changed key may be an attack)","hint":"report it to the user: once they have checked the new key another way, they run `komando host trust prod1 --reset` in their own terminal"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.trust","error":{"code":"NEEDS_PERSON","message":"replacing the pinned host key of prod1: only a person at a terminal replaces a pinned host key (a changed key may be an attack)","hint":"report it to the user: once they have checked the new key another way, they run `komando host ssh trust prod1 --reset` in their own terminal"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text host trust prod1 --reset (script text, release note)
+### komando -o text host ssh trust prod1 --reset (script text, release note)
 exit 6
 --- stdout
 --- stderr
 Stopped: replacing the pinned host key of prod1: only a person at a terminal replaces a pinned host key (a changed key may be an attack); nothing was changed
-Hint: report it to the user: once they have checked the new key another way, they run `komando host trust prod1 --reset` in their own terminal
+Hint: report it to the user: once they have checked the new key another way, they run `komando host ssh trust prod1 --reset` in their own terminal
 (code NEEDS_PERSON, exit 6)
 ### komando -o json ps (agent json, release note)
 exit 2
@@ -18187,26 +18187,26 @@ Hint: run `komando list` instead
 ### komando -o json delete web1 (agent json, release note)
 exit 2
 --- stdout
-{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"delete\"; komando does this with `komando host rm web1`","hint":"run `komando host rm web1` instead","suggestion":"host rm web1"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"delete\"; komando does this with `komando host ssh remove web1`","hint":"run `komando host ssh remove web1` instead","suggestion":"host ssh remove web1"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text delete web1 (agent text, release note)
 exit 2
 --- stdout
 --- stderr
-Error: unknown command "delete"; komando does this with `komando host rm web1`
-Hint: run `komando host rm web1` instead
+Error: unknown command "delete"; komando does this with `komando host ssh remove web1`
+Hint: run `komando host ssh remove web1` instead
 (code USAGE, exit 2)
 ### komando -o json delete web1 (script json, release note)
 exit 2
 --- stdout
-{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"delete\"; komando does this with `komando host rm web1`","hint":"run `komando host rm web1` instead","suggestion":"host rm web1"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"delete\"; komando does this with `komando host ssh remove web1`","hint":"run `komando host ssh remove web1` instead","suggestion":"host ssh remove web1"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text delete web1 (script text, release note)
 exit 2
 --- stdout
 --- stderr
-Error: unknown command "delete"; komando does this with `komando host rm web1`
-Hint: run `komando host rm web1` instead
+Error: unknown command "delete"; komando does this with `komando host ssh remove web1`
+Hint: run `komando host ssh remove web1` instead
 (code USAGE, exit 2)
 ### komando -o json kubectl get pods (agent json, release note)
 exit 2
@@ -18259,26 +18259,26 @@ Hint: run `komando database postgres query NAME` instead
 ### komando -o json exce web1 -- uptime (agent json, release note)
 exit 2
 --- stdout
-{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"exce\"; did you mean exec?","hint":"run it again with exec: `komando -o json exec web1 -- uptime`","suggestion":"exec"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"exce\"","hint":"see `komando --help` for the list of commands"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text exce web1 -- uptime (agent text, release note)
 exit 2
 --- stdout
 --- stderr
-Error: unknown command "exce"; did you mean exec?
-Hint: run it again with exec: `komando -o text exec web1 -- uptime`
+Error: unknown command "exce"
+Hint: see `komando --help` for the list of commands
 (code USAGE, exit 2)
 ### komando -o json exce web1 -- uptime (script json, release note)
 exit 2
 --- stdout
-{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"exce\"; did you mean exec?","hint":"run it again with exec: `komando -o json exec web1 -- uptime`","suggestion":"exec"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"exce\"","hint":"see `komando --help` for the list of commands"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text exce web1 -- uptime (script text, release note)
 exit 2
 --- stdout
 --- stderr
-Error: unknown command "exce"; did you mean exec?
-Hint: run it again with exec: `komando -o text exec web1 -- uptime`
+Error: unknown command "exce"
+Hint: see `komando --help` for the list of commands
 (code USAGE, exit 2)
 ### komando -o json pkg instal web1 nginx (agent json, release note)
 exit 2
@@ -18304,48 +18304,48 @@ exit 2
 Error: unknown command "instal" for "komando pkg"; did you mean install?
 Hint: run it again with install: `komando -o text pkg install web1 nginx`
 (code USAGE, exit 2)
-### komando -o json tunnel start ask1 -L 0:localhost:80 (agent json, release note)
+### komando -o json host ssh tunnel start ask1 -L 0:localhost:80 (agent json, release note)
 exit 6
 --- stdout
-{"ok":false,"command":"tunnel.start","error":{"code":"NEEDS_PERSON","message":"ask1 logs in with a password a person types each time (login ask), and komando could not ask the user in a window here","hint":"ask the user to run `komando test ask1` in their own terminal; never ask for the password in the chat"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.tunnel.start","error":{"code":"NEEDS_PERSON","message":"ask1 logs in with a password a person types each time (login ask), and komando could not ask the user in a window here","hint":"ask the user to run `komando test ask1` in their own terminal; never ask for the password in the chat"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text tunnel start ask1 -L 0:localhost:80 (agent text, release note)
+### komando -o text host ssh tunnel start ask1 -L 0:localhost:80 (agent text, release note)
 exit 6
 --- stdout
 --- stderr
 Stopped: ask1 logs in with a password a person types each time (login ask), and komando could not ask the user in a window here; nothing was changed
 Hint: ask the user to run `komando test ask1` in their own terminal; never ask for the password in the chat
 (code NEEDS_PERSON, exit 6)
-### komando -o json tunnel start ask1 -L 0:localhost:80 (script json, release note)
+### komando -o json host ssh tunnel start ask1 -L 0:localhost:80 (script json, release note)
 exit 6
 --- stdout
-{"ok":false,"command":"tunnel.start","error":{"code":"NEEDS_PERSON","message":"ask1 logs in with a password a person types each time (login ask), and no person is at a terminal here","hint":"have a person run `komando test ask1` in their own terminal: later commands (scripts too) use that session while it lasts"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.tunnel.start","error":{"code":"NEEDS_PERSON","message":"ask1 logs in with a password a person types each time (login ask), and no person is at a terminal here","hint":"have a person run `komando test ask1` in their own terminal: later commands (scripts too) use that session while it lasts"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text tunnel start ask1 -L 0:localhost:80 (script text, release note)
+### komando -o text host ssh tunnel start ask1 -L 0:localhost:80 (script text, release note)
 exit 6
 --- stdout
 --- stderr
 Stopped: ask1 logs in with a password a person types each time (login ask), and no person is at a terminal here; nothing was changed
 Hint: have a person run `komando test ask1` in their own terminal: later commands (scripts too) use that session while it lasts
 (code NEEDS_PERSON, exit 6)
-### komando -o json tunnel start ask2 -L 0:localhost:80 (agent json, release note)
+### komando -o json host ssh tunnel start ask2 -L 0:localhost:80 (agent json, release note)
 exit 6
 --- stdout
-{"ok":false,"command":"tunnel.start","error":{"code":"NEEDS_PERSON","message":"komando has not met ask2 at 127.0.0.22:1 before (no host key of it is pinned), and ask2 logs in with a password a person types (login ask): a person's password never goes to a server komando cannot tell from an impostor; nothing was sent","hint":"ask the user to run `komando test ask2` in their own terminal: a person there sees what komando connects to and types the password"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.tunnel.start","error":{"code":"NEEDS_PERSON","message":"komando has not met ask2 at 127.0.0.22:1 before (no host key of it is pinned), and ask2 logs in with a password a person types (login ask): a person's password never goes to a server komando cannot tell from an impostor; nothing was sent","hint":"ask the user to run `komando test ask2` in their own terminal: a person there sees what komando connects to and types the password"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text tunnel start ask2 -L 0:localhost:80 (agent text, release note)
+### komando -o text host ssh tunnel start ask2 -L 0:localhost:80 (agent text, release note)
 exit 6
 --- stdout
 --- stderr
 Stopped: komando has not met ask2 at 127.0.0.22:1 before (no host key of it is pinned), and ask2 logs in with a password a person types (login ask): a person's password never goes to a server komando cannot tell from an impostor; nothing was sent; nothing was changed
 Hint: ask the user to run `komando test ask2` in their own terminal: a person there sees what komando connects to and types the password
 (code NEEDS_PERSON, exit 6)
-### komando -o json tunnel start ask2 -L 0:localhost:80 (script json, release note)
+### komando -o json host ssh tunnel start ask2 -L 0:localhost:80 (script json, release note)
 exit 6
 --- stdout
-{"ok":false,"command":"tunnel.start","error":{"code":"NEEDS_PERSON","message":"komando has not met ask2 at 127.0.0.22:1 before (no host key of it is pinned), and ask2 logs in with a password a person types (login ask): a person's password never goes to a server komando cannot tell from an impostor; nothing was sent","hint":"have a person run `komando test ask2` in their own terminal: a person there sees what komando connects to and types the password"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.tunnel.start","error":{"code":"NEEDS_PERSON","message":"komando has not met ask2 at 127.0.0.22:1 before (no host key of it is pinned), and ask2 logs in with a password a person types (login ask): a person's password never goes to a server komando cannot tell from an impostor; nothing was sent","hint":"have a person run `komando test ask2` in their own terminal: a person there sees what komando connects to and types the password"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text tunnel start ask2 -L 0:localhost:80 (script text, release note)
+### komando -o text host ssh tunnel start ask2 -L 0:localhost:80 (script text, release note)
 exit 6
 --- stdout
 --- stderr
@@ -18409,11 +18409,12 @@ komando storage s3 object link kind=change confirm=[{"tier":"change"},{"flag":"-
 exit 0
 komando cluster kubernetes tunnel start kind=change confirm=[{"tier":"change"}]
   --namespace shorthand=n type=string
-### komando schema host add (schema values)
+### komando schema host ssh add (schema values)
 exit 0
-komando host add kind=change confirm=[{"tier":"change"},{"flag":"--allow-dangerous","tier":"dangerous","when":"when --proxy-command matches a destructive rule"},{"flag":"--yes","tier":"safety","when":"with --proxy-command, when an AI agent runs it (the proxy command runs on this computer)"}]
+komando host ssh add kind=change confirm=[{"tier":"change"},{"flag":"--allow-dangerous","tier":"dangerous","when":"when --proxy-command matches a destructive rule"},{"flag":"--yes","tier":"safety","when":"with --proxy-command, when an AI agent runs it (the proxy command runs on this computer)"}]
   --address type=string
   --ask-password type=bool default=false
+  --credential type=string
   --env shorthand=e type=stringArray default=[]
   --group shorthand=g type=stringSlice default=[]
   --identity type=string
@@ -18423,12 +18424,11 @@ komando host add kind=change confirm=[{"tier":"change"},{"flag":"--allow-dangero
   --notes type=string
   --os type=string
   --overwrite type=bool default=false
-  --password-ref type=string
   --port type=int default=0
   --protected type=bool default=false
   --proxy-command type=string
   --ssm type=bool default=false
-  --sudo-ref type=string
+  --sudo-credential type=string
   --tag shorthand=t type=stringSlice default=[]
   --user type=string
   --via type=string
@@ -18491,9 +18491,9 @@ komando fs cat kind=read confirm=[{"tier":"read"}]
   --max-bytes type=bytes default=1048576
   --sudo shorthand=s type=bool default=false
   --tail type=int default=0
-### komando schema exec (schema values)
+### komando schema host ssh exec (schema values)
 exit 0
-komando exec kind=depends confirm=[{"tier":"change"},{"flag":"--allow-dangerous","tier":"dangerous","when":"when the command matches a destructive rule"}]
+komando host ssh exec kind=depends confirm=[{"tier":"change"},{"flag":"--allow-dangerous","tier":"dangerous","when":"when the command matches a destructive rule"}]
   --arg type=stringArray default=[]
   --cmd shorthand=c type=string
   --dir shorthand=C type=string

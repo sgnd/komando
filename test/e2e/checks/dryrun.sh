@@ -50,7 +50,7 @@ if in_area data; then
 # every audit record, and a dry run is recorded too (with dry_run: true)
 snap() { { $K export -o json 2>/dev/null | jget 'json.dumps({k: v for k, v in d["data"].items()}, sort_keys=True)'; $K credential list 2>/dev/null | jget 'json.dumps(sorted((s["name"], s.get("updated_at")) for s in d["data"]["secrets"]))'; $K config show 2>/dev/null | jget 'json.dumps(d["data"]["settings"], sort_keys=True)'; cat "$KOMANDO_HOME/runtime.json" 2>/dev/null || true; } | shasum | cut -d' ' -f1; }
 before=$(snap)
-dry host add "$D" agent@127.0.0.1 >/dev/null
+dry host ssh add "$D" agent@127.0.0.1 >/dev/null
 dry conn add "$D" "postgres://app@127.0.0.1/app" >/dev/null
 dry group create "$D" direct >/dev/null
 dry config set parallel 3 >/dev/null
@@ -59,5 +59,5 @@ dry snippet create "$D" 'echo hi' >/dev/null
 printf 'v' | $K credential password add "$D" --dry-run >/dev/null
 check "inventory, vault, settings and runtime unchanged by dry runs" "$before" "$(snap)"
 
-q $K exec direct --allow-dangerous -- "rm -f /tmp/$D.keep"
+q $K host ssh exec direct --allow-dangerous -- "rm -f /tmp/$D.keep"
 fi

@@ -22,7 +22,7 @@ func TestStorageHTTPEndpointNeedsInsecure(t *testing.T) {
 			t.Errorf("%s: %+v", u, e)
 		}
 	}
-	mustRun(t, "host", "add", "office", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "office", "u@10.0.0.1")
 	mustRun(t, "conn", "add", "s3-via", "s3://backups?endpoint=http://minio:9000", "--via", "office")
 	mustRun(t, "conn", "add", "s3-local", "s3://backups?endpoint=http://127.0.0.1:9000")
 	mustRun(t, "conn", "add", "az-local", "azblob://devstoreaccount1@media?endpoint=http://localhost:10000/devstoreaccount1")

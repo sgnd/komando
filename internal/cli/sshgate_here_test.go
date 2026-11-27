@@ -106,15 +106,15 @@ func TestGateServerRules(t *testing.T) {
 	}
 	for line, word := range map[string]string{
 		// rule d: exec is a shell; only the typed commands run
-		"komando exec localhost -- id":                  "shell",
-		"komando exec localhost --read-only -- id":      "shell",
-		"komando job start localhost -- id":             "shell",
-		"komando credential key list":                   "only",
-		"komando fs write localhost ~/work/x --from -":  "only",
-		"komando database postgres query pg 'select 1'": "only",
-		"komando pkg installed web1":                    "not this server",
-		"komando pkg rm localhost openssh-server":       "dangerous",
-		"komando fs cat localhost /etc/shadow --sudo":   "sudo",
+		"komando host ssh exec localhost -- id":             "shell",
+		"komando host ssh exec localhost --read-only -- id": "shell",
+		"komando job start localhost -- id":                 "shell",
+		"komando credential key list":                       "only",
+		"komando fs write localhost ~/work/x --from -":      "only",
+		"komando database postgres query pg 'select 1'":     "only",
+		"komando pkg installed web1":                        "not this server",
+		"komando pkg rm localhost openssh-server":           "dangerous",
+		"komando fs cat localhost /etc/shadow --sudo":       "sudo",
 		// the read limit: no read of another home, ~/.ssh or komando's own folder
 		"komando fs cat localhost ~budi/.bash_history":    "budi",
 		"komando fs cat localhost ~/.ssh/id_ed25519":      ".ssh",
@@ -218,7 +218,7 @@ func TestGateServerSystemLog(t *testing.T) {
 	saved := gateSystemLog
 	gateSystemLog = func(rec map[string]any) { got = append(got, rec) }
 	t.Cleanup(func() { gateSystemLog = saved })
-	_, _, _ = gateRun(t, "komando exec localhost -- id", "--name", "komando-phone-anna", "--here")
+	_, _, _ = gateRun(t, "komando host ssh exec localhost -- id", "--name", "komando-phone-anna", "--here")
 	if len(got) != 1 || got[0]["ssh_gate"] != "komando-phone-anna" || got[0]["blocked"] != "SSH_GATE_REFUSED" {
 		t.Errorf("system log %v", got)
 	}

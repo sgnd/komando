@@ -35,7 +35,7 @@ func vpnForms() []formKind {
 		{"Cisco IPsec", "other: an older Cisco VPN with a group name and a group password", ipsecForm},
 		{"IKEv2", "other: a server with a shared secret, or a user name and password", ikev2Form},
 		{"A VPN on this computer", "other: one already set up in your computer's network settings", systemVpnForm},
-		{"SOCKS proxy", "other: one already running, like komando tunnel start HOST -D 1080", func(cl *call) formSpec { return vpnProxyForm("socks") }},
+		{"SOCKS proxy", "other: one already running, like komando host ssh tunnel start HOST -D 1080", func(cl *call) formSpec { return vpnProxyForm("socks") }},
 		{"HTTP proxy", "other: your company's web proxy", func(cl *call) formSpec { return vpnProxyForm("proxy") }},
 	}
 }
@@ -538,7 +538,7 @@ func systemVpnForm(_ *call) formSpec {
 // vpnProxyForm is a SOCKS proxy or a company HTTP proxy. Its login is a
 // More option: most need none.
 func vpnProxyForm(kind string) formSpec {
-	title, example, help := "Add a SOCKS proxy", "127.0.0.1:1080", "Its address and port. For komando tunnel start web1 -D 1080 it is 127.0.0.1:1080."
+	title, example, help := "Add a SOCKS proxy", "127.0.0.1:1080", "Its address and port. For komando host ssh tunnel start web1 -D 1080 it is 127.0.0.1:1080."
 	if kind == "proxy" {
 		title, example, help = "Add an HTTP proxy", "proxy.example.com:3128", "Its address and port, from your browser's proxy settings or your IT team."
 	}

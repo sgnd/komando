@@ -101,7 +101,7 @@ func bridgePwsh(nc net.Conn, cfg *ssh.ServerConfig, box, home string) {
 				args, ok := strings.CutPrefix(p.Cmd, "powershell ")
 				code := 127
 				if ok {
-					cmd := exec.Command("docker", append([]string{"exec", "-i", "-e", "DOTNET_GCHeapHardLimit=0x10000000", box, "/opt/microsoft/powershell/7/pwsh"}, strings.Fields(args)...)...)
+					cmd := exec.Command("docker", append([]string{"host", "ssh", "exec", "-i", "-e", "DOTNET_GCHeapHardLimit=0x10000000", box, "/opt/microsoft/powershell/7/pwsh"}, strings.Fields(args)...)...)
 					cmd.Env = append(os.Environ(), "HOME="+home)
 					cmd.Stdin, cmd.Stdout, cmd.Stderr = ch, ch, ch.Stderr()
 					err := cmd.Run()
@@ -136,7 +136,7 @@ func TestPwshRealExec(t *testing.T) {
 	for _, c := range cases {
 		var err error
 		got := captureOutput(t, func() error {
-			err = runRoot(t, "exec", "win", "-e", "MODE=it's", "-C", "/tmp", "--stdin-file", in, "--", c.cmd)
+			err = runRoot(t, "host", "ssh", "exec", "win", "-e", "MODE=it's", "-C", "/tmp", "--stdin-file", in, "--", c.cmd)
 			return err
 		})
 		if !strings.Contains(got, c.want) {
@@ -146,7 +146,7 @@ func TestPwshRealExec(t *testing.T) {
 			t.Errorf("%s: err %v, output %s", c.cmd, err, got)
 		}
 	}
-	got := captureOutput(t, func() error { return runRoot(t, "exec", "win", "--", "exit 7") })
+	got := captureOutput(t, func() error { return runRoot(t, "host", "ssh", "exec", "win", "--", "exit 7") })
 	if !strings.Contains(got, `"exit_code":7`) {
 		t.Errorf("exit 7: %s", got)
 	}
@@ -167,7 +167,7 @@ func TestPwshRealFiles(t *testing.T) {
 		got := captureOutput(t, func() error { err = runRoot(t, args...); return err })
 		return got, err
 	}
-	_, _ = run("exec", "win", "--", "Remove-Item -Recurse -Force -LiteralPath '"+strings.ReplaceAll(dir, "'", "''")+"' -ErrorAction SilentlyContinue")
+	_, _ = run("host", "ssh", "exec", "win", "--", "Remove-Item -Recurse -Force -LiteralPath '"+strings.ReplaceAll(dir, "'", "''")+"' -ErrorAction SilentlyContinue")
 	if got, err := run("fs", "write", "win", p, "--content", "one\n", "-p"); err != nil || !strings.Contains(got, `"changed":true`) {
 		t.Fatalf("fs write: %v %s", err, got)
 	}
@@ -220,7 +220,7 @@ func TestPwshRealFiles(t *testing.T) {
 	if b, _ := os.ReadFile(filepath.Join(to, "big.bin")); string(b) != body {
 		t.Errorf("download: %d bytes back", len(b))
 	}
-	_, _ = run("exec", "win", "--", "Remove-Item -Recurse -Force -LiteralPath '"+strings.ReplaceAll(dir, "'", "''")+"'")
+	_, _ = run("host", "ssh", "exec", "win", "--", "Remove-Item -Recurse -Force -LiteralPath '"+strings.ReplaceAll(dir, "'", "''")+"'")
 }
 
 // TestPwshRealParse has PowerShell parse every script komando sends to

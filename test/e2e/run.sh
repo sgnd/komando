@@ -86,7 +86,7 @@ if [ "${E2E_AREA_RUN:-0}" = 1 ]; then
       fi
     fi
     lab_down
-    "$K" tunnel stop --all >/dev/null 2>&1 || true # only this run's tunnels
+    "$K" host ssh tunnel stop --all >/dev/null 2>&1 || true # only this run's tunnels
     [ -n "${E2E_HOME:-}" ] || rm -rf "$KOMANDO_HOME"
     rm -rf "$AGENT_HOME" "$TMP"
     [ -z "${E2E_RESULTS:-}" ] || echo "$AREA $PASS $FAIL $rc" >>"$E2E_RESULTS"

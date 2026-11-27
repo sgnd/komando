@@ -223,7 +223,7 @@ func dockerErr(msg string, code int) *out.Error {
 	case msg == "":
 		msg = "docker exited " + strconv.Itoa(code)
 	}
-	return out.Errf(out.ExitRemote, "DOCKER_ERROR", "check that Docker runs there: `komando exec TARGET --read-only -- docker info`", "%s", msg)
+	return out.Errf(out.ExitRemote, "DOCKER_ERROR", "check that Docker runs there: `komando host ssh exec TARGET --read-only -- docker info`", "%s", msg)
 }
 
 func firstLine(s string) string {

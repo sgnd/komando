@@ -27,7 +27,7 @@ func longBodyWindow(t *testing.T, osName, body string) ([]string, error) {
 	askOnScreen = func(_ *call, text string) (bool, bool) { texts = append(texts, text); return false, true }
 	st := &store.State{Hosts: map[string]*store.Host{"web": {Name: "web", Address: "10.0.0.1", Protected: true}}}
 	setGate(tcl, true, gateYes)
-	tcl.args = []string{"komando", "exec", "web", "--script", "./deploy.sh", "--yes"}
+	tcl.args = []string{"komando", "host", "ssh", "exec", "web", "--script", "./deploy.sh", "--yes"}
 	resetApproval()
 	noteApprovalScript(tcl, scriptLabel("the script", "./deploy.sh"), []byte(body))
 	err := Guard(tcl, st, []*store.Host{st.Hosts["web"]}, "sh -s", true)
@@ -115,7 +115,7 @@ func TestLineLimitFromKind(t *testing.T) {
 // The hint for a body too long to show says what to do for that kind.
 func TestTooLongHintByKind(t *testing.T) {
 	for kind, want := range map[bodyKind]string{
-		bodyScript: "`komando exec TARGET --script FILE`",
+		bodyScript: "`komando host ssh exec TARGET --script FILE`",
 		bodySQL:    "`komando database KIND query NAME --file FILE`",
 		bodyInput:  "put it in a script file",
 		bodyData:   "smaller pieces",

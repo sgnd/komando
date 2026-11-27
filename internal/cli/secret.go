@@ -181,7 +181,7 @@ func secretDiff(stored, given string) string {
 
 const secretLong = `Save a password once, then point to it as secret:NAME instead of typing it:
   komando credential password add web1-pass
-  komando host edit web1 --password-ref secret:web1-pass
+  komando host ssh edit web1 --credential web1-pass
 
 komando shows a saved value only to a person: at a terminal with
 ` + "`credential password show --reveal`" + `, or after "Allow once" in komando's window; never
@@ -471,7 +471,7 @@ func secretKeychainCmd() *cobra.Command {
 func secretInUse(name string, users []string) error {
 	kind, who, _ := strings.Cut(users[0], " ")
 	hint := map[string]string{
-		"host": "komando host edit " + who + " --password-ref ... (or --sudo-ref ..., --env ...)",
+		"host": "komando host ssh edit " + who + " --credential ... (or --sudo-credential ..., --env ...)",
 		"conn": "komando conn edit " + who + " --password-ref ...",
 		"key":  "komando credential key edit " + who + " --passphrase-credential ...",
 		"vpn":  "komando vpn KIND edit " + who + " ...",

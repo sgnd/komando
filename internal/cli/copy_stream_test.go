@@ -225,8 +225,8 @@ func TestStreamUploadToServer(t *testing.T) {
 // before anything is read.
 func TestStreamUploadChecks(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--group", "web")
-	mustRun(t, "host", "add", "web2", "u@10.0.0.2", "--group", "web")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1", "--group", "web")
+	mustRun(t, "host", "ssh", "add", "web2", "u@10.0.0.2", "--group", "web")
 	wantCode(t, "USAGE", "copy", "-", "@web:/tmp/a")
 	wantCode(t, "USAGE", "copy", "@web:/tmp/a", "-")
 	wantCode(t, "USAGE", "copy", "web1:/var/www", "-", "-r")

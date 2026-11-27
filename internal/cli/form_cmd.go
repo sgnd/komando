@@ -100,6 +100,26 @@ func addFormHints(m map[string]formHint) {
 	}
 }
 
+// winrmVerbs are the verbs of `host ssh VERB` that `host winrm VERB` has too.
+var winrmVerbs = []string{"add", "edit", "list", "remove", "rename", "show", "test", "exec", "shell"}
+
+// winrmLacks are the flags of `host ssh VERB` that a WinRM server has no use for:
+// no sudo, no ssh key.
+var winrmLacks = []string{"sudo", "key"}
+
+// withWinRM is m and, for each hint of a verb that both host providers have,
+// the same hint for `host winrm VERB`.
+func withWinRM(m map[string]formHint) map[string]formHint {
+	all := maps.Clone(m)
+	for _, v := range winrmVerbs {
+		if h, ok := m["host ssh "+v]; ok {
+			h.flags = slices.DeleteFunc(slices.Clone(h.flags), func(f formFlag) bool { return slices.Contains(winrmLacks, f.name) })
+			all["host winrm "+v] = h
+		}
+	}
+	return all
+}
+
 // nextOnly: h gives Next: lines and nothing else.
 func nextOnly(h formHint) bool {
 	return len(h.next) > 0 && h.area == "" && h.args == nil && h.flags == nil && h.hide == nil &&
@@ -482,7 +502,7 @@ func formValueProblem(typ, v string) string {
 
 // formJoined are the commands that join the words after -- into one
 // shell line themselves: their command is passed as one word, as typed.
-var formJoined = []string{"exec", "job start"}
+var formJoined = []string{"host ssh exec", "host winrm exec", "job start"}
 
 // formCmdArgs is the command line for the answers: the command, its
 // arguments in order, then each flag that differs from its default.

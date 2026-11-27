@@ -180,8 +180,8 @@ func TestStandardKeyValue(t *testing.T) {
 			}
 		}
 	})
-	if n != 136 { // 102, and the 9 database providers add 34: --label and --option on add and edit
-		t.Errorf("%d KEY=VALUE flags, want 136 (--env x2, then --label and --option on the add and edit of each typed provider and VPN kind)", n)
+	if n != 142 { // 102, the 9 database providers add 34 (--label and --option on add and edit), host ssh and winrm add 6
+		t.Errorf("%d KEY=VALUE flags, want 142 (--env on exec, job start and each host exec, then --label and --option on the add and edit of each typed provider and VPN kind)", n)
 	}
 	var got []string
 	v := &kvArray{p: &got, name: "option"}
@@ -203,8 +203,8 @@ func TestStandardKeyValue(t *testing.T) {
 	if strings.Contains(e.Message+e.Hint, "hunter2") || strings.Contains(e.Message+e.Hint, "require") {
 		t.Errorf("the values are shown: %+v", e)
 	}
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--env", "A=1", "--env", "B=x,y", "--label", "team=ops", "--label", "env=prod")
-	h := mustRun(t, "host", "show", "web1")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1", "--env", "A=1", "--env", "B=x,y", "--label", "team=ops", "--label", "env=prod")
+	h := mustRun(t, "host", "ssh", "show", "web1")
 	if s := jsonStr(h); !strings.Contains(s, `"B":"x,y"`) || !strings.Contains(s, `"team":"ops"`) || !strings.Contains(s, `"env":"prod"`) {
 		t.Errorf("host show: %s", s)
 	}

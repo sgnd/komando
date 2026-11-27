@@ -70,10 +70,10 @@ func TestStandardTopLevel(t *testing.T) {
 	root := newRoot(tcl)
 	want := []string{
 		// nouns (S-2.1)
-		"host", "conn", "vpn", "group", "secret", "credential", "snippet", "policy", "job", "tunnel", "config",
+		"host", "conn", "vpn", "group", "secret", "credential", "snippet", "policy", "job", "config",
 		"fs", "pkg", "docker", "cert", "db", "database", "cache", "queue", "storage", "cluster", "registry",
 		// shortcuts
-		"list", "test", "exec", "shell", "logs", "copy", "status",
+		"list", "test", "logs", "copy", "status",
 		"login", "logout", "import", "export", "rename",
 		// about komando
 		"audit", "doctor", "schema", "guide", "agent", "update", "version", "completion", "help", "ssh-gate",
@@ -132,7 +132,7 @@ func TestStandardNounAliases(t *testing.T) {
 	for noun, aliases := range map[string][]string{
 		"host": {"hosts", "server", "servers"}, "conn": {"conns"}, "vpn": {"vpns"}, "group": {"groups"},
 		"secret": {"secrets"}, "snippet": {"snippets"}, "policy": {"policies"}, "job": {"jobs"},
-		"tunnel": {"tunnels"}, "fs": {"files"}, "pkg": {"package", "packages"},
+		"fs": {"files"}, "pkg": {"package", "packages"},
 		"docker": {"container", "containers"},
 		"cert":   {"certs"}, "db": {"dbs"}, "database": {"databases"}, "cache": {"caches"}, "queue": {"queues"},
 		"cluster": {"clusters"}, "registry": {"registries"},
@@ -654,15 +654,15 @@ func TestStandardReferences(t *testing.T) {
 func TestStandardJourneys(t *testing.T) {
 	root := newRoot(tcl)
 	for kind, verbs := range map[string][]string{
-		"host":          {"add", "test", "show", "list", "edit", "rename", "rm"},
-		"conn":          {"add", "test", "show", "list", "edit", "rename", "rm"},
-		"vpn wireguard": {"add", "test", "show", "list", "edit", "rename", "remove"},
-		"secret":        {"check", "cp"},
-		"group":         {"create", "show", "list", "rename", "remove"},
-		"snippet":       {"create", "show", "list", "remove"},
-		"policy":        {"create", "check", "list", "remove"},
-		"job":           {"start", "status", "show", "list", "kill", "stop", "rm"},
-		"tunnel":        {"start", "show", "list", "stop"},
+		"host ssh":        {"add", "test", "show", "list", "edit", "rename", "remove"},
+		"conn":            {"add", "test", "show", "list", "edit", "rename", "rm"},
+		"vpn wireguard":   {"add", "test", "show", "list", "edit", "rename", "remove"},
+		"secret":          {"check", "cp"},
+		"group":           {"create", "show", "list", "rename", "remove"},
+		"snippet":         {"create", "show", "list", "remove"},
+		"policy":          {"create", "check", "list", "remove"},
+		"job":             {"start", "status", "show", "list", "kill", "stop", "rm"},
+		"host ssh tunnel": {"start", "list", "stop"},
 	} {
 		noun := findCmd(t, root, strings.Fields(kind)...)
 		for _, v := range verbs {

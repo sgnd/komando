@@ -269,7 +269,7 @@ func keyAddCmd() *cobra.Command {
 				}
 				for _, o := range s.Keys {
 					if k.Fingerprint != "" && o.Fingerprint == k.Fingerprint {
-						res.Warnings = append(res.Warnings, "this is the same key as "+o.Name+": servers can use that one (`komando host edit TARGET --key "+o.Name+"`); `komando credential key remove "+k.Name+"` removes this second name")
+						res.Warnings = append(res.Warnings, "this is the same key as "+o.Name+": servers can use that one (`komando host ssh edit TARGET --key "+o.Name+"`); `komando credential key remove "+k.Name+"` removes this second name")
 					}
 				}
 				s.Keys[k.Name] = k
@@ -613,7 +613,7 @@ func keyRmCmd() *cobra.Command {
 					}
 				}
 				if len(users) > 0 {
-					hint := "give the server another key first: `komando host edit " + strings.Join(users, " ") + " --key OTHER`"
+					hint := "give the server another key first: `komando host ssh edit " + strings.Join(users, " ") + " --key OTHER`"
 					if len(users) == 1 {
 						return out.Errf(out.ExitConflict, "KEY_IN_USE", hint, "server %s still uses this key", users[0])
 					}

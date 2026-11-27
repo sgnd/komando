@@ -42,7 +42,6 @@ var (
 		"config set",
 		"import",
 		"secret",
-		"tunnel",
 		"vpn",
 	}
 	// S-6.6, S-6.7: commands with fewer examples than S-6.6 asks (a second one is still to write)
@@ -65,12 +64,9 @@ var (
 		"doctor",
 		"fs replace dry-run",
 		"fs stat",
-		"host show",
 		"job status",
 		"pkg installed",
-		"shell",
 		"ssh-gate",
-		"tunnel list",
 		"version",
 	}
 	// S-6.8: names outside the sample table where an example needs its own
@@ -92,10 +88,11 @@ var (
 	// S-5.9: depends commands without --write or --read-only (they decide by their arguments)
 	allowDependsSwitch = []string{
 		"copy",
+		"host ssh shell",
+		"host winrm shell",
 		"pkg security",
 		"pkg upgradable",
 		"snippet exec",
 		"credential run",
-		"shell",
 	}
 )

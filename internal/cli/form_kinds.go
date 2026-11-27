@@ -410,7 +410,7 @@ func serverBuild(_ *store.State, a formAnswers) [][]string {
 	if strings.Contains(addr, ":") {
 		addr = "[" + addr + "]"
 	}
-	args := []string{"host", "add", a["name"], a["user"] + "@" + addr}
+	args := []string{"host", "ssh", "add", a["name"], a["user"] + "@" + addr}
 	if a["port"] != "" && a["port"] != "22" {
 		args = append(args, "--port", a["port"])
 	}
@@ -615,8 +615,9 @@ func sqliteForm(_ *call) formSpec {
 // The add commands use the hand-made forms above from every menu path.
 func init() {
 	addFormHints(map[string]formHint{
-		"host add": {form: func(cl *call) []formGroup { return formGroupsFor(cl, "host") }, next: []string{"test {}", "host show {}", "host edit {} --protected"}},
-		"conn add": {form: func(cl *call) []formGroup { return formGroupsFor(cl, "conn") }, next: []string{"test {}", "conn show {}"}},
+		"host ssh add":   {form: func(cl *call) []formGroup { return formGroupsFor(cl, "host") }, next: []string{"test {}", "host ssh show {}", "host ssh edit {} --protected"}},
+		"host winrm add": {form: func(cl *call) []formGroup { return formGroupsFor(cl, "host") }, next: []string{"test {}", "host winrm show {}", "host winrm edit {} --ask-password"}},
+		"conn add":       {form: func(cl *call) []formGroup { return formGroupsFor(cl, "conn") }, next: []string{"test {}", "conn show {}"}},
 	})
 	// queue add, storage add, ...: conn add for one family, asked the same way.
 	next := map[string][]string{}

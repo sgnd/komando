@@ -12,7 +12,7 @@ import (
 // path; the checks here stop before any server is contacted.
 func TestTransferOnePath(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
 	mustRun(t, "conn", "add", "bk", "s3://AKIAEXAMPLE@shop-dev/backups?region=eu-west-1")
 	f := filepath.Join(t.TempDir(), "a.txt")
 	_ = os.WriteFile(f, []byte("hello\n"), 0o600)
@@ -78,22 +78,22 @@ func stderrOf(t *testing.T, fn func()) string {
 // its input, with --arg as $1 ...
 func TestExecScript(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
 	f := filepath.Join(t.TempDir(), "deploy.sh")
 	_ = os.WriteFile(f, []byte("#!/bin/bash\necho hi\n"), 0o600)
 	for _, args := range [][]string{
-		{"exec", "web1", "--script", f, "--", "uptime"},
-		{"exec", "web1", "--script", f, "-c", "uptime"},
-		{"exec", "web1", "--arg", "x", "--", "uptime"},
-		{"exec", "web1", "--interpreter", "python3", "--", "uptime"},
-		{"exec", "web1", "--script", f, "--stdin-file", f},
-		{"exec", "web1", "--script", f, "--pty"},
+		{"host", "ssh", "exec", "web1", "--script", f, "--", "uptime"},
+		{"host", "ssh", "exec", "web1", "--script", f, "-c", "uptime"},
+		{"host", "ssh", "exec", "web1", "--arg", "x", "--", "uptime"},
+		{"host", "ssh", "exec", "web1", "--interpreter", "python3", "--", "uptime"},
+		{"host", "ssh", "exec", "web1", "--script", f, "--stdin-file", f},
+		{"host", "ssh", "exec", "web1", "--script", f, "--pty"},
 	} {
 		wantCode(t, "USAGE", args...)
 	}
 	var plan map[string]any
 	note := stderrOf(t, func() {
-		plan = mustRun(t, "--dry-run", "exec", "web1", "--script", f, "--arg", "v1")
+		plan = mustRun(t, "--dry-run", "host", "ssh", "exec", "web1", "--script", f, "--arg", "v1")
 	})
 	if note != "" {
 		t.Errorf("exec --script printed %q", note)

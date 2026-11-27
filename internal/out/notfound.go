@@ -41,8 +41,10 @@ func KindWord(kind string) string {
 }
 
 // listCommands are the list commands of the kinds not listed by `<kind> list`.
-// A saved recipe is a snippet to a person.
-var listCommands = map[string]string{"key": "credential key list", "secret": "credential list", "recipe": "snippet list"}
+// A saved recipe is a snippet to a person; a server is listed by the provider
+// groups, so the plain `komando list` shows all.
+var listCommands = map[string]string{"key": "credential key list", "secret": "credential list", "recipe": "snippet list",
+	"host": "list", "tunnel": "host ssh tunnel list"}
 
 // NotFound is the error for a name komando does not know, worded the one
 // way S-8.4 asks: no <kind> named "<name>".

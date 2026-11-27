@@ -35,9 +35,9 @@ func TestTypedAnswer(t *testing.T) {
 // once lets both checks through, with no [y/N] after it.
 func TestDangerOnProtectedAsksOnce(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "prod1", "u@127.0.0.1:1", "--protected")
+	mustRun(t, "host", "ssh", "add", "prod1", "u@127.0.0.1:1", "--protected")
 	personTypes(t, "prod1") // one line: a second question would read no answer
-	_, e := invRun(t, "exec", "prod1", "--", "reboot")
+	_, e := invRun(t, "host", "ssh", "exec", "prod1", "--", "reboot")
 	if e == nil || e.Code == "POLICY_BLOCKED" || e.Code == "PROTECTED_TARGET" {
 		t.Fatalf("the typed name must cover both stops: %+v", e)
 	}
@@ -47,20 +47,20 @@ func TestDangerOnProtectedAsksOnce(t *testing.T) {
 // first real stop's hint names them all (S-7.5, C-C04).
 func TestWouldNeedEveryFlag(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "prod1", "u@127.0.0.1:1", "--protected")
-	mustRun(t, "host", "add", "web1", "u@127.0.0.1:2")
-	_, text := runMain(t, "--dry-run", "exec", "prod1", "--", "reboot")
+	mustRun(t, "host", "ssh", "add", "prod1", "u@127.0.0.1:1", "--protected")
+	mustRun(t, "host", "ssh", "add", "web1", "u@127.0.0.1:2")
+	_, text := runMain(t, "--dry-run", "host", "ssh", "exec", "prod1", "--", "reboot")
 	if !strings.Contains(text, `"would_need":["--allow-dangerous","--yes"]`) {
 		t.Errorf("dry run: %s", text)
 	}
-	_, text = runMain(t, "--dry-run", "exec", "web1", "--", "reboot")
+	_, text = runMain(t, "--dry-run", "host", "ssh", "exec", "web1", "--", "reboot")
 	if !strings.Contains(text, `"would_need":["--allow-dangerous"]`) {
 		t.Errorf("dry run, not protected: %s", text)
 	}
-	if e := wantCode(t, "POLICY_BLOCKED", "exec", "prod1", "--", "reboot"); !strings.Contains(e.Hint, "--allow-dangerous and --yes") {
+	if e := wantCode(t, "POLICY_BLOCKED", "host", "ssh", "exec", "prod1", "--", "reboot"); !strings.Contains(e.Hint, "--allow-dangerous and --yes") {
 		t.Errorf("hint: %q", e.Hint)
 	}
-	if e := wantCode(t, "POLICY_BLOCKED", "exec", "web1", "--", "reboot"); strings.Contains(e.Hint, "--yes") {
+	if e := wantCode(t, "POLICY_BLOCKED", "host", "ssh", "exec", "web1", "--", "reboot"); strings.Contains(e.Hint, "--yes") {
 		t.Errorf("hint, not protected: %q", e.Hint)
 	}
 	// fs rm of one file is dangerous (OD-7); on a protected server the dry

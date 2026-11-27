@@ -18,7 +18,7 @@ func TestExecConnectionLost(t *testing.T) {
 	srv.reply("step 1 done\n", dropMark)
 	var err error
 	got := captureOutput(t, func() error {
-		err = runRoot(t, "exec", "dev", "--read-only", "--", "uptime")
+		err = runRoot(t, "host", "ssh", "exec", "dev", "--read-only", "--", "uptime")
 		return err
 	})
 	if code, ok := err.(exitCode); !ok || int(code) != 4 {

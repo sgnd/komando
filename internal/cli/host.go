@@ -43,7 +43,7 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 	fl.StringVar(&f.proxyCommand, "proxy-command", "", "a command on this computer that carries the connection (OpenSSH ProxyCommand; %h %p %r)")
 	fl.StringVar(&f.os, "os", "", "the server's OS: windows (commands run in PowerShell) or linux (the default, also for other Unixes)")
 	fl.BoolVar(&f.ssm, "ssm", false, "reach it through AWS Systems Manager: the address is the instance ID (komando speaks Session Manager itself when the aws CLI or its plugin is not installed)")
-	fl.StringVar(&f.notes, "notes", "", "free-form notes (komando host show shows them to people and agents)")
+	fl.StringVar(&f.notes, "notes", "", "free-form notes (komando host ssh show shows them to people and agents)")
 	fl.BoolVar(&f.protected, "protected", false, "production: komando asks you before every change, and an AI agent needs your yes in a window")
 	if edit {
 		fl.StringSliceVar(&f.addGroups, "add-group", nil, "put it in these groups (comma-separated)")
@@ -64,9 +64,12 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 	}
 }
 
+// hostCmd is the host group of today's tree. Its inventory commands, exec,
+// shell, trust and tunnel moved to the table (`host ssh VERB`, `host winrm
+// VERB`); what is left is host ca and host ssh-command, which wait for C7.
 func hostCmd() *cobra.Command {
 	c := &cobra.Command{Use: "host", Aliases: []string{"hosts"}, Short: "Servers in komando's list: add, change, check, remove"}
-	c.AddCommand(hostAddCmd(), hostEditCmd(), hostMvCmd(), alias(listCmdFor("host"), "list kind:host", "List servers"), hostShowCmd(), hostRmCmd(), alias(testCmdFor("host"), "test", "Check that servers answer and let you in"), hostTrustCmd(), hostSSHArgsCmd(), hostCACmd())
+	c.AddCommand(hostSSHArgsCmd(), hostCACmd())
 	return c
 }
 
@@ -76,16 +79,16 @@ func hostAddCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "add NAME [[USER@]ADDRESS[:PORT]]",
 		Short: "Add a server to your list",
-		Example: `  komando host add web1 deploy@10.0.0.11 --group web --tag prod --key deploy
-  komando host add db1 --address db.internal --user root --via bastion --protected
-  komando host add vps1 root@203.0.113.20 --ask-password   # type its password now (hidden)
-  komando host add web2 root@203.0.113.21 --login ask      # type its password at every connect; never stored
-  komando host add win1 Administrator@10.0.0.9 --os windows --ask-password   # Windows with OpenSSH
-  komando host add win2 winrm://Administrator@10.0.0.9 --ask-password        # Windows over WinRM (HTTPS)`,
+		Example: `  komando host ssh add web1 deploy@10.0.0.11 --group web --tag prod --key deploy
+  komando host ssh add db1 --address db.internal --user root --via bastion --protected
+  komando host ssh add vps1 root@203.0.113.20 --ask-password   # type its password now (hidden)
+  komando host ssh add web2 root@203.0.113.21 --login ask      # type its password at every connect; never stored
+  komando host ssh add win1 Administrator@10.0.0.9 --os windows --ask-password   # Windows with OpenSSH
+  komando host winrm add win2 winrm://Administrator@10.0.0.9 --ask-password        # Windows over WinRM (HTTPS)`,
 		Args: formArgs(cobra.RangeArgs(1, 2)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
-				return formOrUsage(cmd, "host", "komando host add web1 deploy@10.0.0.5")
+				return formOrUsage(cmd, "host", "komando host ssh add web1 deploy@10.0.0.5")
 			}
 			return runHostAdd(cmd, args, &f, force, askPw)
 		},
@@ -123,7 +126,7 @@ func runHostAdd(cmd *cobra.Command, args []string, f *hostFlags, force, askPw bo
 		return err
 	}
 	if h.Address == "" {
-		return out.Errf(out.ExitUsage, "USAGE", "for example komando host add "+name+" deploy@10.0.0.5, or --address 10.0.0.5",
+		return out.Errf(out.ExitUsage, "USAGE", "for example komando host ssh add "+name+" deploy@10.0.0.5, or --address 10.0.0.5",
 			"address required: pass user@address[:port] or --address")
 	}
 	h.Address = inventory.NormAddr(h.Address)
@@ -232,15 +235,15 @@ selector (@group, tag:prod, 'web-*') to change many servers at once. Try
 and an AI agent needs your yes in a window. Changing the login of a
 production server, or turning its protection off, asks the same way; one yes
 covers every server in the command.`,
-		Example: `  komando host edit web1 --add-tag canary --label env=prod --sudo-ref secret:web1-sudo
-  komando host edit web1 -g web -t prod          # -g/-t add a group/tag
-  komando host edit db1 --protected              # production: ask before changes
-  komando host edit @ubuntu --sudo-ref secret:ubuntu-sudo --dry-run
-  komando host edit web1 web2 web3 --user deploy
-  komando host edit vps1 --ask-password          # type a new password (hidden)
-  komando host edit web2 --login ask             # never store its password; type it at every connect
-  komando host edit web2 --login key --key deploy   # log in with a key komando names
-  komando host edit bastion --forward-agent      # lend it your ssh-agent (asks first)`,
+		Example: `  komando host ssh edit web1 --add-tag canary --label env=prod --sudo-credential secret:web1-sudo
+  komando host ssh edit web1 -g web -t prod          # -g/-t add a group/tag
+  komando host ssh edit db1 --protected              # production: ask before changes
+  komando host ssh edit @ubuntu --sudo-credential secret:ubuntu-sudo --dry-run
+  komando host ssh edit web1 web2 web3 --user deploy
+  komando host ssh edit vps1 --ask-password          # type a new password (hidden)
+  komando host ssh edit web2 --login ask             # never store its password; type it at every connect
+  komando host ssh edit web2 --login key --key deploy   # log in with a key komando names
+  komando host ssh edit bastion --forward-agent      # lend it your ssh-agent (asks first)`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runHostEdit(cmd, args, &f, askPw)
@@ -271,7 +274,7 @@ func runHostEdit(cmd *cobra.Command, args []string, f *hostFlags, askPw bool) er
 		single = len(args) == 1 && ferr == nil
 		if !single {
 			if fl.Changed("address") {
-				return out.Errf(out.ExitUsage, "USAGE", "edit the servers one at a time for this, for example komando host edit "+hosts[0].Name+" --address ...",
+				return out.Errf(out.ExitUsage, "USAGE", "edit the servers one at a time for this, for example komando host ssh edit "+hosts[0].Name+" --address ...",
 					"--address gives one server a value no other server should share; it takes one NAME, not %d servers", len(hosts))
 			}
 		}
@@ -351,7 +354,7 @@ func hostEditChecks(cmd *cobra.Command, args []string, f *hostFlags, askPw bool)
 	fl := cmd.Flags()
 	undo = func() {}
 	if len(changedFlags(cmd)) == 0 {
-		return undo, out.Errf(out.ExitUsage, "USAGE", "pass what to change, for example komando host edit "+args[0]+" --user deploy (see --help)", "nothing to change")
+		return undo, out.Errf(out.ExitUsage, "USAGE", "pass what to change, for example komando host ssh edit "+args[0]+" --user deploy (see --help)", "nothing to change")
 	}
 	if err := editConflicts(fl, f.unset, map[string]string{"user": "user", "key": "key", "identity": "identity", "password-ref": "password-ref",
 		"sudo-ref": "sudo-ref", "via": "via", "proxy-command": "proxy-command", "notes": "notes", "port": "port", "protected": "protected", "forward-agent": "forward-agent", "os": "os"},
@@ -570,7 +573,7 @@ func applyHostEdit(h *store.Host, f *hostFlags, fl *pflag.FlagSet) error {
 		case "transport": // back to SSH
 			h.Transport, h.WinRMOpts = "", nil
 		default:
-			return out.Errf(out.ExitUsage, "USAGE", "--unset takes: user, key, identity, password-ref, sudo-ref, via, proxy-command, notes, port, protected, forward-agent, os, transport",
+			return out.Errf(out.ExitUsage, "USAGE", "--unset takes: user, key, identity, credential, sudo-credential, via, proxy-command, notes, port, protected, forward-agent, os, transport",
 				"cannot unset %q", u)
 		}
 	}
@@ -655,7 +658,7 @@ func guardProxyCommand(cl *call, cmd string, names ...string) error {
 }
 
 // checkHostRefs refuses a password typed where a reference belongs
-// (--password-ref hunter2 would be stored and printed as plain text).
+// (a credential of hunter2 would be stored and printed as plain text).
 func checkHostRefs(h *store.Host) error {
 	if err := checkWinRM(h); err != nil {
 		return err
@@ -674,9 +677,9 @@ func checkHostRefs(h *store.Host) error {
 	if err := checkLogin(h); err != nil {
 		return err
 	}
-	for _, r := range []struct{ flag, ref string }{{"--password-ref", h.PasswordRef}, {"--sudo-ref", h.SudoRef}} {
+	for _, r := range []struct{ what, ref string }{{"a credential", h.PasswordRef}, {"a sudo credential", h.SudoRef}} {
 		if r.ref != "" && !vault.ValidRef(r.ref) {
-			return out.Usage("%s takes a reference, not the password itself (%s); store the password with `komando credential password add NAME` first", r.flag, vault.RefHelp())
+			return out.Usage("%s takes a reference, not the password itself (%s); store the password with `komando credential password add NAME` first", r.what, vault.RefHelp())
 		}
 	}
 	return nil

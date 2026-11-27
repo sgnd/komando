@@ -366,7 +366,7 @@ func systemdMissing(stdout string) *out.Error {
 	case "no-systemd":
 		return errNoSystemd()
 	case "no-user-manager":
-		return out.Errf(out.ExitNotFound, "NO_USER_MANAGER", "the login user's systemd manager runs only while they are logged in, unless lingering is on: a person with sudo runs `komando exec TARGET --sudo -- loginctl enable-linger USER`",
+		return out.Errf(out.ExitNotFound, "NO_USER_MANAGER", "the login user's systemd manager runs only while they are logged in, unless lingering is on: a person with sudo runs `komando host ssh exec TARGET --sudo -- loginctl enable-linger USER`",
 			"the login user has no systemd user manager running on this server")
 	}
 	return nil
@@ -401,12 +401,12 @@ func sudoRefusal(host, asRoot string, rr *sshx.RunResult) *out.Error {
 	case strings.Contains(e, "sudo: a password is required"), strings.Contains(e, "sudo: a terminal is required"),
 		strings.Contains(e, "no tty present and no askpass"):
 		return out.Errf(out.ExitRemote, "PERMISSION_DENIED",
-			"a person stores the sudo password with `komando credential password add "+name+"-sudo`, then runs `komando host edit "+name+" --sudo-ref secret:"+name+"-sudo`; when you log in as root, "+asRoot,
+			"a person stores the sudo password with `komando credential password add "+name+"-sudo`, then runs `komando host ssh edit "+name+" --sudo-credential "+name+"-sudo`; when you log in as root, "+asRoot,
 			"sudo asks for a password komando does not have")
 	case strings.Contains(e, "is not in the sudoers file"), strings.Contains(e, "is not allowed to run sudo"),
 		strings.Contains(e, "may not run sudo"):
 		return out.Errf(out.ExitRemote, "PERMISSION_DENIED",
-			"log in as a user who may use sudo (`komando host edit "+name+" --user OTHER`), or add the login user to the sudo (Debian) or wheel (RHEL) group",
+			"log in as a user who may use sudo (`komando host ssh edit "+name+" --user OTHER`), or add the login user to the sudo (Debian) or wheel (RHEL) group",
 			"the login user may not use sudo")
 	case rr.ExitCode == 127 && (strings.Contains(e, "sudo: not found") || strings.Contains(e, "sudo: command not found")):
 		return out.Errf(out.ExitNotFound, "TOOL_MISSING",

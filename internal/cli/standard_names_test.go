@@ -27,7 +27,6 @@ func TestStandardRenamedIDs(t *testing.T) {
 		now, old []string
 		id       string
 	}{
-		{[]string{"host", "rename"}, []string{"host", "mv"}, "host.rename"},
 		{[]string{"conn", "rename"}, []string{"conn", "mv"}, "conn.rename"},
 		{[]string{"vpn", "wireguard", "list"}, []string{"vpn", "wireguard", "ls"}, "vpn.wireguard.list"},
 		{[]string{"group", "rename"}, []string{"group", "mv"}, "group.rename"},
@@ -56,14 +55,14 @@ func TestStandardRenamedIDs(t *testing.T) {
 // mv is a synonym of rename and prints the same command ID.
 func TestRenameMvSynonym(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
-	mustRun(t, "host", "mv", "web1", "web-01")
-	if d := mustRun(t, "host", "rename", "web-01", "web-02"); d["to"] != "web-02" {
-		t.Errorf("host rename: %v", d)
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "rename", "web1", "web-01")
+	if d := mustRun(t, "host", "ssh", "rename", "web-01", "web-02"); d["to"] != "web-02" {
+		t.Errorf("host ssh rename: %v", d)
 	}
-	code, outText := runMain(t, "host", "rename", "web-02", "web-03")
-	if code != 0 || !strings.Contains(outText, `"command":"host.rename"`) {
-		t.Errorf("host rename: exit %d, %s", code, outText)
+	code, outText := runMain(t, "host", "ssh", "rename", "web-02", "web-03")
+	if code != 0 || !strings.Contains(outText, `"command":"host.ssh.rename"`) {
+		t.Errorf("host ssh rename: exit %d, %s", code, outText)
 	}
 }
 
@@ -104,12 +103,12 @@ func TestStandardSynonyms(t *testing.T) {
 		args []string
 		id   string
 	}{
-		{[]string{"servers"}, "host"}, {[]string{"server", "list"}, "host.list"},
+		{[]string{"servers"}, "host"}, {[]string{"server", "ssh", "list"}, "host.ssh.list"},
 		{[]string{"databases", "postgres", "query"}, "database.postgres.query"}, {[]string{"files", "cat"}, "fs.cat"},
-		{[]string{"tunnels", "list"}, "tunnel.list"}, {[]string{"policies", "list"}, "policy.list"},
+		{[]string{"policies", "list"}, "policy.list"},
 		{[]string{"cache", "list"}, "cache.keys"}, {[]string{"cache", "ls"}, "cache.keys"},
 		{[]string{"group", "show"}, "group.show"}, {[]string{"job", "show"}, "job.status"},
-		{[]string{"tunnel", "show"}, "tunnel.list"}, {[]string{"snippet", "show"}, "snippet.show"},
+		{[]string{"snippet", "show"}, "snippet.show"},
 		{[]string{"docker", "describe"}, "docker.inspect"}, {[]string{"registry", "oci", "image", "describe"}, "registry.oci.image.show"},
 		{[]string{"db", "user", "create"}, "db.user.add"},
 		{[]string{"secret", "copy"}, "secret.cp"},
@@ -126,7 +125,7 @@ func TestStandardSynonyms(t *testing.T) {
 // command they stand for; group show and snippet show are commands of their own.
 func TestSynonymWrappers(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--group", "web")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1", "--group", "web")
 	d := mustRun(t, "group", "show", "web")
 	if m := d["members"].([]any); len(m) != 1 || m[0] != "web1" {
 		t.Errorf("group show web: %v", d)
@@ -136,7 +135,6 @@ func TestSynonymWrappers(t *testing.T) {
 		t.Errorf("snippet show disk: %v", d)
 	}
 	wantCode(t, "SNIPPET_NOT_FOUND", "snippet", "show", "nope")
-	wantCode(t, "TUNNEL_NOT_FOUND", "tunnel", "show", "t-nope")
 	if code, text := runMain(t, "group", "show", "web"); code != 0 || !strings.Contains(text, `"command":"group.show"`) {
 		t.Errorf("group show: exit %d %s", code, text)
 	}

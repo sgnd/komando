@@ -43,7 +43,7 @@ var (
 func init() {
 	addFormHints(map[string]formHint{
 		// Tunnels
-		"tunnel start": {args: []formArg{{ask: "To which server or conn?", pick: "target", free: true,
+		"host ssh tunnel start": {area: "VPNs, logins and tunnels", args: []formArg{{ask: "To which server or conn?", pick: "target", free: true,
 			help: "Pick a conn (a database, a cache) to reach it from this computer, or a server to forward a port through it."}},
 			flags: []formFlag{
 				{name: "port", ask: "Which port on this computer? (for a conn)", example: "15432",
@@ -51,9 +51,9 @@ func init() {
 				{name: "local", ask: "What should it forward? (for a server)", example: "8080:localhost:80",
 					help: "LOCALPORT:ADDRESS:PORT: localhost:8080 here reaches localhost:80 as the server sees it. Leave empty for a conn."},
 			}},
-		"tunnel list": {},
-		"tunnel stop": {args: []formArg{{ask: "Which tunnels should stop? (leave empty with --all)", pick: "tunnel", free: true,
-			help: "Their IDs: `komando tunnel list` shows them. Several: separate them with spaces."}},
+		"host ssh tunnel list": {area: "VPNs, logins and tunnels"},
+		"host ssh tunnel stop": {area: "VPNs, logins and tunnels", args: []formArg{{ask: "Which tunnels should stop? (leave empty with --all)", pick: "tunnel", free: true,
+			help: "Their IDs: `komando host ssh tunnel list` shows them. Several: separate them with spaces."}},
 			flags: []formFlag{{name: "all", ask: "Stop every tunnel instead?"}}},
 
 		// Logins
@@ -147,12 +147,12 @@ func loginForm(cl *call) []formGroup {
 // secrets, core and cloud areas).
 func init() {
 	addFormHints(map[string]formHint{
-		"login":        {next: []string{"status", "exec {} -- uptime", "logout {}"}},
-		"logout":       {next: []string{"status"}},
-		"tunnel start": {next: []string{"tunnel list", "tunnel stop TUNNEL"}},
-		"tunnel stop":  {next: []string{"tunnel list"}},
-		"login aws":    {next: []string{"test TARGET", "storage s3 object list NAME", "import aws"}},
-		"credential password add": {next: []string{"host edit TARGET --password-ref secret:{}", "conn edit NAME --password-ref secret:{}",
+		"login":                 {next: []string{"status", "host ssh exec {} -- uptime", "logout {}"}},
+		"logout":                {next: []string{"status"}},
+		"host ssh tunnel start": {next: []string{"host ssh tunnel list", "host ssh tunnel stop TUNNEL"}},
+		"host ssh tunnel stop":  {next: []string{"host ssh tunnel list"}},
+		"login aws":             {next: []string{"test TARGET", "storage s3 object list NAME", "import aws"}},
+		"credential password add": {next: []string{"host ssh edit TARGET --credential {}", "conn edit NAME --password-ref secret:{}",
 			"credential list"}},
 		"credential token add":       {next: []string{"credential list"}},
 		"credential list":            {next: []string{"credential password show NAME", "credential password add NAME"}},
@@ -160,7 +160,7 @@ func init() {
 		"credential token rename":    {next: []string{"credential list"}},
 		"secret cp":                  {next: []string{"credential list"}},
 		"config vault keychain":      {next: []string{"doctor"}},
-		"config vault passphrase":    {next: []string{"doctor", "tunnel list", "status"}},
+		"config vault passphrase":    {next: []string{"doctor", "host ssh tunnel list", "status"}},
 		"credential key create":      {next: []string{"credential key install {} TARGET --set-default", "credential key show {}"}},
 		"credential key install":     {next: []string{"test TARGET", "credential key uninstall NAME TARGET"}},
 	})

@@ -32,7 +32,7 @@ func TestCallsApartAtOnce(t *testing.T) {
 	}
 	run := func(agent string, answer bool) result {
 		c := testCall()
-		c.args = []string{"komando", "host", "rm", "web1", "--yes"}
+		c.args = []string{"komando", "host", "ssh", "remove", "web1", "--yes"}
 		setTestCaller(c, engine.Caller{Kind: engine.Agent, Agent: agent})
 		var r result
 		c.ask = func(text string) (bool, bool) {
@@ -118,7 +118,7 @@ func TestCancelledWording(t *testing.T) {
 	if e.Message != "cancelled: web1 is protected; nothing was changed" || e.Hint != "run it again to be asked again" {
 		t.Fatalf("before any write: %+v", e)
 	}
-	mustRun(t, "host", "add", "web1", "u@127.0.0.1:1") // a write in the same process
+	mustRun(t, "host", "ssh", "add", "web1", "u@127.0.0.1:1") // a write in the same process
 	e = &out.Error{Code: "PROTECTED_TARGET", Message: "web1 is protected", Exit: out.ExitPolicy}
 	cancelled(c, e)
 	if e.Message != "cancelled: web1 is protected; what this command saved before the question stays" {

@@ -76,7 +76,7 @@ func exitStatus2(t *testing.T) error {
 // not copied.
 func TestMacDebugLogKeepsThePanelTextsOut(t *testing.T) {
 	v := testView("Claude Code", []string{"--yes"}, "", []string{"it runs on web-9.example.test"},
-		"komando exec web-9.example.test --script ./x.sh --yes",
+		"komando host ssh exec web-9.example.test --script ./x.sh --yes",
 		shotScript("./x.sh", "abcd", []string{"echo LINEMARK-SECRET-42", "echo done"}))
 	errOut := "komando-debug +0 shown scroll=false seen=true fka=false key=true active=true | first deny\n" +
 		"komando-debug +2104 key 48 mods 0 | first deny\n" +

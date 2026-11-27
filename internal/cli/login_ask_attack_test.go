@@ -86,16 +86,16 @@ func TestLoginAskRouteSettingsAndSecrets(t *testing.T) {
 	t.Setenv("CAPEM", "x")
 	mustRun(t, "credential", "password", "add", "corpca", "--from-env", "CAPEM")
 	mustRun(t, "credential", "password", "add", "evilca", "--from-env", "CAPEM")
-	mustRun(t, "host", "add", "win1", "winrm://Administrator@10.0.0.9", "--login", "ask")
-	mustRun(t, "host", "add", "win2", "winrm://Administrator@10.0.0.8?ca=secret:corpca", "--login", "ask")
+	mustRun(t, "host", "winrm", "add", "win1", "winrm://Administrator@10.0.0.9", "--login", "ask")
+	mustRun(t, "host", "winrm", "add", "win2", "winrm://Administrator@10.0.0.8?ca=secret:corpca", "--login", "ask")
 	mustRun(t, "credential", "password", "add", "connca", "--from-env", "CAPEM")
 	mustRun(t, "conn", "add", "pg1", "postgres://app@db.internal:5432/app?ca=secret:connca", "--login", "ask")
 	mustRun(t, "credential", "password", "add", "tskey", "--from-env", "CAPEM")
 	mustRun(t, "vpn", "tailscale", "add", "ts", "--credential", "tskey")
-	mustRun(t, "host", "add", "web1", "u@100.64.0.5", "--login", "ask", "--via", "ts")
+	mustRun(t, "host", "ssh", "add", "web1", "u@100.64.0.5", "--login", "ask", "--via", "ts")
 	setCallerEnv(t, "CLAUDECODE", "1")
 	for _, a := range []string{"winrm://Administrator@10.0.0.9?ca=secret:evilca", "winrm://Administrator@10.0.0.9?auth=basic"} {
-		wantCode(t, "NEEDS_PERSON", "host", "edit", "win1", "--address", a)
+		wantCode(t, "NEEDS_PERSON", "host", "winrm", "edit", "win1", "--address", a)
 	}
 	t.Setenv("EVIL", "y")
 	for _, name := range []string{"corpca", "connca", "tskey"} {
@@ -109,9 +109,9 @@ func TestLoginAskRouteSettingsAndSecrets(t *testing.T) {
 // as: an agent's change of it gets NEEDS_PERSON.
 func TestLoginAskDefaultUserNeedsPerson(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "10.0.0.5", "--login", "ask")
+	mustRun(t, "host", "ssh", "add", "web1", "10.0.0.5", "--login", "ask")
 	setCallerEnv(t, "CLAUDECODE", "1")
-	wantCode(t, "NEEDS_PERSON", "host", "edit", "web1", "--user", "root")
+	wantCode(t, "NEEDS_PERSON", "host", "ssh", "edit", "web1", "--user", "root")
 	wantCode(t, "NEEDS_PERSON", "config", "set", "default_user", "root")
 }
 
@@ -122,10 +122,10 @@ func TestLoginAskDefaultUserNeedsPerson(t *testing.T) {
 // login, goes on.
 func TestLoginAskViaAtRunTime(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "hop", "u@10.0.0.2")
-	mustRun(t, "host", "add", "evil", "u@203.0.113.66")
-	mustRun(t, "host", "add", "web1", "u@10.0.0.5", "--login", "ask", "--via", "hop")
-	mustRun(t, "host", "add", "plain", "u@10.0.0.6")
+	mustRun(t, "host", "ssh", "add", "hop", "u@10.0.0.2")
+	mustRun(t, "host", "ssh", "add", "evil", "u@203.0.113.66")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.5", "--login", "ask", "--via", "hop")
+	mustRun(t, "host", "ssh", "add", "plain", "u@10.0.0.6")
 	t.Setenv("K", "x")
 	mustRun(t, "credential", "password", "add", "tskey", "--from-env", "K")
 	mustRun(t, "vpn", "tailscale", "add", "ts", "--credential", "tskey")
@@ -154,7 +154,7 @@ func TestLoginAskVpnOverwriteWay(t *testing.T) {
 	t.Setenv("K", "x")
 	mustRun(t, "credential", "password", "add", "tskey", "--from-env", "K")
 	mustRun(t, "vpn", "tailscale", "add", "ts", "--credential", "tskey")
-	mustRun(t, "host", "add", "web1", "u@100.64.0.5", "--login", "ask", "--via", "ts")
+	mustRun(t, "host", "ssh", "add", "web1", "u@100.64.0.5", "--login", "ask", "--via", "ts")
 	setCallerEnv(t, "CLAUDECODE", "1")
 	wantCode(t, "NEEDS_PERSON", "vpn", "tailscale", "add", "ts", "--credential", "tskey", "--overwrite")
 	mustRun(t, "vpn", "tailscale", "edit", "ts", "--add-group", "lab")

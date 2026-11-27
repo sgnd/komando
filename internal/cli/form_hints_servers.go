@@ -4,7 +4,7 @@ package cli
 // certificate checks.
 
 func init() {
-	addFormHints(srvRunHints)
+	addFormHints(withWinRM(srvRunHints))
 	addFormHints(srvPkgHints)
 	addFormHints(srvDockerHints)
 	addFormHints(srvCertHints)
@@ -61,7 +61,8 @@ func srvWithShow(f formFlag, show func(formAnswers) bool) formFlag {
 }
 
 var srvRunHints = map[string]formHint{
-	"exec": {
+	"host ssh exec": {
+		area: "Servers",
 		args: []formArg{srvServers, {ask: "What command should it run?", example: "df -h /",
 			help: "Type it as you would on the server itself, pipes and all. Leave it empty to run a script file from this computer instead.",
 			need: func(a formAnswers) bool { return a["flag:script"] == "" }}},
@@ -73,7 +74,8 @@ var srvRunHints = map[string]formHint{
 			srvSudo, srvReadOnly, srvDir},
 		hide: []string{"cmd"},
 	},
-	"shell": {
+	"host ssh shell": {
+		area: "Servers",
 		args: []formArg{{ask: "Which server?", pick: "server",
 			help: "One server. You type on it as if you were there; type exit to come back."}},
 	},
@@ -161,20 +163,21 @@ var srvCertHints = map[string]formHint{
 // Next: lines for the server commands (server and ops areas).
 func init() {
 	addFormHints(map[string]formHint{
-		"docker rm":      {next: []string{"docker ps {} --all"}},
-		"exec":           {next: []string{"job start {} -- COMMAND", "logs {}"}},
-		"logs":           {next: []string{"logs {} --unit UNIT --follow"}},
-		"pkg upgradable": {next: []string{"pkg upgrade {} --dry-run", "pkg security {}"}},
-		"pkg security":   {next: []string{"pkg upgrade {} --security --dry-run"}},
-		"pkg update":     {next: []string{"pkg upgradable {}"}},
-		"pkg install":    {next: []string{"pkg installed {} PACKAGE"}},
-		"pkg rm":         {next: []string{"pkg installed {} PACKAGE"}},
-		"docker ps":      {next: []string{"docker logs {} CONTAINER --since 10m", "docker restart {} CONTAINER", "docker stats {}"}},
-		"docker logs":    {next: []string{"docker restart {} CONTAINER", "docker inspect {} CONTAINER"}},
-		"docker prune":   {next: []string{"snippet exec disk {}"}},
-		"cert check":     {next: []string{"cert check {} --warn 14d"}},
-		"snippet list":   {next: []string{"snippet exec NAME TARGET"}},
-		"snippet create": {next: []string{"snippet exec {} TARGET --dry-run"}},
-		"snippet exec":   {next: []string{"snippet list"}},
+		"docker rm":       {next: []string{"docker ps {} --all"}},
+		"host ssh exec":   {next: []string{"job start {} -- COMMAND", "logs {}"}},
+		"host winrm exec": {next: []string{"job start {} -- COMMAND", "logs {}"}},
+		"logs":            {next: []string{"logs {} --unit UNIT --follow"}},
+		"pkg upgradable":  {next: []string{"pkg upgrade {} --dry-run", "pkg security {}"}},
+		"pkg security":    {next: []string{"pkg upgrade {} --security --dry-run"}},
+		"pkg update":      {next: []string{"pkg upgradable {}"}},
+		"pkg install":     {next: []string{"pkg installed {} PACKAGE"}},
+		"pkg rm":          {next: []string{"pkg installed {} PACKAGE"}},
+		"docker ps":       {next: []string{"docker logs {} CONTAINER --since 10m", "docker restart {} CONTAINER", "docker stats {}"}},
+		"docker logs":     {next: []string{"docker restart {} CONTAINER", "docker inspect {} CONTAINER"}},
+		"docker prune":    {next: []string{"snippet exec disk {}"}},
+		"cert check":      {next: []string{"cert check {} --warn 14d"}},
+		"snippet list":    {next: []string{"snippet exec NAME TARGET"}},
+		"snippet create":  {next: []string{"snippet exec {} TARGET --dry-run"}},
+		"snippet exec":    {next: []string{"snippet list"}},
 	})
 }

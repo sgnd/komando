@@ -12,13 +12,13 @@ This page is made from the code (`komando schema` lists the same under
 | `APPROVAL_WINDOW_FAILED` | 1 |  | read the message; `komando doctor` checks this computer's setup |
 | `AUDIT_TAMPERED` | 1 | the audit log chain is broken at line … | keep a copy of the file and find out who changed it; komando keeps adding records after it |
 | `AUDIT_UNAVAILABLE` | 1 | the audit log cannot be written (…), so the key's command does not run | fix the file or folder permissions on the komando computer (`komando doctor` checks them) |
-| `AUTH_FAILED` | 4 | … has no user or password for WinRM | WinRM logs in with a user and a password: `komando host edit … --ask-password` (and the user in the address, for example winrm://Administrator@HOST) |
+| `AUTH_FAILED` | 4 | … has no user or password for WinRM | WinRM logs in with a user and a password: `komando host winrm edit … --ask-password` (and the user in the address, for example winrm://Administrator@HOST) |
 | `AWS_FAILED` | 4 | AWS profile …: … | check the profile in ~/.aws/config |
 | `AWS_LOGIN_REQUIRED` | 4 | AWS profile …: … | a person runs `komando login aws --profile …` once, then run it again |
 | `AWS_PROFILE_NOT_FOUND` | 3 | there is no AWS profile … | add the profile to ~/.aws/config (or fix --option aws_profile) |
 | `AZURE_FAILED` | 4 | …: … | check that this computer reaches login.microsoftonline.com |
 | `AZURE_LOGIN_REQUIRED` | 4 | …: … | set AZURE_TENANT_ID, AZURE_CLIENT_ID and AZURE_CLIENT_SECRET for a service principal, run komando on Azure with a managed identity, or a person runs `az login` |
-| `BACKUP_FAILED` | 5 | could not make a backup of …: …; the file was not changed | check free space with `komando exec TARGET --read-only -- df -h`, or run without --backup |
+| `BACKUP_FAILED` | 5 | could not make a backup of …: …; the file was not changed | check free space with `komando host ssh exec TARGET --read-only -- df -h`, or run without --backup |
 | `BACKUP_NOT_FOUND` | 3 | no backup of … found (looked for ….bak) | komando keeps a backup only when you edit with --backup; give another copy with --copy PATH |
 | `BAD_CA` | 2 | registry CA …: … | store the registry's CA certificate (PEM) with `komando credential token add NAME < ca.crt` |
 | `BAD_FILE` | 2 | not a backup komando can read: … | give a backup komando can read: plain SQL text or a pg_dump custom archive (-Fc) |
@@ -44,8 +44,8 @@ This page is made from the code (`komando schema` lists the same under
 | `COMMAND_NOT_FOUND` | 3 | no command … | run `komando schema --compact` to see every command |
 | `CONFIRM_REQUIRED` | 6 | deleting group … takes … entries out of it | check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen) |
 | `CONNECTION_LOST` | 4 | the connection to … broke while reading the job's status | run it again; the job keeps running on the server |
-| `CONNECTION_REFUSED` | 4 | the server refused the connection: nothing listens on that port | check that sshd runs on the server and listens on this port: `komando host show …` |
-| `CONNECT_TIMEOUT` | 7 | connecting to … timed out | a firewall drops the connection, or the server is private: check the address with `komando host show …`, reach it through a bastion or VPN (`komando host edit … --via NAME`), or raise --connect-timeout on a slow link |
+| `CONNECTION_REFUSED` | 4 | the server refused the connection: nothing listens on that port | check that sshd runs on the server and listens on this port: `komando host ssh show …` |
+| `CONNECT_TIMEOUT` | 7 | connecting to … timed out | a firewall drops the connection, or the server is private: check the address with `komando host ssh show …`, reach it through a bastion or VPN (`komando host ssh edit … --via NAME`), or raise --connect-timeout on a slow link |
 | `CONN_EXISTS` | 8 | … … already exists | use `komando … edit` or pass --overwrite to replace it |
 | `CONN_UNREACHABLE` | 4 | cannot reach …: … | check the name and port; if the site is only reachable from a server or VPN, run it again with --via: `komando cert check … --via NAME` |
 | `CONSUMER_GROUP_NOT_FOUND` | 3 | no consumer group named … | list consumer groups with `komando queue kafka consumer list NAME` |
@@ -90,10 +90,10 @@ This page is made from the code (`komando schema` lists the same under
 | `HELM_RELEASE_NOT_FOUND` | 3 | no Helm release named … in namespace … | see the releases with `komando cluster helm list TARGET -A`, and name the namespace with --namespace |
 | `HELM_REVISION_NOT_FOUND` | 3 | … has no revision … | see the revisions with `komando cluster helm history TARGET RELEASE` |
 | `HIDDEN_VALUE` | 2 | stdin holds a value komando hid ([hidden] or [secret:NAME]); uploading it would destroy the real value | edit the file on the server with `komando fs replace` (an --old with [hidden] in it matches the hidden value), and put a secret in with {{secret:NAME}} |
-| `HOSTKEY_MISMATCH` | 4 | host key for … changed: the server was rebuilt, or someone is intercepting the connection | possible man-in-the-middle: report this to the user and do not re-trust the key yourself; once they have checked the new fingerprint another way, they can run `komando host trust … --reset` |
-| `HOSTKEY_REVOKED` | 4 | … shows the revoked host key …; nothing was sent | this key is on komando's list of revoked host keys: treat the server as compromised, tell its owner, and do not re-trust it with `komando host trust` |
-| `HOSTKEY_UNKNOWN` | 4 | host key for … is not trusted yet (host keys are strict) | compare the fingerprint with what the server's owner sees, then run `komando host trust …` (an AI agent asks the user: its pin needs their yes) |
-| `HOSTKEY_UNREADABLE` | 4 | the pinned host key for … cannot be read | a person checks the server's key and runs `komando host trust` for it in their own terminal |
+| `HOSTKEY_MISMATCH` | 4 | host key for … changed: the server was rebuilt, or someone is intercepting the connection | possible man-in-the-middle: report this to the user and do not re-trust the key yourself; once they have checked the new fingerprint another way, they can run `komando host ssh trust … --reset` |
+| `HOSTKEY_REVOKED` | 4 | … shows the revoked host key …; nothing was sent | this key is on komando's list of revoked host keys: treat the server as compromised, tell its owner, and do not re-trust it with `komando host ssh trust` |
+| `HOSTKEY_UNKNOWN` | 4 | host key for … is not trusted yet (host keys are strict) | compare the fingerprint with what the server's owner sees, then run `komando host ssh trust …` (an AI agent asks the user: its pin needs their yes) |
+| `HOSTKEY_UNREADABLE` | 4 | the pinned host key for … cannot be read | a person checks the server's key and runs `komando host ssh trust` for it in their own terminal |
 | `HOST_EXISTS` | 8 | … … already exists | use `komando … edit` or pass --overwrite to replace it |
 | `HOST_IN_USE` | 8 | server … is on the --via path of … | change them first: … (or --via OTHER), or remove them in the same command |
 | `IMAGE_TAG_NOT_FOUND` | 3 | … not found; the repository has no tags | list the repositories with `komando registry oci image list NAME` |
@@ -241,8 +241,8 @@ This page is made from the code (`komando schema` lists the same under
 | `SHORTER_SCRIPT_REQUIRED` | 6 |  | split it into shorter pieces (the hint names the command for a script, SQL or a file) or ask the user to run it in their own terminal; e.g. `komando exec TARGET --script FILE` for a script |
 | `SIZE_CONFLICT` | 8 | --size said … bytes, and stdin sent …; nothing was put into place | send the whole file again: `komando copy - DESTINATION --size N` |
 | `SKIPPED` | 1 | skipped: another server failed first, and --fail-fast is on | run without --fail-fast to reach every server |
-| `SNIPPET_OS_UNSUPPORTED` | 2 | snippet … has no body for … | read it as text with `komando exec TARGET -- COMMAND`; the snippet has no JSON for it |
-| `SNIPPET_PARSE_FAILED` | 5 | the output of snippet … did not read as … | read it as text with `komando exec TARGET -- COMMAND`; the snippet has no JSON for it |
+| `SNIPPET_OS_UNSUPPORTED` | 2 | snippet … has no body for … | read it as text with `komando host ssh exec TARGET -- COMMAND`; the snippet has no JSON for it |
+| `SNIPPET_PARSE_FAILED` | 5 | the output of snippet … did not read as … | read it as text with `komando host ssh exec TARGET -- COMMAND`; the snippet has no JSON for it |
 | `SNIPPET_TYPE_UNSUPPORTED` | 2 | … is a …, not a … | run it against a … entry; see them with `komando list` |
 | `SOURCE_BUILD` | 8 | this komando was built from source (version …), so update does not replace it | build it again (git pull, then make build), or install a release with the install line: https://github.com/sgnd/komando#install |
 | `SOURCE_EMPTY` | 3 | … has no files to sync, so --delete would remove everything in …; nothing was deleted | check the source path |
@@ -251,8 +251,8 @@ This page is made from the code (`komando schema` lists the same under
 | `SQL_STRING_RULES` | 2 | changing … is not allowed in komando db | leave this setting alone: komando checks SQL with the server's default string rules |
 | `SQL_TX_CHECK_REQUIRED` | 6 | statement … (…) ended komando's transaction, so komando stopped (…) | leave transactions to komando, and tell the user: what ran before this point may have been committed; look at the data with `komando database KIND query NAME -- SELECT ...` |
 | `SQL_TX_CONTROL` | 2 | … is not allowed in komando db | leave transactions to komando: without --write it runs a read-only transaction, with --write one transaction that --dry-run rolls back |
-| `SSH_AGENT_NEEDED` | 2 | a key komando made is sealed in its store and never written to a file, so OpenSSH gets it from a running ssh-agent, and none was found (SSH_AUTH_SOCK) | start one with `eval "$(ssh-agent)"` and run this again, or use `komando shell SERVER`, which logs in with the key itself |
-| `SSH_AGENT_REFUSED` | 1 | the ssh-agent did not take key …: … | check the ssh-agent, or use `komando shell SERVER` |
+| `SSH_AGENT_NEEDED` | 2 | a key komando made is sealed in its store and never written to a file, so OpenSSH gets it from a running ssh-agent, and none was found (SSH_AUTH_SOCK) | start one with `eval "$(ssh-agent)"` and run this again, or use `komando host ssh shell SERVER`, which logs in with the key itself |
+| `SSH_AGENT_REFUSED` | 1 | the ssh-agent did not take key …: … | check the ssh-agent, or use `komando host ssh shell SERVER` |
 | `SSH_GATE_NETWORK_REQUIRED` | 6 | komando … is refused for a read key without network: … | this key was added with --read-only and without --network: it runs only reads that stay on the servers and conns in your list; a person adds a key for this with `komando ssh-gate line --read-only --network`, or runs it on the komando computer |
 | `SSH_GATE_PATH` | 1 | komando cannot tell its own full path, which the line needs | run komando by its full path, for example /usr/local/bin/komando ssh-gate line ... |
 | `SSH_GATE_READ_ONLY` | 6 | komando … is refused for a read-only key: … | this key was added with --read-only and runs only commands that read; use a key that may change things, or the komando computer itself |
@@ -296,7 +296,7 @@ This page is made from the code (`komando schema` lists the same under
 | `TOPIC_EXISTS` | 8 | topic … already exists | pick another name, or see it with `komando queue kafka topic show NAME …` |
 | `TOPIC_NOT_FOUND` | 3 | no topic named … | list topics with `komando queue kafka topic list NAME` |
 | `TUNNEL_FAILED` | 4 | the server refused the port forwarding (AllowTcpForwarding, address) | check that the server allows forwarding (AllowTcpForwarding in sshd_config) and that the address is right |
-| `TUNNEL_NOT_FOUND` | 3 | no tunnel named … | see them with `komando tunnel list` |
+| `TUNNEL_NOT_FOUND` | 3 | no tunnel named … | see them with `komando host ssh tunnel list` |
 | `TUNNEL_TIMEOUT` | 7 | tunnel did not become ready… | check that … answers: `komando test …`; a person reads the whole log in … |
 | `UNEXPECTED_CHANGE` | 8 | … changed after patching: … | check the server (`komando docker ps …`, `komando exec … -- systemctl --failed`); servers after it were not patched: run it again with --keep-going to patch them anyway |
 | `UNIT_NOT_FOUND` | 3 | no unit named … | check the name with `komando exec TARGET -- systemctl list-units` |

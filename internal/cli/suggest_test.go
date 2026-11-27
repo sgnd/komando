@@ -14,14 +14,14 @@ func TestUnknownCommandWords(t *testing.T) {
 	root := newRoot(tcl)
 	for word, want := range map[string]string{
 		"ps": "docker ps TARGET", "get": "list", "kubectl": "cluster kubernetes raw NAME -- ...", "psql": "db query CONN",
-		"mysql": "db query CONN", "apt": "pkg", "yum": "pkg", "systemctl": "exec SERVER -- systemctl",
+		"mysql": "db query CONN", "apt": "pkg", "yum": "pkg", "systemctl": "host ssh exec SERVER -- systemctl",
 	} {
 		e := unknownCommandErr(tcl, root, word, nil)
 		if e.Suggestion != want || e.Hint != "run `komando "+want+"` instead" || e.Code != "USAGE" {
 			t.Errorf("%s: %+v", word, e)
 		}
 	}
-	if e := unknownCommandErr(tcl, root, "delete", []string{"web1"}); e.Suggestion != "host rm web1" {
+	if e := unknownCommandErr(tcl, root, "delete", []string{"web1"}); e.Suggestion != "host ssh remove web1" {
 		t.Errorf("delete web1: %+v", e)
 	}
 	if e := unknownCommandErr(tcl, root, "delete", []string{"conn", "pg"}); e.Suggestion != "conn rm pg" {
@@ -55,16 +55,16 @@ func TestSwappedLine(t *testing.T) {
 		args        []string
 		wrong, want string
 	}{
-		{[]string{"exce", "web1", "--", "uptime"}, "exce", "komando exec web1 -- uptime"},
-		{[]string{"exec", "web1", "--via", "bast,wbe1"}, "wbe1", "komando exec web1 --via bast,web1"},
-		{[]string{"exec", "--limt=5", "web1"}, "--limt", "komando exec --limit=5 web1"},
+		{[]string{"exce", "web1", "--", "uptime"}, "exce", "komando host ssh exec web1 -- uptime"},
+		{[]string{"host", "ssh", "exec", "web1", "--via", "bast,wbe1"}, "wbe1", "komando host ssh exec web1 --via bast,web1"},
+		{[]string{"host", "ssh", "exec", "--limt=5", "web1"}, "--limt", "komando host ssh exec --limit=5 web1"},
 	} {
 		right := map[string]string{"exce": "exec", "wbe1": "web1", "--limt": "--limit"}[c.wrong]
 		if got, ok := swappedLine(c.args, c.wrong, right); !ok || got != c.want {
 			t.Errorf("%v: %q", c.args, got)
 		}
 	}
-	if _, ok := swappedLine([]string{"exec", "web1", "--", "exce"}, "exce", "exec"); ok {
+	if _, ok := swappedLine([]string{"host", "ssh", "exec", "web1", "--", "exce"}, "exce", "exec"); ok {
 		t.Error("a word after -- was swapped")
 	}
 }

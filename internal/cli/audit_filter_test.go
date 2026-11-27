@@ -76,7 +76,7 @@ func TestAuditFilterKeep(t *testing.T) {
 func TestInvAuditWindow(t *testing.T) {
 	invHome(t)
 	for i := range 52 {
-		mustRun(t, "host", "add", fmt.Sprintf("w%d", i), fmt.Sprintf("u@10.0.1.%d", i+1))
+		mustRun(t, "host", "ssh", "add", fmt.Sprintf("w%d", i), fmt.Sprintf("u@10.0.1.%d", i+1))
 	}
 	if d := mustRun(t, "audit", "list"); d["count"].(float64) != 50 {
 		t.Errorf("default shows the newest 50, got %v", d["count"])

@@ -12,8 +12,8 @@ import (
 // say pkg.upgrade, and a read-only gate key refuses it (C-V18).
 func TestPkgUpgradeSecurity(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "root@127.0.0.1", "--port", "2")
-	mustRun(t, "host", "edit", "web1", "--protected")
+	mustRun(t, "host", "ssh", "add", "web1", "root@127.0.0.1", "--port", "2")
+	mustRun(t, "host", "ssh", "edit", "web1", "--protected")
 	if e := wantCode(t, "PROTECTED_TARGET", "pkg", "upgrade", "web1", "--security"); e.Exit != out.ExitPolicy {
 		t.Errorf("exit %d", e.Exit)
 	}
@@ -48,8 +48,8 @@ func TestPkgUpgradeSecurity(t *testing.T) {
 // first that fails: the next is never reached (C-V18, the serial rollout).
 func TestPkgUpgradeSecurityOneAtATime(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "root@127.0.0.1", "--port", "1", "-g", "web")
-	mustRun(t, "host", "add", "web2", "root@127.0.0.1", "--port", "2", "-g", "web")
+	mustRun(t, "host", "ssh", "add", "web1", "root@127.0.0.1", "--port", "1", "-g", "web")
+	mustRun(t, "host", "ssh", "add", "web2", "root@127.0.0.1", "--port", "2", "-g", "web")
 	code, text := runMain(t, "pkg", "upgrade", "@web", "--security")
 	if code == 0 || !strings.Contains(text, `"order":"one server at a time, stopping at a failure or an unexpected change"`) ||
 		!strings.Contains(text, `"not_run":["web2"]`) || strings.Contains(text, `"host":"web2"`) {

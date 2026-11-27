@@ -133,18 +133,18 @@ var foreignWords = map[string]string{
 	"apt-get":    "pkg",
 	"yum":        "pkg",
 	"dnf":        "pkg",
-	"systemctl":  "exec SERVER -- systemctl",
+	"systemctl":  "host ssh exec SERVER -- systemctl",
 	"journalctl": "logs TARGET",
-	"ssh":        "shell SERVER",
+	"ssh":        "host ssh shell SERVER",
 	"scp":        "copy",
 	"rsync":      "copy --sync",
-	"crontab":    "exec SERVER -- crontab -l",
+	"crontab":    "host ssh exec SERVER -- crontab -l",
 	"aws":        "login aws",
 	"ls":         "list",
-	"rm":         "host rm NAME",
-	"delete":     "host rm NAME",
-	"remove":     "host rm NAME",
-	"del":        "host rm NAME",
+	"rm":         "host ssh remove NAME",
+	"delete":     "host ssh remove NAME",
+	"remove":     "host ssh remove NAME",
+	"del":        "host ssh remove NAME",
 }
 
 // foreignCommand is the komando command for a foreign word at the top
@@ -155,14 +155,14 @@ func foreignCommand(root *cobra.Command, word string, rest []string) (string, bo
 	if !ok {
 		return "", false
 	}
-	if strings.HasSuffix(cmd, " rm NAME") && len(rest) > 0 {
+	if strings.HasSuffix(cmd, " remove NAME") && len(rest) > 0 {
 		if c, _, err := root.Find(rest[:1]); err == nil && c != root && c.HasSubCommands() {
 			if rm, _, err := c.Find([]string{"rm"}); err == nil && rm != c {
 				return strings.TrimSpace(c.Name() + " rm " + strings.Join(rest[1:], " ")), true
 			}
 		}
 		if len(rest) == 1 {
-			return "host rm " + rest[0], true
+			return "host ssh remove " + rest[0], true
 		}
 	}
 	return cmd, true

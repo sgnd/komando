@@ -618,7 +618,7 @@ func unreachable(c *store.Conn, t driver.Target, err error) *out.Error {
 	hint := "check the address and port; if it is only reachable from a server, set `komando conn edit " + c.Name + " --via SERVER`"
 	if steps := inventory.ViaChain(c.Via); len(steps) > 0 {
 		last := steps[len(steps)-1]
-		hint = "the address is resolved on " + last + "; check it from there with `komando exec " + last + " -- nc -z HOST PORT`"
+		hint = "the address is resolved on " + last + "; check it from there with `komando host ssh exec " + last + " -- nc -z HOST PORT`"
 		if st, err := loadState(); err == nil {
 			if _, isVpn := st.Vpns[last]; isVpn {
 				hint = "the address is reached through VPN " + last + "; check the VPN with `komando test " + last + "` and the address in the conn URL"
@@ -666,7 +666,7 @@ func addKindFits(family, raw, passwordRef string) error {
 	t, err := driver.Parse(normConnURL(strings.TrimSpace(raw)))
 	if err != nil {
 		if family == "cluster" && strings.HasPrefix(raw, "ssh://") {
-			return out.Errf(out.ExitUsage, "USAGE", "add it with `komando host add NAME user@address`; cluster commands then take its name",
+			return out.Errf(out.ExitUsage, "USAGE", "add it with `komando host ssh add NAME user@address`; cluster commands then take its name",
 				"a Docker Swarm is reached through its manager server, which is a server, not a conn")
 		}
 		return nil // conn add says what is wrong with it

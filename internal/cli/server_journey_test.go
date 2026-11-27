@@ -115,7 +115,7 @@ func TestJobStartScript(t *testing.T) {
 		t.Errorf("got  %s\nwant %s", got, want)
 	}
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
 	dir := t.TempDir()
 	script := dir + "/deploy.sh"
 	if err := os.WriteFile(script, []byte("#!/bin/bash\necho deploying\n"), 0o600); err != nil {

@@ -18,8 +18,8 @@ func TestGateLocalReads(t *testing.T) {
 	gateInventory(t)
 	const R = "SSH_GATE_REFUSED"
 	refused := []string{
-		"exec web --read-only --script /home/u/.ssh/id_ed25519", "exec web --script=.ssh/id_ed25519",
-		"exec web --read-only --stdin-file .ssh/id_ed25519 -- cat", "job start web --read-only --script ./x.sh",
+		"host ssh exec web --read-only --script /home/u/.ssh/id_ed25519", "host ssh exec web --script=.ssh/id_ed25519",
+		"host ssh exec web --read-only --stdin-file .ssh/id_ed25519 -- cat", "job start web --read-only --script ./x.sh",
 		"job start web --stdin-file x -- cat", "database postgres query pg --file /home/u/.ssh/id_ed25519",
 		"database postgres restore pg --from ./dump.sql", "cluster apply k8s --file ./x.yaml", "fs write web /tmp/k --from .ssh/id_ed25519",
 		"copy .ssh/id_ed25519 s3:",
@@ -41,8 +41,8 @@ func TestGateLocalReads(t *testing.T) {
 		}
 	}
 	// the key's own input is the key's
-	for _, line := range []string{"exec web --read-only --script - ", "database postgres query pg --file -", "cluster kubernetes raw k8s -- apply -f -",
-		"exec web --read-only -- uptime", "copy - web:/tmp/x", "copy web:/etc/hosts web:/tmp/hosts"} {
+	for _, line := range []string{"host ssh exec web --read-only --script - ", "database postgres query pg --file -", "cluster kubernetes raw k8s -- apply -f -",
+		"host ssh exec web --read-only -- uptime", "copy - web:/tmp/x", "copy web:/etc/hosts web:/tmp/hosts"} {
 		if got := gateKeyAnswer(t, line, fullKey); got != "" {
 			t.Errorf("%q, full key: %q", line, got)
 		}

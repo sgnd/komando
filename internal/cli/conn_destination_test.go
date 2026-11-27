@@ -188,7 +188,7 @@ func TestPostgresPassfileIgnored(t *testing.T) {
 // inventory and the sealed secrets.
 func TestSQLiteKomandoStoreRefused(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
 	db := filepath.Join(os.Getenv("KOMANDO_HOME"), "store.db")
 	link := filepath.Join(t.TempDir(), "notes.db")
 	if err := os.Symlink(db, link); err != nil {

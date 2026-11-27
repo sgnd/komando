@@ -13,20 +13,19 @@ import (
 )
 
 // shellCmd is the interactive login shell, meant for humans taking over
-// from an agent. Agents should use exec / job instead.
+// from an agent. Agents should use `host ssh exec` instead.
 func shellCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "shell SERVER",
-		Aliases: []string{"ssh", "connect"},
-		Short:   "Open a login shell on one server",
+		Use:   "shell SERVER",
+		Short: "Open a login shell on one server",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 1 {
 				// `ssh host command` runs a command in ssh; here that is exec
-				hint := "run a command with `komando exec " + args[0] + " -- " + strings.Join(args[1:], " ") + "`"
-				if err := komandoFlagsAfterDash("exec "+args[0], args[1:]); err != nil {
+				hint := "run a command with `komando host ssh exec " + args[0] + " -- " + strings.Join(args[1:], " ") + "`"
+				if err := komandoFlagsAfterDash("host ssh exec "+args[0], args[1:]); err != nil {
 					hint = toErr(err).Hint
 				}
-				return out.Errf(out.ExitUsage, "USAGE", hint, "komando %s opens an interactive shell and takes no command", cmd.CalledAs())
+				return out.Errf(out.ExitUsage, "USAGE", hint, "komando host ssh shell opens an interactive shell and takes no command")
 			}
 			return cobra.ExactArgs(1)(cmd, args)
 		},
@@ -43,7 +42,7 @@ func shellCmd() *cobra.Command {
 func runShell(cl *call, ctx context.Context, target string) error {
 	if !cl.interactive() {
 		return out.Errf(out.ExitUsage, "NEEDS_TERMINAL",
-			"agents and scripts use `komando exec` or `komando job start`",
+			"agents and scripts use `komando host ssh exec` or `komando job start`",
 			"shell needs a person at a terminal")
 	}
 	st, err := loadState()
@@ -116,7 +115,7 @@ func openShell(cl *call, ctx context.Context, st *store.State, h *store.Host, ke
 		stop, err = driveShell(ctx, conn, tt, sio, func() { started = time.Now() })
 		switch stop {
 		case sessionIdle:
-			return out.Errf(out.ExitTimeout, "SHELL_IDLE_TIMEOUT", "connect again (ssh -t HOST komando shell "+h.Name+"); run long work as a job: `komando job start "+h.Name+" -- COMMAND`",
+			return out.Errf(out.ExitTimeout, "SHELL_IDLE_TIMEOUT", "connect again (ssh -t HOST komando host ssh shell "+h.Name+"); run long work as a job: `komando job start "+h.Name+" -- COMMAND`",
 				"the shell on %s ended after %s with no input and no output", h.Name, shellIdleLimit)
 		case sessionHangup:
 			return ctx.Err()

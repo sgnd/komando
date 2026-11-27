@@ -209,7 +209,7 @@ func pkgSecSnippets() []snippet.Builtin {
 				r := pkgSecParse(nil, "", snippetRun(o), false, refresh) // a list reads neither cl nor the host
 				switch {
 				case r.unsupported != "":
-					return nil, out.Errf(out.ExitNotFound, "SECURITY_UNSUPPORTED", "komando knows apt, dnf, yum, zypper, apk and pacman; see what the server has with `komando exec TARGET -- cat /etc/os-release`",
+					return nil, out.Errf(out.ExitNotFound, "SECURITY_UNSUPPORTED", "komando knows apt, dnf, yum, zypper, apk and pacman; see what the server has with `komando host ssh exec TARGET -- cat /etc/os-release`",
 						"no package manager komando knows on %s", "this server (it has "+r.unsupported+")") // the catalog's message
 				case r.Error != nil:
 					return nil, r.Error
@@ -498,7 +498,7 @@ func pkgSecParse(cl *call, host string, rr *sshx.RunResult, apply, refreshed boo
 	case rc != "0":
 		return fail(out.Errf(out.ExitRemote, "PKG_FAILED", "read the error output (stderr) for the package manager's message", "the security upgrade failed (exit %s)", rc))
 	case len(r.Unexpected) > 0:
-		return fail(out.Errf(out.ExitConflict, "UNEXPECTED_CHANGE", "check the server (`komando docker ps "+host+"`, `komando exec "+host+" -- systemctl --failed`); servers after it were not patched: run it again with --keep-going to patch them anyway",
+		return fail(out.Errf(out.ExitConflict, "UNEXPECTED_CHANGE", "check the server (`komando docker ps "+host+"`, `komando host ssh exec "+host+" -- systemctl --failed`); servers after it were not patched: run it again with --keep-going to patch them anyway",
 			"%s changed after patching: %s", host, strings.Join(r.Unexpected, "; ")))
 	}
 	r.OK = true
@@ -569,7 +569,7 @@ func (d pkgSecData) Text() string {
 			}
 		}
 		if r.RebootRequired {
-			fmt.Fprintf(&sb, "  reboot required: komando exec %s --sudo --allow-dangerous -- reboot\n", r.Host)
+			fmt.Fprintf(&sb, "  reboot required: komando host ssh exec %s --sudo --allow-dangerous -- reboot\n", r.Host)
 		}
 		for _, w := range r.Warnings {
 			fmt.Fprintf(&sb, "  warning: %s\n", w)
@@ -599,7 +599,7 @@ need it.
 After each server komando compares the state with the one before. When
 fewer containers run or a unit has failed, it stops and leaves the other
 servers as they are (--keep-going patches them anyway). It never reboots:
-reboot_required says when a server needs one, use ` + "`komando exec TARGET --sudo --allow-dangerous -- reboot`" + `.
+reboot_required says when a server needs one, use ` + "`komando host ssh exec TARGET --sudo --allow-dangerous -- reboot`" + `.
 
 The upgrade runs detached on the server, so a dropped connection does not
 break it. It waits up to 30 minutes per server (--timeout changes it).
@@ -772,7 +772,7 @@ func pkgSecurity(cl *call, ctx context.Context, target string, apply, refresh, k
 	data.NotRun = notRun
 	data.Summary.Total = len(data.Results)
 	if len(data.Results) == 0 && len(rows) > 0 {
-		return out.Errf(out.ExitNotFound, "SECURITY_UNSUPPORTED", "komando knows apt, dnf, yum, zypper, apk and pacman; see what the server has with `komando exec TARGET -- cat /etc/os-release`",
+		return out.Errf(out.ExitNotFound, "SECURITY_UNSUPPORTED", "komando knows apt, dnf, yum, zypper, apk and pacman; see what the server has with `komando host ssh exec TARGET -- cat /etc/os-release`",
 			"no package manager komando knows on %s", rows[0].Host)
 	}
 	if !change && !cl.dryRun() {

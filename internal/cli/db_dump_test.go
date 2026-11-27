@@ -33,7 +33,7 @@ func testPGArchive(t *testing.T) string {
 // runs it itself, and the file is checked first, also in a dry run.
 func TestRestorePlainSQLIsBuiltIn(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "bastion", "deploy@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "bastion", "deploy@10.0.0.1")
 	mustRun(t, "conn", "add", "pg", "postgres://app@10.0.0.2/app", "--via", "bastion")
 	mustRun(t, "conn", "add", "my", "mysql://app@10.0.0.3:3306/app", "--via", "bastion")
 	dir := t.TempDir()
@@ -245,7 +245,7 @@ func TestToolScriptLowPriority(t *testing.T) {
 // and a custom archive komando cannot read is refused, not approved unread.
 func TestRestoreOtherPGArchives(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "dev", "deploy@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "dev", "deploy@10.0.0.1")
 	mustRun(t, "conn", "add", "pg", "postgres://app@10.0.0.2/app")
 	dir := t.TempDir()
 	var tb bytes.Buffer

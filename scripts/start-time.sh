@@ -21,7 +21,7 @@ trap 'rm -rf "$newhome" "$oldhome"' EXIT
 
 # one tool call as Claude Code hands it to the hook: a komando line, which
 # the guard rates
-hook='{"tool_name":"Bash","tool_input":{"command":"komando exec web1 --read-only -- uptime"},"cwd":"/tmp"}'
+hook='{"tool_name":"Bash","tool_input":{"command":"komando host ssh exec web1 --read-only -- uptime"},"cwd":"/tmp"}'
 
 # ms BIN HOME CMD: one run's wall time in milliseconds
 ms() {

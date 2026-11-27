@@ -263,7 +263,7 @@ func TestFormNameProblem(t *testing.T) {
 	}
 }
 
-// `komando host add` alone at a person's terminal asks the server's own
+// `komando host ssh add` alone at a person's terminal asks the server's own
 // questions line by line; a pasted user:password@ is never drawn, the
 // lines are shown before they run, and No adds nothing.
 func TestFormHostAddAtATerminal(t *testing.T) {
@@ -271,7 +271,7 @@ func TestFormHostAddAtATerminal(t *testing.T) {
 		t.Skip("starts a process")
 	}
 	invHome(t)
-	p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "host", "add")
+	p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "host", "ssh", "add")
 	p.answer("Name, like web1: ", "web1\r")
 	p.answer("Address, like", "root:hun@ter2@203.0.113.20\r")
 	p.answer("a password was in it", "\r") // User [root]
@@ -279,7 +279,7 @@ func TestFormHostAddAtATerminal(t *testing.T) {
 	p.answer("Port [22]: ", "\r")
 	p.answer("Login [", "2\r") // A password (the default depends on ~/.ssh)
 	p.answer("Production [Yes, protect it]: ", "\r")
-	p.waitFor("$ komando host add web1 root@203.0.113.20 --ask-password --protected")
+	p.waitFor("$ komando host ssh add web1 root@203.0.113.20 --ask-password --protected")
 	p.waitFor("$ komando test web1")
 	p.answer("Run it? [y/N, d = --dry-run first]: ", "\r") // Enter is No: exit 6 (S-8.9)
 	if code := p.exit(); code != 6 || !strings.Contains(p.shown(), "Cancelled. Nothing was changed.") {
@@ -288,7 +288,7 @@ func TestFormHostAddAtATerminal(t *testing.T) {
 	if strings.Contains(p.shown(), "ter2") || strings.Contains(p.shown(), "hun") {
 		t.Errorf("the pasted password was drawn:\n%s", p.shown())
 	}
-	if _, err := invRun(t, "host", "show", "web1"); err == nil {
+	if _, err := invRun(t, "host", "ssh", "show", "web1"); err == nil {
 		t.Error("web1 was added after No")
 	}
 }
@@ -313,8 +313,8 @@ func TestFormAddCtrlC(t *testing.T) {
 // usage error, never questions.
 func TestFormAddAloneForAgents(t *testing.T) {
 	invHome(t)
-	for _, kind := range []string{"host", "conn"} {
-		_, e := invRun(t, kind, "add")
+	for _, kind := range [][]string{{"host", "ssh"}, {"conn"}} {
+		_, e := invRun(t, append(slices.Clone(kind), "add")...)
 		if e == nil || e.Code != "USAGE" || !strings.Contains(e.Hint, "alone at a terminal") {
 			t.Errorf("%s add: %+v", kind, e)
 		}
@@ -325,8 +325,8 @@ func TestFormAddAloneForAgents(t *testing.T) {
 }
 
 func TestFormDryRunBeforeDashes(t *testing.T) {
-	got := formDry([][]string{{"exec", "web1", "--", "systemctl restart nginx"}})
-	if strings.Join(got, "|") != "exec|web1|--dry-run|--|systemctl restart nginx" {
+	got := formDry([][]string{{"host", "ssh", "exec", "web1", "--", "systemctl restart nginx"}})
+	if strings.Join(got, "|") != "host|ssh|exec|web1|--dry-run|--|systemctl restart nginx" {
 		t.Errorf("exec dry run: %q", got)
 	}
 	got = formDry([][]string{{"credential", "password", "add", "x-authkey"}, {"vpn", "tailscale", "add", "x"}})
@@ -513,12 +513,15 @@ func TestFormRequiredFlagsAreAsked(t *testing.T) {
 // formHides are the flags a hint keeps out of the menu, each with why. Any
 // other hide fails: the menu leaves nothing out without a reason.
 var formHides = map[string]string{
-	"host edit group":                        "-g is --add-group, which is asked",
-	"host edit tag":                          "-t is --add-tag, which is asked",
+	"host ssh edit group":                    "-g is --add-group, which is asked",
+	"host winrm edit group":                  "-g is --add-group, which is asked",
+	"host ssh edit tag":                      "-t is --add-tag, which is asked",
+	"host winrm edit tag":                    "-t is --add-tag, which is asked",
 	"conn edit group":                        "-g is --add-group, which is asked",
 	"conn edit tag":                          "-t is --add-tag, which is asked",
 	"job start cmd":                          "the same as the command words, which are asked",
-	"exec cmd":                               "the same as the command words, which are asked",
+	"host ssh exec cmd":                      "the same as the command words, which are asked",
+	"host winrm exec cmd":                    "the same as the command words, which are asked",
 	"agent skill install no-guard":           "it turns off the guard that keeps AI agents away from secret files",
 	"rename starts-with":                     "always added: the menu renames by the start of the names",
 	"credential key install public-key-file": "a phone's key takes the server alone, not a key and servers: a person types that line",
@@ -540,7 +543,7 @@ func TestFormHidesHaveAReason(t *testing.T) {
 // completion; saved commands, what to go through and settings are lists.
 func TestFormPickKinds(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "root@10.0.0.5")
+	mustRun(t, "host", "ssh", "add", "web1", "root@10.0.0.5")
 	mustRun(t, "conn", "add", "app-db", "postgres://app@10.0.0.9/app")
 	mustRun(t, "snippet", "create", "up", "uptime")
 	root := newRoot(tcl)
@@ -564,10 +567,21 @@ func TestFormPickKinds(t *testing.T) {
 			t.Errorf("%s rows: %v, want %s in them", kind, got, want)
 		}
 	}
-	e, _, _ := root.Find([]string{"host", "edit"})
+	e, _, _ := root.Find([]string{"host", "ssh", "edit"})
 	for _, q := range formCmdSpec(e).qs {
 		if q.key == "flag:via" && q.choices == nil {
 			t.Error("--via is typed, not picked")
+		}
+	}
+}
+
+// host winrm exec joins the words after -- itself, as host ssh exec does:
+// the menu passes the command as one word.
+func TestFormJoinsTheCommandOfHostWinRMExec(t *testing.T) {
+	u := formUseArg{name: "COMMAND", many: true, dashes: true}
+	for _, key := range []string{"host ssh exec", "host winrm exec"} {
+		if got := formArgWords(key, u, formArg{}, `Get-Service "Win RM"`); !slices.Equal(got, []string{`Get-Service "Win RM"`}) {
+			t.Errorf("%s: %q", key, got)
 		}
 	}
 }

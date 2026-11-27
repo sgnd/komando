@@ -64,7 +64,7 @@ func TestReplacedIDsNameTheirRules(t *testing.T) {
 }
 
 // replacedVerbs are the verbs of the leaves that replace today's commands.
-var replacedVerbs = []string{"exec", "query", "raw"}
+var replacedVerbs = []string{"host", "ssh", "exec", "query", "raw"}
 
 // byValueRows are the dynamic rows whose leaf rates the text itself (the
 // cache command, the SQL, the cluster command), so the row alone keeps a

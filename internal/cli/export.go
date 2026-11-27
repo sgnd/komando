@@ -94,7 +94,7 @@ func planFromExport(cl *call, f exportFile) *importPlan {
 	for _, h := range p.Hosts {
 		if h.ProxyCommand != "" {
 			// a proxy command runs on this computer: never take one from a file
-			p.Notes = append(p.Notes, fmt.Sprintf("%s: dropped proxy_command %q (it would run on this computer; set it yourself with `komando host edit %s --proxy-command ...`)", h.Name, h.ProxyCommand, h.Name))
+			p.Notes = append(p.Notes, fmt.Sprintf("%s: dropped proxy_command %q (it would run on this computer; set it yourself with `komando host ssh edit %s --proxy-command ...`)", h.Name, h.ProxyCommand, h.Name))
 			h.ProxyCommand = ""
 		}
 	}

@@ -31,7 +31,7 @@ func TestOSUser(t *testing.T) {
 // read of the vault, which reaches the store without a load (toErr).
 func TestPolicyMACStopsCommands(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web", "--address", "10.0.0.5", "--protected")
+	mustRun(t, "host", "ssh", "add", "web", "--address", "10.0.0.5", "--protected")
 	t.Setenv("PW", "s3cret")
 	mustRun(t, "credential", "password", "add", "db-pass", "--from-env", "PW")
 	master, err := store.MasterKey()
@@ -132,7 +132,7 @@ func TestOwnScriptsThroughExecHitCarriedRules(t *testing.T) {
 		if err := os.WriteFile(p, []byte(c.script), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		err := runRoot(t, "exec", "prod", "--yes", "--script", p)
+		err := runRoot(t, "host", "ssh", "exec", "prod", "--yes", "--script", p)
 		if e := toErr(err); e == nil || e.Code != "POLICY_BLOCKED" || !strings.Contains(e.Message, c.rule) {
 			t.Errorf("%s through exec: %v, want POLICY_BLOCKED naming %s", name, err, c.rule)
 		}

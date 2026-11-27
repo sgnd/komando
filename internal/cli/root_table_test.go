@@ -606,6 +606,19 @@ func tablesAtStart(f func()) {
 	f()
 }
 
+// carriesEntry is whether got, what a leaf has in a table, holds the entry v
+// of a command it carries as joinEntry joins them: v itself, a table that
+// asks nothing, the first of two reasons, or a list with all of v's flags.
+func carriesEntry(got, v any) bool {
+	switch {
+	case sameEntry(got, v), noCheck(v), isString(got) && isString(v):
+		return true
+	case isStrings(got) && isStrings(v):
+		return !slices.ContainsFunc(v.([]string), func(f string) bool { return !slices.Contains(got.([]string), f) })
+	}
+	return false
+}
+
 // When a type moves, each of its built leaves carries every entry that the
 // IDs it names (Today and Carries) had in the tables keyed by command ID,
 // whichever provider it is; the providers of one key carry the same
@@ -640,13 +653,16 @@ func TestMovedLeavesCarryTheirTables(t *testing.T) {
 				if !ok {
 					continue
 				}
-				if got, ok := tb.get(id); !ok || !sameEntry(got, v) && !noCheck(v) {
+				if _, needs := gateNetwork[id]; needs && tb.name == "gateNoNetwork" {
+					continue // a leaf that needs a network (host ssh exec) is in no gateNoNetwork
+				}
+				if got, ok := tb.get(id); !ok || !carriesEntry(got, v) {
 					t.Errorf("%s: %s does not carry the entry of %s", tb.name, id, old)
 				}
 			}
 			has = append(has, tb.name+"="+entryText(tb.get(id)))
 		}
-		key := fmt.Sprint(safetyKey{l.Type, l.Area, l.Verb})
+		key := fmt.Sprint(safetyKey{l.Type, l.Area, l.Verb}, " carrying ", l.Carries)
 		if byKey[key] == nil {
 			byKey[key] = map[string]string{}
 		}
@@ -683,7 +699,6 @@ func TestMovedLeavesCarryTheirTables(t *testing.T) {
 			}
 		}
 	}
-	inTree := idsInTree(newRoot(tcl))
 	for _, old := range slices.Sorted(maps.Keys(gone)) {
 		if inTree[old] {
 			continue // a noun (audit) keeps the ID of the command that moved under it
@@ -919,13 +934,19 @@ func TestTierRunsNeverShrink(t *testing.T) {
 			t.Errorf("row %q has %d runs fewer than when the builder came: runs never go down", row, -n)
 		}
 	}
-	// a registered leaf has the runs of its today IDs on its new path
+	// a registered leaf has the runs of its today IDs on its new path, for
+	// each row the table has for that path (a row of one provider, such as
+	// host ssh add --proxy-command, is not run on another provider's leaf)
+	need := tierNeeded()
 	for _, l := range tableLeaves() {
 		if handlers[l.Key] == nil {
 			continue
 		}
 		id := strings.Join(l.Key.Path(), ".")
 		for _, r := range before {
+			if _, ok := need[r.row+" | "+id]; !ok {
+				continue
+			}
 			if slices.Contains(l.Today, r.id) && !slices.ContainsFunc(tierRuns, func(n tierRun) bool { return n.id == id && n.row == r.row }) &&
 				tierUnreached[r.row+" | "+id] == "" {
 				t.Errorf("%s moved to %s: its run %q is not on the new path", r.id, id, r.row)

@@ -34,12 +34,12 @@ PROXY_PID=$!
 for _ in $(seq 1 20); do nc -z 127.0.0.1 "$PROXY_PORT" 2>/dev/null && break; sleep 0.2; done
 
 q $K vpn proxy add t-corp --proxy-address "127.0.0.1:$PROXY_PORT"
-q $K host add t-viaproxy "agent@127.0.0.1:$E2E_SSH_BASTION" --via t-corp --password-ref secret:agent-pass
-check "ssh through an HTTP proxy" True "$($K exec t-viaproxy -- hostname | jget 'd["data"]["results"][0]["ok"]')"
+q $K host ssh add t-viaproxy "agent@127.0.0.1:$E2E_SSH_BASTION" --via t-corp --credential agent-pass
+check "ssh through an HTTP proxy" True "$($K host ssh exec t-viaproxy -- hostname | jget 'd["data"]["results"][0]["ok"]')"
 check "the proxy carried it (CONNECT)" True "$(grep -q "CONNECT 127.0.0.1:$E2E_SSH_BASTION" "$TMP/proxy.log" && echo True || echo False)"
 check "vpn status sees the proxy" True "$($K vpn proxy status | jget 'any(r["name"] == "t-corp" and r["up"] for r in d["data"]["vpns"])')"
 kill "$PROXY_PID" 2>/dev/null
-check "a proxy that is gone is VPN_DOWN" VPN_DOWN "$($K exec t-viaproxy -- hostname | jget 'd["data"]["results"][0]["error"]["code"]')"
-q $K host rm t-viaproxy
+check "a proxy that is gone is VPN_DOWN" VPN_DOWN "$($K host ssh exec t-viaproxy -- hostname | jget 'd["data"]["results"][0]["error"]["code"]')"
+q $K host ssh remove t-viaproxy
 q $K vpn proxy remove t-corp
 set -e

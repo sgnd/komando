@@ -229,7 +229,7 @@ func sudoBackupScript(qtmp string, now time.Time) string {
 }
 
 func backupFailed(p, stderr string) error {
-	return out.Errf(out.ExitRemote, "BACKUP_FAILED", "check free space with `komando exec TARGET --read-only -- df -h`, or run without --backup",
+	return out.Errf(out.ExitRemote, "BACKUP_FAILED", "check free space with `komando host ssh exec TARGET --read-only -- df -h`, or run without --backup",
 		"could not make a backup of %s: %s; the file was not changed", p, strings.TrimSpace(stderr))
 }
 

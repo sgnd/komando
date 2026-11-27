@@ -11,7 +11,7 @@ import (
 // when it asks nothing and is right whatever else is true.
 func TestDoctorFixIsStructured(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "db", "u@10.0.0.5", "--protected")
+	mustRun(t, "host", "ssh", "add", "db", "u@10.0.0.5", "--protected")
 	mustRun(t, "conn", "add", "db1", "postgres://app@10.0.0.5/app", "--label", "host=db")
 	mustRun(t, "conn", "add", "db2", "postgres://app@10.0.0.5/app")
 	d, _ := invRun(t, "doctor")

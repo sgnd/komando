@@ -12,7 +12,7 @@ import (
 // docker exec/compose/raw, cluster kubernetes exec/shell/raw and cache redis raw and cache memcached raw (every
 // command whose Use has `-- COMMAND...` or `-- ARGS...`). komando reads its
 // own flags anywhere before `--`, so every word for the other program must
-// come after `--`: without it, `komando exec web1 apt-get install -y nginx`
+// come after `--`: without it, `komando host ssh exec web1 apt-get install -y nginx`
 // would read -y as --yes (an approval no one gave), and a trailing
 // --dry-run would be taken by komando while the rest ran on the server.
 // Such a word is a usage error, always (docs/design/command-standard.md,
@@ -78,7 +78,7 @@ func dashExample(cmd *cobra.Command) string {
 			return strings.TrimSpace(l)
 		}
 	}
-	return "komando exec web1 -- apt-get install -y nginx"
+	return "komando host ssh exec web1 -- apt-get install -y nginx"
 }
 
 // dashWho is what gets the words after --.

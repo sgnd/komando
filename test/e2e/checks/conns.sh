@@ -177,7 +177,7 @@ echo "==> servers and conns together"
 q $K group create stack 'bastion,pg,cache'
 check "list @stack has both" "bastion,cache,pg" "$($K list @stack | jget '",".join(t["name"] for t in d["data"]["targets"])')"
 check "test @stack checks both" 3 "$($K test @stack | jget 'd["data"]["summary"]["ok"]')"
-check "exec @stack skips conns" "cache,pg" "$($K exec @stack --read-only -- true | jget '",".join(s["name"] for s in d["meta"]["skipped"])')"
+check "exec @stack skips conns" "cache,pg" "$($K host ssh exec @stack --read-only -- true | jget '",".join(s["name"] for s in d["meta"]["skipped"])')"
 check "database postgres query @stack finds pg" 1 "$($K database postgres query @stack 'select 1 as n' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 check "cache on a database says use db" NO_MATCHING_TARGETS "$($K cache info pg | jget 'd["error"]["code"]' || true)"
 
@@ -199,6 +199,6 @@ check "sync --delete --dry-run lists it" sub/b.txt "$($K copy "$TMP/tree" direct
 check "sync --delete stops before it empties sub/" EMPTY_FOLDER_CONFIRM_REQUIRED "$($K copy "$TMP/tree" direct:/home/agent/site --sync --exclude '*.tmp' --delete --allow-dangerous | jget '(d.get("error") or d["data"]["results"][0]["error"])["code"]' || true)"
 check "sync --delete --emptied sub removes it" 1 "$($K copy "$TMP/tree" direct:/home/agent/site --sync --exclude '*.tmp' --delete --allow-dangerous --emptied sub | jget 'd["data"]["results"][0]["deleted"]')"
 check "sync from a server" one "$($K copy direct:/home/agent/site "$TMP/site-back" --sync >/dev/null; cat "$TMP/site-back/a.txt")"
-TUN=$($K tunnel start pg | jget 'd["data"]["listen"]')
+TUN=$($K host ssh tunnel start pg | jget 'd["data"]["listen"]')
 check "tunnel to a conn by name" 0 "$(nc -z "${TUN%:*}" "${TUN##*:}"; echo $?)"
-q $K tunnel stop --all
+q $K host ssh tunnel stop --all

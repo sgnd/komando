@@ -30,7 +30,7 @@ func TestDrawReview(t *testing.T) {
 	lines := DrawReview(NewReview("host exec web-1 -- uptime"), Style{Width: 80})
 	want := []string{
 		"Run this?",
-		"  $ komando host exec web-1 -- uptime",
+		"  $ komando host ssh exec web-1 -- uptime",
 		"Enter run · Esc back to the form · Ctrl-C stop",
 	}
 	if strings.Join(lines, "\n") != strings.Join(want, "\n") {

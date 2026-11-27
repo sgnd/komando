@@ -1122,30 +1122,6 @@
 "environment"	netread	environment	runs
 "environment"	read	environment	runs
 "environment"	shell	environment	runs
-"exec --analyze"	full	exec	runs
-"exec --analyze"	netread	exec	runs
-"exec --analyze"	read	exec	runs
-"exec --analyze"	shell	exec	runs
-"exec --help"	full	exec	runs
-"exec --help"	netread	exec	runs
-"exec --help"	read	exec	runs
-"exec --help"	shell	exec	runs
-"exec --read-only"	full	exec	runs
-"exec --read-only"	netread	exec	runs
-"exec --read-only"	read	exec	SSH_GATE_NETWORK_REQUIRED|komando exec is refused for a read key without network: it runs a program of your choosing, which can connect anywhere
-"exec --read-only"	shell	exec	runs
-"exec --refresh"	full	exec	runs
-"exec --refresh"	netread	exec	runs
-"exec --refresh"	read	exec	runs
-"exec --refresh"	shell	exec	runs
-"exec --write"	full	exec	runs
-"exec --write"	netread	exec	runs
-"exec --write"	read	exec	runs
-"exec --write"	shell	exec	runs
-"exec"	full	exec	runs
-"exec"	netread	exec	SSH_GATE_READ_ONLY|komando exec is refused for a read-only key: without --read-only it can change something
-"exec"	read	exec	SSH_GATE_READ_ONLY|komando exec is refused for a read-only key: without --read-only it can change something
-"exec"	shell	exec	runs
 "exit-codes --help"	full	exit-codes	runs
 "exit-codes --help"	netread	exit-codes	runs
 "exit-codes --help"	read	exit-codes	runs
@@ -1330,14 +1306,6 @@
 "host --help"	netread	host	runs
 "host --help"	read	host	runs
 "host --help"	shell	host	runs
-"host add --help"	full	host.add	runs
-"host add --help"	netread	host.add	runs
-"host add --help"	read	host.add	runs
-"host add --help"	shell	host.add	runs
-"host add"	full	host.add	SSH_GATE_REFUSED|komando host add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"host add"	netread	host.add	SSH_GATE_REFUSED|komando host add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"host add"	read	host.add	SSH_GATE_REFUSED|komando host add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"host add"	shell	host.add	SSH_GATE_REFUSED|komando host add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
 "host ca --help"	full	host.ca	runs
 "host ca --help"	netread	host.ca	runs
 "host ca --help"	read	host.ca	runs
@@ -1354,46 +1322,142 @@
 "host ca"	netread	host.ca	runs
 "host ca"	read	host.ca	runs
 "host ca"	shell	host.ca	runs
-"host edit --help"	full	host.edit	runs
-"host edit --help"	netread	host.edit	runs
-"host edit --help"	read	host.edit	runs
-"host edit --help"	shell	host.edit	runs
-"host edit"	full	host.edit	SSH_GATE_REFUSED|komando host edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"host edit"	netread	host.edit	SSH_GATE_REFUSED|komando host edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"host edit"	read	host.edit	SSH_GATE_REFUSED|komando host edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"host edit"	shell	host.edit	SSH_GATE_REFUSED|komando host edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"host list --help"	full	host.list	runs
-"host list --help"	netread	host.list	runs
-"host list --help"	read	host.list	runs
-"host list --help"	shell	host.list	runs
-"host list"	full	host.list	runs
-"host list"	netread	host.list	runs
-"host list"	read	host.list	runs
-"host list"	shell	host.list	runs
-"host rename --help"	full	host.rename	runs
-"host rename --help"	netread	host.rename	runs
-"host rename --help"	read	host.rename	runs
-"host rename --help"	shell	host.rename	runs
-"host rename"	full	host.rename	SSH_GATE_REFUSED|komando host rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"host rename"	netread	host.rename	SSH_GATE_REFUSED|komando host rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"host rename"	read	host.rename	SSH_GATE_REFUSED|komando host rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"host rename"	shell	host.rename	SSH_GATE_REFUSED|komando host rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"host rm --help"	full	host.rm	runs
-"host rm --help"	netread	host.rm	runs
-"host rm --help"	read	host.rm	runs
-"host rm --help"	shell	host.rm	runs
-"host rm"	full	host.rm	SSH_GATE_REFUSED|komando host rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"host rm"	netread	host.rm	SSH_GATE_REFUSED|komando host rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"host rm"	read	host.rm	SSH_GATE_REFUSED|komando host rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"host rm"	shell	host.rm	SSH_GATE_REFUSED|komando host rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"host show --help"	full	host.show	runs
-"host show --help"	netread	host.show	runs
-"host show --help"	read	host.show	runs
-"host show --help"	shell	host.show	runs
-"host show"	full	host.show	runs
-"host show"	netread	host.show	runs
-"host show"	read	host.show	runs
-"host show"	shell	host.show	runs
+"host ssh --help"	full	host.ssh	runs
+"host ssh --help"	netread	host.ssh	runs
+"host ssh --help"	read	host.ssh	runs
+"host ssh --help"	shell	host.ssh	runs
+"host ssh add --help"	full	host.ssh.add	runs
+"host ssh add --help"	netread	host.ssh.add	runs
+"host ssh add --help"	read	host.ssh.add	runs
+"host ssh add --help"	shell	host.ssh.add	runs
+"host ssh add"	full	host.ssh.add	SSH_GATE_REFUSED|komando host ssh add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ssh add"	netread	host.ssh.add	SSH_GATE_REFUSED|komando host ssh add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ssh add"	read	host.ssh.add	SSH_GATE_REFUSED|komando host ssh add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ssh add"	shell	host.ssh.add	SSH_GATE_REFUSED|komando host ssh add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ssh edit --help"	full	host.ssh.edit	runs
+"host ssh edit --help"	netread	host.ssh.edit	runs
+"host ssh edit --help"	read	host.ssh.edit	runs
+"host ssh edit --help"	shell	host.ssh.edit	runs
+"host ssh edit"	full	host.ssh.edit	SSH_GATE_REFUSED|komando host ssh edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ssh edit"	netread	host.ssh.edit	SSH_GATE_REFUSED|komando host ssh edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ssh edit"	read	host.ssh.edit	SSH_GATE_REFUSED|komando host ssh edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ssh edit"	shell	host.ssh.edit	SSH_GATE_REFUSED|komando host ssh edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ssh exec --analyze"	full	host.ssh.exec	runs
+"host ssh exec --analyze"	netread	host.ssh.exec	runs
+"host ssh exec --analyze"	read	host.ssh.exec	runs
+"host ssh exec --analyze"	shell	host.ssh.exec	runs
+"host ssh exec --help"	full	host.ssh.exec	runs
+"host ssh exec --help"	netread	host.ssh.exec	runs
+"host ssh exec --help"	read	host.ssh.exec	runs
+"host ssh exec --help"	shell	host.ssh.exec	runs
+"host ssh exec --read-only"	full	host.ssh.exec	runs
+"host ssh exec --read-only"	netread	host.ssh.exec	runs
+"host ssh exec --read-only"	read	host.ssh.exec	SSH_GATE_NETWORK_REQUIRED|komando host ssh exec is refused for a read key without network: it runs a program of your choosing, which can connect anywhere
+"host ssh exec --read-only"	shell	host.ssh.exec	runs
+"host ssh exec --refresh"	full	host.ssh.exec	runs
+"host ssh exec --refresh"	netread	host.ssh.exec	runs
+"host ssh exec --refresh"	read	host.ssh.exec	runs
+"host ssh exec --refresh"	shell	host.ssh.exec	runs
+"host ssh exec --write"	full	host.ssh.exec	runs
+"host ssh exec --write"	netread	host.ssh.exec	runs
+"host ssh exec --write"	read	host.ssh.exec	runs
+"host ssh exec --write"	shell	host.ssh.exec	runs
+"host ssh exec"	full	host.ssh.exec	runs
+"host ssh exec"	netread	host.ssh.exec	SSH_GATE_READ_ONLY|komando host ssh exec is refused for a read-only key: without --read-only it can change something
+"host ssh exec"	read	host.ssh.exec	SSH_GATE_READ_ONLY|komando host ssh exec is refused for a read-only key: without --read-only it can change something
+"host ssh exec"	shell	host.ssh.exec	runs
+"host ssh list --help"	full	host.ssh.list	runs
+"host ssh list --help"	netread	host.ssh.list	runs
+"host ssh list --help"	read	host.ssh.list	runs
+"host ssh list --help"	shell	host.ssh.list	runs
+"host ssh list"	full	host.ssh.list	runs
+"host ssh list"	netread	host.ssh.list	runs
+"host ssh list"	read	host.ssh.list	runs
+"host ssh list"	shell	host.ssh.list	runs
+"host ssh remove --help"	full	host.ssh.remove	runs
+"host ssh remove --help"	netread	host.ssh.remove	runs
+"host ssh remove --help"	read	host.ssh.remove	runs
+"host ssh remove --help"	shell	host.ssh.remove	runs
+"host ssh remove"	full	host.ssh.remove	SSH_GATE_REFUSED|komando host ssh remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ssh remove"	netread	host.ssh.remove	SSH_GATE_REFUSED|komando host ssh remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ssh remove"	read	host.ssh.remove	SSH_GATE_REFUSED|komando host ssh remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ssh remove"	shell	host.ssh.remove	SSH_GATE_REFUSED|komando host ssh remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ssh rename --help"	full	host.ssh.rename	runs
+"host ssh rename --help"	netread	host.ssh.rename	runs
+"host ssh rename --help"	read	host.ssh.rename	runs
+"host ssh rename --help"	shell	host.ssh.rename	runs
+"host ssh rename"	full	host.ssh.rename	SSH_GATE_REFUSED|komando host ssh rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ssh rename"	netread	host.ssh.rename	SSH_GATE_REFUSED|komando host ssh rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ssh rename"	read	host.ssh.rename	SSH_GATE_REFUSED|komando host ssh rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ssh rename"	shell	host.ssh.rename	SSH_GATE_REFUSED|komando host ssh rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ssh shell --help"	full	host.ssh.shell	SSH_GATE_REFUSED|komando host ssh shell needs a person at a terminal on this computer; a key cannot run it
+"host ssh shell --help"	netread	host.ssh.shell	SSH_GATE_REFUSED|komando host ssh shell needs a person at a terminal on this computer; a key cannot run it
+"host ssh shell --help"	read	host.ssh.shell	SSH_GATE_REFUSED|komando host ssh shell needs a person at a terminal on this computer; a key cannot run it
+"host ssh shell --help"	shell	host.ssh.shell	SSH_GATE_REFUSED|a key opens a shell only as `komando host ssh shell SERVER`, with no other word or flag
+"host ssh shell"	full	host.ssh.shell	SSH_GATE_REFUSED|komando host ssh shell needs a person at a terminal on this computer; a key cannot run it
+"host ssh shell"	netread	host.ssh.shell	SSH_GATE_REFUSED|komando host ssh shell needs a person at a terminal on this computer; a key cannot run it
+"host ssh shell"	read	host.ssh.shell	SSH_GATE_REFUSED|komando host ssh shell needs a person at a terminal on this computer; a key cannot run it
+"host ssh shell"	shell	host.ssh.shell	SSH_GATE_REFUSED|a key opens a shell only as `komando host ssh shell SERVER`, with no other word or flag
+"host ssh show --help"	full	host.ssh.show	runs
+"host ssh show --help"	netread	host.ssh.show	runs
+"host ssh show --help"	read	host.ssh.show	runs
+"host ssh show --help"	shell	host.ssh.show	runs
+"host ssh show"	full	host.ssh.show	runs
+"host ssh show"	netread	host.ssh.show	runs
+"host ssh show"	read	host.ssh.show	runs
+"host ssh show"	shell	host.ssh.show	runs
+"host ssh test --help"	full	host.ssh.test	runs
+"host ssh test --help"	netread	host.ssh.test	runs
+"host ssh test --help"	read	host.ssh.test	runs
+"host ssh test --help"	shell	host.ssh.test	runs
+"host ssh test"	full	host.ssh.test	runs
+"host ssh test"	netread	host.ssh.test	runs
+"host ssh test"	read	host.ssh.test	runs
+"host ssh test"	shell	host.ssh.test	runs
+"host ssh trust --help"	full	host.ssh.trust	runs
+"host ssh trust --help"	netread	host.ssh.trust	runs
+"host ssh trust --help"	read	host.ssh.trust	runs
+"host ssh trust --help"	shell	host.ssh.trust	runs
+"host ssh trust"	full	host.ssh.trust	SSH_GATE_REFUSED|komando host ssh trust is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ssh trust"	netread	host.ssh.trust	SSH_GATE_REFUSED|komando host ssh trust is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ssh trust"	read	host.ssh.trust	SSH_GATE_REFUSED|komando host ssh trust is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ssh trust"	shell	host.ssh.trust	SSH_GATE_REFUSED|komando host ssh trust is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ssh tunnel --help"	full	host.ssh.tunnel	runs
+"host ssh tunnel --help"	netread	host.ssh.tunnel	runs
+"host ssh tunnel --help"	read	host.ssh.tunnel	runs
+"host ssh tunnel --help"	shell	host.ssh.tunnel	runs
+"host ssh tunnel list --help"	full	host.ssh.tunnel.list	runs
+"host ssh tunnel list --help"	netread	host.ssh.tunnel.list	runs
+"host ssh tunnel list --help"	read	host.ssh.tunnel.list	runs
+"host ssh tunnel list --help"	shell	host.ssh.tunnel.list	runs
+"host ssh tunnel list"	full	host.ssh.tunnel.list	runs
+"host ssh tunnel list"	netread	host.ssh.tunnel.list	runs
+"host ssh tunnel list"	read	host.ssh.tunnel.list	runs
+"host ssh tunnel list"	shell	host.ssh.tunnel.list	runs
+"host ssh tunnel start --help"	full	host.ssh.tunnel.start	runs
+"host ssh tunnel start --help"	netread	host.ssh.tunnel.start	runs
+"host ssh tunnel start --help"	read	host.ssh.tunnel.start	runs
+"host ssh tunnel start --help"	shell	host.ssh.tunnel.start	runs
+"host ssh tunnel start"	full	host.ssh.tunnel.start	SSH_GATE_REFUSED|komando host ssh tunnel start is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ssh tunnel start"	netread	host.ssh.tunnel.start	SSH_GATE_REFUSED|komando host ssh tunnel start is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ssh tunnel start"	read	host.ssh.tunnel.start	SSH_GATE_REFUSED|komando host ssh tunnel start is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ssh tunnel start"	shell	host.ssh.tunnel.start	SSH_GATE_REFUSED|komando host ssh tunnel start is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ssh tunnel stop --help"	full	host.ssh.tunnel.stop	runs
+"host ssh tunnel stop --help"	netread	host.ssh.tunnel.stop	runs
+"host ssh tunnel stop --help"	read	host.ssh.tunnel.stop	runs
+"host ssh tunnel stop --help"	shell	host.ssh.tunnel.stop	runs
+"host ssh tunnel stop"	full	host.ssh.tunnel.stop	SSH_GATE_REFUSED|komando host ssh tunnel stop is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ssh tunnel stop"	netread	host.ssh.tunnel.stop	SSH_GATE_REFUSED|komando host ssh tunnel stop is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ssh tunnel stop"	read	host.ssh.tunnel.stop	SSH_GATE_REFUSED|komando host ssh tunnel stop is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ssh tunnel stop"	shell	host.ssh.tunnel.stop	SSH_GATE_REFUSED|komando host ssh tunnel stop is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host ssh tunnel"	full	host.ssh.tunnel	runs
+"host ssh tunnel"	netread	host.ssh.tunnel	runs
+"host ssh tunnel"	read	host.ssh.tunnel	runs
+"host ssh tunnel"	shell	host.ssh.tunnel	runs
+"host ssh"	full	host.ssh	runs
+"host ssh"	netread	host.ssh	runs
+"host ssh"	read	host.ssh	runs
+"host ssh"	shell	host.ssh	runs
 "host ssh-command --help"	full	host.ssh-command	runs
 "host ssh-command --help"	netread	host.ssh-command	runs
 "host ssh-command --help"	read	host.ssh-command	runs
@@ -1402,22 +1466,102 @@
 "host ssh-command"	netread	host.ssh-command	runs
 "host ssh-command"	read	host.ssh-command	runs
 "host ssh-command"	shell	host.ssh-command	runs
-"host test --help"	full	host.test	runs
-"host test --help"	netread	host.test	runs
-"host test --help"	read	host.test	runs
-"host test --help"	shell	host.test	runs
-"host test"	full	host.test	runs
-"host test"	netread	host.test	runs
-"host test"	read	host.test	runs
-"host test"	shell	host.test	runs
-"host trust --help"	full	host.trust	runs
-"host trust --help"	netread	host.trust	runs
-"host trust --help"	read	host.trust	runs
-"host trust --help"	shell	host.trust	runs
-"host trust"	full	host.trust	SSH_GATE_REFUSED|komando host trust is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"host trust"	netread	host.trust	SSH_GATE_REFUSED|komando host trust is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"host trust"	read	host.trust	SSH_GATE_REFUSED|komando host trust is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"host trust"	shell	host.trust	SSH_GATE_REFUSED|komando host trust is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host winrm --help"	full	host.winrm	runs
+"host winrm --help"	netread	host.winrm	runs
+"host winrm --help"	read	host.winrm	runs
+"host winrm --help"	shell	host.winrm	runs
+"host winrm add --help"	full	host.winrm.add	runs
+"host winrm add --help"	netread	host.winrm.add	runs
+"host winrm add --help"	read	host.winrm.add	runs
+"host winrm add --help"	shell	host.winrm.add	runs
+"host winrm add"	full	host.winrm.add	SSH_GATE_REFUSED|komando host winrm add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host winrm add"	netread	host.winrm.add	SSH_GATE_REFUSED|komando host winrm add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host winrm add"	read	host.winrm.add	SSH_GATE_REFUSED|komando host winrm add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host winrm add"	shell	host.winrm.add	SSH_GATE_REFUSED|komando host winrm add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host winrm edit --help"	full	host.winrm.edit	runs
+"host winrm edit --help"	netread	host.winrm.edit	runs
+"host winrm edit --help"	read	host.winrm.edit	runs
+"host winrm edit --help"	shell	host.winrm.edit	runs
+"host winrm edit"	full	host.winrm.edit	SSH_GATE_REFUSED|komando host winrm edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host winrm edit"	netread	host.winrm.edit	SSH_GATE_REFUSED|komando host winrm edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host winrm edit"	read	host.winrm.edit	SSH_GATE_REFUSED|komando host winrm edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host winrm edit"	shell	host.winrm.edit	SSH_GATE_REFUSED|komando host winrm edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host winrm exec --analyze"	full	host.winrm.exec	runs
+"host winrm exec --analyze"	netread	host.winrm.exec	runs
+"host winrm exec --analyze"	read	host.winrm.exec	runs
+"host winrm exec --analyze"	shell	host.winrm.exec	runs
+"host winrm exec --help"	full	host.winrm.exec	runs
+"host winrm exec --help"	netread	host.winrm.exec	runs
+"host winrm exec --help"	read	host.winrm.exec	runs
+"host winrm exec --help"	shell	host.winrm.exec	runs
+"host winrm exec --read-only"	full	host.winrm.exec	runs
+"host winrm exec --read-only"	netread	host.winrm.exec	runs
+"host winrm exec --read-only"	read	host.winrm.exec	SSH_GATE_NETWORK_REQUIRED|komando host winrm exec is refused for a read key without network: it runs a program of your choosing, which can connect anywhere
+"host winrm exec --read-only"	shell	host.winrm.exec	runs
+"host winrm exec --refresh"	full	host.winrm.exec	runs
+"host winrm exec --refresh"	netread	host.winrm.exec	runs
+"host winrm exec --refresh"	read	host.winrm.exec	runs
+"host winrm exec --refresh"	shell	host.winrm.exec	runs
+"host winrm exec --write"	full	host.winrm.exec	runs
+"host winrm exec --write"	netread	host.winrm.exec	runs
+"host winrm exec --write"	read	host.winrm.exec	runs
+"host winrm exec --write"	shell	host.winrm.exec	runs
+"host winrm exec"	full	host.winrm.exec	runs
+"host winrm exec"	netread	host.winrm.exec	SSH_GATE_READ_ONLY|komando host winrm exec is refused for a read-only key: without --read-only it can change something
+"host winrm exec"	read	host.winrm.exec	SSH_GATE_READ_ONLY|komando host winrm exec is refused for a read-only key: without --read-only it can change something
+"host winrm exec"	shell	host.winrm.exec	runs
+"host winrm list --help"	full	host.winrm.list	runs
+"host winrm list --help"	netread	host.winrm.list	runs
+"host winrm list --help"	read	host.winrm.list	runs
+"host winrm list --help"	shell	host.winrm.list	runs
+"host winrm list"	full	host.winrm.list	runs
+"host winrm list"	netread	host.winrm.list	runs
+"host winrm list"	read	host.winrm.list	runs
+"host winrm list"	shell	host.winrm.list	runs
+"host winrm remove --help"	full	host.winrm.remove	runs
+"host winrm remove --help"	netread	host.winrm.remove	runs
+"host winrm remove --help"	read	host.winrm.remove	runs
+"host winrm remove --help"	shell	host.winrm.remove	runs
+"host winrm remove"	full	host.winrm.remove	SSH_GATE_REFUSED|komando host winrm remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host winrm remove"	netread	host.winrm.remove	SSH_GATE_REFUSED|komando host winrm remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host winrm remove"	read	host.winrm.remove	SSH_GATE_REFUSED|komando host winrm remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host winrm remove"	shell	host.winrm.remove	SSH_GATE_REFUSED|komando host winrm remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host winrm rename --help"	full	host.winrm.rename	runs
+"host winrm rename --help"	netread	host.winrm.rename	runs
+"host winrm rename --help"	read	host.winrm.rename	runs
+"host winrm rename --help"	shell	host.winrm.rename	runs
+"host winrm rename"	full	host.winrm.rename	SSH_GATE_REFUSED|komando host winrm rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host winrm rename"	netread	host.winrm.rename	SSH_GATE_REFUSED|komando host winrm rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host winrm rename"	read	host.winrm.rename	SSH_GATE_REFUSED|komando host winrm rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host winrm rename"	shell	host.winrm.rename	SSH_GATE_REFUSED|komando host winrm rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"host winrm shell --help"	full	host.winrm.shell	SSH_GATE_REFUSED|komando host winrm shell needs a person at a terminal on this computer; a key cannot run it
+"host winrm shell --help"	netread	host.winrm.shell	SSH_GATE_REFUSED|komando host winrm shell needs a person at a terminal on this computer; a key cannot run it
+"host winrm shell --help"	read	host.winrm.shell	SSH_GATE_REFUSED|komando host winrm shell needs a person at a terminal on this computer; a key cannot run it
+"host winrm shell --help"	shell	host.winrm.shell	SSH_GATE_REFUSED|a key opens a shell only as `komando host ssh shell SERVER`, with no other word or flag
+"host winrm shell"	full	host.winrm.shell	SSH_GATE_REFUSED|komando host winrm shell needs a person at a terminal on this computer; a key cannot run it
+"host winrm shell"	netread	host.winrm.shell	SSH_GATE_REFUSED|komando host winrm shell needs a person at a terminal on this computer; a key cannot run it
+"host winrm shell"	read	host.winrm.shell	SSH_GATE_REFUSED|komando host winrm shell needs a person at a terminal on this computer; a key cannot run it
+"host winrm shell"	shell	host.winrm.shell	SSH_GATE_REFUSED|a key opens a shell only as `komando host ssh shell SERVER`, with no other word or flag
+"host winrm show --help"	full	host.winrm.show	runs
+"host winrm show --help"	netread	host.winrm.show	runs
+"host winrm show --help"	read	host.winrm.show	runs
+"host winrm show --help"	shell	host.winrm.show	runs
+"host winrm show"	full	host.winrm.show	runs
+"host winrm show"	netread	host.winrm.show	runs
+"host winrm show"	read	host.winrm.show	runs
+"host winrm show"	shell	host.winrm.show	runs
+"host winrm test --help"	full	host.winrm.test	runs
+"host winrm test --help"	netread	host.winrm.test	runs
+"host winrm test --help"	read	host.winrm.test	runs
+"host winrm test --help"	shell	host.winrm.test	runs
+"host winrm test"	full	host.winrm.test	runs
+"host winrm test"	netread	host.winrm.test	runs
+"host winrm test"	read	host.winrm.test	runs
+"host winrm test"	shell	host.winrm.test	runs
+"host winrm"	full	host.winrm	runs
+"host winrm"	netread	host.winrm	runs
+"host winrm"	read	host.winrm	runs
+"host winrm"	shell	host.winrm	runs
 "host"	full	host	runs
 "host"	netread	host	runs
 "host"	read	host	runs
@@ -3650,14 +3794,6 @@
 "tunnel --help"	netread	tunnel	runs
 "tunnel --help"	read	tunnel	runs
 "tunnel --help"	shell	tunnel	runs
-"tunnel list --help"	full	tunnel.list	runs
-"tunnel list --help"	netread	tunnel.list	runs
-"tunnel list --help"	read	tunnel.list	runs
-"tunnel list --help"	shell	tunnel.list	runs
-"tunnel list"	full	tunnel.list	runs
-"tunnel list"	netread	tunnel.list	runs
-"tunnel list"	read	tunnel.list	runs
-"tunnel list"	shell	tunnel.list	runs
 "tunnel serve --help"	full	tunnel.serve	runs
 "tunnel serve --help"	netread	tunnel.serve	runs
 "tunnel serve --help"	read	tunnel.serve	runs
@@ -3666,26 +3802,10 @@
 "tunnel serve"	netread	tunnel.serve	SSH_GATE_REFUSED|komando tunnel serve is komando's own plumbing, not for a key
 "tunnel serve"	read	tunnel.serve	SSH_GATE_REFUSED|komando tunnel serve is komando's own plumbing, not for a key
 "tunnel serve"	shell	tunnel.serve	SSH_GATE_REFUSED|komando tunnel serve is komando's own plumbing, not for a key
-"tunnel start --help"	full	tunnel.start	runs
-"tunnel start --help"	netread	tunnel.start	runs
-"tunnel start --help"	read	tunnel.start	runs
-"tunnel start --help"	shell	tunnel.start	runs
-"tunnel start"	full	tunnel.start	SSH_GATE_REFUSED|komando tunnel start is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"tunnel start"	netread	tunnel.start	SSH_GATE_REFUSED|komando tunnel start is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"tunnel start"	read	tunnel.start	SSH_GATE_REFUSED|komando tunnel start is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"tunnel start"	shell	tunnel.start	SSH_GATE_REFUSED|komando tunnel start is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"tunnel stop --help"	full	tunnel.stop	runs
-"tunnel stop --help"	netread	tunnel.stop	runs
-"tunnel stop --help"	read	tunnel.stop	runs
-"tunnel stop --help"	shell	tunnel.stop	runs
-"tunnel stop"	full	tunnel.stop	SSH_GATE_REFUSED|komando tunnel stop is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"tunnel stop"	netread	tunnel.stop	SSH_GATE_REFUSED|komando tunnel stop is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"tunnel stop"	read	tunnel.stop	SSH_GATE_REFUSED|komando tunnel stop is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"tunnel stop"	shell	tunnel.stop	SSH_GATE_REFUSED|komando tunnel stop is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"tunnel"	full	tunnel	runs
-"tunnel"	netread	tunnel	runs
-"tunnel"	read	tunnel	runs
-"tunnel"	shell	tunnel	runs
+"tunnel"	full	tunnel	SSH_GATE_REFUSED|komando tunnel is komando's own plumbing, not for a key
+"tunnel"	netread	tunnel	SSH_GATE_REFUSED|komando tunnel is komando's own plumbing, not for a key
+"tunnel"	read	tunnel	SSH_GATE_REFUSED|komando tunnel is komando's own plumbing, not for a key
+"tunnel"	shell	tunnel	SSH_GATE_REFUSED|komando tunnel is komando's own plumbing, not for a key
 "update --help"	full	update	runs
 "update --help"	netread	update	runs
 "update --help"	read	update	runs

@@ -72,7 +72,7 @@ func TestMaskKeepsPlainMessages(t *testing.T) {
 		"the registry ca option takes a secret reference, as in ?ca=secret:NAME",
 		"the credential helper docker-credential-osxkeychain failed (exit status 1)",
 		"the WireGuard private key does not parse (illegal base64 data at input byte 4)",
-		"komando exec web1 --host-key-policy=strict -- uptime",
+		"komando host ssh exec web1 --host-key-policy=strict -- uptime",
 		"store its passphrase: `komando credential password add deploy-pass`",
 	} {
 		if got := MaskSecrets(s); got != s {

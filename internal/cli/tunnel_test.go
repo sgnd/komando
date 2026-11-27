@@ -75,7 +75,7 @@ func TestCheckValidate(t *testing.T) {
 // could still bring the tunnel up after the person cancelled.
 func TestTunnelStartCtrlC(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@127.0.0.1:2")
+	mustRun(t, "host", "ssh", "add", "web1", "u@127.0.0.1:2")
 	var child *exec.Cmd
 	saved := tunnelServeCommand
 	tunnelServeCommand = func(string, []string) *exec.Cmd { child = sleeperCmd(); return child }
@@ -84,7 +84,7 @@ func TestTunnelStartCtrlC(t *testing.T) {
 	time.AfterFunc(500*time.Millisecond, cancel)
 	root := newRoot(tcl)
 	t.Cleanup(endCommand) // the next test starts with none of this command's flags
-	root.SetArgs([]string{"-o", "json", "tunnel", "start", "web1", "-L", "0:localhost:80"})
+	root.SetArgs([]string{"-o", "json", "host", "ssh", "tunnel", "start", "web1", "-L", "0:localhost:80"})
 	var buf bytes.Buffer
 	savedW := tcl.out.W
 	tcl.out.W = &buf
@@ -141,9 +141,9 @@ func TestParseTunnelIPv6(t *testing.T) {
 // logout does; the names (even unknown ones) were ignored.
 func TestAllWithNames(t *testing.T) {
 	invHome(t)
-	wantCode(t, "USAGE", "tunnel", "stop", "t-nosuch", "--all")
+	wantCode(t, "USAGE", "host", "ssh", "tunnel", "stop", "t-nosuch", "--all")
 	wantCode(t, "USAGE", "logout", "web1", "--all")
-	mustRun(t, "tunnel", "stop", "--all")
+	mustRun(t, "host", "ssh", "tunnel", "stop", "--all")
 }
 
 // TestViaTwice: a --via path that names a step twice is refused with
@@ -152,18 +152,18 @@ func TestAllWithNames(t *testing.T) {
 func TestViaTwice(t *testing.T) {
 	invHome(t)
 	mustRun(t, "vpn", "socks", "add", "office", "--proxy-address", "127.0.0.1:1")
-	mustRun(t, "host", "add", "bastion", "u@10.0.0.1")
-	mustRun(t, "host", "add", "b2", "u@10.0.0.3")
-	e := wantCode(t, "VIA_CYCLE", "host", "add", "app", "u@10.0.0.2", "--via", "office,office")
+	mustRun(t, "host", "ssh", "add", "bastion", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "b2", "u@10.0.0.3")
+	e := wantCode(t, "VIA_CYCLE", "host", "ssh", "add", "app", "u@10.0.0.2", "--via", "office,office")
 	if !strings.Contains(e.Hint, "--via office") || strings.Contains(e.Hint, "office,office") {
 		t.Errorf("hint: %s", e.Hint)
 	}
-	e = wantCode(t, "VIA_CYCLE", "host", "add", "app", "u@10.0.0.2", "--via", "bastion,b2,bastion")
+	e = wantCode(t, "VIA_CYCLE", "host", "ssh", "add", "app", "u@10.0.0.2", "--via", "bastion,b2,bastion")
 	if !strings.Contains(e.Hint, "--via bastion,b2") {
 		t.Errorf("hint: %s", e.Hint)
 	}
 	wantCode(t, "VIA_CYCLE", "conn", "add", "pg", "postgres://u@10.0.0.9/db", "--via", "office,bastion,bastion")
-	mustRun(t, "host", "add", "app", "u@10.0.0.2", "--via", "office,bastion,b2")
+	mustRun(t, "host", "ssh", "add", "app", "u@10.0.0.2", "--via", "office,bastion,b2")
 }
 
 // TestTunnelStopOtherProgram: a tunnel whose pid now belongs to another
@@ -188,7 +188,7 @@ func TestTunnelStopOtherProgram(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	d := mustRun(t, "tunnel", "list")
+	d := mustRun(t, "host", "ssh", "tunnel", "list")
 	if r := d["tunnels"].([]any)[0].(map[string]any); r["alive"] != false {
 		t.Errorf("another program's pid listed as the tunnel: %v", r)
 	}
@@ -209,7 +209,7 @@ func TestTunnelStopOtherProgram(t *testing.T) {
 	if r := runningServes(); slices.Contains(r, "tunnel t-old") {
 		t.Errorf("restart list names another program's pid: %v", r)
 	}
-	mustRun(t, "tunnel", "stop", "t-old")
+	mustRun(t, "host", "ssh", "tunnel", "stop", "t-old")
 	select {
 	case <-exited:
 		t.Fatal("tunnel stop signalled another program")
@@ -221,5 +221,26 @@ func TestTunnelStopOtherProgram(t *testing.T) {
 	defer func() { tunnelExe = saved }()
 	if !tunnelAlive(&store.Tunnel{PID: other.Process.Pid, ProcStart: netx.ProcessStart(other.Process.Pid)}) {
 		t.Error("a running tunnel process is not seen")
+	}
+}
+
+// An empty tunnel list names the command that starts one, on its path.
+func TestTunnelListEmptyNamesHostSSHTunnelStart(t *testing.T) {
+	if got := (tunnelList{}).Text(); !strings.Contains(got, "`komando host ssh tunnel start TARGET -L SPEC`") {
+		t.Errorf("empty list: %q", got)
+	}
+}
+
+// tunnel serve run by hand is told to use host ssh tunnel start.
+func TestTunnelServeByHandNamesHostSSHTunnelStart(t *testing.T) {
+	invHome(t)
+	saved := tcl.stdin
+	t.Cleanup(func() { tcl.stdin = saved })
+	for _, logins := range []bool{false, true} {
+		tcl.stdin = strings.NewReader("")
+		_, err := serveState(tcl, logins, false)
+		if e := toErr(err); e.Code != "NEEDS_PERSON" || !strings.Contains(e.Hint, "`komando host ssh tunnel start`") {
+			t.Errorf("logins %v: %+v", logins, e)
+		}
 	}
 }

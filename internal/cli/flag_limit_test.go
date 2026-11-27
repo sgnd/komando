@@ -63,10 +63,10 @@ func TestStandardListLimit(t *testing.T) {
 // everything does not. Count is what is shown.
 func TestListLimitTruncated(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "a1", "u@10.0.0.1")
-	mustRun(t, "host", "add", "a2", "u@10.0.0.2")
-	mustRun(t, "host", "add", "a3", "u@10.0.0.3")
-	for _, args := range [][]string{{"list"}, {"host", "list"}, {"ls"}} {
+	mustRun(t, "host", "ssh", "add", "a1", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "a2", "u@10.0.0.2")
+	mustRun(t, "host", "ssh", "add", "a3", "u@10.0.0.3")
+	for _, args := range [][]string{{"list"}, {"host", "ssh", "list"}, {"ls"}} {
 		d := mustRun(t, append(args, "-n", "2")...)
 		if d["count"].(float64) != 2 || len(d["targets"].([]any)) != 2 {
 			t.Errorf("%v -n 2: %v", args, d)

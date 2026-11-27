@@ -13,7 +13,7 @@ import (
 // A key whose line has --shell-access (only one that may change things) may also
 // open a login shell on one server. Its line says restrict,pty, so sshd
 // gives the call a terminal when the key asks for one (ssh -t). The gate
-// lets the shell through only as `komando shell SERVER`, word for word,
+// lets the shell through only as `komando host ssh shell SERVER`, word for word,
 // with that terminal, for a server in the inventory named as it is written
 // there that is not protected, not Windows and not this computer, and
 // never while you have deny rules of your own. Anything it cannot read so
@@ -25,24 +25,28 @@ import (
 // be a terminal as well.
 func gateTTY(cl *call) bool { return cl.terminal && cl.getenv("SSH_TTY") != "" }
 
+// isHostShell is true for the ID of a server shell (the db and cluster shells
+// are other commands).
+func isHostShell(id string) bool { return id == "host.ssh.shell" || id == "host.winrm.shell" }
+
 // gateShell says whether a --shell-access key may open the shell args asks for (c
 // is the shell command, found in args): nil, or the stop.
 func gateShell(c *cobra.Command, args []string, key gateKey) *out.Error {
 	refuse := func(hint, format string, a ...any) *out.Error {
 		return out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", hint, format, a...)
 	}
-	onlyShell := refuse("send exactly: komando shell SERVER", "a key opens a shell only as `komando shell SERVER`, with no other word or flag")
-	if len(args) != 2 || args[0] != "shell" || strings.HasPrefix(args[1], "-") {
+	onlyShell := refuse("send exactly: komando host ssh shell SERVER", "a key opens a shell only as `komando host ssh shell SERVER`, with no other word or flag")
+	if len(args) != 4 || args[0] != "host" || !isHostShell(strings.Join(args[:3], ".")) || strings.HasPrefix(args[3], "-") {
 		return onlyShell
 	}
-	if err := c.ParseFlags(args[1:]); err != nil || len(c.Flags().Args()) != 1 {
+	if err := c.ParseFlags(args[3:]); err != nil || len(c.Flags().Args()) != 1 {
 		return onlyShell
 	}
 	if !key.tty {
-		return refuse("connect with a terminal: ssh -t HOST komando shell SERVER",
-			"komando shell needs the terminal sshd gives a key that asks for one, and this call has none")
+		return refuse("connect with a terminal: ssh -t HOST komando host ssh shell SERVER",
+			"komando host ssh shell needs the terminal sshd gives a key that asks for one, and this call has none")
 	}
-	server := args[1]
+	server := args[3]
 	st, err := store.Load()
 	if err != nil {
 		return refuse("check the inventory on the komando computer (`komando doctor`)", "the inventory could not be read")
@@ -50,7 +54,7 @@ func gateShell(c *cobra.Command, args []string, key gateKey) *out.Error {
 	h := st.Hosts[server]
 	listed := h != nil && !isSelector(server)
 	if listed {
-		// komando shell finds the server again by this name: it must be this one, alone
+		// komando host ssh shell finds the server again by this name: it must be this one, alone
 		sel, err := resolveSelection(callOf(c), st, server)
 		listed = err == nil && len(sel.Hosts) == 1 && sel.Hosts[0] == h && len(sel.Conns)+len(sel.Vpns) == 0
 	}
@@ -58,9 +62,9 @@ func gateShell(c *cobra.Command, args []string, key gateKey) *out.Error {
 		return refuse("name one server exactly as `komando list` shows it",
 			"%q is no server in your list; a key opens a shell only on one listed server, named as it is written there", server)
 	}
-	if why := gateLocalTarget(c, "shell"); why != "" {
+	if why := gateLocalTarget(c, commandName(c)); why != "" {
 		return refuse("a person uses a terminal on the komando computer itself",
-			"komando shell is refused for a key: %s; the gate opens shells on servers, not on this computer", why)
+			"komando host ssh shell is refused for a key: %s; the gate opens shells on servers, not on this computer", why)
 	}
 	return gateShellHost(st, h)
 }
@@ -73,10 +77,10 @@ func gateShellHost(st *store.State, h *store.Host) *out.Error {
 		return out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "a person opens a shell on a protected server at the komando computer itself",
 			"the server %s is protected, or is a protected server under another name: a shell there can change anything, and no key opens one", h.Name)
 	case h.Windows():
-		return out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "run PowerShell with `komando exec "+h.Name+" -- ...` instead",
+		return out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "run PowerShell with `komando host ssh exec "+h.Name+" -- ...` instead",
 			"the server %s is a Windows server: a key opens a shell only on a Linux or Unix server", h.Name)
 	case len(st.Settings.ExtraDenyPattern) > 0:
-		return out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "send single commands instead (`komando exec "+h.Name+" -- ...`), which your deny rules check; a person opens the shell at the komando computer itself",
+		return out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "send single commands instead (`komando host ssh exec "+h.Name+" -- ...`), which your deny rules check; a person opens the shell at the komando computer itself",
 			"you have deny rules of your own (`komando policy list`), and komando does not see what is typed in a shell, so a shell would get past them: no key opens one while they are set")
 	}
 	return nil

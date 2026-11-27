@@ -2,7 +2,7 @@
 # komando's own dump and restore (no pg_dump, psql, mysqldump or mysql):
 # used when a conn is reached directly or through a VPN, as here.
 echo "==> built-in dump and restore"
-q $K tunnel start bastion -D "127.0.0.1:$E2E_SOCKS"
+q $K host ssh tunnel start bastion -D "127.0.0.1:$E2E_SOCKS"
 q $K conn add pg-lab2 'postgres://app@pg:5432/app?sslmode=disable' --via lab --password-ref secret:pg-pass
 NOTOOLS=(env PATH=/usr/bin:/bin)
 q $K database postgres query pg --write --allow-dangerous "drop schema if exists dumpt cascade"
@@ -39,8 +39,8 @@ grep -q '"ok":true' "$TMP/restore.json" || { echo "  restore said:"; head -c 150
 # newer pg_dump prints each column's pg_attver, an internal number that differs
 # per database, so those lines are left out of the comparison
 PGD='pg_dump -h pg -U app --schema-only --no-owner --no-acl'
-$K exec bastion -e PGPASSWORD=secret:pg-pass -- "$PGD app | grep -v '^\\\\' | grep -v '^--' | grep -v '^\$'" | jget 'd["data"]["results"][0]["stdout"]' | grep -v 'pg_attver=' > "$TMP/schema-a.txt"
-$K exec bastion -e PGPASSWORD=secret:pg-pass -- "$PGD app_copy | grep -v '^\\\\' | grep -v '^--' | grep -v '^\$'" | jget 'd["data"]["results"][0]["stdout"]' | grep -v 'pg_attver=' > "$TMP/schema-b.txt"
+$K host ssh exec bastion -e PGPASSWORD=secret:pg-pass -- "$PGD app | grep -v '^\\\\' | grep -v '^--' | grep -v '^\$'" | jget 'd["data"]["results"][0]["stdout"]' | grep -v 'pg_attver=' > "$TMP/schema-a.txt"
+$K host ssh exec bastion -e PGPASSWORD=secret:pg-pass -- "$PGD app_copy | grep -v '^\\\\' | grep -v '^--' | grep -v '^\$'" | jget 'd["data"]["results"][0]["stdout"]' | grep -v 'pg_attver=' > "$TMP/schema-b.txt"
 check "restored schema equals the original (pg_dump compares)" "" "$(diff "$TMP/schema-a.txt" "$TMP/schema-b.txt" | head -20)"
 ROWS="select (select string_agg(name || '|' || coalesce(note,'') || '|' || name_upper, ',' order by id) from dumpt.customers) || (select string_agg(total::text, ',' order by id) from dumpt.orders) || (select n::text from dumpt.order_count) || (select count(*)::text from dumpt.events)"
 check "restored rows equal the original" "$($K database postgres query pg "$ROWS" | jget 'd["data"]["results"][0]["rows"][0][0]')" "$($K database postgres query pg-copy "$ROWS" | jget 'd["data"]["results"][0]["rows"][0][0]')"
@@ -71,4 +71,4 @@ q $K database mysql query maria-lab --write --yes --allow-dangerous "drop view d
 q $K database mysql query maria-lab --write --yes --allow-dangerous "drop table dumpm"
 q $K conn rm maria-lab --yes
 q $K conn rm pg-lab2
-q $K tunnel stop --all
+q $K host ssh tunnel stop --all

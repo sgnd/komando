@@ -214,7 +214,7 @@ komando test harbor
 
 Only connections to the registry's own name go to that IP. A login service
 or a download on another host is looked up as usual. With `--via`, the last
-server on the path connects to the IP. `komando tunnel` uses the IP too.
+server on the path connects to the IP. `komando host ssh tunnel` uses the IP too.
 
 ## Look at images
 

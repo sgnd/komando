@@ -155,7 +155,7 @@ komando svc reload web1 nginx                 # if a service reads the file
 ```
 
 On a Windows server `fs restore` does not work yet: copy the backup back
-with `komando exec win1 -- Copy-Item ...` ([Windows servers](windows.md)).
+with `komando host ssh exec win1 -- Copy-Item ...` ([Windows servers](windows.md)).
 
 Without `--backup` there is no copy: `komando audit list` says what changed, when
 and where (`komando audit list --target web1 --since 2h`), so you can change it
@@ -185,7 +185,7 @@ They behave like the commands you know, with these safety differences:
 - A folder needs `--recursive` as well, with the same question (and the
   same `--allow-dangerous` for an agent or a script).
 - Paths are taken literally: `'/tmp/*.log'` is not a pattern. Use
-  `komando exec` for that.
+  `komando host ssh exec` for that.
 - All of them take `--sudo`; `fs chmod -r` changes a whole folder.
   `fs chmod --sudo` does not follow a link another server user made
   (`IS_A_SYMLINK`).
@@ -496,7 +496,7 @@ For a single file, use `komando copy` without `--sync`.
 - `fs rm` and `fs chmod` take paths literally: no patterns.
 - `--sudo` in copies works for single files only (downloads up to 512 MiB).
   For a root-owned folder, upload it to a place you own and move it with
-  `komando exec web1 --sudo -- cp -r /tmp/site/. /var/www/site/`.
+  `komando host ssh exec web1 --sudo -- cp -r /tmp/site/. /var/www/site/`.
 - Symbolic links inside a folder are not copied by `copy -r` or `copy --sync`.
 - `--sudo` writes are refused into a folder another server user can change
   (by owner, group, mode or access list: `SHARED_FOLDER_CONFLICT`); write

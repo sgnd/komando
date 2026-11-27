@@ -54,7 +54,7 @@ risk     = read | write | destructive  ->  the same guard for all
 
 | Command | Family |
 |---|---|
-| `exec`, `fs`, `svc`, `docker`, ... | host (Linux; Windows over SSH or WinRM) |
+| `host ssh exec`, `fs`, `svc`, `docker`, ... | host (Linux; Windows over SSH or WinRM) |
 | `db` | sql and document databases |
 | `cache` | key-value |
 | `queue` | message queues |
@@ -83,7 +83,7 @@ komando copy ./dump.sql.gz backups:
 - **A few shortcuts live at the top level** (`exec`, `logs`, `copy`, `list`,
   `test`), with the same shape as the long form.
 - **Words for a server go after `--`** on every command that passes them
-  on (`exec web1 -- uptime`), so komando never reads them as its own flags.
+  on (`host ssh exec web1 -- uptime`), so komando never reads them as its own flags.
 - **One cluster command.** Verbs every engine has sit under `cluster` and
   work on any cluster; a feature only one engine has says so on the other
   (`cluster helm` is for Kubernetes). `docker` is for one server.
@@ -113,7 +113,7 @@ Selectors pick everything: servers and conns alike.
 
 1. **Commands that look** (`list`, `test`, `show`, `audit`) use everything
    picked.
-2. **Commands that act** use the members they can serve (`exec` → hosts,
+2. **Commands that act** use the members they can serve (`host ssh exec` → hosts,
    `db` → databases). The rest are listed in `meta.skipped` with the
    reason, never dropped quietly.
 3. If none can be served: `NO_MATCHING_TARGETS` (exit 3) with a hint that
@@ -282,7 +282,7 @@ komando export [--to FILE]
   runs at once; a change asks `Run it? [y/N, d = --dry-run first]`. The
   questions never add `--yes`, `--allow-dangerous`, `--reveal` or
   `--write`. A command typed in full runs as it always did.
-- `host add`, `conn add`, `vpn KIND add` and each area's add, typed alone, ask
+- `host ssh add`, `conn add`, `vpn KIND add` and each area's add, typed alone, ask
   that kind's own questions, never a password (that is asked hidden).
 - After a command a person ran ends well: `Next time: <line>` when komando
   asked for something, and up to three `Next:` lines. `show` ends with
@@ -306,9 +306,9 @@ If so, extend that one.
 - Doing one item or many at once may be two commands, sharing the same
   code.
 
-Examples in place: `test` (`host test` and `conn test` call it), `list`,
+Examples in place: `test` (`host ssh test` and `conn test` call it), `list`,
 `logs` (`svc logs` and `docker logs` call it), `recipe`, `copy`,
-`exec --script`, `import` / `export`, `status --short`.
+`host ssh exec --script`, `import` / `export`, `status --short`.
 
 ## 13. Everything the native tool can do
 
@@ -320,8 +320,8 @@ in every area:
 2. **A raw path in the native language**, still classified, read-only by
    default and audited: `exec`, `database KIND query`, `cache redis raw`,
    `cluster kubernetes raw -- <kubectl args>`.
-3. **Your own tool, through komando's path**: `komando tunnel start prod-db`
-   gives a local port for any client; `komando shell` opens SSH;
+3. **Your own tool, through komando's path**: `komando host ssh tunnel start prod-db`
+   gives a local port for any client; `komando host ssh shell` opens SSH;
    `komando database postgres shell prod-db` opens komando's own SQL shell with the
    password from the vault.
 

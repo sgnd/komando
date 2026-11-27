@@ -34,7 +34,7 @@ func accountHomeAt(t *testing.T, dir string) {
 func TestAgentHomeRedirect(t *testing.T) {
 	real, fake := t.TempDir(), t.TempDir()
 	accountHomeAt(t, real)
-	mustRun(t, "host", "add", "web2", "u@10.0.0.2", "--protected") // the person
+	mustRun(t, "host", "ssh", "add", "web2", "u@10.0.0.2", "--protected") // the person
 	store.Close()
 
 	texts := windowText(t, false)
@@ -43,7 +43,7 @@ func TestAgentHomeRedirect(t *testing.T) {
 	if d := mustRun(t, "list"); d["count"] != float64(1) {
 		t.Fatalf("an agent with HOME=%s sees the person's servers: %v", fake, d)
 	}
-	wantCode(t, "PROTECTED_TARGET", "exec", "web2", "--", "touch", "/tmp/x")
+	wantCode(t, "PROTECTED_TARGET", "host", "ssh", "exec", "web2", "--", "touch", "/tmp/x")
 	if len(*texts) != 0 {
 		t.Errorf("no flag, no window: %q", *texts)
 	}
@@ -103,7 +103,7 @@ func TestGuardProtectsAccountHome(t *testing.T) {
 func TestAgentHomeUnknownStops(t *testing.T) {
 	home := t.TempDir()
 	accountHomeAt(t, home)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.9") // the person
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.9") // the person
 	store.AccountHome = func() (string, error) { return "", errors.New("no entry for uid 4242") }
 	texts := windowText(t, false)
 	if e := wantCode(t, "SAFETY_SETTING", "list"); !strings.Contains(e.Message, "cannot find this account's home folder") {
@@ -126,7 +126,7 @@ func TestAgentHomePairStops(t *testing.T) {
 	saved := defaultHome
 	defaultHome = func() string { return filepath.Join(account, ".komando") } // the real rule
 	t.Cleanup(func() { defaultHome = saved })
-	mustRun(t, "host", "add", "web2", "u@10.0.0.2", "--protected") // the person
+	mustRun(t, "host", "ssh", "add", "web2", "u@10.0.0.2", "--protected") // the person
 	store.Close()
 
 	texts := windowText(t, false)
@@ -137,7 +137,7 @@ func TestAgentHomePairStops(t *testing.T) {
 	t.Setenv("USERPROFILE", fake)
 	t.Setenv("KOMANDO_HOME", filepath.Join(fake, ".komando"))
 	wantCode(t, "NEEDS_PERSON", "list")
-	wantCode(t, "NEEDS_PERSON", "exec", "web2", "--", "touch", "/tmp/x")
+	wantCode(t, "NEEDS_PERSON", "host", "ssh", "exec", "web2", "--", "touch", "/tmp/x")
 	if len(*texts) != 0 {
 		t.Errorf("no flag, no window: %q", *texts)
 	}
@@ -187,7 +187,7 @@ func TestAgentOtherHomeIsFinal(t *testing.T) {
 	saved := defaultHome
 	defaultHome = func() string { return filepath.Join(account, ".komando") } // the real rule
 	t.Cleanup(func() { defaultHome = saved })
-	mustRun(t, "host", "add", "web1", "u@10.0.0.9") // the person, in the usual folder
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.9") // the person, in the usual folder
 	store.Close()
 
 	texts := windowText(t, true)
@@ -233,7 +233,7 @@ func TestHomeFreeIsAgentSkillInstallAlone(t *testing.T) {
 	for name, want := range map[string]bool{
 		"agent.skill.install": true, "guide": true, "help": true, "version": true,
 		"agent": false, "agent.skill": false, "agent.skill.uninstall": false, "agent.mcp.start": false, "agent.mcp.stop": false, "agent.mcp": false,
-		"host.list": false, "audit.list": false,
+		"host.ssh.list": false, "audit.list": false,
 	} {
 		if got := homeFreeCommand(name); got != want {
 			t.Errorf("homeFreeCommand(%q) = %v, want %v", name, got, want)

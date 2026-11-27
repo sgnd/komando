@@ -205,8 +205,8 @@ func sameLine(screen, q, s string) bool {
 func TestPTYCtrlCAtYesNo(t *testing.T) {
 	for _, key := range []string{"\x03", "\x04"} { // Ctrl-C, Ctrl-D
 		invHome(t)
-		mustRun(t, "host", "add", "web", "u@10.0.0.1", "--protected")
-		p := startPTY(t, "host", "rm", "web")
+		mustRun(t, "host", "ssh", "add", "web", "u@10.0.0.1", "--protected")
+		p := startPTY(t, "host", "ssh", "remove", "web")
 		p.answer("[y/N] ", key)
 		if code := p.exit(); code != out.ExitPolicy {
 			t.Errorf("%q: exit %d, want %d; the screen:\n%s", key, code, out.ExitPolicy, p.shown())
@@ -219,7 +219,7 @@ func TestPTYCtrlCAtYesNo(t *testing.T) {
 		if echo, _ := p.leftTerminal(); !echo {
 			t.Errorf("%q: echo stayed off", key)
 		}
-		mustRun(t, "host", "show", "web") // still there
+		mustRun(t, "host", "ssh", "show", "web") // still there
 	}
 }
 

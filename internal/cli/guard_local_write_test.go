@@ -22,7 +22,7 @@ func agentWriteHome(t *testing.T) (home string, protected []string) {
 	unixOnly(t, "symbolic links")
 	home = t.TempDir()
 	accountHomeAt(t, home)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.9") // a person: makes ~/.komando
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.9") // a person: makes ~/.komando
 	db := filepath.Join(t.TempDir(), "app.db")
 	mustRun(t, "conn", "add", "lite", "sqlite://"+db)
 	mustRun(t, "database", "sqlite", "query", "lite", "--write", "create table t (id int)")

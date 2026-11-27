@@ -23,7 +23,7 @@ if in_area data; then
 aok "version" version
 aok "list" list
 aok "test direct" test direct
-aok "host show (references, no values)" host show direct
+aok "host ssh show (references, no values)" host ssh show direct
 aok "conn show" conn show pg
 aok "conn kinds" conn kinds
 aok "vpn list" vpn system list
@@ -42,14 +42,14 @@ aok "schema" schema --compact
 aok "snippet list" snippet list
 
 # servers
-aok "exec --read-only" exec direct --read-only -- uname -a
+aok "host ssh exec --read-only" host ssh exec direct --read-only -- uname -a
 aok "snippet exec health" snippet exec health direct
 aok "fs ls" fs ls direct /etc
 aok "fs stat" fs stat direct /etc/hostname
 aok "fs cat" fs cat direct /etc/hostname
 aok "logs from a file" logs direct --file /etc/hostname
 aok "job list" job list
-aok "tunnel list" tunnel list
+aok "host ssh tunnel list" host ssh tunnel list
 aok "pkg installed" pkg installed direct curl
 fi
 
@@ -104,7 +104,7 @@ acode "scaling to 0 needs --allow-dangerous" POLICY_BLOCKED cluster scale lab-k3
 fi
 
 if in_area data; then
-acode "a change on a protected host needs a person" PROTECTED_TARGET exec target -- touch /tmp/t-agent
+acode "a change on a protected host needs a person" PROTECTED_TARGET host ssh exec target -- touch /tmp/t-agent
 acode "an agent cannot log in for a person" NEEDS_PERSON login direct
 acode "an agent gets no SQL shell" NEEDS_TERMINAL database postgres shell pg
 fi

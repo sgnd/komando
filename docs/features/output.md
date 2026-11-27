@@ -6,8 +6,8 @@ and how to see what is still running. [All docs](README.md)
 ## Read a result
 
 ```bash
-komando exec web1 -- uptime              # readable text in a terminal
-komando exec web1 -o json -- uptime      # one JSON object (what agents get)
+komando host ssh exec web1 -- uptime              # readable text in a terminal
+komando host ssh exec web1 -o json -- uptime      # one JSON object (what agents get)
 komando status                           # VPNs, logins, tunnels and jobs still running
 komando doctor                           # check the local setup
 ```
@@ -18,7 +18,7 @@ instead. Force either with `-o text` or `-o json`, or set `KOMANDO_OUTPUT`.
 `--pretty` indents the JSON.
 
 An agent or script that only wants to read what ran on a server can ask
-for text too: `komando exec web1 --read-only -o text -- cat /etc/hosts`
+for text too: `komando host ssh exec web1 --read-only -o text -- cat /etc/hosts`
 prints the server's output as it is. komando's exit code stays its own (5
 when the command exits non-zero), not the command's. With several servers,
 each one gets a block headed `=== web1 [ok, exit 0]` (or `[failed: exit 1]`,
@@ -149,13 +149,13 @@ agrees. See [Safety](safety.md#when-you-are-at-the-terminal).
 
 | Error | Usually means | Try |
 |-------|---------------|-----|
-| `AUTH_FAILED` | wrong user, key or password; or the server asks for a two-factor code and no person is at a terminal to answer it (the message quotes its question) | `komando host show NAME`; a changed password: `komando credential password add NAME`; a two-factor login: `komando login NAME` once in your terminal (it asks the code and keeps the login, 8h; an AI agent asks the user to run it) |
-| `NO_AUTH` | the server has no key, identity or password, ssh-agent holds no key, and no person is at a terminal to type a password (the message says if `~/.ssh/id_ed25519` is encrypted and not loaded) | `ssh-add` (or `ssh-add ~/.ssh/id_ed25519`), or save a password: `komando credential password add NAME`, then `komando host edit NAME --password-ref secret:NAME` (or `--key KEY`); start ssh-agent first if `SSH_AUTH_SOCK` is not set |
-| `KEY_PASSPHRASE_REQUIRED` | the server's key (`--key` or `--identity`) is encrypted, has no passphrase in the vault, and ssh-agent does not hold it (komando uses the agent's copy, as `ssh` does) | `ssh-add PATH`, or store the passphrase: `komando credential password add NAME`, `komando credential key add NAME PATH --passphrase-credential NAME`, then `komando host edit HOST --key NAME --unset identity` (for a `--key` key: `komando credential key edit NAME --passphrase-credential NAME`) |
+| `AUTH_FAILED` | wrong user, key or password; or the server asks for a two-factor code and no person is at a terminal to answer it (the message quotes its question) | `komando host ssh show NAME`; a changed password: `komando credential password add NAME`; a two-factor login: `komando login NAME` once in your terminal (it asks the code and keeps the login, 8h; an AI agent asks the user to run it) |
+| `NO_AUTH` | the server has no key, identity or password, ssh-agent holds no key, and no person is at a terminal to type a password (the message says if `~/.ssh/id_ed25519` is encrypted and not loaded) | `ssh-add` (or `ssh-add ~/.ssh/id_ed25519`), or save a password: `komando credential password add NAME`, then `komando host ssh edit NAME --credential NAME` (or `--key KEY`); start ssh-agent first if `SSH_AUTH_SOCK` is not set |
+| `KEY_PASSPHRASE_REQUIRED` | the server's key (`--key` or `--identity`) is encrypted, has no passphrase in the vault, and ssh-agent does not hold it (komando uses the agent's copy, as `ssh` does) | `ssh-add PATH`, or store the passphrase: `komando credential password add NAME`, `komando credential key add NAME PATH --passphrase-credential NAME`, then `komando host ssh edit HOST --key NAME --unset identity` (for a `--key` key: `komando credential key edit NAME --passphrase-credential NAME`) |
 | `KEY_EXISTS` | `credential key create`, `credential key add` or `credential key rename` to a key name that is taken | choose another name, or `komando credential key remove NAME` first |
-| `CONNECTION_REFUSED`, `CONNECT_TIMEOUT`, `DNS_ERROR` | the server is down, the address or port is wrong, a firewall drops the connection, or nothing listens on the port | `komando host show NAME` to check the address and port; a slow link: `--connect-timeout 30s`; a private server: add `--via BASTION` or a VPN |
-| `HOSTKEY_MISMATCH` | the server was rebuilt, or someone is intercepting; the message shows the pinned fingerprint and the one the server shows now | compare the new fingerprint with the server's console or your provider first, then `komando host trust NAME --reset` in a terminal, or `@group` for many at once (only a person replaces a key; an agent reports it and gets `NEEDS_PERSON`) |
-| `HOSTKEY_UNKNOWN` | host keys are strict and this server's key is not pinned yet; the message shows its fingerprint | compare it with what the server's owner sees, then `komando host trust NAME` |
+| `CONNECTION_REFUSED`, `CONNECT_TIMEOUT`, `DNS_ERROR` | the server is down, the address or port is wrong, a firewall drops the connection, or nothing listens on the port | `komando host ssh show NAME` to check the address and port; a slow link: `--connect-timeout 30s`; a private server: add `--via BASTION` or a VPN |
+| `HOSTKEY_MISMATCH` | the server was rebuilt, or someone is intercepting; the message shows the pinned fingerprint and the one the server shows now | compare the new fingerprint with the server's console or your provider first, then `komando host ssh trust NAME --reset` in a terminal, or `@group` for many at once (only a person replaces a key; an agent reports it and gets `NEEDS_PERSON`) |
+| `HOSTKEY_UNKNOWN` | host keys are strict and this server's key is not pinned yet; the message shows its fingerprint | compare it with what the server's owner sees, then `komando host ssh trust NAME` |
 | `HOSTKEY_REVOKED` | the server shows a host key on komando's list of revoked keys | treat the server as compromised and tell its owner; nothing was sent |
 | `SECRET_UNRESOLVED` | the stored password or environment variable is missing | `komando credential list` |
 | `SECRET_IN_USE` | `credential password remove` of a secret that something still uses | point them elsewhere, or rename it with `komando credential password rename OLD NEW` |
@@ -164,7 +164,7 @@ agrees. See [Safety](safety.md#when-you-are-at-the-terminal).
 | `NAME_TAKEN` | a new name (from `host rename`, `rename --starts-with`, ...) is used already; for `rename` the message lists every clash, and nothing was renamed | pick other names, or rename or remove what is in the way; `--dry-run` shows the whole list first |
 | `NOTHING_TO_RENAME` | `rename --starts-with`: no name starts with OLD | check the spelling and case with `komando list` and `komando credential list` |
 | `GROUP_EXISTS` | `group rename` to the name of another group | pick another name, or merge them: `komando group create NEW @OLD`, then `komando group remove OLD` |
-| `sudo: a password is required` | sudo needs a password | `komando credential password add NAME`, then `komando host edit HOST --sudo-ref secret:NAME` |
+| `sudo: a password is required` | sudo needs a password | `komando credential password add NAME`, then `komando host ssh edit HOST --sudo-credential NAME` |
 | `VPN_LOGIN_REQUIRED` | the VPN needs a person's login (MFA) | a person runs `komando vpn KIND start NAME` once |
 | `AWS_LOGIN_REQUIRED` | the AWS SSO login has expired | a person runs `komando login aws --profile NAME` |
 | `AZURE_LOGIN_REQUIRED` | no Azure login was found (for an Azure Container Registry) | set a service principal (`AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`), run on Azure with a managed identity, or a person runs `az login` |

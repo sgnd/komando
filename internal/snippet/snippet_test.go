@@ -386,7 +386,7 @@ func TestParse(t *testing.T) {
 		if strings.Contains(err.Message+err.Hint, "secret-looking") || strings.Contains(err.Message, "bad line") {
 			t.Errorf("%s: the error carries raw text: %s / %s", name, err.Message, err.Hint)
 		}
-		if !strings.Contains(err.Hint, "`komando exec") {
+		if !strings.Contains(err.Hint, "`komando host ssh exec") {
 			t.Errorf("%s: hint %q must name exec, which reads it as text", name, err.Hint)
 		}
 	}

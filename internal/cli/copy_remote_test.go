@@ -144,7 +144,7 @@ func TestRemoteCopyCommand(t *testing.T) {
 	useFakeClock(t)
 	mustRun(t, "conn", "add", "bk", "s3://AKIAEXAMPLE@shop-dev/backups?region=eu-west-1")
 	mustRun(t, "conn", "add", "bk2", "s3://AKIAEXAMPLE@shop-dr/backups?region=eu-west-1")
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
 	one := &memBucket{objs: map[string]string{"db.sql": strings.Repeat("x", 3000)}}
 	two := &memBucket{objs: map[string]string{}}
 	withBuckets(t, map[string]*memBucket{"bk": one, "bk2": two})
@@ -220,12 +220,12 @@ func TestRemoteCopySecretsForAgents(t *testing.T) {
 // source is only read, so it does not ask.
 func TestRemoteCopyProtectedServer(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
-	mustRun(t, "host", "add", "web2", "u@10.0.0.2")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web2", "u@10.0.0.2")
 	mustRun(t, "conn", "add", "bk", "s3://AKIAEXAMPLE@shop-dev/backups?region=eu-west-1")
 	one := &memBucket{objs: map[string]string{"db.sql": "x"}}
 	withBuckets(t, map[string]*memBucket{"bk": one})
-	mustRun(t, "host", "edit", "web2", "--protected")
+	mustRun(t, "host", "ssh", "edit", "web2", "--protected")
 	// the protected stop (its name is C79's to settle): exit 6, nothing copied
 	for _, args := range [][]string{
 		{"copy", "web1:/tmp/a", "web2:/tmp/a"},

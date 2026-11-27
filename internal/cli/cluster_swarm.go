@@ -56,7 +56,7 @@ func swarmExec(cl *call, ctx context.Context, st *store.State, t clusterTarget, 
 // swarmErr explains a failed docker command on a would-be manager.
 func swarmErr(host, stderr, stdout string, code int) *out.Error {
 	msg := strings.TrimSpace(stderr)
-	hint := "Swarm commands run on a manager: `komando exec " + host + " --read-only -- docker node ls` shows whether it is one"
+	hint := "Swarm commands run on a manager: `komando host ssh exec " + host + " --read-only -- docker node ls` shows whether it is one"
 	switch {
 	case strings.Contains(msg, "komando: docker not found"):
 		return out.Errf(out.ExitNotFound, "NOT_SWARM_MANAGER", hint, "%s is not a Swarm manager (docker not found)", host)

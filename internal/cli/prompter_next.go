@@ -120,7 +120,7 @@ func verbNext(key string) []string {
 		return nil
 	}
 	show, list := cmdByKey(root, noun+" show"), cmdByKey(root, noun+" list")
-	inventory := slices.Contains([]string{"host", "conn", "vpn"}, noun)
+	inventory := slices.Contains([]string{"host", "conn", "vpn"}, w[0])
 	// sameFirst: c takes the same first argument as cmd (user list TARGET
 	// after user add TARGET USER), so {} fills it
 	sameFirst := func(c *cobra.Command) bool {
@@ -173,7 +173,7 @@ func verbNext(key string) []string {
 		} else {
 			add(listLine())
 		}
-	case "rm":
+	case "rm", "remove":
 		add(listLine())
 	}
 	return next
@@ -203,21 +203,21 @@ func useArgs(c *cobra.Command) []string {
 // showKinds are the commands that show one item, and its kind for
 // itemCommands; "" finds the kind in the inventory (a server, conn or VPN).
 var showKinds = map[string]string{
-	"host show": "", "conn show": "",
+	"host ssh show": "", "conn show": "",
 	"group list": "group", "credential key show": "key", "job status": "job", "credential password show": "secret",
 	"credential token show": "secret", "config get": "setting",
-	"tunnel show": "tunnel", "snippet show": "recipe",
+	"snippet show": "recipe",
 }
 
 // itemCommands are the commands that work on one item of a kind, {} the
 // item; the show commands in showKinds list them for a person. A conn
 // gets its family's (or its kind's, db:sqlite) list, then the conn list.
 var itemCommands = map[string][]string{
-	"server": {"logs {} --since 30m", "exec {} -- uptime", "shell {}",
+	"server": {"logs {} --since 30m", "host ssh exec {} -- uptime", "host ssh shell {}",
 		"pkg upgradable {}", "docker ps {}", "fs list {} /etc", "copy ./FILE {}:/tmp/FILE",
-		"copy {}:/var/log/syslog ./", "job start {} -- make", "tunnel start {} -L 8080:localhost:80",
-		"credential key install KEY {}", "audit list --target {}", "host edit {}", "host rename {} NEW", "host rm {}", "test {}"},
-	"server:windows": {"exec {} -- Get-Date", "audit list --target {}", "host edit {}", "host rename {} NEW", "host rm {}", "test {}"},
+		"copy {}:/var/log/syslog ./", "job start {} -- make", "host ssh tunnel start {} -L 8080:localhost:80",
+		"credential key install KEY {}", "audit list --target {}", "host ssh edit {}", "host ssh rename {} NEW", "host ssh remove {}", "test {}"},
+	"server:windows": {"host winrm exec {} -- Get-Date", "audit list --target {}", "host winrm edit {}", "host winrm rename {} NEW", "host winrm remove {}", "test {}"},
 	// a server tagged swarm is also a Docker Swarm manager
 	"swarm": {"cluster status {}", "cluster list {} services", "cluster logs {} service/NAME",
 		"cluster deploy {} service/NAME --image IMAGE --wait", "cluster apply {} --file compose.yml --stack STACK"},
@@ -257,8 +257,8 @@ var itemCommands = map[string][]string{
 	"registry": {"registry oci image list {}", "registry oci image list {} REPO", "registry oci image show {} IMAGE", "registry oci image copy {}:IMAGE DST_CONN",
 		"registry oci image prune {} REPO --keep 10 --dry-run", "registry oci image delete {} IMAGE --dry-run"},
 	"vpn": {"vpn KIND start {}", "vpn KIND test {}", "vpn KIND stop {}", "vpn KIND edit {} --check HOST:PORT", "vpn KIND rename {} NEW", "vpn KIND remove {}",
-		"host add NAME USER@ADDRESS --via {}"},
-	"group": {"list @{}", "test @{}", "exec @{} -- uptime", "pkg upgradable @{}", "snippet exec health @{}",
+		"host ssh add NAME ADDRESS --via {}"},
+	"group": {"list @{}", "test @{}", "host ssh exec @{} -- uptime", "pkg upgradable @{}", "snippet exec health @{}",
 		"group create {} TARGET", "group remove {} TARGET", "group rename {} NEW"},
 	"key": {"credential key install {} TARGET", "credential key uninstall {} TARGET", "credential key edit {}",
 		"credential key rename {} NEW", "credential key remove {}"},
@@ -266,7 +266,7 @@ var itemCommands = map[string][]string{
 	"secret": {"secret check {}", "credential password add {}", "credential password rename {} NEW", "secret cp {} NEW",
 		"credential password remove {}"},
 	"setting": {"config set {} VALUE"},
-	"tunnel":  {"tunnel stop {}", "tunnel list"},
+	"tunnel":  {"host ssh tunnel stop {}", "host ssh tunnel list"},
 	"recipe":  {"snippet exec {} TARGET", "snippet create {} COMMAND --overwrite --dry-run", "snippet remove {}"},
 }
 

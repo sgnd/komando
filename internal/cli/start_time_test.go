@@ -280,14 +280,14 @@ func TestEntryPointsPrepareTheirCommand(t *testing.T) {
 		line []string
 		want string // the command's path that must be prepared
 	}{
-		{[]string{"host", "list"}, "host list"},
-		{[]string{"-o", "json", "--timeout", "5s", "host", "list", "web1"}, "host list"},
-		{[]string{"host", "ls"}, "host list"},
-		{[]string{"help", "host", "list"}, "host list"},
+		{[]string{"host", "ssh", "list"}, "host ssh list"},
+		{[]string{"-o", "json", "--timeout", "5s", "host", "ssh", "list", "web1"}, "host ssh list"},
+		{[]string{"host", "ssh", "ls"}, "host ssh list"},
+		{[]string{"help", "host", "ssh", "list"}, "host ssh list"},
 		{[]string{"-o", "text", "help", "db"}, "db"},
 		{[]string{cobra.ShellCompRequestCmd, "host", "li"}, "host"},
-		{[]string{cobra.ShellCompNoDescRequestCmd, "host", "list", ""}, "host list"},
-		{[]string{"-o", "json", cobra.ShellCompRequestCmd, "host", "rm"}, "host rm"},
+		{[]string{cobra.ShellCompNoDescRequestCmd, "host", "ssh", "list", ""}, "host ssh list"},
+		{[]string{"-o", "json", cobra.ShellCompRequestCmd, "host", "ssh", "remove"}, "host ssh remove"},
 		{[]string{"host", "lst"}, "host"},
 		{[]string{"nosuchword"}, ""},
 		{nil, ""},
@@ -356,7 +356,7 @@ func TestScriptHelpShowsTheSafetyLine(t *testing.T) {
 // command of their line too; the gate's tree, asked line after line, each.
 func TestReadTreesPrepareTheirCommand(t *testing.T) {
 	sc, gate := gateTree()
-	for _, line := range [][]string{{"host", "list"}, {"-o", "json", "database", "postgres", "query", "x", "select 1"}, {"cache", "rm", "c1", "k"}, {"host", "ls"}} {
+	for _, line := range [][]string{{"host", "ssh", "list"}, {"-o", "json", "database", "postgres", "query", "x", "select 1"}, {"cache", "rm", "c1", "k"}, {"host", "ssh", "ls"}} {
 		if c, _, err := commandTree(line).Find(line); err != nil || !prepared(c) || !c.HasParent() {
 			t.Errorf("%q: the guard's tree finds %q, not prepared (%v)", line, c.CommandPath(), err)
 		}
@@ -402,19 +402,19 @@ func TestUnpreparedCommandRunsNothing(t *testing.T) {
 // does not name: it prepares that command before it runs it.
 func TestRenamePreparesTheKindsRename(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
 	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	line := []string{"--dry-run", "rename", "web1", "web-01"}
 	root := newRootFor(tcl, line)
-	if c, _, _ := root.Find([]string{"host", "rename"}); prepared(c) {
-		t.Fatal("host rename is prepared before rename runs")
+	if c, _, _ := root.Find([]string{"host", "ssh", "rename"}); prepared(c) {
+		t.Fatal("host ssh rename is prepared before rename runs")
 	}
 	root.SetArgs(line)
 	if _, err := root.ExecuteC(); err != nil {
 		t.Fatalf("rename web1: %v", err)
 	}
-	if c, _, _ := root.Find([]string{"host", "rename"}); !prepared(c) {
-		t.Error("rename ran host rename, not prepared")
+	if c, _, _ := root.Find([]string{"host", "ssh", "rename"}); !prepared(c) {
+		t.Error("rename ran host ssh rename, not prepared")
 	}
 }
 

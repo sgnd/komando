@@ -8,9 +8,9 @@ import (
 // The helpers below write the leaves every provider shares, so a type's
 // file lists only what is its own.
 
-// sessionID is the form of an exec session ID: komando makes it,
-// 128 bits random, and checks it before any path use.
-const sessionID = `^[a-z0-9]{26}$`
+// sessionID is the form of an exec session ID: komando makes it, 256 random
+// bits as 52 lowercase base32 letters, and checks it before any path use.
+const sessionID = `^[a-z2-7]{52}$`
 
 // provider is one provider of a type, as its type file lists it.
 type provider struct {
