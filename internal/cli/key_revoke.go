@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cli/kit/phonekey"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
@@ -246,4 +247,197 @@ func revokeScript(user, blob string, dry bool) string {
 	}
 	q := sshx.Q(user)
 	return asUserFunc(q) + "h=$(getent passwd " + q + " | cut -d: -f6); ku " + sshx.Q(edit) + ` sh "$h" ` + sshx.Q(blob)
+}
+
+// A device's key (C372, U108; option C of the U107 design): `key deploy
+// TARGET --user NAME --public-key-file FILE [--from-address ADDRESS]`,
+// the --public-key-file form of credential key install, writes a phone's
+// public key for a named user on one server, and always behind komando's
+// gate in server mode there (restrict, command= to the server's own
+// komando ssh-gate --here). No flag writes it without the gate. Only a
+// person at a terminal runs it; the checks are in kit/phonekey.
+type deviceKeyOpts struct{ file, user, from string }
+
+func (o *deviceKeyOpts) flags(c *cobra.Command) {
+	c.Flags().StringVar(&o.file, "public-key-file", "", "a device's public key file (a phone's): install it for --user behind komando's gate on the server; a person at a terminal only")
+	c.Flags().StringVar(&o.user, "user", "", "with --public-key-file: the user the device logs in as (never root)")
+	c.Flags().StringVar(&o.from, "from-address", "", "with --public-key-file: the addresses the device logs in from, as the server sees them (from= in authorized_keys)")
+}
+
+// args: key deploy takes NAME TARGET, its --public-key-file form TARGET.
+func (o *deviceKeyOpts) args(c *cobra.Command, args []string) error {
+	if o.file != "" {
+		return cobra.ExactArgs(1)(c, args)
+	}
+	if o.user != "" || o.from != "" {
+		return out.Usage("--user and --from-address go with --public-key-file")
+	}
+	return cobra.ExactArgs(2)(c, args)
+}
+
+// deviceKey is what `key deploy --public-key-file` prints.
+type deviceKey struct {
+	Host        string   `json:"host"`
+	User        string   `json:"user"`
+	Name        string   `json:"name"`        // the key's name: its comment, the gate's --name
+	Fingerprint string   `json:"fingerprint"` // SHA256:...
+	FromAddress string   `json:"from_address,omitempty"`
+	Komando     string   `json:"komando"` // the server's komando the line runs
+	Line        string   `json:"line"`
+	Status      string   `json:"status"`     // added, present; would_add in a dry run
+	SystemLog   bool     `json:"system_log"` // the server has a system log the gate copies its records to
+	Notes       []string `json:"notes,omitempty"`
+}
+
+// deviceKeyInstall runs the --public-key-file form on target.
+func deviceKeyInstall(cl *call, cmd *cobra.Command, o deviceKeyOpts, target string) error {
+	if !phonekey.UserName.MatchString(o.user) {
+		return out.Usage("--user takes the user the device logs in as: letters, digits, dot, dash and underscore, starting with a letter")
+	}
+	if on, _ := cmd.Flags().GetBool("set-default"); on {
+		return out.Usage("--set-default does not go with --public-key-file: komando never logs in with a device's key")
+	}
+	var notes []string
+	if o.from != "" {
+		host, err := phonekey.CheckAddress(o.from)
+		if err != nil {
+			return out.Errf(out.ExitUsage, "USAGE", "give addresses or networks, comma-separated, for example 10.0.0.0/8,192.0.2.7", "%v", err)
+		}
+		if host {
+			notes = append(notes, "from= names a host pattern: sshd matches it only with UseDNS yes, which is not its default; give the addresses the server sees")
+		}
+	}
+	k, err := readDeviceKey(o.file)
+	if err != nil {
+		return err
+	}
+	if cl.isAgent() || !cl.interactive() {
+		if err := cl.policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON", "a person runs `komando key deploy SERVER --user NAME --public-key-file FILE` in their own terminal",
+			"installing a device's key lets that device log in to the server, so only a person at a terminal does it").NoFlag()); err != nil {
+			return err
+		}
+	}
+	st, err := loadState()
+	if err != nil {
+		return err
+	}
+	hosts, err := resolveTargets(cl, st, target)
+	if err != nil {
+		return err
+	}
+	if len(hosts) != 1 || hosts[0].Windows() {
+		return out.Usage("--public-key-file installs a device's key on one Linux or Unix server at a time")
+	}
+	if err := Guard(cl, st, hosts, "", true); err != nil {
+		return err
+	}
+	res := deviceKey{Host: hosts[0].Name, User: o.user, Name: k.Name, Fingerprint: k.Fingerprint, FromAddress: o.from, Notes: notes}
+	f, err := deviceKeyRun(cl, cmd.Context(), st, hosts, sshCmd(phonekey.ProbeScript, o.user))
+	if err != nil {
+		return err
+	}
+	facts := phonekey.ParseFacts(f)
+	if err := deviceKeyRefusal(facts, o.user, res.Host); err != nil {
+		return err
+	}
+	res.Komando, res.SystemLog = facts.Komando, facts.Syslog
+	res.Line = phonekey.Line(facts.Komando, k, o.from)
+	if !facts.Syslog {
+		res.Notes = append(res.Notes, "the server has no system log: the gate's records stay only in komando's audit log in "+o.user+"'s home, which "+o.user+" owns")
+	}
+	if cl.dryRun() {
+		res.Status = "would_add"
+		cl.out.Print("key.deploy", res, nil)
+		return nil
+	}
+	if !confirmYes(cl, "This lets the key "+k.Name+" ("+k.Fingerprint+") log in to "+res.Host+" as "+o.user+
+		" and run komando commands there through its gate. Install it?") {
+		return out.Errf(out.ExitPolicy, "NEEDS_PERSON", "run it again and answer y", "nothing was written: the person said no")
+	}
+	write := sshCmd(phonekey.WriteScript, facts.Home, res.Line, k.Type+" "+k.Data)
+	if facts.Login != o.user {
+		write = "sudo -n -H -u " + sshx.Q(o.user) + " " + write // as the user, never as root
+	}
+	res.Status, err = deviceKeyRun(cl, cmd.Context(), st, hosts, write)
+	switch {
+	case err != nil, res.Status == "added", res.Status == "present":
+	case res.Status == "other":
+		err = out.Errf(out.ExitConflict, "KEY_LINE_CONFLICT", "remove the older line for this key from "+o.user+"'s ~/.ssh/authorized_keys on the server, then run this again",
+			"%s: the key is there already in another line, which sshd would use first; nothing was written", res.Host)
+	default:
+		err = out.Errf(out.ExitRemote, "DEPLOY_FAILED", "make ~/.ssh and its key files plain files and folders on the server, then run this again",
+			"%s: %s; komando writes through no link, so nothing was written", res.Host, res.Status)
+	}
+	audit(cl, st, "key.deploy", []string{res.Host}, "", err == nil, map[string]any{"key": k.Name, "fingerprint": k.Fingerprint, "user": o.user,
+		"from_address": o.from, "device_key": true})
+	if err != nil {
+		return err
+	}
+	cl.out.Print("key.deploy", res, nil)
+	return nil
+}
+
+// readDeviceKey reads and checks a device's public key file.
+func readDeviceKey(file string) (phonekey.Key, error) {
+	path := inventory.ExpandHome(file)
+	fi, err := os.Stat(path)
+	if err != nil || !fi.Mode().IsRegular() || fi.Size() > 64<<10 {
+		return phonekey.Key{}, out.Errf(out.ExitUsage, "KEY_INVALID", "give the device's .pub file", "%s is not a public key file", file)
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return phonekey.Key{}, err
+	}
+	k, err := phonekey.Parse(b)
+	if err != nil {
+		return phonekey.Key{}, out.Errf(out.ExitUsage, "KEY_INVALID", "give the device's .pub file: one line, TYPE KEY komando-phone-DEVICE", "%s: %v", file, err)
+	}
+	return k, nil
+}
+
+// sshCmd is sh -c SCRIPT with args as its positional parameters, quoted
+// for the server's shell: no value is ever part of the script's text.
+func sshCmd(script string, args ...string) string {
+	s := "sh -c " + sshx.Q(script) + " komando-key"
+	for _, a := range args {
+		s += " " + sshx.Q(a)
+	}
+	return s
+}
+
+// deviceKeyRun runs command on the one host and gives its output.
+func deviceKeyRun(cl *call, ctx context.Context, st *store.State, hosts []*store.Host, command string) (string, error) {
+	res := fanout(cl, ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
+		o, code, err := sshx.Output(ctx, c, command, 30*time.Second)
+		if err != nil {
+			return nil, err
+		}
+		if code != 0 {
+			return nil, out.Errf(out.ExitRemote, "DEPLOY_FAILED", "check that the login user may run sudo -n -u USER there, or log in as that user", "%s", strings.TrimSpace(o))
+		}
+		return strings.TrimSpace(o), nil
+	})
+	if res[0].Err != nil {
+		return "", res[0].Err
+	}
+	return res[0].Value.(string), nil
+}
+
+// deviceKeyRefusal is the stop for what the probe found on host, or nil:
+// no such user or uid 0, no komando, a gate the user could replace (rule
+// b), or a komando without the server mode.
+func deviceKeyRefusal(f phonekey.Facts, user, host string) error {
+	code, why := f.Refusal(user)
+	hint := "fix it on the server as the message says, then run this again"
+	switch code {
+	case "":
+		return nil
+	case "KEY_USER_INVALID":
+		return out.Errf(out.ExitUsage, "KEY_USER_INVALID", "name a user that is not root: "+hint, "%s: %s", host, why)
+	case "KOMANDO_MISSING":
+		return out.Errf(out.ExitNotFound, "KOMANDO_MISSING", hint, "%s: %s", host, why)
+	case "GATE_UNSUPPORTED":
+		return out.Errf(out.ExitUsage, "GATE_UNSUPPORTED", hint, "%s: %s", host, why)
+	}
+	return out.Errf(out.ExitUsage, "GATE_BINARY_INVALID", hint, "%s: %s", host, why)
 }

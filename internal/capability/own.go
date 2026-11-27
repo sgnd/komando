@@ -23,7 +23,14 @@ var credentialLeaves = concat(
 		{Key: own("credential", "key", "add"), Args: oneName, Today: []string{"key.add"}},
 		{Key: own("credential", "key", "create"), Args: oneName, Today: []string{"key.gen"}},
 		{Key: own("credential", "key", "edit"), Args: oneName, Stops: credentialStops, Today: []string{"key.edit"}},
-		{Key: own("credential", "key", "install"), Args: []Arg{{Name: "NAME"}, {Name: "TARGET", Selector: true}}, Today: []string{"key.deploy"}},
+		// the --public-key-file form (C372) installs a device's key for a
+		// user, behind the server's own gate: no NAME then, person tier
+		{Key: own("credential", "key", "install"), Args: []Arg{{Name: "NAME", Optional: true}, {Name: "TARGET", Selector: true}},
+			Options: []Option{
+				{Name: "public-key-file", Kind: File, Needs: []string{"user"}, Help: "a device's public key file (a phone's): install it for --user behind the server's own komando gate"},
+				{Name: "user", Kind: String, Needs: []string{"public-key-file"}, Pattern: `^[A-Za-z_][A-Za-z0-9._-]{0,31}$`, Help: "the user the device logs in as (never root)"},
+				{Name: "from-address", Kind: String, Needs: []string{"public-key-file"}, Help: "the addresses the device logs in from, as the server sees them"},
+			}, Today: []string{"key.deploy"}},
 		{Key: own("credential", "key", "uninstall"), Args: []Arg{{Name: "NAME"}, {Name: "TARGET", Selector: true}}, Today: []string{"key.revoke"}},
 		{Key: own("credential", "key", "list"), LocalRead: true, Synonyms: []string{"ls"}, Today: []string{"key.list"}},
 		{Key: own("credential", "key", "remove"), Args: oneName, Stops: credentialStops,
