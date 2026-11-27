@@ -249,7 +249,8 @@ CONN -- CMD ...` only reads unless you add `--write`. Never use `KEYS`;
 `cache keys` uses SCAN.
 
 **Queues** (Kafka, Redpanda, MSK, RabbitMQ, NATS JetStream, Amazon SQS, Google Cloud Pub/Sub): `komando queue PROVIDER info|topic list|topic show|consumer list|consumer show
-NAME` read (PROVIDER is kafka, rabbitmq, nats, sqs or pubsub); `komando queue kafka message list NAME TOPIC -n 20` reads the newest
+NAME` read (PROVIDER is kafka, rabbitmq, nats, sqs or pubsub; consumer: kafka and
+nats, pubsub list only); `komando queue kafka message list NAME TOPIC -n 20` reads the newest
 messages without joining a consumer group (nothing moves, nothing is
 removed; `--oldest` for the first ones). On RabbitMQ message list takes the first
 messages of a queue and gives them back (marked redelivered); stop on
