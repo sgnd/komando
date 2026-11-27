@@ -107,12 +107,12 @@ func format2Store(t *testing.T) string {
 		s.Hosts["h4"] = &Host{Name: "h4", Address: "10.0.0.11", User: "bob", PasswordRef: "secret:shared-pw"}
 		s.Hosts["idh"] = &Host{Name: "idh", Address: "10.0.0.12", User: "deploy", Identity: "/home/me/.ssh/id_work"}
 		s.Hosts["winssh"] = &Host{Name: "winssh", Address: "10.0.0.13", User: "Administrator", OS: OSWindows, PasswordRef: "secret:winssh-pw"}
-		s.Hosts["vh"] = &Host{Name: "vh", Address: "10.0.0.14", User: "root", PasswordRef: "vault:kv/app#pw"}
+		s.Hosts["vh"] = &Host{Name: "vh", Address: "10.0.0.14", User: "root", Env: map[string]string{"APP_PW": "vault:kv/app#pw"}}
 		s.Conns["s3b"] = &Conn{Name: "s3b", Kind: "s3", URL: "s3://AKIAEXAMPLE@bucket?region=eu-west-1", PasswordRef: "secret:s3-secret",
-			Options: map[string]string{"sse_key": "secret:s3-sse", "class": "STANDARD"}}
+			Options: map[string]string{"sse_key": "secret:s3-sse", "class": "STANDARD", "kms_key": "op://Private/s3/kms"}}
 		s.Conns["mydb"] = &Conn{Name: "mydb", Kind: "mysql", URL: "mysql://admin@10.0.0.20:3306/app", Login: LoginAsk}
-		s.Vpns["ovpn"] = &Vpn{Name: "ovpn", Kind: "openvpn", User: "me", ConfigRef: "secret:ovpn-config", KeyRef: "op://Private/vpn/password"}
-		s.Hosts["ext1"] = &Host{Name: "ext1", Address: "10.0.0.8", User: "root", PasswordRef: "env:WEB_PW"}
+		s.Vpns["ovpn"] = &Vpn{Name: "ovpn", Kind: "openvpn", User: "me", ConfigRef: "secret:ovpn-config"}
+		s.Hosts["ext1"] = &Host{Name: "ext1", Address: "10.0.0.8", User: "root", Env: map[string]string{"WEB_PW": "env:WEB_PW"}}
 		s.Conns["pg"] = &Conn{Name: "pg", Kind: "postgres", URL: "postgres://app@10.0.0.5:5432/app?ca=secret:pg-ca", PasswordRef: "secret:pg-pass", Groups: []string{"Prod"}, Protected: true}
 		s.Conns["bus"] = &Conn{Name: "bus", Kind: "nats", URL: "nats://10.0.0.9:4222?creds=secret:nats-creds"}
 		s.Conns["k8s"] = &Conn{Name: "k8s", Kind: "k8s", URL: "k8s://api.corp:6443", PasswordRef: "secret:k8s-kubeconfig"}
@@ -372,16 +372,16 @@ func TestMigrate3(t *testing.T) {
 			t.Errorf("tags %v", hosts["web1"].Tags)
 		}
 	})
-	t.Run("ssh-agent, typed password and outside store logins", func(t *testing.T) {
+	t.Run("ssh-agent, typed password and an outside store value", func(t *testing.T) {
 		if c := creds[hosts["agent1"].Credential]; c == nil || !c.Key.Agent || c.User != "ops" || hosts["agent1"].Credential != "agent1-agent" {
 			t.Errorf("agent1 %q %+v", hosts["agent1"].Credential, c)
 		}
 		if c := creds[hosts["ask1"].Credential]; c == nil || !c.Ask || c.User != "admin" || c.Value != nil {
 			t.Errorf("ask1 %q %+v", hosts["ask1"].Credential, c)
 		}
-		c := creds[hosts["ext1"].Credential]
-		if c == nil || c.Store != "env" || c.Item != "WEB_PW" || c.User != "root" || c.Value != nil {
-			t.Fatalf("ext1 %q %+v", hosts["ext1"].Credential, c)
+		c := creds[strings.TrimPrefix(hosts["ext1"].Env["WEB_PW"], "credential:")]
+		if c == nil || c.Store != "env" || c.Item != "WEB_PW" || c.User != "" || c.Value != nil {
+			t.Fatalf("ext1 %v %+v", hosts["ext1"].Env, c)
 		}
 		stores := byName[CredentialStore](t, res.readBack, KindCredStore)
 		if s := stores["env"]; s == nil || s.Provider != "env" {
@@ -450,18 +450,18 @@ func TestMigrate3(t *testing.T) {
 			t.Errorf("mydb %+v %+v", conns["mydb"], c)
 		}
 	})
-	t.Run("a VPN config file and an outside store login", func(t *testing.T) {
+	t.Run("a VPN config file and outside store values", func(t *testing.T) {
 		v := vpns["ovpn"]
 		if v.ConfigCredential != "ovpn-config" || creds["ovpn-config"].Kind != CredToken || v.User != "me" {
 			t.Errorf("ovpn %+v", v)
 		}
-		c := creds[v.Credential]
-		if c == nil || c.Store != "onepassword" || c.Item != "Private/vpn/password" || c.Kind != CredPassword || c.Value != nil {
-			t.Errorf("ovpn credential %q %+v", v.Credential, c)
+		c := creds[strings.TrimPrefix(conns["s3b"].Options["kms_key"], "credential:")]
+		if c == nil || c.Store != "onepassword" || c.Item != "Private/s3/kms" || c.Kind != CredToken || c.Value != nil {
+			t.Errorf("s3b kms_key %q %+v", conns["s3b"].Options["kms_key"], c)
 		}
-		h := creds[hosts["vh"].Credential]
-		if h == nil || h.Store != "vault" || h.Item != "kv/app#pw" || h.User != "root" {
-			t.Errorf("vh %q %+v", hosts["vh"].Credential, h)
+		h := creds[strings.TrimPrefix(hosts["vh"].Env["APP_PW"], "credential:")]
+		if h == nil || h.Store != "vault" || h.Item != "kv/app#pw" || h.User != "" {
+			t.Errorf("vh %v %+v", hosts["vh"].Env, h)
 		}
 		stores := byName[CredentialStore](t, res.readBack, KindCredStore)
 		for _, p := range []string{"env", "vault", "onepassword"} {
@@ -601,7 +601,7 @@ func TestMigrate3FailsClosed(t *testing.T) {
 			name: "a file item the reference guard refuses",
 			setup: func(t *testing.T) {
 				format2Edit(t, func(s *State) {
-					s.Hosts["sneaky"] = &Host{Name: "sneaky", Address: "10.0.1.2", PasswordRef: "file:" + Path("store.key")}
+					s.Hosts["sneaky"] = &Host{Name: "sneaky", Address: "10.0.1.2", Env: map[string]string{"K": "file:" + Path("store.key")}}
 				})
 			},
 			opts: func(o *migrate3Opts) {

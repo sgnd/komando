@@ -368,6 +368,11 @@ func (pl *planner) ref(ref string, u *use) {
 		}
 		pl.secrets[item] = append(pl.secrets[item], u)
 	default:
+		if loginFields[u.field] {
+			why := outsideLoginWhy(provider)
+			pl.problem(u.entry, u.field, why, why)
+			return
+		}
 		if g := pl.refGuard; g != nil && (provider == "env" || provider == "file") {
 			if err := g(provider, item); err != nil {
 				pl.problem(u.entry, u.field, "names a "+provider+" reference that cannot be read here", ": "+err.Error())
@@ -573,8 +578,26 @@ func keyUsers(uses []keyUse) []string {
 	return users
 }
 
+// loginFields are the fields of a format-2 record that hold the reference
+// to a login secret: what --password-ref, --sudo-ref, --psk-ref and
+// --passphrase-ref (and a VPN's key and config) set.
+var loginFields = map[string]bool{
+	"password_ref": true, "sudo_ref": true, "key_ref": true, "psk_ref": true, "config_ref": true, "passphrase": true,
+}
+
+// outsideLoginWhy is why the move stops on a login field that names an
+// outside store, and its fix (C547): the same words in the refusal of the
+// move and in `komando doctor --dry-run`, never the reference itself. The
+// store is still format 2, so the fix is made with komando v0.17.0, where
+// a saved secret is spelled secret:NAME.
+func outsideLoginWhy(provider string) string {
+	return "names an outside store (" + provider + "), which a login no longer reads: " +
+		"with komando v0.17.0 save the secret as a credential with `komando secret set NAME` and point the field at secret:NAME, and the move makes it credential:NAME"
+}
+
 // outsideCredentials makes a store per provider and a credential per field
-// that named an outside value: <entry>-<field>, its item as written.
+// that named an outside value (an env value, a service option or URL
+// query, a WinRM CA; never a login): <entry>-<field>, its item as written.
 func (pl *planner) outsideCredentials() {
 	for _, o := range pl.outside {
 		store, ok := pl.stores[o.provider]
@@ -584,28 +607,10 @@ func (pl *planner) outsideCredentials() {
 			pl.p.stores = append(pl.p.stores, &CredentialStore{Name: store, Provider: o.provider})
 		}
 		entry := o.u.entry[strings.Index(o.u.entry, " ")+1:]
-		c := &Credential{Name: pl.creds.make(entry, fieldWord(o.u.field)), Kind: o.u.kind, Store: store, Item: o.item}
-		if o.u.login {
-			c.User = o.u.user
-		}
+		c := &Credential{Name: pl.creds.make(entry, o.u.field), Kind: o.u.kind, Store: store, Item: o.item}
 		pl.p.creds = append(pl.p.creds, &credPlan{cred: c})
 		pl.applied(o.u.entry, o.u.field, c.Name, o.u.apply)
 	}
-}
-
-// fieldWord is the word a made credential name takes for a field.
-func fieldWord(field string) string {
-	switch field {
-	case "password_ref", "key_ref":
-		return "credential"
-	case "sudo_ref":
-		return "sudo"
-	case "psk_ref":
-		return "psk"
-	case "config_ref":
-		return "config"
-	}
-	return field
 }
 
 // groups makes one group record per group name, any case merged into the

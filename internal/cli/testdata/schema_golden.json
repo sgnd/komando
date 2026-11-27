@@ -12089,7 +12089,7 @@
         "code": "REFERENCE_UNSUPPORTED",
         "exit": 2,
         "example": "… names an outside store; it takes credential:NAME",
-        "hint": "save the value with `komando secret set NAME`, then name it: credential:NAME"
+        "hint": "save the secret as a credential with `komando secret set NAME`, then use credential:NAME"
       },
       {
         "code": "REGISTRY_AUTH",

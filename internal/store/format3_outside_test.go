@@ -8,7 +8,8 @@ import (
 )
 
 // The migration keeps a field that named an outside value (env:VAR,
-// op://...) as a credential in a credential store. Such a credential
+// op://...) and is no login (an env value, a service option) as a
+// credential in a credential store. Such a credential
 // reads its value from the reference it was made from; a credential with
 // a value of its own, a key, or no credential at all reads nothing there.
 func TestOutsideRefOfMigrated(t *testing.T) {
@@ -17,12 +18,12 @@ func TestOutsideRefOfMigrated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for host, want := range map[string]string{"ext1": "env:WEB_PW", "vh": "vault:kv/app#pw"} {
-		name, ok := strings.CutPrefix(s.Hosts[host].PasswordRef, "credential:")
+	for host, want := range map[string][2]string{"ext1": {"WEB_PW", "env:WEB_PW"}, "vh": {"APP_PW", "vault:kv/app#pw"}} {
+		name, ok := strings.CutPrefix(s.Hosts[host].Env[want[0]], "credential:")
 		if !ok || name == "" {
-			t.Fatalf("%s names %q", host, s.Hosts[host].PasswordRef)
+			t.Fatalf("%s names %q", host, s.Hosts[host].Env[want[0]])
 		}
-		if got, err := OutsideRefOf(name); err != nil || got != want {
+		if got, err := OutsideRefOf(name); err != nil || got != want[1] {
 			t.Fatalf("%s: credential %s reads %q %v, want %s", host, name, got, err, want)
 		}
 	}
@@ -136,6 +137,10 @@ func TestOldReference(t *testing.T) {
 // the store's writer and the CLI's flags: empty and credential:NAME pass,
 // the old spelling and an outside store stop with REFERENCE_UNSUPPORTED. Anything
 // else is not a reference; the caller says what it wants instead.
+// outsideFixLine is the fix the refusal of an outside store names, spelled
+// out here so that a change to CredentialFix shows in this test.
+const outsideFixLine = "save the secret as a credential with `komando secret set NAME`, then use credential:NAME"
+
 func TestCredentialRef(t *testing.T) {
 	for _, tc := range []struct {
 		ref, hint string
@@ -165,6 +170,11 @@ func TestCredentialRef(t *testing.T) {
 			}
 			if strings.Contains(oe.Message+oe.Hint, tc.ref) && tc.ref != "secret:db-pw" {
 				t.Fatalf("the message repeats the reference: %v", err)
+			}
+			// condition 2 of C547: the refusal of an outside store names
+			// the fix in one line
+			if tc.hint == "credential:NAME" && oe.Hint != outsideFixLine {
+				t.Fatalf("hint %q, want the one line %q", oe.Hint, outsideFixLine)
 			}
 		})
 	}

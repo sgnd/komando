@@ -1,7 +1,9 @@
 package store
 
 import (
+	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -133,5 +135,83 @@ func TestURLPassword(t *testing.T) {
 				t.Errorf("urlPassword(%q) = %v, %v; want %v, error %v", tt.in, has, err, tt.has, tt.bad)
 			}
 		})
+	}
+}
+
+// Condition 1 of C547: a format-2 store with a login that names an outside
+// store (a host on vault: and on env:, a conn on bw://, a sudo password, a
+// VPN shared key and a key passphrase) does not move. The move stops before
+// it changes the store (store.db byte for byte, still format 2), names each
+// entry by kind, name and field with the fix and never the reference, and
+// `komando doctor --dry-run` (PreviewMigration) lists the same entries in
+// the same words, by kind and field.
+func TestMigrate3StopsOnOutsideLogin(t *testing.T) {
+	format2Store(t)
+	format2Edit(t, func(s *State) {
+		s.Hosts["hv"] = &Host{Name: "hv", Address: "10.0.2.1", User: "root", PasswordRef: "vault:kv/hv#pw"}
+		s.Hosts["he"] = &Host{Name: "he", Address: "10.0.2.2", User: "root", PasswordRef: "env:HE_PW"}
+		s.Conns["cb"] = &Conn{Name: "cb", Kind: "postgres", URL: "postgres://app@10.0.2.3/app", PasswordRef: "bw://cb-item/password"}
+		s.Hosts["web1"].SudoRef = "aws-sm:prod/web1-sudo"
+		s.Vpns["wg"].PSKRef = "azure-kv:kv/wg-psk"
+		s.Keys["deploy"].PassphraseRef = "file:/home/me/deploy-pp"
+	})
+	Close()
+	before := fileSum(t)
+	_, err := migrateFormat3(context.Background(), personOpts())
+	var e *out.Error
+	if !errors.As(err, &e) || e.Code != "STORE_MIGRATION_FAILED" || e.Exit != out.ExitError {
+		t.Fatalf("want STORE_MIGRATION_FAILED, got %v", err)
+	}
+	if after := fileSum(t); after != before {
+		t.Fatal("the stopped move changed store.db")
+	}
+	if f := formatNow(t); f != "2" {
+		t.Fatalf("format %s after the stopped move", f)
+	}
+	fix := "which a login no longer reads: with komando v0.17.0 save the secret as a credential with `komando secret set NAME` and point the field at secret:NAME, and the move makes it credential:NAME"
+	want := []struct{ kind, name, field, provider string }{
+		{"host", "he", "password_ref", "env"},
+		{"host", "hv", "password_ref", "vault"},
+		{"host", "web1", "sudo_ref", "aws-sm"},
+		{"conn", "cb", "password_ref", "bitwarden"},
+		{"vpn", "wg", "psk_ref", "azure-kv"},
+		{"key", "deploy", "passphrase", "file"},
+	}
+	for _, w := range want {
+		line := w.kind + " " + w.name + ": field " + w.field + " names an outside store (" + w.provider + "), " + fix
+		if !strings.Contains(e.Message, line) {
+			t.Errorf("the move does not name %s %s %s with the fix:\n%s", w.kind, w.name, w.field, e.Message)
+		}
+	}
+	values := []string{"kv/hv#pw", "HE_PW", "cb-item", "prod/web1-sudo", "kv/wg-psk", "/home/me/deploy-pp"}
+	for _, v := range values {
+		if strings.Contains(e.Message+e.Hint, v) {
+			t.Errorf("the move repeats the reference %q: %v", v, err)
+		}
+	}
+	// the dry run: the same entries, the same words, kind and field only
+	pv, err := PreviewMigration(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var lines []string
+	for _, w := range want {
+		lines = append(lines, w.kind+": field "+w.field+" names an outside store ("+w.provider+"), "+fix)
+	}
+	got := slices.Clone(pv.WouldRefuse)
+	slices.Sort(got)
+	slices.Sort(lines)
+	if pv.WouldMove || !slices.Equal(got, lines) {
+		t.Fatalf("the dry run lists\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(lines, "\n"))
+	}
+	for _, r := range pv.WouldRefuse {
+		for _, v := range values {
+			if strings.Contains(r, v) {
+				t.Errorf("the dry run repeats the reference %q: %s", v, r)
+			}
+		}
+	}
+	if after := fileSum(t); after != before {
+		t.Fatal("the dry run changed store.db")
 	}
 }

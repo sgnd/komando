@@ -46,8 +46,9 @@ func TestOutsideStoreOnCredentialFlagRefused(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			invHome(t)
 			e := wantCode(t, "REFERENCE_UNSUPPORTED", tc.args...)
-			if !strings.Contains(e.Hint, "credential:NAME") {
-				t.Fatalf("hint %q does not name credential:NAME", e.Hint)
+			// condition 2 of C547: the fix in one line
+			if e.Hint != "save the secret as a credential with `komando secret set NAME`, then use credential:NAME" {
+				t.Fatalf("hint %q is not the one-line fix", e.Hint)
 			}
 		})
 	}

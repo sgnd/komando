@@ -38,7 +38,7 @@ func credOfRef(entry, field, ref string) (string, error) {
 		return n, nil
 	}
 	return "", out.Errf(out.ExitUsage, "REFERENCE_UNSUPPORTED",
-		"save the value as a credential and name it: credential:NAME",
+		CredentialFix,
 		"%s: field %s takes a credential (credential:NAME)", entry, field)
 }
 

@@ -48,20 +48,25 @@ func (st *stored3) storeNamed(name string) *CredentialStore {
 	return nil
 }
 
+// CredentialFix is the one line that says what to do with a field that
+// takes a credential and was given anything else, an outside store among
+// them (C547, until the credential store paths of C485).
+const CredentialFix = "save the secret as a credential with `komando secret set NAME`, then use credential:NAME"
+
 // CredentialRef checks a reference given as what for a field that names a
 // credential (a password, sudo password, key passphrase, VPN key, shared
 // key or config). The spelling of format 2 stops with a hint that names
-// credential:NAME. An outside reference (env:VAR, op://...) stops too: a
-// command makes no credential store item; only the migration does, once,
-// for a person (CLI-5, 2026-11-26; `komando credential` in C485 adds them).
-// Empty, credential:NAME and text that is no reference at all pass.
+// credential:NAME. An outside reference (env:VAR, op://...) stops too, with
+// CredentialFix: no command and no migration makes a credential store item
+// for a login (CLI-5, 2026-11-26, confirmed 2026-11-27 in C547; `komando
+// credential` in C485 adds them). Empty, credential:NAME and text that is
+// no reference at all pass.
 func CredentialRef(what, ref string) error {
 	if _, old := OldReference(ref); old {
 		return OldRefError(what, ref)
 	}
 	if p, _ := parseRef(ref); p != "" && p != "secret" {
-		return out.Errf(out.ExitUsage, "REFERENCE_UNSUPPORTED",
-			"save the value with `komando secret set NAME`, then name it: credential:NAME",
+		return out.Errf(out.ExitUsage, "REFERENCE_UNSUPPORTED", CredentialFix,
 			"%s names an outside store; it takes credential:NAME", what)
 	}
 	return nil
