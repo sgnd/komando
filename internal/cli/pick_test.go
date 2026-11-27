@@ -14,7 +14,7 @@ import (
 )
 
 // Tests that lived with the menu and are about what stays: the line a
-// command is shown as, how a built command runs, imports, guide install.
+// command is shown as, how a built command runs, imports, agent skill install.
 
 func TestImportVetHosts(t *testing.T) {
 	// --overwrite with a copy that is refused (its --via does not exist)

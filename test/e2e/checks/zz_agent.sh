@@ -35,15 +35,15 @@ aok "config show" config show
 aok "policy list" policy list
 check "agent: policy check names the rule" True "$(ag policy check 'rm -rf /' | jget '"rm-root" in json.dumps(d)' || true)"
 aok "audit" audit --limit 5
-aok "audit verify" audit verify
+aok "audit check" audit check
 aok "doctor" doctor
 aok "status" status
 aok "schema" schema --compact
-aok "recipe list" recipe list
+aok "snippet list" snippet list
 
 # servers
 aok "exec --read-only" exec direct --read-only -- uname -a
-aok "recipe run health" recipe run health direct
+aok "snippet exec health" snippet exec health direct
 aok "fs ls" fs ls direct /etc
 aok "fs stat" fs stat direct /etc/hostname
 aok "fs cat" fs cat direct /etc/hostname

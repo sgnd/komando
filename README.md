@@ -59,7 +59,7 @@ komando: one safe command line for servers, databases, caches, queues, storage, 
 
 Nothing added yet: komando host add  or  komando import ssh-config
 
-START        host add · conn add · import ssh-config · list · test TARGET · guide install
+START        host add · conn add · import ssh-config · list · test TARGET · agent skill install
 SERVERS      exec  logs  facts  fs  svc  job  docker  pkg  cron  user  reboot  shell
 DATA         db  cache  queue  storage
 ...
@@ -102,7 +102,7 @@ your servers.
 ### 4. Give it to your AI agent
 
 ```bash
-komando guide install
+komando agent skill install
 ```
 
 This teaches Claude Code, Codex, Cursor and Gemini CLI to use komando, for
@@ -145,7 +145,7 @@ Help for one command: `komando <command> --help`.
 - Database queries and cache commands only read unless you add `--write`.
 - `--dry-run` shows what would happen and changes nothing.
 - If a server's identity (host key) changes, komando will not connect.
-- Everything is recorded: `komando audit`.
+- Everything is recorded: `komando audit list`.
 
 More: [Safety](docs/features/safety.md) and [Security](SECURITY.md).
 

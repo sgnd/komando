@@ -273,7 +273,7 @@ func TestAgentOtherHome(t *testing.T) {
 	}
 	wantCode(t, "NEEDS_PERSON", "host", "add", "prod", "root@10.0.0.2")
 	// a synonym is typed like the command it names: the same stop
-	for _, syn := range [][]string{{"tunnel", "show", "t1"}, {"recipe", "show", "r1"}, {"group", "show", "prod"}, {"cluster", "info", "k1"}} {
+	for _, syn := range [][]string{{"tunnel", "show", "t1"}, {"snippet", "show", "r1"}, {"group", "show", "prod"}, {"cluster", "info", "k1"}} {
 		wantCode(t, "NEEDS_PERSON", syn...)
 	}
 	// a background command too: an agent's own home would hold its own
@@ -299,8 +299,8 @@ func TestAgentOtherHome(t *testing.T) {
 		t.Errorf("hint: %q", e.Hint)
 	}
 	// taking the guard out is no playbook: the same stop
-	wantCode(t, "NEEDS_PERSON", "guide", "uninstall", "--yes")
-	wantCode(t, "NEEDS_PERSON", "guide", "uninstall")
+	wantCode(t, "NEEDS_PERSON", "agent", "skill", "uninstall", "--yes")
+	wantCode(t, "NEEDS_PERSON", "agent", "skill", "uninstall")
 	if len(*texts) != 0 {
 		t.Errorf("another data folder opens no window: %q", *texts)
 	}

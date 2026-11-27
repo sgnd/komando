@@ -162,7 +162,7 @@ var (
 		"storage chmod", "storage mkdir", "storage mv",
 		"cluster scale", "cluster apply", "cluster rollback", "cluster forward", "cluster helm values",
 		"key gen", "key deploy", "host trust", "host ssh-command",
-		"ssh-gate line", "conn kinds", "audit verify", "config approval-code", "secret keychain", "secret passphrase"}
+		"ssh-gate line", "conn kinds", "audit check", "config approval-code", "secret keychain", "secret passphrase"}
 )
 
 // S-3.1, S-3.3: every leaf verb is in the verb table or a tool word.

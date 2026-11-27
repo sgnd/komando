@@ -84,7 +84,7 @@ func (f Follow) readExit(exit int) error {
 		return nil
 	case ExitGone:
 		return out.Errf(out.ExitNotFound, "SESSION_FOLDER_MISSING",
-			"check the ID and the server: a session is removed once its starter read it to the end, or after 7 days; `komando audit` shows the exec that started it",
+			"check the ID and the server: a session is removed once its starter read it to the end, or after 7 days; `komando audit list` shows the exec that started it",
 			"no session %s on %s", f.ID, f.Host)
 	case ExitUnsafe:
 		return folderDenied(f.Host)

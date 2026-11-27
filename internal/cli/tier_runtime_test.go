@@ -44,7 +44,7 @@ var tierRuns = []tierRun{
 	{"database restore dangerous", "db.restore", []string{"pg", "--from", "dump.sql"}, false},
 	{"credential key remove --delete-file dangerous", "key.rm", []string{"k1", "--delete-file"}, false},
 	{"host exec dynamic dangerous", "exec", []string{"dev", "--", "rm -rf /"}, false},
-	{"snippet exec dynamic dangerous", "recipe.run", []string{"wipe", "dev"}, false},
+	{"snippet exec dynamic dangerous", "snippet.exec", []string{"wipe", "dev"}, false},
 	{"cluster exec dynamic dangerous", "cluster.exec", []string{"k8s", "pod/a", "--", "rm -rf /"}, false},
 	{"cluster raw dynamic dangerous", "cluster.run", []string{"k8s", "--write", "--", "delete", "pod", "a"}, false},
 	{"cache raw dynamic dangerous", "cache.redis.raw", []string{"r", "--write", "--", "FLUSHALL"}, false},
@@ -53,7 +53,7 @@ var tierRuns = []tierRun{
 	{"host ssh add --proxy-command dynamic dangerous", "host.add", []string{"x", "--address", "10.0.0.9", "--proxy-command", "rm -rf /"}, false},
 	{"host ssh edit --proxy-command dynamic dangerous", "host.edit", []string{"dev", "--proxy-command", "rm -rf /"}, false},
 	// safety
-	{"policy remove safety", "policy.rm", []string{"kubectl apply"}, false},
+	{"policy remove safety", "policy.remove", []string{"kubectl apply"}, false},
 	{"policy edit --off safety", "policy.edit", []string{"docker-prune", "--off"}, false},
 	{"policy edit --add-server safety", "policy.edit", []string{"docker-prune", "--off", "--add-server", "dev"}, false},
 	{"policy edit --add-group safety", "policy.edit", []string{"docker-prune", "--off", "--add-group", "g1"}, false},
@@ -63,9 +63,9 @@ var tierRuns = []tierRun{
 	{"host tunnel start dynamic safety", "tunnel.start", []string{"dev", "-L", "0.0.0.0:15432:localhost:5432"}, false},
 	{"host ssh add --proxy-command dynamic safety", "host.add", []string{"y", "--address", "10.0.0.9", "--proxy-command", "nc %h %p"}, false},
 	{"host ssh edit --proxy-command dynamic safety", "host.edit", []string{"dev", "--proxy-command", "nc %h %p"}, false},
-	{"snippet create --overwrite --read-only dynamic safety", "recipe.add", []string{"r1", "--overwrite", "--read-only", "--", "uptime"}, false},
+	{"snippet create --overwrite --read-only dynamic safety", "snippet.create", []string{"r1", "--overwrite", "--read-only", "--", "uptime"}, false},
 	{"host ssh trust dynamic safety", "host.trust", []string{"dev"}, false},
-	{"agent skill uninstall dynamic safety", "guide.uninstall", []string{"--project"}, false},
+	{"agent skill uninstall dynamic safety", "agent.skill.uninstall", []string{"--project"}, false},
 	{"host edit --protected=false safety", "host.edit", []string{"prod", "--protected=false"}, false},
 	{"database edit --protected=false safety", "conn.edit", []string{"pg-prot", "--protected=false"}, false},
 	{"cache edit --protected=false safety", "cache.redis.edit", []string{"r-prot", "--protected=false"}, false},
@@ -104,7 +104,7 @@ var tierRuns = []tierRun{
 	{"host ssh test --end change", "host.test", []string{"dev", "--end"}, false},
 	{"host ssh test --end change", "host.test", []string{"prod", "--end"}, true}, // #558: the change-tier guard
 	{"test --end change", "test", []string{"--end"}, false},
-	{"group remove change", "group.rm", []string{"g1"}, false},
+	{"group remove change", "group.remove", []string{"g1"}, false},
 	// the floor: a leaf that changes something, run with no row applying
 	{"floor", "cache.redis.add", []string{"c2", "redis://127.0.0.1:1"}, false},
 	{"floor", "cache.redis.edit", []string{"r", "--notes", "x"}, false},
@@ -124,10 +124,10 @@ var tierRuns = []tierRun{
 	{"floor", "db.query", []string{"pg", "SELECT 1"}, false},
 	{"floor", "exec", []string{"dev", "--", "touch /tmp/x"}, false},
 	{"floor", "exec", []string{"prod", "--", "touch /tmp/x"}, true},
-	{"floor", "group.add", []string{"g2", "dev"}, false},
+	{"floor", "group.create", []string{"g2", "dev"}, false},
 	{"floor", "group.rename", []string{"g1", "g3"}, false},
-	{"floor", "guide.install", []string{"--project"}, false},
-	{"floor", "guide.uninstall", nil, false},
+	{"floor", "agent.skill.install", []string{"--project"}, false},
+	{"floor", "agent.skill.uninstall", nil, false},
 	{"floor", "host.add", []string{"h2", "--address", "10.0.0.8"}, false},
 	{"floor", "host.edit", []string{"dev", "--notes", "x"}, false},
 	{"floor", "host.edit", []string{"prod", "--notes", "x"}, false}, // komando's own list: not stopped on a protected host
@@ -142,10 +142,10 @@ var tierRuns = []tierRun{
 	{"floor", "key.rename", []string{"k1", "k4"}, false},
 	{"floor", "key.revoke", []string{"k1", "dev"}, false},
 	{"floor", "key.rm", []string{"k1"}, false},
-	{"floor", "policy.deny", []string{"curl evil"}, false},
-	{"floor", "recipe.add", []string{"r2", "uptime"}, false},
-	{"floor", "recipe.rm", []string{"r1"}, false},
-	{"floor", "recipe.run", []string{"r1", "dev"}, false},
+	{"floor", "policy.create", []string{"curl evil"}, false},
+	{"floor", "snippet.create", []string{"r2", "uptime"}, false},
+	{"floor", "snippet.remove", []string{"r1"}, false},
+	{"floor", "snippet.exec", []string{"r1", "dev"}, false},
 	{"floor", "registry.oci.add", []string{"reg2", "registry://127.0.0.1:1"}, false},
 	{"floor", "registry.oci.edit", []string{"reg", "--notes", "x"}, false},
 	{"floor", "registry.oci.remove", []string{"reg"}, false},
@@ -409,7 +409,7 @@ func TestTableHasCase(t *testing.T) {
 	}{
 		{"code on another entry", "host trust", "SAFETY_SETTING", false},
 		{"same entry", "host trust", "POLICY_BLOCKED", true},
-		{"entry over two lines", "policy rm", "SAFETY_SETTING", true},
+		{"entry over two lines", "policy remove", "SAFETY_SETTING", true},
 		{"no such command", "host shell", "", false},
 	}
 	for _, tt := range tests {
@@ -623,11 +623,11 @@ func tierSeed(t *testing.T) {
 	mustRun(t, "secret", "set", "pw", "--from-env", "PW")
 	mustRun(t, "key", "gen", "k1")
 	mustRun(t, "key", "gen", "k6")
-	mustRun(t, "recipe", "add", "wipe", "rm -rf /")
-	mustRun(t, "recipe", "add", "r1", "uptime")
-	mustRun(t, "group", "add", "g1", "dev")
-	mustRun(t, "policy", "deny", "kubectl apply")
-	mustRun(t, "guide", "install", "--project")
+	mustRun(t, "snippet", "create", "wipe", "rm -rf /")
+	mustRun(t, "snippet", "create", "r1", "uptime")
+	mustRun(t, "group", "create", "g1", "dev")
+	mustRun(t, "policy", "create", "kubectl apply")
+	mustRun(t, "agent", "skill", "install", "--project")
 	mustRun(t, "host", "trust", "prod", "--yes")
 	mustRun(t, "config", "set", "host_key_policy", "strict")
 	pub, priv, _ := ed25519.GenerateKey(rand.Reader)

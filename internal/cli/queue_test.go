@@ -311,7 +311,7 @@ func TestQueueLeavesRefuseAnotherProvidersConn(t *testing.T) {
 	mustRun(t, "queue", "kafka", "add", "k1", "kafka://broker.example.com:9092?insecure=1")
 	mustRun(t, "queue", "rabbitmq", "add", "r1", "amqp://app@rabbit.example.com:5672/?insecure=1")
 	mustRun(t, "queue", "nats", "add", "n1", "nats://nats.example.com:4222?insecure=1")
-	mustRun(t, "group", "add", "grp", "n1")
+	mustRun(t, "group", "create", "grp", "n1")
 	for _, c := range []struct {
 		args []string
 		hint string

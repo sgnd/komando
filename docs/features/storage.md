@@ -243,7 +243,7 @@ would move db/old.sql.gz -> archive/old.sql.gz (48.1 MiB, by a copy that is chec
   komando contacts the storage.
 - All three are changes, like `upload`: try them with `--dry-run`, a
   protected conn asks a person first (an AI agent or a script adds `--yes`
-  after a person agrees), and each run is in `komando audit`.
+  after a person agrees), and each run is in `komando audit list`.
 
 ## Delete files
 

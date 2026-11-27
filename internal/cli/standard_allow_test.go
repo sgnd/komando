@@ -10,7 +10,7 @@ var (
 		"docker stats",
 		"login aws",
 		"logout aws", // login aws's other half: aws names the cloud, not a verb
-		"policy deny",
+		"policy create",
 		"storage cat",
 		"storage link",
 	}
@@ -52,7 +52,7 @@ var (
 	// S-6.6, S-6.7: commands with fewer examples than S-6.6 asks (a second one is still to write)
 	allowExamples = []string{
 		"audit",
-		"audit verify",
+		"audit check",
 		"cluster helm history",
 		"cluster helm status",
 		"cluster history",
@@ -105,15 +105,15 @@ var (
 	}
 	// S-6.10: group rename's Long shows a merge with the old and the new name
 	allowReferences = []string{
-		"group rename: komando group add NEW @OLD",
-		"group rename: komando group rm OLD",
+		"group rename: komando group create NEW @OLD",
+		"group rename: komando group remove OLD",
 	}
 	// S-5.9: depends commands without --write or --read-only (they decide by their arguments)
 	allowDependsSwitch = []string{
 		"cp",
 		"pkg security",
 		"pkg upgradable",
-		"recipe run",
+		"snippet exec",
 		"secret run",
 		"shell",
 	}

@@ -2,7 +2,7 @@ package auditlog
 
 import "testing"
 
-// The text of `komando audit verify`, for an intact and a broken log.
+// The text of `komando audit check`, for an intact and a broken log.
 func TestAuditCheckText(t *testing.T) {
 	ok := Check{OK: true, Entries: 3, Note: "n"}
 	if got := ok.Text(); got != "audit log intact: 3 entries\nn" {

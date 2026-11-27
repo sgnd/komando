@@ -80,13 +80,13 @@ check "an agent cannot use --ask-password" NEEDS_PERSON "$(A host add askpw2 "ag
 check "rm names the secret left behind" "['askpw-pass']" "$($K host rm askpw | jget 'd["data"]["secrets_unused"]')"
 $K secret rm askpw-pass --allow-dangerous >/dev/null
 # a whole export carries your deny rules, and import adds them in another home
-$K policy deny 'e2e-forbidden-word' >/dev/null
+$K policy create 'e2e-forbidden-word' >/dev/null
 EXP="$(mktemp -d)/backup.json"
 $K export --to "$EXP" >/dev/null
 OTHER="$(mktemp -d)"; chmod 700 "$OTHER"
 check "import adds the exported deny rule" "['e2e-forbidden-word']" "$(KOMANDO_HOME="$OTHER" "$K" import komando "$EXP" | jget 'd["data"]["deny_rules_added"]')"
 rm -rf "$OTHER" "$(dirname "$EXP")"
-$K policy rm 'e2e-forbidden-word' --yes >/dev/null
+$K policy remove 'e2e-forbidden-word' --yes >/dev/null
 check "audit --actor finds the e2e actor" True "$($K audit --actor e2e -n 5 | jget 'd["data"]["count"] > 0')"
 set -e
 echo "==> secret managers, built in (no vault or aws CLI)"
@@ -113,7 +113,7 @@ $K fs replace direct /etc/app/app.conf --old 'worker_connections 768;' --new 'wo
 check "fs replace applied" "worker_connections 4096;" "$($K fs cat direct /etc/app/app.conf | jget 'd["data"]["content"].strip()')"
 set +e; $K fs replace direct /etc/app/app.conf --old 'missing' --new 'x' --sudo >/dev/null; check "fs replace no match -> 8" 8 $?; set -e
 # fs replace and fs restore on a group: each server has its own result
-q $K group add t-fsg bastion direct
+q $K group create t-fsg bastion direct
 q $K exec @t-fsg -- 'printf "a=1\n" > /tmp/e2efsg.conf'
 check "fs replace @group dry run shows each server" "2 True" "$($K fs replace @t-fsg /tmp/e2efsg.conf --old a=1 --new a=2 --dry-run | jget 'str(len(d["data"]["results"]))+" "+str(all(r["would_change"] for r in d["data"]["results"]))')"
 check "fs replace @group changes every server" "2 0" "$($K fs replace @t-fsg /tmp/e2efsg.conf --old a=1 --new a=2 --backup | jget 'str(d["data"]["summary"]["ok"])+" "+str(d["data"]["summary"]["failed"])')"
@@ -126,7 +126,7 @@ set -e
 check "fs replace @group: a server without the text fails alone (8)" "8 PARTIAL_FAILURE NO_MATCH" "$rc $(echo "$out" | jget 'd["error"]["code"]+" "+[r for r in d["data"]["results"] if r["host"]=="bastion"][0]["error"]["code"]')"
 check "fs replace @group: the other server was changed" a=3 "$($K fs cat direct /tmp/e2efsg.conf | jget 'd["data"]["content"].strip()')"
 q $K exec @t-fsg --allow-dangerous -- 'rm -f /tmp/e2efsg.conf*'
-q $K group rm t-fsg
+q $K group remove t-fsg
 $K fs write direct /home/agent/t/x.txt --content hello -p >/dev/null
 check "fs write idempotent" False "$($K fs write direct /home/agent/t/x.txt --content hello --if-changed | jget 'd["data"]["changed"]')"
 check "fs write dry-run shows the diff" True "$($K fs write direct /home/agent/t/x.txt --content hello2 --dry-run | jget '"+hello2" in d["data"]["diff"]')"

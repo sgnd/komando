@@ -60,7 +60,7 @@ messages.
 | Field | Meaning |
 |-------|---------|
 | `ok` | `true` only when everything succeeded |
-| `command` | the command's ID: its words joined by dots (`exec`, `db.query`, `fs.list`, `secret.show`). `komando audit --command` takes the same IDs |
+| `command` | the command's ID: its words joined by dots (`exec`, `db.query`, `fs.list`, `secret.show`). `komando audit list --command` takes the same IDs |
 | `data` | the result. Commands that run on many servers use `data.results[]` (one per server) and `data.summary`. Each result names its server in `host` (`exec`, `facts`, `test`, `cp` ...) |
 | `error` | `{code, message, hint}` when `ok` is false. `data` can still be there when servers failed (`PARTIAL_FAILURE`) |
 | `error.suggestion` | for a typo: the name komando thinks you meant (a command, a server, a flag). The hint is then the whole command line with it in place. A word from another tool (`ps`, `kubectl`, `psql`) gets the komando command that does that job. Left out otherwise |
@@ -164,7 +164,7 @@ agrees. See [Safety](safety.md#when-you-are-at-the-terminal).
 | `SECRET_MISMATCH` | `secret check`: the value entered is not the stored one | `data.difference` says how they differ; `komando secret set NAME` stores the right one |
 | `NAME_TAKEN` | a new name (from `host rename`, `rename --starts-with`, ...) is used already; for `rename` the message lists every clash, and nothing was renamed | pick other names, or rename or remove what is in the way; `--dry-run` shows the whole list first |
 | `NOTHING_TO_RENAME` | `rename --starts-with`: no name starts with OLD | check the spelling and case with `komando list` and `komando secret list` |
-| `GROUP_EXISTS` | `group rename` to the name of another group | pick another name, or merge them: `komando group add NEW @OLD`, then `komando group rm OLD` |
+| `GROUP_EXISTS` | `group rename` to the name of another group | pick another name, or merge them: `komando group create NEW @OLD`, then `komando group remove OLD` |
 | `sudo: a password is required` | sudo needs a password | `komando secret set NAME`, then `komando host edit HOST --sudo-ref secret:NAME` |
 | `VPN_LOGIN_REQUIRED` | the VPN needs a person's login (MFA) | a person runs `komando vpn up NAME` once |
 | `AWS_LOGIN_REQUIRED` | the AWS SSO login has expired | a person runs `komando login aws --profile NAME` |

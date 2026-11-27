@@ -163,7 +163,7 @@ func TestGuardHookArgs(t *testing.T) {
 		{"guide guard --for", "", false},
 		{"guide guard --for codex -o json", "", false},
 		{"-o json guide guard", "", false},
-		{"guide install", "", false},
+		{"agent skill install", "", false},
 		{"guide", "", false},
 	} {
 		agent, ok := guardHookArgs(strings.Fields(c.args))

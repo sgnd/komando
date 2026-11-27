@@ -123,15 +123,15 @@ func groupOfFour(t *testing.T) {
 	for i := 1; i <= 4; i++ {
 		mustRun(t, "host", "add", "h"+strconv.Itoa(i), "u@10.0.0."+strconv.Itoa(i))
 	}
-	mustRun(t, "group", "add", "g", "h1,h2,h3,h4")
+	mustRun(t, "group", "create", "g", "h1,h2,h3,h4")
 }
 
-// group rm of a big group asks at the terminal, before the store's lock;
+// group remove of a big group asks at the terminal, before the store's lock;
 // the question names the members, and a no changes nothing.
 func TestGroupRmAsksBeforeLock(t *testing.T) {
 	groupOfFour(t)
 	errOut := typesAnswers(t, "n\n")
-	if _, e := invRun(t, "group", "rm", "g"); e == nil {
+	if _, e := invRun(t, "group", "remove", "g"); e == nil {
 		t.Fatal("the person said no, but the group was removed")
 	}
 	if !strings.Contains(errOut.String(), "Delete group g from 4 entries (h1, h2, h3, h4)?") {
@@ -159,7 +159,7 @@ func TestGroupRmMembershipChangedAsksAgain(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	mustRun(t, "group", "rm", "g")
+	mustRun(t, "group", "remove", "g")
 	if q := strings.Count(errOut.String(), "Delete group g"); q != 2 || !strings.Contains(errOut.String(), "from 5 entries (h1, h2, h3, h4, h5)?") {
 		t.Errorf("%d questions, want a second one naming h5: %q", q, errOut.String())
 	}
@@ -230,9 +230,9 @@ func TestAskInStoreStepIsAudited(t *testing.T) {
 			return nil
 		})
 	}
-	mustRun(t, "group", "rm", "g")
+	mustRun(t, "group", "remove", "g")
 	rec := lastAudit(t)
-	if rec["asked_in_store_step"] != true || rec["asked_in_store_step_command"] != "group.rm" {
+	if rec["asked_in_store_step"] != true || rec["asked_in_store_step_command"] != "group.remove" {
 		t.Errorf("audit record %v", rec)
 	}
 }

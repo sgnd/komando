@@ -111,9 +111,9 @@ func TestStandardSynonyms(t *testing.T) {
 		{[]string{"databases", "query"}, "db.query"}, {[]string{"files", "cat"}, "fs.cat"},
 		{[]string{"tunnels", "list"}, "tunnel.list"}, {[]string{"policies", "list"}, "policy.list"},
 		{[]string{"cache", "list"}, "cache.keys"}, {[]string{"cache", "ls"}, "cache.keys"},
-		{[]string{"group", "show"}, "group.list"}, {[]string{"job", "show"}, "job.status"},
-		{[]string{"tunnel", "show"}, "tunnel.list"}, {[]string{"recipe", "show"}, "recipe.list"},
-		{[]string{"policy", "add"}, "policy.deny"}, {[]string{"secret", "add"}, "secret.set"},
+		{[]string{"group", "show"}, "group.show"}, {[]string{"job", "show"}, "job.status"},
+		{[]string{"tunnel", "show"}, "tunnel.list"}, {[]string{"snippet", "show"}, "snippet.show"},
+		{[]string{"secret", "add"}, "secret.set"},
 		{[]string{"docker", "describe"}, "docker.inspect"}, {[]string{"registry", "oci", "image", "describe"}, "registry.oci.image.show"},
 		{[]string{"db", "user", "create"}, "db.user.add"},
 		{[]string{"secret", "copy"}, "secret.cp"}, {[]string{"copy"}, "cp"},
@@ -127,7 +127,7 @@ func TestStandardSynonyms(t *testing.T) {
 }
 
 // The wrappers take their own argument rule and give the result of the
-// command they stand for.
+// command they stand for; group show and snippet show are commands of their own.
 func TestSynonymWrappers(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--group", "web")
@@ -136,12 +136,12 @@ func TestSynonymWrappers(t *testing.T) {
 		t.Errorf("group show web: %v", d)
 	}
 	wantCode(t, "USAGE", "group", "show")
-	if d := mustRun(t, "recipe", "show", "disk"); d["count"].(float64) != 1 {
-		t.Errorf("recipe show disk: %v", d)
+	if d := mustRun(t, "snippet", "show", "disk"); d["count"].(float64) != 1 {
+		t.Errorf("snippet show disk: %v", d)
 	}
-	wantCode(t, "RECIPE_NOT_FOUND", "recipe", "show", "nope")
+	wantCode(t, "RECIPE_NOT_FOUND", "snippet", "show", "nope")
 	wantCode(t, "TUNNEL_NOT_FOUND", "tunnel", "show", "t-nope")
-	if code, text := runMain(t, "group", "show", "web"); code != 0 || !strings.Contains(text, `"command":"group.list"`) {
+	if code, text := runMain(t, "group", "show", "web"); code != 0 || !strings.Contains(text, `"command":"group.show"`) {
 		t.Errorf("group show: exit %d %s", code, text)
 	}
 }
@@ -159,7 +159,7 @@ func TestSchemaResolvesNames(t *testing.T) {
 		{[]string{"secret", "get"}, "komando secret show"},
 		{[]string{"secret.show"}, "komando secret show"},
 		{[]string{"host.rename"}, "komando host rename"},
-		{[]string{"group", "show"}, "komando group list"},
+		{[]string{"group", "show"}, "komando group show"},
 		{[]string{"cluster", "info"}, "komando cluster status"},
 		{[]string{"servers"}, "komando host"},
 		{[]string{"db.user.show"}, "komando db user show"},

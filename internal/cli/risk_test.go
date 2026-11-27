@@ -147,8 +147,8 @@ var agentStops = []agentStop{
 		setup: func(t *testing.T) { mustRun(t, "host", "add", "web1", "deploy@10.0.0.1") }},
 	{args: []string{"import", "ssh-config", "testdata/risk_proxy_ssh_config"}, skipped: "--yes"},
 	{args: []string{"import", "kubeconfig", "testdata/risk_exec_kubeconfig"}, code: "SAFETY_SETTING"},
-	{args: []string{"recipe", "add", "free-space", "df -h", "--overwrite", "--read-only"}, code: "SAFETY_SETTING",
-		setup: func(t *testing.T) { mustRun(t, "recipe", "add", "free-space", "df -h") }},
+	{args: []string{"snippet", "create", "free-space", "df -h", "--overwrite", "--read-only"}, code: "SAFETY_SETTING",
+		setup: func(t *testing.T) { mustRun(t, "snippet", "create", "free-space", "df -h") }},
 	{args: []string{"host", "trust", "web1"}, code: "SAFETY_SETTING", setup: func(t *testing.T) {
 		key := new(atomic.Pointer[ssh.Signer])
 		s := trustSigner(t)
@@ -156,11 +156,11 @@ var agentStops = []agentStop{
 		mustRun(t, "host", "add", "web1", "root@127.0.0.1:"+strconv.Itoa(keySSHD(t, key)))
 		mustRun(t, "config", "set", "host_key_policy", "strict")
 	}},
-	{args: []string{"guide", "uninstall"}, code: "SAFETY_SETTING", setup: func(t *testing.T) {
+	{args: []string{"agent", "skill", "uninstall"}, code: "SAFETY_SETTING", setup: func(t *testing.T) {
 		fakeHome := t.TempDir()
 		t.Setenv("HOME", fakeHome)
 		t.Setenv("USERPROFILE", fakeHome) // os.UserHomeDir reads USERPROFILE on Windows
-		mustRun(t, "guide", "install")
+		mustRun(t, "agent", "skill", "install")
 	}},
 }
 
@@ -178,7 +178,7 @@ func TestRiskPersonGains(t *testing.T) {
 	}
 	for _, line := range []string{
 		"sync ./site web1:/var/www", "exec web1 -- uptime", "pkg upgrade web1 --security",
-		"host edit web1 --port 2222", "group rm web web1",
+		"host edit web1 --port 2222", "group remove web web1",
 	} {
 		if r := riskOfLine(strings.Fields(line)); r.typedWhat() != "" {
 			t.Errorf("%s: typed name %q", line, r.what)
@@ -187,8 +187,8 @@ func TestRiskPersonGains(t *testing.T) {
 	if r := riskOfLine(strings.Fields("host edit web1 --protected=false")); r.tier != tierSafety {
 		t.Errorf("protection off: %s", r.tier)
 	}
-	if r := riskOfLine(strings.Fields("group rm big")); r.bulk == "" {
-		t.Errorf("group rm GROUP: no bulk confirm")
+	if r := riskOfLine(strings.Fields("group remove big")); r.bulk == "" {
+		t.Errorf("group remove GROUP: no bulk confirm")
 	}
 	if r := riskOfLine(strings.Fields("logs web1")); r.tier != tierRead {
 		t.Errorf("logs: %s", r.tier)

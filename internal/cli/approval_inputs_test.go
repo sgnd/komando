@@ -8,16 +8,16 @@ import (
 	"testing"
 )
 
-// recipe run asks about the command that runs, not only the recipe's
+// snippet exec asks about the command that runs, not only the recipe's
 // name: the window shows the filled-in command and says when it runs with
 // sudo, so a recipe an agent rewrote is not allowed by its trusted name.
 func TestRecipeRunWindowShowsTheCommand(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web", "root@127.0.0.1", "--port", "2", "--protected")
-	mustRun(t, "recipe", "add", "deploy", "systemctl restart app")
+	mustRun(t, "snippet", "create", "deploy", "systemctl restart app")
 	texts := windowText(t, false) // the person says no
-	mustRun(t, "recipe", "add", "deploy", "touch /tmp/marker-{{name}}", "--needs-sudo", "--overwrite")
-	wantCode(t, "PROTECTED_TARGET", "recipe", "run", "deploy", "web", "--var", "name=xyz", "--yes")
+	mustRun(t, "snippet", "create", "deploy", "touch /tmp/marker-{{name}}", "--needs-sudo", "--overwrite")
+	wantCode(t, "PROTECTED_TARGET", "snippet", "exec", "deploy", "web", "--var", "name=xyz", "--yes")
 	if len(*texts) != 1 {
 		t.Fatalf("windows: %q", *texts)
 	}
@@ -28,7 +28,7 @@ func TestRecipeRunWindowShowsTheCommand(t *testing.T) {
 	}
 	*texts = nil
 	resetApproval()
-	wantCode(t, "PROTECTED_TARGET", "recipe", "run", "deploy", "web", "--var", "name=xyz", "--no-sudo", "--yes")
+	wantCode(t, "PROTECTED_TARGET", "snippet", "exec", "deploy", "web", "--var", "name=xyz", "--no-sudo", "--yes")
 	if len(*texts) != 1 || strings.Contains((*texts)[0], "with sudo") {
 		t.Errorf("--no-sudo: %q", *texts)
 	}
@@ -119,9 +119,9 @@ func TestUnshowableContentIsRefused(t *testing.T) {
 func TestRecipeRunBodySHA256IsTheCommand(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web", "root@127.0.0.1", "--port", "2", "--protected")
-	mustRun(t, "recipe", "add", "deploy", "touch /tmp/marker-{{name}}")
+	mustRun(t, "snippet", "create", "deploy", "touch /tmp/marker-{{name}}")
 	windowText(t, false)
-	wantCode(t, "PROTECTED_TARGET", "recipe", "run", "deploy", "web", "--var", "name=xyz", "--yes")
+	wantCode(t, "PROTECTED_TARGET", "snippet", "exec", "deploy", "web", "--var", "name=xyz", "--yes")
 	sum := sha256.Sum256([]byte("touch /tmp/marker-'xyz'"))
 	if want := hex.EncodeToString(sum[:]); !strings.Contains(auditText(t), `"body_sha256":"`+want+`"`) {
 		t.Errorf("want body_sha256 %s in: %s", want, auditText(t))

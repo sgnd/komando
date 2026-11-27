@@ -55,13 +55,13 @@ func withSnippets(t *testing.T, list ...snippet.Builtin) {
 	t.Cleanup(func() { snippetsOn, builtinSnippets = wasOn, was })
 }
 
-// snippetData runs `recipe run` with -o json and returns the data of its
+// snippetData runs `snippet exec` with -o json and returns the data of its
 // envelope and the error.
 func snippetData(t *testing.T, args ...string) (json.RawMessage, *out.Error) {
 	t.Helper()
 	var err error
 	got := captureOutput(t, func() error {
-		err = runRoot(t, append([]string{"-o", "json", "recipe", "run"}, args...)...)
+		err = runRoot(t, append([]string{"-o", "json", "snippet", "exec"}, args...)...)
 		return err
 	})
 	var env struct {
@@ -102,7 +102,7 @@ func TestSnippetsOff(t *testing.T) {
 	rs := startReplayServerWith(t, nil, replayStep{stdout: "x"})
 	for _, name := range builtinSnippets.Names() {
 		if _, e := snippetData(t, name, "dev"); e == nil || e.Code != recipeNotFound(name).Code {
-			t.Errorf("recipe run %s with the engine off = %v, want %s", name, e, recipeNotFound(name).Code)
+			t.Errorf("snippet exec %s with the engine off = %v, want %s", name, e, recipeNotFound(name).Code)
 		}
 	}
 	r, err := snippet.New(samples)
@@ -114,7 +114,7 @@ func TestSnippetsOff(t *testing.T) {
 	t.Cleanup(func() { builtinSnippets = was })
 	_, e := snippetData(t, "svc-list", "dev")
 	if e == nil || e.Code != recipeNotFound("svc-list").Code {
-		t.Fatalf("recipe run svc-list with the engine off = %v, want %s", e, recipeNotFound("svc-list").Code)
+		t.Fatalf("snippet exec svc-list with the engine off = %v, want %s", e, recipeNotFound("svc-list").Code)
 	}
 	if len(rs.execs) != 0 {
 		t.Fatalf("the server ran %q with the engine off", rs.execs)
@@ -647,7 +647,7 @@ func likeTheCommand(t *testing.T, step replayStep, command []string, snip []stri
 		return strings.Join(rs.sent, "\n----\n"), string(env.Data)
 	}
 	wantSent, today := run(command...)
-	gotSent, mine := run(append([]string{"recipe", "run"}, snip...)...)
+	gotSent, mine := run(append([]string{"snippet", "exec"}, snip...)...)
 	if gotSent != wantSent {
 		t.Errorf("sent\n got:  %s\n want: %s", gotSent, wantSent)
 	}
@@ -713,7 +713,7 @@ func TestSnippetDockerLikeTheCommand(t *testing.T) {
 				t.Fatalf("got %v %s, want SNIPPET_PARSE_FAILED and no text", e, raw)
 			}
 		})
-		// recipe run has no --sudo: the hint names the command, which asks
+		// snippet exec has no --sudo: the hint names the command, which asks
 		// as today, and never steers to the docker group (root on that
 		// server)
 		t.Run(strings.Join(c, "-")+"/permission hint", func(t *testing.T) {

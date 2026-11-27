@@ -110,7 +110,7 @@ func TestClusterRunBrokenWriteIsAudited(t *testing.T) {
 	if _, e := invRun(t, "cluster", "run", "prod", "--write", "--", "create", "configmap", "x"); e == nil || e.Code != "CONN_UNREACHABLE" {
 		t.Fatalf("run: %+v", e)
 	}
-	d := mustRun(t, "audit", "--failed")
+	d := mustRun(t, "audit", "list", "--failed")
 	if b, _ := json.Marshal(d); !strings.Contains(string(b), "kubectl create configmap x") {
 		t.Errorf("the broken write is not in the audit log: %s", b)
 	}

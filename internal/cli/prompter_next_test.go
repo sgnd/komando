@@ -137,9 +137,9 @@ func TestPromptNext(t *testing.T) {
 		{"conn show", "notes", "komando conn rm notes", "db activity"},
 		{"key show", "deploy", "komando key deploy deploy TARGET", "db "},
 		{"job status", "7f3", "komando job logs 7f3 --limit 50", "conn "},
-		{"group rm", "old", "Next: komando group add old TARGET...", "group rm"},
+		{"group remove", "old", "Next: komando group create old TARGET...", "group remove"},
 		{"tunnel show", "db-tunnel", "komando tunnel stop db-tunnel", "conn "},
-		{"recipe show", "health", "komando recipe run health TARGET", "conn "},
+		{"snippet show", "health", "komando snippet exec health TARGET", "conn "},
 	} {
 		drawn.Reset()
 		tcl.fillSeen = fillInfo{person: true, key: c.key, first: c.first}

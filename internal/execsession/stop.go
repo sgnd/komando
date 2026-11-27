@@ -28,7 +28,7 @@ func ForStop(rt *store.Runtime, host, id string) (*store.ExecSession, error) {
 	rec := rt.ExecSessions[id]
 	if rec == nil || rec.Host != host {
 		return nil, out.Errf(out.ExitNotFound, "SESSION_RECORD_MISSING",
-			"only the computer that started the run can stop it: run `komando exec TARGET --attach ID --stop` there; `komando audit` there shows the exec that started it",
+			"only the computer that started the run can stop it: run `komando exec TARGET --attach ID --stop` there; `komando audit list` there shows the exec that started it",
 			"session %s on %s was not started from this computer", id, host)
 	}
 	return rec, nil

@@ -281,12 +281,12 @@ func TestRecipeVarsChecked(t *testing.T) {
 		args []string
 		code string
 	}{
-		{[]string{"recipe", "run", "big-files", "prod", "--var", "path=-delete"}, "OPTION_LIKE_VAR"},
-		{[]string{"recipe", "run", "big-dirs", "prod", "--var", "path=--files0-from=/etc/x"}, "OPTION_LIKE_VAR"},
-		{[]string{"recipe", "run", "big-dirs", "prod", "--var", "path=-o/etc/x"}, "OPTION_LIKE_VAR"},
-		{[]string{"recipe", "run", "oom", "prod", "--var", "since=-2h"}, ""}, // a relative time
-		{[]string{"recipe", "run", "big-files", "prod", "--var", "path=./-odd-dir"}, ""},
-		{[]string{"recipe", "add", "wipe", "find {{path=/srv}} -delete", "--read-only"}, "READ_ONLY_VIOLATION"},
+		{[]string{"snippet", "exec", "big-files", "prod", "--var", "path=-delete"}, "OPTION_LIKE_VAR"},
+		{[]string{"snippet", "exec", "big-dirs", "prod", "--var", "path=--files0-from=/etc/x"}, "OPTION_LIKE_VAR"},
+		{[]string{"snippet", "exec", "big-dirs", "prod", "--var", "path=-o/etc/x"}, "OPTION_LIKE_VAR"},
+		{[]string{"snippet", "exec", "oom", "prod", "--var", "since=-2h"}, ""}, // a relative time
+		{[]string{"snippet", "exec", "big-files", "prod", "--var", "path=./-odd-dir"}, ""},
+		{[]string{"snippet", "create", "wipe", "find {{path=/srv}} -delete", "--read-only"}, "READ_ONLY_VIOLATION"},
 	}
 	for _, c := range cases {
 		err := runRoot(t, c.args...)
@@ -315,7 +315,7 @@ func TestRecipeVarsChecked(t *testing.T) {
 	}
 	// finder with x=rm deletes files (rule rm-files): it needs --allow-dangerous too
 	for _, name := range []string{"finder", "procs"} {
-		args := []string{"recipe", "run", name, "prod", "--var", "n=x", "--var", "x=rm"}
+		args := []string{"snippet", "exec", name, "prod", "--var", "n=x", "--var", "x=rm"}
 		want, approve := "POLICY_BLOCKED", []string{"--yes", "--allow-dangerous"}
 		if name == "procs" {
 			args, want, approve = args[:4], "PROTECTED_TARGET", []string{"--yes"}
@@ -333,14 +333,14 @@ func TestRecipeVarsChecked(t *testing.T) {
 			t.Errorf("%s --yes: %d runs", name, n)
 		}
 	}
-	if err := runRoot(t, "recipe", "run", "peek", "prod", "--var", "f=/etc/hosts"); err != nil {
+	if err := runRoot(t, "snippet", "exec", "peek", "prod", "--var", "f=/etc/hosts"); err != nil {
 		t.Errorf("peek: %v", err)
 	}
 	srv.take()
 }
 
 // Every built-in read-only recipe, filled in with its defaults, passes the
-// read-only check (recipe run applies it).
+// read-only check (snippet exec applies it).
 func TestBuiltinRecipesAreReadOnly(t *testing.T) {
 	for _, r := range recipes {
 		if r.Mutating {

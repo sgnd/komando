@@ -93,10 +93,10 @@ func TestDoctorChecksTheAgentSkill(t *testing.T) {
 		t.Fatalf("no agent_skill check: %v", d)
 		return nil
 	}
-	if c := check(); c["ok"] != false || !strings.Contains(c["detail"].(string), "komando guide install") {
+	if c := check(); c["ok"] != false || !strings.Contains(c["detail"].(string), "komando agent skill install") {
 		t.Errorf("no skill: %v", c)
 	}
-	mustRun(t, "guide", "install", "--no-guard")
+	mustRun(t, "agent", "skill", "install", "--no-guard")
 	if c := check(); c["ok"] != true {
 		t.Errorf("installed: %v", c)
 	}
@@ -118,7 +118,7 @@ func TestLogTail(t *testing.T) {
 	}
 }
 
-// guide uninstall takes out the skill and komando's guard entries, keeps
+// agent skill uninstall takes out the skill and komando's guard entries, keeps
 // the person's own hooks, and an agent cannot take its own guard away
 // without a person's yes.
 func TestGuideUninstall(t *testing.T) {
@@ -130,7 +130,7 @@ func TestGuideUninstall(t *testing.T) {
 	own := `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"my-own-check"}]}]},"model":"x"}`
 	os.WriteFile(filepath.Join(home, ".claude", "settings.json"), []byte(own), 0o600)
 	os.MkdirAll(filepath.Join(home, ".codex"), 0o755)
-	mustRun(t, "guide", "install")
+	mustRun(t, "agent", "skill", "install")
 	settings := func() string {
 		b, _ := os.ReadFile(filepath.Join(home, ".claude", "settings.json"))
 		return string(b)
@@ -140,14 +140,14 @@ func TestGuideUninstall(t *testing.T) {
 	}
 	asAgent(t, false, true) // the person says no
 	setGate(tcl, true, gateYes)
-	if _, e := invRun(t, "guide", "uninstall"); e == nil || e.Code != "SAFETY_SETTING" {
+	if _, e := invRun(t, "agent", "skill", "uninstall"); e == nil || e.Code != "SAFETY_SETTING" {
 		t.Fatalf("an agent removes its guard: %+v", e)
 	}
 	if !strings.Contains(settings(), " guide guard") {
 		t.Fatal("the guard went without the person's yes")
 	}
 	noAgent(t)
-	mustRun(t, "guide", "uninstall", "--yes")
+	mustRun(t, "agent", "skill", "uninstall", "--yes")
 	s := settings()
 	if strings.Contains(s, "guide guard") || !strings.Contains(s, "my-own-check") || !strings.Contains(s, `"model": "x"`) {
 		t.Errorf("after uninstall: %s", s)
@@ -160,7 +160,7 @@ func TestGuideUninstall(t *testing.T) {
 	if b, _ := os.ReadFile(filepath.Join(home, ".codex", "hooks.json")); strings.Contains(string(b), "guide guard") {
 		t.Errorf("codex: %s", b)
 	}
-	if d := mustRun(t, "guide", "uninstall"); len(d["files"].([]any)) != 0 {
+	if d := mustRun(t, "agent", "skill", "uninstall"); len(d["files"].([]any)) != 0 {
 		t.Errorf("again: nothing left to remove: %v", d)
 	}
 }

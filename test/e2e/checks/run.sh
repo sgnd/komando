@@ -62,8 +62,8 @@ set +e; $K job logs "$JR" --offset -5 >/dev/null; check "negative --offset -> 2"
 q $K job rm "$JR"
 
 # recipes, tunnels
-set +e; $K recipe run disk direct --var pth=/ >/dev/null; check "unknown recipe --var -> 2" 2 $?; set -e
-check "an unknown recipe" RECIPE_NOT_FOUND "$($K recipe run t-e2enope direct | jget 'd["error"]["code"]' || true)"
+set +e; $K snippet exec disk direct --var pth=/ >/dev/null; check "unknown recipe --var -> 2" 2 $?; set -e
+check "an unknown recipe" RECIPE_NOT_FOUND "$($K snippet exec t-e2enope direct | jget 'd["error"]["code"]' || true)"
 TUN=$($K tunnel start direct -L 0:localhost:22)
 TP=$(echo "$TUN" | jget 'd["data"]["listen"].split(":")[1]')
 check "a port in use" PORT_IN_USE "$($K tunnel start direct -L "${TP}:localhost:22" | jget 'd["error"]["code"]' || true)"

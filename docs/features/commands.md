@@ -312,13 +312,13 @@ A recipe is a saved command. komando comes with ready-made ones
 can save your own next to them.
 
 ```bash
-komando recipe list                                   # built-in and saved
-komando recipe list --category saved                  # only your own
-komando recipe add restart-app 'systemctl restart {{app}}' --needs-sudo
-komando recipe add disk-of 'df -h {{path=/}}' --read-only --desc 'Disk use of a path'
-komando recipe run restart-app @web --var app=shop
-komando recipe run disk-of web1 --var path=/srv
-komando recipe rm disk-of
+komando snippet list                                   # built-in and saved
+komando snippet list --category saved                  # only your own
+komando snippet create restart-app 'systemctl restart {{app}}' --needs-sudo
+komando snippet create disk-of 'df -h {{path=/}}' --read-only --desc 'Disk use of a path'
+komando snippet exec restart-app @web --var app=shop
+komando snippet exec disk-of web1 --var path=/srv
+komando snippet remove disk-of
 ```
 
 - `{{app}}` is a blank you fill in with `--var app=...`. `{{path=/}}` has a
@@ -334,7 +334,7 @@ komando recipe rm disk-of
   your own with `--overwrite`.
 - A `--var` the recipe has no blank for is refused (`UNKNOWN_VAR`), so a typo
   never runs the recipe with its default.
-- `recipe run --no-sudo` skips sudo even when the recipe asks for it.
+- `snippet exec --no-sudo` skips sudo even when the recipe asks for it.
 
 ## At your terminal: komando asks for what is missing
 
@@ -534,5 +534,5 @@ crashed a moment ago can still show until the next komando command.
 | `JOB_RUNNING` | `job rm` on a running job | `komando job kill JOB` first, or add `--kill` |
 | `JOB_NOT_FOUND` | no job with that ID | see them with `komando job list` |
 | `OPTION_LIKE_VAR` | a recipe `--var` value starts with `-` | write a path like that as `./-name` |
-| `UNKNOWN_VAR` | the recipe has no blank of that name | check its blanks with `komando recipe list` |
+| `UNKNOWN_VAR` | the recipe has no blank of that name | check its blanks with `komando snippet list` |
 | `NEEDS_TERMINAL` | `shell` without a person at a terminal | use `komando exec` or `komando job start` |

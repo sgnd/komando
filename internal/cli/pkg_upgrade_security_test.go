@@ -25,7 +25,7 @@ func TestPkgUpgradeSecurity(t *testing.T) {
 	if code != out.ExitPolicy || !strings.Contains(text, `"command":"pkg.upgrade"`) {
 		t.Errorf("stop: exit %d %s", code, text)
 	}
-	d := mustRun(t, "audit", "--failed", "-n", "0")
+	d := mustRun(t, "audit", "list", "--failed", "-n", "0")
 	for _, e := range d["entries"].([]any) {
 		if m := e.(map[string]any); m["command"] != "pkg.upgrade" {
 			t.Errorf("audit: %v", m)

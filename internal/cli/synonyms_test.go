@@ -39,7 +39,7 @@ func TestSynonymsPrintNothing(t *testing.T) {
 }
 
 // TestSynonymsGetEveryCheck: a synonym wrapper (cluster info, group show,
-// tunnel show, recipe show) is hidden but typed by a person or an agent, so
+// tunnel show, snippet show) is hidden but typed by a person or an agent, so
 // it gets every check of the command it names: guardHome and the
 // store-writable check do not skip it as a background command, and the
 // ssh-gate does not refuse it as plumbing.

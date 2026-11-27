@@ -74,9 +74,9 @@ func TestGroupListTextSortsGroupsAndTagsTogether(t *testing.T) {
 
 func TestRecipeListSortsSavedAmongBuiltins(t *testing.T) {
 	invHome(t)
-	mustRun(t, "recipe", "add", "zzz-mine", "uptime", "--read-only")
-	mustRun(t, "recipe", "add", "aaa-mine", "uptime", "--read-only")
-	got := field(t, mustRun(t, "recipe", "list")["recipes"], "name")
+	mustRun(t, "snippet", "create", "zzz-mine", "uptime", "--read-only")
+	mustRun(t, "snippet", "create", "aaa-mine", "uptime", "--read-only")
+	got := field(t, mustRun(t, "snippet", "list")["recipes"], "name")
 	if !sort.StringsAreSorted(got) || got[0] != "aaa-mine" || got[len(got)-1] != "zzz-mine" {
 		t.Errorf("recipes: %v", got)
 	}
