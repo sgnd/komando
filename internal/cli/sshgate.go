@@ -372,10 +372,11 @@ func gateCheck(args []string, key gateKey) (name, output string, refused *out.Er
 
 // gateTree is a command tree of its own, with its call: the key's flags
 // are read here, apart from the gate's. A test that asks the gate many
-// lines builds it once and gives it to gateCheckIn.
+// lines builds it once and gives it to gateCheckIn, which prepares the
+// command of each line.
 func gateTree() (*call, *cobra.Command) {
 	sc := treeCall()
-	root := newRoot(sc)
+	root := newRootFor(sc, nil)
 	// cobra adds its completion helper only as it runs, and finds it the
 	// way Find does here (after `-o --`, the -- is -o's value and the next
 	// word is the command): with the helper in this tree too, the gate
@@ -387,6 +388,7 @@ func gateTree() (*call, *cobra.Command) {
 
 // gateCheckIn is gateCheck on the tree gateTree made.
 func gateCheckIn(sc *call, root *cobra.Command, args []string, key gateKey) (name, output string, refused *out.Error) {
+	openPath(root, args) // a path opened for a line before stays open
 	c, rest, err := root.Find(args)
 	if err != nil {
 		return "", "", gateUnknownLine(args)

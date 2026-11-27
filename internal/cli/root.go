@@ -33,7 +33,7 @@ import (
 
 func init() {
 	runExecute = execute
-	commandTree = func() *cobra.Command { return newRoot(treeCall()) }
+	commandTree = func(line []string) *cobra.Command { return newRootFor(treeCall(), line) }
 }
 
 type globalFlags struct {
@@ -119,7 +119,7 @@ func execute(cl *call, ctx context.Context, args []string) int {
 	if ctx.Err() != nil { // stopped while the questions were asked
 		return cl.out.Fail("komando", promptStopped(ctx.Err()))
 	}
-	root := newRoot(cl)
+	root := newRootFor(cl, args)
 	root.SetArgs(args)
 	cmd, err := root.ExecuteContextC(withCall(ctx, cl))
 	if err == nil {
@@ -449,10 +449,28 @@ func startChecks(cmd *cobra.Command) error {
 	return checkStoreWritable(cmd)
 }
 
-// newRoot is the command tree of cl: its flags are cl's, and every
-// command in it runs in cl (callOf). What the last command in cl
-// recorded is forgotten.
+// newRoot is the command tree of cl with every command prepared: what
+// `komando schema`, the help tests and the goldens read.
 func newRoot(cl *call) *cobra.Command {
+	root := treeOf(cl)
+	openAll(root)
+	return root
+}
+
+// newRootFor is the command tree of cl for one line: every command is in
+// it, and the commands the line runs through are prepared (openPath). A
+// run, the guard, the ssh gate and the questions build this one, so a
+// start does not grow with the commands it does not reach.
+func newRootFor(cl *call, line []string) *cobra.Command {
+	root := treeOf(cl)
+	openPath(root, line)
+	return root
+}
+
+// treeOf is every command of cl, none prepared yet: its flags are cl's,
+// and every command in it runs in cl (callOf). What the last command in cl
+// recorded is forgotten.
+func treeOf(cl *call) *cobra.Command {
 	cl.out.Reset()
 	cl.flags = globalFlags{} // the flags below bind to it with their defaults
 	cl.askedAbout, cl.blockAudited, cl.interrupted = nil, false, false
@@ -466,6 +484,9 @@ func newRoot(cl *call) *cobra.Command {
 		Version:       version.Version,
 		RunE:          printFirstSteps,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if err := notPrepared(cmd); err != nil {
+				return err
+			}
 			cmd.SetContext(withCall(cmd.Context(), cl))
 			cl.begin(cmd) // the gate and the answers are this command's only
 			if err := pickTableOutput(cmd); err != nil {
@@ -543,11 +564,7 @@ func newRoot(cl *call) *cobra.Command {
 	addHelpTopics(root) // and cobra's help command
 	root.InitDefaultCompletionCmd()
 	labelBuiltinCmds(root) // before the conventions: `completion` alone, piped, is a USAGE envelope too
-	applyConventions(root)
 	useShortGlobals(root)
-	addCompletion(root)
-	stampIDs(root)
-	applyHelpStandard(root)
 	return root
 }
 

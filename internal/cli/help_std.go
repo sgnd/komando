@@ -28,17 +28,19 @@ const personOnlyMark = "(person only)"
 // approvalComment ends an example line with an approval flag (S-6.7).
 const approvalComment = "# after a person's yes"
 
-// applyHelpStandard writes the generated parts into c and its
-// sub-commands. It runs after stampIDs, when every command has its ID.
-func applyHelpStandard(c *cobra.Command) {
-	for _, sub := range c.Commands() {
-		applyHelpStandard(sub)
+// markPersonOnly ends the Short of a person-only command with its mark: the
+// part of the help standard a list of commands shows.
+func markPersonOnly(c *cobra.Command) {
+	if c.Runnable() && c.HasParent() && personOnly(c) && !strings.HasSuffix(c.Short, personOnlyMark) {
+		c.Short += " " + personOnlyMark
 	}
+}
+
+// applyHelpStandard writes the generated parts of c's help into c. It runs
+// after markPersonOnly and stampID.
+func applyHelpStandard(c *cobra.Command) {
 	if !c.Runnable() || !c.HasParent() {
 		return
-	}
-	if personOnly(c) && !strings.HasSuffix(c.Short, personOnlyMark) {
-		c.Short += " " + personOnlyMark
 	}
 	if line := safetyLine(c); line != "" && !strings.Contains(c.Long, "Safety: ") {
 		c.Long = withSafety(c.Long, c.Short, line)

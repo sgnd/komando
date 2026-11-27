@@ -23,10 +23,8 @@ import (
 // host/conn/vpn/key/secret/recipe gets those names; GROUP gets groups; the
 // settings of `config get/set` and their values; --key, --via and --target
 // get keys, servers and VPNs, and targets (docs/design/principles.md, section 11).
+// It sets up c alone; the tree runs it on each command it prepares.
 func addCompletion(c *cobra.Command) {
-	for _, sub := range c.Commands() {
-		addCompletion(sub)
-	}
 	if c.Name() == "completion" && c.HasParent() && !c.Parent().HasParent() {
 		completionScripts(c)
 	}

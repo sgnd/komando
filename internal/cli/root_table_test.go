@@ -111,7 +111,9 @@ func TestBuildLeafRunsHandler(t *testing.T) {
 	run := func(args ...string) error {
 		in = leafInput{}
 		root := probeRoot(t, &in) // flags keep their values between runs of one tree
-		root.SetArgs(append([]string{"cache", "probeprov", "probe"}, args...))
+		line := append([]string{"cache", "probeprov", "probe"}, args...)
+		openPath(root, line)
+		root.SetArgs(line)
 		_, err := root.ExecuteC()
 		return err
 	}
@@ -260,7 +262,7 @@ func TestBuiltDefaultsParse(t *testing.T) {
 
 // withTable mounts leaves with hs through the real entry (newRoot) for one
 // test: the package's table, handlers and group texts come back after it.
-func withTable(t *testing.T, leaves []capability.Leaf, hs map[capability.Key]handler, groups map[string]string) {
+func withTable(t testing.TB, leaves []capability.Leaf, hs map[capability.Key]handler, groups map[string]string) {
 	t.Helper()
 	oldLeaves, oldHandlers, oldGroups := tableLeaves, handlers, groupShorts
 	tableLeaves = func() []capability.Leaf { return append(oldLeaves(), leaves...) }
@@ -359,7 +361,9 @@ func TestTableLeafRunsThroughTheRoot(t *testing.T) {
 	root := newRoot(tcl)
 	hook, runs := root.PersistentPreRunE, 0
 	root.PersistentPreRunE = func(c *cobra.Command, a []string) error { runs++; return hook(c, a) }
-	root.SetArgs([]string{"cache", "probeprov", "probe", "c1", "--to", "f", "--dry-run"})
+	line := []string{"cache", "probeprov", "probe", "c1", "--to", "f", "--dry-run"}
+	openPath(root, line)
+	root.SetArgs(line)
 	if _, err := root.ExecuteC(); err != nil {
 		t.Fatal(err)
 	}

@@ -293,10 +293,11 @@ func (r riskRow) typedWhat() string {
 	return ""
 }
 
-// commandTree gives the command tree lineWords reads, a new one each time.
-// root.go sets it; a nil tree rates every line tierPerson (fail closed),
-// so a caller that never set one cannot let a line through as a read.
-var commandTree func() *cobra.Command
+// commandTree gives the command tree lineWords reads for line, a new one
+// each time, with the command of line prepared. root.go sets it; a nil
+// tree rates every line tierPerson (fail closed), so a caller that never
+// set one cannot let a line through as a read.
+var commandTree func(line []string) *cobra.Command
 
 // riskOfLine is riskOf for a command line ("cache rm c1 k").
 func riskOfLine(line []string) riskRow {
@@ -317,7 +318,7 @@ func riskOfLine(line []string) riskRow {
 
 // rootOnly reports whether line is komando alone, with global flags only.
 func rootOnly(line []string) bool {
-	root := commandTree()
+	root := commandTree(line)
 	c, rest, err := root.Find(line)
 	if err != nil || c != root || root.ParseFlags(rest) != nil {
 		return false
@@ -335,7 +336,7 @@ func lineWords(line []string) (c *cobra.Command, words, pos []string) {
 	if commandTree == nil {
 		return nil, nil, nil
 	}
-	root := commandTree()
+	root := commandTree(line)
 	c, rest, err := root.Find(line)
 	if err != nil || c == root {
 		return nil, nil, nil

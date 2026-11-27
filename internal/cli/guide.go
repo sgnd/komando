@@ -515,6 +515,7 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
   komando schema host.add    # one command, as named in the envelope
   komando schema --compact   # paths + short descriptions only`,
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			openAll(root) // it reads every command, as the help of each shows it
 			start := root
 			args = schemaPath(args)
 			if len(args) > 0 {
