@@ -225,6 +225,14 @@ func outputFlag(cl *call) string {
 	return "auto"
 }
 
+// storesLater is row C624: outside secret stores come after v0.18.0 as
+// `credential store` (C332); the noun and --store and --item say so.
+func storesLater() *out.Error {
+	e := out.Usage("outside stores are not in this version; they come as credential store")
+	e.Hint = "save the value in komando: `komando credential password add NAME`"
+	return e
+}
+
 // usageErr turns cobra's argument errors ("accepts 2 arg(s), received 1")
 // into what people know from other tools: what is wrong and the usage line.
 func usageErr(cl *call, cmd *cobra.Command, err error) error {
@@ -248,6 +256,9 @@ func usageErr(cl *call, cmd *cobra.Command, err error) error {
 		}
 		return e
 	} else if ok {
+		if name == "store" && cmd.CommandPath() == "komando credential" {
+			return storesLater()
+		}
 		if name == "add" && !cmd.HasParent() {
 			e.Message = fmt.Sprintf("unknown command %q", name)
 			e.Hint = "add a server with `komando host ssh add`, a database with `komando database postgres add` (or mysql, sqlite ...) or a VPN with `komando vpn KIND add`; typed alone at a terminal, each one asks step by step"
@@ -287,6 +298,9 @@ func usageErr(cl *call, cmd *cobra.Command, err error) error {
 		return e
 	}
 	if flag, ok := strings.CutPrefix(m, "unknown flag: "); ok {
+		if n, _, _ := strings.Cut(strings.TrimLeft(flag, "-"), "="); (n == "store" || n == "item") && strings.HasPrefix(cmd.CommandPath(), "komando credential ") {
+			return storesLater()
+		}
 		if s := closestFlag(cmd, strings.TrimLeft(flag, "-")); s != "" {
 			e.Message += "; did you mean --" + s + "?"
 			// a safety override is never handed out as a line to run
