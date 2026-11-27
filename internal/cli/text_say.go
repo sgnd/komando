@@ -307,11 +307,16 @@ func fillHint(e *out.Error, target string) {
 		if len(words) > 1 {
 			noun = words[1]
 		}
-		// a type moved to the table names its conns NAME, its provider KIND
-		typed := kind == "conn" && slices.Contains(movedTypes, noun)
-		if typed && len(words) > 2 && words[2] == "KIND" {
-			if t, err := driver.Parse(st.Conns[name].URL); err == nil {
-				c = strings.Replace(c, " KIND ", " "+providerWord(t.Kind)+" ", 1)
+		// a type moved to the table names its conns NAME, its provider KIND;
+		// only the conn's own type (credential moved too, and its NAME is a
+		// credential's)
+		typed := false
+		if kind == "conn" && slices.Contains(movedTypes, noun) {
+			if t, err := driver.Parse(st.Conns[name].URL); err == nil && typeWord(t.Kind.Family) == noun {
+				typed = true
+				if len(words) > 2 && words[2] == "KIND" {
+					c = strings.Replace(c, " KIND ", " "+providerWord(t.Kind)+" ", 1)
+				}
 			}
 		}
 		return placeholder.ReplaceAllStringFunc(c, func(p string) string {
