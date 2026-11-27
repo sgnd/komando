@@ -49,7 +49,8 @@ func TestExecConnectionLost(t *testing.T) {
 			Hint string `json:"hint"`
 		} `json:"error"`
 	}
-	if e := json.Unmarshal([]byte(got), &env); e != nil {
+	got = strings.TrimSpace(got)
+	if e := json.Unmarshal([]byte(got[strings.LastIndex(got, "\n")+1:]), &env); e != nil { // after the session's line
 		t.Fatalf("%v\n%s", e, got)
 	}
 	if env.Error.Code != "CONNECTION_LOST" || !strings.Contains(env.Error.Hint, "session") {
