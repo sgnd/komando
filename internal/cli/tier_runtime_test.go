@@ -264,12 +264,28 @@ func TestTierMatchesRuntime(t *testing.T) {
 			t.Errorf("%s (%s): no run and no reason in tierUnreached", need, why)
 		}
 	}
+	// the home is seeded once (hosts, conns, keys, fake servers: most of what
+	// a case cost) and put back from a copy before each case: a case starts
+	// from the seed, as it did from a home of its own, and no run keeps what
+	// an earlier run changed
+	invHome(t)
+	tierSeed(t)
+	store.Close()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	restore := snapshotDirs(t, os.Getenv("HOME"), wd)
+	ran := 0
 	for _, r := range tierRuns {
 		name := r.id + " " + strings.Join(r.args, " ")
 		t.Run(name, func(t *testing.T) {
+			store.Close()
+			restore(t)
+			invEnv(t)
 			want := tierStop(r)
 			args := append([]string{"--dry-run", "-o", "json"}, strings.Split(r.id, ".")...)
-			stdout, _, _ := goldenRunWith(t, true, append(args, r.args...), tierSeed)
+			stdout, _, _ := goldenExec(t, true, append(args, r.args...), "")
 			got := runStop(stdout)
 			if slices.Contains(tierStopAlso[want], got) {
 				got = want // the same stop under its handler's code
@@ -277,6 +293,7 @@ func TestTierMatchesRuntime(t *testing.T) {
 			if e := runErr(stdout); e == "USAGE" || strings.HasSuffix(e, "_NOT_FOUND") {
 				t.Fatalf("the command never reached its checks (%s):\n%s", e, stdout)
 			}
+			ran++
 			if d, ok := tierDisagree[name]; ok {
 				if got == want {
 					t.Errorf("the table and the handler agree now (%q): remove the tierDisagree line", got)
@@ -289,6 +306,9 @@ func TestTierMatchesRuntime(t *testing.T) {
 				t.Errorf("row %q: stop %q, want %q", r.row, got, want)
 			}
 		})
+	}
+	if err := pinCount("tier run", ran, len(tierRuns)); err != nil {
+		t.Error(err)
 	}
 }
 
