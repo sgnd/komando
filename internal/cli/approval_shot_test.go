@@ -168,7 +168,7 @@ var shotCases = []shotCase{
 	}},
 	{"db-query", func() approvalView {
 		return testView("Claude Code", []string{"--allow-dangerous"}, "", []string{"it runs on db-2.example.test", "--write lets the query change data"},
-			"komando db query db-2.example.test --write --allow-dangerous -- \"UPDATE orders SET status = 'cancelled' WHERE created_at < now() - interval '30 days'\"", "")
+			"komando database postgres query db-2.example.test --write --allow-dangerous -- \"UPDATE orders SET status = 'cancelled' WHERE created_at < now() - interval '30 days'\"", "")
 	}},
 	{"long-lines", func() approvalView {
 		// 13 lines of 300 base64 characters: the window must stay on the

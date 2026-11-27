@@ -52,7 +52,7 @@ func TestApprovalWindowShowsFileInputs(t *testing.T) {
 		args []string
 		want string
 	}{
-		{[]string{"db", "query", "lite", "--file", sql, "--write", "--yes"}, "create table marker_tbl (id int);"},
+		{[]string{"database", "sqlite", "query", "lite", "--file", sql, "--write", "--yes"}, "create table marker_tbl (id int);"},
 		{[]string{"fs", "write", "web", "/etc/app.conf", "--from", conf, "--yes"}, "marker_conf on"},
 		{[]string{"cluster", "apply", "kube", "--file", yaml, "--yes"}, "metadata: {name: marker-cm}"},
 		{[]string{"queue", "send", "bus", "orders", "--from", msg, "--yes"}, `{"marker_msg": 1}`},
@@ -74,7 +74,7 @@ func TestApprovalWindowShowsFileInputs(t *testing.T) {
 	long := writeTemp(t, "long.sql", strings.Repeat("insert into t values (1);\n", bodyMaxLines+5))
 	*texts = nil
 	resetApproval()
-	if e := wantCode(t, "PROTECTED_TARGET", "db", "query", "lite", "--file", long, "--write", "--yes"); len(*texts) != 0 {
+	if e := wantCode(t, "PROTECTED_TARGET", "database", "sqlite", "query", "lite", "--file", long, "--write", "--yes"); len(*texts) != 0 {
 		t.Errorf("a long SQL file: %v, %q", e, *texts)
 	}
 	// data too long to show (a config file, a manifest) is named by its

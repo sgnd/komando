@@ -88,6 +88,7 @@ func mountTable(root *cobra.Command) {
 	if err := mountLeaves(root, leaves, handlers, groupShorts); err != nil {
 		panic("komando: " + err.Error())
 	}
+	addNounAliases(root) // a top-level group the table made (database) gets its plural too
 }
 
 // hideCarried takes out of today's tree each command whose ID every built
@@ -268,6 +269,12 @@ func buildLeaf(l capability.Leaf, h handler) *cobra.Command {
 		if !o.Generated { // komando makes the value; a person never types it
 			addOption(c.Flags(), o, vals)
 		}
+	}
+	if l.Provider != "" && l.Area == "" && len(l.Args) > 0 && l.Args[0].Name == "NAME" && slices.Contains(movedTypes, l.Type) {
+		c.ValidArgsFunction = entryCompletion(familyOfType(l.Type))
+	}
+	if extra := leafExtras[safetyKey{l.Type, l.Area, l.Verb}]; extra != nil {
+		extra(c)
 	}
 	c.RunE = func(cmd *cobra.Command, args []string) error {
 		in := leafInput{Args: args, ID: strings.Join(l.Key.Path(), "."), Dash: cmd.ArgsLenAtDash(), vals: vals, changed: func(n string) bool { return cmd.Flags().Changed(n) }}
@@ -651,6 +658,7 @@ func idTableOf[V any](name string, m map[string]V, spaced bool) idTable {
 func idTables() []idTable {
 	return []idTable{
 		idTableOf("personalCmds", personalCmds, true),
+		idTableOf("revealNever", revealNever, false),
 		idTableOf("localReads", localReads, false),
 		idTableOf("leavesHome", leavesHome, false),
 		idTableOf("gateNetwork", gateNetwork, false),
@@ -690,6 +698,16 @@ func moveType(typ string) { moveLeaves(typ, capability.All()) }
 func moveLeaves(typ string, leaves []capability.Leaf) {
 	movedTypes = append(movedTypes, typ)
 	providerIDs[typ] = true // the type's own group shares its key with the provider groups
+	if old := familyOfType(typ); old != typ {
+		// the type's group had another word today (db): the new group gets
+		// its key and its gate entry; the old group keeps them while it
+		// still holds commands
+		cmdKeys[typ] = safetyKey{typ: typ}
+		providerIDs[old] = true // the old group runs nothing of its own either
+		if v, ok := gateNoNetwork[old]; ok {
+			gateNoNetwork[typ] = v
+		}
+	}
 	tables := idTables()
 	carried := map[string][]map[string]any{} // per new ID, per table, the entries it carries
 	var built []capability.Leaf
@@ -734,7 +752,7 @@ func moveLeaves(typ string, leaves []capability.Leaf) {
 				gkey.area = words[2]
 			}
 			cmdKeys[gid], providerIDs[gid] = gkey, true
-			if _, ok := gateNoNetwork[typ]; ok {
+			if _, ok := gateNoNetwork[typ]; ok { // set above when today's word differs
 				gateNoNetwork[gid] = nil
 			}
 		}

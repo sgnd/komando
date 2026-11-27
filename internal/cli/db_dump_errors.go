@@ -107,8 +107,8 @@ func dumpErr(err error, c *store.Conn) error {
 // sqliteRestoreHint: a SQLite backup is a copy of the database file.
 const sqliteRestoreHint = "stop the programs that use the database, then copy the backup file over the database file on this computer"
 
-// restoreNote is how to load back the backup to of conn: db restore,
-// or for a SQLite file, which db restore does not take, a copy.
+// restoreNote is how to load back the backup to of conn: restore, or for
+// a SQLite file, which restore does not take, a copy.
 func restoreNote(cl *call, conn, to string) string {
 	if st, err := loadState(); err == nil {
 		if c, err := singleConn(cl, st, conn, "db"); err == nil {
@@ -117,10 +117,10 @@ func restoreNote(cl *call, conn, to string) string {
 			}
 		}
 	}
-	return fmt.Sprintf("komando db restore %s --from %s --allow-dangerous", argQ(conn), argQ(to))
+	return fmt.Sprintf("%s %s --from %s --allow-dangerous", dbPath(conn, "restore"), argQ(conn), argQ(to))
 }
 
-// defaultDumpFile is the file db dump writes without --to:
+// defaultDumpFile is the file backup writes without --to:
 // CONN-<date>.sql.gz (.dump for a custom archive), in this folder.
 func defaultDumpFile(conn, format string, now time.Time) string {
 	name := strings.Map(func(r rune) rune {
@@ -138,7 +138,7 @@ func defaultDumpFile(conn, format string, now time.Time) string {
 
 // offerBackup asks a person at a terminal whether to save the database as
 // it is now before a restore (default yes). Agents and scripts are never
-// asked; the help and the dry run tell them to run db dump first.
+// asked; the help and the dry run tell them to run backup first.
 var offerBackup = func(cl *call, ctx context.Context, conn string) error {
 	if !cl.interactive() {
 		return nil
@@ -157,6 +157,6 @@ var offerBackup = func(cl *call, ctx context.Context, conn string) error {
 	if err := runDump(cl, ctx, conn, to, "", dumpOpts{format: "plain"}); err != nil {
 		return err
 	}
-	textNote(cl, "Saved %s. To go back later: komando db restore %s --from %s --allow-dangerous", to, argQ(conn), argQ(to))
+	textNote(cl, "Saved %s. To go back later: %s %s --from %s --allow-dangerous", to, dbPath(conn, "restore"), argQ(conn), argQ(to))
 	return nil
 }

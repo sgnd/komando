@@ -36,8 +36,8 @@ func TestPromptFill(t *testing.T) {
 	}{
 		{[]string{"logs"}, []string{"web1"}, "logs web1", []string{"TARGET: ", "web1", "prod1"}},
 		{[]string{"logs", "--since", "1h"}, []string{"1"}, "logs --since 1h prod1", nil},
-		{[]string{"db", "query"}, []string{"select 1"}, "db query app-db 'select 1'", []string{"Using app-db (the only one of your databases)", "SQL: "}},
-		{[]string{"db", "query", "app-db", "--file", "q.sql"}, nil, "db query app-db --file q.sql", nil}, // typed in full
+		{[]string{"database", "postgres", "query"}, []string{"select 1"}, "database postgres query app-db 'select 1'", []string{"Using app-db (the only one of your databases)", "SQL: "}},
+		{[]string{"database", "postgres", "query", "app-db", "--file", "q.sql"}, nil, "database postgres query app-db --file q.sql", nil}, // typed in full
 		{[]string{"exec", "--", "uptime"}, []string{"web1", "y"}, "exec web1 -- uptime", []string{"Run it? [y/N, d = --dry-run first]"}},
 		{[]string{"exec", "web1"}, []string{"df -h", "y"}, "exec web1 -- 'df -h'", []string{"COMMAND: "}},
 		{[]string{"fs", "replace", "web1", "/etc/x", "--backup"}, []string{"a", "b", "y"}, "fs replace web1 /etc/x --backup --old=a --new=b", []string{"--old: "}},
@@ -127,7 +127,7 @@ func TestPromptFillPicks(t *testing.T) {
 		t.Errorf("%v %v\n%s", got, err, drawn)
 	}
 	drawn = promptFake(t)
-	if _, err := promptFill(tcl, []string{"db", "info"}); err == nil || !strings.Contains(drawn.String(), "No databases yet: `komando db add`") {
+	if _, err := promptFill(tcl, []string{"db", "info"}); err == nil || !strings.Contains(drawn.String(), "No databases yet: `komando database postgres add`") {
 		t.Errorf("%v\n%s", err, drawn)
 	}
 }
@@ -227,12 +227,12 @@ func TestPromptFillValueNeverAFlag(t *testing.T) {
 	fillTest(t)
 	for _, bad := range []string{"--allow-dangerous", "--yes", "-y", "--reveal"} {
 		drawn := promptFake(t, bad, "select 1")
-		got, err := promptFill(tcl, []string{"db", "query"})
+		got, err := promptFill(tcl, []string{"database", "postgres", "query"})
 		if err != nil {
 			t.Errorf("%s: %v\n%s", bad, err, drawn)
 			continue
 		}
-		if line := pickCommandLine(got); line != "db query app-db 'select 1'" {
+		if line := pickCommandLine(got); line != "database postgres query app-db 'select 1'" {
 			t.Errorf("%s: the line is %s\n%s", bad, line, drawn)
 		}
 		if !strings.Contains(drawn.String(), "an answer here cannot start with -") {
@@ -246,7 +246,7 @@ func TestPromptFillValueNeverAFlag(t *testing.T) {
 func TestFillLineRefusesDashValue(t *testing.T) {
 	fillTest(t)
 	drawn := promptFake(t)
-	cmd, _, err := newRoot(tcl).Find([]string{"db", "query"})
+	cmd, _, err := newRoot(tcl).Find([]string{"database", "postgres", "query"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -258,16 +258,16 @@ func TestFillLineRefusesDashValue(t *testing.T) {
 	for _, i := range f.missing {
 		f.a[f.sp.qs[i].key] = "--allow-dangerous"
 	}
-	if got, err := f.line([]string{"db", "query"}); err == nil {
+	if got, err := f.line([]string{"database", "postgres", "query"}); err == nil {
 		t.Errorf("a value starting with - was filled in: %v", got)
 	}
-	if want := `CONN "--allow-dangerous" starts with - and would be read as a flag`; !strings.Contains(drawn.String(), want) {
+	if want := `NAME "--allow-dangerous" starts with - and would be read as a flag`; !strings.Contains(drawn.String(), want) {
 		t.Errorf("the reason does not name the argument and its value; want %q in:\n%s", want, drawn)
 	}
 	for _, i := range f.missing {
 		f.a[f.sp.qs[i].key] = "app-db"
 	}
-	if _, err := f.line([]string{"db", "query"}); err != nil {
+	if _, err := f.line([]string{"database", "postgres", "query"}); err != nil {
 		t.Errorf("a plain value was refused: %v", err)
 	}
 }

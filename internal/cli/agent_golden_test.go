@@ -316,7 +316,7 @@ func TestAgentGoldenPTY(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range [][]string{{"logs"}, {"db", "query"}, {"host", "show"}, {"exec"}, {"host", "add"}, {"db", "add"}, {"fs", "replace"}} {
+	for _, args := range [][]string{{"logs"}, {"database", "postgres", "query"}, {"host", "show"}, {"exec"}, {"host", "add"}, {"database", "postgres", "add"}, {"fs", "replace"}} {
 		head := "### komando -o text " + strings.Join(args, " ") + " (agent text)\n"
 		i := strings.Index(string(rec), head)
 		if i < 0 {

@@ -232,7 +232,7 @@ var bqJobID = regexp.MustCompile(`^[A-Za-z0-9_-]{1,1000}$`)
 func bigqueryKill(ctx context.Context, db *sql.DB, pid int64, session bool) error {
 	if session {
 		return out.Errf(out.ExitUsage, "NOT_SUPPORTED",
-			"BigQuery cancels jobs, not connections: drop --session (a BigQuery session ends with CALL BQ.ABORT_SESSION('ID') through `komando db query CONN --write`; it needs --allow-dangerous, so ask the user first)",
+			"BigQuery cancels jobs, not connections: drop --session (a BigQuery session ends with CALL BQ.ABORT_SESSION('ID') through `komando database bigquery query CONN --write`; it needs --allow-dangerous, so ask the user first)",
 			"db kill --session is not available for bigquery")
 	}
 	rows, err := bigqueryActivity(ctx, db)
@@ -269,6 +269,6 @@ func bqNoLocks() error {
 // users and rights are Google Cloud IAM.
 func BQNoUsers(what string) error {
 	return out.Errf(out.ExitUsage, "NOT_SUPPORTED",
-		"BigQuery's users and rights are Google Cloud IAM (the console's IAM page); a dataset's own grants are in INFORMATION_SCHEMA.OBJECT_PRIVILEGES, which `komando db query CONN` reads, and GRANT ... TO \"user:NAME@example.com\" goes through `db query --write` (it needs --allow-dangerous, so ask the user first)",
+		"BigQuery's users and rights are Google Cloud IAM (the console's IAM page); a dataset's own grants are in INFORMATION_SCHEMA.OBJECT_PRIVILEGES, which `komando database bigquery query CONN` reads, and GRANT ... TO \"user:NAME@example.com\" goes through `komando database bigquery query CONN --write` (it needs --allow-dangerous, so ask the user first)",
 		"%s is not available for bigquery", what)
 }

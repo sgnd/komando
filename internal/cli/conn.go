@@ -651,7 +651,7 @@ func kindExample(raw string, err error) error {
 // same command, under the word a person looks for first. Typed alone at a
 // terminal, each opens the guided form for that kind only.
 var connAddKinds = map[string]struct{ what, form, example string }{
-	"db":       {"database", "Database", "komando db add prod-db postgres://app@10.0.0.5:5432/app --via web1 --ask-password"},
+	"db":       {"database", "Database", "komando database postgres add prod-db postgres://app@10.0.0.5:5432/app --via web1 --ask-password"},
 	"cache":    {"cache", "Cache", "komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password"},
 	"queue":    {"message queue", "Message queues", "komando queue add orders kafka://10.0.0.8:9092 --via web1"},
 	"storage":  {"file storage", "File storage", "komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password"},

@@ -71,8 +71,8 @@ func TestSQLServerConnsCheckTLS(t *testing.T) {
 
 	// what SQL Server cannot do says so before connecting
 	wantCode(t, "NOT_SUPPORTED", "db", "kill", "sales", "57")
-	wantCode(t, "NOT_SUPPORTED", "db", "dump", "sales", "--to", t.TempDir()+"/s.sql")
-	wantCode(t, "NOT_SUPPORTED", "db", "restore", "s-local", "--from", "x.sql", "--dry-run")
+	wantCode(t, "USAGE", "database", "sqlserver", "backup", "sales")    // no backup leaf+"/s.sql")
+	wantCode(t, "USAGE", "database", "sqlserver", "restore", "s-local") // no restore leaf
 }
 
 func TestSQLServerExplainOnlyPlans(t *testing.T) {

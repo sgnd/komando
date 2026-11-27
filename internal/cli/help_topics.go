@@ -12,7 +12,7 @@ var helpTopics = []struct{ name, short, long string }{
   --dry-run           every change can show what it would do first
   protected targets   a change asks [y/N] at your terminal; scripts and agents need --yes
   dangerous commands  rm -rf /, DROP DATABASE ...: you type the name; scripts need --allow-dangerous
-  read only           db query, cache redis raw and cluster run only read unless you add --write
+  read only           database KIND query, cache redis raw and cluster run only read unless you add --write
   audit               komando audit shows every change and who asked for it
 
 An AI agent is never asked: it gets exit 6 and a person allows the flag in a
@@ -38,7 +38,7 @@ window on the screen. See docs/features/safety.md.`},
 In a terminal komando prints text; piped, one JSON envelope on stdout:
   {"ok":true,"command":"exec","data":{...},"meta":{...}}
   {"ok":false,"command":"exec","error":{"code":"AUTH_FAILED",...}}
-Force one with -o json or -o text (db query also takes csv and tsv).
+Force one with -o json or -o text (database KIND query also takes csv and tsv).
 Questions, the line komando runs ($ komando ...) and Next: go to stderr,
 and only at a person's terminal.`},
 }

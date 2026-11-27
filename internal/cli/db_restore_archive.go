@@ -39,6 +39,6 @@ func isPGDirArchive(path string, fi os.FileInfo) bool {
 
 func otherPGArchive(from, format string) error {
 	return out.Errf(out.ExitUsage, "USAGE",
-		"dump it again as a custom archive (pg_dump -Fc, what `komando db dump` makes) or plain SQL (pg_dump -Fp)",
+		"dump it again as a custom archive (pg_dump -Fc, what `komando database postgres backup --format custom` makes) or plain SQL (pg_dump -Fp)",
 		"%s is a %s, which komando cannot check; it restores custom archives and plain SQL only", from, format)
 }

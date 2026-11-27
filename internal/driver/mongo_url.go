@@ -73,7 +73,7 @@ func firstMongoHost(raw string) string {
 func noSQL(kind string) error {
 	if kind == "mongodb" {
 		return out.Errf(out.ExitUsage, "NOT_SUPPORTED",
-			`on MongoDB, explain a query with db query: '{"explain": {"find": "users", "filter": {}}, "verbosity": "queryPlanner"}'`,
+			`on MongoDB, explain a query with database mongodb query: '{"explain": {"find": "users", "filter": {}}, "verbosity": "queryPlanner"}'`,
 			"this db command is for SQL databases, not MongoDB")
 	}
 	return out.Usage("%s conns do not take SQL", kind)

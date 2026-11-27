@@ -47,7 +47,7 @@ func TestApprovalHintHidesSecrets(t *testing.T) {
 		{[]string{"-o", "json", "fs", "rm", "web1", "/tmp/x"}, "`komando -o json fs rm web1 /tmp/x --allow-dangerous`"},
 		{[]string{"exec", "web1", "--", "mysql", "-pS3cret", "-e", "drop table x"}, ""},
 		{[]string{"exec", "web1", "--", "sshpass", "-p", "S3cret", "ssh", "x"}, ""},
-		{[]string{"db", "query", "db1", "--write", "UPDATE u SET pw='S3cret'"}, ""},
+		{[]string{"database", "postgres", "query", "db1", "--write", "UPDATE u SET pw='S3cret'"}, ""},
 		{[]string{"fs", "write", "prod1", "/tmp/x", "--content", "S3cret"}, ""},
 		{[]string{"fs", "write", "prod1", "/tmp/x", "--content=S3cret"}, ""},
 		{[]string{"host", "add", "x", "u@h", "--env", "DB_PASSWORD=S3cret"}, ""},

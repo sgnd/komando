@@ -156,7 +156,7 @@ func TestPostgresEnvIgnored(t *testing.T) {
 	t.Setenv("PW", "stored-pw")
 	mustRun(t, "conn", "add", "pg1", "postgres://app@127.0.0.1:"+port+"/app?sslmode=verify-full", "--password-ref", "env:PW")
 	t.Setenv("PGSSLROOTCERT", caFile)
-	_, _ = runCache(t, "-o", "json", "db", "query", "pg1", "--", "select 1")
+	_, _ = runCache(t, "-o", "json", "database", "postgres", "query", "pg1", "--", "select 1")
 	if v, _ := got.Load().(string); v == "stored-pw" {
 		t.Fatalf("the fake server got the stored password")
 	}
@@ -178,7 +178,7 @@ func TestPostgresPassfileIgnored(t *testing.T) {
 	noAgent(t)
 	mustRun(t, "conn", "add", "pg1", "postgres://app@127.0.0.1:"+port+"/app?sslmode=disable")
 	setCallerEnv(t, "CLAUDECODE", "1")
-	_, _ = runCache(t, "-o", "json", "db", "query", "pg1", "--", "select 1")
+	_, _ = runCache(t, "-o", "json", "database", "postgres", "query", "pg1", "--", "select 1")
 	if v, _ := got.Load().(string); v == "person-pgpass" {
 		t.Fatalf("the fake server got the password from ~/.pgpass")
 	}
@@ -231,15 +231,15 @@ func TestSQLiteSensitivePathsRefusedForAgents(t *testing.T) {
 	for i, p := range paths {
 		wantCode(t, "SENSITIVE_FILE", "conn", "add", "x"+strconv.Itoa(i), "sqlite://"+p)
 	}
-	wantCode(t, "SENSITIVE_FILE", "db", "query", "gc", "--", "select 1")
-	wantCode(t, "SENSITIVE_FILE", "db", "dump", "gc", "--to", filepath.Join(t.TempDir(), "copy.db"))
-	wantCode(t, "SENSITIVE_FILE", "db", "dump", "app", "--to", filepath.Join(home, ".ssh", "copy.db"))
-	wantCode(t, "SENSITIVE_FILE", "db", "dump", "app", "--to", filepath.Join(home, ".aws", "copy.db"))
+	wantCode(t, "SENSITIVE_FILE", "database", "sqlite", "query", "gc", "--", "select 1")
+	wantCode(t, "SENSITIVE_FILE", "database", "sqlite", "backup", "gc", "--to", filepath.Join(t.TempDir(), "copy.db"))
+	wantCode(t, "SENSITIVE_FILE", "database", "sqlite", "backup", "app", "--to", filepath.Join(home, ".ssh", "copy.db"))
+	wantCode(t, "SENSITIVE_FILE", "database", "sqlite", "backup", "app", "--to", filepath.Join(home, ".aws", "copy.db"))
 	if err := os.WriteFile(filepath.Join(home, ".aws", "dump.sql"), []byte("select 1;"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	mustRun(t, "conn", "add", "pg9", "postgres://app@10.0.0.5/app")
-	wantCode(t, "SENSITIVE_FILE", "db", "restore", "pg9", "--from", filepath.Join(home, ".aws", "dump.sql"))
+	wantCode(t, "SENSITIVE_FILE", "database", "postgres", "restore", "pg9", "--from", filepath.Join(home, ".aws", "dump.sql"))
 }
 
 // SQL on a SQLite conn can write any file: ATTACH DATABASE and VACUUM
@@ -256,7 +256,7 @@ func TestSQLiteAttachAndVacuumIntoRefusedForAgents(t *testing.T) {
 	db := filepath.Join(t.TempDir(), "app.db")
 	noAgent(t)
 	mustRun(t, "conn", "add", "lite", "sqlite://"+db)
-	mustRun(t, "db", "query", "lite", "--write", "create table t(x)")
+	mustRun(t, "database", "sqlite", "query", "lite", "--write", "create table t(x)")
 	setCallerEnv(t, "CLAUDECODE", "1")
 	vac := filepath.Join(home, ".ssh", "vac")
 	att := filepath.Join(os.Getenv("KOMANDO_HOME"), "att.db")
@@ -266,7 +266,7 @@ func TestSQLiteAttachAndVacuumIntoRefusedForAgents(t *testing.T) {
 		"ATTACH DATABASE '" + att + "' AS a; CREATE TABLE a.t(x)",
 		"attach '" + att + "' as a",
 	} {
-		wantCode(t, "SENSITIVE_FILE", "db", "query", "lite", "--write", q)
+		wantCode(t, "SENSITIVE_FILE", "database", "sqlite", "query", "lite", "--write", q)
 	}
 	for _, p := range []string{vac, att} {
 		if _, err := os.Stat(p); err == nil {
@@ -274,10 +274,10 @@ func TestSQLiteAttachAndVacuumIntoRefusedForAgents(t *testing.T) {
 		}
 	}
 	// a string that only mentions them is fine
-	mustRun(t, "db", "query", "lite", "--write", "insert into t values ('attach x; vacuum into y')")
+	mustRun(t, "database", "sqlite", "query", "lite", "--write", "insert into t values ('attach x; vacuum into y')")
 	// native code never loads, for a person either
 	noAgent(t)
-	if _, err := runCache(t, "-o", "json", "db", "query", "lite", "select load_extension('/tmp/evil')"); err == nil {
+	if _, err := runCache(t, "-o", "json", "database", "sqlite", "query", "lite", "select load_extension('/tmp/evil')"); err == nil {
 		t.Error("load_extension ran")
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/cli/kit/term"
+	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -221,6 +222,8 @@ func addHint(cl *call, family, wanted string) string {
 	if cl.interactive() {
 		cmd := "host add"
 		switch {
+		case slices.Contains(movedTypes, typeWord(family)):
+			cmd = typeWord(family) + " " + map[string]string{"database": "postgres", "cache": "redis", "registry": "oci"}[typeWord(family)] + " add"
 		case familyWord[family] != [2]string{}:
 			cmd = family + " add"
 		case family == "conn" || family != "host" && family != "vpn" && wanted == "conn":
@@ -254,7 +257,7 @@ func fillHint(e *out.Error, target string) {
 		return
 	}
 	e.Hint = strings.ReplaceAll(e.Hint, "`komando conn test ", "`komando test ")
-	if target == "" || !placeholder.MatchString(e.Hint) {
+	if target == "" || !placeholder.MatchString(e.Hint) && !strings.Contains(e.Hint, " KIND ") {
 		return // nothing to fill: no need to read the inventory
 	}
 	st, err := loadState()
@@ -271,13 +274,20 @@ func fillHint(e *out.Error, target string) {
 		if len(words) > 1 {
 			noun = words[1]
 		}
+		// a type moved to the table names its conns NAME, its provider KIND
+		typed := kind == "conn" && slices.Contains(movedTypes, noun)
+		if typed && len(words) > 2 && words[2] == "KIND" {
+			if t, err := driver.Parse(st.Conns[name].URL); err == nil {
+				c = strings.Replace(c, " KIND ", " "+providerWord(t.Kind)+" ", 1)
+			}
+		}
 		return placeholder.ReplaceAllStringFunc(c, func(p string) string {
 			word := strings.TrimSpace(p)
 			switch {
 			case word == "CONN" && kind != "conn",
 				word == "SERVER" && kind != "host",
 				word == "TARGET" && kind == "vpn" && noun != "test",
-				word == "NAME" && noun != kind && noun != "test":
+				word == "NAME" && noun != kind && noun != "test" && !typed:
 				return p
 			}
 			return p[:len(p)-len(word)] + name

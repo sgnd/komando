@@ -71,7 +71,7 @@ func TestStandardTopLevel(t *testing.T) {
 	want := []string{
 		// nouns (S-2.1)
 		"host", "conn", "vpn", "group", "secret", "key", "recipe", "policy", "job", "tunnel", "config",
-		"fs", "svc", "pkg", "user", "cron", "docker", "net", "cert", "db", "cache", "queue", "storage", "cluster", "registry",
+		"fs", "svc", "pkg", "user", "cron", "docker", "net", "cert", "db", "database", "cache", "queue", "storage", "cluster", "registry",
 		// shortcuts
 		"list", "test", "exec", "shell", "logs", "cp", "upload", "download", "sync", "facts", "reboot", "status",
 		"login", "logout", "import", "export", "rename",
@@ -134,7 +134,7 @@ func TestStandardNounAliases(t *testing.T) {
 		"secret": {"secrets"}, "key": {"keys"}, "recipe": {"recipes"}, "policy": {"policies"}, "job": {"jobs"},
 		"tunnel": {"tunnels"}, "fs": {"files"}, "svc": {"service", "services"}, "pkg": {"package", "packages"},
 		"user": {"users"}, "cron": {"crons"}, "docker": {"container", "containers"}, "net": {"network"},
-		"cert": {"certs"}, "db": {"dbs", "database", "databases"}, "cache": {"caches"}, "queue": {"queues"},
+		"cert": {"certs"}, "db": {"dbs"}, "database": {"databases"}, "cache": {"caches"}, "queue": {"queues"},
 		"cluster": {"clusters"}, "registry": {"registries"},
 	} {
 		want := findCmd(t, root, noun)
@@ -151,7 +151,7 @@ var (
 	verbTable = []string{"list", "show", "add", "edit", "rename", "rm", "test", "cp", "check",
 		"describe", "get", "info", "status", "logs", "history", "events", "create", "set",
 		"start", "stop", "restart", "reload", "enable", "disable", "kill", "wait", "purge", "prune",
-		"exec", "run", "query", "shell", "upload", "download", "sync", "dump", "restore", "up", "down",
+		"exec", "run", "query", "shell", "upload", "download", "sync", "backup", "restore", "up", "down",
 		"login", "logout", "install", "uninstall", "update", "upgrade",
 		"grant", "revoke", "deploy", "gen", "trust", "lock", "unlock", "passwd",
 		"remove", "raw", "copy", "delete"} // the v2.7 verbs join as their type moves (step C)
@@ -314,7 +314,7 @@ func TestStandardRequiredInUse(t *testing.T) {
 
 // requiredByCode are flags a command requires with its own check (a USAGE
 // error that says how), not cobra's.
-var requiredByCode = []string{"db restore --from", "db user add --password-ref", "db user passwd --password-ref",
+var requiredByCode = []string{"database postgres restore --from", "database mysql restore --from", "db user add --password-ref", "db user passwd --password-ref",
 	"fs replace --old", "fs replace --new", "cluster deploy --image", "cluster apply --file"}
 
 // S-5.1, S-5.6: one type per flag name, except the S-5.1 exceptions.
@@ -494,6 +494,7 @@ func TestStandardLong(t *testing.T) {
 
 // sampleNames are S-6.8's sample names, and selectors that pick them.
 var sampleNames = []string{"web1", "web2", "db1", "@web", "prod-db", "staging-db", "prod-redis", "prod-kafka",
+	"shop-mysql", "shop-maria", "sales-mssql", "erp-oracle", "local", "prod-mongo", "events-ch", "analytics", "bq",
 	"backups", "ghcr", "harbor", "prod-k8s", "swarm1", "office", "alice", "app", "all"}
 
 // S-6.6..S-6.9: example counts, a dry-run line per change command,
@@ -599,6 +600,8 @@ func TestStandardReferences(t *testing.T) {
 	root := newRoot(tcl)
 	got := map[string]string{}
 	check := func(where, ref string) {
+		// KIND after database is the provider word, filled from the conn (fillHint)
+		ref = strings.Replace(ref, "database KIND", "database postgres", 1)
 		words := shellWords(strings.ReplaceAll(ref, "\n", " "))
 		if len(words) == 0 {
 			return

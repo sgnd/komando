@@ -47,7 +47,7 @@ func MongoKillNoSession() error {
 // MongoNoUserChange is db user add/passwd/rm and db grant/revoke on MongoDB.
 func MongoNoUserChange(what string) error {
 	return out.Errf(out.ExitUsage, "NOT_SUPPORTED",
-		"send the command yourself with `komando db query CONN --write` (createUser, grantRolesToUser ...: it needs --allow-dangerous, so ask the user first); `db user list` and `db user show` work",
+		"send the command yourself with `komando database mongodb query CONN --write` (createUser, grantRolesToUser ...: it needs --allow-dangerous, so ask the user first); `db user list` and `db user show` work",
 		"%s is not available for mongodb", what)
 }
 

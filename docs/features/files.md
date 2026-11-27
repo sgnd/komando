@@ -159,8 +159,8 @@ with `komando exec win1 -- Copy-Item ...` ([Windows servers](windows.md)).
 
 Without `--backup` there is no copy: `komando audit` says what changed, when
 and where (`komando audit --target web1 --since 2h`), so you can change it
-back by hand. For a database change, restore from a dump (`db dump` before
-the change, `db restore` to go back); for a Kubernetes deployment, `cluster
+back by hand. For a database change, restore from a dump (`database KIND backup` before
+the change, `database KIND restore` to go back); for a Kubernetes deployment, `cluster
 rollback`.
 
 ## Move, remove and change files

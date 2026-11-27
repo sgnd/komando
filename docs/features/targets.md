@@ -58,7 +58,7 @@ komando test @prod           # reach and log in to each one
 
 Each command uses what it can work with and tells you what it left out. For
 example, `komando exec @prod -- uptime` runs on the servers in `prod` and
-lists the databases under "skipped". `komando db query @prod "..."` does the
+lists the databases under "skipped". `komando database KIND query @prod "..."` does the
 opposite: it uses the one database in `@prod` (a `db` command needs exactly
 one) and skips the servers. If a target picks nothing the command can use,
 the error names the command to use instead. A target that picks nothing is

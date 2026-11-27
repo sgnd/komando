@@ -5,32 +5,32 @@
 set +e
 
 # databases
-check "pg date is a date" 2024-02-29 "$($K db query pg "select '2024-02-29'::date d" | jget 'd["data"]["results"][0]["rows"][0][0]')"
-check "pg timestamp has no zone" "2024-02-29 10:11:12" "$($K db query pg "select '2024-02-29 10:11:12'::timestamp t" | jget 'd["data"]["results"][0]["rows"][0][0]')"
-check "pg timestamptz is an instant" "2024-02-29T08:00:00Z" "$($K db query pg "select '2024-02-29 10:00+02'::timestamptz t" | jget 'd["data"]["results"][0]["rows"][0][0]')"
-check "pg money is named" money "$($K db query pg "select 1.5::money m" | jget 'd["data"]["results"][0]["columns"][0]["type"]')"
-check "pg empty bytea is binary" "{'base64': ''}" "$($K db query pg "select ''::bytea b" | jget 'd["data"]["results"][0]["rows"][0][0]')"
-check "maria zero date verbatim" "0000-00-00 00:00:00" "$($K db query maria "select cast('0000-00-00 00:00:00' as datetime) z" | jget 'd["data"]["results"][0]["rows"][0][0]')"
-check "maria date is a date" 2024-02-29 "$($K db query maria "select cast('2024-02-29' as date) d" | jget 'd["data"]["results"][0]["rows"][0][0]')"
-check "maria big unsigned is a string" 18446744073709551615 "$($K db query maria "select cast(18446744073709551615 as unsigned) u" | jget 'd["data"]["results"][0]["rows"][0][0]')"
+check "pg date is a date" 2024-02-29 "$($K database postgres query pg "select '2024-02-29'::date d" | jget 'd["data"]["results"][0]["rows"][0][0]')"
+check "pg timestamp has no zone" "2024-02-29 10:11:12" "$($K database postgres query pg "select '2024-02-29 10:11:12'::timestamp t" | jget 'd["data"]["results"][0]["rows"][0][0]')"
+check "pg timestamptz is an instant" "2024-02-29T08:00:00Z" "$($K database postgres query pg "select '2024-02-29 10:00+02'::timestamptz t" | jget 'd["data"]["results"][0]["rows"][0][0]')"
+check "pg money is named" money "$($K database postgres query pg "select 1.5::money m" | jget 'd["data"]["results"][0]["columns"][0]["type"]')"
+check "pg empty bytea is binary" "{'base64': ''}" "$($K database postgres query pg "select ''::bytea b" | jget 'd["data"]["results"][0]["rows"][0][0]')"
+check "maria zero date verbatim" "0000-00-00 00:00:00" "$($K database mysql query maria "select cast('0000-00-00 00:00:00' as datetime) z" | jget 'd["data"]["results"][0]["rows"][0][0]')"
+check "maria date is a date" 2024-02-29 "$($K database mysql query maria "select cast('2024-02-29' as date) d" | jget 'd["data"]["results"][0]["rows"][0][0]')"
+check "maria big unsigned is a string" 18446744073709551615 "$($K database mysql query maria "select cast(18446744073709551615 as unsigned) u" | jget 'd["data"]["results"][0]["rows"][0][0]')"
 check "maria explain --analyze" True "$($K db explain maria --analyze 'select 1' | jget 'd["ok"]')"
-$K db query pg 'select $1::int, $2::int' --arg 1 >/dev/null; check "placeholder count mismatch is usage" 2 $?
-check "row cap is named" rows "$($K db query pg 'select generate_series(1,5)' -n 2 | jget 'd["data"]["results"][0]["truncated"]')"
-check "size cap is named" bytes "$($K db query pg "select repeat('x', 200) from generate_series(1,50)" --max-output 1000 | jget 'd["data"]["results"][0]["truncated"]')"
-check "timeout says how long" "query timed out after 1s" "$($K db query pg 'select pg_sleep(3)' --timeout 1s | jget 'd["error"]["message"]')"
-check "sql starting with a comment hints -f -" True "$($K db query pg $'-- note\nselect 1' | jget '"-f -" in d["error"]["hint"]')"
-check "set_config is a read" read "$($K db query pg "select set_config('search_path', 'public', true)" | jget 'd["data"]["risk"]')"
-check "pg_read_file hint names files" True "$($K db query pg "select pg_read_file('/etc/hostname')" | jget '"files on the database server" in d["error"]["hint"]')"
-check "csv output" "a,b" "$($K db query pg 'select 1 a, 2 b' -o csv | head -1)"
+$K database postgres query pg 'select $1::int, $2::int' --arg 1 >/dev/null; check "placeholder count mismatch is usage" 2 $?
+check "row cap is named" rows "$($K database postgres query pg 'select generate_series(1,5)' -n 2 | jget 'd["data"]["results"][0]["truncated"]')"
+check "size cap is named" bytes "$($K database postgres query pg "select repeat('x', 200) from generate_series(1,50)" --max-output 1000 | jget 'd["data"]["results"][0]["truncated"]')"
+check "timeout says how long" "query timed out after 1s" "$($K database postgres query pg 'select pg_sleep(3)' --timeout 1s | jget 'd["error"]["message"]')"
+check "sql starting with a comment hints -f -" True "$($K database postgres query pg $'-- note\nselect 1' | jget '"-f -" in d["error"]["hint"]')"
+check "set_config is a read" read "$($K database postgres query pg "select set_config('search_path', 'public', true)" | jget 'd["data"]["risk"]')"
+check "pg_read_file hint names files" True "$($K database postgres query pg "select pg_read_file('/etc/hostname')" | jget '"files on the database server" in d["error"]["hint"]')"
+check "csv output" "a,b" "$($K database postgres query pg 'select 1 a, 2 b' -o csv | head -1)"
 check "db info text shows a human size" True "$($K db info pg -o text | grep -q 'size: .*iB' && echo True || echo False)"
 check "db sizes text is a table" True "$($K db sizes pg -o text | grep -q '^TABLE ' && echo True || echo False)"
 $K db locks maria >/dev/null; check "missing privilege exits 5 (DB_PRIVILEGE, as in komando schema)" 5 $?
-q $K db query pg --write "create table t_e2edata_b(id int generated always as identity primary key, note text); create table t_e2edata_a(id int)"
+q $K database postgres query pg --write "create table t_e2edata_b(id int generated always as identity primary key, note text); create table t_e2edata_a(id int)"
 check "schema keeps the asked order" "t_e2edata_b t_e2edata_a" "$($K db schema pg t_e2edata_b t_e2edata_a | jget '" ".join(t["name"] for t in d["data"]["tables"])')"
 check "schema shows identity" always "$($K db schema pg t_e2edata_b | jget 'd["data"]["tables"][0]["columns"][0]["identity"]')"
-q $K db query pg --write --allow-dangerous "drop table t_e2edata_a; drop table t_e2edata_b"
+q $K database postgres query pg --write --allow-dangerous "drop table t_e2edata_a; drop table t_e2edata_b"
 echo "select 1;" > "$TMP/e2edata.sql"
-check "restore dry-run checks the file" True "$($K db restore pg --from "$TMP/e2edata.sql" --dry-run | jget 'd["ok"] and d["meta"]["would_be_blocked"]["code"] == "POLICY_BLOCKED"')"
+check "restore dry-run checks the file" True "$($K database postgres restore pg --from "$TMP/e2edata.sql" --dry-run | jget 'd["ok"] and d["meta"]["would_be_blocked"]["code"] == "POLICY_BLOCKED"')"
 
 # caches
 $K cache set cache t-e2edata:a x --ttl -5s >/dev/null; check "negative ttl is usage" 2 $?
