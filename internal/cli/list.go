@@ -52,7 +52,7 @@ func (l targetList) Text() string {
 	if len(l.Targets) == 0 {
 		switch l.only {
 		case "host":
-			return term.NoneYet("servers", "host add NAME USER@ADDRESS")
+			return term.NoneYet("servers", "host ssh add NAME USER@ADDRESS")
 		case "conn":
 			return term.NoneYet("conns", "conn add NAME URL")
 		case "vpn":

@@ -4,7 +4,7 @@ package cli
 // users, cron, Docker, network and certificate checks.
 
 func init() {
-	addFormHints(srvRunHints)
+	addFormHints(withWinRM(srvRunHints))
 	addFormHints(srvSvcHints)
 	addFormHints(srvPkgHints)
 	addFormHints(srvUserCronHints)
@@ -75,7 +75,8 @@ func srvWithShow(f formFlag, show func(formAnswers) bool) formFlag {
 }
 
 var srvRunHints = map[string]formHint{
-	"exec": {
+	"host ssh exec": {
+		area: "Servers",
 		args: []formArg{srvServers, {ask: "What command should it run?", example: "df -h /",
 			help: "Type it as you would on the server itself, pipes and all. Leave it empty to run a script file from this computer instead.",
 			need: func(a formAnswers) bool { return a["flag:script"] == "" }}},
@@ -87,7 +88,8 @@ var srvRunHints = map[string]formHint{
 			srvSudo, srvReadOnly, srvDir},
 		hide: []string{"cmd"},
 	},
-	"shell": {
+	"host ssh shell": {
+		area: "Servers",
 		args: []formArg{{ask: "Which server?", pick: "server",
 			help: "One server. You type on it as if you were there; type exit to come back."}},
 	},
@@ -241,7 +243,8 @@ var srvNetHints = map[string]formHint{
 func init() {
 	addFormHints(map[string]formHint{
 		"docker rm":         {next: []string{"docker ps {} --all"}},
-		"exec":              {next: []string{"job start {} -- COMMAND", "logs {}", "facts {}"}},
+		"host ssh exec":     {next: []string{"job start {} -- COMMAND", "logs {}", "facts {}"}},
+		"host winrm exec":   {next: []string{"job start {} -- COMMAND", "logs {}", "facts {}"}},
 		"facts":             {next: []string{"pkg upgradable {}", "logs {}", "svc list {}"}},
 		"svc list":          {next: []string{"svc status {} UNIT", "logs {} --unit UNIT --since 30m", "svc restart {} UNIT --wait 10s"}},
 		"svc status":        {next: []string{"logs {} --unit UNIT --since 30m", "svc restart {} UNIT --wait 10s --dry-run"}},

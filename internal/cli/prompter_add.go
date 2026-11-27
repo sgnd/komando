@@ -23,7 +23,7 @@ import (
 // which have questions of their own.
 func formAddCmd(cmd *cobra.Command) bool {
 	k := commandKey(cmd)
-	return k == "host add" || k == "conn add" || k == "vpn add" || formFamilyAdd[k] != ""
+	return k == "host ssh add" || k == "host winrm add" || k == "conn add" || k == "vpn add" || formFamilyAdd[k] != ""
 }
 
 // formAddGroups are the add forms an add command offers.

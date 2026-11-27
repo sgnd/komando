@@ -62,7 +62,7 @@ func init() {
 		"vpn rm":     {args: []formArg{accVpns}},
 
 		// Tunnels
-		"tunnel start": {args: []formArg{{ask: "To which server or conn?", pick: "target", free: true,
+		"host ssh tunnel start": {area: "VPNs, logins and tunnels", args: []formArg{{ask: "To which server or conn?", pick: "target", free: true,
 			help: "Pick a conn (a database, a cache) to reach it from this computer, or a server to forward a port through it."}},
 			flags: []formFlag{
 				{name: "port", ask: "Which port on this computer? (for a conn)", example: "15432",
@@ -70,8 +70,8 @@ func init() {
 				{name: "local", ask: "What should it forward? (for a server)", example: "8080:localhost:80",
 					help: "LOCALPORT:ADDRESS:PORT: localhost:8080 here reaches localhost:80 as the server sees it. Leave empty for a conn."},
 			}},
-		"tunnel list": {},
-		"tunnel stop": {args: []formArg{{ask: "Which tunnels should stop? (leave empty with --all)", pick: "tunnel", free: true,
+		"host ssh tunnel list": {area: "VPNs, logins and tunnels"},
+		"host ssh tunnel stop": {area: "VPNs, logins and tunnels", args: []formArg{{ask: "Which tunnels should stop? (leave empty with --all)", pick: "tunnel", free: true,
 			help: "Their IDs: `komando host ssh tunnel list` shows them. Several: separate them with spaces."}},
 			flags: []formFlag{{name: "all", ask: "Stop every tunnel instead?"}}},
 
@@ -145,20 +145,20 @@ func loginForm(cl *call) []formGroup {
 // secrets, core and cloud areas).
 func init() {
 	addFormHints(map[string]formHint{
-		"vpn up":       {next: []string{"vpn status", "test TARGET", "vpn down {}"}},
-		"vpn down":     {next: []string{"vpn status", "vpn up {}"}},
-		"login":        {next: []string{"status", "exec {} -- uptime", "logout {}"}},
-		"logout":       {next: []string{"status"}},
-		"tunnel start": {next: []string{"tunnel list", "tunnel stop TUNNEL"}},
-		"tunnel stop":  {next: []string{"tunnel list"}},
-		"login aws":    {next: []string{"test TARGET", "storage list CONN", "import aws"}},
-		"secret set": {next: []string{"host edit TARGET --password-ref secret:{}", "conn edit NAME --password-ref secret:{}",
+		"vpn up":                {next: []string{"vpn status", "test TARGET", "vpn down {}"}},
+		"vpn down":              {next: []string{"vpn status", "vpn up {}"}},
+		"login":                 {next: []string{"status", "host ssh exec {} -- uptime", "logout {}"}},
+		"logout":                {next: []string{"status"}},
+		"host ssh tunnel start": {next: []string{"host ssh tunnel list", "host ssh tunnel stop TUNNEL"}},
+		"host ssh tunnel stop":  {next: []string{"host ssh tunnel list"}},
+		"login aws":             {next: []string{"test TARGET", "storage list CONN", "import aws"}},
+		"secret set": {next: []string{"host ssh edit TARGET --credential {}", "conn edit NAME --password-ref secret:{}",
 			"secret list"}},
 		"secret list":       {next: []string{"secret show NAME", "secret set NAME"}},
 		"secret rename":     {next: []string{"secret list", "test TARGET"}},
 		"secret cp":         {next: []string{"secret list"}},
 		"secret keychain":   {next: []string{"doctor"}},
-		"secret passphrase": {next: []string{"doctor", "tunnel list", "vpn status"}},
+		"secret passphrase": {next: []string{"doctor", "host ssh tunnel list", "vpn status"}},
 		"key gen":           {next: []string{"key deploy {} TARGET --set-default", "key show {}"}},
 		"key deploy":        {next: []string{"test TARGET", "key revoke NAME TARGET"}},
 	})
