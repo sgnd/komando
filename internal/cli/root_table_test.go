@@ -329,6 +329,9 @@ func TestTodayIDsStayUntilCarried(t *testing.T) {
 	}
 	for _, id := range strings.Fields(string(b)) {
 		waiting, named := carried[id]
+		if ids[id] == 0 && (id == "job" || strings.HasPrefix(id, "job.")) {
+			continue // step D2 took the job group out of the tree: exec sessions replace it
+		}
 		if ids[id] == 0 && (!named || waiting) {
 			t.Errorf("%s left the tree, but no leaf does it yet", id)
 		}

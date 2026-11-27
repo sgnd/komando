@@ -8,7 +8,7 @@ and how to see what is still running. [All docs](README.md)
 ```bash
 komando exec web1 -- uptime              # readable text in a terminal
 komando exec web1 -o json -- uptime      # one JSON object (what agents get)
-komando status                           # VPNs, logins, tunnels and jobs still running
+komando status                           # VPNs, logins, tunnels and exec sessions still running
 komando doctor                           # check the local setup
 ```
 
@@ -88,7 +88,7 @@ and `komando help output` print a short version at the terminal.
 
 ## What is still running, and where am I?
 
-`komando status` lists the VPNs, logins, tunnels and jobs still running
+`komando status` lists the VPNs, logins, tunnels and exec sessions still running
 (see [See what is still running](commands.md#see-what-is-still-running)),
 and the line komando prints before `shell` and similar commands is in
 [Where am I?](commands.md#where-am-i-status-lines).

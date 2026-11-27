@@ -42,7 +42,7 @@ func shopInventory(t *testing.T) {
 	if err := store.Update(store.Save(), func(s *store.State) error {
 		s.Vpns["shop-vpn"].PSKRef = "secret:shop-psk"
 		s.Keys["shop-key"].PassphraseRef = "secret:shop-pass"
-		s.Jobs["j1"] = &store.Job{ID: "j1", Host: "shop-data-01", Command: "sleep 1"}
+		s.ExecSessions["x1"] = &store.ExecSession{ID: "x1", Host: "shop-data-01", Command: "sleep 1"}
 		s.Tunnels["t1"] = &store.Tunnel{ID: "t1", Host: "shop-bastion", Via: "shop-vpn,shop-bastion", Conn: "shop-db", Kind: "local"}
 		return nil
 	}); err != nil {
@@ -123,7 +123,7 @@ func TestRenamePrefix(t *testing.T) {
 		{"vpn acme-shop-vpn", "psk_ref", "secret:shop-psk", "secret:acme-shop-psk"},
 		{"vpn acme-shop-vpn", "groups", "shop", "acme-shop"},
 		{"key acme-shop-key", "passphrase_ref", "secret:shop-pass", "secret:acme-shop-pass"},
-		{"job j1", "host", "shop-data-01", "acme-shop-data-01"},
+		{"exec session x1", "host", "shop-data-01", "acme-shop-data-01"},
 		{"tunnel t1", "conn", "shop-db", "acme-shop-db"},
 		{"tunnel t1", "via", "shop-vpn,shop-bastion", "acme-shop-vpn,acme-shop-bastion"},
 	} {
@@ -204,8 +204,8 @@ func TestRenamePrefix(t *testing.T) {
 	if b, err := store.ReadPrivateKey(k); err != nil || len(b) == 0 {
 		t.Errorf("the renamed key does not read: %v", err)
 	}
-	if st.Jobs["j1"].Host != "acme-shop-data-01" || st.Tunnels["t1"].Host != "acme-shop-bastion" || st.Tunnels["t1"].Conn != "acme-shop-db" {
-		t.Errorf("jobs and tunnels: %+v %+v", st.Jobs["j1"], st.Tunnels["t1"])
+	if st.ExecSessions["x1"].Host != "acme-shop-data-01" || st.Tunnels["t1"].Host != "acme-shop-bastion" || st.Tunnels["t1"].Conn != "acme-shop-db" {
+		t.Errorf("exec sessions and tunnels: %+v %+v", st.ExecSessions["x1"], st.Tunnels["t1"])
 	}
 	for n, v := range map[string]string{"acme-shop-pass": "value of shop-pass", "acme-shop-psk": "value of shop-psk", "acme-shop-ca": "value of shop-ca", "other-pass": "value of other-pass"} {
 		if got, err := vault.Get(n); err != nil || got != v {
