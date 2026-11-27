@@ -22,9 +22,9 @@ type fileState struct {
 	mtime time.Time
 }
 
-// treeOf is every file and folder under each root that exists: content,
+// snapshotOf is every file and folder under each root that exists: content,
 // mode and modification time.
-func treeOf(t *testing.T, roots ...string) map[string]fileState {
+func snapshotOf(t *testing.T, roots ...string) map[string]fileState {
 	t.Helper()
 	m := map[string]fileState{}
 	for _, root := range roots {
@@ -105,12 +105,12 @@ func dryRunPreviewsTheMove(t *testing.T, mode os.FileMode) {
 		}
 	}
 	time.Sleep(10 * time.Millisecond) // a write now would show in the times
-	before, beforeShared := treeOf(t, store.Home()), filesOf(treeOf(t, shared...))
+	before, beforeShared := snapshotOf(t, store.Home()), filesOf(snapshotOf(t, shared...))
 	d := mustRun(t, "doctor", "--dry-run")
-	if after := treeOf(t, store.Home()); !maps.Equal(before, after) {
+	if after := snapshotOf(t, store.Home()); !maps.Equal(before, after) {
 		t.Fatalf("the dry run changed the home:\nbefore %v\nafter  %v", before, after)
 	}
-	if after := filesOf(treeOf(t, shared...)); !maps.Equal(beforeShared, after) {
+	if after := filesOf(snapshotOf(t, shared...)); !maps.Equal(beforeShared, after) {
 		t.Fatalf("the dry run changed komando's other folders:\nbefore %v\nafter  %v", beforeShared, after)
 	}
 	if d["format"] != "2" || d["would_move"] != true {
