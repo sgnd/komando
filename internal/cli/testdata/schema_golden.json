@@ -12378,7 +12378,7 @@
         "code": "BINARY_FILE",
         "exit": 1,
         "example": "… is a binary file; fs cat shows text only",
-        "hint": "save it with `komando copy … …`"
+        "hint": "save it with `komando copy …:… .`"
       },
       {
         "code": "BUCKET_NOT_FOUND",
@@ -13024,7 +13024,7 @@
         "code": "NOT_A_FOLDER",
         "exit": 8,
         "example": "… is a file, not a folder",
-        "hint": "give a folder path, not a file"
+        "hint": "sync works on folders; for one file use `komando copy` without --sync"
       },
       {
         "code": "NOT_SUPPORTED",
