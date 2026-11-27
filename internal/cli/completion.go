@@ -29,6 +29,11 @@ func addCompletion(c *cobra.Command) {
 	if c.Name() == "completion" && c.HasParent() && !c.Parent().HasParent() {
 		completionScripts(c)
 	}
+	// Puts a parent's persistent flags (docker --sudo, the root flags) into
+	// c.Flags(), once: the questions, the usage line and the schema read
+	// c.Flags() and used to see them only because flagCompletion called
+	// LocalFlags three times per command.
+	_ = c.InheritedFlags()
 	flagCompletion(c, "key", func(string) []string { return completionNames("key") })
 	flagCompletion(c, "via", func(prefix string) []string { return listPrefixed(prefix, completionNames("via")) })
 	flagCompletion(c, "target", func(prefix string) []string { return targetCompletions(prefix) })

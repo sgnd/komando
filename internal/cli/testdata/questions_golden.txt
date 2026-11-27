@@ -1412,7 +1412,7 @@ title: Make a folder in an azblob storage
 ### komando storage azblob object delete
 title: Delete objects from an azblob storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
-- arg1 | Object | Which files to delete? (several: separate them with spaces) | Exact names as storage list shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first. | tmp/old.sql.gz | optional,check
+- arg1 | Object | Which files to delete? (several: separate them with spaces) | Exact names as object list shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first. | tmp/old.sql.gz | optional,check
 - flag:prefix | --prefix | Delete everything in a folder? | Empty when you named the files above. A folder ends in /, like daily/. | daily/ | optional,check
 - flag:older-than | --older-than | Only files older than? | With a folder: newer ones are kept. Like 30d (days) or 12h (hours). | 30d | optional,check
 - flag:all-versions | --all-versions | S3: also remove every old version and delete marker |  |  | advanced,default,choices
@@ -1433,14 +1433,14 @@ title: List the objects under a folder of a azblob storage
 ### komando storage azblob object move
 title: Move or rename an object in an azblob storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
-- arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as storage list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
+- arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as object list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
 - arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | optional,check
 - flag:overwrite | --overwrite | Replace a file that is already there? | Replace a file already at DST (never a folder) |  | default,choices
 - flag:mode | --mode | Change the mode of PATH, as chmod does (SFTP only); no DST then |  |  | optional,advanced,check
 ### komando storage azblob object read
 title: Show the text of an object in an azblob storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
-- arg1 | Object | Which file? | Its name inside the storage, as storage list shows it. | logs/app.log | check
+- arg1 | Object | Which file? | Its name inside the storage, as object list shows it. | logs/app.log | check
 - flag:tail | --tail | Show only the last how many lines? | Empty shows the whole file, up to 1 MiB. | 50 | optional,check
 - flag:head | --head | Only the first N lines |  |  | optional,advanced,check
 - flag:max-bytes | --max-bytes | Read at most this many bytes, like 4MiB |  |  | optional,advanced,default,check
@@ -1462,7 +1462,7 @@ title: Check that a saved azblob storage answers and lets you in
 ### komando storage download
 title: Download an object from a storage conn
 - arg0 | Conn | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
-- arg1 | Object | Which file (or folder) to download? | Its name inside the storage, as storage list shows it. A folder ends in /. | reports/q3.pdf | check
+- arg1 | Object | Which file (or folder) to download? | Its name inside the storage, as object list shows it. A folder ends in /. | reports/q3.pdf | check
 - flag:to | --to | Where to save it on this computer? | A file or a folder. Empty saves it in the current folder with its own name. | ~/Downloads/ | optional,check
 - flag:recursive | --recursive | Is it a folder? Download everything in it? | Download a folder (servers) or every object under a prefix (storage) |  | default,choices
 - flag:continue | --continue | Go on with a copy that was cut off: keep the part already at the destination when it matches the source, send the rest, then check the whole file (sha256) |  |  | advanced,default,choices
@@ -1515,7 +1515,7 @@ title: Make a folder in a ftp storage
 ### komando storage ftp object delete
 title: Delete objects from a ftp storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
-- arg1 | Object | Which files to delete? (several: separate them with spaces) | Exact names as storage list shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first. | tmp/old.sql.gz | optional,check
+- arg1 | Object | Which files to delete? (several: separate them with spaces) | Exact names as object list shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first. | tmp/old.sql.gz | optional,check
 - flag:prefix | --prefix | Delete everything in a folder? | Empty when you named the files above. A folder ends in /, like daily/. | daily/ | optional,check
 - flag:older-than | --older-than | Only files older than? | With a folder: newer ones are kept. Like 30d (days) or 12h (hours). | 30d | optional,check
 - flag:all-versions | --all-versions | S3: also remove every old version and delete marker |  |  | advanced,default,choices
@@ -1530,14 +1530,14 @@ title: List the objects under a folder of a ftp storage
 ### komando storage ftp object move
 title: Move or rename an object in a ftp storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
-- arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as storage list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
+- arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as object list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
 - arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | optional,check
 - flag:overwrite | --overwrite | Replace a file that is already there? | Replace a file already at DST (never a folder) |  | default,choices
 - flag:mode | --mode | Change the mode of PATH, as chmod does (SFTP only); no DST then |  |  | optional,advanced,check
 ### komando storage ftp object read
 title: Show the text of an object in a ftp storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
-- arg1 | Object | Which file? | Its name inside the storage, as storage list shows it. | logs/app.log | check
+- arg1 | Object | Which file? | Its name inside the storage, as object list shows it. | logs/app.log | check
 - flag:tail | --tail | Show only the last how many lines? | Empty shows the whole file, up to 1 MiB. | 50 | optional,check
 - flag:head | --head | Only the first N lines |  |  | optional,advanced,check
 - flag:max-bytes | --max-bytes | Read at most this many bytes, like 4MiB |  |  | optional,advanced,default,check
@@ -1603,7 +1603,7 @@ title: Make a folder in a gcs storage
 ### komando storage gcs object delete
 title: Delete objects from a gcs storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
-- arg1 | Object | Which files to delete? (several: separate them with spaces) | Exact names as storage list shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first. | tmp/old.sql.gz | optional,check
+- arg1 | Object | Which files to delete? (several: separate them with spaces) | Exact names as object list shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first. | tmp/old.sql.gz | optional,check
 - flag:prefix | --prefix | Delete everything in a folder? | Empty when you named the files above. A folder ends in /, like daily/. | daily/ | optional,check
 - flag:older-than | --older-than | Only files older than? | With a folder: newer ones are kept. Like 30d (days) or 12h (hours). | 30d | optional,check
 - flag:all-versions | --all-versions | S3: also remove every old version and delete marker |  |  | advanced,default,choices
@@ -1624,14 +1624,14 @@ title: List the objects under a folder of a gcs storage
 ### komando storage gcs object move
 title: Move or rename an object in a gcs storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
-- arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as storage list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
+- arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as object list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
 - arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | optional,check
 - flag:overwrite | --overwrite | Replace a file that is already there? | Replace a file already at DST (never a folder) |  | default,choices
 - flag:mode | --mode | Change the mode of PATH, as chmod does (SFTP only); no DST then |  |  | optional,advanced,check
 ### komando storage gcs object read
 title: Show the text of an object in a gcs storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
-- arg1 | Object | Which file? | Its name inside the storage, as storage list shows it. | logs/app.log | check
+- arg1 | Object | Which file? | Its name inside the storage, as object list shows it. | logs/app.log | check
 - flag:tail | --tail | Show only the last how many lines? | Empty shows the whole file, up to 1 MiB. | 50 | optional,check
 - flag:head | --head | Only the first N lines |  |  | optional,advanced,check
 - flag:max-bytes | --max-bytes | Read at most this many bytes, like 4MiB |  |  | optional,advanced,default,check
@@ -1697,7 +1697,7 @@ title: Make a folder in a s3 storage
 ### komando storage s3 object delete
 title: Delete objects from a s3 storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
-- arg1 | Object | Which files to delete? (several: separate them with spaces) | Exact names as storage list shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first. | tmp/old.sql.gz | optional,check
+- arg1 | Object | Which files to delete? (several: separate them with spaces) | Exact names as object list shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first. | tmp/old.sql.gz | optional,check
 - flag:prefix | --prefix | Delete everything in a folder? | Empty when you named the files above. A folder ends in /, like daily/. | daily/ | optional,check
 - flag:older-than | --older-than | Only files older than? | With a folder: newer ones are kept. Like 30d (days) or 12h (hours). | 30d | optional,check
 - flag:all-versions | --all-versions | S3: also remove every old version and delete marker |  |  | advanced,default,choices
@@ -1718,14 +1718,14 @@ title: List the objects under a folder of a s3 storage
 ### komando storage s3 object move
 title: Move or rename an object in a s3 storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
-- arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as storage list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
+- arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as object list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
 - arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | optional,check
 - flag:overwrite | --overwrite | Replace a file that is already there? | Replace a file already at DST (never a folder) |  | default,choices
 - flag:mode | --mode | Change the mode of PATH, as chmod does (SFTP only); no DST then |  |  | optional,advanced,check
 ### komando storage s3 object read
 title: Show the text of an object in a s3 storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
-- arg1 | Object | Which file? | Its name inside the storage, as storage list shows it. | logs/app.log | check
+- arg1 | Object | Which file? | Its name inside the storage, as object list shows it. | logs/app.log | check
 - flag:tail | --tail | Show only the last how many lines? | Empty shows the whole file, up to 1 MiB. | 50 | optional,check
 - flag:head | --head | Only the first N lines |  |  | optional,advanced,check
 - flag:max-bytes | --max-bytes | Read at most this many bytes, like 4MiB |  |  | optional,advanced,default,check
@@ -1791,7 +1791,7 @@ title: Make a folder in a sftp storage
 ### komando storage sftp object delete
 title: Delete objects from a sftp storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
-- arg1 | Object | Which files to delete? (several: separate them with spaces) | Exact names as storage list shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first. | tmp/old.sql.gz | optional,check
+- arg1 | Object | Which files to delete? (several: separate them with spaces) | Exact names as object list shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first. | tmp/old.sql.gz | optional,check
 - flag:prefix | --prefix | Delete everything in a folder? | Empty when you named the files above. A folder ends in /, like daily/. | daily/ | optional,check
 - flag:older-than | --older-than | Only files older than? | With a folder: newer ones are kept. Like 30d (days) or 12h (hours). | 30d | optional,check
 - flag:all-versions | --all-versions | S3: also remove every old version and delete marker |  |  | advanced,default,choices
@@ -1806,14 +1806,14 @@ title: List the objects under a folder of a sftp storage
 ### komando storage sftp object move
 title: Move or rename an object in a sftp storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
-- arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as storage list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
+- arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as object list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
 - arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | optional,check
 - flag:overwrite | --overwrite | Replace a file that is already there? | Replace a file already at DST (never a folder) |  | default,choices
 - flag:mode | --mode | Change the mode of PATH, as chmod does (SFTP only); no DST then |  |  | optional,advanced,check
 ### komando storage sftp object read
 title: Show the text of an object in a sftp storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
-- arg1 | Object | Which file? | Its name inside the storage, as storage list shows it. | logs/app.log | check
+- arg1 | Object | Which file? | Its name inside the storage, as object list shows it. | logs/app.log | check
 - flag:tail | --tail | Show only the last how many lines? | Empty shows the whole file, up to 1 MiB. | 50 | optional,check
 - flag:head | --head | Only the first N lines |  |  | optional,advanced,check
 - flag:max-bytes | --max-bytes | Read at most this many bytes, like 4MiB |  |  | optional,advanced,default,check
@@ -1879,7 +1879,7 @@ title: Make a folder in a smb storage
 ### komando storage smb object delete
 title: Delete objects from a smb storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
-- arg1 | Object | Which files to delete? (several: separate them with spaces) | Exact names as storage list shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first. | tmp/old.sql.gz | optional,check
+- arg1 | Object | Which files to delete? (several: separate them with spaces) | Exact names as object list shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first. | tmp/old.sql.gz | optional,check
 - flag:prefix | --prefix | Delete everything in a folder? | Empty when you named the files above. A folder ends in /, like daily/. | daily/ | optional,check
 - flag:older-than | --older-than | Only files older than? | With a folder: newer ones are kept. Like 30d (days) or 12h (hours). | 30d | optional,check
 - flag:all-versions | --all-versions | S3: also remove every old version and delete marker |  |  | advanced,default,choices
@@ -1894,14 +1894,14 @@ title: List the objects under a folder of a smb storage
 ### komando storage smb object move
 title: Move or rename an object in a smb storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
-- arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as storage list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
+- arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as object list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
 - arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | optional,check
 - flag:overwrite | --overwrite | Replace a file that is already there? | Replace a file already at DST (never a folder) |  | default,choices
 - flag:mode | --mode | Change the mode of PATH, as chmod does (SFTP only); no DST then |  |  | optional,advanced,check
 ### komando storage smb object read
 title: Show the text of an object in a smb storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
-- arg1 | Object | Which file? | Its name inside the storage, as storage list shows it. | logs/app.log | check
+- arg1 | Object | Which file? | Its name inside the storage, as object list shows it. | logs/app.log | check
 - flag:tail | --tail | Show only the last how many lines? | Empty shows the whole file, up to 1 MiB. | 50 | optional,check
 - flag:head | --head | Only the first N lines |  |  | optional,advanced,check
 - flag:max-bytes | --max-bytes | Read at most this many bytes, like 4MiB |  |  | optional,advanced,default,check
@@ -1976,7 +1976,7 @@ title: Make a folder in a webdav storage
 ### komando storage webdav object delete
 title: Delete objects from a webdav storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
-- arg1 | Object | Which files to delete? (several: separate them with spaces) | Exact names as storage list shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first. | tmp/old.sql.gz | optional,check
+- arg1 | Object | Which files to delete? (several: separate them with spaces) | Exact names as object list shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first. | tmp/old.sql.gz | optional,check
 - flag:prefix | --prefix | Delete everything in a folder? | Empty when you named the files above. A folder ends in /, like daily/. | daily/ | optional,check
 - flag:older-than | --older-than | Only files older than? | With a folder: newer ones are kept. Like 30d (days) or 12h (hours). | 30d | optional,check
 - flag:all-versions | --all-versions | S3: also remove every old version and delete marker |  |  | advanced,default,choices
@@ -1991,14 +1991,14 @@ title: List the objects under a folder of a webdav storage
 ### komando storage webdav object move
 title: Move or rename an object in a webdav storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
-- arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as storage list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
+- arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as object list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
 - arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | optional,check
 - flag:overwrite | --overwrite | Replace a file that is already there? | Replace a file already at DST (never a folder) |  | default,choices
 - flag:mode | --mode | Change the mode of PATH, as chmod does (SFTP only); no DST then |  |  | optional,advanced,check
 ### komando storage webdav object read
 title: Show the text of an object in a webdav storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
-- arg1 | Object | Which file? | Its name inside the storage, as storage list shows it. | logs/app.log | check
+- arg1 | Object | Which file? | Its name inside the storage, as object list shows it. | logs/app.log | check
 - flag:tail | --tail | Show only the last how many lines? | Empty shows the whole file, up to 1 MiB. | 50 | optional,check
 - flag:head | --head | Only the first N lines |  |  | optional,advanced,check
 - flag:max-bytes | --max-bytes | Read at most this many bytes, like 4MiB |  |  | optional,advanced,default,check

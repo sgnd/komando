@@ -194,7 +194,7 @@ versions, the original's old versions stay.`,
 // guardSensitiveRename stops an AI agent from giving a file that is secret
 // by its name (.env, a private key, a key store) a name that is not: under
 // the new name it would pass the stops for secret files (storage download,
-// cat, cp). A move that keeps a secret name is an ordinary move.
+// object read, cp). A move that keeps a secret name is an ordinary move.
 func guardSensitiveRename(cl *call, src, dst string) error {
 	if !cl.isAgent() || !sensitiveName(src) || sensitiveName(dst) {
 		return nil
@@ -245,9 +245,9 @@ func storageChmodCmd() *cobra.Command {
 chmod. MODE is in digits: 0644, 640, 0750, or 2775 with the setgid bit; the
 result says the old mode too. Only SFTP servers have modes: other kinds of
 storage stop with STORAGE_UNSUPPORTED before anything is contacted.`,
-		Example: `  komando storage chmod backups 0640 config/app.yml --dry-run
-  komando storage chmod backups 0640 config/app.yml
-  komando storage chmod backups 0750 uploads`,
+		Example: `  komando storage sftp object move backups config/app.yml --mode 0640 --dry-run
+  komando storage sftp object move backups config/app.yml --mode 0640
+  komando storage sftp object move backups uploads --mode 0750`,
 		Args: cobra.ExactArgs(3),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			mode, err := parseStorageMode(args[1])

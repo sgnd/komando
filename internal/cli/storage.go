@@ -235,7 +235,7 @@ func temporaryKeys(b storex.Bucket) bool {
 	return ok && t.TemporaryKeys()
 }
 
-// LinkAt passes through to the bucket inside (S3 only), so storage link
+// LinkAt passes through to the bucket inside (S3 only), so object link
 // --endpoint works for conns reached through --via, the case it is for.
 func (c closeBoth) LinkAt(ctx context.Context, key string, expires time.Duration, endpoint *url.URL) (*url.URL, error) {
 	at, ok := c.Bucket.(interface {
@@ -292,8 +292,8 @@ func storageLsCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "list CONN [PREFIX]",
 		Short: "List the objects and folders of a storage conn",
-		Example: `  komando storage list backups
-  komando storage list backups db/2026-11/ --recursive`,
+		Example: `  komando storage s3 object list backups
+  komando storage s3 object list backups db/2026-11/ --recursive`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			prefix := ""
@@ -346,8 +346,8 @@ func storageCatCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "cat CONN OBJECT",
 		Short: "Show the text of an object",
-		Example: `  komando storage cat backups logs/app-2026-11-02.log --tail 50
-  komando storage cat config prod/app.env`,
+		Example: `  komando storage s3 object read backups logs/app-2026-11-02.log --tail 50
+  komando storage s3 object read config prod/app.env`,
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			fl := cmd.Flags()
@@ -453,14 +453,14 @@ func storageLinkCmd() *cobra.Command {
 at most 7 days). Treat it like a password while it is valid. Sharing from a
 protected conn needs --yes. An AI agent gets a link only when a person allows
 --reveal, and never for a file that is a secret by its name (.env, a key): a
-link is the file as it is, past the hiding of storage cat and download. The
+link is the file as it is, past the hiding of object read and download. The
 link itself is not stored in the audit log.
 The link names the storage address in the conn URL: when komando reaches it
 through --via, only people who can reach that address can use the link.
 --endpoint signs the link for the address they use instead (S3 only).`,
-		Example: `  komando storage link backups reports/q3.pdf --expires 24h
-  komando storage link backups reports/q3.pdf --expires 7d
-  komando storage link backups reports/q3.pdf --endpoint https://files.example.com`,
+		Example: `  komando storage s3 object link backups reports/q3.pdf --expires 24h
+  komando storage s3 object link backups reports/q3.pdf --expires 7d
+  komando storage s3 object link backups reports/q3.pdf --endpoint https://files.example.com`,
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if expires <= 0 || expires > 7*24*time.Hour {
