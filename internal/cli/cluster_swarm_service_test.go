@@ -135,7 +135,7 @@ func TestSwarmServiceManagerGone(t *testing.T) {
 	if err := store.Update(store.Save(), func(s *store.State) error { delete(s.Hosts, "swarm1"); return nil }); err != nil {
 		t.Fatal(err)
 	}
-	e := wantCode(t, "TARGET_EMPTY", "cluster", "run", "swarm1-swarm", "--dry-run", "--", "service", "ls")
+	e := wantCode(t, "SWARM_MANAGER_NOT_FOUND", "cluster", "run", "swarm1-swarm", "--dry-run", "--", "service", "ls")
 	if !strings.Contains(e.Message, "swarm1") {
 		t.Fatalf("message %q does not name the manager", e.Message)
 	}

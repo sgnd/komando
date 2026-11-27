@@ -476,7 +476,7 @@ func (w *writer3) conn(c *Conn) error {
 	}
 	e := "service " + c.Name
 	if !ok {
-		return out.Errf(out.ExitUsage, "BAD_KIND", "pick a kind komando knows", "%s: kind %q has no type", e, c.Kind)
+		return out.Errf(out.ExitUsage, "BAD_KIND", "pick a kind komando knows: `komando conn add --help` lists them", "%s: kind %q has no type", e, c.Kind)
 	}
 	v := w.st.conns[c.Rec.ID]
 	if v == nil {
