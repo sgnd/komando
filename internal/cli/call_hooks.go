@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -223,9 +224,14 @@ func chainOwner(ctx context.Context) string {
 
 // storeNotice is store.Notice: the note goes to the stderr of every
 // running call, people and scripts alike (it says how the store is
-// guarded), or to the process's when none runs.
+// guarded), or to the process's when none runs. Each line is cleaned on
+// its own, so the move's report keeps its line breaks.
 func storeNotice(msg string) {
-	line := "komando: " + term.CleanText(msg)
+	lines := strings.Split(msg, "\n")
+	for i, l := range lines {
+		lines[i] = term.CleanText(l)
+	}
+	line := "komando: " + strings.Join(lines, "\n")
 	calls := runningCalls()
 	if len(calls) == 0 {
 		fmt.Fprintln(os.Stderr, line)

@@ -159,6 +159,11 @@ func TestPersonDryRunAtTerminalNeverMoves(t *testing.T) {
 		if code != 0 || !strings.Contains(o.String(), "would") {
 			t.Fatalf("%v: exit %d\n%s%s", args, code, o.String(), e.String())
 		}
+		// owner, 2026-11-27: "Dry run: nothing was changed" came right after
+		// the move's report; the line is true only with no report before it
+		if strings.Contains(e.String(), "moved its store") {
+			t.Fatalf("%v moved the store before its dry run:\n%s", args, e.String())
+		}
 		if after, err := os.ReadFile(store.DBPath()); err != nil || !bytes.Equal(before, after) {
 			t.Fatalf("%v changed store.db: %v", args, err)
 		}
