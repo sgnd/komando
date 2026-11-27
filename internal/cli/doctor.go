@@ -101,7 +101,7 @@ func inventoryChecks(cl *call, st *store.State) []securityCheck {
 			fail(name, flag+" holds plain text instead of a reference: store it with `komando secret set NAME` and use credential:NAME")
 		case strings.HasPrefix(r, "credential:") && !secrets[strings.TrimPrefix(r, "credential:")]:
 			// no fix: secret set asks for the value
-			warn(name, flag+" "+r+" is not in the vault: `komando secret set "+argQ(strings.TrimPrefix(r, "credential:"))+"`")
+			warn(name, flag+" names a secret that is not in the vault: `komando secret set NAME`") // never the name: it may be a password
 		}
 	}
 	for _, h := range st.SortedHosts() {

@@ -34,6 +34,15 @@ func setSecret(t *testing.T, name, value string) {
 	mustRun(t, "secret", "set", name, "--from-env", "SECRET_TEST_VALUE")
 }
 
+// saveSecrets saves a value under each name: --credential and
+// --psk-credential take only the name of a saved secret.
+func saveSecrets(t *testing.T, names ...string) {
+	t.Helper()
+	for _, n := range names {
+		setSecret(t, n, "Saved-"+n+"-7")
+	}
+}
+
 // savedRef saves value as the secret name and returns its reference: a
 // flag that keeps a credential takes credential:NAME only.
 func savedRef(t *testing.T, name, value string) string {

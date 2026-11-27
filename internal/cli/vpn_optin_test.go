@@ -15,6 +15,7 @@ import (
 // off does not, and only the kinds they apply to take them.
 func TestVpnEditOptIns(t *testing.T) {
 	invHome(t)
+	saveSecrets(t, "kantor", "kantor-psk", "asa-group")
 	mustRun(t, "vpn", "l2tp", "add", "kantor", "--server", "vpn.kantor.id", "--psk-credential", "kantor-psk", "--user", "budi", "--credential", "kantor")
 	mustRun(t, "vpn", "ipsec", "add", "asa", "--server", "asa.client.com", "--id", "staff", "--psk-credential", "asa-group", "--user", "budi")
 	vpn := func(name string) *store.Vpn {
@@ -56,6 +57,7 @@ func TestVpnEditOptIns(t *testing.T) {
 // (--legacy-crypto) take them.
 func TestVpnAddOptIns(t *testing.T) {
 	invHome(t)
+	saveSecrets(t, "old", "old-psk", "g")
 	l2tp := []string{"vpn", "l2tp", "add", "old-office", "--server", "vpn.example.com", "--psk-credential", "old-psk", "--user", "alice", "--credential", "old"}
 	saved := func() bool {
 		st, err := store.Load()
@@ -112,6 +114,7 @@ MIIB
 // server. People and scripts are not asked.
 func TestVpnSecretsNeedAPerson(t *testing.T) {
 	secretHome(t)
+	saveSecrets(t, "db-pass", "branch-psk", "github-token", "site-key", "other")
 	profile := filepath.Join(t.TempDir(), "office.ovpn")
 	if err := os.WriteFile(profile, []byte(testProfile), 0o600); err != nil {
 		t.Fatal(err)

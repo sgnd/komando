@@ -255,7 +255,7 @@ func TestInvKeys(t *testing.T) {
 	// key edit says what it did, warns about a secret not stored yet, and
 	// clears with --unset like host and conn edit ('' still works)
 	d = mustRun(t, "key", "edit", "k", "--passphrase-ref", "credential:kp")
-	if d["action"] != "changed" || !strings.Contains(fmt.Sprint(d["warnings"]), "secret kp is not in the vault") {
+	if d["action"] != "changed" || !strings.Contains(fmt.Sprint(d["warnings"]), "a secret it names is not in the vault") {
 		t.Errorf("key edit: %v", d)
 	}
 	if d = mustRun(t, "key", "edit", "k", "--passphrase-ref", "credential:kp"); d["action"] != "unchanged" {

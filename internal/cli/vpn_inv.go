@@ -226,7 +226,7 @@ func vpnEditChecks(cmd *cobra.Command, e *vpnEditFlags) error {
 			return err
 		}
 		if ref != "" && !vault.ValidRef(ref) {
-			return out.Usage("--%s takes a reference, not the secret itself: store it with `komando secret set NAME`, then pass credential:NAME", vpnFlagWord(flag))
+			return out.Usage("--%s takes the name of a saved secret, not the secret itself: store it with `komando secret set NAME`, then pass --%s NAME", vpnFlagWord(flag), vpnFlagWord(flag))
 		}
 	}
 	_, err := parseKV(e.labels)
@@ -446,7 +446,7 @@ func vpnAddFlagChecks(v *store.Vpn, pskRef string, labels []string) error {
 			return err
 		}
 		if r != "" && !vault.ValidRef(r) {
-			return out.Usage("a VPN key or shared key takes a reference, not the secret itself: store it with `komando secret set NAME`, then pass credential:NAME")
+			return out.Usage("a VPN key or shared key takes the name of a saved secret, not the secret itself: store it with `komando secret set NAME`, then pass --credential NAME or --psk-credential NAME")
 		}
 	}
 	return applyKV(&v.Labels, labels)

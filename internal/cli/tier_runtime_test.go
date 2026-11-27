@@ -649,6 +649,7 @@ func tierSeed(t *testing.T) {
 	}
 	t.Setenv("PW", "secret-value-1")
 	mustRun(t, "secret", "set", "pw", "--from-env", "PW")
+	saveSecrets(t, "office-psk")
 	mustRun(t, "key", "gen", "k1")
 	mustRun(t, "key", "gen", "k6")
 	mustRun(t, "recipe", "add", "wipe", "rm -rf /")

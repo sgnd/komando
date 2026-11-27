@@ -157,6 +157,8 @@ func TestVpnAddExamplesRun(t *testing.T) {
 				args[i+1] = wg("1")
 			case w == "--config":
 				args[i+1] = ovpn("1")
+			case w == "--credential" || w == "--psk-credential":
+				saveSecrets(t, args[i+1])
 			}
 		}
 		mustRun(t, append([]string{"--dry-run"}, args...)...)

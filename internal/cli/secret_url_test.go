@@ -68,7 +68,7 @@ func TestSecretRefInConnURL(t *testing.T) {
 	st, _ = loadState()
 	found := false
 	for _, c := range inventoryChecks(tcl, st) {
-		if c.Name == "conn:reg" && c.Warning && strings.Contains(c.Detail, "ca credential:nope is not in the vault") {
+		if c.Name == "conn:reg" && c.Warning && strings.Contains(c.Detail, "ca names a secret that is not in the vault") && !strings.Contains(c.Detail, "nope") {
 			found = true
 		}
 	}

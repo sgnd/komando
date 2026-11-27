@@ -349,6 +349,7 @@ func TestCacheKeysTypeAndTTL(t *testing.T) {
 // is refused with the path that fits.
 func TestCacheLeavesFollowTheProvider(t *testing.T) {
 	invHome(t)
+	saveSecrets(t, "r1-pass")
 	d := mustRun(t, "cache", "redis", "add", "r1", "redis://127.0.0.1:6379/0", "--credential", "r1-pass", "--tag", "prod")
 	if d["password_ref"] != "credential:r1-pass" {
 		t.Fatalf("--credential names the stored credential: %v", d)

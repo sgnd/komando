@@ -115,7 +115,7 @@ func askSecretNow(cmd *cobra.Command, kind, name string, a askSecret) (ref strin
 		}
 		return "", undo, err
 	}
-	audit(cl, nil, "secret.set", nil, "", true, map[string]any{"secret": sec, "replaced": existed, "for": self})
+	auditEvent(cl, nil, "secret.set", nil, "", true, map[string]any{"secret": sec, "replaced": existed, "for": self})
 	warnCommonWord(cl, sec, v)
 	if !existed {
 		undo = func() { _ = vault.Delete(cl.storeWrite(), sec) }
@@ -133,8 +133,9 @@ func missingSecretWarnings(refs ...string) []string {
 		if !ok || n == "" {
 			continue
 		}
-		if _, err := vault.Get(n); err == vault.ErrNotFound {
-			w = append(w, fmt.Sprintf("secret %s is not in the vault yet: store it with `komando secret set %s`", n, n))
+		if _, err := vault.Get(n); errors.Is(err, vault.ErrNotFound) {
+			// never the name: a password typed where a name goes would be shown
+			w = append(w, "a secret it names is not in the vault yet: store it with `komando secret set NAME`")
 		}
 	}
 	return w

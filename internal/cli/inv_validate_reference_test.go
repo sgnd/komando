@@ -1,6 +1,9 @@
 package cli
 
 import (
+	"bytes"
+	"fmt"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -41,7 +44,6 @@ func TestOutsideStoreOnCredentialFlagRefused(t *testing.T) {
 		{"host password", []string{"host", "add", "web1", "u@10.0.0.5", "--password-ref", "env:WEB_PW", "--dry-run"}},
 		{"host sudo", []string{"host", "add", "web1", "u@10.0.0.5", "--sudo-ref", "file:/tmp/pw", "--dry-run"}},
 		{"service password", []string{"conn", "add", "web1-db", "postgres://app@10.0.0.5/shop", "--password-ref", "op://ops/db/password", "--dry-run"}},
-		{"vpn psk", []string{"vpn", "l2tp", "add", "web1-vpn", "--server", "vpn.example.com", "--psk-credential", "vault:kv/vpn#psk", "--user", "alice", "--dry-run"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			invHome(t)
@@ -89,5 +91,72 @@ func TestFormsTakeSavedSecretOnly(t *testing.T) {
 	}
 	if got := vpnPskArgs(nil, formAnswers{"psk": "ref", "pskref": "office-psk"}); strings.Join(got, " ") != "--psk-credential office-psk" {
 		t.Errorf("vpnPskArgs: %v", got)
+	}
+}
+
+// A word on --credential or --psk-credential that names no saved secret
+// may be the password itself (chief, 2026-11-27): the command stops with
+// USAGE, and the word is in no output, warning, audit record or entry. The
+// options take a saved secret's name and nothing else (chief rule R2): a
+// reference form (credential:, env:, op://, the old secret:) stops the
+// same way, and a saved name passes.
+func TestCredentialWordNotSavedRefused(t *testing.T) {
+	const word = "Hunter2x"
+	with := func(args []string, v string) []string {
+		a := slices.Clone(args)
+		a[slices.Index(a, "CRED")] = v
+		return a
+	}
+	for _, tc := range []struct {
+		name        string
+		setup, args []string // CRED in args is the word under test
+		show        []string
+	}{
+		{"conn add", nil, []string{"queue", "kafka", "add", "q1", "kafka://10.0.0.8:9093?tls=true", "--credential", "CRED"}, []string{"queue", "kafka", "show", "q1"}},
+		{"conn edit", []string{"queue", "kafka", "add", "q1", "kafka://10.0.0.8:9093?tls=true"}, []string{"queue", "kafka", "edit", "q1", "--credential", "CRED"}, []string{"queue", "kafka", "show", "q1"}},
+		{"storage add", nil, []string{"storage", "s3", "add", "b1", "s3://AKIAEXAMPLE@media/db?region=eu-west-1", "--credential", "CRED"}, []string{"storage", "s3", "show", "b1"}},
+		{"vpn add", nil, []string{"vpn", "socks", "add", "lab", "--proxy-address", "127.0.0.1:1080", "--user", "u", "--credential", "CRED"}, []string{"vpn", "socks", "show", "lab"}},
+		{"vpn edit", []string{"vpn", "socks", "add", "lab", "--proxy-address", "127.0.0.1:1080"}, []string{"vpn", "socks", "edit", "lab", "--user", "u", "--credential", "CRED"}, []string{"vpn", "socks", "show", "lab"}},
+		{"vpn psk", nil, []string{"vpn", "l2tp", "add", "office", "--server", "vpn.example.com", "--user", "u", "--psk-credential", "CRED"}, []string{"vpn", "l2tp", "show", "office"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			invHome(t)
+			noAgent(t)
+			setSecret(t, "ok-pass", "Saved-Value-9")
+			if tc.setup != nil {
+				mustRun(t, tc.setup...)
+			}
+			var stderr bytes.Buffer
+			saved := tcl.out.Err
+			tcl.out.Err = &stderr
+			t.Cleanup(func() { tcl.out.Err = saved })
+			for _, v := range []string{word, "Hunter:2x", "credential:ok-pass", "secret:ok-pass", "env:WEB_PW", "op://ops/db/password", ""} {
+				e := wantCode(t, "USAGE", with(tc.args, v)...)
+				if !strings.Contains(e.Message, "takes the name of a saved secret") {
+					t.Fatalf("%q: refused for another reason: %s", v, e.Message)
+				}
+				if seen := fmt.Sprintf("%+v %s", *e, stderr.String()); v != "" && strings.Contains(seen, v) || strings.Contains(seen, "Hunter") {
+					t.Errorf("%s is repeated: %s", v, seen)
+				}
+			}
+			if strings.Contains(auditText(t), "Hunter") {
+				t.Errorf("the word is in the audit log")
+			}
+			if d, _ := invRun(t, tc.show...); strings.Contains(fmtAny(d), "Hunter") {
+				t.Errorf("the word is in the entry: %v", d)
+			}
+			d := mustRun(t, with(tc.args, "ok-pass")...)
+			if strings.Contains(fmtAny(d), "Saved-Value-9") || strings.Contains(fmtAny(d["warnings"]), "vault") {
+				t.Errorf("a saved name: %v", d)
+			}
+		})
+	}
+	if w := missingSecretWarnings("credential:" + word); len(w) != 1 || strings.Contains(w[0], word) {
+		t.Errorf("the warning for a missing secret: %q", w)
+	}
+	invHome(t)
+	mustRun(t, "host", "add", "web1", "u@10.0.0.5", "--password-ref", "credential:"+word)
+	if d, _ := invRun(t, "doctor"); !strings.Contains(fmtAny(d), "not in the vault") || strings.Contains(fmtAny(d), word) {
+		t.Errorf("doctor on a missing secret: %v", d)
 	}
 }

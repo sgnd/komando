@@ -589,11 +589,19 @@ func hostNames(hs []*store.Host) []string {
 	return n
 }
 
-// audit adds one record per action to the sealed store's audit log.
+// audit adds one record per action to the sealed store's audit log: the
+// command's own record, which a leaf running a body (runBody) names with
+// its ID.
 func audit(cl *call, st *store.State, command string, hosts []string, remote string, ok bool, extra map[string]any) {
 	if cl.out.As != "" {
-		command = cl.out.As // a leaf running a body (runBody) records under its own ID
+		command = cl.out.As
 	}
+	auditEvent(cl, st, command, hosts, remote, ok, extra)
+}
+
+// auditEvent adds a record the call names itself (host.key-pinned,
+// secret.set): it keeps that name under any leaf.
+func auditEvent(cl *call, st *store.State, command string, hosts []string, remote string, ok bool, extra map[string]any) {
 	if st != nil && !st.Settings.Audit {
 		return
 	}

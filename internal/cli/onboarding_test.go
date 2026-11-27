@@ -93,11 +93,11 @@ func TestAskPassword(t *testing.T) {
 func TestAddWarnsAndSaysNext(t *testing.T) {
 	invHome(t)
 	d := mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--password-ref", "credential:web1-pas")
-	if !strings.Contains(fmtAny(d["warnings"]), "secret web1-pas is not in the vault yet: store it with `komando secret set web1-pas`") {
+	if !strings.Contains(fmtAny(d["warnings"]), "a secret it names is not in the vault yet: store it with `komando secret set NAME`") || strings.Contains(fmtAny(d["warnings"]), "web1-pas") {
 		t.Errorf("host add: %v", d)
 	}
 	d = mustRun(t, "conn", "edit", mustConn(t), "--password-ref", "credential:db-pas")
-	if !strings.Contains(fmtAny(d["warnings"]), "secret db-pas is not in the vault yet") {
+	if !strings.Contains(fmtAny(d["warnings"]), "a secret it names is not in the vault yet") || strings.Contains(fmtAny(d["warnings"]), "db-pas") {
 		t.Errorf("conn edit: %v", d)
 	}
 	text := renderedText(t, map[string]any{"name": "web1", "action": "added", "address": "10.0.0.1", "next": "komando test web1"})
