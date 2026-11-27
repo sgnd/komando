@@ -888,7 +888,7 @@
         "path": "komando cluster add",
         "usage": "komando cluster add NAME URL [flags]",
         "short": "Add a cluster",
-        "long": "Same as `komando conn add NAME URL`, for a cluster.\n\nSafety: a change; try it with --dry-run first.\n\nSaves a cluster under a short name. Typed alone at a terminal, it asks\nstep by step. The URL scheme sets the kind: `komando conn kinds` lists them.\n\nA Kubernetes cluster usually comes in with `komando import kubeconfig FILE`\n(one conn per context). Here its kubeconfig must be in the vault already\n(--password-ref). A Docker Swarm manager is a server: `komando host add`.",
+        "long": "Same as `komando conn add NAME URL`, for a cluster.\n\nSafety: a change; try it with --dry-run first.\n\nSaves a cluster under a short name. Typed alone at a terminal, it asks\nstep by step. The URL scheme sets the kind: `komando conn kinds` lists them.\n\nA Kubernetes cluster usually comes in with `komando import kubeconfig FILE`\n(one conn per context). Here its kubeconfig must be in the vault already\n(--password-ref). A Docker Swarm manager is a server: `komando host ssh\nadd`.",
         "example": "  komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref secret:prod-kubeconfig\n  komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref secret:prod-kubeconfig --dry-run",
         "flags": [
           {
@@ -1757,7 +1757,7 @@
         "path": "komando config set",
         "usage": "komando config set SETTING VALUE [flags]",
         "short": "Change a setting",
-        "long": "Settings:\n  host_key_policy  accept-new | strict | off\n      how server identity is checked: accept-new pins a new server's key, strict needs `host trust` first, off checks nothing (needs --yes)\n  default_user     a login name\n      user for servers that have none (empty: your own user name)\n  default_timeout  duration > 0\n      how long a remote command may run (--timeout overrides it)\n  connect_timeout  duration > 0\n      how long connecting may take (--connect-timeout overrides it)\n  parallel         1 or more\n      how many servers a command works on at once (-P overrides it)\n  max_output_bytes 1024 or more\n      output kept per stream and server, in bytes (--max-output overrides it)\n  audit            on | off\n      keep the audit log (turning it off needs --yes)\n  audit_sql        full | hash | off\n      how SQL text is kept in the audit log: hash keeps a SHA-256 so repeated queries can be matched (off needs --yes)\n  audit_syslog     udp://HOST:514 | tcp://HOST:514 | tls://HOST:6514 | off\n      also send each audit record to a log server (syslog, RFC 5424); changing it needs --yes\n  mask_personal    protected | all | off\n      where AI agents see email addresses, phone numbers, card numbers and IBANs hidden: on protected servers and conns (the default), on all, or nowhere (less needs --yes)\n  login_for        duration\n      how long `komando login SERVER` keeps a server's login for later commands (an AI agent's too)\n  approval_languageauto | en | id\n      the language of the approval window: auto follows the system language (Indonesian when it is id, else English)\n  vpn_idle         duration, 0 = never\n      a VPN kept up with `vpn up` is closed after this long unused\n\nSafety: a change; try it with --dry-run first; when the setting turns a\ncheck off: it weakens a safety check: a person's yes (--yes).\n\nTo go back to a default, set the value from the DEFAULT column of `komando\nconfig show`.",
+        "long": "Settings:\n  host_key_policy  accept-new | strict | off\n      how server identity is checked: accept-new pins a new server's key, strict needs `host ssh trust` first, off checks nothing (needs --yes)\n  default_user     a login name\n      user for servers that have none (empty: your own user name)\n  default_timeout  duration > 0\n      how long a remote command may run (--timeout overrides it)\n  connect_timeout  duration > 0\n      how long connecting may take (--connect-timeout overrides it)\n  parallel         1 or more\n      how many servers a command works on at once (-P overrides it)\n  max_output_bytes 1024 or more\n      output kept per stream and server, in bytes (--max-output overrides it)\n  audit            on | off\n      keep the audit log (turning it off needs --yes)\n  audit_sql        full | hash | off\n      how SQL text is kept in the audit log: hash keeps a SHA-256 so repeated queries can be matched (off needs --yes)\n  audit_syslog     udp://HOST:514 | tcp://HOST:514 | tls://HOST:6514 | off\n      also send each audit record to a log server (syslog, RFC 5424); changing it needs --yes\n  mask_personal    protected | all | off\n      where AI agents see email addresses, phone numbers, card numbers and IBANs hidden: on protected servers and conns (the default), on all, or nowhere (less needs --yes)\n  login_for        duration\n      how long `komando login SERVER` keeps a server's login for later commands (an AI agent's too)\n  approval_languageauto | en | id\n      the language of the approval window: auto follows the system language (Indonesian when it is id, else English)\n  vpn_idle         duration, 0 = never\n      a VPN kept up with `vpn up` is closed after this long unused\n\nSafety: a change; try it with --dry-run first; when the setting turns a\ncheck off: it weakens a safety check: a person's yes (--yes).\n\nTo go back to a default, set the value from the DEFAULT column of `komando\nconfig show`.",
         "example": "  komando config set parallel 20\n  komando config set parallel 20 --dry-run\n  komando config set default_timeout 10m\n  komando config set host_key_policy strict\n  komando config set audit_sql hash",
         "runnable": true,
         "kind": "change",
@@ -4440,108 +4440,6 @@
         "runnable": false
       },
       {
-        "path": "komando exec",
-        "usage": "komando exec TARGET [-- COMMAND...] [flags]",
-        "short": "Run a shell command on one or many servers in parallel",
-        "long": "Runs COMMAND through the login shell on every server TARGET picks\n(PowerShell on Windows servers). Each server's result has its stdout,\nstderr, exit_code and duration. A non-zero exit on any server makes\nkomando exit 5. A refused connection or login exits 4; a server that does\nnot answer within --connect-timeout exits 7 (CONNECT_TIMEOUT).\n\nSafety: a change; try it with --dry-run first; when the command matches a\ndestructive rule: dangerous, it cannot be undone: a person types the name to\ngo on, and an AI agent or a script needs --allow-dangerous; on a protected\nserver or conn, a person's yes (--yes) as well.\n\nIf the connection breaks while the command runs, that server's result has\nerror code CONNECTION_LOST (exit 4) and the output that came so far: the\ncommand may still be running there, or may have finished. Check with a\nread-only command before running it again. For long tasks over a shaky link\nuse `komando job start` and `komando job wait`: they survive a drop.\n\nCommands that destroy things (rm -rf /, mkfs, reboot, DROP DATABASE, ...)\nand any change on a production server: at a terminal komando asks you\nfirst. --yes and --allow-dangerous answer that question in advance, for\nscripts. --read-only says the command only looks: it runs only commands\nkomando knows only read (cat, grep, df, systemctl status ...) and refuses\nany other, so a production server does not ask.\n\n--script FILE runs a script from this computer instead: it is sent to the\ninterpreter (from its #! line, else sh; --interpreter to choose) as input,\nso nothing is left on the server. --arg values become $1, $2 ... .",
-        "aliases": [
-          "run",
-          "x"
-        ],
-        "example": "  komando exec web1 -- uptime\n  komando exec @web -P 20 -- 'df -h / | tail -1'\n  komando exec tag:prod --sudo -- systemctl is-active nginx\n  komando exec db1 --read-only -- df -h\n  komando exec @web --script ./deploy.sh --arg v1.2.3 --sudo\n  komando exec db1 --script ./backup.py --interpreter python3\n  cat deploy.sh | komando exec web1 --stdin-file - -- 'bash -s'",
-        "flags": [
-          {
-            "name": "arg",
-            "type": "stringArray",
-            "default": "[]",
-            "usage": "with --script: an argument for the script, $1 ... (repeatable)"
-          },
-          {
-            "name": "cmd",
-            "shorthand": "c",
-            "type": "string",
-            "usage": "the command as one string (instead of words after --)"
-          },
-          {
-            "name": "dir",
-            "shorthand": "C",
-            "type": "string",
-            "usage": "working folder on the server"
-          },
-          {
-            "name": "env",
-            "shorthand": "e",
-            "type": "stringArray",
-            "default": "[]",
-            "usage": "export KEY=VALUE before the command (repeatable)"
-          },
-          {
-            "name": "fail-fast",
-            "type": "bool",
-            "default": "false",
-            "usage": "start no more servers after the first failure"
-          },
-          {
-            "name": "interpreter",
-            "type": "string",
-            "usage": "with --script: the interpreter on the server (default: from the #! line, else sh)"
-          },
-          {
-            "name": "pty",
-            "type": "bool",
-            "default": "false",
-            "usage": "allocate a pseudo-terminal (some tools need one)"
-          },
-          {
-            "name": "read-only",
-            "type": "bool",
-            "default": "false",
-            "usage": "declare that the command only looks: only commands komando knows only read run (protected servers: no --yes)"
-          },
-          {
-            "name": "script",
-            "type": "string",
-            "usage": "run this script from this computer ('-' = komando's stdin); nothing is left on the server"
-          },
-          {
-            "name": "stdin-file",
-            "type": "string",
-            "usage": "send this file on this computer as stdin ('-' = komando's stdin)"
-          },
-          {
-            "name": "stream",
-            "type": "bool",
-            "default": "false",
-            "usage": "stream output as NDJSON events while it runs"
-          },
-          {
-            "name": "sudo",
-            "shorthand": "s",
-            "type": "bool",
-            "default": "false",
-            "usage": "run with sudo (never prompts; uses the server's --sudo-ref password if set)"
-          },
-          {
-            "name": "sudo-user",
-            "type": "string",
-            "usage": "run as this user with sudo -u"
-          }
-        ],
-        "runnable": true,
-        "kind": "depends",
-        "kind_note": "changes things unless --read-only says the command only reads (the policy checks it either way)",
-        "confirm": [
-          {
-            "tier": "change"
-          },
-          {
-            "tier": "dangerous",
-            "flag": "--allow-dangerous",
-            "when": "when the command matches a destructive rule"
-          }
-        ]
-      },
-      {
         "path": "komando exit-codes",
         "usage": "komando exit-codes [flags]",
         "short": "What komando's exit codes mean",
@@ -4924,7 +4822,7 @@
         "path": "komando fs rm",
         "usage": "komando fs rm TARGET PATH... [flags]",
         "short": "Remove files on servers",
-        "long": "Removes files like rm -f: a path that does not exist is reported (\"not\nfound\") and the command still succeeds. A folder needs --recursive, which\nalso needs --allow-dangerous. Paths are taken literally: '*.log' is not a\npattern (use komando exec for that).\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous; on a protected server\nor conn, a person's yes (--yes) as well.",
+        "long": "Removes files like rm -f: a path that does not exist is reported (\"not\nfound\") and the command still succeeds. A folder needs --recursive, which\nalso needs --allow-dangerous. Paths are taken literally: '*.log' is not a\npattern (use komando host ssh exec for that).\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous; on a protected server\nor conn, a person's yes (--yes) as well.",
         "aliases": [
           "remove",
           "delete",
@@ -5240,150 +5138,12 @@
           "server",
           "servers"
         ],
-        "example": "  komando host add web1 deploy@10.0.0.5\n  komando test web1\n  komando host edit web1 --protected --dry-run\n  komando host edit web1 --protected\n  komando host rm web1                              # from komando only",
+        "example": "  komando host ssh add web1 deploy@10.0.0.5\n  komando host ssh test web1\n  komando host ssh exec web1 -- uptime\n  komando host winrm add win1 Administrator@10.0.0.9 --ask-password\n  komando host ssh remove web1                      # from komando only",
         "runnable": true,
         "kind": "read",
         "confirm": [
           {
             "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando host add",
-        "usage": "komando host add NAME [[USER@]ADDRESS[:PORT]] [flags]",
-        "short": "Add a server to your list",
-        "long": "Add a server to your list.\n\nSafety: a change; try it with --dry-run first; when --proxy-command matches\na destructive rule: dangerous, it cannot be undone: a person types the name\nto go on, and an AI agent or a script needs --allow-dangerous; with\n--proxy-command, when an AI agent runs it (the proxy command runs on this\ncomputer): it weakens a safety check: a person's yes (--yes).",
-        "example": "  komando host add web1 deploy@10.0.0.11 --group web --tag prod --key deploy\n  komando host add web1 deploy@10.0.0.11 --group web --tag prod --key deploy --dry-run\n  komando host add db1 --address db.internal --user root --via bastion --protected\n  komando host add vps1 root@203.0.113.20 --ask-password   # type its password now (hidden)\n  komando host add web2 root@203.0.113.21 --login ask      # type its password at every connect; never stored\n  komando host add win1 Administrator@10.0.0.9 --os windows --ask-password   # Windows with OpenSSH\n  komando host add win2 winrm://Administrator@10.0.0.9 --ask-password        # Windows over WinRM (HTTPS)",
-        "flags": [
-          {
-            "name": "address",
-            "type": "string",
-            "usage": "host name or IP address (winrm://USER@HOST for a Windows server over WinRM)"
-          },
-          {
-            "name": "ask-password",
-            "type": "bool",
-            "default": "false",
-            "usage": "type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref"
-          },
-          {
-            "name": "env",
-            "shorthand": "e",
-            "type": "stringArray",
-            "default": "[]",
-            "usage": "env KEY=VALUE exported before every command (repeatable)"
-          },
-          {
-            "name": "group",
-            "shorthand": "g",
-            "type": "stringSlice",
-            "default": "[]",
-            "usage": "put it in these groups (comma-separated)"
-          },
-          {
-            "name": "identity",
-            "type": "string",
-            "usage": "path to a private key file"
-          },
-          {
-            "name": "key",
-            "type": "string",
-            "usage": "name of a key in komando's key list (see komando key list)"
-          },
-          {
-            "name": "label",
-            "type": "stringArray",
-            "default": "[]",
-            "usage": "label KEY=VALUE (repeatable)"
-          },
-          {
-            "name": "login",
-            "type": "string",
-            "usage": "how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own)"
-          },
-          {
-            "name": "notes",
-            "type": "string",
-            "usage": "free-form notes (komando host show shows them to people and agents)"
-          },
-          {
-            "name": "os",
-            "type": "string",
-            "usage": "the server's OS: windows (commands run in PowerShell) or linux (the default, also for other Unixes)"
-          },
-          {
-            "name": "overwrite",
-            "type": "bool",
-            "default": "false",
-            "usage": "replace a server that has the same name"
-          },
-          {
-            "name": "password-ref",
-            "type": "string",
-            "usage": "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://..."
-          },
-          {
-            "name": "port",
-            "type": "int",
-            "default": "0",
-            "usage": "SSH port (default 22)"
-          },
-          {
-            "name": "protected",
-            "type": "bool",
-            "default": "false",
-            "usage": "production: komando asks you before every change, and an AI agent needs your yes in a window"
-          },
-          {
-            "name": "proxy-command",
-            "type": "string",
-            "usage": "a command on this computer that carries the connection (OpenSSH ProxyCommand; %h %p %r)"
-          },
-          {
-            "name": "ssm",
-            "type": "bool",
-            "default": "false",
-            "usage": "reach it through AWS Systems Manager: the address is the instance ID (komando speaks Session Manager itself when the aws CLI or its plugin is not installed)"
-          },
-          {
-            "name": "sudo-ref",
-            "type": "string",
-            "usage": "where the sudo password is, written like --password-ref"
-          },
-          {
-            "name": "tag",
-            "shorthand": "t",
-            "type": "stringSlice",
-            "default": "[]",
-            "usage": "tags, like prod (comma-separated)"
-          },
-          {
-            "name": "user",
-            "type": "string",
-            "usage": "the user to log in as"
-          },
-          {
-            "name": "via",
-            "type": "string",
-            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path, like vpn1,bastion"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          },
-          {
-            "tier": "dangerous",
-            "flag": "--allow-dangerous",
-            "when": "when --proxy-command matches a destructive rule"
-          },
-          {
-            "tier": "safety",
-            "flag": "--yes",
-            "when": "with --proxy-command, when an AI agent runs it (the proxy command runs on this computer)"
           }
         ]
       },
@@ -5499,100 +5259,249 @@
         ]
       },
       {
-        "path": "komando host edit",
-        "usage": "komando host edit TARGET... [flags]",
-        "short": "Change one or more servers (only the flags you pass change)",
-        "long": "Changes only the settings you pass. Give one name, several names, or a\nselector (@group, tag:prod, 'web-*') to change many servers at once. Try\n--dry-run first to see which servers would change.\n\nSafety: a change; try it with --dry-run first; when --proxy-command matches\na destructive rule: dangerous, it cannot be undone: a person types the name\nto go on, and an AI agent or a script needs --allow-dangerous; with\n--proxy-command, when an AI agent runs it (the proxy command runs on this\ncomputer): it weakens a safety check: a person's yes (--yes); with\n--protected=false: it weakens a safety check: a person's yes (--yes); on a\nprotected server or conn, a person's yes (--yes) as well.\n\n--protected marks a production server: komando asks you before every change,\nand an AI agent needs your yes in a window. Changing the login of a\nproduction server, or turning its protection off, asks the same way; one yes\ncovers every server in the command.",
-        "example": "  komando host edit web1 --add-tag canary --label env=prod --sudo-ref secret:web1-sudo\n  komando host edit web1 -g web -t prod          # -g/-t add a group/tag\n  komando host edit db1 --protected              # production: ask before changes\n  komando host edit @ubuntu --sudo-ref secret:ubuntu-sudo --dry-run\n  komando host edit web1 web2 web3 --user deploy\n  komando host edit vps1 --ask-password          # type a new password (hidden)\n  komando host edit web2 --login ask             # never store its password; type it at every connect\n  komando host edit web2 --login key --key deploy   # log in with a key komando names\n  komando host edit bastion --forward-agent      # lend it your ssh-agent (asks first)",
+        "path": "komando host ssh",
+        "usage": "komando host ssh [flags]",
+        "short": "SSH servers: save them, run commands on them, tunnel through them",
+        "example": "  komando host ssh add web1 deploy@10.0.0.5 --dry-run\n  komando host ssh add web1 deploy@10.0.0.5\n  komando host ssh test web1\n  komando host ssh exec web1 -- uptime\n  komando host ssh tunnel start db1 -L 15432:localhost:5432",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando host ssh add",
+        "usage": "komando host ssh add NAME [ADDRESS] [flags]",
+        "short": "Save an SSH server under a short name",
+        "long": "Save an SSH server under a short name.\n\nSafety: a change; try it with --dry-run first; when --proxy-command matches\na destructive rule: dangerous, it cannot be undone: a person types the name\nto go on, and an AI agent or a script needs --allow-dangerous; with\n--proxy-command, when an AI agent runs it (the proxy command runs on this\ncomputer): it weakens a safety check: a person's yes (--yes).",
+        "example": "  komando host ssh add web1 deploy@10.0.0.11 --group web --tag prod\n  komando host ssh add web1 deploy@10.0.0.11 --dry-run\n  komando host ssh add db1 --address db.internal --user root --via web1 --protected",
         "flags": [
-          {
-            "name": "add-group",
-            "type": "stringSlice",
-            "default": "[]",
-            "usage": "put it in these groups (comma-separated)"
-          },
-          {
-            "name": "add-tag",
-            "type": "stringSlice",
-            "default": "[]",
-            "usage": "add these tags (comma-separated)"
-          },
           {
             "name": "address",
             "type": "string",
-            "usage": "host name or IP address (winrm://USER@HOST for a Windows server over WinRM)"
+            "usage": "the host name or IP address, instead of the second word"
           },
           {
             "name": "ask-password",
             "type": "bool",
             "default": "false",
-            "usage": "type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref"
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
           },
           {
             "name": "env",
             "shorthand": "e",
             "type": "stringArray",
             "default": "[]",
-            "usage": "set KEY=VALUE, exported before every command (an empty value removes it; repeatable)"
+            "usage": "env KEY=VALUE exported before every command"
           },
           {
-            "name": "forward-agent",
-            "type": "bool",
-            "default": "false",
-            "usage": "lend the server your ssh-agent while komando is connected (root there can use your keys then; asks first)"
+            "name": "group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
           },
           {
             "name": "identity",
             "type": "string",
-            "usage": "path to a private key file"
+            "usage": "the path of a private key file"
           },
           {
             "name": "key",
             "type": "string",
-            "usage": "name of a key in komando's key list (see komando key list)"
+            "usage": "the name of a key in komando's key list"
           },
           {
             "name": "label",
             "type": "stringArray",
             "default": "[]",
-            "usage": "set label KEY=VALUE (an empty value removes it)"
+            "usage": "label KEY=VALUE"
           },
           {
             "name": "login",
             "type": "string",
-            "usage": "how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own)"
+            "usage": "how komando logs in: ask at every connect, a stored password, a key, or the ssh-agent"
           },
           {
             "name": "notes",
             "type": "string",
-            "usage": "free-form notes (komando host show shows them to people and agents)"
+            "usage": "free-form notes, shown to people and agents"
           },
           {
             "name": "os",
             "type": "string",
-            "usage": "the server's OS: windows (commands run in PowerShell) or linux (the default, also for other Unixes)"
+            "usage": "the server's OS: windows runs commands in PowerShell"
           },
           {
-            "name": "password-ref",
-            "type": "string",
-            "usage": "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://..."
+            "name": "overwrite",
+            "type": "bool",
+            "default": "false",
+            "usage": "replace an entry that has the same name"
           },
           {
             "name": "port",
             "type": "int",
             "default": "0",
-            "usage": "SSH port (default 22)"
+            "usage": "the port"
           },
           {
             "name": "protected",
             "type": "bool",
             "default": "false",
-            "usage": "production: komando asks you before every change, and an AI agent needs your yes in a window"
+            "usage": "changes need a person's yes"
           },
           {
             "name": "proxy-command",
             "type": "string",
-            "usage": "a command on this computer that carries the connection (OpenSSH ProxyCommand; %h %p %r)"
+            "usage": "a program on this computer that makes the connection"
+          },
+          {
+            "name": "ssm",
+            "type": "bool",
+            "default": "false",
+            "usage": "reach it through AWS Systems Manager; the address is the instance ID"
+          },
+          {
+            "name": "sudo-credential",
+            "type": "string",
+            "usage": "the password sudo asks for (today's --sudo-ref)"
+          },
+          {
+            "name": "tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "tags, like prod"
+          },
+          {
+            "name": "user",
+            "type": "string",
+            "usage": "the user to log in as"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous",
+            "when": "when --proxy-command matches a destructive rule"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --proxy-command, when an AI agent runs it (the proxy command runs on this computer)"
+          }
+        ]
+      },
+      {
+        "path": "komando host ssh edit",
+        "usage": "komando host ssh edit TARGET... [flags]",
+        "short": "Change saved SSH servers (only the flags you pass change)",
+        "long": "Change saved SSH servers (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; when --proxy-command matches\na destructive rule: dangerous, it cannot be undone: a person types the name\nto go on, and an AI agent or a script needs --allow-dangerous; with\n--proxy-command, when an AI agent runs it (the proxy command runs on this\ncomputer): it weakens a safety check: a person's yes (--yes); with\n--protected=false: it weakens a safety check: a person's yes (--yes); on a\nprotected server or conn, a person's yes (--yes) as well.",
+        "example": "  komando host ssh edit web1 --add-tag canary --label env=prod\n  komando host ssh edit @web --user deploy --dry-run\n  komando host ssh edit db1 --protected",
+        "flags": [
+          {
+            "name": "add-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "add-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "add these tags"
+          },
+          {
+            "name": "address",
+            "type": "string",
+            "usage": "the host name or IP address, instead of the second word"
+          },
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "env",
+            "shorthand": "e",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "env KEY=VALUE exported before every command"
+          },
+          {
+            "name": "forward-agent",
+            "type": "bool",
+            "default": "false",
+            "usage": "lend the server your ssh-agent while komando is connected (asks first)"
+          },
+          {
+            "name": "identity",
+            "type": "string",
+            "usage": "the path of a private key file"
+          },
+          {
+            "name": "key",
+            "type": "string",
+            "usage": "the name of a key in komando's key list"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how komando logs in: ask at every connect, a stored password, a key, or the ssh-agent"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "os",
+            "type": "string",
+            "usage": "the server's OS: windows runs commands in PowerShell"
+          },
+          {
+            "name": "port",
+            "type": "int",
+            "default": "0",
+            "usage": "the port"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "proxy-command",
+            "type": "string",
+            "usage": "a program on this computer that makes the connection"
           },
           {
             "name": "rm-group",
@@ -5607,21 +5516,15 @@
             "usage": "remove these tags"
           },
           {
-            "name": "ssm",
-            "type": "bool",
-            "default": "false",
-            "usage": "reach it through AWS Systems Manager: the address is the instance ID (komando speaks Session Manager itself when the aws CLI or its plugin is not installed)"
-          },
-          {
-            "name": "sudo-ref",
+            "name": "sudo-credential",
             "type": "string",
-            "usage": "where the sudo password is, written like --password-ref"
+            "usage": "the password sudo asks for (today's --sudo-ref)"
           },
           {
             "name": "unset",
             "type": "stringSlice",
             "default": "[]",
-            "usage": "clear these settings: user,key,identity,password-ref,sudo-ref,via,proxy-command,notes,port,protected,forward-agent,os,transport (transport: back to SSH from WinRM)"
+            "usage": "clear these settings: user, key, identity, credential, sudo-credential, via, proxy-command, notes, port, protected, forward-agent, os, transport"
           },
           {
             "name": "user",
@@ -5631,7 +5534,7 @@
           {
             "name": "via",
             "type": "string",
-            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path, like vpn1,bastion"
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
           }
         ],
         "runnable": true,
@@ -5658,21 +5561,160 @@
         ]
       },
       {
-        "path": "komando host list",
-        "usage": "komando host list [TARGET] [flags]",
-        "short": "List servers",
-        "long": "Same as `komando list kind:host`.",
+        "path": "komando host ssh exec",
+        "usage": "komando host ssh exec TARGET [-- COMMAND...] [flags]",
+        "short": "Run a command on saved servers, in parallel",
+        "long": "Run a command on saved servers, in parallel.\n\nSafety: a change; try it with --dry-run first; when the command matches a\ndestructive rule: dangerous, it cannot be undone: a person types the name to\ngo on, and an AI agent or a script needs --allow-dangerous; on a protected\nserver or conn, a person's yes (--yes) as well.",
+        "example": "  komando host ssh exec web1 -- uptime\n  komando host ssh exec @web -P 20 -- 'df -h / | tail -1'\n  komando host ssh exec db1 --read-only -- df -h\n  komando host ssh exec @web --script ./deploy.sh --arg v1.2.3 --sudo",
+        "flags": [
+          {
+            "name": "arg",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an argument for the script, $1 and on"
+          },
+          {
+            "name": "attach",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "read the rest of these sessions on one server, and their exit codes"
+          },
+          {
+            "name": "cmd",
+            "shorthand": "c",
+            "type": "string",
+            "usage": "the command as one string, instead of the words after --"
+          },
+          {
+            "name": "dir",
+            "shorthand": "C",
+            "type": "string",
+            "usage": "the working folder on the server"
+          },
+          {
+            "name": "env",
+            "shorthand": "e",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "export KEY=VALUE before the command"
+          },
+          {
+            "name": "fail-fast",
+            "type": "bool",
+            "default": "false",
+            "usage": "start no more servers after the first failure"
+          },
+          {
+            "name": "interpreter",
+            "type": "string",
+            "usage": "the interpreter on the server (default: from the #! line, else sh)"
+          },
+          {
+            "name": "log-max",
+            "type": "bytes",
+            "default": "1GiB",
+            "usage": "bytes of output the server keeps for the run; more is dropped"
+          },
+          {
+            "name": "offset",
+            "type": "int",
+            "default": "0",
+            "usage": "start at this byte of the log (next_from of the last read)"
+          },
+          {
+            "name": "pty",
+            "type": "bool",
+            "default": "false",
+            "usage": "ask for a pseudo-terminal (some tools need one)"
+          },
+          {
+            "name": "read-only",
+            "type": "bool",
+            "default": "false",
+            "usage": "the command only reads (the policy checks it either way)"
+          },
+          {
+            "name": "remove",
+            "type": "bool",
+            "default": "false",
+            "usage": "remove a finished session's log from the server"
+          },
+          {
+            "name": "script",
+            "type": "string",
+            "usage": "run this script from this computer ('-' is komando's stdin); nothing is left on the server"
+          },
+          {
+            "name": "signal",
+            "type": "string",
+            "default": "TERM",
+            "usage": "the signal --stop sends"
+          },
+          {
+            "name": "stdin-file",
+            "type": "string",
+            "usage": "send this file as stdin ('-' is komando's stdin)"
+          },
+          {
+            "name": "stop",
+            "type": "bool",
+            "default": "false",
+            "usage": "stop the session's command"
+          },
+          {
+            "name": "stream",
+            "type": "bool",
+            "default": "false",
+            "usage": "print the output as NDJSON events while it runs"
+          },
+          {
+            "name": "sudo",
+            "shorthand": "s",
+            "type": "bool",
+            "default": "false",
+            "usage": "run with sudo (it never prompts; it uses the server's sudo credential)"
+          },
+          {
+            "name": "sudo-user",
+            "type": "string",
+            "usage": "run as this user with sudo -u"
+          },
+          {
+            "name": "wait",
+            "type": "duration",
+            "default": "1m",
+            "usage": "wait this long for the run to end; it goes on after (exit 7); 0 returns at once"
+          }
+        ],
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "changes things unless --read-only says the command only reads (the policy checks it either way)",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous",
+            "when": "when the command matches a destructive rule"
+          }
+        ]
+      },
+      {
+        "path": "komando host ssh list",
+        "usage": "komando host ssh list [TARGET] [flags]",
+        "short": "List the saved SSH servers",
         "aliases": [
           "ls"
         ],
-        "example": "  komando host list\n  komando host list @web",
+        "example": "  komando host ssh list\n  komando host ssh list @web",
         "flags": [
           {
             "name": "limit",
             "shorthand": "n",
             "type": "int",
             "default": "0",
-            "usage": "show at most this many items (0 = all)"
+            "usage": "show at most this many (0 = all)"
           }
         ],
         "runnable": true,
@@ -5684,33 +5726,11 @@
         ]
       },
       {
-        "path": "komando host rename",
-        "usage": "komando host rename OLD NEW [flags]",
-        "short": "Rename a server and every reference to it",
-        "long": "Gives a server a new name. Everything about it stays: address, login,\nreferences, protected mark, groups, tags and labels. Servers, conns and\ntunnels that reach other things through it (--via), and its jobs and\ntunnels, follow the new name. Pinned host keys belong to the address, so\nthey stay. Renaming a protected server needs --yes.\n\nSafety: a change; try it with --dry-run first.",
-        "aliases": [
-          "mv"
-        ],
-        "example": "  komando host rename web1 web-01\n  komando host rename db1 prod-db1 --dry-run   # what would change\n  komando host rename db1 prod-db1 --yes   # after a person's yes",
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando host rm",
-        "usage": "komando host rm TARGET... [flags]",
-        "short": "Remove servers (from komando only)",
+        "path": "komando host ssh remove",
+        "usage": "komando host ssh remove TARGET... [flags]",
+        "short": "Forget saved SSH servers (the servers are not touched)",
         "long": "Remove servers from your list. The servers are not touched, and their pinned\nhost keys stay.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "aliases": [
-          "remove",
-          "delete",
-          "del"
-        ],
-        "example": "  komando host rm web3\n  komando host rm @old --dry-run     # what a selector would remove\n  komando host rm 'tmp-*'",
+        "example": "  komando host ssh remove web3 --dry-run\n  komando host ssh remove @old",
         "runnable": true,
         "kind": "change",
         "confirm": [
@@ -5720,26 +5740,35 @@
         ]
       },
       {
-        "path": "komando host show",
-        "usage": "komando host show NAME [flags]",
-        "short": "Show all settings of a server (secrets as references, never values)",
-        "example": "  komando host show web1",
+        "path": "komando host ssh rename",
+        "usage": "komando host ssh rename NAME NEW [flags]",
+        "short": "Rename a saved ssh server and every reference to it",
+        "long": "Rename a saved ssh server and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando host ssh rename web1 web-01 --dry-run\n  komando host ssh rename web1 web-01",
         "runnable": true,
-        "kind": "read",
+        "kind": "change",
         "confirm": [
           {
-            "tier": "read"
+            "tier": "change"
           }
         ]
       },
       {
-        "path": "komando host ssh-command",
-        "usage": "komando host ssh-command NAME [flags]",
-        "short": "Print the OpenSSH command komando would use for a server (person only)",
-        "long": "Prints the ssh command that reaches the server with the same address, user,\nkey, known_hosts file and --via path komando uses. A server behind --via\nservers gets a ProxyCommand per hop (ssh -W), so every hop uses its own key.\nA SOCKS VPN becomes nc -X 5; VPNs that run inside komando cannot be used by\nOpenSSH: use `komando shell SERVER` for those. A key made with komando key\ngen is never written to a file: it goes to your running ssh-agent\n(SSH_AUTH_SOCK) for one hour, and the line picks it by its public key.\n\nSafety: only a person at a terminal can run it.",
-        "example": "  komando host ssh-command web1\n  $(komando host ssh-command web1 -o text)      # open a shell with OpenSSH",
+        "path": "komando host ssh shell",
+        "usage": "komando host ssh shell NAME [-- COMMAND...] [flags]",
+        "short": "Open a login shell on one server (a person at a terminal) (person only)",
+        "long": "Open a login shell on one server (a person at a terminal).\n\nSafety: only a person at a terminal can run it.",
+        "example": "  komando host ssh shell web1\n  komando host ssh shell db1",
+        "flags": [
+          {
+            "name": "attach",
+            "type": "string",
+            "usage": "come back to the session with this ID"
+          }
+        ],
         "runnable": true,
-        "kind": "read",
+        "kind": "depends",
+        "kind_note": "an shellNote shell for a person: whatever they type",
         "confirm": [
           {
             "tier": "person"
@@ -5747,26 +5776,35 @@
         ]
       },
       {
-        "path": "komando host test",
-        "usage": "komando host test TARGET [flags]",
-        "short": "Check that servers answer and let you in",
-        "long": "Same as `komando test`.",
-        "aliases": [
-          "ping"
-        ],
-        "example": "  komando host test web1\n  komando host test @prod --wait 2m",
+        "path": "komando host ssh show",
+        "usage": "komando host ssh show NAME [flags]",
+        "short": "Show a saved ssh server's settings (credentials as names)",
+        "example": "  komando host ssh show web1\n  komando host ssh show web1 -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando host ssh test",
+        "usage": "komando host ssh test TARGET [flags]",
+        "short": "Check that saved SSH servers answer and let you in",
+        "example": "  komando host ssh test @web\n  komando host ssh test @new --wait 5m\n  komando host ssh test --end",
         "flags": [
           {
             "name": "end",
             "type": "bool",
             "default": "false",
-            "usage": "end the kept sessions of the servers named (every server when none is named), instead of testing"
+            "usage": "end the session a person's login keeps open"
           },
           {
             "name": "wait",
             "type": "duration",
             "default": "0",
-            "usage": "test again every few seconds until every target passes, for up to this long (like 5m)"
+            "usage": "wait this long for a person's sign-in"
           }
         ],
         "runnable": true,
@@ -5778,22 +5816,22 @@
         ]
       },
       {
-        "path": "komando host trust",
-        "usage": "komando host trust TARGET [flags]",
+        "path": "komando host ssh trust",
+        "usage": "komando host ssh trust TARGET [flags]",
         "short": "Pin the SSH host keys of servers (--reset after a rebuild)",
-        "long": "Fetches the server's host key and stores it in komando's known_hosts, like\nssh-keyscan plus ssh-keygen -R. The key is fetched the way komando reaches\nthe server: directly, or through its --via servers, VPN or proxy command.\n\nSafety: a change; try it with --dry-run first; when an AI agent pins a first\nhost key while host keys are strict: it weakens a safety check: a person's\nyes (--yes); with --reset: only a person at a terminal can run it; on a\nprotected server or conn, a person's yes (--yes) as well.\n\nA key that is already pinned is left as it is. If a different key is\npinned, the server may be an impostor (HOSTKEY_MISMATCH): check the new\nfingerprint another way, then replace the pin with --reset. Only a person\nat a terminal replaces a pin: komando shows the old and the new key and\nasks once; an AI agent or a script gets NEEDS_PERSON, whatever flags it\nadds. With --dry-run nothing is fetched or changed; it only counts the\npinned entries --reset would replace.\n\nTARGET can be many servers (@group, tag:, 'web*', a,b): after a rebuild of a\nwhole group, --reset replaces all their keys after a single yes, which names\nevery server with its new key. Each server is in results, with its old and\nnew fingerprint; a server whose key changed is refused without --reset, the\nothers are pinned.\n\nWith --fingerprint SHA256:..., the key is pinned only when the server shows\nthat key: compare-then-pin in one step, for a fingerprint read from the\nserver's console or a cloud provider. Any other key stops with\nHOSTKEY_MISMATCH and nothing is pinned. It takes one server, and the\nfingerprint of the key type the server offers (key_type in the answer).",
-        "example": "  komando host trust web1\n  komando host trust web1 --reset --dry-run   # how many pinned keys would go\n  komando host trust web1 --reset             # after a real rebuild (a person, at a terminal)\n  komando host trust @web                 # pin new servers; changed keys are refused\n  komando host trust @web --reset         # after rebuilding the whole group: one yes\n  komando host trust web1 --fingerprint SHA256:pVt2...  # pin only this key",
+        "long": "Pin the SSH host keys of servers (--reset after a rebuild).\n\nSafety: a change; try it with --dry-run first; when an AI agent pins a first\nhost key while host keys are strict: it weakens a safety check: a person's\nyes (--yes); with --reset: only a person at a terminal can run it; on a\nprotected server or conn, a person's yes (--yes) as well.",
+        "example": "  komando host ssh trust web1\n  komando host ssh trust web1 --reset --dry-run\n  komando host ssh trust @web",
         "flags": [
           {
             "name": "fingerprint",
             "type": "string",
-            "usage": "pin only if the server shows the key with this SHA256: fingerprint (one server)"
+            "usage": "pin the key only when the server shows this fingerprint (SHA256:...)"
           },
           {
             "name": "reset",
             "type": "bool",
             "default": "false",
-            "usage": "replace the key pinned before (a person at a terminal only)"
+            "usage": "replace a pinned host key"
           }
         ],
         "runnable": true,
@@ -5810,6 +5848,559 @@
           {
             "tier": "person",
             "when": "with --reset"
+          }
+        ]
+      },
+      {
+        "path": "komando host ssh tunnel",
+        "usage": "komando host ssh tunnel [flags]",
+        "short": "Background tunnels through a server: start, list, stop",
+        "example": "  komando host ssh tunnel start db1 -L 15432:localhost:5432\n  komando host ssh tunnel start bastion -D 1080\n  komando host ssh tunnel list\n  komando host ssh tunnel stop --all",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando host ssh tunnel list",
+        "usage": "komando host ssh tunnel list [flags]",
+        "short": "List tunnels and whether each is up",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando host ssh tunnel list\n  komando host ssh tunnel list -o json",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando host ssh tunnel start",
+        "usage": "komando host ssh tunnel start TARGET [flags]",
+        "short": "Start a background tunnel through a server, a VPN or an entry's --via path",
+        "long": "Start a background tunnel through a server, a VPN or an entry's --via path.\n\nSafety: a change; try it with --dry-run first; when it listens on an open\naddress: it weakens a safety check: a person's yes (--yes); on a protected\nserver or conn, a person's yes (--yes) as well.",
+        "example": "  komando host ssh tunnel start prod-db --dry-run\n  komando host ssh tunnel start prod-db --port 15432\n  komando host ssh tunnel start web1 -L 8080:localhost:80\n  komando host ssh tunnel start bastion -D 1080",
+        "flags": [
+          {
+            "name": "dynamic",
+            "shorthand": "D",
+            "type": "string",
+            "usage": "SOCKS5 proxy [bind:]PORT"
+          },
+          {
+            "name": "local",
+            "shorthand": "L",
+            "type": "string",
+            "usage": "local forward [bind:]LPORT:RHOST:RPORT"
+          },
+          {
+            "name": "port",
+            "type": "int",
+            "default": "0",
+            "usage": "with a saved entry as TARGET: the local port (default: a free one)"
+          },
+          {
+            "name": "remote",
+            "shorthand": "R",
+            "type": "string",
+            "usage": "remote forward [rbind:]RPORT:LHOST:LPORT"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "when it listens on an open address"
+          }
+        ]
+      },
+      {
+        "path": "komando host ssh tunnel stop",
+        "usage": "komando host ssh tunnel stop [ID...] [flags]",
+        "short": "Stop tunnels by ID",
+        "long": "Stop tunnels by ID.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando host ssh tunnel stop t1102\n  komando host ssh tunnel stop --all --dry-run",
+        "flags": [
+          {
+            "name": "all",
+            "type": "bool",
+            "default": "false",
+            "usage": "stop every tunnel"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando host ssh-command",
+        "usage": "komando host ssh-command NAME [flags]",
+        "short": "Print the OpenSSH command komando would use for a server (person only)",
+        "long": "Prints the ssh command that reaches the server with the same address, user,\nkey, known_hosts file and --via path komando uses. A server behind --via\nservers gets a ProxyCommand per hop (ssh -W), so every hop uses its own key.\nA SOCKS VPN becomes nc -X 5; VPNs that run inside komando cannot be used by\nOpenSSH: use `komando host ssh shell SERVER` for those. A key made with\nkomando key gen is never written to a file: it goes to your running\nssh-agent (SSH_AUTH_SOCK) for one hour, and the line picks it by its public\nkey.\n\nSafety: only a person at a terminal can run it.",
+        "example": "  komando host ssh-command web1\n  $(komando host ssh-command web1 -o text)      # open a shell with OpenSSH",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "person"
+          }
+        ]
+      },
+      {
+        "path": "komando host winrm",
+        "usage": "komando host winrm [flags]",
+        "short": "Windows servers over WinRM: save them and run commands on them",
+        "example": "  komando host winrm add win1 Administrator@10.0.0.9 --ask-password --dry-run\n  komando host winrm add win1 Administrator@10.0.0.9 --ask-password\n  komando host winrm test win1\n  komando host winrm exec win1 -- 'Get-Date'",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando host winrm add",
+        "usage": "komando host winrm add NAME [ADDRESS] [flags]",
+        "short": "Save a Windows server over WinRM under a short name",
+        "long": "Save a Windows server over WinRM under a short name.\n\nSafety: a change; try it with --dry-run first; when --proxy-command matches\na destructive rule: dangerous, it cannot be undone: a person types the name\nto go on, and an AI agent or a script needs --allow-dangerous; with\n--proxy-command, when an AI agent runs it (the proxy command runs on this\ncomputer): it weakens a safety check: a person's yes (--yes).",
+        "example": "  komando host winrm add web1 Administrator@10.0.0.9 --group web --tag prod\n  komando host winrm add web1 Administrator@10.0.0.9 --dry-run\n  komando host winrm add db1 --address db.internal --user root --via web1 --protected",
+        "flags": [
+          {
+            "name": "address",
+            "type": "string",
+            "usage": "the host name or IP address, instead of the second word"
+          },
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "env",
+            "shorthand": "e",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "env KEY=VALUE exported before every command"
+          },
+          {
+            "name": "group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how komando logs in: ask at every connect, a stored password, a key, or the ssh-agent"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "overwrite",
+            "type": "bool",
+            "default": "false",
+            "usage": "replace an entry that has the same name"
+          },
+          {
+            "name": "port",
+            "type": "int",
+            "default": "0",
+            "usage": "the port"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "tags, like prod"
+          },
+          {
+            "name": "user",
+            "type": "string",
+            "usage": "the user to log in as"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous",
+            "when": "when --proxy-command matches a destructive rule"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --proxy-command, when an AI agent runs it (the proxy command runs on this computer)"
+          }
+        ]
+      },
+      {
+        "path": "komando host winrm edit",
+        "usage": "komando host winrm edit TARGET... [flags]",
+        "short": "Change saved WinRM servers (only the flags you pass change)",
+        "long": "Change saved WinRM servers (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; when --proxy-command matches\na destructive rule: dangerous, it cannot be undone: a person types the name\nto go on, and an AI agent or a script needs --allow-dangerous; with\n--proxy-command, when an AI agent runs it (the proxy command runs on this\ncomputer): it weakens a safety check: a person's yes (--yes); with\n--protected=false: it weakens a safety check: a person's yes (--yes); on a\nprotected server or conn, a person's yes (--yes) as well.",
+        "example": "  komando host winrm edit web1 --add-tag canary --label env=prod\n  komando host winrm edit @web --user deploy --dry-run\n  komando host winrm edit db1 --protected",
+        "flags": [
+          {
+            "name": "add-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "add-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "add these tags"
+          },
+          {
+            "name": "address",
+            "type": "string",
+            "usage": "the host name or IP address, instead of the second word"
+          },
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "env",
+            "shorthand": "e",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "env KEY=VALUE exported before every command"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how komando logs in: ask at every connect, a stored password, a key, or the ssh-agent"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "port",
+            "type": "int",
+            "default": "0",
+            "usage": "the port"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "rm-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "take it out of these groups"
+          },
+          {
+            "name": "rm-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "remove these tags"
+          },
+          {
+            "name": "unset",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "clear these settings: user, credential, via, notes, port, protected"
+          },
+          {
+            "name": "user",
+            "type": "string",
+            "usage": "the user to log in as"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous",
+            "when": "when --proxy-command matches a destructive rule"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --proxy-command, when an AI agent runs it (the proxy command runs on this computer)"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
+          }
+        ]
+      },
+      {
+        "path": "komando host winrm exec",
+        "usage": "komando host winrm exec TARGET [-- COMMAND...] [flags]",
+        "short": "Run a command on saved servers, in parallel (PowerShell)",
+        "long": "Run a command on saved servers, in parallel (PowerShell).\n\nSafety: a change; try it with --dry-run first; when the command matches a\ndestructive rule: dangerous, it cannot be undone: a person types the name to\ngo on, and an AI agent or a script needs --allow-dangerous; on a protected\nserver or conn, a person's yes (--yes) as well.",
+        "example": "  komando host winrm exec web1 -- uptime\n  komando host winrm exec @web -P 20 -- 'df -h / | tail -1'\n  komando host winrm exec db1 --read-only -- df -h",
+        "flags": [
+          {
+            "name": "arg",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an argument for the script, $1 and on"
+          },
+          {
+            "name": "cmd",
+            "shorthand": "c",
+            "type": "string",
+            "usage": "the command as one string, instead of the words after --"
+          },
+          {
+            "name": "dir",
+            "shorthand": "C",
+            "type": "string",
+            "usage": "the working folder on the server"
+          },
+          {
+            "name": "env",
+            "shorthand": "e",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "export KEY=VALUE before the command"
+          },
+          {
+            "name": "fail-fast",
+            "type": "bool",
+            "default": "false",
+            "usage": "start no more servers after the first failure"
+          },
+          {
+            "name": "interpreter",
+            "type": "string",
+            "usage": "the interpreter on the server (default: from the #! line, else sh)"
+          },
+          {
+            "name": "pty",
+            "type": "bool",
+            "default": "false",
+            "usage": "ask for a pseudo-terminal (some tools need one)"
+          },
+          {
+            "name": "read-only",
+            "type": "bool",
+            "default": "false",
+            "usage": "the command only reads (the policy checks it either way)"
+          },
+          {
+            "name": "script",
+            "type": "string",
+            "usage": "run this script from this computer ('-' is komando's stdin); nothing is left on the server"
+          },
+          {
+            "name": "stdin-file",
+            "type": "string",
+            "usage": "send this file as stdin ('-' is komando's stdin)"
+          },
+          {
+            "name": "stream",
+            "type": "bool",
+            "default": "false",
+            "usage": "print the output as NDJSON events while it runs"
+          }
+        ],
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "changes things unless --read-only says the command only reads (the policy checks it either way)",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous",
+            "when": "when the command matches a destructive rule"
+          }
+        ]
+      },
+      {
+        "path": "komando host winrm list",
+        "usage": "komando host winrm list [TARGET] [flags]",
+        "short": "List the saved WinRM servers",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando host winrm list\n  komando host winrm list @web",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando host winrm remove",
+        "usage": "komando host winrm remove TARGET... [flags]",
+        "short": "Forget saved WinRM servers (the servers are not touched)",
+        "long": "Forget saved WinRM servers (the servers are not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "example": "  komando host winrm remove web3 --dry-run\n  komando host winrm remove @old",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando host winrm rename",
+        "usage": "komando host winrm rename NAME NEW [flags]",
+        "short": "Rename a saved winrm server and every reference to it",
+        "long": "Rename a saved winrm server and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando host winrm rename web1 web-01 --dry-run\n  komando host winrm rename web1 web-01",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando host winrm shell",
+        "usage": "komando host winrm shell NAME [-- COMMAND...] [flags]",
+        "short": "Say that a Windows server has no interactive shell here (person only)",
+        "long": "Say that a Windows server has no interactive shell here.\n\nSafety: only a person at a terminal can run it.",
+        "example": "  komando host winrm shell web1\n  komando host winrm shell win1",
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "an shellNote shell for a person: whatever they type",
+        "confirm": [
+          {
+            "tier": "person"
+          }
+        ]
+      },
+      {
+        "path": "komando host winrm show",
+        "usage": "komando host winrm show NAME [flags]",
+        "short": "Show a saved winrm server's settings (credentials as names)",
+        "example": "  komando host winrm show web1\n  komando host winrm show web1 -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando host winrm test",
+        "usage": "komando host winrm test TARGET [flags]",
+        "short": "Check that saved WinRM servers answer and let you in",
+        "example": "  komando host winrm test @web\n  komando host winrm test @new --wait 5m\n  komando host winrm test --end",
+        "flags": [
+          {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the session a person's login keeps open"
+          },
+          {
+            "name": "wait",
+            "type": "duration",
+            "default": "0",
+            "usage": "wait this long for a person's sign-in"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
           }
         ]
       },
@@ -6432,90 +7023,6 @@
         "confirm": [
           {
             "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando login",
-        "usage": "komando login [SERVER] [flags]",
-        "short": "Log in once to a server or a cloud account (person only)",
-        "long": "Type the password and code once; for 8 hours your commands and your AI\nagent reuse that login. The safety rules, approvals and history of each\ncommand stay the same.\n\nSafety: only a person at a terminal can run it.\n\n`komando logout SERVER` ends it sooner, and `komando status` lists the kept\nlogins. A login to a jump host covers every server behind it. The 8 hours\ncome from the login_for setting.\n\nkomando login aws logs in to AWS IAM Identity Center (SSO).",
-        "example": "  komando login web1      # answer the code once; AI agents can then use web1\n  komando login web1 --dry-run\n  komando logout web1\n  komando login aws --profile prod",
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "person"
-          }
-        ]
-      },
-      {
-        "path": "komando login aws",
-        "usage": "komando login aws [flags]",
-        "short": "Log in to AWS IAM Identity Center for a profile (person only)",
-        "long": "Opens the AWS sign-in page in your browser and waits until you confirm the\ncode shown here. The login is saved where the aws CLI keeps it\n(~/.aws/sso/cache), so komando, the AWS SDKs and the aws CLI all use it. The\nprofile is the one in ~/.aws/config with sso_start_url or sso_session, or a\nprofile that assumes a role from one (source_profile).\n\nSafety: only a person at a terminal can run it.\n\nConns that name the profile (--option aws_profile=NAME) use the login until\nit runs out; then their commands stop with AWS_LOGIN_REQUIRED and the same\ncommand renews it. Logging in is for a person: an AI agent gets\nNEEDS_PERSON and asks you to run it. A profile with keys in\n~/.aws/credentials needs no login.",
-        "example": "  komando login aws --profile prod       # opens the browser; confirm the code shown\n  komando login aws                      # the profile in AWS_PROFILE, else default\n  komando login aws --profile prod --dry-run   # which sign-in page, without logging in",
-        "flags": [
-          {
-            "name": "profile",
-            "type": "string",
-            "usage": "profile in ~/.aws/config (default: AWS_PROFILE, else default)"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "person"
-          }
-        ]
-      },
-      {
-        "path": "komando logout",
-        "usage": "komando logout [SERVER...] [flags]",
-        "short": "End server logins kept by `komando login` (--all for every one)",
-        "long": "Ends what `komando login SERVER` keeps: the connection closes, and later\ncommands to that server log in again (a two-factor server asks a person).\n`komando status` lists the logins that are kept. `komando logout aws` ends\nan AWS IAM Identity Center (SSO) login.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando logout web1\n  komando logout web1 --dry-run\n  komando logout --all\n  komando logout aws --profile prod",
-        "flags": [
-          {
-            "name": "all",
-            "type": "bool",
-            "default": "false",
-            "usage": "end every kept server login"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando logout aws",
-        "usage": "komando logout aws [flags]",
-        "short": "End an AWS IAM Identity Center (SSO) login",
-        "long": "Ends the SSO login a profile uses, as `aws sso logout` does: AWS is told to\nend the token, and the login saved in ~/.aws/sso/cache is deleted, so\nkomando, the AWS SDKs and the aws CLI all need `komando login aws` again.\nProfiles that share the login (one sso-session) are logged out together.\n--all ends every SSO login of the profiles in ~/.aws/config.\n\nSafety: a change; try it with --dry-run first.",
-        "example": "  komando logout aws --profile prod\n  komando logout aws --profile prod --dry-run\n  komando logout aws --all",
-        "flags": [
-          {
-            "name": "all",
-            "type": "bool",
-            "default": "false",
-            "usage": "end every AWS SSO login"
-          },
-          {
-            "name": "profile",
-            "type": "string",
-            "usage": "profile in ~/.aws/config (default: AWS_PROFILE, else default)"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
           }
         ]
       },
@@ -8192,7 +8699,7 @@
         "path": "komando rename",
         "usage": "komando rename OLD NEW [flags]",
         "short": "Rename one entry, or all names starting with OLD (--starts-with)",
-        "long": "Without --starts-with: renames the one server, conn, VPN, secret, key or\ngroup named OLD, as `komando host rename` and the others do. When OLD names\ntwo kinds of entry (a server and a secret), it says which commands to use.\n\nSafety: a change; try it with --dry-run first.\n\nWith --starts-with: renames every server, conn, VPN, secret, key and group\nwhose name starts with OLD: OLD is replaced with NEW. When OLD ends in -,\nthe name OLD without it is renamed too (--starts-with shop- acme-shop- turns\ngroup shop into acme-shop).\n\nEvery reference follows, as with `host rename` and `secret rename`: --via\npaths, password, sudo, key, preshared key and passphrase references,\nsecret:NAME options in conn URLs, the key a server uses, group membership,\njobs and tunnels. A key komando made (key gen) lives in the sealed store, so\nno file moves; a key file you added stays where it is. The protected mark,\nlabels, notes and creation time stay. Names inside URLs (a bucket, a\ndatabase user) are the resource's own and do not change.\n\n--in-notes also replaces old names in notes, and --in-labels in label\nvalues: server, conn, VPN and secret names as whole words, a group written\n@NAME, and a pattern such as shop-db-* when it matches the same entries\nafter the rename. OLD without its -, group names without @, key names, and a\nname that is also the user, host, bucket or database in a conn URL stay:\nthey often mean something else. The result lists each one it keeps (\"kept\"),\nand each label value that names an old entry, with or without --in-labels.\n\nEverything changes in one step, or nothing does: a new name that is taken\n(or two old names that would get one new name) stops it before anything\nis written. When NEW starts with OLD, names that start with NEW already\nare left alone, so a second run changes nothing.\n\nRenaming protected servers and conns needs --yes once, for all of them (an\nAI agent's --yes opens one window for a person). See what would change with\n--dry-run first. --kind renames only some kinds; references still follow. To\nrename one entry, use host rename, conn rename, vpn rename, secret rename,\nkey rename or group rename.",
+        "long": "Without --starts-with: renames the one server, conn, VPN, secret, key or\ngroup named OLD, as `komando host ssh rename` and the others do. When OLD\nnames two kinds of entry (a server and a secret), it says which commands to\nuse.\n\nSafety: a change; try it with --dry-run first.\n\nWith --starts-with: renames every server, conn, VPN, secret, key and group\nwhose name starts with OLD: OLD is replaced with NEW. When OLD ends in -,\nthe name OLD without it is renamed too (--starts-with shop- acme-shop- turns\ngroup shop into acme-shop).\n\nEvery reference follows, as with `host rename` and `secret rename`: --via\npaths, password, sudo, key, preshared key and passphrase references,\nsecret:NAME options in conn URLs, the key a server uses, group membership,\njobs and tunnels. A key komando made (key gen) lives in the sealed store, so\nno file moves; a key file you added stays where it is. The protected mark,\nlabels, notes and creation time stay. Names inside URLs (a bucket, a\ndatabase user) are the resource's own and do not change.\n\n--in-notes also replaces old names in notes, and --in-labels in label\nvalues: server, conn, VPN and secret names as whole words, a group written\n@NAME, and a pattern such as shop-db-* when it matches the same entries\nafter the rename. OLD without its -, group names without @, key names, and a\nname that is also the user, host, bucket or database in a conn URL stay:\nthey often mean something else. The result lists each one it keeps (\"kept\"),\nand each label value that names an old entry, with or without --in-labels.\n\nEverything changes in one step, or nothing does: a new name that is taken\n(or two old names that would get one new name) stops it before anything\nis written. When NEW starts with OLD, names that start with NEW already\nare left alone, so a second run changes nothing.\n\nRenaming protected servers and conns needs --yes once, for all of them (an\nAI agent's --yes opens one window for a person). See what would change with\n--dry-run first. --kind renames only some kinds; references still follow. To\nrename one entry, use host rename, conn rename, vpn rename, secret rename,\nkey rename or group rename.",
         "example": "  komando rename web1 web-01 --dry-run                 # one entry, whatever kind it is\n  komando rename --starts-with shop- acme-shop- --dry-run   # the old -> new list and every reference\n  komando rename --starts-with shop- acme-shop- --yes   # after a person's yes\n  komando rename --starts-with old-registry registry --kind conn,secret\n  komando rename --starts-with lab- test- --in-notes --in-labels --dry-run",
         "flags": [
           {
@@ -8261,7 +8768,7 @@
         "path": "komando secret",
         "usage": "komando secret [flags]",
         "short": "Saved passwords and tokens: store, check, use as secret:NAME",
-        "long": "Save a password once, then point to it as secret:NAME instead of typing it:\n  komando secret set web1-pass\n  komando host edit web1 --password-ref secret:web1-pass\n\nkomando shows a saved value only to a person: at a terminal with\n`secret show --reveal`, or after \"Allow once\" in komando's window; never\nto an AI agent. `secret check` compares a value with the saved one\nwithout showing either. `secret rename` and `secret cp` rename and copy.\n\nHow it is stored: each secret sealed with AES-256-GCM in\n~/.komando/store.db. The random key is in the OS keychain (or in store.key\nwhere there is none, or with KOMANDO_KEYCHAIN=off), or comes from\n$KOMANDO_VAULT_PASS when that is set at first use (`secret passphrase`\nchanges it).\n\nA --password-ref (and the other -ref flags) can also read a password your\nteam keeps elsewhere; komando reads it when needed and never stores it:\n  env:VAR  file:PATH  vault:PATH#FIELD  aws-sm:NAME[#KEY]  gcp-sm:NAME[@PROJECT]\n  azure-kv:VAULT/NAME[#KEY]  op://VAULT/ITEM/FIELD  bw://ITEM/FIELD  kdbx:FILE#GROUP/ENTRY",
+        "long": "Save a password once, then point to it as secret:NAME instead of typing it:\n  komando secret set web1-pass\n  komando host ssh edit web1 --password-ref secret:web1-pass\n\nkomando shows a saved value only to a person: at a terminal with\n`secret show --reveal`, or after \"Allow once\" in komando's window; never\nto an AI agent. `secret check` compares a value with the saved one\nwithout showing either. `secret rename` and `secret cp` rename and copy.\n\nHow it is stored: each secret sealed with AES-256-GCM in\n~/.komando/store.db. The random key is in the OS keychain (or in store.key\nwhere there is none, or with KOMANDO_KEYCHAIN=off), or comes from\n$KOMANDO_VAULT_PASS when that is set at first use (`secret passphrase`\nchanges it).\n\nA --password-ref (and the other -ref flags) can also read a password your\nteam keeps elsewhere; komando reads it when needed and never stores it:\n  env:VAR  file:PATH  vault:PATH#FIELD  aws-sm:NAME[#KEY]  gcp-sm:NAME[@PROJECT]\n  azure-kv:VAULT/NAME[#KEY]  op://VAULT/ITEM/FIELD  bw://ITEM/FIELD  kdbx:FILE#GROUP/ENTRY",
         "aliases": [
           "secrets",
           "vault"
@@ -8524,29 +9031,10 @@
         ]
       },
       {
-        "path": "komando shell",
-        "usage": "komando shell SERVER [flags]",
-        "short": "Open a login shell on one server (person only)",
-        "long": "Open a login shell on one server.\n\nSafety: only a person at a terminal can run it.",
-        "aliases": [
-          "ssh",
-          "connect"
-        ],
-        "example": "  komando shell web1",
-        "runnable": true,
-        "kind": "depends",
-        "kind_note": "an shellNote shell for a person: whatever they type",
-        "confirm": [
-          {
-            "tier": "person"
-          }
-        ]
-      },
-      {
         "path": "komando ssh-gate",
         "usage": "komando ssh-gate [flags]",
         "short": "Let an SSH key run komando here and nothing else (person only)",
-        "long": "ssh-gate lets an SSH key (a phone's, say) run komando on this computer, and\nnothing else: no shell, no file copy, no port forwarding. Add the key to\n~/.ssh/authorized_keys with the line `komando ssh-gate line` prints; sshd\nthen runs ssh-gate for it, whatever the key asks for.\n\nSafety: only a person at a terminal can run it.\n\nssh-gate takes the command the key sent (SSH_ORIGINAL_COMMAND) only when it\nis one komando command. It splits it into words like a shell, but expands\nnothing and runs no shell: ; | & > < $ and backquotes are refused unless\nthey are quoted. One KOMANDO_AGENT=NAME may come before komando.\n\nkomando then runs as for an AI agent: secret values stay [hidden], --reveal\nand --allow-dangerous are refused, and --yes for a protected server needs a\nperson on this computer. Commands that need a person at a terminal (shell,\ndb shell, secret passphrase ...) are refused (a --shell-access key may open\n`komando shell SERVER`: see ssh-gate line; that shell is full control of the\nserver, outside these rules). The key runs commands on servers, never one\nthat writes on this computer or reads a file here (a script, SQL or upload\nsource by path; '-' for the key's own input works): no download or cp to a\nfile here (download --to - and cp SRC - stream to the key's own output), no\nchange to servers, VPNs, settings, rules, secrets, keys or recipes in\nkomando, no update, no change on a sqlite file or a target at localhost or\n127.x. With --read-only only commands that read run (db query and cache\nredis raw without --write), and only those that stay on the servers and\nconns in your list: no net, no cert check of a website, no exec, job start,\ndocker exec, cluster exec or recipe run, unless the line also has --network.\n`komando ssh-gate status` tells a key which it is. Every command a key runs\nor is refused is in `komando audit`, with --name, even when the audit\nsetting is off.",
+        "long": "ssh-gate lets an SSH key (a phone's, say) run komando on this computer, and\nnothing else: no shell, no file copy, no port forwarding. Add the key to\n~/.ssh/authorized_keys with the line `komando ssh-gate line` prints; sshd\nthen runs ssh-gate for it, whatever the key asks for.\n\nSafety: only a person at a terminal can run it.\n\nssh-gate takes the command the key sent (SSH_ORIGINAL_COMMAND) only when it\nis one komando command. It splits it into words like a shell, but expands\nnothing and runs no shell: ; | & > < $ and backquotes are refused unless\nthey are quoted. One KOMANDO_AGENT=NAME may come before komando.\n\nkomando then runs as for an AI agent: secret values stay [hidden], --reveal\nand --allow-dangerous are refused, and --yes for a protected server needs a\nperson on this computer. Commands that need a person at a terminal (shell,\ndb shell, secret passphrase ...) are refused (a --shell-access key may open\n`komando host ssh shell SERVER`: see ssh-gate line; that shell is full\ncontrol of the server, outside these rules). The key runs commands on\nservers, never one that writes on this computer or reads a file here (a\nscript, SQL or upload source by path; '-' for the key's own input works): no\ndownload or cp to a file here (download --to - and cp SRC - stream to the\nkey's own output), no change to servers, VPNs, settings, rules, secrets,\nkeys or recipes in komando, no update, no change on a sqlite file or a\ntarget at localhost or 127.x. With --read-only only commands that read run\n(db query and cache redis raw without --write), and only those that stay on\nthe servers and conns in your list: no net, no cert check of a website, no\nexec, job start, docker exec, cluster exec or recipe run, unless the line\nalso has --network. `komando ssh-gate status` tells a key which it is. Every\ncommand a key runs or is refused is in `komando audit`, with --name, even\nwhen the audit setting is off.",
         "example": "  komando ssh-gate line --name phone ~/phone.pub\n  komando ssh-gate line --name phone-read --read-only 'ssh-ed25519 AAAA... phone'",
         "runnable": true,
         "kind": "depends",
@@ -8561,7 +9049,7 @@
         "path": "komando ssh-gate line",
         "usage": "komando ssh-gate line PUBLIC_KEY --name NAME [flags]",
         "short": "Print the authorized_keys line that limits a key to komando",
-        "long": "Prints the line to add to ~/.ssh/authorized_keys on this computer, so the\nkey runs komando through ssh-gate and nothing else. PUBLIC_KEY is the key's\nline (ssh-ed25519 AAAA... comment) or a .pub file holding it. The line names\nthis komando by its full path, as sshd does not search PATH.\n\nA --read-only key runs only commands that read, and only those that stay\non the servers and conns in your list: no net checks, no cert check of\na website, and no exec, job start, docker exec, cluster exec or recipe run,\nwhose programs can connect anywhere and carry what they read in a URL or a\nDNS name. Add --network too for a read key that may do those.\n\nWith --shell-access (not with --read-only) the key may also open a login\nshell on one server: ssh -t HOST komando shell SERVER, word for word. Its\nline has restrict,pty, so sshd gives it a terminal when it asks for one.\nThe shell is refused on a protected server, a Windows server or this\ncomputer, with any other word or flag, without the terminal, and on every\nserver while you have deny rules of your own (komando policy list); db\nshell and cluster shell stay refused. On the servers it opens on, the\nshell is full control of the server, as the account komando logs in with:\nwhat is typed is outside komando's per-command rules, masking and audit.\nGive such a key only to a device you would give that login to. Each\nsession's start and end are in komando audit (key, server, how long, why\nit ended), and a session with no input and no output for 30 minutes ends.",
+        "long": "Prints the line to add to ~/.ssh/authorized_keys on this computer, so the\nkey runs komando through ssh-gate and nothing else. PUBLIC_KEY is the key's\nline (ssh-ed25519 AAAA... comment) or a .pub file holding it. The line names\nthis komando by its full path, as sshd does not search PATH.\n\nA --read-only key runs only commands that read, and only those that stay\non the servers and conns in your list: no net checks, no cert check of\na website, and no exec, job start, docker exec, cluster exec or recipe run,\nwhose programs can connect anywhere and carry what they read in a URL or a\nDNS name. Add --network too for a read key that may do those.\n\nWith --shell-access (not with --read-only) the key may also open a login\nshell on one server: ssh -t HOST komando host ssh shell SERVER, word for\nword. Its line has restrict,pty, so sshd gives it a terminal when it asks\nfor one. The shell is refused on a protected server, a Windows server or\nthis computer, with any other word or flag, without the terminal, and on\nevery server while you have deny rules of your own (komando policy list); db\nshell and cluster shell stay refused. On the servers it opens on, the shell\nis full control of the server, as the account komando logs in with: what is\ntyped is outside komando's per-command rules, masking and audit. Give such a\nkey only to a device you would give that login to. Each session's start and\nend are in komando audit (key, server, how long, why it ended), and a\nsession with no input and no output for 30 minutes ends.",
         "example": "  komando ssh-gate line --name phone ~/phone.pub\n  komando ssh-gate line --name phone-read --read-only 'ssh-ed25519 AAAA... phone'\n  komando ssh-gate line --name phone-checks --read-only --network ~/phone.pub\n  komando ssh-gate line --name ops --shell-access ~/ops.pub",
         "flags": [
           {
@@ -8585,7 +9073,7 @@
             "name": "shell-access",
             "type": "bool",
             "default": "false",
-            "usage": "the key may also open a login shell on one server (ssh -t HOST komando shell SERVER); not with --read-only"
+            "usage": "the key may also open a login shell on one server (ssh -t HOST komando host ssh shell SERVER); not with --read-only"
           }
         ],
         "runnable": true,
@@ -9676,7 +10164,7 @@
         "path": "komando test",
         "usage": "komando test TARGET [flags]",
         "short": "Check that servers, conns and VPNs answer and let you in",
-        "long": "Logs in to each server (and checks who it is and whether sudo needs a\npassword), connects to each conn and checks each VPN.\n\n--wait 5m waits for new servers: komando tests again every few seconds\nuntil every target passes or the time is up, for example right after a\ncloud server was created or rebuilt. It does not wait out a changed host\nkey (HOSTKEY_MISMATCH), a refused login (AUTH_FAILED: retrying could get\nyour address banned), a VPN that needs a login, or a local key or secret\nproblem: those fail at once. To wait for the server's own start-up too,\nrun `komando exec TARGET --read-only -- cloud-init status --wait` next.\n\nA server that asks for a password or a two-factor code only a person can\nanswer: when a person runs test at a terminal, komando asks once and keeps\nthe session open for the login_for setting (8 hours). An AI agent's commands\nto that server reuse the session; when it has expired they fail and name\nthis command, and an agent never types a code. --end closes the kept session\nof the servers it names, or of every server when it names none; `komando\nstatus` lists the kept sessions.",
+        "long": "Logs in to each server (and checks who it is and whether sudo needs a\npassword), connects to each conn and checks each VPN.\n\n--wait 5m waits for new servers: komando tests again every few seconds until\nevery target passes or the time is up, for example right after a cloud\nserver was created or rebuilt. It does not wait out a changed host key\n(HOSTKEY_MISMATCH), a refused login (AUTH_FAILED: retrying could get your\naddress banned), a VPN that needs a login, or a local key or secret problem:\nthose fail at once. To wait for the server's own start-up too, run `komando\nhost ssh exec TARGET --read-only -- cloud-init status --wait` next.\n\nA server that asks for a password or a two-factor code only a person can\nanswer: when a person runs test at a terminal, komando asks once and keeps\nthe session open for the login_for setting (8 hours). An AI agent's commands\nto that server reuse the session; when it has expired they fail and name\nthis command, and an agent never types a code. --end closes the kept session\nof the servers it names, or of every server when it names none; `komando\nstatus` lists the kept sessions.",
         "aliases": [
           "ping"
         ],
@@ -9700,116 +10188,6 @@
         "confirm": [
           {
             "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando tunnel",
-        "usage": "komando tunnel [flags]",
-        "short": "Background port forwarding: start, see, stop",
-        "long": "Specs:\n  -L [bind:]LPORT:RHOST:RPORT   local port -> RHOST:RPORT as seen from the server\n  -R [rbind:]RPORT:LHOST:LPORT  server port -> LHOST:LPORT on this computer\n  -D [bind:]PORT                SOCKS5 proxy through the server\nLPORT/PORT 0 picks a free port; the chosen address is returned. IPv6\naddresses go in brackets, as with ssh: -L 8080:[::1]:80.",
-        "aliases": [
-          "pf",
-          "tunnels"
-        ],
-        "example": "  komando tunnel start db1 -L 15432:localhost:5432\n  komando tunnel start bastion -D 1080\n  komando tunnel list\n  komando tunnel stop t1102-...",
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando tunnel list",
-        "usage": "komando tunnel list [flags]",
-        "short": "List tunnels and whether each is up",
-        "aliases": [
-          "ls"
-        ],
-        "example": "  komando tunnel list",
-        "flags": [
-          {
-            "name": "limit",
-            "shorthand": "n",
-            "type": "int",
-            "default": "0",
-            "usage": "show at most this many tunnels (0 = all)"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando tunnel start",
-        "usage": "komando tunnel start TARGET (-L SPEC | -R SPEC | -D SPEC) [flags]",
-        "short": "Start a background tunnel",
-        "long": "With a conn name and no -L/-R/-D, the tunnel leads to that conn through its\n--via path: point your database app or psql at the local address it prints.\nWith a server, give one of -L, -R or -D.\n\nSafety: a change; try it with --dry-run first; when it listens on an open\naddress: it weakens a safety check: a person's yes (--yes); on a protected\nserver or conn, a person's yes (--yes) as well.",
-        "example": "  komando tunnel start prod-db               # localhost:<free port> -> prod-db\n  komando tunnel start prod-db --dry-run\n  komando tunnel start prod-db --port 15432\n  komando tunnel start web1 -L 8080:localhost:80\n  komando tunnel start bastion -D 1080       # SOCKS proxy",
-        "flags": [
-          {
-            "name": "dynamic",
-            "shorthand": "D",
-            "type": "string",
-            "usage": "SOCKS5 proxy [bind:]PORT"
-          },
-          {
-            "name": "local",
-            "shorthand": "L",
-            "type": "string",
-            "usage": "local forward [bind:]LPORT:RHOST:RPORT"
-          },
-          {
-            "name": "port",
-            "type": "int",
-            "default": "0",
-            "usage": "with a conn: the local port (default: a free one)"
-          },
-          {
-            "name": "remote",
-            "shorthand": "R",
-            "type": "string",
-            "usage": "remote forward [rbind:]RPORT:LHOST:LPORT"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          },
-          {
-            "tier": "safety",
-            "flag": "--yes",
-            "when": "when it listens on an open address"
-          }
-        ]
-      },
-      {
-        "path": "komando tunnel stop",
-        "usage": "komando tunnel stop [TUNNEL...] [flags]",
-        "short": "Stop tunnels by ID (--all for every tunnel)",
-        "long": "Stop tunnels by ID (--all for every tunnel).\n\nSafety: a change; try it with --dry-run first.",
-        "example": "  komando tunnel stop t1102-101500-ab12cd34\n  komando tunnel stop t1102-101500-ab12cd34 --dry-run\n  komando tunnel stop --all",
-        "flags": [
-          {
-            "name": "all",
-            "type": "bool",
-            "default": "false",
-            "usage": "stop all tunnels"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
           }
         ]
       },
@@ -10097,11 +10475,11 @@
         "path": "komando vpn",
         "usage": "komando vpn [flags]",
         "short": "VPNs komando connects when a path needs one: add, connect, check",
-        "long": "Add a VPN once, then put it first in --via. A command that needs it\nconnects it, using the login you saved:\n\n  komando vpn add office wireguard --config ~/Downloads/office.conf\n  komando vpn add client-x globalprotect --portal vpn.client.com --user alice --password-ref secret:client-x --mfa\n  komando host add app admin@10.0.0.5 --via office,bastion\n  komando exec app -- uptime\n\nVPNs with --mfa need a person: run `komando vpn up NAME` once and later\ncommands (and agents) reuse that session. komando never answers MFA.\n\nKinds (also: pritunl = openvpn; cisco, xauth = ipsec):\n  anyconnect    Cisco AnyConnect / ocserv, run inside komando (no openconnect)\n  f5            F5 BIG-IP SSL VPN\n  fortinet      Fortinet SSL VPN (FortiClient)\n  globalprotect Palo Alto GlobalProtect\n  ikev2         IKEv2/IPsec (pre-shared key or EAP login with a server certificate), run inside komando\n  ipsec         Cisco-style IPsec (IKEv1, group name and XAUTH login), run inside komando\n  l2tp          L2TP/IPsec with a pre-shared key, run inside komando (no admin rights)\n  openvpn       OpenVPN, also Pritunl profiles, run inside komando (no openvpn program, Docker or admin rights)\n  proxy         an HTTP proxy (CONNECT), such as a company proxy: every connection is tunneled through it\n  pulse         Pulse Secure / Ivanti Connect Secure\n  socks         a SOCKS5 proxy that is already running (`komando tunnel start TARGET -D`, a company proxy)\n  system        a VPN set up in your computer's settings; --service lets `vpn up` connect it\n  tailscale     Tailscale or Headscale, run inside komando (no tailscaled, no admin rights)\n  wireguard     WireGuard, run inside komando (no admin rights, many at once)",
+        "long": "Add a VPN once, then put it first in --via. A command that needs it\nconnects it, using the login you saved:\n\n  komando vpn add office wireguard --config ~/Downloads/office.conf\n  komando vpn add client-x globalprotect --portal vpn.client.com --user alice --password-ref secret:client-x --mfa\n  komando host ssh add app admin@10.0.0.5 --via office,bastion\n  komando host ssh exec app -- uptime\n\nVPNs with --mfa need a person: run `komando vpn up NAME` once and later\ncommands (and agents) reuse that session. komando never answers MFA.\n\nKinds (also: pritunl = openvpn; cisco, xauth = ipsec):\n  anyconnect    Cisco AnyConnect / ocserv, run inside komando (no openconnect)\n  f5            F5 BIG-IP SSL VPN\n  fortinet      Fortinet SSL VPN (FortiClient)\n  globalprotect Palo Alto GlobalProtect\n  ikev2         IKEv2/IPsec (pre-shared key or EAP login with a server certificate), run inside komando\n  ipsec         Cisco-style IPsec (IKEv1, group name and XAUTH login), run inside komando\n  l2tp          L2TP/IPsec with a pre-shared key, run inside komando (no admin rights)\n  openvpn       OpenVPN, also Pritunl profiles, run inside komando (no openvpn program, Docker or admin rights)\n  proxy         an HTTP proxy (CONNECT), such as a company proxy: every connection is tunneled through it\n  pulse         Pulse Secure / Ivanti Connect Secure\n  socks         a SOCKS5 proxy that is already running (`komando host ssh tunnel start TARGET -D`, a company proxy)\n  system        a VPN set up in your computer's settings; --service lets `vpn up` connect it\n  tailscale     Tailscale or Headscale, run inside komando (no tailscaled, no admin rights)\n  wireguard     WireGuard, run inside komando (no admin rights, many at once)",
         "aliases": [
           "vpns"
         ],
-        "example": "  komando vpn add office wireguard --config ~/Downloads/office.conf\n  komando vpn test office\n  komando host edit db1 --via office --dry-run\n  komando vpn up office",
+        "example": "  komando vpn add office wireguard --config ~/Downloads/office.conf\n  komando vpn test office\n  komando host ssh edit db1 --via office --dry-run\n  komando vpn up office",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -10615,7 +10993,7 @@
             "id": "socks",
             "display_name": "SOCKS proxy",
             "family": "proxy",
-            "description": "a SOCKS5 proxy that is already running (`komando tunnel start TARGET -D`, a company proxy)",
+            "description": "a SOCKS5 proxy that is already running (`komando host ssh tunnel start TARGET -D`, a company proxy)",
             "aliases": [],
             "required": [
               "proxy-address"
@@ -11011,7 +11389,7 @@
         "code": "AUTH_FAILED",
         "exit": 4,
         "example": "… has no user or password for WinRM",
-        "hint": "WinRM logs in with a user and a password: `komando host edit … --ask-password` (and the user in the address, for example winrm://Administrator@HOST)"
+        "hint": "WinRM logs in with a user and a password: `komando host winrm edit … --ask-password` (and the user in the address, for example winrm://Administrator@HOST)"
       },
       {
         "code": "AWS_FAILED",
@@ -11047,7 +11425,7 @@
         "code": "BACKUP_FAILED",
         "exit": 5,
         "example": "could not make a backup of …: …; the file was not changed",
-        "hint": "check free space with `komando exec TARGET --read-only -- df -h`, or run without --backup"
+        "hint": "check free space with `komando host ssh exec TARGET --read-only -- df -h`, or run without --backup"
       },
       {
         "code": "BACKUP_NOT_FOUND",
@@ -11203,13 +11581,13 @@
         "code": "CONNECTION_REFUSED",
         "exit": 4,
         "example": "the server refused the connection: nothing listens on that port",
-        "hint": "check that sshd runs on the server and listens on this port: `komando host show …`"
+        "hint": "check that sshd runs on the server and listens on this port: `komando host ssh show …`"
       },
       {
         "code": "CONNECT_TIMEOUT",
         "exit": 7,
         "example": "connecting to … timed out",
-        "hint": "a firewall drops the connection, or the server is private: check the address with `komando host show …`, reach it through a bastion or VPN (`komando host edit … --via NAME`), or raise --connect-timeout on a slow link"
+        "hint": "a firewall drops the connection, or the server is private: check the address with `komando host ssh show …`, reach it through a bastion or VPN (`komando host ssh edit … --via NAME`), or raise --connect-timeout on a slow link"
       },
       {
         "code": "CONN_EXISTS",
@@ -11329,13 +11707,13 @@
         "code": "DNS_ERROR",
         "exit": 4,
         "example": "the server's name does not resolve on this computer",
-        "hint": "the name does not resolve here: check it with `komando host show …` and fix it with `komando host edit … --address ADDRESS`; a name only a VPN resolves needs --via that VPN"
+        "hint": "the name does not resolve here: check it with `komando host ssh show …` and fix it with `komando host ssh edit … --address ADDRESS`; a name only a VPN resolves needs --via that VPN"
       },
       {
         "code": "DOCKER_ERROR",
         "exit": 5,
         "example": "docker on the server answered with an error",
-        "hint": "check that Docker runs there: `komando exec TARGET --read-only -- docker info`"
+        "hint": "check that Docker runs there: `komando host ssh exec TARGET --read-only -- docker info`"
       },
       {
         "code": "DOCKER_MISSING",
@@ -11478,25 +11856,25 @@
         "code": "HOSTKEY_MISMATCH",
         "exit": 4,
         "example": "host key for … changed: the server was rebuilt, or someone is intercepting the connection",
-        "hint": "possible man-in-the-middle: report this to the user and do not re-trust the key yourself; once they have checked the new fingerprint another way, they can run `komando host trust … --reset`"
+        "hint": "possible man-in-the-middle: report this to the user and do not re-trust the key yourself; once they have checked the new fingerprint another way, they can run `komando host ssh trust … --reset`"
       },
       {
         "code": "HOSTKEY_REVOKED",
         "exit": 4,
         "example": "… shows the revoked host key …; nothing was sent",
-        "hint": "this key is on komando's list of revoked host keys: treat the server as compromised, tell its owner, and do not re-trust it with `komando host trust`"
+        "hint": "this key is on komando's list of revoked host keys: treat the server as compromised, tell its owner, and do not re-trust it with `komando host ssh trust`"
       },
       {
         "code": "HOSTKEY_UNKNOWN",
         "exit": 4,
         "example": "host key for … is not trusted yet (host keys are strict)",
-        "hint": "compare the fingerprint with what the server's owner sees, then run `komando host trust …` (an AI agent asks the user: its pin needs their yes)"
+        "hint": "compare the fingerprint with what the server's owner sees, then run `komando host ssh trust …` (an AI agent asks the user: its pin needs their yes)"
       },
       {
         "code": "HOSTKEY_UNREADABLE",
         "exit": 4,
         "example": "the pinned host key for … cannot be read",
-        "hint": "a person checks the server's key and runs `komando host trust` for it in their own terminal"
+        "hint": "a person checks the server's key and runs `komando host ssh trust` for it in their own terminal"
       },
       {
         "code": "HOST_EXISTS",
@@ -11645,7 +12023,7 @@
         "code": "KEYSCAN_FAILED",
         "exit": 4,
         "example": "cannot fetch host key from …: …",
-        "hint": "check the address and port with `komando host show …`"
+        "hint": "check the address and port with `komando host ssh show …`"
       },
       {
         "code": "KEY_EXISTS",
@@ -11669,7 +12047,7 @@
         "code": "KEY_IN_USE",
         "exit": 8,
         "example": "server … still uses this key",
-        "hint": "give the server another key first: `komando host edit … --key OTHER`"
+        "hint": "give the server another key first: `komando host ssh edit … --key OTHER`"
       },
       {
         "code": "KEY_PASSPHRASE_REQUIRED",
@@ -11753,7 +12131,7 @@
         "code": "NOT_SWARM_MANAGER",
         "exit": 3,
         "example": "… is not a Swarm manager (docker not found)",
-        "hint": "Swarm commands run on a manager: `komando exec … --read-only -- docker node ls` shows whether it is one"
+        "hint": "Swarm commands run on a manager: `komando host ssh exec … --read-only -- docker node ls` shows whether it is one"
       },
       {
         "code": "NOT_TEXT",
@@ -11963,7 +12341,7 @@
         "code": "PORT_IN_USE",
         "exit": 8,
         "example": "cannot listen on 127.0.0.1:…: …",
-        "hint": "pick another LOCAL port (`komando tunnel list` shows the ones komando holds)"
+        "hint": "pick another LOCAL port (`komando host ssh tunnel list` shows the ones komando holds)"
       },
       {
         "code": "POWERSHELL_FAILED",
@@ -12299,13 +12677,13 @@
         "code": "SESSION_BUSY",
         "exit": 8,
         "example": "session … on … is still running",
-        "hint": "stop it first with `komando exec TARGET --attach ID --stop`, then remove it once it has ended"
+        "hint": "stop it first with `komando host ssh exec TARGET --attach ID --stop`, then remove it once it has ended"
       },
       {
         "code": "SESSION_FOLDER_DENIED",
         "exit": 5,
         "example": "…: ~/.komando or its sessions folder is a link, a file, not the login user's, or others can write it",
-        "hint": "look with `komando exec TARGET -- ls -ld ~/.komando ~/.komando/sessions`: each is to be a plain folder of the login user that only it can write (chmod 700)"
+        "hint": "look with `komando host ssh exec TARGET -- ls -ld ~/.komando ~/.komando/sessions`: each is to be a plain folder of the login user that only it can write (chmod 700)"
       },
       {
         "code": "SESSION_FOLDER_MISSING",
@@ -12323,37 +12701,37 @@
         "code": "SESSION_PROCESS_MISSING",
         "exit": 3,
         "example": "session … on … is not running: its process ended, or its PID belongs to another process now",
-        "hint": "`komando exec TARGET --attach ID` reads how it ended; `komando exec TARGET --attach ID --remove` removes it"
+        "hint": "`komando host ssh exec TARGET --attach ID` reads how it ended; `komando host ssh exec TARGET --attach ID --remove` removes it"
       },
       {
         "code": "SESSION_RECORD_MISSING",
         "exit": 3,
         "example": "session … on … was not started from this computer",
-        "hint": "only the computer that started the run can stop it: run `komando exec TARGET --attach ID --stop` there; `komando audit` there shows the exec that started it"
+        "hint": "only the computer that started the run can stop it: run `komando host ssh exec TARGET --attach ID --stop` there; `komando audit` there shows the exec that started it"
       },
       {
         "code": "SESSION_SPACE_DENIED",
         "exit": 5,
         "example": "…: the home file system has less free space than the log cap plus 5 percent of the disk; nothing ran",
-        "hint": "free space in the home folder, or give a smaller log cap: `komando exec TARGET --log-max 100MiB -- COMMAND`"
+        "hint": "free space in the home folder, or give a smaller log cap: `komando host ssh exec TARGET --log-max 100MiB -- COMMAND`"
       },
       {
         "code": "SESSION_START_FAILED",
         "exit": 5,
         "example": "…: the run in a session did not start (…)",
-        "hint": "the server needs nohup, ps and mkfifo: look with `komando exec TARGET -- command -v setsid nohup ps mkfifo`"
+        "hint": "the server needs nohup, ps and mkfifo: look with `komando host ssh exec TARGET -- command -v setsid nohup ps mkfifo`"
       },
       {
         "code": "SESSION_STOP_FAILED",
         "exit": 5,
         "example": "…: session … was not stopped (exit …): …",
-        "hint": "a run started with --sudo is stopped through sudo as the same user; when sudo asks for a password there, give the server its sudo password: `komando host edit TARGET --sudo-ref secret:NAME`"
+        "hint": "a run started with --sudo is stopped through sudo as the same user; when sudo asks for a password there, give the server its sudo password: `komando host ssh edit TARGET --sudo-ref secret:NAME`"
       },
       {
         "code": "SESSION_WAIT_TIMEOUT",
         "exit": 7,
         "example": "session … on … still running after …",
-        "hint": "it is still running: `komando exec … --attach … --offset …` reads on"
+        "hint": "it is still running: `komando host ssh exec … --attach … --offset …` reads on"
       },
       {
         "code": "SFTP_UNAVAILABLE",
@@ -12365,18 +12743,18 @@
         "code": "SHARED_FOLDER_CONFLICT",
         "exit": 8,
         "example": "… can be changed by …, not only by root and the SSH user: as root, komando does not write … there (that user could swap it for a link while root writes)",
-        "hint": "write it as … instead, for example `komando exec TARGET --sudo-user … --stdin-file FILE -- sh -c 'cat > \"$0\"' …`"
+        "hint": "write it as … instead, for example `komando host ssh exec TARGET --sudo-user … --stdin-file FILE -- sh -c 'cat > \"$0\"' …`"
       },
       {
         "code": "SHELL_IDLE_TIMEOUT",
         "exit": 7,
         "example": "the shell on … ended after … with no input and no output",
-        "hint": "connect again (ssh -t HOST komando shell …); run long work as a job: `komando job start … -- COMMAND`"
+        "hint": "connect again (ssh -t HOST komando host ssh shell …); run long work as a job: `komando job start … -- COMMAND`"
       },
       {
         "code": "SHORTER_SCRIPT_REQUIRED",
         "exit": 6,
-        "hint": "split it into shorter pieces (the hint names the command for a script, SQL or a file) or ask the user to run it in their own terminal; e.g. `komando exec TARGET --script FILE` for a script"
+        "hint": "split it into shorter pieces (the hint names the command for a script, SQL or a file) or ask the user to run it in their own terminal; e.g. `komando host ssh exec TARGET --script FILE` for a script"
       },
       {
         "code": "SIZE_CONFLICT",
@@ -12394,13 +12772,13 @@
         "code": "SNIPPET_OS_UNSUPPORTED",
         "exit": 2,
         "example": "snippet … has no body for …",
-        "hint": "read it as text with `komando exec TARGET -- COMMAND`; the snippet has no JSON for it"
+        "hint": "read it as text with `komando host ssh exec TARGET -- COMMAND`; the snippet has no JSON for it"
       },
       {
         "code": "SNIPPET_PARSE_FAILED",
         "exit": 5,
         "example": "the output of snippet … did not read as …",
-        "hint": "read it as text with `komando exec TARGET -- COMMAND`; the snippet has no JSON for it"
+        "hint": "read it as text with `komando host ssh exec TARGET -- COMMAND`; the snippet has no JSON for it"
       },
       {
         "code": "SNIPPET_TYPE_UNSUPPORTED",
@@ -12454,13 +12832,13 @@
         "code": "SSH_AGENT_NEEDED",
         "exit": 2,
         "example": "a key komando made is sealed in its store and never written to a file, so OpenSSH gets it from a running ssh-agent, and none was found (SSH_AUTH_SOCK)",
-        "hint": "start one with `eval \"$(ssh-agent)\"` and run this again, or use `komando shell SERVER`, which logs in with the key itself"
+        "hint": "start one with `eval \"$(ssh-agent)\"` and run this again, or use `komando host ssh shell SERVER`, which logs in with the key itself"
       },
       {
         "code": "SSH_AGENT_REFUSED",
         "exit": 1,
         "example": "the ssh-agent did not take key …: …",
-        "hint": "check the ssh-agent, or use `komando shell SERVER`"
+        "hint": "check the ssh-agent, or use `komando host ssh shell SERVER`"
       },
       {
         "code": "SSH_GATE_NETWORK_REQUIRED",
@@ -12622,7 +13000,7 @@
         "code": "SWARM_ERROR",
         "exit": 5,
         "example": "Docker Swarm answered with an error",
-        "hint": "check that Docker runs there: `komando exec TARGET --read-only -- docker info`"
+        "hint": "check that Docker runs there: `komando host ssh exec TARGET --read-only -- docker info`"
       },
       {
         "code": "SWARM_OBJECT_NOT_FOUND",
@@ -12730,7 +13108,7 @@
         "code": "TUNNEL_NOT_FOUND",
         "exit": 3,
         "example": "no tunnel named …",
-        "hint": "see them with `komando tunnel list`"
+        "hint": "see them with `komando host ssh tunnel list`"
       },
       {
         "code": "TUNNEL_TIMEOUT",
@@ -12898,7 +13276,7 @@
         "code": "VPN_IN_USE",
         "exit": 8,
         "example": "VPN … is on the --via path of …",
-        "hint": "change their --via first: `komando host edit TARGET --via OTHER`"
+        "hint": "change their --via first: `komando host ssh edit TARGET --via OTHER`"
       },
       {
         "code": "VPN_KEY_IN_USE",
@@ -12916,7 +13294,7 @@
         "code": "VPN_NOT_FOR_OPENSSH",
         "exit": 2,
         "example": "VPN … (…) runs inside komando; OpenSSH cannot use it",
-        "hint": "use `komando shell SERVER` (it opens the VPN itself), or connect the VPN on this computer and leave it out of --via"
+        "hint": "use `komando host ssh shell SERVER` (it opens the VPN itself), or connect the VPN on this computer and leave it out of --via"
       },
       {
         "code": "VPN_STOP_FAILED",
@@ -12958,7 +13336,7 @@
         "code": "WINRM_TLS",
         "exit": 4,
         "example": "…: the WinRM server's certificate cannot be trusted: …",
-        "hint": "if the server's certificate comes from your own CA, store it with `komando secret set NAME < ca.crt` and add ?ca=secret:NAME to its winrm:// address (`komando host edit … --address winrm://...`)"
+        "hint": "if the server's certificate comes from your own CA, store it with `komando secret set NAME < ca.crt` and add ?ca=secret:NAME to its winrm:// address (`komando host winrm edit … --address winrm://...`)"
       },
       {
         "code": "WRITE_FAILED",

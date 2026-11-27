@@ -174,7 +174,7 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `registry oci image prune` | always | dangerous | `--allow-dangerous` |
 | `db restore` | always | dangerous | `--allow-dangerous` |
 | `key rm` | with --delete-file | dangerous | `--allow-dangerous` |
-| `exec` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
+| `host ssh exec` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
 | `recipe run` | when a step matches a destructive rule | dangerous | `--allow-dangerous` |
 | `cluster exec` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
 | `cluster run` | when the cluster command deletes something or scales to 0 | dangerous | `--allow-dangerous` |
@@ -186,7 +186,7 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `config set` | when the setting turns a check off | safety | `--yes` |
 | `vpn edit` | with --mfa=false | safety | `--yes` |
 | `update` | when it installs an older version | safety | `--yes` |
-| `tunnel start` | when it listens on an open address | safety | `--yes` |
+| `host ssh tunnel start` | when it listens on an open address | safety | `--yes` |
 | `secret keychain` | when it turns the keychain off | safety | `--yes` |
 | `import` | when an AI agent imports a server with a proxy command | safety | `--yes` |
 | `recipe add` | with --overwrite --read-only, when it makes an existing snippet read-only | safety | `--yes` |
@@ -199,7 +199,7 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `ssh-gate` | always | person |  |
 | `secret passphrase` | always | person |  |
 | `secret keychain` | without --off | person |  |
-| `shell` | always | person |  |
+| `host ssh shell` | always | person |  |
 | `db shell` | always | person |  |
 | `cluster shell` | always | person |  |
 | `host ca add` | always | person |  |

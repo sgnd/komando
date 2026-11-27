@@ -113,7 +113,6 @@ docker.stop	kind=change|	target="servers"
 doctor	kind=read|	target=""	
 download	kind=read|	target="servers or file storage"	
 environment	kind=none	target=""	
-exec	kind=depends|changes things unless --read-only says the command only reads (the policy checks it either way)	target="servers"	dangerous|||the command matches a destructive rule|||
 exit-codes	kind=none	target=""	
 export	kind=read|	target=""	person|with --sealed||||| ; person|with --for-phone|||||
 facts	kind=read|	target="servers"	
@@ -139,20 +138,37 @@ guide.install	kind=change|	target=""
 guide.uninstall	kind=change|	target=""	safety|||it removes komando's guard from an AI agent's settings|||
 help	kind=none	target=""	
 host	kind=read|	target="servers"	
-host.add	kind=change|	target="servers"	dangerous|||--proxy-command matches a destructive rule||| ; safety|with --proxy-command||an AI agent runs it (the proxy command runs on this computer)|||
 host.ca	kind=read|	target="servers"	
 host.ca.add	kind=change|	target="servers"	person||trusts every server the CA signs||||
 host.ca.list	kind=read|	target="servers"	
 host.ca.revoke	kind=change|	target="servers"	
 host.ca.rm	kind=change|	target="servers"	
-host.edit	kind=change|	target="servers"	dangerous|||--proxy-command matches a destructive rule||| ; safety|with --proxy-command||an AI agent runs it (the proxy command runs on this computer)||| ; safety|with --protected=false|turns protection off||||
-host.list	kind=read|	target="servers"	
-host.rename	kind=change|	target="servers"	
-host.rm	kind=change|	target="servers"	
-host.show	kind=read|	target="servers"	
+host.ssh	kind=read|	target="servers"	
 host.ssh-command	kind=read|	target="servers"	person||||||
-host.test	kind=read|	target="servers"	
-host.trust	kind=change|	target="servers"	safety|||an AI agent pins a first host key while host keys are strict||| ; person|with --reset|replaces a pinned host key||||
+host.ssh.add	kind=change|	target="servers"	dangerous|||--proxy-command matches a destructive rule||| ; safety|with --proxy-command||an AI agent runs it (the proxy command runs on this computer)|||
+host.ssh.edit	kind=change|	target="servers"	dangerous|||--proxy-command matches a destructive rule||| ; safety|with --proxy-command||an AI agent runs it (the proxy command runs on this computer)||| ; safety|with --protected=false|turns protection off||||
+host.ssh.exec	kind=depends|changes things unless --read-only says the command only reads (the policy checks it either way)	target="servers"	dangerous|||the command matches a destructive rule|||
+host.ssh.list	kind=read|	target="servers"	
+host.ssh.remove	kind=change|	target="servers"	
+host.ssh.rename	kind=change|	target="servers"	
+host.ssh.shell	kind=depends|an shellNote shell for a person: whatever they type	target="servers"	person||||||
+host.ssh.show	kind=read|	target="servers"	
+host.ssh.test	kind=read|	target="servers"	
+host.ssh.trust	kind=change|	target="servers"	safety|||an AI agent pins a first host key while host keys are strict||| ; person|with --reset|replaces a pinned host key||||
+host.ssh.tunnel	kind=read|	target="servers"	
+host.ssh.tunnel.list	kind=read|	target="servers"	
+host.ssh.tunnel.start	kind=change|	target="servers"	safety|||it listens on an open address|||
+host.ssh.tunnel.stop	kind=change|	target="servers"	
+host.winrm	kind=read|	target="servers"	
+host.winrm.add	kind=change|	target="servers"	dangerous|||--proxy-command matches a destructive rule||| ; safety|with --proxy-command||an AI agent runs it (the proxy command runs on this computer)|||
+host.winrm.edit	kind=change|	target="servers"	dangerous|||--proxy-command matches a destructive rule||| ; safety|with --proxy-command||an AI agent runs it (the proxy command runs on this computer)||| ; safety|with --protected=false|turns protection off||||
+host.winrm.exec	kind=depends|changes things unless --read-only says the command only reads (the policy checks it either way)	target="servers"	dangerous|||the command matches a destructive rule|||
+host.winrm.list	kind=read|	target="servers"	
+host.winrm.remove	kind=change|	target="servers"	
+host.winrm.rename	kind=change|	target="servers"	
+host.winrm.shell	kind=depends|an shellNote shell for a person: whatever they type	target="servers"	person||||||
+host.winrm.show	kind=read|	target="servers"	
+host.winrm.test	kind=read|	target="servers"	
 import	kind=change|	target=""	safety|SOURCE kubeconfig||an AI agent imports a context whose login runs a program or sends a file of this computer||| ; person|SOURCE komando||the file is sealed (export --sealed): a person types its passphrase||| ; dangerous|||an imported proxy command matches a destructive rule||| ; safety|||an AI agent imports a server with a proxy command|||
 job	kind=read|	target="servers"	
 job.kill	kind=change|	target="servers"	
@@ -174,13 +190,7 @@ key.rm	kind=change|	target="servers"	dangerous|with --delete-file|deletes the pr
 key.show	kind=read|	target="servers"	
 komando	kind=none	target=""	
 list	kind=read|	target=""	
-login	kind=change|	target=""	person||||||
 login-holder	kind=none	target=""	
-login.aws	kind=change|	target=""	person||||||
-login.azure	kind=none	target=""	
-login.gcp	kind=none	target=""	
-logout	kind=change|	target=""	
-logout.aws	kind=change|	target=""	
 logs	kind=read|	target="servers"	
 net	kind=read|	target="servers"	
 net.check	kind=read|	target="servers"	
@@ -208,10 +218,6 @@ probe conn edit app-db --protected=false	safety|turns protection off||
 probe export --for-phone	person|||
 probe export --sealed	person|||
 probe group rm big	change|||deleting a group of more than 3 members
-probe host add web2 root@10.0.0.6 --proxy-command nc	safety||an AI agent runs it (the proxy command runs on this computer)|
-probe host edit web1 --protected=false	safety|turns protection off||
-probe host edit web1 --proxy-command nc	safety||an AI agent runs it (the proxy command runs on this computer)|
-probe host trust web1 --reset	person|replaces a pinned host key||
 probe import komando backup.json	person||the file is sealed (export --sealed): a person types its passphrase|
 probe import kubeconfig	safety||an AI agent imports a context whose login runs a program or sends a file of this computer|
 probe key rm k1 --delete-file	dangerous|deletes the private key komando keeps||
@@ -273,7 +279,6 @@ secret.rm	kind=change|	target=""	dangerous||deletes the saved passwords||||
 secret.run	kind=depends|decided by the program it starts on this computer	target=""	safety|||an AI agent hands a saved secret to a program|||
 secret.set	kind=change|	target=""	
 secret.show	kind=read|	target=""	
-shell	kind=depends|an shellNote shell for a person: whatever they type	target="servers"	person||||||
 ssh-gate	kind=depends|runs the komando command an SSH key sent, when ssh-gate allows it	target=""	person||||||
 ssh-gate.line	kind=read|	target=""	
 ssh-gate.status	kind=read|	target=""	
@@ -303,10 +308,7 @@ svc.stop	kind=change|	target="servers"	dangerous|the unit is ssh or sshd|stops s
 sync	kind=change|	target="servers or file storage"	dangerous|with --delete|deletes the files in DST that SRC does not have||||
 test	kind=read|	target=""	
 tunnel	kind=read|	target="servers"	
-tunnel.list	kind=read|	target="servers"	
 tunnel.serve	kind=none	target="servers"	
-tunnel.start	kind=change|	target="servers"	safety|||it listens on an open address|||
-tunnel.stop	kind=change|	target="servers"	
 update	kind=change|	target=""	safety|||it installs an older version|||
 upload	kind=change|	target="servers or file storage"	
 user	kind=read|	target="servers"	

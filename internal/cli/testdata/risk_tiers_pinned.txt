@@ -113,7 +113,6 @@ docker.stop	plain=change	highest=read
 doctor	plain=read	highest=read
 download	plain=read	highest=read
 environment	plain=change	highest=read
-exec	plain=dangerous	highest=dangerous
 exit-codes	plain=change	highest=read
 export	plain=read	highest=person
 facts	plain=read	highest=read
@@ -139,20 +138,37 @@ guide.install	plain=change	highest=read
 guide.uninstall	plain=safety	highest=safety
 help	plain=change	highest=read
 host	plain=read	highest=read
-host.add	plain=dangerous	highest=safety
 host.ca	plain=read	highest=read
 host.ca.add	plain=person	highest=person
 host.ca.list	plain=read	highest=read
 host.ca.revoke	plain=change	highest=read
 host.ca.rm	plain=change	highest=read
-host.edit	plain=dangerous	highest=safety
-host.list	plain=read	highest=read
-host.rename	plain=change	highest=read
-host.rm	plain=change	highest=read
-host.show	plain=read	highest=read
+host.ssh	plain=read	highest=read
 host.ssh-command	plain=person	highest=person
-host.test	plain=read	highest=read
-host.trust	plain=safety	highest=person
+host.ssh.add	plain=dangerous	highest=safety
+host.ssh.edit	plain=dangerous	highest=safety
+host.ssh.exec	plain=dangerous	highest=dangerous
+host.ssh.list	plain=read	highest=read
+host.ssh.remove	plain=change	highest=read
+host.ssh.rename	plain=change	highest=read
+host.ssh.shell	plain=person	highest=person
+host.ssh.show	plain=read	highest=read
+host.ssh.test	plain=read	highest=read
+host.ssh.trust	plain=safety	highest=person
+host.ssh.tunnel	plain=read	highest=read
+host.ssh.tunnel.list	plain=read	highest=read
+host.ssh.tunnel.start	plain=safety	highest=safety
+host.ssh.tunnel.stop	plain=change	highest=read
+host.winrm	plain=read	highest=read
+host.winrm.add	plain=dangerous	highest=safety
+host.winrm.edit	plain=dangerous	highest=safety
+host.winrm.exec	plain=dangerous	highest=dangerous
+host.winrm.list	plain=read	highest=read
+host.winrm.remove	plain=change	highest=read
+host.winrm.rename	plain=change	highest=read
+host.winrm.shell	plain=person	highest=person
+host.winrm.show	plain=read	highest=read
+host.winrm.test	plain=read	highest=read
 import	plain=safety	highest=person
 job	plain=read	highest=read
 job.kill	plain=change	highest=read
@@ -174,13 +190,7 @@ key.rm	plain=change	highest=dangerous
 key.show	plain=read	highest=read
 komando	plain=change	highest=read
 list	plain=read	highest=read
-login	plain=person	highest=person
 login-holder	plain=change	highest=read
-login.aws	plain=person	highest=person
-login.azure	plain=change	highest=read
-login.gcp	plain=change	highest=read
-logout	plain=change	highest=read
-logout.aws	plain=change	highest=read
 logs	plain=read	highest=read
 net	plain=read	highest=read
 net.check	plain=read	highest=read
@@ -208,10 +218,10 @@ probe conn edit app-db --protected=false	safety
 probe export --for-phone	person
 probe export --sealed	person
 probe group rm big	change
-probe host add web2 root@10.0.0.6 --proxy-command nc	safety
-probe host edit web1 --protected=false	safety
-probe host edit web1 --proxy-command nc	safety
-probe host trust web1 --reset	person
+probe host add web2 root@10.0.0.6 --proxy-command nc	read
+probe host edit web1 --protected=false	read
+probe host edit web1 --proxy-command nc	read
+probe host trust web1 --reset	read
 probe import komando backup.json	person
 probe import kubeconfig	safety
 probe key rm k1 --delete-file	dangerous
@@ -273,7 +283,6 @@ secret.rm	plain=dangerous	highest=dangerous
 secret.run	plain=safety	highest=safety
 secret.set	plain=change	highest=read
 secret.show	plain=read	highest=read
-shell	plain=person	highest=person
 ssh-gate	plain=person	highest=person
 ssh-gate.line	plain=read	highest=read
 ssh-gate.status	plain=read	highest=read
@@ -303,10 +312,7 @@ svc.stop	plain=change	highest=dangerous
 sync	plain=change	highest=dangerous
 test	plain=read	highest=read
 tunnel	plain=read	highest=read
-tunnel.list	plain=read	highest=read
 tunnel.serve	plain=change	highest=read
-tunnel.start	plain=safety	highest=safety
-tunnel.stop	plain=change	highest=read
 update	plain=safety	highest=safety
 upload	plain=change	highest=read
 user	plain=read	highest=read

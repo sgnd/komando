@@ -657,22 +657,6 @@ title: Download files from servers or from file storage
 - flag:overwrite | --overwrite | Replace files that are already here? | Replace files that already exist on this computer |  | default,choices
 - flag:continue | --continue | Go on with a copy that was cut off: keep the part already at the destination when it matches the source, send the rest, then check the whole file (sha256) |  |  | advanced,default,choices
 - flag:progress | --progress | With -o json, write progress to the error output (stderr), one JSON object per line |  |  | advanced,default,choices
-### komando exec
-title: Run a shell command on one or many servers in parallel
-- arg0 | Target (servers) | Which server? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
-- arg1 | Command | What command should it run? | Type it as you would on the server itself, pipes and all. Leave it empty to run a script file from this computer instead. | df -h / | optional
-- flag:script | --script | Which script on this computer? | A file on this computer. komando sends it to the server and runs it there; nothing is left on disk. | ./deploy.sh | optional,show,check
-- flag:arg | --arg | Anything to pass to the script? | One value the script gets as its first argument. Leave empty for none. | v1.2.3 | optional,show,check
-- flag:sudo | --sudo | Run it with sudo (as root)? | Say yes when it needs admin rights, like changing system files or services. |  | default,choices
-- flag:read-only | --read-only | Does it only look, and change nothing on the server? | Not sure? Say no. Yes is only for commands that read, like df -h or cat. |  | default,choices
-- flag:dir | --dir | In which folder on the server should it run? | Leave empty for the login user's home folder. | /srv/app | optional,check
-- flag:env | --env | Export KEY=VALUE before the command (repeatable) |  |  | optional,advanced,check
-- flag:fail-fast | --fail-fast | Start no more servers after the first failure |  |  | advanced,default,choices
-- flag:interpreter | --interpreter | With --script: the interpreter on the server (default: from the #! line, else sh) |  |  | optional,advanced,check
-- flag:pty | --pty | Allocate a pseudo-terminal (some tools need one) |  |  | advanced,default,choices
-- flag:stdin-file | --stdin-file | Send this file on this computer as stdin ('-' = komando's stdin) |  |  | optional,advanced,check
-- flag:stream | --stream | Stream output as NDJSON events while it runs |  |  | advanced,default,choices
-- flag:sudo-user | --sudo-user | Run as this user with sudo -u |  |  | optional,advanced,check
 ### komando export
 title: Save servers, conns, VPNs, recipes and settings to a file
 - arg0 | Target | Which ones? (pick all for everything) | A server, conn or VPN from your list, or @group, tag:prod, or several names separated by spaces or commas. |  | optional,free,choices,check
@@ -802,30 +786,6 @@ title: Show the help of a command
 - arg0 | Command | Command? |  |  | optional,check
 ### komando host
 title: Servers in komando's list: add, change, check, remove
-### komando host add
-title: Add a server to your list
-- arg0 | Name | Name? |  |  | check
-- arg1 | Address | Address? |  |  | optional,check
-- flag:address | --address | Host name or IP address (winrm://USER@HOST for a Windows server over WinRM) |  |  | optional,advanced,check
-- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref |  |  | advanced,default,choices
-- flag:env | --env | Env KEY=VALUE exported before every command (repeatable) |  |  | optional,advanced,check
-- flag:group | --group | Put it in these groups (comma-separated) |  |  | optional,advanced,check
-- flag:identity | --identity | Path to a private key file |  |  | optional,advanced,check
-- flag:key | --key | Name of a key in komando's key list (see komando key list) |  |  | optional,advanced,free,choices
-- flag:label | --label | Label KEY=VALUE (repeatable) |  |  | optional,advanced,check
-- flag:login | --login | How komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own) |  |  | optional,advanced,check
-- flag:notes | --notes | Free-form notes (komando host show shows them to people and agents) |  |  | optional,advanced,check
-- flag:os | --os | The server's OS: windows (commands run in PowerShell) or linux (the default, also for other Unixes) |  |  | optional,advanced,check
-- flag:overwrite | --overwrite | Replace a server that has the same name |  |  | advanced,default,choices
-- flag:password-ref | --password-ref | Where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://... |  |  | optional,advanced,check
-- flag:port | --port | SSH port (default 22) |  |  | optional,advanced,check
-- flag:protected | --protected | Production: komando asks you before every change, and an AI agent needs your yes in a window |  |  | advanced,default,choices
-- flag:proxy-command | --proxy-command | A command on this computer that carries the connection (OpenSSH ProxyCommand; %h %p %r) |  |  | optional,advanced,check
-- flag:ssm | --ssm | Reach it through AWS Systems Manager: the address is the instance ID (komando speaks Session Manager itself when the aws CLI or its plugin is not installed) |  |  | advanced,default,choices
-- flag:sudo-ref | --sudo-ref | Where the sudo password is, written like --password-ref |  |  | optional,advanced,check
-- flag:tag | --tag | Tags, like prod (comma-separated) |  |  | optional,advanced,check
-- flag:user | --user | The user to log in as |  |  | optional,advanced,check
-- flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path, like vpn1,bastion |  |  | optional,advanced,free,choices
 ### komando host ca
 title: Trust servers through the CA that signs their host keys
 ### komando host ca add
@@ -843,8 +803,34 @@ title: Never trust a host key or a CA key again
 ### komando host ca rm
 title: Stop trusting a server CA
 - arg0 | Name | Which CA should komando stop trusting? | See them with `komando host ca list`. |  | check
-### komando host edit
-title: Change one or more servers (only the flags you pass change)
+### komando host ssh
+title: SSH servers: save them, run commands on them, tunnel through them
+### komando host ssh add
+title: Save an SSH server under a short name
+- arg0 | Name | Name? |  |  | check
+- arg1 | Address | Address? |  |  | optional,check
+- flag:address | --address | The host name or IP address, instead of the second word |  |  | optional,advanced,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:env | --env | Env KEY=VALUE exported before every command |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:identity | --identity | The path of a private key file |  |  | optional,advanced,check
+- flag:key | --key | The name of a key in komando's key list |  |  | optional,advanced,free,choices
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How komando logs in: ask at every connect, a stored password, a key, or the ssh-agent |  |  | optional,advanced,check
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:os | --os | The server's OS: windows runs commands in PowerShell |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:port | --port | The port |  |  | optional,advanced,check
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:proxy-command | --proxy-command | A program on this computer that makes the connection |  |  | optional,advanced,check
+- flag:ssm | --ssm | Reach it through AWS Systems Manager; the address is the instance ID |  |  | advanced,default,choices
+- flag:sudo-credential | --sudo-credential | The password sudo asks for (today's --sudo-ref) |  |  | optional,advanced,check
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:user | --user | The user to log in as |  |  | optional,advanced,check
+- flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
+### komando host ssh edit
+title: Change saved SSH servers (only the flags you pass change)
 - arg0 | Target (servers) | Which servers? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
 - flag:address | --address | New address? | The server's IP address or host name. Leave empty to keep it. | 203.0.113.20 | optional,check
 - flag:user | --user | New login user? | The user name you log in with. Leave empty to keep it. | deploy | optional,check
@@ -855,47 +841,166 @@ title: Change one or more servers (only the flags you pass change)
 - flag:via | --via | Reach it through which server or VPN? | The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now. | bastion | optional,free,choices
 - flag:add-group | --add-group | Add it to a group? | A group lets you pick many at once with @name. Leave empty for none. | web | optional,free,choices
 - flag:notes | --notes | Any notes to keep with it? | Free text, like who owns it or what runs there. AI agents read it too. Leave empty to keep the old notes. | main shop database | optional,check
-- flag:add-tag | --add-tag | Add these tags (comma-separated) |  |  | optional,advanced,check
-- flag:env | --env | Set KEY=VALUE, exported before every command (an empty value removes it; repeatable) |  |  | optional,advanced,check
-- flag:forward-agent | --forward-agent | Lend the server your ssh-agent while komando is connected (root there can use your keys then; asks first) |  |  | advanced,default,choices
-- flag:identity | --identity | Path to a private key file |  |  | optional,advanced,check
-- flag:label | --label | Set label KEY=VALUE (an empty value removes it) |  |  | optional,advanced,check
-- flag:login | --login | How komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own) |  |  | optional,advanced,check
-- flag:os | --os | The server's OS: windows (commands run in PowerShell) or linux (the default, also for other Unixes) |  |  | optional,advanced,check
-- flag:password-ref | --password-ref | Where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://... |  |  | optional,advanced,check
-- flag:proxy-command | --proxy-command | A command on this computer that carries the connection (OpenSSH ProxyCommand; %h %p %r) |  |  | optional,advanced,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:env | --env | Env KEY=VALUE exported before every command |  |  | optional,advanced,check
+- flag:forward-agent | --forward-agent | Lend the server your ssh-agent while komando is connected (asks first) |  |  | advanced,default,choices
+- flag:identity | --identity | The path of a private key file |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How komando logs in: ask at every connect, a stored password, a key, or the ssh-agent |  |  | optional,advanced,check
+- flag:os | --os | The server's OS: windows runs commands in PowerShell |  |  | optional,advanced,check
+- flag:proxy-command | --proxy-command | A program on this computer that makes the connection |  |  | optional,advanced,check
 - flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
 - flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
-- flag:ssm | --ssm | Reach it through AWS Systems Manager: the address is the instance ID (komando speaks Session Manager itself when the aws CLI or its plugin is not installed) |  |  | advanced,default,choices
-- flag:sudo-ref | --sudo-ref | Where the sudo password is, written like --password-ref |  |  | optional,advanced,check
-- flag:unset | --unset | Clear these settings: user,key,identity,password-ref,sudo-ref,via,proxy-command,notes,port,protected,forward-agent,os,transport (transport: back to SSH from WinRM) |  |  | optional,advanced,check
-### komando host list
-title: List servers
+- flag:sudo-credential | --sudo-credential | The password sudo asks for (today's --sudo-ref) |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: user, key, identity, credential, sudo-credential, via, proxy-command, notes, port, protected, forward-agent, os, transport |  |  | optional,advanced,check
+### komando host ssh exec
+title: Run a command on saved servers, in parallel
+- arg0 | Target (servers) | Which server? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
+- arg1 | Command | What command should it run? | Type it as you would on the server itself, pipes and all. Leave it empty to run a script file from this computer instead. | df -h / | optional
+- flag:script | --script | Which script on this computer? | A file on this computer. komando sends it to the server and runs it there; nothing is left on disk. | ./deploy.sh | optional,show,check
+- flag:arg | --arg | Anything to pass to the script? | One value the script gets as its first argument. Leave empty for none. | v1.2.3 | optional,show,check
+- flag:sudo | --sudo | Run it with sudo (as root)? | Say yes when it needs admin rights, like changing system files or services. |  | default,choices
+- flag:read-only | --read-only | Does it only look, and change nothing on the server? | Not sure? Say no. Yes is only for commands that read, like df -h or cat. |  | default,choices
+- flag:dir | --dir | In which folder on the server should it run? | Leave empty for the login user's home folder. | /srv/app | optional,check
+- flag:attach | --attach | Read the rest of these sessions on one server, and their exit codes |  |  | optional,advanced,check
+- flag:env | --env | Export KEY=VALUE before the command |  |  | optional,advanced,check
+- flag:fail-fast | --fail-fast | Start no more servers after the first failure |  |  | advanced,default,choices
+- flag:interpreter | --interpreter | The interpreter on the server (default: from the #! line, else sh) |  |  | optional,advanced,check
+- flag:log-max | --log-max | Bytes of output the server keeps for the run; more is dropped |  |  | optional,advanced,default,check
+- flag:offset | --offset | Start at this byte of the log (next_from of the last read) |  |  | optional,advanced,check
+- flag:pty | --pty | Ask for a pseudo-terminal (some tools need one) |  |  | advanced,default,choices
+- flag:remove | --remove | Remove a finished session's log from the server |  |  | advanced,default,choices
+- flag:signal | --signal | The signal --stop sends |  |  | optional,advanced,default,check
+- flag:stdin-file | --stdin-file | Send this file as stdin ('-' is komando's stdin) |  |  | optional,advanced,check
+- flag:stop | --stop | Stop the session's command |  |  | advanced,default,choices
+- flag:stream | --stream | Print the output as NDJSON events while it runs |  |  | advanced,default,choices
+- flag:sudo-user | --sudo-user | Run as this user with sudo -u |  |  | optional,advanced,check
+- flag:wait | --wait | Wait this long for the run to end; it goes on after (exit 7); 0 returns at once |  |  | optional,advanced,default,check
+### komando host ssh list
+title: List the saved SSH servers
 - arg0 | Target (servers) | Which servers? (pick all for every server) | Pick one, or type @group, tag:prod or several names separated by spaces or commas. |  | optional,free,choices,check
-- flag:limit | --limit | Show at most this many items (0 = all) |  |  | optional,advanced,check
-### komando host rename
-title: Rename a server and every reference to it
-- arg0 | Old | Which server do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
-- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
-### komando host rm
-title: Remove servers (from komando only)
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando host ssh remove
+title: Forget saved SSH servers (the servers are not touched)
 - arg0 | Target (servers) | Which servers should come off your list? | Only komando's list changes; the servers themselves are not touched. |  | free,choices,check
-### komando host show
-title: Show all settings of a server (secrets as references, never values)
+### komando host ssh rename
+title: Rename a saved ssh server and every reference to it
+- arg0 | Name | Which server do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
+### komando host ssh shell
+title: Open a login shell on one server (a person at a terminal) (person only)
+- arg0 | Name | Which server? | One server. You type on it as if you were there; type exit to come back. |  | choices,check
+- arg1 | Command | Command? (several: separate them with spaces) |  |  | optional
+- flag:attach | --attach | Come back to the session with this ID |  |  | optional,advanced,check
+### komando host ssh show
+title: Show a saved ssh server's settings (credentials as names)
 - arg0 | Name | Which server? | Pick one from your list. |  | choices,check
-### komando host ssh-command
-title: Print the OpenSSH command komando would use for a server (person only)
-- arg0 | Name | Which server? | Pick one from your list. |  | choices,check
-### komando host test
-title: Check that servers answer and let you in
+### komando host ssh test
+title: Check that saved SSH servers answer and let you in
 - arg0 | Target (servers) | Which servers? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
-- flag:end | --end | End the kept sessions of the servers named (every server when none is named), instead of testing |  |  | advanced,default,choices
-### komando host trust
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando host ssh trust
 title: Pin the SSH host keys of servers (--reset after a rebuild)
 - arg0 | Target (servers) | Which servers? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
 - flag:reset | --reset | Replace a key komando saved before? | Only after you rebuilt or reinstalled the server. A changed key can also mean someone pretends to be your server: ask its admin first. |  | default,choices
-- flag:fingerprint | --fingerprint | Pin only if the server shows the key with this SHA256: fingerprint (one server) |  |  | optional,advanced,check
+- flag:fingerprint | --fingerprint | Pin the key only when the server shows this fingerprint (SHA256:...) |  |  | optional,advanced,check
+### komando host ssh tunnel
+title: Background tunnels through a server: start, list, stop
+### komando host ssh tunnel list
+title: List tunnels and whether each is up
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando host ssh tunnel start
+title: Start a background tunnel through a server, a VPN or an entry's --via path
+- arg0 | Target (servers) | To which server or conn? | Pick a conn (a database, a cache) to reach it from this computer, or a server to forward a port through it. |  | free,choices,check
+- flag:port | --port | Which port on this computer? (for a conn) | Point your app at localhost and this port. Leave empty for a free one; komando shows which. | 15432 | optional,check
+- flag:local | --local | What should it forward? (for a server) | LOCALPORT:ADDRESS:PORT: localhost:8080 here reaches localhost:80 as the server sees it. Leave empty for a conn. | 8080:localhost:80 | optional,check
+- flag:dynamic | --dynamic | SOCKS5 proxy [bind:]PORT |  |  | optional,advanced,check
+- flag:remote | --remote | Remote forward [rbind:]RPORT:LHOST:LPORT |  |  | optional,advanced,check
+### komando host ssh tunnel stop
+title: Stop tunnels by ID
+- arg0 | ID | Which tunnels should stop? (leave empty with --all) | Their IDs: `komando host ssh tunnel list` shows them. Several: separate them with spaces. |  | optional,free,choices,check
+- flag:all | --all | Stop every tunnel instead? | Stop every tunnel |  | default,choices
+### komando host ssh-command
+title: Print the OpenSSH command komando would use for a server (person only)
+- arg0 | Name | Which server? | Pick one from your list. |  | choices,check
+### komando host winrm
+title: Windows servers over WinRM: save them and run commands on them
+### komando host winrm add
+title: Save a Windows server over WinRM under a short name
+- arg0 | Name | Name? |  |  | check
+- arg1 | Address | Address? |  |  | optional,check
+- flag:address | --address | The host name or IP address, instead of the second word |  |  | optional,advanced,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:env | --env | Env KEY=VALUE exported before every command |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How komando logs in: ask at every connect, a stored password, a key, or the ssh-agent |  |  | optional,advanced,check
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:port | --port | The port |  |  | optional,advanced,check
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:user | --user | The user to log in as |  |  | optional,advanced,check
+- flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
+### komando host winrm edit
+title: Change saved WinRM servers (only the flags you pass change)
+- arg0 | Target (servers) | Which servers? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
+- flag:address | --address | New address? | The server's IP address or host name. Leave empty to keep it. | 203.0.113.20 | optional,check
+- flag:user | --user | New login user? | The user name you log in with. Leave empty to keep it. | deploy | optional,check
+- flag:port | --port | New SSH port? | Usually 22. Leave empty to keep it. | 2222 | optional,check
+- flag:ask-password | --ask-password | Change the password? | Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line. |  | default,choices
+- flag:protected | --protected | Can a mistake on it hurt real users or real data? | Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away. |  | optional,choices
+- flag:via | --via | Reach it through which server or VPN? | The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now. | bastion | optional,free,choices
+- flag:add-group | --add-group | Add it to a group? | A group lets you pick many at once with @name. Leave empty for none. | web | optional,free,choices
+- flag:notes | --notes | Any notes to keep with it? | Free text, like who owns it or what runs there. AI agents read it too. Leave empty to keep the old notes. | main shop database | optional,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:env | --env | Env KEY=VALUE exported before every command |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How komando logs in: ask at every connect, a stored password, a key, or the ssh-agent |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: user, credential, via, notes, port, protected |  |  | optional,advanced,check
+### komando host winrm exec
+title: Run a command on saved servers, in parallel (PowerShell)
+- arg0 | Target (servers) | Which server? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
+- arg1 | Command | What command should it run? | Type it as you would on the server itself, pipes and all. Leave it empty to run a script file from this computer instead. | df -h / | optional
+- flag:script | --script | Which script on this computer? | A file on this computer. komando sends it to the server and runs it there; nothing is left on disk. | ./deploy.sh | optional,show,check
+- flag:arg | --arg | Anything to pass to the script? | One value the script gets as its first argument. Leave empty for none. | v1.2.3 | optional,show,check
+- flag:read-only | --read-only | Does it only look, and change nothing on the server? | Not sure? Say no. Yes is only for commands that read, like df -h or cat. |  | default,choices
+- flag:dir | --dir | In which folder on the server should it run? | Leave empty for the login user's home folder. | /srv/app | optional,check
+- flag:env | --env | Export KEY=VALUE before the command |  |  | optional,advanced,check
+- flag:fail-fast | --fail-fast | Start no more servers after the first failure |  |  | advanced,default,choices
+- flag:interpreter | --interpreter | The interpreter on the server (default: from the #! line, else sh) |  |  | optional,advanced,check
+- flag:pty | --pty | Ask for a pseudo-terminal (some tools need one) |  |  | advanced,default,choices
+- flag:stdin-file | --stdin-file | Send this file as stdin ('-' is komando's stdin) |  |  | optional,advanced,check
+- flag:stream | --stream | Print the output as NDJSON events while it runs |  |  | advanced,default,choices
+### komando host winrm list
+title: List the saved WinRM servers
+- arg0 | Target (servers) | Which servers? (pick all for every server) | Pick one, or type @group, tag:prod or several names separated by spaces or commas. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando host winrm remove
+title: Forget saved WinRM servers (the servers are not touched)
+- arg0 | Target (servers) | Which servers should come off your list? | Only komando's list changes; the servers themselves are not touched. |  | free,choices,check
+### komando host winrm rename
+title: Rename a saved winrm server and every reference to it
+- arg0 | Name | Which server do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
+### komando host winrm shell
+title: Say that a Windows server has no interactive shell here (person only)
+- arg0 | Name | Which server? | One server. You type on it as if you were there; type exit to come back. |  | choices,check
+- arg1 | Command | Command? (several: separate them with spaces) |  |  | optional
+### komando host winrm show
+title: Show a saved winrm server's settings (credentials as names)
+- arg0 | Name | Which server? | Pick one from your list. |  | choices,check
+### komando host winrm test
+title: Check that saved WinRM servers answer and let you in
+- arg0 | Target (servers) | Which servers? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando import
 title: Bring in what you have: ssh config, .pgpass, my.cnf, .env
 - arg0 | Source | What do you want to bring in? | One of: ssh-config, pgpass, mycnf, env, kubeconfig, docker, filezilla, rclone, aws, dbeaver, komando (a file from komando export), csv. | ssh-config | choices,check
@@ -996,20 +1101,6 @@ title: Show a key's public part, or a person its private key
 title: List servers, conns and VPNs
 - arg0 | Target | Which ones? (pick all for everything) | A server, conn or VPN from your list, or @group, tag:prod, or several names separated by spaces or commas. |  | optional,free,choices,check
 - flag:limit | --limit | Show at most this many items (0 = all) |  |  | optional,advanced,check
-### komando login
-title: Log in once to a server or a cloud account (person only)
-- arg0 | Server | Server? |  |  | optional,choices,check
-### komando login aws
-title: Log in to AWS IAM Identity Center for a profile (person only)
-- flag:profile | --profile | Which AWS profile? | Its name in ~/.aws/config. Leave empty for the usual one. Your browser opens for the AWS sign-in. | prod | optional,check
-### komando logout
-title: End server logins kept by `komando login` (--all for every one)
-- arg0 | Server | From which servers? (leave empty with --all) | Ends the login `komando login` kept. Several: separate them with spaces. |  | optional,free,choices,check
-- flag:all | --all | End every kept login instead? | End every kept server login |  | default,choices
-### komando logout aws
-title: End an AWS IAM Identity Center (SSO) login
-- flag:profile | --profile | Which AWS profile? | The profile in ~/.aws/config whose SSO login should end. Empty: AWS_PROFILE, else default. | prod | optional,check
-- flag:all | --all | End every AWS SSO login |  |  | advanced,default,choices
 ### komando logs
 title: Read logs from journald, a file or a container
 - arg0 | Target (servers) | Which server? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
@@ -1346,9 +1437,6 @@ title: Store a secret, typed hidden or from a variable or a pipe
 ### komando secret show
 title: Show that a secret exists, its value hidden
 - arg0 | Name | Which secret? | The name you saved it under. komando secret list shows your saved passwords. | db-pass | free,choices,check
-### komando shell
-title: Open a login shell on one server (person only)
-- arg0 | Server | Which server? | One server. You type on it as if you were there; type exit to come back. |  | choices,check
 ### komando ssh-gate
 title: Let an SSH key run komando here and nothing else (person only)
 ### komando ssh-gate line
@@ -1357,7 +1445,7 @@ title: Print the authorized_keys line that limits a key to komando
 - flag:name | --name | What do you want to call this key? | It shows in `komando audit` for every command the key runs. Letters, digits, dot, dash, underscore. | phone | check
 - flag:read-only | --read-only | Should the key only run commands that look, without changing anything? | Yes is safer for a phone or a shared key. |  | default,choices
 - flag:network | --network | Should this read-only key also run network checks and programs on servers? | No is safer: what the key reads cannot leave through a URL or a name lookup. Yes allows net, cert check of a website and exec --read-only. |  | default,choices
-- flag:shell-access | --shell-access | Should this key also open a login shell on a server (ssh -t HOST komando shell SERVER)? | No is safer. Yes lets sshd give the key a terminal, for a shell on a listed server that is not protected, not Windows and not this computer. |  | default,choices,show
+- flag:shell-access | --shell-access | Should this key also open a login shell on a server (ssh -t HOST komando host ssh shell SERVER)? | No is safer. Yes lets sshd give the key a terminal, for a shell on a listed server that is not protected, not Windows and not this computer. |  | default,choices,show
 ### komando ssh-gate status
 title: Say which ssh-gate key runs this, and what it may do
 ### komando status
@@ -1526,22 +1614,6 @@ title: Check that servers, conns and VPNs answer and let you in
 - arg0 | Target | Which ones? | A server, conn or VPN from your list, or @group, tag:prod, or several names separated by spaces or commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the kept sessions of the servers named (every server when none is named), instead of testing |  |  | advanced,default,choices
-### komando tunnel
-title: Background port forwarding: start, see, stop
-### komando tunnel list
-title: List tunnels and whether each is up
-- flag:limit | --limit | Show at most this many tunnels (0 = all) |  |  | optional,advanced,check
-### komando tunnel start
-title: Start a background tunnel
-- arg0 | Target (servers) | To which server or conn? | Pick a conn (a database, a cache) to reach it from this computer, or a server to forward a port through it. |  | free,choices,check
-- flag:port | --port | Which port on this computer? (for a conn) | Point your app at localhost and this port. Leave empty for a free one; komando shows which. | 15432 | optional,check
-- flag:local | --local | What should it forward? (for a server) | LOCALPORT:ADDRESS:PORT: localhost:8080 here reaches localhost:80 as the server sees it. Leave empty for a conn. | 8080:localhost:80 | optional,check
-- flag:dynamic | --dynamic | SOCKS5 proxy [bind:]PORT |  |  | optional,advanced,check
-- flag:remote | --remote | Remote forward [rbind:]RPORT:LHOST:LPORT |  |  | optional,advanced,check
-### komando tunnel stop
-title: Stop tunnels by ID (--all for every tunnel)
-- arg0 | Tunnel | Which tunnels should stop? (leave empty with --all) | Their IDs: `komando tunnel list` shows them. Several: separate them with spaces. |  | optional,free,choices,check
-- flag:all | --all | Stop every tunnel instead? | Stop all tunnels |  | default,choices
 ### komando update
 title: Update komando to the newest release
 - arg0 | Version | Which version? (leave empty for the newest) | Empty installs the newest release. | v0.6.0 | optional,check
@@ -2288,7 +2360,7 @@ title: Add a VPN on this computer
 ### add form: VPN / SOCKS proxy
 title: Add a SOCKS proxy
 - name | Name | What do you want to call this VPN? | A short name you type later, like komando test lab. Letters, digits, dot, dash, underscore. | lab | check
-- address | Address | What is the proxy's address? | Its address and port. For komando tunnel start web1 -D 1080 it is 127.0.0.1:1080. | 127.0.0.1:1080 | addr,check
+- address | Address | What is the proxy's address? | Its address and port. For komando host ssh tunnel start web1 -D 1080 it is 127.0.0.1:1080. | 127.0.0.1:1080 | addr,check
 - user | User | What is your VPN user name? | Only when the proxy asks for a login. Empty for none. | budi | optional,advanced,check
 - pass | Password | How should komando get your VPN password? | The password is never shown and never written in the command. |  | advanced,default,choices,show
 - ref | Kept in | Where is it kept? | A reference, never the secret itself: op://Work/VPN/password (1Password), bw://item (Bitwarden), env:VPN_PASS (a variable). | op://Work/VPN/password | advanced,show,check

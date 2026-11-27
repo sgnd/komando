@@ -76,6 +76,17 @@ var (
 	hostFwdOpt = Option{Name: "forward-agent", Kind: Bool, Help: "lend the server your ssh-agent while komando is connected (asks first)"}
 )
 
+var (
+	hostGroupOpt = withShort(groupOpt, "g")
+	hostTagOpt   = withShort(tagOpt, "t")
+)
+
+// withShort is o with a one-letter name, as today's host add and edit take -g and -t.
+func withShort(o Option, short string) Option {
+	o.Short = short
+	return o
+}
+
 // hostSettings are the options add takes for a provider, before the
 // common ones.
 func hostSettings(p provider) []Option {
@@ -119,7 +130,7 @@ func completeHost(l *Leaf, p provider) {
 	switch l.Verb {
 	case "add":
 		l.Args = []Arg{{Name: "NAME"}, {Name: "ADDRESS", Optional: true}}
-		l.Options = append(hostSettings(p), protectedOpt, groupOpt, tagOpt, labelOpt, hostEnvOpt, notesOpt, askPassOpt, overwriteOp)
+		l.Options = append(hostSettings(p), protectedOpt, hostGroupOpt, hostTagOpt, labelOpt, hostEnvOpt, notesOpt, askPassOpt, overwriteOp)
 		l.Short = "Save " + what + " under a short name"
 		l.Example = lines(cmd+"add "+entry+" "+addr+" --group web --tag prod", cmd+"add "+entry+" "+addr+" --dry-run",
 			cmd+"add db1 --address db.internal --user root --via web1 --protected")
@@ -136,8 +147,8 @@ func completeHost(l *Leaf, p provider) {
 			unset = []string{"user", "credential", "via", "notes", "port", "protected"}
 		}
 		o = append(o, protectedOpt, notesOpt, labelOpt, hostEnvOpt,
-			hostOption(connEditOptions, "add-group"), hostOption(connEditOptions, "rm-group"),
-			hostOption(connEditOptions, "add-tag"), hostOption(connEditOptions, "rm-tag"), askPassOpt)
+			withShort(hostOption(connEditOptions, "add-group"), "g"), hostOption(connEditOptions, "rm-group"),
+			withShort(hostOption(connEditOptions, "add-tag"), "t"), hostOption(connEditOptions, "rm-tag"), askPassOpt)
 		if p.name == "ssh" {
 			o = append(o, hostFwdOpt)
 		}

@@ -6,7 +6,7 @@ servers, databases, caches, queues, storage, clusters and VPNs,
 for people and AI agents alike.
 
 Start:
-  komando host add NAME USER@ADDRESS   add a server
+  komando host ssh add NAME USER@ADDRESS   add a server
   komando conn add NAME URL            add a database, cache, queue, storage,
                                        cluster or registry
   komando import ssh-config            bring in the servers you already have
@@ -30,7 +30,6 @@ Servers:
   cron         Cron entries on servers: see, set and remove them
   docker       Docker on servers: check, read logs, run compose, clean up
   download     Download files from servers or from file storage
-  exec         Run a shell command on one or many servers in parallel
   facts        System facts: OS and support, updates, Docker, open ports
   fs           Files on servers: read, edit, undo an edit, move, remove
   job          Long-running jobs on servers: start, follow, wait for, stop
@@ -39,7 +38,6 @@ Servers:
   pkg          Packages on servers: install, update, remove, check for updates
   reboot       Reboot servers one at a time and check each came back
   recipe       Ready-made and saved commands: run them, save your own
-  shell        Open a login shell on one server (person only)
   svc          Services on servers: check, start, stop, read logs
   sync         Copy a folder one way, sending only new and changed files
   upload       Upload a file to servers (many at once) or to file storage
@@ -65,10 +63,7 @@ Inventory:
 
 Access:
   key          SSH keys: make, add, put on servers, take off
-  login        Log in once to a server or a cloud account (person only)
-  logout       End server logins kept by `komando login` (--all for every one)
   secret       Saved passwords and tokens: store, check, use as secret:NAME
-  tunnel       Background port forwarding: start, see, stop
   vpn          VPNs komando connects when a path needs one: add, connect, check
 
 Overview:
@@ -1075,7 +1070,8 @@ step by step. The URL scheme sets the kind: `komando conn kinds` lists them.
 
 A Kubernetes cluster usually comes in with `komando import kubeconfig FILE`
 (one conn per context). Here its kubeconfig must be in the vault already
-(--password-ref). A Docker Swarm manager is a server: `komando host add`.
+(--password-ref). A Docker Swarm manager is a server: `komando host ssh
+add`.
 
 Usage:
   komando cluster add NAME URL [flags]
@@ -2027,7 +2023,7 @@ exit 0
 --- stdout
 Settings:
   host_key_policy  accept-new | strict | off
-      how server identity is checked: accept-new pins a new server's key, strict needs `host trust` first, off checks nothing (needs --yes)
+      how server identity is checked: accept-new pins a new server's key, strict needs `host ssh trust` first, off checks nothing (needs --yes)
   default_user     a login name
       user for servers that have none (empty: your own user name)
   default_timeout  duration > 0
@@ -3917,76 +3913,6 @@ The environment variables komando reads.
   NO_COLOR            no colors
 
 --- stderr
-### komando exec --help
-exit 0
---- stdout
-Runs COMMAND through the login shell on every server TARGET picks
-(PowerShell on Windows servers). Each server's result has its stdout,
-stderr, exit_code and duration. A non-zero exit on any server makes
-komando exit 5. A refused connection or login exits 4; a server that does
-not answer within --connect-timeout exits 7 (CONNECT_TIMEOUT).
-
-Safety: a change; try it with --dry-run first; when the command matches a
-destructive rule: dangerous, it cannot be undone: a person types the name to
-go on, and an AI agent or a script needs --allow-dangerous; on a protected
-server or conn, a person's yes (--yes) as well.
-
-If the connection breaks while the command runs, that server's result has
-error code CONNECTION_LOST (exit 4) and the output that came so far: the
-command may still be running there, or may have finished. Check with a
-read-only command before running it again. For long tasks over a shaky link
-use `komando job start` and `komando job wait`: they survive a drop.
-
-Commands that destroy things (rm -rf /, mkfs, reboot, DROP DATABASE, ...)
-and any change on a production server: at a terminal komando asks you
-first. --yes and --allow-dangerous answer that question in advance, for
-scripts. --read-only says the command only looks: it runs only commands
-komando knows only read (cat, grep, df, systemctl status ...) and refuses
-any other, so a production server does not ask.
-
---script FILE runs a script from this computer instead: it is sent to the
-interpreter (from its #! line, else sh; --interpreter to choose) as input,
-so nothing is left on the server. --arg values become $1, $2 ... .
-
-Usage:
-  komando exec TARGET [-- COMMAND...] [flags]
-
-Aliases:
-  exec, run, x
-
-Examples:
-  komando exec web1 -- uptime
-  komando exec @web -P 20 -- 'df -h / | tail -1'
-  komando exec tag:prod --sudo -- systemctl is-active nginx
-  komando exec db1 --read-only -- df -h
-  komando exec @web --script ./deploy.sh --arg v1.2.3 --sudo
-  komando exec db1 --script ./backup.py --interpreter python3
-  cat deploy.sh | komando exec web1 --stdin-file - -- 'bash -s'
-
-Flags:
-      --arg stringArray          with --script: an argument for the script, $1 ... (repeatable)
-  -c, --cmd string               the command as one string (instead of words after --)
-  -C, --dir string               working folder on the server
-  -e, --env stringArray          export KEY=VALUE before the command (repeatable)
-      --fail-fast[=true|false]   start no more servers after the first failure
-  -h, --help[=true|false]        help for exec
-      --interpreter string       with --script: the interpreter on the server (default: from the #! line, else sh)
-      --pty[=true|false]         allocate a pseudo-terminal (some tools need one)
-      --read-only[=true|false]   declare that the command only looks: only commands komando knows only read run (protected servers: no --yes)
-      --script string            run this script from this computer ('-' = komando's stdin); nothing is left on the server
-      --stdin-file string        send this file on this computer as stdin ('-' = komando's stdin)
-      --stream[=true|false]      stream output as NDJSON events while it runs
-  -s, --sudo[=true|false]        run with sudo (never prompts; uses the server's --sudo-ref password if set)
-      --sudo-user string         run as this user with sudo -u
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
 ### komando exit-codes --help
 exit 0
 --- stdout
@@ -4379,7 +4305,7 @@ exit 0
 Removes files like rm -f: a path that does not exist is reported ("not
 found") and the command still succeeds. A folder needs --recursive, which
 also needs --allow-dangerous. Paths are taken literally: '*.log' is not a
-pattern (use komando exec for that).
+pattern (use komando host ssh exec for that).
 
 Safety: dangerous, it cannot be undone: a person types the name to go on,
 and an AI agent or a script needs --allow-dangerous; on a protected server
@@ -4777,23 +4703,17 @@ Aliases:
   host, hosts, server, servers
 
 Examples:
-  komando host add web1 deploy@10.0.0.5
-  komando test web1
-  komando host edit web1 --protected --dry-run
-  komando host edit web1 --protected
-  komando host rm web1                              # from komando only
+  komando host ssh add web1 deploy@10.0.0.5
+  komando host ssh test web1
+  komando host ssh exec web1 -- uptime
+  komando host winrm add win1 Administrator@10.0.0.9 --ask-password
+  komando host ssh remove web1                      # from komando only
 
 Available Commands:
-  add         Add a server to your list
   ca          Trust servers through the CA that signs their host keys
-  edit        Change one or more servers (only the flags you pass change)
-  list        List servers
-  rename      Rename a server and every reference to it
-  rm          Remove servers (from komando only)
-  show        Show all settings of a server (secrets as references, never values)
+  ssh         SSH servers: save them, run commands on them, tunnel through them
   ssh-command Print the OpenSSH command komando would use for a server (person only)
-  test        Check that servers answer and let you in
-  trust       Pin the SSH host keys of servers (--reset after a rebuild)
+  winrm       Windows servers over WinRM: save them and run commands on them
 
 Flags:
   -h, --help[=true|false]   help for host
@@ -4807,60 +4727,6 @@ Global Flags (all of them: komando --help):
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 
 Use "komando host [command] --help" for more information about a command.
---- stderr
-### komando host add --help
-exit 0
---- stdout
-Add a server to your list.
-
-Safety: a change; try it with --dry-run first; when --proxy-command matches
-a destructive rule: dangerous, it cannot be undone: a person types the name
-to go on, and an AI agent or a script needs --allow-dangerous; with
---proxy-command, when an AI agent runs it (the proxy command runs on this
-computer): it weakens a safety check: a person's yes (--yes).
-
-Usage:
-  komando host add NAME [[USER@]ADDRESS[:PORT]] [flags]
-
-Examples:
-  komando host add web1 deploy@10.0.0.11 --group web --tag prod --key deploy
-  komando host add web1 deploy@10.0.0.11 --group web --tag prod --key deploy --dry-run
-  komando host add db1 --address db.internal --user root --via bastion --protected
-  komando host add vps1 root@203.0.113.20 --ask-password   # type its password now (hidden)
-  komando host add web2 root@203.0.113.21 --login ask      # type its password at every connect; never stored
-  komando host add win1 Administrator@10.0.0.9 --os windows --ask-password   # Windows with OpenSSH
-  komando host add win2 winrm://Administrator@10.0.0.9 --ask-password        # Windows over WinRM (HTTPS)
-
-Flags:
-      --address string              host name or IP address (winrm://USER@HOST for a Windows server over WinRM)
-      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref
-  -e, --env stringArray             env KEY=VALUE exported before every command (repeatable) (default [])
-  -g, --group strings               put it in these groups (comma-separated)
-  -h, --help[=true|false]           help for add
-      --identity string             path to a private key file
-      --key string                  name of a key in komando's key list (see komando key list)
-      --label stringArray           label KEY=VALUE (repeatable) (default [])
-      --login string                how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own)
-      --notes string                free-form notes (komando host show shows them to people and agents)
-      --os string                   the server's OS: windows (commands run in PowerShell) or linux (the default, also for other Unixes)
-      --overwrite[=true|false]      replace a server that has the same name
-      --password-ref string         where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...
-      --port int                    SSH port (default 22)
-      --protected[=true|false]      production: komando asks you before every change, and an AI agent needs your yes in a window
-      --proxy-command string        a command on this computer that carries the connection (OpenSSH ProxyCommand; %h %p %r)
-      --ssm[=true|false]            reach it through AWS Systems Manager: the address is the instance ID (komando speaks Session Manager itself when the aws CLI or its plugin is not installed)
-      --sudo-ref string             where the sudo password is, written like --password-ref
-  -t, --tag strings                 tags, like prod (comma-separated)
-      --user string                 the user to log in as
-      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path, like vpn1,bastion
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
 ### komando host ca --help
 exit 0
@@ -5018,12 +4884,102 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando host edit --help
+### komando host ssh --help
 exit 0
 --- stdout
-Changes only the settings you pass. Give one name, several names, or a
-selector (@group, tag:prod, 'web-*') to change many servers at once. Try
---dry-run first to see which servers would change.
+SSH servers: save them, run commands on them, tunnel through them
+
+Usage:
+  komando host ssh [flags]
+  komando host ssh [command]
+
+Examples:
+  komando host ssh add web1 deploy@10.0.0.5 --dry-run
+  komando host ssh add web1 deploy@10.0.0.5
+  komando host ssh test web1
+  komando host ssh exec web1 -- uptime
+  komando host ssh tunnel start db1 -L 15432:localhost:5432
+
+Available Commands:
+  add         Save an SSH server under a short name
+  edit        Change saved SSH servers (only the flags you pass change)
+  exec        Run a command on saved servers, in parallel
+  list        List the saved SSH servers
+  remove      Forget saved SSH servers (the servers are not touched)
+  rename      Rename a saved ssh server and every reference to it
+  shell       Open a login shell on one server (a person at a terminal) (person only)
+  show        Show a saved ssh server's settings (credentials as names)
+  test        Check that saved SSH servers answer and let you in
+  trust       Pin the SSH host keys of servers (--reset after a rebuild)
+  tunnel      Background tunnels through a server: start, list, stop
+
+Flags:
+  -h, --help[=true|false]   help for ssh
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando host ssh [command] --help" for more information about a command.
+--- stderr
+### komando host ssh add --help
+exit 0
+--- stdout
+Save an SSH server under a short name.
+
+Safety: a change; try it with --dry-run first; when --proxy-command matches
+a destructive rule: dangerous, it cannot be undone: a person types the name
+to go on, and an AI agent or a script needs --allow-dangerous; with
+--proxy-command, when an AI agent runs it (the proxy command runs on this
+computer): it weakens a safety check: a person's yes (--yes).
+
+Usage:
+  komando host ssh add NAME [ADDRESS] [flags]
+
+Examples:
+  komando host ssh add web1 deploy@10.0.0.11 --group web --tag prod
+  komando host ssh add web1 deploy@10.0.0.11 --dry-run
+  komando host ssh add db1 --address db.internal --user root --via web1 --protected
+
+Flags:
+      --address string              the host name or IP address, instead of the second word
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+  -e, --env stringArray             env KEY=VALUE exported before every command (default [])
+      --group strings               put it in these groups
+  -h, --help[=true|false]           help for add
+      --identity string             the path of a private key file
+      --key string                  the name of a key in komando's key list
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how komando logs in: ask at every connect, a stored password, a key, or the ssh-agent
+      --notes string                free-form notes, shown to people and agents
+      --os string                   the server's OS: windows runs commands in PowerShell
+      --overwrite[=true|false]      replace an entry that has the same name
+      --port int                    the port
+      --protected[=true|false]      changes need a person's yes
+      --proxy-command string        a program on this computer that makes the connection
+      --ssm[=true|false]            reach it through AWS Systems Manager; the address is the instance ID
+      --sudo-credential string      the password sudo asks for (today's --sudo-ref)
+      --tag strings                 tags, like prod
+      --user string                 the user to log in as
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando host ssh edit --help
+exit 0
+--- stdout
+Change saved SSH servers (only the flags you pass change).
 
 Safety: a change; try it with --dry-run first; when --proxy-command matches
 a destructive rule: dangerous, it cannot be undone: a person types the name
@@ -5033,50 +4989,38 @@ computer): it weakens a safety check: a person's yes (--yes); with
 --protected=false: it weakens a safety check: a person's yes (--yes); on a
 protected server or conn, a person's yes (--yes) as well.
 
---protected marks a production server: komando asks you before every change,
-and an AI agent needs your yes in a window. Changing the login of a
-production server, or turning its protection off, asks the same way; one yes
-covers every server in the command.
-
 Usage:
-  komando host edit TARGET... [flags]
+  komando host ssh edit TARGET... [flags]
 
 Examples:
-  komando host edit web1 --add-tag canary --label env=prod --sudo-ref secret:web1-sudo
-  komando host edit web1 -g web -t prod          # -g/-t add a group/tag
-  komando host edit db1 --protected              # production: ask before changes
-  komando host edit @ubuntu --sudo-ref secret:ubuntu-sudo --dry-run
-  komando host edit web1 web2 web3 --user deploy
-  komando host edit vps1 --ask-password          # type a new password (hidden)
-  komando host edit web2 --login ask             # never store its password; type it at every connect
-  komando host edit web2 --login key --key deploy   # log in with a key komando names
-  komando host edit bastion --forward-agent      # lend it your ssh-agent (asks first)
+  komando host ssh edit web1 --add-tag canary --label env=prod
+  komando host ssh edit @web --user deploy --dry-run
+  komando host ssh edit db1 --protected
 
 Flags:
-      --add-group strings            put it in these groups (comma-separated)
-      --add-tag strings              add these tags (comma-separated)
-      --address string               host name or IP address (winrm://USER@HOST for a Windows server over WinRM)
-      --ask-password[=true|false]    type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref
-  -e, --env stringArray              set KEY=VALUE, exported before every command (an empty value removes it; repeatable) (default [])
-      --forward-agent[=true|false]   lend the server your ssh-agent while komando is connected (root there can use your keys then; asks first)
+      --add-group strings            put it in these groups
+      --add-tag strings              add these tags
+      --address string               the host name or IP address, instead of the second word
+      --ask-password[=true|false]    type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string            what it logs in with
+  -e, --env stringArray              env KEY=VALUE exported before every command (default [])
+      --forward-agent[=true|false]   lend the server your ssh-agent while komando is connected (asks first)
   -h, --help[=true|false]            help for edit
-      --identity string              path to a private key file
-      --key string                   name of a key in komando's key list (see komando key list)
-      --label stringArray            set label KEY=VALUE (an empty value removes it) (default [])
-      --login string                 how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own)
-      --notes string                 free-form notes (komando host show shows them to people and agents)
-      --os string                    the server's OS: windows (commands run in PowerShell) or linux (the default, also for other Unixes)
-      --password-ref string          where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...
-      --port int                     SSH port (default 22)
-      --protected[=true|false]       production: komando asks you before every change, and an AI agent needs your yes in a window
-      --proxy-command string         a command on this computer that carries the connection (OpenSSH ProxyCommand; %h %p %r)
+      --identity string              the path of a private key file
+      --key string                   the name of a key in komando's key list
+      --label stringArray            label KEY=VALUE (default [])
+      --login string                 how komando logs in: ask at every connect, a stored password, a key, or the ssh-agent
+      --notes string                 free-form notes, shown to people and agents
+      --os string                    the server's OS: windows runs commands in PowerShell
+      --port int                     the port
+      --protected[=true|false]       changes need a person's yes
+      --proxy-command string         a program on this computer that makes the connection
       --rm-group strings             take it out of these groups
       --rm-tag strings               remove these tags
-      --ssm[=true|false]             reach it through AWS Systems Manager: the address is the instance ID (komando speaks Session Manager itself when the aws CLI or its plugin is not installed)
-      --sudo-ref string              where the sudo password is, written like --password-ref
-      --unset strings                clear these settings: user,key,identity,password-ref,sudo-ref,via,proxy-command,notes,port,protected,forward-agent,os,transport (transport: back to SSH from WinRM)
+      --sudo-credential string       the password sudo asks for (today's --sudo-ref)
+      --unset strings                clear these settings: user, key, identity, credential, sudo-credential, via, proxy-command, notes, port, protected, forward-agent, os, transport
       --user string                  the user to log in as
-      --via string                   reach it through these servers (bastions) or a VPN first, comma-separated path, like vpn1,bastion
+      --via string                   reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -5086,24 +5030,74 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando host list --help
+### komando host ssh exec --help
 exit 0
 --- stdout
-Same as `komando list kind:host`.
+Run a command on saved servers, in parallel.
+
+Safety: a change; try it with --dry-run first; when the command matches a
+destructive rule: dangerous, it cannot be undone: a person types the name to
+go on, and an AI agent or a script needs --allow-dangerous; on a protected
+server or conn, a person's yes (--yes) as well.
 
 Usage:
-  komando host list [TARGET] [flags]
+  komando host ssh exec TARGET [-- COMMAND...] [flags]
+
+Examples:
+  komando host ssh exec web1 -- uptime
+  komando host ssh exec @web -P 20 -- 'df -h / | tail -1'
+  komando host ssh exec db1 --read-only -- df -h
+  komando host ssh exec @web --script ./deploy.sh --arg v1.2.3 --sudo
+
+Flags:
+      --arg stringArray          an argument for the script, $1 and on
+      --attach strings           read the rest of these sessions on one server, and their exit codes
+  -c, --cmd string               the command as one string, instead of the words after --
+  -C, --dir string               the working folder on the server
+  -e, --env stringArray          export KEY=VALUE before the command
+      --fail-fast[=true|false]   start no more servers after the first failure
+  -h, --help[=true|false]        help for exec
+      --interpreter string       the interpreter on the server (default: from the #! line, else sh)
+      --log-max bytes            bytes of output the server keeps for the run; more is dropped (default 1GiB)
+      --offset int               start at this byte of the log (next_from of the last read)
+      --pty[=true|false]         ask for a pseudo-terminal (some tools need one)
+      --read-only[=true|false]   the command only reads (the policy checks it either way)
+      --remove[=true|false]      remove a finished session's log from the server
+      --script string            run this script from this computer ('-' is komando's stdin); nothing is left on the server
+      --signal string            the signal --stop sends (default "TERM")
+      --stdin-file string        send this file as stdin ('-' is komando's stdin)
+      --stop[=true|false]        stop the session's command
+      --stream[=true|false]      print the output as NDJSON events while it runs
+  -s, --sudo[=true|false]        run with sudo (it never prompts; it uses the server's sudo credential)
+      --sudo-user string         run as this user with sudo -u
+      --wait duration            wait this long for the run to end; it goes on after (exit 7); 0 returns at once (default 1m)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando host ssh list --help
+exit 0
+--- stdout
+List the saved SSH servers
+
+Usage:
+  komando host ssh list [TARGET] [flags]
 
 Aliases:
   list, ls
 
 Examples:
-  komando host list
-  komando host list @web
+  komando host ssh list
+  komando host ssh list @web
 
 Flags:
   -h, --help[=true|false]   help for list
-  -n, --limit int           show at most this many items (0 = all)
+  -n, --limit int           show at most this many (0 = all)
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -5113,27 +5107,46 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando host rename --help
+### komando host ssh remove --help
 exit 0
 --- stdout
-Gives a server a new name. Everything about it stays: address, login,
-references, protected mark, groups, tags and labels. Servers, conns and
-tunnels that reach other things through it (--via), and its jobs and
-tunnels, follow the new name. Pinned host keys belong to the address, so
-they stay. Renaming a protected server needs --yes.
+Remove servers from your list. The servers are not touched, and their pinned
+host keys stay.
+
+Safety: a change; try it with --dry-run first; on a protected server or
+conn, a person's yes (--yes) as well.
+
+Usage:
+  komando host ssh remove TARGET... [flags]
+
+Examples:
+  komando host ssh remove web3 --dry-run
+  komando host ssh remove @old
+
+Flags:
+  -h, --help[=true|false]   help for remove
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando host ssh rename --help
+exit 0
+--- stdout
+Rename a saved ssh server and every reference to it.
 
 Safety: a change; try it with --dry-run first.
 
 Usage:
-  komando host rename OLD NEW [flags]
-
-Aliases:
-  rename, mv
+  komando host ssh rename NAME NEW [flags]
 
 Examples:
-  komando host rename web1 web-01
-  komando host rename db1 prod-db1 --dry-run   # what would change
-  komando host rename db1 prod-db1 --yes   # after a person's yes
+  komando host ssh rename web1 web-01 --dry-run
+  komando host ssh rename web1 web-01
 
 Flags:
   -h, --help[=true|false]   help for rename
@@ -5146,28 +5159,23 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando host rm --help
+### komando host ssh shell --help
 exit 0
 --- stdout
-Remove servers from your list. The servers are not touched, and their pinned
-host keys stay.
+Open a login shell on one server (a person at a terminal).
 
-Safety: a change; try it with --dry-run first; on a protected server or
-conn, a person's yes (--yes) as well.
+Safety: only a person at a terminal can run it.
 
 Usage:
-  komando host rm TARGET... [flags]
-
-Aliases:
-  rm, remove, delete, del
+  komando host ssh shell NAME [-- COMMAND...] [flags]
 
 Examples:
-  komando host rm web3
-  komando host rm @old --dry-run     # what a selector would remove
-  komando host rm 'tmp-*'
+  komando host ssh shell web1
+  komando host ssh shell db1
 
 Flags:
-  -h, --help[=true|false]   help for rm
+      --attach string       come back to the session with this ID
+  -h, --help[=true|false]   help for shell
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -5177,19 +5185,196 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando host show --help
+### komando host ssh show --help
 exit 0
 --- stdout
-Show all settings of a server (secrets as references, never values)
+Show a saved ssh server's settings (credentials as names)
 
 Usage:
-  komando host show NAME [flags]
+  komando host ssh show NAME [flags]
 
 Examples:
-  komando host show web1
+  komando host ssh show web1
+  komando host ssh show web1 -o json
 
 Flags:
   -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando host ssh test --help
+exit 0
+--- stdout
+Check that saved SSH servers answer and let you in
+
+Usage:
+  komando host ssh test TARGET [flags]
+
+Examples:
+  komando host ssh test @web
+  komando host ssh test @new --wait 5m
+  komando host ssh test --end
+
+Flags:
+      --end[=true|false]    end the session a person's login keeps open
+  -h, --help[=true|false]   help for test
+      --wait duration       wait this long for a person's sign-in
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando host ssh trust --help
+exit 0
+--- stdout
+Pin the SSH host keys of servers (--reset after a rebuild).
+
+Safety: a change; try it with --dry-run first; when an AI agent pins a first
+host key while host keys are strict: it weakens a safety check: a person's
+yes (--yes); with --reset: only a person at a terminal can run it; on a
+protected server or conn, a person's yes (--yes) as well.
+
+Usage:
+  komando host ssh trust TARGET [flags]
+
+Examples:
+  komando host ssh trust web1
+  komando host ssh trust web1 --reset --dry-run
+  komando host ssh trust @web
+
+Flags:
+      --fingerprint string   pin the key only when the server shows this fingerprint (SHA256:...)
+  -h, --help[=true|false]    help for trust
+      --reset[=true|false]   replace a pinned host key
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando host ssh tunnel --help
+exit 0
+--- stdout
+Background tunnels through a server: start, list, stop
+
+Usage:
+  komando host ssh tunnel [flags]
+  komando host ssh tunnel [command]
+
+Examples:
+  komando host ssh tunnel start db1 -L 15432:localhost:5432
+  komando host ssh tunnel start bastion -D 1080
+  komando host ssh tunnel list
+  komando host ssh tunnel stop --all
+
+Available Commands:
+  list        List tunnels and whether each is up
+  start       Start a background tunnel through a server, a VPN or an entry's --via path
+  stop        Stop tunnels by ID
+
+Flags:
+  -h, --help[=true|false]   help for tunnel
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando host ssh tunnel [command] --help" for more information about a command.
+--- stderr
+### komando host ssh tunnel list --help
+exit 0
+--- stdout
+List tunnels and whether each is up
+
+Usage:
+  komando host ssh tunnel list [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando host ssh tunnel list
+  komando host ssh tunnel list -o json
+
+Flags:
+  -h, --help[=true|false]   help for list
+  -n, --limit int           show at most this many (0 = all)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando host ssh tunnel start --help
+exit 0
+--- stdout
+Start a background tunnel through a server, a VPN or an entry's --via path.
+
+Safety: a change; try it with --dry-run first; when it listens on an open
+address: it weakens a safety check: a person's yes (--yes); on a protected
+server or conn, a person's yes (--yes) as well.
+
+Usage:
+  komando host ssh tunnel start TARGET [flags]
+
+Examples:
+  komando host ssh tunnel start prod-db --dry-run
+  komando host ssh tunnel start prod-db --port 15432
+  komando host ssh tunnel start web1 -L 8080:localhost:80
+  komando host ssh tunnel start bastion -D 1080
+
+Flags:
+  -D, --dynamic string      SOCKS5 proxy [bind:]PORT
+  -h, --help[=true|false]   help for start
+  -L, --local string        local forward [bind:]LPORT:RHOST:RPORT
+      --port int            with a saved entry as TARGET: the local port (default: a free one)
+  -R, --remote string       remote forward [rbind:]RPORT:LHOST:LPORT
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando host ssh tunnel stop --help
+exit 0
+--- stdout
+Stop tunnels by ID.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando host ssh tunnel stop [ID...] [flags]
+
+Examples:
+  komando host ssh tunnel stop t1102
+  komando host ssh tunnel stop --all --dry-run
+
+Flags:
+      --all[=true|false]    stop every tunnel
+  -h, --help[=true|false]   help for stop
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -5206,9 +5391,10 @@ Prints the ssh command that reaches the server with the same address, user,
 key, known_hosts file and --via path komando uses. A server behind --via
 servers gets a ProxyCommand per hop (ssh -W), so every hop uses its own key.
 A SOCKS VPN becomes nc -X 5; VPNs that run inside komando cannot be used by
-OpenSSH: use `komando shell SERVER` for those. A key made with komando key
-gen is never written to a file: it goes to your running ssh-agent
-(SSH_AUTH_SOCK) for one hour, and the line picks it by its public key.
+OpenSSH: use `komando host ssh shell SERVER` for those. A key made with
+komando key gen is never written to a file: it goes to your running
+ssh-agent (SSH_AUTH_SOCK) for one hour, and the line picks it by its public
+key.
 
 Safety: only a person at a terminal can run it.
 
@@ -5230,25 +5416,80 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando host test --help
+### komando host winrm --help
 exit 0
 --- stdout
-Same as `komando test`.
+Windows servers over WinRM: save them and run commands on them
 
 Usage:
-  komando host test TARGET [flags]
-
-Aliases:
-  test, ping
+  komando host winrm [flags]
+  komando host winrm [command]
 
 Examples:
-  komando host test web1
-  komando host test @prod --wait 2m
+  komando host winrm add win1 Administrator@10.0.0.9 --ask-password --dry-run
+  komando host winrm add win1 Administrator@10.0.0.9 --ask-password
+  komando host winrm test win1
+  komando host winrm exec win1 -- 'Get-Date'
+
+Available Commands:
+  add         Save a Windows server over WinRM under a short name
+  edit        Change saved WinRM servers (only the flags you pass change)
+  exec        Run a command on saved servers, in parallel (PowerShell)
+  list        List the saved WinRM servers
+  remove      Forget saved WinRM servers (the servers are not touched)
+  rename      Rename a saved winrm server and every reference to it
+  shell       Say that a Windows server has no interactive shell here (person only)
+  show        Show a saved winrm server's settings (credentials as names)
+  test        Check that saved WinRM servers answer and let you in
 
 Flags:
-      --end[=true|false]    end the kept sessions of the servers named (every server when none is named), instead of testing
-  -h, --help[=true|false]   help for test
-      --wait duration       test again every few seconds until every target passes, for up to this long (like 5m)
+  -h, --help[=true|false]   help for winrm
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando host winrm [command] --help" for more information about a command.
+--- stderr
+### komando host winrm add --help
+exit 0
+--- stdout
+Save a Windows server over WinRM under a short name.
+
+Safety: a change; try it with --dry-run first; when --proxy-command matches
+a destructive rule: dangerous, it cannot be undone: a person types the name
+to go on, and an AI agent or a script needs --allow-dangerous; with
+--proxy-command, when an AI agent runs it (the proxy command runs on this
+computer): it weakens a safety check: a person's yes (--yes).
+
+Usage:
+  komando host winrm add NAME [ADDRESS] [flags]
+
+Examples:
+  komando host winrm add web1 Administrator@10.0.0.9 --group web --tag prod
+  komando host winrm add web1 Administrator@10.0.0.9 --dry-run
+  komando host winrm add db1 --address db.internal --user root --via web1 --protected
+
+Flags:
+      --address string              the host name or IP address, instead of the second word
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+  -e, --env stringArray             env KEY=VALUE exported before every command (default [])
+      --group strings               put it in these groups
+  -h, --help[=true|false]           help for add
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how komando logs in: ask at every connect, a stored password, a key, or the ssh-agent
+      --notes string                free-form notes, shown to people and agents
+      --overwrite[=true|false]      replace an entry that has the same name
+      --port int                    the port
+      --protected[=true|false]      changes need a person's yes
+      --tag strings                 tags, like prod
+      --user string                 the user to log in as
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -5258,53 +5499,237 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando host trust --help
+### komando host winrm edit --help
 exit 0
 --- stdout
-Fetches the server's host key and stores it in komando's known_hosts, like
-ssh-keyscan plus ssh-keygen -R. The key is fetched the way komando reaches
-the server: directly, or through its --via servers, VPN or proxy command.
+Change saved WinRM servers (only the flags you pass change).
 
-Safety: a change; try it with --dry-run first; when an AI agent pins a first
-host key while host keys are strict: it weakens a safety check: a person's
-yes (--yes); with --reset: only a person at a terminal can run it; on a
+Safety: a change; try it with --dry-run first; when --proxy-command matches
+a destructive rule: dangerous, it cannot be undone: a person types the name
+to go on, and an AI agent or a script needs --allow-dangerous; with
+--proxy-command, when an AI agent runs it (the proxy command runs on this
+computer): it weakens a safety check: a person's yes (--yes); with
+--protected=false: it weakens a safety check: a person's yes (--yes); on a
 protected server or conn, a person's yes (--yes) as well.
 
-A key that is already pinned is left as it is. If a different key is
-pinned, the server may be an impostor (HOSTKEY_MISMATCH): check the new
-fingerprint another way, then replace the pin with --reset. Only a person
-at a terminal replaces a pin: komando shows the old and the new key and
-asks once; an AI agent or a script gets NEEDS_PERSON, whatever flags it
-adds. With --dry-run nothing is fetched or changed; it only counts the
-pinned entries --reset would replace.
-
-TARGET can be many servers (@group, tag:, 'web*', a,b): after a rebuild of a
-whole group, --reset replaces all their keys after a single yes, which names
-every server with its new key. Each server is in results, with its old and
-new fingerprint; a server whose key changed is refused without --reset, the
-others are pinned.
-
-With --fingerprint SHA256:..., the key is pinned only when the server shows
-that key: compare-then-pin in one step, for a fingerprint read from the
-server's console or a cloud provider. Any other key stops with
-HOSTKEY_MISMATCH and nothing is pinned. It takes one server, and the
-fingerprint of the key type the server offers (key_type in the answer).
-
 Usage:
-  komando host trust TARGET [flags]
+  komando host winrm edit TARGET... [flags]
 
 Examples:
-  komando host trust web1
-  komando host trust web1 --reset --dry-run   # how many pinned keys would go
-  komando host trust web1 --reset             # after a real rebuild (a person, at a terminal)
-  komando host trust @web                 # pin new servers; changed keys are refused
-  komando host trust @web --reset         # after rebuilding the whole group: one yes
-  komando host trust web1 --fingerprint SHA256:pVt2...  # pin only this key
+  komando host winrm edit web1 --add-tag canary --label env=prod
+  komando host winrm edit @web --user deploy --dry-run
+  komando host winrm edit db1 --protected
 
 Flags:
-      --fingerprint string   pin only if the server shows the key with this SHA256: fingerprint (one server)
-  -h, --help[=true|false]    help for trust
-      --reset[=true|false]   replace the key pinned before (a person at a terminal only)
+      --add-group strings           put it in these groups
+      --add-tag strings             add these tags
+      --address string              the host name or IP address, instead of the second word
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+  -e, --env stringArray             env KEY=VALUE exported before every command (default [])
+  -h, --help[=true|false]           help for edit
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how komando logs in: ask at every connect, a stored password, a key, or the ssh-agent
+      --notes string                free-form notes, shown to people and agents
+      --port int                    the port
+      --protected[=true|false]      changes need a person's yes
+      --rm-group strings            take it out of these groups
+      --rm-tag strings              remove these tags
+      --unset strings               clear these settings: user, credential, via, notes, port, protected
+      --user string                 the user to log in as
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando host winrm exec --help
+exit 0
+--- stdout
+Run a command on saved servers, in parallel (PowerShell).
+
+Safety: a change; try it with --dry-run first; when the command matches a
+destructive rule: dangerous, it cannot be undone: a person types the name to
+go on, and an AI agent or a script needs --allow-dangerous; on a protected
+server or conn, a person's yes (--yes) as well.
+
+Usage:
+  komando host winrm exec TARGET [-- COMMAND...] [flags]
+
+Examples:
+  komando host winrm exec web1 -- uptime
+  komando host winrm exec @web -P 20 -- 'df -h / | tail -1'
+  komando host winrm exec db1 --read-only -- df -h
+
+Flags:
+      --arg stringArray          an argument for the script, $1 and on
+  -c, --cmd string               the command as one string, instead of the words after --
+  -C, --dir string               the working folder on the server
+  -e, --env stringArray          export KEY=VALUE before the command
+      --fail-fast[=true|false]   start no more servers after the first failure
+  -h, --help[=true|false]        help for exec
+      --interpreter string       the interpreter on the server (default: from the #! line, else sh)
+      --pty[=true|false]         ask for a pseudo-terminal (some tools need one)
+      --read-only[=true|false]   the command only reads (the policy checks it either way)
+      --script string            run this script from this computer ('-' is komando's stdin); nothing is left on the server
+      --stdin-file string        send this file as stdin ('-' is komando's stdin)
+      --stream[=true|false]      print the output as NDJSON events while it runs
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando host winrm list --help
+exit 0
+--- stdout
+List the saved WinRM servers
+
+Usage:
+  komando host winrm list [TARGET] [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando host winrm list
+  komando host winrm list @web
+
+Flags:
+  -h, --help[=true|false]   help for list
+  -n, --limit int           show at most this many (0 = all)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando host winrm remove --help
+exit 0
+--- stdout
+Forget saved WinRM servers (the servers are not touched).
+
+Safety: a change; try it with --dry-run first; on a protected server or
+conn, a person's yes (--yes) as well.
+
+Usage:
+  komando host winrm remove TARGET... [flags]
+
+Examples:
+  komando host winrm remove web3 --dry-run
+  komando host winrm remove @old
+
+Flags:
+  -h, --help[=true|false]   help for remove
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando host winrm rename --help
+exit 0
+--- stdout
+Rename a saved winrm server and every reference to it.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando host winrm rename NAME NEW [flags]
+
+Examples:
+  komando host winrm rename web1 web-01 --dry-run
+  komando host winrm rename web1 web-01
+
+Flags:
+  -h, --help[=true|false]   help for rename
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando host winrm shell --help
+exit 0
+--- stdout
+Say that a Windows server has no interactive shell here.
+
+Safety: only a person at a terminal can run it.
+
+Usage:
+  komando host winrm shell NAME [-- COMMAND...] [flags]
+
+Examples:
+  komando host winrm shell web1
+  komando host winrm shell win1
+
+Flags:
+  -h, --help[=true|false]   help for shell
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando host winrm show --help
+exit 0
+--- stdout
+Show a saved winrm server's settings (credentials as names)
+
+Usage:
+  komando host winrm show NAME [flags]
+
+Examples:
+  komando host winrm show web1
+  komando host winrm show web1 -o json
+
+Flags:
+  -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando host winrm test --help
+exit 0
+--- stdout
+Check that saved WinRM servers answer and let you in
+
+Usage:
+  komando host winrm test TARGET [flags]
+
+Examples:
+  komando host winrm test @web
+  komando host winrm test @new --wait 5m
+  komando host winrm test --end
+
+Flags:
+      --end[=true|false]    end the session a person's login keeps open
+  -h, --help[=true|false]   help for test
+      --wait duration       wait this long for a person's sign-in
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -6003,154 +6428,6 @@ Examples:
 Flags:
   -h, --help[=true|false]   help for list
   -n, --limit int           show at most this many items (0 = all)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando login --help
-exit 0
---- stdout
-Type the password and code once; for 8 hours your commands and your AI
-agent reuse that login. The safety rules, approvals and history of each
-command stay the same.
-
-Safety: only a person at a terminal can run it.
-
-`komando logout SERVER` ends it sooner, and `komando status` lists the kept
-logins. A login to a jump host covers every server behind it. The 8 hours
-come from the login_for setting.
-
-komando login aws logs in to AWS IAM Identity Center (SSO).
-
-Usage:
-  komando login [SERVER] [flags]
-  komando login [command]
-
-Examples:
-  komando login web1      # answer the code once; AI agents can then use web1
-  komando login web1 --dry-run
-  komando logout web1
-  komando login aws --profile prod
-
-Available Commands:
-  aws         Log in to AWS IAM Identity Center for a profile (person only)
-
-Flags:
-  -h, --help[=true|false]   help for login
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
-
-Use "komando login [command] --help" for more information about a command.
---- stderr
-### komando login aws --help
-exit 0
---- stdout
-Opens the AWS sign-in page in your browser and waits until you confirm the
-code shown here. The login is saved where the aws CLI keeps it
-(~/.aws/sso/cache), so komando, the AWS SDKs and the aws CLI all use it. The
-profile is the one in ~/.aws/config with sso_start_url or sso_session, or a
-profile that assumes a role from one (source_profile).
-
-Safety: only a person at a terminal can run it.
-
-Conns that name the profile (--option aws_profile=NAME) use the login until
-it runs out; then their commands stop with AWS_LOGIN_REQUIRED and the same
-command renews it. Logging in is for a person: an AI agent gets
-NEEDS_PERSON and asks you to run it. A profile with keys in
-~/.aws/credentials needs no login.
-
-Usage:
-  komando login aws [flags]
-
-Examples:
-  komando login aws --profile prod       # opens the browser; confirm the code shown
-  komando login aws                      # the profile in AWS_PROFILE, else default
-  komando login aws --profile prod --dry-run   # which sign-in page, without logging in
-
-Flags:
-  -h, --help[=true|false]   help for aws
-      --profile string      profile in ~/.aws/config (default: AWS_PROFILE, else default)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando logout --help
-exit 0
---- stdout
-Ends what `komando login SERVER` keeps: the connection closes, and later
-commands to that server log in again (a two-factor server asks a person).
-`komando status` lists the logins that are kept. `komando logout aws` ends
-an AWS IAM Identity Center (SSO) login.
-
-Safety: a change; try it with --dry-run first; on a protected server or
-conn, a person's yes (--yes) as well.
-
-Usage:
-  komando logout [SERVER...] [flags]
-  komando logout [command]
-
-Examples:
-  komando logout web1
-  komando logout web1 --dry-run
-  komando logout --all
-  komando logout aws --profile prod
-
-Available Commands:
-  aws         End an AWS IAM Identity Center (SSO) login
-
-Flags:
-      --all[=true|false]    end every kept server login
-  -h, --help[=true|false]   help for logout
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
-
-Use "komando logout [command] --help" for more information about a command.
---- stderr
-### komando logout aws --help
-exit 0
---- stdout
-Ends the SSO login a profile uses, as `aws sso logout` does: AWS is told to
-end the token, and the login saved in ~/.aws/sso/cache is deleted, so
-komando, the AWS SDKs and the aws CLI all need `komando login aws` again.
-Profiles that share the login (one sso-session) are logged out together.
---all ends every SSO login of the profiles in ~/.aws/config.
-
-Safety: a change; try it with --dry-run first.
-
-Usage:
-  komando logout aws [flags]
-
-Examples:
-  komando logout aws --profile prod
-  komando logout aws --profile prod --dry-run
-  komando logout aws --all
-
-Flags:
-      --all[=true|false]    end every AWS SSO login
-  -h, --help[=true|false]   help for aws
-      --profile string      profile in ~/.aws/config (default: AWS_PROFILE, else default)
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -7897,8 +8174,9 @@ Global Flags (all of them: komando --help):
 exit 0
 --- stdout
 Without --starts-with: renames the one server, conn, VPN, secret, key or
-group named OLD, as `komando host rename` and the others do. When OLD names
-two kinds of entry (a server and a secret), it says which commands to use.
+group named OLD, as `komando host ssh rename` and the others do. When OLD
+names two kinds of entry (a server and a secret), it says which commands to
+use.
 
 Safety: a change; try it with --dry-run first.
 
@@ -8005,7 +8283,7 @@ exit 0
 --- stdout
 Save a password once, then point to it as secret:NAME instead of typing it:
   komando secret set web1-pass
-  komando host edit web1 --password-ref secret:web1-pass
+  komando host ssh edit web1 --password-ref secret:web1-pass
 
 komando shows a saved value only to a person: at a terminal with
 `secret show --reveal`, or after "Allow once" in komando's window; never
@@ -8434,33 +8712,6 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando shell --help
-exit 0
---- stdout
-Open a login shell on one server.
-
-Safety: only a person at a terminal can run it.
-
-Usage:
-  komando shell SERVER [flags]
-
-Aliases:
-  shell, ssh, connect
-
-Examples:
-  komando shell web1
-
-Flags:
-  -h, --help[=true|false]   help for shell
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
 ### komando ssh-gate --help
 exit 0
 --- stdout
@@ -8480,20 +8731,20 @@ komando then runs as for an AI agent: secret values stay [hidden], --reveal
 and --allow-dangerous are refused, and --yes for a protected server needs a
 person on this computer. Commands that need a person at a terminal (shell,
 db shell, secret passphrase ...) are refused (a --shell-access key may open
-`komando shell SERVER`: see ssh-gate line; that shell is full control of the
-server, outside these rules). The key runs commands on servers, never one
-that writes on this computer or reads a file here (a script, SQL or upload
-source by path; '-' for the key's own input works): no download or cp to a
-file here (download --to - and cp SRC - stream to the key's own output), no
-change to servers, VPNs, settings, rules, secrets, keys or recipes in
-komando, no update, no change on a sqlite file or a target at localhost or
-127.x. With --read-only only commands that read run (db query and cache
-redis raw without --write), and only those that stay on the servers and
-conns in your list: no net, no cert check of a website, no exec, job start,
-docker exec, cluster exec or recipe run, unless the line also has --network.
-`komando ssh-gate status` tells a key which it is. Every command a key runs
-or is refused is in `komando audit`, with --name, even when the audit
-setting is off.
+`komando host ssh shell SERVER`: see ssh-gate line; that shell is full
+control of the server, outside these rules). The key runs commands on
+servers, never one that writes on this computer or reads a file here (a
+script, SQL or upload source by path; '-' for the key's own input works): no
+download or cp to a file here (download --to - and cp SRC - stream to the
+key's own output), no change to servers, VPNs, settings, rules, secrets,
+keys or recipes in komando, no update, no change on a sqlite file or a
+target at localhost or 127.x. With --read-only only commands that read run
+(db query and cache redis raw without --write), and only those that stay on
+the servers and conns in your list: no net, no cert check of a website, no
+exec, job start, docker exec, cluster exec or recipe run, unless the line
+also has --network. `komando ssh-gate status` tells a key which it is. Every
+command a key runs or is refused is in `komando audit`, with --name, even
+when the audit setting is off.
 
 Usage:
   komando ssh-gate [flags]
@@ -8535,17 +8786,17 @@ whose programs can connect anywhere and carry what they read in a URL or a
 DNS name. Add --network too for a read key that may do those.
 
 With --shell-access (not with --read-only) the key may also open a login
-shell on one server: ssh -t HOST komando shell SERVER, word for word. Its
-line has restrict,pty, so sshd gives it a terminal when it asks for one.
-The shell is refused on a protected server, a Windows server or this
-computer, with any other word or flag, without the terminal, and on every
-server while you have deny rules of your own (komando policy list); db
-shell and cluster shell stay refused. On the servers it opens on, the
-shell is full control of the server, as the account komando logs in with:
-what is typed is outside komando's per-command rules, masking and audit.
-Give such a key only to a device you would give that login to. Each
-session's start and end are in komando audit (key, server, how long, why
-it ended), and a session with no input and no output for 30 minutes ends.
+shell on one server: ssh -t HOST komando host ssh shell SERVER, word for
+word. Its line has restrict,pty, so sshd gives it a terminal when it asks
+for one. The shell is refused on a protected server, a Windows server or
+this computer, with any other word or flag, without the terminal, and on
+every server while you have deny rules of your own (komando policy list); db
+shell and cluster shell stay refused. On the servers it opens on, the shell
+is full control of the server, as the account komando logs in with: what is
+typed is outside komando's per-command rules, masking and audit. Give such a
+key only to a device you would give that login to. Each session's start and
+end are in komando audit (key, server, how long, why it ended), and a
+session with no input and no output for 30 minutes ends.
 
 Usage:
   komando ssh-gate line PUBLIC_KEY --name NAME [flags]
@@ -8561,7 +8812,7 @@ Flags:
       --name string                 the key's name in the audit log (required)
       --network[=true|false]        with --read-only: the key may also run reads that reach the network (net, cert check of a URL, exec --read-only)
       --read-only[=true|false]      the key runs only commands that read
-      --shell-access[=true|false]   the key may also open a login shell on one server (ssh -t HOST komando shell SERVER); not with --read-only
+      --shell-access[=true|false]   the key may also open a login shell on one server (ssh -t HOST komando host ssh shell SERVER); not with --read-only
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -9454,13 +9705,13 @@ exit 0
 Logs in to each server (and checks who it is and whether sudo needs a
 password), connects to each conn and checks each VPN.
 
---wait 5m waits for new servers: komando tests again every few seconds
-until every target passes or the time is up, for example right after a
-cloud server was created or rebuilt. It does not wait out a changed host
-key (HOSTKEY_MISMATCH), a refused login (AUTH_FAILED: retrying could get
-your address banned), a VPN that needs a login, or a local key or secret
-problem: those fail at once. To wait for the server's own start-up too,
-run `komando exec TARGET --read-only -- cloud-init status --wait` next.
+--wait 5m waits for new servers: komando tests again every few seconds until
+every target passes or the time is up, for example right after a cloud
+server was created or rebuilt. It does not wait out a changed host key
+(HOSTKEY_MISMATCH), a refused login (AUTH_FAILED: retrying could get your
+address banned), a VPN that needs a login, or a local key or secret problem:
+those fail at once. To wait for the server's own start-up too, run `komando
+host ssh exec TARGET --read-only -- cloud-init status --wait` next.
 
 A server that asks for a password or a two-factor code only a person can
 answer: when a person runs test at a terminal, komando asks once and keeps
@@ -9486,136 +9737,6 @@ Flags:
       --end[=true|false]    end the kept sessions of the servers named (every server when none is named), instead of testing
   -h, --help[=true|false]   help for test
       --wait duration       test again every few seconds until every target passes, for up to this long (like 5m)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando tunnel --help
-exit 0
---- stdout
-Specs:
-  -L [bind:]LPORT:RHOST:RPORT   local port -> RHOST:RPORT as seen from the server
-  -R [rbind:]RPORT:LHOST:LPORT  server port -> LHOST:LPORT on this computer
-  -D [bind:]PORT                SOCKS5 proxy through the server
-LPORT/PORT 0 picks a free port; the chosen address is returned. IPv6
-addresses go in brackets, as with ssh: -L 8080:[::1]:80.
-
-Usage:
-  komando tunnel [flags]
-  komando tunnel [command]
-
-Aliases:
-  tunnel, pf, tunnels
-
-Examples:
-  komando tunnel start db1 -L 15432:localhost:5432
-  komando tunnel start bastion -D 1080
-  komando tunnel list
-  komando tunnel stop t1102-...
-
-Available Commands:
-  list        List tunnels and whether each is up
-  start       Start a background tunnel
-  stop        Stop tunnels by ID (--all for every tunnel)
-
-Flags:
-  -h, --help[=true|false]   help for tunnel
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
-
-Use "komando tunnel [command] --help" for more information about a command.
---- stderr
-### komando tunnel list --help
-exit 0
---- stdout
-List tunnels and whether each is up
-
-Usage:
-  komando tunnel list [flags]
-
-Aliases:
-  list, ls
-
-Examples:
-  komando tunnel list
-
-Flags:
-  -h, --help[=true|false]   help for list
-  -n, --limit int           show at most this many tunnels (0 = all)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando tunnel start --help
-exit 0
---- stdout
-With a conn name and no -L/-R/-D, the tunnel leads to that conn through its
---via path: point your database app or psql at the local address it prints.
-With a server, give one of -L, -R or -D.
-
-Safety: a change; try it with --dry-run first; when it listens on an open
-address: it weakens a safety check: a person's yes (--yes); on a protected
-server or conn, a person's yes (--yes) as well.
-
-Usage:
-  komando tunnel start TARGET (-L SPEC | -R SPEC | -D SPEC) [flags]
-
-Examples:
-  komando tunnel start prod-db               # localhost:<free port> -> prod-db
-  komando tunnel start prod-db --dry-run
-  komando tunnel start prod-db --port 15432
-  komando tunnel start web1 -L 8080:localhost:80
-  komando tunnel start bastion -D 1080       # SOCKS proxy
-
-Flags:
-  -D, --dynamic string      SOCKS5 proxy [bind:]PORT
-  -h, --help[=true|false]   help for start
-  -L, --local string        local forward [bind:]LPORT:RHOST:RPORT
-      --port int            with a conn: the local port (default: a free one)
-  -R, --remote string       remote forward [rbind:]RPORT:LHOST:LPORT
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando tunnel stop --help
-exit 0
---- stdout
-Stop tunnels by ID (--all for every tunnel).
-
-Safety: a change; try it with --dry-run first.
-
-Usage:
-  komando tunnel stop [TUNNEL...] [flags]
-
-Examples:
-  komando tunnel stop t1102-101500-ab12cd34
-  komando tunnel stop t1102-101500-ab12cd34 --dry-run
-  komando tunnel stop --all
-
-Flags:
-      --all[=true|false]    stop all tunnels
-  -h, --help[=true|false]   help for stop
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -9961,8 +10082,8 @@ connects it, using the login you saved:
 
   komando vpn add office wireguard --config ~/Downloads/office.conf
   komando vpn add client-x globalprotect --portal vpn.client.com --user alice --password-ref secret:client-x --mfa
-  komando host add app admin@10.0.0.5 --via office,bastion
-  komando exec app -- uptime
+  komando host ssh add app admin@10.0.0.5 --via office,bastion
+  komando host ssh exec app -- uptime
 
 VPNs with --mfa need a person: run `komando vpn up NAME` once and later
 commands (and agents) reuse that session. komando never answers MFA.
@@ -9978,7 +10099,7 @@ Kinds (also: pritunl = openvpn; cisco, xauth = ipsec):
   openvpn       OpenVPN, also Pritunl profiles, run inside komando (no openvpn program, Docker or admin rights)
   proxy         an HTTP proxy (CONNECT), such as a company proxy: every connection is tunneled through it
   pulse         Pulse Secure / Ivanti Connect Secure
-  socks         a SOCKS5 proxy that is already running (`komando tunnel start TARGET -D`, a company proxy)
+  socks         a SOCKS5 proxy that is already running (`komando host ssh tunnel start TARGET -D`, a company proxy)
   system        a VPN set up in your computer's settings; --service lets `vpn up` connect it
   tailscale     Tailscale or Headscale, run inside komando (no tailscaled, no admin rights)
   wireguard     WireGuard, run inside komando (no admin rights, many at once)
@@ -9993,7 +10114,7 @@ Aliases:
 Examples:
   komando vpn add office wireguard --config ~/Downloads/office.conf
   komando vpn test office
-  komando host edit db1 --via office --dry-run
+  komando host ssh edit db1 --via office --dry-run
   komando vpn up office
 
 Available Commands:
