@@ -21,7 +21,7 @@ func cacheCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "cache",
 		Aliases: []string{"redis"},
-		Short:   "Caches (Redis, Valkey, memcached): save them, and run commands on them",
+		Short:   "Caches (Redis, Valkey, memcached): save them, run commands",
 		Long: `Save a cache with ` + "`komando cache redis add`" + `, then run its native commands with
 ` + "`cache redis raw`" + `. raw only reads unless --write (a protected cache asks first);
 commands that flush, block, run scripts, delete keys or reconfigure the server
@@ -211,7 +211,7 @@ func cacheRunCmd() *cobra.Command {
 func runHint(cmd string, v driver.Verdict) string {
 	switch {
 	case cmd == "KEYS":
-		return "list keys with SCAN instead of KEYS (safe on big caches): `komando cache redis raw TARGET -- SCAN 0 MATCH 'pattern*'`"
+		return "list keys with SCAN instead of KEYS (safe on big caches): `komando cache redis raw NAME -- SCAN 0 MATCH 'pattern*'`"
 	case slices.Contains(v.RuleIDs, "data-delete"):
 		return "to delete keys, confirm with the user first, then run it again with --write --allow-dangerous (try --dry-run first)"
 	}

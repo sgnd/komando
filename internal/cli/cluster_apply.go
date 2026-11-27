@@ -77,7 +77,7 @@ func applyPass(cl *call, ctx context.Context, k *kube.Client, conn string, docs 
 		if errors.As(err, &ae) && ae.Code == 409 && strings.HasPrefix(ae.Message, "Apply failed with") {
 			// the server's words name the other manager and its fields
 			return res, out.Errf(out.ExitConflict, "K8S_CONFLICT",
-				"another field manager owns these fields (named above): leave them out of the file, or take them over with `komando cluster kubernetes raw TARGET --write -- apply -f FILE --force-conflicts`",
+				"another field manager owns these fields (named above): leave them out of the file, or take them over with `komando cluster kubernetes raw NAME --write -- apply -f FILE --force-conflicts`",
 				"%s: %s", name, ae.Message)
 		}
 		if err != nil {

@@ -55,7 +55,7 @@ func logPods(ctx context.Context, k *kube.Client, space, ref, selector string) (
 		pods = append(pods, str(p["metadata"].(map[string]any)["name"]))
 	}
 	if len(pods) == 0 {
-		return nil, out.Errf(out.ExitNotFound, "K8S_POD_NOT_FOUND", "check the labels with `komando cluster kubernetes raw TARGET -- get pods --namespace "+space+"`", "no pods match %s in namespace %s", selector, space)
+		return nil, out.Errf(out.ExitNotFound, "K8S_POD_NOT_FOUND", "check the labels with `komando cluster kubernetes raw NAME -- get pods --namespace "+space+"`", "no pods match %s in namespace %s", selector, space)
 	}
 	if len(pods) > maxLogPods {
 		return nil, out.Usage("%d pods match; narrow it to %d or fewer (a tighter -l, or one workload)", len(pods), maxLogPods)

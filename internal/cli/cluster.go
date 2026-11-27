@@ -353,16 +353,16 @@ func pluginLine(e *kube.ExecAuth) string {
 func kubeErr(err error) error {
 	var e *kube.APIError
 	if errors.As(err, &e) {
-		code, exit, hint := "K8S_ERROR", out.ExitRemote, "read the cluster's words; `komando cluster kubernetes raw TARGET -- get events` shows what went wrong lately"
+		code, exit, hint := "K8S_ERROR", out.ExitRemote, "read the cluster's words; `komando cluster kubernetes raw NAME -- get events` shows what went wrong lately"
 		switch {
 		case e.Code == 401 || e.Code == 403:
 			code, exit, hint = "K8S_FORBIDDEN", out.ExitConnect, "the conn's account may not do this: see who it is with `komando cluster kubernetes raw NAME -- auth whoami` and what it may do with `komando cluster kubernetes raw NAME -- auth can-i --list`"
 		case e.Code == 404:
-			code, exit, hint = "K8S_NOT_FOUND", out.ExitNotFound, "list what exists with `komando cluster kubernetes raw TARGET -- get pods` (or deployments, services ...)"
+			code, exit, hint = "K8S_NOT_FOUND", out.ExitNotFound, "list what exists with `komando cluster kubernetes raw NAME -- get pods` (or deployments, services ...)"
 		case e.Code == 409:
-			code, exit, hint = "K8S_CONFLICT", out.ExitConflict, "the object changed meanwhile or exists already: look at it with `komando cluster kubernetes raw TARGET -- get TYPE/NAME -o yaml`, then run it again"
+			code, exit, hint = "K8S_CONFLICT", out.ExitConflict, "the object changed meanwhile or exists already: look at it with `komando cluster kubernetes raw NAME -- get TYPE/NAME -o yaml`, then run it again"
 		case e.Code == 400 && strings.Contains(e.Message, "is not valid for pod"):
-			code, exit, hint = "K8S_CONTAINER_NOT_FOUND", out.ExitNotFound, "see the pod's containers with `komando cluster kubernetes raw TARGET -- describe pod NAME`"
+			code, exit, hint = "K8S_CONTAINER_NOT_FOUND", out.ExitNotFound, "see the pod's containers with `komando cluster kubernetes raw NAME -- describe pod NAME`"
 		case e.Code == 400 || e.Code == 422:
 			code, exit, hint = "K8S_INVALID", out.ExitUsage, "the cluster refused it as written: check the label selector (-l) or the object's YAML"
 		}
@@ -440,7 +440,7 @@ func age(ts string) string {
 func clusterCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "cluster",
-		Short: "Kubernetes clusters and Docker Swarm: save them, and run commands on them",
+		Short: "Kubernetes and Docker Swarm: save clusters, run commands",
 		Long: `Save a Kubernetes cluster with ` + "`komando cluster kubernetes add`" + `, or use a Swarm
 manager server. ` + "`cluster kubernetes raw`" + ` passes the native kubectl command, read-only
 unless --write; protected targets need --yes, and a command that deletes or

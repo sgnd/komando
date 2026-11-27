@@ -48,7 +48,7 @@ func TestClusterTimeout(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { <-r.Context().Done() }))
 	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 	mustRun(t, "import", "kubeconfig", kubeconfigAt(t, srv.URL))
-	for _, args := range [][]string{{"status", "prod"}, {"ls", "prod", "pods"}, {"events", "prod"}, {"get", "prod", "pod", "x"}} {
+	for _, args := range [][]string{{"kubernetes", "raw", "prod", "--", "get", "pods"}, {"kubernetes", "raw", "prod", "--", "get", "events"}, {"kubernetes", "raw", "prod", "--", "get", "pod", "x"}, {"kubernetes", "raw", "prod", "--", "version"}} {
 		start := time.Now()
 		_, e := invRun(t, append([]string{"--timeout", "300ms", "cluster"}, args...)...)
 		if e == nil || e.Code != "TIMEOUT" || e.Exit != out.ExitTimeout {

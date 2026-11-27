@@ -66,8 +66,9 @@ func (v *limitValue) Set(s string) error {
 // command line is read as a namespace named 50 (S-5.14).
 type nsShort struct{ base pflag.Value } // --namespace's own value
 
-func (v *nsShort) String() string { return v.base.String() }
-func (v *nsShort) Type() string   { return "string" }
+func (v *nsShort) String() string     { return v.base.String() }
+func (v *nsShort) Type() string       { return "string" }
+func (v *nsShort) wraps() pflag.Value { return v.base }
 func (v *nsShort) Set(s string) error {
 	if s != "" && strings.Trim(s, "0123456789") == "" {
 		return flagHint(fmt.Sprintf("%s is a count, but -n is --namespace in cluster commands", s),

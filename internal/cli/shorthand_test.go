@@ -148,8 +148,8 @@ func TestStandardShorthands(t *testing.T) {
 		c.LocalFlags().VisitAll(func(f *pflag.Flag) { check(c.CommandPath(), c, f) })
 	}
 	// the parser's own -n in cluster is the namespace with the number check
-	c, _, _ := root.Find([]string{"cluster", "ls"})
+	c, _, _ := root.Find([]string{"cluster", "kubernetes", "exec"})
 	if f := c.Flags().ShorthandLookup("n"); f == nil || f.Value.Type() != "string" {
-		t.Errorf("cluster ls: the parser's -n is %+v", f)
+		t.Errorf("cluster kubernetes exec: the parser's -n is %+v", f)
 	}
 }

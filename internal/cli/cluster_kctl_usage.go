@@ -30,7 +30,7 @@ func kctlUsage(args []string) error {
 	case oneOf(verb, "port-forward", "proxy", "attach"):
 		return out.Usage("%s is a session: use `komando cluster kubernetes tunnel start` (ports) or `komando cluster kubernetes shell` (a terminal)", verb)
 	case verb == "edit":
-		return out.Usage("edit opens an editor: save the object with `komando cluster kubernetes raw TARGET -- get TYPE NAME -o yaml`, change the file, then `cluster kubernetes raw TARGET --write -- apply -f FILE`")
+		return out.Usage("edit opens an editor: save the object with `komando cluster kubernetes raw NAME -- get TYPE NAME -o yaml`, change the file, then `cluster kubernetes raw NAME --write -- apply -f FILE`")
 	case verb == "config" && !oneOf(sub, "current-context", "get-contexts"):
 		return out.Usage("config supports current-context and get-contexts (komando keeps the kubeconfig in its vault; `komando conn show NAME` shows the conn)")
 	case !oneOf(verb, kctlVerbs...):

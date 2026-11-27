@@ -109,7 +109,7 @@ or a date (2026-01-02T10:00:00). --sudo runs docker with sudo.`
 	compose.Flags().StringVarP(&file, "file", "f", "", "the compose file on the server")
 	compose.Flags().StringVarP(&dir, "dir", "C", "", "the project folder on the server")
 	raw := &cobra.Command{
-		Use:   "raw TARGET -- ARGS...",
+		Use:   "raw NAME -- ARGS...",
 		Short: "Run any docker subcommand (the same safety rules apply)",
 		Args:  cobra.MinimumNArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
@@ -217,7 +217,7 @@ func dockerErr(msg string, code int) *out.Error {
 	case (msg == "" && code == 127) || dockerMissing.MatchString(msg):
 		return out.Errf(out.ExitNotFound, "DOCKER_MISSING", "install Docker on the server, or pick another server", "docker not found")
 	case dockerNotFound.MatchString(msg):
-		return out.Errf(out.ExitNotFound, "DOCKER_OBJECT_NOT_FOUND", "list what exists with `komando docker ps TARGET --all` or `komando cluster swarm raw TARGET -- service ls`", "%s", firstLine(msg))
+		return out.Errf(out.ExitNotFound, "DOCKER_OBJECT_NOT_FOUND", "list what exists with `komando docker ps TARGET --all` or `komando cluster swarm raw NAME -- service ls`", "%s", firstLine(msg))
 	case strings.Contains(msg, "permission denied") && strings.Contains(msg, "docker.sock"):
 		return out.Errf(out.ExitRemote, "DOCKER_PERMISSION", "add --sudo, or add the login user to the docker group", "%s", firstLine(msg))
 	case msg == "":

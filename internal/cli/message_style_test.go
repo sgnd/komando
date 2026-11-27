@@ -644,8 +644,7 @@ var (
 		"driver/sql.go: U&\"...\" names are not allowed",                                   // SQL syntax
 	}
 	allowAsk = []string{
-		"cli/form_cluster.go: Swarm only: the stack's name (empty on Kubernetes)", // a field label, not a question
-		"cli/form_hints_files.go: Or type the content",                            // the second half of the question before it
+		"cli/form_hints_files.go: Or type the content", // the second half of the question before it
 	}
 	allowLabels = []string{
 		"openvpn/client.go: openvpn: {x}\n", // the OpenVPN client's log line, beside the server's (like komando:)
@@ -654,9 +653,6 @@ var (
 	// account placeholders
 	allowTerms = []string{
 		"cli/pkg_security.go: This only looks: the pending security updates of each server",
-		"cli/cluster_names.go: Swarm has no namespaces: leave out --namespace (a stack's se",
-		"cli/docker.go: list what exists with `komando docker ps TARGET --all` or `k",
-		"cli/form_cluster.go: pods, deployments, services, nodes, ingresses, configmaps ..",
 		"cli/select.go: unknown kind %q: use host, conn, vpn, a conn kind (see `koma",
 		"dbx/users.go: host %q: a name, an address, or a pattern with %%",
 		"driver/driver.go: %s URL needs a user name, for example %s://deploy@host/folde",

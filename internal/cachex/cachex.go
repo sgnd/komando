@@ -425,7 +425,7 @@ func Get(ctx context.Context, c redis.UniversalClient, key string, limit int64, 
 		return nil, cmdErr(err)
 	}
 	if typ == "none" {
-		return nil, out.Errf(out.ExitNotFound, "CACHE_KEY_NOT_FOUND", "list keys with `komando cache redis raw TARGET -- SCAN 0 MATCH 'pattern*'`", "no cache key named %q", key)
+		return nil, out.Errf(out.ExitNotFound, "CACHE_KEY_NOT_FOUND", "list keys with `komando cache redis raw NAME -- SCAN 0 MATCH 'pattern*'`", "no cache key named %q", key)
 	}
 	v := &Value{Key: key, Type: typ}
 	if ttl, err := c.TTL(ctx, key).Result(); err == nil && ttl >= 0 {

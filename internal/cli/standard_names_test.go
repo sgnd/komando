@@ -108,7 +108,6 @@ func TestStandardSynonyms(t *testing.T) {
 		{[]string{"servers"}, "host"}, {[]string{"server", "list"}, "host.list"},
 		{[]string{"databases", "query"}, "db.query"}, {[]string{"files", "cat"}, "fs.cat"},
 		{[]string{"tunnels", "list"}, "tunnel.list"}, {[]string{"policies", "list"}, "policy.list"},
-		{[]string{"cache", "list"}, "cache.keys"}, {[]string{"cache", "ls"}, "cache.keys"},
 		{[]string{"group", "show"}, "group.list"}, {[]string{"job", "show"}, "job.status"},
 		{[]string{"tunnel", "show"}, "tunnel.list"}, {[]string{"recipe", "show"}, "recipe.list"},
 		{[]string{"policy", "add"}, "policy.deny"}, {[]string{"secret", "add"}, "secret.set"},

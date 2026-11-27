@@ -92,7 +92,7 @@ func waitRollout(ctx context.Context, k *kube.Client, r kube.ResourceType, space
 		if len(stuck) > 0 {
 			res["stuck_pods"] = stuck
 		}
-		hint := "see why with `komando cluster kubernetes raw TARGET -- describe " + kindRef(r, name) + "`; `-- rollout undo` goes back"
+		hint := "see why with `komando cluster kubernetes raw NAME -- describe " + kindRef(r, name) + "`; `-- rollout undo` goes back"
 		switch {
 		case failed:
 			return res, out.Errf(out.ExitRemote, "ROLLOUT_FAILED", hint, "%s%s", msg, stuckText(stuck))
@@ -257,5 +257,5 @@ func pickRollback(sets []map[string]any, current int) (map[string]any, error) {
 	if len(skipped) > 0 {
 		msg += "; skipped " + strings.Join(skipped, ", ") + ": pick one with --to"
 	}
-	return nil, out.Errf(out.ExitNotFound, "REVISION_NOT_FOUND", "see the revisions with `komando cluster kubernetes raw TARGET -- rollout history TYPE/NAME`", "%s", msg)
+	return nil, out.Errf(out.ExitNotFound, "REVISION_NOT_FOUND", "see the revisions with `komando cluster kubernetes raw NAME -- rollout history TYPE/NAME`", "%s", msg)
 }

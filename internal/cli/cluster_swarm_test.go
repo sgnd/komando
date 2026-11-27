@@ -145,8 +145,8 @@ func TestClusterDashN(t *testing.T) {
 			}
 		}
 	}
-	if n != 21 { // 20, and the hidden `cluster info` synonym of cluster status
-		t.Errorf("%d cluster commands have --namespace, want 21", n)
+	if n != 3 { // kubernetes exec, shell and tunnel start
+		t.Errorf("%d cluster commands have --namespace, want 3", n)
 	}
 	invHome(t)
 	e := mainErr(t, "cluster", "kubernetes", "exec", "x1", "api", "-n", "50")

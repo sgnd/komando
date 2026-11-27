@@ -234,7 +234,7 @@ func (m *memcache) classicGet(ctx context.Context, key string, maxBytes int) (*V
 }
 
 func notFound(key string) error {
-	return out.Errf(out.ExitNotFound, "CACHE_KEY_NOT_FOUND", "list keys with `komando cache memcached raw TARGET -- lru_crawler metadump all`", "no cache key named %q", key)
+	return out.Errf(out.ExitNotFound, "CACHE_KEY_NOT_FOUND", "list keys with `komando cache memcached raw NAME -- lru_crawler metadump all`", "no cache key named %q", key)
 }
 
 // mcMaxRelative is the longest expiry memcached reads as seconds from now
@@ -328,7 +328,7 @@ func (m *memcache) Keys(ctx context.Context, pattern string, limit int) ([]KeyIn
 		line, err := m.line()
 		if err != nil {
 			if strings.Contains(line, "lru crawler") || line == "ERROR" {
-				return nil, false, out.Errf(out.ExitRemote, "CACHE_ERROR", "start memcached with the LRU crawler on (the default since 1.5); `komando cache memcached raw TARGET -- get KEY` works without it",
+				return nil, false, out.Errf(out.ExitRemote, "CACHE_ERROR", "start memcached with the LRU crawler on (the default since 1.5); `komando cache memcached raw NAME -- get KEY` works without it",
 					"this memcached cannot list keys: %s", line)
 			}
 			return nil, false, mcErr(err)
