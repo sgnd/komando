@@ -1,4 +1,18 @@
+### komando agent
+title: AI agents: the komando skill and the guard that protects secrets
+### komando agent skill
+title: The komando skill and guard in your AI agents: install, uninstall
+### komando agent skill install
+title: Add the komando skill to Claude Code, Codex, Cursor, Gemini CLI
+- flag:project | --project | Only for the folder you are in now? | No is for every project of your user (your home folder). Yes is for this folder only. |  | default,choices
+### komando agent skill uninstall
+title: Take the komando skill and guard out of your AI agents
+- flag:project | --project | Only for the folder you are in now? | No is for every project of your user (your home folder). Yes is for this folder only. |  | default,choices
 ### komando audit
+title: The audit log: see what was done, check it was not changed
+### komando audit check
+title: Check that no audit record was changed, added or removed outside komando
+### komando audit list
 title: Show the audit log: who did what, where, and the result
 - flag:since | --since | From when? | Like 2h, 7d, today or 2026-11-07. Leave empty for the newest entries. | today | optional,check
 - flag:target | --target | Only for which servers or conns? | Leave empty for everything. |  | optional,free,choices
@@ -7,8 +21,6 @@ title: Show the audit log: who did what, where, and the result
 - flag:command | --command | Only commands that start with this (like exec, fs.) |  |  | optional,advanced,check
 - flag:limit | --limit | The newest N entries (0 = all; with --since or --until, all unless given) |  |  | optional,advanced,default,check
 - flag:until | --until | Only entries before this time (the same forms as --since) |  |  | optional,advanced,check
-### komando audit verify
-title: Check that no audit record was changed, added or removed outside komando
 ### komando cache
 title: Caches (Redis, Valkey, memcached): read and change keys
 ### komando cache get
@@ -906,32 +918,29 @@ title: Write a file on one server, all or nothing
 - flag:validate | --validate | Check the new file before it goes into place; %s is its path (like 'visudo -cf %s', 'nginx -t -c %s') |  |  | optional,advanced,check
 ### komando group
 title: Groups of servers, conns and VPNs: see and change who is in them
-### komando group add
+### komando group create
 title: Add servers, conns and VPNs matching TARGET to GROUP
 - arg0 | Group | Which group? | Pick one, or type a new name to make a new group. | web | free,choices,check
 - arg1 | Target | What goes in it? | A server, conn or VPN, or tag:prod or several names separated by spaces or commas. |  | free,choices,check
 ### komando group list
-title: List groups and tags with their members, or the members of one group
+title: List groups and tags with their members, or one group's members
 - arg0 | Group | Which group? (leave empty for all) | Empty lists every group and tag with what is in it. |  | optional,free,choices,check
 - flag:limit | --limit | Show at most this many groups and tags each, or members of GROUP (0 = all) |  |  | optional,advanced,check
+### komando group remove
+title: Take entries out of a group, or delete the group (from komando only)
+- arg0 | Group | Which group? | A group is a name you give to several servers, conns and VPNs, like web or prod. |  | choices,check
+- arg1 | Target | What should come out of it? (leave empty to delete the group) | Empty deletes the group itself; the servers, conns and VPNs in it stay in your list. |  | optional,free,choices,check
 ### komando group rename
 title: Rename a group on every server, conn and VPN in it
 - arg0 | Old | Which group? | A group is a name you give to several servers, conns and VPNs, like web or prod. |  | choices,check
 - arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore. | web-prod | check
-### komando group rm
-title: Take entries out of a group, or delete the group (from komando only)
+### komando group show
+title: Show the members of one group
 - arg0 | Group | Which group? | A group is a name you give to several servers, conns and VPNs, like web or prod. |  | choices,check
-- arg1 | Target | What should come out of it? (leave empty to delete the group) | Empty deletes the group itself; the servers, conns and VPNs in it stay in your list. |  | optional,free,choices,check
 ### komando guide
 title: The rules for AI agents, and how komando works (read first)
 - arg0 | Topic | Topic? |  |  | optional,check
 - flag:all | --all | Print the whole playbook |  |  | advanced,default,choices
-### komando guide install
-title: Add the komando skill to Claude Code, Codex, Cursor, Gemini CLI
-- flag:project | --project | Only for the folder you are in now? | No is for every project of your user (your home folder). Yes is for this folder only. |  | default,choices
-### komando guide uninstall
-title: Take the komando skill and guard out of your AI agents
-- flag:project | --project | Only for the folder you are in now? | No is for every project of your user (your home folder). Yes is for this folder only. |  | default,choices
 ### komando help
 title: Show the help of a command
 - arg0 | Command | Command? |  |  | optional,check
@@ -1150,8 +1159,8 @@ title: Rules that block destructive commands: see, test, add, remove
 ### komando policy check
 title: Check whether a command would be blocked
 - arg0 | Command | Which command do you want to check? | komando says whether it would refuse to run it. Nothing runs. | rm -rf / | check
-- flag:conn-kind | --conn-kind | Rate the argument for a conn kind instead: bigquery, clickhouse, mysql, oracle, postgres, snowflake, sqlite, sqlserver, redis, memcached, mongodb (a command document as JSON) |  |  | optional,advanced,check
-### komando policy deny
+- flag:conn-kind | --conn-kind | Rate the argument for a conn kind instead (a command document as JSON) |  |  | optional,advanced,check
+### komando policy create
 title: Add a deny rule (a Go regular expression)
 - arg0 | Regex | Which command should komando block? | Like kubectl delete: write it as kubectl\s+delete (\s+ means spaces, .* means anything). Then check it with komando policy check "kubectl delete pod web". | kubectl\s+delete | check
 ### komando policy edit
@@ -1165,7 +1174,7 @@ title: Switch a rule off or on, everywhere or on some servers
 ### komando policy list
 title: List the built-in rules and your deny rules
 - flag:limit | --limit | Show at most this many rules of each kind (0 = all) |  |  | optional,advanced,check
-### komando policy rm
+### komando policy remove
 title: Remove a deny rule you added (from komando only)
 - arg0 | Rule | Which of your own rules should go? | Its id (custom-1a2b3c4d ...) or the pattern as you wrote it. `komando policy list` shows them. A built-in rule cannot be removed; `komando policy edit` switches it off. | custom-1a2b3c4d | check
 ### komando policy show
@@ -1719,29 +1728,6 @@ title: List the topics of a SQS account with their message counts
 title: Show one topic of a SQS account: messages, settings, readers
 - arg0 | Name | Name? |  |  | check
 - arg1 | Topic | Topic? |  |  | check
-### komando recipe
-title: Ready-made and saved commands: run them, save your own
-### komando recipe add
-title: Save a command as a recipe with blanks to fill in
-- arg0 | Name | What do you want to call this recipe? | A short name you run later, like komando recipe run app-logs web1. | app-logs | check
-- arg1 | Command | What command should it run? | Type it as you would on the server. {{name}} is a blank you fill in when you run it; {{name=100}} has a default. | tail -n {{lines=100}} /srv/app/app.log | check
-- flag:desc | --desc | What does it do, in a few words? | What the recipe does, in a few words (shown in recipe list) | Last lines of the app log | optional,check
-- flag:needs-sudo | --needs-sudo | Run it with sudo (as root)? | Say yes when it needs admin rights, like changing system files or services. |  | default,choices
-- flag:read-only | --read-only | Does it only look, without changing anything? | Yes lets it run on a production server without asking you first. Say yes only when that is true. |  | default,choices
-- flag:overwrite | --overwrite | Replace a recipe with the same name |  |  | advanced,default,choices
-### komando recipe list
-title: List built-in and saved recipes
-- flag:category | --category | Only this category (or "saved" for your own) |  |  | optional,advanced,check
-- flag:limit | --limit | Show at most this many recipes (0 = all) |  |  | optional,advanced,check
-### komando recipe rm
-title: Remove a saved recipe (from komando only)
-- arg0 | Name | Which of your saved recipes should go? | Built-in recipes cannot be removed. `komando recipe list --category saved` shows yours. | app-logs | check
-### komando recipe run
-title: Run a recipe on servers
-- arg0 | Name | Which recipe? | Its name. `komando recipe list` shows the built-in ones (health, disk, memory ...) and yours. | health | check
-- arg1 | Target (servers) | Which servers? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
-- flag:var | --var | Fill in a blank? | Some recipes have blanks, like path for big-dirs: NAME=VALUE. `komando recipe list` shows them. Leave empty for the defaults. | path=/var | optional,check
-- flag:no-sudo | --no-sudo | Run it without sudo? | Yes when the recipe asks for sudo but you may not use it there. |  | default,choices
 ### komando registry
 title: Container registries: see images, copy them, clean up
 ### komando registry oci
@@ -1848,12 +1834,38 @@ title: Copy a secret to a new name in the vault (value never shown)
 ### komando shell
 title: Open a login shell on one server (person only)
 - arg0 | Server | Which server? | One server. You type on it as if you were there; type exit to come back. |  | choices,check
+### komando snippet
+title: Ready-made and saved commands: run them, save your own
+### komando snippet create
+title: Save a command as a snippet with blanks to fill in
+- arg0 | Name | What do you want to call this recipe? | A short name you run later, like komando snippet exec app-logs web1. | app-logs | check
+- arg1 | Command | What command should it run? | Type it as you would on the server. {{name}} is a blank you fill in when you run it; {{name=100}} has a default. | tail -n {{lines=100}} /srv/app/app.log | check
+- flag:desc | --desc | What does it do, in a few words? | What the snippet does, in a few words (shown in snippet list) | Last lines of the app log | optional,check
+- flag:needs-sudo | --needs-sudo | Run it with sudo (as root)? | Say yes when it needs admin rights, like changing system files or services. |  | default,choices
+- flag:read-only | --read-only | Does it only look, without changing anything? | Yes lets it run on a production server without asking you first. Say yes only when that is true. |  | default,choices
+- flag:overwrite | --overwrite | Replace a snippet with the same name |  |  | advanced,default,choices
+### komando snippet exec
+title: Run a snippet on servers
+- arg0 | Name | Which recipe? | Its name. `komando snippet list` shows the built-in ones (health, disk, memory ...) and yours. | health | check
+- arg1 | Target (servers) | Which servers? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
+- flag:var | --var | Fill in a blank? | Some recipes have blanks, like path for big-dirs: NAME=VALUE. `komando snippet list` shows them. Leave empty for the defaults. | path=/var | optional,check
+- flag:no-sudo | --no-sudo | Run it without sudo? | Yes when the recipe asks for sudo but you may not use it there. |  | default,choices
+### komando snippet list
+title: List built-in and saved snippets
+- flag:category | --category | Only this category (or "saved" for your own) |  |  | optional,advanced,check
+- flag:limit | --limit | Show at most this many snippets (0 = all) |  |  | optional,advanced,check
+### komando snippet remove
+title: Remove a saved snippet (from komando only)
+- arg0 | Name | Which of your saved recipes should go? | Built-in recipes cannot be removed. `komando snippet list --category saved` shows yours. | app-logs | check
+### komando snippet show
+title: Show one snippet: its command, blanks and whether it needs sudo
+- arg0 | Name | Which recipe? | Its name. `komando snippet list` shows the built-in ones (health, disk, memory ...) and yours. | health | check
 ### komando ssh-gate
 title: Let an SSH key run komando here and nothing else (person only)
 ### komando ssh-gate line
 title: Print the authorized_keys line that limits a key to komando
 - arg0 | Public key | Which public key? | The .pub file of the key (on this computer), or its line: ssh-ed25519 AAAA... phone. Never the private key. | ~/phone.pub | check
-- flag:name | --name | What do you want to call this key? | It shows in `komando audit` for every command the key runs. Letters, digits, dot, dash, underscore. | phone | check
+- flag:name | --name | What do you want to call this key? | It shows in `komando audit list` for every command the key runs. Letters, digits, dot, dash, underscore. | phone | check
 - flag:read-only | --read-only | Should the key only run commands that look, without changing anything? | Yes is safer for a phone or a shared key. |  | default,choices
 - flag:network | --network | Should this read-only key also run network checks and programs on servers? | No is safer: what the key reads cannot leave through a URL or a name lookup. Yes allows net, cert check of a website and exec --read-only. |  | default,choices
 - flag:shell-access | --shell-access | Should this key also open a login shell on a server (ssh -t HOST komando shell SERVER)? | No is safer. Yes lets sshd give the key a terminal, for a shell on a listed server that is not protected, not Windows and not this computer. |  | default,choices,show

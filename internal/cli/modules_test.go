@@ -258,10 +258,10 @@ func TestRecipeReadOnlyAsksBeforeLocking(t *testing.T) {
 		root.SetArgs(append([]string{"-o", "json"}, args...))
 		return root.Execute()
 	}
-	if err := run("recipe", "add", "du", "du -sh /srv"); err != nil {
+	if err := run("snippet", "create", "du", "du -sh /srv"); err != nil {
 		t.Fatal(err)
 	}
-	if e := toErr(run("recipe", "add", "du", "du -sh /srv", "--read-only", "--overwrite")); e == nil || e.Code != "SAFETY_SETTING" {
+	if e := toErr(run("snippet", "create", "du", "du -sh /srv", "--read-only", "--overwrite")); e == nil || e.Code != "SAFETY_SETTING" {
 		t.Fatalf("read-only over a normal recipe without --yes: %v", e)
 	}
 	setCallerEnv(t, "CLAUDECODE", "1") // an agent: the approval window asks
@@ -278,7 +278,7 @@ func TestRecipeReadOnlyAsksBeforeLocking(t *testing.T) {
 		}
 		return true, true
 	}
-	if err := run("recipe", "add", "du", "du -sh /srv", "--read-only", "--overwrite", "--yes"); err != nil {
+	if err := run("snippet", "create", "du", "du -sh /srv", "--read-only", "--overwrite", "--yes"); err != nil {
 		t.Fatal(err)
 	}
 	if !lockFree {
@@ -325,7 +325,7 @@ func TestConfigSetAsksBeforeLocking(t *testing.T) {
 
 // An unknown recipe points to the list.
 func TestRecipeNotFound(t *testing.T) {
-	if e := recipeNotFound("t-nope"); !strings.Contains(e.Hint, "recipe list") {
+	if e := recipeNotFound("t-nope"); !strings.Contains(e.Hint, "snippet list") {
 		t.Errorf("unknown recipe: %+v", e)
 	}
 }
@@ -498,7 +498,7 @@ func TestPkgUpgradableReadsAsRootWhenItCan(t *testing.T) {
 func TestRecipeListCategoryTypo(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	if e := toErr(runRoot(t, "-o", "json", "recipe", "list", "--category", "secrity")); e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "security") {
+	if e := toErr(runRoot(t, "-o", "json", "snippet", "list", "--category", "secrity")); e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "security") {
 		t.Errorf("unknown category: %v", e)
 	}
 }

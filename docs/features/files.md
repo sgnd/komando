@@ -157,8 +157,8 @@ komando svc reload web1 nginx                 # if a service reads the file
 On a Windows server `fs restore` does not work yet: copy the backup back
 with `komando exec win1 -- Copy-Item ...` ([Windows servers](windows.md)).
 
-Without `--backup` there is no copy: `komando audit` says what changed, when
-and where (`komando audit --target web1 --since 2h`), so you can change it
+Without `--backup` there is no copy: `komando audit list` says what changed, when
+and where (`komando audit list --target web1 --since 2h`), so you can change it
 back by hand. For a database change, restore from a dump (`db dump` before
 the change, `db restore` to go back); for a Kubernetes deployment, `cluster
 rollback`.

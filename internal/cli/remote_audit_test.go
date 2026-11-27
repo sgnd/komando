@@ -279,15 +279,15 @@ func TestFsCatTailReadsTheEnd(t *testing.T) {
 
 func TestRecipeRunNameAndOrder(t *testing.T) {
 	auditHome(t)
-	env := rawRun(t, "recipe", "run", "disk", "web2", "--dry-run")
-	if env["command"] != "recipe.run" {
+	env := rawRun(t, "snippet", "exec", "disk", "web2", "--dry-run")
+	if env["command"] != "snippet.exec" {
 		t.Errorf("command %v", env["command"])
 	}
 	if d, _ := env["data"].(map[string]any); d["recipe"] != "disk" {
 		t.Errorf("data.recipe: %v", env["data"])
 	}
-	e := wantCode(t, "RECIPE_NOT_FOUND", "recipe", "run", "web2", "disk")
-	if !strings.Contains(e.Hint, "komando recipe run disk web2") {
+	e := wantCode(t, "RECIPE_NOT_FOUND", "snippet", "exec", "web2", "disk")
+	if !strings.Contains(e.Hint, "komando snippet exec disk web2") {
 		t.Errorf("hint %q", e.Hint)
 	}
 }

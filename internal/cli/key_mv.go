@@ -72,16 +72,17 @@ func keyMvCmd() *cobra.Command {
 	}
 }
 
+// groupRenameLong is the help text of group rename.
+const groupRenameLong = `Gives a group a new name on every member. OLD matches in any case, like
+@OLD. When NEW is a group already, nothing changes (GROUP_EXISTS): to merge
+two groups, add the members with ` + "`komando group create NEW @OLD`" + ` and then run
+` + "`komando group remove OLD`" + `. When a protected server or conn is in the group,
+renaming it needs --yes, once for all of them.`
+
 func groupMvCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "rename OLD NEW",
-		Aliases: []string{"mv"}, // a plain synonym
-		Short:   "Rename a group on every server, conn and VPN in it",
-		Long: `Gives a group a new name on every member. OLD matches in any case, like
-@OLD. When NEW is a group already, nothing changes (GROUP_EXISTS): to merge
-two groups, add the members with ` + "`komando group add NEW @OLD`" + ` and then run
-` + "`komando group rm OLD`" + `. When a protected server or conn is in the group,
-renaming it needs --yes, once for all of them.`,
+		Use:   "rename OLD NEW",
+		Short: "Rename a group on every server, conn and VPN in it",
 		Example: `  komando group rename web frontend
   komando group rename prod production --dry-run`,
 		Args: cobra.ExactArgs(2),
@@ -105,7 +106,7 @@ renaming it needs --yes, once for all of them.`,
 					for _, gr := range slices.Sorted(maps.Keys(allGroups(s).Groups)) {
 						if strings.EqualFold(gr, to) {
 							return nil, renameOpts{}, out.Errf(out.ExitConflict, "GROUP_EXISTS",
-								"pick another name; to merge them, run `komando group add "+to+" @"+from+"` and then `komando group rm "+from+"`",
+								"pick another name; to merge them, run `komando group create "+to+" @"+from+"` and then `komando group remove "+from+"`",
 								"group %q exists", gr)
 						}
 					}

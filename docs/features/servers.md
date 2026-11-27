@@ -210,7 +210,7 @@ keep their comment; they still work, since the key itself does not change.
 
 `group rename OLD NEW` renames a group on every member (it asks first when
 a protected server or conn is in it). To merge two groups, use
-`group add NEW @OLD` and then `group rm OLD`.
+`group create NEW @OLD` and then `group remove OLD`.
 
 ### Rename a whole project at once
 
@@ -718,7 +718,7 @@ says on stderr which key it trusted:
 komando: first connection to web1 (203.0.113.10:22): trusted its ssh-ed25519 host key SHA256:pVt2...
 ```
 
-The audit log keeps it too (`host.key-pinned` in `komando audit`), and the
+The audit log keeps it too (`host.key-pinned` in `komando audit list`), and the
 JSON answer lists it in `meta.host_keys_pinned`, so an AI agent can show
 it to you. Compare that fingerprint with the server's own: run
 `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` on the server's console,

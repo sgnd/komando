@@ -1,5 +1,10 @@
+agent	kind=read|	target=""	
+agent.skill	kind=read|	target=""	
+agent.skill.install	kind=change|	target=""	
+agent.skill.uninstall	kind=change|	target=""	safety|||it removes komando's guard from an AI agent's settings|||
 audit	kind=read|	target=""	
-audit.verify	kind=read|	target=""	
+audit.check	kind=read|	target=""	
+audit.list	kind=read|	target=""	
 cache	kind=read|	target=""	
 cache.get	kind=read|	target=""	
 cache.info	kind=read|	target=""	
@@ -164,14 +169,13 @@ fs.rm	kind=change|	target="servers"	dangerous||deletes the files||||
 fs.stat	kind=read|	target="servers"	
 fs.write	kind=change|	target="servers"	
 group	kind=read|	target=""	
-group.add	kind=change|	target=""	
+group.create	kind=change|	target=""	
 group.list	kind=read|	target=""	
+group.remove	kind=change|	target=""	change|GROUP alone|||deleting a group of more than 3 members||
 group.rename	kind=change|	target=""	
-group.rm	kind=change|	target=""	change|GROUP alone|||deleting a group of more than 3 members||
+group.show	kind=read|	target=""	
 guide	kind=read|	target=""	
 guide.guard	kind=none	target=""	
-guide.install	kind=change|	target=""	
-guide.uninstall	kind=change|	target=""	safety|||it removes komando's guard from an AI agent's settings|||
 help	kind=none	target=""	
 host	kind=read|	target="servers"	
 host.add	kind=change|	target="servers"	dangerous|||--proxy-command matches a destructive rule||| ; safety|with --proxy-command||an AI agent runs it (the proxy command runs on this computer)|||
@@ -215,10 +219,10 @@ pkg.upgradable	kind=depends|only reads, unless --refresh updates the package ind
 pkg.upgrade	kind=change|	target="servers"	dangerous|with --security||an update would remove a package the server needs|||
 policy	kind=read|	target=""	
 policy.check	kind=read|	target=""	
-policy.deny	kind=change|	target=""	
+policy.create	kind=change|	target=""	
 policy.edit	kind=change|	target=""	safety|unless it only switches the rule on|switches a rule off||||
 policy.list	kind=read|	target=""	
-policy.rm	kind=change|	target=""	safety||removes a deny rule||||
+policy.remove	kind=change|	target=""	safety||removes a deny rule||||
 policy.show	kind=read|	target=""	
 probe cache redis edit prod-redis --protected=false	safety|turns protection off||
 probe cluster kubernetes edit prod-k8s --protected=false	safety|turns protection off||
@@ -228,7 +232,7 @@ probe conn edit app-db --protected=false	safety|turns protection off||
 probe credential key remove k1 --delete-file	dangerous|deletes the private key komando keeps||
 probe export --for-phone	person|||
 probe export --sealed	person|||
-probe group rm big	change|||deleting a group of more than 3 members
+probe group remove big	change|||deleting a group of more than 3 members
 probe host add web2 root@10.0.0.6 --proxy-command nc	safety||an AI agent runs it (the proxy command runs on this computer)|
 probe host edit web1 --protected=false	safety|turns protection off||
 probe host edit web1 --proxy-command nc	safety||an AI agent runs it (the proxy command runs on this computer)|
@@ -239,8 +243,9 @@ probe pkg rm web1 openssh-server	dangerous|removes a package the server needs to
 probe pkg upgrade web1 --security	dangerous||an update would remove a package the server needs|
 probe policy edit rm-root --off	safety|switches a rule off||
 probe queue kafka edit prod-kafka --protected=false	safety|turns protection off||
-probe recipe add r1 --overwrite --read-only	safety||it makes an existing snippet read-only|
 probe registry oci edit ghcr --protected=false	safety|turns protection off||
+probe secret keychain	person|moves the key into the keychain||
+probe snippet create r1 --overwrite --read-only	safety||it makes an existing snippet read-only|
 probe storage s3 edit prod-s3 --protected=false	safety|turns protection off||
 probe sync ./site web1:/srv --delete	dangerous|deletes the files in DST that SRC does not have||
 probe vpn socks edit kantor --mfa=false	safety|turns --mfa off (komando may then connect it without a person)||
@@ -344,11 +349,6 @@ queue.sqs.topic.create	kind=change|	target=""
 queue.sqs.topic.delete	kind=change|	target=""	dangerous||deletes the topics or queues with their messages||||
 queue.sqs.topic.list	kind=read|	target=""	
 queue.sqs.topic.show	kind=read|	target=""	
-recipe	kind=read|	target="servers"	
-recipe.add	kind=change|	target="servers"	safety|with --overwrite --read-only||it makes an existing snippet read-only|||
-recipe.list	kind=read|	target="servers"	
-recipe.rm	kind=change|	target="servers"	
-recipe.run	kind=depends|decided by the recipe's command, like exec	target="servers"	dangerous|||a step matches a destructive rule|||
 registry	kind=read|	target=""	
 registry.oci	kind=read|	target=""	
 registry.oci.add	kind=change|	target=""	safety|||the address turns TLS off (plain HTTP)|||
@@ -371,6 +371,12 @@ secret	kind=read|	target=""
 secret.check	kind=read|	target=""	person||||||
 secret.cp	kind=change|	target=""	
 shell	kind=depends|an shellNote shell for a person: whatever they type	target="servers"	person||||||
+snippet	kind=read|	target="servers"	
+snippet.create	kind=change|	target="servers"	safety|with --overwrite --read-only||it makes an existing snippet read-only|||
+snippet.exec	kind=depends|decided by the recipe's command, like exec	target="servers"	dangerous|||a step matches a destructive rule|||
+snippet.list	kind=read|	target="servers"	
+snippet.remove	kind=change|	target="servers"	
+snippet.show	kind=read|	target="servers"	
 ssh-gate	kind=depends|runs the komando command an SSH key sent, when ssh-gate allows it	target=""	person||||||
 ssh-gate.line	kind=read|	target=""	
 ssh-gate.status	kind=read|	target=""	

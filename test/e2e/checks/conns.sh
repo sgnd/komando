@@ -174,7 +174,7 @@ done
 
 # one inventory: targets pick servers and conns together
 echo "==> servers and conns together"
-q $K group add stack 'bastion,pg,cache'
+q $K group create stack 'bastion,pg,cache'
 check "list @stack has both" "bastion,cache,pg" "$($K list @stack | jget '",".join(t["name"] for t in d["data"]["targets"])')"
 check "test @stack checks both" 3 "$($K test @stack | jget 'd["data"]["summary"]["ok"]')"
 check "exec @stack skips conns" "cache,pg" "$($K exec @stack --read-only -- true | jget '",".join(s["name"] for s in d["meta"]["skipped"])')"

@@ -89,7 +89,7 @@ func TestPolicyOffOnShow(t *testing.T) {
 	if show["kind"] != "built-in" || fmt.Sprint(sw["hosts"], sw["groups"]) != "[web1] [web]" {
 		t.Errorf("policy show after two switches: %v", show)
 	}
-	a := mustRun(t, "audit", "--command", "policy.edit")
+	a := mustRun(t, "audit", "list", "--command", "policy.edit")
 	if a["count"].(float64) != 2 {
 		t.Errorf("policy edit is audited as policy.edit: %v", a)
 	}
@@ -116,7 +116,7 @@ func TestPolicyOffOnShow(t *testing.T) {
 	if sw := mustRun(t, "policy", "show", "docker-prune")["switch"].(map[string]any); sw["off"] != false {
 		t.Errorf("policy edit --off=false: %v", sw)
 	}
-	mustRun(t, "policy", "deny", `kubectl\s+apply`)
+	mustRun(t, "policy", "create", `kubectl\s+apply`)
 	custom := policy.CustomID(`kubectl\s+apply`)
 	mustRun(t, "policy", "edit", "--off", custom, "--add-server", "db1", "--yes")
 	if show := mustRun(t, "policy", "show", custom); show["kind"] != "custom" || fmt.Sprint(show["switch"].(map[string]any)["hosts"]) != "[db1]" {

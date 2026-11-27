@@ -33,7 +33,7 @@ func TestRenameOneEntry(t *testing.T) {
 	if d := mustRun(t, "rename", "db-pass", "shop-db-pass"); d["to"] != "shop-db-pass" {
 		t.Errorf("rename a secret: %v", d)
 	}
-	mustRun(t, "group", "add", "front", "web-01")
+	mustRun(t, "group", "create", "front", "web-01")
 	if d := mustRun(t, "rename", "@front", "edge"); d["to"] != "edge" {
 		t.Errorf("rename a group: %v", d)
 	}

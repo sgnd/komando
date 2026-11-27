@@ -139,8 +139,8 @@ func gateInventory(t *testing.T) {
 func TestGateCheck(t *testing.T) {
 	invHome(t)
 	gateInventory(t)
-	mustRun(t, "recipe", "add", "my-df", "df -h", "--read-only")
-	mustRun(t, "recipe", "add", "my-clean", "rm -rf /tmp/cache")
+	mustRun(t, "snippet", "create", "my-df", "df -h", "--read-only")
+	mustRun(t, "snippet", "create", "my-clean", "rm -rf /tmp/cache")
 	setGate(tcl, true, gateYes) // the gate's own flags come back after it read the key's
 	defer func() { setGate(tcl, false, gateYes) }()
 	const R = "SSH_GATE_REFUSED"
@@ -186,10 +186,10 @@ func TestGateCheck(t *testing.T) {
 		{"pkg security web --refresh", "", "SSH_GATE_READ_ONLY"},
 		{"pkg upgrade web --security", "", "SSH_GATE_READ_ONLY"},
 		{"pkg security web", "", ""},
-		{"recipe run my-df web", "", ""},
-		{"recipe run my-clean web", "", "SSH_GATE_READ_ONLY"},
-		{"recipe run drop-caches web", "", "SSH_GATE_READ_ONLY"},
-		{"recipe run disk web", "", ""},
+		{"snippet exec my-df web", "", ""},
+		{"snippet exec my-clean web", "", "SSH_GATE_READ_ONLY"},
+		{"snippet exec drop-caches web", "", "SSH_GATE_READ_ONLY"},
+		{"snippet exec disk web", "", ""},
 		{"credential password remove db --help", "", ""}, // help only
 		{"db", "", ""}, // a group: prints its help
 		{"no-such-command", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"}, // names no command: as for a person (cut PR B1)
@@ -244,24 +244,24 @@ func TestGateCheck(t *testing.T) {
 		{"vpn openvpn add office --config x.ovpn", R, R},
 		{"vpn openvpn edit office --notes x", R, R},
 		{"vpn openvpn start office", "", "SSH_GATE_READ_ONLY"},
-		{"group add web prod", R, R},
+		{"group create web prod", R, R},
 		{"rename --starts-with a b", R, R},
 		{"config set audit off", R, R},
-		{"policy deny 'x'", R, R},
-		{"policy rm x", R, R},
+		{"policy create 'x'", R, R},
+		{"policy remove x", R, R},
 		{"status --short", "", ""},
 		{"credential password remove db", R, R},
 		{"config vault keychain", R, R},
 		{"credential key create k", R, R},
 		{"credential key add k ./id", R, R},
 		{"credential key remove k", R, R},
-		{"recipe add x 'id'", R, R},
-		{"recipe rm my-df", R, R},
-		{"guide install", R, R},
-		{"guide uninstall", R, R},
+		{"snippet create x 'id'", R, R},
+		{"snippet remove my-df", R, R},
+		{"agent skill install", R, R},
+		{"agent skill uninstall", R, R},
 		{"tunnel start web -L 8080:localhost:80", R, R},
 		{"exec web --dry-run -- systemctl restart nginx", "", "SSH_GATE_READ_ONLY"},
-		{"recipe run my-clean web", "", "SSH_GATE_READ_ONLY"},
+		{"snippet exec my-clean web", "", "SSH_GATE_READ_ONLY"},
 		{"logs web --unit nginx", "", ""},
 		{"update", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 	}
@@ -275,6 +275,41 @@ func TestGateCheck(t *testing.T) {
 	}
 	if !tcl.yes() || tcl.reveal() {
 		t.Errorf("the gate's own flags changed: %+v", tcl.flags)
+	}
+}
+
+// A read-only key runs a snippet only when the filled-in command reads, so
+// the gate reads the blanks as the person typed them: a value with a comma
+// or a double quote is one value, and blanks it cannot read are refused.
+func TestGateSnippetBlanksAreReadAsTyped(t *testing.T) {
+	invHome(t)
+	gateInventory(t)
+	// stored as a read-only snippet whose blank sits in a verb position;
+	// with no --var it reads (the default), so only the values decide
+	err := store.Update(store.Save(), func(st *store.State) error {
+		st.Snippets["dk"] = &store.Snippet{Name: "dk", Command: "docker {{sub=ps}} ps", ReadOnly: true}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	setGate(tcl, true, gateYes)
+	defer func() { setGate(tcl, false, gateYes) }()
+	const RO = "SSH_GATE_READ_ONLY"
+	for line, want := range map[string]string{
+		"snippet exec dk web --var sub=ps":     "",
+		"snippet exec dk web --var sub=a,b":    RO, // one value, "a,b": no read
+		`snippet exec dk web --var 'sub="rm'`:  RO, // a quote does not drop the blank
+		`snippet exec dk web --var 'sub=a,"b'`: RO,
+		"snippet exec dk web --var sub":        RO, // no NAME=VALUE: the blanks could not be read
+	} {
+		if got := gateAnswer(t, line, true); got != want {
+			t.Errorf("%q, read-only key: %q, want %q", line, got, want)
+		}
+	}
+	words, _ := gateWords("snippet exec dk web --var sub")
+	if _, _, e := gateCheck(words, gateKey{readOnly: true, network: true}); e == nil || !strings.Contains(e.Message, "the blanks could not be read") {
+		t.Errorf("refusal: %+v", e)
 	}
 }
 
@@ -344,8 +379,8 @@ func TestGateLocalTargets(t *testing.T) {
 		"cp ./id_ed25519 -":                                                  R, // SRC on this computer, whatever DST is
 		"cp me:/home/u/.ssh/id_ed25519 -":                                    R,
 		"sync ./site web:/var/www":                                           R, // reads files here
-		"recipe run disk me":                                                 R, // runs its command here
-		"recipe run disk web":                                                "",
+		"snippet exec disk me":                                               R, // runs its command here
+		"snippet exec disk web":                                              "",
 		"db query pghostparam --write 'select 1'":                            R, // pgx dials ?host=
 		"db query pghostaddr --write 'select 1'":                             R,
 		"db query pgsocket --write 'select 1'":                               R, // a socket here
@@ -377,7 +412,7 @@ func TestGateLocalTargets(t *testing.T) {
 		"job start v6 --read-only -- du -sh /var":                           R,
 		"docker exec me app --read-only ls":                                 R,
 		"cluster kubernetes exec k8slocal pod/x --read-only -- ls":          R,
-		"recipe run disk me":                                                R,
+		"snippet exec disk me":                                              R,
 		"exec web --read-only -- uptime":                                    "",
 		"exec me -- id":                                                     "SSH_GATE_READ_ONLY", // not a read: refused before the place
 		"db query pglocal 'select 1'":                                       R,                    // pg_read_file reads here
@@ -531,13 +566,13 @@ func TestSSHGateAuditAlways(t *testing.T) {
 	}
 }
 
-// What a key sent comes out escaped in `komando audit`: a line break or a
+// What a key sent comes out escaped in `komando audit list`: a line break or a
 // terminal escape in a quoted argument cannot add or hide rows.
 func TestSSHGateAuditText(t *testing.T) {
 	invHome(t)
 	gateRun(t, "komando list 'x\n2026-01-01 00:00:00  alice  host.rm  web  ok\r\x1b[2K'", "--name", "phone")
 	gateRun(t, "komando exec web --read-only -- 'a\n\x1b[1Ab'", "--name", "phone")
-	d := mustRun(t, "audit")
+	d := mustRun(t, "audit", "list")
 	var entries []map[string]any
 	for _, e := range d["entries"].([]any) {
 		entries = append(entries, e.(map[string]any))
@@ -784,7 +819,7 @@ func TestSSHGateBareAtATerminal(t *testing.T) {
 	}
 }
 
-// A synonym (cluster info, group show, tunnel show, recipe show) gets the
+// A synonym (cluster info, tunnel show) gets the
 // gate's answer of the command it names, for a full key and a read-only
 // one: it carries that command's ID, so it is not refused as plumbing
 // (review F12).
@@ -793,9 +828,7 @@ func TestGateSynonyms(t *testing.T) {
 	gateInventory(t)
 	for syn, now := range map[string]string{
 		"cluster info k8s": "cluster status k8s",
-		"group show web":   "group list web",
 		"tunnel show t1":   "tunnel list",
-		"recipe show r1":   "recipe list",
 	} {
 		for _, ro := range []bool{false, true} {
 			if got, want := gateAnswer(t, syn, ro), gateAnswer(t, now, ro); got != want {

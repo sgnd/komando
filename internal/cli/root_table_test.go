@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/out"
@@ -678,7 +679,11 @@ func TestMovedLeavesCarryTheirTables(t *testing.T) {
 			}
 		}
 	}
+	inTree := idsInTree(newRoot(tcl))
 	for _, old := range slices.Sorted(maps.Keys(gone)) {
+		if inTree[old] {
+			continue // a noun (audit) keeps the ID of the command that moved under it
+		}
 		if _, ok := cmdKeys[old]; ok {
 			t.Errorf("cmdKeys still has %s, which no command has", old)
 		}
@@ -802,12 +807,20 @@ func moveJoinsTwoOldEntries(t *testing.T) {
 	}
 }
 
+// relaxedNewReads are leaves with no Today ID that a read key without
+// --network keeps: show reads what its list reads, and today's group show
+// and snippet show are hidden wrappers of the list commands (C8 review).
+var relaxedNewReads = map[string]bool{"group.show": true, "snippet.show": true}
+
 // relaxedEntryOK says whether leaf l may hold an entry in table name that is
 // the relaxed state (a local read, a command with no network): one of its
 // Today IDs had it, or it has no Today ID and every ID it carries had it, or
 // (localReads) the leaf says LocalRead. had says whether an old ID had one.
 func relaxedEntryOK(name string, l capability.Leaf, had func(old string) bool) bool {
 	if slices.ContainsFunc(l.Today, had) {
+		return true
+	}
+	if name == "gateNoNetwork" && relaxedNewReads[strings.Join(l.Key.Path(), ".")] {
 		return true
 	}
 	if len(l.Today) == 0 && len(l.Carries) > 0 && !slices.ContainsFunc(l.Carries, func(old string) bool { return !had(old) }) {
@@ -971,5 +984,99 @@ func TestBodyDefaultsMatchTable(t *testing.T) {
 	}
 	if checked == 0 {
 		t.Fatal("no option checked")
+	}
+}
+
+// The gate, risk, policy and guard code sees the table's leaf, not the body
+// command. A flag the table builds with a type of its own (a KEY=VALUE flag,
+// a list, a number) must not be read back through the string getters, which
+// re-parse the flag's text: read a repeatable flag through pflag.SliceValue
+// and refuse when it cannot be read. A source check: the files may call a
+// string getter only on a table option that is a plain string.
+func TestGateRiskPolicyGuardReadNoBuiltFlagAsText(t *testing.T) {
+	plain := map[string]bool{} // option names the table builds as a plain string
+	built := map[string]bool{} // option names built with another type somewhere
+	for _, l := range capability.All() {
+		for _, o := range l.Options {
+			if o.Repeat || o.Pairs || o.List || o.Kind == capability.Bool || o.Kind == capability.Int ||
+				o.Kind == capability.Duration || o.Kind == capability.Bytes {
+				built[o.Name] = true
+			} else {
+				plain[o.Name] = true
+			}
+		}
+	}
+	call := regexp.MustCompile(`\.Get(StringArray|StringSlice|StringToString|StringToInt64|StringToInt|String)\(([^)]*)\)`)
+	valueString := regexp.MustCompile(`\.Value\.String\(\)`) // also Lookup("x").Value.String()
+	// Value.String() is exact for a plain string flag and for the fallback of
+	// a flag already tried as a SliceValue: these uses, by file, are checked
+	// below (gateLocalFlags names plain string flags) or just above the call
+	valueStringUses := map[string]int{"risk.go": 1, "sshgate_localread.go": 1}
+	var files []string
+	for _, pat := range []string{"sshgate*.go", "risk*.go", "policy*.go", "guard*.go", "gate*.go",
+		"common.go", "flag_*.go", "kinds.go"} {
+		m, err := filepath.Glob(pat)
+		if err != nil {
+			t.Fatal(err)
+		}
+		files = append(files, m...)
+	}
+	checked := 0
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") {
+			continue
+		}
+		src, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		checked++
+		if n := len(valueString.FindAllString(string(src), -1)); n != valueStringUses[f] {
+			t.Errorf("%s: %d reads of Flag.Value.String(), want %d: it is the flag's text, which a list or KEY=VALUE flag writes with brackets and quotes; read those through pflag.SliceValue (and add a file here only for a plain string flag)", f, n, valueStringUses[f])
+		}
+		for _, m := range call.FindAllStringSubmatch(string(src), -1) {
+			getter, arg := m[1], strings.TrimSpace(m[2])
+			name, quoted := strings.CutPrefix(arg, `"`)
+			name, closed := strings.CutSuffix(name, `"`)
+			switch {
+			case !quoted || !closed:
+				t.Errorf("%s: Get%s(%s): name the flag with a string literal, so this check can see its type", f, getter, arg)
+			case getter != "String" || built[name] && !plain[name]:
+				t.Errorf("%s: Get%s(%q) re-reads the text of a flag the table builds: use Flag.Value.(pflag.SliceValue) and refuse when it cannot be read", f, getter, name)
+			}
+		}
+	}
+	if checked < 15 {
+		t.Errorf("only %d files checked: the file patterns match nothing", checked)
+	}
+	// the flags gateLocalRead reads as text are plain string flags in the tree
+	seen := map[string]bool{}
+	for _, c := range allCommands(newRoot(tcl)) {
+		for _, name := range gateLocalFlags[cmdID(c)] {
+			f := c.Flags().Lookup(name)
+			if f == nil {
+				continue
+			}
+			if _, slice := f.Value.(pflag.SliceValue); slice || f.Value.Type() != "string" {
+				t.Errorf("%s --%s: gateLocalRead reads it as text, so it must be a plain string flag", cmdID(c), name)
+			}
+			seen[cmdID(c)+" --"+name] = true
+		}
+	}
+	if len(seen) < 5 {
+		t.Errorf("only %d flags of gateLocalFlags found in the tree: %v", len(seen), seen)
+	}
+}
+
+// The bare nouns of cut step C8 have the safety key of their type, set
+// where each noun is made, whatever order the files' init functions run in.
+func TestC8NounsHaveTheirOwnKey(t *testing.T) {
+	for _, noun := range []string{"snippet", "group", "policy", "audit", "agent"} {
+		if got := cmdKeys[noun]; got != (safetyKey{typ: noun}) {
+			t.Errorf("cmdKeys[%q] = %+v, want the key of type %s", noun, got, noun)
+		}
+	}
+	if _, ok := cmdKeys["recipe"]; ok {
+		t.Error(`cmdKeys["recipe"] is still there: the noun is snippet`)
 	}
 }

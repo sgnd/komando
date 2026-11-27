@@ -51,7 +51,7 @@ One more line for every review:
 [schema: every leaf path has 2 or 3 words, except the top-level set in S-1.4]
 
 **S-1.2** The noun's own item comes first, then TARGET:
-`credential key install NAME TARGET`, `recipe run NAME TARGET`, `group add GROUP TARGET...`.
+`credential key install NAME TARGET`, `snippet exec NAME TARGET`, `group create GROUP TARGET...`.
 Commands without an item start with TARGET: `svc restart TARGET UNIT...`.
 [review]
 
@@ -216,8 +216,8 @@ own tool, is allowed when this list names it:
 `fs cat/stat/chmod/mkdir/write/replace/mv`, `storage mkdir/mv/chmod`,
 `svc daemon-reload`,
 `cluster scale/apply/rollback/forward/values`, `net dns/http/ports/check`,
-`credential key create/deploy`, `host trust/ssh-command`, `ssh-gate line`, `conn kinds`,
-`audit verify`, `config approval-code`, `config vault keychain/passphrase`.
+`credential key create/install`, `host trust/ssh-command`, `ssh-gate line`, `conn kinds`,
+`audit check`, `config approval-code`, `config vault keychain/passphrase`.
 [schema: allow-list]
 
 **S-3.4** In a family noun (`db`, `cache`, `queue`, `storage`, `cluster`,
@@ -285,7 +285,7 @@ the same rule. [code: one shared PreRunE helper using `ArgsLenAtDash`;
 TestStandardPassthrough walks the tree and checks every command with
 `COMMAND...`/`ARGS...` in Use has it, and runs both failing forms]
 
-**S-4.5** One quoted string (`cron set`, `recipe add`, `policy check`) is
+**S-4.5** One quoted string (`cron set`, `snippet create`, `policy check`) is
 written `COMMAND` without `--`, and Long says "one quoted string". [review]
 
 **S-4.6** A missing argument is asked for only at a terminal. The prompt
@@ -503,7 +503,7 @@ command's Use words. [code]
 **S-6.11** Top-level help groups: Start, Servers, Data, Platform,
 Inventory, Access, Overview, Setup. Start lists commands, not nouns:
 `host add`, `conn add`, `import ssh-config`, `list`, `test TARGET`,
-`guide install`. Inventory: host, conn, group, import, export, rename.
+`agent skill install`. Inventory: host, conn, group, import, export, rename.
 Help topics are listed only under `komando help`. [review]
 
 ## 7. Confirmations
@@ -526,7 +526,7 @@ row; TestAgentGolden has a row per gated command and flag combination]
 | T3s safety | weakens komando's own checks: audit off, removing a deny rule, downgrade, keychain or passphrase off, open bind, sending a secret, unprotecting a server, conn or VPN, clearing a VPN's `--mfa` | `--yes`, exit 6 SAFETY_SETTING / OPEN_BIND / SECRET_DESTINATION | `This turns off a komando safety check: <what>. Continue? [y/N]` |
 | T4 person only | approval-code setup, typing a secret, `--reveal`, accepting an old copy, two-factor and VPN login, replacing a pinned host key | no flag; NEEDS_PERSON and friends, hint names the command a person runs | the command itself |
 
-A bulk action has its own confirm: `group rm GROUP`
+A bulk action has its own confirm: `group remove GROUP`
 on a group of more than 3 members still needs `--yes` from an agent
 (CONFIRM_REQUIRED).
 

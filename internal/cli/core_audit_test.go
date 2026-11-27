@@ -169,16 +169,16 @@ func TestImportAppliesConnTLSDefault(t *testing.T) {
 	}
 }
 
-// group add and group rm take several targets, like host rm and host edit.
+// group create and group remove take several targets, like host rm and host edit.
 func TestGroupAddRmSeveralTargets(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "a", "u@10.0.0.1")
 	mustRun(t, "host", "add", "b", "u@10.0.0.2")
-	mustRun(t, "group", "add", "web", "a", "b")
+	mustRun(t, "group", "create", "web", "a", "b")
 	if d := mustRun(t, "list", "@web"); d["count"] != float64(2) {
 		t.Errorf("@web: %v", d)
 	}
-	mustRun(t, "group", "rm", "web", "a", "b")
+	mustRun(t, "group", "remove", "web", "a", "b")
 	wantCode(t, "TARGET_EMPTY", "list", "@web")
 }
 

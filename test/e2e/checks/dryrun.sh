@@ -52,10 +52,10 @@ snap() { { $K export -o json 2>/dev/null | jget 'json.dumps({k: v for k, v in d[
 before=$(snap)
 dry host add "$D" agent@127.0.0.1 >/dev/null
 dry conn add "$D" "postgres://app@127.0.0.1/app" >/dev/null
-dry group add "$D" direct >/dev/null
+dry group create "$D" direct >/dev/null
 dry config set parallel 3 >/dev/null
-dry policy deny "$D" >/dev/null
-dry recipe add "$D" 'echo hi' >/dev/null
+dry policy create "$D" >/dev/null
+dry snippet create "$D" 'echo hi' >/dev/null
 printf 'v' | $K credential password add "$D" --dry-run >/dev/null
 check "inventory, vault, settings and runtime unchanged by dry runs" "$before" "$(snap)"
 

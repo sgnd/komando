@@ -102,7 +102,7 @@ func securityChecks(cl *call, st *store.State) []securityCheck {
 		case err != nil:
 			add("audit_chain", false, false, err.Error())
 		case !r.OK:
-			add("audit_chain", false, false, "the audit log was changed outside komando at line "+strconv.Itoa(r.FirstBroken)+" (komando audit verify)")
+			add("audit_chain", false, false, "the audit log was changed outside komando at line "+strconv.Itoa(r.FirstBroken)+" (komando audit check)")
 		default:
 			add("audit_chain", true, false, strconv.Itoa(r.Entries)+" entries, chain intact")
 		}

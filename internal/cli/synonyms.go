@@ -43,7 +43,7 @@ func addAliases(c *cobra.Command, names ...string) *cobra.Command {
 // find the command people mean.
 var nounAliases = map[string][]string{
 	"host": {"hosts", "server", "servers"}, "conn": {"conns"}, "vpn": {"vpns"},
-	"group": {"groups"}, "secret": {"secrets"}, "recipe": {"recipes"},
+	"group": {"groups"}, "secret": {"secrets"}, "key": {"keys"}, "snippet": {"snippets"},
 	"policy": {"policies"}, "job": {"jobs"}, "tunnel": {"tunnels"}, "fs": {"files"},
 	"pkg": {"package", "packages"}, "docker": {"container", "containers"},
 	"cert": {"certs"}, "db": {"dbs", "database", "databases"}, "cache": {"caches"},
@@ -117,30 +117,5 @@ func tunnelShowCmd() *cobra.Command {
 	}
 	withID(c, "tunnel.list")
 	c.Annotations[synonymNote] = "tunnel list"
-	return c
-}
-
-// recipeShowCmd is `recipe show NAME`: recipe list for one recipe.
-func recipeShowCmd() *cobra.Command {
-	c := &cobra.Command{
-		Use:    "show NAME",
-		Short:  "Same as `komando recipe list`, for one recipe",
-		Hidden: true,
-		Args:   cobra.ExactArgs(1),
-		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			st, err := loadState()
-			if err != nil {
-				return err
-			}
-			r, ok := findRecipe(st, args[0])
-			if !ok {
-				return recipeNotFound(args[0])
-			}
-			cl.out.Print("recipe.list", recipeList{Count: 1, Recipes: []recipeRow{r}}, nil)
-			return nil
-		}),
-	}
-	withID(c, "recipe.list")
-	c.Annotations[synonymNote] = "recipe list"
 	return c
 }

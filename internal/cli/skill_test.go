@@ -8,7 +8,7 @@ import (
 )
 
 // The repository copy is what `npx skills add sgnd/komando` and people
-// browsing GitHub see; it must match what `komando guide install` writes.
+// browsing GitHub see; it must match what `komando agent skill install` writes.
 func TestSkillCopyInSync(t *testing.T) {
 	b, err := os.ReadFile("../../skills/komando/SKILL.md")
 	if err != nil {
@@ -59,7 +59,7 @@ func TestInstallSkillDryRun(t *testing.T) {
 // A project folder is often someone else's repository: links planted at
 // any name komando reads or writes there (the skill, its backup, a
 // temporary file, a folder on the way, a settings file) never make
-// `guide install --project` or `guide uninstall --project` read or change
+// `agent skill install --project` or `agent skill uninstall --project` read or change
 // a file outside it.
 func TestGuideProjectRefusesLinks(t *testing.T) {
 	unixOnly(t, "symbolic links")
@@ -97,7 +97,7 @@ func TestGuideProjectRefusesLinks(t *testing.T) {
 			wd, _ := os.Getwd()
 			os.Chdir(proj)
 			defer os.Chdir(wd)
-			for _, args := range [][]string{{"guide", "install", "--project"}, {"guide", "uninstall", "--project"}} {
+			for _, args := range [][]string{{"agent", "skill", "install", "--project"}, {"agent", "skill", "uninstall", "--project"}} {
 				if e := wantCode(t, "WRITE_FAILED", args...); !strings.Contains(e.Message, "is a link") {
 					t.Errorf("%v: %s", args, e.Message)
 				}

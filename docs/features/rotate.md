@@ -78,7 +78,7 @@ terminal; an AI agent or a script adds `--yes` after a person agrees (see
 5. See what they did with komando:
 
    ```bash
-   komando audit --actor alice --since 30d
+   komando audit list --actor alice --since 30d
    ```
 
 `--actor` matches the name in `KOMANDO_ACTOR`, the AI agent (`claude`,

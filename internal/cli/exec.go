@@ -32,7 +32,7 @@ type execHostResult struct {
 }
 
 type execData struct {
-	Recipe  string           `json:"recipe,omitempty"` // recipe run: which recipe
+	Recipe  string           `json:"recipe,omitempty"` // snippet exec: which recipe
 	Command string           `json:"command"`
 	Results []execHostResult `json:"results"`
 	Summary runSummary       `json:"summary"`
@@ -86,7 +86,7 @@ type execOpts struct {
 	stream    bool
 	failFast  bool
 	display   string // what output and the audit log show instead of a long generated script
-	recipe    string // recipe run: the recipe's name, in the result and the audit log
+	recipe    string // snippet exec: the recipe's name, in the result and the audit log
 	// jobScript: exec --script's flags for job start (--script FILE ...),
 	// so a timeout can name the job that runs the same script
 	jobScript string
@@ -273,7 +273,7 @@ func fleetDryRun(cl *call, name string, hosts []*store.Host, req sshx.RunRequest
 	return nil
 }
 
-// withRecipe adds a recipe run's recipe name to its audit record.
+// withRecipe adds a snippet exec's recipe name to its audit record.
 func withRecipe(rec map[string]any, recipe string) map[string]any {
 	if recipe != "" {
 		rec["recipe"] = recipe

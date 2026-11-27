@@ -15,7 +15,7 @@ var listToolWords = map[string]bool{
 	"komando queue kafka consumer list": true, "komando queue nats consumer list": true, "komando queue pubsub consumer list": true, "komando db activity": true, "komando db locks": true,
 	"komando db sizes": true, "komando cache keys": true,
 	"komando cluster history": true, "komando cluster helm history": true, "komando cluster events": true,
-	"komando audit": true,
+	"komando audit list": true,
 	// the log readers: the last N lines
 	"komando logs": true, "komando docker logs": true,
 	"komando cluster logs": true, "komando job logs": true,
@@ -90,7 +90,7 @@ func TestListLimitTruncated(t *testing.T) {
 		t.Errorf("list: %v", d)
 	}
 	// group list: groups and members both stop at --limit
-	mustRun(t, "group", "add", "web", "a1,a2,a3")
+	mustRun(t, "group", "create", "web", "a1,a2,a3")
 	d := mustRun(t, "group", "list", "web", "-n", "1")
 	if m := d["members"].([]any); len(m) != 1 || m[0] != "a1" {
 		t.Errorf("group list web -n 1: %v", d)

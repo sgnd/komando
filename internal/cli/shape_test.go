@@ -30,7 +30,7 @@ var shapeCases = [][]string{
 	{"policy", "list"},
 	{"policy", "check", "rm -rf /"},
 	{"policy", "check", "uptime"},
-	{"recipe", "list"},
+	{"snippet", "list"},
 	{"list"},
 	{"host", "list"},
 	{"host", "show", "web"},
@@ -52,7 +52,7 @@ var shapeCases = [][]string{
 	{"vpn", "wireguard", "list"},
 	{"job", "list"},
 	{"status"},
-	{"audit", "--limit", "5"},
+	{"audit", "list", "--limit", "5"},
 	{"host", "edit", "web", "--port", "2222", "--dry-run"},
 	{"exec", "web", "--dry-run", "--", "uptime"},
 	{"exec", "web", "--", "rm", "-rf", "/"},
@@ -120,7 +120,7 @@ func TestOutputShapes(t *testing.T) {
 		{"host", "add", "web", "deploy@web.lan", "--group", "lab", "--tag", "prod"},
 		{"credential", "password", "add", "pg-pass", "--from-env", "PG_PASS"},
 		{"conn", "add", "pg", "postgres://app@db.lan:5432/app", "--password-ref", "secret:pg-pass"},
-		{"recipe", "add", "hello", "echo {{who=world}}"},
+		{"snippet", "create", "hello", "echo {{who=world}}"},
 	} {
 		if s, err := runCache(t, append([]string{"-o", "json"}, setup...)...); err != nil {
 			t.Fatalf("setup %v: %v\n%s", setup, err, s)

@@ -31,8 +31,8 @@ check "secret check of the stored value" True "$(echo agentpass | $K secret chec
 check "secret check says how a value differs, never the value" "SECRET_MISMATCH True False" "$(echo ' agentpass' | $K secret check agent-pass | jget 'd["error"]["code"] + " " + str("only in spaces" in d["data"]["difference"]) + " " + str("agentpass" in json.dumps(d))' || true)"
 check "an agent cannot check a secret" NEEDS_PERSON "$(echo agentpass | A secret check agent-pass | jget 'd["error"]["code"]' || true)"
 check "group list" True "$($K group list | has lab)"
-q $K group add "$C-g" direct
-check "group rm" True "$($K group rm "$C-g" direct | ok)"
+q $K group create "$C-g" direct
+check "group remove" True "$($K group remove "$C-g" direct | ok)"
 check "host trust" True "$($K host trust direct | ok)"
 check "export" True "$($K export kind:host | has direct)"
 $K export kind:host >"$TMP/hosts.json"
@@ -46,9 +46,9 @@ check "key edit" True "$($K credential key edit "$C-key" --passphrase-credential
 q $K credential key remove "$C-key"
 check "policy list" True "$($K policy list | has rm-root)"
 check "policy check blocks rm -rf /" True "$($K policy check 'rm -rf /' | has rm-root || true)"
-q $K policy deny "curl .*$C"
-check "policy deny applies" True "$($K policy check "curl https://$C" | has custom || true)"
-q $K policy rm "curl .*$C" --yes
+q $K policy create "curl .*$C"
+check "policy create applies" True "$($K policy check "curl https://$C" | has custom || true)"
+q $K policy remove "curl .*$C" --yes
 
 # files and jobs
 q $K fs mkdir direct "/tmp/$C/sub"
@@ -63,9 +63,9 @@ check "job list" True "$($K job list | has "$JID")"
 check "job status" True "$($K job status "$JID" | ok)"
 q $K job kill "$JID"
 q $K job rm "$JID"
-q $K recipe add "$C-hello" 'echo hello {{who}}' --read-only
-check "recipe run" "hello lab" "$($K recipe run "$C-hello" direct --var who=lab | jget 'd["data"]["results"][0]["stdout"].strip()')"
-q $K recipe rm "$C-hello"
+q $K snippet create "$C-hello" 'echo hello {{who}}' --read-only
+check "snippet exec" "hello lab" "$($K snippet exec "$C-hello" direct --var who=lab | jget 'd["data"]["results"][0]["stdout"].strip()')"
+q $K snippet remove "$C-hello"
 check "tunnel list" True "$($K tunnel list | ok)"
 
 # data

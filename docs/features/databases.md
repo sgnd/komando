@@ -357,7 +357,7 @@ name inside it.
 `--run-on HOST`, else the last server of the conn's `--via` path. Otherwise (a
 direct conn or a VPN, or a `--via` server without the tool) komando dumps by
 itself, and nothing has to be installed. `runs_on` in the answer (and in
-`komando audit`) names where the tool ran. A plain SQL restore is always run
+`komando audit list`) names where the tool ran. A plain SQL restore is always run
 by komando itself, through the same `--via` path, never by `psql` or
 `mysql`: those would obey client commands hidden in the file on that server.
 Only a PostgreSQL archive goes to `pg_restore` on the server. `tool` in the

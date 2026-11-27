@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/cachex"
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/dbx"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
@@ -39,8 +40,24 @@ func (p policyCheck) Text() string {
 	return "Blocked: " + strings.Join(reasons, "; ") + "\n"
 }
 
+// The policy leaves run today's policy commands (runBody).
+func init() {
+	for verb, body := range map[string]func() *cobra.Command{"check": policyCheckCmd, "create": policyDenyCmd, "list": policyListCmd,
+		"show": policyShowCmd, "edit": policyEditCmd, "remove": policyRmCmd} {
+		handlers[capability.Key{Type: "policy", Verb: verb}] = bodyHandler(body)
+	}
+	moveType("policy")
+	details["komando policy edit"] = policyEditLong
+	details["komando policy remove"] = policyRemoveLong
+}
+
+// policyCmd is the bare noun; its commands come from the table.
 func policyCmd() *cobra.Command {
-	c := &cobra.Command{Use: "policy", Short: "Rules that block destructive commands: see, test, add, remove"}
+	return &cobra.Command{Use: "policy", Short: "Rules that block destructive commands: see, test, add, remove"}
+}
+
+// policyListCmd is today's policy list.
+func policyListCmd() *cobra.Command {
 	var limit int
 	list := &cobra.Command{
 		Use:   "list",
@@ -74,13 +91,15 @@ func policyCmd() *cobra.Command {
 		}),
 	}
 	limitFlag(list, &limit, 0, "rules of each kind")
-	c.AddCommand(list)
-	c.AddCommand(policyCheckCmd())
-	c.AddCommand(&cobra.Command{
+	return list
+}
+
+// policyDenyCmd is today's policy create, the body of the create leaf.
+func policyDenyCmd() *cobra.Command {
+	return &cobra.Command{
 		Use:     "deny REGEX",
-		Aliases: []string{"add"},
 		Short:   "Add a deny rule (a Go regular expression)",
-		Example: `  komando policy deny 'kubectl\s+delete'`,
+		Example: `  komando policy create 'kubectl\s+delete'`,
 		Args:    cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			pat := args[0]
@@ -107,14 +126,12 @@ func policyCmd() *cobra.Command {
 				return err
 			}
 			if added {
-				audit(cl, nil, "policy.deny", nil, "", true, map[string]any{"pattern": pat})
+				audit(cl, nil, "policy.create", nil, "", true, map[string]any{"pattern": pat})
 			}
-			cl.out.Print("policy.deny", policyChange{Custom: pats, Added: &added, pattern: pat}.denied(cl), nil)
+			cl.out.Print("policy.create", policyChange{Custom: pats, Added: &added, pattern: pat}.denied(cl), nil)
 			return nil
 		}),
-	})
-	c.AddCommand(policyRmCmd(), policyEditCmd(), policyShowCmd())
-	return c
+	}
 }
 
 // policyCheckCmd is `policy check`: whether a shell command would be
@@ -205,17 +222,19 @@ func policyCheckKinds() []string {
 	return append(driver.SQLKinds(), "redis", "memcached", "mongodb")
 }
 
-// policyRmCmd removes a rule added with policy deny.
+// policyRemoveLong is the help text of policy remove.
+const policyRemoveLong = `Removes a rule added with ` + "`policy create`" + `. Give it as you wrote it, or by
+its id in ` + "`policy list`" + ` (custom- and eight letters and digits, made from
+the pattern, so it does not change when another rule goes). Built-in rules
+cannot be removed. Removing a rule weakens a safety check, so komando asks first.`
+
+// policyRmCmd removes a rule added with policy create.
 func policyRmCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "rm RULE",
 		Short: "Remove a deny rule you added (from komando only)",
-		Long: `Removes a rule added with ` + "`policy deny`" + `. Give it as you wrote it, or by
-its id in ` + "`policy list`" + ` (custom- and eight letters and digits, made from
-the pattern, so it does not change when another rule goes). Built-in rules
-cannot be removed. Removing a rule weakens a safety check, so komando asks first.`,
-		Example: `  komando policy rm 'kubectl\s+delete'
-  komando policy rm custom-1a2b3c4d`,
+		Example: `  komando policy remove 'kubectl\s+delete'
+  komando policy remove custom-1a2b3c4d`,
 		Args: cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			arg := args[0]
@@ -251,8 +270,8 @@ cannot be removed. Removing a rule weakens a safety check, so komando asks first
 			if err != nil {
 				return err
 			}
-			audit(cl, nil, "policy.rm", nil, "", true, map[string]any{"pattern": removed})
-			cl.out.Print("policy.rm", policyChange{Custom: orEmpty(pats), Removed: removed}, nil)
+			audit(cl, nil, "policy.remove", nil, "", true, map[string]any{"pattern": removed})
+			cl.out.Print("policy.remove", policyChange{Custom: orEmpty(pats), Removed: removed}, nil)
 			return nil
 		}),
 	}
@@ -307,23 +326,23 @@ func (p policyList) Text() string {
 		"\nthe patterns: komando policy list -o json; test a command: komando policy check '...'\n"
 }
 
-// policyChange is what policy deny and allow did, in words for people.
+// policyChange is what policy create and allow did, in words for people.
 type policyChange struct {
 	Custom  []string `json:"custom"`
 	Added   *bool    `json:"added,omitempty"`   // deny
 	Removed string   `json:"removed,omitempty"` // allow
-	ID      string   `json:"id,omitempty"`      // deny: the rule's id, for policy rm
+	ID      string   `json:"id,omitempty"`      // deny: the rule's id, for policy remove
 	Next    string   `json:"next,omitempty"`    // deny: how to try it and take it away
 	pattern string
 }
 
-// denied is policy deny's result: the rule's id and the commands that
+// denied is policy create's result: the rule's id and the commands that
 // follow, check and rm.
 func (p policyChange) denied(cl *call) policyChange {
 	p.ID = policy.CustomID(p.pattern)
-	p.Next = "komando policy check 'COMMAND' says whether it blocks a command  |  komando policy rm " + p.ID + " removes it"
+	p.Next = "komando policy check 'COMMAND' says whether it blocks a command  |  komando policy remove " + p.ID + " removes it"
 	if !cl.dryRun() {
-		sayNext(cl, "komando policy check 'COMMAND'", "komando policy rm "+p.ID)
+		sayNext(cl, "komando policy check 'COMMAND'", "komando policy remove "+p.ID)
 	}
 	return p
 }
@@ -634,13 +653,8 @@ func readSwitchEdit(cmd *cobra.Command, off bool, addH, addG, rmH, rmG []string)
 	return switchEdit{hosts: rmH, groups: rmG}, nil
 }
 
-func policyEditCmd() *cobra.Command {
-	var addH, addG, rmH, rmG []string
-	var off bool
-	c := &cobra.Command{
-		Use:   "edit RULE",
-		Short: "Switch a rule off or on, everywhere or on some servers",
-		Long: `--off switches a rule off, so it no longer stops a command. With --add-server or
+// policyEditLong is the help text of policy edit.
+const policyEditLong = `--off switches a rule off, so it no longer stops a command. With --add-server or
 --add-group it is off only on those servers (a group as its servers are
 now): a command that also runs on another server is still stopped.
 Switching a rule off weakens a safety check, so komando asks first: an AI
@@ -650,7 +664,14 @@ sshd-stop, ...) you type the rule's name at a terminal, with --yes too, and
 an AI agent's request for one is refused. The audit log keeps every switch,
 and ` + "`komando doctor`" + ` names every rule that is off. --off=false switches
 it on again everywhere; --rm-server and --rm-group switch it on again on those
-servers only.`,
+servers only.`
+
+func policyEditCmd() *cobra.Command {
+	var addH, addG, rmH, rmG []string
+	var off bool
+	c := &cobra.Command{
+		Use:   "edit RULE",
+		Short: "Switch a rule off or on, everywhere or on some servers",
 		Example: `  komando policy edit docker-prune --off --add-server build1
   komando policy edit pkg-remove-essential --off --add-group lab
   komando policy edit docker-prune --rm-server build1

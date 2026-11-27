@@ -98,10 +98,10 @@ func wantCode(t *testing.T, code string, args ...string) *out.Error {
 func TestInvAuditLimit(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "a1", "u@10.0.0.1")
-	if e := wantCode(t, "USAGE", "audit", "-n", "-1"); e.Exit != out.ExitUsage {
+	if e := wantCode(t, "USAGE", "audit", "list", "-n", "-1"); e.Exit != out.ExitUsage {
 		t.Errorf("exit %d", e.Exit)
 	}
-	if d := mustRun(t, "audit", "-n", "0"); d["count"].(float64) < 1 {
+	if d := mustRun(t, "audit", "list", "-n", "0"); d["count"].(float64) < 1 {
 		t.Errorf("-n 0 shows all: %v", d)
 	}
 }
@@ -281,7 +281,7 @@ func TestInvKeys(t *testing.T) {
 	if _, err := os.Stat(ext); err != nil {
 		t.Error("the file was deleted")
 	}
-	audit := mustRun(t, "audit", "-n", "0", "--command", "credential.key.")
+	audit := mustRun(t, "audit", "list", "-n", "0", "--command", "credential.key.")
 	if audit["count"].(float64) < 4 {
 		t.Errorf("key changes are audited: %v", audit["count"])
 	}
@@ -335,11 +335,11 @@ func TestInvGroups(t *testing.T) {
 	mustRun(t, "host", "add", "a", "u@10.0.0.1", "-g", "web")
 	mustRun(t, "host", "add", "b", "u@10.0.0.2", "-g", "web")
 	mustRun(t, "host", "add", "c", "u@10.0.0.3")
-	wantCode(t, "USAGE", "group", "add", "bad name", "a")
-	if e := wantCode(t, "GROUP_NOT_FOUND", "group", "rm", "wbe", "a"); !strings.Contains(e.Hint, "web") || e.Exit != out.ExitNotFound {
+	wantCode(t, "USAGE", "group", "create", "bad name", "a")
+	if e := wantCode(t, "GROUP_NOT_FOUND", "group", "remove", "wbe", "a"); !strings.Contains(e.Hint, "web") || e.Exit != out.ExitNotFound {
 		t.Errorf("did you mean: %+v", e)
 	}
-	d := mustRun(t, "group", "rm", "web", "all", "--dry-run")
+	d := mustRun(t, "group", "remove", "web", "all", "--dry-run")
 	if got := d["would_remove"].([]any); len(got) != 2 {
 		t.Errorf("only members: %v", got)
 	}
@@ -347,7 +347,7 @@ func TestInvGroups(t *testing.T) {
 	if len(d["members"].([]any)) != 2 {
 		t.Errorf("members: %v", d)
 	}
-	mustRun(t, "group", "rm", "web")
+	mustRun(t, "group", "remove", "web")
 	wantCode(t, "GROUP_NOT_FOUND", "group", "list", "web")
 }
 
@@ -368,7 +368,7 @@ func TestInvConfig(t *testing.T) {
 	if d := mustRun(t, "config", "get", "parallel"); d["value"] != "20" || d["default"] != "10" {
 		t.Errorf("get: %v", d)
 	}
-	a := mustRun(t, "audit", "--command", "config.set")
+	a := mustRun(t, "audit", "list", "--command", "config.set")
 	if a["count"].(float64) != 2 {
 		t.Errorf("config changes audited: %v", a)
 	}
@@ -376,19 +376,19 @@ func TestInvConfig(t *testing.T) {
 
 func TestInvPolicy(t *testing.T) {
 	invHome(t)
-	wantCode(t, "BUILTIN_RULE", "policy", "rm", "rm-root")
-	wantCode(t, "RULE_NOT_FOUND", "policy", "rm", "nonexistent")
-	wantCode(t, "USAGE", "policy", "deny", " ")
-	mustRun(t, "policy", "deny", `kubectl\s+apply`)
-	mustRun(t, "policy", "rm", policy.CustomID(`kubectl\s+apply`), "--yes")
-	if a := mustRun(t, "audit", "--command", "policy.rm"); a["count"].(float64) != 1 {
-		t.Errorf("policy rm is audited as policy.rm: %v", a)
+	wantCode(t, "BUILTIN_RULE", "policy", "remove", "rm-root")
+	wantCode(t, "RULE_NOT_FOUND", "policy", "remove", "nonexistent")
+	wantCode(t, "USAGE", "policy", "create", " ")
+	mustRun(t, "policy", "create", `kubectl\s+apply`)
+	mustRun(t, "policy", "remove", policy.CustomID(`kubectl\s+apply`), "--yes")
+	if a := mustRun(t, "audit", "list", "--command", "policy.remove"); a["count"].(float64) != 1 {
+		t.Errorf("policy remove is audited as policy.remove: %v", a)
 	}
 	if e := wantCode(t, "POLICY_BLOCKED", "policy", "check", "rm -rf //"); e.Exit != out.ExitPolicy {
 		t.Errorf("exit %d", e.Exit)
 	}
 	mustRun(t, "policy", "check", "grep mkfs notes.txt")
-	if a := mustRun(t, "audit", "--command", "policy."); a["count"].(float64) != 2 {
+	if a := mustRun(t, "audit", "list", "--command", "policy."); a["count"].(float64) != 2 {
 		t.Errorf("policy changes audited: %v", a)
 	}
 }
@@ -554,7 +554,7 @@ func TestExportImportKeepsServersWithKeys(t *testing.T) {
 func TestExportImportCarriesRulesAndSettings(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web1", "u@10.0.0.21")
-	mustRun(t, "policy", "deny", `rm -rf /srv`)
+	mustRun(t, "policy", "create", `rm -rf /srv`)
 	mustRun(t, "config", "set", "parallel", "5")
 	f := filepath.Join(t.TempDir(), "backup.json")
 	if d := mustRun(t, "export", "--to", f); d["deny_rules"] != float64(1) || d["settings"] != true {
@@ -625,30 +625,30 @@ func TestExportTextIsImportable(t *testing.T) {
 func TestPolicyCustomIDsStay(t *testing.T) {
 	invHome(t)
 	noAgent(t)
-	mustRun(t, "policy", "deny", `shutdown\s+-h`)
-	mustRun(t, "policy", "deny", `kubectl\s+delete`)
+	mustRun(t, "policy", "create", `shutdown\s+-h`)
+	mustRun(t, "policy", "create", `kubectl\s+delete`)
 	ids := map[string]string{}
 	for _, r := range mustRun(t, "policy", "list")["custom_rules"].([]any) {
 		m := r.(map[string]any)
 		ids[m["pattern"].(string)] = m["id"].(string)
 	}
 	kube := ids[`kubectl\s+delete`]
-	mustRun(t, "policy", "rm", ids[`shutdown\s+-h`], "--yes")
-	wantCode(t, "RULE_NOT_FOUND", "policy", "rm", ids[`shutdown\s+-h`], "--yes")
-	wantCode(t, "RULE_NOT_FOUND", "policy", "rm", "custom-0", "--yes")
+	mustRun(t, "policy", "remove", ids[`shutdown\s+-h`], "--yes")
+	wantCode(t, "RULE_NOT_FOUND", "policy", "remove", ids[`shutdown\s+-h`], "--yes")
+	wantCode(t, "RULE_NOT_FOUND", "policy", "remove", "custom-0", "--yes")
 	if r := mustRun(t, "policy", "list")["custom_rules"].([]any); len(r) != 1 || r[0].(map[string]any)["id"] != kube {
 		t.Errorf("after rm: %v", r)
 	}
 }
 
-// policy deny refuses a pattern that matches empty text: it would block
+// policy create refuses a pattern that matches empty text: it would block
 // every command.
 func TestPolicyDenyMatchesEverything(t *testing.T) {
 	invHome(t)
 	for _, p := range []string{".*", "^", "x*", "(?i)"} {
-		wantCode(t, "USAGE", "policy", "deny", p)
+		wantCode(t, "USAGE", "policy", "create", p)
 	}
-	mustRun(t, "policy", "deny", ".+")
+	mustRun(t, "policy", "create", ".+")
 }
 
 // policy check --conn-kind: a kind it does not rate says which it does, MongoDB
@@ -679,7 +679,7 @@ func TestPolicyCheckFor(t *testing.T) {
 	wantCode(t, "POLICY_BLOCKED", "policy", "check", "--conn-kind", "redis", `FLUSHALL ASYNC`)
 }
 
-// policy deny and rm say "would" in a dry run, and show the pattern as
+// policy create and rm say "would" in a dry run, and show the pattern as
 // written, not Go-quoted.
 func TestPolicyChangeText(t *testing.T) {
 	t.Cleanup(func() { setGate(tcl, false, gateDryRun) })

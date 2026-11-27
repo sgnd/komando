@@ -166,7 +166,7 @@ included, once the vault has a passphrase.
 ### Export and import (no passwords)
 
 `export` saves your servers, conns and VPNs, and when you export everything
-also your saved recipes, your own deny rules (`policy deny`) and your
+also your saved recipes, your own deny rules (`policy create`) and your
 settings:
 
 ```bash
@@ -216,7 +216,7 @@ these limits:
   exist here yet. Anything else is dropped, so a file cannot point your
   existing passwords at its servers.
 - Recipes marked read-only are imported as changes. Mark them read-only
-  again yourself with `komando recipe add NAME ... --read-only --overwrite`.
+  again yourself with `komando snippet create NAME ... --read-only --overwrite`.
 
 Each dropped setting is listed in the result.
 

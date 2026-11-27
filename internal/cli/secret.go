@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -254,13 +253,6 @@ func init() {
 	details["komando credential password show"] = secretShowLong
 	details["komando credential token show"] = secretShowLong
 	details["komando credential run"] = credentialRunLong
-}
-
-// bodyHandler runs body, today's command, with what the leaf was given.
-func bodyHandler(body func() *cobra.Command) handler {
-	return func(cl *call, ctx context.Context, in leafInput) error {
-		return runBody(cl, ctx, body(), in, nil)
-	}
 }
 
 // secretCopyCmd is `credential password rename` (move) or `secret cp`. The value is copied

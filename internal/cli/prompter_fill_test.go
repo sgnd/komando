@@ -188,7 +188,7 @@ func TestPolicyAskAtATerminal(t *testing.T) {
 		t.Errorf("yes: exit %d\n%s", code, p.shown())
 	}
 	mustRun(t, "host", "show", "web1")
-	d := mustRun(t, "audit", "--limit", "5")
+	d := mustRun(t, "audit", "list", "--limit", "5")
 	if b, _ := json.Marshal(d); !strings.Contains(string(b), `"confirm":"tty"`) {
 		t.Errorf("the audit does not say a person said yes: %s", b)
 	}

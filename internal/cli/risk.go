@@ -351,6 +351,14 @@ func lineWords(line []string) (c *cobra.Command, words, pos []string) {
 	}
 	words = slices.Clone(pos)
 	c.Flags().Visit(func(f *pflag.Flag) {
+		// a repeatable flag gives one word per value as typed: its text
+		// joins the values with commas, which a value may hold too
+		if sv, ok := f.Value.(pflag.SliceValue); ok && len(sv.GetSlice()) > 0 {
+			for _, v := range sv.GetSlice() {
+				words = append(words, "--"+f.Name+"="+v)
+			}
+			return
+		}
 		words = append(words, "--"+f.Name+"="+f.Value.String())
 	})
 	if after != nil {

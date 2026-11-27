@@ -402,7 +402,7 @@ func TestStorageReadHidesPersonalDataForEveryProvider(t *testing.T) {
 func TestStorageObjectRefusesAnotherProvidersSelector(t *testing.T) {
 	invHome(t)
 	mustRun(t, "storage", "sftp", "add", "files1", "sftp://deploy@10.0.0.5/uploads", "--label", "k=v")
-	mustRun(t, "group", "add", "grp", "files1")
+	mustRun(t, "group", "create", "grp", "files1")
 	for _, sel := range []string{"files1", "@grp", "label:k=v"} {
 		wantCode(t, "WRONG_KIND", "storage", "s3", "object", "delete", sel, "a.txt", "--dry-run")
 	}

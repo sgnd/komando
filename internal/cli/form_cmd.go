@@ -634,9 +634,9 @@ var formAreas = []struct {
 	{"VPNs, logins and tunnels", "connect, log in once, forward ports", []string{"vpn", "tunnel", "login", "logout"}},
 	{"Secrets and keys", "the vault and SSH keys", []string{"credential", "secret"}},
 	{"Your list", "servers, conns, groups: add, change, import", []string{"host", "conn", "group", "list", "rename", "import", "export", "test"}},
-	{"Jobs and recipes", "long tasks and saved commands", []string{"job", "recipe"}},
+	{"Jobs and snippets", "long tasks and saved commands", []string{"job", "snippet"}},
 	{"Safety and audit", "what happened, rules, checks", []string{"audit", "policy", "doctor", "status", "config", "ssh-gate"}},
-	{"Setup", "AI agents, updates", []string{"guide", "update", "version", "schema", "completion"}},
+	{"Setup", "AI agents, updates", []string{"guide", "agent", "update", "version", "schema", "completion"}},
 }
 
 // formListed: it has questions. A group command (cache, cluster

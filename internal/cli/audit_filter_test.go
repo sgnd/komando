@@ -78,21 +78,21 @@ func TestInvAuditWindow(t *testing.T) {
 	for i := range 52 {
 		mustRun(t, "host", "add", fmt.Sprintf("w%d", i), fmt.Sprintf("u@10.0.1.%d", i+1))
 	}
-	if d := mustRun(t, "audit"); d["count"].(float64) != 50 {
+	if d := mustRun(t, "audit", "list"); d["count"].(float64) != 50 {
 		t.Errorf("default shows the newest 50, got %v", d["count"])
 	}
-	if d := mustRun(t, "audit", "--since", "1h"); d["count"].(float64) < 52 {
+	if d := mustRun(t, "audit", "list", "--since", "1h"); d["count"].(float64) < 52 {
 		t.Errorf("--since alone shows every match, got %v", d["count"])
 	}
-	if d := mustRun(t, "audit", "--since", "today", "-n", "5"); d["count"].(float64) != 5 {
+	if d := mustRun(t, "audit", "list", "--since", "today", "-n", "5"); d["count"].(float64) != 5 {
 		t.Errorf("-n still limits a window, got %v", d["count"])
 	}
-	if d := mustRun(t, "audit", "--until", "1h"); d["count"].(float64) != 0 {
+	if d := mustRun(t, "audit", "list", "--until", "1h"); d["count"].(float64) != 0 {
 		t.Errorf("nothing is older than an hour, got %v", d["count"])
 	}
-	if d := mustRun(t, "audit", "--since", "1h", "--target", "w3"); d["count"].(float64) != 1 {
+	if d := mustRun(t, "audit", "list", "--since", "1h", "--target", "w3"); d["count"].(float64) != 1 {
 		t.Errorf("--target with --since, got %v", d["count"])
 	}
-	wantCode(t, "USAGE", "audit", "--since", "soon")
-	wantCode(t, "USAGE", "audit", "--since", "2026-11-08", "--until", "2026-11-07")
+	wantCode(t, "USAGE", "audit", "list", "--since", "soon")
+	wantCode(t, "USAGE", "audit", "list", "--since", "2026-11-08", "--until", "2026-11-07")
 }

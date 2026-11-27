@@ -15,24 +15,26 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// guide uninstall takes out what guide install put in: the skill files and
+// agent skill uninstall takes out what agent skill install put in: the skill files and
 // komando's guard entries in each agent's hooks, leaving everything else in
 // those files as it is (a changed file is kept as .bak, as install does).
+
+// skillUninstallLong is the help text of agent skill uninstall.
+const skillUninstallLong = `Removes what ` + "`komando agent skill install`" + ` added: komando/SKILL.md in ~/.claude/skills
+and ~/.agents/skills, and komando's guard entries in .claude/settings.json,
+.cursor/hooks.json, .gemini/settings.json and .codex/hooks.json. Everything
+else in those files stays; a changed file is kept as .bak. Taking the guard
+away from an AI agent lets it read secret files on this computer again, so
+an agent needs a person's yes (--yes).`
 
 func guideUninstallCmd() *cobra.Command {
 	var project bool
 	c := &cobra.Command{
 		Use:   "uninstall",
 		Short: "Take the komando skill and guard out of your AI agents",
-		Long: `Removes what ` + "`komando guide install`" + ` added: komando/SKILL.md in ~/.claude/skills
-and ~/.agents/skills, and komando's guard entries in .claude/settings.json,
-.cursor/hooks.json, .gemini/settings.json and .codex/hooks.json. Everything
-else in those files stays; a changed file is kept as .bak. Taking the guard
-away from an AI agent lets it read secret files on this computer again, so
-an agent needs a person's yes (--yes).`,
-		Example: `  komando guide uninstall             # from your home folder
-  komando guide uninstall --project   # from the folder you are in
-  komando guide uninstall --dry-run   # show what it would remove`,
+		Example: `  komando agent skill uninstall             # from your home folder
+  komando agent skill uninstall --project   # from the folder you are in
+  komando agent skill uninstall --dry-run   # show what it would remove`,
 		Args: cobra.NoArgs,
 		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
 			base, err := os.UserHomeDir()
@@ -75,7 +77,7 @@ an agent needs a person's yes (--yes).`,
 			}
 			if len(guards) > 0 { // under --dry-run the stop lands in meta.would_be_blocked
 				if err := guardSafety(cl, "removing komando's guard, which keeps AI agents away from secret files on this computer"); err != nil {
-					audit(cl, nil, "guide.uninstall", nil, "", false, map[string]any{"blocked": toErr(err).Code})
+					audit(cl, nil, "agent.skill.uninstall", nil, "", false, map[string]any{"blocked": toErr(err).Code})
 					return err
 				}
 			}
@@ -93,11 +95,11 @@ an agent needs a person's yes (--yes).`,
 			}
 			files = append(files, guards...)
 			if len(files) == 0 {
-				cl.out.Print("guide.uninstall", skillResult{Files: []skillFile{}, uninstall: true}, nil)
+				cl.out.Print("agent.skill.uninstall", skillResult{Files: []skillFile{}, uninstall: true}, nil)
 				return nil
 			}
-			audit(cl, nil, "guide.uninstall", nil, "", true, map[string]any{"files": len(files)})
-			cl.out.Print("guide.uninstall", skillResult{Files: files, uninstall: true}, nil)
+			audit(cl, nil, "agent.skill.uninstall", nil, "", true, map[string]any{"files": len(files)})
+			cl.out.Print("agent.skill.uninstall", skillResult{Files: files, uninstall: true}, nil)
 			return nil
 		}),
 	}

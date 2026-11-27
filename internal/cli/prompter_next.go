@@ -206,7 +206,7 @@ var showKinds = map[string]string{
 	"host show": "", "conn show": "",
 	"group list": "group", "credential key show": "key", "job status": "job", "credential password show": "secret",
 	"credential token show": "secret", "config get": "setting",
-	"tunnel show": "tunnel", "recipe show": "recipe",
+	"tunnel show": "tunnel", "snippet show": "recipe",
 }
 
 // itemCommands are the commands that work on one item of a kind, {} the
@@ -216,8 +216,8 @@ var itemCommands = map[string][]string{
 	"server": {"logs {} --since 30m", "exec {} -- uptime", "shell {}",
 		"pkg upgradable {}", "docker ps {}", "fs list {} /etc", "upload {} ./FILE /tmp/FILE",
 		"download {} /var/log/syslog --to ./", "job start {} -- make", "tunnel start {} -L 8080:localhost:80",
-		"credential key install KEY {}", "audit --target {}", "host edit {}", "host rename {} NEW", "host rm {}", "test {}"},
-	"server:windows": {"exec {} -- Get-Date", "audit --target {}", "host edit {}", "host rename {} NEW", "host rm {}", "test {}"},
+		"credential key install KEY {}", "audit list --target {}", "host edit {}", "host rename {} NEW", "host rm {}", "test {}"},
+	"server:windows": {"exec {} -- Get-Date", "audit list --target {}", "host edit {}", "host rename {} NEW", "host rm {}", "test {}"},
 	// a server tagged swarm is also a Docker Swarm manager
 	"swarm": {"cluster status {}", "cluster list {} services", "cluster logs {} service/NAME",
 		"cluster deploy {} service/NAME --image IMAGE --wait", "cluster apply {} --file compose.yml --stack STACK"},
@@ -250,8 +250,8 @@ var itemCommands = map[string][]string{
 		"registry oci image prune {} REPO --keep 10 --dry-run", "registry oci image delete {} IMAGE --dry-run"},
 	"vpn": {"vpn KIND start {}", "vpn KIND test {}", "vpn KIND stop {}", "vpn KIND edit {} --check HOST:PORT", "vpn KIND rename {} NEW", "vpn KIND remove {}",
 		"host add NAME USER@ADDRESS --via {}"},
-	"group": {"list @{}", "test @{}", "exec @{} -- uptime", "pkg upgradable @{}", "recipe run health @{}",
-		"group add {} TARGET", "group rm {} TARGET", "group rename {} NEW"},
+	"group": {"list @{}", "test @{}", "exec @{} -- uptime", "pkg upgradable @{}", "snippet exec health @{}",
+		"group create {} TARGET", "group remove {} TARGET", "group rename {} NEW"},
 	"key": {"credential key install {} TARGET", "credential key uninstall {} TARGET", "credential key edit {}",
 		"credential key rename {} NEW", "credential key remove {}"},
 	"job": {"job logs {} --limit 50", "job wait {}", "job kill {}", "job rm {}"},
@@ -259,7 +259,7 @@ var itemCommands = map[string][]string{
 		"credential password remove {}"},
 	"setting": {"config set {} VALUE"},
 	"tunnel":  {"tunnel stop {}", "tunnel list"},
-	"recipe":  {"recipe run {} TARGET", "recipe add {} COMMAND --overwrite --dry-run", "recipe rm {}"},
+	"recipe":  {"snippet exec {} TARGET", "snippet create {} COMMAND --overwrite --dry-run", "snippet remove {}"},
 }
 
 // itemKinds are the itemCommands lists for name, shown by a command that

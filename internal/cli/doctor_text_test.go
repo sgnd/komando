@@ -12,7 +12,7 @@ func TestDoctorTextLabels(t *testing.T) {
 	r := doctorReport{width: 80, Checks: []doctorCheck{
 		{Name: "state", OK: true, Detail: "/home/u/.komando"},
 		{Name: "vpn:office:openconnect", OK: false, Detail: "not installed"},
-		{Name: "agent_guard", OK: false, Detail: strings.Repeat("Claude Code runs without komando's guard, ", 3) + "`komando guide install` adds it"},
+		{Name: "agent_guard", OK: false, Detail: strings.Repeat("Claude Code runs without komando's guard, ", 3) + "`komando agent skill install` adds it"},
 	}}
 	got := r.Text()
 	for _, want := range []string{"✓ komando folder: /home/u/.komando\n", "✗ VPN office needs openconnect: not installed\n", "✗ Claude Code guard: "} {
@@ -25,7 +25,7 @@ func TestDoctorTextLabels(t *testing.T) {
 			t.Errorf("line of %d columns: %q", n, l)
 		}
 	}
-	if !strings.Contains(got, "`komando guide install`") {
+	if !strings.Contains(got, "`komando agent skill install`") {
 		t.Errorf("the command was broken up:\n%s", got)
 	}
 	r.width = 0 // komando doctor -o text | grep ...

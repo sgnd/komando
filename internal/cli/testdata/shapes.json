@@ -1,5 +1,5 @@
 {
-  "audit --limit 5": {
+  "audit list --limit 5": {
     "command": "string",
     "data": {
       "count": "number",
@@ -1195,32 +1195,6 @@
     },
     "ok": "bool"
   },
-  "recipe list": {
-    "command": "string",
-    "data": {
-      "count": "number",
-      "recipes": [
-        {
-          "builtin": "bool",
-          "category": "string",
-          "command": "string",
-          "description": "string",
-          "name": "string",
-          "params": {
-            "*": "string"
-          },
-          "read_only": "bool",
-          "sudo": "bool"
-        }
-      ]
-    },
-    "meta": {
-      "contract": "number",
-      "duration_ms": "number",
-      "version": "string"
-    },
-    "ok": "bool"
-  },
   "schema conn add": {
     "command": "string",
     "data": {
@@ -1347,6 +1321,32 @@
       "contract": "number",
       "name": "string",
       "version": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "snippet list": {
+    "command": "string",
+    "data": {
+      "count": "number",
+      "recipes": [
+        {
+          "builtin": "bool",
+          "category": "string",
+          "command": "string",
+          "description": "string",
+          "name": "string",
+          "params": {
+            "*": "string"
+          },
+          "read_only": "bool",
+          "sudo": "bool"
+        }
+      ]
     },
     "meta": {
       "contract": "number",

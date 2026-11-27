@@ -592,13 +592,13 @@ func addCommands(cl *call, root *cobra.Command) {
 		}
 	}
 	add("servers", execCmd(), logsCmd(), fsCmd(), uploadCmd(), downloadCmd(), cpCmd(), syncCmd(),
-		jobCmd(), dockerCmd(), pkgCmd(), shellCmd(), certCmd(), recipeCmd())
+		jobCmd(), dockerCmd(), pkgCmd(), shellCmd(), certCmd(), snippetCmd())
 	add("data", dbCmd(), cacheCmd(), queueCmd(), storageCmd())
 	add("platform", clusterCmd(), registryCmd())
 	add("access", vpnCmd(), loginCmd(cl), logoutCmd(cl), loginHolderCmd(), secretCmd(), tunnelCmd())
 	add("overview", statusCmd(), auditCmd(), listCmd(), testCmd(), doctorCmd())
 	add("inventory", hostCmd(), connCmd(), groupCmd(), importCmd(), exportCmd(), renameCmd())
-	add("setup", policyCmd(), guideCmd(), schemaCmd(root), updateCmd(), versionCmd(), sshGateCmd())
+	add("setup", configCmd(), policyCmd(), guideCmd(), agentCmd(), schemaCmd(root), updateCmd(), versionCmd(), sshGateCmd())
 	addNounAliases(root)
 }
 
@@ -641,7 +641,7 @@ Start:
   komando import ssh-config            bring in the servers you already have
   komando list                         see everything komando knows about
   komando test TARGET                  check that it answers and lets you in
-  komando guide install                let your AI agent use komando safely
+  komando agent skill install                let your AI agent use komando safely
 
 Targets: a server or service name, a pattern (web-*), @group, tag:NAME,
 label:key=value, kind:KIND (host, db, cache, storage, postgres, ...),
@@ -684,7 +684,7 @@ func personHelp() string {
 		b.WriteString("Nothing added yet: komando host add  or  komando import ssh-config\n\n")
 	}
 	for _, g := range [][2]string{
-		{"START", "host add · conn add · import ssh-config · list · test TARGET · guide install"},
+		{"START", "host add · conn add · import ssh-config · list · test TARGET · agent skill install"},
 		{"SERVERS", "exec  logs  fs  job  docker  pkg  shell"},
 		{"DATA", "db  cache  queue  storage"},
 		{"PLATFORM", "cluster  registry"},

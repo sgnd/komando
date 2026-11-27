@@ -44,7 +44,7 @@ func TestAgentInputWithVaultValueAnsweredAsAnyOther(t *testing.T) {
 	}
 	// the person sees the guessing in the audit log
 	noAgent(t)
-	d := mustRun(t, "audit", "--limit", "20")
+	d := mustRun(t, "audit", "list", "--limit", "20")
 	if got := fmt.Sprint(d); strings.Count(got, "secret_value_in_input") < 3 || strings.Contains(got, v) {
 		t.Errorf("audit log: %s", got)
 	}

@@ -519,7 +519,7 @@ var formHides = map[string]string{
 	"conn edit tag":                          "-t is --add-tag, which is asked",
 	"job start cmd":                          "the same as the command words, which are asked",
 	"exec cmd":                               "the same as the command words, which are asked",
-	"guide install no-guard":                 "it turns off the guard that keeps AI agents away from secret files",
+	"agent skill install no-guard":           "it turns off the guard that keeps AI agents away from secret files",
 	"rename starts-with":                     "always added: the menu renames by the start of the names",
 	"credential key install public-key-file": "a phone's key takes the server alone, not a key and servers: a person types that line",
 	"credential key install user":            "goes with --public-key-file, which the menu does not ask",
@@ -542,7 +542,7 @@ func TestFormPickKinds(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web1", "root@10.0.0.5")
 	mustRun(t, "conn", "add", "app-db", "postgres://app@10.0.0.9/app")
-	mustRun(t, "recipe", "add", "up", "uptime")
+	mustRun(t, "snippet", "create", "up", "uptime")
 	root := newRoot(tcl)
 	c, _, _ := root.Find([]string{"db", "dump"})
 	got, _ := c.ValidArgsFunction(c, nil, "")

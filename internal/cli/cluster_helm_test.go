@@ -132,7 +132,7 @@ func TestClusterReadsManyClusters(t *testing.T) {
 	invHome(t)
 	helmLab(t, "eu", http.StatusOK, helmSecret(t, "shop", "api", 1, "deployed", "api", "1.0.0", "1.0", nil))
 	helmLab(t, "us", http.StatusOK, helmSecret(t, "shop", "api", 3, "failed", "api", "1.2.0", "1.2", nil))
-	mustRun(t, "group", "add", "prod", "eu,us")
+	mustRun(t, "group", "create", "prod", "eu,us")
 
 	d := mustRun(t, "cluster", "helm", "ls", "@prod")
 	res := d["results"].([]any)
@@ -147,7 +147,7 @@ func TestClusterReadsManyClusters(t *testing.T) {
 	}
 
 	helmLab(t, "ap", http.StatusForbidden)
-	mustRun(t, "group", "add", "prod", "ap")
+	mustRun(t, "group", "create", "prod", "ap")
 	d, e := invRun(t, "cluster", "helm", "ls", "@prod")
 	if e == nil || e.Code != "PARTIAL_FAILURE" || !strings.Contains(e.Message, "ap") {
 		t.Fatalf("one cluster refuses: %+v", e)

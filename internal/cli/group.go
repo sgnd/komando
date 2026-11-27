@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
@@ -37,7 +38,7 @@ func (l groupList) Text() string {
 	name := func(sel string) string { return strings.TrimPrefix(strings.TrimPrefix(sel, "@"), "tag:") }
 	sort.SliceStable(rows, func(i, j int) bool { return name(rows[i][0]) < name(rows[j][0]) })
 	if len(rows) == 0 {
-		return term.NoneYet("groups or tags", "group add GROUP TARGET...")
+		return term.NoneYet("groups or tags", "group create GROUP TARGET...")
 	}
 	return textTable([]string{"SELECTOR", "TYPE", "MEMBERS"}, rows)
 }
@@ -102,15 +103,39 @@ func groupNotFound(cl *call, st *store.State, group string) error {
 // asks for --yes first.
 const manyMembers = 3
 
+// The group leaves run today's group commands (runBody); show is list for
+// one group.
+func init() {
+	for verb, body := range map[string]func() *cobra.Command{"create": groupAddCmd, "list": groupListCmd,
+		"show": groupShowCmd, "rename": groupMvCmd, "remove": groupRmCmd} {
+		handlers[capability.Key{Type: "group", Verb: verb}] = bodyHandler(body)
+	}
+	moveType("group")
+	details["komando group remove"] = groupRemoveLong
+	details["komando group rename"] = groupRenameLong
+}
+
+// groupCmd is the bare noun; its commands come from the table.
 func groupCmd() *cobra.Command {
-	c := &cobra.Command{
-		Use:     "group",
-		Aliases: []string{"groups"},
-		Short:   "Groups of servers, conns and VPNs: see and change who is in them",
+	return &cobra.Command{
+		Use:   "group",
+		Short: "Groups of servers, conns and VPNs: see and change who is in them",
 		Long: `A group is a name on servers, conns and VPNs; @GROUP picks all of them in any
 command. Group names use letters, digits and . _ - and match in any case.
 A group exists while something is in it.`,
 	}
+}
+
+// groupListCmd is today's group list, the body of the list leaf.
+func groupListCmd() *cobra.Command { return groupReadCmd("group.list") }
+
+// groupShowCmd is the body of the show leaf: the list body, printing as
+// group.show.
+func groupShowCmd() *cobra.Command { return groupReadCmd("group.show") }
+
+// groupReadCmd reads the groups and tags, or the members of one group, and
+// prints them as the command id.
+func groupReadCmd(id string) *cobra.Command {
 	var limit int
 	list := &cobra.Command{
 		Use:   "list [GROUP]",
@@ -129,28 +154,26 @@ A group exists while something is in it.`,
 				if len(m) == 0 {
 					return groupNotFound(cl, st, group)
 				}
-				cl.out.Print("group.list", groupMembers{Group: group, Members: cutRows(cl, m, limit)}, nil)
+				cl.out.Print(id, groupMembers{Group: group, Members: cutRows(cl, m, limit)}, nil)
 				return nil
 			}
 			l := allGroups(st)
 			l.Groups, l.Tags = cutMap(cl, l.Groups, limit), cutMap(cl, l.Tags, limit)
-			cl.out.Print("group.list", l, nil)
+			cl.out.Print(id, l, nil)
 			return nil
 		}),
 	}
 	limitFlag(list, &limit, 0, "groups and tags each, or members of GROUP")
-	c.AddCommand(list, synonymWrapper(list, "show GROUP", "group.list", "group list GROUP", cobra.ExactArgs(1)))
-	c.AddCommand(groupAddCmd(), groupRmCmd(), groupMvCmd())
-	return c
+	return list
 }
 
 func groupAddCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "add GROUP TARGET...",
 		Short: "Add servers, conns and VPNs matching TARGET to GROUP",
-		Example: `  komando group add web web1,web2
-  komando group add web web3 web4
-  komando group add prod 'tag:live,!staging-*'`,
+		Example: `  komando group create web web1,web2
+  komando group create web web3 web4
+  komando group create prod 'tag:live,!staging-*'`,
 		Args: cobra.MinimumNArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			group := strings.TrimPrefix(args[0], "@")
@@ -198,23 +221,25 @@ func groupAddCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			audit(cl, nil, "group.add", added, "", true, map[string]any{"group": group})
-			cl.out.Print("group.add", textAs{res, textBlob(changeSay(cl, "add", term.JoinAnd(added), "to @"+group))}, nil)
+			audit(cl, nil, "group.create", added, "", true, map[string]any{"group": group})
+			cl.out.Print("group.create", textAs{res, textBlob(changeSay(cl, "add", term.JoinAnd(added), "to @"+group))}, nil)
 			return nil
 		}),
 	}
 }
 
+// groupRemoveLong is the help text of group remove.
+const groupRemoveLong = `Takes the entries TARGET picks out of GROUP; entries that are not in it are
+left alone. Without TARGET the group is deleted: every member leaves it.
+Deleting a group with more than 3 members needs --yes; try --dry-run first.`
+
 func groupRmCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "rm GROUP [TARGET...]",
 		Short: "Take entries out of a group, or delete the group (from komando only)",
-		Long: `Takes the entries TARGET picks out of GROUP; entries that are not in it are
-left alone. Without TARGET the group is deleted: every member leaves it.
-Deleting a group with more than 3 members needs --yes; try --dry-run first.`,
-		Example: `  komando group rm web web2
-  komando group rm old-batch --dry-run   # who would leave it
-  komando group rm old-batch --yes`,
+		Example: `  komando group remove web web2
+  komando group remove old-batch --dry-run   # who would leave it
+  komando group remove old-batch --yes`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			group := strings.TrimPrefix(args[0], "@")
@@ -276,7 +301,7 @@ Deleting a group with more than 3 members needs --yes; try --dry-run first.`,
 			if err != nil {
 				return err
 			}
-			audit(cl, nil, "group.rm", removed, "", true, map[string]any{"group": group, "whole_group": len(args) == 1})
+			audit(cl, nil, "group.remove", removed, "", true, map[string]any{"group": group, "whole_group": len(args) == 1})
 			key := "removed"
 			if cl.dryRun() {
 				key = "would_remove"
@@ -285,7 +310,7 @@ Deleting a group with more than 3 members needs --yes; try --dry-run first.`,
 			if len(args) == 1 {
 				say = changeSay(cl, "remove", "group @"+group, "from "+cmp.Or(term.JoinAnd(removed), "nothing"))
 			}
-			cl.out.Print("group.rm", textAs{map[string]any{"group": group, key: removed}, textBlob(say)}, nil)
+			cl.out.Print("group.remove", textAs{map[string]any{"group": group, key: removed}, textBlob(say)}, nil)
 			return nil
 		}),
 	}

@@ -4430,125 +4430,149 @@ exit 2
 Error: missing arguments; usage: komando fs write SERVER PATH
 Hint: for example: komando fs write web1 /etc/app/env --content 'PORT=8080' --sudo --backup
 (code USAGE, exit 2)
-### komando -o json group add (agent json)
+### komando -o json group create (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"group.add","error":{"code":"USAGE","message":"missing arguments; usage: komando group add GROUP TARGET...","hint":"for example: komando group add web web1,web2"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"group.create","error":{"code":"USAGE","message":"group create takes GROUP TARGET...","hint":"for example: komando group create web web1,web2 --dry-run (more in `komando group create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text group add (agent text)
+### komando -o text group create (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando group add GROUP TARGET...
-Hint: for example: komando group add web web1,web2
+Error: group create takes GROUP TARGET...
+Hint: for example: komando group create web web1,web2 --dry-run (more in `komando group create --help`)
 (code USAGE, exit 2)
-### komando -o json group add (script json)
+### komando -o json group create (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"group.add","error":{"code":"USAGE","message":"missing arguments; usage: komando group add GROUP TARGET...","hint":"for example: komando group add web web1,web2"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"group.create","error":{"code":"USAGE","message":"group create takes GROUP TARGET...","hint":"for example: komando group create web web1,web2 --dry-run (more in `komando group create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text group add (script text)
+### komando -o text group create (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando group add GROUP TARGET...
-Hint: for example: komando group add web web1,web2
+Error: group create takes GROUP TARGET...
+Hint: for example: komando group create web web1,web2 --dry-run (more in `komando group create --help`)
 (code USAGE, exit 2)
-### komando -o json group add x1 (agent json)
+### komando -o json group create x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"group.add","error":{"code":"USAGE","message":"missing arguments; usage: komando group add GROUP TARGET...","hint":"for example: komando group add web web1,web2"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"group.create","error":{"code":"USAGE","message":"group create takes GROUP TARGET...","hint":"for example: komando group create web web1,web2 --dry-run (more in `komando group create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text group add x1 (agent text)
+### komando -o text group create x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando group add GROUP TARGET...
-Hint: for example: komando group add web web1,web2
+Error: group create takes GROUP TARGET...
+Hint: for example: komando group create web web1,web2 --dry-run (more in `komando group create --help`)
 (code USAGE, exit 2)
-### komando -o json group add x1 (script json)
+### komando -o json group create x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"group.add","error":{"code":"USAGE","message":"missing arguments; usage: komando group add GROUP TARGET...","hint":"for example: komando group add web web1,web2"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"group.create","error":{"code":"USAGE","message":"group create takes GROUP TARGET...","hint":"for example: komando group create web web1,web2 --dry-run (more in `komando group create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text group add x1 (script text)
+### komando -o text group create x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando group add GROUP TARGET...
-Hint: for example: komando group add web web1,web2
+Error: group create takes GROUP TARGET...
+Hint: for example: komando group create web web1,web2 --dry-run (more in `komando group create --help`)
+(code USAGE, exit 2)
+### komando -o json group remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"group.remove","error":{"code":"USAGE","message":"group remove takes GROUP [TARGET...]","hint":"for example: komando group remove web web2 (more in `komando group remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text group remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: group remove takes GROUP [TARGET...]
+Hint: for example: komando group remove web web2 (more in `komando group remove --help`)
+(code USAGE, exit 2)
+### komando -o json group remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"group.remove","error":{"code":"USAGE","message":"group remove takes GROUP [TARGET...]","hint":"for example: komando group remove web web2 (more in `komando group remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text group remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: group remove takes GROUP [TARGET...]
+Hint: for example: komando group remove web web2 (more in `komando group remove --help`)
 (code USAGE, exit 2)
 ### komando -o json group rename (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"group.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando group rename OLD NEW","hint":"for example: komando group rename web frontend"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"group.rename","error":{"code":"USAGE","message":"group rename takes OLD NEW","hint":"for example: komando group rename prod production --dry-run (more in `komando group rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text group rename (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando group rename OLD NEW
-Hint: for example: komando group rename web frontend
+Error: group rename takes OLD NEW
+Hint: for example: komando group rename prod production --dry-run (more in `komando group rename --help`)
 (code USAGE, exit 2)
 ### komando -o json group rename (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"group.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando group rename OLD NEW","hint":"for example: komando group rename web frontend"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"group.rename","error":{"code":"USAGE","message":"group rename takes OLD NEW","hint":"for example: komando group rename prod production --dry-run (more in `komando group rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text group rename (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando group rename OLD NEW
-Hint: for example: komando group rename web frontend
+Error: group rename takes OLD NEW
+Hint: for example: komando group rename prod production --dry-run (more in `komando group rename --help`)
 (code USAGE, exit 2)
 ### komando -o json group rename x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"group.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando group rename OLD NEW","hint":"for example: komando group rename web frontend"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"group.rename","error":{"code":"USAGE","message":"group rename takes OLD NEW","hint":"for example: komando group rename prod production --dry-run (more in `komando group rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text group rename x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando group rename OLD NEW
-Hint: for example: komando group rename web frontend
+Error: group rename takes OLD NEW
+Hint: for example: komando group rename prod production --dry-run (more in `komando group rename --help`)
 (code USAGE, exit 2)
 ### komando -o json group rename x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"group.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando group rename OLD NEW","hint":"for example: komando group rename web frontend"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"group.rename","error":{"code":"USAGE","message":"group rename takes OLD NEW","hint":"for example: komando group rename prod production --dry-run (more in `komando group rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text group rename x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando group rename OLD NEW
-Hint: for example: komando group rename web frontend
+Error: group rename takes OLD NEW
+Hint: for example: komando group rename prod production --dry-run (more in `komando group rename --help`)
 (code USAGE, exit 2)
-### komando -o json group rm (agent json)
+### komando -o json group show (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"group.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando group rm GROUP [TARGET...]","hint":"for example: komando group rm web web2"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"group.show","error":{"code":"USAGE","message":"group show takes GROUP","hint":"for example: komando group show web (more in `komando group show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text group rm (agent text)
+### komando -o text group show (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando group rm GROUP [TARGET...]
-Hint: for example: komando group rm web web2
+Error: group show takes GROUP
+Hint: for example: komando group show web (more in `komando group show --help`)
 (code USAGE, exit 2)
-### komando -o json group rm (script json)
+### komando -o json group show (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"group.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando group rm GROUP [TARGET...]","hint":"for example: komando group rm web web2"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"group.show","error":{"code":"USAGE","message":"group show takes GROUP","hint":"for example: komando group show web (more in `komando group show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text group rm (script text)
+### komando -o text group show (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando group rm GROUP [TARGET...]
-Hint: for example: komando group rm web web2
+Error: group show takes GROUP
+Hint: for example: komando group show web (more in `komando group show --help`)
 (code USAGE, exit 2)
 ### komando -o json host add (agent json)
 exit 2
@@ -5177,122 +5201,122 @@ Hint: for example: komando pkg upgrade web1 --dry-run
 ### komando -o json policy check (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"policy.check","error":{"code":"USAGE","message":"missing arguments; usage: komando policy check COMMAND","hint":"for example: komando policy check 'rm -rf /var/www'"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"policy.check","error":{"code":"USAGE","message":"policy check takes COMMAND...","hint":"for example: komando policy check 'rm -rf /var/www' (more in `komando policy check --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text policy check (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando policy check COMMAND
-Hint: for example: komando policy check 'rm -rf /var/www'
+Error: policy check takes COMMAND...
+Hint: for example: komando policy check 'rm -rf /var/www' (more in `komando policy check --help`)
 (code USAGE, exit 2)
 ### komando -o json policy check (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"policy.check","error":{"code":"USAGE","message":"missing arguments; usage: komando policy check COMMAND","hint":"for example: komando policy check 'rm -rf /var/www'"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"policy.check","error":{"code":"USAGE","message":"policy check takes COMMAND...","hint":"for example: komando policy check 'rm -rf /var/www' (more in `komando policy check --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text policy check (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando policy check COMMAND
-Hint: for example: komando policy check 'rm -rf /var/www'
+Error: policy check takes COMMAND...
+Hint: for example: komando policy check 'rm -rf /var/www' (more in `komando policy check --help`)
 (code USAGE, exit 2)
-### komando -o json policy deny (agent json)
+### komando -o json policy create (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"policy.deny","error":{"code":"USAGE","message":"missing arguments; usage: komando policy deny REGEX","hint":"for example: komando policy deny 'kubectl\\s+delete'"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"policy.create","error":{"code":"USAGE","message":"policy create takes REGEX","hint":"for example: komando policy create 'kubectl\\s+delete' --dry-run (more in `komando policy create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text policy deny (agent text)
+### komando -o text policy create (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando policy deny REGEX
-Hint: for example: komando policy deny 'kubectl\s+delete'
+Error: policy create takes REGEX
+Hint: for example: komando policy create 'kubectl\s+delete' --dry-run (more in `komando policy create --help`)
 (code USAGE, exit 2)
-### komando -o json policy deny (script json)
+### komando -o json policy create (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"policy.deny","error":{"code":"USAGE","message":"missing arguments; usage: komando policy deny REGEX","hint":"for example: komando policy deny 'kubectl\\s+delete'"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"policy.create","error":{"code":"USAGE","message":"policy create takes REGEX","hint":"for example: komando policy create 'kubectl\\s+delete' --dry-run (more in `komando policy create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text policy deny (script text)
+### komando -o text policy create (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando policy deny REGEX
-Hint: for example: komando policy deny 'kubectl\s+delete'
+Error: policy create takes REGEX
+Hint: for example: komando policy create 'kubectl\s+delete' --dry-run (more in `komando policy create --help`)
 (code USAGE, exit 2)
 ### komando -o json policy edit (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"policy.edit","error":{"code":"USAGE","message":"missing arguments; usage: komando policy edit RULE","hint":"for example: komando policy edit docker-prune --off --add-server build1"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"policy.edit","error":{"code":"USAGE","message":"policy edit takes RULE","hint":"for example: komando policy edit docker-prune --off --add-server build1 (more in `komando policy edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text policy edit (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando policy edit RULE
-Hint: for example: komando policy edit docker-prune --off --add-server build1
+Error: policy edit takes RULE
+Hint: for example: komando policy edit docker-prune --off --add-server build1 (more in `komando policy edit --help`)
 (code USAGE, exit 2)
 ### komando -o json policy edit (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"policy.edit","error":{"code":"USAGE","message":"missing arguments; usage: komando policy edit RULE","hint":"for example: komando policy edit docker-prune --off --add-server build1"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"policy.edit","error":{"code":"USAGE","message":"policy edit takes RULE","hint":"for example: komando policy edit docker-prune --off --add-server build1 (more in `komando policy edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text policy edit (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando policy edit RULE
-Hint: for example: komando policy edit docker-prune --off --add-server build1
+Error: policy edit takes RULE
+Hint: for example: komando policy edit docker-prune --off --add-server build1 (more in `komando policy edit --help`)
 (code USAGE, exit 2)
-### komando -o json policy rm (agent json)
+### komando -o json policy remove (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"policy.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando policy rm RULE","hint":"for example: komando policy rm 'kubectl\\s+delete'"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"policy.remove","error":{"code":"USAGE","message":"policy remove takes RULE","hint":"for example: komando policy remove 'kubectl\\s+delete' (more in `komando policy remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text policy rm (agent text)
+### komando -o text policy remove (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando policy rm RULE
-Hint: for example: komando policy rm 'kubectl\s+delete'
+Error: policy remove takes RULE
+Hint: for example: komando policy remove 'kubectl\s+delete' (more in `komando policy remove --help`)
 (code USAGE, exit 2)
-### komando -o json policy rm (script json)
+### komando -o json policy remove (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"policy.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando policy rm RULE","hint":"for example: komando policy rm 'kubectl\\s+delete'"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"policy.remove","error":{"code":"USAGE","message":"policy remove takes RULE","hint":"for example: komando policy remove 'kubectl\\s+delete' (more in `komando policy remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text policy rm (script text)
+### komando -o text policy remove (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando policy rm RULE
-Hint: for example: komando policy rm 'kubectl\s+delete'
+Error: policy remove takes RULE
+Hint: for example: komando policy remove 'kubectl\s+delete' (more in `komando policy remove --help`)
 (code USAGE, exit 2)
 ### komando -o json policy show (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"policy.show","error":{"code":"USAGE","message":"missing arguments; usage: komando policy show RULE","hint":"for example: komando policy show docker-prune"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"policy.show","error":{"code":"USAGE","message":"policy show takes RULE","hint":"for example: komando policy show docker-prune (more in `komando policy show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text policy show (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando policy show RULE
-Hint: for example: komando policy show docker-prune
+Error: policy show takes RULE
+Hint: for example: komando policy show docker-prune (more in `komando policy show --help`)
 (code USAGE, exit 2)
 ### komando -o json policy show (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"policy.show","error":{"code":"USAGE","message":"missing arguments; usage: komando policy show RULE","hint":"for example: komando policy show docker-prune"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"policy.show","error":{"code":"USAGE","message":"policy show takes RULE","hint":"for example: komando policy show docker-prune (more in `komando policy show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text policy show (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando policy show RULE
-Hint: for example: komando policy show docker-prune
+Error: policy show takes RULE
+Hint: for example: komando policy show docker-prune (more in `komando policy show --help`)
 (code USAGE, exit 2)
 ### komando -o json queue kafka add (agent json)
 exit 2
@@ -7982,126 +8006,6 @@ exit 2
 Error: queue sqs topic show takes NAME TOPIC
 Hint: for example: komando queue sqs topic show prod-sqs orders (more in `komando queue sqs topic show --help`)
 (code USAGE, exit 2)
-### komando -o json recipe add (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"recipe.add","error":{"code":"USAGE","message":"missing arguments; usage: komando recipe add NAME COMMAND","hint":"for example: komando recipe add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text recipe add (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando recipe add NAME COMMAND
-Hint: for example: komando recipe add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo
-(code USAGE, exit 2)
-### komando -o json recipe add (script json)
-exit 2
---- stdout
-{"ok":false,"command":"recipe.add","error":{"code":"USAGE","message":"missing arguments; usage: komando recipe add NAME COMMAND","hint":"for example: komando recipe add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text recipe add (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando recipe add NAME COMMAND
-Hint: for example: komando recipe add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo
-(code USAGE, exit 2)
-### komando -o json recipe add x1 (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"recipe.add","error":{"code":"USAGE","message":"missing arguments; usage: komando recipe add NAME COMMAND","hint":"for example: komando recipe add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text recipe add x1 (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando recipe add NAME COMMAND
-Hint: for example: komando recipe add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo
-(code USAGE, exit 2)
-### komando -o json recipe add x1 (script json)
-exit 2
---- stdout
-{"ok":false,"command":"recipe.add","error":{"code":"USAGE","message":"missing arguments; usage: komando recipe add NAME COMMAND","hint":"for example: komando recipe add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text recipe add x1 (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando recipe add NAME COMMAND
-Hint: for example: komando recipe add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo
-(code USAGE, exit 2)
-### komando -o json recipe rm (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"recipe.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando recipe rm NAME","hint":"for example: komando recipe rm du-srv"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text recipe rm (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando recipe rm NAME
-Hint: for example: komando recipe rm du-srv
-(code USAGE, exit 2)
-### komando -o json recipe rm (script json)
-exit 2
---- stdout
-{"ok":false,"command":"recipe.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando recipe rm NAME","hint":"for example: komando recipe rm du-srv"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text recipe rm (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando recipe rm NAME
-Hint: for example: komando recipe rm du-srv
-(code USAGE, exit 2)
-### komando -o json recipe run (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"recipe.run","error":{"code":"USAGE","message":"missing arguments; usage: komando recipe run NAME TARGET","hint":"for example: komando recipe run health @web"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text recipe run (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando recipe run NAME TARGET
-Hint: for example: komando recipe run health @web
-(code USAGE, exit 2)
-### komando -o json recipe run (script json)
-exit 2
---- stdout
-{"ok":false,"command":"recipe.run","error":{"code":"USAGE","message":"missing arguments; usage: komando recipe run NAME TARGET","hint":"for example: komando recipe run health @web"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text recipe run (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando recipe run NAME TARGET
-Hint: for example: komando recipe run health @web
-(code USAGE, exit 2)
-### komando -o json recipe run x1 (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"recipe.run","error":{"code":"USAGE","message":"missing arguments; usage: komando recipe run NAME TARGET","hint":"for example: komando recipe run health @web"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text recipe run x1 (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando recipe run NAME TARGET
-Hint: for example: komando recipe run health @web
-(code USAGE, exit 2)
-### komando -o json recipe run x1 (script json)
-exit 2
---- stdout
-{"ok":false,"command":"recipe.run","error":{"code":"USAGE","message":"missing arguments; usage: komando recipe run NAME TARGET","hint":"for example: komando recipe run health @web"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text recipe run x1 (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando recipe run NAME TARGET
-Hint: for example: komando recipe run health @web
-(code USAGE, exit 2)
 ### komando -o json registry oci add (agent json)
 exit 2
 --- stdout
@@ -8629,6 +8533,150 @@ exit 2
 --- stderr
 Error: missing arguments; usage: komando shell SERVER
 Hint: for example: komando shell web1
+(code USAGE, exit 2)
+### komando -o json snippet create (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"snippet.create","error":{"code":"USAGE","message":"snippet create takes NAME COMMAND","hint":"for example: komando snippet create deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo (more in `komando snippet create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text snippet create (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: snippet create takes NAME COMMAND
+Hint: for example: komando snippet create deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo (more in `komando snippet create --help`)
+(code USAGE, exit 2)
+### komando -o json snippet create (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"snippet.create","error":{"code":"USAGE","message":"snippet create takes NAME COMMAND","hint":"for example: komando snippet create deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo (more in `komando snippet create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text snippet create (script text)
+exit 2
+--- stdout
+--- stderr
+Error: snippet create takes NAME COMMAND
+Hint: for example: komando snippet create deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo (more in `komando snippet create --help`)
+(code USAGE, exit 2)
+### komando -o json snippet create x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"snippet.create","error":{"code":"USAGE","message":"snippet create takes NAME COMMAND","hint":"for example: komando snippet create deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo (more in `komando snippet create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text snippet create x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: snippet create takes NAME COMMAND
+Hint: for example: komando snippet create deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo (more in `komando snippet create --help`)
+(code USAGE, exit 2)
+### komando -o json snippet create x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"snippet.create","error":{"code":"USAGE","message":"snippet create takes NAME COMMAND","hint":"for example: komando snippet create deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo (more in `komando snippet create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text snippet create x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: snippet create takes NAME COMMAND
+Hint: for example: komando snippet create deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo (more in `komando snippet create --help`)
+(code USAGE, exit 2)
+### komando -o json snippet exec (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"snippet.exec","error":{"code":"USAGE","message":"snippet exec takes NAME TARGET","hint":"for example: komando snippet exec health @web (more in `komando snippet exec --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text snippet exec (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: snippet exec takes NAME TARGET
+Hint: for example: komando snippet exec health @web (more in `komando snippet exec --help`)
+(code USAGE, exit 2)
+### komando -o json snippet exec (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"snippet.exec","error":{"code":"USAGE","message":"snippet exec takes NAME TARGET","hint":"for example: komando snippet exec health @web (more in `komando snippet exec --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text snippet exec (script text)
+exit 2
+--- stdout
+--- stderr
+Error: snippet exec takes NAME TARGET
+Hint: for example: komando snippet exec health @web (more in `komando snippet exec --help`)
+(code USAGE, exit 2)
+### komando -o json snippet exec x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"snippet.exec","error":{"code":"USAGE","message":"snippet exec takes NAME TARGET","hint":"for example: komando snippet exec health @web (more in `komando snippet exec --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text snippet exec x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: snippet exec takes NAME TARGET
+Hint: for example: komando snippet exec health @web (more in `komando snippet exec --help`)
+(code USAGE, exit 2)
+### komando -o json snippet exec x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"snippet.exec","error":{"code":"USAGE","message":"snippet exec takes NAME TARGET","hint":"for example: komando snippet exec health @web (more in `komando snippet exec --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text snippet exec x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: snippet exec takes NAME TARGET
+Hint: for example: komando snippet exec health @web (more in `komando snippet exec --help`)
+(code USAGE, exit 2)
+### komando -o json snippet remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"snippet.remove","error":{"code":"USAGE","message":"snippet remove takes NAME","hint":"for example: komando snippet remove app-logs --dry-run (more in `komando snippet remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text snippet remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: snippet remove takes NAME
+Hint: for example: komando snippet remove app-logs --dry-run (more in `komando snippet remove --help`)
+(code USAGE, exit 2)
+### komando -o json snippet remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"snippet.remove","error":{"code":"USAGE","message":"snippet remove takes NAME","hint":"for example: komando snippet remove app-logs --dry-run (more in `komando snippet remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text snippet remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: snippet remove takes NAME
+Hint: for example: komando snippet remove app-logs --dry-run (more in `komando snippet remove --help`)
+(code USAGE, exit 2)
+### komando -o json snippet show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"snippet.show","error":{"code":"USAGE","message":"snippet show takes NAME","hint":"for example: komando snippet show health (more in `komando snippet show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text snippet show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: snippet show takes NAME
+Hint: for example: komando snippet show health (more in `komando snippet show --help`)
+(code USAGE, exit 2)
+### komando -o json snippet show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"snippet.show","error":{"code":"USAGE","message":"snippet show takes NAME","hint":"for example: komando snippet show health (more in `komando snippet show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text snippet show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: snippet show takes NAME
+Hint: for example: komando snippet show health (more in `komando snippet show --help`)
 (code USAGE, exit 2)
 ### komando -o json ssh-gate line (agent json)
 exit 2
@@ -15998,24 +16046,24 @@ exit 6
 Stopped: changing protected VPN: pvpn; nothing was changed
 Hint: check with --dry-run, then run it again with --yes: `komando -o text vpn socks edit pvpn --notes x --yes`
 (code PROTECTED_TARGET, exit 6)
-### komando -o json policy rm foo.*bar (agent json, gate inventory)
+### komando -o json policy remove foo.*bar (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"policy.rm","error":{"code":"SAFETY_SETTING","message":"removing the deny rule foo.*bar weakens komando's safety checks","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"policy.remove","error":{"code":"SAFETY_SETTING","message":"removing the deny rule foo.*bar weakens komando's safety checks","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text policy rm foo.*bar (agent text, gate inventory)
+### komando -o text policy remove foo.*bar (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: removing the deny rule foo.*bar turns off one of komando's safety checks, so komando asks first; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)
 (code SAFETY_SETTING, exit 6)
-### komando -o json policy rm foo.*bar (script json, gate inventory)
+### komando -o json policy remove foo.*bar (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"policy.rm","error":{"code":"SAFETY_SETTING","message":"removing the deny rule foo.*bar weakens komando's safety checks","hint":"check with --dry-run, then run it again with --yes: `komando -o json policy rm 'foo.*bar' --yes`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"policy.remove","error":{"code":"SAFETY_SETTING","message":"removing the deny rule foo.*bar weakens komando's safety checks","hint":"check with --dry-run, then run it again with --yes: `komando -o json policy remove 'foo.*bar' --yes`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text policy rm foo.*bar (script text, gate inventory)
+### komando -o text policy remove foo.*bar (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
@@ -16142,29 +16190,29 @@ exit 6
 Stopped: destructive statement needs --write (and --allow-dangerous: removes every row (DELETE without WHERE)); nothing was changed
 Hint: this SQL removes every row (DELETE without WHERE): only if that is intended, confirm with the user and run it again with --write --allow-dangerous
 (code WRITE_REQUIRES_FLAG, exit 6)
-### komando -o json group rm big (agent json, gate inventory)
+### komando -o json group remove big (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"group.rm","error":{"code":"CONFIRM_REQUIRED","message":"deleting group big takes 4 entries out of it","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"group.remove","error":{"code":"CONFIRM_REQUIRED","message":"deleting group big takes 4 entries out of it","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text group rm big (agent text, gate inventory)
+### komando -o text group remove big (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: deleting group big takes 4 entries out of it; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)
 (code CONFIRM_REQUIRED, exit 6)
-### komando -o json group rm big (script json, gate inventory)
+### komando -o json group remove big (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"group.rm","error":{"code":"CONFIRM_REQUIRED","message":"deleting group big takes 4 entries out of it","hint":"check with --dry-run, then run it again with --yes: `komando -o json group rm big --yes`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"group.remove","error":{"code":"CONFIRM_REQUIRED","message":"deleting group big takes 4 entries out of it","hint":"check with --dry-run, then run it again with --yes: `komando -o json group remove big --yes`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text group rm big (script text, gate inventory)
+### komando -o text group remove big (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: deleting group big takes 4 entries out of it; nothing was changed
-Hint: check with --dry-run, then run it again with --yes: `komando -o text group rm big --yes`
+Hint: check with --dry-run, then run it again with --yes: `komando -o text group remove big --yes`
 (code CONFIRM_REQUIRED, exit 6)
 ### komando -o json config approval-code (agent json, gate inventory)
 exit 6

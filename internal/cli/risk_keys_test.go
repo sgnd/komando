@@ -177,14 +177,14 @@ var whenProbes = []string{
 	"host add web2 root@10.0.0.6 --proxy-command nc",
 	"host edit web1 --proxy-command nc",
 	"import kubeconfig",
-	"recipe add r1 --overwrite --read-only",
+	"snippet create r1 --overwrite --read-only",
 	"config vault keychain",
 	"host trust web1 --reset",
 	"export --sealed",
 	"export --for-phone",
 	"credential key install web1 --user anna --public-key-file k.pub",
 	"import komando backup.json",
-	"group rm big",
+	"group remove big",
 	"policy edit rm-root --off",
 }
 

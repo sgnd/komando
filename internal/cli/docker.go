@@ -764,7 +764,7 @@ func dockerRows(command string, sortBy ...string) func(snippet.Output, snippet.F
 }
 
 // dockerSnippetExit is dockerExit for the snippet that replaces `komando
-// command`: recipe run has no --sudo, so no access to docker's socket
+// command`: snippet exec has no --sudo, so no access to docker's socket
 // points to the command, which asks as it does today. It never steers to
 // the docker group: access to its socket is root on that server (Audit
 // A-455-1).

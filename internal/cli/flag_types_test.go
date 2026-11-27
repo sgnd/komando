@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -206,5 +207,28 @@ func TestStandardKeyValue(t *testing.T) {
 	h := mustRun(t, "host", "show", "web1")
 	if s := jsonStr(h); !strings.Contains(s, `"B":"x,y"`) || !strings.Contains(s, `"team":"ops"`) || !strings.Contains(s, `"env":"prod"`) {
 		t.Errorf("host show: %s", s)
+	}
+}
+
+// A KEY=VALUE flag reads back as it was typed through every pflag getter: a
+// value with a comma and a double quote is one value, not split and not
+// dropped (the ssh gate reads a snippet's --var from the table leaf).
+func TestKvArrayReadsBackExactly(t *testing.T) {
+	values := []string{`sub=a,b`, `k="x`, `q=a,"b"`, `plain=1`}
+	c := findCmd(t, newRoot(tcl), "snippet", "exec")
+	var args []string
+	for _, v := range values {
+		args = append(args, "--var", v)
+	}
+	if err := c.ParseFlags(args); err != nil {
+		t.Fatal(err)
+	}
+	got, err := c.Flags().GetStringArray("var")
+	if err != nil || !slices.Equal(got, values) {
+		t.Errorf("GetStringArray: %q (%v), want %q", got, err, values)
+	}
+	sv, ok := c.Flags().Lookup("var").Value.(pflag.SliceValue)
+	if !ok || !slices.Equal(sv.GetSlice(), values) {
+		t.Errorf("SliceValue: %v %q, want %q", ok, sv, values)
 	}
 }

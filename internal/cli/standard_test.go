@@ -70,13 +70,13 @@ func TestStandardTopLevel(t *testing.T) {
 	root := newRoot(tcl)
 	want := []string{
 		// nouns (S-2.1)
-		"host", "conn", "vpn", "group", "secret", "credential", "recipe", "policy", "job", "tunnel", "config",
+		"host", "conn", "vpn", "group", "secret", "credential", "snippet", "policy", "job", "tunnel", "config",
 		"fs", "pkg", "docker", "cert", "db", "cache", "queue", "storage", "cluster", "registry",
 		// shortcuts
 		"list", "test", "exec", "shell", "logs", "cp", "upload", "download", "sync", "status",
 		"login", "logout", "import", "export", "rename",
 		// about komando
-		"audit", "doctor", "schema", "guide", "update", "version", "completion", "help", "ssh-gate",
+		"audit", "doctor", "schema", "guide", "agent", "update", "version", "completion", "help", "ssh-gate",
 	}
 	var got []string
 	for _, c := range root.Commands() {
@@ -131,7 +131,7 @@ func TestStandardNounAliases(t *testing.T) {
 	root := newRoot(tcl)
 	for noun, aliases := range map[string][]string{
 		"host": {"hosts", "server", "servers"}, "conn": {"conns"}, "vpn": {"vpns"}, "group": {"groups"},
-		"secret": {"secrets"}, "recipe": {"recipes"}, "policy": {"policies"}, "job": {"jobs"},
+		"secret": {"secrets"}, "snippet": {"snippets"}, "policy": {"policies"}, "job": {"jobs"},
 		"tunnel": {"tunnels"}, "fs": {"files"}, "pkg": {"package", "packages"},
 		"docker": {"container", "containers"},
 		"cert":   {"certs"}, "db": {"dbs", "database", "databases"}, "cache": {"caches"}, "queue": {"queues"},
@@ -161,7 +161,7 @@ var (
 		"fs cat", "fs stat", "fs chmod", "fs mkdir", "fs write", "fs replace", "fs mv",
 		"cluster scale", "cluster apply", "cluster rollback", "cluster kubernetes tunnel start", "cluster helm values",
 		"credential key create", "credential key install", "host trust", "host ssh-command",
-		"ssh-gate line", "conn kinds", "audit verify", "config approval-code", "config vault keychain", "config vault passphrase"}
+		"ssh-gate line", "conn kinds", "audit check", "config approval-code", "config vault keychain", "config vault passphrase"}
 )
 
 // S-3.1, S-3.3: every leaf verb is in the verb table or a tool word.
@@ -656,9 +656,9 @@ func TestStandardJourneys(t *testing.T) {
 		"conn":          {"add", "test", "show", "list", "edit", "rename", "rm"},
 		"vpn wireguard": {"add", "test", "show", "list", "edit", "rename", "remove"},
 		"secret":        {"check", "cp"},
-		"group":         {"add", "show", "list", "rename", "rm"},
-		"recipe":        {"add", "show", "list", "rm"},
-		"policy":        {"deny", "add", "check", "list", "rm"},
+		"group":         {"create", "show", "list", "rename", "remove"},
+		"snippet":       {"create", "show", "list", "remove"},
+		"policy":        {"create", "check", "list", "remove"},
 		"job":           {"start", "status", "show", "list", "kill", "stop", "rm"},
 		"tunnel":        {"start", "show", "list", "stop"},
 	} {

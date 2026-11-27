@@ -62,11 +62,11 @@ $K export target >"$TMP/inv-target.json"
 check "overwrite of a protected host is skipped" target "$($K import komando "$TMP/inv-target.json" --overwrite | jget 'd["data"]["skipped"][0]["name"]')"
 
 # groups
-q $K group add t-e2einvg direct
-check "group rm of a non-member" '[]' "$($K group rm t-e2einvg bastion | jget 'json.dumps(d["data"]["removed"])')"
-check "unknown group" GROUP_NOT_FOUND "$($K group rm t-e2einvnone direct | code)"
+q $K group create t-e2einvg direct
+check "group remove of a non-member" '[]' "$($K group remove t-e2einvg bastion | jget 'json.dumps(d["data"]["removed"])')"
+check "unknown group" GROUP_NOT_FOUND "$($K group remove t-e2einvnone direct | code)"
 check "group list GROUP" '["direct"]' "$($K group list t-e2einvg | jget 'json.dumps(d["data"]["members"])')"
-q $K group rm t-e2einvg
+q $K group remove t-e2einvg
 
 # keys
 check "weak RSA refused" USAGE "$($K credential key create t-e2einvk --type rsa --bits 1024 | code)"
@@ -94,8 +94,8 @@ check "negative value names the fix" True "$($K config set parallel -3 | jget '"
 check "config set is audited" True "$($K config set connect_timeout 15s >/dev/null; $K audit -n 1 --command config.set | jget 'd["data"]["entries"][0]["new"] == "15s"')"
 
 # policy
-check "built-in rule cannot be removed" BUILTIN_RULE "$($K policy rm rm-root | code)"
-check "empty deny pattern" USAGE "$($K policy deny '' | code)"
+check "built-in rule cannot be removed" BUILTIN_RULE "$($K policy remove rm-root | code)"
+check "empty deny pattern" USAGE "$($K policy create '' | code)"
 set +e; $K policy check 'rm -rf //' >/dev/null; check "policy check exits 6 when blocked" 6 $?; set -e
 check "grep mkfs is allowed" False "$($K policy check 'grep mkfs notes.txt' | jget 'd["data"]["blocked"]')"
 
@@ -132,9 +132,9 @@ q $K host add t-e2einv9 agent@10.9.9.9 --via t-e2einv8
 q $K conn add t-e2einva redis://10.9.9.10:6379/0 --via t-e2einv8
 check "rm a via host names every user" "True True" \
   "$($K host rm t-e2einv8 | jget 'str("t-e2einv9" in d["error"]["message"]) + " " + str("conn edit t-e2einva --unset via" in d["error"]["hint"])' || true)"
-# group add/rm take several names
-check "group add takes several names" ok "$($K group add t-e2einvg t-e2einv8 t-e2einv9 | code)"
-check "group rm takes several names" ok "$($K group rm t-e2einvg t-e2einv8 t-e2einv9 | code)"
+# group create/rm take several names
+check "group create takes several names" ok "$($K group create t-e2einvg t-e2einv8 t-e2einv9 | code)"
+check "group remove takes several names" ok "$($K group remove t-e2einvg t-e2einv8 t-e2einv9 | code)"
 q $K conn rm t-e2einva
 q $K host rm t-e2einv8 t-e2einv9
 # import: the TLS default of conn add, a next step, a protected conn skipped in the dry run too

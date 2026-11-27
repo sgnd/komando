@@ -191,44 +191,15 @@ var storeLeaves = each(storeProviders, func(p provider) []Leaf {
 	return ls
 })
 
-var readOnlySnippet = Option{Name: "read-only", Kind: Bool, Help: "every step only reads"}
-
 // reservedSecret refuses the approval code's seed on every credential leaf:
 // it is an internal record, not a credential.
 var ownLeaves = concat(
 	withStop(credentialLeaves, "reservedSecret"),
 	withStop(storeLeaves, "reservedSecret"),
+	groupLeaves,
+	policyLeaves,
+	snippetLeaves,
 	[]Leaf{
-		{Key: own("group", "", "create"), Args: []Arg{{Name: "NAME"}, {Name: "MEMBER", Many: true, Optional: true}}, Today: []string{"group.add"}},
-		{Key: own("group", "", "edit"), Args: oneName, State: New,
-			Options: []Option{{Name: "add", Kind: Entry, Repeat: true}, {Name: "remove", Kind: Entry, Repeat: true}}},
-		{Key: own("group", "", "list"), LocalRead: true, Synonyms: []string{"ls"}, Today: []string{"group.list"}},
-		{Key: own("group", "", "show"), Args: oneName, LocalRead: true},
-		{Key: own("group", "", "rename"), Args: []Arg{{Name: "NAME"}, {Name: "NEW"}}, Today: []string{"group.rename"}},
-		{Key: own("group", "", "remove"), Args: oneName, Today: []string{"group.rm"}},
-
-		{Key: own("policy", "", "check"), Args: []Arg{{Name: "COMMAND", Many: true}}, LocalRead: true, Today: []string{"policy.check"}},
-		{Key: own("policy", "", "create"), Args: []Arg{{Name: "PATTERN"}}, Today: []string{"policy.deny"}},
-		{Key: own("policy", "", "list"), LocalRead: true, Synonyms: []string{"ls"}, Today: []string{"policy.list"}},
-		{Key: own("policy", "", "show"), Args: oneName, LocalRead: true, Today: []string{"policy.show"}},
-		{Key: own("policy", "", "edit"), Args: oneName, Today: []string{"policy.edit"},
-			Options: []Option{{Name: "off", Kind: Bool, Help: "switch the rule off; --off=false switches it on again everywhere"},
-				{Name: "add-server", Kind: Entry, Repeat: true, Help: "with --off: only on these servers"},
-				{Name: "add-group", Kind: Entry, Repeat: true, Help: "with --off: only on the servers in these groups as they are now"},
-				{Name: "rm-server", Kind: Entry, Repeat: true, Help: "switch the rule on again on these servers"},
-				{Name: "rm-group", Kind: Entry, Repeat: true, Help: "switch the rule on again on the servers these groups named"}}},
-		{Key: own("policy", "", "remove"), Args: oneName, Today: []string{"policy.rm"}},
-
-		{Key: own("snippet", "", "create"), Args: oneName, Today: []string{"recipe.add"},
-			Options: []Option{{Name: "overwrite", Kind: Bool, Help: "replace a snippet of that name"}, readOnlySnippet}},
-		{Key: own("snippet", "", "edit"), Args: oneName, State: New, Options: []Option{readOnlySnippet}},
-		{Key: own("snippet", "", "exec"), Args: []Arg{{Name: "NAME"}, {Name: "TARGET", Selector: true}},
-			Output: TargetData, Stops: []string{"refuseEncodedSecret"}, Today: []string{"recipe.run"}},
-		{Key: own("snippet", "", "list"), LocalRead: true, Synonyms: []string{"ls"}, Today: []string{"recipe.list"}},
-		{Key: own("snippet", "", "show"), Args: oneName, State: New, LocalRead: true},
-		{Key: own("snippet", "", "rename"), Args: []Arg{{Name: "NAME"}, {Name: "NEW"}}, State: New},
-		{Key: own("snippet", "", "remove"), Args: oneName, Today: []string{"recipe.rm"}},
-
 		{Key: own("config", "", "get"), Args: []Arg{{Name: "SETTING"}}, Today: []string{"config.get"},
 			Short:   "Print one setting",
 			Example: "  komando config get parallel\n  komando config get host_key_policy -o text"},
@@ -262,19 +233,7 @@ var ownLeaves = concat(
 				"  komando config vault passphrase   # asks for the new passphrase twice, hidden\n" +
 				"  komando config vault passphrase --off --dry-run\n" +
 				"  komando config vault passphrase --off --yes   " + approvalComment},
-
-		{Key: own("agent", "skill", "install"), LocalRead: true, Today: []string{"guide.install"}},
-		{Key: own("agent", "skill", "uninstall"), LocalRead: true, Today: []string{"guide.uninstall"}},
-		{Key: own("agent", "mcp", "start"), State: New},
-		{Key: own("agent", "mcp", "stop"), State: New},
-
-		{Key: own("audit", "", "list"), LocalRead: true, Synonyms: []string{"ls"}, Today: []string{"audit"}},
-		{Key: own("audit", "", "check"), LocalRead: true, Today: []string{"audit.verify"}},
-		{Key: own("audit", "", "export"), State: New},
-		{Key: own("audit", "recording", "list"), State: New, LocalRead: true, Synonyms: []string{"ls"}},
-		{Key: own("audit", "recording", "show"), Args: oneName, State: New, Output: TargetData},
-		{Key: own("audit", "recording", "export"), Args: oneName, State: New, Output: TargetData},
-		// remove, not delete: komando's own things use remove
-		{Key: own("audit", "recording", "remove"), Args: oneName, State: New},
 	},
+	agentLeaves,
+	auditLeaves,
 )

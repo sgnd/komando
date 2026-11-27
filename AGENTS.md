@@ -1,6 +1,6 @@
 # Instructions for AI agents: managing servers with komando
 
-Using Claude Code, Codex, Cursor or Gemini CLI? Run `komando guide install`
+Using Claude Code, Codex, Cursor or Gemini CLI? Run `komando agent skill install`
 instead: it installs these rules as a skill. For any other agent, copy this
 file into your project (or into the agent's system prompt), so the agent
 manages servers, databases, caches, queues, storage, clusters and
@@ -102,14 +102,14 @@ under a pseudo-terminal and komando does not know your agent, set
     gets `error.suggestion` (the name komando thinks you meant), and the
     hint is the whole command line with it in place.
 13. After finishing, summarize what you changed, on which targets, and how
-    to roll back (`komando audit --limit 20` helps).
+    to roll back (`komando audit list --limit 20` helps).
 
 ## Setup for the human
 
 ```bash
-komando guide install            # teach Claude Code, Codex, Cursor and Gemini CLI to use komando
+komando agent skill install      # teach Claude Code, Codex, Cursor and Gemini CLI to use komando
 export KOMANDO_AGENT=1           # only for an agent komando does not know (not Claude Code, Codex, Cursor, Gemini CLI)
-export KOMANDO_ACTOR=claude      # the name shown in `komando audit` (add it to ~/.zshrc or ~/.bashrc)
+export KOMANDO_ACTOR=claude      # the name shown in `komando audit list` (add it to ~/.zshrc or ~/.bashrc)
 komando list                     # check that your servers are there
 komando host edit web1 --protected   # production: changes need a person's yes
 ```

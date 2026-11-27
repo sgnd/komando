@@ -32,17 +32,17 @@ check "person: komando db shows examples" 1 "$(grep -c '^  komando db dump prod-
 check "person: komando db alone exits 0" 0 "$RC"
 
 # a change that weakens komando's own safety: [y/N]
-q $K policy deny "t-person-word"
-tty 'n\n' policy rm "t-person-word" >/dev/null
+q $K policy create "t-person-word"
+tty 'n\n' policy remove "t-person-word" >/dev/null
 check "person: no keeps the deny rule" True "$($K policy check "echo t-person-word" | jget '"custom" in json.dumps(d)' || true)"
-tty 'y\n' policy rm "t-person-word" >/dev/null
+tty 'y\n' policy remove "t-person-word" >/dev/null
 check "person: yes removes the deny rule" False "$($K policy check "echo t-person-word" | jget '"custom" in json.dumps(d)' || true)"
 
 # removing a group with many members: [y/N]
 for i in 1 2 3 4; do q $K host add "$P1-$i" agent@10.9.9.9 -g "$P1"; done
-tty 'n\n' group rm "$P1" >/dev/null
+tty 'n\n' group remove "$P1" >/dev/null
 check "person: no keeps the group" 4 "$($K list "@$P1" | jget 'd["data"]["count"]' || true)"
-tty 'y\n' group rm "$P1" >/dev/null
+tty 'y\n' group remove "$P1" >/dev/null
 check "person: yes deletes the group" TARGET_EMPTY "$($K list "@$P1" | jget 'd["error"]["code"]' || true)"
 q $K host rm "$P1-1" "$P1-2" "$P1-3" "$P1-4"
 

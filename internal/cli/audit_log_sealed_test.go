@@ -15,7 +15,7 @@ import (
 
 // On a sealed home the audit log lives in the store: listed and verified
 // as before, unreadable in the file, and a record removed outside komando
-// stops audit verify at its number.
+// stops audit check at its number.
 func TestSealedAudit(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "audited-web", "deploy@10.0.0.1")
@@ -24,11 +24,11 @@ func TestSealedAudit(t *testing.T) {
 	if _, err := os.Stat(store.Path("audit.jsonl")); !os.IsNotExist(err) {
 		t.Fatal("audit.jsonl written on a sealed home")
 	}
-	l := mustRun(t, "audit", "-n", "0", "--command", "host.")
+	l := mustRun(t, "audit", "list", "-n", "0", "--command", "host.")
 	if l["count"].(float64) < 3 {
 		t.Fatalf("audit list: %v", l)
 	}
-	v := mustRun(t, "audit", "verify")
+	v := mustRun(t, "audit", "check")
 	if v["ok"] != true || v["entries"].(float64) < 3 {
 		t.Fatalf("verify: %v", v)
 	}
@@ -46,24 +46,24 @@ func TestSealedAudit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, e := invRun(t, "audit", "verify")
+	_, e := invRun(t, "audit", "check")
 	if e == nil || e.Code != "AUDIT_TAMPERED" || !strings.Contains(e.Message, "line 2") {
 		t.Fatalf("tampered: %+v", e)
 	}
 	// the list still shows the records before the broken one, and says so
-	d := mustRun(t, "audit", "-n", "0")
+	d := mustRun(t, "audit", "list", "-n", "0")
 	if d["count"].(float64) != 1 {
 		t.Fatalf("records before the break: %v", d)
 	}
 }
 
-// Without a filter, `komando audit` reads only the newest records.
+// Without a filter, `komando audit list` reads only the newest records.
 func TestAuditListNewest(t *testing.T) {
 	invHome(t)
 	for i := range 12 {
 		audit(tcl, nil, fmt.Sprintf("test.c%02d", i), nil, "", true, nil)
 	}
-	d := mustRun(t, "audit", "-n", "3")
+	d := mustRun(t, "audit", "list", "-n", "3")
 	es := d["entries"].([]any)
 	if len(es) != 3 || es[2].(map[string]any)["command"] != "test.c11" || es[0].(map[string]any)["command"] != "test.c09" {
 		t.Fatalf("newest 3: %v", es)
