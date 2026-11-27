@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -131,26 +132,28 @@ func TestAskMoveOnce(t *testing.T) {
 		typed string
 		want  bool
 	}{{"y\n", true}, {"n\n", false}, {"\n", false}, {"", false}} {
-		var e bytes.Buffer
-		cl := newCall(engine.Call{
-			Program:   "komando",
-			LookupEnv: func(string) (string, bool) { return "", false },
-			Environ:   func() []string { return nil },
-			Terminal:  true,
-			Stdin:     strings.NewReader(c.typed),
-			Stderr:    &e,
-			Ancestors: func() string { return "" },
-		}, []string{"doctor"})
-		parsedGate(t, cl, "doctor")
-		ask := migrateCallFor(cl).Ask
-		if got := ask("THE PLAN"); got != c.want {
-			t.Fatalf("typed %q: %v, want %v", c.typed, got, c.want)
-		}
-		if got := ask("THE PLAN"); got != c.want {
-			t.Fatalf("typed %q, asked again: %v", c.typed, got)
-		}
-		if s := e.String(); strings.Count(s, "Move the store to format 3 now? [y/N]") != 1 || strings.Count(s, "THE PLAN") != 1 {
-			t.Fatalf("typed %q: the screen\n%s", c.typed, s)
-		}
+		t.Run(fmt.Sprintf("typed %q", c.typed), func(t *testing.T) {
+			var e bytes.Buffer
+			cl := newCall(engine.Call{
+				Program:   "komando",
+				LookupEnv: func(string) (string, bool) { return "", false },
+				Environ:   func() []string { return nil },
+				Terminal:  true,
+				Stdin:     strings.NewReader(c.typed),
+				Stderr:    &e,
+				Ancestors: func() string { return "" },
+			}, []string{"doctor"})
+			parsedGate(t, cl, "doctor")
+			ask := migrateCallFor(cl).Ask
+			if got := ask("THE PLAN"); got != c.want {
+				t.Fatalf("%v, want %v", got, c.want)
+			}
+			if got := ask("THE PLAN"); got != c.want {
+				t.Fatalf("asked again: %v", got)
+			}
+			if s := e.String(); strings.Count(s, "Move the store to format 3 now? [y/N]") != 1 || strings.Count(s, "THE PLAN") != 1 {
+				t.Fatalf("the screen\n%s", s)
+			}
+		})
 	}
 }

@@ -170,28 +170,34 @@ func TestPersonAtTerminalOnlyDoctorMoves(t *testing.T) {
 		{[]string{"logs"}, false, "nothing is asked: the store is still to move to format 3"},
 		{[]string{"lsit"}, false, ""},
 	} {
-		var o, e strings.Builder
-		pc := processCall()
-		pc.Terminal, pc.Stdout, pc.Stderr = true, &o, &e
-		code := execute(newCall(pc, c.args), t.Context(), c.args)
-		store.Close()
-		if (code == 0) != c.ok || !strings.Contains(o.String()+e.String(), c.says) {
-			t.Fatalf("%v: exit %d\n%s%s", c.args, code, o.String(), e.String())
+		name := strings.Join(c.args, " ")
+		if name == "" {
+			name = "komando alone"
 		}
-		// owner, 2026-11-27: "Dry run: nothing was changed" came right after
-		// the move's report
-		if strings.Contains(e.String(), "moved its store") {
-			t.Fatalf("%v moved the store:\n%s", c.args, e.String())
-		}
-		if after, err := os.ReadFile(store.DBPath()); err != nil || !bytes.Equal(before, after) {
-			t.Fatalf("%v changed store.db: %v", c.args, err)
-		}
-		if f, err := sealdb.Peek(t.Context(), store.DBPath()); err != nil || f["format"] != "2" {
-			t.Fatalf("%v moved the store: %v %v", c.args, f, err)
-		}
-		if b, _ := filepath.Glob(store.Path("store-v0-17-backup-*")); len(b) > 0 {
-			t.Fatalf("%v made a backup: %v", c.args, b)
-		}
+		t.Run(name, func(t *testing.T) {
+			var o, e strings.Builder
+			pc := processCall()
+			pc.Terminal, pc.Stdout, pc.Stderr = true, &o, &e
+			code := execute(newCall(pc, c.args), t.Context(), c.args)
+			store.Close()
+			if (code == 0) != c.ok || !strings.Contains(o.String()+e.String(), c.says) {
+				t.Fatalf("%v: exit %d\n%s%s", c.args, code, o.String(), e.String())
+			}
+			// owner, 2026-11-27: "Dry run: nothing was changed" came right after
+			// the move's report
+			if strings.Contains(e.String(), "moved its store") {
+				t.Fatalf("%v moved the store:\n%s", c.args, e.String())
+			}
+			if after, err := os.ReadFile(store.DBPath()); err != nil || !bytes.Equal(before, after) {
+				t.Fatalf("%v changed store.db: %v", c.args, err)
+			}
+			if f, err := sealdb.Peek(t.Context(), store.DBPath()); err != nil || f["format"] != "2" {
+				t.Fatalf("%v moved the store: %v %v", c.args, f, err)
+			}
+			if b, _ := filepath.Glob(store.Path("store-v0-17-backup-*")); len(b) > 0 {
+				t.Fatalf("%v made a backup: %v", c.args, b)
+			}
+		})
 	}
 }
 
