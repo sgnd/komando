@@ -764,8 +764,7 @@ func dbPathOf(c *store.Conn, verb string) string {
 }
 
 // dbKindOf is the provider word of a conn in hand, KIND when its URL does
-// not parse. A hint that writes the rest of the path in the source reads
-// well in the error-code catalog too.
+// not parse; hints spell the rest of the path so the catalog can read it.
 func dbKindOf(c *store.Conn) string {
 	if t, err := driver.Parse(c.URL); err == nil {
 		return providerWord(t.Kind)

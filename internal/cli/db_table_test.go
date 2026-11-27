@@ -76,6 +76,9 @@ func TestDBQueryTableTruncated(t *testing.T) {
 	tableDB(t, 200)
 	s, e := tableRun(t, "database", "sqlite", "query", "lite", "-o", "csv", "--max-output", "1000", "select id, name from t")
 	if e == nil || e.Code != "OUTPUT_TRUNCATED" || e.Exit != out.ExitError || s != "" {
-		t.Errorf("cut export: %q %+v", s, e)
+		t.Fatalf("cut export: %q %+v", s, e)
+	}
+	if !strings.Contains(e.Hint, "`komando database sqlite backup lite`") {
+		t.Errorf("the hint names the conn's own backup: %q", e.Hint)
 	}
 }
