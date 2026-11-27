@@ -192,7 +192,7 @@ This page is made from the code (`komando schema` lists the same under
 | `RECIPE_CHANGED` | 8 | recipe … changed while komando was starting | run it again |
 | `RECIPE_EXISTS` | 8 | recipe … exists | see it with `komando recipe show NAME`, or pass --overwrite to replace it |
 | `RECIPE_NOT_FOUND` | 3 | no recipe named … | see them with `komando recipe list` |
-| `REFERENCE_UNSUPPORTED` | 2 | … holds the old marker of a secret, which komando no longer reads; nothing was written | save the value with `komando secret set NAME`, then write {{credential:NAME}} in place of … |
+| `REFERENCE_UNSUPPORTED` | 2 | … holds the old marker of a secret, which komando no longer reads; nothing was written | write … instead; `komando secret list` names the saved credentials |
 | `REGISTRY_AUTH` | 4 | the registry refused to list its repositories: … | the login may read images but not list every repository: name one with `komando registry oci image list NAME REPO`; else check the user in the conn URL and its --password-ref |
 | `REGISTRY_ERROR` | 5 | the registry did not say the image's digest | run it again; if it keeps failing, the registry may not support this image format |
 | `REGISTRY_RATE_LIMIT` | 5 | the registry turned the request down: too many requests (Docker Hub's pull limit) | the registry limits how many requests it takes (Docker Hub: pulls per 6 hours, fewer without a login); wait and run it again |
@@ -275,10 +275,10 @@ This page is made from the code (`komando schema` lists the same under
 | `STORE_CONFLICT` | 8 | nothing was done: … was replaced, given a new key or checked again while this command ran, and this command still held it as it was | run the command again: komando opens the store again from the start; if it keeps happening, run `komando doctor` |
 | `STORE_IN_USE` | 8 | … changed after the window was shown; nothing was changed | run `komando doctor` again |
 | `STORE_KEY_CHANGED` | 1 | …: … | run it again: another komando changed the store's key while this one ran |
-| `STORE_MIGRATION_FAILED` | 1 | …; nothing was changed | fix it with komando v0.17.0, then run `komando doctor` again |
+| `STORE_MIGRATION_FAILED` | 1 | …; nothing was changed | fix it with komando …, then run `komando doctor` again |
 | `STORE_NEWER` | 1 | … was made by a newer komando | a newer komando made or changed this store; update this one: `komando update` |
 | `STORE_OLD_COPY` | 6 | … …: servers, rules, secrets or pinned host keys may be old | if the komando folder was restored from a backup on purpose, a person runs `komando doctor --accept-old-copy` in their own terminal; otherwise find out who put an old copy back or changed the keychain |
-| `STORE_REFERENCE_UNSUPPORTED` | 2 | … …: field … still names a secret the old way | point the field at a saved secret again with komando v0.17.0, then run `komando doctor` |
+| `STORE_REFERENCE_UNSUPPORTED` | 2 | … …: field … still names a secret the old way | point the field at a saved secret again with komando …, then run `komando doctor` |
 | `STREAM_EXISTS` | 8 | stream … already exists | pick another name, or see it with `komando queue describe CONN …` |
 | `STREAM_NOT_FOUND` | 3 | no stream named … | list streams with `komando queue list CONN` |
 | `SUBSCRIPTION_EXISTS` | 8 | subscription … already exists | pick another name, or see it with `komando queue describe CONN subscriptions/…` |

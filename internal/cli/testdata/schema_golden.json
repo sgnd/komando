@@ -12089,7 +12089,7 @@
         "code": "REFERENCE_UNSUPPORTED",
         "exit": 2,
         "example": "… holds the old marker of a secret, which komando no longer reads; nothing was written",
-        "hint": "save the value with `komando secret set NAME`, then write {{credential:NAME}} in place of …"
+        "hint": "write … instead; `komando secret list` names the saved credentials"
       },
       {
         "code": "REGISTRY_AUTH",
@@ -12586,7 +12586,7 @@
         "code": "STORE_MIGRATION_FAILED",
         "exit": 1,
         "example": "…; nothing was changed",
-        "hint": "fix it with komando v0.17.0, then run `komando doctor` again"
+        "hint": "fix it with komando …, then run `komando doctor` again"
       },
       {
         "code": "STORE_NEWER",
@@ -12604,7 +12604,7 @@
         "code": "STORE_REFERENCE_UNSUPPORTED",
         "exit": 2,
         "example": "… …: field … still names a secret the old way",
-        "hint": "point the field at a saved secret again with komando v0.17.0, then run `komando doctor`"
+        "hint": "point the field at a saved secret again with komando …, then run `komando doctor`"
       },
       {
         "code": "STREAM_EXISTS",
