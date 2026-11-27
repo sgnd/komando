@@ -28,20 +28,27 @@ func shopInventory(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+<<<<<<< HEAD
 	mustRun(t, "vpn", "socks", "add", "shop-vpn", "--proxy-address", "127.0.0.1:1080", "--group", "shop")
 	mustRun(t, "host", "add", "shop-bastion", "u@10.0.0.1", "--via", "shop-vpn", "-g", "shop", "-g", "shop-stg",
 		"--password-ref", "secret:shop-pass", "--protected", "--label", "dc=jkt", "--notes", "jump for shop-db; see shop-vpn.")
+=======
+	mustRun(t, "vpn", "add", "shop-vpn", "socks", "--proxy-address", "127.0.0.1:1080", "-g", "shop")
+	// shop-pass logs in as one user everywhere: a credential carries its user (format 3)
+	mustRun(t, "host", "add", "shop-bastion", "shop-admin@10.0.0.1", "--via", "shop-vpn", "-g", "shop", "-g", "shop-stg",
+		"--password-ref", "credential:shop-pass", "--protected", "--label", "dc=jkt", "--notes", "jump for shop-db; see shop-vpn.")
+>>>>>>> feat/c489-cut-e1-format3
 	mustRun(t, "key", "gen", "shop-key")
 	mustRun(t, "host", "add", "shop-data-01", "u@10.0.0.2", "--via", "shop-vpn,shop-bastion", "-g", "shop",
-		"--sudo-ref", "secret:shop-pass", "--key", "shop-key")
-	mustRun(t, "host", "add", "web", "u@10.0.0.3", "--via", "shop-vpn,shop-bastion", "--env", "DB=secret:shop-pass", "--password-ref", "secret:other-pass")
-	mustRun(t, "conn", "add", "shop-db", "postgres://shop@10.0.0.5/shop", "--via", "shop-vpn,shop-bastion",
-		"--password-ref", "secret:shop-pass", "--protected", "-g", "shop")
-	mustRun(t, "conn", "add", "bucket", "s3://shop-admin@shop-prod?region=eu-west-1", "--password-ref", "secret:shop-pass")
-	mustRun(t, "conn", "add", "reg", "registry://u@reg.lan?ca=secret:shop-ca")
+		"--sudo-ref", "credential:shop-pass", "--key", "shop-key")
+	mustRun(t, "host", "add", "web", "u@10.0.0.3", "--via", "shop-vpn,shop-bastion", "--env", "DB=credential:shop-pass", "--password-ref", "credential:other-pass")
+	mustRun(t, "conn", "add", "shop-db", "postgres://shop-admin@10.0.0.5/shop", "--via", "shop-vpn,shop-bastion",
+		"--password-ref", "credential:shop-pass", "--protected", "-g", "shop")
+	mustRun(t, "conn", "add", "bucket", "s3://shop-admin@shop-prod?region=eu-west-1", "--password-ref", "credential:shop-pass")
+	mustRun(t, "conn", "add", "reg", "registry://u@reg.lan?ca=credential:shop-ca")
 	if err := store.Update(store.Save(), func(s *store.State) error {
-		s.Vpns["shop-vpn"].PSKRef = "secret:shop-psk"
-		s.Keys["shop-key"].PassphraseRef = "secret:shop-pass"
+		s.Vpns["shop-vpn"].PSKRef = "credential:shop-psk"
+		s.Keys["shop-key"].PassphraseRef = "credential:shop-pass"
 		s.Jobs["j1"] = &store.Job{ID: "j1", Host: "shop-data-01", Command: "sleep 1"}
 		s.Tunnels["t1"] = &store.Tunnel{ID: "t1", Host: "shop-bastion", Via: "shop-vpn,shop-bastion", Conn: "shop-db", Kind: "local"}
 		return nil
@@ -112,17 +119,17 @@ func TestRenamePrefix(t *testing.T) {
 		// a server in the middle of a --via path
 		{"host acme-shop-data-01", "via", "shop-vpn,shop-bastion", "acme-shop-vpn,acme-shop-bastion"},
 		{"host web", "via", "shop-vpn,shop-bastion", "acme-shop-vpn,acme-shop-bastion"},
-		{"host web", "env DB", "secret:shop-pass", "secret:acme-shop-pass"},
+		{"host web", "env DB", "credential:shop-pass", "credential:acme-shop-pass"},
 		{"host acme-shop-data-01", "key", "shop-key", "acme-shop-key"},
-		{"host acme-shop-data-01", "sudo_ref", "secret:shop-pass", "secret:acme-shop-pass"},
+		{"host acme-shop-data-01", "sudo_ref", "credential:shop-pass", "credential:acme-shop-pass"},
 		{"host acme-shop-bastion", "groups", "shop,shop-stg", "acme-shop,acme-shop-stg"},
 		{"conn acme-shop-db", "via", "shop-vpn,shop-bastion", "acme-shop-vpn,acme-shop-bastion"},
-		{"conn bucket", "password_ref", "secret:shop-pass", "secret:acme-shop-pass"},
+		{"conn bucket", "password_ref", "credential:shop-pass", "credential:acme-shop-pass"},
 		// secret: inside a conn URL
-		{"conn reg", "url", "registry://u@reg.lan?ca=secret:shop-ca", "registry://u@reg.lan?ca=secret:acme-shop-ca"},
-		{"vpn acme-shop-vpn", "psk_ref", "secret:shop-psk", "secret:acme-shop-psk"},
+		{"conn reg", "url", "registry://u@reg.lan?ca=credential:shop-ca", "registry://u@reg.lan?ca=credential:acme-shop-ca"},
+		{"vpn acme-shop-vpn", "psk_ref", "credential:shop-psk", "credential:acme-shop-psk"},
 		{"vpn acme-shop-vpn", "groups", "shop", "acme-shop"},
-		{"key acme-shop-key", "passphrase_ref", "secret:shop-pass", "secret:acme-shop-pass"},
+		{"key acme-shop-key", "passphrase_ref", "credential:shop-pass", "credential:acme-shop-pass"},
 		{"job j1", "host", "shop-data-01", "acme-shop-data-01"},
 		{"tunnel t1", "conn", "shop-db", "acme-shop-db"},
 		{"tunnel t1", "via", "shop-vpn,shop-bastion", "acme-shop-vpn,acme-shop-bastion"},
@@ -175,30 +182,30 @@ func TestRenamePrefix(t *testing.T) {
 	if !b.Protected || b.Labels["dc"] != "jkt" || b.Notes != "jump for shop-db; see shop-vpn." || !b.CreatedAt.Equal(created) {
 		t.Errorf("the protected mark, labels, notes and created_at stay: %+v", b)
 	}
-	if b.Via != "acme-shop-vpn" || b.PasswordRef != "secret:acme-shop-pass" || strings.Join(b.Groups, ",") != "acme-shop,acme-shop-stg" {
+	if b.Via != "acme-shop-vpn" || b.PasswordRef != "credential:acme-shop-pass" || strings.Join(b.Groups, ",") != "acme-shop,acme-shop-stg" {
 		t.Errorf("bastion refs: %+v", b)
 	}
-	if data.Via != "acme-shop-vpn,acme-shop-bastion" || data.Key != "acme-shop-key" || data.SudoRef != "secret:acme-shop-pass" {
+	if data.Via != "acme-shop-vpn,acme-shop-bastion" || data.Key != "acme-shop-key" || data.SudoRef != "credential:acme-shop-pass" {
 		t.Errorf("data refs: %+v", data)
 	}
-	if web.Env["DB"] != "secret:acme-shop-pass" || web.PasswordRef != "secret:other-pass" {
+	if web.Env["DB"] != "credential:acme-shop-pass" || web.PasswordRef != "credential:other-pass" {
 		t.Errorf("web refs: %+v", web)
 	}
 	db := st.Conns["acme-shop-db"]
-	if db == nil || !db.Protected || db.PasswordRef != "secret:acme-shop-pass" || db.Via != "acme-shop-vpn,acme-shop-bastion" {
+	if db == nil || !db.Protected || db.PasswordRef != "credential:acme-shop-pass" || db.Via != "acme-shop-vpn,acme-shop-bastion" {
 		t.Errorf("conn: %+v", db)
 	}
 	if u := st.Conns["bucket"].URL; u != "s3://shop-admin@shop-prod?region=eu-west-1" {
 		t.Errorf("bucket URL changed: %s", u)
 	}
-	if u := st.Conns["reg"].URL; u != "registry://u@reg.lan?ca=secret:acme-shop-ca" {
+	if u := st.Conns["reg"].URL; u != "registry://u@reg.lan?ca=credential:acme-shop-ca" {
 		t.Errorf("registry URL: %s", u)
 	}
-	if v := st.Vpns["acme-shop-vpn"]; v == nil || v.PSKRef != "secret:acme-shop-psk" {
+	if v := st.Vpns["acme-shop-vpn"]; v == nil || v.PSKRef != "credential:acme-shop-psk" {
 		t.Errorf("vpn: %+v", v)
 	}
 	k := st.Keys["acme-shop-key"]
-	if k == nil || !store.SealedKey(k) || k.PassphraseRef != "secret:acme-shop-pass" {
+	if k == nil || !store.SealedKey(k) || k.PassphraseRef != "credential:acme-shop-pass" {
 		t.Errorf("key: %+v", k)
 	}
 	if b, err := store.ReadPrivateKey(k); err != nil || len(b) == 0 {
@@ -308,7 +315,7 @@ func TestRenameUsage(t *testing.T) {
 		t.Errorf("--kind secret: %v", d)
 	}
 	st, _ := store.Load()
-	if st.Hosts["shop-bastion"].PasswordRef != "secret:acme-shop-pass" {
+	if st.Hosts["shop-bastion"].PasswordRef != "credential:acme-shop-pass" {
 		t.Errorf("references follow: %+v", st.Hosts["shop-bastion"])
 	}
 }
@@ -341,13 +348,13 @@ func TestRenameNotes(t *testing.T) {
 	mustRun(t, "host", "add", "shop-web-1", "u@10.0.0.9")
 	mustRun(t, "host", "add", "acme-shop-web-9", "u@10.0.0.10") // in the way of acme-shop-web-*
 	note := "db shop, role shop on shop-db; dump to bucket shop-dev. Copy to shop-prod, then shop-prod-db-* and shop-web-*. " +
-		"Password: secret:shop-pass. Members: @shop and @shop-stg (shop-stg); ssh u@shop. Is it shop-vpn?"
+		"Password: credential:shop-pass. Members: @shop and @shop-stg (shop-stg); ssh u@shop. Is it shop-vpn?"
 	mustRun(t, "host", "add", "ops", "u@10.0.0.11", "--notes", note)
 
 	d := mustRun(t, "rename", "--starts-with", "shop-", "acme-shop-", "--in-notes", "--yes", "--dry-run")
 	from, to, ok := updatedRef(d, "host ops", "notes")
 	want := "db shop, role shop on acme-shop-db; dump to bucket shop-dev. Copy to shop-prod, then acme-shop-prod-db-* and shop-web-*. " +
-		"Password: secret:acme-shop-pass. Members: @acme-shop and @acme-shop-stg (shop-stg); ssh u@shop. Is it acme-shop-vpn?"
+		"Password: credential:acme-shop-pass. Members: @acme-shop and @acme-shop-stg (shop-stg); ssh u@shop. Is it acme-shop-vpn?"
 	if !ok || from != note || to != want {
 		t.Errorf("notes:\n got %q\nwant %q", to, want)
 	}
@@ -504,9 +511,15 @@ func TestRenameAgentNeedsNoWindow(t *testing.T) {
 	if err := vault.Set(store.Save(), "lab-pass", "v"); err != nil {
 		t.Fatal(err)
 	}
+<<<<<<< HEAD
 	mustRun(t, "vpn", "socks", "add", "lab-vpn", "--proxy-address", "127.0.0.1:1080")
 	mustRun(t, "host", "add", "lab-a", "u@10.0.0.1", "--via", "lab-vpn", "--password-ref", "secret:lab-pass", "--env", "P=secret:lab-pass")
 	mustRun(t, "conn", "add", "lab-db", "postgres://a@10.0.0.2/x", "--via", "lab-vpn,lab-a", "--password-ref", "secret:lab-pass")
+=======
+	mustRun(t, "vpn", "add", "lab-vpn", "socks", "--proxy-address", "127.0.0.1:1080")
+	mustRun(t, "host", "add", "lab-a", "u@10.0.0.1", "--via", "lab-vpn", "--password-ref", "credential:lab-pass", "--env", "P=credential:lab-pass")
+	mustRun(t, "conn", "add", "lab-db", "postgres://u@10.0.0.2/x", "--via", "lab-vpn,lab-a", "--password-ref", "credential:lab-pass")
+>>>>>>> feat/c489-cut-e1-format3
 	setCallerEnv(t, "CLAUDECODE", "1")
 	d := mustRun(t, "rename", "--starts-with", "lab-", "test-")
 	if d["action"] != "renamed" || d["count"].(float64) != 4 {

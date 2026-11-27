@@ -67,6 +67,8 @@ type openStore struct {
 	// until: a store opened unchecked, as the keychain did not answer in
 	// time; it is opened and checked again from then on. Zero: checked.
 	until time.Time
+	// format2: a store of format 2, handed out to the migration only
+	format2 bool
 }
 
 // The open stores, by home. dbOpen holds the stores every caller may use:
@@ -130,7 +132,15 @@ func openOldCopy() (*sealdb.DB, error) {
 
 // open is DB; oldOK: the caller may look at an old copy.
 func open(create, oldOK bool) (openStore, error) {
-	o, err := cachedDB(create, oldOK)
+	o, err := cachedDB(create, oldOK, false)
+	if errors.Is(err, errFormat2) {
+		// the first open of a format-2 store: the migration, for a person
+		// only, then the store as it is now
+		if err := migrateOnOpen(); err != nil {
+			return openStore{}, err
+		}
+		o, err = cachedDB(create, oldOK, false)
+	}
 	if err != nil {
 		return openStore{}, err
 	}
@@ -149,7 +159,36 @@ func open(create, oldOK bool) (openStore, error) {
 		}
 	}
 	dbMu.Unlock()
-	return cachedDB(create, oldOK)
+	return cachedDB(create, oldOK, false)
+}
+
+// errFormat2: the store is of format 2 and the caller is not the
+// migration (open runs it first).
+var errFormat2 = errors.New("store: the store is of format 2")
+
+// openFormat2 opens a format-2 store for the migration: the normal open,
+// with its old-copy count and policy MAC, and the store's master key. The
+// migration takes the key from here, never from MasterKey, whose open
+// would start the migration again (and wait for its own store lock).
+func openFormat2() (*sealdb.DB, []byte, error) {
+	o, err := cachedDB(false, false, true)
+	if err != nil {
+		return nil, nil, err
+	}
+	return o.db, bytes.Clone(o.master), nil
+}
+
+// dropHome stops handing out this home's open stores (after the
+// migration, whose handle reads format 2).
+func dropHome() {
+	dbMu.Lock()
+	defer dbMu.Unlock()
+	home := Home()
+	for _, m := range []map[string]openStore{dbOpen, lookOpen} {
+		if _, ok := m[home]; ok {
+			drop(m, home)
+		}
+	}
 }
 
 // drop stops handing out m's store of home. The handle may still be in
@@ -191,7 +230,7 @@ func forgetOldCopy() {
 // copy is handed out only to a caller that may look at one (oldOK); any
 // other caller gets the store opened and checked again, and
 // STORE_OLD_COPY.
-func cachedDB(create, oldOK bool) (openStore, error) {
+func cachedDB(create, oldOK, format2 bool) (openStore, error) {
 	dbMu.Lock()
 	defer dbMu.Unlock()
 	sweepRetired()
@@ -201,7 +240,7 @@ func cachedDB(create, oldOK bool) (openStore, error) {
 	// opened is opened again, never written through the old handle
 	fi, statErr := os.Stat(path)
 	usable := func(o openStore) bool {
-		return statErr == nil && os.SameFile(fi, o.fi) && (o.until.IsZero() || time.Now().Before(o.until))
+		return statErr == nil && os.SameFile(fi, o.fi) && (o.until.IsZero() || time.Now().Before(o.until)) && o.format2 == format2
 	}
 	if o, ok := dbOpen[home]; ok {
 		if usable(o) {
@@ -219,9 +258,20 @@ func cachedDB(create, oldOK bool) (openStore, error) {
 		return openStore{}, errors.New("store: no key source (the vault package is not linked)")
 	}
 	ctx := context.Background()
-	meta, err := sealdb.Peek(ctx, path)
+	meta, err := peekStore(ctx, path)
+	if err == nil && meta["format"] == "2" && !format2 {
+		return openStore{}, errFormat2
+	}
 	if err == nil {
 		o, err := openDB(ctx, home, path, meta, oldOK, false)
+		if err == nil && o.format2 != format2 {
+			// a format-1 store just upgraded to format 2 goes on to the
+			// migration; the migration opens nothing but format 2
+			if format2 {
+				return openStore{}, fmt.Errorf("store: %s is of format %q, not 2", path, meta["format"])
+			}
+			return openStore{}, errFormat2
+		}
 		if !errors.Is(err, errStoreGone) {
 			return o, err
 		}
@@ -239,6 +289,30 @@ func cachedDB(create, oldOK bool) (openStore, error) {
 		return openStore{}, err
 	}
 	return openStore{}, ErrNoStore
+}
+
+// peekStore is sealdb.Peek after a crash too. A crash while a write step
+// commits leaves store.db-journal, and the read-only open of Peek fails on
+// it with every komando version (Audit E1 M2): then the store is opened
+// read-write once, under the store lock, which rolls the cut-off step
+// back, and read again. A process that holds the store lock already (the
+// move to format 3) does not wait for itself.
+func peekStore(ctx context.Context, path string) (map[string]string, error) {
+	meta, err := sealdb.Peek(ctx, path)
+	if err == nil || errors.Is(err, os.ErrNotExist) || !sealdb.JournalLeft(path) {
+		return meta, err
+	}
+	if storeLockHeld.Load() == 0 {
+		unlock, lerr := Lock(storeLock)
+		if lerr != nil {
+			return nil, lerr
+		}
+		defer unlock()
+	}
+	if rerr := sealdb.RollBack(ctx, path); rerr != nil {
+		return nil, fmt.Errorf("%w; rolling back the write step a crash cut off failed too: %w", err, rerr)
+	}
+	return sealdb.Peek(ctx, path)
 }
 
 // errStoreGone: store.db was removed between Peek and Open.
@@ -322,7 +396,13 @@ func checkAndRemember(home, path string, d *sealdb.DB, meta map[string]string, m
 		d.Close()
 		return openStore{}, err
 	}
-	o := openStore{db: d, fi: fi, master: master}
+	// format 2: read so, upgraded to it from format 1, or made so (a store
+	// komando just made has no format in meta: sealdb.CreateFormat)
+	f := meta["format"]
+	if f == "" {
+		f = strconv.Itoa(sealdb.CreateFormat)
+	}
+	o := openStore{db: d, fi: fi, master: master, format2: f == "1" || f == "2"}
 	switch state {
 	case oldCopy:
 		lookOpen[home] = o

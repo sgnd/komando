@@ -80,7 +80,7 @@ func vetImportHosts(cl *call, s *store.State, hosts []*store.Host, overwrite, ow
 				h.Key = ""
 			}
 		}
-		if err := checkEnvKeys(h.Env); err != nil {
+		if err := checkEnv(h.Env); err != nil {
 			v.Invalid = append(v.Invalid, importSkip{h.Name, toErr(err).Message})
 			continue
 		}
@@ -279,7 +279,7 @@ func importVpnOptIns(cl *call, st *store.State, v *store.Vpn) error {
 // here: vetImportHosts drops that reference (dropForeignHostRefs).
 func importHostSecrets(hosts []*store.Host, plan *importPlan, res *importResult) []*store.Host {
 	for _, h := range hosts {
-		if name, ok := strings.CutPrefix(h.PasswordRef, "secret:"); ok && plan.Secrets[name] != "" {
+		if name, ok := strings.CutPrefix(h.PasswordRef, "credential:"); ok && plan.Secrets[name] != "" {
 			res.Secrets = append(res.Secrets, name)
 		}
 	}

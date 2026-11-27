@@ -34,13 +34,7 @@ func TestMigrate3KilledBeforeCommit(t *testing.T) {
 	if !errors.As(err, &ee) || ee.ExitCode() != 3 {
 		t.Fatalf("the child did not die inside the step: %v", err)
 	}
-	s, err := Load() // the normal open rolls the half step back
-	if err != nil {
-		t.Fatalf("the store does not open after the kill: %v", err)
-	}
-	if len(s.Hosts) != 12 || len(s.Keys) != 2 {
-		t.Errorf("%d hosts, %d keys after the kill", len(s.Hosts), len(s.Keys))
-	}
+	format2Reads(t) // v0.17's open rolls the half step back
 	Close()
 	if f := formatNow(t); f != "2" {
 		t.Fatalf("format %s after the kill", f)

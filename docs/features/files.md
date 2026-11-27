@@ -132,11 +132,11 @@ edit counts as a change (the file is written again), and no hash of the file
 is reported. `fs write --if-changed` and its `would_change` do the same for a
 file with a hidden value. Masking stays a best effort.
 
-`{{secret:NAME}}` in `--new` or in the text `fs write` writes becomes the
+`{{credential:NAME}}` in `--new` or in the text `fs write` writes becomes the
 vault value on the server. When an AI agent asks for that, komando stops
 with `SECRET_DESTINATION` until a person allows it: the agent adds `--yes`
 and the window names the secret and the server and file it goes to. An
-agent's `--dry-run` reads no secret and shows `{{secret:NAME}}` as written.
+agent's `--dry-run` reads no secret and shows `{{credential:NAME}}` as written.
 
 ## Undo a change
 
@@ -275,7 +275,7 @@ pg_dump app | komando storage upload backups - dumps/app.sql
   sends more, stops with `SIZE_CONFLICT` (exit 8) and replaces nothing.
   Without it, whatever arrives until stdin closes is the file: give
   `--size` whenever the sender could be cut off.
-- Content holding a value komando hid (`[hidden]`, `[secret:NAME]`) is
+- Content holding a value komando hid (`[hidden]`, `[credential:NAME]`) is
   refused (`HIDDEN_VALUE`): a masked copy would destroy the real value.
 - `--continue`, `-r` and several servers do not go with `-` (`USAGE`). A
   stream from a server reads as the SSH user; read a root-only file with
@@ -513,7 +513,7 @@ For a single file, use `komando upload` or `komando download`.
 |------------|---------------|------------|
 | `NO_MATCH` | `fs replace` did not find the `--old` text | read the file with `komando fs cat` and copy the exact text (spaces count) |
 | `VALIDATION_FAILED` | `--validate` rejected the new file; the file was not changed | fix the content and run it again |
-| `HIDDEN_VALUE` | the edit would cut into, copy or uncover a value komando hid from an AI agent | match the whole `NAME=[hidden]`, or write `{{secret:NAME}}` |
+| `HIDDEN_VALUE` | the edit would cut into, copy or uncover a value komando hid from an AI agent | match the whole `NAME=[hidden]`, or write `{{credential:NAME}}` |
 | `SECRET_DESTINATION` | an AI agent asked to write a vault value into a file | a person allows it in komando's window |
 | `FOLDER_NOT_FOUND` | the folder for the new file does not exist | add `-p` (`--parents`) |
 | `FILE_EXISTS` | `fs mv` or a download would replace a file | add `--overwrite` when you mean it |

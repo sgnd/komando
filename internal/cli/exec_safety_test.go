@@ -816,8 +816,8 @@ func TestLineBufferLongValueAtCut(t *testing.T) {
 	got.WriteString(p.Redact(b.add([]byte(secret))))
 	got.WriteString(p.Redact(b.add([]byte("\n"))))
 	got.WriteString(p.Redact(b.flush()))
-	if strings.Contains(got.String(), secret[:len(secret)/2]) || strings.Contains(got.String(), secret[len(secret)/2:]) || !strings.Contains(got.String(), "[secret:big]") {
-		t.Errorf("value split at the cut: %d bytes out, marker %v", got.Len(), strings.Contains(got.String(), "[secret:big]"))
+	if strings.Contains(got.String(), secret[:len(secret)/2]) || strings.Contains(got.String(), secret[len(secret)/2:]) || !strings.Contains(got.String(), "[credential:big]") {
+		t.Errorf("value split at the cut: %d bytes out, marker %v", got.Len(), strings.Contains(got.String(), "[credential:big]"))
 	}
 }
 

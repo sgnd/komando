@@ -19,10 +19,11 @@ import (
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/vault"
 )
 
-// wgKeyHome is a temp home with WireGuard VPN name whose key comes from an
-// environment variable, and a temp key lock folder; it returns the key's
+// wgKeyHome is a temp home with WireGuard VPN name whose key is a vault
+// credential, and a temp key lock folder; it returns the key's
 // public half.
 func wgKeyHome(t *testing.T, name string) string {
 	t.Helper()
@@ -38,17 +39,20 @@ func wgKeyHome(t *testing.T, name string) string {
 	if _, err := rand.Read(k); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("KOMANDO_TEST_WG_KEY", base64.StdEncoding.EncodeToString(k))
+	t.Setenv("KOMANDO_VAULT_PASS", "test-passphrase-long-enough")
+	if err := vault.Set(store.Save(), "wg-key", base64.StdEncoding.EncodeToString(k)); err != nil {
+		t.Fatal(err)
+	}
 	now := time.Now().UTC()
 	if err := store.Update(store.Save(), func(st *store.State) error {
 		for _, n := range []string{name, name + "-2"} {
-			st.Vpns[n] = &store.Vpn{Name: n, Kind: "wireguard", KeyRef: "env:KOMANDO_TEST_WG_KEY", CreatedAt: now, UpdatedAt: now}
+			st.Vpns[n] = &store.Vpn{Name: n, Kind: "wireguard", KeyRef: "credential:wg-key", CreatedAt: now, UpdatedAt: now}
 		}
 		return nil
 	}); err != nil {
 		t.Fatal(err)
 	}
-	pub, err := wgPublicKeyOf(&store.Vpn{Name: name, KeyRef: "env:KOMANDO_TEST_WG_KEY"})
+	pub, err := wgPublicKeyOf(&store.Vpn{Name: name, KeyRef: "credential:wg-key"})
 	if err != nil {
 		t.Fatal(err)
 	}

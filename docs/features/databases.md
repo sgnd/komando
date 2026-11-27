@@ -32,13 +32,13 @@ The kind comes from the start of the URL:
 clusters and registries.
 
 Never put the password in the URL; komando refuses it. `--ask-password`
-asks for it (hidden) and keeps it in the vault as `secret:prod-db-pass`.
+asks for it (hidden) and keeps it in the vault as `credential:prod-db-pass`.
 Or store it first, or point at your password manager (see
 [Secrets](secrets.md)):
 
 ```bash
 komando secret set prod-db-pass
-komando db add prod-db postgres://app@10.0.0.5:5432/app --via web1 --password-ref secret:prod-db-pass --protected
+komando db add prod-db postgres://app@10.0.0.5:5432/app --via web1 --password-ref credential:prod-db-pass --protected
 ```
 
 A URL says more than its address: Postgres reads `host=`, `port=`,
@@ -80,7 +80,7 @@ stays shut for that conn for a minute. A script, or an agent with no
 screen, gets `NEEDS_PERSON`. Only you set where the password goes: an AI
 agent that adds a login-ask conn, changes its URL (its user too) or `--via`, turns one
 to `--login ask`, changes a server or VPN on its way, or replaces a
-secret its URL names (`ca=secret:`) gets `NEEDS_PERSON`; as for a stored
+secret its URL names (`ca=credential:`) gets `NEEDS_PERSON`; as for a stored
 password (above), every setting of the URL except the few that move
 nothing counts as where it goes. An agent's `db dump` and `db restore`
 of such a conn stop too: the dump tool would get the password in its environment, where
@@ -376,7 +376,7 @@ the dump stops with `DB_CONNECT` and a hint (install `postgresql-client` 16
 or newer, put the CA in `~/.postgresql/root.crt`, or reach the database
 `--via` that server without TLS).
 
-### A private CA (`?ca=secret:NAME`)
+### A private CA (`?ca=credential:NAME`)
 
 The tools on the server check the database's certificate against the conn's
 CA too, the same full check komando makes: signed by that CA and naming the
@@ -407,7 +407,7 @@ komando db dump prod-db --to prod.dump --format custom --run-on db1
 - The tool there connects to the conn URL's address as that server sees
   it. When the database only listens on `127.0.0.1` on that server, add a
   second conn for that address reached through it
-  (`komando db add prod-db-local postgres://app@127.0.0.1:5432/app --via db1 --password-ref secret:prod-db-pass`)
+  (`komando db add prod-db-local postgres://app@127.0.0.1:5432/app --via db1 --password-ref credential:prod-db-pass`)
   and dump that one; `CONN_UNREACHABLE` says this when it happens.
 - A dump runs at low priority (`nice -n 10`, plus `ionice -c3` where the
   server has it), so the server keeps serving its users. `low_priority` in
@@ -577,11 +577,11 @@ agrees.
 
 ```bash
 komando secret set app-ro-pass                                  # the password goes to the vault first
-komando db user add prod-db app_ro --password-ref secret:app-ro-pass
+komando db user add prod-db app_ro --password-ref credential:app-ro-pass
 komando db grant prod-db app_ro --privileges SELECT --on all-tables:public
 komando db user show prod-db app_ro                             # what it may do now
 komando db user list prod-db                                    # all users and roles
-komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2
+komando db user passwd prod-db app_ro --password-ref credential:app-ro-pass-2
 komando db revoke prod-db app_ro --privileges SELECT --on all-tables:public
 komando db user rm prod-db app_ro
 komando db grant staging-db app --privileges SELECT,INSERT --on 'shop.*' --from-host '10.0.%'   # a MySQL conn
@@ -715,7 +715,7 @@ giving them the password:
 
   ```bash
   komando secret set rds-ca < global-bundle.pem
-  komando db add prod-db 'postgres://app@orders.abc123.eu-west-1.rds.amazonaws.com/orders?ca=secret:rds-ca' --password-ref secret:prod-db-pass
+  komando db add prod-db 'postgres://app@orders.abc123.eu-west-1.rds.amazonaws.com/orders?ca=credential:rds-ca' --password-ref credential:prod-db-pass
   ```
 
   For Postgres a file on this computer works too:
@@ -733,7 +733,7 @@ JSON instead of SQL: its first key names the command, as in `runCommand`.
 
 ```bash
 komando secret set shop-mongo-pass
-komando db add shop-mongo 'mongodb://app@db1.internal,db2.internal/shop?replicaSet=rs0&authSource=admin' --via web1 --password-ref secret:shop-mongo-pass
+komando db add shop-mongo 'mongodb://app@db1.internal,db2.internal/shop?replicaSet=rs0&authSource=admin' --via web1 --password-ref credential:shop-mongo-pass
 komando db query shop-mongo '{"find": "orders", "filter": {"status": "open"}, "sort": {"_id": -1}, "limit": 10}'
 komando db query shop-mongo '{"aggregate": "orders", "pipeline": [{"$group": {"_id": "$status", "n": {"$sum": 1}}}], "cursor": {}}'
 komando db query shop-mongo --write '{"update": "orders", "updates": [{"q": {"_id": {"$oid": "5f1d7f1b2c3a4b5c6d7e8f90"}}, "u": {"$set": {"status": "paid"}}}]}'
@@ -766,7 +766,7 @@ komando db user show shop-mongo app               # what app may do
   `--limit`, default 500, and `--max-output` bytes), `data.reply` for the
   others. `-o text` prints one document per line.
 - Every member of a replica set is reached through `--via`. A private CA
-  works with `?tls=true&ca=secret:NAME`.
+  works with `?tls=true&ca=credential:NAME`.
 - `db explain` takes a read (`find`, `aggregate`, `count`, `distinct`):
   `queryPlanner`, or with `--analyze` `executionStats`, which runs the read.
   A command that writes is refused.
@@ -785,7 +785,7 @@ commands as PostgreSQL and MySQL, in T-SQL:
 
 ```bash
 komando secret set sales-pass
-komando db add sales 'sqlserver://app@db.internal:1433/sales?encrypt=true' --password-ref secret:sales-pass
+komando db add sales 'sqlserver://app@db.internal:1433/sales?encrypt=true' --password-ref credential:sales-pass
 komando db query sales "select top (10) id, email from dbo.users order by id desc"
 komando db query sales "select * from dbo.users where email = @p1" --arg bob@example.com
 komando db query sales --write --dry-run "update dbo.users set plan = 'pro' where id = 42"
@@ -800,7 +800,7 @@ komando db kill sales 57 --session
   `sqlserver://app@db:49172/sales`. The name needs the SQL Server Browser,
   which answers over UDP, and `--via` carries only TCP.
   The options are `encrypt=` (`true`, `strict`, `false`, `disable`; see
-  [Encryption](#encryption-tls)), `tls=skip-verify`, `ca=secret:NAME`,
+  [Encryption](#encryption-tls)), `tls=skip-verify`, `ca=credential:NAME`,
   `applicationintent=readonly` (a readable replica of an availability
   group) and `database=NAME` in place of the path. Logins are SQL Server
   logins (user and password); Windows and Entra ID logins are not
@@ -856,7 +856,7 @@ same `db` commands, in Oracle SQL:
 
 ```bash
 komando secret set erp-pass
-komando db add erp 'oracle://app@db.internal:1521/ERPPDB?tls=true' --password-ref secret:erp-pass
+komando db add erp 'oracle://app@db.internal:1521/ERPPDB?tls=true' --password-ref credential:erp-pass
 komando db query erp "select id, email from app.users order by id desc fetch first 10 rows only"
 komando db query erp "select * from app.users where email = :1" --arg bob@example.com
 komando db query erp --write --dry-run "update app.users set plan = 'pro' where id = 42"
@@ -870,7 +870,7 @@ komando db kill erp 371 --session                  # 371 is the SID
   (`ORCLPDB1`, `FREEPDB1`); `lsnrctl status` on the server lists them. An
   old database without services: `oracle://app@db:1521?sid=ORCL`. The
   options are `tls=` (`true`, `skip-verify`, `false`; TCPS listens on its
-  own port, often 2484) and `ca=secret:NAME` for a private CA (with
+  own port, often 2484) and `ca=credential:NAME` for a private CA (with
   `tls=true`). Logins are user and password; Oracle wallets, Kerberos and
   operating-system logins are not supported.
 - **Without `--write` nothing changes.** komando starts every run with
@@ -943,7 +943,7 @@ installed:
 
 ```bash
 komando secret set events-pass
-komando db add events 'clickhouse://app@ch.internal:8443/analytics?tls=true' --password-ref secret:events-pass
+komando db add events 'clickhouse://app@ch.internal:8443/analytics?tls=true' --password-ref credential:events-pass
 komando db query events "select event, count() from hits where day = today() group by event order by 2 desc limit 10"
 komando db query events "select * from hits where user_id = {p1:UInt64} limit 10" --arg 42
 komando db query events --write "insert into notes (id, text) values (1, 'hello')"
@@ -956,7 +956,7 @@ komando db kill events 8078617214407497              # the pid db activity shows
 
 - **The URL.** The path is the database (the user's default when left
   out). The options are `tls=` (`true`, `skip-verify`, `false`) and
-  `ca=secret:NAME` for a private CA (with `tls=true`). Without a port it is
+  `ca=credential:NAME` for a private CA (with `tls=true`). Without a port it is
   8443 with TLS and 8123 without. Ports 9000 and 9440 are ClickHouse's
   native protocol, which komando does not speak: it says so. A server
   that opens only the native port can still be reached: add `--via` a
@@ -1014,7 +1014,7 @@ needs to be installed:
 
 ```bash
 komando secret set analytics-key < rsa_key.p8      # the user's private key (key-pair login)
-komando db add analytics 'snowflake://APP_RO@myorg-myaccount/ANALYTICS/PUBLIC?warehouse=REPORTING&role=ANALYST_RO' --password-ref secret:analytics-key
+komando db add analytics 'snowflake://APP_RO@myorg-myaccount/ANALYTICS/PUBLIC?warehouse=REPORTING&role=ANALYST_RO' --password-ref credential:analytics-key
 komando db query analytics "select region, sum(total) from orders where placed > ? group by 1" --arg 2026-01-01
 komando db schema analytics public.orders          # columns, primary key, clustering key
 komando db explain analytics "select * from orders where id = 42"
@@ -1027,7 +1027,7 @@ komando db user show analytics APP_RO              # its roles, and what each ro
   account identifier Snowflake shows (`myorg-myaccount`, or a locator with
   its region such as `xy12345.eu-central-1`; `...snowflakecomputing.com`
   works too). The path is `/DATABASE/SCHEMA`, both optional; the options
-  are `warehouse=`, `role=` and `ca=secret:NAME` (a proxy that inspects
+  are `warehouse=`, `role=` and `ca=credential:NAME` (a proxy that inspects
   TLS). It is always HTTPS on port 443 with the certificate checked.
 - **Login.** Snowflake's SQL API takes no passwords, so `--password-ref`
   holds one of two things:
@@ -1114,7 +1114,7 @@ komando db kill warehouse 4387013457812345          # the pid db activity shows
   jobs run in (and are billed to), a default dataset for names without one,
   and where the jobs run (`EU`, `US`, `europe-west1`, ...; without it
   BigQuery picks from the tables, and `db activity` and `db sizes` use the
-  dataset's location, or `US`). Other options: `ca=secret:NAME` (a proxy
+  dataset's location, or `US`). Other options: `ca=credential:NAME` (a proxy
   that inspects TLS) and `endpoint=URL` (an emulator, or a Private Service
   Connect address such as `https://bigquery-NAME.p.googleapis.com`). It is
   HTTPS with the certificate checked; `tls=` is refused. An `http://`
@@ -1127,7 +1127,7 @@ komando db kill warehouse 4387013457812345          # the pid db activity shows
 
   ```bash
   komando secret set warehouse-key < key.json
-  komando db add warehouse 'bigquery://my-project/analytics' --password-ref secret:warehouse-key
+  komando db add warehouse 'bigquery://my-project/analytics' --password-ref credential:warehouse-key
   ```
 
   gcloud's login is only sent to Google's own hosts
@@ -1226,7 +1226,7 @@ komando db kill warehouse 4387013457812345          # the pid db activity shows
 - `db info` shows the database's size only when the conn names a
   warehouse.
 - komando does not use a proxy from `HTTPS_PROXY` and does not follow
-  redirects. For a company proxy that inspects TLS, use `ca=secret:NAME`
+  redirects. For a company proxy that inspects TLS, use `ca=credential:NAME`
   and reach it through `--via` or a `proxy` VPN.
 
 **BigQuery**

@@ -108,14 +108,20 @@ func resolveClusters(cl *call, st *store.State, expr string) ([]clusterTarget, e
 	}
 	var ts []clusterTarget
 	for _, c := range sel.Conns {
-		if inventory.ConnFamily(c) == "cluster" {
+		switch {
+		case inventory.ConnFamily(c) == "cluster":
 			ts = append(ts, clusterTarget{conn: c})
-		} else {
+		case c.Kind != "swarm": // a swarm service is its manager, below
 			cl.out.Skip(out.Skipped{Name: c.Name, Kind: c.Kind, Reason: useFor(nil, c)})
 		}
 	}
-	for _, h := range sel.Hosts {
-		if len(sel.Hosts) == 1 && len(ts) == 0 || swarmManager(expr, h) {
+	hosts, err := swarmHosts(cl, st, sel)
+	if err != nil {
+		return nil, err
+	}
+	for i, h := range hosts {
+		// past sel.Hosts: the manager of a swarm service the selector picked
+		if len(hosts) == 1 && len(ts) == 0 || i >= len(sel.Hosts) || swarmManager(st, expr, h) {
 			ts = append(ts, clusterTarget{host: h})
 		} else {
 			cl.out.Skip(out.Skipped{Name: h.Name, Kind: "host", Reason: "a server: name it, or tag it swarm (`komando host edit " + h.Name + " --add-tag swarm`), to read it as a Swarm manager"})
@@ -128,11 +134,11 @@ func resolveClusters(cl *call, st *store.State, expr string) ([]clusterTarget, e
 }
 
 // swarmManager: a server a selector of several targets picks (all,
-// @group) is read as a Swarm manager only when it is tagged swarm or named
-// in the selector itself; otherwise every web server in @prod would be
-// asked for a swarm it does not run.
-func swarmManager(expr string, h *store.Host) bool {
-	if slices.Contains(h.Tags, "swarm") {
+// @group) is read as a Swarm manager only when a swarm service names it as
+// its manager, or it is named in the selector itself; otherwise every web
+// server in @prod would be asked for a swarm it does not run.
+func swarmManager(st *store.State, expr string, h *store.Host) bool {
+	if swarmOf(st, h) != nil {
 		return true
 	}
 	for _, part := range strings.Split(expr, ",") {
@@ -234,4 +240,51 @@ func readOne(cl *call, ctx context.Context, st *store.State, t clusterTarget, r 
 	}
 	row.OK, row.Data = true, v
 	return row
+}
+
+// swarmHosts are the servers a selection picks, with the manager in place
+// of each swarm service, each once. A swarm service works on its manager
+// (Q8): every guard of that server applies, and personal data follows it.
+func swarmHosts(cl *call, st *store.State, sel selection) ([]*store.Host, error) {
+	hosts := slices.Clone(sel.Hosts)
+	var managers []*store.Host
+	for _, c := range sel.Conns {
+		if c.Kind != "swarm" {
+			continue
+		}
+		h := swarmManagerOf(st, c)
+		if h == nil {
+			return nil, out.Errf(out.ExitNotFound, "SWARM_MANAGER_NOT_FOUND", "add the manager server again (`komando host add NAME ADDRESS`), or remove the swarm service",
+				"swarm service %s: its manager server %s is not in your list", c.Name, c.Manager)
+		}
+		if !slices.ContainsFunc(hosts, func(o *store.Host) bool { return o.Name == h.Name }) {
+			hosts, managers = append(hosts, h), append(managers, h)
+		}
+	}
+	notePersonal(cl, st, managers, nil)
+	return hosts, nil
+}
+
+// swarmManagerOf is the server a swarm service names as its manager, by
+// record ID (a rename keeps it), else by name; nil when it is gone.
+func swarmManagerOf(st *store.State, c *store.Conn) *store.Host {
+	for _, h := range st.Hosts {
+		if c.ManagerID != "" && h.Rec.ID == c.ManagerID {
+			return h
+		}
+	}
+	if c.ManagerID == "" {
+		return st.Hosts[c.Manager]
+	}
+	return nil
+}
+
+// swarmOf is the swarm service whose manager is h, or nil.
+func swarmOf(st *store.State, h *store.Host) *store.Conn {
+	for _, c := range st.Conns {
+		if c.Kind == "swarm" && swarmManagerOf(st, c) == h {
+			return c
+		}
+	}
+	return nil
 }

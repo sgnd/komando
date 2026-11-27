@@ -83,3 +83,17 @@ func TestAgentCallCountsBeforeTheStoreOpens(t *testing.T) {
 		t.Errorf("an agent's call on an old copy: exit %d, stdout %s, stderr %s", code, o.String(), e.String())
 	}
 }
+
+// The move's report reaches the person line by line (owner, 2026-11-27:
+// it printed as one run-on line), with control characters still dropped.
+func TestStoreNoticeKeepsLines(t *testing.T) {
+	var e bytes.Buffer
+	saved := tcl.out.Err
+	tcl.out.Err = &e
+	t.Cleanup(func() { tcl.out.Err = saved })
+	storeNotice("komando moved its store to format 3.\n  host: 1 before, 1 after\x1b[2J\nBackup: b.db")
+	want := "komando: komando moved its store to format 3.\n  host: 1 before, 1 after[2J\nBackup: b.db\n"
+	if got := e.String(); got != want {
+		t.Fatalf("notice\n%q\nwant\n%q", got, want)
+	}
+}

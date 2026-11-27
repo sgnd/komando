@@ -16,8 +16,8 @@ func TestVpnMoveNamesPasswordsBehindIt(t *testing.T) {
 	noAgent(t)
 	mustRun(t, "vpn", "socks", "add", "lab", "--proxy-address", "127.0.0.1:1080")
 	mustRun(t, "host", "add", "jump", "u@10.0.0.1", "--via", "lab", "--identity", writeTemp(t, "id", "k"))
-	mustRun(t, "host", "add", "db1", "u@10.0.0.2", "--via", "jump", "--password-ref", "secret:db1-pass")
-	mustRun(t, "conn", "add", "app-db", "postgres://a@10.0.0.3/x", "--via", "lab", "--password-ref", "secret:app-pass")
+	mustRun(t, "host", "add", "db1", "u@10.0.0.2", "--via", "jump", "--password-ref", "credential:db1-pass")
+	mustRun(t, "conn", "add", "app-db", "postgres://a@10.0.0.3/x", "--via", "lab", "--password-ref", "credential:app-pass")
 	mustRun(t, "host", "add", "keyonly", "u@10.0.0.4", "--via", "lab", "--identity", writeTemp(t, "id2", "k"))
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	e := wantCode(t, "SECRET_DESTINATION", "vpn", "socks", "edit", "lab", "--proxy-address", "203.0.113.9:1080")
@@ -50,9 +50,15 @@ func TestVpnMoveNeighbours(t *testing.T) {
 	setup := func(t *testing.T) {
 		invHome(t)
 		noAgent(t)
+<<<<<<< HEAD
 		mustRun(t, "vpn", "socks", "add", "lab", "--proxy-address", "127.0.0.1:1080")
 		mustRun(t, "vpn", "socks", "add", "other", "--proxy-address", "127.0.0.1:1081")
 		mustRun(t, "host", "add", "db1", "u@10.0.0.2", "--via", "lab", "--password-ref", "secret:db1-pass")
+=======
+		mustRun(t, "vpn", "add", "lab", "socks", "--proxy-address", "127.0.0.1:1080")
+		mustRun(t, "vpn", "add", "other", "socks", "--proxy-address", "127.0.0.1:1081")
+		mustRun(t, "host", "add", "db1", "u@10.0.0.2", "--via", "lab", "--password-ref", "credential:db1-pass")
+>>>>>>> feat/c489-cut-e1-format3
 		setCallerEnv(t, "KOMANDO_AGENT", "1")
 	}
 	t.Run("another VPN put first on the way", func(t *testing.T) {
@@ -62,7 +68,7 @@ func TestVpnMoveNeighbours(t *testing.T) {
 	t.Run("a new VPN under a name the way already names", func(t *testing.T) {
 		setup(t)
 		noAgent(t)
-		_, e := invRun(t, "host", "add", "db2", "u@10.0.0.3", "--via", "ghost", "--password-ref", "secret:db2-pass")
+		_, e := invRun(t, "host", "add", "db2", "u@10.0.0.3", "--via", "ghost", "--password-ref", "credential:db2-pass")
 		setCallerEnv(t, "KOMANDO_AGENT", "1")
 		if e == nil {
 			wantCode(t, "SECRET_DESTINATION", "vpn", "socks", "add", "ghost", "--proxy-address", "203.0.113.9:1080")

@@ -38,21 +38,26 @@ func readRuntimeMark(tx *sealdb.Tx) (string, error) {
 	return string(r.Data), nil
 }
 
-// storeRuntimeMark is store.db's mark, read on its own (ReadRuntime).
-func storeRuntimeMark() (string, error) {
+// storeRuntimeMark is store.db's mark, read on its own (ReadRuntime),
+// with the copy of carried runtime records written under it, if any.
+func storeRuntimeMark() (string, *runtimeCopy, error) {
 	d, err := DB(false)
 	if errors.Is(err, ErrNoStore) {
-		return "", nil
+		return "", nil, nil
 	}
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	var m string
+	var c *runtimeCopy
 	err = d.View(context.Background(), func(tx *sealdb.Tx) error {
-		m, err = readRuntimeMark(tx)
+		if m, err = readRuntimeMark(tx); err != nil {
+			return err
+		}
+		c, err = readRuntimeCopy(tx, m)
 		return err
 	})
-	return m, err
+	return m, c, err
 }
 
 // putRuntimeMark writes a new mark into store.db and returns it.

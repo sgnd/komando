@@ -79,9 +79,9 @@ func ParseSnowflakeURL(raw string) (SnowflakeConn, error) {
 		switch key {
 		case "warehouse", "role", "ca":
 		case "tls":
-			return SnowflakeConn{}, out.Usage("snowflake conns are always HTTPS with the certificate checked: drop tls= (a private CA, such as a proxy's: ?ca=secret:NAME)")
+			return SnowflakeConn{}, out.Usage("snowflake conns are always HTTPS with the certificate checked: drop tls= (a private CA, such as a proxy's: ?ca=credential:NAME)")
 		default:
-			return SnowflakeConn{}, out.Usage("unknown snowflake URL option %q (known: warehouse, role, ca (secret:NAME))", key)
+			return SnowflakeConn{}, out.Usage("unknown snowflake URL option %q (known: warehouse, role, ca (credential:NAME))", key)
 		}
 	}
 	s.Warehouse, s.Role = q.Get("warehouse"), q.Get("role")

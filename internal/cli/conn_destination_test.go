@@ -118,10 +118,10 @@ func TestConnURLSettingsAreThePlace(t *testing.T) {
 	invHome(t)
 	t.Setenv("PW", "stored-pw")
 	mustRun(t, "secret", "set", "evilca", "--from-env", "PW")
-	mustRun(t, "conn", "add", "pg1", "postgres://app@db.internal:5432/app", "--password-ref", "env:PW")
-	mustRun(t, "conn", "add", "c1", "rediss://default@10.0.0.5:6379/0", "--password-ref", "env:PW")
-	mustRun(t, "conn", "add", "m1", "mongodb://app@10.0.0.5:27017/app", "--password-ref", "env:PW")
-	mustRun(t, "conn", "add", "q1", "amqp://guest@127.0.0.1:5672/", "--password-ref", "env:PW")
+	mustRun(t, "conn", "add", "pg1", "postgres://app@db.internal:5432/app", "--password-ref", savedRef(t, "pg1-pw", "stored-pw"))
+	mustRun(t, "conn", "add", "c1", "rediss://default@10.0.0.5:6379/0", "--password-ref", savedRef(t, "c1-pw", "stored-pw"))
+	mustRun(t, "conn", "add", "m1", "mongodb://app@10.0.0.5:27017/app", "--password-ref", savedRef(t, "m1-pw", "stored-pw"))
+	mustRun(t, "conn", "add", "q1", "amqp://guest@127.0.0.1:5672/", "--password-ref", savedRef(t, "q1-pw", "stored-pw"))
 	setCallerEnv(t, "CLAUDECODE", "1")
 	base := mustRun(t, "conn", "show", "pg1")["url"].(string)
 	for _, c := range []struct{ conn, url, shows string }{
@@ -129,7 +129,7 @@ func TestConnURLSettingsAreThePlace(t *testing.T) {
 		{"pg1", base + "&hostaddr=203.0.113.66", "hostaddr=203.0.113.66"},
 		{"pg1", base + "&service=evil", "service=evil"},
 		{"pg1", base + "&sslrootcert=/tmp/evil.pem", "sslrootcert=/tmp/evil.pem"},
-		{"pg1", base + "&ca=secret:evilca", "ca=secret:evilca"},
+		{"pg1", base + "&ca=credential:evilca", "ca=credential:evilca"},
 		{"c1", "rediss://default@10.0.0.5:6379/0?sentinel=m&sentinels=203.0.113.66:26379&sentinel_auth=same", "203.0.113.66:26379"},
 		{"m1", "mongodb://app@10.0.0.5:27017,203.0.113.66:27017/app?authMechanism=PLAIN", "203.0.113.66:27017"},
 		{"q1", "amqp://guest@127.0.0.1:5672/?management=4444", "127.0.0.1:4444"},
@@ -153,8 +153,7 @@ func TestPostgresEnvIgnored(t *testing.T) {
 	invHome(t)
 	cert, caFile := evilCert(t)
 	port, got := fakePG(t, &cert)
-	t.Setenv("PW", "stored-pw")
-	mustRun(t, "conn", "add", "pg1", "postgres://app@127.0.0.1:"+port+"/app?sslmode=verify-full", "--password-ref", "env:PW")
+	mustRun(t, "conn", "add", "pg1", "postgres://app@127.0.0.1:"+port+"/app?sslmode=verify-full", "--password-ref", savedRef(t, "pg1-pw", "stored-pw"))
 	t.Setenv("PGSSLROOTCERT", caFile)
 	_, _ = runCache(t, "-o", "json", "db", "query", "pg1", "--", "select 1")
 	if v, _ := got.Load().(string); v == "stored-pw" {

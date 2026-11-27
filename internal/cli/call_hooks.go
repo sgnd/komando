@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -71,6 +72,18 @@ func runningCalls() []*call {
 	return calls
 }
 
+// onlyDryRuns reports whether calls are running and every one is a dry
+// run, which writes nothing (store.KeepHomeMode).
+func onlyDryRuns() bool {
+	calls := runningCalls()
+	for _, cl := range calls {
+		if !cl.dryRun() {
+			return false
+		}
+	}
+	return len(calls) > 0
+}
+
 // soleCall is the call running now when it is the only one, else nil.
 func soleCall() *call {
 	if calls := runningCalls(); len(calls) == 1 {
@@ -98,15 +111,16 @@ func init() {
 		}
 		return nil
 	}
-	// a file the environment or a cloud config names as a login to send
-	// (AZURE_FEDERATED_TOKEN_FILE, AWS_WEB_IDENTITY_TOKEN_FILE, a Google
-	// external_account's credential_source.file) is checked as a file:
-	// reference is
+	// a login file the environment or a cloud config names (AZURE_FEDERATED_TOKEN_FILE,
+	// AWS_WEB_IDENTITY_TOKEN_FILE, a Google external_account's
+	// credential_source.file) is checked as a file: reference is
 	cloud.CheckLocalFile = credentialFileGuard
 	gcpadc.CheckLocalFile = credentialFileGuard
 	// an agent's KOMANDO_KEYCHAIN=off keeps the old-copy check
 	vault.AgentCall = agentCallRunning
 	store.OldCopyOK = oldCopyAllowed
+	store.MigrateCaller = migrateCaller
+	store.KeepHomeMode = onlyDryRuns
 	// a server's env values from the vault go along only when every
 	// running call may send them
 	sshx.HostSecretEnv = func(c *sshx.Client) bool {
@@ -156,6 +170,12 @@ func init() {
 	// a note of the store (a new store beside a keychain that could not be
 	// read) goes to the stderr of every running call
 	store.Notice = storeNotice
+	netxHooks()
+}
+
+// netxHooks are the hooks of the VPN layer: the notice while another
+// command holds a VPN's lock, and the call a VPN session writes for.
+func netxHooks() {
 	netx.LockBusy = func(name string) {
 		for _, cl := range runningCalls() {
 			noticef(cl, "another komando command is connecting or disconnecting vpn %s (a sign-in may be waiting in its browser window); waiting for it to end", name)
@@ -204,9 +224,14 @@ func chainOwner(ctx context.Context) string {
 
 // storeNotice is store.Notice: the note goes to the stderr of every
 // running call, people and scripts alike (it says how the store is
-// guarded), or to the process's when none runs.
+// guarded), or to the process's when none runs. Each line is cleaned on
+// its own, so the move's report keeps its line breaks.
 func storeNotice(msg string) {
-	line := "komando: " + term.CleanText(msg)
+	lines := strings.Split(msg, "\n")
+	for i, l := range lines {
+		lines[i] = term.CleanText(l)
+	}
+	line := "komando: " + strings.Join(lines, "\n")
 	calls := runningCalls()
 	if len(calls) == 0 {
 		fmt.Fprintln(os.Stderr, line)

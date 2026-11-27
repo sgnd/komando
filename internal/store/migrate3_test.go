@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -36,11 +37,13 @@ var testSecrets = []string{
 func format2Store(t *testing.T) string {
 	t.Helper()
 	home := sealedHome(t)
+	sealdb.CreateFormat = 2
+	t.Cleanup(func() { sealdb.CreateFormat = sealdb.Format })
 	d, err := DB(true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	master, err := MasterKey()
+	_, master, err := openFormat2()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +88,9 @@ func format2Store(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = Update(Save(), func(s *State) error {
+	s := &State{Settings: DefaultSettings()}
+	s.init()
+	{
 		s.Settings.ExtraDenyPattern = []string{"rm -rf /srv"}
 		s.Keys["deploy"] = &Key{Name: "deploy", Path: sealedKeyPrefix + keydataID, Type: "ed25519", PassphraseRef: "secret:deploy-pp", Managed: true}
 		s.Keys["solo"] = &Key{Name: "solo", Path: "/home/me/.ssh/id_solo", Type: "ed25519"}
@@ -102,24 +107,125 @@ func format2Store(t *testing.T) string {
 		s.Hosts["h4"] = &Host{Name: "h4", Address: "10.0.0.11", User: "bob", PasswordRef: "secret:shared-pw"}
 		s.Hosts["idh"] = &Host{Name: "idh", Address: "10.0.0.12", User: "deploy", Identity: "/home/me/.ssh/id_work"}
 		s.Hosts["winssh"] = &Host{Name: "winssh", Address: "10.0.0.13", User: "Administrator", OS: OSWindows, PasswordRef: "secret:winssh-pw"}
-		s.Hosts["vh"] = &Host{Name: "vh", Address: "10.0.0.14", User: "root", PasswordRef: "vault:kv/app#pw"}
+		s.Hosts["vh"] = &Host{Name: "vh", Address: "10.0.0.14", User: "root", Env: map[string]string{"APP_PW": "vault:kv/app#pw"}}
 		s.Conns["s3b"] = &Conn{Name: "s3b", Kind: "s3", URL: "s3://AKIAEXAMPLE@bucket?region=eu-west-1", PasswordRef: "secret:s3-secret",
-			Options: map[string]string{"sse_key": "secret:s3-sse", "class": "STANDARD"}}
+			Options: map[string]string{"sse_key": "secret:s3-sse", "class": "STANDARD", "kms_key": "op://Private/s3/kms"}}
 		s.Conns["mydb"] = &Conn{Name: "mydb", Kind: "mysql", URL: "mysql://admin@10.0.0.20:3306/app", Login: LoginAsk}
-		s.Vpns["ovpn"] = &Vpn{Name: "ovpn", Kind: "openvpn", User: "me", ConfigRef: "secret:ovpn-config", KeyRef: "op://Private/vpn/password"}
-		s.Hosts["ext1"] = &Host{Name: "ext1", Address: "10.0.0.8", User: "root", PasswordRef: "env:WEB_PW"}
+		s.Vpns["ovpn"] = &Vpn{Name: "ovpn", Kind: "openvpn", User: "me", ConfigRef: "secret:ovpn-config"}
+		s.Hosts["ext1"] = &Host{Name: "ext1", Address: "10.0.0.8", User: "root", Env: map[string]string{"WEB_PW": "env:WEB_PW"}}
 		s.Conns["pg"] = &Conn{Name: "pg", Kind: "postgres", URL: "postgres://app@10.0.0.5:5432/app?ca=secret:pg-ca", PasswordRef: "secret:pg-pass", Groups: []string{"Prod"}, Protected: true}
 		s.Conns["bus"] = &Conn{Name: "bus", Kind: "nats", URL: "nats://10.0.0.9:4222?creds=secret:nats-creds"}
 		s.Conns["k8s"] = &Conn{Name: "k8s", Kind: "k8s", URL: "k8s://api.corp:6443", PasswordRef: "secret:k8s-kubeconfig"}
 		s.Vpns["wg"] = &Vpn{Name: "wg", Kind: "wireguard", KeyRef: "secret:wg-key", PSKRef: "secret:wg-psk", MFA: true}
 		s.Vpns["tail"] = &Vpn{Name: "tail", Kind: "tailscale", KeyRef: "secret:ts-auth"}
 		s.Snippets["r1"] = &Snippet{Name: "r1", Command: "echo secret:abc"}
+	}
+	err = d.Update(context.Background(), func(tx *sealdb.Tx) error { return putFormat2(tx, s) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	return home
+}
+
+// format2Edit changes the format-2 fixture's inventory as v0.17 did,
+// past the gate: new and changed records are written in the old shape.
+func format2Edit(t *testing.T, fn func(s *State)) {
+	t.Helper()
+	d, _, err := openFormat2()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = d.Update(context.Background(), func(tx *sealdb.Tx) error {
+		s, err := loadFormat2(tx)
+		if err != nil {
+			return err
+		}
+		before := s.recSnapshot()
+		fn(s)
+		if err := s.bumpRecs(before); err != nil {
+			return err
+		}
+		for _, r := range s.recs() {
+			b, err := json.Marshal(r.v)
+			if err != nil {
+				return err
+			}
+			if old, had := before[r.rec.ID]; had && bytes.Equal(old.body, b) {
+				continue
+			}
+			if _, err := tx.Put(r.kind, r.rec.ID, b); err != nil {
+				return err
+			}
+		}
 		return nil
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return home
+}
+
+// format2Runtime changes runtime.json beside a format-2 store, as v0.17
+// did, without opening the store through the gate.
+func format2Runtime(t *testing.T, fn func(s *State)) {
+	t.Helper()
+	d, master, err := openFormat2()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := primeRuntimeKey(master); err != nil {
+		t.Fatal(err)
+	}
+	s := &State{}
+	err = d.View(context.Background(), func(tx *sealdb.Tx) error {
+		var err error
+		s.runtimeMark, err = readRuntimeMark(tx)
+		return err
+	})
+	if err == nil {
+		err = s.loadRuntime()
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	fn(s)
+	if err := s.saveRuntime(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// putFormat2 writes s as format-2 records, the shape v0.17 wrote, past
+// this komando's own writer: the fixture stays format 2 whatever shape
+// the store writes now.
+func putFormat2(tx *sealdb.Tx, s *State) error {
+	put := func(kind string, v any) error {
+		b, err := json.Marshal(v)
+		if err == nil {
+			_, err = tx.Put(kind, "", b)
+		}
+		return err
+	}
+	for _, kind := range []struct {
+		kind string
+		vals []any
+	}{
+		{KindKey, anyOf(s.Keys)}, {KindHost, anyOf(s.Hosts)}, {KindConn, anyOf(s.Conns)},
+		{KindVpn, anyOf(s.Vpns)}, {KindRecipe, anyOf(s.Snippets)},
+	} {
+		for _, v := range kind.vals {
+			if err := put(kind.kind, v); err != nil {
+				return err
+			}
+		}
+	}
+	return put(kindSettings, s.Settings)
+}
+
+func anyOf[T any](m map[string]*T) []any {
+	var out []any
+	for _, k := range slices.Sorted(maps.Keys(m)) {
+		out = append(out, m[k])
+	}
+	return out
 }
 
 // notices collects what the store tells the person.
@@ -133,7 +239,7 @@ func notices(t *testing.T) *bytes.Buffer {
 }
 
 func personOpts() migrate3Opts {
-	return migrate3Opts{person: true, alive: func(int, string) bool { return false }}
+	return migrate3Opts{way: MigrateTerminal, alive: func(int, string) bool { return false }, ask: func(string) bool { return true }}
 }
 
 func formatNow(t *testing.T) string {
@@ -173,13 +279,9 @@ func byName[T any](t *testing.T, recs []record3, typ string) map[string]*T {
 
 func TestMigrate3(t *testing.T) {
 	format2Store(t)
-	err := UpdateRuntime(Save(), func(s *State) error {
+	format2Runtime(t, func(s *State) {
 		s.Sessions["wg"] = &VpnSession{Vpn: "wg", PID: 9999, ProcStart: "gone"} // not alive
-		return nil
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
 	said := notices(t)
 	res, err := migrateFormat3(context.Background(), personOpts())
 	if err != nil {
@@ -270,16 +372,16 @@ func TestMigrate3(t *testing.T) {
 			t.Errorf("tags %v", hosts["web1"].Tags)
 		}
 	})
-	t.Run("ssh-agent, typed password and outside store logins", func(t *testing.T) {
+	t.Run("ssh-agent, typed password and an outside store value", func(t *testing.T) {
 		if c := creds[hosts["agent1"].Credential]; c == nil || !c.Key.Agent || c.User != "ops" || hosts["agent1"].Credential != "agent1-agent" {
 			t.Errorf("agent1 %q %+v", hosts["agent1"].Credential, c)
 		}
 		if c := creds[hosts["ask1"].Credential]; c == nil || !c.Ask || c.User != "admin" || c.Value != nil {
 			t.Errorf("ask1 %q %+v", hosts["ask1"].Credential, c)
 		}
-		c := creds[hosts["ext1"].Credential]
-		if c == nil || c.Store != "env" || c.Item != "WEB_PW" || c.User != "root" || c.Value != nil {
-			t.Fatalf("ext1 %q %+v", hosts["ext1"].Credential, c)
+		c := creds[strings.TrimPrefix(hosts["ext1"].Env["WEB_PW"], "credential:")]
+		if c == nil || c.Store != "env" || c.Item != "WEB_PW" || c.User != "" || c.Value != nil {
+			t.Fatalf("ext1 %v %+v", hosts["ext1"].Env, c)
 		}
 		stores := byName[CredentialStore](t, res.readBack, KindCredStore)
 		if s := stores["env"]; s == nil || s.Provider != "env" {
@@ -348,18 +450,18 @@ func TestMigrate3(t *testing.T) {
 			t.Errorf("mydb %+v %+v", conns["mydb"], c)
 		}
 	})
-	t.Run("a VPN config file and an outside store login", func(t *testing.T) {
+	t.Run("a VPN config file and outside store values", func(t *testing.T) {
 		v := vpns["ovpn"]
 		if v.ConfigCredential != "ovpn-config" || creds["ovpn-config"].Kind != CredToken || v.User != "me" {
 			t.Errorf("ovpn %+v", v)
 		}
-		c := creds[v.Credential]
-		if c == nil || c.Store != "onepassword" || c.Item != "Private/vpn/password" || c.Kind != CredPassword || c.Value != nil {
-			t.Errorf("ovpn credential %q %+v", v.Credential, c)
+		c := creds[strings.TrimPrefix(conns["s3b"].Options["kms_key"], "credential:")]
+		if c == nil || c.Store != "onepassword" || c.Item != "Private/s3/kms" || c.Kind != CredToken || c.Value != nil {
+			t.Errorf("s3b kms_key %q %+v", conns["s3b"].Options["kms_key"], c)
 		}
-		h := creds[hosts["vh"].Credential]
-		if h == nil || h.Store != "vault" || h.Item != "kv/app#pw" || h.User != "root" {
-			t.Errorf("vh %q %+v", hosts["vh"].Credential, h)
+		h := creds[strings.TrimPrefix(hosts["vh"].Env["APP_PW"], "credential:")]
+		if h == nil || h.Store != "vault" || h.Item != "kv/app#pw" || h.User != "" {
+			t.Errorf("vh %v %+v", hosts["vh"].Env, h)
 		}
 		stores := byName[CredentialStore](t, res.readBack, KindCredStore)
 		for _, p := range []string{"env", "vault", "onepassword"} {
@@ -368,9 +470,13 @@ func TestMigrate3(t *testing.T) {
 			}
 		}
 	})
-	t.Run("runtime.json is gone after the migration", func(t *testing.T) {
-		if _, err := os.Stat(runtimePath()); !errors.Is(err, os.ErrNotExist) {
-			t.Errorf("runtime.json: %v", err)
+	t.Run("runtime.json holds only the carried records, under the new mark", func(t *testing.T) {
+		rt, err := ReadRuntime()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(rt.Sessions) != 0 || rt.Mark == "" {
+			t.Errorf("runtime after the migration: %+v", rt)
 		}
 	})
 	t.Run("report", func(t *testing.T) {
@@ -399,10 +505,19 @@ func TestMigrate3(t *testing.T) {
 			}
 		}
 	})
-	t.Run("an older komando cannot open it", func(t *testing.T) {
+	t.Run("the format-2 row key no longer opens it", func(t *testing.T) {
 		Close()
-		if _, err := DB(false); !errors.Is(err, sealdb.ErrNewerFormat) {
-			t.Error("the format-2 code opened a format-3 store")
+		master, _, err := KeySource(nil, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ks, err := keysFor(master, "2")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if d, err := sealdb.Open(context.Background(), DBPath(), ks.row); err == nil {
+			d.Close()
+			t.Error("the format-2 row key opened a format-3 store")
 		}
 	})
 }
@@ -427,37 +542,16 @@ func TestMigrate3FailsClosed(t *testing.T) {
 		code  string
 		says  string // a part of the message, when one matters
 	}{
-		{name: "an AI agent or a script", opts: func(o *migrate3Opts) { o.person = false }, code: "NEEDS_PERSON"},
+		{name: "an AI agent or a script", opts: func(o *migrate3Opts) { o.way = MigrateRefuse; o.why = "an AI agent (Claude Code)" }, code: "NEEDS_PERSON"},
 		{
 			name: "a komando process still runs",
 			setup: func(t *testing.T) {
-				err := UpdateRuntime(Save(), func(s *State) error {
+				format2Runtime(t, func(s *State) {
 					s.Sessions["wg"] = &VpnSession{Vpn: "wg", PID: 4242, ProcStart: "x"}
-					return nil
 				})
-				if err != nil {
-					t.Fatal(err)
-				}
 			},
 			opts: func(o *migrate3Opts) { o.alive = func(pid int, _ string) bool { return pid == 4242 } },
 			code: "STORE_IN_USE",
-		},
-		{
-			// a run on a server: this computer cannot see it, and only its
-			// record here can stop it, so the record alone stops the migration
-			name: "an exec session record",
-			setup: func(t *testing.T) {
-				err := UpdateRuntime(Save(), func(s *State) error {
-					s.ExecSessions["abc"] = &ExecSession{ID: "abc", Host: "web", PID: 4242, PGID: 4242, ProcStart: "proc 1"}
-					return nil
-				})
-				if err != nil {
-					t.Fatal(err)
-				}
-			},
-			opts: func(o *migrate3Opts) { o.alive = func(int, string) bool { return false } },
-			code: "STORE_IN_USE",
-			says: "or stop it: komando exec web --attach abc --stop, then komando exec web --attach abc --remove",
 		},
 		{
 			name: "a deny pattern changed outside komando",
@@ -488,39 +582,27 @@ func TestMigrate3FailsClosed(t *testing.T) {
 		{
 			name: "a conn of a kind with no provider",
 			setup: func(t *testing.T) {
-				err := Update(Save(), func(s *State) error {
+				format2Edit(t, func(s *State) {
 					s.Conns["odd"] = &Conn{Name: "odd", Kind: "gopher", URL: "gopher://h"}
-					return nil
 				})
-				if err != nil {
-					t.Fatal(err)
-				}
 			},
 			code: "STORE_MIGRATION_FAILED",
 		},
 		{
 			name: "a reference to a secret that is gone",
 			setup: func(t *testing.T) {
-				err := Update(Save(), func(s *State) error {
+				format2Edit(t, func(s *State) {
 					s.Hosts["lost"] = &Host{Name: "lost", Address: "10.0.1.1", PasswordRef: "secret:nobody"}
-					return nil
 				})
-				if err != nil {
-					t.Fatal(err)
-				}
 			},
 			code: "STORE_MIGRATION_FAILED",
 		},
 		{
 			name: "a file item the reference guard refuses",
 			setup: func(t *testing.T) {
-				err := Update(Save(), func(s *State) error {
-					s.Hosts["sneaky"] = &Host{Name: "sneaky", Address: "10.0.1.2", PasswordRef: "file:" + Path("store.key")}
-					return nil
+				format2Edit(t, func(s *State) {
+					s.Hosts["sneaky"] = &Host{Name: "sneaky", Address: "10.0.1.2", Env: map[string]string{"K": "file:" + Path("store.key")}}
 				})
-				if err != nil {
-					t.Fatal(err)
-				}
 			},
 			opts: func(o *migrate3Opts) {
 				o.refGuard = func(kind, name string) error {
@@ -686,7 +768,7 @@ func TestMigrate3BackupNameTaken(t *testing.T) {
 // that nothing runs.
 func TestNoLiveProcessesNeedsCheck(t *testing.T) {
 	sealedHome(t)
-	if err := noLiveProcesses(nil); err == nil {
+	if err := noLiveProcesses(&Runtime{}, nil); err == nil {
 		t.Fatal("no process check given, and the migration went on")
 	}
 }
@@ -695,15 +777,11 @@ func TestNoLiveProcessesNeedsCheck(t *testing.T) {
 // names the conn and the field and not the password.
 func TestMigrate3PasswordInURL(t *testing.T) {
 	format2Store(t)
-	err := Update(Save(), func(s *State) error {
+	format2Edit(t, func(s *State) {
 		s.Conns["inline"] = &Conn{Name: "inline", Kind: "postgres", URL: "postgres://app:" + sentinel + "@10.0.0.30/app"}
-		return nil
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
 	Close()
-	_, err = migrateFormat3(context.Background(), personOpts())
+	_, err := migrateFormat3(context.Background(), personOpts())
 	var e *out.Error
 	if !errors.As(err, &e) || e.Code != "STORE_MIGRATION_FAILED" {
 		t.Fatalf("want STORE_MIGRATION_FAILED, got %v", err)
@@ -735,15 +813,11 @@ func TestMigrate3BrokenChainHint(t *testing.T) {
 // the field and not the URL.
 func TestMigrate3UnparsableURL(t *testing.T) {
 	format2Store(t)
-	err := Update(Save(), func(s *State) error {
+	format2Edit(t, func(s *State) {
 		s.Conns["bent"] = &Conn{Name: "bent", Kind: "postgres", URL: "postgres://app@10.0.0.31/%zz" + sentinel}
-		return nil
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
 	Close()
-	_, err = migrateFormat3(context.Background(), personOpts())
+	_, err := migrateFormat3(context.Background(), personOpts())
 	var e *out.Error
 	if !errors.As(err, &e) || e.Code != "STORE_MIGRATION_FAILED" {
 		t.Fatalf("want STORE_MIGRATION_FAILED, got %v", err)

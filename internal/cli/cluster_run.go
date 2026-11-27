@@ -436,7 +436,7 @@ func importKubeconfig(cl *call, path string) (*importPlan, error) {
 			continue
 		}
 		name := names[n]
-		c := &store.Conn{Name: name, URL: "k8s://" + u.Host, PasswordRef: "secret:" + name + "-kubeconfig"}
+		c := &store.Conn{Name: name, URL: "k8s://" + u.Host, PasswordRef: "credential:" + name + "-kubeconfig"}
 		if x.Namespace != "" {
 			c.Options = map[string]string{"namespace": x.Namespace}
 		}

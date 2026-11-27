@@ -11,10 +11,10 @@ import (
 // NATS with JetStream (docs/features/queues.md). hosts are the servers the
 // URL lists, as splitHostList found them; Address is the first. Options:
 //
-//	?creds=secret:NAME   log in with the .creds file (a user JWT and its
+//	?creds=credential:NAME   log in with the .creds file (a user JWT and its
 //	                     NKey seed) kept in the vault
 //	?domain=NAME         the JetStream domain (a leaf node's own)
-//	?ca=secret:NAME      tls: also trust this PEM CA certificate
+//	?ca=credential:NAME      tls: also trust this PEM CA certificate
 //	?tls=skip-verify     tls: do not check the certificate
 //	?insecure=1          accept nats:// (no TLS) across the network
 func parseNATS(u *url.URL, t Target, hosts []string) (Target, error) {
@@ -53,10 +53,10 @@ func parseNATS(u *url.URL, t Target, hosts []string) (Target, error) {
 	}
 	if q.Has("creds") {
 		creds := q.Get("creds")
-		if name, ok := strings.CutPrefix(creds, "secret:"); !ok || name == "" {
+		if name, ok := strings.CutPrefix(creds, "credential:"); !ok || name == "" {
 			return Target{}, out.Errf(out.ExitUsage, "USAGE",
-				"store the .creds file with `komando secret set NAME < user.creds`, then use ?creds=secret:NAME",
-				"the nats creds option takes secret:NAME, not %q", creds)
+				"store the .creds file with `komando secret set NAME < user.creds`, then use ?creds=credential:NAME",
+				"the nats creds option takes credential:NAME, not %q", creds)
 		}
 		if t.User != "" {
 			return Target{}, out.Usage("a nats URL logs in with a user or with creds=, not both: drop %s@ from it", t.User)

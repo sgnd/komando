@@ -153,15 +153,15 @@ func revealSetup(t *testing.T, ax string, ans macOutcome) *approvalView {
 // name does not show as itself.
 func TestMacRevealOwnerReason(t *testing.T) {
 	seen := revealSetup(t, "false\n", macAllowed)
-	if ok, _ := askReveal(tcl, "secret:db-pass"); !ok || seen.ownerReason() != "komando: show secret:db-pass" {
+	if ok, _ := askReveal(tcl, "credential:db-pass"); !ok || seen.ownerReason() != "komando: show credential:db-pass" {
 		t.Errorf("allowed %v, reason %q", ok, seen.ownerReason())
 	}
 	resetApproval()
-	askReveal(tcl, "secret:a\u202eb")
-	if r := seen.ownerReason(); r != "komando: show \"secret:a\\u202eb\"" {
+	askReveal(tcl, "credential:a\u202eb")
+	if r := seen.ownerReason(); r != "komando: show \"credential:a\\u202eb\"" {
 		t.Errorf("reason %q", r)
 	}
-	if args := macArgs(*seen); strings.Contains(args[3], "secret:") {
+	if args := macArgs(*seen); strings.Contains(args[3], "credential:") {
 		t.Error("the secret name is in the script")
 	}
 }
@@ -170,7 +170,7 @@ func TestMacRevealOwnerReason(t *testing.T) {
 // a failed owner check, or one nobody confirmed in time.
 func TestMacRevealReasons(t *testing.T) {
 	gate := func() *out.Error {
-		_, err := revealGate(tcl, "secret.show", "secret", "db-pass", "secret:db-pass")
+		_, err := revealGate(tcl, "secret.show", "secret", "db-pass", "credential:db-pass")
 		var e *out.Error
 		if !errors.As(err, &e) {
 			t.Fatalf("err %v", err)
@@ -225,7 +225,7 @@ func TestMacAXTrustedOwnerCheck(t *testing.T) {
 		setGate(tcl, false, gateYes)
 		t.Setenv("CLAUDECODE", "")
 		resetApproval()
-		reveal, _ = askReveal(tcl, "secret:db-pass")
+		reveal, _ = askReveal(tcl, "credential:db-pass")
 		return yes, reveal, why, tcl.sess.Window().Why
 	}
 	shown = 0

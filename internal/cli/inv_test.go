@@ -163,7 +163,7 @@ func TestInvProtectedEditNeedsYes(t *testing.T) {
 	mustRun(t, "host", "edit", "prod", "--add-tag", "x") // a label is no login change
 	mustRun(t, "conn", "add", "db", "postgres://a@10.0.0.5/app", "--protected")
 	wantCode(t, "PROTECTED_TARGET", "conn", "edit", "db", "--via", "jump")
-	wantCode(t, "PROTECTED_TARGET", "conn", "edit", "db", "--password-ref", "env:X")
+	wantCode(t, "PROTECTED_TARGET", "conn", "edit", "db", "--password-ref", "credential:x")
 }
 
 func TestInvHostEditConflicts(t *testing.T) {
@@ -254,19 +254,19 @@ func TestInvKeys(t *testing.T) {
 	wantCode(t, "USAGE", "key", "edit", "k", "--passphrase-ref", "pw123")
 	// key edit says what it did, warns about a secret not stored yet, and
 	// clears with --unset like host and conn edit ('' still works)
-	d = mustRun(t, "key", "edit", "k", "--passphrase-ref", "secret:kp")
+	d = mustRun(t, "key", "edit", "k", "--passphrase-ref", "credential:kp")
 	if d["action"] != "changed" || !strings.Contains(fmt.Sprint(d["warnings"]), "secret kp is not in the vault") {
 		t.Errorf("key edit: %v", d)
 	}
-	if d = mustRun(t, "key", "edit", "k", "--passphrase-ref", "secret:kp"); d["action"] != "unchanged" {
+	if d = mustRun(t, "key", "edit", "k", "--passphrase-ref", "credential:kp"); d["action"] != "unchanged" {
 		t.Errorf("same again: %v", d)
 	}
-	wantCode(t, "USAGE", "key", "edit", "k", "--unset", "passphrase-ref", "--passphrase-ref", "secret:kp")
+	wantCode(t, "USAGE", "key", "edit", "k", "--unset", "passphrase-ref", "--passphrase-ref", "credential:kp")
 	wantCode(t, "USAGE", "key", "edit", "k", "--unset", "path")
 	if d = mustRun(t, "key", "edit", "k", "--unset", "passphrase-ref"); d["passphrase_ref"] != nil || d["action"] != "changed" {
 		t.Errorf("--unset: %v", d)
 	}
-	mustRun(t, "key", "edit", "k", "--passphrase-ref", "secret:kp")
+	mustRun(t, "key", "edit", "k", "--passphrase-ref", "credential:kp")
 	mustRun(t, "key", "edit", "k", "--passphrase-ref", "")
 
 	ext := filepath.Join(t.TempDir(), "ext")
@@ -315,7 +315,7 @@ func TestInvSecrets(t *testing.T) {
 	if e.Suggestion == "" || !strings.Contains(e.Hint, e.Suggestion) {
 		t.Errorf("no suggestion: %+v", e)
 	}
-	mustRun(t, "host", "add", "prod", "u@10.0.0.2", "--protected", "--password-ref", "secret:s1")
+	mustRun(t, "host", "add", "prod", "u@10.0.0.2", "--protected", "--password-ref", "credential:s1")
 	wantCode(t, "PROTECTED_TARGET", "secret", "set", "s1", "--from-env", "INV_S")
 	d = mustRun(t, "secret", "set", "s2", "--from-env", "INV_S")
 	if d["replaced"] != true {

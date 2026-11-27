@@ -88,6 +88,7 @@ names or a selector (@group, tag:office) to change many VPNs at once.
 
 --protected marks a VPN komando asks a person about before it is changed
 or removed. Turning that off, or turning --mfa off, needs a person's yes.`,
+<<<<<<< HEAD
 		Example: `  komando vpn wireguard edit office --check 10.0.0.5:22
   komando vpn socks edit lab --proxy-address 127.0.0.1:1081
   komando vpn globalprotect edit client-x --credential client-x-new
@@ -95,6 +96,15 @@ or removed. Turning that off, or turning --mfa off, needs a person's yes.`,
   komando vpn globalprotect edit client-x --portal gw2.client.com
   komando vpn wireguard edit office --add-group jakarta --rm-group old --label site=jkt
   komando vpn wireguard edit @office --protected --dry-run`,
+=======
+		Example: `  komando vpn edit office --check 10.0.0.5:22
+  komando vpn edit lab --proxy-address 127.0.0.1:1081
+  komando vpn edit client-x --password-ref credential:client-x-new
+  komando vpn edit office --server vpn2.example.com --psk-ref credential:office-psk-2
+  komando vpn edit client-x --portal gw2.client.com
+  komando vpn edit office -g jakarta --rm-group old --label site=jkt
+  komando vpn edit @office --protected --dry-run`,
+>>>>>>> feat/c489-cut-e1-format3
 		Args: cobra.MinimumNArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if err := vpnEditChecks(cmd, &e); err != nil {
@@ -222,8 +232,15 @@ func vpnEditChecks(cmd *cobra.Command, e *vpnEditFlags) error {
 		}
 	}
 	for flag, ref := range map[string]string{"password-ref": e.passwordRef, "psk-ref": e.pskRef} {
+		if err := store.CredentialRef("--"+flag, ref); err != nil {
+			return err
+		}
 		if ref != "" && !vault.ValidRef(ref) {
+<<<<<<< HEAD
 			return out.Usage("--%s %q is not a reference: %s", vpnFlagWord(flag), ref, vault.RefHelp())
+=======
+			return out.Usage("--%s takes a reference, not the secret itself: store it with `komando secret set NAME`, then pass credential:NAME", flag)
+>>>>>>> feat/c489-cut-e1-format3
 		}
 	}
 	_, err := parseKV(e.labels)
@@ -439,8 +456,11 @@ func vpnAddFlagChecks(v *store.Vpn, pskRef string, labels []string) error {
 		}
 	}
 	for _, r := range []string{v.KeyRef, pskRef} {
+		if err := store.CredentialRef("the reference", r); err != nil {
+			return err
+		}
 		if r != "" && !vault.ValidRef(r) {
-			return out.Usage("%q is not a reference: %s", r, vault.RefHelp())
+			return out.Usage("a VPN key or shared key takes a reference, not the secret itself: store it with `komando secret set NAME`, then pass credential:NAME")
 		}
 	}
 	return applyKV(&v.Labels, labels)

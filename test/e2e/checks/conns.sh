@@ -5,18 +5,15 @@
 for _ in $(seq 1 30); do curl -sf "http://127.0.0.1:$E2E_BAO/v1/sys/health" >/dev/null && break; sleep 1; done
 # a database always needs its password, so the secret manager's answer counts
 curl -sf -H "X-Vault-Token: e2e-root" -d '{"data":{"pgpass":"apppass"}}' "http://127.0.0.1:$E2E_BAO/v1/secret/data/pg" >/dev/null
-q $K conn add pg-bao 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref 'vault:secret/pg#pgpass'
-check "db password from OpenBao" 1 "$("${BAOENV[@]}" $K db query pg-bao 'select 1' | jget 'd["data"]["results"][0]["rows"][0][0]' || true)"
-check "wrong OpenBao token is named" True "$(env PATH=/usr/bin:/bin VAULT_ADDR="http://127.0.0.1:$E2E_BAO" VAULT_TOKEN=bad $K db query pg-bao 'select 1' | jget '"permission denied" in json.dumps(d)' || true)"
-q $K conn rm pg-bao
+# E1 (format 3): a conn keeps its password as credential:NAME only; an outside
+# store on the field is refused. The logins through OpenBao and Vaultwarden
+# come back with C485 (`komando credential`), which adds store items.
+check "a conn's password in OpenBao is refused" REFERENCE_UNSUPPORTED "$($K conn add pg-bao 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref 'vault:secret/pg#pgpass' 2>&1 | jget 'd["error"]["code"]' || true)"
+check "the refusal wrote no conn" False "$($K conn list | jget '"pg-bao" in json.dumps(d)')"
 # Bitwarden (Vaultwarden): an account made the way a Bitwarden client makes it, read by komando
 for _ in $(seq 1 30); do curl -sf "http://127.0.0.1:$E2E_VW/alive" >/dev/null && break; sleep 1; done
 (cd "$ROOT" && go run ./test/e2e/bwseed "http://127.0.0.1:$E2E_VW" e2e@example.com 'e2e master pw' shop-pg apppass) >/dev/null
-BWENV=(env PATH=/usr/bin:/bin KOMANDO_BW_SERVER="http://127.0.0.1:$E2E_VW" KOMANDO_BW_EMAIL=e2e@example.com KOMANDO_BW_PASSWORD='e2e master pw')
-q $K conn add pg-bw 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref 'bw://shop-pg/password'
-check "db password from Vaultwarden (bw://)" 1 "$("${BWENV[@]}" $K db query pg-bw 'select 1' | jget 'd["data"]["results"][0]["rows"][0][0]' || true)"
-check "wrong Bitwarden master password is named" True "$(env PATH=/usr/bin:/bin KOMANDO_BW_SERVER="http://127.0.0.1:$E2E_VW" KOMANDO_BW_EMAIL=e2e@example.com KOMANDO_BW_PASSWORD=nope $K db query pg-bw 'select 1' | jget '"bitwarden" in json.dumps(d)' || true)"
-q $K conn rm pg-bw
+check "a conn's password in Vaultwarden is refused" REFERENCE_UNSUPPORTED "$($K conn add pg-bw 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref 'bw://shop-pg/password' 2>&1 | jget 'd["error"]["code"]' || true)"
 # db shell is komando's own SQL shell: no psql or mysql on PATH
 check "db shell on PostgreSQL" 42 "$(ptyrun 'select 41 + 1 as answer;\n\q\n' env PATH=/usr/bin:/bin "$K" db shell pg | tr -d '\r' | grep -E '^ *42 *$' | tr -d ' ' | head -1 || true)"
 check "db shell is read-only" True "$(ptyrun 'create table nope(x int);\n\q\n' env PATH=/usr/bin:/bin "$K" db shell pg | grep -q 'the shell is read-only' && echo True)"
@@ -25,7 +22,7 @@ check "db shell \\d lists tables" True "$(ptyrun '\d\n\q\n' env PATH=/usr/bin:/b
 check "conn test via bastion" 4 "$($K conn test all | jget 'd["data"]["summary"]["ok"]')"
 check "conn test logs in" login "$($K conn test pg | jget 'd["data"]["results"][0]["detail"]["check"]')"
 echo -n wrongpass | $K secret set pg-wrong >/dev/null
-q $K conn add pg-wrong 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref secret:pg-wrong
+q $K conn add pg-wrong 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref credential:pg-wrong
 check "conn test catches a wrong password" False "$($K conn test pg-wrong | jget 'd["data"]["results"][0]["ok"]' || true)"
 q $K conn rm pg-wrong
 q $K conn edit pg --option statement_timeout=1s
@@ -71,7 +68,7 @@ check "pg_restore brings the table back" 1 "$($K db query pg 'select count(*) fr
 q $K db dump pg --to "$TMP/schema.sql" --schema-only
 check "schema-only dump has no rows" 0 "$(grep -c "COPY public.t " "$TMP/schema.sql" || true)"
 # --run-on HOST: pg_dump/pg_restore run on a chosen server, whatever the conn's own path
-q $K conn add pg-on 'postgres://app@pg:5432/app?sslmode=disable' --password-ref secret:pg-pass
+q $K conn add pg-on 'postgres://app@pg:5432/app?sslmode=disable' --password-ref credential:pg-pass
 check "custom dump without a server names --run-on" True "$($K db dump pg-on --to "$TMP/on0.dump" --format custom | jget '"--run-on HOST" in d["error"]["message"]' || true)"
 check "dump --run-on dry run says where and how" "bastion True" "$($K db dump pg-on --to "$TMP/on.dump" --format custom --run-on bastion --dry-run | jget 'd["data"]["runs_on"] + " " + str(d["data"]["low_priority"])')"
 q $K db dump pg-on --to "$TMP/on.dump" --format custom --table public.t2 --run-on bastion
@@ -109,7 +106,7 @@ set -e
 
 # memcached (with a login), through the bastion
 printf mcpass | $K secret set mc-pass >/dev/null
-q $K conn add mc 'memcached://e2e@memcached:11211' --password-ref secret:mc-pass --via bastion
+q $K conn add mc 'memcached://e2e@memcached:11211' --password-ref credential:mc-pass --via bastion
 q $K cache set mc greeting halo --ttl 1h
 check "memcached get via bastion, with its time to live" "halo True" "$($K cache get mc greeting | jget 'd["data"]["value"] + " " + str(d["data"]["ttl_seconds"] > 3500)')"
 check "memcached keys" "['greeting']" "$($K cache keys mc 'greet*' | jget 'd["data"]["keys"]')"
@@ -160,8 +157,8 @@ check "rm --prefix removes them" True "$($K storage s3 object delete bucket --pr
 
 # file servers through the bastion: SFTP (shell-less account) and FTPS (TLS required)
 echo -n deploypass | $K secret set files-pass >/dev/null
-q $K conn add files-sftp 'sftp://deploy@sftp/uploads' --via bastion --password-ref secret:files-pass
-q $K conn add files-ftps 'ftps://deploy@ftps/www?tls=skip-verify' --via bastion --password-ref secret:files-pass
+q $K conn add files-sftp 'sftp://deploy@sftp/uploads' --via bastion --password-ref credential:files-pass
+q $K conn add files-ftps 'ftps://deploy@ftps/www?tls=skip-verify' --via bastion --password-ref credential:files-pass
 for c in files-sftp files-ftps; do
   # check the upload itself, so a failed upload shows its own error instead of an empty listing below
   check "$c upload" True "$($K storage upload "$c" "$TMP/obj.txt" 2026/11/obj.txt | jget 'd["ok"] or "%s: %s" % (d["error"]["code"], d["error"]["message"])' || true)"

@@ -30,14 +30,45 @@ var (
 		help: "One of your komando SSH keys, or type the path of a .pub file on this computer."}
 	accServers = formArg{ask: "On which servers?", pick: "host", free: true,
 		help: "Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas."}
-	accPassRef = formFlag{name: "passphrase-ref", ask: "Where is the key's passphrase kept?", example: "secret:work-key-pass",
-		help: "Only for a key that has a passphrase. Store it first with `komando secret set NAME` (it asks hidden), then type secret:NAME here. Leave empty for a key without one."}
+	accPassRef = formFlag{name: "passphrase-ref", ask: "Where is the key's passphrase kept?", example: "credential:work-key-pass",
+		help: "Only for a key that has a passphrase. Store it first with `komando secret set NAME` (it asks hidden), then type credential:NAME here. Leave empty for a key without one."}
 	accSecretOff = formFlag{name: "off", ask: "Move the key back into the store.key file instead?",
 		help: "No is the usual answer. Yes makes a copy of ~/.komando open the vault again, so komando asks you to confirm first."}
 )
 
 func init() {
 	addFormHints(map[string]formHint{
+<<<<<<< HEAD
+=======
+		// VPNs
+		"vpn up": {args: []formArg{{ask: "Which VPN should connect?", pick: "vpn",
+			help: "It stays up for later commands. When it asks for a login or a code, type it here."}}},
+		"vpn down": {args: []formArg{{ask: "Which VPNs should disconnect? (leave empty with --all)", pick: "vpn",
+			help: "Pick one, or type several names separated by spaces."}},
+			flags: []formFlag{{name: "all", ask: "Disconnect every VPN instead?", help: "Yes disconnects every VPN that is up now."}}},
+		"vpn status": {},
+		"vpn list": {args: []formArg{{ask: "Only some VPNs? (leave empty for all)", pick: "vpn", free: true,
+			help: "Pick one, or type @group or tag:office."}}},
+		"vpn show": {args: []formArg{accVpn}},
+		"vpn test": {args: []formArg{{ask: "Which VPN should be tested?", pick: "vpn",
+			help: "komando connects through it and says whether it works."}},
+			flags: []formFlag{{name: "wait", ask: "Keep trying for how long?", example: "5m",
+				help: "Like 30s or 5m: it tests again every few seconds until it works. Leave empty to test once."}}},
+		"vpn edit": {args: []formArg{accVpn},
+			flags: []formFlag{
+				{name: "check", ask: "Which address can only be reached through this VPN?", example: "10.0.0.5:22",
+					help: "An address and port inside the private network. komando connects to it to see that the VPN works. Leave empty to keep it."},
+				{name: "user", ask: "New user name for the VPN login?", example: "alice",
+					help: "Leave empty to keep it."},
+				{name: "password-ref", ask: "Where is the new password kept?", example: "credential:office-pass",
+					help: "Store it first with `komando secret set NAME` (it asks hidden), then type credential:NAME here. Leave empty to keep it."},
+				{name: "notes", ask: "Notes about this VPN?", example: "office in Jakarta, ask Budi for access",
+					help: "Anything to remember. Leave empty to keep them."},
+			}},
+		"vpn rename": {args: []formArg{accVpn, accNewName}},
+		"vpn rm":     {args: []formArg{accVpns}},
+
+>>>>>>> feat/c489-cut-e1-format3
 		// Tunnels
 		"tunnel start": {args: []formArg{{ask: "To which server or conn?", pick: "target", free: true,
 			help: "Pick a conn (a database, a cache) to reach it from this computer, or a server to forward a port through it."}},
@@ -75,8 +106,8 @@ func init() {
 			help: "Their names in the vault. Several: separate them with spaces. A secret still in use is not deleted."}}},
 		"secret run": {args: []formArg{{ask: "Which program should run on this computer?", example: "terraform plan",
 			help: "The program and its arguments, as you would type them here. Its secrets go in the next question, never here."}},
-			flags: []formFlag{{name: "env", ask: "Which variable gets which secret?", example: "TOKEN=secret:gh-token",
-				help: "KEY=secret:NAME reads NAME from the vault right before the program starts. KEY=VALUE sets a plain value."}}},
+			flags: []formFlag{{name: "env", ask: "Which variable gets which secret?", example: "TOKEN=credential:gh-token",
+				help: "KEY=credential:NAME reads NAME from the vault right before the program starts. KEY=VALUE sets a plain value."}}},
 		"secret keychain": {flags: []formFlag{accSecretOff}},
 		"secret passphrase": {flags: []formFlag{{name: "off", ask: "Go back to a random key in store.key instead?",
 			help: "No is the usual answer: komando asks for the new passphrase twice, hidden. Yes asks you to confirm first."}}},
@@ -127,8 +158,13 @@ func init() {
 		"logout":       {next: []string{"status"}},
 		"tunnel start": {next: []string{"tunnel list", "tunnel stop TUNNEL"}},
 		"tunnel stop":  {next: []string{"tunnel list"}},
+<<<<<<< HEAD
 		"login aws":    {next: []string{"test TARGET", "storage s3 object list NAME", "import aws"}},
 		"secret set": {next: []string{"host edit TARGET --password-ref secret:{}", "conn edit NAME --password-ref secret:{}",
+=======
+		"login aws":    {next: []string{"test TARGET", "storage list CONN", "import aws"}},
+		"secret set": {next: []string{"host edit TARGET --password-ref credential:{}", "conn edit NAME --password-ref credential:{}",
+>>>>>>> feat/c489-cut-e1-format3
 			"secret list"}},
 		"secret list":       {next: []string{"secret show NAME", "secret set NAME"}},
 		"secret rename":     {next: []string{"secret list", "test TARGET"}},

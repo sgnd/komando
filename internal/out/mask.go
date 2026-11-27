@@ -89,8 +89,8 @@ func maskAssign(s string) string {
 	last := 0
 	for _, m := range idx {
 		name, sep, v := s[m[2]:m[3]], s[m[4]:m[5]], s[m[6]:m[7]]
-		if sep == ":" && strings.EqualFold(name, "secret") || keepValue(name, v) || prose(s, m) || sqlHiddenNext(s, m[7]) {
-			// secret:NAME is a komando reference, [secret:NAME] a hidden value;
+		if credentialRef(name, sep, v) || keepValue(name, v) || prose(s, m) || sqlHiddenNext(s, m[7]) {
+			// credential:NAME is a komando reference, [credential:NAME] a hidden value;
 			// PASSWORD = N'[hidden]' and PASSWORD('[hidden]') the SQL pass hid
 			continue
 		}
@@ -149,6 +149,26 @@ func maskRedis(s string) string {
 	})
 }
 
+// credentialRef reports whether NAME SEP value is komando's reference
+// credential:NAME. Only a well-formed name counts (Audit E1, low): any
+// other value after "credential:" may be a password, and is hidden.
+func credentialRef(name, sep, v string) bool {
+	return sep == ":" && strings.EqualFold(name, "credential") && credentialName(v)
+}
+
+// credentialName reports whether v, after "credential:", is a
+// well-formed name. The name may close a sentence, a label or a command
+// in backticks ("`komando ... credential:db`)."), and komando's own
+// format strings and catalog stand %s or … for it.
+func credentialName(v string) bool {
+	n := strings.TrimRight(v, "`)].:")
+	n = strings.ReplaceAll(strings.ReplaceAll(n, "%s", "x"), "…", "x")
+	return credName.MatchString(n)
+}
+
+// credName is a well-formed credential name, as in [credential:NAME].
+var credName = regexp.MustCompile(`^[A-Za-z0-9_.@/-]+$`)
+
 // keepValue: values that are not secrets, so masking them would only hide
 // what an agent needs (a komando reference, a boolean, a placeholder).
 func keepValue(name, v string) bool {
@@ -166,7 +186,13 @@ func keepValue(name, v string) bool {
 	// URLs (a URL with a password in it is hidden by urlPw), and komando's
 	// own hints: "save its password: `komando secret set web1-pass`" names
 	// the command to run, which no password starts with
-	for _, p := range []string{"[hidden", "[secret:", "secret:", "env:", "file:", "op://", "vault:", "aws-sm:", "gcp-sm:", "azure-kv:", "${", "$(", "<", "{", "[", "/", "./", "http://", "https://", "`komando"} {
+	if r, ok := strings.CutPrefix(lv, "credential:"); ok {
+		return credentialName(r)
+	}
+	if r, ok := strings.CutPrefix(lv, "[credential:"); ok {
+		return strings.Contains(r, "]") && credentialName(r)
+	}
+	for _, p := range []string{"[hidden", "env:", "file:", "op://", "vault:", "aws-sm:", "gcp-sm:", "azure-kv:", "${", "$(", "<", "{", "[", "/", "./", "http://", "https://", "`komando"} {
 		if strings.HasPrefix(lv, p) {
 			return true
 		}
@@ -175,15 +201,18 @@ func keepValue(name, v string) bool {
 }
 
 // HasHidden reports whether text holds a value komando hid from an agent
-// ([hidden], [hidden: KIND] or [secret:NAME]). Such text must not be
-// written to a file or a database: it would destroy the real value.
+// ([hidden], [hidden: KIND] or [credential:NAME], or [secret:NAME] that
+// v0.17 printed). Such text must not be written to a file or a database:
+// it would destroy the real value.
 func HasHidden(s string) bool {
-	return hiddenLabel.MatchString(s) || secretLabel.MatchString(s)
+	return hiddenLabel.MatchString(s) || secretLabel.MatchString(s) || format2Label.MatchString(s)
 }
 
 var (
-	secretLabel = regexp.MustCompile(`\[secret:[A-Za-z0-9_.@/-]+\]`)
+	secretLabel = regexp.MustCompile(`\[credential:[A-Za-z0-9_.@/-]+\]`)
 	hiddenLabel = regexp.MustCompile(`\[hidden(?:: [a-z ]+)?\]`)
+	// format2Label is the vault value's label before the store's format 3
+	format2Label = regexp.MustCompile(`\[secret:[A-Za-z0-9_.@/-]+\]`)
 )
 
 // maskJSON hides secrets inside the string values of a JSON document: each
@@ -366,7 +395,7 @@ func (p *Printer) View(s string) View {
 	v.hide(groups(urlPw, v.Text, 2, nil), Hidden)
 	v.hide(groups(bearer, v.Text, 3, nil), Hidden)
 	v.hide(groups(assign, v.Text, 3, func(sub []string) bool {
-		return !(sub[2] == ":" && strings.EqualFold(sub[1], "secret") || keepValue(sub[1], sub[3]))
+		return !(credentialRef(sub[1], sub[2], sub[3]) || keepValue(sub[1], sub[3]))
 	}), Hidden)
 	v.hide(redisValues(redisPw, v.Text), Hidden)
 	v.hide(redisValues(redisPwPair, v.Text), Hidden)
@@ -532,10 +561,10 @@ func (v View) Hidden(orig string) []string {
 }
 
 // Masked reports whether v hides a value the agent does not know by name:
-// a label other than a vault value's [secret:NAME].
+// a label other than a vault value's [credential:NAME].
 func (v View) Masked() bool {
 	for _, m := range v.marks {
-		if !strings.HasPrefix(v.Text[m.vs:m.ve], "[secret:") {
+		if !strings.HasPrefix(v.Text[m.vs:m.ve], "[credential:") {
 			return true
 		}
 	}

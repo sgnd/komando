@@ -251,7 +251,7 @@ type Printer struct {
 
 	// Secrets returns the secret values (by name) that must never appear in
 	// output: remote files, logs and command output that happen to contain
-	// one show [secret:NAME] instead. It is called once, on first use.
+	// one show [credential:NAME] instead. It is called once, on first use.
 	// Set it when making the printer; once others may use the printer
 	// (AddValue runs from other goroutines), change it with SetSecrets.
 	Secrets  func() map[string]string
@@ -451,8 +451,9 @@ func (p *Printer) Print(command string, data any, softErr *Error) {
 	if p.Format == "text" {
 		p.printSkipped()
 		if p.DryRun {
-			// a person must never read a preview as a result
-			fmt.Fprintln(p.Stderr(), "Dry run: nothing was changed")
+			// a person must never read a preview as a result; the audit log
+			// keeps a dry run's row on purpose (who tried what)
+			fmt.Fprintln(p.Stderr(), "Dry run: nothing was changed (the audit log may note the dry run)")
 			if p.blocked != nil {
 				fmt.Fprintf(p.Stderr(), "Without --dry-run this stops here: [%s] %s\n", p.blocked.Code, Marks(noteText(p.Redact(p.blocked.Message))))
 				p.hint(p.blocked.hintOrDefault())

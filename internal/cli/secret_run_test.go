@@ -89,18 +89,18 @@ func childArgs(extra ...string) []string {
 
 func TestRunInjectsAndMasks(t *testing.T) {
 	runHome(t)
-	text, exit, code := runOut(t, append([]string{"secret", "run", "--env", "TOKEN=secret:tok", "--env", "PLAIN=hello"}, childArgs()...)...)
+	text, exit, code := runOut(t, append([]string{"secret", "run", "--env", "TOKEN=credential:tok", "--env", "PLAIN=hello"}, childArgs()...)...)
 	if exit != 0 {
 		t.Fatalf("exit %d %s: %q", exit, code, text)
 	}
-	if strings.Contains(text, "s3cr3t-value-123") || !strings.Contains(text, "TOKEN=[secret:tok]") || !strings.Contains(text, "PLAIN=hello") {
+	if strings.Contains(text, "s3cr3t-value-123") || !strings.Contains(text, "TOKEN=[credential:tok]") || !strings.Contains(text, "PLAIN=hello") {
 		t.Errorf("output: %q", text)
 	}
 	if strings.Contains(text, "leaked KOMANDO_RUN_TEST") {
 		t.Errorf("KOMANDO_* reached the program: %q", text)
 	}
 	rec := auditText(t)
-	if strings.Contains(rec, "s3cr3t-value-123") || !strings.Contains(rec, `"command":"secret run"`) || !strings.Contains(rec, "secret:tok") {
+	if strings.Contains(rec, "s3cr3t-value-123") || !strings.Contains(rec, `"command":"secret run"`) || !strings.Contains(rec, "credential:tok") {
 		t.Errorf("audit: %s", rec)
 	}
 }
@@ -115,9 +115,9 @@ func TestRunExitCode(t *testing.T) {
 
 func TestRunDryRunReadsNoValue(t *testing.T) {
 	runHome(t)
-	d := mustRun(t, append([]string{"--dry-run", "secret", "run", "-e", "TOKEN=secret:missing", "-e", "PLAIN=hello"}, childArgs()...)...)
+	d := mustRun(t, append([]string{"--dry-run", "secret", "run", "-e", "TOKEN=credential:missing", "-e", "PLAIN=hello"}, childArgs()...)...)
 	env := d["env"].(map[string]any)
-	if env["TOKEN"] != "secret:missing" || env["PLAIN"] != "[value]" || d["program"] == "" {
+	if env["TOKEN"] != "credential:missing" || env["PLAIN"] != "[value]" || d["program"] == "" {
 		t.Errorf("dry run: %v", d)
 	}
 }
@@ -125,14 +125,14 @@ func TestRunDryRunReadsNoValue(t *testing.T) {
 func TestRunAgentNeedsYes(t *testing.T) {
 	runHome(t)
 	setCallerEnv(t, "CLAUDECODE", "1")
-	wantCode(t, "SECRET_DESTINATION", append([]string{"secret", "run", "-e", "TOKEN=secret:tok"}, childArgs()...)...)
-	d := mustRun(t, append([]string{"--dry-run", "secret", "run", "-e", "TOKEN=secret:tok"}, childArgs()...)...)
+	wantCode(t, "SECRET_DESTINATION", append([]string{"secret", "run", "-e", "TOKEN=credential:tok"}, childArgs()...)...)
+	d := mustRun(t, append([]string{"--dry-run", "secret", "run", "-e", "TOKEN=credential:tok"}, childArgs()...)...)
 	if need := fmt.Sprint(d["_meta"].(map[string]any)["would_need"]); !strings.Contains(need, "--yes") {
 		t.Errorf("would_need: %v", d["_meta"])
 	}
 	texts := windowText(t, true)
-	text, exit, _ := runOut(t, append([]string{"secret", "run", "-e", "TOKEN=secret:tok", "--yes"}, childArgs()...)...)
-	if exit != 0 || len(*texts) != 1 || !strings.Contains((*texts)[0], "secret:tok") || !strings.Contains((*texts)[0], "on this computer") {
+	text, exit, _ := runOut(t, append([]string{"secret", "run", "-e", "TOKEN=credential:tok", "--yes"}, childArgs()...)...)
+	if exit != 0 || len(*texts) != 1 || !strings.Contains((*texts)[0], "credential:tok") || !strings.Contains((*texts)[0], "on this computer") {
 		t.Fatalf("exit %d %q %q", exit, text, *texts)
 	}
 	if strings.Contains(text, "s3cr3t-value-123") {
@@ -142,8 +142,8 @@ func TestRunAgentNeedsYes(t *testing.T) {
 
 func TestRunRefusals(t *testing.T) {
 	runHome(t)
-	wantCode(t, "RESERVED_SECRET", append([]string{"secret", "run", "-e", "K=secret:" + approvalSecret}, childArgs()...)...)
-	wantCode(t, "USAGE", append([]string{"secret", "run"}, childArgs("secret:tok")...)...)
+	wantCode(t, "RESERVED_SECRET", append([]string{"secret", "run", "-e", "K=credential:" + approvalSecret}, childArgs()...)...)
+	wantCode(t, "USAGE", append([]string{"secret", "run"}, childArgs("credential:tok")...)...)
 	wantCode(t, "USAGE", "secret", "run", "web1", "--", "uptime")
 }
 
@@ -151,7 +151,7 @@ func TestRunAgentLoaderEnv(t *testing.T) {
 	runHome(t)
 	setCallerEnv(t, "CLAUDECODE", "1")
 	for _, k := range []string{"LD_PRELOAD", "DYLD_INSERT_LIBRARIES", "NODE_OPTIONS", "BASH_ENV", "PYTHONSTARTUP"} {
-		wantCode(t, "USAGE", append([]string{"secret", "run", "--yes", "-e", k + "=/tmp/x", "-e", "TOKEN=secret:tok"}, childArgs()...)...)
+		wantCode(t, "USAGE", append([]string{"secret", "run", "--yes", "-e", k + "=/tmp/x", "-e", "TOKEN=credential:tok"}, childArgs()...)...)
 	}
 	if !loadsCode("ld_preload") || loadsCode("AWS_REGION") || loadsCode("PATH") {
 		t.Error("loadsCode")
@@ -162,7 +162,7 @@ func TestRunWindowNamesPlainKeys(t *testing.T) {
 	runHome(t)
 	setCallerEnv(t, "CLAUDECODE", "1")
 	texts := windowText(t, true)
-	if _, exit, _ := runOut(t, append([]string{"secret", "run", "-e", "TOKEN=secret:tok", "-e", "REGION=x", "--yes"}, childArgs()...)...); exit != 0 {
+	if _, exit, _ := runOut(t, append([]string{"secret", "run", "-e", "TOKEN=credential:tok", "-e", "REGION=x", "--yes"}, childArgs()...)...); exit != 0 {
 		t.Fatalf("exit %d", exit)
 	}
 	if len(*texts) != 1 || !strings.Contains((*texts)[0], "REGION") {
@@ -176,7 +176,7 @@ func TestRunAgentEnvAllowlist(t *testing.T) {
 	t.Setenv("PAGER", "/tmp/agent-pager")
 	t.Setenv("PATH", "/tmp/agent-bin:"+os.Getenv("PATH"))
 	texts := windowText(t, true)
-	text, exit, _ := runOut(t, append([]string{"secret", "run", "-e", "RUN_CHILD=1", "-e", "TOKEN=secret:tok", "--yes"}, childArgs()...)...)
+	text, exit, _ := runOut(t, append([]string{"secret", "run", "-e", "RUN_CHILD=1", "-e", "TOKEN=credential:tok", "--yes"}, childArgs()...)...)
 	if exit != 0 {
 		t.Fatalf("exit %d %q", exit, text)
 	}
@@ -192,7 +192,7 @@ func TestRunAgentEnvAllowlist(t *testing.T) {
 func TestRunPersonKeepsEnv(t *testing.T) {
 	runHome(t)
 	t.Setenv("PAGER", "/tmp/my-pager")
-	text, exit, _ := runOut(t, append([]string{"secret", "run", "-e", "TOKEN=secret:tok"}, childArgs()...)...)
+	text, exit, _ := runOut(t, append([]string{"secret", "run", "-e", "TOKEN=credential:tok"}, childArgs()...)...)
 	if exit != 0 || !strings.Contains(text, "PAGER=/tmp/my-pager") {
 		t.Errorf("exit %d %q", exit, text)
 	}
@@ -235,7 +235,7 @@ func TestInPasswd(t *testing.T) {
 }
 
 func TestRunArgRefsRefused(t *testing.T) {
-	for _, a := range []string{"secret:x", "env:PW", "--pw=vault:kv/db#pw", "op://v/i/f", "bw://i/f", "file:/x", "aws-sm:db"} {
+	for _, a := range []string{"credential:x", "env:PW", "--pw=vault:kv/db#pw", "op://v/i/f", "bw://i/f", "file:/x", "aws-sm:db"} {
 		if !argHasRef(a) {
 			t.Errorf("%q not refused", a)
 		}
@@ -261,7 +261,7 @@ func TestRunExitAfterSignal(t *testing.T) {
 func TestRunDryRunAsksNobody(t *testing.T) {
 	runHome(t)
 	texts := windowText(t, true)
-	d := mustRun(t, append([]string{"--dry-run", "secret", "run", "-e", "TOKEN=secret:tok", "--yes"}, childArgs()...)...)
+	d := mustRun(t, append([]string{"--dry-run", "secret", "run", "-e", "TOKEN=credential:tok", "--yes"}, childArgs()...)...)
 	if len(*texts) != 0 || d["dry_run"] != true {
 		t.Errorf("a dry run opened the window: %q %v", *texts, d)
 	}
@@ -302,10 +302,10 @@ func TestRunAgentMayNotOverrideBase(t *testing.T) {
 	for _, kv := range []string{"HOME=/tmp/x", "path=/x", "PAGER=x", "PSQL_PAGER=x", "PSQLRC=x", "GIT_ASKPASS=x", "SSH_AUTH_SOCK=x", "https_proxy=x", "XDG_CONFIG_HOME=x", "LANG=C",
 		"KUBECONFIG=x", "DOCKER_CONFIG=x", "PIP_CONFIG_FILE=x", "NPM_CONFIG_FILE=x", "AWS_SHARED_CREDENTIALS_FILE=x", "AWS_CONFIG_FILE=x", "AWS_WEB_IDENTITY_TOKEN_FILE=x",
 		"GOFLAGS=x", "CARGO_HOME=x", "RUSTC_WRAPPER=x", "JAVA_HOME=x", "CC=x", "cxx=x"} {
-		wantCode(t, "USAGE", append([]string{"secret", "run", "--yes", "-e", kv, "-e", "PGPASSWORD=secret:tok"}, childArgs()...)...)
+		wantCode(t, "USAGE", append([]string{"secret", "run", "--yes", "-e", kv, "-e", "PGPASSWORD=credential:tok"}, childArgs()...)...)
 	}
 	windowText(t, true)
-	if _, exit, code := runOut(t, append([]string{"secret", "run", "--yes", "-e", "RUN_CHILD=1", "-e", "PGHOST=db1", "-e", "PGPASSWORD=secret:tok"}, childArgs()...)...); exit != 0 {
+	if _, exit, code := runOut(t, append([]string{"secret", "run", "--yes", "-e", "RUN_CHILD=1", "-e", "PGHOST=db1", "-e", "PGPASSWORD=credential:tok"}, childArgs()...)...); exit != 0 {
 		t.Errorf("PGHOST refused: exit %d %s", exit, code)
 	}
 	for _, k := range []string{"AWS_REGION", "TF_VAR_name", "PGHOST", "CLOUDFLARE_ACCOUNT_ID"} {

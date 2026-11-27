@@ -37,12 +37,12 @@ func (p *Printer) load() {
 		return
 	}
 	for name, v := range p.Secrets() {
-		p.addLocked(v, "[secret:"+name+"]", false)
+		p.addLocked(v, "[credential:"+name+"]", false)
 	}
 }
 
 // SetSecrets makes f the printer's Secrets: the values of the one before
-// are no longer hidden as [secret:NAME], and f is called on first use.
+// are no longer hidden as [credential:NAME], and f is called on first use.
 // It locks by itself, so it is safe while AddValue runs elsewhere.
 func (p *Printer) SetSecrets(f func() map[string]string) {
 	p.hmu.Lock()
@@ -166,7 +166,7 @@ func (p *Printer) ForgetAdded() {
 
 // Spare stops hiding, in this printer's output, the vault values that s
 // holds (and their encoded forms): s is what an AI agent typed itself. A
-// [secret:NAME] in place of its own guess would tell it the guess is a
+// [credential:NAME] in place of its own guess would tell it the guess is a
 // secret; shown as typed, a right guess and a wrong one look the same.
 func (p *Printer) Spare(s string) {
 	p.load()

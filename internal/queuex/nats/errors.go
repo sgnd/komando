@@ -24,14 +24,14 @@ func connectErr(t driver.Target, err error) error {
 	switch {
 	case errors.Is(err, natsgo.ErrAuthorization), errors.Is(err, natsgo.ErrAuthExpired), errors.Is(err, natsgo.ErrAuthRevoked),
 		strings.Contains(low, "authorization violation"), strings.Contains(low, "authentication"):
-		return out.Errf(out.ExitConnect, "QUEUE_AUTH", "check the user in the URL and the password reference (`komando conn show NAME`); a conn without a user sends its password reference as a token, and ?creds=secret:NAME logs in with a .creds file",
+		return out.Errf(out.ExitConnect, "QUEUE_AUTH", "check the user in the URL and the password reference (`komando conn show NAME`); a conn without a user sends its password reference as a token, and ?creds=credential:NAME logs in with a .creds file",
 			"the server refused the login: %s", msg)
 	case errors.Is(err, natsgo.ErrSecureConnWanted):
 		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "the server has no TLS on this port: use nats:// (--via an SSH server, or ?insecure=1)", "cannot connect to %s: %s", t.Address, msg)
 	case errors.Is(err, context.DeadlineExceeded) || errors.Is(err, natsgo.ErrTimeout) || queuex.IsTimeout(err):
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "check the address and the port (4222 is the client port; 8222 is monitoring, 6222 the cluster's own), or raise --connect-timeout", "connecting to %s timed out", t.Address)
 	case strings.Contains(msg, "x509:") || strings.Contains(msg, "tls: failed to verify"):
-		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "the server's certificate could not be checked against this computer's CAs: use tls:// with ?ca=secret:NAME (`komando secret set NAME < ca.pem`), or reach the server --via an SSH server",
+		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "the server's certificate could not be checked against this computer's CAs: use tls:// with ?ca=credential:NAME (`komando secret set NAME < ca.pem`), or reach the server --via an SSH server",
 			"cannot connect to %s: %s", t.Address, msg)
 	case strings.Contains(low, "expected 'info'") || strings.Contains(low, "protocol") || strings.Contains(msg, "EOF") || strings.Contains(msg, "connection reset"):
 		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "check that this port speaks the NATS client protocol (4222 by default; not the monitoring port 8222 or a websocket port)",

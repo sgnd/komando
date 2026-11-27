@@ -24,8 +24,8 @@ const Format3 = 3
 
 // rowsV3 seals the records and audit entries of a format-3 store: a new
 // key, so a step of a v0.17 process that still holds the store open stops
-// with sealdb.ErrKeyChanged. It moves into sealkey's list at the cut.
-const rowsV3 sealkey.Label = "komando local store v3"
+// with sealdb.ErrKeyChanged.
+const rowsV3 = sealkey.RowsV3
 
 // Record types that format 3 adds.
 const (

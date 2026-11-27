@@ -3,8 +3,11 @@ package store
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"errors"
+	"net/url"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -388,5 +391,84 @@ func TestStoreGoneBetweenPeekAndOpen(t *testing.T) {
 		if *kept != want {
 			t.Fatalf("the keychain's count went to %d", *kept)
 		}
+	}
+}
+
+// Audit E1 M2: a crash while a write step commits leaves store.db-journal
+// (a hot journal) beside a store.db that already holds part of the step.
+// The read-only open (sealdb.Peek) cannot roll it back and fails, for
+// every komando version; the next open rolls it back once, read-write and
+// under the store lock, and the store is as it was before the step. The
+// crash is a copy of both files taken in the middle of a step whose page
+// cache is tiny, so the step has written pages into store.db already.
+func TestHotJournalRolledBack(t *testing.T) {
+	sealedHome(t)
+	fakeKeys(t)
+	if _, err := DB(true); err != nil {
+		t.Fatal(err)
+	}
+	Close()
+	before := fileSum(t)
+	ctx := context.Background()
+	abs, err := filepath.Abs(DBPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	u := url.URL{Scheme: "file", Path: filepath.ToSlash(abs), RawQuery: "_pragma=cache_size(2)&_pragma=synchronous(FULL)&_pragma=journal_mode(DELETE)"}
+	if filepath.VolumeName(abs) != "" {
+		u.Path = "/" + u.Path
+	}
+	sdb, err := sql.Open("sqlite", u.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sdb.Close()
+	conn, err := sdb.Conn(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	step := []string{"BEGIN IMMEDIATE", "CREATE TABLE crash(b BLOB)", "UPDATE meta SET v = v"}
+	for range 64 {
+		step = append(step, "INSERT INTO crash VALUES (zeroblob(8192))")
+	}
+	for _, q := range step {
+		if _, err := conn.ExecContext(ctx, q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	if fileSum(t) == before {
+		t.Fatal("the step wrote nothing into store.db before its commit: the cache is not tiny enough to make the crash")
+	}
+	crashed := t.TempDir()
+	for _, f := range []string{StoreFile, StoreFile + "-journal"} {
+		b, err := os.ReadFile(Path(f))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(crashed, f), b, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := conn.ExecContext(ctx, "ROLLBACK"); err != nil {
+		t.Fatal(err)
+	}
+	Close()
+	t.Setenv("KOMANDO_HOME", crashed)
+	if _, err := sealdb.Peek(ctx, DBPath()); err == nil {
+		t.Fatal("the read-only open read a store with a hot journal")
+	}
+	meta, err := peekStore(ctx, DBPath())
+	if err != nil || meta["key_mode"] != "test" {
+		t.Fatalf("after the crash: %v %v", meta, err)
+	}
+	if _, err := os.Stat(Path(StoreFile + "-journal")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("the journal is still there: %v", err)
+	}
+	if fileSum(t) != before {
+		t.Fatal("store.db is not as it was before the step the crash cut off")
+	}
+	if _, err := DB(false); err != nil {
+		t.Fatalf("open after the roll-back: %v", err)
 	}
 }

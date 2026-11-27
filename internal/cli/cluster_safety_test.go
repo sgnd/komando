@@ -277,7 +277,7 @@ func TestHideSecretEnv(t *testing.T) {
 		map[string]any{"name": "LOG_LEVEL", "value": "debug"},
 		map[string]any{"name": "PASSWORD_FILE", "value": "/run/secrets/pw"},
 		map[string]any{"name": "USE_TOKEN_AUTH", "value": "true"},
-		map[string]any{"name": "DB_PASSWORD_REF", "value": "secret:prod-db"},
+		map[string]any{"name": "DB_PASSWORD_REF", "value": "credential:prod-db"},
 		map[string]any{"name": "TOKEN", "valueFrom": map[string]any{"secretKeyRef": map[string]any{"name": "s"}}},
 	}}
 	hideSecretEnv(o)
@@ -288,7 +288,7 @@ func TestHideSecretEnv(t *testing.T) {
 		}
 	}
 	// what text masking keeps stays too: true/false, a path, a reference
-	for _, s := range []string{"debug", "secretKeyRef", `"true"`, "/run/secrets/pw", "secret:prod-db"} {
+	for _, s := range []string{"debug", "secretKeyRef", `"true"`, "/run/secrets/pw", "credential:prod-db"} {
 		if !strings.Contains(string(b), s) {
 			t.Errorf("too much hidden (%s): %s", s, b)
 		}
@@ -1001,7 +1001,7 @@ func TestPersonAllowsForAsksAgain(t *testing.T) {
 func TestImportKomandoDropsTrustedPlugin(t *testing.T) {
 	invHome(t)
 	b, _ := json.Marshal(exportFile{Format: exportFormat, Conns: []*store.Conn{{Name: "k", Kind: "k8s", URL: "k8s://10.0.0.1:6443",
-		PasswordRef: "secret:k-kubeconfig", TrustedPlugin: "0f", PluginProgram: "/bin/sh", PluginSearchPath: "/usr/bin:/bin"}}})
+		PasswordRef: "credential:k-kubeconfig", TrustedPlugin: "0f", PluginProgram: "/bin/sh", PluginSearchPath: "/usr/bin:/bin"}}})
 	f := filepath.Join(t.TempDir(), "export.json")
 	os.WriteFile(f, b, 0o600)
 	mustRun(t, "import", "komando", f)

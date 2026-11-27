@@ -100,7 +100,7 @@ func TestStreamForAgents(t *testing.T) {
 		return func(w2 io.Writer) (int64, error) { n, err := w2.Write([]byte(b)); return int64(n), err }
 	}
 	r, err := streamTo(tcl, ctx, &w, get("DB=vault-value-77\n"))
-	if err != nil || !strings.Contains(w.String(), "[secret:db]") || strings.Contains(w.String(), "vault-value-77") || !r.masked || r.sum != "" {
+	if err != nil || !strings.Contains(w.String(), "[credential:db]") || strings.Contains(w.String(), "vault-value-77") || !r.masked || r.sum != "" {
 		t.Errorf("text: %q %+v %v", w.String(), r, err)
 	}
 	w.Reset()

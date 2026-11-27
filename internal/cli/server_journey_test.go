@@ -147,7 +147,7 @@ func TestJobStartScriptOnTheWire(t *testing.T) {
 	}
 	// prod is the same server, protected: unprotect it for this change
 	if err := store.Update(store.Save(), func(st *store.State) error {
-		st.Hosts["dev"].SudoRef, st.Hosts["prod"].Protected = "secret:dev-sudo", false
+		st.Hosts["dev"].SudoRef, st.Hosts["prod"].Protected = "credential:dev-sudo", false
 		return nil
 	}); err != nil {
 		t.Fatal(err)

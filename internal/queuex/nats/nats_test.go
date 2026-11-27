@@ -293,7 +293,7 @@ func TestNatsCreds(t *testing.T) {
 	const seed = "SUAMK2FG4MI6UE3ACF3FK3OIQBCEIEZV7NSWFFEW63UXMRLFM2XLAXK4GY"
 	const jwt = "eyJ0eXAiOiJKV1QiLCJhbGciOiJlZDI1NTE5LW5rZXkifQ.eyJzdWIiOiJVQUJDIn0.sig"
 	file := "-----BEGIN NATS USER JWT-----\n" + jwt + "\n------END NATS USER JWT------\n\n-----BEGIN USER NKEY SEED-----\n" + seed + "\n------END USER NKEY SEED------\n"
-	vault := map[string]string{"secret:good": file, "secret:bad": "not a creds file"}
+	vault := map[string]string{"credential:good": file, "credential:bad": "not a creds file"}
 	driver.ResolveSecret = func(ref string) (string, error) {
 		if v, ok := vault[ref]; ok {
 			return v, nil
@@ -301,17 +301,17 @@ func TestNatsCreds(t *testing.T) {
 		return "", driver.ErrSecretNotFound
 	}
 	defer func() { driver.ResolveSecret = nil }()
-	got, kp, err := creds("secret:good")
+	got, kp, err := creds("credential:good")
 	if err != nil || got != jwt || kp == nil {
 		t.Fatalf("creds: %q %v", got, err)
 	}
-	if _, _, err := creds("secret:bad"); code(err) != "QUEUE_AUTH" || strings.Contains(err.Error(), "not a creds file") {
+	if _, _, err := creds("credential:bad"); code(err) != "QUEUE_AUTH" || strings.Contains(err.Error(), "not a creds file") {
 		t.Errorf("bad creds: %v", err)
 	}
-	if _, _, err := creds("secret:none"); code(err) != "SECRET_NOT_FOUND" {
+	if _, _, err := creds("credential:none"); code(err) != "SECRET_NOT_FOUND" {
 		t.Errorf("no creds: %v", err)
 	}
-	tg, _ := driver.Parse("nats://h?creds=secret:good")
+	tg, _ := driver.Parse("nats://h?creds=credential:good")
 	if o, err := loginOption(tg, ""); err != nil || o == nil {
 		t.Errorf("login option: %v", err)
 	}

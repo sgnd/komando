@@ -20,7 +20,7 @@ for rh in rocky:rockylinux/rockylinux:9:dnf:supported:${E2E_SSH_ROCKY:-2226} \
   docker build -q --build-arg BASE="$base1:$base2" -t "$img" "$R/test/e2e/rhel" >/dev/null
   docker run -d --name "$box" -p "127.0.0.1:$rhel_port:22" "$img" >/dev/null
   for _ in $(seq 1 30); do nc -z 127.0.0.1 "$rhel_port" 2>/dev/null && break; sleep 1; done
-  q $K host add "$host" "agent@127.0.0.1:$rhel_port" --password-ref secret:agent-pass
+  q $K host add "$host" "agent@127.0.0.1:$rhel_port" --password-ref credential:agent-pass
   q $K host trust "$host"
   # rd EXPR: EXPR on the server's data (x), or "error CODE" when it failed
   # (a dnf mirror that times out shows as that, not as a Python traceback)

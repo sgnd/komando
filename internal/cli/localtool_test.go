@@ -31,7 +31,11 @@ func TestToolSafe(t *testing.T) {
 func TestVPNClientFromPATHNeedsAPerson(t *testing.T) {
 	secretHome(t)
 	defer func() { setGate(tcl, false, gateYes, gateDryRun) }()
+<<<<<<< HEAD
 	mustRun(t, "vpn", "fortinet", "add", "office", "--portal", "vpn.example.com", "--user", "u", "--credential", "db-pass")
+=======
+	mustRun(t, "vpn", "add", "office", "fortinet", "--portal", "vpn.example.com", "--user", "u", "--password-ref", "credential:db-pass")
+>>>>>>> feat/c489-cut-e1-format3
 	bin := t.TempDir()
 	leak := filepath.Join(t.TempDir(), "leak")
 	for _, name := range []string{"openconnect", "ocproxy"} {
@@ -41,10 +45,10 @@ func TestVPNClientFromPATHNeedsAPerson(t *testing.T) {
 	}
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	windows := asAgent(t, false, false)
-	if _, err := localTool(tcl, "openconnect", []string{"secret:db-pass"}); toErr(err).Code != "SECRET_DESTINATION" {
+	if _, err := localTool(tcl, "openconnect", []string{"credential:db-pass"}); toErr(err).Code != "SECRET_DESTINATION" {
 		t.Fatalf("localTool: %v", err)
 	}
-	if p, err := localTool(tcl, "sh", []string{"secret:db-pass"}); err != nil || !filepath.IsAbs(p) {
+	if p, err := localTool(tcl, "sh", []string{"credential:db-pass"}); err != nil || !filepath.IsAbs(p) {
 		t.Fatalf("a system program: %q %v", p, err)
 	}
 	wantCode(t, "SECRET_DESTINATION", "vpn", "fortinet", "start", "office")

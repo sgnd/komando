@@ -86,7 +86,7 @@ func OpenGCS(_ context.Context, t driver.Target, key string, dial DialFunc, time
 		}
 		if err != nil {
 			return nil, out.Errf(out.ExitConnect, "STORAGE_AUTH",
-				"log in with `gcloud auth application-default login`, or store a service account key with `komando secret set NAME` and pass --password-ref secret:NAME",
+				"log in with `gcloud auth application-default login`, or store a service account key with `komando secret set NAME` and pass --password-ref credential:NAME",
 				"gcs: no Google Cloud login: %v", err)
 		}
 	}
@@ -321,7 +321,7 @@ func newGCSSigner(credJSON []byte) *gcsSigner {
 func (b *gcsBucket) Link(ctx context.Context, key string, expires time.Duration) (*url.URL, error) {
 	if b.signer == nil {
 		return nil, out.Errf(out.ExitUsage, "NOT_SUPPORTED",
-			"store a service account key with `komando secret set NAME` and pass --password-ref secret:NAME (gcloud's own login cannot sign links)",
+			"store a service account key with `komando secret set NAME` and pass --password-ref credential:NAME (gcloud's own login cannot sign links)",
 			"gcs links are signed with a service account key, and this conn has none")
 	}
 	if _, err := b.Stat(ctx, key); err != nil {

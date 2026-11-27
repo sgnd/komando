@@ -335,9 +335,9 @@ func TestImportDockerRegistries(t *testing.T) {
 	}
 	want := map[string]string{
 		"123456789012":        "registry://123456789012.dkr.ecr.eu-west-1.amazonaws.com ",
-		"dockerhub":           "registry://me@docker.io secret:dockerhub-pass",
+		"dockerhub":           "registry://me@docker.io credential:dockerhub-pass",
 		"europe-west1-docker": "registry://europe-west1-docker.pkg.dev ",
-		"ghcr":                "registry://octo@ghcr.io secret:ghcr-pass",
+		"ghcr":                "registry://octo@ghcr.io credential:ghcr-pass",
 		"myreg":               "registry://myreg.azurecr.io ",
 	}
 	if fmt.Sprint(got) != fmt.Sprint(want) {

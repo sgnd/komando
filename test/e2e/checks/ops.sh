@@ -24,7 +24,13 @@ NSKEY=$($K key show t-fixops-k | jget 'd["data"]["public_key"]')
 q $K exec direct --sudo -- "useradd -m -s /bin/sh t-fixopsns && mkdir -p ~t-fixopsns/.ssh && echo '$NSKEY' > ~t-fixopsns/.ssh/authorized_keys && chown -R t-fixopsns ~t-fixopsns/.ssh && chmod 700 ~t-fixopsns/.ssh"
 q $K host add t-fixops-ns "t-fixopsns@127.0.0.1:$E2E_SSH_DIRECT" --key t-fixops-k
 q $K host trust t-fixops-ns
+<<<<<<< HEAD
 check "pkg install without sudo rights names the next command" True "$($K pkg install t-fixops-ns tree | jget "'--sudo-ref secret:t-fixops-ns-sudo' in ${r0}['error']['hint'] or '--user OTHER' in ${r0}['error']['hint']" || true)"
+=======
+check "svc restart without sudo rights names PERMISSION_DENIED" PERMISSION_DENIED "$($K svc restart t-fixops-ns ssh | jget "${r0}['error']['code']" || true)"
+check "pkg install without sudo rights names the next command" True "$($K pkg install t-fixops-ns tree | jget "'--sudo-ref credential:t-fixops-ns-sudo' in ${r0}['error']['hint'] or '--user OTHER' in ${r0}['error']['hint']" || true)"
+check "user add without sudo rights names PERMISSION_DENIED" PERMISSION_DENIED "$($K user add t-fixops-ns t-fixopsx | jget "${r0}['error']['code']" || true)"
+>>>>>>> feat/c489-cut-e1-format3
 for sub in ps stats images; do
   check "docker $sub --sudo without sudo rights names PERMISSION_DENIED" PERMISSION_DENIED "$($K docker $sub t-fixops-ns --sudo | jget "${r0}['error']['code']" || true)"
 done
@@ -88,6 +94,18 @@ check "person: a wrong name stops docker prune (6)" 6 "$RC"
 O=$(tty 'wrong\n' pkg rm direct openssh-server); RC=$?
 check "person: removing an essential package asks for its name" 1 "$(grep -c 'Type the name openssh-server to continue' <<<"$O")"
 check "person: a wrong name keeps the package (6)" "6 True" "$RC $($K pkg installed direct openssh-server | jget "${r0}['data'][0]['installed']")"
+<<<<<<< HEAD
+=======
+q $K host add t-fixops-p "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref credential:agent-pass --protected
+q $K host trust t-fixops-p
+O=$(tty 'n\n' svc restart t-fixops-p ssh); RC=$?
+check "person: svc restart on a protected server asks [y/N]" 1 "$(grep -c 't-fixops-p (protected): this command changes it. Continue? \[y/N\]' <<<"$O")"
+check "person: no to svc restart stops (6)" 6 "$RC"
+O=$(tty 'wrong\n' reboot t-fixops-p); RC=$?
+check "person: reboot asks for the server's name" 1 "$(grep -c 'Type the name t-fixops-p to continue' <<<"$O")"
+check "person: a wrong name stops the reboot (6)" 6 "$RC"
+q $K host rm t-fixops-p --yes # a protected server: a script removes it with --yes (no agent here)
+>>>>>>> feat/c489-cut-e1-format3
 # logs --follow ends with Ctrl-C: a clean stop, not an error
 O=$(ptyrun $'\x03' env NO_COLOR=1 TERM=dumb "$K" -o text logs direct --file /etc/hostname --follow | tr -d '\r'); RC=$?
 check "person: logs --follow shows the lines before Ctrl-C" 1 "$(grep -c '^direct' <<<"$O")"

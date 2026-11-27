@@ -7,7 +7,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -265,33 +264,26 @@ func settleNewKeyFile() error {
 	return os.Remove(np)
 }
 
-// resealSecrets seals every secret's value again with newA, inside the
-// rekey step.
+// resealSecrets seals every value again with newA, inside the rekey
+// step.
 func resealSecrets(tx *sealdb.Tx, oldA, newA cipher.AEAD) (int, error) {
-	rows, err := tx.List(secretType)
+	rows, entries, err := valueRows(tx)
 	if err != nil {
 		return 0, err
 	}
 	for _, r := range rows {
-		var e sealedEntry
-		if err := json.Unmarshal(r.Data, &e); err != nil {
-			return 0, err
-		}
-		pt, err := oldA.Open(nil, e.Nonce, e.Data, []byte(e.Name))
+		e := entries[r.name]
+		pt, err := oldA.Open(nil, e.Nonce, e.Data, []byte(r.name))
 		if err != nil {
-			return 0, fmt.Errorf("%w %q", ErrDecrypt, e.Name)
+			return 0, fmt.Errorf("%w %q", ErrDecrypt, r.name)
 		}
 		nonce := make([]byte, newA.NonceSize())
 		if _, err := rand.Read(nonce); err != nil {
 			return 0, err
 		}
-		e.Nonce, e.Data = nonce, newA.Seal(nil, nonce, pt, []byte(e.Name))
+		e.Nonce, e.Data = nonce, newA.Seal(nil, nonce, pt, []byte(r.name))
 		clear(pt)
-		b, err := json.Marshal(e)
-		if err != nil {
-			return 0, err
-		}
-		if _, err := tx.Put(secretType, r.ID, b); err != nil {
+		if err := putValue(tx, r.name, e, &r); err != nil {
 			return 0, err
 		}
 	}

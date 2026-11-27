@@ -269,7 +269,11 @@ func TestClusterAddKind(t *testing.T) {
 	if e := wantCode(t, "USAGE", "cluster", "kubernetes", "add", "sw1", "ssh://deploy@10.0.0.9"); !strings.Contains(e.Hint, "host add") {
 		t.Errorf("swarm: %+v", e)
 	}
+<<<<<<< HEAD
 	mustRun(t, "cluster", "kubernetes", "add", "k2", "k8s://127.0.0.1:6451", "--credential", "k2-kubeconfig")
+=======
+	mustRun(t, "cluster", "add", "k2", "k8s://127.0.0.1:6451", "--password-ref", "credential:k2-kubeconfig")
+>>>>>>> feat/c489-cut-e1-format3
 }
 
 // all and @group read a server as a Swarm manager only when it is tagged

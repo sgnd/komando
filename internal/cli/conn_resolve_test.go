@@ -96,14 +96,14 @@ func TestRegistryResolve(t *testing.T) {
 
 	st := testConnState()
 	conn := func(url string) *store.Conn {
-		c := &store.Conn{Name: "reg", Kind: "registry", URL: url, PasswordRef: "secret:reg-pw"}
+		c := &store.Conn{Name: "reg", Kind: "registry", URL: url, PasswordRef: "credential:reg-pw"}
 		st.Conns["reg"] = c
 		return c
 	}
 	ctx := context.Background()
 
 	// registry.test does not resolve anywhere: every connection must go to the IP
-	c := conn("registry://me@registry.test:" + port + "?ca=secret:reg-ca&resolve=127.0.0.1")
+	c := conn("registry://me@registry.test:" + port + "?ca=credential:reg-ca&resolve=127.0.0.1")
 	if r := testConn(tcl, ctx, st, c); !r.OK || r.Check != "login" {
 		t.Fatalf("conn test: %+v %+v", r, r.Error)
 	}
@@ -127,10 +127,10 @@ func TestRegistryResolve(t *testing.T) {
 	// the check stays on: without ca= the private CA is unknown, and
 	// another name in the URL does not match the certificate
 	for url, wantErr := range map[string]any{
-		"registry://me@registry.test:" + port + "?resolve=127.0.0.1":                  &tls.CertificateVerificationError{},
-		"registry://me@other.test:" + port + "?ca=secret:reg-ca&resolve=127.0.0.1":    x509.HostnameError{},
-		"registry://me@127.0.0.1:" + port + "?ca=secret:reg-ca":                       x509.HostnameError{}, // why resolve is needed: no IP on the certificate
-		"registry://me@registry.test:" + port + "?ca=secret:reg-ca&resolve=127.0.0.1": nil,
+		"registry://me@registry.test:" + port + "?resolve=127.0.0.1":                      &tls.CertificateVerificationError{},
+		"registry://me@other.test:" + port + "?ca=credential:reg-ca&resolve=127.0.0.1":    x509.HostnameError{},
+		"registry://me@127.0.0.1:" + port + "?ca=credential:reg-ca":                       x509.HostnameError{}, // why resolve is needed: no IP on the certificate
+		"registry://me@registry.test:" + port + "?ca=credential:reg-ca&resolve=127.0.0.1": nil,
 	} {
 		rg, closeRG, err := openRegistry(tcl, ctx, st, conn(url))
 		if err != nil {
@@ -195,7 +195,7 @@ func TestRegistryResolveSkipVerify(t *testing.T) {
 
 	// codeoffice.test is not on the certificate and resolves nowhere
 	url := "registry://me@codeoffice.test:" + port + "?tls=skip-verify&resolve=127.0.0.1"
-	if _, err := runCache(t, "-o", "json", "conn", "add", "reg", url, "--password-ref", "secret:reg-pw"); err != nil {
+	if _, err := runCache(t, "-o", "json", "conn", "add", "reg", url, "--password-ref", "credential:reg-pw"); err != nil {
 		t.Fatal(err)
 	}
 	test, err := runCache(t, "-o", "json", "test", "reg")

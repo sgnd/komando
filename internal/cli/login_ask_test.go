@@ -187,7 +187,7 @@ func TestLoginAskFlag(t *testing.T) {
 		more  []string
 	}{
 		{"agent", nil},
-		{"password", []string{"--password-ref", "env:WEB3_PASS"}},
+		{"password", []string{"--password-ref", "credential:web3-pass"}},
 		{"key", []string{"--identity", keyFile}},
 	} {
 		name := "h-" + c.login
@@ -199,13 +199,13 @@ func TestLoginAskFlag(t *testing.T) {
 	// what each word needs, and what it cannot go with
 	for _, bad := range [][]string{
 		{"--login", "always"},
-		{"--login", "ask", "--password-ref", "secret:web2-pass"},
+		{"--login", "ask", "--password-ref", "credential:web2-pass"},
 		{"--login", "ask", "--ask-password"},
 		{"--login", "password"},
-		{"--login", "password", "--password-ref", "env:X", "--identity", keyFile},
+		{"--login", "password", "--password-ref", "credential:x", "--identity", keyFile},
 		{"--login", "key"},
 		{"--login", "agent", "--identity", keyFile},
-		{"--login", "agent", "--password-ref", "env:X"},
+		{"--login", "agent", "--password-ref", "credential:x"},
 	} {
 		// each names its own way out, not the generic one
 		if e := wantCode(t, "USAGE", append([]string{"host", "add", "web2", "u@10.0.0.2"}, bad...)...); e.Hint == out.UsageHint || e.Hint == "" {
@@ -220,13 +220,13 @@ func TestLoginAskFlag(t *testing.T) {
 
 	// the settings alone say it too
 	mustRun(t, "host", "add", "web2", "u@10.0.0.2")
-	mustRun(t, "host", "add", "web3", "u@10.0.0.3", "--password-ref", "env:WEB3_PASS")
+	mustRun(t, "host", "add", "web3", "u@10.0.0.3", "--password-ref", "credential:web3-pass")
 	if l := loginOf(t); l["web1"] != "ask" || l["web2"] != "agent" || l["web3"] != "password" || l["h-key"] != "key" {
 		t.Errorf("host list logins: %v", l)
 	}
 
 	// edit: a stored password ends login ask; each word switches to itself
-	if d := mustRun(t, "host", "edit", "web1", "--password-ref", "env:WEB1_PASS"); d["login"] != "password" {
+	if d := mustRun(t, "host", "edit", "web1", "--password-ref", "credential:web1-pass"); d["login"] != "password" {
 		t.Errorf("edit --password-ref: %v", d)
 	}
 	mustRun(t, "host", "edit", "web1", "--login", "ask")
@@ -235,14 +235,18 @@ func TestLoginAskFlag(t *testing.T) {
 	}
 	wantCode(t, "USAGE", "host", "edit", "web1", "--login", "key")      // it has no key
 	wantCode(t, "USAGE", "host", "edit", "web1", "--login", "password") // nor a password
-	if d := mustRun(t, "host", "edit", "web1", "--login", "key", "--identity", keyFile, "--password-ref", "env:WEB1_PASS"); d["login"] != "key" {
+	if d := mustRun(t, "host", "edit", "web1", "--login", "key", "--identity", keyFile); d["login"] != "key" {
 		t.Errorf("edit --login key: %v", d)
 	}
-	if d := mustRun(t, "host", "edit", "web1", "--login", "password"); d["login"] != "password" || d["identity"] != nil {
+	// format 3: a server keeps one credential, so a key's server has no
+	// stored password to switch to, and a password beside a key is refused
+	wantCode(t, "USAGE", "host", "edit", "web1", "--login", "password")
+	wantCode(t, "USAGE", "host", "edit", "web1", "--password-ref", "credential:web1-pass")
+	if d := mustRun(t, "host", "edit", "web1", "--login", "password", "--password-ref", "credential:web1-pass"); d["login"] != "password" || d["identity"] != nil {
 		t.Errorf("edit --login password keeps the key: %v", d)
 	}
 	st, _ := store.Load()
-	if h := st.Hosts["web1"]; h.Login != "" || h.PasswordRef != "env:WEB1_PASS" {
+	if h := st.Hosts["web1"]; h.Login != "" || h.PasswordRef != "credential:web1-pass" {
 		t.Errorf("stored: %+v", h)
 	}
 }
@@ -254,7 +258,7 @@ func TestLoginAskSchemaNotHidden(t *testing.T) {
 	invHome(t)
 	t.Setenv("PW", "s3cret-in-env")
 	mustRun(t, "secret", "set", "web1-pass", "--from-env", "PW")
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--password-ref", "secret:web1-pass")
+	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--password-ref", "credential:web1-pass")
 	for _, cmd := range [][]string{{"host", "add"}, {"host", "edit"}, {"conn", "add"}, {"conn", "edit"}, {"db", "add"}} {
 		s, err := runCache(t, append([]string{"-o", "json", "schema"}, cmd...)...)
 		if err != nil {
@@ -283,10 +287,10 @@ func TestLoginAskUnlinksTheStoredPassword(t *testing.T) {
 	mustRun(t, "secret", "set", "web1-pass", "--from-env", "PW")
 	mustRun(t, "secret", "set", "shared-pass", "--from-env", "PW")
 	mustRun(t, "secret", "set", "web4-pass", "--from-env", "PW")
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--password-ref", "secret:web1-pass")
-	mustRun(t, "host", "add", "web2", "u@10.0.0.2", "--password-ref", "secret:shared-pass")
-	mustRun(t, "host", "add", "web3", "u@10.0.0.3", "--password-ref", "secret:shared-pass")
-	mustRun(t, "host", "add", "web4", "u@10.0.0.4", "--password-ref", "secret:web4-pass")
+	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--password-ref", "credential:web1-pass")
+	mustRun(t, "host", "add", "web2", "u@10.0.0.2", "--password-ref", "credential:shared-pass")
+	mustRun(t, "host", "add", "web3", "u@10.0.0.3", "--password-ref", "credential:shared-pass")
+	mustRun(t, "host", "add", "web4", "u@10.0.0.4", "--password-ref", "credential:web4-pass")
 
 	d := mustRun(t, "host", "edit", "web1", "--login", "ask")
 	if d["login"] != "ask" || d["password_ref"] != nil || asJSON(d["secrets_unused"]) != `["web1-pass"]` ||
@@ -319,7 +323,7 @@ func TestLoginAskDestinationNeedsPerson(t *testing.T) {
 	mustRun(t, "host", "add", "other", "u@10.0.0.6")
 	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--login", "ask", "--via", "bastion")
 	t.Setenv("PW", "x")
-	mustRun(t, "host", "add", "web2", "u@10.0.0.2", "--password-ref", "env:PW")
+	mustRun(t, "host", "add", "web2", "u@10.0.0.2", "--password-ref", "credential:web2-pw")
 	setCallerEnv(t, "CLAUDECODE", "1")
 
 	needsPerson := func(want string, args ...string) {
@@ -424,7 +428,11 @@ func TestLoginAskVpnProfileSecretNeedsPerson(t *testing.T) {
 	if err := os.WriteFile(profile, []byte(testProfile), 0o600); err != nil {
 		t.Fatal(err)
 	}
+<<<<<<< HEAD
 	mustRun(t, "vpn", "openvpn", "add", "office", "--config", profile, "--check", "10.8.0.1:22", "--user", "alice", "--credential", "db-pass")
+=======
+	mustRun(t, "vpn", "add", "office", "openvpn", "--config", profile, "--check", "10.8.0.1:22", "--user", "alice", "--password-ref", "credential:db-pass")
+>>>>>>> feat/c489-cut-e1-format3
 	mustRun(t, "host", "add", "web1", "u@10.8.0.5", "--login", "ask", "--via", "office")
 	setCallerEnv(t, "CLAUDECODE", "1")
 	t.Setenv("EVIL", "remote 203.0.113.66 1194")

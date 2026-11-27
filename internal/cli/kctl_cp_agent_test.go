@@ -71,7 +71,7 @@ func TestPodCopyAsADownload(t *testing.T) {
 	if err := untarTo(tcl, mk(map[string]string{"app/config.yml": "password: " + v + "\n"}), dst, "app"); err != nil {
 		t.Fatal(err)
 	}
-	if b, _ := os.ReadFile(filepath.Join(dst, "config.yml")); strings.Contains(string(b), v) || !strings.Contains(string(b), "[secret:db]") {
+	if b, _ := os.ReadFile(filepath.Join(dst, "config.yml")); strings.Contains(string(b), v) || !strings.Contains(string(b), "[credential:db]") {
 		t.Errorf("an agent's copy is not masked: %q", b)
 	}
 

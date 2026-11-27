@@ -40,12 +40,17 @@ for _ in $(seq 1 180); do [ "$(docker exec "$SERVER" sh -c 'grep -l "Initializat
 
 routes_before=$(docker exec "$CLIENT" sh -c 'ip route; ip addr' | md5sum)
 in_client sh -c 'printf e2e-pass | komando secret set ovpn-pass' >/dev/null
+<<<<<<< HEAD
 # every session of this script is an OpenVPN one: stop them by name
 stop_all() {
   for n in office crypt oldstyle login; do in_client komando vpn openvpn stop "$n" >/dev/null || true; done
 }
 # name profile check-address [extra vpn openvpn add flags]
 for spec in "office tcp 10.8.0.1:1194" "crypt crypt 10.9.0.1:1194" "oldstyle auth 10.10.0.1:1194" "login login 10.11.0.1:1194 --user e2e-user --credential ovpn-pass"; do
+=======
+# name profile check-address [extra vpn add flags]
+for spec in "office tcp 10.8.0.1:1194" "crypt crypt 10.9.0.1:1194" "oldstyle auth 10.10.0.1:1194" "login login 10.11.0.1:1194 --user e2e-user --password-ref credential:ovpn-pass"; do
+>>>>>>> feat/c489-cut-e1-format3
   set -- $spec
   name=$1 profile=$2 check=$3; shift 3
   in_client komando vpn openvpn add "$name" --config "/pki/$profile.ovpn" --check "$check" "$@" >/dev/null || fail "vpn openvpn add $name"
@@ -90,7 +95,11 @@ stop_all
 
 # a wrong password is named
 in_client sh -c 'printf nope | komando secret set ovpn-wrong' >/dev/null
+<<<<<<< HEAD
 in_client komando vpn openvpn add badlogin --config /pki/login.ovpn --check 10.11.0.1:1194 --user e2e-user --credential ovpn-wrong >/dev/null
+=======
+in_client komando vpn add badlogin openvpn --config /pki/login.ovpn --check 10.11.0.1:1194 --user e2e-user --password-ref credential:ovpn-wrong >/dev/null
+>>>>>>> feat/c489-cut-e1-format3
 out=$(in_client komando test badlogin || true)
 grep -q 'refused the login' <<<"$out" || { echo "$out"; in_client tail -5 /tmp/k/vpn/badlogin.log || true; fail "a wrong password says so"; }
 echo "ok   a refused login says so"

@@ -71,7 +71,7 @@ func TestS3WrongRegionNamesTheRegion(t *testing.T) {
 }
 
 // An endpoint whose certificate comes from a private CA works with
-// ?ca=secret:NAME; without it the error says how to trust the CA.
+// ?ca=credential:NAME; without it the error says how to trust the CA.
 func TestPrivateCA(t *testing.T) {
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound) // reached: the certificate verified
@@ -97,7 +97,7 @@ func TestPrivateCA(t *testing.T) {
 		for _, withCA := range []bool{false, true} {
 			u := raw
 			if withCA {
-				u += "&ca=secret:corp-ca"
+				u += "&ca=credential:corp-ca"
 			}
 			tg, err := driver.Parse(u)
 			if err != nil {
@@ -110,14 +110,14 @@ func TestPrivateCA(t *testing.T) {
 			_, err = b.Stat(ctx, "x.sql")
 			oe, _ := err.(*out.Error)
 			switch {
-			case !withCA && (oe == nil || oe.Code != "STORAGE_TLS" || !strings.Contains(oe.Hint, "ca=secret:NAME")):
+			case !withCA && (oe == nil || oe.Code != "STORAGE_TLS" || !strings.Contains(oe.Hint, "ca=credential:NAME")):
 				t.Errorf("%s without ca: %#v", u, err)
 			case withCA && (oe == nil || oe.Code != "OBJECT_NOT_FOUND"):
 				t.Errorf("%s with ca: %#v", u, err)
 			}
 		}
 	}
-	if _, err := driver.Parse("s3://KEY@shop?endpoint=http://minio:9000&ca=secret:corp-ca"); err == nil {
+	if _, err := driver.Parse("s3://KEY@shop?endpoint=http://minio:9000&ca=credential:corp-ca"); err == nil {
 		t.Error("ca= with an http:// endpoint")
 	}
 }

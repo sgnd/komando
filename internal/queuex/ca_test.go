@@ -58,7 +58,7 @@ func TestKafkaPrivateCA(t *testing.T) {
 	if _, err := Open(ctx, plain, "s3cret", nil, 3*time.Second, "komando-test"); code(err) != "QUEUE_CONNECT" {
 		t.Errorf("without the CA: %v", err)
 	}
-	q := open(t, "kafka://app@"+addr+"?tls=true&ca=secret:kafka-ca&sasl=plain", "s3cret", nil)
+	q := open(t, "kafka://app@"+addr+"?tls=true&ca=credential:kafka-ca&sasl=plain", "s3cret", nil)
 	if inf, err := q.Info(ctx); err != nil || len(inf.Brokers) != 1 {
 		t.Fatalf("with ?ca=: %+v %v", inf, err)
 	}

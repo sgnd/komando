@@ -41,6 +41,9 @@ func (d *DB) Backup(ctx context.Context, dst string) error {
 	return err
 }
 
+// syncOpened flushes one opened file or folder (tests watch it).
+var syncOpened = fullSync
+
 // syncFile flushes path and its folder to disk; VACUUM INTO does not take
 // the store's sync settings.
 func syncFile(path string) error {
@@ -54,7 +57,7 @@ func syncFile(path string) error {
 		if err != nil {
 			return err
 		}
-		err = fullSync(f)
+		err = syncOpened(f)
 		f.Close()
 		// a folder cannot be synced on some systems (Windows)
 		if err != nil && p == path {

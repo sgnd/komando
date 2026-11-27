@@ -12,7 +12,7 @@ import (
 
 // A database or cache whose certificate comes from a private CA (a company
 // CA, a cloud's own CA such as RDS or Azure) is checked against that CA:
-// ?ca=secret:NAME names the vault secret that holds it (PEM), as for a
+// ?ca=credential:NAME names the vault secret that holds it (PEM), as for a
 // registry. The check is a full one: the certificate must be signed by
 // that CA and name the server.
 
@@ -25,16 +25,16 @@ var ErrSecretNotFound = errors.New("secret not found")
 // caKinds are the kinds whose URL takes ?ca= (registry has its own).
 var caKinds = map[string]bool{"postgres": true, "mysql": true, "redis": true, "memcached": true, "mongodb": true, "kafka": true, "rabbitmq": true, "nats": true, "sqlserver": true, "oracle": true, "clickhouse": true, "snowflake": true, "bigquery": true, "s3": true, "gcs": true, "azblob": true}
 
-// parseCA reads ?ca=secret:NAME into t.CA.
+// parseCA reads ?ca=credential:NAME into t.CA.
 func parseCA(q url.Values, t *Target) error {
 	if !caKinds[t.Kind.Name] || !q.Has("ca") {
 		return nil
 	}
 	ca := q.Get("ca")
-	if name, ok := strings.CutPrefix(ca, "secret:"); !ok || name == "" {
+	if name, ok := strings.CutPrefix(ca, "credential:"); !ok || name == "" {
 		return out.Errf(out.ExitUsage, "USAGE",
-			"store the CA certificate with `komando secret set NAME < ca.crt`, then use ?ca=secret:NAME",
-			"the %s ca option takes secret:NAME, not %q", t.Kind.Name, ca)
+			"store the CA certificate with `komando secret set NAME < ca.crt`, then use ?ca=credential:NAME",
+			"the %s ca option takes credential:NAME, not %q", t.Kind.Name, ca)
 	}
 	t.CA = ca
 	// with a CA the certificate is checked: it needs TLS, and a setting

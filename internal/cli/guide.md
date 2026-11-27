@@ -152,7 +152,7 @@ Writes are atomic (temporary file, then rename). `fs write --if-changed` and
 
 Your list itself changes in bulk too, each with `--dry-run` first:
 
-- `komando host edit TARGET --sudo-ref secret:NAME` sets one value on
+- `komando host edit TARGET --sudo-ref credential:NAME` sets one value on
   many servers (one `--yes` and one approval window for the protected ones,
   which lists every server).
 - `komando host rename OLD NEW` renames a server and every reference to it
@@ -348,7 +348,7 @@ Anything that must keep running (a temporary web server, a watcher) is a
   `tls=skip-verify`, a `KOMANDO_HOME` other than `~/.komando`). Ask the
   human; never do it to get around a block.
 - `SECRET_DESTINATION` (exit 6): you asked komando to send a secret somewhere
-  new: `{{secret:NAME}}` in `fs write`/`fs replace`, `--env K=secret:NAME`,
+  new: `{{credential:NAME}}` in `fs write`/`fs replace`, `--env K=credential:NAME`,
   `db user add --password-ref`, or a password reference on a new or moved
   server, conn or VPN. Tell the human which secret goes where and why; when
   they agree, re-run with `--yes` (komando's window names the secret and the
@@ -364,7 +364,7 @@ Anything that must keep running (a temporary web server, a watcher) is a
 
 ### Secrets and personal data
 
-- Never print secrets. Credentials are references (`secret:NAME`,
+- Never print secrets. Credentials are references (`credential:NAME`,
   `env:VAR`), not values.
 - Never put a secret value in a command line: `komando secret set NAME`
   reads it from `--from-env VAR` or stdin. A password the human knows (a
@@ -380,8 +380,8 @@ Anything that must keep running (a temporary web server, a watcher) is a
   compare it with the right one: ask them to run `komando secret check NAME`
   (`NEEDS_PERSON` for you).
 - For an AI agent, passwords, keys and tokens in output show as `[hidden]`
-  (and vault values as `[secret:NAME]`). Change such a line with
-  `fs replace --old 'NAME=[hidden]' --new 'NAME={{secret:VAULT_NAME}}'`,
+  (and vault values as `[credential:NAME]`). Change such a line with
+  `fs replace --old 'NAME=[hidden]' --new 'NAME={{credential:VAULT_NAME}}'`,
   after the human agrees, with `--yes` (`SECRET_DESTINATION` without it).
   Text that still holds `[hidden]` is never written (`HIDDEN_VALUE`).
 - Files that are secrets by name (.env, private keys, credentials) are not
@@ -419,7 +419,7 @@ Anything that must keep running (a temporary web server, a watcher) is a
 |------|-----------------------------------|------------|
 | 1    | ERROR, FILE_ERROR, WRITE_FAILED (a file on this computer) | read `error.message` and `error.hint` |
 | 2    | USAGE                             | fix the flags (`komando schema COMMAND`); a group alone (`komando db`) is USAGE and the hint lists its sub-commands |
-| 2    | HIDDEN_VALUE                      | never write `[hidden]` text back; put `{{secret:NAME}}` in its place (fs replace) or leave hidden entries out, as `error.hint` says |
+| 2    | HIDDEN_VALUE                      | never write `[hidden]` text back; put `{{credential:NAME}}` in its place (fs replace) or leave hidden entries out, as `error.hint` says |
 | 3    | TARGET_NOT_FOUND, TARGET_EMPTY, PATH_NOT_FOUND | `komando list`; for a typo, `error.suggestion` is the closest name and the hint the command line with it |
 | 3    | SECRET_NOT_FOUND, SECRET_UNRESOLVED | `komando secret list`; ask the human to store the secret |
 | 3    | NO_MATCHING_TARGETS               | use the command the hint names (for example `db` for a database) |

@@ -52,15 +52,15 @@ never sends the password itself.
 
 ```bash
 komando host add win2 winrm://Administrator@10.0.0.9 --ask-password
-komando host add win3 'winrm://deploy@corp.local@win3.corp.local' --password-ref secret:win3-pass --via bastion
-komando host edit win2 --address 'winrm://10.0.0.9?ca=secret:corp-ca'   # the server's certificate is from your own CA
+komando host add win3 'winrm://deploy@corp.local@win3.corp.local' --password-ref credential:win3-pass --via bastion
+komando host edit win2 --address 'winrm://10.0.0.9?ca=credential:corp-ca'   # the server's certificate is from your own CA
 ```
 
 Options go after `?`, joined with `&`:
 
 | Option | Means |
 |--------|-------|
-| `ca=secret:NAME` | the certificate comes from your own CA: store its PEM with `komando secret set NAME < ca.crt` (the check stays on) |
+| `ca=credential:NAME` | the certificate comes from your own CA: store its PEM with `komando secret set NAME < ca.crt` (the check stays on) |
 | `auth=basic` | Basic login (local accounts only) instead of NTLM; over plain HTTP (`tls=off`) it is refused (`WINRM_INSECURE`) |
 | `tls=skip-verify` | do not check the certificate (komando warns: anyone in between can pose as the server) |
 | `tls=off` | plain HTTP on port 5985: commands and output travel unencrypted, and the server must allow it |
@@ -273,7 +273,7 @@ runs; `fs restore` stops with a usage error (`USAGE`) that names
 | `MIXED_OS` | the target picks Windows and other servers | run it twice, with `TARGET,os:windows` and `TARGET,!os:windows` |
 | `READ_ONLY_VIOLATION` | the PowerShell is not in the small part `--read-only` accepts | drop `--read-only`; a protected server then asks first |
 | `POWERSHELL_FAILED` | komando could log in but PowerShell did not answer | check that `powershell.exe` is on the login user's PATH |
-| `WINRM_TLS` | the server's WinRM certificate is not trusted | from your company's CA: add `?ca=secret:NAME` to the address |
+| `WINRM_TLS` | the server's WinRM certificate is not trusted | from your company's CA: add `?ca=credential:NAME` to the address |
 | `WINRM_INSECURE` | Basic login over plain HTTP would send the password unencrypted | use HTTPS, or NTLM (leave `auth=basic` out) |
 | `AUTH_FAILED` over WinRM | wrong user or password, or the user may not use WinRM | check them; Basic login works for local accounts only, and the user must be an administrator or in Remote Management Users |
 | `USAGE` from `fs restore` | `fs restore` does not work on Windows | `komando exec SERVER -- Copy-Item ...` |

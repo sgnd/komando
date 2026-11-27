@@ -9,7 +9,10 @@ import (
 )
 
 // The migration hook exists only in a build with the migratehook tag; the
-// build every workflow makes has no such symbol (Audit M10).
+// release build has no such symbol (Audit M10). The release (release.yml
+// and the Makefile it runs) never names the tag. Another workflow may name
+// it only in a `go test` step, whose test program is never shipped: CI
+// runs the kill-between-steps test that way (Audit E1 M3).
 func TestReleaseHasNoMigrateHook(t *testing.T) {
 	if testing.Short() {
 		t.Skip("builds this package twice")
@@ -41,17 +44,34 @@ func TestReleaseHasNoMigrateHook(t *testing.T) {
 			t.Errorf("tags %q: migrateHook in the build is %v, want %v", tc.tags, has, tc.want)
 		}
 	}
-	wf, err := filepath.Glob(filepath.Join("..", "..", ".github", "workflows", "*.yml"))
+	root := filepath.Join("..", "..")
+	wf, err := filepath.Glob(filepath.Join(root, ".github", "workflows", "*.yml"))
 	if err != nil || len(wf) == 0 {
 		t.Fatalf("no workflows found: %v", err)
 	}
-	for _, f := range wf {
+	release := map[string]bool{filepath.Join(root, ".github", "workflows", "release.yml"): true, filepath.Join(root, "Makefile"): true}
+	tested := 0
+	for _, f := range append(wf, filepath.Join(root, "Makefile")) {
 		b, err := os.ReadFile(f)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if strings.Contains(string(b), "migratehook") {
-			t.Errorf("%s sets the migratehook tag", f)
+		for i, line := range strings.Split(string(b), "\n") {
+			code := strings.TrimSpace(line)
+			if !strings.Contains(code, "migratehook") || strings.HasPrefix(code, "#") {
+				continue
+			}
+			switch {
+			case release[f]:
+				t.Errorf("%s:%d: the release build names the migratehook tag", f, i+1)
+			case !strings.Contains(code, "go test ") || strings.Contains(code, "go build") || strings.Contains(code, "go install") || strings.Contains(code, "make "):
+				t.Errorf("%s:%d: the migratehook tag outside a `go test` step: %s", f, i+1, code)
+			default:
+				tested++
+			}
 		}
+	}
+	if tested == 0 {
+		t.Error("no workflow runs the kill-between-steps test with the migratehook tag")
 	}
 }

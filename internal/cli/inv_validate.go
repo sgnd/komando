@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net"
 	"net/url"
 	"os"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
 )
@@ -125,9 +127,12 @@ func viaNames(s *store.State) []string {
 
 // checkPassphraseRef refuses a passphrase typed where a reference belongs.
 func checkPassphraseRef(ref string) error {
+	if err := store.CredentialRef("--passphrase-ref", ref); err != nil {
+		return err
+	}
 	if ref != "" && !vault.ValidRef(ref) {
 		return out.Errf(out.ExitUsage, "USAGE",
-			"store the passphrase with `komando secret set NAME` and pass --passphrase-ref secret:NAME ("+vault.RefHelp()+")",
+			"store the passphrase with `komando secret set NAME` and pass --passphrase-ref credential:NAME",
 			"--passphrase-ref takes a reference, not the passphrase itself")
 	}
 	return nil
@@ -354,6 +359,57 @@ func setHostAddress(h *store.Host, args []string, flagAddr string) error {
 	}
 	if a.Port != 0 && h.Port == 0 {
 		h.Port = a.Port
+	}
+	return nil
+}
+
+// Owner O-09: a reference is spelled credential:NAME and the marker in
+// text for a file {{credential:NAME}}. The spellings of format 2 are never
+// read: each place that takes a reference stops on them with REFERENCE_UNSUPPORTED
+// and a hint that names the new spelling. Only the store package knows the
+// old spellings (the migration and the F10 check live there).
+
+// oldRef is the stop for ref given as what (a flag, an option) when it is
+// in the spelling of format 2; nil otherwise.
+func oldRef(what, ref string) error {
+	if _, old := store.OldReference(ref); old {
+		return store.OldRefError(what, ref)
+	}
+	return nil
+}
+
+// checkEnv checks environment variables: shell names, because they are
+// exported on the remote side unquoted, and no value in the reference
+// spelling of format 2.
+func checkEnv(m map[string]string) error {
+	if err := oldEnvRefs(m); err != nil {
+		return err
+	}
+	for k := range m {
+		if !sshx.ValidEnvKey(k) {
+			return out.Usage("environment variable name %q is not valid: use letters, digits and _, not starting with a digit", k)
+		}
+	}
+	return nil
+}
+
+// oldEnvRefs stops on an environment value in the spelling of format 2.
+func oldEnvRefs(env map[string]string) error {
+	for _, k := range slices.Sorted(maps.Keys(env)) {
+		if err := oldRef("--env "+k, env[k]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// oldMarker stops text for a file that holds the marker of format 2
+// (Audit E1-3): it is never written as it is.
+func oldMarker(what, text string) error {
+	if m, old := store.OldMarker(text); old {
+		return out.Errf(out.ExitUsage, "REFERENCE_UNSUPPORTED",
+			"write "+m+" instead; `komando secret list` names the saved credentials",
+			"%s holds the old marker of a secret, which komando no longer reads; nothing was written", what)
 	}
 	return nil
 }

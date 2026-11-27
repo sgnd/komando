@@ -16,7 +16,7 @@ import (
 //	?management=15672    also use the management HTTP API on this port of
 //	                     the same host (HTTPS for amqps://), for ls, info
 //	                     and describe
-//	?ca=secret:NAME      amqps: also trust this PEM CA certificate
+//	?ca=credential:NAME      amqps: also trust this PEM CA certificate
 //	?tls=skip-verify     amqps: do not check the certificate
 //	?insecure=1          accept amqp:// (no TLS) across the network
 func parseAMQP(u *url.URL, t Target) (Target, error) {

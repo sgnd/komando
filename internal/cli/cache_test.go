@@ -92,8 +92,7 @@ func TestCacheRunHidesPasswordsLive(t *testing.T) {
 	}
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	t.Setenv("KOMANDO_TEST_REDIS_PW", pw) // an env: reference, which the vault redaction does not know
-	if _, err := runCache(t, "-o", "json", "conn", "add", "c", "redis://"+addr+"/0", "--password-ref", "env:KOMANDO_TEST_REDIS_PW"); err != nil {
+	if _, err := runCache(t, "-o", "json", "conn", "add", "c", "redis://"+addr+"/0", "--password-ref", savedRef(t, "c-pw", pw)); err != nil {
 		t.Fatal(err)
 	}
 	asAgent(t, false, true)
@@ -101,10 +100,11 @@ func TestCacheRunHidesPasswordsLive(t *testing.T) {
 	for _, format := range []string{"json", "text"} {
 		for _, param := range []string{"requirepass", "masterauth", "*"} {
 			s, err := runCache(t, "-o", format, "cache", "redis", "raw", "c", "--", "CONFIG", "GET", param)
-			if err != nil || strings.Contains(s, pw) || !strings.Contains(s, out.Hidden) {
+			// hidden by the pattern, or as the vault value it also is
+			if err != nil || strings.Contains(s, pw) || !strings.Contains(s, out.Hidden) && !strings.Contains(s, "[credential:c-pw]") {
 				t.Errorf("%s CONFIG GET %s: %v\n%s", format, param, err, s)
 			}
-			if format == "text" && param != "*" && s != "1# "+param+": [hidden]\n" {
+			if format == "text" && param != "*" && s != "1# "+param+": [hidden]\n" && s != "1# "+param+": [credential:c-pw]\n" {
 				t.Errorf("text: %q", s)
 			}
 		}
@@ -350,7 +350,7 @@ func TestCacheKeysTypeAndTTL(t *testing.T) {
 func TestCacheLeavesFollowTheProvider(t *testing.T) {
 	invHome(t)
 	d := mustRun(t, "cache", "redis", "add", "r1", "redis://127.0.0.1:6379/0", "--credential", "r1-pass", "--tag", "prod")
-	if d["password_ref"] != "secret:r1-pass" {
+	if d["password_ref"] != "credential:r1-pass" {
 		t.Fatalf("--credential names the stored credential: %v", d)
 	}
 	mustRun(t, "cache", "memcached", "add", "m1", "memcached://127.0.0.1:11211")
