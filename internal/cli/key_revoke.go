@@ -373,7 +373,7 @@ func deviceKeyInstall(cl *call, cmd *cobra.Command, o deviceKeyOpts, target stri
 		err = out.Errf(out.ExitConflict, "KEY_LINE_CONFLICT", "remove the older line for this key from "+o.user+"'s ~/.ssh/authorized_keys on the server, then run `komando key deploy` again",
 			"%s: the key is there already in another line, which sshd would use first; nothing was written", res.Host)
 	default:
-		err = out.Errf(out.ExitRemote, "DEPLOY_FAILED", "make ~/.ssh and its key files plain files and folders on the server, then run this again",
+		err = out.Errf(out.ExitRemote, "DEPLOY_FAILED", "make ~/.ssh and its key files plain files and folders on the server, then run `komando key deploy` again",
 			"%s: %s; komando writes through no link, so nothing was written", res.Host, res.Status)
 	}
 	audit(cl, st, "key.deploy", []string{res.Host}, "", err == nil, map[string]any{"key": k.Name, "fingerprint": k.Fingerprint, "user": o.user,
@@ -441,7 +441,7 @@ func deviceKeyRefusal(f phonekey.Facts, user, host string) error {
 	case "":
 		return nil
 	case "KEY_USER_INVALID":
-		return out.Errf(out.ExitUsage, "KEY_USER_INVALID", "name a user that is not root: "+hint, "%s: %s", host, why)
+		return out.Errf(out.ExitUsage, "KEY_USER_INVALID", "name a user that is not root: fix it on the server as the message says, then run `komando key deploy` again", "%s: %s", host, why)
 	case "KOMANDO_MISSING":
 		return out.Errf(out.ExitNotFound, "KOMANDO_MISSING", hint, "%s: %s", host, why)
 	case "GATE_UNSUPPORTED":

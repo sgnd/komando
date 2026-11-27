@@ -11335,8 +11335,8 @@
       {
         "code": "DEPLOY_FAILED",
         "exit": 5,
-        "example": "key deploy could not add the key to the server's authorized_keys (the server's words follow)",
-        "hint": "check that ~/.ssh is writable there: `komando fs stat SERVER ~/.ssh`"
+        "example": "…: …; komando writes through no link, so nothing was written",
+        "hint": "make ~/.ssh and its key files plain files and folders on the server, then run `komando key deploy` again"
       },
       {
         "code": "DIG_MISSING",
