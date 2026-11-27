@@ -892,119 +892,6 @@
         ]
       },
       {
-<<<<<<< HEAD
-=======
-        "path": "komando cluster add",
-        "usage": "komando cluster add NAME URL [flags]",
-        "short": "Add a cluster",
-        "long": "Same as `komando conn add NAME URL`, for a cluster.\n\nSafety: a change; try it with --dry-run first.\n\nSaves a cluster under a short name. Typed alone at a terminal, it asks\nstep by step. The URL scheme sets the kind: `komando conn kinds` lists them.\n\nA Kubernetes cluster usually comes in with `komando import kubeconfig FILE`\n(one conn per context). Here its kubeconfig must be in the vault already\n(--password-ref). A Docker Swarm manager is a server: `komando host add`.",
-        "example": "  komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref credential:prod-kubeconfig\n  komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref credential:prod-kubeconfig --dry-run",
-        "flags": [
-          {
-            "name": "ask-password",
-            "type": "bool",
-            "default": "false",
-            "usage": "type the password now (hidden, a person at a terminal); it is stored in the vault as credential:NAME-pass and used as --password-ref"
-          },
-          {
-            "name": "group",
-            "shorthand": "g",
-            "type": "stringSlice",
-            "default": "[]",
-            "usage": "put it in these groups (comma-separated)"
-          },
-          {
-            "name": "label",
-            "type": "stringArray",
-            "default": "[]",
-            "usage": "label KEY=VALUE (repeatable)"
-          },
-          {
-            "name": "login",
-            "type": "string",
-            "usage": "how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own)"
-          },
-          {
-            "name": "notes",
-            "type": "string",
-            "usage": "free-form notes (komando conn show shows them to people and agents)"
-          },
-          {
-            "name": "option",
-            "type": "stringArray",
-            "default": "[]",
-            "usage": "an option of this kind, KEY=VALUE (repeatable)"
-          },
-          {
-            "name": "overwrite",
-            "type": "bool",
-            "default": "false",
-            "usage": "replace a conn that has the same name"
-          },
-          {
-            "name": "password-ref",
-            "type": "string",
-            "usage": "where the password is: credential:NAME (saved with komando secret set NAME)"
-          },
-          {
-            "name": "protected",
-            "type": "bool",
-            "default": "false",
-            "usage": "production: komando asks you before every change, and an AI agent needs your yes in a window"
-          },
-          {
-            "name": "tag",
-            "shorthand": "t",
-            "type": "stringSlice",
-            "default": "[]",
-            "usage": "tags, like prod (comma-separated)"
-          },
-          {
-            "name": "via",
-            "type": "string",
-            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ],
-        "add_kinds": [
-          {
-            "id": "k8s",
-            "display_name": "Kubernetes",
-            "family": "cluster",
-            "url_schemes": [
-              "k8s",
-              "kubernetes"
-            ],
-            "url_example": "k8s://api.cluster.example:6443",
-            "url_note": "the kubeconfig goes to the vault: `komando import kubeconfig`",
-            "default_port": 6443,
-            "file": false,
-            "required": [
-              "password-ref"
-            ],
-            "one_of": [],
-            "optional": [
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "protected",
-              "tag",
-              "via"
-            ]
-          }
-        ]
-      },
-      {
->>>>>>> feat/c489-cut-e1-format3
         "path": "komando cluster apply",
         "usage": "komando cluster apply TARGET --file FILE [flags]",
         "short": "Apply Kubernetes YAML or deploy a Swarm stack",
@@ -7286,16 +7173,12 @@
             "name": "ask-password",
             "type": "bool",
             "default": "false",
-<<<<<<< HEAD
             "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
           },
           {
             "name": "credential",
             "type": "string",
             "usage": "what it logs in with"
-=======
-            "usage": "type the password now (hidden, a person at a terminal); it is stored in the vault as credential:NAME-pass and used as --password-ref"
->>>>>>> feat/c489-cut-e1-format3
           },
           {
             "name": "group",
@@ -7329,16 +7212,7 @@
             "name": "overwrite",
             "type": "bool",
             "default": "false",
-<<<<<<< HEAD
             "usage": "replace an entry that has the same name"
-=======
-            "usage": "replace a conn that has the same name"
-          },
-          {
-            "name": "password-ref",
-            "type": "string",
-            "usage": "where the password is: credential:NAME (saved with komando secret set NAME)"
->>>>>>> feat/c489-cut-e1-format3
           },
           {
             "name": "protected",
@@ -7375,145 +7249,7 @@
         "kind": "read",
         "confirm": [
           {
-<<<<<<< HEAD
             "tier": "read"
-=======
-            "id": "kafka",
-            "display_name": "Apache Kafka",
-            "family": "queue",
-            "url_schemes": [
-              "kafka"
-            ],
-            "url_example": "kafka://app@b1.example.com:9093,b2.example.com:9093?tls=true&sasl=scram-sha-512",
-            "url_note": "private CA: &ca=credential:NAME; --via an SSH server: kafka://broker1.internal:9092",
-            "default_port": 9092,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          },
-          {
-            "id": "nats",
-            "display_name": "NATS JetStream",
-            "family": "queue",
-            "url_schemes": [
-              "nats",
-              "tls"
-            ],
-            "url_example": "tls://app@nats1.example.com:4222,nats2.example.com:4222",
-            "url_note": "tls = TLS; a .creds file: ?creds=credential:NAME; --via an SSH server: nats://nats.internal:4222",
-            "default_port": 4222,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          },
-          {
-            "id": "pubsub",
-            "display_name": "Google Cloud Pub/Sub",
-            "family": "queue",
-            "url_schemes": [
-              "pubsub"
-            ],
-            "url_example": "pubsub://my-project",
-            "url_note": "Google Cloud Pub/Sub; the login is gcloud's application default one, or a service account key: --password-ref credential:NAME; the emulator: ?endpoint=http://localhost:8085",
-            "default_port": 443,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          },
-          {
-            "id": "rabbitmq",
-            "display_name": "RabbitMQ",
-            "family": "queue",
-            "url_schemes": [
-              "amqp",
-              "amqps"
-            ],
-            "url_example": "amqps://app@rabbit.example.com:5671/%2F?management=15671",
-            "url_note": "amqps = TLS; the path is the vhost; --via an SSH server: amqp://app@rabbit.internal:5672/",
-            "default_port": 5672,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          },
-          {
-            "id": "sqs",
-            "display_name": "Amazon SQS",
-            "family": "queue",
-            "url_schemes": [
-              "sqs"
-            ],
-            "url_example": "sqs://eu-west-1",
-            "url_note": "Amazon SQS; the login is your AWS one: --option aws_profile=NAME, or keys: sqs://ACCESS_KEY_ID@eu-west-1 --password-ref credential:NAME; an emulator: ?endpoint=http://localhost:4566",
-            "default_port": 443,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
->>>>>>> feat/c489-cut-e1-format3
           }
         ]
       },
@@ -11248,7 +10984,6 @@
         ]
       },
       {
-<<<<<<< HEAD
         "path": "komando storage azblob",
         "usage": "komando storage azblob [flags]",
         "short": "Save azblob storage, and look after its objects",
@@ -11267,28 +11002,17 @@
         "short": "Save a azblob storage under a short name",
         "long": "Save a azblob storage under a short name.\n\nSafety: a change; try it with --dry-run first.",
         "example": "  komando storage azblob add backups azblob://ACCOUNT@my-container/backups --via web1\n  komando storage azblob add backups azblob://ACCOUNT@my-container/backups --dry-run",
-=======
-        "path": "komando storage add",
-        "usage": "komando storage add NAME URL [flags]",
-        "short": "Add a file storage",
-        "long": "Same as `komando conn add NAME URL`, for a file storage.\n\nSafety: a change; try it with --dry-run first.\n\nSaves a file storage under a short name. Typed alone at a terminal, it asks\nstep by step. The URL scheme sets the kind: `komando conn kinds` lists them.",
-        "example": "  komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password\n  komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password --dry-run\n  komando storage add backups 's3://my-bucket/db?region=eu-west-1' --option aws_profile=prod   # AWS SSO or a role\n  komando storage add minio 's3://AKIAEXAMPLE@media?endpoint=https://minio.internal:9000' --via bastion --ask-password\n  komando storage add media gs://my-bucket/site   # logs in like gcloud\n  komando storage add files azblob://mystorageacct@uploads/2026 --password-ref credential:files-key\n  komando storage add site 'sftp://deploy@files.example.com/uploads'",
->>>>>>> feat/c489-cut-e1-format3
         "flags": [
           {
             "name": "ask-password",
             "type": "bool",
             "default": "false",
-<<<<<<< HEAD
             "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
           },
           {
             "name": "credential",
             "type": "string",
             "usage": "what it logs in with"
-=======
-            "usage": "type the password now (hidden, a person at a terminal); it is stored in the vault as credential:NAME-pass and used as --password-ref"
->>>>>>> feat/c489-cut-e1-format3
           },
           {
             "name": "group",
@@ -11322,16 +11046,7 @@
             "name": "overwrite",
             "type": "bool",
             "default": "false",
-<<<<<<< HEAD
             "usage": "replace an entry that has the same name"
-=======
-            "usage": "replace a conn that has the same name"
-          },
-          {
-            "name": "password-ref",
-            "type": "string",
-            "usage": "where the password is: credential:NAME (saved with komando secret set NAME)"
->>>>>>> feat/c489-cut-e1-format3
           },
           {
             "name": "protected",
@@ -11450,232 +11165,12 @@
         "kind": "change",
         "confirm": [
           {
-<<<<<<< HEAD
             "tier": "change"
           },
           {
             "tier": "safety",
             "flag": "--yes",
             "when": "with --protected=false"
-=======
-            "id": "azblob",
-            "display_name": "Azure Blob Storage",
-            "family": "storage",
-            "url_schemes": [
-              "azblob",
-              "azure"
-            ],
-            "url_example": "azblob://ACCOUNT@my-container/backups",
-            "url_note": "the account key or SAS token goes in --password-ref credential:NAME",
-            "default_port": 443,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          },
-          {
-            "id": "ftp",
-            "display_name": "FTP",
-            "family": "storage",
-            "url_schemes": [
-              "ftp"
-            ],
-            "url_example": "ftp://deploy@files.example.com/www?insecure=1",
-            "url_note": "no encryption: prefer ftps or sftp",
-            "default_port": 21,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          },
-          {
-            "id": "ftps",
-            "display_name": "FTPS",
-            "family": "storage",
-            "url_schemes": [
-              "ftps"
-            ],
-            "url_example": "ftps://deploy@files.example.com/public_html",
-            "url_note": "FTP with TLS; ?tls=skip-verify for self-signed",
-            "default_port": 21,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          },
-          {
-            "id": "gcs",
-            "display_name": "Google Cloud Storage",
-            "family": "storage",
-            "url_schemes": [
-              "gs",
-              "gcs"
-            ],
-            "url_example": "gs://my-bucket/backups",
-            "url_note": "logs in like gcloud, or with a service account key: --password-ref credential:NAME",
-            "default_port": 443,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          },
-          {
-            "id": "s3",
-            "display_name": "S3 or S3-compatible storage",
-            "family": "storage",
-            "url_schemes": [
-              "s3"
-            ],
-            "url_example": "s3://ACCESS_KEY_ID@my-bucket/backups?endpoint=https://minio.internal:9000&region=us-east-1",
-            "url_note": "wrong or missing DNS: &resolve=IP",
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          },
-          {
-            "id": "sftp",
-            "display_name": "SFTP",
-            "family": "storage",
-            "url_schemes": [
-              "sftp"
-            ],
-            "url_example": "sftp://deploy@files.example.com/uploads",
-            "url_note": "file access only, no shell",
-            "default_port": 22,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          },
-          {
-            "id": "smb",
-            "display_name": "SMB share",
-            "family": "storage",
-            "url_schemes": [
-              "smb",
-              "cifs"
-            ],
-            "url_example": "smb://alice@fileserver.corp.lan/team/reports?domain=CORP",
-            "url_note": "a Windows, Samba or Azure Files share",
-            "default_port": 445,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          },
-          {
-            "id": "webdav",
-            "display_name": "WebDAV",
-            "family": "storage",
-            "url_schemes": [
-              "webdavs",
-              "webdav"
-            ],
-            "url_example": "webdavs://alice@cloud.example.com/remote.php/dav/files/alice",
-            "url_note": "Nextcloud; ?tls=skip-verify for self-signed; webdav:// needs ?insecure=1",
-            "default_port": 443,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
->>>>>>> feat/c489-cut-e1-format3
           }
         ]
       },
@@ -15130,11 +14625,7 @@
         "path": "komando vpn",
         "usage": "komando vpn [flags]",
         "short": "VPNs komando connects when a path needs one: add, connect, check",
-<<<<<<< HEAD
         "long": "Add a VPN once, then put it first in --via. A command that needs it\nconnects it, using the login you saved. The word after vpn is the kind:\n\n  komando vpn wireguard add office --config ~/Downloads/office.conf\n  komando vpn globalprotect add client-x --portal vpn.client.com --user alice --credential client-x --mfa\n  komando host add app admin@10.0.0.5 --via office,bastion\n  komando exec app -- uptime\n\nVPNs with --mfa need a person: run `komando vpn KIND start NAME` once and\nlater commands (and agents) reuse that session. komando never answers MFA.\n\nKinds:\n  anyconnect    Cisco AnyConnect / ocserv, run inside komando (no openconnect)\n  f5            F5 BIG-IP SSL VPN\n  fortinet      Fortinet SSL VPN (FortiClient)\n  globalprotect Palo Alto GlobalProtect\n  ikev2         IKEv2/IPsec (pre-shared key or EAP login with a server certificate), run inside komando\n  ipsec         Cisco-style IPsec (IKEv1, group name and XAUTH login), run inside komando\n  l2tp          L2TP/IPsec with a pre-shared key, run inside komando (no admin rights)\n  openvpn       OpenVPN, also Pritunl profiles, run inside komando (no openvpn program, Docker or admin rights)\n  proxy         an HTTP proxy (CONNECT), such as a company proxy: every connection is tunneled through it\n  pulse         Pulse Secure / Ivanti Connect Secure\n  socks         a SOCKS5 proxy that is already running (`komando tunnel start TARGET -D`, a company proxy)\n  system        a VPN set up in your computer's settings; --service lets `vpn KIND start` connect it\n  tailscale     Tailscale or Headscale, run inside komando (no tailscaled, no admin rights)\n  wireguard     WireGuard, run inside komando (no admin rights, many at once)",
-=======
-        "long": "Add a VPN once, then put it first in --via. A command that needs it\nconnects it, using the login you saved:\n\n  komando vpn add office wireguard --config ~/Downloads/office.conf\n  komando vpn add client-x globalprotect --portal vpn.client.com --user alice --password-ref credential:client-x --mfa\n  komando host add app admin@10.0.0.5 --via office,bastion\n  komando exec app -- uptime\n\nVPNs with --mfa need a person: run `komando vpn up NAME` once and later\ncommands (and agents) reuse that session. komando never answers MFA.\n\nKinds (also: pritunl = openvpn; cisco, xauth = ipsec):\n  anyconnect    Cisco AnyConnect / ocserv, run inside komando (no openconnect)\n  f5            F5 BIG-IP SSL VPN\n  fortinet      Fortinet SSL VPN (FortiClient)\n  globalprotect Palo Alto GlobalProtect\n  ikev2         IKEv2/IPsec (pre-shared key or EAP login with a server certificate), run inside komando\n  ipsec         Cisco-style IPsec (IKEv1, group name and XAUTH login), run inside komando\n  l2tp          L2TP/IPsec with a pre-shared key, run inside komando (no admin rights)\n  openvpn       OpenVPN, also Pritunl profiles, run inside komando (no openvpn program, Docker or admin rights)\n  proxy         an HTTP proxy (CONNECT), such as a company proxy: every connection is tunneled through it\n  pulse         Pulse Secure / Ivanti Connect Secure\n  socks         a SOCKS5 proxy that is already running (`komando tunnel start TARGET -D`, a company proxy)\n  system        a VPN set up in your computer's settings; --service lets `vpn up` connect it\n  tailscale     Tailscale or Headscale, run inside komando (no tailscaled, no admin rights)\n  wireguard     WireGuard, run inside komando (no admin rights, many at once)",
->>>>>>> feat/c489-cut-e1-format3
         "aliases": [
           "vpns"
         ],
@@ -15148,7 +14639,6 @@
         ]
       },
       {
-<<<<<<< HEAD
         "path": "komando vpn anyconnect",
         "usage": "komando vpn anyconnect [flags]",
         "short": "Cisco AnyConnect: save a VPN, connect it and check it",
@@ -15156,14 +14646,6 @@
         "runnable": true,
         "kind": "read",
         "confirm": [
-=======
-        "path": "komando vpn add",
-        "usage": "komando vpn add NAME KIND [flags]",
-        "short": "Add a VPN",
-        "long": "Saves a VPN under a short name. Typed alone at a terminal, it asks step by\nstep, starting with the VPN app your company uses.\n\nSafety: a change; try it with --dry-run first.\n\nWhich flags go with which VPN kind:\n  every kind     takes --check, --mfa, --protected, --label, -g, -t,\n                 --notes, --overwrite\n  wireguard      needs --config (the .conf file)\n  openvpn        needs --config (the .ovpn file) and --check; takes --user,\n                 --password-ref, --ask-password\n  globalprotect, needs --portal (the VPN server or portal); takes --user,\n  fortinet,      --password-ref, --ask-password\n  anyconnect,\n  pulse, f5\n  l2tp           needs --server, --user and --psk-ref or --ask-psk; takes\n                 --password-ref, --ask-password, --legacy-crypto,\n                 --allow-pap\n  ipsec          needs --server and --psk-ref (the group password) or\n                 --ask-psk; takes --id (the group name), --user,\n                 --password-ref, --ask-password, --legacy-crypto\n  ikev2          needs --server and --psk-ref, --ask-psk or --user; takes\n                 --password-ref, --ask-password, --id (your identity),\n                 --remote-id (the server's identity), --ca (the server's CA,\n                 PEM)\n  tailscale      takes --password-ref (the auth key), --server (a Headscale\n                 login server)\n  system         needs --check; takes --service (its name in your computer's\n                 settings)\n  socks, proxy   needs --proxy-address; takes --user, --password-ref,\n                 --ask-password",
-        "example": "  komando vpn add office wireguard --config ~/Downloads/office.conf --check 10.0.0.5:22\n  komando vpn add office wireguard --config ~/Downloads/office.conf --check 10.0.0.5:22 --dry-run\n  komando vpn add client-x globalprotect --portal vpn.client.com   # signs in through a browser window at vpn up\n  komando vpn add office openvpn --config office.ovpn --user alice --password-ref credential:office --check 10.8.0.1:22\n  komando vpn add tailnet tailscale --password-ref credential:ts-authkey\n  komando vpn add office l2tp --server vpn.example.com --psk-ref credential:office-psk --user alice --ask-password   # type the password now (hidden)\n  komando vpn add old-office l2tp --server vpn.example.com --psk-ref credential:old-psk --user alice --legacy-crypto --allow-pap\n  komando vpn add asa ipsec --server asa.client.com --id staff --psk-ref credential:asa-group --user alice\n  komando vpn add cloud ikev2 --server vpn.example.com --user alice --password-ref credential:cloud\n  komando vpn add corp system --service \"Corp VPN\" --check 10.20.0.1:443\n  komando vpn add lab socks --proxy-address 127.0.0.1:1080\n  komando vpn add office proxy --proxy-address proxy.corp.example:3128   # a company HTTP proxy",
-        "flags": [
->>>>>>> feat/c489-cut-e1-format3
           {
             "tier": "read"
           }
@@ -15180,22 +14662,7 @@
             "name": "ask-password",
             "type": "bool",
             "default": "false",
-<<<<<<< HEAD
             "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
-=======
-            "usage": "type the password now (hidden, a person at a terminal); it is stored in the vault as credential:NAME-pass and used as --password-ref"
-          },
-          {
-            "name": "ask-psk",
-            "type": "bool",
-            "default": "false",
-            "usage": "L2TP, IPsec, IKEv2: type the pre-shared key now (hidden, a person at a terminal); it is stored in the vault as credential:NAME-psk and used as --psk-ref"
-          },
-          {
-            "name": "ca",
-            "type": "string",
-            "usage": "IKEv2: the CA certificate (PEM) that signed the server's certificate, if not a public one"
->>>>>>> feat/c489-cut-e1-format3
           },
           {
             "name": "check",
@@ -15234,16 +14701,7 @@
             "name": "overwrite",
             "type": "bool",
             "default": "false",
-<<<<<<< HEAD
             "usage": "replace an entry that has the same name"
-=======
-            "usage": "replace a VPN with the same name"
-          },
-          {
-            "name": "password-ref",
-            "type": "string",
-            "usage": "where the password is (Tailscale: the auth key): credential:NAME (saved with komando secret set NAME)"
->>>>>>> feat/c489-cut-e1-format3
           },
           {
             "name": "portal",
@@ -15277,41 +14735,11 @@
         ]
       },
       {
-<<<<<<< HEAD
         "path": "komando vpn anyconnect edit",
         "usage": "komando vpn anyconnect edit TARGET... [flags]",
         "short": "Change saved Cisco AnyConnect VPNs (only the flags you give)",
         "long": "Change saved Cisco AnyConnect VPNs (only the flags you give).\n\nSafety: a change; try it with --dry-run first; with --mfa=false: it weakens\na safety check: a person's yes (--yes); with --protected=false: it weakens a\nsafety check: a person's yes (--yes); on a protected server or conn, a\nperson's yes (--yes) as well.",
         "example": "  komando vpn anyconnect edit office --check 10.0.0.5:22\n  komando vpn anyconnect edit @office --protected --dry-run",
-=======
-        "path": "komando vpn down",
-        "usage": "komando vpn down [NAME...] [flags]",
-        "short": "Disconnect VPN sessions (--all for every one)",
-        "long": "Disconnect VPN sessions (--all for every one).\n\nSafety: a change; try it with --dry-run first.",
-        "example": "  komando vpn down office\n  komando vpn down office --dry-run\n  komando vpn down --all",
-        "flags": [
-          {
-            "name": "all",
-            "type": "bool",
-            "default": "false",
-            "usage": "disconnect every VPN session"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando vpn edit",
-        "usage": "komando vpn edit TARGET... [flags]",
-        "short": "Change one or more VPNs (only the flags you pass change)",
-        "long": "Changes the common settings of a VPN. To give a WireGuard or OpenVPN VPN a\nnew config file, add it again with --overwrite. -g and -t add a group or a\ntag, as in host edit; --rm-group and --rm-tag take one away. Give several\nnames or a selector (@group, tag:office) to change many VPNs at once.\n\nSafety: a change; try it with --dry-run first; with --mfa=false: it weakens\na safety check: a person's yes (--yes); with --protected=false: it weakens a\nsafety check: a person's yes (--yes); on a protected server or conn, a\nperson's yes (--yes) as well.\n\n--protected marks a VPN komando asks a person about before it is changed\nor removed. Turning that off, or turning --mfa off, needs a person's yes.",
-        "example": "  komando vpn edit office --check 10.0.0.5:22\n  komando vpn edit lab --proxy-address 127.0.0.1:1081\n  komando vpn edit client-x --password-ref credential:client-x-new\n  komando vpn edit office --server vpn2.example.com --psk-ref credential:office-psk-2\n  komando vpn edit client-x --portal gw2.client.com\n  komando vpn edit office -g jakarta --rm-group old --label site=jkt\n  komando vpn edit @office --protected --dry-run",
->>>>>>> feat/c489-cut-e1-format3
         "flags": [
           {
             "name": "add-group",
@@ -15350,16 +14778,7 @@
           {
             "name": "notes",
             "type": "string",
-<<<<<<< HEAD
             "usage": "free-form notes, shown to people and agents"
-=======
-            "usage": "free-form notes"
-          },
-          {
-            "name": "password-ref",
-            "type": "string",
-            "usage": "password as credential:NAME (saved with komando secret set NAME)"
->>>>>>> feat/c489-cut-e1-format3
           },
           {
             "name": "portal",
@@ -20137,23 +19556,7 @@
         "code": "CONSUMER_NOT_FOUND",
         "exit": 3,
         "example": "no consumer named …",
-<<<<<<< HEAD
         "hint": "list consumers with `komando queue nats consumer list NAME`; name one as STREAM/CONSUMER"
-=======
-        "hint": "list consumers with `komando queue groups CONN`; name one as STREAM/CONSUMER"
-      },
-      {
-        "code": "CREDENTIAL_IN_USE",
-        "exit": 8,
-        "example": "…: changing … would change credential …, which these entries use: …; nothing was changed",
-        "hint": "give this entry its own: `komando secret cp … NEW`, then pass credential:NEW"
-      },
-      {
-        "code": "CRONTAB_UNREADABLE",
-        "exit": 5,
-        "example": "cannot read the crontab (exit …)",
-        "hint": "check the user name; reading another user's crontab needs sudo"
->>>>>>> feat/c489-cut-e1-format3
       },
       {
         "code": "DB_AUTH",
@@ -20622,17 +20025,10 @@
         "hint": "you may lack the right to stop another user's session"
       },
       {
-<<<<<<< HEAD
         "code": "KOMANDO_MISSING",
         "exit": 3,
         "example": "komando is not installed on the server, so no gate line can run it",
         "hint": "fix it on the server as the message says, then run `komando key deploy` again"
-=======
-        "code": "KIND_UNSUPPORTED",
-        "exit": 2,
-        "example": "…: kind … has no type",
-        "hint": "pick a kind komando knows: `komando conn add --help` lists them"
->>>>>>> feat/c489-cut-e1-format3
       },
       {
         "code": "KUBECONFIG",

@@ -403,13 +403,8 @@ komando docker prune web1 --older-than 30d --dry-run # what would go, and how mu
 |------------|---------------|------------|
 | `UNIT_NOT_FOUND` | no service of that name (exit 3) | check the name with `komando exec TARGET -- systemctl list-units` |
 | `NO_SYSTEMD` | the server runs without systemd (exit 3) | read its logs with `--file` or `komando docker logs` |
-<<<<<<< HEAD
 | `NO_USER_MANAGER` | `--user-units`, and the login user has no systemd manager running (exit 3) | turn lingering on: a person with sudo runs `komando exec TARGET --sudo -- loginctl enable-linger USER` |
-| `PERMISSION_DENIED` | sudo wants a password komando does not have, or the user may not use sudo | store the sudo password: `komando host edit SERVER --sudo-ref secret:NAME` |
-=======
-| `NO_USER_MANAGER` | `--user-units`, and the login user has no systemd manager running (exit 3) | turn lingering on: `loginctl enable-linger USER` (a person with sudo) |
 | `PERMISSION_DENIED` | sudo wants a password komando does not have, or the user may not use sudo | store the sudo password: `komando host edit SERVER --sudo-ref credential:NAME` |
->>>>>>> feat/c489-cut-e1-format3
 | `TOOL_MISSING` | sudo, or a tool the command needs, is not installed (exit 3) | as root add `--no-sudo`; on Alpine, `komando pkg install TARGET shadow` for `user` |
 | `PACKAGE_NOT_FOUND` | no such package in the server's package index | check the name; `komando pkg update TARGET` if the package is new |
 | `UNEXPECTED_CHANGE` | a server changed after patching (exit 8); the rest were not patched | check it with `komando docker ps` and `komando exec TARGET -- systemctl --failed`, then run again or add `--keep-going` |

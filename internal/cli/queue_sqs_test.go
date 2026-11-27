@@ -36,16 +36,9 @@ func TestQueueSQSConn(t *testing.T) {
 	t.Setenv("AWS_CONFIG_FILE", os.DevNull)
 	t.Setenv("AWS_SHARED_CREDENTIALS_FILE", os.DevNull)
 	t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
-<<<<<<< HEAD
 	wantCode(t, "AWS_PROFILE_NOT_FOUND", "queue", "sqs", "info", "sqs")
-	t.Setenv("KOMANDO_TEST_SQS_SECRET", "x")
-	mustRun(t, "conn", "add", "nokey", "sqs://us-east-1?endpoint=http://127.0.0.1:9", "--password-ref", "env:KOMANDO_TEST_SQS_SECRET")
-	wantCode(t, "USAGE", "queue", "sqs", "info", "nokey")
-=======
-	wantCode(t, "AWS_PROFILE_NOT_FOUND", "queue", "info", "sqs")
 	mustRun(t, "conn", "add", "nokey", "sqs://us-east-1?endpoint=http://127.0.0.1:9", "--password-ref", savedRef(t, "nokey-secret", "x"))
-	wantCode(t, "USAGE", "queue", "info", "nokey")
->>>>>>> feat/c489-cut-e1-format3
+	wantCode(t, "USAGE", "queue", "sqs", "info", "nokey")
 }
 
 func TestQueueTextSQS(t *testing.T) {

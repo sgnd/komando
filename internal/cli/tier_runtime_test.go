@@ -637,7 +637,7 @@ func tierSeed(t *testing.T) {
 				check = addr
 			}
 			if oneOf(p, "l2tp", "ipsec") {
-				psk = "secret:vpn-psk" // not pw: a stored secret that a VPN uses changes what the credential rows stop at
+				psk = "credential:vpn-psk" // not pw: a stored secret that a VPN uses changes what the credential rows stop at
 			}
 			st.Vpns["vp-"+p] = &store.Vpn{Name: "vp-" + p, Kind: p, Address: addr, Check: check, PSKRef: psk}
 			st.Vpns["vp-"+p+"-mfa"] = &store.Vpn{Name: "vp-" + p + "-mfa", Kind: p, Address: addr, Check: check, PSKRef: psk, MFA: true}

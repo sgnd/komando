@@ -31,11 +31,7 @@ func TestToolSafe(t *testing.T) {
 func TestVPNClientFromPATHNeedsAPerson(t *testing.T) {
 	secretHome(t)
 	defer func() { setGate(tcl, false, gateYes, gateDryRun) }()
-<<<<<<< HEAD
 	mustRun(t, "vpn", "fortinet", "add", "office", "--portal", "vpn.example.com", "--user", "u", "--credential", "db-pass")
-=======
-	mustRun(t, "vpn", "add", "office", "fortinet", "--portal", "vpn.example.com", "--user", "u", "--password-ref", "credential:db-pass")
->>>>>>> feat/c489-cut-e1-format3
 	bin := t.TempDir()
 	leak := filepath.Join(t.TempDir(), "leak")
 	for _, name := range []string{"openconnect", "ocproxy"} {

@@ -28,16 +28,10 @@ func shopInventory(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-<<<<<<< HEAD
 	mustRun(t, "vpn", "socks", "add", "shop-vpn", "--proxy-address", "127.0.0.1:1080", "--group", "shop")
-	mustRun(t, "host", "add", "shop-bastion", "u@10.0.0.1", "--via", "shop-vpn", "-g", "shop", "-g", "shop-stg",
-		"--password-ref", "secret:shop-pass", "--protected", "--label", "dc=jkt", "--notes", "jump for shop-db; see shop-vpn.")
-=======
-	mustRun(t, "vpn", "add", "shop-vpn", "socks", "--proxy-address", "127.0.0.1:1080", "-g", "shop")
 	// shop-pass logs in as one user everywhere: a credential carries its user (format 3)
 	mustRun(t, "host", "add", "shop-bastion", "shop-admin@10.0.0.1", "--via", "shop-vpn", "-g", "shop", "-g", "shop-stg",
 		"--password-ref", "credential:shop-pass", "--protected", "--label", "dc=jkt", "--notes", "jump for shop-db; see shop-vpn.")
->>>>>>> feat/c489-cut-e1-format3
 	mustRun(t, "key", "gen", "shop-key")
 	mustRun(t, "host", "add", "shop-data-01", "u@10.0.0.2", "--via", "shop-vpn,shop-bastion", "-g", "shop",
 		"--sudo-ref", "credential:shop-pass", "--key", "shop-key")
@@ -511,15 +505,9 @@ func TestRenameAgentNeedsNoWindow(t *testing.T) {
 	if err := vault.Set(store.Save(), "lab-pass", "v"); err != nil {
 		t.Fatal(err)
 	}
-<<<<<<< HEAD
 	mustRun(t, "vpn", "socks", "add", "lab-vpn", "--proxy-address", "127.0.0.1:1080")
-	mustRun(t, "host", "add", "lab-a", "u@10.0.0.1", "--via", "lab-vpn", "--password-ref", "secret:lab-pass", "--env", "P=secret:lab-pass")
-	mustRun(t, "conn", "add", "lab-db", "postgres://a@10.0.0.2/x", "--via", "lab-vpn,lab-a", "--password-ref", "secret:lab-pass")
-=======
-	mustRun(t, "vpn", "add", "lab-vpn", "socks", "--proxy-address", "127.0.0.1:1080")
 	mustRun(t, "host", "add", "lab-a", "u@10.0.0.1", "--via", "lab-vpn", "--password-ref", "credential:lab-pass", "--env", "P=credential:lab-pass")
 	mustRun(t, "conn", "add", "lab-db", "postgres://u@10.0.0.2/x", "--via", "lab-vpn,lab-a", "--password-ref", "credential:lab-pass")
->>>>>>> feat/c489-cut-e1-format3
 	setCallerEnv(t, "CLAUDECODE", "1")
 	d := mustRun(t, "rename", "--starts-with", "lab-", "test-")
 	if d["action"] != "renamed" || d["count"].(float64) != 4 {

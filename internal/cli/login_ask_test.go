@@ -428,11 +428,7 @@ func TestLoginAskVpnProfileSecretNeedsPerson(t *testing.T) {
 	if err := os.WriteFile(profile, []byte(testProfile), 0o600); err != nil {
 		t.Fatal(err)
 	}
-<<<<<<< HEAD
 	mustRun(t, "vpn", "openvpn", "add", "office", "--config", profile, "--check", "10.8.0.1:22", "--user", "alice", "--credential", "db-pass")
-=======
-	mustRun(t, "vpn", "add", "office", "openvpn", "--config", profile, "--check", "10.8.0.1:22", "--user", "alice", "--password-ref", "credential:db-pass")
->>>>>>> feat/c489-cut-e1-format3
 	mustRun(t, "host", "add", "web1", "u@10.8.0.5", "--login", "ask", "--via", "office")
 	setCallerEnv(t, "CLAUDECODE", "1")
 	t.Setenv("EVIL", "remote 203.0.113.66 1194")

@@ -94,15 +94,9 @@ check "vpn show" corp "$($K vpn system show corp | jget 'd["data"]["vpn"]["name"
 check "vpn test of a VPN that is down" VPN_DOWN "$($K vpn system test corp | jget 'd["data"]["results"][0]["error"]["code"]' || true)"
 # renames: a conn reached through a SOCKS VPN keeps working when both get new names
 TUN=$($K tunnel start bastion -D "127.0.0.1:$E2E_SOCKS" | jget 'd["data"]["id"]')
-<<<<<<< HEAD
 q $K vpn socks add "$C-vpn" --proxy-address "127.0.0.1:$E2E_SOCKS"
-q $K conn add "$C-db" 'postgres://app@pg:5432/app?sslmode=disable' --via "$C-vpn" --password-ref secret:pg-pass
-check "vpn rename takes the conn's --via along" "conn $C-db --via" "$($K vpn socks rename "$C-vpn" "$C-vpn2" | jget '" ".join(d["data"]["updated"])')"
-=======
-q $K vpn add "$C-vpn" socks --proxy-address "127.0.0.1:$E2E_SOCKS"
 q $K conn add "$C-db" 'postgres://app@pg:5432/app?sslmode=disable' --via "$C-vpn" --password-ref credential:pg-pass
-check "vpn mv takes the conn's --via along" "conn $C-db --via" "$($K vpn mv "$C-vpn" "$C-vpn2" | jget '" ".join(d["data"]["updated"])')"
->>>>>>> feat/c489-cut-e1-format3
+check "vpn rename takes the conn's --via along" "conn $C-db --via" "$($K vpn socks rename "$C-vpn" "$C-vpn2" | jget '" ".join(d["data"]["updated"])')"
 check "conn mv" "renamed $C-db2" "$($K conn mv "$C-db" "$C-db2" | jget 'd["data"]["action"] + " " + d["data"]["to"]')"
 check "the conn has both new names" "$C-db2 $C-vpn2" "$($K conn show "$C-db2" | jget 'd["data"]["name"] + " " + d["data"]["via"]')"
 check "the old conn name is gone" TARGET_NOT_FOUND "$($K conn show "$C-db" | jget 'd["error"]["code"]' || true)"

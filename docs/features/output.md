@@ -164,13 +164,8 @@ agrees. See [Safety](safety.md#when-you-are-at-the-terminal).
 | `NAME_TAKEN` | a new name (from `host rename`, `rename --starts-with`, ...) is used already; for `rename` the message lists every clash, and nothing was renamed | pick other names, or rename or remove what is in the way; `--dry-run` shows the whole list first |
 | `NOTHING_TO_RENAME` | `rename --starts-with`: no name starts with OLD | check the spelling and case with `komando list` and `komando secret list` |
 | `GROUP_EXISTS` | `group rename` to the name of another group | pick another name, or merge them: `komando group add NEW @OLD`, then `komando group rm OLD` |
-<<<<<<< HEAD
-| `sudo: a password is required` | sudo needs a password | `komando secret set NAME`, then `komando host edit HOST --sudo-ref secret:NAME` |
-| `VPN_LOGIN_REQUIRED` | the VPN needs a person's login (MFA) | a person runs `komando vpn KIND start NAME` once |
-=======
 | `sudo: a password is required` | sudo needs a password | `komando secret set NAME`, then `komando host edit HOST --sudo-ref credential:NAME` |
-| `VPN_LOGIN_REQUIRED` | the VPN needs a person's login (MFA) | a person runs `komando vpn up NAME` once |
->>>>>>> feat/c489-cut-e1-format3
+| `VPN_LOGIN_REQUIRED` | the VPN needs a person's login (MFA) | a person runs `komando vpn KIND start NAME` once |
 | `AWS_LOGIN_REQUIRED` | the AWS SSO login has expired | a person runs `komando login aws --profile NAME` |
 | `AZURE_LOGIN_REQUIRED` | no Azure login was found (for an Azure Container Registry) | set a service principal (`AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`), run on Azure with a managed identity, or a person runs `az login` |
 | `GCP_LOGIN_REQUIRED` | the Google login has run out (for Google Artifact Registry) | a person runs `gcloud auth application-default login`, or set `GOOGLE_APPLICATION_CREDENTIALS` to a key file |

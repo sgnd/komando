@@ -42,11 +42,7 @@ sleep 5
 echo "==> openconnect family (ocserv, AnyConnect protocol)"
 in_client sh -c 'cp /certs/ca.crt /usr/local/share/ca-certificates/e2e.crt && update-ca-certificates >/dev/null 2>&1'
 in_client sh -c 'printf ocpass | komando secret set oc-pass' >/dev/null
-<<<<<<< HEAD
 in_client komando vpn anyconnect add oc --portal https://ocserv --user e2e --credential oc-pass --check 192.168.99.1:7000 >/dev/null
-=======
-in_client komando vpn add oc anyconnect --portal https://ocserv --user e2e --password-ref credential:oc-pass --check 192.168.99.1:7000 >/dev/null
->>>>>>> feat/c489-cut-e1-format3
 [ "$(kc test oc | jget 'd["data"]["summary"]["ok"]')" = 1 ] || fail "anyconnect connects" ocserv
 ok "anyconnect connects on demand and reaches the VPN side"
 for _ in $(seq 1 20); do "${DC[@]}" exec -T ocserv occtl -j show users 2>/dev/null | grep -q '"DTLS cipher"' && break; sleep 0.5; done
@@ -70,11 +66,7 @@ in_client komando vpn anyconnect stop oc >/dev/null
 gone komando || fail "the AnyConnect session process left running"
 ok "vpn stop ends the session"
 in_client sh -c 'printf wrong | komando secret set oc-wrong' >/dev/null
-<<<<<<< HEAD
 in_client komando vpn anyconnect add oc-bad --portal https://ocserv --user e2e --credential oc-wrong --check 192.168.99.1:7000 >/dev/null
-=======
-in_client komando vpn add oc-bad anyconnect --portal https://ocserv --user e2e --password-ref credential:oc-wrong --check 192.168.99.1:7000 >/dev/null
->>>>>>> feat/c489-cut-e1-format3
 out=$(in_client komando test oc-bad || true)
 grep -qi 'refused' <<<"$out" || { echo "$out"; fail "a wrong password is named"; }
 ok "a wrong AnyConnect password says so"
@@ -90,11 +82,7 @@ sleep 2
 "${DC[@]}" exec -T -d peer sh -c 'while true; do nc -l -p 7000 >/dev/null 2>&1; done'
 PEER_IP=$("${DC[@]}" exec -T peer tailscale ip -4 | tr -d '\r')
 in_client sh -c "printf %s '$KEY' | komando secret set ts-key" >/dev/null
-<<<<<<< HEAD
 in_client komando vpn tailscale add tailnet --server http://headscale:8080 --credential ts-key --check "$PEER_IP:7000" >/dev/null
-=======
-in_client komando vpn add tailnet tailscale --server http://headscale:8080 --password-ref credential:ts-key --check "$PEER_IP:7000" >/dev/null
->>>>>>> feat/c489-cut-e1-format3
 [ "$(kc test tailnet | jget 'd["data"]["summary"]["ok"]')" = 1 ] || fail "tailscale connects"
 ok "tailscale connects on demand and reaches a tailnet node ($PEER_IP)"
 in_client sh -c 'command -v tailscaled tailscale' >/dev/null 2>&1 && fail "the client image has tailscale programs"

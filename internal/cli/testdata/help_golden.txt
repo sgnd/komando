@@ -1055,52 +1055,6 @@ Global Flags (all of them: komando --help):
 
 Use "komando cluster [command] --help" for more information about a command.
 --- stderr
-<<<<<<< HEAD
-=======
-### komando cluster add --help
-exit 0
---- stdout
-Same as `komando conn add NAME URL`, for a cluster.
-
-Safety: a change; try it with --dry-run first.
-
-Saves a cluster under a short name. Typed alone at a terminal, it asks
-step by step. The URL scheme sets the kind: `komando conn kinds` lists them.
-
-A Kubernetes cluster usually comes in with `komando import kubeconfig FILE`
-(one conn per context). Here its kubeconfig must be in the vault already
-(--password-ref). A Docker Swarm manager is a server: `komando host add`.
-
-Usage:
-  komando cluster add NAME URL [flags]
-
-Examples:
-  komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref credential:prod-kubeconfig
-  komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref credential:prod-kubeconfig --dry-run
-
-Flags:
-      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored in the vault as credential:NAME-pass and used as --password-ref
-  -g, --group strings               put it in these groups (comma-separated)
-  -h, --help[=true|false]           help for add
-      --label stringArray           label KEY=VALUE (repeatable) (default [])
-      --login string                how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own)
-      --notes string                free-form notes (komando conn show shows them to people and agents)
-      --option stringArray          an option of this kind, KEY=VALUE (repeatable) (default [])
-      --overwrite[=true|false]      replace a conn that has the same name
-      --password-ref string         where the password is: credential:NAME (saved with komando secret set NAME)
-      --protected[=true|false]      production: komando asks you before every change, and an AI agent needs your yes in a window
-  -t, --tag strings                 tags, like prod (comma-separated)
-      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
->>>>>>> feat/c489-cut-e1-format3
 ### komando cluster apply --help
 exit 0
 --- stdout
@@ -6957,7 +6911,6 @@ Examples:
   komando queue kafka add prod-kafka kafka://10.0.0.8:9092 --dry-run
 
 Flags:
-<<<<<<< HEAD
       --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
       --credential string           what it logs in with
       --group strings               put it in these groups
@@ -6969,19 +6922,6 @@ Flags:
       --overwrite[=true|false]      replace an entry that has the same name
       --protected[=true|false]      changes need a person's yes
       --tag strings                 tags, like prod
-=======
-      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored in the vault as credential:NAME-pass and used as --password-ref
-  -g, --group strings               put it in these groups (comma-separated)
-  -h, --help[=true|false]           help for add
-      --label stringArray           label KEY=VALUE (repeatable) (default [])
-      --login string                how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own)
-      --notes string                free-form notes (komando conn show shows them to people and agents)
-      --option stringArray          an option of this kind, KEY=VALUE (repeatable) (default [])
-      --overwrite[=true|false]      replace a conn that has the same name
-      --password-ref string         where the password is: credential:NAME (saved with komando secret set NAME)
-      --protected[=true|false]      production: komando asks you before every change, and an AI agent needs your yes in a window
-  -t, --tag strings                 tags, like prod (comma-separated)
->>>>>>> feat/c489-cut-e1-format3
       --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
 
 Global Flags (all of them: komando --help):
@@ -11259,7 +11199,6 @@ Usage:
   komando storage azblob add NAME [URL] [flags]
 
 Examples:
-<<<<<<< HEAD
   komando storage azblob add backups azblob://ACCOUNT@my-container/backups --via web1
   komando storage azblob add backups azblob://ACCOUNT@my-container/backups --dry-run
 
@@ -11275,28 +11214,6 @@ Flags:
       --overwrite[=true|false]      replace an entry that has the same name
       --protected[=true|false]      changes need a person's yes
       --tag strings                 tags, like prod
-=======
-  komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password
-  komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password --dry-run
-  komando storage add backups 's3://my-bucket/db?region=eu-west-1' --option aws_profile=prod   # AWS SSO or a role
-  komando storage add minio 's3://AKIAEXAMPLE@media?endpoint=https://minio.internal:9000' --via bastion --ask-password
-  komando storage add media gs://my-bucket/site   # logs in like gcloud
-  komando storage add files azblob://mystorageacct@uploads/2026 --password-ref credential:files-key
-  komando storage add site 'sftp://deploy@files.example.com/uploads'
-
-Flags:
-      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored in the vault as credential:NAME-pass and used as --password-ref
-  -g, --group strings               put it in these groups (comma-separated)
-  -h, --help[=true|false]           help for add
-      --label stringArray           label KEY=VALUE (repeatable) (default [])
-      --login string                how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own)
-      --notes string                free-form notes (komando conn show shows them to people and agents)
-      --option stringArray          an option of this kind, KEY=VALUE (repeatable) (default [])
-      --overwrite[=true|false]      replace a conn that has the same name
-      --password-ref string         where the password is: credential:NAME (saved with komando secret set NAME)
-      --protected[=true|false]      production: komando asks you before every change, and an AI agent needs your yes in a window
-  -t, --tag strings                 tags, like prod (comma-separated)
->>>>>>> feat/c489-cut-e1-format3
       --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
 
 Global Flags (all of them: komando --help):
@@ -14683,13 +14600,8 @@ exit 0
 Add a VPN once, then put it first in --via. A command that needs it
 connects it, using the login you saved. The word after vpn is the kind:
 
-<<<<<<< HEAD
   komando vpn wireguard add office --config ~/Downloads/office.conf
   komando vpn globalprotect add client-x --portal vpn.client.com --user alice --credential client-x --mfa
-=======
-  komando vpn add office wireguard --config ~/Downloads/office.conf
-  komando vpn add client-x globalprotect --portal vpn.client.com --user alice --password-ref credential:client-x --mfa
->>>>>>> feat/c489-cut-e1-format3
   komando host add app admin@10.0.0.5 --via office,bastion
   komando exec app -- uptime
 
@@ -14806,7 +14718,6 @@ Usage:
   komando vpn anyconnect add NAME [flags]
 
 Examples:
-<<<<<<< HEAD
   komando vpn anyconnect add office --portal vpn.client.com --user alice
   komando vpn anyconnect add office --portal vpn.client.com --user alice --dry-run
 
@@ -14824,46 +14735,6 @@ Flags:
       --protected[=true|false]      changes need a person's yes
       --tag strings                 tags, like prod
       --user string                 user name for the VPN login
-=======
-  komando vpn add office wireguard --config ~/Downloads/office.conf --check 10.0.0.5:22
-  komando vpn add office wireguard --config ~/Downloads/office.conf --check 10.0.0.5:22 --dry-run
-  komando vpn add client-x globalprotect --portal vpn.client.com   # signs in through a browser window at vpn up
-  komando vpn add office openvpn --config office.ovpn --user alice --password-ref credential:office --check 10.8.0.1:22
-  komando vpn add tailnet tailscale --password-ref credential:ts-authkey
-  komando vpn add office l2tp --server vpn.example.com --psk-ref credential:office-psk --user alice --ask-password   # type the password now (hidden)
-  komando vpn add old-office l2tp --server vpn.example.com --psk-ref credential:old-psk --user alice --legacy-crypto --allow-pap
-  komando vpn add asa ipsec --server asa.client.com --id staff --psk-ref credential:asa-group --user alice
-  komando vpn add cloud ikev2 --server vpn.example.com --user alice --password-ref credential:cloud
-  komando vpn add corp system --service "Corp VPN" --check 10.20.0.1:443
-  komando vpn add lab socks --proxy-address 127.0.0.1:1080
-  komando vpn add office proxy --proxy-address proxy.corp.example:3128   # a company HTTP proxy
-
-Flags:
-      --allow-pap[=true|false]       L2TP: let the server pick a login that does not prove it is the server: PAP, which hands it your password itself, CHAP-MD5 or none (needs a person's yes)
-      --ask-password[=true|false]    type the password now (hidden, a person at a terminal); it is stored in the vault as credential:NAME-pass and used as --password-ref
-      --ask-psk[=true|false]         L2TP, IPsec, IKEv2: type the pre-shared key now (hidden, a person at a terminal); it is stored in the vault as credential:NAME-psk and used as --psk-ref
-      --ca string                    IKEv2: the CA certificate (PEM) that signed the server's certificate, if not a public one
-      --check string                 host:port reachable only through this VPN (vpn up and test connect to it; needed for system and openvpn)
-      --config string                WireGuard: the .conf file; OpenVPN: the .ovpn file (both kept in the vault)
-  -g, --group strings                put it in these groups (comma-separated)
-  -h, --help[=true|false]            help for add
-      --id string                    IPsec: the group name; IKEv2: your identity (default: --user, or your address)
-      --label stringArray            label KEY=VALUE (repeatable) (default [])
-      --legacy-crypto[=true|false]   L2TP, IPsec: also offer 3DES and DH groups 2 and 5, for old servers (weak; needs a person's yes)
-      --mfa[=true|false]             the login needs a person (MFA, SSO): only 'vpn up' run by a person connects it
-      --notes string                 free-form notes
-      --overwrite[=true|false]       replace a VPN with the same name
-      --password-ref string          where the password is (Tailscale: the auth key): credential:NAME (saved with komando secret set NAME)
-      --portal string                GlobalProtect, Fortinet, AnyConnect, Pulse, F5: the VPN server or portal
-      --protected[=true|false]       komando asks a person before it changes or removes this VPN; an AI agent needs their yes in a window
-      --proxy-address string         SOCKS: host:port of the proxy; proxy: host:port or http(s)://host:port
-      --psk-ref string               L2TP, IPsec, IKEv2: the pre-shared key (IPsec: the group password), as a reference like --password-ref
-      --remote-id string             IKEv2: the server's identity, if not its --server name
-      --server string                L2TP, IPsec, IKEv2: the VPN server (host or host:port); Tailscale: a Headscale login server URL
-      --service string               System VPN: its name in your computer's settings, so 'vpn up' can connect it
-  -t, --tag strings                  tags, like prod (comma-separated)
-      --user string                  user name for the VPN login
->>>>>>> feat/c489-cut-e1-format3
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -14887,7 +14758,6 @@ Usage:
   komando vpn anyconnect edit TARGET... [flags]
 
 Examples:
-<<<<<<< HEAD
   komando vpn anyconnect edit office --check 10.0.0.5:22
   komando vpn anyconnect edit @office --protected --dry-run
 
@@ -14906,40 +14776,6 @@ Flags:
       --rm-tag strings           remove these tags
       --unset strings            clear these settings: check, user, credential, notes
       --user string              user name for the VPN login
-=======
-  komando vpn edit office --check 10.0.0.5:22
-  komando vpn edit lab --proxy-address 127.0.0.1:1081
-  komando vpn edit client-x --password-ref credential:client-x-new
-  komando vpn edit office --server vpn2.example.com --psk-ref credential:office-psk-2
-  komando vpn edit client-x --portal gw2.client.com
-  komando vpn edit office -g jakarta --rm-group old --label site=jkt
-  komando vpn edit @office --protected --dry-run
-
-Flags:
-      --add-group strings            put it in these groups (comma-separated)
-      --add-tag strings              add these tags (comma-separated)
-      --allow-pap[=true|false]       L2TP: let the server pick a login that does not prove it is the server: PAP, which hands it your password itself, CHAP-MD5 or none (turning it on needs a person's yes)
-      --ca string                    IKEv2: the CA certificate (PEM) that signed the server's certificate; "" for a public one
-      --check string                 host:port reachable only through this VPN
-  -h, --help[=true|false]            help for edit
-      --id string                    IPsec: the group name; IKEv2: your identity
-      --label stringArray            set label KEY=VALUE (an empty value removes it) (default [])
-      --legacy-crypto[=true|false]   L2TP, IPsec: also offer 3DES and DH groups 2 and 5, for old servers (weak; turning it on needs a person's yes)
-      --mfa[=true|false]             the login needs a person (MFA, SSO)
-      --notes string                 free-form notes
-      --password-ref string          password as credential:NAME (saved with komando secret set NAME)
-      --portal string                GlobalProtect, Fortinet, AnyConnect, Pulse, F5: the VPN server or portal
-      --protected[=true|false]       komando asks a person before it changes or removes this VPN; an AI agent needs their yes in a window
-      --proxy-address string         SOCKS: host:port of the proxy; proxy: host:port or http(s)://host:port
-      --psk-ref string               L2TP, IPsec, IKEv2: the pre-shared key (IPsec: the group password)
-      --remote-id string             IKEv2: the server's identity
-      --rm-group strings             take it out of these groups
-      --rm-tag strings               remove these tags
-      --server string                L2TP, IPsec, IKEv2: the VPN server
-      --service string               System VPN: its name in your computer's settings
-      --unset strings                clear these settings: user,password-ref,psk-ref,id,remote-id,ca,check,notes
-      --user string                  user name for the VPN login
->>>>>>> feat/c489-cut-e1-format3
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing

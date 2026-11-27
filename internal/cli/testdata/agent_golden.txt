@@ -686,33 +686,6 @@ exit 2
 Error: missing arguments; usage: komando cert check TARGET|URL...
 Hint: for example: komando cert check web1
 (code USAGE, exit 2)
-<<<<<<< HEAD
-=======
-### komando -o json cluster add (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"cluster.add","error":{"code":"USAGE","message":"komando cluster add needs a name and a URL","hint":"for example: komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref credential:prod-kubeconfig. A person can type `komando cluster add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cluster add (agent text)
-exit 2
---- stdout
---- stderr
-Error: komando cluster add needs a name and a URL
-Hint: for example: komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref credential:prod-kubeconfig. A person can type `komando cluster add` alone at a terminal to be asked step by step
-(code USAGE, exit 2)
-### komando -o json cluster add (script json)
-exit 2
---- stdout
-{"ok":false,"command":"cluster.add","error":{"code":"USAGE","message":"komando cluster add needs a name and a URL","hint":"for example: komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref credential:prod-kubeconfig. A person can type `komando cluster add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cluster add (script text)
-exit 2
---- stdout
---- stderr
-Error: komando cluster add needs a name and a URL
-Hint: for example: komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref credential:prod-kubeconfig. A person can type `komando cluster add` alone at a terminal to be asked step by step
-(code USAGE, exit 2)
->>>>>>> feat/c489-cut-e1-format3
 ### komando -o json cluster apply (agent json)
 exit 2
 --- stdout

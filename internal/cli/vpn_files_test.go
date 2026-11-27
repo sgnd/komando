@@ -109,11 +109,7 @@ func TestVpnTypedLoginMoveNeedsAPerson(t *testing.T) {
 	// an --mfa VPN with a stored password: a person types the code, so
 	// its move is for a person too, not an approvable SECRET_DESTINATION
 	noAgent(t)
-<<<<<<< HEAD
 	mustRun(t, "vpn", "ikev2", "add", "mfa", "--server", "vpn.corp.example", "--user", "alice", "--credential", "db-pass", "--mfa")
-=======
-	mustRun(t, "vpn", "add", "mfa", "ikev2", "--server", "vpn.corp.example", "--user", "alice", "--password-ref", "credential:db-pass", "--mfa")
->>>>>>> feat/c489-cut-e1-format3
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	wantCode(t, "NEEDS_PERSON", "vpn", "ikev2", "edit", "mfa", "--server", "vpn.attacker.example")
 	mustRun(t, "vpn", "globalprotect", "edit", "corp", "--notes", "head office")

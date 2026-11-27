@@ -19,11 +19,7 @@ func TestLoginAskImportKeepsTheSecretOnTheWay(t *testing.T) {
 	secretHome(t)
 	t.Setenv("TSKEY", "tskey-the-persons")
 	mustRun(t, "secret", "set", "corp-pass", "--from-env", "TSKEY")
-<<<<<<< HEAD
 	mustRun(t, "vpn", "tailscale", "add", "ts", "--credential", "corp-pass")
-=======
-	mustRun(t, "vpn", "add", "ts", "tailscale", "--password-ref", "credential:corp-pass")
->>>>>>> feat/c489-cut-e1-format3
 	mustRun(t, "host", "add", "web1", "u@100.64.0.5", "--login", "ask", "--via", "ts")
 	setCallerEnv(t, "CLAUDECODE", "1")
 	env := writeTemp(t, ".env", "CORP_URL=postgres://app:tskey-the-agents@127.0.0.1:5432/app\n")
@@ -89,11 +85,7 @@ func TestLoginAskServeReadsTicketThenLogins(t *testing.T) {
 // it, so the import that would make it gives the VPN the agent's key.
 func TestLoginAskImportCannotMakeTheSecretOnTheWay(t *testing.T) {
 	secretHome(t)
-<<<<<<< HEAD
 	mustRun(t, "vpn", "tailscale", "add", "ts", "--credential", "corp-pass")
-=======
-	mustRun(t, "vpn", "add", "ts", "tailscale", "--password-ref", "credential:corp-pass")
->>>>>>> feat/c489-cut-e1-format3
 	mustRun(t, "host", "add", "web1", "u@100.64.0.5", "--login", "ask", "--via", "ts")
 	setCallerEnv(t, "CLAUDECODE", "1")
 	env := writeTemp(t, ".env", "CORP_URL=postgres://app:tskey-the-agents@127.0.0.1:5432/app\n")

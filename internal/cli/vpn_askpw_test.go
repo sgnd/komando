@@ -55,27 +55,16 @@ func TestVpnAddAskPassword(t *testing.T) {
 	}
 	// an l2tp login: the password is stored, so no person is needed at vpn up
 	setSecret(t, "office-psk", "k3y-0ffice-psk")
-<<<<<<< HEAD
 	d = mustRun(t, "vpn", "l2tp", "add", "office", "--server", "vpn.example.com", "--psk-credential", "office-psk", "--user", "budi", "--ask-password")
-	if v, _ := d["vpn"].(map[string]any); v["key_ref"] != "secret:office-pass" || v["mfa"] == true {
-=======
-	d = mustRun(t, "vpn", "add", "office", "l2tp", "--server", "vpn.example.com", "--psk-ref", "credential:office-psk", "--user", "budi", "--ask-password")
 	if v, _ := d["vpn"].(map[string]any); v["key_ref"] != "credential:office-pass" || v["mfa"] == true {
->>>>>>> feat/c489-cut-e1-format3
 		t.Errorf("l2tp --ask-password: %v", d)
 	}
 
 	// refused together with --credential, and where no password is used
 	asked = 0
-<<<<<<< HEAD
-	wantCode(t, "USAGE", socks("lab2", "--credential", "env:X")...)
+	wantCode(t, "USAGE", socks("lab2", "--credential", "x")...)
 	wantCode(t, "USAGE", "vpn", "system", "add", "corp", "--check", "10.0.0.1:443", "--ask-password")
 	wantCode(t, "USAGE", "vpn", "tailscale", "add", "tail", "--ask-password")
-=======
-	wantCode(t, "USAGE", socks("lab2", "--password-ref", "credential:x")...)
-	wantCode(t, "USAGE", "vpn", "add", "corp", "system", "--check", "10.0.0.1:443", "--ask-password")
-	wantCode(t, "USAGE", "vpn", "add", "tail", "tailscale", "--ask-password")
->>>>>>> feat/c489-cut-e1-format3
 	// a name that is taken is refused before anyone is asked
 	wantCode(t, "VPN_EXISTS", socks("lab")...)
 	if asked != 0 {

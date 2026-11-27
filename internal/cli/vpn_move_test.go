@@ -50,15 +50,9 @@ func TestVpnMoveNeighbours(t *testing.T) {
 	setup := func(t *testing.T) {
 		invHome(t)
 		noAgent(t)
-<<<<<<< HEAD
 		mustRun(t, "vpn", "socks", "add", "lab", "--proxy-address", "127.0.0.1:1080")
 		mustRun(t, "vpn", "socks", "add", "other", "--proxy-address", "127.0.0.1:1081")
-		mustRun(t, "host", "add", "db1", "u@10.0.0.2", "--via", "lab", "--password-ref", "secret:db1-pass")
-=======
-		mustRun(t, "vpn", "add", "lab", "socks", "--proxy-address", "127.0.0.1:1080")
-		mustRun(t, "vpn", "add", "other", "socks", "--proxy-address", "127.0.0.1:1081")
 		mustRun(t, "host", "add", "db1", "u@10.0.0.2", "--via", "lab", "--password-ref", "credential:db1-pass")
->>>>>>> feat/c489-cut-e1-format3
 		setCallerEnv(t, "KOMANDO_AGENT", "1")
 	}
 	t.Run("another VPN put first on the way", func(t *testing.T) {

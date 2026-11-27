@@ -62,20 +62,13 @@ VPN's own configuration gives.
 
 A VPN that logs in with a password, pre-shared key or auth key reads it
 from the vault: store it first with `komando secret set NAME` (it asks for
-<<<<<<< HEAD
 it, hidden), then name it in `--credential` or `--psk-credential`. Or type it
-when you add the VPN: `--ask-password` stores it as `secret:NAME-pass`, and
-`--ask-psk` stores a pre-shared key as `secret:NAME-psk`.
-=======
-it, hidden), then name it in `--password-ref` or `--psk-ref`. Or type it
 when you add the VPN: `--ask-password` stores it as `credential:NAME-pass`, and
 `--ask-psk` stores a pre-shared key as `credential:NAME-psk`.
->>>>>>> feat/c489-cut-e1-format3
 
 Pick the line for your kind of VPN:
 
 ```bash
-<<<<<<< HEAD
 komando vpn wireguard add office --config ~/Downloads/office.conf --check 10.0.0.5:22
 komando vpn openvpn add office --config office.ovpn --user alice --credential office-pass --check 10.8.0.1:22
 komando vpn globalprotect add office --portal vpn.example.com --user alice --credential office-pass --mfa
@@ -87,19 +80,6 @@ komando vpn ikev2 add office --server vpn.example.com --user alice --credential 
 komando vpn system add office --service "Corp VPN" --check 10.20.0.1:443
 komando vpn socks add office --proxy-address 127.0.0.1:1080
 komando vpn proxy add office --proxy-address proxy.corp.example:3128
-=======
-komando vpn add office wireguard --config ~/Downloads/office.conf --check 10.0.0.5:22
-komando vpn add office openvpn --config office.ovpn --user alice --password-ref credential:office-pass --check 10.8.0.1:22
-komando vpn add office globalprotect --portal vpn.example.com --user alice --password-ref credential:office-pass --mfa
-komando vpn add office globalprotect --portal vpn.example.com     # signs in through a browser window at `vpn up`
-komando vpn add office tailscale --password-ref credential:ts-authkey
-komando vpn add office l2tp --server vpn.example.com --psk-ref credential:office-psk --user alice --password-ref credential:office-pass --check 10.1.0.5:22
-komando vpn add office ipsec --server asa.example.com --id staff --psk-ref credential:office-group --user alice --password-ref credential:office-pass
-komando vpn add office ikev2 --server vpn.example.com --user alice --password-ref credential:office-pass --check 10.2.0.5:22
-komando vpn add office system --service "Corp VPN" --check 10.20.0.1:443
-komando vpn add office socks --proxy-address 127.0.0.1:1080
-komando vpn add office proxy --proxy-address proxy.corp.example:3128
->>>>>>> feat/c489-cut-e1-format3
 ```
 
 - `--check host:port` is an address that answers only through the VPN.
@@ -117,19 +97,11 @@ komando vpn add office proxy --proxy-address proxy.corp.example:3128
   secret rm` if an earlier VPN of that name left it). `--overwrite` may
   reuse the secrets of the VPN it replaces, when nothing else uses them,
   and a secret that nothing uses and that holds the same key already (the
-<<<<<<< HEAD
   same file added again after `vpn KIND remove`) is reused too.
-- `--credential` works like everywhere else in komando:
-  `secret:NAME`, `env:VAR`, a password manager, and so on (see
-  [Servers](servers.md)). For Tailscale it is an auth key. The VPN sends
-  it (and `--psk-credential`) to its server each time it connects, so when an AI
-=======
-  same file added again after `vpn rm`) is reused too.
-- `--password-ref` and `--psk-ref` take `credential:NAME`, a secret saved
+- `--credential` and `--psk-credential` take the name of a secret saved
   with `komando secret set NAME` (see [Secrets](secrets.md)); another store
   (`env:VAR`, `op://...`) is refused. For Tailscale it is an auth key. The VPN sends
-  it (and `--psk-ref`) to its server each time it connects, so when an AI
->>>>>>> feat/c489-cut-e1-format3
+  it (and `--psk-credential`) to its server each time it connects, so when an AI
   agent adds a VPN with one, or points a VPN at another server or address,
   a person allows it: `--yes` and a click in komando's window, which names
   the references and the server (`SECRET_DESTINATION`).
@@ -404,13 +376,8 @@ computer where it already works:
 ```bash
 komando secret set office-psk          # type the pre-shared key
 komando secret set office-pass         # type your password
-<<<<<<< HEAD
 komando vpn l2tp add office --server vpn.example.com --psk-credential office-psk \
   --user alice --credential office-pass --check 10.1.0.5:22
-=======
-komando vpn add office l2tp --server vpn.example.com --psk-ref credential:office-psk \
-  --user alice --password-ref credential:office-pass --check 10.1.0.5:22
->>>>>>> feat/c489-cut-e1-format3
 komando test office
 ```
 
