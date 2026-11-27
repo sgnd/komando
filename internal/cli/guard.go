@@ -535,10 +535,11 @@ func treeOperands(base string, args []string) []int {
 		case a == "--":
 			opts = false
 		case strings.HasPrefix(a, "--"):
-			recursive = recursive || a == "--recursive"
-			if base == "mv" && strings.HasPrefix(a, "--target-directory") {
+			name, _, valued := strings.Cut(a, "=")
+			recursive = recursive || longOption(name, "--recursive")
+			if base == "mv" && longOption(name, "--target-directory") {
 				target = true
-				if a == "--target-directory" {
+				if !valued {
 					i++
 				}
 			}
@@ -560,6 +561,12 @@ func treeOperands(base string, args []string) []int {
 		return ops[:len(ops)-1]
 	}
 	return nil
+}
+
+// longOption says whether name is the long option opt or a short form of
+// it GNU tools accept (--rec for --recursive, --t for --target-directory).
+func longOption(name, opt string) bool {
+	return len(name) > 2 && strings.HasPrefix(opt, name)
 }
 
 // treeTargets are the paths the word v names: a brace list's names, and a
