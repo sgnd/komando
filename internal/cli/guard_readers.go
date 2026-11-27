@@ -722,10 +722,8 @@ func findStarts(cl *call, starts []string, globs []bool, vars lineVars, home, cw
 			if !filepath.IsAbs(p) {
 				return "", false // the working folder is not known
 			}
-			for _, x := range []string{p, realPath(p)} {
-				if secretPath(cl, x, home) != "" || holdsProtected(cl, x, home) || holdsGuardFiles(x, home) {
-					return "", false
-				}
+			if touchesProtected(cl, p, home) {
+				return "", false
 			}
 			if first == "" {
 				first = p

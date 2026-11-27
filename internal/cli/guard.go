@@ -491,6 +491,102 @@ func shellGlobMatches(p, f string) bool {
 	return true
 }
 
+// checkTreeChange refuses rm -r, mv and chmod, chown or chgrp -R of a
+// folder that is or holds a protected path or a guard file, the rule
+// find -delete follows (touchesProtected): the change reaches everything
+// under the folder. A glob counts as the names it matches now.
+func checkTreeChange(cl *call, base string, args []string, globs []bool, vars lineVars, home, cwd string) guardDecision {
+	verb := "changes"
+	switch base {
+	case "rm":
+		verb = "removes"
+	case "mv":
+		verb = "moves"
+	}
+	for _, i := range treeOperands(base, args) {
+		vals, _ := vars.expand(cl, args[i], home, cwd)
+		for _, v := range vals {
+			for _, p := range treeTargets(cl, v, globs[i] || v != args[i] && wordHasGlob(v), home, cwd) {
+				if filepath.IsAbs(p) && touchesProtected(cl, p, home) {
+					return deny("%s %s %s and everything under it, which is or holds komando's data, private keys or guard files; name the files inside instead", base, verb, p)
+				}
+			}
+		}
+	}
+	return allow()
+}
+
+// treeOperands are the indexes of the arguments base removes, moves or
+// changes with everything under them: rm -r's operands, mv's sources, and
+// the operands of chmod, chown or chgrp -R (the mode or owner among them
+// names nothing that matters).
+func treeOperands(base string, args []string) []int {
+	var ops []int
+	recursive, target, opts := false, false, true
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case !opts || a == "-" || !strings.HasPrefix(a, "-"):
+			ops = append(ops, i)
+		case a == "--":
+			opts = false
+		case strings.HasPrefix(a, "--"):
+			recursive = recursive || a == "--recursive"
+			if base == "mv" && strings.HasPrefix(a, "--target-directory") {
+				target = true
+				if a == "--target-directory" {
+					i++
+				}
+			}
+		default:
+			letters := a[1:]
+			recursive = recursive || strings.Contains(letters, "R") || base == "rm" && strings.Contains(letters, "r")
+			if k := strings.IndexAny(letters, "tS"); base == "mv" && k >= 0 {
+				target = target || letters[k] == 't'
+				if k == len(letters)-1 {
+					i++ // the folder or the suffix is the next word
+				}
+			}
+		}
+	}
+	switch {
+	case recursive && (base == "rm" || base == "chmod" || base == "chown" || base == "chgrp"), base == "mv" && target:
+		return ops
+	case base == "mv" && len(ops) > 1:
+		return ops[:len(ops)-1]
+	}
+	return nil
+}
+
+// treeTargets are the paths the word v names: a brace list's names, and a
+// glob's names as they are now; past 500 of them, the folder the glob
+// starts in stands for the rest.
+func treeTargets(cl *call, v string, glob bool, home, cwd string) []string {
+	if !glob {
+		return []string{guardPathAt(cl, v, home, cwd)}
+	}
+	var out []string
+	for _, pat := range expandBraces(v, 0) {
+		p := guardPathAt(cl, pat, home, cwd)
+		out = append(out, p)
+		m, _ := filepath.Glob(p)
+		for i, f := range m {
+			if i == 500 {
+				dir := p
+				for wordHasGlob(dir) && dir != filepath.Dir(dir) {
+					dir = filepath.Dir(dir)
+				}
+				out = append(out, dir)
+				break
+			}
+			if shellGlobMatches(p, f) {
+				out = append(out, f)
+			}
+		}
+	}
+	return out
+}
+
 // guardNameGlob says why a name the glob p could match is a guard file by
 // its name alone (guardSelfWhy): an AI agent's settings folder, its hook
 // file, or a program named komando. For komando the glob must hold a

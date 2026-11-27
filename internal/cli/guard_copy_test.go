@@ -34,6 +34,51 @@ func TestGuardCopyIntoAProtectedFolderIsRefused(t *testing.T) {
 	}, true)
 }
 
+// rm -r, mv and chmod, chown or chgrp -R reach everything under a folder:
+// one that is or holds komando's data, a key folder, a credential store or
+// a guard file is refused, as find -delete's start is.
+func TestGuardTreeChangeOfAProtectedFolderIsRefused(t *testing.T) {
+	home, repo := guardLineHome(t)
+	if err := os.MkdirAll(filepath.Join(home, "Library", "Keychains"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	checkLines(t, home, home, []string{
+		`rm -rf ~`,
+		`rm -rf "$HOME"`,
+		`rm -rf ~/`,
+		`rm -fr ~`,
+		`rm -Rf ~`,
+		`rm --recursive --force ~`,
+		`rm -rf -- ~`,
+		`rm -r ~/.ssh`,
+		`rm -rf ~/.aws`,
+		`rm -rf ~/*`,
+		`rm -rf ~/{src,.ssh}`,
+		`rm -r /`,
+		`mv ~ /tmp/h`,
+		`mv ~/.ssh /tmp/k`,
+		`mv ~/.. /tmp/u`,
+		`mv -t /tmp ~/.ssh`,
+		`chmod -R 777 ~`,
+		`chown -R nobody ~`,
+		`chgrp -R staff ~/.ssh`,
+		`find ~/.ssh -delete`,
+	}, true)
+	checkLines(t, home, filepath.Join(home, "Documents"), []string{`rm -rf ..`}, true)
+	checkLines(t, home, repo, []string{
+		`rm -rf ./build`,
+		`rm -rf node_modules`,
+		`rm -rf build dist`,
+		`mv build /tmp/out`,
+		`mv a.txt b.txt`,
+		`chmod -R u+w .`,
+		`chown -R me build`,
+		`rm -f ~/notes.txt`,
+		`mv ~/notes.txt /tmp/`,
+		`rm -rf /tmp/x`,
+	}, false)
+}
+
 // Copies and links in project and temporary folders stay allowed.
 func TestGuardOrdinaryCopiesStayAllowed(t *testing.T) {
 	home, repo := guardLineHome(t)
