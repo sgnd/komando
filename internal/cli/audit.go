@@ -168,6 +168,7 @@ func auditListCmd() *cobra.Command {
 					return nil
 				}
 				delete(e, "prev") // the chain is for `audit check`
+				readOldEvent(e)
 				if flt.keep(e) {
 					all = append(all, e)
 				}

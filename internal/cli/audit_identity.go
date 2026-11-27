@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"slices"
 	"strings"
 	"sync"
 
@@ -65,6 +66,18 @@ func recordKey(e map[string]any) (safetyKey, bool) {
 	}
 	c, _ := e["command"].(string)
 	return auditKeyOf(c)
+}
+
+// readOldEvent gives a record written before rule R1 its event: the
+// event's name sat in command then, with no event field (C625). The
+// record on disk is never rewritten.
+func readOldEvent(e map[string]any) {
+	if _, has := e["event"]; has {
+		return
+	}
+	if c, _ := e["command"].(string); slices.Contains(auditEvents, c) {
+		e["event"] = c
+	}
 }
 
 // runningLeaf is the ID of the leaf the call runs: the table leaf whose
