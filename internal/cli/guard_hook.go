@@ -445,7 +445,8 @@ func checkWritesIn(cl *call, seg string, vars lineVars, home, cwd string) guardD
 // files its arguments name, and whether a value's own words are among the
 // arguments. An unquoted value (split) is split at the line's separators:
 // its first field is the program and the rest are arguments; an empty one
-// is gone, and the next word is the program.
+// is gone, and the next word is the program, a program the guard cannot
+// name when it is a value too.
 func programBases(prog string, progs, args []string, split bool, seps string) (bases []string, writes, ownWords bool) {
 	for _, p := range progs {
 		fields, rest := []string{p}, unmarked(args)
@@ -455,6 +456,10 @@ func programBases(prog string, progs, args []string, split bool, seps string) (b
 		if len(fields) == 0 {
 			next, nargs := program(args)
 			if next == "" {
+				continue
+			}
+			if strings.ContainsAny(next, "$`") || strings.Contains(next, unknownOutput) {
+				bases, writes = append(bases, anyProgram), true
 				continue
 			}
 			fields, rest = []string{next}, unmarked(nargs)

@@ -165,6 +165,9 @@ func TestGuardProgramValueWithASeparatorIsAnyProgram(t *testing.T) {
 		// a literal or a quoted value is one program name, blanks and all
 		`"/tmp/a b/rm" -rf ~`,
 		`R="/tmp/a b/rm"; "$R" -rf ~`,
+		// empty values are gone, and a value after them is still a value
+		`E=; $E $E rm -rf ~`,
+		`E=; $E $E $E rm -rf ~`,
 	}, treeRefusal)
 	checkLines(t, home, repo, []string{
 		`R=rm; $R -rf ./build`,
@@ -175,7 +178,8 @@ func TestGuardProgramValueWithASeparatorIsAnyProgram(t *testing.T) {
 		// and its words are no options of it: -o here makes less write nothing
 		`L="less -o"; read h < /tmp/n; "$L" $h`,
 		// a value that may be empty leaves the next word as the program
-		`true && S=/tmp/x/run.sh; read h < /tmp/n; $S --size=$h`,
+		`true && S=/tmp/x/run.sh; $S --size=4`,
+		`E=; $E $E ls`,
 	}, false)
 }
 
