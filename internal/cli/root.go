@@ -484,9 +484,7 @@ func treeOf(cl *call) *cobra.Command {
 		Version:       version.Version,
 		RunE:          printFirstSteps,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			if n := cmd.Name(); n == cobra.ShellCompRequestCmd || n == cobra.ShellCompNoDescRequestCmd {
-				dropHelpCommand(cmd.Root())
-			}
+			dropHelpCommand(cmd) // for the shell's completion request
 			if err := notPrepared(cmd); err != nil {
 				return err
 			}
@@ -576,12 +574,16 @@ func treeOf(cl *call) *cobra.Command {
 // helpCommandName is the hidden help command cobra needs: not a word a person types.
 const helpCommandName = "__help"
 
-// dropHelpCommand takes the hidden help command out of root: cobra completes
-// its help command even when it is hidden, and the shell must not offer it.
-func dropHelpCommand(root *cobra.Command) {
-	for _, c := range root.Commands() {
+// dropHelpCommand takes the hidden help command out of the root when cmd is
+// the shell's completion request: cobra completes its help command even when
+// it is hidden, and the shell must not offer it.
+func dropHelpCommand(cmd *cobra.Command) {
+	if n := cmd.Name(); n != cobra.ShellCompRequestCmd && n != cobra.ShellCompNoDescRequestCmd {
+		return
+	}
+	for _, c := range cmd.Root().Commands() {
 		if c.Name() == helpCommandName {
-			root.RemoveCommand(c)
+			cmd.Root().RemoveCommand(c)
 		}
 	}
 }
