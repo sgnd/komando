@@ -469,7 +469,15 @@ func checkTreeChange(cl *call, bases, args []string, globs []bool, vars lineVars
 		return deny("the line has %s; name the folders plainly", braceLimitWhy)
 	}
 	if flat {
-		bases = []string{anyProgram} // one list of every value: an option from one value says nothing of the words after it
+		// one list of every value: an option from one value says nothing of
+		// the words after it, so a program that removes, moves or changes
+		// folders may take any of them as an operand
+		bases = slices.Clone(bases)
+		for i, b := range bases {
+			if treePrograms[b] {
+				bases[i] = anyProgram
+			}
+		}
 	}
 	checked, shaped := map[treeWord]bool{}, map[int]bool{}
 	for _, base := range bases {
@@ -515,6 +523,10 @@ func treeVerb(base string) string {
 	}
 	return "changes"
 }
+
+// treePrograms remove, move or change folders with everything under them
+// (treeOperands).
+var treePrograms = map[string]bool{"rm": true, "mv": true, "trash": true, "chmod": true, "chown": true, "chgrp": true}
 
 // anyProgram stands for a program the guard cannot name before the line
 // runs (a value, command output, an alias): it may remove or move any of

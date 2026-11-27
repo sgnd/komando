@@ -146,6 +146,8 @@ func TestGuardFolderRulePastTheChoicesReadsEveryOperand(t *testing.T) {
 	}, treeRefusal)
 	checkLines(t, home, repo, []string{
 		`C=-f; true || C=-v; mv $C $C $C $C $C $C $C build /tmp/out`,
+		// cp copies its operands, it does not remove or move them
+		`true || W=/tmp/w; for f in 1 2 3 4 5 6 7 8 9; do cp "$W/$f" "$f"; done`,
 	}, false)
 }
 
