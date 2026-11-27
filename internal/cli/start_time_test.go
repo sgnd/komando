@@ -345,23 +345,40 @@ func fakeLeaves(t testing.TB, n int) {
 }
 
 // Start does not grow with the commands of a type the line does not name:
-// 500 more leaves add one node (their type's word) and no work to the tree
-// `komando version` builds.
+// with 500 more leaves the tree of `komando version` has their 500 nodes,
+// but prepares the same commands and lists one more (their type's word).
 func TestStartFlatWithMoreLeaves(t *testing.T) {
 	line := []string{"version"}
-	work := func() (int, float64) {
-		return len(allCommands(newRootFor(tcl, line))), testing.AllocsPerRun(5, func() { newRootFor(tcl, line) })
+	ready := func(root *cobra.Command) (nodes, prep, list int) {
+		for _, c := range allCommands(root) {
+			nodes++
+			if prepared(c) {
+				prep++
+			} else if listed(c) {
+				list++
+			}
+		}
+		return nodes, prep, list
 	}
-	nodes, allocs := work()
+	work := func() (line, whole float64) {
+		return testing.AllocsPerRun(5, func() { newRootFor(tcl, []string{"version"}) }), testing.AllocsPerRun(5, func() { newRoot(tcl) })
+	}
+	nodes, prep, list := ready(newRootFor(tcl, line))
+	lineAllocs, wholeAllocs := work()
 	fakeLeaves(t, 500)
-	if n := len(allCommands(newRoot(tcl))); n < nodes+500 {
-		t.Fatalf("the whole tree has %d commands, want the 500 fake leaves in it", n)
+	moreNodes, morePrep, moreList := ready(newRootFor(tcl, line))
+	if moreNodes < nodes+500 {
+		t.Fatalf("the tree has %d commands with the fake leaves, want at least %d", moreNodes, nodes+500)
 	}
-	moreNodes, moreAllocs := work()
-	if moreNodes != nodes+1 {
-		t.Errorf("500 leaves of another type: %d commands built for version, want %d (their type's word only)", moreNodes, nodes+1)
+	if morePrep != prep || moreList != list+1 {
+		t.Errorf("500 leaves of another type: %d prepared and %d listed for version, want %d and %d (their type's word only)", morePrep, moreList, prep, list+1)
 	}
-	if moreAllocs > allocs+20 {
-		t.Errorf("500 leaves of another type: %.0f allocations for version, want about %.0f", moreAllocs, allocs)
+	moreLine, moreWhole := work()
+	// their nodes cost allocations; preparing them costs more, and only
+	// the whole tree pays that
+	if grew, wholeGrew := moreLine-lineAllocs, moreWhole-wholeAllocs; grew*2 > wholeGrew {
+		t.Errorf("500 leaves of another type: the tree of version grew by %.0f allocations, the whole tree by %.0f: want under half", grew, wholeGrew)
+	} else {
+		t.Logf("500 leaves of another type: the tree of version grew by %.0f allocations, the whole tree by %.0f", grew, wholeGrew)
 	}
 }

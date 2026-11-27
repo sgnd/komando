@@ -43,7 +43,7 @@ func promptFill(cl *call, args []string) ([]string, error) {
 		return args, nil
 	}
 	cl.fillSeen.person = true
-	scratch := newRoot(cl) // its flags are parsed here; the real run parses its own
+	scratch := newRootFor(cl, args) // its flags are parsed here; the real run parses its own
 	cmd, rest, err := scratch.Find(args)
 	if err != nil || cmd == scratch || !cmd.Runnable() || slices.Contains(promptSkip, strings.Fields(commandKey(cmd))[0]) {
 		return args, nil

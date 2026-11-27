@@ -33,13 +33,10 @@ func withID(c *cobra.Command, id string) *cobra.Command {
 	return c
 }
 
-// stampIDs writes each command's ID into its annotations: the one withID
-// gave it, else its dotted path.
-func stampIDs(c *cobra.Command) {
+// stampID writes c's ID into its annotations: the one withID gave it, else
+// its dotted path.
+func stampID(c *cobra.Command) {
 	withID(c, cmdID(c))
-	for _, s := range c.Commands() {
-		stampIDs(s)
-	}
 }
 
 // cmdID is c's ID: the withID annotation, else its dotted path without

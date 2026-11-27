@@ -33,7 +33,7 @@ import (
 
 func init() {
 	runExecute = execute
-	commandTree = func() *cobra.Command { return newRoot(treeCall()) }
+	commandTree = func(line []string) *cobra.Command { return newRootFor(treeCall(), line) }
 }
 
 type globalFlags struct {
@@ -119,7 +119,7 @@ func execute(cl *call, ctx context.Context, args []string) int {
 	if ctx.Err() != nil { // stopped while the questions were asked
 		return cl.out.Fail("komando", promptStopped(ctx.Err()))
 	}
-	root := newRoot(cl)
+	root := newRootFor(cl, args)
 	root.SetArgs(args)
 	cmd, err := root.ExecuteContextC(withCall(ctx, cl))
 	if err == nil {
@@ -449,10 +449,28 @@ func startChecks(cmd *cobra.Command) error {
 	return checkStoreWritable(cmd)
 }
 
-// newRoot is the command tree of cl: its flags are cl's, and every
-// command in it runs in cl (callOf). What the last command in cl
-// recorded is forgotten.
+// newRoot is the command tree of cl with every command prepared: what
+// `komando schema`, the help tests and the goldens read.
 func newRoot(cl *call) *cobra.Command {
+	root := treeOf(cl)
+	openAll(root)
+	return root
+}
+
+// newRootFor is the command tree of cl for one line: every command is in
+// it, and the commands the line runs through are prepared (openPath). A
+// run, the guard, the ssh gate and the questions build this one, so a
+// start does not grow with the commands it does not reach.
+func newRootFor(cl *call, line []string) *cobra.Command {
+	root := treeOf(cl)
+	openPath(root, line)
+	return root
+}
+
+// treeOf is every command of cl, none prepared yet: its flags are cl's,
+// and every command in it runs in cl (callOf). What the last command in cl
+// recorded is forgotten.
+func treeOf(cl *call) *cobra.Command {
 	cl.out.Reset()
 	cl.flags = globalFlags{} // the flags below bind to it with their defaults
 	cl.askedAbout, cl.blockAudited, cl.interrupted = nil, false, false
@@ -466,6 +484,11 @@ func newRoot(cl *call) *cobra.Command {
 		Version:       version.Version,
 		RunE:          printFirstSteps,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if !prepared(cmd) && !completeHelper(cmd) {
+				// fail closed: a command the tree did not prepare runs nothing
+				return out.Errf(out.ExitError, "NOT_PREPARED", "this is a bug in komando: report it at https://github.com/sgnd/komando/issues",
+					"komando did not prepare %s for this line, so it runs nothing", cmd.CommandPath())
+			}
 			cmd.SetContext(withCall(cmd.Context(), cl))
 			cl.begin(cmd) // the gate and the answers are this command's only
 			if err := pickTableOutput(cmd); err != nil {
@@ -543,12 +566,122 @@ func newRoot(cl *call) *cobra.Command {
 	addHelpTopics(root) // and cobra's help command
 	root.InitDefaultCompletionCmd()
 	labelBuiltinCmds(root) // before the conventions: `completion` alone, piped, is a USAGE envelope too
-	applyConventions(root)
 	useShortGlobals(root)
-	addCompletion(root)
-	stampIDs(root)
-	applyHelpStandard(root)
 	return root
+}
+
+// readyNote is the annotation that says how far the tree has readied a
+// command: listed or prepared.
+const readyNote = "komando.ready"
+
+const (
+	// readyListed: what a list of commands, Find and a did-you-mean read
+	// (listNode)
+	readyListed = "listed"
+	// readyPrepared: all of it, and its sub-commands listed (openNode)
+	readyPrepared = "prepared"
+)
+
+// listed reports whether c is ready to be listed and found.
+func listed(c *cobra.Command) bool { return c.Annotations[readyNote] != "" }
+
+// prepared reports whether c is ready to run and to show its help.
+func prepared(c *cobra.Command) bool { return c.Annotations[readyNote] == readyPrepared }
+
+// completeHelper reports whether c is the command cobra adds as it runs
+// to answer the shell's completion; openPath prepares the words it completes.
+func completeHelper(c *cobra.Command) bool {
+	return c.Name() == cobra.ShellCompRequestCmd && c.HasParent() && !c.Parent().HasParent()
+}
+
+func setReady(c *cobra.Command, how string) {
+	if c.Annotations == nil {
+		c.Annotations = map[string]string{}
+	}
+	c.Annotations[readyNote] = how
+}
+
+// listNode readies c to be listed: its aliases, its group run, its
+// person-only mark.
+func listNode(c *cobra.Command) {
+	if listed(c) {
+		return
+	}
+	applyConventions(c)
+	markPersonOnly(c)
+	setReady(c, readyListed)
+}
+
+// prepareSteps ready a listed command to run and to show its help, in this
+// order: each step of every command before the next step (openAll).
+var prepareSteps = []func(*cobra.Command){addCompletion, stampID, applyHelpStandard}
+
+// openNode prepares c and lists its sub-commands, which its help, its
+// completion and a did-you-mean show.
+func openNode(c *cobra.Command) {
+	if prepared(c) {
+		return
+	}
+	listNode(c)
+	for _, step := range prepareSteps {
+		step(c)
+	}
+	setReady(c, readyPrepared)
+	for _, s := range c.Commands() {
+		listNode(s)
+	}
+}
+
+// openAll prepares every command of the tree under root.
+func openAll(root *cobra.Command) {
+	var all []*cobra.Command
+	var walk func(c *cobra.Command)
+	walk = func(c *cobra.Command) {
+		all = append(all, c)
+		for _, s := range c.Commands() {
+			walk(s)
+		}
+	}
+	walk(root)
+	for _, c := range all {
+		listNode(c)
+	}
+	for _, step := range prepareSteps {
+		for _, c := range all {
+			if !prepared(c) {
+				step(c)
+			}
+		}
+	}
+	for _, c := range all {
+		setReady(c, readyPrepared)
+	}
+}
+
+// openPath prepares the commands line runs through: the root, then the
+// command Find stops at, until Find stops at a prepared one (an alias or
+// a group's run is only there once its parent is open). `help LINE` and
+// the shell's completion prepare the command of the words after them.
+func openPath(root *cobra.Command, line []string) {
+	openNode(root)
+	if len(line) > 0 && (line[0] == cobra.ShellCompRequestCmd || line[0] == cobra.ShellCompNoDescRequestCmd) {
+		line = line[1:]
+	}
+	for {
+		c, rest, _ := root.Find(line)
+		if c == nil {
+			return
+		}
+		if !prepared(c) {
+			openNode(c)
+			continue
+		}
+		if c.Name() == "help" && c.Parent() == root && len(rest) < len(line) {
+			line = rest
+			continue
+		}
+		return
+	}
 }
 
 // addCommands adds komando's commands to root under the groups of

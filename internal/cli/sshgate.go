@@ -368,7 +368,7 @@ func gateCheck(args []string, key gateKey) (name, output string, refused *out.Er
 	// a command tree of its own: the key's flags are read here, apart
 	// from the gate's
 	sc := treeCall()
-	root := newRoot(sc)
+	root := newRootFor(sc, args)
 	// cobra adds its completion helper only as it runs, and finds it the
 	// way Find does here (after `-o --`, the -- is -o's value and the next
 	// word is the command): with the helper in this tree too, the gate

@@ -160,14 +160,16 @@ func TestEnvelopeNamesID(t *testing.T) {
 	}
 }
 
-// withID keeps a renamed command's ID, and stampIDs does not overwrite it.
+// withID keeps a renamed command's ID, and stampID does not overwrite it.
 func TestWithIDSurvivesRename(t *testing.T) {
 	c := &cobra.Command{Use: "list"}
 	p := &cobra.Command{Use: "fs"}
 	r := &cobra.Command{Use: "komando"}
 	r.AddCommand(p)
 	p.AddCommand(withID(c, "fs.list"))
-	stampIDs(r)
+	for _, x := range allCommands(r) {
+		stampID(x)
+	}
 	if cmdID(c) != "fs.list" || commandName(c) != "fs.list" || idKey(c) != "fs list" {
 		t.Fatalf("ID %q", cmdID(c))
 	}
