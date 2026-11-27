@@ -3,6 +3,7 @@ package cli
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"maps"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -59,7 +61,6 @@ var tierRuns = []tierRun{
 	{"policy edit --add-group safety", "policy.edit", []string{"docker-prune", "--off", "--add-group", "g1"}, false},
 	{"floor", "policy.edit", []string{"docker-prune", "--rm-server", "dev"}, false},
 	{"config set dynamic safety", "config.set", []string{"audit", "false"}, false},
-	{"vpn edit --mfa=false safety", "vpn.edit", []string{"wg", "--mfa=false"}, false},
 	{"host tunnel start dynamic safety", "tunnel.start", []string{"dev", "-L", "0.0.0.0:15432:localhost:5432"}, false},
 	{"host ssh add --proxy-command dynamic safety", "host.add", []string{"y", "--address", "10.0.0.9", "--proxy-command", "nc %h %p"}, false},
 	{"host ssh edit --proxy-command dynamic safety", "host.edit", []string{"dev", "--proxy-command", "nc %h %p"}, false},
@@ -86,7 +87,6 @@ var tierRuns = []tierRun{
 	{"floor", "download", []string{"dev", "/tmp/a", "--to", "."}, false},
 	{"floor", "storage.upload", []string{"s3", "a.txt"}, false},
 	{"floor", "storage.download", []string{"s3", "a.txt"}, false},
-	{"vpn edit --protected=false safety", "vpn.edit", []string{"wg-prot", "--protected=false"}, false},
 	// person
 	{"config approval-code person", "config.approval-code", nil, false},
 	{"config vault passphrase person", "secret.passphrase", nil, false},
@@ -159,12 +159,6 @@ var tierRuns = []tierRun{
 	{"floor", "storage.s3.object.create", []string{"s3", "dir/"}, false},
 	{"floor", "storage.s3.object.move", []string{"s3", "a.txt", "b.txt"}, false},
 	{"floor", "tunnel.start", []string{"dev", "-L", "15432:localhost:5432"}, false},
-	{"floor", "vpn.add", []string{"v2", "socks", "--proxy-address", "127.0.0.1:1082"}, false},
-	{"floor", "vpn.down", []string{"wg"}, false},
-	{"floor", "vpn.edit", []string{"wg", "--notes", "x"}, false},
-	{"floor", "vpn.rename", []string{"wg", "wg9"}, false},
-	{"floor", "vpn.rm", []string{"wg"}, false},
-	{"floor", "vpn.up", []string{"wg"}, false},
 	{"floor", "key.add", []string{"k5", "id_k5"}, false},
 	{"credential key uninstall dynamic dangerous", "key.revoke", []string{"k6", "kh"}, false},
 	{"import dynamic dangerous", "import", []string{"ssh-config", "ssh_config_rm"}, false},
@@ -263,6 +257,25 @@ func TestTierMatchesRuntime(t *testing.T) {
 	for need, why := range needed {
 		if !covered[need] && tierUnreached[need] == "" {
 			t.Errorf("%s (%s): no run and no reason in tierUnreached", need, why)
+		}
+	}
+	// every provider of a moved type has a run of each leaf shape the
+	// table pins: a kind or a leaf that was left out fails here
+	shapes := map[string][]string{
+		"vpn":   {"add", "edit", "rename", "remove", "start", "stop"},
+		"queue": {"add", "edit", "rename", "remove", "topic.create", "topic.delete", "message.create", "message.delete"},
+	}
+	hasRun := map[string]bool{}
+	for _, r := range tierRuns {
+		hasRun[r.id] = true
+	}
+	for typ, verbs := range shapes {
+		for _, p := range capability.Children(typ) {
+			for _, verb := range verbs {
+				if id := typ + "." + p + "." + verb; !hasRun[id] {
+					t.Errorf("no tier run of %s", id)
+				}
+			}
 		}
 	}
 	// the home is seeded once (hosts, conns, keys, fake servers: most of what
@@ -614,8 +627,20 @@ func tierSeed(t *testing.T) {
 		}
 		st.Conns["reg"] = &store.Conn{Name: "reg", Kind: "registry", URL: "registry://127.0.0.1:1?tls=false"}
 		st.Conns["k8s"] = &store.Conn{Name: "k8s", Kind: "k8s", URL: "k8s://127.0.0.1:1"}
-		st.Vpns["wg"] = &store.Vpn{Name: "wg", Kind: "socks", Address: "127.0.0.1:1080", MFA: true}
-		st.Vpns["wg-prot"] = &store.Vpn{Name: "wg-prot", Kind: "socks", Address: "127.0.0.1:1081", Protected: true}
+		for i, p := range capability.Children("vpn") { // one VPN of each kind, with its two twins
+			addr := "127.0.0.1:" + strconv.Itoa(2000+i)
+			// an edit of a system or openvpn VPN needs its --check, of an l2tp or ipsec VPN its pre-shared key
+			var check, psk string
+			if oneOf(p, "system", "openvpn") {
+				check = addr
+			}
+			if oneOf(p, "l2tp", "ipsec") {
+				psk = "secret:vpn-psk" // not pw: a stored secret that a VPN uses changes what the credential rows stop at
+			}
+			st.Vpns["vp-"+p] = &store.Vpn{Name: "vp-" + p, Kind: p, Address: addr, Check: check, PSKRef: psk}
+			st.Vpns["vp-"+p+"-mfa"] = &store.Vpn{Name: "vp-" + p + "-mfa", Kind: p, Address: addr, Check: check, PSKRef: psk, MFA: true}
+			st.Vpns["vp-"+p+"-prot"] = &store.Vpn{Name: "vp-" + p + "-prot", Kind: p, Address: addr, Check: check, PSKRef: psk, Protected: true}
+		}
 		return nil
 	}); err != nil {
 		t.Fatal(err)
@@ -648,6 +673,10 @@ func tierSeed(t *testing.T) {
 	}
 	_ = os.WriteFile("a.txt", []byte("a\n"), 0o600)
 	_ = os.WriteFile("dump.sql", []byte("select 1;\n"), 0o600)
+	key := func(seed string) string { return base64.StdEncoding.EncodeToString([]byte(strings.Repeat(seed, 16))) }
+	_ = os.WriteFile("wg.conf", []byte("[Interface]\nPrivateKey = "+key("a1")+"\nAddress = 10.77.0.2/32\n\n[Peer]\nPublicKey = "+key("b0")+
+		"\nEndpoint = vpn.example.com:51820\nAllowedIPs = 10.77.0.0/24\n"), 0o600)
+	_ = os.WriteFile("office.ovpn", []byte("client\ndev tun\nproto udp\nremote vpn1.example.com 1194\nremote-cert-tls server\n<ca>\nx\n</ca>\n<cert>\nx\n</cert>\n<key>\ny\n</key>\n"), 0o600)
 }
 
 // listenFakeSSH starts one more fake SSH server and gives its port.
@@ -768,4 +797,49 @@ func init() {
 		tierUnreached["floor | "+id+"message.delete"] = "today's queue purge is v2.7's message delete --all: its run is that row"
 		tierDisagree[id+"edit "+q.name+"-prot --protected=false"] = "PROTECTED_TARGET"
 	}
+}
+
+// The vpn runs: today's vpn edit with --mfa=false and --protected=false, and
+// the floors of add, edit, rename, rm, up and down, once for each kind of
+// the table (moving a type keeps the runs of each of its IDs on every new
+// path). The VPN of a run is the fixture of its kind (tierSeed): the plain
+// one, its --mfa twin or its --protected twin.
+func init() {
+	for _, p := range capability.Children("vpn") {
+		id := "vpn." + p + "."
+		tierRuns = append(tierRuns,
+			tierRun{"vpn edit --mfa=false safety", id + "edit", []string{"vp-" + p + "-mfa", "--mfa=false"}, false},
+			tierRun{"vpn edit --protected=false safety", id + "edit", []string{"vp-" + p + "-prot", "--protected=false"}, false},
+			tierRun{"floor", id + "add", append([]string{"nv-" + p}, vpnFloorArgs[p]...), false},
+			tierRun{"floor", id + "stop", []string{"vp-" + p}, false},
+			tierRun{"floor", id + "edit", []string{"vp-" + p, "--notes", "x"}, false},
+			tierRun{"floor", id + "rename", []string{"vp-" + p, "vp-" + p + "9"}, false},
+			tierRun{"floor", id + "remove", []string{"vp-" + p}, false},
+			tierRun{"floor", id + "start", []string{"vp-" + p}, false},
+		)
+	}
+	// an add that names a pre-shared key sends that secret to the server: an
+	// agent's add is for a person's yes (SECRET_DESTINATION), as `guardVpnSends` has it
+	for _, p := range []string{"l2tp", "ipsec"} {
+		tierDisagree["vpn."+p+".add nv-"+p+" "+strings.Join(vpnFloorArgs[p], " ")] = "SECRET_DESTINATION"
+	}
+}
+
+// vpnFloorArgs are the words after the name of the floor run of vpn KIND
+// add: what the kind needs to be added, with the files tierSeed writes.
+var vpnFloorArgs = map[string][]string{
+	"wireguard":     {"--config", "wg.conf"},
+	"openvpn":       {"--config", "office.ovpn", "--check", "10.8.0.1:22"},
+	"globalprotect": {"--portal", "vpn.client.com"},
+	"fortinet":      {"--portal", "vpn.client.com"},
+	"anyconnect":    {"--portal", "vpn.client.com"},
+	"pulse":         {"--portal", "vpn.client.com"},
+	"f5":            {"--portal", "vpn.client.com"},
+	"l2tp":          {"--server", "vpn.example.com", "--user", "alice", "--psk-credential", "office-psk"},
+	"ipsec":         {"--server", "asa.client.com", "--psk-credential", "office-psk"},
+	"ikev2":         {"--server", "vpn.example.com", "--user", "alice"},
+	"tailscale":     {},
+	"system":        {"--check", "10.20.0.1:443"},
+	"socks":         {"--proxy-address", "127.0.0.1:1082"},
+	"proxy":         {"--proxy-address", "proxy.corp.example:3128"},
 }

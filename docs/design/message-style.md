@@ -77,7 +77,7 @@ capital: a label from this closed set, then a fragment, or a sentence.
 | `Using` | the one item komando picked for a missing argument |
 
 `komando:` starts a line only where a server's output shares the screen:
-status lines of shell, logs -f, cluster kubernetes exec/forward, vpn up and sign-in,
+status lines of shell, logs -f, cluster kubernetes exec/forward, vpn KIND start and sign-in,
 tunnels. Lines under a question are indented: `  ! problem`, `  komando …`.
 [test: every literal written to os.Stderr or promptW starts with a label,
 a capital, `komando:`, two spaces, `$ komando` or a newline]

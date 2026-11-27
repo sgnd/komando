@@ -91,7 +91,7 @@ func TestLoginAskRouteSettingsAndSecrets(t *testing.T) {
 	mustRun(t, "secret", "set", "connca", "--from-env", "CAPEM")
 	mustRun(t, "conn", "add", "pg1", "postgres://app@db.internal:5432/app?ca=secret:connca", "--login", "ask")
 	mustRun(t, "secret", "set", "tskey", "--from-env", "CAPEM")
-	mustRun(t, "vpn", "add", "ts", "tailscale", "--password-ref", "secret:tskey")
+	mustRun(t, "vpn", "tailscale", "add", "ts", "--credential", "tskey")
 	mustRun(t, "host", "add", "web1", "u@100.64.0.5", "--login", "ask", "--via", "ts")
 	setCallerEnv(t, "CLAUDECODE", "1")
 	for _, a := range []string{"winrm://Administrator@10.0.0.9?ca=secret:evilca", "winrm://Administrator@10.0.0.9?auth=basic"} {
@@ -128,7 +128,7 @@ func TestLoginAskViaAtRunTime(t *testing.T) {
 	mustRun(t, "host", "add", "plain", "u@10.0.0.6")
 	t.Setenv("K", "x")
 	mustRun(t, "secret", "set", "tskey", "--from-env", "K")
-	mustRun(t, "vpn", "add", "ts", "tailscale", "--password-ref", "secret:tskey")
+	mustRun(t, "vpn", "tailscale", "add", "ts", "--credential", "tskey")
 	setCallerEnv(t, "CLAUDECODE", "1")
 	for _, args := range [][]string{
 		{"cert", "check", "https://intranet.local", "--via", "ts,web1"},
@@ -153,11 +153,11 @@ func TestLoginAskVpnOverwriteWay(t *testing.T) {
 	invHome(t)
 	t.Setenv("K", "x")
 	mustRun(t, "secret", "set", "tskey", "--from-env", "K")
-	mustRun(t, "vpn", "add", "ts", "tailscale", "--password-ref", "secret:tskey")
+	mustRun(t, "vpn", "tailscale", "add", "ts", "--credential", "tskey")
 	mustRun(t, "host", "add", "web1", "u@100.64.0.5", "--login", "ask", "--via", "ts")
 	setCallerEnv(t, "CLAUDECODE", "1")
-	wantCode(t, "NEEDS_PERSON", "vpn", "add", "ts", "tailscale", "--password-ref", "secret:tskey", "--overwrite")
-	mustRun(t, "vpn", "edit", "ts", "-g", "lab")
+	wantCode(t, "NEEDS_PERSON", "vpn", "tailscale", "add", "ts", "--credential", "tskey", "--overwrite")
+	mustRun(t, "vpn", "tailscale", "edit", "ts", "--add-group", "lab")
 }
 
 // The user in a login-ask conn's URL is the account the typed password is

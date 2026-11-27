@@ -74,7 +74,7 @@ appear in komando's list, output or history.
   `?insecure=1`.
 - With `--overwrite`, the result lists what it replaced. Without a yes, a
   protected server, conn or VPN is skipped, in the dry run too.
-- A file cannot turn on what `host edit` and `vpn edit` ask a person for:
+- A file cannot turn on what `host edit` and `vpn KIND edit` ask a person for:
   `forward_agent` on a server that did not lend your ssh-agent before,
   `legacy_crypto` or `allow_pap` on a VPN, and, for a VPN it replaces, a CA
   it no longer checks the server against or `mfa` or protection turned

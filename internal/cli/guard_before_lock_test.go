@@ -174,9 +174,9 @@ func TestGroupRmMembershipChangedAsksAgain(t *testing.T) {
 // vpn rm of a protected VPN asks before the lock; a no changes nothing.
 func TestVpnRmAsksBeforeLock(t *testing.T) {
 	invHome(t)
-	mustRun(t, "vpn", "add", "lab", "socks", "--proxy-address", "127.0.0.1:1080", "--protected")
+	mustRun(t, "vpn", "socks", "add", "lab", "--proxy-address", "127.0.0.1:1080", "--protected")
 	texts := windowText(t, false)
-	if _, e := invRun(t, "vpn", "rm", "lab", "--yes"); e == nil {
+	if _, e := invRun(t, "vpn", "socks", "remove", "lab", "--yes"); e == nil {
 		t.Fatal("the person said no, but the VPN was removed")
 	}
 	if len(*texts) != 1 {
@@ -192,8 +192,8 @@ func TestVpnRmAsksBeforeLock(t *testing.T) {
 // question: the step asks again, naming it.
 func TestVpnRmChangedAsksAgain(t *testing.T) {
 	invHome(t)
-	mustRun(t, "vpn", "add", "lab", "socks", "--proxy-address", "127.0.0.1:1080", "--protected")
-	mustRun(t, "vpn", "add", "lab2", "socks", "--proxy-address", "127.0.0.1:1081")
+	mustRun(t, "vpn", "socks", "add", "lab", "--proxy-address", "127.0.0.1:1080", "--protected")
+	mustRun(t, "vpn", "socks", "add", "lab2", "--proxy-address", "127.0.0.1:1081")
 	texts := windowText(t, true)
 	asked := inStepAsks(t)
 	savedBefore := beforeLock
@@ -207,7 +207,7 @@ func TestVpnRmChangedAsksAgain(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	mustRun(t, "vpn", "rm", "lab", "lab2", "--yes")
+	mustRun(t, "vpn", "socks", "remove", "lab", "lab2", "--yes")
 	if len(*texts) != 2 || strings.Contains((*texts)[0], "lab2") || !strings.Contains((*texts)[1], "lab2") {
 		t.Errorf("windows %q: want one for lab, then one that names lab2", *texts)
 	}

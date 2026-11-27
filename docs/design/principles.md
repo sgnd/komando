@@ -282,7 +282,7 @@ komando export [--to FILE]
   runs at once; a change asks `Run it? [y/N, d = --dry-run first]`. The
   questions never add `--yes`, `--allow-dangerous`, `--reveal` or
   `--write`. A command typed in full runs as it always did.
-- `host add`, `conn add`, `vpn add` and each area's add, typed alone, ask
+- `host add`, `conn add`, `vpn KIND add` and each area's add, typed alone, ask
   that kind's own questions, never a password (that is asked hidden).
 - After a command a person ran ends well: `Next time: <line>` when komando
   asked for something, and up to three `Next:` lines. `show` ends with

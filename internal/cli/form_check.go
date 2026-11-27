@@ -12,7 +12,7 @@ import (
 
 // formRunAll runs the commands here, each shown first, until one fails:
 // its exit code and, when the one that failed is the check after an add
-// (test, login, vpn up, cluster status), the last line it printed.
+// (test, login, vpn KIND start, cluster status), the last line it printed.
 func formRunAll(cl *call, self string, cmds [][]string) (int, string, error) {
 	for i, c := range cmds {
 		fmt.Fprintf(cl.out.Err, "$ komando %s\n", pickCommandLine(c))
@@ -54,18 +54,21 @@ func formIsCheck(c []string) bool {
 	switch {
 	case len(c) >= 1 && (c[0] == "test" || c[0] == "login"):
 		return true
-	case len(c) >= 2 && (c[0] == "vpn" && c[1] == "up" || c[0] == "cluster" && c[1] == "status"):
+	case len(c) >= 3 && c[0] == "vpn" && c[2] == "start", len(c) >= 2 && c[0] == "cluster" && c[1] == "status":
 		return true
 	}
 	return false
 }
 
 // formRemoveCmd takes out again what the add in cmds added (host rm, conn
-// rm, vpn rm), or nil when it is not one add of one name.
+// rm, vpn KIND remove), or nil when it is not one add of one name.
 func formRemoveCmd(cmds [][]string) []string {
 	for _, c := range cmds {
-		if len(c) >= 3 && c[1] == "add" && (c[0] == "host" || c[0] == "conn" || c[0] == "vpn") {
+		switch {
+		case len(c) >= 3 && c[1] == "add" && (c[0] == "host" || c[0] == "conn"):
 			return []string{c[0], "rm", c[2]}
+		case len(c) >= 4 && c[0] == "vpn" && c[2] == "add":
+			return []string{"vpn", c[1], "remove", c[3]}
 		}
 	}
 	return nil

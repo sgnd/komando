@@ -141,10 +141,10 @@ func weakVpn(v *store.Vpn) string {
 		why = append(why, "Cisco-style IPsec with a group name logs in with IKEv1 aggressive mode: anyone who sees the login can guess the group's pre-shared key offline, and with it pretend to be the server and collect your password; use IKEv2 (kind ikev2) if the server offers it")
 	}
 	if v.LegacyCrypto {
-		why = append(why, "legacy crypto is allowed (3DES, DH groups 2 and 5, which a well-funded attacker can break); once the server offers AES and DH group 14: komando vpn edit "+v.Name+" --legacy-crypto=false")
+		why = append(why, "legacy crypto is allowed (3DES, DH groups 2 and 5, which a well-funded attacker can break); once the server offers AES and DH group 14: komando vpn "+v.Kind+" edit "+v.Name+" --legacy-crypto=false")
 	}
 	if v.AllowPAP {
-		why = append(why, "weak PPP logins are allowed (PAP hands the server your password itself; CHAP-MD5 or no login do not prove it is the server); once it offers MS-CHAPv2: komando vpn edit "+v.Name+" --allow-pap=false")
+		why = append(why, "weak PPP logins are allowed (PAP hands the server your password itself; CHAP-MD5 or no login do not prove it is the server); once it offers MS-CHAPv2: komando vpn "+v.Kind+" edit "+v.Name+" --allow-pap=false")
 	}
 	return strings.Join(why, "; ")
 }

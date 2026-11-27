@@ -14,7 +14,7 @@ func TestKindListPicksNothing(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
 	mustRun(t, "conn", "add", "appdb", "postgres://u@127.0.0.1:5/db")
-	for _, args := range [][]string{{"host", "list", "appdb"}, {"conn", "list", "web1"}, {"vpn", "list", "web1"}} {
+	for _, args := range [][]string{{"host", "list", "appdb"}, {"conn", "list", "web1"}, {"vpn", "wireguard", "list", "web1"}} {
 		if e := wantCode(t, "NO_MATCHING_TARGETS", args...); e.Exit != 3 {
 			t.Errorf("%v: exit %d", args, e.Exit)
 		}
@@ -71,7 +71,7 @@ func TestChangeSay(t *testing.T) {
 func TestKindListSaysWhatItPicked(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
-	if e := wantCode(t, "NO_MATCHING_TARGETS", "vpn", "list", "web1"); e.Message != `target "web1" picked no VPNs, only: web1 (server)` {
+	if e := wantCode(t, "NO_MATCHING_TARGETS", "vpn", "wireguard", "list", "web1"); e.Message != `target "web1" picked no VPNs, only: web1 (server)` {
 		t.Errorf("vpn list: %q", e.Message)
 	}
 	if e := wantCode(t, "NO_MATCHING_TARGETS", "conn", "test", "web1"); e.Message != `target "web1" picked no conns, only: web1 (server)` {

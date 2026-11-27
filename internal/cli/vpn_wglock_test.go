@@ -90,7 +90,7 @@ func TestWGKeyOtherHomeRefused(t *testing.T) {
 	if !strings.Contains(e.Message, "/elsewhere/.komando") || !strings.Contains(e.Message, "corp") {
 		t.Fatalf("message does not name the other session: %s", e.Message)
 	}
-	if !strings.Contains(e.Hint, "KOMANDO_HOME=/elsewhere/.komando komando vpn down corp") {
+	if !strings.Contains(e.Hint, "KOMANDO_HOME=/elsewhere/.komando komando vpn wireguard stop corp") {
 		t.Fatalf("hint: %s", e.Hint)
 	}
 }
@@ -353,10 +353,10 @@ func TestVpnDownSharedSession(t *testing.T) {
 		}
 		return buf.String()
 	}
-	if o := run("vpn", "down", "office-2", "--dry-run"); !strings.Contains(o, "office-2: the session stays up for office (the same WireGuard key)") {
+	if o := run("vpn", "wireguard", "stop", "office-2", "--dry-run"); !strings.Contains(o, "office-2: the session stays up for office (the same WireGuard key)") {
 		t.Fatalf("dry run: %s", o)
 	}
-	if o := run("vpn", "down", "office-2"); !strings.Contains(o, "office-2: the session stays up for office (the same WireGuard key)") {
+	if o := run("vpn", "wireguard", "stop", "office-2"); !strings.Contains(o, "office-2: the session stays up for office (the same WireGuard key)") {
 		t.Fatalf("down: %s", o)
 	}
 	st, _ := store.Load()
@@ -367,7 +367,7 @@ func TestVpnDownSharedSession(t *testing.T) {
 	if n := keptNotes(st, []string{"office", "office-2"}); len(n) != 2 || !strings.Contains(n[0], "stops the session") {
 		t.Fatalf("both down: %v", n)
 	}
-	run("vpn", "down", "office")
+	run("vpn", "wireguard", "stop", "office")
 	if !waitFor(5*time.Second, func() bool { return !netx.Alive(pid) || proc.ProcessState != nil || netx.ProcessStart(pid) != start }) {
 		_ = proc.Wait()
 	}
@@ -424,7 +424,7 @@ func TestVpnStatusHandshake(t *testing.T) {
 	}
 	st, _ := store.Load()
 	var row vpnStatusRow
-	for _, r := range vpnStatusRows(st) {
+	for _, r := range vpnStatusRows(st, st.SortedVpns()) {
 		if r.Name == "office" {
 			row = r
 		}

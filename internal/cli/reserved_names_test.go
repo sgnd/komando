@@ -18,7 +18,7 @@ func TestReservedCloudNames(t *testing.T) {
 		{"host", "add", "aws", "u@127.0.0.1:1"},
 		{"conn", "add", "gcp", "redis://127.0.0.1:1/0"},
 		{"conn", "add", "Azure", "redis://127.0.0.1:1/0"},
-		{"vpn", "add", "AWS", "socks", "--proxy-address", "127.0.0.1:1080"},
+		{"vpn", "socks", "add", "AWS", "--proxy-address", "127.0.0.1:1080"},
 	} {
 		e := wantCode(t, "USAGE", args...)
 		if !strings.Contains(e.Message, "cloud login") || !strings.Contains(e.Hint, "-1") {

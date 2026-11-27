@@ -23,7 +23,13 @@ import (
 // which have questions of their own.
 func formAddCmd(cmd *cobra.Command) bool {
 	k := commandKey(cmd)
-	return k == "host add" || k == "conn add" || k == "vpn add" || formFamilyAdd[k] != ""
+	return k == "host add" || k == "conn add" || isVpnAdd(k) || formFamilyAdd[k] != ""
+}
+
+// isVpnAdd: the key of vpn KIND add.
+func isVpnAdd(key string) bool {
+	w := strings.Fields(key)
+	return len(w) == 3 && w[0] == "vpn" && w[2] == "add"
 }
 
 // formAddGroups are the add forms an add command offers.
@@ -32,6 +38,9 @@ func formAddGroups(cmd *cobra.Command) []formGroup {
 	k := commandKey(cmd)
 	if g := formFamilyAdd[k]; g != "" {
 		return formGroupNamed(cl, g)
+	}
+	if h, ok := vpnHint(k); ok && h.form != nil {
+		return h.form(cl)
 	}
 	return formGroupsFor(cl, strings.Fields(k)[0])
 }

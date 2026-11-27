@@ -246,7 +246,7 @@ func usageErr(cl *call, cmd *cobra.Command, err error) error {
 	} else if ok {
 		if name == "add" && !cmd.HasParent() {
 			e.Message = fmt.Sprintf("unknown command %q", name)
-			e.Hint = "add a server with `komando host add`, a database with `komando db add` or a VPN with `komando vpn add`; typed alone at a terminal, each one asks step by step"
+			e.Hint = "add a server with `komando host add`, a database with `komando db add` or a VPN with `komando vpn KIND add`; typed alone at a terminal, each one asks step by step"
 			return e
 		}
 		var rest []string
