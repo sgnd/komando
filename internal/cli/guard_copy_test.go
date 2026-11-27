@@ -204,6 +204,41 @@ func TestGuardFolderRuleChecksEachWordOnce(t *testing.T) {
 	}
 }
 
+// The agent's own settings folders are the home folder's and those of the
+// project in use (the working folder the agent runs in, and the folders
+// above it): removing, moving or changing a folder that holds one is
+// refused. Another clone or worktree that holds its own is ordinary work.
+func TestGuardFolderRuleGuardsTheProjectInUse(t *testing.T) {
+	home, repo := guardLineHome(t)
+	agentRepo(t, repo)
+	other := filepath.Join(home, "src", "other")
+	agentRepo(t, other)
+	wt := filepath.Join(repo, ".claude", "worktrees", "wt-x")
+	agentRepo(t, wt)
+	checkLines(t, home, repo, []string{
+		`rm -rf ../other`,
+		`mv ../other /tmp/o`,
+		`chmod -R u+w ../other`,
+		`rm -rf ` + wt,
+		`git -C ../other pull`,
+		`rm -rf ./build`,
+		`mv build /tmp/out`,
+		`chmod -R u+w build`,
+	}, false)
+	checkRefusedBy(t, home, repo, []string{
+		`rm -rf .`,
+		`rm -rf ..`,
+		`cd /tmp && rm -rf ` + repo,
+		`chmod -R u+w .`,
+		`mv ` + repo + ` /tmp/r`,
+	}, treeRefusal)
+	checkRefusedBy(t, home, wt, []string{
+		`rm -rf ` + repo,
+		`rm -rf .`,
+	}, treeRefusal)
+	checkLines(t, home, wt, []string{`rm -rf ` + other}, false)
+}
+
 // Copies and links in project and temporary folders stay allowed.
 func TestGuardOrdinaryCopiesStayAllowed(t *testing.T) {
 	home, repo := guardLineHome(t)
@@ -311,11 +346,11 @@ func TestGuardGitWritesTheWorktreeIsChecked(t *testing.T) {
 		`x=$(cat /tmp/n); git -C /tmp/r bundle create "$x" HEAD`,
 	)
 	checkLines(t, home, repo, lines, true)
-	// from a folder that holds no guard file, only the -C folder can refuse
-	checkLines(t, home, t.TempDir(), []string{
-		`git -C ~ checkout -- .`,
-		`git -C ` + repo + ` pull`,
-	}, true)
+	// from a folder that holds no guard file, only the -C folder can refuse;
+	// a clone that is not the project in use holds no agent's own folder
+	plain := t.TempDir()
+	checkLines(t, home, plain, []string{`git -C ~ checkout -- .`}, true)
+	checkLines(t, home, plain, []string{`git -C ` + repo + ` pull`}, false)
 }
 
 // A worktree Claude Code keeps in REPO/.claude/worktrees/NAME is a project

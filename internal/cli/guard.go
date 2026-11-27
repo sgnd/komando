@@ -556,7 +556,7 @@ func checkTreeChange(cl *call, bases, args []string, globs []bool, vars lineVars
 				}
 				checked[line[i]] = true
 				for _, p := range treeTargets(cl, words[i], line[i].glob, home, cwd) {
-					if filepath.IsAbs(p) && touchesProtected(cl, p, home) {
+					if filepath.IsAbs(p) && touchesProtected(cl, p, home, vars) {
 						return deny("%s %s %s and everything under it, which is or holds komando's data, private keys or guard files; name the files inside instead", base, treeVerb(base), p)
 					}
 				}

@@ -304,9 +304,14 @@ var (
 // checkShell looks at each simple command of a shell line, keeping track of
 // `cd` so relative paths are read from the right folder. Arguments of
 // komando itself pass: komando checks the local files it reads itself
-// (readLocalFile), and the rest are paths on servers, which it masks.
+// (readLocalFile), and the rest are paths on servers, which it masks. cwd,
+// before any cd of the line, is the project in use.
 func checkShell(cl *call, line, home, cwd string) guardDecision {
-	return checkShellDepth(cl, line, home, cwd, 0)
+	vars := lineVars{}
+	if dirs := agentFoldersInUse(cwd); dirs != nil {
+		vars[inUseVar] = dirs
+	}
+	return checkShellIn(cl, line, home, cwd, 0, vars)
 }
 
 // guardDepth is how many shells, evals and command outputs inside each
@@ -317,12 +322,9 @@ func tooDeep() guardDecision {
 	return deny("the line nests shells, evals or command outputs more than %d deep, deeper than komando's guard reads; run the inner command on its own", guardDepth)
 }
 
-func checkShellDepth(cl *call, line, home, cwd string, depth int) guardDecision {
-	return checkShellIn(cl, line, home, cwd, depth, nil)
-}
-
-// checkShellIn is checkShellDepth for a line run where outer's variables
-// are set: a shell's -c script, or eval's.
+// checkShellIn is checkShell for a line run depth shells, evals or command
+// outputs deep, where outer's variables are set: a shell's -c script, or
+// eval's.
 func checkShellIn(cl *call, line, home, cwd string, depth int, outer lineVars) guardDecision {
 	line = decodeDollarQuotes(joinContinuedLines(stripQuotedHeredocs(line)))
 	if d := checkWholeLine(line); d.Deny {

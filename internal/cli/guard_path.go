@@ -158,14 +158,23 @@ func cdTarget(cl *call, args []string, vars lineVars, home, cwd string) string {
 // a name reference), and a command name may be an alias, so the program of
 // a command is not known. aliasFrom holds where the line made an alias:
 // the shell reads a line whole before it runs it, so the alias counts from
-// the next line on.
+// the next line on. inUseVar holds the agent settings folders of the
+// project in use (agentFoldersInUse), when the guard knows them.
 type lineVars map[string][]string
+
+// agentFolders are the agent settings folders of the project in use, and
+// whether the guard knows them.
+func (v lineVars) agentFolders() ([]string, bool) {
+	dirs := v[inUseVar]
+	return dirs, dirs != nil
+}
 
 const (
 	redefinedVar = "\x00redefined"
 	anyVar       = "\x00any"
 	aliasVar     = "\x00alias"
 	aliasFrom    = "\x00alias-from"
+	inUseVar     = "\x00in-use"
 )
 
 // aliasAt notes that the command of a line that ends at end can make a
@@ -550,7 +559,7 @@ func surelyRuns(line string, start, end int) bool {
 // none from here on.
 func (v lineVars) forget() {
 	for k := range v {
-		if k != redefinedVar && k != aliasVar && k != aliasFrom {
+		if k != redefinedVar && k != aliasVar && k != aliasFrom && k != inUseVar {
 			v[k] = nil
 		}
 	}

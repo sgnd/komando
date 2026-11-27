@@ -722,7 +722,7 @@ func findStarts(cl *call, starts []string, globs []bool, vars lineVars, home, cw
 			if !filepath.IsAbs(p) {
 				return "", false // the working folder is not known
 			}
-			if touchesProtected(cl, p, home) {
+			if touchesProtected(cl, p, home, vars) {
 				return "", false
 			}
 			if first == "" {

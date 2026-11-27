@@ -300,7 +300,7 @@ func checkCopyInto(cl *call, base string, args []string, globs []bool, vars line
 				if why := secretWord(cl, t, home, cwd, oglobs[k] && !whole); why != "" {
 					return deny("%s writes %s, which is %s. komando keeps it away from AI agents; ask the user if you need something from it%s", base, t, why, viaKomando(why))
 				}
-				if (recursive || whole) && touchesProtected(cl, t, home) || guardSelfWhy(t) != "" {
+				if (recursive || whole) && touchesProtected(cl, t, home, vars) || guardSelfWhy(t) != "" {
 					return deny("%s writes into %s, which is or holds komando's data, private keys or guard files; copy into a project folder instead", base, t)
 				}
 			}
@@ -331,7 +331,7 @@ func checkLinkTargets(cl *call, ops, dvals []string, vars lineVars, home, cwd st
 		vals, _ := vars.expand(cl, s, home, cwd)
 		for _, v := range vals {
 			for _, f := range from {
-				if p := guardPathAt(cl, v, home, f); filepath.IsAbs(p) && touchesProtected(cl, p, home) {
+				if p := guardPathAt(cl, v, home, f); filepath.IsAbs(p) && touchesProtected(cl, p, home, vars) {
 					return deny("%s is or holds komando's data, private keys or guard files; a link to it would let a later write reach them. Link a project folder instead", s)
 				}
 			}
@@ -358,11 +358,12 @@ func checkCopyIntoUnknown(cl *call, base string, ops []string, oglobs []bool, re
 }
 
 // touchesProtected says whether the path p is or holds a folder secretPath
-// guards, a file it guards, an AI agent's settings folder or a komando
-// program the guard hook runs, seen as named and through its links.
-func touchesProtected(cl *call, p, home string) bool {
+// guards, a file it guards, an AI agent's own settings folder (vars knows
+// the project in use) or a komando program the guard hook runs, seen as
+// named and through its links.
+func touchesProtected(cl *call, p, home string, vars lineVars) bool {
 	for _, q := range []string{filepath.Clean(p), realPath(p)} {
-		if secretPath(cl, q, home) != "" || holdsProtected(cl, q, home) || holdsGuardFiles(q, home) || guardSelfWhy(q) != "" {
+		if secretPath(cl, q, home) != "" || holdsProtected(cl, q, home) || holdsGuardFiles(q, home, vars) || guardSelfWhy(q) != "" {
 			return true
 		}
 		for _, d := range protectedDirs(cl, home) {
@@ -376,11 +377,14 @@ func touchesProtected(cl *call, p, home string) bool {
 
 // holdsGuardFiles says whether the folder p is an AI agent's settings
 // folder or the worktrees folder in it (Claude Code's .claude/worktrees,
-// whose worktrees hold their own), holds one (the home folder's, or one
-// right in p), or holds a komando program the guard hook runs. A folder
+// whose worktrees hold their own), holds the agent's own (the home
+// folder's, or one of the project in use: agentFoldersInUse), or holds a
+// komando program the guard hook runs. Another clone or worktree that
+// holds its own is a project like any other; where the project in use is
+// not known, every folder that holds one right in it counts. A folder
 // deeper in a project's agent folder (.claude/skills/x, a worktree's
 // files) holds none of its hook settings.
-func holdsGuardFiles(p, home string) bool {
+func holdsGuardFiles(p, home string, vars lineVars) bool {
 	fold := func(s string) string {
 		if caseFoldFS {
 			return foldCase(s)
@@ -397,11 +401,17 @@ func holdsGuardFiles(p, home string) bool {
 			return true
 		}
 	}
+	inUse, known := vars.agentFolders()
 	for dir := range hookSettingFiles {
 		if pathIn(fold(filepath.Join(home, dir)), fold(p)) {
 			return true
 		}
-		if _, err := os.Lstat(filepath.Join(p, dir)); err == nil {
+		if _, err := os.Lstat(filepath.Join(p, dir)); err == nil && !known {
+			return true
+		}
+	}
+	for _, d := range inUse {
+		if pathIn(fold(d), fold(p)) {
 			return true
 		}
 	}
@@ -411,6 +421,26 @@ func holdsGuardFiles(p, home string) bool {
 		}
 	}
 	return false
+}
+
+// agentFoldersInUse are the agent settings folders of the project an agent
+// works in: those in its working folder cwd and in each folder above it,
+// as named and as their links lead; nil when cwd is not known.
+func agentFoldersInUse(cwd string) []string {
+	if !filepath.IsAbs(cwd) {
+		return nil
+	}
+	dirs := []string{}
+	for d := filepath.Clean(cwd); ; d = filepath.Dir(d) {
+		for name := range hookSettingFiles {
+			if _, err := os.Lstat(filepath.Join(d, name)); err == nil {
+				dirs = withReal(dirs, filepath.Join(d, name))
+			}
+		}
+		if d == filepath.Dir(d) {
+			return dirs
+		}
+	}
 }
 
 // checkPartWriters checks the programs that write only some of their
@@ -455,7 +485,7 @@ func checkPartWriters(cl *call, base string, args []string, globs []bool, vars l
 				if !known || glob || !filepath.IsAbs(p) {
 					return deny("%s writes names it reads from elsewhere into %s, a folder komando's guard cannot know before the line runs; name the folder on the line", base, shown)
 				}
-				if touchesProtected(cl, p, home) {
+				if touchesProtected(cl, p, home, vars) {
 					return deny("%s writes names it reads from elsewhere into %s, which is or holds komando's data, private keys or guard files; use a project folder instead", base, p)
 				}
 			}
