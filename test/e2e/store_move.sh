@@ -41,6 +41,9 @@ print(c.execute("SELECT v FROM meta WHERE k = ?", ("format",)).fetchone()[0])' "
 sum() { python3 -I -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$DB"; }
 backups() { find "$H/.komando" -maxdepth 1 -name 'store-v0-17-backup-*' | wc -l | tr -d ' '; }
 
+# flat: the screen as one line; the terminal wraps long lines anywhere
+flat() { tr -s '\r\n\t ' ' '; }
+
 fail=0
 pass() { echo "ok   $1"; }
 bad() { echo "FAIL $1"; fail=1; }
@@ -58,11 +61,11 @@ SUM=$(sum)
 still2() {
   local label=$1 input=$2 want=$3 shown
   shift 3
-  shown=$(ptyrun "$input" "${ENV[@]}" "$NEW" "$@" || true)
+  shown=$(ptyrun "$input" "${ENV[@]}" "$NEW" "$@" | flat || true)
   if [ "$(format)" != 2 ] || [ "$(sum)" != "$SUM" ] || [ "$(backups)" != 0 ]; then
-    bad "$label: format $(format), $(backups) backup(s), store.db changed: $(printf %s "$shown" | tail -5)"
+    bad "$label: format $(format), $(backups) backup(s), store.db changed: $(printf %s "$shown" | tail -c 400)"
   elif [ "$want" != - ] && ! printf %s "$shown" | grep -qF -- "$want"; then
-    bad "$label: the screen lacks '$want': $(printf %s "$shown" | tail -5)"
+    bad "$label: the screen lacks '$want': $(printf %s "$shown" | tail -c 400)"
   else
     pass "$label"
   fi
@@ -83,11 +86,11 @@ still2 "another command" 'n\n' "komando doctor" list
 still2 "doctor answered n" 'n\n' "nothing was changed" doctor
 still2 "doctor answered with Enter" '\n' "nothing was changed" doctor
 
-shown=$(ptyrun 'y\n' "${ENV[@]}" "$NEW" doctor || true)
+shown=$(ptyrun 'y\n' "${ENV[@]}" "$NEW" doctor | flat || true)
 if [ "$(format)" = 3 ] && [ "$(backups)" = 1 ] && printf %s "$shown" | grep -qF "[y/N]" && printf %s "$shown" | grep -qF -- "--accept-old-copy"; then
   pass "doctor answered y: the plan, then format 3 and one backup"
 else
-  bad "doctor answered y: format $(format), $(backups) backup(s): $(printf %s "$shown" | tail -8)"
+  bad "doctor answered y: format $(format), $(backups) backup(s): $(printf %s "$shown" | tail -c 600)"
 fi
 ptyrun 'y\n' "${ENV[@]}" "$NEW" doctor >/dev/null || true
 if [ "$(format)" = 3 ] && [ "$(backups)" = 1 ]; then pass "doctor again: no second move"; else bad "doctor again: $(backups) backup(s)"; fi

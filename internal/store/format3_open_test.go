@@ -175,6 +175,30 @@ func TestFormat2AsksThePerson(t *testing.T) {
 	}
 }
 
+// A store the plan cannot move asks the person nothing (re-audit of E1):
+// the plan's stop, with its fix, comes before the question.
+func TestFormat2PlanStopAsksNothing(t *testing.T) {
+	format2Store(t)
+	format2Edit(t, func(s *State) {
+		s.Hosts["lost"] = &Host{Name: "lost", Address: "10.0.1.1", PasswordRef: "secret:nobody"}
+	})
+	Close()
+	before := fileSum(t)
+	asked := 0
+	callerIs(t, MigrateCall{Way: MigrateTerminal, Alive: func(int, string) bool { return false },
+		Ask: func(string) bool { asked++; return true }})
+	_, err := Load()
+	if code, _ := codeOf(err); code != "STORE_MIGRATION_FAILED" {
+		t.Fatalf("want STORE_MIGRATION_FAILED, got %v", err)
+	}
+	if asked != 0 {
+		t.Errorf("asked %d times before a plan that stops", asked)
+	}
+	if fileSum(t) != before {
+		t.Error("the stop changed the store")
+	}
+}
+
 // backupIn is the name of the migration's backup among es, or "-" (in no plan).
 func backupIn(es []os.DirEntry) string {
 	for _, e := range es {

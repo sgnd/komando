@@ -336,7 +336,18 @@ func migrateGate(ctx context.Context, o migrate3Opts) (*shownWindow, error) {
 		return nil, migrationFailed("no name for the backup (%v)", err)
 	}
 	w := &shownWindow{at: at, backup: backup}
-	if err := d.View(ctx, func(tx *sealdb.Tx) error { w.counts, err = countTypes(tx); return err }); err != nil {
+	var snap *snapshot2
+	if err := d.View(ctx, func(tx *sealdb.Tx) error {
+		if w.counts, err = countTypes(tx); err != nil {
+			return err
+		}
+		snap, err = readFormat2(tx)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	// a store the plan cannot move asks nothing: the plan's stop comes first
+	if _, err := planFormat3(snap, o.refGuard); err != nil {
 		return nil, err
 	}
 	if !o.ask(w.plan()) {

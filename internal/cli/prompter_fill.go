@@ -73,7 +73,7 @@ func promptFill(cl *call, args []string) ([]string, error) {
 	cl.noMove.Store(false)
 	if err != nil {
 		if toErr(err).Code == "NEEDS_PERSON" && len(newFill(&store.State{}, cmd).missing) > 0 {
-			fmt.Fprintln(promptW(cl), "komando: nothing is asked: the store is still to move to format 3; run `komando doctor` first")
+			fmt.Fprintln(promptW(cl), "komando: nothing is asked: the store is still to move to format 3\nrun `komando doctor` first")
 		}
 		return args, nil
 	}

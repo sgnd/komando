@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/sgnd/komando/internal/netx"
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
 )
@@ -44,7 +45,7 @@ func migrateCallFor(cl *call) store.MigrateCall {
 		c.Way = store.MigrateTerminal
 		c.Ask = func(plan string) bool {
 			return answerMove(cl, func() bool {
-				fmt.Fprintln(cl.out.Err, plan)
+				fmt.Fprintln(cl.out.Err, out.Wrap(plan, 0, 80))
 				return confirmYes(cl, "Move the store to format 3 now?")
 			})
 		}
