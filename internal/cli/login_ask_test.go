@@ -76,7 +76,15 @@ func passwordSSHD(t *testing.T, password string) (port string, tries *atomic.Int
 							if r.Type != "exec" {
 								continue
 							}
-							_, _ = ch.Write([]byte("logged in with " + sc.Permissions.Extensions["pw"] + "\n"))
+							// exec on one Unix server starts a session first (D2): answer it,
+							// and the run's log still says which password logged in
+							var p struct{ Cmd string }
+							_ = ssh.Unmarshal(r.Payload, &p)
+							said := "logged in with " + sc.Permissions.Extensions["pw"] + "\n"
+							if o, _, ok := sessionAnswer(p.Cmd, said, true, 0); ok {
+								said = o
+							}
+							_, _ = ch.Write([]byte(said))
 							_, _ = ch.SendRequest("exit-status", false, ssh.Marshal(struct{ S uint32 }{0}))
 							_ = ch.Close()
 						}
@@ -555,6 +563,7 @@ func TestLoginAskPinAloneNeedsPerson(t *testing.T) {
 	noAgent(t)
 	var asked []string
 	tcl.io.AskPassword = func(text string) (string, bool, bool) { asked = append(asked, text); return pw, true, true }
+	t.Cleanup(func() { tcl.io.AskPassword = nil }) // a t.Fatal below must not leave the app's window to later tests
 	if _, err := runCache(t, "-o", "json", "host", "ssh", "exec", "web1", "--read-only", "--", "uptime"); err != nil {
 		t.Fatal(err)
 	}

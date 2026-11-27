@@ -51,8 +51,7 @@ func TestPinnedKeyInOutput(t *testing.T) {
 // A key pinned on first connect through a leaf that runs a body keeps its
 // own record name: host ssh exec does not rename it.
 func TestPinnedKeyThroughExecKeepsItsName(t *testing.T) {
-	srv := startFakeServer(t)
-	srv.reply("up 1 day")
+	startSessionServer(t, "up 1 day\n", true) // exec on one Unix server starts a session (D2)
 	if _, e := invRun(t, "--host-key-policy", "accept-new", "host", "ssh", "exec", "dev", "--read-only", "--", "uptime"); e != nil {
 		t.Fatal(e)
 	}
