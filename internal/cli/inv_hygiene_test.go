@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -43,8 +44,21 @@ func TestDoctorConnHygiene(t *testing.T) {
 			t.Errorf("%s warned: %s", name, got[name])
 		}
 	}
-	if !strings.Contains(got["conn:dev-minio"], "`komando secret cp prd-minio NEW` and `komando conn edit dev-minio --password-ref credential:NEW`") {
-		t.Errorf("dev-minio hint: %s", got["conn:dev-minio"])
+	// the way out names commands of this version (chief, 2026-11-28, with
+	// rule R7): a credential of its own, then the conn's own edit
+	hint := got["conn:dev-minio"]
+	if !strings.Contains(hint, "`komando credential password add NEW`, then `komando ") || strings.Contains(hint, "secret cp") || strings.Contains(hint, "password-ref") {
+		t.Fatalf("dev-minio hint: %s", hint)
+	}
+	_, edit, _ := strings.Cut(hint, "then `komando ")
+	edit, _, _ = strings.Cut(edit, "`")
+	words := strings.Fields(edit)
+	if len(words) < 3 || !slices.Equal(words[len(words)-3:], []string{"dev-minio", "--credential", "NEW"}) {
+		t.Fatalf("dev-minio edit line %q", edit)
+	}
+	cmd, _, err := newRoot(tcl).Find(words[:len(words)-3])
+	if err != nil || cmd.Name() != "edit" || cmd.Flags().Lookup("credential") == nil {
+		t.Errorf("%q names no edit with --credential: %v", edit, err)
 	}
 }
 

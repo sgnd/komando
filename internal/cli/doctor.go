@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -186,8 +187,8 @@ func connHygiene(st *store.State, warn func(name, detail string, fix ...string))
 	for _, c := range st.SortedConns() {
 		name := "conn:" + c.Name
 		if n, ok := strings.CutPrefix(c.PasswordRef, "credential:"); ok && !c.Protected && len(prot[n]) > 0 {
-			warn(name, fmt.Sprintf("is not protected but shares %s with protected %s: that password is used here without a person's yes, and changing it there breaks this conn; give it its own with `komando secret cp %s NEW` and `komando conn edit %s --password-ref credential:NEW`",
-				c.PasswordRef, strings.Join(prot[n], ", "), n, c.Name))
+			warn(name, fmt.Sprintf("is not protected but shares %s with protected %s: that password is used here without a person's yes, and changing it there breaks this conn; give it its own: %s",
+				c.PasswordRef, strings.Join(prot[n], ", "), ownCredentialFix(c)))
 		}
 		key := c.Kind + "\x00" + c.URL + "\x00" + c.Via
 		if first, ok := same[key]; ok {
@@ -201,6 +202,16 @@ func connHygiene(st *store.State, warn func(name, detail string, fix ...string))
 			warn(name, "has the label host="+h.Name+", a protected server, but is not protected itself: `komando conn edit "+argQ(c.Name)+" --protected`", fix...)
 		}
 	}
+}
+
+// ownCredentialFix is how conn c gets a credential of its own: a new one,
+// then its type's edit (rule R7: a hint names commands of this version).
+func ownCredentialFix(c *store.Conn) string {
+	t, err := driver.Parse(c.URL)
+	if err != nil {
+		return "`komando credential password add NEW`, then pass --credential NEW to its edit"
+	}
+	return "`komando credential password add NEW`, then `" + entryPath(t.Kind) + " edit " + argQ(c.Name) + " --credential NEW`"
 }
 
 func doctorCmd() *cobra.Command {
