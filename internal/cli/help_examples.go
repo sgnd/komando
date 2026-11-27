@@ -57,9 +57,9 @@ var examples = map[string]string{
 		"  komando fs replace web1 /etc/nginx/nginx.conf --old 'worker_connections 512' --new 'worker_connections 1024' --backup\n" +
 		"  komando fs restore web1 /etc/nginx/nginx.conf     # undo the edit",
 	"komando group": "  komando group list\n" +
-		"  komando group add web web1,web2 --dry-run\n" +
-		"  komando group add web web1,web2\n" +
-		"  komando group rm web web2",
+		"  komando group create web web1,web2 --dry-run\n" +
+		"  komando group create web web1,web2\n" +
+		"  komando group remove web web2",
 	"komando host": "  komando host add web1 deploy@10.0.0.5\n" +
 		"  komando test web1\n" +
 		"  komando host edit web1 --protected --dry-run\n" +
@@ -75,8 +75,8 @@ var examples = map[string]string{
 		"  komando key list",
 	"komando policy": "  komando policy list\n" +
 		"  komando policy check 'rm -rf /srv/app'\n" +
-		"  komando policy deny 'systemctl stop postgresql' --dry-run\n" +
-		"  komando policy deny 'systemctl stop postgresql'",
+		"  komando policy create 'systemctl stop postgresql' --dry-run\n" +
+		"  komando policy create 'systemctl stop postgresql'",
 	"komando secret": "  komando secret set prod-db-pass                   # typed hidden\n" +
 		"  komando secret list\n" +
 		"  komando conn edit prod-db --password-ref secret:prod-db-pass\n" +
@@ -88,18 +88,29 @@ var examples = map[string]string{
 	"komando cert": "  komando cert check web1                           # certificates on the server\n" +
 		"  komando cert check @web --warn 30d\n" +
 		"  komando cert check https://shop.example.com --warn 14d",
-	"komando recipe": "  komando recipe list\n" +
-		"  komando recipe run health @web\n" +
-		"  komando recipe add app-logs 'tail -n 100 /srv/{{app}}/log/app.log' --read-only\n" +
-		"  komando recipe run app-logs web1 --var app=shop\n" +
-		"  komando recipe rm app-logs",
+	"komando snippet": "  komando snippet list\n" +
+		"  komando snippet exec health @web\n" +
+		"  komando snippet create app-logs 'tail -n 100 /srv/{{app}}/log/app.log' --read-only\n" +
+		"  komando snippet exec app-logs web1 --var app=shop\n" +
+		"  komando snippet remove app-logs",
 
-	"komando audit verify": "  komando audit verify",
-	"komando config show":  "  komando config show",
-	"komando conn kinds":   "  komando conn kinds",
-	"komando conn list":    "  komando conn list\n  komando conn list @prod",
-	"komando conn show":    "  komando conn show prod-db",
-	"komando conn test":    "  komando conn test prod-db\n  komando conn test kind:postgres",
+	"komando audit": "  komando audit list\n" +
+		"  komando audit list --since 2h --failed\n" +
+		"  komando audit list -n 0 --target @prod\n" +
+		"  komando audit check",
+	"komando agent": "  komando agent skill install --dry-run\n" +
+		"  komando agent skill install\n" +
+		"  komando agent skill install --project\n" +
+		"  komando agent skill uninstall --dry-run",
+	"komando agent skill": "  komando agent skill install --dry-run\n" +
+		"  komando agent skill install\n" +
+		"  komando agent skill uninstall --dry-run\n" +
+		"  komando agent skill uninstall",
+	"komando config show": "  komando config show",
+	"komando conn kinds":  "  komando conn kinds",
+	"komando conn list":   "  komando conn list\n  komando conn list @prod",
+	"komando conn show":   "  komando conn show prod-db",
+	"komando conn test":   "  komando conn test prod-db\n  komando conn test kind:postgres",
 
 	"komando docker images":  "  komando docker images web1",
 	"komando docker inspect": "  komando docker inspect web1 api",
@@ -142,9 +153,6 @@ var examples = map[string]string{
 	"komando pkg update":     "  komando pkg update @web",
 	"komando pkg upgradable": "  komando pkg upgradable @web\n  komando pkg upgradable web1 --refresh",
 
-	"komando policy list": "  komando policy list",
-	"komando recipe list": "  komando recipe list\n  komando recipe list --category security",
-	"komando recipe rm":   "  komando recipe rm du-srv",
 	"komando secret list": "  komando secret list",
 	"komando shell":       "  komando shell web1",
 
@@ -181,7 +189,7 @@ var details = map[string]string{
 	"komando logs":             "Read logs from journald (--unit), a file (--file) or a container (--container).",
 	"komando pkg":              "Packages on servers through apt, dnf, yum, apk, zypper or pacman (komando finds which one the server has).",
 	"komando policy check":     "Test whether a shell command would be blocked (exit 6), or rate SQL, Redis or memcached commands with --conn-kind KIND.",
-	"komando recipe":           "Ready-made and saved commands: health, disk, oom, ... plus your own ({{blank}} to fill in).",
+	"komando snippet":          "Ready-made and saved commands: health, disk, oom, ... plus your own ({{blank}} to fill in).",
 	"komando schema":           "Machine-readable reference of every command, flag, exit code and selector.",
 	"komando vpn rm":           "Remove VPNs from komando (their keys stay in the vault until `komando secret rm`).",
 	"komando vpn up":           "Connect a VPN now and keep it up for later commands (a person logs in here, MFA included).",

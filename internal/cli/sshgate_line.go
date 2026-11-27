@@ -37,7 +37,7 @@ this komando by its full path, as sshd does not search PATH.
 
 A --read-only key runs only commands that read, and only those that stay
 on the servers and conns in your list: no net checks, no cert check of
-a website, and no exec, job start, docker exec, cluster exec or recipe run,
+a website, and no exec, job start, docker exec, cluster exec or snippet exec,
 whose programs can connect anywhere and carry what they read in a URL or a
 DNS name. Add --network too for a read key that may do those.
 
@@ -51,7 +51,7 @@ shell and cluster shell stay refused. On the servers it opens on, the
 shell is full control of the server, as the account komando logs in with:
 what is typed is outside komando's per-command rules, masking and audit.
 Give such a key only to a device you would give that login to. Each
-session's start and end are in komando audit (key, server, how long, why
+session's start and end are in komando audit list (key, server, how long, why
 it ended), and a session with no input and no output for 30 minutes ends.`,
 		Example: `  komando ssh-gate line --name phone ~/phone.pub
   komando ssh-gate line --name phone-read --read-only 'ssh-ed25519 AAAA... phone'

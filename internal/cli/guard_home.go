@@ -85,7 +85,7 @@ func sameDir(a, b string) bool {
 
 // homeFree are the commands that never read komando's data, so they run in
 // any folder: help, version and the playbooks.
-var homeFree = map[string]bool{"komando": true, "help": true, "completion": true, "version": true, "schema": true, "guide": true}
+var homeFree = map[string]bool{"komando": true, "help": true, "completion": true, "version": true, "schema": true, "guide": true, "agent": true}
 
 // guardHome stops an AI agent's command that would use another data folder
 // than ~/.komando. The stop is final (homeStop). Only the commands that
@@ -94,8 +94,8 @@ var homeFree = map[string]bool{"komando": true, "help": true, "completion": true
 func guardHome(cmd *cobra.Command) error {
 	cl := callOf(cmd)
 	top, _, _ := strings.Cut(commandName(cmd), ".")
-	// guide uninstall takes the agent guard out: it is no playbook
-	free := homeFree[top] && commandName(cmd) != "guide.uninstall"
+	// agent skill uninstall takes the agent guard out: it is no playbook
+	free := homeFree[top] && commandName(cmd) != "agent.skill.uninstall"
 	if !cl.isAgent() || free {
 		return nil
 	}

@@ -21,7 +21,7 @@ import (
 // Client snippets (design 2.5): a built-in whose body is a call on an open
 // client, not a text run on a server: SFTP for a host, a read-only SQL
 // connection for a database, a cache store, the Kubernetes API for a
-// cluster. runClientSnippet is the way to them from `recipe run`: it
+// cluster. runClientSnippet is the way to them from `snippet exec`: it
 // resolves the one entry of the snippet's type, stops by the snippet's
 // tier as the replaced command is stopped, opens the entry's client the way
 // that command opens it, and hands it to snippet.RunClient, which checks

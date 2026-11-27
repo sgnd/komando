@@ -251,13 +251,13 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 			}
 			add("platform", true, runtime.GOOS+"/"+runtime.GOARCH)
 			// AI agents: the skill komando installs, and whether it is this
-			// version's (an update needs `guide install` again)
+			// version's (an update needs `agent skill install` again)
 			installed, stale := skillStatus()
 			switch {
 			case len(installed) == 0:
-				add("agent_skill", false, "no AI agent has komando's skill yet: `komando guide install` teaches Claude Code, Codex, Cursor and Gemini CLI to use komando", komandoFix("guide", "install")...)
+				add("agent_skill", false, "no AI agent has komando's skill yet: `komando agent skill install` teaches Claude Code, Codex, Cursor and Gemini CLI to use komando", komandoFix("agent", "skill", "install")...)
 			case len(stale) > 0:
-				add("agent_skill", false, "from another komando version in "+strings.Join(stale, ", ")+": run `komando guide install` again, so your AI agents use this version's commands", komandoFix("guide", "install")...)
+				add("agent_skill", false, "from another komando version in "+strings.Join(stale, ", ")+": run `komando agent skill install` again, so your AI agents use this version's commands", komandoFix("agent", "skill", "install")...)
 			default:
 				add("agent_skill", true, strings.Join(installed, ", "))
 			}
@@ -319,9 +319,9 @@ func agentGuardChecks(installed []string, add func(name string, ok bool, detail 
 	if home, err := os.UserHomeDir(); err == nil && len(installed) > 0 && slices.ContainsFunc(installed, func(p string) bool { return strings.Contains(p, ".claude") }) {
 		switch found, problem := claudeGuard(filepath.Join(home, ".claude", "settings.json")); {
 		case !found:
-			add("agent_guard", false, "Claude Code runs without komando's guard, which keeps it away from secret files: `komando guide install` adds it", komandoFix("guide", "install")...)
+			add("agent_guard", false, "Claude Code runs without komando's guard, which keeps it away from secret files: `komando agent skill install` adds it", komandoFix("agent", "skill", "install")...)
 		case problem != "":
-			add("agent_guard", false, "komando's guard in Claude Code needs fixing: "+problem+"; `komando guide install` sets it up again", komandoFix("guide", "install")...)
+			add("agent_guard", false, "komando's guard in Claude Code needs fixing: "+problem+"; `komando agent skill install` sets it up again", komandoFix("agent", "skill", "install")...)
 		default:
 			add("agent_guard", true, "Claude Code asks komando before reading files or running shell commands")
 		}
@@ -329,7 +329,7 @@ func agentGuardChecks(installed []string, add func(name string, ok bool, detail 
 	if home, err := os.UserHomeDir(); err == nil {
 		for _, h := range agentHooks {
 			if found, problem := claudeGuard(filepath.Join(home, h.dir, h.file)); found && problem != "" {
-				add("agent_guard_"+h.name, false, "komando's guard for "+h.name+" needs fixing: "+problem+"; `komando guide install` sets it up again", komandoFix("guide", "install")...)
+				add("agent_guard_"+h.name, false, "komando's guard for "+h.name+" needs fixing: "+problem+"; `komando agent skill install` sets it up again", komandoFix("agent", "skill", "install")...)
 			}
 		}
 	}

@@ -118,7 +118,7 @@ func planFromExport(cl *call, f exportFile) *importPlan {
 	for _, r := range p.Recipes {
 		if r.ReadOnly {
 			r.ReadOnly = false
-			p.Notes = append(p.Notes, r.Name+": imported as a change; mark it read-only yourself with `recipe add --read-only --overwrite`")
+			p.Notes = append(p.Notes, r.Name+": imported as a change; mark it read-only yourself with `snippet create --read-only --overwrite`")
 		}
 	}
 	return p

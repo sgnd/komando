@@ -188,7 +188,7 @@ func useArgs(c *cobra.Command) []string {
 var showKinds = map[string]string{
 	"host show": "", "conn show": "", "vpn show": "",
 	"group list": "group", "key show": "key", "job status": "job", "secret show": "secret", "config get": "setting",
-	"tunnel show": "tunnel", "recipe show": "recipe",
+	"tunnel show": "tunnel", "snippet show": "recipe",
 }
 
 // itemCommands are the commands that work on one item of a kind, {} the
@@ -232,14 +232,14 @@ var itemCommands = map[string][]string{
 		"registry oci image prune {} REPO --keep 10 --dry-run", "registry oci image delete {} IMAGE --dry-run"},
 	"vpn": {"vpn up {}", "vpn test {}", "vpn down {}", "vpn edit {} --check HOST:PORT", "vpn rename {} NEW", "vpn rm {}",
 		"host add NAME USER@ADDRESS --via {}"},
-	"group": {"list @{}", "test @{}", "exec @{} -- uptime", "pkg upgradable @{}", "recipe run health @{}",
-		"group add {} TARGET", "group rm {} TARGET", "group rename {} NEW"},
+	"group": {"list @{}", "test @{}", "exec @{} -- uptime", "pkg upgradable @{}", "snippet exec health @{}",
+		"group create {} TARGET", "group remove {} TARGET", "group rename {} NEW"},
 	"key":     {"key deploy {} TARGET", "key revoke {} TARGET", "key edit {}", "key rename {} NEW", "key rm {}"},
 	"job":     {"job logs {} --limit 50", "job wait {}", "job kill {}", "job rm {}"},
 	"secret":  {"secret check {}", "secret set {}", "secret rename {} NEW", "secret cp {} NEW", "secret rm {}"},
 	"setting": {"config set {} VALUE"},
 	"tunnel":  {"tunnel stop {}", "tunnel list"},
-	"recipe":  {"recipe run {} TARGET", "recipe add {} COMMAND --overwrite --dry-run", "recipe rm {}"},
+	"recipe":  {"snippet exec {} TARGET", "snippet create {} COMMAND --overwrite --dry-run", "snippet remove {}"},
 }
 
 // itemKinds are the itemCommands lists for name, shown by a command that

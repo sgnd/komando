@@ -396,6 +396,13 @@ func runBody(cl *call, ctx context.Context, body *cobra.Command, in leafInput, r
 	return body.ExecuteContext(withCall(ctx, cl))
 }
 
+// bodyHandler is the handler of a leaf that runs today's command body.
+func bodyHandler(body func() *cobra.Command) handler {
+	return func(cl *call, ctx context.Context, in leafInput) error {
+		return runBody(cl, ctx, body(), in, nil)
+	}
+}
+
 // credentialRef is how today's bodies write the name of a credential: the
 // reference to a secret. Row E1 renames it to credential:NAME; this is the
 // one place that changes.
