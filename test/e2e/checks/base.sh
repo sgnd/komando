@@ -174,7 +174,7 @@ SJ=$($K job start direct --sudo --stdin-file "$TMP/f" -- 'cat' | jget 'd["data"]
 $K job wait "$SJ" --interval 1s >/dev/null
 check "job: unasked sudo password not in its input" payload "$($K job logs "$SJ" | jget 'd["data"]["content"].strip()')"
 check "job: unasked sudo password is deleted unread" False "$($K fs stat direct ".komando/jobs/$SJ/pw" | jget 'd["data"]["exists"]')"
-$K host ssh edit direct --unset sudo-ref >/dev/null
+$K host ssh edit direct --unset sudo-credential >/dev/null
 $K host ssh remove ops >/dev/null
 $K host ssh exec direct --sudo -- 'mkdir -m 700 /etc/private && install -m 600 /dev/null /etc/private/token' >/dev/null
 $K fs write direct /etc/private/token --content s3cret --sudo >/dev/null
@@ -205,7 +205,7 @@ check "secret values hidden in output" "DB_PASSWORD=[secret:agent-pass]" "$($K f
 echo "==> keys"
 $K key gen deploy >/dev/null
 check "key deploy" 3 "$($K key deploy deploy @lab --set-default --yes | jget 'd["data"]["summary"]["ok"]')"
-$K host ssh edit direct --unset password-ref >/dev/null
+$K host ssh edit direct --unset credential >/dev/null
 check "key-only login" ok "$($K host ssh exec direct -- 'echo ok' | jget 'd["data"]["results"][0]["stdout"].strip()')"
 check "revoking the login key needs --allow-dangerous" POLICY_BLOCKED "$($K key revoke deploy direct | jget 'd["error"]["code"]' || true)"
 $K key gen leaver >/dev/null

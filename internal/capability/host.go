@@ -144,7 +144,7 @@ func completeHost(l *Leaf, p provider) {
 		}
 		unset := []string{"user", "key", "identity", "credential", "sudo-credential", "via", "proxy-command", "notes", "port", "protected", "forward-agent", "os", "transport"}
 		if p.name == "winrm" {
-			unset = []string{"user", "credential", "via", "notes", "port", "protected"}
+			unset = []string{"user", "credential", "via", "notes", "port", "protected", "transport"}
 		}
 		o = append(o, protectedOpt, notesOpt, labelOpt, hostEnvOpt,
 			hostOption(connEditOptions, "add-group"), hostOption(connEditOptions, "rm-group"),
@@ -152,7 +152,7 @@ func completeHost(l *Leaf, p provider) {
 		if p.name == "ssh" {
 			o = append(o, hostFwdOpt)
 		}
-		o = append(o, Option{Name: "unset", Kind: String, Repeat: true, List: true, Help: "clear these settings: " + strings.Join(unset, ", ")})
+		o = append(o, Option{Name: "unset", Kind: Enum, Enum: unset, Repeat: true, List: true, Help: "clear these settings: " + strings.Join(unset, ", ")})
 		l.Options = o
 		l.Short = "Change saved " + many + " (only the flags you pass change)"
 		l.Example = lines(cmd+"edit web1 --add-tag canary --label env=prod", cmd+"edit @web --user deploy --dry-run",

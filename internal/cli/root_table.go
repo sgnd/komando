@@ -359,8 +359,21 @@ func checkOptions(l capability.Leaf, in leafInput) error {
 			return out.Usage("%s needs --%s", strings.Join(l.Key.Path(), " "), o.Name)
 		case !set:
 			continue
+		case o.Kind == capability.Enum && o.Repeat:
+			for _, v := range in.Strings(o.Name) {
+				if !slices.Contains(o.Enum, v) {
+					return out.Usage("--%s takes %s", o.Name, strings.Join(o.Enum, ", "))
+				}
+			}
 		case o.Kind == capability.Enum && !slices.Contains(o.Enum, in.String(o.Name)):
 			return out.Usage("--%s takes %s", o.Name, strings.Join(o.Enum, ", "))
+		}
+		if o.Name == "unset" {
+			for _, w := range in.Strings(o.Name) {
+				if _, ok := in.vals[w]; ok && in.Changed(w) {
+					return out.Errf(out.ExitUsage, "USAGE", "pass one of them", "--%s and --unset %s contradict each other", w, w)
+				}
+			}
 		}
 		if o.Pattern != "" {
 			values := []string{}

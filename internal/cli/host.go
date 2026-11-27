@@ -573,7 +573,7 @@ func applyHostEdit(h *store.Host, f *hostFlags, fl *pflag.FlagSet) error {
 		case "transport": // back to SSH
 			h.Transport, h.WinRMOpts = "", nil
 		default:
-			return out.Errf(out.ExitUsage, "USAGE", "--unset takes: user, key, identity, password-ref, sudo-ref, via, proxy-command, notes, port, protected, forward-agent, os, transport",
+			return out.Errf(out.ExitUsage, "USAGE", "--unset takes: user, key, identity, credential, sudo-credential, via, proxy-command, notes, port, protected, forward-agent, os, transport",
 				"cannot unset %q", u)
 		}
 	}
@@ -658,7 +658,7 @@ func guardProxyCommand(cl *call, cmd string, names ...string) error {
 }
 
 // checkHostRefs refuses a password typed where a reference belongs
-// (--password-ref hunter2 would be stored and printed as plain text).
+// (a credential of hunter2 would be stored and printed as plain text).
 func checkHostRefs(h *store.Host) error {
 	if err := checkWinRM(h); err != nil {
 		return err
@@ -677,9 +677,9 @@ func checkHostRefs(h *store.Host) error {
 	if err := checkLogin(h); err != nil {
 		return err
 	}
-	for _, r := range []struct{ flag, ref string }{{"--password-ref", h.PasswordRef}, {"--sudo-ref", h.SudoRef}} {
+	for _, r := range []struct{ what, ref string }{{"a credential", h.PasswordRef}, {"a sudo credential", h.SudoRef}} {
 		if r.ref != "" && !vault.ValidRef(r.ref) {
-			return out.Usage("%s takes a reference, not the password itself (%s); store the password with `komando secret set NAME` first", r.flag, vault.RefHelp())
+			return out.Usage("%s takes a reference, not the password itself (%s); store the password with `komando secret set NAME` first", r.what, vault.RefHelp())
 		}
 	}
 	return nil

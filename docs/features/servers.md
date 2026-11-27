@@ -143,7 +143,7 @@ the vault (`komando secret set ubuntu-sudo` first).
 ```bash
 komando host ssh edit web1 --add-tag canary --port 2222
 komando host ssh edit web1 --rm-group old --label dc=jkt         # an empty value removes a label
-komando host ssh edit web1 --unset via,sudo-ref                   # clear settings (see `--help` for the list)
+komando host ssh edit web1 --unset via,sudo-credential            # clear settings (see `--help` for the list)
 ```
 
 ```text

@@ -5531,7 +5531,7 @@ Flags:
       --protected[=true|false]      changes need a person's yes
       --rm-group strings            take it out of these groups
       --rm-tag strings              remove these tags
-      --unset strings               clear these settings: user, credential, via, notes, port, protected
+      --unset strings               clear these settings: user, credential, via, notes, port, protected, transport
       --user string                 the user to log in as
       --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
 

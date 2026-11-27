@@ -956,7 +956,7 @@ title: Change saved WinRM servers (only the flags you pass change)
 - flag:login | --login | How komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one), key (with --key or --identity) or agent (ssh-agent and ~/.ssh only) |  |  | optional,advanced,check
 - flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
 - flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
-- flag:unset | --unset | Clear these settings: user, credential, via, notes, port, protected |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: user, credential, via, notes, port, protected, transport |  |  | optional,advanced,check
 ### komando host winrm exec
 title: Run a command on saved servers, in parallel (PowerShell)
 - arg0 | Target (servers) | Which server? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check

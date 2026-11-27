@@ -6136,7 +6136,7 @@
             "name": "unset",
             "type": "stringSlice",
             "default": "[]",
-            "usage": "clear these settings: user, credential, via, notes, port, protected"
+            "usage": "clear these settings: user, credential, via, notes, port, protected, transport"
           },
           {
             "name": "user",

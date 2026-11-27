@@ -75,7 +75,7 @@ already asks nothing again.
 `--via` works: the connection goes through the bastion or VPN. WinRM
 carries commands only, so `shell`, tunnels, `host ssh trust`, `login` and
 `host ssh-command` need OpenSSH. To switch a server back to SSH:
-`komando host ssh edit win2 --unset transport`. Use NTLM with a domain user,
+`komando host winrm edit win2 --unset transport`. Use NTLM with a domain user,
 over HTTPS (see [Limits](#limits) for what WinRM does not do).
 
 On the server, `winrm quickconfig -transport:https` (as an administrator)
