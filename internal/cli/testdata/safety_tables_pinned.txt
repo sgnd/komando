@@ -1,5 +1,5 @@
 agent	kind=read|	target=""	
-agent.skill	kind=none	target=""	
+agent.skill	kind=read|	target=""	
 agent.skill.install	kind=change|	target=""	
 agent.skill.uninstall	kind=change|	target=""	safety|||it removes komando's guard from an AI agent's settings|||
 audit	kind=read|	target=""	

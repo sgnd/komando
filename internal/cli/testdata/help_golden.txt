@@ -37,6 +37,7 @@ Data:
   cache        Caches (Redis, Valkey, memcached): read and change keys
   db           Databases: the schema, sessions, sizes and users
   queue        Queues (Kafka, RabbitMQ, NATS, SQS, Pub/Sub): read, send, manage
+  storage      Buckets (S3, GCS, Azure) and file servers: browse, copy, remove
 
 Platform:
   cluster      Kubernetes clusters: save, check, read logs, roll out, scale
@@ -78,7 +79,6 @@ Setup:
 
 Additional Commands:
   database     Databases: save them, query them, back them up and restore them
-  storage      Buckets (S3, GCS, Azure) and file servers: browse, copy, remove
 
 Flags:
       --connect-timeout duration   time to connect, like 30s (default: setting connect_timeout, 15s)
@@ -14104,14 +14104,14 @@ whose name starts with OLD: OLD is replaced with NEW. When OLD ends in -,
 the name OLD without it is renamed too (--starts-with shop- acme-shop- turns
 group shop into acme-shop).
 
-Every reference follows, as with `host rename` and `credential password
-rename`: --via paths, password, sudo, key, preshared key and passphrase
-references, credential:NAME options in conn URLs, the key a server uses,
-group membership, exec sessions and tunnels. A key komando made (credential
-key create) lives in the sealed store, so no file moves; a key file you
-added stays where it is. The protected mark, labels, notes and creation time
-stay. Names inside URLs (a bucket, a database user) are the resource's own
-and do not change.
+Every reference follows, as with `komando host ssh rename` and `komando
+credential password rename`: --via paths, password, sudo, key, preshared key
+and passphrase references, credential:NAME options in conn URLs, the key a
+server uses, group membership, exec sessions and tunnels. A key komando made
+(credential key create) lives in the sealed store, so no file moves; a key
+file you added stays where it is. The protected mark, labels, notes and
+creation time stay. Names inside URLs (a bucket, a database user) are the
+resource's own and do not change.
 
 --in-notes also replaces old names in notes, and --in-labels in label
 values: server, conn, VPN and secret names as whole words, a group written
@@ -14126,12 +14126,12 @@ Everything changes in one step, or nothing does: a new name that is taken
 is written. When NEW starts with OLD, names that start with NEW already
 are left alone, so a second run changes nothing.
 
-Renaming protected servers and conns needs --yes once, for all of them
-(an AI agent's --yes opens one window for a person). See what would change
-with --dry-run first. --kind renames only some kinds; references still
-follow.
-To rename one entry, use host ssh rename, conn rename, vpn rename,
-credential password rename, credential key rename or group rename.
+Renaming protected servers and conns needs --yes once, for all of them (an
+AI agent's --yes opens one window for a person). See what would change with
+--dry-run first. --kind renames only some kinds; references still follow. To
+rename one entry, use `komando host ssh rename`, `komando conn rename`, each
+VPN kind's rename (`komando vpn socks rename`), `komando credential password
+rename`, `komando credential key rename` or `komando group rename`.
 
 Usage:
   komando rename OLD NEW [flags]

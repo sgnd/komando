@@ -22,9 +22,10 @@
         "short": "The komando skill and guard in your AI agents: install, uninstall",
         "example": "  komando agent skill install --dry-run\n  komando agent skill install\n  komando agent skill uninstall --dry-run\n  komando agent skill uninstall",
         "runnable": true,
+        "kind": "read",
         "confirm": [
           {
-            "tier": "change"
+            "tier": "read"
           }
         ]
       },
@@ -13868,7 +13869,7 @@
         "path": "komando rename",
         "usage": "komando rename OLD NEW [flags]",
         "short": "Rename one entry, or all names starting with OLD (--starts-with)",
-        "long": "Without --starts-with: renames the one server, conn, VPN, secret, key or\ngroup named OLD, as `komando host ssh rename` and the others do. When OLD\nnames two kinds of entry (a server and a secret), it says which commands to\nuse.\n\nSafety: a change; try it with --dry-run first.\n\nWith --starts-with: renames every server, conn, VPN, secret, key and group\nwhose name starts with OLD: OLD is replaced with NEW. When OLD ends in -,\nthe name OLD without it is renamed too (--starts-with shop- acme-shop- turns\ngroup shop into acme-shop).\n\nEvery reference follows, as with `host rename` and `credential password\nrename`: --via paths, password, sudo, key, preshared key and passphrase\nreferences, credential:NAME options in conn URLs, the key a server uses,\ngroup membership, exec sessions and tunnels. A key komando made (credential\nkey create) lives in the sealed store, so no file moves; a key file you\nadded stays where it is. The protected mark, labels, notes and creation time\nstay. Names inside URLs (a bucket, a database user) are the resource's own\nand do not change.\n\n--in-notes also replaces old names in notes, and --in-labels in label\nvalues: server, conn, VPN and secret names as whole words, a group written\n@NAME, and a pattern such as shop-db-* when it matches the same entries\nafter the rename. OLD without its -, group names without @, key names, and a\nname that is also the user, host, bucket or database in a conn URL stay:\nthey often mean something else. The result lists each one it keeps (\"kept\"),\nand each label value that names an old entry, with or without --in-labels.\n\nEverything changes in one step, or nothing does: a new name that is taken\n(or two old names that would get one new name) stops it before anything\nis written. When NEW starts with OLD, names that start with NEW already\nare left alone, so a second run changes nothing.\n\nRenaming protected servers and conns needs --yes once, for all of them\n(an AI agent's --yes opens one window for a person). See what would change\nwith --dry-run first. --kind renames only some kinds; references still\nfollow.\nTo rename one entry, use host ssh rename, conn rename, vpn rename,\ncredential password rename, credential key rename or group rename.",
+        "long": "Without --starts-with: renames the one server, conn, VPN, secret, key or\ngroup named OLD, as `komando host ssh rename` and the others do. When OLD\nnames two kinds of entry (a server and a secret), it says which commands to\nuse.\n\nSafety: a change; try it with --dry-run first.\n\nWith --starts-with: renames every server, conn, VPN, secret, key and group\nwhose name starts with OLD: OLD is replaced with NEW. When OLD ends in -,\nthe name OLD without it is renamed too (--starts-with shop- acme-shop- turns\ngroup shop into acme-shop).\n\nEvery reference follows, as with `komando host ssh rename` and `komando\ncredential password rename`: --via paths, password, sudo, key, preshared key\nand passphrase references, credential:NAME options in conn URLs, the key a\nserver uses, group membership, exec sessions and tunnels. A key komando made\n(credential key create) lives in the sealed store, so no file moves; a key\nfile you added stays where it is. The protected mark, labels, notes and\ncreation time stay. Names inside URLs (a bucket, a database user) are the\nresource's own and do not change.\n\n--in-notes also replaces old names in notes, and --in-labels in label\nvalues: server, conn, VPN and secret names as whole words, a group written\n@NAME, and a pattern such as shop-db-* when it matches the same entries\nafter the rename. OLD without its -, group names without @, key names, and a\nname that is also the user, host, bucket or database in a conn URL stay:\nthey often mean something else. The result lists each one it keeps (\"kept\"),\nand each label value that names an old entry, with or without --in-labels.\n\nEverything changes in one step, or nothing does: a new name that is taken\n(or two old names that would get one new name) stops it before anything\nis written. When NEW starts with OLD, names that start with NEW already\nare left alone, so a second run changes nothing.\n\nRenaming protected servers and conns needs --yes once, for all of them (an\nAI agent's --yes opens one window for a person). See what would change with\n--dry-run first. --kind renames only some kinds; references still follow. To\nrename one entry, use `komando host ssh rename`, `komando conn rename`, each\nVPN kind's rename (`komando vpn socks rename`), `komando credential password\nrename`, `komando credential key rename` or `komando group rename`.",
         "example": "  komando rename web1 web-01 --dry-run                 # one entry, whatever kind it is\n  komando rename --starts-with shop- acme-shop- --dry-run   # the old -> new list and every reference\n  komando rename --starts-with shop- acme-shop- --yes   # after a person's yes\n  komando rename --starts-with old-registry registry --kind conn,secret\n  komando rename --starts-with lab- test- --in-notes --in-labels --dry-run",
         "flags": [
           {
@@ -23013,12 +23014,6 @@
         "exit": 8,
         "example": "… is a file, not a folder",
         "hint": "sync works on folders; for one file use `komando copy` without --sync"
-      },
-      {
-        "code": "NOT_FOUND",
-        "exit": 3,
-        "example": "no v0.17 job … without an end in …; nothing was marked",
-        "hint": "`komando doctor` lists the v0.17 jobs with no end"
       },
       {
         "code": "NOT_SUPPORTED",

@@ -1,5 +1,5 @@
 agent	plain=read	highest=read
-agent.skill	plain=change	highest=read
+agent.skill	plain=read	highest=read
 agent.skill.install	plain=change	highest=read
 agent.skill.uninstall	plain=safety	highest=safety
 audit	plain=read	highest=read

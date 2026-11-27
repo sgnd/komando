@@ -131,7 +131,6 @@ var errorCodes = []errorCode{
 	{"NEEDS_TERMINAL", 2, "cluster kubernetes shell needs a person at a terminal", "agents and scripts use `komando cluster kubernetes exec`"},
 	{"NOTHING_TO_RENAME", 3, "no … starts with …", "check OLD with `komando list` and `komando credential list`; names are matched from the start, as written"},
 	{"NOT_A_FOLDER", 8, "… is a file, not a folder", "sync works on folders; for one file use `komando copy` without --sync"},
-	{"NOT_FOUND", 3, "no v0.17 job … without an end in …; nothing was marked", "`komando doctor` lists the v0.17 jobs with no end"},
 	{"NOT_SUPPORTED", 2, "… waits for data that keeps coming, so cache run would never return", "cache run sends one command and prints its one reply; drop BLOCK from XREAD, and use redis-cli for MONITOR or SUBSCRIBE"},
 	{"NOT_SWARM_MANAGER", 3, "… is not a Swarm manager (docker not found)", "Swarm commands run on a manager: `komando host ssh exec … --read-only -- docker node ls` shows whether it is one"},
 	{"NOT_TEXT", 2, "… is not text", "copy it to this computer with `komando copy SOURCE DESTINATION`"},
