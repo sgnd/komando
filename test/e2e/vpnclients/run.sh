@@ -42,7 +42,7 @@ sleep 5
 echo "==> openconnect family (ocserv, AnyConnect protocol)"
 in_client sh -c 'cp /certs/ca.crt /usr/local/share/ca-certificates/e2e.crt && update-ca-certificates >/dev/null 2>&1'
 in_client sh -c 'printf ocpass | komando secret set oc-pass' >/dev/null
-in_client komando vpn add oc anyconnect --portal https://ocserv --user e2e --password-ref secret:oc-pass --check 192.168.99.1:7000 >/dev/null
+in_client komando vpn anyconnect add oc --portal https://ocserv --user e2e --credential oc-pass --check 192.168.99.1:7000 >/dev/null
 [ "$(kc test oc | jget 'd["data"]["summary"]["ok"]')" = 1 ] || fail "anyconnect connects" ocserv
 ok "anyconnect connects on demand and reaches the VPN side"
 for _ in $(seq 1 20); do "${DC[@]}" exec -T ocserv occtl -j show users 2>/dev/null | grep -q '"DTLS cipher"' && break; sleep 0.5; done
@@ -53,20 +53,20 @@ before=$(udp_in)
 [ "$(kc test oc | jget 'd["data"]["summary"]["ok"]')" = 1 ] || fail "anyconnect over DTLS" ocserv
 [ $(( $(udp_in) - before )) -ge 3 ] || fail "packets over UDP" ocserv
 ok "packets go over DTLS once it is up"
-[ "$(kc vpn status | jget '[v for v in d["data"]["vpns"] if v["name"]=="oc"][0]["up"]')" = True ] || fail "status up"
+[ "$(kc vpn anyconnect status | jget '[v for v in d["data"]["vpns"] if v["name"]=="oc"][0]["up"]')" = True ] || fail "status up"
 ok "vpn status shows the session"
-in_client komando vpn add oc-mfa anyconnect --portal https://ocserv --user e2e --mfa >/dev/null
+in_client komando vpn anyconnect add oc-mfa --portal https://ocserv --user e2e --mfa >/dev/null
 [ "$(kc test oc-mfa | jget 'd["data"]["results"][0]["error"]["code"]' || true)" = VPN_LOGIN_REQUIRED ] || fail "mfa"
 ok "an --mfa VPN asks for a person (VPN_LOGIN_REQUIRED), never connects by itself"
 in_client sh -c 'command -v openconnect ocproxy' >/dev/null 2>&1 && fail "the client image has openconnect"
 ok "no openconnect or ocproxy on the client (AnyConnect is built in)"
 [ "$(kc status | jget '[v["name"] for v in d["data"]["vpns"]]')" = "['oc']" ] || fail "status lists the AnyConnect session"
 ok "komando status lists the session"
-in_client komando vpn down oc >/dev/null
+in_client komando vpn anyconnect stop oc >/dev/null
 gone komando || fail "the AnyConnect session process left running"
-ok "vpn down ends the session"
+ok "vpn stop ends the session"
 in_client sh -c 'printf wrong | komando secret set oc-wrong' >/dev/null
-in_client komando vpn add oc-bad anyconnect --portal https://ocserv --user e2e --password-ref secret:oc-wrong --check 192.168.99.1:7000 >/dev/null
+in_client komando vpn anyconnect add oc-bad --portal https://ocserv --user e2e --credential oc-wrong --check 192.168.99.1:7000 >/dev/null
 out=$(in_client komando test oc-bad || true)
 grep -qi 'refused' <<<"$out" || { echo "$out"; fail "a wrong password is named"; }
 ok "a wrong AnyConnect password says so"
@@ -82,7 +82,7 @@ sleep 2
 "${DC[@]}" exec -T -d peer sh -c 'while true; do nc -l -p 7000 >/dev/null 2>&1; done'
 PEER_IP=$("${DC[@]}" exec -T peer tailscale ip -4 | tr -d '\r')
 in_client sh -c "printf %s '$KEY' | komando secret set ts-key" >/dev/null
-in_client komando vpn add tailnet tailscale --server http://headscale:8080 --password-ref secret:ts-key --check "$PEER_IP:7000" >/dev/null
+in_client komando vpn tailscale add tailnet --server http://headscale:8080 --credential ts-key --check "$PEER_IP:7000" >/dev/null
 [ "$(kc test tailnet | jget 'd["data"]["summary"]["ok"]')" = 1 ] || fail "tailscale connects"
 ok "tailscale connects on demand and reaches a tailnet node ($PEER_IP)"
 in_client sh -c 'command -v tailscaled tailscale' >/dev/null 2>&1 && fail "the client image has tailscale programs"
@@ -93,12 +93,12 @@ ok "no tailscale or tailscaled program on the client"
 ok "the auth key is not on any command line"
 [ "$(kc status | jget '[v["name"] for v in d["data"]["vpns"]]')" = "['tailnet']" ] || fail "status lists the tailnet"
 ok "komando status lists the tailnet session"
-in_client komando vpn down tailnet >/dev/null
+in_client komando vpn tailscale stop tailnet >/dev/null
 gone komando || fail "the Tailscale session process left running"
-ok "vpn down stops the session"
+ok "vpn stop stops the session"
 [ "$(kc test tailnet | jget 'd["data"]["summary"]["ok"]')" = 1 ] || fail "tailscale reconnects"
 ok "a second session reuses the node (no new login)"
-in_client komando vpn down tailnet >/dev/null
+in_client komando vpn tailscale stop tailnet >/dev/null
 
 echo
 echo "passed: $PASS  failed: 0"

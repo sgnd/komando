@@ -49,7 +49,7 @@ var shapeCases = [][]string{
 	{"schema", "secret", "set"},
 	{"key", "list"},
 	{"tunnel", "list"},
-	{"vpn", "list"},
+	{"vpn", "wireguard", "list"},
 	{"job", "list"},
 	{"status"},
 	{"audit", "list", "--limit", "5"},
@@ -68,11 +68,11 @@ var shapeCases = [][]string{
 	{"conn", "rm", "pg", "--dry-run"},
 	{"host", "trust", "web", "--dry-run"},
 	{"host", "trust", "web", "--fingerprint", "SHA256:pVt2Cc0dD2Q8dVqf7aNzK7TQzWm0yXcQe3uUe0t1abc", "--dry-run"},
-	{"vpn", "add", "lab", "socks", "--proxy-address", "127.0.0.1:1080"},
-	{"vpn", "rm", "lab", "--dry-run"},
-	{"vpn", "rm", "lab"},
-	// the kinds an app builds its add forms from
-	{"schema", "vpn", "add"},
+	{"vpn", "socks", "add", "lab", "--proxy-address", "127.0.0.1:1080"},
+	{"vpn", "socks", "remove", "lab", "--dry-run"},
+	{"vpn", "socks", "remove", "lab"},
+	// the options an app builds a VPN add form from
+	{"schema", "vpn", "socks", "add"},
 	{"schema", "conn", "add"},
 	// what an app checks its key with (typed here: not through a key)
 	{"ssh-gate", "status"},

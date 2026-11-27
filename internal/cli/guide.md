@@ -43,7 +43,7 @@ komando import ssh-config --dry-run   # (with the human) bring in servers they a
 
 People are asked; you get no questions. At a person's terminal, a command
 typed with something missing asks for it, one line at a time, and
-`komando host add` (or `db add`, `vpn add`) typed alone asks that kind's
+`komando host add` (or `db add`, `vpn KIND add`) typed alone asks that kind's
 questions. komando never asks an AI agent or a
 script anything (under a pseudo-terminal, an agent komando does not know
 sets `KOMANDO_AGENT=1`), so give every argument and flag yourself; `komando` alone
@@ -92,7 +92,7 @@ picks with `komando list 'SELECTOR'`.
 VPNs: `komando list kind:vpn`. A target behind a VPN has the VPN first in its
 `--via`, and komando connects it by itself. `VPN_LOGIN_REQUIRED` (the login
 needs a person, for example an MFA code) or `VPN_DOWN` (a VPN this computer
-runs itself is not connected): ask the human to run `komando vpn up NAME`.
+runs itself is not connected): ask the human to run `komando vpn KIND start NAME`.
 
 Windows servers (`"os": "windows"` in `komando host show`, pick them with
 `os:windows`): commands run in PowerShell, not sh. `exec` (also
@@ -156,7 +156,7 @@ Your list itself changes in bulk too, each with `--dry-run` first:
   many servers (one `--yes` and one approval window for the protected ones,
   which lists every server).
 - `komando host rename OLD NEW` renames a server and every reference to it
-  (`conn rename`, `vpn rename`, `key rename`, `group rename` likewise).
+  (`conn rename`, `vpn KIND rename`, `key rename`, `group rename` likewise).
 - `komando rename --starts-with OLD NEW` renames every server, conn, VPN,
   secret, key and group that starts with OLD in one step (one `--yes` and
   one window for all the protected ones).
@@ -428,7 +428,7 @@ Anything that must keep running (a temporary web server, a watcher) is a
 | 4    | AUTH_FAILED on a server that asks for a one-time code (two-factor), or a password only a person knows | ask the human to run `komando test SERVER` once in their terminal; your commands then use that session (8h). When it has expired, `error.hint` names the same command again; never type a code |
 | 4    | HOSTKEY_MISMATCH                  | never fix it; report it to the human |
 | 4    | HOSTKEY_UNKNOWN                   | host keys are strict: show the human the fingerprint in the message and let them compare it before `host trust` (it asks them) |
-| 4    | VPN_LOGIN_REQUIRED, VPN_DOWN      | ask the human to run `komando vpn up NAME` |
+| 4    | VPN_LOGIN_REQUIRED, VPN_DOWN      | ask the human to run `komando vpn KIND start NAME` |
 | 4    | AWS_LOGIN_REQUIRED                | the AWS SSO login ran out: ask the human to run the `komando login aws --profile NAME` that `error.hint` names (an agent gets NEEDS_PERSON); AWS_FAILED: follow `error.hint` (keys or profile in ~/.aws); never read ~/.aws yourself |
 | 4    | CONNECTION_LOST                   | the link broke mid-command: it may still run or have finished. Check with a read-only command before re-running; use `job start` next time |
 | 5    | COMMAND_FAILED                    | read `data.results[].stderr` and `exit_code` |

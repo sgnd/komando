@@ -421,7 +421,15 @@ func bodyHandler(body func() *cobra.Command) handler {
 // credentialRef is how today's bodies write the name of a credential: the
 // reference to a secret. Row E1 renames it to credential:NAME; this is the
 // one place that changes.
-func credentialRef(name string) string { return "secret:" + name }
+func credentialRef(name string) string {
+	if strings.Contains(name, ":") { // a name never has a colon: this is a whole reference (env:VAR, op://...)
+		return name
+	}
+	return "secret:" + name
+}
+
+// unsetWords are the words of --unset that today's bodies spell otherwise.
+var unsetWords = map[string]string{"credential": "password-ref", "psk-credential": "psk-ref"}
 
 // bodyArgv is the flags the leaf was given, then its arguments, with `--`
 // where it was typed.
@@ -438,8 +446,11 @@ func bodyArgv(in leafInput, renames map[string]string) []string {
 		switch p := in.vals[name].(type) {
 		case *string:
 			v := *p
-			if name == "credential" {
+			switch name {
+			case "credential":
 				flag, v = "password-ref", credentialRef(v)
+			case "psk-credential":
+				flag, v = "psk-ref", credentialRef(v)
 			}
 			argv = append(argv, "--"+flag+"="+v)
 		case *bool:
@@ -452,8 +463,8 @@ func bodyArgv(in leafInput, renames map[string]string) []string {
 			argv = append(argv, "--"+flag+"="+p.String())
 		case *[]string:
 			for _, v := range *p {
-				if name == "unset" && v == "credential" {
-					v = "password-ref"
+				if to, ok := unsetWords[v]; ok && name == "unset" {
+					v = to
 				}
 				argv = append(argv, "--"+flag+"="+v)
 			}

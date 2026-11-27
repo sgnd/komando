@@ -29,7 +29,7 @@ func TestStandardRenamedIDs(t *testing.T) {
 	}{
 		{[]string{"host", "rename"}, []string{"host", "mv"}, "host.rename"},
 		{[]string{"conn", "rename"}, []string{"conn", "mv"}, "conn.rename"},
-		{[]string{"vpn", "rename"}, []string{"vpn", "mv"}, "vpn.rename"},
+		{[]string{"vpn", "wireguard", "list"}, []string{"vpn", "wireguard", "ls"}, "vpn.wireguard.list"},
 		{[]string{"key", "rename"}, []string{"key", "mv"}, "key.rename"},
 		{[]string{"secret", "rename"}, []string{"secret", "mv"}, "secret.rename"},
 		{[]string{"group", "rename"}, []string{"group", "mv"}, "group.rename"},

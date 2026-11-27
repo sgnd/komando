@@ -26,8 +26,8 @@ aok "test direct" test direct
 aok "host show (references, no values)" host show direct
 aok "conn show" conn show pg
 aok "conn kinds" conn kinds
-aok "vpn list" vpn list
-aok "vpn show" vpn show corp
+aok "vpn list" vpn system list
+aok "vpn show" vpn system show corp
 aok "group list" group list
 aok "key list" key list
 aok "secret list" secret list

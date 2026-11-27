@@ -253,7 +253,7 @@ func formFlags(args []string, a formAnswers) []string {
 		args = append(args, "--protected")
 	}
 	if a["group"] != "" {
-		args = append(args, "-g", a["group"])
+		args = append(args, "--group", a["group"])
 	}
 	if a["notes"] != "" {
 		args = append(args, "--notes", a["notes"])
@@ -619,7 +619,6 @@ func init() {
 	addFormHints(map[string]formHint{
 		"host add": {form: func(cl *call) []formGroup { return formGroupsFor(cl, "host") }, next: []string{"test {}", "host show {}", "host edit {} --protected"}},
 		"conn add": {form: func(cl *call) []formGroup { return formGroupsFor(cl, "conn") }, next: []string{"test {}", "conn show {}"}},
-		"vpn add":  {form: func(cl *call) []formGroup { return formGroupsFor(cl, "vpn") }, next: []string{"vpn up {}", "vpn test {}", "host add NAME USER@ADDRESS --via {}"}},
 	})
 	// db add, cache add, ...: conn add for one family, asked the same way.
 	next := map[string][]string{

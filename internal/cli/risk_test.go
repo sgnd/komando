@@ -209,7 +209,7 @@ func TestProtectionOffSafetyOnEveryEdit(t *testing.T) {
 			t.Errorf("%s --protected=false: %s, want safety", cmdID(c), got)
 		}
 	}
-	for _, want := range []string{"conn.edit", "host.edit", "vpn.edit", "cache.redis.edit", "cache.memcached.edit", "registry.oci.edit"} {
+	for _, want := range []string{"conn.edit", "host.edit", "vpn.wireguard.edit", "cache.redis.edit", "cache.memcached.edit", "registry.oci.edit"} {
 		if !slices.Contains(ids, want) {
 			t.Errorf("%s: not among the edits that take --protected (%v)", want, ids)
 		}

@@ -367,7 +367,7 @@ Next time: komando logs web1
   what it would do and asks again). One that deletes for good asks you to
   type the name of what goes (or how many). A protected target asks its
   usual `web1 (protected): this command changes it. Continue? [y/N]` instead.
-- `komando host add` (or `conn add`, `vpn add`, `db add`, `cache redis add`,
+- `komando host add` (or `conn add`, `vpn KIND add`, `db add`, `cache redis add`,
   `queue kafka add`, `storage s3 add`, `cluster kubernetes add`, `registry oci add`) typed alone
   asks that kind's own questions: which kind, a name, the address or the
   parts of the URL, the user, the port, how you log in, and whether it is
@@ -382,7 +382,7 @@ Next time: komando logs web1
   next, on one line on stderr with at most three commands (`Next: komando
   db info prod-db`). Every add, edit, rename and rm has one. Nothing "next"
   is printed on stdout; scripts and agents read `data.next`. `komando host
-  show web1` (`conn show`, `vpn show`, `group list GROUP`, `key show`,
+  show web1` (`conn show`, `vpn KIND show`, `group list GROUP`, `key show`,
   `job status`, `secret show`, `config get`) ends with the commands for
   that item.
 
@@ -439,7 +439,7 @@ scripts and pipes never get them, and the JSON output does not change.
 ## See what is still running
 
 Some things keep running after the command that started them: a VPN (from
-`vpn up`, or connected by a command), a server login kept by
+`vpn KIND start`, or connected by a command), a server login kept by
 `komando login`, a tunnel, or a job on a server. `komando status` lists
 them all:
 

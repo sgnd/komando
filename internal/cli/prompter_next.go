@@ -72,7 +72,8 @@ func noLinkLeaf(n, provider string) bool {
 // formHint's list, or else the one its verb gives (verbNext). A line with
 // {} needs first; one with NEW needs rename's second argument.
 func nextLines(key, first string, args []string) []string {
-	next := formHints[key].next
+	h, _ := hintOf(key)
+	next := h.next
 	if len(next) == 0 {
 		next = verbNext(key)
 	}
@@ -202,7 +203,7 @@ func useArgs(c *cobra.Command) []string {
 // showKinds are the commands that show one item, and its kind for
 // itemCommands; "" finds the kind in the inventory (a server, conn or VPN).
 var showKinds = map[string]string{
-	"host show": "", "conn show": "", "vpn show": "",
+	"host show": "", "conn show": "",
 	"group list": "group", "key show": "key", "job status": "job", "secret show": "secret", "config get": "setting",
 	"tunnel show": "tunnel", "snippet show": "recipe",
 }
@@ -246,7 +247,7 @@ var itemCommands = map[string][]string{
 		"cluster helm list {} -A", "cluster kubernetes raw {} -- get pods -A"},
 	"registry": {"registry oci image list {}", "registry oci image list {} REPO", "registry oci image show {} IMAGE", "registry oci image copy {}:IMAGE DST_CONN",
 		"registry oci image prune {} REPO --keep 10 --dry-run", "registry oci image delete {} IMAGE --dry-run"},
-	"vpn": {"vpn up {}", "vpn test {}", "vpn down {}", "vpn edit {} --check HOST:PORT", "vpn rename {} NEW", "vpn rm {}",
+	"vpn": {"vpn KIND start {}", "vpn KIND test {}", "vpn KIND stop {}", "vpn KIND edit {} --check HOST:PORT", "vpn KIND rename {} NEW", "vpn KIND remove {}",
 		"host add NAME USER@ADDRESS --via {}"},
 	"group": {"list @{}", "test @{}", "exec @{} -- uptime", "pkg upgradable @{}", "snippet exec health @{}",
 		"group create {} TARGET", "group remove {} TARGET", "group rename {} NEW"},
@@ -306,6 +307,9 @@ func showCommands(cl *call, kind, name string) {
 	}
 	fmt.Fprintln(promptW(cl), "\nCOMMANDS")
 	for _, c := range cmds {
+		if v, ok := st.Vpns[name]; ok {
+			c = strings.ReplaceAll(c, "vpn KIND ", "vpn "+v.Kind+" ")
+		}
 		fmt.Fprintln(promptW(cl), "  komando "+strings.ReplaceAll(strings.ReplaceAll(c, "{}", name), "{P}", providerOfEntry(name)))
 	}
 }

@@ -71,7 +71,7 @@ func TestImportReplacingAVpnNeedsAPerson(t *testing.T) {
 		t.Helper()
 		invHome(t)
 		noAgent(t)
-		mustRun(t, "vpn", "add", "cloud", "ikev2", "--server", "vpn.example.com", "--user", "alice")
+		mustRun(t, "vpn", "ikev2", "add", "cloud", "--server", "vpn.example.com", "--user", "alice")
 		if err := store.Update(tcl.storeWrite(), func(s *store.State) error { edit(s.Vpns["cloud"]); return nil }); err != nil {
 			t.Fatal(err)
 		}

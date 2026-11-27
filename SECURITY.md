@@ -50,7 +50,7 @@ A security problem in OpenSSH, a database, a cache, Kubernetes or another tool t
 - VPNs: IKEv1 offers no 3DES and no DH group below 14, and the server can
   only pick what was offered; PPP (L2TP) does not send your password with
   PAP. Only a person can allow either for one VPN
-  (`--legacy-crypto` or `--allow-pap` on `komando vpn add` or `vpn edit`). The OpenVPN
+  (`--legacy-crypto` or `--allow-pap` on `komando vpn KIND add` or `vpn KIND edit`). The OpenVPN
   client wants a certificate made for a server even when the profile does
   not ask for it.
 - Another device's SSH key (the Komando app on a phone) can be limited to komando with `komando ssh-gate line`. That key gets:

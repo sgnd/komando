@@ -2552,86 +2552,868 @@ title: Upload a file to servers (many at once) or to file storage
 title: Print the komando version and its home folder
 ### komando vpn
 title: VPNs komando connects when a path needs one: add, connect, check
-### komando vpn add
-title: Add a VPN
+### komando vpn anyconnect
+title: Cisco AnyConnect: save a VPN, connect it and check it
+### komando vpn anyconnect add
+title: Save a Cisco AnyConnect VPN under a short name
 - arg0 | Name | Name? |  |  | check
-- arg1 | Kind | Kind? |  |  | check
-- flag:allow-pap | --allow-pap | L2TP: let the server pick a login that does not prove it is the server: PAP, which hands it your password itself, CHAP-MD5 or none (needs a person's yes) |  |  | advanced,default,choices
-- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref |  |  | advanced,default,choices
-- flag:ask-psk | --ask-psk | L2TP, IPsec, IKEv2: type the pre-shared key now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-psk and used as --psk-ref |  |  | advanced,default,choices
-- flag:ca | --ca | IKEv2: the CA certificate (PEM) that signed the server's certificate, if not a public one |  |  | optional,advanced,check
-- flag:check | --check | Host:port reachable only through this VPN (vpn up and test connect to it; needed for system and openvpn) |  |  | optional,advanced,check
-- flag:config | --config | WireGuard: the .conf file; OpenVPN: the .ovpn file (both kept in the vault) |  |  | optional,advanced,check
-- flag:group | --group | Put it in these groups (comma-separated) |  |  | optional,advanced,check
-- flag:id | --id | IPsec: the group name; IKEv2: your identity (default: --user, or your address) |  |  | optional,advanced,check
-- flag:label | --label | Label KEY=VALUE (repeatable) |  |  | optional,advanced,check
-- flag:legacy-crypto | --legacy-crypto | L2TP, IPsec: also offer 3DES and DH groups 2 and 5, for old servers (weak; needs a person's yes) |  |  | advanced,default,choices
-- flag:mfa | --mfa | The login needs a person (MFA, SSO): only 'vpn up' run by a person connects it |  |  | advanced,default,choices
-- flag:notes | --notes | Free-form notes |  |  | optional,advanced,check
-- flag:overwrite | --overwrite | Replace a VPN with the same name |  |  | advanced,default,choices
-- flag:password-ref | --password-ref | Where the password is (Tailscale: the auth key): secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://... |  |  | optional,advanced,check
-- flag:portal | --portal | GlobalProtect, Fortinet, AnyConnect, Pulse, F5: the VPN server or portal |  |  | optional,advanced,check
-- flag:protected | --protected | Komando asks a person before it changes or removes this VPN; an AI agent needs their yes in a window |  |  | advanced,default,choices
-- flag:proxy-address | --proxy-address | SOCKS: host:port of the proxy; proxy: host:port or http(s)://host:port |  |  | optional,advanced,check
-- flag:psk-ref | --psk-ref | L2TP, IPsec, IKEv2: the pre-shared key (IPsec: the group password), as a reference like --password-ref |  |  | optional,advanced,check
-- flag:remote-id | --remote-id | IKEv2: the server's identity, if not its --server name |  |  | optional,advanced,check
-- flag:server | --server | L2TP, IPsec, IKEv2: the VPN server (host or host:port); Tailscale: a Headscale login server URL |  |  | optional,advanced,check
-- flag:service | --service | System VPN: its name in your computer's settings, so 'vpn up' can connect it |  |  | optional,advanced,check
-- flag:tag | --tag | Tags, like prod (comma-separated) |  |  | optional,advanced,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:check | --check | Host:port reachable only through this VPN (start and test connect to it) |  |  | optional,advanced,check
+- flag:credential | --credential | The credential holding the login password |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:mfa | --mfa | A person answers the second factor at each connect |  |  | advanced,default,choices
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:portal | --portal | The VPN server or portal |  |  | optional,advanced,check
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
 - flag:user | --user | User name for the VPN login |  |  | optional,advanced,check
-### komando vpn down
-title: Disconnect VPN sessions (--all for every one)
-- arg0 | Name | Which VPNs should disconnect? (leave empty with --all) | Pick one, or type several names separated by spaces. |  | optional,free,choices,check
-- flag:all | --all | Disconnect every VPN instead? | Yes disconnects every VPN that is up now. |  | default,choices
-### komando vpn edit
-title: Change one or more VPNs (only the flags you pass change)
-- arg0 | Target (VPNs) | Which VPN? | One from your list. `komando vpn list` shows them. |  | free,choices,check
+### komando vpn anyconnect edit
+title: Change saved Cisco AnyConnect VPNs (only the flags you give)
+- arg0 | Target (VPNs) | Which VPN? | One from your list. `komando list` shows them. |  | free,choices,check
 - flag:check | --check | Which address can only be reached through this VPN? | An address and port inside the private network. komando connects to it to see that the VPN works. Leave empty to keep it. | 10.0.0.5:22 | optional,check
 - flag:user | --user | New user name for the VPN login? | Leave empty to keep it. | alice | optional,check
-- flag:password-ref | --password-ref | Where is the new password kept? | Store it first with `komando secret set NAME` (it asks hidden), then type secret:NAME here. Leave empty to keep it. | secret:office-pass | optional,check
+- flag:credential | --credential | Which credential holds the new password? | Save it first as a credential (it asks hidden), then type its name here. Leave empty to keep it. | office-pass | optional,check
 - flag:notes | --notes | Notes about this VPN? | Anything to remember. Leave empty to keep them. | office in Jakarta, ask Budi for access | optional,check
-- flag:add-group | --add-group | Put it in these groups (comma-separated) |  |  | optional,advanced,check
-- flag:add-tag | --add-tag | Add these tags (comma-separated) |  |  | optional,advanced,check
-- flag:allow-pap | --allow-pap | L2TP: let the server pick a login that does not prove it is the server: PAP, which hands it your password itself, CHAP-MD5 or none (turning it on needs a person's yes) |  |  | advanced,default,choices
-- flag:ca | --ca | IKEv2: the CA certificate (PEM) that signed the server's certificate; "" for a public one |  |  | optional,advanced,check
-- flag:id | --id | IPsec: the group name; IKEv2: your identity |  |  | optional,advanced,check
-- flag:label | --label | Set label KEY=VALUE (an empty value removes it) |  |  | optional,advanced,check
-- flag:legacy-crypto | --legacy-crypto | L2TP, IPsec: also offer 3DES and DH groups 2 and 5, for old servers (weak; turning it on needs a person's yes) |  |  | advanced,default,choices
-- flag:mfa | --mfa | The login needs a person (MFA, SSO) |  |  | advanced,default,choices
-- flag:portal | --portal | GlobalProtect, Fortinet, AnyConnect, Pulse, F5: the VPN server or portal |  |  | optional,advanced,check
-- flag:protected | --protected | Komando asks a person before it changes or removes this VPN; an AI agent needs their yes in a window |  |  | advanced,default,choices
-- flag:proxy-address | --proxy-address | SOCKS: host:port of the proxy; proxy: host:port or http(s)://host:port |  |  | optional,advanced,check
-- flag:psk-ref | --psk-ref | L2TP, IPsec, IKEv2: the pre-shared key (IPsec: the group password) |  |  | optional,advanced,check
-- flag:remote-id | --remote-id | IKEv2: the server's identity |  |  | optional,advanced,check
+- flag:add-group | --add-group | Put it in these groups |  |  | optional,advanced,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:mfa | --mfa | A person answers the second factor at each connect |  |  | advanced,default,choices
+- flag:portal | --portal | The VPN server or portal |  |  | optional,advanced,check
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
 - flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
 - flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
-- flag:server | --server | L2TP, IPsec, IKEv2: the VPN server |  |  | optional,advanced,check
-- flag:service | --service | System VPN: its name in your computer's settings |  |  | optional,advanced,check
-- flag:unset | --unset | Clear these settings: user,password-ref,psk-ref,id,remote-id,ca,check,notes |  |  | optional,advanced,check
-### komando vpn list
-title: List VPNs
+- flag:unset | --unset | Clear these settings: check, user, credential, notes |  |  | optional,advanced,check
+### komando vpn anyconnect list
+title: List the saved Cisco AnyConnect VPNs
 - arg0 | Target (VPNs) | Only some VPNs? (leave empty for all) | Pick one, or type @group or tag:office. |  | optional,free,choices,check
-- flag:limit | --limit | Show at most this many items (0 = all) |  |  | optional,advanced,check
-### komando vpn rename
-title: Rename a VPN and every reference to it
-- arg0 | Old | Which VPN? | One from your list. `komando vpn list` shows them. |  | choices,check
-- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | office-jkt | check
-### komando vpn rm
-title: Remove VPNs (from komando only)
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando vpn anyconnect remove
+title: Forget saved Cisco AnyConnect VPNs (the network is not touched)
 - arg0 | Target (VPNs) | Which VPNs? | Pick one, or type several names separated by spaces. |  | free,choices,check
-### komando vpn show
-title: Show a VPN (saved keys are never shown)
-- arg0 | Name | Which VPN? | One from your list. `komando vpn list` shows them. |  | choices,check
-### komando vpn status
-title: Which VPNs are connected, since when, and what uses them
-### komando vpn test
-title: Check that VPNs connect
+### komando vpn anyconnect rename
+title: Rename a saved Cisco AnyConnect VPN and every reference to it
+- arg0 | Name | Which VPN? | One from your list. `komando list` shows them. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | office-jkt | check
+### komando vpn anyconnect show
+title: Show a saved Cisco AnyConnect VPN (saved keys are never shown)
+- arg0 | Name | Which VPN? | One from your list. `komando list` shows them. |  | choices,check
+### komando vpn anyconnect start
+title: Connect a Cisco AnyConnect VPN now and keep it up
+- arg0 | Name | Which VPN should connect? | It stays up for later commands. When it asks for a login or a code, type it here. |  | choices,check
+### komando vpn anyconnect status
+title: Show whether a Cisco AnyConnect VPN is connected and what uses it
+- arg0 | Name | Only one VPN? (leave empty for all) | Pick one, or leave it empty. |  | optional,free,choices,check
+### komando vpn anyconnect stop
+title: Disconnect a Cisco AnyConnect VPN that is up
+- arg0 | Name | Which VPN should disconnect? | Pick one. |  | choices,check
+### komando vpn anyconnect test
+title: Check that a saved Cisco AnyConnect VPN connects
 - arg0 | Target (VPNs) | Which VPN should be tested? | komando connects through it and says whether it works. |  | choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 30s or 5m: it tests again every few seconds until it works. Leave empty to test once. | 5m | optional,check
-- flag:end | --end | End the kept sessions of the servers named (every server when none is named), instead of testing |  |  | advanced,default,choices
-### komando vpn up
-title: Connect a VPN now and keep it up
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando vpn f5
+title: F5 BIG-IP: save a VPN, connect it and check it
+### komando vpn f5 add
+title: Save an F5 BIG-IP VPN under a short name
+- arg0 | Name | Name? |  |  | check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:check | --check | Host:port reachable only through this VPN (start and test connect to it) |  |  | optional,advanced,check
+- flag:credential | --credential | The credential holding the login password |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:mfa | --mfa | A person answers the second factor at each connect |  |  | advanced,default,choices
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:portal | --portal | The VPN server or portal |  |  | optional,advanced,check
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:user | --user | User name for the VPN login |  |  | optional,advanced,check
+### komando vpn f5 edit
+title: Change saved F5 BIG-IP VPNs (only the flags you give)
+- arg0 | Target (VPNs) | Which VPN? | One from your list. `komando list` shows them. |  | free,choices,check
+- flag:check | --check | Which address can only be reached through this VPN? | An address and port inside the private network. komando connects to it to see that the VPN works. Leave empty to keep it. | 10.0.0.5:22 | optional,check
+- flag:user | --user | New user name for the VPN login? | Leave empty to keep it. | alice | optional,check
+- flag:credential | --credential | Which credential holds the new password? | Save it first as a credential (it asks hidden), then type its name here. Leave empty to keep it. | office-pass | optional,check
+- flag:notes | --notes | Notes about this VPN? | Anything to remember. Leave empty to keep them. | office in Jakarta, ask Budi for access | optional,check
+- flag:add-group | --add-group | Put it in these groups |  |  | optional,advanced,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:mfa | --mfa | A person answers the second factor at each connect |  |  | advanced,default,choices
+- flag:portal | --portal | The VPN server or portal |  |  | optional,advanced,check
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: check, user, credential, notes |  |  | optional,advanced,check
+### komando vpn f5 list
+title: List the saved F5 BIG-IP VPNs
+- arg0 | Target (VPNs) | Only some VPNs? (leave empty for all) | Pick one, or type @group or tag:office. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando vpn f5 remove
+title: Forget saved F5 BIG-IP VPNs (the network is not touched)
+- arg0 | Target (VPNs) | Which VPNs? | Pick one, or type several names separated by spaces. |  | free,choices,check
+### komando vpn f5 rename
+title: Rename a saved F5 BIG-IP VPN and every reference to it
+- arg0 | Name | Which VPN? | One from your list. `komando list` shows them. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | office-jkt | check
+### komando vpn f5 show
+title: Show a saved F5 BIG-IP VPN (saved keys are never shown)
+- arg0 | Name | Which VPN? | One from your list. `komando list` shows them. |  | choices,check
+### komando vpn f5 start
+title: Connect an F5 BIG-IP VPN now and keep it up
 - arg0 | Name | Which VPN should connect? | It stays up for later commands. When it asks for a login or a code, type it here. |  | choices,check
+### komando vpn f5 status
+title: Show whether a F5 BIG-IP VPN is connected and what uses it
+- arg0 | Name | Only one VPN? (leave empty for all) | Pick one, or leave it empty. |  | optional,free,choices,check
+### komando vpn f5 stop
+title: Disconnect an F5 BIG-IP VPN that is up
+- arg0 | Name | Which VPN should disconnect? | Pick one. |  | choices,check
+### komando vpn f5 test
+title: Check that a saved F5 BIG-IP VPN connects
+- arg0 | Target (VPNs) | Which VPN should be tested? | komando connects through it and says whether it works. |  | choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 30s or 5m: it tests again every few seconds until it works. Leave empty to test once. | 5m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando vpn fortinet
+title: Fortinet: save a VPN, connect it and check it
+### komando vpn fortinet add
+title: Save a Fortinet VPN under a short name
+- arg0 | Name | Name? |  |  | check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:check | --check | Host:port reachable only through this VPN (start and test connect to it) |  |  | optional,advanced,check
+- flag:credential | --credential | The credential holding the login password |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:mfa | --mfa | A person answers the second factor at each connect |  |  | advanced,default,choices
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:portal | --portal | The VPN server or portal |  |  | optional,advanced,check
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:user | --user | User name for the VPN login |  |  | optional,advanced,check
+### komando vpn fortinet edit
+title: Change saved Fortinet VPNs (only the flags you give)
+- arg0 | Target (VPNs) | Which VPN? | One from your list. `komando list` shows them. |  | free,choices,check
+- flag:check | --check | Which address can only be reached through this VPN? | An address and port inside the private network. komando connects to it to see that the VPN works. Leave empty to keep it. | 10.0.0.5:22 | optional,check
+- flag:user | --user | New user name for the VPN login? | Leave empty to keep it. | alice | optional,check
+- flag:credential | --credential | Which credential holds the new password? | Save it first as a credential (it asks hidden), then type its name here. Leave empty to keep it. | office-pass | optional,check
+- flag:notes | --notes | Notes about this VPN? | Anything to remember. Leave empty to keep them. | office in Jakarta, ask Budi for access | optional,check
+- flag:add-group | --add-group | Put it in these groups |  |  | optional,advanced,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:mfa | --mfa | A person answers the second factor at each connect |  |  | advanced,default,choices
+- flag:portal | --portal | The VPN server or portal |  |  | optional,advanced,check
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: check, user, credential, notes |  |  | optional,advanced,check
+### komando vpn fortinet list
+title: List the saved Fortinet VPNs
+- arg0 | Target (VPNs) | Only some VPNs? (leave empty for all) | Pick one, or type @group or tag:office. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando vpn fortinet remove
+title: Forget saved Fortinet VPNs (the network is not touched)
+- arg0 | Target (VPNs) | Which VPNs? | Pick one, or type several names separated by spaces. |  | free,choices,check
+### komando vpn fortinet rename
+title: Rename a saved Fortinet VPN and every reference to it
+- arg0 | Name | Which VPN? | One from your list. `komando list` shows them. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | office-jkt | check
+### komando vpn fortinet show
+title: Show a saved Fortinet VPN (saved keys are never shown)
+- arg0 | Name | Which VPN? | One from your list. `komando list` shows them. |  | choices,check
+### komando vpn fortinet start
+title: Connect a Fortinet VPN now and keep it up
+- arg0 | Name | Which VPN should connect? | It stays up for later commands. When it asks for a login or a code, type it here. |  | choices,check
+### komando vpn fortinet status
+title: Show whether a Fortinet VPN is connected and what uses it
+- arg0 | Name | Only one VPN? (leave empty for all) | Pick one, or leave it empty. |  | optional,free,choices,check
+### komando vpn fortinet stop
+title: Disconnect a Fortinet VPN that is up
+- arg0 | Name | Which VPN should disconnect? | Pick one. |  | choices,check
+### komando vpn fortinet test
+title: Check that a saved Fortinet VPN connects
+- arg0 | Target (VPNs) | Which VPN should be tested? | komando connects through it and says whether it works. |  | choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 30s or 5m: it tests again every few seconds until it works. Leave empty to test once. | 5m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando vpn globalprotect
+title: GlobalProtect: save a VPN, connect it and check it
+### komando vpn globalprotect add
+title: Save a GlobalProtect VPN under a short name
+- arg0 | Name | Name? |  |  | check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:check | --check | Host:port reachable only through this VPN (start and test connect to it) |  |  | optional,advanced,check
+- flag:credential | --credential | The credential holding the login password |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:mfa | --mfa | A person answers the second factor at each connect |  |  | advanced,default,choices
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:portal | --portal | The VPN server or portal |  |  | optional,advanced,check
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:user | --user | User name for the VPN login |  |  | optional,advanced,check
+### komando vpn globalprotect edit
+title: Change saved GlobalProtect VPNs (only the flags you give)
+- arg0 | Target (VPNs) | Which VPN? | One from your list. `komando list` shows them. |  | free,choices,check
+- flag:check | --check | Which address can only be reached through this VPN? | An address and port inside the private network. komando connects to it to see that the VPN works. Leave empty to keep it. | 10.0.0.5:22 | optional,check
+- flag:user | --user | New user name for the VPN login? | Leave empty to keep it. | alice | optional,check
+- flag:credential | --credential | Which credential holds the new password? | Save it first as a credential (it asks hidden), then type its name here. Leave empty to keep it. | office-pass | optional,check
+- flag:notes | --notes | Notes about this VPN? | Anything to remember. Leave empty to keep them. | office in Jakarta, ask Budi for access | optional,check
+- flag:add-group | --add-group | Put it in these groups |  |  | optional,advanced,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:mfa | --mfa | A person answers the second factor at each connect |  |  | advanced,default,choices
+- flag:portal | --portal | The VPN server or portal |  |  | optional,advanced,check
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: check, user, credential, notes |  |  | optional,advanced,check
+### komando vpn globalprotect list
+title: List the saved GlobalProtect VPNs
+- arg0 | Target (VPNs) | Only some VPNs? (leave empty for all) | Pick one, or type @group or tag:office. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando vpn globalprotect remove
+title: Forget saved GlobalProtect VPNs (the network is not touched)
+- arg0 | Target (VPNs) | Which VPNs? | Pick one, or type several names separated by spaces. |  | free,choices,check
+### komando vpn globalprotect rename
+title: Rename a saved GlobalProtect VPN and every reference to it
+- arg0 | Name | Which VPN? | One from your list. `komando list` shows them. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | office-jkt | check
+### komando vpn globalprotect show
+title: Show a saved GlobalProtect VPN (saved keys are never shown)
+- arg0 | Name | Which VPN? | One from your list. `komando list` shows them. |  | choices,check
+### komando vpn globalprotect start
+title: Connect a GlobalProtect VPN now and keep it up
+- arg0 | Name | Which VPN should connect? | It stays up for later commands. When it asks for a login or a code, type it here. |  | choices,check
+### komando vpn globalprotect status
+title: Show whether a GlobalProtect VPN is connected and what uses it
+- arg0 | Name | Only one VPN? (leave empty for all) | Pick one, or leave it empty. |  | optional,free,choices,check
+### komando vpn globalprotect stop
+title: Disconnect a GlobalProtect VPN that is up
+- arg0 | Name | Which VPN should disconnect? | Pick one. |  | choices,check
+### komando vpn globalprotect test
+title: Check that a saved GlobalProtect VPN connects
+- arg0 | Target (VPNs) | Which VPN should be tested? | komando connects through it and says whether it works. |  | choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 30s or 5m: it tests again every few seconds until it works. Leave empty to test once. | 5m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando vpn ikev2
+title: IKEv2: save a VPN, connect it and check it
+### komando vpn ikev2 add
+title: Save an IKEv2 VPN under a short name
+- arg0 | Name | Name? |  |  | check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:ask-psk | --ask-psk | Type the pre-shared key now (hidden, a person at a terminal); it is stored as a credential |  |  | advanced,default,choices
+- flag:ca | --ca | The CA certificate (PEM) that signed the server's certificate, if not a public one |  |  | optional,advanced,check
+- flag:check | --check | Host:port reachable only through this VPN (start and test connect to it) |  |  | optional,advanced,check
+- flag:credential | --credential | The credential holding the login password |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:id | --id | The group name (IPsec) or your identity (IKEv2; default: --user) |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:mfa | --mfa | A person answers the second factor at each connect |  |  | advanced,default,choices
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:psk-credential | --psk-credential | The credential holding the pre-shared key (IPsec: the group password) |  |  | optional,advanced,check
+- flag:remote-id | --remote-id | The server's identity, if not its --server name |  |  | optional,advanced,check
+- flag:server | --server | The VPN server (host or host:port) |  |  | optional,advanced,check
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:user | --user | User name for the VPN login |  |  | optional,advanced,check
+### komando vpn ikev2 edit
+title: Change saved IKEv2 VPNs (only the flags you give)
+- arg0 | Target (VPNs) | Which VPN? | One from your list. `komando list` shows them. |  | free,choices,check
+- flag:check | --check | Which address can only be reached through this VPN? | An address and port inside the private network. komando connects to it to see that the VPN works. Leave empty to keep it. | 10.0.0.5:22 | optional,check
+- flag:user | --user | New user name for the VPN login? | Leave empty to keep it. | alice | optional,check
+- flag:credential | --credential | Which credential holds the new password? | Save it first as a credential (it asks hidden), then type its name here. Leave empty to keep it. | office-pass | optional,check
+- flag:notes | --notes | Notes about this VPN? | Anything to remember. Leave empty to keep them. | office in Jakarta, ask Budi for access | optional,check
+- flag:add-group | --add-group | Put it in these groups |  |  | optional,advanced,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:ca | --ca | The CA certificate (PEM) that signed the server's certificate, if not a public one |  |  | optional,advanced,check
+- flag:id | --id | The group name (IPsec) or your identity (IKEv2; default: --user) |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:mfa | --mfa | A person answers the second factor at each connect |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:psk-credential | --psk-credential | The credential holding the pre-shared key (IPsec: the group password) |  |  | optional,advanced,check
+- flag:remote-id | --remote-id | The server's identity, if not its --server name |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:server | --server | The VPN server (host or host:port) |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: check, psk-credential, user, credential, id, remote-id, ca, notes |  |  | optional,advanced,check
+### komando vpn ikev2 list
+title: List the saved IKEv2 VPNs
+- arg0 | Target (VPNs) | Only some VPNs? (leave empty for all) | Pick one, or type @group or tag:office. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando vpn ikev2 remove
+title: Forget saved IKEv2 VPNs (the network is not touched)
+- arg0 | Target (VPNs) | Which VPNs? | Pick one, or type several names separated by spaces. |  | free,choices,check
+### komando vpn ikev2 rename
+title: Rename a saved IKEv2 VPN and every reference to it
+- arg0 | Name | Which VPN? | One from your list. `komando list` shows them. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | office-jkt | check
+### komando vpn ikev2 show
+title: Show a saved IKEv2 VPN (saved keys are never shown)
+- arg0 | Name | Which VPN? | One from your list. `komando list` shows them. |  | choices,check
+### komando vpn ikev2 start
+title: Connect an IKEv2 VPN now and keep it up
+- arg0 | Name | Which VPN should connect? | It stays up for later commands. When it asks for a login or a code, type it here. |  | choices,check
+### komando vpn ikev2 status
+title: Show whether a IKEv2 VPN is connected and what uses it
+- arg0 | Name | Only one VPN? (leave empty for all) | Pick one, or leave it empty. |  | optional,free,choices,check
+### komando vpn ikev2 stop
+title: Disconnect an IKEv2 VPN that is up
+- arg0 | Name | Which VPN should disconnect? | Pick one. |  | choices,check
+### komando vpn ikev2 test
+title: Check that a saved IKEv2 VPN connects
+- arg0 | Target (VPNs) | Which VPN should be tested? | komando connects through it and says whether it works. |  | choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 30s or 5m: it tests again every few seconds until it works. Leave empty to test once. | 5m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando vpn ipsec
+title: Cisco IPsec: save a VPN, connect it and check it
+### komando vpn ipsec add
+title: Save a Cisco IPsec VPN under a short name
+- arg0 | Name | Name? |  |  | check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:ask-psk | --ask-psk | Type the pre-shared key now (hidden, a person at a terminal); it is stored as a credential |  |  | advanced,default,choices
+- flag:check | --check | Host:port reachable only through this VPN (start and test connect to it) |  |  | optional,advanced,check
+- flag:credential | --credential | The credential holding the login password |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:id | --id | The group name (IPsec) or your identity (IKEv2; default: --user) |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:legacy-crypto | --legacy-crypto | Also offer 3DES and DH groups 2 and 5, for old servers (weak; needs a person's yes) |  |  | advanced,default,choices
+- flag:mfa | --mfa | A person answers the second factor at each connect |  |  | advanced,default,choices
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:psk-credential | --psk-credential | The credential holding the pre-shared key (IPsec: the group password) |  |  | optional,advanced,check
+- flag:server | --server | The VPN server (host or host:port) |  |  | optional,advanced,check
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:user | --user | User name for the VPN login |  |  | optional,advanced,check
+### komando vpn ipsec edit
+title: Change saved Cisco IPsec VPNs (only the flags you give)
+- arg0 | Target (VPNs) | Which VPN? | One from your list. `komando list` shows them. |  | free,choices,check
+- flag:check | --check | Which address can only be reached through this VPN? | An address and port inside the private network. komando connects to it to see that the VPN works. Leave empty to keep it. | 10.0.0.5:22 | optional,check
+- flag:user | --user | New user name for the VPN login? | Leave empty to keep it. | alice | optional,check
+- flag:credential | --credential | Which credential holds the new password? | Save it first as a credential (it asks hidden), then type its name here. Leave empty to keep it. | office-pass | optional,check
+- flag:notes | --notes | Notes about this VPN? | Anything to remember. Leave empty to keep them. | office in Jakarta, ask Budi for access | optional,check
+- flag:add-group | --add-group | Put it in these groups |  |  | optional,advanced,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:id | --id | The group name (IPsec) or your identity (IKEv2; default: --user) |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:legacy-crypto | --legacy-crypto | Also offer 3DES and DH groups 2 and 5, for old servers (weak; needs a person's yes) |  |  | advanced,default,choices
+- flag:mfa | --mfa | A person answers the second factor at each connect |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:psk-credential | --psk-credential | The credential holding the pre-shared key (IPsec: the group password) |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:server | --server | The VPN server (host or host:port) |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: check, psk-credential, id, user, credential, notes |  |  | optional,advanced,check
+### komando vpn ipsec list
+title: List the saved Cisco IPsec VPNs
+- arg0 | Target (VPNs) | Only some VPNs? (leave empty for all) | Pick one, or type @group or tag:office. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando vpn ipsec remove
+title: Forget saved Cisco IPsec VPNs (the network is not touched)
+- arg0 | Target (VPNs) | Which VPNs? | Pick one, or type several names separated by spaces. |  | free,choices,check
+### komando vpn ipsec rename
+title: Rename a saved Cisco IPsec VPN and every reference to it
+- arg0 | Name | Which VPN? | One from your list. `komando list` shows them. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | office-jkt | check
+### komando vpn ipsec show
+title: Show a saved Cisco IPsec VPN (saved keys are never shown)
+- arg0 | Name | Which VPN? | One from your list. `komando list` shows them. |  | choices,check
+### komando vpn ipsec start
+title: Connect a Cisco IPsec VPN now and keep it up
+- arg0 | Name | Which VPN should connect? | It stays up for later commands. When it asks for a login or a code, type it here. |  | choices,check
+### komando vpn ipsec status
+title: Show whether a Cisco IPsec VPN is connected and what uses it
+- arg0 | Name | Only one VPN? (leave empty for all) | Pick one, or leave it empty. |  | optional,free,choices,check
+### komando vpn ipsec stop
+title: Disconnect a Cisco IPsec VPN that is up
+- arg0 | Name | Which VPN should disconnect? | Pick one. |  | choices,check
+### komando vpn ipsec test
+title: Check that a saved Cisco IPsec VPN connects
+- arg0 | Target (VPNs) | Which VPN should be tested? | komando connects through it and says whether it works. |  | choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 30s or 5m: it tests again every few seconds until it works. Leave empty to test once. | 5m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando vpn l2tp
+title: L2TP/IPsec: save a VPN, connect it and check it
+### komando vpn l2tp add
+title: Save an L2TP/IPsec VPN under a short name
+- arg0 | Name | Name? |  |  | check
+- flag:allow-pap | --allow-pap | Let the server pick a login that does not prove it is the server: PAP, CHAP-MD5 or none (needs a person's yes) |  |  | advanced,default,choices
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:ask-psk | --ask-psk | Type the pre-shared key now (hidden, a person at a terminal); it is stored as a credential |  |  | advanced,default,choices
+- flag:check | --check | Host:port reachable only through this VPN (start and test connect to it) |  |  | optional,advanced,check
+- flag:credential | --credential | The credential holding the login password |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:legacy-crypto | --legacy-crypto | Also offer 3DES and DH groups 2 and 5, for old servers (weak; needs a person's yes) |  |  | advanced,default,choices
+- flag:mfa | --mfa | A person answers the second factor at each connect |  |  | advanced,default,choices
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:psk-credential | --psk-credential | The credential holding the pre-shared key (IPsec: the group password) |  |  | optional,advanced,check
+- flag:server | --server | The VPN server (host or host:port) |  |  | optional,advanced,check
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:user | --user | User name for the VPN login |  |  | optional,advanced,check
+### komando vpn l2tp edit
+title: Change saved L2TP/IPsec VPNs (only the flags you give)
+- arg0 | Target (VPNs) | Which VPN? | One from your list. `komando list` shows them. |  | free,choices,check
+- flag:check | --check | Which address can only be reached through this VPN? | An address and port inside the private network. komando connects to it to see that the VPN works. Leave empty to keep it. | 10.0.0.5:22 | optional,check
+- flag:user | --user | New user name for the VPN login? | Leave empty to keep it. | alice | optional,check
+- flag:credential | --credential | Which credential holds the new password? | Save it first as a credential (it asks hidden), then type its name here. Leave empty to keep it. | office-pass | optional,check
+- flag:notes | --notes | Notes about this VPN? | Anything to remember. Leave empty to keep them. | office in Jakarta, ask Budi for access | optional,check
+- flag:add-group | --add-group | Put it in these groups |  |  | optional,advanced,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:allow-pap | --allow-pap | Let the server pick a login that does not prove it is the server: PAP, CHAP-MD5 or none (needs a person's yes) |  |  | advanced,default,choices
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:legacy-crypto | --legacy-crypto | Also offer 3DES and DH groups 2 and 5, for old servers (weak; needs a person's yes) |  |  | advanced,default,choices
+- flag:mfa | --mfa | A person answers the second factor at each connect |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:psk-credential | --psk-credential | The credential holding the pre-shared key (IPsec: the group password) |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:server | --server | The VPN server (host or host:port) |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: check, user, psk-credential, credential, notes |  |  | optional,advanced,check
+### komando vpn l2tp list
+title: List the saved L2TP/IPsec VPNs
+- arg0 | Target (VPNs) | Only some VPNs? (leave empty for all) | Pick one, or type @group or tag:office. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando vpn l2tp remove
+title: Forget saved L2TP/IPsec VPNs (the network is not touched)
+- arg0 | Target (VPNs) | Which VPNs? | Pick one, or type several names separated by spaces. |  | free,choices,check
+### komando vpn l2tp rename
+title: Rename a saved L2TP/IPsec VPN and every reference to it
+- arg0 | Name | Which VPN? | One from your list. `komando list` shows them. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | office-jkt | check
+### komando vpn l2tp show
+title: Show a saved L2TP/IPsec VPN (saved keys are never shown)
+- arg0 | Name | Which VPN? | One from your list. `komando list` shows them. |  | choices,check
+### komando vpn l2tp start
+title: Connect an L2TP/IPsec VPN now and keep it up
+- arg0 | Name | Which VPN should connect? | It stays up for later commands. When it asks for a login or a code, type it here. |  | choices,check
+### komando vpn l2tp status
+title: Show whether a L2TP/IPsec VPN is connected and what uses it
+- arg0 | Name | Only one VPN? (leave empty for all) | Pick one, or leave it empty. |  | optional,free,choices,check
+### komando vpn l2tp stop
+title: Disconnect an L2TP/IPsec VPN that is up
+- arg0 | Name | Which VPN should disconnect? | Pick one. |  | choices,check
+### komando vpn l2tp test
+title: Check that a saved L2TP/IPsec VPN connects
+- arg0 | Target (VPNs) | Which VPN should be tested? | komando connects through it and says whether it works. |  | choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 30s or 5m: it tests again every few seconds until it works. Leave empty to test once. | 5m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando vpn openvpn
+title: OpenVPN: save a VPN, connect it and check it
+### komando vpn openvpn add
+title: Save an OpenVPN profile under a short name
+- arg0 | Name | Name? |  |  | check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:check | --check | Host:port reachable only through this VPN (start and test connect to it) |  |  | optional,advanced,check
+- flag:config | --config | The config file; its keys go into the vault |  |  | optional,advanced,check
+- flag:credential | --credential | The credential holding the login password |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:mfa | --mfa | A person answers the second factor at each connect |  |  | advanced,default,choices
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:user | --user | User name for the VPN login |  |  | optional,advanced,check
+### komando vpn openvpn edit
+title: Change saved OpenVPN profiles (only the flags you give)
+- arg0 | Target (VPNs) | Which VPN? | One from your list. `komando list` shows them. |  | free,choices,check
+- flag:check | --check | Which address can only be reached through this VPN? | An address and port inside the private network. komando connects to it to see that the VPN works. Leave empty to keep it. | 10.0.0.5:22 | optional,check
+- flag:user | --user | New user name for the VPN login? | Leave empty to keep it. | alice | optional,check
+- flag:credential | --credential | Which credential holds the new password? | Save it first as a credential (it asks hidden), then type its name here. Leave empty to keep it. | office-pass | optional,check
+- flag:notes | --notes | Notes about this VPN? | Anything to remember. Leave empty to keep them. | office in Jakarta, ask Budi for access | optional,check
+- flag:add-group | --add-group | Put it in these groups |  |  | optional,advanced,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:mfa | --mfa | A person answers the second factor at each connect |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: check, user, credential, notes |  |  | optional,advanced,check
+### komando vpn openvpn list
+title: List the saved OpenVPN profiles
+- arg0 | Target (VPNs) | Only some VPNs? (leave empty for all) | Pick one, or type @group or tag:office. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando vpn openvpn remove
+title: Forget saved OpenVPN profiles (the network is not touched)
+- arg0 | Target (VPNs) | Which VPNs? | Pick one, or type several names separated by spaces. |  | free,choices,check
+### komando vpn openvpn rename
+title: Rename a saved OpenVPN profile and every reference to it
+- arg0 | Name | Which VPN? | One from your list. `komando list` shows them. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | office-jkt | check
+### komando vpn openvpn show
+title: Show a saved OpenVPN profile (saved keys are never shown)
+- arg0 | Name | Which VPN? | One from your list. `komando list` shows them. |  | choices,check
+### komando vpn openvpn start
+title: Connect an OpenVPN profile now and keep it up
+- arg0 | Name | Which VPN should connect? | It stays up for later commands. When it asks for a login or a code, type it here. |  | choices,check
+### komando vpn openvpn status
+title: Show whether a OpenVPN profile is connected and what uses it
+- arg0 | Name | Only one VPN? (leave empty for all) | Pick one, or leave it empty. |  | optional,free,choices,check
+### komando vpn openvpn stop
+title: Disconnect an OpenVPN profile that is up
+- arg0 | Name | Which VPN should disconnect? | Pick one. |  | choices,check
+### komando vpn openvpn test
+title: Check that a saved OpenVPN profile connects
+- arg0 | Target (VPNs) | Which VPN should be tested? | komando connects through it and says whether it works. |  | choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 30s or 5m: it tests again every few seconds until it works. Leave empty to test once. | 5m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando vpn proxy
+title: HTTP proxy: save a company proxy and check it
+### komando vpn proxy add
+title: Save an HTTP proxy under a short name
+- arg0 | Name | Name? |  |  | check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:check | --check | Host:port reachable only through this VPN (start and test connect to it) |  |  | optional,advanced,check
+- flag:credential | --credential | The credential holding the login password |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:mfa | --mfa | A person answers the second factor at each connect |  |  | advanced,default,choices
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:proxy-address | --proxy-address | Host:port of the proxy; an HTTP proxy also takes http(s)://host:port |  |  | optional,advanced,check
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:user | --user | User name for the VPN login |  |  | optional,advanced,check
+### komando vpn proxy edit
+title: Change saved HTTP proxies (only the flags you give)
+- arg0 | Target (VPNs) | Which VPN? | One from your list. `komando list` shows them. |  | free,choices,check
+- flag:check | --check | Which address can only be reached through this VPN? | An address and port inside the private network. komando connects to it to see that the VPN works. Leave empty to keep it. | 10.0.0.5:22 | optional,check
+- flag:user | --user | New user name for the VPN login? | Leave empty to keep it. | alice | optional,check
+- flag:credential | --credential | Which credential holds the new password? | Save it first as a credential (it asks hidden), then type its name here. Leave empty to keep it. | office-pass | optional,check
+- flag:notes | --notes | Notes about this VPN? | Anything to remember. Leave empty to keep them. | office in Jakarta, ask Budi for access | optional,check
+- flag:add-group | --add-group | Put it in these groups |  |  | optional,advanced,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:mfa | --mfa | A person answers the second factor at each connect |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:proxy-address | --proxy-address | Host:port of the proxy; an HTTP proxy also takes http(s)://host:port |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: check, user, credential, notes |  |  | optional,advanced,check
+### komando vpn proxy list
+title: List the saved HTTP proxies
+- arg0 | Target (VPNs) | Only some VPNs? (leave empty for all) | Pick one, or type @group or tag:office. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando vpn proxy remove
+title: Forget saved HTTP proxies (the network is not touched)
+- arg0 | Target (VPNs) | Which VPNs? | Pick one, or type several names separated by spaces. |  | free,choices,check
+### komando vpn proxy rename
+title: Rename a saved HTTP proxy and every reference to it
+- arg0 | Name | Which VPN? | One from your list. `komando list` shows them. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | office-jkt | check
+### komando vpn proxy show
+title: Show a saved HTTP proxy (saved keys are never shown)
+- arg0 | Name | Which VPN? | One from your list. `komando list` shows them. |  | choices,check
+### komando vpn proxy start
+title: Connect an HTTP proxy now and keep it up
+- arg0 | Name | Which VPN should connect? | It stays up for later commands. When it asks for a login or a code, type it here. |  | choices,check
+### komando vpn proxy status
+title: Show whether a HTTP proxy is connected and what uses it
+- arg0 | Name | Only one VPN? (leave empty for all) | Pick one, or leave it empty. |  | optional,free,choices,check
+### komando vpn proxy stop
+title: Disconnect an HTTP proxy that is up
+- arg0 | Name | Which VPN should disconnect? | Pick one. |  | choices,check
+### komando vpn proxy test
+title: Check that a saved HTTP proxy connects
+- arg0 | Target (VPNs) | Which VPN should be tested? | komando connects through it and says whether it works. |  | choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 30s or 5m: it tests again every few seconds until it works. Leave empty to test once. | 5m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando vpn pulse
+title: Pulse Secure or Ivanti: save a VPN, connect it and check it
+### komando vpn pulse add
+title: Save a Pulse Secure or Ivanti VPN under a short name
+- arg0 | Name | Name? |  |  | check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:check | --check | Host:port reachable only through this VPN (start and test connect to it) |  |  | optional,advanced,check
+- flag:credential | --credential | The credential holding the login password |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:mfa | --mfa | A person answers the second factor at each connect |  |  | advanced,default,choices
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:portal | --portal | The VPN server or portal |  |  | optional,advanced,check
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:user | --user | User name for the VPN login |  |  | optional,advanced,check
+### komando vpn pulse edit
+title: Change saved Pulse Secure or Ivanti VPNs (only the flags you give)
+- arg0 | Target (VPNs) | Which VPN? | One from your list. `komando list` shows them. |  | free,choices,check
+- flag:check | --check | Which address can only be reached through this VPN? | An address and port inside the private network. komando connects to it to see that the VPN works. Leave empty to keep it. | 10.0.0.5:22 | optional,check
+- flag:user | --user | New user name for the VPN login? | Leave empty to keep it. | alice | optional,check
+- flag:credential | --credential | Which credential holds the new password? | Save it first as a credential (it asks hidden), then type its name here. Leave empty to keep it. | office-pass | optional,check
+- flag:notes | --notes | Notes about this VPN? | Anything to remember. Leave empty to keep them. | office in Jakarta, ask Budi for access | optional,check
+- flag:add-group | --add-group | Put it in these groups |  |  | optional,advanced,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:mfa | --mfa | A person answers the second factor at each connect |  |  | advanced,default,choices
+- flag:portal | --portal | The VPN server or portal |  |  | optional,advanced,check
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: check, user, credential, notes |  |  | optional,advanced,check
+### komando vpn pulse list
+title: List the saved Pulse Secure or Ivanti VPNs
+- arg0 | Target (VPNs) | Only some VPNs? (leave empty for all) | Pick one, or type @group or tag:office. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando vpn pulse remove
+title: Forget saved Pulse Secure or Ivanti VPNs (the network is not touched)
+- arg0 | Target (VPNs) | Which VPNs? | Pick one, or type several names separated by spaces. |  | free,choices,check
+### komando vpn pulse rename
+title: Rename a saved Pulse Secure or Ivanti VPN and every reference to it
+- arg0 | Name | Which VPN? | One from your list. `komando list` shows them. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | office-jkt | check
+### komando vpn pulse show
+title: Show a saved Pulse Secure or Ivanti VPN (saved keys are never shown)
+- arg0 | Name | Which VPN? | One from your list. `komando list` shows them. |  | choices,check
+### komando vpn pulse start
+title: Connect a Pulse Secure or Ivanti VPN now and keep it up
+- arg0 | Name | Which VPN should connect? | It stays up for later commands. When it asks for a login or a code, type it here. |  | choices,check
+### komando vpn pulse status
+title: Show whether a Pulse Secure or Ivanti VPN is connected and what uses it
+- arg0 | Name | Only one VPN? (leave empty for all) | Pick one, or leave it empty. |  | optional,free,choices,check
+### komando vpn pulse stop
+title: Disconnect a Pulse Secure or Ivanti VPN that is up
+- arg0 | Name | Which VPN should disconnect? | Pick one. |  | choices,check
+### komando vpn pulse test
+title: Check that a saved Pulse Secure or Ivanti VPN connects
+- arg0 | Target (VPNs) | Which VPN should be tested? | komando connects through it and says whether it works. |  | choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 30s or 5m: it tests again every few seconds until it works. Leave empty to test once. | 5m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando vpn socks
+title: SOCKS proxy: save one that runs already and check it
+### komando vpn socks add
+title: Save a SOCKS proxy under a short name
+- arg0 | Name | Name? |  |  | check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:check | --check | Host:port reachable only through this VPN (start and test connect to it) |  |  | optional,advanced,check
+- flag:credential | --credential | The credential holding the login password |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:mfa | --mfa | A person answers the second factor at each connect |  |  | advanced,default,choices
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:proxy-address | --proxy-address | Host:port of the proxy; an HTTP proxy also takes http(s)://host:port |  |  | optional,advanced,check
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:user | --user | User name for the VPN login |  |  | optional,advanced,check
+### komando vpn socks edit
+title: Change saved SOCKS proxies (only the flags you give)
+- arg0 | Target (VPNs) | Which VPN? | One from your list. `komando list` shows them. |  | free,choices,check
+- flag:check | --check | Which address can only be reached through this VPN? | An address and port inside the private network. komando connects to it to see that the VPN works. Leave empty to keep it. | 10.0.0.5:22 | optional,check
+- flag:user | --user | New user name for the VPN login? | Leave empty to keep it. | alice | optional,check
+- flag:credential | --credential | Which credential holds the new password? | Save it first as a credential (it asks hidden), then type its name here. Leave empty to keep it. | office-pass | optional,check
+- flag:notes | --notes | Notes about this VPN? | Anything to remember. Leave empty to keep them. | office in Jakarta, ask Budi for access | optional,check
+- flag:add-group | --add-group | Put it in these groups |  |  | optional,advanced,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:mfa | --mfa | A person answers the second factor at each connect |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:proxy-address | --proxy-address | Host:port of the proxy; an HTTP proxy also takes http(s)://host:port |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: check, user, credential, notes |  |  | optional,advanced,check
+### komando vpn socks list
+title: List the saved SOCKS proxies
+- arg0 | Target (VPNs) | Only some VPNs? (leave empty for all) | Pick one, or type @group or tag:office. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando vpn socks remove
+title: Forget saved SOCKS proxies (the network is not touched)
+- arg0 | Target (VPNs) | Which VPNs? | Pick one, or type several names separated by spaces. |  | free,choices,check
+### komando vpn socks rename
+title: Rename a saved SOCKS proxy and every reference to it
+- arg0 | Name | Which VPN? | One from your list. `komando list` shows them. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | office-jkt | check
+### komando vpn socks show
+title: Show a saved SOCKS proxy (saved keys are never shown)
+- arg0 | Name | Which VPN? | One from your list. `komando list` shows them. |  | choices,check
+### komando vpn socks start
+title: Connect a SOCKS proxy now and keep it up
+- arg0 | Name | Which VPN should connect? | It stays up for later commands. When it asks for a login or a code, type it here. |  | choices,check
+### komando vpn socks status
+title: Show whether a SOCKS proxy is connected and what uses it
+- arg0 | Name | Only one VPN? (leave empty for all) | Pick one, or leave it empty. |  | optional,free,choices,check
+### komando vpn socks stop
+title: Disconnect a SOCKS proxy that is up
+- arg0 | Name | Which VPN should disconnect? | Pick one. |  | choices,check
+### komando vpn socks test
+title: Check that a saved SOCKS proxy connects
+- arg0 | Target (VPNs) | Which VPN should be tested? | komando connects through it and says whether it works. |  | choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 30s or 5m: it tests again every few seconds until it works. Leave empty to test once. | 5m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando vpn system
+title: System VPN: save one your computer has, connect it and check it
+### komando vpn system add
+title: Save a system VPN under a short name
+- arg0 | Name | Name? |  |  | check
+- flag:check | --check | Host:port reachable only through this VPN (start and test connect to it) |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:mfa | --mfa | A person answers the second factor at each connect |  |  | advanced,default,choices
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:service | --service | Its name in your computer's settings, so start can connect it |  |  | optional,advanced,check
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+### komando vpn system edit
+title: Change saved system VPNs (only the flags you give)
+- arg0 | Target (VPNs) | Which VPN? | One from your list. `komando list` shows them. |  | free,choices,check
+- flag:check | --check | Which address can only be reached through this VPN? | An address and port inside the private network. komando connects to it to see that the VPN works. Leave empty to keep it. | 10.0.0.5:22 | optional,check
+- flag:notes | --notes | Notes about this VPN? | Anything to remember. Leave empty to keep them. | office in Jakarta, ask Budi for access | optional,check
+- flag:add-group | --add-group | Put it in these groups |  |  | optional,advanced,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:mfa | --mfa | A person answers the second factor at each connect |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:service | --service | Its name in your computer's settings, so start can connect it |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: check, notes |  |  | optional,advanced,check
+### komando vpn system list
+title: List the saved system VPNs
+- arg0 | Target (VPNs) | Only some VPNs? (leave empty for all) | Pick one, or type @group or tag:office. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando vpn system remove
+title: Forget saved system VPNs (the network is not touched)
+- arg0 | Target (VPNs) | Which VPNs? | Pick one, or type several names separated by spaces. |  | free,choices,check
+### komando vpn system rename
+title: Rename a saved system VPN and every reference to it
+- arg0 | Name | Which VPN? | One from your list. `komando list` shows them. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | office-jkt | check
+### komando vpn system show
+title: Show a saved system VPN (saved keys are never shown)
+- arg0 | Name | Which VPN? | One from your list. `komando list` shows them. |  | choices,check
+### komando vpn system start
+title: Connect a system VPN now and keep it up
+- arg0 | Name | Which VPN should connect? | It stays up for later commands. When it asks for a login or a code, type it here. |  | choices,check
+### komando vpn system status
+title: Show whether a system VPN is connected and what uses it
+- arg0 | Name | Only one VPN? (leave empty for all) | Pick one, or leave it empty. |  | optional,free,choices,check
+### komando vpn system stop
+title: Disconnect a system VPN that is up
+- arg0 | Name | Which VPN should disconnect? | Pick one. |  | choices,check
+### komando vpn system test
+title: Check that a saved system VPN connects
+- arg0 | Target (VPNs) | Which VPN should be tested? | komando connects through it and says whether it works. |  | choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 30s or 5m: it tests again every few seconds until it works. Leave empty to test once. | 5m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando vpn tailscale
+title: Tailscale: save a tailnet, connect it and check it
+### komando vpn tailscale add
+title: Save a Tailscale VPN under a short name
+- arg0 | Name | Name? |  |  | check
+- flag:check | --check | Host:port reachable only through this VPN (start and test connect to it) |  |  | optional,advanced,check
+- flag:credential | --credential | The credential holding the auth key |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:mfa | --mfa | A person answers the second factor at each connect |  |  | advanced,default,choices
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:server | --server | The VPN server (host or host:port) |  |  | optional,advanced,check
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+### komando vpn tailscale edit
+title: Change saved Tailscale VPNs (only the flags you give)
+- arg0 | Target (VPNs) | Which VPN? | One from your list. `komando list` shows them. |  | free,choices,check
+- flag:check | --check | Which address can only be reached through this VPN? | An address and port inside the private network. komando connects to it to see that the VPN works. Leave empty to keep it. | 10.0.0.5:22 | optional,check
+- flag:credential | --credential | Which credential holds the new password? | Save it first as a credential (it asks hidden), then type its name here. Leave empty to keep it. | office-pass | optional,check
+- flag:notes | --notes | Notes about this VPN? | Anything to remember. Leave empty to keep them. | office in Jakarta, ask Budi for access | optional,check
+- flag:add-group | --add-group | Put it in these groups |  |  | optional,advanced,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:mfa | --mfa | A person answers the second factor at each connect |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:server | --server | The VPN server (host or host:port) |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: check, credential, notes |  |  | optional,advanced,check
+### komando vpn tailscale list
+title: List the saved Tailscale VPNs
+- arg0 | Target (VPNs) | Only some VPNs? (leave empty for all) | Pick one, or type @group or tag:office. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando vpn tailscale remove
+title: Forget saved Tailscale VPNs (the network is not touched)
+- arg0 | Target (VPNs) | Which VPNs? | Pick one, or type several names separated by spaces. |  | free,choices,check
+### komando vpn tailscale rename
+title: Rename a saved Tailscale VPN and every reference to it
+- arg0 | Name | Which VPN? | One from your list. `komando list` shows them. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | office-jkt | check
+### komando vpn tailscale show
+title: Show a saved Tailscale VPN (saved keys are never shown)
+- arg0 | Name | Which VPN? | One from your list. `komando list` shows them. |  | choices,check
+### komando vpn tailscale start
+title: Connect a Tailscale VPN now and keep it up
+- arg0 | Name | Which VPN should connect? | It stays up for later commands. When it asks for a login or a code, type it here. |  | choices,check
+### komando vpn tailscale status
+title: Show whether a Tailscale VPN is connected and what uses it
+- arg0 | Name | Only one VPN? (leave empty for all) | Pick one, or leave it empty. |  | optional,free,choices,check
+### komando vpn tailscale stop
+title: Disconnect a Tailscale VPN that is up
+- arg0 | Name | Which VPN should disconnect? | Pick one. |  | choices,check
+### komando vpn tailscale test
+title: Check that a saved Tailscale VPN connects
+- arg0 | Target (VPNs) | Which VPN should be tested? | komando connects through it and says whether it works. |  | choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 30s or 5m: it tests again every few seconds until it works. Leave empty to test once. | 5m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando vpn wireguard
+title: WireGuard: save a VPN, connect it and check it
+### komando vpn wireguard add
+title: Save a WireGuard VPN under a short name
+- arg0 | Name | Name? |  |  | check
+- flag:check | --check | Host:port reachable only through this VPN (start and test connect to it) |  |  | optional,advanced,check
+- flag:config | --config | The config file; its keys go into the vault |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:mfa | --mfa | A person answers the second factor at each connect |  |  | advanced,default,choices
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+### komando vpn wireguard edit
+title: Change saved WireGuard VPNs (only the flags you give)
+- arg0 | Target (VPNs) | Which VPN? | One from your list. `komando list` shows them. |  | free,choices,check
+- flag:check | --check | Which address can only be reached through this VPN? | An address and port inside the private network. komando connects to it to see that the VPN works. Leave empty to keep it. | 10.0.0.5:22 | optional,check
+- flag:notes | --notes | Notes about this VPN? | Anything to remember. Leave empty to keep them. | office in Jakarta, ask Budi for access | optional,check
+- flag:add-group | --add-group | Put it in these groups |  |  | optional,advanced,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:mfa | --mfa | A person answers the second factor at each connect |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: check, notes |  |  | optional,advanced,check
+### komando vpn wireguard list
+title: List the saved WireGuard VPNs
+- arg0 | Target (VPNs) | Only some VPNs? (leave empty for all) | Pick one, or type @group or tag:office. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando vpn wireguard remove
+title: Forget saved WireGuard VPNs (the network is not touched)
+- arg0 | Target (VPNs) | Which VPNs? | Pick one, or type several names separated by spaces. |  | free,choices,check
+### komando vpn wireguard rename
+title: Rename a saved WireGuard VPN and every reference to it
+- arg0 | Name | Which VPN? | One from your list. `komando list` shows them. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | office-jkt | check
+### komando vpn wireguard show
+title: Show a saved WireGuard VPN (saved keys are never shown)
+- arg0 | Name | Which VPN? | One from your list. `komando list` shows them. |  | choices,check
+### komando vpn wireguard start
+title: Connect a WireGuard VPN now and keep it up
+- arg0 | Name | Which VPN should connect? | It stays up for later commands. When it asks for a login or a code, type it here. |  | choices,check
+### komando vpn wireguard status
+title: Show whether a WireGuard VPN is connected and what uses it
+- arg0 | Name | Only one VPN? (leave empty for all) | Pick one, or leave it empty. |  | optional,free,choices,check
+### komando vpn wireguard stop
+title: Disconnect a WireGuard VPN that is up
+- arg0 | Name | Which VPN should disconnect? | Pick one. |  | choices,check
+### komando vpn wireguard test
+title: Check that a saved WireGuard VPN connects
+- arg0 | Target (VPNs) | Which VPN should be tested? | komando connects through it and says whether it works. |  | choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 30s or 5m: it tests again every few seconds until it works. Leave empty to test once. | 5m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### add form: Server / Server
 title: Add a server
 - name | Name | What do you want to call this server? | A short name you type later, like komando test web1. Letters, digits, dot, dash, underscore. | web1 | check
@@ -3117,7 +3899,7 @@ title: Add a GlobalProtect VPN
 - user | User | What is your VPN user name? | Usually your work login. Empty to type it each time you connect. | budi | optional,check
 - pass | Password | How should komando get your VPN password? | The password is never shown and never written in the command. |  | default,choices,show
 - ref | Kept in | Where is it kept? | A reference, never the secret itself: op://Work/VPN/password (1Password), bw://item (Bitwarden), env:VPN_PASS (a variable). | op://Work/VPN/password | show,check
-- mfa | Extra sign-in step | After the password, does logging in need one more step? | With an extra step you connect it yourself with komando vpn up; later commands reuse that connection. |  | default,choices,show
+- mfa | Extra sign-in step | After the password, does logging in need one more step? | With an extra step you connect it yourself with komando vpn KIND start NAME; later commands reuse that connection. |  | default,choices,show
 - check | Test address | Which address can only be reached through this VPN? (optional) | An address and port inside the private network, like a server's private IP and port 22. komando connects to it to see that the VPN works. Enter skips it. | 10.0.0.5:22 | optional,check
 - group | Group | Put it in a group? | A group lets one command reach many, like komando test @web. Empty for none. | web | optional,advanced,check
 - notes | Notes | Any notes for later? | Free text, shown in komando show and to AI agents. Never put a password here. |  | optional,advanced
@@ -3128,7 +3910,7 @@ title: Add a FortiClient VPN
 - user | User | What is your VPN user name? | Usually your work login. Empty to type it each time you connect. | budi | optional,check
 - pass | Password | How should komando get your VPN password? | The password is never shown and never written in the command. |  | default,choices,show
 - ref | Kept in | Where is it kept? | A reference, never the secret itself: op://Work/VPN/password (1Password), bw://item (Bitwarden), env:VPN_PASS (a variable). | op://Work/VPN/password | show,check
-- mfa | Extra sign-in step | After the password, does logging in need one more step? | With an extra step you connect it yourself with komando vpn up; later commands reuse that connection. |  | default,choices,show
+- mfa | Extra sign-in step | After the password, does logging in need one more step? | With an extra step you connect it yourself with komando vpn KIND start NAME; later commands reuse that connection. |  | default,choices,show
 - check | Test address | Which address can only be reached through this VPN? (optional) | An address and port inside the private network, like a server's private IP and port 22. komando connects to it to see that the VPN works. Enter skips it. | 10.0.0.5:22 | optional,check
 - group | Group | Put it in a group? | A group lets one command reach many, like komando test @web. Empty for none. | web | optional,advanced,check
 - notes | Notes | Any notes for later? | Free text, shown in komando show and to AI agents. Never put a password here. |  | optional,advanced
@@ -3139,7 +3921,7 @@ title: Add a Cisco AnyConnect VPN
 - user | User | What is your VPN user name? | Usually your work login. Empty to type it each time you connect. | budi | optional,check
 - pass | Password | How should komando get your VPN password? | The password is never shown and never written in the command. |  | default,choices,show
 - ref | Kept in | Where is it kept? | A reference, never the secret itself: op://Work/VPN/password (1Password), bw://item (Bitwarden), env:VPN_PASS (a variable). | op://Work/VPN/password | show,check
-- mfa | Extra sign-in step | After the password, does logging in need one more step? | With an extra step you connect it yourself with komando vpn up; later commands reuse that connection. |  | default,choices,show
+- mfa | Extra sign-in step | After the password, does logging in need one more step? | With an extra step you connect it yourself with komando vpn KIND start NAME; later commands reuse that connection. |  | default,choices,show
 - check | Test address | Which address can only be reached through this VPN? (optional) | An address and port inside the private network, like a server's private IP and port 22. komando connects to it to see that the VPN works. Enter skips it. | 10.0.0.5:22 | optional,check
 - group | Group | Put it in a group? | A group lets one command reach many, like komando test @web. Empty for none. | web | optional,advanced,check
 - notes | Notes | Any notes for later? | Free text, shown in komando show and to AI agents. Never put a password here. |  | optional,advanced
@@ -3150,7 +3932,7 @@ title: Add a Pulse Secure or Ivanti VPN
 - user | User | What is your VPN user name? | Usually your work login. Empty to type it each time you connect. | budi | optional,check
 - pass | Password | How should komando get your VPN password? | The password is never shown and never written in the command. |  | default,choices,show
 - ref | Kept in | Where is it kept? | A reference, never the secret itself: op://Work/VPN/password (1Password), bw://item (Bitwarden), env:VPN_PASS (a variable). | op://Work/VPN/password | show,check
-- mfa | Extra sign-in step | After the password, does logging in need one more step? | With an extra step you connect it yourself with komando vpn up; later commands reuse that connection. |  | default,choices,show
+- mfa | Extra sign-in step | After the password, does logging in need one more step? | With an extra step you connect it yourself with komando vpn KIND start NAME; later commands reuse that connection. |  | default,choices,show
 - check | Test address | Which address can only be reached through this VPN? (optional) | An address and port inside the private network, like a server's private IP and port 22. komando connects to it to see that the VPN works. Enter skips it. | 10.0.0.5:22 | optional,check
 - group | Group | Put it in a group? | A group lets one command reach many, like komando test @web. Empty for none. | web | optional,advanced,check
 - notes | Notes | Any notes for later? | Free text, shown in komando show and to AI agents. Never put a password here. |  | optional,advanced
@@ -3161,7 +3943,7 @@ title: Add a F5 BIG-IP VPN
 - user | User | What is your VPN user name? | Usually your work login. Empty to type it each time you connect. | budi | optional,check
 - pass | Password | How should komando get your VPN password? | The password is never shown and never written in the command. |  | default,choices,show
 - ref | Kept in | Where is it kept? | A reference, never the secret itself: op://Work/VPN/password (1Password), bw://item (Bitwarden), env:VPN_PASS (a variable). | op://Work/VPN/password | show,check
-- mfa | Extra sign-in step | After the password, does logging in need one more step? | With an extra step you connect it yourself with komando vpn up; later commands reuse that connection. |  | default,choices,show
+- mfa | Extra sign-in step | After the password, does logging in need one more step? | With an extra step you connect it yourself with komando vpn KIND start NAME; later commands reuse that connection. |  | default,choices,show
 - check | Test address | Which address can only be reached through this VPN? (optional) | An address and port inside the private network, like a server's private IP and port 22. komando connects to it to see that the VPN works. Enter skips it. | 10.0.0.5:22 | optional,check
 - group | Group | Put it in a group? | A group lets one command reach many, like komando test @web. Empty for none. | web | optional,advanced,check
 - notes | Notes | Any notes for later? | Free text, shown in komando show and to AI agents. Never put a password here. |  | optional,advanced
@@ -3180,7 +3962,7 @@ title: Add an OpenVPN VPN
 - user | User | What is your VPN user name? | This file logs in with a user name and password. | budi | show,check
 - pass | Password | How should komando get your VPN password? | The password is never shown and never written in the command. |  | default,choices,show
 - ref | Kept in | Where is it kept? | A reference, never the secret itself: op://Work/VPN/password (1Password), bw://item (Bitwarden), env:VPN_PASS (a variable). | op://Work/VPN/password | show,check
-- mfa | Extra sign-in step | After the password, does logging in need one more step? | With an extra step you connect it yourself with komando vpn up; later commands reuse that connection. |  | default,choices,show
+- mfa | Extra sign-in step | After the password, does logging in need one more step? | With an extra step you connect it yourself with komando vpn KIND start NAME; later commands reuse that connection. |  | default,choices,show
 - group | Group | Put it in a group? | A group lets one command reach many, like komando test @web. Empty for none. | web | optional,advanced,check
 - notes | Notes | Any notes for later? | Free text, shown in komando show and to AI agents. Never put a password here. |  | optional,advanced
 ### add form: VPN / Tailscale or Headscale
@@ -3239,7 +4021,7 @@ title: Add an IKEv2 VPN
 title: Add a VPN on this computer
 - name | Name | What do you want to call this VPN? | A short name you type later, like komando test corp. Letters, digits, dot, dash, underscore. | corp | check
 - check | Test address | Which address can only be reached through this VPN? | An address and port inside the private network, like a server's private IP and port 22. komando connects to it to see that the VPN works. | 10.20.0.1:443 | check
-- service | Name in settings | What is the VPN called in your computer's network settings? | On a Mac: System Settings, VPN. With it, komando vpn up can switch it on. Enter skips it: then you switch it on yourself. | Corp VPN | optional
+- service | Name in settings | What is the VPN called in your computer's network settings? | On a Mac: System Settings, VPN. With it, komando vpn system start can switch it on. Enter skips it: then you switch it on yourself. | Corp VPN | optional
 - group | Group | Put it in a group? | A group lets one command reach many, like komando test @web. Empty for none. | web | optional,advanced,check
 - notes | Notes | Any notes for later? | Free text, shown in komando show and to AI agents. Never put a password here. |  | optional,advanced
 ### add form: VPN / SOCKS proxy

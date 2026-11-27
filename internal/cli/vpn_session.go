@@ -49,9 +49,9 @@ func startVpnFor(cl *call, ctx context.Context, name string) error {
 	}
 	// started by a command, not by `vpn up`: say it now stays up
 	if idle, _ := time.ParseDuration(st.Settings.VpnIdle); idle > 0 {
-		noticef(cl, "vpn %s connected; it stays up until unused for %s (`komando vpn down %s` stops it)", name, humanAge(idle), name)
+		noticef(cl, "vpn %s connected; it stays up until unused for %s (`komando vpn %s stop %s` stops it)", name, humanAge(idle), v.Kind, name)
 	} else {
-		noticef(cl, "vpn %s connected; it stays up until `komando vpn down %s`", name, name)
+		noticef(cl, "vpn %s connected; it stays up until `komando vpn %s stop %s`", name, v.Kind, name)
 	}
 	return nil
 }
@@ -410,7 +410,7 @@ func spawnServeWith(ctx context.Context, name, logFile string, wait time.Duratio
 	if addr == "" {
 		_ = netx.Terminate(pid)
 		b, _ := os.ReadFile(logFile)
-		return 0, "", out.Errf(out.ExitConnect, "VPN_DOWN", "the message ends with its log; `komando vpn test "+name+"` tries again, and a person reads the whole log in "+logFile, "VPN %s did not start: %s", name, strings.TrimSpace(string(b)))
+		return 0, "", out.Errf(out.ExitConnect, "VPN_DOWN", "the message ends with its log; `komando vpn "+vpnKindWord(name)+" test "+name+"` tries again, and a person reads the whole log in "+logFile, "VPN %s did not start: %s", name, strings.TrimSpace(string(b)))
 	}
 	return pid, addr, nil
 }
@@ -523,7 +523,7 @@ func vpnUpCmd() *cobra.Command {
 				// WireGuard "connects" without a handshake: only an answer
 				// from --check shows the tunnel works
 				if v.Check == "" {
-					res["notes"] = []string{"no --check address, so the connection was not verified; add one with `komando vpn edit " + v.Name + " --check HOST:PORT`"}
+					res["notes"] = []string{"no --check address, so the connection was not verified; add one with `komando vpn " + v.Kind + " edit " + v.Name + " --check HOST:PORT`"}
 				} else if r := testVpn(cl, cmd.Context(), st, v); !r.OK {
 					_ = netx.StopSession(s)
 					_ = store.UpdateRuntime(cl.storeWrite(), func(st *store.State) error {
@@ -554,28 +554,16 @@ func vpnUpCmd() *cobra.Command {
 }
 
 func vpnDownCmd() *cobra.Command {
-	var all bool
 	c := &cobra.Command{
-		Use:   "down [NAME...]",
-		Short: "Disconnect VPN sessions (--all for every one)",
+		Use:   "down NAME",
+		Short: "Disconnect a VPN session",
+		Args:  cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			if all && len(args) > 0 {
-				return out.Errf(out.ExitUsage, "USAGE", "use `komando vpn down --all` or `komando vpn down "+strings.Join(args, " ")+"`", "--all disconnects every VPN session; give names or --all, not both")
-			}
 			names := args
-			if all {
-				names = nil
-				for n := range st.Sessions {
-					names = append(names, n)
-				}
-			}
-			if len(names) == 0 && !all {
-				return out.Usage("give VPN names or --all")
-			}
 			for _, n := range names {
 				if _, ok := st.Vpns[n]; !ok && st.Sessions[n] == nil {
 					return out.NotFound("vpn", n)
@@ -602,7 +590,7 @@ func vpnDownCmd() *cobra.Command {
 					if keep := leaveSharedSession(st, n, names); len(keep) > 0 {
 						notes = append(notes, keptNote(n, keep))
 					} else if err := netx.StopSession(s); err != nil {
-						return out.Errf(out.ExitError, "VPN_STOP_FAILED", "run `komando vpn down "+n+"` again; if it still fails, end process "+strconv.Itoa(s.PID)+" yourself",
+						return out.Errf(out.ExitError, "VPN_STOP_FAILED", "run `komando vpn "+kindWord(v.Kind)+" stop "+n+"` again; if it still fails, end process "+strconv.Itoa(s.PID)+" yourself",
 							"could not disconnect %s: %v", n, err)
 					}
 					down = append(down, n)
@@ -629,9 +617,6 @@ func vpnDownCmd() *cobra.Command {
 					}
 				}
 			}
-			if len(names) == 0 {
-				notes = append(notes, "nothing to disconnect: no VPN session is running")
-			}
 			if err := store.UpdateRuntime(cl.storeWrite(), func(s *store.State) error {
 				for _, n := range down {
 					delete(s.Sessions, n)
@@ -647,7 +632,6 @@ func vpnDownCmd() *cobra.Command {
 			return nil
 		}),
 	}
-	c.Flags().BoolVar(&all, "all", false, "disconnect every VPN session")
 	return c
 }
 
@@ -660,12 +644,12 @@ type vpnDownData struct {
 
 // vpnDownAffectsRow is what disconnecting one VPN does to the servers and
 // conns whose --via path needs it: with a login a person must give, they
-// stop answering until `vpn up`; otherwise their next command connects it
+// stop answering until `vpn KIND start`; otherwise their next command connects it
 // again.
 type vpnDownAffectsRow struct {
 	Vpn    string   `json:"vpn"`
 	UsedBy []string `json:"used_by"`
-	Until  string   `json:"until"` // "vpn up" or "next command"
+	Until  string   `json:"until"` // "vpn start" or "next command"
 	Next   string   `json:"next,omitempty"`
 }
 
@@ -681,7 +665,7 @@ func vpnDownAffects(st *store.State, names []string) []vpnDownAffectsRow {
 		}
 		r := vpnDownAffectsRow{Vpn: n, UsedBy: users, Until: "next command"}
 		if needsPersonLogin(v) {
-			r.Until, r.Next = "vpn up", "komando vpn up "+n
+			r.Until, r.Next = "vpn start", "komando vpn "+v.Kind+" start "+n
 		}
 		rows = append(rows, r)
 	}
@@ -693,7 +677,7 @@ func (r vpnDownAffectsRow) text() string {
 	if len(r.UsedBy) > 3 {
 		who = usedByText(r.UsedBy)
 	}
-	if r.Until == "vpn up" {
+	if r.Until == "vpn start" {
 		return who + " stop answering until a person runs `" + r.Next + "`"
 	}
 	return who + " connect " + r.Vpn + " again on their next command"
@@ -733,20 +717,31 @@ type vpnStatusRow struct {
 	TunnelState   string    `json:"tunnel_state,omitempty"` // up, idle or dead
 }
 
-func vpnStatusCmd() *cobra.Command {
+// vpnStatusCmd is the status of the VPNs of one kind, or of the one VPN
+// that is named.
+func vpnStatusCmd(kind string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "status",
+		Use:   "status [NAME]",
 		Short: "Which VPNs are connected, since when, and what uses them",
 		Long: `Shows each VPN with up yes/no. Session VPNs are up while their session
 runs; a SOCKS proxy is up when its address answers, a system VPN when its
 --check address answers. WireGuard connects for each command.`,
-		Args: cobra.NoArgs,
-		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
+		Args: cobra.MaximumNArgs(1),
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			cl.out.Print("vpn.status", vpnStatusData{Vpns: vpnStatusRows(st)}, nil)
+			var vpns []*store.Vpn
+			for _, v := range st.SortedVpns() {
+				if v.Kind == kind && (len(args) == 0 || v.Name == args[0]) {
+					vpns = append(vpns, v)
+				}
+			}
+			if len(args) == 1 && len(vpns) == 0 {
+				return out.NotFound("vpn", args[0])
+			}
+			cl.out.Print("vpn.status", vpnStatusData{Vpns: vpnStatusRows(st, vpns)}, nil)
 			return nil
 		}),
 	}

@@ -179,7 +179,7 @@ tool-word list S-3.3]
 | `create` | make a new thing on the target | | kubectl create, gh |
 | `set` | write one value | | redis SET, gh secret set |
 | `rm` | delete a thing on the target (needs `--allow-dangerous`) | remove, delete, del | kubectl delete |
-| `start`, `stop`, `restart`, `reload`, `enable`, `disable` | change the run state of an existing thing | | systemctl, docker |
+| `start`, `stop`, `restart`, `reload`, `enable`, `disable` | change the run state of an existing thing (a service, a VPN session) | | systemctl, docker, wg-quick, tailscale |
 | `kill` | signal something running now | stop (on job) | kill, docker kill |
 | `wait` | wait until it ends | | kubectl wait |
 | `purge` | empty it but keep it | | rabbitmqctl purge_queue |
@@ -195,7 +195,6 @@ tool-word list S-3.3]
 | `shell` | an interactive session, person only (aliases ssh, connect) | |
 | `upload`, `download` | move files (put, get on storage) | aws s3 cp, gh release download |
 | `sync`, `dump`, `restore` | copy trees, back up and load | rsync, pg_dump |
-| `up`, `down` | a VPN session | wg-quick, tailscale |
 | `login`, `logout` | a kept login | gh auth, docker login |
 | `install`, `uninstall` | put files in, take them out | helm, apt |
 | `update` | refresh an index (`pkg update`); komando itself at top level | apt update |
@@ -314,7 +313,7 @@ group has one type; meanings checked by usage-text template where one exists]
 | `--to` | | string | a local output file | `-` = stdout |
 | `--file` | `-f` (not on log streamers) | string | a manifest or input file a tool reads (`cluster apply`, `docker compose`, `db query`); *exception*: `logs --file PATH` is a log file on the server | `-` = stdin where the tool allows it |
 | `--content` | | string | inline file content (`fs write`) | |
-| `--config` | | tool word | *exception*: `queue PROVIDER topic create --config KEY=VALUE` (kafka-topics), `vpn add --config FILE` (OpenVPN, WireGuard) | |
+| `--config` | | tool word | *exception*: `queue PROVIDER topic create --config KEY=VALUE` (kafka-topics), `vpn KIND add --config FILE` (OpenVPN, WireGuard) | |
 | `--key` | | string | *exception*: `queue PROVIDER message create --key` is the message key (Kafka); elsewhere an SSH key file | |
 | `--env`, `--label`, `--option`, `--var`, `--header`, `--config` (queue) | `-e` for --env | stringArray | `KEY=VALUE`, repeatable, never split on commas. A value whose text after a comma looks like `KEY=` is a USAGE error: "repeat --option for each KEY=VALUE" | |
 | `--group`, `--tag`, `--add-*`, `--rm-*`, `--kind`, `--unset` | `-g`, `-t` | stringSlice | a list of names, comma-separated | |
@@ -681,7 +680,7 @@ here as "none". [schema: for each kind, each verb resolves]
 |---|---|---|---|---|---|---|---|---|
 | host | add | test | show | list | edit | rename | rm | export |
 | conn | add | test | show | list | edit | rename | rm | export |
-| vpn | add | test | show | list | edit | rename | rm | export |
+| vpn KIND | add | test | show | list | edit | rename | remove | export |
 | key | gen, add | none | show | list | edit | rename | rm | none yet |
 | secret | set (alias add) | check (person) | show (alias get) | list | set | rename | rm | none yet |
 | group | add | test @GROUP | show | list | add/rm members | rename | rm (no TARGET) | export |
@@ -690,11 +689,11 @@ here as "none". [schema: for each kind, each verb resolves]
 | job | start | none | status (alias show) | list | none | none | kill (alias stop), rm | none |
 | tunnel | start | none | show | list | none | none | stop | none |
 
-**S-10.2** Flags match across kinds: `vpn add/edit` take the same
+**S-10.2** Flags match across kinds: `vpn KIND add` and `vpn KIND edit` take the same
 `--label`, `--protected`, `--unset` as host and conn; `rm` and `edit` take
 `NAME|TARGET...` alike. `--unset` may not name `mfa` or `protected`;
 `--protected=false` and clearing `--mfa` are T3s (S-7.2); a multi-target
-`vpn rm` follows the `host rm` tier. [schema; code: parity test with host]
+`vpn KIND remove` follows the `host rm` tier. [schema; code: parity test with host]
 
 **S-10.3** A family `rm` given only a conn name, at a terminal, says what it
 deletes and how to take the conn out of komando instead, before any

@@ -3954,58 +3954,966 @@
 "vpn --help"	netread	vpn	runs
 "vpn --help"	read	vpn	runs
 "vpn --help"	shell	vpn	runs
-"vpn add --help"	full	vpn.add	runs
-"vpn add --help"	netread	vpn.add	runs
-"vpn add --help"	read	vpn.add	runs
-"vpn add --help"	shell	vpn.add	runs
-"vpn add"	full	vpn.add	SSH_GATE_REFUSED|komando vpn add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"vpn add"	netread	vpn.add	SSH_GATE_REFUSED|komando vpn add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"vpn add"	read	vpn.add	SSH_GATE_REFUSED|komando vpn add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"vpn add"	shell	vpn.add	SSH_GATE_REFUSED|komando vpn add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"vpn down --help"	full	vpn.down	runs
-"vpn down --help"	netread	vpn.down	runs
-"vpn down --help"	read	vpn.down	runs
-"vpn down --help"	shell	vpn.down	runs
-"vpn down web"	full	vpn.down	runs
-"vpn down web"	netread	vpn.down	SSH_GATE_READ_ONLY|komando vpn down is refused for a read-only key: it changes something
-"vpn down web"	read	vpn.down	SSH_GATE_READ_ONLY|komando vpn down is refused for a read-only key: it changes something
-"vpn down web"	shell	vpn.down	runs
-"vpn down"	full	vpn.down	runs
-"vpn down"	netread	vpn.down	SSH_GATE_READ_ONLY|komando vpn down is refused for a read-only key: it changes something
-"vpn down"	read	vpn.down	SSH_GATE_READ_ONLY|komando vpn down is refused for a read-only key: it changes something
-"vpn down"	shell	vpn.down	runs
-"vpn edit --help"	full	vpn.edit	runs
-"vpn edit --help"	netread	vpn.edit	runs
-"vpn edit --help"	read	vpn.edit	runs
-"vpn edit --help"	shell	vpn.edit	runs
-"vpn edit"	full	vpn.edit	SSH_GATE_REFUSED|komando vpn edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"vpn edit"	netread	vpn.edit	SSH_GATE_REFUSED|komando vpn edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"vpn edit"	read	vpn.edit	SSH_GATE_REFUSED|komando vpn edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"vpn edit"	shell	vpn.edit	SSH_GATE_REFUSED|komando vpn edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"vpn list --help"	full	vpn.list	runs
-"vpn list --help"	netread	vpn.list	runs
-"vpn list --help"	read	vpn.list	runs
-"vpn list --help"	shell	vpn.list	runs
-"vpn list"	full	vpn.list	runs
-"vpn list"	netread	vpn.list	runs
-"vpn list"	read	vpn.list	runs
-"vpn list"	shell	vpn.list	runs
-"vpn rename --help"	full	vpn.rename	runs
-"vpn rename --help"	netread	vpn.rename	runs
-"vpn rename --help"	read	vpn.rename	runs
-"vpn rename --help"	shell	vpn.rename	runs
-"vpn rename"	full	vpn.rename	SSH_GATE_REFUSED|komando vpn rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"vpn rename"	netread	vpn.rename	SSH_GATE_REFUSED|komando vpn rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"vpn rename"	read	vpn.rename	SSH_GATE_REFUSED|komando vpn rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"vpn rename"	shell	vpn.rename	SSH_GATE_REFUSED|komando vpn rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"vpn rm --help"	full	vpn.rm	runs
-"vpn rm --help"	netread	vpn.rm	runs
-"vpn rm --help"	read	vpn.rm	runs
-"vpn rm --help"	shell	vpn.rm	runs
-"vpn rm"	full	vpn.rm	SSH_GATE_REFUSED|komando vpn rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"vpn rm"	netread	vpn.rm	SSH_GATE_REFUSED|komando vpn rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"vpn rm"	read	vpn.rm	SSH_GATE_REFUSED|komando vpn rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"vpn rm"	shell	vpn.rm	SSH_GATE_REFUSED|komando vpn rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn anyconnect --help"	full	vpn.anyconnect	runs
+"vpn anyconnect --help"	netread	vpn.anyconnect	runs
+"vpn anyconnect --help"	read	vpn.anyconnect	runs
+"vpn anyconnect --help"	shell	vpn.anyconnect	runs
+"vpn anyconnect add --help"	full	vpn.anyconnect.add	runs
+"vpn anyconnect add --help"	netread	vpn.anyconnect.add	runs
+"vpn anyconnect add --help"	read	vpn.anyconnect.add	runs
+"vpn anyconnect add --help"	shell	vpn.anyconnect.add	runs
+"vpn anyconnect add"	full	vpn.anyconnect.add	SSH_GATE_REFUSED|komando vpn anyconnect add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn anyconnect add"	netread	vpn.anyconnect.add	SSH_GATE_REFUSED|komando vpn anyconnect add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn anyconnect add"	read	vpn.anyconnect.add	SSH_GATE_REFUSED|komando vpn anyconnect add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn anyconnect add"	shell	vpn.anyconnect.add	SSH_GATE_REFUSED|komando vpn anyconnect add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn anyconnect edit --help"	full	vpn.anyconnect.edit	runs
+"vpn anyconnect edit --help"	netread	vpn.anyconnect.edit	runs
+"vpn anyconnect edit --help"	read	vpn.anyconnect.edit	runs
+"vpn anyconnect edit --help"	shell	vpn.anyconnect.edit	runs
+"vpn anyconnect edit"	full	vpn.anyconnect.edit	SSH_GATE_REFUSED|komando vpn anyconnect edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn anyconnect edit"	netread	vpn.anyconnect.edit	SSH_GATE_REFUSED|komando vpn anyconnect edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn anyconnect edit"	read	vpn.anyconnect.edit	SSH_GATE_REFUSED|komando vpn anyconnect edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn anyconnect edit"	shell	vpn.anyconnect.edit	SSH_GATE_REFUSED|komando vpn anyconnect edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn anyconnect list --help"	full	vpn.anyconnect.list	runs
+"vpn anyconnect list --help"	netread	vpn.anyconnect.list	runs
+"vpn anyconnect list --help"	read	vpn.anyconnect.list	runs
+"vpn anyconnect list --help"	shell	vpn.anyconnect.list	runs
+"vpn anyconnect list"	full	vpn.anyconnect.list	runs
+"vpn anyconnect list"	netread	vpn.anyconnect.list	runs
+"vpn anyconnect list"	read	vpn.anyconnect.list	runs
+"vpn anyconnect list"	shell	vpn.anyconnect.list	runs
+"vpn anyconnect remove --help"	full	vpn.anyconnect.remove	runs
+"vpn anyconnect remove --help"	netread	vpn.anyconnect.remove	runs
+"vpn anyconnect remove --help"	read	vpn.anyconnect.remove	runs
+"vpn anyconnect remove --help"	shell	vpn.anyconnect.remove	runs
+"vpn anyconnect remove"	full	vpn.anyconnect.remove	SSH_GATE_REFUSED|komando vpn anyconnect remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn anyconnect remove"	netread	vpn.anyconnect.remove	SSH_GATE_REFUSED|komando vpn anyconnect remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn anyconnect remove"	read	vpn.anyconnect.remove	SSH_GATE_REFUSED|komando vpn anyconnect remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn anyconnect remove"	shell	vpn.anyconnect.remove	SSH_GATE_REFUSED|komando vpn anyconnect remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn anyconnect rename --help"	full	vpn.anyconnect.rename	runs
+"vpn anyconnect rename --help"	netread	vpn.anyconnect.rename	runs
+"vpn anyconnect rename --help"	read	vpn.anyconnect.rename	runs
+"vpn anyconnect rename --help"	shell	vpn.anyconnect.rename	runs
+"vpn anyconnect rename"	full	vpn.anyconnect.rename	SSH_GATE_REFUSED|komando vpn anyconnect rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn anyconnect rename"	netread	vpn.anyconnect.rename	SSH_GATE_REFUSED|komando vpn anyconnect rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn anyconnect rename"	read	vpn.anyconnect.rename	SSH_GATE_REFUSED|komando vpn anyconnect rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn anyconnect rename"	shell	vpn.anyconnect.rename	SSH_GATE_REFUSED|komando vpn anyconnect rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn anyconnect show --help"	full	vpn.anyconnect.show	runs
+"vpn anyconnect show --help"	netread	vpn.anyconnect.show	runs
+"vpn anyconnect show --help"	read	vpn.anyconnect.show	runs
+"vpn anyconnect show --help"	shell	vpn.anyconnect.show	runs
+"vpn anyconnect show"	full	vpn.anyconnect.show	runs
+"vpn anyconnect show"	netread	vpn.anyconnect.show	runs
+"vpn anyconnect show"	read	vpn.anyconnect.show	runs
+"vpn anyconnect show"	shell	vpn.anyconnect.show	runs
+"vpn anyconnect start --help"	full	vpn.anyconnect.start	runs
+"vpn anyconnect start --help"	netread	vpn.anyconnect.start	runs
+"vpn anyconnect start --help"	read	vpn.anyconnect.start	runs
+"vpn anyconnect start --help"	shell	vpn.anyconnect.start	runs
+"vpn anyconnect start web"	full	vpn.anyconnect.start	runs
+"vpn anyconnect start web"	netread	vpn.anyconnect.start	SSH_GATE_READ_ONLY|komando vpn anyconnect start is refused for a read-only key: it changes something
+"vpn anyconnect start web"	read	vpn.anyconnect.start	SSH_GATE_READ_ONLY|komando vpn anyconnect start is refused for a read-only key: it changes something
+"vpn anyconnect start web"	shell	vpn.anyconnect.start	runs
+"vpn anyconnect start"	full	vpn.anyconnect.start	runs
+"vpn anyconnect start"	netread	vpn.anyconnect.start	SSH_GATE_READ_ONLY|komando vpn anyconnect start is refused for a read-only key: it changes something
+"vpn anyconnect start"	read	vpn.anyconnect.start	SSH_GATE_READ_ONLY|komando vpn anyconnect start is refused for a read-only key: it changes something
+"vpn anyconnect start"	shell	vpn.anyconnect.start	runs
+"vpn anyconnect status --help"	full	vpn.anyconnect.status	runs
+"vpn anyconnect status --help"	netread	vpn.anyconnect.status	runs
+"vpn anyconnect status --help"	read	vpn.anyconnect.status	runs
+"vpn anyconnect status --help"	shell	vpn.anyconnect.status	runs
+"vpn anyconnect status"	full	vpn.anyconnect.status	runs
+"vpn anyconnect status"	netread	vpn.anyconnect.status	runs
+"vpn anyconnect status"	read	vpn.anyconnect.status	runs
+"vpn anyconnect status"	shell	vpn.anyconnect.status	runs
+"vpn anyconnect stop --help"	full	vpn.anyconnect.stop	runs
+"vpn anyconnect stop --help"	netread	vpn.anyconnect.stop	runs
+"vpn anyconnect stop --help"	read	vpn.anyconnect.stop	runs
+"vpn anyconnect stop --help"	shell	vpn.anyconnect.stop	runs
+"vpn anyconnect stop web"	full	vpn.anyconnect.stop	runs
+"vpn anyconnect stop web"	netread	vpn.anyconnect.stop	SSH_GATE_READ_ONLY|komando vpn anyconnect stop is refused for a read-only key: it changes something
+"vpn anyconnect stop web"	read	vpn.anyconnect.stop	SSH_GATE_READ_ONLY|komando vpn anyconnect stop is refused for a read-only key: it changes something
+"vpn anyconnect stop web"	shell	vpn.anyconnect.stop	runs
+"vpn anyconnect stop"	full	vpn.anyconnect.stop	runs
+"vpn anyconnect stop"	netread	vpn.anyconnect.stop	SSH_GATE_READ_ONLY|komando vpn anyconnect stop is refused for a read-only key: it changes something
+"vpn anyconnect stop"	read	vpn.anyconnect.stop	SSH_GATE_READ_ONLY|komando vpn anyconnect stop is refused for a read-only key: it changes something
+"vpn anyconnect stop"	shell	vpn.anyconnect.stop	runs
+"vpn anyconnect test --help"	full	vpn.anyconnect.test	runs
+"vpn anyconnect test --help"	netread	vpn.anyconnect.test	runs
+"vpn anyconnect test --help"	read	vpn.anyconnect.test	runs
+"vpn anyconnect test --help"	shell	vpn.anyconnect.test	runs
+"vpn anyconnect test"	full	vpn.anyconnect.test	runs
+"vpn anyconnect test"	netread	vpn.anyconnect.test	runs
+"vpn anyconnect test"	read	vpn.anyconnect.test	runs
+"vpn anyconnect test"	shell	vpn.anyconnect.test	runs
+"vpn anyconnect"	full	vpn.anyconnect	runs
+"vpn anyconnect"	netread	vpn.anyconnect	runs
+"vpn anyconnect"	read	vpn.anyconnect	runs
+"vpn anyconnect"	shell	vpn.anyconnect	runs
+"vpn f5 --help"	full	vpn.f5	runs
+"vpn f5 --help"	netread	vpn.f5	runs
+"vpn f5 --help"	read	vpn.f5	runs
+"vpn f5 --help"	shell	vpn.f5	runs
+"vpn f5 add --help"	full	vpn.f5.add	runs
+"vpn f5 add --help"	netread	vpn.f5.add	runs
+"vpn f5 add --help"	read	vpn.f5.add	runs
+"vpn f5 add --help"	shell	vpn.f5.add	runs
+"vpn f5 add"	full	vpn.f5.add	SSH_GATE_REFUSED|komando vpn f5 add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn f5 add"	netread	vpn.f5.add	SSH_GATE_REFUSED|komando vpn f5 add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn f5 add"	read	vpn.f5.add	SSH_GATE_REFUSED|komando vpn f5 add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn f5 add"	shell	vpn.f5.add	SSH_GATE_REFUSED|komando vpn f5 add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn f5 edit --help"	full	vpn.f5.edit	runs
+"vpn f5 edit --help"	netread	vpn.f5.edit	runs
+"vpn f5 edit --help"	read	vpn.f5.edit	runs
+"vpn f5 edit --help"	shell	vpn.f5.edit	runs
+"vpn f5 edit"	full	vpn.f5.edit	SSH_GATE_REFUSED|komando vpn f5 edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn f5 edit"	netread	vpn.f5.edit	SSH_GATE_REFUSED|komando vpn f5 edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn f5 edit"	read	vpn.f5.edit	SSH_GATE_REFUSED|komando vpn f5 edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn f5 edit"	shell	vpn.f5.edit	SSH_GATE_REFUSED|komando vpn f5 edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn f5 list --help"	full	vpn.f5.list	runs
+"vpn f5 list --help"	netread	vpn.f5.list	runs
+"vpn f5 list --help"	read	vpn.f5.list	runs
+"vpn f5 list --help"	shell	vpn.f5.list	runs
+"vpn f5 list"	full	vpn.f5.list	runs
+"vpn f5 list"	netread	vpn.f5.list	runs
+"vpn f5 list"	read	vpn.f5.list	runs
+"vpn f5 list"	shell	vpn.f5.list	runs
+"vpn f5 remove --help"	full	vpn.f5.remove	runs
+"vpn f5 remove --help"	netread	vpn.f5.remove	runs
+"vpn f5 remove --help"	read	vpn.f5.remove	runs
+"vpn f5 remove --help"	shell	vpn.f5.remove	runs
+"vpn f5 remove"	full	vpn.f5.remove	SSH_GATE_REFUSED|komando vpn f5 remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn f5 remove"	netread	vpn.f5.remove	SSH_GATE_REFUSED|komando vpn f5 remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn f5 remove"	read	vpn.f5.remove	SSH_GATE_REFUSED|komando vpn f5 remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn f5 remove"	shell	vpn.f5.remove	SSH_GATE_REFUSED|komando vpn f5 remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn f5 rename --help"	full	vpn.f5.rename	runs
+"vpn f5 rename --help"	netread	vpn.f5.rename	runs
+"vpn f5 rename --help"	read	vpn.f5.rename	runs
+"vpn f5 rename --help"	shell	vpn.f5.rename	runs
+"vpn f5 rename"	full	vpn.f5.rename	SSH_GATE_REFUSED|komando vpn f5 rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn f5 rename"	netread	vpn.f5.rename	SSH_GATE_REFUSED|komando vpn f5 rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn f5 rename"	read	vpn.f5.rename	SSH_GATE_REFUSED|komando vpn f5 rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn f5 rename"	shell	vpn.f5.rename	SSH_GATE_REFUSED|komando vpn f5 rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn f5 show --help"	full	vpn.f5.show	runs
+"vpn f5 show --help"	netread	vpn.f5.show	runs
+"vpn f5 show --help"	read	vpn.f5.show	runs
+"vpn f5 show --help"	shell	vpn.f5.show	runs
+"vpn f5 show"	full	vpn.f5.show	runs
+"vpn f5 show"	netread	vpn.f5.show	runs
+"vpn f5 show"	read	vpn.f5.show	runs
+"vpn f5 show"	shell	vpn.f5.show	runs
+"vpn f5 start --help"	full	vpn.f5.start	runs
+"vpn f5 start --help"	netread	vpn.f5.start	runs
+"vpn f5 start --help"	read	vpn.f5.start	runs
+"vpn f5 start --help"	shell	vpn.f5.start	runs
+"vpn f5 start web"	full	vpn.f5.start	runs
+"vpn f5 start web"	netread	vpn.f5.start	SSH_GATE_READ_ONLY|komando vpn f5 start is refused for a read-only key: it changes something
+"vpn f5 start web"	read	vpn.f5.start	SSH_GATE_READ_ONLY|komando vpn f5 start is refused for a read-only key: it changes something
+"vpn f5 start web"	shell	vpn.f5.start	runs
+"vpn f5 start"	full	vpn.f5.start	runs
+"vpn f5 start"	netread	vpn.f5.start	SSH_GATE_READ_ONLY|komando vpn f5 start is refused for a read-only key: it changes something
+"vpn f5 start"	read	vpn.f5.start	SSH_GATE_READ_ONLY|komando vpn f5 start is refused for a read-only key: it changes something
+"vpn f5 start"	shell	vpn.f5.start	runs
+"vpn f5 status --help"	full	vpn.f5.status	runs
+"vpn f5 status --help"	netread	vpn.f5.status	runs
+"vpn f5 status --help"	read	vpn.f5.status	runs
+"vpn f5 status --help"	shell	vpn.f5.status	runs
+"vpn f5 status"	full	vpn.f5.status	runs
+"vpn f5 status"	netread	vpn.f5.status	runs
+"vpn f5 status"	read	vpn.f5.status	runs
+"vpn f5 status"	shell	vpn.f5.status	runs
+"vpn f5 stop --help"	full	vpn.f5.stop	runs
+"vpn f5 stop --help"	netread	vpn.f5.stop	runs
+"vpn f5 stop --help"	read	vpn.f5.stop	runs
+"vpn f5 stop --help"	shell	vpn.f5.stop	runs
+"vpn f5 stop web"	full	vpn.f5.stop	runs
+"vpn f5 stop web"	netread	vpn.f5.stop	SSH_GATE_READ_ONLY|komando vpn f5 stop is refused for a read-only key: it changes something
+"vpn f5 stop web"	read	vpn.f5.stop	SSH_GATE_READ_ONLY|komando vpn f5 stop is refused for a read-only key: it changes something
+"vpn f5 stop web"	shell	vpn.f5.stop	runs
+"vpn f5 stop"	full	vpn.f5.stop	runs
+"vpn f5 stop"	netread	vpn.f5.stop	SSH_GATE_READ_ONLY|komando vpn f5 stop is refused for a read-only key: it changes something
+"vpn f5 stop"	read	vpn.f5.stop	SSH_GATE_READ_ONLY|komando vpn f5 stop is refused for a read-only key: it changes something
+"vpn f5 stop"	shell	vpn.f5.stop	runs
+"vpn f5 test --help"	full	vpn.f5.test	runs
+"vpn f5 test --help"	netread	vpn.f5.test	runs
+"vpn f5 test --help"	read	vpn.f5.test	runs
+"vpn f5 test --help"	shell	vpn.f5.test	runs
+"vpn f5 test"	full	vpn.f5.test	runs
+"vpn f5 test"	netread	vpn.f5.test	runs
+"vpn f5 test"	read	vpn.f5.test	runs
+"vpn f5 test"	shell	vpn.f5.test	runs
+"vpn f5"	full	vpn.f5	runs
+"vpn f5"	netread	vpn.f5	runs
+"vpn f5"	read	vpn.f5	runs
+"vpn f5"	shell	vpn.f5	runs
+"vpn fortinet --help"	full	vpn.fortinet	runs
+"vpn fortinet --help"	netread	vpn.fortinet	runs
+"vpn fortinet --help"	read	vpn.fortinet	runs
+"vpn fortinet --help"	shell	vpn.fortinet	runs
+"vpn fortinet add --help"	full	vpn.fortinet.add	runs
+"vpn fortinet add --help"	netread	vpn.fortinet.add	runs
+"vpn fortinet add --help"	read	vpn.fortinet.add	runs
+"vpn fortinet add --help"	shell	vpn.fortinet.add	runs
+"vpn fortinet add"	full	vpn.fortinet.add	SSH_GATE_REFUSED|komando vpn fortinet add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn fortinet add"	netread	vpn.fortinet.add	SSH_GATE_REFUSED|komando vpn fortinet add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn fortinet add"	read	vpn.fortinet.add	SSH_GATE_REFUSED|komando vpn fortinet add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn fortinet add"	shell	vpn.fortinet.add	SSH_GATE_REFUSED|komando vpn fortinet add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn fortinet edit --help"	full	vpn.fortinet.edit	runs
+"vpn fortinet edit --help"	netread	vpn.fortinet.edit	runs
+"vpn fortinet edit --help"	read	vpn.fortinet.edit	runs
+"vpn fortinet edit --help"	shell	vpn.fortinet.edit	runs
+"vpn fortinet edit"	full	vpn.fortinet.edit	SSH_GATE_REFUSED|komando vpn fortinet edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn fortinet edit"	netread	vpn.fortinet.edit	SSH_GATE_REFUSED|komando vpn fortinet edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn fortinet edit"	read	vpn.fortinet.edit	SSH_GATE_REFUSED|komando vpn fortinet edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn fortinet edit"	shell	vpn.fortinet.edit	SSH_GATE_REFUSED|komando vpn fortinet edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn fortinet list --help"	full	vpn.fortinet.list	runs
+"vpn fortinet list --help"	netread	vpn.fortinet.list	runs
+"vpn fortinet list --help"	read	vpn.fortinet.list	runs
+"vpn fortinet list --help"	shell	vpn.fortinet.list	runs
+"vpn fortinet list"	full	vpn.fortinet.list	runs
+"vpn fortinet list"	netread	vpn.fortinet.list	runs
+"vpn fortinet list"	read	vpn.fortinet.list	runs
+"vpn fortinet list"	shell	vpn.fortinet.list	runs
+"vpn fortinet remove --help"	full	vpn.fortinet.remove	runs
+"vpn fortinet remove --help"	netread	vpn.fortinet.remove	runs
+"vpn fortinet remove --help"	read	vpn.fortinet.remove	runs
+"vpn fortinet remove --help"	shell	vpn.fortinet.remove	runs
+"vpn fortinet remove"	full	vpn.fortinet.remove	SSH_GATE_REFUSED|komando vpn fortinet remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn fortinet remove"	netread	vpn.fortinet.remove	SSH_GATE_REFUSED|komando vpn fortinet remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn fortinet remove"	read	vpn.fortinet.remove	SSH_GATE_REFUSED|komando vpn fortinet remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn fortinet remove"	shell	vpn.fortinet.remove	SSH_GATE_REFUSED|komando vpn fortinet remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn fortinet rename --help"	full	vpn.fortinet.rename	runs
+"vpn fortinet rename --help"	netread	vpn.fortinet.rename	runs
+"vpn fortinet rename --help"	read	vpn.fortinet.rename	runs
+"vpn fortinet rename --help"	shell	vpn.fortinet.rename	runs
+"vpn fortinet rename"	full	vpn.fortinet.rename	SSH_GATE_REFUSED|komando vpn fortinet rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn fortinet rename"	netread	vpn.fortinet.rename	SSH_GATE_REFUSED|komando vpn fortinet rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn fortinet rename"	read	vpn.fortinet.rename	SSH_GATE_REFUSED|komando vpn fortinet rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn fortinet rename"	shell	vpn.fortinet.rename	SSH_GATE_REFUSED|komando vpn fortinet rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn fortinet show --help"	full	vpn.fortinet.show	runs
+"vpn fortinet show --help"	netread	vpn.fortinet.show	runs
+"vpn fortinet show --help"	read	vpn.fortinet.show	runs
+"vpn fortinet show --help"	shell	vpn.fortinet.show	runs
+"vpn fortinet show"	full	vpn.fortinet.show	runs
+"vpn fortinet show"	netread	vpn.fortinet.show	runs
+"vpn fortinet show"	read	vpn.fortinet.show	runs
+"vpn fortinet show"	shell	vpn.fortinet.show	runs
+"vpn fortinet start --help"	full	vpn.fortinet.start	runs
+"vpn fortinet start --help"	netread	vpn.fortinet.start	runs
+"vpn fortinet start --help"	read	vpn.fortinet.start	runs
+"vpn fortinet start --help"	shell	vpn.fortinet.start	runs
+"vpn fortinet start web"	full	vpn.fortinet.start	runs
+"vpn fortinet start web"	netread	vpn.fortinet.start	SSH_GATE_READ_ONLY|komando vpn fortinet start is refused for a read-only key: it changes something
+"vpn fortinet start web"	read	vpn.fortinet.start	SSH_GATE_READ_ONLY|komando vpn fortinet start is refused for a read-only key: it changes something
+"vpn fortinet start web"	shell	vpn.fortinet.start	runs
+"vpn fortinet start"	full	vpn.fortinet.start	runs
+"vpn fortinet start"	netread	vpn.fortinet.start	SSH_GATE_READ_ONLY|komando vpn fortinet start is refused for a read-only key: it changes something
+"vpn fortinet start"	read	vpn.fortinet.start	SSH_GATE_READ_ONLY|komando vpn fortinet start is refused for a read-only key: it changes something
+"vpn fortinet start"	shell	vpn.fortinet.start	runs
+"vpn fortinet status --help"	full	vpn.fortinet.status	runs
+"vpn fortinet status --help"	netread	vpn.fortinet.status	runs
+"vpn fortinet status --help"	read	vpn.fortinet.status	runs
+"vpn fortinet status --help"	shell	vpn.fortinet.status	runs
+"vpn fortinet status"	full	vpn.fortinet.status	runs
+"vpn fortinet status"	netread	vpn.fortinet.status	runs
+"vpn fortinet status"	read	vpn.fortinet.status	runs
+"vpn fortinet status"	shell	vpn.fortinet.status	runs
+"vpn fortinet stop --help"	full	vpn.fortinet.stop	runs
+"vpn fortinet stop --help"	netread	vpn.fortinet.stop	runs
+"vpn fortinet stop --help"	read	vpn.fortinet.stop	runs
+"vpn fortinet stop --help"	shell	vpn.fortinet.stop	runs
+"vpn fortinet stop web"	full	vpn.fortinet.stop	runs
+"vpn fortinet stop web"	netread	vpn.fortinet.stop	SSH_GATE_READ_ONLY|komando vpn fortinet stop is refused for a read-only key: it changes something
+"vpn fortinet stop web"	read	vpn.fortinet.stop	SSH_GATE_READ_ONLY|komando vpn fortinet stop is refused for a read-only key: it changes something
+"vpn fortinet stop web"	shell	vpn.fortinet.stop	runs
+"vpn fortinet stop"	full	vpn.fortinet.stop	runs
+"vpn fortinet stop"	netread	vpn.fortinet.stop	SSH_GATE_READ_ONLY|komando vpn fortinet stop is refused for a read-only key: it changes something
+"vpn fortinet stop"	read	vpn.fortinet.stop	SSH_GATE_READ_ONLY|komando vpn fortinet stop is refused for a read-only key: it changes something
+"vpn fortinet stop"	shell	vpn.fortinet.stop	runs
+"vpn fortinet test --help"	full	vpn.fortinet.test	runs
+"vpn fortinet test --help"	netread	vpn.fortinet.test	runs
+"vpn fortinet test --help"	read	vpn.fortinet.test	runs
+"vpn fortinet test --help"	shell	vpn.fortinet.test	runs
+"vpn fortinet test"	full	vpn.fortinet.test	runs
+"vpn fortinet test"	netread	vpn.fortinet.test	runs
+"vpn fortinet test"	read	vpn.fortinet.test	runs
+"vpn fortinet test"	shell	vpn.fortinet.test	runs
+"vpn fortinet"	full	vpn.fortinet	runs
+"vpn fortinet"	netread	vpn.fortinet	runs
+"vpn fortinet"	read	vpn.fortinet	runs
+"vpn fortinet"	shell	vpn.fortinet	runs
+"vpn globalprotect --help"	full	vpn.globalprotect	runs
+"vpn globalprotect --help"	netread	vpn.globalprotect	runs
+"vpn globalprotect --help"	read	vpn.globalprotect	runs
+"vpn globalprotect --help"	shell	vpn.globalprotect	runs
+"vpn globalprotect add --help"	full	vpn.globalprotect.add	runs
+"vpn globalprotect add --help"	netread	vpn.globalprotect.add	runs
+"vpn globalprotect add --help"	read	vpn.globalprotect.add	runs
+"vpn globalprotect add --help"	shell	vpn.globalprotect.add	runs
+"vpn globalprotect add"	full	vpn.globalprotect.add	SSH_GATE_REFUSED|komando vpn globalprotect add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn globalprotect add"	netread	vpn.globalprotect.add	SSH_GATE_REFUSED|komando vpn globalprotect add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn globalprotect add"	read	vpn.globalprotect.add	SSH_GATE_REFUSED|komando vpn globalprotect add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn globalprotect add"	shell	vpn.globalprotect.add	SSH_GATE_REFUSED|komando vpn globalprotect add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn globalprotect edit --help"	full	vpn.globalprotect.edit	runs
+"vpn globalprotect edit --help"	netread	vpn.globalprotect.edit	runs
+"vpn globalprotect edit --help"	read	vpn.globalprotect.edit	runs
+"vpn globalprotect edit --help"	shell	vpn.globalprotect.edit	runs
+"vpn globalprotect edit"	full	vpn.globalprotect.edit	SSH_GATE_REFUSED|komando vpn globalprotect edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn globalprotect edit"	netread	vpn.globalprotect.edit	SSH_GATE_REFUSED|komando vpn globalprotect edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn globalprotect edit"	read	vpn.globalprotect.edit	SSH_GATE_REFUSED|komando vpn globalprotect edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn globalprotect edit"	shell	vpn.globalprotect.edit	SSH_GATE_REFUSED|komando vpn globalprotect edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn globalprotect list --help"	full	vpn.globalprotect.list	runs
+"vpn globalprotect list --help"	netread	vpn.globalprotect.list	runs
+"vpn globalprotect list --help"	read	vpn.globalprotect.list	runs
+"vpn globalprotect list --help"	shell	vpn.globalprotect.list	runs
+"vpn globalprotect list"	full	vpn.globalprotect.list	runs
+"vpn globalprotect list"	netread	vpn.globalprotect.list	runs
+"vpn globalprotect list"	read	vpn.globalprotect.list	runs
+"vpn globalprotect list"	shell	vpn.globalprotect.list	runs
+"vpn globalprotect remove --help"	full	vpn.globalprotect.remove	runs
+"vpn globalprotect remove --help"	netread	vpn.globalprotect.remove	runs
+"vpn globalprotect remove --help"	read	vpn.globalprotect.remove	runs
+"vpn globalprotect remove --help"	shell	vpn.globalprotect.remove	runs
+"vpn globalprotect remove"	full	vpn.globalprotect.remove	SSH_GATE_REFUSED|komando vpn globalprotect remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn globalprotect remove"	netread	vpn.globalprotect.remove	SSH_GATE_REFUSED|komando vpn globalprotect remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn globalprotect remove"	read	vpn.globalprotect.remove	SSH_GATE_REFUSED|komando vpn globalprotect remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn globalprotect remove"	shell	vpn.globalprotect.remove	SSH_GATE_REFUSED|komando vpn globalprotect remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn globalprotect rename --help"	full	vpn.globalprotect.rename	runs
+"vpn globalprotect rename --help"	netread	vpn.globalprotect.rename	runs
+"vpn globalprotect rename --help"	read	vpn.globalprotect.rename	runs
+"vpn globalprotect rename --help"	shell	vpn.globalprotect.rename	runs
+"vpn globalprotect rename"	full	vpn.globalprotect.rename	SSH_GATE_REFUSED|komando vpn globalprotect rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn globalprotect rename"	netread	vpn.globalprotect.rename	SSH_GATE_REFUSED|komando vpn globalprotect rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn globalprotect rename"	read	vpn.globalprotect.rename	SSH_GATE_REFUSED|komando vpn globalprotect rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn globalprotect rename"	shell	vpn.globalprotect.rename	SSH_GATE_REFUSED|komando vpn globalprotect rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn globalprotect show --help"	full	vpn.globalprotect.show	runs
+"vpn globalprotect show --help"	netread	vpn.globalprotect.show	runs
+"vpn globalprotect show --help"	read	vpn.globalprotect.show	runs
+"vpn globalprotect show --help"	shell	vpn.globalprotect.show	runs
+"vpn globalprotect show"	full	vpn.globalprotect.show	runs
+"vpn globalprotect show"	netread	vpn.globalprotect.show	runs
+"vpn globalprotect show"	read	vpn.globalprotect.show	runs
+"vpn globalprotect show"	shell	vpn.globalprotect.show	runs
+"vpn globalprotect start --help"	full	vpn.globalprotect.start	runs
+"vpn globalprotect start --help"	netread	vpn.globalprotect.start	runs
+"vpn globalprotect start --help"	read	vpn.globalprotect.start	runs
+"vpn globalprotect start --help"	shell	vpn.globalprotect.start	runs
+"vpn globalprotect start web"	full	vpn.globalprotect.start	runs
+"vpn globalprotect start web"	netread	vpn.globalprotect.start	SSH_GATE_READ_ONLY|komando vpn globalprotect start is refused for a read-only key: it changes something
+"vpn globalprotect start web"	read	vpn.globalprotect.start	SSH_GATE_READ_ONLY|komando vpn globalprotect start is refused for a read-only key: it changes something
+"vpn globalprotect start web"	shell	vpn.globalprotect.start	runs
+"vpn globalprotect start"	full	vpn.globalprotect.start	runs
+"vpn globalprotect start"	netread	vpn.globalprotect.start	SSH_GATE_READ_ONLY|komando vpn globalprotect start is refused for a read-only key: it changes something
+"vpn globalprotect start"	read	vpn.globalprotect.start	SSH_GATE_READ_ONLY|komando vpn globalprotect start is refused for a read-only key: it changes something
+"vpn globalprotect start"	shell	vpn.globalprotect.start	runs
+"vpn globalprotect status --help"	full	vpn.globalprotect.status	runs
+"vpn globalprotect status --help"	netread	vpn.globalprotect.status	runs
+"vpn globalprotect status --help"	read	vpn.globalprotect.status	runs
+"vpn globalprotect status --help"	shell	vpn.globalprotect.status	runs
+"vpn globalprotect status"	full	vpn.globalprotect.status	runs
+"vpn globalprotect status"	netread	vpn.globalprotect.status	runs
+"vpn globalprotect status"	read	vpn.globalprotect.status	runs
+"vpn globalprotect status"	shell	vpn.globalprotect.status	runs
+"vpn globalprotect stop --help"	full	vpn.globalprotect.stop	runs
+"vpn globalprotect stop --help"	netread	vpn.globalprotect.stop	runs
+"vpn globalprotect stop --help"	read	vpn.globalprotect.stop	runs
+"vpn globalprotect stop --help"	shell	vpn.globalprotect.stop	runs
+"vpn globalprotect stop web"	full	vpn.globalprotect.stop	runs
+"vpn globalprotect stop web"	netread	vpn.globalprotect.stop	SSH_GATE_READ_ONLY|komando vpn globalprotect stop is refused for a read-only key: it changes something
+"vpn globalprotect stop web"	read	vpn.globalprotect.stop	SSH_GATE_READ_ONLY|komando vpn globalprotect stop is refused for a read-only key: it changes something
+"vpn globalprotect stop web"	shell	vpn.globalprotect.stop	runs
+"vpn globalprotect stop"	full	vpn.globalprotect.stop	runs
+"vpn globalprotect stop"	netread	vpn.globalprotect.stop	SSH_GATE_READ_ONLY|komando vpn globalprotect stop is refused for a read-only key: it changes something
+"vpn globalprotect stop"	read	vpn.globalprotect.stop	SSH_GATE_READ_ONLY|komando vpn globalprotect stop is refused for a read-only key: it changes something
+"vpn globalprotect stop"	shell	vpn.globalprotect.stop	runs
+"vpn globalprotect test --help"	full	vpn.globalprotect.test	runs
+"vpn globalprotect test --help"	netread	vpn.globalprotect.test	runs
+"vpn globalprotect test --help"	read	vpn.globalprotect.test	runs
+"vpn globalprotect test --help"	shell	vpn.globalprotect.test	runs
+"vpn globalprotect test"	full	vpn.globalprotect.test	runs
+"vpn globalprotect test"	netread	vpn.globalprotect.test	runs
+"vpn globalprotect test"	read	vpn.globalprotect.test	runs
+"vpn globalprotect test"	shell	vpn.globalprotect.test	runs
+"vpn globalprotect"	full	vpn.globalprotect	runs
+"vpn globalprotect"	netread	vpn.globalprotect	runs
+"vpn globalprotect"	read	vpn.globalprotect	runs
+"vpn globalprotect"	shell	vpn.globalprotect	runs
+"vpn ikev2 --help"	full	vpn.ikev2	runs
+"vpn ikev2 --help"	netread	vpn.ikev2	runs
+"vpn ikev2 --help"	read	vpn.ikev2	runs
+"vpn ikev2 --help"	shell	vpn.ikev2	runs
+"vpn ikev2 add --help"	full	vpn.ikev2.add	runs
+"vpn ikev2 add --help"	netread	vpn.ikev2.add	runs
+"vpn ikev2 add --help"	read	vpn.ikev2.add	runs
+"vpn ikev2 add --help"	shell	vpn.ikev2.add	runs
+"vpn ikev2 add"	full	vpn.ikev2.add	SSH_GATE_REFUSED|komando vpn ikev2 add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ikev2 add"	netread	vpn.ikev2.add	SSH_GATE_REFUSED|komando vpn ikev2 add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ikev2 add"	read	vpn.ikev2.add	SSH_GATE_REFUSED|komando vpn ikev2 add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ikev2 add"	shell	vpn.ikev2.add	SSH_GATE_REFUSED|komando vpn ikev2 add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ikev2 edit --help"	full	vpn.ikev2.edit	runs
+"vpn ikev2 edit --help"	netread	vpn.ikev2.edit	runs
+"vpn ikev2 edit --help"	read	vpn.ikev2.edit	runs
+"vpn ikev2 edit --help"	shell	vpn.ikev2.edit	runs
+"vpn ikev2 edit"	full	vpn.ikev2.edit	SSH_GATE_REFUSED|komando vpn ikev2 edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ikev2 edit"	netread	vpn.ikev2.edit	SSH_GATE_REFUSED|komando vpn ikev2 edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ikev2 edit"	read	vpn.ikev2.edit	SSH_GATE_REFUSED|komando vpn ikev2 edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ikev2 edit"	shell	vpn.ikev2.edit	SSH_GATE_REFUSED|komando vpn ikev2 edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ikev2 list --help"	full	vpn.ikev2.list	runs
+"vpn ikev2 list --help"	netread	vpn.ikev2.list	runs
+"vpn ikev2 list --help"	read	vpn.ikev2.list	runs
+"vpn ikev2 list --help"	shell	vpn.ikev2.list	runs
+"vpn ikev2 list"	full	vpn.ikev2.list	runs
+"vpn ikev2 list"	netread	vpn.ikev2.list	runs
+"vpn ikev2 list"	read	vpn.ikev2.list	runs
+"vpn ikev2 list"	shell	vpn.ikev2.list	runs
+"vpn ikev2 remove --help"	full	vpn.ikev2.remove	runs
+"vpn ikev2 remove --help"	netread	vpn.ikev2.remove	runs
+"vpn ikev2 remove --help"	read	vpn.ikev2.remove	runs
+"vpn ikev2 remove --help"	shell	vpn.ikev2.remove	runs
+"vpn ikev2 remove"	full	vpn.ikev2.remove	SSH_GATE_REFUSED|komando vpn ikev2 remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ikev2 remove"	netread	vpn.ikev2.remove	SSH_GATE_REFUSED|komando vpn ikev2 remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ikev2 remove"	read	vpn.ikev2.remove	SSH_GATE_REFUSED|komando vpn ikev2 remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ikev2 remove"	shell	vpn.ikev2.remove	SSH_GATE_REFUSED|komando vpn ikev2 remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ikev2 rename --help"	full	vpn.ikev2.rename	runs
+"vpn ikev2 rename --help"	netread	vpn.ikev2.rename	runs
+"vpn ikev2 rename --help"	read	vpn.ikev2.rename	runs
+"vpn ikev2 rename --help"	shell	vpn.ikev2.rename	runs
+"vpn ikev2 rename"	full	vpn.ikev2.rename	SSH_GATE_REFUSED|komando vpn ikev2 rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ikev2 rename"	netread	vpn.ikev2.rename	SSH_GATE_REFUSED|komando vpn ikev2 rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ikev2 rename"	read	vpn.ikev2.rename	SSH_GATE_REFUSED|komando vpn ikev2 rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ikev2 rename"	shell	vpn.ikev2.rename	SSH_GATE_REFUSED|komando vpn ikev2 rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ikev2 show --help"	full	vpn.ikev2.show	runs
+"vpn ikev2 show --help"	netread	vpn.ikev2.show	runs
+"vpn ikev2 show --help"	read	vpn.ikev2.show	runs
+"vpn ikev2 show --help"	shell	vpn.ikev2.show	runs
+"vpn ikev2 show"	full	vpn.ikev2.show	runs
+"vpn ikev2 show"	netread	vpn.ikev2.show	runs
+"vpn ikev2 show"	read	vpn.ikev2.show	runs
+"vpn ikev2 show"	shell	vpn.ikev2.show	runs
+"vpn ikev2 start --help"	full	vpn.ikev2.start	runs
+"vpn ikev2 start --help"	netread	vpn.ikev2.start	runs
+"vpn ikev2 start --help"	read	vpn.ikev2.start	runs
+"vpn ikev2 start --help"	shell	vpn.ikev2.start	runs
+"vpn ikev2 start web"	full	vpn.ikev2.start	runs
+"vpn ikev2 start web"	netread	vpn.ikev2.start	SSH_GATE_READ_ONLY|komando vpn ikev2 start is refused for a read-only key: it changes something
+"vpn ikev2 start web"	read	vpn.ikev2.start	SSH_GATE_READ_ONLY|komando vpn ikev2 start is refused for a read-only key: it changes something
+"vpn ikev2 start web"	shell	vpn.ikev2.start	runs
+"vpn ikev2 start"	full	vpn.ikev2.start	runs
+"vpn ikev2 start"	netread	vpn.ikev2.start	SSH_GATE_READ_ONLY|komando vpn ikev2 start is refused for a read-only key: it changes something
+"vpn ikev2 start"	read	vpn.ikev2.start	SSH_GATE_READ_ONLY|komando vpn ikev2 start is refused for a read-only key: it changes something
+"vpn ikev2 start"	shell	vpn.ikev2.start	runs
+"vpn ikev2 status --help"	full	vpn.ikev2.status	runs
+"vpn ikev2 status --help"	netread	vpn.ikev2.status	runs
+"vpn ikev2 status --help"	read	vpn.ikev2.status	runs
+"vpn ikev2 status --help"	shell	vpn.ikev2.status	runs
+"vpn ikev2 status"	full	vpn.ikev2.status	runs
+"vpn ikev2 status"	netread	vpn.ikev2.status	runs
+"vpn ikev2 status"	read	vpn.ikev2.status	runs
+"vpn ikev2 status"	shell	vpn.ikev2.status	runs
+"vpn ikev2 stop --help"	full	vpn.ikev2.stop	runs
+"vpn ikev2 stop --help"	netread	vpn.ikev2.stop	runs
+"vpn ikev2 stop --help"	read	vpn.ikev2.stop	runs
+"vpn ikev2 stop --help"	shell	vpn.ikev2.stop	runs
+"vpn ikev2 stop web"	full	vpn.ikev2.stop	runs
+"vpn ikev2 stop web"	netread	vpn.ikev2.stop	SSH_GATE_READ_ONLY|komando vpn ikev2 stop is refused for a read-only key: it changes something
+"vpn ikev2 stop web"	read	vpn.ikev2.stop	SSH_GATE_READ_ONLY|komando vpn ikev2 stop is refused for a read-only key: it changes something
+"vpn ikev2 stop web"	shell	vpn.ikev2.stop	runs
+"vpn ikev2 stop"	full	vpn.ikev2.stop	runs
+"vpn ikev2 stop"	netread	vpn.ikev2.stop	SSH_GATE_READ_ONLY|komando vpn ikev2 stop is refused for a read-only key: it changes something
+"vpn ikev2 stop"	read	vpn.ikev2.stop	SSH_GATE_READ_ONLY|komando vpn ikev2 stop is refused for a read-only key: it changes something
+"vpn ikev2 stop"	shell	vpn.ikev2.stop	runs
+"vpn ikev2 test --help"	full	vpn.ikev2.test	runs
+"vpn ikev2 test --help"	netread	vpn.ikev2.test	runs
+"vpn ikev2 test --help"	read	vpn.ikev2.test	runs
+"vpn ikev2 test --help"	shell	vpn.ikev2.test	runs
+"vpn ikev2 test"	full	vpn.ikev2.test	runs
+"vpn ikev2 test"	netread	vpn.ikev2.test	runs
+"vpn ikev2 test"	read	vpn.ikev2.test	runs
+"vpn ikev2 test"	shell	vpn.ikev2.test	runs
+"vpn ikev2"	full	vpn.ikev2	runs
+"vpn ikev2"	netread	vpn.ikev2	runs
+"vpn ikev2"	read	vpn.ikev2	runs
+"vpn ikev2"	shell	vpn.ikev2	runs
+"vpn ipsec --help"	full	vpn.ipsec	runs
+"vpn ipsec --help"	netread	vpn.ipsec	runs
+"vpn ipsec --help"	read	vpn.ipsec	runs
+"vpn ipsec --help"	shell	vpn.ipsec	runs
+"vpn ipsec add --help"	full	vpn.ipsec.add	runs
+"vpn ipsec add --help"	netread	vpn.ipsec.add	runs
+"vpn ipsec add --help"	read	vpn.ipsec.add	runs
+"vpn ipsec add --help"	shell	vpn.ipsec.add	runs
+"vpn ipsec add"	full	vpn.ipsec.add	SSH_GATE_REFUSED|komando vpn ipsec add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ipsec add"	netread	vpn.ipsec.add	SSH_GATE_REFUSED|komando vpn ipsec add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ipsec add"	read	vpn.ipsec.add	SSH_GATE_REFUSED|komando vpn ipsec add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ipsec add"	shell	vpn.ipsec.add	SSH_GATE_REFUSED|komando vpn ipsec add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ipsec edit --help"	full	vpn.ipsec.edit	runs
+"vpn ipsec edit --help"	netread	vpn.ipsec.edit	runs
+"vpn ipsec edit --help"	read	vpn.ipsec.edit	runs
+"vpn ipsec edit --help"	shell	vpn.ipsec.edit	runs
+"vpn ipsec edit"	full	vpn.ipsec.edit	SSH_GATE_REFUSED|komando vpn ipsec edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ipsec edit"	netread	vpn.ipsec.edit	SSH_GATE_REFUSED|komando vpn ipsec edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ipsec edit"	read	vpn.ipsec.edit	SSH_GATE_REFUSED|komando vpn ipsec edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ipsec edit"	shell	vpn.ipsec.edit	SSH_GATE_REFUSED|komando vpn ipsec edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ipsec list --help"	full	vpn.ipsec.list	runs
+"vpn ipsec list --help"	netread	vpn.ipsec.list	runs
+"vpn ipsec list --help"	read	vpn.ipsec.list	runs
+"vpn ipsec list --help"	shell	vpn.ipsec.list	runs
+"vpn ipsec list"	full	vpn.ipsec.list	runs
+"vpn ipsec list"	netread	vpn.ipsec.list	runs
+"vpn ipsec list"	read	vpn.ipsec.list	runs
+"vpn ipsec list"	shell	vpn.ipsec.list	runs
+"vpn ipsec remove --help"	full	vpn.ipsec.remove	runs
+"vpn ipsec remove --help"	netread	vpn.ipsec.remove	runs
+"vpn ipsec remove --help"	read	vpn.ipsec.remove	runs
+"vpn ipsec remove --help"	shell	vpn.ipsec.remove	runs
+"vpn ipsec remove"	full	vpn.ipsec.remove	SSH_GATE_REFUSED|komando vpn ipsec remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ipsec remove"	netread	vpn.ipsec.remove	SSH_GATE_REFUSED|komando vpn ipsec remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ipsec remove"	read	vpn.ipsec.remove	SSH_GATE_REFUSED|komando vpn ipsec remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ipsec remove"	shell	vpn.ipsec.remove	SSH_GATE_REFUSED|komando vpn ipsec remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ipsec rename --help"	full	vpn.ipsec.rename	runs
+"vpn ipsec rename --help"	netread	vpn.ipsec.rename	runs
+"vpn ipsec rename --help"	read	vpn.ipsec.rename	runs
+"vpn ipsec rename --help"	shell	vpn.ipsec.rename	runs
+"vpn ipsec rename"	full	vpn.ipsec.rename	SSH_GATE_REFUSED|komando vpn ipsec rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ipsec rename"	netread	vpn.ipsec.rename	SSH_GATE_REFUSED|komando vpn ipsec rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ipsec rename"	read	vpn.ipsec.rename	SSH_GATE_REFUSED|komando vpn ipsec rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ipsec rename"	shell	vpn.ipsec.rename	SSH_GATE_REFUSED|komando vpn ipsec rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn ipsec show --help"	full	vpn.ipsec.show	runs
+"vpn ipsec show --help"	netread	vpn.ipsec.show	runs
+"vpn ipsec show --help"	read	vpn.ipsec.show	runs
+"vpn ipsec show --help"	shell	vpn.ipsec.show	runs
+"vpn ipsec show"	full	vpn.ipsec.show	runs
+"vpn ipsec show"	netread	vpn.ipsec.show	runs
+"vpn ipsec show"	read	vpn.ipsec.show	runs
+"vpn ipsec show"	shell	vpn.ipsec.show	runs
+"vpn ipsec start --help"	full	vpn.ipsec.start	runs
+"vpn ipsec start --help"	netread	vpn.ipsec.start	runs
+"vpn ipsec start --help"	read	vpn.ipsec.start	runs
+"vpn ipsec start --help"	shell	vpn.ipsec.start	runs
+"vpn ipsec start web"	full	vpn.ipsec.start	runs
+"vpn ipsec start web"	netread	vpn.ipsec.start	SSH_GATE_READ_ONLY|komando vpn ipsec start is refused for a read-only key: it changes something
+"vpn ipsec start web"	read	vpn.ipsec.start	SSH_GATE_READ_ONLY|komando vpn ipsec start is refused for a read-only key: it changes something
+"vpn ipsec start web"	shell	vpn.ipsec.start	runs
+"vpn ipsec start"	full	vpn.ipsec.start	runs
+"vpn ipsec start"	netread	vpn.ipsec.start	SSH_GATE_READ_ONLY|komando vpn ipsec start is refused for a read-only key: it changes something
+"vpn ipsec start"	read	vpn.ipsec.start	SSH_GATE_READ_ONLY|komando vpn ipsec start is refused for a read-only key: it changes something
+"vpn ipsec start"	shell	vpn.ipsec.start	runs
+"vpn ipsec status --help"	full	vpn.ipsec.status	runs
+"vpn ipsec status --help"	netread	vpn.ipsec.status	runs
+"vpn ipsec status --help"	read	vpn.ipsec.status	runs
+"vpn ipsec status --help"	shell	vpn.ipsec.status	runs
+"vpn ipsec status"	full	vpn.ipsec.status	runs
+"vpn ipsec status"	netread	vpn.ipsec.status	runs
+"vpn ipsec status"	read	vpn.ipsec.status	runs
+"vpn ipsec status"	shell	vpn.ipsec.status	runs
+"vpn ipsec stop --help"	full	vpn.ipsec.stop	runs
+"vpn ipsec stop --help"	netread	vpn.ipsec.stop	runs
+"vpn ipsec stop --help"	read	vpn.ipsec.stop	runs
+"vpn ipsec stop --help"	shell	vpn.ipsec.stop	runs
+"vpn ipsec stop web"	full	vpn.ipsec.stop	runs
+"vpn ipsec stop web"	netread	vpn.ipsec.stop	SSH_GATE_READ_ONLY|komando vpn ipsec stop is refused for a read-only key: it changes something
+"vpn ipsec stop web"	read	vpn.ipsec.stop	SSH_GATE_READ_ONLY|komando vpn ipsec stop is refused for a read-only key: it changes something
+"vpn ipsec stop web"	shell	vpn.ipsec.stop	runs
+"vpn ipsec stop"	full	vpn.ipsec.stop	runs
+"vpn ipsec stop"	netread	vpn.ipsec.stop	SSH_GATE_READ_ONLY|komando vpn ipsec stop is refused for a read-only key: it changes something
+"vpn ipsec stop"	read	vpn.ipsec.stop	SSH_GATE_READ_ONLY|komando vpn ipsec stop is refused for a read-only key: it changes something
+"vpn ipsec stop"	shell	vpn.ipsec.stop	runs
+"vpn ipsec test --help"	full	vpn.ipsec.test	runs
+"vpn ipsec test --help"	netread	vpn.ipsec.test	runs
+"vpn ipsec test --help"	read	vpn.ipsec.test	runs
+"vpn ipsec test --help"	shell	vpn.ipsec.test	runs
+"vpn ipsec test"	full	vpn.ipsec.test	runs
+"vpn ipsec test"	netread	vpn.ipsec.test	runs
+"vpn ipsec test"	read	vpn.ipsec.test	runs
+"vpn ipsec test"	shell	vpn.ipsec.test	runs
+"vpn ipsec"	full	vpn.ipsec	runs
+"vpn ipsec"	netread	vpn.ipsec	runs
+"vpn ipsec"	read	vpn.ipsec	runs
+"vpn ipsec"	shell	vpn.ipsec	runs
+"vpn l2tp --help"	full	vpn.l2tp	runs
+"vpn l2tp --help"	netread	vpn.l2tp	runs
+"vpn l2tp --help"	read	vpn.l2tp	runs
+"vpn l2tp --help"	shell	vpn.l2tp	runs
+"vpn l2tp add --help"	full	vpn.l2tp.add	runs
+"vpn l2tp add --help"	netread	vpn.l2tp.add	runs
+"vpn l2tp add --help"	read	vpn.l2tp.add	runs
+"vpn l2tp add --help"	shell	vpn.l2tp.add	runs
+"vpn l2tp add"	full	vpn.l2tp.add	SSH_GATE_REFUSED|komando vpn l2tp add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn l2tp add"	netread	vpn.l2tp.add	SSH_GATE_REFUSED|komando vpn l2tp add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn l2tp add"	read	vpn.l2tp.add	SSH_GATE_REFUSED|komando vpn l2tp add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn l2tp add"	shell	vpn.l2tp.add	SSH_GATE_REFUSED|komando vpn l2tp add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn l2tp edit --help"	full	vpn.l2tp.edit	runs
+"vpn l2tp edit --help"	netread	vpn.l2tp.edit	runs
+"vpn l2tp edit --help"	read	vpn.l2tp.edit	runs
+"vpn l2tp edit --help"	shell	vpn.l2tp.edit	runs
+"vpn l2tp edit"	full	vpn.l2tp.edit	SSH_GATE_REFUSED|komando vpn l2tp edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn l2tp edit"	netread	vpn.l2tp.edit	SSH_GATE_REFUSED|komando vpn l2tp edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn l2tp edit"	read	vpn.l2tp.edit	SSH_GATE_REFUSED|komando vpn l2tp edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn l2tp edit"	shell	vpn.l2tp.edit	SSH_GATE_REFUSED|komando vpn l2tp edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn l2tp list --help"	full	vpn.l2tp.list	runs
+"vpn l2tp list --help"	netread	vpn.l2tp.list	runs
+"vpn l2tp list --help"	read	vpn.l2tp.list	runs
+"vpn l2tp list --help"	shell	vpn.l2tp.list	runs
+"vpn l2tp list"	full	vpn.l2tp.list	runs
+"vpn l2tp list"	netread	vpn.l2tp.list	runs
+"vpn l2tp list"	read	vpn.l2tp.list	runs
+"vpn l2tp list"	shell	vpn.l2tp.list	runs
+"vpn l2tp remove --help"	full	vpn.l2tp.remove	runs
+"vpn l2tp remove --help"	netread	vpn.l2tp.remove	runs
+"vpn l2tp remove --help"	read	vpn.l2tp.remove	runs
+"vpn l2tp remove --help"	shell	vpn.l2tp.remove	runs
+"vpn l2tp remove"	full	vpn.l2tp.remove	SSH_GATE_REFUSED|komando vpn l2tp remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn l2tp remove"	netread	vpn.l2tp.remove	SSH_GATE_REFUSED|komando vpn l2tp remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn l2tp remove"	read	vpn.l2tp.remove	SSH_GATE_REFUSED|komando vpn l2tp remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn l2tp remove"	shell	vpn.l2tp.remove	SSH_GATE_REFUSED|komando vpn l2tp remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn l2tp rename --help"	full	vpn.l2tp.rename	runs
+"vpn l2tp rename --help"	netread	vpn.l2tp.rename	runs
+"vpn l2tp rename --help"	read	vpn.l2tp.rename	runs
+"vpn l2tp rename --help"	shell	vpn.l2tp.rename	runs
+"vpn l2tp rename"	full	vpn.l2tp.rename	SSH_GATE_REFUSED|komando vpn l2tp rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn l2tp rename"	netread	vpn.l2tp.rename	SSH_GATE_REFUSED|komando vpn l2tp rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn l2tp rename"	read	vpn.l2tp.rename	SSH_GATE_REFUSED|komando vpn l2tp rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn l2tp rename"	shell	vpn.l2tp.rename	SSH_GATE_REFUSED|komando vpn l2tp rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn l2tp show --help"	full	vpn.l2tp.show	runs
+"vpn l2tp show --help"	netread	vpn.l2tp.show	runs
+"vpn l2tp show --help"	read	vpn.l2tp.show	runs
+"vpn l2tp show --help"	shell	vpn.l2tp.show	runs
+"vpn l2tp show"	full	vpn.l2tp.show	runs
+"vpn l2tp show"	netread	vpn.l2tp.show	runs
+"vpn l2tp show"	read	vpn.l2tp.show	runs
+"vpn l2tp show"	shell	vpn.l2tp.show	runs
+"vpn l2tp start --help"	full	vpn.l2tp.start	runs
+"vpn l2tp start --help"	netread	vpn.l2tp.start	runs
+"vpn l2tp start --help"	read	vpn.l2tp.start	runs
+"vpn l2tp start --help"	shell	vpn.l2tp.start	runs
+"vpn l2tp start web"	full	vpn.l2tp.start	runs
+"vpn l2tp start web"	netread	vpn.l2tp.start	SSH_GATE_READ_ONLY|komando vpn l2tp start is refused for a read-only key: it changes something
+"vpn l2tp start web"	read	vpn.l2tp.start	SSH_GATE_READ_ONLY|komando vpn l2tp start is refused for a read-only key: it changes something
+"vpn l2tp start web"	shell	vpn.l2tp.start	runs
+"vpn l2tp start"	full	vpn.l2tp.start	runs
+"vpn l2tp start"	netread	vpn.l2tp.start	SSH_GATE_READ_ONLY|komando vpn l2tp start is refused for a read-only key: it changes something
+"vpn l2tp start"	read	vpn.l2tp.start	SSH_GATE_READ_ONLY|komando vpn l2tp start is refused for a read-only key: it changes something
+"vpn l2tp start"	shell	vpn.l2tp.start	runs
+"vpn l2tp status --help"	full	vpn.l2tp.status	runs
+"vpn l2tp status --help"	netread	vpn.l2tp.status	runs
+"vpn l2tp status --help"	read	vpn.l2tp.status	runs
+"vpn l2tp status --help"	shell	vpn.l2tp.status	runs
+"vpn l2tp status"	full	vpn.l2tp.status	runs
+"vpn l2tp status"	netread	vpn.l2tp.status	runs
+"vpn l2tp status"	read	vpn.l2tp.status	runs
+"vpn l2tp status"	shell	vpn.l2tp.status	runs
+"vpn l2tp stop --help"	full	vpn.l2tp.stop	runs
+"vpn l2tp stop --help"	netread	vpn.l2tp.stop	runs
+"vpn l2tp stop --help"	read	vpn.l2tp.stop	runs
+"vpn l2tp stop --help"	shell	vpn.l2tp.stop	runs
+"vpn l2tp stop web"	full	vpn.l2tp.stop	runs
+"vpn l2tp stop web"	netread	vpn.l2tp.stop	SSH_GATE_READ_ONLY|komando vpn l2tp stop is refused for a read-only key: it changes something
+"vpn l2tp stop web"	read	vpn.l2tp.stop	SSH_GATE_READ_ONLY|komando vpn l2tp stop is refused for a read-only key: it changes something
+"vpn l2tp stop web"	shell	vpn.l2tp.stop	runs
+"vpn l2tp stop"	full	vpn.l2tp.stop	runs
+"vpn l2tp stop"	netread	vpn.l2tp.stop	SSH_GATE_READ_ONLY|komando vpn l2tp stop is refused for a read-only key: it changes something
+"vpn l2tp stop"	read	vpn.l2tp.stop	SSH_GATE_READ_ONLY|komando vpn l2tp stop is refused for a read-only key: it changes something
+"vpn l2tp stop"	shell	vpn.l2tp.stop	runs
+"vpn l2tp test --help"	full	vpn.l2tp.test	runs
+"vpn l2tp test --help"	netread	vpn.l2tp.test	runs
+"vpn l2tp test --help"	read	vpn.l2tp.test	runs
+"vpn l2tp test --help"	shell	vpn.l2tp.test	runs
+"vpn l2tp test"	full	vpn.l2tp.test	runs
+"vpn l2tp test"	netread	vpn.l2tp.test	runs
+"vpn l2tp test"	read	vpn.l2tp.test	runs
+"vpn l2tp test"	shell	vpn.l2tp.test	runs
+"vpn l2tp"	full	vpn.l2tp	runs
+"vpn l2tp"	netread	vpn.l2tp	runs
+"vpn l2tp"	read	vpn.l2tp	runs
+"vpn l2tp"	shell	vpn.l2tp	runs
+"vpn openvpn --help"	full	vpn.openvpn	runs
+"vpn openvpn --help"	netread	vpn.openvpn	runs
+"vpn openvpn --help"	read	vpn.openvpn	runs
+"vpn openvpn --help"	shell	vpn.openvpn	runs
+"vpn openvpn add --help"	full	vpn.openvpn.add	runs
+"vpn openvpn add --help"	netread	vpn.openvpn.add	runs
+"vpn openvpn add --help"	read	vpn.openvpn.add	runs
+"vpn openvpn add --help"	shell	vpn.openvpn.add	runs
+"vpn openvpn add"	full	vpn.openvpn.add	SSH_GATE_REFUSED|komando vpn openvpn add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn openvpn add"	netread	vpn.openvpn.add	SSH_GATE_REFUSED|komando vpn openvpn add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn openvpn add"	read	vpn.openvpn.add	SSH_GATE_REFUSED|komando vpn openvpn add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn openvpn add"	shell	vpn.openvpn.add	SSH_GATE_REFUSED|komando vpn openvpn add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn openvpn edit --help"	full	vpn.openvpn.edit	runs
+"vpn openvpn edit --help"	netread	vpn.openvpn.edit	runs
+"vpn openvpn edit --help"	read	vpn.openvpn.edit	runs
+"vpn openvpn edit --help"	shell	vpn.openvpn.edit	runs
+"vpn openvpn edit"	full	vpn.openvpn.edit	SSH_GATE_REFUSED|komando vpn openvpn edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn openvpn edit"	netread	vpn.openvpn.edit	SSH_GATE_REFUSED|komando vpn openvpn edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn openvpn edit"	read	vpn.openvpn.edit	SSH_GATE_REFUSED|komando vpn openvpn edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn openvpn edit"	shell	vpn.openvpn.edit	SSH_GATE_REFUSED|komando vpn openvpn edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn openvpn list --help"	full	vpn.openvpn.list	runs
+"vpn openvpn list --help"	netread	vpn.openvpn.list	runs
+"vpn openvpn list --help"	read	vpn.openvpn.list	runs
+"vpn openvpn list --help"	shell	vpn.openvpn.list	runs
+"vpn openvpn list"	full	vpn.openvpn.list	runs
+"vpn openvpn list"	netread	vpn.openvpn.list	runs
+"vpn openvpn list"	read	vpn.openvpn.list	runs
+"vpn openvpn list"	shell	vpn.openvpn.list	runs
+"vpn openvpn remove --help"	full	vpn.openvpn.remove	runs
+"vpn openvpn remove --help"	netread	vpn.openvpn.remove	runs
+"vpn openvpn remove --help"	read	vpn.openvpn.remove	runs
+"vpn openvpn remove --help"	shell	vpn.openvpn.remove	runs
+"vpn openvpn remove"	full	vpn.openvpn.remove	SSH_GATE_REFUSED|komando vpn openvpn remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn openvpn remove"	netread	vpn.openvpn.remove	SSH_GATE_REFUSED|komando vpn openvpn remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn openvpn remove"	read	vpn.openvpn.remove	SSH_GATE_REFUSED|komando vpn openvpn remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn openvpn remove"	shell	vpn.openvpn.remove	SSH_GATE_REFUSED|komando vpn openvpn remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn openvpn rename --help"	full	vpn.openvpn.rename	runs
+"vpn openvpn rename --help"	netread	vpn.openvpn.rename	runs
+"vpn openvpn rename --help"	read	vpn.openvpn.rename	runs
+"vpn openvpn rename --help"	shell	vpn.openvpn.rename	runs
+"vpn openvpn rename"	full	vpn.openvpn.rename	SSH_GATE_REFUSED|komando vpn openvpn rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn openvpn rename"	netread	vpn.openvpn.rename	SSH_GATE_REFUSED|komando vpn openvpn rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn openvpn rename"	read	vpn.openvpn.rename	SSH_GATE_REFUSED|komando vpn openvpn rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn openvpn rename"	shell	vpn.openvpn.rename	SSH_GATE_REFUSED|komando vpn openvpn rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn openvpn show --help"	full	vpn.openvpn.show	runs
+"vpn openvpn show --help"	netread	vpn.openvpn.show	runs
+"vpn openvpn show --help"	read	vpn.openvpn.show	runs
+"vpn openvpn show --help"	shell	vpn.openvpn.show	runs
+"vpn openvpn show"	full	vpn.openvpn.show	runs
+"vpn openvpn show"	netread	vpn.openvpn.show	runs
+"vpn openvpn show"	read	vpn.openvpn.show	runs
+"vpn openvpn show"	shell	vpn.openvpn.show	runs
+"vpn openvpn start --help"	full	vpn.openvpn.start	runs
+"vpn openvpn start --help"	netread	vpn.openvpn.start	runs
+"vpn openvpn start --help"	read	vpn.openvpn.start	runs
+"vpn openvpn start --help"	shell	vpn.openvpn.start	runs
+"vpn openvpn start web"	full	vpn.openvpn.start	runs
+"vpn openvpn start web"	netread	vpn.openvpn.start	SSH_GATE_READ_ONLY|komando vpn openvpn start is refused for a read-only key: it changes something
+"vpn openvpn start web"	read	vpn.openvpn.start	SSH_GATE_READ_ONLY|komando vpn openvpn start is refused for a read-only key: it changes something
+"vpn openvpn start web"	shell	vpn.openvpn.start	runs
+"vpn openvpn start"	full	vpn.openvpn.start	runs
+"vpn openvpn start"	netread	vpn.openvpn.start	SSH_GATE_READ_ONLY|komando vpn openvpn start is refused for a read-only key: it changes something
+"vpn openvpn start"	read	vpn.openvpn.start	SSH_GATE_READ_ONLY|komando vpn openvpn start is refused for a read-only key: it changes something
+"vpn openvpn start"	shell	vpn.openvpn.start	runs
+"vpn openvpn status --help"	full	vpn.openvpn.status	runs
+"vpn openvpn status --help"	netread	vpn.openvpn.status	runs
+"vpn openvpn status --help"	read	vpn.openvpn.status	runs
+"vpn openvpn status --help"	shell	vpn.openvpn.status	runs
+"vpn openvpn status"	full	vpn.openvpn.status	runs
+"vpn openvpn status"	netread	vpn.openvpn.status	runs
+"vpn openvpn status"	read	vpn.openvpn.status	runs
+"vpn openvpn status"	shell	vpn.openvpn.status	runs
+"vpn openvpn stop --help"	full	vpn.openvpn.stop	runs
+"vpn openvpn stop --help"	netread	vpn.openvpn.stop	runs
+"vpn openvpn stop --help"	read	vpn.openvpn.stop	runs
+"vpn openvpn stop --help"	shell	vpn.openvpn.stop	runs
+"vpn openvpn stop web"	full	vpn.openvpn.stop	runs
+"vpn openvpn stop web"	netread	vpn.openvpn.stop	SSH_GATE_READ_ONLY|komando vpn openvpn stop is refused for a read-only key: it changes something
+"vpn openvpn stop web"	read	vpn.openvpn.stop	SSH_GATE_READ_ONLY|komando vpn openvpn stop is refused for a read-only key: it changes something
+"vpn openvpn stop web"	shell	vpn.openvpn.stop	runs
+"vpn openvpn stop"	full	vpn.openvpn.stop	runs
+"vpn openvpn stop"	netread	vpn.openvpn.stop	SSH_GATE_READ_ONLY|komando vpn openvpn stop is refused for a read-only key: it changes something
+"vpn openvpn stop"	read	vpn.openvpn.stop	SSH_GATE_READ_ONLY|komando vpn openvpn stop is refused for a read-only key: it changes something
+"vpn openvpn stop"	shell	vpn.openvpn.stop	runs
+"vpn openvpn test --help"	full	vpn.openvpn.test	runs
+"vpn openvpn test --help"	netread	vpn.openvpn.test	runs
+"vpn openvpn test --help"	read	vpn.openvpn.test	runs
+"vpn openvpn test --help"	shell	vpn.openvpn.test	runs
+"vpn openvpn test"	full	vpn.openvpn.test	runs
+"vpn openvpn test"	netread	vpn.openvpn.test	runs
+"vpn openvpn test"	read	vpn.openvpn.test	runs
+"vpn openvpn test"	shell	vpn.openvpn.test	runs
+"vpn openvpn"	full	vpn.openvpn	runs
+"vpn openvpn"	netread	vpn.openvpn	runs
+"vpn openvpn"	read	vpn.openvpn	runs
+"vpn openvpn"	shell	vpn.openvpn	runs
+"vpn proxy --help"	full	vpn.proxy	runs
+"vpn proxy --help"	netread	vpn.proxy	runs
+"vpn proxy --help"	read	vpn.proxy	runs
+"vpn proxy --help"	shell	vpn.proxy	runs
+"vpn proxy add --help"	full	vpn.proxy.add	runs
+"vpn proxy add --help"	netread	vpn.proxy.add	runs
+"vpn proxy add --help"	read	vpn.proxy.add	runs
+"vpn proxy add --help"	shell	vpn.proxy.add	runs
+"vpn proxy add"	full	vpn.proxy.add	SSH_GATE_REFUSED|komando vpn proxy add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn proxy add"	netread	vpn.proxy.add	SSH_GATE_REFUSED|komando vpn proxy add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn proxy add"	read	vpn.proxy.add	SSH_GATE_REFUSED|komando vpn proxy add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn proxy add"	shell	vpn.proxy.add	SSH_GATE_REFUSED|komando vpn proxy add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn proxy edit --help"	full	vpn.proxy.edit	runs
+"vpn proxy edit --help"	netread	vpn.proxy.edit	runs
+"vpn proxy edit --help"	read	vpn.proxy.edit	runs
+"vpn proxy edit --help"	shell	vpn.proxy.edit	runs
+"vpn proxy edit"	full	vpn.proxy.edit	SSH_GATE_REFUSED|komando vpn proxy edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn proxy edit"	netread	vpn.proxy.edit	SSH_GATE_REFUSED|komando vpn proxy edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn proxy edit"	read	vpn.proxy.edit	SSH_GATE_REFUSED|komando vpn proxy edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn proxy edit"	shell	vpn.proxy.edit	SSH_GATE_REFUSED|komando vpn proxy edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn proxy list --help"	full	vpn.proxy.list	runs
+"vpn proxy list --help"	netread	vpn.proxy.list	runs
+"vpn proxy list --help"	read	vpn.proxy.list	runs
+"vpn proxy list --help"	shell	vpn.proxy.list	runs
+"vpn proxy list"	full	vpn.proxy.list	runs
+"vpn proxy list"	netread	vpn.proxy.list	runs
+"vpn proxy list"	read	vpn.proxy.list	runs
+"vpn proxy list"	shell	vpn.proxy.list	runs
+"vpn proxy remove --help"	full	vpn.proxy.remove	runs
+"vpn proxy remove --help"	netread	vpn.proxy.remove	runs
+"vpn proxy remove --help"	read	vpn.proxy.remove	runs
+"vpn proxy remove --help"	shell	vpn.proxy.remove	runs
+"vpn proxy remove"	full	vpn.proxy.remove	SSH_GATE_REFUSED|komando vpn proxy remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn proxy remove"	netread	vpn.proxy.remove	SSH_GATE_REFUSED|komando vpn proxy remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn proxy remove"	read	vpn.proxy.remove	SSH_GATE_REFUSED|komando vpn proxy remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn proxy remove"	shell	vpn.proxy.remove	SSH_GATE_REFUSED|komando vpn proxy remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn proxy rename --help"	full	vpn.proxy.rename	runs
+"vpn proxy rename --help"	netread	vpn.proxy.rename	runs
+"vpn proxy rename --help"	read	vpn.proxy.rename	runs
+"vpn proxy rename --help"	shell	vpn.proxy.rename	runs
+"vpn proxy rename"	full	vpn.proxy.rename	SSH_GATE_REFUSED|komando vpn proxy rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn proxy rename"	netread	vpn.proxy.rename	SSH_GATE_REFUSED|komando vpn proxy rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn proxy rename"	read	vpn.proxy.rename	SSH_GATE_REFUSED|komando vpn proxy rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn proxy rename"	shell	vpn.proxy.rename	SSH_GATE_REFUSED|komando vpn proxy rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn proxy show --help"	full	vpn.proxy.show	runs
+"vpn proxy show --help"	netread	vpn.proxy.show	runs
+"vpn proxy show --help"	read	vpn.proxy.show	runs
+"vpn proxy show --help"	shell	vpn.proxy.show	runs
+"vpn proxy show"	full	vpn.proxy.show	runs
+"vpn proxy show"	netread	vpn.proxy.show	runs
+"vpn proxy show"	read	vpn.proxy.show	runs
+"vpn proxy show"	shell	vpn.proxy.show	runs
+"vpn proxy start --help"	full	vpn.proxy.start	runs
+"vpn proxy start --help"	netread	vpn.proxy.start	runs
+"vpn proxy start --help"	read	vpn.proxy.start	runs
+"vpn proxy start --help"	shell	vpn.proxy.start	runs
+"vpn proxy start web"	full	vpn.proxy.start	runs
+"vpn proxy start web"	netread	vpn.proxy.start	SSH_GATE_READ_ONLY|komando vpn proxy start is refused for a read-only key: it changes something
+"vpn proxy start web"	read	vpn.proxy.start	SSH_GATE_READ_ONLY|komando vpn proxy start is refused for a read-only key: it changes something
+"vpn proxy start web"	shell	vpn.proxy.start	runs
+"vpn proxy start"	full	vpn.proxy.start	runs
+"vpn proxy start"	netread	vpn.proxy.start	SSH_GATE_READ_ONLY|komando vpn proxy start is refused for a read-only key: it changes something
+"vpn proxy start"	read	vpn.proxy.start	SSH_GATE_READ_ONLY|komando vpn proxy start is refused for a read-only key: it changes something
+"vpn proxy start"	shell	vpn.proxy.start	runs
+"vpn proxy status --help"	full	vpn.proxy.status	runs
+"vpn proxy status --help"	netread	vpn.proxy.status	runs
+"vpn proxy status --help"	read	vpn.proxy.status	runs
+"vpn proxy status --help"	shell	vpn.proxy.status	runs
+"vpn proxy status"	full	vpn.proxy.status	runs
+"vpn proxy status"	netread	vpn.proxy.status	runs
+"vpn proxy status"	read	vpn.proxy.status	runs
+"vpn proxy status"	shell	vpn.proxy.status	runs
+"vpn proxy stop --help"	full	vpn.proxy.stop	runs
+"vpn proxy stop --help"	netread	vpn.proxy.stop	runs
+"vpn proxy stop --help"	read	vpn.proxy.stop	runs
+"vpn proxy stop --help"	shell	vpn.proxy.stop	runs
+"vpn proxy stop web"	full	vpn.proxy.stop	runs
+"vpn proxy stop web"	netread	vpn.proxy.stop	SSH_GATE_READ_ONLY|komando vpn proxy stop is refused for a read-only key: it changes something
+"vpn proxy stop web"	read	vpn.proxy.stop	SSH_GATE_READ_ONLY|komando vpn proxy stop is refused for a read-only key: it changes something
+"vpn proxy stop web"	shell	vpn.proxy.stop	runs
+"vpn proxy stop"	full	vpn.proxy.stop	runs
+"vpn proxy stop"	netread	vpn.proxy.stop	SSH_GATE_READ_ONLY|komando vpn proxy stop is refused for a read-only key: it changes something
+"vpn proxy stop"	read	vpn.proxy.stop	SSH_GATE_READ_ONLY|komando vpn proxy stop is refused for a read-only key: it changes something
+"vpn proxy stop"	shell	vpn.proxy.stop	runs
+"vpn proxy test --help"	full	vpn.proxy.test	runs
+"vpn proxy test --help"	netread	vpn.proxy.test	runs
+"vpn proxy test --help"	read	vpn.proxy.test	runs
+"vpn proxy test --help"	shell	vpn.proxy.test	runs
+"vpn proxy test"	full	vpn.proxy.test	runs
+"vpn proxy test"	netread	vpn.proxy.test	runs
+"vpn proxy test"	read	vpn.proxy.test	runs
+"vpn proxy test"	shell	vpn.proxy.test	runs
+"vpn proxy"	full	vpn.proxy	runs
+"vpn proxy"	netread	vpn.proxy	runs
+"vpn proxy"	read	vpn.proxy	runs
+"vpn proxy"	shell	vpn.proxy	runs
+"vpn pulse --help"	full	vpn.pulse	runs
+"vpn pulse --help"	netread	vpn.pulse	runs
+"vpn pulse --help"	read	vpn.pulse	runs
+"vpn pulse --help"	shell	vpn.pulse	runs
+"vpn pulse add --help"	full	vpn.pulse.add	runs
+"vpn pulse add --help"	netread	vpn.pulse.add	runs
+"vpn pulse add --help"	read	vpn.pulse.add	runs
+"vpn pulse add --help"	shell	vpn.pulse.add	runs
+"vpn pulse add"	full	vpn.pulse.add	SSH_GATE_REFUSED|komando vpn pulse add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn pulse add"	netread	vpn.pulse.add	SSH_GATE_REFUSED|komando vpn pulse add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn pulse add"	read	vpn.pulse.add	SSH_GATE_REFUSED|komando vpn pulse add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn pulse add"	shell	vpn.pulse.add	SSH_GATE_REFUSED|komando vpn pulse add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn pulse edit --help"	full	vpn.pulse.edit	runs
+"vpn pulse edit --help"	netread	vpn.pulse.edit	runs
+"vpn pulse edit --help"	read	vpn.pulse.edit	runs
+"vpn pulse edit --help"	shell	vpn.pulse.edit	runs
+"vpn pulse edit"	full	vpn.pulse.edit	SSH_GATE_REFUSED|komando vpn pulse edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn pulse edit"	netread	vpn.pulse.edit	SSH_GATE_REFUSED|komando vpn pulse edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn pulse edit"	read	vpn.pulse.edit	SSH_GATE_REFUSED|komando vpn pulse edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn pulse edit"	shell	vpn.pulse.edit	SSH_GATE_REFUSED|komando vpn pulse edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn pulse list --help"	full	vpn.pulse.list	runs
+"vpn pulse list --help"	netread	vpn.pulse.list	runs
+"vpn pulse list --help"	read	vpn.pulse.list	runs
+"vpn pulse list --help"	shell	vpn.pulse.list	runs
+"vpn pulse list"	full	vpn.pulse.list	runs
+"vpn pulse list"	netread	vpn.pulse.list	runs
+"vpn pulse list"	read	vpn.pulse.list	runs
+"vpn pulse list"	shell	vpn.pulse.list	runs
+"vpn pulse remove --help"	full	vpn.pulse.remove	runs
+"vpn pulse remove --help"	netread	vpn.pulse.remove	runs
+"vpn pulse remove --help"	read	vpn.pulse.remove	runs
+"vpn pulse remove --help"	shell	vpn.pulse.remove	runs
+"vpn pulse remove"	full	vpn.pulse.remove	SSH_GATE_REFUSED|komando vpn pulse remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn pulse remove"	netread	vpn.pulse.remove	SSH_GATE_REFUSED|komando vpn pulse remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn pulse remove"	read	vpn.pulse.remove	SSH_GATE_REFUSED|komando vpn pulse remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn pulse remove"	shell	vpn.pulse.remove	SSH_GATE_REFUSED|komando vpn pulse remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn pulse rename --help"	full	vpn.pulse.rename	runs
+"vpn pulse rename --help"	netread	vpn.pulse.rename	runs
+"vpn pulse rename --help"	read	vpn.pulse.rename	runs
+"vpn pulse rename --help"	shell	vpn.pulse.rename	runs
+"vpn pulse rename"	full	vpn.pulse.rename	SSH_GATE_REFUSED|komando vpn pulse rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn pulse rename"	netread	vpn.pulse.rename	SSH_GATE_REFUSED|komando vpn pulse rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn pulse rename"	read	vpn.pulse.rename	SSH_GATE_REFUSED|komando vpn pulse rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn pulse rename"	shell	vpn.pulse.rename	SSH_GATE_REFUSED|komando vpn pulse rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn pulse show --help"	full	vpn.pulse.show	runs
+"vpn pulse show --help"	netread	vpn.pulse.show	runs
+"vpn pulse show --help"	read	vpn.pulse.show	runs
+"vpn pulse show --help"	shell	vpn.pulse.show	runs
+"vpn pulse show"	full	vpn.pulse.show	runs
+"vpn pulse show"	netread	vpn.pulse.show	runs
+"vpn pulse show"	read	vpn.pulse.show	runs
+"vpn pulse show"	shell	vpn.pulse.show	runs
+"vpn pulse start --help"	full	vpn.pulse.start	runs
+"vpn pulse start --help"	netread	vpn.pulse.start	runs
+"vpn pulse start --help"	read	vpn.pulse.start	runs
+"vpn pulse start --help"	shell	vpn.pulse.start	runs
+"vpn pulse start web"	full	vpn.pulse.start	runs
+"vpn pulse start web"	netread	vpn.pulse.start	SSH_GATE_READ_ONLY|komando vpn pulse start is refused for a read-only key: it changes something
+"vpn pulse start web"	read	vpn.pulse.start	SSH_GATE_READ_ONLY|komando vpn pulse start is refused for a read-only key: it changes something
+"vpn pulse start web"	shell	vpn.pulse.start	runs
+"vpn pulse start"	full	vpn.pulse.start	runs
+"vpn pulse start"	netread	vpn.pulse.start	SSH_GATE_READ_ONLY|komando vpn pulse start is refused for a read-only key: it changes something
+"vpn pulse start"	read	vpn.pulse.start	SSH_GATE_READ_ONLY|komando vpn pulse start is refused for a read-only key: it changes something
+"vpn pulse start"	shell	vpn.pulse.start	runs
+"vpn pulse status --help"	full	vpn.pulse.status	runs
+"vpn pulse status --help"	netread	vpn.pulse.status	runs
+"vpn pulse status --help"	read	vpn.pulse.status	runs
+"vpn pulse status --help"	shell	vpn.pulse.status	runs
+"vpn pulse status"	full	vpn.pulse.status	runs
+"vpn pulse status"	netread	vpn.pulse.status	runs
+"vpn pulse status"	read	vpn.pulse.status	runs
+"vpn pulse status"	shell	vpn.pulse.status	runs
+"vpn pulse stop --help"	full	vpn.pulse.stop	runs
+"vpn pulse stop --help"	netread	vpn.pulse.stop	runs
+"vpn pulse stop --help"	read	vpn.pulse.stop	runs
+"vpn pulse stop --help"	shell	vpn.pulse.stop	runs
+"vpn pulse stop web"	full	vpn.pulse.stop	runs
+"vpn pulse stop web"	netread	vpn.pulse.stop	SSH_GATE_READ_ONLY|komando vpn pulse stop is refused for a read-only key: it changes something
+"vpn pulse stop web"	read	vpn.pulse.stop	SSH_GATE_READ_ONLY|komando vpn pulse stop is refused for a read-only key: it changes something
+"vpn pulse stop web"	shell	vpn.pulse.stop	runs
+"vpn pulse stop"	full	vpn.pulse.stop	runs
+"vpn pulse stop"	netread	vpn.pulse.stop	SSH_GATE_READ_ONLY|komando vpn pulse stop is refused for a read-only key: it changes something
+"vpn pulse stop"	read	vpn.pulse.stop	SSH_GATE_READ_ONLY|komando vpn pulse stop is refused for a read-only key: it changes something
+"vpn pulse stop"	shell	vpn.pulse.stop	runs
+"vpn pulse test --help"	full	vpn.pulse.test	runs
+"vpn pulse test --help"	netread	vpn.pulse.test	runs
+"vpn pulse test --help"	read	vpn.pulse.test	runs
+"vpn pulse test --help"	shell	vpn.pulse.test	runs
+"vpn pulse test"	full	vpn.pulse.test	runs
+"vpn pulse test"	netread	vpn.pulse.test	runs
+"vpn pulse test"	read	vpn.pulse.test	runs
+"vpn pulse test"	shell	vpn.pulse.test	runs
+"vpn pulse"	full	vpn.pulse	runs
+"vpn pulse"	netread	vpn.pulse	runs
+"vpn pulse"	read	vpn.pulse	runs
+"vpn pulse"	shell	vpn.pulse	runs
 "vpn serve --help"	full	vpn.serve	runs
 "vpn serve --help"	netread	vpn.serve	runs
 "vpn serve --help"	read	vpn.serve	runs
@@ -4014,42 +4922,390 @@
 "vpn serve"	netread	vpn.serve	SSH_GATE_REFUSED|komando vpn serve is komando's own plumbing, not for a key
 "vpn serve"	read	vpn.serve	SSH_GATE_REFUSED|komando vpn serve is komando's own plumbing, not for a key
 "vpn serve"	shell	vpn.serve	SSH_GATE_REFUSED|komando vpn serve is komando's own plumbing, not for a key
-"vpn show --help"	full	vpn.show	runs
-"vpn show --help"	netread	vpn.show	runs
-"vpn show --help"	read	vpn.show	runs
-"vpn show --help"	shell	vpn.show	runs
-"vpn show"	full	vpn.show	runs
-"vpn show"	netread	vpn.show	runs
-"vpn show"	read	vpn.show	runs
-"vpn show"	shell	vpn.show	runs
-"vpn status --help"	full	vpn.status	runs
-"vpn status --help"	netread	vpn.status	runs
-"vpn status --help"	read	vpn.status	runs
-"vpn status --help"	shell	vpn.status	runs
-"vpn status"	full	vpn.status	runs
-"vpn status"	netread	vpn.status	runs
-"vpn status"	read	vpn.status	runs
-"vpn status"	shell	vpn.status	runs
-"vpn test --help"	full	vpn.test	runs
-"vpn test --help"	netread	vpn.test	runs
-"vpn test --help"	read	vpn.test	runs
-"vpn test --help"	shell	vpn.test	runs
-"vpn test"	full	vpn.test	runs
-"vpn test"	netread	vpn.test	runs
-"vpn test"	read	vpn.test	runs
-"vpn test"	shell	vpn.test	runs
-"vpn up --help"	full	vpn.up	runs
-"vpn up --help"	netread	vpn.up	runs
-"vpn up --help"	read	vpn.up	runs
-"vpn up --help"	shell	vpn.up	runs
-"vpn up web"	full	vpn.up	runs
-"vpn up web"	netread	vpn.up	SSH_GATE_READ_ONLY|komando vpn up is refused for a read-only key: it changes something
-"vpn up web"	read	vpn.up	SSH_GATE_READ_ONLY|komando vpn up is refused for a read-only key: it changes something
-"vpn up web"	shell	vpn.up	runs
-"vpn up"	full	vpn.up	runs
-"vpn up"	netread	vpn.up	SSH_GATE_READ_ONLY|komando vpn up is refused for a read-only key: it changes something
-"vpn up"	read	vpn.up	SSH_GATE_READ_ONLY|komando vpn up is refused for a read-only key: it changes something
-"vpn up"	shell	vpn.up	runs
+"vpn socks --help"	full	vpn.socks	runs
+"vpn socks --help"	netread	vpn.socks	runs
+"vpn socks --help"	read	vpn.socks	runs
+"vpn socks --help"	shell	vpn.socks	runs
+"vpn socks add --help"	full	vpn.socks.add	runs
+"vpn socks add --help"	netread	vpn.socks.add	runs
+"vpn socks add --help"	read	vpn.socks.add	runs
+"vpn socks add --help"	shell	vpn.socks.add	runs
+"vpn socks add"	full	vpn.socks.add	SSH_GATE_REFUSED|komando vpn socks add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn socks add"	netread	vpn.socks.add	SSH_GATE_REFUSED|komando vpn socks add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn socks add"	read	vpn.socks.add	SSH_GATE_REFUSED|komando vpn socks add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn socks add"	shell	vpn.socks.add	SSH_GATE_REFUSED|komando vpn socks add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn socks edit --help"	full	vpn.socks.edit	runs
+"vpn socks edit --help"	netread	vpn.socks.edit	runs
+"vpn socks edit --help"	read	vpn.socks.edit	runs
+"vpn socks edit --help"	shell	vpn.socks.edit	runs
+"vpn socks edit"	full	vpn.socks.edit	SSH_GATE_REFUSED|komando vpn socks edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn socks edit"	netread	vpn.socks.edit	SSH_GATE_REFUSED|komando vpn socks edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn socks edit"	read	vpn.socks.edit	SSH_GATE_REFUSED|komando vpn socks edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn socks edit"	shell	vpn.socks.edit	SSH_GATE_REFUSED|komando vpn socks edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn socks list --help"	full	vpn.socks.list	runs
+"vpn socks list --help"	netread	vpn.socks.list	runs
+"vpn socks list --help"	read	vpn.socks.list	runs
+"vpn socks list --help"	shell	vpn.socks.list	runs
+"vpn socks list"	full	vpn.socks.list	runs
+"vpn socks list"	netread	vpn.socks.list	runs
+"vpn socks list"	read	vpn.socks.list	runs
+"vpn socks list"	shell	vpn.socks.list	runs
+"vpn socks remove --help"	full	vpn.socks.remove	runs
+"vpn socks remove --help"	netread	vpn.socks.remove	runs
+"vpn socks remove --help"	read	vpn.socks.remove	runs
+"vpn socks remove --help"	shell	vpn.socks.remove	runs
+"vpn socks remove"	full	vpn.socks.remove	SSH_GATE_REFUSED|komando vpn socks remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn socks remove"	netread	vpn.socks.remove	SSH_GATE_REFUSED|komando vpn socks remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn socks remove"	read	vpn.socks.remove	SSH_GATE_REFUSED|komando vpn socks remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn socks remove"	shell	vpn.socks.remove	SSH_GATE_REFUSED|komando vpn socks remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn socks rename --help"	full	vpn.socks.rename	runs
+"vpn socks rename --help"	netread	vpn.socks.rename	runs
+"vpn socks rename --help"	read	vpn.socks.rename	runs
+"vpn socks rename --help"	shell	vpn.socks.rename	runs
+"vpn socks rename"	full	vpn.socks.rename	SSH_GATE_REFUSED|komando vpn socks rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn socks rename"	netread	vpn.socks.rename	SSH_GATE_REFUSED|komando vpn socks rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn socks rename"	read	vpn.socks.rename	SSH_GATE_REFUSED|komando vpn socks rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn socks rename"	shell	vpn.socks.rename	SSH_GATE_REFUSED|komando vpn socks rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn socks show --help"	full	vpn.socks.show	runs
+"vpn socks show --help"	netread	vpn.socks.show	runs
+"vpn socks show --help"	read	vpn.socks.show	runs
+"vpn socks show --help"	shell	vpn.socks.show	runs
+"vpn socks show"	full	vpn.socks.show	runs
+"vpn socks show"	netread	vpn.socks.show	runs
+"vpn socks show"	read	vpn.socks.show	runs
+"vpn socks show"	shell	vpn.socks.show	runs
+"vpn socks start --help"	full	vpn.socks.start	runs
+"vpn socks start --help"	netread	vpn.socks.start	runs
+"vpn socks start --help"	read	vpn.socks.start	runs
+"vpn socks start --help"	shell	vpn.socks.start	runs
+"vpn socks start web"	full	vpn.socks.start	runs
+"vpn socks start web"	netread	vpn.socks.start	SSH_GATE_READ_ONLY|komando vpn socks start is refused for a read-only key: it changes something
+"vpn socks start web"	read	vpn.socks.start	SSH_GATE_READ_ONLY|komando vpn socks start is refused for a read-only key: it changes something
+"vpn socks start web"	shell	vpn.socks.start	runs
+"vpn socks start"	full	vpn.socks.start	runs
+"vpn socks start"	netread	vpn.socks.start	SSH_GATE_READ_ONLY|komando vpn socks start is refused for a read-only key: it changes something
+"vpn socks start"	read	vpn.socks.start	SSH_GATE_READ_ONLY|komando vpn socks start is refused for a read-only key: it changes something
+"vpn socks start"	shell	vpn.socks.start	runs
+"vpn socks status --help"	full	vpn.socks.status	runs
+"vpn socks status --help"	netread	vpn.socks.status	runs
+"vpn socks status --help"	read	vpn.socks.status	runs
+"vpn socks status --help"	shell	vpn.socks.status	runs
+"vpn socks status"	full	vpn.socks.status	runs
+"vpn socks status"	netread	vpn.socks.status	runs
+"vpn socks status"	read	vpn.socks.status	runs
+"vpn socks status"	shell	vpn.socks.status	runs
+"vpn socks stop --help"	full	vpn.socks.stop	runs
+"vpn socks stop --help"	netread	vpn.socks.stop	runs
+"vpn socks stop --help"	read	vpn.socks.stop	runs
+"vpn socks stop --help"	shell	vpn.socks.stop	runs
+"vpn socks stop web"	full	vpn.socks.stop	runs
+"vpn socks stop web"	netread	vpn.socks.stop	SSH_GATE_READ_ONLY|komando vpn socks stop is refused for a read-only key: it changes something
+"vpn socks stop web"	read	vpn.socks.stop	SSH_GATE_READ_ONLY|komando vpn socks stop is refused for a read-only key: it changes something
+"vpn socks stop web"	shell	vpn.socks.stop	runs
+"vpn socks stop"	full	vpn.socks.stop	runs
+"vpn socks stop"	netread	vpn.socks.stop	SSH_GATE_READ_ONLY|komando vpn socks stop is refused for a read-only key: it changes something
+"vpn socks stop"	read	vpn.socks.stop	SSH_GATE_READ_ONLY|komando vpn socks stop is refused for a read-only key: it changes something
+"vpn socks stop"	shell	vpn.socks.stop	runs
+"vpn socks test --help"	full	vpn.socks.test	runs
+"vpn socks test --help"	netread	vpn.socks.test	runs
+"vpn socks test --help"	read	vpn.socks.test	runs
+"vpn socks test --help"	shell	vpn.socks.test	runs
+"vpn socks test"	full	vpn.socks.test	runs
+"vpn socks test"	netread	vpn.socks.test	runs
+"vpn socks test"	read	vpn.socks.test	runs
+"vpn socks test"	shell	vpn.socks.test	runs
+"vpn socks"	full	vpn.socks	runs
+"vpn socks"	netread	vpn.socks	runs
+"vpn socks"	read	vpn.socks	runs
+"vpn socks"	shell	vpn.socks	runs
+"vpn system --help"	full	vpn.system	runs
+"vpn system --help"	netread	vpn.system	runs
+"vpn system --help"	read	vpn.system	runs
+"vpn system --help"	shell	vpn.system	runs
+"vpn system add --help"	full	vpn.system.add	runs
+"vpn system add --help"	netread	vpn.system.add	runs
+"vpn system add --help"	read	vpn.system.add	runs
+"vpn system add --help"	shell	vpn.system.add	runs
+"vpn system add"	full	vpn.system.add	SSH_GATE_REFUSED|komando vpn system add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn system add"	netread	vpn.system.add	SSH_GATE_REFUSED|komando vpn system add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn system add"	read	vpn.system.add	SSH_GATE_REFUSED|komando vpn system add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn system add"	shell	vpn.system.add	SSH_GATE_REFUSED|komando vpn system add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn system edit --help"	full	vpn.system.edit	runs
+"vpn system edit --help"	netread	vpn.system.edit	runs
+"vpn system edit --help"	read	vpn.system.edit	runs
+"vpn system edit --help"	shell	vpn.system.edit	runs
+"vpn system edit"	full	vpn.system.edit	SSH_GATE_REFUSED|komando vpn system edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn system edit"	netread	vpn.system.edit	SSH_GATE_REFUSED|komando vpn system edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn system edit"	read	vpn.system.edit	SSH_GATE_REFUSED|komando vpn system edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn system edit"	shell	vpn.system.edit	SSH_GATE_REFUSED|komando vpn system edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn system list --help"	full	vpn.system.list	runs
+"vpn system list --help"	netread	vpn.system.list	runs
+"vpn system list --help"	read	vpn.system.list	runs
+"vpn system list --help"	shell	vpn.system.list	runs
+"vpn system list"	full	vpn.system.list	runs
+"vpn system list"	netread	vpn.system.list	runs
+"vpn system list"	read	vpn.system.list	runs
+"vpn system list"	shell	vpn.system.list	runs
+"vpn system remove --help"	full	vpn.system.remove	runs
+"vpn system remove --help"	netread	vpn.system.remove	runs
+"vpn system remove --help"	read	vpn.system.remove	runs
+"vpn system remove --help"	shell	vpn.system.remove	runs
+"vpn system remove"	full	vpn.system.remove	SSH_GATE_REFUSED|komando vpn system remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn system remove"	netread	vpn.system.remove	SSH_GATE_REFUSED|komando vpn system remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn system remove"	read	vpn.system.remove	SSH_GATE_REFUSED|komando vpn system remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn system remove"	shell	vpn.system.remove	SSH_GATE_REFUSED|komando vpn system remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn system rename --help"	full	vpn.system.rename	runs
+"vpn system rename --help"	netread	vpn.system.rename	runs
+"vpn system rename --help"	read	vpn.system.rename	runs
+"vpn system rename --help"	shell	vpn.system.rename	runs
+"vpn system rename"	full	vpn.system.rename	SSH_GATE_REFUSED|komando vpn system rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn system rename"	netread	vpn.system.rename	SSH_GATE_REFUSED|komando vpn system rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn system rename"	read	vpn.system.rename	SSH_GATE_REFUSED|komando vpn system rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn system rename"	shell	vpn.system.rename	SSH_GATE_REFUSED|komando vpn system rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn system show --help"	full	vpn.system.show	runs
+"vpn system show --help"	netread	vpn.system.show	runs
+"vpn system show --help"	read	vpn.system.show	runs
+"vpn system show --help"	shell	vpn.system.show	runs
+"vpn system show"	full	vpn.system.show	runs
+"vpn system show"	netread	vpn.system.show	runs
+"vpn system show"	read	vpn.system.show	runs
+"vpn system show"	shell	vpn.system.show	runs
+"vpn system start --help"	full	vpn.system.start	runs
+"vpn system start --help"	netread	vpn.system.start	runs
+"vpn system start --help"	read	vpn.system.start	runs
+"vpn system start --help"	shell	vpn.system.start	runs
+"vpn system start web"	full	vpn.system.start	runs
+"vpn system start web"	netread	vpn.system.start	SSH_GATE_READ_ONLY|komando vpn system start is refused for a read-only key: it changes something
+"vpn system start web"	read	vpn.system.start	SSH_GATE_READ_ONLY|komando vpn system start is refused for a read-only key: it changes something
+"vpn system start web"	shell	vpn.system.start	runs
+"vpn system start"	full	vpn.system.start	runs
+"vpn system start"	netread	vpn.system.start	SSH_GATE_READ_ONLY|komando vpn system start is refused for a read-only key: it changes something
+"vpn system start"	read	vpn.system.start	SSH_GATE_READ_ONLY|komando vpn system start is refused for a read-only key: it changes something
+"vpn system start"	shell	vpn.system.start	runs
+"vpn system status --help"	full	vpn.system.status	runs
+"vpn system status --help"	netread	vpn.system.status	runs
+"vpn system status --help"	read	vpn.system.status	runs
+"vpn system status --help"	shell	vpn.system.status	runs
+"vpn system status"	full	vpn.system.status	runs
+"vpn system status"	netread	vpn.system.status	runs
+"vpn system status"	read	vpn.system.status	runs
+"vpn system status"	shell	vpn.system.status	runs
+"vpn system stop --help"	full	vpn.system.stop	runs
+"vpn system stop --help"	netread	vpn.system.stop	runs
+"vpn system stop --help"	read	vpn.system.stop	runs
+"vpn system stop --help"	shell	vpn.system.stop	runs
+"vpn system stop web"	full	vpn.system.stop	runs
+"vpn system stop web"	netread	vpn.system.stop	SSH_GATE_READ_ONLY|komando vpn system stop is refused for a read-only key: it changes something
+"vpn system stop web"	read	vpn.system.stop	SSH_GATE_READ_ONLY|komando vpn system stop is refused for a read-only key: it changes something
+"vpn system stop web"	shell	vpn.system.stop	runs
+"vpn system stop"	full	vpn.system.stop	runs
+"vpn system stop"	netread	vpn.system.stop	SSH_GATE_READ_ONLY|komando vpn system stop is refused for a read-only key: it changes something
+"vpn system stop"	read	vpn.system.stop	SSH_GATE_READ_ONLY|komando vpn system stop is refused for a read-only key: it changes something
+"vpn system stop"	shell	vpn.system.stop	runs
+"vpn system test --help"	full	vpn.system.test	runs
+"vpn system test --help"	netread	vpn.system.test	runs
+"vpn system test --help"	read	vpn.system.test	runs
+"vpn system test --help"	shell	vpn.system.test	runs
+"vpn system test"	full	vpn.system.test	runs
+"vpn system test"	netread	vpn.system.test	runs
+"vpn system test"	read	vpn.system.test	runs
+"vpn system test"	shell	vpn.system.test	runs
+"vpn system"	full	vpn.system	runs
+"vpn system"	netread	vpn.system	runs
+"vpn system"	read	vpn.system	runs
+"vpn system"	shell	vpn.system	runs
+"vpn tailscale --help"	full	vpn.tailscale	runs
+"vpn tailscale --help"	netread	vpn.tailscale	runs
+"vpn tailscale --help"	read	vpn.tailscale	runs
+"vpn tailscale --help"	shell	vpn.tailscale	runs
+"vpn tailscale add --help"	full	vpn.tailscale.add	runs
+"vpn tailscale add --help"	netread	vpn.tailscale.add	runs
+"vpn tailscale add --help"	read	vpn.tailscale.add	runs
+"vpn tailscale add --help"	shell	vpn.tailscale.add	runs
+"vpn tailscale add"	full	vpn.tailscale.add	SSH_GATE_REFUSED|komando vpn tailscale add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn tailscale add"	netread	vpn.tailscale.add	SSH_GATE_REFUSED|komando vpn tailscale add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn tailscale add"	read	vpn.tailscale.add	SSH_GATE_REFUSED|komando vpn tailscale add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn tailscale add"	shell	vpn.tailscale.add	SSH_GATE_REFUSED|komando vpn tailscale add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn tailscale edit --help"	full	vpn.tailscale.edit	runs
+"vpn tailscale edit --help"	netread	vpn.tailscale.edit	runs
+"vpn tailscale edit --help"	read	vpn.tailscale.edit	runs
+"vpn tailscale edit --help"	shell	vpn.tailscale.edit	runs
+"vpn tailscale edit"	full	vpn.tailscale.edit	SSH_GATE_REFUSED|komando vpn tailscale edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn tailscale edit"	netread	vpn.tailscale.edit	SSH_GATE_REFUSED|komando vpn tailscale edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn tailscale edit"	read	vpn.tailscale.edit	SSH_GATE_REFUSED|komando vpn tailscale edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn tailscale edit"	shell	vpn.tailscale.edit	SSH_GATE_REFUSED|komando vpn tailscale edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn tailscale list --help"	full	vpn.tailscale.list	runs
+"vpn tailscale list --help"	netread	vpn.tailscale.list	runs
+"vpn tailscale list --help"	read	vpn.tailscale.list	runs
+"vpn tailscale list --help"	shell	vpn.tailscale.list	runs
+"vpn tailscale list"	full	vpn.tailscale.list	runs
+"vpn tailscale list"	netread	vpn.tailscale.list	runs
+"vpn tailscale list"	read	vpn.tailscale.list	runs
+"vpn tailscale list"	shell	vpn.tailscale.list	runs
+"vpn tailscale remove --help"	full	vpn.tailscale.remove	runs
+"vpn tailscale remove --help"	netread	vpn.tailscale.remove	runs
+"vpn tailscale remove --help"	read	vpn.tailscale.remove	runs
+"vpn tailscale remove --help"	shell	vpn.tailscale.remove	runs
+"vpn tailscale remove"	full	vpn.tailscale.remove	SSH_GATE_REFUSED|komando vpn tailscale remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn tailscale remove"	netread	vpn.tailscale.remove	SSH_GATE_REFUSED|komando vpn tailscale remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn tailscale remove"	read	vpn.tailscale.remove	SSH_GATE_REFUSED|komando vpn tailscale remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn tailscale remove"	shell	vpn.tailscale.remove	SSH_GATE_REFUSED|komando vpn tailscale remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn tailscale rename --help"	full	vpn.tailscale.rename	runs
+"vpn tailscale rename --help"	netread	vpn.tailscale.rename	runs
+"vpn tailscale rename --help"	read	vpn.tailscale.rename	runs
+"vpn tailscale rename --help"	shell	vpn.tailscale.rename	runs
+"vpn tailscale rename"	full	vpn.tailscale.rename	SSH_GATE_REFUSED|komando vpn tailscale rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn tailscale rename"	netread	vpn.tailscale.rename	SSH_GATE_REFUSED|komando vpn tailscale rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn tailscale rename"	read	vpn.tailscale.rename	SSH_GATE_REFUSED|komando vpn tailscale rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn tailscale rename"	shell	vpn.tailscale.rename	SSH_GATE_REFUSED|komando vpn tailscale rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn tailscale show --help"	full	vpn.tailscale.show	runs
+"vpn tailscale show --help"	netread	vpn.tailscale.show	runs
+"vpn tailscale show --help"	read	vpn.tailscale.show	runs
+"vpn tailscale show --help"	shell	vpn.tailscale.show	runs
+"vpn tailscale show"	full	vpn.tailscale.show	runs
+"vpn tailscale show"	netread	vpn.tailscale.show	runs
+"vpn tailscale show"	read	vpn.tailscale.show	runs
+"vpn tailscale show"	shell	vpn.tailscale.show	runs
+"vpn tailscale start --help"	full	vpn.tailscale.start	runs
+"vpn tailscale start --help"	netread	vpn.tailscale.start	runs
+"vpn tailscale start --help"	read	vpn.tailscale.start	runs
+"vpn tailscale start --help"	shell	vpn.tailscale.start	runs
+"vpn tailscale start web"	full	vpn.tailscale.start	runs
+"vpn tailscale start web"	netread	vpn.tailscale.start	SSH_GATE_READ_ONLY|komando vpn tailscale start is refused for a read-only key: it changes something
+"vpn tailscale start web"	read	vpn.tailscale.start	SSH_GATE_READ_ONLY|komando vpn tailscale start is refused for a read-only key: it changes something
+"vpn tailscale start web"	shell	vpn.tailscale.start	runs
+"vpn tailscale start"	full	vpn.tailscale.start	runs
+"vpn tailscale start"	netread	vpn.tailscale.start	SSH_GATE_READ_ONLY|komando vpn tailscale start is refused for a read-only key: it changes something
+"vpn tailscale start"	read	vpn.tailscale.start	SSH_GATE_READ_ONLY|komando vpn tailscale start is refused for a read-only key: it changes something
+"vpn tailscale start"	shell	vpn.tailscale.start	runs
+"vpn tailscale status --help"	full	vpn.tailscale.status	runs
+"vpn tailscale status --help"	netread	vpn.tailscale.status	runs
+"vpn tailscale status --help"	read	vpn.tailscale.status	runs
+"vpn tailscale status --help"	shell	vpn.tailscale.status	runs
+"vpn tailscale status"	full	vpn.tailscale.status	runs
+"vpn tailscale status"	netread	vpn.tailscale.status	runs
+"vpn tailscale status"	read	vpn.tailscale.status	runs
+"vpn tailscale status"	shell	vpn.tailscale.status	runs
+"vpn tailscale stop --help"	full	vpn.tailscale.stop	runs
+"vpn tailscale stop --help"	netread	vpn.tailscale.stop	runs
+"vpn tailscale stop --help"	read	vpn.tailscale.stop	runs
+"vpn tailscale stop --help"	shell	vpn.tailscale.stop	runs
+"vpn tailscale stop web"	full	vpn.tailscale.stop	runs
+"vpn tailscale stop web"	netread	vpn.tailscale.stop	SSH_GATE_READ_ONLY|komando vpn tailscale stop is refused for a read-only key: it changes something
+"vpn tailscale stop web"	read	vpn.tailscale.stop	SSH_GATE_READ_ONLY|komando vpn tailscale stop is refused for a read-only key: it changes something
+"vpn tailscale stop web"	shell	vpn.tailscale.stop	runs
+"vpn tailscale stop"	full	vpn.tailscale.stop	runs
+"vpn tailscale stop"	netread	vpn.tailscale.stop	SSH_GATE_READ_ONLY|komando vpn tailscale stop is refused for a read-only key: it changes something
+"vpn tailscale stop"	read	vpn.tailscale.stop	SSH_GATE_READ_ONLY|komando vpn tailscale stop is refused for a read-only key: it changes something
+"vpn tailscale stop"	shell	vpn.tailscale.stop	runs
+"vpn tailscale test --help"	full	vpn.tailscale.test	runs
+"vpn tailscale test --help"	netread	vpn.tailscale.test	runs
+"vpn tailscale test --help"	read	vpn.tailscale.test	runs
+"vpn tailscale test --help"	shell	vpn.tailscale.test	runs
+"vpn tailscale test"	full	vpn.tailscale.test	runs
+"vpn tailscale test"	netread	vpn.tailscale.test	runs
+"vpn tailscale test"	read	vpn.tailscale.test	runs
+"vpn tailscale test"	shell	vpn.tailscale.test	runs
+"vpn tailscale"	full	vpn.tailscale	runs
+"vpn tailscale"	netread	vpn.tailscale	runs
+"vpn tailscale"	read	vpn.tailscale	runs
+"vpn tailscale"	shell	vpn.tailscale	runs
+"vpn wireguard --help"	full	vpn.wireguard	runs
+"vpn wireguard --help"	netread	vpn.wireguard	runs
+"vpn wireguard --help"	read	vpn.wireguard	runs
+"vpn wireguard --help"	shell	vpn.wireguard	runs
+"vpn wireguard add --help"	full	vpn.wireguard.add	runs
+"vpn wireguard add --help"	netread	vpn.wireguard.add	runs
+"vpn wireguard add --help"	read	vpn.wireguard.add	runs
+"vpn wireguard add --help"	shell	vpn.wireguard.add	runs
+"vpn wireguard add"	full	vpn.wireguard.add	SSH_GATE_REFUSED|komando vpn wireguard add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn wireguard add"	netread	vpn.wireguard.add	SSH_GATE_REFUSED|komando vpn wireguard add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn wireguard add"	read	vpn.wireguard.add	SSH_GATE_REFUSED|komando vpn wireguard add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn wireguard add"	shell	vpn.wireguard.add	SSH_GATE_REFUSED|komando vpn wireguard add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn wireguard edit --help"	full	vpn.wireguard.edit	runs
+"vpn wireguard edit --help"	netread	vpn.wireguard.edit	runs
+"vpn wireguard edit --help"	read	vpn.wireguard.edit	runs
+"vpn wireguard edit --help"	shell	vpn.wireguard.edit	runs
+"vpn wireguard edit"	full	vpn.wireguard.edit	SSH_GATE_REFUSED|komando vpn wireguard edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn wireguard edit"	netread	vpn.wireguard.edit	SSH_GATE_REFUSED|komando vpn wireguard edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn wireguard edit"	read	vpn.wireguard.edit	SSH_GATE_REFUSED|komando vpn wireguard edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn wireguard edit"	shell	vpn.wireguard.edit	SSH_GATE_REFUSED|komando vpn wireguard edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn wireguard list --help"	full	vpn.wireguard.list	runs
+"vpn wireguard list --help"	netread	vpn.wireguard.list	runs
+"vpn wireguard list --help"	read	vpn.wireguard.list	runs
+"vpn wireguard list --help"	shell	vpn.wireguard.list	runs
+"vpn wireguard list"	full	vpn.wireguard.list	runs
+"vpn wireguard list"	netread	vpn.wireguard.list	runs
+"vpn wireguard list"	read	vpn.wireguard.list	runs
+"vpn wireguard list"	shell	vpn.wireguard.list	runs
+"vpn wireguard remove --help"	full	vpn.wireguard.remove	runs
+"vpn wireguard remove --help"	netread	vpn.wireguard.remove	runs
+"vpn wireguard remove --help"	read	vpn.wireguard.remove	runs
+"vpn wireguard remove --help"	shell	vpn.wireguard.remove	runs
+"vpn wireguard remove"	full	vpn.wireguard.remove	SSH_GATE_REFUSED|komando vpn wireguard remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn wireguard remove"	netread	vpn.wireguard.remove	SSH_GATE_REFUSED|komando vpn wireguard remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn wireguard remove"	read	vpn.wireguard.remove	SSH_GATE_REFUSED|komando vpn wireguard remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn wireguard remove"	shell	vpn.wireguard.remove	SSH_GATE_REFUSED|komando vpn wireguard remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn wireguard rename --help"	full	vpn.wireguard.rename	runs
+"vpn wireguard rename --help"	netread	vpn.wireguard.rename	runs
+"vpn wireguard rename --help"	read	vpn.wireguard.rename	runs
+"vpn wireguard rename --help"	shell	vpn.wireguard.rename	runs
+"vpn wireguard rename"	full	vpn.wireguard.rename	SSH_GATE_REFUSED|komando vpn wireguard rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn wireguard rename"	netread	vpn.wireguard.rename	SSH_GATE_REFUSED|komando vpn wireguard rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn wireguard rename"	read	vpn.wireguard.rename	SSH_GATE_REFUSED|komando vpn wireguard rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn wireguard rename"	shell	vpn.wireguard.rename	SSH_GATE_REFUSED|komando vpn wireguard rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"vpn wireguard show --help"	full	vpn.wireguard.show	runs
+"vpn wireguard show --help"	netread	vpn.wireguard.show	runs
+"vpn wireguard show --help"	read	vpn.wireguard.show	runs
+"vpn wireguard show --help"	shell	vpn.wireguard.show	runs
+"vpn wireguard show"	full	vpn.wireguard.show	runs
+"vpn wireguard show"	netread	vpn.wireguard.show	runs
+"vpn wireguard show"	read	vpn.wireguard.show	runs
+"vpn wireguard show"	shell	vpn.wireguard.show	runs
+"vpn wireguard start --help"	full	vpn.wireguard.start	runs
+"vpn wireguard start --help"	netread	vpn.wireguard.start	runs
+"vpn wireguard start --help"	read	vpn.wireguard.start	runs
+"vpn wireguard start --help"	shell	vpn.wireguard.start	runs
+"vpn wireguard start web"	full	vpn.wireguard.start	runs
+"vpn wireguard start web"	netread	vpn.wireguard.start	SSH_GATE_READ_ONLY|komando vpn wireguard start is refused for a read-only key: it changes something
+"vpn wireguard start web"	read	vpn.wireguard.start	SSH_GATE_READ_ONLY|komando vpn wireguard start is refused for a read-only key: it changes something
+"vpn wireguard start web"	shell	vpn.wireguard.start	runs
+"vpn wireguard start"	full	vpn.wireguard.start	runs
+"vpn wireguard start"	netread	vpn.wireguard.start	SSH_GATE_READ_ONLY|komando vpn wireguard start is refused for a read-only key: it changes something
+"vpn wireguard start"	read	vpn.wireguard.start	SSH_GATE_READ_ONLY|komando vpn wireguard start is refused for a read-only key: it changes something
+"vpn wireguard start"	shell	vpn.wireguard.start	runs
+"vpn wireguard status --help"	full	vpn.wireguard.status	runs
+"vpn wireguard status --help"	netread	vpn.wireguard.status	runs
+"vpn wireguard status --help"	read	vpn.wireguard.status	runs
+"vpn wireguard status --help"	shell	vpn.wireguard.status	runs
+"vpn wireguard status"	full	vpn.wireguard.status	runs
+"vpn wireguard status"	netread	vpn.wireguard.status	runs
+"vpn wireguard status"	read	vpn.wireguard.status	runs
+"vpn wireguard status"	shell	vpn.wireguard.status	runs
+"vpn wireguard stop --help"	full	vpn.wireguard.stop	runs
+"vpn wireguard stop --help"	netread	vpn.wireguard.stop	runs
+"vpn wireguard stop --help"	read	vpn.wireguard.stop	runs
+"vpn wireguard stop --help"	shell	vpn.wireguard.stop	runs
+"vpn wireguard stop web"	full	vpn.wireguard.stop	runs
+"vpn wireguard stop web"	netread	vpn.wireguard.stop	SSH_GATE_READ_ONLY|komando vpn wireguard stop is refused for a read-only key: it changes something
+"vpn wireguard stop web"	read	vpn.wireguard.stop	SSH_GATE_READ_ONLY|komando vpn wireguard stop is refused for a read-only key: it changes something
+"vpn wireguard stop web"	shell	vpn.wireguard.stop	runs
+"vpn wireguard stop"	full	vpn.wireguard.stop	runs
+"vpn wireguard stop"	netread	vpn.wireguard.stop	SSH_GATE_READ_ONLY|komando vpn wireguard stop is refused for a read-only key: it changes something
+"vpn wireguard stop"	read	vpn.wireguard.stop	SSH_GATE_READ_ONLY|komando vpn wireguard stop is refused for a read-only key: it changes something
+"vpn wireguard stop"	shell	vpn.wireguard.stop	runs
+"vpn wireguard test --help"	full	vpn.wireguard.test	runs
+"vpn wireguard test --help"	netread	vpn.wireguard.test	runs
+"vpn wireguard test --help"	read	vpn.wireguard.test	runs
+"vpn wireguard test --help"	shell	vpn.wireguard.test	runs
+"vpn wireguard test"	full	vpn.wireguard.test	runs
+"vpn wireguard test"	netread	vpn.wireguard.test	runs
+"vpn wireguard test"	read	vpn.wireguard.test	runs
+"vpn wireguard test"	shell	vpn.wireguard.test	runs
+"vpn wireguard"	full	vpn.wireguard	runs
+"vpn wireguard"	netread	vpn.wireguard	runs
+"vpn wireguard"	read	vpn.wireguard	runs
+"vpn wireguard"	shell	vpn.wireguard	runs
 "vpn"	full	vpn	runs
 "vpn"	netread	vpn	runs
 "vpn"	read	vpn	runs

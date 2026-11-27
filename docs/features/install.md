@@ -171,7 +171,7 @@ For fish and PowerShell, see `komando completion --help`.
 ## Remove komando
 
 1. Stop what komando still runs. `komando status` lists it;
-   `komando vpn down --all` and `komando tunnel stop --all` stop it.
+   `komando vpn KIND stop NAME` (once for each VPN it lists) and `komando tunnel stop --all` stop it.
 2. Take the skill and the guard out of your AI agents:
    `komando agent skill uninstall` (add `--project` in a folder where you ran
    `agent skill install --project`).

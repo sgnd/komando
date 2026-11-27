@@ -34,12 +34,12 @@ func wgPublicKeyOf(v *store.Vpn) (string, error) {
 
 // vpnInUse is the error (VPN_KEY_IN_USE) for a WireGuard key another live session holds.
 func vpnInUse(v *store.Vpn, h *netx.KeyHolder) error {
-	down := "komando vpn down " + h.Vpn
+	down := "komando vpn wireguard stop " + h.Vpn
 	if filepath.Clean(h.Home) != filepath.Clean(store.Home()) {
 		down = "KOMANDO_HOME=" + h.Home + " " + down
 	}
 	return out.Errf(out.ExitConflict, "VPN_KEY_IN_USE",
-		"one WireGuard key runs in one session at a time: stop the other with `"+down+"`, or give this VPN a key of its own with `komando vpn add "+v.Name+" wireguard --config FILE`",
+		"one WireGuard key runs in one session at a time: stop the other with `"+down+"`, or give this VPN a key of its own with `komando vpn wireguard add "+v.Name+" --config FILE`",
 		"VPN %s: its WireGuard key is in use by komando process %d (VPN %s, komando home %s)", v.Name, h.PID, h.Vpn, h.Home)
 }
 

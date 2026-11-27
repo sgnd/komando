@@ -35,7 +35,7 @@ func vpnServeCmd() *cobra.Command {
 			if err != nil {
 				return fail(err)
 			}
-			if err := checkTicket(cl, ticket, "vpn serve", "vpn up "+args[0]); err != nil {
+			if err := checkTicket(cl, ticket, "vpn serve", "vpn KIND start "+args[0]); err != nil {
 				return fail(err)
 			}
 			st, err := loadState()
@@ -77,7 +77,7 @@ func vpnServeCmd() *cobra.Command {
 					}
 				}()
 			}
-			go func() { <-ctx.Done(); ln.Close() }() // SIGTERM from `vpn down`
+			go func() { <-ctx.Done(); ln.Close() }() // SIGTERM from `vpn KIND stop`
 			if ended, ok := closer.(interface{ Done() <-chan struct{} }); ok {
 				// the VPN dropped: stop, so the session is seen as down and
 				// the next command connects again
