@@ -195,7 +195,8 @@ var goldenSchema = [][]string{
 	{"cluster", "logs"},              // C-F05, C-S01
 	{"cache", "get"}, {"fs", "list"}, // C-F08: --limit int
 	{"fs", "cat"}, {"exec"}, // C-F09: bytes
-	{"queue", "create"},                                            // C-F22: no -1 default
+	{"queue", "kafka", "topic", "create"}, {"queue", "rabbitmq", "topic", "create"}, {"queue", "nats", "topic", "create"}, // C-F22: no -1 default
+	{"queue", "sqs", "topic", "create"}, {"queue", "pubsub", "topic", "create"},
 	{"cluster", "events"}, {"cluster", "list"}, {"cluster", "get"}, // C-S01: -n
 }
 

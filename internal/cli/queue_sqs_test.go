@@ -36,10 +36,10 @@ func TestQueueSQSConn(t *testing.T) {
 	t.Setenv("AWS_CONFIG_FILE", os.DevNull)
 	t.Setenv("AWS_SHARED_CREDENTIALS_FILE", os.DevNull)
 	t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
-	wantCode(t, "AWS_PROFILE_NOT_FOUND", "queue", "info", "sqs")
+	wantCode(t, "AWS_PROFILE_NOT_FOUND", "queue", "sqs", "info", "sqs")
 	t.Setenv("KOMANDO_TEST_SQS_SECRET", "x")
 	mustRun(t, "conn", "add", "nokey", "sqs://us-east-1?endpoint=http://127.0.0.1:9", "--password-ref", "env:KOMANDO_TEST_SQS_SECRET")
-	wantCode(t, "USAGE", "queue", "info", "nokey")
+	wantCode(t, "USAGE", "queue", "sqs", "info", "nokey")
 }
 
 func TestQueueTextSQS(t *testing.T) {
@@ -109,41 +109,41 @@ func TestQueueSQSLive(t *testing.T) {
 			t.Errorf("conn test %s: %v", conn, d)
 		}
 	}
-	if d := mustRun(t, "queue", "info", "aws-sso"); d["engine"] != "sqs" || d["region"] != "us-east-1" {
+	if d := mustRun(t, "queue", "sqs", "info", "aws-sso"); d["engine"] != "sqs" || d["region"] != "us-east-1" {
 		t.Errorf("info: %v", d)
 	}
-	if d := mustRun(t, "--dry-run", "queue", "create", "sqs", name, "--config", "VisibilityTimeout=60"); d["dry_run"] != true {
+	if d := mustRun(t, "--dry-run", "queue", "sqs", "topic", "create", "sqs", name, "--config", "VisibilityTimeout=60"); d["dry_run"] != true {
 		t.Errorf("dry-run create: %v", d)
 	}
 	setGate(tcl, false, gateDryRun)
-	wantCode(t, "QUEUE_NOT_FOUND", "queue", "describe", "sqs", name)
-	mustRun(t, "queue", "create", "sqs", name, "--config", "VisibilityTimeout=60")
-	wantCode(t, "QUEUE_EXISTS", "queue", "create", "sqs", name)
-	if d := mustRun(t, "queue", "send", "sqs", name, "--value", `{"id": 1}`, "--header", "source=test"); d["message_id"] == "" {
+	wantCode(t, "QUEUE_NOT_FOUND", "queue", "sqs", "topic", "show", "sqs", name)
+	mustRun(t, "queue", "sqs", "topic", "create", "sqs", name, "--config", "VisibilityTimeout=60")
+	wantCode(t, "QUEUE_EXISTS", "queue", "sqs", "topic", "create", "sqs", name)
+	if d := mustRun(t, "queue", "sqs", "message", "create", "sqs", name, "--value", `{"id": 1}`, "--header", "source=test"); d["message_id"] == "" {
 		t.Errorf("send: %v", d)
 	}
-	wantCode(t, "NOT_SUPPORTED", "queue", "send", "sqs", name, "--value", "x", "--key", "k")
-	wantCode(t, "HIDDEN_VALUE", "queue", "send", "sqs", name, "--value", "password=[hidden]")
+	wantCode(t, "NOT_SUPPORTED", "queue", "sqs", "message", "create", "sqs", name, "--value", "x", "--key", "k")
+	wantCode(t, "HIDDEN_VALUE", "queue", "sqs", "message", "create", "sqs", name, "--value", "password=[hidden]")
 	for range 2 { // peek takes nothing away
-		d := mustRun(t, "queue", "peek", "aws-sso", name)
+		d := mustRun(t, "queue", "sqs", "message", "list", "aws-sso", name)
 		if d["count"].(float64) != 1 || d["queue"] != name || !strings.Contains(jsonOf(d), `"source":"test"`) {
 			t.Errorf("peek: %v", d)
 		}
 	}
-	if d := mustRun(t, "queue", "describe", "sqs", name); d["messages"].(float64) != 1 || d["in_flight"].(float64) != 0 || d["visibility_timeout"].(float64) != 60 {
+	if d := mustRun(t, "queue", "sqs", "topic", "show", "sqs", name); d["messages"].(float64) != 1 || d["in_flight"].(float64) != 0 || d["visibility_timeout"].(float64) != 60 {
 		t.Errorf("describe after peek: %v", d)
 	}
-	if d := mustRun(t, "queue", "ls", "sqs", "komando-*"); d["count"].(float64) < 1 {
+	if d := mustRun(t, "queue", "sqs", "topic", "list", "sqs", "komando-*"); d["count"].(float64) < 1 {
 		t.Errorf("ls: %v", d)
 	}
-	wantCode(t, "NOT_SUPPORTED", "queue", "groups", "sqs")
-	wantCode(t, "POLICY_BLOCKED", "queue", "purge", "sqs", name)
-	if d := mustRun(t, "--dry-run", "queue", "purge", "sqs", name); d["messages"].(float64) != 1 {
+	wantCode(t, "NOT_SUPPORTED", "queue", "sqs", "consumer", "list", "sqs")
+	wantCode(t, "POLICY_BLOCKED", "queue", "sqs", "message", "delete", "--all", "sqs", name)
+	if d := mustRun(t, "--dry-run", "queue", "sqs", "message", "delete", "--all", "sqs", name); d["messages"].(float64) != 1 {
 		t.Errorf("dry-run purge: %v", d)
 	}
 	setGate(tcl, false, gateDryRun)
-	wantCode(t, "POLICY_BLOCKED", "queue", "rm", "sqs", name)
-	if d := mustRun(t, "--dry-run", "queue", "rm", "sqs", name); !strings.Contains(jsonOf(d), `"exists":true`) {
+	wantCode(t, "POLICY_BLOCKED", "queue", "sqs", "topic", "delete", "sqs", name)
+	if d := mustRun(t, "--dry-run", "queue", "sqs", "topic", "delete", "sqs", name); !strings.Contains(jsonOf(d), `"exists":true`) {
 		t.Errorf("dry-run rm: %v", d)
 	}
 }

@@ -6529,44 +6529,39 @@ Global Flags (all of them: komando --help):
 exit 0
 --- stdout
 Read and send messages on Kafka, RabbitMQ, NATS, SQS and Pub/Sub. Add a
-queue with `komando queue add`.
+queue with `komando queue kafka add` (or rabbitmq, nats, sqs, pubsub).
 
-info, ls, describe, peek, groups and lag only read: peek reads Kafka
-messages without joining a consumer group, gives RabbitMQ and Pub/Sub
-messages straight back, reads NATS stream messages by their number, and
-receives SQS messages without hiding or deleting them, so nothing is
-removed. send and create change (production queues ask first); rm and purge
-delete messages, so they also need --allow-dangerous. Try any change with
---dry-run first. In RabbitMQ words a topic is a queue; in NATS words it is
-a stream. Pub/Sub keeps messages in subscriptions: peek and purge take a
-subscription, and groups lists them.
+info, topic list and show, message list and consumer list and show only
+read: message list reads Kafka messages without joining a consumer group,
+gives RabbitMQ and Pub/Sub messages straight back, reads NATS stream
+messages by their number, and receives SQS messages without hiding or
+deleting them, so nothing is removed. message create and topic create
+change (production queues ask first); topic delete and message delete
+--all delete messages, so they also need --allow-dangerous. Try any change
+with --dry-run first. In RabbitMQ words a topic is a queue; in NATS words
+it is a stream. Pub/Sub keeps messages in subscriptions: message list and
+message delete --all take a subscription, and consumer list lists them.
 
 Usage:
   komando queue [flags]
   komando queue [command]
 
 Aliases:
-  queue, kafka, rabbitmq, nats, sqs, pubsub, queues
+  queue, queues
 
 Examples:
-  komando queue add prod-kafka kafka://10.0.0.8:9092 --via web1
-  komando queue list prod-kafka
-  komando queue peek prod-kafka orders -n 5
-  komando queue send prod-kafka orders --value '{"id": 42}' --dry-run
-  komando queue lag prod-kafka billing
+  komando queue kafka add prod-kafka kafka://10.0.0.8:9092 --via web1
+  komando queue kafka topic list prod-kafka
+  komando queue kafka message list prod-kafka orders -n 5
+  komando queue kafka message create prod-kafka orders --value '{"id": 42}' --dry-run
+  komando queue kafka consumer show prod-kafka billing
 
 Available Commands:
-  add         Add a message queue
-  create      Create a topic, queue or stream
-  describe    One topic, queue or stream: messages, settings, and who reads it
-  groups      List Kafka consumer groups, NATS consumers or Pub/Sub subscriptions
-  info        Server summary: version, brokers or nodes, topic, queue or stream count
-  lag         How far one Kafka consumer group (or NATS consumer) is behind
-  list        List topics (or queues, or streams) with their message counts
-  peek        Read the newest (or oldest) messages without removing any
-  purge       Empty a topic, queue or stream and keep it
-  rm          Delete topics, queues or streams with their messages
-  send        Publish one message
+  kafka       Kafka: save a cluster, and read, send and manage its topics
+  nats        NATS JetStream: save a server, and read, send and manage its streams
+  pubsub      Pub/Sub: save a project, and read, send and manage its topics
+  rabbitmq    RabbitMQ: save a broker, and read, send and manage its queues
+  sqs         Amazon SQS: save an account, and read, send and manage its queues
 
 Flags:
   -h, --help[=true|false]   help for queue
@@ -6581,35 +6576,74 @@ Global Flags (all of them: komando --help):
 
 Use "komando queue [command] --help" for more information about a command.
 --- stderr
-### komando queue add --help
+### komando queue kafka --help
 exit 0
 --- stdout
-Same as `komando conn add NAME URL`, for a message queue.
+Kafka: save a cluster, and read, send and manage its topics
+
+Usage:
+  komando queue kafka [flags]
+  komando queue kafka [command]
+
+Examples:
+  komando queue kafka add prod-kafka kafka://10.0.0.8:9092 --via web1 --dry-run
+  komando queue kafka add prod-kafka kafka://10.0.0.8:9092 --via web1
+  komando queue kafka test prod-kafka
+  komando queue kafka topic list prod-kafka
+  komando queue kafka message list prod-kafka orders -n 5
+
+Available Commands:
+  add         Save a kafka queue under a short name
+  consumer    Consumer groups, consumers or subscriptions: list, show
+  edit        Change a saved kafka queue (only the flags you pass change)
+  info        Show the version and size of a Kafka cluster
+  list        List the saved kafka queues
+  message     The messages of a topic: list, create, delete
+  remove      Forget a saved kafka queue (the queue is not touched)
+  rename      Rename a saved kafka queue and every reference to it
+  show        Show a saved kafka queue's settings (credentials as names)
+  test        Check that a saved kafka queue answers and lets you in
+  topic       The topics (queues, streams) of a broker: list, show, create, delete
+
+Flags:
+  -h, --help[=true|false]   help for kafka
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando queue kafka [command] --help" for more information about a command.
+--- stderr
+### komando queue kafka add --help
+exit 0
+--- stdout
+Save a kafka queue under a short name.
 
 Safety: a change; try it with --dry-run first.
 
-Saves a message queue under a short name. Typed alone at a terminal, it asks
-step by step. The URL scheme sets the kind: `komando conn kinds` lists them.
-
 Usage:
-  komando queue add NAME URL [flags]
+  komando queue kafka add NAME [URL] [flags]
 
 Examples:
-  komando queue add orders kafka://10.0.0.8:9092 --via web1
-  komando queue add orders kafka://10.0.0.8:9092 --via web1 --dry-run
+  komando queue kafka add prod-kafka kafka://10.0.0.8:9092 --via web1
+  komando queue kafka add prod-kafka kafka://10.0.0.8:9092 --dry-run
 
 Flags:
-      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref
-  -g, --group strings               put it in these groups (comma-separated)
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+      --group strings               put it in these groups
   -h, --help[=true|false]           help for add
-      --label stringArray           label KEY=VALUE (repeatable) (default [])
-      --login string                how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own)
-      --notes string                free-form notes (komando conn show shows them to people and agents)
-      --option stringArray          an option of this kind, KEY=VALUE (repeatable) (default [])
-      --overwrite[=true|false]      replace a conn that has the same name
-      --password-ref string         where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...
-      --protected[=true|false]      production: komando asks you before every change, and an AI agent needs your yes in a window
-  -t, --tag strings                 tags, like prod (comma-separated)
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --overwrite[=true|false]      replace an entry that has the same name
+      --protected[=true|false]      changes need a person's yes
+      --tag strings                 tags, like prod
       --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
 
 Global Flags (all of them: komando --help):
@@ -6620,28 +6654,445 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando queue create --help
+### komando queue kafka consumer --help
 exit 0
 --- stdout
-Create a topic, queue or stream.
+Consumer groups, consumers or subscriptions: list, show
+
+Usage:
+  komando queue kafka consumer [flags]
+  komando queue kafka consumer [command]
+
+Examples:
+  komando queue kafka consumer list prod-kafka
+  komando queue kafka consumer list prod-kafka -n 20
+  komando queue kafka consumer show prod-kafka billing
+
+Available Commands:
+  list        List the consumer groups of a Kafka cluster
+  show        Show how far one consumer is behind of a Kafka cluster
+
+Flags:
+  -h, --help[=true|false]   help for consumer
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando queue kafka consumer [command] --help" for more information about a command.
+--- stderr
+### komando queue kafka consumer list --help
+exit 0
+--- stdout
+List the consumer groups of a Kafka cluster
+
+Usage:
+  komando queue kafka consumer list NAME [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando queue kafka consumer list prod-kafka
+  komando queue kafka consumer list prod-kafka -n 20
+
+Flags:
+  -h, --help[=true|false]   help for list
+  -n, --limit int           show at most this many groups, consumers or subscriptions (0 = all)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue kafka consumer show --help
+exit 0
+--- stdout
+Show how far one consumer is behind of a Kafka cluster
+
+Usage:
+  komando queue kafka consumer show NAME CONSUMER [flags]
+
+Examples:
+  komando queue kafka consumer show prod-kafka billing
+  komando queue kafka consumer show prod-kafka billing -o json
+
+Flags:
+  -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue kafka edit --help
+exit 0
+--- stdout
+Change a saved kafka queue (only the flags you pass change).
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando queue kafka edit NAME [flags]
+
+Examples:
+  komando queue kafka edit prod-kafka --add-tag critical
+  komando queue kafka edit prod-kafka --notes 'main one' --dry-run
+
+Flags:
+      --add-group strings           put it in these groups
+      --add-tag strings             add these tags
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+  -h, --help[=true|false]           help for edit
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --protected[=true|false]      changes need a person's yes
+      --rm-group strings            take it out of these groups
+      --rm-tag strings              remove these tags
+      --unset strings               clear these settings: via, credential, notes, protected
+      --url string                  the new URL (the provider may not change)
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue kafka info --help
+exit 0
+--- stdout
+Show the version and size of a Kafka cluster
+
+Usage:
+  komando queue kafka info NAME [flags]
+
+Examples:
+  komando queue kafka info prod-kafka
+  komando queue kafka info prod-kafka -o json
+
+Flags:
+  -h, --help[=true|false]   help for info
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue kafka list --help
+exit 0
+--- stdout
+List the saved kafka queues
+
+Usage:
+  komando queue kafka list [TARGET] [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando queue kafka list
+  komando queue kafka list @web
+
+Flags:
+  -h, --help[=true|false]   help for list
+  -n, --limit int           show at most this many (0 = all)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue kafka message --help
+exit 0
+--- stdout
+The messages of a topic: list, create, delete
+
+Usage:
+  komando queue kafka message [flags]
+  komando queue kafka message [command]
+
+Examples:
+  komando queue kafka message list prod-kafka orders
+  komando queue kafka message list prod-kafka orders --oldest -n 5
+  komando queue kafka message create prod-kafka orders --value test --dry-run
+  komando queue kafka message delete prod-kafka orders-retry --all --dry-run
+
+Available Commands:
+  create      Publish one message to a topic of a Kafka cluster
+  delete      Empty a topic of a Kafka cluster and keep it
+  list        Read the newest (or oldest) messages of a Kafka cluster, removing none
+
+Flags:
+  -h, --help[=true|false]   help for message
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando queue kafka message [command] --help" for more information about a command.
+--- stderr
+### komando queue kafka message create --help
+exit 0
+--- stdout
+Publish one message to a topic of a Kafka cluster.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando queue kafka message create NAME TOPIC [flags]
+
+Examples:
+  komando queue kafka message create prod-kafka orders --value test --dry-run
+  komando queue kafka message create prod-kafka orders --from ./order.json --header source=support
+
+Flags:
+      --from string          read the message from this file ('-' for stdin)
+      --header stringArray   a message header KEY=VALUE (repeatable) (default [])
+  -h, --help[=true|false]    help for create
+      --key string           Kafka: the message key (picks the partition); SQS: the message group of a FIFO queue; Pub/Sub: the ordering key
+      --partition int        Kafka: send to this partition, numbered from 0 (default: the broker's choice)
+      --value string         the message
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue kafka message delete --help
+exit 0
+--- stdout
+Empty a topic of a Kafka cluster and keep it.
+
+Safety: dangerous, it cannot be undone: a person types the name to go on,
+and an AI agent or a script needs --allow-dangerous.
+
+Usage:
+  komando queue kafka message delete NAME TOPIC [flags]
+
+Examples:
+  komando queue kafka message delete prod-kafka orders-retry --all --dry-run
+  komando queue kafka message delete prod-kafka orders-retry --all --allow-dangerous   # after a person's yes
+
+Flags:
+      --all[=true|false]    every waiting message; without it nothing is deleted
+  -h, --help[=true|false]   help for delete
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue kafka message list --help
+exit 0
+--- stdout
+Read the newest (or oldest) messages of a Kafka cluster, removing none
+
+Usage:
+  komando queue kafka message list NAME TOPIC [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando queue kafka message list prod-kafka orders
+  komando queue kafka message list prod-kafka orders --oldest -n 5
+
+Flags:
+  -h, --help[=true|false]     help for list
+      --idle duration         Kafka: stop when no message came for this long (default 5s)
+  -n, --limit int             how many messages (default 10)
+      --oldest[=true|false]   the first messages still kept, not the newest
+      --partition int         Kafka: only this partition, numbered from 0 (default: every partition)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue kafka remove --help
+exit 0
+--- stdout
+Forget a saved kafka queue (the queue is not touched).
 
 Safety: a change; try it with --dry-run first; on a protected server or
 conn, a person's yes (--yes) as well.
 
 Usage:
-  komando queue create CONN TOPIC [flags]
+  komando queue kafka remove TARGET... [flags]
 
 Examples:
-  komando queue create prod-kafka orders --partitions 6 --replicas 3 --dry-run
-  komando queue create prod-kafka orders --partitions 6 --replicas 3 --config retention.ms=604800000
-  komando queue create jobs emails --type quorum --config x-max-length=10000
-  komando queue create stream ORDERS --replicas 3 --config subjects='orders.>' --config max_age=7d
-  komando queue create aws orders.fifo --config ContentBasedDeduplication=true
-  komando queue create gcp orders --config messageRetentionDuration=7d
-  komando queue create gcp subscriptions/billing --config topic=orders --config ackDeadlineSeconds=60
+  komando queue kafka remove prod-kafka --dry-run
+  komando queue kafka remove prod-kafka
 
 Flags:
-      --config stringArray   a setting KEY=VALUE, like retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable)
+  -h, --help[=true|false]   help for remove
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue kafka rename --help
+exit 0
+--- stdout
+Rename a saved kafka queue and every reference to it.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando queue kafka rename NAME NEW [flags]
+
+Examples:
+  komando queue kafka rename prod-kafka prod-kafka-2 --dry-run
+  komando queue kafka rename prod-kafka prod-kafka-2
+
+Flags:
+  -h, --help[=true|false]   help for rename
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue kafka show --help
+exit 0
+--- stdout
+Show a saved kafka queue's settings (credentials as names)
+
+Usage:
+  komando queue kafka show NAME [flags]
+
+Examples:
+  komando queue kafka show prod-kafka
+  komando queue kafka show prod-kafka -o json
+
+Flags:
+  -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue kafka test --help
+exit 0
+--- stdout
+Check that a saved kafka queue answers and lets you in
+
+Usage:
+  komando queue kafka test TARGET [flags]
+
+Examples:
+  komando queue kafka test prod-kafka
+  komando queue kafka test @web
+
+Flags:
+      --end[=true|false]    end the session a person's login keeps open
+  -h, --help[=true|false]   help for test
+      --wait duration       wait this long for a person's sign-in
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue kafka topic --help
+exit 0
+--- stdout
+The topics (queues, streams) of a broker: list, show, create, delete
+
+Usage:
+  komando queue kafka topic [flags]
+  komando queue kafka topic [command]
+
+Examples:
+  komando queue kafka topic list prod-kafka
+  komando queue kafka topic show prod-kafka orders
+  komando queue kafka topic create prod-kafka orders --dry-run
+  komando queue kafka topic delete prod-kafka old-orders --dry-run
+
+Available Commands:
+  create      Create a topic of a Kafka cluster
+  delete      Delete topics of a Kafka cluster with their messages
+  list        List the topics of a Kafka cluster with their message counts
+  show        Show one topic of a Kafka cluster: messages, settings, readers
+
+Flags:
+  -h, --help[=true|false]   help for topic
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando queue kafka topic [command] --help" for more information about a command.
+--- stderr
+### komando queue kafka topic create --help
+exit 0
+--- stdout
+Create a topic of a Kafka cluster.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando queue kafka topic create NAME TOPIC [flags]
+
+Examples:
+  komando queue kafka topic create prod-kafka orders --dry-run
+  komando queue kafka topic create prod-kafka orders --config retention.ms=604800000
+
+Flags:
+      --config stringArray   a setting KEY=VALUE, like retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable) (default [])
   -h, --help[=true|false]    help for create
       --partitions int       Kafka: how many partitions (default: the broker's)
       --replicas int         copies of each message. Kafka: copies of each partition; NATS: copies of the stream (default: the broker's; NATS: 1)
@@ -6655,19 +7106,23 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando queue describe --help
+### komando queue kafka topic delete --help
 exit 0
 --- stdout
-One topic, queue or stream: messages, settings, and who reads it
+Delete topics of a Kafka cluster with their messages.
+
+Safety: dangerous, it cannot be undone: a person types the name to go on,
+and an AI agent or a script needs --allow-dangerous.
 
 Usage:
-  komando queue describe CONN TOPIC [flags]
+  komando queue kafka topic delete NAME TOPIC... [flags]
 
 Examples:
-  komando queue describe prod-kafka orders
+  komando queue kafka topic delete prod-kafka old-orders --dry-run
+  komando queue kafka topic delete prod-kafka old-orders --allow-dangerous   # after a person's yes
 
 Flags:
-  -h, --help[=true|false]   help for describe
+  -h, --help[=true|false]   help for delete
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -6677,90 +7132,20 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando queue groups --help
+### komando queue kafka topic list --help
 exit 0
 --- stdout
-List Kafka consumer groups, NATS consumers or Pub/Sub subscriptions
+List the topics of a Kafka cluster with their message counts
 
 Usage:
-  komando queue groups CONN [flags]
-
-Examples:
-  komando queue groups prod-kafka
-
-Flags:
-  -h, --help[=true|false]   help for groups
-  -n, --limit int           show at most this many groups (0 = all)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando queue info --help
-exit 0
---- stdout
-Server summary: version, brokers or nodes, topic, queue or stream count
-
-Usage:
-  komando queue info CONN [flags]
-
-Examples:
-  komando queue info prod-kafka
-
-Flags:
-  -h, --help[=true|false]   help for info
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando queue lag --help
-exit 0
---- stdout
-How far one Kafka consumer group (or NATS consumer) is behind
-
-Usage:
-  komando queue lag CONN CONSUMER [flags]
-
-Examples:
-  komando queue lag prod-kafka billing
-  komando queue lag stream ORDERS/billing
-
-Flags:
-  -h, --help[=true|false]   help for lag
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando queue list --help
-exit 0
---- stdout
-List topics (or queues, or streams) with their message counts
-
-Usage:
-  komando queue list CONN [PATTERN] [flags]
+  komando queue kafka topic list NAME [PATTERN] [flags]
 
 Aliases:
   list, ls
 
 Examples:
-  komando queue list prod-kafka
-  komando queue list prod-kafka 'orders-*'
-  komando queue list prod-kafka --internal
-  komando queue list prod-kafka -n 50
+  komando queue kafka topic list prod-kafka
+  komando queue kafka topic list prod-kafka 'o*' -n 50
 
 Flags:
   -h, --help[=true|false]       help for list
@@ -6775,47 +7160,387 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando queue peek --help
+### komando queue kafka topic show --help
 exit 0
 --- stdout
-Kafka: read messages straight from the topic's partitions. No consumer
-group is joined and no offset is committed, so no application notices and
-nothing is removed. By default the newest -n messages over all partitions;
---oldest reads the first ones still kept.
-
-RabbitMQ: take the first -n messages of the queue (the next ones a consumer
-would get) and give them all back. Nothing is removed, but RabbitMQ marks
-them redelivered, and a quorum queue counts each peek as a delivery: peek
-stops (DELIVERY_LIMIT_NEAR) before a message runs out of them.
-
-NATS: read messages straight from the stream by their sequence number. No
-consumer is made and nothing is acknowledged, so nothing is removed, also
-from a work-queue stream. The newest -n by default, --oldest for the first.
-
-Amazon SQS: receive messages with a visibility timeout of 0 and never
-delete them, so they stay and consumers can receive them at once. SQS gives
-messages in no set order, so this is a sample of what waits. Every receive
-counts toward a dead-letter queue's maxReceiveCount: peek stops
-(DELIVERY_LIMIT_NEAR) before a message runs out of receives.
-
-Google Cloud Pub/Sub: TOPIC is a subscription (messages wait there, not
-in a topic). peek pulls messages without acknowledging them and gives them
-straight back (ack deadline 0), so they stay and are delivered again at
-once. With a dead-letter topic each pull counts as a delivery: peek stops
-(DELIVERY_LIMIT_NEAR) before a message runs out of them.
-
-Values that are not UTF-8 text are shown as base64.
+Show one topic of a Kafka cluster: messages, settings, readers
 
 Usage:
-  komando queue peek CONN TOPIC [flags]
+  komando queue kafka topic show NAME TOPIC [flags]
+
+Aliases:
+  show, describe
 
 Examples:
-  komando queue peek prod-kafka orders
-  komando queue peek prod-kafka orders -n 50 --partition 2
-  komando queue peek prod-kafka orders --oldest -n 5
+  komando queue kafka topic show prod-kafka orders
+  komando queue kafka topic show prod-kafka orders -o json
 
 Flags:
-  -h, --help[=true|false]     help for peek
+  -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue nats --help
+exit 0
+--- stdout
+NATS JetStream: save a server, and read, send and manage its streams
+
+Usage:
+  komando queue nats [flags]
+  komando queue nats [command]
+
+Examples:
+  komando queue nats add prod-nats nats://app@10.0.0.10:4222 --via web1 --dry-run
+  komando queue nats add prod-nats nats://app@10.0.0.10:4222 --via web1
+  komando queue nats test prod-nats
+  komando queue nats topic list prod-nats
+  komando queue nats message list prod-nats ORDERS -n 5
+
+Available Commands:
+  add         Save a nats queue under a short name
+  consumer    Consumer groups, consumers or subscriptions: list, show
+  edit        Change a saved nats queue (only the flags you pass change)
+  info        Show the version and size of a NATS server
+  list        List the saved nats queues
+  message     The messages of a topic: list, create, delete
+  remove      Forget a saved nats queue (the queue is not touched)
+  rename      Rename a saved nats queue and every reference to it
+  show        Show a saved nats queue's settings (credentials as names)
+  test        Check that a saved nats queue answers and lets you in
+  topic       The topics (queues, streams) of a broker: list, show, create, delete
+
+Flags:
+  -h, --help[=true|false]   help for nats
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando queue nats [command] --help" for more information about a command.
+--- stderr
+### komando queue nats add --help
+exit 0
+--- stdout
+Save a nats queue under a short name.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando queue nats add NAME [URL] [flags]
+
+Examples:
+  komando queue nats add prod-nats nats://app@10.0.0.10:4222 --via web1
+  komando queue nats add prod-nats nats://app@10.0.0.10:4222 --dry-run
+
+Flags:
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+      --group strings               put it in these groups
+  -h, --help[=true|false]           help for add
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --overwrite[=true|false]      replace an entry that has the same name
+      --protected[=true|false]      changes need a person's yes
+      --tag strings                 tags, like prod
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue nats consumer --help
+exit 0
+--- stdout
+Consumer groups, consumers or subscriptions: list, show
+
+Usage:
+  komando queue nats consumer [flags]
+  komando queue nats consumer [command]
+
+Examples:
+  komando queue nats consumer list prod-nats
+  komando queue nats consumer list prod-nats -n 20
+  komando queue nats consumer show prod-nats billing
+
+Available Commands:
+  list        List the consumers of a NATS server
+  show        Show how far one consumer is behind of a NATS server
+
+Flags:
+  -h, --help[=true|false]   help for consumer
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando queue nats consumer [command] --help" for more information about a command.
+--- stderr
+### komando queue nats consumer list --help
+exit 0
+--- stdout
+List the consumers of a NATS server
+
+Usage:
+  komando queue nats consumer list NAME [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando queue nats consumer list prod-nats
+  komando queue nats consumer list prod-nats -n 20
+
+Flags:
+  -h, --help[=true|false]   help for list
+  -n, --limit int           show at most this many groups, consumers or subscriptions (0 = all)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue nats consumer show --help
+exit 0
+--- stdout
+Show how far one consumer is behind of a NATS server
+
+Usage:
+  komando queue nats consumer show NAME CONSUMER [flags]
+
+Examples:
+  komando queue nats consumer show prod-nats billing
+  komando queue nats consumer show prod-nats billing -o json
+
+Flags:
+  -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue nats edit --help
+exit 0
+--- stdout
+Change a saved nats queue (only the flags you pass change).
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando queue nats edit NAME [flags]
+
+Examples:
+  komando queue nats edit prod-nats --add-tag critical
+  komando queue nats edit prod-nats --notes 'main one' --dry-run
+
+Flags:
+      --add-group strings           put it in these groups
+      --add-tag strings             add these tags
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+  -h, --help[=true|false]           help for edit
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --protected[=true|false]      changes need a person's yes
+      --rm-group strings            take it out of these groups
+      --rm-tag strings              remove these tags
+      --unset strings               clear these settings: via, credential, notes, protected
+      --url string                  the new URL (the provider may not change)
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue nats info --help
+exit 0
+--- stdout
+Show the version and size of a NATS server
+
+Usage:
+  komando queue nats info NAME [flags]
+
+Examples:
+  komando queue nats info prod-nats
+  komando queue nats info prod-nats -o json
+
+Flags:
+  -h, --help[=true|false]   help for info
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue nats list --help
+exit 0
+--- stdout
+List the saved nats queues
+
+Usage:
+  komando queue nats list [TARGET] [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando queue nats list
+  komando queue nats list @web
+
+Flags:
+  -h, --help[=true|false]   help for list
+  -n, --limit int           show at most this many (0 = all)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue nats message --help
+exit 0
+--- stdout
+The messages of a topic: list, create, delete
+
+Usage:
+  komando queue nats message [flags]
+  komando queue nats message [command]
+
+Examples:
+  komando queue nats message list prod-nats ORDERS
+  komando queue nats message list prod-nats ORDERS --oldest -n 5
+  komando queue nats message create prod-nats ORDERS --value test --dry-run
+  komando queue nats message delete prod-nats ORDERS-retry --all --dry-run
+
+Available Commands:
+  create      Publish one message to a topic of a NATS server
+  delete      Empty a topic of a NATS server and keep it
+  list        Read the newest (or oldest) messages of a NATS server, removing none
+
+Flags:
+  -h, --help[=true|false]   help for message
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando queue nats message [command] --help" for more information about a command.
+--- stderr
+### komando queue nats message create --help
+exit 0
+--- stdout
+Publish one message to a topic of a NATS server.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando queue nats message create NAME TOPIC [flags]
+
+Examples:
+  komando queue nats message create prod-nats ORDERS --value test --dry-run
+  komando queue nats message create prod-nats ORDERS --from ./order.json --header source=support
+
+Flags:
+      --from string          read the message from this file ('-' for stdin)
+      --header stringArray   a message header KEY=VALUE (repeatable) (default [])
+  -h, --help[=true|false]    help for create
+      --key string           Kafka: the message key (picks the partition); SQS: the message group of a FIFO queue; Pub/Sub: the ordering key
+      --partition int        Kafka: send to this partition, numbered from 0 (default: the broker's choice)
+      --value string         the message
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue nats message delete --help
+exit 0
+--- stdout
+Empty a topic of a NATS server and keep it.
+
+Safety: dangerous, it cannot be undone: a person types the name to go on,
+and an AI agent or a script needs --allow-dangerous.
+
+Usage:
+  komando queue nats message delete NAME TOPIC [flags]
+
+Examples:
+  komando queue nats message delete prod-nats ORDERS-retry --all --dry-run
+  komando queue nats message delete prod-nats ORDERS-retry --all --allow-dangerous   # after a person's yes
+
+Flags:
+      --all[=true|false]    every waiting message; without it nothing is deleted
+  -h, --help[=true|false]   help for delete
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue nats message list --help
+exit 0
+--- stdout
+Read the newest (or oldest) messages of a NATS server, removing none
+
+Usage:
+  komando queue nats message list NAME TOPIC [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando queue nats message list prod-nats ORDERS
+  komando queue nats message list prod-nats ORDERS --oldest -n 5
+
+Flags:
+  -h, --help[=true|false]     help for list
       --idle duration         Kafka: stop when no message came for this long (default 5s)
   -n, --limit int             how many messages (default 10)
       --oldest[=true|false]   the first messages still kept, not the newest
@@ -6829,100 +7554,1881 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando queue purge --help
+### komando queue nats remove --help
 exit 0
 --- stdout
-Empty a topic, queue or stream and keep it.
-
-Safety: dangerous, it cannot be undone: a person types the name to go on,
-and an AI agent or a script needs --allow-dangerous; on a protected server
-or conn, a person's yes (--yes) as well.
-
-Usage:
-  komando queue purge CONN TOPIC [flags]
-
-Examples:
-  komando queue purge prod-kafka orders-retry --dry-run
-  komando queue purge prod-kafka orders-retry --allow-dangerous   # after a person's yes
-
-Flags:
-  -h, --help[=true|false]   help for purge
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando queue rm --help
-exit 0
---- stdout
-Delete topics, queues or streams with their messages.
-
-Safety: dangerous, it cannot be undone: a person types the name to go on,
-and an AI agent or a script needs --allow-dangerous; on a protected server
-or conn, a person's yes (--yes) as well.
-
-Usage:
-  komando queue rm CONN TOPIC... [flags]
-
-Aliases:
-  rm, remove, delete, del
-
-Examples:
-  komando queue rm prod-kafka old-orders --dry-run
-  komando queue rm prod-kafka old-orders --allow-dangerous   # after a person's yes
-
-Flags:
-  -h, --help[=true|false]   help for rm
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando queue send --help
-exit 0
---- stdout
-Publish one message to an existing topic (or queue) and wait until the
-server keeps it. The value comes from --value, from a file (--from FILE;
-'-' is stdin), or from data piped on stdin. --dry-run checks the topic and
-the partition and sends nothing.
+Forget a saved nats queue (the queue is not touched).
 
 Safety: a change; try it with --dry-run first; on a protected server or
 conn, a person's yes (--yes) as well.
 
-Kafka: --key picks the partition the usual way (the same key always goes
-to the same partition); --partition picks one itself.
-RabbitMQ: the message goes straight to the queue (the default exchange),
-persistent, with --header values as its headers.
-NATS: TOPIC is a subject that a stream keeps (orders.new); komando checks
-which stream, publishes, and waits for the stream's acknowledgement.
-Amazon SQS: text only; --header values become message attributes. A FIFO
-queue (name.fifo) needs --key, the message group.
-Google Cloud Pub/Sub: TOPIC is a topic; --header values become message
-attributes and --key is the ordering key.
-
 Usage:
-  komando queue send CONN TOPIC [flags]
+  komando queue nats remove TARGET... [flags]
 
 Examples:
-  komando queue send prod-kafka orders --value '{"id": 42, "status": "paid"}' --key 42
-  komando queue send prod-kafka orders --from ./order.json --header source=support
-  komando queue send prod-kafka orders --value test --dry-run
+  komando queue nats remove prod-nats --dry-run
+  komando queue nats remove prod-nats
+
+Flags:
+  -h, --help[=true|false]   help for remove
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue nats rename --help
+exit 0
+--- stdout
+Rename a saved nats queue and every reference to it.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando queue nats rename NAME NEW [flags]
+
+Examples:
+  komando queue nats rename prod-nats prod-nats-2 --dry-run
+  komando queue nats rename prod-nats prod-nats-2
+
+Flags:
+  -h, --help[=true|false]   help for rename
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue nats show --help
+exit 0
+--- stdout
+Show a saved nats queue's settings (credentials as names)
+
+Usage:
+  komando queue nats show NAME [flags]
+
+Examples:
+  komando queue nats show prod-nats
+  komando queue nats show prod-nats -o json
+
+Flags:
+  -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue nats test --help
+exit 0
+--- stdout
+Check that a saved nats queue answers and lets you in
+
+Usage:
+  komando queue nats test TARGET [flags]
+
+Examples:
+  komando queue nats test prod-nats
+  komando queue nats test @web
+
+Flags:
+      --end[=true|false]    end the session a person's login keeps open
+  -h, --help[=true|false]   help for test
+      --wait duration       wait this long for a person's sign-in
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue nats topic --help
+exit 0
+--- stdout
+The topics (queues, streams) of a broker: list, show, create, delete
+
+Usage:
+  komando queue nats topic [flags]
+  komando queue nats topic [command]
+
+Examples:
+  komando queue nats topic list prod-nats
+  komando queue nats topic show prod-nats ORDERS
+  komando queue nats topic create prod-nats ORDERS --dry-run
+  komando queue nats topic delete prod-nats old-ORDERS --dry-run
+
+Available Commands:
+  create      Create a topic of a NATS server
+  delete      Delete topics of a NATS server with their messages
+  list        List the topics of a NATS server with their message counts
+  show        Show one topic of a NATS server: messages, settings, readers
+
+Flags:
+  -h, --help[=true|false]   help for topic
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando queue nats topic [command] --help" for more information about a command.
+--- stderr
+### komando queue nats topic create --help
+exit 0
+--- stdout
+Create a topic of a NATS server.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando queue nats topic create NAME TOPIC [flags]
+
+Examples:
+  komando queue nats topic create prod-nats ORDERS --dry-run
+  komando queue nats topic create prod-nats ORDERS --config retention.ms=604800000
+
+Flags:
+      --config stringArray   a setting KEY=VALUE, like retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable) (default [])
+  -h, --help[=true|false]    help for create
+      --partitions int       Kafka: how many partitions (default: the broker's)
+      --replicas int         copies of each message. Kafka: copies of each partition; NATS: copies of the stream (default: the broker's; NATS: 1)
+      --type string          RabbitMQ: the queue type, classic, quorum or stream (default: the server's)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue nats topic delete --help
+exit 0
+--- stdout
+Delete topics of a NATS server with their messages.
+
+Safety: dangerous, it cannot be undone: a person types the name to go on,
+and an AI agent or a script needs --allow-dangerous.
+
+Usage:
+  komando queue nats topic delete NAME TOPIC... [flags]
+
+Examples:
+  komando queue nats topic delete prod-nats old-ORDERS --dry-run
+  komando queue nats topic delete prod-nats old-ORDERS --allow-dangerous   # after a person's yes
+
+Flags:
+  -h, --help[=true|false]   help for delete
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue nats topic list --help
+exit 0
+--- stdout
+List the topics of a NATS server with their message counts
+
+Usage:
+  komando queue nats topic list NAME [PATTERN] [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando queue nats topic list prod-nats
+  komando queue nats topic list prod-nats 'o*' -n 50
+
+Flags:
+  -h, --help[=true|false]       help for list
+      --internal[=true|false]   Kafka: also list its own topics (__consumer_offsets, ...)
+  -n, --limit int               the most topics (or queues, or streams) to show, the first by name (default 1000)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue nats topic show --help
+exit 0
+--- stdout
+Show one topic of a NATS server: messages, settings, readers
+
+Usage:
+  komando queue nats topic show NAME TOPIC [flags]
+
+Aliases:
+  show, describe
+
+Examples:
+  komando queue nats topic show prod-nats ORDERS
+  komando queue nats topic show prod-nats ORDERS -o json
+
+Flags:
+  -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue pubsub --help
+exit 0
+--- stdout
+Pub/Sub: save a project, and read, send and manage its topics
+
+Usage:
+  komando queue pubsub [flags]
+  komando queue pubsub [command]
+
+Examples:
+  komando queue pubsub add prod-pubsub pubsub://my-project --via web1 --dry-run
+  komando queue pubsub add prod-pubsub pubsub://my-project --via web1
+  komando queue pubsub test prod-pubsub
+  komando queue pubsub topic list prod-pubsub
+  komando queue pubsub message list prod-pubsub orders -n 5
+
+Available Commands:
+  add         Save a pubsub queue under a short name
+  consumer    Consumer groups, consumers or subscriptions: list, show
+  edit        Change a saved pubsub queue (only the flags you pass change)
+  info        Show the version and size of a Pub/Sub project
+  list        List the saved pubsub queues
+  message     The messages of a topic: list, create, delete
+  remove      Forget a saved pubsub queue (the queue is not touched)
+  rename      Rename a saved pubsub queue and every reference to it
+  show        Show a saved pubsub queue's settings (credentials as names)
+  test        Check that a saved pubsub queue answers and lets you in
+  topic       The topics (queues, streams) of a broker: list, show, create, delete
+
+Flags:
+  -h, --help[=true|false]   help for pubsub
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando queue pubsub [command] --help" for more information about a command.
+--- stderr
+### komando queue pubsub add --help
+exit 0
+--- stdout
+Save a pubsub queue under a short name.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando queue pubsub add NAME [URL] [flags]
+
+Examples:
+  komando queue pubsub add prod-pubsub pubsub://my-project --via web1
+  komando queue pubsub add prod-pubsub pubsub://my-project --dry-run
+
+Flags:
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+      --group strings               put it in these groups
+  -h, --help[=true|false]           help for add
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --overwrite[=true|false]      replace an entry that has the same name
+      --protected[=true|false]      changes need a person's yes
+      --tag strings                 tags, like prod
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue pubsub consumer --help
+exit 0
+--- stdout
+Consumer groups, consumers or subscriptions: list, show
+
+Usage:
+  komando queue pubsub consumer [flags]
+  komando queue pubsub consumer [command]
+
+Examples:
+  komando queue pubsub consumer list prod-pubsub
+  komando queue pubsub consumer list prod-pubsub -n 20
+  komando queue pubsub consumer list prod-pubsub -o json
+
+Available Commands:
+  list        List the subscriptions of a Pub/Sub project
+
+Flags:
+  -h, --help[=true|false]   help for consumer
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando queue pubsub consumer [command] --help" for more information about a command.
+--- stderr
+### komando queue pubsub consumer list --help
+exit 0
+--- stdout
+List the subscriptions of a Pub/Sub project
+
+Usage:
+  komando queue pubsub consumer list NAME [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando queue pubsub consumer list prod-pubsub
+  komando queue pubsub consumer list prod-pubsub -n 20
+
+Flags:
+  -h, --help[=true|false]   help for list
+  -n, --limit int           show at most this many groups, consumers or subscriptions (0 = all)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue pubsub edit --help
+exit 0
+--- stdout
+Change a saved pubsub queue (only the flags you pass change).
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando queue pubsub edit NAME [flags]
+
+Examples:
+  komando queue pubsub edit prod-pubsub --add-tag critical
+  komando queue pubsub edit prod-pubsub --notes 'main one' --dry-run
+
+Flags:
+      --add-group strings           put it in these groups
+      --add-tag strings             add these tags
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+  -h, --help[=true|false]           help for edit
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --protected[=true|false]      changes need a person's yes
+      --rm-group strings            take it out of these groups
+      --rm-tag strings              remove these tags
+      --unset strings               clear these settings: via, credential, notes, protected
+      --url string                  the new URL (the provider may not change)
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue pubsub info --help
+exit 0
+--- stdout
+Show the version and size of a Pub/Sub project
+
+Usage:
+  komando queue pubsub info NAME [flags]
+
+Examples:
+  komando queue pubsub info prod-pubsub
+  komando queue pubsub info prod-pubsub -o json
+
+Flags:
+  -h, --help[=true|false]   help for info
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue pubsub list --help
+exit 0
+--- stdout
+List the saved pubsub queues
+
+Usage:
+  komando queue pubsub list [TARGET] [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando queue pubsub list
+  komando queue pubsub list @web
+
+Flags:
+  -h, --help[=true|false]   help for list
+  -n, --limit int           show at most this many (0 = all)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue pubsub message --help
+exit 0
+--- stdout
+The messages of a topic: list, create, delete
+
+Usage:
+  komando queue pubsub message [flags]
+  komando queue pubsub message [command]
+
+Examples:
+  komando queue pubsub message list prod-pubsub orders
+  komando queue pubsub message list prod-pubsub orders --oldest -n 5
+  komando queue pubsub message create prod-pubsub orders --value test --dry-run
+  komando queue pubsub message delete prod-pubsub orders-retry --all --dry-run
+
+Available Commands:
+  create      Publish one message to a topic of a Pub/Sub project
+  delete      Empty a topic of a Pub/Sub project and keep it
+  list        Read the newest (or oldest) messages of a Pub/Sub project, removing none
+
+Flags:
+  -h, --help[=true|false]   help for message
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando queue pubsub message [command] --help" for more information about a command.
+--- stderr
+### komando queue pubsub message create --help
+exit 0
+--- stdout
+Publish one message to a topic of a Pub/Sub project.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando queue pubsub message create NAME TOPIC [flags]
+
+Examples:
+  komando queue pubsub message create prod-pubsub orders --value test --dry-run
+  komando queue pubsub message create prod-pubsub orders --from ./order.json --header source=support
 
 Flags:
       --from string          read the message from this file ('-' for stdin)
-      --header stringArray   a message header KEY=VALUE (repeatable)
-  -h, --help[=true|false]    help for send
+      --header stringArray   a message header KEY=VALUE (repeatable) (default [])
+  -h, --help[=true|false]    help for create
       --key string           Kafka: the message key (picks the partition); SQS: the message group of a FIFO queue; Pub/Sub: the ordering key
       --partition int        Kafka: send to this partition, numbered from 0 (default: the broker's choice)
       --value string         the message
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue pubsub message delete --help
+exit 0
+--- stdout
+Empty a topic of a Pub/Sub project and keep it.
+
+Safety: dangerous, it cannot be undone: a person types the name to go on,
+and an AI agent or a script needs --allow-dangerous.
+
+Usage:
+  komando queue pubsub message delete NAME TOPIC [flags]
+
+Examples:
+  komando queue pubsub message delete prod-pubsub orders-retry --all --dry-run
+  komando queue pubsub message delete prod-pubsub orders-retry --all --allow-dangerous   # after a person's yes
+
+Flags:
+      --all[=true|false]    every waiting message; without it nothing is deleted
+  -h, --help[=true|false]   help for delete
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue pubsub message list --help
+exit 0
+--- stdout
+Read the newest (or oldest) messages of a Pub/Sub project, removing none
+
+Usage:
+  komando queue pubsub message list NAME TOPIC [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando queue pubsub message list prod-pubsub orders
+  komando queue pubsub message list prod-pubsub orders --oldest -n 5
+
+Flags:
+  -h, --help[=true|false]     help for list
+      --idle duration         Kafka: stop when no message came for this long (default 5s)
+  -n, --limit int             how many messages (default 10)
+      --oldest[=true|false]   the first messages still kept, not the newest
+      --partition int         Kafka: only this partition, numbered from 0 (default: every partition)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue pubsub remove --help
+exit 0
+--- stdout
+Forget a saved pubsub queue (the queue is not touched).
+
+Safety: a change; try it with --dry-run first; on a protected server or
+conn, a person's yes (--yes) as well.
+
+Usage:
+  komando queue pubsub remove TARGET... [flags]
+
+Examples:
+  komando queue pubsub remove prod-pubsub --dry-run
+  komando queue pubsub remove prod-pubsub
+
+Flags:
+  -h, --help[=true|false]   help for remove
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue pubsub rename --help
+exit 0
+--- stdout
+Rename a saved pubsub queue and every reference to it.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando queue pubsub rename NAME NEW [flags]
+
+Examples:
+  komando queue pubsub rename prod-pubsub prod-pubsub-2 --dry-run
+  komando queue pubsub rename prod-pubsub prod-pubsub-2
+
+Flags:
+  -h, --help[=true|false]   help for rename
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue pubsub show --help
+exit 0
+--- stdout
+Show a saved pubsub queue's settings (credentials as names)
+
+Usage:
+  komando queue pubsub show NAME [flags]
+
+Examples:
+  komando queue pubsub show prod-pubsub
+  komando queue pubsub show prod-pubsub -o json
+
+Flags:
+  -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue pubsub test --help
+exit 0
+--- stdout
+Check that a saved pubsub queue answers and lets you in
+
+Usage:
+  komando queue pubsub test TARGET [flags]
+
+Examples:
+  komando queue pubsub test prod-pubsub
+  komando queue pubsub test @web
+
+Flags:
+      --end[=true|false]    end the session a person's login keeps open
+  -h, --help[=true|false]   help for test
+      --wait duration       wait this long for a person's sign-in
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue pubsub topic --help
+exit 0
+--- stdout
+The topics (queues, streams) of a broker: list, show, create, delete
+
+Usage:
+  komando queue pubsub topic [flags]
+  komando queue pubsub topic [command]
+
+Examples:
+  komando queue pubsub topic list prod-pubsub
+  komando queue pubsub topic show prod-pubsub orders
+  komando queue pubsub topic create prod-pubsub orders --dry-run
+  komando queue pubsub topic delete prod-pubsub old-orders --dry-run
+
+Available Commands:
+  create      Create a topic of a Pub/Sub project
+  delete      Delete topics of a Pub/Sub project with their messages
+  list        List the topics of a Pub/Sub project with their message counts
+  show        Show one topic of a Pub/Sub project: messages, settings, readers
+
+Flags:
+  -h, --help[=true|false]   help for topic
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando queue pubsub topic [command] --help" for more information about a command.
+--- stderr
+### komando queue pubsub topic create --help
+exit 0
+--- stdout
+Create a topic of a Pub/Sub project.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando queue pubsub topic create NAME TOPIC [flags]
+
+Examples:
+  komando queue pubsub topic create prod-pubsub orders --dry-run
+  komando queue pubsub topic create prod-pubsub orders --config retention.ms=604800000
+
+Flags:
+      --config stringArray   a setting KEY=VALUE, like retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable) (default [])
+  -h, --help[=true|false]    help for create
+      --partitions int       Kafka: how many partitions (default: the broker's)
+      --replicas int         copies of each message. Kafka: copies of each partition; NATS: copies of the stream (default: the broker's; NATS: 1)
+      --type string          RabbitMQ: the queue type, classic, quorum or stream (default: the server's)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue pubsub topic delete --help
+exit 0
+--- stdout
+Delete topics of a Pub/Sub project with their messages.
+
+Safety: dangerous, it cannot be undone: a person types the name to go on,
+and an AI agent or a script needs --allow-dangerous.
+
+Usage:
+  komando queue pubsub topic delete NAME TOPIC... [flags]
+
+Examples:
+  komando queue pubsub topic delete prod-pubsub old-orders --dry-run
+  komando queue pubsub topic delete prod-pubsub old-orders --allow-dangerous   # after a person's yes
+
+Flags:
+  -h, --help[=true|false]   help for delete
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue pubsub topic list --help
+exit 0
+--- stdout
+List the topics of a Pub/Sub project with their message counts
+
+Usage:
+  komando queue pubsub topic list NAME [PATTERN] [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando queue pubsub topic list prod-pubsub
+  komando queue pubsub topic list prod-pubsub 'o*' -n 50
+
+Flags:
+  -h, --help[=true|false]       help for list
+      --internal[=true|false]   Kafka: also list its own topics (__consumer_offsets, ...)
+  -n, --limit int               the most topics (or queues, or streams) to show, the first by name (default 1000)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue pubsub topic show --help
+exit 0
+--- stdout
+Show one topic of a Pub/Sub project: messages, settings, readers
+
+Usage:
+  komando queue pubsub topic show NAME TOPIC [flags]
+
+Aliases:
+  show, describe
+
+Examples:
+  komando queue pubsub topic show prod-pubsub orders
+  komando queue pubsub topic show prod-pubsub orders -o json
+
+Flags:
+  -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue rabbitmq --help
+exit 0
+--- stdout
+RabbitMQ: save a broker, and read, send and manage its queues
+
+Usage:
+  komando queue rabbitmq [flags]
+  komando queue rabbitmq [command]
+
+Examples:
+  komando queue rabbitmq add prod-rabbit amqps://app@10.0.0.9/ --via web1 --dry-run
+  komando queue rabbitmq add prod-rabbit amqps://app@10.0.0.9/ --via web1
+  komando queue rabbitmq test prod-rabbit
+  komando queue rabbitmq topic list prod-rabbit
+  komando queue rabbitmq message list prod-rabbit emails -n 5
+
+Available Commands:
+  add         Save a rabbitmq queue under a short name
+  edit        Change a saved rabbitmq queue (only the flags you pass change)
+  info        Show the version and size of a RabbitMQ broker
+  list        List the saved rabbitmq queues
+  message     The messages of a topic: list, create, delete
+  remove      Forget a saved rabbitmq queue (the queue is not touched)
+  rename      Rename a saved rabbitmq queue and every reference to it
+  show        Show a saved rabbitmq queue's settings (credentials as names)
+  test        Check that a saved rabbitmq queue answers and lets you in
+  topic       The topics (queues, streams) of a broker: list, show, create, delete
+
+Flags:
+  -h, --help[=true|false]   help for rabbitmq
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando queue rabbitmq [command] --help" for more information about a command.
+--- stderr
+### komando queue rabbitmq add --help
+exit 0
+--- stdout
+Save a rabbitmq queue under a short name.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando queue rabbitmq add NAME [URL] [flags]
+
+Examples:
+  komando queue rabbitmq add prod-rabbit amqps://app@10.0.0.9/ --via web1
+  komando queue rabbitmq add prod-rabbit amqps://app@10.0.0.9/ --dry-run
+
+Flags:
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+      --group strings               put it in these groups
+  -h, --help[=true|false]           help for add
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --overwrite[=true|false]      replace an entry that has the same name
+      --protected[=true|false]      changes need a person's yes
+      --tag strings                 tags, like prod
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue rabbitmq edit --help
+exit 0
+--- stdout
+Change a saved rabbitmq queue (only the flags you pass change).
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando queue rabbitmq edit NAME [flags]
+
+Examples:
+  komando queue rabbitmq edit prod-rabbit --add-tag critical
+  komando queue rabbitmq edit prod-rabbit --notes 'main one' --dry-run
+
+Flags:
+      --add-group strings           put it in these groups
+      --add-tag strings             add these tags
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+  -h, --help[=true|false]           help for edit
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --protected[=true|false]      changes need a person's yes
+      --rm-group strings            take it out of these groups
+      --rm-tag strings              remove these tags
+      --unset strings               clear these settings: via, credential, notes, protected
+      --url string                  the new URL (the provider may not change)
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue rabbitmq info --help
+exit 0
+--- stdout
+Show the version and size of a RabbitMQ broker
+
+Usage:
+  komando queue rabbitmq info NAME [flags]
+
+Examples:
+  komando queue rabbitmq info prod-rabbit
+  komando queue rabbitmq info prod-rabbit -o json
+
+Flags:
+  -h, --help[=true|false]   help for info
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue rabbitmq list --help
+exit 0
+--- stdout
+List the saved rabbitmq queues
+
+Usage:
+  komando queue rabbitmq list [TARGET] [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando queue rabbitmq list
+  komando queue rabbitmq list @web
+
+Flags:
+  -h, --help[=true|false]   help for list
+  -n, --limit int           show at most this many (0 = all)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue rabbitmq message --help
+exit 0
+--- stdout
+The messages of a topic: list, create, delete
+
+Usage:
+  komando queue rabbitmq message [flags]
+  komando queue rabbitmq message [command]
+
+Examples:
+  komando queue rabbitmq message list prod-rabbit emails
+  komando queue rabbitmq message list prod-rabbit emails --oldest -n 5
+  komando queue rabbitmq message create prod-rabbit emails --value test --dry-run
+  komando queue rabbitmq message delete prod-rabbit emails-retry --all --dry-run
+
+Available Commands:
+  create      Publish one message to a topic of a RabbitMQ broker
+  delete      Empty a topic of a RabbitMQ broker and keep it
+  list        Read the newest (or oldest) messages of a RabbitMQ broker, removing none
+
+Flags:
+  -h, --help[=true|false]   help for message
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando queue rabbitmq message [command] --help" for more information about a command.
+--- stderr
+### komando queue rabbitmq message create --help
+exit 0
+--- stdout
+Publish one message to a topic of a RabbitMQ broker.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando queue rabbitmq message create NAME TOPIC [flags]
+
+Examples:
+  komando queue rabbitmq message create prod-rabbit emails --value test --dry-run
+  komando queue rabbitmq message create prod-rabbit emails --from ./order.json --header source=support
+
+Flags:
+      --from string          read the message from this file ('-' for stdin)
+      --header stringArray   a message header KEY=VALUE (repeatable) (default [])
+  -h, --help[=true|false]    help for create
+      --key string           Kafka: the message key (picks the partition); SQS: the message group of a FIFO queue; Pub/Sub: the ordering key
+      --partition int        Kafka: send to this partition, numbered from 0 (default: the broker's choice)
+      --value string         the message
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue rabbitmq message delete --help
+exit 0
+--- stdout
+Empty a topic of a RabbitMQ broker and keep it.
+
+Safety: dangerous, it cannot be undone: a person types the name to go on,
+and an AI agent or a script needs --allow-dangerous.
+
+Usage:
+  komando queue rabbitmq message delete NAME TOPIC [flags]
+
+Examples:
+  komando queue rabbitmq message delete prod-rabbit emails-retry --all --dry-run
+  komando queue rabbitmq message delete prod-rabbit emails-retry --all --allow-dangerous   # after a person's yes
+
+Flags:
+      --all[=true|false]    every waiting message; without it nothing is deleted
+  -h, --help[=true|false]   help for delete
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue rabbitmq message list --help
+exit 0
+--- stdout
+Read the newest (or oldest) messages of a RabbitMQ broker, removing none
+
+Usage:
+  komando queue rabbitmq message list NAME TOPIC [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando queue rabbitmq message list prod-rabbit emails
+  komando queue rabbitmq message list prod-rabbit emails --oldest -n 5
+
+Flags:
+  -h, --help[=true|false]     help for list
+      --idle duration         Kafka: stop when no message came for this long (default 5s)
+  -n, --limit int             how many messages (default 10)
+      --oldest[=true|false]   the first messages still kept, not the newest
+      --partition int         Kafka: only this partition, numbered from 0 (default: every partition)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue rabbitmq remove --help
+exit 0
+--- stdout
+Forget a saved rabbitmq queue (the queue is not touched).
+
+Safety: a change; try it with --dry-run first; on a protected server or
+conn, a person's yes (--yes) as well.
+
+Usage:
+  komando queue rabbitmq remove TARGET... [flags]
+
+Examples:
+  komando queue rabbitmq remove prod-rabbit --dry-run
+  komando queue rabbitmq remove prod-rabbit
+
+Flags:
+  -h, --help[=true|false]   help for remove
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue rabbitmq rename --help
+exit 0
+--- stdout
+Rename a saved rabbitmq queue and every reference to it.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando queue rabbitmq rename NAME NEW [flags]
+
+Examples:
+  komando queue rabbitmq rename prod-rabbit prod-rabbit-2 --dry-run
+  komando queue rabbitmq rename prod-rabbit prod-rabbit-2
+
+Flags:
+  -h, --help[=true|false]   help for rename
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue rabbitmq show --help
+exit 0
+--- stdout
+Show a saved rabbitmq queue's settings (credentials as names)
+
+Usage:
+  komando queue rabbitmq show NAME [flags]
+
+Examples:
+  komando queue rabbitmq show prod-rabbit
+  komando queue rabbitmq show prod-rabbit -o json
+
+Flags:
+  -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue rabbitmq test --help
+exit 0
+--- stdout
+Check that a saved rabbitmq queue answers and lets you in
+
+Usage:
+  komando queue rabbitmq test TARGET [flags]
+
+Examples:
+  komando queue rabbitmq test prod-rabbit
+  komando queue rabbitmq test @web
+
+Flags:
+      --end[=true|false]    end the session a person's login keeps open
+  -h, --help[=true|false]   help for test
+      --wait duration       wait this long for a person's sign-in
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue rabbitmq topic --help
+exit 0
+--- stdout
+The topics (queues, streams) of a broker: list, show, create, delete
+
+Usage:
+  komando queue rabbitmq topic [flags]
+  komando queue rabbitmq topic [command]
+
+Examples:
+  komando queue rabbitmq topic list prod-rabbit
+  komando queue rabbitmq topic show prod-rabbit emails
+  komando queue rabbitmq topic create prod-rabbit emails --dry-run
+  komando queue rabbitmq topic delete prod-rabbit old-emails --dry-run
+
+Available Commands:
+  create      Create a topic of a RabbitMQ broker
+  delete      Delete topics of a RabbitMQ broker with their messages
+  list        List the topics of a RabbitMQ broker with their message counts
+  show        Show one topic of a RabbitMQ broker: messages, settings, readers
+
+Flags:
+  -h, --help[=true|false]   help for topic
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando queue rabbitmq topic [command] --help" for more information about a command.
+--- stderr
+### komando queue rabbitmq topic create --help
+exit 0
+--- stdout
+Create a topic of a RabbitMQ broker.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando queue rabbitmq topic create NAME TOPIC [flags]
+
+Examples:
+  komando queue rabbitmq topic create prod-rabbit emails --dry-run
+  komando queue rabbitmq topic create prod-rabbit emails --config retention.ms=604800000
+
+Flags:
+      --config stringArray   a setting KEY=VALUE, like retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable) (default [])
+  -h, --help[=true|false]    help for create
+      --partitions int       Kafka: how many partitions (default: the broker's)
+      --replicas int         copies of each message. Kafka: copies of each partition; NATS: copies of the stream (default: the broker's; NATS: 1)
+      --type string          RabbitMQ: the queue type, classic, quorum or stream (default: the server's)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue rabbitmq topic delete --help
+exit 0
+--- stdout
+Delete topics of a RabbitMQ broker with their messages.
+
+Safety: dangerous, it cannot be undone: a person types the name to go on,
+and an AI agent or a script needs --allow-dangerous.
+
+Usage:
+  komando queue rabbitmq topic delete NAME TOPIC... [flags]
+
+Examples:
+  komando queue rabbitmq topic delete prod-rabbit old-emails --dry-run
+  komando queue rabbitmq topic delete prod-rabbit old-emails --allow-dangerous   # after a person's yes
+
+Flags:
+  -h, --help[=true|false]   help for delete
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue rabbitmq topic list --help
+exit 0
+--- stdout
+List the topics of a RabbitMQ broker with their message counts
+
+Usage:
+  komando queue rabbitmq topic list NAME [PATTERN] [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando queue rabbitmq topic list prod-rabbit
+  komando queue rabbitmq topic list prod-rabbit 'e*' -n 50
+
+Flags:
+  -h, --help[=true|false]       help for list
+      --internal[=true|false]   Kafka: also list its own topics (__consumer_offsets, ...)
+  -n, --limit int               the most topics (or queues, or streams) to show, the first by name (default 1000)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue rabbitmq topic show --help
+exit 0
+--- stdout
+Show one topic of a RabbitMQ broker: messages, settings, readers
+
+Usage:
+  komando queue rabbitmq topic show NAME TOPIC [flags]
+
+Aliases:
+  show, describe
+
+Examples:
+  komando queue rabbitmq topic show prod-rabbit emails
+  komando queue rabbitmq topic show prod-rabbit emails -o json
+
+Flags:
+  -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue sqs --help
+exit 0
+--- stdout
+Amazon SQS: save an account, and read, send and manage its queues
+
+Usage:
+  komando queue sqs [flags]
+  komando queue sqs [command]
+
+Examples:
+  komando queue sqs add prod-sqs sqs://eu-west-1 --via web1 --dry-run
+  komando queue sqs add prod-sqs sqs://eu-west-1 --via web1
+  komando queue sqs test prod-sqs
+  komando queue sqs topic list prod-sqs
+  komando queue sqs message list prod-sqs orders -n 5
+
+Available Commands:
+  add         Save a sqs queue under a short name
+  edit        Change a saved sqs queue (only the flags you pass change)
+  info        Show the version and size of a SQS account
+  list        List the saved sqs queues
+  message     The messages of a topic: list, create, delete
+  remove      Forget a saved sqs queue (the queue is not touched)
+  rename      Rename a saved sqs queue and every reference to it
+  show        Show a saved sqs queue's settings (credentials as names)
+  test        Check that a saved sqs queue answers and lets you in
+  topic       The topics (queues, streams) of a broker: list, show, create, delete
+
+Flags:
+  -h, --help[=true|false]   help for sqs
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando queue sqs [command] --help" for more information about a command.
+--- stderr
+### komando queue sqs add --help
+exit 0
+--- stdout
+Save a sqs queue under a short name.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando queue sqs add NAME [URL] [flags]
+
+Examples:
+  komando queue sqs add prod-sqs sqs://eu-west-1 --via web1
+  komando queue sqs add prod-sqs sqs://eu-west-1 --dry-run
+
+Flags:
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+      --group strings               put it in these groups
+  -h, --help[=true|false]           help for add
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --overwrite[=true|false]      replace an entry that has the same name
+      --protected[=true|false]      changes need a person's yes
+      --tag strings                 tags, like prod
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue sqs edit --help
+exit 0
+--- stdout
+Change a saved sqs queue (only the flags you pass change).
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando queue sqs edit NAME [flags]
+
+Examples:
+  komando queue sqs edit prod-sqs --add-tag critical
+  komando queue sqs edit prod-sqs --notes 'main one' --dry-run
+
+Flags:
+      --add-group strings           put it in these groups
+      --add-tag strings             add these tags
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+  -h, --help[=true|false]           help for edit
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --protected[=true|false]      changes need a person's yes
+      --rm-group strings            take it out of these groups
+      --rm-tag strings              remove these tags
+      --unset strings               clear these settings: via, credential, notes, protected
+      --url string                  the new URL (the provider may not change)
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue sqs info --help
+exit 0
+--- stdout
+Show the version and size of a SQS account
+
+Usage:
+  komando queue sqs info NAME [flags]
+
+Examples:
+  komando queue sqs info prod-sqs
+  komando queue sqs info prod-sqs -o json
+
+Flags:
+  -h, --help[=true|false]   help for info
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue sqs list --help
+exit 0
+--- stdout
+List the saved sqs queues
+
+Usage:
+  komando queue sqs list [TARGET] [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando queue sqs list
+  komando queue sqs list @web
+
+Flags:
+  -h, --help[=true|false]   help for list
+  -n, --limit int           show at most this many (0 = all)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue sqs message --help
+exit 0
+--- stdout
+The messages of a topic: list, create, delete
+
+Usage:
+  komando queue sqs message [flags]
+  komando queue sqs message [command]
+
+Examples:
+  komando queue sqs message list prod-sqs orders
+  komando queue sqs message list prod-sqs orders --oldest -n 5
+  komando queue sqs message create prod-sqs orders --value test --dry-run
+  komando queue sqs message delete prod-sqs orders-retry --all --dry-run
+
+Available Commands:
+  create      Publish one message to a topic of a SQS account
+  delete      Empty a topic of a SQS account and keep it
+  list        Read the newest (or oldest) messages of a SQS account, removing none
+
+Flags:
+  -h, --help[=true|false]   help for message
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando queue sqs message [command] --help" for more information about a command.
+--- stderr
+### komando queue sqs message create --help
+exit 0
+--- stdout
+Publish one message to a topic of a SQS account.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando queue sqs message create NAME TOPIC [flags]
+
+Examples:
+  komando queue sqs message create prod-sqs orders --value test --dry-run
+  komando queue sqs message create prod-sqs orders --from ./order.json --header source=support
+
+Flags:
+      --from string          read the message from this file ('-' for stdin)
+      --header stringArray   a message header KEY=VALUE (repeatable) (default [])
+  -h, --help[=true|false]    help for create
+      --key string           Kafka: the message key (picks the partition); SQS: the message group of a FIFO queue; Pub/Sub: the ordering key
+      --partition int        Kafka: send to this partition, numbered from 0 (default: the broker's choice)
+      --value string         the message
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue sqs message delete --help
+exit 0
+--- stdout
+Empty a topic of a SQS account and keep it.
+
+Safety: dangerous, it cannot be undone: a person types the name to go on,
+and an AI agent or a script needs --allow-dangerous.
+
+Usage:
+  komando queue sqs message delete NAME TOPIC [flags]
+
+Examples:
+  komando queue sqs message delete prod-sqs orders-retry --all --dry-run
+  komando queue sqs message delete prod-sqs orders-retry --all --allow-dangerous   # after a person's yes
+
+Flags:
+      --all[=true|false]    every waiting message; without it nothing is deleted
+  -h, --help[=true|false]   help for delete
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue sqs message list --help
+exit 0
+--- stdout
+Read the newest (or oldest) messages of a SQS account, removing none
+
+Usage:
+  komando queue sqs message list NAME TOPIC [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando queue sqs message list prod-sqs orders
+  komando queue sqs message list prod-sqs orders --oldest -n 5
+
+Flags:
+  -h, --help[=true|false]     help for list
+      --idle duration         Kafka: stop when no message came for this long (default 5s)
+  -n, --limit int             how many messages (default 10)
+      --oldest[=true|false]   the first messages still kept, not the newest
+      --partition int         Kafka: only this partition, numbered from 0 (default: every partition)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue sqs remove --help
+exit 0
+--- stdout
+Forget a saved sqs queue (the queue is not touched).
+
+Safety: a change; try it with --dry-run first; on a protected server or
+conn, a person's yes (--yes) as well.
+
+Usage:
+  komando queue sqs remove TARGET... [flags]
+
+Examples:
+  komando queue sqs remove prod-sqs --dry-run
+  komando queue sqs remove prod-sqs
+
+Flags:
+  -h, --help[=true|false]   help for remove
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue sqs rename --help
+exit 0
+--- stdout
+Rename a saved sqs queue and every reference to it.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando queue sqs rename NAME NEW [flags]
+
+Examples:
+  komando queue sqs rename prod-sqs prod-sqs-2 --dry-run
+  komando queue sqs rename prod-sqs prod-sqs-2
+
+Flags:
+  -h, --help[=true|false]   help for rename
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue sqs show --help
+exit 0
+--- stdout
+Show a saved sqs queue's settings (credentials as names)
+
+Usage:
+  komando queue sqs show NAME [flags]
+
+Examples:
+  komando queue sqs show prod-sqs
+  komando queue sqs show prod-sqs -o json
+
+Flags:
+  -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue sqs test --help
+exit 0
+--- stdout
+Check that a saved sqs queue answers and lets you in
+
+Usage:
+  komando queue sqs test TARGET [flags]
+
+Examples:
+  komando queue sqs test prod-sqs
+  komando queue sqs test @web
+
+Flags:
+      --end[=true|false]    end the session a person's login keeps open
+  -h, --help[=true|false]   help for test
+      --wait duration       wait this long for a person's sign-in
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue sqs topic --help
+exit 0
+--- stdout
+The topics (queues, streams) of a broker: list, show, create, delete
+
+Usage:
+  komando queue sqs topic [flags]
+  komando queue sqs topic [command]
+
+Examples:
+  komando queue sqs topic list prod-sqs
+  komando queue sqs topic show prod-sqs orders
+  komando queue sqs topic create prod-sqs orders --dry-run
+  komando queue sqs topic delete prod-sqs old-orders --dry-run
+
+Available Commands:
+  create      Create a topic of a SQS account
+  delete      Delete topics of a SQS account with their messages
+  list        List the topics of a SQS account with their message counts
+  show        Show one topic of a SQS account: messages, settings, readers
+
+Flags:
+  -h, --help[=true|false]   help for topic
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando queue sqs topic [command] --help" for more information about a command.
+--- stderr
+### komando queue sqs topic create --help
+exit 0
+--- stdout
+Create a topic of a SQS account.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando queue sqs topic create NAME TOPIC [flags]
+
+Examples:
+  komando queue sqs topic create prod-sqs orders --dry-run
+  komando queue sqs topic create prod-sqs orders --config retention.ms=604800000
+
+Flags:
+      --config stringArray   a setting KEY=VALUE, like retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable) (default [])
+  -h, --help[=true|false]    help for create
+      --partitions int       Kafka: how many partitions (default: the broker's)
+      --replicas int         copies of each message. Kafka: copies of each partition; NATS: copies of the stream (default: the broker's; NATS: 1)
+      --type string          RabbitMQ: the queue type, classic, quorum or stream (default: the server's)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue sqs topic delete --help
+exit 0
+--- stdout
+Delete topics of a SQS account with their messages.
+
+Safety: dangerous, it cannot be undone: a person types the name to go on,
+and an AI agent or a script needs --allow-dangerous.
+
+Usage:
+  komando queue sqs topic delete NAME TOPIC... [flags]
+
+Examples:
+  komando queue sqs topic delete prod-sqs old-orders --dry-run
+  komando queue sqs topic delete prod-sqs old-orders --allow-dangerous   # after a person's yes
+
+Flags:
+  -h, --help[=true|false]   help for delete
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue sqs topic list --help
+exit 0
+--- stdout
+List the topics of a SQS account with their message counts
+
+Usage:
+  komando queue sqs topic list NAME [PATTERN] [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando queue sqs topic list prod-sqs
+  komando queue sqs topic list prod-sqs 'o*' -n 50
+
+Flags:
+  -h, --help[=true|false]       help for list
+      --internal[=true|false]   Kafka: also list its own topics (__consumer_offsets, ...)
+  -n, --limit int               the most topics (or queues, or streams) to show, the first by name (default 1000)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando queue sqs topic show --help
+exit 0
+--- stdout
+Show one topic of a SQS account: messages, settings, readers
+
+Usage:
+  komando queue sqs topic show NAME TOPIC [flags]
+
+Aliases:
+  show, describe
+
+Examples:
+  komando queue sqs topic show prod-sqs orders
+  komando queue sqs topic show prod-sqs orders -o json
+
+Flags:
+  -h, --help[=true|false]   help for show
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing

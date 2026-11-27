@@ -100,7 +100,7 @@ type GroupOnTopic struct {
 	Lag   int64  `json:"lag"`
 }
 
-// Group is one line of `queue groups`: a Kafka consumer group, or a NATS
+// Group is one line of `consumer list`: a Kafka consumer group, or a NATS
 // consumer (NatsConsumer says more).
 type Group struct {
 	Name     string   `json:"name"`
@@ -114,7 +114,7 @@ type Group struct {
 	*PubsubSubscription
 }
 
-// GroupLag is `queue lag`: one group, per topic and partition.
+// GroupLag is `consumer show`: one group, per topic and partition.
 type GroupLag struct {
 	Group      string         `json:"group"`
 	State      string         `json:"state"`

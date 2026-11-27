@@ -73,7 +73,7 @@ type RabbitConsumer struct {
 	Active      bool   `json:"active"`
 }
 
-// RabbitDelivery is a message `queue peek` took from the front of a
+// RabbitDelivery is a message `message list` took from the front of a
 // RabbitMQ queue and gave back.
 type RabbitDelivery struct {
 	Redelivered bool              `json:"redelivered"`          // it had been delivered before this peek

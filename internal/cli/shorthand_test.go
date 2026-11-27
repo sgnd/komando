@@ -50,7 +50,7 @@ func TestShorthandDidYouMean(t *testing.T) {
 		{[]string{"cluster", "restart", "k", "api", "-w", "10s"}, "did you mean --wait?"},
 		{[]string{"cache", "get", "c1", "k", "-x"}, ""},
 		{[]string{"fs", "replace", "web1", "/etc/x", "-b"}, "did you mean --backup?"},
-		{[]string{"queue", "ls", "q1", "-j"}, ""},
+		{[]string{"queue", "kafka", "topic", "list", "q1", "-j"}, ""},
 	} {
 		e := mainErr(t, c.args...)
 		if e.Code != "USAGE" {

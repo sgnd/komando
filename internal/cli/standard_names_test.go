@@ -38,7 +38,8 @@ func TestStandardRenamedIDs(t *testing.T) {
 		{[]string{"cluster", "helm", "list"}, []string{"cluster", "helm", "ls"}, "cluster.helm.list"},
 		{[]string{"db", "user", "list"}, []string{"db", "user", "ls"}, "db.user.list"},
 		{[]string{"fs", "list"}, []string{"fs", "ls"}, "fs.list"},
-		{[]string{"queue", "list"}, []string{"queue", "ls"}, "queue.list"},
+		{[]string{"queue", "kafka", "topic", "list"}, []string{"queue", "kafka", "topic", "ls"}, "queue.kafka.topic.list"},
+		{[]string{"queue", "kafka", "topic", "show"}, []string{"queue", "kafka", "topic", "describe"}, "queue.kafka.topic.show"},
 		{[]string{"registry", "oci", "image", "list"}, []string{"registry", "oci", "image", "ls"}, "registry.oci.image.list"},
 		{[]string{"storage", "list"}, []string{"storage", "ls"}, "storage.list"},
 	} {

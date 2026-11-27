@@ -26,7 +26,7 @@ func pubsubTopicsText(ts []queuex.Topic) string {
 		rows = append(rows, []string{t.Name, strconv.Itoa(t.SubscriptionCount), orDash(t.MessageRetention)})
 	}
 	return term.LayoutTable([]string{"TOPIC", "SUBSCRIPTIONS", "KEEPS MESSAGES"}, rows) +
-		"(Pub/Sub does not count messages; `komando queue describe CONN TOPIC` shows a topic's subscriptions)\n"
+		"(Pub/Sub does not count messages; `komando queue pubsub topic show NAME TOPIC` shows a topic's subscriptions)\n"
 }
 
 func pubsubDetailText(t *queuex.TopicDetail) string {

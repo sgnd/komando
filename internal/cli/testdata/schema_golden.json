@@ -6883,16 +6883,11 @@
         "path": "komando queue",
         "usage": "komando queue [flags]",
         "short": "Queues (Kafka, RabbitMQ, NATS, SQS, Pub/Sub): read, send, manage",
-        "long": "Read and send messages on Kafka, RabbitMQ, NATS, SQS and Pub/Sub. Add a\nqueue with `komando queue add`.\n\ninfo, ls, describe, peek, groups and lag only read: peek reads Kafka\nmessages without joining a consumer group, gives RabbitMQ and Pub/Sub\nmessages straight back, reads NATS stream messages by their number, and\nreceives SQS messages without hiding or deleting them, so nothing is\nremoved. send and create change (production queues ask first); rm and purge\ndelete messages, so they also need --allow-dangerous. Try any change with\n--dry-run first. In RabbitMQ words a topic is a queue; in NATS words it is\na stream. Pub/Sub keeps messages in subscriptions: peek and purge take a\nsubscription, and groups lists them.",
+        "long": "Read and send messages on Kafka, RabbitMQ, NATS, SQS and Pub/Sub. Add a\nqueue with `komando queue kafka add` (or rabbitmq, nats, sqs, pubsub).\n\ninfo, topic list and show, message list and consumer list and show only\nread: message list reads Kafka messages without joining a consumer group,\ngives RabbitMQ and Pub/Sub messages straight back, reads NATS stream\nmessages by their number, and receives SQS messages without hiding or\ndeleting them, so nothing is removed. message create and topic create\nchange (production queues ask first); topic delete and message delete\n--all delete messages, so they also need --allow-dangerous. Try any change\nwith --dry-run first. In RabbitMQ words a topic is a queue; in NATS words\nit is a stream. Pub/Sub keeps messages in subscriptions: message list and\nmessage delete --all take a subscription, and consumer list lists them.",
         "aliases": [
-          "kafka",
-          "rabbitmq",
-          "nats",
-          "sqs",
-          "pubsub",
           "queues"
         ],
-        "example": "  komando queue add prod-kafka kafka://10.0.0.8:9092 --via web1\n  komando queue list prod-kafka\n  komando queue peek prod-kafka orders -n 5\n  komando queue send prod-kafka orders --value '{\"id\": 42}' --dry-run\n  komando queue lag prod-kafka billing",
+        "example": "  komando queue kafka add prod-kafka kafka://10.0.0.8:9092 --via web1\n  komando queue kafka topic list prod-kafka\n  komando queue kafka message list prod-kafka orders -n 5\n  komando queue kafka message create prod-kafka orders --value '{\"id\": 42}' --dry-run\n  komando queue kafka consumer show prod-kafka billing",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -6902,70 +6897,81 @@
         ]
       },
       {
-        "path": "komando queue add",
-        "usage": "komando queue add NAME URL [flags]",
-        "short": "Add a message queue",
-        "long": "Same as `komando conn add NAME URL`, for a message queue.\n\nSafety: a change; try it with --dry-run first.\n\nSaves a message queue under a short name. Typed alone at a terminal, it asks\nstep by step. The URL scheme sets the kind: `komando conn kinds` lists them.",
-        "example": "  komando queue add orders kafka://10.0.0.8:9092 --via web1\n  komando queue add orders kafka://10.0.0.8:9092 --via web1 --dry-run",
+        "path": "komando queue kafka",
+        "usage": "komando queue kafka [flags]",
+        "short": "Kafka: save a cluster, and read, send and manage its topics",
+        "example": "  komando queue kafka add prod-kafka kafka://10.0.0.8:9092 --via web1 --dry-run\n  komando queue kafka add prod-kafka kafka://10.0.0.8:9092 --via web1\n  komando queue kafka test prod-kafka\n  komando queue kafka topic list prod-kafka\n  komando queue kafka message list prod-kafka orders -n 5",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka add",
+        "usage": "komando queue kafka add NAME [URL] [flags]",
+        "short": "Save a kafka queue under a short name",
+        "long": "Save a kafka queue under a short name.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue kafka add prod-kafka kafka://10.0.0.8:9092 --via web1\n  komando queue kafka add prod-kafka kafka://10.0.0.8:9092 --dry-run",
         "flags": [
           {
             "name": "ask-password",
             "type": "bool",
             "default": "false",
-            "usage": "type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref"
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
           },
           {
             "name": "group",
-            "shorthand": "g",
             "type": "stringSlice",
             "default": "[]",
-            "usage": "put it in these groups (comma-separated)"
+            "usage": "put it in these groups"
           },
           {
             "name": "label",
             "type": "stringArray",
             "default": "[]",
-            "usage": "label KEY=VALUE (repeatable)"
+            "usage": "label KEY=VALUE"
           },
           {
             "name": "login",
             "type": "string",
-            "usage": "how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own)"
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
           },
           {
             "name": "notes",
             "type": "string",
-            "usage": "free-form notes (komando conn show shows them to people and agents)"
+            "usage": "free-form notes, shown to people and agents"
           },
           {
             "name": "option",
             "type": "stringArray",
             "default": "[]",
-            "usage": "an option of this kind, KEY=VALUE (repeatable)"
+            "usage": "an option of this provider, KEY=VALUE"
           },
           {
             "name": "overwrite",
             "type": "bool",
             "default": "false",
-            "usage": "replace a conn that has the same name"
-          },
-          {
-            "name": "password-ref",
-            "type": "string",
-            "usage": "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://..."
+            "usage": "replace an entry that has the same name"
           },
           {
             "name": "protected",
             "type": "bool",
             "default": "false",
-            "usage": "production: komando asks you before every change, and an AI agent needs your yes in a window"
+            "usage": "changes need a person's yes"
           },
           {
             "name": "tag",
-            "shorthand": "t",
             "type": "stringSlice",
             "default": "[]",
-            "usage": "tags, like prod (comma-separated)"
+            "usage": "tags, like prod"
           },
           {
             "name": "via",
@@ -6979,153 +6985,401 @@
           {
             "tier": "change"
           }
-        ],
-        "add_kinds": [
+        ]
+      },
+      {
+        "path": "komando queue kafka consumer",
+        "usage": "komando queue kafka consumer [flags]",
+        "short": "Consumer groups, consumers or subscriptions: list, show",
+        "example": "  komando queue kafka consumer list prod-kafka\n  komando queue kafka consumer list prod-kafka -n 20\n  komando queue kafka consumer show prod-kafka billing",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
           {
-            "id": "kafka",
-            "display_name": "Apache Kafka",
-            "family": "queue",
-            "url_schemes": [
-              "kafka"
-            ],
-            "url_example": "kafka://app@b1.example.com:9093,b2.example.com:9093?tls=true&sasl=scram-sha-512",
-            "url_note": "private CA: &ca=secret:NAME; --via an SSH server: kafka://broker1.internal:9092",
-            "default_port": 9092,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          },
-          {
-            "id": "nats",
-            "display_name": "NATS JetStream",
-            "family": "queue",
-            "url_schemes": [
-              "nats",
-              "tls"
-            ],
-            "url_example": "tls://app@nats1.example.com:4222,nats2.example.com:4222",
-            "url_note": "tls = TLS; a .creds file: ?creds=secret:NAME; --via an SSH server: nats://nats.internal:4222",
-            "default_port": 4222,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          },
-          {
-            "id": "pubsub",
-            "display_name": "Google Cloud Pub/Sub",
-            "family": "queue",
-            "url_schemes": [
-              "pubsub"
-            ],
-            "url_example": "pubsub://my-project",
-            "url_note": "Google Cloud Pub/Sub; the login is gcloud's application default one, or a service account key: --password-ref secret:NAME; the emulator: ?endpoint=http://localhost:8085",
-            "default_port": 443,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          },
-          {
-            "id": "rabbitmq",
-            "display_name": "RabbitMQ",
-            "family": "queue",
-            "url_schemes": [
-              "amqp",
-              "amqps"
-            ],
-            "url_example": "amqps://app@rabbit.example.com:5671/%2F?management=15671",
-            "url_note": "amqps = TLS; the path is the vhost; --via an SSH server: amqp://app@rabbit.internal:5672/",
-            "default_port": 5672,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          },
-          {
-            "id": "sqs",
-            "display_name": "Amazon SQS",
-            "family": "queue",
-            "url_schemes": [
-              "sqs"
-            ],
-            "url_example": "sqs://eu-west-1",
-            "url_note": "Amazon SQS; the login is your AWS one: --option aws_profile=NAME, or keys: sqs://ACCESS_KEY_ID@eu-west-1 --password-ref secret:NAME; an emulator: ?endpoint=http://localhost:4566",
-            "default_port": 443,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
+            "tier": "read"
           }
         ]
       },
       {
-        "path": "komando queue create",
-        "usage": "komando queue create CONN TOPIC [flags]",
-        "short": "Create a topic, queue or stream",
-        "long": "Create a topic, queue or stream.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando queue create prod-kafka orders --partitions 6 --replicas 3 --dry-run\n  komando queue create prod-kafka orders --partitions 6 --replicas 3 --config retention.ms=604800000\n  komando queue create jobs emails --type quorum --config x-max-length=10000\n  komando queue create stream ORDERS --replicas 3 --config subjects='orders.>' --config max_age=7d\n  komando queue create aws orders.fifo --config ContentBasedDeduplication=true\n  komando queue create gcp orders --config messageRetentionDuration=7d\n  komando queue create gcp subscriptions/billing --config topic=orders --config ackDeadlineSeconds=60",
+        "path": "komando queue kafka consumer list",
+        "usage": "komando queue kafka consumer list NAME [flags]",
+        "short": "List the consumer groups of a Kafka cluster",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue kafka consumer list prod-kafka\n  komando queue kafka consumer list prod-kafka -n 20",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many groups, consumers or subscriptions (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka consumer show",
+        "usage": "komando queue kafka consumer show NAME CONSUMER [flags]",
+        "short": "Show how far one consumer is behind of a Kafka cluster",
+        "example": "  komando queue kafka consumer show prod-kafka billing\n  komando queue kafka consumer show prod-kafka billing -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka edit",
+        "usage": "komando queue kafka edit NAME [flags]",
+        "short": "Change a saved kafka queue (only the flags you pass change)",
+        "long": "Change a saved kafka queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue kafka edit prod-kafka --add-tag critical\n  komando queue kafka edit prod-kafka --notes 'main one' --dry-run",
+        "flags": [
+          {
+            "name": "add-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "add-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "add these tags"
+          },
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "rm-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "take it out of these groups"
+          },
+          {
+            "name": "rm-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "remove these tags"
+          },
+          {
+            "name": "unset",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "clear these settings: via, credential, notes, protected"
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "usage": "the new URL (the provider may not change)"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka info",
+        "usage": "komando queue kafka info NAME [flags]",
+        "short": "Show the version and size of a Kafka cluster",
+        "example": "  komando queue kafka info prod-kafka\n  komando queue kafka info prod-kafka -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka list",
+        "usage": "komando queue kafka list [TARGET] [flags]",
+        "short": "List the saved kafka queues",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue kafka list\n  komando queue kafka list @web",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka message",
+        "usage": "komando queue kafka message [flags]",
+        "short": "The messages of a topic: list, create, delete",
+        "example": "  komando queue kafka message list prod-kafka orders\n  komando queue kafka message list prod-kafka orders --oldest -n 5\n  komando queue kafka message create prod-kafka orders --value test --dry-run\n  komando queue kafka message delete prod-kafka orders-retry --all --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka message create",
+        "usage": "komando queue kafka message create NAME TOPIC [flags]",
+        "short": "Publish one message to a topic of a Kafka cluster",
+        "long": "Publish one message to a topic of a Kafka cluster.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue kafka message create prod-kafka orders --value test --dry-run\n  komando queue kafka message create prod-kafka orders --from ./order.json --header source=support",
+        "flags": [
+          {
+            "name": "from",
+            "type": "string",
+            "usage": "read the message from this file ('-' for stdin)"
+          },
+          {
+            "name": "header",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "a message header KEY=VALUE (repeatable)"
+          },
+          {
+            "name": "key",
+            "type": "string",
+            "usage": "Kafka: the message key (picks the partition); SQS: the message group of a FIFO queue; Pub/Sub: the ordering key"
+          },
+          {
+            "name": "partition",
+            "type": "int",
+            "default": "0",
+            "usage": "Kafka: send to this partition, numbered from 0 (default: the broker's choice)"
+          },
+          {
+            "name": "value",
+            "type": "string",
+            "usage": "the message"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka message delete",
+        "usage": "komando queue kafka message delete NAME TOPIC [flags]",
+        "short": "Empty a topic of a Kafka cluster and keep it",
+        "long": "Empty a topic of a Kafka cluster and keep it.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando queue kafka message delete prod-kafka orders-retry --all --dry-run\n  komando queue kafka message delete prod-kafka orders-retry --all --allow-dangerous   # after a person's yes",
+        "flags": [
+          {
+            "name": "all",
+            "type": "bool",
+            "default": "false",
+            "usage": "every waiting message; without it nothing is deleted"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka message list",
+        "usage": "komando queue kafka message list NAME TOPIC [flags]",
+        "short": "Read the newest (or oldest) messages of a Kafka cluster, removing none",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue kafka message list prod-kafka orders\n  komando queue kafka message list prod-kafka orders --oldest -n 5",
+        "flags": [
+          {
+            "name": "idle",
+            "type": "duration",
+            "default": "5s",
+            "usage": "Kafka: stop when no message came for this long"
+          },
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "10",
+            "usage": "how many messages"
+          },
+          {
+            "name": "oldest",
+            "type": "bool",
+            "default": "false",
+            "usage": "the first messages still kept, not the newest"
+          },
+          {
+            "name": "partition",
+            "type": "int",
+            "default": "0",
+            "usage": "Kafka: only this partition, numbered from 0 (default: every partition)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka remove",
+        "usage": "komando queue kafka remove TARGET... [flags]",
+        "short": "Forget a saved kafka queue (the queue is not touched)",
+        "long": "Forget a saved kafka queue (the queue is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "example": "  komando queue kafka remove prod-kafka --dry-run\n  komando queue kafka remove prod-kafka",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka rename",
+        "usage": "komando queue kafka rename NAME NEW [flags]",
+        "short": "Rename a saved kafka queue and every reference to it",
+        "long": "Rename a saved kafka queue and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue kafka rename prod-kafka prod-kafka-2 --dry-run\n  komando queue kafka rename prod-kafka prod-kafka-2",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka show",
+        "usage": "komando queue kafka show NAME [flags]",
+        "short": "Show a saved kafka queue's settings (credentials as names)",
+        "example": "  komando queue kafka show prod-kafka\n  komando queue kafka show prod-kafka -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka test",
+        "usage": "komando queue kafka test TARGET [flags]",
+        "short": "Check that a saved kafka queue answers and lets you in",
+        "example": "  komando queue kafka test prod-kafka\n  komando queue kafka test @web",
+        "flags": [
+          {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the session a person's login keeps open"
+          },
+          {
+            "name": "wait",
+            "type": "duration",
+            "default": "0",
+            "usage": "wait this long for a person's sign-in"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka topic",
+        "usage": "komando queue kafka topic [flags]",
+        "short": "The topics (queues, streams) of a broker: list, show, create, delete",
+        "example": "  komando queue kafka topic list prod-kafka\n  komando queue kafka topic show prod-kafka orders\n  komando queue kafka topic create prod-kafka orders --dry-run\n  komando queue kafka topic delete prod-kafka old-orders --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka topic create",
+        "usage": "komando queue kafka topic create NAME TOPIC [flags]",
+        "short": "Create a topic of a Kafka cluster",
+        "long": "Create a topic of a Kafka cluster.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue kafka topic create prod-kafka orders --dry-run\n  komando queue kafka topic create prod-kafka orders --config retention.ms=604800000",
         "flags": [
           {
             "name": "config",
@@ -7136,11 +7390,13 @@
           {
             "name": "partitions",
             "type": "int",
+            "default": "0",
             "usage": "Kafka: how many partitions (default: the broker's)"
           },
           {
             "name": "replicas",
             "type": "int",
+            "default": "0",
             "usage": "copies of each message. Kafka: copies of each partition; NATS: copies of the stream (default: the broker's; NATS: 1)"
           },
           {
@@ -7158,74 +7414,28 @@
         ]
       },
       {
-        "path": "komando queue describe",
-        "usage": "komando queue describe CONN TOPIC [flags]",
-        "short": "One topic, queue or stream: messages, settings, and who reads it",
-        "example": "  komando queue describe prod-kafka orders",
+        "path": "komando queue kafka topic delete",
+        "usage": "komando queue kafka topic delete NAME TOPIC... [flags]",
+        "short": "Delete topics of a Kafka cluster with their messages",
+        "long": "Delete topics of a Kafka cluster with their messages.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando queue kafka topic delete prod-kafka old-orders --dry-run\n  komando queue kafka topic delete prod-kafka old-orders --allow-dangerous   # after a person's yes",
         "runnable": true,
-        "kind": "read",
+        "kind": "change",
         "confirm": [
           {
-            "tier": "read"
+            "tier": "dangerous",
+            "flag": "--allow-dangerous"
           }
         ]
       },
       {
-        "path": "komando queue groups",
-        "usage": "komando queue groups CONN [flags]",
-        "short": "List Kafka consumer groups, NATS consumers or Pub/Sub subscriptions",
-        "example": "  komando queue groups prod-kafka",
-        "flags": [
-          {
-            "name": "limit",
-            "shorthand": "n",
-            "type": "int",
-            "default": "0",
-            "usage": "show at most this many groups (0 = all)"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando queue info",
-        "usage": "komando queue info CONN [flags]",
-        "short": "Server summary: version, brokers or nodes, topic, queue or stream count",
-        "example": "  komando queue info prod-kafka",
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando queue lag",
-        "usage": "komando queue lag CONN CONSUMER [flags]",
-        "short": "How far one Kafka consumer group (or NATS consumer) is behind",
-        "example": "  komando queue lag prod-kafka billing\n  komando queue lag stream ORDERS/billing",
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando queue list",
-        "usage": "komando queue list CONN [PATTERN] [flags]",
-        "short": "List topics (or queues, or streams) with their message counts",
+        "path": "komando queue kafka topic list",
+        "usage": "komando queue kafka topic list NAME [PATTERN] [flags]",
+        "short": "List the topics of a Kafka cluster with their message counts",
         "aliases": [
           "ls"
         ],
-        "example": "  komando queue list prod-kafka\n  komando queue list prod-kafka 'orders-*'\n  komando queue list prod-kafka --internal\n  komando queue list prod-kafka -n 50",
+        "example": "  komando queue kafka topic list prod-kafka\n  komando queue kafka topic list prod-kafka 'o*' -n 50",
         "flags": [
           {
             "name": "internal",
@@ -7250,11 +7460,383 @@
         ]
       },
       {
-        "path": "komando queue peek",
-        "usage": "komando queue peek CONN TOPIC [flags]",
-        "short": "Read the newest (or oldest) messages without removing any",
-        "long": "Kafka: read messages straight from the topic's partitions. No consumer\ngroup is joined and no offset is committed, so no application notices and\nnothing is removed. By default the newest -n messages over all partitions;\n--oldest reads the first ones still kept.\n\nRabbitMQ: take the first -n messages of the queue (the next ones a consumer\nwould get) and give them all back. Nothing is removed, but RabbitMQ marks\nthem redelivered, and a quorum queue counts each peek as a delivery: peek\nstops (DELIVERY_LIMIT_NEAR) before a message runs out of them.\n\nNATS: read messages straight from the stream by their sequence number. No\nconsumer is made and nothing is acknowledged, so nothing is removed, also\nfrom a work-queue stream. The newest -n by default, --oldest for the first.\n\nAmazon SQS: receive messages with a visibility timeout of 0 and never\ndelete them, so they stay and consumers can receive them at once. SQS gives\nmessages in no set order, so this is a sample of what waits. Every receive\ncounts toward a dead-letter queue's maxReceiveCount: peek stops\n(DELIVERY_LIMIT_NEAR) before a message runs out of receives.\n\nGoogle Cloud Pub/Sub: TOPIC is a subscription (messages wait there, not\nin a topic). peek pulls messages without acknowledging them and gives them\nstraight back (ack deadline 0), so they stay and are delivered again at\nonce. With a dead-letter topic each pull counts as a delivery: peek stops\n(DELIVERY_LIMIT_NEAR) before a message runs out of them.\n\nValues that are not UTF-8 text are shown as base64.",
-        "example": "  komando queue peek prod-kafka orders\n  komando queue peek prod-kafka orders -n 50 --partition 2\n  komando queue peek prod-kafka orders --oldest -n 5",
+        "path": "komando queue kafka topic show",
+        "usage": "komando queue kafka topic show NAME TOPIC [flags]",
+        "short": "Show one topic of a Kafka cluster: messages, settings, readers",
+        "aliases": [
+          "describe"
+        ],
+        "example": "  komando queue kafka topic show prod-kafka orders\n  komando queue kafka topic show prod-kafka orders -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats",
+        "usage": "komando queue nats [flags]",
+        "short": "NATS JetStream: save a server, and read, send and manage its streams",
+        "example": "  komando queue nats add prod-nats nats://app@10.0.0.10:4222 --via web1 --dry-run\n  komando queue nats add prod-nats nats://app@10.0.0.10:4222 --via web1\n  komando queue nats test prod-nats\n  komando queue nats topic list prod-nats\n  komando queue nats message list prod-nats ORDERS -n 5",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats add",
+        "usage": "komando queue nats add NAME [URL] [flags]",
+        "short": "Save a nats queue under a short name",
+        "long": "Save a nats queue under a short name.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue nats add prod-nats nats://app@10.0.0.10:4222 --via web1\n  komando queue nats add prod-nats nats://app@10.0.0.10:4222 --dry-run",
+        "flags": [
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "overwrite",
+            "type": "bool",
+            "default": "false",
+            "usage": "replace an entry that has the same name"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "tags, like prod"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats consumer",
+        "usage": "komando queue nats consumer [flags]",
+        "short": "Consumer groups, consumers or subscriptions: list, show",
+        "example": "  komando queue nats consumer list prod-nats\n  komando queue nats consumer list prod-nats -n 20\n  komando queue nats consumer show prod-nats billing",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats consumer list",
+        "usage": "komando queue nats consumer list NAME [flags]",
+        "short": "List the consumers of a NATS server",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue nats consumer list prod-nats\n  komando queue nats consumer list prod-nats -n 20",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many groups, consumers or subscriptions (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats consumer show",
+        "usage": "komando queue nats consumer show NAME CONSUMER [flags]",
+        "short": "Show how far one consumer is behind of a NATS server",
+        "example": "  komando queue nats consumer show prod-nats billing\n  komando queue nats consumer show prod-nats billing -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats edit",
+        "usage": "komando queue nats edit NAME [flags]",
+        "short": "Change a saved nats queue (only the flags you pass change)",
+        "long": "Change a saved nats queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue nats edit prod-nats --add-tag critical\n  komando queue nats edit prod-nats --notes 'main one' --dry-run",
+        "flags": [
+          {
+            "name": "add-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "add-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "add these tags"
+          },
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "rm-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "take it out of these groups"
+          },
+          {
+            "name": "rm-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "remove these tags"
+          },
+          {
+            "name": "unset",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "clear these settings: via, credential, notes, protected"
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "usage": "the new URL (the provider may not change)"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats info",
+        "usage": "komando queue nats info NAME [flags]",
+        "short": "Show the version and size of a NATS server",
+        "example": "  komando queue nats info prod-nats\n  komando queue nats info prod-nats -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats list",
+        "usage": "komando queue nats list [TARGET] [flags]",
+        "short": "List the saved nats queues",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue nats list\n  komando queue nats list @web",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats message",
+        "usage": "komando queue nats message [flags]",
+        "short": "The messages of a topic: list, create, delete",
+        "example": "  komando queue nats message list prod-nats ORDERS\n  komando queue nats message list prod-nats ORDERS --oldest -n 5\n  komando queue nats message create prod-nats ORDERS --value test --dry-run\n  komando queue nats message delete prod-nats ORDERS-retry --all --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats message create",
+        "usage": "komando queue nats message create NAME TOPIC [flags]",
+        "short": "Publish one message to a topic of a NATS server",
+        "long": "Publish one message to a topic of a NATS server.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue nats message create prod-nats ORDERS --value test --dry-run\n  komando queue nats message create prod-nats ORDERS --from ./order.json --header source=support",
+        "flags": [
+          {
+            "name": "from",
+            "type": "string",
+            "usage": "read the message from this file ('-' for stdin)"
+          },
+          {
+            "name": "header",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "a message header KEY=VALUE (repeatable)"
+          },
+          {
+            "name": "key",
+            "type": "string",
+            "usage": "Kafka: the message key (picks the partition); SQS: the message group of a FIFO queue; Pub/Sub: the ordering key"
+          },
+          {
+            "name": "partition",
+            "type": "int",
+            "default": "0",
+            "usage": "Kafka: send to this partition, numbered from 0 (default: the broker's choice)"
+          },
+          {
+            "name": "value",
+            "type": "string",
+            "usage": "the message"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats message delete",
+        "usage": "komando queue nats message delete NAME TOPIC [flags]",
+        "short": "Empty a topic of a NATS server and keep it",
+        "long": "Empty a topic of a NATS server and keep it.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando queue nats message delete prod-nats ORDERS-retry --all --dry-run\n  komando queue nats message delete prod-nats ORDERS-retry --all --allow-dangerous   # after a person's yes",
+        "flags": [
+          {
+            "name": "all",
+            "type": "bool",
+            "default": "false",
+            "usage": "every waiting message; without it nothing is deleted"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats message list",
+        "usage": "komando queue nats message list NAME TOPIC [flags]",
+        "short": "Read the newest (or oldest) messages of a NATS server, removing none",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue nats message list prod-nats ORDERS\n  komando queue nats message list prod-nats ORDERS --oldest -n 5",
         "flags": [
           {
             "name": "idle",
@@ -7278,6 +7860,7 @@
           {
             "name": "partition",
             "type": "int",
+            "default": "0",
             "usage": "Kafka: only this partition, numbered from 0 (default: every partition)"
           }
         ],
@@ -7290,31 +7873,131 @@
         ]
       },
       {
-        "path": "komando queue purge",
-        "usage": "komando queue purge CONN TOPIC [flags]",
-        "short": "Empty a topic, queue or stream and keep it",
-        "long": "Empty a topic, queue or stream and keep it.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous; on a protected server\nor conn, a person's yes (--yes) as well.",
-        "example": "  komando queue purge prod-kafka orders-retry --dry-run\n  komando queue purge prod-kafka orders-retry --allow-dangerous   # after a person's yes",
+        "path": "komando queue nats remove",
+        "usage": "komando queue nats remove TARGET... [flags]",
+        "short": "Forget a saved nats queue (the queue is not touched)",
+        "long": "Forget a saved nats queue (the queue is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "example": "  komando queue nats remove prod-nats --dry-run\n  komando queue nats remove prod-nats",
         "runnable": true,
         "kind": "change",
         "confirm": [
           {
-            "tier": "dangerous",
-            "flag": "--allow-dangerous"
+            "tier": "change"
           }
         ]
       },
       {
-        "path": "komando queue rm",
-        "usage": "komando queue rm CONN TOPIC... [flags]",
-        "short": "Delete topics, queues or streams with their messages",
-        "long": "Delete topics, queues or streams with their messages.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous; on a protected server\nor conn, a person's yes (--yes) as well.",
-        "aliases": [
-          "remove",
-          "delete",
-          "del"
+        "path": "komando queue nats rename",
+        "usage": "komando queue nats rename NAME NEW [flags]",
+        "short": "Rename a saved nats queue and every reference to it",
+        "long": "Rename a saved nats queue and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue nats rename prod-nats prod-nats-2 --dry-run\n  komando queue nats rename prod-nats prod-nats-2",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats show",
+        "usage": "komando queue nats show NAME [flags]",
+        "short": "Show a saved nats queue's settings (credentials as names)",
+        "example": "  komando queue nats show prod-nats\n  komando queue nats show prod-nats -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats test",
+        "usage": "komando queue nats test TARGET [flags]",
+        "short": "Check that a saved nats queue answers and lets you in",
+        "example": "  komando queue nats test prod-nats\n  komando queue nats test @web",
+        "flags": [
+          {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the session a person's login keeps open"
+          },
+          {
+            "name": "wait",
+            "type": "duration",
+            "default": "0",
+            "usage": "wait this long for a person's sign-in"
+          }
         ],
-        "example": "  komando queue rm prod-kafka old-orders --dry-run\n  komando queue rm prod-kafka old-orders --allow-dangerous   # after a person's yes",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats topic",
+        "usage": "komando queue nats topic [flags]",
+        "short": "The topics (queues, streams) of a broker: list, show, create, delete",
+        "example": "  komando queue nats topic list prod-nats\n  komando queue nats topic show prod-nats ORDERS\n  komando queue nats topic create prod-nats ORDERS --dry-run\n  komando queue nats topic delete prod-nats old-ORDERS --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats topic create",
+        "usage": "komando queue nats topic create NAME TOPIC [flags]",
+        "short": "Create a topic of a NATS server",
+        "long": "Create a topic of a NATS server.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue nats topic create prod-nats ORDERS --dry-run\n  komando queue nats topic create prod-nats ORDERS --config retention.ms=604800000",
+        "flags": [
+          {
+            "name": "config",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "a setting KEY=VALUE, like retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable)"
+          },
+          {
+            "name": "partitions",
+            "type": "int",
+            "default": "0",
+            "usage": "Kafka: how many partitions (default: the broker's)"
+          },
+          {
+            "name": "replicas",
+            "type": "int",
+            "default": "0",
+            "usage": "copies of each message. Kafka: copies of each partition; NATS: copies of the stream (default: the broker's; NATS: 1)"
+          },
+          {
+            "name": "type",
+            "type": "string",
+            "usage": "RabbitMQ: the queue type, classic, quorum or stream (default: the server's)"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats topic delete",
+        "usage": "komando queue nats topic delete NAME TOPIC... [flags]",
+        "short": "Delete topics of a NATS server with their messages",
+        "long": "Delete topics of a NATS server with their messages.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando queue nats topic delete prod-nats old-ORDERS --dry-run\n  komando queue nats topic delete prod-nats old-ORDERS --allow-dangerous   # after a person's yes",
         "runnable": true,
         "kind": "change",
         "confirm": [
@@ -7325,11 +8008,333 @@
         ]
       },
       {
-        "path": "komando queue send",
-        "usage": "komando queue send CONN TOPIC [flags]",
-        "short": "Publish one message",
-        "long": "Publish one message to an existing topic (or queue) and wait until the\nserver keeps it. The value comes from --value, from a file (--from FILE;\n'-' is stdin), or from data piped on stdin. --dry-run checks the topic and\nthe partition and sends nothing.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.\n\nKafka: --key picks the partition the usual way (the same key always goes\nto the same partition); --partition picks one itself.\nRabbitMQ: the message goes straight to the queue (the default exchange),\npersistent, with --header values as its headers.\nNATS: TOPIC is a subject that a stream keeps (orders.new); komando checks\nwhich stream, publishes, and waits for the stream's acknowledgement.\nAmazon SQS: text only; --header values become message attributes. A FIFO\nqueue (name.fifo) needs --key, the message group.\nGoogle Cloud Pub/Sub: TOPIC is a topic; --header values become message\nattributes and --key is the ordering key.",
-        "example": "  komando queue send prod-kafka orders --value '{\"id\": 42, \"status\": \"paid\"}' --key 42\n  komando queue send prod-kafka orders --from ./order.json --header source=support\n  komando queue send prod-kafka orders --value test --dry-run",
+        "path": "komando queue nats topic list",
+        "usage": "komando queue nats topic list NAME [PATTERN] [flags]",
+        "short": "List the topics of a NATS server with their message counts",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue nats topic list prod-nats\n  komando queue nats topic list prod-nats 'o*' -n 50",
+        "flags": [
+          {
+            "name": "internal",
+            "type": "bool",
+            "default": "false",
+            "usage": "Kafka: also list its own topics (__consumer_offsets, ...)"
+          },
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "1000",
+            "usage": "the most topics (or queues, or streams) to show, the first by name"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats topic show",
+        "usage": "komando queue nats topic show NAME TOPIC [flags]",
+        "short": "Show one topic of a NATS server: messages, settings, readers",
+        "aliases": [
+          "describe"
+        ],
+        "example": "  komando queue nats topic show prod-nats ORDERS\n  komando queue nats topic show prod-nats ORDERS -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub",
+        "usage": "komando queue pubsub [flags]",
+        "short": "Pub/Sub: save a project, and read, send and manage its topics",
+        "example": "  komando queue pubsub add prod-pubsub pubsub://my-project --via web1 --dry-run\n  komando queue pubsub add prod-pubsub pubsub://my-project --via web1\n  komando queue pubsub test prod-pubsub\n  komando queue pubsub topic list prod-pubsub\n  komando queue pubsub message list prod-pubsub orders -n 5",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub add",
+        "usage": "komando queue pubsub add NAME [URL] [flags]",
+        "short": "Save a pubsub queue under a short name",
+        "long": "Save a pubsub queue under a short name.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue pubsub add prod-pubsub pubsub://my-project --via web1\n  komando queue pubsub add prod-pubsub pubsub://my-project --dry-run",
+        "flags": [
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "overwrite",
+            "type": "bool",
+            "default": "false",
+            "usage": "replace an entry that has the same name"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "tags, like prod"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub consumer",
+        "usage": "komando queue pubsub consumer [flags]",
+        "short": "Consumer groups, consumers or subscriptions: list, show",
+        "example": "  komando queue pubsub consumer list prod-pubsub\n  komando queue pubsub consumer list prod-pubsub -n 20\n  komando queue pubsub consumer list prod-pubsub -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub consumer list",
+        "usage": "komando queue pubsub consumer list NAME [flags]",
+        "short": "List the subscriptions of a Pub/Sub project",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue pubsub consumer list prod-pubsub\n  komando queue pubsub consumer list prod-pubsub -n 20",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many groups, consumers or subscriptions (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub edit",
+        "usage": "komando queue pubsub edit NAME [flags]",
+        "short": "Change a saved pubsub queue (only the flags you pass change)",
+        "long": "Change a saved pubsub queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue pubsub edit prod-pubsub --add-tag critical\n  komando queue pubsub edit prod-pubsub --notes 'main one' --dry-run",
+        "flags": [
+          {
+            "name": "add-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "add-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "add these tags"
+          },
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "rm-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "take it out of these groups"
+          },
+          {
+            "name": "rm-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "remove these tags"
+          },
+          {
+            "name": "unset",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "clear these settings: via, credential, notes, protected"
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "usage": "the new URL (the provider may not change)"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub info",
+        "usage": "komando queue pubsub info NAME [flags]",
+        "short": "Show the version and size of a Pub/Sub project",
+        "example": "  komando queue pubsub info prod-pubsub\n  komando queue pubsub info prod-pubsub -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub list",
+        "usage": "komando queue pubsub list [TARGET] [flags]",
+        "short": "List the saved pubsub queues",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue pubsub list\n  komando queue pubsub list @web",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub message",
+        "usage": "komando queue pubsub message [flags]",
+        "short": "The messages of a topic: list, create, delete",
+        "example": "  komando queue pubsub message list prod-pubsub orders\n  komando queue pubsub message list prod-pubsub orders --oldest -n 5\n  komando queue pubsub message create prod-pubsub orders --value test --dry-run\n  komando queue pubsub message delete prod-pubsub orders-retry --all --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub message create",
+        "usage": "komando queue pubsub message create NAME TOPIC [flags]",
+        "short": "Publish one message to a topic of a Pub/Sub project",
+        "long": "Publish one message to a topic of a Pub/Sub project.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue pubsub message create prod-pubsub orders --value test --dry-run\n  komando queue pubsub message create prod-pubsub orders --from ./order.json --header source=support",
         "flags": [
           {
             "name": "from",
@@ -7350,6 +8355,7 @@
           {
             "name": "partition",
             "type": "int",
+            "default": "0",
             "usage": "Kafka: send to this partition, numbered from 0 (default: the broker's choice)"
           },
           {
@@ -7363,6 +8369,1310 @@
         "confirm": [
           {
             "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub message delete",
+        "usage": "komando queue pubsub message delete NAME TOPIC [flags]",
+        "short": "Empty a topic of a Pub/Sub project and keep it",
+        "long": "Empty a topic of a Pub/Sub project and keep it.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando queue pubsub message delete prod-pubsub orders-retry --all --dry-run\n  komando queue pubsub message delete prod-pubsub orders-retry --all --allow-dangerous   # after a person's yes",
+        "flags": [
+          {
+            "name": "all",
+            "type": "bool",
+            "default": "false",
+            "usage": "every waiting message; without it nothing is deleted"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub message list",
+        "usage": "komando queue pubsub message list NAME TOPIC [flags]",
+        "short": "Read the newest (or oldest) messages of a Pub/Sub project, removing none",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue pubsub message list prod-pubsub orders\n  komando queue pubsub message list prod-pubsub orders --oldest -n 5",
+        "flags": [
+          {
+            "name": "idle",
+            "type": "duration",
+            "default": "5s",
+            "usage": "Kafka: stop when no message came for this long"
+          },
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "10",
+            "usage": "how many messages"
+          },
+          {
+            "name": "oldest",
+            "type": "bool",
+            "default": "false",
+            "usage": "the first messages still kept, not the newest"
+          },
+          {
+            "name": "partition",
+            "type": "int",
+            "default": "0",
+            "usage": "Kafka: only this partition, numbered from 0 (default: every partition)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub remove",
+        "usage": "komando queue pubsub remove TARGET... [flags]",
+        "short": "Forget a saved pubsub queue (the queue is not touched)",
+        "long": "Forget a saved pubsub queue (the queue is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "example": "  komando queue pubsub remove prod-pubsub --dry-run\n  komando queue pubsub remove prod-pubsub",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub rename",
+        "usage": "komando queue pubsub rename NAME NEW [flags]",
+        "short": "Rename a saved pubsub queue and every reference to it",
+        "long": "Rename a saved pubsub queue and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue pubsub rename prod-pubsub prod-pubsub-2 --dry-run\n  komando queue pubsub rename prod-pubsub prod-pubsub-2",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub show",
+        "usage": "komando queue pubsub show NAME [flags]",
+        "short": "Show a saved pubsub queue's settings (credentials as names)",
+        "example": "  komando queue pubsub show prod-pubsub\n  komando queue pubsub show prod-pubsub -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub test",
+        "usage": "komando queue pubsub test TARGET [flags]",
+        "short": "Check that a saved pubsub queue answers and lets you in",
+        "example": "  komando queue pubsub test prod-pubsub\n  komando queue pubsub test @web",
+        "flags": [
+          {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the session a person's login keeps open"
+          },
+          {
+            "name": "wait",
+            "type": "duration",
+            "default": "0",
+            "usage": "wait this long for a person's sign-in"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub topic",
+        "usage": "komando queue pubsub topic [flags]",
+        "short": "The topics (queues, streams) of a broker: list, show, create, delete",
+        "example": "  komando queue pubsub topic list prod-pubsub\n  komando queue pubsub topic show prod-pubsub orders\n  komando queue pubsub topic create prod-pubsub orders --dry-run\n  komando queue pubsub topic delete prod-pubsub old-orders --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub topic create",
+        "usage": "komando queue pubsub topic create NAME TOPIC [flags]",
+        "short": "Create a topic of a Pub/Sub project",
+        "long": "Create a topic of a Pub/Sub project.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue pubsub topic create prod-pubsub orders --dry-run\n  komando queue pubsub topic create prod-pubsub orders --config retention.ms=604800000",
+        "flags": [
+          {
+            "name": "config",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "a setting KEY=VALUE, like retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable)"
+          },
+          {
+            "name": "partitions",
+            "type": "int",
+            "default": "0",
+            "usage": "Kafka: how many partitions (default: the broker's)"
+          },
+          {
+            "name": "replicas",
+            "type": "int",
+            "default": "0",
+            "usage": "copies of each message. Kafka: copies of each partition; NATS: copies of the stream (default: the broker's; NATS: 1)"
+          },
+          {
+            "name": "type",
+            "type": "string",
+            "usage": "RabbitMQ: the queue type, classic, quorum or stream (default: the server's)"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub topic delete",
+        "usage": "komando queue pubsub topic delete NAME TOPIC... [flags]",
+        "short": "Delete topics of a Pub/Sub project with their messages",
+        "long": "Delete topics of a Pub/Sub project with their messages.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando queue pubsub topic delete prod-pubsub old-orders --dry-run\n  komando queue pubsub topic delete prod-pubsub old-orders --allow-dangerous   # after a person's yes",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub topic list",
+        "usage": "komando queue pubsub topic list NAME [PATTERN] [flags]",
+        "short": "List the topics of a Pub/Sub project with their message counts",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue pubsub topic list prod-pubsub\n  komando queue pubsub topic list prod-pubsub 'o*' -n 50",
+        "flags": [
+          {
+            "name": "internal",
+            "type": "bool",
+            "default": "false",
+            "usage": "Kafka: also list its own topics (__consumer_offsets, ...)"
+          },
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "1000",
+            "usage": "the most topics (or queues, or streams) to show, the first by name"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub topic show",
+        "usage": "komando queue pubsub topic show NAME TOPIC [flags]",
+        "short": "Show one topic of a Pub/Sub project: messages, settings, readers",
+        "aliases": [
+          "describe"
+        ],
+        "example": "  komando queue pubsub topic show prod-pubsub orders\n  komando queue pubsub topic show prod-pubsub orders -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq",
+        "usage": "komando queue rabbitmq [flags]",
+        "short": "RabbitMQ: save a broker, and read, send and manage its queues",
+        "example": "  komando queue rabbitmq add prod-rabbit amqps://app@10.0.0.9/ --via web1 --dry-run\n  komando queue rabbitmq add prod-rabbit amqps://app@10.0.0.9/ --via web1\n  komando queue rabbitmq test prod-rabbit\n  komando queue rabbitmq topic list prod-rabbit\n  komando queue rabbitmq message list prod-rabbit emails -n 5",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq add",
+        "usage": "komando queue rabbitmq add NAME [URL] [flags]",
+        "short": "Save a rabbitmq queue under a short name",
+        "long": "Save a rabbitmq queue under a short name.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue rabbitmq add prod-rabbit amqps://app@10.0.0.9/ --via web1\n  komando queue rabbitmq add prod-rabbit amqps://app@10.0.0.9/ --dry-run",
+        "flags": [
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "overwrite",
+            "type": "bool",
+            "default": "false",
+            "usage": "replace an entry that has the same name"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "tags, like prod"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq edit",
+        "usage": "komando queue rabbitmq edit NAME [flags]",
+        "short": "Change a saved rabbitmq queue (only the flags you pass change)",
+        "long": "Change a saved rabbitmq queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue rabbitmq edit prod-rabbit --add-tag critical\n  komando queue rabbitmq edit prod-rabbit --notes 'main one' --dry-run",
+        "flags": [
+          {
+            "name": "add-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "add-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "add these tags"
+          },
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "rm-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "take it out of these groups"
+          },
+          {
+            "name": "rm-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "remove these tags"
+          },
+          {
+            "name": "unset",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "clear these settings: via, credential, notes, protected"
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "usage": "the new URL (the provider may not change)"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq info",
+        "usage": "komando queue rabbitmq info NAME [flags]",
+        "short": "Show the version and size of a RabbitMQ broker",
+        "example": "  komando queue rabbitmq info prod-rabbit\n  komando queue rabbitmq info prod-rabbit -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq list",
+        "usage": "komando queue rabbitmq list [TARGET] [flags]",
+        "short": "List the saved rabbitmq queues",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue rabbitmq list\n  komando queue rabbitmq list @web",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq message",
+        "usage": "komando queue rabbitmq message [flags]",
+        "short": "The messages of a topic: list, create, delete",
+        "example": "  komando queue rabbitmq message list prod-rabbit emails\n  komando queue rabbitmq message list prod-rabbit emails --oldest -n 5\n  komando queue rabbitmq message create prod-rabbit emails --value test --dry-run\n  komando queue rabbitmq message delete prod-rabbit emails-retry --all --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq message create",
+        "usage": "komando queue rabbitmq message create NAME TOPIC [flags]",
+        "short": "Publish one message to a topic of a RabbitMQ broker",
+        "long": "Publish one message to a topic of a RabbitMQ broker.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue rabbitmq message create prod-rabbit emails --value test --dry-run\n  komando queue rabbitmq message create prod-rabbit emails --from ./order.json --header source=support",
+        "flags": [
+          {
+            "name": "from",
+            "type": "string",
+            "usage": "read the message from this file ('-' for stdin)"
+          },
+          {
+            "name": "header",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "a message header KEY=VALUE (repeatable)"
+          },
+          {
+            "name": "key",
+            "type": "string",
+            "usage": "Kafka: the message key (picks the partition); SQS: the message group of a FIFO queue; Pub/Sub: the ordering key"
+          },
+          {
+            "name": "partition",
+            "type": "int",
+            "default": "0",
+            "usage": "Kafka: send to this partition, numbered from 0 (default: the broker's choice)"
+          },
+          {
+            "name": "value",
+            "type": "string",
+            "usage": "the message"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq message delete",
+        "usage": "komando queue rabbitmq message delete NAME TOPIC [flags]",
+        "short": "Empty a topic of a RabbitMQ broker and keep it",
+        "long": "Empty a topic of a RabbitMQ broker and keep it.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando queue rabbitmq message delete prod-rabbit emails-retry --all --dry-run\n  komando queue rabbitmq message delete prod-rabbit emails-retry --all --allow-dangerous   # after a person's yes",
+        "flags": [
+          {
+            "name": "all",
+            "type": "bool",
+            "default": "false",
+            "usage": "every waiting message; without it nothing is deleted"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq message list",
+        "usage": "komando queue rabbitmq message list NAME TOPIC [flags]",
+        "short": "Read the newest (or oldest) messages of a RabbitMQ broker, removing none",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue rabbitmq message list prod-rabbit emails\n  komando queue rabbitmq message list prod-rabbit emails --oldest -n 5",
+        "flags": [
+          {
+            "name": "idle",
+            "type": "duration",
+            "default": "5s",
+            "usage": "Kafka: stop when no message came for this long"
+          },
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "10",
+            "usage": "how many messages"
+          },
+          {
+            "name": "oldest",
+            "type": "bool",
+            "default": "false",
+            "usage": "the first messages still kept, not the newest"
+          },
+          {
+            "name": "partition",
+            "type": "int",
+            "default": "0",
+            "usage": "Kafka: only this partition, numbered from 0 (default: every partition)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq remove",
+        "usage": "komando queue rabbitmq remove TARGET... [flags]",
+        "short": "Forget a saved rabbitmq queue (the queue is not touched)",
+        "long": "Forget a saved rabbitmq queue (the queue is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "example": "  komando queue rabbitmq remove prod-rabbit --dry-run\n  komando queue rabbitmq remove prod-rabbit",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq rename",
+        "usage": "komando queue rabbitmq rename NAME NEW [flags]",
+        "short": "Rename a saved rabbitmq queue and every reference to it",
+        "long": "Rename a saved rabbitmq queue and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue rabbitmq rename prod-rabbit prod-rabbit-2 --dry-run\n  komando queue rabbitmq rename prod-rabbit prod-rabbit-2",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq show",
+        "usage": "komando queue rabbitmq show NAME [flags]",
+        "short": "Show a saved rabbitmq queue's settings (credentials as names)",
+        "example": "  komando queue rabbitmq show prod-rabbit\n  komando queue rabbitmq show prod-rabbit -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq test",
+        "usage": "komando queue rabbitmq test TARGET [flags]",
+        "short": "Check that a saved rabbitmq queue answers and lets you in",
+        "example": "  komando queue rabbitmq test prod-rabbit\n  komando queue rabbitmq test @web",
+        "flags": [
+          {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the session a person's login keeps open"
+          },
+          {
+            "name": "wait",
+            "type": "duration",
+            "default": "0",
+            "usage": "wait this long for a person's sign-in"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq topic",
+        "usage": "komando queue rabbitmq topic [flags]",
+        "short": "The topics (queues, streams) of a broker: list, show, create, delete",
+        "example": "  komando queue rabbitmq topic list prod-rabbit\n  komando queue rabbitmq topic show prod-rabbit emails\n  komando queue rabbitmq topic create prod-rabbit emails --dry-run\n  komando queue rabbitmq topic delete prod-rabbit old-emails --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq topic create",
+        "usage": "komando queue rabbitmq topic create NAME TOPIC [flags]",
+        "short": "Create a topic of a RabbitMQ broker",
+        "long": "Create a topic of a RabbitMQ broker.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue rabbitmq topic create prod-rabbit emails --dry-run\n  komando queue rabbitmq topic create prod-rabbit emails --config retention.ms=604800000",
+        "flags": [
+          {
+            "name": "config",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "a setting KEY=VALUE, like retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable)"
+          },
+          {
+            "name": "partitions",
+            "type": "int",
+            "default": "0",
+            "usage": "Kafka: how many partitions (default: the broker's)"
+          },
+          {
+            "name": "replicas",
+            "type": "int",
+            "default": "0",
+            "usage": "copies of each message. Kafka: copies of each partition; NATS: copies of the stream (default: the broker's; NATS: 1)"
+          },
+          {
+            "name": "type",
+            "type": "string",
+            "usage": "RabbitMQ: the queue type, classic, quorum or stream (default: the server's)"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq topic delete",
+        "usage": "komando queue rabbitmq topic delete NAME TOPIC... [flags]",
+        "short": "Delete topics of a RabbitMQ broker with their messages",
+        "long": "Delete topics of a RabbitMQ broker with their messages.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando queue rabbitmq topic delete prod-rabbit old-emails --dry-run\n  komando queue rabbitmq topic delete prod-rabbit old-emails --allow-dangerous   # after a person's yes",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq topic list",
+        "usage": "komando queue rabbitmq topic list NAME [PATTERN] [flags]",
+        "short": "List the topics of a RabbitMQ broker with their message counts",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue rabbitmq topic list prod-rabbit\n  komando queue rabbitmq topic list prod-rabbit 'e*' -n 50",
+        "flags": [
+          {
+            "name": "internal",
+            "type": "bool",
+            "default": "false",
+            "usage": "Kafka: also list its own topics (__consumer_offsets, ...)"
+          },
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "1000",
+            "usage": "the most topics (or queues, or streams) to show, the first by name"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq topic show",
+        "usage": "komando queue rabbitmq topic show NAME TOPIC [flags]",
+        "short": "Show one topic of a RabbitMQ broker: messages, settings, readers",
+        "aliases": [
+          "describe"
+        ],
+        "example": "  komando queue rabbitmq topic show prod-rabbit emails\n  komando queue rabbitmq topic show prod-rabbit emails -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs",
+        "usage": "komando queue sqs [flags]",
+        "short": "Amazon SQS: save an account, and read, send and manage its queues",
+        "example": "  komando queue sqs add prod-sqs sqs://eu-west-1 --via web1 --dry-run\n  komando queue sqs add prod-sqs sqs://eu-west-1 --via web1\n  komando queue sqs test prod-sqs\n  komando queue sqs topic list prod-sqs\n  komando queue sqs message list prod-sqs orders -n 5",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs add",
+        "usage": "komando queue sqs add NAME [URL] [flags]",
+        "short": "Save a sqs queue under a short name",
+        "long": "Save a sqs queue under a short name.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue sqs add prod-sqs sqs://eu-west-1 --via web1\n  komando queue sqs add prod-sqs sqs://eu-west-1 --dry-run",
+        "flags": [
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "overwrite",
+            "type": "bool",
+            "default": "false",
+            "usage": "replace an entry that has the same name"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "tags, like prod"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs edit",
+        "usage": "komando queue sqs edit NAME [flags]",
+        "short": "Change a saved sqs queue (only the flags you pass change)",
+        "long": "Change a saved sqs queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue sqs edit prod-sqs --add-tag critical\n  komando queue sqs edit prod-sqs --notes 'main one' --dry-run",
+        "flags": [
+          {
+            "name": "add-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "add-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "add these tags"
+          },
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "rm-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "take it out of these groups"
+          },
+          {
+            "name": "rm-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "remove these tags"
+          },
+          {
+            "name": "unset",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "clear these settings: via, credential, notes, protected"
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "usage": "the new URL (the provider may not change)"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs info",
+        "usage": "komando queue sqs info NAME [flags]",
+        "short": "Show the version and size of a SQS account",
+        "example": "  komando queue sqs info prod-sqs\n  komando queue sqs info prod-sqs -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs list",
+        "usage": "komando queue sqs list [TARGET] [flags]",
+        "short": "List the saved sqs queues",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue sqs list\n  komando queue sqs list @web",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs message",
+        "usage": "komando queue sqs message [flags]",
+        "short": "The messages of a topic: list, create, delete",
+        "example": "  komando queue sqs message list prod-sqs orders\n  komando queue sqs message list prod-sqs orders --oldest -n 5\n  komando queue sqs message create prod-sqs orders --value test --dry-run\n  komando queue sqs message delete prod-sqs orders-retry --all --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs message create",
+        "usage": "komando queue sqs message create NAME TOPIC [flags]",
+        "short": "Publish one message to a topic of a SQS account",
+        "long": "Publish one message to a topic of a SQS account.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue sqs message create prod-sqs orders --value test --dry-run\n  komando queue sqs message create prod-sqs orders --from ./order.json --header source=support",
+        "flags": [
+          {
+            "name": "from",
+            "type": "string",
+            "usage": "read the message from this file ('-' for stdin)"
+          },
+          {
+            "name": "header",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "a message header KEY=VALUE (repeatable)"
+          },
+          {
+            "name": "key",
+            "type": "string",
+            "usage": "Kafka: the message key (picks the partition); SQS: the message group of a FIFO queue; Pub/Sub: the ordering key"
+          },
+          {
+            "name": "partition",
+            "type": "int",
+            "default": "0",
+            "usage": "Kafka: send to this partition, numbered from 0 (default: the broker's choice)"
+          },
+          {
+            "name": "value",
+            "type": "string",
+            "usage": "the message"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs message delete",
+        "usage": "komando queue sqs message delete NAME TOPIC [flags]",
+        "short": "Empty a topic of a SQS account and keep it",
+        "long": "Empty a topic of a SQS account and keep it.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando queue sqs message delete prod-sqs orders-retry --all --dry-run\n  komando queue sqs message delete prod-sqs orders-retry --all --allow-dangerous   # after a person's yes",
+        "flags": [
+          {
+            "name": "all",
+            "type": "bool",
+            "default": "false",
+            "usage": "every waiting message; without it nothing is deleted"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs message list",
+        "usage": "komando queue sqs message list NAME TOPIC [flags]",
+        "short": "Read the newest (or oldest) messages of a SQS account, removing none",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue sqs message list prod-sqs orders\n  komando queue sqs message list prod-sqs orders --oldest -n 5",
+        "flags": [
+          {
+            "name": "idle",
+            "type": "duration",
+            "default": "5s",
+            "usage": "Kafka: stop when no message came for this long"
+          },
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "10",
+            "usage": "how many messages"
+          },
+          {
+            "name": "oldest",
+            "type": "bool",
+            "default": "false",
+            "usage": "the first messages still kept, not the newest"
+          },
+          {
+            "name": "partition",
+            "type": "int",
+            "default": "0",
+            "usage": "Kafka: only this partition, numbered from 0 (default: every partition)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs remove",
+        "usage": "komando queue sqs remove TARGET... [flags]",
+        "short": "Forget a saved sqs queue (the queue is not touched)",
+        "long": "Forget a saved sqs queue (the queue is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "example": "  komando queue sqs remove prod-sqs --dry-run\n  komando queue sqs remove prod-sqs",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs rename",
+        "usage": "komando queue sqs rename NAME NEW [flags]",
+        "short": "Rename a saved sqs queue and every reference to it",
+        "long": "Rename a saved sqs queue and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue sqs rename prod-sqs prod-sqs-2 --dry-run\n  komando queue sqs rename prod-sqs prod-sqs-2",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs show",
+        "usage": "komando queue sqs show NAME [flags]",
+        "short": "Show a saved sqs queue's settings (credentials as names)",
+        "example": "  komando queue sqs show prod-sqs\n  komando queue sqs show prod-sqs -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs test",
+        "usage": "komando queue sqs test TARGET [flags]",
+        "short": "Check that a saved sqs queue answers and lets you in",
+        "example": "  komando queue sqs test prod-sqs\n  komando queue sqs test @web",
+        "flags": [
+          {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the session a person's login keeps open"
+          },
+          {
+            "name": "wait",
+            "type": "duration",
+            "default": "0",
+            "usage": "wait this long for a person's sign-in"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs topic",
+        "usage": "komando queue sqs topic [flags]",
+        "short": "The topics (queues, streams) of a broker: list, show, create, delete",
+        "example": "  komando queue sqs topic list prod-sqs\n  komando queue sqs topic show prod-sqs orders\n  komando queue sqs topic create prod-sqs orders --dry-run\n  komando queue sqs topic delete prod-sqs old-orders --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs topic create",
+        "usage": "komando queue sqs topic create NAME TOPIC [flags]",
+        "short": "Create a topic of a SQS account",
+        "long": "Create a topic of a SQS account.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue sqs topic create prod-sqs orders --dry-run\n  komando queue sqs topic create prod-sqs orders --config retention.ms=604800000",
+        "flags": [
+          {
+            "name": "config",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "a setting KEY=VALUE, like retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable)"
+          },
+          {
+            "name": "partitions",
+            "type": "int",
+            "default": "0",
+            "usage": "Kafka: how many partitions (default: the broker's)"
+          },
+          {
+            "name": "replicas",
+            "type": "int",
+            "default": "0",
+            "usage": "copies of each message. Kafka: copies of each partition; NATS: copies of the stream (default: the broker's; NATS: 1)"
+          },
+          {
+            "name": "type",
+            "type": "string",
+            "usage": "RabbitMQ: the queue type, classic, quorum or stream (default: the server's)"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs topic delete",
+        "usage": "komando queue sqs topic delete NAME TOPIC... [flags]",
+        "short": "Delete topics of a SQS account with their messages",
+        "long": "Delete topics of a SQS account with their messages.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando queue sqs topic delete prod-sqs old-orders --dry-run\n  komando queue sqs topic delete prod-sqs old-orders --allow-dangerous   # after a person's yes",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs topic list",
+        "usage": "komando queue sqs topic list NAME [PATTERN] [flags]",
+        "short": "List the topics of a SQS account with their message counts",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue sqs topic list prod-sqs\n  komando queue sqs topic list prod-sqs 'o*' -n 50",
+        "flags": [
+          {
+            "name": "internal",
+            "type": "bool",
+            "default": "false",
+            "usage": "Kafka: also list its own topics (__consumer_offsets, ...)"
+          },
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "1000",
+            "usage": "the most topics (or queues, or streams) to show, the first by name"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs topic show",
+        "usage": "komando queue sqs topic show NAME TOPIC [flags]",
+        "short": "Show one topic of a SQS account: messages, settings, readers",
+        "aliases": [
+          "describe"
+        ],
+        "example": "  komando queue sqs topic show prod-sqs orders\n  komando queue sqs topic show prod-sqs orders -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
           }
         ]
       },
@@ -10404,13 +12714,13 @@
         "code": "CONSUMER_GROUP_NOT_FOUND",
         "exit": 3,
         "example": "no consumer group named …",
-        "hint": "list consumer groups with `komando queue groups CONN`"
+        "hint": "list consumer groups with `komando queue kafka consumer list NAME`"
       },
       {
         "code": "CONSUMER_NOT_FOUND",
         "exit": 3,
         "example": "no consumer named …",
-        "hint": "list consumers with `komando queue groups CONN`; name one as STREAM/CONSUMER"
+        "hint": "list consumers with `komando queue nats consumer list NAME`; name one as STREAM/CONSUMER"
       },
       {
         "code": "DB_AUTH",
@@ -11056,7 +13366,7 @@
         "code": "PARTITION_NOT_FOUND",
         "exit": 3,
         "example": "topic … has no partition … (it has …)",
-        "hint": "partitions are numbered from 0; see them with `komando queue describe CONN …`"
+        "hint": "partitions are numbered from 0; see them with `komando queue kafka topic show NAME …`"
       },
       {
         "code": "PASSPHRASE_MISMATCH",
@@ -11158,13 +13468,13 @@
         "code": "QUEUE_EXISTS",
         "exit": 8,
         "example": "queue … already exists",
-        "hint": "pick another name, or see it with `komando queue describe CONN …`"
+        "hint": "pick another name, or see it with `komando queue rabbitmq topic show NAME …`"
       },
       {
         "code": "QUEUE_NOT_FOUND",
         "exit": 3,
         "example": "no queue named …",
-        "hint": "list queues with `komando queue list CONN` (it needs ?management=PORT in the conn's URL); the vhost is the URL's path"
+        "hint": "list queues with `komando queue rabbitmq topic list NAME` (it needs ?management=PORT in the conn's URL); the vhost is the URL's path"
       },
       {
         "code": "READ_FAILED",
@@ -11721,25 +14031,25 @@
         "code": "STREAM_EXISTS",
         "exit": 8,
         "example": "stream … already exists",
-        "hint": "pick another name, or see it with `komando queue describe CONN …`"
+        "hint": "pick another name, or see it with `komando queue nats topic show NAME …`"
       },
       {
         "code": "STREAM_NOT_FOUND",
         "exit": 3,
         "example": "no stream named …",
-        "hint": "list streams with `komando queue list CONN`"
+        "hint": "list streams with `komando queue nats topic list NAME`"
       },
       {
         "code": "SUBSCRIPTION_EXISTS",
         "exit": 8,
         "example": "subscription … already exists",
-        "hint": "pick another name, or see it with `komando queue describe CONN subscriptions/…`"
+        "hint": "pick another name, or see it with `komando queue pubsub topic show NAME subscriptions/…`"
       },
       {
         "code": "SUBSCRIPTION_NOT_FOUND",
         "exit": 3,
         "example": "no subscription named …",
-        "hint": "list subscriptions with `komando queue groups CONN`; `komando queue describe CONN TOPIC` shows a topic's own"
+        "hint": "list subscriptions with `komando queue pubsub consumer list NAME`; `komando queue pubsub topic show NAME TOPIC` shows a topic's own"
       },
       {
         "code": "SWARM_ERROR",
@@ -11835,13 +14145,13 @@
         "code": "TOPIC_EXISTS",
         "exit": 8,
         "example": "topic … already exists",
-        "hint": "pick another name, or see it with `komando queue describe CONN …`"
+        "hint": "pick another name, or see it with `komando queue kafka topic show NAME …`"
       },
       {
         "code": "TOPIC_NOT_FOUND",
         "exit": 3,
         "example": "no topic named …",
-        "hint": "list topics with `komando queue list CONN`"
+        "hint": "list topics with `komando queue kafka topic list NAME`"
       },
       {
         "code": "TUNNEL_FAILED",
