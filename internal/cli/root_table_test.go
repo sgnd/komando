@@ -753,9 +753,26 @@ func TestTierRunsNeverShrink(t *testing.T) {
 		}
 		id := strings.Join(l.Key.Path(), ".")
 		for _, r := range before {
-			if slices.Contains(l.Today, r.id) && !slices.ContainsFunc(tierRuns, func(n tierRun) bool { return n.id == id && n.row == r.row }) {
+			if slices.Contains(l.Today, r.id) && !slices.ContainsFunc(tierRuns, func(n tierRun) bool { return n.id == id && n.row == r.row }) &&
+				!otherProviderRuns(r, l) {
 				t.Errorf("%s moved to %s: its run %q is not on the new path", r.id, id, r.row)
 			}
 		}
 	}
+}
+
+// otherProviderRuns says whether another provider's leaf of the same key
+// has run r on its path: cluster swarm raw (a manager server today) has no
+// run of its own, kubernetes raw holds those of cluster.run.
+func otherProviderRuns(r struct{ row, id string }, l capability.Leaf) bool {
+	for _, o := range tableLeaves() {
+		if o.Key == l.Key || o.Type != l.Type || o.Area != l.Area || o.Verb != l.Verb || handlers[o.Key] == nil || !slices.Contains(o.Today, r.id) {
+			continue
+		}
+		oid := strings.Join(o.Key.Path(), ".")
+		if slices.ContainsFunc(tierRuns, func(n tierRun) bool { return n.id == oid && n.row == r.row }) {
+			return true
+		}
+	}
+	return false
 }

@@ -59,8 +59,7 @@ var clusterLeaves = each(clusterProviders, func(p provider) []Leaf {
 		raw.Example = cmd + "raw " + p.entry + " -- " + p.rawExample + "\n" + cmd + "raw " + p.entry + " --write -- " + p.writeExample + " --dry-run"
 	case "swarm":
 		raw.State = Built
-		// kubernetes raw holds cluster.run's runs; swarm raw carries its table entries
-		raw.Today, raw.Carries = nil, join(rawCarries, []string{"cluster.run"})
+		// kubernetes raw holds the runs of cluster.run; swarm raw has none until its entry (E1)
 		raw.Short = "Run one docker command on a Swarm manager and show the result"
 		raw.Example = cmd + "raw swarm1 -- service ls\n" + cmd + "raw swarm1 -- service ps web\n" +
 			cmd + "raw swarm1 --write -- service scale web=3 --dry-run"

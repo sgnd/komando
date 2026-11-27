@@ -61,8 +61,8 @@ not know? Set `KOMANDO_AGENT=1`.
    `cache redis raw` and `cluster kubernetes raw` are the other way round: they only read
    unless you add `--write`.
    Every command that hands words to another program (`exec`, `job start`,
-   `docker exec`, `docker compose`, `docker raw`, `cluster kubernetes exec`, `cluster
-   shell`, `cluster kubernetes raw`, `cache redis raw`) takes them only after `--`, and
+   `docker exec`, `docker compose`, `docker raw`, `cluster kubernetes exec`,
+   `cluster kubernetes shell`, `cluster kubernetes raw`, `cache redis raw`) takes them only after `--`, and
    komando's own flags go before it. Without `--` it stops with `USAGE`
    and runs nothing.
 3. **Use the command made for the job.**
