@@ -129,6 +129,12 @@ services:
     # (checks/rabbitmq.sh)
     image: rabbitmq:4.1.8-management
     environment: { RABBITMQ_DEFAULT_USER: app, RABBITMQ_DEFAULT_PASS: rabbitpass }
+    # As the rabbitmq user, never as root (C560): the image's entrypoint
+    # starts the server as that user, and a root command that runs before the
+    # server has made /var/lib/rabbitmq/.erlang.cookie creates the file for
+    # root; the server then stops with eacces, its name stops resolving and the
+    # bastion answers "Temporary failure in name resolution" for the whole run.
+    healthcheck: { test: ["CMD", "gosu", "rabbitmq", "rabbitmq-diagnostics", "-q", "check_port_connectivity"], interval: 2s, retries: 60 }
     networks: [private]
   nats:
     # NATS with JetStream, reached --via bastion (checks/nats.sh)
