@@ -221,8 +221,9 @@ func gateServerRule(c *cobra.Command, name string, key gateKey) *out.Error {
 		return refuse("the gate cannot tell this user's home (" + err.Error() + ")")
 	}
 	k, _ := kindOf(c)
+	writes := k.Kind != kindRead || gateSavesHere[cmdKeys[name]] != nil // a read that saves a file (download)
 	for _, w := range gateServerWords(c) {
-		if why := paths.WriteRefusal(w); why != "" && k.Kind != kindRead {
+		if why := paths.WriteRefusal(w); why != "" && writes {
 			// rule a, before the list, with its own code: the phone's probe
 			// 5 tells it from any other refusal
 			return out.Errf(out.ExitRemote, "SSH_GATE_PATH_DENIED", "a person changes it on this server itself; no key through the gate does",

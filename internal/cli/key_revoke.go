@@ -289,6 +289,14 @@ type deviceKey struct {
 	Notes       []string `json:"notes,omitempty"`
 }
 
+func (d deviceKey) Text() string {
+	s := d.Status + ": " + d.Name + " (" + d.Fingerprint + ") for " + d.User + " on " + d.Host + "\n" + d.Line + "\n"
+	for _, n := range d.Notes {
+		s += "note: " + n + "\n"
+	}
+	return s
+}
+
 // deviceKeyInstall runs the --public-key-file form on target.
 func deviceKeyInstall(cl *call, cmd *cobra.Command, o deviceKeyOpts, target string) error {
 	if !phonekey.UserName.MatchString(o.user) {

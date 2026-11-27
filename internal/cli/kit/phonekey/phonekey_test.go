@@ -122,11 +122,17 @@ stat 0 755 /usr
 stat 0 755 /
 gate yes
 syslog yes
+pathdir 0 755 /usr/local/sbin
+pathdir 0 755 /usr/local/bin
+pathdir 0 755 /usr/sbin
+pathdir 0 755 /usr/bin
 `
 
 // TestFactsRefusal pins rule b and the user rule: the gate's binary is
 // owned by root, not group or world writable, nor any folder above it,
-// and outside the user's home; the user is never uid 0, whatever its name.
+// and outside the user's home, and so is every folder of the gate's PATH
+// (C549 rule 4); the user is never uid 0, whatever its name. Mutant:
+// dropping the PATH loop in Refusal turns the PATH lines red.
 func TestFactsRefusal(t *testing.T) {
 	f := ParseFacts(goodFacts)
 	if code, why := f.Refusal("anna"); code != "" {
@@ -136,19 +142,22 @@ func TestFactsRefusal(t *testing.T) {
 		t.Errorf("%+v", f)
 	}
 	for name, c := range map[string]struct{ facts, code, word string }{
-		"root by uid":           {strings.Replace(goodFacts, "uid 1000", "uid 0", 1), "KEY_USER_INVALID", "uid 0"},
-		"no user":               {"user none\n", "KEY_USER_INVALID", "no user"},
-		"no komando":            {"uid 1000\nhome /home/anna\nkomando none\n", "KOMANDO_MISSING", "install"},
-		"in the home":           {strings.ReplaceAll(goodFacts, "/usr/local/bin/komando", "/home/anna/bin/komando"), "GATE_BINARY_INVALID", "home"},
-		"owned by the user":     {strings.Replace(goodFacts, "stat 0 755 /usr/local/bin/komando", "stat 1000 755 /usr/local/bin/komando", 1), "GATE_BINARY_INVALID", "owned by uid 1000"},
-		"a writable folder":     {strings.Replace(goodFacts, "stat 0 755 /usr/local/bin\n", "stat 0 775 /usr/local/bin\n", 1), "GATE_BINARY_INVALID", "writable"},
-		"world writable":        {strings.Replace(goodFacts, "stat 0 755 /usr/local\n", "stat 0 757 /usr/local\n", 1), "GATE_BINARY_INVALID", "writable"},
-		"a folder not checked":  {strings.Replace(goodFacts, "stat 0 755 /usr\n", "", 1), "GATE_BINARY_INVALID", "check"},
-		"an unchecked stat":     {strings.Replace(goodFacts, "stat 0 755 /usr\n", "stat ? ? /usr\n", 1), "GATE_BINARY_INVALID", "check"},
-		"a path with a space":   {strings.ReplaceAll(goodFacts, "/usr/local/bin/komando", "/opt/my apps/komando"), "GATE_BINARY_INVALID", "path"},
-		"no server mode":        {strings.Replace(goodFacts, "gate yes", "gate no", 1), "GATE_UNSUPPORTED", "update"},
-		"a relative path":       {strings.ReplaceAll(goodFacts, "komando /usr/local/bin/komando", "komando bin/komando"), "GATE_BINARY_INVALID", "path"},
-		"a setuid world binary": {strings.Replace(goodFacts, "stat 0 755 /usr/local/bin/komando", "stat 0 4777 /usr/local/bin/komando", 1), "GATE_BINARY_INVALID", "writable"},
+		"root by uid":               {strings.Replace(goodFacts, "uid 1000", "uid 0", 1), "KEY_USER_INVALID", "uid 0"},
+		"no user":                   {"user none\n", "KEY_USER_INVALID", "no user"},
+		"no komando":                {"uid 1000\nhome /home/anna\nkomando none\n", "KOMANDO_MISSING", "install"},
+		"in the home":               {strings.ReplaceAll(goodFacts, "/usr/local/bin/komando", "/home/anna/bin/komando"), "GATE_BINARY_INVALID", "home"},
+		"owned by the user":         {strings.Replace(goodFacts, "stat 0 755 /usr/local/bin/komando", "stat 1000 755 /usr/local/bin/komando", 1), "GATE_BINARY_INVALID", "owned by uid 1000"},
+		"a writable folder":         {strings.Replace(goodFacts, "stat 0 755 /usr/local/bin\n", "stat 0 775 /usr/local/bin\n", 1), "GATE_BINARY_INVALID", "writable"},
+		"world writable":            {strings.Replace(goodFacts, "stat 0 755 /usr/local\n", "stat 0 757 /usr/local\n", 1), "GATE_BINARY_INVALID", "writable"},
+		"a folder not checked":      {strings.Replace(goodFacts, "stat 0 755 /usr\n", "", 1), "GATE_BINARY_INVALID", "check"},
+		"an unchecked stat":         {strings.Replace(goodFacts, "stat 0 755 /usr\n", "stat ? ? /usr\n", 1), "GATE_BINARY_INVALID", "check"},
+		"a path with a space":       {strings.ReplaceAll(goodFacts, "/usr/local/bin/komando", "/opt/my apps/komando"), "GATE_BINARY_INVALID", "path"},
+		"no server mode":            {strings.Replace(goodFacts, "gate yes", "gate no", 1), "GATE_UNSUPPORTED", "update"},
+		"a relative path":           {strings.ReplaceAll(goodFacts, "komando /usr/local/bin/komando", "komando bin/komando"), "GATE_BINARY_INVALID", "path"},
+		"a PATH folder of the user": {strings.Replace(goodFacts, "pathdir 0 755 /usr/local/sbin", "pathdir 1000 755 /usr/local/sbin", 1), "GATE_BINARY_INVALID", "run as anna"},
+		"a group-writable PATH":     {strings.Replace(goodFacts, "pathdir 0 755 /usr/bin", "pathdir 0 775 /usr/bin", 1), "GATE_BINARY_INVALID", "/usr/bin"},
+		"no PATH folder checked":    {strings.ReplaceAll(goodFacts, "pathdir", "x"), "GATE_BINARY_INVALID", "PATH"},
+		"a setuid world binary":     {strings.Replace(goodFacts, "stat 0 755 /usr/local/bin/komando", "stat 0 4777 /usr/local/bin/komando", 1), "GATE_BINARY_INVALID", "writable"},
 	} {
 		code, why := ParseFacts(c.facts).Refusal("anna")
 		if code != c.code || !strings.Contains(why, c.word) {

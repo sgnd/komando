@@ -537,6 +537,7 @@ komando computer refuses it for every key).
 | `--from-address` holds only addresses, networks and host patterns, so nothing can end the quoted `from=""` | `USAGE` |
 | komando is installed on the server; the line names its real path (symlinks resolved), with no character that needs quoting | `KOMANDO_MISSING`, `GATE_BINARY_INVALID` |
 | That komando is one the user cannot replace: owned by root, not group or world writable, and every folder above it the same, outside the user's home | `GATE_BINARY_INVALID` |
+| The folders of the PATH the gate gives its commands (`/usr/local/sbin`, `/usr/local/bin`, `/usr/sbin`, `/usr/bin`, `/sbin`, `/bin`) are owned by root and not group or world writable: a program the user put there would run at the gate's next command | `GATE_BINARY_INVALID` |
 | That komando has the server mode | `GATE_UNSUPPORTED` |
 | The key has no other line in `authorized_keys` or `authorized_keys2` (sshd uses the first line that matches) | `KEY_LINE_CONFLICT` |
 

@@ -1,5 +1,7 @@
 package phonekey
 
+import "strings"
+
 // The scripts run on the server with sh -c SCRIPT NAME ARG...: every
 // value reaches them as a positional parameter, never in the script's
 // text, and each was checked before (UserName, Line).
@@ -8,8 +10,9 @@ package phonekey
 // name), its home from the user database, who komando logs in as,
 // komando's real path with the owner and mode of it and of every folder
 // above it, whether that komando has the server mode, and whether the
-// server has a system log. It changes nothing.
-const ProbeScript = `u=$1
+// server has a system log, and the owner and mode of each folder of
+// PathDirs. It changes nothing.
+var ProbeScript = `u=$1
 pw=$(getent passwd "$u" 2>/dev/null) || pw=$(awk -F: -v u="$u" '$1 == u' /etc/passwd 2>/dev/null)
 if [ -z "$pw" ]; then echo "user none"; exit 0; fi
 echo "uid $(id -u "$u")"
@@ -31,7 +34,18 @@ while :; do
 done
 if "$r" ssh-gate --here --name komando-check --help >/dev/null 2>&1; then echo "gate yes"; else echo "gate no"; fi
 if [ -S /dev/log ] || [ -S /var/run/syslog ] || [ -S /run/systemd/journal/syslog ]; then echo "syslog yes"; else echo "syslog no"; fi
+for d in ` + strings.Join(PathDirs, " ") + `; do
+  [ -d "$d" ] || continue
+  s=$(stat -L -c '%u %a' "$d" 2>/dev/null || stat -L -f '%u %Lp' "$d" 2>/dev/null) || s='? ?'
+  echo "pathdir $s $d"
+done
 `
+
+// PathDirs are the folders of the PATH the gate gives the commands it runs
+// on its server (C549): a program planted in one the paired user can
+// write would run as that user at the next allowed command, so C372
+// refuses such a server.
+var PathDirs = []string{"/usr/local/sbin", "/usr/local/bin", "/usr/sbin", "/usr/bin", "/sbin", "/bin"}
 
 // WriteScript adds the line in $2 to $1/.ssh/authorized_keys, run as the
 // user who owns that home: "added", "present" (this very line is there),

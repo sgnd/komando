@@ -127,14 +127,15 @@ func Line(komando string, k Key, from string) string {
 
 // Facts are what the probe script found on the server.
 type Facts struct {
-	NoUser  bool
-	UID     string // the user's, by id -u
-	Home    string // the user's home
-	Login   string // who komando logs in as
-	Komando string // komando's path, symlinks resolved ("" when none)
-	Stats   []Stat // the binary and each folder above it, up to /
-	Gate    bool   // that komando has the server mode
-	Syslog  bool   // the server has a system log the gate writes to
+	NoUser   bool
+	UID      string // the user's, by id -u
+	Home     string // the user's home
+	Login    string // who komando logs in as
+	Komando  string // komando's path, symlinks resolved ("" when none)
+	Stats    []Stat // the binary and each folder above it, up to /
+	PathDirs []Stat // each folder of PathDirs that exists (stat -L)
+	Gate     bool   // that komando has the server mode
+	Syslog   bool   // the server has a system log the gate writes to
 }
 
 // Stat is one path's owner and mode.
@@ -161,6 +162,10 @@ func ParseFacts(s string) Facts {
 		case "stat":
 			if p := strings.SplitN(v, " ", 3); len(p) == 3 {
 				f.Stats = append(f.Stats, Stat{p[0], p[1], p[2]})
+			}
+		case "pathdir":
+			if p := strings.SplitN(v, " ", 3); len(p) == 3 {
+				f.PathDirs = append(f.PathDirs, Stat{p[0], p[1], p[2]})
 			}
 		case "gate":
 			f.Gate = v == "yes"
@@ -195,6 +200,14 @@ func (f Facts) Refusal(user string) (code, why string) {
 	if why := f.ownedByRoot(); why != "" {
 		return "GATE_BINARY_INVALID", why + "; the gate must be a program " + user + " cannot replace (owned by root, not group or world writable, every folder above it the same)"
 	}
+	if len(f.PathDirs) == 0 {
+		return "GATE_BINARY_INVALID", "komando could not check the folders of the gate's PATH (" + strings.Join(PathDirs, " ") + ")"
+	}
+	for _, d := range f.PathDirs {
+		if why := rootOnly(d); why != "" {
+			return "GATE_BINARY_INVALID", why + ": a program " + user + " put there would run as " + user + " at the gate's next command"
+		}
+	}
 	if !f.Gate {
 		return "GATE_UNSUPPORTED", "komando on the server has no server mode (ssh-gate --here); update it there, then run this again"
 	}
@@ -209,14 +222,8 @@ func (f Facts) ownedByRoot() string {
 		if s.Path != want {
 			break
 		}
-		mode, err := strconv.ParseUint(s.Mode, 8, 32)
-		switch {
-		case err != nil || s.UID == "?":
-			return "komando could not check " + s.Path
-		case s.UID != "0":
-			return s.Path + " is owned by uid " + s.UID + ", not root"
-		case mode&0o022 != 0:
-			return s.Path + " is group or world writable (mode " + s.Mode + ")"
+		if why := rootOnly(s); why != "" {
+			return why
 		}
 		if want == "/" {
 			return ""
@@ -224,4 +231,18 @@ func (f Facts) ownedByRoot() string {
 		want = filepath.Dir(want)
 	}
 	return "komando could not check " + want + " and the folders above it"
+}
+
+// rootOnly says why someone other than root could change s, or "".
+func rootOnly(s Stat) string {
+	mode, err := strconv.ParseUint(s.Mode, 8, 32)
+	switch {
+	case err != nil || s.UID == "?":
+		return "komando could not check " + s.Path
+	case s.UID != "0":
+		return s.Path + " is owned by uid " + s.UID + ", not root"
+	case mode&0o022 != 0:
+		return s.Path + " is group or world writable (mode " + s.Mode + ")"
+	}
+	return ""
 }
