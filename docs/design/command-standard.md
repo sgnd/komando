@@ -136,8 +136,7 @@ uses for a noun (S-2.3) always resolves as that noun.
 
 **S-2.2** A noun is a category in human words. Product names are aliases.
 Accepted exceptions: the abbreviations `fs`, `svc`, `pkg`, `net`, `conn`
-(standard in kubectl and gh), each with its human word as an alias; and
-`cluster helm` (engine-specific). [review]
+(standard in kubectl and gh), each with its human word as an alias. [review]
 
 **S-2.3** Words in help text. "server" for a host, "conn" for a non-SSH
 target (first mention: "conn (database, cache, queue, storage, cluster or
@@ -209,13 +208,12 @@ other half exists or is listed as an exception]
 **S-3.3** Tool words. A verb used only in one area, named after that area's
 own tool, is allowed when this list names it:
 `docker ps/images/pull/compose/raw/inspect`,
-`registry inspect/copy` (crane, skopeo), `cache keys` (Redis KEYS),
-`user add`, `db user add` (useradd; hidden alias `create`),
+`registry inspect/copy` (crane, skopeo), `user add`, `db user add` (useradd; hidden alias `create`),
 `db grant/revoke` (SQL), `pkg installed/upgradable/security`,
 `queue PROVIDER message list/message create/consumer show/consumer list`, `db activity/locks/sizes/explain/kill`,
 `fs cat/stat/chmod/mkdir/write/replace/mv`, `storage mkdir/mv/chmod`,
 `svc daemon-reload`,
-`cluster scale/apply/rollback/forward/values`, `net dns/http/ports/check`,
+`cluster forward`, `net dns/http/ports/check`,
 `key gen/deploy`, `host trust/ssh-command`, `ssh-gate line`, `conn kinds`,
 `audit verify`, `config approval-code`, `secret keychain/passphrase`.
 [schema: allow-list]
@@ -305,13 +303,13 @@ group has one type; meanings checked by usage-text template where one exists]
 | `--head`, `--tail` | | int | first or last N lines of one file or log (`fs cat`, `storage cat`); *exception*: on `job status`/`job wait`, `--tail` = also show the last N lines of output (0 = none) | 0 = all on fs/storage cat; job status 20, job wait 30 |
 | `--max-<noun>` | | bytes or int | a safety cap: the run is refused above it (`--max-remove`, `--max-bytes`, `--max-output`) | stated per flag |
 | `--timeout` | | duration | how long this command may run per target (global). *exception*: `job wait --timeout` is local, total across servers, default 10m, ends with WAIT_TIMEOUT | setting, 5m |
-| `--wait` | | duration | wait for the result up to this long; the global `--timeout` still applies and whichever ends first stops the run. *exception*: on `cluster deploy/restart/rollback/scale/status` it is a bool (as in helm), bounded by `--timeout` | 0 = do not wait |
+| `--wait` | | duration | wait for the result up to this long; the global `--timeout` still applies and whichever ends first stops the run.  | 0 = do not wait |
 | `--idle` | | duration | stop after this long with nothing new | stated per flag |
 | `--interval`, `--expires`, `--ttl`, `--older-than`, `--warn` | | duration | a span | per flag; "0 = never" or "> 0" in the usage text |
 | `--since`, `--until` | | when | a point in time | `30m`, `7d`, `today`, `yesterday`, `2026-11-07 14:30`, RFC3339 |
 | `--from` | | string | a local input file, the pair of `--to` (`db restore`, `fs write`, `queue PROVIDER message create`) | `-` = stdin |
 | `--to` | | string | a local output file | `-` = stdout |
-| `--file` | `-f` (not on log streamers) | string | a manifest or input file a tool reads (`cluster apply`, `docker compose`, `db query`); *exception*: `logs --file PATH` is a log file on the server | `-` = stdin where the tool allows it |
+| `--file` | `-f` (not on log streamers) | string | a manifest or input file a tool reads (`docker compose`, `db query`); *exception*: `logs --file PATH` is a log file on the server | `-` = stdin where the tool allows it |
 | `--content` | | string | inline file content (`fs write`) | |
 | `--config` | | tool word | *exception*: `queue PROVIDER topic create --config KEY=VALUE` (kafka-topics), `vpn KIND add --config FILE` (OpenVPN, WireGuard) | |
 | `--key` | | string | *exception*: `queue PROVIDER message create --key` is the message key (Kafka); elsewhere an SSH key file | |
@@ -415,7 +413,7 @@ tree, compare every shorthand with this table]
 | `-y` | `--yes` | global; never after `--` (S-4.4) | apt, gcloud |
 | `-h` | `--help` | global | |
 | `-v` | `--version` | root only | |
-| `-a` | `--all` | read commands only (docker ps, fs ls, user list, db activity, cache info, cluster helm values, guide); `docker prune -a` kept (docker's own) | ls, docker ps |
+| `-a` | `--all` | read commands only (docker ps, fs ls, user list, db activity, guide); `docker prune -a` kept (docker's own) | ls, docker ps |
 | `-A` | `--all-namespaces` | cluster | kubectl |
 | `-c` | `--container` | any --container; `--cmd` only on exec and job start | kubectl |
 | `-C` | `--dir` | any --dir; `--comment` only on key gen | git, make |
@@ -621,7 +619,7 @@ No `<x>`, no `…`. [code]
 
 **S-8.8** A suggestion ("did you mean") goes in the additive
 `error.suggestion` and, as a whole command line, in `error.hint`
-(`komando cache keys prod-redis`), because agents are taught to read the
+(`komando queue kafka topic list prod-kafka`), because agents are taught to read the
 hint. People see it after the message. The guide and skill mention
 `error.suggestion`. [code]
 

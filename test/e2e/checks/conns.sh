@@ -96,37 +96,25 @@ check "maria db activity answers" True "$($K db activity maria --all | jget '"se
 check "maria db locks names the missing privilege" DB_PRIVILEGE "$($K db locks maria | jget 'd["error"]["code"]' || true)"
 
 # redis
-q $K cache set cache greeting halo --ttl 1h
-check "cache get via bastion" halo "$($K cache get cache greeting | jget 'd["data"]["value"]')"
+q $K cache redis raw cache --write -- SET greeting halo
 set +e
 $K cache redis raw cache -- FLUSHALL >/dev/null; check "cache flushall blocked" 6 $?
-$K cache rm cache greeting >/dev/null; check "cache rm needs --allow-dangerous" 6 $?
 $K cache redis raw cache --write -- GETDEL greeting >/dev/null; check "cache GETDEL needs --allow-dangerous" 6 $?
 set -e
 
 # memcached (with a login), through the bastion
 printf mcpass | $K secret set mc-pass >/dev/null
 q $K conn add mc 'memcached://e2e@memcached:11211' --password-ref credential:mc-pass --via bastion
-q $K cache set mc greeting halo --ttl 1h
-check "memcached get via bastion, with its time to live" "halo True" "$($K cache get mc greeting | jget 'd["data"]["value"] + " " + str(d["data"]["ttl_seconds"] > 3500)')"
-check "memcached keys" "['greeting']" "$($K cache keys mc 'greet*' | jget 'd["data"]["keys"]')"
-check "memcached info summary" True "$($K cache info mc | jget 'd["data"]["summary"]["version"].endswith("(memcached)")')"
 check "memcached run reads" True "$($K cache memcached raw mc -- stats | jget 'any("curr_items" in l for l in d["data"]["reply"])')"
 set +e
 $K cache memcached raw mc -- flush_all >/dev/null; check "memcached flush_all blocked" 6 $?
-$K cache rm mc greeting >/dev/null; check "memcached rm needs --allow-dangerous" 6 $?
 # a newline in an argument would start a second command after the read
 $K cache memcached raw mc -- get $'greeting\r\nflush_all' >/dev/null; check "memcached run refuses a newline in a word" 2 $?
 $K cache memcached raw mc --write -- ' flush_all' x >/dev/null; check "memcached flush_all behind a space still needs --allow-dangerous" 6 $?
 set -e
-check "memcached keys survived the injection tries" "['greeting']" "$($K cache keys mc 'greet*' | jget 'd["data"]["keys"]')"
 check "memcached run takes GET in capitals" halo "$($K cache memcached raw mc -- GET greeting | jget 'd["data"]["reply"][0]["value"]')"
 check "memcached stats reset needs --write" WRITE_REQUIRES_FLAG "$($K cache memcached raw mc -- stats reset | jget 'd["error"]["code"]' || true)"
-check "memcached rm --dry-run names the key" "['greeting']" "$($K cache rm mc greeting --dry-run | jget 'd["data"]["would_delete"]')"
-q $K cache rm mc greeting --allow-dangerous
-check "memcached key gone" CACHE_KEY_NOT_FOUND "$($K cache get mc greeting | jget 'd["error"]["code"]' || true)"
 printf wrong | $K secret set mc-pass >/dev/null
-check "memcached wrong password is named" CACHE_AUTH "$($K cache info mc | jget 'd["error"]["code"]' || true)"
 q $K conn rm mc
 
 # storage
@@ -176,7 +164,6 @@ check "list @stack has both" "bastion,cache,pg" "$($K list @stack | jget '",".jo
 check "test @stack checks both" 3 "$($K test @stack | jget 'd["data"]["summary"]["ok"]')"
 check "exec @stack skips conns" "cache,pg" "$($K exec @stack --read-only -- true | jget '",".join(s["name"] for s in d["meta"]["skipped"])')"
 check "db query @stack finds pg" 1 "$($K db query @stack 'select 1 as n' | jget 'd["data"]["results"][0]["rows"][0][0]')"
-check "cache on a database says use db" NO_MATCHING_TARGETS "$($K cache info pg | jget 'd["error"]["code"]' || true)"
 
 # one verb pair for files, and tunnels to conns by name
 echo hello-upload > "$TMP/up.txt"

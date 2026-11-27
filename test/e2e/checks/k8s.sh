@@ -8,7 +8,6 @@ for _ in $(seq 1 60); do docker compose -p "$PROJECT" -f "$E2E/compose.yml" exec
 docker compose -p "$PROJECT" -f "$E2E/compose.yml" exec -T k3s cat /etc/rancher/k3s/k3s.yaml | sed 's#https://127.0.0.1:6443#https://k3s:6443#; s#: default$#: lab-k3s#' > "$TMP/kubeconfig"
 q $K import kubeconfig "$TMP/kubeconfig"
 q $K conn edit lab-k3s --via bastion
-check "cluster status through bastion" 1 "$($K cluster status lab-k3s | jget 'd["data"]["nodes_ready"]')"
 cat > "$TMP/app.yaml" <<'YAML'
 apiVersion: apps/v1
 kind: Deployment
@@ -20,13 +19,7 @@ spec:
     metadata: { labels: { app: web } }
     spec: { containers: [ { name: web, image: "rancher/mirrored-pause:3.6" } ] }
 YAML
-check "apply --dry-run changes nothing" "K8S_NOT_FOUND" "$($K cluster apply lab-k3s --file "$TMP/app.yaml" --dry-run >/dev/null; $K cluster get lab-k3s deploy web | jget 'd["error"]["code"]' || true)"
-check "apply --dry-run shows the change" create "$($K cluster apply lab-k3s --file "$TMP/app.yaml" --dry-run | jget 'd["data"]["changes"][0]["action"]')"
-q $K cluster apply lab-k3s --file "$TMP/app.yaml"
-check "apply then list" web "$($K cluster ls lab-k3s deployments | jget 'd["data"]["items"][0]["name"]')"
-check "ls -l picks by label" "True 0" "$($K cluster ls lab-k3s pods -l app=web | jget 'd["data"]["count"] >= 1') $($K cluster ls lab-k3s pods -l app=nope | jget 'd["data"]["count"]')"
-check "events for an object" True "$($K cluster events lab-k3s --for deployment/web | jget 'd["data"]["count"] > 0')"
-check "describe lists the pods" True "$($K cluster describe lab-k3s deployment web | jget 'len(d["data"]["pods"]) > 0')"
+q $K cluster kubernetes raw lab-k3s --write -- apply -f "$TMP/app.yaml"
 cat > "$TMP/broken.yaml" <<'YAML'
 apiVersion: apps/v1
 kind: Deployment
@@ -38,34 +31,20 @@ spec:
     metadata: { labels: { app: broken } }
     spec: { containers: [ { name: app, image: "komando.invalid/none:0" } ] }
 YAML
-q $K cluster apply lab-k3s --file "$TMP/broken.yaml"
-for _ in $(seq 1 45); do $K cluster status lab-k3s | jget 'any("ImagePull" in p["problem"] or "ErrImage" in p["problem"] for p in d["data"]["problems"])' | grep -q True && break; sleep 2; done
-check "status names a bad image" True "$($K cluster status lab-k3s | jget 'any(("ImagePull" in p["problem"] or "ErrImage" in p["problem"]) and "broken" in p["object"] for p in d["data"]["problems"])')"
-check "status counts the deployment short" True "$($K cluster status lab-k3s | jget 'any(p["object"]=="deployment/default/broken" for p in d["data"]["problems"])')"
-check "describe shows the container reason" True "$($K cluster describe lab-k3s pod "$($K cluster ls lab-k3s pods -l app=broken | jget 'd["data"]["items"][0]["name"]')" | jget '"Err" in str(d["data"]["containers"][0].get("reason")) or "ImagePull" in str(d["data"]["containers"][0].get("reason"))')"
-q $K cluster rm lab-k3s deployment broken --allow-dangerous
-q $K cluster scale lab-k3s deployment/web 2
-check "scale" 2 "$($K cluster get lab-k3s deploy web | jget 'd["data"]["spec"]["replicas"]')"
-set +e; $K cluster scale lab-k3s deployment/web 0 >/dev/null; check "scale to 0 needs --allow-dangerous" 6 $?; set -e
-q $K cluster restart lab-k3s deployment/web
+q $K cluster kubernetes raw lab-k3s --write -- apply -f "$TMP/broken.yaml"
+q $K cluster kubernetes raw lab-k3s --write --allow-dangerous -- delete deployment broken
+q $K cluster kubernetes raw lab-k3s --write -- scale deployment/web --replicas=2
+q $K cluster kubernetes raw lab-k3s --write -- rollout restart deployment/web
 set +e; $K cluster kubernetes raw lab-k3s -- delete deploy web >/dev/null; check "cluster kubernetes raw delete needs --write" 6 $?; set -e
 check "cluster kubernetes raw secret values need --allow-dangerous" POLICY_BLOCKED "$($K cluster kubernetes raw lab-k3s --write -- get secrets -A -o yaml | jget 'd["error"]["code"]' || true)"
 check "cluster kubernetes raw reads through bastion" True "$(env PATH=/usr/bin:/bin $K cluster kubernetes raw lab-k3s -- get deploy web -o name | jget '"deployment.apps/web" in d["data"]["stdout"]')"
-check "rollout status --wait" True "$($K cluster status lab-k3s deployment/web --wait --timeout 90s | jget 'd["data"]["rolled_out"]')"
-check "deploy a bad image times out" ROLLOUT_TIMEOUT "$($K cluster deploy lab-k3s deployment/web --image komando.invalid/none:1 --wait --timeout 20s | jget 'd["error"]["code"]' || true)"
-check "history keeps the revisions" True "$($K cluster history lab-k3s deployment/web | jget 'len(d["data"]["revisions"]) >= 2 and d["data"]["revisions"][0]["images"] == ["komando.invalid/none:1"]')"
-check "rollback brings the old image back" "rancher/mirrored-pause:3.6" "$($K cluster rollback lab-k3s deployment/web --wait --timeout 90s | jget 'd["data"]["images"][0]')"
-check "rolled back and healthy" True "$($K cluster status lab-k3s deployment/web | jget 'd["data"]["rolled_out"]')"
-check "logs of a workload" True "$($K cluster logs lab-k3s deploy/web | jget '"object" in d["data"]')"
-check "logs by label" True "$($K cluster logs lab-k3s -l app=web | jget '"logs" in d["data"]')"
-check "logs -f stops at --timeout" True "$($K cluster logs lab-k3s deploy/web -f --timeout 3s | tail -1 | jget 'd["data"]["followed"]')"
 check "exec in a pod needs --read-only or a change" True "$($K cluster kubernetes exec lab-k3s deploy/web --read-only --dry-run -- cat /etc/hostname | jget '"exec deploy/web" in d["data"]["would_run"]')"
 check "exec checks the policy" POLICY_BLOCKED "$($K cluster kubernetes exec lab-k3s deploy/web -- rm -rf / | jget 'd["error"]["code"]' || true)"
 check "forward runs on 127.0.0.1" True "$($K cluster kubernetes tunnel start lab-k3s deploy/web 18099:80 --dry-run | jget '"--address 127.0.0.1" in d["data"]["would_run"]')"
 # exec and port-forward for real, with no kubectl on PATH
 write_tools_yaml "$TMP/tools.yaml"
-q $K cluster apply lab-k3s --file "$TMP/tools.yaml"
-$K cluster status lab-k3s deployment/tools --wait --timeout 120s >/dev/null || true
+q $K cluster kubernetes raw lab-k3s --write -- apply -f "$TMP/tools.yaml"
+$K cluster kubernetes raw lab-k3s --timeout 120s -- rollout status deployment/tools >/dev/null || true
 NOKUBE=(env PATH=/usr/bin:/bin)
 check "exec without kubectl" hello-from-pod "$("${NOKUBE[@]}" $K cluster kubernetes exec lab-k3s deploy/tools --read-only -- cat /www/index.html | jget 'd["data"]["stdout"].strip()' || true)"
 check "exec keeps stdout, stderr and the exit code" "3 out err" "$("${NOKUBE[@]}" $K cluster kubernetes exec lab-k3s deploy/tools --read-only -- sh -c 'echo out; echo err >&2; exit 3' | jget 'str(d["data"]["exit_code"]) + " " + d["data"]["stdout"].strip() + " " + d["data"]["stderr"].strip()' || true)"
@@ -114,6 +93,6 @@ q KR --write --allow-dangerous -- cp "$POD:/tmp/.env" "$TMP/person.env"
 check "run: a person's cp of a pod's .env is as it is" "DB_PASSWORD=e2e-pod-pass" "$(cat "$TMP/person.env" 2>/dev/null)"
 check "run: diff a change exits 1" 5 "$(sed 's/replicas: 1/replicas: 2/' "$TMP/tools.yaml" > "$TMP/tools2.yaml"; KR -- diff -f "$TMP/tools2.yaml" >/dev/null; echo $?)"
 check "run: scale" 2 "$(KR --write -- scale deploy/tools --replicas=2 >/dev/null; KS -- get deploy tools -o 'jsonpath={.spec.replicas}')"
-q $K cluster rm lab-k3s deployment tools --allow-dangerous
-q $K cluster rm lab-k3s service tools --allow-dangerous
-q $K cluster rm lab-k3s deployment web --allow-dangerous
+q $K cluster kubernetes raw lab-k3s --write --allow-dangerous -- delete deployment tools
+q $K cluster kubernetes raw lab-k3s --write --allow-dangerous -- delete service tools
+q $K cluster kubernetes raw lab-k3s --write --allow-dangerous -- delete deployment web
