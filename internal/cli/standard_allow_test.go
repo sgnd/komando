@@ -90,25 +90,25 @@ var (
 		"user list",
 		"version",
 	}
-	// S-6.8: names outside the sample table where an example needs its own (a second VPN)
+	// S-6.8: names outside the sample table where an example needs its own
 	allowSampleNames = []string{
 		"app1",
 		"bastion",
 		"bq",
-		"client-x",
 		"config",
-		"lab",
 		"local",
 		"mongo-db",
-		"old-office",
 		"shop-2",
 		"vps1",
 		"web3",
 	}
-	// S-6.10: group rename's Long shows a merge with the old and the new name
+	// S-6.10: group rename's Long shows a merge with the old and the new name;
+	// the vpn help and the error catalog write KIND for the kind a VPN was saved with
 	allowReferences = []string{
+		"TARGET_NOT_FOUND: komando vpn KIND list",
 		"group rename: komando group add NEW @OLD",
 		"group rename: komando group rm OLD",
+		"vpn: komando vpn KIND start NAME",
 	}
 	// S-5.9: depends commands without --write or --read-only (they decide by their arguments)
 	allowDependsSwitch = []string{
