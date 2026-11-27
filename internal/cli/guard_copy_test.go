@@ -63,6 +63,8 @@ func TestGuardTreeChangeOfAProtectedFolderIsRefused(t *testing.T) {
 		`chown -R nobody ~`,
 		`chgrp -R staff ~/.ssh`,
 		`find ~/.ssh -delete`,
+		`trash ~/.ssh`,
+		`trash -v ~`,
 	}, true)
 	checkLines(t, home, filepath.Join(home, "Documents"), []string{`rm -rf ..`}, true)
 	checkLines(t, home, repo, []string{

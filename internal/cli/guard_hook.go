@@ -311,7 +311,7 @@ var writingPrograms = map[string]bool{"cp": true, "mv": true, "ln": true, "link"
 	"shred": true, "touch": true, "mkdir": true, "mkfifo": true, "rsync": true, "patch": true, "sponge": true, "rename": true,
 	"ditto": true, "gzip": true, "gunzip": true, "bzip2": true, "bunzip2": true, "xz": true, "unxz": true, "zstd": true,
 	"unzstd": true, "lz4": true, "compress": true, "uncompress": true, "ed": true, "ex": true, "split": true, "csplit": true,
-	"zip": true, "plutil": true, "xattr": true}
+	"zip": true, "plutil": true, "xattr": true, "trash": true}
 
 // writesFiles says whether the program base, run with args, changes the
 // files its arguments name: a writing program, sed, sort, uniq or awk in a

@@ -500,7 +500,7 @@ func checkTreeChange(cl *call, base string, args []string, globs []bool, vars li
 	switch base {
 	case "rm":
 		verb = "removes"
-	case "mv":
+	case "mv", "trash":
 		verb = "moves"
 	}
 	for _, i := range treeOperands(base, args) {
@@ -520,9 +520,10 @@ func checkTreeChange(cl *call, base string, args []string, globs []bool, vars li
 }
 
 // treeOperands are the indexes of the arguments base removes, moves or
-// changes with everything under them: rm -r's operands, mv's sources, and
-// the operands of chmod, chown or chgrp -R (the mode or owner among them
-// names nothing that matters).
+// changes with everything under them: rm -r's operands, mv's sources,
+// trash's operands (macOS moves them to the Trash), and the operands of
+// chmod, chown or chgrp -R (the mode or owner among them names nothing that
+// matters).
 func treeOperands(base string, args []string) []int {
 	var ops []int
 	recursive, target, opts := false, false, true
@@ -553,7 +554,7 @@ func treeOperands(base string, args []string) []int {
 		}
 	}
 	switch {
-	case recursive && (base == "rm" || base == "chmod" || base == "chown" || base == "chgrp"), base == "mv" && target:
+	case recursive && (base == "rm" || base == "chmod" || base == "chown" || base == "chgrp"), base == "mv" && target, base == "trash":
 		return ops
 	case base == "mv" && len(ops) > 1:
 		return ops[:len(ops)-1]
@@ -654,7 +655,59 @@ func checkGlobForms(line string) guardDecision {
 			}
 		}
 	}
+	for _, seg := range splitShell(dropHeredocs(line, true)) {
+		words, globs := shellWordsGlob(seg)
+		for i, w := range words {
+			if globs[i] && bracketDiffers(w) {
+				return deny("%s has a [ ] list that komando's guard does not read the way the shell does ([!x], [[:alpha:]], [a-]); name the files plainly", w)
+			}
+		}
+	}
 	return allow()
+}
+
+// bracketDiffers says whether the glob word w holds a [ ] list the shell
+// and filepath.Match read differently: [!x] (to Go, ! is a letter), a class,
+// collating symbol or equivalence ([[:alpha:]], [[.a.]], [[=a=]]), or a - or
+// ] where Go wants a letter ([a-], [-a], []a]). Without its closing ] the
+// shell reads [ as a letter.
+func bracketDiffers(w string) bool {
+	for rest := w; ; {
+		i := strings.IndexByte(rest, '[')
+		if i < 0 {
+			return false
+		}
+		rest = rest[i+1:]
+		start := 0
+		if strings.HasPrefix(rest, "!") || strings.HasPrefix(rest, "^") {
+			start = 1
+		}
+		end := strings.IndexByte(rest[min(start+1, len(rest)):], ']')
+		if end < 0 {
+			continue
+		}
+		list := rest[start : end+min(start+1, len(rest))]
+		if strings.HasPrefix(rest, "!") || strings.Contains(list, "[:") || strings.Contains(list, "[.") || strings.Contains(list, "[=") || goRangeRejects(list) {
+			return true
+		}
+	}
+}
+
+// goRangeRejects says whether filepath.Match rejects the [ ] list list: a
+// range may not start or end with - or ], which the shell takes as letters.
+func goRangeRejects(list string) bool {
+	for k := 0; k < len(list); k++ {
+		if list[k] == '-' || list[k] == ']' {
+			return true
+		}
+		if k+1 < len(list) && list[k+1] == '-' {
+			k += 2
+			if k >= len(list) || list[k] == '-' || list[k] == ']' {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // globGroup says whether line has an unquoted ( inside a word: a zsh glob

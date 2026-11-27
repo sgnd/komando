@@ -49,6 +49,14 @@ func TestGuardGlobFormsTheGuardDoesNotReadAreRefused(t *testing.T) {
 		`shopt -s dotglob; cd ~; chmod -R 777 *`,
 		`setopt GLOB_DOTS; rm -rf ~/*`,
 		`GLOBIGNORE=x; rm -rf ~/*`,
+		`cat ~/.ss[!x]/id_ed25519`,
+		`cat ~/.ss[[:alpha:]]/id_ed25519`,
+		`cat ~/.koman[!x]o/vault.json`,
+		`echo x > ~/.claud[!x]/settings.json`,
+		`rm -rf ~/.ss[!x]`,
+		`rm -rf ~/.ss[h-]`,
+		`rm -rf ~/.ss[-h]`,
+		`cp /bin/true ~/bin/koman[[=d=]]o`,
 	}, true)
 	checkLines(t, home, home, []string{
 		`f() { echo hi; }; f > /tmp/out`,
@@ -60,5 +68,11 @@ func TestGuardGlobFormsTheGuardDoesNotReadAreRefused(t *testing.T) {
 		"cat > /tmp/main.go <<EOF\nfunc main() { fmt.Println(x) }\nEOF",
 		"git commit -m \"$(cat <<'EOF'\nFix the parser (part 1) of 2\nEOF\n)\"",
 		`set -euo pipefail; ls *.go`,
+		`grep -E '[!a-z]' notes.txt`,
+		`[ ! -f build/out ] && make`,
+		`[[ -n "$x" ]] && echo ok`,
+		`rm -f build/[a-z]*.o`,
+		`ls src/[^.]*`,
+		`git commit -m "Guard reads [!x] and [[:alpha:]] in globs"`,
 	}, false)
 }
