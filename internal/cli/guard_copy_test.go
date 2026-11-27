@@ -39,11 +39,16 @@ func TestGuardCopyIntoAProtectedFolderIsRefused(t *testing.T) {
 // a guard file is refused, as find -delete's start is.
 func TestGuardTreeChangeOfAProtectedFolderIsRefused(t *testing.T) {
 	home, repo := guardLineHome(t)
-	if err := os.MkdirAll(filepath.Join(home, "Library", "Keychains"), 0o755); err != nil {
-		t.Fatal(err)
+	for _, d := range []string{filepath.Join(home, "Library", "Keychains"), filepath.Join(home, ".ssh")} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
 	}
 	checkLines(t, home, home, []string{
 		`rm -rf ~`,
+		`rm -rf ~/.ss[h]`,
+		`rm -rf ~/.ss?`,
+		`mv ~/.s*h /tmp/k`,
 		`rm -rf "$HOME"`,
 		`rm -rf ~/`,
 		`rm -fr ~`,
