@@ -39,16 +39,6 @@ func keepNounEntries(id string) func() {
 	}
 }
 
-// shareEntries gives the command to the entries the command from has in the
-// tables keyed by ID: show reads what list reads (group show, snippet show).
-func shareEntries(from, to string) {
-	for _, tb := range idTables() {
-		if v, ok := tb.get(from); ok {
-			tb.set(to, v)
-		}
-	}
-}
-
 // dropRemoved takes ids out of cmdKeys and the tables keyed by ID, and the
 // rows of the keys no command has any more out of riskRows.
 func dropRemoved(ids []string) {

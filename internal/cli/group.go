@@ -111,7 +111,6 @@ func init() {
 		handlers[capability.Key{Type: "group", Verb: verb}] = bodyHandler(body)
 	}
 	moveType("group")
-	shareEntries("group.list", "group.show")
 	details["komando group remove"] = groupRemoveLong
 	details["komando group rename"] = groupRenameLong
 }

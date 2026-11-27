@@ -205,7 +205,6 @@ func init() {
 		handlers[capability.Key{Type: "snippet", Verb: verb}] = bodyHandler(body)
 	}
 	moveType("snippet")
-	shareEntries("snippet.list", "snippet.show")
 	cmdKeys["snippet"] = cmdKeys["recipe"] // the noun's ID changes with its word
 	delete(cmdKeys, "recipe")
 }

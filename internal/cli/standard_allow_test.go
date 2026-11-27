@@ -49,8 +49,6 @@ var (
 	}
 	// S-6.6, S-6.7: commands with fewer examples than S-6.6 asks (a second one is still to write)
 	allowExamples = []string{
-		"audit",
-		"audit check",
 		"cluster helm history",
 		"cluster helm status",
 		"cluster history",
@@ -74,7 +72,6 @@ var (
 		"job status",
 		"key list",
 		"pkg installed",
-		"policy list",
 		"secret list",
 		"shell",
 		"ssh-gate",

@@ -784,7 +784,7 @@ func TestSSHGateBareAtATerminal(t *testing.T) {
 	}
 }
 
-// A synonym (cluster info, group show, tunnel show, snippet show) gets the
+// A synonym (cluster info, tunnel show) gets the
 // gate's answer of the command it names, for a full key and a read-only
 // one: it carries that command's ID, so it is not refused as plumbing
 // (review F12).
@@ -793,9 +793,7 @@ func TestGateSynonyms(t *testing.T) {
 	gateInventory(t)
 	for syn, now := range map[string]string{
 		"cluster info k8s": "cluster status k8s",
-		"group show web":   "group list web",
 		"tunnel show t1":   "tunnel list",
-		"snippet show r1":  "snippet list",
 	} {
 		for _, ro := range []bool{false, true} {
 			if got, want := gateAnswer(t, syn, ro), gateAnswer(t, now, ro); got != want {

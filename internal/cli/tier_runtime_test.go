@@ -58,7 +58,7 @@ var tierRuns = []tierRun{
 	{"policy edit --add-server safety", "policy.edit", []string{"docker-prune", "--off", "--add-server", "dev"}, false},
 	{"policy edit --add-group safety", "policy.edit", []string{"docker-prune", "--off", "--add-group", "g1"}, false},
 	{"floor", "policy.edit", []string{"docker-prune", "--rm-server", "dev"}, false},
-	{"config set dynamic safety", "config.set", []string{"audit", "list", "false"}, false},
+	{"config set dynamic safety", "config.set", []string{"audit", "false"}, false},
 	{"vpn edit --mfa=false safety", "vpn.edit", []string{"wg", "--mfa=false"}, false},
 	{"host tunnel start dynamic safety", "tunnel.start", []string{"dev", "-L", "0.0.0.0:15432:localhost:5432"}, false},
 	{"host ssh add --proxy-command dynamic safety", "host.add", []string{"y", "--address", "10.0.0.9", "--proxy-command", "nc %h %p"}, false},
@@ -403,7 +403,7 @@ func tableHasCase(table, cmd, stop string) bool {
 func TestTableHasCase(t *testing.T) {
 	table := "var cases = []c{\n" +
 		"\t{args: []string{\"host\", \"trust\", \"web1\"}, code: \"POLICY_BLOCKED\"},\n" +
-		"\t{args: []string{\"policy\", \"rm\", \"x\"},\n\t\tcode: \"SAFETY_SETTING\"},\n"
+		"\t{args: []string{\"policy\", \"remove\", \"x\"},\n\t\tcode: \"SAFETY_SETTING\"},\n"
 	tests := []struct {
 		name, cmd, stop string
 		want            bool
