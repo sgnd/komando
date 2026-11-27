@@ -83,6 +83,8 @@ This page is made from the code (`komando schema` lists the same under
 | `FILE_NOT_FOUND` | 3 | identity file …: … | give the path of a private key file, or register it with `komando key add NAME FILE` and use --key |
 | `FILE_TOO_LARGE` | 8 | …:… is more than …; komando holds a copy from a pod in memory, and stopped | copy a smaller part, or pack it smaller in the pod first: `komando cluster run TARGET --write -- exec POD -- gzip PATH` |
 | `FOLDER_NOT_FOUND` | 3 | no folder named … | add -p/--parents to create it |
+| `GATE_BINARY_INVALID` | 2 | the server's komando could be replaced by the paired user (owner, mode or place), so no gate line is written | fix it on the server as the message says, then run this again |
+| `GATE_UNSUPPORTED` | 2 | komando on the server has no server mode (ssh-gate --here) | fix it on the server as the message says, then run this again |
 | `GCP_LOGIN_REQUIRED` | 4 | …: … | a person runs `gcloud auth application-default login` again, or set GOOGLE_APPLICATION_CREDENTIALS to a service account key file; on Google Cloud the machine's service account is used |
 | `GROUP_EXISTS` | 8 | group … exists | pick another name; to merge them, run `komando group add … @…` and then `komando group rm …` |
 | `GROUP_NOT_FOUND` | 3 | no group named … | run `komando group list` to see groups |
@@ -123,9 +125,12 @@ This page is made from the code (`komando schema` lists the same under
 | `KEY_FAILED` | 1 | could not read key …: …; nothing was written | check the key with `komando key show …`, or leave out --with-keys |
 | `KEY_INVALID` | 2 | … is not a public key: … | give the CA's public key file (.pub) |
 | `KEY_IN_USE` | 8 | server … still uses this key | give the server another key first: `komando host edit … --key OTHER` |
+| `KEY_LINE_CONFLICT` | 8 | …: the key is there already in another line, which sshd would use first; nothing was written | remove the older line for this key from …'s ~/.ssh/authorized_keys on the server, then run this again |
 | `KEY_PASSPHRASE_REQUIRED` | 2 | key … is encrypted and … | load the key into ssh-agent with `ssh-add PATH`, or store its passphrase with `komando secret set NAME` (the hint gives the whole commands) |
 | `KEY_UNREADABLE` | 4 | cannot read key …: … | check the key path (`komando key list` shows the keys komando knows) |
+| `KEY_USER_INVALID` | 2 | the user is root (uid 0) or is not on the server, so no device key is written for it | name a user that is not root: fix it on the server as the message says, then run this again |
 | `KILL_FAILED` | 5 | the server did not stop session … | you may lack the right to stop another user's session |
+| `KOMANDO_MISSING` | 3 | komando is not installed on the server, so no gate line can run it | fix it on the server as the message says, then run this again |
 | `KUBECONFIG` | 2 | conn …: … | import it again with `komando import kubeconfig` |
 | `LOGIN_FAILED` | 4 | the login to … ended early (…) | a person reads the whole log in … |
 | `MIXED_OS` | 2 | the target picks Windows servers (…) and other servers (…) | a command is written for one shell: run it twice, once with TARGET,os:windows (PowerShell) and once with TARGET,!os:windows (sh) |
@@ -257,6 +262,7 @@ This page is made from the code (`komando schema` lists the same under
 | `SSH_AGENT_REFUSED` | 1 | the ssh-agent did not take key …: … | check the ssh-agent, or use `komando shell SERVER` |
 | `SSH_GATE_NETWORK_REQUIRED` | 6 | komando … is refused for a read key without network: … | this key was added with --read-only and without --network: it runs only reads that stay on the servers and conns in your list; a person adds a key for this with `komando ssh-gate line --read-only --network`, or runs it on the komando computer |
 | `SSH_GATE_PATH` | 1 | komando cannot tell its own full path, which the line needs | run komando by its full path, for example /usr/local/bin/komando ssh-gate line ... |
+| `SSH_GATE_PATH_DENIED` | 5 | komando … is refused for this server's key: …; no key changes it | a person changes it on this server itself; no key through the gate does |
 | `SSH_GATE_READ_ONLY` | 6 | komando … is refused for a read-only key: … | this key was added with --read-only and runs only commands that read; use a key that may change things, or the komando computer itself |
 | `SSH_GATE_REFUSED` | 6 | komando … needs a person at a terminal on this computer; a key cannot run it | a person runs it in a terminal on the komando computer itself |
 | `SSH_GATE_SYNTAX` | 2 | an ssh-gate key sent more than one komando command, or a character a shell would expand (the message names it) | send one komando command; put an argument with ; \| & $ or backquotes in single quotes ($ and backquotes are refused even in double quotes) |
