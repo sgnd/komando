@@ -127,8 +127,8 @@ func viaNames(s *store.State) []string {
 func checkPassphraseRef(ref string) error {
 	if ref != "" && !vault.ValidRef(ref) {
 		return out.Errf(out.ExitUsage, "USAGE",
-			"store the passphrase with `komando credential password add NAME` and pass --passphrase-ref secret:NAME ("+vault.RefHelp()+")",
-			"--passphrase-ref takes a reference, not the passphrase itself")
+			"store the passphrase with `komando credential password add NAME` and pass --passphrase-credential NAME",
+			"--passphrase-credential takes the name of a saved password, not the passphrase itself")
 	}
 	return nil
 }

@@ -395,7 +395,7 @@ func (lk *loginKeys) securityKeyNeeded(p string) *out.Error {
 func storePassphrase(st *store.State, h *store.Host, k lockedKey) string {
 	if k.keyName != "" {
 		sec := secretName(k.keyName, "pass")
-		return fmt.Sprintf("store its passphrase: `komando credential password add %s`, then `komando credential key edit %s --passphrase-ref secret:%s`", sec, k.keyName, sec)
+		return fmt.Sprintf("store its passphrase: `komando credential password add %s`, then `komando credential key edit %s --passphrase-credential %s`", sec, k.keyName, sec)
 	}
 	name, have := keychainKeyFor(st, h, k.path)
 	use := fmt.Sprintf("`komando host edit %s --key %s --unset identity`", h.Name, name)
@@ -404,9 +404,9 @@ func storePassphrase(st *store.State, h *store.Host, k lockedKey) string {
 	}
 	sec := secretName(name, "pass")
 	if have != nil {
-		return fmt.Sprintf("store its passphrase: `komando credential password add %s`, `komando credential key edit %s --passphrase-ref secret:%s`, then %s", sec, name, sec, use)
+		return fmt.Sprintf("store its passphrase: `komando credential password add %s`, `komando credential key edit %s --passphrase-credential %s`, then %s", sec, name, sec, use)
 	}
-	return fmt.Sprintf("store its passphrase: `komando credential password add %s`, `komando credential key add %s %s --passphrase-ref secret:%s`, then %s", sec, name, shellPath(k.path), sec, use)
+	return fmt.Sprintf("store its passphrase: `komando credential password add %s`, `komando credential key add %s %s --passphrase-credential %s`, then %s", sec, name, shellPath(k.path), sec, use)
 }
 
 // keychainKeyFor is the keychain key for the file at path: the one that

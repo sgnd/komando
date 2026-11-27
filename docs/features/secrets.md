@@ -64,8 +64,8 @@ komando credential token add api-token --new --from-env TOKEN   # never replaces
 
 ## Use one
 
-Every `--password-ref`, `--sudo-ref`, `--passphrase-ref` and VPN key flag
-takes a reference:
+Every `--password-ref`, `--sudo-ref` and VPN key flag takes a reference;
+`--passphrase-credential` takes the name of a saved password:
 
 ```bash
 komando host edit web1 --sudo-ref secret:web1-sudo

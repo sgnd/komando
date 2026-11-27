@@ -227,7 +227,7 @@ func keyAddCmd() *cobra.Command {
 			if errors.As(err, &pme) && passRef != "" {
 				pass, perr := vault.Resolve(passRef)
 				if perr != nil {
-					return out.Errf(out.ExitNotFound, "SECRET_UNRESOLVED", "store it with `komando credential password add NAME` or fix --passphrase-ref", "passphrase reference %s: %v", passRef, perr)
+					return out.Errf(out.ExitNotFound, "SECRET_UNRESOLVED", "store it with `komando credential password add NAME` or fix --passphrase-credential", "passphrase reference %s: %v", passRef, perr)
 				}
 				if signer, err = ssh.ParsePrivateKeyWithPassphrase(b, []byte(pass)); err != nil {
 					return out.Errf(out.ExitUsage, "KEY_INVALID", "check that "+passRef+" holds this key's passphrase", "cannot open %s: %v", p, err)
@@ -239,7 +239,7 @@ func keyAddCmd() *cobra.Command {
 				k.Type, k.Fingerprint = pub.Type(), ssh.FingerprintSHA256(pub)
 				k.PublicKey = strings.TrimSpace(string(ssh.MarshalAuthorizedKey(pub)))
 			case errors.As(err, &pme):
-				res.Warnings = append(res.Warnings, "the key has a passphrase and no --passphrase-ref: komando cannot log in with it until you run `komando credential key edit "+k.Name+" --passphrase-credential NAME`")
+				res.Warnings = append(res.Warnings, "the key has a passphrase and no --passphrase-credential: komando cannot log in with it until you run `komando credential key edit "+k.Name+" --passphrase-credential NAME`")
 				if pb, e := os.ReadFile(p + ".pub"); e == nil {
 					if pub, comment, _, _, e := ssh.ParseAuthorizedKey(pb); e == nil {
 						k.Type, k.Fingerprint = pub.Type(), ssh.FingerprintSHA256(pub)
@@ -401,13 +401,13 @@ func keyEditCmd() *cobra.Command {
 			fl := cmd.Flags()
 			for _, u := range unset {
 				if u != "passphrase-ref" && u != "cert" {
-					return out.Usage("--unset takes passphrase-ref or cert, not %q", u)
+					return out.Usage("--unset takes passphrase-credential or cert, not %q", u)
 				}
 			}
 			unsetPass, unsetCert := slices.Contains(unset, "passphrase-ref"), slices.Contains(unset, "cert")
 			switch {
 			case unsetPass && fl.Changed("passphrase-ref"):
-				return out.Usage("use --passphrase-ref or --unset passphrase-ref, not both")
+				return out.Usage("use --passphrase-credential or --unset passphrase-credential, not both")
 			case unsetCert && fl.Changed("cert"):
 				return out.Usage("use --cert or --unset cert, not both")
 			case !fl.Changed("unset") && !fl.Changed("passphrase-ref") && !fl.Changed("cert"):

@@ -256,7 +256,7 @@ func TestPTYMultiLinePaste(t *testing.T) {
 	if code := p.exit(); code != out.ExitUsage {
 		t.Errorf("exit %d, want %d; the screen:\n%s", code, out.ExitUsage, p.shown())
 	}
-	p.waitFor("secret set NAME < FILE")
+	p.waitFor("credential token add NAME < FILE")
 	screen := p.shown()
 	if !strings.Contains(screen, "the value has more than one line, so nothing was stored") {
 		t.Errorf("the screen:\n%s", screen)

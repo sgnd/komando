@@ -717,7 +717,7 @@ var meanings = map[string]string{
 	"DB_NOT_FOUND":           "the database named in the conn does not exist",
 	"DB_PRIVILEGE":           "the conn's user lacks a right the command needs",
 	"DB_USER_IN_USE":         "the database user owns objects or has sessions, so it is not removed",
-	"DEPLOY_FAILED":          "key deploy could not add the key to the server's authorized_keys (the server's words follow)",
+	"DEPLOY_FAILED":          "credential key install could not add the key to the server's authorized_keys (the server's words follow)",
 	"DOCKER_ERROR":           "docker on the server answered with an error",
 	"DOCKER_PERMISSION":      "the login user may not use docker on the server (add --sudo, or the docker group)",
 	"DRY_RUN_UNSUPPORTED":    "this change cannot be previewed; run it without --dry-run to make it",

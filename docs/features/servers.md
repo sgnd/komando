@@ -865,7 +865,7 @@ told to use `komando exec` or `komando shell`.
 | Error code | What it means | What to do |
 |------------|---------------|------------|
 | `AUTH_FAILED` | the server refused the login, or asked a question (a two-factor code) with no person at a terminal | check the user and password; for a code, run `komando login SERVER` once |
-| `KEY_PASSPHRASE_REQUIRED` | the key is encrypted and no ssh-agent holds it | `ssh-add PATH`, or store its passphrase and use `--passphrase-ref` |
+| `KEY_PASSPHRASE_REQUIRED` | the key is encrypted and no ssh-agent holds it | `ssh-add PATH`, or store its passphrase and use `--passphrase-credential` |
 | `HOSTKEY_MISMATCH` | the server shows another host key than the pinned one: rebuilt, or someone is in between | check the fingerprint another way; after a real rebuild, `komando host trust SERVER --reset` in your own terminal |
 | `HOSTKEY_UNKNOWN` | `host_key_policy` is `strict` and this key is not pinned yet | compare the fingerprint, then `komando host trust SERVER` |
 | `HOST_IN_USE` | another server reaches this one through `--via` | change their `--via` first, or remove them in the same command |

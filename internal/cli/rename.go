@@ -240,8 +240,8 @@ Renaming protected servers and conns needs --yes once, for all of them
 (an AI agent's --yes opens one window for a person). See what would change
 with --dry-run first. --kind renames only some kinds; references still
 follow.
-To rename one entry, use host rename, conn rename, vpn rename, secret rename, key rename or
-group rename.`,
+To rename one entry, use host rename, conn rename, vpn rename,
+credential password rename, credential key rename or group rename.`,
 		Example: `  komando rename web1 web-01 --dry-run                 # one entry, whatever kind it is
   komando rename --starts-with shop- acme-shop- --dry-run   # the old -> new list and every reference
   komando rename --starts-with shop- acme-shop- --yes       # some of them are protected
@@ -369,14 +369,26 @@ func renameOne(cmd *cobra.Command, old, new string) error {
 		var what, cmds []string
 		for _, k := range found {
 			what = append(what, renameKindWords[k])
-			cmds = append(cmds, "`komando "+k+" rename "+old+" "+new+"`")
+			cmds = append(cmds, "`komando "+strings.Join(renamePath(k), " ")+" "+old+" "+new+"`")
 		}
 		return out.Errf(out.ExitUsage, "USAGE", "say which: "+strings.Join(cmds, " or "),
 			"%q is a %s; rename one of them", old, strings.Join(what, " and a "))
 	}
-	sub, _, err := cmd.Root().Find([]string{found[0], "rename"})
-	if err != nil || sub.RunE == nil {
+	sub, _, err := cmd.Root().Find(renamePath(found[0]))
+	if err != nil || sub.Name() != "rename" || sub.RunE == nil {
 		return fmt.Errorf("komando: no %s rename command", found[0])
 	}
 	return sub.RunE(sub, []string{old, new})
+}
+
+// renamePath is the rename command of a kind of entry: a saved value and a
+// key are renamed under credential.
+func renamePath(kind string) []string {
+	switch kind {
+	case "secret":
+		return []string{"credential", "password", "rename"}
+	case "key":
+		return []string{"credential", "key", "rename"}
+	}
+	return []string{kind, "rename"}
 }

@@ -481,7 +481,7 @@ func secretInUse(name string, users []string) error {
 	hint := map[string]string{
 		"host": "komando host edit " + who + " --password-ref ... (or --sudo-ref ..., --env ...)",
 		"conn": "komando conn edit " + who + " --password-ref ...",
-		"key":  "komando credential key edit " + who + " --passphrase-ref ...",
+		"key":  "komando credential key edit " + who + " --passphrase-credential ...",
 		"vpn":  "komando vpn edit " + who + " ...",
 	}[kind]
 	return out.Errf(out.ExitConflict, "SECRET_IN_USE", "point them at another secret first, for example `"+hint+"`, or rename it with `komando credential password rename`",

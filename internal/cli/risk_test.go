@@ -170,7 +170,7 @@ var agentStops = []agentStop{
 func TestRiskPersonGains(t *testing.T) {
 	for _, line := range []string{
 		"reboot web1", "svc stop web1 sshd", "svc disable web1 ssh.service", "sync ./site web1:/var/www --delete",
-		"db kill db1 123", "cron rm web1 backup", "secret rm db-pass", "pkg rm web1 nginx",
+		"db kill db1 123", "cron rm web1 backup", "credential password remove db-pass", "pkg rm web1 nginx",
 	} {
 		if riskOfLine(strings.Fields(line)).typedWhat() == "" {
 			t.Errorf("%s: no typed name", line)
@@ -237,6 +237,6 @@ func TestSchemaConfirm(t *testing.T) {
 	d := mustRun(t, "schema", "credential", "password", "remove")
 	cmd := d["commands"].([]any)[0].(map[string]any)
 	if c, _ := cmd["confirm"].([]any); len(c) != 1 || c[0].(map[string]any)["flag"] != "--allow-dangerous" {
-		t.Errorf("schema secret rm: %v", cmd["confirm"])
+		t.Errorf("schema credential password remove: %v", cmd["confirm"])
 	}
 }

@@ -100,7 +100,7 @@ func TestRunInjectsAndMasks(t *testing.T) {
 		t.Errorf("KOMANDO_* reached the program: %q", text)
 	}
 	rec := auditText(t)
-	if strings.Contains(rec, "s3cr3t-value-123") || !strings.Contains(rec, `"command":"secret run"`) || !strings.Contains(rec, "secret:tok") {
+	if strings.Contains(rec, "s3cr3t-value-123") || !strings.Contains(rec, `"command":"credential.run"`) || !strings.Contains(rec, "secret:tok") {
 		t.Errorf("audit: %s", rec)
 	}
 }

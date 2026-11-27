@@ -151,17 +151,17 @@ func TestGateCheck(t *testing.T) {
 		{"list", "", ""},
 		{"", "", ""}, // `komando` alone: first steps
 		{"host list -o json", "", ""},
-		{"secret get db --reveal", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
-		{"secret get db --reveal=true", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
-		{"secret get db --reveal=false", "", ""},
-		{"--reveal secret get db", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"}, // a global flag before the command
+		{"credential password show db --reveal", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
+		{"credential password show db --reveal=true", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
+		{"credential password show db --reveal=false", "", ""},
+		{"--reveal credential password show db", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"}, // a global flag before the command
 		{"-o json --allow-dangerous fs rm web /tmp/x", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"exec web --allow-dangerous -- rm -rf /tmp/x", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"exec web --read-only -- echo --reveal --allow-dangerous", "", ""}, // words for the server
 		{"shell web", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"db shell pg", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"cluster shell k8s pod/x", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
-		{"secret passphrase", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
+		{"config vault passphrase", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"secret check db", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"login aws", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"config approval-code", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
@@ -170,7 +170,7 @@ func TestGateCheck(t *testing.T) {
 		{"guide guard", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"__complete exec ''", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"host add x u@10.0.0.9", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
-		{"secret set db", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
+		{"credential password add db", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"svc restart web nginx", "", "SSH_GATE_READ_ONLY"},
 		{"cp web:/var/backups/db.gz web:/tmp/db.gz", "", "SSH_GATE_READ_ONLY"}, // between two servers
 		{"cp web:/var/backups/db.gz web:/tmp/db.gz --continue", "", "SSH_GATE_READ_ONLY"},
@@ -191,8 +191,8 @@ func TestGateCheck(t *testing.T) {
 		{"recipe run my-clean web", "", "SSH_GATE_READ_ONLY"},
 		{"recipe run drop-caches web", "", "SSH_GATE_READ_ONLY"},
 		{"recipe run disk web", "", ""},
-		{"secret rm db --help", "", ""},                             // help only
-		{"db", "", ""},                                              // a group: prints its help
+		{"credential password remove db --help", "", ""}, // help only
+		{"db", "", ""}, // a group: prints its help
 		{"no-such-command", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"}, // names no command: as for a person (cut PR B1)
 		{"completion bash", "", ""},
 		{"exec web --read-only --dry-run -- uptime", "", ""},
@@ -251,11 +251,11 @@ func TestGateCheck(t *testing.T) {
 		{"policy deny 'x'", R, R},
 		{"policy rm x", R, R},
 		{"status --short", "", ""},
-		{"secret rm db", R, R},
-		{"secret keychain", R, R},
-		{"key gen k", R, R},
-		{"key add k ./id", R, R},
-		{"key rm k", R, R},
+		{"credential password remove db", R, R},
+		{"config vault keychain", R, R},
+		{"credential key create k", R, R},
+		{"credential key add k ./id", R, R},
+		{"credential key remove k", R, R},
 		{"recipe add x 'id'", R, R},
 		{"recipe rm my-df", R, R},
 		{"guide install", R, R},
@@ -355,9 +355,9 @@ func TestGateLocalTargets(t *testing.T) {
 		"db query pglist --write 'select 1'":                      R, // any host of the list
 		"db query pghostparam 'select 1'":                         R, // pg_read_file reads here
 		"db query mongolist --write '{}'":                         R,
-		"key deploy k me":                                         R,
-		"key deploy k web":                                        "",
-		"key deploy k web --set-default":                          R, // komando's own setup
+		"credential key install k me":                             R,
+		"credential key install k web":                            "",
+		"credential key install k web --set-default":              R, // komando's own setup
 		"vpn up office":                                           "",
 		"cluster run k8s --write -- cp ns/pod:/x LOCAL":           R,
 		"cluster run k8s --write -- cp ns/pod:/x ./x":             R,
