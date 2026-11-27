@@ -18,7 +18,7 @@
           {
             "name": "command",
             "type": "string",
-            "usage": "only commands that start with this (like exec, fs.)"
+            "usage": "only commands or events that start with this (like exec, fs., secret.set), or a command ID (also of v0.17) with the same safety key"
           },
           {
             "name": "failed",
@@ -19559,6 +19559,12 @@
         "hint": "list consumers with `komando queue nats consumer list NAME`; name one as STREAM/CONSUMER"
       },
       {
+        "code": "CREDENTIAL_IN_USE",
+        "exit": 8,
+        "example": "…: changing … would change credential …, which these entries use: …; nothing was changed",
+        "hint": "give this entry its own: `komando secret cp … NEW`, then pass credential:NEW"
+      },
+      {
         "code": "DB_AUTH",
         "exit": 4,
         "example": "bigquery: the stored key is not a service account key: …",
@@ -20023,6 +20029,12 @@
         "exit": 5,
         "example": "the server did not stop session …",
         "hint": "you may lack the right to stop another user's session"
+      },
+      {
+        "code": "KIND_UNSUPPORTED",
+        "exit": 2,
+        "example": "…: kind … has no type",
+        "hint": "pick a kind komando knows: `komando conn add --help` lists them"
       },
       {
         "code": "KOMANDO_MISSING",

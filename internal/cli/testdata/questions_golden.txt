@@ -4,7 +4,7 @@ title: Show the audit log: who did what, where, and the result
 - flag:target | --target | Only for which servers or conns? | Leave empty for everything. |  | optional,free,choices
 - flag:failed | --failed | Only what failed or was blocked? | Only actions that failed or were blocked |  | default,choices
 - flag:actor | --actor | Only what one person or AI agent did? | Part of the name, like claude or codex. Leave empty for everyone. | claude | optional,check
-- flag:command | --command | Only commands that start with this (like exec, fs.) |  |  | optional,advanced,check
+- flag:command | --command | Only commands or events that start with this (like exec, fs., secret.set), or a command ID (also of v0.17) with the same safety key |  |  | optional,advanced,check
 - flag:limit | --limit | The newest N entries (0 = all; with --since or --until, all unless given) |  |  | optional,advanced,default,check
 - flag:until | --until | Only entries before this time (the same forms as --since) |  |  | optional,advanced,check
 ### komando audit verify
@@ -3597,7 +3597,7 @@ title: Add a RabbitMQ server
 - vhost | Virtual host | Which virtual host (vhost)? | One server holds several vhosts. Most use the default, /. | / | default
 - user | User | Which user do you log in as? | Empty logs in as guest, which RabbitMQ lets in only from the server itself. | app | optional,check
 - password | Password | How does komando get the password? | Either way it never shows here. With Confluent Cloud the password is the API secret. |  | default,choices,show
-- secret | Saved password | Which saved secret holds the password? | A name from komando secret list, or where it is kept, like secret:NAME or env:VAR. |  | free,choices,show,check
+- secret | Saved password | Which saved secret holds the password? | A name from komando secret list, or credential:NAME. |  | free,choices,show,check
 - management | Management port | Which port does the management plugin use? | topic list and message list need it: message list reads a queue's type and delivery limit there, so it never makes a quorum queue drop a message. Usually 15671 with TLS, 15672 without; empty when the plugin is off. |  | optional,default,check
 - protected | Production | Can a mistake on this RabbitMQ server hurt real users or real data? | Production: komando asks you before every change, and an AI agent needs your yes in a window. |  | default,choices
 - ca | CA certificate | Which saved CA certificate should komando trust? | Only for a certificate from your own CA. Save it first: komando secret set NAME < ca.crt. Empty for none. |  | optional,advanced,free,choices,show,check
@@ -3886,7 +3886,7 @@ title: Add a GlobalProtect VPN
 - portal | Address | What is the VPN's address? | The Portal address in the GlobalProtect app. Your company's IT team knows it too. | vpn.example.com | addr,check
 - user | User | What is your VPN user name? | Usually your work login. Empty to type it each time you connect. | budi | optional,check
 - pass | Password | How should komando get your VPN password? | The password is never shown and never written in the command. |  | default,choices,show
-- ref | Kept in | Where is it kept? | A reference, never the secret itself: op://Work/VPN/password (1Password), bw://item (Bitwarden), env:VPN_PASS (a variable). | op://Work/VPN/password | show,check
+- ref | Saved secret | Which saved secret holds it? | A name from komando secret list, or credential:NAME. |  | free,choices,show,check
 - mfa | Extra sign-in step | After the password, does logging in need one more step? | With an extra step you connect it yourself with komando vpn KIND start NAME; later commands reuse that connection. |  | default,choices,show
 - check | Test address | Which address can only be reached through this VPN? (optional) | An address and port inside the private network, like a server's private IP and port 22. komando connects to it to see that the VPN works. Enter skips it. | 10.0.0.5:22 | optional,check
 - group | Group | Put it in a group? | A group lets one command reach many, like komando test @web. Empty for none. | web | optional,advanced,check
@@ -3897,7 +3897,7 @@ title: Add a FortiClient VPN
 - portal | Address | What is the VPN's address? | The Remote Gateway in FortiClient. Add :port when FortiClient shows one, like :10443. Your company's IT team knows it too. | vpn.example.com | addr,check
 - user | User | What is your VPN user name? | Usually your work login. Empty to type it each time you connect. | budi | optional,check
 - pass | Password | How should komando get your VPN password? | The password is never shown and never written in the command. |  | default,choices,show
-- ref | Kept in | Where is it kept? | A reference, never the secret itself: op://Work/VPN/password (1Password), bw://item (Bitwarden), env:VPN_PASS (a variable). | op://Work/VPN/password | show,check
+- ref | Saved secret | Which saved secret holds it? | A name from komando secret list, or credential:NAME. |  | free,choices,show,check
 - mfa | Extra sign-in step | After the password, does logging in need one more step? | With an extra step you connect it yourself with komando vpn KIND start NAME; later commands reuse that connection. |  | default,choices,show
 - check | Test address | Which address can only be reached through this VPN? (optional) | An address and port inside the private network, like a server's private IP and port 22. komando connects to it to see that the VPN works. Enter skips it. | 10.0.0.5:22 | optional,check
 - group | Group | Put it in a group? | A group lets one command reach many, like komando test @web. Empty for none. | web | optional,advanced,check
@@ -3908,7 +3908,7 @@ title: Add a Cisco AnyConnect VPN
 - portal | Address | What is the VPN's address? | The address in the AnyConnect connect box, sometimes with /group at the end. Your company's IT team knows it too. | vpn.example.com | addr,check
 - user | User | What is your VPN user name? | Usually your work login. Empty to type it each time you connect. | budi | optional,check
 - pass | Password | How should komando get your VPN password? | The password is never shown and never written in the command. |  | default,choices,show
-- ref | Kept in | Where is it kept? | A reference, never the secret itself: op://Work/VPN/password (1Password), bw://item (Bitwarden), env:VPN_PASS (a variable). | op://Work/VPN/password | show,check
+- ref | Saved secret | Which saved secret holds it? | A name from komando secret list, or credential:NAME. |  | free,choices,show,check
 - mfa | Extra sign-in step | After the password, does logging in need one more step? | With an extra step you connect it yourself with komando vpn KIND start NAME; later commands reuse that connection. |  | default,choices,show
 - check | Test address | Which address can only be reached through this VPN? (optional) | An address and port inside the private network, like a server's private IP and port 22. komando connects to it to see that the VPN works. Enter skips it. | 10.0.0.5:22 | optional,check
 - group | Group | Put it in a group? | A group lets one command reach many, like komando test @web. Empty for none. | web | optional,advanced,check
@@ -3919,7 +3919,7 @@ title: Add a Pulse Secure or Ivanti VPN
 - portal | Address | What is the VPN's address? | The server URL in the Pulse Secure or Ivanti app. Your company's IT team knows it too. | vpn.example.com | addr,check
 - user | User | What is your VPN user name? | Usually your work login. Empty to type it each time you connect. | budi | optional,check
 - pass | Password | How should komando get your VPN password? | The password is never shown and never written in the command. |  | default,choices,show
-- ref | Kept in | Where is it kept? | A reference, never the secret itself: op://Work/VPN/password (1Password), bw://item (Bitwarden), env:VPN_PASS (a variable). | op://Work/VPN/password | show,check
+- ref | Saved secret | Which saved secret holds it? | A name from komando secret list, or credential:NAME. |  | free,choices,show,check
 - mfa | Extra sign-in step | After the password, does logging in need one more step? | With an extra step you connect it yourself with komando vpn KIND start NAME; later commands reuse that connection. |  | default,choices,show
 - check | Test address | Which address can only be reached through this VPN? (optional) | An address and port inside the private network, like a server's private IP and port 22. komando connects to it to see that the VPN works. Enter skips it. | 10.0.0.5:22 | optional,check
 - group | Group | Put it in a group? | A group lets one command reach many, like komando test @web. Empty for none. | web | optional,advanced,check
@@ -3930,7 +3930,7 @@ title: Add a F5 BIG-IP VPN
 - portal | Address | What is the VPN's address? | The server address in the F5 Access app, or the page you sign in on. Your company's IT team knows it too. | vpn.example.com | addr,check
 - user | User | What is your VPN user name? | Usually your work login. Empty to type it each time you connect. | budi | optional,check
 - pass | Password | How should komando get your VPN password? | The password is never shown and never written in the command. |  | default,choices,show
-- ref | Kept in | Where is it kept? | A reference, never the secret itself: op://Work/VPN/password (1Password), bw://item (Bitwarden), env:VPN_PASS (a variable). | op://Work/VPN/password | show,check
+- ref | Saved secret | Which saved secret holds it? | A name from komando secret list, or credential:NAME. |  | free,choices,show,check
 - mfa | Extra sign-in step | After the password, does logging in need one more step? | With an extra step you connect it yourself with komando vpn KIND start NAME; later commands reuse that connection. |  | default,choices,show
 - check | Test address | Which address can only be reached through this VPN? (optional) | An address and port inside the private network, like a server's private IP and port 22. komando connects to it to see that the VPN works. Enter skips it. | 10.0.0.5:22 | optional,check
 - group | Group | Put it in a group? | A group lets one command reach many, like komando test @web. Empty for none. | web | optional,advanced,check
@@ -3949,7 +3949,7 @@ title: Add an OpenVPN VPN
 - check | Test address | Which address can only be reached through this VPN? | An address and port inside the private network, like a server's private IP and port 22. komando connects to it to see that the VPN works. | 10.8.0.1:22 | check
 - user | User | What is your VPN user name? | This file logs in with a user name and password. | budi | show,check
 - pass | Password | How should komando get your VPN password? | The password is never shown and never written in the command. |  | default,choices,show
-- ref | Kept in | Where is it kept? | A reference, never the secret itself: op://Work/VPN/password (1Password), bw://item (Bitwarden), env:VPN_PASS (a variable). | op://Work/VPN/password | show,check
+- ref | Saved secret | Which saved secret holds it? | A name from komando secret list, or credential:NAME. |  | free,choices,show,check
 - mfa | Extra sign-in step | After the password, does logging in need one more step? | With an extra step you connect it yourself with komando vpn KIND start NAME; later commands reuse that connection. |  | default,choices,show
 - group | Group | Put it in a group? | A group lets one command reach many, like komando test @web. Empty for none. | web | optional,advanced,check
 - notes | Notes | Any notes for later? | Free text, shown in komando show and to AI agents. Never put a password here. |  | optional,advanced

@@ -20,6 +20,11 @@
           "recipe": "string",
           "remote": "string",
           "replaced": "bool",
+          "safety_key": {
+            "area": "string",
+            "type": "string",
+            "verb": "string"
+          },
           "secret": "string",
           "ts": "string"
         }
