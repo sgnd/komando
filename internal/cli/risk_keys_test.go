@@ -171,6 +171,7 @@ var whenProbes = []string{
 	"registry oci edit ghcr --protected=false",
 	"queue kafka edit prod-kafka --protected=false",
 	"storage s3 edit prod-s3 --protected=false",
+	"database postgres edit prod-db --protected=false",
 	"cluster kubernetes edit prod-k8s --protected=false",
 	"vpn socks edit kantor --protected=false",
 	"vpn socks edit kantor --mfa=false",
