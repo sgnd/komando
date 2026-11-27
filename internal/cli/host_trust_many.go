@@ -301,12 +301,8 @@ func trustDryText(rows []map[string]any) out.Texter {
 	})
 }
 
-// The host type of the table: komando host ssh|winrm VERB. The verbs are
-// today's commands run through runBody (add, edit, list, show, rename,
-// remove, test, exec, shell, trust and the tunnel verbs), each on the
-// servers of its provider only: the provider in the path must be the one the
-// server was saved with (WRONG_KIND). The provider groups, their texts and
-// their options come from the table when the tree is mounted.
+// The host type of the table: komando host ssh|winrm VERB runs today's command through runBody.
+// The provider in the path must be the one the server was saved with (WRONG_KIND).
 
 func init() {
 	for _, p := range []string{"ssh", "winrm"} {

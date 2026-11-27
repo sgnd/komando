@@ -82,10 +82,8 @@ func idTableOf[V any](name string, m map[string]V, spaced bool) idTable {
 		func(id string) { delete(m, key(id)) }}
 }
 
-// idTables are the tables keyed by command ID, which moveType moves, besides
-// cmdKeys (a new ID's key is its leaf's). A new table keyed by command ID
-// joins here; the tests of moveType and TestSafetyTablesFollowTheLeaf
-// read this list, never one of their own.
+// idTables are the tables keyed by command ID that moveType moves, besides cmdKeys.
+// A new table keyed by command ID joins here: the moveType tests read this list.
 func idTables() []idTable {
 	return []idTable{
 		idTableOf("personalCmds", personalCmds, true),
