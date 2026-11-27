@@ -296,7 +296,7 @@ var errorCodes = []errorCode{
 	{"TOPIC_EXISTS", 8, "topic … already exists", "pick another name, or see it with `komando queue describe CONN …`"},
 	{"TOPIC_NOT_FOUND", 3, "no topic named …", "list topics with `komando queue list CONN`"},
 	{"TUNNEL_FAILED", 4, "the server refused the port forwarding (AllowTcpForwarding, address)", "check that the server allows forwarding (AllowTcpForwarding in sshd_config) and that the address is right"},
-	{"TUNNEL_NOT_FOUND", 3, "no tunnel named …", "see them with `komando tunnel list`"},
+	{"TUNNEL_NOT_FOUND", 3, "no tunnel named …", "see them with `komando host ssh tunnel list`"},
 	{"TUNNEL_TIMEOUT", 7, "tunnel did not become ready…", "check that … answers: `komando test …`; a person reads the whole log in …"},
 	{"UNEXPECTED_CHANGE", 8, "… changed after patching: …", "check the server (`komando docker ps …`, `komando svc list … --failed`); servers after it were not patched: run it again with --keep-going to patch them anyway"},
 	{"UNEXPECTED_STATUS", 5, "HTTP …, expected …", "check the URL and the service behind it"},
