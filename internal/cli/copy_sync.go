@@ -571,7 +571,7 @@ func syncUp(cl *call, ctx context.Context, name, local, target, remote string, o
 		if o.delete {
 			v = driver.DataDelete()
 		}
-		return syncStorage(cl, ctx, name, target, v, func(ctx context.Context, c *store.Conn, b storex.Bucket) (any, error) {
+		return syncStorage(cl, ctx, name, target, v, o, func(ctx context.Context, c *store.Conn, b storex.Bucket) (any, error) {
 			return runSync(cl, ctx, src, bucketSide{b: b, prefix: folderKey(remote)}, local, c.Name+":"+remote, o)
 		})
 	}
@@ -609,7 +609,7 @@ func syncUp(cl *call, ctx context.Context, name, local, target, remote string, o
 		}
 		return r, err
 	})
-	return finishSync(cl, st, name, hosts, res, local, target+":"+remote)
+	return finishSync(cl, st, name, hosts, res, local, target+":"+remote, o)
 }
 
 // syncDown fetches a folder from one server or a storage conn.
@@ -633,7 +633,7 @@ func syncDown(cl *call, ctx context.Context, name, target, remote, local string,
 	}
 	dst := localSide{cl: cl, root: local}
 	if storage {
-		return syncStorage(cl, ctx, name, target, driver.Verdict{}, func(ctx context.Context, c *store.Conn, b storex.Bucket) (any, error) {
+		return syncStorage(cl, ctx, name, target, driver.Verdict{}, o, func(ctx context.Context, c *store.Conn, b storex.Bucket) (any, error) {
 			return runSync(cl, ctx, bucketSide{b: b, prefix: folderKey(remote)}, dst, c.Name+":"+remote, local, o)
 		})
 	}
@@ -657,12 +657,12 @@ func syncDown(cl *call, ctx context.Context, name, target, remote, local string,
 		}
 		return r, err
 	})
-	return finishSync(cl, st, name, []*store.Host{h}, res, target+":"+remote, local)
+	return finishSync(cl, st, name, []*store.Host{h}, res, target+":"+remote, local, o)
 }
 
 // syncStorage runs a sync against one storage conn. Unlike other storage
 // changes, a dry run still reads both sides, so it can list the files.
-func syncStorage(cl *call, ctx context.Context, name, connExpr string, v driver.Verdict, fn func(ctx context.Context, c *store.Conn, b storex.Bucket) (any, error)) error {
+func syncStorage(cl *call, ctx context.Context, name, connExpr string, v driver.Verdict, o syncOpts, fn func(ctx context.Context, c *store.Conn, b storex.Bucket) (any, error)) error {
 	st, err := loadState()
 	if err != nil {
 		return err
@@ -688,7 +688,8 @@ func syncStorage(cl *call, ctx context.Context, name, connExpr string, v driver.
 	defer b.Close()
 	data, err := fn(ctx, c, b)
 	r, _ := data.(*syncResult)
-	rec := map[string]any{"conns": []string{c.Name}, "risk": v.Risk.String()}
+	rec := copyRecord("sync", o.delete, o.sudo)
+	rec["conns"], rec["risk"] = []string{c.Name}, v.Risk.String()
 	if r != nil {
 		rec["copied"], rec["updated"], rec["deleted"] = r.Copied, r.Updated, r.Deleted
 	}
@@ -740,7 +741,7 @@ func (f syncFleet) Text() string {
 	return sb.String()
 }
 
-func finishSync(cl *call, st *store.State, name string, hosts []*store.Host, res []outcome, src, dst string) error {
+func finishSync(cl *call, st *store.State, name string, hosts []*store.Host, res []outcome, src, dst string, o syncOpts) error {
 	data := syncFleet{Results: []any{}}
 	worst := 0
 	var fails []hostFail
@@ -759,7 +760,9 @@ func finishSync(cl *call, st *store.State, name string, hosts []*store.Host, res
 		data.Results = append(data.Results, o.Value)
 	}
 	if !cl.dryRun() {
-		audit(cl, st, name, hostNames(hosts), "", data.Summary.Failed == 0, map[string]any{"src": src, "dst": dst})
+		rec := copyRecord("sync", o.delete, o.sudo)
+		rec["src"], rec["dst"] = src, dst
+		audit(cl, st, name, hostNames(hosts), "", data.Summary.Failed == 0, rec)
 	}
 	return finishFleet(cl, name, data, runSummary{fleetSummary: data.Summary}, worst, fails)
 }

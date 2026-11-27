@@ -201,7 +201,8 @@ func streamServer(cl *call, ctx context.Context, name, target, p string, o cpOpt
 		defer cancel()
 	}
 	r, err := streamFromServer(cl, ctx, st, h, p, raw)
-	rec := map[string]any{"src": from, "dst": "stdout", "bytes": r.bytes}
+	rec := copyRecord("stream", false, false)
+	rec["src"], rec["dst"], rec["bytes"] = from, "stdout", r.bytes
 	if err != nil {
 		rec["error"] = toErr(err).Code
 	}

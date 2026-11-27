@@ -400,8 +400,21 @@ func runCp(cl *call, ctx context.Context, name, target, remote, local string, up
 		x.add(s, r.Err)
 	}
 	data, worst, fails := x.data, x.worst, x.fails
-	audit(cl, st, name, hostNames(hosts), "", data.Summary.Failed == 0, map[string]any{"src": src, "dst": dst})
+	op := "download"
+	if up {
+		op = "upload"
+	}
+	rec := copyRecord(op, false, o.sudo)
+	rec["src"], rec["dst"] = src, dst
+	audit(cl, st, name, hostNames(hosts), "", data.Summary.Failed == 0, rec)
 	return finishFleet(cl, name, data, runSummary{fleetSummary: data.Summary}, worst, fails)
+}
+
+// copyRecord starts the audit record of a copy: which copy it was (upload,
+// download, stream, remote or sync) and whether it deleted files or wrote
+// as root, so a sync --delete never reads as a plain copy.
+func copyRecord(op string, del, sudo bool) map[string]any {
+	return map[string]any{"op": op, "delete": del, "sudo": sudo}
 }
 
 // xferTally adds up the results of a copy, one per server (or one for a

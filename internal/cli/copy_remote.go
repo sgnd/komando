@@ -253,7 +253,8 @@ func runRemoteCp(ctx context.Context, cmd *cobra.Command, srcT, srcP, dstT, dstP
 		ctx, cancel = context.WithTimeout(ctx, cl.flags.timeout)
 		defer cancel()
 	}
-	rec := map[string]any{"src": from, "dst": to}
+	rec := copyRecord("remote", false, false)
+	rec["src"], rec["dst"] = from, to
 	if conns != nil {
 		rec["conns"] = conns
 	}
