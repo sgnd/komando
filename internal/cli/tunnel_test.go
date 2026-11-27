@@ -225,3 +225,24 @@ func TestTunnelStopOtherProgram(t *testing.T) {
 		t.Error("a running tunnel process is not seen")
 	}
 }
+
+// An empty tunnel list names the command that starts one, on its path.
+func TestTunnelListEmptyNamesHostSSHTunnelStart(t *testing.T) {
+	if got := (tunnelList{}).Text(); !strings.Contains(got, "`komando host ssh tunnel start TARGET -L SPEC`") {
+		t.Errorf("empty list: %q", got)
+	}
+}
+
+// tunnel serve run by hand is told to use host ssh tunnel start.
+func TestTunnelServeByHandNamesHostSSHTunnelStart(t *testing.T) {
+	invHome(t)
+	saved := tcl.stdin
+	t.Cleanup(func() { tcl.stdin = saved })
+	for _, logins := range []bool{false, true} {
+		tcl.stdin = strings.NewReader("")
+		_, err := serveState(tcl, logins, false)
+		if e := toErr(err); e.Code != "NEEDS_PERSON" || !strings.Contains(e.Hint, "`komando host ssh tunnel start`") {
+			t.Errorf("logins %v: %+v", logins, e)
+		}
+	}
+}

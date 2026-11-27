@@ -314,7 +314,7 @@ type tunnelList struct {
 
 func (l tunnelList) Text() string {
 	if len(l.Tunnels) == 0 {
-		return term.NoneYet("tunnels", "tunnel start TARGET -L SPEC")
+		return term.NoneYet("tunnels", "host ssh tunnel start TARGET -L SPEC")
 	}
 	rows := [][]string{}
 	for _, t := range l.Tunnels {
@@ -568,7 +568,7 @@ func serveState(cl *call, loginsStdin, passStdin bool) (*store.State, error) {
 	ticket := readTicket(in)
 	if loginsStdin {
 		if err := readLogins(cl, in); err != nil {
-			if terr := checkTicket(cl, ticket, "tunnel serve", "tunnel start"); terr != nil {
+			if terr := checkTicket(cl, ticket, "tunnel serve", "host ssh tunnel start"); terr != nil {
 				return nil, terr // run by hand
 			}
 			return nil, err
@@ -579,7 +579,7 @@ func serveState(cl *call, loginsStdin, passStdin bool) (*store.State, error) {
 			return nil, err
 		}
 	}
-	if err := checkTicket(cl, ticket, "tunnel serve", "tunnel start"); err != nil {
+	if err := checkTicket(cl, ticket, "tunnel serve", "host ssh tunnel start"); err != nil {
 		return nil, err
 	}
 	return loadState()
