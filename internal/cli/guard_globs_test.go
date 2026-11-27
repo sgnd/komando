@@ -51,6 +51,7 @@ func TestGuardGlobFormsTheGuardDoesNotReadAreRefused(t *testing.T) {
 		`GLOBIGNORE=x; rm -rf ~/*`,
 		`cat ~/.ss[!x]/id_ed25519`,
 		`cat ~/.ss[[:alpha:]]/id_ed25519`,
+		`cat ~/.ss[[.h.]]/id_ed25519`,
 		`cat ~/.koman[!x]o/vault.json`,
 		`echo x > ~/.claud[!x]/settings.json`,
 		`rm -rf ~/.ss[!x]`,
