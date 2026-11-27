@@ -534,6 +534,13 @@ func shellGlobMatches(p, f string) bool {
 // find -delete follows (touchesProtected): the change reaches everything
 // under the folder. A glob counts as the names it matches now.
 func checkTreeChange(cl *call, base string, args []string, globs []bool, vars lineVars, home, cwd string) guardDecision {
+	lines, flat, whole := treeLines(cl, args, globs, vars, home, cwd)
+	if !whole {
+		return deny("the line has %s; name the folders plainly", braceLimitWhy)
+	}
+	if flat {
+		base = anyProgram // one list of every value: an option from one value says nothing of the words after it
+	}
 	verb := "changes"
 	switch base {
 	case "rm":
@@ -542,10 +549,6 @@ func checkTreeChange(cl *call, base string, args []string, globs []bool, vars li
 		verb = "moves"
 	case anyProgram:
 		verb = "may remove or move"
-	}
-	lines, whole := treeLines(cl, args, globs, vars, home, cwd)
-	if !whole {
-		return deny("the line has %s; name the folders plainly", braceLimitWhy)
 	}
 	for _, line := range lines {
 		words := make([]string, len(line))

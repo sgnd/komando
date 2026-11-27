@@ -513,9 +513,10 @@ type treeWord struct {
 // treeLines are the argument lists the program may get, so `rm {-rf,~}` and
 // `f=-rf; rm $f ~` give their options: one list for each choice among the
 // values the guard knows a word may have, each value split at blanks and
-// brace lists expanded. Past 64 choices one list holds every value. whole
-// is false when a brace list gives more names than the guard reads.
-func treeLines(cl *call, args []string, globs []bool, vars lineVars, home, cwd string) (lines [][]treeWord, whole bool) {
+// brace lists expanded. Past 64 choices one list holds every value, and
+// flat is set. whole is false when a brace list gives more names than the
+// guard reads.
+func treeLines(cl *call, args []string, globs []bool, vars lineVars, home, cwd string) (lines [][]treeWord, flat, whole bool) {
 	lines, all := [][]treeWord{nil}, []treeWord(nil)
 	for i, a := range args {
 		vals, _ := vars.expand(cl, a, home, cwd)
@@ -531,7 +532,7 @@ func treeLines(cl *call, args []string, globs []bool, vars lineVars, home, cwd s
 				pats := []string{f}
 				if glob && strings.Contains(f, "{") {
 					if pats, whole = expandBraces(f); !whole {
-						return nil, false
+						return nil, false, false
 					}
 				}
 				for _, p := range pats {
@@ -553,9 +554,9 @@ func treeLines(cl *call, args []string, globs []bool, vars lineVars, home, cwd s
 		lines = next
 	}
 	if lines == nil {
-		return [][]treeWord{all}, true
+		return [][]treeWord{all}, true, true
 	}
-	return lines, true
+	return lines, false, true
 }
 
 // treeTargets are the paths the word v, its brace lists expanded

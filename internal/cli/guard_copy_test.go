@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -114,6 +115,35 @@ func TestGuardTreeChangeOfAProtectedFolderIsRefused(t *testing.T) {
 		`rm -rf ""`,
 		`true && S=/tmp/x && mv a.txt $S/`,
 		`true && S=/tmp/x && mv a.txt "$S/"`,
+	}, false)
+}
+
+// treeRefusal is the folder rule's own reason (checkTreeChange).
+const treeRefusal = "and everything under it"
+
+// checkRefusedBy is checkLines for lines the guard must refuse with a
+// reason that holds why: a pin that another check refuses first does not
+// pin the check it names.
+func checkRefusedBy(t *testing.T, home, cwd string, lines []string, why string) {
+	t.Helper()
+	for _, line := range lines {
+		d := checkTool(tcl, "Bash", map[string]any{"command": line}, home, cwd)
+		if !d.Deny || !strings.Contains(d.Reason, why) {
+			t.Errorf("%s: want a refusal with %q, got deny=%v %q", line, why, d.Deny, d.Reason)
+		}
+	}
+}
+
+// Past 64 choices among a line's values the folder rule reads one list of
+// every value, where each word that is not an option is an operand: a -S
+// from one value cannot hide the folder after it.
+func TestGuardFolderRulePastTheChoicesReadsEveryOperand(t *testing.T) {
+	home, repo := guardLineHome(t)
+	checkRefusedBy(t, home, home, []string{
+		`C=-f; B=-f; true || C=-v; true || B=-S; mv $C $C $C $C $C $C $B ~/.ssh /tmp/k`,
+	}, treeRefusal)
+	checkLines(t, home, repo, []string{
+		`C=-f; true || C=-v; mv $C $C $C $C $C $C $C build /tmp/out`,
 	}, false)
 }
 
