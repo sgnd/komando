@@ -63,7 +63,7 @@ func TestOracleConnsCheckTLS(t *testing.T) {
 		t.Errorf("weakTLS false: %v", w)
 	}
 	// what Oracle cannot do says so before connecting
-	wantCode(t, "USAGE", "database", "oracle", "backup", "erp") // no backup leaf+"/o.sql")
+	wantCode(t, "USAGE", "database", "oracle", "backup", "erp")      // no backup leaf+"/o.sql")
 	wantCode(t, "USAGE", "database", "oracle", "restore", "o-local") // no restore leaf
 	wantCode(t, "NOT_SUPPORTED", "db", "explain", "o-local", "select 1 from dual", "--analyze")
 }

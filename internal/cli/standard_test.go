@@ -494,6 +494,7 @@ func TestStandardLong(t *testing.T) {
 
 // sampleNames are S-6.8's sample names, and selectors that pick them.
 var sampleNames = []string{"web1", "web2", "db1", "@web", "prod-db", "staging-db", "prod-redis", "prod-kafka",
+	"shop-mysql", "shop-maria", "sales-mssql", "erp-oracle", "local", "prod-mongo", "events-ch", "analytics", "bq",
 	"backups", "ghcr", "harbor", "prod-k8s", "swarm1", "office", "alice", "app", "all"}
 
 // S-6.6..S-6.9: example counts, a dry-run line per change command,

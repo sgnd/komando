@@ -27,7 +27,7 @@ func TestSnowflakeConns(t *testing.T) {
 	}
 	wantCode(t, "USAGE", "conn", "add", "sf-tls", "snowflake://app@acct/db?tls=false")
 	wantCode(t, "URL_HAS_PASSWORD", "conn", "add", "sf-pw", "snowflake://app:pw@acct/db")
-	wantCode(t, "USAGE", "database", "snowflake", "backup", "sf") // no backup leaf+"/s.sql")
+	wantCode(t, "USAGE", "database", "snowflake", "backup", "sf")  // no backup leaf+"/s.sql")
 	wantCode(t, "USAGE", "database", "snowflake", "restore", "sf") // no restore leaf
 	wantCode(t, "NOT_SUPPORTED", "db", "explain", "sf", "select 1", "--analyze")
 	wantCode(t, "NOT_SUPPORTED", "db", "user", "add", "sf", "bob", "--password-ref", "secret:x")

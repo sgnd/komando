@@ -36,6 +36,18 @@ var dbProviders = []dbProvider{
 		what: "BigQuery", read: `"select count(*) from shop.orders"`, write: `"update shop.orders set status = 'paid' where id = 42"`},
 }
 
+// DatabaseExample is what a provider's examples use: the name of a saved
+// database, its URL and a read in the provider's language. ok is false
+// for a word that is no database provider.
+func DatabaseExample(provider string) (entry, url, read string, ok bool) {
+	for _, p := range dbProviders {
+		if p.name == provider {
+			return p.entry, p.url, p.read, true
+		}
+	}
+	return "", "", "", false
+}
+
 // queryCarries are the db commands of today that query does now.
 var queryCarries = join(
 	idsOf("db", "activity", "explain", "grant", "info", "kill", "locks", "revoke", "schema", "sizes"),
@@ -76,7 +88,7 @@ var (
 	queryLimit  = Option{Name: "limit", Short: "n", Kind: Int, Default: "500", Help: "the most rows to return per statement (0 = no limit; --max-output caps the size too)"}
 	queryArg    = Option{Name: "arg", Kind: String, Repeat: true, Help: "a value for a placeholder, in order (repeatable)"}
 	queryFile   = Option{Name: "file", Short: "f", Kind: File, Help: "read the query from a file ('-' for stdin)"}
-	queryBytes  = Option{Name: "max-bytes", Kind: String, Help: "the most a query may read, which BigQuery bills by, like 50GB (default 10GB; 0 = no cap)"}
+	queryBytes  = Option{Name: "max-bytes", Kind: Bytes, Help: "the most a query may read, which BigQuery bills by, like 50GB (default 10GB; 0 = no cap)"}
 	backupTo    = Option{Name: "to", Kind: File, Help: "the file to create on this computer, or a folder (default: NAME-<date>.sql.gz here; SQLite: NAME-<date>.db)"}
 	backupForm  = Option{Name: "format", Kind: Enum, Enum: []string{"plain", "custom"}, Default: "plain", Help: "plain (SQL) or custom (a PostgreSQL archive for pg_restore)"}
 	backupBare  = Option{Name: "schema-only", Kind: Bool, Help: "tables, indexes and functions, no rows"}
@@ -128,7 +140,7 @@ func (p dbProvider) text(verb string) (short, example string) {
 			example += "\n" + cmd + " " + p.read + " --max-bytes 50GB"
 		}
 	case "backup":
-		short = "Save a copy of a " + p.what + " database to a file on this computer"
+		short = "Copy a " + p.what + " database to a file on this computer"
 		example = cmd + " --to backups/\n" + cmd + " --to " + p.entry + ".sql.gz --dry-run"
 		switch p.name {
 		case "postgres":
@@ -140,7 +152,7 @@ func (p dbProvider) text(verb string) (short, example string) {
 		short = "Load a backup into a " + p.what + " database"
 		example = cmd + " --from " + p.entry + ".sql.gz --dry-run\n" + cmd + " --from " + p.entry + ".sql.gz --allow-dangerous"
 	case "shell":
-		short = "Open komando's SQL shell on a " + p.what + " database (read only unless --write)"
+		short = "Open komando's SQL shell on a " + p.what + " database"
 		example = cmd + "\n" + cmd + " --write"
 	}
 	return short, example

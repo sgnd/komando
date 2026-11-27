@@ -77,9 +77,9 @@ Each database is a conn: list them with ` + "`komando list kind:db`" + `.`,
 const queryTimeout = "time limit for each query (default 30s, or the conn's statement_timeout option)"
 
 // connHints makes the hints of a db command name the conn it was given:
-// `komando database KIND query CONN` becomes `komando database postgres
-// query prod-db`, so a hint is the exact next command for a person and an
-// agent.
+// `komando db schema CONN TABLE` becomes `komando db schema prod-db
+// TABLE`, so a hint is the exact next command for a person and an agent
+// (fillHint also puts the provider in place of KIND).
 func connHints(c *cobra.Command) {
 	if f := strings.Fields(c.Use); c.RunE == nil || len(f) < 2 || f[1] != "CONN" {
 		return
@@ -92,11 +92,6 @@ func connHints(c *cobra.Command) {
 			e.Hint = connInHint.ReplaceAllStringFunc(e.Hint, func(m string) string {
 				return strings.TrimSuffix(m, "CONN") + argQ(args[0])
 			})
-			if strings.Contains(e.Hint, "`komando database KIND ") {
-				if kind := connKindWord(args[0]); kind != "" {
-					e.Hint = strings.ReplaceAll(e.Hint, "`komando database KIND ", "`komando database "+kind+" ")
-				}
-			}
 		}
 		return err
 	}
@@ -788,7 +783,11 @@ func classifyQuery(kind, query string, f dbFlags) (driver.SQLPlan, error) {
 func init() {
 	providers := []string{"postgres", "mysql", "sqlserver", "oracle", "sqlite", "mongodb", "clickhouse", "snowflake", "bigquery"}
 	inventoryHandlers("database", providers...)
+	backups := map[string]bool{}
 	for _, l := range capability.All() { // one pass: a provider has only the verbs the table builds
+		if l.Type == "database" && l.Verb == "backup" && l.State == capability.Built {
+			backups[l.Provider] = true
+		}
 		body := databaseBodies[l.Verb]
 		if l.Type != "database" || l.State != capability.Built || body == nil {
 			continue
@@ -804,10 +803,35 @@ func init() {
 		}
 	}
 	groupShorts["database"] = "Databases: save them, query them, back them up and restore them"
+	examples["komando database"] = `  komando database postgres add prod-db postgres://app@10.0.0.5:5432/shop --via web1 --dry-run
+  komando database postgres query prod-db "select id, email from users order by id desc limit 10"
+  komando database sqlite query local "select count(*) from users"
+  komando database mysql backup shop-mysql --to backups/`
 	for _, p := range providers {
 		groupShorts["database "+p] = databaseGroupShort[p]
+		examples["komando database "+p] = databaseGroupExamples(p, backups[p])
 	}
 	moveType("database")
+}
+
+// databaseGroupExamples are the examples of `komando database PROVIDER`
+// (3 to 5 lines, a --dry-run line before the add): save, test, query, and
+// a backup where the provider has one.
+func databaseGroupExamples(p string, backup bool) string {
+	entry, url, read, _ := capability.DatabaseExample(p)
+	c := "  komando database " + p + " "
+	via := " --via web1"
+	if p == "sqlite" {
+		via = "" // a file on this computer
+	}
+	ex := c + "add " + entry + " " + url + via + " --dry-run\n" +
+		c + "add " + entry + " " + url + via + "\n" +
+		c + "test " + entry + "\n" +
+		c + "query " + entry + " " + read
+	if backup {
+		ex += "\n" + c + "backup " + entry + " --to backups/"
+	}
+	return ex
 }
 
 // databaseBodies are today's commands that the database leaves run

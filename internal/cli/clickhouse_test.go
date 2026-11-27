@@ -65,7 +65,7 @@ func TestClickHouseConnsCheckTLS(t *testing.T) {
 		t.Errorf("weakTLS false: %v", w)
 	}
 	// what ClickHouse cannot do says so before connecting
-	wantCode(t, "USAGE", "database", "clickhouse", "backup", "c-local") // no backup leaf+"/c.sql")
+	wantCode(t, "USAGE", "database", "clickhouse", "backup", "c-local")  // no backup leaf+"/c.sql")
 	wantCode(t, "USAGE", "database", "clickhouse", "restore", "c-local") // no restore leaf
 	wantCode(t, "NOT_SUPPORTED", "db", "explain", "c-local", "select 1", "--analyze")
 	wantCode(t, "NOT_SUPPORTED", "db", "kill", "c-local", "42", "--session")

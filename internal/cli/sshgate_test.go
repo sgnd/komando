@@ -293,25 +293,25 @@ func TestGateLocalTargets(t *testing.T) {
 		`database sqlite query appdb --write "VACUUM INTO '/home/u/.ssh/authorized_keys2'"`: R,
 		`database sqlite query appdb --write "ATTACH '/home/u/.bashrc' AS x"`:               R,
 		"database sqlite restore appdb --from x.sql":                                        R,
-		"db explain appdb --analyze 'select 1'":                                R,
-		"db user add appdb x --password-ref secret:x":                          R,
+		"db explain appdb --analyze 'select 1'":                                             R,
+		"db user add appdb x --password-ref secret:x":                                       R,
 		"database sqlite query appdb 'select 1'":                                            R, // a read of a file here
-		"database postgres query pg --write 'delete from t'":                                  "",
-		`database postgres query pglocal --write "COPY t TO PROGRAM 'sh'"`:                    R,
-		"database postgres query pgbehind --write 'delete from t'":                            "", // 127.0.0.1 of bastion
-		"cache redis raw redislocal --write CONFIG SET dir /home/u/.ssh":       R,
-		"cache set redislocal a b":                                             R,
-		"cache redis raw c --write SET a b":                                    "",
-		"cluster apply k8slocal --file pod.yaml":                               R,
-		"cluster run k8slocal --write -- delete pod x":                         R,
-		"cluster apply k8s --file pod.yaml":                                    R, // reads a file here
-		"storage upload sftplocal x.txt .ssh/authorized_keys":                  R,
-		"storage mkdir sftplocal x":                                            R, // the storage changes meet the local-target rule too
-		"storage mv sftplocal a.txt b.txt":                                     R,
-		"storage chmod sftplocal 0600 a.txt":                                   R,
-		"registry oci image delete reglocal app:1":                             R,
-		"registry oci image copy reg:app:1 reglocal:app:1":                     R,
-		"registry oci image copy reg:app:1 reg:app:2":                          "",
+		"database postgres query pg --write 'delete from t'":                                "",
+		`database postgres query pglocal --write "COPY t TO PROGRAM 'sh'"`:                  R,
+		"database postgres query pgbehind --write 'delete from t'":                          "", // 127.0.0.1 of bastion
+		"cache redis raw redislocal --write CONFIG SET dir /home/u/.ssh":                    R,
+		"cache set redislocal a b":                                                          R,
+		"cache redis raw c --write SET a b":                                                 "",
+		"cluster apply k8slocal --file pod.yaml":                                            R,
+		"cluster run k8slocal --write -- delete pod x":                                      R,
+		"cluster apply k8s --file pod.yaml":                                                 R, // reads a file here
+		"storage upload sftplocal x.txt .ssh/authorized_keys":                               R,
+		"storage mkdir sftplocal x":                                                         R, // the storage changes meet the local-target rule too
+		"storage mv sftplocal a.txt b.txt":                                                  R,
+		"storage chmod sftplocal 0600 a.txt":                                                R,
+		"registry oci image delete reglocal app:1":                                          R,
+		"registry oci image copy reg:app:1 reglocal:app:1":                                  R,
+		"registry oci image copy reg:app:1 reg:app:2":                                       "",
 		"exec me -- id":                                           R,
 		"exec me --read-only -- uptime":                           R, // a shell here all the same
 		"exec lh -- id":                                           R,
@@ -349,12 +349,12 @@ func TestGateLocalTargets(t *testing.T) {
 		"sync ./site web:/var/www":                                R, // reads files here
 		"recipe run disk me":                                      R, // runs its command here
 		"recipe run disk web":                                     "",
-		"database postgres query pghostparam --write 'select 1'":                 R, // pgx dials ?host=
-		"database postgres query pghostaddr --write 'select 1'":                  R,
-		"database postgres query pgsocket --write 'select 1'":                    R, // a socket here
-		"database postgres query pglist --write 'select 1'":                      R, // any host of the list
-		"database postgres query pghostparam 'select 1'":                         R, // pg_read_file reads here
-		"database mongodb query mongolist --write '{}'":                         R,
+		"database postgres query pghostparam --write 'select 1'":  R, // pgx dials ?host=
+		"database postgres query pghostaddr --write 'select 1'":   R,
+		"database postgres query pgsocket --write 'select 1'":     R, // a socket here
+		"database postgres query pglist --write 'select 1'":       R, // any host of the list
+		"database postgres query pghostparam 'select 1'":          R, // pg_read_file reads here
+		"database mongodb query mongolist --write '{}'":           R,
 		"key deploy k me":                                         R,
 		"key deploy k web":                                        "",
 		"key deploy k web --set-default":                          R, // komando's own setup
@@ -383,7 +383,7 @@ func TestGateLocalTargets(t *testing.T) {
 		"recipe run disk me":                                                R,
 		"exec web --read-only -- uptime":                                    "",
 		"exec me -- id":                                                     "SSH_GATE_READ_ONLY", // not a read: refused before the place
-		"database postgres query pglocal 'select 1'":                                       R,                    // pg_read_file reads here
+		"database postgres query pglocal 'select 1'":                        R,                    // pg_read_file reads here
 		"logs me --file /home/u/.ssh/id_ed25519 --grep '^[A-Za-z0-9+/=]+$'": R,
 		"fs cat me /home/u/.ssh/id_ed25519":                                 R,
 		"fs ls me /home/u/.ssh":                                             R,

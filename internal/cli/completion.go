@@ -51,6 +51,8 @@ func addCompletion(c *cobra.Command) {
 		// completion is keyed by (group, word): NAME is the command's own
 		// noun, KEY a cache key (none), SETTING a setting (S-4.2)
 		switch {
+		case w == "NAME" && c.Parent().HasParent() && slices.Contains(movedTypes, c.Parent().Parent().Name()):
+			w = "CONN" // a provider's entry (database postgres query NAME): a conn of the type's family
 		case w == "NAME":
 			w = c.Parent().Name()
 		case w == "SERVER":
@@ -113,6 +115,9 @@ func commandFamily(c *cobra.Command) string {
 			switch c.Name() {
 			case "db", "cache", "queue", "storage", "cluster", "registry":
 				return c.Name()
+			}
+			if slices.Contains(movedTypes, c.Name()) {
+				return familyOfType(c.Name()) // database: db
 			}
 		}
 	}

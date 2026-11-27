@@ -625,7 +625,7 @@ var formAreas = []struct {
 }{
 	{"Servers", "run commands, logs, services, packages, users, Docker", []string{"exec", "shell", "facts", "logs", "svc", "pkg", "user", "cron", "reboot", "docker", "net", "cert"}},
 	{"Files", "read, edit, copy and move files on servers", []string{"fs", "upload", "download", "cp", "sync"}},
-	{"Databases", "queries, shells, dumps, users", []string{"db"}},
+	{"Databases", "queries, shells, backups, users", []string{"db", "database"}},
 	{"Cache", "Redis and Memcached keys", []string{"cache"}},
 	{"Message queues", "Kafka, RabbitMQ, NATS, SQS, Pub/Sub", []string{"queue"}},
 	{"File storage", "buckets, SFTP, FTP, WebDAV, SMB", []string{"storage"}},

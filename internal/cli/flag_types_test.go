@@ -179,8 +179,8 @@ func TestStandardKeyValue(t *testing.T) {
 			}
 		}
 	})
-	if n != 30 {
-		t.Errorf("%d KEY=VALUE flags, want 30 (--env x2, --label x16, --option x12)", n)
+	if n != 64 { // the 9 database providers add 34: --label and --option on add and edit
+		t.Errorf("%d KEY=VALUE flags, want 64 (--env x2, then --label and --option on the add and edit of each typed provider)", n)
 	}
 	var got []string
 	v := &kvArray{p: &got, name: "option"}
