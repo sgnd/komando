@@ -238,7 +238,6 @@ func TestStdinAndInterpreterChecked(t *testing.T) {
 		{"read-only shell script", []string{"exec", "prod", "--read-only", "--interpreter", "bash -eu", "--script", benign}, "", "uptime\ndf -h /\n"},
 		{"read-only script that writes", []string{"exec", "prod", "--read-only", "--script", writes}, "READ_ONLY_VIOLATION", ""},
 		{"env value turns find into a delete", []string{"exec", "prod", "--read-only", "-e", "X=-delete", "--", "find /srv $X"}, "READ_ONLY_VIOLATION", ""},
-		{"job: env value", []string{"job", "start", "prod", "--read-only", "-e", "X=-delete", "--", "find /srv $X"}, "READ_ONLY_VIOLATION", ""},
 		// --read-only is an allowlist on a protected target: a command
 		// komando does not know reads still needs --yes, even though the
 		// denylist lets it pass (it changes nothing komando can see)
@@ -251,7 +250,6 @@ func TestStdinAndInterpreterChecked(t *testing.T) {
 		{"allowlist: docker ps runs", []string{"exec", "prod", "--read-only", "--", "docker ps"}, "", ""},
 		{"allowlist: docker rm is a clear write", []string{"exec", "prod", "--read-only", "--", "docker rm web"}, "READ_ONLY_VIOLATION", ""},
 		{"allowlist: systemctl status runs", []string{"exec", "prod", "--read-only", "--", "systemctl status nginx"}, "", ""},
-		{"allowlist: job unknown is refused", []string{"job", "start", "prod", "--read-only", "--", "mytool --status"}, "READ_ONLY_VIOLATION", ""},
 		{"compose file in a folder komando cannot tell", []string{"exec", "prod", "--yes", "--", `cd "$APP" && docker compose up -d`}, "POLICY_BLOCKED", ""},
 	}
 	for _, c := range cases {

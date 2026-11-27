@@ -9,7 +9,7 @@ import (
 	"github.com/sgnd/komando/internal/sshx"
 )
 
-// commandWords is the remote command of exec and job start: -c, or the
+// commandWords is the remote command of exec: -c, or the
 // words after --, never both (one would be dropped without a word).
 func commandWords(cmdStr string, words []string, verb string) (string, error) {
 	if cmdStr != "" {

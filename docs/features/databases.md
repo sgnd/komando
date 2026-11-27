@@ -324,8 +324,8 @@ Which kinds komando can back up itself:
 | BigQuery | no | `EXPORT DATA` to Cloud Storage, or table snapshots |
 
 A "no" kind answers `NOT_SUPPORTED`, with this hint. The backup SQL in
-the "Instead" column needs `--allow-dangerous` too. For a big job, use
-`komando job` instead of `komando exec`. For a few rows,
+the "Instead" column needs `--allow-dangerous` too. For a big job, `komando exec` on the server runs it in a
+session that survives a dropped connection. For a few rows,
 `komando db query CONN -o csv` is a copy on this computer.
 
 ```bash

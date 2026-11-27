@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
+	"github.com/sgnd/komando/internal/store"
 )
 
 // scriptOpts are exec's --script flags.

@@ -214,7 +214,7 @@ func TestExecSessionStopRefusals(t *testing.T) {
 	}
 }
 
-// U14: --stop and --remove are changes, as job kill is: a protected
+// U14: --stop and --remove are changes: a protected
 // server refuses them without --yes, before komando connects, and the
 // audit log records the refusal. (dev, the same address as prod, is
 // protected too: the other tests pass --yes.)

@@ -62,16 +62,22 @@ skipped() { echo "  SKIPPED: $1"; [ -z "${E2E_RESULTS:-}" ] || echo "$AREA $1" >
 has_service() { case " ${SERVICES[*]} " in *" $1 "*) return 0 ;; esac; return 1; }
 
 # jget '<python expression on d>' : evaluate against JSON on stdin
-# When the output is not the JSON the check expects (an error instead of data),
-# it prints that output, so a failure in CI says why.
+# A run in a session prints its ID as the first JSON line, then the result:
+# d is the last line. When the output is not the JSON the check expects (an
+# error instead of data), it prints that output, so a failure in CI says why.
 jget() { python3 -c "
 import json,sys
 raw=sys.stdin.read()
 try:
-    d=json.loads(raw); print($1)
+    d=json.loads(raw.strip().splitlines()[-1]); print($1)
 except Exception as e:
     sys.stderr.write('jget: %s: %s; komando printed: %s\n' % (type(e).__name__, e, raw.strip()[:1500] or '(nothing)')); sys.exit(1)
 "; }
+
+# sess_id: the session ID, from the first JSON line of an exec's output on stdin
+sess_id() { python3 -c "import json,sys; print(json.loads(sys.stdin.readline())['session'])"; }
+# SDIR ID: the session's folder on the server, as fs stat takes it
+SDIR() { echo ".komando/sessions/$1"; }
 
 check() { # check "name" expected actual
   if [ "$2" = "$3" ]; then PASS=$((PASS+1)); echo "  ok   $1"

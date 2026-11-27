@@ -416,7 +416,7 @@ func (s sessionChange) Text() string {
 }
 
 // changeSession runs script, a --stop or --remove of session id on h: a
-// change, guarded as job kill is (a protected server asks first), and
+// change, guarded as any change is (a protected server asks first), and
 // recorded in the audit log as shown with extra. input gives what the
 // script reads, after the guard. A dry run prints the script and returns
 // nil, nil.

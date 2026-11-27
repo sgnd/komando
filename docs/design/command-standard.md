@@ -271,7 +271,7 @@ words; the completion and picker map has one entry per word]
 is in parentheses: `tunnel start TARGET (-L SPEC | -R SPEC | -D SPEC)`.
 [schema: required flag ⇔ present in Use]
 
-**S-4.4** Passthrough commands: `exec`, `job start`, `docker exec`,
+**S-4.4** Passthrough commands: `exec`, `docker exec`,
 `docker compose`, `docker raw`, `cluster exec`, `cluster shell`,
 `cluster run`, `cache redis raw` (every command whose Use has `-- COMMAND...` or
 `-- ARGS...`). komando flags are read anywhere before `--`
@@ -303,9 +303,9 @@ group has one type; meanings checked by usage-text template where one exists]
 | Flag | Short | Type | Meaning | Default and units |
 |---|---|---|---|---|
 | `--limit` | `-n` (not in cluster, not on storage rm) | int | the most items, rows or log lines to show (last ones for logs). Never a safety cap. Says in its usage text whether it counts per target or in total | each command keeps its current default; a `--limit` added where there was none defaults to 0 = no limit. 0 = no limit wherever the text says so |
-| `--head`, `--tail` | | int | first or last N lines of one file or log (`fs cat`, `storage cat`); *exception*: on `job status`/`job wait`, `--tail` = also show the last N lines of output (0 = none) | 0 = all on fs/storage cat; job status 20, job wait 30 |
+| `--head`, `--tail` | | int | first or last N lines of one file or log (`fs cat`, `storage cat`); | 0 = all |
 | `--max-<noun>` | | bytes or int | a safety cap: the run is refused above it (`--max-remove`, `--max-bytes`, `--max-output`) | stated per flag |
-| `--timeout` | | duration | how long this command may run per target (global). *exception*: `job wait --timeout` is local, total across servers, default 10m, ends with WAIT_TIMEOUT | setting, 5m |
+| `--timeout` | | duration | how long this command may run per target (global). | setting, 5m |
 | `--wait` | | duration | wait for the result up to this long; the global `--timeout` still applies and whichever ends first stops the run. *exception*: on `cluster deploy/restart/rollback/scale/status` it is a bool (as in helm), bounded by `--timeout` | 0 = do not wait |
 | `--idle` | | duration | stop after this long with nothing new | stated per flag |
 | `--interval`, `--expires`, `--ttl`, `--older-than`, `--warn` | | duration | a span | per flag; "0 = never" or "> 0" in the usage text |
@@ -418,7 +418,7 @@ tree, compare every shorthand with this table]
 | `-v` | `--version` | root only | |
 | `-a` | `--all` | read commands only (docker ps, fs ls, user list, db activity, cache info, cluster helm values, guide); `docker prune -a` kept (docker's own) | ls, docker ps |
 | `-A` | `--all-namespaces` | cluster | kubectl |
-| `-c` | `--container` | any --container; `--cmd` only on exec and job start | kubectl |
+| `-c` | `--container` | any --container; `--cmd` only on exec | kubectl |
 | `-C` | `--dir` | any --dir; `--comment` only on key gen | git, make |
 | `-e` | `--env` | any --env | docker |
 | `-f` | `--follow` on log streamers; `--file` elsewhere | | tail, kubectl apply |

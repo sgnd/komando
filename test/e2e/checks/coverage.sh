@@ -58,11 +58,11 @@ q $K fs chmod direct 640 "/tmp/$C/a.txt"
 check "fs chmod" 640 "$($K exec direct --read-only -- stat -c %a "/tmp/$C/a.txt" | jget 'd["data"]["results"][0]["stdout"].strip()')"
 q $K fs mv direct "/tmp/$C/a.txt" "/tmp/$C/sub/b.txt"
 check "fs mv" True "$($K fs stat direct "/tmp/$C/sub/b.txt" | jget 'd["data"]["exists"]')"
-JID=$($K job start direct -- 'sleep 30' | jget 'd["data"]["jobs"][0]["id"]')
-check "job list" True "$($K job list | has "$JID")"
-check "job status" True "$($K job status "$JID" | ok)"
-q $K job kill "$JID"
-q $K job rm "$JID"
+JID=$($K exec direct --wait 0 -- 'sleep 30' | sess_id || true)
+check "status lists the session" True "$($K status | has "$JID")"
+check "exec --attach" True "$($K exec direct --attach "$JID" --wait 0 | jget 'd["data"]["results"][0]["session"] == "'"$JID"'"')"
+q $K exec direct --attach "$JID" --stop
+q $K exec direct --attach "$JID" --remove
 q $K recipe add "$C-hello" 'echo hello {{who}}' --read-only
 check "recipe run" "hello lab" "$($K recipe run "$C-hello" direct --var who=lab | jget 'd["data"]["results"][0]["stdout"].strip()')"
 q $K recipe rm "$C-hello"
