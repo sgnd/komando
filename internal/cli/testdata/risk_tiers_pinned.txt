@@ -6,7 +6,7 @@ cache.info	plain=read	highest=read
 cache.keys	plain=read	highest=read
 cache.memcached	plain=read	highest=read
 cache.memcached.add	plain=change	highest=read
-cache.memcached.edit	plain=change	highest=read
+cache.memcached.edit	plain=change	highest=safety
 cache.memcached.list	plain=read	highest=read
 cache.memcached.raw	plain=dangerous	highest=dangerous
 cache.memcached.remove	plain=change	highest=read
@@ -15,7 +15,7 @@ cache.memcached.show	plain=read	highest=read
 cache.memcached.test	plain=read	highest=read
 cache.redis	plain=read	highest=read
 cache.redis.add	plain=change	highest=read
-cache.redis.edit	plain=change	highest=read
+cache.redis.edit	plain=change	highest=safety
 cache.redis.list	plain=read	highest=read
 cache.redis.raw	plain=dangerous	highest=dangerous
 cache.redis.remove	plain=change	highest=read
@@ -247,7 +247,7 @@ recipe.run	plain=dangerous	highest=dangerous
 registry	plain=read	highest=read
 registry.oci	plain=read	highest=read
 registry.oci.add	plain=safety	highest=safety
-registry.oci.edit	plain=change	highest=read
+registry.oci.edit	plain=change	highest=safety
 registry.oci.image	plain=read	highest=read
 registry.oci.image.copy	plain=change	highest=read
 registry.oci.image.delete	plain=dangerous	highest=dangerous

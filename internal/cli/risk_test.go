@@ -195,6 +195,27 @@ func TestRiskPersonGains(t *testing.T) {
 	}
 }
 
+// Turning protection off is a safety step on every edit that takes
+// --protected, also on an edit whose command moved under a provider
+// (cache redis edit, registry oci edit): a moved key keeps the row (C564).
+func TestProtectionOffSafetyOnEveryEdit(t *testing.T) {
+	var ids []string
+	for _, c := range allCommands(newRoot(tcl)) {
+		if c.Name() != "edit" || c.Flags().Lookup("protected") == nil {
+			continue
+		}
+		ids = append(ids, cmdID(c))
+		if got := riskOf(c, []string{"x", "--protected=false"}).tier; got != tierSafety {
+			t.Errorf("%s --protected=false: %s, want safety", cmdID(c), got)
+		}
+	}
+	for _, want := range []string{"conn.edit", "host.edit", "vpn.edit", "cache.redis.edit", "cache.memcached.edit", "registry.oci.edit"} {
+		if !slices.Contains(ids, want) {
+			t.Errorf("%s: not among the edits that take --protected (%v)", want, ids)
+		}
+	}
+}
+
 // The schema's confirm comes from the rule table (S-7.7) and matches the
 // kind (S-7.8): every runnable command has one, a read's always-tier is
 // read and a change's is at least change, every conditional row says when

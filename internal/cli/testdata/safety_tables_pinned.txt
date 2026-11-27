@@ -6,7 +6,7 @@ cache.info	kind=read|	target=""
 cache.keys	kind=read|	target=""	
 cache.memcached	kind=read|	target=""	
 cache.memcached.add	kind=change|	target=""	
-cache.memcached.edit	kind=change|	target=""	
+cache.memcached.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
 cache.memcached.list	kind=read|	target=""	
 cache.memcached.raw	kind=depends|only reads unless --write	target=""	dangerous|||the cache command deletes data (DEL, FLUSHALL, ...)|||
 cache.memcached.remove	kind=change|	target=""	
@@ -15,7 +15,7 @@ cache.memcached.show	kind=read|	target=""
 cache.memcached.test	kind=read|	target=""	
 cache.redis	kind=read|	target=""	
 cache.redis.add	kind=change|	target=""	
-cache.redis.edit	kind=change|	target=""	
+cache.redis.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
 cache.redis.list	kind=read|	target=""	
 cache.redis.raw	kind=depends|only reads unless --write	target=""	dangerous|||the cache command deletes data (DEL, FLUSHALL, ...)|||
 cache.redis.remove	kind=change|	target=""	
@@ -247,7 +247,7 @@ recipe.run	kind=depends|decided by the recipe's command, like exec	target="serve
 registry	kind=read|	target=""	
 registry.oci	kind=read|	target=""	
 registry.oci.add	kind=change|	target=""	safety|||the address turns TLS off (plain HTTP)|||
-registry.oci.edit	kind=change|	target=""	
+registry.oci.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
 registry.oci.image	kind=read|	target=""	
 registry.oci.image.copy	kind=change|	target=""	
 registry.oci.image.delete	kind=change|	target=""	dangerous||deletes the images||||
