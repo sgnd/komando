@@ -15673,7 +15673,7 @@
         "code": "FILE_EXISTS",
         "exit": 8,
         "example": "… already exists on this computer",
-        "hint": "choose another --to, remove the file, or pass --overwrite"
+        "hint": "choose another DESTINATION, remove the file, or pass --overwrite"
       },
       {
         "code": "FILE_NOT_FOUND",
