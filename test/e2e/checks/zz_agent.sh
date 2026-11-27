@@ -43,14 +43,14 @@ aok "recipe list" recipe list
 
 # servers
 aok "facts" facts direct
-aok "exec --read-only" exec direct --read-only -- uname -a
+aok "host ssh exec --read-only" host ssh exec direct --read-only -- uname -a
 aok "recipe run health" recipe run health direct
 aok "fs ls" fs ls direct /etc
 aok "fs stat" fs stat direct /etc/hostname
 aok "fs cat" fs cat direct /etc/hostname
 aok "logs from a file" logs direct --file /etc/hostname
 aok "job list" job list
-aok "tunnel list" tunnel list
+aok "host ssh tunnel list" host ssh tunnel list
 aok "net ports" net ports direct
 aok "net dns" net dns direct localhost
 aok "net check" net check bastion pg:5432
@@ -111,7 +111,7 @@ fi
 
 if in_area data; then
 acode "a service on a protected host needs a person" PROTECTED_TARGET svc restart target nginx
-acode "a change on a protected host needs a person" PROTECTED_TARGET exec target -- touch /tmp/t-agent
+acode "a change on a protected host needs a person" PROTECTED_TARGET host ssh exec target -- touch /tmp/t-agent
 acode "an agent cannot log in for a person" NEEDS_PERSON login direct
 acode "an agent gets no SQL shell" NEEDS_TERMINAL db shell pg
 fi
