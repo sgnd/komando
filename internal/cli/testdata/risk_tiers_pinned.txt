@@ -70,10 +70,6 @@ conn.rm	plain=change	highest=read
 conn.show	plain=read	highest=read
 conn.test	plain=read	highest=read
 cp	plain=change	highest=read
-cron	plain=read	highest=read
-cron.list	plain=read	highest=read
-cron.rm	plain=change	highest=change
-cron.set	plain=change	highest=read
 db	plain=read	highest=read
 db.activity	plain=read	highest=read
 db.add	plain=change	highest=read
@@ -116,7 +112,6 @@ environment	plain=change	highest=read
 exec	plain=dangerous	highest=dangerous
 exit-codes	plain=change	highest=read
 export	plain=read	highest=person
-facts	plain=read	highest=read
 fs	plain=read	highest=read
 fs.cat	plain=read	highest=read
 fs.chmod	plain=change	highest=read
@@ -182,11 +177,6 @@ login.gcp	plain=change	highest=read
 logout	plain=change	highest=read
 logout.aws	plain=change	highest=read
 logs	plain=read	highest=read
-net	plain=read	highest=read
-net.check	plain=read	highest=read
-net.dns	plain=read	highest=read
-net.http	plain=read	highest=read
-net.ports	plain=read	highest=read
 output	plain=change	highest=read
 pkg	plain=read	highest=read
 pkg.install	plain=change	highest=read
@@ -220,10 +210,7 @@ probe pkg upgrade web1 --security	dangerous
 probe policy edit rm-root --off	safety
 probe recipe add r1 --overwrite --read-only	safety
 probe secret keychain	person
-probe svc disable web1 ssh.service	dangerous
-probe svc stop web1 sshd	dangerous
 probe sync ./site web1:/srv --delete	dangerous
-probe user rm web1 bob --remove-home	dangerous
 probe vpn edit kantor --mfa=false	safety
 probe vpn edit kantor --protected=false	safety
 queue	plain=read	highest=read
@@ -238,7 +225,6 @@ queue.peek	plain=read	highest=read
 queue.purge	plain=dangerous	highest=dangerous
 queue.rm	plain=dangerous	highest=dangerous
 queue.send	plain=change	highest=read
-reboot	plain=dangerous	highest=dangerous
 recipe	plain=read	highest=read
 recipe.add	plain=change	highest=safety
 recipe.list	plain=read	highest=read
@@ -289,17 +275,6 @@ storage.mkdir	plain=change	highest=read
 storage.mv	plain=change	highest=read
 storage.rm	plain=dangerous	highest=dangerous
 storage.upload	plain=change	highest=read
-svc	plain=read	highest=read
-svc.daemon-reload	plain=change	highest=read
-svc.disable	plain=change	highest=dangerous
-svc.enable	plain=change	highest=read
-svc.list	plain=read	highest=read
-svc.logs	plain=read	highest=read
-svc.reload	plain=change	highest=read
-svc.restart	plain=change	highest=read
-svc.start	plain=change	highest=read
-svc.status	plain=read	highest=read
-svc.stop	plain=change	highest=dangerous
 sync	plain=change	highest=dangerous
 test	plain=read	highest=read
 tunnel	plain=read	highest=read
@@ -309,12 +284,6 @@ tunnel.start	plain=safety	highest=safety
 tunnel.stop	plain=change	highest=read
 update	plain=safety	highest=safety
 upload	plain=change	highest=read
-user	plain=read	highest=read
-user.add	plain=change	highest=read
-user.list	plain=read	highest=read
-user.lock	plain=change	highest=read
-user.rm	plain=dangerous	highest=dangerous
-user.unlock	plain=change	highest=read
 version	plain=read	highest=read
 vpn	plain=read	highest=read
 vpn.add	plain=change	highest=read

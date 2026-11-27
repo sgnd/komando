@@ -161,11 +161,8 @@ func fakeKind(t *testing.T, id string, kind cmdKind) {
 // that has one (TestSafetyTablesPinned pins what they give).
 var whenProbes = []string{
 	"cluster scale c1 web 0",
-	"user rm web1 bob --remove-home",
 	"key rm k1 --delete-file",
 	"pkg rm web1 openssh-server",
-	"svc stop web1 sshd",
-	"svc disable web1 ssh.service",
 	"sync ./site web1:/srv --delete",
 	"pkg upgrade web1 --security",
 	"host edit web1 --protected=false",

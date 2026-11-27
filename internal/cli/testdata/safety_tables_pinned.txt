@@ -70,10 +70,6 @@ conn.rm	kind=change|	target="conns"
 conn.show	kind=read|	target="conns"	
 conn.test	kind=read|	target="conns"	
 cp	kind=depends|changes the destination: a server or bucket when it is the DST, only this computer when it is the SRC	target="servers or file storage"	
-cron	kind=read|	target="servers"	
-cron.list	kind=read|	target="servers"	
-cron.rm	kind=change|	target="servers"	change|||||deletes the cron entry|cron entries
-cron.set	kind=change|	target="servers"	
 db	kind=read|	target=""	
 db.activity	kind=read|	target=""	
 db.add	kind=change|	target=""	
@@ -116,7 +112,6 @@ environment	kind=none	target=""
 exec	kind=depends|changes things unless --read-only says the command only reads (the policy checks it either way)	target="servers"	dangerous|||the command matches a destructive rule|||
 exit-codes	kind=none	target=""	
 export	kind=read|	target=""	person|with --sealed||||| ; person|with --for-phone|||||
-facts	kind=read|	target="servers"	
 fs	kind=read|	target="servers"	
 fs.cat	kind=read|	target="servers"	
 fs.chmod	kind=change|	target="servers"	
@@ -182,11 +177,6 @@ login.gcp	kind=none	target=""
 logout	kind=change|	target=""	
 logout.aws	kind=change|	target=""	
 logs	kind=read|	target="servers"	
-net	kind=read|	target="servers"	
-net.check	kind=read|	target="servers"	
-net.dns	kind=read|	target="servers"	
-net.http	kind=read|	target="servers"	
-net.ports	kind=read|	target="servers"	
 output	kind=none	target=""	
 pkg	kind=read|	target="servers"	
 pkg.install	kind=change|	target="servers"	
@@ -220,10 +210,7 @@ probe pkg upgrade web1 --security	dangerous||an update would remove a package th
 probe policy edit rm-root --off	safety|switches a rule off||
 probe recipe add r1 --overwrite --read-only	safety||it makes an existing snippet read-only|
 probe secret keychain	person|moves the key into the keychain||
-probe svc disable web1 ssh.service	dangerous|turns sshd off (no one can log in remotely after a restart)||
-probe svc stop web1 sshd	dangerous|stops sshd (no one can log in remotely)||
 probe sync ./site web1:/srv --delete	dangerous|deletes the files in DST that SRC does not have||
-probe user rm web1 bob --remove-home	dangerous|deletes the user and their home folder||
 probe vpn edit kantor --mfa=false	safety|turns --mfa off (komando may then connect it without a person)||
 probe vpn edit kantor --protected=false	safety|turns protection off||
 queue	kind=read|	target=""	
@@ -238,7 +225,6 @@ queue.peek	kind=read|	target=""
 queue.purge	kind=change|	target=""	dangerous||deletes every waiting message||||
 queue.rm	kind=change|	target=""	dangerous||deletes the topics or queues with their messages||||
 queue.send	kind=change|	target=""	
-reboot	kind=change|	target="servers"	dangerous||restarts the server (it is away until it is back)||||
 recipe	kind=read|	target="servers"	
 recipe.add	kind=change|	target="servers"	safety|with --overwrite --read-only||it makes an existing snippet read-only|||
 recipe.list	kind=read|	target="servers"	
@@ -289,17 +275,6 @@ storage.mkdir	kind=change|	target=""
 storage.mv	kind=change|	target=""	
 storage.rm	kind=change|	target=""	dangerous||deletes the files||||
 storage.upload	kind=change|	target=""	
-svc	kind=read|	target="servers"	
-svc.daemon-reload	kind=change|	target="servers"	
-svc.disable	kind=change|	target="servers"	dangerous|the unit is ssh or sshd|turns sshd off (no one can log in remotely after a restart)||||
-svc.enable	kind=change|	target="servers"	
-svc.list	kind=read|	target="servers"	
-svc.logs	kind=read|	target="servers"	
-svc.reload	kind=change|	target="servers"	
-svc.restart	kind=change|	target="servers"	
-svc.start	kind=change|	target="servers"	
-svc.status	kind=read|	target="servers"	
-svc.stop	kind=change|	target="servers"	dangerous|the unit is ssh or sshd|stops sshd (no one can log in remotely)||||
 sync	kind=change|	target="servers or file storage"	dangerous|with --delete|deletes the files in DST that SRC does not have||||
 test	kind=read|	target=""	
 tunnel	kind=read|	target="servers"	
@@ -309,12 +284,6 @@ tunnel.start	kind=change|	target="servers"	safety|||it listens on an open addres
 tunnel.stop	kind=change|	target="servers"	
 update	kind=change|	target=""	safety|||it installs an older version|||
 upload	kind=change|	target="servers or file storage"	
-user	kind=read|	target="servers"	
-user.add	kind=change|	target="servers"	
-user.list	kind=read|	target="servers"	
-user.lock	kind=change|	target="servers"	
-user.rm	kind=change|	target="servers"	dangerous|with --remove-home|deletes the user and their home folder|||| ; dangerous||deletes the user||||
-user.unlock	kind=change|	target="servers"	
 version	kind=read|	target=""	
 vpn	kind=read|	target="VPNs"	
 vpn.add	kind=change|	target="VPNs"	

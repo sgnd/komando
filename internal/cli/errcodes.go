@@ -145,7 +145,7 @@ var errorCodes = []errorCode{
 	{"NO_PUBLIC_KEY", 2, "komando does not have the public key of …", "place ….pub next to the key, then `komando key rm …` and add it again"},
 	{"NO_SYSTEMD", 3, "systemd is not running on this server", "this server runs without systemd (a container?); read logs with `komando logs TARGET --file PATH` or `komando docker logs`"},
 	{"NO_TUNNEL_NEEDED", 2, "… has no --via, so it is reachable without a tunnel", "connect to … directly"},
-	{"NO_USER_MANAGER", 3, "the login user has no systemd user manager running on this server", "the login user's systemd manager runs only while they are logged in, unless lingering is on: a person with sudo runs `loginctl enable-linger USER` on the server"},
+	{"NO_USER_MANAGER", 3, "the login user has no systemd user manager running on this server", "the login user's systemd manager runs only while they are logged in, unless lingering is on: a person with sudo runs `komando exec TARGET --sudo -- loginctl enable-linger USER`"},
 	{"OBJECT_NOT_FOUND", 3, "… not found", "list files with `komando storage list CONN [PREFIX]`"},
 	{"OPEN_BIND", 6, "the tunnel would listen on … of …, open to its network (the default 127.0.0.1 keeps it to that computer)", "check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},
 	{"OPTION_LIKE_VAR", 2, "the value of … may not start with '-' (… would be read as an option)", "for a path that starts with -, write ./…"},

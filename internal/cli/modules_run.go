@@ -366,7 +366,7 @@ func systemdMissing(stdout string) *out.Error {
 	case "no-systemd":
 		return errNoSystemd()
 	case "no-user-manager":
-		return out.Errf(out.ExitNotFound, "NO_USER_MANAGER", "the login user's systemd manager runs only while they are logged in, unless lingering is on: a person with sudo runs `loginctl enable-linger USER` on the server",
+		return out.Errf(out.ExitNotFound, "NO_USER_MANAGER", "the login user's systemd manager runs only while they are logged in, unless lingering is on: a person with sudo runs `komando exec TARGET --sudo -- loginctl enable-linger USER`",
 			"the login user has no systemd user manager running on this server")
 	}
 	return nil

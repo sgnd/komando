@@ -231,7 +231,7 @@ var itemCommands = map[string][]string{
 		"registry oci image prune {} REPO --keep 10 --dry-run", "registry oci image delete {} IMAGE --dry-run"},
 	"vpn": {"vpn up {}", "vpn test {}", "vpn down {}", "vpn edit {} --check HOST:PORT", "vpn rename {} NEW", "vpn rm {}",
 		"host add NAME USER@ADDRESS --via {}"},
-	"group": {"list @{}", "test @{}", "exec @{} -- uptime", "facts @{}", "pkg upgradable @{}", "recipe run health @{}",
+	"group": {"list @{}", "test @{}", "exec @{} -- uptime", "pkg upgradable @{}", "recipe run health @{}",
 		"group add {} TARGET", "group rm {} TARGET", "group rename {} NEW"},
 	"key":     {"key deploy {} TARGET", "key revoke {} TARGET", "key edit {}", "key rename {} NEW", "key rm {}"},
 	"job":     {"job logs {} --limit 50", "job wait {}", "job kill {}", "job rm {}"},
