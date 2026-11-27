@@ -18,7 +18,7 @@
           {
             "name": "command",
             "type": "string",
-            "usage": "only commands that start with this (like exec, svc.)"
+            "usage": "only commands that start with this (like exec, fs.)"
           },
           {
             "name": "failed",
@@ -254,7 +254,7 @@
         "path": "komando cache memcached edit",
         "usage": "komando cache memcached edit NAME [flags]",
         "short": "Change a saved memcached cache (only the flags you pass change)",
-        "long": "Change a saved memcached cache (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "long": "Change a saved memcached cache (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes).",
         "example": "  komando cache memcached edit app --add-tag critical\n  komando cache memcached edit app --notes 'main one' --dry-run",
         "flags": [
           {
@@ -342,6 +342,11 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
           }
         ]
       },
@@ -561,7 +566,7 @@
         "path": "komando cache redis edit",
         "usage": "komando cache redis edit NAME [flags]",
         "short": "Change a saved redis cache (only the flags you pass change)",
-        "long": "Change a saved redis cache (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "long": "Change a saved redis cache (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes).",
         "example": "  komando cache redis edit prod-redis --add-tag critical\n  komando cache redis edit prod-redis --notes 'main one' --dry-run",
         "flags": [
           {
@@ -649,6 +654,11 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
           }
         ]
       },
@@ -2885,112 +2895,6 @@
         ]
       },
       {
-        "path": "komando cron",
-        "usage": "komando cron [flags]",
-        "short": "Cron entries on servers: see, set and remove them",
-        "long": "Cron runs commands on a schedule (every night at 2, every 5 minutes ...).\nkomando manages crontab entries by NAME: each is tagged with '#\nkomando:<name>', so 'cron set' replaces the entry with the same NAME instead\nof adding a second one, and 'cron rm' removes only that entry. Other lines\nof the crontab are kept as they are.",
-        "aliases": [
-          "crons"
-        ],
-        "example": "  komando cron list web1\n  komando cron set web1 nightly-backup '/usr/local/bin/backup.sh' --schedule '0 2 * * *'\n  komando cron rm web1 nightly-backup",
-        "flags": [
-          {
-            "name": "user",
-            "type": "string",
-            "usage": "crontab of this user (uses sudo)"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando cron list",
-        "usage": "komando cron list TARGET [flags]",
-        "short": "Show crontab entries",
-        "aliases": [
-          "ls"
-        ],
-        "example": "  komando cron list web1",
-        "flags": [
-          {
-            "name": "limit",
-            "shorthand": "n",
-            "type": "int",
-            "default": "0",
-            "usage": "show at most this many entries per server (0 = all)"
-          },
-          {
-            "name": "user",
-            "type": "string",
-            "usage": "crontab of this user (uses sudo)"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando cron rm",
-        "usage": "komando cron rm TARGET NAME [flags]",
-        "short": "Remove the cron entry with this NAME",
-        "long": "Remove the cron entry with this NAME.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "aliases": [
-          "remove",
-          "delete",
-          "del"
-        ],
-        "example": "  komando cron rm web1 nightly-backup\n  komando cron rm web1 nightly-backup --dry-run",
-        "flags": [
-          {
-            "name": "user",
-            "type": "string",
-            "usage": "crontab of this user (uses sudo)"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando cron set",
-        "usage": "komando cron set TARGET NAME COMMAND --schedule SCHEDULE [flags]",
-        "short": "Create or replace the entry with this NAME",
-        "long": "Create or replace the entry with this NAME.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando cron set db1 nightly-backup '/usr/local/bin/backup.sh >> /var/log/backup.log 2>&1' --schedule '0 2 * * *'\n  komando cron set @web clean-tmp 'find /tmp -mtime +7 -delete' --schedule @daily\n  komando cron set @web clean-tmp 'find /tmp -mtime +7 -delete' --schedule @daily --dry-run",
-        "flags": [
-          {
-            "name": "schedule",
-            "type": "string",
-            "usage": "cron schedule: 5 fields like '*/5 * * * *', or @hourly, @daily, @weekly, @monthly, @yearly, @reboot"
-          },
-          {
-            "name": "user",
-            "type": "string",
-            "usage": "crontab of this user (uses sudo)"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
         "path": "komando db",
         "usage": "komando db [flags]",
         "short": "Databases: query safely, look at the schema, back up, restore",
@@ -4598,31 +4502,6 @@
           {
             "tier": "person",
             "when": "with --for-phone"
-          }
-        ]
-      },
-      {
-        "path": "komando facts",
-        "usage": "komando facts TARGET [flags]",
-        "short": "System facts: OS and support, updates, Docker, open ports",
-        "long": "Run this first on a server you do not know yet: it tells an agent which\npackage manager, init system and tools exist, so later commands fit the\nserver.\n\nIt also reports what needs attention: whether the OS still gets security\nupdates (Ubuntu ESM, Debian LTS, end of life), pending and security updates\n(from the server's package index, which it does not refresh), a needed\nreboot, passwordless sudo, Docker and the Swarm role, PM2 apps, listening\nports and services added by hand under /etc/systemd/system.\n\nOn Windows servers it reports the Windows version and its support dates,\npending updates from the Windows Update cache, a pending reboot, stopped\nautomatic services and listening ports.\n\n--only load,mem,disks runs just those probes (load and CPUs; memory and\nswap; every file system), in about a second, for an app that polls; the\nother keys are left out. --only system gives the OS name and version and\nthe time the server has been up. On Windows the full probe runs and only\nthose keys are kept.\n\nIt only reads, and it uses sudo only when sudo works without a password.\nA value komando cannot read is null (\"unknown\"), never 0 or false; read\ndata.results[].data.warnings first.",
-        "aliases": [
-          "info"
-        ],
-        "example": "  komando facts web1\n  komando facts @prod -o json\n  komando facts web1 --only load,mem,disks -o json\n  komando facts web1 --only system",
-        "flags": [
-          {
-            "name": "only",
-            "type": "stringSlice",
-            "default": "[]",
-            "usage": "run only these sections, comma-separated: disks, load, mem, system (fast, for polling; the other keys are left out)"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
           }
         ]
       },
@@ -6601,105 +6480,6 @@
         ]
       },
       {
-        "path": "komando net",
-        "usage": "komando net [flags]",
-        "short": "Network checks from servers: open ports, reachability, HTTP, DNS",
-        "aliases": [
-          "network"
-        ],
-        "example": "  komando net ports web1 --sudo                     # what listens, and which program\n  komando net check @web db.internal:5432           # can the servers reach it?\n  komando net dns web1 db.internal\n  komando net http web1 http://localhost:8080/health --expect 200",
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando net check",
-        "usage": "komando net check TARGET ADDRESS:PORT... [flags]",
-        "short": "Check that each server can open a TCP connection to HOST:PORT",
-        "example": "  komando net check @web db.internal:5432 redis.internal:6379",
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando net dns",
-        "usage": "komando net dns TARGET DOMAIN [flags]",
-        "short": "Resolve a domain name from each server",
-        "example": "  komando net dns @web db.internal\n  komando net dns web1 example.com --type MX",
-        "flags": [
-          {
-            "name": "type",
-            "type": "string",
-            "usage": "record type: A, AAAA, CNAME, MX, NS, TXT, SOA, SRV, PTR, CAA (default: the addresses the server would connect to)"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando net http",
-        "usage": "komando net http TARGET URL [flags]",
-        "short": "Send an HTTP request from each server: status, timing, IP",
-        "example": "  komando net http web1 http://localhost:8080/health --expect 200",
-        "flags": [
-          {
-            "name": "expect",
-            "type": "string",
-            "usage": "fail unless the status matches, like 200 or 2xx (like curl -f)"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando net ports",
-        "usage": "komando net ports TARGET [flags]",
-        "short": "Listening sockets: protocol, address, port, process",
-        "long": "Listening sockets as structured rows: proto, address, port, process, pid\n(read with ss or netstat).",
-        "example": "  komando net ports web1",
-        "flags": [
-          {
-            "name": "limit",
-            "shorthand": "n",
-            "type": "int",
-            "default": "0",
-            "usage": "show at most this many sockets per server (0 = all)"
-          },
-          {
-            "name": "sudo",
-            "shorthand": "s",
-            "type": "bool",
-            "default": "false",
-            "usage": "use sudo to see process names"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
         "path": "komando output",
         "usage": "komando output [flags]",
         "short": "Text for people, JSON for programs",
@@ -6905,7 +6685,7 @@
         "path": "komando pkg upgrade",
         "usage": "komando pkg upgrade TARGET [PACKAGE...] [flags]",
         "short": "Upgrade all or the given packages (--dry-run lists them)",
-        "long": "Without --security: upgrades every package, or the given ones (--dry-run\nlists what would change).\n\nSafety: a change; try it with --dry-run first; with --security, when an\nupdate would remove a package the server needs: dangerous, it cannot be\nundone: a person types the name to go on, and an AI agent or a script needs\n--allow-dangerous; on a protected server or conn, a person's yes (--yes) as\nwell.\n\n--security installs only the security updates, one server at a time. On\napt servers komando uses unattended-upgrade when it is installed (it picks\nsecurity origins only and follows the server's own settings), otherwise\napt-get --only-upgrade of the listed packages, keeping changed config\nfiles. On dnf/yum it runs \"upgrade --security\", on zypper \"patch\n--category security\". needrestart is kept from\nrestarting services during the run; the result lists the services that\nneed it.\n\nAfter each server komando compares the state with the one before. When\nfewer containers run or a unit has failed, it stops and leaves the other\nservers as they are (--keep-going patches them anyway). It never reboots:\nreboot_required says when a server needs one, use `komando reboot`.\n\nThe upgrade runs detached on the server, so a dropped connection does not\nbreak it. It waits up to 30 minutes per server (--timeout changes it).\nWhere komando cannot pick the security updates (apk, pacman, dnf/yum\nrepositories without security notices) the server stops with\nSECURITY_UNSUPPORTED: use `komando pkg upgrade` without --security there.",
+        "long": "Without --security: upgrades every package, or the given ones (--dry-run\nlists what would change).\n\nSafety: a change; try it with --dry-run first; with --security, when an\nupdate would remove a package the server needs: dangerous, it cannot be\nundone: a person types the name to go on, and an AI agent or a script needs\n--allow-dangerous; on a protected server or conn, a person's yes (--yes) as\nwell.\n\n--security installs only the security updates, one server at a time. On\napt servers komando uses unattended-upgrade when it is installed (it picks\nsecurity origins only and follows the server's own settings), otherwise\napt-get --only-upgrade of the listed packages, keeping changed config\nfiles. On dnf/yum it runs \"upgrade --security\", on zypper \"patch\n--category security\". needrestart is kept from\nrestarting services during the run; the result lists the services that\nneed it.\n\nAfter each server komando compares the state with the one before. When fewer\ncontainers run or a unit has failed, it stops and leaves the other servers\nas they are (--keep-going patches them anyway). It never reboots:\nreboot_required says when a server needs one, use `komando exec TARGET\n--sudo --allow-dangerous -- reboot`.\n\nThe upgrade runs detached on the server, so a dropped connection does not\nbreak it. It waits up to 30 minutes per server (--timeout changes it).\nWhere komando cannot pick the security updates (apk, pacman, dnf/yum\nrepositories without security notices) the server stops with\nSECURITY_UNSUPPORTED: use `komando pkg upgrade` without --security there.",
         "example": "  komando pkg upgrade web1 --dry-run   # see what would change first\n  komando pkg upgrade web1 openssl\n  komando pkg upgrade @web --security --dry-run\n  komando pkg upgrade @web --security",
         "flags": [
           {
@@ -7113,16 +6893,11 @@
         "path": "komando queue",
         "usage": "komando queue [flags]",
         "short": "Queues (Kafka, RabbitMQ, NATS, SQS, Pub/Sub): read, send, manage",
-        "long": "Read and send messages on Kafka, RabbitMQ, NATS, SQS and Pub/Sub. Add a\nqueue with `komando queue add`.\n\ninfo, ls, describe, peek, groups and lag only read: peek reads Kafka\nmessages without joining a consumer group, gives RabbitMQ and Pub/Sub\nmessages straight back, reads NATS stream messages by their number, and\nreceives SQS messages without hiding or deleting them, so nothing is\nremoved. send and create change (production queues ask first); rm and purge\ndelete messages, so they also need --allow-dangerous. Try any change with\n--dry-run first. In RabbitMQ words a topic is a queue; in NATS words it is\na stream. Pub/Sub keeps messages in subscriptions: peek and purge take a\nsubscription, and groups lists them.",
+        "long": "Read and send messages on Kafka, RabbitMQ, NATS, SQS and Pub/Sub. Add a\nqueue with `komando queue kafka add` (or rabbitmq, nats, sqs, pubsub).\n\ninfo, topic list and show, message list and consumer list and show only\nread: message list reads Kafka messages without joining a consumer group,\ngives RabbitMQ and Pub/Sub messages straight back, reads NATS stream\nmessages by their number, and receives SQS messages without hiding or\ndeleting them, so nothing is removed. message create and topic create\nchange (production queues ask first); topic delete and message delete\n--all delete messages, so they also need --allow-dangerous. Try any change\nwith --dry-run first. In RabbitMQ words a topic is a queue; in NATS words\nit is a stream. Pub/Sub keeps messages in subscriptions: message list and\nmessage delete --all take a subscription, and consumer list lists them.",
         "aliases": [
-          "kafka",
-          "rabbitmq",
-          "nats",
-          "sqs",
-          "pubsub",
           "queues"
         ],
-        "example": "  komando queue add prod-kafka kafka://10.0.0.8:9092 --via web1\n  komando queue list prod-kafka\n  komando queue peek prod-kafka orders -n 5\n  komando queue send prod-kafka orders --value '{\"id\": 42}' --dry-run\n  komando queue lag prod-kafka billing",
+        "example": "  komando queue kafka add prod-kafka kafka://10.0.0.8:9092 --via web1\n  komando queue kafka topic list prod-kafka\n  komando queue kafka message list prod-kafka orders -n 5\n  komando queue kafka message create prod-kafka orders --value '{\"id\": 42}' --dry-run\n  komando queue kafka consumer show prod-kafka billing",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -7132,70 +6907,81 @@
         ]
       },
       {
-        "path": "komando queue add",
-        "usage": "komando queue add NAME URL [flags]",
-        "short": "Add a message queue",
-        "long": "Same as `komando conn add NAME URL`, for a message queue.\n\nSafety: a change; try it with --dry-run first.\n\nSaves a message queue under a short name. Typed alone at a terminal, it asks\nstep by step. The URL scheme sets the kind: `komando conn kinds` lists them.",
-        "example": "  komando queue add orders kafka://10.0.0.8:9092 --via web1\n  komando queue add orders kafka://10.0.0.8:9092 --via web1 --dry-run",
+        "path": "komando queue kafka",
+        "usage": "komando queue kafka [flags]",
+        "short": "Kafka: save a cluster, and read, send and manage its topics",
+        "example": "  komando queue kafka add prod-kafka kafka://10.0.0.8:9092 --via web1 --dry-run\n  komando queue kafka add prod-kafka kafka://10.0.0.8:9092 --via web1\n  komando queue kafka test prod-kafka\n  komando queue kafka topic list prod-kafka\n  komando queue kafka message list prod-kafka orders -n 5",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka add",
+        "usage": "komando queue kafka add NAME [URL] [flags]",
+        "short": "Save a kafka queue under a short name",
+        "long": "Save a kafka queue under a short name.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue kafka add prod-kafka kafka://10.0.0.8:9092 --via web1\n  komando queue kafka add prod-kafka kafka://10.0.0.8:9092 --dry-run",
         "flags": [
           {
             "name": "ask-password",
             "type": "bool",
             "default": "false",
-            "usage": "type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref"
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
           },
           {
             "name": "group",
-            "shorthand": "g",
             "type": "stringSlice",
             "default": "[]",
-            "usage": "put it in these groups (comma-separated)"
+            "usage": "put it in these groups"
           },
           {
             "name": "label",
             "type": "stringArray",
             "default": "[]",
-            "usage": "label KEY=VALUE (repeatable)"
+            "usage": "label KEY=VALUE"
           },
           {
             "name": "login",
             "type": "string",
-            "usage": "how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own)"
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
           },
           {
             "name": "notes",
             "type": "string",
-            "usage": "free-form notes (komando conn show shows them to people and agents)"
+            "usage": "free-form notes, shown to people and agents"
           },
           {
             "name": "option",
             "type": "stringArray",
             "default": "[]",
-            "usage": "an option of this kind, KEY=VALUE (repeatable)"
+            "usage": "an option of this provider, KEY=VALUE"
           },
           {
             "name": "overwrite",
             "type": "bool",
             "default": "false",
-            "usage": "replace a conn that has the same name"
-          },
-          {
-            "name": "password-ref",
-            "type": "string",
-            "usage": "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://..."
+            "usage": "replace an entry that has the same name"
           },
           {
             "name": "protected",
             "type": "bool",
             "default": "false",
-            "usage": "production: komando asks you before every change, and an AI agent needs your yes in a window"
+            "usage": "changes need a person's yes"
           },
           {
             "name": "tag",
-            "shorthand": "t",
             "type": "stringSlice",
             "default": "[]",
-            "usage": "tags, like prod (comma-separated)"
+            "usage": "tags, like prod"
           },
           {
             "name": "via",
@@ -7209,153 +6995,406 @@
           {
             "tier": "change"
           }
-        ],
-        "add_kinds": [
+        ]
+      },
+      {
+        "path": "komando queue kafka consumer",
+        "usage": "komando queue kafka consumer [flags]",
+        "short": "Consumer groups, consumers or subscriptions: list, show",
+        "example": "  komando queue kafka consumer list prod-kafka\n  komando queue kafka consumer list prod-kafka -n 20\n  komando queue kafka consumer show prod-kafka billing",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
           {
-            "id": "kafka",
-            "display_name": "Apache Kafka",
-            "family": "queue",
-            "url_schemes": [
-              "kafka"
-            ],
-            "url_example": "kafka://app@b1.example.com:9093,b2.example.com:9093?tls=true&sasl=scram-sha-512",
-            "url_note": "private CA: &ca=secret:NAME; --via an SSH server: kafka://broker1.internal:9092",
-            "default_port": 9092,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          },
-          {
-            "id": "nats",
-            "display_name": "NATS JetStream",
-            "family": "queue",
-            "url_schemes": [
-              "nats",
-              "tls"
-            ],
-            "url_example": "tls://app@nats1.example.com:4222,nats2.example.com:4222",
-            "url_note": "tls = TLS; a .creds file: ?creds=secret:NAME; --via an SSH server: nats://nats.internal:4222",
-            "default_port": 4222,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          },
-          {
-            "id": "pubsub",
-            "display_name": "Google Cloud Pub/Sub",
-            "family": "queue",
-            "url_schemes": [
-              "pubsub"
-            ],
-            "url_example": "pubsub://my-project",
-            "url_note": "Google Cloud Pub/Sub; the login is gcloud's application default one, or a service account key: --password-ref secret:NAME; the emulator: ?endpoint=http://localhost:8085",
-            "default_port": 443,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          },
-          {
-            "id": "rabbitmq",
-            "display_name": "RabbitMQ",
-            "family": "queue",
-            "url_schemes": [
-              "amqp",
-              "amqps"
-            ],
-            "url_example": "amqps://app@rabbit.example.com:5671/%2F?management=15671",
-            "url_note": "amqps = TLS; the path is the vhost; --via an SSH server: amqp://app@rabbit.internal:5672/",
-            "default_port": 5672,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          },
-          {
-            "id": "sqs",
-            "display_name": "Amazon SQS",
-            "family": "queue",
-            "url_schemes": [
-              "sqs"
-            ],
-            "url_example": "sqs://eu-west-1",
-            "url_note": "Amazon SQS; the login is your AWS one: --option aws_profile=NAME, or keys: sqs://ACCESS_KEY_ID@eu-west-1 --password-ref secret:NAME; an emulator: ?endpoint=http://localhost:4566",
-            "default_port": 443,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
+            "tier": "read"
           }
         ]
       },
       {
-        "path": "komando queue create",
-        "usage": "komando queue create CONN TOPIC [flags]",
-        "short": "Create a topic, queue or stream",
-        "long": "Create a topic, queue or stream.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando queue create prod-kafka orders --partitions 6 --replicas 3 --dry-run\n  komando queue create prod-kafka orders --partitions 6 --replicas 3 --config retention.ms=604800000\n  komando queue create jobs emails --type quorum --config x-max-length=10000\n  komando queue create stream ORDERS --replicas 3 --config subjects='orders.>' --config max_age=7d\n  komando queue create aws orders.fifo --config ContentBasedDeduplication=true\n  komando queue create gcp orders --config messageRetentionDuration=7d\n  komando queue create gcp subscriptions/billing --config topic=orders --config ackDeadlineSeconds=60",
+        "path": "komando queue kafka consumer list",
+        "usage": "komando queue kafka consumer list NAME [flags]",
+        "short": "List the consumer groups of a Kafka cluster",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue kafka consumer list prod-kafka\n  komando queue kafka consumer list prod-kafka -n 20",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many groups, consumers or subscriptions (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka consumer show",
+        "usage": "komando queue kafka consumer show NAME CONSUMER [flags]",
+        "short": "Show how far one consumer is behind of a Kafka cluster",
+        "example": "  komando queue kafka consumer show prod-kafka billing\n  komando queue kafka consumer show prod-kafka billing -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka edit",
+        "usage": "komando queue kafka edit NAME [flags]",
+        "short": "Change a saved kafka queue (only the flags you pass change)",
+        "long": "Change a saved kafka queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes).",
+        "example": "  komando queue kafka edit prod-kafka --add-tag critical\n  komando queue kafka edit prod-kafka --notes 'main one' --dry-run",
+        "flags": [
+          {
+            "name": "add-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "add-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "add these tags"
+          },
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "rm-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "take it out of these groups"
+          },
+          {
+            "name": "rm-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "remove these tags"
+          },
+          {
+            "name": "unset",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "clear these settings: via, credential, notes, protected"
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "usage": "the new URL (the provider may not change)"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka info",
+        "usage": "komando queue kafka info NAME [flags]",
+        "short": "Show the version and size of a Kafka cluster",
+        "example": "  komando queue kafka info prod-kafka\n  komando queue kafka info prod-kafka -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka list",
+        "usage": "komando queue kafka list [TARGET] [flags]",
+        "short": "List the saved kafka queues",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue kafka list\n  komando queue kafka list @web",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka message",
+        "usage": "komando queue kafka message [flags]",
+        "short": "The messages of a topic: list, create, delete",
+        "example": "  komando queue kafka message list prod-kafka orders\n  komando queue kafka message list prod-kafka orders --oldest -n 5\n  komando queue kafka message create prod-kafka orders --value test --dry-run\n  komando queue kafka message delete prod-kafka orders-retry --all --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka message create",
+        "usage": "komando queue kafka message create NAME TOPIC [flags]",
+        "short": "Publish one message to a topic of a Kafka cluster",
+        "long": "Publish one message to a topic of a Kafka cluster.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue kafka message create prod-kafka orders --value test --dry-run\n  komando queue kafka message create prod-kafka orders --from ./order.json --header source=support",
+        "flags": [
+          {
+            "name": "from",
+            "type": "string",
+            "usage": "read the message from this file ('-' for stdin)"
+          },
+          {
+            "name": "header",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "a message header KEY=VALUE (repeatable)"
+          },
+          {
+            "name": "key",
+            "type": "string",
+            "usage": "Kafka: the message key (picks the partition); SQS: the message group of a FIFO queue; Pub/Sub: the ordering key"
+          },
+          {
+            "name": "partition",
+            "type": "int",
+            "default": "0",
+            "usage": "Kafka: send to this partition, numbered from 0 (default: the broker's choice)"
+          },
+          {
+            "name": "value",
+            "type": "string",
+            "usage": "the message"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka message delete",
+        "usage": "komando queue kafka message delete NAME TOPIC [flags]",
+        "short": "Empty a topic of a Kafka cluster and keep it",
+        "long": "Empty a topic of a Kafka cluster and keep it.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando queue kafka message delete prod-kafka orders-retry --all --dry-run\n  komando queue kafka message delete prod-kafka orders-retry --all --allow-dangerous   # after a person's yes",
+        "flags": [
+          {
+            "name": "all",
+            "type": "bool",
+            "default": "false",
+            "usage": "every waiting message; without it nothing is deleted"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka message list",
+        "usage": "komando queue kafka message list NAME TOPIC [flags]",
+        "short": "Read the newest (or oldest) messages of a Kafka cluster, removing none",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue kafka message list prod-kafka orders\n  komando queue kafka message list prod-kafka orders --oldest -n 5",
+        "flags": [
+          {
+            "name": "idle",
+            "type": "duration",
+            "default": "5s",
+            "usage": "Kafka: stop when no message came for this long"
+          },
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "10",
+            "usage": "how many messages"
+          },
+          {
+            "name": "oldest",
+            "type": "bool",
+            "default": "false",
+            "usage": "the first messages still kept, not the newest"
+          },
+          {
+            "name": "partition",
+            "type": "int",
+            "default": "0",
+            "usage": "Kafka: only this partition, numbered from 0 (default: every partition)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka remove",
+        "usage": "komando queue kafka remove TARGET... [flags]",
+        "short": "Forget a saved kafka queue (the queue is not touched)",
+        "long": "Forget a saved kafka queue (the queue is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "example": "  komando queue kafka remove prod-kafka --dry-run\n  komando queue kafka remove prod-kafka",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka rename",
+        "usage": "komando queue kafka rename NAME NEW [flags]",
+        "short": "Rename a saved kafka queue and every reference to it",
+        "long": "Rename a saved kafka queue and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue kafka rename prod-kafka prod-kafka-2 --dry-run\n  komando queue kafka rename prod-kafka prod-kafka-2",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka show",
+        "usage": "komando queue kafka show NAME [flags]",
+        "short": "Show a saved kafka queue's settings (credentials as names)",
+        "example": "  komando queue kafka show prod-kafka\n  komando queue kafka show prod-kafka -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka test",
+        "usage": "komando queue kafka test TARGET [flags]",
+        "short": "Check that a saved kafka queue answers and lets you in",
+        "example": "  komando queue kafka test prod-kafka\n  komando queue kafka test @web",
+        "flags": [
+          {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the session a person's login keeps open"
+          },
+          {
+            "name": "wait",
+            "type": "duration",
+            "default": "0",
+            "usage": "wait this long for a person's sign-in"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka topic",
+        "usage": "komando queue kafka topic [flags]",
+        "short": "The topics (queues, streams) of a broker: list, show, create, delete",
+        "example": "  komando queue kafka topic list prod-kafka\n  komando queue kafka topic show prod-kafka orders\n  komando queue kafka topic create prod-kafka orders --dry-run\n  komando queue kafka topic delete prod-kafka old-orders --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue kafka topic create",
+        "usage": "komando queue kafka topic create NAME TOPIC [flags]",
+        "short": "Create a topic of a Kafka cluster",
+        "long": "Create a topic of a Kafka cluster.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue kafka topic create prod-kafka orders --dry-run\n  komando queue kafka topic create prod-kafka orders --config retention.ms=604800000",
         "flags": [
           {
             "name": "config",
@@ -7366,11 +7405,13 @@
           {
             "name": "partitions",
             "type": "int",
+            "default": "0",
             "usage": "Kafka: how many partitions (default: the broker's)"
           },
           {
             "name": "replicas",
             "type": "int",
+            "default": "0",
             "usage": "copies of each message. Kafka: copies of each partition; NATS: copies of the stream (default: the broker's; NATS: 1)"
           },
           {
@@ -7388,74 +7429,28 @@
         ]
       },
       {
-        "path": "komando queue describe",
-        "usage": "komando queue describe CONN TOPIC [flags]",
-        "short": "One topic, queue or stream: messages, settings, and who reads it",
-        "example": "  komando queue describe prod-kafka orders",
+        "path": "komando queue kafka topic delete",
+        "usage": "komando queue kafka topic delete NAME TOPIC... [flags]",
+        "short": "Delete topics of a Kafka cluster with their messages",
+        "long": "Delete topics of a Kafka cluster with their messages.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando queue kafka topic delete prod-kafka old-orders --dry-run\n  komando queue kafka topic delete prod-kafka old-orders --allow-dangerous   # after a person's yes",
         "runnable": true,
-        "kind": "read",
+        "kind": "change",
         "confirm": [
           {
-            "tier": "read"
+            "tier": "dangerous",
+            "flag": "--allow-dangerous"
           }
         ]
       },
       {
-        "path": "komando queue groups",
-        "usage": "komando queue groups CONN [flags]",
-        "short": "List Kafka consumer groups, NATS consumers or Pub/Sub subscriptions",
-        "example": "  komando queue groups prod-kafka",
-        "flags": [
-          {
-            "name": "limit",
-            "shorthand": "n",
-            "type": "int",
-            "default": "0",
-            "usage": "show at most this many groups (0 = all)"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando queue info",
-        "usage": "komando queue info CONN [flags]",
-        "short": "Server summary: version, brokers or nodes, topic, queue or stream count",
-        "example": "  komando queue info prod-kafka",
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando queue lag",
-        "usage": "komando queue lag CONN CONSUMER [flags]",
-        "short": "How far one Kafka consumer group (or NATS consumer) is behind",
-        "example": "  komando queue lag prod-kafka billing\n  komando queue lag stream ORDERS/billing",
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando queue list",
-        "usage": "komando queue list CONN [PATTERN] [flags]",
-        "short": "List topics (or queues, or streams) with their message counts",
+        "path": "komando queue kafka topic list",
+        "usage": "komando queue kafka topic list NAME [PATTERN] [flags]",
+        "short": "List the topics of a Kafka cluster with their message counts",
         "aliases": [
           "ls"
         ],
-        "example": "  komando queue list prod-kafka\n  komando queue list prod-kafka 'orders-*'\n  komando queue list prod-kafka --internal\n  komando queue list prod-kafka -n 50",
+        "example": "  komando queue kafka topic list prod-kafka\n  komando queue kafka topic list prod-kafka 'o*' -n 50",
         "flags": [
           {
             "name": "internal",
@@ -7480,11 +7475,388 @@
         ]
       },
       {
-        "path": "komando queue peek",
-        "usage": "komando queue peek CONN TOPIC [flags]",
-        "short": "Read the newest (or oldest) messages without removing any",
-        "long": "Kafka: read messages straight from the topic's partitions. No consumer\ngroup is joined and no offset is committed, so no application notices and\nnothing is removed. By default the newest -n messages over all partitions;\n--oldest reads the first ones still kept.\n\nRabbitMQ: take the first -n messages of the queue (the next ones a consumer\nwould get) and give them all back. Nothing is removed, but RabbitMQ marks\nthem redelivered, and a quorum queue counts each peek as a delivery: peek\nstops (DELIVERY_LIMIT_NEAR) before a message runs out of them.\n\nNATS: read messages straight from the stream by their sequence number. No\nconsumer is made and nothing is acknowledged, so nothing is removed, also\nfrom a work-queue stream. The newest -n by default, --oldest for the first.\n\nAmazon SQS: receive messages with a visibility timeout of 0 and never\ndelete them, so they stay and consumers can receive them at once. SQS gives\nmessages in no set order, so this is a sample of what waits. Every receive\ncounts toward a dead-letter queue's maxReceiveCount: peek stops\n(DELIVERY_LIMIT_NEAR) before a message runs out of receives.\n\nGoogle Cloud Pub/Sub: TOPIC is a subscription (messages wait there, not\nin a topic). peek pulls messages without acknowledging them and gives them\nstraight back (ack deadline 0), so they stay and are delivered again at\nonce. With a dead-letter topic each pull counts as a delivery: peek stops\n(DELIVERY_LIMIT_NEAR) before a message runs out of them.\n\nValues that are not UTF-8 text are shown as base64.",
-        "example": "  komando queue peek prod-kafka orders\n  komando queue peek prod-kafka orders -n 50 --partition 2\n  komando queue peek prod-kafka orders --oldest -n 5",
+        "path": "komando queue kafka topic show",
+        "usage": "komando queue kafka topic show NAME TOPIC [flags]",
+        "short": "Show one topic of a Kafka cluster: messages, settings, readers",
+        "aliases": [
+          "describe"
+        ],
+        "example": "  komando queue kafka topic show prod-kafka orders\n  komando queue kafka topic show prod-kafka orders -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats",
+        "usage": "komando queue nats [flags]",
+        "short": "NATS JetStream: save a server, and read, send and manage its streams",
+        "example": "  komando queue nats add prod-nats nats://app@10.0.0.10:4222 --via web1 --dry-run\n  komando queue nats add prod-nats nats://app@10.0.0.10:4222 --via web1\n  komando queue nats test prod-nats\n  komando queue nats topic list prod-nats\n  komando queue nats message list prod-nats ORDERS -n 5",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats add",
+        "usage": "komando queue nats add NAME [URL] [flags]",
+        "short": "Save a nats queue under a short name",
+        "long": "Save a nats queue under a short name.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue nats add prod-nats nats://app@10.0.0.10:4222 --via web1\n  komando queue nats add prod-nats nats://app@10.0.0.10:4222 --dry-run",
+        "flags": [
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "overwrite",
+            "type": "bool",
+            "default": "false",
+            "usage": "replace an entry that has the same name"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "tags, like prod"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats consumer",
+        "usage": "komando queue nats consumer [flags]",
+        "short": "Consumer groups, consumers or subscriptions: list, show",
+        "example": "  komando queue nats consumer list prod-nats\n  komando queue nats consumer list prod-nats -n 20\n  komando queue nats consumer show prod-nats billing",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats consumer list",
+        "usage": "komando queue nats consumer list NAME [flags]",
+        "short": "List the consumers of a NATS server",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue nats consumer list prod-nats\n  komando queue nats consumer list prod-nats -n 20",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many groups, consumers or subscriptions (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats consumer show",
+        "usage": "komando queue nats consumer show NAME CONSUMER [flags]",
+        "short": "Show how far one consumer is behind of a NATS server",
+        "example": "  komando queue nats consumer show prod-nats billing\n  komando queue nats consumer show prod-nats billing -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats edit",
+        "usage": "komando queue nats edit NAME [flags]",
+        "short": "Change a saved nats queue (only the flags you pass change)",
+        "long": "Change a saved nats queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes).",
+        "example": "  komando queue nats edit prod-nats --add-tag critical\n  komando queue nats edit prod-nats --notes 'main one' --dry-run",
+        "flags": [
+          {
+            "name": "add-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "add-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "add these tags"
+          },
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "rm-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "take it out of these groups"
+          },
+          {
+            "name": "rm-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "remove these tags"
+          },
+          {
+            "name": "unset",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "clear these settings: via, credential, notes, protected"
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "usage": "the new URL (the provider may not change)"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats info",
+        "usage": "komando queue nats info NAME [flags]",
+        "short": "Show the version and size of a NATS server",
+        "example": "  komando queue nats info prod-nats\n  komando queue nats info prod-nats -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats list",
+        "usage": "komando queue nats list [TARGET] [flags]",
+        "short": "List the saved nats queues",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue nats list\n  komando queue nats list @web",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats message",
+        "usage": "komando queue nats message [flags]",
+        "short": "The messages of a topic: list, create, delete",
+        "example": "  komando queue nats message list prod-nats ORDERS\n  komando queue nats message list prod-nats ORDERS --oldest -n 5\n  komando queue nats message create prod-nats ORDERS --value test --dry-run\n  komando queue nats message delete prod-nats ORDERS-retry --all --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats message create",
+        "usage": "komando queue nats message create NAME TOPIC [flags]",
+        "short": "Publish one message to a topic of a NATS server",
+        "long": "Publish one message to a topic of a NATS server.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue nats message create prod-nats ORDERS --value test --dry-run\n  komando queue nats message create prod-nats ORDERS --from ./order.json --header source=support",
+        "flags": [
+          {
+            "name": "from",
+            "type": "string",
+            "usage": "read the message from this file ('-' for stdin)"
+          },
+          {
+            "name": "header",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "a message header KEY=VALUE (repeatable)"
+          },
+          {
+            "name": "key",
+            "type": "string",
+            "usage": "Kafka: the message key (picks the partition); SQS: the message group of a FIFO queue; Pub/Sub: the ordering key"
+          },
+          {
+            "name": "partition",
+            "type": "int",
+            "default": "0",
+            "usage": "Kafka: send to this partition, numbered from 0 (default: the broker's choice)"
+          },
+          {
+            "name": "value",
+            "type": "string",
+            "usage": "the message"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats message delete",
+        "usage": "komando queue nats message delete NAME TOPIC [flags]",
+        "short": "Empty a topic of a NATS server and keep it",
+        "long": "Empty a topic of a NATS server and keep it.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando queue nats message delete prod-nats ORDERS-retry --all --dry-run\n  komando queue nats message delete prod-nats ORDERS-retry --all --allow-dangerous   # after a person's yes",
+        "flags": [
+          {
+            "name": "all",
+            "type": "bool",
+            "default": "false",
+            "usage": "every waiting message; without it nothing is deleted"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats message list",
+        "usage": "komando queue nats message list NAME TOPIC [flags]",
+        "short": "Read the newest (or oldest) messages of a NATS server, removing none",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue nats message list prod-nats ORDERS\n  komando queue nats message list prod-nats ORDERS --oldest -n 5",
         "flags": [
           {
             "name": "idle",
@@ -7508,6 +7880,7 @@
           {
             "name": "partition",
             "type": "int",
+            "default": "0",
             "usage": "Kafka: only this partition, numbered from 0 (default: every partition)"
           }
         ],
@@ -7520,31 +7893,131 @@
         ]
       },
       {
-        "path": "komando queue purge",
-        "usage": "komando queue purge CONN TOPIC [flags]",
-        "short": "Empty a topic, queue or stream and keep it",
-        "long": "Empty a topic, queue or stream and keep it.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous; on a protected server\nor conn, a person's yes (--yes) as well.",
-        "example": "  komando queue purge prod-kafka orders-retry --dry-run\n  komando queue purge prod-kafka orders-retry --allow-dangerous   # after a person's yes",
+        "path": "komando queue nats remove",
+        "usage": "komando queue nats remove TARGET... [flags]",
+        "short": "Forget a saved nats queue (the queue is not touched)",
+        "long": "Forget a saved nats queue (the queue is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "example": "  komando queue nats remove prod-nats --dry-run\n  komando queue nats remove prod-nats",
         "runnable": true,
         "kind": "change",
         "confirm": [
           {
-            "tier": "dangerous",
-            "flag": "--allow-dangerous"
+            "tier": "change"
           }
         ]
       },
       {
-        "path": "komando queue rm",
-        "usage": "komando queue rm CONN TOPIC... [flags]",
-        "short": "Delete topics, queues or streams with their messages",
-        "long": "Delete topics, queues or streams with their messages.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous; on a protected server\nor conn, a person's yes (--yes) as well.",
-        "aliases": [
-          "remove",
-          "delete",
-          "del"
+        "path": "komando queue nats rename",
+        "usage": "komando queue nats rename NAME NEW [flags]",
+        "short": "Rename a saved nats queue and every reference to it",
+        "long": "Rename a saved nats queue and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue nats rename prod-nats prod-nats-2 --dry-run\n  komando queue nats rename prod-nats prod-nats-2",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats show",
+        "usage": "komando queue nats show NAME [flags]",
+        "short": "Show a saved nats queue's settings (credentials as names)",
+        "example": "  komando queue nats show prod-nats\n  komando queue nats show prod-nats -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats test",
+        "usage": "komando queue nats test TARGET [flags]",
+        "short": "Check that a saved nats queue answers and lets you in",
+        "example": "  komando queue nats test prod-nats\n  komando queue nats test @web",
+        "flags": [
+          {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the session a person's login keeps open"
+          },
+          {
+            "name": "wait",
+            "type": "duration",
+            "default": "0",
+            "usage": "wait this long for a person's sign-in"
+          }
         ],
-        "example": "  komando queue rm prod-kafka old-orders --dry-run\n  komando queue rm prod-kafka old-orders --allow-dangerous   # after a person's yes",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats topic",
+        "usage": "komando queue nats topic [flags]",
+        "short": "The topics (queues, streams) of a broker: list, show, create, delete",
+        "example": "  komando queue nats topic list prod-nats\n  komando queue nats topic show prod-nats ORDERS\n  komando queue nats topic create prod-nats ORDERS --dry-run\n  komando queue nats topic delete prod-nats old-ORDERS --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats topic create",
+        "usage": "komando queue nats topic create NAME TOPIC [flags]",
+        "short": "Create a topic of a NATS server",
+        "long": "Create a topic of a NATS server.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue nats topic create prod-nats ORDERS --dry-run\n  komando queue nats topic create prod-nats ORDERS --config retention.ms=604800000",
+        "flags": [
+          {
+            "name": "config",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "a setting KEY=VALUE, like retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable)"
+          },
+          {
+            "name": "partitions",
+            "type": "int",
+            "default": "0",
+            "usage": "Kafka: how many partitions (default: the broker's)"
+          },
+          {
+            "name": "replicas",
+            "type": "int",
+            "default": "0",
+            "usage": "copies of each message. Kafka: copies of each partition; NATS: copies of the stream (default: the broker's; NATS: 1)"
+          },
+          {
+            "name": "type",
+            "type": "string",
+            "usage": "RabbitMQ: the queue type, classic, quorum or stream (default: the server's)"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats topic delete",
+        "usage": "komando queue nats topic delete NAME TOPIC... [flags]",
+        "short": "Delete topics of a NATS server with their messages",
+        "long": "Delete topics of a NATS server with their messages.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando queue nats topic delete prod-nats old-ORDERS --dry-run\n  komando queue nats topic delete prod-nats old-ORDERS --allow-dangerous   # after a person's yes",
         "runnable": true,
         "kind": "change",
         "confirm": [
@@ -7555,11 +8028,338 @@
         ]
       },
       {
-        "path": "komando queue send",
-        "usage": "komando queue send CONN TOPIC [flags]",
-        "short": "Publish one message",
-        "long": "Publish one message to an existing topic (or queue) and wait until the\nserver keeps it. The value comes from --value, from a file (--from FILE;\n'-' is stdin), or from data piped on stdin. --dry-run checks the topic and\nthe partition and sends nothing.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.\n\nKafka: --key picks the partition the usual way (the same key always goes\nto the same partition); --partition picks one itself.\nRabbitMQ: the message goes straight to the queue (the default exchange),\npersistent, with --header values as its headers.\nNATS: TOPIC is a subject that a stream keeps (orders.new); komando checks\nwhich stream, publishes, and waits for the stream's acknowledgement.\nAmazon SQS: text only; --header values become message attributes. A FIFO\nqueue (name.fifo) needs --key, the message group.\nGoogle Cloud Pub/Sub: TOPIC is a topic; --header values become message\nattributes and --key is the ordering key.",
-        "example": "  komando queue send prod-kafka orders --value '{\"id\": 42, \"status\": \"paid\"}' --key 42\n  komando queue send prod-kafka orders --from ./order.json --header source=support\n  komando queue send prod-kafka orders --value test --dry-run",
+        "path": "komando queue nats topic list",
+        "usage": "komando queue nats topic list NAME [PATTERN] [flags]",
+        "short": "List the topics of a NATS server with their message counts",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue nats topic list prod-nats\n  komando queue nats topic list prod-nats 'o*' -n 50",
+        "flags": [
+          {
+            "name": "internal",
+            "type": "bool",
+            "default": "false",
+            "usage": "Kafka: also list its own topics (__consumer_offsets, ...)"
+          },
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "1000",
+            "usage": "the most topics (or queues, or streams) to show, the first by name"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue nats topic show",
+        "usage": "komando queue nats topic show NAME TOPIC [flags]",
+        "short": "Show one topic of a NATS server: messages, settings, readers",
+        "aliases": [
+          "describe"
+        ],
+        "example": "  komando queue nats topic show prod-nats ORDERS\n  komando queue nats topic show prod-nats ORDERS -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub",
+        "usage": "komando queue pubsub [flags]",
+        "short": "Pub/Sub: save a project, and read, send and manage its topics",
+        "example": "  komando queue pubsub add prod-pubsub pubsub://my-project --via web1 --dry-run\n  komando queue pubsub add prod-pubsub pubsub://my-project --via web1\n  komando queue pubsub test prod-pubsub\n  komando queue pubsub topic list prod-pubsub\n  komando queue pubsub message list prod-pubsub orders -n 5",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub add",
+        "usage": "komando queue pubsub add NAME [URL] [flags]",
+        "short": "Save a pubsub queue under a short name",
+        "long": "Save a pubsub queue under a short name.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue pubsub add prod-pubsub pubsub://my-project --via web1\n  komando queue pubsub add prod-pubsub pubsub://my-project --dry-run",
+        "flags": [
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "overwrite",
+            "type": "bool",
+            "default": "false",
+            "usage": "replace an entry that has the same name"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "tags, like prod"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub consumer",
+        "usage": "komando queue pubsub consumer [flags]",
+        "short": "Consumer groups, consumers or subscriptions: list, show",
+        "example": "  komando queue pubsub consumer list prod-pubsub\n  komando queue pubsub consumer list prod-pubsub -n 20\n  komando queue pubsub consumer list prod-pubsub -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub consumer list",
+        "usage": "komando queue pubsub consumer list NAME [flags]",
+        "short": "List the subscriptions of a Pub/Sub project",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue pubsub consumer list prod-pubsub\n  komando queue pubsub consumer list prod-pubsub -n 20",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many groups, consumers or subscriptions (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub edit",
+        "usage": "komando queue pubsub edit NAME [flags]",
+        "short": "Change a saved pubsub queue (only the flags you pass change)",
+        "long": "Change a saved pubsub queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes).",
+        "example": "  komando queue pubsub edit prod-pubsub --add-tag critical\n  komando queue pubsub edit prod-pubsub --notes 'main one' --dry-run",
+        "flags": [
+          {
+            "name": "add-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "add-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "add these tags"
+          },
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "rm-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "take it out of these groups"
+          },
+          {
+            "name": "rm-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "remove these tags"
+          },
+          {
+            "name": "unset",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "clear these settings: via, credential, notes, protected"
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "usage": "the new URL (the provider may not change)"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub info",
+        "usage": "komando queue pubsub info NAME [flags]",
+        "short": "Show the version and size of a Pub/Sub project",
+        "example": "  komando queue pubsub info prod-pubsub\n  komando queue pubsub info prod-pubsub -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub list",
+        "usage": "komando queue pubsub list [TARGET] [flags]",
+        "short": "List the saved pubsub queues",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue pubsub list\n  komando queue pubsub list @web",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub message",
+        "usage": "komando queue pubsub message [flags]",
+        "short": "The messages of a topic: list, create, delete",
+        "example": "  komando queue pubsub message list prod-pubsub orders\n  komando queue pubsub message list prod-pubsub orders --oldest -n 5\n  komando queue pubsub message create prod-pubsub orders --value test --dry-run\n  komando queue pubsub message delete prod-pubsub orders-retry --all --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub message create",
+        "usage": "komando queue pubsub message create NAME TOPIC [flags]",
+        "short": "Publish one message to a topic of a Pub/Sub project",
+        "long": "Publish one message to a topic of a Pub/Sub project.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue pubsub message create prod-pubsub orders --value test --dry-run\n  komando queue pubsub message create prod-pubsub orders --from ./order.json --header source=support",
         "flags": [
           {
             "name": "from",
@@ -7580,6 +8380,7 @@
           {
             "name": "partition",
             "type": "int",
+            "default": "0",
             "usage": "Kafka: send to this partition, numbered from 0 (default: the broker's choice)"
           },
           {
@@ -7597,23 +8398,17 @@
         ]
       },
       {
-        "path": "komando reboot",
-        "usage": "komando reboot TARGET [flags]",
-        "short": "Reboot servers one at a time and check each came back",
-        "long": "Reboots each server in turn: komando asks it to reboot, waits until SSH\nanswers again, and checks that it started anew (a new boot id). The next\nserver is rebooted only when the one before came back; a server that does\nnot come back within --wait stops the rest.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous; on a protected server\nor conn, a person's yes (--yes) as well.\n\nA reboot is a destructive action: it needs --allow-dangerous (and --yes or\nthe approval for protected servers). Try --dry-run first.",
-        "example": "  komando reboot web1 --dry-run\n  komando reboot @web --wait 10m --dry-run\n  komando reboot @web --allow-dangerous --wait 10m   # after a person's yes",
+        "path": "komando queue pubsub message delete",
+        "usage": "komando queue pubsub message delete NAME TOPIC [flags]",
+        "short": "Empty a topic of a Pub/Sub project and keep it",
+        "long": "Empty a topic of a Pub/Sub project and keep it.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando queue pubsub message delete prod-pubsub orders-retry --all --dry-run\n  komando queue pubsub message delete prod-pubsub orders-retry --all --allow-dangerous   # after a person's yes",
         "flags": [
           {
-            "name": "no-sudo",
+            "name": "all",
             "type": "bool",
             "default": "false",
-            "usage": "run without sudo"
-          },
-          {
-            "name": "wait",
-            "type": "duration",
-            "default": "5m",
-            "usage": "how long each server may take to come back (like 10m, 1h)"
+            "usage": "every waiting message; without it nothing is deleted"
           }
         ],
         "runnable": true,
@@ -7622,6 +8417,1297 @@
           {
             "tier": "dangerous",
             "flag": "--allow-dangerous"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub message list",
+        "usage": "komando queue pubsub message list NAME TOPIC [flags]",
+        "short": "Read the newest (or oldest) messages of a Pub/Sub project, removing none",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue pubsub message list prod-pubsub orders\n  komando queue pubsub message list prod-pubsub orders --oldest -n 5",
+        "flags": [
+          {
+            "name": "idle",
+            "type": "duration",
+            "default": "5s",
+            "usage": "Kafka: stop when no message came for this long"
+          },
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "10",
+            "usage": "how many messages"
+          },
+          {
+            "name": "oldest",
+            "type": "bool",
+            "default": "false",
+            "usage": "the first messages still kept, not the newest"
+          },
+          {
+            "name": "partition",
+            "type": "int",
+            "default": "0",
+            "usage": "Kafka: only this partition, numbered from 0 (default: every partition)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub remove",
+        "usage": "komando queue pubsub remove TARGET... [flags]",
+        "short": "Forget a saved pubsub queue (the queue is not touched)",
+        "long": "Forget a saved pubsub queue (the queue is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "example": "  komando queue pubsub remove prod-pubsub --dry-run\n  komando queue pubsub remove prod-pubsub",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub rename",
+        "usage": "komando queue pubsub rename NAME NEW [flags]",
+        "short": "Rename a saved pubsub queue and every reference to it",
+        "long": "Rename a saved pubsub queue and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue pubsub rename prod-pubsub prod-pubsub-2 --dry-run\n  komando queue pubsub rename prod-pubsub prod-pubsub-2",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub show",
+        "usage": "komando queue pubsub show NAME [flags]",
+        "short": "Show a saved pubsub queue's settings (credentials as names)",
+        "example": "  komando queue pubsub show prod-pubsub\n  komando queue pubsub show prod-pubsub -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub test",
+        "usage": "komando queue pubsub test TARGET [flags]",
+        "short": "Check that a saved pubsub queue answers and lets you in",
+        "example": "  komando queue pubsub test prod-pubsub\n  komando queue pubsub test @web",
+        "flags": [
+          {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the session a person's login keeps open"
+          },
+          {
+            "name": "wait",
+            "type": "duration",
+            "default": "0",
+            "usage": "wait this long for a person's sign-in"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub topic",
+        "usage": "komando queue pubsub topic [flags]",
+        "short": "The topics (queues, streams) of a broker: list, show, create, delete",
+        "example": "  komando queue pubsub topic list prod-pubsub\n  komando queue pubsub topic show prod-pubsub orders\n  komando queue pubsub topic create prod-pubsub orders --dry-run\n  komando queue pubsub topic delete prod-pubsub old-orders --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub topic create",
+        "usage": "komando queue pubsub topic create NAME TOPIC [flags]",
+        "short": "Create a topic of a Pub/Sub project",
+        "long": "Create a topic of a Pub/Sub project.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue pubsub topic create prod-pubsub orders --dry-run\n  komando queue pubsub topic create prod-pubsub orders --config retention.ms=604800000",
+        "flags": [
+          {
+            "name": "config",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "a setting KEY=VALUE, like retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable)"
+          },
+          {
+            "name": "partitions",
+            "type": "int",
+            "default": "0",
+            "usage": "Kafka: how many partitions (default: the broker's)"
+          },
+          {
+            "name": "replicas",
+            "type": "int",
+            "default": "0",
+            "usage": "copies of each message. Kafka: copies of each partition; NATS: copies of the stream (default: the broker's; NATS: 1)"
+          },
+          {
+            "name": "type",
+            "type": "string",
+            "usage": "RabbitMQ: the queue type, classic, quorum or stream (default: the server's)"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub topic delete",
+        "usage": "komando queue pubsub topic delete NAME TOPIC... [flags]",
+        "short": "Delete topics of a Pub/Sub project with their messages",
+        "long": "Delete topics of a Pub/Sub project with their messages.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando queue pubsub topic delete prod-pubsub old-orders --dry-run\n  komando queue pubsub topic delete prod-pubsub old-orders --allow-dangerous   # after a person's yes",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub topic list",
+        "usage": "komando queue pubsub topic list NAME [PATTERN] [flags]",
+        "short": "List the topics of a Pub/Sub project with their message counts",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue pubsub topic list prod-pubsub\n  komando queue pubsub topic list prod-pubsub 'o*' -n 50",
+        "flags": [
+          {
+            "name": "internal",
+            "type": "bool",
+            "default": "false",
+            "usage": "Kafka: also list its own topics (__consumer_offsets, ...)"
+          },
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "1000",
+            "usage": "the most topics (or queues, or streams) to show, the first by name"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue pubsub topic show",
+        "usage": "komando queue pubsub topic show NAME TOPIC [flags]",
+        "short": "Show one topic of a Pub/Sub project: messages, settings, readers",
+        "aliases": [
+          "describe"
+        ],
+        "example": "  komando queue pubsub topic show prod-pubsub orders\n  komando queue pubsub topic show prod-pubsub orders -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq",
+        "usage": "komando queue rabbitmq [flags]",
+        "short": "RabbitMQ: save a broker, and read, send and manage its queues",
+        "example": "  komando queue rabbitmq add prod-rabbit amqps://app@10.0.0.9/ --via web1 --dry-run\n  komando queue rabbitmq add prod-rabbit amqps://app@10.0.0.9/ --via web1\n  komando queue rabbitmq test prod-rabbit\n  komando queue rabbitmq topic list prod-rabbit\n  komando queue rabbitmq message list prod-rabbit emails -n 5",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq add",
+        "usage": "komando queue rabbitmq add NAME [URL] [flags]",
+        "short": "Save a rabbitmq queue under a short name",
+        "long": "Save a rabbitmq queue under a short name.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue rabbitmq add prod-rabbit amqps://app@10.0.0.9/ --via web1\n  komando queue rabbitmq add prod-rabbit amqps://app@10.0.0.9/ --dry-run",
+        "flags": [
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "overwrite",
+            "type": "bool",
+            "default": "false",
+            "usage": "replace an entry that has the same name"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "tags, like prod"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq edit",
+        "usage": "komando queue rabbitmq edit NAME [flags]",
+        "short": "Change a saved rabbitmq queue (only the flags you pass change)",
+        "long": "Change a saved rabbitmq queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes).",
+        "example": "  komando queue rabbitmq edit prod-rabbit --add-tag critical\n  komando queue rabbitmq edit prod-rabbit --notes 'main one' --dry-run",
+        "flags": [
+          {
+            "name": "add-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "add-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "add these tags"
+          },
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "rm-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "take it out of these groups"
+          },
+          {
+            "name": "rm-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "remove these tags"
+          },
+          {
+            "name": "unset",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "clear these settings: via, credential, notes, protected"
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "usage": "the new URL (the provider may not change)"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq info",
+        "usage": "komando queue rabbitmq info NAME [flags]",
+        "short": "Show the version and size of a RabbitMQ broker",
+        "example": "  komando queue rabbitmq info prod-rabbit\n  komando queue rabbitmq info prod-rabbit -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq list",
+        "usage": "komando queue rabbitmq list [TARGET] [flags]",
+        "short": "List the saved rabbitmq queues",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue rabbitmq list\n  komando queue rabbitmq list @web",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq message",
+        "usage": "komando queue rabbitmq message [flags]",
+        "short": "The messages of a topic: list, create, delete",
+        "example": "  komando queue rabbitmq message list prod-rabbit emails\n  komando queue rabbitmq message list prod-rabbit emails --oldest -n 5\n  komando queue rabbitmq message create prod-rabbit emails --value test --dry-run\n  komando queue rabbitmq message delete prod-rabbit emails-retry --all --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq message create",
+        "usage": "komando queue rabbitmq message create NAME TOPIC [flags]",
+        "short": "Publish one message to a topic of a RabbitMQ broker",
+        "long": "Publish one message to a topic of a RabbitMQ broker.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue rabbitmq message create prod-rabbit emails --value test --dry-run\n  komando queue rabbitmq message create prod-rabbit emails --from ./order.json --header source=support",
+        "flags": [
+          {
+            "name": "from",
+            "type": "string",
+            "usage": "read the message from this file ('-' for stdin)"
+          },
+          {
+            "name": "header",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "a message header KEY=VALUE (repeatable)"
+          },
+          {
+            "name": "key",
+            "type": "string",
+            "usage": "Kafka: the message key (picks the partition); SQS: the message group of a FIFO queue; Pub/Sub: the ordering key"
+          },
+          {
+            "name": "partition",
+            "type": "int",
+            "default": "0",
+            "usage": "Kafka: send to this partition, numbered from 0 (default: the broker's choice)"
+          },
+          {
+            "name": "value",
+            "type": "string",
+            "usage": "the message"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq message delete",
+        "usage": "komando queue rabbitmq message delete NAME TOPIC [flags]",
+        "short": "Empty a topic of a RabbitMQ broker and keep it",
+        "long": "Empty a topic of a RabbitMQ broker and keep it.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando queue rabbitmq message delete prod-rabbit emails-retry --all --dry-run\n  komando queue rabbitmq message delete prod-rabbit emails-retry --all --allow-dangerous   # after a person's yes",
+        "flags": [
+          {
+            "name": "all",
+            "type": "bool",
+            "default": "false",
+            "usage": "every waiting message; without it nothing is deleted"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq message list",
+        "usage": "komando queue rabbitmq message list NAME TOPIC [flags]",
+        "short": "Read the newest (or oldest) messages of a RabbitMQ broker, removing none",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue rabbitmq message list prod-rabbit emails\n  komando queue rabbitmq message list prod-rabbit emails --oldest -n 5",
+        "flags": [
+          {
+            "name": "idle",
+            "type": "duration",
+            "default": "5s",
+            "usage": "Kafka: stop when no message came for this long"
+          },
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "10",
+            "usage": "how many messages"
+          },
+          {
+            "name": "oldest",
+            "type": "bool",
+            "default": "false",
+            "usage": "the first messages still kept, not the newest"
+          },
+          {
+            "name": "partition",
+            "type": "int",
+            "default": "0",
+            "usage": "Kafka: only this partition, numbered from 0 (default: every partition)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq remove",
+        "usage": "komando queue rabbitmq remove TARGET... [flags]",
+        "short": "Forget a saved rabbitmq queue (the queue is not touched)",
+        "long": "Forget a saved rabbitmq queue (the queue is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "example": "  komando queue rabbitmq remove prod-rabbit --dry-run\n  komando queue rabbitmq remove prod-rabbit",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq rename",
+        "usage": "komando queue rabbitmq rename NAME NEW [flags]",
+        "short": "Rename a saved rabbitmq queue and every reference to it",
+        "long": "Rename a saved rabbitmq queue and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue rabbitmq rename prod-rabbit prod-rabbit-2 --dry-run\n  komando queue rabbitmq rename prod-rabbit prod-rabbit-2",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq show",
+        "usage": "komando queue rabbitmq show NAME [flags]",
+        "short": "Show a saved rabbitmq queue's settings (credentials as names)",
+        "example": "  komando queue rabbitmq show prod-rabbit\n  komando queue rabbitmq show prod-rabbit -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq test",
+        "usage": "komando queue rabbitmq test TARGET [flags]",
+        "short": "Check that a saved rabbitmq queue answers and lets you in",
+        "example": "  komando queue rabbitmq test prod-rabbit\n  komando queue rabbitmq test @web",
+        "flags": [
+          {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the session a person's login keeps open"
+          },
+          {
+            "name": "wait",
+            "type": "duration",
+            "default": "0",
+            "usage": "wait this long for a person's sign-in"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq topic",
+        "usage": "komando queue rabbitmq topic [flags]",
+        "short": "The topics (queues, streams) of a broker: list, show, create, delete",
+        "example": "  komando queue rabbitmq topic list prod-rabbit\n  komando queue rabbitmq topic show prod-rabbit emails\n  komando queue rabbitmq topic create prod-rabbit emails --dry-run\n  komando queue rabbitmq topic delete prod-rabbit old-emails --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq topic create",
+        "usage": "komando queue rabbitmq topic create NAME TOPIC [flags]",
+        "short": "Create a topic of a RabbitMQ broker",
+        "long": "Create a topic of a RabbitMQ broker.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue rabbitmq topic create prod-rabbit emails --dry-run\n  komando queue rabbitmq topic create prod-rabbit emails --config retention.ms=604800000",
+        "flags": [
+          {
+            "name": "config",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "a setting KEY=VALUE, like retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable)"
+          },
+          {
+            "name": "partitions",
+            "type": "int",
+            "default": "0",
+            "usage": "Kafka: how many partitions (default: the broker's)"
+          },
+          {
+            "name": "replicas",
+            "type": "int",
+            "default": "0",
+            "usage": "copies of each message. Kafka: copies of each partition; NATS: copies of the stream (default: the broker's; NATS: 1)"
+          },
+          {
+            "name": "type",
+            "type": "string",
+            "usage": "RabbitMQ: the queue type, classic, quorum or stream (default: the server's)"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq topic delete",
+        "usage": "komando queue rabbitmq topic delete NAME TOPIC... [flags]",
+        "short": "Delete topics of a RabbitMQ broker with their messages",
+        "long": "Delete topics of a RabbitMQ broker with their messages.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando queue rabbitmq topic delete prod-rabbit old-emails --dry-run\n  komando queue rabbitmq topic delete prod-rabbit old-emails --allow-dangerous   # after a person's yes",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq topic list",
+        "usage": "komando queue rabbitmq topic list NAME [PATTERN] [flags]",
+        "short": "List the topics of a RabbitMQ broker with their message counts",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue rabbitmq topic list prod-rabbit\n  komando queue rabbitmq topic list prod-rabbit 'e*' -n 50",
+        "flags": [
+          {
+            "name": "internal",
+            "type": "bool",
+            "default": "false",
+            "usage": "Kafka: also list its own topics (__consumer_offsets, ...)"
+          },
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "1000",
+            "usage": "the most topics (or queues, or streams) to show, the first by name"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue rabbitmq topic show",
+        "usage": "komando queue rabbitmq topic show NAME TOPIC [flags]",
+        "short": "Show one topic of a RabbitMQ broker: messages, settings, readers",
+        "aliases": [
+          "describe"
+        ],
+        "example": "  komando queue rabbitmq topic show prod-rabbit emails\n  komando queue rabbitmq topic show prod-rabbit emails -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs",
+        "usage": "komando queue sqs [flags]",
+        "short": "Amazon SQS: save an account, and read, send and manage its queues",
+        "example": "  komando queue sqs add prod-sqs sqs://eu-west-1 --via web1 --dry-run\n  komando queue sqs add prod-sqs sqs://eu-west-1 --via web1\n  komando queue sqs test prod-sqs\n  komando queue sqs topic list prod-sqs\n  komando queue sqs message list prod-sqs orders -n 5",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs add",
+        "usage": "komando queue sqs add NAME [URL] [flags]",
+        "short": "Save a sqs queue under a short name",
+        "long": "Save a sqs queue under a short name.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue sqs add prod-sqs sqs://eu-west-1 --via web1\n  komando queue sqs add prod-sqs sqs://eu-west-1 --dry-run",
+        "flags": [
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "overwrite",
+            "type": "bool",
+            "default": "false",
+            "usage": "replace an entry that has the same name"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "tags, like prod"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs edit",
+        "usage": "komando queue sqs edit NAME [flags]",
+        "short": "Change a saved sqs queue (only the flags you pass change)",
+        "long": "Change a saved sqs queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes).",
+        "example": "  komando queue sqs edit prod-sqs --add-tag critical\n  komando queue sqs edit prod-sqs --notes 'main one' --dry-run",
+        "flags": [
+          {
+            "name": "add-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "add-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "add these tags"
+          },
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "rm-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "take it out of these groups"
+          },
+          {
+            "name": "rm-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "remove these tags"
+          },
+          {
+            "name": "unset",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "clear these settings: via, credential, notes, protected"
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "usage": "the new URL (the provider may not change)"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs info",
+        "usage": "komando queue sqs info NAME [flags]",
+        "short": "Show the version and size of a SQS account",
+        "example": "  komando queue sqs info prod-sqs\n  komando queue sqs info prod-sqs -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs list",
+        "usage": "komando queue sqs list [TARGET] [flags]",
+        "short": "List the saved sqs queues",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue sqs list\n  komando queue sqs list @web",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs message",
+        "usage": "komando queue sqs message [flags]",
+        "short": "The messages of a topic: list, create, delete",
+        "example": "  komando queue sqs message list prod-sqs orders\n  komando queue sqs message list prod-sqs orders --oldest -n 5\n  komando queue sqs message create prod-sqs orders --value test --dry-run\n  komando queue sqs message delete prod-sqs orders-retry --all --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs message create",
+        "usage": "komando queue sqs message create NAME TOPIC [flags]",
+        "short": "Publish one message to a topic of a SQS account",
+        "long": "Publish one message to a topic of a SQS account.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue sqs message create prod-sqs orders --value test --dry-run\n  komando queue sqs message create prod-sqs orders --from ./order.json --header source=support",
+        "flags": [
+          {
+            "name": "from",
+            "type": "string",
+            "usage": "read the message from this file ('-' for stdin)"
+          },
+          {
+            "name": "header",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "a message header KEY=VALUE (repeatable)"
+          },
+          {
+            "name": "key",
+            "type": "string",
+            "usage": "Kafka: the message key (picks the partition); SQS: the message group of a FIFO queue; Pub/Sub: the ordering key"
+          },
+          {
+            "name": "partition",
+            "type": "int",
+            "default": "0",
+            "usage": "Kafka: send to this partition, numbered from 0 (default: the broker's choice)"
+          },
+          {
+            "name": "value",
+            "type": "string",
+            "usage": "the message"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs message delete",
+        "usage": "komando queue sqs message delete NAME TOPIC [flags]",
+        "short": "Empty a topic of a SQS account and keep it",
+        "long": "Empty a topic of a SQS account and keep it.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando queue sqs message delete prod-sqs orders-retry --all --dry-run\n  komando queue sqs message delete prod-sqs orders-retry --all --allow-dangerous   # after a person's yes",
+        "flags": [
+          {
+            "name": "all",
+            "type": "bool",
+            "default": "false",
+            "usage": "every waiting message; without it nothing is deleted"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs message list",
+        "usage": "komando queue sqs message list NAME TOPIC [flags]",
+        "short": "Read the newest (or oldest) messages of a SQS account, removing none",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue sqs message list prod-sqs orders\n  komando queue sqs message list prod-sqs orders --oldest -n 5",
+        "flags": [
+          {
+            "name": "idle",
+            "type": "duration",
+            "default": "5s",
+            "usage": "Kafka: stop when no message came for this long"
+          },
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "10",
+            "usage": "how many messages"
+          },
+          {
+            "name": "oldest",
+            "type": "bool",
+            "default": "false",
+            "usage": "the first messages still kept, not the newest"
+          },
+          {
+            "name": "partition",
+            "type": "int",
+            "default": "0",
+            "usage": "Kafka: only this partition, numbered from 0 (default: every partition)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs remove",
+        "usage": "komando queue sqs remove TARGET... [flags]",
+        "short": "Forget a saved sqs queue (the queue is not touched)",
+        "long": "Forget a saved sqs queue (the queue is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "example": "  komando queue sqs remove prod-sqs --dry-run\n  komando queue sqs remove prod-sqs",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs rename",
+        "usage": "komando queue sqs rename NAME NEW [flags]",
+        "short": "Rename a saved sqs queue and every reference to it",
+        "long": "Rename a saved sqs queue and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue sqs rename prod-sqs prod-sqs-2 --dry-run\n  komando queue sqs rename prod-sqs prod-sqs-2",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs show",
+        "usage": "komando queue sqs show NAME [flags]",
+        "short": "Show a saved sqs queue's settings (credentials as names)",
+        "example": "  komando queue sqs show prod-sqs\n  komando queue sqs show prod-sqs -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs test",
+        "usage": "komando queue sqs test TARGET [flags]",
+        "short": "Check that a saved sqs queue answers and lets you in",
+        "example": "  komando queue sqs test prod-sqs\n  komando queue sqs test @web",
+        "flags": [
+          {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the session a person's login keeps open"
+          },
+          {
+            "name": "wait",
+            "type": "duration",
+            "default": "0",
+            "usage": "wait this long for a person's sign-in"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs topic",
+        "usage": "komando queue sqs topic [flags]",
+        "short": "The topics (queues, streams) of a broker: list, show, create, delete",
+        "example": "  komando queue sqs topic list prod-sqs\n  komando queue sqs topic show prod-sqs orders\n  komando queue sqs topic create prod-sqs orders --dry-run\n  komando queue sqs topic delete prod-sqs old-orders --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs topic create",
+        "usage": "komando queue sqs topic create NAME TOPIC [flags]",
+        "short": "Create a topic of a SQS account",
+        "long": "Create a topic of a SQS account.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando queue sqs topic create prod-sqs orders --dry-run\n  komando queue sqs topic create prod-sqs orders --config retention.ms=604800000",
+        "flags": [
+          {
+            "name": "config",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "a setting KEY=VALUE, like retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable)"
+          },
+          {
+            "name": "partitions",
+            "type": "int",
+            "default": "0",
+            "usage": "Kafka: how many partitions (default: the broker's)"
+          },
+          {
+            "name": "replicas",
+            "type": "int",
+            "default": "0",
+            "usage": "copies of each message. Kafka: copies of each partition; NATS: copies of the stream (default: the broker's; NATS: 1)"
+          },
+          {
+            "name": "type",
+            "type": "string",
+            "usage": "RabbitMQ: the queue type, classic, quorum or stream (default: the server's)"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs topic delete",
+        "usage": "komando queue sqs topic delete NAME TOPIC... [flags]",
+        "short": "Delete topics of a SQS account with their messages",
+        "long": "Delete topics of a SQS account with their messages.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando queue sqs topic delete prod-sqs old-orders --dry-run\n  komando queue sqs topic delete prod-sqs old-orders --allow-dangerous   # after a person's yes",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs topic list",
+        "usage": "komando queue sqs topic list NAME [PATTERN] [flags]",
+        "short": "List the topics of a SQS account with their message counts",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando queue sqs topic list prod-sqs\n  komando queue sqs topic list prod-sqs 'o*' -n 50",
+        "flags": [
+          {
+            "name": "internal",
+            "type": "bool",
+            "default": "false",
+            "usage": "Kafka: also list its own topics (__consumer_offsets, ...)"
+          },
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "1000",
+            "usage": "the most topics (or queues, or streams) to show, the first by name"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando queue sqs topic show",
+        "usage": "komando queue sqs topic show NAME TOPIC [flags]",
+        "short": "Show one topic of a SQS account: messages, settings, readers",
+        "aliases": [
+          "describe"
+        ],
+        "example": "  komando queue sqs topic show prod-sqs orders\n  komando queue sqs topic show prod-sqs orders -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
           }
         ]
       },
@@ -7887,7 +9973,7 @@
         "path": "komando registry oci edit",
         "usage": "komando registry oci edit NAME [flags]",
         "short": "Change a saved oci registry (only the flags you pass change)",
-        "long": "Change a saved oci registry (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "long": "Change a saved oci registry (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes).",
         "example": "  komando registry oci edit ghcr --add-tag critical\n  komando registry oci edit ghcr --notes 'main one' --dry-run",
         "flags": [
           {
@@ -7975,6 +10061,11 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
           }
         ]
       },
@@ -8744,7 +10835,7 @@
         "path": "komando storage azblob edit",
         "usage": "komando storage azblob edit NAME [flags]",
         "short": "Change a saved azblob storage (only the flags you pass change)",
-        "long": "Change a saved azblob storage (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "long": "Change a saved azblob storage (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes).",
         "example": "  komando storage azblob edit backups --add-tag critical\n  komando storage azblob edit backups --notes 'main one' --dry-run",
         "flags": [
           {
@@ -8832,6 +10923,11 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
           }
         ]
       },
@@ -9272,7 +11368,7 @@
         "path": "komando storage ftp edit",
         "usage": "komando storage ftp edit NAME [flags]",
         "short": "Change a saved ftp storage (only the flags you pass change)",
-        "long": "Change a saved ftp storage (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "long": "Change a saved ftp storage (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes).",
         "example": "  komando storage ftp edit backups --add-tag critical\n  komando storage ftp edit backups --notes 'main one' --dry-run",
         "flags": [
           {
@@ -9360,6 +11456,11 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
           }
         ]
       },
@@ -9719,7 +11820,7 @@
         "path": "komando storage gcs edit",
         "usage": "komando storage gcs edit NAME [flags]",
         "short": "Change a saved gcs storage (only the flags you pass change)",
-        "long": "Change a saved gcs storage (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "long": "Change a saved gcs storage (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes).",
         "example": "  komando storage gcs edit backups --add-tag critical\n  komando storage gcs edit backups --notes 'main one' --dry-run",
         "flags": [
           {
@@ -9807,6 +11908,11 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
           }
         ]
       },
@@ -10198,7 +12304,7 @@
         "path": "komando storage s3 edit",
         "usage": "komando storage s3 edit NAME [flags]",
         "short": "Change a saved s3 storage (only the flags you pass change)",
-        "long": "Change a saved s3 storage (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "long": "Change a saved s3 storage (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes).",
         "example": "  komando storage s3 edit backups --add-tag critical\n  komando storage s3 edit backups --notes 'main one' --dry-run",
         "flags": [
           {
@@ -10286,6 +12392,11 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
           }
         ]
       },
@@ -10677,7 +12788,7 @@
         "path": "komando storage sftp edit",
         "usage": "komando storage sftp edit NAME [flags]",
         "short": "Change a saved sftp storage (only the flags you pass change)",
-        "long": "Change a saved sftp storage (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "long": "Change a saved sftp storage (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes).",
         "example": "  komando storage sftp edit backups --add-tag critical\n  komando storage sftp edit backups --notes 'main one' --dry-run",
         "flags": [
           {
@@ -10765,6 +12876,11 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
           }
         ]
       },
@@ -11124,7 +13240,7 @@
         "path": "komando storage smb edit",
         "usage": "komando storage smb edit NAME [flags]",
         "short": "Change a saved smb storage (only the flags you pass change)",
-        "long": "Change a saved smb storage (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "long": "Change a saved smb storage (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes).",
         "example": "  komando storage smb edit backups --add-tag critical\n  komando storage smb edit backups --notes 'main one' --dry-run",
         "flags": [
           {
@@ -11212,6 +13328,11 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
           }
         ]
       },
@@ -11615,7 +13736,7 @@
         "path": "komando storage webdav edit",
         "usage": "komando storage webdav edit NAME [flags]",
         "short": "Change a saved webdav storage (only the flags you pass change)",
-        "long": "Change a saved webdav storage (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "long": "Change a saved webdav storage (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes).",
         "example": "  komando storage webdav edit backups --add-tag critical\n  komando storage webdav edit backups --notes 'main one' --dry-run",
         "flags": [
           {
@@ -11703,6 +13824,11 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
           }
         ]
       },
@@ -11968,382 +14094,6 @@
         ]
       },
       {
-        "path": "komando svc",
-        "usage": "komando svc [flags]",
-        "short": "Services on servers: check, start, stop, read logs",
-        "long": "Services on servers: systemd units on Linux, Windows services on Windows\nservers. status, list, start, stop, restart, enable and disable work on\nboth; reload, daemon-reload and logs are for systemd.",
-        "aliases": [
-          "service",
-          "services"
-        ],
-        "example": "  komando svc list web1 --failed                    # what is broken?\n  komando svc status web1 nginx\n  komando logs web1 --unit nginx --since 30m        # why?\n  komando svc restart web1 nginx --wait 10s --dry-run\n  komando svc restart web1 nginx --wait 10s",
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando svc daemon-reload",
-        "usage": "komando svc daemon-reload TARGET [flags]",
-        "short": "Reload systemd unit files and say which units still need it",
-        "long": "Reload systemd's unit files (after writing a unit), and say which units\nstill need it.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando fs write web1 /etc/systemd/system/app.service --from app.service --sudo\n  komando svc daemon-reload web1\n  komando svc daemon-reload web1 --dry-run\n  komando svc restart web1 app",
-        "flags": [
-          {
-            "name": "no-sudo",
-            "type": "bool",
-            "default": "false",
-            "usage": "run without sudo"
-          },
-          {
-            "name": "user-units",
-            "type": "bool",
-            "default": "false",
-            "usage": "the login user's own units (systemctl --user), without sudo"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando svc disable",
-        "usage": "komando svc disable TARGET UNIT... [flags]",
-        "short": "Disable units (sudo) and report the resulting state",
-        "long": "Disable units (sudo) and report the resulting state.\n\nSafety: a change; try it with --dry-run first; the unit is ssh or sshd:\ndangerous, it cannot be undone: a person types the name to go on, and an AI\nagent or a script needs --allow-dangerous; on a protected server or conn, a\nperson's yes (--yes) as well.",
-        "example": "  komando svc disable web1 apache2 --now\n  komando svc disable web1 apache2 --now --dry-run",
-        "flags": [
-          {
-            "name": "no-sudo",
-            "type": "bool",
-            "default": "false",
-            "usage": "do not use sudo (when you log in as root)"
-          },
-          {
-            "name": "now",
-            "type": "bool",
-            "default": "false",
-            "usage": "also stop the units now (systemctl disable --now)"
-          },
-          {
-            "name": "user-units",
-            "type": "bool",
-            "default": "false",
-            "usage": "the login user's own units (systemctl --user), without sudo"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          },
-          {
-            "tier": "dangerous",
-            "flag": "--allow-dangerous",
-            "when": "the unit is ssh or sshd"
-          }
-        ]
-      },
-      {
-        "path": "komando svc enable",
-        "usage": "komando svc enable TARGET UNIT... [flags]",
-        "short": "Enable units (sudo) and report the resulting state",
-        "long": "Enable units (sudo) and report the resulting state.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando svc enable web1 nginx --now\n  komando svc enable web1 nginx --now --dry-run",
-        "flags": [
-          {
-            "name": "no-sudo",
-            "type": "bool",
-            "default": "false",
-            "usage": "do not use sudo (when you log in as root)"
-          },
-          {
-            "name": "now",
-            "type": "bool",
-            "default": "false",
-            "usage": "also start the units now (systemctl enable --now)"
-          },
-          {
-            "name": "user-units",
-            "type": "bool",
-            "default": "false",
-            "usage": "the login user's own units (systemctl --user), without sudo"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando svc list",
-        "usage": "komando svc list TARGET [flags]",
-        "short": "List the service units of servers",
-        "aliases": [
-          "ls"
-        ],
-        "example": "  komando svc list web1 --failed\n  komando svc list web1 --state running",
-        "flags": [
-          {
-            "name": "failed",
-            "type": "bool",
-            "default": "false",
-            "usage": "only failed units (the same as --state failed)"
-          },
-          {
-            "name": "limit",
-            "shorthand": "n",
-            "type": "int",
-            "default": "0",
-            "usage": "show at most this many units per server (0 = all)"
-          },
-          {
-            "name": "state",
-            "type": "string",
-            "usage": "only units in this state, such as running or failed"
-          },
-          {
-            "name": "user-units",
-            "type": "bool",
-            "default": "false",
-            "usage": "the login user's own units (systemctl --user), without sudo"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando svc logs",
-        "usage": "komando svc logs TARGET UNIT [flags]",
-        "short": "Read a service unit's logs",
-        "long": "Same as `komando logs TARGET --unit UNIT`.",
-        "example": "  komando svc logs web1 nginx --since 30m --grep error",
-        "flags": [
-          {
-            "name": "follow",
-            "shorthand": "f",
-            "type": "bool",
-            "default": "false",
-            "usage": "keep printing new lines until Ctrl-C"
-          },
-          {
-            "name": "grep",
-            "type": "string",
-            "usage": "only lines matching this extended regex (case-insensitive)"
-          },
-          {
-            "name": "limit",
-            "shorthand": "n",
-            "type": "int",
-            "default": "200",
-            "usage": "the most lines to show (the last ones)"
-          },
-          {
-            "name": "priority",
-            "shorthand": "p",
-            "type": "string",
-            "usage": "journal priority and worse: emerg, alert, crit, err, warning, notice, info, debug (or 0-7)"
-          },
-          {
-            "name": "since",
-            "type": "string",
-            "usage": "start time: back from now (30m, 2h, 7d), today, yesterday or '2026-01-02 10:00'"
-          },
-          {
-            "name": "sudo",
-            "shorthand": "s",
-            "type": "bool",
-            "default": "false",
-            "usage": "read via sudo (the whole journal, protected files)"
-          },
-          {
-            "name": "until",
-            "type": "string",
-            "usage": "end time, in the same forms as --since"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando svc reload",
-        "usage": "komando svc reload TARGET UNIT... [flags]",
-        "short": "Reload units (sudo) and report the resulting state",
-        "long": "Reload units (sudo) and report the resulting state.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando svc reload @web nginx --wait 10s   # fails unless nginx is active within 10 seconds\n  komando svc reload @web nginx --wait 10s --dry-run",
-        "flags": [
-          {
-            "name": "no-sudo",
-            "type": "bool",
-            "default": "false",
-            "usage": "do not use sudo (when you log in as root)"
-          },
-          {
-            "name": "user-units",
-            "type": "bool",
-            "default": "false",
-            "usage": "the login user's own units (systemctl --user), without sudo"
-          },
-          {
-            "name": "wait",
-            "type": "duration",
-            "default": "0",
-            "usage": "wait up to this long (like 10s, 2m) for the units to be active; fail if they are not"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando svc restart",
-        "usage": "komando svc restart TARGET UNIT... [flags]",
-        "short": "Restart units (sudo) and report the resulting state",
-        "long": "Restart units (sudo) and report the resulting state.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando svc restart @web nginx --wait 10s   # fails unless nginx is active within 10 seconds\n  komando svc restart @web nginx --wait 10s --dry-run",
-        "flags": [
-          {
-            "name": "no-sudo",
-            "type": "bool",
-            "default": "false",
-            "usage": "do not use sudo (when you log in as root)"
-          },
-          {
-            "name": "user-units",
-            "type": "bool",
-            "default": "false",
-            "usage": "the login user's own units (systemctl --user), without sudo"
-          },
-          {
-            "name": "wait",
-            "type": "duration",
-            "default": "0",
-            "usage": "wait up to this long (like 10s, 2m) for the units to be active; fail if they are not"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando svc start",
-        "usage": "komando svc start TARGET UNIT... [flags]",
-        "short": "Start units (sudo) and report the resulting state",
-        "long": "Start units (sudo) and report the resulting state.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando svc start @web nginx --wait 10s   # fails unless nginx is active within 10 seconds\n  komando svc start @web nginx --wait 10s --dry-run",
-        "flags": [
-          {
-            "name": "no-sudo",
-            "type": "bool",
-            "default": "false",
-            "usage": "do not use sudo (when you log in as root)"
-          },
-          {
-            "name": "user-units",
-            "type": "bool",
-            "default": "false",
-            "usage": "the login user's own units (systemctl --user), without sudo"
-          },
-          {
-            "name": "wait",
-            "type": "duration",
-            "default": "0",
-            "usage": "wait up to this long (like 10s, 2m) for the units to be active; fail if they are not"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando svc status",
-        "usage": "komando svc status TARGET UNIT... [flags]",
-        "short": "Unit status: state, main pid, restarts, memory",
-        "long": "Structured unit status (active_state, sub_state, main_pid, n_restarts,\nmemory ...).",
-        "example": "  komando svc status @web nginx php8.2-fpm\n  komando svc status web1 --user-units syncthing",
-        "flags": [
-          {
-            "name": "user-units",
-            "type": "bool",
-            "default": "false",
-            "usage": "the login user's own units (systemctl --user), without sudo"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando svc stop",
-        "usage": "komando svc stop TARGET UNIT... [flags]",
-        "short": "Stop units (sudo) and report the resulting state",
-        "long": "Stop units (sudo) and report the resulting state.\n\nSafety: a change; try it with --dry-run first; the unit is ssh or sshd:\ndangerous, it cannot be undone: a person types the name to go on, and an AI\nagent or a script needs --allow-dangerous; on a protected server or conn, a\nperson's yes (--yes) as well.",
-        "example": "  komando svc stop web1 nginx\n  komando svc stop web1 nginx --dry-run",
-        "flags": [
-          {
-            "name": "no-sudo",
-            "type": "bool",
-            "default": "false",
-            "usage": "do not use sudo (when you log in as root)"
-          },
-          {
-            "name": "user-units",
-            "type": "bool",
-            "default": "false",
-            "usage": "the login user's own units (systemctl --user), without sudo"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          },
-          {
-            "tier": "dangerous",
-            "flag": "--allow-dangerous",
-            "when": "the unit is ssh or sshd"
-          }
-        ]
-      },
-      {
         "path": "komando sync",
         "usage": "komando sync SRC DST [flags]",
         "short": "Copy a folder one way, sending only new and changed files",
@@ -12605,194 +14355,6 @@
             "type": "bool",
             "default": "false",
             "usage": "install into place with sudo (single files)"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando user",
-        "usage": "komando user [flags]",
-        "short": "Linux user accounts: see, add, lock, remove",
-        "aliases": [
-          "users"
-        ],
-        "example": "  komando user list web1\n  komando user add web1 alice --key alice --admin\n  komando user lock web1 alice                      # keep the account, stop logins\n  komando user rm web1 alice --remove-home --dry-run",
-        "flags": [
-          {
-            "name": "no-sudo",
-            "type": "bool",
-            "default": "false",
-            "usage": "do not use sudo (like when logged in as root)"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando user add",
-        "usage": "komando user add TARGET USER [flags]",
-        "short": "Create a user if missing, with an SSH key and sudo if asked",
-        "long": "Create a user if missing, with an SSH key and sudo if asked.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "aliases": [
-          "create"
-        ],
-        "example": "  komando user add @web deploy --key deploy --admin\n  komando user add @web deploy --key deploy --admin --dry-run",
-        "flags": [
-          {
-            "name": "admin",
-            "type": "bool",
-            "default": "false",
-            "usage": "add to the sudo (Debian) or wheel (RHEL, Alpine) group"
-          },
-          {
-            "name": "key",
-            "type": "string",
-            "usage": "authorize this key from komando's key list"
-          },
-          {
-            "name": "no-sudo",
-            "type": "bool",
-            "default": "false",
-            "usage": "do not use sudo (like when logged in as root)"
-          },
-          {
-            "name": "pubkey",
-            "type": "string",
-            "usage": "public key line to authorize"
-          },
-          {
-            "name": "shell",
-            "type": "string",
-            "default": "/bin/bash",
-            "usage": "the new user's login shell"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando user list",
-        "usage": "komando user list TARGET [flags]",
-        "short": "List accounts with admin group and lock state (--all for system)",
-        "long": "Lists accounts with their uid, home, shell, whether they are in the sudo,\nwheel or admin group (admin_group; rules in sudoers.d are not read) and\nwhether the account is locked (expired, as `komando user lock` does). The\nlock state is read through sudo; with --no-sudo it is left out.",
-        "aliases": [
-          "ls"
-        ],
-        "example": "  komando user list web1",
-        "flags": [
-          {
-            "name": "all",
-            "shorthand": "a",
-            "type": "bool",
-            "default": "false",
-            "usage": "include system accounts"
-          },
-          {
-            "name": "limit",
-            "shorthand": "n",
-            "type": "int",
-            "default": "0",
-            "usage": "show at most this many accounts per server (0 = all)"
-          },
-          {
-            "name": "no-sudo",
-            "type": "bool",
-            "default": "false",
-            "usage": "do not use sudo (like when logged in as root)"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando user lock",
-        "usage": "komando user lock TARGET USER [flags]",
-        "short": "Lock an account so password and SSH keys stop working",
-        "long": "Lock an account (password + expire, so SSH keys stop working too) without\ndeleting it.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando user lock web1 alice\n  komando user lock web1 alice --dry-run",
-        "flags": [
-          {
-            "name": "no-sudo",
-            "type": "bool",
-            "default": "false",
-            "usage": "do not use sudo (like when logged in as root)"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando user rm",
-        "usage": "komando user rm TARGET USER [flags]",
-        "short": "Delete a user account",
-        "long": "Delete a user account.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous; on a protected server\nor conn, a person's yes (--yes) as well.",
-        "aliases": [
-          "remove",
-          "delete",
-          "del"
-        ],
-        "example": "  komando user rm web1 alice --dry-run\n  komando user rm web1 alice --remove-home --dry-run\n  komando user rm web1 alice --remove-home --allow-dangerous   # after a person's yes",
-        "flags": [
-          {
-            "name": "no-sudo",
-            "type": "bool",
-            "default": "false",
-            "usage": "do not use sudo (like when logged in as root)"
-          },
-          {
-            "name": "remove-home",
-            "type": "bool",
-            "default": "false",
-            "usage": "also delete the user's home folder and the files in it"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "dangerous",
-            "flag": "--allow-dangerous"
-          }
-        ]
-      },
-      {
-        "path": "komando user unlock",
-        "usage": "komando user unlock TARGET USER [flags]",
-        "short": "Unlock an account locked with `user lock`",
-        "long": "Unlock an account locked with `user lock`.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando user unlock web1 alice\n  komando user unlock web1 alice --dry-run",
-        "flags": [
-          {
-            "name": "no-sudo",
-            "type": "bool",
-            "default": "false",
-            "usage": "do not use sudo (like when logged in as root)"
           }
         ],
         "runnable": true,
@@ -13950,19 +15512,13 @@
         "code": "CONSUMER_GROUP_NOT_FOUND",
         "exit": 3,
         "example": "no consumer group named …",
-        "hint": "list consumer groups with `komando queue groups CONN`"
+        "hint": "list consumer groups with `komando queue kafka consumer list NAME`"
       },
       {
         "code": "CONSUMER_NOT_FOUND",
         "exit": 3,
         "example": "no consumer named …",
-        "hint": "list consumers with `komando queue groups CONN`; name one as STREAM/CONSUMER"
-      },
-      {
-        "code": "CRONTAB_UNREADABLE",
-        "exit": 5,
-        "example": "cannot read the crontab (exit …)",
-        "hint": "check the user name; reading another user's crontab needs sudo"
+        "hint": "list consumers with `komando queue nats consumer list NAME`; name one as STREAM/CONSUMER"
       },
       {
         "code": "DB_AUTH",
@@ -14041,12 +15597,6 @@
         "exit": 5,
         "example": "key deploy could not add the key to the server's authorized_keys (the server's words follow)",
         "hint": "check that ~/.ssh is writable there: `komando fs stat SERVER ~/.ssh`"
-      },
-      {
-        "code": "DIG_MISSING",
-        "exit": 3,
-        "example": "… records need dig, which is not installed on this server, and komando could not ask the server's resolver itself (no nameserver in /etc/resolv.conf, or the se…",
-        "hint": "install dig (Debian/Ubuntu: dnsutils, Alpine: bind-tools, RHEL: bind-utils), for example `komando pkg install TARGET dnsutils`; A and AAAA work without it"
       },
       {
         "code": "DNS_ERROR",
@@ -14545,18 +16095,6 @@
         "hint": "place ….pub next to the key, then `komando key rm …` and add it again"
       },
       {
-        "code": "NO_RECORDS",
-        "exit": 3,
-        "example": "… has no … records (or does not exist) from this server",
-        "hint": "check the name and type, and the server's DNS (/etc/resolv.conf)"
-      },
-      {
-        "code": "NO_RESPONSE",
-        "exit": 4,
-        "example": "no HTTP answer from …",
-        "hint": "check the URL, and that the server can reach it: `komando net check … ADDRESS:443`"
-      },
-      {
         "code": "NO_SYSTEMD",
         "exit": 3,
         "example": "systemd is not running on this server",
@@ -14572,13 +16110,7 @@
         "code": "NO_USER_MANAGER",
         "exit": 3,
         "example": "the login user has no systemd user manager running on this server",
-        "hint": "the login user's systemd manager runs only while they are logged in, unless lingering is on: a person with sudo runs `loginctl enable-linger USER` on the server, then try `komando svc list TARGET --user-units`"
-      },
-      {
-        "code": "NXDOMAIN",
-        "exit": 3,
-        "example": "… does not resolve from this server",
-        "hint": "check the name, and the server's DNS (/etc/resolv.conf)"
+        "hint": "the login user's systemd manager runs only while they are logged in, unless lingering is on: a person with sudo runs `komando exec TARGET --sudo -- loginctl enable-linger USER`"
       },
       {
         "code": "OBJECT_NOT_FOUND",
@@ -14632,7 +16164,7 @@
         "code": "PARTITION_NOT_FOUND",
         "exit": 3,
         "example": "topic … has no partition … (it has …)",
-        "hint": "partitions are numbered from 0; see them with `komando queue describe CONN …`"
+        "hint": "partitions are numbered from 0; see them with `komando queue kafka topic show NAME …`"
       },
       {
         "code": "PASSPHRASE_MISMATCH",
@@ -14675,12 +16207,6 @@
         "exit": 1,
         "example": "…: …, so komando does not run (the safety rows no longer match their policy MAC)",
         "hint": "something other than komando changed a protection, rule, setting or pinned host key; a person finds out what, then restores the komando folder from a backup made before it (`komando doctor` then says whether that copy is older than the keychain remembers)"
-      },
-      {
-        "code": "PORT_CLOSED",
-        "exit": 5,
-        "example": "cannot connect to …",
-        "hint": "check the address, firewall or service on the other side"
       },
       {
         "code": "PORT_IN_USE",
@@ -14740,13 +16266,13 @@
         "code": "QUEUE_EXISTS",
         "exit": 8,
         "example": "queue … already exists",
-        "hint": "pick another name, or see it with `komando queue describe CONN …`"
+        "hint": "pick another name, or see it with `komando queue rabbitmq topic show NAME …`"
       },
       {
         "code": "QUEUE_NOT_FOUND",
         "exit": 3,
         "example": "no queue named …",
-        "hint": "list queues with `komando queue list CONN` (it needs ?management=PORT in the conn's URL); the vhost is the URL's path"
+        "hint": "list queues with `komando queue rabbitmq topic list NAME` (it needs ?management=PORT in the conn's URL); the vhost is the URL's path"
       },
       {
         "code": "READ_FAILED",
@@ -14758,19 +16284,7 @@
         "code": "READ_ONLY_VIOLATION",
         "exit": 6,
         "example": "--read-only, but the command is not known to only read (…)",
-        "hint": "--read-only runs only what komando knows only reads: for a server's state use komando facts, logs, svc status or fs read; otherwise tell the user what the command does, then run it without --read-only (a protected server also needs --yes)"
-      },
-      {
-        "code": "REBOOT_FAILED",
-        "exit": 5,
-        "example": "the reboot command failed (exit …): …",
-        "hint": "read the error output (stderr); without sudo rights a reboot is refused"
-      },
-      {
-        "code": "REBOOT_TIMEOUT",
-        "exit": 7,
-        "example": "… did not come back within …",
-        "hint": "check the server's console; komando did not reboot the servers after it"
+        "hint": "--read-only runs only what komando knows only reads: for a server's state use komando logs, fs cat, or exec --read-only with a read command; otherwise tell the user what the command does, then run it without --read-only (a protected server also needs --yes)"
       },
       {
         "code": "RECIPE_BUILTIN",
@@ -15004,7 +16518,7 @@
         "code": "SECURITY_UNSUPPORTED",
         "exit": 3,
         "example": "no package manager komando knows on …",
-        "hint": "komando knows apt, dnf, yum, zypper, apk and pacman; see what the server has with `komando facts TARGET`"
+        "hint": "komando knows apt, dnf, yum, zypper, apk and pacman; see what the server has with `komando exec TARGET -- cat /etc/os-release`"
       },
       {
         "code": "SELF_NOT_FOUND",
@@ -15315,31 +16829,25 @@
         "code": "STREAM_EXISTS",
         "exit": 8,
         "example": "stream … already exists",
-        "hint": "pick another name, or see it with `komando queue describe CONN …`"
+        "hint": "pick another name, or see it with `komando queue nats topic show NAME …`"
       },
       {
         "code": "STREAM_NOT_FOUND",
         "exit": 3,
         "example": "no stream named …",
-        "hint": "list streams with `komando queue list CONN`"
+        "hint": "list streams with `komando queue nats topic list NAME`"
       },
       {
         "code": "SUBSCRIPTION_EXISTS",
         "exit": 8,
         "example": "subscription … already exists",
-        "hint": "pick another name, or see it with `komando queue describe CONN subscriptions/…`"
+        "hint": "pick another name, or see it with `komando queue pubsub topic show NAME subscriptions/…`"
       },
       {
         "code": "SUBSCRIPTION_NOT_FOUND",
         "exit": 3,
         "example": "no subscription named …",
-        "hint": "list subscriptions with `komando queue groups CONN`; `komando queue describe CONN TOPIC` shows a topic's own"
-      },
-      {
-        "code": "SVC_FAILED",
-        "exit": 5,
-        "example": "systemctl daemon-reload failed (…)",
-        "hint": "read the error output (stderr) for systemd's reason; a unit file with a mistake is named there"
+        "hint": "list subscriptions with `komando queue pubsub consumer list NAME`; `komando queue pubsub topic show NAME TOPIC` shows a topic's own"
       },
       {
         "code": "SWARM_ERROR",
@@ -15435,13 +16943,13 @@
         "code": "TOPIC_EXISTS",
         "exit": 8,
         "example": "topic … already exists",
-        "hint": "pick another name, or see it with `komando queue describe CONN …`"
+        "hint": "pick another name, or see it with `komando queue kafka topic show NAME …`"
       },
       {
         "code": "TOPIC_NOT_FOUND",
         "exit": 3,
         "example": "no topic named …",
-        "hint": "list topics with `komando queue list CONN`"
+        "hint": "list topics with `komando queue kafka topic list NAME`"
       },
       {
         "code": "TUNNEL_FAILED",
@@ -15465,25 +16973,13 @@
         "code": "UNEXPECTED_CHANGE",
         "exit": 8,
         "example": "… changed after patching: …",
-        "hint": "check the server (`komando docker ps …`, `komando svc list … --failed`); servers after it were not patched: run it again with --keep-going to patch them anyway"
-      },
-      {
-        "code": "UNEXPECTED_STATUS",
-        "exit": 5,
-        "example": "HTTP …, expected …",
-        "hint": "check the URL and the service behind it"
-      },
-      {
-        "code": "UNIT_NOT_ACTIVE",
-        "exit": 5,
-        "example": "not active after …s: …",
-        "hint": "read why with `komando logs TARGET --unit UNIT -n 50`"
+        "hint": "check the server (`komando docker ps …`, `komando exec … -- systemctl --failed`); servers after it were not patched: run it again with --keep-going to patch them anyway"
       },
       {
         "code": "UNIT_NOT_FOUND",
         "exit": 3,
         "example": "no unit named …",
-        "hint": "check the name with `komando svc list TARGET`"
+        "hint": "check the name with `komando exec TARGET -- systemctl list-units`"
       },
       {
         "code": "UNKNOWN_SETTING",
@@ -15532,12 +17028,6 @@
         "exit": 2,
         "example": "--… and --unset … contradict each other",
         "hint": "pass one of them"
-      },
-      {
-        "code": "USER_NOT_FOUND",
-        "exit": 3,
-        "example": "no user named …",
-        "hint": "list the accounts with `komando user list TARGET --all`"
       },
       {
         "code": "VALIDATION_FAILED",

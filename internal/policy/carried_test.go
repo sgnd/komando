@@ -21,7 +21,7 @@ type carriedCase struct {
 
 func runCarried(t *testing.T, cases []carriedCase) {
 	t.Helper()
-	carried := []string{"rm-files", "docker-rm", "docker-prune", "docker-kill", "docker-host", "container-shell", "pkg-remove-essential", "pkg-implicit-remove", "kubectl-scale-zero", "db-drop-user"}
+	carried := []string{"rm-files", "docker-rm", "docker-prune", "docker-kill", "docker-host", "container-shell", "pkg-remove-essential", "pkg-implicit-remove", "kubectl-scale-zero", "db-drop-user", "account-lock"}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			ids := hitIDs(c.cmd)
@@ -268,10 +268,42 @@ func TestRuleDBDropUser(t *testing.T) {
 	})
 }
 
+// TestRuleAccountLock: user lock and user add --shell stopped on root and
+// on komando's own login; through exec any account's lock stops, since
+// the rule cannot tell who komando logs in as.
+func TestRuleAccountLock(t *testing.T) {
+	runCarried(t, []carriedCase{
+		{"usermod lock root", "usermod -L -e 1 root", "account-lock"},
+		{"usermod lock long", "sudo usermod --lock deploy", "account-lock"},
+		{"usermod grouped", "usermod -Le1 root", "account-lock"},
+		{"usermod expire long", "usermod --expiredate=1 root", "account-lock"},
+		{"usermod nologin", "usermod -s /sbin/nologin root", "account-lock"},
+		{"usermod false glued", "usermod -s/bin/false deploy", "account-lock"},
+		{"usermod shell long", "usermod --shell /usr/sbin/nologin root", "account-lock"},
+		{"passwd lock", "passwd -l root", "account-lock"},
+		{"passwd lock long", "sudo passwd --lock root", "account-lock"},
+		{"chage expire", "chage -E 0 root", "account-lock"},
+		{"chage expire glued", "chage -E0 root", "account-lock"},
+		{"chage expire long", "chage --expiredate 2020-01-01 root", "account-lock"},
+		{"chsh nologin", "chsh -s /sbin/nologin deploy", "account-lock"},
+		{"usermod unlock", "usermod -U -e '' root", ""},
+		{"usermod no expiry", "usermod -e -1 root", ""},
+		{"usermod bash", "usermod -s /bin/bash deploy", ""},
+		{"usermod group", "usermod -aG sudo deploy", ""},
+		{"usermod lock word in comment", "usermod -c 'L locked' deploy", ""},
+		{"passwd unlock", "passwd -u root", ""},
+		{"passwd status", "passwd -S root", ""},
+		{"chage list", "chage -l root", ""},
+		{"chage no expiry", "chage -E -1 root", ""},
+		{"useradd nologin", "useradd -r -s /sbin/nologin app", ""},
+		{"grep", "grep usermod /var/log/auth.log", ""},
+	})
+}
+
 // Every carried rule names the command it is about, so the approval
 // window and policy list can show it.
 func TestCarriedRulesListed(t *testing.T) {
-	want := []string{"rm-files", "docker-rm", "docker-prune", "docker-kill", "docker-host", "container-shell", "pkg-remove-essential", "pkg-implicit-remove", "kubectl-scale-zero", "db-drop-user"}
+	want := []string{"rm-files", "docker-rm", "docker-prune", "docker-kill", "docker-host", "container-shell", "pkg-remove-essential", "pkg-implicit-remove", "kubectl-scale-zero", "db-drop-user", "account-lock"}
 	var have []string
 	for _, r := range Rules() {
 		have = append(have, r.ID)

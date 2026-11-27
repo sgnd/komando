@@ -171,7 +171,6 @@ func TestGateCheck(t *testing.T) {
 		{"__complete exec ''", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"host add x u@10.0.0.9", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"secret set db", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
-		{"svc restart web nginx", "", "SSH_GATE_READ_ONLY"},
 		{"cp web:/var/backups/db.gz web:/tmp/db.gz", "", "SSH_GATE_READ_ONLY"}, // between two servers
 		{"cp web:/var/backups/db.gz web:/tmp/db.gz --continue", "", "SSH_GATE_READ_ONLY"},
 		{"exec web -- uptime", "", "SSH_GATE_READ_ONLY"},
@@ -261,10 +260,9 @@ func TestGateCheck(t *testing.T) {
 		{"guide install", R, R},
 		{"guide uninstall", R, R},
 		{"tunnel start web -L 8080:localhost:80", R, R},
-		{"svc restart web nginx --dry-run", "", "SSH_GATE_READ_ONLY"},
+		{"exec web --dry-run -- systemctl restart nginx", "", "SSH_GATE_READ_ONLY"},
 		{"recipe run my-clean web", "", "SSH_GATE_READ_ONLY"},
 		{"logs web --unit nginx", "", ""},
-		{"facts web", "", ""},
 		{"update", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 	}
 	for _, c := range cases {
@@ -335,7 +333,6 @@ func TestGateLocalTargets(t *testing.T) {
 		"fs write me /home/u/.bashrc":                             R,
 		"fs restore me /home/u/.bashrc":                           R,
 		"fs restore web /etc/nginx/nginx.conf":                    "", // the undo of fs replace --backup
-		"svc restart lh sshd":                                     R,
 		"docker raw me -- run -v /:/h x":                          R,
 		"cp ./id.pub me:/home/u/.ssh/x":                           R,
 		"cp me:/home/u/.ssh/id_ed25519 web:/tmp/k":                R, // reads a file here
@@ -612,7 +609,7 @@ func TestSSHGateRefuses(t *testing.T) {
 		"sh -c id":                       "SSH_GATE_REFUSED",
 		"":                               "SSH_GATE_REFUSED",
 		"komando list; id":               "SSH_GATE_SYNTAX",
-		"komando svc restart web nginx":  "SSH_GATE_READ_ONLY",
+		"komando exec web -- reboot":     "SSH_GATE_READ_ONLY",
 	} {
 		ran, _, e := gateRun(t, line, "--name", "phone-read", "--read-only")
 		if ran != nil || e == nil || e.Code != code {

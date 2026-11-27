@@ -196,7 +196,6 @@ type snippetCase struct {
 	family  string // the OS or tool family: "linux", "apt", "apk"
 	args    []string
 	steps   []string          // the stdout files of the steps
-	windows bool              // the host answers as a Windows server
 	files   map[string]string // files served over SFTP; a path ending in / is a folder
 	// setup runs after the server is up, with a new folder it may fill; the
 	// folder's path is replaced by <tmp> in the compared text
@@ -267,21 +266,14 @@ var liteVolatile = []*regexp.Regexp{
 }
 
 var snippetCases = []snippetCase{
-	{snippet: "svc-list", family: "systemd", args: []string{"svc", "list", "dev"}, steps: []string{"systemd.in"}},
 	{snippet: "docker-ps", family: "docker", args: []string{"docker", "ps", "dev"}, steps: []string{"docker.in"}},
 	{snippet: "docker-images", family: "docker", args: []string{"docker", "images", "dev"}, steps: []string{"docker.in"}},
 	{snippet: "docker-stats", family: "docker", args: []string{"docker", "stats", "dev"}, steps: []string{"docker.in"}},
 	{snippet: "pkg-upgradable", family: "apt", args: []string{"pkg", "upgradable", "dev"}, steps: []string{"apt.in"}},
-	{snippet: "facts", family: "centos7", args: []string{"facts", "dev"}, steps: []string{"centos7.in"}},
-	{snippet: "svc-status", family: "systemd", args: []string{"svc", "status", "dev", "nginx", "postfix"}, steps: []string{"systemd.in"}},
 	{snippet: "pkg-security", family: "apt", args: []string{"pkg", "security", "dev"}, steps: []string{"apt.in"}},
 	{snippet: "logs", family: "journal", args: []string{"logs", "dev", "--unit", "nginx", "--limit", "3"}, steps: []string{"journal.in"}},
 	{snippet: "docker-logs", family: "docker", args: []string{"docker", "logs", "dev", "api", "--limit", "3"}, steps: []string{"docker.in"}},
-	{snippet: "facts-only", family: "debian", args: []string{"facts", "dev", "--only", "load,mem,disks,system"}, steps: []string{"debian.in"}},
 	{snippet: "docker-prune-preview", family: "docker", args: []string{"docker", "prune", "dev", "--dry-run"}, steps: []string{"docker.in"}},
-	{snippet: "svc-list", family: "windows", args: []string{"svc", "list", "dev"}, steps: []string{"windows.in"}, windows: true},
-	{snippet: "svc-status", family: "windows", args: []string{"svc", "status", "dev", "W3SVC", "nope"}, steps: []string{"windows.in"}, windows: true},
-	{snippet: "facts", family: "windows", args: []string{"facts", "dev"}, steps: []string{"windows.in"}, windows: true},
 	{snippet: "fs-list", family: "sftp", args: []string{"fs", "list", "dev", "/srv/app"}, files: appTree},
 	{snippet: "fs-list", family: "sftp-all", args: []string{"fs", "list", "dev", "/srv/app", "--all", "--limit", "3"}, files: appTree},
 	{snippet: "fs-cat", family: "sftp", args: []string{"fs", "cat", "dev", "/srv/app/env.conf"}, files: appTree},
@@ -363,11 +355,6 @@ func TestSnippetGoldens(t *testing.T) {
 			if c.setup != nil {
 				tmpDir = t.TempDir()
 				c.setup(t, tmpDir)
-			}
-			if c.windows {
-				if err := store.Update(store.Save(), func(st *store.State) error { st.Hosts["dev"].OS = store.OSWindows; return nil }); err != nil {
-					t.Fatal(err)
-				}
 			}
 			got := captureOutput(t, func() error { return runRoot(t, append([]string{"-o", "json"}, c.args...)...) })
 			got = normalizeGolden(got, tmpDir, c.volatile)

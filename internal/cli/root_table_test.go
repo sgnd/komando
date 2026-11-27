@@ -329,6 +329,9 @@ func TestTodayIDsStayUntilCarried(t *testing.T) {
 	}
 	for _, id := range strings.Fields(string(b)) {
 		waiting, named := carried[id]
+		if ids[id] == 0 && slices.Contains(removedIDs, id) {
+			continue // step D took it out of the tree on purpose (root_removed.go)
+		}
 		if ids[id] == 0 && (!named || waiting) {
 			t.Errorf("%s left the tree, but no leaf does it yet", id)
 		}

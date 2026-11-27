@@ -41,12 +41,12 @@ func TestExamplesParse(t *testing.T) {
 	walk(root)
 }
 
-// `komando svc` alone (and the other server groups) shows the usual
+// `komando pkg` alone (and the other server groups) shows the usual
 // journey as examples, and the times in them are written as komando takes
 // them everywhere (30m, not -30m).
 func TestOpsGroupsShowAJourney(t *testing.T) {
 	root := newRoot(tcl)
-	for _, g := range []string{"svc", "pkg", "user", "docker", "cron", "net", "cert", "recipe"} {
+	for _, g := range []string{"pkg", "docker", "cert", "recipe"} {
 		c, _, err := root.Find([]string{g})
 		if err != nil {
 			t.Fatal(err)

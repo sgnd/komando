@@ -25,7 +25,7 @@ func (p *Pubsub) topicRef(verb, s string) (string, error) {
 func (p *Pubsub) subRef(verb, s string) (string, error) {
 	r, err := p.parseRef(s)
 	if err == nil && r.kind == "topic" {
-		err = out.Usage("queue %s takes a subscription: a Pub/Sub topic keeps no messages of its own (`komando queue describe CONN %s` lists its subscriptions)", verb, s)
+		err = out.Usage("queue %s takes a subscription: a Pub/Sub topic keeps no messages of its own (`komando queue pubsub topic show NAME %s` lists its subscriptions)", verb, s)
 	}
 	return r.name, err
 }
@@ -37,7 +37,7 @@ func (p *Pubsub) Send(ctx context.Context, m queuex.Message, dryRun bool) (*queu
 	if m.Partition >= 0 {
 		return nil, queuex.NotSupported("--partition", "pubsub", "a Pub/Sub topic has no partitions: drop --partition (--key sets the ordering key)")
 	}
-	name, err := p.topicRef("send", m.Topic)
+	name, err := p.topicRef("pubsub message create", m.Topic)
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +206,7 @@ func (p *Pubsub) Delete(ctx context.Context, names []string, dryRun bool) ([]que
 // subscriber pulled and has not acknowledged yet. Other subscriptions of
 // the topic keep theirs. Pub/Sub does not count them, so messages is -1.
 func (p *Pubsub) Purge(ctx context.Context, name string, dryRun bool) (*queuex.Purged, error) {
-	sub, err := p.subRef("purge", name)
+	sub, err := p.subRef("pubsub message delete", name)
 	if err != nil {
 		return nil, err
 	}

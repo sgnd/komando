@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# svc and logs against the real systemctl and journalctl, on a server with
+# logs against the real journalctl, on a server with
 # systemd as PID 1 (test/e2e/systemd). The checks start that container
 # themselves; where a machine cannot run it they say so and are skipped.
 SYSD_PORT=${E2E_SSH_SYSTEMD:-2225}
@@ -19,65 +19,12 @@ if [ "$up" != yes ]; then
 else
   q $K host add t-sysd "agent@127.0.0.1:$SYSD_PORT" --password-ref secret:agent-pass
   q $K host trust t-sysd
-  state() { $K svc status t-sysd t-svc | jget 'd["data"]["results"][0]["data"][0]["active_state"]'; }
-  pid() { sys systemctl show -p MainPID --value t-svc; }
 
-  check "svc status = systemctl show" "$(sys systemctl show -p ActiveState --value t-svc)" "$(state)"
-  check "svc status MainPID = systemctl" "$(pid)" "$($K svc status t-sysd t-svc | jget 'str(d["data"]["results"][0]["data"][0].get("main_pid") or d["data"]["results"][0]["data"][0].get("pid"))')"
-  q $K svc stop t-sysd t-svc
-  check "svc stop = systemctl is-active" "inactive inactive" "$(sys systemctl is-active t-svc || true) $(state)"
-  q $K svc start t-sysd t-svc --wait 10s
-  check "svc start --wait = systemctl is-active" "active active" "$(sys systemctl is-active t-svc) $(state)"
-  before=$(pid)
-  q $K svc restart t-sysd t-svc --wait 10s
-  check "svc restart gives a new process (systemctl MainPID)" True "$([ "$(pid)" != "$before" ] && [ "$(pid)" != 0 ] && echo True || echo False)"
-  before=$(pid)
-  q $K svc reload t-sysd t-svc
-  check "svc reload keeps the process (systemctl MainPID)" "$before active" "$(pid) $(state)"
-  q $K svc disable t-sysd t-svc
-  check "svc disable = systemctl is-enabled" disabled "$(sys systemctl is-enabled t-svc || true)"
-  q $K svc enable t-sysd t-svc
-  check "svc enable = systemctl is-enabled" enabled "$(sys systemctl is-enabled t-svc)"
-  check "svc list has what systemctl lists" True "$($K svc list t-sysd | jget '"t-svc.service" in json.dumps(d["data"])')"
   # like journalctl: a plain user may not read the system journal; komando says so
   # (journald answers "No entries" or "insufficient permissions"; either way komando names --sudo)
-  check "svc logs as a plain user = journalctl's refusal, said clearly" "No entries True" \
-    "$(sys su agent -s /bin/sh -c 'journalctl -u t-svc --no-pager' 2>/dev/null | grep -o 'No entries') $($K svc logs t-sysd t-svc | jget '"--sudo" in json.dumps(d) and "hello from t-svc" not in json.dumps(d)' || true)"
-  check "svc logs --sudo = journalctl -u" True "$(sys journalctl -u t-svc --no-pager | grep -q 'hello from t-svc' && $K svc logs t-sysd t-svc --sudo | jget '"hello from t-svc" in json.dumps(d)')"
-  check "logs --unit = journalctl -u" True "$($K logs t-sysd --unit t-svc --sudo | jget '"hello from t-svc" in json.dumps(d)')"
-  check "an unknown unit is not found (systemctl: no such unit)" "4 3" \
-    "$(sys systemctl status t-nosuch >/dev/null 2>&1; echo $?) $($K svc status t-sysd t-nosuch >/dev/null 2>&1; echo $?)"
-  # daemon-reload: a changed unit file is read again
-  sys sed -i 's/^Description=.*/Description=komando test service v2/' /etc/systemd/system/t-svc.service
-  check "svc daemon-reload = systemctl daemon-reload" "komando test service v2 komando test service v2" \
-    "$($K svc daemon-reload t-sysd >/dev/null; sys systemctl show -p Description --value t-svc) $($K svc status t-sysd t-svc | jget 'd["data"]["results"][0]["data"][0]["description"]')"
-  # --user-units: the login user's own manager (systemctl --user), without sudo
-  # an SSH login starts the user's manager (pam_systemd), so it is masked for this one check
-  auid=$(sys id -u agent)
-  sys systemctl mask --runtime "user@$auid.service" 2>/dev/null
-  sys systemctl stop "user@$auid.service" 2>/dev/null || true
-  check "svc list --user-units without a user manager = NO_USER_MANAGER" NO_USER_MANAGER "$($K svc list t-sysd --user-units | jget 'd["data"]["results"][0]["error"]["code"]' || true)"
-  sys systemctl unmask --runtime "user@$auid.service" 2>/dev/null
-  sys loginctl enable-linger agent
-  sys systemctl start "user@$auid.service" || true
-  sys sh -c 'mkdir -p /home/agent/.config/systemd/user && printf "[Unit]\nDescription=komando user unit\n[Service]\nExecStart=/bin/sh -c \"echo hello from t-user; exec sleep infinity\"\n" >/home/agent/.config/systemd/user/t-user.service && chown -R agent /home/agent/.config'
-  usys() { sys su agent -s /bin/sh -c "XDG_RUNTIME_DIR=/run/user/\$(id -u) systemctl --user $*"; }
-  for _ in $(seq 1 20); do usys show-environment >/dev/null 2>&1 && break; sleep 1; done
-  q $K svc daemon-reload t-sysd --user-units
-  q $K svc start t-sysd --user-units t-user --wait 10s
-  check "svc start --user-units = systemctl --user is-active" "active active" \
-    "$(usys is-active t-user || true) $($K svc status t-sysd --user-units t-user | jget 'd["data"]["results"][0]["data"][0]["active_state"]')"
-  check "svc list --user-units = systemctl --user list-units" True "$($K svc list t-sysd --user-units | jget '"t-user.service" in json.dumps(d["data"])')"
-  check "svc status without --user-units does not see the user's unit" UNIT_NOT_FOUND "$($K svc status t-sysd t-user | jget 'd["data"]["results"][0]["error"]["code"]' || true)"
-  q $K svc stop t-sysd --user-units t-user
-  check "svc stop --user-units = systemctl --user is-active" inactive "$(usys is-active t-user || true)"
-  # reboot: destructive, so blocked without --allow-dangerous; then it waits for the server
-  check "reboot needs --allow-dangerous" 6 "$($K reboot t-sysd >/dev/null 2>&1; echo $?)"
-  pid1=$(sys cut -d' ' -f22 /proc/1/stat)
-  check "reboot waits for the server and checks it restarted" "True True" \
-    "$($K reboot t-sysd --allow-dangerous --wait 120s | jget 'str(d["data"]["results"][0]["rebooted"]) + " " + str(d["data"]["results"][0]["back_after_s"] > 0)' || true)"
-  check "after reboot: a new PID 1 and the service is back" "True active" \
-    "$([ "$(sys cut -d' ' -f22 /proc/1/stat)" != "$pid1" ] && echo True || echo False) $(sys systemctl is-active t-svc || true)"
+  check "logs --unit as a plain user = journalctl's refusal, said clearly" "No entries True" \
+    "$(sys su agent -s /bin/sh -c 'journalctl -u t-svc --no-pager' 2>/dev/null | grep -o 'No entries') $($K logs t-sysd --unit t-svc | jget '"--sudo" in json.dumps(d) and "hello from t-svc" not in json.dumps(d)' || true)"
+  check "logs --unit = journalctl -u" True "$(sys journalctl -u t-svc --no-pager | grep -q 'hello from t-svc' && $K logs t-sysd --unit t-svc --sudo | jget '"hello from t-svc" in json.dumps(d)')"
   q $K host rm t-sysd
 fi
 docker rm -f "$SYSD" >/dev/null 2>&1 || true

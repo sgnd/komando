@@ -130,7 +130,7 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 
 | Command | When | Tier | Flag |
 |---|---|---|---|
-| `queue purge` | always | dangerous | `--allow-dangerous` |
+| `queue kafka message delete` | always | dangerous | `--allow-dangerous` |
 | `cache rm` | always | dangerous | `--allow-dangerous` |
 | `cluster rm` | always | dangerous | `--allow-dangerous` |
 | `cluster scale` | REPLICAS is 0 | dangerous | `--allow-dangerous` |
@@ -139,15 +139,9 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `fs rm` | always | dangerous | `--allow-dangerous` |
 | `docker rm` | always | dangerous | `--allow-dangerous` |
 | `docker prune` | always | dangerous | `--allow-dangerous` |
-| `user rm` | with --remove-home | dangerous | `--allow-dangerous` |
-| `user rm` | always | dangerous | `--allow-dangerous` |
 | `secret rm` | always | dangerous | `--allow-dangerous` |
 | `pkg rm` | a package the server needs (openssh-server, sudo, systemd, ...) | dangerous | `--allow-dangerous` |
 | `pkg rm` | a person types the name of what goes | change |  |
-| `cron rm` | a person types the name of what goes | change |  |
-| `reboot` | always | dangerous | `--allow-dangerous` |
-| `svc stop` | the unit is ssh or sshd | dangerous | `--allow-dangerous` |
-| `svc disable` | the unit is ssh or sshd | dangerous | `--allow-dangerous` |
 | `sync` | with --delete | dangerous | `--allow-dangerous` |
 | `job start` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
 | `docker exec` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
@@ -168,7 +162,7 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `host ssh-command` | always | person |  |
 | `import` | SOURCE komando, when the file is sealed (export --sealed): a person types its passphrase | person |  |
 | `group rm` | GROUP alone: deleting a group of more than 3 members (CONFIRM_REQUIRED) | change | `--yes` |
-| `queue rm` | always | dangerous | `--allow-dangerous` |
+| `queue kafka topic delete` | always | dangerous | `--allow-dangerous` |
 | `storage s3 object delete` | always | dangerous | `--allow-dangerous` |
 | `registry oci image delete` | always | dangerous | `--allow-dangerous` |
 | `registry oci image prune` | always | dangerous | `--allow-dangerous` |
@@ -208,6 +202,10 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `export` | with --sealed | person |  |
 | `export` | with --for-phone | person |  |
 | `host edit` | with --protected=false | safety | `--yes` |
+| `cache redis edit` | with --protected=false | safety | `--yes` |
+| `queue kafka edit` | with --protected=false | safety | `--yes` |
+| `storage s3 edit` | with --protected=false | safety | `--yes` |
+| `registry oci edit` | with --protected=false | safety | `--yes` |
 | `vpn edit` | with --protected=false | safety | `--yes` |
 
 <!-- end of tiers -->
@@ -459,7 +457,7 @@ window showed to the exact file. What the hash covers:
 
 | Command | `body_sha256` is the SHA-256 of |
 |---|---|
-| `exec --script`, `--stdin-file`, `job start`, `db query --file`, `queue send` | the file as sent |
+| `exec --script`, `--stdin-file`, `job start`, `db query --file`, `queue PROVIDER message create` | the file as sent |
 | `recipe run` | the filled-in command, with no newline added |
 | `upload` of one file | the bytes as they are sent, for every caller. If an agent's window showed other bytes (the file changed after you saw it), the upload stops with `FILE_CHANGED` before the file on the server is touched, and the stop is in the audit log |
 | `upload` of a folder | the list the window shows: each file's name, size and SHA-256, one per line |
@@ -599,7 +597,7 @@ what an agent or a script gets.
 | `OPEN_BIND` | 6 | A tunnel would listen on an address other machines can reach. | Keep the default 127.0.0.1, or add `--yes` after a person agrees. |
 | `CONFIRM_REQUIRED` | 6 | A change that touches many entries (deleting a group). | Check them first, then add `--yes` after a person agrees. |
 | `WRITE_REQUIRES_FLAG` | 6 | The query or command changes data. | Try `--write --dry-run`, then `--write`. |
-| `READ_ONLY_VIOLATION` | 6 | `--read-only` was given, but komando does not know the command only reads: it changes something, or it is a program, option or subcommand komando has not heard of. | Use komando's own read (`facts`, `logs`, `svc status`, `fs read`), or drop `--read-only`; a person may confirm with `--yes`. |
+| `READ_ONLY_VIOLATION` | 6 | `--read-only` was given, but komando does not know the command only reads: it changes something, or it is a program, option or subcommand komando has not heard of. | Use komando's own read (`logs`, `fs cat`) or a read command under `exec --read-only`, or drop `--read-only`; a person may confirm with `--yes`. |
 | `DB_BYTES_LIMIT` | 6 | A BigQuery query would read more bytes than `--max-bytes` allows, so it did not run. | Select fewer columns or filter more; raise `--max-bytes` only if the person agrees to the cost. |
 | `SQL_SAFE_SETTINGS_REQUIRED` | 6 | The ClickHouse user reads queries in another dialect, so komando cannot check them. | Use a user whose settings keep `dialect = 'clickhouse'`. |
 | `UNSAFE_BACKUP` | 6 | The backup file holds a client command, not SQL, that could run programs where the restore runs. | Remove that line if the dump is not trusted. |

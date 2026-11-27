@@ -12,11 +12,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/capability"
-	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/snippet"
 	"github.com/sgnd/komando/internal/sshx"
-	"github.com/sgnd/komando/internal/store"
 )
 
 // svc status and actions.
@@ -36,31 +34,10 @@ func svcResult(rr *sshx.RunResult) ([]map[string]any, *out.Error) {
 		}
 	}
 	if len(missing) > 0 {
-		return units, out.Errf(out.ExitNotFound, "UNIT_NOT_FOUND", "check the name with `komando svc list TARGET`",
+		return units, out.Errf(out.ExitNotFound, "UNIT_NOT_FOUND", "check the name with `komando exec TARGET -- systemctl list-units`",
 			"no unit named %s", strings.Join(missing, " or "))
 	}
 	return units, nil
-}
-
-func svcTable(data any) string {
-	if w, ok := data.([]winService); ok {
-		return winSvcTable(w)
-	}
-	units, _ := data.([]map[string]any)
-	rows := [][]string{}
-	for _, u := range units {
-		mem := ""
-		if n, ok := u["memory_current"].(int64); ok && n >= 0 {
-			mem = term.HumanBytes(n)
-		}
-		since := ""
-		if t, ok := u["active_enter_timestamp"].(string); ok && u["active_state"] == "active" {
-			since = t
-		}
-		rows = append(rows, []string{cell(u["id"]), cell(u["active_state"]), cell(u["sub_state"]), cell(u["unit_file_state"]),
-			cell(u["main_pid"]), cell(u["n_restarts"]), mem, since})
-	}
-	return textTable([]string{"unit", "active", "sub", "enabled", "pid", "restarts", "memory", "since"}, rows)
 }
 
 func cell(v any) string {
@@ -71,97 +48,6 @@ func cell(v any) string {
 		return "0"
 	}
 	return fmt.Sprint(v)
-}
-
-func svcStatus(cl *call, ctx context.Context, target string, units []string, user bool) error {
-	command := svcScope(noSystemd+"systemctl show --no-pager -p "+strings.Join(svcProps, ",")+" -- "+quoteAll(units), user)
-	win := badServiceNames(units) + winSvcStatusScript(units)
-	if user {
-		win = "" // Windows services have no per-user manager
-	}
-	return runOps(cl, ctx, opsSpec{name: "svc.status", target: target, command: command, display: "svc status " + userWord(user) + strings.Join(units, " "),
-		parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {
-			u, err := svcResult(rr)
-			return u, err
-		}, text: svcTable,
-		win: win,
-		winParse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {
-			s, err := winServices(rr)
-			return s, err
-		}})
-}
-
-// svcScript builds the action script: run systemctl, optionally wait for
-// the units to become active, then show their state like `svc status`.
-func svcScript(action string, units []string, now bool, wait int) string {
-	q := quoteAll(units)
-	var sb strings.Builder
-	sb.WriteString(noSystemd)
-	flag := ""
-	if now && (action == "enable" || action == "disable") {
-		flag = " --now"
-	}
-	sb.WriteString("systemctl " + action + flag + " -- " + q + " >&2; rc=$?\n")
-	starts := action == "start" || action == "restart" || action == "reload"
-	switch {
-	case starts && wait > 0:
-		fmt.Fprintf(&sb, "i=0; while [ $rc -eq 0 ] && [ $i -lt %d ]; do ok=1; for u in %s; do systemctl is-active --quiet -- \"$u\" || ok=0; done; [ $ok = 1 ] && break; sleep 1; i=$((i+1)); done\n", wait, q)
-	case starts:
-		sb.WriteString("sleep 1\n") // a unit that dies right away shows as failed
-	}
-	sb.WriteString("systemctl show --no-pager -p " + strings.Join(svcProps, ",") + " -- " + q + "\n")
-	if starts {
-		unitFlags := make([]string, 0, len(units))
-		for _, u := range units {
-			unitFlags = append(unitFlags, "-u "+sshx.Q(u))
-		}
-		// the reason a start failed, on stderr
-		sb.WriteString("if [ $rc -ne 0 ]; then journalctl -n 20 --no-pager -o cat " + strings.Join(unitFlags, " ") + " >&2 2>/dev/null; fi\n")
-	}
-	sb.WriteString("echo \"#komando:rc=$rc\"; exit 0")
-	return sb.String()
-}
-
-// svcActionResult reads the action script's output.
-func svcActionResult(action string, wait int, rr *sshx.RunResult) (any, *out.Error) {
-	units, err := svcResult(rr)
-	if err != nil {
-		return units, err
-	}
-	rc, _ := strconv.Atoi(strings.TrimPrefix(marker(rr.Stdout), "rc="))
-	if rc != 0 {
-		return units, out.Errf(out.ExitRemote, "SVC_FAILED", "the unit's last journal lines are in the error output (stderr); more with `komando logs TARGET --unit UNIT`",
-			"systemctl %s failed (exit %d)", action, rc)
-	}
-	if wait > 0 {
-		var down []string
-		for _, u := range units {
-			if u["active_state"] != "active" {
-				down = append(down, fmt.Sprintf("%v is %v", u["id"], u["active_state"]))
-			}
-		}
-		if len(down) > 0 {
-			return units, out.Errf(out.ExitRemote, "UNIT_NOT_ACTIVE", "read why with `komando logs TARGET --unit UNIT -n 50`",
-				"not active after %ds: %s", wait, strings.Join(down, ", "))
-		}
-	}
-	return units, nil
-}
-
-func svcAction(cl *call, ctx context.Context, action, target string, units []string, sudo, now, user bool, wait int) error {
-	display := "svc " + action + " " + userWord(user) + strings.Join(units, " ")
-	if now && (action == "enable" || action == "disable") {
-		display = "svc " + action + " --now " + userWord(user) + strings.Join(units, " ")
-	}
-	win := winSvcScript(action, units, now, wait)
-	if user {
-		sudo, win = false, "" // the login user's own manager; sudo would reach root's
-	}
-	return runOps(cl, ctx, opsSpec{name: "svc." + action, target: target, command: svcScope(svcScript(action, units, now, wait), user), display: display,
-		sudo: sudo, mutating: true, timeoutAtLeast: time.Duration(wait+30) * time.Second,
-		parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return svcActionResult(action, wait, rr) },
-		text:  svcTable, win: win,
-		winParse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return winSvcActionResult(action, wait, rr) }})
 }
 
 func svcListResult(rr *sshx.RunResult) (any, *out.Error) {
@@ -180,71 +66,10 @@ func svcListResult(rr *sshx.RunResult) (any, *out.Error) {
 	return rows, nil
 }
 
-// userWord is --user-units in a shown command line.
-func userWord(user bool) string {
-	if user {
-		return "--user-units "
-	}
-	return ""
-}
-
-// userFlag is --user-units on the svc commands.
-func userFlag(c *cobra.Command, user *bool) {
-	c.Flags().BoolVar(user, "user-units", false, "the login user's own units (systemctl --user), without sudo")
-}
-
-func svcListCmd() *cobra.Command {
-	var state string
-	var failed, user bool
-	var limit int
-	c := &cobra.Command{
-		Use:     "list TARGET",
-		Aliases: []string{"ls"},
-		Short:   "List the service units of servers",
-		Args:    cobra.ExactArgs(1),
-		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			command := "systemctl list-units --type=service --all --no-legend --plain --no-pager"
-			if failed {
-				if state != "" && state != "failed" {
-					return out.Usage("give --failed or --state %s, not both", state)
-				}
-				state = "failed"
-			}
-			if state != "" {
-				command += " --state=" + sshx.Q(state)
-			}
-			win := winSvcListScript
-			if user {
-				win = ""
-			}
-			return runOps(cl, cmd.Context(), opsSpec{name: "svc.list", target: args[0], command: svcScope(noSystemd+command, user), limit: limit,
-				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return svcListResult(rr) }, text: svcListTable,
-				win: win, winParse: winSvcList(state)})
-		}),
-	}
-	c.Flags().StringVar(&state, "state", "", "only units in this state, such as running or failed")
-	c.Flags().BoolVar(&failed, "failed", false, "only failed units (the same as --state failed)")
-	userFlag(c, &user)
-	limitFlag(c, &limit, 0, "units per server")
-	return c
-}
-
-func svcListTable(data any) string {
-	if w, ok := data.([]winService); ok {
-		return winSvcTable(w)
-	}
-	units, _ := data.([]map[string]string)
-	rows := [][]string{}
-	for _, u := range units {
-		rows = append(rows, []string{u["unit"], u["load"], u["active"], u["sub"], u["description"]})
-	}
-	return textTable([]string{"unit", "load", "active", "sub", "description"}, rows)
-}
-
 // logs.
 
-// logsAlias is `svc logs TARGET UNIT` and `docker logs TARGET CONTAINER`:
-// it only turns the second word into --unit or --container and runs
+// logsAlias is `docker logs TARGET CONTAINER`:
+// it only turns the second word into --container and runs
 // `logs`, so it takes exactly the flags of `logs` (ux.md section 11: one
 // implementation).
 func logsAlias(use, name, source string) *cobra.Command {

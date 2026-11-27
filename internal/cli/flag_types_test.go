@@ -179,8 +179,8 @@ func TestStandardKeyValue(t *testing.T) {
 			}
 		}
 	})
-	if n != 56 {
-		t.Errorf("%d KEY=VALUE flags, want 56 (--env x2, --label x29, --option x25)", n)
+	if n != 74 {
+		t.Errorf("%d KEY=VALUE flags, want 74 (--env x2, then --label and --option on the add and edit of each typed provider)", n)
 	}
 	var got []string
 	v := &kvArray{p: &got, name: "option"}

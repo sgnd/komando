@@ -531,6 +531,6 @@ func readOnlyMutates(command string, env []string) bool {
 }
 
 func readOnlyStop(cl *call, what string) error {
-	return cl.policyStop(out.Errf(out.ExitPolicy, "READ_ONLY_VIOLATION", "--read-only runs only what komando knows only reads: for a server's state use komando facts, logs, svc status or fs read; otherwise tell the user what the command does, then run it without --read-only (a protected server also needs --yes)",
+	return cl.policyStop(out.Errf(out.ExitPolicy, "READ_ONLY_VIOLATION", "--read-only runs only what komando knows only reads: for a server's state use komando logs, fs cat, or exec --read-only with a read command; otherwise tell the user what the command does, then run it without --read-only (a protected server also needs --yes)",
 		"--read-only, but the command is not known to only read (%s)", what))
 }
