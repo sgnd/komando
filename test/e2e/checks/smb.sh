@@ -16,7 +16,7 @@ check "smb ls lists the folder" "['t-e2esmb/dir/']" "$($K storage smb object lis
 $K storage smb object list smb-files t-e2esmb/nope/ >/dev/null; check "smb ls of a missing folder" 3 $?
 check "smb download to stdout" e2esmb "$($K storage download smb-files t-e2esmb/dir/e2esmb.txt --to - -o text)"
 check "smb cat" e2esmb "$($K storage smb object read smb-files t-e2esmb/dir/e2esmb.txt -o text)"
-check "smb has no links" NOT_SUPPORTED "$($K storage smb object link smb-files t-e2esmb/dir/e2esmb.txt | jget 'd["error"]["code"]')"
+check "smb has no link command" USAGE "$($K storage smb object link smb-files t-e2esmb/dir/e2esmb.txt | jget 'd["error"]["code"]')"
 check "smb mkdir" True "$($K storage smb object create smb-files t-e2esmb/empty/deep | jget 'd["data"]["created"]')"
 check "smb mv a folder" True "$($K storage smb object move smb-files t-e2esmb/empty t-e2esmb/emptied | jget 'd["data"]["folder"]')"
 check "smb mv --overwrite" True "$($K storage upload smb-files "$TMP/e2esmb.txt" t-e2esmb/b.txt >/dev/null; $K storage smb object move smb-files t-e2esmb/b.txt t-e2esmb/dir/e2esmb.txt --overwrite | jget 'd["data"]["replaced"]')"

@@ -40,7 +40,7 @@ for c in cloud-az cloud-gcs cloud-dav; do
   check "$c rm emptied the folder" 0 "$($K storage "$(sprov "$c")" object list "$c" --recursive | jget 'len([o for o in d["data"]["objects"] if o["key"].startswith("t-e2ecloud/") and not o.get("dir")])')"
 done
 check "azure link through --via warns" True "$($K storage upload cloud-az "$TMP/e2ecloud.txt" t-e2ecloud/l.txt >/dev/null; $K storage azblob object link cloud-az t-e2ecloud/l.txt | jget '"bastion" in d["data"]["warning"]')"
-check "webdav has no links" NOT_SUPPORTED "$($K storage upload cloud-dav "$TMP/e2ecloud.txt" t-e2ecloud/l.txt >/dev/null; $K storage webdav object link cloud-dav t-e2ecloud/l.txt | jget 'd["error"]["code"]')"
+check "webdav has no link command" USAGE "$($K storage upload cloud-dav "$TMP/e2ecloud.txt" t-e2ecloud/l.txt >/dev/null; $K storage webdav object link cloud-dav t-e2ecloud/l.txt | jget 'd["error"]["code"]')"
 for c in cloud-az cloud-dav; do q $K storage "$(sprov "$c")" object delete "$c" --prefix t-e2ecloud/ --allow-dangerous; done
 q $K storage webdav object delete cloud-dav --prefix t-e2ecopy/ --allow-dangerous
 q $K conn rm cloud-az cloud-gcs cloud-dav
