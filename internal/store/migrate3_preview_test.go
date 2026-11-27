@@ -80,7 +80,7 @@ func TestMigrationPreviewWritesNothing(t *testing.T) {
 // What the migration would refuse is named by kind and field only.
 func TestMigrationPreviewRefusals(t *testing.T) {
 	format2Store(t)
-	format2Edit(t, func(s *State) { s.Hosts["web2"].PasswordRef = "secret:missing-pw" })
+	format2Edit(t, func(s *State) { s.Hosts["win1"].PasswordRef = "secret:missing-pw" })
 	Close()
 	p, err := PreviewMigration(context.Background(), nil)
 	if err != nil {
@@ -90,7 +90,7 @@ func TestMigrationPreviewRefusals(t *testing.T) {
 		t.Fatalf("preview %+v", p)
 	}
 	b, _ := json.Marshal(p)
-	if strings.Contains(string(b), "web2") || strings.Contains(string(b), "missing-pw") {
+	if strings.Contains(string(b), "win1") || strings.Contains(string(b), "missing-pw") {
 		t.Errorf("the dry run names a record or a secret: %s", b)
 	}
 }
