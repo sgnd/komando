@@ -12,7 +12,7 @@ import (
 func TestUnknownCommandWords(t *testing.T) {
 	root := newRoot(tcl)
 	for word, want := range map[string]string{
-		"ps": "docker ps TARGET", "get": "list", "kubectl": "cluster run TARGET -- ...", "psql": "db query CONN",
+		"ps": "docker ps TARGET", "get": "list", "kubectl": "cluster kubernetes raw NAME -- ...", "psql": "db query CONN",
 		"mysql": "db query CONN", "apt": "pkg", "yum": "pkg", "systemctl": "exec SERVER -- systemctl",
 	} {
 		e := unknownCommandErr(tcl, root, word, nil)

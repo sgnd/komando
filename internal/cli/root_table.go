@@ -284,6 +284,12 @@ func buildLeaf(l capability.Leaf, h handler) *cobra.Command {
 
 // addOption declares o on fs and keeps where its value lands in vals.
 func addOption(fs *pflag.FlagSet, o capability.Option, vals map[string]any) {
+	if o.Name == "namespace" && o.Short == "n" { // -n of a cluster command refuses a number (nsShort)
+		o.Short = ""
+		declareOption(fs, o, vals)
+		nsShorthand(fs, fs.Lookup("namespace"))
+		return
+	}
 	if o.Short == "" {
 		declareOption(fs, o, vals)
 		return
@@ -464,10 +470,19 @@ func familyOfType(typ string) string {
 // providerWord is the word of a kind's provider in the table: the kind's
 // own name, but for the kinds the table names otherwise.
 func providerWord(k driver.Kind) string {
-	if w, ok := map[string]string{"registry": "oci", "ftps": "ftp"}[k.Name]; ok {
+	if w, ok := map[string]string{"registry": "oci", "ftps": "ftp", "k8s": "kubernetes"}[k.Name]; ok {
 		return w
 	}
 	return k.Name
+}
+
+// kindOfProvider is the stored kind of a provider's entries: the kind's
+// name, which is not the provider's word for registry and kubernetes.
+func kindOfProvider(provider string) string {
+	if k, ok := map[string]string{"oci": "registry", "kubernetes": "k8s"}[provider]; ok {
+		return k
+	}
+	return provider
 }
 
 func typeWord(family string) string {
@@ -555,7 +570,7 @@ func inventoryHandlers(typ string, providers ...string) {
 		}
 		leafBodies[key("list")] = func() *cobra.Command { return listCmdKind("conn", p) }
 		handlers[key("list")] = func(cl *call, ctx context.Context, in leafInput) error {
-			return runBody(cl, ctx, listCmdKind("conn", p), in, nil)
+			return runBody(cl, ctx, listCmdKind("conn", kindOfProvider(p)), in, nil)
 		}
 		leafBodies[key("show")] = connShowCmd
 		handlers[key("show")] = func(cl *call, ctx context.Context, in leafInput) error {

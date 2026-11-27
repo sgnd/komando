@@ -243,7 +243,7 @@ var itemCommands = map[string][]string{
 	"storage:link": {"storage {P} object link {} OBJECT --expires 24h"},
 	"cluster": {"cluster status {}", "cluster list {} pods", "cluster events {} --warnings", "cluster logs {} deploy/NAME",
 		"cluster deploy {} deploy/NAME --image IMAGE --wait", "cluster apply {} --file app.yaml --dry-run",
-		"cluster helm list {} -A", "cluster run {} -- get pods -A"},
+		"cluster helm list {} -A", "cluster kubernetes raw {} -- get pods -A"},
 	"registry": {"registry oci image list {}", "registry oci image list {} REPO", "registry oci image show {} IMAGE", "registry oci image copy {}:IMAGE DST_CONN",
 		"registry oci image prune {} REPO --keep 10 --dry-run", "registry oci image delete {} IMAGE --dry-run"},
 	"vpn": {"vpn up {}", "vpn test {}", "vpn down {}", "vpn edit {} --check HOST:PORT", "vpn rename {} NEW", "vpn rm {}",

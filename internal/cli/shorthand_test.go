@@ -45,7 +45,7 @@ func TestShorthandDidYouMean(t *testing.T) {
 		{[]string{"fs", "ls", "web1", "/", "-n", "5"}, ""}, // fs ls has no --limit yet
 		{[]string{"db", "sizes", "x1", "-n", "5"}, ""},     // has -n
 		{[]string{"docker", "exec", "web1", "api", "-it", "--", "sh"}, "`komando shell TARGET`"},
-		{[]string{"cluster", "exec", "k", "api", "-it", "--", "sh"}, "`komando cluster shell TARGET POD`"},
+		{[]string{"cluster", "kubernetes", "exec", "k", "api", "-it", "--", "sh"}, "`komando cluster kubernetes shell NAME POD`"},
 		{[]string{"exec", "web1", "-L", "8080:localhost:80", "--", "true"}, "`komando tunnel start TARGET -L SPEC`"},
 		{[]string{"cluster", "restart", "k", "api", "-w", "10s"}, "did you mean --wait?"},
 		{[]string{"cache", "get", "c1", "k", "-x"}, ""},

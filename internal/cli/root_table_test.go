@@ -882,7 +882,8 @@ func TestTierRunsNeverShrink(t *testing.T) {
 		}
 		id := strings.Join(l.Key.Path(), ".")
 		for _, r := range before {
-			if slices.Contains(l.Today, r.id) && !slices.ContainsFunc(tierRuns, func(n tierRun) bool { return n.id == id && n.row == r.row }) {
+			if slices.Contains(l.Today, r.id) && !slices.ContainsFunc(tierRuns, func(n tierRun) bool { return n.id == id && n.row == r.row }) &&
+				tierUnreached[r.row+" | "+id] == "" {
 				t.Errorf("%s moved to %s: its run %q is not on the new path", r.id, id, r.row)
 			}
 		}

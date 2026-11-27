@@ -686,30 +686,6 @@ exit 2
 Error: missing arguments; usage: komando cert check TARGET|URL...
 Hint: for example: komando cert check web1
 (code USAGE, exit 2)
-### komando -o json cluster add (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"cluster.add","error":{"code":"USAGE","message":"komando cluster add needs a name and a URL","hint":"for example: komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref secret:prod-kubeconfig. A person can type `komando cluster add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cluster add (agent text)
-exit 2
---- stdout
---- stderr
-Error: komando cluster add needs a name and a URL
-Hint: for example: komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref secret:prod-kubeconfig. A person can type `komando cluster add` alone at a terminal to be asked step by step
-(code USAGE, exit 2)
-### komando -o json cluster add (script json)
-exit 2
---- stdout
-{"ok":false,"command":"cluster.add","error":{"code":"USAGE","message":"komando cluster add needs a name and a URL","hint":"for example: komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref secret:prod-kubeconfig. A person can type `komando cluster add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cluster add (script text)
-exit 2
---- stdout
---- stderr
-Error: komando cluster add needs a name and a URL
-Hint: for example: komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref secret:prod-kubeconfig. A person can type `komando cluster add` alone at a terminal to be asked step by step
-(code USAGE, exit 2)
 ### komando -o json cluster apply (agent json)
 exit 2
 --- stdout
@@ -853,102 +829,6 @@ exit 2
 --- stderr
 Error: missing arguments; usage: komando cluster events TARGET
 Hint: for example: komando cluster events prod-k8s --namespace shop --warnings
-(code USAGE, exit 2)
-### komando -o json cluster exec (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"cluster.exec","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster exec TARGET POD|TYPE/NAME -- COMMAND...","hint":"for example: komando cluster exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cluster exec (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando cluster exec TARGET POD|TYPE/NAME -- COMMAND...
-Hint: for example: komando cluster exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml
-(code USAGE, exit 2)
-### komando -o json cluster exec (script json)
-exit 2
---- stdout
-{"ok":false,"command":"cluster.exec","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster exec TARGET POD|TYPE/NAME -- COMMAND...","hint":"for example: komando cluster exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cluster exec (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando cluster exec TARGET POD|TYPE/NAME -- COMMAND...
-Hint: for example: komando cluster exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml
-(code USAGE, exit 2)
-### komando -o json cluster exec x1 x1 (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"cluster.exec","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster exec TARGET POD|TYPE/NAME -- COMMAND...","hint":"for example: komando cluster exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cluster exec x1 x1 (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando cluster exec TARGET POD|TYPE/NAME -- COMMAND...
-Hint: for example: komando cluster exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml
-(code USAGE, exit 2)
-### komando -o json cluster exec x1 x1 (script json)
-exit 2
---- stdout
-{"ok":false,"command":"cluster.exec","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster exec TARGET POD|TYPE/NAME -- COMMAND...","hint":"for example: komando cluster exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cluster exec x1 x1 (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando cluster exec TARGET POD|TYPE/NAME -- COMMAND...
-Hint: for example: komando cluster exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml
-(code USAGE, exit 2)
-### komando -o json cluster forward (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"cluster.forward","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster forward TARGET TYPE/NAME [LOCAL:]REMOTE","hint":"for example: komando cluster forward prod-k8s svc/api 8080:80 --namespace shop"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cluster forward (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando cluster forward TARGET TYPE/NAME [LOCAL:]REMOTE
-Hint: for example: komando cluster forward prod-k8s svc/api 8080:80 --namespace shop
-(code USAGE, exit 2)
-### komando -o json cluster forward (script json)
-exit 2
---- stdout
-{"ok":false,"command":"cluster.forward","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster forward TARGET TYPE/NAME [LOCAL:]REMOTE","hint":"for example: komando cluster forward prod-k8s svc/api 8080:80 --namespace shop"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cluster forward (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando cluster forward TARGET TYPE/NAME [LOCAL:]REMOTE
-Hint: for example: komando cluster forward prod-k8s svc/api 8080:80 --namespace shop
-(code USAGE, exit 2)
-### komando -o json cluster forward x1 x1 (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"cluster.forward","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster forward TARGET TYPE/NAME [LOCAL:]REMOTE","hint":"for example: komando cluster forward prod-k8s svc/api 8080:80 --namespace shop"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cluster forward x1 x1 (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando cluster forward TARGET TYPE/NAME [LOCAL:]REMOTE
-Hint: for example: komando cluster forward prod-k8s svc/api 8080:80 --namespace shop
-(code USAGE, exit 2)
-### komando -o json cluster forward x1 x1 (script json)
-exit 2
---- stdout
-{"ok":false,"command":"cluster.forward","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster forward TARGET TYPE/NAME [LOCAL:]REMOTE","hint":"for example: komando cluster forward prod-k8s svc/api 8080:80 --namespace shop"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cluster forward x1 x1 (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando cluster forward TARGET TYPE/NAME [LOCAL:]REMOTE
-Hint: for example: komando cluster forward prod-k8s svc/api 8080:80 --namespace shop
 (code USAGE, exit 2)
 ### komando -o json cluster get (agent json)
 exit 2
@@ -1214,6 +1094,366 @@ exit 2
 Error: missing arguments; usage: komando cluster history TARGET TYPE/NAME
 Hint: for example: komando cluster history prod-k8s deployment/api --namespace shop
 (code USAGE, exit 2)
+### komando -o json cluster kubernetes add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.add","error":{"code":"USAGE","message":"cluster kubernetes add takes NAME [URL]","hint":"for example: komando cluster kubernetes add prod-k8s k8s://api.cluster.example:6443 --credential prod-kubeconfig --via web1 (more in `komando cluster kubernetes add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes add takes NAME [URL]
+Hint: for example: komando cluster kubernetes add prod-k8s k8s://api.cluster.example:6443 --credential prod-kubeconfig --via web1 (more in `komando cluster kubernetes add --help`)
+(code USAGE, exit 2)
+### komando -o json cluster kubernetes add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.add","error":{"code":"USAGE","message":"cluster kubernetes add takes NAME [URL]","hint":"for example: komando cluster kubernetes add prod-k8s k8s://api.cluster.example:6443 --credential prod-kubeconfig --via web1 (more in `komando cluster kubernetes add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes add takes NAME [URL]
+Hint: for example: komando cluster kubernetes add prod-k8s k8s://api.cluster.example:6443 --credential prod-kubeconfig --via web1 (more in `komando cluster kubernetes add --help`)
+(code USAGE, exit 2)
+### komando -o json cluster kubernetes edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.edit","error":{"code":"USAGE","message":"cluster kubernetes edit takes NAME","hint":"for example: komando cluster kubernetes edit prod-k8s --add-tag critical (more in `komando cluster kubernetes edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes edit takes NAME
+Hint: for example: komando cluster kubernetes edit prod-k8s --add-tag critical (more in `komando cluster kubernetes edit --help`)
+(code USAGE, exit 2)
+### komando -o json cluster kubernetes edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.edit","error":{"code":"USAGE","message":"cluster kubernetes edit takes NAME","hint":"for example: komando cluster kubernetes edit prod-k8s --add-tag critical (more in `komando cluster kubernetes edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes edit takes NAME
+Hint: for example: komando cluster kubernetes edit prod-k8s --add-tag critical (more in `komando cluster kubernetes edit --help`)
+(code USAGE, exit 2)
+### komando -o json cluster kubernetes exec (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.exec","error":{"code":"USAGE","message":"cluster kubernetes exec takes NAME POD -- COMMAND...","hint":"for example: komando cluster kubernetes exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml (more in `komando cluster kubernetes exec --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes exec (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes exec takes NAME POD -- COMMAND...
+Hint: for example: komando cluster kubernetes exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml (more in `komando cluster kubernetes exec --help`)
+(code USAGE, exit 2)
+### komando -o json cluster kubernetes exec (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.exec","error":{"code":"USAGE","message":"cluster kubernetes exec takes NAME POD -- COMMAND...","hint":"for example: komando cluster kubernetes exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml (more in `komando cluster kubernetes exec --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes exec (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes exec takes NAME POD -- COMMAND...
+Hint: for example: komando cluster kubernetes exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml (more in `komando cluster kubernetes exec --help`)
+(code USAGE, exit 2)
+### komando -o json cluster kubernetes exec x1 x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.exec","error":{"code":"USAGE","message":"cluster kubernetes exec takes NAME POD -- COMMAND...","hint":"for example: komando cluster kubernetes exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml (more in `komando cluster kubernetes exec --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes exec x1 x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes exec takes NAME POD -- COMMAND...
+Hint: for example: komando cluster kubernetes exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml (more in `komando cluster kubernetes exec --help`)
+(code USAGE, exit 2)
+### komando -o json cluster kubernetes exec x1 x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.exec","error":{"code":"USAGE","message":"cluster kubernetes exec takes NAME POD -- COMMAND...","hint":"for example: komando cluster kubernetes exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml (more in `komando cluster kubernetes exec --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes exec x1 x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes exec takes NAME POD -- COMMAND...
+Hint: for example: komando cluster kubernetes exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml (more in `komando cluster kubernetes exec --help`)
+(code USAGE, exit 2)
+### komando -o json cluster kubernetes raw (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.raw","error":{"code":"USAGE","message":"cluster kubernetes raw takes NAME -- COMMAND...","hint":"for example: komando cluster kubernetes raw prod-k8s -- get pods -A -o wide (more in `komando cluster kubernetes raw --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes raw (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes raw takes NAME -- COMMAND...
+Hint: for example: komando cluster kubernetes raw prod-k8s -- get pods -A -o wide (more in `komando cluster kubernetes raw --help`)
+(code USAGE, exit 2)
+### komando -o json cluster kubernetes raw (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.raw","error":{"code":"USAGE","message":"cluster kubernetes raw takes NAME -- COMMAND...","hint":"for example: komando cluster kubernetes raw prod-k8s -- get pods -A -o wide (more in `komando cluster kubernetes raw --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes raw (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes raw takes NAME -- COMMAND...
+Hint: for example: komando cluster kubernetes raw prod-k8s -- get pods -A -o wide (more in `komando cluster kubernetes raw --help`)
+(code USAGE, exit 2)
+### komando -o json cluster kubernetes raw x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.raw","error":{"code":"USAGE","message":"cluster kubernetes raw takes NAME -- COMMAND...","hint":"for example: komando cluster kubernetes raw prod-k8s -- get pods -A -o wide (more in `komando cluster kubernetes raw --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes raw x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes raw takes NAME -- COMMAND...
+Hint: for example: komando cluster kubernetes raw prod-k8s -- get pods -A -o wide (more in `komando cluster kubernetes raw --help`)
+(code USAGE, exit 2)
+### komando -o json cluster kubernetes raw x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.raw","error":{"code":"USAGE","message":"cluster kubernetes raw takes NAME -- COMMAND...","hint":"for example: komando cluster kubernetes raw prod-k8s -- get pods -A -o wide (more in `komando cluster kubernetes raw --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes raw x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes raw takes NAME -- COMMAND...
+Hint: for example: komando cluster kubernetes raw prod-k8s -- get pods -A -o wide (more in `komando cluster kubernetes raw --help`)
+(code USAGE, exit 2)
+### komando -o json cluster kubernetes remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.remove","error":{"code":"USAGE","message":"cluster kubernetes remove takes TARGET...","hint":"for example: komando cluster kubernetes remove prod-k8s --dry-run (more in `komando cluster kubernetes remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes remove takes TARGET...
+Hint: for example: komando cluster kubernetes remove prod-k8s --dry-run (more in `komando cluster kubernetes remove --help`)
+(code USAGE, exit 2)
+### komando -o json cluster kubernetes remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.remove","error":{"code":"USAGE","message":"cluster kubernetes remove takes TARGET...","hint":"for example: komando cluster kubernetes remove prod-k8s --dry-run (more in `komando cluster kubernetes remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes remove takes TARGET...
+Hint: for example: komando cluster kubernetes remove prod-k8s --dry-run (more in `komando cluster kubernetes remove --help`)
+(code USAGE, exit 2)
+### komando -o json cluster kubernetes rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.rename","error":{"code":"USAGE","message":"cluster kubernetes rename takes NAME NEW","hint":"for example: komando cluster kubernetes rename prod-k8s prod-k8s-2 --dry-run (more in `komando cluster kubernetes rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes rename takes NAME NEW
+Hint: for example: komando cluster kubernetes rename prod-k8s prod-k8s-2 --dry-run (more in `komando cluster kubernetes rename --help`)
+(code USAGE, exit 2)
+### komando -o json cluster kubernetes rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.rename","error":{"code":"USAGE","message":"cluster kubernetes rename takes NAME NEW","hint":"for example: komando cluster kubernetes rename prod-k8s prod-k8s-2 --dry-run (more in `komando cluster kubernetes rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes rename takes NAME NEW
+Hint: for example: komando cluster kubernetes rename prod-k8s prod-k8s-2 --dry-run (more in `komando cluster kubernetes rename --help`)
+(code USAGE, exit 2)
+### komando -o json cluster kubernetes rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.rename","error":{"code":"USAGE","message":"cluster kubernetes rename takes NAME NEW","hint":"for example: komando cluster kubernetes rename prod-k8s prod-k8s-2 --dry-run (more in `komando cluster kubernetes rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes rename takes NAME NEW
+Hint: for example: komando cluster kubernetes rename prod-k8s prod-k8s-2 --dry-run (more in `komando cluster kubernetes rename --help`)
+(code USAGE, exit 2)
+### komando -o json cluster kubernetes rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.rename","error":{"code":"USAGE","message":"cluster kubernetes rename takes NAME NEW","hint":"for example: komando cluster kubernetes rename prod-k8s prod-k8s-2 --dry-run (more in `komando cluster kubernetes rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes rename takes NAME NEW
+Hint: for example: komando cluster kubernetes rename prod-k8s prod-k8s-2 --dry-run (more in `komando cluster kubernetes rename --help`)
+(code USAGE, exit 2)
+### komando -o json cluster kubernetes shell (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.shell","error":{"code":"USAGE","message":"cluster kubernetes shell takes NAME POD [-- COMMAND...]","hint":"for example: komando cluster kubernetes shell prod-k8s deploy/api --namespace shop (more in `komando cluster kubernetes shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes shell (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes shell takes NAME POD [-- COMMAND...]
+Hint: for example: komando cluster kubernetes shell prod-k8s deploy/api --namespace shop (more in `komando cluster kubernetes shell --help`)
+(code USAGE, exit 2)
+### komando -o json cluster kubernetes shell (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.shell","error":{"code":"USAGE","message":"cluster kubernetes shell takes NAME POD [-- COMMAND...]","hint":"for example: komando cluster kubernetes shell prod-k8s deploy/api --namespace shop (more in `komando cluster kubernetes shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes shell (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes shell takes NAME POD [-- COMMAND...]
+Hint: for example: komando cluster kubernetes shell prod-k8s deploy/api --namespace shop (more in `komando cluster kubernetes shell --help`)
+(code USAGE, exit 2)
+### komando -o json cluster kubernetes shell x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.shell","error":{"code":"USAGE","message":"cluster kubernetes shell takes NAME POD [-- COMMAND...]","hint":"for example: komando cluster kubernetes shell prod-k8s deploy/api --namespace shop (more in `komando cluster kubernetes shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes shell x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes shell takes NAME POD [-- COMMAND...]
+Hint: for example: komando cluster kubernetes shell prod-k8s deploy/api --namespace shop (more in `komando cluster kubernetes shell --help`)
+(code USAGE, exit 2)
+### komando -o json cluster kubernetes shell x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.shell","error":{"code":"USAGE","message":"cluster kubernetes shell takes NAME POD [-- COMMAND...]","hint":"for example: komando cluster kubernetes shell prod-k8s deploy/api --namespace shop (more in `komando cluster kubernetes shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes shell x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes shell takes NAME POD [-- COMMAND...]
+Hint: for example: komando cluster kubernetes shell prod-k8s deploy/api --namespace shop (more in `komando cluster kubernetes shell --help`)
+(code USAGE, exit 2)
+### komando -o json cluster kubernetes show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.show","error":{"code":"USAGE","message":"cluster kubernetes show takes NAME","hint":"for example: komando cluster kubernetes show prod-k8s (more in `komando cluster kubernetes show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes show takes NAME
+Hint: for example: komando cluster kubernetes show prod-k8s (more in `komando cluster kubernetes show --help`)
+(code USAGE, exit 2)
+### komando -o json cluster kubernetes show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.show","error":{"code":"USAGE","message":"cluster kubernetes show takes NAME","hint":"for example: komando cluster kubernetes show prod-k8s (more in `komando cluster kubernetes show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes show takes NAME
+Hint: for example: komando cluster kubernetes show prod-k8s (more in `komando cluster kubernetes show --help`)
+(code USAGE, exit 2)
+### komando -o json cluster kubernetes test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.test","error":{"code":"USAGE","message":"cluster kubernetes test takes TARGET","hint":"for example: komando cluster kubernetes test prod-k8s (more in `komando cluster kubernetes test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes test takes TARGET
+Hint: for example: komando cluster kubernetes test prod-k8s (more in `komando cluster kubernetes test --help`)
+(code USAGE, exit 2)
+### komando -o json cluster kubernetes test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.test","error":{"code":"USAGE","message":"cluster kubernetes test takes TARGET","hint":"for example: komando cluster kubernetes test prod-k8s (more in `komando cluster kubernetes test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes test takes TARGET
+Hint: for example: komando cluster kubernetes test prod-k8s (more in `komando cluster kubernetes test --help`)
+(code USAGE, exit 2)
+### komando -o json cluster kubernetes tunnel start (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.tunnel.start","error":{"code":"USAGE","message":"cluster kubernetes tunnel start takes NAME OBJECT PORT","hint":"for example: komando cluster kubernetes tunnel start prod-k8s svc/api 8080:80 --namespace shop (more in `komando cluster kubernetes tunnel start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes tunnel start (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes tunnel start takes NAME OBJECT PORT
+Hint: for example: komando cluster kubernetes tunnel start prod-k8s svc/api 8080:80 --namespace shop (more in `komando cluster kubernetes tunnel start --help`)
+(code USAGE, exit 2)
+### komando -o json cluster kubernetes tunnel start (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.tunnel.start","error":{"code":"USAGE","message":"cluster kubernetes tunnel start takes NAME OBJECT PORT","hint":"for example: komando cluster kubernetes tunnel start prod-k8s svc/api 8080:80 --namespace shop (more in `komando cluster kubernetes tunnel start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes tunnel start (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes tunnel start takes NAME OBJECT PORT
+Hint: for example: komando cluster kubernetes tunnel start prod-k8s svc/api 8080:80 --namespace shop (more in `komando cluster kubernetes tunnel start --help`)
+(code USAGE, exit 2)
+### komando -o json cluster kubernetes tunnel start x1 x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.tunnel.start","error":{"code":"USAGE","message":"cluster kubernetes tunnel start takes NAME OBJECT PORT","hint":"for example: komando cluster kubernetes tunnel start prod-k8s svc/api 8080:80 --namespace shop (more in `komando cluster kubernetes tunnel start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes tunnel start x1 x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes tunnel start takes NAME OBJECT PORT
+Hint: for example: komando cluster kubernetes tunnel start prod-k8s svc/api 8080:80 --namespace shop (more in `komando cluster kubernetes tunnel start --help`)
+(code USAGE, exit 2)
+### komando -o json cluster kubernetes tunnel start x1 x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.kubernetes.tunnel.start","error":{"code":"USAGE","message":"cluster kubernetes tunnel start takes NAME OBJECT PORT","hint":"for example: komando cluster kubernetes tunnel start prod-k8s svc/api 8080:80 --namespace shop (more in `komando cluster kubernetes tunnel start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster kubernetes tunnel start x1 x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster kubernetes tunnel start takes NAME OBJECT PORT
+Hint: for example: komando cluster kubernetes tunnel start prod-k8s svc/api 8080:80 --namespace shop (more in `komando cluster kubernetes tunnel start --help`)
+(code USAGE, exit 2)
 ### komando -o json cluster list (agent json)
 exit 2
 --- stdout
@@ -1430,54 +1670,6 @@ exit 2
 Error: missing arguments; usage: komando cluster rollback TARGET TYPE/NAME
 Hint: for example: komando cluster rollback prod-k8s deployment/api --namespace shop --wait
 (code USAGE, exit 2)
-### komando -o json cluster run (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"cluster.run","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster run TARGET -- ARGS...","hint":"for example: komando cluster run prod-k8s -- get pods -A -o wide"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cluster run (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando cluster run TARGET -- ARGS...
-Hint: for example: komando cluster run prod-k8s -- get pods -A -o wide
-(code USAGE, exit 2)
-### komando -o json cluster run (script json)
-exit 2
---- stdout
-{"ok":false,"command":"cluster.run","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster run TARGET -- ARGS...","hint":"for example: komando cluster run prod-k8s -- get pods -A -o wide"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cluster run (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando cluster run TARGET -- ARGS...
-Hint: for example: komando cluster run prod-k8s -- get pods -A -o wide
-(code USAGE, exit 2)
-### komando -o json cluster run x1 (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"cluster.run","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster run TARGET -- ARGS...","hint":"for example: komando cluster run prod-k8s -- get pods -A -o wide"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cluster run x1 (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando cluster run TARGET -- ARGS...
-Hint: for example: komando cluster run prod-k8s -- get pods -A -o wide
-(code USAGE, exit 2)
-### komando -o json cluster run x1 (script json)
-exit 2
---- stdout
-{"ok":false,"command":"cluster.run","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster run TARGET -- ARGS...","hint":"for example: komando cluster run prod-k8s -- get pods -A -o wide"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cluster run x1 (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando cluster run TARGET -- ARGS...
-Hint: for example: komando cluster run prod-k8s -- get pods -A -o wide
-(code USAGE, exit 2)
 ### komando -o json cluster scale (agent json)
 exit 2
 --- stdout
@@ -1526,54 +1718,6 @@ exit 2
 Error: missing arguments; usage: komando cluster scale TARGET TYPE/NAME REPLICAS
 Hint: for example: komando cluster scale prod-k8s deployment/api 3 --namespace shop --wait
 (code USAGE, exit 2)
-### komando -o json cluster shell (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"cluster.shell","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster shell TARGET POD|TYPE/NAME [-- COMMAND...]","hint":"for example: komando cluster shell prod-k8s deploy/api --namespace shop"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cluster shell (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando cluster shell TARGET POD|TYPE/NAME [-- COMMAND...]
-Hint: for example: komando cluster shell prod-k8s deploy/api --namespace shop
-(code USAGE, exit 2)
-### komando -o json cluster shell (script json)
-exit 2
---- stdout
-{"ok":false,"command":"cluster.shell","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster shell TARGET POD|TYPE/NAME [-- COMMAND...]","hint":"for example: komando cluster shell prod-k8s deploy/api --namespace shop"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cluster shell (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando cluster shell TARGET POD|TYPE/NAME [-- COMMAND...]
-Hint: for example: komando cluster shell prod-k8s deploy/api --namespace shop
-(code USAGE, exit 2)
-### komando -o json cluster shell x1 (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"cluster.shell","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster shell TARGET POD|TYPE/NAME [-- COMMAND...]","hint":"for example: komando cluster shell prod-k8s deploy/api --namespace shop"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cluster shell x1 (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando cluster shell TARGET POD|TYPE/NAME [-- COMMAND...]
-Hint: for example: komando cluster shell prod-k8s deploy/api --namespace shop
-(code USAGE, exit 2)
-### komando -o json cluster shell x1 (script json)
-exit 2
---- stdout
-{"ok":false,"command":"cluster.shell","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster shell TARGET POD|TYPE/NAME [-- COMMAND...]","hint":"for example: komando cluster shell prod-k8s deploy/api --namespace shop"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cluster shell x1 (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando cluster shell TARGET POD|TYPE/NAME [-- COMMAND...]
-Hint: for example: komando cluster shell prod-k8s deploy/api --namespace shop
-(code USAGE, exit 2)
 ### komando -o json cluster status (agent json)
 exit 2
 --- stdout
@@ -1597,6 +1741,54 @@ exit 2
 --- stderr
 Error: missing arguments; usage: komando cluster status TARGET [TYPE/NAME]
 Hint: for example: komando cluster status prod-k8s
+(code USAGE, exit 2)
+### komando -o json cluster swarm raw (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.swarm.raw","error":{"code":"USAGE","message":"cluster swarm raw takes NAME -- COMMAND...","hint":"for example: komando cluster swarm raw swarm1 -- service ls (more in `komando cluster swarm raw --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster swarm raw (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster swarm raw takes NAME -- COMMAND...
+Hint: for example: komando cluster swarm raw swarm1 -- service ls (more in `komando cluster swarm raw --help`)
+(code USAGE, exit 2)
+### komando -o json cluster swarm raw (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.swarm.raw","error":{"code":"USAGE","message":"cluster swarm raw takes NAME -- COMMAND...","hint":"for example: komando cluster swarm raw swarm1 -- service ls (more in `komando cluster swarm raw --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster swarm raw (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster swarm raw takes NAME -- COMMAND...
+Hint: for example: komando cluster swarm raw swarm1 -- service ls (more in `komando cluster swarm raw --help`)
+(code USAGE, exit 2)
+### komando -o json cluster swarm raw x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.swarm.raw","error":{"code":"USAGE","message":"cluster swarm raw takes NAME -- COMMAND...","hint":"for example: komando cluster swarm raw swarm1 -- service ls (more in `komando cluster swarm raw --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster swarm raw x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster swarm raw takes NAME -- COMMAND...
+Hint: for example: komando cluster swarm raw swarm1 -- service ls (more in `komando cluster swarm raw --help`)
+(code USAGE, exit 2)
+### komando -o json cluster swarm raw x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.swarm.raw","error":{"code":"USAGE","message":"cluster swarm raw takes NAME -- COMMAND...","hint":"for example: komando cluster swarm raw swarm1 -- service ls (more in `komando cluster swarm raw --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster swarm raw x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: cluster swarm raw takes NAME -- COMMAND...
+Hint: for example: komando cluster swarm raw swarm1 -- service ls (more in `komando cluster swarm raw --help`)
 (code USAGE, exit 2)
 ### komando -o json config get (agent json)
 exit 2
@@ -11606,77 +11798,77 @@ exit 2
 Error: komando docker raw takes the words for docker after --; nothing was run
 Hint: put -- before the command: `komando docker raw web1 -- network ls`; komando reads its own flags (-y, --dry-run, -P) only before --
 (code USAGE, exit 2)
-### komando -o json cluster exec x1 x2 id (agent json)
+### komando -o json cluster kubernetes exec x1 x2 id (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.exec","error":{"code":"USAGE","message":"komando cluster exec takes the words for the cluster after --; nothing was run","hint":"put -- before the command: `komando cluster exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.kubernetes.exec","error":{"code":"USAGE","message":"komando cluster kubernetes exec takes the words for the cluster after --; nothing was run","hint":"put -- before the command: `komando cluster kubernetes exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text cluster exec x1 x2 id (agent text)
+### komando -o text cluster kubernetes exec x1 x2 id (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: komando cluster exec takes the words for the cluster after --; nothing was run
-Hint: put -- before the command: `komando cluster exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml`; komando reads its own flags (-y, --dry-run, -P) only before --
+Error: komando cluster kubernetes exec takes the words for the cluster after --; nothing was run
+Hint: put -- before the command: `komando cluster kubernetes exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml`; komando reads its own flags (-y, --dry-run, -P) only before --
 (code USAGE, exit 2)
-### komando -o json cluster exec x1 x2 id (script json)
+### komando -o json cluster kubernetes exec x1 x2 id (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.exec","error":{"code":"USAGE","message":"komando cluster exec takes the words for the cluster after --; nothing was run","hint":"put -- before the command: `komando cluster exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.kubernetes.exec","error":{"code":"USAGE","message":"komando cluster kubernetes exec takes the words for the cluster after --; nothing was run","hint":"put -- before the command: `komando cluster kubernetes exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text cluster exec x1 x2 id (script text)
+### komando -o text cluster kubernetes exec x1 x2 id (script text)
 exit 2
 --- stdout
 --- stderr
-Error: komando cluster exec takes the words for the cluster after --; nothing was run
-Hint: put -- before the command: `komando cluster exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml`; komando reads its own flags (-y, --dry-run, -P) only before --
+Error: komando cluster kubernetes exec takes the words for the cluster after --; nothing was run
+Hint: put -- before the command: `komando cluster kubernetes exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml`; komando reads its own flags (-y, --dry-run, -P) only before --
 (code USAGE, exit 2)
-### komando -o json cluster shell x1 x2 sh (agent json)
+### komando -o json cluster kubernetes shell x1 x2 sh (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.shell","error":{"code":"USAGE","message":"komando cluster shell takes the words for the cluster after --; nothing was run","hint":"put -- before the command: `komando cluster shell prod-k8s api-7d9f-x2 -c api -- /bin/ash`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.kubernetes.shell","error":{"code":"USAGE","message":"komando cluster kubernetes shell takes the words for the cluster after --; nothing was run","hint":"put -- before the command: `komando cluster kubernetes shell prod-k8s api-7d9f-x2 -c api -- /bin/ash`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text cluster shell x1 x2 sh (agent text)
+### komando -o text cluster kubernetes shell x1 x2 sh (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: komando cluster shell takes the words for the cluster after --; nothing was run
-Hint: put -- before the command: `komando cluster shell prod-k8s api-7d9f-x2 -c api -- /bin/ash`; komando reads its own flags (-y, --dry-run, -P) only before --
+Error: komando cluster kubernetes shell takes the words for the cluster after --; nothing was run
+Hint: put -- before the command: `komando cluster kubernetes shell prod-k8s api-7d9f-x2 -c api -- /bin/ash`; komando reads its own flags (-y, --dry-run, -P) only before --
 (code USAGE, exit 2)
-### komando -o json cluster shell x1 x2 sh (script json)
+### komando -o json cluster kubernetes shell x1 x2 sh (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.shell","error":{"code":"USAGE","message":"komando cluster shell takes the words for the cluster after --; nothing was run","hint":"put -- before the command: `komando cluster shell prod-k8s api-7d9f-x2 -c api -- /bin/ash`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.kubernetes.shell","error":{"code":"USAGE","message":"komando cluster kubernetes shell takes the words for the cluster after --; nothing was run","hint":"put -- before the command: `komando cluster kubernetes shell prod-k8s api-7d9f-x2 -c api -- /bin/ash`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text cluster shell x1 x2 sh (script text)
+### komando -o text cluster kubernetes shell x1 x2 sh (script text)
 exit 2
 --- stdout
 --- stderr
-Error: komando cluster shell takes the words for the cluster after --; nothing was run
-Hint: put -- before the command: `komando cluster shell prod-k8s api-7d9f-x2 -c api -- /bin/ash`; komando reads its own flags (-y, --dry-run, -P) only before --
+Error: komando cluster kubernetes shell takes the words for the cluster after --; nothing was run
+Hint: put -- before the command: `komando cluster kubernetes shell prod-k8s api-7d9f-x2 -c api -- /bin/ash`; komando reads its own flags (-y, --dry-run, -P) only before --
 (code USAGE, exit 2)
-### komando -o json cluster run x1 get pods (agent json)
+### komando -o json cluster kubernetes raw x1 get pods (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.run","error":{"code":"USAGE","message":"komando cluster run takes the words for the cluster after --; nothing was run","hint":"put -- before the command: `komando cluster run prod-k8s -- get pods -A -o wide`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.kubernetes.raw","error":{"code":"USAGE","message":"komando cluster kubernetes raw takes the words for the cluster after --; nothing was run","hint":"put -- before the command: `komando cluster kubernetes raw prod-k8s -- get pods -A -o wide`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text cluster run x1 get pods (agent text)
+### komando -o text cluster kubernetes raw x1 get pods (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: komando cluster run takes the words for the cluster after --; nothing was run
-Hint: put -- before the command: `komando cluster run prod-k8s -- get pods -A -o wide`; komando reads its own flags (-y, --dry-run, -P) only before --
+Error: komando cluster kubernetes raw takes the words for the cluster after --; nothing was run
+Hint: put -- before the command: `komando cluster kubernetes raw prod-k8s -- get pods -A -o wide`; komando reads its own flags (-y, --dry-run, -P) only before --
 (code USAGE, exit 2)
-### komando -o json cluster run x1 get pods (script json)
+### komando -o json cluster kubernetes raw x1 get pods (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.run","error":{"code":"USAGE","message":"komando cluster run takes the words for the cluster after --; nothing was run","hint":"put -- before the command: `komando cluster run prod-k8s -- get pods -A -o wide`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.kubernetes.raw","error":{"code":"USAGE","message":"komando cluster kubernetes raw takes the words for the cluster after --; nothing was run","hint":"put -- before the command: `komando cluster kubernetes raw prod-k8s -- get pods -A -o wide`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text cluster run x1 get pods (script text)
+### komando -o text cluster kubernetes raw x1 get pods (script text)
 exit 2
 --- stdout
 --- stderr
-Error: komando cluster run takes the words for the cluster after --; nothing was run
-Hint: put -- before the command: `komando cluster run prod-k8s -- get pods -A -o wide`; komando reads its own flags (-y, --dry-run, -P) only before --
+Error: komando cluster kubernetes raw takes the words for the cluster after --; nothing was run
+Hint: put -- before the command: `komando cluster kubernetes raw prod-k8s -- get pods -A -o wide`; komando reads its own flags (-y, --dry-run, -P) only before --
 (code USAGE, exit 2)
 ### komando -o json cache redis raw x1 GET k (agent json)
 exit 2
@@ -13339,26 +13531,26 @@ Hint: run `komando host rm web1` instead
 ### komando -o json kubectl get pods (agent json, release note)
 exit 2
 --- stdout
-{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"kubectl\"; komando does this with `komando cluster run TARGET -- ...`","hint":"run `komando cluster run TARGET -- ...` instead","suggestion":"cluster run TARGET -- ..."},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"kubectl\"; komando does this with `komando cluster kubernetes raw NAME -- ...`","hint":"run `komando cluster kubernetes raw NAME -- ...` instead","suggestion":"cluster kubernetes raw NAME -- ..."},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text kubectl get pods (agent text, release note)
 exit 2
 --- stdout
 --- stderr
-Error: unknown command "kubectl"; komando does this with `komando cluster run TARGET -- ...`
-Hint: run `komando cluster run TARGET -- ...` instead
+Error: unknown command "kubectl"; komando does this with `komando cluster kubernetes raw NAME -- ...`
+Hint: run `komando cluster kubernetes raw NAME -- ...` instead
 (code USAGE, exit 2)
 ### komando -o json kubectl get pods (script json, release note)
 exit 2
 --- stdout
-{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"kubectl\"; komando does this with `komando cluster run TARGET -- ...`","hint":"run `komando cluster run TARGET -- ...` instead","suggestion":"cluster run TARGET -- ..."},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"kubectl\"; komando does this with `komando cluster kubernetes raw NAME -- ...`","hint":"run `komando cluster kubernetes raw NAME -- ...` instead","suggestion":"cluster kubernetes raw NAME -- ..."},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text kubectl get pods (script text, release note)
 exit 2
 --- stdout
 --- stderr
-Error: unknown command "kubectl"; komando does this with `komando cluster run TARGET -- ...`
-Hint: run `komando cluster run TARGET -- ...` instead
+Error: unknown command "kubectl"; komando does this with `komando cluster kubernetes raw NAME -- ...`
+Hint: run `komando cluster kubernetes raw NAME -- ...` instead
 (code USAGE, exit 2)
 ### komando -o json psql (agent json, release note)
 exit 2
@@ -13504,28 +13696,28 @@ exit 6
 Stopped: komando storage s3 object link is refused for a read-only key: it makes a link that opens the data without a login; nothing was changed
 Hint: this key was added with --read-only and runs only commands that read; use a key that may change things, or the komando computer itself
 (code SSH_GATE_READ_ONLY, exit 6)
-### komando -o json ssh-gate --name phone-read --read-only, SSH_ORIGINAL_COMMAND='komando cluster forward k8s svc/web 8080' (agent json, read-only key)
+### komando -o json ssh-gate --name phone-read --read-only, SSH_ORIGINAL_COMMAND='komando cluster kubernetes tunnel start k8s svc/web 8080' (agent json, read-only key)
 exit 6
 --- stdout
 {"ok":false,"command":"ssh-gate","error":{"code":"SSH_GATE_REFUSED","message":"ssh-gate runs when sshd starts it for a key, and this call comes from an AI agent (An AI agent)","hint":"an AI agent runs komando directly (`komando list`), not through ssh-gate"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text ssh-gate --name phone-read --read-only, SSH_ORIGINAL_COMMAND='komando cluster forward k8s svc/web 8080' (agent text, read-only key)
+### komando -o text ssh-gate --name phone-read --read-only, SSH_ORIGINAL_COMMAND='komando cluster kubernetes tunnel start k8s svc/web 8080' (agent text, read-only key)
 exit 6
 --- stdout
 --- stderr
 Stopped: ssh-gate runs when sshd starts it for a key, and this call comes from an AI agent (An AI agent); nothing was changed
 Hint: an AI agent runs komando directly (`komando list`), not through ssh-gate
 (code SSH_GATE_REFUSED, exit 6)
-### komando -o json ssh-gate --name phone-read --read-only, SSH_ORIGINAL_COMMAND='komando cluster forward k8s svc/web 8080' (script json, read-only key)
+### komando -o json ssh-gate --name phone-read --read-only, SSH_ORIGINAL_COMMAND='komando cluster kubernetes tunnel start k8s svc/web 8080' (script json, read-only key)
 exit 6
 --- stdout
-{"ok":false,"command":"ssh-gate","error":{"code":"SSH_GATE_READ_ONLY","message":"komando cluster forward is refused for a read-only key: it opens a port on the komando computer","hint":"this key was added with --read-only and runs only commands that read; use a key that may change things, or the komando computer itself"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"ssh-gate","error":{"code":"SSH_GATE_READ_ONLY","message":"komando cluster kubernetes tunnel start is refused for a read-only key: it opens a port on the komando computer","hint":"this key was added with --read-only and runs only commands that read; use a key that may change things, or the komando computer itself"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text ssh-gate --name phone-read --read-only, SSH_ORIGINAL_COMMAND='komando cluster forward k8s svc/web 8080' (script text, read-only key)
+### komando -o text ssh-gate --name phone-read --read-only, SSH_ORIGINAL_COMMAND='komando cluster kubernetes tunnel start k8s svc/web 8080' (script text, read-only key)
 exit 6
 --- stdout
 --- stderr
-Stopped: komando cluster forward is refused for a read-only key: it opens a port on the komando computer; nothing was changed
+Stopped: komando cluster kubernetes tunnel start is refused for a read-only key: it opens a port on the komando computer; nothing was changed
 Hint: this key was added with --read-only and runs only commands that read; use a key that may change things, or the komando computer itself
 (code SSH_GATE_READ_ONLY, exit 6)
 ### komando schema storage s3 object link (schema values)
@@ -13533,9 +13725,9 @@ exit 0
 komando storage s3 object link kind=change confirm=[{"tier":"change"},{"flag":"--yes","tier":"safety","when":"when an AI agent makes a link (a person allows --reveal)"}]
   --endpoint type=string
   --expires type=duration default=1h
-### komando schema cluster forward (schema values)
+### komando schema cluster kubernetes tunnel start (schema values)
 exit 0
-komando cluster forward kind=change confirm=[{"tier":"change"}]
+komando cluster kubernetes tunnel start kind=change confirm=[{"tier":"change"}]
   --namespace shorthand=n type=string
 ### komando schema host add (schema values)
 exit 0
