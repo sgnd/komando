@@ -20,7 +20,13 @@ import (
 // with no scheme (github.com/sgnd/komando) counts as https.
 var releaseSites = []struct{ prefix, why string }{
 	{"https://github.com/sgnd/komando", "the release site: `komando update` reads releases here, and hints link to the install steps and docs of the same repo"},
-	{"https://raw.githubusercontent.com/sgnd/komando", "the installer of a release of the same repo: the move to format 3 prints the install line of the last release that opens a format-2 store (store.LastFormat2Release); komando never fetches it"},
+}
+
+// exactSites are komando-owned addresses the code may name only exactly as
+// written here, never as a prefix (C562): nothing may go on after them in
+// the same string.
+var exactSites = []struct{ addr, why string }{
+	{"https://raw.githubusercontent.com/sgnd/komando/", "the start of the installer address of a release: the move to format 3 prints the install line of the last release that opens a format-2 store, and the constants store.LastFormat2Release and \"/install.sh\" follow it (internal/store/migrate3_fix.go); komando never fetches it"},
 }
 
 // projectOwner is the GitHub account komando's repositories live under.
@@ -80,6 +86,11 @@ func releaseSite(addr string) bool {
 	}
 	for _, s := range releaseSites {
 		if addr == s.prefix || (strings.HasPrefix(addr, s.prefix) && strings.ContainsRune("/#?", rune(addr[len(s.prefix)]))) {
+			return true
+		}
+	}
+	for _, s := range exactSites {
+		if addr == s.addr {
 			return true
 		}
 	}
@@ -218,6 +229,9 @@ func TestKomandoOwned(t *testing.T) {
 		"wss://github.com/sgnd/komando":                      false,
 		"https://api.github.com/repos/sgnd/komando/releases": false,
 		"https://raw.githubusercontent.com/sgnd/komando/x":   false,
+		"https://raw.githubusercontent.com/sgnd/komando/":    true,
+		"https://raw.githubusercontent.com/sgnd/komando":     false,
+		"raw.githubusercontent.com/sgnd/komando/main/x.sh":   false,
 	} {
 		if got := releaseSite(u); got != want {
 			t.Errorf("releaseSite(%q) = %v, want %v", u, got, want)

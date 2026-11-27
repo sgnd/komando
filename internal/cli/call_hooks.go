@@ -169,6 +169,12 @@ func init() {
 	// a note of the store (a new store beside a keychain that could not be
 	// read) goes to the stderr of every running call
 	store.Notice = storeNotice
+	netxHooks()
+}
+
+// netxHooks are the hooks of the VPN layer: the notice while another
+// command holds a VPN's lock, and the call a VPN session writes for.
+func netxHooks() {
 	netx.LockBusy = func(name string) {
 		for _, cl := range runningCalls() {
 			noticef(cl, "another komando command is connecting or disconnecting vpn %s (a sign-in may be waiting in its browser window); waiting for it to end", name)
