@@ -5150,437 +5150,2693 @@ exit 2
 Error: missing arguments; usage: komando policy show RULE
 Hint: for example: komando policy show docker-prune
 (code USAGE, exit 2)
-### komando -o json queue add (agent json)
+### komando -o json queue kafka add (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.add","error":{"code":"USAGE","message":"komando queue add needs a name and a URL","hint":"for example: komando queue add orders kafka://10.0.0.8:9092 --via web1. A person can type `komando queue add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.add","error":{"code":"USAGE","message":"queue kafka add takes NAME [URL]","hint":"for example: komando queue kafka add prod-kafka kafka://10.0.0.8:9092 --via web1 (more in `komando queue kafka add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue add (agent text)
+### komando -o text queue kafka add (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: komando queue add needs a name and a URL
-Hint: for example: komando queue add orders kafka://10.0.0.8:9092 --via web1. A person can type `komando queue add` alone at a terminal to be asked step by step
+Error: queue kafka add takes NAME [URL]
+Hint: for example: komando queue kafka add prod-kafka kafka://10.0.0.8:9092 --via web1 (more in `komando queue kafka add --help`)
 (code USAGE, exit 2)
-### komando -o json queue add (script json)
+### komando -o json queue kafka add (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.add","error":{"code":"USAGE","message":"komando queue add needs a name and a URL","hint":"for example: komando queue add orders kafka://10.0.0.8:9092 --via web1. A person can type `komando queue add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.add","error":{"code":"USAGE","message":"queue kafka add takes NAME [URL]","hint":"for example: komando queue kafka add prod-kafka kafka://10.0.0.8:9092 --via web1 (more in `komando queue kafka add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue add (script text)
+### komando -o text queue kafka add (script text)
 exit 2
 --- stdout
 --- stderr
-Error: komando queue add needs a name and a URL
-Hint: for example: komando queue add orders kafka://10.0.0.8:9092 --via web1. A person can type `komando queue add` alone at a terminal to be asked step by step
+Error: queue kafka add takes NAME [URL]
+Hint: for example: komando queue kafka add prod-kafka kafka://10.0.0.8:9092 --via web1 (more in `komando queue kafka add --help`)
 (code USAGE, exit 2)
-### komando -o json queue create (agent json)
+### komando -o json queue kafka consumer list (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.create","error":{"code":"USAGE","message":"missing arguments; usage: komando queue create CONN TOPIC","hint":"for example: komando queue create prod-kafka orders --partitions 6 --replicas 3 --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.consumer.list","error":{"code":"USAGE","message":"queue kafka consumer list takes NAME","hint":"for example: komando queue kafka consumer list prod-kafka (more in `komando queue kafka consumer list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue create (agent text)
+### komando -o text queue kafka consumer list (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue create CONN TOPIC
-Hint: for example: komando queue create prod-kafka orders --partitions 6 --replicas 3 --dry-run
+Error: queue kafka consumer list takes NAME
+Hint: for example: komando queue kafka consumer list prod-kafka (more in `komando queue kafka consumer list --help`)
 (code USAGE, exit 2)
-### komando -o json queue create (script json)
+### komando -o json queue kafka consumer list (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.create","error":{"code":"USAGE","message":"missing arguments; usage: komando queue create CONN TOPIC","hint":"for example: komando queue create prod-kafka orders --partitions 6 --replicas 3 --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.consumer.list","error":{"code":"USAGE","message":"queue kafka consumer list takes NAME","hint":"for example: komando queue kafka consumer list prod-kafka (more in `komando queue kafka consumer list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue create (script text)
+### komando -o text queue kafka consumer list (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue create CONN TOPIC
-Hint: for example: komando queue create prod-kafka orders --partitions 6 --replicas 3 --dry-run
+Error: queue kafka consumer list takes NAME
+Hint: for example: komando queue kafka consumer list prod-kafka (more in `komando queue kafka consumer list --help`)
 (code USAGE, exit 2)
-### komando -o json queue create x1 (agent json)
+### komando -o json queue kafka consumer show (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.create","error":{"code":"USAGE","message":"missing arguments; usage: komando queue create CONN TOPIC","hint":"for example: komando queue create prod-kafka orders --partitions 6 --replicas 3 --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.consumer.show","error":{"code":"USAGE","message":"queue kafka consumer show takes NAME CONSUMER","hint":"for example: komando queue kafka consumer show prod-kafka billing (more in `komando queue kafka consumer show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue create x1 (agent text)
+### komando -o text queue kafka consumer show (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue create CONN TOPIC
-Hint: for example: komando queue create prod-kafka orders --partitions 6 --replicas 3 --dry-run
+Error: queue kafka consumer show takes NAME CONSUMER
+Hint: for example: komando queue kafka consumer show prod-kafka billing (more in `komando queue kafka consumer show --help`)
 (code USAGE, exit 2)
-### komando -o json queue create x1 (script json)
+### komando -o json queue kafka consumer show (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.create","error":{"code":"USAGE","message":"missing arguments; usage: komando queue create CONN TOPIC","hint":"for example: komando queue create prod-kafka orders --partitions 6 --replicas 3 --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.consumer.show","error":{"code":"USAGE","message":"queue kafka consumer show takes NAME CONSUMER","hint":"for example: komando queue kafka consumer show prod-kafka billing (more in `komando queue kafka consumer show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue create x1 (script text)
+### komando -o text queue kafka consumer show (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue create CONN TOPIC
-Hint: for example: komando queue create prod-kafka orders --partitions 6 --replicas 3 --dry-run
+Error: queue kafka consumer show takes NAME CONSUMER
+Hint: for example: komando queue kafka consumer show prod-kafka billing (more in `komando queue kafka consumer show --help`)
 (code USAGE, exit 2)
-### komando -o json queue describe (agent json)
+### komando -o json queue kafka consumer show x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.describe","error":{"code":"USAGE","message":"missing arguments; usage: komando queue describe CONN TOPIC","hint":"for example: komando queue describe prod-kafka orders"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.consumer.show","error":{"code":"USAGE","message":"queue kafka consumer show takes NAME CONSUMER","hint":"for example: komando queue kafka consumer show prod-kafka billing (more in `komando queue kafka consumer show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue describe (agent text)
+### komando -o text queue kafka consumer show x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue describe CONN TOPIC
-Hint: for example: komando queue describe prod-kafka orders
+Error: queue kafka consumer show takes NAME CONSUMER
+Hint: for example: komando queue kafka consumer show prod-kafka billing (more in `komando queue kafka consumer show --help`)
 (code USAGE, exit 2)
-### komando -o json queue describe (script json)
+### komando -o json queue kafka consumer show x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.describe","error":{"code":"USAGE","message":"missing arguments; usage: komando queue describe CONN TOPIC","hint":"for example: komando queue describe prod-kafka orders"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.consumer.show","error":{"code":"USAGE","message":"queue kafka consumer show takes NAME CONSUMER","hint":"for example: komando queue kafka consumer show prod-kafka billing (more in `komando queue kafka consumer show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue describe (script text)
+### komando -o text queue kafka consumer show x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue describe CONN TOPIC
-Hint: for example: komando queue describe prod-kafka orders
+Error: queue kafka consumer show takes NAME CONSUMER
+Hint: for example: komando queue kafka consumer show prod-kafka billing (more in `komando queue kafka consumer show --help`)
 (code USAGE, exit 2)
-### komando -o json queue describe x1 (agent json)
+### komando -o json queue kafka edit (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.describe","error":{"code":"USAGE","message":"missing arguments; usage: komando queue describe CONN TOPIC","hint":"for example: komando queue describe prod-kafka orders"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.edit","error":{"code":"USAGE","message":"queue kafka edit takes NAME","hint":"for example: komando queue kafka edit prod-kafka --add-tag critical (more in `komando queue kafka edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue describe x1 (agent text)
+### komando -o text queue kafka edit (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue describe CONN TOPIC
-Hint: for example: komando queue describe prod-kafka orders
+Error: queue kafka edit takes NAME
+Hint: for example: komando queue kafka edit prod-kafka --add-tag critical (more in `komando queue kafka edit --help`)
 (code USAGE, exit 2)
-### komando -o json queue describe x1 (script json)
+### komando -o json queue kafka edit (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.describe","error":{"code":"USAGE","message":"missing arguments; usage: komando queue describe CONN TOPIC","hint":"for example: komando queue describe prod-kafka orders"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.edit","error":{"code":"USAGE","message":"queue kafka edit takes NAME","hint":"for example: komando queue kafka edit prod-kafka --add-tag critical (more in `komando queue kafka edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue describe x1 (script text)
+### komando -o text queue kafka edit (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue describe CONN TOPIC
-Hint: for example: komando queue describe prod-kafka orders
+Error: queue kafka edit takes NAME
+Hint: for example: komando queue kafka edit prod-kafka --add-tag critical (more in `komando queue kafka edit --help`)
 (code USAGE, exit 2)
-### komando -o json queue groups (agent json)
+### komando -o json queue kafka info (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.groups","error":{"code":"USAGE","message":"missing arguments; usage: komando queue groups CONN","hint":"for example: komando queue groups prod-kafka"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.info","error":{"code":"USAGE","message":"queue kafka info takes NAME","hint":"for example: komando queue kafka info prod-kafka (more in `komando queue kafka info --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue groups (agent text)
+### komando -o text queue kafka info (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue groups CONN
-Hint: for example: komando queue groups prod-kafka
+Error: queue kafka info takes NAME
+Hint: for example: komando queue kafka info prod-kafka (more in `komando queue kafka info --help`)
 (code USAGE, exit 2)
-### komando -o json queue groups (script json)
+### komando -o json queue kafka info (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.groups","error":{"code":"USAGE","message":"missing arguments; usage: komando queue groups CONN","hint":"for example: komando queue groups prod-kafka"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.info","error":{"code":"USAGE","message":"queue kafka info takes NAME","hint":"for example: komando queue kafka info prod-kafka (more in `komando queue kafka info --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue groups (script text)
+### komando -o text queue kafka info (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue groups CONN
-Hint: for example: komando queue groups prod-kafka
+Error: queue kafka info takes NAME
+Hint: for example: komando queue kafka info prod-kafka (more in `komando queue kafka info --help`)
 (code USAGE, exit 2)
-### komando -o json queue info (agent json)
+### komando -o json queue kafka message create (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.info","error":{"code":"USAGE","message":"missing arguments; usage: komando queue info CONN","hint":"for example: komando queue info prod-kafka"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.message.create","error":{"code":"USAGE","message":"queue kafka message create takes NAME TOPIC","hint":"for example: komando queue kafka message create prod-kafka orders --value test --dry-run (more in `komando queue kafka message create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue info (agent text)
+### komando -o text queue kafka message create (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue info CONN
-Hint: for example: komando queue info prod-kafka
+Error: queue kafka message create takes NAME TOPIC
+Hint: for example: komando queue kafka message create prod-kafka orders --value test --dry-run (more in `komando queue kafka message create --help`)
 (code USAGE, exit 2)
-### komando -o json queue info (script json)
+### komando -o json queue kafka message create (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.info","error":{"code":"USAGE","message":"missing arguments; usage: komando queue info CONN","hint":"for example: komando queue info prod-kafka"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.message.create","error":{"code":"USAGE","message":"queue kafka message create takes NAME TOPIC","hint":"for example: komando queue kafka message create prod-kafka orders --value test --dry-run (more in `komando queue kafka message create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue info (script text)
+### komando -o text queue kafka message create (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue info CONN
-Hint: for example: komando queue info prod-kafka
+Error: queue kafka message create takes NAME TOPIC
+Hint: for example: komando queue kafka message create prod-kafka orders --value test --dry-run (more in `komando queue kafka message create --help`)
 (code USAGE, exit 2)
-### komando -o json queue lag (agent json)
+### komando -o json queue kafka message create x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.lag","error":{"code":"USAGE","message":"missing arguments; usage: komando queue lag CONN CONSUMER","hint":"for example: komando queue lag prod-kafka billing"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.message.create","error":{"code":"USAGE","message":"queue kafka message create takes NAME TOPIC","hint":"for example: komando queue kafka message create prod-kafka orders --value test --dry-run (more in `komando queue kafka message create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue lag (agent text)
+### komando -o text queue kafka message create x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue lag CONN CONSUMER
-Hint: for example: komando queue lag prod-kafka billing
+Error: queue kafka message create takes NAME TOPIC
+Hint: for example: komando queue kafka message create prod-kafka orders --value test --dry-run (more in `komando queue kafka message create --help`)
 (code USAGE, exit 2)
-### komando -o json queue lag (script json)
+### komando -o json queue kafka message create x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.lag","error":{"code":"USAGE","message":"missing arguments; usage: komando queue lag CONN CONSUMER","hint":"for example: komando queue lag prod-kafka billing"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.message.create","error":{"code":"USAGE","message":"queue kafka message create takes NAME TOPIC","hint":"for example: komando queue kafka message create prod-kafka orders --value test --dry-run (more in `komando queue kafka message create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue lag (script text)
+### komando -o text queue kafka message create x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue lag CONN CONSUMER
-Hint: for example: komando queue lag prod-kafka billing
+Error: queue kafka message create takes NAME TOPIC
+Hint: for example: komando queue kafka message create prod-kafka orders --value test --dry-run (more in `komando queue kafka message create --help`)
 (code USAGE, exit 2)
-### komando -o json queue lag x1 (agent json)
+### komando -o json queue kafka message delete (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.lag","error":{"code":"USAGE","message":"missing arguments; usage: komando queue lag CONN CONSUMER","hint":"for example: komando queue lag prod-kafka billing"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.message.delete","error":{"code":"USAGE","message":"queue kafka message delete takes NAME TOPIC","hint":"for example: komando queue kafka message delete prod-kafka orders-retry --all --dry-run (more in `komando queue kafka message delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue lag x1 (agent text)
+### komando -o text queue kafka message delete (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue lag CONN CONSUMER
-Hint: for example: komando queue lag prod-kafka billing
+Error: queue kafka message delete takes NAME TOPIC
+Hint: for example: komando queue kafka message delete prod-kafka orders-retry --all --dry-run (more in `komando queue kafka message delete --help`)
 (code USAGE, exit 2)
-### komando -o json queue lag x1 (script json)
+### komando -o json queue kafka message delete (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.lag","error":{"code":"USAGE","message":"missing arguments; usage: komando queue lag CONN CONSUMER","hint":"for example: komando queue lag prod-kafka billing"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.message.delete","error":{"code":"USAGE","message":"queue kafka message delete takes NAME TOPIC","hint":"for example: komando queue kafka message delete prod-kafka orders-retry --all --dry-run (more in `komando queue kafka message delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue lag x1 (script text)
+### komando -o text queue kafka message delete (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue lag CONN CONSUMER
-Hint: for example: komando queue lag prod-kafka billing
+Error: queue kafka message delete takes NAME TOPIC
+Hint: for example: komando queue kafka message delete prod-kafka orders-retry --all --dry-run (more in `komando queue kafka message delete --help`)
 (code USAGE, exit 2)
-### komando -o json queue list (agent json)
+### komando -o json queue kafka message delete x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.list","error":{"code":"USAGE","message":"missing arguments; usage: komando queue list CONN [PATTERN]","hint":"for example: komando queue list prod-kafka"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.message.delete","error":{"code":"USAGE","message":"queue kafka message delete takes NAME TOPIC","hint":"for example: komando queue kafka message delete prod-kafka orders-retry --all --dry-run (more in `komando queue kafka message delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue list (agent text)
+### komando -o text queue kafka message delete x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue list CONN [PATTERN]
-Hint: for example: komando queue list prod-kafka
+Error: queue kafka message delete takes NAME TOPIC
+Hint: for example: komando queue kafka message delete prod-kafka orders-retry --all --dry-run (more in `komando queue kafka message delete --help`)
 (code USAGE, exit 2)
-### komando -o json queue list (script json)
+### komando -o json queue kafka message delete x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.list","error":{"code":"USAGE","message":"missing arguments; usage: komando queue list CONN [PATTERN]","hint":"for example: komando queue list prod-kafka"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.message.delete","error":{"code":"USAGE","message":"queue kafka message delete takes NAME TOPIC","hint":"for example: komando queue kafka message delete prod-kafka orders-retry --all --dry-run (more in `komando queue kafka message delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue list (script text)
+### komando -o text queue kafka message delete x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue list CONN [PATTERN]
-Hint: for example: komando queue list prod-kafka
+Error: queue kafka message delete takes NAME TOPIC
+Hint: for example: komando queue kafka message delete prod-kafka orders-retry --all --dry-run (more in `komando queue kafka message delete --help`)
 (code USAGE, exit 2)
-### komando -o json queue peek (agent json)
+### komando -o json queue kafka message list (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.peek","error":{"code":"USAGE","message":"missing arguments; usage: komando queue peek CONN TOPIC","hint":"for example: komando queue peek prod-kafka orders"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.message.list","error":{"code":"USAGE","message":"queue kafka message list takes NAME TOPIC","hint":"for example: komando queue kafka message list prod-kafka orders (more in `komando queue kafka message list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue peek (agent text)
+### komando -o text queue kafka message list (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue peek CONN TOPIC
-Hint: for example: komando queue peek prod-kafka orders
+Error: queue kafka message list takes NAME TOPIC
+Hint: for example: komando queue kafka message list prod-kafka orders (more in `komando queue kafka message list --help`)
 (code USAGE, exit 2)
-### komando -o json queue peek (script json)
+### komando -o json queue kafka message list (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.peek","error":{"code":"USAGE","message":"missing arguments; usage: komando queue peek CONN TOPIC","hint":"for example: komando queue peek prod-kafka orders"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.message.list","error":{"code":"USAGE","message":"queue kafka message list takes NAME TOPIC","hint":"for example: komando queue kafka message list prod-kafka orders (more in `komando queue kafka message list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue peek (script text)
+### komando -o text queue kafka message list (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue peek CONN TOPIC
-Hint: for example: komando queue peek prod-kafka orders
+Error: queue kafka message list takes NAME TOPIC
+Hint: for example: komando queue kafka message list prod-kafka orders (more in `komando queue kafka message list --help`)
 (code USAGE, exit 2)
-### komando -o json queue peek x1 (agent json)
+### komando -o json queue kafka message list x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.peek","error":{"code":"USAGE","message":"missing arguments; usage: komando queue peek CONN TOPIC","hint":"for example: komando queue peek prod-kafka orders"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.message.list","error":{"code":"USAGE","message":"queue kafka message list takes NAME TOPIC","hint":"for example: komando queue kafka message list prod-kafka orders (more in `komando queue kafka message list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue peek x1 (agent text)
+### komando -o text queue kafka message list x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue peek CONN TOPIC
-Hint: for example: komando queue peek prod-kafka orders
+Error: queue kafka message list takes NAME TOPIC
+Hint: for example: komando queue kafka message list prod-kafka orders (more in `komando queue kafka message list --help`)
 (code USAGE, exit 2)
-### komando -o json queue peek x1 (script json)
+### komando -o json queue kafka message list x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.peek","error":{"code":"USAGE","message":"missing arguments; usage: komando queue peek CONN TOPIC","hint":"for example: komando queue peek prod-kafka orders"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.message.list","error":{"code":"USAGE","message":"queue kafka message list takes NAME TOPIC","hint":"for example: komando queue kafka message list prod-kafka orders (more in `komando queue kafka message list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue peek x1 (script text)
+### komando -o text queue kafka message list x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue peek CONN TOPIC
-Hint: for example: komando queue peek prod-kafka orders
+Error: queue kafka message list takes NAME TOPIC
+Hint: for example: komando queue kafka message list prod-kafka orders (more in `komando queue kafka message list --help`)
 (code USAGE, exit 2)
-### komando -o json queue purge (agent json)
+### komando -o json queue kafka remove (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.purge","error":{"code":"USAGE","message":"missing arguments; usage: komando queue purge CONN TOPIC","hint":"for example: komando queue purge prod-kafka orders-retry --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.remove","error":{"code":"USAGE","message":"queue kafka remove takes TARGET...","hint":"for example: komando queue kafka remove prod-kafka --dry-run (more in `komando queue kafka remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue purge (agent text)
+### komando -o text queue kafka remove (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue purge CONN TOPIC
-Hint: for example: komando queue purge prod-kafka orders-retry --dry-run
+Error: queue kafka remove takes TARGET...
+Hint: for example: komando queue kafka remove prod-kafka --dry-run (more in `komando queue kafka remove --help`)
 (code USAGE, exit 2)
-### komando -o json queue purge (script json)
+### komando -o json queue kafka remove (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.purge","error":{"code":"USAGE","message":"missing arguments; usage: komando queue purge CONN TOPIC","hint":"for example: komando queue purge prod-kafka orders-retry --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.remove","error":{"code":"USAGE","message":"queue kafka remove takes TARGET...","hint":"for example: komando queue kafka remove prod-kafka --dry-run (more in `komando queue kafka remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue purge (script text)
+### komando -o text queue kafka remove (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue purge CONN TOPIC
-Hint: for example: komando queue purge prod-kafka orders-retry --dry-run
+Error: queue kafka remove takes TARGET...
+Hint: for example: komando queue kafka remove prod-kafka --dry-run (more in `komando queue kafka remove --help`)
 (code USAGE, exit 2)
-### komando -o json queue purge x1 (agent json)
+### komando -o json queue kafka rename (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.purge","error":{"code":"USAGE","message":"missing arguments; usage: komando queue purge CONN TOPIC","hint":"for example: komando queue purge prod-kafka orders-retry --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.rename","error":{"code":"USAGE","message":"queue kafka rename takes NAME NEW","hint":"for example: komando queue kafka rename prod-kafka prod-kafka-2 --dry-run (more in `komando queue kafka rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue purge x1 (agent text)
+### komando -o text queue kafka rename (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue purge CONN TOPIC
-Hint: for example: komando queue purge prod-kafka orders-retry --dry-run
+Error: queue kafka rename takes NAME NEW
+Hint: for example: komando queue kafka rename prod-kafka prod-kafka-2 --dry-run (more in `komando queue kafka rename --help`)
 (code USAGE, exit 2)
-### komando -o json queue purge x1 (script json)
+### komando -o json queue kafka rename (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.purge","error":{"code":"USAGE","message":"missing arguments; usage: komando queue purge CONN TOPIC","hint":"for example: komando queue purge prod-kafka orders-retry --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.rename","error":{"code":"USAGE","message":"queue kafka rename takes NAME NEW","hint":"for example: komando queue kafka rename prod-kafka prod-kafka-2 --dry-run (more in `komando queue kafka rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue purge x1 (script text)
+### komando -o text queue kafka rename (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue purge CONN TOPIC
-Hint: for example: komando queue purge prod-kafka orders-retry --dry-run
+Error: queue kafka rename takes NAME NEW
+Hint: for example: komando queue kafka rename prod-kafka prod-kafka-2 --dry-run (more in `komando queue kafka rename --help`)
 (code USAGE, exit 2)
-### komando -o json queue rm (agent json)
+### komando -o json queue kafka rename x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando queue rm CONN TOPIC...","hint":"for example: komando queue rm prod-kafka old-orders --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.rename","error":{"code":"USAGE","message":"queue kafka rename takes NAME NEW","hint":"for example: komando queue kafka rename prod-kafka prod-kafka-2 --dry-run (more in `komando queue kafka rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue rm (agent text)
+### komando -o text queue kafka rename x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue rm CONN TOPIC...
-Hint: for example: komando queue rm prod-kafka old-orders --dry-run
+Error: queue kafka rename takes NAME NEW
+Hint: for example: komando queue kafka rename prod-kafka prod-kafka-2 --dry-run (more in `komando queue kafka rename --help`)
 (code USAGE, exit 2)
-### komando -o json queue rm (script json)
+### komando -o json queue kafka rename x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando queue rm CONN TOPIC...","hint":"for example: komando queue rm prod-kafka old-orders --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.rename","error":{"code":"USAGE","message":"queue kafka rename takes NAME NEW","hint":"for example: komando queue kafka rename prod-kafka prod-kafka-2 --dry-run (more in `komando queue kafka rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue rm (script text)
+### komando -o text queue kafka rename x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue rm CONN TOPIC...
-Hint: for example: komando queue rm prod-kafka old-orders --dry-run
+Error: queue kafka rename takes NAME NEW
+Hint: for example: komando queue kafka rename prod-kafka prod-kafka-2 --dry-run (more in `komando queue kafka rename --help`)
 (code USAGE, exit 2)
-### komando -o json queue rm x1 (agent json)
+### komando -o json queue kafka show (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando queue rm CONN TOPIC...","hint":"for example: komando queue rm prod-kafka old-orders --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.show","error":{"code":"USAGE","message":"queue kafka show takes NAME","hint":"for example: komando queue kafka show prod-kafka (more in `komando queue kafka show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue rm x1 (agent text)
+### komando -o text queue kafka show (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue rm CONN TOPIC...
-Hint: for example: komando queue rm prod-kafka old-orders --dry-run
+Error: queue kafka show takes NAME
+Hint: for example: komando queue kafka show prod-kafka (more in `komando queue kafka show --help`)
 (code USAGE, exit 2)
-### komando -o json queue rm x1 (script json)
+### komando -o json queue kafka show (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando queue rm CONN TOPIC...","hint":"for example: komando queue rm prod-kafka old-orders --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.show","error":{"code":"USAGE","message":"queue kafka show takes NAME","hint":"for example: komando queue kafka show prod-kafka (more in `komando queue kafka show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue rm x1 (script text)
+### komando -o text queue kafka show (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue rm CONN TOPIC...
-Hint: for example: komando queue rm prod-kafka old-orders --dry-run
+Error: queue kafka show takes NAME
+Hint: for example: komando queue kafka show prod-kafka (more in `komando queue kafka show --help`)
 (code USAGE, exit 2)
-### komando -o json queue send (agent json)
+### komando -o json queue kafka test (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.send","error":{"code":"USAGE","message":"missing arguments; usage: komando queue send CONN TOPIC","hint":"for example: komando queue send prod-kafka orders --value '{\"id\": 42, \"status\": \"paid\"}' --key 42"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.test","error":{"code":"USAGE","message":"queue kafka test takes TARGET","hint":"for example: komando queue kafka test prod-kafka (more in `komando queue kafka test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue send (agent text)
+### komando -o text queue kafka test (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue send CONN TOPIC
-Hint: for example: komando queue send prod-kafka orders --value '{"id": 42, "status": "paid"}' --key 42
+Error: queue kafka test takes TARGET
+Hint: for example: komando queue kafka test prod-kafka (more in `komando queue kafka test --help`)
 (code USAGE, exit 2)
-### komando -o json queue send (script json)
+### komando -o json queue kafka test (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.send","error":{"code":"USAGE","message":"missing arguments; usage: komando queue send CONN TOPIC","hint":"for example: komando queue send prod-kafka orders --value '{\"id\": 42, \"status\": \"paid\"}' --key 42"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.test","error":{"code":"USAGE","message":"queue kafka test takes TARGET","hint":"for example: komando queue kafka test prod-kafka (more in `komando queue kafka test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue send (script text)
+### komando -o text queue kafka test (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue send CONN TOPIC
-Hint: for example: komando queue send prod-kafka orders --value '{"id": 42, "status": "paid"}' --key 42
+Error: queue kafka test takes TARGET
+Hint: for example: komando queue kafka test prod-kafka (more in `komando queue kafka test --help`)
 (code USAGE, exit 2)
-### komando -o json queue send x1 (agent json)
+### komando -o json queue kafka topic create (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.send","error":{"code":"USAGE","message":"missing arguments; usage: komando queue send CONN TOPIC","hint":"for example: komando queue send prod-kafka orders --value '{\"id\": 42, \"status\": \"paid\"}' --key 42"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.topic.create","error":{"code":"USAGE","message":"queue kafka topic create takes NAME TOPIC","hint":"for example: komando queue kafka topic create prod-kafka orders --dry-run (more in `komando queue kafka topic create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue send x1 (agent text)
+### komando -o text queue kafka topic create (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue send CONN TOPIC
-Hint: for example: komando queue send prod-kafka orders --value '{"id": 42, "status": "paid"}' --key 42
+Error: queue kafka topic create takes NAME TOPIC
+Hint: for example: komando queue kafka topic create prod-kafka orders --dry-run (more in `komando queue kafka topic create --help`)
 (code USAGE, exit 2)
-### komando -o json queue send x1 (script json)
+### komando -o json queue kafka topic create (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.send","error":{"code":"USAGE","message":"missing arguments; usage: komando queue send CONN TOPIC","hint":"for example: komando queue send prod-kafka orders --value '{\"id\": 42, \"status\": \"paid\"}' --key 42"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.topic.create","error":{"code":"USAGE","message":"queue kafka topic create takes NAME TOPIC","hint":"for example: komando queue kafka topic create prod-kafka orders --dry-run (more in `komando queue kafka topic create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue send x1 (script text)
+### komando -o text queue kafka topic create (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue send CONN TOPIC
-Hint: for example: komando queue send prod-kafka orders --value '{"id": 42, "status": "paid"}' --key 42
+Error: queue kafka topic create takes NAME TOPIC
+Hint: for example: komando queue kafka topic create prod-kafka orders --dry-run (more in `komando queue kafka topic create --help`)
+(code USAGE, exit 2)
+### komando -o json queue kafka topic create x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.kafka.topic.create","error":{"code":"USAGE","message":"queue kafka topic create takes NAME TOPIC","hint":"for example: komando queue kafka topic create prod-kafka orders --dry-run (more in `komando queue kafka topic create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue kafka topic create x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue kafka topic create takes NAME TOPIC
+Hint: for example: komando queue kafka topic create prod-kafka orders --dry-run (more in `komando queue kafka topic create --help`)
+(code USAGE, exit 2)
+### komando -o json queue kafka topic create x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.kafka.topic.create","error":{"code":"USAGE","message":"queue kafka topic create takes NAME TOPIC","hint":"for example: komando queue kafka topic create prod-kafka orders --dry-run (more in `komando queue kafka topic create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue kafka topic create x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue kafka topic create takes NAME TOPIC
+Hint: for example: komando queue kafka topic create prod-kafka orders --dry-run (more in `komando queue kafka topic create --help`)
+(code USAGE, exit 2)
+### komando -o json queue kafka topic delete (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.kafka.topic.delete","error":{"code":"USAGE","message":"queue kafka topic delete takes NAME TOPIC...","hint":"for example: komando queue kafka topic delete prod-kafka old-orders --dry-run (more in `komando queue kafka topic delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue kafka topic delete (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue kafka topic delete takes NAME TOPIC...
+Hint: for example: komando queue kafka topic delete prod-kafka old-orders --dry-run (more in `komando queue kafka topic delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue kafka topic delete (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.kafka.topic.delete","error":{"code":"USAGE","message":"queue kafka topic delete takes NAME TOPIC...","hint":"for example: komando queue kafka topic delete prod-kafka old-orders --dry-run (more in `komando queue kafka topic delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue kafka topic delete (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue kafka topic delete takes NAME TOPIC...
+Hint: for example: komando queue kafka topic delete prod-kafka old-orders --dry-run (more in `komando queue kafka topic delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue kafka topic delete x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.kafka.topic.delete","error":{"code":"USAGE","message":"queue kafka topic delete takes NAME TOPIC...","hint":"for example: komando queue kafka topic delete prod-kafka old-orders --dry-run (more in `komando queue kafka topic delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue kafka topic delete x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue kafka topic delete takes NAME TOPIC...
+Hint: for example: komando queue kafka topic delete prod-kafka old-orders --dry-run (more in `komando queue kafka topic delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue kafka topic delete x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.kafka.topic.delete","error":{"code":"USAGE","message":"queue kafka topic delete takes NAME TOPIC...","hint":"for example: komando queue kafka topic delete prod-kafka old-orders --dry-run (more in `komando queue kafka topic delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue kafka topic delete x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue kafka topic delete takes NAME TOPIC...
+Hint: for example: komando queue kafka topic delete prod-kafka old-orders --dry-run (more in `komando queue kafka topic delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue kafka topic list (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.kafka.topic.list","error":{"code":"USAGE","message":"queue kafka topic list takes NAME [PATTERN]","hint":"for example: komando queue kafka topic list prod-kafka (more in `komando queue kafka topic list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue kafka topic list (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue kafka topic list takes NAME [PATTERN]
+Hint: for example: komando queue kafka topic list prod-kafka (more in `komando queue kafka topic list --help`)
+(code USAGE, exit 2)
+### komando -o json queue kafka topic list (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.kafka.topic.list","error":{"code":"USAGE","message":"queue kafka topic list takes NAME [PATTERN]","hint":"for example: komando queue kafka topic list prod-kafka (more in `komando queue kafka topic list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue kafka topic list (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue kafka topic list takes NAME [PATTERN]
+Hint: for example: komando queue kafka topic list prod-kafka (more in `komando queue kafka topic list --help`)
+(code USAGE, exit 2)
+### komando -o json queue kafka topic show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.kafka.topic.show","error":{"code":"USAGE","message":"queue kafka topic show takes NAME TOPIC","hint":"for example: komando queue kafka topic show prod-kafka orders (more in `komando queue kafka topic show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue kafka topic show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue kafka topic show takes NAME TOPIC
+Hint: for example: komando queue kafka topic show prod-kafka orders (more in `komando queue kafka topic show --help`)
+(code USAGE, exit 2)
+### komando -o json queue kafka topic show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.kafka.topic.show","error":{"code":"USAGE","message":"queue kafka topic show takes NAME TOPIC","hint":"for example: komando queue kafka topic show prod-kafka orders (more in `komando queue kafka topic show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue kafka topic show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue kafka topic show takes NAME TOPIC
+Hint: for example: komando queue kafka topic show prod-kafka orders (more in `komando queue kafka topic show --help`)
+(code USAGE, exit 2)
+### komando -o json queue kafka topic show x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.kafka.topic.show","error":{"code":"USAGE","message":"queue kafka topic show takes NAME TOPIC","hint":"for example: komando queue kafka topic show prod-kafka orders (more in `komando queue kafka topic show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue kafka topic show x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue kafka topic show takes NAME TOPIC
+Hint: for example: komando queue kafka topic show prod-kafka orders (more in `komando queue kafka topic show --help`)
+(code USAGE, exit 2)
+### komando -o json queue kafka topic show x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.kafka.topic.show","error":{"code":"USAGE","message":"queue kafka topic show takes NAME TOPIC","hint":"for example: komando queue kafka topic show prod-kafka orders (more in `komando queue kafka topic show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue kafka topic show x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue kafka topic show takes NAME TOPIC
+Hint: for example: komando queue kafka topic show prod-kafka orders (more in `komando queue kafka topic show --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.add","error":{"code":"USAGE","message":"queue nats add takes NAME [URL]","hint":"for example: komando queue nats add prod-nats nats://app@10.0.0.10:4222 --via web1 (more in `komando queue nats add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats add takes NAME [URL]
+Hint: for example: komando queue nats add prod-nats nats://app@10.0.0.10:4222 --via web1 (more in `komando queue nats add --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.add","error":{"code":"USAGE","message":"queue nats add takes NAME [URL]","hint":"for example: komando queue nats add prod-nats nats://app@10.0.0.10:4222 --via web1 (more in `komando queue nats add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats add takes NAME [URL]
+Hint: for example: komando queue nats add prod-nats nats://app@10.0.0.10:4222 --via web1 (more in `komando queue nats add --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats consumer list (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.consumer.list","error":{"code":"USAGE","message":"queue nats consumer list takes NAME","hint":"for example: komando queue nats consumer list prod-nats (more in `komando queue nats consumer list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats consumer list (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats consumer list takes NAME
+Hint: for example: komando queue nats consumer list prod-nats (more in `komando queue nats consumer list --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats consumer list (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.consumer.list","error":{"code":"USAGE","message":"queue nats consumer list takes NAME","hint":"for example: komando queue nats consumer list prod-nats (more in `komando queue nats consumer list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats consumer list (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats consumer list takes NAME
+Hint: for example: komando queue nats consumer list prod-nats (more in `komando queue nats consumer list --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats consumer show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.consumer.show","error":{"code":"USAGE","message":"queue nats consumer show takes NAME CONSUMER","hint":"for example: komando queue nats consumer show prod-nats billing (more in `komando queue nats consumer show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats consumer show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats consumer show takes NAME CONSUMER
+Hint: for example: komando queue nats consumer show prod-nats billing (more in `komando queue nats consumer show --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats consumer show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.consumer.show","error":{"code":"USAGE","message":"queue nats consumer show takes NAME CONSUMER","hint":"for example: komando queue nats consumer show prod-nats billing (more in `komando queue nats consumer show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats consumer show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats consumer show takes NAME CONSUMER
+Hint: for example: komando queue nats consumer show prod-nats billing (more in `komando queue nats consumer show --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats consumer show x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.consumer.show","error":{"code":"USAGE","message":"queue nats consumer show takes NAME CONSUMER","hint":"for example: komando queue nats consumer show prod-nats billing (more in `komando queue nats consumer show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats consumer show x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats consumer show takes NAME CONSUMER
+Hint: for example: komando queue nats consumer show prod-nats billing (more in `komando queue nats consumer show --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats consumer show x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.consumer.show","error":{"code":"USAGE","message":"queue nats consumer show takes NAME CONSUMER","hint":"for example: komando queue nats consumer show prod-nats billing (more in `komando queue nats consumer show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats consumer show x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats consumer show takes NAME CONSUMER
+Hint: for example: komando queue nats consumer show prod-nats billing (more in `komando queue nats consumer show --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.edit","error":{"code":"USAGE","message":"queue nats edit takes NAME","hint":"for example: komando queue nats edit prod-nats --add-tag critical (more in `komando queue nats edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats edit takes NAME
+Hint: for example: komando queue nats edit prod-nats --add-tag critical (more in `komando queue nats edit --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.edit","error":{"code":"USAGE","message":"queue nats edit takes NAME","hint":"for example: komando queue nats edit prod-nats --add-tag critical (more in `komando queue nats edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats edit takes NAME
+Hint: for example: komando queue nats edit prod-nats --add-tag critical (more in `komando queue nats edit --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats info (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.info","error":{"code":"USAGE","message":"queue nats info takes NAME","hint":"for example: komando queue nats info prod-nats (more in `komando queue nats info --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats info (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats info takes NAME
+Hint: for example: komando queue nats info prod-nats (more in `komando queue nats info --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats info (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.info","error":{"code":"USAGE","message":"queue nats info takes NAME","hint":"for example: komando queue nats info prod-nats (more in `komando queue nats info --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats info (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats info takes NAME
+Hint: for example: komando queue nats info prod-nats (more in `komando queue nats info --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats message create (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.message.create","error":{"code":"USAGE","message":"queue nats message create takes NAME TOPIC","hint":"for example: komando queue nats message create prod-nats ORDERS --value test --dry-run (more in `komando queue nats message create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats message create (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats message create takes NAME TOPIC
+Hint: for example: komando queue nats message create prod-nats ORDERS --value test --dry-run (more in `komando queue nats message create --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats message create (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.message.create","error":{"code":"USAGE","message":"queue nats message create takes NAME TOPIC","hint":"for example: komando queue nats message create prod-nats ORDERS --value test --dry-run (more in `komando queue nats message create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats message create (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats message create takes NAME TOPIC
+Hint: for example: komando queue nats message create prod-nats ORDERS --value test --dry-run (more in `komando queue nats message create --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats message create x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.message.create","error":{"code":"USAGE","message":"queue nats message create takes NAME TOPIC","hint":"for example: komando queue nats message create prod-nats ORDERS --value test --dry-run (more in `komando queue nats message create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats message create x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats message create takes NAME TOPIC
+Hint: for example: komando queue nats message create prod-nats ORDERS --value test --dry-run (more in `komando queue nats message create --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats message create x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.message.create","error":{"code":"USAGE","message":"queue nats message create takes NAME TOPIC","hint":"for example: komando queue nats message create prod-nats ORDERS --value test --dry-run (more in `komando queue nats message create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats message create x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats message create takes NAME TOPIC
+Hint: for example: komando queue nats message create prod-nats ORDERS --value test --dry-run (more in `komando queue nats message create --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats message delete (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.message.delete","error":{"code":"USAGE","message":"queue nats message delete takes NAME TOPIC","hint":"for example: komando queue nats message delete prod-nats ORDERS-retry --all --dry-run (more in `komando queue nats message delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats message delete (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats message delete takes NAME TOPIC
+Hint: for example: komando queue nats message delete prod-nats ORDERS-retry --all --dry-run (more in `komando queue nats message delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats message delete (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.message.delete","error":{"code":"USAGE","message":"queue nats message delete takes NAME TOPIC","hint":"for example: komando queue nats message delete prod-nats ORDERS-retry --all --dry-run (more in `komando queue nats message delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats message delete (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats message delete takes NAME TOPIC
+Hint: for example: komando queue nats message delete prod-nats ORDERS-retry --all --dry-run (more in `komando queue nats message delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats message delete x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.message.delete","error":{"code":"USAGE","message":"queue nats message delete takes NAME TOPIC","hint":"for example: komando queue nats message delete prod-nats ORDERS-retry --all --dry-run (more in `komando queue nats message delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats message delete x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats message delete takes NAME TOPIC
+Hint: for example: komando queue nats message delete prod-nats ORDERS-retry --all --dry-run (more in `komando queue nats message delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats message delete x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.message.delete","error":{"code":"USAGE","message":"queue nats message delete takes NAME TOPIC","hint":"for example: komando queue nats message delete prod-nats ORDERS-retry --all --dry-run (more in `komando queue nats message delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats message delete x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats message delete takes NAME TOPIC
+Hint: for example: komando queue nats message delete prod-nats ORDERS-retry --all --dry-run (more in `komando queue nats message delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats message list (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.message.list","error":{"code":"USAGE","message":"queue nats message list takes NAME TOPIC","hint":"for example: komando queue nats message list prod-nats ORDERS (more in `komando queue nats message list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats message list (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats message list takes NAME TOPIC
+Hint: for example: komando queue nats message list prod-nats ORDERS (more in `komando queue nats message list --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats message list (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.message.list","error":{"code":"USAGE","message":"queue nats message list takes NAME TOPIC","hint":"for example: komando queue nats message list prod-nats ORDERS (more in `komando queue nats message list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats message list (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats message list takes NAME TOPIC
+Hint: for example: komando queue nats message list prod-nats ORDERS (more in `komando queue nats message list --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats message list x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.message.list","error":{"code":"USAGE","message":"queue nats message list takes NAME TOPIC","hint":"for example: komando queue nats message list prod-nats ORDERS (more in `komando queue nats message list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats message list x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats message list takes NAME TOPIC
+Hint: for example: komando queue nats message list prod-nats ORDERS (more in `komando queue nats message list --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats message list x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.message.list","error":{"code":"USAGE","message":"queue nats message list takes NAME TOPIC","hint":"for example: komando queue nats message list prod-nats ORDERS (more in `komando queue nats message list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats message list x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats message list takes NAME TOPIC
+Hint: for example: komando queue nats message list prod-nats ORDERS (more in `komando queue nats message list --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.remove","error":{"code":"USAGE","message":"queue nats remove takes TARGET...","hint":"for example: komando queue nats remove prod-nats --dry-run (more in `komando queue nats remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats remove takes TARGET...
+Hint: for example: komando queue nats remove prod-nats --dry-run (more in `komando queue nats remove --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.remove","error":{"code":"USAGE","message":"queue nats remove takes TARGET...","hint":"for example: komando queue nats remove prod-nats --dry-run (more in `komando queue nats remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats remove takes TARGET...
+Hint: for example: komando queue nats remove prod-nats --dry-run (more in `komando queue nats remove --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.rename","error":{"code":"USAGE","message":"queue nats rename takes NAME NEW","hint":"for example: komando queue nats rename prod-nats prod-nats-2 --dry-run (more in `komando queue nats rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats rename takes NAME NEW
+Hint: for example: komando queue nats rename prod-nats prod-nats-2 --dry-run (more in `komando queue nats rename --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.rename","error":{"code":"USAGE","message":"queue nats rename takes NAME NEW","hint":"for example: komando queue nats rename prod-nats prod-nats-2 --dry-run (more in `komando queue nats rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats rename takes NAME NEW
+Hint: for example: komando queue nats rename prod-nats prod-nats-2 --dry-run (more in `komando queue nats rename --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.rename","error":{"code":"USAGE","message":"queue nats rename takes NAME NEW","hint":"for example: komando queue nats rename prod-nats prod-nats-2 --dry-run (more in `komando queue nats rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats rename takes NAME NEW
+Hint: for example: komando queue nats rename prod-nats prod-nats-2 --dry-run (more in `komando queue nats rename --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.rename","error":{"code":"USAGE","message":"queue nats rename takes NAME NEW","hint":"for example: komando queue nats rename prod-nats prod-nats-2 --dry-run (more in `komando queue nats rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats rename takes NAME NEW
+Hint: for example: komando queue nats rename prod-nats prod-nats-2 --dry-run (more in `komando queue nats rename --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.show","error":{"code":"USAGE","message":"queue nats show takes NAME","hint":"for example: komando queue nats show prod-nats (more in `komando queue nats show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats show takes NAME
+Hint: for example: komando queue nats show prod-nats (more in `komando queue nats show --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.show","error":{"code":"USAGE","message":"queue nats show takes NAME","hint":"for example: komando queue nats show prod-nats (more in `komando queue nats show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats show takes NAME
+Hint: for example: komando queue nats show prod-nats (more in `komando queue nats show --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.test","error":{"code":"USAGE","message":"queue nats test takes TARGET","hint":"for example: komando queue nats test prod-nats (more in `komando queue nats test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats test takes TARGET
+Hint: for example: komando queue nats test prod-nats (more in `komando queue nats test --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.test","error":{"code":"USAGE","message":"queue nats test takes TARGET","hint":"for example: komando queue nats test prod-nats (more in `komando queue nats test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats test takes TARGET
+Hint: for example: komando queue nats test prod-nats (more in `komando queue nats test --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats topic create (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.topic.create","error":{"code":"USAGE","message":"queue nats topic create takes NAME TOPIC","hint":"for example: komando queue nats topic create prod-nats ORDERS --dry-run (more in `komando queue nats topic create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats topic create (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats topic create takes NAME TOPIC
+Hint: for example: komando queue nats topic create prod-nats ORDERS --dry-run (more in `komando queue nats topic create --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats topic create (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.topic.create","error":{"code":"USAGE","message":"queue nats topic create takes NAME TOPIC","hint":"for example: komando queue nats topic create prod-nats ORDERS --dry-run (more in `komando queue nats topic create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats topic create (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats topic create takes NAME TOPIC
+Hint: for example: komando queue nats topic create prod-nats ORDERS --dry-run (more in `komando queue nats topic create --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats topic create x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.topic.create","error":{"code":"USAGE","message":"queue nats topic create takes NAME TOPIC","hint":"for example: komando queue nats topic create prod-nats ORDERS --dry-run (more in `komando queue nats topic create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats topic create x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats topic create takes NAME TOPIC
+Hint: for example: komando queue nats topic create prod-nats ORDERS --dry-run (more in `komando queue nats topic create --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats topic create x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.topic.create","error":{"code":"USAGE","message":"queue nats topic create takes NAME TOPIC","hint":"for example: komando queue nats topic create prod-nats ORDERS --dry-run (more in `komando queue nats topic create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats topic create x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats topic create takes NAME TOPIC
+Hint: for example: komando queue nats topic create prod-nats ORDERS --dry-run (more in `komando queue nats topic create --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats topic delete (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.topic.delete","error":{"code":"USAGE","message":"queue nats topic delete takes NAME TOPIC...","hint":"for example: komando queue nats topic delete prod-nats old-ORDERS --dry-run (more in `komando queue nats topic delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats topic delete (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats topic delete takes NAME TOPIC...
+Hint: for example: komando queue nats topic delete prod-nats old-ORDERS --dry-run (more in `komando queue nats topic delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats topic delete (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.topic.delete","error":{"code":"USAGE","message":"queue nats topic delete takes NAME TOPIC...","hint":"for example: komando queue nats topic delete prod-nats old-ORDERS --dry-run (more in `komando queue nats topic delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats topic delete (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats topic delete takes NAME TOPIC...
+Hint: for example: komando queue nats topic delete prod-nats old-ORDERS --dry-run (more in `komando queue nats topic delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats topic delete x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.topic.delete","error":{"code":"USAGE","message":"queue nats topic delete takes NAME TOPIC...","hint":"for example: komando queue nats topic delete prod-nats old-ORDERS --dry-run (more in `komando queue nats topic delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats topic delete x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats topic delete takes NAME TOPIC...
+Hint: for example: komando queue nats topic delete prod-nats old-ORDERS --dry-run (more in `komando queue nats topic delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats topic delete x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.topic.delete","error":{"code":"USAGE","message":"queue nats topic delete takes NAME TOPIC...","hint":"for example: komando queue nats topic delete prod-nats old-ORDERS --dry-run (more in `komando queue nats topic delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats topic delete x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats topic delete takes NAME TOPIC...
+Hint: for example: komando queue nats topic delete prod-nats old-ORDERS --dry-run (more in `komando queue nats topic delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats topic list (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.topic.list","error":{"code":"USAGE","message":"queue nats topic list takes NAME [PATTERN]","hint":"for example: komando queue nats topic list prod-nats (more in `komando queue nats topic list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats topic list (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats topic list takes NAME [PATTERN]
+Hint: for example: komando queue nats topic list prod-nats (more in `komando queue nats topic list --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats topic list (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.topic.list","error":{"code":"USAGE","message":"queue nats topic list takes NAME [PATTERN]","hint":"for example: komando queue nats topic list prod-nats (more in `komando queue nats topic list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats topic list (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats topic list takes NAME [PATTERN]
+Hint: for example: komando queue nats topic list prod-nats (more in `komando queue nats topic list --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats topic show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.topic.show","error":{"code":"USAGE","message":"queue nats topic show takes NAME TOPIC","hint":"for example: komando queue nats topic show prod-nats ORDERS (more in `komando queue nats topic show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats topic show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats topic show takes NAME TOPIC
+Hint: for example: komando queue nats topic show prod-nats ORDERS (more in `komando queue nats topic show --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats topic show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.topic.show","error":{"code":"USAGE","message":"queue nats topic show takes NAME TOPIC","hint":"for example: komando queue nats topic show prod-nats ORDERS (more in `komando queue nats topic show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats topic show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats topic show takes NAME TOPIC
+Hint: for example: komando queue nats topic show prod-nats ORDERS (more in `komando queue nats topic show --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats topic show x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.topic.show","error":{"code":"USAGE","message":"queue nats topic show takes NAME TOPIC","hint":"for example: komando queue nats topic show prod-nats ORDERS (more in `komando queue nats topic show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats topic show x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats topic show takes NAME TOPIC
+Hint: for example: komando queue nats topic show prod-nats ORDERS (more in `komando queue nats topic show --help`)
+(code USAGE, exit 2)
+### komando -o json queue nats topic show x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.nats.topic.show","error":{"code":"USAGE","message":"queue nats topic show takes NAME TOPIC","hint":"for example: komando queue nats topic show prod-nats ORDERS (more in `komando queue nats topic show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue nats topic show x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue nats topic show takes NAME TOPIC
+Hint: for example: komando queue nats topic show prod-nats ORDERS (more in `komando queue nats topic show --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.add","error":{"code":"USAGE","message":"queue pubsub add takes NAME [URL]","hint":"for example: komando queue pubsub add prod-pubsub pubsub://my-project --via web1 (more in `komando queue pubsub add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub add takes NAME [URL]
+Hint: for example: komando queue pubsub add prod-pubsub pubsub://my-project --via web1 (more in `komando queue pubsub add --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.add","error":{"code":"USAGE","message":"queue pubsub add takes NAME [URL]","hint":"for example: komando queue pubsub add prod-pubsub pubsub://my-project --via web1 (more in `komando queue pubsub add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub add takes NAME [URL]
+Hint: for example: komando queue pubsub add prod-pubsub pubsub://my-project --via web1 (more in `komando queue pubsub add --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub consumer list (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.consumer.list","error":{"code":"USAGE","message":"queue pubsub consumer list takes NAME","hint":"for example: komando queue pubsub consumer list prod-pubsub (more in `komando queue pubsub consumer list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub consumer list (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub consumer list takes NAME
+Hint: for example: komando queue pubsub consumer list prod-pubsub (more in `komando queue pubsub consumer list --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub consumer list (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.consumer.list","error":{"code":"USAGE","message":"queue pubsub consumer list takes NAME","hint":"for example: komando queue pubsub consumer list prod-pubsub (more in `komando queue pubsub consumer list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub consumer list (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub consumer list takes NAME
+Hint: for example: komando queue pubsub consumer list prod-pubsub (more in `komando queue pubsub consumer list --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.edit","error":{"code":"USAGE","message":"queue pubsub edit takes NAME","hint":"for example: komando queue pubsub edit prod-pubsub --add-tag critical (more in `komando queue pubsub edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub edit takes NAME
+Hint: for example: komando queue pubsub edit prod-pubsub --add-tag critical (more in `komando queue pubsub edit --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.edit","error":{"code":"USAGE","message":"queue pubsub edit takes NAME","hint":"for example: komando queue pubsub edit prod-pubsub --add-tag critical (more in `komando queue pubsub edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub edit takes NAME
+Hint: for example: komando queue pubsub edit prod-pubsub --add-tag critical (more in `komando queue pubsub edit --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub info (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.info","error":{"code":"USAGE","message":"queue pubsub info takes NAME","hint":"for example: komando queue pubsub info prod-pubsub (more in `komando queue pubsub info --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub info (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub info takes NAME
+Hint: for example: komando queue pubsub info prod-pubsub (more in `komando queue pubsub info --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub info (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.info","error":{"code":"USAGE","message":"queue pubsub info takes NAME","hint":"for example: komando queue pubsub info prod-pubsub (more in `komando queue pubsub info --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub info (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub info takes NAME
+Hint: for example: komando queue pubsub info prod-pubsub (more in `komando queue pubsub info --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub message create (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.message.create","error":{"code":"USAGE","message":"queue pubsub message create takes NAME TOPIC","hint":"for example: komando queue pubsub message create prod-pubsub orders --value test --dry-run (more in `komando queue pubsub message create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub message create (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub message create takes NAME TOPIC
+Hint: for example: komando queue pubsub message create prod-pubsub orders --value test --dry-run (more in `komando queue pubsub message create --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub message create (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.message.create","error":{"code":"USAGE","message":"queue pubsub message create takes NAME TOPIC","hint":"for example: komando queue pubsub message create prod-pubsub orders --value test --dry-run (more in `komando queue pubsub message create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub message create (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub message create takes NAME TOPIC
+Hint: for example: komando queue pubsub message create prod-pubsub orders --value test --dry-run (more in `komando queue pubsub message create --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub message create x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.message.create","error":{"code":"USAGE","message":"queue pubsub message create takes NAME TOPIC","hint":"for example: komando queue pubsub message create prod-pubsub orders --value test --dry-run (more in `komando queue pubsub message create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub message create x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub message create takes NAME TOPIC
+Hint: for example: komando queue pubsub message create prod-pubsub orders --value test --dry-run (more in `komando queue pubsub message create --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub message create x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.message.create","error":{"code":"USAGE","message":"queue pubsub message create takes NAME TOPIC","hint":"for example: komando queue pubsub message create prod-pubsub orders --value test --dry-run (more in `komando queue pubsub message create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub message create x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub message create takes NAME TOPIC
+Hint: for example: komando queue pubsub message create prod-pubsub orders --value test --dry-run (more in `komando queue pubsub message create --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub message delete (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.message.delete","error":{"code":"USAGE","message":"queue pubsub message delete takes NAME TOPIC","hint":"for example: komando queue pubsub message delete prod-pubsub orders-retry --all --dry-run (more in `komando queue pubsub message delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub message delete (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub message delete takes NAME TOPIC
+Hint: for example: komando queue pubsub message delete prod-pubsub orders-retry --all --dry-run (more in `komando queue pubsub message delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub message delete (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.message.delete","error":{"code":"USAGE","message":"queue pubsub message delete takes NAME TOPIC","hint":"for example: komando queue pubsub message delete prod-pubsub orders-retry --all --dry-run (more in `komando queue pubsub message delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub message delete (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub message delete takes NAME TOPIC
+Hint: for example: komando queue pubsub message delete prod-pubsub orders-retry --all --dry-run (more in `komando queue pubsub message delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub message delete x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.message.delete","error":{"code":"USAGE","message":"queue pubsub message delete takes NAME TOPIC","hint":"for example: komando queue pubsub message delete prod-pubsub orders-retry --all --dry-run (more in `komando queue pubsub message delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub message delete x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub message delete takes NAME TOPIC
+Hint: for example: komando queue pubsub message delete prod-pubsub orders-retry --all --dry-run (more in `komando queue pubsub message delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub message delete x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.message.delete","error":{"code":"USAGE","message":"queue pubsub message delete takes NAME TOPIC","hint":"for example: komando queue pubsub message delete prod-pubsub orders-retry --all --dry-run (more in `komando queue pubsub message delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub message delete x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub message delete takes NAME TOPIC
+Hint: for example: komando queue pubsub message delete prod-pubsub orders-retry --all --dry-run (more in `komando queue pubsub message delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub message list (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.message.list","error":{"code":"USAGE","message":"queue pubsub message list takes NAME TOPIC","hint":"for example: komando queue pubsub message list prod-pubsub orders (more in `komando queue pubsub message list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub message list (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub message list takes NAME TOPIC
+Hint: for example: komando queue pubsub message list prod-pubsub orders (more in `komando queue pubsub message list --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub message list (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.message.list","error":{"code":"USAGE","message":"queue pubsub message list takes NAME TOPIC","hint":"for example: komando queue pubsub message list prod-pubsub orders (more in `komando queue pubsub message list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub message list (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub message list takes NAME TOPIC
+Hint: for example: komando queue pubsub message list prod-pubsub orders (more in `komando queue pubsub message list --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub message list x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.message.list","error":{"code":"USAGE","message":"queue pubsub message list takes NAME TOPIC","hint":"for example: komando queue pubsub message list prod-pubsub orders (more in `komando queue pubsub message list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub message list x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub message list takes NAME TOPIC
+Hint: for example: komando queue pubsub message list prod-pubsub orders (more in `komando queue pubsub message list --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub message list x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.message.list","error":{"code":"USAGE","message":"queue pubsub message list takes NAME TOPIC","hint":"for example: komando queue pubsub message list prod-pubsub orders (more in `komando queue pubsub message list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub message list x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub message list takes NAME TOPIC
+Hint: for example: komando queue pubsub message list prod-pubsub orders (more in `komando queue pubsub message list --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.remove","error":{"code":"USAGE","message":"queue pubsub remove takes TARGET...","hint":"for example: komando queue pubsub remove prod-pubsub --dry-run (more in `komando queue pubsub remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub remove takes TARGET...
+Hint: for example: komando queue pubsub remove prod-pubsub --dry-run (more in `komando queue pubsub remove --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.remove","error":{"code":"USAGE","message":"queue pubsub remove takes TARGET...","hint":"for example: komando queue pubsub remove prod-pubsub --dry-run (more in `komando queue pubsub remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub remove takes TARGET...
+Hint: for example: komando queue pubsub remove prod-pubsub --dry-run (more in `komando queue pubsub remove --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.rename","error":{"code":"USAGE","message":"queue pubsub rename takes NAME NEW","hint":"for example: komando queue pubsub rename prod-pubsub prod-pubsub-2 --dry-run (more in `komando queue pubsub rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub rename takes NAME NEW
+Hint: for example: komando queue pubsub rename prod-pubsub prod-pubsub-2 --dry-run (more in `komando queue pubsub rename --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.rename","error":{"code":"USAGE","message":"queue pubsub rename takes NAME NEW","hint":"for example: komando queue pubsub rename prod-pubsub prod-pubsub-2 --dry-run (more in `komando queue pubsub rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub rename takes NAME NEW
+Hint: for example: komando queue pubsub rename prod-pubsub prod-pubsub-2 --dry-run (more in `komando queue pubsub rename --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.rename","error":{"code":"USAGE","message":"queue pubsub rename takes NAME NEW","hint":"for example: komando queue pubsub rename prod-pubsub prod-pubsub-2 --dry-run (more in `komando queue pubsub rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub rename takes NAME NEW
+Hint: for example: komando queue pubsub rename prod-pubsub prod-pubsub-2 --dry-run (more in `komando queue pubsub rename --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.rename","error":{"code":"USAGE","message":"queue pubsub rename takes NAME NEW","hint":"for example: komando queue pubsub rename prod-pubsub prod-pubsub-2 --dry-run (more in `komando queue pubsub rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub rename takes NAME NEW
+Hint: for example: komando queue pubsub rename prod-pubsub prod-pubsub-2 --dry-run (more in `komando queue pubsub rename --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.show","error":{"code":"USAGE","message":"queue pubsub show takes NAME","hint":"for example: komando queue pubsub show prod-pubsub (more in `komando queue pubsub show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub show takes NAME
+Hint: for example: komando queue pubsub show prod-pubsub (more in `komando queue pubsub show --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.show","error":{"code":"USAGE","message":"queue pubsub show takes NAME","hint":"for example: komando queue pubsub show prod-pubsub (more in `komando queue pubsub show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub show takes NAME
+Hint: for example: komando queue pubsub show prod-pubsub (more in `komando queue pubsub show --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.test","error":{"code":"USAGE","message":"queue pubsub test takes TARGET","hint":"for example: komando queue pubsub test prod-pubsub (more in `komando queue pubsub test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub test takes TARGET
+Hint: for example: komando queue pubsub test prod-pubsub (more in `komando queue pubsub test --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.test","error":{"code":"USAGE","message":"queue pubsub test takes TARGET","hint":"for example: komando queue pubsub test prod-pubsub (more in `komando queue pubsub test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub test takes TARGET
+Hint: for example: komando queue pubsub test prod-pubsub (more in `komando queue pubsub test --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub topic create (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.topic.create","error":{"code":"USAGE","message":"queue pubsub topic create takes NAME TOPIC","hint":"for example: komando queue pubsub topic create prod-pubsub orders --dry-run (more in `komando queue pubsub topic create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub topic create (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub topic create takes NAME TOPIC
+Hint: for example: komando queue pubsub topic create prod-pubsub orders --dry-run (more in `komando queue pubsub topic create --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub topic create (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.topic.create","error":{"code":"USAGE","message":"queue pubsub topic create takes NAME TOPIC","hint":"for example: komando queue pubsub topic create prod-pubsub orders --dry-run (more in `komando queue pubsub topic create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub topic create (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub topic create takes NAME TOPIC
+Hint: for example: komando queue pubsub topic create prod-pubsub orders --dry-run (more in `komando queue pubsub topic create --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub topic create x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.topic.create","error":{"code":"USAGE","message":"queue pubsub topic create takes NAME TOPIC","hint":"for example: komando queue pubsub topic create prod-pubsub orders --dry-run (more in `komando queue pubsub topic create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub topic create x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub topic create takes NAME TOPIC
+Hint: for example: komando queue pubsub topic create prod-pubsub orders --dry-run (more in `komando queue pubsub topic create --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub topic create x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.topic.create","error":{"code":"USAGE","message":"queue pubsub topic create takes NAME TOPIC","hint":"for example: komando queue pubsub topic create prod-pubsub orders --dry-run (more in `komando queue pubsub topic create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub topic create x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub topic create takes NAME TOPIC
+Hint: for example: komando queue pubsub topic create prod-pubsub orders --dry-run (more in `komando queue pubsub topic create --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub topic delete (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.topic.delete","error":{"code":"USAGE","message":"queue pubsub topic delete takes NAME TOPIC...","hint":"for example: komando queue pubsub topic delete prod-pubsub old-orders --dry-run (more in `komando queue pubsub topic delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub topic delete (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub topic delete takes NAME TOPIC...
+Hint: for example: komando queue pubsub topic delete prod-pubsub old-orders --dry-run (more in `komando queue pubsub topic delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub topic delete (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.topic.delete","error":{"code":"USAGE","message":"queue pubsub topic delete takes NAME TOPIC...","hint":"for example: komando queue pubsub topic delete prod-pubsub old-orders --dry-run (more in `komando queue pubsub topic delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub topic delete (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub topic delete takes NAME TOPIC...
+Hint: for example: komando queue pubsub topic delete prod-pubsub old-orders --dry-run (more in `komando queue pubsub topic delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub topic delete x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.topic.delete","error":{"code":"USAGE","message":"queue pubsub topic delete takes NAME TOPIC...","hint":"for example: komando queue pubsub topic delete prod-pubsub old-orders --dry-run (more in `komando queue pubsub topic delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub topic delete x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub topic delete takes NAME TOPIC...
+Hint: for example: komando queue pubsub topic delete prod-pubsub old-orders --dry-run (more in `komando queue pubsub topic delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub topic delete x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.topic.delete","error":{"code":"USAGE","message":"queue pubsub topic delete takes NAME TOPIC...","hint":"for example: komando queue pubsub topic delete prod-pubsub old-orders --dry-run (more in `komando queue pubsub topic delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub topic delete x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub topic delete takes NAME TOPIC...
+Hint: for example: komando queue pubsub topic delete prod-pubsub old-orders --dry-run (more in `komando queue pubsub topic delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub topic list (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.topic.list","error":{"code":"USAGE","message":"queue pubsub topic list takes NAME [PATTERN]","hint":"for example: komando queue pubsub topic list prod-pubsub (more in `komando queue pubsub topic list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub topic list (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub topic list takes NAME [PATTERN]
+Hint: for example: komando queue pubsub topic list prod-pubsub (more in `komando queue pubsub topic list --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub topic list (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.topic.list","error":{"code":"USAGE","message":"queue pubsub topic list takes NAME [PATTERN]","hint":"for example: komando queue pubsub topic list prod-pubsub (more in `komando queue pubsub topic list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub topic list (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub topic list takes NAME [PATTERN]
+Hint: for example: komando queue pubsub topic list prod-pubsub (more in `komando queue pubsub topic list --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub topic show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.topic.show","error":{"code":"USAGE","message":"queue pubsub topic show takes NAME TOPIC","hint":"for example: komando queue pubsub topic show prod-pubsub orders (more in `komando queue pubsub topic show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub topic show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub topic show takes NAME TOPIC
+Hint: for example: komando queue pubsub topic show prod-pubsub orders (more in `komando queue pubsub topic show --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub topic show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.topic.show","error":{"code":"USAGE","message":"queue pubsub topic show takes NAME TOPIC","hint":"for example: komando queue pubsub topic show prod-pubsub orders (more in `komando queue pubsub topic show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub topic show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub topic show takes NAME TOPIC
+Hint: for example: komando queue pubsub topic show prod-pubsub orders (more in `komando queue pubsub topic show --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub topic show x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.topic.show","error":{"code":"USAGE","message":"queue pubsub topic show takes NAME TOPIC","hint":"for example: komando queue pubsub topic show prod-pubsub orders (more in `komando queue pubsub topic show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub topic show x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub topic show takes NAME TOPIC
+Hint: for example: komando queue pubsub topic show prod-pubsub orders (more in `komando queue pubsub topic show --help`)
+(code USAGE, exit 2)
+### komando -o json queue pubsub topic show x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.pubsub.topic.show","error":{"code":"USAGE","message":"queue pubsub topic show takes NAME TOPIC","hint":"for example: komando queue pubsub topic show prod-pubsub orders (more in `komando queue pubsub topic show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue pubsub topic show x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue pubsub topic show takes NAME TOPIC
+Hint: for example: komando queue pubsub topic show prod-pubsub orders (more in `komando queue pubsub topic show --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.add","error":{"code":"USAGE","message":"queue rabbitmq add takes NAME [URL]","hint":"for example: komando queue rabbitmq add prod-rabbit amqps://app@10.0.0.9/ --via web1 (more in `komando queue rabbitmq add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq add takes NAME [URL]
+Hint: for example: komando queue rabbitmq add prod-rabbit amqps://app@10.0.0.9/ --via web1 (more in `komando queue rabbitmq add --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.add","error":{"code":"USAGE","message":"queue rabbitmq add takes NAME [URL]","hint":"for example: komando queue rabbitmq add prod-rabbit amqps://app@10.0.0.9/ --via web1 (more in `komando queue rabbitmq add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq add takes NAME [URL]
+Hint: for example: komando queue rabbitmq add prod-rabbit amqps://app@10.0.0.9/ --via web1 (more in `komando queue rabbitmq add --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.edit","error":{"code":"USAGE","message":"queue rabbitmq edit takes NAME","hint":"for example: komando queue rabbitmq edit prod-rabbit --add-tag critical (more in `komando queue rabbitmq edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq edit takes NAME
+Hint: for example: komando queue rabbitmq edit prod-rabbit --add-tag critical (more in `komando queue rabbitmq edit --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.edit","error":{"code":"USAGE","message":"queue rabbitmq edit takes NAME","hint":"for example: komando queue rabbitmq edit prod-rabbit --add-tag critical (more in `komando queue rabbitmq edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq edit takes NAME
+Hint: for example: komando queue rabbitmq edit prod-rabbit --add-tag critical (more in `komando queue rabbitmq edit --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq info (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.info","error":{"code":"USAGE","message":"queue rabbitmq info takes NAME","hint":"for example: komando queue rabbitmq info prod-rabbit (more in `komando queue rabbitmq info --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq info (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq info takes NAME
+Hint: for example: komando queue rabbitmq info prod-rabbit (more in `komando queue rabbitmq info --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq info (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.info","error":{"code":"USAGE","message":"queue rabbitmq info takes NAME","hint":"for example: komando queue rabbitmq info prod-rabbit (more in `komando queue rabbitmq info --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq info (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq info takes NAME
+Hint: for example: komando queue rabbitmq info prod-rabbit (more in `komando queue rabbitmq info --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq message create (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.message.create","error":{"code":"USAGE","message":"queue rabbitmq message create takes NAME TOPIC","hint":"for example: komando queue rabbitmq message create prod-rabbit emails --value test --dry-run (more in `komando queue rabbitmq message create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq message create (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq message create takes NAME TOPIC
+Hint: for example: komando queue rabbitmq message create prod-rabbit emails --value test --dry-run (more in `komando queue rabbitmq message create --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq message create (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.message.create","error":{"code":"USAGE","message":"queue rabbitmq message create takes NAME TOPIC","hint":"for example: komando queue rabbitmq message create prod-rabbit emails --value test --dry-run (more in `komando queue rabbitmq message create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq message create (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq message create takes NAME TOPIC
+Hint: for example: komando queue rabbitmq message create prod-rabbit emails --value test --dry-run (more in `komando queue rabbitmq message create --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq message create x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.message.create","error":{"code":"USAGE","message":"queue rabbitmq message create takes NAME TOPIC","hint":"for example: komando queue rabbitmq message create prod-rabbit emails --value test --dry-run (more in `komando queue rabbitmq message create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq message create x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq message create takes NAME TOPIC
+Hint: for example: komando queue rabbitmq message create prod-rabbit emails --value test --dry-run (more in `komando queue rabbitmq message create --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq message create x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.message.create","error":{"code":"USAGE","message":"queue rabbitmq message create takes NAME TOPIC","hint":"for example: komando queue rabbitmq message create prod-rabbit emails --value test --dry-run (more in `komando queue rabbitmq message create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq message create x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq message create takes NAME TOPIC
+Hint: for example: komando queue rabbitmq message create prod-rabbit emails --value test --dry-run (more in `komando queue rabbitmq message create --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq message delete (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.message.delete","error":{"code":"USAGE","message":"queue rabbitmq message delete takes NAME TOPIC","hint":"for example: komando queue rabbitmq message delete prod-rabbit emails-retry --all --dry-run (more in `komando queue rabbitmq message delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq message delete (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq message delete takes NAME TOPIC
+Hint: for example: komando queue rabbitmq message delete prod-rabbit emails-retry --all --dry-run (more in `komando queue rabbitmq message delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq message delete (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.message.delete","error":{"code":"USAGE","message":"queue rabbitmq message delete takes NAME TOPIC","hint":"for example: komando queue rabbitmq message delete prod-rabbit emails-retry --all --dry-run (more in `komando queue rabbitmq message delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq message delete (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq message delete takes NAME TOPIC
+Hint: for example: komando queue rabbitmq message delete prod-rabbit emails-retry --all --dry-run (more in `komando queue rabbitmq message delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq message delete x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.message.delete","error":{"code":"USAGE","message":"queue rabbitmq message delete takes NAME TOPIC","hint":"for example: komando queue rabbitmq message delete prod-rabbit emails-retry --all --dry-run (more in `komando queue rabbitmq message delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq message delete x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq message delete takes NAME TOPIC
+Hint: for example: komando queue rabbitmq message delete prod-rabbit emails-retry --all --dry-run (more in `komando queue rabbitmq message delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq message delete x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.message.delete","error":{"code":"USAGE","message":"queue rabbitmq message delete takes NAME TOPIC","hint":"for example: komando queue rabbitmq message delete prod-rabbit emails-retry --all --dry-run (more in `komando queue rabbitmq message delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq message delete x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq message delete takes NAME TOPIC
+Hint: for example: komando queue rabbitmq message delete prod-rabbit emails-retry --all --dry-run (more in `komando queue rabbitmq message delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq message list (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.message.list","error":{"code":"USAGE","message":"queue rabbitmq message list takes NAME TOPIC","hint":"for example: komando queue rabbitmq message list prod-rabbit emails (more in `komando queue rabbitmq message list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq message list (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq message list takes NAME TOPIC
+Hint: for example: komando queue rabbitmq message list prod-rabbit emails (more in `komando queue rabbitmq message list --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq message list (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.message.list","error":{"code":"USAGE","message":"queue rabbitmq message list takes NAME TOPIC","hint":"for example: komando queue rabbitmq message list prod-rabbit emails (more in `komando queue rabbitmq message list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq message list (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq message list takes NAME TOPIC
+Hint: for example: komando queue rabbitmq message list prod-rabbit emails (more in `komando queue rabbitmq message list --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq message list x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.message.list","error":{"code":"USAGE","message":"queue rabbitmq message list takes NAME TOPIC","hint":"for example: komando queue rabbitmq message list prod-rabbit emails (more in `komando queue rabbitmq message list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq message list x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq message list takes NAME TOPIC
+Hint: for example: komando queue rabbitmq message list prod-rabbit emails (more in `komando queue rabbitmq message list --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq message list x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.message.list","error":{"code":"USAGE","message":"queue rabbitmq message list takes NAME TOPIC","hint":"for example: komando queue rabbitmq message list prod-rabbit emails (more in `komando queue rabbitmq message list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq message list x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq message list takes NAME TOPIC
+Hint: for example: komando queue rabbitmq message list prod-rabbit emails (more in `komando queue rabbitmq message list --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.remove","error":{"code":"USAGE","message":"queue rabbitmq remove takes TARGET...","hint":"for example: komando queue rabbitmq remove prod-rabbit --dry-run (more in `komando queue rabbitmq remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq remove takes TARGET...
+Hint: for example: komando queue rabbitmq remove prod-rabbit --dry-run (more in `komando queue rabbitmq remove --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.remove","error":{"code":"USAGE","message":"queue rabbitmq remove takes TARGET...","hint":"for example: komando queue rabbitmq remove prod-rabbit --dry-run (more in `komando queue rabbitmq remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq remove takes TARGET...
+Hint: for example: komando queue rabbitmq remove prod-rabbit --dry-run (more in `komando queue rabbitmq remove --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.rename","error":{"code":"USAGE","message":"queue rabbitmq rename takes NAME NEW","hint":"for example: komando queue rabbitmq rename prod-rabbit prod-rabbit-2 --dry-run (more in `komando queue rabbitmq rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq rename takes NAME NEW
+Hint: for example: komando queue rabbitmq rename prod-rabbit prod-rabbit-2 --dry-run (more in `komando queue rabbitmq rename --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.rename","error":{"code":"USAGE","message":"queue rabbitmq rename takes NAME NEW","hint":"for example: komando queue rabbitmq rename prod-rabbit prod-rabbit-2 --dry-run (more in `komando queue rabbitmq rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq rename takes NAME NEW
+Hint: for example: komando queue rabbitmq rename prod-rabbit prod-rabbit-2 --dry-run (more in `komando queue rabbitmq rename --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.rename","error":{"code":"USAGE","message":"queue rabbitmq rename takes NAME NEW","hint":"for example: komando queue rabbitmq rename prod-rabbit prod-rabbit-2 --dry-run (more in `komando queue rabbitmq rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq rename takes NAME NEW
+Hint: for example: komando queue rabbitmq rename prod-rabbit prod-rabbit-2 --dry-run (more in `komando queue rabbitmq rename --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.rename","error":{"code":"USAGE","message":"queue rabbitmq rename takes NAME NEW","hint":"for example: komando queue rabbitmq rename prod-rabbit prod-rabbit-2 --dry-run (more in `komando queue rabbitmq rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq rename takes NAME NEW
+Hint: for example: komando queue rabbitmq rename prod-rabbit prod-rabbit-2 --dry-run (more in `komando queue rabbitmq rename --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.show","error":{"code":"USAGE","message":"queue rabbitmq show takes NAME","hint":"for example: komando queue rabbitmq show prod-rabbit (more in `komando queue rabbitmq show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq show takes NAME
+Hint: for example: komando queue rabbitmq show prod-rabbit (more in `komando queue rabbitmq show --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.show","error":{"code":"USAGE","message":"queue rabbitmq show takes NAME","hint":"for example: komando queue rabbitmq show prod-rabbit (more in `komando queue rabbitmq show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq show takes NAME
+Hint: for example: komando queue rabbitmq show prod-rabbit (more in `komando queue rabbitmq show --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.test","error":{"code":"USAGE","message":"queue rabbitmq test takes TARGET","hint":"for example: komando queue rabbitmq test prod-rabbit (more in `komando queue rabbitmq test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq test takes TARGET
+Hint: for example: komando queue rabbitmq test prod-rabbit (more in `komando queue rabbitmq test --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.test","error":{"code":"USAGE","message":"queue rabbitmq test takes TARGET","hint":"for example: komando queue rabbitmq test prod-rabbit (more in `komando queue rabbitmq test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq test takes TARGET
+Hint: for example: komando queue rabbitmq test prod-rabbit (more in `komando queue rabbitmq test --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq topic create (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.topic.create","error":{"code":"USAGE","message":"queue rabbitmq topic create takes NAME TOPIC","hint":"for example: komando queue rabbitmq topic create prod-rabbit emails --dry-run (more in `komando queue rabbitmq topic create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq topic create (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq topic create takes NAME TOPIC
+Hint: for example: komando queue rabbitmq topic create prod-rabbit emails --dry-run (more in `komando queue rabbitmq topic create --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq topic create (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.topic.create","error":{"code":"USAGE","message":"queue rabbitmq topic create takes NAME TOPIC","hint":"for example: komando queue rabbitmq topic create prod-rabbit emails --dry-run (more in `komando queue rabbitmq topic create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq topic create (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq topic create takes NAME TOPIC
+Hint: for example: komando queue rabbitmq topic create prod-rabbit emails --dry-run (more in `komando queue rabbitmq topic create --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq topic create x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.topic.create","error":{"code":"USAGE","message":"queue rabbitmq topic create takes NAME TOPIC","hint":"for example: komando queue rabbitmq topic create prod-rabbit emails --dry-run (more in `komando queue rabbitmq topic create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq topic create x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq topic create takes NAME TOPIC
+Hint: for example: komando queue rabbitmq topic create prod-rabbit emails --dry-run (more in `komando queue rabbitmq topic create --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq topic create x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.topic.create","error":{"code":"USAGE","message":"queue rabbitmq topic create takes NAME TOPIC","hint":"for example: komando queue rabbitmq topic create prod-rabbit emails --dry-run (more in `komando queue rabbitmq topic create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq topic create x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq topic create takes NAME TOPIC
+Hint: for example: komando queue rabbitmq topic create prod-rabbit emails --dry-run (more in `komando queue rabbitmq topic create --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq topic delete (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.topic.delete","error":{"code":"USAGE","message":"queue rabbitmq topic delete takes NAME TOPIC...","hint":"for example: komando queue rabbitmq topic delete prod-rabbit old-emails --dry-run (more in `komando queue rabbitmq topic delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq topic delete (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq topic delete takes NAME TOPIC...
+Hint: for example: komando queue rabbitmq topic delete prod-rabbit old-emails --dry-run (more in `komando queue rabbitmq topic delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq topic delete (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.topic.delete","error":{"code":"USAGE","message":"queue rabbitmq topic delete takes NAME TOPIC...","hint":"for example: komando queue rabbitmq topic delete prod-rabbit old-emails --dry-run (more in `komando queue rabbitmq topic delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq topic delete (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq topic delete takes NAME TOPIC...
+Hint: for example: komando queue rabbitmq topic delete prod-rabbit old-emails --dry-run (more in `komando queue rabbitmq topic delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq topic delete x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.topic.delete","error":{"code":"USAGE","message":"queue rabbitmq topic delete takes NAME TOPIC...","hint":"for example: komando queue rabbitmq topic delete prod-rabbit old-emails --dry-run (more in `komando queue rabbitmq topic delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq topic delete x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq topic delete takes NAME TOPIC...
+Hint: for example: komando queue rabbitmq topic delete prod-rabbit old-emails --dry-run (more in `komando queue rabbitmq topic delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq topic delete x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.topic.delete","error":{"code":"USAGE","message":"queue rabbitmq topic delete takes NAME TOPIC...","hint":"for example: komando queue rabbitmq topic delete prod-rabbit old-emails --dry-run (more in `komando queue rabbitmq topic delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq topic delete x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq topic delete takes NAME TOPIC...
+Hint: for example: komando queue rabbitmq topic delete prod-rabbit old-emails --dry-run (more in `komando queue rabbitmq topic delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq topic list (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.topic.list","error":{"code":"USAGE","message":"queue rabbitmq topic list takes NAME [PATTERN]","hint":"for example: komando queue rabbitmq topic list prod-rabbit (more in `komando queue rabbitmq topic list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq topic list (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq topic list takes NAME [PATTERN]
+Hint: for example: komando queue rabbitmq topic list prod-rabbit (more in `komando queue rabbitmq topic list --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq topic list (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.topic.list","error":{"code":"USAGE","message":"queue rabbitmq topic list takes NAME [PATTERN]","hint":"for example: komando queue rabbitmq topic list prod-rabbit (more in `komando queue rabbitmq topic list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq topic list (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq topic list takes NAME [PATTERN]
+Hint: for example: komando queue rabbitmq topic list prod-rabbit (more in `komando queue rabbitmq topic list --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq topic show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.topic.show","error":{"code":"USAGE","message":"queue rabbitmq topic show takes NAME TOPIC","hint":"for example: komando queue rabbitmq topic show prod-rabbit emails (more in `komando queue rabbitmq topic show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq topic show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq topic show takes NAME TOPIC
+Hint: for example: komando queue rabbitmq topic show prod-rabbit emails (more in `komando queue rabbitmq topic show --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq topic show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.topic.show","error":{"code":"USAGE","message":"queue rabbitmq topic show takes NAME TOPIC","hint":"for example: komando queue rabbitmq topic show prod-rabbit emails (more in `komando queue rabbitmq topic show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq topic show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq topic show takes NAME TOPIC
+Hint: for example: komando queue rabbitmq topic show prod-rabbit emails (more in `komando queue rabbitmq topic show --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq topic show x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.topic.show","error":{"code":"USAGE","message":"queue rabbitmq topic show takes NAME TOPIC","hint":"for example: komando queue rabbitmq topic show prod-rabbit emails (more in `komando queue rabbitmq topic show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq topic show x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq topic show takes NAME TOPIC
+Hint: for example: komando queue rabbitmq topic show prod-rabbit emails (more in `komando queue rabbitmq topic show --help`)
+(code USAGE, exit 2)
+### komando -o json queue rabbitmq topic show x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.rabbitmq.topic.show","error":{"code":"USAGE","message":"queue rabbitmq topic show takes NAME TOPIC","hint":"for example: komando queue rabbitmq topic show prod-rabbit emails (more in `komando queue rabbitmq topic show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue rabbitmq topic show x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue rabbitmq topic show takes NAME TOPIC
+Hint: for example: komando queue rabbitmq topic show prod-rabbit emails (more in `komando queue rabbitmq topic show --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.add","error":{"code":"USAGE","message":"queue sqs add takes NAME [URL]","hint":"for example: komando queue sqs add prod-sqs sqs://eu-west-1 --via web1 (more in `komando queue sqs add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs add takes NAME [URL]
+Hint: for example: komando queue sqs add prod-sqs sqs://eu-west-1 --via web1 (more in `komando queue sqs add --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.add","error":{"code":"USAGE","message":"queue sqs add takes NAME [URL]","hint":"for example: komando queue sqs add prod-sqs sqs://eu-west-1 --via web1 (more in `komando queue sqs add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs add takes NAME [URL]
+Hint: for example: komando queue sqs add prod-sqs sqs://eu-west-1 --via web1 (more in `komando queue sqs add --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.edit","error":{"code":"USAGE","message":"queue sqs edit takes NAME","hint":"for example: komando queue sqs edit prod-sqs --add-tag critical (more in `komando queue sqs edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs edit takes NAME
+Hint: for example: komando queue sqs edit prod-sqs --add-tag critical (more in `komando queue sqs edit --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.edit","error":{"code":"USAGE","message":"queue sqs edit takes NAME","hint":"for example: komando queue sqs edit prod-sqs --add-tag critical (more in `komando queue sqs edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs edit takes NAME
+Hint: for example: komando queue sqs edit prod-sqs --add-tag critical (more in `komando queue sqs edit --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs info (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.info","error":{"code":"USAGE","message":"queue sqs info takes NAME","hint":"for example: komando queue sqs info prod-sqs (more in `komando queue sqs info --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs info (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs info takes NAME
+Hint: for example: komando queue sqs info prod-sqs (more in `komando queue sqs info --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs info (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.info","error":{"code":"USAGE","message":"queue sqs info takes NAME","hint":"for example: komando queue sqs info prod-sqs (more in `komando queue sqs info --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs info (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs info takes NAME
+Hint: for example: komando queue sqs info prod-sqs (more in `komando queue sqs info --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs message create (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.message.create","error":{"code":"USAGE","message":"queue sqs message create takes NAME TOPIC","hint":"for example: komando queue sqs message create prod-sqs orders --value test --dry-run (more in `komando queue sqs message create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs message create (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs message create takes NAME TOPIC
+Hint: for example: komando queue sqs message create prod-sqs orders --value test --dry-run (more in `komando queue sqs message create --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs message create (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.message.create","error":{"code":"USAGE","message":"queue sqs message create takes NAME TOPIC","hint":"for example: komando queue sqs message create prod-sqs orders --value test --dry-run (more in `komando queue sqs message create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs message create (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs message create takes NAME TOPIC
+Hint: for example: komando queue sqs message create prod-sqs orders --value test --dry-run (more in `komando queue sqs message create --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs message create x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.message.create","error":{"code":"USAGE","message":"queue sqs message create takes NAME TOPIC","hint":"for example: komando queue sqs message create prod-sqs orders --value test --dry-run (more in `komando queue sqs message create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs message create x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs message create takes NAME TOPIC
+Hint: for example: komando queue sqs message create prod-sqs orders --value test --dry-run (more in `komando queue sqs message create --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs message create x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.message.create","error":{"code":"USAGE","message":"queue sqs message create takes NAME TOPIC","hint":"for example: komando queue sqs message create prod-sqs orders --value test --dry-run (more in `komando queue sqs message create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs message create x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs message create takes NAME TOPIC
+Hint: for example: komando queue sqs message create prod-sqs orders --value test --dry-run (more in `komando queue sqs message create --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs message delete (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.message.delete","error":{"code":"USAGE","message":"queue sqs message delete takes NAME TOPIC","hint":"for example: komando queue sqs message delete prod-sqs orders-retry --all --dry-run (more in `komando queue sqs message delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs message delete (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs message delete takes NAME TOPIC
+Hint: for example: komando queue sqs message delete prod-sqs orders-retry --all --dry-run (more in `komando queue sqs message delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs message delete (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.message.delete","error":{"code":"USAGE","message":"queue sqs message delete takes NAME TOPIC","hint":"for example: komando queue sqs message delete prod-sqs orders-retry --all --dry-run (more in `komando queue sqs message delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs message delete (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs message delete takes NAME TOPIC
+Hint: for example: komando queue sqs message delete prod-sqs orders-retry --all --dry-run (more in `komando queue sqs message delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs message delete x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.message.delete","error":{"code":"USAGE","message":"queue sqs message delete takes NAME TOPIC","hint":"for example: komando queue sqs message delete prod-sqs orders-retry --all --dry-run (more in `komando queue sqs message delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs message delete x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs message delete takes NAME TOPIC
+Hint: for example: komando queue sqs message delete prod-sqs orders-retry --all --dry-run (more in `komando queue sqs message delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs message delete x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.message.delete","error":{"code":"USAGE","message":"queue sqs message delete takes NAME TOPIC","hint":"for example: komando queue sqs message delete prod-sqs orders-retry --all --dry-run (more in `komando queue sqs message delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs message delete x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs message delete takes NAME TOPIC
+Hint: for example: komando queue sqs message delete prod-sqs orders-retry --all --dry-run (more in `komando queue sqs message delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs message list (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.message.list","error":{"code":"USAGE","message":"queue sqs message list takes NAME TOPIC","hint":"for example: komando queue sqs message list prod-sqs orders (more in `komando queue sqs message list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs message list (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs message list takes NAME TOPIC
+Hint: for example: komando queue sqs message list prod-sqs orders (more in `komando queue sqs message list --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs message list (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.message.list","error":{"code":"USAGE","message":"queue sqs message list takes NAME TOPIC","hint":"for example: komando queue sqs message list prod-sqs orders (more in `komando queue sqs message list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs message list (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs message list takes NAME TOPIC
+Hint: for example: komando queue sqs message list prod-sqs orders (more in `komando queue sqs message list --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs message list x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.message.list","error":{"code":"USAGE","message":"queue sqs message list takes NAME TOPIC","hint":"for example: komando queue sqs message list prod-sqs orders (more in `komando queue sqs message list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs message list x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs message list takes NAME TOPIC
+Hint: for example: komando queue sqs message list prod-sqs orders (more in `komando queue sqs message list --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs message list x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.message.list","error":{"code":"USAGE","message":"queue sqs message list takes NAME TOPIC","hint":"for example: komando queue sqs message list prod-sqs orders (more in `komando queue sqs message list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs message list x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs message list takes NAME TOPIC
+Hint: for example: komando queue sqs message list prod-sqs orders (more in `komando queue sqs message list --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.remove","error":{"code":"USAGE","message":"queue sqs remove takes TARGET...","hint":"for example: komando queue sqs remove prod-sqs --dry-run (more in `komando queue sqs remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs remove takes TARGET...
+Hint: for example: komando queue sqs remove prod-sqs --dry-run (more in `komando queue sqs remove --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.remove","error":{"code":"USAGE","message":"queue sqs remove takes TARGET...","hint":"for example: komando queue sqs remove prod-sqs --dry-run (more in `komando queue sqs remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs remove takes TARGET...
+Hint: for example: komando queue sqs remove prod-sqs --dry-run (more in `komando queue sqs remove --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.rename","error":{"code":"USAGE","message":"queue sqs rename takes NAME NEW","hint":"for example: komando queue sqs rename prod-sqs prod-sqs-2 --dry-run (more in `komando queue sqs rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs rename takes NAME NEW
+Hint: for example: komando queue sqs rename prod-sqs prod-sqs-2 --dry-run (more in `komando queue sqs rename --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.rename","error":{"code":"USAGE","message":"queue sqs rename takes NAME NEW","hint":"for example: komando queue sqs rename prod-sqs prod-sqs-2 --dry-run (more in `komando queue sqs rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs rename takes NAME NEW
+Hint: for example: komando queue sqs rename prod-sqs prod-sqs-2 --dry-run (more in `komando queue sqs rename --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.rename","error":{"code":"USAGE","message":"queue sqs rename takes NAME NEW","hint":"for example: komando queue sqs rename prod-sqs prod-sqs-2 --dry-run (more in `komando queue sqs rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs rename takes NAME NEW
+Hint: for example: komando queue sqs rename prod-sqs prod-sqs-2 --dry-run (more in `komando queue sqs rename --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.rename","error":{"code":"USAGE","message":"queue sqs rename takes NAME NEW","hint":"for example: komando queue sqs rename prod-sqs prod-sqs-2 --dry-run (more in `komando queue sqs rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs rename takes NAME NEW
+Hint: for example: komando queue sqs rename prod-sqs prod-sqs-2 --dry-run (more in `komando queue sqs rename --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.show","error":{"code":"USAGE","message":"queue sqs show takes NAME","hint":"for example: komando queue sqs show prod-sqs (more in `komando queue sqs show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs show takes NAME
+Hint: for example: komando queue sqs show prod-sqs (more in `komando queue sqs show --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.show","error":{"code":"USAGE","message":"queue sqs show takes NAME","hint":"for example: komando queue sqs show prod-sqs (more in `komando queue sqs show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs show takes NAME
+Hint: for example: komando queue sqs show prod-sqs (more in `komando queue sqs show --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.test","error":{"code":"USAGE","message":"queue sqs test takes TARGET","hint":"for example: komando queue sqs test prod-sqs (more in `komando queue sqs test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs test takes TARGET
+Hint: for example: komando queue sqs test prod-sqs (more in `komando queue sqs test --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.test","error":{"code":"USAGE","message":"queue sqs test takes TARGET","hint":"for example: komando queue sqs test prod-sqs (more in `komando queue sqs test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs test takes TARGET
+Hint: for example: komando queue sqs test prod-sqs (more in `komando queue sqs test --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs topic create (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.topic.create","error":{"code":"USAGE","message":"queue sqs topic create takes NAME TOPIC","hint":"for example: komando queue sqs topic create prod-sqs orders --dry-run (more in `komando queue sqs topic create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs topic create (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs topic create takes NAME TOPIC
+Hint: for example: komando queue sqs topic create prod-sqs orders --dry-run (more in `komando queue sqs topic create --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs topic create (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.topic.create","error":{"code":"USAGE","message":"queue sqs topic create takes NAME TOPIC","hint":"for example: komando queue sqs topic create prod-sqs orders --dry-run (more in `komando queue sqs topic create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs topic create (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs topic create takes NAME TOPIC
+Hint: for example: komando queue sqs topic create prod-sqs orders --dry-run (more in `komando queue sqs topic create --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs topic create x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.topic.create","error":{"code":"USAGE","message":"queue sqs topic create takes NAME TOPIC","hint":"for example: komando queue sqs topic create prod-sqs orders --dry-run (more in `komando queue sqs topic create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs topic create x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs topic create takes NAME TOPIC
+Hint: for example: komando queue sqs topic create prod-sqs orders --dry-run (more in `komando queue sqs topic create --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs topic create x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.topic.create","error":{"code":"USAGE","message":"queue sqs topic create takes NAME TOPIC","hint":"for example: komando queue sqs topic create prod-sqs orders --dry-run (more in `komando queue sqs topic create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs topic create x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs topic create takes NAME TOPIC
+Hint: for example: komando queue sqs topic create prod-sqs orders --dry-run (more in `komando queue sqs topic create --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs topic delete (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.topic.delete","error":{"code":"USAGE","message":"queue sqs topic delete takes NAME TOPIC...","hint":"for example: komando queue sqs topic delete prod-sqs old-orders --dry-run (more in `komando queue sqs topic delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs topic delete (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs topic delete takes NAME TOPIC...
+Hint: for example: komando queue sqs topic delete prod-sqs old-orders --dry-run (more in `komando queue sqs topic delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs topic delete (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.topic.delete","error":{"code":"USAGE","message":"queue sqs topic delete takes NAME TOPIC...","hint":"for example: komando queue sqs topic delete prod-sqs old-orders --dry-run (more in `komando queue sqs topic delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs topic delete (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs topic delete takes NAME TOPIC...
+Hint: for example: komando queue sqs topic delete prod-sqs old-orders --dry-run (more in `komando queue sqs topic delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs topic delete x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.topic.delete","error":{"code":"USAGE","message":"queue sqs topic delete takes NAME TOPIC...","hint":"for example: komando queue sqs topic delete prod-sqs old-orders --dry-run (more in `komando queue sqs topic delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs topic delete x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs topic delete takes NAME TOPIC...
+Hint: for example: komando queue sqs topic delete prod-sqs old-orders --dry-run (more in `komando queue sqs topic delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs topic delete x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.topic.delete","error":{"code":"USAGE","message":"queue sqs topic delete takes NAME TOPIC...","hint":"for example: komando queue sqs topic delete prod-sqs old-orders --dry-run (more in `komando queue sqs topic delete --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs topic delete x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs topic delete takes NAME TOPIC...
+Hint: for example: komando queue sqs topic delete prod-sqs old-orders --dry-run (more in `komando queue sqs topic delete --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs topic list (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.topic.list","error":{"code":"USAGE","message":"queue sqs topic list takes NAME [PATTERN]","hint":"for example: komando queue sqs topic list prod-sqs (more in `komando queue sqs topic list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs topic list (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs topic list takes NAME [PATTERN]
+Hint: for example: komando queue sqs topic list prod-sqs (more in `komando queue sqs topic list --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs topic list (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.topic.list","error":{"code":"USAGE","message":"queue sqs topic list takes NAME [PATTERN]","hint":"for example: komando queue sqs topic list prod-sqs (more in `komando queue sqs topic list --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs topic list (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs topic list takes NAME [PATTERN]
+Hint: for example: komando queue sqs topic list prod-sqs (more in `komando queue sqs topic list --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs topic show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.topic.show","error":{"code":"USAGE","message":"queue sqs topic show takes NAME TOPIC","hint":"for example: komando queue sqs topic show prod-sqs orders (more in `komando queue sqs topic show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs topic show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs topic show takes NAME TOPIC
+Hint: for example: komando queue sqs topic show prod-sqs orders (more in `komando queue sqs topic show --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs topic show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.topic.show","error":{"code":"USAGE","message":"queue sqs topic show takes NAME TOPIC","hint":"for example: komando queue sqs topic show prod-sqs orders (more in `komando queue sqs topic show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs topic show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs topic show takes NAME TOPIC
+Hint: for example: komando queue sqs topic show prod-sqs orders (more in `komando queue sqs topic show --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs topic show x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.topic.show","error":{"code":"USAGE","message":"queue sqs topic show takes NAME TOPIC","hint":"for example: komando queue sqs topic show prod-sqs orders (more in `komando queue sqs topic show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs topic show x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs topic show takes NAME TOPIC
+Hint: for example: komando queue sqs topic show prod-sqs orders (more in `komando queue sqs topic show --help`)
+(code USAGE, exit 2)
+### komando -o json queue sqs topic show x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"queue.sqs.topic.show","error":{"code":"USAGE","message":"queue sqs topic show takes NAME TOPIC","hint":"for example: komando queue sqs topic show prod-sqs orders (more in `komando queue sqs topic show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text queue sqs topic show x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: queue sqs topic show takes NAME TOPIC
+Hint: for example: komando queue sqs topic show prod-sqs orders (more in `komando queue sqs topic show --help`)
 (code USAGE, exit 2)
 ### komando -o json reboot (agent json)
 exit 2
@@ -8678,48 +10934,48 @@ exit 6
 Stopped: this can delete or break things (restores a backup, which can overwrite existing data), so komando asks first; nothing was changed
 Hint: If you mean it, run it again in a terminal and type the name to confirm, or add --allow-dangerous in a script. Try --dry-run first.
 (code POLICY_BLOCKED, exit 6)
-### komando -o json queue purge q1 t (agent json, gate inventory)
+### komando -o json queue kafka message delete --all q1 t (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"queue.purge","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [queue-purge]: deletes every message in t (it stays)","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.message.delete","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [queue-purge]: deletes every message in t (it stays)","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue purge q1 t (agent text, gate inventory)
+### komando -o text queue kafka message delete --all q1 t (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: this can delete or break things (deletes every message in t (it stays)), so komando asks first; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)
 (code POLICY_BLOCKED, exit 6)
-### komando -o json queue purge q1 t (script json, gate inventory)
+### komando -o json queue kafka message delete --all q1 t (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"queue.purge","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [queue-purge]: deletes every message in t (it stays)","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json queue purge q1 t --allow-dangerous`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.message.delete","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [queue-purge]: deletes every message in t (it stays)","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json queue kafka message delete --all q1 t --allow-dangerous`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue purge q1 t (script text, gate inventory)
+### komando -o text queue kafka message delete --all q1 t (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: this can delete or break things (deletes every message in t (it stays)), so komando asks first; nothing was changed
 Hint: If you mean it, run it again in a terminal and type the name to confirm, or add --allow-dangerous in a script. Try --dry-run first.
 (code POLICY_BLOCKED, exit 6)
-### komando -o json queue rm q1 t (agent json, gate inventory)
+### komando -o json queue kafka topic delete q1 t (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"queue.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [queue-delete]: deletes t and every message in it","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.topic.delete","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [queue-delete]: deletes t and every message in it","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue rm q1 t (agent text, gate inventory)
+### komando -o text queue kafka topic delete q1 t (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: this can delete or break things (deletes t and every message in it), so komando asks first; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)
 (code POLICY_BLOCKED, exit 6)
-### komando -o json queue rm q1 t (script json, gate inventory)
+### komando -o json queue kafka topic delete q1 t (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"queue.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [queue-delete]: deletes t and every message in it","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json queue rm q1 t --allow-dangerous`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.kafka.topic.delete","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [queue-delete]: deletes t and every message in it","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json queue kafka topic delete q1 t --allow-dangerous`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text queue rm q1 t (script text, gate inventory)
+### komando -o text queue kafka topic delete q1 t (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
@@ -10107,12 +12363,40 @@ komando exec kind=depends confirm=[{"tier":"change"},{"flag":"--allow-dangerous"
   --stream type=bool default=false
   --sudo shorthand=s type=bool default=false
   --sudo-user type=string
-### komando schema queue create (schema values)
+### komando schema queue kafka topic create (schema values)
 exit 0
-komando queue create kind=change confirm=[{"tier":"change"}]
+komando queue kafka topic create kind=change confirm=[{"tier":"change"}]
   --config type=stringArray default=[]
-  --partitions type=int
-  --replicas type=int
+  --partitions type=int default=0
+  --replicas type=int default=0
+  --type type=string
+### komando schema queue rabbitmq topic create (schema values)
+exit 0
+komando queue rabbitmq topic create kind=change confirm=[{"tier":"change"}]
+  --config type=stringArray default=[]
+  --partitions type=int default=0
+  --replicas type=int default=0
+  --type type=string
+### komando schema queue nats topic create (schema values)
+exit 0
+komando queue nats topic create kind=change confirm=[{"tier":"change"}]
+  --config type=stringArray default=[]
+  --partitions type=int default=0
+  --replicas type=int default=0
+  --type type=string
+### komando schema queue sqs topic create (schema values)
+exit 0
+komando queue sqs topic create kind=change confirm=[{"tier":"change"}]
+  --config type=stringArray default=[]
+  --partitions type=int default=0
+  --replicas type=int default=0
+  --type type=string
+### komando schema queue pubsub topic create (schema values)
+exit 0
+komando queue pubsub topic create kind=change confirm=[{"tier":"change"}]
+  --config type=stringArray default=[]
+  --partitions type=int default=0
+  --replicas type=int default=0
   --type type=string
 ### komando schema cluster events (schema values)
 exit 0

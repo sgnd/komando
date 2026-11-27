@@ -157,8 +157,7 @@ var (
 		"remove", "raw", "copy", "delete"} // the v2.7 verbs join as their type moves (step C)
 	toolWords = []string{"docker ps", "docker images", "docker pull", "docker compose", "docker raw", "docker inspect",
 		"registry oci image show", "registry oci image copy", "cache keys", "user add", "db user add", "db grant", "db revoke",
-		"pkg installed", "pkg upgradable", "pkg security", "queue peek", "queue send", "queue lag", "queue groups",
-		"db activity", "db locks", "db sizes", "db explain", "db kill",
+		"pkg installed", "pkg upgradable", "pkg security", "db activity", "db locks", "db sizes", "db explain", "db kill",
 		"fs cat", "fs stat", "fs chmod", "fs mkdir", "fs write", "fs replace", "fs mv", "svc daemon-reload",
 		"storage chmod", "storage mkdir", "storage mv",
 		"cluster scale", "cluster apply", "cluster rollback", "cluster forward", "cluster helm values",
@@ -201,7 +200,7 @@ func TestStandardPairs(t *testing.T) {
 		}
 		// add/rm in komando's own list, create/rm on a target
 		family := slices.Contains([]string{"db", "cache", "queue", "storage", "cluster", "registry"}, cmdPathOf(c))
-		hasRm := slices.Contains(names, "rm") || slices.Contains(names, "remove")
+		hasRm := slices.Contains(names, "rm") || slices.Contains(names, "remove") || slices.Contains(names, "delete")
 		if !family && slices.Contains(names, "add") && !hasRm || slices.Contains(names, "create") && !hasRm {
 			got[strings.TrimSpace(cmdPathOf(c)+" add|create/rm")] = "has no rm"
 		}
@@ -494,7 +493,7 @@ func TestStandardLong(t *testing.T) {
 
 // sampleNames are S-6.8's sample names, and selectors that pick them.
 var sampleNames = []string{"web1", "web2", "db1", "@web", "prod-db", "staging-db", "prod-redis", "prod-kafka",
-	"backups", "ghcr", "harbor", "prod-k8s", "swarm1", "office", "alice", "app", "all"}
+	"prod-rabbit", "prod-nats", "prod-sqs", "prod-pubsub", "backups", "ghcr", "harbor", "prod-k8s", "swarm1", "office", "alice", "app", "all"}
 
 // S-6.6..S-6.9: example counts, a dry-run line per change command,
 // approval lines after their dry run and marked, sample names, English.

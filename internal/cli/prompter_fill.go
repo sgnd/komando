@@ -209,7 +209,7 @@ var promptKinds = map[string]struct{ noun, add string }{
 	"server": {"servers", "komando host add"}, "host": {"servers", "komando host add"},
 	"target": {"servers or conns", "komando host add"}, "files": {"servers or file storage", "komando host add"},
 	"conn": {"conns", "komando conn add"}, "db": {"databases", "komando db add"},
-	"cache": {"caches", "komando cache redis add"}, "queue": {"message queues", "komando queue add"},
+	"cache": {"caches", "komando cache redis add"}, "queue": {"message queues", "komando queue kafka add"},
 	"storage": {"file storages", "komando storage add"}, "cluster": {"clusters", "komando cluster add"},
 	"registry": {"registries", "komando registry oci add"}, "vpn": {"VPNs", "komando vpn add"},
 	"job": {"jobs", "komando job start"}, "tunnel": {"tunnels", "komando tunnel start"},

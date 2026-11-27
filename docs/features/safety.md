@@ -130,7 +130,7 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 
 | Command | When | Tier | Flag |
 |---|---|---|---|
-| `queue purge` | always | dangerous | `--allow-dangerous` |
+| `queue kafka message delete` | always | dangerous | `--allow-dangerous` |
 | `cache rm` | always | dangerous | `--allow-dangerous` |
 | `cluster rm` | always | dangerous | `--allow-dangerous` |
 | `cluster scale` | REPLICAS is 0 | dangerous | `--allow-dangerous` |
@@ -168,7 +168,7 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `host ssh-command` | always | person |  |
 | `import` | SOURCE komando, when the file is sealed (export --sealed): a person types its passphrase | person |  |
 | `group rm` | GROUP alone: deleting a group of more than 3 members (CONFIRM_REQUIRED) | change | `--yes` |
-| `queue rm` | always | dangerous | `--allow-dangerous` |
+| `queue kafka topic delete` | always | dangerous | `--allow-dangerous` |
 | `storage rm` | always | dangerous | `--allow-dangerous` |
 | `registry oci image delete` | always | dangerous | `--allow-dangerous` |
 | `registry oci image prune` | always | dangerous | `--allow-dangerous` |
@@ -459,7 +459,7 @@ window showed to the exact file. What the hash covers:
 
 | Command | `body_sha256` is the SHA-256 of |
 |---|---|
-| `exec --script`, `--stdin-file`, `job start`, `db query --file`, `queue send` | the file as sent |
+| `exec --script`, `--stdin-file`, `job start`, `db query --file`, `queue PROVIDER message create` | the file as sent |
 | `recipe run` | the filled-in command, with no newline added |
 | `upload` of one file | the bytes as they are sent, for every caller. If an agent's window showed other bytes (the file changed after you saw it), the upload stops with `FILE_CHANGED` before the file on the server is touched, and the stop is in the audit log |
 | `upload` of a folder | the list the window shows: each file's name, size and SHA-256, one per line |

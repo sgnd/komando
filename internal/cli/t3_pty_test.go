@@ -19,8 +19,8 @@ var t3Cases = []struct {
 	answer string // the shown answer: "the name k" or "2 (...)"
 	args   []string
 }{
-	{"queue.purge", "the name t", []string{"queue", "purge", "q1", "t"}},
-	{"queue.rm", "the name t", []string{"queue", "rm", "q1", "t"}},
+	{"queue.kafka.message.delete", "the name t", []string{"queue", "kafka", "message", "delete", "--all", "q1", "t"}},
+	{"queue.kafka.topic.delete", "the name t", []string{"queue", "kafka", "topic", "delete", "q1", "t"}},
 	{"cache.rm", "the name k", []string{"cache", "rm", "cache1", "k"}},
 	{"cache.rm", "2 (", []string{"cache", "rm", "cache1", "k", "k2"}},
 	{"storage.rm", "the name k", []string{"storage", "rm", "st1", "k"}},

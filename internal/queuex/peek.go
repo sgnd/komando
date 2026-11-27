@@ -10,7 +10,7 @@ import (
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 
-// PeekOptions say which messages `queue peek` reads.
+// PeekOptions say which messages `message list` reads.
 type PeekOptions struct {
 	Topic     string
 	Limit     int   // how many messages, over all partitions
@@ -20,7 +20,7 @@ type PeekOptions struct {
 	Wait      time.Duration
 }
 
-// PeekResult is what `queue peek` read.
+// PeekResult is what `message list` read.
 type PeekResult struct {
 	Topic  string `json:"topic,omitempty"`  // kafka
 	Queue  string `json:"queue,omitempty"`  // rabbitmq, sqs
