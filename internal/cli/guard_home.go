@@ -325,6 +325,71 @@ func varChangeDenied(name string) guardDecision {
 var shellKeyword = map[string]bool{"{": true, "}": true, "!": true, "if": true, "then": true, "else": true, "elif": true, "fi": true,
 	"do": true, "done": true, "while": true, "until": true, "builtin": true, "coproc": true, "noglob": true, "nocorrect": true, "function": true}
 
+// program is the command a simple command runs, after shell keywords,
+// VAR=value words and wrappers such as sudo, env, time, timeout and nohup.
+func program(words []string) (string, []string) {
+	wrapper, pos := "", 0
+	for i := 0; i < len(words); i++ {
+		w := words[i]
+		base := filepath.Base(w)
+		switch {
+		case wrapper == "" && shellKeyword[w]:
+			if w == "function" {
+				i++
+			}
+			continue
+		case envAssign.MatchString(w):
+			continue
+		case isWrapper(base) && base != "env":
+			wrapper, pos = base, 0
+			continue
+		case base == "env" && i+1 < len(words) && (envAssign.MatchString(words[i+1]) || strings.HasPrefix(words[i+1], "-")):
+			wrapper, pos = "env", 0
+			continue
+		case strings.HasPrefix(w, "-") && i > 0:
+			// a wrapper's flag, e.g. sudo -u app: skip its value too
+			if wrapperValue[wrapper][w] {
+				i++
+			}
+			continue
+		case pos < wrapperPositional[wrapper]:
+			pos++
+			continue
+		}
+		return w, words[i+1:]
+	}
+	return "", nil
+}
+
+func isWrapper(w string) bool {
+	switch w {
+	case "env", "sudo", "doas", "time", "nohup", "exec", "command", "nice", "xargs",
+		"timeout", "setsid", "stdbuf", "chrt", "ionice", "taskset", "caffeinate", "busybox", "toybox", "unbuffer", "rtk":
+		return true
+	}
+	return false
+}
+
+// wrapperValue are the wrappers' flags that take the next word as a value.
+var wrapperValue = map[string]map[string]bool{
+	"env":        {"-u": true, "--unset": true, "-C": true, "--chdir": true, "-S": true, "--split-string": true},
+	"sudo":       {"-u": true, "-g": true, "-h": true, "-p": true, "-C": true, "-D": true, "-r": true, "-t": true, "-U": true, "-T": true},
+	"doas":       {"-u": true, "-C": true},
+	"nice":       {"-n": true},
+	"exec":       {"-a": true},
+	"time":       {"-f": true, "-o": true},
+	"xargs":      {"-I": true, "-n": true, "-P": true, "-L": true, "-d": true, "-E": true, "-s": true, "-a": true},
+	"timeout":    {"-s": true, "--signal": true, "-k": true, "--kill-after": true},
+	"stdbuf":     {"-i": true, "-o": true, "-e": true, "--input": true, "--output": true, "--error": true},
+	"ionice":     {"-c": true, "-n": true, "--class": true, "--classdata": true},
+	"chrt":       {"-T": true, "-P": true, "-D": true},
+	"caffeinate": {"-t": true, "-w": true},
+}
+
+// wrapperPositional are the wrappers that take words before the program:
+// timeout DURATION, chrt PRIORITY, taskset MASK.
+var wrapperPositional = map[string]int{"timeout": 1, "chrt": 1, "taskset": 1}
+
 // assignName is the variable name of NAME=value or NAME+=value.
 func assignName(w string) string {
 	n, _, _ := strings.Cut(w, "=")
