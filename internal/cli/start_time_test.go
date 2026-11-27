@@ -1,12 +1,19 @@
 package cli
 
 import (
+	"bytes"
+	"context"
+	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
 
-	"github.com/sgnd/komando/internal/capability"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
+	"github.com/sgnd/komando/internal/capability"
+	"github.com/sgnd/komando/internal/out"
 )
 
 // BenchmarkMoveLeaves is the move of the safety tables that init runs once
@@ -197,5 +204,164 @@ func TestWrapHelpAgreesWithFullWay(t *testing.T) {
 	short := "one line\n\nand another"
 	if a := testing.AllocsPerRun(20, func() { wrapHelp(short, helpWidth) }); a != 0 {
 		t.Errorf("wrapHelp of text with no wide line makes %.0f allocations, want 0", a)
+	}
+}
+
+// The tree of one line (newRootFor) prepares the command the line names as
+// the whole tree (newRoot) does: for every command, hidden ones too, what
+// runs, what the gate reads, the audit name, the completion and the help
+// are the same, byte for byte.
+func TestLineTreeAgreesWithWholeTree(t *testing.T) {
+	whole := newRoot(tcl)
+	checked := 0
+	for _, c := range allCommands(whole)[1:] {
+		line := strings.Fields(c.CommandPath())[1:]
+		lc, _, err := newRootFor(tcl, line).Find(line)
+		if err != nil || lc.CommandPath() != c.CommandPath() {
+			t.Errorf("%s: the line tree finds %q (%v)", cmdID(c), lc.CommandPath(), err)
+			continue
+		}
+		if got, want := nodeFacts(lc), nodeFacts(c); got != want {
+			t.Errorf("%s: the line tree differs from the whole tree\n got: %s\nwant: %s", cmdID(c), got, want)
+		}
+		checked++
+	}
+	if checked < 300 {
+		t.Errorf("only %d commands checked", checked)
+	}
+}
+
+// nodeFacts is what a run of c reads from the tree, as text to compare.
+func nodeFacts(c *cobra.Command) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "id %s, envelope %s, name %s\n", cmdID(c), envelopeName(c), commandName(c))
+	fmt.Fprintf(&b, "use %q short %q aliases %q suggest %q group %q hidden %v deprecated %q runnable %v\n",
+		c.Use, c.Short, c.Aliases, c.SuggestFor, c.GroupID, c.Hidden, c.Deprecated, c.Runnable())
+	fmt.Fprintf(&b, "long %q\nexample %q\nannotations %v\n", c.Long, c.Example, c.Annotations)
+	fmt.Fprintf(&b, "hooks: pre %v, run %v, persistent pre %v, valid args %v\n",
+		c.PreRunE != nil || c.PreRun != nil, c.RunE != nil || c.Run != nil, c.PersistentPreRunE != nil, c.ValidArgsFunction != nil)
+	for _, args := range [][]string{nil, {"a"}, {"a", "b"}, {"a", "b", "c"}} {
+		fmt.Fprintf(&b, "args %q: %v\n", args, c.ValidateArgs(args))
+	}
+	k, ok := kindOf(c)
+	fmt.Fprintf(&b, "kind %v %v, person only %v\n", k, ok, personOnly(c))
+	if ok {
+		fmt.Fprintf(&b, "confirm %v, safety %q\n", confirmOf(c), safetyLine(c))
+	}
+	for _, r := range rowsFor(c) {
+		fmt.Fprintf(&b, "row %v %q %v %q %q %q %q %q when %v\n", r.key, r.cond, r.tier, r.what, r.dynamic, r.bulk, r.typed, r.items, r.when != nil)
+	}
+	flags := func(fs *pflag.FlagSet) {
+		fs.VisitAll(func(f *pflag.Flag) {
+			_, complete := c.GetFlagCompletionFunc(f.Name)
+			fmt.Fprintf(&b, "flag --%s -%s %s %q %q %q hidden %v %v completes %v\n",
+				f.Name, f.Shorthand, f.Value.Type(), f.DefValue, f.NoOptDefVal, f.Usage, f.Hidden, f.Annotations, complete)
+		})
+	}
+	flags(c.LocalFlags())
+	flags(c.InheritedFlags())
+	for _, s := range c.Commands() {
+		fmt.Fprintf(&b, "sub %s %q %q hidden %v available %v\n", s.Name(), s.Short, s.Aliases, s.Hidden, s.IsAvailableCommand())
+	}
+	var help bytes.Buffer
+	c.SetOut(&help)
+	defer c.SetOut(nil)
+	_ = c.Help()
+	b.WriteString(help.String())
+	return b.String()
+}
+
+// Every way into komando prepares the command it runs: the line, `help
+// LINE`, the shell's completion, global flags before the command.
+func TestEntryPointsPrepareTheirCommand(t *testing.T) {
+	for _, tc := range []struct {
+		line []string
+		want string // the command's path that must be prepared
+	}{
+		{[]string{"host", "list"}, "host list"},
+		{[]string{"-o", "json", "--timeout", "5s", "host", "list", "web1"}, "host list"},
+		{[]string{"host", "ls"}, "host list"},
+		{[]string{"help", "host", "list"}, "host list"},
+		{[]string{"-o", "text", "help", "db"}, "db"},
+		{[]string{cobra.ShellCompRequestCmd, "host", "li"}, "host"},
+		{[]string{cobra.ShellCompNoDescRequestCmd, "host", "list", ""}, "host list"},
+		{[]string{"host", "lst"}, "host"},
+		{[]string{"nosuchword"}, ""},
+		{nil, ""},
+	} {
+		root := newRootFor(tcl, tc.line)
+		c, _, err := root.Find(strings.Fields(tc.want))
+		if err != nil || !prepared(c) {
+			t.Errorf("%q: %q is not prepared", tc.line, tc.want)
+		}
+		for _, s := range c.Commands() {
+			if !listed(s) {
+				t.Errorf("%q: %q, which the help of %q lists, is not ready to list", tc.line, s.CommandPath(), tc.want)
+			}
+		}
+	}
+}
+
+// A command the tree did not prepare runs nothing: the root refuses it
+// with an internal error before any check or handler.
+func TestUnpreparedCommandRunsNothing(t *testing.T) {
+	ran := false
+	l := capability.Leaf{Key: capability.Key{Type: "zzlazy", Verb: "run"}, State: capability.Built, Short: "Runs in a test"}
+	withTable(t, []capability.Leaf{l}, map[capability.Key]handler{l.Key: func(*call, context.Context, leafInput) error { ran = true; return nil }},
+		map[string]string{"zzlazy": "A type of a test"})
+	for _, prepare := range [][]string{{"version"}, {"zzlazy"}} {
+		root := newRootFor(tcl, prepare)
+		root.SetArgs([]string{"zzlazy", "run"})
+		_, err := root.ExecuteC()
+		var oe *out.Error
+		if !errors.As(err, &oe) || oe.Code != "NOT_PREPARED" || oe.Exit != out.ExitError {
+			t.Errorf("prepared for %q, zzlazy run gives %v, want NOT_PREPARED", prepare, err)
+		}
+		if ran {
+			t.Fatalf("prepared for %q, the handler of zzlazy run ran", prepare)
+		}
+	}
+	if c, _, err := newRoot(tcl).Find([]string{"zzlazy", "run"}); err != nil || !prepared(c) {
+		t.Error("the whole tree does not prepare zzlazy run")
+	}
+}
+
+// fakeLeaves are n built leaves of a type nobody names in a line.
+func fakeLeaves(t testing.TB, n int) {
+	t.Helper()
+	var leaves []capability.Leaf
+	hs := map[capability.Key]handler{}
+	for i := range n {
+		l := capability.Leaf{Key: capability.Key{Type: "zzfake", Area: fmt.Sprintf("a%02d", i/20), Verb: fmt.Sprintf("v%03d", i)}, State: capability.Built, Short: "A fake leaf",
+			Options: []capability.Option{{Name: "fake-flag", Kind: capability.String, Help: "a flag"}}}
+		leaves = append(leaves, l)
+		hs[l.Key] = func(*call, context.Context, leafInput) error { return nil }
+	}
+	groups := map[string]string{"zzfake": "Fake leaves of a test"}
+	for i := range n / 20 {
+		groups[fmt.Sprintf("zzfake a%02d", i)] = "A fake area"
+	}
+	withTable(t, leaves, hs, groups)
+}
+
+// Start does not grow with the commands of a type the line does not name:
+// 500 more leaves add one node (their type's word) and no work to the tree
+// `komando version` builds.
+func TestStartFlatWithMoreLeaves(t *testing.T) {
+	line := []string{"version"}
+	work := func() (int, float64) {
+		return len(allCommands(newRootFor(tcl, line))), testing.AllocsPerRun(5, func() { newRootFor(tcl, line) })
+	}
+	nodes, allocs := work()
+	fakeLeaves(t, 500)
+	if n := len(allCommands(newRoot(tcl))); n < nodes+500 {
+		t.Fatalf("the whole tree has %d commands, want the 500 fake leaves in it", n)
+	}
+	moreNodes, moreAllocs := work()
+	if moreNodes != nodes+1 {
+		t.Errorf("500 leaves of another type: %d commands built for version, want %d (their type's word only)", moreNodes, nodes+1)
+	}
+	if moreAllocs > allocs+20 {
+		t.Errorf("500 leaves of another type: %.0f allocations for version, want about %.0f", moreAllocs, allocs)
 	}
 }

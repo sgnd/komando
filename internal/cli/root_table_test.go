@@ -260,7 +260,7 @@ func TestBuiltDefaultsParse(t *testing.T) {
 
 // withTable mounts leaves with hs through the real entry (newRoot) for one
 // test: the package's table, handlers and group texts come back after it.
-func withTable(t *testing.T, leaves []capability.Leaf, hs map[capability.Key]handler, groups map[string]string) {
+func withTable(t testing.TB, leaves []capability.Leaf, hs map[capability.Key]handler, groups map[string]string) {
 	t.Helper()
 	oldLeaves, oldHandlers, oldGroups := tableLeaves, handlers, groupShorts
 	tableLeaves = func() []capability.Leaf { return append(oldLeaves(), leaves...) }
