@@ -10413,12 +10413,6 @@
         "hint": "list consumers with `komando queue groups CONN`; name one as STREAM/CONSUMER"
       },
       {
-        "code": "CRONTAB_UNREADABLE",
-        "exit": 5,
-        "example": "cannot read the crontab (exit …)",
-        "hint": "check the user name; reading another user's crontab needs sudo"
-      },
-      {
         "code": "DB_AUTH",
         "exit": 4,
         "example": "bigquery: the stored key is not a service account key: …",
@@ -10495,12 +10489,6 @@
         "exit": 5,
         "example": "key deploy could not add the key to the server's authorized_keys (the server's words follow)",
         "hint": "check that ~/.ssh is writable there: `komando fs stat SERVER ~/.ssh`"
-      },
-      {
-        "code": "DIG_MISSING",
-        "exit": 3,
-        "example": "… records need dig, which is not installed on this server, and komando could not ask the server's resolver itself (no nameserver in /etc/resolv.conf, or the se…",
-        "hint": "install dig (Debian/Ubuntu: dnsutils, Alpine: bind-tools, RHEL: bind-utils), for example `komando pkg install TARGET dnsutils`; A and AAAA work without it"
       },
       {
         "code": "DNS_ERROR",
@@ -10999,18 +10987,6 @@
         "hint": "place ….pub next to the key, then `komando key rm …` and add it again"
       },
       {
-        "code": "NO_RECORDS",
-        "exit": 3,
-        "example": "… has no … records (or does not exist) from this server",
-        "hint": "check the name and type, and the server's DNS (/etc/resolv.conf)"
-      },
-      {
-        "code": "NO_RESPONSE",
-        "exit": 4,
-        "example": "no HTTP answer from …",
-        "hint": "check the URL, and that the server can reach it: `komando net check … ADDRESS:443`"
-      },
-      {
         "code": "NO_SYSTEMD",
         "exit": 3,
         "example": "systemd is not running on this server",
@@ -11026,13 +11002,7 @@
         "code": "NO_USER_MANAGER",
         "exit": 3,
         "example": "the login user has no systemd user manager running on this server",
-        "hint": "the login user's systemd manager runs only while they are logged in, unless lingering is on: a person with sudo runs `loginctl enable-linger USER` on the server, then try `komando svc list TARGET --user-units`"
-      },
-      {
-        "code": "NXDOMAIN",
-        "exit": 3,
-        "example": "… does not resolve from this server",
-        "hint": "check the name, and the server's DNS (/etc/resolv.conf)"
+        "hint": "the login user's systemd manager runs only while they are logged in, unless lingering is on: a person with sudo runs `komando exec TARGET --sudo -- loginctl enable-linger USER`"
       },
       {
         "code": "OBJECT_NOT_FOUND",
@@ -11131,12 +11101,6 @@
         "hint": "something other than komando changed a protection, rule, setting or pinned host key; a person finds out what, then restores the komando folder from a backup made before it (`komando doctor` then says whether that copy is older than the keychain remembers)"
       },
       {
-        "code": "PORT_CLOSED",
-        "exit": 5,
-        "example": "cannot connect to …",
-        "hint": "check the address, firewall or service on the other side"
-      },
-      {
         "code": "PORT_IN_USE",
         "exit": 8,
         "example": "cannot listen on 127.0.0.1:…: …",
@@ -11213,18 +11177,6 @@
         "exit": 6,
         "example": "--read-only, but the command is not known to only read (…)",
         "hint": "--read-only runs only what komando knows only reads: for a server's state use komando facts, logs, svc status or fs read; otherwise tell the user what the command does, then run it without --read-only (a protected server also needs --yes)"
-      },
-      {
-        "code": "REBOOT_FAILED",
-        "exit": 5,
-        "example": "the reboot command failed (exit …): …",
-        "hint": "read the error output (stderr); without sudo rights a reboot is refused"
-      },
-      {
-        "code": "REBOOT_TIMEOUT",
-        "exit": 7,
-        "example": "… did not come back within …",
-        "hint": "check the server's console; komando did not reboot the servers after it"
       },
       {
         "code": "RECIPE_BUILTIN",
@@ -11458,7 +11410,7 @@
         "code": "SECURITY_UNSUPPORTED",
         "exit": 3,
         "example": "no package manager komando knows on …",
-        "hint": "komando knows apt, dnf, yum, zypper, apk and pacman; see what the server has with `komando facts TARGET`"
+        "hint": "komando knows apt, dnf, yum, zypper, apk and pacman; see what the server has with `komando exec TARGET -- cat /etc/os-release`"
       },
       {
         "code": "SELF_NOT_FOUND",
@@ -11790,12 +11742,6 @@
         "hint": "list subscriptions with `komando queue groups CONN`; `komando queue describe CONN TOPIC` shows a topic's own"
       },
       {
-        "code": "SVC_FAILED",
-        "exit": 5,
-        "example": "systemctl daemon-reload failed (…)",
-        "hint": "read the error output (stderr) for systemd's reason; a unit file with a mistake is named there"
-      },
-      {
         "code": "SWARM_ERROR",
         "exit": 5,
         "example": "Docker Swarm answered with an error",
@@ -11919,25 +11865,13 @@
         "code": "UNEXPECTED_CHANGE",
         "exit": 8,
         "example": "… changed after patching: …",
-        "hint": "check the server (`komando docker ps …`, `komando svc list … --failed`); servers after it were not patched: run it again with --keep-going to patch them anyway"
-      },
-      {
-        "code": "UNEXPECTED_STATUS",
-        "exit": 5,
-        "example": "HTTP …, expected …",
-        "hint": "check the URL and the service behind it"
-      },
-      {
-        "code": "UNIT_NOT_ACTIVE",
-        "exit": 5,
-        "example": "not active after …s: …",
-        "hint": "read why with `komando logs TARGET --unit UNIT -n 50`"
+        "hint": "check the server (`komando docker ps …`, `komando exec … -- systemctl --failed`); servers after it were not patched: run it again with --keep-going to patch them anyway"
       },
       {
         "code": "UNIT_NOT_FOUND",
         "exit": 3,
         "example": "no unit named …",
-        "hint": "check the name with `komando svc list TARGET`"
+        "hint": "check the name with `komando exec TARGET -- systemctl list-units`"
       },
       {
         "code": "UNKNOWN_SETTING",
@@ -11986,12 +11920,6 @@
         "exit": 2,
         "example": "--… and --unset … contradict each other",
         "hint": "pass one of them"
-      },
-      {
-        "code": "USER_NOT_FOUND",
-        "exit": 3,
-        "example": "no user named …",
-        "hint": "list the accounts with `komando user list TARGET --all`"
       },
       {
         "code": "VALIDATION_FAILED",

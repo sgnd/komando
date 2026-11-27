@@ -43,7 +43,7 @@ func TestApprovalHintHidesSecrets(t *testing.T) {
 		args []string
 		line string // the line the hint repeats, or "" for none
 	}{
-		{[]string{"exec", "web1", "--", "reboot"}, "`komando exec web1 --allow-dangerous -- reboot`"},
+		{[]string{"docker", "prune", "web1"}, "`komando docker prune web1 --allow-dangerous`"},
 		{[]string{"-o", "json", "fs", "rm", "web1", "/tmp/x"}, "`komando -o json fs rm web1 /tmp/x --allow-dangerous`"},
 		{[]string{"exec", "web1", "--", "mysql", "-pS3cret", "-e", "drop table x"}, ""},
 		{[]string{"exec", "web1", "--", "sshpass", "-p", "S3cret", "ssh", "x"}, ""},

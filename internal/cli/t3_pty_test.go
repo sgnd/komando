@@ -90,7 +90,7 @@ func TestT3AsksTheTypedName(t *testing.T) {
 	// protection too: no [y/N] after it (S-7.4, C-C04)
 	mustRun(t, "host", "add", "prod1", "u@127.0.0.1:1", "--protected")
 	t.Run("protected", func(t *testing.T) {
-		p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "docker", "prune", "prod1")
+		p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "exec", "prod1", "--", "reboot")
 		p.answer(" to continue: ", "prod1\r")
 		code := p.exit()
 		shown := p.shown()
