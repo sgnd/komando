@@ -324,3 +324,25 @@ func TestDatabaseBodyDefaultsMatchTable(t *testing.T) {
 		})
 	}
 }
+
+// A selector given to a database path picks one database, and one of
+// another provider is refused with the path that fits it, as a name is:
+// a group holding it, and label:k=v.
+func TestDatabaseSelectorWrongKind(t *testing.T) {
+	invHome(t)
+	mustRun(t, "conn", "add", "my", "mysql://app@10.0.0.3:3306/app", "--label", "env=shop")
+	mustRun(t, "group", "add", "g", "my")
+	cases := 0
+	for _, sel := range []string{"my", "@g", "label:env=shop"} {
+		for _, verb := range [][]string{{"query", "select 1"}, {"backup", "--to", filepath.Join(t.TempDir(), "x.sql")}} {
+			args := append([]string{"database", "postgres", verb[0], sel}, verb[1:]...)
+			if e := wantCode(t, "WRONG_KIND", args...); e != nil && !strings.Contains(e.Hint, "komando database mysql "+verb[0]) {
+				t.Errorf("%v: hint %q", args, e.Hint)
+			}
+			cases++
+		}
+	}
+	if cases != 6 {
+		t.Fatalf("%d cases, want 6", cases)
+	}
+}
